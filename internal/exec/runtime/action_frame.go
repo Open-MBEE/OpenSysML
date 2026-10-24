@@ -127,6 +127,9 @@ type actionFrame struct {
 	shadowed bool
 	// optional holds the held features whose multiplicity admits no value at all.
 	optional map[string]bool
+	// sharedShape marks features, aliases, declared and unvalued as the Model's
+	// memoized performanceShape maps, copied by ownShape before a write.
+	sharedShape bool
 	// unvalued holds the attributes the performance declares with no value, which
 	// read as missing until written rather than as an enclosing frame's same name.
 	unvalued map[string]bool
@@ -245,24 +248,39 @@ func (b boundEnd) pinText() string {
 	return text + "." + b.Pin
 }
 
-// newRootFrame is the performance of the action itself.
-func (e *ActionExecutor) newRootFrame() *actionFrame {
+// newRootFrame is the performance of the action itself, holding the features of
+// shape: the shape's maps are shared with every run, so a write takes copies first.
+func (e *ActionExecutor) newRootFrame(shape *performanceShape) *actionFrame {
 	root := &actionFrame{
 		graph:       e.graph,
 		scope:       e.graph.Scope,
 		connections: e.graph.Connections,
 		data:        make(map[string]Value),
-		features:    make(map[string]ast.FeatureDirection),
+		features:    shape.features,
+		aliases:     shape.aliases,
+		declared:    shape.declared,
+		unvalued:    shape.unvalued,
+		shadowed:    shape.shadowed,
+		sharedShape: true,
 		subactions:  make(map[ast.Node]*actionFrame),
 		perfs:       &e.performances,
 		run:         e.ctx.newRun(),
 	}
-	e.declareRootFeatures(root)
-	for _, attr := range e.features {
-		root.declareUnvalued(attr.Name, attr.Direction, attr.IsResult, attr.Optional, attr.Value)
-	}
 	e.registerRootBindings(root)
 	return root
+}
+
+// ownShape gives a frame holding its shape's shared maps copies of its own, so a
+// write to them is this performance's alone.
+func (f *actionFrame) ownShape() {
+	if !f.sharedShape {
+		return
+	}
+	f.sharedShape = false
+	f.features = maps.Clone(f.features)
+	f.aliases = maps.Clone(f.aliases)
+	f.declared = maps.Clone(f.declared)
+	f.unvalued = maps.Clone(f.unvalued)
 }
 
 // registerRootBindings installs tracked cells for the root's declared bindings.
@@ -297,9 +315,10 @@ func (e *ActionExecutor) registerRootBindings(root *actionFrame) {
 	}
 }
 
-// declareRootFeatures gives root the attributes the graph declares and the
-// features the action holds, aliasing what each redefines.
-func (e *ActionExecutor) declareRootFeatures(root *actionFrame) {
+// declareRootFeatures gives root the graph's attributes and the action's features,
+// aliasing what each redefines; a hidden inherited one in attributes marks it shadowed.
+func (e *ActionExecutor) declareRootFeatures(root *actionFrame, attributes []lower.Attribute) {
+	root.ownShape()
 	if root.declared == nil {
 		// Sized for every feature it will hold; grown entry by entry it cost a
 		// dozen allocations per execution.
@@ -319,7 +338,7 @@ func (e *ActionExecutor) declareRootFeatures(root *actionFrame) {
 		e.ctx.holdFeature(&root.declared, sym, attr.Name)
 	}
 	e.addFeatureDirections(root.features, &root.aliases, &root.declared, nil, e.action)
-	for _, attr := range e.features {
+	for _, attr := range attributes {
 		root.shadowed = root.shadowed || attr.Shadowed
 	}
 }
@@ -336,6 +355,7 @@ func (e *ActionExecutor) declareAcceptPayloads(root *actionFrame) {
 		if _, taken := root.features[accept.ParamName]; taken {
 			continue
 		}
+		root.ownShape()
 		root.features[accept.ParamName] = ast.DirNone
 		e.ctx.holdFeature(&root.declared, accept.Payload, accept.ParamName)
 	}

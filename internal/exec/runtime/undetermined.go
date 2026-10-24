@@ -587,12 +587,20 @@ func (ec *EvalContext) memberFeatureValue(inst *Instance, name string) (*Feature
 // object only the model stands behind: undetermined, of its multiplicity; not ok elsewhere.
 func (ec *EvalContext) openFeatureRead(inst *Instance, fv *FeatureValue, open *openPopulation, from, name string) (Value, bool) {
 	feature := fv.Feature
-	if !ec.modelReads(inst) || feature == nil || feature.Symbol == nil {
+	if feature == nil || feature.Symbol == nil {
 		return Value{}, false
 	}
 	spelled := name
 	if from != "" {
 		spelled = from + "." + name
+	}
+	// A parameter is bound when its behavior is invoked (SysML v2 §7.17.2, KerML §7.4.7), so one
+	// nothing has invoked is unbound whatever its multiplicity, on an instance as at model level.
+	if ec.ctx.unboundParameter(fv) {
+		return unsetFeatureValue(spelled, feature.Multiplicity, feature.Symbol), true
+	}
+	if !ec.modelReads(inst) {
+		return Value{}, false
 	}
 	if open != nil && open.Stopped {
 		return openCollectionValue(spelled, feature, open), true
@@ -617,11 +625,6 @@ func (ec *EvalContext) openFeatureRead(inst *Instance, fv *FeatureValue, open *o
 	}
 	if _, exact := feature.Multiplicity.Exactly(); exact {
 		return Value{}, false
-	}
-	// A behavior's parameter nothing has invoked is an unbound input whatever its
-	// multiplicity: the invocation supplies it (SysML v2 §7.17.2, KerML 1.0 §7.4.7).
-	if semantics.IsBehaviorParameter(feature.Symbol) {
-		return unsetFeatureValue(spelled, feature.Multiplicity, feature.Symbol), true
 	}
 	// A collection the model values with nothing holds nothing: a lower bound of 0
 	// is met by none, a higher one by nothing.
@@ -685,6 +688,17 @@ func rootObject(inst *Instance) *Instance {
 // noValueReason phrases a model-level read of a feature nothing gives a value to.
 func noValueReason(feature string) string {
 	return fmt.Sprintf("%s has no value in the model", feature)
+}
+
+// unboundParameter reports whether fv is a behavior parameter nothing has given a
+// value to: not written or bound by a run, with no default, holding nothing of its own.
+func (ctx *Context) unboundParameter(fv *FeatureValue) bool {
+	sym := fv.Feature.Symbol
+	if !semantics.IsBehaviorParameter(sym) || fv.Written || fv.BindingDerived || ctx.extractDefaultValue(sym) != nil {
+		return false
+	}
+	held := fv.HeldValue()
+	return held.Kind == ValInvalid || (held.Kind == ValSequence && held.Sequence().Size() == 0 && requiredTail(held) == nil)
 }
 
 // openCountReason phrases a model-level read of a feature whose multiplicity the

@@ -93,26 +93,11 @@ async function layOut(result: RenderResult, free: boolean): Promise<AutoLayout> 
     siblings.push(node);
     children.set(parent, siblings);
   }
-  // A node whose owner is collapsed is not in the graph, so no edge routes to it.
-  const inGraph = (id: string): boolean => {
-    let node = byId.get(id);
-    while (node) {
-      const parent = node.parent;
-      if (parent === undefined || parent === node.id || !byId.has(parent)) {
-        return true;
-      }
-      node = byId.get(parent);
-      if (node?.collapsed) {
-        return false;
-      }
-    }
-    return false;
-  };
   const options = spacingOptions(result.kind);
   const edges: ElkExtendedEdge[] = [];
   const portEndpoints: Array<{ nodeId: string; portId: string }> = [];
   (result.edges ?? []).forEach((edge, index) => {
-    if (edge.from === edge.to || !inGraph(edge.from) || !inGraph(edge.to)) {
+    if (edge.from === edge.to || !byId.has(edge.from) || !byId.has(edge.to)) {
       return;
     }
     const from = byId.get(edge.from)!;
@@ -158,7 +143,7 @@ async function layOut(result: RenderResult, free: boolean): Promise<AutoLayout> 
     const size =
       symbolSize(shapeOf(node.kind)) ??
       labelSize(labelLines(node, result.shown, names));
-    const kids = node.collapsed ? [] : (children.get(node.id) ?? []);
+    const kids = children.get(node.id) ?? [];
     const alone = packed.get(node.id);
     const order = (children.get(node.parent) ?? []).indexOf(node);
     const out: ElkNode = alone
@@ -210,7 +195,7 @@ async function layOut(result: RenderResult, free: boolean): Promise<AutoLayout> 
     return out;
   };
   const packable = (node: RenderNode): boolean => {
-    const kids = node.collapsed ? [] : (children.get(node.id) ?? []);
+    const kids = children.get(node.id) ?? [];
     return kids.length > 0 && kids.every(unwired);
   };
   for (const node of nodes) {
@@ -404,8 +389,7 @@ function reconcile(
     .filter(
       (n) =>
         placed.has(n.id) &&
-        (n.x === undefined || n.y === undefined) &&
-        !n.collapsed,
+        (n.x === undefined || n.y === undefined),
     )
     .sort((a, b) => depth(b) - depth(a))) {
     const kids = (children.get(node.id) ?? []).filter((child) =>

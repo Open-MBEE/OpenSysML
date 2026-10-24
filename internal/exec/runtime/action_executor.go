@@ -224,7 +224,7 @@ func newActionExecutorOfGraph(
 			return nil, err
 		}
 		if found != nil {
-			graph, err = lower.ToActionInterface(held.Decl, DeclScope(held))
+			graph, err = ctx.model.actionInterface(held)
 			if err != nil {
 				return nil, fmt.Errorf("lower action interface: %w", err)
 			}
@@ -261,8 +261,9 @@ func newActionExecutorOn(
 		firedBreakpoints: make(map[breakpointVisit]bool),
 	}
 	exec.performances.thisOccurrence = exec.materializeOccurrence
-	exec.features = exec.performanceFeatures()
-	exec.root = exec.newRootFrame()
+	shape := exec.performanceShape()
+	exec.features = shape.attributes
+	exec.root = exec.newRootFrame(shape)
 	exec.through = ctx.performedPinBindings(performed, graph, self)
 	exec.owner = exec
 	exec.flow = exec

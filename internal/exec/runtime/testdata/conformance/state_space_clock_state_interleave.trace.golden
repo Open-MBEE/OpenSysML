@@ -74,8 +74,7 @@ run: exhibited state machine monitor of #1
 exit: waiting
 enter: sampledEarly (entry action)
 stmt assign early
-        eval feature cool -> instance#2
-      eval chain output -> ⟨0.5⟩
+      eval feature cool -> instance#2
     eval chain elements -> (0.5)
     eval literal 1 -> 1
   eval index -> 0.5
@@ -114,8 +113,7 @@ run: exhibited state machine monitor of #1
 exit: sampledEarly
 enter: sampledLate (entry action)
 stmt assign late
-        eval feature cool -> instance#2
-      eval chain output -> ⟨0.25⟩
+      eval feature cool -> instance#2
     eval chain elements -> (0.25)
     eval literal 1 -> 1
   eval index -> 0.25
