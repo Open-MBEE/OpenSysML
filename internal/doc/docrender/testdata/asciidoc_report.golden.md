@@ -25,7 +25,7 @@ $$
 
 *Optics*
 
-![The optics](figures/optics.png)
+![The optics](https://example.test/figures/optics.png)
 
 <a id="summary"></a>
 

@@ -38,7 +38,7 @@ package Prose {
 		 * ++++
 		 *
 		 * .Optics
-		 * image::figures/optics.png[The optics]
+		 * image::https://example.test/figures/optics.png[The optics]
 		 */
 
 		part summary : Paragraph {
