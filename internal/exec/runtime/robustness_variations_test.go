@@ -23,6 +23,7 @@ func TestRuntimeRobustnessVariations(t *testing.T) {
 	t.Run("two_ownerless_selections_of_one_variant", testTwoOwnerlessSelectionsOfOneVariant)
 	t.Run("variant_outside_a_variation", testVariantOutsideAVariation)
 	t.Run("variant_under_a_redefined_variation", testVariantUnderARedefinedVariation)
+	t.Run("chain_through_a_variant_reading_an_unselected_variation", testChainThroughAVariantReadingAnUnselectedVariation)
 }
 
 // testVariationWithoutASelectedVariant: a variation nothing selects a variant
@@ -344,5 +345,42 @@ func testVariantUnderARedefinedVariation(t *testing.T) {
 	}
 	if power.Value.Kind != ValConst || power.Value.Const.AsReal() != 150.0 {
 		t.Errorf("sedan.engine.power = %v, want 150", power.Value)
+	}
+}
+
+// testChainThroughAVariantReadingAnUnselectedVariation: a variant named with no
+// selecting object is read through the object it stands for, so a member of it
+// that reads an unselected variation fails as that read does, naming the
+// variation, rather than failing to chain through the variant at all.
+func testChainThroughAVariantReadingAnUnselectedVariation(t *testing.T) {
+	src := `
+	package test {
+		private import ScalarValues::Real;
+		part def Engine { attribute power : Real; }
+		variation part engine : Engine {
+			variant part electric : Engine { attribute :>> power = 100.0; }
+			variant part diesel : Engine { attribute :>> power = 200.0; }
+		}
+		part def Body { attribute m : Real; }
+		variation part def Case :> Body {
+			variant part powered : Case { attribute :>> m = engine.power; }
+			variant part plain : Case { attribute :>> m = 1.0; }
+		}
+		part probe {
+			attribute p : Real = Case::powered.m;
+			attribute q : Real = Case::plain.m;
+		}
+	}`
+	got, err := variationFeatureValueInSource(t, src, "test::probe", "p")
+	if !errors.Is(err, ErrVariationUnselected) {
+		t.Errorf("p = (%v, %v), want ErrVariationUnselected", got, err)
+	}
+	if err != nil && !strings.Contains(err.Error(), "engine") {
+		t.Errorf("error %q does not name the unselected variation", err)
+	}
+	// The sibling variant reads through all the same.
+	got, err = variationFeatureValueInSource(t, src, "test::probe", "q")
+	if err != nil || got.Kind != ValConst || got.Const.AsReal() != 1.0 {
+		t.Errorf("q = (%v, %v), want 1.0", got, err)
 	}
 }

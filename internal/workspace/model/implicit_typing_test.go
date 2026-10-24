@@ -1,6 +1,7 @@
 package model
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -101,7 +102,8 @@ func featureBaseNameOf(t *testing.T, src string, path ...string) string {
 }
 
 // TestImplicitUsageBaseTypes covers the standard library definition each kind of
-// untyped usage is implicitly typed by, so members inherited from it resolve.
+// untyped usage is implicitly typed by, so members inherited from it resolve, and
+// the base usage of its kind it subsets beside it (SysML v2 §8.3.11.3 and kin).
 func TestImplicitUsageBaseTypes(t *testing.T) {
 	cases := []struct {
 		decl string
@@ -114,7 +116,7 @@ func TestImplicitUsageBaseTypes(t *testing.T) {
 		{"attribute x;", "Base::DataValue", "Base::dataValues"},
 		{"item x;", "Items::Item", "Items::items"},
 		{"occurrence x;", "Occurrences::Occurrence", "Occurrences::occurrences"},
-		{"individual occurrence x;", "Occurrences::Life", "Occurrences::Life"},
+		{"individual occurrence x;", "Occurrences::Life", "Occurrences::occurrences"},
 		{"port x;", "Ports::Port", "Ports::ports"},
 		{"connection x;", "Connections::Connection", "Connections::connections"},
 		{"interface x;", "Interfaces::Interface", "Interfaces::interfaces"},
@@ -139,8 +141,8 @@ func TestImplicitUsageBaseTypes(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.decl, func(t *testing.T) {
 			got := implicitBaseOf(t, "package P { "+tc.decl+" }", "P", "x")
-			if len(got) != 1 || got[0] != tc.want {
-				t.Fatalf("supertypes of %q = %v, want [%s]", tc.decl, got, tc.want)
+			if want := []string{tc.want, tc.base}; !slices.Equal(got, want) {
+				t.Fatalf("supertypes of %q = %v, want %v", tc.decl, got, want)
 			}
 			generals := implicitGeneralNamesOf(t, "package P { "+tc.decl+" }", "P", "x")
 			found := false
@@ -214,19 +216,21 @@ func TestImplicitBaseNotAppliedToTypedUsage(t *testing.T) {
 		name string
 		src  string
 		path []string
-		want string
+		want []string
 	}{
-		{"typed usage", "package P { part def Engine; part x : Engine; }", []string{"P", "x"}, "P::Engine"},
-		{"subsetting usage", "package P { part y; part x subsets y; }", []string{"P", "x"}, "P::y"},
-		{"specializing usage", "package P { part y; part x :> y; }", []string{"P", "x"}, "P::y"},
-		{"definition", "package P { part def Engine :> Parts::Part; }", []string{"P", "Engine"}, "Parts::Part"},
+		// A declared type displaces the kind's base definition, not the base usage
+		// (SysML v2 §8.3.11.3); a declared chain through a part usage reaches both.
+		{"typed usage", "package P { part def Engine; part x : Engine; }", []string{"P", "x"}, []string{"P::Engine", "Parts::parts"}},
+		{"subsetting usage", "package P { part y; part x subsets y; }", []string{"P", "x"}, []string{"P::y"}},
+		{"specializing usage", "package P { part y; part x :> y; }", []string{"P", "x"}, []string{"P::y"}},
+		{"definition", "package P { part def Engine :> Parts::Part; }", []string{"P", "Engine"}, []string{"Parts::Part"}},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := implicitBaseOf(t, tc.src, tc.path...)
-			if len(got) != 1 || got[0] != tc.want {
-				t.Fatalf("supertypes = %v, want [%s]", got, tc.want)
+			if !slices.Equal(got, tc.want) {
+				t.Fatalf("supertypes = %v, want %v", got, tc.want)
 			}
 		})
 	}
@@ -271,8 +275,8 @@ func TestParameterRedefinitionAccompaniesTheImplicitBase(t *testing.T) {
 		action focus : Focus { in item scene; out item image; }
 	}`
 	got := implicitBaseOf(t, src, "P", "focus", "image")
-	if len(got) != 2 || got[0] != "P::Focus::image" || got[1] != "Items::Item" {
-		t.Fatalf("supertypes = %v, want [P::Focus::image Items::Item] (the redefined parameter of Focus, then the kind's base)", got)
+	if want := []string{"P::Focus::image", "Items::Item", "Items::items"}; !slices.Equal(got, want) {
+		t.Fatalf("supertypes = %v, want %v (the redefined parameter of Focus, then the kind's base definition and usage)", got, want)
 	}
 }
 
@@ -286,8 +290,8 @@ func TestParameterOfAnUntypedParameterKeepsItsImplicitBase(t *testing.T) {
 		action focus : Focus { in item lighting; }
 	}`
 	got := implicitBaseOf(t, src, "P", "focus", "lighting")
-	if len(got) != 2 || got[0] != "P::Focus::scene" || got[1] != "Items::Item" {
-		t.Fatalf("supertypes = %v, want [P::Focus::scene Items::Item]", got)
+	if want := []string{"P::Focus::scene", "Items::Item", "Items::items"}; !slices.Equal(got, want) {
+		t.Fatalf("supertypes = %v, want %v", got, want)
 	}
 }
 
@@ -302,8 +306,8 @@ func TestLikeNamedUsageIsNotAnImplicitRedefinition(t *testing.T) {
 		part def Vehicle { part engine : Engine; }
 		part v : Vehicle { part engine; }
 	}`
-	if got := implicitBaseOf(t, src, "P", "v", "engine"); len(got) != 1 || got[0] != "Parts::Part" {
-		t.Fatalf("supertypes = %v, want [Parts::Part]", got)
+	if got, want := implicitBaseOf(t, src, "P", "v", "engine"), []string{"Parts::Part", "Parts::parts"}; !slices.Equal(got, want) {
+		t.Fatalf("supertypes = %v, want %v", got, want)
 	}
 }
 

@@ -1,0 +1,48 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Triggered" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Import visibility="private" all=false kind=namespace recursive=false imported="Observation" filtered=false)
+      (Import visibility="private" all=false kind=namespace recursive=false imported="Triggers" filtered=false)
+      (Membership visibility="default"
+        (Usage kind="part" name="controller" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="level" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="threshold" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Membership visibility="default"
+                    (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                      (Relationship kind="typing" target=ChangeSignal
+                        (*ast.QualifiedName))
+                      (InvocationExpr type="Triggers::TriggerWhen"
+                        (BodyExpr
+                          (OperatorExpr operator=">"
+                            (FeatureReference name="level")
+                            (FeatureReference name="threshold"))))))))
+              (Membership visibility="default"
+                (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Membership visibility="default"
+                    (Usage kind="attribute" name="changed" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                      (Relationship kind="typing" target=ChangeSignal
+                        (*ast.QualifiedName))
+                      (InvocationExpr type="TriggerWhen"
+                        (BodyExpr
+                          (OperatorExpr operator=">"
+                            (FeatureReference name="level")
+                            (FeatureReference name="threshold"))))))))
+              (Membership visibility="default"
+                (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Membership visibility="default"
+                    (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                      (ChangeEvent
+                        (OperatorExpr operator=">"
+                          (FeatureReference name="level")
+                          (FeatureReference name="threshold"))))))))))))))

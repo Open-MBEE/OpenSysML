@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -118,43 +119,13 @@ func (d *decoder) demoteStale(notation string, roots []*element) {
 		d.demoteAll()
 		return
 	}
-	// The candidate is rebuilt in the id form the document follows, so an
-	// element's identity is the same identity on both sides of the compare;
-	// a uuid root id does not say which, a library document mixing normative
-	// uuids with derived ids, so the better-agreeing of the two forms is used.
-	first, second := IDQualifiedName, IDUUID
-	for _, root := range roots {
-		if uuidElementID.MatchString(root.elementID) {
-			first, second = IDUUID, IDQualifiedName
-			break
-		}
-	}
-	check, err := encodeDocument(file, root, d.library, first)
+	check, err := d.rebuildCandidate(file, root, roots)
 	if err != nil {
 		d.demoteAll()
 		return
 	}
-	if len(disagreeingTriples(d.graph, check.graph)) > 0 {
-		if other, oerr := encodeDocument(file, root, d.library, second); oerr == nil &&
-			len(disagreeingTriples(d.graph, other.graph)) < len(disagreeingTriples(d.graph, check.graph)) {
-			check = other
-		}
-	}
 	for _, t := range disagreeingTriples(d.graph, check.graph) {
-		// A referent membership restates the referent edge beside it; the
-		// edge's own disagreement is the one that counts.
-		if isReferentMembership(d.graph, t.Subject) || isReferentMembership(check.graph, t.Subject) ||
-			isReferentMembership(d.graph, t.Object) || isReferentMembership(check.graph, t.Object) {
-			continue
-		}
-		// A library reference only names what a normative id stands for; the
-		// element form carries none, so one graph naming it states no more model.
-		if LibraryReference(d.graph, t.Subject) || LibraryReference(check.graph, t.Subject) {
-			continue
-		}
-		// An implied relationship element's ends restate the owner's collapsed
-		// edge, whose disagreement already falls on the target's text.
-		if el, ok := d.byIRI[t.Subject.Value]; ok && el.implied && impliedRelationshipMetaclasses[el.metaclass] {
+		if d.restatesAnotherDisagreement(t, check) {
 			continue
 		}
 		// A reference to an element only one graph has disagrees about that
@@ -181,6 +152,49 @@ func (d *decoder) demoteStale(notation string, roots []*element) {
 			return
 		}
 	}
+}
+
+// rebuildCandidate encodes the candidate in the id form the document follows, so both
+// sides of the compare share identities; a uuid root tries both forms and keeps the closer.
+func (d *decoder) rebuildCandidate(file *source.SourceFile, root *ast.RootNamespace, roots []*element) (*encoder, error) {
+	first, second := IDQualifiedName, IDUUID
+	for _, root := range roots {
+		if uuidElementID.MatchString(root.elementID) {
+			first, second = IDUUID, IDQualifiedName
+			break
+		}
+	}
+	check, err := encodeDocument(file, root, d.library, first)
+	if err != nil {
+		return nil, err
+	}
+	if len(disagreeingTriples(d.graph, check.graph)) > 0 {
+		if other, oerr := encodeDocument(file, root, d.library, second); oerr == nil &&
+			len(disagreeingTriples(d.graph, other.graph)) < len(disagreeingTriples(d.graph, check.graph)) {
+			check = other
+		}
+	}
+	return check, nil
+}
+
+// restatesAnotherDisagreement reports whether a disagreeing triple only restates
+// a disagreement that counts elsewhere, so it demotes no text of its own.
+func (d *decoder) restatesAnotherDisagreement(t rdf.Triple, check *encoder) bool {
+	// A referent membership restates the referent edge beside it; the
+	// edge's own disagreement is the one that counts.
+	if isReferentMembership(d.graph, t.Subject) || isReferentMembership(check.graph, t.Subject) ||
+		isReferentMembership(d.graph, t.Object) || isReferentMembership(check.graph, t.Object) {
+		return true
+	}
+	// A library reference only names what a normative id stands for; the
+	// element form carries none, so one graph naming it states no more model.
+	if LibraryReference(d.graph, t.Subject) || LibraryReference(check.graph, t.Subject) {
+		return true
+	}
+	// An implied relationship element's ends restate the owner's collapsed
+	// edge, whose disagreement already falls on the target's text.
+	el, ok := d.byIRI[t.Subject.Value]
+	return ok && el.implied && impliedRelationshipMetaclasses[el.metaclass]
 }
 
 // candidateName names the candidate notation for the grammar the roots record

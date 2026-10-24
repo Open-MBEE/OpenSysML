@@ -1,0 +1,27 @@
+{
+  "rpc": "RunDocumentQuery",
+  "query_id": "Icd::Parameters",
+  "expected_columns": ["name", "valuation"],
+  "expected_rows": [
+    {
+      "element": {"kind": "element_id", "value": "Icd::Link::voltage (AttributeUsage)"},
+      "cells": [[{"kind": "string_value", "value": "voltage"}], [{"kind": "quantity", "value": "28 [V] = 1000/1·SI::ampere^-1·SI::gram·SI::metre^2·SI::second^-3"}]]
+    },
+    {
+      "element": {"kind": "element_id", "value": "Icd::Link::total (AttributeUsage)"},
+      "cells": [[{"kind": "string_value", "value": "total"}], [{"kind": "quantity", "value": "56 [V] = 1000/1·SI::ampere^-1·SI::gram·SI::metre^2·SI::second^-3"}]]
+    },
+    {
+      "element": {"kind": "element_id", "value": "Icd::Link::channels (AttributeUsage)"},
+      "cells": [[{"kind": "string_value", "value": "channels"}], [{"kind": "int_value", "value": 4}]]
+    },
+    {
+      "element": {"kind": "element_id", "value": "Icd::Link::spare (AttributeUsage)"},
+      "cells": [[{"kind": "string_value", "value": "spare"}], []]
+    },
+    {
+      "element": {"kind": "element_id", "value": "Icd::Link::label (AttributeUsage)"},
+      "cells": [[{"kind": "string_value", "value": "label"}], [{"kind": "string_value", "value": "keep-alive"}]]
+    }
+  ]
+}

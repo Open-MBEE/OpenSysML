@@ -3,14 +3,14 @@
   "type": "calcUsage",
   "evaluate": "test::probe",
   "outputs": {
-    "accepted": {"type": "Integer", "value": 3},
-    "heldAs": {"type": "Integer", "value": 3},
-    "heldIsHigh": {"type": "Boolean", "value": true},
-    "untypedIsHigh": {"type": "Boolean", "value": false},
-    "untyped": {"type": "Integer", "value": 2},
-    "unstated": {"type": "Integer", "value": 3},
-    "inBlockAccepted": {"type": "Integer", "value": 3},
-    "inCollectionAccepted": {"type": "Integer", "value": 2}
+    "accepted": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
+    "heldAs": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
+    "heldIsHigh": {"type": "Sequence", "elements": [{"type": "Boolean", "value": true}]},
+    "untypedIsHigh": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]},
+    "untyped": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+    "unstated": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
+    "inBlockAccepted": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
+    "inCollectionAccepted": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]}
   },
   "reads": {
     "test::refused": {"error": "calc test::BodyOnly: calculation body: declaration of l: type mismatch: cannot write 2 (an Integer) to a feature typed by Level"},

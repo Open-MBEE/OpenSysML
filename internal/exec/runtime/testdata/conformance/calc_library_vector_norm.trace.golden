@@ -19,4 +19,4 @@ enter calc test::diagonal
         exit calc VectorFunctions::cartesianInner -> 11.0
       eval invoke cartesianInner -> 11.0
     eval operator + -> 16.0
-exit calc test::diagonal -> 16.0
+exit calc test::diagonal -> (16.0)

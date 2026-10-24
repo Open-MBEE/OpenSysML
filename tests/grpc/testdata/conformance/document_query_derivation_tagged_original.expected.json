@@ -1,0 +1,23 @@
+{
+  "rpc": "RunDocumentQuery",
+  "query_id": "Derivations::DerivedFrom",
+  "expected_columns": ["name", "derivedFrom"],
+  "expected_rows": [
+    {
+      "element": {"kind": "element_id", "value": "Derivations::taggedParent (RequirementUsage)"},
+      "cells": [[{"kind": "string_value", "value": "taggedParent"}], []]
+    },
+    {
+      "element": {"kind": "element_id", "value": "Derivations::plainParent (RequirementUsage)"},
+      "cells": [[{"kind": "string_value", "value": "plainParent"}], []]
+    },
+    {
+      "element": {"kind": "element_id", "value": "Derivations::childOfTagged (RequirementUsage)"},
+      "cells": [[{"kind": "string_value", "value": "childOfTagged"}], [{"kind": "element_id", "value": "Derivations::taggedParent (RequirementUsage)"}]]
+    },
+    {
+      "element": {"kind": "element_id", "value": "Derivations::childOfPlain (RequirementUsage)"},
+      "cells": [[{"kind": "string_value", "value": "childOfPlain"}], [{"kind": "element_id", "value": "Derivations::plainParent (RequirementUsage)"}]]
+    }
+  ]
+}

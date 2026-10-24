@@ -203,6 +203,10 @@ type derivationEnd struct {
 func (m *Model) derivationUsageEnds(sym *symbols.Symbol) []derivationEnd {
 	var ends []derivationEnd
 	for _, attachment := range m.ConnectorEndAttachments(sym) {
+		// A body end is read below with the role its own declaration states.
+		if _, clause := attachment.End.(*ast.ConnectorEnd); !clause {
+			continue
+		}
 		end := derivationEnd{role: m.derivationRoleOf(attachment.EndFeature)}
 		if attachment.Attachment != nil {
 			if target, ok := m.resolver.ResolveTarget(sym.OwnerScope, attachment.Attachment); ok && target != nil {
@@ -274,9 +278,12 @@ func (m *Model) derivationRoleOf(feature *symbols.Symbol) derivationRole {
 	return roleUnstated
 }
 
+// isDerivationRoleFeature reports the library's own role features (as declared or as
+// `Derivation` redefines them); a model requirement tagged `@original` is a participant.
 func (m *Model) isDerivationRoleFeature(target *symbols.Symbol) bool {
-	return m.conformsToLibrary(target, "DerivationConnections::originalRequirements") ||
-		m.conformsToLibrary(target, "DerivationConnections::derivedRequirements")
+	return m.libraryDeclared(target) &&
+		(m.conformsToLibrary(target, "DerivationConnections::originalRequirements") ||
+			m.conformsToLibrary(target, "DerivationConnections::derivedRequirements"))
 }
 
 func splitDerivationEnds(ends []derivationEnd) (originals, derived []*symbols.Symbol) {

@@ -32,7 +32,9 @@ declaration order until an `OrderBy` says otherwise, which is what makes a
 document regenerate byte-identically.
 
 What it reads is the *declared* model: an element's name, type, multiplicity,
-documentation, the value an attribute is declared with or redefined to, and
+documentation, the value an attribute is declared with or redefined to — a
+member's by its name, the row's own as `valuation` — the features of the
+metadata annotating it (`Control::status`), and
 the relationships the model draws (`RelatedElements`). A derived value the
 declaration does not spell out is not there — a `WhereFeature` on `mass`
 reads the declared or redefined `mass`, not an expression's result — unless
@@ -277,9 +279,10 @@ solver (`z3` or `cvc5`) what *could* be. `%check <name>` asks whether a
 constraint, requirement or satisfaction assertion can be satisfied and
 answers `sat` with an assignment, `unsat` or `unknown`; `%solve <name>` asks
 for values that satisfy it while keeping what is already fixed — the values
-an object holds, or failing that the ones the model declares — and names the
-fixed values that conflict when none exist; `%explain` reduces an `unsat` to
-its conflicting conditions; `%configure` and `%optimize` ask the same
+an object holds, or failing that the literal values the model declares, a
+derived one (`volume = height * width * length`) being asserted as its
+defining equation instead — and names the fixed values that conflict when
+none exist; `%explain` reduces an `unsat` to its conflicting conditions; `%configure` and `%optimize` ask the same
 question over variation points and an objective. The same solver is the
 `solve` analysis engine `-engines` tables, whose verdicts carry a
 `standing:` of `satisfiable`/`unsatisfiable`.

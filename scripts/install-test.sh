@@ -33,6 +33,8 @@ unlisted=v9.9.6-test   # one whose manifest omits sysml-grpc and sysml-jupyter-k
 mismatch=v9.9.5-test   # one whose binaries report another version
 nokernel=v9.9.4-test   # one published before the kernel was, so it has no kernel asset
 nogrpc=v9.9.3-test     # one published before sysml-grpc was, so it has neither grpc, kernel nor sysml-mcp
+repeated=v9.9.2-test   # one whose manifest lists the bundle twice, verbatim, as appends can
+conflicting=v9.9.1-test # one whose manifest lists the bundle twice with different digests
 
 sha256() {
 	if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi
@@ -123,6 +125,14 @@ release "$nogrpc" "${nogrpc#v}"
 rm "$work/site/releases/download/$nogrpc"/sysml-grpc-* "$work/site/releases/download/$nogrpc"/sysml-jupyter-kernel-* "$work/site/releases/download/$nogrpc"/sysml-mcp-*
 sed -i.bak "/ sysml-grpc-/d; / sysml-jupyter-kernel-/d; / sysml-mcp-/d" "$work/site/releases/download/$nogrpc/SHA256SUMS.txt"
 rm "$work/site/releases/download/$nogrpc/SHA256SUMS.txt.bak"
+
+release "$repeated" "${repeated#v}"
+manifest="$work/site/releases/download/$repeated/SHA256SUMS.txt"
+line=$(grep "  opensysml-$host\.tar\.gz\$" "$manifest")
+printf '%s\n' "$line" >>"$manifest"
+
+release "$conflicting" "${conflicting#v}"
+printf '%s  opensysml-%s.tar.gz\n' "$(printf '1%.0s' $(seq 64))" "$host" >>"$work/site/releases/download/$conflicting/SHA256SUMS.txt"
 
 # A mirror that serves latest/download/ but has no /latest redirect to a tag.
 mkdir -p "$work/site/mirror/latest"
@@ -417,6 +427,15 @@ fi
 if fails "tampered bundle" "opensysml-$host.tar.gz does not match SHA256SUMS.txt" --version "$tampered" --prefix @P@; then
 	[[ ! -e "$prefix" ]] || { echo "FAIL: a tampered release left files under $prefix" >&2; failures=$((failures + 1)); }
 fi
+# One digest listed twice is one digest; two digests for one asset is no manifest to trust.
+if ok "manifest repeating the bundle's line" --version "$repeated" --tools all --prefix @P@; then
+	installed bin/sysml bin/sysml-lsp bin/sysml-grpc bin/sysml-jupyter-kernel bin/sysml-mcp
+	said "opensysml-$host.tar.gz verified"
+fi
+if fails "manifest listing the bundle with two digests" "lists opensysml-$host.tar.gz with more than one digest" --version "$conflicting" --prefix @P@; then
+	unsaid "does not match"
+	[[ ! -e "$prefix" ]] || { echo "FAIL: a conflicting manifest left files under $prefix" >&2; failures=$((failures + 1)); }
+fi
 fails "asset the manifest omits" "does not list sysml-grpc-$host" --version "$unlisted" --tools sysml-grpc --prefix @P@
 if fails "kernel the manifest omits" "does not list sysml-jupyter-kernel-$host" --version "$unlisted" --tools sysml-jupyter-kernel --prefix @P@; then
 	said "sysml-jupyter-kernel from v0.10.0"
@@ -523,7 +542,8 @@ fi
 
 if command -v pwsh >/dev/null 2>&1; then
 	pwsh -NoProfile -File "$root/scripts/install-test.ps1" -Script "$root/install.ps1" -BaseUrl "$base" -MirrorUrl "$mirror" \
-		-HostPlatform "$host" -Good "$good" -Signed "$signed" -Tampered "$tampered" -Unlisted "$unlisted" -NoKernel "$nokernel" -NoGrpc "$nogrpc" ||
+		-HostPlatform "$host" -Good "$good" -Signed "$signed" -Tampered "$tampered" -Unlisted "$unlisted" -NoKernel "$nokernel" -NoGrpc "$nogrpc" \
+		-Repeated "$repeated" -Conflicting "$conflicting" ||
 		failures=$((failures + 1))
 else
 	echo "skip install.ps1: pwsh not on PATH"

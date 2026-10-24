@@ -4,6 +4,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // reference translates a name or a feature chain: an enumeration literal or a
@@ -67,6 +68,9 @@ const msgReferencePrefix = "reference `"
 // conditions are stated by, else in scope, each further one as a member or a
 // variant of what the previous named.
 func (t *translator) resolvePath(node ast.Node, scope *symbols.Scope, segments []string) ([]*symbols.Symbol, error) {
+	if len(segments) == 0 {
+		return nil, t.refuse(node, "reference", "it names nothing this translation can ground")
+	}
 	if scope == nil {
 		return nil, t.refuse(node, msgReferencePrefix+joinPath(segments)+"`", "it is written in no scope")
 	}
@@ -87,8 +91,10 @@ func (t *translator) resolvePath(node ast.Node, scope *symbols.Scope, segments [
 			// A member local to the stage is read as itself, like one local to the objective.
 		} else if sym, ok = t.model.LookupMember(t.stage, segments[0]); ok {
 			chain = append(chain, t.stage)
-		} else if sym, ok = t.features[segments[0]]; !ok {
-			sym, ok = resolver.LookupName(scope, segments[0])
+		} else if sym, chain, ok = t.featureNamed(segments[0]); !ok {
+			if sym, ok = resolver.LookupName(scope, segments[0]); ok {
+				sym, chain = t.enclosingHolding(sym)
+			}
 		}
 	}
 	if !ok {
@@ -97,6 +103,18 @@ func (t *translator) resolvePath(node ast.Node, scope *symbols.Scope, segments [
 			return []*symbols.Symbol{whole}, nil
 		}
 		return nil, t.refuse(node, msgReferencePrefix+joinPath(segments)+"`", "it resolves to nothing")
+	}
+	if by, bound := t.subjects[sym]; bound {
+		// A requirement's subject is the object `by` names (SysML v2 §7.21), or
+		// the stating element's own object when there is no `by`.
+		if len(by) == 0 {
+			if len(segments) == 1 {
+				return nil, t.refuse(node, msgReferencePrefix+joinPath(segments)+"`", "it names the object the requirement is about rather than a value of it")
+			}
+			return t.resolvePath(node, scope, segments[1:])
+		}
+		chain = append(chain, by[:len(by)-1]...)
+		sym = by[len(by)-1]
 	}
 	chain = append(chain, sym)
 	for _, segment := range segments[1:] {
@@ -178,6 +196,7 @@ func (t *translator) datatype(origin *symbols.Symbol, values []*symbols.Symbol, 
 		sort.Values = append(sort.Values, t.fqn(value))
 	}
 	t.sorts[name] = sort
+	t.origins[name] = origin
 	return sort
 }
 
@@ -338,7 +357,7 @@ func (t *translator) declare(name string, sort Sort, sym *symbols.Symbol, dimens
 			Term: Binary(OpGe, Bool, VarTerm(v), IntTerm(0)),
 			From: Provenance{
 				Kind:      "declaration",
-				Element:   name,
+				Element:   source.QualifiedNameText(name),
 				Condition: "a Natural is not negative",
 				Role:      RoleDomain,
 				Declared:  sym,

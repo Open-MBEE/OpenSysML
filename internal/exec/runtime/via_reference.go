@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // viaSender re-roots a send whose via path starts at a feature the behavior binds to an
@@ -17,6 +18,17 @@ func (ec *EvalContext) viaSender(send lower.Send, self *Instance) (lower.Send, *
 		return send, self, err
 	}
 	if holder == self && port == send.Target {
+		holder, port, err := ec.occurrencePortHolder(send, self)
+		if err != nil {
+			return send, self, err
+		}
+		if holder != nil {
+			send.Target, send.TargetPath = port, false
+			if fv, ok := holder.FeatureValues[port]; ok && fv.Feature != nil && fv.Feature.Symbol != nil {
+				send.TargetSym = fv.Feature.Symbol
+			}
+			return send, holder, nil
+		}
 		return send, self, nil
 	}
 	send.Target, send.TargetPath = port, false
@@ -24,6 +36,38 @@ func (ec *EvalContext) viaSender(send lower.Send, self *Instance) (lower.Send, *
 		send.TargetSym = fv.Feature.Symbol
 	}
 	return send, holder, nil
+}
+
+// occurrencePortHolder answers the holder of a via port, not written from `this`, that is the
+// behavior's own: the performance occurrence, or the object whose port the occurrence's is bound to.
+func (ec *EvalContext) occurrencePortHolder(send lower.Send, self *Instance) (*Instance, string, error) {
+	occurrence := ec.occurrence
+	if send.ViaSelf || occurrence == nil || occurrence == self || send.TargetSym == nil || strings.Contains(send.Target, ".") {
+		return nil, "", nil
+	}
+	fv, ok := occurrence.FeatureValues[send.Target]
+	if !ok || fv.Feature == nil || send.TargetSym.Kind != symbols.SymbolPortUsage ||
+		(fv.Feature.Symbol != send.TargetSym && !ec.ctx.modelConforms(fv.Feature.Symbol, send.TargetSym)) {
+		return nil, "", nil // the occurrence's feature is that port or redefines it
+	}
+	if own, ok := self.FeatureValues[send.Target]; ok && own.Feature != nil && own.Feature.Symbol == send.TargetSym {
+		return nil, "", nil
+	}
+	read, err := occurrence.GetFeatureValue(ec.ctx, send.Target)
+	if err != nil {
+		return nil, "", err
+	}
+	if read != nil {
+		fv = read
+	}
+	if held := fv.HeldValue(); held.Kind == ValInstance {
+		if port, found := ec.ctx.Instance(held.Instance); found {
+			if owner, name, ok := portOwner(port); ok && owner != occurrence {
+				return owner, name, nil
+			}
+		}
+	}
+	return occurrence, send.Target, nil
 }
 
 // viaHolder returns the object whose port a via path names and the port's name: self and

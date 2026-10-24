@@ -36,6 +36,10 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 	if req.Depth < 0 {
 		return nil, statusError(connect.CodeInvalidArgument, (&view.DepthError{Value: fmt.Sprint(req.Depth)}).Error())
 	}
+	compartments, ok := view.ParseCompartments(req.Compartments)
+	if !ok {
+		return nil, statusError(connect.CodeInvalidArgument, (&view.UnknownCompartmentsError{Name: req.Compartments}).Error())
+	}
 
 	worker, release := cached.worker()
 	defer release()
@@ -51,7 +55,7 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 		}
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
-	return renderViewData(cached, rendering.DataWith(view.Options{Ports: ports, Show: shown})), nil
+	return renderViewData(cached, rendering.DataWith(view.Options{Ports: ports, Show: shown, Compartments: compartments})), nil
 }
 
 type renderViewOrigins struct {
@@ -109,7 +113,7 @@ func renderViewData(model *CachedModel, data view.Data) *pb.RenderViewResponse {
 		item := &pb.RenderNode{
 			Id: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn,
-			Parent: node.Parent, Origin: origins.span(node.Origin),
+			Parent: node.Parent, Compartment: node.Compartment, Origin: origins.span(node.Origin),
 		}
 		for _, port := range node.Ports {
 			item.Ports = append(item.Ports, &pb.RenderPort{

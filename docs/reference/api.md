@@ -1090,7 +1090,7 @@ answer.
 | `type` | Qualified name of the resolved type of a typed feature; absent when untyped or unresolved | |
 | `satisfiedRequirement` | The requirement a non-verification satisfy usage references, or the satisfy usage itself when it declares the requirement; absent when unresolved or not a satisfy usage | |
 | `satisfyingFeature` | The feature named by a satisfy usage's `by` clause; a feature chain (`by v.heater`) reports the feature the chain ends at; absent when there is no `by` clause or it is unresolved | |
-| `elementId` | The `elementId` `Convert` writes for the element (qualified id form), read from a conversion of the model made once: a declared id as declared, a standard-library element's normative id (a library file's copy included), any other the encoding of its qualified or positional name. It is the API JSON `@id` too, except in a model of several identity scopes, whose `@id` the scope qualifies. Absent for a library element a model gives an id of its own, which `Convert` references by name. A query reading it of a model `Convert` refuses is `FAILED_PRECONDITION`. Reported only when a query selects or constrains it, never by an empty `select`, since reading it converts the model | |
+| `elementId` | The `elementId` `Convert` writes for the element (qualified id form), read from a conversion of the model made once: a declared id as declared, a bundled library element's fixed id — a standard-library element's normative id, an OpenSysML extension's extension id (a library file's copy included) — any other the encoding of its qualified or positional name. It is the API JSON `@id` too, except in a model of several identity scopes, whose `@id` the scope qualifies. Absent for a library element a model gives an id of its own, which `Convert` references by name. A query reading it of a model `Convert` refuses is `FAILED_PRECONDITION`. Reported only when a query selects or constrains it, never by an empty `select`, since reading it converts the model | |
 | `multiplicityLower` | Declared lower bound | ✅ |
 | `multiplicityUpper` | Declared upper bound, `*` when unbounded | ✅ |
 
@@ -1247,11 +1247,21 @@ elements there are. It is advertised by `render_view`, and a service without
 that capability refuses the request with `UNIMPLEMENTED`.
 Its `depth` field draws that many levels of nested elements below each exposed
 element, overriding the view's own `depth`; `0` draws every level the view allows.
-Python exposes this as `model.render_view(view_name, ports="minimal", show=None, depth=0)`,
+Its `compartments` field folds a tree rendering's owned members into compartment rows of their
+owner as `sysml -render-compartments` does: `""` or `"positioned"` (the default) the layout-less
+members of a tree some `Layout` positions alone, `"most"` every owned usage no `Layout`, nested
+definition or package keeps a node, `"ports"` the port usages with the ports nested under them;
+another name is refused as `INVALID_ARGUMENT` naming the three. A row comes back as a node whose
+`compartment` names the compartment of its `parent` it is drawn in (`attributes`, `parts`, `ports`,
+…), empty for a node drawn as a box.
+Python exposes this as `model.render_view(view_name, ports="minimal", show=None, depth=0,
+compartments="positioned")`,
 returning a typed `RenderedView` whose `shown` lists the elements drawn; Rust as
-`Model::render_view_showing(name, ports, &["edge-labels"])`; Go as
-`RenderView(ctx, model, name, opensysml.WithShow("edge-labels"), opensysml.WithDepth(1))`
-with the result's `Shown`.
+`Model::render_view_showing(name, ports, &["edge-labels"])` and
+`Model::render_view_folded(name, ports, &[], 0, RenderViewCompartments::Most)`; Go as
+`RenderView(ctx, model, name, opensysml.WithShow("edge-labels"), opensysml.WithDepth(1),
+opensysml.WithCompartments("most"))`
+with the result's `Shown`; Node as `model.renderView(name, { compartments: "most" })`.
 
 `ExportGraphs` answers the lowered graph of an action or state machine — the
 subject's `ActionGraph`/`StateGraph` IR and that of every behavior it performs —

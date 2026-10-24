@@ -1,6 +1,10 @@
 package view
 
-import "regexp"
+import (
+	"regexp"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+)
 
 // parameterSymbol reports whether node, nested in parent, is a parameter
 // symbol: a case's or requirement's actor, subject or stakeholder drawn on it.
@@ -19,6 +23,7 @@ func parameterSymbol(parent, node *Node) bool {
 // requirementNodeKind reports whether kind is a requirement or concern, whose
 // subject and stakeholders the notation draws as parameters.
 func requirementNodeKind(kind string) bool {
+	kind = ast.NotationKeyword(kind)
 	return kind == "requirement" || kind == "requirement def" || kind == "concern" || kind == "concern def"
 }
 

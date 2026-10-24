@@ -177,10 +177,10 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 
 	case *ast.QualifiedName:
 		// A position whose notation is a bare name holds the feature it names.
-		e.graph.Add(subject, e.sysml(pReferent), e.reference(n))
+		e.featureReferent(subject, e.reference(n))
 
 	case *ast.FeatureReference:
-		e.graph.Add(subject, e.sysml(pReferent), e.reference(n.Name))
+		e.featureReferent(subject, e.reference(n.Name))
 
 	case *ast.OperatorExpr:
 		e.graph.Add(subject, e.sysml(pOperator), rdf.String(n.Operator.String()))
@@ -215,7 +215,11 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 			e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 			e.graph.Add(subject, e.sysml(pTargetFeature), chain)
 		} else {
-			e.graph.Add(subject, e.sysml(pTargetFeature), e.reference(n.Member))
+			// A named member is the memberElement of a Membership the expression
+			// owns (FeatureChainMember); targetFeature is derived from it.
+			target := e.reference(n.Member)
+			e.referenceMembershipAt(subject, target, e.referentMembershipNode(subject, "targetFeature"))
+			e.graph.Add(subject, e.sysml(pTargetFeature), target)
 		}
 
 	case *ast.IndexExpr:
@@ -247,7 +251,7 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 		// (KerML.xtext MetadataAccessExpression `ownedRelationship += ElementReferenceMember`);
 		// referencedElement is derived from it (validateMetadataAccessExpressionReferencedElement).
 		target := e.reference(n.Ref)
-		e.referenceMembership(subject, target)
+		e.referenceMembership(subject, target, "function")
 		e.graph.Add(subject, e.sysml(pReferencedElement), target)
 
 	case *ast.BodyExpr:
@@ -495,7 +499,7 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, index int,
 	e.name(node, param.Name)
 	e.flags(node, []boolProperty{{"isReference", param.IsReference}})
 	if param.Type != nil {
-		e.graph.Add(node, e.sysml(relationshipProperty[ast.RelTyping]), e.reference(param.Type))
+		e.headRelationship(node, ast.RelTyping, e.reference(param.Type), param.Type)
 	}
 	e.relationships(node, owner, param.Relationships)
 	e.bodyMembership(subject, node, mFeatureMembership)
@@ -678,20 +682,54 @@ func (e *encoder) calleeMembership(subject rdf.Term, function *ast.QualifiedName
 		e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 		return
 	}
-	e.referenceMembership(subject, e.reference(function))
+	e.referenceMembership(subject, e.reference(function), "function")
+}
+
+// featureReferent states the Feature a FeatureReferenceExpression reads: the
+// memberElement of the Membership it owns (KerML 8.2.5.8.3 FeatureReferenceMember),
+// from which referent is derived (deriveFeatureReferenceExpressionReferent).
+func (e *encoder) featureReferent(subject, target rdf.Term) {
+	e.referenceMembershipAt(subject, target, e.referentMembershipNode(subject, "referent"))
+	e.graph.Add(subject, e.sysml(pReferent), target)
+}
+
+// referentMembershipNode is the node of the Membership an expression owns to the
+// feature it reaches (its referent or target feature): positioned under an
+// expression node, minted beside an expression element and claimed, so a
+// declared id landing on it is refused.
+func (e *encoder) referentMembershipNode(subject rdf.Term, slot string) rdf.Term {
+	if strings.HasPrefix(subject.Value, rdf.Expression) {
+		e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
+		return e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+	}
+	membership := e.ids.minted(rdf.RelationshipIRI(subject, "_"+slot), subject, "_"+slot)
+	if prior, taken := e.claim(membership.Value, "the "+slot+" membership of "+membership.Value); taken && e.idErr == nil {
+		e.idErr = &UnsupportedError{
+			What: fmt.Sprintf("the %s membership <%s>", slot, membership.Value),
+			Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
+		}
+	}
+	return membership
 }
 
 // referenceMembership owns, under an expression, the Membership whose
 // memberElement is the element the expression names (KerML.xtext
 // ElementReferenceMember), as the metamodel has it rather than as a collapsed edge.
-func (e *encoder) referenceMembership(subject, target rdf.Term) {
-	membership := e.ids.mintedNode(rdf.ExpressionIRI(subject, "function"), subject, "function")
+// The path is the position the Membership holds under the expression's id.
+func (e *encoder) referenceMembership(subject, target rdf.Term, path string) {
+	e.referenceMembershipAt(subject, target, e.ids.mintedNode(rdf.ExpressionIRI(subject, path), subject, path))
+}
+
+// referenceMembershipAt emits the Membership node given, owned by the expression
+// subject, whose memberElement is target.
+func (e *encoder) referenceMembershipAt(subject, target, membership rdf.Term) {
 	e.typed(membership, mMembership)
 	e.graph.Add(membership, e.sysml(pElementID), rdf.String(rdf.LocalName(membership.Value)))
 	e.graph.Add(membership, e.sysml(pMemberElement), target)
 	e.graph.Add(membership, e.sysml(pOwner), subject)
 	e.graph.Add(membership, e.sysml(pOwningRelatedElement), subject)
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 }
 
 // expressionOwnership owns an expression root through the position that holds it.
@@ -792,6 +830,10 @@ func isExpressionRoot(metaclass string) bool {
 // node or a body declaration): unowned, in the expression namespace or an unnamed expression class.
 func (d *decoder) isExpressionNode(subject rdf.Term) bool {
 	if !subject.IsIRI() {
+		return false
+	}
+	if mappingExpressionBodyMemberSubject(d.graph, subject) {
+		d.expressionNodes[subject.Value] = false
 		return false
 	}
 	if known, ok := d.expressionNodes[subject.Value]; ok {

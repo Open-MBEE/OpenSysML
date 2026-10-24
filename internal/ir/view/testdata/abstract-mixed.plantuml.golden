@@ -1,0 +1,62 @@
+@startuml
+' AbstractViews::familyMixed — mixed rendering (render asMixedDiagram)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+rectangle "<size:10>//«abstract part def»//</size>\n**Vehicle**" as n1 <<abstract part def>> {
+  rectangle "<size:10>//«attribute»//</size>\n**AbstractViews::Vehicle::mass**" as n0 <<attribute>> <<usage>>
+}
+rectangle "<size:10>//«attribute»//</size>\n**AbstractViews::Vehicle::mass**" as n0 <<attribute>> <<usage>>
+rectangle "<size:10>//«abstract part»//</size>\n**vehicleFamily**" as n2 <<abstract part>> <<usage>> {
+  rectangle "<size:10>//«abstract port»//</size>\n**fuel**" as n3 <<abstract port>> <<usage>>
+  rectangle "<size:10>//«abstract part»//</size>\n**engine**" as n4 <<abstract part>> <<usage>>
+  rectangle "<size:10>//«part»//</size>\n**chassis**" as n5 <<part>> <<usage>>
+}
+rectangle "<size:10>//«variation part def»//</size>\n**Models**" as n6 <<variation part def>> {
+  rectangle "<size:10>//«variant»//</size>\n**sedan**" as n7 <<variant>> <<usage>> {
+    rectangle "<size:10>//«abstract part»//</size>\n**engine**" as n8 <<abstract part>> <<usage>>
+    rectangle "<size:10>//«part»//</size>\n**chassis**" as n9 <<part>> <<usage>>
+  }
+}
+n4 -[thickness=3]- n5
+n8 -[thickness=3]- n9
+n2 ..> n1
+n6 --|> n1 : <U+00AB>specializes<U+00BB>
+@enduml

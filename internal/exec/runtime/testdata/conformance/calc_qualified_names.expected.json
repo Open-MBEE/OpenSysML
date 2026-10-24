@@ -1,5 +1,5 @@
 {
     "type": "calc",
     "inputs": [],
-    "result": {"type": "Integer", "value": 42}
+    "result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 42}]}
 }

@@ -6,7 +6,7 @@
     "powerWeight": {"type": "Real", "value": 0.1}
   },
   "outputs": {
-    "selectedAlternative": {"type": "Instance", "value": "test::strong"}
+    "selectedAlternative": {"type": "Sequence", "elements": [{"type": "Instance", "value": "test::strong"}]}
   },
   "verdicts": {
     "tradeStudyObjective": "satisfied"

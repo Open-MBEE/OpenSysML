@@ -1,10 +1,10 @@
 ---
-description: The OpenSysML community around the REDK and the rest of the stack — Slack, the forum, meetings, and how to participate in the OpenMBEE projects.
+description: The OpenSysML community around the MDK and the rest of the stack — Slack, the forum, meetings, and how to participate in the OpenMBEE projects.
 ---
 
 # Community
 
-OpenSysML — the suite the [REDK](https://github.com/Open-MBEE/OpenSysML) belongs to — is
+OpenSysML — the suite the [MDK](https://github.com/Open-MBEE/OpenSysML) belongs to — is
 community-run under [OpenMBEE](https://www.openmbee.org); code, models, docs and review are all
 welcome. Where to find everyone:
 

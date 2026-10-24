@@ -9,7 +9,7 @@ stmt assign doubled
       eval feature k -> 2.0
       eval literal 2.0 -> 2.0
     eval operator * -> 4.0
-    output test::CalcOrder::s::t.d = 4.0
-  eval chain d -> 4.0
+    output test::CalcOrder::s::t.d = (4.0)
+  eval chain d -> (4.0)
 step 2: token 1@done
 step 3: no active tokens

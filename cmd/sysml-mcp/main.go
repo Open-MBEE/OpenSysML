@@ -2,7 +2,8 @@
 // Protocol: the language server's diagnostics, navigation and editing, the
 // runtime's evaluation and execution, and persistent REPL sessions, as tools an
 // agent calls. The protocol is spoken over stdin/stdout, so an agent host starts
-// this server rather than a shell.
+// this server rather than a shell, or over Streamable HTTP to every client of
+// one long-lived server when -http names an address.
 package main
 
 import (
@@ -53,7 +54,7 @@ const (
 	exitProtocol    = 1
 	exitUnservable  = 2
 	commandPrefix   = mcpCommand + ": "
-	protocolMessage = "the protocol is spoken over stdin/stdout, so an agent host starts this server rather than a shell"
+	protocolMessage = "the protocol is spoken over stdin/stdout, so an agent host starts this server rather than a shell, or over Streamable HTTP at the address -http names"
 )
 
 func main() {
@@ -73,7 +74,26 @@ func printConfig(opts *options, fs *flag.FlagSet, stdout, stderr io.Writer) int 
 		printHostList(stdout)
 		return exitServed
 	}
-	if err := printHostConfig(stdout, name, opts.configCommand, opts.configNpx); err != nil {
+	ep := endpoint{}
+	if opts.configCommand != "" {
+		ep.command = binaryCommand(opts.configCommand)
+	}
+	over, err := readHTTPOptions(opts)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
+		return exitUnservable
+	}
+	if over != nil {
+		for name, set := range map[string]bool{"-print-config-command": opts.configCommand != "", "-print-config-npx": opts.configNpx} {
+			if set {
+				fmt.Fprintf(stderr, "%s-print-config: %s and -http name different ways to reach the server; give one\n", commandPrefix, name)
+				return exitUnservable
+			}
+		}
+		ep.url = over.url()
+		ep.token = over.tokenValue()
+	}
+	if err := printHostConfig(stdout, name, ep, opts.configNpx); err != nil {
 		fmt.Fprintf(stderr, "%s-print-config: %v\n", commandPrefix, err)
 		return exitUnservable
 	}
@@ -149,6 +169,15 @@ func run(args []string, stdout, stderr io.Writer) int {
 		printUsage(stderr, fs)
 		return exitUnservable
 	}
+	httpOpts, err := readHTTPOptions(opts)
+	if err == nil {
+		err = httpOpts.loadTLS()
+	}
+	if err != nil {
+		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
+		printUsage(stderr, fs)
+		return exitUnservable
+	}
 
 	logger := slog.New(slog.NewTextHandler(stderr, &slog.HandlerOptions{Level: level}))
 	slog.SetDefault(logger)
@@ -168,7 +197,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		Logger:                  logger,
 		Instructions:            instructions,
 	}
-	return serve(stderr, cfg)
+	return serve(stderr, cfg, httpOpts)
 }
 
 // printUsage writes the help to w, which the caller chooses: help asked for is
@@ -178,17 +207,40 @@ func printUsage(w io.Writer, fs *flag.FlagSet) {
 }
 
 // serve speaks the protocol over stdin/stdout until the client ends it or the
-// process is told to stop, and reports how the session ended.
-func serve(stderr io.Writer, cfg mcp.Config) int {
+// process is told to stop, or with http over that address until the process is
+// told to stop, and reports how the session ended.
+func serve(stderr io.Writer, cfg mcp.Config, over *httpOptions) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	var lis net.Listener
+	if over != nil {
+		var err error
+		if lis, err = net.Listen("tcp", over.addr); err != nil {
+			fmt.Fprintf(stderr, "%s-http %s: %v\n", commandPrefix, over.addr, err)
+			return exitProtocol
+		}
+		if !mcp.IsLoopbackAddr(lis.Addr()) && !over.token.Set() {
+			_ = lis.Close()
+			fmt.Fprintf(stderr, "%s-http %s binds an address other machines reach: %v\n", commandPrefix, over.addr, mcp.ErrNoToken)
+			return exitUnservable
+		}
+	}
 	srv, err := mcp.New(ctx, cfg)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
 		return exitProtocol
 	}
 	defer srv.Close(context.Background())
+
+	if lis != nil {
+		err = srv.ServeStreamableHTTP(ctx, mcp.HTTPConfig{Listener: lis, Origins: over.origins, Token: over.token, CertFile: over.certFile, KeyFile: over.keyFile})
+		if err != nil {
+			fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
+			return exitProtocol
+		}
+		return exitServed
+	}
 
 	err = srv.Run(ctx, &sdk.StdioTransport{})
 	if err != nil && !endedWithTheStream(err) && ctx.Err() == nil {

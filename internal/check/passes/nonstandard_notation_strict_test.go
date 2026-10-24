@@ -24,6 +24,11 @@ var extensionInventory = []string{
 	"part def A { part s; part k; interface s.y#(1) to k.u; }",
 	"part def A { part s; part k; flow s.y#(1) to k.u; }",
 	"part def A { part s; part k; bind s.y#(1) = k.u; }",
+	"package P { analysis case def AD; }",
+	"package P { verification case vd; }",
+	"constraint def K { in x : ScalarValues::Real; x > 0.0; }",
+	"package P { metadata def Tag; part def B; #Tag individual part def A :> B; }",
+	"package P { metadata def Tag; part def B; #Tag individual part a : B; }",
 }
 
 // notationDiags runs the pass over a document in the named mode.

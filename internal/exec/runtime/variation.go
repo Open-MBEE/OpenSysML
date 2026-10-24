@@ -23,11 +23,11 @@ func (ctx *Context) IsVariationFeature(feat *EffectiveFeature) bool {
 
 // variantSegment reads a variant named through the variation feature it belongs
 // to, as in `ring.nesting::nestingTrue`, returning it and the segments left.
-func (ec *EvalContext) variantSegment(feat *EffectiveFeature, rest []ast.NameSegment) (*symbols.Symbol, []ast.NameSegment, bool) {
-	if len(rest) == 0 || feat == nil || !ec.ctx.model.semantics.IsVariationFeature(feat.Symbol) {
+func (ec *EvalContext) variantSegment(variation *symbols.Symbol, rest []ast.NameSegment) (*symbols.Symbol, []ast.NameSegment, bool) {
+	if len(rest) == 0 || variation == nil || !ec.ctx.model.semantics.IsVariationFeature(variation) {
 		return nil, nil, false
 	}
-	variant, ok := ec.ctx.model.semantics.VariantOf(feat.Symbol, rest[0].Text)
+	variant, ok := ec.ctx.model.semantics.VariantOf(variation, rest[0].Text)
 	if !ok {
 		return nil, nil, false
 	}
@@ -210,6 +210,43 @@ func (ctx *Context) variantAsValue(v Value) (Value, error) {
 	}
 	// A variant reached this way declares a value, so no object of it is needed.
 	return ctx.variantValue(nil, v.Variant(), 0)
+}
+
+// variantStandsFor resolves a variant named with no selecting object (`Case::big`) to the
+// value it declares, else an object of it materialized once for the object evaluating.
+func (ec *EvalContext) variantStandsFor(v Value) (Value, error) {
+	variant := v.Variant()
+	if v.Kind != ValVariant || variant == nil || v.Instance != 0 {
+		return v, nil
+	}
+	return ec.ctx.variantValue(ec.ctx.model.semantics.VariationPointOwning(variant), variant, ec.readingObject())
+}
+
+// readingObject is the object evaluating, for which a variant named with no
+// selecting object is materialized once; 0 at model level.
+func (ec *EvalContext) readingObject() int64 {
+	if ec.self == nil {
+		return 0
+	}
+	return ec.self.ID
+}
+
+// chainThroughNamedVariant reads a variant named through the variation usage it
+// belongs to, `engine.electric.power`, as that variant whatever the usage selects.
+func (ec *EvalContext) chainThroughNamedVariant(variation *symbols.Symbol, parts []ast.NameSegment, owner int64) (Value, bool, error) {
+	variant, rest, ok := ec.variantSegment(variation, parts)
+	if !ok {
+		return Value{}, false, nil
+	}
+	if len(rest) == 0 {
+		return variantReference(variant), true, nil
+	}
+	val, err := ec.ctx.variantValue(variation, variant, owner)
+	if err != nil {
+		return Value{}, true, err
+	}
+	val, err = ec.chainMemberValue(val, rest, variant.Name)
+	return val, true, err
 }
 
 // variantObject keys the object a variant stands for by the selection that made

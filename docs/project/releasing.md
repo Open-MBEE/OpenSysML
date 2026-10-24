@@ -32,7 +32,7 @@ own: it is part of this module, so the core's `v*` tag is what a Go program pins
 Between releases, `.github/workflows/nightly.yml` builds the newest green `develop`
 commit every night with `scripts/build-release-artifacts.sh` — the same targets,
 platforms and layout as `build-release` below — together with the Python wheel and the
-thirteen npm packages, and publishes it as the prerelease `nightly-<yyyymmdd>-<commit>`,
+fourteen npm packages, and publishes it as the prerelease `nightly-<yyyymmdd>-<commit>`,
 kept for 14 days, with the moving alias `nightly` at the newest night; both are never
 marked latest and are signed by the workflow's own GitHub identity rather than the
 CircleCI one the clients pin. The clients go to PyPI and npm as development versions
@@ -110,10 +110,16 @@ Rekor log), `ghr` (the GitHub release), `twine upload`, `npm publish`,
 `mvn deploy`, `cargo publish` and the `docker buildx build --push` of the
 container image. A rehearsal exports a stand-in `CIRCLE_TAG`
 from `_version.py` (`scripts/rehearsal-version.sh`) before any step reads it,
-so the version bumps must already be on the branch, and the Go suite's jobs tag
+so the version bumps must already be on the branch, and the Go suite's jobs
+(`go-static`, `go-race-test`, `go-coverage`, `go-gates`) export it too and tag
 their checkout locally as that release first: a tag build reports the tag as
 the module version in every binary the toolchain builds, a branch build reports
-`(devel)`, and the suite must pass under the former.
+`(devel)`, and the suite must pass under the former. With both in place the
+suite runs as it does on the tag: the protobuf schema is compared against the
+previous release rather than the branch's first parent, the binaries are built
+with the tag as their version, and the hygiene test that requires every
+released version to have its digests pinned exempts the release being built
+(a local tag with no `CIRCLE_TAG` reads as a release that is already out).
 
 Trigger it from the CircleCI UI with *Trigger pipeline*: choose the release
 branch for both the config and the checkout source, then add the boolean
@@ -168,13 +174,35 @@ branch that moves the integration state onto `main`:
    `optionalDependencies` — to the SemVer spelling of the same version (`0.9.1`;
    `0.9.0-rc.1` for `0.9.0rc1`; `TestMCPRunnerManifestAgreesWithTheClientVersion` in
    `tests/hygiene` fails while the two manifests disagree), and run `npm install --package-lock-only` in
-   `client/node` so the lockfile agrees; the release workflow fails before
-   building anything when package.json disagrees, and `npm ci` refuses a
-   lockfile that still locks the platform packages at the previous version
-   (`TestNodeLockfileAgreesWithTheClientVersion` in `tests/hygiene` catches
+   `client/node` and in `packaging/npm/sysml-mcp` so both lockfiles agree; the release workflow fails before
+   building anything when package.json disagrees, and a lockfile that still
+   locks the platform packages at the previous version is refused
+   (`TestNodeLockfileAgreesWithTheClientVersion` and
+   `TestMCPRunnerLockfileAgreesWithTheManifest` in `tests/hygiene` catch
    that without a Node toolchain). Before the tag the new platform packages
-   are not on npm, so that run drops their entries from the lockfile; that is
-   fine for `npm ci`, and the pin step below locks them once they exist. `client/java/pom.xml` follows
+   are not on npm, so that run drops their entries from the lockfile. That is
+   why the Makefile and every CI job install `client/node` with
+   `npm install --ignore-scripts` rather than `npm ci`: npm 11.6 and later make
+   `npm ci` refuse a lockfile missing an optional dependency, whereas
+   `npm install` skips an optional dependency it cannot resolve, installs the
+   rest exactly as locked and leaves the lockfile as it is — each CI job asserts
+   that with `git diff --exit-code package-lock.json`, and
+   `TestClientInstallsSurviveUnpublishedPlatformPackages` in `tests/hygiene`
+   holds every consumer of the two packages to that command. The refusal is an
+   npm defect ([npm/cli#9846](https://github.com/npm/cli/issues/9846), fix
+   proposed in [npm/cli#10115](https://github.com/npm/cli/pull/10115)): the same
+   npm's `npm install --package-lock-only` writes that lockfile and its `npm ci`
+   rejects it. Do not work around it by writing the five entries into the
+   lockfile by hand: npm 10 and 11 accept such an entry, but neither ever adds
+   `resolved` and `integrity` to it, so once the tag publishes the packages
+   `npm ci` would install the release's binary without an integrity check and
+   nothing would notice, whereas `npm install` changes the lockfile the moment
+   a package appears and the `git diff` fails. SonarCloud's GitHub Actions rule
+   S8543 flags the three `npm install` workflow steps as unlocked installs; the
+   lockfile check above is the property the rule wants, so those findings are
+   resolved as false positives on SonarCloud (branch mode only: no pull-request
+   analysis exists), not by changing the command. The pin step
+   below locks the platform packages once they exist. `client/java/pom.xml` follows
    the same version too: set the parent pom's `<version>`, both modules'
    `<parent><version>`, and the client version in `editors/mdk/pom.xml`
    (`opensysml.client.version`) and `editors/syson/backend/pom.xml` to the same
@@ -204,23 +232,26 @@ branch that moves the integration state onto `main`:
 4. Tag `main` as [Tagging](#tagging) describes.
 
 5. Merge the `chore/pin-vx.y.z` pull request the tag's pipeline opens against
-   `develop` (see [Pinned release digests](#pinned-release-digests)). Its Node
-   client job fails until the lockfile names the platform packages the tag just
-   published — `npm install --package-lock-only` in `client/node` could not lock
-   them before they existed — so run that on the pin branch and commit the
-   lockfile first. Then merge
+   `develop` (see [Pinned release digests](#pinned-release-digests)). Its
+   lockfiles do not yet name the platform packages the tag just published —
+   `npm install --package-lock-only` in `client/node` could not lock them before
+   they existed, so every install skips them as unresolvable optional
+   dependencies instead of installing the release's binary — so run that on
+   the pin branch (and in `packaging/npm/sysml-mcp`, whose lockfile pins the
+   runner's platform packages the same way) and commit both lockfiles first. Then merge
    `main` back into `develop` — a plain merge, no rebase — so the folded
    changelog, and any hotfix that landed on `main` in the meantime, flow down.
    When the release was a `hotfix/` branch, `develop`'s lockfile still locks
    the platform packages of the previous release: run the same
-   `npm install --package-lock-only` on the back-merge branch, or its Node
-   client job fails on `npm ci`:
+   `npm install --package-lock-only` on the back-merge branch so they lock the
+   release's:
 
    ```bash
    git checkout develop && git pull
    git merge main
    (cd client/node && npm install --package-lock-only --ignore-scripts)   # after a hotfix
-   git commit -am "chore(node): lock the platform packages at the release"  # if it changed
+   (cd packaging/npm/sysml-mcp && npm install --package-lock-only --ignore-scripts)
+   git commit -am "chore(node): lock the platform packages at the release"  # if either changed
    git push origin develop
    ```
 
@@ -351,7 +382,9 @@ it names; if the GitHub upload fails, nothing irreversible has happened yet.
 repeatable: npm never accepts a version twice. It publishes
 `@openmbee/opensysml-wasm` from `dist/wasm` and the five
 `@openmbee/opensysml-sysml-grpc-<os>-<cpu>` platform packages built from
-`build-release`'s release assets, then the `@openmbee/opensysml` client (see
+`build-release`'s release assets, then the `@openmbee/opensysml` client, and the MCP
+server's runner `@openmbee/sysml-mcp` with its five platform packages and its alias
+`@openmbee/opensysml-mcp` (see
 [Releasing @openmbee/opensysml to npm](#releasing-openmbeeopensysml-to-npm)).
 
 `publish-maven` runs beside them, in the same position and with the same
@@ -432,15 +465,17 @@ one alongside it).
      "import opensysml; print(opensysml.__version__, opensysml.load('examples/state-machine-demo.sysml').diagnostics)"
    ```
 
-2. **Verify the npm upload.** Check the registry sees all thirteen packages at the
+2. **Verify the npm upload.** Check the registry sees all fourteen packages at the
    version and the right dist-tag, and that the npm runner starts the release's
-   server with nothing installed:
+   server with nothing installed, under both of its names:
 
    ```bash
    npm view @openmbee/opensysml@0.0.5 version dist-tags
    npm view @openmbee/opensysml-wasm@0.0.5 version
    npm view @openmbee/sysml-mcp@0.0.5 version dist-tags optionalDependencies
+   npm view @openmbee/opensysml-mcp@0.0.5 version dist-tags optionalDependencies bin
    npx -y @openmbee/sysml-mcp@0.0.5 -version
+   npx -y @openmbee/opensysml-mcp@0.0.5 -version
    ```
 
    Then install it in a temp dir and load a model with `OPENSYSML_BINARY` unset,
@@ -926,7 +961,7 @@ supplies `SONAR_TOKEN` (the same context `Open-MBEE/flexo-mms-layer1-service`
 uses, so no new credential is provisioned). It reads
 `sonar-project.properties` at the repository root and four coverage reports
 persisted to the workspace — `coverage.txt` from `go-coverage-merge`, which joins
-`go-coverage`'s four package shards,
+`go-coverage`'s nine package shards,
 `coverage-python.xml` from `python-test`, `coverage-node.lcov` from
 `node-test`, and JaCoCo's `jacoco.xml` per Java module — and it un-shallows the
 clone because SonarCloud needs full history for blame and new-code detection.
@@ -959,23 +994,42 @@ the import is reported as the configuration error it is. Other jobs read only
 the current tree and keep the faster default.
 
 The job runs on a `large` container — 8 GB, the largest class in the plan —
-whose memory is split between three processes. `SONAR_SCANNER_JAVA_OPTS:
--Xmx5500m` sizes the forked analysis JVM the sonar-scanner-cli 8 launcher
-starts: Sonar's Go sensor parses one directory at a time and holds that
-directory's parser output in memory, so a large package
+whose memory is split between three processes, and the three hard caps must
+sum to less than the container with room for what has no cap.
+`SONAR_SCANNER_JAVA_OPTS: -Xmx4800m` sizes the forked analysis JVM the
+sonar-scanner-cli 8 launcher starts: Sonar's Go sensor parses one directory at
+a time and holds that directory's parser output in memory, so a large package
 (`internal/exec/runtime`) exhausted the scanner's default heap with
 `java.lang.OutOfMemoryError` before it was raised. `SONAR_SCANNER_OPTS:
 -Xmx256m` sizes the launcher itself and carries `-D` properties such as the
 project version, and `sonar.javascript.node.maxspace=1024` caps the Node
 process the JS/TS sensor spawns, whose default 2.2 GB the ~60 TypeScript
-files do not need.
+files do not need; Sonar reports that process as 1216 MB (the heap plus
+Node's own overhead). The budget is therefore 4800 (analysis heap) + 1216
+(Node) + 256 (launcher heap) = 6272 MB of caps, leaving about 1.9 GB for the
+two JVMs' native memory (metaspace for SonarCloud's plugin set, code cache,
+GC structures, thread stacks, direct buffers), the Go sensor's parser
+subprocess and the page cache of the full clone that blame reads.
+
+The previous 5500 MB heap left no such room: every scan peaked at the cgroup
+limit, and whether the OOM killer fired depended on how far G1 had grown the
+heap by the time the Node process existed. The kills landed in the phases
+that run after the JS/TS sensor has started Node and that only branch mode
+runs in full — the JS security sensor over all 112 files and the blame of
+all ~2000 files (a pull-request analysis blames only the changed files), so a
+green pull-request scan does not prove the `develop` job. The scan step also
+samples the cgroup usage and the largest processes every 5 s into
+`sonar-logs/memory-samples.log`, and the analysis JVM writes a GC log to
+`sonar-logs/analysis-gc.log` whose `(NNNNM)` figures are the committed heap
+after each collection; the memory-events step prints the peaks from both, so
+any future resizing starts from what the scan measured rather than from the
+caps.
 
 A scan that dies with `EXECUTION FAILURE` and exit 3, with no Java exception
-in its log, is the container's OOM-killer, not the analysis — an analysis
-heap near the container size plus an uncapped Node heap has done this at the
-moment the JS/TS sensor starts its Node process. A `when: always` step right
-after the scan prints the cgroup memory counters, where an OOM kill shows as
-`oom_kill 1` rather than being guessed at.
+in its log, is the container's OOM-killer, not the analysis. A `when: always`
+step right after the scan prints the cgroup memory counters, where an OOM
+kill shows as `oom_kill 1` rather than being guessed at, followed by the
+sampled peaks.
 
 The scan step itself reproduces what the `sonarsource/sonarcloud` orb did —
 download the pinned sonar-scanner-cli 8.0.1.6346 into a cache keyed on the
@@ -1327,11 +1381,11 @@ publishes it; the `client-node-v*` path never ran and is no longer matched.
 The npm packages are published with core releases at the client's version, and
 the `npm` context they need is already in place (see
 [What the job needs](#what-the-job-needs-1)). The same job publishes the MCP
-server's npm runner, `@openmbee/sysml-mcp` (`packaging/npm/sysml-mcp`), and its
-five platform packages, at the same version; see
-[Thirteen packages, one tag](#thirteen-packages-one-tag).
+server's npm runner, `@openmbee/sysml-mcp` (`packaging/npm/sysml-mcp`), its
+five platform packages and its alias `@openmbee/opensysml-mcp`, at the same
+version; see [Fourteen packages, one tag](#fourteen-packages-one-tag).
 
-### Thirteen packages, one tag
+### Fourteen packages, one tag
 
 `@openmbee/opensysml` carries no binary. The service binary comes from one of five
 per-platform packages it names in `optionalDependencies`, which npm installs by
@@ -1374,7 +1428,27 @@ client's are. The win32 package carries the binary CircleCI built and
 `SHA256SUMS.txt` covers, as `@openmbee/opensysml-sysml-grpc-win32-x64` does;
 the Authenticode-signed `sysml-mcp.exe` is produced afterwards by the GitHub
 `release-windows` workflow and reaches only the signed release zip (see
-[Windows Authenticode signing](#windows-authenticode-signing)). Where no
+[Windows Authenticode signing](#windows-authenticode-signing)).
+
+The fourteenth package, `@openmbee/opensysml-mcp`, is the runner under the name the
+other OpenSysML npm packages share (`@openmbee/opensysml`, `@openmbee/opensysml-wasm`,
+`@openmbee/opensysml-sysml-grpc-<os>-<cpu>`), so that `npx -y @openmbee/opensysml-mcp`
+starts the same server. It has no source tree of its own: `npm run platform-packages`
+generates it from `packaging/npm/sysml-mcp` into `client/node/packages/opensysml-mcp`
+whenever it builds the `sysml-mcp` platform packages — the same `bin/`, `lib/` and README,
+the manifest renamed, with `opensysml-mcp` as a second command beside `sysml-mcp` (`npx`
+runs the one named for the package), the same five `@openmbee/sysml-mcp-<os>-<cpu>`
+platform packages pinned at the version being built, and no `mcpName`: the MCP Registry
+listing stays with `@openmbee/sysml-mcp` (see [Listing `sysml-mcp` in the MCP Registry](#listing-sysml-mcp-in-the-mcp-registry)). One set of
+platform binaries therefore serves both names. The alias is published last, after the
+runner it is the other name of, and `scripts/npm-mcp-test.sh` proves the packed alias
+beside this platform's package through both commands before anything is published.
+`@openmbee/opensysml-mcp@0.11.0` was published by hand from the `v0.11.0`
+`packaging/npm/sysml-mcp` tree with exactly the changes the generator now makes (name,
+install line, both commands, no `mcpName`), which is why the generated package keeps that
+shape; the job's refusal of a version already on the registry sees it as published like
+any other version, so a re-run of `v0.11.0` would refuse it rather than publish over it.
+Where no
 platform package matches — a platform with no
 release build — the client falls back to `$OPENSYSML_BINARY`, a binary in
 `~/.opensysml/bin/`, a release download into that cache, `sysml-grpc` on
@@ -1424,7 +1498,7 @@ spell the SemVer version exactly, `v` aside.
 ### Pre-releases
 
 A pre-release tag — the same one that sends `opensysml` to TestPyPI — publishes
-all thirteen packages to the `next` dist-tag; `latest` is untouched. Install a
+all fourteen packages to the `next` dist-tag; `latest` is untouched. Install a
 pre-release with `@next` or the exact version (`npx -y @openmbee/sysml-mcp@next`).
 
 ### What the job needs
@@ -1433,7 +1507,16 @@ Everything below is already in place; it is recorded so it can be re-created.
 
 1. The **`@openmbee` scope** on npm, with the publishing account a member of the
    org with publish rights on its packages. A new package under the scope is
-   created by its first `npm publish --access public`.
+   created by its first `npm publish --access public` with this token; the
+   nightly's trusted publishing cannot create one (its `npm publish` fails with
+   `404 Not Found - PUT`), so after the release that first publishes a package,
+   register the nightly on it on npmjs.com (package *Settings → Trusted
+   publishing*: GitHub Actions, repository `Open-MBEE/OpenSysML`, workflow
+   `nightly.yml`, environment `nightly`). `@openmbee/sysml-mcp` and its five
+   platform packages shipped this way first, with `v0.11.0`;
+   `@openmbee/opensysml-mcp` was created by hand at the same version (see
+   [Fourteen packages, one tag](#fourteen-packages-one-tag)), so the nightly's
+   trusted publisher must be registered on it the same way.
 2. A **granular access token** stored as `NPM_TOKEN` in the CircleCI restricted
    context `npm` (lower-case, matched exactly, restricted to a security group).
    The token was created on npmjs.com → *Access Tokens* → *Generate New Token*
@@ -1460,17 +1543,18 @@ Everything below is already in place; it is recorded so it can be re-created.
    `build-python-package` does for the wheel. Only that file in the working
    copy changes; see [Pinned release digests](#pinned-release-digests).
 3. Requires `NPM_TOKEN` from the `npm` context.
-4. Refuses to run if any of the thirteen packages is already on the registry at
+4. Refuses to run if any of the fourteen packages is already on the registry at
    this version (a publish cannot be repeated).
 5. Installs Z3, then builds and tests the client against the release's linux
-   binary (`npm ci`, build, typecheck, lint, tests), with
+   binary (`npm install` from the lockfile, build, typecheck, lint, tests), with
    `$OPENSYSML_EXPECT_PINNED_RELEASE` set to the tag so the suite asserts the
    stamped table pins it. The suite's verification tests ask the service
    solver-backed questions, and the service finds the solver on PATH; without
    one those questions are undecided and the tests fail.
 6. Builds the five platform packages from `dist/grpc`, the five `sysml-mcp`
    platform packages from `dist/mcp` and the WASM package from `dist/wasm`,
-   checking every asset against its `.sha256` sidecar.
+   checking every asset against its `.sha256` sidecar, and generates
+   `@openmbee/opensysml-mcp` from `packaging/npm/sysml-mcp` beside them.
 7. Packs the client into `dist/npm/` with `npm pack` and opens the tarball:
    its `release-digests.json` must pin all five service assets for the tag,
    with the digests of the binaries in `dist/grpc`, or the job fails. Then
@@ -1478,12 +1562,16 @@ Everything below is already in place; it is recorded so it can be re-created.
    version with no dependencies and its five platform packages pinned at it,
    and `scripts/npm-mcp-test.sh` installs that tarball with the linux-x64
    platform package from step 6 into a throwaway project and speaks
-   `initialize` and `tools/list` to the installed command, or the job fails.
+   `initialize` and `tools/list` to the installed command, then does the same
+   with the generated `@openmbee/opensysml-mcp` through both of its commands,
+   or the job fails. Then packs `@openmbee/opensysml-mcp`: the tarball must be
+   the tag's version, pin the runner's five platform packages at it, declare
+   `sysml-mcp` and `opensysml-mcp` and no `mcpName`.
 8. Authenticates to npm and runs `npm whoami`, so an expired token fails before
    the first publish.
-9. Publishes the WASM and ten platform packages, then the client and
-   `@openmbee/sysml-mcp` — the tarballs verified in step 7, not fresh packs —
-   on the resolved dist-tag.
+9. Publishes the WASM and ten platform packages, then the client,
+   `@openmbee/sysml-mcp` and last `@openmbee/opensysml-mcp` — the tarballs
+   verified in step 7, not fresh packs — on the resolved dist-tag.
 
 ### If a publish goes wrong
 
@@ -1496,7 +1584,7 @@ workflow from failed* — without repeating the rest of the workflow.
 
 After the first publish the version is used: the registry refusal makes a
 re-run fail by design, and a half-published set — some platform packages up,
-the client or `@openmbee/sysml-mcp` not — is not repaired by re-running. `npm deprecate` what went up
+the client, `@openmbee/sysml-mcp` or `@openmbee/opensysml-mcp` not — is not repaired by re-running. `npm deprecate` what went up
 (and `npm unpublish` within 72 hours only if nothing depends on it) and cut the
 next core patch release. Never remove the refusal to force a re-run through.
 
@@ -1635,7 +1723,14 @@ at `verify` (the passphrase comes from `MAVEN_GPG_PASSPHRASE`, never from a
 pom property or the settings), and `central-publishing-maven-plugin` with
 `autoPublish=true` and `waitUntil=published` — the job publishes the validated
 deployment itself and waits until it is published, so a green job means the
-version is on Central. The irreversible step is guarded by running last, on a
+version is on Central. That wait is silent at Maven's default log level (the
+plugin's per-poll status lines are debug output, which the step must never
+enable — it would print the token) and bounded by the plugin's `waitMaxTime`,
+pinned in the pom at its floor of 1800 s with a `waitPollingInterval` of 5 s;
+the deploy step's `no_output_timeout` is 35m so that the plugin's own timeout,
+not CircleCI's 10m no-output default, ends a wait. `tests/hygiene`
+(`TestMavenPublishStepOutlivesThePluginWait`) holds the two values together.
+The irreversible step is guarded by running last, on a
 revision proven green, and by the refusal of a version already published.
 The plugin's pin has to track Sonatype's Portal API: `0.7.0` rejected the
 `warnings` field the deployment-status response gained in October 2026 and
@@ -1691,7 +1786,10 @@ before `0.9.0`. Consumers get it only by naming it.
    the parent pom the client's pom names. The jar is rebuilt from the tree
    whose stamped resource step 5 verified. The plugin uploads, Central
    validates, `autoPublish` releases the deployment, and the build waits until
-   it is published.
+   it is published — silently, polling every 5 s for up to 30 minutes
+   (`waitMaxTime`), then fails with `DeploymentPublishTimedOutException` naming
+   the deployment. The step's `no_output_timeout` of 35m stays above that, so
+   the wait ends on the plugin's verdict rather than on CircleCI's cut.
 
 ### If a publish goes wrong
 
@@ -1704,9 +1802,21 @@ from failed*, without repeating the rest of the workflow.
 
 A deployment that fails Central validation is not published — `autoPublish`
 only publishes a valid one: drop it in the portal if it remains, fix the cause,
-and re-run. If the job timed out waiting while Central was still publishing,
-check the portal before anything else; the next run's availability check
-answers whether the version landed.
+and re-run. A red that ends in `DeploymentPublishTimedOutException` means
+Central took longer than the plugin's 30-minute `waitMaxTime` to publish an
+uploaded, validated deployment; it says nothing about whether the version
+landed. Check Central's listing of `org.openmbee:opensysml` (the portal's
+*Deployments* page, or `curl -sI` on the version's pom URL under
+`repo1.maven.org`) before anything else: a version that is there needs no
+re-run, and the refusal step fails one by design; only a version that is not
+there, and a deployment the portal shows as failed, is re-run. A step cut by
+CircleCI itself (`Too long with no output`) is now outside the design: the
+step's `no_output_timeout` outlives the plugin's wait, so that message points
+at a status request that hung rather than at a slow publish, and is checked
+against Central the same way. The `v0.11.0` job was lost to the 10m default:
+the plugin logged `Waiting until Deployment … is published` and nothing more,
+CircleCI killed the step ten minutes later, and Central listed the version
+anyway.
 
 Once published the version is immutable — it cannot be replaced or deleted,
 and the refusal makes a re-run fail by design. A published mistake needs the
@@ -1723,9 +1833,11 @@ names the npm package `@openmbee/sysml-mcp`, whose `package.json` declares
 workflow `.github/workflows/mcp-registry.yml` runs on the tag, and
 `scripts/mcp-registry-publish.sh` does the work, in this order:
 
-1. Wait, for at most an hour (`MCP_REGISTRY_NPM_TIMEOUT`), for `@openmbee/sysml-mcp@<version>`
-   on registry.npmjs.org, which CircleCI's `publish-npm` job publishes on the same tag, and
-   check that it declares the `mcpName` above; the registry rejects a listing otherwise.
+1. Wait, for at most three hours (`MCP_REGISTRY_NPM_TIMEOUT`, 10800 seconds), for
+   `@openmbee/sysml-mcp@<version>` on registry.npmjs.org, which CircleCI's `publish-npm` job
+   publishes on the same tag only after the suite and the GitHub release (the v0.10.0 and
+   v0.10.1 tags took 84 and 72 minutes to reach npm), and check that it declares the
+   `mcpName` above; the registry rejects a listing otherwise.
 2. Install the pinned `mcp-publisher` release (`scripts/install-mcp-publisher.sh`, which
    verifies the archive's SHA-256 against the one recorded there).
 3. Fill the tag's version into a copy of `server.json` (the committed file carries the

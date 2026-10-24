@@ -2903,6 +2903,12 @@ message RenderViewRequest {
   // How many levels of nested elements to draw below each exposed element,
   // overriding the depth the view states; 0 draws every level.
   int32 depth = 5;
+  // How a tree rendering folds a node's owned members into compartment rows,
+  // as view.ParseCompartments reads it: "" or "positioned" (the default, only
+  // the layout-less members of a tree some Layout positions), "most" (every
+  // owned usage no Layout, nested definition or package keeps a node) or
+  // "ports" (the port usages with the ports nested under them).
+  string compartments = 6;
 }
 
 // RenderViewResponse carries all machine-readable fields of the rendering.
@@ -2939,6 +2945,9 @@ message RenderNode {
   // Unset when no layout annotates the node; unplaced when the layout only folds or hides it.
   RenderGeometry geometry = 12;
   RenderStyle style = 13;
+  // The compartment of the parent node this node is drawn as a row of
+  // ("attributes", "parts", "ports", ...); unset for a node drawn as a box.
+  string compartment = 14;
 }
 
 // RenderPort is a feature drawn on a node's border.

@@ -358,8 +358,11 @@ fetch_manifest() {
 	info "  signature of SHA256SUMS.txt verified"
 }
 
-manifest_digest() { # <asset>: its digest in the manifest, empty when unlisted
-	awk -v name="$1" '{ n = $2; sub(/^\*/, "", n); if (n == name) print $1 }' "$work/SHA256SUMS.txt"
+# manifest_digest <asset>: its digest in the manifest, empty when unlisted. A line
+# repeated verbatim counts once, so two lines of output mean two different digests.
+manifest_digest() {
+	name=$1
+	awk -v name="$name" '{ n = $2; sub(/^\*/, "", n); if (n == name && !seen[$1]++) print $1 }' "$work/SHA256SUMS.txt"
 }
 
 info "Installing OpenSysML ($release_name) for $platform"
@@ -419,10 +422,16 @@ fi
 info "Downloading..."
 [ -f "$work/SHA256SUMS.txt" ] || fetch_manifest
 
+newline='
+'
 verify() { # <asset>: against the manifest
 	asset=$1
 	expected=$(manifest_digest "$asset")
 	[ -n "$expected" ] || fail "SHA256SUMS.txt of $release_name does not list $asset; releases before v0.0.4 have no bundle, sysml-grpc is published from v0.9.0 and sysml-jupyter-kernel from v0.10.0, and sysml-mcp has its own archive only from the release that introduced it"
+	case $expected in
+	*"$newline"*) fail "SHA256SUMS.txt of $release_name lists $asset with more than one digest ($(printf '%s' "$expected" | tr '\n' ' ')); the manifest is corrupt or tampered with" ;;
+	*) ;;
+	esac
 	actual=$(sha256_of "$work/$asset")
 	[ "$actual" = "$expected" ] || fail "$asset does not match SHA256SUMS.txt (expected $expected, got $actual); the download is corrupt or tampered with"
 	info "  $asset verified"

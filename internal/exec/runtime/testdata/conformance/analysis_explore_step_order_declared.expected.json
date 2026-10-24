@@ -3,5 +3,5 @@
   "type": "analysis",
   "evaluate": "test::An",
   "schedule": "declared",
-  "result": {"type": "Integer", "value": 12}
+  "result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 12}]}
 }

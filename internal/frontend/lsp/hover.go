@@ -82,7 +82,7 @@ func (s *Server) identityLine(doc string, sym *symbols.Symbol) string {
 		return ""
 	}
 	provenance := info.Source.String()
-	if info.Normative() {
+	if info.Fixed() {
 		provenance += ", " + info.Language.String()
 	}
 	return fmt.Sprintf("Element id `%s` (%s)", info.EffectiveID, provenance)

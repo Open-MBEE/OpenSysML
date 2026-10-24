@@ -288,6 +288,43 @@ func TestConfigureRefusesSelectionsWithAll(t *testing.T) {
 	}
 }
 
+// quotedFamily is a product line whose names the notation quotes, so the configure
+// tool's text must write them as the notation does.
+const quotedFamily = `package 'Cfg Space' {
+	part def E; part def T;
+	variation part def 'Engine Choices' :> E { variant part '4cyl' : E; variant part '6cyl' : E; }
+	abstract part 'the family' {
+		part engine : 'Engine Choices'[1];
+		variation part trans : T { variant man : T; variant 'auto box' : T; }
+		assert constraint { (engine == 'Engine Choices'::'4cyl' and trans == trans::man) xor (engine == 'Engine Choices'::'6cyl' and trans == trans::'auto box') }
+	}
+}`
+
+func TestConfigureWritesNamesAsTheNotationDoes(t *testing.T) {
+	if _, err := solve.Discover(); err != nil {
+		t.Skipf("no SMT solver installed: %v", err)
+	}
+	cs := connect(t, t.TempDir())
+	must(t, cs, "session_submit", args("text", quotedFamily), nil)
+
+	var res SolveResult
+	must(t, cs, "configure", args("name", "'Cfg Space'::'the family'", "all", true), &res)
+	for _, want := range []string{"Abstract part 'the family' permits 2 selections", "'Cfg Space'::'the family'::engine = 'Cfg Space'::'Engine Choices'::'4cyl'", "'Cfg Space'::'the family'::trans = 'Cfg Space'::'the family'::trans::'auto box'"} {
+		if !strings.Contains(res.Text, want) {
+			t.Errorf("configure all lacks %q:\n%s", want, res.Text)
+		}
+	}
+	must(t, cs, "configure", args("name", "'Cfg Space'::'the family'", "selections", []string{"engine='6cyl'", "trans=man"}), &res)
+	if res.Reports[0].Status != "unsat" || !strings.Contains(res.Text, "In the conflict: 'Cfg Space'::'the family'::engine = 'Cfg Space'::'Engine Choices'::'6cyl', 'Cfg Space'::'the family'::trans = 'Cfg Space'::'the family'::trans::man") {
+		t.Errorf("a refused selection = %+v", res)
+	}
+	for _, plain := range []string{"Cfg Space::", "::Engine Choices", "::the family", "::6cyl", "::4cyl", "::auto box", "Part the family"} {
+		if strings.Contains(res.Text, plain) {
+			t.Errorf("a name written without its quotes: %q in\n%s", plain, res.Text)
+		}
+	}
+}
+
 func TestDebuggerStepsAnActionToCompletion(t *testing.T) {
 	cs := connect(t, t.TempDir())
 	must(t, cs, "session_submit", args("text", actionModel), nil)
@@ -439,12 +476,12 @@ func TestSweepTablesEveryRow(t *testing.T) {
 	if v.Status != "holds" || len(v.Rows) != 3 {
 		t.Fatalf("sweep = %+v", v)
 	}
-	if !slices.Contains(v.Rows[2].Outputs, NamedValue{Name: "result", Value: "6.0"}) {
+	if !slices.Contains(v.Rows[2].Outputs, NamedValue{Name: "result", Value: "[6.0]"}) {
 		t.Errorf("third row = %+v", v.Rows[2])
 	}
 	var run Verdict
 	must(t, cs, "session_run", args("kind", "calc", "name", "Calcs::Double", "arguments", []string{"4.0"}), &run)
-	if run.Status != "holds" || !slices.Contains(run.Values, NamedValue{Name: "result", Value: "8.0"}) {
+	if run.Status != "holds" || !slices.Contains(run.Values, NamedValue{Name: "result", Value: "[8.0]"}) {
 		t.Errorf("run = %+v", run)
 	}
 	if res := call(t, cs, "session_run", args("kind", "dance", "name", "Calcs::Double"), nil); !res.IsError {
@@ -993,5 +1030,25 @@ func TestASaveInsideTheRootKeepsTheFileModeAndContent(t *testing.T) {
 	entries, _ := os.ReadDir(root)
 	if len(entries) != 1 {
 		t.Errorf("the root holds %d entries; want the file and no temporary left behind", len(entries))
+	}
+}
+
+// A submission dropped once its syntax error is reported is still the one that
+// error is located in, not the file loaded before it.
+func TestARejectedSubmissionIsLocatedInItself(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "veh.sysml"), []byte("package Veh {\n\tpart def Car;\n}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cs := connect(t, root)
+	must(t, cs, "session_load", args("paths", []string{"veh.sysml"}), nil)
+
+	var submitted SubmitResult
+	must(t, cs, "session_submit", args("text", "add(1, 2);"), &submitted)
+	if submitted.Accepted || len(submitted.Diagnostics) == 0 {
+		t.Fatalf("submit = %+v, want the syntax error reported", submitted)
+	}
+	if d := submitted.Diagnostics[0]; d.File != "" || d.Line != 1 || d.Column != 1 {
+		t.Errorf("the error was located at %s:%d:%d, want the submitted text at line 1, column 1", d.File, d.Line, d.Column)
 	}
 }

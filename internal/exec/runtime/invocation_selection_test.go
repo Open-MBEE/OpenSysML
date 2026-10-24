@@ -838,7 +838,7 @@ func testCalcCallSelectsByArgumentType(t *testing.T) {
 		if sym == nil {
 			t.Fatalf("%s calc not found", tc.calc)
 		}
-		result, err := ctx.InvokeCalc(sym, []Value{tc.arg}, rootScope)
+		result, err := invokeValue(ctx, sym, []Value{tc.arg}, rootScope)
 		if err != nil {
 			t.Fatalf("%s: %v", tc.calc, err)
 		}
@@ -880,6 +880,7 @@ func testCalcCallOmittingAnInputRunsTheFittingCandidate(t *testing.T) {
 	}
 	arg := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 3}}
 	result, err = ctx.InvokeCalc(complete, []Value{arg}, rootScope)
+	result = soleElement(result)
 	if err != nil {
 		t.Fatalf("pick(3): %v", err)
 	}
@@ -945,7 +946,7 @@ func testCalcCallSelectsAFeatureTypedByACalc(t *testing.T) {
 		if sym == nil {
 			t.Fatalf("%s calc not found", tc.calc)
 		}
-		result, err := ctx.InvokeCalc(sym, []Value{tc.arg}, rootScope)
+		result, err := invokeValue(ctx, sym, []Value{tc.arg}, rootScope)
 		if err != nil {
 			t.Fatalf("%s: %v", tc.calc, err)
 		}
@@ -1004,6 +1005,7 @@ func testCalcCallAppliesTheLibraryFunctionAFeatureIsTypedBy(t *testing.T) {
 			t.Fatalf("%s calc not found", tc.calc)
 		}
 		result, err := ctx.InvokeCalc(sym, nil, rootScope)
+		result = soleElement(result)
 		if err != nil {
 			t.Fatalf("%s: %v", tc.calc, err)
 		}
@@ -1091,6 +1093,7 @@ func testCalcCallBindsALibraryFunctionThroughRedeclaredInputs(t *testing.T) {
 			t.Fatalf("%s calc not found", tc.calc)
 		}
 		result, err := ctx.InvokeCalc(sym, nil, rootScope)
+		result = soleElement(result)
 		if err != nil {
 			t.Fatalf("%s: %v", tc.calc, err)
 		}
@@ -1168,6 +1171,7 @@ func testCalcCallSelectsACalcOverAMoreSpecificAction(t *testing.T) {
 			t.Fatal("choose calc not found")
 		}
 		result, err := ctx.InvokeCalc(choose, []Value{three}, rootScope)
+		result = soleElement(result)
 		if err != nil {
 			t.Fatalf("%s: pick(3): %v", generals, err)
 		}
@@ -1226,6 +1230,7 @@ func testGlobalRootCallSelectsByArgumentType(t *testing.T) {
 	}
 	for _, tc := range cases {
 		val, err := ctx.EvalWithScope(call(tc.arg), pkg.Scope)
+		val = soleElement(val)
 		if err != nil || FormatValue(val) != tc.want {
 			t.Errorf("$::pick(%s) = (%v, %v), want %s", tc.name, val, err, tc.want)
 		}
@@ -1262,7 +1267,7 @@ func testBareCallSelectsAmongOtherDocumentsRootDeclarations(t *testing.T) {
 		if sym == nil {
 			t.Fatalf("%s calc not found", calc)
 		}
-		result, err := ctx.InvokeCalc(sym, nil, rootScope)
+		result, err := invokeValue(ctx, sym, nil, rootScope)
 		if err != nil {
 			t.Fatalf("%s: %v", calc, err)
 		}
@@ -1306,7 +1311,7 @@ func testBareCallReachesPrivateRootDeclarationsOfOtherDocuments(t *testing.T) {
 		if sym == nil {
 			t.Fatalf("%s calc not found", calc)
 		}
-		result, err := ctx.InvokeCalc(sym, nil, rootScope)
+		result, err := invokeValue(ctx, sym, nil, rootScope)
 		if err != nil {
 			t.Fatalf("%s: %v", calc, err)
 		}
@@ -1336,7 +1341,7 @@ func testCalcCallTypedParameterBeatsUntyped(t *testing.T) {
 			t.Fatalf("%s calc not found", calc)
 		}
 		arg := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 3}}
-		result, err := ctx.InvokeCalc(sym, []Value{arg}, rootScope)
+		result, err := invokeValue(ctx, sym, []Value{arg}, rootScope)
 		if err != nil {
 			t.Fatalf("%s: %v", calc, err)
 		}
@@ -1445,7 +1450,7 @@ func testCalcCallUndeterminedStaticallyIsSettledByTheValues(t *testing.T) {
 		arg  Value
 		want int64
 	}{{"integer", intVal, 1}, {"string", strVal, 2}} {
-		result, err := ctx.InvokeCalc(choose, []Value{tc.arg}, rootScope)
+		result, err := invokeValue(ctx, choose, []Value{tc.arg}, rootScope)
 		if err != nil {
 			t.Fatalf("%s: %v", tc.name, err)
 		}
@@ -1509,7 +1514,7 @@ func testCalcCallUndeterminedStaticallyTypesAValueAsItsLiteral(t *testing.T) {
 		if sym == nil {
 			t.Fatalf("%s calc not found", calc)
 		}
-		result, err := ctx.InvokeCalc(sym, args, rootScope)
+		result, err := invokeValue(ctx, sym, args, rootScope)
 		if err != nil {
 			t.Fatalf("%s(%v): %v", calc, args, err)
 		}
@@ -1568,13 +1573,14 @@ func testCalcCallUndeterminedStaticallyKeepsADeferredArgumentUnevaluated(t *test
 		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: n}}
 	}
 	result, err := ctx.InvokeCalc(choose, []Value{{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: false}}, intVal(0)}, rootScope)
+	result = soleElement(result)
 	if err != nil {
 		t.Fatalf("false and 10 %% 0: %v", err)
 	}
 	if result.Kind != ValConst || result.Const.Kind != semantics.ValBool || result.Const.Bool {
 		t.Fatalf("false and 10 %% 0 = %s, want false", FormatValue(result))
 	}
-	result, err = ctx.InvokeCalc(choose, []Value{intVal(2), intVal(3)}, rootScope)
+	result, err = invokeValue(ctx, choose, []Value{intVal(2), intVal(3)}, rootScope)
 	if err != nil {
 		t.Fatalf("2 'and' 10 %% 3: %v", err)
 	}
@@ -1617,7 +1623,7 @@ func testCalcCallUndeterminedStaticallyIsSettledByEveryClassifier(t *testing.T) 
 	if b := idx.LookupQualified("P::B"); err != nil || len(b) != 1 || len(types) < 2 || types[0] == b[0] {
 		t.Fatalf("x is of %v (%v), want several types with B not first", types, err)
 	}
-	result, err := ctx.InvokeCalc(choose, []Value{{Kind: ValInstance, Instance: x.ID}}, rootScope)
+	result, err := invokeValue(ctx, choose, []Value{{Kind: ValInstance, Instance: x.ID}}, rootScope)
 	if err != nil {
 		t.Fatalf("pick(x): %v", err)
 	}
@@ -1682,6 +1688,7 @@ func testCalcCallNamesAParameterAsTheCheckerDoes(t *testing.T) {
 			t.Fatalf("%s calc not found", calc)
 		}
 		result, err := ctx.InvokeCalc(sym, nil, rootScope)
+		result = soleElement(result)
 		if err != nil {
 			t.Fatalf("%s: %v", calc, err)
 		}
@@ -1734,6 +1741,7 @@ func testCalcCallSelectsBySiblingScalarType(t *testing.T) {
 		}
 		arg := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 3}}
 		result, err := ctx.InvokeCalc(sym, []Value{arg}, rootScope)
+		result = soleElement(result)
 		if err != nil {
 			t.Fatalf("%s: %v", calc, err)
 		}
@@ -1798,7 +1806,7 @@ func testCalcCallSelectsByCollectionLiteralElementType(t *testing.T) {
 		if sym == nil {
 			t.Fatalf("%s calc not found", calc)
 		}
-		result, err := ctx.InvokeCalc(sym, nil, rootScope)
+		result, err := invokeValue(ctx, sym, nil, rootScope)
 		if err != nil {
 			t.Fatalf("%s: %v", calc, err)
 		}
@@ -1890,7 +1898,7 @@ func testCalcCallSelectsAmongOwnedInheritedAndRecursiveImport(t *testing.T) {
 		if len(matches) != 1 {
 			t.Fatalf("%s: %d symbols, want 1", tc.qual, len(matches))
 		}
-		result, err := ctx.InvokeCalc(matches[0], []Value{tc.arg}, rootScope)
+		result, err := invokeValue(ctx, matches[0], []Value{tc.arg}, rootScope)
 		if err != nil {
 			t.Fatalf("%s: %v", tc.qual, err)
 		}
@@ -1950,6 +1958,7 @@ func testCalcCallSelectsByNamedArgument(t *testing.T) {
 		}
 		arg := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 3}}
 		result, err := ctx.InvokeCalc(sym, []Value{arg}, rootScope)
+		result = soleElement(result)
 		if err != nil {
 			t.Fatalf("%s: %v", calc, err)
 		}

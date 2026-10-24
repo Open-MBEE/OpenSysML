@@ -5,5 +5,5 @@
     {"type": "Real", "value": 7.5},
     {"type": "Real", "value": 2.0}
   ],
-  "result": {"type": "Integer", "value": -1022}
+  "result": {"type": "Sequence", "elements": [{"type": "Integer", "value": -1022}]}
 }

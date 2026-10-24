@@ -1,0 +1,27 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Ordered" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Shelf"
+          (Membership visibility="default"
+            (Usage kind="part" name="content" ref=true direction="none" composite=false derived=false ordered=false nonunique=false
+              (Multiplicity range=false
+                (LiteralInfinity))))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="OrderedShelf"
+          (Relationship kind="specializes" target=Shelf
+            (*ast.QualifiedName))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="orderedContent" ref=false direction="none" composite=false derived=false ordered=true nonunique=false
+              (Relationship kind="redefines" target=content
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="bagContent" ref=false direction="none" composite=false derived=false ordered=false nonunique=true
+              (Relationship kind="redefines" target=content
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="listContent" ref=false direction="none" composite=false derived=false ordered=true nonunique=true
+              (Relationship kind="redefines" target=content
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="items" ref=false direction="none" composite=false derived=false ordered=true nonunique=false)))))))

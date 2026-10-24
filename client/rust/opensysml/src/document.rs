@@ -329,6 +329,29 @@ pub enum RenderViewPorts {
     Full,
 }
 
+/// How a tree rendering folds a node's owned members into compartment rows.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum RenderViewCompartments {
+    /// Only the layout-less members of a tree some Layout positions.
+    #[default]
+    Positioned,
+    /// Every owned usage no Layout, nested definition or package keeps a node.
+    Most,
+    /// The port usages, with the ports nested under them.
+    Ports,
+}
+
+impl RenderViewCompartments {
+    /// The name the service reads the folding by; empty for the default.
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            RenderViewCompartments::Positioned => "",
+            RenderViewCompartments::Most => "most",
+            RenderViewCompartments::Ports => "ports",
+        }
+    }
+}
+
 /// A source location carried by a rendered node, edge, or row.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RenderSpan {
@@ -425,6 +448,9 @@ pub struct RenderNode {
     pub stand_in: bool,
     /// Parent node identifier.
     pub parent: String,
+    /// The compartment of the parent this node is a row of ("attributes",
+    /// "parts", "ports", ...); empty for a node drawn as a box.
+    pub compartment: String,
     /// Ports included for this node.
     pub ports: Vec<RenderPort>,
     /// Source location, when available.
@@ -577,6 +603,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
                 text: node.text,
                 stand_in: node.stand_in,
                 parent: node.parent,
+                compartment: node.compartment,
                 ports: node
                     .ports
                     .into_iter()

@@ -435,7 +435,11 @@ export class Model {
   /** Renders a named view or targeted pseudo-view as diagram data. */
   renderView(
     viewName: string,
-    options: { ports?: "minimal" | "full"; show?: readonly string[] } = {},
+    options: {
+      ports?: "minimal" | "full";
+      show?: readonly string[];
+      compartments?: "positioned" | "most" | "ports";
+    } = {},
   ): Promise<RenderedView> {
     return this.connection.renderView(this.hash, viewName, options);
   }

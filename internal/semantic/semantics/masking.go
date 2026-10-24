@@ -74,6 +74,11 @@ func (m *Model) AllRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil {
 		return nil
 	}
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := m.allRedefined[sym]; ok {
+		return cached
+	}
+	m.resolver.Enter()
 	var out []*symbols.Symbol
 	seen := map[*symbols.Symbol]bool{sym: true}
 	var visit func(*symbols.Symbol)
@@ -88,6 +93,13 @@ func (m *Model) AllRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 	}
 	visit(sym)
+	// A closure walked while a guard cut a query short may lack a target, so it
+	// is recomputed on the next query, not memoized.
+	if !m.resolver.Leave() {
+		return out
+	}
+	journal(m, m.allRedefined, sym, sym.Decl)
+	m.allRedefined[sym] = out
 	return out
 }
 
@@ -190,6 +202,11 @@ func inheritedIdentifier(
 // NamingFeatureOf is the feature sym takes its name and short name from when it
 // declares neither (KerML 8.3.3.3 namingFeature): referenced, else first redefined.
 func (m *Model) NamingFeatureOf(sym *symbols.Symbol) *symbols.Symbol {
+	return m.namingFeature(sym)
+}
+
+// NamingFeature returns the feature that gives sym its effective name.
+func (m *Model) NamingFeature(sym *symbols.Symbol) *symbols.Symbol {
 	return m.namingFeature(sym)
 }
 

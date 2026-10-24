@@ -1,1 +1,0 @@
-- **The command reference spells `sysml`'s flags as `-help` does.** The flag table in `docs/reference/cli.md` wrote every flag with two dashes (`--migration-results`, `--render-show`, …) where the usage, the manual page and the rest of the reference write one (`-migration-results`); the table now matches. Both spellings are accepted on the command line, as before.

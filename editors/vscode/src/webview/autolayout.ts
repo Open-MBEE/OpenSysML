@@ -48,8 +48,15 @@ const ORDER_STEP = 100000;
  * autoLayout lays the rendering out with ELK, or returns undefined when the kind
  * has no editable canvas, the rendering is too large, or ELK fails.
  */
+/** How autoLayout treats the model's own placements. */
+export interface AutoLayoutOptions {
+  /** Lay every node and edge out afresh, ignoring the model's Layout and Route annotations, as the panel's Auto layout command does. */
+  free?: boolean;
+}
+
 export async function autoLayout(
   result: RenderResult,
+  options: AutoLayoutOptions = {},
 ): Promise<AutoLayout | undefined> {
   if (
     !PLACEABLE_KINDS.has(result.kind) ||
@@ -59,7 +66,7 @@ export async function autoLayout(
     return undefined;
   }
   try {
-    return await layOut(result);
+    return await layOut(result, options.free === true);
   } catch (err) {
     console.warn(
       `auto layout failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -71,7 +78,7 @@ export async function autoLayout(
 // layOut hands ELK the nodes — nested as the model owns them — and the edges, and
 // reads back absolute canvas geometry: node coordinates are relative to their
 // parent in ELK's JSON, and edge section coordinates relative to the root.
-async function layOut(result: RenderResult): Promise<AutoLayout> {
+async function layOut(result: RenderResult, free: boolean): Promise<AutoLayout> {
   const nodes = result.nodes ?? [];
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const children = new Map<string | undefined, RenderNode[]>();
@@ -273,7 +280,7 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
   const routes = new Map<number, RenderPoint[]>();
   for (const edge of laid.edges ?? []) {
     const index = Number(edge.id.slice(1));
-    if ((result.edges?.[index]?.route?.length ?? 0) > 0) {
+    if (!free && (result.edges?.[index]?.route?.length ?? 0) > 0) {
       continue;
     }
     const points: RenderPoint[] = [];
@@ -294,7 +301,9 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
       );
     }
   }
-  reconcile(result, children, placed, routes);
+  if (!free) {
+    reconcile(result, children, placed, routes);
+  }
   return { nodes: placed, routes, ports };
 }
 
