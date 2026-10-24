@@ -114,7 +114,7 @@ successors: undetermined <undetermined>  [undetermined pilot=decl]
 superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl]
 that: undetermined <undetermined>  [undetermined pilot=decl]
-this: act  [static-only pilot=decl]
+this: root  [populated pilot=decl]
 thisPerformance: act  [static-only pilot=decl]
 timeCoincidentOccurrences: [act]  [static-only pilot=decl]
 timeEnclosedOccurrences: undetermined <undetermined>  [undetermined pilot=decl]
@@ -256,7 +256,7 @@ successors: undetermined <undetermined>  [undetermined pilot=decl]
 superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl]
 that: undetermined <undetermined>  [undetermined pilot=decl]
-this: act  [static-only pilot=decl]
+this: root  [populated pilot=decl]
 thisPerformance: act  [static-only pilot=decl]
 timeCoincidentOccurrences: [act]  [static-only pilot=decl]
 timeEnclosedOccurrences: undetermined <undetermined>  [undetermined pilot=decl]
@@ -398,7 +398,7 @@ successors: empty  [populated pilot=decl]
 superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl]
 that: undetermined <undetermined>  [undetermined pilot=decl]
-this: act  [static-only pilot=decl]
+this: root  [populated pilot=decl]
 thisPerformance: act  [static-only pilot=decl]
 timeCoincidentOccurrences: [act]  [static-only pilot=decl]
 timeEnclosedOccurrences: [act, object of Running::clock_wait::Root::act::w, object of Running::clock_wait::Root::act::m, object of Running::clock_wait::Root::act, object of Running::clock_wait::Root::act]  [populated pilot=decl]
@@ -428,7 +428,7 @@ self.predecessors->SequenceFunctions::includes(act): constant false  [populated 
 act.timeEnclosedOccurrences->SequenceFunctions::includes(self): constant false  [populated pilot=decl]
 
 ## buckets
-populated: 49
+populated: 52
 refused: 15
-static-only: 246
+static-only: 243
 undetermined: 101

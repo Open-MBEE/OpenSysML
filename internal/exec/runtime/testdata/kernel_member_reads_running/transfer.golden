@@ -354,7 +354,7 @@ successors: undetermined <undetermined>  [undetermined pilot=decl]
 superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl]
 that: undetermined <undetermined>  [undetermined pilot=decl]
-this: x.snd  [static-only pilot=decl]
+this: x  [populated pilot=decl]
 thisPerformance: x.snd  [static-only pilot=decl]
 timeCoincidentOccurrences: [x.snd]  [static-only pilot=decl]
 timeEnclosedOccurrences: undetermined <undetermined>  [undetermined pilot=decl]
@@ -415,7 +415,7 @@ successors: undetermined <undetermined>  [undetermined pilot=decl]
 superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl]
 that: undetermined <undetermined>  [undetermined pilot=decl]
-this: y.rcv  [static-only pilot=decl]
+this: y  [populated pilot=decl]
 thisPerformance: y.rcv  [static-only pilot=decl]
 timeCoincidentOccurrences: [y.rcv]  [static-only pilot=decl]
 timeEnclosedOccurrences: undetermined <undetermined>  [undetermined pilot=decl]
@@ -798,7 +798,7 @@ successors: [object of Running::transfer::Recv::rcv, object of Transfers::Transf
 superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl]
 that: undetermined <undetermined>  [undetermined pilot=decl]
-this: x.snd  [static-only pilot=decl]
+this: x  [populated pilot=decl]
 thisPerformance: x.snd  [static-only pilot=decl]
 timeCoincidentOccurrences: [x.snd]  [static-only pilot=decl]
 timeEnclosedOccurrences: [x.snd, object of Running::transfer::Sender::snd::w, object of Running::transfer::Sender::snd::s, object of Running::transfer::Sender::snd, object of Running::transfer::Sender::snd]  [populated pilot=decl]
@@ -859,7 +859,7 @@ successors: empty  [populated pilot=decl]
 superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl]
 that: undetermined <undetermined>  [undetermined pilot=decl]
-this: y.rcv  [static-only pilot=decl]
+this: y  [populated pilot=decl]
 thisPerformance: y.rcv  [static-only pilot=decl]
 timeCoincidentOccurrences: [y.rcv]  [static-only pilot=decl]
 timeEnclosedOccurrences: [y.rcv, object of Running::transfer::Recv::rcv::r, object of Running::transfer::Recv::rcv::g, object of Running::transfer::Recv::rcv, object of Running::transfer::Recv::rcv]  [populated pilot=decl]
@@ -890,7 +890,7 @@ y.rcv.predecessors->SequenceFunctions::includes(x.snd): constant false  [populat
 x.snd.timeEnclosedOccurrences->SequenceFunctions::includes(y.rcv): constant false  [populated pilot=decl]
 
 ## buckets
-populated: 76
+populated: 80
 refused: 10
-static-only: 562
+static-only: 558
 undetermined: 220

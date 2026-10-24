@@ -114,7 +114,7 @@ successors: undetermined <undetermined>  [undetermined pilot=decl]
 superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl]
 that: undetermined <undetermined>  [undetermined pilot=decl]
-this: loopy  [static-only pilot=decl]
+this: root  [populated pilot=decl]
 thisPerformance: loopy  [static-only pilot=decl]
 timeCoincidentOccurrences: [loopy]  [static-only pilot=decl]
 timeEnclosedOccurrences: undetermined <undetermined>  [undetermined pilot=decl]
@@ -256,7 +256,7 @@ successors: undetermined <undetermined>  [undetermined pilot=decl]
 superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl]
 that: undetermined <undetermined>  [undetermined pilot=decl]
-this: loopy  [static-only pilot=decl]
+this: root  [populated pilot=decl]
 thisPerformance: loopy  [static-only pilot=decl]
 timeCoincidentOccurrences: [loopy]  [static-only pilot=decl]
 timeEnclosedOccurrences: undetermined <undetermined>  [undetermined pilot=decl]
@@ -398,7 +398,7 @@ successors: empty  [populated pilot=decl]
 superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl]
 that: undetermined <undetermined>  [undetermined pilot=decl]
-this: loopy  [static-only pilot=decl]
+this: root  [populated pilot=decl]
 thisPerformance: loopy  [static-only pilot=decl]
 timeCoincidentOccurrences: [loopy]  [static-only pilot=decl]
 timeEnclosedOccurrences: [loopy, object of Running::loop::Root::loopy, object of Running::loop::Root::loopy]  [populated pilot=decl]
@@ -428,7 +428,7 @@ self.predecessors->SequenceFunctions::includes(loopy): constant false  [populate
 loopy.timeEnclosedOccurrences->SequenceFunctions::includes(self): constant false  [populated pilot=decl]
 
 ## buckets
-populated: 43
+populated: 46
 refused: 21
-static-only: 246
+static-only: 243
 undetermined: 101

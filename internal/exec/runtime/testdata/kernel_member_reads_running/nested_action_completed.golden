@@ -114,7 +114,7 @@ successors: empty  [populated pilot=decl]
 superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl]
 that: undetermined <undetermined>  [undetermined pilot=decl]
-this: act  [static-only pilot=decl]
+this: root  [populated pilot=decl]
 thisPerformance: act  [static-only pilot=decl]
 timeCoincidentOccurrences: [act]  [static-only pilot=decl]
 timeEnclosedOccurrences: [act, object of Running::nested_action_completed::Root::act::s1, object of Running::nested_action_completed::Root::act::s2, object of Running::nested_action_completed::Root::act, object of Running::nested_action_completed::Root::act]  [populated pilot=decl]
@@ -146,7 +146,7 @@ self.predecessors->SequenceFunctions::includes(act): constant false  [populated 
 act.timeEnclosedOccurrences->SequenceFunctions::includes(self): constant false  [populated pilot=decl]
 
 ## buckets
-populated: 26
+populated: 27
 refused: 6
-static-only: 82
+static-only: 81
 undetermined: 25

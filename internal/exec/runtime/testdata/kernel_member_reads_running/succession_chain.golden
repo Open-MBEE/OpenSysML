@@ -115,7 +115,7 @@ successors: [b, object of Running::succession_chain::Root::b]  [populated pilot=
 superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl]
 that: undetermined <undetermined>  [undetermined pilot=decl]
-this: a  [static-only pilot=decl]
+this: root  [populated pilot=decl]
 thisPerformance: a  [static-only pilot=decl]
 timeCoincidentOccurrences: [a]  [static-only pilot=decl]
 timeEnclosedOccurrences: [a, object of Running::succession_chain::Root::a, object of Running::succession_chain::Root::a]  [populated pilot=decl]
@@ -176,7 +176,7 @@ successors: undetermined <undetermined>  [undetermined pilot=decl]
 superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl]
 that: undetermined <undetermined>  [undetermined pilot=decl]
-this: b  [static-only pilot=decl]
+this: root  [populated pilot=decl]
 thisPerformance: b  [static-only pilot=decl]
 timeCoincidentOccurrences: [b]  [static-only pilot=decl]
 timeEnclosedOccurrences: undetermined <undetermined>  [undetermined pilot=decl]
@@ -238,7 +238,7 @@ successors: undetermined <undetermined>  [undetermined pilot=decl]
 superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl]
 that: undetermined <undetermined>  [undetermined pilot=decl]
-this: c  [static-only pilot=decl]
+this: root  [populated pilot=decl]
 thisPerformance: c  [static-only pilot=decl]
 timeCoincidentOccurrences: [c]  [static-only pilot=decl]
 timeEnclosedOccurrences: undetermined <undetermined>  [undetermined pilot=decl]
@@ -384,7 +384,7 @@ successors: [b, c, object of Running::succession_chain::Root::b, object of Runni
 superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl]
 that: undetermined <undetermined>  [undetermined pilot=decl]
-this: a  [static-only pilot=decl]
+this: root  [populated pilot=decl]
 thisPerformance: a  [static-only pilot=decl]
 timeCoincidentOccurrences: [a]  [static-only pilot=decl]
 timeEnclosedOccurrences: [a, object of Running::succession_chain::Root::a, object of Running::succession_chain::Root::a]  [populated pilot=decl]
@@ -445,7 +445,7 @@ successors: [c, object of Running::succession_chain::Root::c, object of Running:
 superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl]
 that: undetermined <undetermined>  [undetermined pilot=decl]
-this: b  [static-only pilot=decl]
+this: root  [populated pilot=decl]
 thisPerformance: b  [static-only pilot=decl]
 timeCoincidentOccurrences: [b]  [static-only pilot=decl]
 timeEnclosedOccurrences: [b, object of Running::succession_chain::Root::b::w, object of Running::succession_chain::Root::b, object of Running::succession_chain::Root::b]  [populated pilot=decl]
@@ -507,7 +507,7 @@ successors: empty  [populated pilot=decl]
 superoccurrence: null  [static-only pilot=decl]
 surroundedByOccurrences: empty  [static-only pilot=decl]
 that: undetermined <undetermined>  [undetermined pilot=decl]
-this: c  [static-only pilot=decl]
+this: root  [populated pilot=decl]
 thisPerformance: c  [static-only pilot=decl]
 timeCoincidentOccurrences: [c]  [static-only pilot=decl]
 timeEnclosedOccurrences: [c, object of Running::succession_chain::Root::c, object of Running::succession_chain::Root::c]  [populated pilot=decl]
@@ -540,7 +540,7 @@ b.predecessors->SequenceFunctions::includes(a): constant true  [populated pilot=
 a.timeEnclosedOccurrences->SequenceFunctions::includes(b): constant false  [populated pilot=decl]
 
 ## buckets
-populated: 80
+populated: 86
 refused: 10
-static-only: 329
+static-only: 323
 undetermined: 105
