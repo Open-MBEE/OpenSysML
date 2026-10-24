@@ -166,9 +166,14 @@ async function layOut(result: RenderResult, free: boolean): Promise<AutoLayout> 
   const packed = new Map<string, ElkNode>();
   const names = simpleNames(result.nodes ?? []);
   const elkNode = (node: RenderNode, packing = false): ElkNode => {
-    const size =
+    const label =
       symbolSize(shapeOf(node.kind)) ??
       labelSize(labelLines(node, result.shown, names));
+    // A stated size is the box ELK lays the node's siblings out around; its label is the padding above its children.
+    const size =
+      !free && node.width !== undefined && node.height !== undefined
+        ? { width: node.width, height: node.height }
+        : label;
     const kids = nested(node);
     const alone = packed.get(node.id);
     const order = (children.get(node.parent) ?? []).indexOf(node);
@@ -209,7 +214,7 @@ async function layOut(result: RenderResult, free: boolean): Promise<AutoLayout> 
               "elk.aspectRatio": `${PACK_ASPECT_RATIO}`,
             }
           : {}),
-        "elk.padding": `[top=${size.height},left=${CONTAINER_PAD},bottom=${CONTAINER_PAD},right=${CONTAINER_PAD}]`,
+        "elk.padding": `[top=${label.height},left=${CONTAINER_PAD},bottom=${CONTAINER_PAD},right=${CONTAINER_PAD}]`,
         "elk.nodeSize.constraints": "MINIMUM_SIZE",
         "elk.nodeSize.minimum": `(${size.width},${size.height})`,
       };

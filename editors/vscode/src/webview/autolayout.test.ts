@@ -331,3 +331,26 @@ test("autoLayout lays a leaf port node out as a pin on its owner's border, and t
   assert.deepEqual(start, portFace(a.box, canvas.nodes.get("p1")!.snapped!));
   assert.deepEqual(end, portFace(b.box, canvas.nodes.get("q")!.snapped!));
 });
+
+test("autoLayout lays an unplaced sibling out clear of a stated box, not of the box ELK would have sized", async () => {
+  const result = rendering(
+    [
+      node("rig", "Rig", { kind: "part def" }),
+      node("a", "a", { parent: "rig", x: 10, y: 10, width: 300, height: 200 }),
+      node("inner", "inner", { parent: "a" }),
+      node("p1", "p1", { kind: "port", parent: "a" }),
+      node("b", "b", { parent: "rig" }),
+      node("q", "q", { kind: "port", parent: "b" }),
+    ],
+    [edge("p1", "q")],
+    { kind: "interconnection" },
+  );
+  const laid = await autoLayout(result);
+  assert.ok(laid);
+  const canvas = layoutCanvas(result, {}, laid);
+  const a = canvas.nodes.get("a")!;
+  const b = canvas.nodes.get("b")!;
+  assert.deepEqual(a.box, { x: 10, y: 10, width: 300, height: 200 });
+  assert.ok(disjoint(a.box, b.box), `b at ${JSON.stringify(b.box)} overlaps a at ${JSON.stringify(a.box)}`);
+  assert.equal(canvas.nodes.get("inner")!.clipped, false);
+});
