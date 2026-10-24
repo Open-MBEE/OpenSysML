@@ -1,0 +1,16 @@
+{
+  "name": "opensysml-asciidoctor-json",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Parses an AsciiDoc body with Asciidoctor.js into the JSON tree OpenSysML plans document prose from",
+  "license": "Apache-2.0",
+  "bin": {
+    "asciidoctor-json": "./asciidoctor-json.js"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@asciidoctor/core": "3.0.4"
+  }
+}

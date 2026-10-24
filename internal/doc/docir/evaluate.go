@@ -534,6 +534,9 @@ func presentColumns(columns []queryexec.Column, widths []int, labels []string) [
 }
 
 func (e *evaluator) evaluateTable(node docplan.Content) (Content, error) {
+	if node.Query() == nil {
+		return staticTable(node), nil
+	}
 	result, err := e.executeQuery(node)
 	if err != nil {
 		return Content{}, err
@@ -557,6 +560,34 @@ func (e *evaluator) evaluateTable(node docplan.Content) (Content, error) {
 		content.groups = groups
 	}
 	return content, nil
+}
+
+// staticTable is a table whose header and rows were planned from a markup
+// body: its columns are headed and sized as written, and its rows select no
+// element.
+func staticTable(node docplan.Content) Content {
+	labels, widths := node.ColumnLabels(), node.ColumnWidths()
+	columns := make([]queryexec.Column, len(labels))
+	for i, label := range labels {
+		width := 0
+		if i < len(widths) {
+			width = widths[i]
+		}
+		columns[i] = queryexec.StaticColumn(label, width, node.Origin())
+	}
+	planned := node.Rows()
+	rows := make([]queryexec.Row, len(planned))
+	for i, row := range planned {
+		rows[i] = queryexec.StaticRow(row.Cells(), row.Origin())
+	}
+	return Content{
+		kind:    ContentTable,
+		name:    node.Name(),
+		caption: node.Caption(),
+		columns: columns,
+		rows:    rows,
+		origin:  node.Origin(),
+	}
 }
 
 // groupRows partitions a grouped table's rows by the group column's cell

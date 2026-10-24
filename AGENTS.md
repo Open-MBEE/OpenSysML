@@ -93,6 +93,11 @@ that nothing else needs. `./scripts/download-doc-pdf-toolchain.sh` provisions pi
 `build/doc-pdf/`; point `OPENSYSML_WEASYPRINT`, `OPENSYSML_PANDOC`, `OPENSYSML_MMDC` and
 `OPENSYSML_MMDC_PUPPETEER` at them to run the PDF integration tests. Those tests skip rather than
 fail when a converter is absent, so a passing run proves nothing until the converters were found.
+The same script installs Asciidoctor.js under `build/doc-pdf/asciidoctor/` for `rep language "asciidoc"`
+prose bodies, which `scripts/asciidoc/asciidoctor-json.js` parses into JSON for the document planner;
+point `OPENSYSML_ASCIIDOCTOR` at the installed copy. The planner's tests run against recorded converter
+answers under `internal/ir/docplan/markup/testdata/`, and the `Installed` test there checks the recordings
+against the pinned converter — re-record them (`asciidoctor-json.js < x.adoc > x.json`) when either moves.
 
 The RDF mapping has a per-file ratchet of its own over every model under `examples/`, the
 downloaded corpora included: `TestCorpusRoundTrip` in `tests/corpus` converts each file

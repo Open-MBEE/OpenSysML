@@ -389,3 +389,20 @@ func (r *RowSet) Origin() symbols.Origin {
 	}
 	return r.origin
 }
+
+// StaticColumn is a column of a table whose rows were written out rather than
+// queried: headed label, sized width (0 for automatic), and originating where
+// the table was written.
+func StaticColumn(label string, width int, origin symbols.Origin) Column {
+	return Column{name: label, label: label, width: width, origin: origin}
+}
+
+// StaticRow is a row written out rather than queried: one text cell per
+// column, originating where the row was written, and selecting no element.
+func StaticRow(cells []string, origin symbols.Origin) Row {
+	row := Row{cells: make([]Cell, len(cells))}
+	for i, text := range cells {
+		row.cells[i] = Cell{values: []Value{StringValue(text)}, origin: origin}
+	}
+	return row
+}

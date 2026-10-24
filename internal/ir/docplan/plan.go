@@ -333,6 +333,7 @@ type Content struct {
 	description  string
 	runs         []Run
 	items        []ListItem
+	rows         []TableRow
 	columnRuns   []ColumnRun
 	query        *QueryRef
 	diagram      *DiagramRef
@@ -406,6 +407,28 @@ type ListItem struct {
 	origin symbols.Origin
 }
 
+// Rows returns the written-out rows of a static table, in order.
+func (c Content) Rows() []TableRow {
+	rows := make([]TableRow, len(c.rows))
+	for i, row := range c.rows {
+		rows[i] = TableRow{cells: append([]string(nil), row.cells...), origin: row.origin}
+	}
+	return rows
+}
+
+// TableRow is one written-out table row: one text cell per column and where
+// it was written.
+type TableRow struct {
+	cells  []string
+	origin symbols.Origin
+}
+
+// Cells returns the row's cell texts, one per column.
+func (r TableRow) Cells() []string { return append([]string(nil), r.cells...) }
+
+// Origin returns where the row was written.
+func (r TableRow) Origin() symbols.Origin { return r.origin }
+
 // Runs returns the item's inline runs.
 func (i ListItem) Runs() []Run { return cloneRuns(i.runs) }
 
@@ -447,6 +470,7 @@ func cloneContent(content []Content) []Content {
 			description:  child.description,
 			runs:         cloneRuns(child.runs),
 			items:        child.Items(),
+			rows:         child.Rows(),
 			columnRuns:   append([]ColumnRun(nil), child.columnRuns...),
 			query:        child.query,
 			diagram:      child.diagram,
