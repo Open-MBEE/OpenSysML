@@ -513,6 +513,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -o report.md", ""),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form pdf -o report.pdf", ""),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form html -o report.html", ""),
+				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form asciidoc -o report.adoc", ""),
 				usage.Ex("sysml model.sysml -render-documents rendered", "every document, linked"),
 				usage.Ex("sysml model.sysml -render-documents site -doc-form html -html-css theme.css", ""),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form html -html-theme report -o report.html", "a bundled theme"),

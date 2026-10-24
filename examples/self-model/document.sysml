@@ -127,27 +127,21 @@ package OpenSysMLDocument {
         attribute redefines title = "OpenSysML Architecture";
 
         part summary : Paragraph {
-            attribute redefines text = "OpenSysML analyses SysML v2 and KerML in one pass from text to a runnable graph. This document is generated from a model of that architecture rather than written alongside it: every diagram and table below is rendered from the same model the toolchain analyses, so a stage that moves in the code moves here too.";
+            :>> text = "OpenSysML analyses SysML v2 and KerML in one pass from text to a runnable graph. This document is generated from a model of that architecture rather than written alongside it: every diagram and table below is rendered from the same model the toolchain analyses, so a stage that moves in the code moves here too.";
         }
 
         part reading : Paragraph {
-            part lead : Span {
-                attribute redefines text = "The model lives in";
-            }
-            part source : Link {
-                attribute redefines text = "examples/self-model";
-                attribute redefines target = "https://github.com/Open-MBEE/OpenSysML/tree/main/examples/self-model";
-            }
-            part rest : Span {
-                attribute redefines text = "and the prose reference it illustrates is docs/internals/architecture.md.";
-            }
+            rep language "markdown" /* The model lives in
+             * [examples/self-model](https://github.com/Open-MBEE/OpenSysML/tree/main/examples/self-model)
+             * and the prose reference it illustrates is `docs/internals/architecture.md`.
+             */
         }
 
         part pipeline : Section {
             attribute redefines title = "The analysis pipeline";
 
             part intro : Paragraph {
-                attribute redefines text = "Text becomes tokens, a tree, a symbol index, resolved names, types, diagnostics and finally an execution graph. Each stage owns one artifact and hands it on; nothing downstream reaches back.";
+                :>> text = "Text becomes tokens, a tree, a symbol index, resolved names, types, diagnostics and finally an execution graph. Each stage owns one artifact and hands it on; nothing downstream reaches back.";
             }
 
             part structure : Diagram {
@@ -164,11 +158,11 @@ package OpenSysMLDocument {
             }
 
             part immutable : Paragraph {
-                attribute redefines text = "The tree is immutable once parsed and carries syntax only. Everything derived from it lives in a side table keyed by node or symbol, which is why resolution can be lazy and memoized without a stale tree to invalidate.";
+                :>> text = "The tree is immutable once parsed and carries syntax only. Everything derived from it lives in a side table keyed by node or symbol, which is why resolution can be lazy and memoized without a stale tree to invalidate.";
             }
 
             part libraryLoading : Paragraph {
-                attribute redefines text = "The bundled standard library is loaded once per process from an embedded snapshot of its frozen index, written at go generate time and checked against the digest of the bundled files, the snapshot format and a checksum before it is trusted. A snapshot that fails any of those checks is ignored and the files are parsed as before, so the library files remain the source of truth and the snapshot is only a faster way to arrive at the same index.";
+                :>> text = "The bundled standard library is loaded once per process from an embedded snapshot of its frozen index, written at go generate time and checked against the digest of the bundled files, the snapshot format and a checksum before it is trusted. A snapshot that fails any of those checks is ignored and the files are parsed as before, so the library files remain the source of truth and the snapshot is only a faster way to arrive at the same index.";
             }
 
             part libraryLoad : Diagram {
@@ -182,7 +176,7 @@ package OpenSysMLDocument {
             attribute redefines title = "Validation and execution";
 
             part tiers : Paragraph {
-                attribute redefines text = "Validation is a ladder: syntax, name resolution, type, then constraint. A blocking finding skips the document-scoped passes of the tiers above it, while a pass that names its subject still runs for the elements not downstream of the failure, so one broken declaration does not silence the rest of the document.";
+                :>> text = "Validation is a ladder: syntax, name resolution, type, then constraint. A blocking finding skips the document-scoped passes of the tiers above it, while a pass that names its subject still runs for the elements not downstream of the failure, so one broken declaration does not silence the rest of the document.";
             }
 
             part tierStates : Diagram {
@@ -199,7 +193,7 @@ package OpenSysMLDocument {
             }
 
             part executing : Paragraph {
-                attribute redefines text = "What runs is the lowered graph, never the syntax tree: actions execute in succession order, as tokens over the lowered graph, and states as run-to-completion event dispatch. Each kind of work has its own budget, so a model that cannot finish reports which budget it exhausted rather than hanging the tool.";
+                :>> text = "What runs is the lowered graph, never the syntax tree: actions execute in succession order, as tokens over the lowered graph, and states as run-to-completion event dispatch. Each kind of work has its own budget, so a model that cannot finish reports which budget it exhausted rather than hanging the tool.";
             }
 
             part budgets : Table {
@@ -216,7 +210,7 @@ package OpenSysMLDocument {
             }
 
             part instantiating : Paragraph {
-                attribute redefines text = "Beneath the executors sits the instance layer. A type's schema — its effective features, with redefinitions kept and connector ends appended — is built once per model from the semantic shape and shared by every object of the type. Making an object claims an identity and a feature value per schema entry, folding only constant defaults; everything else waits for its first read, when the case the feature is in decides how its value is made: a bound feature reads its far end, a selected variation binds its variant, a stated value is evaluated, a connector holds its connected ends, a composite makes its objects. Whatever a feature comes to hold passes multiplicity, type and uniqueness first, and a derived value lists itself on every value it read, so a later write to one of them sends it back to be derived again.";
+                :>> text = "Beneath the executors sits the instance layer. A type's schema — its effective features, with redefinitions kept and connector ends appended — is built once per model from the semantic shape and shared by every object of the type. Making an object claims an identity and a feature value per schema entry, folding only constant defaults; everything else waits for its first read, when the case the feature is in decides how its value is made: a bound feature reads its far end, a selected variation binds its variant, a stated value is evaluated, a connector holds its connected ends, a composite makes its objects. Whatever a feature comes to hold passes multiplicity, type and uniqueness first, and a derived value lists itself on every value it read, so a later write to one of them sends it back to be derived again.";
             }
 
             part instanceLayer : Diagram {
@@ -237,7 +231,7 @@ package OpenSysMLDocument {
             }
 
             part calculating : Paragraph {
-                attribute redefines text = "A calc whose body is scalar — an expression, or local declarations, returns and conditionals over scalars, calling other such calcs by position or by name and the library's scalar functions — is compiled on its first invocation into closures over an unboxed frame, kept in a side table on the context like every other derived fact. The evaluator remains the reference: the compiled tier must reproduce its values, errors and step charges exactly, a traced run or an invocation it cannot take goes to the evaluator whole, and an environment variable switches the tier off for bisecting.";
+                :>> text = "A calc whose body is scalar — an expression, or local declarations, returns and conditionals over scalars, calling other such calcs by position or by name and the library's scalar functions — is compiled on its first invocation into closures over an unboxed frame, kept in a side table on the context like every other derived fact. The evaluator remains the reference: the compiled tier must reproduce its values, errors and step charges exactly, a traced run or an invocation it cannot take goes to the evaluator whole, and an environment variable switches the tier off for bisecting.";
             }
 
             part calculation : Diagram {
@@ -257,7 +251,7 @@ package OpenSysMLDocument {
             attribute redefines title = "The analysis framework";
 
             part intro : Paragraph {
-                attribute redefines text = "Every question a surface asks of a model — evaluate this, what can that behavior do, does this condition hold, is that set of conditions satisfiable, sweep this domain — goes through one contract. An engine declares the kinds it answers, the bounds it takes and the strongest evidence it can ever produce; it is asked whether it covers a question before any work is done, and a refusal is a typed reason, never a result. The registry is held by its owner rather than in a global, and dispatch records every engine consulted in the plan it returns.";
+                :>> text = "Every question a surface asks of a model — evaluate this, what can that behavior do, does this condition hold, is that set of conditions satisfiable, sweep this domain — goes through one contract. An engine declares the kinds it answers, the bounds it takes and the strongest evidence it can ever produce; it is asked whether it covers a question before any work is done, and a refusal is a typed reason, never a result. The registry is held by its owner rather than in a global, and dispatch records every engine consulted in the plan it returns.";
             }
 
             part structure : Diagram {
@@ -274,7 +268,7 @@ package OpenSysMLDocument {
             }
 
             part dispatching : Paragraph {
-                attribute redefines text = "A selection says which engines a question reaches. Auto, the default, puts it to the strongest covering engine and moves on to the next when the answer is not covered; a name puts it to exactly one engine, whose refusal is then the answer; all puts it to every covering engine in name order and composes what they answered, a witness standing over the universal claim it refutes and the disagreement recorded. A run that faults stops the plan.";
+                :>> text = "A selection says which engines a question reaches. Auto, the default, puts it to the strongest covering engine and moves on to the next when the answer is not covered; a name puts it to exactly one engine, whose refusal is then the answer; all puts it to every covering engine in name order and composes what they answered, a witness standing over the universal claim it refutes and the disagreement recorded. A run that faults stops the plan.";
             }
 
             part dispatch : Diagram {
@@ -284,7 +278,7 @@ package OpenSysMLDocument {
             }
 
             part evidence : Paragraph {
-                attribute redefines text = "An answer carries a claim and the strength of the evidence for it, on one scale: not covered, observed, witnessed, bounded, proved. A greater strength is never weaker evidence, an existential claim — a violation, a sensitivity, a satisfying assignment — has witnessed as its one strength, and an engine claiming more than its declared authority is a fault. The run and sweep engines observe; explore and solve prove when nothing cut them short and observe otherwise.";
+                :>> text = "An answer carries a claim and the strength of the evidence for it, on one scale: not covered, observed, witnessed, bounded, proved. A greater strength is never weaker evidence, an existential claim — a violation, a sensitivity, a satisfying assignment — has witnessed as its one strength, and an engine claiming more than its declared authority is a fault. The run and sweep engines observe; explore and solve prove when nothing cut them short and observe otherwise.";
             }
 
             part ladder : Diagram {
@@ -294,7 +288,7 @@ package OpenSysMLDocument {
             }
 
             part isolating : Paragraph {
-                attribute redefines text = "Runs go concurrently, up to the jobs setting, each on a worker of its own. A worker holds model-derived state — resolver, semantic model and the runtime's memo tables — built on first use over the shared frozen index, and every run on it gets a fresh context of its own; the runtime's memo tables are not safe to share, so a worker is never lent between jobs. The exploration works a queue of schedule prefixes in plan order and sorts what it found, so the outcomes are the same at any job count. A snapshot captures a run's state between two steps and no part of the model it runs over.";
+                :>> text = "Runs go concurrently, up to the jobs setting, each on a worker of its own. A worker holds model-derived state — resolver, semantic model and the runtime's memo tables — built on first use over the shared frozen index, and every run on it gets a fresh context of its own; the runtime's memo tables are not safe to share, so a worker is never lent between jobs. The exploration works a queue of schedule prefixes in plan order and sorts what it found, so the outcomes are the same at any job count. A snapshot captures a run's state between two steps and no part of the model it runs over.";
             }
 
             part exploring : Diagram {
@@ -320,7 +314,7 @@ package OpenSysMLDocument {
             attribute redefines title = "Surfaces over one pipeline";
 
             part intro : Paragraph {
-                attribute redefines text = "The REPL, the language server, the gRPC service, the stdio service and the command line are five surfaces over one analysis pipeline. The service speaks gRPC and Connect from one protobuf schema; the Go, Python, Node, Rust and Java clients are hand-written over stubs generated from that schema, the Julia and MATLAB clients speak Connect-JSON over HTTP by the published wire contract, and the Cameo plugin and SysON integration reach the service through the Java client — so a rule fixed in the engine is fixed everywhere at once.";
+                :>> text = "The REPL, the language server, the gRPC service, the stdio service and the command line are five surfaces over one analysis pipeline. The service speaks gRPC and Connect from one protobuf schema; the Go, Python, Node, Rust and Java clients are hand-written over stubs generated from that schema, the Julia and MATLAB clients speak Connect-JSON over HTTP by the published wire contract, and the Cameo plugin and SysON integration reach the service through the Java client — so a rule fixed in the engine is fixed everywhere at once.";
             }
 
             part toolchain : Diagram {
@@ -330,7 +324,7 @@ package OpenSysMLDocument {
             }
 
             part editing : Paragraph {
-                attribute redefines text = "An editor reaches more than diagnostics: semantic tokens, quick fixes carrying their edits, suggestions for a name that did not resolve, and span-based edits whose result is re-parsed and re-analysed before it is accepted.";
+                :>> text = "An editor reaches more than diagnostics: semantic tokens, quick fixes carrying their edits, suggestions for a name that did not resolve, and span-based edits whose result is re-parsed and re-analysed before it is accepted.";
             }
 
             part editor : Diagram {
@@ -344,7 +338,7 @@ package OpenSysMLDocument {
             attribute redefines title = "Documents and views";
 
             part intro : Paragraph {
-                attribute redefines text = "A document is written in the notation: its queries compile to an immutable plan, the plan evaluates to a backend-agnostic tree carrying provenance on every node, and the output form is chosen last, so Markdown and PDF cannot disagree about the content. This document is one of them.";
+                :>> text = "A document is written in the notation: its queries compile to an immutable plan, the plan evaluates to a backend-agnostic tree carrying provenance on every node, and the output form is chosen last, so Markdown and PDF cannot disagree about the content. This document is one of them.";
             }
 
             part path : Diagram {
@@ -371,7 +365,7 @@ package OpenSysMLDocument {
             attribute redefines title = "Element identity";
 
             part intro : Paragraph {
-                attribute redefines text = "An element's repository identity is an annotation, not a field on the tree: an explicit id when one is declared, otherwise one derived from the qualified name. The constraint tier checks the whole generated id space for collisions, and the RDF writer and reader carry the distinction between a declared and a derived id across a round trip.";
+                :>> text = "An element's repository identity is an annotation, not a field on the tree: an explicit id when one is declared, otherwise one derived from the qualified name. The constraint tier checks the whole generated id space for collisions, and the RDF writer and reader carry the distinction between a declared and a derived id across a round trip.";
             }
 
             part path : Diagram {
@@ -387,7 +381,7 @@ package OpenSysMLDocument {
             }
 
             part sync : Paragraph {
-                attribute redefines text = "Repository synchronisation diffs a local model against its repository graph keyed by effective id, so a rename is an update rather than a delete and a create. Ids are minted and deletes confirmed only on request, and a conflict is reported in the exit status rather than resolved. The one phase of the identity design not built is the notation extension submitted to OMG.";
+                :>> text = "Repository synchronisation diffs a local model against its repository graph keyed by effective id, so a rename is an update rather than a delete and a create. Ids are minted and deletes confirmed only on request, and a conflict is reported in the exit status rather than resolved. The one phase of the identity design not built is the notation extension submitted to OMG.";
             }
 
             part syncing : Diagram {
@@ -401,7 +395,7 @@ package OpenSysMLDocument {
             attribute redefines title = "Invariants and oracles";
 
             part intro : Paragraph {
-                attribute redefines text = "The architecture rules are requirements over the modelled parts, and the test suites that verify them are named in the model, so each rule points at the run that would catch its violation.";
+                :>> text = "The architecture rules are requirements over the modelled parts, and the test suites that verify them are named in the model, so each rule points at the run that would catch its violation.";
             }
 
             part invariants : Diagram {

@@ -25,6 +25,7 @@ import {
   CAPABILITY_QUERY,
   CAPABILITY_RENDER_DOCUMENT,
   CAPABILITY_RENDER_DOCUMENT_HTML,
+  CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
   CAPABILITY_RENDER_VIEW,
   CAPABILITY_CHECK,
   CAPABILITY_EXPORT_GRAPHS,
@@ -682,12 +683,14 @@ export class Connection {
     options: { form?: string } = {},
   ): Promise<string> {
     const form = options.form ?? "markdown";
-    if (form !== "markdown" && form !== "html") {
-      throw new RangeError("form must be 'markdown' or 'html'");
+    if (form !== "markdown" && form !== "html" && form !== "asciidoc") {
+      throw new RangeError("form must be 'markdown', 'html' or 'asciidoc'");
     }
     const capabilities = [CAPABILITY_RENDER_DOCUMENT];
     if (form === "html") {
       capabilities.push(CAPABILITY_RENDER_DOCUMENT_HTML);
+    } else if (form === "asciidoc") {
+      capabilities.push(CAPABILITY_RENDER_DOCUMENT_ASCIIDOC);
     }
     for (const capability of capabilities) {
       requireCapability(this.info, capability, upgradeRemedy(capability));
@@ -704,7 +707,10 @@ export class Connection {
       "model",
       capabilityRefusal(this.info, capabilities),
     );
-    return form === "html" ? response.html : response.markdown;
+    if (form === "html") {
+      return response.html;
+    }
+    return form === "asciidoc" ? response.asciidoc : response.markdown;
   }
 
   /**

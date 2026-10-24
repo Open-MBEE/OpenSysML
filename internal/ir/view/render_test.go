@@ -441,6 +441,25 @@ func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 	}
 }
 
+// A typing the model cannot resolve (a conjugated feature chain names no element) is spelled as
+// written, headed by the name it ends in with the `~` kept, and resolves to no typing.
+func TestUnresolvedTypingIsSpelledAsWritten(t *testing.T) {
+	rendering := render(t, "typings-unresolved.sysml", "SpelledViews::rigView")
+	if node := nodeNamed(t, rendering, "mirrored"); node.Type != "~rail.'Frame *rail*'" {
+		t.Errorf("node mirrored: type %q, want %q", node.Type, "~rail.'Frame *rail*'")
+	}
+	if text := rendering.textWith(fullNotation); !strings.Contains(text, "port mirrored : ~rail.'Frame *rail*'") {
+		t.Errorf("text lacks %q:\n%s", "port mirrored : ~rail.'Frame *rail*'", text)
+	}
+	mermaid := rendering.MermaidWith(Options{Show: AllShown(), Ports: PortsFull})
+	if !strings.Contains(mermaid, "«port»<br>mirrored : ~'Frame *rail*'") {
+		t.Errorf("Mermaid lacks %q:\n%s", "«port»<br>mirrored : ~'Frame *rail*'", mermaid)
+	}
+	if node := findNode(t, rendering.Roots, "mirrored"); node.Typings != nil {
+		t.Errorf("node mirrored: typings %q, want none", node.Typings)
+	}
+}
+
 // A declared type is spelled as the notation does: a conjugated port typing
 // keeps its `~`, a name that is not a basic one its quotes, a global name its
 // `$::` root, and a usage typed by several types lists them all. A diagram
@@ -448,11 +467,10 @@ func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 func TestDeclaredTypesAreSpelledAsWritten(t *testing.T) {
 	rendering := render(t, "typings.sysml", "SpelledViews::rigView")
 	cases := map[string]string{
-		"plug":     "~Link",
-		"rail":     "'Frame *rail*'",
-		"base":     "Mount, Cart",
-		"root":     "$::Spelled::Mount",
-		"mirrored": "~rail.'Frame *rail*'",
+		"plug": "~Link",
+		"rail": "'Frame *rail*'",
+		"base": "Mount, Cart",
+		"root": "$::Spelled::Mount",
 	}
 	for name, want := range cases {
 		if node := nodeNamed(t, rendering, name); node.Type != want {
@@ -462,7 +480,7 @@ func TestDeclaredTypesAreSpelledAsWritten(t *testing.T) {
 	text := rendering.textWith(fullNotation)
 	for _, want := range []string{
 		"port plug : ~Link", "part rail : 'Frame *rail*'", "part base : Mount, Cart",
-		"part root : $::Spelled::Mount", "port mirrored : ~rail.'Frame *rail*'",
+		"part root : $::Spelled::Mount",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text lacks %q:\n%s", want, text)
@@ -471,20 +489,19 @@ func TestDeclaredTypesAreSpelledAsWritten(t *testing.T) {
 	mermaid := rendering.MermaidWith(Options{Show: AllShown(), Ports: PortsFull})
 	for _, want := range []string{
 		"`*«part def»*\n**Rig**`", "«port»<br>plug : ~Link", "`*«part»*\n**base : Mount, Cart**`",
-		"`*«part»*\n**root : Mount**`", "«port»<br>mirrored : ~'Frame *rail*'",
+		"`*«part»*\n**root : Mount**`",
 	} {
 		if !strings.Contains(mermaid, want) {
 			t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
 		}
 	}
 	// Beside the spelling, a node carries the qualified names its typings
-	// resolve to; a feature chain names no element and resolves to none.
+	// resolve to.
 	typings := map[string][]string{
-		"plug":     {"Spelled::Link"},
-		"rail":     {"Spelled::'Frame *rail*'"},
-		"base":     {"Spelled::Mount", "Spelled::Cart"},
-		"root":     {"Spelled::Mount"},
-		"mirrored": nil,
+		"plug": {"Spelled::Link"},
+		"rail": {"Spelled::'Frame *rail*'"},
+		"base": {"Spelled::Mount", "Spelled::Cart"},
+		"root": {"Spelled::Mount"},
 	}
 	for name, want := range typings {
 		if node := findNode(t, rendering.Roots, name); !slices.Equal(node.Typings, want) {

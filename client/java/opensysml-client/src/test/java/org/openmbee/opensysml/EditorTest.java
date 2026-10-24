@@ -187,13 +187,30 @@ class EditorTest {
   }
 
   @Test
+  void asciiDocRenderingNeedsItsOwnCapability() {
+    try (Connection connection = offline(Capabilities.RENDER_DOCUMENT)) {
+      Model model = model(connection);
+      CapabilityException refused =
+          assertThrows(
+              CapabilityException.class,
+              () -> model.renderDocument("Demo::Doc", DocumentForm.ASCIIDOC));
+      assertEquals(Capabilities.RENDER_DOCUMENT_ASCIIDOC, refused.capability());
+    }
+  }
+
+  @Test
   void documentFormsReadTheirWireNames() {
     assertEquals(DocumentForm.MARKDOWN, DocumentForm.fromWireName(""));
     assertEquals(DocumentForm.MARKDOWN, DocumentForm.fromWireName("markdown"));
     assertEquals(DocumentForm.HTML, DocumentForm.fromWireName("html"));
+    assertEquals(DocumentForm.ASCIIDOC, DocumentForm.fromWireName("asciidoc"));
     assertThrows(IllegalArgumentException.class, () -> DocumentForm.fromWireName("pdf"));
     RenderedDocument html = new RenderedDocument(DocumentForm.HTML, "<p>x</p>");
     assertEquals("<p>x</p>", html.html());
+    assertEquals("", html.asciidoc());
+    RenderedDocument asciidoc = new RenderedDocument(DocumentForm.ASCIIDOC, "= x");
+    assertEquals("= x", asciidoc.asciidoc());
+    assertEquals("", asciidoc.html());
     assertEquals("", html.markdown());
     assertEquals("# x", new RenderedDocument("# x").markdown());
   }

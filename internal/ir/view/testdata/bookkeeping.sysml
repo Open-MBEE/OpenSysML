@@ -3,7 +3,7 @@ package Budget {
 	private import Views::*;
 
 	metadata def Approved {
-		attribute by : ScalarValues::String;
+		attribute 'by' : ScalarValues::String;
 	}
 
 	part def Mirror {

@@ -601,6 +601,10 @@ func TestQueriesAndRenderings(t *testing.T) {
 	if doc.GetHtml() == "" || doc.GetMarkdown() != "" {
 		t.Errorf("html form: markdown %d bytes, html %d bytes", len(doc.GetMarkdown()), len(doc.GetHtml()))
 	}
+	_, out = h.ok("render_model_document", map[string]any{"paths": []string{telescope}, "documentId": documents[0], "form": "asciidoc"}, &doc)
+	if doc.GetAsciidoc() == "" || doc.GetMarkdown() != "" || doc.GetHtml() != "" || !strings.Contains(out, strings.TrimRight(doc.GetAsciidoc(), "\n")) {
+		t.Errorf("asciidoc form: markdown %d bytes, html %d bytes, asciidoc %d bytes:\n%s", len(doc.GetMarkdown()), len(doc.GetHtml()), len(doc.GetAsciidoc()), out)
+	}
 	if msg := h.fails("render_model_document", map[string]any{"paths": []string{telescope}, "documentId": documents[0], "form": "pdf"}); !strings.Contains(msg, "INVALID_ARGUMENT") {
 		t.Errorf("pdf form: %s", msg)
 	}

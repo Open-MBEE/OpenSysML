@@ -22,7 +22,7 @@ package Plant {
 		part sensor : Pump;
 	}
 
-	connection def Connection;
+	connection def Connection { end : FluidPort; end : FluidPort; }
 }
 
 package PlantViews {
