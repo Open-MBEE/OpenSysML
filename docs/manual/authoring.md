@@ -387,8 +387,8 @@ reported with its message — the body is never rendered as literal text.
 | `<<name>>`, `<<name,label>>` | `Ref` run to the content block, usage or element `name` resolves to, else to the markup-born section of that name |
 | `== Title` … `====== Title`, with `[[id]]` or `[#id]` ahead of it | `Section` with that title, named `id` — see below |
 | `stem:[…]` | math run (LaTeX) |
-| `NOTE: text` and the other admonitions | `Paragraph` led by a strong `Note:` (`Tip:`, `Important:`, `Warning:`, `Caution:`) run |
-| `* item` / `. item` lists of single paragraphs | `List` with bullet or number style |
+| `NOTE: text` and the other admonitions, or a delimited `[NOTE]` block holding one paragraph | `Paragraph` led by a strong `Note:` (`Tip:`, `Important:`, `Warning:`, `Caution:`) run |
+| `* item` / `. item` lists of single paragraphs, numbered from 1 | `List` with bullet or number style |
 | `|===` table of plain-text cells under a header row, `.Title`, `[cols="…"]` | static `Table`: the header row heads the columns, `cols` sizes them as `columnWidths` does, the title is the caption |
 | `[stem]` block with `.Title` | `Formula` with the title as caption |
 | `image::file[alt]` with `.Title` | `Image` with the title as caption |
@@ -413,7 +413,8 @@ error naming the construct and its body line, as for Markdown: a document
 header (`= Title`), listing,
 literal, example, sidebar, quote, verse, open and passthrough blocks,
 description and callout lists, nested lists and blocks attached to a list
-item, thematic and page breaks, tables without a header row or with a footer,
+item, ordered lists not starting at 1 (`[start=3]`), a delimited admonition
+holding anything but one paragraph, thematic and page breaks, tables without a header row or with a footer,
 AsciiMath, inline images, footnotes, keyboard, button and menu macros, index
 terms, superscript, subscript and highlighted text, nested quoted text,
 styled link text, styled block titles, and a block title on a block that has
