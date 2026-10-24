@@ -347,19 +347,28 @@ func (w *asciiDocWriter) diagramFigure(name, caption string, rendering *view.Ren
 	if w.diagrams < len(w.svg) && w.svg[w.diagrams] != "" {
 		figure += asciiDocDelimitedBlock('+', svgBlock(w.svg[w.diagrams]))
 	} else {
-		figure += "[" + asciiDocDiagramBlock(form) + "]\n" + asciiDocDelimitedBlock('.', source)
+		figure += "[" + asciiDocDiagramBlock(form, source) + "]\n" + asciiDocDelimitedBlock('.', source)
 	}
 	w.diagrams++
 	return append(blocks, figure), nil
 }
 
 // asciiDocDiagramBlock names the Asciidoctor Diagram block that draws a
-// diagram form: Graphviz draws DOT, the others go by their own names.
-func asciiDocDiagramBlock(form view.Form) string {
-	if form == view.FormDot {
-		return "graphviz"
+// diagram form: Graphviz draws DOT, under the engine the source's
+// `// layout:` header names (its `-n` flags have no block attribute, so a
+// positioned view is drawn exactly only from a pre-rendered SVG); the other
+// forms go by their own names.
+func asciiDocDiagramBlock(form view.Form, source string) string {
+	if form != view.FormDot {
+		return string(form)
 	}
-	return string(form)
+	first, _, _ := strings.Cut(source, "\n")
+	if rest, ok := strings.CutPrefix(strings.TrimSpace(first), "// layout:"); ok {
+		if fields := strings.Fields(rest); len(fields) > 0 {
+			return "graphviz, layout=" + fields[0]
+		}
+	}
+	return "graphviz"
 }
 
 // asciiDocRenderingTable writes a tabular rendering as a `|===` table under

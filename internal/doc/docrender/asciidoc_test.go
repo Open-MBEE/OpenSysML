@@ -2,6 +2,7 @@ package docrender
 
 import (
 	"errors"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -158,5 +159,18 @@ func TestAsciiDocNilDocument(t *testing.T) {
 func TestAsciiDocFileName(t *testing.T) {
 	if got := AsciiDocFileName("Observatory::Mass Appendix"); got != "Observatory-Mass.20Appendix.adoc" {
 		t.Errorf("AsciiDocFileName = %q", got)
+	}
+}
+
+// A DOT diagram's layout header selects the Graphviz engine of its block.
+func TestAsciiDocDiagramBlockReadsTheLayoutHeader(t *testing.T) {
+	if got := asciiDocDiagramBlock(view.FormDot, "// layout: neato -n2\ndigraph g {}"); got != "graphviz, layout=neato" {
+		t.Errorf("positioned DOT block = %q", got)
+	}
+	if got := asciiDocDiagramBlock(view.FormDot, "digraph g {}"); got != "graphviz" {
+		t.Errorf("plain DOT block = %q", got)
+	}
+	if got := asciiDocDiagramBlock(view.FormMermaid, "// layout: neato\nflowchart LR"); got != "mermaid" {
+		t.Errorf("mermaid block = %q", got)
 	}
 }

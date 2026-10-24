@@ -281,7 +281,11 @@ entries, images are `image::path[alt]` macros, and a diagram is its drawn
 source in a `[mermaid]` (or `[graphviz]` for DOT, `[plantuml]`, `[d2]`)
 literal block, the form a processor with
 [Asciidoctor Diagram](https://docs.asciidoctor.org/diagram-extension/latest/)
-draws as a figure. With `-doc-number-figures` the backend numbers captions
+draws as a figure; a DOT source whose `// layout:` header names an engine
+is written as `[graphviz, layout=neato]`, though the header's `-n` flags,
+which pin a positioned view's coordinates, have no block attribute, so such
+a view is drawn exactly only from a pre-rendered SVG, as the PDF backend
+draws it. With `-doc-number-figures` the backend numbers captions
 itself, as the other backends do, and sets `:table-caption!:` and
 `:figure-caption!:` so the processor does not number them again. A set rendered with `-render-documents` writes one `.adoc` file
 per document and resolves a reference into another document as
