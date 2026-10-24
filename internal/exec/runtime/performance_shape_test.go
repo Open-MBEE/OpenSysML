@@ -142,4 +142,3 @@ func TestPerformanceShapeOfAGraphTheModelDidNotLowerIsNotMemoized(t *testing.T) 
 		t.Fatalf("model memoizes %d graphs and %d interfaces, want the lowered graph alone", len(model.actionGraphs), len(model.actionInterfaces))
 	}
 }
-
