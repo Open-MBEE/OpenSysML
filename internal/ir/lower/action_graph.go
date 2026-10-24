@@ -866,6 +866,9 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 	return ToActionGraphWith(actionDecl, scope, nil)
 }
 
+// Resolver is the resolver the graph was lowered with, nil for none.
+func (g *ActionGraph) Resolver() *resolve.Resolver { return g.resolver }
+
 // ToActionGraphWith is ToActionGraph reading the metadata the resolver identifies:
 // a succession's `@Probability { p = ...; }` becomes its edge's weight.
 func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -416,6 +417,8 @@ type footprintBuilder struct {
 	footprint         Footprint
 	// expanding holds the calc usages whose bindings are being read, so a cyclic binding stops.
 	expanding map[*ast.Usage]bool
+	// sem answers what a feature redefines, explicitly or by position, over resolver.
+	sem *semantics.Model
 }
 
 // ConstraintBodyFootprint projects the reads and writes of one constraint
@@ -497,7 +500,7 @@ func (b *footprintBuilder) place(scope *symbols.Scope, segments []string, each f
 // readPlace adds a read of the feature segments name, and of what its value is
 // computed from where an expression values it.
 func (b *footprintBuilder) readPlace(scope *symbols.Scope, segments []string) {
-	b.boundValue(b.place(scope, segments, b.read))
+	b.boundValue(b.place(scope, segments, b.read), len(segments) == 1)
 }
 
 // boundValue adds what reading a feature valued by an expression (`attribute y = x + 1`)
@@ -506,13 +509,15 @@ func (b *footprintBuilder) readPlace(scope *symbols.Scope, segments []string) {
 // FeatureValue that is not initial binds the feature to its expression's result).
 // Only a value-holding usage is so read: a behavior usage's value is what it
 // performs, read by its outputs, a calc usage's members by calcUsage; an initial
-// or default value is written once, not computed on read, and adds nothing.
-func (b *footprintBuilder) boundValue(sym *symbols.Symbol) {
+// or default value is written once, not computed on read, and adds nothing. A
+// parameter is so read only directly, as the running performance's own: through
+// a chain it is another performance's, whose result the performance computes.
+func (b *footprintBuilder) boundValue(sym *symbols.Symbol, direct bool) {
 	if sym == nil {
 		return
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok {
+	if !ok || (!direct && (usage.Direction != ast.DirNone || usage.IsResult)) {
 		return
 	}
 	switch usage.Kind {
@@ -531,10 +536,17 @@ func (b *footprintBuilder) boundValue(sym *symbols.Symbol) {
 	defer delete(b.expanding, usage)
 	if usage.Value == nil {
 		// A redefining feature valued by nothing of its own is bound as the one it
-		// redefines is (`attribute :>> y;` over `attribute y = x + 1`).
+		// redefines is (`attribute :>> y;` over `attribute y = x + 1`), explicitly or
+		// as a parameter at the same position.
+		if sem := b.semantics(); sem != nil {
+			for _, p := range sem.ParameterRedefinitionChain(sym)[1:] {
+				b.boundValue(p, direct)
+			}
+			return
+		}
 		for _, rel := range usage.Relationships {
 			if rel != nil && rel.Kind == ast.RelRedefines {
-				b.boundValue(b.redefined(sym, rel.Target))
+				b.boundValue(b.redefined(sym, rel.Target), direct)
 			}
 		}
 		return
@@ -552,12 +564,25 @@ func (b *footprintBuilder) boundValue(sym *symbols.Symbol) {
 	b.reads(scope, usage.Value)
 }
 
-// redefined is the feature a redefinition of sym names by target, declared in a
-// general of sym's owner; nil when the declarations do not reach it.
-func (b *footprintBuilder) redefined(sym *symbols.Symbol, target ast.Node) *symbols.Symbol {
-	if chain, ok := target.(*ast.FeatureChainExpr); ok {
-		target = chain.Member
+// semantics is the model over the builder's resolver, nil without one.
+func (b *footprintBuilder) semantics() *semantics.Model {
+	resolver := b.resolver
+	if resolver == nil && b.graph != nil {
+		resolver = b.graph.resolver
 	}
+	if resolver == nil {
+		return nil
+	}
+	if b.sem == nil {
+		b.sem = semantics.NewModel(resolver)
+	}
+	return b.sem
+}
+
+// redefined is the feature a redefinition of sym names by target, declared in a
+// general of sym's owner, found from the scope tree alone: nil when the
+// declarations do not reach it, and for a feature chain, which a resolver decides.
+func (b *footprintBuilder) redefined(sym *symbols.Symbol, target ast.Node) *symbols.Symbol {
 	qname := ast.AsQualifiedName(target)
 	if qname == nil || len(qname.Parts) == 0 {
 		return nil
@@ -622,7 +647,7 @@ func (b *footprintBuilder) address(scope *symbols.Scope, target string, chained 
 	if chained {
 		separator = "."
 	}
-	b.boundValue(b.path(scope, strings.Split(target, separator), b.read))
+	b.boundValue(b.path(scope, strings.Split(target, separator), b.read), false)
 }
 
 // declaredByNode reports whether sym is a feature some node of the graph declares.
@@ -645,7 +670,7 @@ func (b *footprintBuilder) reads(scope *symbols.Scope, expr ast.Node) {
 	case *ast.FeatureChainExpr:
 		base, segments := flattenChain(e)
 		if ref, ok := base.(*ast.FeatureReference); ok && ref.Name != nil && len(ref.Name.Parts) == 1 && len(segments) > 0 {
-			b.boundValue(b.path(scope, append([]string{ref.Name.Parts[0].Text}, segments...), b.read))
+			b.boundValue(b.path(scope, append([]string{ref.Name.Parts[0].Text}, segments...), b.read), false)
 			return
 		}
 		b.footprint.Dynamic = true
@@ -725,7 +750,7 @@ func (b *footprintBuilder) readName(scope *symbols.Scope, qn *ast.QualifiedName)
 	if b.resolver != nil {
 		if sym, ok := b.resolver.ReadQualified(scope, qn).Symbol(); ok && sym != nil {
 			b.read(Place{Sym: sym, Name: name, Local: b.declaredByNode(sym), Direct: len(qn.Parts) == 1})
-			b.boundValue(sym)
+			b.boundValue(sym, len(qn.Parts) == 1)
 			return
 		}
 	}
@@ -1365,8 +1390,8 @@ func isConvergence(node ast.Node) bool {
 
 // ExpressionFootprint is what evaluating expr in scope reads: the places a guard
 // or condition depends on, dynamic where the declarations do not decide them.
-func ExpressionFootprint(scope *symbols.Scope, expr ast.Node) Footprint {
-	b := &footprintBuilder{scope: scope}
+func ExpressionFootprint(resolver *resolve.Resolver, scope *symbols.Scope, expr ast.Node) Footprint {
+	b := &footprintBuilder{resolver: resolver, scope: scope}
 	b.reads(scope, expr)
 	return b.footprint
 }

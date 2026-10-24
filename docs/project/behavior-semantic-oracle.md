@@ -2414,7 +2414,8 @@ its own, since the statement writing it is not itself a choice.
 
 Fixtures: `action_order_bound_read_of_racing_writer`, `action_order_write_from_bound_read`,
 `action_order_bound_chain_of_racing_writer`, `action_order_bound_read_of_unraced_stays_bare`,
-`action_order_inherited_bound_read_of_racing_writer` (golden, explored).
+`action_order_inherited_bound_read_of_racing_writer`,
+`action_order_positional_bound_read_of_racing_writer` (golden, explored).
 
 ```
 attribute x : Integer = 0;  attribute y : Integer = x + 1;  attribute v : Integer = y * 2;
@@ -2434,7 +2435,8 @@ Derived constraints:
   on what the writes before that point touched: `w := x + 1` reads `0` in every linearization.
 - A redefining feature valued by nothing of its own (`attribute :>> y;` in `race : Base`) is
   bound as the feature it redefines is: `Base::y = x + 1` is computed as `race`'s `y` is read,
-  and the reads of `z := y` reach `x` through it.
+  and the reads of `z := y` reach `x` through it. A parameter redefines by position as well
+  (`out yRace : Integer;` over `out yBase : Integer = x + 1`), with the same result.
 
 Open: the order of the two branches, exactly as for a value written from `x`. Reading `y` lands
 where `x` stands, so `y` is open where `x` is, and so is everything computed from `y`, whether a
