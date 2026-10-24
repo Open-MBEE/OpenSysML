@@ -648,6 +648,9 @@ func styledKind(style docplan.RunStyle) RunKind {
 }
 
 func (e *evaluator) evaluateList(node docplan.Content) (Content, error) {
+	if node.Query() == nil {
+		return staticList(node), nil
+	}
 	result, err := e.executeQuery(node)
 	if err != nil {
 		return Content{}, err
@@ -688,6 +691,28 @@ func (e *evaluator) evaluateList(node docplan.Content) (Content, error) {
 		queryOrigin: result.Origin(),
 		origin:      node.Origin(),
 	}, nil
+}
+
+// staticList is a list whose items were planned from a markup body: each
+// item's runs are already known and select no element.
+func staticList(node docplan.Content) Content {
+	planned := node.Items()
+	items := make([]ListItem, 0, len(planned))
+	for _, item := range planned {
+		runs := item.Runs()
+		evaluated := make([]TextRun, len(runs))
+		for i, run := range runs {
+			evaluated[i] = evaluatedRun(run)
+		}
+		items = append(items, ListItem{runs: evaluated, origin: item.Origin()})
+	}
+	return Content{
+		kind:   ContentList,
+		name:   node.Name(),
+		style:  ListStyle(node.Style()),
+		items:  items,
+		origin: node.Origin(),
+	}
 }
 
 // evaluateDefinitions runs a definitions block's query once and turns each

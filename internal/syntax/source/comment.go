@@ -9,19 +9,100 @@ import "strings"
 // one space. All other text, line breaks and white space stay as entered. A
 // `\r\n` or `\r` line terminator reads as `\n`.
 func CommentBody(raw string) string {
-	raw = strings.TrimPrefix(raw, "/*")
-	raw = strings.TrimSuffix(raw, "*/")
-	lines := strings.Split(lineBreaks(raw), "\n")
-	lines[0] = strings.TrimLeft(lines[0], commentSpace)
-	for i, line := range lines[1:] {
-		line = strings.TrimLeft(line, commentSpace)
-		line = strings.TrimPrefix(line, "*")
-		lines[i+1] = strings.TrimPrefix(line, " ")
+	body, _ := CommentBodyOffsets(raw)
+	return body
+}
+
+// CommentBodyOffsets is CommentBody with provenance: offsets[i] is the index
+// in raw of the byte body[i] came from, and offsets[len(body)] the index just
+// past the last body byte, so a span inside the body maps back onto raw.
+func CommentBodyOffsets(raw string) (body string, offsets []int) {
+	start, end := 0, len(raw)
+	if strings.HasPrefix(raw, "/*") {
+		start = 2
 	}
-	if lines[0] == "" && len(lines) > 1 {
+	if end-start >= 2 && strings.HasSuffix(raw, "*/") {
+		end -= 2
+	}
+	var lines [][]mappedByte
+	line := []mappedByte{}
+	for i := start; i < end; i++ {
+		switch raw[i] {
+		case '\r':
+			if i+1 < end && raw[i+1] == '\n' {
+				i++
+			}
+			lines = append(lines, line)
+			line = []mappedByte{}
+		case '\n':
+			lines = append(lines, line)
+			line = []mappedByte{}
+		default:
+			line = append(line, mappedByte{raw[i], i})
+		}
+	}
+	lines = append(lines, line)
+	lines[0] = trimLeftMapped(lines[0], commentSpace)
+	for i, line := range lines[1:] {
+		line = trimLeftMapped(line, commentSpace)
+		if len(line) > 0 && line[0].b == '*' {
+			line = line[1:]
+			if len(line) > 0 && line[0].b == ' ' {
+				line = line[1:]
+			}
+		}
+		lines[i+1] = line
+	}
+	if len(lines[0]) == 0 && len(lines) > 1 {
 		lines = lines[1:]
 	}
-	return strings.Join(lines, "\n")
+	var b strings.Builder
+	for i, line := range lines {
+		if i > 0 {
+			b.WriteByte('\n')
+			offsets = append(offsets, lineBreakOffset(raw, start, end, offsets, line))
+		}
+		for _, m := range line {
+			b.WriteByte(m.b)
+			offsets = append(offsets, m.at)
+		}
+	}
+	offsets = append(offsets, end)
+	return b.String(), offsets
+}
+
+// mappedByte is one body byte with the index in the raw comment it came from.
+type mappedByte struct {
+	b  byte
+	at int
+}
+
+// trimLeftMapped drops the leading bytes of line that are in cutset.
+func trimLeftMapped(line []mappedByte, cutset string) []mappedByte {
+	for len(line) > 0 && strings.IndexByte(cutset, line[0].b) >= 0 {
+		line = line[1:]
+	}
+	return line
+}
+
+// lineBreakOffset locates the terminator a joined "\n" stands for: the first
+// line break in raw after the previous body byte, or the break right before
+// the next line when the previous line was empty.
+func lineBreakOffset(raw string, start, end int, offsets []int, next []mappedByte) int {
+	from := start
+	if len(offsets) > 0 {
+		from = offsets[len(offsets)-1] + 1
+	}
+	limit := end
+	if len(next) > 0 {
+		limit = next[0].at
+	}
+	for i := from; i < limit; i++ {
+		if raw[i] == '\n' || raw[i] == '\r' {
+			return i
+		}
+	}
+	return from
 }
 
 // lineBreaks spells each line terminator, `\r\n`, `\r` or `\n` (KerML 1.1
