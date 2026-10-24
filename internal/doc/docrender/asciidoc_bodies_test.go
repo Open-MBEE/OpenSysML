@@ -39,6 +39,14 @@ func TestHTMLAsciiDocBodiesReportGolden(t *testing.T) {
 	checkGolden(t, got, filepath.Join("testdata", "asciidoc_report.fragment.golden.html"))
 }
 
+// TestAsciiDocBodiesAsciiDocGolden locks the round trip: prose written as
+// AsciiDoc bodies rendered back out with -doc-form asciidoc.
+func TestAsciiDocBodiesAsciiDocGolden(t *testing.T) {
+	useRecordedAsciiDoc(t)
+	got := renderFixtureAsciiDoc(t, "asciidoc_report.sysml", "Prose::AsciiDocReport", AsciiDocOptions{})
+	checkGolden(t, got, filepath.Join("testdata", "asciidoc_report.golden.adoc"))
+}
+
 // The table, formula and image written in the body reach the Markdown as the
 // content blocks they map onto, and the admonition leads with its label.
 func TestAsciiDocBodiesContentBlocks(t *testing.T) {
