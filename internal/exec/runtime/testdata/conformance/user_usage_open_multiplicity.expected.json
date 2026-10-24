@@ -3,9 +3,10 @@
   "type": "calcUsage",
   "evaluate": "test::probe",
   "outputs": {
-    "one": {"type": "Integer", "value": 1}
+    "one": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]}
   },
   "reads": {
+    "test::total": {"type": "Integer", "value": 1},
     "test::wheelsModel": {"type": "Sequence", "elements": []},
     "test::cargoModel": {"type": "Sequence", "elements": []},
     "test::sparesModel": {"type": "Sequence", "elements": []},

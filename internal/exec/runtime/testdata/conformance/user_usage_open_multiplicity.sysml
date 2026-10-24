@@ -92,5 +92,6 @@ package test {
 	attribute actIn = car.act.i;
 	attribute actOut = car.act.o;
 
-	calc probe { out one : Integer = size(car.wheels) + size(wheels) + size(car.nested.hub) + size(fitted); }
+	attribute total : Integer = size(car.wheels) + size(wheels) + size(car.nested.hub) + size(fitted);
+	calc probe { out one : Integer = 1; }
 }
