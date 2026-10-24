@@ -25,4 +25,4 @@ m \propto D^2
 ++++
 
 .Optics
-image::figures/optics.png[The optics]
+image::https://example.test/figures/optics.png[The optics]

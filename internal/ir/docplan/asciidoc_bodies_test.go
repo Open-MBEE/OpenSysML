@@ -98,7 +98,7 @@ func TestCompileDocumentAsciiDocBody(t *testing.T) {
 	if formula := content[5]; formula.Source() != `m \propto D^2` || formula.Caption() != "Scaling" {
 		t.Errorf("formula %+v", formula)
 	}
-	if image := content[6]; image.Location() != "figures/optics.png" || image.Alt() != "The optics" || image.Caption() != "Optics" {
+	if image := content[6]; image.Location() != "https://example.test/figures/optics.png" || image.Alt() != "The optics" || image.Caption() != "Optics" {
 		t.Errorf("image %+v", image)
 	}
 	if notes := content[8]; notes.Name() != "notes" || runTexts(notes.Runs())[1] != "named" || notes.Runs()[3].Kind() != RunRef {

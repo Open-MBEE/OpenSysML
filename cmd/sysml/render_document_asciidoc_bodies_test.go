@@ -36,7 +36,7 @@ func TestRenderDocumentAsciiDocBodies(t *testing.T) {
 
 	markdown := check(t, binary, model, "-render-document", "Prose::AsciiDocReport")
 	wantReport(t, markdown, 0, "**Note:** Mind the **gap**.", "| Part | Mass |", "| Mirror | 12 kg |",
-		"![The optics](figures/optics.png)", "[the summary](#summary)", "- two *soft*", "1. first")
+		"![The optics](https://example.test/figures/optics.png)", "[the summary](#summary)", "- two *soft*", "1. first")
 
 	dir := t.TempDir()
 	html := filepath.Join(dir, "report.html")
@@ -45,7 +45,7 @@ func TestRenderDocumentAsciiDocBodies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"<table", "data-column=\"Part\">Part</th>", "<td", "Mirror", "<strong>Note:</strong>", "figures/optics.png", "m \\propto D^2"} {
+	for _, want := range []string{"<table", "data-column=\"Part\">Part</th>", "<td", "Mirror", "<strong>Note:</strong>", "https://example.test/figures/optics.png", "m \\propto D^2"} {
 		if !strings.Contains(string(page), want) {
 			t.Errorf("HTML lacks %q", want)
 		}

@@ -116,7 +116,7 @@ func TestAsciiDocFixtureBlocks(t *testing.T) {
 	if formula := blocks[5]; formula.Source != `m \propto D^2` || formula.Caption != "Scaling" {
 		t.Errorf("formula = %+v", formula)
 	}
-	if image := blocks[6]; image.Location != "figures/optics.png" || image.Alt != "The optics" || image.Caption != "Optics" {
+	if image := blocks[6]; image.Location != "https://example.test/figures/optics.png" || image.Alt != "The optics" || image.Caption != "Optics" {
 		t.Errorf("image = %+v", image)
 	}
 	for i := 1; i < len(blocks); i++ {

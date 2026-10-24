@@ -49,7 +49,7 @@ func TestAsciiDocBodiesContentBlocks(t *testing.T) {
 		"| Part | Mass |",
 		"| Mirror | 12 kg |",
 		"$$\nm \\propto D^2\n$$",
-		"![The optics](figures/optics.png)",
+		"![The optics](https://example.test/figures/optics.png)",
 		"- two *soft*",
 		"1. first",
 	} {
