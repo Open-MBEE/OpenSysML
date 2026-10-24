@@ -58,7 +58,7 @@ func TestManualWholeDocumentExampleMatchesCommittedOutput(t *testing.T) {
 	}
 	for _, want := range []string{
 		"## Overview", "### Mass budget", "#### Margins", "## Design", "## Appendix", "### Derivation",
-		"[Mass budget](#overview-mass_budget)", "[margin](Whole-Glossary.md#mass_margin)", "[Mass budget](#overview-mass_budget_2)",
+		"[Mass budget](#overview-mass_budget)", "[Mass budget](#overview-mass_budget_2)",
 	} {
 		if !strings.Contains(string(written), want) {
 			t.Errorf("rendered whole-document example lacks %q", want)

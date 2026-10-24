@@ -1,6 +1,6 @@
 # Whole Report
 
-A report whose outline is one body; see [Mass budget](#overview-mass_budget), [Shared notes](Whole-Notes.md#shared_notes) and [Appendix](#appendix).
+A report whose outline is one body; see [Mass budget](#overview-mass_budget) and [Appendix](#appendix).
 
 <a id="overview"></a>
 

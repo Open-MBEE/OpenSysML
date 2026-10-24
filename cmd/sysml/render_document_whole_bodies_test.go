@@ -9,6 +9,19 @@ import (
 
 const wholeBodiesFixture = "../../internal/doc/docrender/testdata/whole_report.sysml"
 
+// wholeBodiesNotes is a second document whose only section is markup-born, so
+// a cross-document reference has to resolve to a generated section.
+const wholeBodiesNotes = `
+	part def Notes :> Document {
+		:>> title = "Notes";
+
+		rep language "markdown" /* # Shared notes
+		 *
+		 * The report's [budget](sysml:WholeReport::mass_budget) is kept there.
+		 */
+	}
+`
+
 // TestRenderDocumentWholeBodies renders a report whose outline is one
 // Markdown body: its headings are sections the title page, table of contents
 // and numbering options treat exactly as the part-born section after them.
@@ -22,7 +35,14 @@ func TestRenderDocumentWholeBodies(t *testing.T) {
 
 	wantReport(t, check(t, binary, model, "-render-document", "Whole::WholeReport"), 0,
 		"## Overview", "### Mass budget", "#### Margins", "## Appendix", "### Derivation",
-		"[Mass budget](#overview-mass_budget)", "[Shared notes](Whole-Notes.md#shared_notes)", "back to [Overview](#overview)")
+		"[Mass budget](#overview-mass_budget)", "back to [Overview](#overview)")
+
+	linked := strings.Replace(model, "and [](sysml:appendix).", "[](sysml:appendix) and [](sysml:Notes::shared_notes).", 1)
+	linked = strings.TrimSuffix(strings.TrimSpace(linked), "}") + wholeBodiesNotes + "}\n"
+	wantReport(t, check(t, binary, linked, "-render-document", "Whole::WholeReport"), 0,
+		"[Shared notes](Whole-Notes.md#shared_notes)")
+	wantReport(t, check(t, binary, linked, "-render-document", "Whole::Notes"), 0,
+		"# Shared notes", "[budget](Whole-WholeReport.md#overview-mass_budget)")
 
 	html := filepath.Join(t.TempDir(), "report.html")
 	wantReport(t, check(t, binary, model, "-render-document", "Whole::WholeReport", "-doc-form", "html",

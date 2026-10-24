@@ -1,6 +1,6 @@
 # Telescope Mass Report
 
-This report is one Markdown body: its headings are the document's sections. See [Mass budget](#overview-mass_budget), the [margin](Whole-Glossary.md#mass_margin) and the [appendix](#appendix) that follows the body.
+This report is one Markdown body: its headings are the document's sections. See [Mass budget](#overview-mass_budget) and the [appendix](#appendix) that follows the body.
 
 <a id="overview"></a>
 

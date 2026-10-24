@@ -7,22 +7,12 @@ package Whole {
     }
     part telescope : Telescope;
 
-    part def Glossary :> Document {
-        :>> title = "Glossary";
-
-        rep language "markdown" /* # Mass margin
-         *
-         * The allowance the [budget](sysml:MassReport::mass_budget) keeps above
-         * the current best estimate.
-         */
-    }
-
     part def MassReport :> Document {
         :>> title = "Telescope Mass Report";
 
         rep language "markdown" /* This report is one Markdown body: its headings are the
-         * document's sections. See [](sysml:mass_budget), the [margin](sysml:Glossary::mass_margin)
-         * and the [appendix](sysml:appendix) that follows the body.
+         * document's sections. See [](sysml:mass_budget) and the
+         * [appendix](sysml:appendix) that follows the body.
          *
          * # Overview
          *

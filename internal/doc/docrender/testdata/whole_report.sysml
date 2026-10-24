@@ -6,20 +6,11 @@ package Whole {
 	}
 	part telescope : Telescope;
 
-	part def Notes :> Document {
-		:>> title = "Notes";
-
-		rep language "markdown" /* # Shared notes
-		 *
-		 * The report's [budget](sysml:WholeReport::mass_budget) is kept there.
-		 */
-	}
-
 	part def WholeReport :> Document {
 		:>> title = "Whole Report";
 
-		rep language "markdown" /* A report whose outline is one body; see [](sysml:mass_budget),
-		 * [](sysml:Notes::shared_notes) and [](sysml:appendix).
+		rep language "markdown" /* A report whose outline is one body; see [](sysml:mass_budget)
+		 * and [](sysml:appendix).
 		 *
 		 * # Overview
 		 *
