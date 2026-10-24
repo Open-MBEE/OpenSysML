@@ -1709,12 +1709,15 @@ function rerouteAroundBoxes(
   // obstacles, so two edges in different passes are not nudged apart.
   const leaves = new Map<string, Box>();
   const containers = new Map<string, Box>();
-  // A pin on the border is part of its owner's shape, not a box of its own; a clipped
-  // node has no box, but a placed member under it is drawn and does.
+  // drawnUnder is the boxes drawn inside a node: its drawn children less the pins on its
+  // border, and the drawn members under a clipped child, which has no box of its own.
+  const drawnUnder = (entry: PlacedNode): PlacedNode[] =>
+    entry.children.flatMap((child) =>
+      child.snapped || child.hidden ? [] : child.clipped ? drawnUnder(child) : [child],
+    );
   const visit = (entry: PlacedNode): void => {
-    const shown = entry.children.filter((child) => !undrawn(child) && !child.snapped);
     if (!undrawn(entry)) {
-      (shown.length === 0 ? leaves : containers).set(entry.node.id, entry.box);
+      (drawnUnder(entry).length === 0 ? leaves : containers).set(entry.node.id, entry.box);
     }
     for (const child of entry.children) {
       if (!child.snapped) {
