@@ -180,7 +180,7 @@ func (c *compiler) markupRef(owner, rep *symbols.Symbol, body string, run markup
 	value, ok := parser.ParseOneExpression(rep.DocName, run.Destination)
 	if !ok {
 		if section, doc, found := c.markupSectionRef(rep.OwnerScope, run.Destination, nil); found {
-			return Run{kind: RunRef, text: run.Text, refName: section.name, refNameDoc: doc, origin: origin}, nil
+			return Run{kind: RunRef, text: run.Text, refName: section.name, refNameDoc: doc, bound: true, origin: origin}, nil
 		}
 		return Run{}, &Error{
 			Kind:     ErrorInvalidRefTarget,
@@ -196,7 +196,7 @@ func (c *compiler) markupRef(owner, rep *symbols.Symbol, body string, run markup
 		var planning *Error
 		if errors.As(err, &planning) && planning.Kind == ErrorUnknownRefTarget {
 			if section, doc, found := c.markupSectionRef(rep.OwnerScope, run.Destination, value); found {
-				return Run{kind: RunRef, text: run.Text, refName: section.name, refNameDoc: doc, origin: origin}, nil
+				return Run{kind: RunRef, text: run.Text, refName: section.name, refNameDoc: doc, bound: true, origin: origin}, nil
 			}
 		}
 		if errors.As(err, &planning) {
