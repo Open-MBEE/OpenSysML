@@ -232,8 +232,12 @@ reading a name its declarations do not resolve reads every value of that name; a
 for the clock's instant marks a same-instant rewrite from a literal that another order could not have changed;
 the guards a route reads on its way through a junction or choice pseudostate are not control for
 what follows them, and a calc or constraint body propagates nothing (the expression reading its
-result stands on what it reads). A feature valued by an expression, evaluated as it is read, is
-not written and so carries no mark.
+result stands on what it reads). A feature valued by an expression is computed as it is read,
+and stands on what its lowered expression reads at that moment, through features so valued in
+turn (`lower.ExpressionFootprint` follows a bound value's reads; `deriveMarks` rewrites the
+feature's place as the derivation lands), so a write from it stands on those places as a write
+from them directly would; a feature given an initial or default value is written once, as its
+owner starts, and stands on what that write read.
 
 ## Repeated action-step performances
 

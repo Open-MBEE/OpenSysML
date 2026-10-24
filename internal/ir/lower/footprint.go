@@ -504,8 +504,9 @@ func (b *footprintBuilder) readPlace(scope *symbols.Scope, segments []string) {
 // evaluates: the places its expression reads, through features so valued in turn,
 // since the value is computed from them as it is read (KerML 1.1 §7.3.4.2, a
 // FeatureValue that is not initial binds the feature to its expression's result).
-// A calc usage's members are read by calcUsage; an initial or default value is
-// written once, not computed on read, and adds nothing.
+// Only a value-holding usage is so read: a behavior usage's value is what it
+// performs, read by its outputs, a calc usage's members by calcUsage; an initial
+// or default value is written once, not computed on read, and adds nothing.
 func (b *footprintBuilder) boundValue(sym *symbols.Symbol) {
 	if sym == nil {
 		return
@@ -515,7 +516,9 @@ func (b *footprintBuilder) boundValue(sym *symbols.Symbol) {
 		return
 	}
 	switch usage.Kind {
-	case ast.UsageCalc, ast.UsageAnalysisCase, ast.UsageVerificationCase:
+	case ast.UsagePart, ast.UsageAttribute, ast.UsageItem, ast.UsageOccurrence,
+		ast.UsageIndividual, ast.UsageEnumeration:
+	default:
 		return
 	}
 	if b.expanding[usage] {

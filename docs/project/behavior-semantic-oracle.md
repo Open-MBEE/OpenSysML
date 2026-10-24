@@ -2410,6 +2410,42 @@ while `z` prints bare (`orderDependent` states `x: 2, y: 2`). The marks follow w
 `y` stands on the same choice points as the `x` it was computed from, not on a choice point of
 its own, since the statement writing it is not itself a choice.
 
+### A feature valued by an expression stands on what its expression reads
+
+Fixtures: `action_order_bound_read_of_racing_writer`, `action_order_write_from_bound_read`,
+`action_order_bound_chain_of_racing_writer`, `action_order_bound_read_of_unraced_stays_bare`
+(golden, explored).
+
+```
+attribute x : Integer = 0;  attribute y : Integer = x + 1;  attribute v : Integer = y * 2;
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → derive { z := v } → done
+```
+
+Derived constraints:
+
+- A feature whose value is a FeatureValue that is not initial is bound to the result of its
+  expression (KerML 1.1 §7.3.4.2), so `y` is not written by any step: it is computed from `x`
+  as it is read, and `v` from `y` in turn.
+- `sync` follows both branches, so a read of `y` after it computes from the `x` that stands after
+  both writes: `{x = 1, y = 2, v = 4}` or `{x = 2, y = 3, v = 6}`, and `z`, written from `v`,
+  is `4` or `6`.
+- A feature valued by an initial value (`:=`) is written once, as its owner starts, and so stands
+  on what the writes before that point touched: `w := x + 1` reads `0` in every linearization.
+
+Open: the order of the two branches, exactly as for a value written from `x`. Reading `y` lands
+where `x` stands, so `y` is open where `x` is, and so is everything computed from `y`, whether a
+feature valued by an expression over it (`v`) or a statement writing from it (`z`). A feature
+valued by an expression over something no open order wrote (`q = p + 1`, `p` written once from a
+literal after the join) is fixed.
+
+Pinned outcome: the admissible set of two members in each fixture, stated as `outcomes` citing
+this section. The default run reports `y`, `v` and `z` up to the same two choice points as `x`
+(`orderDependent` states `x: 2, y: 2, v: 2, z: 2`), and `q` bare (`x: 2` alone): a feature valued
+by an expression stands on the places its lowered expression reads, through features so valued
+in turn, at the moment it is read, and a write from it stands on those places as a write from
+them directly would.
+
 ### A guard reading an order-dependent value leaves what its branch writes order-dependent
 
 Fixture: `action_order_guard_reads_racing_writer` (golden, explored).
