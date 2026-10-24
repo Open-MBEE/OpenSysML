@@ -594,8 +594,8 @@ func (ec *EvalContext) openFeatureRead(inst *Instance, fv *FeatureValue, open *o
 	if from != "" {
 		spelled = from + "." + name
 	}
-	// A parameter is bound when its behavior is invoked (SysML v2 §7.17.2), so one of a
-	// usage nothing has invoked holds no value on an instance any more than at model level.
+	// A parameter is bound when its behavior is invoked (SysML v2 §7.17.2, KerML §7.4.7), so one
+	// nothing has invoked is unbound whatever its multiplicity, on an instance as at model level.
 	if ec.ctx.unboundParameter(fv) {
 		return unsetFeatureValue(spelled, feature.Multiplicity, feature.Symbol), true
 	}
@@ -625,11 +625,6 @@ func (ec *EvalContext) openFeatureRead(inst *Instance, fv *FeatureValue, open *o
 	}
 	if _, exact := feature.Multiplicity.Exactly(); exact {
 		return Value{}, false
-	}
-	// A behavior's parameter nothing has invoked is an unbound input whatever its
-	// multiplicity: the invocation supplies it (SysML v2 §7.17.2, KerML 1.0 §7.4.7).
-	if semantics.IsBehaviorParameter(feature.Symbol) {
-		return unsetFeatureValue(spelled, feature.Multiplicity, feature.Symbol), true
 	}
 	// A collection the model values with nothing holds nothing: a lower bound of 0
 	// is met by none, a higher one by nothing.
