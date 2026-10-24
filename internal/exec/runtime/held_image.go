@@ -547,7 +547,7 @@ func (t *imaging) finish() {
 }
 
 // reachRecorded reaches inst's shots, the performances fired successions join it
-// to, and the transfers it is an end of, with their ends and payload.
+// to, and the transfers it is an end of or is, with their ends and payload.
 func (t *imaging) reachRecorded(inst *Instance) {
 	ctx := t.ctx
 	shots := ctx.shots[inst.ID]
@@ -557,7 +557,7 @@ func (t *imaging) reachRecorded(inst *Instance) {
 		t.reach(id)
 	}
 	for _, record := range ctx.transfers {
-		if !slices.Contains(record.sources, inst.ID) && !slices.Contains(record.targets, inst.ID) {
+		if record.id != inst.ID && !slices.Contains(record.sources, inst.ID) && !slices.Contains(record.targets, inst.ID) {
 			continue
 		}
 		t.reach(record.id)

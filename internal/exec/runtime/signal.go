@@ -478,7 +478,10 @@ func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Messa
 	if ec != nil {
 		performance = objectID(ec.occurrence)
 	}
-	port, _ := ctx.portInstanceID(holder, routed.Target)
+	port, err := ctx.portInstanceID(holder, routed.Target)
+	if err != nil {
+		return err
+	}
 	for _, c := range copies {
 		c.msg.SenderPerformance, c.msg.SenderPort = performance, port
 		if err := ctx.postFrom(c.msg, c.from, behavior); err != nil {
@@ -1240,6 +1243,9 @@ func (ec *EvalContext) valuedReceivers(s lower.Send) ([]*Instance, error) {
 // bound in ec or valued by its receiver expression holds, else as post routes it.
 // receivers is what valuedReceivers evaluated, nil where the send carried none.
 func (ctx *Context) postFor(ec *EvalContext, conns []lower.Connection, msg Message, s lower.Send, receivers []*Instance, self *Instance, behavior *symbols.Symbol) error {
+	if ec != nil && msg.SenderPerformance == 0 {
+		msg.SenderPerformance = objectID(ec.occurrence)
+	}
 	if addrs, bound, err := ec.boundTargetAddresses(s); bound {
 		if err != nil {
 			return err

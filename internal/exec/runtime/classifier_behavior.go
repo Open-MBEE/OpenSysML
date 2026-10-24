@@ -439,6 +439,7 @@ func (ctx *Context) forgetAbandoned(abandoned map[int64]bool, gone []*Instance) 
 	ctx.forgetEdgesOf(gone)
 	ctx.forgetValuesNaming(abandoned)
 	ctx.forgetMessagesTo(abandoned)
+	ctx.forgetRecordsNaming(abandoned)
 }
 
 // forgetVariantsNaming unselects every variant whose object or selecting object

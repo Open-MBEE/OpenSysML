@@ -13,6 +13,8 @@ func TestRuntimeRobustnessOccurrenceMembers(t *testing.T) {
 	t.Run("shots_of_a_parked_performance", testOccurrenceShotsParked)
 	t.Run("reads_after_step_budget", testOccurrenceReadsAfterStepBudget)
 	t.Run("restore_takes_back_shots_and_durations", testOccurrenceRestoreTakesBackShots)
+	t.Run("image_of_a_receiver_keeps_the_sender_of_a_message_in_flight", testOccurrenceImageKeepsSender)
+	t.Run("abandoned_creation_leaves_no_shot_record", testOccurrenceAbandonedCreationShots)
 }
 
 const occurrenceWaitSrc = `package Probe {
@@ -172,5 +174,95 @@ func testOccurrenceRestoreTakesBackShots(t *testing.T) {
 	}
 	if again := mustEvalOn(t, ctx, p, "act.done"); again.Kind != ValInstance {
 		t.Errorf("act.done after running again = %s, want the end snapshot", FormatValue(again))
+	}
+}
+
+const occurrenceInFlightSrc = `package Probe {
+	private import ScalarValues::*;
+	private import SequenceFunctions::*;
+	attribute def Ping;
+	attribute def Pong;
+	part def Receiver {
+		perform action rcv {
+			first start;
+			then action r accept Pong;
+			then done;
+		}
+	}
+	part def Sender {
+		part r : Receiver;
+		perform action snd {
+			first start;
+			then action s send new Ping() to r;
+			then done;
+		}
+	}
+}`
+
+func testOccurrenceImageKeepsSender(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, occurrenceInFlightSrc)
+	s := mustInstantiate(t, ctx, oneSymbol(t, idx, "Probe::Sender"))
+	// The Ping stays in flight: the receiver accepts only a Pong.
+	if sent, err := evalOn(t, ctx, s, "size(r.incomingTransfers)"); err != nil || FormatValue(sent) != "1" {
+		t.Fatalf("r.incomingTransfers = %s, %v, want the one send in flight", FormatValue(sent), err)
+	}
+	r, err := evalOn(t, ctx, s, "r")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dst := imageInto(t, ctx, ctx.instances[r.Instance])
+	var receiver *Instance
+	for _, id := range dst.InstanceIDs() {
+		if inst := dst.instances[id]; SymbolText(inst.Type) == "Receiver" {
+			receiver = inst
+		}
+	}
+	if receiver == nil {
+		types := []string{}
+		for _, id := range dst.InstanceIDs() {
+			types = append(types, SymbolText(dst.instances[id].Type))
+		}
+		t.Fatalf("the image holds no receiver: %v", types)
+	}
+	source, err := evalOn(t, dst, receiver, "incomingTransfers#(1).source")
+	if err != nil || source.Kind != ValInstance {
+		t.Fatalf("restored incomingTransfers#(1).source = %s, %v, want the sending performance", FormatValue(source), err)
+	}
+	if typ := SymbolText(dst.instances[source.Instance].Type); typ != "snd" {
+		t.Errorf("restored transfer source is a %s, want the sending performance snd", typ)
+	}
+}
+
+func testOccurrenceAbandonedCreationShots(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package Probe {
+		private import ScalarValues::*;
+		part def Base { attribute v : Integer = 1; }
+		part def Holder {
+			part base : Base;
+			attribute v : Integer = base.v;
+		}
+	}`)
+	h := mustInstantiate(t, ctx, oneSymbol(t, idx, "Probe::Holder"))
+	base, err := evalOn(t, ctx, h, "base")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A creation that fails after reading the shot abandons everything made since its mark,
+	// the shot object included; the record of it must go with it.
+	mark := len(ctx.created)
+	first, err := evalOn(t, ctx, h, "base.start")
+	if err != nil || first.Kind != ValInstance {
+		t.Fatalf("base.start = %s, %v, want a shot of base", FormatValue(first), err)
+	}
+	ctx.abandonInstancesSince(mark)
+	if shots := ctx.shots[base.Instance]; shots.start != 0 {
+		t.Fatalf("base records shot #%d after the object was abandoned", shots.start)
+	}
+	again, err := evalOn(t, ctx, h, "base.start")
+	if err != nil || again.Kind != ValInstance || ctx.instances[again.Instance] == nil {
+		t.Fatalf("base.start after the abandonment = %s, %v, want a live shot of base", FormatValue(again), err)
+	}
+	if again.Instance == first.Instance {
+		t.Errorf("base.start is the abandoned object #%d again", first.Instance)
 	}
 }

@@ -197,3 +197,48 @@ func (ctx *Context) transferEndValue(inst *Instance, sym *symbols.Symbol) (Value
 	}
 	return Value{}, false, nil
 }
+
+// forgetRecordsNaming drops the shots, fired successions and transfers of the objects
+// abandoned, and the references surviving records held to them.
+func (ctx *Context) forgetRecordsNaming(abandoned map[int64]bool) {
+	for id, shots := range ctx.shots {
+		if abandoned[id] {
+			delete(ctx.shots, id)
+			continue
+		}
+		if abandoned[shots.start] {
+			shots.start = 0
+		}
+		if abandoned[shots.end] {
+			shots.end = 0
+		}
+		ctx.shots[id] = shots
+	}
+	for id, predecessors := range ctx.fired {
+		if abandoned[id] {
+			delete(ctx.fired, id)
+			continue
+		}
+		ctx.fired[id] = slices.DeleteFunc(predecessors, func(p int64) bool { return abandoned[p] })
+	}
+	drop := func(id int64) int64 {
+		if abandoned[id] {
+			return 0
+		}
+		return id
+	}
+	kept := ctx.transfers[:0]
+	for _, record := range ctx.transfers {
+		if abandoned[record.id] {
+			continue
+		}
+		record.source, record.target = drop(record.source), drop(record.target)
+		record.sources = slices.DeleteFunc(record.sources, func(id int64) bool { return abandoned[id] })
+		record.targets = slices.DeleteFunc(record.targets, func(id int64) bool { return abandoned[id] })
+		kept = append(kept, record)
+	}
+	ctx.transfers = kept
+	for i := range ctx.messages {
+		ctx.messages[i].Transfer = drop(ctx.messages[i].Transfer)
+	}
+}

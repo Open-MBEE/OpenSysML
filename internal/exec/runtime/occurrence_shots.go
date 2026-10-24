@@ -60,6 +60,9 @@ func (ctx *Context) shotOf(inst *Instance, sym *symbols.Symbol, feat *EffectiveF
 		prior := ctx.lives[shot.ID]
 		ctx.lives[shot.ID] = life{reached: prior.reached, began: at, ended: at, beganAt: atClock, endedAt: atClock}
 		ctx.livesChanged()
+		if err := ctx.shotValues(shot, inst, start); err != nil {
+			return Value{}, err
+		}
 		previous := shots
 		if start {
 			shots.start = shot.ID
@@ -150,4 +153,29 @@ func (inst *Instance) shotFeatureValue(ctx *Context, name string) (*FeatureValue
 		return nil, err
 	}
 	return &FeatureValue{Feature: fv.Feature, Value: val, Materialized: val.Kind != ValUndetermined}, nil
+}
+
+// shotValues gives a shot the values the occurrence held at its instant: an ended
+// occurrence's values are its end values, and a value nothing wrote since the start
+// is its start value; one written since was not recorded then, so it is undetermined.
+func (ctx *Context) shotValues(shot, inst *Instance, start bool) error {
+	for name, fv := range inst.FeatureValues {
+		target, ok := shot.FeatureValues[name]
+		if !ok || !fv.Materialized || fv.Feature == nil || !fv.Feature.Scalar() && fv.Values.Kind == ValInvalid {
+			continue
+		}
+		value := fv.HeldValue()
+		switch value.Kind {
+		case ValInvalid, ValInstance, ValSequence, ValSet, ValArray:
+			continue
+		}
+		if start && fv.Written {
+			value = undeterminedFeatureValue(fmt.Sprintf("%s was assigned after %s started: its value then was not recorded", name, SymbolText(inst.Type)), fv.Feature.Multiplicity, fv.Feature.Symbol)
+		}
+		if err := shot.BindFeatureValue(ctx, name, value); err != nil {
+			return err
+		}
+		target.Written = true
+	}
+	return nil
 }

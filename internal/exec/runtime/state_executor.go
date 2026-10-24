@@ -4905,10 +4905,17 @@ func (e *StateExecutor) deliverPendingSignal() (bool, error) {
 	if !ok {
 		return e.hasDueEvent(), nil
 	}
-	if accepting, err := e.materializeOccurrence(); err != nil {
+	// A message the machine takes only to drop it is not accepted: its transfer stays open.
+	if reacts, err := e.reactsTo(msg); err != nil {
 		return false, err
-	} else if err := e.ctx.recordTransfer(msg, accepting, e.self); err != nil {
-		return false, err
+	} else if reacts {
+		accepting, err := e.materializeOccurrence()
+		if err != nil {
+			return false, err
+		}
+		if err := e.ctx.recordTransfer(msg, accepting, e.self); err != nil {
+			return false, err
+		}
 	}
 	e.enqueueSignal(msg)
 	return true, nil
