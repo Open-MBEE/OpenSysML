@@ -441,9 +441,8 @@ func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 	}
 }
 
-// A typing the model cannot resolve — here a conjugated feature chain, which
-// names no element — is spelled as written, headed by the name it ends in
-// with the `~` kept, and resolves to no typing.
+// A typing the model cannot resolve (a conjugated feature chain names no element) is spelled as
+// written, headed by the name it ends in with the `~` kept, and resolves to no typing.
 func TestUnresolvedTypingIsSpelledAsWritten(t *testing.T) {
 	rendering := render(t, "typings-unresolved.sysml", "SpelledViews::rigView")
 	if node := nodeNamed(t, rendering, "mirrored"); node.Type != "~rail.'Frame *rail*'" {

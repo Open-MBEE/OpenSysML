@@ -13,10 +13,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
-// validFixtureSets lists the fixtures that are valid models, grouped as the
-// view tests load them, so their renderings are gated on models that pass
-// validation. A sibling named in loaded but not in files is loaded for its
-// declarations only: its own errors are deliberate and documented at its top.
+// validFixtureSets groups the valid fixtures as the view tests load them; a `loaded` sibling is
+// not gated (its errors are deliberate), a `pinned` file is held to exactly one error of that code.
 // A file in pinned carries exactly one error of the code named, deliberate and
 // documented at its top, and is held to zero others. A fixture absent here
 // renders an error on purpose, and says so at its top.
@@ -41,10 +39,8 @@ var validFixtureSets = []struct {
 	{files: []string{"typings.sysml"}},
 }
 
-// TestFixturesHaveNoErrorDiagnostics holds every fixture of validFixtureSets to
-// zero error diagnostics from the validation passes over the standard library
-// (the one pinned error excepted), the set's siblings loaded alongside as the
-// view tests load them.
+// TestFixturesHaveNoErrorDiagnostics holds every fixture of validFixtureSets to zero error
+// diagnostics from the validation passes over the standard library, the one pinned error excepted.
 func TestFixturesHaveNoErrorDiagnostics(t *testing.T) {
 	for _, set := range validFixtureSets {
 		files := append(append([]string{}, set.files...), set.loaded...)
