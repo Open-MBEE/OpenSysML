@@ -167,7 +167,7 @@ Under the default `-conformance auto`:
 
 ```
 345 case(s): 333 both reject, 0 only the pilot rejects, 12 only we reject, 0 both accept
-  of which 3 agree only because we were asked strictly (the default mode accepts them, by design)
+  of which 4 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
 | Source | Cases | Both reject | Pilot only | Ours only | Both accept |

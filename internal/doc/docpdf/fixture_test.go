@@ -27,6 +27,7 @@ var (
 	telescopeFixture  = filepath.Join(docrenderTestdata, "telescope_report.sysml")
 	mathFixture       = filepath.Join(docrenderTestdata, "math_report.sysml")
 	stateFixture      = filepath.Join(docrenderTestdata, "state_report.sysml")
+	markdownFixture   = filepath.Join(docrenderTestdata, "markdown_report.sysml")
 )
 
 // sourceModel is one SysML source text parsed, indexed and given a semantic model.
@@ -162,6 +163,13 @@ func telescopeDocument(t *testing.T) *docir.Document {
 func mathDocument(t *testing.T) *docir.Document {
 	t.Helper()
 	return fixtureDocument(t, mathFixture, "Optics::OpticsReport")
+}
+
+// markdownDocument is the prose report: paragraphs and lists written as
+// Markdown bodies, with links, references, inline math and metacharacters.
+func markdownDocument(t *testing.T) *docir.Document {
+	t.Helper()
+	return fixtureDocument(t, markdownFixture, "Prose::ProseReport")
 }
 
 // plainDocument is a one-paragraph document with no diagram or formula.

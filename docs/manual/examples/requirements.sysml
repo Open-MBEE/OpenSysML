@@ -62,7 +62,7 @@ package Requirements {
 		attribute redefines title = "Mission Requirements";
 
 		part intro : Paragraph {
-			attribute redefines text = "Each requirement by identifier, first as a table and then as prose; then the specification's requirement hierarchy.";
+			:>> text = "Each requirement by identifier, first as a table and then as prose; then the specification's requirement hierarchy.";
 		}
 
 		part table : Table {
