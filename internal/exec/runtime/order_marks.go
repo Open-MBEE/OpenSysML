@@ -243,7 +243,12 @@ func (ctx *Context) releaseControl(n int) { ctx.controls = ctx.controls[:n] }
 // runs under and the marks of every place it reads, every mark where the
 // declarations do not decide the places and dynamicAll holds.
 func (ctx *Context) standingOf(fp lower.Footprint, dynamicAll bool) []int64 {
-	deps := slices.Clone(ctx.controls)
+	return ctx.readStanding(slices.Clone(ctx.controls), fp, dynamicAll)
+}
+
+// readStanding unions onto deps the marks of every place the footprint reads,
+// every mark where the declarations do not decide the places and dynamicAll holds.
+func (ctx *Context) readStanding(deps []int64, fp lower.Footprint, dynamicAll bool) []int64 {
 	marks := &ctx.run.marks
 	if fp.Dynamic && dynamicAll {
 		return unionSerials(deps, marks.all())
@@ -252,6 +257,19 @@ func (ctx *Context) standingOf(fp lower.Footprint, dynamicAll bool) []int64 {
 		deps = unionSerials(deps, marks.of(ctx.placeOf(r)))
 	}
 	return deps
+}
+
+// deriveMarks records what a feature valued by an expression stands on as its
+// value is derived: the marks of the places the expression reads, as a write
+// computed from them would. Deriving is a read, not a move, so it stands on no
+// control; a derivation reading nothing order-dependent clears the mark, as a
+// clean write does.
+func (ctx *Context) deriveMarks(binding *bodyBinding) {
+	if binding.place.Name == "" {
+		return
+	}
+	fp := ctx.model.expressionFootprint(binding.scope, binding.value)
+	ctx.writeMarks([]lower.Place{binding.place}, ctx.readStanding(nil, fp, true))
 }
 
 // placeOf is the place as the run holds it: a parameter of the action performed,

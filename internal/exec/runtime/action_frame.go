@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -292,6 +293,7 @@ func (e *ActionExecutor) registerRootBindings(root *actionFrame) {
 		}
 		cell = e.ctx.registerBodyBindingInContext(cells, name, attr.Value, scope, check, context, onDerived)
 		cell.binding.masked = attr.Name
+		cell.binding.place = bindingPlace(attr.Symbol, attr.Name)
 	}
 }
 
@@ -526,6 +528,16 @@ func (e *performances) beginPerformance(
 	return perf, nil
 }
 
+// featurePlace is the place a performance's cell for one of its node's own
+// features records its marks at: the feature as the node's scope declares it.
+func featurePlace(feature lower.Feature) lower.Place {
+	if feature.Shadowed || feature.Scope == nil {
+		return lower.Place{}
+	}
+	sym, _ := resolve.FeatureSymbolInScope(feature.Scope, []string{feature.Name})
+	return bindingPlace(sym, feature.Name)
+}
+
 // seedPerformance seeds perf's pins from deliveries, then the arguments it passes its
 // callee, then input bindings, then its own declared defaults.
 func (e *performances) seedPerformance(parent *actionFrame, flow *lower.ActionGraph, node ast.Node, perf *actionFrame) error {
@@ -546,6 +558,7 @@ func (e *performances) seedPerformance(parent *actionFrame, flow *lower.ActionGr
 			e.bodyCells(perf), perf.key(feature.Name), feature.Value, feature.Scope, check, context, nil,
 		)
 		cell.binding.masked = feature.Name
+		cell.binding.place = featurePlace(feature)
 	}
 	if err := e.takeDeliveries(parent, node, perf); err != nil {
 		return err
@@ -661,6 +674,7 @@ func (e *performances) seedDeclaredValues(perf *actionFrame, features []lower.Fe
 					cells, name, feature.Value, feature.Scope, check, context, nil,
 				)
 				cell.binding.masked = feature.Name
+				cell.binding.place = featurePlace(feature)
 			}
 			value, err = e.ctx.deriveBodyCell(cells, name, cell)
 		} else {

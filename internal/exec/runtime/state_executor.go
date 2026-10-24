@@ -350,6 +350,7 @@ func newStateExecutorOn(
 			return nil
 		}
 		cell = ctx.registerBodyBinding(exec.ensureStateCells(), attr.Name, attr.Value, scope, nil, onDerived)
+		cell.binding.place = bindingPlace(attr.Symbol, attr.Name)
 	}
 	return exec
 }
@@ -564,7 +565,8 @@ func (e *StateExecutor) initializeStateAttributes() error {
 				if scope == nil {
 					scope = e.graph.Scope
 				}
-				e.ctx.registerBodyBinding(cells, attr.Name, attr.Value, scope, nil, nil)
+				cell := e.ctx.registerBodyBinding(cells, attr.Name, attr.Value, scope, nil, nil)
+				cell.binding.place = bindingPlace(attr.Symbol, attr.Name)
 			}
 		}
 		for _, attr := range attrs {

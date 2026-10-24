@@ -38,8 +38,11 @@ type bodyCell struct {
 
 // bodyBinding records the expression and declaration context a cell tracks.
 type bodyBinding struct {
-	value       ast.Node
-	scope       *symbols.Scope
+	value ast.Node
+	scope *symbols.Scope
+	// place is the feature the cell holds as the run's order marks name it; a
+	// zero place records no marks.
+	place       lower.Place
 	masked      string
 	check       func(*Value) error
 	context     func(*symbols.Scope) *EvalContext
@@ -246,9 +249,19 @@ func (ctx *Context) deriveBodyCell(cells *bodyCells, name string, cell *bodyCell
 		cell.fv.Value, cell.fv.Values, cell.fv.Materialized = value, Value{}, true
 		cell.fv.intrinsic = false
 		cells.vars[name] = value
+		ctx.deriveMarks(cell.binding)
 		return value, nil
 	})
 	return value, err
+}
+
+// bindingPlace is the place a cell bound to the feature sym declares under name
+// records its marks at; a feature no scope declares records none.
+func bindingPlace(sym *symbols.Symbol, name string) lower.Place {
+	if sym == nil {
+		return lower.Place{}
+	}
+	return lower.Place{Sym: sym, Name: name, Direct: true}
 }
 
 // seedBodyBindingFromFeatureValue reuses a matching occurrence value and its read edges.

@@ -962,6 +962,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 				}
 			}
 			cell = e.ctx.registerBodyBinding(cells, name, s.Value, s.Scope, check, onDerived)
+			cell.binding.place = bindingPlace(s.Symbol, name)
 			cell.binding.visible = visible
 			cell.binding.limitFrames = true
 			if _, err := e.ctx.deriveBodyCell(cells, name, cell); err != nil {
