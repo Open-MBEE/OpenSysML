@@ -29,6 +29,10 @@
     "outerBodyCount": {"type": "Integer", "value": 2},
     "innerLoopsOfFirstOuterBody": {"type": "Integer", "value": 1},
     "innerBodiesOfFirstOuterBody": {"type": "Integer", "value": 2},
-    "innerLoopsAreDistinct": {"type": "Boolean", "value": true}
+    "innerLoopsAreDistinct": {"type": "Boolean", "value": true},
+    "inheritedCount": {"type": "Integer", "value": 2},
+    "inheritedBodyCount": {"type": "Integer", "value": 2},
+    "inheritedBodySubperformanceCount": {"type": "Integer", "value": 1},
+    "inheritedIncContextIsItsBody": {"type": "Boolean", "value": true}
   }
 }

@@ -7,6 +7,18 @@ package test {
     // A loop an action performs is a LoopAction subaction held under its `loops`,
     // and every iteration performs the loop's body as an occurrence held under the
     // loop's `body`, with the body's own nested actions as its subperformances.
+    action def G {
+        attribute i : Integer = 0;
+        first start;
+        then loop action body {
+            first start;
+            then action inc assign i := i + 1;
+            then done;
+        } until i >= 2;
+        then done;
+    }
+    action def S :> G;
+
     part def K {
         attribute n : Integer = 0;
         attribute m : Integer = 0;
@@ -45,6 +57,7 @@ package test {
             } until t >= 4;
             then done;
         }
+        perform action inherited : S;
 
         attribute loopySubperformanceCount : Integer = size(loopy.subperformances);
         attribute loopySuboccurrenceCount : Integer = size(loopy.suboccurrences);
@@ -72,6 +85,11 @@ package test {
         attribute innerLoopsOfFirstOuterBody : Integer = size(nest.loops#(1).body#(1).loops);
         attribute innerBodiesOfFirstOuterBody : Integer = size(nest.loops#(1).body#(1).loops#(1).body);
         attribute innerLoopsAreDistinct : Boolean = nest.loops#(1).body#(1).loops#(1) != nest.loops#(1).body#(2).loops#(1);
+
+        attribute inheritedCount : Integer = inherited.i;
+        attribute inheritedBodyCount : Integer = size(inherited.loops#(1).body);
+        attribute inheritedBodySubperformanceCount : Integer = size(inherited.loops#(1).body#(1).subperformances);
+        attribute inheritedIncContextIsItsBody : Boolean = inherited.loops#(1).body#(2).subperformances#(1).this == inherited.loops#(1).body#(2);
     }
     part k : K;
 }

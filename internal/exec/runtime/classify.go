@@ -519,9 +519,9 @@ func declaredBy[T any](ctx *Context, types []*symbols.Symbol, of func(*symbols.S
 }
 
 // bindingsOf returns the binding connectors of inst's types involving the named feature,
-// save one over a Kernel frame member the object holds no value of (ControlPerformances.kerml
-// `whileDecision.thenClause = body`): the library states how its frame derives, and what
-// the object holds under the feature is read as held.
+// save a library binding over a Kernel frame member the object holds no value of
+// (ControlPerformances.kerml `whileDecision.thenClause = body`): the library states how its
+// frame derives, and what the object holds under the feature is read as held.
 func (ctx *Context) bindingsOf(inst *Instance, name string) []lower.Binding {
 	bindings := declaredBy(ctx, inst.types(),
 		func(typ *symbols.Symbol) []lower.Binding { return ctx.bindingsForFeature(typ, name) },
@@ -532,9 +532,13 @@ func (ctx *Context) bindingsOf(inst *Instance, name string) []lower.Binding {
 	return bindings
 }
 
-// bindsUnheldFrameMember reports a binding with an end through a Kernel frame member
-// of the object that holds no feature value, which no read or write can reach.
+// bindsUnheldFrameMember reports a library binding with an end through a Kernel frame
+// member of the object that holds no feature value, which no read or write can reach.
+// A binding the model declares is kept, so its unresolved end is reported.
 func (ctx *Context) bindsUnheldFrameMember(inst *Instance, b lower.Binding) bool {
+	if b.Scope == nil || !ctx.model.resolver.Index().IsLibraryDocument(b.Scope.DocName()) {
+		return false
+	}
 	for _, end := range b.Ends {
 		head, _, _ := strings.Cut(end.Path, ".")
 		if head == "" {

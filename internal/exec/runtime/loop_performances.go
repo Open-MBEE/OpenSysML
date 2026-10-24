@@ -192,20 +192,8 @@ func (e *stmtEngine) beginLoopBody(loop *Instance, stmt lower.Loop, activation i
 // loopBodySymbol is the action usage a loop declares as its body (`loop action body
 // { … }`), else the library's `LoopAction::body` for a body declared without one.
 func (e *stmtEngine) loopBodySymbol(stmt lower.Loop) *symbols.Symbol {
-	node, ok := stmt.Node.(*ast.WhileLoopActionNode)
-	if ok && stmt.Body.Scope != nil {
-		for _, member := range node.Body {
-			if m, ok := member.(*ast.Membership); ok {
-				member = m.Member
-			}
-			usage, ok := member.(*ast.Usage)
-			if !ok || !usage.IsBodyParameter || usage.Ident.Name == "" {
-				continue
-			}
-			if sym, found := stmt.Body.Scope.LookupLocal(usage.Ident.Name); found && sym != nil && sym.Decl == usage {
-				return sym
-			}
-		}
+	if stmt.BodyAction != nil {
+		return stmt.BodyAction
 	}
 	return e.ctx.librarySymbol(loopBodyFQN)
 }
