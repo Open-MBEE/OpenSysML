@@ -845,7 +845,9 @@ func (m *materializing) run() error {
 		m.edges(obj)
 		m.records(obj)
 	}
-	m.recordedOccurrences()
+	if err := m.recordedOccurrences(); err != nil {
+		return err
+	}
 	// The objects made are lives of dst: what derived from the lives, imaged or dst's own, derives again.
 	dst.livesChanged()
 	dst.activations = max(dst.activations, img.activations)
@@ -1084,7 +1086,7 @@ func (m *materializing) message(msg Message) (Message, error) {
 
 // recordedOccurrences brings the image's shots, fired successions and transfers
 // to dst under the identities the objects were made with.
-func (m *materializing) recordedOccurrences() {
+func (m *materializing) recordedOccurrences() error {
 	made := func(id int64) int64 {
 		if inst, ok := m.made[id]; ok {
 			return inst.ID
@@ -1107,9 +1109,11 @@ func (m *materializing) recordedOccurrences() {
 		}
 		carried := make(map[string]Value, len(values))
 		for name, value := range values {
-			if value, err := m.value(value); err == nil {
-				carried[name] = value
+			value, err := m.value(value)
+			if err != nil {
+				return fmt.Errorf("object #%d start value %s: %w", id, name, err)
 			}
+			carried[name] = value
 		}
 		m.dst.startValues[to] = carried
 	}
@@ -1148,4 +1152,5 @@ func (m *materializing) recordedOccurrences() {
 			sources: madeAll(record.sources), targets: madeAll(record.targets),
 		})
 	}
+	return nil
 }
