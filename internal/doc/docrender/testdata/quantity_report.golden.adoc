@@ -1,0 +1,17 @@
+= Stage Masses
+
+.Every stage, heaviest first
+[options="header"]
+|===
+| name | mass | tonnes
+| s1 | 2290000 &#91;kg&#93; | 2290 &#91;kg&#93;
+| s2 | 119000 &#91;kg&#93; | 119 &#91;kg&#93;
+| probe | 500000 &#91;g&#93; | 500 &#91;g&#93;
+|===
+
+.Stages of at least a million kilograms
+[options="header"]
+|===
+| name | mass
+| s1 | 2290000 &#91;kg&#93;
+|===

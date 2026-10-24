@@ -1228,10 +1228,13 @@ above), an object as its id, its path and the usage it stands for.
 `RenderDocument` takes no bindings, because a document binds its queries'
 parameters in the model; it answers the rendered CommonMark Markdown,
 byte-identical to `-render-document` on the same model. Its `form` field
-(`markdown`, the default, or `html`) picks the HTML backend's standalone page
-instead, answered in `html` and byte-identical to `-doc-form html`; asking for
-HTML needs the `render_document_html` capability, and PDF is not offered, since
-it needs the CLI's converter toolchain.
+(`markdown`, the default, `html` or `asciidoc`) picks the HTML backend's
+standalone page instead, answered in `html` and byte-identical to `-doc-form
+html`, or the AsciiDoc backend's document, answered in `asciidoc` and
+byte-identical to `-doc-form asciidoc`; asking for HTML needs the
+`render_document_html` capability and AsciiDoc the `render_document_asciidoc`
+capability, and PDF is not offered, since it needs the CLI's converter
+toolchain.
 
 `RenderView` answers a named view or targeted pseudo-view as ordered nodes,
 edges, table and matrix rows, notes, source spans and optional canvas/geometry/style data,
@@ -1368,8 +1371,9 @@ it.
 
 Known limitations: the response carries no provenance for *successful* rows
 (only failures name their source), and the document IR is not exposed in a
-structured form — Markdown, and HTML under the `render_document_html`
-capability, are the document forms served; the PDF form `sysml -render-document
+structured form — Markdown, HTML under the `render_document_html` capability
+and AsciiDoc under the `render_document_asciidoc` capability are the document
+forms served; the PDF form `sysml -render-document
 -doc-form pdf` writes is not.
 
 ---

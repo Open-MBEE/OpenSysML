@@ -1,0 +1,13 @@
+= Survey Plates
+
+== Survey
+
+.Plate 1: the survey mark
+image::images/mark.png[a brass survey mark]
+
+.Plate 2: from the archive
+image::https://example.test/plates/plate2.png[Plate 2: from the archive]
+
+image::images/plate%203.png[]
+
+image::images/a)%20(b).png[odd name]
