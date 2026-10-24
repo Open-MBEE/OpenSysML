@@ -792,18 +792,16 @@ func (ctx *Context) openDenotedValue(sym *symbols.Symbol, mult semantics.Range) 
 		}
 		return nil
 	}
-	var contribute func(sym *symbols.Symbol) error
-	contribute = func(sym *symbols.Symbol) error {
+	contribute := func(sym *symbols.Symbol) error {
 		for _, sub := range ctx.namespaceModelIndex().subsetters[sym] {
-			// A valueless optional usage contributes what subsets it in turn: subsetting is transitive.
-			if ctx.optionalValueless(sub) && !ctx.namesObjects(sub) {
-				if ctx.namespaceCollecting[sub] {
-					return fmt.Errorf("%w: usage %s subsets itself", ErrCyclicFeatureValue, SymbolText(sub))
-				}
-				ctx.namespaceCollecting[sub] = true
-				err := contribute(sub)
-				delete(ctx.namespaceCollecting, sub)
+			// A valueless optional usage nothing binds contributes what subsets it in turn, within
+			// its own multiplicity: subsetting is transitive, and no object is made up for it.
+			if ctx.optionalValueless(sub) && !ctx.namesObjects(sub) && !ctx.namespaceValued(sub) {
+				objs, _, err := ctx.namespacedSubsetObjects(sub)
 				if err != nil {
+					return fmt.Errorf("subsetting usage %s: %w", SymbolText(sub), err)
+				}
+				if err := add(objs); err != nil {
 					return err
 				}
 				continue

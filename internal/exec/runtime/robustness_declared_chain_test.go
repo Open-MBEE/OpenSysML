@@ -20,6 +20,7 @@ func TestRuntimeRobustnessDeclaredChain(t *testing.T) {
 	t.Run("open_member_count_stays_undetermined", testDeclaredChainOpenCount)
 	t.Run("optional_member_count_is_closed_over_the_model", testDeclaredChainOptionalCount)
 	t.Run("namespace_usages_subsetting_each_other_report_the_cycle", testDeclaredChainNamespaceSubsetCycle)
+	t.Run("optional_subsetter_keeps_its_binding_and_its_multiplicity", testDeclaredChainOptionalSubsetter)
 }
 
 // declaredChainFixture is a package-level requirement usage whose members bind
@@ -50,6 +51,13 @@ const declaredChainFixture = `package test {
 	part c2 : W[0..*] :> c1;
 	part d1 : W[1..*] :> d2;
 	part d2 : W[1..*] :> d1;
+	part bp : W[2..*];
+	part bc : W[0..1] :> bp;
+	part bw : W;
+	bind bc = bw;
+	part op : W[0..*];
+	part oc : W[0..1] :> op;
+	part og : W[2] :> oc;
 	requirement req : Limits;
 }`
 
@@ -141,5 +149,21 @@ func testDeclaredChainNamespaceSubsetCycle(t *testing.T) {
 		if !errors.Is(err, ErrCyclicFeatureValue) {
 			t.Fatalf("%s: err = %v; want ErrCyclicFeatureValue", src, err)
 		}
+	}
+}
+
+func testDeclaredChainOptionalSubsetter(t *testing.T) {
+	ctx, scope := declaredChainContext(t)
+	bw, err := ctx.EvalWithScope(parseExpr(t, "bw"), scope)
+	if err != nil {
+		t.Fatalf("bw: %v", err)
+	}
+	val, err := ctx.EvalWithScope(parseExpr(t, "bp"), scope)
+	wantUndetermined(t, "bp", val, err, "[2..*]")
+	if known := heldObjects(sequenceOf(knownElementsOf(val))); len(known) != 1 || known[0] != heldObjects(bw)[0] {
+		t.Fatalf("bp certainly holds %v; want the one object bound to bc", known)
+	}
+	if _, err := ctx.EvalWithScope(parseExpr(t, "op"), scope); !errors.Is(err, ErrMultiplicityViolation) {
+		t.Fatalf("op: err = %v; want ErrMultiplicityViolation from oc[0..1] holding og's two", err)
 	}
 }
