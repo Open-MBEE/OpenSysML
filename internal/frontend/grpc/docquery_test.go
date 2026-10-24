@@ -521,6 +521,40 @@ func TestRenderDocumentMatchesTheRendererGolden(t *testing.T) {
 	}
 }
 
+// TestRenderDocumentAsciiDocMatchesTheRendererGolden: form "asciidoc" answers
+// the AsciiDoc backend's document in asciidoc, the other forms left empty,
+// under the .adoc file name a rendered set writes.
+func TestRenderDocumentAsciiDocMatchesTheRendererGolden(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := parseTelescope(t, srv)
+
+	resp, err := srv.RenderDocument(context.Background(), &pb.RenderDocumentRequest{
+		ModelHash: hash, DocumentId: "Observatory::MassReport", Form: "asciidoc",
+	})
+	if err != nil {
+		t.Fatalf("RenderDocument(asciidoc) failed: %v", err)
+	}
+	golden, err := os.ReadFile(strings.TrimSuffix(telescopeHTMLGolden, ".html") + ".adoc")
+	if err != nil {
+		t.Fatalf("read golden: %v", err)
+	}
+	if resp.Asciidoc != string(golden) {
+		t.Errorf("asciidoc differs from the renderer's golden:\n%s", resp.Asciidoc)
+	}
+	if resp.Markdown != "" || resp.Html != "" {
+		t.Errorf("asciidoc form also answered markdown or html:\n%s%s", resp.Markdown, resp.Html)
+	}
+	if resp.FileName != "Observatory-MassReport.adoc" {
+		t.Errorf("file name = %q, want the one a rendered set writes", resp.FileName)
+	}
+	_, err = srv.RenderDocument(context.Background(), &pb.RenderDocumentRequest{
+		ModelHash: hash, DocumentId: "Observatory::MassReport", Form: "pdf",
+	})
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("RenderDocument(pdf) error = %v, want INVALID_ARGUMENT naming the forms", err)
+	}
+}
+
 // TestRenderDocumentHTMLMatchesTheRendererGolden: form "html" answers the HTML
 // backend's standalone page in html and leaves markdown empty; the explicit
 // "markdown" form answers what the empty form does.

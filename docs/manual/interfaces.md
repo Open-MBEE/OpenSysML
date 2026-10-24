@@ -23,7 +23,7 @@ $ sysml model.sysml -instantiate Observatory::telescope -render-document Observa
 | Flag | Meaning |
 |---|---|
 | `-render-document <name>` | Render the named document definition |
-| `-doc-form <form>` | `markdown` (default), `html` or `pdf` |
+| `-doc-form <form>` | `markdown` (default), `html`, `asciidoc` or `pdf` |
 | `-pdf-engine <engine>` | `weasyprint` (default), `pandoc` or `prince` |
 | `-doc-title-page` | Separate title page (HTML or PDF) |
 | `-doc-toc` | Table of contents (HTML or PDF) |

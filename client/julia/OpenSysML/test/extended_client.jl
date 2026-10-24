@@ -740,6 +740,7 @@ end
                 @test length(rows) == 4
                 @test !isempty(render_document(document_model, "Observatory::MassReport"))
                 @test !isempty(render_document(document_model, "Observatory::MassReport"; form="html"))
+                @test startswith(render_document(document_model, "Observatory::MassReport"; form="asciidoc"), "= ")
                 views_model = parse_file(conn, joinpath(FIXTURES, "views.sysml"))
                 rendered_view = render_view(views_model, "RenderViewDemo::connections")
                 @test rendered_view.kind == "interconnection"

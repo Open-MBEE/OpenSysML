@@ -317,6 +317,8 @@ pub enum DocumentForm {
     Markdown,
     /// A self-contained HTML page.
     Html,
+    /// AsciiDoc.
+    AsciiDoc,
 }
 
 /// Which ports a rendered view includes.
