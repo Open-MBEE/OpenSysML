@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import contextlib
 import importlib.util
 import io
@@ -258,6 +259,11 @@ class SnippetPathTest(unittest.TestCase):
     def test_refuses_a_symlink_that_leaves_the_working_directory(self):
         (self.cwd / "snippet.txt").symlink_to(self.secret)
         self.assert_refused("snippet.txt")
+
+    def test_accepts_any_absolute_path_when_run_from_the_root(self):
+        with working_directory(pathlib.Path(os.sep)):
+            resolved = announce._snippet_path(argparse.ArgumentParser(), str(self.secret))
+        self.assertEqual(resolved, str(self.secret))
 
     def test_refuses_a_sibling_directory_sharing_the_prefix(self):
         sibling = pathlib.Path(str(self.cwd) + "malicious")

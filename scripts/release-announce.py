@@ -52,7 +52,8 @@ def _snippet_path(parser: argparse.ArgumentParser, path: str) -> str:
     or a symlink) outside the directory the script was invoked from."""
     resolved = os.path.realpath(path)
     base = os.path.realpath(os.getcwd())
-    if not resolved.startswith(base + os.sep):
+    # join(base, "") ends base with exactly one separator, also when base is the root.
+    if not resolved.startswith(os.path.join(base, "")):
         parser.error(f"--snippet {path!r} resolves to {resolved}, "
                      f"outside the working directory {base}")
     return resolved
