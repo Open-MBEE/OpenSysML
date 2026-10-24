@@ -938,6 +938,11 @@ func (s *Session) gather(suppressing bool) []diag.Diagnostic {
 		case sn.origin != "":
 			own = analyzed[next]
 			next++
+			// What the workspace finds wrong with this file against the others
+			// loaded, reported in it: a library package another file declares too.
+			for _, f := range s.ws.FindingsOn(sn.origin) {
+				own = append(own, f.Diagnostic)
+			}
 		}
 		for _, d := range own {
 			d.Span.Offset += acc

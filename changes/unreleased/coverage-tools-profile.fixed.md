@@ -1,0 +1,1 @@
+- **`make coverage-shard SHARD=tools` no longer fills the disk.** `make coverage` wrote the tools module's profile to `coverage-tools.txt`, the very file the `tools` shard collects into, and then appended that file to itself without end; the tools profile now lives under `build/gocoverdir/` with the other intermediate counters, where no shard's profile name can collide with it.

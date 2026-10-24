@@ -1137,6 +1137,13 @@ func assertRenderingEdgeEndpoints(t *testing.T, rendering *Rendering) {
 			t.Errorf("%s edge has no target node %q", edge.Kind, edge.To)
 		}
 	}
+	for _, note := range rendering.Notes {
+		for _, id := range []string{note.Anchor, note.EdgeFrom, note.EdgeTo} {
+			if id != "" && !ids[id] {
+				t.Errorf("note %q is anchored at no node %q", note.Text, id)
+			}
+		}
+	}
 }
 
 func hasRenderingEdge(rendering *Rendering, kind EdgeKind, from, to string) bool {

@@ -181,6 +181,20 @@ func IsFeatureChain(node Node) bool {
 	return false
 }
 
+// FeatureChainBase flattens a nested feature chain: `lander.mass.mDry` is one
+// chain of members from `lander`, not a chain through the value of `lander.mass`.
+func FeatureChainBase(n *FeatureChainExpr) (Node, []NameSegment) {
+	operand, parts := n.Operand, n.Member.Parts
+	for {
+		inner, ok := operand.(*FeatureChainExpr)
+		if !ok || inner.Member == nil || len(inner.Member.Parts) == 0 {
+			return operand, parts
+		}
+		parts = append(append([]NameSegment{}, inner.Member.Parts...), parts...)
+		operand = inner.Operand
+	}
+}
+
 // namingReference returns the named reference subsetting among rels, the
 // naming feature of a member named by what it references.
 func namingReference(rels []*Relationship) *Relationship {
