@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { RenderEdge, RenderNode, RenderPoint, RenderResult } from "../protocol";
 import { AUTO_LAYOUT_LIMIT, autoLayout, type AutoLayout } from "./autolayout";
-import { GAP, layoutCanvas, portFace, type Box } from "./layout";
+import { GAP, labelSize, layoutCanvas, portFace, type Box } from "./layout";
 
 const origin = { uri: "file:///m.sysml", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } }, digest: "d0" };
 
@@ -293,4 +293,41 @@ test("autoLayout keeps an unconnected port on the south after laying out connect
   assert.equal(spare.side, "south");
   assert.equal(out1.side, laid.ports.get("out1")!.side);
   assert.equal(in1.side, laid.ports.get("in1")!.side);
+});
+
+test("autoLayout lays a leaf port node out as a pin on its owner's border, and the pin follows a stated box", async () => {
+  const result = rendering(
+    [
+      node("rig", "Rig", { kind: "part def" }),
+      node("a", "a", { parent: "rig", x: 10, y: 10, width: 120, height: 60 }),
+      node("p1", "p1", { kind: "port", parent: "a" }),
+      node("p2", "p2", { kind: "port", parent: "a" }),
+      node("b", "b", { parent: "rig" }),
+      node("q", "q", { kind: "port", parent: "b" }),
+    ],
+    [edge("p1", "q")],
+    { kind: "interconnection" },
+  );
+  const laid = await autoLayout(result);
+  assert.ok(laid);
+  assert.equal(laid.nodes.has("p1"), false, "a pin is not a node ELK places");
+  assert.equal(laid.nodes.has("q"), false);
+  assert.ok(laid.ports.get("p1"), "the connected port is an ELK port of its owner");
+  assert.ok(laid.ports.get("q"));
+  assert.equal(laid.ports.has("p2"), false, "an unwired port takes the default side");
+
+  const canvas = layoutCanvas(result, {}, laid);
+  const a = canvas.nodes.get("a")!;
+  const b = canvas.nodes.get("b")!;
+  assert.deepEqual(a.box, { x: 10, y: 10, width: 120, height: 60 });
+  for (const [id, owner] of [["p1", a], ["p2", a], ["q", b]] as const) {
+    const pin = canvas.nodes.get(id)!;
+    assert.ok(pin.snapped, `${id} is pinned`);
+    const centre = { x: pin.box.x + pin.box.width / 2, y: pin.box.y + pin.box.height / 2 };
+    assert.ok(onBorder(centre, owner.box), `${id} at ${JSON.stringify(centre)} lies on ${JSON.stringify(owner.box)}`);
+  }
+  assert.equal(b.box.height, labelSize(b.lines).height, "the owner's box holds no port inside it");
+  const [start, end] = [canvas.edges[0].points[0], canvas.edges[0].points.at(-1)!];
+  assert.deepEqual(start, portFace(a.box, canvas.nodes.get("p1")!.snapped!));
+  assert.deepEqual(end, portFace(b.box, canvas.nodes.get("q")!.snapped!));
 });

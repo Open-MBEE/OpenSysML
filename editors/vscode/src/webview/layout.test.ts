@@ -28,6 +28,8 @@ import {
   byCodeUnit,
   insertedWaypoint,
   labelLines,
+  labelSize,
+  listedEdges,
   simpleName,
   simpleNames,
   layoutCanvas,
@@ -3690,4 +3692,129 @@ test("a container drag under the router writes only the model's stated routes, a
   assert.equal(loop.edges[0].rerouted, false);
   assert.deepEqual(loop.edges[0].route, []);
   assert.deepEqual(movedNode(loop, "a", 100, 0)!.edges, [{ index: 0, route: [{ x: 250, y: 10 }, { x: 250, y: 30 }] }]);
+});
+
+// sizedOwner is a part `a` the model places in a 120×60 box, two ports under it, a part `b` with a port
+// `q`, and the connector `a.p1 → b.q` the interconnection kind draws.
+function sizedOwner(kind: "tree" | "interconnection"): RenderResult {
+  return rendering(
+    [
+      node("rig", "Rig", { kind: "part def" }),
+      node("a", "a", { parent: "rig", x: 10, y: 10, width: 120, height: 60 }),
+      node("p1", "p1", { kind: "port", type: "Fuel", parent: "a" }),
+      node("p2", "p2", { kind: "port", type: "Fuel", parent: "a" }),
+      node("b", "b", { parent: "rig" }),
+      node("q", "q", { kind: "port", type: "Fuel", parent: "b" }),
+    ],
+    kind === "interconnection" ? [{ from: "p1", to: "q", label: "", kind: "connection", fqn: "M::c" }] : [],
+    { kind },
+  );
+}
+
+// pinnedOn asserts a port node is drawn as a pin straddling its owner's border: its square
+// centred on the border, neither inside nor outside the box.
+function pinnedOn(port: PlacedNode, owner: PlacedNode): void {
+  assert.ok(port.snapped, `${port.node.id} should be pinned on ${owner.node.id}`);
+  assert.deepEqual([port.box.width, port.box.height], [PORT_SIZE, PORT_SIZE]);
+  const centre = { x: port.box.x + port.box.width / 2, y: port.box.y + port.box.height / 2 };
+  assert.ok(onBorder(centre, owner.box), `${port.node.id} at ${JSON.stringify(centre)} should lie on ${JSON.stringify(owner.box)}`);
+  assert.deepEqual(centre, portCenter(owner.box, port.snapped));
+}
+
+for (const kind of ["tree", "interconnection"] as const) {
+  test(`layoutCanvas keeps a stated box its size and pins its ports on its border (${kind})`, () => {
+    const layout = layoutCanvas(sizedOwner(kind));
+    const a = layout.nodes.get("a")!;
+    assert.deepEqual(a.box, { x: 10, y: 10, width: 120, height: 60 });
+    pinnedOn(layout.nodes.get("p1")!, a);
+    pinnedOn(layout.nodes.get("p2")!, a);
+    assert.notDeepEqual(layout.nodes.get("p1")!.box, layout.nodes.get("p2")!.box);
+    assert.deepEqual(layout.notices, []);
+  });
+}
+
+test("layoutCanvas pins the ports of an unsized owner the same way, its box fitted to its label alone", () => {
+  const layout = layoutCanvas(sizedOwner("interconnection"));
+  const b = layout.nodes.get("b")!;
+  const q = layout.nodes.get("q")!;
+  pinnedOn(q, b);
+  assert.deepEqual([b.box.width, b.box.height], [labelSize(b.lines).width, labelSize(b.lines).height]);
+  assert.equal(b.children.length, 1);
+});
+
+test("layoutCanvas anchors a connector at the faces of the pins it joins", () => {
+  const layout = layoutCanvas(sizedOwner("interconnection"));
+  const a = layout.nodes.get("a")!;
+  const b = layout.nodes.get("b")!;
+  const p1 = layout.nodes.get("p1")!;
+  const q = layout.nodes.get("q")!;
+  assert.equal(p1.snapped!.side, "east", "p1 faces b, to its right");
+  assert.equal(q.snapped!.side, "west", "q faces a, to its left");
+  const [edge] = layout.edges;
+  assert.equal(edge.hidden, false);
+  assert.deepEqual(edge.points[0], portFace(a.box, p1.snapped!));
+  assert.deepEqual(edge.points.at(-1), portFace(b.box, q.snapped!));
+  assert.deepEqual(nodeUnder(layout, portCenter(a.box, p1.snapped!))?.node.id, "p1");
+});
+
+test("layoutCanvas leaves undrawn an unplaced child a stated size has no room for, with a notice", () => {
+  const layout = layoutCanvas(
+    rendering(
+      [
+        node("a", "a", { x: 10, y: 10, width: 120, height: 60 }),
+        node("inner", "inner", { parent: "a" }),
+        node("deep", "deep", { parent: "inner" }),
+        node("c", "c", { x: 400, y: 10 }),
+      ],
+      [{ from: "inner", to: "c", label: "", kind: "connection", fqn: "M::e" }],
+    ),
+  );
+  const a = layout.nodes.get("a")!;
+  const inner = layout.nodes.get("inner")!;
+  assert.deepEqual(a.box, { x: 10, y: 10, width: 120, height: 60 });
+  assert.ok(inner.box.y + inner.box.height > a.box.y + a.box.height, "the child does not fit the box");
+  assert.equal(inner.clipped, true);
+  assert.equal(layout.nodes.get("deep")!.clipped, true);
+  assert.equal(layout.edges[0].hidden, true);
+  assert.deepEqual(listedEdges(layout), []);
+  assert.equal(nodeUnder(layout, { x: inner.box.x + 1, y: inner.box.y + inner.box.height - 1 }), undefined);
+  assert.equal(layout.height, 10 + 60 + MARGIN, "the canvas covers the drawn boxes alone");
+  assert.deepEqual(layout.notices, ["2 node(s) with no room in the stated size of the box above them, left undrawn"]);
+});
+
+test("layoutCanvas draws an unplaced child a stated size has room for", () => {
+  const layout = layoutCanvas(
+    rendering([
+      node("a", "a", { x: 10, y: 10, width: 300, height: 200 }),
+      node("inner", "inner", { parent: "a" }),
+    ]),
+  );
+  const a = layout.nodes.get("a")!;
+  const inner = layout.nodes.get("inner")!;
+  assert.equal(inner.clipped, false);
+  assert.ok(inner.box.x >= a.box.x && inner.box.x + inner.box.width <= a.box.x + a.box.width);
+  assert.ok(inner.box.y >= a.box.y && inner.box.y + inner.box.height <= a.box.y + a.box.height);
+  assert.deepEqual(layout.notices, []);
+});
+
+test("layoutCanvas keeps a port the model places in its stated box, and one with members drawn under it inside its owner", () => {
+  const layout = layoutCanvas(
+    rendering([
+      node("a", "a", { x: 10, y: 10, width: 120, height: 60 }),
+      node("placed", "placed", { kind: "port", parent: "a", x: 200, y: 200 }),
+      node("b", "b"),
+      node("nested", "nested", { kind: "port", parent: "b" }),
+      node("sub", "sub", { kind: "port", parent: "nested" }),
+    ]),
+  );
+  const placed = layout.nodes.get("placed")!;
+  assert.equal(placed.snapped, undefined);
+  assert.equal(placed.pinned, true);
+  assert.deepEqual([placed.box.x, placed.box.y], [200, 200]);
+  const b = layout.nodes.get("b")!;
+  const nested = layout.nodes.get("nested")!;
+  assert.equal(nested.snapped, undefined);
+  assert.ok(nested.box.x >= b.box.x && nested.box.x + nested.box.width <= b.box.x + b.box.width);
+  assert.ok(nested.box.y >= b.box.y && nested.box.y + nested.box.height <= b.box.y + b.box.height);
+  pinnedOn(layout.nodes.get("sub")!, nested);
 });

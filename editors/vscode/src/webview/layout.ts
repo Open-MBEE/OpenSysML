@@ -61,6 +61,10 @@ export interface PlacedNode {
   ports: PlacedPort[];
   /** An owner is collapsed, so the node is not drawn, nor any edge at it. */
   hidden: boolean;
+  /** The owner's stated size has no room for the node, so it is not drawn, nor any edge at it. */
+  clipped: boolean;
+  /** The node is a port drawn as a pin on its owner's border; its box is the pin's square. */
+  snapped?: PlacedPort;
   children: PlacedNode[];
   parent?: PlacedNode;
   /** In a sequence, the y the node's lifeline runs down to from its box. */
@@ -77,7 +81,7 @@ export interface PlacedEdge {
   route: RenderPoint[];
   /** Where the label sits, on the polyline's midpoint. */
   label: RenderPoint;
-  /** An end is under a collapsed owner, or the kind is hidden, so the edge is not drawn. */
+  /** An end is under a collapsed owner or clipped by a stated size, or the kind is hidden, so the edge is not drawn. */
   hidden: boolean;
   /** The route was found around the other boxes at layout time; the model states none, so a move does not write it. */
   rerouted: boolean;
@@ -107,6 +111,8 @@ export interface CanvasLayout {
   placeable: boolean;
   /** Whose routes the edges follow: the model's stated ones, or the router's for every edge ELK did not route. */
   routing: Routing;
+  /** What the layout left undrawn, worded as the renderer's notices. */
+  notices: string[];
 }
 
 /** The rendering kinds whose renderers position nodes and route edges from DiagramLayout. */
@@ -194,6 +200,7 @@ export function layoutCanvas(
       pinned: false,
       collapsed: false,
       hidden: false,
+      clipped: false,
       children: [],
       ports: [],
     };
@@ -244,7 +251,7 @@ export function layoutCanvas(
     extent.bottom = Math.max(extent.bottom, y);
   };
   for (const entry of placed.values()) {
-    if (entry.hidden) {
+    if (entry.hidden || entry.clipped) {
       continue;
     }
     const nodeBounds = nodeExtent(entry);
@@ -279,6 +286,7 @@ export function layoutCanvas(
         Math.max(extent.bottom + MARGIN, result.canvas?.height ?? 0) - origin.y,
       placeable: PLACEABLE_KINDS.has(result.kind),
       routing,
+      notices: clippingNotice(placed),
     },
     overrides.held,
   );
@@ -358,6 +366,7 @@ function layoutSequence(
     height: bottom + MARGIN,
     placeable: false,
     routing: DEFAULT_ROUTING,
+    notices: [],
   };
 }
 
@@ -444,7 +453,7 @@ function placeAcross(
     hide(entry.children);
   }
   entry.box.x = stated?.x ?? slot;
-  const shown = shownChildren(entry, stated);
+  const shown = interior(entry, stated, geometry);
   const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
   spread(lanes(shown, columns, true), entry.box.x + CONTAINER_PAD, (child, x) =>
     placeAcross(child, x, geometry),
@@ -473,7 +482,7 @@ function placeDown(
 ): number {
   const { stated } = geometry(entry);
   entry.box.y = stated?.y ?? slot;
-  const shown = shownChildren(entry, stated);
+  const shown = interior(entry, stated, geometry);
   const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
   const header = symbolSize(entry.shape) ?? labelSize(entry.lines);
   spread(
@@ -483,6 +492,7 @@ function placeDown(
   );
   if (stated?.width !== undefined && stated.height !== undefined) {
     entry.box.height = stated.height;
+    clip(entry, shown);
     return entry.box.height;
   }
   let height = header.height;
@@ -510,6 +520,84 @@ function hide(entries: PlacedNode[]): void {
     entry.hidden = true;
     hide(entry.children);
   }
+}
+
+// interior is the children laid out inside a node's box: the shown ones, less the
+// ports pinned on its border, which placePorts puts there once the box is known.
+function interior(
+  entry: PlacedNode,
+  stated: LayoutGeometry | undefined,
+  geometry: Geometry,
+): PlacedNode[] {
+  const inside: PlacedNode[] = [];
+  for (const child of shownChildren(entry, stated)) {
+    if (pinsOn(child, geometry)) {
+      child.snapped ??= { port: pinOf(child.node), side: "south", offset: 0 };
+    } else {
+      inside.push(child);
+    }
+  }
+  return inside;
+}
+
+// pinsOn reports a child drawn as a pin on its owner's border: a port with nothing
+// drawn under it that neither the model nor a gesture places.
+function pinsOn(child: PlacedNode, geometry: Geometry): boolean {
+  return (
+    portKind(child.node.kind) &&
+    child.children.length === 0 &&
+    !geometry(child).pinned
+  );
+}
+
+/** portKind reports a port usage's kind: `port`, `ref port`, but no `port def`. */
+export function portKind(kind: string): boolean {
+  const words = kind.split(" ");
+  return words.includes("port") && !words.includes("def");
+}
+
+// pinOf is a port node as the pin it is drawn as.
+function pinOf(node: RenderNode): RenderPort {
+  return { id: node.id, name: node.name, type: node.type || undefined };
+}
+
+// clip leaves undrawn the children a node's stated size has no room for, as the
+// renderer leaves compartment rows unwritten; a child the model places stays where it says.
+function clip(entry: PlacedNode, shown: PlacedNode[]): void {
+  for (const child of shown) {
+    if (!child.pinned && !within(child.box, entry.box)) {
+      markClipped(child);
+    }
+  }
+}
+
+function markClipped(entry: PlacedNode): void {
+  entry.clipped = true;
+  for (const child of entry.children) {
+    markClipped(child);
+  }
+}
+
+function within(inner: Box, outer: Box): boolean {
+  return (
+    inner.x >= outer.x &&
+    inner.y >= outer.y &&
+    inner.x + inner.width <= outer.x + outer.width &&
+    inner.y + inner.height <= outer.y + outer.height
+  );
+}
+
+// clippingNotice counts the nodes clipped from a stated box, worded like the renderer's row notice.
+function clippingNotice(placed: ReadonlyMap<string, PlacedNode>): string[] {
+  let clipped = 0;
+  for (const entry of placed.values()) {
+    if (entry.clipped && !entry.hidden) {
+      clipped++;
+    }
+  }
+  return clipped === 0
+    ? []
+    : [`${clipped} node(s) with no room in the stated size of the box above them, left undrawn`];
 }
 
 /**
@@ -718,6 +806,11 @@ export function nodeExtent(
       }
     }
   }
+  if (node.snapped && node.parent) {
+    const label = portLabelPlacement(node.parent.box, node.snapped).bounds;
+    reach(label.x, label.y);
+    reach(label.x + label.width, label.y + label.height);
+  }
   return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
@@ -768,7 +861,7 @@ export function freePlacement(
   const expandedAt = (point: RenderPoint): Box =>
     inflate(extentAt(node, point), CLEARANCE);
   const otherExtents = others
-    .filter((other) => other.node.id !== node.node.id && !other.hidden)
+    .filter((other) => other.node.id !== node.node.id && !undrawn(other))
     .map((other) => inflate(extentAt(other, other.box), CLEARANCE));
   const isFree = (point: RenderPoint): boolean => {
     const extent = expandedAt(point);
@@ -858,7 +951,7 @@ export function alignedPlacement(
   bounds: Box,
   portExitLeg: number | ((node: PlacedNode, port: PlacedPort) => number),
   others: PlacedNode[] = [...layout.nodes.values()].filter(
-    (entry) => entry.node.id !== node.node.id && !entry.hidden,
+    (entry) => entry.node.id !== node.node.id && !undrawn(entry),
   ),
 ): RenderPoint {
   const nodeId = node.node.id;
@@ -879,7 +972,7 @@ export function alignedPlacement(
       continue;
     }
     const otherNode = layout.nodes.get(fromIsNode ? edge.to : edge.from);
-    if (!otherNode || otherNode.hidden) {
+    if (!otherNode || undrawn(otherNode)) {
       continue;
     }
     const ownPortId = fromIsNode ? edge.fromPort : edge.toPort;
@@ -1218,50 +1311,77 @@ function placePorts(
   auto?: AutoLayout,
 ): void {
   for (const entry of placed.values()) {
-    if (entry.hidden) {
+    if (undrawn(entry)) {
       continue;
     }
     const defaults = new Map<Side, PlacedPort[]>();
-    entry.ports = (entry.node.ports ?? []).map((port) => {
+    const place = (port: RenderPort, farEnd: (edge: RenderEdge) => string | undefined): PlacedPort => {
       const laid = auto?.ports.get(port.id);
       if (laid) {
         return { port, side: laid.side, offset: laid.offset };
       }
-      const side = defaultPortSide(entry, port, edges, placed);
+      const side = defaultPortSide(entry, edges, farEnd, placed);
       const positioned = { port, side, offset: 0 };
       const group = defaults.get(side) ?? [];
       group.push(positioned);
       defaults.set(side, group);
       return positioned;
-    });
+    };
+    entry.ports = (entry.node.ports ?? []).map((port) =>
+      place(port, (edge) => pinFarEnd(edge, entry.node.id, port.id)),
+    );
+    const pins = entry.children.filter((child) => child.snapped !== undefined);
+    for (const child of pins) {
+      child.snapped = place(child.snapped!.port, (edge) => nodeFarEnd(edge, child.node.id));
+    }
     for (const group of defaults.values()) {
       group.forEach((port, index) => {
         port.offset = (index + 1) / (group.length + 1);
       });
     }
+    for (const child of pins) {
+      child.box = portBox(entry.box, child.snapped!);
+    }
   }
 }
 
+// pinFarEnd is the other end of an edge at node's pin, undefined for an edge elsewhere.
+function pinFarEnd(edge: RenderEdge, node: string, pin: string): string | undefined {
+  if (edge.from === node && edge.fromPort === pin) {
+    return edge.to;
+  }
+  return edge.to === node && edge.toPort === pin ? edge.from : undefined;
+}
+
+// nodeFarEnd is the other end of an edge at node, undefined for an edge elsewhere.
+function nodeFarEnd(edge: RenderEdge, node: string): string | undefined {
+  if (edge.from === node) {
+    return edge.to;
+  }
+  return edge.to === node ? edge.from : undefined;
+}
+
+// defaultPortSide faces a pin at the first edge's far end: a pin on another box faces
+// that box, since pins are placed after the boxes; an unwired pin sits on the south side.
 function defaultPortSide(
   entry: PlacedNode,
-  port: RenderPort,
   edges: RenderEdge[],
+  farEnd: (edge: RenderEdge) => string | undefined,
   placed: Map<string, PlacedNode>,
 ): Side {
-  const edge = edges.find(
-    (candidate) =>
-      (candidate.from === entry.node.id && candidate.fromPort === port.id) ||
-      (candidate.to === entry.node.id && candidate.toPort === port.id),
-  );
-  if (!edge) {
-    return "south";
+  let other: PlacedNode | undefined;
+  for (const edge of edges) {
+    const far = farEnd(edge);
+    if (far !== undefined) {
+      other = placed.get(far);
+      break;
+    }
   }
-  const other = placed.get(edge.from === entry.node.id ? edge.to : edge.from);
-  if (!other || other.hidden) {
+  if (!other || undrawn(other)) {
     return "south";
   }
   const here = center(entry.box);
-  const there = center(other.box);
+  const there = center(other.snapped && other.parent ? other.parent.box : other.box);
   const dx = there.x - here.x;
   const dy = there.y - here.y;
   if (Math.abs(dx) >= Math.abs(dy)) {
@@ -1395,9 +1515,14 @@ function statedRoute(
 
 // routeEdge is an edge's polyline: from the border of its source, through the
 // route's waypoints, to the border of its target; a self-loop swings out to the right.
-// folded is whether an end of the edge is under a collapsed owner: the edge is then not drawn, whatever kinds the panel shows.
+// folded is whether an end of the edge is not drawn: the edge is then not drawn, whatever kinds the panel shows.
 function folded(placed: ReadonlyMap<string, PlacedNode>, edge: RenderEdge): boolean {
-  return placed.get(edge.from)?.hidden === true || placed.get(edge.to)?.hidden === true;
+  return undrawn(placed.get(edge.from)) || undrawn(placed.get(edge.to));
+}
+
+// undrawn reports a node the canvas leaves out: under a collapsed owner, or clipped by a stated size.
+function undrawn(entry: PlacedNode | undefined): boolean {
+  return entry?.hidden === true || entry?.clipped === true;
 }
 
 /** listedEdges is the rendering's edges at drawn nodes, those of a hidden kind included: what the canvas draws or its relation filter could, which the Relations list counts. */
@@ -1452,8 +1577,8 @@ function routeEdge(
   const end = anchor(to, inner.at(-1) ?? center(from));
   const fromPort = source?.ports.find((port) => port.port.id === edge.fromPort);
   const toPort = target?.ports.find((port) => port.port.id === edge.toPort);
-  const startPoint = fromPort ? portFace(from, fromPort) : start;
-  const endPoint = toPort ? portFace(to, toPort) : end;
+  const startPoint = fromPort ? portFace(from, fromPort) : (pinFace(source) ?? start);
+  const endPoint = toPort ? portFace(to, toPort) : (pinFace(target) ?? end);
   const points = [startPoint, ...inner, endPoint];
   return {
     edge,
@@ -1464,6 +1589,11 @@ function routeEdge(
     hidden,
     rerouted: false,
   };
+}
+
+// pinFace is where an edge meets a port node pinned on its owner's border: the pin's outer face.
+function pinFace(entry: PlacedNode | undefined): RenderPoint | undefined {
+  return entry?.snapped && entry.parent ? portFace(entry.parent.box, entry.snapped) : undefined;
 }
 
 function sameBox(a: Box | undefined, b: Box): boolean {
@@ -1512,8 +1642,8 @@ function avoidable(
     edge.from !== edge.to &&
     source !== undefined &&
     target !== undefined &&
-    !source.hidden &&
-    !target.hidden &&
+    !undrawn(source) &&
+    !undrawn(target) &&
     autoRoute(stated, index, auto, source, target) === undefined
   );
 }
@@ -1572,10 +1702,11 @@ function rerouteAroundBoxes(
   const leaves = new Map<string, Box>();
   const containers = new Map<string, Box>();
   const visit = (entry: PlacedNode): void => {
-    if (entry.hidden) {
+    if (undrawn(entry)) {
       return;
     }
-    const shown = entry.children.filter((child) => !child.hidden);
+    // A pin on the border is part of its owner's shape, not a box of its own.
+    const shown = entry.children.filter((child) => !undrawn(child) && !child.snapped);
     (shown.length === 0 ? leaves : containers).set(entry.node.id, entry.box);
     for (const child of shown) {
       visit(child);
@@ -1584,12 +1715,17 @@ function rerouteAroundBoxes(
   for (const root of roots) {
     visit(root);
   }
+  // An edge at a pinned port node meets the router at its owner's shape, on that pin.
+  const endOf = (id: string): { node: string; port?: string } => {
+    const entry = placed.get(id)!;
+    return entry.snapped && entry.parent ? { node: entry.parent.node.id, port: id } : { node: id };
+  };
   const groups = new Map<string, number[]>();
   for (const index of indices) {
     const edge = edges[index].edge;
     const exempt = new Set<string>();
     for (const end of [edge.from, edge.to]) {
-      for (let entry = placed.get(end)?.parent; entry; entry = entry.parent) {
+      for (let entry = placed.get(endOf(end).node)?.parent; entry; entry = entry.parent) {
         exempt.add(entry.node.id);
       }
     }
@@ -1630,18 +1766,23 @@ function rerouteAroundBoxes(
     }
     for (const index of group) {
       const edge = edges[index].edge;
-      shapes.set(edge.from, avoidShape(placed.get(edge.from)!));
-      shapes.set(edge.to, avoidShape(placed.get(edge.to)!));
+      for (const end of [endOf(edge.from).node, endOf(edge.to).node]) {
+        shapes.set(end, avoidShape(placed.get(end)!));
+      }
     }
     const routes = avoidRoutes(
       shapes,
-      group.map((index) => ({
-        index,
-        from: edges[index].edge.from,
-        to: edges[index].edge.to,
-        fromPort: edges[index].edge.fromPort,
-        toPort: edges[index].edge.toPort,
-      })),
+      group.map((index) => {
+        const edge = edges[index].edge;
+        const [from, to] = [endOf(edge.from), endOf(edge.to)];
+        return {
+          index,
+          from: from.node,
+          to: to.node,
+          fromPort: from.port ?? edge.fromPort,
+          toPort: to.port ?? edge.toPort,
+        };
+      }),
       overrides.bounds,
     );
     if (!routes) {
@@ -1664,10 +1805,12 @@ function rerouteAroundBoxes(
   }
 }
 
+// avoidShape is a node as the router sees it: its box, with its pins and the port nodes pinned on its border.
 function avoidShape(entry: PlacedNode): AvoidShape {
+  const pins = entry.children.filter((child) => child.snapped !== undefined).map((child) => child.snapped!);
   return {
     box: entry.box,
-    ports: entry.ports.map(({ port, side, offset }) => ({
+    ports: [...entry.ports, ...pins].map(({ port, side, offset }) => ({
       id: port.id,
       side,
       offset,
@@ -1745,7 +1888,7 @@ export function nodeUnder(
 ): PlacedNode | undefined {
   let found: PlacedNode | undefined;
   const visit = (entry: PlacedNode): void => {
-    if (entry.hidden || entry.node.id === except) {
+    if (undrawn(entry) || entry.node.id === except) {
       return;
     }
     if (contains(entry.box, at)) {

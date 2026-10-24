@@ -26,7 +26,8 @@ const result: RenderResult = {
   artifact: "",
   nodes: [
     node("a", "tank", { type: "Tank", x: 10, y: 20, width: 120, height: 60 }),
-    node("b", "valve", { parent: "a" }),
+    // Placed where the tank's fixed box has no room for it: a stated place is drawn, an unplaced child is not.
+    node("b", "valve", { parent: "a", x: 26, y: 72 }),
     node("c", "pump", { fqn: undefined }),
     node("d", "", { kind: "fork" }),
   ],
@@ -83,7 +84,7 @@ test("liftNode floats the dragged subtree over a canvas that stays put, drawn la
 test("liftNode redraws the edges at the lifted subtree: an inner one moves whole, a crossing one follows its lifted end", () => {
   const withInner: RenderResult = {
     ...result,
-    nodes: [...result.nodes!, node("e", "gauge", { parent: "a" })],
+    nodes: [...result.nodes!, node("e", "gauge", { parent: "a", x: 154, y: 72 })],
     edges: [
       ...result.edges!,
       { from: "b", to: "e", label: "reads", kind: "connection", fqn: "M::be", route: [{ x: 60, y: 60 }] },
