@@ -12,6 +12,7 @@ import (
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	checkws "github.com/Open-MBEE/OpenSysML/internal/check/workspace"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
@@ -991,7 +992,7 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 
 	// A parse racing another of the same model keeps the entry already cached,
 	// so the objects held on it stay reachable under the hash.
-	model := &CachedModel{Documents: documents, Index: idx, Library: library, Mode: mode}
+	model := &CachedModel{Documents: documents, Index: idx, Library: library, Mode: mode, Findings: checkws.DuplicateLibraries(idx)}
 	return modelHash, store(modelHash, model)
 }
 
@@ -1042,6 +1043,8 @@ func (s *Service) GetDiagnostics(ctx context.Context, req *pb.DiagnosticsRequest
 	for _, doc := range cached.Documents {
 		pbDiags = append(pbDiags, s.diagnosticsToProto(doc, doc.lintSelected(disabled, enabled))...)
 	}
+	// The workspace findings are no lints, so the selection leaves them as they are.
+	pbDiags = append(pbDiags, s.findingDiagnostics(cached)...)
 	return &pb.DiagnosticsResponse{Diagnostics: pbDiags}, nil
 }
 
@@ -1068,7 +1071,34 @@ func (s *Service) modelDiagnostics(model *CachedModel) []*pb.Diagnostic {
 	for _, doc := range model.Documents {
 		pbDiags = append(pbDiags, doc.protoDiagnostics(s.documentDiagnostics)...)
 	}
-	return pbDiags
+	return append(pbDiags, s.findingDiagnostics(model)...)
+}
+
+// findingDiagnostics converts the model's workspace findings, each located in
+// the document it is on: with its span's position when that is one of the
+// model's documents, by file name alone when it is a library document.
+func (s *Service) findingDiagnostics(model *CachedModel) []*pb.Diagnostic {
+	if len(model.Findings) == 0 {
+		return nil
+	}
+	sources := make(map[string]*source.SourceFile, len(model.Documents))
+	for _, doc := range model.Documents {
+		sources[doc.Source.Name()] = doc.Source
+	}
+	pbDiags := make([]*pb.Diagnostic, 0, len(model.Findings))
+	for _, f := range model.Findings {
+		if sf := sources[f.Document]; sf != nil {
+			pbDiags = append(pbDiags, DiagnosticToProto(f.Diagnostic, sf))
+			continue
+		}
+		pbDiags = append(pbDiags, &pb.Diagnostic{
+			Severity: f.Diagnostic.Severity.String(),
+			Message:  f.Diagnostic.Message,
+			Code:     f.Diagnostic.Code,
+			Span:     &pb.Span{File: f.Document},
+		})
+	}
+	return s.filterDiagnosticCapabilities(pbDiags)
 }
 
 // documentDiagnostics converts one document's diagnostics, then its warnings, to
