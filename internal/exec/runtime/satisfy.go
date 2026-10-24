@@ -552,9 +552,25 @@ func (ctx *Context) bindImplicitSatisfactionSubject(inst, owner *Instance) {
 		return
 	}
 	for _, name := range ctx.subjectParameterNames(inst.Type) {
-		if fv := inst.FeatureValues[name]; fv != nil && fv.Value.Kind == ValInvalid {
-			fv.Value = Value{Kind: ValInstance, Instance: owner.ID}
-			fv.Materialized = true
+		fv := inst.FeatureValues[name]
+		if fv == nil || fv.Value.Kind != ValInvalid || fv.Values.Kind != ValInvalid {
+			continue
 		}
+		// An owner the subject's type or multiplicity refuses is left unbound; the
+		// result read and the check report that refusal.
+		val := Value{Kind: ValInstance, Instance: owner.ID}
+		if ctx.checkDefault(inst, fv, name, &val, admitDeclared) != nil {
+			continue
+		}
+		held, err := ctx.holdDeclared(inst, fv, val)
+		if err != nil {
+			continue
+		}
+		if fv.Feature.Scalar() {
+			fv.Value = held
+		} else {
+			fv.Values = held
+		}
+		fv.Materialized = true
 	}
 }

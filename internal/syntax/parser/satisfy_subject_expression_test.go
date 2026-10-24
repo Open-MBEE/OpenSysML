@@ -124,3 +124,32 @@ func TestSatisfyByMissingTerminator(t *testing.T) {
 		t.Error("the member after the satisfy usage was lost to recovery")
 	}
 }
+
+// TestSatisfyByOperandContinuesOnNextLine: an operator opening the next line extends
+// the operand into an expression, reported once; it is not a member lacking its ';'.
+func TestSatisfyByOperandContinuesOnNextLine(t *testing.T) {
+	p := New(source.New("test.sysml", []byte(`package Test {
+	requirement def R1;
+	part def Sub;
+	part context {
+		part a : Sub;
+		part b : Sub;
+		satisfy requirement sr : R1 by a
+			+ b;
+		part after : Sub;
+	}
+}`)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 1 {
+		for _, d := range p.Diagnostics {
+			t.Logf("  %s", d.Message)
+		}
+		t.Fatalf("expected exactly one diagnostic, got %d", len(p.Diagnostics))
+	}
+	if got := p.Diagnostics[0].Message; !strings.Contains(got, "not an expression") {
+		t.Errorf("diagnostic %q does not report the expression operand", got)
+	}
+	if !hasPart(root, "after") {
+		t.Error("the member after the satisfy usage was lost to recovery")
+	}
+}

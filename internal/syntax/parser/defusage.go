@@ -4008,12 +4008,21 @@ func (p *Parser) parseSatisfactionSubject(u *ast.Usage) {
 	if p.at(lexer.Semicolon) || p.at(lexer.LBrace) || p.at(lexer.RBrace) || p.atEOF() {
 		return
 	}
-	if p.startsLaterLine() {
+	if p.startsLaterLine() && !p.continuesExpression() {
 		// The next member's line: the usage lacks its ';', which its end reports.
 		return
 	}
 	p.error(p.peek().Span, "expected ';' or '{' after the satisfaction subject: 'by' takes a feature reference or feature chain, not an expression")
 	p.skipSatisfactionOperand()
+}
+
+// continuesExpression reports a token that extends an operand into an expression
+// (`+ b`, `#(1)`, `->first()`, `(a, b)`) rather than opening a member, whatever line it is on.
+func (p *Parser) continuesExpression() bool {
+	if _, ok := p.binaryOpFor(); ok {
+		return true
+	}
+	return p.at(lexer.Hash) || p.at(lexer.Arrow) || p.at(lexer.LParen) || p.at(lexer.LBracket) || p.at(lexer.Question)
 }
 
 // skipSatisfactionOperand skips the rest of a `by` operand up to the usage's ';' or
