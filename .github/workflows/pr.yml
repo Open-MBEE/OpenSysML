@@ -918,7 +918,8 @@ jobs:
             client/node/package-lock.json
 
       # The landing bundle and its tests import the browser client from client/node's source; `npm install`,
-      # not `npm ci`: npm 11.6+'s `npm ci` refuses a lock missing an optional dependency, a release branch's state.
+      # not `npm ci`: npm 11.6+'s `npm ci` refuses a lock missing an optional dependency, a release branch's state
+      # (npm/cli#9846). The lock-diff below is the locked install SonarCloud's S8543 asks for; its finding is a false positive.
       - name: Install the browser client's dependencies
         working-directory: client/node
         run: |
@@ -1158,7 +1159,8 @@ jobs:
       - name: Install the client's dependencies
         working-directory: client/node
         # --ignore-scripts: no dependency of this client needs an install hook, and one added upstream would
-        # run here with the workflow's token. `npm install`, not `npm ci`: see node_install_test.go in tests/hygiene.
+        # run here with the workflow's token. `npm install`, not `npm ci`: see node_install_test.go in tests/hygiene;
+        # the lock-diff below is the locked install SonarCloud's S8543 asks for, so its finding is a false positive.
         run: |
           npm install --ignore-scripts --no-audit --no-fund
           git diff --exit-code package-lock.json

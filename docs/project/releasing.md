@@ -188,7 +188,20 @@ branch that moves the integration state onto `main`:
    rest exactly as locked and leaves the lockfile as it is — each CI job asserts
    that with `git diff --exit-code package-lock.json`, and
    `TestClientInstallsSurviveUnpublishedPlatformPackages` in `tests/hygiene`
-   holds every consumer of the two packages to that command. The pin step
+   holds every consumer of the two packages to that command. The refusal is an
+   npm defect ([npm/cli#9846](https://github.com/npm/cli/issues/9846), fix
+   proposed in [npm/cli#10115](https://github.com/npm/cli/pull/10115)): the same
+   npm's `npm install --package-lock-only` writes that lockfile and its `npm ci`
+   rejects it. Do not work around it by writing the five entries into the
+   lockfile by hand: npm 10 and 11 accept such an entry, but neither ever adds
+   `resolved` and `integrity` to it, so once the tag publishes the packages
+   `npm ci` would install the release's binary without an integrity check and
+   nothing would notice, whereas `npm install` changes the lockfile the moment
+   a package appears and the `git diff` fails. SonarCloud's GitHub Actions rule
+   S8543 flags the three `npm install` workflow steps as unlocked installs; the
+   lockfile check above is the property the rule wants, so those findings are
+   resolved as false positives on SonarCloud (branch mode only: no pull-request
+   analysis exists), not by changing the command. The pin step
    below locks the platform packages once they exist. `client/java/pom.xml` follows
    the same version too: set the parent pom's `<version>`, both modules'
    `<parent><version>`, and the client version in `editors/mdk/pom.xml`
