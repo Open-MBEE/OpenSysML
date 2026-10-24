@@ -18,6 +18,7 @@ func TestQueryRobustnessDerivation(t *testing.T) {
 	t.Run("participant_tagged_with_the_opposite_role", testDerivationOppositeTag)
 	t.Run("end_referencing_the_role_feature_itself", testDerivationRoleFeatureReferent)
 	t.Run("participant_tagged_with_both_roles", testDerivationBothTags)
+	t.Run("participant_subsetting_the_role_feature", testDerivationSubsettingParticipant)
 }
 
 // The end's own role statement wins over the participant's tag: a `#original`
@@ -59,4 +60,17 @@ func testDerivationBothTags(t *testing.T) {
 	assertRelated(t, fixture, "middle", "derivation", "incoming", 1, []string{"top"})
 	assertRelated(t, fixture, "middle", "derivation", "outgoing", 1, []string{"bottom"})
 	assertRelated(t, fixture, "bottom", "derivation", "incoming", 2, []string{"middle", "top"})
+}
+
+// A requirement of the model that subsets the library role feature is a
+// participant like a tagged one; only the library's own features state a role.
+func testDerivationSubsettingParticipant(t *testing.T) {
+	fixture := loadExecutionFixture(t, relatedQuery+`
+	private import RequirementDerivation::*;
+	requirement customOriginal :> originalRequirements;
+	requirement child;
+	#derivation connection { end #original ::> customOriginal; end #derive ::> child; }
+`)
+	assertRelated(t, fixture, "child", "derivation", "incoming", 1, []string{"customOriginal"})
+	assertRelated(t, fixture, "customOriginal", "derivation", "outgoing", 1, []string{"child"})
 }
