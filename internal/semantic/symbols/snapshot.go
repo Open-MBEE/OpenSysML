@@ -298,6 +298,7 @@ func (e *snapshotEncoder) writeSymbols() {
 func (e *snapshotEncoder) writeFacts(f *LibraryFacts) {
 	e.w.Bool(f.Supers != nil)
 	e.refs(f.Supers)
+	e.refs(f.ImpliedSupers)
 	e.w.Bool(f.Unit != nil)
 	if f.Unit != nil {
 		e.w.Float(f.Unit.ScaleNum)
@@ -797,6 +798,7 @@ func (d *sectionReader) readFacts(f *LibraryFacts) {
 	if hasSupers && f.Supers == nil {
 		f.Supers = []ElementRef{}
 	}
+	f.ImpliedSupers = d.refs()
 	if d.r.Bool() {
 		u := &UnitFacts{ScaleNum: d.r.Float(), ScaleDen: d.r.Float()}
 		if n := d.r.Len(); n > 0 {

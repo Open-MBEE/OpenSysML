@@ -131,6 +131,7 @@ func TestForOverIntegerRange(t *testing.T) {
 	total, scope := calcByName(t, idx.DocumentRoot("<test>"), "test", "Total")
 
 	got, err := ctx.InvokeCalc(total, []Value{constInt(4)}, scope)
+	got = soleElement(got)
 	if err != nil {
 		t.Fatalf("Total(4): %v", err)
 	}

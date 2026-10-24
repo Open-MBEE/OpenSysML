@@ -142,6 +142,7 @@ const (
 	xEndElement                   = "endElement"
 	xSourceMultiplicityBeforeThen = "sourceMultiplicityBeforeThen"
 	xConjugatedTyping             = "conjugatedTyping"
+	xHeadClause                   = "headClause"
 	xEndVerb                      = "endVerb"
 	xSourceMember                 = "sourceMember"
 	xTargetMember                 = "targetMember"
@@ -587,6 +588,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		subjects:           map[string]string{},
 		regions:            map[rdf.Term]region{},
 		verifiedReferences: map[rdf.Term]bool{},
+		heads:              map[rdf.Term]*declarationHead{},
 		bodies:             map[rdf.Term]region{},
 		offsets:            map[string]int{},
 	}
@@ -675,6 +677,9 @@ type encoder struct {
 	// OwnedReferenceSubsetting of RequirementVerificationUsage, as against a
 	// declaration (`verify requirement :> r;`), whose `:>` is a Subsetting.
 	verifiedReferences map[rdf.Term]bool
+	// heads records each declaration head's clauses in the order the notation
+	// spelled them, for the order its relationship elements are owned in.
+	heads map[rdf.Term]*declarationHead
 	// membershipImports are the membership imports, whose imported membership
 	// is written once every membership is minted.
 	membershipImports []membershipImport
@@ -1453,7 +1458,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			return err
 		}
 		e.flags(subject, []boolProperty{
-			{"isAbstract", n.IsAbstract},
+			{"isAbstract", n.IsAbstract || n.IsVariation || n.Kind == ast.DefEnumeration},
 			{"isVariation", n.IsVariation || n.Kind == ast.DefEnumeration},
 			{"isAll", n.IsAll},
 			{"isConstant", n.IsConstant},
@@ -1599,7 +1604,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(subject, e.sysx(xDeclaredPrefix), rdf.String(n.PrefixKeyword))
 		}
 		e.flags(subject, []boolProperty{
-			{"isAbstract", n.IsAbstract},
+			{"isAbstract", n.IsAbstract || n.IsVariation},
 			{"isVariation", n.IsVariation},
 			{"isVariant", e.variantMember(n, ownerTerm)},
 			{"isNegated", n.IsNegated},
@@ -1661,11 +1666,11 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			return err
 		}
 		if implicitTarget.Value != "" {
-			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelRedefines]), implicitTarget)
+			e.headRelationship(subject, ast.RelRedefines, implicitTarget, nil)
 			e.graph.Add(subject, e.sysx(xImplicitRedefinition), rdf.Bool(true))
 		}
 		if variantTarget.Value != "" {
-			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelReferences]), variantTarget)
+			e.headRelationship(subject, ast.RelReferences, variantTarget, nil)
 		}
 		if err := e.featureValue(subject, within, n.Value, n.ValueIsDefault, n.ValueIsInitial); err != nil {
 			return err
@@ -1905,11 +1910,11 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		head(rdf.SysMLTerm(mReferenceUsage))
 		e.ident(subject, n.Ident)
 		e.graph.Add(subject, e.sysml(pDirection), rdf.String("in"))
-		if n.TypeRef != nil {
-			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelTyping]), e.reference(n.TypeRef))
-		}
 		if err := e.prefixes(subject, fqn, n.Prefixes, n.Body); err != nil {
 			return err
+		}
+		if n.TypeRef != nil {
+			e.headRelationship(subject, ast.RelTyping, e.reference(n.TypeRef), n.TypeRef)
 		}
 		e.relationships(subject, owner, n.Relationships)
 		if err := e.multiplicity(subject, within, n.Multiplicity); err != nil {
@@ -2738,22 +2743,22 @@ func (e *encoder) symbolTerm(target *symbols.Symbol) rdf.Term {
 	if decl, fqn, ok := e.linked(target, true); ok {
 		return e.ids.subjectForNode(decl, fqn)
 	}
-	// The member's own identity already claims a normative target's qualified
+	// The member's own identity already claims a library target's qualified
 	// name, which linked refuses to repeat; name its IRI as a reference does.
 	info, ok := identity.Of(e.ids.model, e.res, target)
-	if !ok || info.Source != identity.SourceNormative {
+	if !ok || !info.Fixed() {
 		return rdf.Term{}
 	}
 	el := elementIdentity{id: info.EffectiveID, source: info.Source, membership: info.OwningMembershipID()}
 	return e.ids.subjectOf(el, info.FQN)
 }
 
-// normativeFQN is the qualified name a symbol carries in the norm, or "" for
-// any other element: linked hides a library element whose qualified name the
-// element stating it already claimed, which this answers anyway.
+// normativeFQN is the qualified name a symbol carries in its library's fixed
+// scheme, or "" for any other element: linked hides a library element whose
+// qualified name the element stating it already claimed, which this answers anyway.
 func (e *encoder) normativeFQN(sym *symbols.Symbol) string {
 	info, ok := identity.Of(e.ids.model, e.res, sym)
-	if !ok || info.Source != identity.SourceNormative {
+	if !ok || !info.Fixed() {
 		return ""
 	}
 	return info.FQN
@@ -2938,11 +2943,12 @@ func withoutComments(text string) string {
 }
 
 // relationships writes a head's clauses in relationshipOrder, not the order the
-// notation spelled them in, so the Turtle is the same for every spelling.
+// notation spelled them in, so the collapsed Turtle is the same for every
+// spelling; the order spelled is kept for the relationship elements
+// materializeRelationships emits, as ownedRelationship is ordered.
 func (e *encoder) relationships(subject rdf.Term, owner string, rels []*ast.Relationship) {
 	chains := chainTargets(rels)
 	for _, kind := range relationshipOrder {
-		property := relationshipProperty[kind]
 		for _, rel := range rels {
 			if rel == nil || rel.Target == nil || rel.Kind != kind {
 				continue
@@ -2950,16 +2956,54 @@ func (e *encoder) relationships(subject rdf.Term, owner string, rels []*ast.Rela
 			// A name is a reference; a feature chain is the chain Feature the
 			// materialized relationship owns, other expressions written text.
 			if k, chained := chains[rel]; chained {
-				e.graph.Add(subject, e.sysml(property), e.headChain(subject, rel.Target, k))
+				e.headRelationship(subject, kind, e.headChain(subject, rel.Target, k), rel)
 				continue
 			}
 			if name, ok := rel.Target.(*ast.QualifiedName); ok {
-				e.graph.Add(subject, e.sysml(property), e.reference(name))
+				e.headRelationship(subject, kind, e.reference(name), rel)
 				continue
 			}
-			e.graph.Add(subject, e.sysml(property), rdf.TypedLiteral(e.text(rel.Target), rdf.OpenSysML+dtExpression))
+			e.headRelationship(subject, kind, rdf.TypedLiteral(e.text(rel.Target), rdf.OpenSysML+dtExpression), rel)
 		}
 	}
+}
+
+// headRelationship states one clause of subject's declaration head as the
+// collapsed property of its kind and records where the notation spelled it;
+// a clause no notation spelled (an implicit redefinition) passes a nil node.
+func (e *encoder) headRelationship(subject rdf.Term, kind ast.RelationshipKind, object rdf.Term, clause ast.Node) {
+	e.graph.Add(subject, e.sysml(relationshipProperty[kind]), object)
+	e.headOf(subject).items = append(e.headOf(subject).items, headItem{kind: kind, element: object, offset: clauseOffset(clause)})
+}
+
+// headOf is the record of subject's declaration head, opened where its
+// ownedRelationship stands when the head's first clause is stated: what is
+// owned ahead of that (prefix metadata) stays ahead of the head.
+func (e *encoder) headOf(subject rdf.Term) *declarationHead {
+	head := e.heads[subject]
+	if head == nil {
+		head = &declarationHead{anchor: len(e.graph.Objects(subject, rdf.SysML+pOwnedRelationship))}
+		e.heads[subject] = head
+	}
+	return head
+}
+
+// clauseOffset is where the notation spelled a head clause, read from the
+// clause's span or, for a relationship parsed without one, its target's; -1
+// for a clause nothing spelled.
+func clauseOffset(clause ast.Node) int {
+	if clause == nil {
+		return -1
+	}
+	if span := clause.Span(); span.Len > 0 {
+		return span.Offset
+	}
+	if rel, ok := clause.(*ast.Relationship); ok && rel.Target != nil {
+		if span := rel.Target.Span(); span.Len > 0 {
+			return span.Offset
+		}
+	}
+	return -1
 }
 
 // chainTargets indexes the qualified-name relationship targets written as a
@@ -3044,6 +3088,8 @@ func (e *encoder) multiplicity(subject rdf.Term, owner string, mult *ast.Multipl
 	e.graph.Add(rangeNode, e.sysml(pElementID), rdf.String(rdf.LocalName(rangeNode.Value)))
 	e.graph.Add(subject, e.sysml(pMultiplicity), rangeNode)
 	e.emitMembershipCore(membership, rangeNode, subject, mOwningMembership, true)
+	head := e.headOf(subject)
+	head.items = append(head.items, headItem{element: membership, offset: clauseOffset(mult), multiplicity: true})
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 	return e.multiplicityBounds(subject, rangeNode, owner, mult)

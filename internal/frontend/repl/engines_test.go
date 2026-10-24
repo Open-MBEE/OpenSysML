@@ -172,14 +172,14 @@ func TestVerdictsCarryTheirPlanAndStanding(t *testing.T) {
 	if last != StandingPrefix+"value (observed: 1 run under reverse)" {
 		t.Fatalf("last line = %q, want the standing", last)
 	}
-	wantsInOrder(t, strings.Join(v.Lines, "\n"), "= 6", "standing: value (observed: 1 run under reverse)")
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "= [6]", "standing: value (observed: 1 run under reverse)")
 
 	run(t, s, "%engine run")
 	v = s.RunCalc("Engines::Twice(4)")
 	if v.Plan == nil || v.Plan.Selection != analysis.Only("run") {
 		t.Fatalf("plan = %+v, want the named run engine", v.Plan)
 	}
-	wantsInOrder(t, strings.Join(v.Lines, "\n"), "= 8", StandingPrefix+"value (observed: 1 run under reverse)")
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "= [8]", StandingPrefix+"value (observed: 1 run under reverse)")
 }
 
 // A named engine that refuses the question is final: the verdict is its refusal
@@ -220,7 +220,7 @@ func TestAllRunsEveryCoveringEngine(t *testing.T) {
 	if len(ran) != 1 || ran[0] != "run" {
 		t.Fatalf("engines that ran = %v, want run alone to cover an evaluate question", ran)
 	}
-	wantsInOrder(t, strings.Join(v.Lines, "\n"), "= 6", StandingPrefix+"value (observed: 1 run under reverse); all: run value (observed)")
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "= [6]", StandingPrefix+"value (observed: 1 run under reverse); all: run value (observed)")
 }
 
 // A debugger stepping a run survives an engine selection, which decides how

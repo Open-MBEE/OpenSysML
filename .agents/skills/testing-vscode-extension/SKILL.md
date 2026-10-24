@@ -661,25 +661,24 @@ window's layout and any recording. For legible text, set User `"window.zoomLevel
   rendered owner for a connection. `expose Car` retains the Car node and its children.
 - Keep the Problems panel visible: this fixture should start and remain at zero. An
   empty Problems panel alone is not sufficient; confirm the diagram and live server too.
-- Palette **Add part…** uses the source cursor owner. Put the cursor on the Car declaration
-  after its indentation, then verify the prompt title says `Add part to Vehicle::Car`
-  before typing a name. Part prompts for a type; connection prompts allow an empty name.
-- The custom context menu labels are **Connection from here…**, **Rename…**, **Delete…**.
-  Connection target quick-pick also matches type details: typing `engine` can match both
-  `engine : Engine` and `battery : Engine`, so explicitly choose the intended label.
+- The panel creates nothing: there is no **Add…** list in the toolbar and no add entry in
+  the node menu. New members and connections are typed into the source; the server's
+  `addMember`/`addConnection` operations stay for `opensysml/applyModelEdit`, gRPC and MCP.
+- The custom context menu labels are **Go to declaration**, **Rename…**, **Move to…**
+  (only on a node with a notation), **Delete…**, and only on a node the document declares.
 - All Delete actions first show a native confirmation dialog. Referenced deletion then
   shows a second dialog with **Delete all**. Unreferenced deletion should not show the
   second cascade dialog. Canceling the first dialog does not exercise server refusal.
 - Focus the source editor before Ctrl+Z / Ctrl+Y. One undo should remove one diagram
-  operation (e.g. connection), the next the preceding operation (e.g. added part); each
+  operation (e.g. a move), the next the preceding operation (e.g. a rename); each
   diagram update should arrive automatically, without Refresh.
 - For duplicate refusal, use the current name after any rename. Expect a bottom-right
   toast such as `Vehicle::Car already declares "motor"` and `Model edit refused:` in
   **Output: Show Output Channels… → SysML v2**. The displayed message need not include
   the protocol's failure-code spelling.
-- Table rendering is non-SVG, but may still receive a full member/connection palette.
-  Check the current palette table in `internal/frontend/lsp/render.go` rather than
-  assuming non-SVG means authoring is hidden.
+- Table rendering is non-SVG, but may still receive a palette, which is what marks a
+  rendering editable. Check the current palette table in `internal/frontend/lsp/render.go`
+  rather than assuming non-SVG means editing is hidden.
 
 ## Edit-latency and semantic-token comparisons
 

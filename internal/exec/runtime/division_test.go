@@ -32,7 +32,7 @@ func TestWholeNumberQuotientIsRational(t *testing.T) {
 		{0, -3, "0"},
 	}
 	for _, tc := range cases {
-		got, err := ctx.InvokeCalc(quotient, []Value{constInt(tc.a), constInt(tc.b)}, root)
+		got, err := invokeValue(ctx, quotient, []Value{constInt(tc.a), constInt(tc.b)}, root)
 		if err != nil {
 			t.Fatalf("%d / %d: %v", tc.a, tc.b, err)
 		}
@@ -60,7 +60,7 @@ func TestQuotientBeyondFloatExactRangeIsExact(t *testing.T) {
 		{-9223372036854775808, -1, "9223372036854775808"}, // MinInt64 / -1 is the Rational 2^63
 	}
 	for _, tc := range cases {
-		got, err := ctx.InvokeCalc(quotient, []Value{constInt(tc.a), constInt(tc.b)}, root)
+		got, err := invokeValue(ctx, quotient, []Value{constInt(tc.a), constInt(tc.b)}, root)
 		if err != nil {
 			t.Fatalf("%d / %d: %v", tc.a, tc.b, err)
 		}
@@ -100,7 +100,7 @@ func TestRemainderStaysInteger(t *testing.T) {
 		{-7, -2, -1},
 	}
 	for _, tc := range cases {
-		got, err := ctx.InvokeCalc(remainder, []Value{constInt(tc.a), constInt(tc.b)}, root)
+		got, err := invokeValue(ctx, remainder, []Value{constInt(tc.a), constInt(tc.b)}, root)
 		if err != nil {
 			t.Fatalf("%d %% %d: %v", tc.a, tc.b, err)
 		}

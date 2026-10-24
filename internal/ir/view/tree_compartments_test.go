@@ -38,7 +38,7 @@ func TestGoldenTreeCompartments(t *testing.T) {
 // unpositioned tree is left as it is.
 func TestTreeCompartmentsFold(t *testing.T) {
 	rendering := render(t, "tree-compartments.sysml", "AmplifierViews::positioned")
-	folded := foldCompartments(rendering)
+	folded := foldCompartments(rendering, "")
 	if folded == rendering {
 		t.Fatal("foldCompartments returned the rendering unchanged")
 	}
@@ -77,11 +77,11 @@ func TestTreeCompartmentsFold(t *testing.T) {
 		}
 	}
 	plain := render(t, "tree-compartments.sysml", "AmplifierViews::plain")
-	if foldCompartments(plain) != plain {
+	if foldCompartments(plain, "") != plain {
 		t.Error("an unpositioned tree was folded")
 	}
 	bare := render(t, "tree-compartments.sysml", "AmplifierViews::bare")
-	if foldCompartments(bare) != bare {
+	if foldCompartments(bare, "") != bare {
 		t.Error("a tree not showing compartments was folded")
 	}
 }
@@ -219,5 +219,38 @@ func TestCollapseSpaceKeepsLiterals(t *testing.T) {
 		if got := collapseSpace(in); got != want {
 			t.Errorf("collapseSpace(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// TestTreeCompartmentVariantForms pins the two variation compartments of the
+// graphical notation (SysML v2.1 §8.2.3.6, `compartment`): a shorthand
+// `variant x` files under "variants", a typed `variant part x` under
+// "variant parts" with no prefix on its row, while `variation` is a modifier
+// kept on the row of an ordinary "parts" compartment.
+func TestTreeCompartmentVariantForms(t *testing.T) {
+	rows := []*Node{
+		{ID: "a", Kind: "variant", Name: "manual"},
+		{ID: "b", Kind: "variant part", Name: "automatic", Type: "Transmission"},
+		{ID: "c", Kind: "variation part", Name: "transmission", Type: "Transmission"},
+		{ID: "d", Kind: "part", Name: "engine", Type: "Engine"},
+		{ID: "e", Kind: "variant attribute", Name: "large", Value: "100[mm]"},
+	}
+	labels := labeller{shown: Shown{ElementCompartments: true, ElementTypings: true}}
+	var got []string
+	for _, compartment := range compartmentsOf(rows) {
+		var texts []string
+		for _, row := range compartment.Rows {
+			texts = append(texts, labels.rowText(row))
+		}
+		got = append(got, compartment.Name+": "+strings.Join(texts, " | "))
+	}
+	want := []string{
+		"parts: variation transmission : Transmission | engine : Engine",
+		"variants: manual",
+		"variant parts: automatic : Transmission",
+		"variant attributes: large = 100[mm]",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("compartments:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }

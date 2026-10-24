@@ -314,7 +314,7 @@ func testAtomicBodyOrderNestedLists(t *testing.T) {
 		if choice.Kind == choiceStatementOrder {
 			choices++
 			if !strings.HasPrefix(choice.Where, resultOrderWherePrefix) ||
-				!slices.Equal(choice.Alternatives, []string{"122", "140", "302", "320"}) {
+				!slices.Equal(choice.Alternatives, []string{"[122]", "[140]", "[302]", "[320]"}) {
 				t.Fatalf("nested calc choice = %+v, want one result choice among [122 140 302 320]", choice)
 			}
 		}
@@ -560,7 +560,7 @@ func testAtomicBodyOrderRecursiveResultChoices(t *testing.T) {
 			}
 			for _, outcome := range x.Outcomes {
 				if len(outcome.Witness) != 1 || outcome.Witness[0].Kind != choiceStatementOrder ||
-					!slices.Equal(outcome.Witness[0].Among, want) {
+					!slices.Equal(outcome.Witness[0].Among, []string{"[" + want[0] + "]", "[" + want[1] + "]"}) {
 					t.Fatalf("witness = %v, want one result choice among %v", outcome.Witness, want)
 				}
 				recorded, err := ParseChoices(FormatChoices(outcome.Witness))
@@ -622,7 +622,7 @@ func testAtomicBodyOrderInvocationErrorResults(t *testing.T) {
 		}
 		choice := outcome.Witness[0]
 		if choice.Kind != choiceStatementOrder || len(choice.Among) != 2 ||
-			choice.Among[0] != "0.0" || !strings.HasPrefix(choice.Among[1], "error:") {
+			choice.Among[0] != "[0.0]" || !strings.HasPrefix(choice.Among[1], "error:") {
 			t.Fatalf("invocation choice = %+v, want value followed by its distinct error", choice)
 		}
 		if outcome.Outcome.Err != nil {
@@ -829,6 +829,7 @@ func testAtomicBodyOrderCalcUnmatchedSuccession(t *testing.T) {
 		t.Fatal("parse calc invocation")
 	}
 	value, err := ctx.EvalWithScope(expr, m.idx.DocumentRoot(m.path))
+	value = soleElement(value)
 	if err != nil {
 		t.Fatalf("evaluation error = %v, want unmatched succession ignored", err)
 	}

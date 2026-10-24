@@ -187,6 +187,8 @@ type ExpectedOutcome struct {
 	// Evaluate names the element to execute or evaluate: a qualified path
 	// ("test::p::a") also reaches one nested in a part. empty searches the model.
 	Evaluate string `json:"evaluate,omitempty"`
+	// Before names actions performed to completion on the case's runtime before its own.
+	Before []string `json:"before,omitempty"`
 	// Trace opts a case into a golden trace it does not carry yet, so
 	// -update-traces writes one. A case already carrying a golden needs no opt-in.
 	Trace bool `json:"trace,omitempty"`
@@ -245,6 +247,8 @@ type ExpectedOutcome struct {
 	// exhibits or performs them, one entry per object whose performance the case
 	// states.
 	Objects []ObjectRun `json:"objects,omitempty"`
+	// Transfers names the messages an occurrence case realizes, in run order.
+	Transfers []string `json:"transfers,omitempty"`
 	// Materialization states what reading every feature value of the instance,
 	// and of the objects those hold, reports — the check `-instantiate` makes.
 	Materialization *ExpectedMaterialization `json:"materialization,omitempty"`
@@ -485,6 +489,8 @@ func runConformanceCaseWithOwned(t *testing.T, conformanceDir, caseName string, 
 		runVerificationConformance(t, ctx, idx, sysmlPath, expected)
 	case "instance":
 		runInstanceConformance(t, ctx, idx, sysmlPath, expected, forceOwned)
+	case "occurrence":
+		runOccurrenceConformance(t, ctx, idx, sysmlPath, expected, forceOwned)
 	default:
 		if forceOwned {
 			t.Skip("no object owns connectors before execution")
@@ -789,6 +795,7 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 			problems = append(problems, "exploreBudget: "+err.Error())
 		}
 	}
+	problems = append(problems, beforeSchemaProblems(expected)...)
 	if len(expected.Outcomes) == 0 {
 		if expected.Admissible != "" {
 			problems = append(problems, "admissible is stated without outcomes to admit")
@@ -1024,6 +1031,7 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 		runActionPerformers(t, ctx, idx, actionSym, expected.Performers)
 		return
 	}
+	performBefore(t, ctx, idx, rootScope, actionSym, expected)
 
 	// Execute action
 	outcome, err := ctx.ActionOutcomePerformedBy(actionSym, nil, nil)
@@ -1068,44 +1076,6 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 	}
 }
 
-// runActionPerformers performs an action once per object performing it and
-// checks each performance against what that object expects: its outputs, the
-// feature values the body left on the object, or the error it must fail with.
-func runActionPerformers(t *testing.T, ctx *Context, idx *symbols.Index, actionSym *symbols.Symbol, performers []Performer) {
-	t.Helper()
-	for _, performer := range performers {
-		self, err := ctx.Instantiate(oneSymbol(t, idx, performer.Object))
-		if err != nil {
-			t.Fatalf("instantiate %s: %v", performer.Object, err)
-		}
-		t.Run(performer.Object, func(t *testing.T) {
-			outcome, err := ctx.ActionOutcomePerformedBy(actionSym, self, nil)
-			if performer.Error != "" {
-				requireError(t, "performance by "+performer.Object, err, performer.Error)
-				return
-			}
-			if err != nil {
-				t.Fatalf("performance by %s failed: %v", performer.Object, err)
-			}
-			validateTerminated(t, outcome.Terminated, performer.Terminated)
-			validateOutputs(t, ctx, performer.Outputs, outcome.Outputs)
-			for path, expectedVal := range performer.Slots {
-				fv, err := featureValueAtPath(t, ctx, self, path)
-				if err != nil {
-					t.Errorf("feature value %q of %s: %v", path, performer.Object, err)
-					continue
-				}
-				value, err := fv.ReadValue(path)
-				if err != nil {
-					t.Errorf("feature value %q of %s: %v", path, performer.Object, err)
-					continue
-				}
-				validateValue(t, ctx, path, expectedVal, value)
-			}
-		})
-	}
-}
-
 // runStateConformance executes a state machine and validates the final state. A
 // case naming performers runs the machine once per object performing it, each
 // against the outcome that object expects.
@@ -1120,10 +1090,7 @@ func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path st
 		return
 	}
 	for _, performer := range expected.Performers {
-		self, err := ctx.Instantiate(oneSymbol(t, idx, performer.Object))
-		if err != nil {
-			t.Fatalf("instantiate %s: %v", performer.Object, err)
-		}
+		self := performerObject(t, ctx, idx, performer.Object)
 		if forceOwned {
 			if err := forceOwnedConnectors(ctx, self); err != nil {
 				t.Fatalf("OwnedConnectors(%s) failed before execution: %v", performer.Object, err)
@@ -1136,6 +1103,7 @@ func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path st
 				Terminated:  performer.Terminated,
 				StateVisits: performer.StateVisits,
 				Outputs:     performer.Outputs,
+				Error:       performer.Error,
 			})
 		})
 	}
@@ -1244,26 +1212,32 @@ func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol
 // results the case states for it, every other event queued and run.
 func callingPerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol, self *Instance, events []ExpectedEvent) (*StateExecutor, error) {
 	t.Helper()
-	exec, err := ctx.CreateStateExecutorFor(stateSym, self)
+	exec, reused, err := ctx.stateRunFor(stateSym, self, true)
+	release := func() {
+		if exec != nil && !reused {
+			exec.Release()
+		}
+	}
 	if err != nil {
+		release()
 		return nil, err
 	}
 	for i, event := range events {
 		queued := queuedEvents(t, events[i:i+1])[0]
 		if event.Results == nil {
 			if err := exec.Enqueue(queued); err != nil {
-				exec.Release()
+				release()
 				return nil, err
 			}
 			if err := exec.RunToCompletion(); err != nil {
-				exec.Release()
+				release()
 				return nil, err
 			}
 			continue
 		}
 		results, err := exec.Call(queued.Call, queued.Args)
 		if err != nil {
-			exec.Release()
+			release()
 			return nil, fmt.Errorf("call %d %s: %w", i, queued.Call, err)
 		}
 		validateOutputs(t, ctx, event.Results, results)
@@ -2105,16 +2079,6 @@ func featureNamed(ctx *Context, typeSym *symbols.Symbol, name string) *Effective
 		}
 	}
 	return nil
-}
-
-// findBehavioralSymbol searches for first symbol matching defKind or usageKind,
-// failing the test when there is none.
-func findBehavioralSymbol(t *testing.T, scope *symbols.Scope, defKind ast.DefinitionKind, usageKind ast.UsageKind) *symbols.Symbol {
-	sym := lookupBehavioralSymbol(scope, defKind, usageKind)
-	if sym == nil {
-		t.Fatalf("no behavioral symbol found (defKind=%v, usageKind=%v)", defKind, usageKind)
-	}
-	return sym
 }
 
 // namedOrFoundSymbol returns the symbol the case names by qualified path, which

@@ -568,10 +568,5 @@ func memberSymbol(scope *symbols.Scope, node ast.Node) *symbols.Symbol {
 	if scope == nil || node == nil {
 		return nil
 	}
-	for _, member := range scope.AllMembers() {
-		if member.Decl == node {
-			return member
-		}
-	}
-	return nil
+	return scope.MemberDeclaring(node)
 }

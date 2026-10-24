@@ -111,6 +111,7 @@ func TestCarryTakesAValueIntoAnotherContext(t *testing.T) {
 	}
 	f := fn.function()
 	result, err := row.invokeCalcShapeIn(f.shape, calcArgs{positional: []Value{eval("3.0")}}, f.scope, f.self, f.enclosing)
+	result = soleElement(result)
 	if err != nil {
 		t.Fatalf("applying the carried function: %v", err)
 	}

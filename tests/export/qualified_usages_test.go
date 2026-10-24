@@ -223,7 +223,8 @@ func TestStateBodyPerformKeepsQualifier(t *testing.T) {
 		case map[string]any:
 			out := map[string]any{}
 			for k, item := range m {
-				if strings.HasPrefix(k, "sysx:") {
+				// The provenance marker stays: without it the document reads as an external writer's.
+				if strings.HasPrefix(k, "sysx:") && k != "sysx:statedDefaults" {
 					continue
 				}
 				out[k] = scrub(item)

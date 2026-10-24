@@ -116,6 +116,20 @@ package Observatory {
 		end untyped;
 	}
 
+	// Role metadata on a requirement marks it as original or derived; it is still
+	// the participant an end names, not a role statement.
+	requirement throughputCapacity { @original; }
+	requirement linkRate { @derive; }
+	requirement bufferDepth { @derive; }
+	#derivation connection {
+		end #original ::> throughputCapacity;
+		end #derive ::> linkRate;
+	}
+	connection : Derivation {
+		end :> originalRequirements ::> throughputCapacity;
+		end :> derivedRequirements ::> bufferDepth;
+	}
+
 	// A plain connection between requirements is no derivation.
 	connection connect systemMass to instrumentMass;
 

@@ -632,7 +632,7 @@ func (t SweepType) admit(ctx *runtime.Context, param, what string, value runtime
 // admitMagnitude refuses a quantity whose magnitude the quantity type's `num` excludes
 // (classifyValue), which its dimension alone does not judge.
 func (t SweepType) admitMagnitude(ctx *runtime.Context, param, what string, value runtime.Value) error {
-	q := value.Quantity()
+	q := value.Sole().Quantity()
 	if t.num == nil || q == nil {
 		return nil
 	}

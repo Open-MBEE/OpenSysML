@@ -40,8 +40,8 @@ package MixedExamples {
 	}
 
 	use case def Inspection {
-		actor operator : Person;
 		subject plant : Plant;
+		actor operator : Person;
 		objective {
 			doc /* Inspect the plant and report its operating state. */
 		}

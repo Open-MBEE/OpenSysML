@@ -1,7 +1,7 @@
-# Contributing to the OpenSysML REDK
+# Contributing to the OpenSysML MDK
 
 Thank you for your interest in contributing to the OpenSysML Runtime Environment and Development
-Kit (REDK). This document describes how to set up a
+Kit (MDK). This document describes how to set up a
 development environment, the standards a change is expected to meet, and how contributions are
 reviewed and released.
 
@@ -24,19 +24,22 @@ make lint   # runs staticcheck and gosec, as CI does
 
 ./scripts/download-training-examples.sh   # fetch the OMG training corpus
 ./scripts/download-pilot-corpora.sh       # fetch the three OMG pilot corpora
+./scripts/download-spec-examples.sh       # extract the specification examples (needs pdftotext)
 ./scripts/download-pilot-library-xmi.sh   # fetch the pilot's XMI of the standard library
 ./scripts/download-pssm-suite.sh          # fetch the OMG PSSM test suite
 ```
 
 The gates over those downloads (`tests/corpus/training_examples_test.go`,
-`tests/corpus/pilot_corpora_test.go`, `tests/identity/pilot_library_xmi_test.go`,
-`tests/corpus/pssm_migration_test.go`)
-skip while their corpus is absent, so run the four scripts once before trusting a local
+`tests/corpus/pilot_corpora_test.go`, `tests/corpus/spec_examples_test.go`,
+`tests/identity/pilot_library_xmi_test.go`, `tests/corpus/pssm_migration_test.go`)
+skip while their corpus is absent, so run the five scripts once before trusting a local
 `make test`; a corpus already at the pin is left alone. CI runs the scripts itself and sets
 `OPENSYSML_REQUIRE_TRAINING_CORPUS=1`, `OPENSYSML_REQUIRE_PILOT_CORPORA=1`,
-`OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1` and `OPENSYSML_REQUIRE_PSSM_SUITE=1`, which make a
-missing corpus a failure there instead of a skip; an environment that sets any of them must run
-the matching script first. See [docs/project/pilot-corpora.md](docs/project/pilot-corpora.md)
+`OPENSYSML_REQUIRE_SPEC_EXAMPLES=1`, `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1` and
+`OPENSYSML_REQUIRE_PSSM_SUITE=1`, which make a missing corpus a failure there instead of a skip;
+an environment that sets any of them must run the matching script first. See
+[docs/project/pilot-corpora.md](docs/project/pilot-corpora.md),
+[docs/project/spec-examples.md](docs/project/spec-examples.md)
 and [docs/project/pssm-migration.md](docs/project/pssm-migration.md).
 
 ## Development Workflow
@@ -275,7 +278,7 @@ needs to require.
 
 **The full tier** runs on every push to a non-draft pull request, when a draft is marked ready
 for review, and on any pull request carrying the label `ci:full`. It gates: gofmt, `go vet`,
-`make lint`, the race-enabled test suite (six shards, `make test-shard`), the binaries, the
+`make lint`, the race-enabled test suite (nine shards, `make test-shard`), the binaries, the
 client suites, the conformance suite over each transport, the protobuf lint and
 wire-compatibility checks, the documentation hygiene checks (`make docs-check`,
 `make man-check` and the census check), the site build, and in each client's job the

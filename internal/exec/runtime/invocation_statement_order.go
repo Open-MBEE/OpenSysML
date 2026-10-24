@@ -159,16 +159,25 @@ func (ctx *Context) invokeWithStatementOrderResults(
 
 func canonicalInvocationArguments(shape *calcShape, args calcArgs) string {
 	var b strings.Builder
-	for i, name := range shape.ParamNames {
+	// Positional arguments fall on the non-actor parameters in declaration order,
+	// as bindCalcParameters binds them.
+	byPosition := make(map[string]bool, len(args.positional))
+	positional := 0
+	for i := range shape.Params {
+		param := &shape.Params[i]
 		var value Value
 		var supplied bool
 		switch {
-		case i < len(args.positional):
-			value, supplied = args.positional[i], true
+		case !param.IsActor && positional < len(args.positional):
+			value, supplied = args.positional[positional], true
+			byPosition[param.Name] = true
 		case args.named != nil:
-			value, supplied = args.named[name]
+			value, supplied = args.named[param.Name]
 		}
-		fmt.Fprintf(&b, "%s=", strconv.Quote(name))
+		if !param.IsActor {
+			positional++
+		}
+		fmt.Fprintf(&b, "%s=", strconv.Quote(param.Name))
 		if !supplied {
 			b.WriteString("<default>")
 		} else {
@@ -176,9 +185,9 @@ func canonicalInvocationArguments(shape *calcShape, args calcArgs) string {
 		}
 		b.WriteByte(';')
 	}
-	if len(args.positional) > len(shape.ParamNames) {
+	if arity := shape.positionalArity(); len(args.positional) > arity {
 		b.WriteString("extra-pos:")
-		for _, value := range args.positional[len(shape.ParamNames):] {
+		for _, value := range args.positional[arity:] {
 			fmt.Fprintf(&b, "%d:%s;", value.Kind, strconv.Quote(FormatValue(value)))
 		}
 	}
@@ -193,12 +202,9 @@ func canonicalInvocationArguments(shape *calcShape, args calcArgs) string {
 			fmt.Fprintf(&b, "unknown:%s=%d:%s;", strconv.Quote(name), value.Kind, strconv.Quote(FormatValue(value)))
 			continue
 		}
-		for i, param := range shape.ParamNames {
-			if param == name && i < len(args.positional) {
-				value := args.named[name]
-				fmt.Fprintf(&b, "duplicate:%s=%d:%s;", strconv.Quote(name), value.Kind, strconv.Quote(FormatValue(value)))
-				break
-			}
+		if byPosition[name] {
+			value := args.named[name]
+			fmt.Fprintf(&b, "duplicate:%s=%d:%s;", strconv.Quote(name), value.Kind, strconv.Quote(FormatValue(value)))
 		}
 	}
 	return b.String()

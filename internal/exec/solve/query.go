@@ -31,6 +31,10 @@ const (
 	// by the model, or chosen by the caller — asserted so the solver synthesises
 	// only what is still free.
 	RolePinned
+	// RoleDerived is the defining equation of a derived declared value — one the
+	// model declares as an expression over other features of the same object —
+	// asserted so the value the solver chooses is the one the model derives.
+	RoleDerived
 	// RoleExcluded is an assignment already reported, denied so enumerating asks
 	// for a different one.
 	RoleExcluded
@@ -49,6 +53,7 @@ var roleNames = map[Role]string{
 	RoleDomain:     "declared domain",
 	RoleDefined:    "well-definedness",
 	RolePinned:     "fixed value",
+	RoleDerived:    "defining equation",
 	RoleExcluded:   "excluded assignment",
 	RoleTransition: "transition",
 	RoleViolated:   "violated conditions",
@@ -108,6 +113,12 @@ type Var struct {
 	// reaching the variable satisfies them; the guards asserted after come from
 	// operations an evaluation failing at the read never performs.
 	Preceding []*Term
+
+	// Live is the selection of variants under which the variable exists: a
+	// feature declared for one variant is a variation point only where the
+	// holding variation selects that variant. Nil where it exists in every
+	// configuration.
+	Live *Term
 
 	// Dimension is the quantity dimension its magnitude is expressed in, over
 	// base units, empty for a value that has none.
@@ -261,6 +272,16 @@ type Query struct {
 	// Unread are the values that were to be fixed but that no variable of the
 	// query reads, reported rather than dropped.
 	Unread []Unread
+
+	// Derived are the variables the query defines by the equation the model
+	// declares for them rather than fixes or leaves free; nil when it defines
+	// none.
+	Derived []DerivedValue
+
+	// Uncovered are the object-holding features of the element whose objects'
+	// own assertions the query does not state, each with the reason; nil when it
+	// states them all.
+	Uncovered []Refused
 
 	// Unreadable are the features the query reads whose value could not be read,
 	// each guarded so that no model reaches the read; nil when it reads none.

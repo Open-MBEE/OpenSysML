@@ -10,16 +10,27 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
+// declaredPins is what the model declares for the features of fqn, fixed. Every
+// value a declaration of the fixture states must be read; one the library
+// states that cannot be read where nothing gives its operand a value
+// (Items::Item::isSolid reads voids) is unfixed, and no condition reads it.
+func declaredPins(t *testing.T, ctx *runtime.Context, idx *symbols.Index, fqn string) []Pin {
+	t.Helper()
+	pins, unfixed := Fixed(ctx, symbolNamed(t, idx, fqn), nil)
+	for _, u := range unfixed {
+		if u.Feature == nil || strings.HasPrefix(symbols.FQNOf(u.Feature), "test::") {
+			t.Fatalf("declared values could not be read: %+v", unfixed)
+		}
+	}
+	return pins
+}
+
 // pinnedQuery translates one constraint of the panel fixture with the values the
 // model declares for the part fixed.
 func fixedQuery(t *testing.T, element string) (*runtime.Context, *symbols.Index, *Query) {
 	t.Helper()
 	ctx, idx := fixtureFile(t, "panel_pins.sysml")
-	panel := symbolNamed(t, idx, "test::Panel")
-	pins, unfixed := Fixed(ctx, panel, nil)
-	if len(unfixed) != 0 {
-		t.Fatalf("declared values could not be read: %+v", unfixed)
-	}
+	pins := declaredPins(t, ctx, idx, "test::Panel")
 	sym := symbolNamed(t, idx, element)
 	q, err := ConstraintWith(ctx, sym, sym.OwnerScope, pins)
 	if err != nil {
@@ -48,9 +59,14 @@ func TestGoldenWithFixedValues(t *testing.T) {
 // read, and one stating none stays free rather than being fixed to nothing.
 func TestFixedReadsTheValuesTheModelDeclares(t *testing.T) {
 	ctx, idx := fixtureFile(t, "panel_pins.sysml")
-	pins, unfixed := Fixed(ctx, symbolNamed(t, idx, "test::Panel"), nil)
-	if len(unfixed) != 0 {
-		t.Fatalf("declared values could not be read: %+v", unfixed)
+	panel := symbolNamed(t, idx, "test::Panel")
+	pins, unfixed := Fixed(ctx, panel, nil)
+	for _, u := range unfixed {
+		// Items::Item::isSolid reads voids, which nothing gives a value to at the
+		// declaration: an inherited value that cannot be read, and no condition reads.
+		if u.Feature == nil || u.Feature.Name != "isSolid" || !errors.Is(u.Err, runtime.ErrNoValue) {
+			t.Fatalf("declared values could not be read: %+v", unfixed)
+		}
 	}
 	got := map[string]runtime.ValueKind{}
 	for _, p := range pins {
@@ -293,11 +309,7 @@ func TestPinnedBareNumberRefusesAMeasuredFeature(t *testing.T) {
 // is how a test gets a runtime quantity without building one by hand.
 func quantityValue(t *testing.T, ctx *runtime.Context, idx *symbols.Index, fqn string) runtime.Value {
 	t.Helper()
-	pins, unfixed := Fixed(ctx, symbolNamed(t, idx, "test::Panel"), nil)
-	if len(unfixed) != 0 {
-		t.Fatalf("declared values could not be read: %+v", unfixed)
-	}
-	for _, p := range pins {
+	for _, p := range declaredPins(t, ctx, idx, "test::Panel") {
 		if p.Feature != nil && strings.HasSuffix(fqn, "::"+p.Name) {
 			return p.Value
 		}
@@ -366,11 +378,7 @@ package test {
 		assert constraint highIsHigh { level == Level::high and cast == Level::high and n >= 3 }
 	}
 }`)
-	rover := symbolNamed(t, idx, "test::Rover")
-	pins, unfixed := Fixed(ctx, rover, nil)
-	if len(unfixed) != 0 {
-		t.Fatalf("declared values could not be read: %+v", unfixed)
-	}
+	pins := declaredPins(t, ctx, idx, "test::Rover")
 	sym := symbolNamed(t, idx, "test::Rover::highIsHigh")
 	q, err := ConstraintWith(ctx, sym, sym.OwnerScope, pins)
 	if err != nil {
@@ -434,9 +442,11 @@ func TestUnfixedReadRefusesOnlyReadFailures(t *testing.T) {
 			attribute free : Real;
 			attribute input : Real;
 			attribute dependent : Real = input + 1.0;
+			attribute opaque : Real = input ** 2.0;
 			assert constraint readsBroken { broken >= 0.0 }
 			assert constraint readsFree { free >= 0.0 }
 			assert constraint readsDependent { dependent > 0.0 }
+			assert constraint readsOpaque { opaque > 0.0 }
 		}
 		part item : Item;
 	}`)
@@ -491,18 +501,31 @@ func TestUnfixedReadRefusesOnlyReadFailures(t *testing.T) {
 		t.Fatalf("UnfixedRead wrapped missing dependency = %v, want error wrapping ErrNoValue", err)
 	}
 
-	dependentUnfixed, ok := unfixedByName("dependent")
-	if !ok || !errors.Is(dependentUnfixed.Err, runtime.ErrNoValue) {
-		t.Fatalf("unfixed = %+v, want dependent failed read wrapping ErrNoValue", unfixed)
+	// A derived value whose operand has no value is a defining equation over the
+	// free operand, not a failed read; one whose equation the term language does
+	// not carry, and that the evaluator could not derive either, is refused as
+	// a failed read where the read is unconditional.
+	if _, ok := unfixedByName("dependent"); ok {
+		t.Fatalf("unfixed = %+v, want dependent defined by its equation rather than unfixed", unfixed)
 	}
 	dependent := symbolNamed(t, idx, "test::Item::readsDependent")
 	dependentQuery, err := ConstraintWith(ctx, dependent, dependent.OwnerScope, pins)
 	if err != nil {
 		t.Fatalf("translate readsDependent: %v", err)
 	}
-	if err := UnfixedRead(ctx, dependentQuery, unfixed); err == nil ||
-		!errors.Is(err, runtime.ErrNoValue) || !strings.Contains(err.Error(), "dependent") {
-		t.Fatalf("UnfixedRead readsDependent = %v, want error wrapping ErrNoValue and naming dependent", err)
+	if err := UnfixedRead(ctx, dependentQuery, unfixed); err != nil {
+		t.Fatalf("UnfixedRead readsDependent = %v, want nil: dependent is defined by its equation", err)
+	}
+	if len(dependentQuery.Derived) != 1 || dependentQuery.Derived[0].Expression != "input + 1.0" {
+		t.Fatalf("Derived = %+v, want dependent = input + 1.0", dependentQuery.Derived)
+	}
+	if _, ok := unfixedByName("opaque"); ok {
+		t.Fatalf("unfixed = %+v, want opaque carried as a derived value whose read failed", unfixed)
+	}
+	opaque := symbolNamed(t, idx, "test::Item::readsOpaque")
+	if _, err := ConstraintWith(ctx, opaque, opaque.OwnerScope, pins); err == nil ||
+		!errors.Is(err, runtime.ErrNoValue) || !strings.Contains(err.Error(), "reads opaque, whose value could not be read") {
+		t.Fatalf("translate readsOpaque = %v, want the unconditional read of opaque refused for want of input", err)
 	}
 }
 

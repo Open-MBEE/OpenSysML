@@ -410,6 +410,7 @@ var transcendental = map[string]bool{
 
 // withinUlps reports whether two printed Reals are at most n float64 steps apart.
 func withinUlps(a, b string, n uint64) bool {
+	a, b = strings.Trim(a, "[]"), strings.Trim(b, "[]")
 	x, err1 := strconv.ParseFloat(a, 64)
 	y, err2 := strconv.ParseFloat(b, 64)
 	if err1 != nil || err2 != nil || (x < 0) != (y < 0) {
@@ -671,7 +672,7 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 					t.Errorf("Hypot(%q, 4.0): got %v %q, want not a Real and exit status 2", arg, err, out)
 				}
 			}
-			if out, err := exec.Command(exes["Hypot"], "--repeat", "3", "3.0", "4.0").Output(); err != nil || strings.TrimSpace(string(out)) != "5.0" {
+			if out, err := exec.Command(exes["Hypot"], "--repeat", "3", "3.0", "4.0").Output(); err != nil || strings.TrimSpace(string(out)) != "[5.0]" {
 				t.Errorf("--repeat 3: got %q, %v", out, err)
 			}
 		})
@@ -699,6 +700,8 @@ func TestCompiledStringResultsRoundTrip(t *testing.T) {
 				if failure != "" {
 					t.Fatalf("%q: interpreter failed: %s", text, failure)
 				}
+				// A bare result is held as a one-element sequence; its text is the element's.
+				printed = strings.TrimSuffix(strings.TrimPrefix(printed, "["), "]")
 				if got := source.StringValue(printed); got != text || len(lexer.InvalidEscapes(source.Span{}, printed)) > 0 {
 					t.Errorf("%q printed as %s, which reads back as %q", text, printed, got)
 				}
@@ -711,7 +714,7 @@ func TestCompiledStringResultsRoundTrip(t *testing.T) {
 					{"compiled, given the printed result", func() (string, string) { return compiledRun(t, exe, again) }},
 					{"interpreted, given the printed result", func() (string, string) { return interpreted(t, s, again) }},
 				} {
-					if value, failure := run.answer(); value != printed || failure != "" {
+					if value, failure := run.answer(); strings.TrimSuffix(strings.TrimPrefix(value, "["), "]") != printed || failure != "" {
 						t.Errorf("%q %s = (%q, %q), want %s", text, run.name, value, failure, printed)
 					}
 				}
@@ -738,7 +741,7 @@ func TestCompiledStringResultHoldsNul(t *testing.T) {
 				t.Fatalf("model has errors: %v", errs)
 			}
 			want, failure := interpreted(t, s, c)
-			if failure != "" || want != "\"x\x00\u200b\x00y\"" {
+			if failure != "" || want != "[\"x\x00\u200b\x00y\"]" {
 				t.Fatalf("interpreted = (%q, %q)", want, failure)
 			}
 			exe := filepath.Join(t.TempDir(), "Nul")
@@ -768,7 +771,7 @@ func TestCompiledBudgetChargesInputsAndWidening(t *testing.T) {
 		{"Fn::SamplePairs", []string{"2"}}, {"Fn::SamplePairs", []string{"3"}},
 	}
 	// 5 Integers and their 5 Reals fit the budget of 10; 6 and 6 do not.
-	widened := []struct{ n, sum, want, failure string }{{"5", "15.0", "15.0", ""}, {"6", "21.0", "", "collection element limit exceeded"}}
+	widened := []struct{ n, sum, want, failure string }{{"5", "[15.0]", "[15.0]", ""}, {"6", "[21.0]", "", "collection element limit exceeded"}}
 	for _, target := range codegen.Targets() {
 		t.Run(string(target), func(t *testing.T) {
 			if target == codegen.TargetC {
@@ -813,7 +816,7 @@ func TestCompiledBudgetChargesInputsAndWidening(t *testing.T) {
 			if !errors.As(err, &exit) || exit.ExitCode() != 1 || !strings.Contains(string(out), "element limit exceeded") {
 				t.Errorf("--repeat over budget: got %v %q, want the element limit failure", err, out)
 			}
-			if out, err := exec.Command(exes["Seq::BigIn"], "--repeat", "3", "(1,2,3,4,5,6,7,8,9,10)").Output(); err != nil || strings.TrimSpace(string(out)) != "10" {
+			if out, err := exec.Command(exes["Seq::BigIn"], "--repeat", "3", "(1,2,3,4,5,6,7,8,9,10)").Output(); err != nil || strings.TrimSpace(string(out)) != "[10]" {
 				t.Errorf("--repeat within budget: got %q, %v", out, err)
 			}
 			program, err := compileCalc(s, "Compiled::Seq::BigW", target)
@@ -1041,7 +1044,7 @@ func TestCompiledCRecordsAreReleasedBetweenRuns(t *testing.T) {
 		t.Fatal(err)
 	}
 	out, err := exec.Command("sh", "-c", `ulimit -v 65536 && exec "$0" --repeat 3000000 1.5`, exe).CombinedOutput()
-	if err != nil || strings.TrimSpace(string(out)) != "1.5" {
+	if err != nil || strings.TrimSpace(string(out)) != "[1.5]" {
 		t.Errorf("Read(1.5) repeated 3000000 times under a 64 MB limit: %v\n%s", err, out)
 	}
 }

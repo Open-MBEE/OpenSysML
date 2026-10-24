@@ -56,8 +56,9 @@ VERSION_FILE = os.path.join(
 REPO_ROOT = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
-NODE_PACKAGE = os.path.join(REPO_ROOT, "client", "node", "package.json")
-MCP_PACKAGE = os.path.join(REPO_ROOT, "packaging", "npm", "sysml-mcp", "package.json")
+PACKAGE_JSON = "package.json"
+NODE_PACKAGE = os.path.join(REPO_ROOT, "client", "node", PACKAGE_JSON)
+MCP_PACKAGE = os.path.join(REPO_ROOT, "packaging", "npm", "sysml-mcp", PACKAGE_JSON)
 JAVA_POM = os.path.join(REPO_ROOT, "client", "java", "pom.xml")
 RUST_CARGO = os.path.join(REPO_ROOT, "client", "rust", "opensysml", "Cargo.toml")
 KERNEL_VERSION_FILE = os.path.join(
@@ -236,7 +237,7 @@ def node_version(declared=None, node=None, tag=None):
     node = node_declared_version() if node is None else node
     return _client_version(
         "client/node/package.json",
-        "package.json",
+        PACKAGE_JSON,
         "npm",
         "The Node client",
         node,

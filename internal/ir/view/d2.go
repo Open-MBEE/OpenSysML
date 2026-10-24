@@ -44,7 +44,7 @@ func (r *Rendering) D2With(options Options) (string, error) {
 	if err := options.Ports.check(); err != nil {
 		return "", err
 	}
-	r = r.showing(options.Show).settleUnplaced(options.Unplaced, FormD2)
+	r = r.showing(options.Show).settleUnplaced(options.Unplaced, options.Compartments, FormD2)
 	w := &d2Writer{
 		fills:   familyFills{palette: options.Palette, tree: r.Kind == KindTree},
 		labels:  labelsOf(r.Roots, false, nil, r.Shown),
@@ -519,7 +519,7 @@ func (w *d2Writer) writeEdge(indent string, edge Edge) {
 	case EdgeComposition, EdgeReference, EdgeContainment:
 		// D2 draws a source arrowhead only where the connection has a head there.
 		arrow, class = "<-", edge.Kind.String()
-	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate, EdgeDependency:
 		class = "dependency"
 	}
 	w.writeArrow(indent, d2EdgeSpec{from: w.end(edge.From, edge.FromPort), to: w.end(edge.To, edge.ToPort), arrow: arrow, label: edge.Label, class: class, style: edge.Style, origin: edge.Origin}, d2EndLabels(edge)...)

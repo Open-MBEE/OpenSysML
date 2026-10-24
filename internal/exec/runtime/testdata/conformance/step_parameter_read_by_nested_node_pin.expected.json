@@ -1,0 +1,8 @@
+{
+  "type": "instance",
+  "instantiate": "test::site",
+  "slots": {
+    "lowGo": {"type": "Boolean", "value": true},
+    "highGo": {"type": "Boolean", "value": false}
+  }
+}

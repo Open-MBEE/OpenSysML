@@ -1,0 +1,37 @@
+materialize: Acquire #1
+materialize: operator #2
+materialize: Sample Stage #3
+materialize: chargingReceived #4
+materialize: Pump #5
+materialize: Display #6
+materialize: Imager #7
+materialize: modeReceived #8
+materialize: focusReceived #9
+materialize: Image #10
+materialize: dataReceived #11
+send position from operator.positionSent
+send positionStage from operator.stageSent
+send pumpDown from operator.pumpSent
+send selectMode from operator.modeSent
+send focus from operator.focusSent
+send detectCharging from operator.chargingSent
+accept position at stage.positionReceived
+accept positionStage at stage.stageReceived
+accept detectCharging at stage.chargingReceived
+materialize: detectCharging #12
+perform detectChargingCall at stage.chargingReceived
+accept pumpDown at pump.pumpReceived
+accept selectMode at imager.modeReceived
+materialize: selectMode #13
+perform selectModeCall at imager.modeReceived
+send create from imager.createSent
+send show from imager.showSent
+accept show at display.showReceived
+send data from display.dataSent
+accept focus at imager.focusReceived
+materialize: focus #14
+perform focusCall at imager.focusReceived
+accept create at image.createReceived
+accept data at image.dataReceived
+materialize: data #15
+perform dataCall at image.dataReceived

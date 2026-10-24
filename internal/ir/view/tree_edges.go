@@ -51,8 +51,9 @@ type treeEdgeKey struct {
 
 // treeEdges adds to out the relationship edges between the nodes of its tree,
 // in the order of the nodes they leave. An element drawn more than once draws
-// its edges from the first node, the one that shows its members.
-func (r *Renderer) treeEdges(out *Rendering) {
+// its edges from the first node, the one that shows its members; the nodes
+// drawn for each element are returned.
+func (r *Renderer) treeEdges(out *Rendering) map[symbols.ElementKey]*Node {
 	g := &treeGraph{r: r, out: out, nodes: map[symbols.ElementKey]*Node{}, parent: map[string]string{}, edges: map[treeEdgeKey]bool{}, lined: map[linedEdge]bool{}}
 	// An element is indexed where it is declared — as a root, exposed by a
 	// nested view, or nested in the node of its owner — not where a usage of
@@ -91,6 +92,7 @@ func (r *Renderer) treeEdges(out *Rendering) {
 		walk(root)
 	}
 	out.sites = nil
+	return g.nodes
 }
 
 // declaredUnder reports whether a node drawn in the node of parent draws sym

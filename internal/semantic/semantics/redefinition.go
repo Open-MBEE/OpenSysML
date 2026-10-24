@@ -159,11 +159,17 @@ func (m *Model) BehaviorParametersOf(sym *symbols.Symbol) []BehaviorParameter {
 func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
 	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.params[sym]; ok {
+		// The seed answers a re-entrant query with nothing, cutting that query short.
+		if depth := m.computingParams[sym]; depth != 0 {
+			m.resolver.CutShort(depth)
+		}
 		return cached
 	}
 	// Guard against re-entrancy on cyclic specialization graphs.
 	journal(m, m.params, sym, sym.Decl)
 	m.params[sym] = behaviorParameters{}
+	m.computingParams[sym] = m.resolver.Enter()
+	defer delete(m.computingParams, sym)
 
 	owned := ownedParameters(sym)
 	out := behaviorParameters{positional: positionalParameters(owned), result: resultParameter(owned)}
@@ -178,7 +184,7 @@ func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
 		}
 	}
 	if len(generals) > 1 {
-		bases := m.implicitBases(sym)
+		bases := m.ImplicitGenerals(sym)
 		generals = slices.DeleteFunc(generals, func(sup *symbols.Symbol) bool { return slices.Contains(bases, sup) })
 	}
 	if len(generals) == 1 {
@@ -194,6 +200,12 @@ func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
 		}
 	}
 
+	// A list derived while a guard cut a query short may have missed a
+	// parameter, so it is recomputed on the next query, not memoized.
+	if !m.resolver.Leave() {
+		delete(m.params, sym)
+		return out
+	}
 	m.params[sym] = out
 	return out
 }
@@ -348,16 +360,14 @@ func (m *Model) ImplicitParameterRedefinitions(sym *symbols.Symbol) []*symbols.S
 	return m.implicitParameterTargets(sym, true)
 }
 
-// implicitParameterCounterparts returns the parameters at sym's position in the
-// general behaviors whatever their direction, which is what a direction
-// conformance check needs: a disagreeing direction is a violation there rather
-// than an absent redefinition.
+// implicitParameterCounterparts returns the parameters at sym's position in the general
+// behaviors whatever their direction (KerML 8.4.4.6): a disagreeing one is a violation there.
 func (m *Model) implicitParameterCounterparts(sym *symbols.Symbol) []*symbols.Symbol {
 	return m.implicitParameterTargets(sym, false)
 }
 
-// implicitParameterTargets is the shared walk: matchDirection keeps only the
-// positions whose direction agrees with sym's.
+// implicitParameterTargets is the shared walk: matchDirection keeps only the positions
+// whose direction agrees with sym's and leaves a parameter redefining by clause to it.
 func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection bool) []*symbols.Symbol {
 	if sym == nil {
 		return nil
@@ -365,8 +375,11 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection boo
 	var direction ast.FeatureDirection
 	var isResult bool
 	if sym.Recorded() {
-		if sym.Facts == nil || sym.Facts.Direction == ast.DirNone || len(sym.Facts.Redefines) > 0 {
-			return nil // explicit redefinition governs
+		if sym.Facts == nil || sym.Facts.Direction == ast.DirNone {
+			return nil
+		}
+		if matchDirection && len(sym.Facts.Redefines) > 0 {
+			return nil
 		}
 		direction = sym.Facts.Direction
 		isResult = sym.Facts.Modifiers.Has(symbols.ModResult)
@@ -375,10 +388,8 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection boo
 		if !ok || usage.Direction == ast.DirNone {
 			return nil
 		}
-		for _, rel := range usage.Relationships {
-			if rel != nil && rel.Kind == ast.RelRedefines {
-				return nil // explicit redefinition governs
-			}
+		if matchDirection && declaresRedefinitionAST(usage) {
+			return nil
 		}
 		direction = usage.Direction
 		isResult = usage.IsResult
@@ -391,7 +402,8 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection boo
 		return nil
 	}
 	position := -1
-	for i, p := range positionalParameters(ownedParameters(owner)) {
+	// The owner's memoized parameters list its owned ones first, in order.
+	for i, p := range m.parametersOf(owner).positional {
 		if p.sym == sym {
 			position = i
 			break
@@ -402,8 +414,11 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection boo
 	}
 
 	var out []*symbols.Symbol
+	// The base feature a kind implies owns no parameters; those of its type are
+	// reached through the kind's base definition or the declared chain already.
+	baseFeatures := m.ImpliedBaseFeatures(owner)
 	for _, sup := range m.DirectSupertypes(owner) {
-		if !behaviorLike(sup) {
+		if !behaviorLike(sup) || slices.Contains(baseFeatures, sup) {
 			continue
 		}
 		supParams := m.parametersOf(sup)

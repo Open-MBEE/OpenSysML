@@ -67,6 +67,7 @@ func pdfOptions() (docpdf.Options, error) {
 		BaseDir:             filepath.Dir(outputPath),
 		DiagramForm:         page.DiagramForm,
 		Unplaced:            page.Unplaced,
+		Compartments:        page.Compartments,
 		Style:               page.Style,
 		LinkTemplate:        page.LinkTemplate,
 	}, nil

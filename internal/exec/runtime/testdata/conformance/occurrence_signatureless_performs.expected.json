@@ -1,0 +1,16 @@
+{
+  "type": "occurrence",
+  "evaluate": "Instrument::Acquire",
+  "trace": true,
+  "transfers": [
+    "position",
+    "positionStage",
+    "detectCharging",
+    "pumpDown",
+    "selectMode",
+    "show",
+    "focus",
+    "create",
+    "data"
+  ]
+}

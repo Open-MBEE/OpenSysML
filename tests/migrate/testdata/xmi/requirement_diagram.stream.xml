@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_sym_frame'>
+    <elementID xmi:idref='_diag_reqs'></elementID>
+    <geometry>0, 0, 440, 300</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_mission'>
+    <elementID xmi:idref='_req_mission'></elementID>
+    <geometry>150, 20, 140, 60</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_mass'>
+    <elementID xmi:idref='_req_mass'></elementID>
+    <geometry>40, 140, 140, 60</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_power'>
+    <elementID xmi:idref='_req_power'></elementID>
+    <geometry>260, 140, 140, 60</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_bus'>
+    <elementID xmi:idref='_blk_bus'></elementID>
+    <geometry>40, 240, 140, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='Abstraction' xmi:id='_sym_derive'>
+    <elementID xmi:idref='_dep_derive'></elementID>
+    <linkFirstEndID xmi:idref='_sym_power'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_mass'></linkSecondEndID>
+    <geometry>260, 170; 180, 170; </geometry>
+  </mdElement>
+  <mdElement elementClass='Abstraction' xmi:id='_sym_satisfy'>
+    <elementID xmi:idref='_dep_satisfy'></elementID>
+    <linkFirstEndID xmi:idref='_sym_bus'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_mass'></linkSecondEndID>
+    <geometry>110, 240; 110, 200; </geometry>
+  </mdElement>
+</mdOwnedViews>

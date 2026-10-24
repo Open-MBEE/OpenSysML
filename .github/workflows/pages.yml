@@ -9,9 +9,10 @@ on:
     branches: [develop]
   workflow_dispatch:
 
-# One deployment at a time; cancelling one in flight would leave the site behind.
+# One deployment at a time; cancelling one in flight would leave the site behind. The group was
+# renamed once: a deploy job stuck in `waiting` held the old group and no new run could start.
 concurrency:
-  group: pages
+  group: pages-deploy
   cancel-in-progress: false
 
 jobs:

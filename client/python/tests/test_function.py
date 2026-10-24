@@ -168,11 +168,11 @@ FUNCTION_MODEL = """
 package Demo {
     private import ScalarValues::*;
 
-    calc def Sq { in v : Real; return : Real = v * v; }
-    calc def Cube { in v : Real; return : Real = v * v * v; }
-    calc def Fn { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
+    calc def Sq { in v : Real; return : Real[1] = v * v; }
+    calc def Cube { in v : Real; return : Real[1] = v * v * v; }
+    calc def Fn { in calc f { in v : Real; return : Real; } in a : Real; return : Real[1] = f(a); }
     calc fn : Fn;
-    calc def UseFn { return : Real = Fn(Sq, 3.0); }
+    calc def UseFn { return : Real[1] = Fn(Sq, 3.0); }
     calc useFn : UseFn;
 
     calc def Identity { in calc f { in v : Real; return : Real; } return r = f; }
@@ -181,7 +181,7 @@ package Demo {
 
     part def Scaler {
         attribute k : Real = 2.0;
-        calc scale { in x : Real; return : Real = x * k; }
+        calc scale { in x : Real; return : Real[1] = x * k; }
     }
     part holder : Scaler;
     attribute scaler = holder.scale;

@@ -83,7 +83,7 @@ The lander specification as a tree, what satisfies and verifies each requirement
 | verification | dropTest | LanderHierarchy::lander.gear.leg | holds |
 | satisfaction |  | LanderHierarchy::lander.avionics.radar | holds |
 | verification | radarRangeTest | LanderHierarchy::lander.avionics.radar | holds |
-| satisfaction |  | LanderHierarchy::lander.avionics.transponder | undecided |
+| satisfaction |  | LanderHierarchy::lander.avionics.transponder | holds |
 
 *Checks that came out false*
 
