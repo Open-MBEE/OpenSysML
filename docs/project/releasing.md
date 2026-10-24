@@ -135,8 +135,8 @@ curl -X POST "https://circleci.com/api/v2/project/<project-slug>/pipeline/run" \
 ```
 
 The project slug and the pipeline definition id are under *Project Settings →
-Project Setup*. Whoever triggers it must be authorized for all five contexts
-(`PyPI`, `npm`, `Maven Central`, `crates.io`, `DockerHub`), because the same jobs run with
+Project Setup*. Whoever triggers it must be authorized for all six contexts
+(`PyPI`, `npm`, `Maven Central`, `crates.io`, `DockerHub`, `Slack`), because the same jobs run with
 the same contexts. The built binaries are kept only as the pipeline's CircleCI
 artifacts; nothing reaches a registry or a GitHub release.
 
@@ -397,6 +397,21 @@ waiting until Central reports the deployment published (see
 one-way property: a crates.io version cannot be replaced, only yanked. It
 packages and publishes `opensysml` (see
 [Releasing the Rust client to crates.io](#releasing-the-rust-client-to-cratesio)).
+
+`announce-release-slack` runs after `publish-github-release`, independent of
+the registry publishers. It posts the release title and link to the incoming
+webhook URL in `OPENSYSML_WEBHOOK_URL` from the CircleCI context named exactly
+`Slack`. Add the Slack app to the maintainers' channel with *Add New Webhook
+to Workspace*. The post uses the app's display name and icon. The app needs
+only the `incoming-webhook` scope; no bot token or `chat:write` scope is
+needed. Put the webhook URL in the context and restrict it like the others.
+A rehearsal prints the payload instead of posting. A missing context fails
+only this job, and nothing downstream depends on it. Re-running the job posts
+again.
+
+The GitHub Slack app's `releases` subscription is not used: `.github/workflows/nightly.yml`
+publishes two prereleases each night (`nightly-<yyyymmdd>-<commit>` and
+`nightly`), which that subscription would announce too.
 
 Do not go back to `-delete`. It is an alias of `-recreate`: it deletes the
 existing release *and its tag* and creates an empty one, which wipes
