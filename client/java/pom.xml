@@ -216,6 +216,10 @@
                    is on Central. -->
               <autoPublish>true</autoPublish>
               <waitUntil>published</waitUntil>
+              <!-- Bound of that silent wait, in seconds (1800 is the plugin's floor); the publish
+                   step's no_output_timeout in .circleci/config.yml must exceed it (tests/hygiene). -->
+              <waitMaxTime>1800</waitMaxTime>
+              <waitPollingInterval>5</waitPollingInterval>
             </configuration>
           </plugin>
         </plugins>
