@@ -233,6 +233,7 @@ the same ones a `Span`/`Link`/`Ref` paragraph produces:
 | `*text*`, `**text**`, `` `text` `` | emphasis, strong and code runs |
 | `[label](https://…)`, `<https://…>` | `Link` run |
 | `[label](sysml:<target>)` | `Ref` run — see below |
+| `[label](sysml:value:<target>)` | value run — the feature's value, see below |
 | `$…$` | math run (LaTeX; the pandoc rule: the opening `$` is followed by a non-space, the closing one preceded by one and not followed by a digit) |
 | `- item` / `1. item` lists of single paragraphs | `List` with bullet or number style |
 | line break | one space, as between any two runs |
@@ -244,6 +245,24 @@ feature chain (`sysml:telescope.mount`) or any element through its metadata
 (`sysml:Telescope.metadata`). It is resolved in the scope the body is
 written in. An empty label — `[](sysml:breakdown)` — takes the target's
 title, caption or name as a `Ref` without `text` does.
+
+A `sysml:value:` destination reads a feature's **value** into the prose
+instead of referencing the element: `[](sysml:value:telescope.mass)` renders
+`2290000 [kg]`, exactly as a `SpanColumn` cell projecting `mass` from
+`telescope` would — numbers with their unit, strings, booleans, enumeration
+literals, and a multi-valued feature joined with `, ` as a list cell is. The
+target is an attribute, calculation or enumeration usage named by qualified
+name or feature chain, resolved as a `sysml:` reference is; a feature chain
+reads from its root, a name from the feature's owner. Without a session the
+declared value is read; over a session (`-run`, or a document rendered while
+the REPL holds objects) a target whose root the session holds reads the
+object's current value, as `Objects` rows do. A label precedes the value with
+one space — `[Mass:](sysml:value:telescope.mass)` renders `Mass: 2290000
+[kg]`; an empty label renders the value alone. A target that is a part,
+port, content block or definition is refused when the document is planned
+(`invalid-value-target`): `sysml:` without `value:` references those. A
+feature with no value fails the document's evaluation (`empty-value`) naming
+the feature, never a blank; give the feature a value or a redefinition.
 
 Constructs that no content block renders are refused with a typed planning
 error naming the construct and its line within the body, rather than
@@ -316,6 +335,7 @@ reported with its message — the body is never rendered as literal text.
 | `_text_`, `*text*`, `` `text` `` | emphasis, strong and code runs |
 | `link:https://…[label]`, `https://…`, `https://…[label]` | `Link` run |
 | `sysml:ref[<target>]`, `sysml:ref[<target>, label]` | `Ref` run — the target as `[label](sysml:<target>)` takes it |
+| `sysml:value[<target>]`, `sysml:value[<target>, label]` | value run — the feature's value as `[label](sysml:value:<target>)` renders it |
 | `<<name>>`, `<<name,label>>` | `Ref` run to the content block, usage or element `name` resolves to |
 | `stem:[…]` | math run (LaTeX) |
 | `NOTE: text` and the other admonitions | `Paragraph` led by a strong `Note:` (`Tip:`, `Important:`, `Warning:`, `Caution:`) run |
@@ -336,9 +356,9 @@ item, thematic and page breaks, tables without a header row or with a footer,
 AsciiMath, inline images, footnotes, keyboard, button and menu macros, index
 terms, superscript, subscript and highlighted text, nested quoted text,
 styled link text, styled block titles, and a block title on a block that has
-no caption. The `sysml:value[<chain>]` macro is recognised and refused by
-name: a value read from the model belongs in a query-backed paragraph's
-column run, where its scope and type are checked.
+no caption. The `sysml:value[<target>]` macro reads a feature's value as the
+Markdown `sysml:value:` destination does, its second positional attribute
+the label: `sysml:value[telescope.mass, Mass:]` renders `Mass: 2290000 [kg]`.
 
 ## Styled query text (column runs)
 
