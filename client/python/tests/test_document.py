@@ -18,6 +18,7 @@ import pytest
 from opensysml.capabilities import (
     CAPABILITY_DOCUMENT_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
+    CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
     CAPABILITY_RENDER_DOCUMENT_HTML,
     CAPABILITY_RENDER_VIEW,
     CAPABILITY_EXPORT_GRAPHS,
@@ -87,6 +88,7 @@ VIEW_FIXTURE = os.path.join(REPO_ROOT, "conformance", "fixtures", "views.sysml")
 
 CAPABILITIES = (
     CAPABILITY_DOCUMENT_QUERY, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML,
+    CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
     CAPABILITY_RENDER_VIEW,
 )
 
@@ -94,11 +96,14 @@ CAPABILITIES = (
 class FakeService(sysml_pb2_grpc.SysMLServiceServicer):
     """A sysml-grpc whose document RPCs record requests and answer as told."""
 
-    def __init__(self, capabilities=CAPABILITIES, response=None, markdown="", html=""):
+    def __init__(
+        self, capabilities=CAPABILITIES, response=None, markdown="", html="", asciidoc=""
+    ):
         self._capabilities = list(capabilities)
         self._response = response or sysml_pb2.RunDocumentQueryResponse()
         self._markdown = markdown
         self._html = html
+        self._asciidoc = asciidoc
         self.requests = []
 
     def GetServerInfo(self, request, context):
@@ -121,6 +126,8 @@ class FakeService(sysml_pb2_grpc.SysMLServiceServicer):
         self.requests.append(request)
         if request.form == "html":
             return sysml_pb2.RenderDocumentResponse(html=self._html)
+        if request.form == "asciidoc":
+            return sysml_pb2.RenderDocumentResponse(asciidoc=self._asciidoc)
         return sysml_pb2.RenderDocumentResponse(markdown=self._markdown)
 
     def RenderView(self, request, context):
@@ -749,6 +756,29 @@ def test_render_document_asks_for_and_answers_the_html(fake_service):
         assert model.render_document("Demo::Doc", form="html") == "<!DOCTYPE html>\n"
     (request,) = service.requests
     assert request.form == "html"
+
+
+def test_render_document_asks_for_and_answers_the_asciidoc(fake_service):
+    port, service = fake_service(asciidoc="= R\n")
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        assert model.render_document("Demo::Doc", form="asciidoc") == "= R\n"
+        with pytest.raises(ValueError):
+            model.render_document("Demo::Doc", form="pdf")
+    (request,) = service.requests
+    assert request.form == "asciidoc"
+
+
+def test_render_document_asciidoc_requires_its_own_capability(fake_service):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_DOCUMENT_QUERY, CAPABILITY_RENDER_DOCUMENT), markdown="# R\n"
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            model.render_document("Demo::Doc", form="asciidoc")
+        assert excinfo.value.capability == CAPABILITY_RENDER_DOCUMENT_ASCIIDOC
+        assert service.requests == []
 
 
 @pytest.fixture(scope="module")

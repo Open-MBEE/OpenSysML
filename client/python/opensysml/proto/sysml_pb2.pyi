@@ -2434,14 +2434,16 @@ class RenderDocumentRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., document_id: _Optional[str] = ..., form: _Optional[str] = ...) -> None: ...
 
 class RenderDocumentResponse(_message.Message):
-    __slots__ = ("markdown", "html", "file_name")
+    __slots__ = ("markdown", "html", "asciidoc", "file_name")
     MARKDOWN_FIELD_NUMBER: _ClassVar[int]
     HTML_FIELD_NUMBER: _ClassVar[int]
+    ASCIIDOC_FIELD_NUMBER: _ClassVar[int]
     FILE_NAME_FIELD_NUMBER: _ClassVar[int]
     markdown: str
     html: str
+    asciidoc: str
     file_name: str
-    def __init__(self, markdown: _Optional[str] = ..., html: _Optional[str] = ..., file_name: _Optional[str] = ...) -> None: ...
+    def __init__(self, markdown: _Optional[str] = ..., html: _Optional[str] = ..., asciidoc: _Optional[str] = ..., file_name: _Optional[str] = ...) -> None: ...
 
 class RenderViewRequest(_message.Message):
     __slots__ = ("model_hash", "view", "ports", "show", "depth", "compartments")
