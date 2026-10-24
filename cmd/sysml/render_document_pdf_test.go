@@ -392,7 +392,7 @@ func TestRenderDocumentPDFFlagConflicts(t *testing.T) {
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-doc-form", "pdf"),
 		2, "name the file to write with -o")
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-doc-form", "latex"),
-		2, "unknown document form", "markdown, html or pdf")
+		2, "unknown document form", "markdown, asciidoc, html or pdf")
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-pdf-toc"),
 		2, "-doc-form pdf")
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-doc-form", "pdf", "-o", "x.pdf", "-pdf-engine", "latex"),
