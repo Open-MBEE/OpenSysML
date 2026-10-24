@@ -170,10 +170,13 @@ const usageMembersDependentDefaultModel = `package Probe {
 	part def P {
 		calc f { in x : ScalarValues::Integer[1]; in y : ScalarValues::Integer = x + 1; return : ScalarValues::Integer = y; }
 		constraint c { in x : ScalarValues::Integer[1]; in y : ScalarValues::Integer = x + 1; y > 0 }
+		calc h { in x : ScalarValues::Integer[0..1]; return : ScalarValues::Integer[0..1] = x; }
 	}
 	part p : P;
 	analysis def A { subject s : ScalarValues::Integer; in n : ScalarValues::Integer[1]; in m : ScalarValues::Integer = n * 2; return : ScalarValues::Integer = m; }
 	analysis a : A { subject s = 1; }
+	analysis def S { subject s : ScalarValues::Integer; in m : ScalarValues::Integer[0..1]; return : ScalarValues::Integer[0..1] = m; }
+	analysis sopt : S { subject s = 1; }
 }`
 
 // A default reading an input nothing supplies is open with it: a usage read as a
@@ -190,6 +193,18 @@ func testUsageMembersDependentDefault(t *testing.T) {
 		val, err := evalIn(t, ctx, root, src)
 		if err != nil || val.Kind != ValUndetermined {
 			t.Fatalf("%s = %s, %v; want undetermined: nothing supplies the input the default reads", src, FormatValue(val), err)
+		}
+	}
+	// An unsupplied input whose range admits none binds empty, as an omitted argument
+	// does, and the run still computes: its result is the empty value, not undetermined.
+	for _, src := range []string{"Probe::p.h.result", "new Probe::P().h.result", "Probe::sopt.result"} {
+		if val, err := evalIn(t, ctx, root, src); err != nil || val.Kind != ValNull {
+			t.Fatalf("%s = %s, %v; want null: the optional input binds empty and the body runs", src, FormatValue(val), err)
+		}
+	}
+	for _, src := range []string{"Probe::p.h.x", "Probe::sopt.m"} {
+		if val, err := evalIn(t, ctx, root, src); err != nil || val.Kind != ValUndetermined {
+			t.Fatalf("%s = %s, %v; want undetermined: nothing supplies the optional input", src, FormatValue(val), err)
 		}
 	}
 	if val, err := evalIn(t, ctx, root, "Probe::p.f(2)"); err != nil || FormatValue(val) != "[3]" {

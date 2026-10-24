@@ -1426,19 +1426,21 @@ func (start *calcUsageStart) openInput() string {
 	}
 	for i := range shape.Params {
 		param := &shape.Params[i]
-		if !start.unsupplied[param.Name] {
-			continue
-		}
-		// A calc computes nothing without any input; a case runs without a subject or
-		// actor (they read undetermined) and without an input whose range admits none.
-		if shape.isCase() && (param.IsSubject || param.IsActor || param.optional(start.ec.ctx.model.semantics)) {
-			continue
-		}
-		if !param.declaredOptional() {
+		if start.unsupplied[param.Name] && shape.opensRun(param, start.ec.ctx.model.semantics) {
 			return param.Name
 		}
 	}
 	return ""
+}
+
+// opensRun reports whether leaving this parameter unsupplied stops the usage computing:
+// a calc computes nothing without any input; a case runs without a subject or actor (they
+// read undetermined) and without an input whose range admits none.
+func (shape *calcShape) opensRun(param *calcParameter, m *semantics.Model) bool {
+	if shape.isCase() && (param.IsSubject || param.IsActor || param.optional(m)) {
+		return false
+	}
+	return !param.declaredOptional()
 }
 
 // readsOpen reports a calc or case usage read as a feature, whose unsupplied inputs
