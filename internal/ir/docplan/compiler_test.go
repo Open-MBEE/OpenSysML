@@ -47,7 +47,8 @@ func loadPlanningFixtureFile(t *testing.T, path string) planningFixture {
 func loadPlanningSource(t *testing.T, content string) planningFixture {
 	t.Helper()
 	index := libs.NewModelIndex()
-	p := parser.New(source.New(fixtureDoc, []byte(content)))
+	sf := source.New(fixtureDoc, []byte(content))
+	p := parser.New(sf)
 	root := p.ParseFile()
 	if len(p.Diagnostics) > 0 {
 		t.Fatalf("parse fixture: %v", p.Diagnostics)
@@ -55,9 +56,16 @@ func loadPlanningSource(t *testing.T, content string) planningFixture {
 	index.AddDocument(fixtureDoc, root)
 	index.ExpandWildcardImports()
 	resolver := resolve.New(index)
+	model := semantics.NewModel(resolver)
+	model.SetSourceText(func(doc string, span source.Span) string {
+		if doc != fixtureDoc {
+			return ""
+		}
+		return sf.Text(span)
+	})
 	return planningFixture{
 		index:    index,
-		model:    semantics.NewModel(resolver),
+		model:    model,
 		resolver: resolver,
 	}
 }
