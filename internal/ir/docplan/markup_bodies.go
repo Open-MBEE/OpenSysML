@@ -177,9 +177,9 @@ func (c *compiler) markupRuns(owner, rep *symbols.Symbol, body string, runs []ma
 		origin := at(run.Span)
 		switch run.Kind {
 		case markup.RunLink:
-			planned = append(planned, Run{kind: RunLink, text: run.Text, target: run.Destination, origin: origin})
+			planned = append(planned, Run{kind: RunLink, text: run.Text, target: run.Destination, bound: true, origin: origin})
 		case markup.RunMath:
-			planned = append(planned, Run{kind: RunSpan, text: run.Text, style: StyleMath, origin: origin})
+			planned = append(planned, Run{kind: RunSpan, text: run.Text, style: StyleMath, bound: true, origin: origin})
 		case markup.RunRef:
 			ref, err := c.markupRef(owner, rep, body, run, origin)
 			if err != nil {
@@ -187,7 +187,7 @@ func (c *compiler) markupRuns(owner, rep *symbols.Symbol, body string, runs []ma
 			}
 			planned = append(planned, ref)
 		default:
-			planned = append(planned, Run{kind: RunSpan, text: run.Text, style: runStyle(run.Style), origin: origin})
+			planned = append(planned, Run{kind: RunSpan, text: run.Text, style: runStyle(run.Style), bound: true, origin: origin})
 		}
 	}
 	return planned, nil
@@ -232,5 +232,5 @@ func (c *compiler) markupRef(owner, rep *symbols.Symbol, body string, run markup
 		}
 		return Run{}, err
 	}
-	return Run{kind: RunRef, text: run.Text, refSym: target, refRoot: root, origin: origin}, nil
+	return Run{kind: RunRef, text: run.Text, refSym: target, refRoot: root, bound: true, origin: origin}, nil
 }
