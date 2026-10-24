@@ -178,7 +178,9 @@ func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, path expans
 			}
 			continue
 		}
-		node.Children = append(node.Children, r.treeNode(view, member, ids, path, depth+1, false, out))
+		child := r.treeNode(view, member, ids, path, depth+1, false, out)
+		child.FromType = member.Owner() != sym
+		node.Children = append(node.Children, child)
 	}
 	if cut > 0 {
 		node.Detail = detailWith(node.Detail, cutNote(bound))

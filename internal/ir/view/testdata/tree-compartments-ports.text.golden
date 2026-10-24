@@ -17,4 +17,4 @@ relationships:
   Hub *-- Buffer: buffer
 
 not represented:
-  - 5 member(s) drawn as compartment rows of their owner, and 5 node(s) under them left undrawn
+  - 5 member(s) drawn as compartment rows of their owner

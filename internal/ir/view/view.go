@@ -327,6 +327,9 @@ type Node struct {
 	// Typings are the qualified names of the elements Type resolves to, in its
 	// order; a member of one is drawn as the type's own. Empty when none resolves.
 	Typings []string
+	// FromType marks a member the node has from its type rather than declares itself; it
+	// is drawn under the node as the type's own, so a folding that hides it hides nothing of the node's.
+	FromType bool
 	// Detail is what else the rendering says about the node, such as a state's
 	// "initial" or "already shown". It is empty when there is nothing to add.
 	Detail string
