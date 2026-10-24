@@ -639,3 +639,34 @@ func terminateNamed(t *testing.T, graph *StateGraph, name string) *ast.Usage {
 	t.Fatalf("no named terminate node %q", name)
 	return nil
 }
+
+// A guard reading a feature that redefines, by a qualified name through an alias,
+// one valued by an expression reads what that expression reads: the inherited
+// binding is followed through the graph's semantic model, as an action's is.
+func TestTransitionFootprintsFollowInheritedBindings(t *testing.T) {
+	graph, err := resolvedStateGraph(t, `
+		package M {
+			private import ScalarValues::*;
+			attribute def Go;
+			state def Base {
+				attribute x : Integer = 0;
+				attribute y : Integer = x + 1;
+			}
+			alias B for Base;
+			state m : Base {
+				attribute :>> B::y;
+				entry; then idle;
+				state idle;
+				transition first idle accept Go if y > 1 then busy;
+				state busy;
+			}
+		}
+	`)
+	if err != nil {
+		t.Fatalf("ToStateGraphWithEndpoints: %v", err)
+	}
+	fp := graph.TransitionFootprints()[transitionOut(t, graph, "idle", 0)]
+	if !hasPlace(fp.Reads, "y") || !hasPlace(fp.Reads, "x") {
+		t.Fatalf("guard reads %v, want y and the x its inherited value is computed from", placeNames(fp.Reads))
+	}
+}
