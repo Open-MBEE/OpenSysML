@@ -953,6 +953,7 @@ func (inst *Instance) storeFeatureValue(ctx *Context, fv *FeatureValue, name str
 		}
 		ctx.noteProbeWrite(fv)
 		before := ctx.beforeWrite(fv)
+		held := fv.HeldValue()
 		if fv.Feature.Scalar() {
 			fv.Value = value
 			fv.Values = Value{}
@@ -964,8 +965,119 @@ func (inst *Instance) storeFeatureValue(ctx *Context, fv *FeatureValue, name str
 		fv.BindingDerived, fv.Assumed, fv.intrinsic = false, false, false
 		ctx.unshareTraces()
 		ctx.afterWrite(fv, before)
+		ctx.adoptOccurrenceWrite(inst, fv)
+		ctx.adoptBodyCellValue(fv)
+		ctx.releaseStandIns(held)
 		return nil
 	})
+}
+
+// releaseStandIns drops the objects a value-typed feature materialized to stand for its
+// unspecified values once a write gives it some: a data value has no identity of its own.
+func (ctx *Context) releaseStandIns(held Value) {
+	switch held.Kind {
+	case ValInstance:
+		ctx.releaseStandIn(held)
+	case ValSequence, ValSet, ValArray:
+		for _, elem := range listedElements(held) {
+			ctx.releaseStandIn(elem)
+		}
+	}
+}
+
+// releaseStandIn drops elem when it is a stand-in a write just replaced that nothing names any more.
+func (ctx *Context) releaseStandIn(elem Value) {
+	if elem.Kind != ValInstance || !ctx.HoldsNoValue(elem) {
+		return
+	}
+	standIn := ctx.instances[elem.Instance]
+	if len(standIn.behaviors) != 0 {
+		return
+	}
+	named := map[int64]bool{standIn.ID: true}
+	if ctx.featureValuesName(named) || ctx.runDataNames(named) {
+		return
+	}
+	ctx.dropStandIn(standIn)
+}
+
+// featureValuesName reports whether any materialized feature value still names one of the objects.
+func (ctx *Context) featureValuesName(named map[int64]bool) bool {
+	for _, inst := range ctx.instances {
+		for _, fv := range inst.FeatureValues {
+			if fv.Materialized && namesAbandoned(fv, named) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// dropStandIn unregisters a stand-in, lifetime included; a journal rolled back puts it back.
+func (ctx *Context) dropStandIn(standIn *Instance) {
+	id := standIn.ID
+	at := slices.Index(ctx.created, id)
+	if at < 0 {
+		return
+	}
+	l, lived := ctx.lives[id]
+	ctx.forgetAbandoned(ctx.dropInstances(at, at+1, func(*Instance) bool { return true }))
+	ctx.noteProbeUndo(func() {
+		ctx.instances[id] = standIn
+		ctx.created = slices.Insert(ctx.created, min(at, len(ctx.created)), id)
+		if lived {
+			ctx.lives[id] = l
+		}
+	})
+}
+
+// adoptOccurrenceWrite has every run over inst whose data mirrors fv hold what the
+// write landed on it, before anything the write replaced is released.
+func (ctx *Context) adoptOccurrenceWrite(inst *Instance, fv *FeatureValue) {
+	if ctx.mirroringBodyCell != 0 || ctx.probes > 0 {
+		return
+	}
+	mirrored := false
+	for _, exec := range ctx.stateExecutors {
+		if exec.occurrence == inst && exec.mirrorOccurrenceWrite(fv) {
+			mirrored = true
+		}
+	}
+	for _, exec := range ctx.actionExecutors {
+		if exec.occurrence == inst {
+			exec.mirrorOccurrenceWrite(fv)
+		}
+	}
+	if mirrored {
+		ctx.noteStateDataWrite()
+	}
+}
+
+// runDataNames reports whether the data of a live run still names one of the objects.
+func (ctx *Context) runDataNames(named map[int64]bool) bool {
+	for _, exec := range ctx.stateExecutors {
+		if valuesName(exec.stateData, named) {
+			return true
+		}
+	}
+	for _, exec := range ctx.actionExecutors {
+		for _, perf := range exec.reachableFrames() {
+			if valuesName(perf.data, named) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// valuesName reports whether any of vars names one of the objects.
+func valuesName(vars map[string]Value, objects map[int64]bool) bool {
+	for _, val := range vars {
+		if namesAbandonedValue(val, objects) {
+			return true
+		}
+	}
+	return false
 }
 
 // materializeFeatureValue is GetFeatureValue's materialization: the feature value's value, evaluated and
@@ -1675,14 +1787,18 @@ func (ctx *Context) evalFeatureValueDefault(inst *Instance, fv *FeatureValue, na
 		return value, nil
 	}
 
+	// A declared redefinition of `this` holds the context occurrence the member read answers.
+	if r := ctx.model.resolver; r != nil && r.IsOccurrenceThis(fv.Feature.Symbol) {
+		return ctx.objectValue(ctx.contextOccurrence(inst))
+	}
 	scope := fv.Feature.DefaultScope()
 	if scope == nil {
 		scope = inst.Type.OwnerScope
 	}
 	ec := NewEvalContextIn(ctx, scope, ctx.bindingContext(inst, fv.Feature))
-	if object := ctx.model.resolver.ThisContext(scope); object != nil && isBehaviorDefKind(object.Kind) {
-		// A feature default written in a behavior def sees `this` as the
-		// def's own occurrence, which the instance being evaluated is.
+	if isBehaviorDefKind(inst.Type.Kind) {
+		// A feature default of a behavior def is evaluated on the def's
+		// occurrence, which the instance being evaluated is.
 		ec.occurrence = inst
 	}
 	defer ec.beginStep()()

@@ -1,5 +1,5 @@
 // `this` in a body statement of an action definition nested in a part
-// definition is the occurrence the performed usage materialized: the step
+// definition is the part performing it, the owner of the performance: the step
 // comparing it to itself runs, and the write it makes through the context
 // parameter lands on the performing object.
 package test {

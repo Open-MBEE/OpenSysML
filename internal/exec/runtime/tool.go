@@ -378,6 +378,7 @@ func (e *ActionExecutor) performByTool(execution *toolExecution) error {
 		})
 	}
 	e.state = StateCompleted
+	e.ctx.unregisterActionExecutor(e)
 	return e.ctx.endedWhole(&e.driven)
 }
 

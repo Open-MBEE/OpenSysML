@@ -1391,56 +1391,67 @@ func (ec *EvalContext) namesOccurrenceThis(name string) bool {
 	return ok && ec.ctx.model.resolver.IsOccurrenceThis(sym)
 }
 
-// thisValue is the object owning the performance being evaluated. A body no
-// object owns has none: `this` there is the performance itself.
+// thisValue is the context occurrence `this` denotes in the body being evaluated:
+// contextOccurrence of the run's occurrence or of the object evaluated on, as a member read answers.
 func (ec *EvalContext) thisValue() (Value, error) {
+	occurrence := ec.occurrence
+	if occurrence == nil && ec.thisOccurrence != nil {
+		materialized, err := ec.thisOccurrence()
+		if err != nil {
+			return Value{}, fmt.Errorf("%w: %v", errThisNotAnObject, err)
+		}
+		occurrence = materialized
+		ec.occurrence = materialized
+	}
+	switch {
+	case occurrence != nil && occurrence.owner != nil:
+		return Value{Kind: ValInstance, Instance: ec.ctx.contextOccurrence(occurrence).ID}, nil
+	case ec.self != nil:
+		return Value{Kind: ValInstance, Instance: ec.ctx.contextOccurrence(ec.self).ID}, nil
+	case occurrence != nil:
+		return Value{Kind: ValInstance, Instance: occurrence.ID}, nil
+	}
 	object := ec.ctx.model.resolver.ThisContext(ec.scope)
 	if object == nil {
 		return Value{}, fmt.Errorf("%w: this names the performance itself, which no object owns",
 			errThisNotAnObject)
 	}
-	// `this` inside a behavior definition denotes that definition's own
-	// occurrence — the performance instance the run was materialized as — not
-	// the performer itself, and a run outside any object still has one.
-	if isBehaviorDefKind(object.Kind) {
-		if ec.occurrence == nil && ec.thisOccurrence != nil {
-			occurrence, err := ec.thisOccurrence()
-			if err != nil {
-				return Value{}, fmt.Errorf("%w: %v", errThisNotAnObject, err)
-			}
-			ec.occurrence = occurrence
+	// A check about no object reads the type's declared defaults: `this`
+	// there is an exemplar of the type, made for the check.
+	if inst, checking, err := ec.ctx.exemplarOf(object); checking {
+		if err != nil {
+			return Value{}, fmt.Errorf("%w: no exemplar of %s: %v", errThisNotAnObject, SymbolText(object), err)
 		}
-		if ec.occurrence == nil {
-			return Value{}, fmt.Errorf("%w: no occurrence of %s materialized here",
-				errThisNotAnObject, SymbolText(object))
-		}
-		return Value{Kind: ValInstance, Instance: ec.occurrence.ID}, nil
+		return Value{Kind: ValInstance, Instance: inst.ID}, nil
 	}
-	if ec.self == nil {
-		// A check about no object reads the type's declared defaults: `this`
-		// there is an exemplar of the type, made for the check.
-		if inst, checking, err := ec.ctx.exemplarOf(object); checking {
-			if err != nil {
-				return Value{}, fmt.Errorf("%w: no exemplar of %s: %v", errThisNotAnObject, SymbolText(object), err)
-			}
-			return Value{Kind: ValInstance, Instance: inst.ID}, nil
-		}
-		return Value{}, fmt.Errorf("%w: no object of %s performs this body",
-			errThisNotAnObject, SymbolText(object))
+	return Value{}, fmt.Errorf("%w: no object of %s performs this body",
+		errThisNotAnObject, SymbolText(object))
+}
+
+// contextOccurrence is what `this` denotes on inst: through owned performances to the first holder
+// that is not one (Objects.kerml ownedPerformances::this, Performances.kerml subperformances::this).
+func (ctx *Context) contextOccurrence(inst *Instance) *Instance {
+	for inst.owner != nil && isPerformanceKind(inst.Type.Kind) {
+		inst = inst.owner
 	}
-	// A value declared in a nested usage — the redefined feature of an exhibited
-	// or performed occurrence — evaluates `this` against that occurrence's own
-	// object, where the name's context is the owner holding it: walk to it.
-	for inst := ec.self; inst != nil; inst = inst.owner {
-		if inst.Type == object || ec.ctx.modelConforms(inst.Type, object) {
-			return Value{Kind: ValInstance, Instance: inst.ID}, nil
-		}
+	return inst
+}
+
+// isPerformanceKind reports whether kind declares a performance: a behavior
+// definition or a behavior usage, whose instances are performances.
+func isPerformanceKind(kind symbols.SymbolKind) bool {
+	switch kind {
+	case symbols.SymbolActionUsage, symbols.SymbolStateUsage, symbols.SymbolCalcUsage,
+		symbols.SymbolCaseUsage, symbols.SymbolAnalysisCaseUsage,
+		symbols.SymbolVerificationCaseUsage, symbols.SymbolUseCaseUsage,
+		symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage:
+		return true
 	}
-	return Value{Kind: ValInstance, Instance: ec.self.ID}, nil
+	return isBehaviorDefKind(kind)
 }
 
 // isBehaviorDefKind reports whether kind is a behavior definition — an action,
-// state, calc or case def — whose `this` is the def's own occurrence.
+// state, calc or case def — a run of which has an occurrence of its own.
 func isBehaviorDefKind(kind symbols.SymbolKind) bool {
 	switch kind {
 	case symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolCalcDef,
