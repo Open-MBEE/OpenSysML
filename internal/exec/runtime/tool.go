@@ -378,6 +378,7 @@ func (e *ActionExecutor) performByTool(execution *toolExecution) error {
 		})
 	}
 	e.state = StateCompleted
+	e.ctx.unregisterActionExecutor(e)
 	return e.ctx.endedWhole(&e.driven)
 }
 
@@ -463,7 +464,7 @@ func (ctx *Context) performanceBody(performed, callee *symbols.Symbol) (*symbols
 		return nil, nil, nil, err
 	}
 	if tool != nil {
-		graph, err := lower.ToActionInterface(held.Decl, DeclScope(held))
+		graph, err := ctx.model.actionInterface(held)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("lower action interface: %w", err)
 		}

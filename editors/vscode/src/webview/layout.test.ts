@@ -642,42 +642,42 @@ test("layoutCanvas hides the edges of a hidden kind, which then count for nothin
   assert.deepEqual(filtered.nodes.get("a")!.box, all.nodes.get("a")!.box);
 });
 
-test("layoutCanvas hides the children of a collapsed node", () => {
+// The server folds a collapsed node, so what it sends beneath one is the node's
+// boundary: its ports and pins. The panel draws each of them inside the node's
+// box and routes every edge at them, as the CLI does.
+test("layoutCanvas draws a collapsed node's port children inside it and routes the edges at them", () => {
   const layout = layoutCanvas(
     rendering(
       [
         node("a", "a", { x: 10, y: 10, collapsed: true }),
-        node("b", "b", { parent: "a" }),
-        node("c", "c", { parent: "b" }),
-        node("d", "d", { x: 200, y: 5 }),
+        node("p1", "p1", { kind: "port", parent: "a" }),
+        node("p2", "p2", { kind: "port", parent: "a" }),
+        node("d", "d", { x: 300, y: 5 }),
       ],
       [
-        {
-          from: "b",
-          to: "c",
-          label: "",
-          kind: "connection",
-          route: [{ x: 900, y: 900 }],
-        },
-        { from: "c", to: "d", label: "", kind: "connection" },
+        { from: "d", to: "p1", label: "", kind: "connection" },
+        { from: "p2", to: "d", label: "", kind: "connection" },
         { from: "a", to: "d", label: "", kind: "connection" },
       ],
     ),
   );
   const a = layout.nodes.get("a")!;
-  assert.deepEqual(a.box, { x: 10, y: 10, width: 96, height: 52 });
   assert.equal(a.collapsed, true);
   assert.deepEqual(
-    ["b", "c"].map((id) => layout.nodes.get(id)!.hidden),
-    [true, true],
+    a.children.map((child) => child.node.id),
+    ["p1", "p2"],
   );
-  assert.equal(layout.nodes.get("d")!.hidden, false);
-  // An edge at a hidden node is hidden with it, its route not counted toward the canvas.
-  assert.deepEqual(
-    layout.edges.map((edge) => edge.hidden),
-    [true, true, false],
-  );
-  assert.equal(layout.height, 10 + 52 + MARGIN);
+  for (const id of ["p1", "p2"]) {
+    const port = layout.nodes.get(id)!.box;
+    assert.ok(port.x >= a.box.x && port.x + port.width <= a.box.x + a.box.width, `${id} inside across`);
+    assert.ok(port.y > a.box.y && port.y + port.height <= a.box.y + a.box.height, `${id} inside down`);
+  }
+  assert.equal(layout.edges.length, 3);
+  for (const edge of layout.edges) {
+    assert.ok(edge.points.length >= 2, `edge ${edge.edge.from} -> ${edge.edge.to} is routed`);
+    assert.equal(edge.hidden, false);
+  }
+  assert.equal(layout.height, a.box.y + a.box.height + MARGIN);
 });
 
 test("layoutCanvas honours the view's canvas size as a minimum", () => {
@@ -945,7 +945,7 @@ test("nodeUnder is the innermost drawn node holding the point, the later sibling
   assert.equal(nodeUnder(layout, { x: 500, y: 500 }), undefined);
 });
 
-test("nodeUnder passes over the dragged subtree and the children a collapsed node hides", () => {
+test("nodeUnder passes over the dragged subtree and reads the ports a collapsed node keeps", () => {
   const layout = layoutCanvas(
     rendering([
       node("a", "a", { x: 0, y: 0, width: 300, height: 200 }),
@@ -958,13 +958,14 @@ test("nodeUnder passes over the dragged subtree and the children a collapsed nod
         height: 200,
         collapsed: true,
       }),
-      node("f", "f", { parent: "c", x: 420, y: 50, width: 40, height: 20 }),
+      node("f", "f", { kind: "port", parent: "c", x: 420, y: 50, width: 40, height: 20 }),
     ]),
   );
   // The dragged node b is held over its own place: what is under the pointer is its owner.
   assert.equal(nodeUnder(layout, { x: 40, y: 85 }, "b")?.node.id, "a");
   assert.equal(nodeUnder(layout, { x: 40, y: 85 })?.node.id, "e");
-  assert.equal(nodeUnder(layout, { x: 430, y: 60 })?.node.id, "c");
+  assert.equal(nodeUnder(layout, { x: 430, y: 60 })?.node.id, "f");
+  assert.equal(nodeUnder(layout, { x: 550, y: 150 })?.node.id, "c");
 });
 
 test("nodeUnder reads the layout it is given, so a node placed aside no longer covers its old point", () => {
@@ -2180,7 +2181,7 @@ test("alignedPlacement ignores mixed-side port pairs", () => {
   assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
 });
 
-test("alignedPlacement ignores hidden edges and hidden other nodes", () => {
+test("alignedPlacement ignores hidden edges", () => {
   const bounds: Box = { x: 0, y: 0, width: 900, height: 400 };
   const makeLayout = (): CanvasLayout =>
     layoutWithPorts(
@@ -2204,20 +2205,6 @@ test("alignedPlacement ignores hidden edges and hidden other nodes", () => {
     hiddenEdgeAt,
   );
 
-  const hiddenNodeLayout = makeLayout();
-  hiddenNodeLayout.nodes.get("target")!.hidden = true;
-  const hiddenNodeMoving = hiddenNodeLayout.nodes.get("moving")!;
-  const hiddenNodeAt = { x: hiddenNodeMoving.box.x, y: hiddenNodeMoving.box.y };
-  assert.deepEqual(
-    alignedPlacement(
-      hiddenNodeMoving,
-      hiddenNodeAt,
-      hiddenNodeLayout,
-      bounds,
-      0,
-    ),
-    hiddenNodeAt,
-  );
 });
 
 test("alignedPlacement preserves jog-length libavoid routes across seeded short offsets", async () => {
@@ -3015,7 +3002,7 @@ test("landing stacked-drop repro starts with diagonal routes", async () => {
     const current = layoutCanvas(result, { nodes: settled, bounds }, auto);
     const moving = current.nodes.get(id)!;
     const others = [...current.nodes.values()].filter(
-      (entry) => entry.node.id !== id && !entry.hidden,
+      (entry) => entry.node.id !== id,
     );
     const at = freePlacement(
       moving,
@@ -3135,7 +3122,7 @@ test("freePlacement keeps a seeded four-node chain routable after drops", async 
     for (const id of ["a", "b", "c", "d"]) {
       const moving = current.nodes.get(id)!;
       const others = [...current.nodes.values()].filter(
-        (entry) => entry.node.id !== id && !entry.hidden,
+        (entry) => entry.node.id !== id,
       );
       const at = { x: randomInt(620), y: randomInt(320) };
       const placed = freePlacement(moving, at, others, inset, exitReach);
@@ -3607,20 +3594,18 @@ test("the router leaves the auto layout's routes, hidden edges and self-loops as
     assert.deepEqual(edge.points, auto.routes.get(0), routing);
   }
 
-  const collapsed = rendering(
+  const filtered = rendering(
     [
-      node("a", "a", { x: 10, y: 10, collapsed: true }),
-      node("b", "b", { parent: "a" }),
-      node("c", "c", { parent: "b" }),
+      node("a", "a", { x: 10, y: 10 }),
       node("d", "d", { x: 200, y: 5 }),
     ],
     [
-      { from: "b", to: "c", label: "", kind: "connection", route: [{ x: 900, y: 900 }] },
-      { from: "c", to: "d", label: "", kind: "connection" },
+      { from: "a", to: "d", label: "", kind: "flow", route: [{ x: 900, y: 900 }] },
+      { from: "d", to: "a", label: "", kind: "flow" },
       { from: "d", to: "d", label: "", kind: "connection", route: [{ x: 700, y: 700 }] },
     ],
   );
-  const hidden = layoutCanvas(collapsed, { routing: "router" });
+  const hidden = layoutCanvas(filtered, { routing: "router", hiddenKinds: new Set(["flow"]) });
   assert.deepEqual(hidden.edges.map((edge) => edge.hidden), [true, true, false]);
   assert.deepEqual(hidden.edges.map((edge) => edge.rerouted), [false, false, false]);
   // A self-loop's stated route is advisory too: the loop swings out to the right as an unrouted one does.

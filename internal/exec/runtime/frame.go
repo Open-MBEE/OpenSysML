@@ -189,12 +189,42 @@ func (f frame) read(ctx *Context, name string) (Value, bool, error) {
 			return Value{}, false, err
 		}
 	}
+	if held, ok := f.occurrenceValue(name, ok); ok {
+		f.set(name, held) // the run's data mirrors what its occurrence holds
+		return held, true, nil
+	}
 	if !ok && f.perf != nil && f.perf.unvalued[name] {
 		// The performance's own attribute, unvalued: that is the answer, not
 		// a same-named value some enclosing frame holds.
 		return Value{}, false, &NoValueError{Feature: name}
 	}
 	return value, ok, nil
+}
+
+// occurrenceValue is what the occurrence the frame's run materialized holds for a
+// feature the run declares, when a write landed there or the data holds no value:
+// the occurrence is authoritative for the features the run declares.
+func (f *frame) occurrenceValue(name string, valued bool) (Value, bool) {
+	var occurrence *Instance
+	switch {
+	case f.machine != nil && f.machine.declaresAttribute(name):
+		occurrence = f.machine.occurrence
+	case f.perf != nil && f.perf.parent == nil && f.perf.perfs != nil:
+		if _, declared := f.perf.features[name]; declared {
+			occurrence = f.perf.perfs.occurrence
+		}
+	}
+	if occurrence == nil {
+		return Value{}, false
+	}
+	fv, held := occurrence.FeatureValues[name]
+	if !held || !fv.Materialized || (valued && !fv.Written) {
+		return Value{}, false
+	}
+	if value := fv.HeldValue(); value.Kind != ValInvalid {
+		return value, true
+	}
+	return Value{}, false
 }
 
 // hides reports whether the frame masks name or keeps it out of sight, so a read

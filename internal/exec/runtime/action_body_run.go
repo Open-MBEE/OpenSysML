@@ -644,6 +644,7 @@ func (e *ActionExecutor) Release() {
 	e.released = true
 	e.endPausedBodies()
 	e.ctx.clock.detach(e)
+	e.ctx.unregisterActionExecutor(e)
 }
 
 // endPausedBodies ends the work of every token a breakpoint left paused; a run

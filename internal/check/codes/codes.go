@@ -24,12 +24,13 @@ const (
 	TierLint       Tier = "lint"
 	TierMethod     Tier = "method"
 	TierDocument   Tier = "document"
+	TierWorkspace  Tier = "workspace"
 	TierRuntime    Tier = "runtime"
 )
 
 // Tiers lists the tiers in catalogue order.
 func Tiers() []Tier {
-	return []Tier{TierSyntax, TierNameRes, TierType, TierConstraint, TierLint, TierMethod, TierDocument, TierRuntime}
+	return []Tier{TierSyntax, TierNameRes, TierType, TierConstraint, TierLint, TierMethod, TierDocument, TierWorkspace, TierRuntime}
 }
 
 // tierTitles are the catalogue headings of the tiers.
@@ -41,6 +42,7 @@ var tierTitles = map[Tier]string{
 	TierLint:       "Lints",
 	TierMethod:     "Method rules",
 	TierDocument:   "Documents and queries",
+	TierWorkspace:  "Workspace",
 	TierRuntime:    "Runtime",
 }
 
@@ -239,7 +241,7 @@ func init() {
 	for i, t := range Tiers() {
 		tierOrder[t] = i
 	}
-	for _, table := range [][]Entry{syntaxCodes, nameResolutionCodes, typeCodes, constraintCodes, lintCodes, methodCodes, documentCodes, runtimeCodes} {
+	for _, table := range [][]Entry{syntaxCodes, nameResolutionCodes, typeCodes, constraintCodes, lintCodes, methodCodes, documentCodes, workspaceCodes, runtimeCodes} {
 		for _, e := range table {
 			if _, dup := byCode[e.Code]; dup {
 				panic("codes: " + e.Code + " registered twice")

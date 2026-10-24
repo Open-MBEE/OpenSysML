@@ -211,6 +211,14 @@ navigation continues from one library file to the next (from `Occurrences.kerml`
 say). The editor is read-only and the server refuses an edit to it — the library is what the
 server validates the model against, and changing it would change what every diagnostic means.
 
+A workspace that holds the library twice — a `sysml.library` copy under the folder beside the
+bundled one, or an `OPENSYSML_LIBRARY_PATH` tree with two copies — gets the
+[`library-declared-twice`](../reference/diagnostics.md#library-declared-twice) warning once, on
+the first file of the copy references do not resolve to, naming both locations and the one in
+use. A copy of one library file beside the bundled library stands in for the bundled file and is
+not a duplication; two such copies are, as is a user `library package` declared by two files. The
+same warning reaches `sysml -validate`, the prompt, gRPC/Connect validation and the MCP server.
+
 Other clients get the locations too, but need to know how to show the file behind the URI: the
 server serves its text through the `opensysml/stdlibContent` request, and a client registers a
 content provider for the `sysml-stdlib` scheme that calls it — see

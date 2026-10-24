@@ -85,6 +85,7 @@ type runCapture struct {
 	holdingDriven        bool
 	clockRun             *runState
 	stateExecutors       []*StateExecutor
+	actionExecutors      []*ActionExecutor
 }
 
 // traceCapture is a recorder's state at the mark. Records are only appended to, cut
@@ -450,6 +451,7 @@ func (ctx *Context) captureRun() runCapture {
 		holdingDriven:        ctx.holdingDriven,
 		clockRun:             ctx.clockRun.state,
 		stateExecutors:       slices.Clone(ctx.stateExecutors),
+		actionExecutors:      slices.Clone(ctx.actionExecutors),
 	}
 	return c
 }
@@ -474,6 +476,7 @@ func (c runCapture) restore(ctx *Context) {
 	ctx.holdingDriven = c.holdingDriven
 	ctx.clockRun.state = c.clockRun
 	ctx.stateExecutors = slices.Clone(c.stateExecutors)
+	ctx.actionExecutors = slices.Clone(c.actionExecutors)
 	ctx.workChanged()
 }
 

@@ -24,8 +24,8 @@
     "stressBound": {"type": "Boolean", "value": false},
     "deepPrefixFactor": {"type": "Real", "value": 1000.0},
     "deepFactor": {"type": "Real", "value": 1000.0},
-    "hollowConv": {"type": "Undetermined", "value": "[0..1]"},
-    "computingConv": {"type": "Undetermined", "value": "[0..1]"},
+    "hollowConv": {"type": "Sequence", "elements": []},
+    "computingConv": {"type": "Sequence", "elements": []},
     "label": {"type": "String", "value": "stress"},
     "labeledBound": {"type": "Boolean", "value": false},
     "checked": {"type": "Unset"}

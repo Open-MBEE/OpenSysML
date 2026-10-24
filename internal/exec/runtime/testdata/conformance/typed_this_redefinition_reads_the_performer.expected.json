@@ -1,0 +1,10 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::h",
+  "slots": {
+    "level": {"type": "Integer", "value": 10},
+    "n.seen": {"type": "Integer", "value": 10},
+    "n.this": {"type": "Instance", "value": "test::h"}
+  }
+}
