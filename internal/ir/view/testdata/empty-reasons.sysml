@@ -1,3 +1,4 @@
+// Deliberately invalid: view `unresolved` exposes `Nowhere::*`, which names no namespace — the error is the point, as the rendering explains why it is empty.
 package Cart {
 	part def Wheel;
 	part def Axle;

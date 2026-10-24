@@ -175,7 +175,7 @@ func crossAnchors(plans []*docplan.Plan) map[string]map[string][]string {
 	var collect func(planned []docplan.Content)
 	collect = func(planned []docplan.Content) {
 		for _, node := range planned {
-			for _, run := range node.Runs() {
+			for _, run := range refRuns(node) {
 				if run.Kind() != docplan.RunRef || run.RefDocument() == "" || len(run.RefPath()) == 0 {
 					continue
 				}
@@ -204,6 +204,16 @@ type evaluator struct {
 	path       []string
 }
 
+// refRuns lists the runs of a node that may reference another node: its own
+// runs and those of its static list items.
+func refRuns(node docplan.Content) []docplan.Run {
+	runs := node.Runs()
+	for _, item := range node.Items() {
+		runs = append(runs, item.Runs()...)
+	}
+	return runs
+}
+
 // referencedAnchors collects the anchors of every content node a reference
 // run targets.
 func referencedAnchors(planned []docplan.Content) map[string]bool {
@@ -211,7 +221,7 @@ func referencedAnchors(planned []docplan.Content) map[string]bool {
 	var walk func(nodes []docplan.Content)
 	walk = func(nodes []docplan.Content) {
 		for _, node := range nodes {
-			for _, run := range node.Runs() {
+			for _, run := range refRuns(node) {
 				if run.Kind() == docplan.RunRef && run.RefDocument() == "" {
 					anchors[AnchorFor(run.RefPath())] = true
 				}
@@ -612,7 +622,7 @@ func (e *evaluator) cellText(cell queryexec.Cell) string {
 func evaluatedRun(run docplan.Run) TextRun {
 	switch run.Kind() {
 	case docplan.RunLink:
-		return TextRun{kind: RunLink, text: run.Text(), target: run.Target(), origin: run.Origin()}
+		return TextRun{kind: RunLink, text: run.Text(), target: run.Target(), bound: run.Bound(), origin: run.Origin()}
 	case docplan.RunRef:
 		var anchor string
 		if path := run.RefPath(); len(path) > 0 {
@@ -625,10 +635,11 @@ func evaluatedRun(run docplan.Run) TextRun {
 			document:  run.RefDocument(),
 			element:   run.RefElement(),
 			defaulted: run.TextDefaulted(),
+			bound:     run.Bound(),
 			origin:    run.Origin(),
 		}
 	default:
-		return TextRun{kind: styledKind(run.Style()), text: run.Text(), origin: run.Origin()}
+		return TextRun{kind: styledKind(run.Style()), text: run.Text(), bound: run.Bound(), origin: run.Origin()}
 	}
 }
 
@@ -648,6 +659,9 @@ func styledKind(style docplan.RunStyle) RunKind {
 }
 
 func (e *evaluator) evaluateList(node docplan.Content) (Content, error) {
+	if node.Query() == nil {
+		return staticList(node), nil
+	}
 	result, err := e.executeQuery(node)
 	if err != nil {
 		return Content{}, err
@@ -688,6 +702,28 @@ func (e *evaluator) evaluateList(node docplan.Content) (Content, error) {
 		queryOrigin: result.Origin(),
 		origin:      node.Origin(),
 	}, nil
+}
+
+// staticList is a list whose items were planned from a markup body: each
+// item's runs are already known and select no element.
+func staticList(node docplan.Content) Content {
+	planned := node.Items()
+	items := make([]ListItem, 0, len(planned))
+	for _, item := range planned {
+		runs := item.Runs()
+		evaluated := make([]TextRun, len(runs))
+		for i, run := range runs {
+			evaluated[i] = evaluatedRun(run)
+		}
+		items = append(items, ListItem{runs: evaluated, origin: item.Origin()})
+	}
+	return Content{
+		kind:   ContentList,
+		name:   node.Name(),
+		style:  ListStyle(node.Style()),
+		items:  items,
+		origin: node.Origin(),
+	}
 }
 
 // evaluateDefinitions runs a definitions block's query once and turns each

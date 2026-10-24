@@ -317,13 +317,13 @@ function run_document_query(model::Model, query_id::AbstractString; bindings=Dic
         DocumentRow[_document_row(row) for row in get(answer, "rows", Any[])])
 end
 
-"""Render a document as Markdown or HTML."""
+"""Render a document as Markdown, HTML or AsciiDoc."""
 function render_document(model::Model, document_id::AbstractString; form="markdown")
-    form in ("markdown", "html") ||
-        throw(ArgumentError("form must be 'markdown' or 'html'"))
+    form in ("markdown", "html", "asciidoc") ||
+        throw(ArgumentError("form must be 'markdown', 'html' or 'asciidoc'"))
     conn = model.connection
-    caps = form == "html" ?
-        (CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML) :
+    caps = form == "html" ? (CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML) :
+        form == "asciidoc" ? (CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_ASCIIDOC) :
         (CAPABILITY_RENDER_DOCUMENT,)
     foreach(c -> require_capability(conn, c), caps)
     answer = _translate(; not_found=SymbolNotFoundError, capabilities=caps,
@@ -331,7 +331,7 @@ function render_document(model::Model, document_id::AbstractString; form="markdo
         call(conn, "RenderDocument", Dict{String,Any}("modelHash" => model.hash,
             "documentId" => String(document_id), "form" => form == "markdown" ? "" : form))
     end
-    return form == "html" ? String(get(answer, "html", "")) : String(get(answer, "markdown", ""))
+    return String(get(answer, form, ""))
 end
 
 _render_string(raw, field) = String(get(raw, field, ""))

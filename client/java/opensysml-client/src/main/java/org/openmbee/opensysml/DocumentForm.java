@@ -5,7 +5,9 @@ public enum DocumentForm {
   /** Markdown, byte-for-byte what the command line writes. */
   MARKDOWN("markdown"),
   /** A standalone HTML page; needs {@link Capabilities#RENDER_DOCUMENT_HTML}. */
-  HTML("html");
+  HTML("html"),
+  /** AsciiDoc; needs {@link Capabilities#RENDER_DOCUMENT_ASCIIDOC}. */
+  ASCIIDOC("asciidoc");
 
   private final String wireName;
 
@@ -36,6 +38,10 @@ public enum DocumentForm {
     if (wireName.equals(HTML.wireName)) {
       return HTML;
     }
-    throw new IllegalArgumentException("form must be 'markdown' or 'html', not '" + wireName + "'");
+    if (wireName.equals(ASCIIDOC.wireName)) {
+      return ASCIIDOC;
+    }
+    throw new IllegalArgumentException(
+        "form must be 'markdown', 'html' or 'asciidoc', not '" + wireName + "'");
   }
 }

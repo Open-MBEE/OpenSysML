@@ -75,8 +75,14 @@ type Run struct {
 	refDocument string
 	refElement  string
 	defaultText bool
+	bound       bool
 	origin      symbols.Origin
 }
+
+// Bound reports whether the run's text already carries its spacing to the
+// neighbouring runs, as a run cut from a markup body does, so a backend joins
+// it without inserting a separator.
+func (r Run) Bound() bool { return r.bound }
 
 // Kind returns the classification of the run.
 func (r Run) Kind() RunKind { return r.kind }
@@ -332,6 +338,7 @@ type Content struct {
 	term         string
 	description  string
 	runs         []Run
+	items        []ListItem
 	columnRuns   []ColumnRun
 	query        *QueryRef
 	diagram      *DiagramRef
@@ -389,6 +396,28 @@ func (c Content) Description() string { return c.description }
 // Runs returns the planned inline runs of a paragraph in declaration order.
 func (c Content) Runs() []Run { return cloneRuns(c.runs) }
 
+// Items returns the static items of a list planned from a markup body; empty
+// for a list whose items a query yields.
+func (c Content) Items() []ListItem {
+	items := make([]ListItem, len(c.items))
+	for i, item := range c.items {
+		items[i] = ListItem{runs: cloneRuns(item.runs), origin: item.origin}
+	}
+	return items
+}
+
+// ListItem is one static list item: its inline runs and where they were written.
+type ListItem struct {
+	runs   []Run
+	origin symbols.Origin
+}
+
+// Runs returns the item's inline runs.
+func (i ListItem) Runs() []Run { return cloneRuns(i.runs) }
+
+// Origin returns where the item was written.
+func (i ListItem) Origin() symbols.Origin { return i.origin }
+
 // ColumnRuns returns the planned column runs of a query-backed paragraph or
 // list in declaration order.
 func (c Content) ColumnRuns() []ColumnRun { return append([]ColumnRun(nil), c.columnRuns...) }
@@ -423,6 +452,7 @@ func cloneContent(content []Content) []Content {
 			term:         child.term,
 			description:  child.description,
 			runs:         cloneRuns(child.runs),
+			items:        child.Items(),
 			columnRuns:   append([]ColumnRun(nil), child.columnRuns...),
 			query:        child.query,
 			diagram:      child.diagram,
