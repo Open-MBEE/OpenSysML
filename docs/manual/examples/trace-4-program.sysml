@@ -354,7 +354,7 @@ package ProgramReport {
 		attribute redefines title = "Orbiter Program Requirements Traceability";
 
 		part intro : Paragraph {
-			attribute redefines text = "Every requirement of the program in one matrix, grouped by the team that owns it, with its lineage, refinements, satisfiers and verification count; then the gaps that remain and the checks that fail.";
+			:>> text = "Every requirement of the program in one matrix, grouped by the team that owns it, with its lineage, refinements, satisfiers and verification count; then the gaps that remain and the checks that fail.";
 		}
 
 		part matrix : Section {
