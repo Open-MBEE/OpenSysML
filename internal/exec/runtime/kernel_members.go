@@ -185,9 +185,12 @@ func (ctx *Context) trackedKernelValue(inst *Instance, sym *symbols.Symbol, feat
 			values = append(values, shot)
 		}
 	}
-	if len(shots) > 0 {
-		if l := ctx.lives[inst.ID]; l.alive() {
-			// Its endShot [1] exists and has not happened (Occurrences.kerml `snapshots`).
+	if ctx.shotsCollection(sym) {
+		// Its startShot and endShot [1] exist and have not happened (Occurrences.kerml `snapshots`).
+		switch l := ctx.lives[inst.ID]; {
+		case l.began == 0:
+			return openKernelCollection(feat, sym, values, fmt.Sprintf("%s has not started: its startShot has not happened", SymbolText(inst.Type))), stopped, true, nil
+		case len(shots) > 0 && l.alive():
 			return openKernelCollection(feat, sym, values, fmt.Sprintf("%s has not ended: its endShot has not happened", SymbolText(inst.Type))), stopped, true, nil
 		}
 	}

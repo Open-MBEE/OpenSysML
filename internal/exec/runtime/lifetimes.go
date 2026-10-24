@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 var (
@@ -146,6 +148,11 @@ func (ctx *Context) OccurrenceLife(id int64) (OccurrenceLife, bool) {
 // with it, however late it is first read; anything else begins now.
 func (ctx *Context) beginLife(inst *Instance) {
 	now := ctx.newActivation()
+	if ctx.unbegunPerformance(inst) {
+		ctx.lives[inst.ID] = life{reached: now}
+		ctx.livesChanged()
+		return
+	}
 	l := life{reached: now, began: now, beganAt: ctx.clock.Now()}
 	if inst.owner != nil {
 		if owner, ok := ctx.lives[inst.owner.ID]; ok && owner.began != 0 {
@@ -154,6 +161,33 @@ func (ctx *Context) beginLife(inst *Instance) {
 	}
 	ctx.lives[inst.ID] = l
 	ctx.livesChanged()
+}
+
+// unbegunPerformance reports inst materialized as the performance of a behavior of
+// its owner that has not begun: it is reached now and begins when the behavior does.
+func (ctx *Context) unbegunPerformance(inst *Instance) bool {
+	owner := inst.owner
+	if owner == nil {
+		return false
+	}
+	fv, ok := owner.FeatureValues[inst.ownerFeature]
+	if !ok || fv.Feature == nil || fv.Feature.Symbol == nil {
+		return false
+	}
+	sym := fv.Feature.Symbol
+	if sym.Kind != symbols.SymbolActionUsage && sym.Kind != symbols.SymbolStateUsage {
+		return false
+	}
+	for _, b := range owner.behaviors {
+		if b.member == nil {
+			continue
+		}
+		if b.member == sym || b.member.Decl == sym.Decl || declaresAny(b.bindings, sym) ||
+			declaresAny(ctx.redefinedFeatures(b.member, owner.Type), sym) {
+			return !ctx.behaviorPerformanceBegun(b)
+		}
+	}
+	return false
 }
 
 // createDuring starts inst during the call entered at mark: only an object the
