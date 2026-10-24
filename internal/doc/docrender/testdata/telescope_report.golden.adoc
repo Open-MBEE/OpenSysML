@@ -80,8 +80,8 @@ mount segmentControl
 == Diagrams
 
 .Imaging chain interconnection
-[source,mermaid]
-----
+[mermaid]
+....
 ---
 config:
   fontFamily: "Helvetica, Arial, sans-serif"
@@ -120,11 +120,11 @@ flowchart LR
   end
   n1.0 === n2.0
   linkStyle 0 stroke-width:3px
-----
+....
 
 .Observatory states, left to right
-[source,mermaid]
-----
+[mermaid]
+....
 ---
 config:
   fontFamily: "Helvetica, Arial, sans-serif"
@@ -165,7 +165,7 @@ stateDiagram-v2
   }
   n1 --> n2
   n2 --> n1
-----
+....
 
 == Declared Types
 

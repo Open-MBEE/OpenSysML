@@ -278,9 +278,12 @@ document's `columnWidths`; a grouped table writes each group's label on a
 row spanning every column, as the Markdown and HTML backends do. Lists are
 `*` and `.` items nested by depth, definitions are `term:: description`
 entries, images are `image::path[alt]` macros, and a diagram is its drawn
-source in a `[source,mermaid]` (or `dot`, `plantuml`, `d2`) listing — a
-processor with [Asciidoctor Diagram](https://docs.asciidoctor.org/diagram-extension/latest/)
-draws it. A set rendered with `-render-documents` writes one `.adoc` file
+source in a `[mermaid]` (or `[graphviz]` for DOT, `[plantuml]`, `[d2]`)
+literal block, the form a processor with
+[Asciidoctor Diagram](https://docs.asciidoctor.org/diagram-extension/latest/)
+draws as a figure. With `-doc-number-figures` the backend numbers captions
+itself, as the other backends do, and sets `:table-caption!:` and
+`:figure-caption!:` so the processor does not number them again. A set rendered with `-render-documents` writes one `.adoc` file
 per document and resolves a reference into another document as
 `xref:Other-Document.adoc#anchor[text]`, exactly as the Markdown set links
 across files.

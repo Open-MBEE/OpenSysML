@@ -1,4 +1,6 @@
 = Cross-References
+:table-caption!:
+:figure-caption!:
 
 == Overview
 

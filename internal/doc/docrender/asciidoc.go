@@ -60,6 +60,9 @@ func AsciiDoc(document *docir.Document, opts AsciiDocOptions) (string, error) {
 	if w.math {
 		header += "\n:stem: latexmath"
 	}
+	if opts.NumberFigures {
+		header += "\n:table-caption!:\n:figure-caption!:"
+	}
 	return strings.Join(append([]string{header}, blocks...), "\n\n") + "\n", nil
 }
 
@@ -344,10 +347,19 @@ func (w *asciiDocWriter) diagramFigure(name, caption string, rendering *view.Ren
 	if w.diagrams < len(w.svg) && w.svg[w.diagrams] != "" {
 		figure += asciiDocDelimitedBlock('+', svgBlock(w.svg[w.diagrams]))
 	} else {
-		figure += "[source," + string(form) + "]\n" + asciiDocDelimitedBlock('-', source)
+		figure += "[" + asciiDocDiagramBlock(form) + "]\n" + asciiDocDelimitedBlock('.', source)
 	}
 	w.diagrams++
 	return append(blocks, figure), nil
+}
+
+// asciiDocDiagramBlock names the Asciidoctor Diagram block that draws a
+// diagram form: Graphviz draws DOT, the others go by their own names.
+func asciiDocDiagramBlock(form view.Form) string {
+	if form == view.FormDot {
+		return "graphviz"
+	}
+	return string(form)
 }
 
 // asciiDocRenderingTable writes a tabular rendering as a `|===` table under

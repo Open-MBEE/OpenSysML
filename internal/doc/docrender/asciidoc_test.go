@@ -59,7 +59,7 @@ func TestAsciiDocLinkedDocumentsGolden(t *testing.T) {
 func TestAsciiDocStructure(t *testing.T) {
 	got := renderFixtureAsciiDoc(t, "telescope_report.sysml", "Observatory::MassReport", AsciiDocOptions{})
 	for _, want := range []string{
-		"= ", "\n== ", "\n|===\n", `[options="header"]`, "\n* ", "\n.", "[source,mermaid]\n----\n",
+		"= ", "\n== ", "\n|===\n", `[options="header"]`, "\n* ", "\n.", "[mermaid]\n....\n",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("AsciiDoc lacks %q:\n%s", want, got)
