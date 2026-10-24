@@ -113,6 +113,11 @@ func TestAsciiDocFixtureBlocks(t *testing.T) {
 	if !strings.HasPrefix(body[table.Span.Start:], ".Masses\n[cols") || !strings.HasSuffix(body[:table.Span.Stop], "|===") {
 		t.Errorf("table spans %q", body[table.Span.Start:table.Span.Stop])
 	}
+	for i, want := range []string{"|Mirror |12 kg", "|Mount |4 kg"} {
+		if got := body[table.Rows[i].Span.Start:table.Rows[i].Span.Stop]; got != want {
+			t.Errorf("row %d spans %q, want %q", i, got, want)
+		}
+	}
 	if formula := blocks[5]; formula.Source != `m \propto D^2` || formula.Caption != "Scaling" {
 		t.Errorf("formula = %+v", formula)
 	}
@@ -153,6 +158,9 @@ func TestAsciiDocRefusals(t *testing.T) {
 		{"titled paragraph", ".T\npara\n", `{"blocks":[{"kind":"paragraph","line":2,"title":"T","runs":[]}]}`, "title on a paragraph", 1},
 		{"styled title", ".*T*\n|===\n|h\n\n|a\n|===\n", `{"blocks":[{"kind":"table","line":2,"title":"","styledTitle":true,"cols":[],"header":[[{"runs":[]}]],"rows":[],"footer":[]}]}`, "styled block title", 1},
 		{"xref without target", "<<>>\n", `{"blocks":[{"kind":"paragraph","line":1,"runs":[{"kind":"xref","target":"","text":""}]}]}`, "cross reference without a target", 1},
+		{"list start", "[start=3]\n. third\n. fourth\n", `{"blocks":[{"kind":"list","line":2,"ordered":true,"start":3,"items":[{"line":2,"runs":[]},{"line":3,"runs":[]}]}]}`, "ordered list starting at 3", 1},
+		{"list in an admonition", "[NOTE]\n====\n* a\n====\n", `{"blocks":[{"kind":"admonition","line":2,"style":"NOTE","label":"Note","blocks":[{"kind":"list","line":3,"items":[{"line":3,"runs":[]}]}]}]}`, "list in an admonition", 3},
+		{"admonition of several blocks", "[NOTE]\n====\na\n\nb\n====\n", `{"blocks":[{"kind":"admonition","line":2,"style":"NOTE","label":"Note","blocks":[{"kind":"paragraph","line":3,"runs":[]},{"kind":"paragraph","line":5,"runs":[]}]}]}`, "admonition of several blocks", 1},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -165,6 +173,56 @@ func TestAsciiDocRefusals(t *testing.T) {
 				t.Errorf("refused %q at line %d, want %q at line %d", unsupported.Construct, unsupported.Line, test.construct, test.line)
 			}
 		})
+	}
+}
+
+// A delimited admonition holding one paragraph reads as the one-line form does,
+// its runs placed within that paragraph.
+func TestAsciiDocDelimitedAdmonition(t *testing.T) {
+	body := "[WARNING]\n====\nKeep the *guard* installed.\n====\n"
+	answer := `{"blocks":[{"kind":"admonition","line":2,"style":"WARNING","label":"Warning","blocks":[{"kind":"paragraph","line":3,"runs":[` +
+		`{"kind":"text","style":"plain","text":"Keep the "},{"kind":"text","style":"strong","text":"guard"},{"kind":"text","style":"plain","text":" installed."}]}]}]}`
+	blocks, err := decodeAsciiDoc(body, []byte(answer))
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(blocks) != 1 || blocks[0].Kind != BlockParagraph {
+		t.Fatalf("blocks = %+v", blocks)
+	}
+	if got := runSummary(blocks[0].Runs); !reflect.DeepEqual(got, []string{"strong:Warning:", "plain: Keep the ", "strong:guard", "plain: installed."}) {
+		t.Errorf("runs = %q", got)
+	}
+	if guard := blocks[0].Runs[2]; body[guard.Span.Start:guard.Span.Stop] != "guard" || lineOf(body, guard.Span.Start) != 3 {
+		t.Errorf("strong run spans %q on line %d", body[guard.Span.Start:guard.Span.Stop], lineOf(body, guard.Span.Start))
+	}
+	if blocks[0].Span.Start != 0 || !strings.HasSuffix(body[:blocks[0].Span.Stop], "installed.\n====") {
+		t.Errorf("admonition spans %q", body[blocks[0].Span.Start:blocks[0].Span.Stop])
+	}
+}
+
+// Text a substitution rewrote still moves the cursor past the words it kept,
+// so a later macro's target is found in the macro, not in the prose before it.
+func TestAsciiDocLocatesRunsAfterSubstitutions(t *testing.T) {
+	body := "(C) missing -- see <<missing>> and missing again\n"
+	answer := `{"blocks":[{"kind":"paragraph","line":1,"runs":[` +
+		`{"kind":"text","style":"plain","text":"\u00a9 missing\u2009\u2014\u2009see "},{"kind":"xref","target":"missing","text":""},` +
+		`{"kind":"text","style":"plain","text":" and missing again"}]}]}`
+	blocks, err := decodeAsciiDoc(body, []byte(answer))
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	runs := blocks[0].Runs
+	if len(runs) != 3 {
+		t.Fatalf("runs = %q", runSummary(runs))
+	}
+	if want := strings.Index(body, "<<missing>>") + 2; runs[1].Span.Start != want || body[runs[1].Span.Start:runs[1].Span.Stop] != "missing" {
+		t.Errorf("xref spans %d..%d (%q), want the target inside the macro at %d", runs[1].Span.Start, runs[1].Span.Stop, body[runs[1].Span.Start:runs[1].Span.Stop], want)
+	}
+	if got := body[runs[0].Span.Start:runs[0].Span.Stop]; got != "missing -- see" {
+		t.Errorf("leading text spans %q", got)
+	}
+	if got := body[runs[2].Span.Start:runs[2].Span.Stop]; got != "and missing again" {
+		t.Errorf("trailing text spans %q", got)
 	}
 }
 

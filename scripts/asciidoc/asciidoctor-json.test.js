@@ -68,7 +68,11 @@ test('lists carry their items with line numbers, and nested lists as item blocks
     { kind: 'text', style: 'emphasis', text: 'soft' },
   ]);
   assert.equal(olist.ordered, true);
+  assert.equal(olist.start, 1);
   assert.equal(olist.items[1].blocks[0].kind, 'list');
+  const [third] = convert('[start=3]\n. third\n. fourth\n');
+  assert.equal(third.start, 3);
+  assert.equal(third.items.length, 2);
 });
 
 test('an admonition keeps its label and style', () => {
@@ -77,6 +81,15 @@ test('an admonition keeps its label and style', () => {
   assert.equal(note.style, 'NOTE');
   assert.equal(note.label, 'Note');
   assert.equal(note.runs[1].style, 'strong');
+  const [delimited] = convert('[WARNING]\n====\nKeep the *guard* installed.\n\n* and the key\n====\n');
+  assert.equal(delimited.style, 'WARNING');
+  assert.equal(delimited.runs, undefined);
+  assert.deepEqual(delimited.blocks.map((child) => child.kind), ['paragraph', 'list']);
+  assert.deepEqual(delimited.blocks[0].runs, [
+    { kind: 'text', style: 'plain', text: 'Keep the ' },
+    { kind: 'text', style: 'strong', text: 'guard' },
+    { kind: 'text', style: 'plain', text: ' installed.' },
+  ]);
 });
 
 test('a table answers its header, body, footer and specified column widths', () => {
@@ -84,8 +97,9 @@ test('a table answers its header, body, footer and specified column widths', () 
   assert.equal(table.kind, 'table');
   assert.equal(table.title, 'Masses');
   assert.deepEqual(table.cols, [3, 1]);
-  assert.deepEqual(table.header, [[{ runs: [{ kind: 'text', style: 'plain', text: 'Part' }] }, { runs: [{ kind: 'text', style: 'plain', text: 'Mass' }] }]]);
+  assert.deepEqual(table.header, [[{ line: 4, runs: [{ kind: 'text', style: 'plain', text: 'Part' }] }, { line: 4, runs: [{ kind: 'text', style: 'plain', text: 'Mass' }] }]]);
   assert.equal(table.rows.length, 1);
+  assert.deepEqual(table.rows[0].map((cell) => cell.line), [6, 6]);
   assert.equal(table.footer.length, 1);
   const [plain] = convert('|===\n|a |b\n|===\n');
   assert.deepEqual(plain.cols, []);

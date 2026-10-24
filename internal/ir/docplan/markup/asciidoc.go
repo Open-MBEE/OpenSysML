@@ -74,7 +74,9 @@ type asciiDocBlock struct {
 	Label       string           `json:"label"`
 	Runs        []asciiDocRun    `json:"runs"`
 	Ordered     bool             `json:"ordered"`
+	Start       int              `json:"start"`
 	Items       []asciiDocItem   `json:"items"`
+	Blocks      []asciiDocBlock  `json:"blocks"`
 	Cols        []int            `json:"cols"`
 	Header      [][]asciiDocCell `json:"header"`
 	Rows        [][]asciiDocCell `json:"rows"`
@@ -91,6 +93,7 @@ type asciiDocItem struct {
 }
 
 type asciiDocCell struct {
+	Line int           `json:"line"`
 	Runs []asciiDocRun `json:"runs"`
 }
 
@@ -217,7 +220,7 @@ func (m *asciiDocMapper) block(node asciiDocBlock, stop int) (Block, error) {
 		}
 		return Block{Kind: BlockParagraph, Runs: runs, Span: span}, nil
 	case "admonition":
-		runs, err := m.runs(node.Runs, span, StylePlain)
+		runs, err := m.admonitionRuns(node, span, stop)
 		if err != nil {
 			return Block{}, err
 		}
@@ -249,7 +252,29 @@ func (m *asciiDocMapper) block(node asciiDocBlock, stop int) (Block, error) {
 	return Block{Kind: BlockImage, Location: node.Target, Alt: node.Alt, Caption: node.Title, Span: span}, nil
 }
 
+// admonitionRuns reads an admonition's prose: the inline text of a one-line
+// admonition, or the one paragraph a delimited admonition holds.
+func (m *asciiDocMapper) admonitionRuns(node asciiDocBlock, span Span, stop int) ([]Run, error) {
+	if len(node.Blocks) == 0 {
+		return m.runs(node.Runs, span, StylePlain)
+	}
+	if len(node.Blocks) > 1 {
+		return nil, m.refuse("admonition of several blocks", span)
+	}
+	child := node.Blocks[0]
+	if child.Kind != "paragraph" {
+		return nil, m.refuse(asciiDocConstruct(child.Kind)+" in an admonition", m.blockSpan(child.Line, stop))
+	}
+	if child.Title != "" || child.StyledTitle {
+		return nil, m.refuse("title on a paragraph", m.blockSpan(child.Line, stop))
+	}
+	return m.runs(child.Runs, m.blockSpan(child.Line, stop), StylePlain)
+}
+
 func (m *asciiDocMapper) list(node asciiDocBlock, span Span, stop int) (Block, error) {
+	if node.Ordered && node.Start > 1 {
+		return Block{}, m.refuse(fmt.Sprintf("ordered list starting at %d", node.Start), span)
+	}
 	block := Block{Kind: BlockList, Ordered: node.Ordered, Span: span}
 	for i, item := range node.Items {
 		itemStop := stop
@@ -291,10 +316,11 @@ func (m *asciiDocMapper) table(node asciiDocBlock, span Span) (Block, error) {
 	if len(node.Cols) == len(block.ColumnLabels) {
 		block.ColumnWidths = append([]int(nil), node.Cols...)
 	}
-	for _, row := range node.Rows {
+	for i, row := range node.Rows {
+		rowSpan := m.rowSpan(node.Rows, i, span)
 		cells := make([]string, 0, len(row))
 		for _, cell := range row {
-			text, err := m.cellText(cell, span)
+			text, err := m.cellText(cell, rowSpan)
 			if err != nil {
 				return Block{}, err
 			}
@@ -303,9 +329,27 @@ func (m *asciiDocMapper) table(node asciiDocBlock, span Span) (Block, error) {
 		for len(cells) < len(block.ColumnLabels) {
 			cells = append(cells, "")
 		}
-		block.Rows = append(block.Rows, TableRow{Cells: cells, Span: span})
+		block.Rows = append(block.Rows, TableRow{Cells: cells, Span: rowSpan})
 	}
 	return block, nil
+}
+
+// rowSpan covers row i of a table from the line its first cell starts on to
+// the line before the next row's, or the closing delimiter; the table's span
+// when the converter reported no line for it.
+func (m *asciiDocMapper) rowSpan(rows [][]asciiDocCell, i int, table Span) Span {
+	if len(rows[i]) == 0 || rows[i][0].Line < 1 {
+		return table
+	}
+	start := m.lineStart(rows[i][0].Line)
+	stop := m.lineStart(lineOf(m.body, table.Stop-1))
+	if i+1 < len(rows) && len(rows[i+1]) > 0 && rows[i+1][0].Line > 0 {
+		stop = m.lineStart(rows[i+1][0].Line)
+	}
+	if start < table.Start || stop > table.Stop || stop < start {
+		return table
+	}
+	return Span{Start: start, Stop: start + len(strings.TrimRight(m.body[start:stop], " \t\r\n"))}
 }
 
 // cellText reads a cell that is plain text alone; a table cell is one value.
@@ -373,12 +417,16 @@ func appendText(runs []Run, run Run) []Run {
 	return append(runs, run)
 }
 
-// locate finds where a run was written: its text (a macro's target) at its
-// first occurrence after the cursor within the block, else the block itself.
+// locate finds where a run was written: a macro's target (math's text) at its
+// first occurrence after the cursor within the block, text word by word, else
+// the block itself.
 func (m *asciiDocMapper) locate(run asciiDocRun, span Span, cursor *int) Span {
-	needle := run.Text
-	if run.Kind != "text" && run.Kind != "math" {
-		needle = run.Target
+	if run.Kind == "text" {
+		return m.locateText(run.Text, span, cursor)
+	}
+	needle := run.Target
+	if run.Kind == "math" {
+		needle = run.Text
 	}
 	needle = strings.TrimSpace(needle)
 	if needle == "" || *cursor >= span.Stop {
@@ -391,6 +439,32 @@ func (m *asciiDocMapper) locate(run asciiDocRun, span Span, cursor *int) Span {
 	start := *cursor + index
 	*cursor = start + len(needle)
 	return Span{Start: start, Stop: *cursor}
+}
+
+// locateText places a text run over its words, each found after the one
+// before; a word a substitution rewrote (`(C)`, `--`, an entity) is skipped,
+// so that the cursor still passes the run and later runs are not found in it.
+func (m *asciiDocMapper) locateText(text string, span Span, cursor *int) Span {
+	start, stop := -1, -1
+	for _, word := range strings.Fields(text) {
+		if *cursor >= span.Stop {
+			break
+		}
+		index := strings.Index(m.body[*cursor:span.Stop], word)
+		if index < 0 {
+			continue
+		}
+		at := *cursor + index
+		if start < 0 {
+			start = at
+		}
+		*cursor = at + len(word)
+		stop = *cursor
+	}
+	if start < 0 {
+		return span
+	}
+	return Span{Start: start, Stop: stop}
 }
 
 func asciiDocStyle(style string) (Style, bool) {
