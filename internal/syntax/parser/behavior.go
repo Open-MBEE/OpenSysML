@@ -434,10 +434,11 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 
 	// Check for optional individual/portion/event modifiers
 	isIndividual := false
+	var individualKeyword source.Span
 	portion := ast.PortionNone
 	isEvent := false
 	if p.atKeyword("individual") {
-		p.advance()
+		individualKeyword = p.advance().Span
 		isIndividual = true
 	} else if p.atKeyword("snapshot") {
 		p.advance()
@@ -482,14 +483,15 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 
 	// Create Usage node with direction
 	usage := &ast.Usage{
-		Kind:         kind,
-		Keyword:      kindKeyword,
-		Ident:        ident,
-		IsReference:  isRef,
-		Direction:    direction,
-		IsEvent:      isEvent,
-		IsIndividual: isIndividual,
-		Portion:      portion,
+		Kind:              kind,
+		Keyword:           kindKeyword,
+		Ident:             ident,
+		IsReference:       isRef,
+		Direction:         direction,
+		IsEvent:           isEvent,
+		IsIndividual:      isIndividual,
+		IndividualKeyword: individualKeyword,
+		Portion:           portion,
 	}
 
 	// A parameter specializes and states its multiplicity as any usage does
@@ -505,27 +507,9 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 	usage.ValueIsDefault = valueOp.isDefault
 	usage.ValueIsInitial = valueOp.isInitial
 
-	// Optional body or semicolon
-	if p.accept2(lexer.Semicolon) {
-		usage.HasBody = false
-	} else if p.at(lexer.LBrace) {
-		p.advance() // consume '{'
-		// Parse body members generically
-		leave := p.pushBodyContext(bodyOther)
-		for !p.at(lexer.RBrace) && !p.atEOF() {
-			p.memberStart()
-			m := p.parseBodyMember()
-			if m != nil {
-				p.markAttached(m)
-				usage.Members = append(usage.Members, m)
-			}
-		}
-		leave()
-		p.expect(lexer.RBrace, "expected '}'")
-		usage.HasBody = true
-	} else {
-		p.expectBodyOrEnd("parameter")
-	}
+	// The body is the one the parameter's kind declares: `in calc c { x }`
+	// ends in a result expression as any calculation usage does.
+	p.parseUsageBody(usage, kind, start)
 	usage.NodeSpan = p.spanFrom(start)
 
 	// Wrap in Membership
@@ -1770,9 +1754,10 @@ func (p *Parser) parseResultMember() ast.Node {
 	// Parse optional usage kind keyword (e.g., 'attribute')
 	// Default to UsageAttribute if not specified
 	usageKind := ast.UsageAttribute
+	keyword := ""
 	if p.at(lexer.Keyword) {
 		if kind, ok := p.usageKind(p.peek().KeywordID); ok {
-			usageKind = kind
+			usageKind, keyword = kind, p.peek().KeywordID
 			p.advance() // consume kind keyword
 		}
 	}
@@ -1787,6 +1772,7 @@ func (p *Parser) parseResultMember() ast.Node {
 		u := &ast.Usage{
 			Prefixes:    prefixes,
 			Kind:        usageKind,
+			Keyword:     keyword,
 			Direction:   ast.DirOut,
 			IsResult:    true,
 			IsAbstract:  mods.isAbstract,
@@ -2060,6 +2046,9 @@ func (p *Parser) parseConstraintMember() ast.Node {
 		Keyword:    keyword,
 		IsNegated:  isNegated,
 		Expression: expr,
+	}
+	if hasSemi {
+		node.Terminator = semi.Span
 	}
 	node.NodeSpan = p.spanFrom(start)
 	return node
@@ -2885,6 +2874,13 @@ func (p *Parser) parsePayloadParameter() *ast.Usage {
 		}
 		if p.atTriggerKeyword() {
 			param.Value = p.parseTriggerExpression()
+		} else if op, ok := p.acceptValueOperator(); ok {
+			// `accept : ChangeSignal = Triggers::TriggerWhen({ c })`: the
+			// payload's ValuePart (SysML.xtext PayloadFeature).
+			param.Value = p.ParseExpression()
+			param.ValueOperatorSpan = op.span
+			param.ValueIsDefault = op.isDefault
+			param.ValueIsInitial = op.isInitial
 		}
 	}
 

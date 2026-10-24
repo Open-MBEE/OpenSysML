@@ -19,4 +19,4 @@ enter calc test::firstOver
         eval operator > -> true
         stmt return
           eval feature x -> 5
-exit calc test::firstOver -> 5
+exit calc test::firstOver -> (5)

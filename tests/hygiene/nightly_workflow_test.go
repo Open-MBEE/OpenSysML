@@ -2,6 +2,7 @@ package hygiene
 
 import (
 	"os"
+	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -167,7 +168,7 @@ func TestNightlyPythonSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *testing
 	workflow, _ := loadNightlyWorkflow(t)
 	steps := nightlyJob(t, workflow, "publish").runSteps()
 
-	install := stepIndex(steps, "npm ci")
+	install := stepIndex(steps, "cd client/node", "npm install --ignore-scripts")
 	version := stepIndex(steps, `"$SNAPSHOT_SCRIPT"`, "--stamp")
 	binaries := stepIndex(steps, `"$BUILD_SCRIPT" dist`)
 	stamp := stepIndex(steps,
@@ -178,10 +179,10 @@ func TestNightlyPythonSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *testing
 	)
 	build := stepIndex(steps, "python -m build")
 	verify := stepIndex(steps, "release-digests.json", "zipfile", "tarfile", "pinned_digest", "built_against_releases")
-	manifest := stepIndex(steps, "sha256sum opensysml-*.whl")
+	manifest := stepIndex(steps, `sha256sum "opensysml-${PYPI_VERSION}-py3-none-any.whl"`)
 	sign := stepIndex(steps, "cosign sign-blob SHA256SUMS.txt")
 	for name, index := range map[string]int{
-		"npm ci": install, "version stamp": version, "binary build": binaries,
+		"client install": install, "version stamp": version, "binary build": binaries,
 		"digest stamp": stamp, "python -m build": build, "distribution check": verify,
 		"manifest entry": manifest, "manifest signing": sign,
 	} {
@@ -197,7 +198,7 @@ func TestNightlyPythonSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *testing
 		before int
 		after  int
 	}{
-		{"npm ci runs after the manifest is stamped, which breaks the lock-file check", install, version},
+		{"the client is installed after the manifest is stamped, which breaks the lock-file check", install, version},
 		{"the versions are stamped after the binaries are built, so the binaries report another version", version, binaries},
 		{"the digests are stamped before the binaries exist", binaries, stamp},
 		{"the digests are stamped after python -m build, so the wheel ships without them", stamp, build},
@@ -394,33 +395,37 @@ func TestNightlyNeverRebuildsAPublishedNight(t *testing.T) {
 }
 
 // TestNightlyPublishesTheNpmRunnerWithTheClient checks that a night stamps,
-// builds, proves and publishes @openmbee/sysml-mcp and its five platform
-// packages beside the client's seven: thirteen tarballs, platform packages
-// before the shim that pins them.
+// builds, proves and publishes @openmbee/sysml-mcp, its five platform
+// packages and its alias @openmbee/opensysml-mcp beside the client's seven:
+// fourteen tarballs, platform packages before the shim that pins them, the
+// shim before the alias derived from it.
 func TestNightlyPublishesTheNpmRunnerWithTheClient(t *testing.T) {
 	workflow, _ := loadNightlyWorkflow(t)
 	publish := nightlyJob(t, workflow, "publish").runSteps()
 	if stepIndex(publish, "git diff --stat", "packaging/npm/sysml-mcp/package.json") < 0 {
 		t.Error("the publish job does not show the stamped packaging/npm/sysml-mcp/package.json")
 	}
-	pack := stepIndex(publish, "npm run platform-packages", "--mcp ../../dist/mcp", "../../packaging/npm/sysml-mcp", "-ne 13")
+	pack := stepIndex(publish, "npm run platform-packages", "--mcp ../../dist/mcp", "../../packaging/npm/sysml-mcp ./packages/opensysml-mcp", "-ne 14")
 	switch {
 	case pack < 0:
-		t.Fatal("the publish job does not build the sysml-mcp platform packages and pack @openmbee/sysml-mcp as the thirteenth tarball")
+		t.Fatal("the publish job does not build the sysml-mcp platform packages and pack @openmbee/sysml-mcp and @openmbee/opensysml-mcp as the thirteenth and fourteenth tarballs")
 	case !strings.Contains(publish[pack].Command, "scripts/npm-mcp-test.sh"):
 		t.Error("the publish job does not prove the packed @openmbee/sysml-mcp serves the protocol")
 	case !strings.Contains(publish[pack].Command, "openmbee-sysml-mcp-${NPM_VERSION}.tgz"):
 		t.Error("the publish job does not check that @openmbee/sysml-mcp pins its platform packages at the snapshot version")
+	case !containsAll(publish[pack].Command, "openmbee-opensysml-mcp-${NPM_VERSION}.tgz", `pkg.bin["opensysml-mcp"] === shim`, "pkg.mcpName !== undefined"):
+		t.Error("the publish job does not check that @openmbee/opensysml-mcp pins the runner's platform packages at the snapshot version with both commands and no mcpName")
 	}
 
 	npm := nightlyJob(t, workflow, "npm").runSteps()
-	step := stepIndex(npm, "npm publish", `--tag "$NPM_DIST_TAG"`, "-ne 13")
+	step := stepIndex(npm, "npm publish", `--tag "$NPM_DIST_TAG"`, "-ne 14")
 	if step < 0 {
-		t.Fatal("the npm job does not publish thirteen tarballs")
+		t.Fatal("the npm job does not publish fourteen tarballs")
 	}
 	command := npm[step].Command
 	platforms := strings.Index(command, `openmbee-sysml-mcp-linux-x64-"$NPM_VERSION".tgz`)
 	shim := strings.Index(command, `openmbee-sysml-mcp-"$NPM_VERSION".tgz`)
+	alias := strings.Index(command, `openmbee-opensysml-mcp-"$NPM_VERSION".tgz`)
 	switch {
 	case platforms < 0:
 		t.Error("the npm job does not publish the sysml-mcp platform packages")
@@ -428,9 +433,13 @@ func TestNightlyPublishesTheNpmRunnerWithTheClient(t *testing.T) {
 		t.Error("the npm job does not publish @openmbee/sysml-mcp")
 	case shim < platforms:
 		t.Error("the npm job publishes @openmbee/sysml-mcp before the platform packages it pins")
+	case alias < 0:
+		t.Error("the npm job does not publish @openmbee/opensysml-mcp")
+	case alias < shim:
+		t.Error("the npm job publishes @openmbee/opensysml-mcp before @openmbee/sysml-mcp, the runner it is the other name of")
 	}
-	if stepIndex(npm, "dist-tags.latest", "@openmbee/sysml-mcp") < 0 {
-		t.Error("the npm job does not check, after publishing, that @openmbee/sysml-mcp's latest still names the stable release")
+	if stepIndex(npm, "dist-tags.latest", "@openmbee/sysml-mcp", "@openmbee/opensysml-mcp") < 0 {
+		t.Error("the npm job does not check, after publishing, that the latest of @openmbee/sysml-mcp and @openmbee/opensysml-mcp still names the stable release")
 	}
 }
 
@@ -461,5 +470,60 @@ func TestNightlyVSIXIsVersionedAsTheSnapshotCoreNotTheManifest(t *testing.T) {
 	}
 	if strings.Contains(packaged.Run, "editors/vscode/package.json').version") {
 		t.Errorf("the vsix step still versions the extension from its manifest, which names the release already made:\n%s", packaged.Run)
+	}
+}
+
+// An append whose glob matched the bundles once listed them twice and broke every nightly
+// install: no append may match an asset already listed, and the manifest is checked before signing.
+func TestNightlyManifestListsEachAssetOnce(t *testing.T) {
+	workflow, _ := loadNightlyWorkflow(t)
+	steps := nightlyJob(t, workflow, "publish").runSteps()
+	published := []string{
+		"opensysml-linux-amd64.tar.gz", "opensysml-darwin-arm64.tar.gz", "opensysml-windows-amd64.zip",
+		"sysml-mcp-linux-amd64.tar.gz", "sysml-mcp-windows-amd64.zip",
+		"sysml-grpc-linux-amd64", "sysml-grpc-windows-amd64.exe",
+		"sysml-jupyter-kernel-linux-amd64", "sysml-jupyter-kernel-windows-amd64.exe",
+		"sysml-wasm.wasm", "sysml-prod.wasm.gz", "wasm_exec.js", "opensysml-sysml.vsix",
+	}
+	appends := 0
+	last := -1
+	for i, step := range steps {
+		for _, line := range strings.Split(step.Command, "\n") {
+			if !strings.Contains(line, ">> SHA256SUMS.txt") {
+				continue
+			}
+			appends++
+			last = i
+			_, args, found := strings.Cut(line, "sha256sum ")
+			if !found {
+				t.Errorf("step %q appends to SHA256SUMS.txt without sha256sum: %s", step.Name, line)
+				continue
+			}
+			args, _, _ = strings.Cut(args, " >>")
+			for _, arg := range strings.Fields(args) {
+				arg = strings.Trim(arg, `"'`)
+				if !strings.ContainsAny(arg, "*?[") {
+					continue
+				}
+				for _, name := range published {
+					if matched, _ := path.Match(arg, name); matched {
+						t.Errorf("step %q appends %s to SHA256SUMS.txt, a pattern that also matches %s, which the build script listed already", step.Name, arg, name)
+					}
+				}
+			}
+		}
+	}
+	if appends == 0 {
+		t.Fatal("no publish step appends to SHA256SUMS.txt")
+	}
+	check := stepIndex(steps, "uniq -d", "sha256sum --check --strict", "SHA256SUMS.txt")
+	sign := stepIndex(steps, "cosign sign-blob SHA256SUMS.txt")
+	switch {
+	case check < 0:
+		t.Error("no publish step checks SHA256SUMS.txt for an asset listed twice and against the files it names")
+	case check < last:
+		t.Error("SHA256SUMS.txt is checked before the last append to it")
+	case sign >= 0 && sign < check:
+		t.Error("SHA256SUMS.txt is signed before it is checked")
 	}
 }

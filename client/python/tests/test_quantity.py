@@ -397,12 +397,12 @@ package Q {
 
     calc echo {
         in q;
-        q
+        return : Quantities::ScalarQuantityValue[1] = q;
     }
 
     calc overHalfATonne {
         in q;
-        q > 500.0 [SI::kg]
+        return : ScalarValues::Boolean[1] = q > 500.0 [SI::kg];
     }
 
     action addHalfATonne {

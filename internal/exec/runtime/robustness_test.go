@@ -375,6 +375,17 @@ func oneSymbol(t *testing.T, idx *symbols.Index, fqn string) *symbols.Symbol {
 	return matches[0]
 }
 
+// readGo answers the sole value of self's attribute go, which the robustness
+// fixtures bind to the pin or parameter under test.
+func readGo(t *testing.T, ctx *Context, self *Instance) Value {
+	t.Helper()
+	fv, err := self.GetFeatureValue(ctx, "go")
+	if err != nil {
+		t.Fatalf("read go of object #%d: %v", self.ID, err)
+	}
+	return soleElement(fv.HeldValue())
+}
+
 // calcErrorWithLibraries invokes the named calc of package test in src, with the
 // standard library indexed, and answers the error it fails with.
 func calcErrorWithLibraries(t *testing.T, src, calcName string, args []Value, maxSteps int64) error {
@@ -677,4 +688,21 @@ func intOf(n int64) Value {
 
 func realOf(f float64) Value {
 	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: f}}
+}
+
+// invokeValue invokes a calc and reads the one value its result holds: a result stating
+// no multiplicity is `[0..*]` (SysML v2 §7.6.3) and holds that value as a one-element sequence.
+func invokeValue(ctx *Context, sym *symbols.Symbol, args []Value, scope *symbols.Scope) (Value, error) {
+	result, err := ctx.InvokeCalc(sym, args, scope)
+	return soleElement(result), err
+}
+
+// findBehavioralSymbol searches for first symbol matching defKind or usageKind,
+// failing the test when there is none.
+func findBehavioralSymbol(t *testing.T, scope *symbols.Scope, defKind ast.DefinitionKind, usageKind ast.UsageKind) *symbols.Symbol {
+	sym := lookupBehavioralSymbol(scope, defKind, usageKind)
+	if sym == nil {
+		t.Fatalf("no behavioral symbol found (defKind=%v, usageKind=%v)", defKind, usageKind)
+	}
+	return sym
 }

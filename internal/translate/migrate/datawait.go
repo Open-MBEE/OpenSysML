@@ -29,7 +29,7 @@ func (a *activity) awaitData() {
 			continue
 		}
 		from := ownerNode(srcs[0])
-		if nodeKind(from) != nodeAction || from == to || !slices.Contains(a.nodes, from) {
+		if nodeKind(from) != nodeAction || from == to || !slices.Contains(a.nodes, from) || a.handlers[from] != nil || a.handlers[to] != nil {
 			continue
 		}
 		if a.starvesWaiting(to, from) {

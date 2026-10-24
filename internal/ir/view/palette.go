@@ -3,6 +3,7 @@ package view
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"math"
 	"slices"
 	"strconv"
@@ -321,10 +322,10 @@ func familyRank(family string) int {
 	return len(paletteFamilies)
 }
 
-// definitionKeyword is a node kind without the `def` a SysML definition ends
-// in, `part` for `part def`; a usage's kind is returned as it is.
+// definitionKeyword is a node kind's keyword without its modifier and the `def`
+// a SysML definition ends in: `part` for `part def` and `abstract part def`.
 func definitionKeyword(kind string) string {
-	return strings.TrimSuffix(kind, " def")
+	return strings.TrimSuffix(ast.NotationKeyword(kind), " def")
 }
 
 // kermlClassifierKinds are the KerML classifier keywords, definitions the
@@ -337,7 +338,7 @@ var kermlClassifierKinds = map[string]bool{
 // isDefinitionKind reports whether a node kind is a definition's notation, a
 // `… def` keyword or a KerML classifier, as against a usage's.
 func isDefinitionKind(kind string) bool {
-	return strings.HasSuffix(kind, " def") || kermlClassifierKinds[kind]
+	return strings.HasSuffix(kind, " def") || kermlClassifierKinds[ast.NotationKeyword(kind)]
 }
 
 // The tint a usage's fill is lightened by, and the contrast black text on a

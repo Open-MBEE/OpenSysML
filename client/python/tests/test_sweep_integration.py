@@ -21,25 +21,25 @@ package Sw {
 
     calc def Twice {
         in n : Integer;
-        return : Integer = n * 2;
+        return : Integer[1] = n * 2;
     }
 
     calc def Ratio {
         in a : Real;
         in b : Real;
-        return : Real = a / b;
+        return : Real[1] = a / b;
     }
 
     calc def Plus {
         in a : Integer;
         in b : Integer;
-        return : Integer = a + b;
+        return : Integer[1] = a + b;
     }
 
     analysis def CostAnalysis {
         subject s : Ship;
         in limit : Real = 20.0;
-        out total : Real = s.cost * limit;
+        out total : Real[1] = s.cost * limit;
         objective affordable {
             require constraint { total <= 100.0 }
         }

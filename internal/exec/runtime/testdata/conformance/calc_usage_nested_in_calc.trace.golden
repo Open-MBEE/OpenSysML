@@ -27,23 +27,23 @@ exit calc test::rhsAt
               bind x = 22900.0 [argument]
             exit calc RealFunctions::sqrt -> 151.32745950421557
           eval invoke sqrt -> 151.32745950421557
-        eval feature speed -> 151.32745950421557
+        eval feature speed -> (151.32745950421557)
       eval operator / -> 0.9912279006826346
     eval operator - -> -0.9912279006826346
-    output test::Rhs::st.ux = -0.9912279006826346
-  eval chain ux -> -0.9912279006826346
+    output test::Rhs::st.ux = (-0.9912279006826346)
+  eval chain ux -> (-0.9912279006826346)
 eval operator * -> -3.964911602730538
-output test::rhsAt.dvx = -3.964911602730538
+output test::rhsAt.dvx = (-3.964911602730538)
     eval feature thrust -> 4.0
       reuse calc test::Rhs::st
         eval literal 0.0 -> 0.0
           eval feature svh -> -20.0
-          eval feature speed -> 151.32745950421557
+          eval feature speed -> (151.32745950421557)
         eval operator / -> -0.13216372009101796
       eval operator - -> 0.13216372009101796
-      output test::Rhs::st.uh = 0.13216372009101796
-    eval chain uh -> 0.13216372009101796
+      output test::Rhs::st.uh = (0.13216372009101796)
+    eval chain uh -> (0.13216372009101796)
   eval operator * -> 0.5286548803640718
   eval literal 1.62 -> 1.62
 eval operator - -> -1.0913451196359283
-output test::rhsAt.dvh = -1.0913451196359283
+output test::rhsAt.dvh = (-1.0913451196359283)

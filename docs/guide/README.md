@@ -15,10 +15,13 @@ Read the chapters in order the first time through; each one builds on the ones b
 11. [Migrating a SysML v1 model](11-migrating-from-sysml-v1.md) — `-migrate`, reading the report, finishing by hand
 12. [Jupyter notebooks](12-jupyter.md) — `pip install jupyter-opensysml-kernel`, SysML cells, rich output, interrupting
 
-One topic stands on its own once the chapters are read:
+Two topics stand on their own once the chapters are read:
 [Modeling fleets and repeated structure](modeling-fleets.md) — one definition with a
 multiplicity, variants with occurrence counts, per-occurrence values, and what a fleet of
-12 800 occurrences costs to validate and to check.
+12 800 occurrences costs to validate and to check — and
+[Modeling product lines and variability](modeling-product-lines.md) — a variation and its
+variants, an assertion tying the choices together, a configuration that picks one variant
+per choice, and `%configure` solving the family for every consistent selection.
 
 Chapter 9 does one task in all seven clients side by side — Go, Python, Node/TypeScript, Java,
 Rust, Julia and MATLAB, in tabs — and then has a section per client for what only that one has.

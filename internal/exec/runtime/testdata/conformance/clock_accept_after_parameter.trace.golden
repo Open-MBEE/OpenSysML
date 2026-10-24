@@ -1,0 +1,50 @@
+step 1: token 1@bound
+eval feature dur -> 5.0 [s]
+eval literal false -> false
+step 1: token 1@w
+eval feature howLong -> (5.0 [s])
+step 2: token 1@assign finished
+stmt assign finished
+  eval literal true -> true
+step 3: token 1@done
+step 4: no active tokens
+step 2: token 1@mark1
+stmt assign at1
+materialize: universalClock #1
+      eval feature universalClock -> instance#1
+    eval feature localClock -> instance#1
+  eval chain currentTime -> 5.0
+step 3: token 1@literal
+  eval literal 2.0 -> 2.0
+eval index -> 2.0 [s]
+eval literal false -> false
+step 1: token 1@w
+eval feature howLong -> (2.0 [s])
+step 2: token 1@assign finished
+stmt assign finished
+  eval literal true -> true
+step 3: token 1@done
+step 4: no active tokens
+step 4: token 1@mark2
+stmt assign at2
+      eval feature universalClock -> instance#1
+    eval feature localClock -> instance#1
+  eval chain currentTime -> 7.0
+step 5: token 1@copied
+eval feature dur -> 5.0 [s]
+eval feature howLong -> (5.0 [s])
+eval literal false -> false
+step 1: token 1@w
+eval feature delay -> (5.0 [s])
+step 2: token 1@assign finished
+stmt assign finished
+  eval literal true -> true
+step 3: token 1@done
+step 4: no active tokens
+step 6: token 1@mark3
+stmt assign at3
+      eval feature universalClock -> instance#1
+    eval feature localClock -> instance#1
+  eval chain currentTime -> 12.0
+step 7: token 1@done
+step 8: no active tokens

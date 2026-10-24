@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The shape of a Cameo "Eclipse UML2 (v5.x) XMI" export: the standard SysML
+     profile's packages carry the hostless nsURIs Eclipse UML2 gives packages
+     without a URI of their own (http:///SysML/<path>.ecore), and a user
+     profile exported the same way sits under its own root (http:///Acme/…). -->
+<xmi:XMI xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML"
+         xmlns:SysML.Blocks="http:///SysML/Blocks.ecore"
+         xmlns:SysML.Requirements="http:///SysML/Requirements.ecore"
+         xmlns:Acme.Stereotypes="http:///Acme/Stereotypes.ecore"
+         xsi:schemaLocation="http:///SysML/Blocks.ecore SysML.profile.uml#_blocks http:///SysML/Requirements.ecore SysML.profile.uml#_requirements http:///Acme/Stereotypes.ecore Acme.profile.uml#_acme">
+  <uml:Model xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg" name="Pumping">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_pump" name="Pump"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_flow" name="Flow Rate"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_cls_gauge" name="Gauge"/>
+    </packagedElement>
+  </uml:Model>
+  <SysML.Blocks:Block xmi:id="_st_pump" base_Class="_blk_pump"/>
+  <SysML.Requirements:Requirement xmi:id="_st_flow" base_Class="_req_flow" id="R1" text="The pump shall deliver 10 L/min."/>
+  <Acme.Stereotypes:Block xmi:id="_st_gauge" base_Class="_cls_gauge"/>
+</xmi:XMI>

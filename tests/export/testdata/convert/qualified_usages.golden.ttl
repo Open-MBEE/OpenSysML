@@ -562,7 +562,7 @@ elmt:Q__ctx
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Q__ctx__sub, elmt:Q__ctx__pa, elmt:Q__ctx__a1, elmt:Q__ctx__sa, elmt:Q__ctx__es, elmt:Q__ctx__s1, elmt:Q__ctx__ss, elmt:Q__ctx__iu, elmt:Q__ctx__u1, elmt:Q__ctx__sr, elmt:Q__ctx___4010, elmt:Q__ctx__ac, elmt:Q__ctx___4012 ;
     sysml:ownedMembership elmt:Q__ctx__sub_om, elmt:Q__ctx__pa_om, elmt:Q__ctx__a1_om, elmt:Q__ctx__sa_om, elmt:Q__ctx__es_om, elmt:Q__ctx__s1_om, elmt:Q__ctx__ss_om, elmt:Q__ctx__iu_om, elmt:Q__ctx__u1_om, elmt:Q__ctx__sr_om, elmt:Q__ctx___4010_om, elmt:Q__ctx__ac_om, elmt:Q__ctx___4012_om ;
-    sysml:ownedRelationship elmt:Q__ctx__sub_om, elmt:Q__ctx__pa_om, elmt:Q__ctx__a1_om, elmt:Q__ctx__sa_om, elmt:Q__ctx__es_om, elmt:Q__ctx__s1_om, elmt:Q__ctx__ss_om, elmt:Q__ctx__iu_om, elmt:Q__ctx__u1_om, elmt:Q__ctx__sr_om, elmt:Q__ctx___4010_om, elmt:Q__ctx__ac_om, elmt:Q__ctx___4012_om, elmt:Q__ctx_ft0 ;
+    sysml:ownedRelationship elmt:Q__ctx_ft0, elmt:Q__ctx__sub_om, elmt:Q__ctx__pa_om, elmt:Q__ctx__a1_om, elmt:Q__ctx__sa_om, elmt:Q__ctx__es_om, elmt:Q__ctx__s1_om, elmt:Q__ctx__ss_om, elmt:Q__ctx__iu_om, elmt:Q__ctx__u1_om, elmt:Q__ctx__sr_om, elmt:Q__ctx___4010_om, elmt:Q__ctx__ac_om, elmt:Q__ctx___4012_om ;
     sysml:ownedFeature elmt:Q__ctx__sub, elmt:Q__ctx__pa, elmt:Q__ctx__a1, elmt:Q__ctx__sa, elmt:Q__ctx__es, elmt:Q__ctx__s1, elmt:Q__ctx__ss, elmt:Q__ctx__iu, elmt:Q__ctx__u1, elmt:Q__ctx__sr, elmt:Q__ctx___4010, elmt:Q__ctx__ac, elmt:Q__ctx___4012 ;
     sysml:ownedFeatureMembership elmt:Q__ctx__sub_om, elmt:Q__ctx__pa_om, elmt:Q__ctx__a1_om, elmt:Q__ctx__sa_om, elmt:Q__ctx__es_om, elmt:Q__ctx__s1_om, elmt:Q__ctx__ss_om, elmt:Q__ctx__iu_om, elmt:Q__ctx__u1_om, elmt:Q__ctx__sr_om, elmt:Q__ctx___4010_om, elmt:Q__ctx__ac_om, elmt:Q__ctx___4012_om ;
     sysml:ownedTyping elmt:Q__ctx_ft0 ;
@@ -571,7 +571,7 @@ elmt:Q__ctx
     sysx:sourceTail "    }\n" ;
     json:ownedMember "[{\"@id\":\"Q__ctx__sub\"},{\"@id\":\"Q__ctx__pa\"},{\"@id\":\"Q__ctx__a1\"},{\"@id\":\"Q__ctx__sa\"},{\"@id\":\"Q__ctx__es\"},{\"@id\":\"Q__ctx__s1\"},{\"@id\":\"Q__ctx__ss\"},{\"@id\":\"Q__ctx__iu\"},{\"@id\":\"Q__ctx__u1\"},{\"@id\":\"Q__ctx__sr\"},{\"@id\":\"Q__ctx___4010\"},{\"@id\":\"Q__ctx__ac\"},{\"@id\":\"Q__ctx___4012\"}]" ;
     json:ownedMembership "[{\"@id\":\"Q__ctx__sub_om\"},{\"@id\":\"Q__ctx__pa_om\"},{\"@id\":\"Q__ctx__a1_om\"},{\"@id\":\"Q__ctx__sa_om\"},{\"@id\":\"Q__ctx__es_om\"},{\"@id\":\"Q__ctx__s1_om\"},{\"@id\":\"Q__ctx__ss_om\"},{\"@id\":\"Q__ctx__iu_om\"},{\"@id\":\"Q__ctx__u1_om\"},{\"@id\":\"Q__ctx__sr_om\"},{\"@id\":\"Q__ctx___4010_om\"},{\"@id\":\"Q__ctx__ac_om\"},{\"@id\":\"Q__ctx___4012_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Q__ctx__sub_om\"},{\"@id\":\"Q__ctx__pa_om\"},{\"@id\":\"Q__ctx__a1_om\"},{\"@id\":\"Q__ctx__sa_om\"},{\"@id\":\"Q__ctx__es_om\"},{\"@id\":\"Q__ctx__s1_om\"},{\"@id\":\"Q__ctx__ss_om\"},{\"@id\":\"Q__ctx__iu_om\"},{\"@id\":\"Q__ctx__u1_om\"},{\"@id\":\"Q__ctx__sr_om\"},{\"@id\":\"Q__ctx___4010_om\"},{\"@id\":\"Q__ctx__ac_om\"},{\"@id\":\"Q__ctx___4012_om\"},{\"@id\":\"Q__ctx_ft0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Q__ctx_ft0\"},{\"@id\":\"Q__ctx__sub_om\"},{\"@id\":\"Q__ctx__pa_om\"},{\"@id\":\"Q__ctx__a1_om\"},{\"@id\":\"Q__ctx__sa_om\"},{\"@id\":\"Q__ctx__es_om\"},{\"@id\":\"Q__ctx__s1_om\"},{\"@id\":\"Q__ctx__ss_om\"},{\"@id\":\"Q__ctx__iu_om\"},{\"@id\":\"Q__ctx__u1_om\"},{\"@id\":\"Q__ctx__sr_om\"},{\"@id\":\"Q__ctx___4010_om\"},{\"@id\":\"Q__ctx__ac_om\"},{\"@id\":\"Q__ctx___4012_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Q__ctx__sub\"},{\"@id\":\"Q__ctx__pa\"},{\"@id\":\"Q__ctx__a1\"},{\"@id\":\"Q__ctx__sa\"},{\"@id\":\"Q__ctx__es\"},{\"@id\":\"Q__ctx__s1\"},{\"@id\":\"Q__ctx__ss\"},{\"@id\":\"Q__ctx__iu\"},{\"@id\":\"Q__ctx__u1\"},{\"@id\":\"Q__ctx__sr\"},{\"@id\":\"Q__ctx___4010\"},{\"@id\":\"Q__ctx__ac\"},{\"@id\":\"Q__ctx___4012\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Q__ctx__sub_om\"},{\"@id\":\"Q__ctx__pa_om\"},{\"@id\":\"Q__ctx__a1_om\"},{\"@id\":\"Q__ctx__sa_om\"},{\"@id\":\"Q__ctx__es_om\"},{\"@id\":\"Q__ctx__s1_om\"},{\"@id\":\"Q__ctx__ss_om\"},{\"@id\":\"Q__ctx__iu_om\"},{\"@id\":\"Q__ctx__u1_om\"},{\"@id\":\"Q__ctx__sr_om\"},{\"@id\":\"Q__ctx___4010_om\"},{\"@id\":\"Q__ctx__ac_om\"},{\"@id\":\"Q__ctx___4012_om\"}]" .
 
@@ -709,15 +709,15 @@ elmt:Q__ctx__sa
     sysml:redefines elmt:Q__Ctx__a2 ;
     sysml:references <urn:opensysml:expr:Q__ctx__sa_pchain0> ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysml:ownedRedefinition elmt:Q__ctx__sa_rd0 ;
-    sysml:ownedSubsetting elmt:Q__ctx__sa_rd0, elmt:Q__ctx__sa_rs ;
-    sysml:ownedSpecialization elmt:Q__ctx__sa_rd0, elmt:Q__ctx__sa_rs ;
-    sysml:ownedRelationship elmt:Q__ctx__sa_rd0, elmt:Q__ctx__sa_rs ;
     sysml:ownedReferenceSubsetting elmt:Q__ctx__sa_rs ;
+    sysml:ownedSubsetting elmt:Q__ctx__sa_rs, elmt:Q__ctx__sa_rd0 ;
+    sysml:ownedSpecialization elmt:Q__ctx__sa_rs, elmt:Q__ctx__sa_rd0 ;
+    sysml:ownedRelationship elmt:Q__ctx__sa_rs, elmt:Q__ctx__sa_rd0 ;
+    sysml:ownedRedefinition elmt:Q__ctx__sa_rd0 ;
     sysx:sourceText "        perform sub.sa :>> a2;\n" ;
-    json:ownedSubsetting "[{\"@id\":\"Q__ctx__sa_rd0\"},{\"@id\":\"Q__ctx__sa_rs\"}]" ;
-    json:ownedSpecialization "[{\"@id\":\"Q__ctx__sa_rd0\"},{\"@id\":\"Q__ctx__sa_rs\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Q__ctx__sa_rd0\"},{\"@id\":\"Q__ctx__sa_rs\"}]" .
+    json:ownedSubsetting "[{\"@id\":\"Q__ctx__sa_rs\"},{\"@id\":\"Q__ctx__sa_rd0\"}]" ;
+    json:ownedSpecialization "[{\"@id\":\"Q__ctx__sa_rs\"},{\"@id\":\"Q__ctx__sa_rd0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Q__ctx__sa_rs\"},{\"@id\":\"Q__ctx__sa_rd0\"}]" .
 
 elmt:Q__ctx__sa_om
     a sysml:FeatureMembership ;
@@ -858,15 +858,15 @@ elmt:Q__ctx__ss
     sysml:redefines elmt:Q__Ctx__s2 ;
     sysml:references <urn:opensysml:expr:Q__ctx__ss_pchain0> ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysml:ownedRedefinition elmt:Q__ctx__ss_rd0 ;
-    sysml:ownedSubsetting elmt:Q__ctx__ss_rd0, elmt:Q__ctx__ss_rs ;
-    sysml:ownedSpecialization elmt:Q__ctx__ss_rd0, elmt:Q__ctx__ss_rs ;
-    sysml:ownedRelationship elmt:Q__ctx__ss_rd0, elmt:Q__ctx__ss_rs ;
     sysml:ownedReferenceSubsetting elmt:Q__ctx__ss_rs ;
+    sysml:ownedSubsetting elmt:Q__ctx__ss_rs, elmt:Q__ctx__ss_rd0 ;
+    sysml:ownedSpecialization elmt:Q__ctx__ss_rs, elmt:Q__ctx__ss_rd0 ;
+    sysml:ownedRelationship elmt:Q__ctx__ss_rs, elmt:Q__ctx__ss_rd0 ;
+    sysml:ownedRedefinition elmt:Q__ctx__ss_rd0 ;
     sysx:sourceText "        exhibit sub.ss :>> s2;\n" ;
-    json:ownedSubsetting "[{\"@id\":\"Q__ctx__ss_rd0\"},{\"@id\":\"Q__ctx__ss_rs\"}]" ;
-    json:ownedSpecialization "[{\"@id\":\"Q__ctx__ss_rd0\"},{\"@id\":\"Q__ctx__ss_rs\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Q__ctx__ss_rd0\"},{\"@id\":\"Q__ctx__ss_rs\"}]" .
+    json:ownedSubsetting "[{\"@id\":\"Q__ctx__ss_rs\"},{\"@id\":\"Q__ctx__ss_rd0\"}]" ;
+    json:ownedSpecialization "[{\"@id\":\"Q__ctx__ss_rs\"},{\"@id\":\"Q__ctx__ss_rd0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Q__ctx__ss_rs\"},{\"@id\":\"Q__ctx__ss_rd0\"}]" .
 
 elmt:Q__ctx__ss_om
     a sysml:FeatureMembership ;
@@ -1322,23 +1322,6 @@ elmt:Q__ctx__a1_rs
     sysml:relatedElement elmt:Q__ctx__a1, elmt:Q__Ctx__a1 ;
     json:relatedElement "[{\"@id\":\"Q__ctx__a1\"},{\"@id\":\"Q__Ctx__a1\"}]" .
 
-elmt:Q__ctx__sa_rd0
-    a sysml:Redefinition ;
-    sysml:elementId "Q__ctx__sa_rd0" ;
-    sysml:redefiningFeature elmt:Q__ctx__sa ;
-    sysml:subsettingFeature elmt:Q__ctx__sa ;
-    sysml:owningFeature elmt:Q__ctx__sa ;
-    sysml:specific elmt:Q__ctx__sa ;
-    sysml:source elmt:Q__ctx__sa ;
-    sysml:owningRelatedElement elmt:Q__ctx__sa ;
-    sysml:redefinedFeature elmt:Q__Ctx__a2 ;
-    sysml:subsettedFeature elmt:Q__Ctx__a2 ;
-    sysml:general elmt:Q__Ctx__a2 ;
-    sysml:target elmt:Q__Ctx__a2 ;
-    sysml:owner elmt:Q__ctx__sa ;
-    sysml:relatedElement elmt:Q__ctx__sa, elmt:Q__Ctx__a2 ;
-    json:relatedElement "[{\"@id\":\"Q__ctx__sa\"},{\"@id\":\"Q__Ctx__a2\"}]" .
-
 elmt:Q__ctx__sa_rs
     a sysml:ReferenceSubsetting ;
     sysml:elementId "Q__ctx__sa_rs" ;
@@ -1356,6 +1339,23 @@ elmt:Q__ctx__sa_rs
     sysml:relatedElement elmt:Q__ctx__sa, <urn:opensysml:expr:Q__ctx__sa_pchain0> ;
     sysml:ownedRelatedElement <urn:opensysml:expr:Q__ctx__sa_pchain0> ;
     json:relatedElement "[{\"@id\":\"Q__ctx__sa\"},{\"@id\":\"Q__ctx__sa_pchain0\"}]" .
+
+elmt:Q__ctx__sa_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "Q__ctx__sa_rd0" ;
+    sysml:redefiningFeature elmt:Q__ctx__sa ;
+    sysml:subsettingFeature elmt:Q__ctx__sa ;
+    sysml:owningFeature elmt:Q__ctx__sa ;
+    sysml:specific elmt:Q__ctx__sa ;
+    sysml:source elmt:Q__ctx__sa ;
+    sysml:owningRelatedElement elmt:Q__ctx__sa ;
+    sysml:redefinedFeature elmt:Q__Ctx__a2 ;
+    sysml:subsettedFeature elmt:Q__Ctx__a2 ;
+    sysml:general elmt:Q__Ctx__a2 ;
+    sysml:target elmt:Q__Ctx__a2 ;
+    sysml:owner elmt:Q__ctx__sa ;
+    sysml:relatedElement elmt:Q__ctx__sa, elmt:Q__Ctx__a2 ;
+    json:relatedElement "[{\"@id\":\"Q__ctx__sa\"},{\"@id\":\"Q__Ctx__a2\"}]" .
 
 elmt:Q__ctx__es_ft0
     a sysml:FeatureTyping ;
@@ -1389,23 +1389,6 @@ elmt:Q__ctx__s1_rs
     sysml:relatedElement elmt:Q__ctx__s1, elmt:Q__Ctx__s1 ;
     json:relatedElement "[{\"@id\":\"Q__ctx__s1\"},{\"@id\":\"Q__Ctx__s1\"}]" .
 
-elmt:Q__ctx__ss_rd0
-    a sysml:Redefinition ;
-    sysml:elementId "Q__ctx__ss_rd0" ;
-    sysml:redefiningFeature elmt:Q__ctx__ss ;
-    sysml:subsettingFeature elmt:Q__ctx__ss ;
-    sysml:owningFeature elmt:Q__ctx__ss ;
-    sysml:specific elmt:Q__ctx__ss ;
-    sysml:source elmt:Q__ctx__ss ;
-    sysml:owningRelatedElement elmt:Q__ctx__ss ;
-    sysml:redefinedFeature elmt:Q__Ctx__s2 ;
-    sysml:subsettedFeature elmt:Q__Ctx__s2 ;
-    sysml:general elmt:Q__Ctx__s2 ;
-    sysml:target elmt:Q__Ctx__s2 ;
-    sysml:owner elmt:Q__ctx__ss ;
-    sysml:relatedElement elmt:Q__ctx__ss, elmt:Q__Ctx__s2 ;
-    json:relatedElement "[{\"@id\":\"Q__ctx__ss\"},{\"@id\":\"Q__Ctx__s2\"}]" .
-
 elmt:Q__ctx__ss_rs
     a sysml:ReferenceSubsetting ;
     sysml:elementId "Q__ctx__ss_rs" ;
@@ -1423,6 +1406,23 @@ elmt:Q__ctx__ss_rs
     sysml:relatedElement elmt:Q__ctx__ss, <urn:opensysml:expr:Q__ctx__ss_pchain0> ;
     sysml:ownedRelatedElement <urn:opensysml:expr:Q__ctx__ss_pchain0> ;
     json:relatedElement "[{\"@id\":\"Q__ctx__ss\"},{\"@id\":\"Q__ctx__ss_pchain0\"}]" .
+
+elmt:Q__ctx__ss_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "Q__ctx__ss_rd0" ;
+    sysml:redefiningFeature elmt:Q__ctx__ss ;
+    sysml:subsettingFeature elmt:Q__ctx__ss ;
+    sysml:owningFeature elmt:Q__ctx__ss ;
+    sysml:specific elmt:Q__ctx__ss ;
+    sysml:source elmt:Q__ctx__ss ;
+    sysml:owningRelatedElement elmt:Q__ctx__ss ;
+    sysml:redefinedFeature elmt:Q__Ctx__s2 ;
+    sysml:subsettedFeature elmt:Q__Ctx__s2 ;
+    sysml:general elmt:Q__Ctx__s2 ;
+    sysml:target elmt:Q__Ctx__s2 ;
+    sysml:owner elmt:Q__ctx__ss ;
+    sysml:relatedElement elmt:Q__ctx__ss, elmt:Q__Ctx__s2 ;
+    json:relatedElement "[{\"@id\":\"Q__ctx__ss\"},{\"@id\":\"Q__Ctx__s2\"}]" .
 
 elmt:Q__ctx__iu_ft0
     a sysml:FeatureTyping ;

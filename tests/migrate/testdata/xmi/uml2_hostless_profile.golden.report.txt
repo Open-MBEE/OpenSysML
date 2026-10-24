@@ -1,0 +1,9 @@
+# SysML v1 to v2 migration report: uml2_hostless_profile.xmi
+# migrated 5 element(s): 5 mapped, 0 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## mapped (5)
+Model	Model	_m	-> Model	(written as package Model)
+Package	Pumping	_pkg	-> Model::Pumping
+«Requirement» Class	Pumping::Flow Rate	_req_flow	-> Model::Pumping::'Flow Rate'
+«Block» Class	Pumping::Gauge	_cls_gauge	-> Model::Pumping::Gauge	(«Block» from http:///Acme/Stereotypes.ecore is applied from a profile the document does not define; the application is kept as metadata)
+«Block» Class	Pumping::Pump	_blk_pump	-> Model::Pumping::Pump

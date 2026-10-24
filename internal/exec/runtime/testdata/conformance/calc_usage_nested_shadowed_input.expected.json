@@ -2,13 +2,13 @@
   "type": "calcUsage",
   "evaluate": "test::spanOfFive",
   "outputs": {
-    "width": {"type": "Integer", "value": 2},
-    "top": {"type": "Integer", "value": 6}
+    "width": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+    "top": {"type": "Sequence", "elements": [{"type": "Integer", "value": 6}]}
   },
   "reads": {
-    "test::tenTop": {"type": "Integer", "value": 11},
-    "test::tenWidth": {"type": "Integer", "value": 2},
-    "test::swappedD": {"type": "Integer", "value": 21},
-    "test::heldD": {"type": "Integer", "value": 2}
+    "test::tenTop": {"type": "Sequence", "elements": [{"type": "Integer", "value": 11}]},
+    "test::tenWidth": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+    "test::swappedD": {"type": "Sequence", "elements": [{"type": "Integer", "value": 21}]},
+    "test::heldD": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]}
   }
 }

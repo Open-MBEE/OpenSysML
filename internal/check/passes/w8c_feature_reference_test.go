@@ -1033,3 +1033,18 @@ func TestW8CFeatureReferenceProbabilityReadsFromTheSuccession(t *testing.T) {
 		}
 	}
 }
+
+// The operand of a classification is an expression: a definition's name there
+// is a feature reference to a non-feature, as it is under `istype`.
+func TestW8CFeatureReferenceClassificationOperand(t *testing.T) {
+	const src = `metadata def Safety;
+	#Safety part def Belt;
+	part belt : Belt;
+	attribute ok : ScalarValues::Boolean = belt @ Safety;
+	attribute bad : ScalarValues::Boolean = Belt @ Safety;
+	attribute worse : ScalarValues::Boolean = Belt istype Safety;`
+	msgs := w8cLibraryMessagesIn(t, "<t>.sysml", src)
+	if w8cCount(msgs, msgReferentIsFeature) != 2 {
+		t.Errorf("want two %q, got %v", msgReferentIsFeature, msgs)
+	}
+}

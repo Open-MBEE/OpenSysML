@@ -105,7 +105,7 @@ func TestFunctionRoundTrip(t *testing.T) {
 		"F::pickSq": "F::sq",
 		"F::apply":  "F::apply",
 	} {
-		pv := mustEvaluate(t, srv, modelHash, expr)
+		pv := soleOrSelf(mustEvaluate(t, srv, modelHash, expr))
 		fn := pv.GetFunction()
 		if fn == nil {
 			t.Fatalf("%s crossed as %T: %v", expr, pv.GetKind(), pv)
@@ -174,7 +174,7 @@ func TestFunctionRoundTrip(t *testing.T) {
 	if err != nil || calc.Error != "" {
 		t.Fatalf("EvaluateCalc(apply): err = %v, error = %q", err, calc.GetError())
 	}
-	if calc.Result.GetRealValue() != 9 {
+	if soleElement(t, "apply", calc.Result).GetRealValue() != 9 {
 		t.Errorf("apply(Sq, 3.0) = %v, want 9.0", calc.Result)
 	}
 	act, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
@@ -196,25 +196,25 @@ func TestFunctionRoundTrip(t *testing.T) {
 	if err != nil || sweep.Error != "" {
 		t.Fatalf("RunSweep(apply over a, f = Sq): err = %v, error = %q", err, sweep.GetError())
 	}
-	if got, want := rowText(sweep), "a=1.0 result -> 1.0\na=2.0 result -> 4.0\na=3.0 result -> 9.0"; got != want {
+	if got, want := rowText(sweep), "a=1.0 result -> [1.0]\na=2.0 result -> [4.0]\na=3.0 result -> [9.0]"; got != want {
 		t.Errorf("sweep rows are\n%s\nwant\n%s", got, want)
 	}
 
 	// A function closing over a body's bindings has no wire form: it is named
 	// as unsupported rather than sent as a calc it could not be rebuilt from.
-	closed := mustEvaluate(t, srv, modelHash, "F::outer(3.0)")
+	closed := soleElement(t, "F::outer", mustEvaluate(t, srv, modelHash, "F::outer(3.0)"))
 	if closed.GetFunction() != nil || !strings.Contains(closed.GetNull(), "unsupported: function F::Outer::inner") {
 		t.Errorf("F::outer(3.0) = %v, want an unsupported null naming F::Outer::inner", closed)
 	}
 	// So does one whose inherited body reads nothing of the run, but whose own default does.
-	scaled := mustEvaluate(t, srv, modelHash, "F::scaled(3.0)")
+	scaled := soleElement(t, "F::scaled", mustEvaluate(t, srv, modelHash, "F::scaled(3.0)"))
 	if scaled.GetFunction() != nil || !strings.Contains(scaled.GetNull(), "unsupported: function F::Scaled::inner") {
 		t.Errorf("F::scaled(3.0) = %v, want an unsupported null naming F::Scaled::inner", scaled)
 	}
 
 	// A nested usage reading nothing of the run that returned it crosses as the
 	// calc it names, and comes back applying that calc's inherited body.
-	fixed := mustEvaluate(t, srv, modelHash, "F::fixed(3.0)")
+	fixed := soleElement(t, "F::fixed", mustEvaluate(t, srv, modelHash, "F::fixed(3.0)"))
 	if fixed.GetFunction().GetCalcId() != "F::Fixed::inner" || fixed.GetFunction().GetSelfId() != 0 {
 		t.Fatalf("F::fixed(3.0) = %v, want the calc F::Fixed::inner closing over no object", fixed)
 	}
@@ -224,7 +224,7 @@ func TestFunctionRoundTrip(t *testing.T) {
 	if err != nil || applied.Error != "" {
 		t.Fatalf("EvaluateCalc(apply, fixed inner): %v %s", err, applied.GetError())
 	}
-	if applied.Result.GetRealValue() != 9 {
+	if soleElement(t, "apply", applied.Result).GetRealValue() != 9 {
 		t.Errorf("apply(F::Fixed::inner, 3.0) = %v, want 9.0", applied.Result)
 	}
 }
@@ -274,7 +274,7 @@ func TestObjectBoundFunctionsDoNotCrossCalls(t *testing.T) {
 	refused("RunAnalysis", an.Error)
 
 	// Within one call, the object is read and the calc applied over it.
-	if got := mustEvaluate(t, srv, modelHash, "F::apply(F::holder.scale, 3.0)").GetRealValue(); got != 6 {
+	if got := soleElement(t, "apply", mustEvaluate(t, srv, modelHash, "F::apply(F::holder.scale, 3.0)")).GetRealValue(); got != 6 {
 		t.Errorf("apply(holder.scale, 3.0) = %v, want 6.0", got)
 	}
 }
@@ -367,7 +367,7 @@ func TestFunctionCapability(t *testing.T) {
 		"F::Sq":     "unsupported: function F::Sq",
 		"F::pickSq": "unsupported: function F::sq",
 	} {
-		got := mustEvaluate(t, withheld, modelHash, expr)
+		got := soleOrSelf(mustEvaluate(t, withheld, modelHash, expr))
 		if got.GetFunction() != nil {
 			t.Errorf("%s crossed as a function without %s: %v", expr, CapabilityFunctionValues, got)
 		}

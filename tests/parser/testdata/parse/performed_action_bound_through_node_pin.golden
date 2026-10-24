@@ -1,0 +1,129 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="item" abstract=false variation=false name="Report"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="size" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Measure"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="report" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Report
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Decide"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="report" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Report
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="go" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (OperatorExpr operator="<="
+                (FeatureChainExpr member="size"
+                  (FeatureReference name="report"))
+                (LiteralReal value="10.0"))))))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Sequence"
+          (Membership visibility="default"
+            (Usage kind="action" name="measure" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Measure
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="action" name="decision" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Decide
+                (*ast.QualifiedName))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="report" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (FeatureChainExpr member="report"
+                    (FeatureReference name="measure"))))))
+          (SuccessionEdge source="measure" target="decision")
+          (FinalNode)
+          (SuccessionEdge source="decision" target="@done")))
+      (Membership visibility="default"
+        (Usage kind="part" name="context" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="item" name="theReport" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Report
+                (*ast.QualifiedName))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="redefines" target=size
+                    (*ast.QualifiedName))
+                  (LiteralReal value="6.8")))))
+          (Membership visibility="default"
+            (Usage kind="action" name="run" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"
+              (Relationship kind="typing" target=Sequence
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="binding" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="bind"
+              (ConnectorEnd target="*ast.FeatureChainExpr"
+                (FeatureChainExpr member="report"
+                  (FeatureChainExpr member="measure"
+                    (FeatureReference name="run"))))
+              (ConnectorEnd target="theReport"
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="go" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (FeatureChainExpr member="go"
+                (FeatureChainExpr member="decision"
+                  (FeatureReference name="run")))))))
+      (Membership visibility="default"
+        (Usage kind="part" name="farContext" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="item" name="theReport" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Report
+                (*ast.QualifiedName))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="redefines" target=size
+                    (*ast.QualifiedName))
+                  (LiteralReal value="12.5")))))
+          (Membership visibility="default"
+            (Usage kind="action" name="run" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"
+              (Relationship kind="typing" target=Sequence
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="binding" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="bind"
+              (ConnectorEnd target="*ast.FeatureChainExpr"
+                (FeatureChainExpr member="report"
+                  (FeatureChainExpr member="measure"
+                    (FeatureReference name="run"))))
+              (ConnectorEnd target="theReport"
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="go" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (FeatureChainExpr member="go"
+                (FeatureChainExpr member="decision"
+                  (FeatureReference name="run")))))))
+      (Membership visibility="default"
+        (Usage kind="part" name="site" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="part" name="near" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=context
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="part" name="far" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=farContext
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="nearGo" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (FeatureChainExpr member="go"
+                (FeatureReference name="near"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="farGo" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (FeatureChainExpr member="go"
+                (FeatureReference name="far")))))))))

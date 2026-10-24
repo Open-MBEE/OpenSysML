@@ -1,1 +1,0 @@
-- A stated box keeps its keyword line beside a name that wraps: the DOT writer shrinks the name and the keyword together, from the node's size down to the floor, and drops the keyword only when even the floor holds no line for it, so a Cameo-sized box whose two-word name wraps still reads `«part def»` above it. Detail lines and compartments are fitted after, as before.

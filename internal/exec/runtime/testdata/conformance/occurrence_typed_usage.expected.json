@@ -1,0 +1,10 @@
+{
+  "type": "occurrence",
+  "evaluate": "Sequences::Rig::session",
+  "transfers": [
+    "hello",
+    "ack",
+    "bye"
+  ],
+  "trace": true
+}

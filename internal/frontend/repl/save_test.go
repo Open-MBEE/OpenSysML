@@ -133,13 +133,14 @@ func TestMetaSaveThenLoadRoundTrip(t *testing.T) {
 	}
 }
 
-// A session the parser could not fully read is still written as notation, with
+// A session the parser could not fully read (here a declaration kept, since it
+// names what a redeclaration would replace) is still written as notation, with
 // its syntax errors reported: the file is the user's own text, and refusing
 // would strand work that exists nowhere else.
 func TestMetaSaveWithSyntaxErrorWarnsAndWrites(t *testing.T) {
 	s := NewSession()
 	s.Submit("package P { part x; }")
-	s.Submit("part 3x;")
+	s.Submit("part y : 3x;")
 	path := filepath.Join(t.TempDir(), "out.sysml")
 
 	out, _, err := s.runMeta("%save " + path)
@@ -156,7 +157,7 @@ func TestMetaSaveWithSyntaxErrorWarnsAndWrites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"package P", "part 3x;"} {
+	for _, want := range []string{"package P", "part y : 3x;"} {
 		if !strings.Contains(string(data), want) {
 			t.Errorf("saved file is missing %q:\n%s", want, data)
 		}
@@ -167,7 +168,7 @@ func TestMetaSaveWithSyntaxErrorWarnsAndWrites(t *testing.T) {
 // would be quietly missing declarations.
 func TestMetaSaveTurtleWithSyntaxErrorRefuses(t *testing.T) {
 	s := NewSession()
-	s.Submit("part 3x;")
+	s.Submit("part y : 3x;")
 	path := filepath.Join(t.TempDir(), "out.ttl")
 
 	out, _, err := s.runMeta("%save " + path)

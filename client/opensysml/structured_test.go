@@ -27,9 +27,9 @@ const structuredSource = `package S {
 	attribute v : CartesianVectorValue = VectorOf((3.0, 4.0));
 	attribute d : VectorQuantityValue = VectorOf((3.0, 4.0)) [m];
 
-	calc def Length { in x : CartesianVectorValue; return : Real = norm(x); }
+	calc def Length { in x : CartesianVectorValue; return : Real[1] = norm(x); }
 	calc length : Length;
-	calc def Doubled { in x : CartesianVectorValue; return : CartesianVectorValue = cartesianVectorScalarMult(x, 2.0); }
+	calc def Doubled { in x : CartesianVectorValue; return : CartesianVectorValue[1] = cartesianVectorScalarMult(x, 2.0); }
 	calc doubled : Doubled;
 
 	action scale {

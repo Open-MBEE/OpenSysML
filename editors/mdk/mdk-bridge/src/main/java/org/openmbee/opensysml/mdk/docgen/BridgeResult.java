@@ -7,7 +7,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * One run as the OpenSysML MDK plugin hands it across the classloader boundary: a map of JDK
+ * One run as the OpenSysML MDK for Cameo plugin hands it across the classloader boundary: a map of JDK
  * values, read here into a typed view. The keys are the contract with
  * {@code org.openmbee.opensysml.mdk.bridge.DocGenBridge} in the plugin; change both together.
  */

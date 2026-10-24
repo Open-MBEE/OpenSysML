@@ -358,7 +358,7 @@ func fixtureSets(t *testing.T) map[string]map[string][]byte {
 	for _, e := range entries {
 		path := filepath.Join("../../examples", e.Name())
 		switch {
-		case e.Name() == "sysml-v2-training" || e.Name() == "pilot-corpora":
+		case e.Name() == "sysml-v2-training" || e.Name() == "pilot-corpora" || e.Name() == "spec-examples":
 			continue
 		case e.IsDir():
 			for _, f := range modelFiles(t, path) {
@@ -453,6 +453,7 @@ var corpusRoots = []struct{ dir, requireEnv, fetch string }{
 	{"../../examples/pilot-corpora/kerml-examples", "OPENSYSML_REQUIRE_PILOT_CORPORA", "./scripts/download-pilot-corpora.sh"},
 	{"../../examples/pilot-corpora/sysml-examples", "OPENSYSML_REQUIRE_PILOT_CORPORA", "./scripts/download-pilot-corpora.sh"},
 	{"../../examples/pilot-corpora/sysml-validation", "OPENSYSML_REQUIRE_PILOT_CORPORA", "./scripts/download-pilot-corpora.sh"},
+	{"../../examples/spec-examples", "OPENSYSML_REQUIRE_SPEC_EXAMPLES", "./scripts/download-spec-examples.sh"},
 }
 
 func TestIncrementalEqualsFreshCorpora(t *testing.T) {

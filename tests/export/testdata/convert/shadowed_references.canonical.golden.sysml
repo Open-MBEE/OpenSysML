@@ -31,7 +31,7 @@ package Shadowing {
         subject vehicle : Bus;
     }
     analysis study : Study {
-        subject subsets bus redefines vehicle;
+        subject redefines vehicle subsets bus;
     }
     analysis deeper subsets study {
         attribute load = vehicle.cargo;

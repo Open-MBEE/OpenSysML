@@ -1,1 +1,0 @@
-- A compartment row for a member with no name or type to show (an unnamed attribute with typings hidden) reads as the member's keyword, as a head with nothing else to show does, instead of an empty line that took a row of the stated box and left the compartment's name written over nothing.

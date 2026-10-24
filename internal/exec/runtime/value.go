@@ -576,6 +576,8 @@ type Sequence struct {
 	elements    []Value
 	elementUnit *Unit
 	required    *requiredMembers
+	// shaped: the one-element shape one value is held in, charged when a feature holds it.
+	shaped bool
 }
 
 // NewSequence creates an empty Sequence.
@@ -648,6 +650,8 @@ type Set struct {
 	order    []Value  // insertion order, the tie-break canonical order falls back to
 	sorted   []Value  // canonical order, built on the first read after an Add
 	ctx      *Context // judges membership; nil compares values with no context
+	// shaped: the one-element shape one value is held in, charged when a feature holds it.
+	shaped bool
 }
 
 // NewSet creates an empty Set whose membership needs no context.
@@ -797,4 +801,10 @@ func magnitudeOf(value Value) (semantics.Value, bool) {
 		}
 	}
 	return semantics.Value{}, false
+}
+
+// Sole is the one value a one-element sequence or set holds, or v itself for
+// any other value: what a consumer taking one value reads from a held result.
+func (v Value) Sole() Value {
+	return soleElement(v)
 }

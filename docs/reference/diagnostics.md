@@ -1041,7 +1041,7 @@ Specification: SysML v2 validatePortUsageIsReference
 | [`redefinition-multiplicity`](#redefinition-multiplicity) | warning | a redefining feature with a smaller lower bound than the redefined one |
 | [`redefinition-no-derived-name`](#redefinition-no-derived-name) | warning | an unnamed redefinition given a value in a context that names it differently |
 | [`redefinition-no-inherited`](#redefinition-no-inherited) | error | `:>>` naming a feature the owner does not inherit |
-| [`redefinition-not-end`](#redefinition-not-end) | error | a non-end feature redefining an end feature |
+| [`redefinition-not-end`](#redefinition-not-end) | error | a non-end feature of an association or connector redefining an end feature |
 | [`redefinition-package-level`](#redefinition-package-level) | error | a redefinition of a package-level feature |
 | [`redefinition-same-featuring`](#redefinition-same-featuring) | error | a redefinition between features of one featuring type |
 | [`redefinition-through-reference`](#redefinition-through-reference) | error | a chain redefinition stepping through a feature that owns no object |
@@ -1071,6 +1071,7 @@ Specification: SysML v2 validatePortUsageIsReference
 | [`type-unioning-not-one`](#type-unioning-not-one) | error | `unions` with one type only |
 | [`type-unioning-self`](#type-unioning-self) | error | a type unioning itself |
 | [`variable-feature-owner`](#variable-feature-owner) | error | a variable (`var`) feature owned by a non-occurrence type |
+| [`variant-kind`](#variant-kind) | error | a variant whose kind is inconsistent with its owning variation |
 | [`variant-outside-variation`](#variant-outside-variation) | error | a variant that is not an owned member of a variation |
 | [`variation-member-not-variant`](#variation-member-not-variant) | error | a variation owning a usage that is no variant |
 | [`variation-specialization`](#variation-specialization) | error | a variation specializing another variation |
@@ -1717,11 +1718,11 @@ Specification: KerML 1.0 §8.3.3.3.6 Redefinition
 
 #### `redefinition-not-end`
 
-**error** · Constraints · a non-end feature redefining an end feature
+**error** · Constraints · a non-end feature of an association or connector redefining an end feature
 
-A feature that redefines an end feature is itself an end feature. Write `end` before the redefining feature.
+A feature of an association or a connector that redefines an end feature is itself an end feature; a feature of any other type may redefine an end without being one. Write `end` before the redefining feature.
 
-Specification: KerML 1.0 validateRedefinitionEndConformance
+Specification: KerML 1.1 Beta 2 §8.3.3.3.8 validateRedefinitionEndConformance
 
 #### `redefinition-package-level`
 
@@ -1955,6 +1956,14 @@ A feature that varies over time (`var`) is owned by an occurrence type, whose in
 
 Specification: KerML 1.0 validateFeatureIsVariable
 
+#### `variant-kind`
+
+**error** · Constraints · a variant whose kind is inconsistent with its owning variation
+
+A variant specializes the variation it is a variant of, so the variation definition, or the types of the variation usage, type the variant; here the variant's kind does not take a type of that kind (an action variant of a part variation, an attribute variant of an action variation). Declare the variant with the variation's kind, or move it to a variation of its own kind.
+
+Specification: SysML v2 §7.6.7 and checkUsageVariationDefinitionSpecialization, checkUsageVariationUsageSpecialization
+
 #### `variant-outside-variation`
 
 **error** · Constraints · a variant that is not an owned member of a variation
@@ -1967,7 +1976,7 @@ Specification: SysML v2 validateVariationMembershipOwningNamespace
 
 **error** · Constraints · a variation owning a usage that is no variant
 
-Every owned usage of a variation definition or usage is a variant (an enumeration definition's every member an enumerated value). Write `variant` before the usage, or declare it in a definition the variation specializes.
+Every owned usage of a variation definition or usage is a variant, an objective or an explicit parameter included (an enumeration definition's every member an enumerated value). Write `variant` before the usage, or declare it in a definition the variation specializes.
 
 Specification: SysML v2 validateDefinitionVariationMembership and validateUsageVariationMembership
 

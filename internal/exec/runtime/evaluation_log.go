@@ -72,7 +72,18 @@ func (log *evaluationLog) pick(element Value) {
 // argumentsByPosition lists an application's arguments by parameter position,
 // null where the application binds none before a later one; unknown names follow, sorted.
 func (shape *calcShape) argumentsByPosition(args calcArgs) []Value {
-	arguments := append(make([]Value, 0, len(shape.ParamNames)), args.positional...)
+	arguments := make([]Value, 0, len(shape.ParamNames))
+	indexes := shape.positionalIndexes()
+	for k, value := range args.positional {
+		position := len(arguments)
+		if k < len(indexes) {
+			position = indexes[k]
+		}
+		for len(arguments) <= position {
+			arguments = append(arguments, nullValue())
+		}
+		arguments[position] = value
+	}
 	var unknown []string
 	for name := range args.named {
 		position := slices.Index(shape.ParamNames, name)
@@ -96,11 +107,17 @@ func (shape *calcShape) argumentsByPosition(args calcArgs) []Value {
 // value as `==` judges, to these, so one alternative evaluated twice is noted once.
 func (log *evaluationLog) seen(calc *symbols.Symbol, arguments []Value) bool {
 	for i, entry := range log.entries {
-		if log.calcOf[i] == calc && slices.EqualFunc(entry.Arguments, arguments, valueEqual) {
+		if log.calcOf[i] == calc && slices.EqualFunc(entry.Arguments, arguments, denotesEqual) {
 			return true
 		}
 	}
 	return false
+}
+
+// denotesEqual is valueEqual over what each value denotes: a parameter bound to a feature's
+// one value and the element `selectOne` picked are the same evaluation argument.
+func denotesEqual(a, b Value) bool {
+	return valueEqual(soleElement(a), soleElement(b))
 }
 
 // evaluations reports the log with the evaluation of the returned value marked
@@ -109,11 +126,11 @@ func (log *evaluationLog) evaluations(returned Value, ok bool) []AnalysisEvaluat
 	if !ok {
 		return log.entries
 	}
-	picked := slices.ContainsFunc(log.picks, func(pick Value) bool { return valueEqual(pick, returned) })
+	picked := slices.ContainsFunc(log.picks, func(pick Value) bool { return denotesEqual(pick, returned) })
 	for i := range log.entries {
 		entry := &log.entries[i]
 		entry.Selected = picked && slices.ContainsFunc(entry.Arguments, func(arg Value) bool {
-			return valueEqual(arg, returned)
+			return denotesEqual(arg, returned)
 		})
 	}
 	for s, selected := range log.entries {

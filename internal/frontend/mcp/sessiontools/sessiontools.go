@@ -253,7 +253,7 @@ func Register(s *mcp.Server, m *Manager) {
 			Accepted:    !res.Rejected(),
 			Declared:    orEmpty(res.Declared),
 			Notices:     orEmpty(res.Notices),
-			Diagnostics: diagnostics(sess.Locate(res.OwnDiagnostics(verbosity))),
+			Diagnostics: diagnostics(sess.Locate(res, res.OwnDiagnostics(verbosity))),
 			Text:        text(repl.RenderResult(res, verbosity)),
 		}
 		if res.Refused != nil {

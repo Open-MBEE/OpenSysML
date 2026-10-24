@@ -1,0 +1,6 @@
+{
+	"type": "action",
+	"outputs": {
+		"sum": {"type": "Integer", "value": 9}
+	}
+}

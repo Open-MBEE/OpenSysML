@@ -393,8 +393,12 @@ func vertexKind(node ast.Node) string {
 	return strings.TrimPrefix(fmt.Sprintf("%T", node), "*ast.")
 }
 
-// vertexName is the name a vertex answers to, "" for an anonymous one.
+// vertexName is the name a vertex answers to, "" for an anonymous one or for
+// no vertex at all (a typed nil read from a map of the lowered graph).
 func vertexName(node ast.Node) string {
+	if nilNode(node) {
+		return ""
+	}
 	switch n := node.(type) {
 	case *ast.PseudostateNode:
 		return n.Name

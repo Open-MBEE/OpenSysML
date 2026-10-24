@@ -2,8 +2,8 @@
   "libraries": true,
   "type": "calc",
   "evaluate": "test::total",
-  "result": {
-    "type": "Integer",
-    "value": 32
-  }
+  "result": {"type": "Sequence", "elements": [{
+      "type": "Integer",
+      "value": 32
+    }]}
 }

@@ -450,7 +450,7 @@ func TestEvaluateCalcInvokesWithArguments(t *testing.T) {
 	if resp.Error != "" {
 		t.Fatalf("EvaluateCalc reported %q", resp.Error)
 	}
-	if got := resp.Result.GetRealValue(); got != 6.5 {
+	if got := soleElement(t, "result", resp.Result).GetRealValue(); got != 6.5 {
 		t.Errorf("result = %v, want 6.5 (result: %v)", got, resp.Result)
 	}
 }
@@ -488,7 +488,7 @@ func TestEvaluateCalcUsageReportsItsOutputs(t *testing.T) {
 	}
 	want := map[string]int64{"a": 6, "b": 10}
 	for _, out := range resp.Outputs {
-		if out.Value.GetIntValue() != want[out.Name] {
+		if soleElement(t, out.Name, out.Value).GetIntValue() != want[out.Name] {
 			t.Errorf("output %s = %v, want %d", out.Name, out.Value, want[out.Name])
 		}
 	}

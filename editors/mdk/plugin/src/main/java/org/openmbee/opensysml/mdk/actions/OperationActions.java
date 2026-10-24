@@ -99,11 +99,11 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
       try {
         JOptionPane.showMessageDialog(
             Application.getInstance().getMainFrame(), DocGenExtensions.install(project).describe(),
-            "OpenSysML MDK: DocGen extensions", JOptionPane.INFORMATION_MESSAGE);
+            "OpenSysML MDK for Cameo: DocGen extensions", JOptionPane.INFORMATION_MESSAGE);
       } catch (IllegalStateException failure) {
         JOptionPane.showMessageDialog(
             Application.getInstance().getMainFrame(), failure.getMessage(),
-            "OpenSysML MDK: DocGen extensions", JOptionPane.ERROR_MESSAGE);
+            "OpenSysML MDK for Cameo: DocGen extensions", JOptionPane.ERROR_MESSAGE);
       }
     }
   }

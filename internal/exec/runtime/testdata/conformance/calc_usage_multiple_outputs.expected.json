@@ -2,12 +2,12 @@
   "type": "calcUsage",
   "evaluate": "test::c",
   "outputs": {
-    "a": {"type": "Integer", "value": 6},
-    "b": {"type": "Integer", "value": 10}
+    "a": {"type": "Sequence", "elements": [{"type": "Integer", "value": 6}]},
+    "b": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]}
   },
   "reads": {
-    "test::z": {"type": "Integer", "value": 10},
-    "test::Rig::q": {"type": "Integer", "value": 8},
-    "test::Rig::inner::deep": {"type": "Integer", "value": 20}
+    "test::z": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]},
+    "test::Rig::q": {"type": "Sequence", "elements": [{"type": "Integer", "value": 8}]},
+    "test::Rig::inner::deep": {"type": "Sequence", "elements": [{"type": "Integer", "value": 20}]}
   }
 }
