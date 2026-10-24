@@ -640,9 +640,8 @@ func terminateNamed(t *testing.T, graph *StateGraph, name string) *ast.Usage {
 	return nil
 }
 
-// A guard reading a feature that redefines, by a qualified name through an alias,
-// one valued by an expression reads what that expression reads: the inherited
-// binding is followed through the graph's semantic model, as an action's is.
+// A guard reading a feature that redefines, through an alias, one valued by an
+// expression reads what that expression reads, by the graph's semantic model.
 func TestTransitionFootprintsFollowInheritedBindings(t *testing.T) {
 	graph, err := resolvedStateGraph(t, `
 		package M {
