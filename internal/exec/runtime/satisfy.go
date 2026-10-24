@@ -233,7 +233,7 @@ func (ctx *Context) chainRoot(sym *symbols.Symbol, chain *ast.FeatureChainExpr) 
 	if chain.Member == nil {
 		return nil, nil
 	}
-	base, parts := chainBase(chain)
+	base, parts := ast.FeatureChainBase(chain)
 	path := make([]string, 0, len(parts))
 	for _, part := range parts {
 		path = append(path, part.Text)

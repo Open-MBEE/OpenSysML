@@ -498,8 +498,7 @@ stmt action body
       eval literal 1 -> 1
     eval operator + -> 1
   stmt assign height
-          eval feature fall -> instance#2
-        eval chain output -> ⟨-1.0⟩
+        eval feature fall -> instance#2
       eval chain elements -> (-1.0)
       eval literal 1 -> 1
     eval index -> -1.0
