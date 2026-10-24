@@ -3853,3 +3853,29 @@ test("liftedEdges anchors a connector at a lifted owner's pin, and on a pin lift
   const start = pinLifted.points[0];
   assert.ok(start.x >= p1.box.x + 50 && start.x <= p1.box.x + 50 + PORT_SIZE, `anchored on the lifted pin, not at ${JSON.stringify(start)}`);
 });
+
+test("layoutCanvas routes around an owner a placed member of its clipped child lies beyond", () => {
+  const layout = layoutCanvas(
+    rendering(
+      [
+        node("a", "a", { x: 100, y: 80, width: 120, height: 60 }),
+        node("inner", "inner", { parent: "a" }),
+        node("sensor", "sensor", { parent: "inner", x: 400, y: 100, width: 40, height: 20 }),
+        node("far", "far", { x: -200, y: 100, width: 40, height: 20 }),
+      ],
+      [{ from: "sensor", to: "far", label: "", kind: "connection", fqn: "M::sf" }],
+    ),
+  );
+  const [edge] = layout.edges;
+  assert.equal(edge.rerouted, true);
+  const a = layout.nodes.get("a")!.box;
+  const crosses = edge.points.some((p, i) => i > 0 && intersectsSegment(edge.points[i - 1], p, a));
+  assert.equal(crosses, false, `route ${JSON.stringify(edge.points)} crosses a's box ${JSON.stringify(a)}`);
+});
+
+// intersectsSegment reports an axis-aligned segment passing through the inside of a box.
+function intersectsSegment(p: { x: number; y: number }, q: { x: number; y: number }, box: Box): boolean {
+  const [x1, x2] = [Math.min(p.x, q.x), Math.max(p.x, q.x)];
+  const [y1, y2] = [Math.min(p.y, q.y), Math.max(p.y, q.y)];
+  return x1 < box.x + box.width && x2 > box.x && y1 < box.y + box.height && y2 > box.y;
+}

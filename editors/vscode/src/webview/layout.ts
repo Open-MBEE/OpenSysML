@@ -1736,10 +1736,14 @@ function rerouteAroundBoxes(
   const groups = new Map<string, number[]>();
   for (const index of indices) {
     const edge = edges[index].edge;
+    // The owners an end lies inside are crossed on the way out; one a placed end lies beyond stays an obstacle.
     const exempt = new Set<string>();
     for (const end of [edge.from, edge.to]) {
-      for (let entry = placed.get(endOf(end).node)?.parent; entry; entry = entry.parent) {
-        exempt.add(entry.node.id);
+      const shape = placed.get(endOf(end).node);
+      for (let entry = shape?.parent; entry; entry = entry.parent) {
+        if (shape && within(shape.box, entry.box)) {
+          exempt.add(entry.node.id);
+        }
       }
     }
     const key = [...exempt].sort(byCodeUnit).join(" ");
