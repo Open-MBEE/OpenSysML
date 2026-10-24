@@ -12,6 +12,10 @@ on this repository. Do not open a public issue, pull request or discussion for a
 believe is a security problem, and do not include a working exploit in a public place before the
 advisory is published.
 
+If that form is unavailable (it depends on a repository setting) or you get no acknowledgement
+within the deadline below, e-mail the responder directly at <jason.han@jpl.nasa.gov> with
+`[OpenSysML security]` in the subject; a report sent that way gets the same handling.
+
 A report is most useful when it has:
 
 - the affected component (`sysml`, `sysml-lsp`, `sysml-grpc`, `sysml-mcp`, `sysml-jupyter-kernel`,
