@@ -128,6 +128,35 @@ func TestRelationshipEdgesOfReturnsNoEdgesForUnsupportedKind(t *testing.T) {
 	}
 }
 
+func TestDerivationEdgesKeepTaggedParticipants(t *testing.T) {
+	m, root := buildRelationshipModelWithStdlib(t, "t.sysml", source.KindSysML, `package P {
+		private import RequirementDerivation::*;
+		requirement parent { @original; }
+		requirement child { @derive; }
+		requirement plainChild;
+		#derivation connection byMetadata { end #original ::> parent; end #derive ::> child; }
+		connection bySubsetting : Derivation {
+			end :> originalRequirements ::> parent;
+			end :> derivedRequirements ::> plainChild;
+		}
+		connection def TaggedDerivation :> Derivation {
+			end #original src :> parent;
+			end #derive dst :> child;
+		}
+	}`)
+	index := m.resolver.Index()
+	for symbol, want := range map[string][2]string{
+		"P::byMetadata":       {"P::parent", "P::child"},
+		"P::bySubsetting":     {"P::parent", "P::plainChild"},
+		"P::TaggedDerivation": {"P::parent", "P::child"},
+	} {
+		edges := m.RelationshipEdgesOf(nestedSym(t, root, symbol), RelationshipDerivation)
+		if len(edges) != 1 || index.GetFQN(edges[0].Source) != want[0] || index.GetFQN(edges[0].Target) != want[1] {
+			t.Fatalf("RelationshipEdgesOf(%s) = %v, want %v -> %v", symbol, edges, want[0], want[1])
+		}
+	}
+}
+
 func TestRelationshipEdgesOfDerivationRefinementAndDependency(t *testing.T) {
 	m, root := buildRelationshipModelWithStdlib(t, "t.sysml", source.KindSysML, `package P {
 		private import RequirementDerivation::*;
