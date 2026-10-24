@@ -953,37 +953,35 @@ func (inst *Instance) storeFeatureValue(ctx *Context, fv *FeatureValue, name str
 		ctx.afterWrite(fv, before)
 		ctx.adoptOccurrenceWrite(inst, fv)
 		ctx.adoptBodyCellValue(fv)
-		ctx.releaseStandIns(fv, held)
+		ctx.releaseStandIns(held)
 		return nil
 	})
 }
 
 // releaseStandIns drops the objects a value-typed feature materialized to stand for its
 // unspecified values once a write gives it some: a data value has no identity of its own.
-func (ctx *Context) releaseStandIns(fv *FeatureValue, held Value) {
+func (ctx *Context) releaseStandIns(held Value) {
 	switch held.Kind {
 	case ValInstance:
-		ctx.releaseStandIn(fv, held)
+		ctx.releaseStandIn(held)
 	case ValSequence, ValSet, ValArray:
 		for _, elem := range listedElements(held) {
-			ctx.releaseStandIn(fv, elem)
+			ctx.releaseStandIn(elem)
 		}
 	}
 }
 
-// releaseStandIn drops elem when it is a stand-in made for fv that nothing names any more.
-func (ctx *Context) releaseStandIn(fv *FeatureValue, elem Value) {
+// releaseStandIn drops elem when it is a stand-in a write just replaced that nothing names any more.
+func (ctx *Context) releaseStandIn(elem Value) {
 	if elem.Kind != ValInstance || !ctx.HoldsNoValue(elem) {
 		return
 	}
-	id := elem.Instance
-	standIn := ctx.instances[id]
-	owner := standIn.owner
-	if owner == nil || owner.FeatureValues[standIn.ownerFeature] != fv || len(standIn.behaviors) != 0 {
+	standIn := ctx.instances[elem.Instance]
+	if len(standIn.behaviors) != 0 {
 		return
 	}
-	named := map[int64]bool{id: true}
-	if ctx.featureValuesName(named) || ctx.runDataNames(owner, named) {
+	named := map[int64]bool{standIn.ID: true}
+	if ctx.featureValuesName(named) || ctx.runDataNames(named) {
 		return
 	}
 	ctx.dropStandIn(standIn)
@@ -1031,7 +1029,7 @@ func (ctx *Context) adoptOccurrenceWrite(inst *Instance, fv *FeatureValue) {
 			mirrored = true
 		}
 	}
-	for _, exec := range ctx.liveActionExecutors() {
+	for _, exec := range ctx.actionExecutors {
 		if exec.occurrence == inst {
 			exec.mirrorOccurrenceWrite(fv)
 		}
@@ -1041,31 +1039,21 @@ func (ctx *Context) adoptOccurrenceWrite(inst *Instance, fv *FeatureValue) {
 	}
 }
 
-// runDataNames reports whether the data of a run over inst still names one of the objects.
-func (ctx *Context) runDataNames(inst *Instance, named map[int64]bool) bool {
+// runDataNames reports whether the data of a live run still names one of the objects.
+func (ctx *Context) runDataNames(named map[int64]bool) bool {
 	for _, exec := range ctx.stateExecutors {
-		if exec.occurrence == inst && valuesName(exec.stateData, named) {
+		if valuesName(exec.stateData, named) {
 			return true
 		}
 	}
-	for _, exec := range ctx.liveActionExecutors() {
-		if exec.occurrence == inst && exec.root != nil && valuesName(exec.root.data, named) {
-			return true
+	for _, exec := range ctx.actionExecutors {
+		for _, perf := range exec.reachableFrames() {
+			if valuesName(perf.data, named) {
+				return true
+			}
 		}
 	}
 	return false
-}
-
-// liveActionExecutors answers the action runs over an occurrence still under way, forgetting the rest.
-func (ctx *Context) liveActionExecutors() []*ActionExecutor {
-	live := ctx.actionExecutors[:0]
-	for _, exec := range ctx.actionExecutors {
-		if !exec.finished() {
-			live = append(live, exec)
-		}
-	}
-	ctx.actionExecutors = live
-	return live
 }
 
 // valuesName reports whether any of vars names one of the objects.

@@ -266,6 +266,9 @@ func newActionExecutorOn(
 	exec.through = ctx.performedPinBindings(performed, graph, self)
 	exec.owner = exec
 	exec.flow = exec
+	if occurrence != nil {
+		ctx.registerActionExecutor(exec)
+	}
 	exec.driven.exec = exec
 	ctx.clock.attach(exec)
 	ctx.run.notePerformer(exec)
@@ -1537,7 +1540,7 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 	inst.explicit = true
 	e.occurrence = inst
 	e.performances.occurrence = inst
-	e.ctx.actionExecutors = append(e.ctx.actionExecutors, e)
+	e.ctx.registerActionExecutor(e)
 	for _, attr := range e.features {
 		if attr.Shadowed {
 			continue // the performance's alone: the occurrence's slots are keyed by name
@@ -1725,6 +1728,7 @@ func (e *ActionExecutor) completeRoot() error {
 	}
 	e.state = StateCompleted
 	e.endRootPerformance()
+	e.ctx.unregisterActionExecutor(e)
 	return nil
 }
 

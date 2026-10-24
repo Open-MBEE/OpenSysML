@@ -1055,7 +1055,7 @@ func (ctx *Context) assignBindingValue(inst *Instance, fv *FeatureValue, name st
 	fv.Materialized, fv.intrinsic = true, false
 	fv.BindingDerived, fv.Assumed = true, false
 	ctx.adoptOccurrenceWrite(inst, fv)
-	ctx.releaseStandIns(fv, held)
+	ctx.releaseStandIns(held)
 	return nil
 }
 

@@ -348,7 +348,7 @@ func (ctx *Context) invalidate(dependents []*FeatureValue) (deriving []*FeatureV
 			ctx.noteFeatureWrite(dep)
 			held := dep.HeldValue()
 			dep.Value, dep.Values, dep.Materialized, dep.intrinsic = Value{}, Value{}, false, false
-			ctx.releaseStandIns(dep, held)
+			ctx.releaseStandIns(held)
 			// A body cell holding a derivation re-derives; one the body assigned keeps it.
 			if cell := dep.body; cell != nil && cell.owner != nil && cell.binding != nil && !cell.fv.Written {
 				delete(cell.owner.vars, cell.name)

@@ -206,6 +206,124 @@ func TestRuntimeRobustnessValueStandIn(t *testing.T) {
 		}
 	})
 
+	t.Run("copied_stand_in_goes_with_the_last_feature_naming_it", func(t *testing.T) {
+		const copied = `package test {
+			private import ScalarValues::*;
+			part def P { attribute b : Boolean[1]; attribute copy : Boolean default = false; }
+			part p : P;
+		}`
+		ctx, p := standInObject(t, copied, "test::p")
+		standIn := standInOf(t, ctx, p, "b")
+		for _, write := range []struct {
+			name  string
+			value Value
+		}{{"copy", Value{Kind: ValInstance, Instance: standIn}}, {"b", boolValue(true)}, {"copy", boolValue(false)}} {
+			if err := p.SetFeatureValue(ctx, write.name, write.value); err != nil {
+				t.Fatalf("write %s: %v", write.name, err)
+			}
+		}
+		if _, live := ctx.Instance(standIn); live {
+			t.Fatalf("stand-in #%d is still registered after both features replaced it", standIn)
+		}
+		if got := ctx.InstanceCount(); got != 1 {
+			t.Fatalf("InstanceCount = %d after the writes, want 1 (p)", got)
+		}
+	})
+
+	t.Run("performed_action_data_follows_an_outside_write", func(t *testing.T) {
+		const performed = `package test {
+			private import ScalarValues::*;
+			attribute def Go;
+			action def Act { out b : Boolean[1]; first start; then accept go : Go; then done; }
+			part def P { perform action a : Act; }
+			part p : P;
+		}`
+		ctx, p := standInObject(t, performed, "test::p")
+		run, _ := ctx.Instance(heldFeatureValue(t, ctx, p, "a").HeldValue().Instance)
+		standIn := standInOf(t, ctx, run, "b")
+		if err := run.SetFeatureValue(ctx, "b", boolValue(true)); err != nil {
+			t.Fatalf("write b: %v", err)
+		}
+		if _, live := ctx.Instance(standIn); live {
+			t.Fatalf("stand-in #%d is still registered after the write to b", standIn)
+		}
+		var data map[string]Value
+		for _, behavior := range p.behaviors {
+			if behavior.Action != nil {
+				data = behavior.Action.Data()
+			}
+		}
+		if got := data["b"]; !got.isBool() || !got.Const.Bool {
+			t.Fatalf("performed action data b = %s after the outside write, want true", FormatValue(got))
+		}
+		if _, err := ctx.Image(p); err != nil {
+			t.Fatalf("Image after the outside write: %v", err)
+		}
+	})
+
+	t.Run("finished_direct_runs_are_forgotten", func(t *testing.T) {
+		const direct = `package test {
+			private import ScalarValues::*;
+			action def A { attribute same : Boolean = this == this; first start; then done; }
+		}`
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<stand-in>", parseAndBuild(t, direct))
+		for i := 0; i < 3; i++ {
+			if _, err := ctx.ExecuteAction(idx.LookupQualified("test::A")[0]); err != nil {
+				t.Fatalf("ExecuteAction %d: %v", i, err)
+			}
+		}
+		if n := len(ctx.actionExecutors); n != 0 {
+			t.Fatalf("%d finished direct runs are still registered with the context", n)
+		}
+	})
+
+	t.Run("restored_direct_run_follows_an_outside_write", func(t *testing.T) {
+		const paused = `package test {
+			private import ScalarValues::*;
+			action def A {
+				out b : Boolean[1];
+				first start; then action m assign b := this.b; then action w assign b := b; then done;
+			}
+		}`
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<stand-in>", parseAndBuild(t, paused))
+		run, err := newActionExecutor(ctx, idx.LookupQualified("test::A")[0], nil)
+		if err != nil {
+			t.Fatalf("newActionExecutor: %v", err)
+		}
+		if err := run.initialize(); err != nil {
+			t.Fatalf("initialize: %v", err)
+		}
+		run.SetBreakpoint("w")
+		if err := run.RunToCompletion(); err != nil {
+			t.Fatalf("run to the breakpoint: %v", err)
+		}
+		if run.State() != StateSuspended || run.occurrence == nil {
+			t.Fatalf("state %v, occurrence %v at the breakpoint; want a suspended run over its occurrence", run.State(), run.occurrence != nil)
+		}
+		snap, err := run.snapshot()
+		if err != nil {
+			t.Fatalf("snapshot: %v", err)
+		}
+		if err := run.RunToCompletion(); err != nil {
+			t.Fatalf("run to completion: %v", err)
+		}
+		if n := len(ctx.actionExecutors); n != 0 {
+			t.Fatalf("%d runs registered after completion, want 0", n)
+		}
+		snap.Restore()
+		if err := run.occurrence.SetFeatureValue(ctx, "b", boolValue(true)); err != nil {
+			t.Fatalf("write b: %v", err)
+		}
+		if got := run.Data()["b"]; !got.isBool() || !got.Const.Bool {
+			t.Fatalf("restored run data b = %s after the outside write, want true", FormatValue(got))
+		}
+		for _, id := range ctx.InstanceIDs() {
+			if ctx.HoldsNoValue(Value{Kind: ValInstance, Instance: id}) {
+				t.Errorf("object #%d stands in for a value nothing holds", id)
+			}
+		}
+	})
+
 	t.Run("direct_run_data_follows_a_nested_write", func(t *testing.T) {
 		const direct = `package test {
 			private import ScalarValues::*;
