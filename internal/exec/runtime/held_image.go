@@ -363,6 +363,9 @@ func (t *imaging) object(inst *Instance) error {
 		t.reach(id)
 	}
 	t.reachRecorded(inst)
+	if err := t.values(t.ctx.startValues[inst.ID]); err != nil {
+		return fmt.Errorf("object #%d start values: %w", inst.ID, err)
+	}
 	owed := make(map[*FeatureValue]*sharedDefault, len(inst.owed))
 	for _, o := range inst.owed {
 		owed[o.fv] = o.shared
@@ -1098,9 +1101,17 @@ func (m *materializing) recordedOccurrences() {
 		return out
 	}
 	for id, values := range m.img.startValues {
-		if to := made(id); to != 0 {
-			m.dst.startValues[to] = maps.Clone(values)
+		to := made(id)
+		if to == 0 {
+			continue
 		}
+		carried := make(map[string]Value, len(values))
+		for name, value := range values {
+			if value, err := m.value(value); err == nil {
+				carried[name] = value
+			}
+		}
+		m.dst.startValues[to] = carried
 	}
 	for id, shots := range m.img.shots {
 		if to := made(id); to != 0 {
