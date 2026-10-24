@@ -62,10 +62,10 @@ systematically from four sources, one subdirectory each:
    multiplicity on a definition, `g07`/`g08` state members in a part def body), a token from a
    sibling production (`g15` a keyword as a name, `k02` a SysML keyword in KerML), and unterminated
    bodies and comments (`g01`, `g12`, `k05`).
-2. **`extensions/` — the notation we invented** (12 cases). Every state-machine construct our
+2. **`extensions/` — the notation we invented** (13 cases). Every state-machine construct our
    `examples/` tree uses that no pinned production admits: `initial`, `choice`, `junction`,
    `history`, `region`, the since-removed `defer` member, and the `transition <src> to <tgt>` shorthand, plus `require`
-   outside a requirement body (`x08`, since made a parse error), `expose` in a view def body (`x09`), which our grammar admits as an extension, KerML's `connector` declared in a `.sysml` file (`x10`), which the default mode keeps parsed as a `kerml-notation` warning and strict mode refuses, and a one-name `then <target>;` in a view body (`x12`), a succession member no non-action body admits. The pinned grammar
+   outside a requirement body (`x08`, since made a parse error), `expose` in a view def body (`x09`), which our grammar admits as an extension, KerML's `connector` declared in a `.sysml` file (`x10`) and a typing spelled `typed by` in one (`x13`), which the default mode keeps parsed as a `kerml-notation` warning and strict mode refuses, and a one-name `then <target>;` in a view body (`x12`), a succession member no non-action body admits. The pinned grammar
    spells entry as `entry; then <state>`, concurrency as `state ... parallel`, and transitions as
    `first <src> then <tgt>`, and has no pseudostates or deferral at all. Adjudication: these are
    **intended OpenSysML extensions**, not accidents — each has dedicated parser tests
@@ -118,7 +118,7 @@ systematically from four sources, one subdirectory each:
    pilot's grammar rejects before its validator would), and a constructed payload whose `new`
    names a package rather than a type (`send-constructor-non-type`).
 
-What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 344
+What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 345
 cases ourselves**, so the denominator measures our coverage of the rejection surface, not our
 conformance: it is a **sample, not a proof** — a clean bucket here does not mean OpenSysML rejects
 everything the reference rejects, and no official conformance suite exists to make that claim
@@ -166,13 +166,13 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-344 case(s): 332 both reject, 0 only the pilot rejects, 12 only we reject, 0 both accept
-  of which 4 agree only because we were asked strictly (the default mode accepts them, by design)
+345 case(s): 333 both reject, 0 only the pilot rejects, 12 only we reject, 0 both accept
+  of which 5 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
 | Source | Cases | Both reject | Pilot only | Ours only | Both accept |
 | --- | --- | --- | --- | --- | --- |
-| extensions | 12 | 12 | 0 | 0 | 0 |
+| extensions | 13 | 13 | 0 | 0 | 0 |
 | grammar | 112 | 112 | 0 | 0 | 0 |
 | semantic | 185 | 173 | 0 | 12 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
@@ -278,8 +278,8 @@ rules closed eleven `xpect/` gaps (`p08`, `p17`, `p20`,
 `p21`, `p22`, `p25`, `p26`, `p27`, `p28`, `p32`, `p33`). No case in the corpus is
 accepted by both implementations.
 
-The four strict-only agreements are `x06`, `x09`, `x10` and `x11`: OpenSysML notation
-extensions that the default mode reports as `nonstandard-notation` warnings on purpose and strict
+The five strict-only agreements are `x06`, `x09`, `x10`, `x11` and `x13`: OpenSysML notation
+extensions that the default mode reports as `nonstandard-notation` or `kerml-notation` warnings on purpose and strict
 mode reports as errors. `x01` (the
 initial state marker), `x04` (`region r { … }`), `x05` (the `defer <event>;` state member),
 `x07` (`transition <src> to <tgt>`) and `x08` (`require` outside a requirement body) left that
@@ -290,12 +290,12 @@ default` prints. `-conformance strict` gives 310 and 0. Reserved keywords recove
 names and SysML declaration keywords recovered in KerML are now errors in either mode; the parser
 still preserves their trees for editors and later analysis. Of the 14 gaps this document carried
 when it was first written, six were closed by the validation work itself — `p01`, `p02`, `p03`,
-`p04`, `p05` and `p06` — and only the four `extensions/` cases belong to strict mode.
+`p04`, `p05` and `p06` — and only the five `extensions/` cases belong to strict mode.
 
 Read those four as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 344 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 345 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 

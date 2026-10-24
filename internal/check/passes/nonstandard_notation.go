@@ -165,6 +165,7 @@ func (w *notationWalker) walk(members []ast.Node) {
 		case *ast.Definition:
 			reported := w.kermlDeclaration(n, n.Keyword)
 			w.kermlRelationships(n.Relationships)
+			w.typedByPrefixes(n.Prefixes)
 			w.sysmlDeclaration(n, n.Keyword)
 			w.prefixBeforeIndividual(n.Prefixes, n.IndividualKeyword)
 			w.caseKeyword(n, n.Keyword, n.HasDefKeyword)
@@ -177,6 +178,7 @@ func (w *notationWalker) walk(members []ast.Node) {
 			if n.CrossFeature != nil {
 				w.kermlRelationships(n.CrossFeature.Relationships)
 			}
+			w.typedByPrefixes(n.Prefixes)
 			w.sysmlDeclaration(n, n.Keyword)
 			w.prefixBeforeIndividual(n.Prefixes, n.IndividualKeyword)
 			w.caseKeyword(n, n.Keyword, false)
@@ -193,6 +195,9 @@ func (w *notationWalker) walk(members []ast.Node) {
 		case *ast.Alias:
 			w.keywordAsName(n.Ident)
 			w.walk(n.Body)
+		case *ast.PrefixMetadata:
+			w.typedByPrefixes([]*ast.PrefixMetadata{n})
+			w.walkActionBody(ast.NodeBodyMembers(n))
 		case *ast.MultiplicityDecl:
 			reported := w.kermlDeclaration(n, "multiplicity")
 			w.keywordAsName(n.Ident)
@@ -680,6 +685,10 @@ func (w *notationWalker) kermlRelationships(rels []*ast.Relationship) {
 		if rel == nil {
 			continue
 		}
+		if rel.Kind == ast.RelTyping && rel.TypedBy.Len > 0 {
+			w.typedBy(rel.TypedBy)
+			continue
+		}
 		if rel.Kind == ast.RelFeaturedBy {
 			w.diags = append(w.diags, diag.Diagnostic{
 				Severity: w.severity,
@@ -702,6 +711,39 @@ func (w *notationWalker) kermlRelationships(rels []*ast.Relationship) {
 			})
 		}
 	}
+}
+
+// typedByPrefixes reports the metadata usages among prefixes whose typing a
+// SysML file spelled `typed by`.
+func (w *notationWalker) typedByPrefixes(prefixes []*ast.PrefixMetadata) {
+	if !w.sysml || w.inKerMLDeclaration > 0 {
+		return
+	}
+	for _, prefix := range prefixes {
+		if prefix != nil && prefix.TypedBy.Len > 0 {
+			w.typedBy(prefix.TypedBy)
+		}
+	}
+}
+
+// typedBy reports a typing spelled `typed by` in a SysML file: SysML.xtext:395
+// DefinedByKeyword admits `:` and `defined by` only, where KerML.xtext:600
+// TypedBy admits `:` and `typed by`. The typing itself is read as written, so
+// the fix is the SysML spelling of the same keyword.
+func (w *notationWalker) typedBy(span source.Span) {
+	w.diags = append(w.diags, diag.Diagnostic{
+		Severity: w.severity,
+		Span:     span,
+		Message: "`typed by` is KerML notation: the SysML v2 grammar spells a typing `:` or `defined by`, " +
+			"so write `defined by`",
+		Code:   CodeKerMLNotation,
+		Source: "syntax",
+		Fixes: []diag.Fix{{
+			Title:     "Write `defined by`",
+			Edits:     []diag.Edit{diag.Replace(span, "defined by")},
+			Preferred: true,
+		}},
+	})
 }
 
 // kermlRelationshipClauses names the FeatureRelationshipPart and

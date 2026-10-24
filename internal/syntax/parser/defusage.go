@@ -4190,14 +4190,26 @@ func (p *Parser) parseRelationshipsInto(shape declShape, seen *relClauseState) (
 			return rels
 		}
 		p.checkRelationshipClause(shape, clauseTok, kind, false, seen)
+		typedBy := p.typedBySpan(clauseTok)
 		for {
 			r := p.parseRelationshipClauseTarget(kind)
+			r.TypedBy, typedBy = typedBy, source.Span{}
 			rels = append(rels, r)
 			if !p.accept2(lexer.Comma) {
 				break
 			}
 		}
 	}
+}
+
+// typedBySpan spans a typing clause spelled `typed by` — KerML notation the
+// notation pass reports in a SysML file — from its first keyword to the `by`
+// just consumed; zero for any other clause keyword.
+func (p *Parser) typedBySpan(clauseTok lexer.Token) source.Span {
+	if clauseTok.Kind != lexer.Keyword || clauseTok.KeywordID != "typed" {
+		return source.Span{}
+	}
+	return p.spanFrom(clauseTok.Span.Offset)
 }
 
 // anonymousUsageKind returns the kind of a usage declared without a kind
@@ -5144,11 +5156,13 @@ func (p *Parser) parseMetadataUsage(start int) *ast.PrefixMetadata {
 	// A declared identification precedes the typing, and may be absent from it:
 	// `@ m : Meta;`, `@ <sn> : Meta;`, `@ : Meta;`.
 	var ident ast.Identification
+	var typedBy source.Span
 	if p.atMetadataIdentification() {
 		ident = p.parseIdentification()
 		if !p.accept2(lexer.Colon) {
-			p.advance() // 'defined' | 'typed'
-			p.advance() // 'by'
+			keyword := p.advance() // 'defined' | 'typed'
+			p.advance()            // 'by'
+			typedBy = p.typedBySpan(keyword)
 		}
 	}
 
@@ -5157,7 +5171,7 @@ func (p *Parser) parseMetadataUsage(start int) *ast.PrefixMetadata {
 		p.error(p.peek().Span, "expected metadata type after '@'")
 		return nil
 	}
-	pm := &ast.PrefixMetadata{Ident: ident, Type: metaType}
+	pm := &ast.PrefixMetadata{Ident: ident, Type: metaType, TypedBy: typedBy}
 
 	// `about` names the elements the usage annotates (SysML.xtext:145-147).
 	if p.acceptKeyword("about") {

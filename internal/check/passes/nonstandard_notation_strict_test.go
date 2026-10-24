@@ -82,6 +82,23 @@ func TestKerMLNotationFollowsTheMode(t *testing.T) {
 	}
 }
 
+// A typing spelled `typed by` in a SysML file follows the mode too: a warning
+// by default, an error under strict conformance, silence in a KerML file.
+func TestTypedByFollowsTheMode(t *testing.T) {
+	const src = "package P { part def D; part p typed by D; }"
+	got := notationDiags(t, "a.sysml", src, diag.ConformanceStrict)
+	if len(got) != 1 || got[0].Severity != diag.SeverityError || got[0].Code != CodeKerMLNotation {
+		t.Errorf("strict: got %+v, want one kerml-notation error", got)
+	}
+	got = notationDiags(t, "a.sysml", src, diag.ConformanceDefault)
+	if len(got) != 1 || got[0].Severity != diag.SeverityWarning || got[0].Code != CodeKerMLNotation {
+		t.Errorf("default: got %+v, want one kerml-notation warning", got)
+	}
+	if got := notationDiags(t, "a.kerml", "package P { class D; feature p typed by D; }", diag.ConformanceStrict); len(got) != 0 {
+		t.Errorf("a KerML file uses KerML notation: got %+v, want silence", got)
+	}
+}
+
 // Standard notation must stay silent under strict mode: a false rejection of
 // conforming notation would be the worse defect.
 func TestStandardNotationIsSilentUnderStrictMode(t *testing.T) {
