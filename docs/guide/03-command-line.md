@@ -798,7 +798,7 @@ jobs:
       security-events: write   # upload-sarif
     steps:
       - uses: actions/checkout@v4
-      - uses: Open-MBEE/OpenSysML@v0.10.1   # the release tag is the sysml installed
+      - uses: Open-MBEE/OpenSysML@v0.11.0   # the release tag is the sysml installed
         with:
           path: models
           format: sarif

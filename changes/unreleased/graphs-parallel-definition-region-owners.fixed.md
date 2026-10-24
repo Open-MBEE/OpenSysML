@@ -1,1 +1,0 @@
-- `sysml -graphs` and the `ExportGraphs` RPC no longer panic with a nil pointer dereference on a `parallel` state definition (or a state usage exhibiting one): the vertices standing for its orthogonal regions sit at the top of the machine under no parent state, and the export now names and numbers them there instead of dereferencing the missing parent.

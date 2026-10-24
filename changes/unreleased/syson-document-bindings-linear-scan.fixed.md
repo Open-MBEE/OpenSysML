@@ -1,1 +1,0 @@
-- **SysON plugin: document-query bindings recognise qualified names with a linear scan.** This avoids stack overflow on very long names, accepts escaped characters in quoted names such as `'Frank\'s Braindump'`, and evaluates unquoted non-ASCII letters as expressions because KerML basic names are ASCII-only.

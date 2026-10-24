@@ -1,1 +1,0 @@
-- `%help` lists every option `%render` takes — the line routing, `verdicts`, `show=<elements>` and `depth=<levels>` — where it named only the form, palette, style, ports and link template; the `usage:` line already did.
