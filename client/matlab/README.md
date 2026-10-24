@@ -190,7 +190,8 @@ document query and returns `DocumentQueryResult` (`columns` and `rows`).
 Bindings may be a struct or `containers.Map`; scalar values and the
 `ElementRef`/`ObjectRef` helpers represent supported binding types.
 `model.renderDocument(documentId, 'form', 'markdown')` renders Markdown;
-`'html'` requires the `render_document_html` capability.
+`'html'` requires the `render_document_html` capability and `'asciidoc'` the
+`render_document_asciidoc` capability.
 
 ## Authoring edits
 

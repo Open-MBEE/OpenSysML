@@ -49,7 +49,7 @@ func TestRenderFoldsCompartmentsOnRequest(t *testing.T) {
 		t.Errorf("positioned differs from the default:\n%s", got)
 	}
 	most := render(t, "most")
-	for _, want := range []string{"label : Label<br/>reading : Reading", "sensor : Sensor", "hub : Hub<br/>hub.bearing : Hub", `[headlabel="sensor", dir=back, arrowtail=diamond]`, "// not represented: 5 member(s) drawn as compartment rows of their owner, and 2 node(s) under them left undrawn\n"} {
+	for _, want := range []string{"label : Label<br/>reading : Reading", "sensor : Sensor", "hub : Hub<br/>hub.bearing : Hub", `[headlabel="sensor", dir=back, arrowtail=diamond]`, "// not represented: 5 member(s) drawn as compartment rows of their owner\n"} {
 		if !strings.Contains(most, want) {
 			t.Errorf("most lacks %q:\n%s", want, most)
 		}

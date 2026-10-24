@@ -1,1 +1,0 @@
-- The generals a declaration's kind implies (the base usage it subsets, the definition it is typed by) are derived once per symbol and memoized, as its other supertype queries are; every type query of a feature re-derived them, which made model execution and the CLI about 40 % slower.

@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -258,4 +260,97 @@ func TestRunVerificationOnADefinitionOwnedCase(t *testing.T) {
 		"✓ Verification Cost::Definition::costTest on Cost::cheap (object #1) verdict: pass")
 	wantReport(t, check(t, binary, definitionOwnedModel, "-analysis", "Cost::Definition::costTest"), 2,
 		"? Verification Cost::Definition::costTest verdict: inconclusive — needs an object of Cost::Definition: none is instantiated")
+}
+
+// conformanceFixtureDir holds the execution-conformance fixtures, whose instance
+// cases pin a validation's verdicts and the verification runs reported beside them.
+const conformanceFixtureDir = "../../internal/exec/runtime/testdata/conformance"
+
+// validationFixture is the part of an instance fixture a validation report states.
+type validationFixture struct {
+	Documents   []string `json:"documents"`
+	Instantiate string   `json:"instantiate"`
+	Validation  struct {
+		Verdicts []struct {
+			Assertion     string `json:"assertion"`
+			Status        string `json:"status"`
+			Verifications []struct {
+				Case    string `json:"case"`
+				Verdict string `json:"verdict"`
+			} `json:"verifications"`
+		} `json:"verdicts"`
+		Valid *bool `json:"valid"`
+	} `json:"validation"`
+}
+
+// TestValidateAgreesWithConformanceFixtures holds -validate over each fixture model
+// pinning verification runs to the satisfaction and verification verdicts it pins.
+func TestValidateAgreesWithConformanceFixtures(t *testing.T) {
+	binary := buildCLI(t)
+	paths, err := filepath.Glob(filepath.Join(conformanceFixtureDir, "validation_verification_*.expected.json"))
+	if err != nil || len(paths) == 0 {
+		t.Fatalf("no validation_verification fixtures found: %v", err)
+	}
+	statuses := map[string]string{"holds": "holds", "violated": "fails", "undecided": "undecided"}
+	for _, path := range paths {
+		name := strings.TrimSuffix(filepath.Base(path), ".expected.json")
+		t.Run(name, func(t *testing.T) {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var fixture validationFixture
+			if err := json.Unmarshal(data, &fixture); err != nil {
+				t.Fatalf("%s: %v", path, err)
+			}
+			args := []string{filepath.Join(conformanceFixtureDir, name+".sysml")}
+			for _, doc := range fixture.Documents {
+				args = append(args, filepath.Join(conformanceFixtureDir, doc))
+			}
+			args = append(args, "-instantiate", fixture.Instantiate, "-validate="+fixture.Instantiate, "-json")
+			got := checkPaths(t, binary, args...)
+			var report struct {
+				Exit   int `json:"exit"`
+				Checks []struct {
+					Subject       string `json:"subject"`
+					Status        string `json:"status"`
+					Verifications []struct {
+						Case string `json:"case"`
+						Kind string `json:"kind"`
+					} `json:"verifications"`
+				} `json:"checks"`
+			}
+			if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+				t.Fatalf("report: %v\n%s", err, got.output())
+			}
+			if got.status != report.Exit {
+				t.Errorf("process exit %d, report exit %d", got.status, report.Exit)
+			}
+			if fixture.Validation.Valid != nil && (report.Exit == 0) != *fixture.Validation.Valid {
+				t.Errorf("exit %d, fixture valid = %v", report.Exit, *fixture.Validation.Valid)
+			}
+			verdicts := fixture.Validation.Verdicts
+			if len(report.Checks) != len(verdicts)+1 {
+				t.Fatalf("%d checks for %d verdicts and the summary:\n%s", len(report.Checks), len(verdicts), got.output())
+			}
+			for i, want := range verdicts {
+				check := report.Checks[i]
+				if !strings.HasPrefix(check.Subject, want.Assertion+" on ") || check.Status != statuses[want.Status] {
+					t.Errorf("check %d: %s %s, fixture pins %s %s", i+1, check.Subject, check.Status, want.Assertion, want.Status)
+				}
+				if want.Verifications == nil {
+					continue
+				}
+				if len(check.Verifications) != len(want.Verifications) {
+					t.Errorf("check %d: %d verification(s), fixture pins %d", i+1, len(check.Verifications), len(want.Verifications))
+					continue
+				}
+				for j, run := range want.Verifications {
+					if v := check.Verifications[j]; v.Case != run.Case || v.Kind != run.Verdict {
+						t.Errorf("check %d verification %d: %s %s, fixture pins %s %s", i+1, j+1, v.Case, v.Kind, run.Case, run.Verdict)
+					}
+				}
+			}
+		})
+	}
 }

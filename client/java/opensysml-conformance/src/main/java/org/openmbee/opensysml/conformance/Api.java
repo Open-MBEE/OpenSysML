@@ -1216,7 +1216,9 @@ final class Api {
     RenderedDocument rendered =
         model.renderDocument(request.getDocumentId(), DocumentForm.fromWireName(request.getForm()));
     RenderDocumentResponse.Builder response = RenderDocumentResponse.newBuilder();
-    if (rendered.form() == DocumentForm.HTML) {
+    if (rendered.form() == DocumentForm.ASCIIDOC) {
+      response.setAsciidoc(rendered.content());
+    } else if (rendered.form() == DocumentForm.HTML) {
       response.setHtml(rendered.content());
     } else {
       response.setMarkdown(rendered.content());

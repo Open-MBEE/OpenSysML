@@ -42,3 +42,27 @@ func TestMarkdownBodiesSpacingAndEscaping(t *testing.T) {
 		t.Errorf("rendering carries a double space\n%s", got)
 	}
 }
+
+// Runs cut from a body join exactly as written — markup touching its
+// neighbouring text gains no space — and a reference inside a list item gives
+// its target the anchor it links to.
+func TestMarkdownBodiesAdjacentRunsAndListAnchors(t *testing.T) {
+	fixture := filepath.Join("testdata", "markdown_adjacency.sysml")
+	md := renderFixtureDocument(t, fixture, "Prose::AdjacencyReport")
+	for _, want := range []string{
+		"a*bold*b, c`code`d, [x](<https://example.com/x>)y and $m$! Then [reading](#reading)'s turn.",
+		"- see [reading](#reading)\n- and [closing](#closing)",
+		`<a id="reading"></a>`,
+		`<a id="closing"></a>`,
+	} {
+		if !strings.Contains(md, want) {
+			t.Errorf("Markdown does not contain %q\n%s", want, md)
+		}
+	}
+	html := renderFixtureHTML(t, fixture, "Prose::AdjacencyReport", HTMLOptions{Fragment: true})
+	for _, want := range []string{"a<em>bold</em>b, c<code>code</code>d,", `id="reading"`, `id="closing"`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("HTML does not contain %q\n%s", want, html)
+		}
+	}
+}

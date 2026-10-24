@@ -1789,6 +1789,8 @@ public final class Model {
     connection.capabilities().require(Capabilities.RENDER_DOCUMENT);
     if (form == DocumentForm.HTML) {
       connection.capabilities().require(Capabilities.RENDER_DOCUMENT_HTML);
+    } else if (form == DocumentForm.ASCIIDOC) {
+      connection.capabilities().require(Capabilities.RENDER_DOCUMENT_ASCIIDOC);
     }
     RenderDocumentResponse response =
         connection.call(
@@ -1799,10 +1801,18 @@ public final class Model {
                 .setForm(form == DocumentForm.MARKDOWN ? "" : form.wireName())
                 .build(),
             RenderDocumentResponse.getDefaultInstance());
-    return new RenderedDocument(
-        form,
-        form == DocumentForm.HTML ? response.getHtml() : response.getMarkdown(),
-        response.getFileName());
+    return new RenderedDocument(form, renderedContent(form, response), response.getFileName());
+  }
+
+  private static String renderedContent(DocumentForm form, RenderDocumentResponse response) {
+    switch (form) {
+      case HTML:
+        return response.getHtml();
+      case ASCIIDOC:
+        return response.getAsciidoc();
+      default:
+        return response.getMarkdown();
+    }
   }
 
   /**

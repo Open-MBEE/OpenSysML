@@ -1,1 +1,0 @@
-- API JSON export writes `null` only for absent single-valued owned properties with a zero lower bound and writes empty arrays for absent multi-valued owned properties.

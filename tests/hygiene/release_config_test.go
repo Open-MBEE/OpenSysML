@@ -2,8 +2,11 @@ package hygiene
 
 import (
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -60,8 +63,9 @@ func (c circleConfig) workflow(t *testing.T, name string) workflow {
 }
 
 type runStep struct {
-	Name    string
-	Command string
+	Name            string
+	Command         string
+	NoOutputTimeout string `yaml:"no_output_timeout"`
 }
 
 // jobRunsOnImage reports whether the named job's executor is backed by the
@@ -726,6 +730,71 @@ func TestJavaJarIsStampedWithItsReleaseDigests(t *testing.T) {
 	requireAll(t, "Publish opensysml to Maven Central", requiresOf(t, release, "Publish opensysml to Maven Central"), "Publish GitHub release")
 }
 
+// TestMavenPublishStepOutlivesThePluginWait holds the publish-maven deploy step's no_output_timeout
+// above the plugin's silent waitUntil=published poll (waitMaxTime plus one waitPollingInterval).
+func TestMavenPublishStepOutlivesThePluginWait(t *testing.T) {
+	pom, err := os.ReadFile("../../client/java/pom.xml")
+	if err != nil {
+		t.Fatalf("read client/java/pom.xml: %v", err)
+	}
+	plugin := regexp.MustCompile(`(?s)<artifactId>central-publishing-maven-plugin</artifactId>.*?</plugin>`).Find(pom)
+	if plugin == nil {
+		t.Fatal("client/java/pom.xml does not configure central-publishing-maven-plugin")
+	}
+	setting := func(name string) string {
+		m := regexp.MustCompile(`<` + name + `>([^<]*)</` + name + `>`).FindSubmatch(plugin)
+		if m == nil {
+			t.Fatalf("central-publishing-maven-plugin does not set %s; the publish wait is unbounded by the pom", name)
+		}
+		return strings.TrimSpace(string(m[1]))
+	}
+	if got := setting("autoPublish"); got != "true" {
+		t.Errorf("autoPublish is %q; the release job must publish the validated deployment itself", got)
+	}
+	if got := setting("waitUntil"); got != "published" {
+		t.Errorf("waitUntil is %q; a green job must mean the version is on Central", got)
+	}
+	seconds := func(name string) int {
+		value := setting(name)
+		n, err := strconv.Atoi(value)
+		if err != nil || n <= 0 {
+			t.Fatalf("%s is %q, not a positive number of seconds", name, value)
+		}
+		return n
+	}
+	waitMax, poll := seconds("waitMaxTime"), seconds("waitPollingInterval")
+	// The plugin raises lower values to these floors with a warning, so a pom
+	// stating less would not describe the wait the job actually makes.
+	if waitMax < 1800 {
+		t.Errorf("waitMaxTime is %d s; the plugin's floor is 1800 s and it silently raises a lower value", waitMax)
+	}
+	if poll < 5 {
+		t.Errorf("waitPollingInterval is %d s; the plugin's floor is 5 s and it silently raises a lower value", poll)
+	}
+
+	config := loadCircleConfig(t)
+	maven, ok := config.Jobs["publish-maven"]
+	if !ok {
+		t.Fatal("no publish-maven job")
+	}
+	steps := runSteps(t, maven.Steps)
+	deploy := stepIndex(steps, "mvn -B -f client/java/pom.xml", "deploy -pl :opensysml -am")
+	if deploy < 0 {
+		t.Fatal("publish-maven does not deploy")
+	}
+	if steps[deploy].NoOutputTimeout == "" {
+		t.Fatalf("the %q step has no no_output_timeout, so CircleCI's 10m default cuts the plugin's %d s wait", steps[deploy].Name, waitMax)
+	}
+	timeout, err := time.ParseDuration(steps[deploy].NoOutputTimeout)
+	if err != nil {
+		t.Fatalf("the %q step's no_output_timeout %q is not a duration: %v", steps[deploy].Name, steps[deploy].NoOutputTimeout, err)
+	}
+	bound := time.Duration(waitMax+poll) * time.Second
+	if timeout <= bound {
+		t.Errorf("the %q step's no_output_timeout %s does not outlive the plugin's wait of waitMaxTime+waitPollingInterval = %s", steps[deploy].Name, timeout, bound)
+	}
+}
+
 // TestSharedTableIsPinnedAfterTheRelease holds the release workflow to the
 // pull request that brings the committed table up to date: opened against
 // develop once the GitHub release exists, stamping the shared table (so every
@@ -775,7 +844,8 @@ func TestSharedTableIsPinnedAfterTheRelease(t *testing.T) {
 // contract: build-release writes the sidecars its platform packages are built
 // against, publish-npm builds those packages from dist/mcp, packs the shim and
 // proves the packed shim serves the protocol before anything is published, and
-// publishes the platform packages before the shim that pins them.
+// publishes the platform packages before the shim that pins them, and the shim
+// before its alias @openmbee/opensysml-mcp, which the generator derives from it.
 func TestNpmRunnerIsPublishedWithTheClient(t *testing.T) {
 	config := loadCircleConfig(t)
 	release, ok := config.Jobs["build-release-binaries"]
@@ -791,24 +861,29 @@ func TestNpmRunnerIsPublishedWithTheClient(t *testing.T) {
 		t.Fatal("no publish-npm job")
 	}
 	steps := runSteps(t, npm.Steps)
-	refuse := stepIndex(steps, "packaging/npm/sysml-mcp/package.json", "npm view", "-ne 13")
+	refuse := stepIndex(steps, "packaging/npm/sysml-mcp/package.json", "npm view", "-ne 14", "const alias = '"+mcpAliasPackage+"'")
 	build := stepIndex(steps, "npm run platform-packages", "--mcp ../../dist/mcp")
 	prove := stepIndex(steps, "openmbee-sysml-mcp-${NPM_VERSION}.tgz", "NPM_MCP_TARBALL", "scripts/npm-mcp-test.sh")
+	proveAlias := stepIndex(steps, "client/node/packages/opensysml-mcp", "openmbee-opensysml-mcp-${NPM_VERSION}.tgz", "NPM_MCP_ALIAS_TARBALL", `pkg.mcpName !== undefined`, `pkg.bin["opensysml-mcp"] === shim`)
 	whoami := stepIndex(steps, "npm whoami")
 	platforms := stepIndex(steps, "npm publish", "client/node/packages/sysml-mcp-*")
 	shim := stepIndex(steps, "npm publish", `"$NPM_MCP_TARBALL"`)
 	rehearsal := stepIndex(steps, "npm pack", "--dry-run", "client/node/packages/sysml-mcp-*")
 	switch {
 	case refuse < 0:
-		t.Error("publish-npm does not refuse a published version of @openmbee/sysml-mcp and its five platform packages (13 packages in all)")
+		t.Error("publish-npm does not refuse a published version of @openmbee/sysml-mcp, its five platform packages and @openmbee/opensysml-mcp (14 packages in all)")
 	case build < 0:
 		t.Error("publish-npm does not build the sysml-mcp platform packages from dist/mcp")
 	case prove < 0:
 		t.Error("publish-npm does not pack @openmbee/sysml-mcp and prove the packed shim serves the protocol")
 	case prove < build:
 		t.Errorf("the shim is packed and proved (step %d) before its platform packages are built (step %d)", prove, build)
-	case whoami < prove:
-		t.Errorf("npm whoami (step %d) runs before the shim is proved (step %d); everything that can fail runs first", whoami, prove)
+	case proveAlias < 0:
+		t.Error("publish-npm does not pack @openmbee/opensysml-mcp from the generator's tree and check its version, pins, both commands and the absent mcpName")
+	case proveAlias < prove:
+		t.Errorf("the alias is packed (step %d) before the shim it is derived from is proved (step %d)", proveAlias, prove)
+	case whoami < proveAlias:
+		t.Errorf("npm whoami (step %d) runs before the alias is proved (step %d); everything that can fail runs first", whoami, proveAlias)
 	case platforms < 0:
 		t.Error("publish-npm does not publish the sysml-mcp platform packages")
 	case shim < 0:
@@ -820,5 +895,15 @@ func TestNpmRunnerIsPublishedWithTheClient(t *testing.T) {
 	}
 	if platforms >= 0 && shim >= 0 && stepIndex(steps[platforms:shim+1], `"$NPM_TARBALL"`) < 0 {
 		t.Error("@openmbee/opensysml is not published between the platform packages and @openmbee/sysml-mcp")
+	}
+	if shim >= 0 {
+		command := steps[shim].Command
+		runner, alias := strings.Index(command, `"$NPM_MCP_TARBALL"`), strings.Index(command, `"$NPM_MCP_ALIAS_TARBALL"`)
+		switch {
+		case alias < 0:
+			t.Error("publish-npm does not publish the verified @openmbee/opensysml-mcp tarball")
+		case alias < runner:
+			t.Error("@openmbee/opensysml-mcp is published before @openmbee/sysml-mcp, the runner it is the other name of")
+		}
 	}
 }

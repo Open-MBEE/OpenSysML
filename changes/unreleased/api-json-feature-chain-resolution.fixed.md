@@ -1,2 +1,0 @@
-- API JSON feature-chain links now use one scoped resolver for aggregate chains and their `FeatureChaining` targets; unresolved links omit the derived aggregate while preserving owned relationships and their graph values in `sysx:mappingValues`.
-- API JSON omits unresolved collection-valued references rather than writing empty collections, and preserves expression-namespace targets across feature-chain links.

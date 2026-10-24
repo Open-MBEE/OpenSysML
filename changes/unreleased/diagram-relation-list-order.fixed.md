@@ -1,1 +1,0 @@
-- The VS Code diagram panel sorts its relationship-kind list with an explicit code-unit comparator, so the order is the same in every locale.

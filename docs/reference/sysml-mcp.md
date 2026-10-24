@@ -26,7 +26,11 @@ has no dependencies; its `sysml-mcp` command picks the platform package
 exactly its own version, and runs the release binary that package carries — the same bytes as
 the release archive, verified against the release's `.sha256` sidecars when the package was
 built — with the arguments and stdio it was given. Its version is the OpenSysML release:
-`npx -y @openmbee/sysml-mcp@0.10.1` runs the `v0.10.1` server.
+`npx -y @openmbee/sysml-mcp@0.10.1` runs the `v0.10.1` server. The same package is also
+published as [`@openmbee/opensysml-mcp`](https://www.npmjs.com/package/@openmbee/opensysml-mcp),
+the name the other OpenSysML npm packages share (`@openmbee/opensysml`, `@openmbee/opensysml-wasm`):
+`npx -y @openmbee/opensysml-mcp` runs the same release binary from the same platform packages,
+and its `opensysml-mcp` command is a second name for `sysml-mcp`.
 
 ```bash
 claude mcp add --transport stdio sysml -- npx -y @openmbee/sysml-mcp -root .
@@ -327,7 +331,7 @@ without this page.
 | `session_eval` | Evaluate an expression in a session, as %eval does: a literal, a declared feature or qualified name, an enumeration literal, a unit, or a compound expression over the session's declarations. | no |
 | `session_list` | List the open REPL sessions. | no |
 | `session_load` | Load model files into a session, as %load does: files, directories or globs, resolved against the workspace root and refused outside it. | yes |
-| `session_open` | Open a named REPL session: an empty model that declarations, instances and runs accumulate into across calls. | yes |
+| `session_open` | Open a named REPL session: an empty model that declarations, instances and runs accumulate into across calls. With `root`, a directory under the workspace root, the session loads a model file under it on demand when a submission imports or qualifies a root namespace that neither the session nor the library declares, as `%load` would load it. | yes |
 | `session_print` | Print a session's model as SysML notation, or one named element with its body, as %print does. | no |
 | `session_run` | Run a behavior in a session to completion and report what it produced: an action (%action then %continue), a state machine (%state, then %advance when a duration is given), a calc (%calc) or an analysis case (%analysis). Its `arguments` are expressions evaluated together in one run, as the REPL evaluates an argument list, so a seeded draw in one continues the stream of the draw before it. | yes |
 | `session_save` | Write a session's model to a file under the workspace root, as %save does: .sysml notation with comments preserved, or .ttl/.json RDF (experimental). | yes |

@@ -318,6 +318,12 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"render document asciidoc", CapabilityRenderDocumentAsciiDoc, func(s *Service) error {
+			_, err := s.RenderDocument(ctx, &pb.RenderDocumentRequest{
+				ModelHash: "any", DocumentId: "Any", Form: "asciidoc",
+			})
+			return err
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

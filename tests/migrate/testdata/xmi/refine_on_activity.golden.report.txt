@@ -1,0 +1,29 @@
+# SysML v1 to v2 migration report: refine_on_activity.xmi
+# exported by Example UML Tool
+# migrated 14 element(s): 13 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 1 of 1 diagrams from the diagrams' own symbol streams: 6 elements positioned, 5 connectors routed, 0 styled, 0 notes
+
+## layout
+# source: the diagrams' own symbol streams
+# 1 views laid out from their own symbol stream, 0 without layout
+# placements: 6 of 6 written (0 not exposed, 0 resolving to no element); routes: 5 of 5 written (0 not pinned, 0 resolving to no element); malformed: 0
+# styles: 0 of 0 written; notes: 0 written (0 anchored, 0 freed of an anchor the view does not lay out)
+# routes of Abstraction: 2 written
+# routes of ControlFlow: 3 written
+
+## approximated (1)
+«Refine» Abstraction	Ops::<Abstraction>	_dep_refine	-> Model::Ops::'Fill Tank refines Fill Rate'	(written as a connection between usages of its ends, which a diagram draws; the standard Refinement metadata annotates only a dependency, so the connection's name says it refines)
+
+## mapped (13)
+Model	Model	_m	-> Model	(written as package Model)
+Package	Ops	_pkg_ops	-> Model::Ops
+«Refine» Abstraction	Ops::<Abstraction>	_dep_refine_pump	-> Model::Ops::'pump refines Fill Rate'
+«Requirement» Class	Ops::Fill Rate	_req_rate	-> Model::Ops::'Fill Rate'
+UseCase	Ops::Fill Tank	_uc_fill	-> Model::Ops::'Fill Tank'
+Activity	Ops::Fill Tank::Fill	_act_fill	-> Model::Ops::'Fill Tank'::Fill
+ActivityFinalNode	Ops::Fill Tank::Fill::<ActivityFinalNode>	_fl_final	-> final
+ControlFlow	Ops::Fill Tank::Fill::<ControlFlow>	_fl_e2	-> Model::Ops::'Fill Tank'::Fill::'open valve to pump'
+ControlFlow	Ops::Fill Tank::Fill::<ControlFlow>	_fl_e3	-> Model::Ops::'Fill Tank'::Fill::'pump to final'
+InitialNode	Ops::Fill Tank::Fill::<InitialNode>	_fl_init	-> start
+Diagram	Ops::Fill Tank::Fill::Fill	_diag_fill	-> Model::Ops::'Fill Tank'::Fill::Fill	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; the view exposes action def Model::Ops::'Fill Tank'::Fill, whose graph the rendering draws with the 7 shown nodes and edges of it; laid out from the diagram's own symbol stream: 6 of 6 shown elements positioned, 5 of 5 connectors routed)
+OpaqueAction	Ops::Fill Tank::Fill::open valve	_fl_open	-> 'open valve'	(its body is empty, so it is written as an action that does nothing)
+OpaqueAction	Ops::Fill Tank::Fill::pump	_fl_pump	-> pump	(its body is empty, so it is written as an action that does nothing)

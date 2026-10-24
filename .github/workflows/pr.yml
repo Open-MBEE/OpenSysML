@@ -88,10 +88,10 @@ jobs:
         run: |
           if [ "$DRAFT" != true ] || [ "$CI_FULL_LABEL" = true ]; then
             echo "tier=full"
-            echo 'go_shards=["runtime","runtime-corpus","model","export","rest","migrate","cli"]'
+            echo 'go_shards=["runtime","runtime-corpus","model","export","graph","codegen","rest","migrate","cli"]'
           else
             echo "tier=quick"
-            echo 'go_shards=["runtime","model export","rest migrate cli"]'
+            echo 'go_shards=["runtime","model export graph","rest migrate cli codegen"]'
           fi | tee -a "$GITHUB_OUTPUT"
 
       - name: Decide which areas to run
@@ -112,7 +112,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     # The shards split the suite's slowest packages across runners so each gets its own job cap (see scripts/race-shard.sh);
-    # internal/exec/runtime is two shards split by test name (see make test-shard) and tests/migrate, the next-longest, is one of its own.
+    # internal/exec/runtime is two shards split by test name (see make test-shard) and tests/migrate, tests/export, tests/model
+    # and tests/codegen, the next-longest, are one of their own each; the tools shard (tests/wasm) is CircleCI's, the WebAssembly gate's here.
     # The quick tier runs the same packages without -race, grouped three ways (see make test-quick).
     strategy:
       fail-fast: false
@@ -238,7 +239,7 @@ jobs:
           set -euo pipefail
           profiles=(shards/coverage-*/coverage.txt)
           # One per go-tests shard.
-          if [ "${#profiles[@]}" -ne 7 ]; then echo "error: expected 7 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
+          if [ "${#profiles[@]}" -ne 9 ]; then echo "error: expected 9 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
           for f in "${profiles[@]}"; do
             [ "$(head -n 1 "$f")" = "mode: atomic" ] || { echo "error: $f is not an atomic-mode profile" >&2; exit 1; }
           done
@@ -918,8 +919,8 @@ jobs:
             editors/vscode/package-lock.json
             client/node/package-lock.json
 
-      # The landing bundle and its tests import the browser client from client/node's source; `npm install`,
-      # not `npm ci`: npm 11.6+'s `npm ci` refuses a lock missing an optional dependency, a release branch's state.
+      # The landing bundle and its tests import the browser client from client/node's source. `npm install`, not `npm ci`
+      # (npm/cli#9846), with the lock-diff as the locked install: SonarCloud's S8543 here is a false positive, see releasing.md.
       - name: Install the browser client's dependencies
         working-directory: client/node
         run: |
@@ -1158,8 +1159,8 @@ jobs:
 
       - name: Install the client's dependencies
         working-directory: client/node
-        # --ignore-scripts: no dependency of this client needs an install hook, and one added upstream would
-        # run here with the workflow's token. `npm install`, not `npm ci`: see node_install_test.go in tests/hygiene.
+        # --ignore-scripts: no dependency of this client needs an install hook, and one added upstream would run here
+        # with the workflow's token. `npm install`, not `npm ci` (see releasing.md): SonarCloud's S8543 here is a false positive.
         run: |
           npm install --ignore-scripts --no-audit --no-fund
           git diff --exit-code package-lock.json

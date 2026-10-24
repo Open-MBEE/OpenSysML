@@ -1,1 +1,0 @@
-- The features a feature redefines, directly or through them, are computed once per model, and a parameter's implicit redefinitions take its position from its owner's memoized parameter list instead of rebuilding it on every query; same redefinitions, fewer allocations per query — and per execution root frame, which asks for every feature it holds.

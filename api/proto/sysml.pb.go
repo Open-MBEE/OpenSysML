@@ -10824,6 +10824,9 @@ type ServerInfoResponse struct {
 	//	               and answers with typed rows.
 	//	"render_document" - the RenderDocument RPC renders a named document to
 	//	               Markdown.
+	//	"render_document_html" - RenderDocumentRequest.form takes "html".
+	//	"render_document_asciidoc" - RenderDocumentRequest.form takes "asciidoc"
+	//	               and the response carries the document in `asciidoc`.
 	//	"render_view" - the RenderView RPC renders a declared view or targeted
 	//	               pseudo-view as machine-readable diagram data.
 	//	"export_graphs" - the ExportGraphs RPC exports the lowered graph of an
@@ -14153,10 +14156,12 @@ type RenderDocumentRequest struct {
 	// FQN of the document to render. Fails with NOT_FOUND when the model does
 	// not declare it, and INVALID_ARGUMENT when it declares something else.
 	DocumentId string `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
-	// Form to render: "markdown" (the default when empty) or "html", the
+	// Form to render: "markdown" (the default when empty), "html", the
 	// standalone page with the default stylesheet that the CLI's -doc-form html
-	// writes. Any other form fails with INVALID_ARGUMENT; PDF needs the CLI's
-	// converter toolchain and is not offered here.
+	// writes, or "asciidoc", the document the CLI's -doc-form asciidoc writes
+	// (under the render_document_asciidoc capability). Any other form fails
+	// with INVALID_ARGUMENT; PDF needs the CLI's converter toolchain and is not
+	// offered here.
 	Form          string `protobuf:"bytes,3,opt,name=form,proto3" json:"form,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -14215,11 +14220,13 @@ func (x *RenderDocumentRequest) GetForm() string {
 
 // RenderDocumentResponse carries the rendered document in the form requested,
 // byte-for-byte what the CLI's -render-document writes: markdown for the
-// Markdown form, html for the HTML form, the other left empty.
+// Markdown form, html for the HTML form, asciidoc for the AsciiDoc form, the
+// others left empty.
 type RenderDocumentResponse struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	Markdown string                 `protobuf:"bytes,1,opt,name=markdown,proto3" json:"markdown,omitempty"`
 	Html     string                 `protobuf:"bytes,2,opt,name=html,proto3" json:"html,omitempty"`
+	Asciidoc string                 `protobuf:"bytes,4,opt,name=asciidoc,proto3" json:"asciidoc,omitempty"`
 	// The file a rendered set writes this document to in the requested form
 	// (-render-documents), which the other documents' links to it name.
 	// Populated under the render_document_file_name capability.
@@ -14268,6 +14275,13 @@ func (x *RenderDocumentResponse) GetMarkdown() string {
 func (x *RenderDocumentResponse) GetHtml() string {
 	if x != nil {
 		return x.Html
+	}
+	return ""
+}
+
+func (x *RenderDocumentResponse) GetAsciidoc() string {
+	if x != nil {
+		return x.Asciidoc
 	}
 	return ""
 }
@@ -18005,10 +18019,11 @@ const file_sysml_proto_rawDesc = "" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x1f\n" +
 	"\vdocument_id\x18\x02 \x01(\tR\n" +
 	"documentId\x12\x12\n" +
-	"\x04form\x18\x03 \x01(\tR\x04form\"e\n" +
+	"\x04form\x18\x03 \x01(\tR\x04form\"\x81\x01\n" +
 	"\x16RenderDocumentResponse\x12\x1a\n" +
 	"\bmarkdown\x18\x01 \x01(\tR\bmarkdown\x12\x12\n" +
-	"\x04html\x18\x02 \x01(\tR\x04html\x12\x1b\n" +
+	"\x04html\x18\x02 \x01(\tR\x04html\x12\x1a\n" +
+	"\basciidoc\x18\x04 \x01(\tR\basciidoc\x12\x1b\n" +
 	"\tfile_name\x18\x03 \x01(\tR\bfileName\"\xaa\x01\n" +
 	"\x11RenderViewRequest\x12\x1d\n" +
 	"\n" +

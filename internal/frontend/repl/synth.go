@@ -108,8 +108,9 @@ func synthesisReport(name string, q *solve.Query, solved analysis.Evaluation, un
 	case solve.StatusSat:
 		lines := []string{fmt.Sprintf("✓ %s has values satisfying it (%s)", subject, solveDetail(result))}
 		lines = append(lines, fixedLines(q)...)
+		lines = append(lines, derivedLines(q)...)
 		lines = append(lines, synthesisedLines(q, result)...)
-		lines = append(lines, unfixedLines(unfixed)...)
+		lines = append(lines, unfixedLines(q, unfixed)...)
 		lines = append(lines, unreadLines(q)...)
 		lines = append(lines, "  One witness: a solver may answer with any of the assignments that satisfy it.")
 		return SolveReport{Subject: name, Status: SolveSat, Solver: result.Solver, Lines: lines}
@@ -125,6 +126,7 @@ func synthesisReport(name string, q *solve.Query, solved analysis.Evaluation, un
 			lines = append(lines, "  "+reason)
 		}
 		lines = append(lines, fixedLines(q)...)
+		lines = append(lines, derivedLines(q)...)
 		return SolveReport{Subject: name, Status: SolveUnknown, Solver: result.Solver, Lines: lines}
 	}
 }
@@ -150,14 +152,17 @@ func noValuesLines(subject string, q *solve.Query, result *solve.Result, unfixed
 	if !q.Fixes() {
 		lines := []string{fmt.Sprintf("✗ %s has no satisfying values: its conditions conflict on their own (%s)",
 			subject, solveDetail(result))}
-		lines = append(lines, unfixedLines(unfixed)...)
+		lines = append(lines, derivedLines(q)...)
+		lines = append(lines, conflictingConditions(result.Core)...)
+		lines = append(lines, unfixedLines(q, unfixed)...)
 		return lines
 	}
 	lines := []string{fmt.Sprintf("✗ %s has no values consistent with the %s already fixed (%s)",
 		subject, plural(len(q.Pinned), "value", "values"), solveDetail(result))}
 	lines = append(lines, fixedLines(q)...)
+	lines = append(lines, derivedLines(q)...)
 	lines = append(lines, conflictingFixed(q, result.Core)...)
-	return append(lines, unfixedLines(unfixed)...)
+	return append(lines, unfixedLines(q, unfixed)...)
 }
 
 // conflictingFixed names the fixed values taking part in the conflict behind an unsat
@@ -185,9 +190,12 @@ func conflictingFixed(q *solve.Query, core *solve.Core) []string {
 // the element that declared it and where, so a selection a family refuses is
 // traced to the assertion refusing it.
 func conflictingConditions(core *solve.Core) []string {
+	if core == nil {
+		return nil
+	}
 	var lines []string
 	for _, m := range core.Members {
-		if m.From.Role != solve.RoleRequired && m.From.Role != solve.RoleAssumed {
+		if m.From.Role != solve.RoleRequired && m.From.Role != solve.RoleAssumed && m.From.Role != solve.RoleDerived {
 			continue
 		}
 		line := fmt.Sprintf("  Against: %s %s", m.From.Role, m.From.Condition)
@@ -210,6 +218,20 @@ func fixedLines(q *solve.Query) []string {
 	lines := []string{"  Already fixed:"}
 	for _, p := range q.Pinned {
 		lines = append(lines, fmt.Sprintf("    %s = %s  (%s)", notationName(p.Var.Name), solve.ValueText(p.Var, p.Value), fixedFrom(p)))
+	}
+	return lines
+}
+
+// derivedLines lists the values the query defines by the equation the model
+// declares for them, so a reader knows the solver chose them by that equation
+// rather than freely.
+func derivedLines(q *solve.Query) []string {
+	if len(q.Derived) == 0 {
+		return nil
+	}
+	lines := []string{"  Defined by the model:"}
+	for _, d := range q.Derived {
+		lines = append(lines, fmt.Sprintf("    %s = %s", notationName(d.Var.Name), d.Expression))
 	}
 	return lines
 }
@@ -243,9 +265,11 @@ func synthesisedLines(q *solve.Query, result *solve.Result) []string {
 	return append([]string{"  Synthesised:"}, indent(assignmentLines(chosen))...)
 }
 
-// unfixedLines says which declared values could not be read, so a reader knows
-// the query left them free rather than took them as fixed.
-func unfixedLines(unfixed []solve.Unfixed) []string {
+// unfixedLines says which declared values the query reads could not be read, so
+// a reader knows it left them free rather than took them as fixed. One no
+// condition reads is passed over, as a fixed value no condition reads is.
+func unfixedLines(q *solve.Query, unfixed []solve.Unfixed) []string {
+	unfixed = solve.ReadUnfixed(q, unfixed)
 	if len(unfixed) == 0 {
 		return nil
 	}

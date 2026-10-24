@@ -58,8 +58,22 @@ var ErrNoSession = errors.New("no such session")
 // Open makes a session under name; an empty name is the default session. It
 // fails if the name is taken.
 func (m *Manager) Open(name string) (string, error) {
+	return m.OpenIn(name, "")
+}
+
+// OpenIn is Open with the directory the session looks its unresolved root
+// namespaces for under: a directory under the workspace root, which the
+// session loads files from on demand; empty looks nowhere.
+func (m *Manager) OpenIn(name, root string) (string, error) {
 	if name == "" {
 		name = DefaultSession
+	}
+	if root != "" {
+		resolved, err := m.Resolve(root)
+		if err != nil {
+			return name, err
+		}
+		root = resolved
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -71,6 +85,9 @@ func (m *Manager) Open(name string) (string, error) {
 		return name, err
 	}
 	m.confine(sess)
+	if err := sess.SetWorkspaceRoot(root); err != nil {
+		return name, err
+	}
 	m.sessions[name] = &held{name: name, sess: sess}
 	return name, nil
 }
