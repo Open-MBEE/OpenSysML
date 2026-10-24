@@ -84,13 +84,11 @@ commands:
                   echo "export CIRCLE_TAG=${tag}" >> "$BASH_ENV"
                   echo "REHEARSAL: standing in for tag ${tag} (no tag exists; nothing will be published)"
 
-  # A tag pipeline checks out the tag, and the Go toolchain records a tag at
-  # HEAD as the main module's version in every binary it builds, so a test
-  # binary with no linker stamp reports the release version rather than dev.
-  # A rehearsal checks out a branch; this puts the tag it stands in for at
-  # HEAD, locally, so the suite builds exactly what the tag build will.
+  # Gives the suite what a tag pipeline has: CIRCLE_TAG, and the tag at HEAD (the Go
+  # toolchain records it as the module version); a local tag alone reads as a release already out.
   rehearsal-checkout-tag:
     steps:
+      - rehearsal-tag
       - when:
           condition: << pipeline.parameters.release_rehearsal >>
           steps:

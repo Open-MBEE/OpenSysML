@@ -110,10 +110,16 @@ Rekor log), `ghr` (the GitHub release), `twine upload`, `npm publish`,
 `mvn deploy`, `cargo publish` and the `docker buildx build --push` of the
 container image. A rehearsal exports a stand-in `CIRCLE_TAG`
 from `_version.py` (`scripts/rehearsal-version.sh`) before any step reads it,
-so the version bumps must already be on the branch, and the Go suite's jobs tag
+so the version bumps must already be on the branch, and the Go suite's jobs
+(`go-static`, `go-race-test`, `go-coverage`, `go-gates`) export it too and tag
 their checkout locally as that release first: a tag build reports the tag as
 the module version in every binary the toolchain builds, a branch build reports
-`(devel)`, and the suite must pass under the former.
+`(devel)`, and the suite must pass under the former. With both in place the
+suite runs as it does on the tag: the protobuf schema is compared against the
+previous release rather than the branch's first parent, the binaries are built
+with the tag as their version, and the hygiene test that requires every
+released version to have its digests pinned exempts the release being built
+(a local tag with no `CIRCLE_TAG` reads as a release that is already out).
 
 Trigger it from the CircleCI UI with *Trigger pipeline*: choose the release
 branch for both the config and the checkout source, then add the boolean
