@@ -1,5 +1,5 @@
 function text = renderDocument(model, documentId, varargin)
-%RENDERDOCUMENT Render a named document to Markdown or HTML.
+%RENDERDOCUMENT Render a named document to Markdown, HTML or AsciiDoc.
 
     form = 'markdown';
     for i = 1:2:numel(varargin)
@@ -13,19 +13,17 @@ function text = renderDocument(model, documentId, varargin)
                 sprintf('renderDocument has no option ''%s''', varargin{i}));
         end
     end
-    if ~any(strcmp(form, {'markdown', 'html'}))
+    if ~any(strcmp(form, {'markdown', 'html', 'asciidoc'}))
         opensysml.internal.raise('opensysml:argument', ...
-            'form must be ''markdown'' or ''html''');
+            'form must be ''markdown'', ''html'' or ''asciidoc''');
     end
     capabilities = {'render_document'};
-    if strcmp(form, 'html'), capabilities{end+1} = 'render_document_html'; end
+    if ~strcmp(form, 'markdown'), capabilities{end+1} = ['render_document_' form]; end
     model.connection.requireAll(capabilities);
     request = struct('modelHash', model.hash, 'documentId', char(documentId));
-    if strcmp(form, 'html'), request.form = 'html'; end
+    if ~strcmp(form, 'markdown'), request.form = form; end
     answer = opensysml.call(model.connection, 'RenderDocument', request, capabilities);
-    if strcmp(form, 'html'), text = fieldOr(answer, 'html', '');
-    else, text = fieldOr(answer, 'markdown', '');
-    end
+    text = fieldOr(answer, form, '');
 end
 
 function value = fieldOr(record, name, fallback)

@@ -1,2 +1,0 @@
-- The `apply_edits` and `run_sweep` MCP tools no longer require `operations` and `ranges`: an empty batch and a sweep without ranges reach the service, which refuses them in band (`EDIT_FAILURE_NO_OPERATIONS`, the sweep's `error`) as the RPCs do, rather than being refused by the tool's schema.
-- The `parse` MCP tool parses one document through `ParseFile`, which it stands for as well, when the service lacks the `parse_sources` capability; several documents, a `baseModelHash` or a named inline document still need `ParseSources` and are refused as the service refuses it.

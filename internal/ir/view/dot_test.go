@@ -377,6 +377,7 @@ func TestDOTEdgeKinds(t *testing.T) {
 		EdgeAssociation:    `"a" -> "b" [label="k", dir=none];`,
 		EdgeInclude:        `"a" -> "b" [label="k", style=dashed];`,
 		EdgeAnchor:         `"a" -> "b" [label="k", dir=none, style=dashed];`,
+		EdgeDependency:     `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
 	}
 	// A case or mixed diagram draws composition, typing and reference in its own notation.
 	caseStyles := map[EdgeKind]string{

@@ -196,6 +196,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%documents", group: groupSession, desc: "list the model's documents by the names %render-document reads"},
 	{name: "%views", group: groupSession, args: "[diagrams] [<kind>...]", desc: "list the model's views and their kinds by the names %render reads; diagrams keeps the graph-shaped ones"},
 	{name: "%clear", group: groupSession, desc: "reset the session"},
+	{name: "%workspace", group: groupSession, desc: "show the directory a root namespace a submission leaves unresolved is looked for under: the model file there declaring it loads as %load would"},
 	{name: "%load", group: groupSession, args: "[--cells <sel>] <path>... | [--id=<project id>] [--name=<name>] [--branch=<branch>] [<name>]", desc: "submit the contents of files, directories or globs (a .ipynb notebook's code cells declare, --cells 1,3-5 or tag:<tag> picking cells), or load a repository project's model: named, by --id or by --name, at a branch or its default; a name that is a path on disk loads the files",
 		part: repositoryLinked, partArgs: "[--cells <sel>] <path>...", partDesc: "submit the contents of files, directories or globs; a .ipynb notebook's code cells declare, its % commands and expressions skipped, --cells 1,3-5 or tag:<tag> picking cells"},
 	{name: "%print", group: groupSession, args: "[name]", desc: "print the session model as SysML notation, or just the named element", linked: notationLinked},
@@ -401,6 +402,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(decls, false, nil), true
 	case "%clear":
 		return metaOut(append([]string{"session cleared"}, s.clear()...), false, nil), true
+	case "%workspace":
+		return metaOut(s.doWorkspace(), false, nil), true
 	case "%documents":
 		return metaOut(s.doDocuments()), true
 	case "%views":
@@ -1084,8 +1087,33 @@ func (s *Session) evalExpr(expr string) ([]string, error) {
 }
 
 // evalValue evaluates an expression as evalExpr does, keeping the value beside
-// the lines the prompt prints for it.
+// the lines the prompt prints for it. An expression that fails naming a root
+// namespace a workspace file declares is evaluated again once that file loads.
 func (s *Session) evalValue(expr string) (evaluated, error) {
+	ev, err := s.evalValueOnce(expr)
+	if err == nil {
+		return ev, nil
+	}
+	notices, loaded := s.loadWorkspaceForText(expr)
+	if !loaded {
+		return ev, withNotices(err, notices)
+	}
+	ev, err = s.evalValueOnce(expr)
+	ev.lines = append(notices, ev.lines...)
+	return ev, withNotices(err, notices)
+}
+
+// withNotices carries what resolving against the workspace reported under the
+// error it did not avert, so the user reads why before what failed.
+func withNotices(err error, notices []string) error {
+	if err == nil || len(notices) == 0 {
+		return err
+	}
+	return fmt.Errorf("%w\n%s", err, strings.Join(notices, "\n"))
+}
+
+// evalValueOnce evaluates an expression against the session as it stands.
+func (s *Session) evalValueOnce(expr string) (evaluated, error) {
 	// Try literal evaluation first (works even with empty session)
 	literalResult, isLiteral, litErr := s.tryEvalLiteral(expr)
 	if isLiteral {
@@ -2107,17 +2135,26 @@ func (s *Session) calcVerdict(calcName, argText string) Verdict {
 // the command line — can tell an evaluated calculation from one that could not be run.
 func (s *Session) evalCalc(calcName, argText string) ([]string, []NamedValue, *analysis.Plan, error) {
 	sym, err := s.calcSymbol(calcName)
+	var notices []string
 	if err != nil {
-		return nil, nil, nil, err
+		// The calc may be declared by a workspace file not yet loaded.
+		var loaded bool
+		if notices, loaded = s.loadWorkspaceForText(calcName); !loaded {
+			return nil, nil, nil, withNotices(err, notices)
+		}
+		if sym, err = s.calcSymbol(calcName); err != nil {
+			return nil, nil, nil, withNotices(err, notices)
+		}
 	}
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, withNotices(err, notices)
 	}
 	lines, outputs, plan, err := s.evalCalcIn(s.dispatched(), ctx, sym, calcName, argText)
 	if err != nil {
-		return nil, nil, plan, err
+		return nil, nil, plan, withNotices(err, notices)
 	}
+	lines = append(notices, lines...)
 	values := make([]NamedValue, 0, len(outputs))
 	for _, out := range outputs {
 		values = append(values, NamedValue{Name: out.Name, Value: formatValue(ctx, out.Value)})

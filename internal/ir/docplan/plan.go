@@ -79,8 +79,14 @@ type Run struct {
 	defaultText bool
 	valueRoot   *symbols.Symbol
 	valuePath   string
+	bound       bool
 	origin      symbols.Origin
 }
+
+// Bound reports whether the run's text already carries its spacing to the
+// neighbouring runs, as a run cut from a markup body does, so a backend joins
+// it without inserting a separator.
+func (r Run) Bound() bool { return r.bound }
 
 // Kind returns the classification of the run.
 func (r Run) Kind() RunKind { return r.kind }

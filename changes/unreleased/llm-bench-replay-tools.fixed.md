@@ -1,1 +1,0 @@
-- `llm-bench` recordings keep the MCP tool specs the model was offered, and a replay offers those rather than the running server's, so `TestOllamaRecordingReplays` and `-provider replay` still reproduce a recorded run after `sysml-mcp` rewords a tool description; the request digests still cover the specs.

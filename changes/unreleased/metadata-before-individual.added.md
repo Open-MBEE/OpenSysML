@@ -1,1 +1,0 @@
-- Prefix metadata written before `individual` (`#Tag individual part def Article :> Body;`) is reported as `nonstandard-notation` — a warning by default, an error under `-strict` — naming the standard order (`individual #Tag part def …`); the declaration stays parsed with its metadata.

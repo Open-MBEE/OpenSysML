@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml-mdk-parent</artifactId>
-  <version>0.10.1</version>
+  <version>0.11.0</version>
   <packaging>pom</packaging>
   <name>OpenSysML MDK for Cameo</name>
   <modules>
@@ -23,7 +23,7 @@
     <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
     <maven.surefire.plugin.version>3.5.2</maven.surefire.plugin.version>
     <jacoco.plugin.version>0.8.12</jacoco.plugin.version>
-    <opensysml.client.version>0.10.1</opensysml.client.version>
+    <opensysml.client.version>0.11.0</opensysml.client.version>
   </properties>
   <dependencyManagement>
     <dependencies>

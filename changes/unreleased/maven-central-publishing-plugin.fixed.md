@@ -1,1 +1,0 @@
-- The Java release job pins `central-publishing-maven-plugin` 0.12.0 (was 0.7.0): the Central Portal API now returns a `warnings` field on deployment status, which 0.7.0 rejected as an unknown property, so the `v0.10.1` publish was reported failed after Central had published it.

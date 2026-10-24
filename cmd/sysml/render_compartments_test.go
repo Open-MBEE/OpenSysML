@@ -41,7 +41,7 @@ func TestRenderCompartments(t *testing.T) {
 		t.Errorf("-render-compartments positioned changed an unpositioned tree:\n%s", positioned.stdout)
 	}
 	most := render("-render-compartments", "most")
-	for _, want := range []string{"label : Label<br/>reading : Reading", "enabled : Switch", "sensor : Sensor", "hub : Hub<br/>hub.bearing : Hub", `[headlabel="sensor", dir=back, arrowtail=diamond]`, "// not represented: 6 member(s) drawn as compartment rows of their owner, and 2 node(s) under them left undrawn\n"} {
+	for _, want := range []string{"label : Label<br/>reading : Reading", "enabled : Switch", "sensor : Sensor", "hub : Hub<br/>hub.bearing : Hub", `[headlabel="sensor", dir=back, arrowtail=diamond]`, "// not represented: 6 member(s) drawn as compartment rows of their owner\n"} {
 		if !strings.Contains(most.stdout, want) {
 			t.Errorf("-render-compartments most lacks %q:\n%s", want, most.stdout)
 		}

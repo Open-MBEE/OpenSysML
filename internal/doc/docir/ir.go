@@ -56,8 +56,13 @@ type TextRun struct {
 	document  string
 	element   string
 	defaulted bool
+	bound     bool
 	origin    symbols.Origin
 }
+
+// Bound reports whether the run's text already carries its spacing to the
+// neighbouring runs, so a backend joins it to them without a separator.
+func (r TextRun) Bound() bool { return r.bound }
 
 // Kind returns the classification of the run; the zero value is plain.
 func (r TextRun) Kind() RunKind {

@@ -1,1 +1,0 @@
-- Add lazy evaluation of derived SysML metamodel properties using semantic ownership, typing, and relationship data.

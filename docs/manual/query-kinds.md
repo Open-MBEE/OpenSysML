@@ -279,9 +279,10 @@ solver (`z3` or `cvc5`) what *could* be. `%check <name>` asks whether a
 constraint, requirement or satisfaction assertion can be satisfied and
 answers `sat` with an assignment, `unsat` or `unknown`; `%solve <name>` asks
 for values that satisfy it while keeping what is already fixed — the values
-an object holds, or failing that the ones the model declares — and names the
-fixed values that conflict when none exist; `%explain` reduces an `unsat` to
-its conflicting conditions; `%configure` and `%optimize` ask the same
+an object holds, or failing that the literal values the model declares, a
+derived one (`volume = height * width * length`) being asserted as its
+defining equation instead — and names the fixed values that conflict when
+none exist; `%explain` reduces an `unsat` to its conflicting conditions; `%configure` and `%optimize` ask the same
 question over variation points and an objective. The same solver is the
 `solve` analysis engine `-engines` tables, whose verdicts carry a
 `standing:` of `satisfiable`/`unsatisfiable`.

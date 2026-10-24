@@ -12,11 +12,11 @@ package FoldedViews {
 			port fuelIn : Signal;
 			part piston;
 			part pump {
-				port out : Signal;
+				port 'out' : Signal;
 			}
 		}
 		part tank {
-			port out : Signal;
+			port 'out' : Signal;
 		}
 		connect tank.out to engine.fuelIn;
 	}

@@ -1081,6 +1081,12 @@ func (ctx *Context) bindingEndpointText(binding lower.Binding, end int) string {
 	return ctx.bindingExprText(endpoint.Expr, binding.Scope)
 }
 
+// ExprText renders an expression as the model wrote it, from the document's
+// text where this context was given it, else from its structure.
+func (ctx *Context) ExprText(expr ast.Node, scope *symbols.Scope) string {
+	return ctx.bindingExprText(expr, scope)
+}
+
 func (ctx *Context) bindingExprText(expr ast.Node, scope *symbols.Scope) string {
 	if expr == nil {
 		return "<empty>"

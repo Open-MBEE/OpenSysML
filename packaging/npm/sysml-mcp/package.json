@@ -1,6 +1,6 @@
 {
   "name": "@openmbee/sysml-mcp",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "description": "Runs the OpenSysML Model Context Protocol server, sysml-mcp, from the release binary for this platform: npx -y @openmbee/sysml-mcp",
   "license": "Apache-2.0",
   "repository": {
@@ -36,10 +36,10 @@
     "test:coverage": "node -e \"fs.mkdirSync('coverage',{recursive:true})\" && node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info"
   },
   "optionalDependencies": {
-    "@openmbee/sysml-mcp-darwin-arm64": "0.10.1",
-    "@openmbee/sysml-mcp-darwin-x64": "0.10.1",
-    "@openmbee/sysml-mcp-linux-arm64": "0.10.1",
-    "@openmbee/sysml-mcp-linux-x64": "0.10.1",
-    "@openmbee/sysml-mcp-win32-x64": "0.10.1"
+    "@openmbee/sysml-mcp-darwin-arm64": "0.11.0",
+    "@openmbee/sysml-mcp-darwin-x64": "0.11.0",
+    "@openmbee/sysml-mcp-linux-arm64": "0.11.0",
+    "@openmbee/sysml-mcp-linux-x64": "0.11.0",
+    "@openmbee/sysml-mcp-win32-x64": "0.11.0"
   }
 }
