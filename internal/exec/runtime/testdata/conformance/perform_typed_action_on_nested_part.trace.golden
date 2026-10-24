@@ -7,9 +7,8 @@ stmt action body
     eval feature this -> instance#1
 step 1: token 1@sp
     eval literal 30.0 -> 30.0
-        eval feature context -> (instance#1)
+      eval feature context -> (instance#1)
 materialize: Drive #3
-      eval chain drive -> (instance#3)
 materialize: Motor #4
     eval chain motor -> (instance#4)
 step 1: token 1@set speed
@@ -29,8 +28,7 @@ step 2: token 1@keep
 step 3: token 1@done
 step 4: no active tokens
 run: exhibited state machine run of #1
-        eval feature drive -> instance#3
-      eval chain motor -> instance#4
+      eval feature drive -> instance#3
     eval chain speed -> 30.0
     eval literal 30.0 -> 30.0
   eval operator == -> true

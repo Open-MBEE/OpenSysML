@@ -12,11 +12,11 @@ ActivityFinalNode	Host::Align::<ActivityFinalNode>	_af	-> final
 ControlFlow	Host::Align::<ControlFlow>	_ae2
 ControlFlow	Host::Align::<ControlFlow>	_ae3
 InitialNode	Host::Align::<InitialNode>	_ai	-> start
-Activity	Host::Align::Write	_write	-> Model::Host::align::Write	(acts on its owner Host, which it takes as its parameter context, since its this is the def's own occurrence)
+Activity	Host::Align::Write	_write	-> Model::Host::align::Write	(acts on its owner Host, which it takes as its parameter context, since its this names no feature of the owner)
 ActivityFinalNode	Host::Align::Write::<ActivityFinalNode>	_wf	-> final
 ControlFlow	Host::Align::Write::<ControlFlow>	_we2
 InitialNode	Host::Align::Write::<InitialNode>	_wi	-> start
-Activity	Host::Align::Write::Set	_set	-> Model::Host::align::Write::Set	(acts on its owner Host, which it takes as its parameter context, since its this is the def's own occurrence)
+Activity	Host::Align::Write::Set	_set	-> Model::Host::align::Write::Set	(acts on its owner Host, which it takes as its parameter context, since its this names no feature of the owner)
 ActivityFinalNode	Host::Align::Write::Set::<ActivityFinalNode>	_sf	-> final
 ControlFlow	Host::Align::Write::Set::<ControlFlow>	_se2
 ControlFlow	Host::Align::Write::Set::<ControlFlow>	_se3

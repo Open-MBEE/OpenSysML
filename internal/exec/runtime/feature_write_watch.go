@@ -124,3 +124,18 @@ func (ctx *Context) unregisterStateExecutor(exec *StateExecutor) {
 		}
 	}
 }
+
+// registerActionExecutor has the context know a live action run over an occurrence,
+// whose data mirrors a write landing on it, until the run ends.
+func (ctx *Context) registerActionExecutor(exec *ActionExecutor) {
+	if slices.Contains(ctx.actionExecutors, exec) {
+		return
+	}
+	ctx.actionExecutors = append(ctx.actionExecutors, exec)
+}
+
+func (ctx *Context) unregisterActionExecutor(exec *ActionExecutor) {
+	if i := slices.Index(ctx.actionExecutors, exec); i >= 0 {
+		ctx.actionExecutors = slices.Delete(ctx.actionExecutors, i, i+1)
+	}
+}

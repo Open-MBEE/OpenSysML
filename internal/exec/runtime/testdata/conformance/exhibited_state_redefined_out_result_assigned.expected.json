@@ -1,0 +1,9 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::host",
+  "slots": {
+    "life.res": {"type": "Boolean", "value": true},
+    "life.result": {"type": "Boolean", "value": true}
+  }
+}

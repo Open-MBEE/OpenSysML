@@ -539,7 +539,7 @@ func (h *stateStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 	if block.Graph.Scope != nil {
 		root.scope = block.Graph.Scope
 	}
-	h.flow.declareRootFeatures(root)
+	h.flow.declareRootFeatures(root, h.flow.features)
 	h.flow.registerRootBindings(root)
 	h.flow.declareAcceptPayloads(root)
 	if err := h.flow.initializeAttributes(); err != nil {

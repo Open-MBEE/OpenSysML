@@ -1727,7 +1727,7 @@ func (r *Resolver) chainedFrom(scope *symbols.Scope, operand *symbols.Symbol) *s
 		return featuring
 	}
 	if r.IsOccurrenceThis(operand) {
-		if object := r.ThisContext(scope); object != nil {
+		if object := r.thisChainContext(scope); object != nil {
 			return object
 		}
 	}
