@@ -285,14 +285,14 @@ initial state marker), `x04` (`region r { … }`), `x05` (the `defer <event>;` s
 `x07` (`transition <src> to <tgt>`) and `x08` (`require` outside a requirement body) left that
 list when that notation was removed: each is now a parse error in either mode, so both
 implementations reject it by default. Judged in
-the default mode the same corpus gives 306 agreements and 4 gaps, which is what `-conformance
-default` prints. `-conformance strict` gives 310 and 0. Reserved keywords recovered as declared
+the default mode the same corpus gives 328 agreements and 5 gaps, which is what `-conformance
+default` prints. `-conformance strict` gives 333 and 0. Reserved keywords recovered as declared
 names and SysML declaration keywords recovered in KerML are now errors in either mode; the parser
 still preserves their trees for editors and later analysis. Of the 14 gaps this document carried
 when it was first written, six were closed by the validation work itself — `p01`, `p02`, `p03`,
 `p04`, `p05` and `p06` — and only the five `extensions/` cases belong to strict mode.
 
-Read those four as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
+Read those five as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
 because we authored all 345 cases ourselves, a small gap count means we ran out of questions we
