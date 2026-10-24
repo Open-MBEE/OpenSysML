@@ -3995,9 +3995,9 @@ jobs:
                   else
                     echo "ok: OPENSYSML_WEBHOOK_URL is set"
                   fi
-                  TAG="$(git tag --points-at HEAD | grep -m1 '^v' || true)"
-                  python3 scripts/release-announce.py --tag "${TAG:-v0.0.0}" \
-                      --release-name "${TAG:-v0.0.0} - rehearsal" \
+                  TAG="$(scripts/rehearsal-version.sh)"
+                  python3 scripts/release-announce.py --tag "$TAG" \
+                      --release-name "$TAG - rehearsal" \
                       --dry-run
       - unless:
           condition: << pipeline.parameters.release_rehearsal >>
