@@ -2768,6 +2768,9 @@ pub struct ServerInfoResponse {
     ///                   and answers with typed rows.
     ///    "render_document" - the RenderDocument RPC renders a named document to
     ///                   Markdown.
+    ///    "render_document_html" - RenderDocumentRequest.form takes "html".
+    ///    "render_document_asciidoc" - RenderDocumentRequest.form takes "asciidoc"
+    ///                   and the response carries the document in `asciidoc`.
     ///    "render_view" - the RenderView RPC renders a declared view or targeted
     ///                   pseudo-view as machine-readable diagram data.
     ///    "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
@@ -3634,22 +3637,27 @@ pub struct RenderDocumentRequest {
     /// not declare it, and INVALID_ARGUMENT when it declares something else.
     #[prost(string, tag="2")]
     pub document_id: ::prost::alloc::string::String,
-    /// Form to render: "markdown" (the default when empty) or "html", the
+    /// Form to render: "markdown" (the default when empty), "html", the
     /// standalone page with the default stylesheet that the CLI's -doc-form html
-    /// writes. Any other form fails with INVALID_ARGUMENT; PDF needs the CLI's
-    /// converter toolchain and is not offered here.
+    /// writes, or "asciidoc", the document the CLI's -doc-form asciidoc writes
+    /// (under the render_document_asciidoc capability). Any other form fails
+    /// with INVALID_ARGUMENT; PDF needs the CLI's converter toolchain and is not
+    /// offered here.
     #[prost(string, tag="3")]
     pub form: ::prost::alloc::string::String,
 }
 /// RenderDocumentResponse carries the rendered document in the form requested,
 /// byte-for-byte what the CLI's -render-document writes: markdown for the
-/// Markdown form, html for the HTML form, the other left empty.
+/// Markdown form, html for the HTML form, asciidoc for the AsciiDoc form, the
+/// others left empty.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RenderDocumentResponse {
     #[prost(string, tag="1")]
     pub markdown: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
     pub html: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub asciidoc: ::prost::alloc::string::String,
     /// The file a rendered set writes this document to in the requested form
     /// (-render-documents), which the other documents' links to it name.
     /// Populated under the render_document_file_name capability.

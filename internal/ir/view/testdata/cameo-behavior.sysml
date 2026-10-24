@@ -7,6 +7,9 @@ package Notation {
 	item def Frame;
 	attribute def Done;
 	attribute def Abort;
+	attribute def Phase;
+	attribute def Resume;
+	attribute def Recall;
 
 	action def Sense {
 		in mask : String;

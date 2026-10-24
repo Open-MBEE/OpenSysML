@@ -34,6 +34,35 @@ func TestManualWorkedExampleMatchesCommittedOutput(t *testing.T) {
 	}
 }
 
+// TestManualProseExampleMatchesCommittedOutput renders the manual's Markdown
+// prose example, whose paragraphs and lists are `rep language "markdown"`
+// bodies, and compares it against the committed output.
+func TestManualProseExampleMatchesCommittedOutput(t *testing.T) {
+	binary := buildCLI(t)
+	examples := filepath.Join("..", "..", "docs", "manual", "examples")
+	committed, err := os.ReadFile(filepath.Join(examples, "prose.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(t.TempDir(), "prose.md")
+	cmd := exec.Command(binary, filepath.Join(examples, "prose.sysml"), "-render-document", "Prose::MassReport", "-o", out)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("render: %v\n%s", err, output)
+	}
+	written, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(written) != string(committed) {
+		t.Errorf("rendered prose example differs from docs/manual/examples/prose.md:\n%s", written)
+	}
+	for _, want := range []string{"*generated*", "[Subsystem Masses](#breakdown)", "- Masses are rolled up", "A **named** paragraph"} {
+		if !strings.Contains(string(written), want) {
+			t.Errorf("rendered prose example lacks %q", want)
+		}
+	}
+}
+
 // TestManualCookbookModelAnalysesCleanly parses and analyses the manual's
 // query-cookbook model, so every recipe the manual quotes keeps compiling.
 func TestManualCookbookModelAnalysesCleanly(t *testing.T) {

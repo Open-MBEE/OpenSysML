@@ -69,7 +69,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 52,
-        "digest": "sha256:f87d08a6aaecbe1017dd38c2e140705f6d08b1acd455bba297b0b75b884152b9"
+        "digest": "sha256:688edb659f8bcd9f644b2278dae231f65af44dd0f39b374f7e6286f4289d9373"
       },
       {
         "name": "probes",
@@ -17980,19 +17980,25 @@
           "openSysMLOnly": [],
           "pilotOnly": [
             {
+              "line": 150,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
               "line": 156,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 162,
+              "line": 171,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 177,
+              "line": 185,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18004,19 +18010,19 @@
               "count": 1
             },
             {
-              "line": 197,
+              "line": 202,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 208,
+              "line": 209,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 215,
+              "line": 219,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18028,13 +18034,13 @@
               "count": 1
             },
             {
-              "line": 231,
+              "line": 230,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 236,
+              "line": 240,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18046,7 +18052,7 @@
               "count": 1
             },
             {
-              "line": 252,
+              "line": 260,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18058,19 +18064,19 @@
               "count": 1
             },
             {
-              "line": 272,
+              "line": 277,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 283,
+              "line": 287,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 293,
+              "line": 297,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18088,19 +18094,19 @@
               "count": 1
             },
             {
-              "line": 315,
+              "line": 323,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 329,
+              "line": 333,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 339,
+              "line": 347,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18118,7 +18124,7 @@
               "count": 1
             },
             {
-              "line": 365,
+              "line": 374,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18130,31 +18136,25 @@
               "count": 1
             },
             {
-              "line": 386,
+              "line": 390,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 396,
+              "line": 403,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 409,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 409,
+              "line": 403,
               "severity": "warning",
               "category": "unmapped",
               "count": 17
             },
             {
-              "line": 415,
+              "line": 409,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1

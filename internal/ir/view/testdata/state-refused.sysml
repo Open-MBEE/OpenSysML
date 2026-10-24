@@ -1,3 +1,4 @@
+// Deliberately invalid: `right` scopes its run to `left::off`, no ancestor of it — the error is the point, as the rendering refuses the machine the way runtime lowering does.
 // A state rendering with a scope outside the redefining state exercises the
 // same typed non-ancestor refusal as runtime lowering.
 package Machines {

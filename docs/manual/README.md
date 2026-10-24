@@ -3,7 +3,7 @@
 OpenSysML generates documents from SysML v2 models: queries written in the
 model collect and shape elements, a document definition written in the model
 arranges them into sections, paragraphs, tables, lists and diagrams, and the
-engine renders the result as Markdown, HTML or PDF. The whole document —
+engine renders the result as Markdown, HTML, AsciiDoc or PDF. The whole document —
 content and structure alike — lives in the model, so the report regenerates
 whenever the model changes.
 
@@ -12,7 +12,8 @@ and renders with the current `sysml` binary, and every rendered output shown
 was produced by it.
 
 1. [Introduction and concepts](introduction.md) — queries, documents, content
-   blocks, and the model → queries → document → Markdown/HTML/PDF pipeline
+   blocks, and the model → queries → document → Markdown/HTML/AsciiDoc/PDF
+   pipeline
 2. [Getting started](getting-started.md) — the smallest working document, end
    to end
 3. [Query cookbook](query-cookbook.md) — recipes for collecting, filtering,
@@ -23,8 +24,8 @@ was produced by it.
 5. [Document authoring](authoring.md) — sections, paragraphs, inline runs,
    links, cross-references, tables (including grouped tables), lists and
    diagrams
-6. [Outputs](outputs.md) — Markdown, semantic HTML and its stylesheets, the
-   PDF engines and their options, and what determinism is guaranteed
+6. [Outputs](outputs.md) — Markdown, semantic HTML and its stylesheets,
+   AsciiDoc, the PDF engines and their options, and what determinism is guaranteed
 7. [Interfaces](interfaces.md) — CLI flags, REPL commands, the gRPC and Python
    APIs, and VS Code/LSP authoring support
 8. [A complete worked example](worked-example.md) — a telescope mass report

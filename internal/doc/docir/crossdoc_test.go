@@ -91,3 +91,44 @@ func TestEvaluateSetEmitsCrossDocumentAnchors(t *testing.T) {
 		t.Errorf("separately evaluated anchor = %q, want none", anchor)
 	}
 }
+
+// crossDocumentListFixture references another document's content block from
+// a Markdown list item rather than from a paragraph run.
+const crossDocumentListFixture = `
+	part def Appendix :> Document {
+		attribute redefines title = "Appendix";
+		part tables : Section {
+			attribute redefines title = "Detail Tables";
+			part body : Paragraph {
+				attribute redefines text = "detail";
+			}
+		}
+	}
+	part def Report :> Document {
+		attribute redefines title = "Report";
+		rep language "markdown" /* - see [](sysml:Appendix::tables) */
+	}
+`
+
+// TestEvaluateSetEmitsAnchorsForListItemRefs checks that a reference inside a
+// static list item requests its target's anchor like a paragraph run does.
+func TestEvaluateSetEmitsAnchorsForListItemRefs(t *testing.T) {
+	fixture := loadEvaluationFixture(t, crossDocumentListFixture)
+	plans := []*docplan.Plan{fixture.plan(t, "Appendix"), fixture.plan(t, "Report")}
+	outcomes, err := EvaluateSet(plans, fixture.context(), queryexec.Options{}, nil)
+	if err != nil {
+		t.Fatalf("evaluate set: %v", err)
+	}
+	for _, outcome := range outcomes {
+		if outcome.Err != nil {
+			t.Fatalf("evaluate %s: %v", outcome.Name, outcome.Err)
+		}
+	}
+	if anchor := outcomes[0].Document.Content()[0].Anchor(); anchor != "tables" {
+		t.Errorf("anchor requested from a list item = %q, want %q", anchor, "tables")
+	}
+	items := outcomes[1].Document.Content()[0].Items()
+	if len(items) != 1 || len(items[0].Runs()) < 2 || items[0].Runs()[1].Target() != "tables" {
+		t.Fatalf("list item runs = %+v, want a reference run targeting %q", items, "tables")
+	}
+}

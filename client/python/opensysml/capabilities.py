@@ -76,6 +76,8 @@ CAPABILITY_CHECK = "check"
 #: HTML page instead of Markdown. Without it the service would render Markdown
 #: whatever form was asked, so the client refuses to ask for HTML.
 CAPABILITY_RENDER_DOCUMENT_HTML = "render_document_html"
+#: ``RenderDocumentRequest.form`` takes ``"asciidoc"``, answered in ``asciidoc``.
+CAPABILITY_RENDER_DOCUMENT_ASCIIDOC = "render_document_asciidoc"
 
 #: An enumeration literal as ``Value.enum_literal``. Without it a literal is
 #: reported as an unsupported null, which is indistinguishable from a value the

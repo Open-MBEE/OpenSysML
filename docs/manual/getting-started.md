@@ -15,7 +15,7 @@ package Hello {
 		attribute redefines title = "Hello, Documents";
 
 		part greeting : Paragraph {
-			attribute redefines text = "This document was generated from a SysML v2 model.";
+			:>> text = "This document was generated from a SysML v2 model.";
 		}
 	}
 }
@@ -77,7 +77,7 @@ package Hello {
 		attribute redefines title = "Rover Parts";
 
 		part intro : Paragraph {
-			attribute redefines text = "The rover's top-level parts, from the model:";
+			:>> text = "The rover's top-level parts, from the model:";
 		}
 
 		part partsTable : Table {

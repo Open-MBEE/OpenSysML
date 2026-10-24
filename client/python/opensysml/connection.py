@@ -58,6 +58,7 @@ from opensysml.capabilities import (
     CAPABILITY_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
     CAPABILITY_RENDER_DOCUMENT_HTML,
+    CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
     CAPABILITY_RENDER_VIEW,
     CAPABILITY_CHECK,
     CAPABILITY_EXPORT_GRAPHS,
@@ -1897,26 +1898,30 @@ class Connection:
         Args:
             model_hash (str): Hash of the model holding the document
             document_id (str): Qualified name of the document
-            form (str): ``"markdown"`` (the default) or ``"html"``, the
+            form (str): ``"markdown"`` (the default), ``"html"``, the
                 standalone page with the default stylesheet that the CLI's
-                ``-doc-form html`` writes
+                ``-doc-form html`` writes, or ``"asciidoc"``, the document
+                ``-doc-form asciidoc`` writes
 
         Returns:
             str: The rendered document in the form asked for
 
         Raises:
-            ValueError: If ``form`` is neither ``"markdown"`` nor ``"html"``
+            ValueError: If ``form`` is none of ``"markdown"``, ``"html"`` and
+                ``"asciidoc"``
             MissingCapabilityError: If the service cannot render documents, or
-                cannot render HTML when that form is asked for
+                cannot render HTML or AsciiDoc when that form is asked for
             InvalidRequestError: If the symbol named is not a document
             SymbolNotFoundError: If the model does not declare the document
             ModelNotFoundError: If the model is no longer cached
         """
-        if form not in ("markdown", "html"):
-            raise ValueError("form must be 'markdown' or 'html'")
+        if form not in ("markdown", "html", "asciidoc"):
+            raise ValueError("form must be 'markdown', 'html' or 'asciidoc'")
         capabilities = [CAPABILITY_RENDER_DOCUMENT]
         if form == "html":
             capabilities.append(CAPABILITY_RENDER_DOCUMENT_HTML)
+        elif form == "asciidoc":
+            capabilities.append(CAPABILITY_RENDER_DOCUMENT_ASCIIDOC)
         for capability in capabilities:
             require(self.server_info(), capability, upgrade_remedy(capability))
         request = sysml_pb2.RenderDocumentRequest(
@@ -1929,7 +1934,11 @@ class Connection:
             unimplemented=self._capability_refusal(capabilities),
         ):
             response = self._stub.RenderDocument(request)
-        return response.html if form == "html" else response.markdown
+        if form == "html":
+            return response.html
+        if form == "asciidoc":
+            return response.asciidoc
+        return response.markdown
 
     def diagnostics(self, model_hash, disable_lint=(), enable_lint=()):
         """Ask the service for a model's diagnostics now, under a lint selection.

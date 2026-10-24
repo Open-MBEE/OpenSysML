@@ -38,6 +38,10 @@ const REPORT_HTML = join(
   repoRoot,
   "internal/doc/docrender/testdata/telescope_report.golden.html",
 );
+const REPORT_ADOC = join(
+  repoRoot,
+  "internal/doc/docrender/testdata/telescope_report.golden.adoc",
+);
 const VIEW_FIXTURE = join(repoRoot, "conformance/fixtures/views.sysml");
 const BEHAVIOR_FIXTURE = join(repoRoot, "conformance/fixtures/behavior.sysml");
 
@@ -206,6 +210,13 @@ test("renderDocument answers the golden html", async () => {
   const model = await connection.loads(readFileSync(REPORT_FIXTURE, "utf8"));
   const html = await model.renderDocument("Observatory::MassReport", { form: "html" });
   assert.equal(html, readFileSync(REPORT_HTML, "utf8"));
+});
+
+test("renderDocument answers the golden asciidoc", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(readFileSync(REPORT_FIXTURE, "utf8"));
+  const asciidoc = await model.renderDocument("Observatory::MassReport", { form: "asciidoc" });
+  assert.equal(asciidoc, readFileSync(REPORT_ADOC, "utf8"));
 });
 
 test("renderView returns ports, edge endpoints, and origins", async () => {
