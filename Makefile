@@ -568,6 +568,7 @@ scripts-coverage: ## Run the repository scripts and their tests under coverage a
 	$(PYTHON) -m coverage erase --rcfile=scripts/coverage-scripts.ini
 	$(SCRIPTS_COVERAGE) scripts/changelog-test.py
 	$(SCRIPTS_COVERAGE) scripts/changelog.py check
+	$(SCRIPTS_COVERAGE) scripts/release-announce-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_census-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_suite_figures-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_install_scripts-test.py
@@ -683,6 +684,7 @@ docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle
 changelog-check: ## Verify every changelog fragment under changes/unreleased/ and the folding script
 	$(PYTHON) scripts/changelog-test.py
 	$(PYTHON) scripts/changelog.py check
+	$(PYTHON) scripts/release-announce-test.py
 
 changelog-render: ## Fold changes/unreleased/ fragments into the Unreleased section of CHANGELOG.md
 	$(PYTHON) scripts/changelog.py render

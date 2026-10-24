@@ -396,6 +396,10 @@ jobs:
           name: Check the release provenance writer
           command: python3 scripts/release-provenance-test.py
 
+      - run:
+          name: Check the release announcer
+          command: python3 scripts/release-announce-test.py
+
       # The compliance census is counted when the site is built, never committed.
       - run:
           name: Check the compliance census hook
@@ -3972,6 +3976,40 @@ jobs:
       - rehearsal-skip:
           what: "ghr (the GitHub release)"
 
+  # Posts the release's Slack announcement once the GitHub release exists.
+  # The incoming-webhook URL comes from the 'Slack' context as
+  # SLACK_WEBHOOK_URL; which channel it posts to is the webhook's setting.
+  announce-release-slack:
+    executor: python-executor
+    steps:
+      - checkout
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: build the announcement payload without posting"
+                command: |
+                  if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+                    echo "SLACK_WEBHOOK_URL is empty; the 'Slack' context would have to"
+                    echo "carry it for the tag run to announce anything."
+                  else
+                    echo "ok: SLACK_WEBHOOK_URL is set"
+                  fi
+                  TAG="$(git tag --points-at HEAD | grep -m1 '^v' || true)"
+                  python3 scripts/release-announce.py --tag "${TAG:-v0.0.0}" \
+                      --release-name "${TAG:-v0.0.0} - rehearsal" \
+                      --dry-run
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: Announce the release on Slack
+                command: |
+                  export GITHUB_TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-${CIRCLE_TOKEN}}}"
+                  python3 scripts/release-announce.py --tag "${CIRCLE_TAG}"
+      - rehearsal-skip:
+          what: "the Slack announcement post"
+
   # After the GitHub release exists, brings the committed shared table up to
   # date with it: stamps the release from the manifest build-release wrote,
   # syncs every client copy, and opens a pull request against develop with the
@@ -4377,6 +4415,18 @@ workflows:
           # exactly, so the case here has to match it.
           context:
             - DockerHub
+          requires:
+            - Publish GitHub release
+          filters: *release-tags
+
+      - announce-release-slack:
+          name: Announce the release on Slack
+          # Once the GitHub release exists; independent of the registry
+          # publishers so a registry refusing a re-run still announces.
+          # The organization context is named 'Slack'; a context reference
+          # is matched exactly, so the case here has to match it.
+          context:
+            - Slack
           requires:
             - Publish GitHub release
           filters: *release-tags
