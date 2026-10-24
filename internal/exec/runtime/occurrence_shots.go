@@ -155,22 +155,68 @@ func (inst *Instance) shotFeatureValue(ctx *Context, name string) (*FeatureValue
 	return &FeatureValue{Feature: fv.Feature, Value: val, Materialized: val.Kind != ValUndetermined}, nil
 }
 
-// shotValues gives a shot the values the occurrence held at its instant: an ended
-// occurrence's values are its end values, and a value nothing wrote since the start
-// is its start value; one written since was not recorded then, so it is undetermined.
+// recordStartValues keeps the values a performance holds as it begins: the ones its
+// start bound, which its start shot reads; nil when it holds none.
+func (ctx *Context) recordStartValues(inst *Instance) {
+	var held map[string]Value
+	for name, fv := range inst.FeatureValues {
+		if value, ok := writtenScalar(fv); ok {
+			if held == nil {
+				held = make(map[string]Value)
+			}
+			held[name] = value
+		}
+	}
+	prior, had := ctx.startValues[inst.ID]
+	if held == nil {
+		delete(ctx.startValues, inst.ID)
+	} else {
+		ctx.startValues[inst.ID] = held
+	}
+	ctx.noteProbeUndo(func() {
+		if had {
+			ctx.startValues[inst.ID] = prior
+		} else {
+			delete(ctx.startValues, inst.ID)
+		}
+	})
+}
+
+// writtenScalar is the scalar value a run or a start wrote to the feature value; false
+// for one derived, unmaterialized, or holding objects or collections.
+func writtenScalar(fv *FeatureValue) (Value, bool) {
+	if fv == nil || !fv.Written || !fv.Materialized || fv.Feature == nil {
+		return Value{}, false
+	}
+	value := fv.HeldValue()
+	switch value.Kind {
+	case ValInvalid, ValInstance, ValSequence, ValSet, ValArray, ValUndetermined:
+		return Value{}, false
+	}
+	return value, true
+}
+
+// shotValues gives a shot the values its occurrence wrote: an ended occurrence's end
+// shot holds its values, a start shot the values recorded as it began; a value written
+// since the start that no record holds is undetermined there. Derived values are not
+// copied: the shot derives them over its own values.
 func (ctx *Context) shotValues(shot, inst *Instance, start bool) error {
+	recorded := ctx.startValues[inst.ID]
 	for name, fv := range inst.FeatureValues {
 		target, ok := shot.FeatureValues[name]
-		if !ok || !fv.Materialized || fv.Feature == nil || !fv.Feature.Scalar() && fv.Values.Kind == ValInvalid {
+		if !ok {
 			continue
 		}
-		value := fv.HeldValue()
-		switch value.Kind {
-		case ValInvalid, ValInstance, ValSequence, ValSet, ValArray:
-			continue
+		value, written := writtenScalar(fv)
+		if start {
+			if at, ok := recorded[name]; ok {
+				value, written = at, true
+			} else if written {
+				value = undeterminedFeatureValue(fmt.Sprintf("%s was assigned after %s started: its value then was not recorded", name, SymbolText(inst.Type)), fv.Feature.Multiplicity, fv.Feature.Symbol)
+			}
 		}
-		if start && fv.Written {
-			value = undeterminedFeatureValue(fmt.Sprintf("%s was assigned after %s started: its value then was not recorded", name, SymbolText(inst.Type)), fv.Feature.Multiplicity, fv.Feature.Symbol)
+		if !written {
+			continue
 		}
 		if err := shot.BindFeatureValue(ctx, name, value); err != nil {
 			return err

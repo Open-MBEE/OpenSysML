@@ -73,9 +73,10 @@ type HeldImage struct {
 	behaviors []imagedBehavior // in the attachment order of the context imaged
 	messages  []Message
 	// What the run recorded of the held objects: shots, fired successions, transfers.
-	shots     map[int64]occurrenceShots
-	fired     map[int64][]int64
-	transfers []transferRecord
+	shots       map[int64]occurrenceShots
+	startValues map[int64]map[string]Value
+	fired       map[int64][]int64
+	transfers   []transferRecord
 }
 
 // imagedObject is one object by value: its identity, types, owner, lifetime,
@@ -532,6 +533,12 @@ func (t *imaging) finish() {
 	for id, shots := range ctx.shots {
 		if img.held[id] {
 			img.shots[id] = shots
+		}
+	}
+	img.startValues = make(map[int64]map[string]Value)
+	for id, values := range ctx.startValues {
+		if img.held[id] {
+			img.startValues[id] = maps.Clone(values)
 		}
 	}
 	for id, predecessors := range ctx.fired {
@@ -1089,6 +1096,11 @@ func (m *materializing) recordedOccurrences() {
 			}
 		}
 		return out
+	}
+	for id, values := range m.img.startValues {
+		if to := made(id); to != 0 {
+			m.dst.startValues[to] = maps.Clone(values)
+		}
 	}
 	for id, shots := range m.img.shots {
 		if to := made(id); to != 0 {

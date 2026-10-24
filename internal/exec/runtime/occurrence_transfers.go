@@ -201,6 +201,11 @@ func (ctx *Context) transferEndValue(inst *Instance, sym *symbols.Symbol) (Value
 // forgetRecordsNaming drops the shots, fired successions and transfers of the objects
 // abandoned, and the references surviving records held to them.
 func (ctx *Context) forgetRecordsNaming(abandoned map[int64]bool) {
+	for id := range ctx.startValues {
+		if abandoned[id] {
+			delete(ctx.startValues, id)
+		}
+	}
 	for id, shots := range ctx.shots {
 		if abandoned[id] {
 			delete(ctx.shots, id)

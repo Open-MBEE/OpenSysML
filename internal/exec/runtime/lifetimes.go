@@ -356,6 +356,7 @@ func (ctx *Context) beginPerformanceLife(inst *Instance, activation int64) {
 	}
 	ctx.lives[inst.ID] = life{reached: prior.reached, began: activation, beganAt: ctx.clock.Now()}
 	ctx.noteProbeUndo(func() { ctx.lives[inst.ID] = prior })
+	ctx.recordStartValues(inst)
 	ctx.livesChanged()
 	ctx.workChanged()
 }
