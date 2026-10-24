@@ -18,6 +18,8 @@ package Fleet {
 
     part def Trailer;
 
+    part def Radio;
+
     part def Vehicle {
         part chassis : Chassis;
         part wheels[4] : Wheel;
