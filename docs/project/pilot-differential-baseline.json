@@ -69,7 +69,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 52,
-        "digest": "sha256:688edb659f8bcd9f644b2278dae231f65af44dd0f39b374f7e6286f4289d9373"
+        "digest": "sha256:451596b19bfcca198268d5b8ef8f3d307cedb69ebfa73521d1798d8f6d4b8c4f"
       },
       {
         "name": "probes",
@@ -18103,19 +18103,7 @@
               "count": 1
             },
             {
-              "line": 374,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 380,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 390,
+              "line": 397,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18127,13 +18115,25 @@
               "count": 1
             },
             {
-              "line": 403,
+              "line": 413,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 426,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 426,
               "severity": "warning",
               "category": "unmapped",
               "count": 17
             },
             {
-              "line": 409,
+              "line": 432,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
