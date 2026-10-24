@@ -3,6 +3,7 @@ package docrender
 import (
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
@@ -68,10 +69,45 @@ func refText(run docir.TextRun, labels map[string]string) string {
 func joinRuns(runs []docir.TextRun, rendered []string) string {
 	var b strings.Builder
 	for i, part := range rendered {
-		if i > 0 && !docplan.BindsLeft(runs[i].Text()) && !docplan.BindsRight(runs[i-1].Text()) {
+		if i > 0 && !bindsLeft(runs[i]) && !bindsRight(runs[i-1]) {
 			b.WriteByte(' ')
 		}
 		b.WriteString(part)
 	}
 	return b.String()
+}
+
+// bindsLeft reports whether a run joins the one before it without a space:
+// it opens with closing punctuation, or it is plain prose that already opens
+// with the white space it was written with, as a run cut from a markup body does.
+func bindsLeft(run docir.TextRun) bool {
+	if run.Kind() == docir.RunPlain && run.Text() != "" && unicode.IsSpace(firstRune(run.Text())) {
+		return true
+	}
+	return docplan.BindsLeft(run.Text())
+}
+
+// bindsRight reports whether a run joins the one after it without a space: it
+// closes with an opening bracket or quote, or is plain prose closing with its
+// own white space.
+func bindsRight(run docir.TextRun) bool {
+	if run.Kind() == docir.RunPlain && run.Text() != "" && unicode.IsSpace(lastRune(run.Text())) {
+		return true
+	}
+	return docplan.BindsRight(run.Text())
+}
+
+func firstRune(text string) rune {
+	for _, r := range text {
+		return r
+	}
+	return 0
+}
+
+func lastRune(text string) rune {
+	var last rune
+	for _, r := range text {
+		last = r
+	}
+	return last
 }
