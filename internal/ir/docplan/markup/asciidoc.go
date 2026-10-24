@@ -82,6 +82,9 @@ type asciiDocBlock struct {
 	Source      string           `json:"source"`
 	Target      string           `json:"target"`
 	Alt         string           `json:"alt"`
+	Level       int              `json:"level"`
+	ID          string           `json:"id"`
+	Blocks      []asciiDocBlock  `json:"blocks"`
 }
 
 type asciiDocItem struct {
@@ -109,11 +112,12 @@ func decodeAsciiDoc(body string, output []byte) ([]Block, error) {
 		return nil, &ToolError{Tool: asciiDocTool, EnvVar: AsciiDocEnv, Detail: "unreadable answer: " + err.Error()}
 	}
 	m := &asciiDocMapper{body: body, lines: lineStarts(body)}
-	blocks := make([]Block, 0, len(tree.Blocks))
-	for i, node := range tree.Blocks {
+	nodes := flattenAsciiDoc(nil, tree.Blocks)
+	blocks := make([]Block, 0, len(nodes))
+	for i, node := range nodes {
 		stop := len(body)
-		if i+1 < len(tree.Blocks) {
-			stop = m.blockStart(tree.Blocks[i+1].Line)
+		if i+1 < len(nodes) {
+			stop = m.blockStart(nodes[i+1].Line)
 		}
 		block, err := m.block(node, stop)
 		if err != nil {
@@ -122,6 +126,21 @@ func decodeAsciiDoc(body string, output []byte) ([]Block, error) {
 		blocks = append(blocks, block)
 	}
 	return blocks, nil
+}
+
+// flattenAsciiDoc lays the converter's tree out in body order: a section is
+// its heading followed by its blocks, subsections among them.
+func flattenAsciiDoc(flat []asciiDocBlock, nodes []asciiDocBlock) []asciiDocBlock {
+	for _, node := range nodes {
+		if node.Kind != "section" {
+			flat = append(flat, node)
+			continue
+		}
+		children := node.Blocks
+		node.Blocks = nil
+		flat = flattenAsciiDoc(append(flat, node), children)
+	}
+	return flat
 }
 
 // lineStarts indexes the byte offset each 1-based line of body starts at.
@@ -196,7 +215,7 @@ func asciiDocMetadataLine(text string) bool {
 var asciiDocCaptioned = map[string]bool{"table": true, "stem": true, "image": true}
 
 // asciiDocHandled lists the block kinds a content block carries.
-var asciiDocHandled = map[string]bool{"paragraph": true, "admonition": true, "list": true, "table": true, "stem": true, "image": true}
+var asciiDocHandled = map[string]bool{"paragraph": true, "admonition": true, "list": true, "table": true, "stem": true, "image": true, "section": true}
 
 func (m *asciiDocMapper) block(node asciiDocBlock, stop int) (Block, error) {
 	span := m.blockSpan(node.Line, stop)
@@ -216,6 +235,8 @@ func (m *asciiDocMapper) block(node asciiDocBlock, stop int) (Block, error) {
 			return Block{}, err
 		}
 		return Block{Kind: BlockParagraph, Runs: runs, Span: span}, nil
+	case "section":
+		return m.section(node, span)
 	case "admonition":
 		runs, err := m.runs(node.Runs, span, StylePlain)
 		if err != nil {
@@ -247,6 +268,24 @@ func (m *asciiDocMapper) block(node asciiDocBlock, stop int) (Block, error) {
 		return Block{Kind: BlockFormula, Source: strings.TrimSpace(node.Source), Caption: node.Title, Span: span}, nil
 	}
 	return Block{Kind: BlockImage, Location: node.Target, Alt: node.Alt, Caption: node.Title, Span: span}, nil
+}
+
+// section maps a section title onto a heading: the title's text, styles
+// flattened, with the id an anchor gave it; the span is the title line and
+// the anchor or attribute lines ahead of it.
+func (m *asciiDocMapper) section(node asciiDocBlock, span Span) (Block, error) {
+	if node.Level < 1 {
+		return Block{}, m.refuse(fmt.Sprintf("level %d section", node.Level), span)
+	}
+	runs, err := m.runs(node.Runs, span, StylePlain)
+	if err != nil {
+		return Block{}, err
+	}
+	title, err := headingTitle(runs)
+	if err != nil {
+		return Block{}, m.refuse(err.Error(), span)
+	}
+	return Block{Kind: BlockHeading, Level: node.Level, Title: title, ID: node.ID, Span: span}, nil
 }
 
 func (m *asciiDocMapper) list(node asciiDocBlock, span Span, stop int) (Block, error) {

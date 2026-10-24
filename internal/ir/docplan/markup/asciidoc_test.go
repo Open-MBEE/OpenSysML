@@ -137,7 +137,8 @@ func TestAsciiDocRefusals(t *testing.T) {
 		line      int
 	}{
 		{"document header", "= Title\n\npara\n", `{"blocks":[{"kind":"header","line":1},{"kind":"paragraph","line":3,"runs":[]}]}`, "document header", 1},
-		{"section", "para\n\n== Heading\n", `{"blocks":[{"kind":"paragraph","line":1,"runs":[]},{"kind":"section","line":3,"title":"Heading"}]}`, "section heading", 3},
+		{"level 0 section", "para\n\n= Heading\n", `{"blocks":[{"kind":"paragraph","line":1,"runs":[]},{"kind":"section","line":3,"level":0,"runs":[{"kind":"text","style":"plain","text":"Heading"}],"blocks":[]}]}`, "level 0 section", 3},
+		{"xref in a heading", "para\n\n== See <<x>>\n", `{"blocks":[{"kind":"paragraph","line":1,"runs":[]},{"kind":"section","line":3,"level":1,"runs":[{"kind":"text","style":"plain","text":"See "},{"kind":"ref","target":"x","text":""}],"blocks":[]}]}`, "reference in a heading", 3},
 		{"listing", "----\ncode\n----\n", `{"blocks":[{"kind":"listing","line":1}]}`, "listing block", 1},
 		{"nested list", "* a\n** b\n", `{"blocks":[{"kind":"list","line":1,"items":[{"line":1,"runs":[],"blocks":[{"kind":"list","line":2,"items":[]}]}]}]}`, "nested list", 2},
 		{"attached paragraph", "* a\n+\npara\n", `{"blocks":[{"kind":"list","line":1,"items":[{"line":1,"runs":[],"blocks":[{"kind":"paragraph","line":3,"runs":[]}]}]}]}`, "paragraph attached to a list item", 3},

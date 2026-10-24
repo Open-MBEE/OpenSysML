@@ -359,6 +359,29 @@ package OpenSysMLDocument {
                     in redefines root = viewEngine;
                 }
             }
+
+            rep language "markdown" /* ### Prose as one body
+             *
+             * The prose of a document need not be one `part : Paragraph` per
+             * paragraph: a KerML textual representation in Markdown or AsciiDoc
+             * expands in place, and its headings open the sections, so a
+             * subsection such as this one is written as a heading.
+             *
+             * #### Headings become sections
+             *
+             * The first heading met in a body is one level below its owner;
+             * here the body sits in the *Documents and views* section, so its
+             * `###` headings are that section's subsections and `####` their
+             * children. A heading that skips a level is a planning error, as is
+             * one in a paragraph body.
+             *
+             * #### Names and references
+             *
+             * Each section takes its explicit AsciiDoc id or a slug of its
+             * title, unique within the document, so [](sysml:headings_become_sections)
+             * resolves and the HTML carries an anchor for it, and the
+             * [pipeline](sysml:pipeline) section is one reference away.
+             */
         }
 
         part identity : Section {

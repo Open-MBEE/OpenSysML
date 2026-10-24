@@ -34,6 +34,38 @@ func TestManualWorkedExampleMatchesCommittedOutput(t *testing.T) {
 	}
 }
 
+// TestManualWholeDocumentExampleMatchesCommittedOutput renders the manual's
+// whole-document example, whose outline is one Markdown body, and compares it
+// against the committed output.
+func TestManualWholeDocumentExampleMatchesCommittedOutput(t *testing.T) {
+	binary := buildCLI(t)
+	examples := filepath.Join("..", "..", "docs", "manual", "examples")
+	committed, err := os.ReadFile(filepath.Join(examples, "whole-document.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(t.TempDir(), "whole-document.md")
+	cmd := exec.Command(binary, filepath.Join(examples, "whole-document.sysml"), "-render-document", "Whole::MassReport", "-o", out)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("render: %v\n%s", err, output)
+	}
+	written, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(written) != string(committed) {
+		t.Errorf("rendered whole-document example differs from docs/manual/examples/whole-document.md:\n%s", written)
+	}
+	for _, want := range []string{
+		"## Overview", "### Mass budget", "#### Margins", "## Design", "## Appendix", "### Derivation",
+		"[Mass budget](#overview-mass_budget)", "[margin](Whole-Glossary.md#mass_margin)", "[Mass budget](#overview-mass_budget_2)",
+	} {
+		if !strings.Contains(string(written), want) {
+			t.Errorf("rendered whole-document example lacks %q", want)
+		}
+	}
+}
+
 // TestManualProseExampleMatchesCommittedOutput renders the manual's Markdown
 // prose example, whose paragraphs and lists are `rep language "markdown"`
 // bodies, and compares it against the committed output.

@@ -4,6 +4,7 @@
 package markup
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -60,6 +61,9 @@ const (
 	BlockFormula BlockKind = "formula"
 	// BlockImage is a figure read from a file: Location names it.
 	BlockImage BlockKind = "image"
+	// BlockHeading opens a section: Level is the markup's heading level and
+	// Title its plain text, ID the explicit anchor the markup gave it.
+	BlockHeading BlockKind = "heading"
 )
 
 // Block is one content block of a body.
@@ -84,7 +88,12 @@ type Block struct {
 	// Location and Alt are an image's file and alternative text.
 	Location string
 	Alt      string
-	Span     Span
+	// Level, Title and ID are a heading's level (1 the outermost), plain
+	// text and explicit anchor (empty when the markup gives none).
+	Level int
+	Title string
+	ID    string
+	Span  Span
 }
 
 // TableRow is one body row of a table: one plain-text cell per column.
@@ -155,4 +164,30 @@ func lineOf(body string, offset int) int {
 		offset = len(body)
 	}
 	return 1 + strings.Count(body[:offset], "\n")
+}
+
+// headingTitle joins a heading's text runs into its title, whatever their
+// style; a run of any other kind is the construct the error names.
+func headingTitle(runs []Run) (string, error) {
+	var b strings.Builder
+	for _, run := range runs {
+		if run.Kind != RunText {
+			return "", errors.New(runConstruct(run.Kind) + " in a heading")
+		}
+		b.WriteString(run.Text)
+	}
+	return strings.TrimSpace(b.String()), nil
+}
+
+// runConstruct names a run kind as the manual does.
+func runConstruct(kind RunKind) string {
+	switch kind {
+	case RunLink:
+		return "link"
+	case RunRef:
+		return "reference"
+	case RunMath:
+		return "formula"
+	}
+	return string(kind)
 }

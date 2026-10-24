@@ -50,6 +50,8 @@ type compiler struct {
 	bases    bases
 	stack    []string
 	targets  map[*symbols.Symbol]refTarget
+	parsed   map[*symbols.Symbol]*parsedBody
+	outlines map[*symbols.Symbol]*markupOutline
 }
 
 type bases struct {
@@ -145,6 +147,8 @@ func Compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Res
 		entry:    entry,
 		bases:    all,
 		targets:  make(map[*symbols.Symbol]refTarget),
+		parsed:   make(map[*symbols.Symbol]*parsedBody),
+		outlines: make(map[*symbols.Symbol]*markupOutline),
 	}
 	title, err := c.requiredText(entry, "title", ErrorMissingTitle)
 	if err != nil {
@@ -804,6 +808,9 @@ func (c *compiler) resolveRunRefs(runs []Run) error {
 			continue
 		}
 		target, ok := c.targets[run.refSym]
+		if run.refName != "" {
+			target, ok = c.markupSectionTarget(run)
+		}
 		if !ok {
 			cross, err := c.crossDocumentTarget(run)
 			if err != nil {
