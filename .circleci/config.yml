@@ -3461,11 +3461,14 @@ jobs:
             # must hold too; opensysml-conformance is not published. The jar is
             # rebuilt from the tree whose stamped resource was verified above.
             # Never run this step with -X/debug output; the settings interpolation would print the token.
+            # no_output_timeout: after "Waiting until Deployment … is published" the plugin polls
+            # Central silently for up to waitMaxTime (1800 s, client/java/pom.xml); 35m outlives that, the 10m default did not (v0.11.0).
             - run:
                 name: Sign, upload and publish
                 command: |
                   MAVEN_GPG_PASSPHRASE="$GPG_PASSPHRASE" mvn -B -f client/java/pom.xml \
                     -Prelease deploy -pl :opensysml -am -DskipTests
+                no_output_timeout: 35m
       - when:
           condition: << pipeline.parameters.release_rehearsal >>
           steps:

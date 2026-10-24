@@ -1678,7 +1678,14 @@ at `verify` (the passphrase comes from `MAVEN_GPG_PASSPHRASE`, never from a
 pom property or the settings), and `central-publishing-maven-plugin` with
 `autoPublish=true` and `waitUntil=published` — the job publishes the validated
 deployment itself and waits until it is published, so a green job means the
-version is on Central. The irreversible step is guarded by running last, on a
+version is on Central. That wait is silent at Maven's default log level (the
+plugin's per-poll status lines are debug output, which the step must never
+enable — it would print the token) and bounded by the plugin's `waitMaxTime`,
+pinned in the pom at its floor of 1800 s with a `waitPollingInterval` of 5 s;
+the deploy step's `no_output_timeout` is 35m so that the plugin's own timeout,
+not CircleCI's 10m no-output default, ends a wait. `tests/hygiene`
+(`TestMavenPublishStepOutlivesThePluginWait`) holds the two values together.
+The irreversible step is guarded by running last, on a
 revision proven green, and by the refusal of a version already published.
 The plugin's pin has to track Sonatype's Portal API: `0.7.0` rejected the
 `warnings` field the deployment-status response gained in October 2026 and
@@ -1734,7 +1741,10 @@ before `0.9.0`. Consumers get it only by naming it.
    the parent pom the client's pom names. The jar is rebuilt from the tree
    whose stamped resource step 5 verified. The plugin uploads, Central
    validates, `autoPublish` releases the deployment, and the build waits until
-   it is published.
+   it is published — silently, polling every 5 s for up to 30 minutes
+   (`waitMaxTime`), then fails with `DeploymentPublishTimedOutException` naming
+   the deployment. The step's `no_output_timeout` of 35m stays above that, so
+   the wait ends on the plugin's verdict rather than on CircleCI's cut.
 
 ### If a publish goes wrong
 
@@ -1747,9 +1757,21 @@ from failed*, without repeating the rest of the workflow.
 
 A deployment that fails Central validation is not published — `autoPublish`
 only publishes a valid one: drop it in the portal if it remains, fix the cause,
-and re-run. If the job timed out waiting while Central was still publishing,
-check the portal before anything else; the next run's availability check
-answers whether the version landed.
+and re-run. A red that ends in `DeploymentPublishTimedOutException` means
+Central took longer than the plugin's 30-minute `waitMaxTime` to publish an
+uploaded, validated deployment; it says nothing about whether the version
+landed. Check Central's listing of `org.openmbee:opensysml` (the portal's
+*Deployments* page, or `curl -sI` on the version's pom URL under
+`repo1.maven.org`) before anything else: a version that is there needs no
+re-run, and the refusal step fails one by design; only a version that is not
+there, and a deployment the portal shows as failed, is re-run. A step cut by
+CircleCI itself (`Too long with no output`) is now outside the design: the
+step's `no_output_timeout` outlives the plugin's wait, so that message points
+at a status request that hung rather than at a slow publish, and is checked
+against Central the same way. The `v0.11.0` job was lost to the 10m default:
+the plugin logged `Waiting until Deployment … is published` and nothing more,
+CircleCI killed the step ten minutes later, and Central listed the version
+anyway.
 
 Once published the version is immutable — it cannot be replaced or deleted,
 and the refusal makes a re-run fail by design. A published mistake needs the
