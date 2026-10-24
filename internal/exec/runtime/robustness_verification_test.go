@@ -213,7 +213,8 @@ func testVerificationObjectiveSubjectRebound(t *testing.T) {
 
 // testVerificationRunsOncePerRepeatedObject: a case a definition owns is a feature of every
 // object of the definition, so the bolts four repeated wheels hold are four runs on four
-// objects, while a check naming the bolt's constraint still resolves the four to one subject.
+// objects, while a check naming the bolt's constraint still resolves the four to one subject;
+// instantiating the car again runs the case on the latest car's bolts, the one root a usage has.
 func testVerificationRunsOncePerRepeatedObject(t *testing.T) {
 	src := `
 		package test {
@@ -238,22 +239,34 @@ func testVerificationRunsOncePerRepeatedObject(t *testing.T) {
 	if _, err := ctx.Instantiate(lookupOne(t, idx, "test::car")); err != nil {
 		t.Fatalf("instantiate car: %v", err)
 	}
-	results := ctx.VerificationResultsOn([]*symbols.Scope{scope}, lookupOne(t, idx, "test::tight"), nil)
-	subjects := map[int64]bool{}
-	for _, r := range results {
-		if r.Verdict.Subject == nil {
-			t.Fatalf("a run of %s names no object", r.Verdict.Case)
+	runsOnFourBolts := func(label string) map[int64]bool {
+		results := ctx.VerificationResultsOn([]*symbols.Scope{scope}, lookupOne(t, idx, "test::tight"), nil)
+		subjects := map[int64]bool{}
+		for _, r := range results {
+			if r.Verdict.Subject == nil {
+				t.Fatalf("%s: a run of %s names no object", label, r.Verdict.Case)
+			}
+			subjects[r.Verdict.Subject.ID] = true
+			if r.Verdict.Kind != VerdictFail {
+				t.Errorf("%s: verdict on object #%d = %s (%s), want fail", label, r.Verdict.Subject.ID, r.Verdict.Kind, r.Verdict.Detail)
+			}
 		}
-		subjects[r.Verdict.Subject.ID] = true
-		if r.Verdict.Kind != VerdictFail {
-			t.Errorf("verdict on object #%d = %s (%s), want fail", r.Verdict.Subject.ID, r.Verdict.Kind, r.Verdict.Detail)
+		if len(results) != 4 || len(subjects) != 4 {
+			t.Fatalf("%s: %d run(s) on %d object(s), want one on each of the four bolts", label, len(results), len(subjects))
 		}
+		return subjects
 	}
-	if len(results) != 4 || len(subjects) != 4 {
-		t.Fatalf("%d run(s) on %d object(s), want one on each of the four bolts", len(results), len(subjects))
-	}
+	first := runsOnFourBolts("one car")
 	tightEnough := lookupOne(t, idx, "test::Bolt::tightEnough")
 	if _, err := ctx.EvaluateConstraint(tightEnough, tightEnough.OwnerScope); !errors.Is(err, ErrViolated) {
 		t.Errorf("EvaluateConstraint on the repeated bolts: %v, want the one subject's violation", err)
+	}
+	if _, err := ctx.Instantiate(lookupOne(t, idx, "test::car")); err != nil {
+		t.Fatalf("instantiate car again: %v", err)
+	}
+	for id := range runsOnFourBolts("two cars") {
+		if first[id] {
+			t.Errorf("object #%d of the first car is still run on; the latest car is the usage's one root", id)
+		}
 	}
 }
