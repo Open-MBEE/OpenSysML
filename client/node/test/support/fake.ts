@@ -21,6 +21,7 @@ export const ALL_CAPABILITIES = [
   "document_query",
   "render_document",
   "render_document_html",
+  "render_document_asciidoc",
   "verification",
   "verification_questions",
   "engines",

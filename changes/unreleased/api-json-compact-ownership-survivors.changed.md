@@ -1,1 +1,0 @@
-- Preserve ownership references needed by API-JSON import when omitting derived properties from compact output.

@@ -586,7 +586,7 @@ func plantumlArrow(kind Kind, edge EdgeKind) string {
 		return "o--"
 	case EdgeContainment:
 		return "+--"
-	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate, EdgeDependency:
 		return "..>"
 	case EdgeAssociation:
 		return "--"

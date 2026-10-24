@@ -422,11 +422,11 @@ and `umlType` (`Class Diagram`) together — by the first family below a word of
 |---|---|
 | a table or matrix: Generic, Instance and Requirement Tables, Dependency and Allocation Matrices, any kind named `… Table`/`… Matrix` | `Views::asElementTable` |
 | internal block, parametric, composite structure and interconnection diagrams | `Views::asInterconnectionDiagram`; a parametric diagram's constraint properties are drawn as constraint usages with their parameters as squares on the border, the binding connectors' lines ending at the squares; a parametric diagram of a block of the [Monte Carlo pattern](#monte-carlo-analyses) exposes the block's analysis def in place of the pattern's `Mean` symbol and the def's returns in place of its other statistics, the `Mean` binding routed along the def's `observed` |
-| block definition, class, package, object, component, deployment, profile and other structure diagrams | `Views::asTreeDiagram` |
+| block definition, class, package, object, component, deployment, profile and other structure diagrams, and requirement diagrams | `Views::asTreeDiagram`; a requirement diagram's tree draws the requirements with their nested requirements and the satisfy, verify, derive and refine relationships it shows as dashed edges |
 | an activity diagram whose owner is written as an `action def`, a state machine (or statechart) diagram whose owner is written as a `state def`, showing a node or edge of its graph | `view : StandardViewDefinitions::ActionFlowView` / `StateTransitionView`, rendered `Views::asInterconnectionDiagram` |
 | a use case diagram | `Views::asInterconnectionDiagram` over the actors' `part` usages, the `use case` and `requirement` usages and the connections written for the actor associations, includes, extends and «Refine»s it shows; the renderer draws a use case's subject and `actor` parameters as pins on its node, not as nested nodes, so an actor is one node and its association one line ending at the use case |
 | a sequence diagram | `view : StandardViewDefinitions::SequenceView` exposing the interaction's `occurrence def`, with a `DiagramLayout::Layout` per lifeline head and a `DiagramLayout::Route` per message line from the diagram's symbols |
-| other behavior diagrams (an activity diagram of a package or one showing nothing of its activity's graph), requirement, content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
+| other behavior diagrams (an activity diagram of a package or one showing nothing of its activity's graph), content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
 
 A Cameo **Requirement Table** or **Refine Requirement Matrix** is stored without its content:
 the tool computes the table's rows and the matrix's cells from the diagram's owner each time it
@@ -526,6 +526,14 @@ An association block, whose def carries members of its own, a def that inherits 
 specializes another, and one whose end holds a qualifier stay boxes. Because the tree draws such a
 def as a line, a v1 association's diagram route is pinned to it (`Route about WheelToCar`); the
 route of one the tree keeps as a box, an association block with members say, stays `not drawn`.
+A dependency-like relationship — a «Satisfy», «Verify», «Refine», «DeriveReqt», «Allocate» or
+plain dependency, or a connector written as a `connection` — is routed on a view of any form,
+an `ActionFlowView` or `StateTransitionView` included, when the view shows both of its ends (the
+graphical notation draws a dependency between any two element nodes a view shows); the renderer
+draws it as a dashed open-arrow edge labelled with its keyword, or as the connection it was
+written as, between the nodes of its ends, which the action or state rendering adds as plain
+boxes for exposed ends that are no node of its graph. One with an end the view does not show
+is reported `not exposed`.
 A shown
 end the association owns exposes the def rather than the end, so two defs with a same-named end
 shown on one diagram import no duplicate name. A region's initial transition is the bare entry

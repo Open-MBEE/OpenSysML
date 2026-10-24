@@ -563,8 +563,8 @@ const markdown = await model.renderDocument("Observatory::Overview");
 wire `query`), never both a structured form and `oslc`. A binding value is an
 `ElementRef`, an `ObjectRef`, a primitive or a quantity; `runDocumentQuery`
 answers the typed `DocumentQueryResult` — `rows` of `DocumentValue`s, the schema
-the query declared — and `renderDocument` answers Markdown, or HTML with
-`{ form: "html" }`.
+the query declared — and `renderDocument` answers Markdown, HTML with
+`{ form: "html" }`, or AsciiDoc with `{ form: "asciidoc" }`.
 
 ## Execution and exploration
 

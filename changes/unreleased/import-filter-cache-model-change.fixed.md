@@ -1,1 +1,0 @@
-- Invalidate cached import enumerations when the resolver's semantic model changes.

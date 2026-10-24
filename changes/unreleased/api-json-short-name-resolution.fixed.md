@@ -1,1 +1,0 @@
-- API JSON name resolution now considers declared and membership short names, and later feature-chain links resolve only within the preceding feature's type and supertypes.

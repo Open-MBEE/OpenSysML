@@ -1944,7 +1944,7 @@ func mermaidArrow(kind Kind, edge EdgeKind) string {
 	switch edge {
 	case EdgeConnection, EdgeBinding:
 		return "==="
-	case EdgeFlow, EdgeTyping, EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+	case EdgeFlow, EdgeTyping, EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate, EdgeDependency:
 		return "-.->"
 	case EdgeComposition, EdgeReference, EdgeContainment:
 		return "---"

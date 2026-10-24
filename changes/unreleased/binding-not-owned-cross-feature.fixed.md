@@ -1,1 +1,0 @@
-- A `member binding` declared in an end feature's body ahead of its cross feature is no longer taken as the owned cross feature (KerML 1.1 `Feature::ownedCrossFeature` rejects binding connectors and metadata features), so a mistyped cross feature after it is now reported with `cross-feature-type` as it is without the binding.

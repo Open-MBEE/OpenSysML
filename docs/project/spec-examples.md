@@ -116,6 +116,12 @@ needs context the text does not print) or **cascade** (a secondary diagnostic of
 | KerML 7.2.4.3, SysML 7.4.3 | `kerml/7.2.4.3/1.kerml`, `sysml/7.4.3/1.sysml` | `behavior setX(c : C, newX : Real) { language "alf" /* ... */ }`, `action def setX(c : C, newX : Real) { ... }` | no production puts a parenthesised parameter list on a declaration; parameters are `ParameterMember`s of the body (KerML 8.2.4.4.2, SysML 8.2.2.5.2). The rep-less `TextualRepresentation = ( 'rep' Identification )? 'language' STRING_VALUE REGULAR_COMMENT` (KerML 8.2.3.3.3) is admitted in both notations | rejects (`no viable alternative at input '('`) | rejects (`a declaration takes no parenthesised parameter list`), then reads the body with its textual representation | erratum, both right |
 | SysML 8.4.13.5 | `sysml/8.4.13.5/1.sysml` | `action snd send p via src to tgt;` | `SendNode` (8.2.2.17.5) reads `OccurrenceUsagePrefix ActionUsageDeclaration? 'send'`, with no `action` keyword, while `SendNodeDeclaration` in the same clause reads `ActionNodeUsageDeclaration? 'send'`, which has one | rejects (`no viable alternative at input 'send'`) | accepts | grammar text inconsistent; ours follows `SendNodeDeclaration`, the form `AcceptNode` and `TerminateNode` use |
 
+### Printed examples the constraints of the same document reject (erratum)
+
+| Clause | File | Example text | Constraint | Pilot | Ours | Class |
+|---|---|---|---|---|---|---|
+| SysML 8.4.17.1 | `sysml/8.4.17.1/3.sysml` | `requirement def R3 specializes Requirements::RequirementCheck { actor a subsets ...actors; stakeholder s subsets ...stakeholders; }` | `validateRequirementDefinitionSubjectParameterPosition` (8.3.21.8): "The subjectParameter of a RequirementDefinition must be its first input. `input->notEmpty() and input->first() = subjectParameter`". `R3` declares no subject, so its `subjectParameter` is the inherited `RequirementCheck::subj`, while `Type::featureMembership` (KerML 8.3.3.1.10) lists the owned memberships before the inherited ones, so `input->first()` is the owned actor `a` | rejects (`Subject must be first parameter.`) | rejects (`subject-parameter-position: Subject must be first parameter.`, 1 error ratcheted) | erratum, both right; the example needs `subject :>> subj;` (or any owned subject) before its actor |
+
 ### The pilot departs from the text (pilot)
 
 | Clause | File | Example text | Grammar | Pilot | Ours | Class |
@@ -164,7 +170,7 @@ example the resolutions did not reach.
 | Excluded blocks | 20 | 4 | 24 |
 | Files reporting a diagnostic of ours | 262 | 136 | 398 |
 | Files fully agreeing with the pilot | | | 150 |
-| Files in the erratum table | 27 | 2 | 29 |
+| Files in the erratum table | 28 | 2 | 30 |
 | Files in the pilot table | 6 | 1 | 7 |
 | Files in the ours table | 2 | 3 | 5 |
 

@@ -252,6 +252,66 @@ stays a link.
 A title page, a table of contents and section numbering are
 [deliverable options](#deliverable-options) shared with PDF.
 
+## AsciiDoc
+
+`-doc-form asciidoc` renders the same document tree as AsciiDoc. As with
+HTML, nothing is converted from the Markdown: the renderer reads the compiled
+document tree and writes the AsciiDoc structure for each content kind.
+
+```console
+$ sysml report.sysml -render-document Observatory::MassReport \
+    -doc-form asciidoc -o report.adoc
+```
+
+The document title is the `=` header; sections nest as `==`, `===` and
+deeper headings by level. Every content block that can be referenced carries
+a block anchor (`[[Observatory-MassReport-mass-table]]`) ahead of it, a
+reference run becomes a cross reference `<<anchor,text>>` and a link becomes
+`link:target[text]`. Captions are block titles (`.Caption`) on the table,
+figure, formula or image they caption, so `asciidoctor` numbers and lists
+them. Emphasis, strong and code runs are `_text_`, `*text*` and `` `text` ``;
+a math run is `stem:[...]` and a formula block a `[stem]` block, with a
+`:stem: latexmath` attribute in the header whenever the document holds
+either, so a processor typesets them as LaTeX. Tables are `|===` blocks with
+a header row from the column labels and `[cols="…"]` percentages from the
+document's `columnWidths`; a grouped table writes each group's label on a
+row spanning every column, as the Markdown and HTML backends do. Lists are
+`*` and `.` items nested by depth, definitions are `term:: description`
+entries, images are `image::path[alt]` macros, and a diagram is its drawn
+source in a `[mermaid]` (or `[graphviz]` for DOT, `[plantuml]`, `[d2]`)
+literal block, the form a processor with
+[Asciidoctor Diagram](https://docs.asciidoctor.org/diagram-extension/latest/)
+draws as a figure; a DOT source whose `// layout:` header names an engine
+is written as `[graphviz, layout=neato]`, though the header's `-n` flags,
+which pin a positioned view's coordinates, have no block attribute, so such
+a view is drawn exactly only from a pre-rendered SVG, as the PDF backend
+draws it. With `-doc-number-figures` the backend numbers captions
+itself, as the other backends do, and sets `:table-caption!:` and
+`:figure-caption!:` so the processor does not number them again. A set rendered with `-render-documents` writes one `.adoc` file
+per document and resolves a reference into another document as
+`xref:Other-Document.adoc#anchor[text]`, exactly as the Markdown set links
+across files.
+
+Model text is escaped on the way out — `*`, `_`, backticks, `#`, `^`, `~`,
+`+`, `{`, `[`, `]`, `<`, `>`, `\`, table bars, `::`, `(C)`-style
+replacements and the sequences that open a block at the start of a line are
+written as character references or broken with a zero-width guard — so a
+name or a value in the model cannot open AsciiDoc structure, under the
+contract [Escaping](authoring.md#escaping--write-content-freely) states for every backend.
+
+OpenSysML does not convert the AsciiDoc any further; the `asciidoctor`
+toolchain does. A PDF, for example, is one `asciidoctor-pdf` run away:
+
+```console
+$ gem install asciidoctor-pdf asciidoctor-mathematical asciidoctor-diagram
+$ asciidoctor-pdf -r asciidoctor-mathematical -r asciidoctor-diagram report.adoc
+```
+
+`asciidoctor-mathematical` typesets the `stem` blocks and macros and
+`asciidoctor-diagram` draws the diagram listings; `asciidoctor` alone writes
+the HTML. The [PDF backend](#pdf) below is the path OpenSysML drives itself,
+with its own pinned toolchain.
+
 ## PDF
 
 `-doc-form pdf` renders the same document tree to PDF. It requires `-o`
@@ -457,6 +517,10 @@ with a hole in it.
 model, the same held objects and binary. Query results preserve declaration
 order unless ordered explicitly, ordering policies are explicit parameters, and rendering
 introduces no timestamps, random identifiers or map-order dependence.
+
+**AsciiDoc** is deterministic exactly as Markdown is: byte-identical output
+for the same model, held objects and binary. What a processor then makes of
+it depends on that processor's version and extensions.
 
 **PDF** is deterministic *for a pinned toolchain*. The engine does its
 part (it invokes converters with `SOURCE_DATE_EPOCH=0` so they embed a fixed

@@ -1,1 +1,0 @@
-- API JSON writes evaluator-derived `qualifiedName` values and preserves mapping names that cannot be reconstructed from owned graph facts in `sysx:mappingQualifiedName` in standard and compact output.

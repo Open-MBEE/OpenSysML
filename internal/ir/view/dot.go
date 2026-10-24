@@ -962,6 +962,36 @@ func (w *dotWriter) engine() string {
 	return "neato -n"
 }
 
+// graphvizEngines are the layout engines a `// layout:` header may name.
+var graphvizEngines = map[string]bool{
+	"dot": true, "neato": true, "fdp": true, "sfdp": true, "circo": true, "twopi": true, "osage": true, "patchwork": true,
+}
+
+// DOTLayout reads the `// layout:` header among the comment lines ahead of a
+// DOT graph: the Graphviz engine it names and the flags after it (`-n`,
+// `-n2`). A source without a header, or naming no engine, reports none.
+func DOTLayout(source string) (engine string, flags []string) {
+	for _, line := range strings.Split(source, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if !strings.HasPrefix(line, "//") {
+			return "", nil
+		}
+		spec, ok := strings.CutPrefix(line, "// layout:")
+		if !ok {
+			continue
+		}
+		fields := strings.Fields(spec)
+		if len(fields) == 0 || !graphvizEngines[fields[0]] {
+			return "", nil
+		}
+		return fields[0], fields[1:]
+	}
+	return "", nil
+}
+
 // collectClusters records every node under node that is drawn as a cluster
 // and the clusters each node sits in, outermost first.
 func (w *dotWriter) collectClusters(node *Node, around []string) {
@@ -2050,7 +2080,7 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 		}
 	case EdgeContainment:
 		attrs = append(attrs, dotDirBack, "arrowtail=odot")
-	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate, EdgeDependency:
 		attrs = append(attrs, "arrowhead=vee", dotStyleDashed)
 	case EdgeAssociation:
 		attrs = append(attrs, dirNone)

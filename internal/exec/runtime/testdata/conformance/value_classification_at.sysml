@@ -33,7 +33,7 @@ package test {
 			belt @ Safety,
 			car @ Safety,
 			belt @@ SysML::PartUsage,
-			Belt @ Safety
+			Belt @@ Safety
 		);
 	}
 }

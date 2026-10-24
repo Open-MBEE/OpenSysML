@@ -1,1 +1,0 @@
-- An action flow view whose `Layout` positions a body's `start` that no succession leaves now draws that start as an initial node at the `Layout`'s position instead of dropping the `Layout` with a `diagram-layout-unplaced` warning; renderings without such a `Layout` are unchanged.

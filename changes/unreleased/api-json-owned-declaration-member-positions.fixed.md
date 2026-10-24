@@ -1,1 +1,0 @@
-- API JSON preserves unnamed member names across metadata annotations and structural relationships.

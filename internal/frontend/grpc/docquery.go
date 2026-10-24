@@ -115,9 +115,10 @@ func rowHoldsBigInt(row *pb.DocumentQueryRow) bool {
 const (
 	renderFormMarkdown = "markdown"
 	renderFormHTML     = "html"
+	renderFormAsciiDoc = "asciidoc"
 )
 
-// RenderDocument renders a named document to Markdown or HTML, as
+// RenderDocument renders a named document to Markdown, HTML or AsciiDoc, as
 // -render-document does.
 func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequest) (*pb.RenderDocumentResponse, error) {
 	if err := s.requireCapability(CapabilityRenderDocument); err != nil {
@@ -127,14 +128,19 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 	if form == "" {
 		form = renderFormMarkdown
 	}
-	if form != renderFormMarkdown && form != renderFormHTML {
-		return nil, statusErrorf(connect.CodeInvalidArgument,
-			"form %q is not one this service renders: markdown or html", req.Form)
-	}
-	if form == renderFormHTML {
+	switch form {
+	case renderFormMarkdown:
+	case renderFormHTML:
 		if err := s.requireCapability(CapabilityRenderDocumentHTML); err != nil {
 			return nil, err
 		}
+	case renderFormAsciiDoc:
+		if err := s.requireCapability(CapabilityRenderDocumentAsciiDoc); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, statusErrorf(connect.CodeInvalidArgument,
+			"form %q is not one this service renders: markdown, html or asciidoc", req.Form)
 	}
 	cached, ok := s.cache.Get(req.ModelHash)
 	if !ok {
@@ -167,8 +173,11 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 		return nil, held.documentStatus(err)
 	}
 	extension := ".md"
-	if form == renderFormHTML {
+	switch form {
+	case renderFormHTML:
 		extension = ".html"
+	case renderFormAsciiDoc:
+		extension = ".adoc"
 	}
 	files, err := modeldoc.DocumentFiles(model.DocumentNames(qctx.Index, qctx.Model), extension)
 	if err != nil {
@@ -180,6 +189,13 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 			return nil, documentStatus(err)
 		}
 		return &pb.RenderDocumentResponse{Html: page, FileName: s.documentFileName(files, sym)}, nil
+	}
+	if form == renderFormAsciiDoc {
+		adoc, err := docrender.AsciiDoc(document, docrender.AsciiDocOptions{Files: files})
+		if err != nil {
+			return nil, documentStatus(err)
+		}
+		return &pb.RenderDocumentResponse{Asciidoc: adoc, FileName: s.documentFileName(files, sym)}, nil
 	}
 	markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{Files: files})
 	if err != nil {

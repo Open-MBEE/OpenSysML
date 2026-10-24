@@ -7,13 +7,13 @@ package DepthLinks {
 		part plant {
 			port status : Signal;
 			part pump {
-				port out : Signal;
+				port 'out' : Signal;
 				part motor {
 					part rotor;
 				}
 			}
 			part tank {
-				port in : Signal;
+				port 'in' : Signal;
 			}
 			connect pump.out to tank.in;
 		}

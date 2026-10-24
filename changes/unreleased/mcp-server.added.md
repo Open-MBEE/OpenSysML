@@ -1,1 +1,0 @@
-- **`sysml-mcp`, a Model Context Protocol server for coding agents.** OpenCode, Claude Code, Cursor, Codex and every other MCP host start it in the project directory and get OpenSysML as tools: the language server's workspace over the documents under the root, the runtime's one-shot service, and persistent REPL sessions. `-tools lsp,runtime,session` chooses the groups served.

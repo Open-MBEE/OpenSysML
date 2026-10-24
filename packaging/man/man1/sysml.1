@@ -453,8 +453,8 @@ Render every document definition, linked to one another, into this directory;
 a document that cannot be rendered gets a page stating why and the run exits 3
 .TP
 .BR \-doc\-form " \fIform\fP"
-Form the documents are written in: markdown (default), html or pdf, which
-drives an external converter
+Form the documents are written in: markdown (default), asciidoc, html or pdf,
+which drives an external converter
 .TP
 .BR \-diagram\-form " \fIform\fP"
 Form the documents' graph\-shaped diagrams are written in: mermaid, dot,
@@ -474,7 +474,7 @@ Number the section headings hierarchically (html or pdf)
 .TP
 .B \-doc\-number\-figures
 Number the figures and tables in their captions, Figure 1. and Table 1. in
-document order (markdown, html or pdf)
+document order (markdown, asciidoc, html or pdf)
 .TP
 .BR \-pdf\-engine " \fIconverter\fP"
 Converter \-doc\-form pdf drives: weasyprint (default), pandoc or prince
@@ -1132,6 +1132,8 @@ sysml model.sysml \-render\-document Reports::MassReport \-doc\-form pdf \e
     \-o report.pdf
 sysml model.sysml \-render\-document Reports::MassReport \-doc\-form html \e
     \-o report.html
+sysml model.sysml \-render\-document Reports::MassReport \-doc\-form \e
+    asciidoc \-o report.adoc
 # every document, linked
 sysml model.sysml \-render\-documents rendered
 sysml model.sysml \-render\-documents site \-doc\-form html \-html\-css \e

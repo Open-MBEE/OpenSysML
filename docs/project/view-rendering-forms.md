@@ -940,7 +940,7 @@ digraph "PlantViews::placedView" {
   row's owner (deduplicated; one whose ends both fall inside one owner is dropped), the owner's
   containment of the row is dropped as the nesting the row stands for, a note anchored at a row
   moves to the owner, and the notice counts the members `drawn as compartment rows of their
-  owner` (the nested members left undrawn counted apart, as above). In the data form a row is a
+  owner`; a member the row has from its type is the type's own and not noticed, one the row declares itself is counted apart, as above). In the data form a row is a
   node whose `compartment` names the compartment of its `parent`. The default output is unchanged
   in every form (`tree-compartments-most.*`, `tree-compartments-ports.*` goldens beside the
   positioned `tree-compartments.*`). Nothing folds when `compartments` is not shown (`ElementCompartments`

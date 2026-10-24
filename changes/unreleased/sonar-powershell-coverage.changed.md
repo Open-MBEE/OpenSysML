@@ -1,1 +1,0 @@
-- **The SonarCloud coverage gate no longer counts the PowerShell installer.** `install.ps1` and its fixture `scripts/install-test.ps1` run under pwsh in CI but produce no coverage report, so every line of them counted as uncovered new code and failed the `develop` quality gate after a change to either.
