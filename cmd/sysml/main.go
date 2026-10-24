@@ -1049,6 +1049,13 @@ func runInteractiveWithFiles(files []string) int {
 	if err != nil {
 		return fail(err)
 	}
+	// A root namespace typed at the prompt that nothing declares is looked for
+	// in the model files under the working directory.
+	if cwd, err := os.Getwd(); err == nil {
+		if err := sess.SetWorkspaceRoot(cwd); err != nil {
+			return fail(err)
+		}
+	}
 	terminal := atTerminal()
 
 	fmt.Println("SysML v2 REPL — %help for commands, Ctrl-D to exit")
