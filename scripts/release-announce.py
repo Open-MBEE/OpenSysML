@@ -72,7 +72,7 @@ def build_payload(release_name: str, release_url: str, tag: str,
     return {"text": "\n".join(lines)}
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--tag", required=True, help="release tag, e.g. v1.2.3")
@@ -81,7 +81,10 @@ def main() -> None:
     parser.add_argument("--release-url", help="use this URL instead of a GitHub API read")
     parser.add_argument("--dry-run", action="store_true",
                         help="print the payload instead of posting it")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    if "-" in args.tag:
+        print(f"Not announcing pre-release {args.tag}; only stable releases are announced.")
+        return 0
 
     repo = _env("GH_REPO")
     if not repo:
@@ -111,7 +114,7 @@ def main() -> None:
 
     if args.dry_run:
         print(json.dumps(payload, indent=2))
-        return
+        return 0
 
     webhook = _env("OPENSYSML_WEBHOOK_URL")
     if not webhook:
@@ -131,7 +134,8 @@ def main() -> None:
     except Exception as error:  # noqa: BLE001 - report the HTTP status, not a stack
         sys.exit(f"Error: posting to the Slack webhook failed: {error}")
     print(f"Announced {args.tag} of {repo} to Slack.")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

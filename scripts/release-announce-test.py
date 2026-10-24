@@ -82,6 +82,22 @@ class PayloadTest(unittest.TestCase):
 
 
 class MainTest(unittest.TestCase):
+    def test_skips_pre_release_tag_without_network_or_webhook(self):
+        stdout = io.StringIO()
+        with unittest.mock.patch.dict("os.environ", {}, clear=True):
+            with unittest.mock.patch(
+                "urllib.request.urlopen", side_effect=AssertionError("network used")
+            ) as urlopen:
+                with contextlib.redirect_stdout(stdout):
+                    result = announce.main(["--tag", "v1.2.3-rc.1", "--dry-run"])
+
+        self.assertEqual(result, 0)
+        self.assertEqual(
+            stdout.getvalue(),
+            "Not announcing pre-release v1.2.3-rc.1; only stable releases are announced.\n",
+        )
+        urlopen.assert_not_called()
+
     def test_dry_run_prints_json_without_network_access(self):
         stdout = io.StringIO()
         with unittest.mock.patch.dict("os.environ", {}, clear=True):

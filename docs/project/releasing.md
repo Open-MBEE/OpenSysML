@@ -409,6 +409,8 @@ A rehearsal prints the payload instead of posting. A missing context fails
 only this job, and nothing downstream depends on it. Re-running the job posts
 again.
 
+A pre-release tag, such as `v1.2.3-rc.1`, is not announced.
+
 The GitHub Slack app's `releases` subscription is not used: `.github/workflows/nightly.yml`
 publishes two prereleases each night (`nightly-<yyyymmdd>-<commit>` and
 `nightly`), which that subscription would announce too.
