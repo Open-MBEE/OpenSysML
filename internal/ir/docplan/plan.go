@@ -38,6 +38,8 @@ const (
 	RunSpan RunKind = "span"
 	RunLink RunKind = "link"
 	RunRef  RunKind = "ref"
+	// RunValue reads a feature's value into the prose, as a span column does.
+	RunValue RunKind = "value"
 )
 
 // RunStyle is the declared inline style of a span run.
@@ -75,6 +77,8 @@ type Run struct {
 	refDocument string
 	refElement  string
 	defaultText bool
+	valueRoot   *symbols.Symbol
+	valuePath   string
 	origin      symbols.Origin
 }
 
@@ -104,6 +108,18 @@ func (r Run) RefDocument() string { return r.refDocument }
 // reference run targets when that is neither a content block nor a document,
 // or "" when it is one.
 func (r Run) RefElement() string { return r.refElement }
+
+// ValueRoot returns the element a value run reads from: the root of its
+// feature chain, else the owner of the named feature. A session holding an
+// object of it answers with that object's current value.
+func (r Run) ValueRoot() *symbols.Symbol { return r.valueRoot }
+
+// ValuePath returns the member path a value run reads below ValueRoot, as a
+// span column names the feature it projects.
+func (r Run) ValuePath() string { return r.valuePath }
+
+// ValueFeature returns the fully-qualified name of the feature a value run reads.
+func (r Run) ValueFeature() string { return symbols.FQNOf(r.refSym) }
 
 // TextDefaulted reports whether a reference run's text is its target's label,
 // the run stating none.

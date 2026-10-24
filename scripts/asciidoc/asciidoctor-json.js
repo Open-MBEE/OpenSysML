@@ -94,7 +94,8 @@ function expand(node, inner, style) {
       return [{ kind: 'math', text: decodeEntities(node.text) }];
     case 'link':
     case 'xref':
-    case 'ref': {
+    case 'ref':
+    case 'value': {
       const text = plainText(inner);
       if (text === null) return [{ kind: 'unsupported', construct: 'styled ' + node.kind + ' text' }];
       return [Object.assign({}, node, { text })];
@@ -148,7 +149,7 @@ class JSONConverter {
       case 'sysml_ref':
         return mark({ kind: 'ref', target: node.getAttribute('target') }, node.getText());
       case 'sysml_value':
-        return mark({ kind: 'value', target: node.getAttribute('target') });
+        return mark({ kind: 'value', target: node.getAttribute('target') }, node.getText());
       default:
         return mark({ kind: 'unsupported', construct: type === 'asciimath' ? 'asciimath' : type + ' text' });
     }

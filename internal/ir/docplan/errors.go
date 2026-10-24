@@ -55,6 +55,8 @@ const (
 	ErrorUnknownRefTarget           ErrorKind = "unknown-ref-target"
 	ErrorInvalidRefTarget           ErrorKind = "invalid-ref-target"
 	ErrorAmbiguousRefTarget         ErrorKind = "ambiguous-ref-target"
+	ErrorUnknownValueTarget         ErrorKind = "unknown-value-target"
+	ErrorInvalidValueTarget         ErrorKind = "invalid-value-target"
 	ErrorUnknownGroupColumn         ErrorKind = "unknown-group-column"
 	ErrorInvalidColumnWidths        ErrorKind = "invalid-column-widths"
 	ErrorInvalidColumnLabels        ErrorKind = "invalid-column-labels"
@@ -230,6 +232,10 @@ func (e *Error) message() string {
 		return fmt.Sprintf("document %s reference %s targets a usage typed by more than one document: %s", e.Document, e.Content, e.Actual)
 	case ErrorInvalidRefTarget:
 		return fmt.Sprintf("document %s reference %s must target a named content block of a document, another document itself, or an element outside every document, got %s", e.Document, e.Content, e.Actual)
+	case ErrorUnknownValueTarget:
+		return fmt.Sprintf("document %s value in %s names unknown target %s", e.Document, e.Content, e.Actual)
+	case ErrorInvalidValueTarget:
+		return fmt.Sprintf("document %s value in %s must name an attribute, calculation or enumeration usage by qualified name or feature chain, got %s", e.Document, e.Content, e.Actual)
 	case ErrorUnknownGroupColumn:
 		return fmt.Sprintf("document %s table %s groups by %q, which its query does not project", e.Document, e.Content, e.Actual)
 	case ErrorInvalidColumnWidths:
@@ -319,6 +325,8 @@ func ErrorKinds() []ErrorKind {
 		ErrorUnknownRefTarget,
 		ErrorInvalidRefTarget,
 		ErrorAmbiguousRefTarget,
+		ErrorUnknownValueTarget,
+		ErrorInvalidValueTarget,
 		ErrorUnknownGroupColumn,
 		ErrorInvalidColumnWidths,
 		ErrorInvalidColumnLabels,

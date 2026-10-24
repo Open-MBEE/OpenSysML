@@ -22,7 +22,7 @@ const asciiDocTimeout = 5 * time.Minute
 // converter that answers the document tree as JSON: paragraphs, admonitions,
 // bullet and numbered lists of single paragraphs, tables of text cells under a
 // header row, stem blocks and block images, with emphasis, strong, monospaced,
-// `stem:[…]`, links, `<<xref>>` and `sysml:ref[…]` inline.
+// `stem:[…]`, links, `<<xref>>`, `sysml:ref[…]` and `sysml:value[…]` inline.
 type AsciiDoc struct{}
 
 // Language implements Parser.
@@ -354,6 +354,11 @@ func (m *asciiDocMapper) runs(runs []asciiDocRun, span Span, style Style) ([]Run
 				return nil, m.refuse(asciiDocRunConstruct(run)+" without a target", at)
 			}
 			out = append(out, Run{Kind: RunRef, Style: StylePlain, Text: run.Text, Destination: run.Target, Span: at})
+		case "value":
+			if strings.TrimSpace(run.Target) == "" {
+				return nil, m.refuse(asciiDocRunConstruct(run)+" without a target", at)
+			}
+			out = append(out, Run{Kind: RunValue, Style: StylePlain, Text: run.Text, Destination: run.Target, Span: at})
 		case "unsupported":
 			return nil, m.refuse(run.Construct, at)
 		default:
