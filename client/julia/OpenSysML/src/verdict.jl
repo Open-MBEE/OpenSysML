@@ -4,11 +4,14 @@ struct VerificationVerdict
     detail::String
     subcase::Bool
     requirement_id::String
+    instance_id::Int64
+    instance_type_id::String
 end
 VerificationVerdict(raw::AbstractDict) =
     VerificationVerdict(String(get(raw, "caseId", "")), String(get(raw, "kind", "")),
         String(get(raw, "detail", "")), Bool(get(raw, "subcase", false)),
-        String(get(raw, "requirementId", "")))
+        String(get(raw, "requirementId", "")), Int64(get(raw, "instanceId", 0)),
+        String(get(raw, "instanceTypeId", "")))
 Base.Bool(v::VerificationVerdict) = v.kind == "pass"
 Base.show(io::IO, v::VerificationVerdict) = print(io, "$(v.kind) verification $(v.case_id)")
 
@@ -121,6 +124,68 @@ struct CaseEvaluation
     tied::Bool
 end
 
+"""The input file a previewed tool call would be given."""
+struct ToolDryRunFile
+    name::String
+    format::String
+    data::String
+end
+ToolDryRunFile(d::AbstractDict) = ToolDryRunFile(String(get(d, "name", "")),
+    String(get(d, "format", "")), String(get(d, "data", "")))
+
+"""One value a previewed tool call would hand over."""
+struct ToolDryRunInput
+    variable::String
+    parameter::String
+    value::String
+    unit::String
+end
+ToolDryRunInput(d::AbstractDict) = ToolDryRunInput(String(get(d, "variable", "")),
+    String(get(d, "parameter", "")), String(get(d, "value", "")), String(get(d, "unit", "")))
+
+"""One result a previewed tool call would read back."""
+struct ToolDryRunOutput
+    variable::String
+    parameter::String
+end
+ToolDryRunOutput(d::AbstractDict) = ToolDryRunOutput(String(get(d, "variable", "")),
+    String(get(d, "parameter", "")))
+
+"""
+The external tool call an analysis would make, previewed without running the tool: what
+`run_analysis(...; tool_dry_run=true)` stops at, as `sysml -tool-dry-run` prints it.
+"""
+struct ToolDryRun
+    action::String
+    tool::String
+    version::String
+    manifest::String
+    executable::String
+    protocol::String
+    args::Vector{String}
+    env::Vector{String}
+    cwd::String
+    stdin::String
+    stdin_data::String
+    input_file::Union{Nothing,ToolDryRunFile}
+    output_dir::Bool
+    inputs::Vector{ToolDryRunInput}
+    outputs::Vector{ToolDryRunOutput}
+    reply_source::String
+    lines::Vector{String}
+end
+function ToolDryRun(d::AbstractDict)
+    str(key) = String(get(d, key, ""))
+    strs(key) = String[String(v) for v in get(d, key, Any[])]
+    file = get(d, "inputFile", nothing)
+    ToolDryRun(str("action"), str("tool"), str("version"), str("manifest"), str("executable"),
+        str("protocol"), strs("args"), strs("env"), str("cwd"), str("stdin"), str("stdinData"),
+        file === nothing ? nothing : ToolDryRunFile(file), Bool(get(d, "outputDir", false)),
+        ToolDryRunInput[ToolDryRunInput(i) for i in get(d, "inputs", Any[])],
+        ToolDryRunOutput[ToolDryRunOutput(o) for o in get(d, "outputs", Any[])],
+        str("replySource"), strs("lines"))
+end
+
 struct AnalysisResult
     outputs::Dict{String,Any}
     verdicts::Vector{Verdict}
@@ -129,13 +194,14 @@ struct AnalysisResult
     verifications::Vector{VerificationVerdict}
     evaluations::Vector{CaseEvaluation}
     standing::Standing
+    tool_dry_run::Union{Nothing,ToolDryRun}
 end
 function AnalysisResult(outputs, verdicts; instances=Instance[], diagnostics=Diagnostic[],
                         verifications=VerificationVerdict[], evaluations=CaseEvaluation[],
-                        standing=Standing())
+                        standing=Standing(), tool_dry_run=nothing)
     AnalysisResult(Dict{String,Any}(outputs), Verdict[verdicts...], Instance[instances...],
         Diagnostic[diagnostics...], VerificationVerdict[verifications...],
-        CaseEvaluation[evaluations...], standing)
+        CaseEvaluation[evaluations...], standing, tool_dry_run)
 end
 selected(result::AnalysisResult) = CaseEvaluation[e for e in result.evaluations if e.selected]
 satisfied(result::AnalysisResult) = all(v.holds for v in result.verdicts)

@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import org.eclipse.syson.sysml.Element;
+import org.eclipse.syson.sysml.Relationship;
 
 public class FakeElement extends MinimalEObjectImpl.Container implements Element {
     private String declaredName;
@@ -22,8 +23,8 @@ public class FakeElement extends MinimalEObjectImpl.Container implements Element
 
     public FakeElement(String qualifiedName) {
         this.qualifiedName = qualifiedName;
-        this.declaredName = qualifiedName == null ? null
-                : qualifiedName.substring(qualifiedName.contains("::") ? qualifiedName.lastIndexOf("::") + 2 : 0);
+        int separator = qualifiedName == null ? -1 : qualifiedName.lastIndexOf("::");
+        this.declaredName = qualifiedName == null ? null : separator < 0 ? qualifiedName : qualifiedName.substring(separator + 2);
         this.elementId = qualifiedName == null ? null : "id-" + qualifiedName;
     }
 
@@ -42,6 +43,7 @@ public class FakeElement extends MinimalEObjectImpl.Container implements Element
     @Override public String getElementId() { return elementId; }
     @Override public boolean isIsLibraryElement() { return library; }
     @Override public Element getOwner() { return owner; }
+    @Override public EList<Relationship> getOwnedRelationship() { return new BasicEList<>(); }
     @Override public EAnnotation getEAnnotation(String source) { return null; }
     @Override public EList<EAnnotation> getEAnnotations() { return new BasicEList<>(); }
     @Override public EList<EObject> eContents() {

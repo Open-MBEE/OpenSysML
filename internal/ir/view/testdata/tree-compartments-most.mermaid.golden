@@ -1,0 +1,38 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% CompartmentDemoViews::controllers — tree rendering (render asTreeDiagram)
+%% not represented: 4 member(s) drawn as compartment rows of their owner, and 2 node(s) under them left undrawn
+flowchart TD
+  n0["`*«part def»*
+**Sensor**
+attributes
+label : String
+reading : Real`"]
+  n3["`*«part def»*
+**Controller**
+attributes
+enabled : Boolean
+parts
+sensor : Sensor`"]
+  n3 ---|"◆ sensor"| n0

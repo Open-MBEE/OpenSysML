@@ -28,17 +28,18 @@ func (ctx *Context) startTarget(ec *EvalContext, s lower.Effect, self *Instance)
 		if err != nil {
 			return nil, nil, fmt.Errorf("eval the object of %s: %w", exprText(s.TargetExpr), err)
 		}
+		value = soleElement(value)
 		if value.Kind != ValInstance {
 			return nil, nil, fmt.Errorf("%w: %s is started on %s, which is no one object",
-				ErrPerformerNotObject, exprText(s.Target), FormatValue(value))
+				errPerformerNotObject, exprText(s.Target), FormatValue(value))
 		}
 		if inst, ok = ctx.Instance(value.Instance); !ok {
 			return nil, nil, fmt.Errorf("%w: %s is started on object #%d, which no longer exists",
-				ErrPerformerNotObject, exprText(s.Target), value.Instance)
+				errPerformerNotObject, exprText(s.Target), value.Instance)
 		}
 	}
 	if inst == nil {
-		return nil, nil, fmt.Errorf("%w: no object to start %s on", ErrNoSuchBehavior, exprText(s.Target))
+		return nil, nil, fmt.Errorf("%w: no object to start %s on", errNoSuchBehavior, exprText(s.Target))
 	}
 	member, ok := ctx.resolveReferenceTarget(s.Scope, s.Node, s.Target)
 	if !ok || member == nil {
@@ -53,7 +54,7 @@ func (ctx *Context) startBehaviorOn(inst *Instance, member *symbols.Symbol) erro
 	decl, typ, ok := ctx.startableBehaviorOf(inst, member)
 	if !ok {
 		return fmt.Errorf("%w: %s is no behavior of object #%d (%s)",
-			ErrNoSuchBehavior, symbolText(member), inst.ID, symbolText(inst.Type))
+			errNoSuchBehavior, SymbolText(member), inst.ID, SymbolText(inst.Type))
 	}
 	if err := ctx.checkPerformer(inst); err != nil {
 		return fmt.Errorf("start %s %s: %w", decl.behavior.Kind, decl.behavior.Name, err)
@@ -71,7 +72,7 @@ func (ctx *Context) startBehaviorOn(inst *Instance, member *symbols.Symbol) erro
 	defer ctx.holdDrivenWork()()
 	commit, rollback := ctx.beginJournal()
 	if ctx.trace != nil {
-		ctx.trace.RecordBehaviorStart(decl.behavior.Kind.String(), decl.behavior.Name, inst.ID)
+		ctx.trace.recordBehaviorStart(decl.behavior.Kind.String(), decl.behavior.Name, inst.ID)
 	}
 	ctx.behaviorRunDepth++
 	ctx.attachBehavior(inst, decl.member)

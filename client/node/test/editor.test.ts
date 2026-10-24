@@ -406,7 +406,14 @@ test("a refusal becomes its own typed error with its details", async () => {
       error: "the name is taken",
       failure: 14,
       diagnostics: [
-        { message: "taken", severity: "error", document: "doc.sysml", range: undefined },
+        {
+          message: "taken",
+          severity: "error",
+          document: "doc.sysml",
+          range: undefined,
+          orderDependent: [],
+          independent: false,
+        },
       ],
       referringElements: ["P::a", "P::b"],
       referrers: [{ name: "P::a", document: "a.sysml" }],

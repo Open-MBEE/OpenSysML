@@ -1,0 +1,18 @@
+{
+  "type": "instance",
+  "instantiate": "test::wedge",
+  "libraries": true,
+  "slots": {
+    "shape.height": {"type": "Quantity", "value": 1, "unit": "m"},
+    "shape.length": {"type": "Unset"},
+    "shape.ff.length": {"type": "Unset"},
+    "shape.ff.xoffset": {"error": "no value for feature"},
+    "shape.ff.hypotenuse.length": {"error": "no value for feature"},
+    "shape.rf.width": {"error": "cyclic feature value dependency: rf.width"}
+  },
+  "materialization": {
+    "errors": [
+      "feature value rf.width: cyclic feature value dependency: rf.width"
+    ]
+  }
+}

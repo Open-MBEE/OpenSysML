@@ -30,7 +30,7 @@ func (ctx *Context) guardUnderStatementOrders(guard ast.Node, step int, scope *s
 	needsSweep, externalWrite := ctx.guardStatementOrderInfo(guard, scope)
 	if externalWrite != nil {
 		return false, fmt.Errorf("%w: verdict of %s: constraint body may write %s outside its performance",
-			ErrOrderDependentGuardEffect, conditionText(guard), externalWrite.String())
+			errOrderDependentGuardEffect, conditionText(guard), externalWrite.String())
 	}
 	if !needsSweep {
 		return eval()
@@ -73,7 +73,7 @@ func (ctx *Context) guardUnderStatementOrders(guard ast.Node, step int, scope *s
 	label := conditionText(guard)
 	if probeDepth > 0 {
 		return false, fmt.Errorf("%w: verdict of %s depends on the statement orders of %s",
-			ErrOrderDependentPreview, label, body)
+			errOrderDependentPreview, label, body)
 	}
 	alternatives := make([]string, len(ordered))
 	for i, result := range ordered {
@@ -88,7 +88,7 @@ func (ctx *Context) guardUnderStatementOrders(guard ast.Node, step int, scope *s
 	}
 	where := fmt.Sprintf("%s%s under the statement orders of %s", guardOrderWherePrefix, label, body)
 	choice := ChoicePoint{
-		Kind:         ChoiceGuardOrder,
+		Kind:         choiceGuardOrder,
 		Step:         step,
 		Where:        where,
 		Alternatives: alternatives,

@@ -1,0 +1,62 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% ParametricViews::placedView — interconnection rendering (render asInterconnectionDiagram)
+%% canvas: w=900 h=220
+%% layout: n0 x=20 y=40 w=100 h=30
+%% layout: n1 x=20 y=100 w=100 h=30
+%% layout: n2 x=20 y=160 w=100 h=30
+%% layout: n3 x=780 y=40 w=100 h=30
+%% layout: n4 x=200 y=20 w=200 h=80
+%% layout: n5 x=500 y=20 w=200 h=80
+%% route: n0->n4 120,55 200,52
+%% route: n1->n4 120,115 200,92
+%% route: n4->n5 400,67 500,52
+%% route: n2->n5 120,175 500,92
+%% route: n5->n3 700,67 780,55
+flowchart LR
+  n0("`*«attribute»*
+**signal**`")
+  n1("`*«attribute»*
+**gain**`")
+  n2("`*«attribute»*
+**noise**`")
+  n3("`*«attribute»*
+**output**`")
+  subgraph n4 ["`*«constraint»* **amplify**`"]
+    direction LR
+    n4.0["input"]
+    n4.1["gain"]
+    n4.2["output"]
+  end
+  subgraph n5 ["`*«constraint»* **mix**`"]
+    direction LR
+    n5.0["a"]
+    n5.1["b"]
+    n5.2["total"]
+  end
+  n0 === n4.0
+  n1 === n4.1
+  n4.2 === n5.0
+  n2 === n5.1
+  n5.2 === n3

@@ -213,8 +213,11 @@ func TestVariantReferenceOwnsAReferenceSubsetting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
 	}
-	if string(back) != variantReferenceModel {
-		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", variantReferenceModel, back)
+	// The variant answers to the name e2 of the feature it references (its
+	// naming feature), so the graph alone writes it `variant e2;`.
+	want := strings.Replace(variantReferenceModel, "variant P::e2;", "variant e2;", 1)
+	if string(back) != want {
+		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", want, back)
 	}
 
 	doc, err := convert.Convert("m.sysml", []byte(variantReferenceModel), convert.FormatSysML, convert.FormatAPIJSON)
@@ -307,21 +310,25 @@ func TestUnresolvedVariantReferenceKeepsItsName(t *testing.T) {
 	}
 }
 
-// An anonymous variant whose reference the graph keeps as a single name it
-// links to nothing is refused: `variant e2;` would be a variant named e2, and
-// a single name has no reference form.
+// A variant the graph names by position, whose reference it keeps as a single
+// name it links to nothing, is refused: `variant e2;` would be a variant named
+// e2, which it is not, and a single name has no reference form.
 func TestAnonymousVariantWithASingleNameLiteralIsRefused(t *testing.T) {
 	turtle, err := convert.Convert("m.sysml", []byte(variantReferenceModel), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	// The `variant P::e2;` member is anonymous; its reference becomes the literal "e2".
+	// The `variant P::e2;` member is named by position, as a graph stating no
+	// effective name writes it; its reference becomes the literal "e2".
 	blocks := strings.Split(string(withoutSourceText(t, turtle)), "\n\n")
 	for i, block := range blocks {
-		if strings.HasPrefix(block, "elmt:P__V___401\n") || strings.HasPrefix(block, "elmt:P__V___401_rs\n") {
+		if strings.HasPrefix(block, "elmt:P__V__e2\n") || strings.HasPrefix(block, "elmt:P__V__e2_rs\n") {
 			block = strings.ReplaceAll(block, "elmt:P__e2 ", `"e2" `)
-			blocks[i] = strings.ReplaceAll(block, `{\"@id\":\"P__e2\"}`, `\"e2\"`)
+			block = strings.ReplaceAll(block, `{\"@id\":\"P__e2\"}`, `\"e2\"`)
+			block = strings.Replace(block, "    sysml:name \"e2\" ;\n", "", 1)
+			block = strings.Replace(block, `sysml:qualifiedName "P::V::e2"`, `sysml:qualifiedName "P::V::@1"`, 1)
 		}
+		blocks[i] = block
 	}
 	literal := strings.Join(blocks, "\n\n")
 	if !strings.Contains(literal, `sysml:references "e2" ;`) {
@@ -376,6 +383,44 @@ func TestQuotedVariantNamesStayOneName(t *testing.T) {
 		}
 		if string(back) != src {
 			t.Errorf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+		}
+	}
+}
+
+// A variation is always abstract (SysML v2 §7.6.7, validateDefinitionVariationIsAbstract,
+// validateUsageVariationIsAbstract), so the graph states sysml:isAbstract for a variation
+// definition, a variation usage and an enumeration definition, and the notation read back
+// from it carries `variation` alone, never `abstract`.
+func TestVariationIsAbstractInRDF(t *testing.T) {
+	const src = enumVariationModel + `package U {
+    part def E;
+    part def Car {
+        variation part engine : E {
+            variant part gas : E;
+        }
+        part wheel : E;
+    }
+}
+`
+	g := turtleOf(t, "variation-abstract", src)
+	for _, variation := range []string{"V::Level", "V::Engine", "U::Car::engine"} {
+		wantLexical(t, g, rdf.ElementIRI(variation).Value, rdf.SysML+"isAbstract", "true")
+	}
+	for _, plain := range []string{"V::Car", "V::Engine::gas", "U::Car::wheel"} {
+		if _, ok := g.Lexical(rdf.ElementIRI(plain), rdf.SysML+"isAbstract"); ok {
+			t.Errorf("%s states isAbstract", plain)
+		}
+	}
+	text, err := export.ToSysML(g)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	if strings.Contains(string(text), "abstract") {
+		t.Errorf("a variation reads back with `abstract`:\n%s", text)
+	}
+	for _, want := range []string{"variation part def Engine", "variation part engine : E"} {
+		if !strings.Contains(string(text), want) {
+			t.Errorf("notation lacks %q:\n%s", want, text)
 		}
 	}
 }

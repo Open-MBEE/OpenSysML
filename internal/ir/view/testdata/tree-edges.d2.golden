@@ -9,47 +9,79 @@ classes: {
   reference: { source-arrowhead: { shape: diamond; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
 }
 n0: "«part def»\nVehicle" { class: definition }
-n1: "«part»\nchassis : Chassis" { class: usage }
-n2: "«part»\nwheels : Wheel" { class: usage }
-n3: "«part»\ndriver : Driver" { class: usage }
-n4: "«attribute»\ntotal : Mass" { class: usage }
-n5: "«part def»\nCabin" { class: definition }
-n6: "«part»\ncabin : Cabin" { class: usage }
-n7: "«part»\nradio : Radio" { class: usage }
-n8: "«part»\ntrailer : Trailer" { class: usage }
-n9: "«part def»\nSportsCar" { class: definition }
-n10: "«part»\nchassis : LightChassis" { class: usage }
-n11: "«part»\nspare : Wheel" { class: usage }
-n12: "«part def»\nChassis" { class: definition }
-n13: "«attribute»\nmass : Mass" { class: usage }
-n14: "«part def»\nLightChassis" { class: definition }
-n15: "«attribute»\nmass" { class: usage }
-n16: "«part def»\nWheel" { class: definition }
-n17: "«part def»\nDriver" { class: definition }
-n18: "«attribute def»\nMass" { class: definition }
-n19: "«part»\nfleetCar : Vehicle" { class: usage }
+n1: "«part»\nchassis" { class: usage }
+n2: "«attribute»\nmass" { class: usage }
+n3: "«part»\nwheels" { class: usage }
+n4: "«part»\ndriver" { class: usage }
+n5: "«attribute»\ntotal" { class: usage }
+n6: "«part def»\nCabin" { class: definition }
+n7: "«part»\ncabin" { class: usage }
+n8: "«part»\nradio" { class: usage }
+n9: "«part»\ntrailer" { class: usage }
+n10: "«part def»\nSportsCar" { class: definition }
+n11: "«part»\nchassis" { class: usage }
+n12: "«attribute»\nmass" { class: usage }
+n13: "«part»\nspare" { class: usage }
+n14: "«part»\nwheels" { class: usage }
+n15: "«part»\ndriver" { class: usage }
+n16: "«attribute»\ntotal" { class: usage }
+n17: "«part»\ncabin" { class: usage }
+n18: "«part»\nradio" { class: usage }
+n19: "«part»\ntrailer" { class: usage }
+n20: "«part def»\nChassis" { class: definition }
+n21: "«attribute»\nmass" { class: usage }
+n22: "«part def»\nLightChassis" { class: definition }
+n23: "«attribute»\nmass" { class: usage }
+n24: "«part def»\nWheel" { class: definition }
+n25: "«part def»\nDriver" { class: definition }
+n26: "«attribute def»\nMass" { class: definition }
+n27: "«part»\nfleetCar" { class: usage }
+n28: "«part»\nchassis" { class: usage }
+n29: "«attribute»\nmass" { class: usage }
+n30: "«part»\nwheels" { class: usage }
+n31: "«part»\ndriver" { class: usage }
+n32: "«attribute»\ntotal" { class: usage }
+n33: "«part»\ncabin" { class: usage }
+n34: "«part»\nradio" { class: usage }
+n35: "«part»\ntrailer" { class: usage }
 n0 -- n1: { class: edge }
-n0 -- n2: { class: edge }
+n1 -- n2: { class: edge }
 n0 -- n3: { class: edge }
 n0 -- n4: { class: edge }
 n0 -- n5: { class: edge }
 n0 -- n6: { class: edge }
 n0 -- n7: { class: edge }
 n0 -- n8: { class: edge }
-n9 -- n10: { class: edge }
-n9 -- n11: { class: edge }
-n12 -- n13: { class: edge }
-n14 -- n15: { class: edge }
-n0 <- n12: "chassis" { class: composition }
-n0 <- n16: "wheels[4]" { class: composition }
-n0 <- n17: "driver[0..1]" { class: reference }
-n0 <- n18: "total" { class: reference }
-n9 -> n0: { class: specialization }
-n9 <- n14: "chassis" { class: composition }
-n9 <- n16: "spare" { class: composition }
-n10 -> n1: "redefines" { class: specialization }
-n11 -> n2: "subsets" { class: specialization }
-n12 <- n18: "mass" { class: reference }
-n14 -> n12: { class: specialization }
-n15 -> n13: "redefines" { class: specialization }
-n19 -> n0: { class: typing }
+n0 -- n9: { class: edge }
+n10 -- n11: { class: edge }
+n11 -- n12: { class: edge }
+n10 -- n13: { class: edge }
+n10 -- n14: { class: edge }
+n10 -- n15: { class: edge }
+n10 -- n16: { class: edge }
+n10 -- n17: { class: edge }
+n10 -- n18: { class: edge }
+n10 -- n19: { class: edge }
+n20 -- n21: { class: edge }
+n22 -- n23: { class: edge }
+n27 -- n28: { class: edge }
+n28 -- n29: { class: edge }
+n27 -- n30: { class: edge }
+n27 -- n31: { class: edge }
+n27 -- n32: { class: edge }
+n27 -- n33: { class: edge }
+n27 -- n34: { class: edge }
+n27 -- n35: { class: edge }
+n0 <- n20: { class: composition; target-arrowhead: { label: "chassis" } }
+n0 <- n24: { class: composition; target-arrowhead: { label: "wheels" } }
+n0 <- n25: { class: reference; target-arrowhead: { label: "driver" } }
+n0 <- n26: { class: reference; target-arrowhead: { label: "total" } }
+n10 -> n0: { class: specialization }
+n10 <- n22: { class: composition; target-arrowhead: { label: "chassis" } }
+n10 <- n24: { class: composition; target-arrowhead: { label: "spare" } }
+n11 -> n1: "redefines" { class: specialization }
+n13 -> n3: "subsets" { class: specialization }
+n20 <- n26: { class: reference; target-arrowhead: { label: "mass" } }
+n22 -> n20: { class: specialization }
+n23 -> n21: "redefines" { class: specialization }
+n27 -> n0: { class: typing }

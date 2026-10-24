@@ -15,14 +15,14 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// ErrUnevaluableLibraryFunction is returned for a function library declaration
+// errUnevaluableLibraryFunction is returned for a function library declaration
 // this runtime has no representation for the values of. It names the function,
 // so a model is told which declaration it is rather than answered wrongly.
-var ErrUnevaluableLibraryFunction = errors.New("library function is not evaluable")
+var errUnevaluableLibraryFunction = errors.New("library function is not evaluable")
 
-// ErrAmbiguousInvocation is returned for a call whose name denotes several
+// errAmbiguousInvocation is returned for a call whose name denotes several
 // declarations the arguments fit equally well, none more specific than the rest.
-var ErrAmbiguousInvocation = errors.New("ambiguous invocation")
+var errAmbiguousInvocation = errors.New("ambiguous invocation")
 
 // libraryPi is the value of TrigFunctions::pi. The library fixes it by an
 // invariant rather than a value (round(pi * 1E20) == 314159265358979323846.0),
@@ -74,32 +74,32 @@ func init() {
 	// parameters, so an Integer argument widens (ScalarValues declares
 	// Integer :> Rational :> Real); `floor` and `round` return Integer.
 	registerLibraryFunction("RealFunctions::sqrt", []string{"x"}, realUnary(math.Sqrt))
-	registerLibraryFunction("RealFunctions::abs", []string{"x"}, realUnary(math.Abs))
+	registerOrderedFunction("RealFunctions::abs", []string{"x"}, realUnary(math.Abs))
 	registerLibraryFunction("RealFunctions::floor", []string{"x"}, floorToInteger)
 	registerLibraryFunction("RealFunctions::round", []string{"x"}, roundToInteger)
-	registerLibraryFunction("RealFunctions::max", []string{"x", "y"}, realBinary(math.Max))
-	registerLibraryFunction("RealFunctions::min", []string{"x", "y"}, realBinary(math.Min))
+	registerOrderedFunction("RealFunctions::max", []string{"x", "y"}, realBinary(math.Max))
+	registerOrderedFunction("RealFunctions::min", []string{"x", "y"}, realBinary(math.Min))
 
 	// RationalFunctions declares the same three operations over Rational.
-	registerLibraryFunction("RationalFunctions::abs", []string{"x"}, numericAbs)
-	registerLibraryFunction("RationalFunctions::max", []string{"x", "y"}, numericExtremum(true))
-	registerLibraryFunction("RationalFunctions::min", []string{"x", "y"}, numericExtremum(false))
+	registerOrderedFunction("RationalFunctions::abs", []string{"x"}, numericAbs)
+	registerOrderedFunction("RationalFunctions::max", []string{"x", "y"}, numericExtremum(true))
+	registerOrderedFunction("RationalFunctions::min", []string{"x", "y"}, numericExtremum(false))
 
 	// NumericalFunctions declares them abstractly over NumericalValue, so the
 	// result keeps the operands' kind: Integer arguments give an Integer.
-	registerLibraryFunction("NumericalFunctions::abs", []string{"x"}, numericAbs)
-	registerLibraryFunction("NumericalFunctions::max", []string{"x", "y"}, numericExtremum(true))
-	registerLibraryFunction("NumericalFunctions::min", []string{"x", "y"}, numericExtremum(false))
+	registerOrderedFunction("NumericalFunctions::abs", []string{"x"}, numericAbs)
+	registerOrderedFunction("NumericalFunctions::max", []string{"x", "y"}, numericExtremum(true))
+	registerOrderedFunction("NumericalFunctions::min", []string{"x", "y"}, numericExtremum(false))
 	registerLibraryFunction("NumericalFunctions::isZero", []string{"x"}, isZero)
 	registerLibraryFunction("NumericalFunctions::isUnit", []string{"x"}, isUnit)
 
 	// IntegerFunctions and NaturalFunctions declare Integer parameters, so a
 	// Real argument does not conform and is rejected rather than truncated.
-	registerLibraryFunction("IntegerFunctions::abs", []string{"x"}, integerAbs, integerDomain)
-	registerLibraryFunction("IntegerFunctions::max", []string{"x", "y"}, integerExtremum(true), integerDomain, integerDomain)
-	registerLibraryFunction("IntegerFunctions::min", []string{"x", "y"}, integerExtremum(false), integerDomain, integerDomain)
-	registerLibraryFunction("NaturalFunctions::max", []string{"x", "y"}, integerExtremum(true), naturalDomain, naturalDomain)
-	registerLibraryFunction("NaturalFunctions::min", []string{"x", "y"}, integerExtremum(false), naturalDomain, naturalDomain)
+	registerOrderedFunction("IntegerFunctions::abs", []string{"x"}, integerAbs, integerDomain)
+	registerOrderedFunction("IntegerFunctions::max", []string{"x", "y"}, integerExtremum(true), integerDomain, integerDomain)
+	registerOrderedFunction("IntegerFunctions::min", []string{"x", "y"}, integerExtremum(false), integerDomain, integerDomain)
+	registerOrderedFunction("NaturalFunctions::max", []string{"x", "y"}, integerExtremum(true), naturalDomain, naturalDomain)
+	registerOrderedFunction("NaturalFunctions::min", []string{"x", "y"}, integerExtremum(false), naturalDomain, naturalDomain)
 
 	// TrigFunctions. The library names the angle `theta` and the inverse
 	// functions `arcsin`/`arccos`/`arctan` over a `x` parameter; `tan` and `cot`
@@ -230,6 +230,45 @@ func registerLibraryFunction(name string, params []string, apply func([]semantic
 	registerContextFunction(name, params, pureScalars(apply), domains...)
 }
 
+// registerOrderedFunction is registerLibraryFunction for `abs`, `max` and `min`,
+// which the ordering of the unbounded `*` answers as well as a number does.
+func registerOrderedFunction(name string, params []string, apply func([]semantics.Value) (semantics.Value, error), domains ...scalarDomain) {
+	finite := numericScalars(params, pureScalars(apply), domains)
+	registerValueFunction(name, params, len(params), orderedOverUnbounded(finite, strings.HasSuffix(name, "::min")))
+	libraryFunctions[name].scalar = true
+	undeterminedAware[name] = true
+}
+
+// orderedOverUnbounded extends finite, an `abs`, `max` or `min` over numbers, to
+// the unbounded `*`, which KerML 1.0 §8.2.5.8.4 places above every integer: the
+// absolute value of `*` is `*`, a maximum beside it is `*`, and a minimum (least)
+// beside it is the other operand, held as the function holds that operand alone.
+// A call without `*` is finite's, as is the check of the other operand's domain.
+func orderedOverUnbounded(finite libraryApply, least bool) libraryApply {
+	unbounded := func(arg Value) bool { return isUnbounded(soleElement(arg)) }
+	return func(name string, ctx *Context, args []Value) (Value, error) {
+		switch {
+		case len(args) == 1 && unbounded(args[0]):
+			return soleElement(args[0]), nil
+		case len(args) == 2 && (unbounded(args[0]) || unbounded(args[1])):
+		default:
+			return finite(name, ctx, args)
+		}
+		other := args[1]
+		if unbounded(args[1]) {
+			other = args[0]
+		}
+		if unbounded(other) {
+			return soleElement(other), nil
+		}
+		held, err := finite(name, ctx, []Value{other, other})
+		if err != nil || least {
+			return held, err
+		}
+		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInfinity}}, nil
+	}
+}
+
 // pureScalars lifts an implementation over its arguments alone to a contextApply.
 func pureScalars(apply func([]semantics.Value) (semantics.Value, error)) contextApply {
 	return func(_ *Context, _ string, values []semantics.Value) (semantics.Value, error) {
@@ -275,7 +314,7 @@ func registerDeclaredFunction(name string, params []declaredParam, apply library
 // a library body that computes something else or to no declaration at all.
 func registerUnevaluable(name string, params []declaredParam, reason string) {
 	registerDeclaredFunction(name, params, func(called string, _ *Context, _ []Value) (Value, error) {
-		return Value{}, fmt.Errorf("%w: %s: %s", ErrUnevaluableLibraryFunction, called, reason)
+		return Value{}, fmt.Errorf("%w: %s: %s", errUnevaluableLibraryFunction, called, reason)
 	})
 	libraryFunctions[name].unevaluable = true
 }
@@ -312,7 +351,7 @@ func numericScalars(params []string, apply contextApply, domains []scalarDomain)
 			if arg.Kind != ValConst || !arg.Const.IsNumeric() {
 				return Value{}, fmt.Errorf(
 					"%w: function %s parameter %s requires a numeric value, got %s",
-					ErrTypeMismatch, name, parameterLabel(params, i), describeValue(arg),
+					ErrTypeMismatch, name, parameterLabel(params, i), DescribeValue(arg),
 				)
 			}
 			if i < len(domains) && domains[i] != nil {
@@ -381,7 +420,7 @@ func (ctx *Context) libraryFunctionFor(sym *symbols.Symbol) (*libraryFunction, b
 	if sym == nil || !isCalcSymbol(sym) || !ctx.libraryDeclared(sym) {
 		return nil, false
 	}
-	fn, ok := libraryFunctions[ctx.qualifiedSymbolName(sym)]
+	fn, ok := libraryFunctions[ctx.QualifiedName(sym)]
 	return fn, ok
 }
 
@@ -451,14 +490,14 @@ func (fn *libraryFunction) written() string { return writtenName(fn.name) }
 // appears in a trace like any other invocation.
 func (fn *libraryFunction) invoke(ctx *Context, args calcArgs) (Value, error) {
 	if ctx.trace != nil {
-		ctx.trace.RecordCalcEnter(fn.name)
+		ctx.trace.recordCalcEnter(fn.name)
 	}
 	result, err := fn.bindAndApply(ctx, args)
 	if ctx.trace != nil {
 		if err != nil {
-			ctx.trace.RecordCalcExitError(fn.name, err)
+			ctx.trace.recordCalcExitError(fn.name, err)
 		} else {
-			ctx.trace.RecordCalcExit(fn.name, result)
+			ctx.trace.recordCalcExit(fn.name, result)
 		}
 	}
 	return result, err
@@ -471,7 +510,7 @@ func (fn *libraryFunction) invoke(ctx *Context, args calcArgs) (Value, error) {
 // arguments fill the parameters in order, so they must reach the last required one.
 func (fn *libraryFunction) bindAndApply(ctx *Context, args calcArgs) (Value, error) {
 	if len(args.positional) > 0 && len(args.named) > 0 {
-		return Value{}, fmt.Errorf("%w: function %s takes either positional or named arguments", ErrCalcArity, fn.written())
+		return Value{}, fmt.Errorf("%w: function %s takes either positional or named arguments", errCalcArity, fn.written())
 	}
 	if len(args.named) > 0 {
 		if err := fn.checkNamedArguments(args); err != nil {
@@ -480,7 +519,7 @@ func (fn *libraryFunction) bindAndApply(ctx *Context, args calcArgs) (Value, err
 	} else if given := len(args.positional); given < fn.leastPositional() || given > len(fn.params) {
 		return Value{}, fmt.Errorf(
 			"%w: function %s takes %s argument(s), got %d",
-			ErrCalcArity, fn.written(), fn.arity(), given,
+			errCalcArity, fn.written(), fn.arity(), given,
 		)
 	}
 
@@ -496,7 +535,7 @@ func (fn *libraryFunction) bindAndApply(ctx *Context, args calcArgs) (Value, err
 			if label == "" {
 				label = fn.parameterLabel(i)
 			}
-			ctx.trace.RecordCalcBind(label, arg, "argument")
+			ctx.trace.recordCalcBind(label, arg, "argument")
 		}
 	}
 	if val, open, err := ctx.undeterminedInvocation(fn.name, values); open {
@@ -520,7 +559,7 @@ func (fn *libraryFunction) checkNamedArguments(args calcArgs) error {
 	slices.Sort(unknown)
 	return fmt.Errorf(
 		"%w: function %s has no input parameter %q (expected %s)",
-		ErrUnknownParameter, fn.written(), unknown[0], fn.parameterList(),
+		errUnknownParameter, fn.written(), unknown[0], fn.parameterList(),
 	)
 }
 
@@ -565,12 +604,12 @@ func (fn *libraryFunction) argumentFor(i int, param declaredParam, args calcArgs
 			if param.name == "" {
 				return Value{}, fmt.Errorf(
 					"%w: function %s parameter %s is anonymous and binds only by position",
-					ErrUnknownParameter, fn.name, fn.parameterLabel(i),
+					errUnknownParameter, fn.name, fn.parameterLabel(i),
 				)
 			}
 			return Value{}, fmt.Errorf(
 				"%w: function %s is called without an argument for parameter %q",
-				ErrCalcArity, fn.written(), param.name,
+				errCalcArity, fn.written(), param.name,
 			)
 		}
 		return nullValue(), nil
@@ -816,7 +855,7 @@ func asReal(v semantics.Value) float64 {
 func asInteger(v semantics.Value) (semantics.Value, error) {
 	if v.Kind != semantics.ValInt {
 		return semantics.Value{}, fmt.Errorf("%w: requires an Integer argument, got %s", ErrTypeMismatch,
-			describeValue(Value{Kind: ValConst, Const: v}))
+			DescribeValue(Value{Kind: ValConst, Const: v}))
 	}
 	return v, nil
 }
@@ -887,7 +926,7 @@ func (ctx *Context) libraryFeatureValue(sym *symbols.Symbol) (Value, bool, error
 	if sym == nil || !ctx.libraryDeclared(sym) {
 		return Value{}, false, nil
 	}
-	feature, ok := libraryFeatures[ctx.qualifiedSymbolName(sym)]
+	feature, ok := libraryFeatures[ctx.QualifiedName(sym)]
 	if !ok {
 		return Value{}, false, nil
 	}
@@ -928,7 +967,7 @@ func asComplex(name, param string, val Value) (complex128, error) {
 	if !ok {
 		return 0, fmt.Errorf(
 			"%w: function %s parameter %q requires a Complex value, got %s",
-			ErrTypeMismatch, name, param, describeValue(val),
+			ErrTypeMismatch, name, param, DescribeValue(val),
 		)
 	}
 	return z, nil
@@ -1181,7 +1220,7 @@ func compareStrings(op ast.OperatorKind, x, y string) (bool, error) {
 	case ast.OpGe:
 		return x >= y, nil
 	}
-	return false, fmt.Errorf("%w: '%s' does not order two strings", ErrUnsupportedOperator, op)
+	return false, fmt.Errorf("%w: '%s' does not order two strings", errUnsupportedOperator, op)
 }
 
 // stringArg reads a String argument, reporting another kind rather than

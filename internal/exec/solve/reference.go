@@ -4,6 +4,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // reference translates a name or a feature chain: an enumeration literal or a
@@ -67,6 +68,9 @@ const msgReferencePrefix = "reference `"
 // conditions are stated by, else in scope, each further one as a member or a
 // variant of what the previous named.
 func (t *translator) resolvePath(node ast.Node, scope *symbols.Scope, segments []string) ([]*symbols.Symbol, error) {
+	if len(segments) == 0 {
+		return nil, t.refuse(node, "reference", "it names nothing this translation can ground")
+	}
 	if scope == nil {
 		return nil, t.refuse(node, msgReferencePrefix+joinPath(segments)+"`", "it is written in no scope")
 	}
@@ -74,12 +78,23 @@ func (t *translator) resolvePath(node ast.Node, scope *symbols.Scope, segments [
 	var chain []*symbols.Symbol
 	// A member the objective being translated owns or inherits shadows the case's
 	// and is read through it, so two objectives' `best` are two values.
-	sym, ok := t.objectiveLocal(scope, segments[0])
+	sym, ok := t.localTo(t.within, scope, segments[0])
 	if !ok {
 		if sym, ok = t.model.LookupMember(t.within, segments[0]); ok {
+			// A nested objective's member is read through its stage too, as the
+			// stage's own conditions read it (`goal.weight`), so it is one value.
+			if t.stage != nil {
+				chain = append(chain, t.stage)
+			}
 			chain = append(chain, t.within)
-		} else if sym, ok = t.features[segments[0]]; !ok {
-			sym, ok = resolver.LookupName(scope, segments[0])
+		} else if sym, ok = t.localTo(t.stage, scope, segments[0]); ok {
+			// A member local to the stage is read as itself, like one local to the objective.
+		} else if sym, ok = t.model.LookupMember(t.stage, segments[0]); ok {
+			chain = append(chain, t.stage)
+		} else if sym, chain, ok = t.featureNamed(segments[0]); !ok {
+			if sym, ok = resolver.LookupName(scope, segments[0]); ok {
+				sym, chain = t.enclosingHolding(sym)
+			}
 		}
 	}
 	if !ok {
@@ -88,6 +103,18 @@ func (t *translator) resolvePath(node ast.Node, scope *symbols.Scope, segments [
 			return []*symbols.Symbol{whole}, nil
 		}
 		return nil, t.refuse(node, msgReferencePrefix+joinPath(segments)+"`", "it resolves to nothing")
+	}
+	if by, bound := t.subjects[sym]; bound {
+		// A requirement's subject is the object `by` names (SysML v2 §7.21), or
+		// the stating element's own object when there is no `by`.
+		if len(by) == 0 {
+			if len(segments) == 1 {
+				return nil, t.refuse(node, msgReferencePrefix+joinPath(segments)+"`", "it names the object the requirement is about rather than a value of it")
+			}
+			return t.resolvePath(node, scope, segments[1:])
+		}
+		chain = append(chain, by[:len(by)-1]...)
+		sym = by[len(by)-1]
 	}
 	chain = append(chain, sym)
 	for _, segment := range segments[1:] {
@@ -105,23 +132,22 @@ func (t *translator) resolvePath(node ast.Node, scope *symbols.Scope, segments [
 	return chain, nil
 }
 
-// objectiveLocal resolves name to a declaration nested inside the objective being
-// translated, or one of its types, that is not a member of the objective itself:
-// a condition's own parameter or attribute, which the objective's members do not shadow.
-func (t *translator) objectiveLocal(scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
-	if t.within == nil {
+// localTo resolves name to a declaration nested inside owner (an objective or a
+// nested analysis) or its types, other than owner's own members: a condition's parameter.
+func (t *translator) localTo(owner *symbols.Symbol, scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
+	if owner == nil {
 		return nil, false
 	}
 	sym, ok := t.ctx.Resolver().LookupName(scope, name)
 	if !ok {
 		return nil, false
 	}
-	if member, own := t.model.LookupMember(t.within, name); own && member == sym {
+	if member, own := t.model.LookupMember(owner, name); own && member == sym {
 		return nil, false
 	}
 	for s := sym.OwnerScope; s != nil; s = s.Parent() {
-		owner := s.Owner()
-		if owner == t.within || (owner != nil && t.model.Conforms(t.within, owner)) {
+		o := s.Owner()
+		if o == owner || (o != nil && t.model.Conforms(owner, o)) {
 			return sym, true
 		}
 	}
@@ -170,6 +196,7 @@ func (t *translator) datatype(origin *symbols.Symbol, values []*symbols.Symbol, 
 		sort.Values = append(sort.Values, t.fqn(value))
 	}
 	t.sorts[name] = sort
+	t.origins[name] = origin
 	return sort
 }
 
@@ -330,7 +357,7 @@ func (t *translator) declare(name string, sort Sort, sym *symbols.Symbol, dimens
 			Term: Binary(OpGe, Bool, VarTerm(v), IntTerm(0)),
 			From: Provenance{
 				Kind:      "declaration",
-				Element:   name,
+				Element:   source.QualifiedNameText(name),
 				Condition: "a Natural is not negative",
 				Role:      RoleDomain,
 				Declared:  sym,

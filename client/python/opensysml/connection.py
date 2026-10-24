@@ -51,11 +51,15 @@ from opensysml.capabilities import (
     CAPABILITY_MEASUREMENT_REFS,
     CAPABILITY_METAOBJECT_VALUES,
     CAPABILITY_PERFORMER,
+    CAPABILITY_RECORD_RUN,
+    CAPABILITY_RUNS,
+    CAPABILITY_SELF_CHECK,
     CAPABILITY_STATE_TRACE,
     CAPABILITY_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
     CAPABILITY_RENDER_DOCUMENT_HTML,
     CAPABILITY_RENDER_VIEW,
+    CAPABILITY_CHECK,
     CAPABILITY_EXPORT_GRAPHS,
     CAPABILITY_SCHEDULE,
     CAPABILITY_SCHEDULE_EXPLORE,
@@ -65,6 +69,8 @@ from opensysml.capabilities import (
     CAPABILITY_VERIFICATION,
     CAPABILITY_VERIFICATION_QUESTIONS,
     CAPABILITY_VERIFICATION_ARGUMENTS,
+    CAPABILITY_IMPORT_DATA,
+    CAPABILITY_COMPARE_RESULTS,
     MissingCapabilityError,
     ServerInfo,
     mismatch_reason,
@@ -93,7 +99,8 @@ from opensysml.document import (
     render_view_result,
     result_of as document_result,
 )
-from opensysml.edit import error_for_failure, failure_name, referrers_of, result_of
+from opensysml.edit import EditedDocument, error_for_failure, failure_name, referrers_of, result_of
+from opensysml.importcompare import comparison_result, import_result
 from opensysml.enumeration import EnumLiteral
 from opensysml.exploration import Exploration, Outcome
 from opensysml.errors import (
@@ -193,9 +200,11 @@ def _add_sequence_message(add, operation_data, depth=0):
     for child in fields.get("else_body", ()):
         extended = _add_sequence_message(add.else_body.add(), child, depth + 1) or extended
     return extended
+from opensysml.runs import Recording, RecordedDocument, RunDistribution, RunsResult, self_check_result
+from opensysml.check import check_result
 from opensysml.engines import ENGINE_AUTO, EngineInfo, Standing
 from opensysml.verdict import (
-    AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, Validation,
+    AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, ToolDryRun, Validation,
     Verdict, VerificationVerdict,
     QUESTION_EVALUATE,
 )
@@ -376,6 +385,15 @@ def _question_field(question):
     return question
 
 
+def _set_run_options(request, advance, seed):
+    """Set the optional run fields a request carries only when given: proto3 presence tells
+    the service an unset advance from a zero one."""
+    if advance is not None:
+        request.advance = float(advance)
+    if seed is not None:
+        request.seed = int(seed)
+
+
 def _refuse_exploring(schedule, method):
     """Refuse an exploring schedule on a method answering one run's result."""
     if _explores(schedule):
@@ -392,6 +410,23 @@ def _require_exploring(schedule):
             f"schedule {schedule!r} answers one run's result, not every outcome: "
             f"spell it 'explore' or 'explore:runs=<n>,depth=<d>'"
         )
+
+
+def _check_search(properties, diverge, free_inputs, assume, witness, depth, states, unroll,
+                  timeout, engine):
+    """The CheckBehaviorRequest fields the search options of a check set."""
+    return {
+        "check_property": list(properties),
+        "check_diverge": list(diverge),
+        "check_input": list(free_inputs),
+        "check_assume": list(assume),
+        "check_witness": bool(witness),
+        "check_depth": int(depth),
+        "check_states": int(states),
+        "check_unroll": int(unroll),
+        "check_timeout": float(timeout),
+        "engine": engine or "",
+    }
 
 
 def _verifications_of(response):
@@ -1896,15 +1931,52 @@ class Connection:
             response = self._stub.RenderDocument(request)
         return response.html if form == "html" else response.markdown
 
-    def render_view(self, model_hash, view_name, ports="minimal"):
-        """Render a named view with minimal or full ports."""
+    def diagnostics(self, model_hash, disable_lint=(), enable_lint=()):
+        """Ask the service for a model's diagnostics now, under a lint selection.
+
+        Args:
+            model_hash (str): Hash from the parse response
+            disable_lint (Iterable[str]): Lint codes to leave out, as
+                ``sysml -disable-lint`` does
+            enable_lint (Iterable[str]): Opt-in lint codes to keep, as
+                ``sysml -enable-lint`` does
+
+        Returns:
+            list[Diagnostic]: The diagnostics the model has under that selection
+
+        Raises:
+            InvalidRequestError: If a code names no lint; the message names the
+                lints there are
+            ModelNotFoundError: If the service no longer holds the model
+        """
+        request = sysml_pb2.DiagnosticsRequest(
+            model_hash=model_hash,
+            disable_lint=list(disable_lint),
+            enable_lint=list(enable_lint),
+        )
+        with translate_rpc_errors():
+            response = self._stub.GetDiagnostics(request)
+        if response.error:
+            raise ModelError(response.error)
+        return [Diagnostic(d) for d in response.diagnostics]
+
+    def render_view(self, model_hash, view_name, ports="minimal", show=None, depth=0,
+                    compartments="positioned"):
+        """Render a named view with minimal or full ports, the optional notation elements named, above 0 a depth bound and the compartment folding named."""
         if ports not in ("minimal", "full"):
             raise ValueError("ports must be 'minimal' or 'full'")
+        if compartments not in ("positioned", "most", "ports"):
+            raise ValueError("compartments must be 'positioned', 'most' or 'ports'")
+        if not isinstance(depth, int) or isinstance(depth, bool) or depth < 0:
+            raise ValueError("depth must be a non-negative integer")
         require(self.server_info(), CAPABILITY_RENDER_VIEW, upgrade_remedy(CAPABILITY_RENDER_VIEW))
         request = sysml_pb2.RenderViewRequest(
             model_hash=model_hash,
             view=view_name,
             ports="" if ports == "minimal" else ports,
+            show=list(show or ()),
+            depth=depth,
+            compartments="" if compartments == "positioned" else compartments,
         )
         with translate_rpc_errors(
             not_found=lambda message, code: ViewNotFoundError(
@@ -1914,6 +1986,43 @@ class Connection:
         ):
             response = self._stub.RenderView(request)
         return render_view_result(response)
+
+    def check_action(self, action_symbol_id, model_hash, inputs=None, performer=None,
+                     properties=(), diverge=(), free_inputs=(), assume=(), witness=False,
+                     depth=0, states=0, unroll=0, timeout=0.0, engine=None):
+        """Search every schedule of an action, as ``sysml -check-property`` does."""
+        search = _check_search(properties, diverge, free_inputs, assume, witness,
+                               depth, states, unroll, timeout, engine)
+        return self._check_behavior(model_hash, inputs, performer,
+                                    action_symbol_id=action_symbol_id, **search)
+
+    def check_state_machine(self, state_machine_symbol_id, model_hash, performer=None,
+                            properties=(), diverge=(), free_inputs=(), assume=(), witness=False,
+                            depth=0, states=0, unroll=0, timeout=0.0, engine=None):
+        """Search every schedule of a state machine, as ``sysml -check-property`` does."""
+        search = _check_search(properties, diverge, free_inputs, assume, witness,
+                               depth, states, unroll, timeout, engine)
+        return self._check_behavior(model_hash, None, performer,
+                                    state_machine_symbol_id=state_machine_symbol_id, **search)
+
+    def _check_behavior(self, model_hash, inputs, performer, **fields):
+        """Send a CheckBehaviorRequest whose ``fields`` name the subject and the search."""
+        capabilities = [CAPABILITY_CHECK]
+        if performer:
+            capabilities.append(CAPABILITY_PERFORMER)
+        for capability in capabilities:
+            require(self.server_info(), capability, upgrade_remedy(capability))
+        request = sysml_pb2.CheckBehaviorRequest(
+            model_hash=model_hash,
+            inputs={name: self._python_to_value(val) for name, val in (inputs or {}).items()},
+            performer_symbol_id=performer or "",
+            **fields,
+        )
+        with translate_rpc_errors(unimplemented=self._capability_refusal(tuple(capabilities))):
+            response = self._stub.CheckBehavior(request)
+        if response.error:
+            raise ExecutionError(response.error)
+        return check_result(response)
 
     def export_graphs(self, model_hash, subject):
         """Export the lowered graph of an action or state machine as graphs:1 JSON."""
@@ -1925,6 +2034,105 @@ class Connection:
         ):
             response = self._stub.ExportGraphs(request)
         return graphs_result(response)
+
+    def import_data(self, model_hash, imports, import_as="values", dry_run=False, accept_documents=False):
+        """Set the feature values data files assign, one edit of the model per
+        file, as ``sysml -import`` does.
+
+        Args:
+            model_hash (str): Hash from ParseFile response
+            imports (list): Each data file as ``(name, content)``, or as a dict
+                with ``name``, ``content`` and optionally ``format`` (csv, tsv,
+                json or jsonl, as ``-import-format``) and ``map`` (the JSON
+                mapping text, as ``-import-map``)
+            import_as (str): What each row is made into (``-import-as``);
+                only ``values`` is supported
+            dry_run (bool): Report the values the imports would set, changing
+                nothing (``-import-dry-run``)
+            accept_documents (bool): Accept every edited document of a model
+                of several
+
+        Returns:
+            ImportResult: What each file set, the edited documents and the
+            hash of the imported model
+
+        Raises:
+            ExecutionError: If a file was refused; the model is then unchanged
+            MissingCapabilityError: If the service predates ``import_data``
+            ModelNotFoundError: If the service no longer holds the model
+        """
+        require(self.server_info(), CAPABILITY_IMPORT_DATA, upgrade_remedy(CAPABILITY_IMPORT_DATA))
+        request = sysml_pb2.ImportDataRequest(
+            model_hash=model_hash, import_as=import_as, import_dry_run=dry_run, accept_documents=accept_documents,
+        )
+        for entry in imports:
+            if isinstance(entry, dict):
+                request.imports.add(name=entry["name"], content=entry["content"],
+                                    import_format=entry.get("format", ""), import_map=entry.get("map", ""))
+            else:
+                name, content = entry
+                request.imports.add(name=name, content=content)
+        with translate_rpc_errors(unimplemented=self._capability_refusal((CAPABILITY_IMPORT_DATA,))):
+            response = self._stub.ImportData(request)
+        if response.error:
+            raise ExecutionError(response.error, diagnostics=[Diagnostic(d) for d in response.diagnostics])
+        documents = [EditedDocument(name=d.name, content=d.content) for d in response.documents]
+        return import_result(response, documents)
+
+    def compare_results(self, model_hash, results, actions=(), runs=0, seed=None, draws=None,
+                        clock_step=None, observe=(), engine=None):
+        """Run the configurations a SysML v1 tool's results sidecar indexes
+        against the migrated model and table the tool's distributions of their
+        observables beside the runs', as ``sysml -compare-results`` does.
+
+        Args:
+            model_hash (str): Hash from ParseFile response
+            results (str): The sidecar JSON ``sysml -migration-results`` wrote
+            actions (list[str], optional): The configurations compared, by
+                qualified or simple name (``-action``); all when empty
+            runs (int, optional): Runs made of every configuration when
+                positive (``-runs``); else its own numberOfRuns, or one
+            seed (int, optional): The seed the runs derive theirs from
+                (``-seed``); without one, runs that draw at random are refused
+                unless ``draws`` fixes them
+            draws (str, optional): random, min, max or average (``-draws``)
+            clock_step (float, optional): Seconds; 0 is a continuous clock
+                (``-clock-step``)
+            observe (list, optional): Stored observables compared, each a name
+                or a ``(stored, feature)`` pair (``-observe``)
+            engine (str, optional): Engine selection
+
+        Returns:
+            Comparison: One ConfigurationComparison per configuration
+
+        Raises:
+            ExecutionError: If nothing could be compared
+            MissingCapabilityError: If the service predates ``compare_results``
+            ModelNotFoundError: If the service no longer holds the model
+        """
+        require(self.server_info(), CAPABILITY_COMPARE_RESULTS, upgrade_remedy(CAPABILITY_COMPARE_RESULTS))
+        request = sysml_pb2.CompareResultsRequest(
+            model_hash=model_hash, results=results, actions=list(actions), runs=runs,
+            draws=draws or "", engine=engine or "",
+        )
+        if seed is not None:
+            request.seed = seed
+        if clock_step is not None:
+            request.clock_step = clock_step
+        for pair in observe:
+            if isinstance(pair, str):
+                request.observe.add(stored=pair)
+            else:
+                stored, feature = pair
+                request.observe.add(stored=stored, feature=feature)
+        with translate_rpc_errors(unimplemented=self._capability_refusal((CAPABILITY_COMPARE_RESULTS,))):
+            response = self._stub.CompareResults(request)
+        if response.error:
+            raise ExecutionError(response.error, diagnostics=[Diagnostic(d) for d in response.diagnostics])
+        diagnostics = [Diagnostic(d) for d in response.diagnostics]
+        return comparison_result(
+            response, lambda rows, instances: [self._sweep_row(row, instances, diagnostics) for row in rows],
+        )
 
     def get_symbol(self, model_hash, symbol_id):
         """Fetch symbol by ID from cached model.
@@ -2039,13 +2247,25 @@ class Connection:
         return Instance(response.instance, graph)
     
     def execute_action(self, action_symbol_id, model_hash, inputs=None,
-                       schedule=None, performer=None):
+                       schedule=None, performer=None, advance=None, seed=None,
+                       draws=None, clock_step=0.0):
         """Execute an action definition.
         
         Args:
             action_symbol_id (str): FQN of action def
             model_hash (str): Hash from ParseFile response
             inputs (dict, optional): Input parameter name → value
+            advance (float, optional): Simulated seconds to run for, as
+                ``sysml -advance`` does; the action is started and its clock
+                moved by this much, and one not completed by then fails with
+                the instant it waits for. ``None`` runs it to completion
+            seed (int, optional): Seed of the model's own draws (``sysml
+                -seed``); the same seed draws the same run
+            draws (str, optional): How RandomFunctions draws resolve (``sysml
+                -draws``): ``"random"`` (the default), ``"min"``, ``"max"`` or
+                ``"average"``
+            clock_step (float): Seconds the run's clock ticks by (``sysml
+                -clock-step``); 0 is a continuous clock
             schedule (str, optional): Scheduling policy the run resolves its
                 choice points under — ``"declared"``, ``"reverse"`` (the
                 default) or ``"seed:<n>"`` — spelled as ``sysml -schedule``
@@ -2089,7 +2309,8 @@ class Connection:
             InvalidRequestError: If the schedule names no policy
         """
         _refuse_exploring(schedule, "explore_action")
-        response = self._execute_action(action_symbol_id, model_hash, inputs, schedule, performer)
+        response = self._execute_action(action_symbol_id, model_hash, inputs, schedule, performer,
+                                        advance=advance, seed=seed, draws=draws, clock_step=clock_step)
         if response.error:
             wrapped_diags = [Diagnostic(d) for d in response.diagnostics]
             raise ExecutionError(response.error, diagnostics=wrapped_diags)
@@ -2097,6 +2318,7 @@ class Connection:
         return ActionOutputs(
             self._values_to_python(response.outputs),
             self._values_to_python(response.performer_attributes),
+            dict(response.order_dependent),
         )
 
     def explore_action(self, action_symbol_id, model_hash, inputs=None,
@@ -2138,7 +2360,8 @@ class Connection:
         response = self._execute_action(action_symbol_id, model_hash, inputs, schedule, performer)
         return self._exploration_of(response)
 
-    def _execute_action(self, action_symbol_id, model_hash, inputs, schedule, performer):
+    def _execute_action(self, action_symbol_id, model_hash, inputs, schedule, performer,
+                        advance=None, seed=None, draws=None, clock_step=0.0):
         """Send an ExecuteAction request, the schedule's and performer's capabilities checked first."""
         pb_inputs = {name: self._python_to_value(val) for name, val in (inputs or {}).items()}
         capabilities = self._run_capabilities(schedule, performer)
@@ -2148,12 +2371,16 @@ class Connection:
             inputs=pb_inputs,
             schedule=schedule or "",
             performer_symbol_id=performer or "",
+            draws=draws or "",
+            clock_step=clock_step,
         )
+        _set_run_options(req, advance, seed)
         with translate_rpc_errors(unimplemented=self._capability_refusal(capabilities)):
             return self._stub.ExecuteAction(req)
     
     def execute_state(self, state_machine_symbol_id, model_hash, events=None,
-                      schedule=None, performer=None, trace=False):
+                      schedule=None, performer=None, trace=False, advance=None,
+                      seed=None, draws=None, clock_step=0.0):
         """Execute a state machine.
         
         Args:
@@ -2191,7 +2418,8 @@ class Connection:
             InvalidRequestError: If the schedule names no policy
         """
         _refuse_exploring(schedule, "explore_state")
-        response = self._execute_state(state_machine_symbol_id, model_hash, events, schedule, performer, trace)
+        response = self._execute_state(state_machine_symbol_id, model_hash, events, schedule, performer, trace,
+                                       advance=advance, seed=seed, draws=draws, clock_step=clock_step)
         if response.error:
             wrapped_diags = [Diagnostic(d) for d in response.diagnostics]
             raise ExecutionError(
@@ -2207,6 +2435,7 @@ class Connection:
             'final_time': response.final_time,
             'trace': [document_event_of(event) for event in response.trace],
             'trace_dropped': response.trace_dropped,
+            'order_dependent': dict(response.order_dependent),
         }
 
     def explore_state(self, state_machine_symbol_id, model_hash, events=None,
@@ -2241,7 +2470,8 @@ class Connection:
         response = self._execute_state(state_machine_symbol_id, model_hash, events, schedule, performer)
         return self._exploration_of(response)
 
-    def _execute_state(self, state_machine_symbol_id, model_hash, events, schedule, performer, trace=False):
+    def _execute_state(self, state_machine_symbol_id, model_hash, events, schedule, performer, trace=False,
+                       advance=None, seed=None, draws=None, clock_step=0.0):
         """Send an ExecuteState request, the schedule's and performer's capabilities checked first."""
         capabilities = self._run_capabilities(schedule, performer, trace)
         req = sysml_pb2.ExecuteStateRequest(
@@ -2251,7 +2481,10 @@ class Connection:
             schedule=schedule or "",
             performer_symbol_id=performer or "",
             trace=trace,
+            draws=draws or "",
+            clock_step=clock_step,
         )
+        _set_run_options(req, advance, seed)
         with translate_rpc_errors(unimplemented=self._capability_refusal(capabilities)):
             return self._stub.ExecuteState(req)
 
@@ -2270,6 +2503,7 @@ class Connection:
             depth_budget=status.depth_budget,
             probabilities_lower_bound=status.probabilities_lower_bound,
             failed_linearizations=status.failed_linearizations,
+            unenumerated=list(status.unenumerated),
         )
 
     def _outcome_of(self, pb):
@@ -2292,8 +2526,13 @@ class Connection:
             diagnostics=[Diagnostic(d) for d in pb.diagnostics],
         )
     
-    def list_engines(self):
+    def list_engines(self, probe=False):
         """List the analysis engines the service answers with, as ``sysml -engines`` does.
+
+        Args:
+            probe (bool): Start each external engine's process once and check
+                its handshake against its manifest, reporting the outcome as
+                its status, as ``sysml -engines -probe`` does
 
         Returns:
             list[EngineInfo]: One per engine, in name order, with the strength
@@ -2307,7 +2546,7 @@ class Connection:
         with translate_rpc_errors(
             unimplemented=self._capability_refusal((CAPABILITY_ENGINES,))
         ):
-            response = self._stub.ListEngines(sysml_pb2.ListEnginesRequest())
+            response = self._stub.ListEngines(sysml_pb2.ListEnginesRequest(probe=probe))
         return [EngineInfo.of(pb) for pb in response.engines]
 
     def verify_constraint(self, symbol_id, model_hash, subject_symbol_id=None, engine=None,
@@ -2654,7 +2893,7 @@ class Connection:
         return CalcResult(value, outputs, diagnostics=diagnostics, standing=Standing.of(response))
 
     def run_analysis(self, symbol_id, model_hash, subject=None, arguments=None,
-                     named_arguments=None, schedule=None, engine=None):
+                     named_arguments=None, schedule=None, engine=None, tool_dry_run=False):
         """Run an analysis case, as the REPL's ``%analysis`` does.
 
         The subject named is instantiated and bound as the case's subject; a
@@ -2714,7 +2953,8 @@ class Connection:
                 "result: use explore_analysis"
             )
         response = self._run_analysis(
-            symbol_id, model_hash, subject, arguments, named_arguments, schedule, engine
+            symbol_id, model_hash, subject, arguments, named_arguments, schedule, engine,
+            tool_dry_run=tool_dry_run,
         )
 
         diagnostics = [Diagnostic(d) for d in response.diagnostics]
@@ -2724,6 +2964,13 @@ class Connection:
         ):
             raise _failure_of(response.error, response.failure_reason, diagnostics)
 
+        result = self._analysis_result(response, diagnostics)
+        if response.error:
+            raise AnalysisRunError(response.error, result, diagnostics=diagnostics)
+        return result
+
+    def _analysis_result(self, response, diagnostics):
+        """One case run as Python values, from a RunAnalysisResponse."""
         instances = self._instances_of(response)
         by_id = {inst.id: inst for inst in instances}
         # An object the response carries is read as it; one it does not stays an id.
@@ -2746,9 +2993,10 @@ class Connection:
             verifications=_verifications_of(response),
             evaluations=_evaluations_of(response, resolve),
             standing=Standing.of(response),
+            tool_dry_run=(
+                ToolDryRun(response.tool_dry_run) if response.HasField("tool_dry_run") else None
+            ),
         )
-        if response.error:
-            raise AnalysisRunError(response.error, result, diagnostics=diagnostics)
         return result
 
     def explore_analysis(self, symbol_id, model_hash, subject=None, arguments=None,
@@ -2794,7 +3042,7 @@ class Connection:
         return self._exploration_of(response, response.failure_reason)
 
     def _run_analysis(self, symbol_id, model_hash, subject, arguments,
-                      named_arguments, schedule, engine):
+                      named_arguments, schedule, engine, tool_dry_run=False):
         """Send a RunAnalysis request, its capabilities checked first."""
         self._require_verification()
         self._require_schedule(schedule)
@@ -2806,6 +3054,7 @@ class Connection:
             arguments=[self._python_to_value(arg) for arg in (arguments or [])],
             schedule=schedule or "",
             engine=_engine_field(engine),
+            tool_dry_run=tool_dry_run,
         )
         for name, arg in (named_arguments or {}).items():
             request.named_arguments[name].CopyFrom(self._python_to_value(arg))
@@ -2896,6 +3145,10 @@ class Connection:
             raise _failure_of(
                 response.error, response.failure_reason, diagnostics
             )
+        return self._sweep_table(response, diagnostics)
+
+    def _sweep_table(self, response, diagnostics):
+        """The rows of a RunSweepResponse as Python values."""
         instances = self._instances_of(response)
         rows = [
             self._sweep_row(row, instances, diagnostics)
@@ -2905,6 +3158,201 @@ class Connection:
             rows, list(response.parameters), sampled=response.sampled,
             seed=response.seed, instances=instances, diagnostics=diagnostics,
             standing=Standing.of(response),
+        )
+
+    def run_runs(self, model_hash, action=None, analysis=None, runs=1, seed=None, draws=None,
+                 clock_step=0.0, observe=(), inputs=None, performer=None, subject=None,
+                 arguments=None, named_arguments=None, engine=None):
+        """Run an action, or a Simulation::MonteCarlo case, ``runs`` times.
+
+        Every run is an ordinary run in a context of its own, drawing its
+        modeled randomness from a seed derived from ``seed``: the same seed
+        makes the same runs. A run that failed is a row carrying its error.
+
+        Args:
+            model_hash (str): Hash from ParseFile response
+            action (str, optional): FQN of the action to run; give this or
+                ``analysis``
+            analysis (str, optional): FQN of the Monte Carlo analysis case
+            runs (int): How many runs to make
+            seed (int, optional): Seed the runs draw from; required unless
+                ``draws`` fixes them
+            draws (str, optional): ``random`` (the default), ``min``, ``max``
+                or ``average``
+            clock_step (float, optional): Clock step of each run; 0 keeps the default
+            observe (list[str], optional): The action's features each run
+                reports, ``clock`` for the time it completed at; none reports
+                every feature and the clock
+            inputs (dict, optional): The action's input parameters by name
+            performer (str, optional): FQN of the part whose object performs
+                the action
+            subject (str, optional): FQN of a part/usage to instantiate as the
+                case's subject
+            arguments (list, optional): Positional arguments of the case
+            named_arguments (dict, optional): Arguments of the case by name
+            engine (str, optional): The engine to ask
+
+        Returns:
+            RunsResult: The table, each observable's distribution and a case's
+            conclusion over the sample
+
+        Raises:
+            ExecutionError: If no run followed from the request
+            MissingCapabilityError: If the service predates ``runs``
+            InvalidRequestError: If neither or both of action and analysis are
+                given, runs is not positive, random draws have no seed, or the
+                draw policy names none
+            ModelNotFoundError: If the service no longer holds the model
+        """
+        capabilities = [CAPABILITY_RUNS]
+        if performer:
+            capabilities.append(CAPABILITY_PERFORMER)
+        for capability in capabilities:
+            require(self.server_info(), capability, upgrade_remedy(capability))
+        self._require_engine(engine)
+        request = sysml_pb2.RunRunsRequest(
+            model_hash=model_hash,
+            action_symbol_id=action or "",
+            analysis_symbol_id=analysis or "",
+            inputs={name: self._python_to_value(val) for name, val in (inputs or {}).items()},
+            performer_symbol_id=performer or "",
+            subject_symbol_id=subject or "",
+            arguments=[self._python_to_value(arg) for arg in (arguments or [])],
+            runs=int(runs),
+            draws=draws or "",
+            clock_step=float(clock_step),
+            observe=list(observe),
+            engine=_engine_field(engine),
+        )
+        if seed is not None:
+            request.seed = int(seed)
+        for name, arg in (named_arguments or {}).items():
+            request.named_arguments[name].CopyFrom(self._python_to_value(arg))
+        with translate_rpc_errors(unimplemented=self._capability_refusal(tuple(capabilities))):
+            response = self._stub.RunRuns(request)
+        diagnostics = [Diagnostic(d) for d in response.diagnostics]
+        if response.error:
+            raise _failure_of(response.error, response.failure_reason, diagnostics)
+        return self._runs_result(response, diagnostics)
+
+    def _runs_result(self, response, diagnostics):
+        """The runs of a RunRunsResponse as Python values."""
+        instances = self._instances_of(response)
+        by_id = {inst.id: inst for inst in instances}
+        resolve = lambda instance_id: by_id.get(instance_id, instance_id)  # noqa: E731
+        rows = [self._sweep_row(row, instances, diagnostics) for row in response.rows]
+        outputs = {}
+        for output in response.outputs:
+            try:
+                outputs[output.name] = value_to_python(output.value, resolve)
+            except UnsupportedValueError as exc:
+                outputs[output.name] = exc
+        verdicts = [
+            Verdict(pb_verdict, instances=instances, diagnostics=diagnostics)
+            for pb_verdict in response.verdicts
+        ]
+        return RunsResult(
+            rows, response.observables, [RunDistribution.of(d) for d in response.distributions],
+            response.lines, outputs, verdicts, response.unconcluded, instances,
+            Standing.of(response), response.seed if response.HasField("seed") else None,
+            diagnostics,
+        )
+
+    def self_check(self, model_hash, packages=()):
+        """Apply the SysMLValidation constraints, and those of the rule
+        packages named, reflectively to every element of the model, as
+        ``sysml -self-check`` does.
+
+        Args:
+            model_hash (str): Hash from ParseFile response
+            packages (list[str], optional): FQNs of packages whose constraint
+                definitions apply after the bundled ones (``-self-check-package``)
+
+        Returns:
+            SelfCheckResult: Every finding and the counts over them
+
+        Raises:
+            ExecutionError: If a package named is not declared
+            MissingCapabilityError: If the service predates ``self_check``
+            ModelNotFoundError: If the service no longer holds the model
+        """
+        require(self.server_info(), CAPABILITY_SELF_CHECK, upgrade_remedy(CAPABILITY_SELF_CHECK))
+        request = sysml_pb2.SelfCheckRequest(model_hash=model_hash, self_check_package=list(packages))
+        with translate_rpc_errors(unimplemented=self._capability_refusal((CAPABILITY_SELF_CHECK,))):
+            response = self._stub.SelfCheck(request)
+        if response.error:
+            raise ExecutionError(response.error, diagnostics=[Diagnostic(d) for d in response.diagnostics])
+        return self_check_result(response)
+
+    def record_run(self, symbol_id, model_hash, subject=None, arguments=None, named_arguments=None,
+                   into=None, ranges=None, runs=0, seed=None, engine=None):
+        """Run an analysis case and record the runs into the model as
+        AnalysisRecords declarations, as ``sysml -record-run`` does.
+
+        With neither ``ranges`` nor ``runs`` the case runs once; ``ranges`` runs
+        it once per row as :meth:`run_sweep` does and records each completed
+        row; ``runs`` runs it that many times as :meth:`run_runs` does a Monte
+        Carlo case and records each completed run and the sample's conclusion.
+
+        Args:
+            symbol_id (str): FQN of the analysis case
+            model_hash (str): Hash from ParseFile response
+            subject (str, optional): FQN of a part/usage to instantiate as the subject
+            arguments (list, optional): Positional arguments
+            named_arguments (dict, optional): Arguments by name
+            into (str, optional): Package the records go into
+                (``-record-into``); none is a Records package beside the
+                package enclosing the case's own
+            ranges (dict, optional): Ranges as :meth:`run_sweep` takes them
+            runs (int, optional): Monte Carlo runs to make and record
+            seed (int, optional): Seed of the sample's draws; required with runs
+            engine (str, optional): The engine to ask
+
+        Returns:
+            Recording: The runs' report, what the model gained and the
+            notation the records were written into
+
+        Raises:
+            ExecutionError: If nothing was recorded: the case could not run,
+                no run completed, or the records would not analyze cleanly
+            MissingCapabilityError: If the service predates ``record_run``
+            ModelNotFoundError: If the service no longer holds the model
+        """
+        require(self.server_info(), CAPABILITY_RECORD_RUN, upgrade_remedy(CAPABILITY_RECORD_RUN))
+        self._require_engine(engine)
+        request = sysml_pb2.RecordRunRequest(
+            model_hash=model_hash,
+            analysis_symbol_id=symbol_id,
+            subject_symbol_id=subject or "",
+            arguments=[self._python_to_value(arg) for arg in (arguments or [])],
+            engine=_engine_field(engine),
+            record_into=into or "",
+            runs=int(runs),
+            accept_documents=True,
+        )
+        if seed is not None:
+            request.seed = int(seed)
+        for name, arg in (named_arguments or {}).items():
+            request.named_arguments[name].CopyFrom(self._python_to_value(arg))
+        for name, bounds in (ranges or {}).items():
+            request.ranges.append(self._sweep_range(name, bounds))
+        with translate_rpc_errors(unimplemented=self._capability_refusal((CAPABILITY_RECORD_RUN,))):
+            response = self._stub.RecordRun(request)
+        diagnostics = [Diagnostic(d) for d in response.diagnostics]
+        if response.error:
+            raise _failure_of(response.error, response.failure_reason, diagnostics)
+        run = sweep = sample = None
+        if response.HasField("run"):
+            run = self._analysis_result(response.run, [Diagnostic(d) for d in response.run.diagnostics])
+        if response.HasField("sweep"):
+            sweep = self._sweep_table(response.sweep, [Diagnostic(d) for d in response.sweep.diagnostics])
+        if response.HasField("sample"):
+            sample = self._runs_result(response.sample, [Diagnostic(d) for d in response.sample.diagnostics])
+        return Recording(
+            run, sweep, sample, response.package, response.definition, response.records,
+            response.source, response.content,
+            [RecordedDocument(d.name, d.content) for d in response.documents],
+            response.skipped, response.reasons, response.model_hash, diagnostics,
         )
 
     def _sweep_range(self, name, bounds):

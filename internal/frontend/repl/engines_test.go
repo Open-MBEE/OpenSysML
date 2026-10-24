@@ -154,7 +154,7 @@ func TestEngineSelectionIsIndependentOfTheSchedule(t *testing.T) {
 	if v.Status != VerdictHolds {
 		t.Fatalf("status = %v:\n%s", v.Status, strings.Join(v.Lines, "\n"))
 	}
-	wants(t, strings.Join(v.Lines, "\n"), standingPrefix+"value (observed: 1 run under declared)")
+	wants(t, strings.Join(v.Lines, "\n"), StandingPrefix+"value (observed: 1 run under declared)")
 }
 
 // Every verdict an engine answered ends with its standing line and carries the
@@ -169,17 +169,17 @@ func TestVerdictsCarryTheirPlanAndStanding(t *testing.T) {
 		t.Fatalf("plan = %+v, want one run step under auto", v.Plan)
 	}
 	last := v.Lines[len(v.Lines)-1]
-	if last != standingPrefix+"value (observed: 1 run under reverse)" {
+	if last != StandingPrefix+"value (observed: 1 run under reverse)" {
 		t.Fatalf("last line = %q, want the standing", last)
 	}
-	wantsInOrder(t, strings.Join(v.Lines, "\n"), "= 6", "standing: value (observed: 1 run under reverse)")
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "= [6]", "standing: value (observed: 1 run under reverse)")
 
 	run(t, s, "%engine run")
 	v = s.RunCalc("Engines::Twice(4)")
 	if v.Plan == nil || v.Plan.Selection != analysis.Only("run") {
 		t.Fatalf("plan = %+v, want the named run engine", v.Plan)
 	}
-	wantsInOrder(t, strings.Join(v.Lines, "\n"), "= 8", standingPrefix+"value (observed: 1 run under reverse)")
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "= [8]", StandingPrefix+"value (observed: 1 run under reverse)")
 }
 
 // A named engine that refuses the question is final: the verdict is its refusal
@@ -192,7 +192,7 @@ func TestNamedEngineRefusalIsFinal(t *testing.T) {
 		t.Fatalf("status = %v, want unresolved:\n%s", v.Status, strings.Join(v.Lines, "\n"))
 	}
 	report := strings.Join(v.Lines, "\n")
-	wants(t, report, "sweep does not answer evaluate questions", standingPrefix+"not covered")
+	wants(t, report, "sweep does not answer evaluate questions", StandingPrefix+"not covered")
 	rejects(t, report, "= 6")
 	if v.Plan == nil || len(v.Plan.Steps) != 1 || v.Plan.Steps[0].Engine != "sweep" || v.Plan.Steps[0].Refusal == nil {
 		t.Fatalf("plan = %+v, want one refused sweep step", v.Plan)
@@ -220,7 +220,7 @@ func TestAllRunsEveryCoveringEngine(t *testing.T) {
 	if len(ran) != 1 || ran[0] != "run" {
 		t.Fatalf("engines that ran = %v, want run alone to cover an evaluate question", ran)
 	}
-	wantsInOrder(t, strings.Join(v.Lines, "\n"), "= 6", standingPrefix+"value (observed: 1 run under reverse); all: run value (observed)")
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "= [6]", StandingPrefix+"value (observed: 1 run under reverse); all: run value (observed)")
 }
 
 // A debugger stepping a run survives an engine selection, which decides how
@@ -301,8 +301,8 @@ func TestActionDebuggerPutsToolComputationsToTheEngines(t *testing.T) {
 	if ran != 1 || s.actionExec == nil || s.actionExec.executor.State() != runtime.StateCompleted {
 		t.Fatalf("tool ran %d times; want once, leaving a completed executor", ran)
 	}
-	if got := runtime.FormatValue(s.actionExec.executor.Results()["y"]); got != "4.0" {
-		t.Fatalf("y = %s, want 4.0", got)
+	if got := runtime.FormatValue(s.actionExec.executor.Results()["y"]); got != "[4.0]" {
+		t.Fatalf("y = %s, want [4.0]", got)
 	}
 
 	run(t, s, "%engine run")

@@ -1,0 +1,207 @@
+{
+  "scenarios": [
+    {
+      "id": "check_behavior/a_property_one_schedule_breaks_is_witnessed_with_the_divergence",
+      "description": "Two concurrent assignments to the tank's level end in either order, so `low` is false after the schedule that assigns 2 last and `level` diverges; the violation names the property and the depth, and each divergent value carries a replay witness.",
+      "rpc": "CheckBehavior",
+      "requires_capabilities": [
+        "check",
+        "performer"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "check"
+      },
+      "model": {
+        "fixture": "tank.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "action_symbol_id": "Plant::Tank::fill",
+        "performer_symbol_id": "Plant::tank",
+        "check_property": [
+          "Plant::Tank::low"
+        ],
+        "check_diverge": [
+          "this.level"
+        ]
+      },
+      "expect": {
+        "response": {
+          "verdict": "fails",
+          "search": {
+            "states": 11,
+            "moves": 10,
+            "max_depth": 6
+          },
+          "violations": [
+            {
+              "kind": "property",
+              "property": "Plant::Tank::low",
+              "depth": 3,
+              "witness": {
+                "schedule": "replay"
+              }
+            }
+          ],
+          "divergences": [
+            {
+              "feature": "this.level",
+              "values": [
+                {
+                  "value": "1"
+                },
+                {
+                  "value": "2"
+                }
+              ]
+            }
+          ],
+          "engine": "check"
+        },
+        "non_empty": [
+          "lines",
+          "strength",
+          "violations.0.witness.choices",
+          "divergences.0.values.0.witness.schedule"
+        ],
+        "absent": [
+          "error",
+          "search.bounds_hit"
+        ]
+      }
+    },
+    {
+      "id": "check_behavior/a_property_every_schedule_keeps_holds_exhaustively",
+      "description": "The capacity is never exceeded under any order, so the exhaustive search answers holds with no bound hit and every final outcome listed.",
+      "rpc": "CheckBehavior",
+      "requires_capabilities": [
+        "check",
+        "performer"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "check"
+      },
+      "model": {
+        "fixture": "tank.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "action_symbol_id": "Plant::Tank::fill",
+        "performer_symbol_id": "Plant::tank",
+        "check_property": [
+          "Plant::Tank::capped"
+        ],
+        "check_diverge": [
+          "this.capacity"
+        ]
+      },
+      "expect": {
+        "response": {
+          "verdict": "holds",
+          "engine": "check"
+        },
+        "non_empty": [
+          "lines",
+          "finals"
+        ],
+        "absent": [
+          "error",
+          "violations",
+          "divergences",
+          "search.bounds_hit"
+        ]
+      }
+    },
+    {
+      "id": "check_behavior/a_depth_bound_hit_leaves_the_verdict_undecided",
+      "description": "Two moves do not reach the assignments, so the search stops at its depth bound and says so rather than claiming the property holds.",
+      "rpc": "CheckBehavior",
+      "requires_capabilities": [
+        "check",
+        "performer"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "check"
+      },
+      "model": {
+        "fixture": "tank.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "action_symbol_id": "Plant::Tank::fill",
+        "performer_symbol_id": "Plant::tank",
+        "check_property": [
+          "Plant::Tank::low"
+        ],
+        "check_depth": 2
+      },
+      "expect": {
+        "response": {
+          "verdict": "undecided"
+        },
+        "non_empty": [
+          "search.bounds_hit",
+          "lines"
+        ],
+        "absent": [
+          "error",
+          "violations"
+        ]
+      }
+    },
+    {
+      "id": "check_behavior/a_negative_depth_bound_is_invalid",
+      "description": "The bounds are checked before anything runs: a negative depth is refused rather than read as none.",
+      "rpc": "CheckBehavior",
+      "requires_capabilities": [
+        "check"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "check"
+      },
+      "model": {
+        "fixture": "tank.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "action_symbol_id": "Plant::Tank::fill",
+        "check_depth": -1
+      },
+      "expect": {
+        "status": "INVALID_ARGUMENT",
+        "status_message_contains": "check_depth"
+      }
+    },
+    {
+      "id": "check_behavior/a_behavior_the_model_lacks_is_answered_in_band",
+      "description": "An unknown behavior is a failure of the request, answered in the error field as every run answers one, so a client sees it as a failure rather than a status.",
+      "rpc": "CheckBehavior",
+      "requires_capabilities": [
+        "check"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "check"
+      },
+      "model": {
+        "fixture": "tank.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "action_symbol_id": "Plant::Tank::drain"
+      },
+      "expect": {
+        "response": {
+          "verdict": "undecided"
+        },
+        "contains": {
+          "error": "Plant::Tank::drain"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "org.opensysml/sysml-mcp",
+  "title": "OpenSysML MCP server",
+  "description": "SysML v2 and KerML for coding agents: workspace diagnostics and edits, execution, REPL sessions.",
+  "websiteUrl": "https://runtime.opensysml.org/reference/sysml-mcp/",
+  "repository": {
+    "url": "https://github.com/Open-MBEE/OpenSysML",
+    "source": "github",
+    "id": "1318945311",
+    "subfolder": "cmd/sysml-mcp"
+  },
+  "version": "0.0.0-unreleased",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@openmbee/sysml-mcp",
+      "version": "0.0.0-unreleased",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "named",
+          "name": "-root",
+          "description": "Workspace folder whose model documents the server indexes and edits; the current directory by default.",
+          "format": "filepath",
+          "default": ".",
+          "isRequired": false
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "toolGroups": ["lsp", "runtime", "session"],
+      "tools": 82
+    }
+  }
+}

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 )
 
 // monteCarloModel declares Simulation::MonteCarlo cases over a part whose behaviors
@@ -129,7 +129,7 @@ func statistic(t *testing.T, out, name string) float64 {
 	for _, line := range strings.Split(out, "\n") {
 		if rest, ok := strings.CutPrefix(strings.TrimSpace(line), name+" = "); ok {
 			rest, _, _ = strings.Cut(rest, " [")
-			v, err := strconv.ParseFloat(rest, 64)
+			v, err := strconv.ParseFloat(strings.Trim(rest, "[]"), 64)
 			if err != nil {
 				t.Fatalf("%s = %q is not a number", name, rest)
 			}
@@ -152,7 +152,7 @@ func TestRunsConcludesAMonteCarloCaseOverItsSample(t *testing.T) {
 		if len(fields) < 2 {
 			continue
 		}
-		if v, err := strconv.ParseFloat(strings.TrimSpace(fields[1]), 64); err == nil {
+		if v, err := strconv.ParseFloat(strings.Trim(strings.TrimSpace(fields[1]), "[]"), 64); err == nil {
 			observed = append(observed, v)
 		}
 	}
@@ -228,7 +228,7 @@ func TestRunsConcludeAResultReadingAStepOfTheRun(t *testing.T) {
 		if len(fields) < 2 {
 			continue
 		}
-		if v, err := strconv.ParseFloat(strings.TrimSpace(fields[1]), 64); err == nil {
+		if v, err := strconv.ParseFloat(strings.Trim(strings.TrimSpace(fields[1]), "[]"), 64); err == nil {
 			last = v
 		}
 	}
@@ -261,7 +261,7 @@ func TestRunsCountPerRunChecksWithoutJudgingTheLastRunTwice(t *testing.T) {
 	var failed int
 	for _, line := range strings.Split(out, "\n") {
 		if fields := strings.Split(line, "|"); len(fields) > 1 {
-			if v, err := strconv.ParseFloat(strings.TrimSpace(fields[1]), 64); err == nil {
+			if v, err := strconv.ParseFloat(strings.Trim(strings.TrimSpace(fields[1]), "[]"), 64); err == nil {
 				last = v >= 3.0
 				if last {
 					failed++
@@ -294,7 +294,7 @@ func TestRunsSettleAMixedCheckInEveryRun(t *testing.T) {
 			if len(fields) < 3 {
 				continue
 			}
-			v, err := strconv.ParseFloat(strings.TrimSpace(fields[1]), 64)
+			v, err := strconv.ParseFloat(strings.Trim(strings.TrimSpace(fields[1]), "[]"), 64)
 			if err != nil {
 				continue
 			}
@@ -349,7 +349,7 @@ func TestRunsConcludeAQuantityObservedCaseInItsUnit(t *testing.T) {
 	}
 	for _, line := range strings.Split(out, "\n") {
 		line = strings.TrimSpace(line)
-		if (strings.HasPrefix(line, "Mean = ") || strings.HasPrefix(line, "Deviation = ")) && !strings.HasSuffix(line, " [s]") {
+		if (strings.HasPrefix(line, "Mean = ") || strings.HasPrefix(line, "Deviation = ")) && !strings.HasSuffix(line, " [s]") && !strings.HasSuffix(line, " [s]]") {
 			t.Errorf("%q is not a quantity in seconds", line)
 		}
 	}
@@ -408,7 +408,7 @@ func TestRunsRefusedObservationNamesTheRunByItsRow(t *testing.T) {
 		for _, row := range v.Rows {
 			if row.Error == "" {
 				for _, in := range row.Inputs {
-					if in.Name == runtime.RunParam {
+					if in.Name == sweep.RunParam {
 						first = in.Value
 					}
 				}

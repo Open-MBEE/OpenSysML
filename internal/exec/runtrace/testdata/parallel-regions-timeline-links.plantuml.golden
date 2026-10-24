@@ -4,7 +4,7 @@ scale 1 as 220 pixels
 concise "[[https://example.test/src/parallel-regions.sysml#L5 box.modes]]" as l0
 @0
 l0 is "left.waiting | right.waiting"
-note top of l0 : choice entering open: next left.waiting(entry), right.waiting(entry) (unordered; took left.waiting(entry) first)
+note top of l0 : choice entering open: next left.waiting(entry), right.waiting(entry) (unordered; took left.waiting(entry) first; independent)
 @1
 l0 is "done | waiting (time)"
 @2

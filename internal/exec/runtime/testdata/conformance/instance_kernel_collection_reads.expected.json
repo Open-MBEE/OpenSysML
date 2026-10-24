@@ -1,0 +1,28 @@
+{
+  "type": "instance",
+  "instantiate": "test::Rig",
+  "libraries": true,
+  "slots": {
+    "p1.suboccurrenceCount": {"type": "Integer", "value": 2},
+    "p1.subobjectCount": {"type": "Integer", "value": 2},
+    "p1.bareCount": {"type": "Integer", "value": 2},
+    "p1.grandchildCount": {"type": "Integer", "value": 1},
+    "p1.suboccurrences": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
+    "p1.subobjects": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
+    "p1.pb.suboccurrences": {"type": "Sequence", "elements": []},
+    "mixed.suboccurrenceCount": {"type": "Integer", "value": 2},
+    "mixed.subitemCount": {"type": "Integer", "value": 2},
+    "act.subperformanceCount": {"type": "Integer", "value": 2},
+    "act.subperformances": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
+    "bare.suboccurrenceCount": {"type": "Integer", "value": 0},
+    "bare.subobjectCount": {"type": "Integer", "value": 0},
+    "bare.subobjects": {"type": "Sequence", "elements": []},
+    "idle.subperformanceCount": {"type": "Integer", "value": 0},
+    "idle.subperformances": {"type": "Sequence", "elements": []},
+    "p1.timeSlices": {"type": "Sequence", "elements": [{"type": "Instance"}]},
+    "p1.portions": {"type": "Sequence", "elements": [{"type": "Instance"}]},
+    "p1.superoccurrence": {"type": "Instance"},
+    "p1.successors": {"type": "Sequence", "elements": []},
+    "p1.timeEnclosedOccurrences": {"type": "Sequence", "elements": [{"type": "Instance"}]}
+  }
+}

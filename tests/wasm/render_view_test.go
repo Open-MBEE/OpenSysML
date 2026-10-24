@@ -36,13 +36,12 @@ func TestEngineRenderView(t *testing.T) {
 		t.Fatalf("ParseSources = %+v, want a hash and no diagnostics", parsed)
 	}
 
-	declared := engineRenderView(t, eng, parsed.ModelHash, "RenderViews::link", "")
+	declared := engineRenderView(t, eng, parsed.ModelHash, "RenderViews::link", "", "edge-labels")
 	if declared.Kind != "interconnection" {
 		t.Errorf("declared view kind = %q, want interconnection", declared.Kind)
 	}
-	assertNonNullRenderArrays(t, declared)
-	if !reflect.DeepEqual(declared.Notices, []string{}) {
-		t.Errorf("notices = %#v, want []", declared.Notices)
+	if len(declared.Notices) != 0 {
+		t.Errorf("notices = %#v, want none", declared.Notices)
 	}
 	var root engine.JRenderNode
 	parts := map[string]engine.JRenderNode{}
@@ -112,7 +111,7 @@ func TestEngineRenderView(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Workspace.RenderView(%q): %v", viewName, err)
 			}
-			data := rendering.DataFor(view.Ports(display))
+			data := rendering.DataWith(view.Options{Ports: view.Ports(display)})
 			got := engineRenderView(t, eng, parsed.ModelHash, viewName, display)
 			assertRenderDataParity(t, got, data)
 		}
@@ -153,9 +152,9 @@ func TestEngineRenderView(t *testing.T) {
 	}
 }
 
-func engineRenderView(t *testing.T, eng *engine.Engine, hash, viewName, ports string) engine.JRenderViewResponse {
+func engineRenderView(t *testing.T, eng *engine.Engine, hash, viewName, ports string, show ...string) engine.JRenderViewResponse {
 	t.Helper()
-	params := map[string]string{"modelHash": hash, "view": viewName, "ports": ports}
+	params := map[string]any{"modelHash": hash, "view": viewName, "ports": ports, "show": show}
 	body := mustCall(t, eng, "RenderView", renderParamsJSON(t, params))
 	var response engine.JRenderViewResponse
 	if err := json.Unmarshal(body, &response); err != nil {
@@ -164,14 +163,9 @@ func engineRenderView(t *testing.T, eng *engine.Engine, hash, viewName, ports st
 	return response
 }
 
-func assertNonNullRenderArrays(t *testing.T, response engine.JRenderViewResponse) {
-	t.Helper()
-	if response.Notices == nil || response.Nodes == nil || response.Edges == nil {
-		t.Errorf("notices/nodes/edges = %#v/%#v/%#v; want non-null arrays",
-			response.Notices, response.Nodes, response.Edges)
-	}
-}
-
+// assertRenderDataParity checks the engine's reply against the workspace's
+// rendering of the same view, field for field but for declaration origins,
+// which the service parity test compares against the gRPC answer.
 func assertRenderDataParity(t *testing.T, got engine.JRenderViewResponse, want view.Data) {
 	t.Helper()
 	if got.View != want.View || got.Kind != string(want.Kind) || got.Stated != want.Stated {
@@ -185,28 +179,23 @@ func assertRenderDataParity(t *testing.T, got engine.JRenderViewResponse, want v
 	for _, row := range want.Rows {
 		rows = append(rows, engine.JRenderRow{Cells: row.Cells})
 	}
+	for i := range got.Rows {
+		got.Rows[i].Origin = nil
+	}
 	if !reflect.DeepEqual(got.Rows, rows) {
 		t.Errorf("engine rows differ from workspace data: engine=%+v workspace=%+v", got.Rows, rows)
 	}
-	nodes := make([]engine.JRenderNode, 0, len(want.Nodes))
+	var nodes []engine.JRenderNode
 	for _, node := range want.Nodes {
 		item := engine.JRenderNode{
 			ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
-			Type: node.Type, Detail: node.Detail, Parent: node.Parent,
-		}
-		if node.Style != nil {
-			item.Style = &engine.JRenderStyle{
-				Fill: node.Style.Fill, Line: node.Style.Line, Text: node.Style.Text, Font: node.Style.Font,
-				FontSize: node.Style.FontSize, Bold: node.Style.Bold, Italic: node.Style.Italic,
-			}
-			item.Fill, item.Border = node.Style.Fill, node.Style.Line
+			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn, Parent: node.Parent,
+			Style: renderStyleJSON(node.Style),
 		}
 		if node.Geometry != nil {
-			x, y := node.Geometry.X, node.Geometry.Y
-			item.X, item.Y, item.Collapsed = &x, &y, node.Geometry.Collapsed
-			if node.Geometry.HasSize {
-				width, height := node.Geometry.Width, node.Geometry.Height
-				item.Width, item.Height = &width, &height
+			item.Geometry = &engine.JRenderGeometry{
+				X: node.Geometry.X, Y: node.Geometry.Y, Width: node.Geometry.Width, Height: node.Geometry.Height,
+				HasSize: node.Geometry.HasSize, Collapsed: node.Geometry.Collapsed,
 			}
 		}
 		for _, port := range node.Ports {
@@ -216,28 +205,38 @@ func assertRenderDataParity(t *testing.T, got engine.JRenderViewResponse, want v
 		}
 		nodes = append(nodes, item)
 	}
+	for i := range got.Nodes {
+		got.Nodes[i].Origin = nil
+	}
 	if !reflect.DeepEqual(got.Nodes, nodes) {
 		t.Errorf("engine nodes differ from workspace data:\nengine: %+v\nworkspace: %+v", got.Nodes, nodes)
 	}
-	edges := make([]engine.JRenderEdge, 0, len(want.Edges))
+	var edges []engine.JRenderEdge
 	for _, edge := range want.Edges {
 		item := engine.JRenderEdge{
 			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
-			Label: edge.Label, Kind: edge.Kind.String(),
-		}
-		if edge.Style != nil {
-			item.Style = &engine.JRenderStyle{
-				Fill: edge.Style.Fill, Line: edge.Style.Line, Text: edge.Style.Text, Font: edge.Style.Font,
-				FontSize: edge.Style.FontSize, Bold: edge.Style.Bold, Italic: edge.Style.Italic,
-			}
+			Label: edge.Text(), Name: edge.Name, Kind: edge.Kind.String(), Style: renderStyleJSON(edge.Style),
 		}
 		for _, point := range edge.Route {
 			item.Route = append(item.Route, engine.JRenderPoint{X: point.X, Y: point.Y})
 		}
 		edges = append(edges, item)
 	}
+	for i := range got.Edges {
+		got.Edges[i].Origin = nil
+	}
 	if !reflect.DeepEqual(got.Edges, edges) {
 		t.Errorf("engine edges differ from workspace data:\nengine: %+v\nworkspace: %+v", got.Edges, edges)
+	}
+}
+
+func renderStyleJSON(style *view.Style) *engine.JRenderStyle {
+	if style == nil {
+		return nil
+	}
+	return &engine.JRenderStyle{
+		Fill: style.Fill, Line: style.Line, Text: style.Text, Font: style.Font,
+		FontSize: style.FontSize, Bold: style.Bold, Italic: style.Italic,
 	}
 }
 

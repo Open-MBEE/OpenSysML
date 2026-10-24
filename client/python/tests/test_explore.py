@@ -288,6 +288,32 @@ def test_weighted_probability_range_is_preserved():
     )
 
 
+DERIVED_MODEL = """
+package Sched {
+    private import ScalarValues::*;
+
+    action derived {
+        attribute x : Integer = 0;
+        attribute y : Integer = 0;
+        attribute z : Integer = 0;
+        first start;
+        fork split;
+        action a { assign x := 1; }
+        action b { assign x := 2; }
+        join sync;
+        action derive { assign y := x + 1; assign z := 5; }
+        done;
+        succession first start then split;
+        succession first split then a;
+        succession first split then b;
+        succession first a then sync;
+        succession first b then sync;
+        succession first sync then derive;
+        succession first derive then done;
+    }
+}
+"""
+
 EXPLORE_MODEL = """
 package Sched {
     private import ScalarValues::*;
@@ -374,6 +400,13 @@ class TestExploreAgainstTheService:
     def test_the_service_advertises_schedule_explore(self):
         assert self.conn.server_info().has(CAPABILITY_SCHEDULE_EXPLORE)
 
+    def test_a_value_computed_from_an_order_dependent_one_is_marked(self):
+        model = self.conn.load_from_content(DERIVED_MODEL)
+        run = model.execute_action("Sched::derived")
+        assert run["y"] == run["x"] + 1
+        assert run["z"] == 5
+        assert run.order_dependent == {"x": 2, "y": 2}
+
     def test_both_writers_are_reached_and_the_exploration_is_complete(self):
         exploration = self.model.explore_action("Sched::race")
         assert sorted(o.outputs["winner"] for o in exploration) == [1, 2]
@@ -388,7 +421,8 @@ class TestExploreAgainstTheService:
 
     def test_an_analysis_explores_the_actions_it_performs(self):
         exploration = self.model.explore_analysis("Sched::raced")
-        assert sorted(o.outputs["winner"] for o in exploration) == [1, 2]
+        # The bare `out winner` is [0..*], so each outcome holds its one value as a sequence.
+        assert sorted(o.outputs["winner"] for o in exploration) == [[1], [2]]
         assert exploration.complete
 
     def test_a_runs_budget_of_one_is_incomplete(self):
@@ -408,3 +442,20 @@ class TestExploreAgainstTheService:
         for spelling in ("explore:", "explore:runs=0", "explore:depth=-1", "explore:runs=x"):
             with pytest.raises(InvalidRequestError):
                 self.model.explore_action("Sched::race", schedule=spelling)
+
+
+def test_exploration_with_a_construct_left_unenumerated_is_incomplete():
+    gap = Exploration(
+        [], complete=False, runs=2, budgets_hit=[], runs_budget=1024,
+        depth_budget=64, unenumerated=["coverage-gap-1"],
+    )
+    assert gap.unenumerated == ["coverage-gap-1"]
+    assert gap.status == "incomplete after 2 runs; not enumerated: coverage-gap-1"
+    assert not bool(gap)
+    with pytest.raises(ExecutionError):
+        gap.raise_for_incomplete()
+    whole = Exploration(
+        [], complete=True, runs=2, budgets_hit=[], runs_budget=1024, depth_budget=64
+    )
+    assert whole.unenumerated == []
+    assert whole.status == "complete (2 runs)"

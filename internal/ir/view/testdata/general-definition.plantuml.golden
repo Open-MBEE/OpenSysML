@@ -47,15 +47,15 @@ class "<size:10>//«part def»//</size>\n**Chassis**" as n1 <<part def>>
 class "<size:10>//«part def»//</size>\n**LightChassis**" as n2 <<part def>>
 class "<size:10>//«part def»//</size>\n**Driver**" as n3 <<part def>>
 class "<size:10>//«action def»//</size>\n**Brake**" as n4 <<action def>>
-class "<size:10>//«part»//</size>\n**vehicle : Vehicle**" as n5 <<part>> <<usage>>
-class "<size:10>//«part»//</size>\n**heavyVehicle : Vehicle**" as n6 <<part>> <<usage>>
-class "<size:10>//«action»//</size>\n**brake : Brake**" as n7 <<action>> <<usage>>
-class "<size:10>//«attribute»//</size>\n**mass : Real**" as n8 <<attribute>> <<usage>>
-class "<size:10>//«part»//</size>\n**chassis : Chassis**" as n9 <<part>> <<usage>>
-class "<size:10>//«part»//</size>\n**driver : Driver**" as n10 <<part>> <<usage>>
-class "<size:10>//«attribute»//</size>\n**mass**" as n11 <<attribute>> <<usage>>
-class "<size:10>//«attribute»//</size>\n**mass**" as n12 <<attribute>> <<usage>>
-class "<size:10>//«part def»//</size>\n**Powertrain::Engine**" as n13 <<part def>>
+class "<size:10>//«part»//</size>\n**vehicle**" as n5 <<part>> <<usage>>
+class "<size:10>//«part»//</size>\n**heavyVehicle**" as n6 <<part>> <<usage>>
+class "<size:10>//«action»//</size>\n**brake**" as n7 <<action>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**Vehicle::mass**" as n8 <<attribute>> <<usage>>
+class "<size:10>//«part»//</size>\n**chassis**" as n9 <<part>> <<usage>>
+class "<size:10>//«part»//</size>\n**driver**" as n10 <<part>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**vehicle::mass**" as n11 <<attribute>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**heavyVehicle::mass**" as n12 <<attribute>> <<usage>>
+class "<size:10>//«part def»//</size>\n**Engine**" as n13 <<part def>>
 n2 --|> n1
 n5 ..|> n0
 n6 ..|> n0

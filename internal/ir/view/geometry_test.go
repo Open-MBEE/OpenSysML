@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -99,6 +100,84 @@ func TestTransitionRouteAndStateLayoutReachTheStateRendering(t *testing.T) {
 	}
 	if got, want := routeBetween(rendering, on.ID, off.ID), []Point{{30, 90}, {30, 10}}; !reflect.DeepEqual(got, want) {
 		t.Errorf("route of the unnamed transition = %v, want %v", got, want)
+	}
+}
+
+func TestParallelStateRegionLayoutsReachStateRendering(t *testing.T) {
+	r, idx := loadFixture(t, "region-layout.sysml")
+	view := lookup(t, idx, "RegionLayout::parallelLayouts")
+	rendering, err := r.Render(view)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if len(rendering.Notices) != 0 {
+		t.Fatalf("notices = %v, want none", rendering.Notices)
+	}
+	drawn, err := r.DrawnIn(view)
+	if err != nil {
+		t.Fatalf("DrawnIn: %v", err)
+	}
+	regions := []struct {
+		name, symbol string
+		geometry     *Geometry
+	}{
+		{"r1", "RegionLayout::Machine::Active::r1", &Geometry{X: 10, Y: 20, Width: 300, Height: 100, HasSize: true}},
+		{"left", "RegionLayout::Machine::Busy::left", &Geometry{X: 110, Y: 120, Width: 310, Height: 140, HasSize: true}},
+		{"right", "RegionLayout::Machine::Busy::right", &Geometry{X: 210, Y: 220, Width: 320, Height: 150, HasSize: true}},
+		{"a", "RegionLayout::Ctl::a", &Geometry{X: 310, Y: 320, Width: 330, Height: 160, HasSize: true}},
+		{"b", "RegionLayout::Ctl::b", &Geometry{X: 410, Y: 420, Width: 340, Height: 170, HasSize: true}},
+	}
+	for _, tc := range regions {
+		node := findNode(t, rendering.Roots, tc.name)
+		if node.Kind != "region" {
+			t.Errorf("%s kind = %q, want region", tc.name, node.Kind)
+		}
+		if !reflect.DeepEqual(node.Geometry, tc.geometry) {
+			t.Errorf("%s geometry = %+v, want %+v", tc.name, node.Geometry, tc.geometry)
+		}
+		if symbol := lookup(t, idx, tc.symbol); !drawn.Node(symbol) {
+			t.Errorf("DrawnIn does not report %s as a node", tc.symbol)
+		}
+	}
+	inside := findNode(t, rendering.Roots, "inside")
+	if want := (&Geometry{X: 12, Y: 34, Width: 56, Height: 78, HasSize: true}); !reflect.DeepEqual(inside.Geometry, want) {
+		t.Errorf("inside geometry = %+v, want %+v", inside.Geometry, want)
+	}
+	left := findNode(t, rendering.Roots, "left")
+	if want := (&Style{Fill: "#FF0000"}); !reflect.DeepEqual(left.Style, want) {
+		t.Errorf("left style = %+v, want %+v", left.Style, want)
+	}
+	if len(rendering.Notes) != 1 || rendering.Notes[0].Text != "left region" || rendering.Notes[0].Anchor != left.ID {
+		t.Errorf("notes = %+v, want one note anchored to left", rendering.Notes)
+	}
+}
+
+func TestInheritedParallelRegionTakesUsageLayout(t *testing.T) {
+	rendering := render(t, "region-layout.sysml", "RegionLayout::inheritedLayout")
+	if len(rendering.Notices) != 0 {
+		t.Fatalf("notices = %v, want none", rendering.Notices)
+	}
+	usage := findNode(t, rendering.Roots, "RegionLayout::usage")
+	region := findNode(t, []*Node{usage}, "r1")
+	if want := (&Geometry{X: 510, Y: 520, Width: 350, Height: 180, HasSize: true}); !reflect.DeepEqual(region.Geometry, want) {
+		t.Errorf("inherited region geometry = %+v, want usage layout %+v", region.Geometry, want)
+	}
+}
+
+func TestBodySymbolResolvesSynthesizedRegionDeclaration(t *testing.T) {
+	r, idx := loadFixtures(t, "region-layout.sysml")
+	machine := lookup(t, idx, "RegionLayout::Ctl")
+	graph, err := lower.ToStateGraphWithEndpoints(machine.Decl, declScope(machine), lower.NewLibraryStateTypes(r.resolver))
+	if err != nil {
+		t.Fatalf("lower %s: %v", machine.Name, err)
+	}
+	if len(graph.TopRegions) == 0 {
+		t.Fatal("parallel state machine has no top regions")
+	}
+	region := graph.TopRegions[0]
+	got := r.bodySymbol(machine, graph, region)
+	if got == nil || got.Name != "a" {
+		t.Errorf("bodySymbol(region) = %v, want source substate symbol a", got)
 	}
 }
 
@@ -341,6 +420,133 @@ func TestInheritedActionNodesArePositionedPerBody(t *testing.T) {
 	}
 }
 
+// A start no succession leaves lowers to no node, yet a view's Layout about it
+// still places it: the renderer draws it first among the body's nodes, at that
+// position, and reports it drawn as that body's member. A view stating none
+// draws none.
+func TestUnconnectedStartIsDrawnAtItsLayout(t *testing.T) {
+	src := `package Flows {
+    private import DiagramLayout::*;
+    private import StandardViewDefinitions::*;
+    action def A { action a; }
+    view placed : ActionFlowView {
+        expose A;
+        metadata Layout about A::start { x = 5; y = 6; width = 18; height = 20; }
+    }
+    view plain : ActionFlowView { expose A; }
+}
+`
+	r, idx := loadSources(t, []string{"flows.sysml"}, [][]byte{[]byte(src)})
+	aSym := lookup(t, idx, "Flows::A")
+
+	placed, err := r.Render(lookup(t, idx, "Flows::placed"))
+	if err != nil {
+		t.Fatalf("render placed: %v", err)
+	}
+	if len(placed.Notices) != 0 {
+		t.Errorf("notices = %v, want none", placed.Notices)
+	}
+	body := findNode(t, placed.Roots, "Flows::A")
+	if len(body.Children) == 0 {
+		t.Fatalf("A draws no children; notices %v", placed.Notices)
+	}
+	start := body.Children[0]
+	if start.Kind == "initial" && start.Name == "start" {
+		if want := (&Geometry{X: 5, Y: 6, Width: 18, Height: 20, HasSize: true}); !reflect.DeepEqual(start.Geometry, want) {
+			t.Errorf("start geometry = %+v, want %+v", start.Geometry, want)
+		}
+		for _, edge := range placed.Edges {
+			if edge.From == start.ID || edge.To == start.ID {
+				t.Errorf("edge %+v touches the drawn start", edge)
+			}
+		}
+	} else {
+		t.Errorf("A's first child = %s %q, want initial \"start\"", start.Kind, start.Name)
+	}
+	startSym, ok := r.model.LookupMember(aSym, "start")
+	if !ok {
+		t.Fatal("A has no member start")
+	}
+	drawn, err := r.DrawnIn(lookup(t, idx, "Flows::placed"))
+	if err != nil {
+		t.Fatalf("DrawnIn: %v", err)
+	}
+	if !drawn.MemberNode(aSym, startSym) {
+		t.Error("DrawnIn does not report start drawn as A's member")
+	}
+
+	plain, err := r.Render(lookup(t, idx, "Flows::plain"))
+	if err != nil {
+		t.Fatalf("render plain: %v", err)
+	}
+	for _, child := range findNode(t, plain.Roots, "Flows::A").Children {
+		if child.Kind == "initial" {
+			t.Errorf("plain view draws an initial node %+v", child)
+		}
+	}
+	checkGolden(t, filepath.Join("testdata", "unconnected-start.text.golden"), plain.Text())
+}
+
+// A body declaring `action start` already draws it, so no extra initial node
+// is synthesized for it, whether or not a succession leaves it; a Layout whose
+// coordinates do not evaluate draws no start either; and an empty body whose
+// Layout positions its inherited start still reports it declares no nodes.
+func TestPlacedStartOnlyWhenTheBodyHasNoStartOfItsOwn(t *testing.T) {
+	src := `package Flows {
+    private import DiagramLayout::*;
+    private import StandardViewDefinitions::*;
+    action def D { action start; action d; first start then d; }
+    action def E { action start; action e; }
+    action def A { action a; }
+    action def Empty;
+    view v : ActionFlowView {
+        expose D; expose E; expose A; expose Empty;
+        metadata Layout about D::start { x = 5; y = 6; }
+        metadata Layout about E::start { x = 5; y = 6; }
+        metadata Layout about A::start { x = 5; y = null; }
+        metadata Layout about Empty::start { x = 5; y = 6; }
+    }
+}
+`
+	rendering, _, _ := renderModel(t, []string{"flows.sysml"}, []string{src}, "Flows::v", "Flows::D")
+	if len(rendering.Notices) != 1 || !strings.Contains(rendering.Notices[0],
+		"Layout annotation of action def Flows::A is not applied: y of Layout is not a constant number") {
+		t.Errorf("notices = %v, want the one notice that A's start Layout is not applied", rendering.Notices)
+	}
+	for _, body := range []string{"Flows::D", "Flows::E"} {
+		var starts []*Node
+		for _, child := range findNode(t, rendering.Roots, body).Children {
+			if child.Name == "start" {
+				starts = append(starts, child)
+			}
+		}
+		if len(starts) != 1 {
+			t.Fatalf("%s draws %d nodes named start, want 1", body, len(starts))
+		}
+		if starts[0].Kind == "initial" {
+			t.Errorf("%s declared start drawn as an initial node", body)
+		}
+		if want := (&Geometry{X: 5, Y: 6}); !reflect.DeepEqual(starts[0].Geometry, want) {
+			t.Errorf("%s start geometry = %+v, want %+v", body, starts[0].Geometry, want)
+		}
+	}
+	for _, child := range findNode(t, rendering.Roots, "Flows::A").Children {
+		if child.Kind == "initial" {
+			t.Errorf("a start is drawn for A though its Layout's y is not a constant number")
+		}
+	}
+	empty := findNode(t, rendering.Roots, "Flows::Empty")
+	if len(empty.Children) != 1 || empty.Children[0].Kind != "initial" || empty.Children[0].Name != "start" {
+		t.Fatalf("Empty's children = %v, want the one initial start", empty.Children)
+	}
+	if want := (&Geometry{X: 5, Y: 6}); !reflect.DeepEqual(empty.Children[0].Geometry, want) {
+		t.Errorf("Empty's start geometry = %+v, want %+v", empty.Children[0].Geometry, want)
+	}
+	if !strings.Contains(empty.Detail, "declares no nodes") {
+		t.Errorf("Empty's detail %q lacks \"declares no nodes\"", empty.Detail)
+	}
+}
+
 // One state inherited by several machines is drawn once per machine, each at
 // the Layout naming it as that machine's, the rest at the definition's.
 func TestInheritedStatesArePositionedPerMachine(t *testing.T) {
@@ -431,9 +637,9 @@ func TestZeroCanvasExtentIsASize(t *testing.T) {
 // a suffix on each positioned node and edge.
 func TestWritersShowTheGeometry(t *testing.T) {
 	rendering := render(t, "layout.sysml", "PlantViews::placedView")
-	checkGolden(t, filepath.Join("testdata", "layout.text.golden"), rendering.Text())
-	checkGolden(t, filepath.Join("testdata", "layout.mermaid.golden"), rendering.Mermaid())
-	mermaid := rendering.Mermaid()
+	checkGolden(t, filepath.Join("testdata", "layout.text.golden"), rendering.textWith(fullNotation))
+	checkGolden(t, filepath.Join("testdata", "layout.mermaid.golden"), rendering.MermaidWith(fullNotation))
+	mermaid := rendering.MermaidWith(fullNotation)
 	for _, want := range []string{
 		"%% canvas: unit=px w=1200 h=800\n",
 		" x=300 y=40 collapsed\n",
@@ -444,7 +650,7 @@ func TestWritersShowTheGeometry(t *testing.T) {
 			t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
 		}
 	}
-	text := rendering.Text()
+	text := rendering.textWith(fullNotation)
 	for _, want := range []string{"canvas size 1200×800 in px", "pump : Pump at (300, 40) collapsed", "tank : Tank at (500, 40) size 120×60"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text lacks %q:\n%s", want, text)
@@ -638,5 +844,46 @@ func TestCloneCopiesStylesAndNotes(t *testing.T) {
 	}
 	if got := rendering.Notes[0].Text; got != "always" {
 		t.Errorf("original note = %q after editing the clone", got)
+	}
+}
+
+// A Route about a flow inside an interconnection view routes the flow's edge
+// there, as a connection's does: a migrated connector written as its flow alone
+// keeps the line the source diagram drew.
+func TestFlowRouteComesFromTheView(t *testing.T) {
+	src := `package Feeds {
+    private import Views::*;
+    private import DiagramLayout::*;
+    item def Pwr;
+    port def iPower { out item pwr : Pwr; }
+    part def Supply { port 'pwr out' : iPower; }
+    part def Load { port 'pwr in' : ~iPower; }
+    part def Sys {
+        part supply : Supply;
+        part load : Load;
+        flow pwr of Pwr from supply.'pwr out'.pwr to load.'pwr in'.pwr;
+        view feedView {
+            expose supply;
+            expose load;
+            expose pwr;
+            metadata Layout about supply { x = 20; y = 120; width = 100; height = 60; }
+            metadata Layout about load { x = 260; y = 20; width = 100; height = 60; }
+            metadata Route about pwr { points = (120, 140, 190, 140, 190, 50, 260, 50); }
+            render asInterconnectionDiagram;
+        }
+    }
+}
+`
+	rendering, _, _ := renderModel(t, []string{"feeds.sysml"}, []string{src}, "Feeds::Sys::feedView", "Feeds::Sys")
+	if len(rendering.Notices) != 0 {
+		t.Errorf("notices = %v, want none", rendering.Notices)
+	}
+	supply, load := findNode(t, rendering.Roots, "Feeds::Sys::supply"), findNode(t, rendering.Roots, "Feeds::Sys::load")
+	routed := routedEdges(rendering)
+	if len(routed) != 1 || routed[0].Kind != EdgeFlow || routed[0].From != supply.ID || routed[0].To != load.ID {
+		t.Fatalf("routed edges = %+v, want the flow from supply to load", routed)
+	}
+	if want := []Point{{120, 140}, {190, 140}, {190, 50}, {260, 50}}; !reflect.DeepEqual(routed[0].Route, want) {
+		t.Errorf("route = %v, want %v", routed[0].Route, want)
 	}
 }

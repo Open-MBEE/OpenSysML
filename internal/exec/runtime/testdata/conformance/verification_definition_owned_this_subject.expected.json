@@ -1,0 +1,20 @@
+{
+  "libraries": true,
+  "type": "verification",
+  "documents": [
+    "verification_definition_owned_this_subject.requirement.sysml",
+    "verification_definition_owned_this_subject.definition.sysml"
+  ],
+  "evaluate": "DefinitionPkg::Definition::costTest",
+  "subject": "ProductPkg::good",
+  "verdict": "pass",
+  "outputs": {
+    "verdict": {"type": "Sequence", "elements": [{
+        "type": "EnumLiteral",
+        "value": "VerdictKind::pass"
+      }]}
+  },
+  "verdicts": {
+    "costObjective": "satisfied"
+  }
+}

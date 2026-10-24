@@ -196,8 +196,10 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 	// it changed. DiagnosticsAll analyzes in contexts of their own, which any
 	// edit drops entirely, so it is not incremental.
 	diagnostics := make([][]diag.Diagnostic, len(names))
+	unfiltered := make([][]diag.Diagnostic, len(names))
 	for i, name := range names {
 		diagnostics[i] = l.ws.Diagnostics(name)
+		unfiltered[i] = l.ws.UnfilteredDiagnostics(name)
 	}
 	detached, err := l.ws.Detach()
 	if err != nil {
@@ -211,6 +213,7 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 		doc := l.ws.Document(input.name)
 		documents[i] = newCachedDocument(doc.AST, detached.Source(input.name), doc.ParseDiagnostics,
 			diagnostics[i], input.warnings)
+		documents[i].Unfiltered = unfiltered[i]
 	}
 	stamps := make(map[string]uint64, len(names))
 	for _, name := range names {

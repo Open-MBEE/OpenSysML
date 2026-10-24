@@ -122,10 +122,45 @@ func mergedTypedSubflowInvocation(graph *lower.ActionGraph, usage *ast.Usage) (a
 	return actionInvocation{target: typed.Target, scope: typed.Scope}, true
 }
 
-// referencedInvocation reports the action a usage's reference subsetting performs.
+// nodeInvocation is the action a node's performance invokes: the one it names, or
+// the step it performs as itself (performedStep) in place of its merged body.
+func nodeInvocation(graph *lower.ActionGraph, perf *actionFrame, usage *ast.Usage) (actionInvocation, bool) {
+	if inv, ok := nestedInvocationInGraph(graph, usage); ok {
+		return inv, true
+	}
+	if perf.step == nil {
+		return actionInvocation{}, false
+	}
+	return mergedTypedSubflowInvocation(graph, usage)
+}
+
+// performedStep is the usage a merged typed node performs as the action it is, as
+// it would standalone: one a tool or state-space dynamics performs rather than the
+// flow its merged body states. nil for a node whose typed body runs inline.
+func (e *performances) performedStep(graph *lower.ActionGraph, node ast.Node) (*symbols.Symbol, error) {
+	usage, ok := node.(*ast.Usage)
+	if !ok {
+		return nil, nil
+	}
+	if _, merged := mergedTypedSubflowInvocation(graph, usage); !merged {
+		return nil, nil
+	}
+	step, _ := stepSymbol(graph, node)
+	if step == nil {
+		return nil, nil
+	}
+	byFlow, err := e.ctx.performedByFlow(step)
+	if err != nil || byFlow {
+		return nil, err
+	}
+	return step, nil
+}
+
+// referencedInvocation reports the action a usage's reference subsetting performs:
+// `perform a;`, or `include uc;`, which includes a use case the way a perform does.
 func referencedInvocation(usage *ast.Usage) (actionInvocation, bool) {
 	for _, rel := range usage.Relationships {
-		if rel.Kind != ast.RelReferences {
+		if !rel.Kind.ReferenceSubsets() {
 			continue
 		}
 		switch target := rel.Target.(type) {
@@ -165,7 +200,7 @@ func invocationArguments(
 	if inv.expr.Operand != nil && len(inv.named) > 0 {
 		return nil, nil, fmt.Errorf(
 			"%w: %s is called with a receiver and named arguments",
-			ErrReceiverWithNamedArgs, inv.name(),
+			errReceiverWithNamedArgs, inv.name(),
 		)
 	}
 	written := writtenArguments(inv.args, inv.named)
@@ -262,14 +297,15 @@ func (ctx *Context) performerOf(ec *EvalContext, inv actionInvocation, self *Ins
 	if err != nil {
 		return nil, fmt.Errorf("eval performer of %s: %w", inv.name(), err)
 	}
+	value = soleElement(value)
 	if value.Kind != ValInstance {
 		return nil, fmt.Errorf("%w: %s is performed by %s, which is no one object",
-			ErrPerformerNotObject, inv.name(), FormatValue(value))
+			errPerformerNotObject, inv.name(), FormatValue(value))
 	}
 	performer, ok := ctx.Instance(value.Instance)
 	if !ok {
 		return nil, fmt.Errorf("%w: %s is performed by object #%d, which no longer exists",
-			ErrPerformerNotObject, inv.name(), value.Instance)
+			errPerformerNotObject, inv.name(), value.Instance)
 	}
 	return performer, nil
 }
@@ -508,13 +544,13 @@ func actionCandidates(
 		sym, ok = ctx.resolveQualified(scope, target)
 	}
 	if !ok || sym == nil {
-		return nil, nil, fmt.Errorf("unresolved action reference: %s", name)
+		return nil, nil, &UnresolvedActionError{Name: name}
 	}
 	if inv.referrer != nil && sym.Decl == inv.referrer {
-		return nil, nil, fmt.Errorf("unresolved action reference: %s (a perform statement cannot perform itself)", name)
+		return nil, nil, &UnresolvedActionError{Name: name, Detail: "a perform statement cannot perform itself"}
 	}
 	if !ctx.model.semantics.Performable(semantics.PerformsAction, sym) {
-		return nil, nil, fmt.Errorf("%w: %s is not an action (%v)", ErrNotABehavior, name, sym.Kind)
+		return nil, nil, fmt.Errorf("%w: %s is not an action (%v)", errNotABehavior, name, sym.Kind)
 	}
 	return sym, nil, nil
 }
@@ -527,7 +563,7 @@ func bindArgumentList(ec *EvalContext, inv actionInvocation, callee *symbols.Sym
 	if len(inv.args) > len(in) {
 		return fmt.Errorf(
 			"%w: action %s takes %d input parameter(s), got %d argument(s)",
-			ErrActionArity, inv.name(), len(in), len(inv.args),
+			errActionArity, inv.name(), len(in), len(inv.args),
 		)
 	}
 	bound := make(map[string]bool, len(written))
@@ -552,13 +588,13 @@ func bindArgumentList(ec *EvalContext, inv actionInvocation, callee *symbols.Sym
 		if !contains(in, name) {
 			return fmt.Errorf(
 				"%w: action %s has no input parameter %q",
-				ErrUnknownParameter, inv.name(), name,
+				errUnknownParameter, inv.name(), name,
 			)
 		}
 		if bound[name] {
 			return fmt.Errorf(
 				"%w: input parameter %q of %s is given more than one argument",
-				ErrDuplicateArgument, name, inv.name(),
+				errDuplicateArgument, name, inv.name(),
 			)
 		}
 		bound[name] = true
@@ -643,9 +679,9 @@ func (ctx *Context) performerSeedsRefParam(param *symbols.Symbol, performer *Ins
 	return true
 }
 
-// ActionInputNames is the action's `in` and `inout` parameter names in
+// actionInputNames is the action's `in` and `inout` parameter names in
 // declaration order — the parameters an invocation's arguments bind.
-func (ctx *Context) ActionInputNames(sym *symbols.Symbol) []string {
+func (ctx *Context) actionInputNames(sym *symbols.Symbol) []string {
 	in, _ := parameterNames(ctx.actionParametersOf(sym))
 	return in
 }
@@ -661,13 +697,13 @@ type NamedInput struct {
 // binds them: the positional arguments to the first `in` parameters in
 // declaration order, then the named ones in their order — each written name
 // resolved through BoundParameter as an invocation's is. More positional
-// arguments than parameters is ErrActionArity, a name no `in` parameter carries
-// is ErrUnknownParameter, and one already bound is ErrDuplicateArgument.
+// arguments than parameters is errActionArity, a name no `in` parameter carries
+// is errUnknownParameter, and one already bound is errDuplicateArgument.
 func (ctx *Context) ActionInputs(scope *symbols.Scope, sym *symbols.Symbol, positional []Value, named []NamedInput) (map[string]Value, error) {
-	names := ctx.ActionInputNames(sym)
+	names := ctx.actionInputNames(sym)
 	if len(positional) > len(names) {
 		return nil, fmt.Errorf("%w: action %s takes %d input parameter(s), got %d argument(s)",
-			ErrActionArity, symbolText(sym), len(names), len(positional))
+			errActionArity, SymbolText(sym), len(names), len(positional))
 	}
 	inputs := make(map[string]Value, len(names))
 	bound := make(map[string]bool, len(names))
@@ -686,11 +722,11 @@ func (ctx *Context) ActionInputs(scope *symbols.Scope, sym *symbols.Symbol, posi
 		}
 		if !slices.Contains(names, name) {
 			return nil, fmt.Errorf("%w: action %s has no input parameter %q",
-				ErrUnknownParameter, symbolText(sym), name)
+				errUnknownParameter, SymbolText(sym), name)
 		}
 		if bound[name] {
 			return nil, fmt.Errorf("%w: input parameter %q of %s is given more than one argument",
-				ErrDuplicateArgument, name, symbolText(sym))
+				errDuplicateArgument, name, SymbolText(sym))
 		}
 		bound[name] = true
 		inputs[name] = arg.Value

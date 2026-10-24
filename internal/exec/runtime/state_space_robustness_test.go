@@ -92,7 +92,7 @@ func testStateSpaceStateNotAVector(t *testing.T) {
 		:>> timeStep = 0.1 [s];
 		:>> stopTime = 1 [s];
 	`+decayCalcs))
-	expectStateSpaceError(t, err, ErrStateSpaceValue, "stateSpace of action dyn", "not a vector")
+	expectStateSpaceError(t, err, errStateSpaceValue, "stateSpace of action dyn", "not a vector")
 }
 
 func testStateSpaceReturnParameter(t *testing.T) {
@@ -102,7 +102,7 @@ func testStateSpaceReturnParameter(t *testing.T) {
 		:>> timeStep = 0.1 [s];
 		:>> stopTime = 1 [s];
 	`+decayCalcs))
-	expectStateSpaceError(t, err, ErrActionResultParameter, "action dyn declares `return result`", "write `out result`")
+	expectStateSpaceError(t, err, errActionResultParameter, "action dyn declares `return result`", "write `out result`")
 }
 
 func testStateSpaceStateWithoutAnInitialValue(t *testing.T) {
@@ -110,7 +110,7 @@ func testStateSpaceStateWithoutAnInitialValue(t *testing.T) {
 		:>> timeStep = 0.1 [s];
 		:>> stopTime = 1 [s];
 	`+decayCalcs))
-	expectStateSpaceError(t, err, ErrStateSpaceValue, "action dyn binds no stateSpace")
+	expectStateSpaceError(t, err, errStateSpaceValue, "action dyn binds no stateSpace")
 }
 
 func testStateSpaceDerivativeLeftAbstract(t *testing.T) {
@@ -157,7 +157,7 @@ func testStateSpaceDerivativeNotAVector(t *testing.T) {
 			return : Output = stateSpace;
 		}
 	`))
-	expectStateSpaceError(t, err, ErrStateSpaceValue, "getDerivative of action dyn", "not a vector")
+	expectStateSpaceError(t, err, errStateSpaceValue, "getDerivative of action dyn", "not a vector")
 }
 
 func testStateSpaceOutputNotAVector(t *testing.T) {
@@ -176,14 +176,14 @@ func testStateSpaceOutputNotAVector(t *testing.T) {
 			return : Real = stateSpace.elements#(1);
 		}
 	`))
-	expectStateSpaceError(t, err, ErrStateSpaceValue, "output of action dyn", "not a vector")
+	expectStateSpaceError(t, err, errStateSpaceValue, "output of action dyn", "not a vector")
 }
 
 func testStateSpaceStepNotStated(t *testing.T) {
 	err := runStateSpace(t, stateSpaceSource("ContinuousStateSpaceDynamics", `
 		:>> stateSpace = VectorOf((1.0));
 	`+decayCalcs))
-	expectStateSpaceError(t, err, ErrStateSpaceStep, "action dyn states no timeStep", lower.FixedStepDynamicsFQN)
+	expectStateSpaceError(t, err, errStateSpaceStep, "action dyn states no timeStep", lower.FixedStepDynamicsFQN)
 }
 
 func testStateSpaceStepZero(t *testing.T) {
@@ -192,7 +192,7 @@ func testStateSpaceStepZero(t *testing.T) {
 		:>> timeStep = 0 [s];
 		:>> stopTime = 1 [s];
 	`+decayCalcs))
-	expectStateSpaceError(t, err, ErrStateSpaceStep, "timeStep of action dyn", "not a positive duration")
+	expectStateSpaceError(t, err, errStateSpaceStep, "timeStep of action dyn", "not a positive duration")
 }
 
 func testStateSpaceStepNegative(t *testing.T) {
@@ -201,7 +201,7 @@ func testStateSpaceStepNegative(t *testing.T) {
 		:>> timeStep = -0.1 [s];
 		:>> stopTime = 1 [s];
 	`+decayCalcs))
-	expectStateSpaceError(t, err, ErrStateSpaceStep, "timeStep of action dyn", "not a positive duration")
+	expectStateSpaceError(t, err, errStateSpaceStep, "timeStep of action dyn", "not a positive duration")
 }
 
 func testStateSpaceUnknownIntegrator(t *testing.T) {
@@ -246,7 +246,7 @@ func testStateSpaceDivergentState(t *testing.T) {
 			return : Output = stateSpace;
 		}
 	`))
-	expectStateSpaceError(t, err, ErrStateSpaceDiverged, "of action dyn at t=", "not a finite Real")
+	expectStateSpaceError(t, err, errStateSpaceDiverged, "of action dyn at t=", "not a finite Real")
 }
 
 // A step so long that the next instant is not a finite number is refused before
@@ -267,7 +267,7 @@ func testStateSpaceStepPastLastInstant(t *testing.T) {
 			return : Output = stateSpace;
 		}
 	`))
-	expectStateSpaceError(t, err, ErrStateSpaceStep, "step 2 of action dyn", "last instant the clock can hold")
+	expectStateSpaceError(t, err, errStateSpaceStep, "step 2 of action dyn", "last instant the clock can hold")
 }
 
 func testStateSpaceGuardNotANumber(t *testing.T) {
@@ -279,5 +279,5 @@ func testStateSpaceGuardNotANumber(t *testing.T) {
 			:>> guard = stateSpace.elements#(1) < 0.5;
 		}
 	`+decayCalcs))
-	expectStateSpaceError(t, err, ErrStateSpaceValue, "guard of zero crossing low of action dyn", "not a number")
+	expectStateSpaceError(t, err, errStateSpaceValue, "guard of zero crossing low of action dyn", "not a number")
 }

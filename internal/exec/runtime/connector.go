@@ -18,8 +18,11 @@ import (
 // held at an end is the very object the connected feature holds, not a copy of
 // it (KerML 1.0 §7.4.6) — so writing through one is read through the other.
 type ConnectorEnd struct {
-	Name  string
-	Value Value
+	Name string
+	// Feature is the end's own declaration, when the model registers one: through
+	// it the end's value is a value of every feature the end subsets.
+	Feature *symbols.Symbol
+	Value   Value
 }
 
 // participantEndName is the feature the ends of a connector occupy when they
@@ -34,7 +37,7 @@ const participantEndName = "participant"
 // resolved against the instance that owns the connector.
 func (ctx *Context) materializeConnectorFeatureValue(owner *Instance, fv *FeatureValue, name string) error {
 	if !fv.Feature.Scalar() {
-		return &ConnectorEndError{
+		return &connectorEndError{
 			Connector: fmt.Sprintf("%s.%s", owner.Type.Name, name),
 			End:       name,
 			Location:  ctx.symbolLocation(fv.Feature.Symbol),
@@ -111,7 +114,7 @@ func (ctx *Context) materializeConnector(owner *Instance, connSym, base *symbols
 func (ctx *Context) materializeConnectorAs(owner *Instance, connSym, base *symbols.Symbol, id int64, keep func(*Instance)) error {
 	ends := ctx.model.semantics.ConnectorObjectEnds(connSym)
 	if len(ends) == 0 {
-		return fmt.Errorf("%w: %s declares no end to attach", ErrConnectorEnd, connectorName(connSym))
+		return fmt.Errorf("%w: %s declares no end to attach", errConnectorEnd, connectorName(connSym))
 	}
 
 	// An end may name the connector itself, or another connector that names this
@@ -149,7 +152,7 @@ func (ctx *Context) materializeConnectorAs(owner *Instance, connSym, base *symbo
 			abandon()
 			return err
 		}
-		inst.Ends = append(inst.Ends, ConnectorEnd{Name: end.Name, Value: val})
+		inst.Ends = append(inst.Ends, ConnectorEnd{Name: end.Name, Feature: end.Declared, Value: val})
 		if end.Name == "" {
 			unnamed = append(unnamed, val)
 			continue
@@ -540,24 +543,24 @@ func connectorName(sym *symbols.Symbol) string {
 	return "anonymous connector"
 }
 
-// ConnectorEndError reports a connector end that cannot be attached to what it
+// connectorEndError reports a connector end that cannot be attached to what it
 // names, carrying where the end was written so the model can be corrected.
-type ConnectorEndError struct {
+type connectorEndError struct {
 	Connector string // the connector as declared
 	End       string // the feature the end names, as written
 	Location  string // file and position of the end
 	Err       error  // why the end could not be attached
 }
 
-func (e *ConnectorEndError) Error() string {
+func (e *connectorEndError) Error() string {
 	where := ""
 	if e.Location != "" {
 		where = " at " + e.Location
 	}
-	return fmt.Sprintf("%s: %s end %q%s: %v", ErrConnectorEnd, e.Connector, e.End, where, e.Err)
+	return fmt.Sprintf("%s: %s end %q%s: %v", errConnectorEnd, e.Connector, e.End, where, e.Err)
 }
 
-func (e *ConnectorEndError) Unwrap() error { return e.Err }
+func (e *connectorEndError) Unwrap() error { return e.Err }
 
 // endText renders the feature an end names as it was written, for a message.
 func endText(node ast.Node) string {
@@ -578,9 +581,9 @@ func endText(node ast.Node) string {
 	return strings.Join(parts, ".")
 }
 
-// Is reports that this error is an ErrConnectorEnd, so a caller can test for
+// Is reports that this error is an errConnectorEnd, so a caller can test for
 // the condition without knowing which end of which connector failed.
-func (e *ConnectorEndError) Is(target error) bool { return target == ErrConnectorEnd }
+func (e *connectorEndError) Is(target error) bool { return target == errConnectorEnd }
 
 // connectorEndError builds the diagnostic for an end that cannot be attached.
 func (ctx *Context) connectorEndError(connSym *symbols.Symbol, end semantics.ConnectorEndAttachment, cause error) error {
@@ -599,7 +602,7 @@ func (ctx *Context) connectorEndError(connSym *symbols.Symbol, end semantics.Con
 	if end.End != nil {
 		span = end.End.Span()
 	}
-	return &ConnectorEndError{
+	return &connectorEndError{
 		Connector: connectorName(connSym),
 		End:       written,
 		Location:  ctx.sourceLocation(file, span),

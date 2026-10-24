@@ -1,0 +1,10 @@
+FoldedViews::folded - tree rendering (render asTreeDiagram)
+
+part vehicle
+  part wheel at (0, 40)
+    part hub
+  part engine at (120, 40) collapsed
+    port fuelIn
+  part tank at (240, 40)
+    port 'out'
+  connect

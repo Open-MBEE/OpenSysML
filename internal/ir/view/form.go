@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // Form is a written form of a rendering: the human-readable text every kind has,
@@ -30,11 +31,22 @@ const (
 	FormCSV Form = "csv"
 	// FormTSV is tab-separated values of a tabular rendering.
 	FormTSV Form = "tsv"
+	// FormSVG is a self-contained SVG drawing of a run: a timeline's lanes and
+	// state spans on a time axis, or a sequence's lifelines and messages.
+	FormSVG Form = "svg"
+	// FormSVGAnimated is the SVG form replaying the run with SMIL animation.
+	FormSVGAnimated Form = "svg-animated"
 )
 
 // Forms are the forms a rendering can be asked for, in the order they are
 // offered.
 func Forms() []Form {
+	return []Form{FormText, FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormCSV, FormTSV, FormSVG, FormSVGAnimated}
+}
+
+// ViewForms are the forms a model view is written in: every form but the
+// run-only SVG forms, which draw a recorded run and no model view.
+func ViewForms() []Form {
 	return []Form{FormText, FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormCSV, FormTSV}
 }
 
@@ -145,7 +157,7 @@ func (e *WrongFormError) Error() string {
 				runForms = append(runForms, form)
 			}
 		}
-		forms = runForms
+		forms = append(runForms, FormSVG, FormSVGAnimated)
 	}
 	msg := fmt.Sprintf("%s %s rendering is not written as %s; ask for %s",
 		e.Kind.article(), e.Kind, e.Form, joinForms(forms, "or"))
@@ -170,6 +182,9 @@ func (r *Rendering) supportsForm(form Form) bool {
 	if r.Run && form == FormD2 {
 		return false
 	}
+	if form == FormSVG || form == FormSVGAnimated {
+		return r.Run && (r.Kind == KindTimeline || r.Kind == KindSequence)
+	}
 	return r.Kind.SupportsForm(form)
 }
 
@@ -179,8 +194,9 @@ func (r *Rendering) wrongFormError(form Form) *WrongFormError {
 
 // Options are what a rendering is written with beside its form. Each form
 // takes the ones that apply to it: the text form its Width, Mermaid, DOT,
-// PlantUML and D2 their Direction, Palette, Style and Unplaced, and the
-// interconnection and mixed forms their Ports display. A form ignores the rest.
+// PlantUML and D2 their Direction, Palette, Style and Unplaced, DOT and
+// PlantUML their Lines routing, and the interconnection and mixed forms their
+// Ports display. A form ignores the rest.
 type Options struct {
 	// Links is the source link each node and edge is written with; zero writes none.
 	Links Links
@@ -198,9 +214,22 @@ type Options struct {
 	// Unplaced is what a graph-shaped form does with the nodes a positioned
 	// drawing leaves unplaced; empty leaves them undrawn, as UnplacedOmit does.
 	Unplaced Unplaced
+	// Compartments is which members of a tree fold into compartment rows of
+	// their owner; empty folds the unplaced members of a positioned tree alone,
+	// as CompartmentsPositioned does.
+	Compartments Compartments
 	// Width is the width the text form is written to fit; WidthUnbounded
 	// writes every column as wide as its widest cell.
 	Width int
+	// Lines is how the DOT and PlantUML forms route their edges; empty leaves
+	// each engine's curved default, as LinesSplines does.
+	Lines Lines
+	// Show is the optional notation elements drawn besides those the rendering
+	// shows of itself (its Shown, the model's choice or DefaultShown); nil adds none.
+	Show Shown
+	// AnimationStep is how long the animated SVG form spends on each step of a
+	// run; zero is DefaultAnimationStep.
+	AnimationStep time.Duration
 }
 
 // Write is the rendering in form, with the default options: no particular
@@ -223,14 +252,22 @@ func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
 	if err := options.Ports.check(); err != nil {
 		return "", err
 	}
+	if err := options.Lines.check(); err != nil {
+		return "", err
+	}
+	if err := options.Compartments.check(); err != nil {
+		return "", err
+	}
 	switch form {
 	case FormText:
 		return r.textWith(options), nil
-	case FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormCSV, FormTSV:
+	case FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormCSV, FormTSV, FormSVG, FormSVGAnimated:
 		if !r.supportsForm(form) {
 			return "", r.wrongFormError(form)
 		}
 		switch form {
+		case FormSVG, FormSVGAnimated:
+			return r.SVGWith(options, form == FormSVGAnimated), nil
 		case FormMarkdown:
 			return r.Markdown(), nil
 		case FormCSV:

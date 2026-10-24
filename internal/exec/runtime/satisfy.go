@@ -2,10 +2,13 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // SatisfyAssertion is one satisfaction assertion an element states:
@@ -75,9 +78,25 @@ func (a *SatisfyAssertion) AssertedRequirement() *symbols.Symbol {
 	return nil
 }
 
-// Text renders the assertion as it was written, so an anonymous one can be
-// named in a verdict. A `satisfy requirement r by p` form declares the
-// requirement rather than referencing one, so it is named by the usage itself.
+// StatingType is the type whose objects an assertion naming no `by` subject is
+// about: the definition or usage stating it, each object of which satisfies the
+// requirement (SysML v2 §7.20.1, a satisfy with no satisfying feature binds the
+// subject to the owner). It is nil for an assertion naming its subject and for
+// one stated by a package, which is about no object.
+func (a *SatisfyAssertion) StatingType() *symbols.Symbol {
+	if a == nil || a.SubjectRef != "" || a.Owner == nil {
+		return nil
+	}
+	switch a.Owner.Decl.(type) {
+	case *ast.Definition, *ast.Usage:
+		return a.Owner
+	}
+	return nil
+}
+
+// Text writes the assertion as the notation does, each name quoted when it needs
+// quoting, so an anonymous one can be named in a verdict. A `satisfy requirement r by p`
+// form declares the requirement rather than referencing one, so it is named by the usage itself.
 func (a *SatisfyAssertion) Text() string {
 	var b strings.Builder
 	if a.Negated {
@@ -86,17 +105,35 @@ func (a *SatisfyAssertion) Text() string {
 	b.WriteString("satisfy ")
 	switch {
 	case a.RequirementRef != "":
-		b.WriteString(a.RequirementRef)
+		b.WriteString(source.QualifiedNameText(a.RequirementRef))
 	case a.Symbol != nil && a.Symbol.Name != "":
-		b.WriteString(a.Symbol.Name)
+		b.WriteString(source.NameText(a.Symbol.Name))
 	default:
 		b.WriteString("?")
 	}
 	if a.SubjectRef != "" {
 		b.WriteString(" by ")
-		b.WriteString(a.SubjectRef)
+		if a.SubjectChain != nil {
+			b.WriteString(writtenChainText(a.SubjectChain))
+		} else {
+			b.WriteString(source.QualifiedNameText(a.SubjectRef))
+		}
 	}
 	return b.String()
+}
+
+// writtenChainText writes a feature chain as the notation does: each member quoted on
+// its own, joined by the dots between members.
+func writtenChainText(node ast.Node) string {
+	switch n := node.(type) {
+	case *ast.FeatureChainExpr:
+		return writtenChainText(n.Operand) + "." + qualifiedNameText(n.Member)
+	case *ast.FeatureReference:
+		return qualifiedNameText(n.Name)
+	case *ast.QualifiedName:
+		return qualifiedNameText(n)
+	}
+	return ""
 }
 
 // SatisfyAssertionsIn returns the satisfaction assertions stated in scope and,
@@ -142,13 +179,15 @@ func (ctx *Context) SatisfyAssertionOf(sym *symbols.Symbol) (*SatisfyAssertion, 
 }
 
 // satisfyAssertionOf resolves the assertion sym declares, or nil when sym is not
-// a satisfy usage.
+// a satisfy usage. An objective's `verify r;` is a requirement verification
+// (SysML v2 RequirementVerificationMembership), not a satisfaction: the
+// verification surfaces report it.
 func (ctx *Context) satisfyAssertionOf(sym *symbols.Symbol) *SatisfyAssertion {
 	if sym == nil {
 		return nil
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || usage.Kind != ast.UsageSatisfy {
+	if !ok || usage.Kind != ast.UsageSatisfy || usage.IsVerifiedRequirement() {
 		return nil
 	}
 	a := &SatisfyAssertion{Symbol: sym, Negated: usage.IsNegated}
@@ -225,10 +264,10 @@ func targetText(node ast.Node) string {
 // instance of its subject, so that the values the subject declares supply the
 // requirement's own.
 func (ctx *Context) EvaluateSatisfaction(a *SatisfyAssertion) (bool, error) {
-	return ctx.EvaluateSatisfactionOn(a, nil)
+	return ctx.evaluateSatisfactionOn(a, nil)
 }
 
-// EvaluateSatisfactionOn evaluates a satisfaction assertion against a given
+// evaluateSatisfactionOn evaluates a satisfaction assertion against a given
 // object as its subject: the requirement's subject parameter is bound to that
 // object, so a feature the requirement's conditions reach through the subject
 // reads the value that object holds. A nil subject instantiates the feature the
@@ -236,13 +275,13 @@ func (ctx *Context) EvaluateSatisfaction(a *SatisfyAssertion) (bool, error) {
 //
 // A false verdict is returned as a *ViolationError, which unwraps to
 // ErrViolated: it is an answer about the model, not a failure to evaluate.
-func (ctx *Context) EvaluateSatisfactionOn(a *SatisfyAssertion, subject *Instance) (bool, error) {
+func (ctx *Context) evaluateSatisfactionOn(a *SatisfyAssertion, subject *Instance) (bool, error) {
 	result, err := ctx.CheckSatisfactionOn(a, subject)
 	return result.Holds, err
 }
 
 // CheckSatisfactionOn evaluates a satisfaction assertion as
-// EvaluateSatisfactionOn does and also reports the object it turned out to be
+// evaluateSatisfactionOn does and also reports the object it turned out to be
 // about.
 func (ctx *Context) CheckSatisfactionOn(a *SatisfyAssertion, subject *Instance) (CheckResult, error) {
 	defer ctx.beginRun()()
@@ -257,11 +296,20 @@ func (ctx *Context) CheckSatisfactionOn(a *SatisfyAssertion, subject *Instance) 
 	if a.Requirement == nil && a.RequirementRef != "" {
 		return CheckResult{Subject: subject}, fmt.Errorf("%s: %w: %s", a.Text(), ErrNoRequirement, a.RequirementRef)
 	}
-	if a.Requirement == nil && !ctx.declaresConditions(a.Symbol) {
+	if a.Requirement == nil && a.AssertedRequirement() == nil && !ctx.statesAnyCondition(a.Symbol) {
 		return CheckResult{Subject: subject}, fmt.Errorf("%s: %w", a.Text(), ErrNoRequirement)
 	}
 
-	if subject == nil && a.SubjectRef != "" {
+	if subject == nil && a.StatingType() != nil {
+		// A type's assertion is about the one object of the type this runtime
+		// holds, as any condition the type declares is; several are ambiguous.
+		reached, err := ctx.checkSubject("satisfaction", a.Text(), a.Symbol, nil)
+		if err != nil {
+			return CheckResult{}, err
+		}
+		subject = reached.instance
+	}
+	if subject == nil && (a.SubjectRef != "" || a.StatingType() != nil) {
 		inst, err := ctx.SatisfySubject(a)
 		if err != nil {
 			return CheckResult{}, err
@@ -274,7 +322,7 @@ func (ctx *Context) CheckSatisfactionOn(a *SatisfyAssertion, subject *Instance) 
 	// An assertion stating its own conditions has no requirement to resolve
 	// against, so it resolves against itself.
 	carrying := a.Requirement
-	if carrying == nil {
+	if carrying == nil || (a.SubjectRef == "" && declaringType(target) != nil) {
 		carrying = target
 	}
 	return ctx.checkOn(sharedElement(a), "satisfaction", a.Text(), carrying, subject, func(reached carrier) (CheckResult, error) {
@@ -320,7 +368,7 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 	}
 
 	conds := ctx.conditionsOf(target, members)
-	holds, err := ctx.evaluateConditions(conditionCheck{
+	check := conditionCheck{
 		sym:  target,
 		kind: "satisfaction",
 		what: "require condition",
@@ -331,8 +379,14 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 		element:  a.Text(),
 		bindings: mapFrame(bindings),
 		negated:  a.Negated,
-	}, conds)
-	return ctx.satisfactionResult(holds, subject, reached), err
+		about:    a.AssertedRequirement(),
+	}
+	holds, err := ctx.evaluateConditions(check, conds)
+	result := ctx.satisfactionResult(holds, subject, reached)
+	if err == nil && holds {
+		result.Vacuous = vacuity(check, conds)
+	}
+	return result, err
 }
 
 // satisfactionBindings are the members of target's requirement chain and the values
@@ -357,22 +411,71 @@ func (ctx *Context) satisfactionResult(holds bool, subject *Instance, reached ca
 // with `by`: the object its requirement is evaluated against when the caller
 // supplies none. A plain name is instantiated afresh; a feature chain is read
 // as the expression it is, so `config.child` materializes the occurrence
-// `config` and answers the object its `child` holds.
+// `config` and answers the object its `child` holds. An assertion naming no
+// subject is about the objects of the type stating it: one stated by a usage
+// instantiates that usage, while one stated by a definition is about whichever
+// objects of it exist (SatisfactionSubjects), so none is made up here.
 func (ctx *Context) SatisfySubject(a *SatisfyAssertion) (*Instance, error) {
 	if a == nil || a.Symbol == nil {
 		return nil, ErrNotASatisfaction
 	}
+	if typ := a.StatingType(); typ != nil {
+		if _, isUsage := typ.Decl.(*ast.Usage); !isUsage {
+			return nil, fmt.Errorf("%s: %w: an object of %s is needed", a.Text(), errNoSubject, ctx.QualifiedName(typ))
+		}
+		inst, err := ctx.Instantiate(typ)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w: %w", a.Text(), errNoSubject, err)
+		}
+		return inst, nil
+	}
 	if a.Subject == nil {
-		return nil, fmt.Errorf("%s: %w: %s", a.Text(), ErrNoSubject, a.SubjectRef)
+		return nil, fmt.Errorf("%s: %w: %s", a.Text(), errNoSubject, a.SubjectRef)
 	}
 	if a.SubjectChain != nil {
 		return ctx.chainSubject(a)
 	}
 	inst, err := ctx.Instantiate(a.Subject)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w: %w", a.Text(), ErrNoSubject, err)
+		return nil, fmt.Errorf("%s: %w: %w", a.Text(), errNoSubject, err)
 	}
 	return inst, nil
+}
+
+// SatisfactionSubject is one object a type's assertion is about, and where it was
+// reached from: the root object holding it and the features walked down to it,
+// the root itself with no path for an object standing on its own.
+type SatisfactionSubject struct {
+	Object *Instance
+	Root   *Instance
+	Path   []string
+}
+
+// SatisfactionSubjects returns the objects an assertion naming no `by` subject is
+// about among roots, the objects the caller holds: every one of the type stating
+// it — each object of a declaration instantiated more than once, the ones nested
+// in a root, and ones classified by the type since they were made — as
+// ValidateObject applies a type's `satisfy r;` to every object of the type. It is
+// nil for an assertion naming its subject, or stated by no type.
+func (ctx *Context) SatisfactionSubjects(a *SatisfyAssertion, roots []*Instance) []SatisfactionSubject {
+	if a.StatingType() == nil {
+		return nil
+	}
+	carriers := ctx.carriersWhere(roots, func(inst *Instance) bool { return ctx.statedOf(a, inst) })
+	out := make([]SatisfactionSubject, 0, len(carriers))
+	for _, c := range carriers {
+		out = append(out, SatisfactionSubject{Object: c.instance, Root: c.root, Path: ctx.carrierFeatures(c)})
+	}
+	return out
+}
+
+// statedOf reports whether inst is an object of the type stating a, which names
+// no `by` subject: the type itself, or one conforming to it.
+func (ctx *Context) statedOf(a *SatisfyAssertion, inst *Instance) bool {
+	typ := a.StatingType()
+	return typ != nil && slices.ContainsFunc(inst.types(), func(t *symbols.Symbol) bool {
+		return sameDeclaration(t, typ) || ctx.modelConforms(t, typ)
+	})
 }
 
 // chainSubject evaluates a chained `by` operand in the assertion's scope, as
@@ -380,15 +483,15 @@ func (ctx *Context) SatisfySubject(a *SatisfyAssertion) (*Instance, error) {
 func (ctx *Context) chainSubject(a *SatisfyAssertion) (*Instance, error) {
 	value, err := ctx.EvalWithScope(a.SubjectChain, a.Symbol.OwnerScope)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w: %w", a.Text(), ErrNoSubject, err)
+		return nil, fmt.Errorf("%s: %w: %w", a.Text(), errNoSubject, err)
 	}
 	id, ok := value.Object()
 	if !ok {
-		return nil, fmt.Errorf("%s: %w: %s does not denote one object", a.Text(), ErrNoSubject, a.SubjectRef)
+		return nil, fmt.Errorf("%s: %w: %s does not denote one object", a.Text(), errNoSubject, a.SubjectRef)
 	}
 	inst, ok := ctx.Instance(id)
 	if !ok {
-		return nil, fmt.Errorf("%s: %w: %s denotes object #%d, which no longer exists", a.Text(), ErrNoSubject, a.SubjectRef, id)
+		return nil, fmt.Errorf("%s: %w: %s denotes object #%d, which no longer exists", a.Text(), errNoSubject, a.SubjectRef, id)
 	}
 	return inst, nil
 }
@@ -403,6 +506,30 @@ func (ctx *Context) declaresConditions(sym *symbols.Symbol) bool {
 		}
 	}
 	return false
+}
+
+// statesAnyCondition reports whether sym declares a condition itself or inherits
+// one from a type it specializes (`satisfy requirement r : R by x;` states R's).
+func (ctx *Context) statesAnyCondition(sym *symbols.Symbol) bool {
+	if ctx.declaresConditions(sym) {
+		return true
+	}
+	for _, sup := range ctx.model.semantics.AllSupertypes(sym) {
+		if sup != nil && ctx.declaresConditions(sup) {
+			return true
+		}
+	}
+	return false
+}
+
+// satisfiedBy is the `by` operand of a satisfy usage, the expression binding its
+// subject (SysML v2 §7.21.4); nil for any other element or a satisfy naming none.
+func satisfiedBy(sym *symbols.Symbol) ast.Node {
+	ends, ok := semantics.SatisfyEndsOf(sym)
+	if !ok {
+		return nil
+	}
+	return ends.Satisfier
 }
 
 // symbolLabel names a symbol in a message, falling back to its declaration kind

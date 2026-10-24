@@ -32,6 +32,8 @@ import { Literal, methodOf, type Expect, type Scenario, type ScenarioModel } fro
 /** The RPCs this client covers. Everything else is a stated skip. */
 export const COVERED_RPCS = [
   "ApplyEdits",
+  "CompareResults",
+  "CheckBehavior",
   "Convert",
   "Migrate",
   "Evaluate",
@@ -42,6 +44,7 @@ export const COVERED_RPCS = [
   "GetDiagnostics",
   "GetServerInfo",
   "GetSymbol",
+  "ImportData",
   "Instantiate",
   "ListEngines",
   "ParseFile",
@@ -388,16 +391,22 @@ export class Runner {
       }),
     Instantiate: (call) => this.model(call).instantiate(String(call.request["symbol_id"])),
     ParseSources: ({ request }) => this.parseSources(request),
-    GetDiagnostics: (call) => this.model(call).refreshDiagnostics(),
+    GetDiagnostics: (call) =>
+      this.model(call).refreshDiagnostics({
+        ...stringListOption(call.request, "disable_lint", "disableLint"),
+        ...stringListOption(call.request, "enable_lint", "enableLint"),
+      }),
     ExecuteAction: (call) =>
       this.model(call).executeAction(String(call.request["action_symbol_id"]), {
         inputs: valueMap(call.request["inputs"]),
         ...stringOption(call.request, "schedule", "schedule"),
+        ...runOptions(call.request),
       }),
     ExecuteState: (call) =>
       this.model(call).executeState(String(call.request["state_machine_symbol_id"]), {
         ...stringOption(call.request, "schedule", "schedule"),
         ...flagOption(call.request, "trace", "trace"),
+        ...runOptions(call.request),
       }),
     Convert: ({ request, modelHash }) =>
       this.connection.convert(stringOf(request["to_format"]), convertSource(request, modelHash), {
@@ -441,13 +450,55 @@ export class Runner {
     RenderView: (call) =>
       this.model(call).renderView(String(call.request["view"]), {
         ports: call.request["ports"] === "full" ? "full" : "minimal",
+        show: Array.isArray(call.request["show"]) ? call.request["show"].map(String) : [],
       }),
     ExportGraphs: (call) => this.model(call).exportGraphs(String(call.request["subject"])),
+    ImportData: (call) =>
+      this.model(call).importData(dataImports(call.request["imports"]), {
+        ...flagOption(call.request, "import_dry_run", "dryRun"),
+        ...flagOption(call.request, "accept_documents", "acceptDocuments"),
+      }),
+    CompareResults: (call) =>
+      this.model(call).compareResults(stringOf(call.request["results"]), {
+        actions: stringList(call.request["actions"]),
+        ...numberOption(call.request, "runs", "runs"),
+        ...numberOption(call.request, "seed", "seed"),
+        ...stringOption(call.request, "draws", "draws"),
+        ...numberOption(call.request, "clock_step", "clockStep"),
+        observe: observablePairs(call.request["observe"]),
+        ...stringOption(call.request, "engine", "engine"),
+      }),
+    CheckBehavior: (call) => {
+      const strings = (name: string): string[] =>
+        Array.isArray(call.request[name]) ? (call.request[name] as unknown[]).map(String) : [];
+      const number = (name: string): number =>
+        typeof call.request[name] === "number" ? call.request[name] : 0;
+      const options = {
+        inputs: valueMap(call.request["inputs"]),
+        properties: strings("check_property"),
+        diverge: strings("check_diverge"),
+        freeInputs: strings("check_input"),
+        assume: strings("check_assume"),
+        witness: call.request["check_witness"] === true,
+        depth: number("check_depth"),
+        states: number("check_states"),
+        unroll: number("check_unroll"),
+        timeout: number("check_timeout"),
+        ...stringOption(call.request, "engine", "engine"),
+        ...stringOption(call.request, "performer_symbol_id", "performer"),
+      };
+      const stateMachine = call.request["state_machine_symbol_id"];
+      if (typeof stateMachine === "string" && stateMachine !== "") {
+        return this.model(call).checkStateMachine(stateMachine, options);
+      }
+      return this.model(call).checkAction(String(call.request["action_symbol_id"]), options);
+    },
     RunAnalysis: (call) =>
       this.model(call).runAnalysis(String(call.request["symbol_id"]), {
         ...stringOption(call.request, "subject_symbol_id", "subject"),
         arguments: valueList(call.request["arguments"]),
         namedArguments: valueMap(call.request["named_arguments"]),
+        ...boolOption(call.request, "tool_dry_run", "toolDryRun"),
       }),
     RunSweep: (call) =>
       this.model(call).runSweep(String(call.request["symbol_id"]), sweepRanges(call.request["ranges"]), {
@@ -456,7 +507,7 @@ export class Runner {
         ...numberOption(call.request, "samples", "samples"),
         ...numberOption(call.request, "seed", "seed"),
       }),
-    ListEngines: () => this.connection.listEngines(),
+    ListEngines: ({ request }) => this.connection.listEngines(flagOption(request, "probe", "probe")),
   };
 
   private async parseFile(request: Record<string, unknown>): Promise<void> {
@@ -647,6 +698,38 @@ function asConnectError(error: unknown): ConnectError | undefined {
   return undefined;
 }
 
+/** A request's `imports` list, each entry an ImportData import under its proto JSON names. */
+function dataImports(value: unknown): { name: string; content: string; format?: string; map?: string }[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((entry) => {
+    const item = (entry ?? {}) as Record<string, unknown>;
+    return {
+      name: stringOf(item["name"]),
+      content: stringOf(item["content"]),
+      ...stringOption(item, "import_format", "format"),
+      ...stringOption(item, "import_map", "map"),
+    };
+  });
+}
+
+/** A request's `observe` list of stored-name → feature pairs. */
+function observablePairs(value: unknown): [string, string][] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((entry) => {
+    const pair = (entry ?? {}) as Record<string, unknown>;
+    return [stringOf(pair["stored"]), stringOf(pair["feature"])];
+  });
+}
+
+/** A request field read as a list of strings; anything else reads as an empty list. */
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((item) => stringOf(item)) : [];
+}
+
 /** A request field read as a string; a field of another form reads as none. */
 function stringOf(value: unknown): string {
   return typeof value === "string" ? value : "";
@@ -660,6 +743,16 @@ function stringOption<K extends string>(
 ): { [P in K]?: string } {
   const value = request[key];
   return typeof value === "string" ? ({ [name]: value } as { [P in K]?: string }) : {};
+}
+
+/** The option `name` taken from a request's boolean field `key`; nothing when the field is not a boolean. */
+function boolOption<K extends string>(
+  request: Record<string, unknown>,
+  key: string,
+  name: K,
+): { [P in K]?: boolean } {
+  const value = request[key];
+  return typeof value === "boolean" ? ({ [name]: value } as { [P in K]?: boolean }) : {};
 }
 
 /** The option `name` taken from a request's number field `key`; nothing when the field is not a number. */
@@ -679,6 +772,26 @@ function flagOption<K extends string>(
   name: K,
 ): { [P in K]?: true } {
   return request[key] === true ? ({ [name]: true } as { [P in K]?: true }) : {};
+}
+
+/** The option `name` taken from a request's repeated string field `key`; nothing when absent. */
+function stringListOption<K extends string>(
+  request: Record<string, unknown>,
+  key: string,
+  name: K,
+): { [P in K]?: string[] } {
+  const value = request[key];
+  return Array.isArray(value) ? ({ [name]: value.map(String) } as { [P in K]?: string[] }) : {};
+}
+
+/** The run controls of an action or state request: advance, seed, draws and clock step. */
+function runOptions(request: Record<string, unknown>) {
+  return {
+    ...numberOption(request, "advance", "advance"),
+    ...(typeof request["seed"] === "number" ? { seed: BigInt(request["seed"]) } : {}),
+    ...stringOption(request, "draws", "draws"),
+    ...numberOption(request, "clock_step", "clockStep"),
+  };
 }
 
 /** The subject and question options of a verification request. */

@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{"outputs": {"x": {"type": "Integer", "value": 1}, "mode": {"type": "Integer", "value": 10}}},
+		{"outputs": {"x": {"type": "Integer", "value": 2}, "mode": {"type": "Integer", "value": 20}}}
+	],
+	"admissible": "A failed guard leaves what the unguarded branch writes order-dependent",
+	"orderDependent": {"x": 2, "mode": 2}
+}

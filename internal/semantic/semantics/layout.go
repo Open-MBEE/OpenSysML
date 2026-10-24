@@ -36,8 +36,61 @@ func IsLayoutFQN(fqn string) bool {
 type Layout struct {
 	X, Y          float64
 	Width, Height float64
-	HasSize       bool
-	Collapsed     bool
+	// Unplaced marks an annotation binding no x and y: one that only folds
+	// (collapsed) or hides (the show… switches), leaving the place to the tool.
+	Unplaced  bool
+	HasSize   bool
+	Collapsed bool
+	// Hidden are the compartments the annotation's show… switches turn off
+	// for the element's symbol.
+	Hidden HiddenCompartments
+}
+
+// HiddenCompartments are the compartments of one symbol a Layout's show…
+// switches turn off, one per switch bound false: showAttributes, showParts,
+// showReferences, showPorts, showConstraints, showItems, showActions.
+type HiddenCompartments struct {
+	Attributes, Parts, References, Ports, Constraints, Items, Actions bool
+}
+
+// Any reports whether any compartment is hidden.
+func (h HiddenCompartments) Any() bool {
+	return h != HiddenCompartments{}
+}
+
+// Hides reports whether the compartment named as the graphical notation
+// heads it ("attributes", "parts", "ports", …) is hidden; "references" is the
+// `ref` rows, whichever compartment lists them.
+func (h HiddenCompartments) Hides(compartment string) bool {
+	switch compartment {
+	case "attributes":
+		return h.Attributes
+	case "parts":
+		return h.Parts
+	case "references":
+		return h.References
+	case "ports":
+		return h.Ports
+	case "constraints":
+		return h.Constraints
+	case "items":
+		return h.Items
+	case "actions":
+		return h.Actions
+	}
+	return false
+}
+
+// layoutSwitches are Layout's per-compartment show… attributes and the
+// compartment each hides when bound false.
+var layoutSwitches = map[string]func(*HiddenCompartments) *bool{
+	"showAttributes":  func(h *HiddenCompartments) *bool { return &h.Attributes },
+	"showParts":       func(h *HiddenCompartments) *bool { return &h.Parts },
+	"showReferences":  func(h *HiddenCompartments) *bool { return &h.References },
+	"showPorts":       func(h *HiddenCompartments) *bool { return &h.Ports },
+	"showConstraints": func(h *HiddenCompartments) *bool { return &h.Constraints },
+	"showItems":       func(h *HiddenCompartments) *bool { return &h.Items },
+	"showActions":     func(h *HiddenCompartments) *bool { return &h.Actions },
 }
 
 // Waypoint is one point of a Route, in the units of Layout.
@@ -114,6 +167,10 @@ type LayoutSite struct {
 	// Via is the namespace an `about` clause named the element through, when
 	// qualified: `about Acquire::start` positions the start Acquire inherits.
 	Via *symbols.Symbol
+	// General is the element a Route names with `ref :>> general : G;`: the
+	// Route steers the edge drawn from the annotated element to G for its
+	// specialization, not an edge the element declares itself. Nil otherwise.
+	General *symbols.Symbol
 	// Exactly one of Layout, Route, Canvas, Style, Note and Picture is set when
 	// the annotation reads; all are nil when a binding it needs has a Problem.
 	Layout  *Layout
@@ -257,14 +314,40 @@ func (m *Model) LayoutOf(view, elem *symbols.Symbol) (*LayoutSite, bool) {
 // the declaring owner, or one stated unqualified where no other namespace has
 // the member. A site naming the member as another inheritor's is not owner's.
 func (m *Model) MemberLayoutOf(view, owner *symbols.Symbol, name string) (*LayoutSite, bool) {
+	return pickSite(view, m.memberSitesOf(owner, name, LayoutFQN))
+}
+
+// MemberStyleOf resolves the Style of the member owner has under name, as drawn
+// in view, as MemberLayoutOf resolves a Layout.
+func (m *Model) MemberStyleOf(view, owner *symbols.Symbol, name string) (*LayoutSite, bool) {
+	return pickSite(view, m.memberSitesOf(owner, name, StyleFQN))
+}
+
+// MemberNotesOf lists every Note of the member owner has under name, drawn in
+// view: those naming the member as owner's, as MemberLayoutOf resolves them,
+// then the declaring owner's; every one applying in view applies, as NotesOf.
+func (m *Model) MemberNotesOf(view, owner *symbols.Symbol, name string) []*LayoutSite {
+	var out []*LayoutSite
+	for _, site := range m.memberSitesOf(owner, name, NoteFQN) {
+		if site.InView(view) {
+			out = append(out, site)
+		}
+	}
+	return out
+}
+
+// memberSitesOf lists the annotations of type typeFQN naming the member owner
+// has under name as owner's, then those of the declaring owner an inheriting
+// owner falls back to, each in declaration order.
+func (m *Model) memberSitesOf(owner *symbols.Symbol, name, typeFQN string) []*LayoutSite {
 	member, ok := m.LookupMember(owner, name)
 	if !ok {
-		return nil, false
+		return nil
 	}
 	declares := sameElement(member.Owner(), owner)
 	var owners, inherited []*LayoutSite
 	for _, site := range m.LayoutSitesOf(member) {
-		if site.TypeFQN != LayoutFQN {
+		if site.TypeFQN != typeFQN {
 			continue
 		}
 		switch via := m.memberSiteOwner(site, member, name); {
@@ -274,7 +357,7 @@ func (m *Model) MemberLayoutOf(view, owner *symbols.Symbol, name string) (*Layou
 			inherited = append(inherited, site)
 		}
 	}
-	return pickSite(view, append(owners, inherited...))
+	return append(owners, inherited...)
 }
 
 // MemberLayoutOwner is the namespace a Layout site positions member as a member
@@ -320,9 +403,29 @@ func (m *Model) memberReferent(scope *symbols.Scope, member *symbols.Symbol, nam
 
 // RouteOf resolves the Route of the element an edge is declared as — a
 // connector, flow, transition or succession — as drawn in view, as LayoutOf
-// resolves a Layout.
+// resolves a Layout. A Route naming a general steers another edge and is
+// passed over.
 func (m *Model) RouteOf(view, elem *symbols.Symbol) (*LayoutSite, bool) {
-	return m.resolveSite(view, elem, RouteFQN)
+	var sites []*LayoutSite
+	for _, site := range m.LayoutSitesOf(elem) {
+		if site.TypeFQN == RouteFQN && site.General == nil {
+			sites = append(sites, site)
+		}
+	}
+	return pickSite(view, sites)
+}
+
+// SpecializationRouteOf resolves the Route of the edge drawn from elem to
+// general for the specialization, typing or subsetting elem states, as drawn in
+// view: a Route about elem naming general, picked as RouteOf picks.
+func (m *Model) SpecializationRouteOf(view, elem, general *symbols.Symbol) (*LayoutSite, bool) {
+	var sites []*LayoutSite
+	for _, site := range m.LayoutSitesOf(elem) {
+		if site.TypeFQN == RouteFQN && site.General != nil && sameElement(site.General, general) {
+			sites = append(sites, site)
+		}
+	}
+	return pickSite(view, sites)
 }
 
 // StyleOf resolves the Style of elem as drawn in view, as LayoutOf resolves a
@@ -489,8 +592,9 @@ func sameElement(a, b *symbols.Symbol) bool {
 	return a == b || (a.Decl != nil && a.Decl == b.Decl)
 }
 
-// readLayout reads a Layout body: x and y are required reals, width and
-// height an optional pair, collapsed an optional boolean.
+// readLayout reads a Layout body: x and y are reals, required unless the body
+// only folds or hides (collapsed, the show… switches); width and height an
+// optional pair with them.
 func (m *Model) readLayout(site *LayoutSite, bindings []MetadataBinding) {
 	layout := &Layout{}
 	var hasX, hasY, hasWidth, hasHeight bool
@@ -506,10 +610,24 @@ func (m *Model) readLayout(site *LayoutSite, bindings []MetadataBinding) {
 			hasHeight = m.readReal(site, b, &layout.Height)
 		case "collapsed":
 			m.readBool(site, b, &layout.Collapsed)
+		default:
+			if hidden, ok := layoutSwitches[b.Feature]; ok {
+				show := true
+				if m.readBool(site, b, &show) && !show {
+					*hidden(&layout.Hidden) = true
+				}
+			}
 		}
 	}
-	if !bindsFeature(bindings, "x") || !bindsFeature(bindings, "y") {
-		site.Problems = append(site.Problems, LayoutProblem{Node: site.Node, Message: "Layout binds no x and y to place the element at"})
+	placed := bindsFeature(bindings, "x") && bindsFeature(bindings, "y")
+	if !placed {
+		if !foldsOrHides(bindings) || bindsFeature(bindings, "x") || bindsFeature(bindings, "y") || bindsFeature(bindings, "width") || bindsFeature(bindings, "height") {
+			site.Problems = append(site.Problems, LayoutProblem{Node: site.Node, Message: "Layout binds no x and y to place the element at"})
+			return
+		}
+		layout.Unplaced = true
+		site.Layout = layout
+		return
 	}
 	if !hasX || !hasY {
 		return
@@ -522,11 +640,12 @@ func (m *Model) readLayout(site *LayoutSite, bindings []MetadataBinding) {
 }
 
 // readRoute reads a Route body: points is a sequence of reals, x and y
-// alternating, so an odd count leaves a point without its y.
+// alternating, so an odd count leaves a point without its y; general, when
+// typed, is the element the steered specialization edge is drawn to.
 func (m *Model) readRoute(site *LayoutSite, bindings []MetadataBinding) {
 	var values []float64
 	var elements []ast.Node
-	ok := true
+	ok := m.readGeneral(site)
 	for _, b := range bindings {
 		if b.Feature != "points" || b.Value == nil {
 			continue
@@ -554,6 +673,43 @@ func (m *Model) readRoute(site *LayoutSite, bindings []MetadataBinding) {
 		route.Points = append(route.Points, Waypoint{X: values[i], Y: values[i+1]})
 	}
 	site.Route = route
+}
+
+// readGeneral reads the general a Route body names, `ref :>> general : G;`,
+// into site.General; false when G resolves to no element.
+func (m *Model) readGeneral(site *LayoutSite) bool {
+	for _, member := range metadataBody(site.Node) {
+		usage := metadataBodyFeature(member)
+		if usage == nil || redefinedFeatureName(usage) != "general" {
+			continue
+		}
+		typeRef := typingTargetName(usage)
+		if typeRef == nil {
+			continue
+		}
+		if general := m.resolveMetadataType(valueScope(site.Scope, site.Node), typeRef); general != nil {
+			site.General = general
+			return true
+		}
+		site.Problems = append(site.Problems, LayoutProblem{Node: typeRef,
+			Message: fmt.Sprintf("Route names general %s, which resolves to no element", typeRef.Text())})
+		return false
+	}
+	return true
+}
+
+// typingTargetName is the name a usage's typing clause states, nil when it
+// states none.
+func typingTargetName(usage *ast.Usage) *ast.QualifiedName {
+	for _, rel := range usage.Relationships {
+		if rel == nil || rel.Kind != ast.RelTyping {
+			continue
+		}
+		if qn := ast.AsQualifiedName(rel.Target); qn != nil && len(qn.Parts) > 0 {
+			return qn
+		}
+	}
+	return nil
 }
 
 // readCanvas reads a Canvas body: an optional unit string and an optional
@@ -807,6 +963,20 @@ func (m *Model) readBool(site *LayoutSite, b MetadataBinding, into *bool) bool {
 	}
 	*into = v.Bool
 	return true
+}
+
+// foldsOrHides reports whether a Layout body binds collapsed or a show… switch,
+// the bindings that mean something without a place.
+func foldsOrHides(bindings []MetadataBinding) bool {
+	for _, b := range bindings {
+		if b.Value == nil {
+			continue
+		}
+		if _, ok := layoutSwitches[b.Feature]; ok || b.Feature == "collapsed" {
+			return true
+		}
+	}
+	return false
 }
 
 // bindsFeature reports whether the body binds feature to a value at all.

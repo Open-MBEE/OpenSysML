@@ -19,19 +19,19 @@ import (
 // checker selected it wraps.
 var ErrCheckRefused = errors.New("check refused")
 
-// CheckMoveError reports a move the checker selected that the run did not make:
+// checkMoveError reports a move the checker selected that the run did not make:
 // the move, as the checker spells it, and what the run faced instead.
-type CheckMoveError struct {
+type checkMoveError struct {
 	Move  string
 	Faced string
 }
 
-func (e *CheckMoveError) Error() string {
+func (e *checkMoveError) Error() string {
 	return fmt.Sprintf("%v: %s: %s", ErrCheckRefused, e.Move, e.Faced)
 }
 
-// Is makes every CheckMoveError match ErrCheckRefused.
-func (e *CheckMoveError) Is(target error) bool { return target == ErrCheckRefused }
+// Is makes every checkMoveError match ErrCheckRefused.
+func (e *checkMoveError) Is(target error) bool { return target == ErrCheckRefused }
 
 // checkScript is the move the checker selected for the next step, shared by the
 // policy and the checker: the executor whose step it is, the token to move (0 for
@@ -88,7 +88,7 @@ func (r *checkRun) begin() {
 // refuse records the first selected move the run could not make.
 func (r *checkRun) refuse(faced string) {
 	if r.refused == nil {
-		r.refused = &CheckMoveError{Move: r.script.String(), Faced: faced}
+		r.refused = &checkMoveError{Move: r.script.String(), Faced: faced}
 	}
 }
 

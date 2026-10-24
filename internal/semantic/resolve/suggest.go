@@ -1,12 +1,14 @@
 package resolve
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // suggestKey identifies a suggestion by the name that did not resolve, the scope
@@ -267,10 +269,56 @@ func (r *Resolver) UnresolvedName(scope *symbols.Scope, name string, at ast.Node
 		spellings[i] = suggest.Notation(spelling)
 	}
 	msg := suggest.Hint(name, name, spellings, s.unquoted)
+	if hidden := r.hiddenImportsOf(scope, name); len(hidden) > 0 {
+		hint := hiddenImportHint(name, hidden)
+		if msg == name {
+			return msg + " — t" + hint[1:]
+		}
+		return msg + " " + hint
+	}
 	if cand, ok := r.importCandidate(s.spellings, name); ok {
 		msg += " To use the bare name, import its package: " + importStatement(cand)
 	}
 	return msg
+}
+
+// hiddenImportHint says why an unqualified name no import binds: the imports
+// bringing distinct elements under it hide them all (KerML 7.2.5.4), and a
+// qualified name reaches each.
+func hiddenImportHint(name string, hidden []importedMember) string {
+	imports := make([]string, 0, len(hidden))
+	qualified := make([]string, 0, len(hidden))
+	for _, member := range hidden {
+		imports = appendUnique(imports, importText(member.imp))
+		qualified = appendUnique(qualified, source.QualifiedNameOf(symbols.NameChain(member.sym)))
+	}
+	verb := "bring"
+	if len(imports) == 1 {
+		verb = "brings"
+	}
+	return fmt.Sprintf("The name is hidden here: %s %s distinct elements named '%s', so none is a member; qualify the one meant: %s.",
+		joinAnd(imports), verb, name, strings.Join(qualified, " or "))
+}
+
+// appendUnique appends s to out unless it is already there.
+func appendUnique(out []string, s string) []string {
+	for _, have := range out {
+		if have == s {
+			return out
+		}
+	}
+	return append(out, s)
+}
+
+// joinAnd joins items as prose: "a", "a and b", "a, b and c".
+func joinAnd(items []string) string {
+	switch len(items) {
+	case 0:
+		return ""
+	case 1:
+		return items[0]
+	}
+	return strings.Join(items[:len(items)-1], ", ") + " and " + items[len(items)-1]
 }
 
 // importCandidate is the one spelling name may mean that an import of its

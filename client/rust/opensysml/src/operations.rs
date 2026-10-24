@@ -3,22 +3,25 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::capabilities::{
-    upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT,
-    CAPABILITY_CONVERT_DOCUMENTS, CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES,
-    CAPABILITY_ENUM_VALUES, CAPABILITY_EXPORT_GRAPHS, CAPABILITY_FUNCTION_VALUES,
+    upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_CHECK, CAPABILITY_COMPARE_RESULTS,
+    CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT, CAPABILITY_CONVERT_DOCUMENTS,
+    CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES, CAPABILITY_ENUM_VALUES,
+    CAPABILITY_EXPORT_GRAPHS, CAPABILITY_FUNCTION_VALUES, CAPABILITY_IMPORT_DATA,
     CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS,
     CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY,
     CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER, CAPABILITY_QUERY, CAPABILITY_RATIONAL_VALUES,
-    CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_SCHEDULE,
-    CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SET_VALUES, CAPABILITY_STATE_TRACE,
-    CAPABILITY_STRICT_CONFORMANCE, CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES,
-    CAPABILITY_VERIFICATION, CAPABILITY_VERIFICATION_ARGUMENTS, CAPABILITY_VERIFICATION_QUESTIONS,
+    CAPABILITY_RECORD_RUN, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML,
+    CAPABILITY_RUNS, CAPABILITY_SCHEDULE, CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SELF_CHECK,
+    CAPABILITY_SET_VALUES, CAPABILITY_STATE_TRACE, CAPABILITY_STRICT_CONFORMANCE,
+    CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES, CAPABILITY_VERIFICATION,
+    CAPABILITY_VERIFICATION_ARGUMENTS, CAPABILITY_VERIFICATION_QUESTIONS,
 };
+use crate::check::{CheckOptions, CheckResult};
 use crate::conversion::{conversion_of, request_of, Conversion, ConvertOptions, ConvertSource};
 use crate::document::{
     binding_holds_big_int, binding_holds_rational, binding_rationals_as_reals, bindings_to_wire,
     document_event_from_wire, rendered_view_of, result_of, DocumentForm, DocumentQueryResult,
-    DocumentValue, RenderViewPorts, RenderedView,
+    DocumentValue, RenderViewCompartments, RenderViewPorts, RenderedView,
 };
 use crate::domain::{Model, Value};
 use crate::encode::value_to_wire;
@@ -30,10 +33,11 @@ use crate::migration::{
 };
 use crate::query::{elements_of, Query, QueryElement};
 use crate::results::{
-    analysis_of, calc_of, diagnostics_of, exploration_of, satisfaction_of, single_verdict,
-    sweep_of, validation_of, value_map, ActionRun, AnalysisResult, CalcResult, EngineInfo,
-    Exploration, ExploredResponse, Satisfaction, StateRun, SweepRange, SweepTable, Validation,
-    Verdict, ENGINE_AUTO, ENGINE_EXPLORE, QUESTION_EVALUATE,
+    analysis_of, calc_of, comparison_of, diagnostics_of, exploration_of, import_result_of,
+    recording_of, runs_of, satisfaction_of, self_check_of, single_verdict, sweep_of, validation_of,
+    value_map, ActionRun, AnalysisResult, CalcResult, Comparison, EngineInfo, Exploration,
+    ExploredResponse, ImportResult, Recording, RunsResult, Satisfaction, SelfCheckResult, StateRun,
+    SweepRange, SweepTable, Validation, Verdict, ENGINE_AUTO, ENGINE_EXPLORE, QUESTION_EVALUATE,
 };
 use crate::sources::{documents_to_wire, SourceDocument};
 use crate::wire;
@@ -66,7 +70,7 @@ pub struct SourcesOptions {
 }
 
 /// How to run an action or state machine.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct RunOptions {
     /// The scheduling policy choice points resolve under; `None` is the service's default.
     /// An exploring schedule (`explore`, `explore:runs=<n>,depth=<d>`) belongs to the
@@ -76,6 +80,15 @@ pub struct RunOptions {
     pub performer: Option<String>,
     /// Return a state's documented execution records.
     pub trace: bool,
+    /// Simulated time, in seconds, to run for (`sysml -advance`); `None` runs to completion.
+    pub advance: Option<f64>,
+    /// The seed the model's own draws are taken from (`sysml -seed`); `None` leaves them to
+    /// the schedule.
+    pub seed: Option<u64>,
+    /// How RandomFunctions draws resolve (`sysml -draws`): `random`, `min`, `max` or `average`.
+    pub draws: Option<String>,
+    /// The step, in seconds, the run's clock ticks by (`sysml -clock-step`); 0 is continuous.
+    pub clock_step: f64,
 }
 
 /// What to ask a verification and of whom.
@@ -106,6 +119,9 @@ pub struct AnalysisOptions {
     pub schedule: Option<String>,
     /// The engine to ask.
     pub engine: Option<String>,
+    /// Run the case only to its first external tool call and answer what the tool would be
+    /// given (`sysml -tool-dry-run`), without starting it.
+    pub tool_dry_run: bool,
 }
 
 /// How to sweep an analysis case or calc.
@@ -121,6 +137,58 @@ pub struct SweepOptions {
     pub samples: i64,
     /// Seed the draws are taken from.
     pub seed: u64,
+    /// The engine to ask.
+    pub engine: Option<String>,
+}
+
+/// Options of [`Connection::run_runs`]: what to run, how often and what to observe.
+#[derive(Clone, Debug, Default)]
+pub struct RunsOptions {
+    /// Qualified name of the action to run; give this or `analysis`.
+    pub action: Option<String>,
+    /// Qualified name of the Simulation::MonteCarlo analysis case.
+    pub analysis: Option<String>,
+    /// How many runs to make.
+    pub runs: i64,
+    /// Seed the runs draw from; required unless `draws` fixes them.
+    pub seed: Option<u64>,
+    /// Draw policy: "random" (the default), "min", "max" or "average".
+    pub draws: Option<String>,
+    /// Clock step of each run; 0 keeps the default.
+    pub clock_step: f64,
+    /// The action's features each run reports; none reports every feature and the clock.
+    pub observe: Vec<String>,
+    /// The action's input parameters by name.
+    pub inputs: BTreeMap<String, Value>,
+    /// Qualified name of the part whose object performs the action.
+    pub performer: Option<String>,
+    /// Qualified name of a part or usage to instantiate as the case's subject.
+    pub subject: Option<String>,
+    /// Positional arguments of the case.
+    pub arguments: Vec<Value>,
+    /// Arguments of the case by name.
+    pub named_arguments: BTreeMap<String, Value>,
+    /// The engine to ask.
+    pub engine: Option<String>,
+}
+
+/// Options of [`Connection::record_run`]: how the case runs and where its records go.
+#[derive(Clone, Debug, Default)]
+pub struct RecordOptions {
+    /// Qualified name of a part or usage to instantiate as the subject.
+    pub subject: Option<String>,
+    /// Positional arguments.
+    pub arguments: Vec<Value>,
+    /// Arguments by name.
+    pub named_arguments: BTreeMap<String, Value>,
+    /// Package the records go into; none is a Records package beside the case's own.
+    pub into: Option<String>,
+    /// Ranges to run the case over as a sweep, recording each completed row.
+    pub ranges: Vec<SweepRange>,
+    /// Monte Carlo runs to make and record; 0 runs the case once.
+    pub runs: i64,
+    /// Seed of the sample's draws; required with `runs`.
+    pub seed: Option<u64>,
     /// The engine to ask.
     pub engine: Option<String>,
 }
@@ -435,6 +503,76 @@ impl Connection {
         })
     }
 
+    /// Search every schedule of an action for a violated property, a deadlock, a
+    /// failure or a divergent value, as `sysml -check-property` does.
+    pub fn check_action(
+        &self,
+        model_hash: &str,
+        action_id: &str,
+        inputs: &BTreeMap<String, Value>,
+        options: &CheckOptions,
+    ) -> Result<CheckResult, Error> {
+        self.check_behavior(model_hash, action_id, "", inputs, options)
+    }
+
+    /// Search every schedule of a state machine; see [`Connection::check_action`].
+    pub fn check_state_machine(
+        &self,
+        model_hash: &str,
+        state_machine_id: &str,
+        options: &CheckOptions,
+    ) -> Result<CheckResult, Error> {
+        self.check_behavior(model_hash, "", state_machine_id, &BTreeMap::new(), options)
+    }
+
+    fn check_behavior(
+        &self,
+        model_hash: &str,
+        action_id: &str,
+        state_machine_id: &str,
+        inputs: &BTreeMap<String, Value>,
+        options: &CheckOptions,
+    ) -> Result<CheckResult, Error> {
+        let inputs = self.named_to_wire(inputs)?;
+        let mut capabilities = vec![CAPABILITY_CHECK];
+        if options.performer.as_deref().is_some_and(|p| !p.is_empty()) {
+            capabilities.push(CAPABILITY_PERFORMER);
+        }
+        self.require_all(&capabilities)?;
+        let response: wire::CheckBehaviorResponse = self.gated_rpc(
+            "CheckBehavior",
+            wire::CheckBehaviorRequest {
+                model_hash: model_hash.to_owned(),
+                action_symbol_id: action_id.to_owned(),
+                state_machine_symbol_id: state_machine_id.to_owned(),
+                inputs,
+                performer_symbol_id: options.performer.clone().unwrap_or_default(),
+                check_property: options.properties.clone(),
+                check_diverge: options.diverge.clone(),
+                check_input: options.free_inputs.clone(),
+                check_assume: options.assume.clone(),
+                check_witness: options.witness,
+                check_depth: options.depth,
+                check_states: options.states,
+                check_unroll: options.unroll,
+                check_timeout: options.timeout,
+                engine: options.engine.clone().unwrap_or_default(),
+            },
+            &capabilities,
+        )?;
+        if !response.error.is_empty() {
+            return Err(Error::Execution {
+                message: response.error,
+                reason: FailureReason::Unspecified,
+                diagnostics: Vec::new(),
+                trace: Vec::new(),
+                trace_dropped: 0,
+                final_time: 0.0,
+            });
+        }
+        Ok(CheckResult::from_wire(response))
+    }
+
     /// Export the lowered graph of an action or state machine, and of every
     /// behavior it performs, as the canonical `graphs:1` JSON an external
     /// analysis engine is sent.
@@ -464,6 +602,55 @@ impl Connection {
         view_name: &str,
         ports: RenderViewPorts,
     ) -> Result<RenderedView, Error> {
+        self.render_view_showing(model_hash, view_name, ports, &[])
+    }
+
+    /// Render a named view with the requested port selection, showing the named
+    /// optional notation elements (`"edge-labels"`, `"all"`, ...) besides those the
+    /// view's rendering shows; the service refuses a name it does not know.
+    pub fn render_view_showing(
+        &self,
+        model_hash: &str,
+        view_name: &str,
+        ports: RenderViewPorts,
+        show: &[&str],
+    ) -> Result<RenderedView, Error> {
+        self.render_view_bounded(model_hash, view_name, ports, show, 0)
+    }
+
+    /// Render a named view as `render_view_showing` does, drawing `depth` levels
+    /// of nested elements below each exposed element when `depth` is above 0,
+    /// overriding the depth the view states.
+    pub fn render_view_bounded(
+        &self,
+        model_hash: &str,
+        view_name: &str,
+        ports: RenderViewPorts,
+        show: &[&str],
+        depth: u32,
+    ) -> Result<RenderedView, Error> {
+        self.render_view_folded(
+            model_hash,
+            view_name,
+            ports,
+            show,
+            depth,
+            RenderViewCompartments::Positioned,
+        )
+    }
+
+    /// Render a named view as `render_view_bounded` does, folding a tree's owned
+    /// members into compartment rows of their owner as `compartments` says; a row
+    /// is a node whose `compartment` names the compartment of its parent.
+    pub fn render_view_folded(
+        &self,
+        model_hash: &str,
+        view_name: &str,
+        ports: RenderViewPorts,
+        show: &[&str],
+        depth: u32,
+        compartments: RenderViewCompartments,
+    ) -> Result<RenderedView, Error> {
         self.require_all(&[crate::capabilities::CAPABILITY_RENDER_VIEW])?;
         let response = self.gated_rpc(
             "RenderView",
@@ -474,6 +661,9 @@ impl Connection {
                     RenderViewPorts::Minimal => String::new(),
                     RenderViewPorts::Full => "full".to_owned(),
                 },
+                show: show.iter().map(|s| (*s).to_owned()).collect(),
+                depth: i32::try_from(depth).unwrap_or(i32::MAX),
+                compartments: compartments.as_wire().to_owned(),
             },
             &[crate::capabilities::CAPABILITY_RENDER_VIEW],
         )?;
@@ -498,11 +688,11 @@ impl Connection {
         model_hash: &str,
         action_id: &str,
         inputs: &BTreeMap<String, Value>,
+        options: &RunOptions,
         schedule: Option<&str>,
-        performer: Option<&str>,
     ) -> Result<wire::ExecuteActionResponse, Error> {
         let inputs = self.named_to_wire(inputs)?;
-        let capabilities = self.run_capabilities(schedule, performer)?;
+        let capabilities = self.run_capabilities(schedule, options.performer.as_deref())?;
         self.gated_rpc(
             "ExecuteAction",
             wire::ExecuteActionRequest {
@@ -510,7 +700,11 @@ impl Connection {
                 action_symbol_id: action_id.to_owned(),
                 inputs,
                 schedule: schedule.unwrap_or_default().to_owned(),
-                performer_symbol_id: performer.unwrap_or_default().to_owned(),
+                performer_symbol_id: options.performer.clone().unwrap_or_default(),
+                advance: options.advance,
+                seed: options.seed,
+                draws: options.draws.clone().unwrap_or_default(),
+                clock_step: options.clock_step,
             },
             &capabilities,
         )
@@ -521,11 +715,11 @@ impl Connection {
         model_hash: &str,
         machine_id: &str,
         events: &[S],
+        options: &RunOptions,
         schedule: Option<&str>,
-        performer: Option<&str>,
         trace: bool,
     ) -> Result<wire::ExecuteStateResponse, Error> {
-        let mut capabilities = self.run_capabilities(schedule, performer)?;
+        let mut capabilities = self.run_capabilities(schedule, options.performer.as_deref())?;
         if trace {
             capabilities.push(CAPABILITY_STATE_TRACE);
         }
@@ -536,8 +730,12 @@ impl Connection {
                 state_machine_symbol_id: machine_id.to_owned(),
                 events: events.iter().map(|e| e.as_ref().to_owned()).collect(),
                 schedule: schedule.unwrap_or_default().to_owned(),
-                performer_symbol_id: performer.unwrap_or_default().to_owned(),
+                performer_symbol_id: options.performer.clone().unwrap_or_default(),
                 trace,
+                advance: options.advance,
+                seed: options.seed,
+                draws: options.draws.clone().unwrap_or_default(),
+                clock_step: options.clock_step,
             },
             &capabilities,
         )
@@ -557,8 +755,8 @@ impl Connection {
             model_hash,
             action_id,
             inputs,
+            options,
             options.schedule.as_deref(),
-            options.performer.as_deref(),
         )?;
         let wire = response.clone();
         let diagnostics = diagnostics_of(&response.diagnostics);
@@ -569,6 +767,7 @@ impl Connection {
                 diagnostics,
                 trace: Vec::new(),
                 trace_dropped: 0,
+                final_time: response.final_time,
             });
         }
         Ok(ActionRun {
@@ -592,13 +791,7 @@ impl Connection {
         Self::refuse_action_trace(options)?;
         let schedule = options.schedule.as_deref().unwrap_or(SCHEDULE_EXPLORE);
         require_exploring(schedule)?;
-        let response = self.run_action(
-            model_hash,
-            action_id,
-            inputs,
-            Some(schedule),
-            options.performer.as_deref(),
-        )?;
+        let response = self.run_action(model_hash, action_id, inputs, options, Some(schedule))?;
         exploration_of(ExploredResponse::Action(Box::new(response)))
     }
 
@@ -624,8 +817,8 @@ impl Connection {
             model_hash,
             machine_id,
             events,
+            options,
             options.schedule.as_deref(),
-            options.performer.as_deref(),
             options.trace,
         )?;
         let wire = response.clone();
@@ -667,8 +860,8 @@ impl Connection {
             model_hash,
             machine_id,
             events,
+            options,
             Some(schedule),
-            options.performer.as_deref(),
             false,
         )?;
         exploration_of(ExploredResponse::State(Box::new(response)))
@@ -676,10 +869,20 @@ impl Connection {
 
     /// The engines the service registers, served or not.
     pub fn list_engines(&self) -> Result<Vec<EngineInfo>, Error> {
+        self.engines(false)
+    }
+
+    /// The engines, each external one started once and checked against its manifest, as
+    /// `sysml -engines -probe` does.
+    pub fn probe_engines(&self) -> Result<Vec<EngineInfo>, Error> {
+        self.engines(true)
+    }
+
+    fn engines(&self, probe: bool) -> Result<Vec<EngineInfo>, Error> {
         self.require_all(&[CAPABILITY_ENGINES])?;
         let response: wire::ListEnginesResponse = self.gated_rpc(
             "ListEngines",
-            wire::ListEnginesRequest {},
+            wire::ListEnginesRequest { probe },
             &[CAPABILITY_ENGINES],
         )?;
         Ok(response.engines.into_iter().map(EngineInfo::from).collect())
@@ -863,6 +1066,7 @@ impl Connection {
             named_arguments: self.named_to_wire(&options.named_arguments)?,
             schedule: schedule.unwrap_or_default().to_owned(),
             engine: engine_field(options.engine.as_deref()),
+            tool_dry_run: options.tool_dry_run,
         };
         self.gated_rpc("RunAnalysis", request, &with_values(capabilities))
     }
@@ -947,6 +1151,203 @@ impl Connection {
         let response = self.gated_rpc("RunSweep", request, &with_values(capabilities))?;
         sweep_of(response, self.capabilities())
     }
+
+    /// Runs an action, or a Simulation::MonteCarlo case, `options.runs` times,
+    /// each in a context of its own, and tables what the runs observed.
+    pub fn run_runs(&self, model_hash: &str, options: &RunsOptions) -> Result<RunsResult, Error> {
+        let mut capabilities = vec![CAPABILITY_RUNS];
+        if options.performer.is_some() {
+            capabilities.push(CAPABILITY_PERFORMER);
+        }
+        capabilities.extend(engine_capabilities(options.engine.as_deref()));
+        self.require_all(&capabilities)?;
+        let request = wire::RunRunsRequest {
+            model_hash: model_hash.to_owned(),
+            action_symbol_id: options.action.clone().unwrap_or_default(),
+            analysis_symbol_id: options.analysis.clone().unwrap_or_default(),
+            inputs: self.named_to_wire(&options.inputs)?,
+            performer_symbol_id: options.performer.clone().unwrap_or_default(),
+            subject_symbol_id: options.subject.clone().unwrap_or_default(),
+            arguments: self.values_to_wire(&options.arguments)?,
+            named_arguments: self.named_to_wire(&options.named_arguments)?,
+            runs: options.runs,
+            seed: options.seed,
+            draws: options.draws.clone().unwrap_or_default(),
+            clock_step: options.clock_step,
+            observe: options.observe.clone(),
+            engine: engine_field(options.engine.as_deref()),
+        };
+        let response = self.gated_rpc("RunRuns", request, &with_values(capabilities))?;
+        runs_of(response, self.capabilities())
+    }
+
+    /// Applies the SysMLValidation constraints, and those of the rule packages
+    /// named, reflectively to every element of the model.
+    pub fn self_check(
+        &self,
+        model_hash: &str,
+        packages: &[String],
+    ) -> Result<SelfCheckResult, Error> {
+        let capabilities = vec![CAPABILITY_SELF_CHECK];
+        self.require_all(&capabilities)?;
+        let request = wire::SelfCheckRequest {
+            model_hash: model_hash.to_owned(),
+            self_check_package: packages.to_vec(),
+        };
+        let response = self.gated_rpc("SelfCheck", request, &capabilities)?;
+        self_check_of(response)
+    }
+
+    /// Runs an analysis case once, over `options.ranges` or as a Monte Carlo
+    /// sample of `options.runs`, and records the runs into the model.
+    pub fn record_run(
+        &self,
+        model_hash: &str,
+        case_id: &str,
+        options: &RecordOptions,
+    ) -> Result<Recording, Error> {
+        let mut capabilities = vec![CAPABILITY_RECORD_RUN];
+        capabilities.extend(engine_capabilities(options.engine.as_deref()));
+        self.require_all(&capabilities)?;
+        let ranges = options
+            .ranges
+            .iter()
+            .map(|range| {
+                Ok(wire::SweepRange {
+                    parameter: range.parameter.clone(),
+                    start: Some(value_to_wire(&range.start, self.capabilities())?),
+                    end: Some(value_to_wire(&range.end, self.capabilities())?),
+                    step: range
+                        .step
+                        .as_ref()
+                        .map(|step| value_to_wire(step, self.capabilities()))
+                        .transpose()?,
+                })
+            })
+            .collect::<Result<_, Error>>()?;
+        let request = wire::RecordRunRequest {
+            model_hash: model_hash.to_owned(),
+            analysis_symbol_id: case_id.to_owned(),
+            subject_symbol_id: options.subject.clone().unwrap_or_default(),
+            arguments: self.values_to_wire(&options.arguments)?,
+            named_arguments: self.named_to_wire(&options.named_arguments)?,
+            engine: engine_field(options.engine.as_deref()),
+            record_into: options.into.clone().unwrap_or_default(),
+            ranges,
+            runs: options.runs,
+            seed: options.seed,
+            accept_documents: true,
+        };
+        let response = self.gated_rpc("RecordRun", request, &with_values(capabilities))?;
+        recording_of(response, self.capabilities())
+    }
+}
+
+/// One data file of [`Connection::import_data`].
+#[derive(Clone, Debug, Default)]
+pub struct DataImport {
+    /// The file's name, which names its format by extension.
+    pub name: String,
+    /// The file's text, one row per element.
+    pub content: String,
+    /// Read the content as csv, tsv, json or jsonl rather than as the extension says.
+    pub format: Option<String>,
+    /// The JSON mapping onto elements and features the content is read by.
+    pub map: Option<String>,
+}
+
+/// Options of [`Connection::import_data`].
+#[derive(Clone, Debug, Default)]
+pub struct DataImportOptions {
+    /// Report the values the imports would set, changing nothing.
+    pub dry_run: bool,
+    /// Accept every edited document of a model of several.
+    pub accept_documents: bool,
+}
+
+/// Options of [`Connection::compare_results`]: which configurations, how many
+/// runs, how seeded and what to observe.
+#[derive(Clone, Debug, Default)]
+pub struct CompareOptions {
+    /// The configurations compared, by qualified or simple name; all when empty.
+    pub actions: Vec<String>,
+    /// Runs made of every configuration when positive; else its own numberOfRuns, or one.
+    pub runs: i64,
+    /// The seed the runs derive theirs from.
+    pub seed: Option<u64>,
+    /// The draw policy replacing every configuration's: random, min, max or average.
+    pub draws: Option<String>,
+    /// The clock step replacing every configuration's, in seconds; 0 is continuous.
+    pub clock_step: Option<f64>,
+    /// Stored observables compared, each with the feature of the run that answers it ("" for the default).
+    pub observe: Vec<(String, String)>,
+    /// The engine selection.
+    pub engine: Option<String>,
+}
+
+impl Connection {
+    /// Sets the feature values data files assign, one edit of the model per
+    /// file, as `sysml -import` does.
+    pub fn import_data(
+        &self,
+        model_hash: &str,
+        imports: &[DataImport],
+        options: &DataImportOptions,
+    ) -> Result<ImportResult, Error> {
+        let capabilities = vec![CAPABILITY_IMPORT_DATA];
+        self.require_all(&capabilities)?;
+        let request = wire::ImportDataRequest {
+            model_hash: model_hash.to_owned(),
+            imports: imports
+                .iter()
+                .map(|i| wire::DataImport {
+                    name: i.name.clone(),
+                    content: i.content.clone(),
+                    import_format: i.format.clone().unwrap_or_default(),
+                    import_map: i.map.clone().unwrap_or_default(),
+                })
+                .collect(),
+            import_as: String::new(),
+            import_dry_run: options.dry_run,
+            accept_documents: options.accept_documents,
+        };
+        let response = self.gated_rpc("ImportData", request, &capabilities)?;
+        import_result_of(response)
+    }
+
+    /// Runs the configurations a SysML v1 tool's results sidecar indexes
+    /// against the model and tables the tool's distributions beside the runs',
+    /// as `sysml -compare-results` does.
+    pub fn compare_results(
+        &self,
+        model_hash: &str,
+        results: &str,
+        options: &CompareOptions,
+    ) -> Result<Comparison, Error> {
+        let mut capabilities = vec![CAPABILITY_COMPARE_RESULTS];
+        capabilities.extend(engine_capabilities(options.engine.as_deref()));
+        self.require_all(&capabilities)?;
+        let request = wire::CompareResultsRequest {
+            model_hash: model_hash.to_owned(),
+            results: results.to_owned(),
+            actions: options.actions.clone(),
+            runs: options.runs,
+            seed: options.seed,
+            draws: options.draws.clone().unwrap_or_default(),
+            clock_step: options.clock_step,
+            observe: options
+                .observe
+                .iter()
+                .map(|(stored, feature)| wire::ObservablePair {
+                    stored: stored.clone(),
+                    feature: feature.clone(),
+                })
+                .collect(),
+            engine: engine_field(options.engine.as_deref()),
+        };
+        let response = self.gated_rpc("CompareResults", request, &capabilities)?;
+        comparison_of(response, self.capabilities())
+    }
 }
 
 fn with_values(mut capabilities: Vec<&'static str>) -> Vec<&'static str> {
@@ -969,6 +1370,7 @@ fn state_failure(
         diagnostics,
         trace,
         trace_dropped: response.trace_dropped,
+        final_time: response.final_time,
     })
 }
 

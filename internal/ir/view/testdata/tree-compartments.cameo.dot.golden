@@ -1,0 +1,28 @@
+// view: AmplifierViews::positioned
+// kind: tree
+// stated: render asTreeDiagram
+// not represented: 10 node(s) without a position, drawn as compartment rows of the node above them, and 1 node(s) under them left undrawn
+// layout: neato -n
+digraph "AmplifierViews::positioned" {
+  graph [fontname="Arial", fontcolor="#424242", layout=neato, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor="#FFCC99:#FFFAD4", gradientangle=0, color="#99795C", fontname="Arial", fontsize=11, fontcolor="#424242", penwidth=1];
+  edge [color="#424242", fontname="Arial", fontsize=9, fontcolor="#424242", penwidth=1, arrowhead=open];
+  subgraph "cluster_frame" {
+    label=<<b>bdd</b> [Block] Stage [ positioned ]>;
+    labeljust=l;
+    labelloc=t;
+    fontsize=11;
+    color="#5B5B59";
+    penwidth=1;
+    margin=8;
+    bb="2,-448,608,18";
+    "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="9">«part def»</font><br/><b>Stage</b></td></tr><hr/><tr><td><font point-size="9">attributes</font></td></tr><tr><td align="left">gain = 15.0<br/>noiseFigure = RealFunctions::sqrt(4.0)</td></tr><hr/><tr><td><font point-size="9">parts</font></td></tr><tr><td align="left">heatsink</td></tr><hr/><tr><td><font point-size="9">ports</font></td></tr><tr><td align="left">input<br/>output</td></tr><hr/><tr><td><font point-size="9">actions</font></td></tr><tr><td align="left">calibrate</td></tr><hr/><tr><td><font point-size="9">constraints</font></td></tr><tr><td align="left">bound</td></tr><hr/><tr><td><font point-size="9">item defs</font></td></tr><tr><td align="left">Slot</td></tr></table>>, margin=0, labelloc=t, pos="130,-140!", pin=true, width=3.3333333333333335, height=3.611111111111111, fixedsize=true];
+    "n5" [label=<<font point-size="9">«part»</font><br/><b>housing</b>>, margin=0, pos="360,-420!", pin=true, width=1.6666666666666667, height=0.5555555555555556, fixedsize=true];
+  "n0" -> "n5" [arrowhead=none, dir=back, arrowtail=diamond];
+    "n6" [label=<<font point-size="9">«part»</font><br/><b>shield</b>>, margin=0, pos="90,-235!", pin=true, width=1.3888888888888888, height=0.4166666666666667, fixedsize=true];
+    "n12" [label=<<font point-size="9">«part def»</font><br/><b>Housing</b>>, margin=0, pos="360,-30!", pin=true, width=1.6666666666666667, height=0.5555555555555556, fixedsize=true];
+    "n13" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="9">«enum def»</font><br/><b>Band</b></td></tr><hr/><tr><td><font point-size="9">enumerations</font></td></tr><tr><td align="left">low<br/>high</td></tr></table>>, margin=0, pos="550,-60!", pin=true, width=1.3888888888888888, height=1.3888888888888888, fixedsize=true];
+  }
+  "n0" -> "n12" [headlabel="housing", dir=back, arrowtail=diamond];
+  "n0" -> "n12" [headlabel="shield", dir=back, arrowtail=diamond];
+}

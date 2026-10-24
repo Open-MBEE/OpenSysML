@@ -71,3 +71,27 @@ func TestDirectedCaseUsagesAreNotSteps(t *testing.T) {
 		}
 	}
 }
+
+// A use case usage nested in a body is a step of it; a directed one is a
+// parameter of the action alone, like a directed analysis or verification usage.
+func TestDirectedUseCaseUsageIsNotAStep(t *testing.T) {
+	graph := actionGraphFor(t, `
+		action a {
+			out use case uses[*] : U;
+			use case inline : U;
+			action work;
+		}
+	`)
+	var nodes []string
+	for _, n := range graph.Nodes {
+		if u, ok := n.(*ast.Usage); ok {
+			nodes = append(nodes, u.Ident.Name)
+		}
+	}
+	if len(nodes) != 2 || nodes[0] != "inline" || nodes[1] != "work" {
+		t.Errorf("nodes = %v, want [inline work]", nodes)
+	}
+	if len(graph.Parameters) != 1 || graph.Parameters[0].Name != "uses" {
+		t.Errorf("parameters = %+v, want uses", graph.Parameters)
+	}
+}

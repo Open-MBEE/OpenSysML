@@ -7,21 +7,21 @@ classes: {
   typing: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
   dependency: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
 }
-n0: "«requirement def»\nVehicleRequirements::MassRequirement\nid R1, “The total mass of the vehicle shall not exceed the stated...”" { class: definition }
-n1: "«requirement def»\nVehicleRequirements::StoppingRequirement\nid R2, “The vehicle shall stop within the stated distance.”" { class: definition }
-n2: "«requirement def»\nVehicleRequirements::EmergencyStopRequirement\nid R3" { class: definition }
-n3: "«requirement»\nVehicleRequirements::vehicleMass : MassRequirement\nid R1.1" { class: usage }
-n4: "«requirement»\nVehicleRequirements::chassisMass : MassRequirement\nid R1.2" { class: usage }
-n5: "«requirement»\nVehicleRequirements::emergencyStop : EmergencyStopRequirement\nid R3.1" { class: usage }
-n6: "«part def»\nVehicleStructure::LightChassis" { class: definition }
-n7: "«part»\nVehicleStructure::vehicle : Vehicle" { class: usage }
-n8: "«part»\nVehicleStructure::heavyVehicle : Vehicle" { class: usage }
-n9: "«action»\nVehicleStructure::brake : Brake" { class: usage }
-n10: "«verification def»\nVehicleVerification::MassTest" { class: definition }
-n11: "«verification»\nVehicleVerification::lightMassTest : MassTest" { class: usage }
-n12: "«verification»\nVehicleVerification::heavyMassTest : MassTest" { class: usage }
-n13: "«verification def»\nVehicleVerification::StopTest" { class: definition }
-n14: "«verification»\nVehicleVerification::stopTest : StopTest" { class: usage }
+n0: "«requirement def»\nMassRequirement\nid R1, “The total mass of the vehicle shall not exceed the stated...”" { class: definition }
+n1: "«requirement def»\nStoppingRequirement\nid R2, “The vehicle shall stop within the stated distance.”" { class: definition }
+n2: "«requirement def»\nEmergencyStopRequirement\nid R3" { class: definition }
+n3: "«requirement»\nvehicleMass\nid R1.1" { class: usage }
+n4: "«requirement»\nchassisMass\nid R1.2" { class: usage }
+n5: "«requirement»\nemergencyStop\nid R3.1" { class: usage }
+n6: "«part def»\nLightChassis" { class: definition }
+n7: "«part»\nvehicle" { class: usage }
+n8: "«part»\nheavyVehicle" { class: usage }
+n9: "«action»\nbrake" { class: usage }
+n10: "«verification def»\nMassTest" { class: definition }
+n11: "«verification»\nlightMassTest" { class: usage }
+n12: "«verification»\nheavyMassTest" { class: usage }
+n13: "«verification def»\nStopTest" { class: definition }
+n14: "«verification»\nstopTest" { class: usage }
 n2 -> n1: { class: specialization }
 n3 -> n0: { class: typing }
 n4 -> n0: { class: typing }
@@ -31,7 +31,7 @@ n6 -> n4: "refine" { class: dependency }
 n7 -> n3: "satisfy" { class: dependency }
 n8 -> n3: "satisfy" { class: dependency }
 n7 -> n5: "satisfy" { class: dependency }
-n5 -> n9: "allocate" { class: dependency }
+n5 -> n9: { class: dependency }
 n10 -> n3: "verify" { class: dependency }
 n11 -> n3: "verify" { class: dependency }
 n12 -> n3: "verify" { class: dependency }

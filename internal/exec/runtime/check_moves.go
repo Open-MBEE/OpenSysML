@@ -294,7 +294,7 @@ func (e *StateExecutor) stepOne() error {
 		return err
 	}
 	if !moved {
-		return &CheckMoveError{Move: e.dueLabel(), Faced: "the machine had nothing to do"}
+		return &checkMoveError{Move: e.dueLabel(), Faced: "the machine had nothing to do"}
 	}
 	return nil
 }

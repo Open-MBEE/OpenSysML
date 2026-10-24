@@ -1,0 +1,19 @@
+// view: MicroscopeViews::unpositioned
+// kind: tree
+// stated: render asTreeDiagram
+// layout: dot
+digraph "MicroscopeViews::unpositioned" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Detector</b>>];
+  "n1" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Sensor</b>>];
+  "n2" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Instrument</b>>];
+  "n3" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>&#39;Display System&#39;</b>>];
+  "n4" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>&#39;Scanning Electron Microscope&#39;</b>>];
+  "n5" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>&#39;Secondary Electron Detector&#39;</b>>];
+  "n6" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>&#39;Backscattered Electron Detector&#39;</b>>];
+  "n5" -> "n0" [arrowhead=empty];
+  "n6" -> "n0" [arrowhead=empty];
+  "n6" -> "n1" [arrowhead=empty];
+}

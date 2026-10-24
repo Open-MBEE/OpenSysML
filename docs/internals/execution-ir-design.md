@@ -36,7 +36,7 @@ tables keyed by AST nodes: an action node's identity is its `ast.Node` pointer
 (`ActionGraph.Nodes []ast.Node`, `Edges map[ast.Node][]ActionEdge`), a state's identity is its
 `*ast.StateNode` (`StateGraph.States []*ast.StateNode`, `Behaviors map[*ast.StateNode]…`),
 and the executors' *own* state — the active configuration, history, the token queue, breakpoints,
-snapshots and held images — is keyed the same way (`StateConfiguration.simpleState
+snapshots and held images — is keyed the same way (`stateConfiguration.simpleState
 *ast.StateNode`, `actionFrame.subactions map[ast.Node]*actionFrame`). Expressions are not lowered
 at all: `eval.go` interprets `ast.OperatorExpr`, `ast.InvocationExpr` and `ast.FeatureChainExpr`
 directly and `compile.go` compiles the same tree into closures, and the calc shape
@@ -145,7 +145,7 @@ graph. No cache of lowered graphs exists anywhere: every entry point above re-lo
 
 | file | fields | what they are |
 |---|---:|---|
-| `state_executor.go` | 19 | `StateConfiguration{simpleState *ast.StateNode; regionStates map[*ast.StateRegion]*ast.StateNode}`, `StateExecutor{stateAttrs, stateStack, history, breakpointNodes, breakpointHit, pausedAt, leftAhead, enteredAhead}`, `historyRecord`, `FiredTransition{Decl, Source, Target, Owner ast.Node}`, `dispatchCandidate` |
+| `state_executor.go` | 19 | `stateConfiguration{simpleState *ast.StateNode; regionStates map[*ast.StateRegion]*ast.StateNode}`, `StateExecutor{stateAttrs, stateStack, history, breakpointNodes, breakpointHit, pausedAt, leftAhead, enteredAhead}`, `historyRecord`, `FiredTransition{Decl, Source, Target, Owner ast.Node}`, `dispatchCandidate` |
 | `held_image_behavior.go` | 9 | held-image copies of the frame and state tables above |
 | `action_frame.go` | 8 | `actionFrame{node; subactions, pending, nested map[ast.Node]…; nodes []ast.Node}`, `nestedDelivery.path` |
 | `state_route.go` | 8 | `route{target, choice, crossed, terminate}`, `junctionDraw.at`, `routeEnds` |
@@ -518,7 +518,7 @@ regression in that step specifically, on top of the always-on gate.
 |---|---|---:|---|---|
 | 1 | `internal/ir/program`: id types, `Origin`, `GraphID`, `NodeKind`; `lower` assigns a `NodeID`/`StateID`/… to every record it already builds and returns `Provenance` beside the graph (additive: `ActionGraph.ID map[ast.Node]NodeID`, `StateGraph.ID map[*ast.StateNode]StateID`, inverse slices). No consumer changes. | 8–10 | new `lower` unit tests: ids dense, in declaration order, deterministic across two lowerings, `Origin.Path` unique per graph; `TestGolden` untouched | `program` registered in the `ir` layer; forbidden `program → syntax/ast` |
 | 2 | Action executor state keyed by id: `actionFrame.{subactions,pending,nested,nodes}`, `Token.Location`, `NodeBreakpoint`, `Traversal`, `breakpointVisit`, held-image and snapshot copies, `check_reduce.futureKey`. The graph still carries AST; the executor indexes `Nodes[id]`. | 12–16 | conformance, traces, `TestRuntimeRobustness*`, `TestRuntimeRobustnessReplay` (snapshots), LSP debug tests, `TestGRPCConformance` | — |
-| 3 | State executor state keyed by id: `StateConfiguration`, `stateAttrs/stateStack/history`, `leftAhead/enteredAhead`, `route`, `regionEntry/lazyEntry`, `unitHead/firingScope`, `dispatchCandidate`, `FiredTransition` (`VertexRef` + `Origin`), held image and snapshot. The 19 fields in `state_executor.go` and its 123 signatures are the bulk. | 20–28 | conformance (state cases), traces with region-order policies, `TestRuntimeRobustnessRegionOrder`, `…Terminate`, `…ResumableInlineDoBody`, PSSM referee record | — |
+| 3 | State executor state keyed by id: `stateConfiguration`, `stateAttrs/stateStack/history`, `leftAhead/enteredAhead`, `route`, `regionEntry/lazyEntry`, `unitHead/firingScope`, `dispatchCandidate`, `FiredTransition` (`VertexRef` + `Origin`), held image and snapshot. The 19 fields in `state_executor.go` and its 123 signatures are the bulk. | 20–28 | conformance (state cases), traces with region-order policies, `TestRuntimeRobustnessRegionOrder`, `…Terminate`, `…ResumableInlineDoBody`, PSSM referee record | — |
 | 4 | Origins replace declaration handles for text: `nodeDescription`, `lower.DocOf/VertexKind/EndpointText` results lowered into `Origin`; `NoValueError.Ref`, `Context.bindingOwners`, `Model.declared`, `ActionEdge.Else` lowered; gRPC `session.go` and `queryexec/states.go` read `Origin` and `Provenance`. | 15–20 | conformance `.expected.json` (error text), `TestGRPCConformance`, `conformance_docquery_test`, `tests/grpc` robustness | forbidden `exec/runtime → syntax/ast` **not yet** — expressions remain |
 | 5 | Calc lowering moves to `lower`: `calcShape` becomes `program.Calc` built by `lower.ToCalc`; `compileBatch.callees` keyed by `*program.Calc`; the runtime memoizes by symbol as now. | 8–10 | conformance (calc cases), `testdata/compiled` (4 files), `tests/perf` calc benchmarks, pilot differential | — |
 | 6a | Expression IR, first half: literals, `Ref`, `Chain`, `Op`, `Sequence`, `Index`, `Null`, `Infinity`; `lower.LowerExpr` resolves names once; `eval`/`compile` switch on `ExprKind` for these kinds and fall back to the tree for the rest; `Model.integerLiterals/realLiterals` dropped. | 20–30 | conformance, `testdata/compiled`, `TestGolden` (unchanged), pilot differential and Xpect (evaluation results), exact-rational tests | — |

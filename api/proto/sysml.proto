@@ -69,12 +69,31 @@ service SysMLService {
   rpc ValidateInstance(ValidateInstanceRequest) returns (ValidateInstanceResponse);
   rpc EvaluateCalc(EvaluateCalcRequest) returns (EvaluateCalcResponse);
   rpc RunAnalysis(RunAnalysisRequest) returns (RunAnalysisResponse);
+  // CheckBehavior searches every schedule of an action or state machine, as
+  // `sysml -check-property`/`-check-diverge` do: a violated property, a
+  // deadlock, a failure or a divergent feature is witnessed and replayed.
+  rpc CheckBehavior(CheckBehaviorRequest) returns (CheckBehaviorResponse);
 
   // Run one analysis case or calc once per row of a parameter sweep, as the
   // CLI's -sweep and the REPL's %sweep do: each row is an ordinary run with the
   // swept parameter bound to that row's value. Reported as the "verification"
   // capability.
   rpc RunSweep(RunSweepRequest) returns (RunSweepResponse);
+
+  // Run an action, or a Simulation::MonteCarlo analysis case, a number of
+  // times, each run seeded from the request's seed, and table what the runs
+  // observed with each observable's distribution, as the CLI's -runs/-observe
+  // do. Reported as the "runs" capability.
+  rpc RunRuns(RunRunsRequest) returns (RunRunsResponse);
+  // SelfCheck applies the SysMLValidation constraints, and those of any rule
+  // packages, reflectively to every element of the model, as `sysml -self-check`
+  // does. Reported as the "self_check" capability.
+  rpc SelfCheck(SelfCheckRequest) returns (SelfCheckResponse);
+  // RecordRun runs an analysis case — once, over the rows of a sweep, or as a
+  // Monte Carlo sample — and records the runs into the model as AnalysisRecords
+  // declarations, as `sysml -record-run` does. Reported as the "record_run"
+  // capability.
+  rpc RecordRun(RecordRunRequest) returns (RecordRunResponse);
 
   // List the analysis engines this build registers, as the CLI's -engines and
   // the REPL's %engines do: each with the questions it answers, the strongest
@@ -108,6 +127,18 @@ service SysMLService {
   // and every behavior it performs — as the canonical `graphs:<version>` JSON
   // external analysis engines read. Reported as the "export_graphs" capability.
   rpc ExportGraphs(ExportGraphsRequest) returns (ExportGraphsResponse);
+
+  // Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row
+  // per element, as `sysml -import` does: a feature the element declares has its
+  // value set, one it inherits is redefined with the value; a dry run reports the
+  // values without changing the model. Reported as the "import_data" capability.
+  rpc ImportData(ImportDataRequest) returns (ImportDataResponse);
+
+  // Run every configuration a SysML v1 tool's results sidecar indexes, as
+  // `sysml -compare-results` does, and table the tool's and OpenSysML's min,
+  // mean, p50, p90 and max of each observable with their relative difference.
+  // Reported as the "compare_results" capability.
+  rpc CompareResults(CompareResultsRequest) returns (CompareResultsResponse);
 }
 
 // FailureReason says what kind of failure an `error` reports, so a client acts
@@ -301,6 +332,12 @@ message VerificationVerdict {
   // objective verifies. Empty when the case was run for itself rather than for
   // a requirement, or when that requirement can be named by no FQN.
   string requirement_id = 5;
+  // Instance the case ran on as its owner, 0 when it ran on no object. A case a
+  // definition owns runs once per object of that definition, so verdicts of one
+  // case are told apart by this field; its feature values are in `instances`.
+  int64 instance_id = 6;
+  // Type of `instance_id`, as an FQN, for naming the object in a report.
+  string instance_type_id = 7;
 }
 
 // VerifyRequirementResponse carries the verdict.
@@ -473,6 +510,75 @@ message RunAnalysisRequest {
   // The engine the case is put to; see VerifyConstraintRequest.engine. "explore"
   // asks what "explore" as the schedule asks, and the response answers alike.
   string engine = 7;
+  // Run the case only to the first call of an external tool its ToolExecution
+  // names and answer what the tool would be given — manifest, executable,
+  // argv, environment, standard input and reply mapping — in `tool_dry_run`,
+  // without starting it (`sysml -tool-dry-run`); nothing the run did is kept.
+  // A run that reaches no tool call reports that in `error`. Refused under an
+  // explore schedule or engine (INVALID_ARGUMENT).
+  bool tool_dry_run = 8;
+}
+
+// ToolDryRun is what one external tool call would be given, composed without
+// starting the process: the preview `sysml -tool-dry-run` prints.
+message ToolDryRun {
+  // The ToolExecution-annotated action the call was made for.
+  string action = 1;
+  // The tool the entry names, the version its manifest declares, the manifest
+  // file, the executable it resolved to and the protocol it is spoken under.
+  string tool = 2;
+  string version = 3;
+  string manifest = 4;
+  string executable = 5;
+  string protocol = 6;
+  // The argv entries after the executable as the invocation block renders
+  // them; empty for an entry without one.
+  repeated string args = 7;
+  // The environment in NAME=value pairs, sorted; a variable taken from the
+  // service's own process is spelled "NAME=<from this process>". Empty when
+  // the entry has no invocation block and inherits the whole environment.
+  repeated string env = 8;
+  // The working directory; empty inherits the service's.
+  string cwd = 9;
+  // What standard input carries: "json" (the protocol's request object),
+  // "none", "csv" or "template", and the bytes it would carry.
+  string stdin = 10;
+  string stdin_data = 11;
+  // The file the block's `inputFile` writes, absent when it has none.
+  ToolDryRunFile input_file = 12;
+  // True when the entry uses {outputDir}.
+  bool output_dir = 13;
+  // The values the call sends the tool and the bindings it expects back.
+  repeated ToolDryRunInput inputs = 14;
+  repeated ToolDryRunOutput outputs = 15;
+  // Where the reply is read: "stdout", or "file:<template>".
+  string reply_source = 16;
+  // The preview as the CLI prints it, one element per line, the reply mapping
+  // included.
+  repeated string lines = 17;
+}
+
+// ToolDryRunFile is the input file a dry run would write.
+message ToolDryRunFile {
+  string name = 1;
+  // "json" or "csv".
+  string format = 2;
+  string data = 3;
+}
+
+// ToolDryRunInput is one value the call sends: the tool variable it is sent
+// under, the parameter it came from, and the value as the protocol spells it.
+message ToolDryRunInput {
+  string variable = 1;
+  string parameter = 2;
+  string value = 3;
+  string unit = 4;
+}
+
+// ToolDryRunOutput is one binding the call expects back.
+message ToolDryRunOutput {
+  string variable = 1;
+  string parameter = 2;
 }
 
 // RunAnalysisResponse carries what the case computed and decided.
@@ -516,6 +622,10 @@ message RunAnalysisResponse {
   string engine = 11;
   string strength = 12;
   repeated Bound bounds = 13;
+  // Set when the request asked for a tool dry run and the case reached a tool
+  // call: what the tool would have been given. The run's outputs, verdicts and
+  // instances are then empty, nothing of it having been kept.
+  ToolDryRun tool_dry_run = 14;
 }
 
 // ProbabilityRange is the model-draw probability of an outcome, bounded by the
@@ -559,7 +669,8 @@ message Outcome {
 // ExplorationStatus is how an exploration ended: whether every linearization
 // within the budget was run, and which budget stopped it when not.
 message ExplorationStatus {
-  // True when every linearization was run, so `outcomes` is the whole set.
+  // True when every linearization the library admits was run, so `outcomes`
+  // is the whole set: no budget was hit and nothing was left unenumerated.
   bool complete = 1;
   // How many runs were made.
   int32 runs = 2;
@@ -574,10 +685,166 @@ message ExplorationStatus {
   bool probabilities_lower_bound = 6;
   // How many linearizations ended in runtime-error outcomes.
   int32 failed_linearizations = 7;
+  // The constructs whose unordered alternatives the runs took in one order
+  // without a choice point, by identifier; `complete` is false while any is
+  // listed, since fewer orders were run than the library admits.
+  repeated string unenumerated = 8;
+}
+
+// CheckBehaviorRequest searches every schedule of a behavior, as the `sysml`
+// command's -check-* flags do about `-action`/`-state`.
+message CheckBehaviorRequest {
+  string model_hash = 1;
+  // Exactly one of the two names the behavior searched: an action definition or
+  // usage, or a state definition or usage.
+  string action_symbol_id = 2;
+  string state_machine_symbol_id = 3;
+  // Inputs bound to the action's parameters before the search.
+  map<string, Value> inputs = 4;
+  // The object the behavior is performed by, as ExecuteActionRequest names it.
+  string performer_symbol_id = 5;
+  // Constraints or requirements evaluated at every stable state; one false at a
+  // state is a violation (-check-property, repeatable).
+  repeated string check_property = 6;
+  // Features whose final value the schedule may decide (-check-diverge): the
+  // action's own bare, a performed node's as `node.pin`, the performer's as
+  // `this.<name>`; none names the action's own features and the object's attributes.
+  repeated string check_diverge = 7;
+  // Inputs left free for the symbolic engine to range over (-check-input).
+  repeated string check_input = 8;
+  // Constraints or requirements the symbolic engine assumes (-check-assume).
+  repeated string check_assume = 9;
+  // Whether each violation and divergent value carries its witness file, the
+  // replay `-schedule replay:<file>` follows (-check-witness).
+  bool check_witness = 10;
+  // Search bounds; 0 leaves each to the engine's default (-check-depth,
+  // -check-states, -check-unroll). The timeout, in seconds, is the plan's deadline
+  // and each solver query's limit (-check-timeout); 0 is none.
+  int32 check_depth = 11;
+  int32 check_states = 12;
+  int32 check_unroll = 13;
+  double check_timeout = 14;
+  // The engine that answers: "check" (default), "smt", or an engine ListEngines names.
+  string engine = 15;
+}
+
+// CheckWitness is one schedule the interpreter replays: what the run drew and
+// chose, and the file a replay reads when the request asked for one.
+message CheckWitness {
+  // The schedule policy the replay runs under, as -schedule spells it.
+  string schedule = 1;
+  // The random values the run drew, in the order drawn.
+  repeated string draws = 2;
+  // The choice points the run resolved, in run order, each spelling the
+  // alternatives and the one taken.
+  repeated string choices = 3;
+  // Free inputs the symbolic engine pinned, as `name = value`.
+  repeated string inputs = 4;
+  // The witness file: its name as `sysml -check-witness` writes it, and its content.
+  string file_name = 5;
+  string file_content = 6;
+}
+
+// CheckViolation is one schedule that reached a violated property, a deadlock
+// or a failure.
+message CheckViolation {
+  // "property", "deadlock" or "failure".
+  string kind = 1;
+  // The property violated; empty for a deadlock or a failure.
+  string property = 2;
+  // The deadlock or the failure as the executor reported it; empty for a property.
+  string error = 3;
+  // How many moves the witness makes.
+  int32 depth = 4;
+  // The probability of the schedules reaching this violation, a lower bound
+  // when the report's mass_bounded holds.
+  double probability = 5;
+  CheckWitness witness = 6;
+  // The violation as the command reports it.
+  string text = 7;
+}
+
+// CheckDivergentValue is one final value a feature can end with and a schedule reaching it.
+message CheckDivergentValue {
+  string value = 1;
+  CheckWitness witness = 2;
+}
+
+// CheckDivergence is a feature whose final value the schedule decides.
+message CheckDivergence {
+  string feature = 1;
+  // Every value some complete schedule leaves it with, in canonical order.
+  repeated CheckDivergentValue values = 2;
+}
+
+// CheckFinal is one distinct outcome of the complete schedules.
+message CheckFinal {
+  string outcome = 1;
+  map<string, string> values = 2;
+  CheckWitness witness = 3;
+}
+
+// CheckSearch is how the check engine's search went.
+message CheckSearch {
+  // Distinct states visited, moves made, and the longest schedule searched.
+  int32 states = 1;
+  int32 moves = 2;
+  int32 max_depth = 3;
+  // The bounds the search ran into; empty when exhaustive.
+  repeated string bounds_hit = 4;
+  // The simulated time the search stopped the clock at, when it ran to a horizon.
+  double horizon = 5;
+  bool horizon_set = 6;
+  // True when the violations' probabilities are lower bounds.
+  bool mass_bounded = 7;
+  // Why the searched runs' coverage is narrower than their schedules.
+  repeated string notes = 8;
+  // Why the finals were observed short of quiescence.
+  repeated string scope = 9;
+  // How the search ended, as `sysml` reports it.
+  string status = 10;
+}
+
+// CheckBehaviorResponse is what the search found.
+message CheckBehaviorResponse {
+  // "holds" when every schedule within the bounds was searched clean, "fails"
+  // on a violation or a divergence, "undecided" when a bound or a refusal
+  // left schedules unsearched.
+  string verdict = 1;
+  // The report as the command prints it, one line each.
+  repeated string lines = 2;
+  CheckSearch search = 3;
+  repeated CheckViolation violations = 4;
+  repeated CheckDivergence divergences = 5;
+  repeated CheckFinal finals = 6;
+  // What the symbolic engine asserted and how strongly, when it answered: the
+  // claim ("holds", "violated", "sensitive", ...), the inputs it ranged over
+  // and the assumptions it rested on, its witness and, for a sensitivity, the
+  // contrasting schedule.
+  string claim = 7;
+  repeated string free_inputs = 8;
+  repeated string assumptions = 9;
+  CheckWitness witness = 10;
+  CheckWitness contrast = 11;
+  // The engine that answered, the strength of its evidence and the bounds it ran
+  // under, as RunAnalysisResponse reports them.
+  string engine = 12;
+  string strength = 13;
+  repeated Bound bounds = 14;
+  // Why nothing could be decided, when the verdict is undecided.
+  string reason = 15;
+  // A request refused before any search: the behavior does not resolve, a
+  // property names no constraint or requirement, an option is misused.
+  string error = 17;
 }
 
 // ListEnginesRequest asks for the analysis engines registered in this build.
-message ListEnginesRequest {}
+message ListEnginesRequest {
+  // Start each external engine's process once and check its handshake against
+  // its manifest, reporting the outcome as its status (`sysml -engines -probe`).
+  // Without it no process is started.
+  bool probe = 1;
+}
 
 // EngineInfo is one analysis engine: what it answers, how strongly it can, and
 // whether it can run here.
@@ -717,6 +984,13 @@ message SymbolResponse {
 // DiagnosticsRequest gets all diagnostics for a model
 message DiagnosticsRequest {
   string model_hash = 1;
+  // Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
+  // undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+  // rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
+  repeated string disable_lint = 2;
+  // Opt-in lints kept in the diagnostics, by code (`sysml -enable-lint`):
+  // rounded-real-literal. Off unless named; disable_lint wins.
+  repeated string enable_lint = 3;
 }
 
 // DiagnosticsResponse contains diagnostic list
@@ -759,6 +1033,11 @@ message FeatureValue {
   repeated Value values = 3;     // for a multi-valued feature
   bool materialized = 4;
   string error = 5;              // set when evaluation failed; value is unset
+  // How many of the run's unresolved choice points — ones whose alternatives
+  // write what another reads or writes — touch this value: it then stands only
+  // up to the order the run took, and an explore shows the set. 0 for a value
+  // nothing order-dependent wrote. Populated under the "order_dependence" capability.
+  int32 order_dependent = 6;
 }
 
 // InstantiateRequest requests instantiation of a part/usage
@@ -799,6 +1078,27 @@ message ExecuteActionRequest {
   // action sends — and under explore each run creates its own. Empty performs
   // the action outside any object.
   string performer_symbol_id = 5;
+  // Simulated time, in seconds, to run the action for (`sysml -advance`): the
+  // action is started and its clock advanced by this much, running everything
+  // due on the way; one that has not completed by then reports that in `error`
+  // with the instant it waits for. Unset runs the action to completion, the
+  // clock advancing through every wait.
+  optional double advance = 6;
+  // The seed the model's own draws — weighted decisions, random functions —
+  // are taken from (`sysml -seed`); the same seed draws the same run. Unset
+  // leaves them to the schedule's own seed, so a run that draws under a
+  // deterministic schedule is refused.
+  optional uint64 seed = 7;
+  // How the run resolves the draws of RandomFunctions (`sysml -draws`):
+  // "random" (the default, from `seed`), "min", "max" or "average", which take
+  // each call's least, greatest or mean value and need no seed. Any other
+  // spelling is INVALID_ARGUMENT.
+  string draws = 8;
+  // The step, in seconds, the run's clock ticks by (`sysml -clock-step`): a
+  // wait comes due at the first multiple of it not before the wait ends. 0, the
+  // default, is a continuous clock; a negative or non-finite step is
+  // INVALID_ARGUMENT.
+  double clock_step = 9;
 }
 
 // ExecuteActionResponse contains action execution results
@@ -821,6 +1121,10 @@ message ExecuteActionResponse {
   // `outputs` stays the output parameters alone. Empty without a performer and
   // under an explore schedule, whose outcomes carry them.
   map<string, Value> performer_attributes = 7;
+  // Output name → how many of the run's unresolved choice points touch it; an
+  // output nothing order-dependent wrote is absent. Populated under the
+  // "order_dependence" capability; empty under an explore schedule.
+  map<string, int32> order_dependent = 8;
 }
 
 // ExecuteStateRequest requests state machine execution
@@ -843,6 +1147,14 @@ message ExecuteStateRequest {
   // Ask for the run's trace in ExecuteStateResponse.trace. Advertised as the
   // "state_trace" capability; a service withholding it refuses true with UNIMPLEMENTED.
   bool trace = 6;
+  // Simulated time, in seconds, to run the machine for after the events are
+  // sent (`sysml -advance`); see ExecuteActionRequest.advance. Unset runs the
+  // machine to quiescence and advances the clock no further.
+  optional double advance = 7;
+  // See ExecuteActionRequest.seed, .draws and .clock_step.
+  optional uint64 seed = 8;
+  string draws = 9;
+  double clock_step = 10;
 }
 
 // ExecuteStateResponse contains state machine execution trace
@@ -866,6 +1178,10 @@ message ExecuteStateResponse {
   repeated DocumentEvent trace = 8;
   // How many of the oldest records the service's held-events bound discarded.
   int32 trace_dropped = 9;
+  // Final-context key → how many of the run's unresolved choice points touch
+  // it; a value nothing order-dependent wrote is absent. Populated under the
+  // "order_dependence" capability; empty under an explore schedule.
+  map<string, int32> order_dependent = 10;
 }
 
 // ConvertRequest asks for a model in another representation. A model_hash
@@ -921,6 +1237,18 @@ message ConvertRequest {
   // element form ("owner", "qualifiedName"). A name that is not a derived
   // property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
   repeated string keep_derived = 11;
+  // Report the semantic check's diagnostics alongside the output, each with its
+  // own severity ("error", "warning" or "info") and code, as ParseFile and
+  // GetDiagnostics report them: the source is analyzed as a parse analyzes it,
+  // so an unresolved type is an error here while the conversion itself stands
+  // or fails as it would without the field. Notation sources only: a graph
+  // source has no notation to check, so one is INVALID_ARGUMENT. A source with
+  // syntax errors reports those alone, since the passes do not run on a model
+  // that did not parse. For a model_hash the cached analysis is reported; with
+  // documents, the written documents' only. Default off, which reports the
+  // syntax errors alone as before. Reported as the "convert_check_diagnostics"
+  // capability.
+  bool include_check_diagnostics = 12;
 }
 
 // ConvertResponse contains the converted model.
@@ -932,7 +1260,8 @@ message ConvertResponse {
   string to_format = 3;
   string error = 4;  // non-empty if the conversion failed; content is unset
   // Syntax errors tolerated under tolerate_syntax_errors, or those that failed
-  // the conversion.
+  // the conversion; with include_check_diagnostics, the semantic check's
+  // diagnostics as well, each with its own severity.
   repeated Diagnostic diagnostics = 5;
   // Set when either format is RDF or the API's JSON element form, whose
   // mapping is experimental: it covers model structure and the behavior its
@@ -1799,6 +2128,13 @@ message Diagnostic {
   // Stable identifier to branch on instead of the message: a pass or rule code,
   // "syntax", "choice-point", "guard-unevaluable"; empty when none was assigned.
   string code = 4;
+  // On a "choice-point": the features the conflicting alternatives wrote, whose
+  // values the run holds only up to the order it took; empty when the
+  // alternatives commute (`independent`) or conflict on nothing a value names.
+  repeated string order_dependent = 5;
+  // On a "choice-point": the alternatives commute by their footprints, so the
+  // run's values stand whichever was taken.
+  bool independent = 6;
 }
 
 // Span represents a source location
@@ -2126,6 +2462,224 @@ message RunSweepResponse {
   repeated Bound bounds = 11;
 }
 
+// RunRunsRequest runs one behavior repeatedly: an action, whose features and
+// clock the runs observe, or a Simulation::MonteCarlo analysis case, whose
+// declared observable each run reports and which is concluded over the sample.
+message RunRunsRequest {
+  string model_hash = 1;
+  // FQN of the action to run; exactly one of action_symbol_id and
+  // analysis_symbol_id is set.
+  string action_symbol_id = 2;
+  // FQN of the Simulation::MonteCarlo analysis case, definition or usage.
+  string analysis_symbol_id = 3;
+  // The action's input parameters, by name.
+  map<string, Value> inputs = 4;
+  // Optional FQN of a part/usage to perform the action on, or a path from one
+  // to a nested object; see ExecuteActionRequest.performer_symbol_id.
+  string performer_symbol_id = 5;
+  // Optional FQN of the case's subject; see RunAnalysisRequest.subject_symbol_id.
+  string subject_symbol_id = 6;
+  // The case's positional and named arguments, as every run binds them.
+  repeated Value arguments = 7;
+  map<string, Value> named_arguments = 8;
+  // How many runs to make; must be positive.
+  int64 runs = 9;
+  // Seed the runs draw their modeled randomness from, one derived seed per run:
+  // the same seed makes the same runs on every platform. Required unless the
+  // draws are fixed by `draws`.
+  optional uint64 seed = 10;
+  // Draw policy for the model's distributions, as the CLI's -draws: "random"
+  // (default), "min", "max" or "average".
+  string draws = 11;
+  // Clock step of each run, as the CLI's -clock-step; 0 keeps the default.
+  double clock_step = 12;
+  // Features of the action each run reports, "clock" for the time it completed
+  // at; empty reports every feature the action holds and the clock. Refused for
+  // a case, which observes what it declares.
+  repeated string observe = 13;
+  // The engine the runs are put to; see VerifyConstraintRequest.engine.
+  string engine = 14;
+}
+
+// RunDistribution summarises one observable over the completed runs.
+message RunDistribution {
+  string name = 1;
+  // The unit the numbers carry, empty when none or the values are not numbers.
+  string unit = 2;
+  // Completed runs that produced the observable.
+  int64 count = 3;
+  // Whether the values are numbers, so min/max/mean/deviation/percentiles and
+  // the histogram are set; otherwise `values` counts each distinct value.
+  bool numeric = 4;
+  Value min = 5;
+  Value max = 6;
+  Value mean = 7;
+  // Sample standard deviation of the numbers.
+  double deviation = 8;
+  repeated RunPercentile percentiles = 9;
+  repeated RunHistogramBin histogram = 10;
+  repeated RunCountedValue values = 11;
+}
+
+// RunPercentile is the value at a percentile of the completed runs.
+message RunPercentile {
+  double percentile = 1;
+  Value value = 2;
+}
+
+// RunHistogramBin counts the runs whose number fell in [low, high]; a single
+// distinct value has low == high.
+message RunHistogramBin {
+  Value low = 1;
+  Value high = 2;
+  int64 count = 3;
+}
+
+// RunCountedValue counts the runs that produced one distinct value.
+message RunCountedValue {
+  Value value = 1;
+  int64 count = 2;
+}
+
+// SelfCheckRequest asks for the reflective check of a parsed model.
+message SelfCheckRequest {
+  string model_hash = 1;
+  // Qualified names of packages whose constraint definitions apply after the
+  // bundled SysMLValidation ones (-self-check-package). Each must resolve to a
+  // package the model or its libraries declare; its own elements are not checked.
+  repeated string self_check_package = 2;
+}
+
+// SelfCheckFinding is one thing the check reports about a constraint applied
+// to an element, or a constraint or package it skipped.
+message SelfCheckFinding {
+  // fails: the element answered the constraint false; unevaluated: the runtime
+  // cannot yet apply the constraint reflectively; error: the evaluation failed;
+  // warning: a rule constraint was skipped, or a rule package yielded none.
+  string status = 1;
+  string subject = 2;     // "<constraint> for <element>", or the constraint or package alone
+  string location = 3;    // document:line:col of the element, empty when it has none
+  string constraint = 4;  // qualified name of the constraint applied
+  string element = 5;     // name of the element it was applied to
+  string message = 6;     // the reason, for a warning or an error
+  string line = 7;        // the finding as `sysml -self-check` prints it
+}
+
+// SelfCheckApplication counts the elements one constraint was applied to.
+message SelfCheckApplication {
+  string constraint = 1;
+  int64 count = 2;
+}
+
+// SelfCheckResponse is what the check found: every finding, the counts, and
+// the verdict over them.
+message SelfCheckResponse {
+  // holds: no violation and no evaluation error; fails: a violation;
+  // unresolved: no violation, but an evaluation that errored.
+  string status = 1;
+  repeated SelfCheckFinding findings = 2;
+  int64 elements = 3;           // elements the check visited
+  int64 checks = 4;             // constraint applications made
+  int64 violations = 5;         // applications answered false
+  int64 unevaluated = 6;        // applications the runtime could not make
+  int64 evaluation_errors = 7;  // applications and collections that errored
+  repeated SelfCheckApplication applications = 8;  // by constraint, in name order
+  string summary = 9;           // the one-line total `sysml -self-check` prints last
+  string error = 10;            // non-empty if the check could not start: a rule package named is not declared
+  repeated Diagnostic diagnostics = 11;
+}
+
+// RecordRunRequest asks for runs of an analysis case to be recorded into the
+// model. With neither `ranges` nor `runs` the case runs once; `ranges` runs it
+// once per row of the ranges as RunSweep does and records each completed row;
+// `runs` runs it that many times as RunRuns does a Simulation::MonteCarlo case
+// and records each completed run and the sample's conclusion.
+message RecordRunRequest {
+  string model_hash = 1;
+  string analysis_symbol_id = 2;  // qualified name of the analysis case definition or usage
+  string subject_symbol_id = 3;   // part/usage to instantiate as the subject, or a path from one
+  repeated Value arguments = 4;
+  map<string, Value> named_arguments = 5;
+  string engine = 6;
+  // Package the records go into (-record-into); empty is a Records package
+  // beside the package enclosing the case's own.
+  string record_into = 7;
+  repeated SweepRange ranges = 8;  // records a sweep's rows (-sweep)
+  int64 runs = 9;                  // records a Monte Carlo sample of this many runs (-runs)
+  optional uint64 seed = 10;       // seed of the sample's draws; required with runs
+  // As in ApplyEditsRequest: a model of several documents is refused unless the
+  // request says it reads the response's `documents`.
+  bool accept_documents = 11;
+}
+
+// RecordRunResponse is the runs' own report, what the model gained, and the
+// notation the records were written into.
+message RecordRunResponse {
+  // The runs' own result, one of these by how the request ran the case.
+  RunAnalysisResponse run = 1;
+  RunSweepResponse sweep = 2;
+  RunRunsResponse sample = 3;
+  string package = 4;              // qualified name of the package the records went into
+  string definition = 5;           // qualified name of the per-case record definition
+  repeated string records = 6;     // qualified names of the records made, in order
+  // The record declarations generated: the target package's full nesting down
+  // to it, holding the record definition when new and every record usage.
+  string source = 7;
+  // The notation of the document the records merged into, byte-identical to
+  // the source outside the package they joined, or the records as a document of
+  // their own when no document holds the package's nesting. As in
+  // ApplyEditsResponse, `content` is set for a single-document model alone and
+  // `documents` always: the document the records went into, named as the parse
+  // request named it, or, when they are a document of their own, named after
+  // their package with the notation's extension (`Records.sysml`).
+  string content = 8;
+  repeated EditedDocument documents = 9;
+  int64 skipped = 10;              // rows or runs that failed and were not recorded
+  repeated string reasons = 11;    // why runs were not recorded, as `sysml -record-run` reports them
+  // Non-empty when nothing was recorded: the case could not run, no run
+  // completed, or the records would not analyze cleanly, which leaves the model unchanged.
+  string error = 12;
+  FailureReason failure_reason = 13;
+  repeated Diagnostic diagnostics = 14;
+  // Hash of the model with the records in it, cached as a parse request's
+  // would be, so the next request can run against the recorded model without
+  // parsing it again. Empty when nothing was recorded.
+  string model_hash = 15;
+}
+
+// RunRunsResponse is the table of the runs, one row per run in run order, each
+// observable's distribution, and for a case its conclusion over the sample.
+message RunRunsResponse {
+  // One row per run: `inputs` carries the run number as `run`, `outputs` what
+  // the run observed, `verdicts` the case's in-run verdicts.
+  repeated SweepRow rows = 1;
+  // The observables tabled, in column order: those asked for, else every
+  // feature the action holds and "clock"; "observed" for a case.
+  repeated string observables = 2;
+  repeated RunDistribution distributions = 3;
+  // Each distribution and, for a case, its conclusion as the CLI prints them
+  // under the table; the table itself is `rows`.
+  repeated string lines = 4;
+  // A case's conclusion over the completed runs: its outputs and verdicts,
+  // which every row's verdicts were settled by. Empty for an action.
+  repeated CalcOutput outputs = 5;
+  repeated Verdict verdicts = 6;
+  // Why the case has no conclusion: no run completed, or the sample was refused.
+  string unconcluded = 7;
+  // Set when no run was made at all; a failed run is a row carrying its error.
+  string error = 8;
+  repeated Diagnostic diagnostics = 9;
+  FailureReason failure_reason = 10;
+  // Every object a row's verdict is about, so each `instance_id` resolves here.
+  repeated Instance instances = 11;
+  string engine = 12;
+  string strength = 13;
+  repeated Bound bounds = 14;
+  // The seed the runs drew from, when they drew.
+  optional uint64 seed = 15;
+}
+
+
 // RunDocumentQueryRequest runs a named document query — a calc def
 // specializing DocumentQueries::Query — against a model the service already
 // parsed, binding its entry parameters. It answers as %run-query does, but with
@@ -2328,6 +2882,10 @@ message RenderDocumentRequest {
 message RenderDocumentResponse {
   string markdown = 1;
   string html = 2;
+  // The file a rendered set writes this document to in the requested form
+  // (-render-documents), which the other documents' links to it name.
+  // Populated under the render_document_file_name capability.
+  string file_name = 3;
 }
 
 // RenderViewRequest names a declared view or targeted pseudo-view to render.
@@ -2337,6 +2895,20 @@ message RenderViewRequest {
   string view = 2;
   // "" or "minimal" (the default), or "full", as view.ParsePorts reads it.
   string ports = 3;
+  // Optional notation elements to draw besides those the view's rendering
+  // shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
+  // "compartments", "edge-labels", "keywords", "multiplicities", "typings",
+  // "qualifiers", or "all".
+  repeated string show = 4;
+  // How many levels of nested elements to draw below each exposed element,
+  // overriding the depth the view states; 0 draws every level.
+  int32 depth = 5;
+  // How a tree rendering folds a node's owned members into compartment rows,
+  // as view.ParseCompartments reads it: "" or "positioned" (the default, only
+  // the layout-less members of a tree some Layout positions), "most" (every
+  // owned usage no Layout, nested definition or package keeps a node) or
+  // "ports" (the port usages with the ports nested under them).
+  string compartments = 6;
 }
 
 // RenderViewResponse carries all machine-readable fields of the rendering.
@@ -2353,6 +2925,8 @@ message RenderViewResponse {
   RenderCanvas canvas = 8;
   repeated RenderNote notes = 9;
   repeated string notices = 10;
+  // The optional notation elements drawn, in registry order.
+  repeated string shown = 11;
 }
 
 // RenderNode is one flattened node of the rendering.
@@ -2368,9 +2942,12 @@ message RenderNode {
   string parent = 9;
   repeated RenderPort ports = 10;
   Span origin = 11;
-  // Unset when no layout positions the node.
+  // Unset when no layout annotates the node; unplaced when the layout only folds or hides it.
   RenderGeometry geometry = 12;
   RenderStyle style = 13;
+  // The compartment of the parent node this node is drawn as a row of
+  // ("attributes", "parts", "ports", ...); unset for a node drawn as a box.
+  string compartment = 14;
 }
 
 // RenderPort is a feature drawn on a node's border.
@@ -2403,6 +2980,8 @@ message RenderGeometry {
   double height = 4;
   bool has_size = 5;
   bool collapsed = 6;
+  // The layout places nothing (it only folds or hides): x and y carry no position.
+  bool unplaced = 7;
 }
 
 // RenderCanvas is the rendering's drawing surface.
@@ -2467,4 +3046,230 @@ message ExportGraphsResponse {
   int32 version = 2;
   // The subject's qualified name as resolved.
   string subject = 3;
+}
+
+// ImportDataRequest is the data `sysml -import` sets the feature values of, one
+// file per -import, applied in order as one edit each.
+message ImportDataRequest {
+  string model_hash = 1;
+  // The files, in the order they are applied; each is read as its own format
+  // and mapping say.
+  repeated DataImport imports = 2;
+  // What each row is made into, as -import-as: "values", the default, sets the
+  // features of the element the row names; nothing else is supported.
+  string import_as = 3;
+  // Report the values the imports would set, changing nothing; the documents
+  // and model hash are then unset.
+  bool import_dry_run = 4;
+  // Accept every edited document in documents when the model has several;
+  // without it, a model of several documents is refused as ApplyEdits refuses it.
+  bool accept_documents = 5;
+}
+
+// DataImport is one data file: its name, which names the format by extension
+// and the file in what goes wrong, and its content.
+message DataImport {
+  string name = 1;
+  string content = 2;
+  // Read the content as csv, tsv, json or jsonl rather than as the name's
+  // extension says, as -import-format.
+  string import_format = 3;
+  // The JSON mapping onto elements and features the content is read by, as the
+  // file -import-map names; empty for the content's own header.
+  string import_map = 4;
+}
+
+// ImportDataResponse is what the imports set, and the model they made.
+message ImportDataResponse {
+  // One per import, in order; unset when the model refuses an import, with
+  // error set and nothing changed.
+  repeated ImportedFile files = 1;
+  // The edited documents, as ApplyEdits answers them; unset on a dry run.
+  repeated EditedDocument documents = 2;
+  // The edited content of a one-document model; unset on a dry run.
+  string content = 3;
+  // The hash of the imported model, parsed and cached; unset on a dry run.
+  string model_hash = 4;
+  // Why the import was refused, "" when it was made; the model is then unchanged.
+  string error = 5;
+  repeated Diagnostic diagnostics = 6;
+}
+
+// ImportedFile is what one data file set: the values, the elements they were
+// set on, and each assignment as `sysml -import` lists it.
+message ImportedFile {
+  string name = 1;
+  int64 values = 2;
+  int64 elements = 3;
+  repeated ImportedValue assignments = 4;
+}
+
+// ImportedValue is one assignment: the qualified name of the element, the
+// feature set, the literal it is set to, the qualified name of the inherited
+// feature redefined to set it ("" when the element declares the feature), where
+// in the data it came from, and the line `sysml -import` reports it as. A
+// redefinition made only to reach a nested inherited feature sets no value.
+message ImportedValue {
+  string element = 1;
+  string feature = 2;
+  string value = 3;
+  string redefines = 4;
+  string where = 5;
+  string description = 6;
+}
+
+// CompareResultsRequest runs the configurations a tool's results sidecar indexes
+// — the JSON `sysml -migration-results` writes — against the migrated model.
+message CompareResultsRequest {
+  string model_hash = 1;
+  // The results sidecar, as JSON.
+  string results = 2;
+  // The configurations compared, by qualified or simple name, as -action names
+  // them; every indexed configuration when empty.
+  repeated string actions = 3;
+  // The runs made of every configuration when positive, as -runs; else each
+  // configuration's own numberOfRuns, or one.
+  int64 runs = 4;
+  // The seed the runs derive theirs from, as -seed; without one, runs that draw
+  // at random are refused unless draws fixes them.
+  optional uint64 seed = 5;
+  // The draw policy replacing every configuration's durationSimulationMode when
+  // set, as -draws: random, min, max or average.
+  string draws = 6;
+  // The clock step replacing every configuration's when set, as -clock-step;
+  // 0 is a continuous clock.
+  optional double clock_step = 7;
+  // The stored observables compared, each with the feature of the run that
+  // answers it, as -observe; without any, every stored observable is read from
+  // the target's feature of its own name.
+  repeated ObservablePair observe = 8;
+  string engine = 9;
+}
+
+// ObservablePair is a stored observable and the feature of the run that answers
+// it; an empty feature is the target's feature of the observable's own name.
+message ObservablePair {
+  string stored = 1;
+  string feature = 2;
+}
+
+// CompareResultsResponse is one comparison per configuration, in the order the
+// sidecar indexes them.
+message CompareResultsResponse {
+  repeated ConfigurationComparison configurations = 1;
+  // The tool the sidecar records as the source of the results.
+  string source = 2;
+  // Why nothing was compared, "" when the configurations were run.
+  string error = 3;
+  repeated Diagnostic diagnostics = 4;
+  FailureReason failure_reason = 5;
+  string engine = 6;
+  string strength = 7;
+  repeated Bound bounds = 8;
+}
+
+// ConfigurationComparison is one configuration's runs beside the tool's results.
+message ConfigurationComparison {
+  string id = 1;
+  string name = 2;
+  // The migrated behavior the configuration performs, "" when it performs none.
+  string behavior = 3;
+  // The feature of the configuration the observables are read from.
+  string target = 4;
+  string result_location = 5;
+  // holds when runs complete and observables compare; undecided when some do not;
+  // fails when a run fails; unresolved when the configuration cannot run.
+  string status = 6;
+  // Why the configuration could not be run, when status is unresolved.
+  string unresolved = 7;
+  // The runs the tool stored, and over how many snapshots.
+  int64 stored_runs = 8;
+  int64 stored_snapshots = 9;
+  // The runs OpenSysML made and how many completed.
+  int64 runs = 10;
+  int64 completed = 11;
+  string draws = 12;
+  // The seed the runs derived theirs from; unset when the runs drew nothing.
+  optional uint64 seed = 13;
+  double clock_step = 14;
+  // One row per run, as RunSweep tables them.
+  repeated SweepRow rows = 15;
+  repeated Instance instances = 16;
+  repeated ObservableComparison observables = 17;
+  // The errors failed runs ended in, deduplicated, and the notes on the
+  // configuration and its runs.
+  repeated string errors = 18;
+  repeated string notes = 19;
+  // The comparison as `sysml -compare-results` prints it.
+  repeated string lines = 20;
+}
+
+// ObservableComparison is one observable: the tool's distribution beside the
+// runs' with the relative difference of each statistic, or why they are not
+// compared.
+message ObservableComparison {
+  string stored = 1;
+  string feature = 2;
+  // The unit the runs' numbers came in, "" for none.
+  string unit = 3;
+  // The tool's distribution, unset when it stored no number; pooled when it
+  // was pooled from summaries, so only count and mean are known; unstored
+  // when the tool stored no result at all to compare against.
+  ComparedDistribution tool = 4;
+  bool pooled = 5;
+  bool unstored = 6;
+  // The distribution of the completed runs, unset when they are not compared;
+  // produced is how many runs produced a number for the feature.
+  ComparedDistribution run = 7;
+  int64 produced = 8;
+  // Whether the runs were made and are reported, false when the tool stored no
+  // observable of the name or no number for it.
+  bool compared = 9;
+  // The relative difference of each statistic, unset without both
+  // distributions; a pooled tool distribution compares the mean alone.
+  StatisticDifference difference = 10;
+  // The per-statistic comparison of the Simulation::MonteCarlo case the
+  // observable is analysed by, unset when none is.
+  CaseStatistics declared = 11;
+  repeated string notes = 12;
+}
+
+// ComparedDistribution is a distribution of numbers by its statistics; a pooled
+// one sets count and mean alone.
+message ComparedDistribution {
+  int64 count = 1;
+  double min = 2;
+  double mean = 3;
+  double p50 = 4;
+  double p90 = 5;
+  double max = 6;
+  double deviation = 7;
+}
+
+// StatisticDifference is the relative difference of each statistic as a signed
+// percentage, "" where it is not compared.
+message StatisticDifference {
+  string min = 1;
+  string mean = 2;
+  string p50 = 3;
+  string p90 = 4;
+  string max = 5;
+}
+
+// CaseStatistics compares the statistics a Simulation::MonteCarlo case declares
+// of an observable with the tool's pooled values, one row per statistic.
+message CaseStatistics {
+  string analysis = 1;
+  repeated CaseStatistic rows = 2;
+  repeated string notes = 3;
+}
+
+// CaseStatistic is one statistic of the case: which, where the case declares
+// it, the tool's value, the runs' value and their relative difference.
+message CaseStatistic {
+  string statistic = 1;
+  string of = 2;
+  string tool = 3;
+  string run = 4;
+  string difference = 5;
 }

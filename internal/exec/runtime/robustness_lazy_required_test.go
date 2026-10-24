@@ -164,8 +164,8 @@ func testLazyRequiredInfiniteLowerBound(t *testing.T) {
 	`)
 	before := len(ctx.instances)
 	_, err := inst.GetFeatureValue(ctx, "p")
-	if !errors.Is(err, ErrInfiniteLowerBound) || !errors.Is(err, ErrMultiplicityViolation) {
-		t.Fatalf("p = %v, want %v", err, ErrInfiniteLowerBound)
+	if !errors.Is(err, errInfiniteLowerBound) || !errors.Is(err, ErrMultiplicityViolation) {
+		t.Fatalf("p = %v, want %v", err, errInfiniteLowerBound)
 	}
 	if !strings.Contains(err.Error(), "§7.4.12") {
 		t.Errorf("error %q names no clause", err)
@@ -329,7 +329,7 @@ func testLazyRequiredNamespaceUsage(t *testing.T) {
 	pkg := resolveSymbol(t, root, "P")
 	ctx := NewContext(typedModel(model, resolver), DefaultMaxSteps)
 	for calc, want := range map[string]string{"manyCount": "20000", "lastRadius": "0.5"} {
-		got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
+		got, err := invokeValue(ctx, resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
 		if err != nil || FormatValue(got) != want {
 			t.Errorf("%s = %s, %v; want %s", calc, FormatValue(got), err, want)
 		}
@@ -346,7 +346,7 @@ func testLazyRequiredNamespaceUsage(t *testing.T) {
 		t.Errorf("the refused extent left %d objects", len(ctx.instances)-held)
 	}
 	ctx.maxElements = 100000
-	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
+	got, err := invokeValue(ctx, resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
 	if err != nil || FormatValue(got) != "20000" {
 		t.Errorf("size(all Wheel) within the budget = %s, %v; want 20000", FormatValue(got), err)
 	}

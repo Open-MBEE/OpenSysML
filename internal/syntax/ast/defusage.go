@@ -84,6 +84,13 @@ var definitionKindNames = [...]string{
 	DefBool:             "bool",
 }
 
+// IsAction reports whether a definition of the kind defines an action: an action
+// definition, or a use case definition, which is a case, a calculation and so an
+// action definition (SysML v2 §7.17, §7.19) whose body is an action body.
+func (k DefinitionKind) IsAction() bool {
+	return k == DefAction || k == DefUseCase
+}
+
 func (k DefinitionKind) String() string {
 	if int(k) < 0 || int(k) >= len(definitionKindNames) {
 		return "unknown"
@@ -237,6 +244,14 @@ func (k UsageKind) String() string {
 		return "unknown"
 	}
 	return usageKindNames[k]
+}
+
+// IsAction reports whether a usage of the kind is an action usage: an action, or a
+// use case, which is a case, a calculation and so an action usage (SysML v2 §7.17,
+// §7.19) whose body is an action body. An analysis or verification case is run as
+// the calculation it is, not as an action.
+func (k UsageKind) IsAction() bool {
+	return k == UsageAction || k == UsageUseCase
 }
 
 // IsEdge reports whether a usage of the kind is a connector or transition relating
@@ -395,6 +410,8 @@ type Definition struct {
 	IsConstant    bool // 'constant' feature modifier
 	IsEvent       bool // 'event' modifier for event-driven occurrences
 	IsIndividual  bool // 'individual' modifier: `individual part def` (SysML v2 8.3.9.11)
+	// IndividualKeyword spans the `individual` written, zero when none was.
+	IndividualKeyword source.Span
 	// IsParallel is the `parallel` before a state body: the state's substates
 	// are orthogonal (SysML v2 StateDefinition::isParallel).
 	IsParallel    bool
@@ -431,6 +448,8 @@ type Usage struct {
 	IsConstant    bool // 'constant' feature modifier
 	IsEvent       bool // 'event' modifier for event-driven occurrences
 	IsIndividual  bool // 'individual' modifier: OccurrenceUsage::isIndividual
+	// IndividualKeyword spans the `individual` written, zero when none was.
+	IndividualKeyword source.Span
 	// Portion is the `snapshot` or `timeslice` prefix of an occurrence usage
 	// (OccurrenceUsage::portionKind, SysML v2 8.3.9.11).
 	Portion  PortionKind
@@ -444,7 +463,11 @@ type Usage struct {
 	// IsTerminate marks a terminate action usage (`action stop terminate;`,
 	// SysML.xtext TerminateActionUsage): a token reaching it ends the containing performance.
 	IsTerminate bool
-	IsResult    bool // declared with 'return': the result parameter of a calculation/expression
+	// Terminates is the occurrence a terminate action usage names after its
+	// `terminate` (`action stop terminate process;`, SysML.xtext TerminateNode's
+	// NodeParameterMember); nil when it terminates the occurrence containing it.
+	Terminates *TerminateStatement
+	IsResult   bool // declared with 'return': the result parameter of a calculation/expression
 	// IsNegated is the `not` of `assert not constraint { … }` and
 	// `assert not satisfy … by …`: the conditions are asserted to be false
 	// (Invariant::isNegated, SysML v2 §8.3.21.10).
@@ -659,7 +682,7 @@ func (u *Usage) ConjugatedTyping() (*Relationship, bool) {
 // PerformedInvocation is the call an action usage performs as its value
 // (`action a = tag(x);`); nil for any other usage or value.
 func (u *Usage) PerformedInvocation() *InvocationExpr {
-	if u.Kind != UsageAction {
+	if !u.Kind.IsAction() {
 		return nil
 	}
 	if inv, ok := u.Value.(*InvocationExpr); ok && inv.Type != nil {

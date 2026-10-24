@@ -32,7 +32,7 @@ func TestSuccessionCycleMemo(t *testing.T) {
 	}
 
 	_, cached := ctx.Instantiate(oneSymbol(t, idx, "test::Ring"))
-	requireSuccessionError(t, cached, ErrSuccessionOrderCycle, successionOrderCycleCode)
+	requireSuccessionError(t, cached, errSuccessionOrderCycle, successionOrderCycleCode)
 	if ctx.noneHeld.answers(ctx) {
 		t.Fatal("memo still answers after behaviors entered held")
 	}
@@ -80,7 +80,7 @@ func requireSameCycleVerdict(t *testing.T, ctx *Context) {
 	if (got == nil) != (want == nil) || (got != nil && got.Error() != want.Error()) {
 		t.Fatalf("memoized cycle check = %v, want the walk's %v", got, want)
 	}
-	if !errors.Is(got, ErrSuccessionOrderCycle) && want != nil {
+	if !errors.Is(got, errSuccessionOrderCycle) && want != nil {
 		t.Fatalf("memoized cycle check lost the sentinel: %v", got)
 	}
 }

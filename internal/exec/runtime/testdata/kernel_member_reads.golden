@@ -1,0 +1,505 @@
+# Probe::p1 (type Probe::p1)
+differencesOf: empty
+dispatchScope: object (the receiver)
+done: undetermined <undetermined>
+enactedPerformances: empty
+immediatePredecessors: empty
+immediateSuccessors: empty
+incomingTransferSort: undetermined <undetermined>
+incomingTransfers: empty
+incomingTransfersToSelf: undetermined <undetermined>
+innerSpaceDimension: undetermined <undetermined>
+intersectionsOf: empty
+involvingPerformances: collection of 2
+isClosed: undetermined <undetermined>
+isDispatch: constant false
+isRunToCompletion: constant true
+justOutsideOfOccurrences: empty
+localClock: object of Clocks::universalClock
+matingOccurrences: undetermined <undetermined>
+middleTimeSlice: null
+outerSpaceDimension: null
+outgoingTransfers: empty
+outgoingTransfersFromSelf: undetermined <undetermined>
+outsideOfOccurrences: empty
+ownedPerformances: collection of 2
+portionOf: collection of 1
+portionOfLife: object (the receiver)
+portions: collection of 1
+predecessors: empty
+runToCompletionScope: object (the receiver)
+sameLifeOccurrences: collection of 1
+self: object (the receiver)
+snapshotOf: empty
+snapshots: undetermined <undetermined>
+spaceBoundaryOf: empty
+spaceEnclosedOccurrences: collection of 1
+spaceInterior: null
+spaceInteriorOf: null
+spaceShotOf: empty
+spaceShots: undetermined <undetermined>
+spaceSliceOf: collection of 1
+spaceSlices: collection of 1
+spaceTimeCoincidentOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedPoints: undetermined <undetermined>
+start: undetermined <undetermined>
+structuredSpaceBoundary: null
+subobjects: collection of 3
+suboccurrences: collection of 5
+successors: empty
+superoccurrence: null
+surroundedByOccurrences: empty
+that: undetermined <undetermined>
+this: object (the receiver)
+timeCoincidentOccurrences: collection of 1
+timeEnclosedOccurrences: collection of 4
+timeSliceOf: collection of 1
+timeSlices: collection of 1
+unionsOf: empty
+withoutOccurrences: empty
+
+# Probe::p1.pa (type Probe::P1::pa)
+differencesOf: empty
+dispatchScope: object (the receiver)
+done: undetermined <undetermined>
+enactedPerformances: empty
+immediatePredecessors: empty
+immediateSuccessors: empty
+incomingTransferSort: undetermined <undetermined>
+incomingTransfers: empty
+incomingTransfersToSelf: undetermined <undetermined>
+innerSpaceDimension: undetermined <undetermined>
+intersectionsOf: empty
+involvingPerformances: empty
+isClosed: undetermined <undetermined>
+isDispatch: constant false
+isRunToCompletion: constant true
+justOutsideOfOccurrences: empty
+localClock: object of Clocks::universalClock
+matingOccurrences: undetermined <undetermined>
+middleTimeSlice: null
+outerSpaceDimension: null
+outgoingTransfers: empty
+outgoingTransfersFromSelf: undetermined <undetermined>
+outsideOfOccurrences: empty
+ownedPerformances: empty
+portionOf: collection of 1
+portionOfLife: object (the receiver)
+portions: collection of 1
+predecessors: empty
+runToCompletionScope: object (the receiver)
+sameLifeOccurrences: collection of 1
+self: object (the receiver)
+snapshotOf: empty
+snapshots: undetermined <undetermined>
+spaceBoundaryOf: empty
+spaceEnclosedOccurrences: collection of 1
+spaceInterior: null
+spaceInteriorOf: null
+spaceShotOf: empty
+spaceShots: undetermined <undetermined>
+spaceSliceOf: collection of 1
+spaceSlices: collection of 1
+spaceTimeCoincidentOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedPoints: undetermined <undetermined>
+start: undetermined <undetermined>
+structuredSpaceBoundary: null
+subobjects: empty
+suboccurrences: empty
+successors: empty
+superoccurrence: object (the owner)
+surroundedByOccurrences: empty
+that: undetermined <undetermined>
+this: object (the receiver)
+timeCoincidentOccurrences: collection of 1
+timeEnclosedOccurrences: collection of 1
+timeSliceOf: collection of 1
+timeSlices: collection of 1
+unionsOf: empty
+withoutOccurrences: empty
+
+# Probe::p1.ia (type Probe::P1::ia)
+differencesOf: empty
+dispatchScope: object (the receiver)
+done: undetermined <undetermined>
+enactedPerformances: empty
+immediatePredecessors: empty
+immediateSuccessors: empty
+incomingTransferSort: undetermined <undetermined>
+incomingTransfers: empty
+incomingTransfersToSelf: undetermined <undetermined>
+innerSpaceDimension: undetermined <undetermined>
+intersectionsOf: empty
+involvingPerformances: empty
+isClosed: undetermined <undetermined>
+isDispatch: constant false
+isRunToCompletion: constant true
+justOutsideOfOccurrences: empty
+localClock: object of Clocks::universalClock
+matingOccurrences: undetermined <undetermined>
+middleTimeSlice: null
+outerSpaceDimension: null
+outgoingTransfers: empty
+outgoingTransfersFromSelf: undetermined <undetermined>
+outsideOfOccurrences: empty
+ownedPerformances: empty
+portionOf: collection of 1
+portionOfLife: object (the receiver)
+portions: collection of 1
+predecessors: empty
+runToCompletionScope: object (the receiver)
+sameLifeOccurrences: collection of 1
+self: object (the receiver)
+snapshotOf: empty
+snapshots: undetermined <undetermined>
+spaceBoundaryOf: empty
+spaceEnclosedOccurrences: collection of 1
+spaceInterior: null
+spaceInteriorOf: null
+spaceShotOf: empty
+spaceShots: undetermined <undetermined>
+spaceSliceOf: collection of 1
+spaceSlices: collection of 1
+spaceTimeCoincidentOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedPoints: undetermined <undetermined>
+start: undetermined <undetermined>
+structuredSpaceBoundary: null
+subobjects: empty
+suboccurrences: empty
+successors: empty
+superoccurrence: object (the owner)
+surroundedByOccurrences: empty
+that: undetermined <undetermined>
+this: object (the receiver)
+timeCoincidentOccurrences: collection of 1
+timeEnclosedOccurrences: collection of 1
+timeSliceOf: collection of 1
+timeSlices: collection of 1
+unionsOf: empty
+withoutOccurrences: empty
+
+# Probe::p1.pt (type Probe::P1::pt)
+differencesOf: empty
+dispatchScope: object (the receiver)
+enactedPerformances: empty
+endShot: undetermined <undetermined>
+immediatePredecessors: empty
+immediateSuccessors: empty
+incomingTransferSort: undetermined <undetermined>
+incomingTransfers: empty
+incomingTransfersToSelf: undetermined <undetermined>
+innerSpaceDimension: undetermined <undetermined>
+innerSpaceOccurrences: empty
+intersectionsOf: empty
+involvingPerformances: empty
+isClosed: undetermined <undetermined>
+isDispatch: constant false
+isRunToCompletion: constant true
+justOutsideOfOccurrences: empty
+localClock: object of Clocks::universalClock
+matingOccurrences: undetermined <undetermined>
+middleTimeSlice: null
+outerSpaceDimension: null
+outgoingTransfers: empty
+outgoingTransfersFromSelf: undetermined <undetermined>
+outsideOfOccurrences: empty
+ownedPerformances: empty
+portionOf: collection of 1
+portionOfLife: object (the receiver)
+portions: collection of 1
+predecessors: empty
+runToCompletionScope: object (the receiver)
+sameLifeOccurrences: collection of 1
+self: object (the receiver)
+snapshotOf: empty
+snapshots: undetermined <undetermined>
+spaceBoundary: null
+spaceBoundaryOf: empty
+spaceEnclosedOccurrences: collection of 1
+spaceInterior: null
+spaceInteriorOf: null
+spaceShotOf: empty
+spaceShots: undetermined <undetermined>
+spaceSliceOf: collection of 1
+spaceSlices: collection of 1
+spaceTimeCoincidentOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedPoints: undetermined <undetermined>
+startShot: undetermined <undetermined>
+structuredSpaceBoundary: null
+subobjects: empty
+suboccurrences: empty
+successors: empty
+superoccurrence: null
+surroundedByOccurrences: empty
+that: undetermined <undetermined>
+this: object (the receiver)
+timeCoincidentOccurrences: collection of 1
+timeEnclosedOccurrences: collection of 1
+timeSliceOf: collection of 1
+timeSlices: collection of 1
+unionsOf: empty
+withoutOccurrences: empty
+
+# object of Probe::P1::act (type Probe::P1::act)
+differencesOf: empty
+dispatchScope: object (the receiver)
+done: undetermined <undetermined>
+enclosedPerformances: empty
+immediatePredecessors: empty
+immediateSuccessors: empty
+incomingTransferSort: undetermined <undetermined>
+incomingTransfers: empty
+incomingTransfersToSelf: undetermined <undetermined>
+innerSpaceDimension: undetermined <undetermined>
+innerSpaceOccurrences: empty
+intersectionsOf: empty
+involvedObjects: empty
+isClosed: undetermined <undetermined>
+isDispatch: constant true
+isRunToCompletion: constant true
+justOutsideOfOccurrences: empty
+localClock: object of Clocks::universalClock
+matingOccurrences: undetermined <undetermined>
+middleTimeSlice: null
+outerSpaceDimension: null
+outgoingTransfers: empty
+outgoingTransfersFromSelf: undetermined <undetermined>
+outsideOfOccurrences: empty
+performers: empty
+portionOf: collection of 1
+portionOfLife: object (the receiver)
+portions: collection of 1
+predecessors: empty
+runToCompletionScope: object (the receiver)
+sameLifeOccurrences: collection of 1
+self: object (the receiver)
+snapshotOf: empty
+snapshots: undetermined <undetermined>
+spaceBoundary: null
+spaceBoundaryOf: empty
+spaceEnclosedOccurrences: collection of 1
+spaceInterior: null
+spaceInteriorOf: null
+spaceShotOf: empty
+spaceShots: undetermined <undetermined>
+spaceSliceOf: collection of 1
+spaceSlices: collection of 1
+spaceTimeCoincidentOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedPoints: undetermined <undetermined>
+start: undetermined <undetermined>
+suboccurrences: empty
+subperformances: empty
+successors: empty
+superoccurrence: null
+surroundedByOccurrences: empty
+that: undetermined <undetermined>
+this: object (the receiver)
+thisPerformance: object (the receiver)
+timeCoincidentOccurrences: collection of 1
+timeEnclosedOccurrences: collection of 1
+timeSliceOf: collection of 1
+timeSlices: collection of 1
+unionsOf: empty
+withoutOccurrences: empty
+
+# object of Probe::P1::st (type Probe::P1::st)
+acceptable: empty
+accepted: null
+deferrable: empty
+differencesOf: empty
+dispatchScope: object (the receiver)
+done: undetermined <undetermined>
+enclosedPerformances: empty
+immediatePredecessors: empty
+immediateSuccessors: empty
+incomingTransferSort: undetermined <undetermined>
+incomingTransfers: empty
+incomingTransfersToSelf: undetermined <undetermined>
+incomingTransitionTrigger: null
+innerSpaceDimension: undetermined <undetermined>
+innerSpaceOccurrences: empty
+intersectionsOf: empty
+involvedObjects: empty
+isClosed: undetermined <undetermined>
+isDispatch: constant true
+isRunToCompletion: undetermined <undetermined>
+justOutsideOfOccurrences: empty
+localClock: object of Clocks::universalClock
+matingOccurrences: undetermined <undetermined>
+middle: undetermined <undetermined>
+middleTimeSlice: null
+nonDoMiddle: undetermined <undetermined>
+outerSpaceDimension: null
+outgoingHBLink: undetermined <undetermined>
+outgoingTransfers: empty
+outgoingTransfersFromSelf: undetermined <undetermined>
+outsideOfOccurrences: empty
+performers: empty
+portionOf: collection of 1
+portionOfLife: object (the receiver)
+portions: collection of 1
+predecessors: empty
+runToCompletionScope: undetermined <undetermined>
+sameLifeOccurrences: collection of 1
+self: object (the receiver)
+snapshotOf: empty
+snapshots: undetermined <undetermined>
+spaceBoundary: null
+spaceBoundaryOf: empty
+spaceEnclosedOccurrences: collection of 1
+spaceInterior: null
+spaceInteriorOf: null
+spaceShotOf: empty
+spaceShots: undetermined <undetermined>
+spaceSliceOf: collection of 1
+spaceSlices: collection of 1
+spaceTimeCoincidentOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedPoints: undetermined <undetermined>
+start: undetermined <undetermined>
+suboccurrences: empty
+subperformances: empty
+successors: empty
+superoccurrence: null
+surroundedByOccurrences: empty
+that: undetermined <undetermined>
+this: object (the receiver)
+thisPerformance: object (the receiver)
+timeCoincidentOccurrences: collection of 1
+timeEnclosedOccurrences: collection of 1
+timeSliceOf: collection of 1
+timeSlices: collection of 1
+unionsOf: empty
+withoutOccurrences: empty
+
+# object of Probe::A (type Probe::A)
+differencesOf: empty
+dispatchScope: object (the receiver)
+done: undetermined <undetermined>
+enclosedPerformances: collection of 2
+immediatePredecessors: empty
+immediateSuccessors: empty
+incomingTransferSort: undetermined <undetermined>
+incomingTransfers: empty
+incomingTransfersToSelf: undetermined <undetermined>
+innerSpaceDimension: undetermined <undetermined>
+innerSpaceOccurrences: empty
+intersectionsOf: empty
+involvedObjects: empty
+isClosed: undetermined <undetermined>
+isDispatch: constant true
+isRunToCompletion: constant true
+justOutsideOfOccurrences: empty
+localClock: object of Clocks::universalClock
+matingOccurrences: undetermined <undetermined>
+middleTimeSlice: null
+outerSpaceDimension: null
+outgoingTransfers: empty
+outgoingTransfersFromSelf: undetermined <undetermined>
+outsideOfOccurrences: empty
+performers: empty
+portionOf: collection of 1
+portionOfLife: object (the receiver)
+portions: collection of 1
+predecessors: empty
+runToCompletionScope: object (the receiver)
+sameLifeOccurrences: collection of 1
+self: object (the receiver)
+snapshotOf: empty
+snapshots: undetermined <undetermined>
+spaceBoundary: null
+spaceBoundaryOf: empty
+spaceEnclosedOccurrences: collection of 1
+spaceInterior: null
+spaceInteriorOf: null
+spaceShotOf: empty
+spaceShots: undetermined <undetermined>
+spaceSliceOf: collection of 1
+spaceSlices: collection of 1
+spaceTimeCoincidentOccurrences: collection of 1
+spaceTimeEnclosedOccurrences: collection of 1
+spaceTimeEnclosedPoints: undetermined <undetermined>
+start: undetermined <undetermined>
+suboccurrences: collection of 2
+subperformances: collection of 2
+successors: empty
+superoccurrence: null
+surroundedByOccurrences: empty
+this: object (the receiver)
+thisPerformance: object (the receiver)
+timeCoincidentOccurrences: collection of 1
+timeEnclosedOccurrences: collection of 3
+timeSliceOf: collection of 1
+timeSlices: collection of 1
+unionsOf: empty
+withoutOccurrences: empty
+
+# Probe::a (unperformed action usage)
+differencesOf: empty
+dispatchScope: undetermined <undetermined>
+done: undetermined <undetermined>
+enclosedPerformances: undetermined <undetermined>
+immediatePredecessors: empty
+immediateSuccessors: empty
+incomingTransferSort: undetermined <undetermined>
+incomingTransfers: empty
+incomingTransfersToSelf: undetermined <undetermined>
+innerSpaceDimension: undetermined <undetermined>
+innerSpaceOccurrences: empty
+intersectionsOf: empty
+involvedObjects: empty
+isClosed: undetermined <undetermined>
+isDispatch: constant true
+isRunToCompletion: constant true
+justOutsideOfOccurrences: empty
+localClock: object of Clocks::universalClock
+matingOccurrences: undetermined <undetermined>
+middleTimeSlice: null
+outerSpaceDimension: null
+outgoingTransfers: empty
+outgoingTransfersFromSelf: undetermined <undetermined>
+outsideOfOccurrences: empty
+performers: empty
+portionOf: undetermined <undetermined>
+portionOfLife: undetermined <undetermined>
+portions: undetermined <undetermined>
+predecessors: empty
+runToCompletionScope: undetermined <undetermined>
+sameLifeOccurrences: undetermined <undetermined>
+self: undetermined <undetermined>
+snapshotOf: empty
+snapshots: undetermined <undetermined>
+spaceBoundary: null
+spaceBoundaryOf: empty
+spaceEnclosedOccurrences: undetermined <undetermined>
+spaceInterior: null
+spaceInteriorOf: null
+spaceShotOf: empty
+spaceShots: undetermined <undetermined>
+spaceSliceOf: undetermined <undetermined>
+spaceSlices: undetermined <undetermined>
+spaceTimeCoincidentOccurrences: undetermined <undetermined>
+spaceTimeEnclosedOccurrences: undetermined <undetermined>
+spaceTimeEnclosedPoints: undetermined <undetermined>
+start: undetermined <undetermined>
+suboccurrences: undetermined <undetermined>
+subperformances: undetermined <undetermined>
+successors: empty
+superoccurrence: null
+surroundedByOccurrences: empty
+this: undetermined <undetermined>
+thisPerformance: undetermined <undetermined>
+timeCoincidentOccurrences: undetermined <undetermined>
+timeEnclosedOccurrences: undetermined <undetermined>
+timeSliceOf: undetermined <undetermined>
+timeSlices: undetermined <undetermined>
+unionsOf: empty
+withoutOccurrences: empty
+
+# nonexistent member
+Probe::p1.ownedParts: ERROR no such feature: object has no such feature: p1 has no member ownedParts

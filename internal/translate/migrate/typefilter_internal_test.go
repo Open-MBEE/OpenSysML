@@ -3,6 +3,8 @@ package migrate
 import (
 	"slices"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
 func TestMetaclassFiltersExcludeNewConformingTypes(t *testing.T) {
@@ -16,6 +18,15 @@ func TestMetaclassFiltersExcludeNewConformingTypes(t *testing.T) {
 		{
 			name: "Property",
 			want: `Except(source = WhereType(source = row, type = ("AttributeUsage", "PartUsage", "ItemUsage", "ReferenceUsage", "PortUsage", "ConstraintUsage", "RequirementUsage", "ActionUsage", "StateUsage", "CalculationUsage", "UseCaseUsage", "OccurrenceUsage")), exclude = Except(source = WhereType(source = row, type = ("EventOccurrenceUsage")), exclude = WhereType(source = row, type = ("AttributeUsage", "PartUsage", "ItemUsage", "ReferenceUsage", "PortUsage", "ConstraintUsage", "RequirementUsage", "ActionUsage", "StateUsage", "CalculationUsage", "UseCaseUsage"))))`,
+		},
+		{
+			// A state def and a calc def conform to ActionDefinition; an operation becomes neither.
+			name: "Operation",
+			want: `Except(source = WhereType(source = row, type = ("ActionDefinition")), exclude = WhereType(source = row, type = ("StateDefinition", "CalculationDefinition")))`,
+		},
+		{
+			name: "Activity",
+			want: `Except(source = WhereType(source = row, type = ("ActionDefinition", "CalculationDefinition")), exclude = Except(source = WhereType(source = row, type = ("StateDefinition")), exclude = WhereType(source = row, type = ("CalculationDefinition"))))`,
 		},
 	}
 	for _, tc := range tests {
@@ -77,6 +88,23 @@ func TestMergedTypeFiltersCombineExclusions(t *testing.T) {
 	}
 }
 
+// An Operation table excludes calc defs, an OpaqueBehavior table admits them: together they keep them.
+func TestMergedBehaviorFiltersKeepTheDefinitionsOneAdmits(t *testing.T) {
+	merged := mergeTypeFilters([]typeFilter{
+		metaclassFilter("Operation"),
+		metaclassFilter("OpaqueBehavior"),
+	})
+	if merged.excluding == nil {
+		t.Fatal("merged filter has no exclusions")
+	}
+	if want := []string{typeStateDef, typeCalcDef}; !slices.Equal(merged.excluding.source, want) {
+		t.Errorf("merged exclusion source = %v, want %v", merged.excluding.source, want)
+	}
+	if want := []string{typeCalcDef}; !slices.Equal(merged.excluding.keep, want) {
+		t.Errorf("merged exclusion keep = %v, want %v", merged.excluding.keep, want)
+	}
+}
+
 func TestMergedTypeFiltersWithoutExclusionsStayUnfiltered(t *testing.T) {
 	merged := mergeTypeFilters([]typeFilter{
 		metaclassFilter("Association"),
@@ -97,5 +125,50 @@ func TestMergedExclusionsRetainUnfilteredTypes(t *testing.T) {
 	}
 	if want := []string{typePartDef, typeItemDef}; !slices.Equal(merged.excluding.keep, want) {
 		t.Errorf("merged exclusion keep = %v, want %v", merged.excluding.keep, want)
+	}
+}
+
+func TestToolBlockStereotypeFilterIsTheBlockFilter(t *testing.T) {
+	block := fromTypes("«Block»", stereotypeTypes["Block"])
+	got := toolBlockFilter("Subsystem")
+	if got.label != "«Subsystem»" || !slices.Equal(got.types, block.types) || got.query(qlit("row")).text("") != block.query(qlit("row")).text("") {
+		t.Errorf("Subsystem filter = %+v, want the Block filter labelled «Subsystem»", got)
+	}
+	if got.note == "" {
+		t.Error("a filter by the tool table carries no note")
+	}
+}
+
+func TestSpecializedFilterFollowsModuleGenerals(t *testing.T) {
+	sysml := "http://www.omg.org/spec/SysML/20181001/SysML"
+	ancestors := []sysmlv1.StereotypeRef{
+		{ID: "_nne", Name: "NonNormative", Namespace: sysml},
+		{ID: "_user", Name: "Block", Namespace: "http://example.com/schemas/User.xmi"},
+		{ID: "_block", Name: "Block", Namespace: sysml},
+	}
+	got, ok := specializedFilter("Subsystem", ancestors)
+	if !ok || !slices.Equal(got.types, []string{typePartDef, typeOccurrenceDef}) {
+		t.Errorf("Subsystem :> Block filter = %+v, %v; want the Block types", got, ok)
+	}
+	if _, ok := specializedFilter("Tag", ancestors[:2]); ok {
+		t.Error("a stereotype specializing only a user «Block» filters as a standard block")
+	}
+	omg := sysmlv1.StereotypeRef{ID: sysml + ".xmi#Block", Element: &sysmlv1.Element{ID: sysml + ".xmi#Block", Href: sysml + ".xmi#Block", Name: "Block"}}
+	if got, ok := specializedFilter("Subsystem", []sysmlv1.StereotypeRef{omg}); !ok || !slices.Equal(got.types, []string{typePartDef, typeOccurrenceDef}) {
+		t.Errorf("Subsystem :> an unbundled OMG Block filter = %+v, %v; want the Block types", got, ok)
+	}
+	user := sysmlv1.StereotypeRef{ID: "u.xmi#Block", Element: &sysmlv1.Element{ID: "u.xmi#Block", Href: "http://example.com/schemas/User.xmi#Block", Name: "Block"}}
+	if _, ok := specializedFilter("Subsystem", []sysmlv1.StereotypeRef{user}); ok {
+		t.Error("a stereotype specializing an unbundled user «Block» filters as a standard block")
+	}
+	sysmlProfile := &sysmlv1.Element{ID: "_md_sysml", Type: "Profile", Name: "SysML", Attrs: map[string]string{}}
+	bundled := sysmlv1.StereotypeRef{ID: "_md_block", Element: &sysmlv1.Element{ID: "_md_block", Type: "Stereotype", Name: "Block", Parent: sysmlProfile}}
+	if got, ok := specializedFilter("Structural", []sysmlv1.StereotypeRef{bundled}); !ok || !slices.Equal(got.types, []string{typePartDef, typeOccurrenceDef}) {
+		t.Errorf("Structural :> a snapshot «Block» of the SysML profile nothing applies = %+v, %v; want the Block types", got, ok)
+	}
+	orgProfile := &sysmlv1.Element{ID: "_org", Type: "Profile", Name: "Org", Attrs: map[string]string{"URI": "http://example.com/schemas/Org.xmi"}}
+	orgBlock := sysmlv1.StereotypeRef{ID: "_org_block", Element: &sysmlv1.Element{ID: "_org_block", Type: "Stereotype", Name: "Block", Parent: orgProfile}}
+	if _, ok := specializedFilter("Structural", []sysmlv1.StereotypeRef{orgBlock}); ok {
+		t.Error("a stereotype specializing a user module's own «Block» filters as a standard block")
 	}
 }

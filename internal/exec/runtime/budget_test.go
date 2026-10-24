@@ -277,7 +277,7 @@ func TestSetBudgets(t *testing.T) {
 		{MaxSteps: 1, MaxActionSteps: -1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: 1, MaxSweepRuns: 1, MaxIntegerBits: 1},
 		{MaxSteps: 1, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 0, MaxCalcDepth: 1, MaxSweepRuns: 1, MaxIntegerBits: 1},
 		{MaxSteps: 1, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: 0, MaxSweepRuns: 1, MaxIntegerBits: 1},
-		{MaxSteps: 1, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: MaxCalcDepthCeiling + 1, MaxSweepRuns: 1, MaxIntegerBits: 1},
+		{MaxSteps: 1, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: maxCalcDepthCeiling + 1, MaxSweepRuns: 1, MaxIntegerBits: 1},
 		{MaxSteps: 1, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: 1, MaxSweepRuns: 0, MaxIntegerBits: 1},
 		{MaxSteps: 1, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: 1, MaxSweepRuns: 1, MaxIntegerBits: 0},
 		{MaxSteps: 1, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: 1, MaxSweepRuns: 1, MaxIntegerBits: MinMaxIntegerBits - 1},

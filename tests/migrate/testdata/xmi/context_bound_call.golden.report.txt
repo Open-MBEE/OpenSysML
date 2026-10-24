@@ -6,29 +6,29 @@ ActivityPartition	Host::Run::host	_hostLane	(a partition names who performs its 
 CallBehaviorAction	Host::Run::make	_callMake	-> make	(the behavior acts on a Host through its parameter context, which is bound to Run::context)
 
 ## mapped (26)
-Activity	Consume	_consume	-> Consume
-Parameter	Consume::value	_consumeIn	-> Consume::value
-«Block» Class	Host	_host	-> Host
-Activity	Host::Run	_run	-> Host::Run	(acts on its owner Host, which it takes as its parameter context, since its this is the def's own occurrence)
+Activity	Consume	_consume	-> Model::Consume
+Parameter	Consume::value	_consumeIn	-> Model::Consume::value
+«Block» Class	Host	_host	-> Model::Host
+Activity	Host::Run	_run	-> Model::Host::Run	(acts on its owner Host, which it takes as its parameter context, since its this is the def's own occurrence)
 ActivityFinalNode	Host::Run::<ActivityFinalNode>	_rf	-> final
 ControlFlow	Host::Run::<ControlFlow>	_re2
 ControlFlow	Host::Run::<ControlFlow>	_re3
 InitialNode	Host::Run::<InitialNode>	_ri	-> start
 ObjectFlow	Host::Run::<ObjectFlow>	_re4	(the action waits for the value as well as for the control flow into it, as its pin did)
 CallBehaviorAction	Host::Run::consume	_callConsume	-> consume
-InputPin	Host::Run::consume::value	_consumeArg	-> Host::Run::consume.value	(the pin stands for the parameter value of the definition, which the flows name)
-OutputPin	Host::Run::make::result	_callMakeOut	-> Host::Run::make.integer	(the pin stands for the parameter integer of the definition, which the flows name)
-Port	Host::tx	_tx	-> Host::tx
-Activity	Make	_make	-> Make	(acts on a Host through its ports, which it takes as its parameter context)
+InputPin	Host::Run::consume::value	_consumeArg	-> Model::Host::Run::consume.value	(the pin stands for the parameter value of the definition, which the flows name)
+OutputPin	Host::Run::make::result	_callMakeOut	-> Model::Host::Run::make.integer	(the pin stands for the parameter integer of the definition, which the flows name)
+Port	Host::tx	_tx	-> Model::Host::tx
+Activity	Make	_make	-> Model::Make	(acts on a Host through its ports, which it takes as its parameter context)
 ActivityFinalNode	Make::<ActivityFinalNode>	_mf	-> final
 ControlFlow	Make::<ControlFlow>	_me2
 ControlFlow	Make::<ControlFlow>	_me3
 InitialNode	Make::<InitialNode>	_mi	-> start
 ObjectFlow	Make::<ObjectFlow>	_makeOutFlow
-Parameter	Make::<Parameter>	_makeOut	-> Make::integer
+Parameter	Make::<Parameter>	_makeOut	-> Model::Make::integer
 ValueSpecificationAction	Make::one	_one	-> one
-OutputPin	Make::one::result	_oneOut	-> Make::one.result
-ActivityParameterNode	Make::result	_makeOutNode	-> Make::integer	(the flows to and from the node name the parameter integer)
+OutputPin	Make::one::result	_oneOut	-> Model::Make::one.result
+ActivityParameterNode	Make::result	_makeOutNode	-> Model::Make::integer	(the flows to and from the node name the parameter integer)
 SendSignalAction	Make::send ping	_send	-> 'send ping'
-Model	Model	_m	(the root model's members are written at the top level)
-Signal	Ping	_ping	-> Ping
+Model	Model	_m	-> Model	(written as package Model)
+Signal	Ping	_ping	-> Model::Ping

@@ -566,18 +566,21 @@ calc def Totals :> Query {
 	)
 }
 `)
+	// A `[*]` collection the model leaves open holds its subsetters and possibly
+	// more, so a roll-up over one read at model level is undetermined: an absent
+	// cell, as an unbound leaf is. A leaf redefining totalMass projects its mass.
 	for root, want := range map[string]struct {
 		total    string
 		children []string
-		count    int64
+		count    string
 	}{
-		"depot":    {"124.0 [kg]", []string{"10 [kg]", "10 [kg]"}, 2},
-		"Stack":    {"12.0 [kg]", []string{"1 [kg]", "1 [kg]"}, 2},
-		"Assembly": {"1 [kg]", nil, 0},
+		"depot":    {"", nil, ""},
+		"Stack":    {"", nil, ""},
+		"Assembly": {"1 [kg]", nil, ""},
 	} {
 		result := quantityRows(t, fixture, "Totals", root)
 		if got := cellTexts(t, result, 1); !slices.Equal(got, slices.Repeat([]string{want.total}, len(result.Rows()))) {
-			t.Errorf("%s: totalMass = %v, want every row %s", root, got, want.total)
+			t.Errorf("%s: totalMass = %q, want every row %q", root, got, want.total)
 		}
 		var masses []string
 		for _, value := range result.Rows()[0].Cells()[2].Values() {
@@ -590,8 +593,8 @@ calc def Totals :> Query {
 		if !slices.Equal(masses, want.children) {
 			t.Errorf("%s: childMasses = %v, want %v", root, masses, want.children)
 		}
-		if got := integerTexts(t, result, 3); got[0] != want.count {
-			t.Errorf("%s: children = %v, want %d", root, got, want.count)
+		if got := cellTexts(t, result, 3); got[0] != want.count {
+			t.Errorf("%s: children = %q, want %q", root, got, want.count)
 		}
 	}
 }
@@ -635,10 +638,12 @@ calc def Totals :> Query {
 	if got := cellTexts(t, result, 0); !slices.Equal(got, []string{"leaf", "stack"}) {
 		t.Fatalf("names = %v", got)
 	}
-	if got := cellTexts(t, result, 1); !slices.Equal(got, []string{"100 [kg]", "210 [kg]"}) {
-		t.Errorf("totalMass = %v, want [100 [kg] 210 [kg]]", got)
+	// The stack's `subcomponents [*]` holds `a` and `b` and, the model leaving
+	// its count open, possibly more: its roll-up is undetermined, an absent cell.
+	if got := cellTexts(t, result, 1); !slices.Equal(got, []string{"100 [kg]", ""}) {
+		t.Errorf("totalMass = %q, want [100 [kg] and absent]", got)
 	}
-	for row, want := range [][]string{nil, {"100 [kg]", "100 [kg]"}} {
+	for row, want := range [][]string{nil, nil} {
 		var masses []string
 		for _, value := range result.Rows()[row].Cells()[2].Values() {
 			quantity, ok := value.Quantity()

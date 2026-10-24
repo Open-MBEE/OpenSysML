@@ -46,8 +46,8 @@ func stationObserving(body string) string {
 // assignment to its currentTime is refused with a typed error, not stored.
 func testClockReadCurrentTimeNotAssigned(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, stationObserving("assign localClock.currentTime := 5.0;"), "test::Station")
-	if !errors.Is(err, ErrClockNotAssignable) || !strings.Contains(err.Error(), "assignment to localClock.currentTime") {
-		t.Fatalf("error = %v, want ErrClockNotAssignable over localClock.currentTime", err)
+	if !errors.Is(err, errClockNotAssignable) || !strings.Contains(err.Error(), "assignment to localClock.currentTime") {
+		t.Fatalf("error = %v, want errClockNotAssignable over localClock.currentTime", err)
 	}
 }
 
@@ -71,8 +71,8 @@ func testClockReadOwnCurrentTimeNotAssigned(t *testing.T) {
 		}
 	}`
 	_, _, err := instantiateWithLibraries(t, src, "test::Chrono")
-	if !errors.Is(err, ErrClockNotAssignable) || !strings.Contains(err.Error(), "assignment to currentTime") {
-		t.Fatalf("error = %v, want ErrClockNotAssignable over a bare currentTime", err)
+	if !errors.Is(err, errClockNotAssignable) || !strings.Contains(err.Error(), "assignment to currentTime") {
+		t.Fatalf("error = %v, want errClockNotAssignable over a bare currentTime", err)
 	}
 }
 
@@ -115,8 +115,8 @@ func chronoStamping(tick, observe string) string {
 // the same feature under another name, so a write to it is refused too.
 func testClockReadRedefinedCurrentTimeNotAssigned(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, chronoStamping("assign now := 5.0;", ""), "test::Chrono")
-	if !errors.Is(err, ErrClockNotAssignable) || !strings.Contains(err.Error(), "assignment to now") {
-		t.Fatalf("error = %v, want ErrClockNotAssignable over a redefined currentTime", err)
+	if !errors.Is(err, errClockNotAssignable) || !strings.Contains(err.Error(), "assignment to now") {
+		t.Fatalf("error = %v, want errClockNotAssignable over a redefined currentTime", err)
 	}
 }
 
@@ -124,8 +124,8 @@ func testClockReadRedefinedCurrentTimeNotAssigned(t *testing.T) {
 // a part holding the clock is refused on the object the chain reaches.
 func testClockReadRedefinedCurrentTimeNotAssignedThroughPart(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, chronoStamping("", "assign chrono.now := 5.0;"), "test::Station")
-	if !errors.Is(err, ErrClockNotAssignable) || !strings.Contains(err.Error(), "assignment to chrono.now") {
-		t.Fatalf("error = %v, want ErrClockNotAssignable over chrono.now", err)
+	if !errors.Is(err, errClockNotAssignable) || !strings.Contains(err.Error(), "assignment to chrono.now") {
+		t.Fatalf("error = %v, want errClockNotAssignable over chrono.now", err)
 	}
 }
 
@@ -199,7 +199,7 @@ func testClockReadInstantAgainstNamedScale(t *testing.T) {
 		}
 	}`
 	_, _, err := instantiateWithLibraries(t, src, "test::Station")
-	if !errors.Is(err, ErrUnevaluableLibraryFunction) || !strings.Contains(err.Error(), "Time::UTC") {
-		t.Fatalf("error = %v, want ErrUnevaluableLibraryFunction naming Time::UTC", err)
+	if !errors.Is(err, errUnevaluableLibraryFunction) || !strings.Contains(err.Error(), "Time::UTC") {
+		t.Fatalf("error = %v, want errUnevaluableLibraryFunction naming Time::UTC", err)
 	}
 }

@@ -3,6 +3,7 @@ stmt action body
 enter action node: state behavior busy
     eval literal 1 -> 1
   eval index -> 1 [s]
+choice at t=1.0: next do a1, dispatch time b1 1->sync (unordered; took do a1 first; order-dependent)
 do: a1
   stmt assign log
       eval feature log -> ""

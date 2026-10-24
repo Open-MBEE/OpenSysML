@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEvent" signal="_stop"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_pingEvent" signal="_ping"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_machine" name="Machine" classifierBehavior="_run">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_run" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r1" name="R1">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_r1Initial"/>
+          <subvertex xmi:type="uml:State" xmi:id="_a" name="A"/>
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_end" kind="terminate"/>
+          <transition xmi:type="uml:Transition" xmi:id="_r1Start" source="_r1Initial" target="_a"/>
+          <transition xmi:type="uml:Transition" xmi:id="_stopTransition" source="_a" target="_end">
+            <trigger xmi:type="uml:Trigger" xmi:id="_stopTrigger" event="_stopEvent"/>
+          </transition>
+        </region>
+        <region xmi:type="uml:Region" xmi:id="_r2" name="R2">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_r2Initial"/>
+          <subvertex xmi:type="uml:State" xmi:id="_b" name="B"/>
+          <subvertex xmi:type="uml:State" xmi:id="_c" name="C"/>
+          <transition xmi:type="uml:Transition" xmi:id="_r2Start" source="_r2Initial" target="_b"/>
+          <transition xmi:type="uml:Transition" xmi:id="_pingTransition" source="_b" target="_c">
+            <trigger xmi:type="uml:Trigger" xmi:id="_pingTrigger" event="_pingEvent"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_block" base_Class="_machine"/>
+</xmi:XMI>

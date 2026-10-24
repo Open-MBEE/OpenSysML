@@ -7,9 +7,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// HeldObject is one object a feature of another object holds, under the segment
+// heldObjectEntry is one object a feature of another object holds, under the segment
 // a path names it by: the feature's name, indexed for a collection's element.
-type HeldObject struct {
+type heldObjectEntry struct {
 	Feature  string
 	Segment  string
 	Instance *Instance
@@ -32,11 +32,11 @@ func (e *HeldObjectsError) Unwrap() error { return e.Err }
 // materializing lazy ones as reading them does. An object reached through several
 // features is listed once, under a scalar feature when it has one. A feature that
 // cannot be read is a HeldObjectsError.
-func (ctx *Context) HeldObjects(inst *Instance) ([]HeldObject, error) {
+func (ctx *Context) HeldObjects(inst *Instance) ([]heldObjectEntry, error) {
 	if err := ctx.checkNotDestroyed(inst); err != nil {
 		return nil, err
 	}
-	var out []HeldObject
+	var out []heldObjectEntry
 	var indexedAt []bool
 	at := make(map[int64]int)
 	read := make(map[*FeatureValue]bool)
@@ -49,7 +49,7 @@ func (ctx *Context) HeldObjects(inst *Instance) ([]HeldObject, error) {
 		if !ok {
 			return
 		}
-		held := HeldObject{Feature: feature, Segment: segment, Instance: child}
+		held := heldObjectEntry{Feature: feature, Segment: segment, Instance: child}
 		if i, seen := at[id]; seen {
 			if indexedAt[i] && !indexed {
 				out[i], indexedAt[i] = held, false

@@ -170,16 +170,14 @@ func (c *compiler) validColumnPath(path string) bool {
 	if !ok {
 		return false
 	}
-	for _, metadata := range c.index.LookupQualified(strings.Join(metadataSegments, "::")) {
-		if metadata.Kind != symbols.SymbolMetadataDef {
-			continue
-		}
-		member, ok := c.model.LookupMember(metadata, feature)
-		if ok && member != nil && member.IsFeature() {
-			return true
-		}
+	// The def is named as WhereMetadata names it and the executor reads it:
+	// by qualified name, or by a name unique over the model.
+	metadata := c.index.LookupUnique(strings.Join(metadataSegments, "::"))
+	if metadata == nil || metadata.Kind != symbols.SymbolMetadataDef {
+		return false
 	}
-	return false
+	member, ok := c.model.LookupMember(metadata, feature)
+	return ok && member != nil && member.IsFeature()
 }
 
 // columnName reads a column's name, which must be a string literal.

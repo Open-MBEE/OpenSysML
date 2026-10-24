@@ -57,7 +57,7 @@ func TestSelfCheckAppliesValidationLibraryToWorkspaceElements(t *testing.T) {
 		"validateAttributeUsageIsReference":             7,
 	} {
 		got := 0
-		for name, count := range stats.applications {
+		for name, count := range stats.Applications {
 			if strings.HasSuffix(name, "::"+constraint) {
 				got = count
 			}
@@ -66,11 +66,11 @@ func TestSelfCheckAppliesValidationLibraryToWorkspaceElements(t *testing.T) {
 			t.Errorf("%s applications = %d, want %d", constraint, got, want)
 		}
 	}
-	if stats.violations != 0 {
-		t.Errorf("fixture produced %d violations, want variations to be abstract", stats.violations)
+	if stats.Violations != 0 {
+		t.Errorf("fixture produced %d violations, want variations to be abstract", stats.Violations)
 	}
-	if stats.evaluationErrors != 0 {
-		t.Errorf("the corrected batch-2 constraints had %d evaluation errors", stats.evaluationErrors)
+	if stats.EvaluationErrors != 0 {
+		t.Errorf("the corrected batch-2 constraints had %d evaluation errors", stats.EvaluationErrors)
 	}
 }
 
@@ -85,7 +85,7 @@ func TestSelfCheckReportsViolationsAndUnevaluatedConstraints(t *testing.T) {
 			}
 			constraint def inspectTypeSpecializations {
 				in element : KerML::Type;
-				element.ownedRelationship->isEmpty();
+				element.aliasIds->isEmpty();
 			}
 			part def P { part c; }
 		}
@@ -100,14 +100,14 @@ func TestSelfCheckReportsViolationsAndUnevaluatedConstraints(t *testing.T) {
 	}
 
 	verdicts, stats := s.selfCheckWithCounts("T", true)
-	if stats.violations == 0 {
+	if stats.Violations == 0 {
 		t.Fatal("false constraint produced no violation verdicts")
 	}
-	if stats.unevaluated == 0 {
+	if stats.Unevaluated == 0 {
 		t.Fatal("unsupported reflective feature was not counted as unevaluated")
 	}
-	if stats.evaluationErrors != 0 {
-		t.Fatalf("self-check had %d evaluation errors: %+v", stats.evaluationErrors, verdicts)
+	if stats.EvaluationErrors != 0 {
+		t.Fatalf("self-check had %d evaluation errors: %+v", stats.EvaluationErrors, verdicts)
 	}
 	foundViolation, foundUnevaluated := false, false
 	for _, verdict := range verdicts {
@@ -128,7 +128,7 @@ func TestSelfCheckReportsViolationsAndUnevaluatedConstraints(t *testing.T) {
 	}
 	summary := verdicts[len(verdicts)-1]
 	if summary.Status != VerdictFails ||
-		!strings.Contains(strings.Join(summary.Lines, "\n"), ", "+strconv.Itoa(stats.unevaluated)+" unevaluated") {
+		!strings.Contains(strings.Join(summary.Lines, "\n"), ", "+strconv.Itoa(stats.Unevaluated)+" unevaluated") {
 		t.Fatalf("summary with a violation and unevaluated checks = %+v, want a failing summary", summary)
 	}
 }
@@ -139,7 +139,7 @@ func TestSelfCheckUnevaluatedOnlyDoesNotFailSummary(t *testing.T) {
 			private import SequenceFunctions::*;
 			constraint def inspectTypeSpecializations {
 				in element : KerML::Type;
-				element.ownedRelationship->isEmpty();
+				element.aliasIds->isEmpty();
 			}
 			part def P;
 		}
@@ -154,7 +154,7 @@ func TestSelfCheckUnevaluatedOnlyDoesNotFailSummary(t *testing.T) {
 	}
 
 	verdicts, stats := s.selfCheckWithCounts("T", true)
-	if stats.violations != 0 || stats.evaluationErrors != 0 || stats.unevaluated == 0 {
+	if stats.Violations != 0 || stats.EvaluationErrors != 0 || stats.Unevaluated == 0 {
 		t.Fatalf("self-check counts = %+v, want unevaluated outcomes only", stats)
 	}
 	foundUnevaluated := false
@@ -169,7 +169,7 @@ func TestSelfCheckUnevaluatedOnlyDoesNotFailSummary(t *testing.T) {
 	}
 	summary := verdicts[len(verdicts)-1]
 	if summary.Status != VerdictHolds ||
-		!strings.Contains(strings.Join(summary.Lines, "\n"), ", "+strconv.Itoa(stats.unevaluated)+" unevaluated") {
+		!strings.Contains(strings.Join(summary.Lines, "\n"), ", "+strconv.Itoa(stats.Unevaluated)+" unevaluated") {
 		t.Fatalf("unevaluated-only summary = %+v, want a passing summary with its unevaluated count", summary)
 	}
 }
@@ -188,7 +188,7 @@ func TestSelfCheckRuntimeTypeErrorMakesSummaryUnresolved(t *testing.T) {
 	s.SubmitFiles([]SourceFile{{Name: "type_error_self_check.sysml", Text: src}})
 
 	verdicts, stats := s.selfCheckWithCounts("T", true)
-	if stats.checks == 0 || stats.violations != 0 || stats.unevaluated != 0 || stats.evaluationErrors == 0 {
+	if stats.Checks == 0 || stats.Violations != 0 || stats.Unevaluated != 0 || stats.EvaluationErrors == 0 {
 		t.Fatalf("self-check counts = %+v, want evaluation errors only", stats)
 	}
 	foundError := false
@@ -410,7 +410,7 @@ func TestSelfCheckRequirementSubjectInputOrdering(t *testing.T) {
 	}
 
 	verdicts, stats := s.selfCheckWithCounts("SysMLValidation", true)
-	if stats.checks == 0 || stats.violations != 0 || stats.evaluationErrors != 0 {
+	if stats.Checks == 0 || stats.Violations != 0 || stats.EvaluationErrors != 0 {
 		t.Fatalf("self-check counts = %+v; verdicts = %+v", stats, verdicts)
 	}
 }
@@ -433,10 +433,10 @@ func TestSelfCheckPartUsageDefinitionForObjectivesAndVariants(t *testing.T) {
 	}
 
 	verdicts, stats := s.selfCheckWithCounts("SysMLValidation", true)
-	if stats.checks == 0 || stats.violations != 0 || stats.evaluationErrors != 0 {
+	if stats.Checks == 0 || stats.Violations != 0 || stats.EvaluationErrors != 0 {
 		t.Fatalf("self-check counts = %+v; verdicts = %+v", stats, verdicts)
 	}
-	if got := stats.applications["SysMLValidation::validatePartUsagePartDefinition"]; got != 2 {
+	if got := stats.Applications["SysMLValidation::validatePartUsagePartDefinition"]; got != 2 {
 		t.Errorf("part-definition constraint applications = %d, want 2 (subject and part, not objective or variant reference)", got)
 	}
 }
@@ -460,11 +460,11 @@ func TestSelfCheckMetadataFeatureMetaclass(t *testing.T) {
 	}
 
 	verdicts, stats := s.selfCheckWithCounts("SysMLValidation", true)
-	if stats.applications["SysMLValidation::validateMetadataFeatureMetaclass"] == 0 {
+	if stats.Applications["SysMLValidation::validateMetadataFeatureMetaclass"] == 0 {
 		t.Fatal("SelfCheck() did not apply validateMetadataFeatureMetaclass")
 	}
-	if stats.violations != 0 || stats.evaluationErrors != 0 {
-		t.Errorf("metadata feature self-check had %d violations and %d errors: %+v", stats.violations, stats.evaluationErrors, verdicts)
+	if stats.Violations != 0 || stats.EvaluationErrors != 0 {
+		t.Errorf("metadata feature self-check had %d violations and %d errors: %+v", stats.Violations, stats.EvaluationErrors, verdicts)
 	}
 }
 
@@ -490,12 +490,12 @@ func TestSelfCheckVariationDefinitionsAndUsagesAreAbstract(t *testing.T) {
 		"validateDefinitionVariationIsAbstract",
 		"validateUsageVariationIsAbstract",
 	} {
-		if stats.applications["SysMLValidation::"+constraint] == 0 {
-			t.Errorf("SelfCheck() did not apply %s: %+v", constraint, stats.applications)
+		if stats.Applications["SysMLValidation::"+constraint] == 0 {
+			t.Errorf("SelfCheck() did not apply %s: %+v", constraint, stats.Applications)
 		}
 	}
-	if stats.violations != 0 || stats.evaluationErrors != 0 {
-		t.Errorf("variation self-check had %d violations and %d errors", stats.violations, stats.evaluationErrors)
+	if stats.Violations != 0 || stats.EvaluationErrors != 0 {
+		t.Errorf("variation self-check had %d violations and %d errors", stats.Violations, stats.EvaluationErrors)
 	}
 }
 
@@ -520,11 +520,11 @@ func TestSelfCheckReferentialUsagesAreNotComposite(t *testing.T) {
 		t.Fatal("fixture has model errors")
 	}
 	_, stats := s.selfCheckWithCounts("SysMLValidation", true)
-	if stats.applications["SysMLValidation::validateUsageIsReferential"] == 0 {
+	if stats.Applications["SysMLValidation::validateUsageIsReferential"] == 0 {
 		t.Fatal("SelfCheck() did not apply validateUsageIsReferential")
 	}
-	if stats.violations != 0 || stats.evaluationErrors != 0 {
-		t.Errorf("referential self-check had %d violations and %d errors", stats.violations, stats.evaluationErrors)
+	if stats.Violations != 0 || stats.EvaluationErrors != 0 {
+		t.Errorf("referential self-check had %d violations and %d errors", stats.Violations, stats.EvaluationErrors)
 	}
 }
 
@@ -544,11 +544,11 @@ func TestSelfCheckConnectionDefinitionsAreSufficient(t *testing.T) {
 		t.Fatal("fixture has model errors")
 	}
 	verdicts, stats := s.selfCheckWithCounts("SysMLValidation", true)
-	if stats.applications["SysMLValidation::validateConnectionDefinitionIsSufficient"] == 0 {
+	if stats.Applications["SysMLValidation::validateConnectionDefinitionIsSufficient"] == 0 {
 		t.Fatal("SelfCheck() did not apply validateConnectionDefinitionIsSufficient")
 	}
-	if stats.violations != 0 || stats.evaluationErrors != 0 {
-		t.Errorf("connection definition self-check had %d violations and %d errors: %+v", stats.violations, stats.evaluationErrors, verdicts)
+	if stats.Violations != 0 || stats.EvaluationErrors != 0 {
+		t.Errorf("connection definition self-check had %d violations and %d errors: %+v", stats.Violations, stats.EvaluationErrors, verdicts)
 	}
 }
 
@@ -593,11 +593,11 @@ func TestSelfCheckConnectorRelatedFeaturesCoverEndForms(t *testing.T) {
 	}
 
 	verdicts, stats := s.selfCheckWithCounts("SysMLValidation", true)
-	if stats.evaluationErrors != 0 {
-		t.Fatalf("self-check had %d evaluation errors: %+v", stats.evaluationErrors, verdicts)
+	if stats.EvaluationErrors != 0 {
+		t.Fatalf("self-check had %d evaluation errors: %+v", stats.EvaluationErrors, verdicts)
 	}
-	if stats.applications["SysMLValidation::validateConnectorRelatedFeatures"] < 4 {
-		t.Fatalf("SelfCheck() did not cover the connector forms: %+v", stats.applications)
+	if stats.Applications["SysMLValidation::validateConnectorRelatedFeatures"] < 4 {
+		t.Fatalf("SelfCheck() did not cover the connector forms: %+v", stats.Applications)
 	}
 	for _, verdict := range verdicts[:len(verdicts)-1] {
 		if strings.Contains(strings.Join(verdict.Lines, "\n"), "validateConnectorRelatedFeatures") &&
@@ -627,12 +627,12 @@ func TestSelfCheckTopLevelKerMLSuccessionRelatedFeatures(t *testing.T) {
 	}
 
 	verdicts, stats := s.selfCheckWithCounts("SysMLValidation", true)
-	if stats.applications["SysMLValidation::validateConnectorRelatedFeatures"] == 0 {
+	if stats.Applications["SysMLValidation::validateConnectorRelatedFeatures"] == 0 {
 		t.Fatal("SelfCheck() did not apply validateConnectorRelatedFeatures")
 	}
-	if stats.violations != 0 || stats.evaluationErrors != 0 {
+	if stats.Violations != 0 || stats.EvaluationErrors != 0 {
 		t.Errorf("top-level succession self-check had %d violations and %d errors: %+v",
-			stats.violations, stats.evaluationErrors, verdicts)
+			stats.Violations, stats.EvaluationErrors, verdicts)
 	}
 }
 
@@ -702,11 +702,11 @@ func TestSelfCheckPackageAppliesARuleThatHolds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stats.applications["Acme::Rules::partDefinitionHasDocumentation"] == 0 {
-		t.Fatalf("rule was not applied: %+v", stats.applications)
+	if stats.Applications["Acme::Rules::partDefinitionHasDocumentation"] == 0 {
+		t.Fatalf("rule was not applied: %+v", stats.Applications)
 	}
-	if stats.violations != 0 || stats.evaluationErrors != 0 {
-		t.Fatalf("documented part defs produced %d violations and %d errors: %+v", stats.violations, stats.evaluationErrors, verdicts)
+	if stats.Violations != 0 || stats.EvaluationErrors != 0 {
+		t.Fatalf("documented part defs produced %d violations and %d errors: %+v", stats.Violations, stats.EvaluationErrors, verdicts)
 	}
 }
 
@@ -729,7 +729,7 @@ func TestSelfCheckPackageReportsAViolationUnderItsQualifiedName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stats.violations == 0 {
+	if stats.Violations == 0 {
 		t.Fatalf("undocumented part def produced no violation: %+v", verdicts)
 	}
 	found := false
@@ -764,7 +764,7 @@ func TestSelfCheckPackageEvaluationErrorLeavesSummaryUnresolved(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stats.evaluationErrors == 0 {
+	if stats.EvaluationErrors == 0 {
 		t.Fatalf("non-Boolean rule produced no evaluation error: %+v", stats)
 	}
 	if summary := verdicts[len(verdicts)-1]; summary.Status != VerdictUnresolved {
@@ -824,7 +824,7 @@ func TestSelfCheckPackageSkipsANonMetaclassParameterWithAWarning(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"Acme::Rules::integerRule", "Acme::Rules::modelTypeRule"} {
-		if stats.applications[name] != 0 {
+		if stats.Applications[name] != 0 {
 			t.Errorf("skipped rule %s was applied", name)
 		}
 		found := false
@@ -839,7 +839,7 @@ func TestSelfCheckPackageSkipsANonMetaclassParameterWithAWarning(t *testing.T) {
 			t.Errorf("no skip warning for %s: %+v", name, verdicts)
 		}
 	}
-	if stats.applications["Acme::Rules::holdsRule"] == 0 {
+	if stats.Applications["Acme::Rules::holdsRule"] == 0 {
 		t.Error("the metaclass-typed rule was not applied")
 	}
 }
@@ -886,8 +886,8 @@ func TestSelfCheckPackageAppliesNestedPackageConstraints(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stats.applications["Acme::Rules::Nested::partDefinitionHasDocumentation"] == 0 {
-		t.Fatalf("nested constraint was not applied: %+v", stats.applications)
+	if stats.Applications["Acme::Rules::Nested::partDefinitionHasDocumentation"] == 0 {
+		t.Fatalf("nested constraint was not applied: %+v", stats.Applications)
 	}
 }
 
@@ -915,8 +915,8 @@ func TestSelfCheckAppliesSeveralPackagesAtOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"Acme::Rules::documented", "Beta::anything"} {
-		if stats.applications[name] == 0 {
-			t.Errorf("%s was not applied: %+v", name, stats.applications)
+		if stats.Applications[name] == 0 {
+			t.Errorf("%s was not applied: %+v", name, stats.Applications)
 		}
 	}
 }
@@ -945,8 +945,8 @@ func TestSelfCheckPackageElementsAreNotChecked(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stats.elements != baseline.elements {
-		t.Errorf("elements = %d, want %d as checked of the model alone", stats.elements, baseline.elements)
+	if stats.Elements != baseline.Elements {
+		t.Errorf("elements = %d, want %d as checked of the model alone", stats.Elements, baseline.Elements)
 	}
 	for _, verdict := range verdicts {
 		if strings.Contains(verdict.Subject, "for Acme::") {
@@ -993,9 +993,9 @@ func TestSelfCheckPackageNamingTheBundledPackageDoesNotDoubleApply(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for name, want := range bundled.applications {
-		if doubled.applications[name] != want {
-			t.Errorf("%s applications = %d, want %d", name, doubled.applications[name], want)
+	for name, want := range bundled.Applications {
+		if doubled.Applications[name] != want {
+			t.Errorf("%s applications = %d, want %d", name, doubled.Applications[name], want)
 		}
 	}
 	for _, verdict := range verdicts {
@@ -1027,8 +1027,8 @@ func TestSelfCheckPackageReopenedAcrossFilesAppliesOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stats.applications["Acme::Rules::documented"] == 0 {
-		t.Fatalf("re-opened rule was not applied: %+v", stats.applications)
+	if stats.Applications["Acme::Rules::documented"] == 0 {
+		t.Fatalf("re-opened rule was not applied: %+v", stats.Applications)
 	}
 	for _, verdict := range verdicts {
 		if strings.Contains(strings.Join(verdict.Lines, "\n"), "has no applicable constraint definitions") {
@@ -1057,8 +1057,8 @@ func TestSelfCheckPackageParentAndNestedBothRequestedWarnForNeither(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stats.applications["Acme::Rules::Nested::documented"] == 0 {
-		t.Fatalf("nested rule was not applied: %+v", stats.applications)
+	if stats.Applications["Acme::Rules::Nested::documented"] == 0 {
+		t.Fatalf("nested rule was not applied: %+v", stats.Applications)
 	}
 	for _, verdict := range verdicts {
 		if strings.Contains(strings.Join(verdict.Lines, "\n"), "has no applicable constraint definitions") {
@@ -1084,8 +1084,8 @@ func TestSelfCheckPackageQuotedSegmentsResolve(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stats.applications["Acme::Modeling Rules::documented"] == 0 {
-		t.Fatalf("quoted rule was not applied: %+v", stats.applications)
+	if stats.Applications["Acme::Modeling Rules::documented"] == 0 {
+		t.Fatalf("quoted rule was not applied: %+v", stats.Applications)
 	}
 }
 
@@ -1193,15 +1193,15 @@ class K2 conjugates KB;
 		"validateFeatureOwnedReferenceSubsetting",
 		"validateFeatureOwnedCrossSubsetting",
 	} {
-		if stats.applications["SysMLValidation::"+constraint] == 0 {
+		if stats.Applications["SysMLValidation::"+constraint] == 0 {
 			t.Errorf("%s was never applied", constraint)
 		}
 	}
-	if stats.violations != 0 {
-		t.Errorf("clean fixtures produced %d violations: %+v", stats.violations, verdicts)
+	if stats.Violations != 0 {
+		t.Errorf("clean fixtures produced %d violations: %+v", stats.Violations, verdicts)
 	}
-	if stats.evaluationErrors != 0 {
-		t.Errorf("relationship constraints had %d evaluation errors: %+v", stats.evaluationErrors, verdicts)
+	if stats.EvaluationErrors != 0 {
+		t.Errorf("relationship constraints had %d evaluation errors: %+v", stats.EvaluationErrors, verdicts)
 	}
 }
 
@@ -1221,8 +1221,8 @@ func TestSelfCheckKerMLNotationTypesKeepBaseClassification(t *testing.T) {
 		t.Fatal("fixture has model errors")
 	}
 	_, stats := s.selfCheckWithCounts("SysMLValidation", true)
-	if stats.violations != 0 || stats.evaluationErrors != 0 {
-		t.Errorf("self-check had %d violations and %d errors", stats.violations, stats.evaluationErrors)
+	if stats.Violations != 0 || stats.EvaluationErrors != 0 {
+		t.Errorf("self-check had %d violations and %d errors", stats.Violations, stats.EvaluationErrors)
 	}
 }
 
@@ -1319,13 +1319,13 @@ func TestSelfCheckVariationSpecializesNonVariation(t *testing.T) {
 		t.Fatal("fixture has model errors")
 	}
 	verdicts, stats := s.selfCheckWithCounts("SysMLValidation", false)
-	if stats.applications["SysMLValidation::validateDefinitionVariationSpecialization"] == 0 {
+	if stats.Applications["SysMLValidation::validateDefinitionVariationSpecialization"] == 0 {
 		t.Fatal("validateDefinitionVariationSpecialization was never applied")
 	}
-	if stats.applications["SysMLValidation::validateUsageVariationSpecialization"] == 0 {
+	if stats.Applications["SysMLValidation::validateUsageVariationSpecialization"] == 0 {
 		t.Fatal("validateUsageVariationSpecialization was never applied")
 	}
-	if stats.violations != 0 {
-		t.Errorf("clean fixture produced %d violations: %+v", stats.violations, verdicts)
+	if stats.Violations != 0 {
+		t.Errorf("clean fixture produced %d violations: %+v", stats.Violations, verdicts)
 	}
 }

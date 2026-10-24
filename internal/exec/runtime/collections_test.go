@@ -76,7 +76,7 @@ package test {
 		t.Fatalf("result declares %T, want a usage", sym.Decl)
 	}
 	ctx := NewContext(typedModel(model, resolver), maxSteps)
-	return NewEvalContext(ctx, scope), decl.Value
+	return newEvalContext(ctx, scope), decl.Value
 }
 
 // intsOf renders a value's elements as integers, failing the test where any
@@ -324,8 +324,8 @@ func TestCollectionOperationErrors(t *testing.T) {
 		{"xs->collect(xs)", ErrTypeMismatch},
 		{"sum(flags)", ErrTypeMismatch},
 		{"product((1, \"a\"))", ErrTypeMismatch},
-		{"flags->allTrue(xs)", ErrCalcArity},
-		{"xs->size(2)", ErrCalcArity},
+		{"flags->allTrue(xs)", errCalcArity},
+		{"xs->size(2)", errCalcArity},
 		{"xs->subsequence(1, 4)", ErrIndexOutOfRange},
 		{"xs->subsequence(0)", ErrIndexOutOfRange},
 		{"xs->collect {in x; x + \"a\"}", ErrTypeMismatch},
@@ -348,8 +348,8 @@ func TestCollectionOperationErrors(t *testing.T) {
 		{"flags->maximize {in x; x}", ErrTypeMismatch},
 		// A receiver binds by position, so it names no parameter of a call whose
 		// arguments are named: reported rather than dropped.
-		{"xs->size(seq = xs)", ErrReceiverWithNamedArgs},
-		{"xs->collect(source = xs)", ErrReceiverWithNamedArgs},
+		{"xs->size(seq = xs)", errReceiverWithNamedArgs},
+		{"xs->collect(source = xs)", errReceiverWithNamedArgs},
 	}
 	for _, tt := range tests {
 		got, err := evalCollectionExpr(t, tt.expr)
@@ -431,10 +431,10 @@ package test {
 	if !ok {
 		t.Fatalf("result declares %T, want a usage", sym.Decl)
 	}
-	ec := NewEvalContext(NewContext(typedModel(model, resolver), 10000), pkg.Scope)
+	ec := newEvalContext(NewContext(typedModel(model, resolver), 10000), pkg.Scope)
 	got, err := ec.Eval(decl.Value)
-	if !errors.Is(err, ErrReceiverWithNamedArgs) {
-		t.Fatalf("factor->scale(n = 1) = (%v, %v), want %v", got, err, ErrReceiverWithNamedArgs)
+	if !errors.Is(err, errReceiverWithNamedArgs) {
+		t.Fatalf("factor->scale(n = 1) = (%v, %v), want %v", got, err, errReceiverWithNamedArgs)
 	}
 }
 
@@ -475,10 +475,10 @@ func TestCollectionOperationsOverSets(t *testing.T) {
 // IndexExpr rest on: `n [unit]` is a quantity and `seq#(i)` is an index, and
 // neither reads as the other.
 func TestSequenceIndexKeepsQuantityForm(t *testing.T) {
-	if _, err := evalCollectionExpr(t, "xs#(1) [m]"); !errors.Is(err, ErrNotAQuantity) {
+	if _, err := evalCollectionExpr(t, "xs#(1) [m]"); !errors.Is(err, errNotAQuantity) {
 		// The model of this test declares no unit, so the quantity form fails
 		// as a quantity — not as an index.
-		t.Errorf("xs#(1) [m] error = %v, want ErrNotAQuantity", err)
+		t.Errorf("xs#(1) [m] error = %v, want errNotAQuantity", err)
 	}
 	got, err := evalCollectionExpr(t, "xs#(2)")
 	if err != nil || !valueEqual(got, integerValue(2)) {

@@ -91,6 +91,10 @@ func (a *ConnectAdapter) ExecuteAction(ctx context.Context, req *connect.Request
 	return connectCall(ctx, req, a.svc.ExecuteAction)
 }
 
+func (a *ConnectAdapter) CheckBehavior(ctx context.Context, req *connect.Request[pb.CheckBehaviorRequest]) (*connect.Response[pb.CheckBehaviorResponse], error) {
+	return connectCall(ctx, req, a.svc.CheckBehavior)
+}
+
 // ExecuteState runs a state machine over the events given.
 func (a *ConnectAdapter) ExecuteState(ctx context.Context, req *connect.Request[pb.ExecuteStateRequest]) (*connect.Response[pb.ExecuteStateResponse], error) {
 	return connectCall(ctx, req, a.svc.ExecuteState)
@@ -147,6 +151,21 @@ func (a *ConnectAdapter) RunSweep(ctx context.Context, req *connect.Request[pb.R
 	return connectCall(ctx, req, a.svc.RunSweep)
 }
 
+// RecordRun runs an analysis case and records the runs into the model.
+func (a *ConnectAdapter) RecordRun(ctx context.Context, req *connect.Request[pb.RecordRunRequest]) (*connect.Response[pb.RecordRunResponse], error) {
+	return connectCall(ctx, req, a.svc.RecordRun)
+}
+
+// SelfCheck applies the reflective SysMLValidation constraints to every element of a model.
+func (a *ConnectAdapter) SelfCheck(ctx context.Context, req *connect.Request[pb.SelfCheckRequest]) (*connect.Response[pb.SelfCheckResponse], error) {
+	return connectCall(ctx, req, a.svc.SelfCheck)
+}
+
+// RunRuns runs an action or a Monte Carlo case repeatedly and tables the runs.
+func (a *ConnectAdapter) RunRuns(ctx context.Context, req *connect.Request[pb.RunRunsRequest]) (*connect.Response[pb.RunRunsResponse], error) {
+	return connectCall(ctx, req, a.svc.RunRuns)
+}
+
 // ListEngines lists the analysis engines this build registers.
 func (a *ConnectAdapter) ListEngines(ctx context.Context, req *connect.Request[pb.ListEnginesRequest]) (*connect.Response[pb.ListEnginesResponse], error) {
 	return connectCall(ctx, req, a.svc.ListEngines)
@@ -175,4 +194,14 @@ func (a *ConnectAdapter) RenderView(ctx context.Context, req *connect.Request[pb
 // ExportGraphs exports the lowered graph of an action or state machine as graphs:1 JSON.
 func (a *ConnectAdapter) ExportGraphs(ctx context.Context, req *connect.Request[pb.ExportGraphsRequest]) (*connect.Response[pb.ExportGraphsResponse], error) {
 	return connectCall(ctx, req, a.svc.ExportGraphs)
+}
+
+// ImportData sets the feature values data files assign, as `sysml -import` does.
+func (a *ConnectAdapter) ImportData(ctx context.Context, req *connect.Request[pb.ImportDataRequest]) (*connect.Response[pb.ImportDataResponse], error) {
+	return connectCall(ctx, req, a.svc.ImportData)
+}
+
+// CompareResults runs the configurations a results sidecar indexes and compares the runs with the tool's.
+func (a *ConnectAdapter) CompareResults(ctx context.Context, req *connect.Request[pb.CompareResultsRequest]) (*connect.Response[pb.CompareResultsResponse], error) {
+	return connectCall(ctx, req, a.svc.CompareResults)
 }

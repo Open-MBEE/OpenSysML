@@ -1,6 +1,6 @@
 exit: start
 enter: Working
-choice entering Working: next lstart(entry), rstart(entry) (unordered; took rstart(entry) first)
+choice entering Working: next lstart(entry), rstart(entry) (unordered; took rstart(entry) first; independent)
 enter: rstart
 enter: lstart
 transition: start -> Working
@@ -14,7 +14,7 @@ transition: lstart -> l1
 exit: dstart
 enter: d1
 transition: dstart -> d1
-choice on accept Tick: next l1(exit), d1(exit) (unordered; took l1(exit) first)
+choice on accept Tick: next l1(exit), d1(exit) (unordered; took l1(exit) first; order-dependent: log)
 exit: l1
 stmt assign log
       eval feature log -> 0

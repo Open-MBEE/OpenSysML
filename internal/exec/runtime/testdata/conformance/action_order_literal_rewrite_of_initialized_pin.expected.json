@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{"outputs": {"x": {"type": "Integer", "value": 1}}},
+		{"outputs": {"x": {"type": "Integer", "value": 2}}}
+	],
+	"admissible": "A literal rewrite of a node's own feature clears what its initializer stood on",
+	"orderDependent": {"x": 2}
+}

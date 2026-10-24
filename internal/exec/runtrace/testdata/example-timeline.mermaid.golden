@@ -27,7 +27,7 @@ config:
 %% run — timeline rendering (the trace of a run to t = 6)
 %% not represented: 1 state held for no time is listed in the text form
 %% not represented: Mermaid gantt draws no note; choice and guard records are comments
-%% t=0 choice entering modes: next waiting(entry), charged(entry) (unordered; took waiting(entry) first)
+%% t=0 choice entering modes: next waiting(entry), charged(entry) (unordered; took waiting(entry) first; independent)
 gantt
     dateFormat x
     axisFormat %M:%S.%L

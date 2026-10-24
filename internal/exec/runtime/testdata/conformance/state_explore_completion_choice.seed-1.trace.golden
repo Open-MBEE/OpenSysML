@@ -1,4 +1,4 @@
-choice state ready: transitions 1->left, 2->right (unordered; took 2->right)
+choice state ready: transitions 1->left, 2->right (unordered; took 2->right; order-dependent: side)
 exit: ready
 enter: right (entry action)
 stmt action body

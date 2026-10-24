@@ -3,6 +3,6 @@
 	"type": "action",
 	"evaluate": "test::Reducing",
 	"outputs": {
-		"reduce.result": {"type": "Integer", "value": 6}
+		"reduce.result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 6}]}
 	}
 }

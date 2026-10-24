@@ -37,7 +37,7 @@ func TestScheduleAppliesToTheNextDebuggingSession(t *testing.T) {
 	run(t, s, "%action tally")
 	run(t, s, "%step")
 	run(t, s, "%step")
-	wants(t, run(t, s, "%step"), "choice step 3: tokens 2@left, 3@right (unordered; took 2@left first)")
+	wants(t, run(t, s, "%step"), "choice step 3: tokens 2@left, 3@right (unordered; took 2@left first; independent)")
 }
 
 // A debugging session under way keeps the policy it started with; the one set

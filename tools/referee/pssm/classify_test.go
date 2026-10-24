@@ -158,6 +158,13 @@ func TestClassifyTerminateIsStandard(t *testing.T) {
 	}
 }
 
+func TestClassifyInactiveOrthogonalRegionAsStandard(t *testing.T) {
+	c := classifyFixture(t, "", `<subvertex xmi:type="uml:State" xmi:id="xO" name="O"><region xmi:type="uml:Region" xmi:id="xOr1" name="R1"><subvertex xmi:type="uml:Pseudostate" xmi:id="xOi" name="I"/><subvertex xmi:type="uml:State" xmi:id="xO1" name="O.1"/><transition xmi:type="uml:Transition" xmi:id="xOt" source="xOi" target="xO1"/></region><region xmi:type="uml:Region" xmi:id="xOr2" name="R2"><subvertex xmi:type="uml:State" xmi:id="xO2" name="O.2"/></region></subvertex>`)
+	if c.Class != Standard {
+		t.Fatalf("classified %s (%s), want standard", c.Class, c.Reason())
+	}
+}
+
 func TestClassifyNoSpellingOutranksAll(t *testing.T) {
 	cases := []struct {
 		name, connectionPoints, body, want string
@@ -169,8 +176,6 @@ func TestClassifyNoSpellingOutranksAll(t *testing.T) {
 		{"local transition", "", `<transition xmi:type="uml:Transition" xmi:id="xTl" name="TL" kind="local" source="xS1" target="xS1"/>`, "local transition TL"},
 		{"internal transition", "", `<transition xmi:type="uml:Transition" xmi:id="xTi" name="TI" kind="internal" source="xS1" target="xS1"/>`, "internal transition TI"},
 		{"extended region", "", `<subvertex xmi:type="uml:State" xmi:id="xE" name="E"><region xmi:type="uml:Region" xmi:id="xEr" name="R" extendedRegion="regX"/></subvertex>`, "extended region R"},
-		{"orthogonal region nothing enters", "", `<subvertex xmi:type="uml:State" xmi:id="xO" name="O"><region xmi:type="uml:Region" xmi:id="xOr1" name="R1"><subvertex xmi:type="uml:Pseudostate" xmi:id="xOi" name="I"/><subvertex xmi:type="uml:State" xmi:id="xO1" name="O.1"/><transition xmi:type="uml:Transition" xmi:id="xOt" source="xOi" target="xO1"/></region><region xmi:type="uml:Region" xmi:id="xOr2" name="R2"><subvertex xmi:type="uml:State" xmi:id="xO2" name="O.2"/></region></subvertex>`, "lowerer refuses an orthogonal region with neither an entry transition nor a fork branch into it O/R2"},
-		{"orthogonal region of a nested orthogonal state a fork passes through", "", `<subvertex xmi:type="uml:Pseudostate" xmi:id="xF" name="Fork1" kind="fork"/><subvertex xmi:type="uml:State" xmi:id="xO" name="O"><region xmi:type="uml:Region" xmi:id="xOr1" name="R1"><subvertex xmi:type="uml:State" xmi:id="xN" name="N"><region xmi:type="uml:Region" xmi:id="xNr1" name="P"><subvertex xmi:type="uml:State" xmi:id="xO1" name="O.1"/></region><region xmi:type="uml:Region" xmi:id="xNr2" name="Q"><subvertex xmi:type="uml:State" xmi:id="xQ1" name="Q.1"/></region></subvertex></region><region xmi:type="uml:Region" xmi:id="xOr2" name="R2"><subvertex xmi:type="uml:State" xmi:id="xO2" name="O.2"/></region></subvertex><transition xmi:type="uml:Transition" xmi:id="xTf1" name="TF1" source="xF" target="xO1"/><transition xmi:type="uml:Transition" xmi:id="xTf2" name="TF2" source="xF" target="xO2"/>`, "lowerer refuses an orthogonal region with neither an entry transition nor a fork branch into it O.N/P; lowerer refuses an orthogonal region with neither an entry transition nor a fork branch into it O.N/Q"},
 		{"redefined state", "", `<subvertex xmi:type="uml:State" xmi:id="xR" name="R" redefinedState="xS1"/>`, "redefined state R"},
 		{"guard side effect", "", guardWithSideEffect, "guard side effect T3"},
 		{"redefined transition", "", `<transition xmi:type="uml:Transition" xmi:id="xTr" name="TR" source="xS1" target="xFin" redefinedTransition="xT2"/>`, "redefined transition TR"},

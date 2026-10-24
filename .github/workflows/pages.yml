@@ -9,9 +9,10 @@ on:
     branches: [develop]
   workflow_dispatch:
 
-# One deployment at a time; cancelling one in flight would leave the site behind.
+# One deployment at a time; cancelling one in flight would leave the site behind. The group was
+# renamed once: a deploy job stuck in `waiting` held the old group and no new run could start.
 concurrency:
-  group: pages
+  group: pages-deploy
   cancel-in-progress: false
 
 jobs:
@@ -50,7 +51,9 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: editors/vscode/package-lock.json
+          cache-dependency-path: |
+            editors/vscode/package-lock.json
+            client/node/package-lock.json
 
       - name: Install documentation toolchain
         run: make docs-install
@@ -60,7 +63,7 @@ jobs:
 
       # /cli/ runs the engine in the browser; the same target a local preview uses
       # compiles it into docs/assets (never vendored) for mkdocs to copy into site/.
-      - name: Build the in-browser engine
+      - name: Build the in-browser modules
         run: make docs-engine-assets
 
       - name: Build the landing-page diagram

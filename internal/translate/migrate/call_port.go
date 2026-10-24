@@ -14,35 +14,36 @@ import (
 // The note fragments the writer repeats.
 const (
 	performsUsage = "the call performs the usage "
+	noReceiver    = "no object receives the call: "
 )
 
 func (a *activity) portReceiver(port, t, op *sysmlv1.Element) (receiver, note string, ok bool) {
 	if !a.m.written(port) {
-		return "", "the call runs in the caller's context: the port " + qualifiedName(port) + " it goes through has no v2 declaration", false
+		return "", noReceiver + thePort + qualifiedName(port) + " it goes through has no v2 declaration", false
 	}
 	usage := writeName(a.m.operationUsage(op))
 	if a.hasPort(port) {
 		path, why := a.m.connectedReceiver(a.selfType(), port, op)
 		if why != "" {
-			return "", "the call runs in the caller's context: " + why, false
+			return "", noReceiver + why, false
 		}
 		return a.on(a.self(), path+"."+usage), performsUsage + usage + " of the part connected to the port " + a.m.nameFor(port), true
 	}
 	obj, typ, found := a.objectOf(t)
 	switch {
 	case t == nil || !found:
-		return "", "the call runs in the caller's context: the port " + qualifiedName(port) + " it goes through is no port of the caller, and no flow names the target object", false
+		return "", noReceiver + thePort + qualifiedName(port) + " it goes through is no port of the caller, and no flow names the target object", false
 	case typ == nil:
-		return "", "the call runs in the caller's context: the target " + obj + " has no known type to hold the port " + a.m.nameFor(port), false
+		return "", noReceiver + "the target " + obj + " has no known type to hold the port " + a.m.nameFor(port), false
 	case !a.m.hasFeature(typ, port):
-		return "", "the call runs in the caller's context: the target " + obj + " is a " + qualifiedName(typ) + ", which has no port " + a.m.nameFor(port), false
+		return "", noReceiver + "the target " + obj + " is a " + qualifiedName(typ) + ", which has no port " + a.m.nameFor(port), false
 	}
 	path := a.on(obj, writeName(a.m.nameFor(port)))
 	if pt := a.m.model.Ref(port, "type"); pt != nil && a.m.hasFeature(pt, op) {
 		return path + "." + usage, performsUsage + usage + " of the target's port " + path, true
 	}
 	if !a.m.hasFeature(typ, op) {
-		return "", "the call runs in the caller's context: neither the target " + obj + " nor its port " + a.m.nameFor(port) + " has the operation " + a.m.nameOf(op), false
+		return "", noReceiver + "neither the target " + obj + " nor its port " + a.m.nameFor(port) + " has the operation " + a.m.nameOf(op), false
 	}
 	if obj == a.self() {
 		return a.on(obj, usage), "the target is " + obj + ", whose usage " + usage + " the call performs; its port " + a.m.nameFor(port) + " is not written, as a v2 perform names the operation on the object", true
@@ -78,9 +79,9 @@ func (m *migration) connectedReceiver(c, port, op *sysmlv1.Element) (string, str
 	case len(paths) == 1:
 		return paths[0], ""
 	case len(paths) > 1:
-		return "", "the port " + m.nameFor(port) + " of " + qualifiedName(c) + " connects to several parts whose types have the operation " + m.nameOf(op) + " (" + strings.Join(paths, ", ") + "), and the call names no one of them"
+		return "", thePort + m.nameFor(port) + " of " + qualifiedName(c) + " connects to several parts whose types have the operation " + m.nameOf(op) + " (" + strings.Join(paths, ", ") + "), and the call names no one of them"
 	}
-	return "", "the port " + m.nameFor(port) + " of " + qualifiedName(c) + " connects to no part whose type has the operation " + m.nameOf(op)
+	return "", thePort + m.nameFor(port) + " of " + qualifiedName(c) + " connects to no part whose type has the operation " + m.nameOf(op)
 }
 
 // operationHolder writes the longest prefix of a connector end's path whose last

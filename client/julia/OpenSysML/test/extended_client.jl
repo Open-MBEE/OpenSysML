@@ -652,21 +652,72 @@ end
                 @test validation.summary.kind == "object"
                 @test !validation.summary.holds
                 @test evaluate(verification, "mass"; subject="Demo::sedan") == 1200.0
-                @test calc(verification, "Demo::add"; arguments=[2, 3]).value == 5
+                @test calc(verification, "Demo::add"; arguments=[2, 3]).value == [5]
 
                 analysis = parse_file(conn, joinpath(FIXTURES, "analysis.sysml"))
                 result = run_analysis(analysis, "An::plain")
-                @test result.outputs["x"] == 3.0
+                @test result.outputs["x"] == [3.0]
                 @test explore_analysis(analysis, "An::plain").complete
 
                 sweep_model = parse_file(conn, joinpath(FIXTURES, "sweep.sysml"))
                 table = run_sweep(sweep_model, "Sw::Ratio", Dict("b" => (1, 2));
                     named_arguments=Dict("a" => 4.0))
                 @test length(table) == 2
-                @test [row.outputs["result"] for row in table] == [4.0, 2.0]
+                @test [row.outputs["result"] for row in table] == [[4.0], [2.0]]
                 @test isempty(failures(table))
                 @test Bool(table)
                 @test !isempty(list_engines(conn))
+                @test !isempty(list_engines(conn; probe=true))
+
+                linted = parse_source(conn, """
+                    package test {
+                        private import ScalarValues::*;
+                        attribute x : Real = 0.1;
+                        state def M { entry; then a; state a; state b; transition first a when Pnig then b; }
+                    }
+                """)
+                codes(diags) = Set(d.code for d in diags)
+                @test "undeclared-signal" in codes(linted.diagnostics)
+                @test "undeclared-signal" in codes(refresh_diagnostics(linted))
+                @test "undeclared-signal" ∉ codes(refresh_diagnostics(linted;
+                    disable_lint=["undeclared-signal"]))
+                @test "rounded-real-literal" ∉ codes(linted.diagnostics)
+                @test "rounded-real-literal" in codes(refresh_diagnostics(linted;
+                    enable_lint=("rounded-real-literal",)))
+                @test_throws InvalidRequestError refresh_diagnostics(linted;
+                    enable_lint=["no-such-lint"])
+
+                drawing = parse_source(conn, """
+                    package test {
+                        private import ScalarValues::*;
+                        private import RandomFunctions::*;
+                        action draw {
+                            out d : Real[1] = uniform(0.0, 1.0);
+                            out n : Integer[1] = uniformInteger(1, 6);
+                        }
+                    }
+                """)
+                drawn = execute_action(drawing, "test::draw"; draws="min", seed=7)
+                @test drawn["d"] == 0.0
+                @test drawn["n"] == 1
+                @test execute_action(drawing, "test::draw"; draws="max")["n"] == 6
+                seeded = execute_action(drawing, "test::draw"; seed=7)
+                @test execute_action(drawing, "test::draw"; seed=7)["d"] == seeded["d"]
+                delayed = parse_source(conn, """
+                    package test {
+                        private import ScalarValues::*;
+                        action delayed {
+                            attribute count : Integer = 0;
+                            first start;
+                            then action wait accept after 5 [SI::s];
+                            then action tick assign count := count + 1;
+                            then done;
+                        }
+                    }
+                """)
+                @test execute_action(delayed, "test::delayed"; clock_step=4)["count"] == 1
+                @test execute_action(delayed, "test::delayed"; advance=10)["count"] == 1
+                @test_throws ArgumentError execute_action(delayed, "test::delayed"; draws="most")
             end
 
             @testset "query, documents, and conversion" begin
@@ -696,8 +747,26 @@ end
                 @test !isempty(rendered_view.edges[1].from_port)
                 @test !isempty(rendered_view.edges[1].to_port)
                 @test all(node -> node.origin !== nothing, rendered_view.nodes)
+                @test "port-symbols" in rendered_view.shown
+                shown_view = render_view(views_model, "RenderViewDemo::connections"; show=["edge-labels"])
+                @test "edge-labels" in shown_view.shown
                 full_view = render_view(views_model, "RenderViewDemo::connections"; ports="full")
                 @test any(port.name == "spare" for node in full_view.nodes for port in node.ports)
+                deep_model = parse_source(conn, """
+                    package Deep {
+                        private import Views::*;
+                        part vehicle {
+                            part wheel { part hub { part bearing; } }
+                            part engine { part piston; }
+                        }
+                        view structure { expose vehicle; render asTreeDiagram; }
+                    }
+                """)
+                @test length(render_view(deep_model, "Deep::structure").nodes) == 6
+                bounded_view = render_view(deep_model, "Deep::structure"; depth=1)
+                @test length(bounded_view.nodes) == 3
+                @test any(occursin("nested deeper than 1 level", n) for n in bounded_view.notices)
+                @test_throws ArgumentError render_view(deep_model, "Deep::structure"; depth=-1)
                 behavior_model = parse_file(conn, joinpath(FIXTURES, "behavior.sysml"))
                 graphs = export_graphs(behavior_model, "Test::race")
                 @test graphs isa Graphs
@@ -708,6 +777,143 @@ end
                 @test occursin("\"actions\"", graphs.content)
                 @test_throws SymbolNotFoundError export_graphs(behavior_model, "Test::Missing")
                 @test_throws OpenSysMLError export_graphs(behavior_model, "Test")
+                runs_model = parse_source(conn, """
+                    package MC {
+                        private import ScalarValues::*;
+                        private import RandomFunctions::*;
+                        action def Settle { out t : Real; first start; then assign t := uniform(1.0, 5.0); then done; }
+                        part def Probe { attribute t : Real; action settle { first start; then assign t := uniform(1.0, 5.0); then done; } }
+                        individual def probe :> Probe;
+                        analysis def Mc :> Simulation::MonteCarlo {
+                            subject analysed : Probe;
+                            perform action run ::> analysed.settle;
+                            attribute :>> observed : Real = analysed.t;
+                            return Mean : Real = mean;
+                        }
+                        part def P { attribute m : Real = 2.0; }
+                        part p : P;
+                        analysis def Cost { subject s : P; return total : Real = s.m * 3.0; }
+                    }
+                    """)
+                settled = run_runs(runs_model; action="MC::Settle", runs=4, seed=7, observe=["t"])
+                @test settled isa RunsResult && length(settled) == 4 && completed(settled)
+                @test settled.observables == ["t"]
+                @test distribution(settled, "t").numeric && distribution(settled, "t").count == 4
+                @test settled.seed == UInt64(7)
+                sampled = run_runs(runs_model; analysis="MC::Mc", subject="MC::probe", runs=3, seed=1)
+                @test length(sampled) == 3 && isempty(sampled.unconcluded) && haskey(sampled.outputs, "Mean")
+                @test_throws OpenSysMLError run_runs(runs_model; action="MC::Settle", runs=1)
+                @test_throws ExecutionError run_runs(runs_model; action="MC::Nope", runs=1, draws="min")
+                checked_self = self_check(runs_model)
+                @test checked_self isa SelfCheckResult && checked_self.elements > 0 && checked_self.checks > 0
+                @test startswith(checked_self.summary, "Self-model check: ") && !isempty(checked_self.applications)
+                @test_throws ExecutionError self_check(runs_model; packages=["Nope"])
+                recorded = record_run(runs_model, "MC::Cost"; subject="MC::p")
+                @test recorded isa Recording && recorded.run !== nothing
+                @test recorded.package == "Records" && recorded.records == ["Records::Cost_run1"]
+                @test length(recorded.documents) == 1 && !isempty(recorded.model_hash)
+                sampled_record = record_run(runs_model, "MC::Mc"; subject="MC::probe", runs=2, seed=3)
+                @test sampled_record.sample !== nothing && length(sampled_record.records) == 3
+                @test_throws ExecutionError record_run(runs_model, "MC::Nope")
+                import_model = parse_source(conn, """
+                    package V {
+                        private import ScalarValues::*;
+                        part def Vehicle {
+                            attribute count : Integer default 1;
+                            attribute label : String default "plain";
+                        }
+                        part vehicle : Vehicle;
+                        part car : Vehicle {
+                            attribute :>> count = 2;
+                        }
+                    }
+                    """)
+                imported = import_data(import_model, [
+                    "fleet.csv" => "element,count,label\nV::vehicle,7,fast\nV::car,9,\n",
+                    DataImport("labels.txt", "[{\"element\":\"V::car\",\"label\":\"slow\"}]"; format="json")])
+                @test imported isa ImportResult && applied(imported)
+                @test [f.name for f in imported.files] == ["fleet.csv", "labels.txt"]
+                @test (imported.files[1].values, imported.files[1].elements) == (3, 2)
+                @test [a.description for f in imported.files for a in f.assignments] == [
+                    "V::vehicle::count = 7 (redefines V::Vehicle::count)",
+                    "V::vehicle::label = \"fast\" (redefines V::Vehicle::label)",
+                    "V::car::count = 9",
+                    "V::car::label = \"slow\" (redefines V::Vehicle::label)"]
+                @test imported.files[1].assignments[1].redefines == "V::Vehicle::count"
+                @test !isempty(imported.files[1].assignments[1].location)
+                @test occursin("attribute :>> count = 7;", imported.content)
+                @test length(imported.documents) == 1 && imported.model_hash != import_model.hash
+                dry = import_data(import_model, ["fleet.tsv" => "element\tcount\nV::vehicle\t7\n"]; dry_run=true)
+                @test !applied(dry) && isempty(dry.content) && isempty(dry.documents)
+                @test length(dry.files[1].assignments) == 1
+                unchanged = import_data(import_model, ["fleet.csv" => "element,count\n"])
+                @test !applied(unchanged) && unchanged.model_hash == import_model.hash
+                @test isempty(unchanged.documents) && unchanged.files[1].values == 0
+                same = import_data(import_model, ["fleet.csv" => "element,count\nV::car,2\n"])
+                @test !applied(same) && same.model_hash == import_model.hash
+                @test isempty(same.documents) && same.files[1].values == 1
+                @test_throws ExecutionError import_data(import_model,
+                    ["fleet.csv" => "element,count\nV::car,9\nV::Nowhere,1\n"])
+                @test_throws OpenSysMLError import_data(import_model, [])
+                probe_model = parse_source(conn, """
+                    package Cfg {
+                        private import ScalarValues::*;
+                        part def Probe {
+                            attribute total : Real = 1.0;
+                            action steady { first start; then assign total := 4.0; then done; }
+                        }
+                        action def 'Group 1' { part target : Probe; perform action run ::> target.steady; }
+                    }
+                    """)
+                probe_results = """{"source":"probe.xmi","configurations":[
+                    {"id":"_c1","name":"Cfg::'Group 1'","runs":2,"target":"target","behavior":"run","observables":["total"],
+                     "snapshots":[{"id":"_r1","values":{"total":4.0}},{"id":"_r2","values":{"total":6.0}}]},
+                    {"id":"_cn","name":"Cfg::Nothing","observables":[],"snapshots":[]}]}"""
+                compared = compare_results(probe_model, probe_results; seed=7)
+                @test compared isa Comparison && compared.source == "probe.xmi"
+                @test length(compared.configurations) == 2
+                group = compared.configurations[1]
+                @test group.name == "Cfg::'Group 1'" && group.status == "holds"
+                @test (group.runs, group.completed, group.stored_runs) == (2, 2, 2)
+                @test group.seed == UInt64(7) && length(group.rows) == 2
+                @test length(group.observables) == 1
+                total = group.observables[1]
+                @test (total.stored, total.feature, total.compared) == ("total", "target.total", true)
+                @test total.tool.count == 2 && total.tool.mean == 5.0 && total.run.mean == 4.0
+                @test total.difference.mean == "-20.0%"
+                @test !isempty(group.lines)
+                @test compared.configurations[2].status == "unresolved"
+                @test !isempty(compared.configurations[2].unresolved)
+                selected = compare_results(probe_model, probe_results; actions=["Group 1"], runs=1, seed=3)
+                @test length(selected.configurations) == 1 && selected.configurations[1].runs == 1
+                @test_throws ArgumentError compare_results(probe_model, probe_results; runs=-1)
+                @test_throws OpenSysMLError compare_results(probe_model, "not json")
+
+                tank_model = parse_file(conn, joinpath(FIXTURES, "tank.sysml"))
+                checked = check_action(tank_model, "Plant::Tank::fill"; performer="Plant::tank",
+                    properties=["Plant::Tank::low"], diverge=["this.level"], witness=true)
+                @test checked isa CheckResult
+                @test checked.verdict == "fails"
+                @test !holds(checked)
+                @test !isempty(checked.lines)
+                @test checked.search !== nothing
+                @test (checked.search.states, checked.search.moves, checked.search.max_depth) == (11, 10, 6)
+                @test length(checked.violations) == 1
+                @test checked.violations[1].kind == "property"
+                @test checked.violations[1].property == "Plant::Tank::low"
+                @test checked.violations[1].depth == 3
+                @test checked.violations[1].witness !== nothing
+                @test startswith(checked.violations[1].witness.schedule, "replay")
+                @test !isempty(checked.violations[1].witness.file_name)
+                @test length(checked.divergences) == 1
+                @test checked.divergences[1].feature == "this.level"
+                @test [v.value for v in checked.divergences[1].values] == ["1", "2"]
+                @test checked.standing.engine == "check"
+                held = check_action(tank_model, "Plant::Tank::fill"; performer="Plant::tank",
+                    properties=["Plant::Tank::capped"], diverge=["this.capacity"])
+                @test holds(held) && isempty(held.violations) && isempty(held.divergences)
+                @test_throws ExecutionError check_action(tank_model, "Plant::Tank::drain")
+                @test_throws OpenSysMLError check_action(tank_model, "Plant::Tank::fill"; depth=-1)
                 for (view, message) in (
                     ("RenderViewDemo::Missing", "no view named RenderViewDemo::Missing"),
                     ("#interconnection:Nope",
@@ -735,8 +941,8 @@ end
                 @test occursin("part def Vehicle", migrated.content)
                 @test migrated.from_format == "xmi"
                 @test (migrated.report.mapped, migrated.report.approximated,
-                       migrated.report.unmapped, migrated.report.skipped) == (77, 13, 3, 2)
-                @test length(migrated.report.entries) == 95
+                       migrated.report.unmapped, migrated.report.skipped) == (77, 15, 3, 2)
+                @test length(migrated.report.entries) == 97
                 @test length(by_verdict(migrated.report, VERDICT_UNMAPPED)) == 3
                 @test migrated.source_path == abspath(vehicle)
                 inline = migrate_source(conn, read(vehicle), "ttl"; from_format=" XMI ")
@@ -793,7 +999,7 @@ end
                 performer_model = parse_source(conn, performer_source; name="performer.sysml")
                 run = execute_action(performer_model, "Wire::Craft::look";
                     performer="Wire::pair.craft")
-                @test run["seen"] === true
+                @test run["seen"] == [true]
                 @test run.performer["this.pinged"] === true
                 state_run = execute_state(performer_model, "Wire::Craft::modes";
                     performer="Wire::pair.craft")

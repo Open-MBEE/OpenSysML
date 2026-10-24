@@ -2,7 +2,11 @@ package export_test
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
+	"errors"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,13 +19,33 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
+// toolkitFixture reads a committed interchange export by the name of its contents; the
+// largest are committed gzip-compressed as name + ".gz" and decompressed here.
 func toolkitFixture(t *testing.T, name string) []byte {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("testdata", "interchange", name))
+	path := filepath.Join("testdata", "interchange", name)
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		data, err = readGzip(path + ".gz")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
 	return data
+}
+
+func readGzip(path string) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	reader, err := gzip.NewReader(file)
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+	return io.ReadAll(reader)
 }
 
 func decodeToolkitFixture(t *testing.T, name string, warn func(string)) []byte {
@@ -180,14 +204,17 @@ func TestToolkitTransitionSourceUsesRedefinitionTarget(t *testing.T) {
 	}
 }
 
+// A succession the toolkit resolves through implied ReferenceSubsettings alone
+// — `then timeslice secondEvent;` after `firstEvent` — is written back as the
+// positional `then` it was, not as `succession first firstEvent then secondEvent;`.
 func TestToolkitInferredSuccessionClause(t *testing.T) {
 	out := decodeToolkitFixture(t, "successions.toolkit.full.json", nil)
 	want := toolkitFixture(t, "successions.golden.sysml")
 	if !bytes.Equal(out, want) {
 		t.Fatalf("the decoded succession notation changed:\n--- want ---\n%s\n--- got ---\n%s", want, out)
 	}
-	if !strings.Contains(string(out), "succession first firstEvent then secondEvent;") {
-		t.Fatalf("the inferred succession lacks its required `first` clause:\n%s", out)
+	if !strings.Contains(string(out), "then timeslice occurrence secondEvent;") {
+		t.Fatalf("the succession whose source the toolkit only implied was not written by position:\n%s", out)
 	}
 }
 

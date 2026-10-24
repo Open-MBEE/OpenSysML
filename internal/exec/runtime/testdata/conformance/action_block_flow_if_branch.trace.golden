@@ -11,7 +11,7 @@ stmt if
   stmt node Halve
 step 1: token 1@compute
     stmt assign halved
-        eval feature result -> 8
+        eval feature result -> (8)
         eval literal 2 -> 2
       eval operator / -> 4.0
 step 2: token 1@done

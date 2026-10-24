@@ -7,10 +7,10 @@ stmt assign runs
   eval operator + -> 1
 step 2: token 2@q, token 3@r
 stmt assign doubled
-    eval feature v -> 21
+    eval feature v -> (21)
     eval literal 2 -> 2
   eval operator * -> 42
 stmt assign got
-  eval feature v -> 21
-choice step 3: tokens 2@q, 3@r (unordered; took 3@r first)
+  eval feature v -> (21)
+choice step 3: tokens 2@q, 3@r (unordered; took 3@r first; independent)
 step 3: no active tokens

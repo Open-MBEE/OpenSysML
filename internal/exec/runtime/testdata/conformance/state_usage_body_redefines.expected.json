@@ -4,6 +4,7 @@
   "finalState": "working",
   "stateVisits": ["u", "working"],
   "outputs": {
-    "u.count": {"type": "Integer", "value": 1001}
+    "u.count": {"type": "Integer", "value": 100},
+    "u.Base::count": {"type": "Integer", "value": 11}
   }
 }

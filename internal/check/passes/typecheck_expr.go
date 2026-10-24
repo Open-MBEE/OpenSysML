@@ -45,15 +45,24 @@ type exprChecker struct {
 	muted bool
 }
 
-// codeTypeExpr is the code of an expression typing diagnostic no rule of its
-// own claims.
-const codeTypeExpr = "type.expr"
+// Codes of the expression typing rules.
+const (
+	codeBindingConnectorTypeConformance = "binding-connector-type-conformance"
+	codeFeatureValueCount               = "feature-value-count"
+	codeUniqueFeatureValues             = "unique-feature-values"
+	codeSequenceIndex                   = "sequence-index"
+	codeOperatorOperandType             = "operator-operand-type"
+	codeComparisonConstant              = "comparison-constant"
+	codeInvocationArgument              = "invocation-argument"
+	codeConstructorArgument             = "constructor-argument"
+	codeConstructorNoDuplicateFeature   = "constructor-expression-no-duplicate-feature-redefinition"
+	codeConnectorEndIndex               = "connector-end-index"
+	codeConditionBoolean                = "condition-boolean"
+	codeIncommensurableBinding          = "incommensurable-binding"
+	codeIncommensurableOperands         = "incommensurable-operands"
+)
 
-func (ec *exprChecker) errorf(span source.Span, format string, args ...any) {
-	ec.errorCode(codeTypeExpr, span, format, args...)
-}
-
-// errorCode is errorf under the code of a rule with its own.
+// errorCode reports an error under the code of the rule that found it.
 func (ec *exprChecker) errorCode(code string, span source.Span, format string, args ...any) {
 	ec.diags = append(ec.diags, diag.Diagnostic{
 		Severity: diag.SeverityError,
@@ -64,11 +73,7 @@ func (ec *exprChecker) errorCode(code string, span source.Span, format string, a
 	})
 }
 
-func (ec *exprChecker) warnf(span source.Span, format string, args ...any) {
-	ec.warnCode(codeTypeExpr, span, format, args...)
-}
-
-// warnCode is warnf under the code of a rule with its own.
+// warnCode reports a warning under the code of the rule that found it.
 func (ec *exprChecker) warnCode(code string, span source.Span, format string, args ...any) {
 	ec.diags = append(ec.diags, diag.Diagnostic{
 		Severity: diag.SeverityWarning,
@@ -185,7 +190,7 @@ func (ec *exprChecker) checkScalarBinding(value ast.Node, got, want semantics.Pr
 		return
 	}
 	if !bindable(value, got, want) {
-		ec.errorf(value.Span(), "cannot bind %s value to a feature typed by %s", got, want)
+		ec.errorCode(codeBindingConnectorTypeConformance, value.Span(), "cannot bind %s value to a feature typed by %s", got, want)
 	}
 }
 
@@ -265,7 +270,7 @@ func (ec *exprChecker) resolveTarget(scope *symbols.Scope, target ast.Node) *sym
 
 // checkBoolean checks an expression used where a condition is required.
 func (ec *exprChecker) checkBoolean(scope *symbols.Scope, n ast.Node, context string) {
-	ec.checkCondition(scope, n, codeTypeExpr, context+" must be Boolean, found %s", false)
+	ec.checkCondition(scope, n, codeConditionBoolean, context+" must be Boolean, found %s", false)
 }
 
 // checkCondition is checkBoolean reporting under a rule's own code and message,
@@ -343,6 +348,10 @@ func (ec *exprChecker) infer(scope *symbols.Scope, n ast.Node) semantics.PrimTyp
 		// A decimal literal denotes an exact ratio, so it conforms to Rational
 		// as well as Real.
 		return semantics.PrimRational
+	case *ast.LiteralInfinity:
+		// `*` is a Positive (KerML checkLiteralInfinitySpecialization), which the
+		// lattice folds into Natural: it conforms to every numeric type and no other.
+		return semantics.PrimNatural
 	case *ast.FeatureReference:
 		return ec.inferQualified(scope, e.Name)
 	case *ast.QualifiedName:
@@ -397,7 +406,7 @@ func (ec *exprChecker) inferIndex(scope *symbols.Scope, e *ast.IndexExpr) semant
 	// known from the value, so an Integer index is checked at evaluation.
 	index := ec.infer(scope, e.Index)
 	if !semantics.PrimConforms(index, semantics.PrimInteger) && e.Index != nil {
-		ec.errorf(e.Index.Span(), "sequence index must be an Integer, found %s", index)
+		ec.errorCode(codeSequenceIndex, e.Index.Span(), "sequence index must be an Integer, found %s", index)
 	}
 
 	// The index of a sequence of one scalar type is a value of that type, which
@@ -418,9 +427,9 @@ func (ec *exprChecker) inferIndex(scope *symbols.Scope, e *ast.IndexExpr) semant
 			length, known := writtenLength(e.Operand)
 			switch {
 			case written == 0:
-				ec.errorf(lit.Span(), "sequence index counts from 1, found 0")
+				ec.errorCode(codeSequenceIndex, lit.Span(), "sequence index counts from 1, found 0")
 			case known && written > length:
-				ec.errorf(lit.Span(), "sequence index %d is outside 1..%d", written, length)
+				ec.errorCode(codeSequenceIndex, lit.Span(), "sequence index %d is outside 1..%d", written, length)
 			}
 		}
 	}
@@ -456,7 +465,7 @@ func writtenLength(operand ast.Node) (int64, bool) {
 // isLiteral reports whether an expression is a scalar literal, whose exact type is written out.
 func isLiteral(n ast.Node) bool {
 	switch n.(type) {
-	case *ast.LiteralInteger, *ast.LiteralReal, *ast.LiteralString, *ast.LiteralBool:
+	case *ast.LiteralInteger, *ast.LiteralReal, *ast.LiteralString, *ast.LiteralBool, *ast.LiteralInfinity:
 		return true
 	default:
 		return false
@@ -733,9 +742,9 @@ func (ec *exprChecker) checkUnaryBoolean(scope *symbols.Scope, e *ast.OperatorEx
 	}
 	got := ec.infer(scope, e.Operands[0])
 	if got != semantics.PrimUnknown && got != semantics.PrimBoolean {
-		ec.errorf(e.Span(), "operator 'not' requires a Boolean operand, found %s", got)
+		ec.errorCode(codeOperatorOperandType, e.Span(), "operator 'not' requires a Boolean operand, found %s", got)
 	} else if found, mismatch := ec.nonBooleanOperand(scope, e.Operands[0], got); mismatch {
-		ec.errorf(e.Span(), "operator 'not' requires a Boolean operand, found %s", found)
+		ec.errorCode(codeOperatorOperandType, e.Span(), "operator 'not' requires a Boolean operand, found %s", found)
 	}
 	return semantics.PrimBoolean
 }
@@ -778,7 +787,7 @@ func (ec *exprChecker) checkUnaryNumeric(scope *symbols.Scope, e *ast.OperatorEx
 		return semantics.PrimUnknown
 	}
 	if !got.IsNumeric() {
-		ec.errorf(e.Span(), "operator '%s' requires a numeric operand, found %s", e.Operator, got)
+		ec.errorCode(codeOperatorOperandType, e.Span(), "operator '%s' requires a numeric operand, found %s", e.Operator, got)
 		return semantics.PrimUnknown
 	}
 	if e.Operator == ast.OpNeg {
@@ -795,13 +804,13 @@ func (ec *exprChecker) checkBinaryBoolean(scope *symbols.Scope, e *ast.OperatorE
 	}
 	for _, got := range []semantics.PrimType{lhs, rhs} {
 		if got != semantics.PrimUnknown && got != semantics.PrimBoolean {
-			ec.errorf(e.Span(), "operator '%s' requires Boolean operands, found %s and %s", e.Operator, lhs, rhs)
+			ec.errorCode(codeOperatorOperandType, e.Span(), "operator '%s' requires Boolean operands, found %s and %s", e.Operator, lhs, rhs)
 			return semantics.PrimBoolean
 		}
 	}
 	for i, got := range []semantics.PrimType{lhs, rhs} {
 		if found, mismatch := ec.nonBooleanOperand(scope, e.Operands[i], got); mismatch {
-			ec.errorf(e.Span(), "operator '%s' requires Boolean operands, found %s", e.Operator, found)
+			ec.errorCode(codeOperatorOperandType, e.Span(), "operator '%s' requires Boolean operands, found %s", e.Operator, found)
 			break
 		}
 	}
@@ -824,7 +833,7 @@ func (ec *exprChecker) checkAddition(scope *symbols.Scope, e *ast.OperatorExpr) 
 	if lhs.IsNumeric() && rhs.IsNumeric() {
 		return semantics.PrimWiden(lhs, rhs)
 	}
-	ec.errorf(e.Span(), "operator '+' is not defined for %s and %s", lhs, rhs)
+	ec.errorCode(codeOperatorOperandType, e.Span(), "operator '+' is not defined for %s and %s", lhs, rhs)
 	return semantics.PrimUnknown
 }
 
@@ -854,7 +863,7 @@ func (ec *exprChecker) checkArithmetic(
 		return semantics.PrimUnknown
 	}
 	if !lhs.IsNumeric() || !rhs.IsNumeric() {
-		ec.errorf(e.Span(), "operator '%s' requires numeric operands, found %s and %s", e.Operator, lhs, rhs)
+		ec.errorCode(codeOperatorOperandType, e.Span(), "operator '%s' requires numeric operands, found %s and %s", e.Operator, lhs, rhs)
 		return semantics.PrimUnknown
 	}
 	return result(lhs, rhs)
@@ -871,7 +880,7 @@ func (ec *exprChecker) checkComparison(scope *symbols.Scope, e *ast.OperatorExpr
 	bothNumeric := lhs.IsNumeric() && rhs.IsNumeric()
 	bothString := lhs == semantics.PrimString && rhs == semantics.PrimString
 	if !bothNumeric && !bothString {
-		ec.errorf(e.Span(), "operator '%s' is not defined for %s and %s", e.Operator, lhs, rhs)
+		ec.errorCode(codeOperatorOperandType, e.Span(), "operator '%s' is not defined for %s and %s", e.Operator, lhs, rhs)
 	}
 	return semantics.PrimBoolean
 }
@@ -891,7 +900,7 @@ func (ec *exprChecker) checkEquality(scope *symbols.Scope, e *ast.OperatorExpr) 
 		if e.Operator == ast.OpNeq {
 			result = "true"
 		}
-		ec.warnf(e.Span(), "comparing %s with %s is always %s", lhs, rhs, result)
+		ec.warnCode(codeComparisonConstant, e.Span(), "comparing %s with %s is always %s", lhs, rhs, result)
 	}
 	return semantics.PrimBoolean
 }
@@ -995,7 +1004,7 @@ func (ec *exprChecker) inferNodeInvocation(scope *symbols.Scope, e *ast.Invocati
 			Severity: diag.SeverityError,
 			Span:     e.Type.Span(),
 			Message:  msgReferenceAction,
-			Code:     "usage-reference-kind",
+			Code:     codeUsageReferenceKind,
 			Source:   "type",
 		})
 		return semantics.PrimUnknown
@@ -1074,7 +1083,9 @@ type invocation struct {
 // listing considered (the other declarations the call could name) on each report.
 func (ec *exprChecker) checkArguments(scope *symbols.Scope, call invocation, considered []*symbols.Symbol) {
 	e, sym, args, params := call.e, call.sym, call.args, call.params
-	report := listing(ec.errorf, considered)
+	report := listing(func(span source.Span, format string, args ...any) {
+		ec.errorCode(codeInvocationArgument, span, format, args...)
+	}, considered)
 	advise := listing(func(span source.Span, format string, args ...any) {
 		ec.warnCode(CodeUnboundParameter, span, format, args...)
 	}, considered)
@@ -1137,7 +1148,7 @@ func (ec *exprChecker) inferConstructor(scope *symbols.Scope, e *ast.Constructor
 	bound := make(map[*symbols.Symbol]bool, len(features))
 	for i, arg := range e.Args {
 		if i >= len(features) {
-			ec.errorf(arg.Span(), "new %s takes %d argument(s), found %d", typ.Name, len(features), len(e.Args))
+			ec.errorCode(codeConstructorArgument, arg.Span(), "new %s takes %d argument(s), found %d", typ.Name, len(features), len(e.Args))
 			break
 		}
 		bound[features[i]] = true
@@ -1153,17 +1164,17 @@ func (ec *exprChecker) inferConstructor(scope *symbols.Scope, e *ast.Constructor
 			continue
 		}
 		if !ec.memberOf(typ, feature) {
-			ec.errorf(na.Name.Span(), "%s is not a feature of %s", ast.QualifiedText(na.Name), typ.Name)
+			ec.errorCode(codeConstructorArgument, na.Name.Span(), "%s is not a feature of %s", ast.QualifiedText(na.Name), typ.Name)
 			continue
 		}
 		// A redefinition and its target are one feature: they share one binding.
 		slot := ec.model.ConstructibleFeatureFor(typ, feature)
 		if slot == nil {
-			ec.errorf(na.Name.Span(), "%s", notConstructible(feature, typ))
+			ec.errorCode(codeConstructorArgument, na.Name.Span(), "%s", notConstructible(feature, typ))
 			continue
 		}
 		if bound[slot] {
-			ec.errorf(na.Name.Span(), "%s of %s is already bound by an earlier argument", feature.Name, typ.Name)
+			ec.errorCode(codeConstructorNoDuplicateFeature, na.Name.Span(), "%s of %s is already bound by an earlier argument", feature.Name, typ.Name)
 			continue
 		}
 		bound[slot] = true
@@ -1186,7 +1197,7 @@ func (ec *exprChecker) checkFeatureBinding(scope *symbols.Scope, arg ast.Node, f
 	// conformance against the feature's types whether or not those are scalar.
 	if got := ec.silent().commonElementType(scope, written); want != semantics.PrimUnknown && got != semantics.PrimUnknown {
 		if !bindable(arg, got, want) {
-			ec.errorf(arg.Span(), "%s of %s expects %s, found %s", feature.Name, typ.Name, want, got)
+			ec.errorCode(codeConstructorArgument, arg.Span(), "%s of %s expects %s, found %s", feature.Name, typ.Name, want, got)
 		}
 	} else {
 		for _, value := range written {
@@ -1196,7 +1207,7 @@ func (ec *exprChecker) checkFeatureBinding(scope *symbols.Scope, arg ast.Node, f
 	for _, el := range held {
 		if got := ec.heldPrim(el); want != semantics.PrimUnknown && got != semantics.PrimUnknown {
 			if !bindable(el.Node, got, want) {
-				ec.errorf(heldSpan(el, arg), "%s of %s expects %s, found %s", feature.Name, typ.Name, want, got)
+				ec.errorCode(codeConstructorArgument, heldSpan(el, arg), "%s of %s expects %s, found %s", feature.Name, typ.Name, want, got)
 			}
 			continue
 		}
@@ -1205,7 +1216,7 @@ func (ec *exprChecker) checkFeatureBinding(scope *symbols.Scope, arg ast.Node, f
 	if held, known := ec.heldCount(scope, arg); known {
 		if r, ok := ec.effectiveRange(feature.OwnerScope, usageDecl(u), 0); ok {
 			if msg := r.HeldViolation(held); msg != "" {
-				ec.errorf(arg.Span(), "%s of %s: %s", feature.Name, typ.Name, msg)
+				ec.errorCode(codeConstructorArgument, arg.Span(), "%s of %s: %s", feature.Name, typ.Name, msg)
 			}
 		}
 	}
@@ -1224,7 +1235,7 @@ func (ec *exprChecker) checkObjectBinding(value ast.Node, at source.Span, gots, 
 		}) {
 			continue
 		}
-		ec.errorf(at, "%s of %s is typed by %s; cannot bind a value of type %s", feature.Name, typ.Name, want.Name, typeNames(gots))
+		ec.errorCode(codeConstructorArgument, at, "%s of %s is typed by %s; cannot bind a value of type %s", feature.Name, typ.Name, want.Name, typeNames(gots))
 	}
 }
 
@@ -1862,7 +1873,7 @@ func (ec *exprChecker) checkEndIndex(scope *symbols.Scope, feature, index ast.No
 		return
 	}
 	if got := ec.infer(scope, index); !semantics.PrimConforms(got, semantics.PrimInteger) {
-		ec.errorf(index.Span(), "connector end index must be an Integer, found %s", got)
+		ec.errorCode(codeConnectorEndIndex, index.Span(), "connector end index must be an Integer, found %s", got)
 		return
 	}
 	value, known := ec.model.EvalIn(scope, index)
@@ -1874,7 +1885,7 @@ func (ec *exprChecker) checkEndIndex(scope *symbols.Scope, feature, index ast.No
 		return
 	}
 	if n < 1 {
-		ec.errorf(index.Span(), "connector end index %d selects no element: the first element is #(1)", n)
+		ec.errorCode(codeConnectorEndIndex, index.Span(), "connector end index %d selects no element: the first element is #(1)", n)
 		return
 	}
 	sym, ok := ec.resolver.ResolveTarget(scope, feature)
@@ -1883,6 +1894,6 @@ func (ec *exprChecker) checkEndIndex(scope *symbols.Scope, feature, index ast.No
 	}
 	bound := ec.model.GoverningMultiplicityOf(sym)
 	if bound.Upper.Known && !bound.Upper.Infinite && n > bound.Upper.Value {
-		ec.errorf(index.Span(), "connector end index %d is outside the multiplicity %s of the feature it selects from", n, bound.Text())
+		ec.errorCode(codeConnectorEndIndex, index.Span(), "connector end index %d is outside the multiplicity %s of the feature it selects from", n, bound.Text())
 	}
 }

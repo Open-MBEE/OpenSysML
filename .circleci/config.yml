@@ -61,10 +61,17 @@ executors:
       - image: cimg/base:current
     resource_class: medium
 
+  # The Docker CLI with buildx, for the image publisher; the daemon is the
+  # remote one setup_remote_docker attaches.
+  docker-executor:
+    docker:
+      - image: cimg/base:current
+    resource_class: medium
+
 commands:
   # In a rehearsal (the release_rehearsal pipeline parameter) CIRCLE_TAG is
   # unset; this stands in for the tag the release steps read, before any of
-  # them runs. sed rather than python: the go and cibuilds images may lack it.
+  # them runs.
   rehearsal-tag:
     steps:
       - when:
@@ -73,22 +80,24 @@ commands:
             - run:
                 name: "REHEARSAL: stand in for the release tag"
                 command: |
-                  version=$(sed -n 's/^VERSION *= *"\(.*\)" *$/\1/p' \
-                    client/python/opensysml/_version.py)
-                  # _version.py is PEP 440; the tag spells SemVer.
-                  case "$version" in
-                    *a[0-9]*) semver="${version%%a*}-alpha.${version##*a}" ;;
-                    *b[0-9]*) semver="${version%%b*}-beta.${version##*b}" ;;
-                    *rc[0-9]*) semver="${version%%rc*}-rc.${version##*rc}" ;;
-                    *) semver="$version" ;;
-                  esac
-                  if ! echo "$semver" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$'; then
-                    echo "Error: VERSION '$version' is not a release or an a/b/rc"
-                    echo "pre-release; there is no SemVer tag spelling for it."
-                    exit 1
-                  fi
-                  echo "export CIRCLE_TAG=v${semver}" >> "$BASH_ENV"
-                  echo "REHEARSAL: standing in for tag v${semver} (no tag exists; nothing will be published)"
+                  tag=$(scripts/rehearsal-version.sh)
+                  echo "export CIRCLE_TAG=${tag}" >> "$BASH_ENV"
+                  echo "REHEARSAL: standing in for tag ${tag} (no tag exists; nothing will be published)"
+
+  # Gives the suite what a tag pipeline has: CIRCLE_TAG, and the tag at HEAD (the Go
+  # toolchain records it as the module version); a local tag alone reads as a release already out.
+  rehearsal-checkout-tag:
+    steps:
+      - rehearsal-tag
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: tag the checkout as the release"
+                command: |
+                  tag=$(scripts/rehearsal-version.sh)
+                  git tag --force "$tag" HEAD
+                  echo "REHEARSAL: tagged $(git rev-parse --short HEAD) as ${tag} locally"
 
   # Names the irreversible step a rehearsal leaves out.
   rehearsal-skip:
@@ -178,6 +187,24 @@ commands:
           paths:
             - examples/pilot-corpora
 
+      # The specification examples, extracted from the two PDFs at the same pin;
+      # the PDFs are cached and the extraction reruns from them.
+      - restore_cache:
+          keys:
+            - spec-docs-v1-{{ checksum "scripts/download-spec-examples.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+
+      - run:
+          name: Extract the OMG specification examples
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends poppler-utils
+            ./scripts/download-spec-examples.sh
+
+      - save_cache:
+          key: spec-docs-v1-{{ checksum "scripts/download-spec-examples.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+          paths:
+            - build/spec-docs/pdf
+
       # The PSSM test suite, one pinned file, gated the same way by tools/referee/pssm.
       - restore_cache:
           keys:
@@ -263,6 +290,18 @@ commands:
               fi
             done
 
+      - run:
+          name: Verify the OMG specification examples
+          command: |
+            for root in sysml kerml; do
+              count=$(find "examples/spec-examples/$root" -type f \( -name '*.sysml' -o -name '*.kerml' \) | wc -l)
+              echo "specification examples $root: $count model files"
+              if [ "$count" -eq 0 ]; then
+                echo "error: specification examples $root is empty; the spec-examples gate would not run" >&2
+                exit 1
+              fi
+            done
+
 # The Go suite is four jobs rather than one because the plan caps a job at 60
 # minutes and the race run and the coverage run alone take ~45 of them. The
 # race run gates the workflow but not the client tests or the scan, which need
@@ -274,6 +313,7 @@ jobs:
     executor: go-executor
     steps:
       - checkout
+      - rehearsal-checkout-tag
       - go/load-cache
       - go/mod-download
       - go/save-cache
@@ -411,22 +451,21 @@ jobs:
       # the schema can drift apart silently. `git add -N` puts a regenerated
       # file the commit had deleted into the diff.
       - run:
-          name: Verify the committed Go and Java stubs are current
+          name: Verify the committed Go stubs are current
           command: |
             make proto-buf
-            git add -N api/proto \
-              client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
-            git diff --exit-code api/proto \
-              client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
+            git add -N api/proto
+            git diff --exit-code api/proto
 
   # The race-enabled suite. It is the longest single step in the pipeline, so
-  # it gets the larger class and five executors, one named package shard each.
+  # it gets the larger class and six executors, one named package shard each.
   go-race-test:
     executor: go-executor
     resource_class: large
-    parallelism: 5
+    parallelism: 6
     steps:
       - checkout
+      - rehearsal-checkout-tag
       - go/load-cache
       - go/mod-download
       - go/save-cache
@@ -444,7 +483,7 @@ jobs:
           name: Run Go race tests
           command: |
             set -o pipefail
-            shards=(runtime model export rest migrate)
+            shards=(runtime model export rest migrate cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but scripts/race-shard.sh has ${#shards[@]} shards" >&2
               exit 1
@@ -452,18 +491,21 @@ jobs:
             shard=${shards[$CIRCLE_NODE_INDEX]}
             pkgs=$(scripts/race-shard.sh "$shard")
             echo "shard $shard:"; echo "$pkgs"
+            # -v over several packages is held back until each finishes, which the
+            # no_output_timeout below reads as a hang; -json streams, the script re-emits -v.
+            stream() { python3 scripts/go-test-stream.py; }
             if [ "$shard" = runtime ]; then
               exploration='^TestExploreWithIsExploreOverTheConformanceCorpus$'
-              go test -v -race -pgo=off -timeout 30m -run "$exploration" $pkgs
-              go test -v -race -pgo=off -timeout 30m -skip "$exploration" $pkgs
-              go test -v -race -pgo=off -timeout 30m ./tests/wasm
-              go test -C tools -v -race -pgo=off -timeout 30m ./...
+              go test -json -race -pgo=off -timeout 30m -run "$exploration" $pkgs | stream
+              go test -json -race -pgo=off -timeout 30m -skip "$exploration" $pkgs | stream
+              go test -json -race -pgo=off -timeout 30m ./tests/wasm | stream
+              go test -C tools -json -race -pgo=off -timeout 30m ./... | stream
             else
               # tests/migrate alone runs 23-32 minutes under -race on this class and
               # tests/model (in the export shard) 25-30, so those shards get the
               # Makefile's per-package timeout (see make test-shard).
               timeout=30m; case "$shard" in migrate|export) timeout=55m ;; esac
-              go test -v -race -pgo=off -timeout "$timeout" $pkgs
+              go test -json -race -pgo=off -timeout "$timeout" $pkgs | stream
             fi
           no_output_timeout: 30m
           environment:
@@ -471,6 +513,7 @@ jobs:
             # GitHub Actions PR workflow already does.
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
             OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
@@ -487,13 +530,16 @@ jobs:
   # A second, race-free pass, because the profile the scan reads is written
   # with -coverpkg, which is too slow to instrument under -race. Serially the
   # instrumented suite overran the 60-minute job limit even on large, so it runs
-  # as the race test's five package shards, and go-coverage-merge joins them.
+  # as the race test's six package shards, and go-coverage-merge joins them.
+  # cmd/sysml's exploration budgets alone took 23-30 of the 30 minutes while sharing
+  # the rest node under -coverpkg=./..., so the command has a node of its own.
   go-coverage:
     executor: go-executor
     resource_class: large
-    parallelism: 5
+    parallelism: 6
     steps:
       - checkout
+      - rehearsal-checkout-tag
       - go/load-cache
       - go/mod-download
       - go/save-cache
@@ -505,16 +551,26 @@ jobs:
       - run:
           name: Write this shard's coverage profile
           command: |
-            shards=(runtime model export rest migrate)
+            shards=(runtime model export rest migrate cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but scripts/race-shard.sh has ${#shards[@]} shards" >&2
               exit 1
             fi
-            make coverage-shard SHARD="${shards[$CIRCLE_NODE_INDEX]}"
+            shard="${shards[$CIRCLE_NODE_INDEX]}"
+            if [ "$shard" = runtime ]; then
+              # The tools' tests run on this node (make coverage-shard), and the
+              # LLM bench's run the models through bin/sysml: without the binary
+              # they skip and tools/bench/llm measures as uncovered. Required,
+              # so a missing binary fails here rather than skips.
+              make build-sysml
+              export OPENSYSML_REQUIRE_LLM_BENCH_TOOLCHAIN=1
+            fi
+            make coverage-shard SHARD="$shard"
           no_output_timeout: 30m
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
             OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
@@ -560,6 +616,7 @@ jobs:
     executor: go-executor
     steps:
       - checkout
+      - rehearsal-checkout-tag
       - go/load-cache
       - go/mod-download
       - go/save-cache
@@ -604,6 +661,20 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
 
+      # The specification-examples gate alone, for the same reason.
+      - run:
+          name: Run spec examples gate
+          command: |
+            set -o pipefail
+            go test -count=1 -v ./tests/corpus -run 'TestSpecExamples' | tee spec-examples-gate.log
+            grep -E 'specification examples clean' spec-examples-gate.log
+            if grep -qE '^\s*--- SKIP' spec-examples-gate.log; then
+              echo "error: the spec examples gate skipped" >&2
+              exit 1
+            fi
+          environment:
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
+
       # The normative-identity gate alone, for the same reason.
       - run:
           name: Run pilot library identity gate
@@ -633,6 +704,7 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
 
       # The same ratchet over the API's JSON element form, beside the RDF one.
       - run:
@@ -648,6 +720,7 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
 
       # The PSSM suite gates alone, then the referee's bucket-count check
       # (never pass/fail; see docs/project/pssm-referee.md).
@@ -835,6 +908,21 @@ jobs:
           destination: conformance-pkg-report.json
           when: always
 
+      # The same suite through sysml-mcp's runtime tools over stdio, so the tools
+      # are proven to serve the service the scenarios specify, not a re-implementation.
+      - run:
+          name: Conformance suite through sysml-mcp
+          command: make conformance-mcp
+
+      - store_artifacts:
+          path: bin/conformance-mcp-report.json
+          destination: conformance-mcp-report.json
+          when: always
+
+      - store_test_results:
+          path: bin/conformance-mcp-report.xml
+          when: always
+
       - run:
           name: Build binaries
           command: |
@@ -867,14 +955,17 @@ jobs:
       - image: cimg/go:1.25
     # The Go sensor holds a whole directory's parse in memory; internal/exec/runtime
     # (168 files) overflows the default heap. The 8 GB container, the largest
-    # class in the plan, carries: 5.5 GB analysis heap + Node capped at 1 GB
-    # (sonar-project.properties) + a small launcher JVM.
+    # class in the plan, carries: 4.8 GB analysis heap + Node capped at 1 GB
+    # (sonar-project.properties) + a small launcher JVM; the budget is derived
+    # in docs/project/releasing.md § The SonarCloud scan.
     resource_class: large
     environment:
       # sonar-scanner-cli 8 forks the analysis into a second JVM whose arguments
       # come from SONAR_SCANNER_JAVA_OPTS; SONAR_SCANNER_OPTS sizes the launcher
-      # and carries -D properties appended by later steps.
-      SONAR_SCANNER_JAVA_OPTS: -Xmx5500m
+      # and carries -D properties appended by later steps. The GC log records
+      # the committed heap after every collection, so the next budget change
+      # starts from a measurement.
+      SONAR_SCANNER_JAVA_OPTS: -Xmx4800m -Xlog:gc:file=sonar-logs/analysis-gc.log
       SONAR_SCANNER_OPTS: -Xmx256m
     steps:
       # Forked PRs get no context, so the token is absent there: end green
@@ -907,8 +998,13 @@ jobs:
           name: Show the reports and Java binaries the scan reads
           command: |
             ls -l coverage.txt coverage-python.xml coverage-scripts.xml coverage-node.lcov \
+              coverage-vscode.lcov coverage-jupyterlab.lcov coverage-mcp-npm.lcov \
               client/java/opensysml-client/target/site/jacoco/jacoco.xml \
-              client/java/opensysml-conformance/target/site/jacoco/jacoco.xml
+              client/java/opensysml-conformance/target/site/jacoco/jacoco.xml \
+              editors/syson/backend/target/site/jacoco/jacoco.xml \
+              editors/mdk/tools/target/site/jacoco/jacoco.xml \
+              editors/mdk/plugin/target/site/jacoco/jacoco.xml \
+              editors/mdk/mdk-bridge/target/site/jacoco/jacoco.xml
             head -n 3 coverage.txt
             for module in opensysml-client opensysml-conformance; do
               for dir in classes test-classes dependency; do
@@ -1000,6 +1096,17 @@ jobs:
             fi
             scanner="$SCANNER_DIRECTORY/sonar-scanner-$VERSION-linux-x64/bin/sonar-scanner"
             transient='Failed to query JRE metadata|failed with HTTP 5[0-9][0-9]|Connection reset|Connect timed out|Read timed out|SocketTimeoutException|UnknownHostException'
+            # Sample the container's usage and the largest processes every 5 s
+            # so a kill can be attributed to a process and a phase.
+            (
+              while true; do
+                echo "== $(date -u +%H:%M:%S) cgroup $(cat /sys/fs/cgroup/memory.current 2>/dev/null || cat /sys/fs/cgroup/memory/memory.usage_in_bytes 2>/dev/null)"
+                ps -eo rss=,pid=,comm= --sort=-rss | head -n 6
+                sleep 5
+              done
+            ) > sonar-logs/memory-samples.log 2>&1 &
+            sampler=$!
+            trap 'kill "$sampler" 2>/dev/null || true' EXIT
             for attempt in 1 2; do
               set +e
               "$scanner" 2>&1 | tee "sonar-logs/sonar-scan-$attempt.log"
@@ -1015,7 +1122,7 @@ jobs:
             done
 
       # An OOM kill surfaces as a bare exit 3 in the scan's log; the cgroup
-      # counters name it (v2 first, v1 fallback).
+      # counters name it (v2 first, v1 fallback) and the samples say which process grew.
       - run:
           name: Report the container's memory events
           when: always
@@ -1025,6 +1132,16 @@ jobs:
             cat /sys/fs/cgroup/memory.events 2>/dev/null || true
             cat /sys/fs/cgroup/memory/memory.max_usage_in_bytes 2>/dev/null || true
             cat /sys/fs/cgroup/memory/memory.oom_control 2>/dev/null || true
+            if [ -s sonar-logs/memory-samples.log ]; then
+              echo "peak cgroup usage sampled (bytes):"
+              awk '/^== /{print $4}' sonar-logs/memory-samples.log | sort -n | tail -n 1
+              echo "peak RSS per process (KiB, pid, command):"
+              awk '!/^== /{if ($1 > peak[$2]) {peak[$2] = $1; name[$2] = $3}} END {for (pid in peak) print peak[pid], pid, name[pid]}' sonar-logs/memory-samples.log | sort -rn | head -n 8
+            fi
+            if [ -s sonar-logs/analysis-gc.log ]; then
+              echo "largest committed analysis heap:"
+              grep -o '([0-9]*[MG])' sonar-logs/analysis-gc.log | sort -t'(' -k2 -n | tail -n 1
+            fi
 
       - save_cache:
           key: v1-sonar-scanner-8.0.1.6346
@@ -1407,9 +1524,6 @@ jobs:
       - store_artifacts:
           path: client/java/opensysml-client/target
 
-      # The committed Java stubs are checked in go-static, which has the Go
-      # toolchain the one buf template needs.
-
   # The npm client's gate. The service binary comes from the workspace because
   # this executor has no Go toolchain to build one with, and both the tests and
   # the conformance run start private children from it.
@@ -1421,11 +1535,14 @@ jobs:
       - attach_workspace:
           at: .
 
+      # `npm install`, not `npm ci`: a release branch pins platform packages npm 11.6+'s `npm ci`
+      # refuses to miss from the lock until the tag publishes them; the lock must not change by it.
       - run:
           name: Install the client's dependencies
           command: |
             cd client/node
-            npm ci
+            npm install --ignore-scripts --no-audit --no-fund
+            git diff --exit-code package-lock.json
 
       - run:
           name: Build the package
@@ -1519,6 +1636,131 @@ jobs:
             make proto-ts BUF=buf
             git add -N client/node/src/generated
             git diff --exit-code client/node/src/generated
+
+  # The SysON backend's gate (editors/syson): its tests, with the JaCoCo report
+  # the scan reads; without it every line of the backend counts as uncovered.
+  # SysON runs on Java 21 and the module compiles at release 17, so the test
+  # JVM is 21. The service binary comes from the workspace, as for the clients.
+  syson-test:
+    docker:
+      - image: cimg/openjdk:21.0
+    resource_class: medium
+    steps:
+      - checkout
+
+      - attach_workspace:
+          at: .
+
+      - run:
+          name: Make the service binary executable
+          command: chmod +x bin/sysml-grpc
+
+      - restore_cache:
+          keys:
+            - maven-syson-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "editors/syson/pom.xml" }}-{{ checksum "editors/syson/backend/pom.xml" }}
+            - maven-syson-v1-
+
+      # The backend builds against this revision's client, so it is installed
+      # on every run; the cache only spares the download of the rest.
+      - run:
+          name: Install the client dependency
+          command: mvn -B -q -f client/java/pom.xml install -DskipTests -Dmaven.javadoc.skip=true
+
+      - run:
+          name: Test and install the SysON backend
+          command: mvn -B -f editors/syson/pom.xml install -Dopensysml.requireService=true
+
+      - save_cache:
+          key: maven-syson-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "editors/syson/pom.xml" }}-{{ checksum "editors/syson/backend/pom.xml" }}
+          paths:
+            - ~/.m2/repository
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - editors/syson/backend/target/site/jacoco/jacoco.xml
+
+      - store_test_results:
+          path: editors/syson/backend/target/surefire-reports
+
+  # The MDK for Cameo plugin's gate (editors/mdk): the tests of its three
+  # tested modules, with the JaCoCo report of each for the scan. The stub
+  # modules have no tests and are not instrumented.
+  mdk-test:
+    executor: java-executor
+    steps:
+      - checkout
+
+      - attach_workspace:
+          at: .
+
+      - run:
+          name: Make the service binary executable
+          command: chmod +x bin/sysml-grpc
+
+      - restore_cache:
+          keys:
+            - maven-mdk-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "editors/mdk/pom.xml" }}-{{ checksum "editors/mdk/plugin/pom.xml" }}
+            - maven-mdk-v1-
+
+      - run:
+          name: Install the Java client the plugin builds against
+          command: mvn -B -q -f client/java/pom.xml -pl :opensysml -am install -DskipTests
+
+      - run:
+          name: Build and test the plugin
+          command: mvn -B -f editors/mdk/pom.xml verify -Dopensysml.requireService=true
+
+      - save_cache:
+          key: maven-mdk-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "editors/mdk/pom.xml" }}-{{ checksum "editors/mdk/plugin/pom.xml" }}
+          paths:
+            - ~/.m2/repository
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - editors/mdk/tools/target/site/jacoco/jacoco.xml
+            - editors/mdk/plugin/target/site/jacoco/jacoco.xml
+            - editors/mdk/mdk-bridge/target/site/jacoco/jacoco.xml
+
+      - store_test_results:
+          path: editors/mdk/plugin/target/surefire-reports
+
+  # The editors' and the npm package's Node tests (editors/vscode,
+  # editors/jupyterlab, packaging/npm/sysml-mcp), each under c8 for the lcov
+  # report the scan reads; without them every line of theirs counts as
+  # uncovered. The VS Code tests bundle the browser client from source, so its
+  # dependencies are installed first. Nothing here needs the service binary.
+  editors-node-test:
+    executor: node-executor
+    steps:
+      - checkout
+
+      - run:
+          name: Install the browser client's dependencies
+          command: |
+            cd client/node
+            npm install --ignore-scripts --no-audit --no-fund
+            git diff --exit-code package-lock.json
+
+      - run:
+          name: Test the VS Code extension with coverage
+          command: make vscode-coverage
+
+      - run:
+          name: Test the JupyterLab extension with coverage
+          command: make jupyterlab-coverage
+
+      - run:
+          name: Test the sysml-mcp npm package with coverage
+          command: make mcp-npm-coverage
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - coverage-vscode.lcov
+            - coverage-jupyterlab.lcov
+            - coverage-mcp-npm.lcov
 
   # Builds the opensysml wheel and sdist on a core `v<version>` tag, which must name
   # the declared version; build-release and publish-pypi ship exactly these bytes.
@@ -2342,13 +2584,36 @@ jobs:
             # packages that download it read. The package jobs check the binaries
             # they bundle against these, and build-release checks them again
             # before folding them into the signed manifest.
+            # sysml-mcp is built apart from the other sysml-* binaries so the
+            # per-binary archive loop below does not pack it bare; it ships in
+            # its own archive with its manual page and the LICENSE.
+            mkdir -p dist/mcp
+
+            GOOS=linux GOARCH=amd64 make build-mcp VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+            mv bin/sysml-mcp dist/mcp/sysml-mcp-linux-amd64
+
+            GOOS=linux GOARCH=arm64 make build-mcp VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+            mv bin/sysml-mcp dist/mcp/sysml-mcp-linux-arm64
+
+            GOOS=darwin GOARCH=amd64 make build-mcp VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+            mv bin/sysml-mcp dist/mcp/sysml-mcp-darwin-amd64
+
+            GOOS=darwin GOARCH=arm64 make build-mcp VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+            mv bin/sysml-mcp dist/mcp/sysml-mcp-darwin-arm64
+
+            GOOS=windows GOARCH=amd64 make build-mcp VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+            mv bin/sysml-mcp dist/mcp/sysml-mcp-windows-amd64.exe
+
             (cd dist/grpc && for f in sysml-grpc-*; do sha256sum "$f" > "$f.sha256"; done)
             (cd dist/jupyter && for f in sysml-jupyter-kernel-*; do sha256sum "$f" > "$f.sha256"; done)
+            # @openmbee/sysml-mcp's platform packages are built from these,
+            # each checked against its sidecar the way the sysml-grpc ones are.
+            (cd dist/mcp && for f in sysml-mcp-*; do sha256sum "$f" > "$f.sha256"; done)
 
             # The Node client ships this combined WebAssembly module and matching Go runtime.
             mkdir -p dist/wasm
             make build-release-wasm VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
-            mv bin/wasm/release/sysml-wasm.wasm bin/wasm/release/wasm_exec.js dist/wasm/
+            mv bin/wasm/release/sysml-wasm.wasm bin/wasm/release/sysml-prod.wasm.gz bin/wasm/release/wasm_exec.js dist/wasm/
 
             # Create tarballs
             cd dist
@@ -2381,9 +2646,25 @@ jobs:
             (cd stage/windows-amd64 && zip -q ../../opensysml-windows-amd64.zip sysml.exe sysml-lsp.exe)
             rm -rf stage
 
+            # sysml-mcp's own archives: the binary under its plain name, the
+            # LICENSE and its manual page; not in the bundle, not a raw asset.
+            for platform in linux-amd64 linux-arm64 darwin-amd64 darwin-arm64; do
+              stage="stage/mcp-${platform}"
+              mkdir -p "$stage/share/man/man1"
+              cp "mcp/sysml-mcp-${platform}" "${stage}/sysml-mcp"
+              cp ../LICENSE "${stage}/LICENSE"
+              cp ../packaging/man/man1/sysml-mcp.1 "${stage}/share/man/man1/"
+              tar czf "sysml-mcp-${platform}.tar.gz" -C "$stage" sysml-mcp LICENSE share
+            done
+            mkdir -p stage/mcp-windows-amd64
+            cp mcp/sysml-mcp-windows-amd64.exe stage/mcp-windows-amd64/sysml-mcp.exe
+            cp ../LICENSE stage/mcp-windows-amd64/LICENSE
+            (cd stage/mcp-windows-amd64 && zip -q ../../sysml-mcp-windows-amd64.zip sysml-mcp.exe LICENSE)
+            rm -rf stage
+
             # The checksum manifest and the per-file sidecars are
             # build-release's, once the Python distributions exist to list.
-            ls -l . grpc jupyter
+            ls -l . grpc jupyter mcp
 
       # A Linux binary linked against this executor's glibc would not start on
       # older distributions; the Makefile builds without cgo, and this proves it.
@@ -2394,6 +2675,7 @@ jobs:
               dist/sysml-linux-amd64 dist/sysml-linux-arm64 \
               dist/sysml-lsp-linux-amd64 dist/sysml-lsp-linux-arm64 \
               dist/grpc/sysml-grpc-linux-amd64 dist/grpc/sysml-grpc-linux-arm64 \
+              dist/mcp/sysml-mcp-linux-amd64 dist/mcp/sysml-mcp-linux-arm64 \
               dist/jupyter/sysml-jupyter-kernel-linux-amd64 dist/jupyter/sysml-jupyter-kernel-linux-arm64
 
       # A binary whose version disagrees with its tag looks identical on the
@@ -2416,20 +2698,27 @@ jobs:
             }
             for binary in dist/sysml-linux-amd64 dist/sysml-lsp-linux-amd64 \
                           dist/grpc/sysml-grpc-linux-amd64 \
-                          dist/jupyter/sysml-jupyter-kernel-linux-amd64; do
+                          dist/jupyter/sysml-jupyter-kernel-linux-amd64 \
+                          dist/mcp/sysml-mcp-linux-amd64; do
               reported="$("$binary" --version 2>&1 | head -n 1)"
               case " $reported " in
                 *" ${CIRCLE_TAG} "*) echo "ok: $binary reports ${CIRCLE_TAG}" ;;
                 *) fail "$binary" "it reports '${reported}'" ;;
               esac
             done
-            for binary in dist/sysml-* dist/grpc/sysml-grpc-* dist/jupyter/sysml-jupyter-kernel-* dist/wasm/sysml-wasm.wasm; do
+            for binary in dist/sysml-* dist/grpc/sysml-grpc-* dist/jupyter/sysml-jupyter-kernel-* dist/mcp/sysml-mcp-* dist/wasm/sysml-wasm.wasm dist/wasm/sysml-prod.wasm.gz; do
               case "$binary" in
                 *.tar.gz|*.zip|*.sha256) continue ;;
                 dist/sysml-linux-amd64|dist/sysml-lsp-linux-amd64) continue ;;
-                dist/grpc/sysml-grpc-linux-amd64|dist/jupyter/sysml-jupyter-kernel-linux-amd64) continue ;;
+                dist/grpc/sysml-grpc-linux-amd64|dist/jupyter/sysml-jupyter-kernel-linux-amd64|dist/mcp/sysml-mcp-linux-amd64) continue ;;
               esac
-              if grep -qa -- "${CIRCLE_TAG}" "$binary"; then
+              if [[ "$binary" == *.gz ]]; then
+                read_binary() { gzip -dc "$1"; }
+              else
+                read_binary() { cat "$1"; }
+              fi
+              # grep -c reads the whole stream: under pipefail, -q would SIGPIPE the producer on an early match.
+              if read_binary "$binary" | grep -ac -- "${CIRCLE_TAG}" > /dev/null; then
                 echo "ok: $binary carries ${CIRCLE_TAG}"
               else
                 fail "$binary" "the version string is absent from the binary"
@@ -2478,8 +2767,9 @@ jobs:
             (cd grpc && sha256sum --check --strict sysml-grpc-*.sha256 && cat sysml-grpc-*.sha256 >> ../SHA256SUMS.txt)
             # And the raw kernel binaries, the only checksum jupyter-opensysml-kernel reads.
             (cd jupyter && sha256sum --check --strict sysml-jupyter-kernel-*.sha256 && cat sysml-jupyter-kernel-*.sha256 >> ../SHA256SUMS.txt)
-            (cd wasm && sha256sum sysml-wasm.wasm wasm_exec.js >> ../SHA256SUMS.txt)
-            (cd wasm && for f in sysml-wasm.wasm wasm_exec.js; do sha256sum "$f" > "$f.sha256"; done)
+            (cd mcp && sha256sum --check --strict sysml-mcp-*.sha256)
+            (cd wasm && sha256sum sysml-wasm.wasm sysml-prod.wasm.gz wasm_exec.js >> ../SHA256SUMS.txt)
+            (cd wasm && for f in sysml-wasm.wasm sysml-prod.wasm.gz wasm_exec.js; do sha256sum "$f" > "$f.sha256"; done)
             cat SHA256SUMS.txt
 
       # The distribution was stamped from the binaries before the manifest
@@ -2743,8 +3033,9 @@ jobs:
             echo "Publishing ${version} to the '${dist_tag}' dist-tag"
             # Proves the workspace carries the release binaries and sidecars.
             ls -l dist/grpc/sysml-grpc-*
-            ls -l dist/wasm/sysml-wasm.wasm dist/wasm/wasm_exec.js \
-              dist/wasm/sysml-wasm.wasm.sha256 dist/wasm/wasm_exec.js.sha256
+            ls -l dist/mcp/sysml-mcp-*
+            ls -l dist/wasm/sysml-wasm.wasm dist/wasm/sysml-prod.wasm.gz dist/wasm/wasm_exec.js \
+              dist/wasm/sysml-wasm.wasm.sha256 dist/wasm/sysml-prod.wasm.gz.sha256 dist/wasm/wasm_exec.js.sha256
 
       # The package's own copy of the table is the only pin the published
       # client carries; stamping it here, from build-release's binaries, is
@@ -2778,21 +3069,25 @@ jobs:
       - run:
           name: Refuse a version already on the registry
           command: |
-            # The package names come from package.json, not a literal list:
-            # the client, platform binaries and optional WASM peer. Anything
-            # but seven means the manifest drifted.
+            # The package names come from the two manifests, not a literal
+            # list: the client, its platform binaries and optional WASM peer,
+            # then @openmbee/sysml-mcp and its platform binaries. Anything
+            # but thirteen means a manifest drifted.
             names=$(node -e "
               const pkg = require('./client/node/package.json');
               const platforms = Object.keys(pkg.optionalDependencies || {})
                 .filter(n => n.startsWith(pkg.name + '-sysml-grpc-'));
               const wasm = Object.keys(pkg.peerDependencies || {})
                 .filter(n => n.startsWith(pkg.name + '-wasm'));
-              console.log([pkg.name, ...platforms, ...wasm].join('\n'));
+              const mcp = require('./packaging/npm/sysml-mcp/package.json');
+              const mcpPlatforms = Object.keys(mcp.optionalDependencies || {})
+                .filter(n => n.startsWith(mcp.name + '-'));
+              console.log([pkg.name, ...platforms, ...wasm, mcp.name, ...mcpPlatforms].join('\n'));
             ")
             count=$(echo "$names" | wc -l)
-            if [ "$count" -ne 7 ]; then
-              echo "Error: expected 7 packages to publish (client + 5 platform + WASM),"
-              echo "package.json yields $count:"
+            if [ "$count" -ne 13 ]; then
+              echo "Error: expected 13 packages to publish (client + 5 platform + WASM + sysml-mcp + 5 platform),"
+              echo "the manifests yield $count:"
               echo "$names"
               exit 1
             fi
@@ -2822,7 +3117,8 @@ jobs:
             # Makes the suite assert that the table just stamped pins this tag.
             export OPENSYSML_EXPECT_PINNED_RELEASE="${CIRCLE_TAG}"
             cd client/node
-            npm ci
+            npm install --ignore-scripts --no-audit --no-fund
+            git diff --exit-code package-lock.json
             npm run build
             npm run typecheck
             npm run lint
@@ -2832,9 +3128,10 @@ jobs:
           name: Build the platform and WASM packages
           command: |
             # These are build-release's bytes; the generator checks each one
-            # against its .sha256 sidecar before packaging it.
+            # against its .sha256 sidecar before packaging it. The sysml-mcp
+            # packages are the ones @openmbee/sysml-mcp pins.
             cd client/node
-            npm run platform-packages -- --binaries ../../dist/grpc --wasm ../../dist/wasm
+            npm run platform-packages -- --binaries ../../dist/grpc --mcp ../../dist/mcp --wasm ../../dist/wasm
 
       - run:
           name: Pack the client and verify its pins
@@ -2895,6 +3192,38 @@ jobs:
             PY
 
       - run:
+          name: Pack @openmbee/sysml-mcp and prove it serves the protocol
+          command: |
+            # The shim tarball packed here is the one published below. It must
+            # be this tag's version and pin its five platform packages at it;
+            # then the packed shim, installed beside this platform's package
+            # from the generator's tree, must answer initialize and tools/list.
+            (cd packaging/npm/sysml-mcp && npm pack --pack-destination ../../../dist/npm)
+            tarball="dist/npm/openmbee-sysml-mcp-${NPM_VERSION}.tgz"
+            if [ ! -f "$tarball" ]; then
+              echo "Error: packaging/npm/sysml-mcp did not pack as ${tarball}:"
+              ls -l dist/npm
+              exit 1
+            fi
+            echo "export NPM_MCP_TARBALL=$(pwd)/${tarball}" >> "$BASH_ENV"
+            # The manifest goes through a file: the heredoc below is node's stdin.
+            tar -xOf "$tarball" package/package.json > dist/npm/mcp-package.json
+            node - "$NPM_VERSION" dist/npm/mcp-package.json \<<'JS'
+            const fs = require("node:fs");
+            const [version, manifest] = process.argv.slice(2);
+            const pkg = JSON.parse(fs.readFileSync(manifest, "utf8"));
+            const pins = Object.entries(pkg.optionalDependencies || {});
+            const wrong = pins.filter(([, pinned]) => pinned !== version).map(([name, pinned]) => `${name}@${pinned}`);
+            if (pkg.version !== version || pins.length !== 5 || wrong.length > 0 || pkg.dependencies !== undefined) {
+              console.error(`Error: ${pkg.name}@${pkg.version} pins ${pins.length} platform packages, wrong: ${wrong.join(", ") || "none"}; expected 5 at ${version} and no dependencies`);
+              process.exit(1);
+            }
+            console.log(`${pkg.name}@${pkg.version} pins its five platform packages at ${version}`);
+            JS
+            rm dist/npm/mcp-package.json
+            SYSML_MCP_PACKAGES="$(pwd)/client/node/packages" scripts/npm-mcp-test.sh
+
+      - run:
           name: Authenticate to npm
           command: |
             echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
@@ -2910,24 +3239,25 @@ jobs:
                 name: Publish the WASM and per-platform packages
                 command: |
                   npm publish client/node/packages/sysml-wasm --access public --tag "$NPM_DIST_TAG"
-                  for directory in client/node/packages/sysml-grpc-*; do
+                  for directory in client/node/packages/sysml-grpc-* client/node/packages/sysml-mcp-*; do
                     npm publish "$directory" --access public --tag "$NPM_DIST_TAG"
                   done
 
             - run:
-                name: Publish @openmbee/opensysml
+                name: Publish @openmbee/opensysml and @openmbee/sysml-mcp
                 command: |
-                  # The tarball verified above, not a fresh pack of the directory.
+                  # The tarballs verified above, not a fresh pack of the directories.
                   npm publish "$NPM_TARBALL" --access public --tag "$NPM_DIST_TAG"
+                  npm publish "$NPM_MCP_TARBALL" --access public --tag "$NPM_DIST_TAG"
       - when:
           condition: << pipeline.parameters.release_rehearsal >>
           steps:
             - run:
                 name: "REHEARSAL: pack every package"
                 command: |
-                  # The client itself was packed and verified above.
+                  # The client and @openmbee/sysml-mcp were packed and verified above.
                   npm pack client/node/packages/sysml-wasm --dry-run
-                  for directory in client/node/packages/sysml-grpc-*; do
+                  for directory in client/node/packages/sysml-grpc-* client/node/packages/sysml-mcp-*; do
                     npm pack "$directory" --dry-run
                   done
       - rehearsal-skip:
@@ -3303,6 +3633,192 @@ jobs:
       - rehearsal-skip:
           what: "cargo publish"
 
+  # Publishes openmbee/opensysml (linux/amd64,linux/arm64) to Docker Hub from the
+  # core v* tag with the 'DockerHub' context; everything that can fail runs first.
+  publish-docker:
+    executor: docker-executor
+    steps:
+      - checkout
+      - rehearsal-tag
+
+      # The image is built on a remote Docker host; buildx cross-compiles the
+      # arm64 binaries there, so no emulator is installed.
+      - setup_remote_docker
+
+      - run:
+          name: Resolve the version from the tag
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              echo "Error: CIRCLE_TAG is empty; this job only runs on a core v* tag."
+              exit 1
+            fi
+            # The image tag is the version without the v, as the clients' registries
+            # spell it; whether `latest` moves too is decided at the push.
+            version=${CIRCLE_TAG#v}
+            echo "export IMAGE_VERSION=${version}" >> "$BASH_ENV"
+            echo "Publishing openmbee/opensysml:${version}"
+
+      - run:
+          name: Require the publishing credentials
+          command: |
+            # Names only, never the values; the 'DockerHub' context supplies them.
+            missing=""
+            [ -n "${DOCKER_USERNAME:-}" ] || missing="${missing} DOCKER_USERNAME"
+            [ -n "${DOCKER_PASSWORD:-}" ] || missing="${missing} DOCKER_PASSWORD"
+            if [ -n "$missing" ]; then
+              echo "Error:${missing} not set; add them to the 'DockerHub' context (Organization Settings → Contexts)."
+              exit 1
+            fi
+
+      - run:
+          name: Authenticate to Docker Hub
+          command: |
+            # A bad or expired access token fails here, before anything is built.
+            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+
+      # A published version tag is never replaced, so only the registry's definite
+      # 404 lets the push proceed; any other answer fails closed (releasing.md).
+      - run:
+          name: Refuse a version already on Docker Hub
+          command: |
+            image=openmbee/opensysml
+            # Credentials and token travel in curl config files, never on a command line.
+            token=$(curl -fsS --retry 3 --retry-all-errors \
+              -K <(printf 'user = "%s:%s"\n' "$DOCKER_USERNAME" "$DOCKER_PASSWORD") \
+              "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${image}:pull" \
+              | jq -r '.token // empty')
+            if [ -z "$token" ]; then
+              echo "Error: Docker Hub issued no registry token for ${image}; nothing was published."
+              exit 1
+            fi
+            accept='application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json'
+            rm -f /tmp/manifest-check.json
+            status=$(curl -sS --retry 3 --retry-all-errors -o /tmp/manifest-check.json -w '%{http_code}' \
+              -K <(printf 'header = "Authorization: Bearer %s"\n' "$token") -H "Accept: ${accept}" \
+              "https://registry-1.docker.io/v2/${image}/manifests/${IMAGE_VERSION}") || status=000
+            case "$status" in
+              404)
+                echo "ok: ${image}:${IMAGE_VERSION} is not on Docker Hub yet"
+                ;;
+              200)
+                echo "Error: ${image}:${IMAGE_VERSION} is already on Docker Hub;"
+                echo "a published image tag is not replaced. Cut the next core release."
+                exit 1
+                ;;
+              *)
+                echo "Error: Docker Hub answered ${status} for ${image}:${IMAGE_VERSION}, so whether the tag"
+                echo "exists is unknown and nothing is pushed. 401: the credentials cannot read the"
+                echo "repository, or it does not exist yet (create openmbee/opensysml on Docker Hub);"
+                echo "000 or 5xx: the registry was unreachable. Fix the cause and rerun from failed."
+                cat /tmp/manifest-check.json 2>/dev/null || true
+                exit 1
+                ;;
+            esac
+
+      # The same metadata build-release-binaries stamps into the archives'
+      # binaries; the Dockerfile passes it to the Makefile's -ldflags.
+      - run:
+          name: Create the multi-platform builder
+          command: |
+            echo "export BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')" >> "$BASH_ENV"
+            docker buildx create --name opensysml --driver docker-container --use
+            docker buildx inspect --bootstrap
+
+      # The native platform's image is run before anything is pushed: the
+      # binaries report the tag, and the service answers /health and a Connect
+      # call from a second container on the service container's network, as a
+      # sidecar consumer will.
+      - run:
+          name: Build the linux/amd64 image and run it
+          command: |
+            docker buildx build --platform linux/amd64 --load \
+              --build-arg VERSION="${CIRCLE_TAG}" \
+              --build-arg COMMIT="${CIRCLE_SHA1}" \
+              --build-arg BUILD_TIME="${BUILD_TIME}" \
+              -t openmbee/opensysml:check .
+            for binary in sysml-grpc sysml sysml-lsp; do
+              reported=$(docker run --rm --entrypoint "$binary" openmbee/opensysml:check -version | head -n 1)
+              echo "$reported"
+              case "$reported" in
+                *"${CIRCLE_TAG}"*) ;;
+                *)
+                  echo "Error: ${binary} reports '${reported}', not the release tag ${CIRCLE_TAG}."
+                  exit 1 ;;
+              esac
+            done
+            docker run -d --name opensysml-check openmbee/opensysml:check
+            curl() {
+              docker run --rm --network container:opensysml-check curlimages/curl:8.11.1 \
+                -fsS --retry 10 --retry-connrefused --retry-delay 1 "$@"
+            }
+            health=$(curl http://localhost:8081/health)
+            echo "$health"
+            case "$health" in
+              *'"status":"ok"'*) ;;
+              *) echo "Error: /health did not answer ok."; exit 1 ;;
+            esac
+            info=$(curl -X POST -H 'Content-Type: application/json' -d '{}' \
+              http://localhost:50051/sysml.SysMLService/GetServerInfo)
+            case "$info" in
+              *"\"version\":\"${CIRCLE_TAG}\""*) echo "ok: GetServerInfo reports ${CIRCLE_TAG}" ;;
+              *) echo "Error: GetServerInfo answered '${info}', not version ${CIRCLE_TAG}."; exit 1 ;;
+            esac
+            docker rm -f opensysml-check >/dev/null
+
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            # One build publishes both platforms under one manifest list per tag, with
+            # buildx's SLSA provenance and SBOM attached; the digest it reports is what a deployer pins.
+            - run:
+                name: Build and push the multi-platform image
+                command: |
+                  tags="openmbee/opensysml:${IMAGE_VERSION}"
+                  # `latest` moves only to the newest stable release, decided against the tag
+                  # namespace as fetched now, so a late or re-run publish cannot roll it back.
+                  case "$IMAGE_VERSION" in
+                    *-*) echo "pre-release: latest is not moved" ;;
+                    *)
+                      git fetch --tags --force --quiet origin
+                      newest=$( { git tag -l 'v[0-9]*' | grep -v -- -; echo "v${IMAGE_VERSION}"; } | sort -V | tail -n 1)
+                      if [ "$newest" = "v${IMAGE_VERSION}" ]; then
+                        tags="${tags} openmbee/opensysml:latest"
+                      else
+                        echo "${newest} is a newer release: latest is not moved to ${IMAGE_VERSION}"
+                      fi
+                      ;;
+                  esac
+                  echo "export IMAGE_TAGS='${tags}'" >> "$BASH_ENV"
+                  echo "Pushing ${tags}"
+                  tag_flags=""
+                  for tag in ${tags}; do tag_flags="${tag_flags} -t ${tag}"; done
+                  # shellcheck disable=SC2086
+                  docker buildx build --platform linux/amd64,linux/arm64 --push \
+                    --provenance=mode=max --sbom=true \
+                    --build-arg VERSION="${CIRCLE_TAG}" \
+                    --build-arg COMMIT="${CIRCLE_SHA1}" \
+                    --build-arg BUILD_TIME="${BUILD_TIME}" \
+                    ${tag_flags} .
+                  for tag in ${tags}; do
+                    docker buildx imagetools inspect "$tag"
+                  done
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            # The login above already proved the credentials; this proves both
+            # platforms build from this tree, and leaves the result unpushed.
+            - run:
+                name: "REHEARSAL: build both platforms without pushing"
+                command: |
+                  docker buildx build --platform linux/amd64,linux/arm64 \
+                    --output type=image,push=false \
+                    --build-arg VERSION="${CIRCLE_TAG}" \
+                    --build-arg COMMIT="${CIRCLE_SHA1}" \
+                    --build-arg BUILD_TIME="${BUILD_TIME}" \
+                    -t openmbee/opensysml:rehearsal .
+      - rehearsal-skip:
+          what: "docker buildx build --push (the multi-platform image to Docker Hub)"
+
   publish-github-release:
     docker:
       - image: cibuilds/github:0.13
@@ -3374,7 +3890,7 @@ jobs:
                 name: "REHEARSAL: check the release assets and the GitHub token"
                 command: |
                   ls dist/SHA256SUMS.txt > /dev/null
-                  ls dist/wasm/sysml-wasm.wasm dist/wasm/wasm_exec.js > /dev/null
+                  ls dist/wasm/sysml-wasm.wasm dist/wasm/sysml-prod.wasm.gz dist/wasm/wasm_exec.js > /dev/null
                   set -- dist/opensysml-*-py3-none-any.whl
                   if [ ! -f "$1" ] || [ $# -ne 1 ]; then
                     echo "Error: expected exactly one dist/opensysml-*-py3-none-any.whl"
@@ -3592,6 +4108,18 @@ workflows:
           name: Node client tests
           requires: *scan-inputs
           filters: *integration-branches
+      - syson-test:
+          name: SysON backend tests
+          requires: *scan-inputs
+          filters: *integration-branches
+      - mdk-test:
+          name: MDK plugin tests
+          requires: *scan-inputs
+          filters: *integration-branches
+      - editors-node-test:
+          name: Editor and npm package tests
+          requires: *scan-inputs
+          filters: *integration-branches
       - scan:
           name: SonarCloud scan
           # Matched exactly, like PyPI below; this context holds SONAR_TOKEN.
@@ -3607,6 +4135,9 @@ workflows:
             - Python client tests
             - Java client tests
             - Node client tests
+            - SysON backend tests
+            - MDK plugin tests
+            - Editor and npm package tests
           filters: *integration-branches
 
   # Build and release on tags. The suite runs here too: a tag can point at any
@@ -3781,6 +4312,20 @@ workflows:
           requires:
             - Publish GitHub release
             - Rust client tests
+          filters: *release-tags
+
+      - publish-docker:
+          name: Publish openmbee/opensysml to Docker Hub
+          # Last of all, with the registry publishers: a tag of the image names
+          # a release, so it waits for the GitHub release to exist. It is
+          # independent of them so neither registry refusing a re-run blocks
+          # the other. The organization context is named 'DockerHub' (the one
+          # flexo-mms-sysmlv2 publishes with); a context reference is matched
+          # exactly, so the case here has to match it.
+          context:
+            - DockerHub
+          requires:
+            - Publish GitHub release
           filters: *release-tags
 
       - pin-release-digests:

@@ -34,7 +34,11 @@ type CachedDocument struct {
 	// document's: the parse's errors and warnings as the passes present them,
 	// and the passes' own findings when the model parsed clean and was analyzed.
 	Diagnostics []diag.Diagnostic
-	Warnings    []string
+	// Unfiltered is Diagnostics before the default lint selection was applied,
+	// every lint finding kept, so a request selecting lints of its own is
+	// answered from it; nil when the document was not analyzed.
+	Unfiltered []diag.Diagnostic
+	Warnings   []string
 	// proto is Diagnostics and Warnings converted to protobuf, once per document;
 	// a lineage hands the same cell to the next model when neither changed.
 	proto *protoDiagnostics
@@ -54,6 +58,16 @@ func newCachedDocument(root *ast.RootNamespace, sf *source.SourceFile, parseDiag
 		Root: root, Source: sf, ParseDiags: parseDiags, Diagnostics: diagnostics,
 		Warnings: append([]string(nil), warnings...), proto: &protoDiagnostics{},
 	}
+}
+
+// lintSelected is the document's diagnostics under a lint selection: the lints
+// disabled left out and the opt-in ones enabled kept (passes.WithoutLints).
+func (d *CachedDocument) lintSelected(disabled, enabled map[string]bool) []diag.Diagnostic {
+	all := d.Unfiltered
+	if all == nil {
+		all = d.Diagnostics
+	}
+	return passes.WithoutLints(all, disabled, enabled)
 }
 
 // protoDiagnostics is the document's diagnostics as build converts them, built on

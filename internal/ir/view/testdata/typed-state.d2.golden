@@ -9,7 +9,7 @@ n0: "«state def»\nBoiler" {
   class: definition
   n3: "" { class: initial }
   n1: "«state»\nidle\ninitial" { class: usage }
-  n2: "«state»\nheating : Heating" { class: usage }
+  n2: "«state»\nheating" { class: usage }
 }
 n0.n3 -> n0.n1: { class: edge }
 n0.n1 -> n0.n2: { class: edge }

@@ -1,0 +1,356 @@
+# What a real Flexo MMS stack does with the whole bundled standard library,
+# measured by TestFlexoInteropLibrary. This is a ratchet: every line is
+# adjudicated, and a change to one is a change in interoperability, not a change
+# in the harness.
+#
+# Regenerate against a running stack (see .agents/skills/flexo-interop):
+#   FLEXO_INTEROP=1 FLEXO_INTEROP_TOKEN=<jwt> \
+#     go test -C tools -count=1 -timeout 30m ./referee/flexo -run TestFlexoInteropLibrary -update-flexo
+# against a stack brought up fresh: a loaded library slows every later write.
+#
+# graph-load is the library as sysml -stdlib -convert ttl writes it, every
+# element under its normative id, loaded through Layer 1's graph endpoint into
+# one project and read back through the element APIs; elements are counted by
+# metaclass rather than listed, a hundred thousand lines being no ratchet a
+# reader adjudicates. anchors are named library elements read directly by id.
+# user-model is a second project typing parts by library ids: each typing is
+# followed into the library project, the delivered elements are re-converted to
+# notation, and a ProjectUsage of the library is declared. Server-generated
+# commit ids, timestamps and durations are not recorded.
+
+[library]
+files	110
+subjects	111773
+triples	1409414
+bytes	108843074
+triples.json	70586
+triples.rdf	111773
+triples.sysml	1108489
+triples.sysx	118566
+
+[api-json]
+elements	111993
+bytes	105366343
+
+[graph-load]
+accepted	yes
+commits	1
+elements.written	111773
+elements.listed	111773
+elements.unexpected	0
+listing.responses	1
+listing.paging-ignored	yes
+roots.reported	111
+roots.in-model	111
+
+[graph-load.metaclasses]
+AcceptActionUsage	written=1	listed=1
+ActionDefinition	written=27	listed=27
+ActionUsage	written=50	listed=50
+AllocationDefinition	written=1	listed=1
+AllocationUsage	written=1	listed=1
+AnalysisCaseDefinition	written=4	listed=4
+AnalysisCaseUsage	written=4	listed=4
+AssertConstraintUsage	written=38	listed=38
+AssignmentActionUsage	written=3	listed=3
+AssociationUsage	written=29	listed=29
+AttributeDefinition	written=1015	listed=1015
+AttributeUsage	written=4265	listed=4265
+BehaviorUsage	written=29	listed=29
+BindingConnectorAsUsage	written=81	listed=81
+BooleanUsage	written=11	listed=11
+CalculationDefinition	written=118	listed=118
+CalculationUsage	written=20	listed=20
+CaseDefinition	written=1	listed=1
+CaseUsage	written=3	listed=3
+Class	written=1	listed=1
+ClassUsage	written=2	listed=2
+Comment	written=1	listed=1
+ConcernDefinition	written=10	listed=10
+ConcernUsage	written=12	listed=12
+ConjugatedPortDefinition	written=1	listed=1
+ConnectionDefinition	written=7	listed=7
+ConnectionUsage	written=33	listed=33
+Connector	written=41	listed=41
+ConstraintDefinition	written=53	listed=53
+ConstraintUsage	written=82	listed=82
+ConstructorExpression	written=8	listed=8
+DataType	written=31	listed=31
+Disjoining	written=1	listed=1
+Documentation	written=1784	listed=1784
+ElementFilterMembership	written=16	listed=16
+EndFeatureMembership	written=362	listed=362
+EnumerationDefinition	written=17	listed=17
+EnumerationUsage	written=75	listed=75
+EventOccurrenceUsage	written=3	listed=3
+Expression	written=100	listed=100
+Feature	written=13334	listed=13334
+FeatureChainExpression	written=1042	listed=1042
+FeatureChaining	written=253	listed=253
+FeatureMembership	written=7281	listed=7281
+FeatureReferenceExpression	written=3593	listed=3593
+FeatureTyping	written=6016	listed=6016
+FeatureValue	written=8793	listed=8793
+FlowDefinition	written=4	listed=4
+FlowUsage	written=6	listed=6
+FramedConcernMembership	written=9	listed=9
+Function	written=315	listed=315
+IndexExpression	written=127	listed=127
+InteractionUsage	written=5	listed=5
+InterfaceDefinition	written=4	listed=4
+InterfaceUsage	written=4	listed=4
+InvocationExpression	written=410	listed=410
+ItemDefinition	written=51	listed=51
+ItemUsage	written=368	listed=368
+LibraryPackage	written=110	listed=110
+LiteralBoolean	written=240	listed=240
+LiteralInfinity	written=1060	listed=1060
+LiteralInteger	written=5724	listed=5724
+LiteralRational	written=147	listed=147
+LiteralString	written=84	listed=84
+Membership	written=5251	listed=5251
+MembershipImport	written=509	listed=509
+Metaclass	written=84	listed=84
+MetadataDefinition	written=179	listed=179
+MultiplicityRange	written=4231	listed=4231
+NamespaceImport	written=133	listed=133
+NullExpression	written=28	listed=28
+ObjectiveMembership	written=4	listed=4
+OccurrenceUsage	written=17	listed=17
+OperatorExpression	written=2131	listed=2131
+OwningMembership	written=15128	listed=15128
+Package	written=5	listed=5
+ParameterMembership	written=5888	listed=5888
+PartDefinition	written=39	listed=39
+PartUsage	written=34	listed=34
+PerformActionUsage	written=4	listed=4
+PortConjugation	written=1	listed=1
+PortDefinition	written=1	listed=1
+PortUsage	written=8	listed=8
+PredicateUsage	written=3	listed=3
+Redefinition	written=4280	listed=4280
+ReferenceSubsetting	written=382	listed=382
+ReferenceUsage	written=4216	listed=4216
+RenderingDefinition	written=4	listed=4
+RenderingUsage	written=29	listed=29
+RequirementConstraintMembership	written=2	listed=2
+RequirementDefinition	written=16	listed=16
+RequirementUsage	written=22	listed=22
+ResultExpressionMembership	written=243	listed=243
+ReturnParameterMembership	written=7765	listed=7765
+SatisfyRequirementUsage	written=17	listed=17
+Specialization	written=92	listed=92
+StateDefinition	written=6	listed=6
+StateSubactionMembership	written=3	listed=3
+StateUsage	written=12	listed=12
+Step	written=34	listed=34
+StructureUsage	written=19	listed=19
+Subclassification	written=1720	listed=1720
+SubjectMembership	written=18	listed=18
+Subsetting	written=1706	listed=1706
+SuccessionAsUsage	written=34	listed=34
+TransitionFeatureMembership	written=1	listed=1
+TransitionUsage	written=1	listed=1
+UseCaseDefinition	written=3	listed=3
+UseCaseUsage	written=8	listed=8
+VariantMembership	written=75	listed=75
+VerificationCaseDefinition	written=1	listed=1
+VerificationCaseUsage	written=3	listed=3
+ViewDefinition	written=27	listed=27
+ViewRenderingMembership	written=17	listed=17
+ViewUsage	written=4	listed=4
+ViewpointDefinition	written=10	listed=10
+ViewpointUsage	written=3	listed=3
+WhileLoopActionUsage	written=1	listed=1
+
+[graph-load.properties]
+sysml:annotatedElement	written=1	delivered=1	multi-valued=1/1
+sysml:argument	written=3667	delivered=3667	multi-valued=1779/1779
+sysml:body	written=1785	delivered=1785	multi-valued=0/0
+sysml:chainingFeature	written=374	delivered=374	multi-valued=121/121
+sysml:chains	written=3	delivered=3	multi-valued=0/0
+sysml:condition	written=16	delivered=16	multi-valued=0/0
+sysml:conjugatedPortDefinition	written=1	delivered=1	multi-valued=0/0
+sysml:conjugatedType	written=1	delivered=1	multi-valued=0/0
+sysml:connectorEnd	written=181	delivered=181	multi-valued=181/181
+sysml:crosses	written=29	delivered=29	multi-valued=0/0
+sysml:declaredName	written=6889	delivered=6889	multi-valued=0/0
+sysml:declaredShortName	written=486	delivered=486	multi-valued=0/0
+sysml:direction	written=14725	delivered=14725	multi-valued=0/0
+sysml:disjoiningType	written=1	delivered=1	multi-valued=0/0
+sysml:disjointFrom	written=5	delivered=5	multi-valued=0/0
+sysml:elementId	written=111773	delivered=111773	multi-valued=0/0
+sysml:featureChained	written=253	delivered=253	multi-valued=0/0
+sysml:featureWithValue	written=8793	delivered=8793	multi-valued=0/0
+sysml:featuringType	written=1	delivered=1	multi-valued=0/0
+sysml:function	written=417	delivered=417	multi-valued=0/0
+sysml:general	written=14183	delivered=14183	multi-valued=0/0
+sysml:importOwningNamespace	written=642	delivered=642	multi-valued=0/0
+sysml:importedMembership	written=509	delivered=509	multi-valued=0/0
+sysml:importedNamespace	written=133	delivered=133	multi-valued=0/0
+sysml:input	written=3711	delivered=3711	multi-valued=1885/1885
+sysml:intersects	written=24	delivered=24	multi-valued=24/24
+sysml:inverseOf	written=16	delivered=16	multi-valued=0/0
+sysml:isAbstract	written=384	delivered=384	multi-valued=0/0
+sysml:isAccept	written=1	delivered=1	multi-valued=0/0
+sysml:isAll	written=49	delivered=49	multi-valued=0/0
+sysml:isComposite	written=63	delivered=63	multi-valued=0/0
+sysml:isConstant	written=2	delivered=2	multi-valued=0/0
+sysml:isDefault	written=228	delivered=228	multi-valued=0/0
+sysml:isDerived	written=335	delivered=335	multi-valued=0/0
+sysml:isEnd	written=474	delivered=474	multi-valued=0/0
+sysml:isOrdered	written=322	delivered=322	multi-valued=0/0
+sysml:isPortion	written=18	delivered=18	multi-valued=0/0
+sysml:isReference	written=312	delivered=312	multi-valued=0/0
+sysml:isResult	written=454	delivered=454	multi-valued=0/0
+sysml:isStandard	written=94	delivered=94	multi-valued=0/0
+sysml:isUnique	written=548	delivered=548	multi-valued=0/0
+sysml:isVariant	written=75	delivered=75	multi-valued=0/0
+sysml:isVariation	written=17	delivered=17	multi-valued=0/0
+sysml:kind	written=15	delivered=15	multi-valued=0/0
+sysml:lowerBound	written=2608	delivered=2608	multi-valued=0/0
+sysml:memberElement	written=50856	delivered=50856	multi-valued=0/0
+sysml:memberName	written=270	delivered=270	multi-valued=0/0
+sysml:membershipOwningNamespace	written=45876	delivered=45876	multi-valued=0/0
+sysml:multiplicity	written=4227	delivered=4227	multi-valued=0/0
+sysml:name	written=28	delivered=28	multi-valued=0/0
+sysml:operand	written=113	delivered=113	multi-valued=0/0
+sysml:operator	written=2258	delivered=2258	multi-valued=0/0
+sysml:originalPortDefinition	written=1	delivered=1	multi-valued=0/0
+sysml:originalType	written=1	delivered=1	multi-valued=0/0
+sysml:ownedConcern	written=9	delivered=9	multi-valued=0/0
+sysml:ownedConstraint	written=11	delivered=11	multi-valued=0/0
+sysml:ownedEndFeature	written=181	delivered=181	multi-valued=181/181
+sysml:ownedFeature	written=10851	delivered=10851	multi-valued=6475/6475
+sysml:ownedFeatureChaining	written=121	delivered=121	multi-valued=121/121
+sysml:ownedFeatureMembership	written=10851	delivered=10851	multi-valued=6475/6475
+sysml:ownedImport	written=110	delivered=110	multi-valued=83/83
+sysml:ownedMember	written=4385	delivered=4385	multi-valued=2947/2947
+sysml:ownedMemberElement	written=45605	delivered=45605	multi-valued=0/0
+sysml:ownedMemberFeature	written=21155	delivered=21155	multi-valued=0/0
+sysml:ownedMemberParameter	written=13675	delivered=13675	multi-valued=0/0
+sysml:ownedMembership	written=27674	delivered=27674	multi-valued=8574/8574
+sysml:ownedObjectiveRequirement	written=4	delivered=4	multi-valued=0/0
+sysml:ownedPortConjugator	written=1	delivered=1	multi-valued=0/0
+sysml:ownedRedefinition	written=4150	delivered=4150	multi-valued=119/119
+sysml:ownedReferenceSubsetting	written=382	delivered=382	multi-valued=0/0
+sysml:ownedRelatedElement	written=45728	delivered=45728	multi-valued=0/0
+sysml:ownedRelationship	written=29481	delivered=29481	multi-valued=19768/19768
+sysml:ownedRendering	written=17	delivered=17	multi-valued=0/0
+sysml:ownedResultExpression	written=243	delivered=243	multi-valued=0/0
+sysml:ownedSpecialization	written=11102	delivered=11102	multi-valued=2744/2744
+sysml:ownedSubclassification	written=1646	delivered=1646	multi-valued=73/73
+sysml:ownedSubjectParameter	written=18	delivered=18	multi-valued=0/0
+sysml:ownedSubsetting	written=5926	delivered=5926	multi-valued=389/389
+sysml:ownedTyping	written=6009	delivered=6009	multi-valued=7/7
+sysml:ownedVariantUsage	written=75	delivered=75	multi-valued=0/0
+sysml:owner	written=111662	delivered=111662	multi-valued=0/0
+sysml:owningClassifier	written=1720	delivered=1720	multi-valued=0/0
+sysml:owningFeature	written=12371	delivered=12371	multi-valued=0/0
+sysml:owningMembership	written=45605	delivered=45605	multi-valued=0/0
+sysml:owningNamespace	written=14177	delivered=14177	multi-valued=0/0
+sysml:owningRelatedElement	written=65934	delivered=65934	multi-valued=0/0
+sysml:owningRelationship	written=45728	delivered=45728	multi-valued=0/0
+sysml:owningType	written=8267	delivered=8267	multi-valued=0/0
+sysml:parameter	written=7312	delivered=7312	multi-valued=3711/3711
+sysml:payloadParameter	written=1	delivered=1	multi-valued=0/0
+sysml:qualifiedName	written=14294	delivered=14294	multi-valued=0/0
+sysml:receiverArgument	written=1	delivered=1	multi-valued=0/0
+sysml:redefinedFeature	written=4280	delivered=4280	multi-valued=0/0
+sysml:redefines	written=4150	delivered=4150	multi-valued=119/119
+sysml:redefiningFeature	written=4280	delivered=4280	multi-valued=0/0
+sysml:referencedFeature	written=382	delivered=382	multi-valued=0/0
+sysml:references	written=19	delivered=19	multi-valued=0/0
+sysml:referencingFeature	written=382	delivered=382	multi-valued=0/0
+sysml:referent	written=3593	delivered=3593	multi-valued=0/0
+sysml:relatedElement	written=14436	delivered=14436	multi-valued=14436/14436
+sysml:relatedFeature	written=174	delivered=174	multi-valued=51/51
+sysml:result	written=7311	delivered=7311	multi-valued=0/0
+sysml:source	written=14437	delivered=14437	multi-valued=0/0
+sysml:sourceFeature	written=93	delivered=93	multi-valued=0/0
+sysml:specializes	written=1721	delivered=1721	multi-valued=89/89
+sysml:specific	written=14183	delivered=14183	multi-valued=0/0
+sysml:subclassifier	written=1720	delivered=1720	multi-valued=0/0
+sysml:subject	written=1	delivered=1	multi-valued=0/0
+sysml:subsets	written=1481	delivered=1481	multi-valued=190/190
+sysml:subsettedFeature	written=6368	delivered=6368	multi-valued=0/0
+sysml:subsettingFeature	written=6368	delivered=6368	multi-valued=0/0
+sysml:succession	written=1	delivered=1	multi-valued=0/0
+sysml:superclassifier	written=1720	delivered=1720	multi-valued=0/0
+sysml:target	written=14437	delivered=14437	multi-valued=0/0
+sysml:targetFeature	written=1203	delivered=1203	multi-valued=0/0
+sysml:transitionFeature	written=1	delivered=1	multi-valued=0/0
+sysml:triggerAction	written=1	delivered=1	multi-valued=0/0
+sysml:type	written=11729	delivered=11729	multi-valued=7/7
+sysml:typeDisjoined	written=1	delivered=1	multi-valued=0/0
+sysml:typedFeature	written=6016	delivered=6016	multi-valued=0/0
+sysml:unions	written=2	delivered=2	multi-valued=2/2
+sysml:upperBound	written=8458	delivered=8458	multi-valued=0/0
+sysml:value	written=18045	delivered=18045	multi-valued=0/0
+sysml:variant	written=17	delivered=17	multi-valued=17/17
+sysml:variantMembership	written=17	delivered=17	multi-valued=17/17
+sysml:visibility	written=1449	delivered=1449	multi-valued=0/0
+sysx:argumentName	written=35	delivered=0	multi-valued=0/0
+sysx:bodyMember	written=3	delivered=0	multi-valued=0/0
+sysx:bodyParameter	written=70	delivered=0	multi-valued=0/0
+sysx:declaredKeyword	written=1325	delivered=0	multi-valued=0/0
+sysx:declaredPrefix	written=216	delivered=0	multi-valued=0/0
+sysx:endForm	written=180	delivered=0	multi-valued=0/0
+sysx:endReferencesKeyword	written=28	delivered=0	multi-valued=0/0
+sysx:endVerb	written=125	delivered=0	multi-valued=0/0
+sysx:hasBody	written=12363	delivered=0	multi-valued=0/0
+sysx:isKindImplicit	written=3819	delivered=0	multi-valued=0/0
+sysx:memberIndex	written=14364	delivered=0	multi-valued=0/0
+sysx:resultExpression	written=72	delivered=0	multi-valued=0/0
+sysx:sourceColumn	written=14292	delivered=0	multi-valued=0/0
+sysx:sourceDocument	written=110	delivered=0	multi-valued=0/0
+sysx:sourceEndColumn	written=14292	delivered=0	multi-valued=0/0
+sysx:sourceEndLine	written=14292	delivered=0	multi-valued=0/0
+sysx:sourceLanguage	written=110	delivered=0	multi-valued=0/0
+sysx:sourceLine	written=14292	delivered=0	multi-valued=0/0
+sysx:sourceTail	written=2530	delivered=0	multi-valued=0/0
+sysx:sourceText	written=25891	delivered=0	multi-valued=0/0
+sysx:subactionKind	written=3	delivered=0	multi-valued=0/0
+sysx:target	written=3	delivered=0	multi-valued=0/0
+sysx:targetMember	written=1	delivered=0	multi-valued=0/0
+sysx:transitionSyntax	written=1	delivered=0	multi-valued=0/0
+sysx:typeArgument	written=148	delivered=0	multi-valued=0/0
+sysx:whileCondition	written=1	delivered=0	multi-valued=0/0
+
+[anchors]
+Base::Anything	id=d5b4e7df-e644-5f2f-b95e-cf6f1f6c076d	listed=yes	direct=ok	properties=13/22	lost=sysx:declaredKeyword,sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
+ScalarValues::Real	id=14c0aa22-5489-59b5-b438-ded26e83ba31	listed=yes	direct=ok	properties=11/19	lost=sysx:declaredKeyword,sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceText
+ScalarValues::Integer	id=f2350199-2ab1-5258-8514-58812ef25dc6	listed=yes	direct=ok	properties=11/19	lost=sysx:declaredKeyword,sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceText
+ScalarValues::String	id=76028d3d-69a4-5e12-9002-ce403e0244bd	listed=yes	direct=ok	properties=11/19	lost=sysx:declaredKeyword,sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceText
+ScalarValues::Boolean	id=d1e9242d-b2e3-5270-bf69-4f4fb0447193	listed=yes	direct=ok	properties=11/19	lost=sysx:declaredKeyword,sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceText
+ISQBase::mass	id=9af08108-292b-534a-a527-068c17423dfd	listed=yes	direct=ok	properties=17/24	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceText
+ISQBase::MassValue	id=9cd0e404-efee-50e5-a59b-681065bd188c	listed=yes	direct=ok	properties=15/23	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
+SI::kilogram	id=bb1d79c2-1306-5b35-a807-93e46fc3431c	listed=yes	direct=ok	properties=16/23	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceText
+Items::Item	id=8e9bd20f-ea8f-5a87-9759-f196d58bdd1a	listed=yes	direct=ok	properties=16/24	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
+Parts::Part	id=0774a545-39e3-5bc1-9607-63beabc6bf65	listed=yes	direct=ok	properties=16/24	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
+Actions::Action	id=6e44fcc3-4ac4-5e93-a695-61791fa23309	listed=yes	direct=ok	properties=16/24	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
+Requirements::RequirementCheck	id=e6c0a087-dffc-5a7a-872b-367adf7dcf4c	listed=yes	direct=ok	properties=16/24	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
+
+[user-model]
+fixture	library_user_model.sysml
+accepted	yes
+elements.written	36
+elements.listed	36
+typing	LibraryUser::Vehicle::mass	type=9af08108-292b-534a-a527-068c17423dfd	delivered=yes	in-library=yes	library-direct=ok	resolves=ISQBase::mass	notation=same-id
+typing	LibraryUser::Vehicle::name	type=76028d3d-69a4-5e12-9002-ce403e0244bd	delivered=yes	in-library=yes	library-direct=ok	resolves=ScalarValues::String	notation=same-id
+typing	LibraryUser::Vehicle::speedFactor	type=14c0aa22-5489-59b5-b438-ded26e83ba31	delivered=yes	in-library=yes	library-direct=ok	resolves=ScalarValues::Real	notation=same-id
+typing	LibraryUser::Vehicle::wheelCount	type=f2350199-2ab1-5258-8514-58812ef25dc6	delivered=yes	in-library=yes	library-direct=ok	resolves=ScalarValues::Integer	notation=same-id
+typing	LibraryUser::vehicle	type=0e389917-e1ab-5a35-8071-e3daa3b3d398	delivered=yes	in-library=no	library-direct=ok	resolves=-	notation=same-id
+notation	yes
+project-usage	accepted
+project-usage.read	1
+elements.listed-after-usage	37
+elements.library-via-usage	6
+
+[findings]
+every one of the 111773 library elements is listed, and nothing else
+properties the read path drops entirely: sysx:argumentName, sysx:bodyMember, sysx:bodyParameter, sysx:declaredKeyword, sysx:declaredPrefix, sysx:endForm, sysx:endReferencesKeyword, sysx:endVerb, sysx:hasBody, sysx:isKindImplicit, sysx:memberIndex, sysx:resultExpression, sysx:sourceColumn, sysx:sourceDocument, sysx:sourceEndColumn, sysx:sourceEndLine, sysx:sourceLanguage, sysx:sourceLine, sysx:sourceTail, sysx:sourceText, sysx:subactionKind, sysx:target, sysx:targetMember, sysx:transitionSyntax, sysx:typeArgument, sysx:whileCondition
+4 of 5 typings of the user model name library elements, and 4 of those resolve in the published library by id
+a direct read in the library project answers for 0e389917-e1ab-5a35-8071-e3daa3b3d398, an id the library does not list: the read is not scoped to the project
+the delivered user model re-converts to notation that reads back typing 4 of 4 library elements by the same ids
+a ProjectUsage of the library is accepted; the usage endpoint returns 1, and the listing walks into 6 library elements through it

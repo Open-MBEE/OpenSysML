@@ -8,7 +8,7 @@ stmt assign log
     eval feature log -> "C-exit "
     eval literal "C-effect " -> "C-effect "
   eval operator + -> "C-exit C-effect "
-choice on accept Go: next sync(join), b1(exit) (unordered; took sync(join) first)
+choice on accept Go: next sync(join), b1(exit) (unordered; took sync(join) first; order-dependent: log)
 exit: a (exit action)
 stmt action body
   stmt assign log

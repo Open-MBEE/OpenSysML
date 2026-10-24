@@ -68,6 +68,9 @@ type VerdictExploration struct {
 	FailedLinearizations int
 	// BudgetsHit names the budgets hit, `runs` before `depth`; none when complete.
 	BudgetsHit []string
+	// Unenumerated names the constructs whose unordered alternatives the runs took
+	// in one order without a choice point; none when complete.
+	Unenumerated []string
 	// ProbabilitiesBounded reports the outcomes' probabilities are lower bounds.
 	ProbabilitiesBounded bool
 }
@@ -253,6 +256,7 @@ func explorationVerdict(subject string, x *runtime.Exploration) Verdict {
 			Runs:                 x.Runs,
 			FailedLinearizations: failedLinearizations,
 			BudgetsHit:           x.BudgetsHit,
+			Unenumerated:         runtime.GapNames(x.Unenumerated),
 			ProbabilitiesBounded: x.ProbabilitiesBounded(),
 		},
 	}
@@ -662,11 +666,11 @@ func freshExhibitorsError(name string, types []*symbols.Symbol, exhibitors []exh
 
 // exploredAction resolves the action an exploration runs.
 func (s *Session) exploredAction(name string) (*symbols.Symbol, error) {
-	sym, _, err := s.lookupSymbolOfKinds(name, symbols.SymbolActionDef, symbols.SymbolActionUsage)
+	sym, _, err := s.lookupSymbolOfKinds(name, actionKinds...)
 	if err != nil {
 		return nil, err
 	}
-	if sym.Kind != symbols.SymbolActionDef && sym.Kind != symbols.SymbolActionUsage {
+	if !sym.Kind.IsAction() {
 		return nil, fmt.Errorf("%q is not an action", name)
 	}
 	return sym, nil

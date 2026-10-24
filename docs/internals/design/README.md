@@ -11,7 +11,7 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   observed, not covered), dispatch by question with fallback, and runs isolated so they can be
   parallel; the contract, the registry and the four engines over existing code are
   implemented (`internal/exec/analysis`), the rest is a proposal
-- **[OpenSysML MDK, a Cameo Systems Modeler plugin](mdk-plugin.md)** — a plugin for Cameo
+- **[OpenSysML MDK for Cameo, a Cameo Systems Modeler plugin](mdk-plugin.md)** — a plugin for Cameo
   2026x Refresh1, positioned as the successor to OpenMBEE's MDK, that exports the selection, runs `Convert(xmi→sysml)` and `ParseSources` over
   the Java client, executes and verifies on `sysml-grpc`, and lands each verdict on the Cameo
   element it came from through the migration report's `xmi:id → target` accounting; the vendor
@@ -89,9 +89,3 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   with the lifecycle-code delta and a recommendation
 - **[Visual modeling in VS Code](vscode-visual-modeling.md)** — the live diagram panel, the
   diagram-driven edits, and the graphical editor it builds to
-
-The staged plans that built the bindings, kept for their rationale:
-[phase 1](python-grpc-phase1-plan.md) (the service),
-[phase 2](python-grpc-phase2-plan.md) (the client),
-[phase 3](python-grpc-phase3-plan.md) and its [fixes](python-grpc-phase3-fixes.md),
-[phase 4](python-grpc-phase4-plan.md).

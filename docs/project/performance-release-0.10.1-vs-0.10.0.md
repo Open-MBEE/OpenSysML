@@ -4,7 +4,7 @@ The release-gate measurement of 0.10.1 — the head of `hotfix/0.10.1` at
 `5e9d673df`, which already carries the first of the five performance fixes
 below, with the other four applied on top —
 measured against the `v0.10.0` tag (`08ef39784`, 2026-10-12). It follows
-the method of the [0.9.2 against 0.9.1](performance-release-0.9.2-vs-0.9.1.md)
+the method of the [0.9.2 against 0.9.1](archive/performance-release-0.9.2-vs-0.9.1.md)
 record and of the 0.10.0 against 0.9.2 record that preceded it (written
 on `develop`, where the 0.10.0 release was measured; it reaches this
 branch's line with the release's back-merge): every

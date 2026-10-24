@@ -227,12 +227,12 @@ func TestValuePayloadAccessorsAreKindSpecific(t *testing.T) {
 	values := []Value{
 		{}, {Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 7}},
 		{Kind: ValNull}, {Kind: ValInstance, Instance: 9},
-		NewStringValue("s"), NewSequenceValue(seq), NewSetValue(set), NewExprValue(body, nil),
-		NewQuantityValue(q), NewVariantValue(variant, 4), NewEnumLiteral(literal),
+		NewStringValue("s"), NewSequenceValue(seq), NewSetValue(set), newExprValue(body, nil),
+		NewQuantityValue(q), newVariantValue(variant, 4), NewEnumLiteral(literal),
 	}
 	// A payload whose Kind was rewritten afterwards answers only to the new kind.
 	for _, v := range values[4:] {
-		for _, kind := range []ValueKind{ValConst, ValNull, ValInstance, ValString, ValSequence, ValSet, ValExpr, ValQuantity, ValVariant, ValEnumLiteral} {
+		for _, kind := range []ValueKind{ValConst, ValNull, ValInstance, ValString, ValSequence, ValSet, valExpr, ValQuantity, ValVariant, ValEnumLiteral} {
 			if kind != v.Kind {
 				relabeled := v
 				relabeled.Kind = kind
@@ -250,7 +250,7 @@ func TestValuePayloadAccessorsAreKindSpecific(t *testing.T) {
 		if got := v.Set(); got != nil && v.Kind != ValSet {
 			t.Errorf("%s.Set() = %v", v.Kind, got)
 		}
-		if got := v.Expr(); got != nil && v.Kind != ValExpr {
+		if got := v.expr(); got != nil && v.Kind != valExpr {
 			t.Errorf("%s.Expr() = %v", v.Kind, got)
 		}
 		if got := v.Quantity(); got != nil && v.Kind != ValQuantity {
@@ -267,14 +267,14 @@ func TestValuePayloadAccessorsAreKindSpecific(t *testing.T) {
 		t.Errorf("Str() = %q, want \"s\"", got)
 	}
 	if NewSequenceValue(seq).Sequence() != seq || NewSetValue(set).Set() != set ||
-		NewExprValue(body, nil).Expr() != body || NewQuantityValue(q).Quantity() != q ||
-		NewVariantValue(variant, 4).Variant() != variant || NewEnumLiteral(literal).Literal() != literal {
+		newExprValue(body, nil).expr() != body || NewQuantityValue(q).Quantity() != q ||
+		newVariantValue(variant, 4).Variant() != variant || NewEnumLiteral(literal).Literal() != literal {
 		t.Error("an accessor did not return the payload its constructor was given")
 	}
-	if id, ok := NewVariantValue(variant, 4).Object(); !ok || id != 4 {
+	if id, ok := newVariantValue(variant, 4).Object(); !ok || id != 4 {
 		t.Errorf("variant Object() = %d, %v, want 4, true", id, ok)
 	}
-	if _, ok := NewVariantValue(variant, 0).Object(); ok {
+	if _, ok := newVariantValue(variant, 0).Object(); ok {
 		t.Error("a variant that materialized no object reports one")
 	}
 }

@@ -26,25 +26,25 @@ const modeledStream uint64 = 0xD1B54A32D192ED03
 // ErrUnseededDraw is the typed error a modeled draw raises when no seed fixes it.
 var ErrUnseededDraw = errors.New("modeled randomness needs a seed")
 
-// UnseededDrawError names the draw a run could not make for want of a seed.
-type UnseededDrawError struct {
+// unseededDrawError names the draw a run could not make for want of a seed.
+type unseededDrawError struct {
 	What string
 }
 
-func (e *UnseededDrawError) Error() string {
+func (e *unseededDrawError) Error() string {
 	return fmt.Sprintf("%v: %s draws a random value; seed the run, as -seed <n> or %%seed <n>, or schedule it under seed:<n>", ErrUnseededDraw, e.What)
 }
 
-// Is makes every UnseededDrawError match ErrUnseededDraw.
-func (e *UnseededDrawError) Is(target error) bool { return target == ErrUnseededDraw }
+// Is makes every unseededDrawError match ErrUnseededDraw.
+func (e *unseededDrawError) Is(target error) bool { return target == ErrUnseededDraw }
 
-// ErrRandomDomain is the typed error a random function raises on arguments that
+// errRandomDomain is the typed error a random function raises on arguments that
 // bound no distribution: `uniform(hi, lo)`, a negative standard deviation.
-var ErrRandomDomain = errors.New("random function arguments bound no distribution")
+var errRandomDomain = errors.New("random function arguments bound no distribution")
 
-// ErrBranchWeights is the typed error a weighted decision raises when the weights
+// errBranchWeights is the typed error a weighted decision raises when the weights
 // its branches draw, once evaluated, are no probabilities.
-var ErrBranchWeights = errors.New("invalid branch weights")
+var errBranchWeights = errors.New("invalid branch weights")
 
 // modeledSource is the stream one run's modeled draws come from: a generator a
 // seed fixes, or the draws a witness recorded, followed in order.
@@ -149,29 +149,29 @@ type DrawTaken struct {
 	Value semantics.Value
 }
 
-// DrawDiagnosticCode is the code a diagnostic about a random draw carries.
-const DrawDiagnosticCode = "random-draw"
+// drawDiagnosticCode is the code a diagnostic about a random draw carries.
+const drawDiagnosticCode = "random-draw"
 
-// DrawPoint is a random draw as a run notes it, in the trace where it was made.
-type DrawPoint struct {
+// drawPoint is a random draw as a run notes it, in the trace where it was made.
+type drawPoint struct {
 	Draw DrawTaken
 }
 
 // Describe renders the draw for a diagnostic.
-func (d DrawPoint) Describe() string { return d.Draw.Describe() }
+func (d drawPoint) Describe() string { return d.Draw.Describe() }
 
 // String is the trace line the draw is recorded as: its witness line.
-func (d DrawPoint) String() string { return d.Draw.String() }
+func (d drawPoint) String() string { return d.Draw.String() }
 
 // Location is where the draw was made; a call inside an expression names no file.
-func (d DrawPoint) Location() (string, source.Span) { return "", source.Span{} }
+func (d drawPoint) Location() (string, source.Span) { return "", source.Span{} }
 
 // Diagnostic is the draw as an informational finding about the run.
-func (d DrawPoint) Diagnostic() diag.Diagnostic {
+func (d drawPoint) Diagnostic() diag.Diagnostic {
 	return diag.Diagnostic{
 		Severity: diag.SeverityInfo,
 		Message:  "random draw: " + d.Describe(),
-		Code:     DrawDiagnosticCode,
+		Code:     drawDiagnosticCode,
 		Source:   "runtime",
 	}
 }
@@ -199,7 +199,7 @@ func (ctx *Context) draw(what string, dist distribution) (semantics.Value, error
 	if ctx.probes == 0 {
 		ctx.draws = append(ctx.draws, taken)
 	}
-	ctx.note(DrawPoint{Draw: taken})
+	ctx.note(drawPoint{Draw: taken})
 	return val, nil
 }
 
@@ -238,31 +238,31 @@ func formatDrawn(v semantics.Value) string {
 	return s
 }
 
-// ErrInvalidDraw is the typed error every unreadable draw line wraps.
-var ErrInvalidDraw = errors.New("invalid draw")
+// errInvalidDraw is the typed error every unreadable draw line wraps.
+var errInvalidDraw = errors.New("invalid draw")
 
-// DrawParseError reports a draw line ParseDraw could not read, with why.
-type DrawParseError struct {
+// drawParseError reports a draw line ParseDraw could not read, with why.
+type drawParseError struct {
 	Text   string
 	Line   int
 	Reason string
 }
 
-func (e *DrawParseError) Error() string {
+func (e *drawParseError) Error() string {
 	if e.Line > 0 {
-		return fmt.Sprintf("%v: line %d: %q: %s", ErrInvalidDraw, e.Line, e.Text, e.Reason)
+		return fmt.Sprintf("%v: line %d: %q: %s", errInvalidDraw, e.Line, e.Text, e.Reason)
 	}
-	return fmt.Sprintf("%v: %q: %s", ErrInvalidDraw, e.Text, e.Reason)
+	return fmt.Sprintf("%v: %q: %s", errInvalidDraw, e.Text, e.Reason)
 }
 
-// Is makes every DrawParseError match ErrInvalidDraw.
-func (e *DrawParseError) Is(target error) bool { return target == ErrInvalidDraw }
+// Is makes every drawParseError match errInvalidDraw.
+func (e *drawParseError) Is(target error) bool { return target == errInvalidDraw }
 
 // ParseDraw reads one draw as DrawTaken.String spells it: `draw <call> = <number>`.
 func ParseDraw(text string) (DrawTaken, error) {
 	text = strings.TrimSpace(text)
 	fail := func(reason string) (DrawTaken, error) {
-		return DrawTaken{}, &DrawParseError{Text: text, Reason: reason}
+		return DrawTaken{}, &drawParseError{Text: text, Reason: reason}
 	}
 	rest, ok := strings.CutPrefix(text, drawPrefix)
 	if !ok {
@@ -286,35 +286,35 @@ func ParseDraw(text string) (DrawTaken, error) {
 	return DrawTaken{What: what, Value: semantics.Value{Kind: semantics.ValReal, Real: x}}, nil
 }
 
-// ErrWitnessDraw is the typed error a replay raises at a draw the run cannot
+// errWitnessDraw is the typed error a replay raises at a draw the run cannot
 // consume: one the witness records that the run does not make, or one the run
 // makes that the witness does not record.
-var ErrWitnessDraw = errors.New("witness draw not consumable")
+var errWitnessDraw = errors.New("witness draw not consumable")
 
-// WitnessDrawError names the draw a replay could not follow and why.
-type WitnessDrawError struct {
+// witnessDrawError names the draw a replay could not follow and why.
+type witnessDrawError struct {
 	// Draw is the 1-based position of the draw in the witness, 0 past its last.
 	Draw   int
 	What   string
 	Reason string
 }
 
-func (e *WitnessDrawError) Error() string {
+func (e *witnessDrawError) Error() string {
 	if e.Draw > 0 {
-		return fmt.Sprintf("%v: draw %d: %s: %s", ErrWitnessDraw, e.Draw, e.What, e.Reason)
+		return fmt.Sprintf("%v: draw %d: %s: %s", errWitnessDraw, e.Draw, e.What, e.Reason)
 	}
-	return fmt.Sprintf("%v: %s: %s", ErrWitnessDraw, e.What, e.Reason)
+	return fmt.Sprintf("%v: %s: %s", errWitnessDraw, e.What, e.Reason)
 }
 
-// Is makes every WitnessDrawError match ErrWitnessDraw.
-func (e *WitnessDrawError) Is(target error) bool { return target == ErrWitnessDraw }
+// Is makes every witnessDrawError match errWitnessDraw.
+func (e *witnessDrawError) Is(target error) bool { return target == errWitnessDraw }
 
 // draw is the value the call what draws: the witness's next recorded draw under
 // replay, which must be of the same call and one the call could draw, else a draw
 // from the seeded generator.
 func (m *modeledSource) draw(what string, dist distribution) (semantics.Value, error) {
 	if m == nil {
-		return semantics.Value{}, &UnseededDrawError{What: what}
+		return semantics.Value{}, &unseededDrawError{What: what}
 	}
 	if m.replay != nil {
 		return m.replay.takeDraw(what, dist)
@@ -368,12 +368,12 @@ func checkWeights(where string, weights []float64) (float64, error) {
 	for i, w := range weights {
 		if math.IsNaN(w) || w < 0 || w > 1 {
 			return 0, fmt.Errorf("%w: %s: branch %d weighs %s, not a probability in [0, 1]",
-				ErrBranchWeights, where, i, FormatWeight(w))
+				errBranchWeights, where, i, FormatWeight(w))
 		}
 		total += w
 	}
 	if total <= 0 {
-		return 0, fmt.Errorf("%w: %s: no holding branch has a positive weight", ErrBranchWeights, where)
+		return 0, fmt.Errorf("%w: %s: no holding branch has a positive weight", errBranchWeights, where)
 	}
 	return total, nil
 }
@@ -387,7 +387,7 @@ func checkDistribution(where string, declared []float64, holding []int) ([]float
 	for i, w := range declared {
 		if math.IsNaN(w) || w < 0 || w > 1 {
 			return nil, fmt.Errorf("%w: %s: branch %d weighs %s, not a probability in [0, 1]",
-				ErrBranchWeights, where, i, FormatWeight(w))
+				errBranchWeights, where, i, FormatWeight(w))
 		}
 		total += w
 	}
@@ -400,7 +400,7 @@ func checkDistribution(where string, declared []float64, holding []int) ([]float
 	}
 	if math.Abs(total-1) > lower.ProbabilityTolerance {
 		return nil, fmt.Errorf("%w: %s: the weights of its branches sum to %s, not 1.0",
-			ErrBranchWeights, where, FormatWeight(total))
+			errBranchWeights, where, FormatWeight(total))
 	}
 	return weights, nil
 }

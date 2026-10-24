@@ -1,0 +1,6 @@
+{
+  "rpc": "RunRuns",
+  "symbol_id": "MC::Settle",
+  "runs": 2,
+  "expected_error": "seed"
+}

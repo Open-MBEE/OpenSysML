@@ -1,23 +1,24 @@
 # SysML v1 to v2 migration report: association_end_layout.xmi
 # exported by Example UML Tool
-# migrated 9 element(s): 8 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 1 of 1 diagrams from the diagrams' own symbol streams: 3 elements positioned, 0 connectors routed, 0 styled, 0 notes
+# migrated 10 element(s): 9 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 1 of 1 diagrams from the diagrams' own symbol streams: 3 elements positioned, 1 connectors routed, 0 styled, 0 notes
 
 ## layout
 # source: the diagrams' own symbol streams
 # 1 views laid out from their own symbol stream, 0 without layout
-# placements: 3 of 6 written (0 not exposed, 3 lying on connections, 0 resolving to no element); routes: 0 of 1 written (1 not pinned, 0 resolving to no element); malformed: 0
+# placements: 3 of 6 written (0 not exposed, 3 lying on connections, 0 resolving to no element); routes: 1 of 1 written (0 not pinned, 0 resolving to no element); malformed: 0
 # styles: 0 of 0 written; notes: 0 written (0 anchored, 0 freed of an anchor the view does not lay out)
-# routes of Association: 1 no v2 member
+# routes of Association: 1 written
 
 ## approximated (1)
-Diagram	Blocks::Vehicle BDD	_diag_bdd	-> Blocks::'Vehicle BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 2 of 6 shown elements are not written and not exposed; laid out from the diagram's own symbol stream: 3 of 6 shown elements positioned (3 lying on connections), 0 of 1 connectors routed (1 no v2 member))
+Association	Blocks::<Association>	_assoc_engine	-> Model::Blocks::EngineToVehicle	(the anonymous Association is written as connection def EngineToVehicle; its one usage is the connection engine to vehicle joining engine and vehicle)
 
-## mapped (8)
-Package	Blocks	_pkg_blocks	-> Blocks
-Association	Blocks::<Association>	_assoc_engine	(the anonymous association is written as its member-end properties)
-«Block» Class	Blocks::Engine	_blk_engine	-> Blocks::Engine
-Property	Blocks::Engine::piston	_prop_piston	-> Blocks::Engine::piston
-«Block» Class	Blocks::Piston	_blk_piston	-> Blocks::Piston
-«Block» Class	Blocks::Vehicle	_blk_vehicle	-> Blocks::Vehicle
-Property	Blocks::Vehicle::engine	_prop_engine	-> Blocks::Vehicle::engine
-Model	Model	_m	(the root model's members are written at the top level)
+## mapped (9)
+Package	Blocks	_pkg_blocks	-> Model::Blocks
+Property	Blocks::<Association>::<Property>	_ae_vehicle	-> Model::Blocks::EngineToVehicle::vehicle
+«Block» Class	Blocks::Engine	_blk_engine	-> Model::Blocks::Engine
+Property	Blocks::Engine::piston	_prop_piston	-> Model::Blocks::Engine::piston
+«Block» Class	Blocks::Piston	_blk_piston	-> Model::Blocks::Piston
+«Block» Class	Blocks::Vehicle	_blk_vehicle	-> Model::Blocks::Vehicle
+Diagram	Blocks::Vehicle BDD	_diag_bdd	-> Model::Blocks::'Vehicle BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 2 of 6 shown elements are compartment rows or end labels of exposed elements, not exposed; laid out from the diagram's own symbol stream: 3 of 6 shown elements positioned (3 lying on connections), 1 of 1 connectors routed)
+Property	Blocks::Vehicle::engine	_prop_engine	-> Model::Blocks::Vehicle::engine
+Model	Model	_m	-> Model	(written as package Model)

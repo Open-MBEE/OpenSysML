@@ -2,14 +2,23 @@
 // them: validations, calc results, analysis results and sweep tables.
 
 import type {
+  ToolDryRun as PbToolDryRun,
   CaseEvaluation as PbCaseEvaluation,
+  RecordRunResponse,
   RunAnalysisResponse,
+  RunDistribution as PbRunDistribution,
+  RunRunsResponse,
   RunSweepResponse,
+  SelfCheckResponse,
   SweepRow as PbSweepRow,
   ValidateInstanceResponse,
   Value,
   Verdict as PbVerdict,
   VerificationVerdict as PbVerificationVerdict,
+  ComparedDistribution as PbComparedDistribution,
+  ImportDataResponse as PbImportDataResponse,
+  CompareResultsResponse as PbCompareResultsResponse,
+  Instance as PbInstance,
 } from "../generated/sysml_pb.js";
 import { FailureReason } from "../generated/sysml_pb.js";
 import {
@@ -163,6 +172,8 @@ export function decodeVerificationVerdict(pb: PbVerificationVerdict): Verificati
     detail: pb.detail,
     subcase: pb.subcase,
     requirementId: pb.requirementId,
+    instanceId: pb.instanceId,
+    instanceTypeId: pb.instanceTypeId,
   };
 }
 
@@ -363,6 +374,60 @@ export class CaseEvaluation {
   }
 }
 
+/** The external tool call an analysis would make, previewed without running the tool. */
+export interface ToolDryRun {
+  /** The qualified name of the tool-executing action reached. */
+  readonly action: string;
+  readonly tool: string;
+  readonly version: string;
+  readonly manifest: string;
+  readonly executable: string;
+  readonly protocol: string;
+  readonly args: readonly string[];
+  readonly env: readonly string[];
+  readonly cwd: string;
+  readonly stdin: string;
+  readonly stdinData: string;
+  /** The input file written, or undefined when the tool reads none. */
+  readonly inputFile?: { readonly name: string; readonly format: string; readonly data: string } | undefined;
+  readonly outputDir: boolean;
+  readonly inputs: readonly {
+    readonly variable: string;
+    readonly parameter: string;
+    readonly value: string;
+    readonly unit: string;
+  }[];
+  readonly outputs: readonly { readonly variable: string; readonly parameter: string }[];
+  readonly replySource: string;
+  /** The preview as `sysml -tool-dry-run` prints it. */
+  readonly lines: readonly string[];
+}
+
+/** Read a ToolDryRun message into its preview. */
+export function toolDryRunOf(pb: PbToolDryRun): ToolDryRun {
+  return {
+    action: pb.action,
+    tool: pb.tool,
+    version: pb.version,
+    manifest: pb.manifest,
+    executable: pb.executable,
+    protocol: pb.protocol,
+    args: [...pb.args],
+    env: [...pb.env],
+    cwd: pb.cwd,
+    stdin: pb.stdin,
+    stdinData: pb.stdinData,
+    inputFile: pb.inputFile
+      ? { name: pb.inputFile.name, format: pb.inputFile.format, data: pb.inputFile.data }
+      : undefined,
+    outputDir: pb.outputDir,
+    inputs: pb.inputs.map((i) => ({ variable: i.variable, parameter: i.parameter, value: i.value, unit: i.unit })),
+    outputs: pb.outputs.map((o) => ({ variable: o.variable, parameter: o.parameter })),
+    replySource: pb.replySource,
+    lines: [...pb.lines],
+  };
+}
+
 /** What an analysis case computed and decided. */
 export class AnalysisResult {
   /** Output features the case computed, by name. */
@@ -377,6 +442,8 @@ export class AnalysisResult {
   /** Each application the run made of one of the case's calcs as a value. */
   readonly evaluations: readonly CaseEvaluation[];
   readonly standing: Standing;
+  /** Under `toolDryRun`, the tool call the case would make; the outputs are then empty. */
+  readonly toolDryRun?: ToolDryRun | undefined;
 
   constructor(init: {
     outputs: ReadonlyMap<string, ValueOrError>;
@@ -386,6 +453,7 @@ export class AnalysisResult {
     verifications?: readonly VerificationVerdict[];
     evaluations?: readonly CaseEvaluation[];
     standing?: Standing;
+    toolDryRun?: ToolDryRun | undefined;
   }) {
     this.outputs = init.outputs;
     this.verdicts = init.verdicts;
@@ -394,6 +462,7 @@ export class AnalysisResult {
     this.verifications = init.verifications ?? [];
     this.evaluations = init.evaluations ?? [];
     this.standing = init.standing ?? emptyStanding();
+    this.toolDryRun = init.toolDryRun;
   }
 
   get engine(): string {
@@ -720,6 +789,7 @@ export function analysisResultOf(
     verifications,
     evaluations: evaluationsOf(response.evaluations),
     standing: standingOf(response),
+    toolDryRun: response.toolDryRun ? toolDryRunOf(response.toolDryRun) : undefined,
   });
   if (response.error !== "") {
     throw new AnalysisRunError(response.error, result, { diagnostics });
@@ -745,7 +815,7 @@ export function sweepTableOf(
   });
 }
 
-function sweepRowOf(
+export function sweepRowOf(
   row: PbSweepRow,
   instances: readonly Instance[],
   diagnostics: readonly ModelDiagnostic[],
@@ -769,4 +839,437 @@ function sweepRowOf(
     error: row.error,
     evaluations: evaluationsOf(row.evaluations),
   });
+}
+
+/** The value a percentile of the runs fell at or below. */
+export interface RunPercentile {
+  readonly percentile: number;
+  readonly value: SysMLValue;
+}
+
+/** How many runs observed a value in `[low, high)`. */
+export interface RunHistogramBin {
+  readonly low: SysMLValue;
+  readonly high: SysMLValue;
+  readonly count: bigint;
+}
+
+/** How many runs observed one distinct value. */
+export interface RunCountedValue {
+  readonly value: SysMLValue;
+  readonly count: bigint;
+}
+
+/** One observable over the completed runs: the extremes, mean, deviation,
+ * percentiles and histogram of a numeric one, or each distinct value counted. */
+export interface RunDistribution {
+  readonly name: string;
+  readonly unit: string;
+  readonly count: bigint;
+  readonly numeric: boolean;
+  readonly min: SysMLValue | undefined;
+  readonly max: SysMLValue | undefined;
+  readonly mean: SysMLValue | undefined;
+  readonly deviation: number;
+  readonly percentiles: readonly RunPercentile[];
+  readonly histogram: readonly RunHistogramBin[];
+  readonly values: readonly RunCountedValue[];
+}
+
+/** What `runRuns` answers: one row per run, each observable's distribution
+ * and, for a Monte Carlo case, its conclusion over the sample. */
+export class RunsResult {
+  readonly rows: readonly SweepRow[];
+  readonly observables: readonly string[];
+  readonly distributions: readonly RunDistribution[];
+  readonly lines: readonly string[];
+  readonly outputs: ReadonlyMap<string, ValueOrError>;
+  readonly verdicts: readonly Verdict[];
+  readonly unconcluded: string;
+  readonly instances: readonly Instance[];
+  readonly standing: Standing;
+  readonly seed: bigint | undefined;
+  readonly diagnostics: readonly ModelDiagnostic[];
+
+  constructor(fields: {
+    rows: readonly SweepRow[];
+    observables: readonly string[];
+    distributions: readonly RunDistribution[];
+    lines: readonly string[];
+    outputs: ReadonlyMap<string, ValueOrError>;
+    verdicts: readonly Verdict[];
+    unconcluded: string;
+    instances: readonly Instance[];
+    standing: Standing;
+    seed: bigint | undefined;
+    diagnostics: readonly ModelDiagnostic[];
+  }) {
+    this.rows = fields.rows;
+    this.observables = fields.observables;
+    this.distributions = fields.distributions;
+    this.lines = fields.lines;
+    this.outputs = fields.outputs;
+    this.verdicts = fields.verdicts;
+    this.unconcluded = fields.unconcluded;
+    this.instances = fields.instances;
+    this.standing = fields.standing;
+    this.seed = fields.seed;
+    this.diagnostics = fields.diagnostics;
+  }
+
+  get length(): number {
+    return this.rows.length;
+  }
+
+  toString(): string {
+    return this.lines.join("\n");
+  }
+}
+
+function runDistributionOf(pb: PbRunDistribution): RunDistribution {
+  return {
+    name: pb.name,
+    unit: pb.unit,
+    count: pb.count,
+    numeric: pb.numeric,
+    min: pb.min === undefined ? undefined : decodeValue(pb.min),
+    max: pb.max === undefined ? undefined : decodeValue(pb.max),
+    mean: pb.mean === undefined ? undefined : decodeValue(pb.mean),
+    deviation: pb.deviation,
+    percentiles: pb.percentiles.map((p) => ({ percentile: p.percentile, value: decodeValue(p.value) })),
+    histogram: pb.histogram.map((b) => ({ low: decodeValue(b.low), high: decodeValue(b.high), count: b.count })),
+    values: pb.values.map((v) => ({ value: decodeValue(v.value), count: v.count })),
+  };
+}
+
+export function runsResultOf(
+  response: RunRunsResponse,
+  instances: readonly Instance[],
+  diagnostics: readonly ModelDiagnostic[],
+): RunsResult {
+  const outputs = new Map<string, ValueOrError>();
+  for (const output of response.outputs) {
+    outputs.set(output.name, valueOrError(output.value));
+  }
+  return new RunsResult({
+    rows: response.rows.map((row) => sweepRowOf(row, instances, diagnostics)),
+    observables: [...response.observables],
+    distributions: response.distributions.map(runDistributionOf),
+    lines: [...response.lines],
+    outputs,
+    verdicts: response.verdicts.map((pbVerdict) => verdictOf(pbVerdict, instances, diagnostics, [])),
+    unconcluded: response.unconcluded,
+    instances,
+    standing: standingOf(response),
+    seed: response.seed,
+    diagnostics,
+  });
+}
+
+/** One thing the reflective self-check reports; `line` is it as the CLI prints it. */
+export interface SelfCheckFinding {
+  readonly status: string;
+  readonly subject: string;
+  readonly location: string;
+  readonly constraint: string;
+  readonly element: string;
+  readonly message: string;
+  readonly line: string;
+}
+
+/** What `selfCheck` answers: every finding and the counts over them. */
+export class SelfCheckResult {
+  readonly status: string;
+  readonly findings: readonly SelfCheckFinding[];
+  readonly elements: bigint;
+  readonly checks: bigint;
+  readonly violations: bigint;
+  readonly unevaluated: bigint;
+  readonly evaluationErrors: bigint;
+  readonly applications: ReadonlyMap<string, bigint>;
+  readonly summary: string;
+  readonly diagnostics: readonly ModelDiagnostic[];
+
+  constructor(response: SelfCheckResponse, diagnostics: readonly ModelDiagnostic[]) {
+    this.status = response.status;
+    this.findings = response.findings.map((f) => ({
+      status: f.status,
+      subject: f.subject,
+      location: f.location,
+      constraint: f.constraint,
+      element: f.element,
+      message: f.message,
+      line: f.line,
+    }));
+    this.elements = response.elements;
+    this.checks = response.checks;
+    this.violations = response.violations;
+    this.unevaluated = response.unevaluated;
+    this.evaluationErrors = response.evaluationErrors;
+    this.applications = new Map(response.applications.map((a) => [a.constraint, a.count]));
+    this.summary = response.summary;
+    this.diagnostics = diagnostics;
+  }
+
+  /** Whether the check found no violation and no evaluation error. */
+  get holds(): boolean {
+    return this.status === "holds";
+  }
+
+  toString(): string {
+    return [...this.findings.map((f) => f.line), this.summary].join("\n");
+  }
+}
+
+/** One document the records were written into. */
+export interface RecordedDocument {
+  readonly name: string;
+  readonly content: string;
+}
+
+/** What `recordRun` answers: the runs' own report, what the model gained and
+ * the notation the records were written into. */
+export class Recording {
+  readonly run: AnalysisResult | undefined;
+  readonly sweep: SweepTable | undefined;
+  readonly sample: RunsResult | undefined;
+  readonly package: string;
+  readonly definition: string;
+  readonly records: readonly string[];
+  readonly source: string;
+  readonly content: string;
+  readonly documents: readonly RecordedDocument[];
+  readonly skipped: bigint;
+  readonly reasons: readonly string[];
+  readonly modelHash: string;
+  readonly diagnostics: readonly ModelDiagnostic[];
+
+  constructor(fields: {
+    run: AnalysisResult | undefined;
+    sweep: SweepTable | undefined;
+    sample: RunsResult | undefined;
+    response: RecordRunResponse;
+    diagnostics: readonly ModelDiagnostic[];
+  }) {
+    const { response } = fields;
+    this.run = fields.run;
+    this.sweep = fields.sweep;
+    this.sample = fields.sample;
+    this.package = response.package;
+    this.definition = response.definition;
+    this.records = [...response.records];
+    this.source = response.source;
+    this.content = response.content;
+    this.documents = response.documents.map((d) => ({ name: d.name, content: d.content }));
+    this.skipped = response.skipped;
+    this.reasons = [...response.reasons];
+    this.modelHash = response.modelHash;
+    this.diagnostics = fields.diagnostics;
+  }
+}
+
+/** One assignment an import made. */
+export class ImportedValue {
+  constructor(
+    readonly element: string,
+    readonly feature: string,
+    readonly value: string,
+    readonly redefines: string,
+    readonly where: string,
+    readonly description: string,
+  ) {}
+}
+
+/** What one data file set. */
+export class ImportedFile {
+  constructor(
+    readonly name: string,
+    readonly values: bigint,
+    readonly elements: bigint,
+    readonly assignments: readonly ImportedValue[],
+  ) {}
+}
+
+/** What `importData` answers: what each file set and the model it made. */
+export class ImportResult {
+  constructor(
+    readonly files: readonly ImportedFile[],
+    readonly content: string,
+    readonly documents: readonly { name: string; content: string }[],
+    readonly modelHash: string,
+    readonly diagnostics: readonly ModelDiagnostic[],
+  ) {}
+}
+
+/** A distribution by its statistics; a pooled one knows its count and mean alone. */
+export class ComparedDistribution {
+  constructor(
+    readonly count: bigint,
+    readonly min: number,
+    readonly mean: number,
+    readonly p50: number,
+    readonly p90: number,
+    readonly max: number,
+    readonly deviation: number,
+  ) {}
+}
+
+/** The relative difference of each statistic as a signed percentage, "" where not compared. */
+export interface StatisticDifference {
+  readonly min: string;
+  readonly mean: string;
+  readonly p50: string;
+  readonly p90: string;
+  readonly max: string;
+}
+
+/** One statistic a Simulation::MonteCarlo case declares, the tool's beside the runs'. */
+export interface CaseStatistic {
+  readonly statistic: string;
+  readonly of: string;
+  readonly tool: string;
+  readonly run: string;
+  readonly difference: string;
+}
+
+/** The statistics a Simulation::MonteCarlo case declares of an observable. */
+export interface CaseStatistics {
+  readonly analysis: string;
+  readonly rows: readonly CaseStatistic[];
+  readonly notes: readonly string[];
+}
+
+/** One observable: the tool's distribution beside the runs', or why they are not compared. */
+export class ObservableComparison {
+  constructor(
+    readonly stored: string,
+    readonly feature: string,
+    readonly unit: string,
+    readonly tool: ComparedDistribution | undefined,
+    readonly pooled: boolean,
+    readonly unstored: boolean,
+    readonly run: ComparedDistribution | undefined,
+    readonly produced: bigint,
+    readonly compared: boolean,
+    readonly difference: StatisticDifference | undefined,
+    readonly declared: CaseStatistics | undefined,
+    readonly notes: readonly string[],
+  ) {}
+}
+
+/** One configuration's runs beside the tool's results. */
+export class ConfigurationComparison {
+  constructor(
+    readonly id: string,
+    readonly name: string,
+    readonly behavior: string,
+    readonly target: string,
+    readonly resultLocation: string,
+    readonly status: string,
+    readonly unresolved: string,
+    readonly storedRuns: bigint,
+    readonly storedSnapshots: bigint,
+    readonly runs: bigint,
+    readonly completed: bigint,
+    readonly draws: string,
+    readonly seed: bigint | undefined,
+    readonly clockStep: number,
+    readonly rows: readonly SweepRow[],
+    readonly observables: readonly ObservableComparison[],
+    readonly errors: readonly string[],
+    readonly notes: readonly string[],
+    readonly lines: readonly string[],
+  ) {}
+
+  /** Whether every run completed and the observables were compared. */
+  get holds(): boolean {
+    return this.status === "holds";
+  }
+}
+
+/** What `compareResults` answers: one configuration after another. */
+export class Comparison {
+  constructor(
+    readonly source: string,
+    readonly configurations: readonly ConfigurationComparison[],
+    readonly standing: Standing,
+    readonly diagnostics: readonly ModelDiagnostic[],
+  ) {}
+
+  /** Whether every configuration ran and compared. */
+  get holds(): boolean {
+    return this.configurations.every((c) => c.holds);
+  }
+}
+
+function comparedDistributionOf(d: PbComparedDistribution | undefined): ComparedDistribution | undefined {
+  return d ? new ComparedDistribution(d.count, d.min, d.mean, d.p50, d.p90, d.max, d.deviation) : undefined;
+}
+
+/** Decodes an ImportDataResponse. */
+export function importResultOf(response: PbImportDataResponse, diagnostics: readonly ModelDiagnostic[]): ImportResult {
+  return new ImportResult(
+    response.files.map(
+      (f) =>
+        new ImportedFile(
+          f.name,
+          f.values,
+          f.elements,
+          f.assignments.map((a) => new ImportedValue(a.element, a.feature, a.value, a.redefines, a.where, a.description)),
+        ),
+    ),
+    response.content,
+    response.documents.map((d) => ({ name: d.name, content: d.content })),
+    response.modelHash,
+    diagnostics,
+  );
+}
+
+/** Decodes a CompareResultsResponse; `instancesOf` decodes a configuration's instances. */
+export function comparisonOf(
+  response: PbCompareResultsResponse,
+  instancesOf: (instances: readonly PbInstance[]) => readonly Instance[],
+  diagnostics: readonly ModelDiagnostic[],
+): Comparison {
+  const configurations = response.configurations.map((c) => {
+    const instances = instancesOf(c.instances);
+    return new ConfigurationComparison(
+      c.id,
+      c.name,
+      c.behavior,
+      c.target,
+      c.resultLocation,
+      c.status,
+      c.unresolved,
+      c.storedRuns,
+      c.storedSnapshots,
+      c.runs,
+      c.completed,
+      c.draws,
+      c.seed,
+      c.clockStep,
+      c.rows.map((row) => sweepRowOf(row, instances, diagnostics)),
+      c.observables.map(
+        (o) =>
+          new ObservableComparison(
+            o.stored,
+            o.feature,
+            o.unit,
+            comparedDistributionOf(o.tool),
+            o.pooled,
+            o.unstored,
+            comparedDistributionOf(o.run),
+            o.produced,
+            o.compared,
+            o.difference,
+            o.declared,
+            o.notes,
+          ),
+      ),
+      c.errors,
+      c.notes,
+      c.lines,
+    );
+  });
+  return new Comparison(response.source, configurations, standingOf(response), diagnostics);
 }

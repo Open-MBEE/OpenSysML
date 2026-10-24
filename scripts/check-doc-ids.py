@@ -22,8 +22,10 @@ import sys
 # Documentation a user reads. docs/project/ is deliberately absent: those pages
 # are engineering records that define the labels they use. So are the pages that
 # state this rule, CONTRIBUTING.md and AGENTS.md, which have to quote examples.
+# The archived changelog releases are the one page under docs/project/ a user reads.
 READER_FACING = [
     "CHANGELOG.md",
+    "docs/project/archive/CHANGELOG-0.0-0.8.md",
     "changes/unreleased",
     "README.md",
     "docs/index.md",

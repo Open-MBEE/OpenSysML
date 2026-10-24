@@ -45,16 +45,17 @@ func (ctx *Context) collectionOf(feat *EffectiveFeature, elements []Value) Value
 	return sequenceOf(elements)
 }
 
-// declaredCollection is a collection read through a multi-valued declaration, as
-// the kind that declaration holds: a set flowing into a sequence is its canonical
-// sequence, a sequence flowing into a set its distinct elements.
+// declaredCollection is a collection read through a declaration, in the shape that
+// declaration holds: one value held by an at-most-one multiplicity is held bare; a set
+// flowing into a sequence is its canonical sequence, a sequence flowing into a set its
+// distinct elements.
 func (ctx *Context) declaredCollection(sym *symbols.Symbol, val Value) Value {
 	if val.Kind != ValSet && val.Kind != ValSequence {
 		return val
 	}
 	mult := ctx.featureMultiplicity(sym, nil)
 	if !mult.Upper.Infinite && mult.Upper.Value <= 1 {
-		return val
+		return soleElement(val)
 	}
 	if holds := ctx.holdsSet(sym, ctx.findOwnerType(sym), mult); holds != (val.Kind == ValSet) {
 		return ctx.collectionOf(&EffectiveFeature{HoldsSet: holds}, elementsOf(val))

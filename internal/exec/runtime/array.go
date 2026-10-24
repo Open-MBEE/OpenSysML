@@ -33,8 +33,8 @@ func (a *Array) Rank() int {
 	return len(a.Dimensions)
 }
 
-// FlattenedSize is the product of the dimensions, one for an array of none.
-func (a *Array) FlattenedSize() int64 {
+// flattenedSize is the product of the dimensions, one for an array of none.
+func (a *Array) flattenedSize() int64 {
 	size, _ := flattenedSize(a.Dimensions)
 	return size
 }
@@ -60,7 +60,7 @@ func unaddressableSize(op string, dimensions []int64) error {
 		size.Mul(size, big.NewInt(d))
 	}
 	return fmt.Errorf("%w: %s: flattenedSize of dimensions %s is %s",
-		ErrIntegerUnaddressable, op, FormatValue(intSequence(dimensions)), size)
+		errIntegerUnaddressable, op, FormatValue(intSequence(dimensions)), size)
 }
 
 // at is the element at one one-based index per dimension, row-major (the last
@@ -164,14 +164,14 @@ func NewVectorQuantityValue(num []semantics.Value, units []Unit) Value {
 	return Value{Kind: ValVectorQuantity, ref: &VectorQuantity{Num: num, Units: units}}
 }
 
-// NewFramedVectorQuantityValue wraps a vector quantity over a coordinate frame,
+// newFramedVectorQuantityValue wraps a vector quantity over a coordinate frame,
 // one component per axis.
-func NewFramedVectorQuantityValue(num []semantics.Value, frame *CoordinateFrame) Value {
+func newFramedVectorQuantityValue(num []semantics.Value, frame *CoordinateFrame) Value {
 	return Value{Kind: ValVectorQuantity, ref: &VectorQuantity{Num: num, Units: frame.Axes, Frame: frame}}
 }
 
-// Dimension is the number of components.
-func (vq *VectorQuantity) Dimension() int {
+// dimension is the number of components.
+func (vq *VectorQuantity) dimension() int {
 	return len(vq.Num)
 }
 
@@ -267,7 +267,7 @@ func (ctx *Context) structuredFeature(val Value, name string) (Value, bool, erro
 		case arrayRankFeature:
 			return integerValue(int64(a.Rank())), true, nil
 		case arrayFlattenedSizeFeature:
-			return integerValue(a.FlattenedSize()), true, nil
+			return integerValue(a.flattenedSize()), true, nil
 		case arrayElementsFeature:
 			return ctx.answerSequence(a.Elements)
 		}
@@ -356,7 +356,7 @@ func (ctx *Context) structuredMember(val Value, base string, member, owner *symb
 		return Value{}, err
 	}
 	if !ok {
-		return Value{}, fmt.Errorf("%w: %s has no feature %s", ErrTypeMismatch, describeValue(val), base)
+		return Value{}, fmt.Errorf("%w: %s has no feature %s", ErrTypeMismatch, DescribeValue(val), base)
 	}
 	return answer, nil
 }
@@ -398,6 +398,8 @@ func backingObject(value Value) int64 {
 		return value.Array().Object
 	case ValVector:
 		return value.Vector().Object
+	case ValQuantity:
+		return value.Quantity().Object
 	case ValCoordinateFrame:
 		return value.CoordinateFrame().Object
 	case ValCoordinateTransformation:
@@ -443,7 +445,7 @@ func (ctx *Context) structuredValueType(value Value) (*symbols.Symbol, error) {
 	case ValTensorQuantity:
 		fqn = tensorQuantityTypeFQN
 	default:
-		return nil, fmt.Errorf("%w: %s", ErrUndeterminedValueType, value.Kind)
+		return nil, fmt.Errorf("%w: %s", errUndeterminedValueType, value.Kind)
 	}
 	return ctx.loadedLibraryType(fqn)
 }
@@ -466,7 +468,7 @@ func (ctx *Context) structuredBaseType(value Value) (*symbols.Symbol, error) {
 	case ValTensorQuantity:
 		fqn = tensorQuantityTypeFQN
 	default:
-		return nil, fmt.Errorf("%w: %s", ErrUndeterminedValueType, value.Kind)
+		return nil, fmt.Errorf("%w: %s", errUndeterminedValueType, value.Kind)
 	}
 	return ctx.loadedLibraryType(fqn)
 }
@@ -476,7 +478,7 @@ func (ctx *Context) structuredBaseType(value Value) (*symbols.Symbol, error) {
 func (ctx *Context) loadedLibraryType(fqn string) (*symbols.Symbol, error) {
 	sym := ctx.librarySymbol(fqn)
 	if sym == nil {
-		return nil, fmt.Errorf("%w: type %q is not loaded", ErrUndeterminedValueType, fqn)
+		return nil, fmt.Errorf("%w: type %q is not loaded", errUndeterminedValueType, fqn)
 	}
 	return sym, nil
 }
@@ -503,7 +505,7 @@ func (ctx *Context) arrayOfObject(inst *Instance) (Value, bool, error) {
 	if !dimsStated && !elementsStated {
 		return Value{}, false, nil
 	}
-	op := arrayTypeFQN + " " + symbolText(inst.Type)
+	op := arrayTypeFQN + " " + SymbolText(inst.Type)
 	dimensions, err := indexList(op+" dimensions", dims)
 	if err != nil {
 		return Value{}, true, err
@@ -530,7 +532,7 @@ func (ctx *Context) vectorOfObject(inst *Instance, array Value) (Value, bool, er
 		return array, true, nil
 	}
 	a := array.Array()
-	op := numericalVectorTypeFQN + " " + symbolText(inst.Type)
+	op := numericalVectorTypeFQN + " " + SymbolText(inst.Type)
 	if a.Rank() > 1 {
 		return Value{}, true, fmt.Errorf(
 			"%w: %s: %d dimensions, NumericalVectorValue declares dimension[0..1]",
@@ -539,14 +541,14 @@ func (ctx *Context) vectorOfObject(inst *Instance, array Value) (Value, bool, er
 	}
 	quantitySym := ctx.librarySymbol(vectorQuantityTypeFQN)
 	if a.Rank() == 0 || (quantitySym != nil && ctx.modelConforms(typ, quantitySym)) {
-		return array, true, nil
+		return ctx.scalarQuantityOfObject(inst, array)
 	}
 	components := make([]semantics.Value, len(a.Elements))
 	for i, elem := range a.Elements {
 		if elem.Kind != ValConst || !elem.Const.IsNumeric() {
 			return Value{}, true, fmt.Errorf(
 				"%w: %s: element %d is %s, NumericalVectorValue declares elements : NumericalValue",
-				ErrTypeMismatch, op, i+1, describeValue(elem),
+				ErrTypeMismatch, op, i+1, DescribeValue(elem),
 			)
 		}
 		components[i] = elem.Const
@@ -557,6 +559,44 @@ func (ctx *Context) vectorOfObject(inst *Instance, array Value) (Value, bool, er
 	}
 	val.Vector().Object = inst.ID
 	return val, true, nil
+}
+
+// scalarQuantityOfObject is the quantity a ScalarQuantityValue object stating its one
+// `num` and its `mRef` is (`0 [m]`); one stating no mRef stays the Array it shapes.
+func (ctx *Context) scalarQuantityOfObject(inst *Instance, array Value) (Value, bool, error) {
+	scalarSym := ctx.librarySymbol(scalarQuantityTypeFQN)
+	typ := ctx.objectType(inst)
+	if scalarSym == nil || !ctx.modelConforms(typ, scalarSym) {
+		return array, true, nil
+	}
+	refs, stated, err := ctx.objectFeatureElements(inst, vectorQuantityMRefFeature)
+	if err != nil {
+		return Value{}, true, err
+	}
+	if !stated {
+		// mRef is no feature of a value-held shape; the default the holder governs over may state it.
+		ref, ok, err := ctx.holderDefaultMember(inst, vectorQuantityMRefFeature)
+		if err != nil {
+			return Value{}, true, err
+		}
+		refs, stated = elementsOf(ref), ok
+	}
+	elements := array.Array().Elements
+	if !stated || len(refs) != 1 || len(elements) != 1 {
+		return array, true, nil
+	}
+	op := scalarQuantityTypeFQN + " " + SymbolText(inst.Type)
+	unit, err := axisUnitOf(op+" mRef", refs[0])
+	if err != nil {
+		return Value{}, true, err
+	}
+	if elements[0].Kind != ValConst || !elements[0].Const.IsNumeric() {
+		return Value{}, true, fmt.Errorf(
+			"%w: %s: num is %s, ScalarQuantityValue declares num : Number",
+			ErrTypeMismatch, op, DescribeValue(elements[0]),
+		)
+	}
+	return NewQuantityValue(&Quantity{Num: elements[0].Const, Unit: unit, Object: inst.ID}), true, nil
 }
 
 // objectArrayFeature is the values an object holds under a Collections::Array
@@ -593,7 +633,7 @@ func (ctx *Context) declaredArrayValue(sym *symbols.Symbol) (Value, bool, error)
 	}
 	inst, err := ctx.occurrenceOf(sym)
 	if err != nil {
-		return Value{}, true, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+		return Value{}, true, fmt.Errorf("usage %s: %w", SymbolText(sym), err)
 	}
 	if val, ok, err := ctx.referenceValueOfObject(inst); ok {
 		return val, true, err
@@ -616,7 +656,7 @@ func (ctx *Context) objectFeatureElements(inst *Instance, name string) ([]Value,
 	if err != nil {
 		return nil, true, err
 	}
-	stated := fv.Feature.DefaultValue != nil || fv.Written || fv.BindingDerived
+	stated := fv.Feature.DefaultValue != nil || fv.Written || fv.BindingDerived || ctx.holderDefaultSupplies(inst, fv)
 	return elementsOf(val), stated, nil
 }
 
@@ -716,8 +756,8 @@ func intSequence(ns []int64) Value {
 	return sequenceOf(integerValues(ns))
 }
 
-// constValue wraps a numeric constant as a runtime value.
-func constValue(c semantics.Value) Value {
+// ConstValue wraps a numeric constant as a runtime value.
+func ConstValue(c semantics.Value) Value {
 	return Value{Kind: ValConst, Const: c}
 }
 
@@ -725,7 +765,7 @@ func constValue(c semantics.Value) Value {
 func constValues(consts []semantics.Value) []Value {
 	out := make([]Value, len(consts))
 	for i, c := range consts {
-		out[i] = constValue(c)
+		out[i] = ConstValue(c)
 	}
 	return out
 }

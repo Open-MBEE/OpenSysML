@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import org.eclipse.emf.ecore.EObject;
@@ -12,6 +13,7 @@ import org.eclipse.sirius.components.core.api.IIdentityService;
 import org.eclipse.sirius.components.emf.services.api.IEMFEditingContext;
 import org.eclipse.sirius.components.representations.MessageLevel;
 import org.eclipse.syson.sysml.Element;
+import org.eclipse.syson.sysml.LibraryPackage;
 import org.eclipse.syson.sysml.Namespace;
 import org.eclipse.syson.sysml.OwningMembership;
 import org.eclipse.syson.sysml.Relationship;
@@ -27,30 +29,76 @@ public class ProjectTextExporter implements ProjectExporter {
 
     private final ElementSerializer serializer;
     private final IIdentityService identityService;
+    private final BundledLibraries bundledLibraries;
 
     public ProjectTextExporter(ElementSerializer serializer, IIdentityService identityService) {
+        this(serializer, identityService, BundledLibraries.NONE);
+    }
+
+    public ProjectTextExporter(ElementSerializer serializer, IIdentityService identityService,
+            BundledLibraries bundledLibraries) {
         this.serializer = serializer;
         this.identityService = identityService;
+        this.bundledLibraries = bundledLibraries;
+    }
+
+    // What one export collects: its documents, messages and ranges, and the element index's tables.
+    private record Collected(List<SourceDocument> documents, List<ExportedProject.ExportMessage> messages,
+            List<ExportedProject.DocumentRange> ranges, Map<String, IndexedElement> entries,
+            Map<Element, IndexedElement> enclosing, Map<String, IndexedElement> byElementId) {
+        Collected() {
+            this(new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new LinkedHashMap<>(),
+                    new LinkedHashMap<>(), new LinkedHashMap<>());
+        }
+
+        ExportedProject project() {
+            return new ExportedProject(documents, new ElementIndex(entries, enclosing, byElementId), messages, ranges);
+        }
     }
 
     @Override
     public ExportedProject export(IEMFEditingContext context) {
-        List<SourceDocument> documents = new ArrayList<>();
-        List<ExportedProject.ExportMessage> messages = new ArrayList<>();
-        List<ExportedProject.DocumentRange> ranges = new ArrayList<>();
-        Map<String, IndexedElement> entries = new LinkedHashMap<>();
-        Map<Element, IndexedElement> enclosing = new LinkedHashMap<>();
-        Map<String, IndexedElement> byElementId = new LinkedHashMap<>();
-        Collected collected = new Collected(messages, ranges, entries, enclosing, byElementId);
+        Collected collected = new Collected();
         int documentIndex = 0;
         for (Resource resource : context.getDomain().getResourceSet().getResources()) {
             String uri = resource.getURI() == null ? "" : resource.getURI().toString();
             if (uri.startsWith(ElementUtil.KERML_LIBRARY_SCHEME) || uri.startsWith(ElementUtil.SYSML_LIBRARY_SCHEME)) continue;
-            String name = documentName(resource, documents, documentIndex);
-            exportResource(resource, name, documents, collected);
+            String name = documentName(resource, collected.documents(), documentIndex);
+            exportResource(resource, name, collected);
             documentIndex++;
         }
-        return new ExportedProject(documents, new ElementIndex(entries, enclosing, byElementId), messages, ranges);
+        return collected.project();
+    }
+
+    // A project's copy of a library the service bundles would shadow the service's own, so an
+    // unextended copy is left out; a copy declaring anything, at any depth, that the service's
+    // library lacks is exported with a warning.
+    private boolean skipsBundledCopy(LibraryPackage library, List<ExportedProject.ExportMessage> messages) {
+        Set<String> bundled = bundledLibraries.declarations(library.getName()).orElse(null);
+        if (bundled == null) return false;
+        List<String> added = new ArrayList<>();
+        String prefix = library.getQualifiedName() + "::";
+        for (var iterator = library.eAllContents(); iterator.hasNext();) {
+            String name = declaredName(iterator.next(), prefix);
+            if (name != null && !bundled.contains(name)) added.add(name);
+        }
+        if (added.isEmpty()) {
+            messages.add(new ExportedProject.ExportMessage(MessageLevel.INFO, "library package " + library.getName()
+                    + " is provided by the OpenSysML service; the project's copy was not exported"));
+            return true;
+        }
+        messages.add(new ExportedProject.ExportMessage(MessageLevel.WARNING, "library package " + library.getName()
+                + " shadows the one the OpenSysML service provides because the project's copy adds "
+                + String.join(", ", added) + "; documents and queries typed by the service's library will not be recognized"));
+        return false;
+    }
+
+    // The name a member declares under the library, spelled as a bundled library's declarations are;
+    // null for anything that is not an element of the library.
+    private static String declaredName(EObject member, String prefix) {
+        String qualifiedName = member instanceof Element element ? element.getQualifiedName() : null;
+        if (qualifiedName == null || !qualifiedName.startsWith(prefix)) return null;
+        return qualifiedName.substring(prefix.length()).replace("'", "");
     }
 
     // Names one resource: its URI's last segment as a .sysml name, suffixed when taken.
@@ -69,35 +117,30 @@ public class ProjectTextExporter implements ProjectExporter {
     // Serializes a resource's roots into one document, recording its ranges, messages and index entries.
     // SysON files each uploaded document under an unnamed root Namespace that its serializer never
     // prints, so that namespace's relationships are the roots, each exported on its own.
-    private void exportResource(Resource resource, String name, List<SourceDocument> documents,
-            Collected collected) {
+    private void exportResource(Resource resource, String name, Collected collected) {
         StringBuilder text = new StringBuilder();
+        boolean skippedLibrary = false;
         for (EObject root : resource.getContents()) {
-            if (root instanceof Element element) {
-                exportRootElement(element, text, name, collected);
+            if (root instanceof Element element && !exportRoots(element, text, name, collected)) {
+                skippedLibrary = true;
             }
         }
-        documents.add(SourceDocument.inline(name, text.toString()));
+        if (skippedLibrary && text.isEmpty()) return;
+        collected.documents().add(SourceDocument.inline(name, text.toString()));
     }
 
-    // Exports one root of a resource: an unnamed root Namespace stands for its relationships.
-    private void exportRootElement(Element element, StringBuilder text, String name, Collected collected) {
-        if (!isRootNamespace(element)) {
-            exportRoot(element, List.of(element), text, name, collected);
-            return;
-        }
+    // Exports one of a resource's roots, or each relationship of SysON's unnamed root namespace as a
+    // root of its own; false when any of them was left out.
+    private boolean exportRoots(Element element, StringBuilder text, String name, Collected collected) {
+        if (!isRootNamespace(element)) return exportRoot(element, List.of(element), text, name, collected);
+        boolean exported = true;
         for (Relationship relationship : ((Namespace) element).getOwnedRelationship()) {
             List<Element> declared = relationship instanceof OwningMembership membership
                     ? List.copyOf(membership.getOwnedRelatedElement())
                     : List.of(relationship);
-            exportRoot(relationship, declared, text, name, collected);
+            if (!exportRoot(relationship, declared, text, name, collected)) exported = false;
         }
-    }
-
-    // What an export collects across its documents: messages, line ranges and the element index.
-    private record Collected(List<ExportedProject.ExportMessage> messages,
-            List<ExportedProject.DocumentRange> ranges, Map<String, IndexedElement> entries,
-            Map<Element, IndexedElement> enclosing, Map<String, IndexedElement> byElementId) {
+        return exported;
     }
 
     private static boolean isRootNamespace(Element element) {
@@ -105,9 +148,12 @@ public class ProjectTextExporter implements ProjectExporter {
                 && element.getName() == null;
     }
 
-    // Appends one root's text and records the elements it declares.
-    private void exportRoot(EObject root, List<Element> declared, StringBuilder text, String name,
+    // Appends one root's text and records the elements it declares; false when the root is an
+    // unextended copy of a bundled library and was left out.
+    private boolean exportRoot(EObject root, List<Element> declared, StringBuilder text, String name,
             Collected collected) {
+        if (declared.size() == 1 && declared.get(0) instanceof LibraryPackage library
+                && skipsBundledCopy(library, collected.messages())) return false;
         if (!text.isEmpty() && text.charAt(text.length() - 1) != '\n') text.append('\n');
         int start = text.isEmpty() ? 1 : lineCount(text);
         List<Status> statuses = new ArrayList<>();
@@ -122,10 +168,11 @@ public class ProjectTextExporter implements ProjectExporter {
                 locate(element, start, strippedLines(serializedText), serialized.fragments(), name,
                         collected.ranges());
             }
-            index(element, null, collected.entries(), collected.enclosing(), collected.byElementId());
+            index(element, null, collected);
         }
         statuses.forEach(status -> collected.messages().add(new ExportedProject.ExportMessage(
                 ExportedProject.level(status), status.message())));
+        return true;
     }
 
     // Finds each visited child's fragment verbatim inside its parent's text (indentation stripped)
@@ -170,21 +217,21 @@ public class ProjectTextExporter implements ProjectExporter {
         return -1;
     }
 
-    private void index(Element element, IndexedElement nearest,
-            Map<String, IndexedElement> entries, Map<Element, IndexedElement> enclosing,
-            Map<String, IndexedElement> byElementId) {
+    private void index(Element element, IndexedElement nearest, Collected collected) {
         String qualifiedName = element.getQualifiedName();
         IndexedElement current = nearest;
         if (qualifiedName != null && !qualifiedName.isBlank()) {
             current = new IndexedElement(qualifiedName, element.getElementId(), identityService.getId(element),
                     element);
-            entries.put(qualifiedName, current);
+            collected.entries().put(qualifiedName, current);
         } else if (nearest != null) {
-            enclosing.put(element, nearest);
+            collected.enclosing().put(element, nearest);
         }
-        if (element.getElementId() != null && current != null) byElementId.put(element.getElementId(), current);
+        if (element.getElementId() != null && current != null) {
+            collected.byElementId().put(element.getElementId(), current);
+        }
         for (EObject child : element.eContents()) {
-            if (child instanceof Element childElement) index(childElement, current, entries, enclosing, byElementId);
+            if (child instanceof Element childElement) index(childElement, current, collected);
         }
     }
 

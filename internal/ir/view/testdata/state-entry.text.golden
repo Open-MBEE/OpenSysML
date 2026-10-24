@@ -1,6 +1,6 @@
 MachineViews::thermostat - state rendering (view def StateTransitionView)
 
-state def Machines::Thermostat
+state def Thermostat
   start
   state heating
   state idle
@@ -18,8 +18,8 @@ state def Machines::Thermostat
       state on
 
 transitions:
-  start of Machines::Thermostat -> heating: [cold]
-  start of Machines::Thermostat -> idle: [not cold]
+  start of Thermostat -> heating: [cold]
+  start of Thermostat -> idle: [not cold]
   start of idle -> drying: [wet]
   start of idle -> resting
   start of lights -> lit: [dark]

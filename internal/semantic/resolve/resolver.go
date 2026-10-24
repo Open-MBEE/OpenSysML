@@ -159,12 +159,13 @@ type Resolver struct {
 	// own (see freshImportVisits).
 	importVisits map[importVisit]bool
 	importDepth  int
-	// enumMembers are the members each import edge surfaces, kept while the
-	// enumeration in progress nests (enumDepth): the members an import brings
-	// do not depend on the path that reached its namespace, so a cycle of
-	// re-imports is enumerated once per edge, not once per path (issue #633).
+	// enumMembers memoizes each import edge's members within one enumeration (issue
+	// #633); enumKept/enumResults keep uncut ones across enumerations, journaled.
 	enumMembers map[enumEdge][]*symbols.Symbol
 	enumDepth   int
+	enumKept    map[enumEdge]keptMembers
+	enumResults map[enumResult]keptMembers
+	enumCut     int
 	Diagnostics []Diagnostic
 	// quiet is nonzero while a lookup is made on behalf of a semantic query
 	// rather than a reference in the document being resolved.
@@ -204,6 +205,32 @@ type Resolver struct {
 	// cross-reference. Without it, resolving each of n sibling imports searched
 	// the others' unresolved targets in every order (issue #636).
 	importTargets map[*ast.Import]resolution
+	// collisions memoizes, per namespace, what its imports bring and the
+	// memberships hidden among them: see (*Resolver).importedCollisions.
+	// colliding marks the namespaces whose collisions are being computed.
+	collisions map[*symbols.Scope]*importCollisions
+	colliding  map[*symbols.Scope]bool
+	// shared is the collisions memo the batch this resolver analyzes for
+	// shares, nil outside one; captures are the read captures open for the
+	// computations it may settle into shared (see SharedCollisions).
+	shared   *SharedCollisions
+	captures []*readCapture
+	// below memoizes hidesBelow: whether a namespace or one its imports
+	// re-export from hides any imported membership.
+	below map[*symbols.Scope]bool
+	// bringing marks the namespaces one importBrings search has asked, so a
+	// cycle of re-exports is asked once per search.
+	bringing map[*symbols.Scope]bool
+	// provisional holds, while collisions are being computed, those of the
+	// namespaces met on the way that could not be settled: each is computed
+	// once per outermost computation and dropped when it ends.
+	provisional map[*symbols.Scope]*importCollisions
+	// belowCut holds the namespaces whose hidesBelow walk a collision
+	// computation in progress cut; dropped, like provisional, when it ends.
+	belowCut map[*symbols.Scope]bool
+	// collisionCut is set when a collision computation met one in progress,
+	// so what it computed is not memoized.
+	collisionCut bool
 	// redefined memoizes the features a declaration redefines, explicitly or as
 	// an end: see (*Resolver).redefinedFeatures.
 	redefined map[*symbols.Symbol][]*symbols.Symbol
@@ -213,8 +240,15 @@ type Resolver struct {
 	// effNames memoizes whether a feature named by a redefinition binds that
 	// name: see (*Resolver).BindsName.
 	effNames map[*symbols.Symbol]bool
-	model    MemberLookup             // Optional *semantics.Model for inheritance-aware member lookup
-	naming   map[*symbols.Symbol]bool // effective names being computed, for cycle detection
+	// shortNames memoizes the short name a feature derives from its naming
+	// feature, owned by the feature's document; shortNaming is the outermost
+	// derivation under way: see derivedShortName.
+	shortNames  map[*symbols.Symbol]string
+	shortNaming *shortNaming
+	model       MemberLookup // Optional *semantics.Model for inheritance-aware member lookup
+	// naming holds the features whose effective names are being computed, each
+	// at the depth of its lookup, for cycle detection.
+	naming map[*symbols.Symbol]int
 	// inheritedImports are the declarations whose supertypes' imports are being
 	// searched, so a specialization cycle ends the walk.
 	inheritedImports map[*symbols.Symbol]bool
@@ -267,7 +301,8 @@ func (r *Resolver) MemoSize() int {
 	return len(r.memo) + len(r.modeMemo) + len(r.filtered) + len(r.featureChains) +
 		len(r.parts) + len(r.aliasNames) + len(r.endpoints) + len(r.readings) +
 		len(r.invocationNames) + len(r.ambiguities) + len(r.reportedQualified) +
-		len(r.initials) + len(r.imports) + len(r.suggestions) + len(r.importTargets)
+		len(r.initials) + len(r.imports) + len(r.suggestions) + len(r.importTargets) +
+		len(r.collisions) + len(r.enumKept) + len(r.enumResults) + len(r.shortNames)
 }
 
 // New creates a resolver over the given index.
@@ -287,8 +322,10 @@ func New(idx *symbols.Index) *Resolver {
 		imports:               map[ast.Node][]*ast.Import{},
 		importStack:           map[*ast.Import]bool{},
 		enumMembers:           map[enumEdge][]*symbols.Symbol{},
+		enumKept:              map[enumEdge]keptMembers{},
+		enumResults:           map[enumResult]keptMembers{},
 		resolvingImports:      map[*ast.Import]bool{},
-		naming:                map[*symbols.Symbol]bool{},
+		naming:                map[*symbols.Symbol]int{},
 		valuesInProgress:      map[*ast.Usage]bool{},
 		nsFilters:             map[*symbols.Scope][]symbols.ElementFilter{},
 		viewFilters:           map[*symbols.Scope][]symbols.ElementFilter{},
@@ -297,10 +334,15 @@ func New(idx *symbols.Index) *Resolver {
 		implicitParams:        map[*symbols.Scope][]*symbols.Symbol{},
 		derivedNamed:          map[*symbols.Scope][]*symbols.Symbol{},
 		importTargets:         map[*ast.Import]resolution{},
+		collisions:            map[*symbols.Scope]*importCollisions{},
+		colliding:             map[*symbols.Scope]bool{},
+		below:                 map[*symbols.Scope]bool{},
+		bringing:              map[*symbols.Scope]bool{},
 		importVisits:          map[importVisit]bool{},
 		redefined:             map[*symbols.Symbol][]*symbols.Symbol{},
 		bodyOwners:            map[*symbols.Scope]*symbols.Symbol{},
 		effNames:              map[*symbols.Symbol]bool{},
+		shortNames:            map[*symbols.Symbol]string{},
 
 		suggestions: map[suggestKey]suggestion{},
 		suggesting:  map[suggestKey]bool{},
@@ -497,6 +539,8 @@ func (r *Resolver) lookupContributedMember(sym *symbols.Symbol, name string, hid
 // Must be called before resolving feature chains if inherited members are needed.
 func (r *Resolver) SetModel(model MemberLookup) {
 	r.model = model
+	clear(r.enumKept)
+	clear(r.enumResults)
 }
 
 // ResolveQualified resolves a qualified-name reference against the given scope.
@@ -651,6 +695,7 @@ func (r *Resolver) ResolveName(scope *symbols.Scope, name string, at ast.Node) (
 		r.report(Diagnostic{
 			Span:    spanOf(at),
 			Message: r.unresolvedMessage(scope, name, at),
+			Code:    CodeUnresolved,
 			Fixes:   r.unresolvedFixes(scope, name, at),
 		})
 	}

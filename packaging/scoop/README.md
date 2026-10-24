@@ -6,8 +6,9 @@ as-is**; `scripts/render-scoop-manifest.sh` substitutes them from a release's `S
 and strips the template note, following the same convention as
 [packaging/homebrew](../homebrew/README.md).
 
-The manifest installs `opensysml-windows-amd64.zip` (`sysml.exe` and `sysml-lsp.exe`, the
-unsigned CircleCI asset described by `SHA256SUMS.txt`) and shims both executables onto `PATH`.
+The manifest installs `opensysml-windows-amd64.zip` (`sysml.exe` and `sysml-lsp.exe`) and
+`sysml-mcp-windows-amd64.zip` (`sysml-mcp.exe`, the MCP server for coding agents), the
+unsigned CircleCI assets described by `SHA256SUMS.txt`, and shims the three executables onto `PATH`.
 It declares `"depends": "z3"` so the `z3` manifest in Scoop's `main` bucket is installed
 alongside, which gives the experimental `%check`/`%explain` commands a solver on `PATH` without
 configuration; nothing links it and every other command works without it (see

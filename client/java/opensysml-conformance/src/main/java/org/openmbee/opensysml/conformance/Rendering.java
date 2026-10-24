@@ -1,6 +1,7 @@
 package org.openmbee.opensysml.conformance;
 
 import org.openmbee.opensysml.CaseEvaluation;
+import org.openmbee.opensysml.CheckResult;
 import org.openmbee.opensysml.Diagnostic;
 import org.openmbee.opensysml.EngineInfo;
 import org.openmbee.opensysml.Exploration;
@@ -9,7 +10,11 @@ import org.openmbee.opensysml.Instance;
 import org.openmbee.opensysml.Outcome;
 import org.openmbee.opensysml.QueryElement;
 import org.openmbee.opensysml.RenderedView;
+import org.openmbee.opensysml.Recording;
+import org.openmbee.opensysml.Runs;
+import org.openmbee.opensysml.SelfCheck;
 import org.openmbee.opensysml.Standing;
+import org.openmbee.opensysml.ToolDryRun;
 import org.openmbee.opensysml.Symbol;
 import org.openmbee.opensysml.Value;
 import org.openmbee.opensysml.Verdict;
@@ -18,6 +23,13 @@ import org.openmbee.opensysml.VerificationVerdict;
 import org.openmbee.opensysml.internal.Protos;
 import org.openmbee.opensysml.proto.AttributeInfo;
 import org.openmbee.opensysml.proto.Bound;
+import org.openmbee.opensysml.proto.CheckBehaviorResponse;
+import org.openmbee.opensysml.proto.CheckDivergence;
+import org.openmbee.opensysml.proto.CheckDivergentValue;
+import org.openmbee.opensysml.proto.CheckFinal;
+import org.openmbee.opensysml.proto.CheckSearch;
+import org.openmbee.opensysml.proto.CheckViolation;
+import org.openmbee.opensysml.proto.CheckWitness;
 import org.openmbee.opensysml.proto.CalcOutput;
 import org.openmbee.opensysml.proto.ExplorationStatus;
 import org.openmbee.opensysml.proto.FeatureValue;
@@ -82,6 +94,127 @@ final class Rendering {
    */
   static List<org.openmbee.opensysml.proto.Instance> instances(List<Instance> instances) {
     return instances.stream().map(Rendering::instance).toList();
+  }
+
+  /** A {@code CheckBehaviorResponse} carrying a check result as the service would answer it. */
+  static CheckBehaviorResponse checkResult(CheckResult result) {
+    CheckBehaviorResponse.Builder response =
+        CheckBehaviorResponse.newBuilder()
+            .setVerdict(result.verdict())
+            .addAllLines(result.lines())
+            .addAllViolations(result.violations().stream().map(Rendering::checkViolation).toList())
+            .addAllDivergences(
+                result.divergences().stream().map(Rendering::checkDivergence).toList())
+            .addAllFinals(result.finals().stream().map(Rendering::checkFinal).toList())
+            .setClaim(result.claim())
+            .addAllFreeInputs(result.freeInputs())
+            .addAllAssumptions(result.assumptions())
+            .setEngine(result.standing().engine())
+            .setStrength(result.standing().strength())
+            .addAllBounds(bounds(result.standing()))
+            .setReason(result.reason());
+    result.search().ifPresent(s -> response.setSearch(checkSearch(s)));
+    result.witness().ifPresent(w -> response.setWitness(checkWitness(w)));
+    result.contrast().ifPresent(w -> response.setContrast(checkWitness(w)));
+    return response.build();
+  }
+
+  private static CheckSearch checkSearch(CheckResult.Search s) {
+    return CheckSearch.newBuilder()
+        .setStates(s.states())
+        .setMoves(s.moves())
+        .setMaxDepth(s.maxDepth())
+        .addAllBoundsHit(s.boundsHit())
+        .setHorizon(s.horizon())
+        .setHorizonSet(s.horizonSet())
+        .setMassBounded(s.massBounded())
+        .addAllNotes(s.notes())
+        .addAllScope(s.scope())
+        .setStatus(s.status())
+        .build();
+  }
+
+  private static CheckWitness checkWitness(CheckResult.Witness w) {
+    return CheckWitness.newBuilder()
+        .setSchedule(w.schedule())
+        .addAllDraws(w.draws())
+        .addAllChoices(w.choices())
+        .addAllInputs(w.inputs())
+        .setFileName(w.fileName())
+        .setFileContent(w.fileContent())
+        .build();
+  }
+
+  private static CheckViolation checkViolation(CheckResult.Violation v) {
+    CheckViolation.Builder violation =
+        CheckViolation.newBuilder()
+            .setKind(v.kind())
+            .setProperty(v.property())
+            .setError(v.error())
+            .setDepth(v.depth())
+            .setProbability(v.probability())
+            .setText(v.text());
+    v.witness().ifPresent(w -> violation.setWitness(checkWitness(w)));
+    return violation.build();
+  }
+
+  private static CheckDivergence checkDivergence(CheckResult.Divergence d) {
+    CheckDivergence.Builder divergence = CheckDivergence.newBuilder().setFeature(d.feature());
+    for (CheckResult.DivergentValue v : d.values()) {
+      CheckDivergentValue.Builder value = CheckDivergentValue.newBuilder().setValue(v.value());
+      v.witness().ifPresent(w -> value.setWitness(checkWitness(w)));
+      divergence.addValues(value);
+    }
+    return divergence.build();
+  }
+
+  private static CheckFinal checkFinal(CheckResult.Final f) {
+    CheckFinal.Builder fin = CheckFinal.newBuilder().setOutcome(f.outcome()).putAllValues(f.values());
+    f.witness().ifPresent(w -> fin.setWitness(checkWitness(w)));
+    return fin.build();
+  }
+
+  static org.openmbee.opensysml.proto.ToolDryRun toolDryRun(ToolDryRun preview) {
+    org.openmbee.opensysml.proto.ToolDryRun.Builder proto =
+        org.openmbee.opensysml.proto.ToolDryRun.newBuilder()
+            .setAction(preview.action())
+            .setTool(preview.tool())
+            .setVersion(preview.version())
+            .setManifest(preview.manifest())
+            .setExecutable(preview.executable())
+            .setProtocol(preview.protocol())
+            .addAllArgs(preview.args())
+            .addAllEnv(preview.env())
+            .setCwd(preview.cwd())
+            .setStdin(preview.stdin())
+            .setStdinData(preview.stdinData())
+            .setOutputDir(preview.outputDir())
+            .setReplySource(preview.replySource())
+            .addAllLines(preview.lines());
+    preview
+        .inputFile()
+        .ifPresent(
+            file ->
+                proto.setInputFile(
+                    org.openmbee.opensysml.proto.ToolDryRunFile.newBuilder()
+                        .setName(file.name())
+                        .setFormat(file.format())
+                        .setData(file.data())));
+    for (ToolDryRun.Input input : preview.inputs()) {
+      proto.addInputs(
+          org.openmbee.opensysml.proto.ToolDryRunInput.newBuilder()
+              .setVariable(input.variable())
+              .setParameter(input.parameter())
+              .setValue(input.value())
+              .setUnit(input.unit()));
+    }
+    for (ToolDryRun.Output output : preview.outputs()) {
+      proto.addOutputs(
+          org.openmbee.opensysml.proto.ToolDryRunOutput.newBuilder()
+              .setVariable(output.variable())
+              .setParameter(output.parameter()));
+    }
+    return proto.build();
   }
 
   /**
@@ -580,6 +713,109 @@ final class Rendering {
         .build();
   }
 
+  static org.openmbee.opensysml.proto.RunRunsResponse runs(Runs runs) {
+    org.openmbee.opensysml.proto.RunRunsResponse.Builder response =
+        org.openmbee.opensysml.proto.RunRunsResponse.newBuilder()
+            .addAllRows(runs.rows().stream().map(Rendering::sweepRow).toList())
+            .addAllObservables(runs.observables())
+            .addAllDistributions(runs.distributions().stream().map(Rendering::distribution).toList())
+            .addAllOutputs(outputs(runs.outputs()))
+            .addAllVerdicts(verdicts(runs.verdicts()))
+            .setUnconcluded(runs.unconcluded())
+            .addAllInstances(instances(runs.instances()))
+            .addAllDiagnostics(diagnostics(runs.diagnostics()))
+            .setEngine(runs.standing().engine())
+            .setStrength(runs.standing().strength())
+            .addAllBounds(bounds(runs.standing()));
+    runs.seed().ifPresent(response::setSeed);
+    return response.build();
+  }
+
+  private static org.openmbee.opensysml.proto.RunDistribution distribution(Runs.Distribution d) {
+    org.openmbee.opensysml.proto.RunDistribution.Builder distribution =
+        org.openmbee.opensysml.proto.RunDistribution.newBuilder()
+            .setName(d.name())
+            .setUnit(d.unit())
+            .setCount(d.count())
+            .setNumeric(d.numeric())
+            .setDeviation(d.deviation());
+    d.min().ifPresent(v -> distribution.setMin(value(v)));
+    d.max().ifPresent(v -> distribution.setMax(value(v)));
+    d.mean().ifPresent(v -> distribution.setMean(value(v)));
+    for (Runs.Percentile p : d.percentiles()) {
+      distribution.addPercentiles(
+          org.openmbee.opensysml.proto.RunPercentile.newBuilder()
+              .setPercentile(p.percentile())
+              .setValue(value(p.value())));
+    }
+    for (Runs.HistogramBin b : d.histogram()) {
+      distribution.addHistogram(
+          org.openmbee.opensysml.proto.RunHistogramBin.newBuilder()
+              .setLow(value(b.low()))
+              .setHigh(value(b.high()))
+              .setCount(b.count()));
+    }
+    for (Runs.CountedValue v : d.values()) {
+      distribution.addValues(
+          org.openmbee.opensysml.proto.RunCountedValue.newBuilder()
+              .setValue(value(v.value()))
+              .setCount(v.count()));
+    }
+    return distribution.build();
+  }
+
+  static org.openmbee.opensysml.proto.SelfCheckResponse selfCheck(SelfCheck check) {
+    org.openmbee.opensysml.proto.SelfCheckResponse.Builder response =
+        org.openmbee.opensysml.proto.SelfCheckResponse.newBuilder()
+            .setStatus(check.status())
+            .setElements(check.elements())
+            .setChecks(check.checks())
+            .setViolations(check.violations())
+            .setUnevaluated(check.unevaluated())
+            .setEvaluationErrors(check.evaluationErrors())
+            .setSummary(check.summary())
+            .addAllDiagnostics(diagnostics(check.diagnostics()));
+    for (SelfCheck.Finding f : check.findings()) {
+      response.addFindings(
+          org.openmbee.opensysml.proto.SelfCheckFinding.newBuilder()
+              .setStatus(f.status())
+              .setSubject(f.subject())
+              .setLocation(f.location())
+              .setConstraint(f.constraint())
+              .setElement(f.element())
+              .setMessage(f.message())
+              .setLine(f.line()));
+    }
+    check
+        .applications()
+        .forEach(
+            (constraint, count) ->
+                response.addApplications(
+                    org.openmbee.opensysml.proto.SelfCheckApplication.newBuilder()
+                        .setConstraint(constraint)
+                        .setCount(count)));
+    return response.build();
+  }
+
+  /** Everything of a recording but its single run, which the caller renders. */
+  static org.openmbee.opensysml.proto.RecordRunResponse.Builder recording(Recording recording) {
+    org.openmbee.opensysml.proto.RecordRunResponse.Builder response =
+        org.openmbee.opensysml.proto.RecordRunResponse.newBuilder()
+            .setPackage(recording.packageName())
+            .setDefinition(recording.definition())
+            .addAllRecords(recording.records())
+            .setSource(recording.source())
+            .setContent(recording.content())
+            .addAllDocuments(editedDocuments(recording.documents()))
+            .setSkipped(recording.skipped())
+            .addAllReasons(recording.reasons())
+            .addAllDiagnostics(diagnostics(recording.diagnostics()))
+            .setModelHash(recording.modelHash());
+    recording.sweep().ifPresent(sweep -> response.setSweep(sweep(sweep)));
+    recording.sample().ifPresent(sample -> response.setSample(runs(sample)));
+    return response;
+  }
+
   /**
    * A document query's answer: its columns, and each row's element put back in the kind its
    * {@link org.openmbee.opensysml.DocumentRow} carries it as.
@@ -618,7 +854,8 @@ final class Rendering {
             .setKind(view.kind())
             .setStated(view.stated())
             .addAllColumns(view.columns())
-            .addAllNotices(view.notices());
+            .addAllNotices(view.notices())
+            .addAllShown(view.shown());
     view.canvas()
         .ifPresent(
             canvas ->
@@ -660,7 +897,8 @@ final class Rendering {
                           .setWidth(geometry.width())
                           .setHeight(geometry.height())
                           .setHasSize(geometry.hasSize())
-                          .setCollapsed(geometry.collapsed())));
+                          .setCollapsed(geometry.collapsed())
+                          .setUnplaced(geometry.unplaced())));
       node.style().ifPresent(style -> rendered.setStyle(style(style)));
       response.addNodes(rendered);
     }

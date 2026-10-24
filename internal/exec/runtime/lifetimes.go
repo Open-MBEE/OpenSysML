@@ -7,17 +7,17 @@ import (
 )
 
 var (
-	// ErrOccurrenceDestroyed is returned when a destroyed occurrence is read or
+	// errOccurrenceDestroyed is returned when a destroyed occurrence is read or
 	// written: its features hold nothing after its end, and it cannot end twice.
-	ErrOccurrenceDestroyed = errors.New("occurrence was destroyed")
+	errOccurrenceDestroyed = errors.New("occurrence was destroyed")
 
-	// ErrNotAnOccurrence is returned when a value that denotes no object of the
+	// errNotAnOccurrence is returned when a value that denotes no object of the
 	// model is passed where OccurrenceFunctions takes an Occurrence.
-	ErrNotAnOccurrence = errors.New("value is not an occurrence")
+	errNotAnOccurrence = errors.New("value is not an occurrence")
 
-	// ErrOccurrenceLifetime is returned when an occurrence's lifetime admits no
+	// errOccurrenceLifetime is returned when an occurrence's lifetime admits no
 	// such change: `create` of one begun before the call, `destroy` of one ended.
-	ErrOccurrenceLifetime = errors.New("occurrence lifetime does not admit the change")
+	errOccurrenceLifetime = errors.New("occurrence lifetime does not admit the change")
 )
 
 // life is the lifetime of one occurrence in the runtime's execution order, kept
@@ -90,7 +90,7 @@ func (ctx *Context) lifeOf(op string, inst *Instance) (life, error) {
 	l, ok := ctx.lives[inst.ID]
 	if !ok {
 		return life{}, fmt.Errorf("%w: function %s: object #%d (%s) has no lifetime here",
-			ErrOccurrenceLifetime, writtenName(op), inst.ID, symbolText(inst.Type))
+			errOccurrenceLifetime, writtenName(op), inst.ID, SymbolText(inst.Type))
 	}
 	return l, nil
 }
@@ -105,8 +105,8 @@ type OccurrenceLife struct {
 	Destroyed bool
 }
 
-// Alive reports whether the occurrence has begun and not ended.
-func (l OccurrenceLife) Alive() bool { return l.Began > 0 && l.Ended == 0 }
+// alive reports whether the occurrence has begun and not ended.
+func (l OccurrenceLife) alive() bool { return l.Began > 0 && l.Ended == 0 }
 
 // String renders the lifetime for a debugging surface.
 func (l OccurrenceLife) String() string {
@@ -166,10 +166,10 @@ func (ctx *Context) createDuring(op string, inst *Instance, mark int64) error {
 	switch {
 	case prior.destroyed:
 		return fmt.Errorf("function %s: %w: object #%d (%s) was destroyed at %d",
-			writtenName(op), ErrOccurrenceDestroyed, inst.ID, symbolText(inst.Type), prior.ended)
+			writtenName(op), errOccurrenceDestroyed, inst.ID, SymbolText(inst.Type), prior.ended)
 	case prior.reached <= mark:
 		return fmt.Errorf("%w: function %s: object #%d (%s) began at %d, before the call",
-			ErrOccurrenceLifetime, writtenName(op), inst.ID, symbolText(inst.Type), prior.began)
+			errOccurrenceLifetime, writtenName(op), inst.ID, SymbolText(inst.Type), prior.began)
 	}
 	ctx.lives[inst.ID] = life{reached: prior.reached, began: prior.reached}
 	ctx.noteProbeUndo(func() { ctx.lives[inst.ID] = prior })
@@ -181,7 +181,7 @@ func (ctx *Context) createDuring(op string, inst *Instance, mark int64) error {
 		}
 	}
 	if ctx.trace != nil {
-		ctx.trace.RecordOccurrenceCreated(symbolText(inst.Type), inst.ID)
+		ctx.trace.recordOccurrenceCreated(SymbolText(inst.Type), inst.ID)
 	}
 	return nil
 }
@@ -206,7 +206,7 @@ func (ctx *Context) destroy(inst *Instance) error {
 		ctx.lives[portion.ID] = life{reached: prior.reached, began: prior.began, ended: at, destroyed: true}
 		ctx.noteProbeUndo(func() { ctx.lives[portion.ID] = prior })
 		if ctx.trace != nil {
-			ctx.trace.RecordOccurrenceDestroyed(symbolText(portion.Type), portion.ID)
+			ctx.trace.recordOccurrenceDestroyed(SymbolText(portion.Type), portion.ID)
 		}
 	}
 	ctx.livesChanged()
@@ -258,7 +258,7 @@ func (ctx *Context) checkPerformer(self *Instance) error {
 	}
 	if l, ok := ctx.lives[self.ID]; ok && l.ended != 0 {
 		return fmt.Errorf("performer of the behavior: %w: object #%d (%s) ended at %d already",
-			ErrOccurrenceLifetime, self.ID, symbolText(self.Type), l.ended)
+			errOccurrenceLifetime, self.ID, SymbolText(self.Type), l.ended)
 	}
 	return nil
 }
@@ -279,13 +279,13 @@ func (ctx *Context) checkLiving(inst *Instance) error {
 	switch {
 	case !ok:
 		return fmt.Errorf("%w: object #%d (%s) has no lifetime here",
-			ErrOccurrenceLifetime, inst.ID, symbolText(inst.Type))
+			errOccurrenceLifetime, inst.ID, SymbolText(inst.Type))
 	case prior.destroyed:
 		return fmt.Errorf("%w: object #%d (%s) was destroyed at %d already",
-			ErrOccurrenceDestroyed, inst.ID, symbolText(inst.Type), prior.ended)
+			errOccurrenceDestroyed, inst.ID, SymbolText(inst.Type), prior.ended)
 	case prior.ended != 0:
 		return fmt.Errorf("%w: object #%d (%s) ended at %d already",
-			ErrOccurrenceLifetime, inst.ID, symbolText(inst.Type), prior.ended)
+			errOccurrenceLifetime, inst.ID, SymbolText(inst.Type), prior.ended)
 	}
 	return nil
 }
@@ -365,7 +365,7 @@ func (ctx *Context) forgetLives(abandoned map[int64]bool) {
 func (ctx *Context) checkNotDestroyed(inst *Instance) error {
 	if at, destroyed := ctx.Destroyed(inst); destroyed {
 		return fmt.Errorf("%w: object #%d (%s) was destroyed at %d",
-			ErrOccurrenceDestroyed, inst.ID, symbolText(inst.Type), at)
+			errOccurrenceDestroyed, inst.ID, SymbolText(inst.Type), at)
 	}
 	return nil
 }

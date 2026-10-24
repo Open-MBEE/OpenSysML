@@ -1,0 +1,19 @@
+# SysML v1 to v2 migration report: root_model_defs.xmi
+# migrated 13 element(s): 12 mapped, 0 approximated, 1 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## unmapped (1)
+Constraint	Noise Figure::<Constraint>	_rule	(opaque expression is not v2 expression syntax (language SysML))
+
+## mapped (12)
+Comment	<Comment>	_c
+«Block» Class	BSED	_bsed	-> SEM::BSED
+Property	BSED::gain	_bsedGain	-> SEM::BSED::gain
+«Block» Class	Imaging Subsystem	_imaging	-> SEM::'Imaging Subsystem'
+Property	Imaging Subsystem::BSED	_imagingBsed	-> SEM::'Imaging Subsystem'::BSED
+Property	Imaging Subsystem::gain	_imagingGain	-> SEM::'Imaging Subsystem'::gain
+«BindingConnector» Connector	Imaging Subsystem::gain = BSED.gain	_bind	-> SEM::'Imaging Subsystem'::'gain = BSED.gain'
+«ConstraintBlock» Class	Noise Figure	_noise	-> SEM::'Noise Figure'
+Property	Noise Figure::f	_f	-> SEM::'Noise Figure'::f
+«ConstraintParameter» Property	Noise Figure::nf	_nf	-> SEM::'Noise Figure'::nf	(«ConstraintParameter» from http://www.omg.org/spec/SysML/20181001/SysML is applied from a profile the document does not define; the application is kept as metadata)
+«ValueType» DataType	Real	_real	-> SEM::Real
+Model	SEM	_m	-> SEM	(written as package SEM)

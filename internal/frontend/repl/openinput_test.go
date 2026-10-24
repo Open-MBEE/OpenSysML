@@ -70,14 +70,14 @@ func TestLoadReportsSyntaxDiagnostics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(strings.Join(out, "\n"), "error:") {
+	if !strings.Contains(strings.Join(out, "\n"), "error[syntax]:") {
 		t.Errorf("load printed no diagnostics: %v", out)
 	}
 	if !s.HasErrors() {
 		t.Error("HasErrors should be true after loading a file that does not parse")
 	}
 	lines := strings.Join(s.DiagnosticLines(), "\n")
-	if !strings.Contains(lines, "bad.sysml") || !strings.Contains(lines, "error:") {
+	if !strings.Contains(lines, "bad.sysml") || !strings.Contains(lines, "error[syntax]:") {
 		t.Errorf("diagnostic lines do not name the file and the error:\n%s", lines)
 	}
 	located := s.LocatedDiagnostics()
@@ -101,7 +101,7 @@ func TestLoadFileSummaryReportsSyntaxDiagnostics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(strings.Join(out, "\n"), "error:") {
+	if !strings.Contains(strings.Join(out, "\n"), "error[syntax]:") {
 		t.Errorf("summary load printed no diagnostics: %v", out)
 	}
 	if !s.HasErrors() {
@@ -119,7 +119,7 @@ func TestLoadFileSummaryDefersSyntaxWarnings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(out, "\n"); strings.Contains(got, "warning:") {
+	if got := strings.Join(out, "\n"); strings.Contains(got, "warning[") {
 		t.Errorf("the summary load reported the warning the analysis reports:\n%s", got)
 	}
 	if lines := strings.Join(s.DiagnosticLines(), "\n"); !strings.Contains(lines, "reserved keyword") {
@@ -179,7 +179,7 @@ func TestLoadFilesSummaryMatchesLoadingEachFile(t *testing.T) {
 		t.Errorf("loading the files at once printed:\n%s\nwant, as loading each did:\n%s",
 			strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
-	if !strings.Contains(strings.Join(got, "\n"), "error:") {
+	if !strings.Contains(strings.Join(got, "\n"), "error[syntax]:") {
 		t.Errorf("the file that does not parse was not reported with the load:\n%s", strings.Join(got, "\n"))
 	}
 	var summaries []string

@@ -1,6 +1,6 @@
 exit: start
 enter: Working
-choice entering Working: next lstart(entry), rstart(entry) (unordered; took lstart(entry) first)
+choice entering Working: next lstart(entry), rstart(entry) (unordered; took lstart(entry) first; independent)
 enter: lstart
 enter: rstart
 transition: start -> Working
@@ -10,7 +10,7 @@ transition: lstart -> lwork
 exit: rstart
 enter: rwork
 transition: rstart -> rwork
-choice exiting Working: next lwork(exit), rwork(exit) (unordered; took lwork(exit) first)
+choice exiting Working: next lwork(exit), rwork(exit) (unordered; took lwork(exit) first; order-dependent: log)
 exit: lwork (exit action)
 stmt action body
   stmt assign log

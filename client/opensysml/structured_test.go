@@ -27,9 +27,9 @@ const structuredSource = `package S {
 	attribute v : CartesianVectorValue = VectorOf((3.0, 4.0));
 	attribute d : VectorQuantityValue = VectorOf((3.0, 4.0)) [m];
 
-	calc def Length { in x : CartesianVectorValue; return : Real = norm(x); }
+	calc def Length { in x : CartesianVectorValue; return : Real[1] = norm(x); }
 	calc length : Length;
-	calc def Doubled { in x : CartesianVectorValue; return : CartesianVectorValue = cartesianVectorScalarMult(x, 2.0); }
+	calc def Doubled { in x : CartesianVectorValue; return : CartesianVectorValue[1] = cartesianVectorScalarMult(x, 2.0); }
 	calc doubled : Doubled;
 
 	action scale {
@@ -121,7 +121,7 @@ func TestStructuredValuesCrossEveryTransport(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ExecuteAction: %v", err)
 			}
-			if want := (opensysml.Vector{opensysml.Real(6), opensysml.Real(8)}); !reflect.DeepEqual(run.Outputs["y"], want) {
+			if want := (opensysml.Vector{opensysml.Real(6), opensysml.Real(8)}); !reflect.DeepEqual(sole(t, "y", run.Outputs["y"]), want) {
 				t.Errorf("y = %#v, want %#v", run.Outputs["y"], want)
 			}
 

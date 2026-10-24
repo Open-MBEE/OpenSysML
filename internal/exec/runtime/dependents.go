@@ -6,7 +6,7 @@ package runtime
 // derivable reports whether fv's value is derived from what it reads: bound by `=`,
 // neither a fallback default nor assigned by a run nor propagated by a binding.
 func (ctx *Context) derivable(fv *FeatureValue) bool {
-	return !fv.Written && !fv.BindingDerived && (fv.Feature == nil || !fv.Feature.DefaultIsFallback())
+	return !fv.Written && !fv.BindingDerived && (fv.Feature == nil || !fv.Feature.defaultIsFallback())
 }
 
 // derivation is a `=` value being derived; stale once a value it read was written
@@ -16,13 +16,13 @@ type derivation struct {
 	stale bool
 }
 
-// deriveFeatureValue evaluates fv's `=` expression, recording what it reads, over
+// deriveFeatureValue runs derive, fv's `=` expression, recording what it reads, over
 // again while a read wrote under it; the step limit bounds a run that never settles.
 // It reports whether the derivation read declared values within inst alone, and those reads.
-func (ctx *Context) deriveFeatureValue(inst *Instance, fv *FeatureValue, name string) (Value, bool, []sharedRead, error) {
+func (ctx *Context) deriveFeatureValue(inst *Instance, fv *FeatureValue, derive func() (Value, error)) (Value, bool, []sharedRead, error) {
 	if !ctx.derivable(fv) {
 		top := ctx.beginTrace(inst, fv)
-		val, err := ctx.evalFeatureValueDefault(inst, fv, name)
+		val, err := derive()
 		clean, reads := ctx.endTrace(top)
 		return val, clean, reads, err
 	}
@@ -30,7 +30,7 @@ func (ctx *Context) deriveFeatureValue(inst *Instance, fv *FeatureValue, name st
 	var reads []sharedRead
 	val, err := ctx.deriveWith(fv, func() (Value, error) {
 		top := ctx.beginTrace(inst, fv)
-		value, err := ctx.evalFeatureValueDefault(inst, fv, name)
+		value, err := derive()
 		clean, reads = ctx.endTrace(top)
 		return value, err
 	})
@@ -262,8 +262,8 @@ func heldSame(prior, now Value) bool {
 // emptyUnitSame reports whether two empty values type the zero a sum of them
 // yields alike: both in one unit, or neither in any.
 func emptyUnitSame(prior, now Value) bool {
-	pu, pok := prior.Sequence().ElementUnit()
-	nu, nok := now.Sequence().ElementUnit()
+	pu, pok := prior.Sequence().emptyElementUnit()
+	nu, nok := now.Sequence().emptyElementUnit()
 	if pok != nok {
 		return false
 	}
@@ -271,7 +271,7 @@ func emptyUnitSame(prior, now Value) bool {
 }
 
 func vectorQuantityHeldSame(prior, now *VectorQuantity) bool {
-	if prior == nil || now == nil || prior.Dimension() != now.Dimension() {
+	if prior == nil || now == nil || prior.dimension() != now.dimension() {
 		return prior == now
 	}
 	if !sameVectorFrame(prior, now) {

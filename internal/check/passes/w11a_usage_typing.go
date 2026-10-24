@@ -3,6 +3,7 @@ package passes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -55,13 +56,14 @@ func (W11AUsageTypingPass) Run(ctx *Context, name string, root *ast.RootNamespac
 	if rootScope == nil {
 		return nil
 	}
-	c := &w11aUsageChecker{resolver: ctx.Resolver()}
+	c := &w11aUsageChecker{resolver: ctx.Resolver(), model: ctx.Model()}
 	kit.WalkSymbols(ctx, rootScope, c.check)
 	return c.diags
 }
 
 type w11aUsageChecker struct {
 	resolver *resolve.Resolver
+	model    *semantics.Model
 	diags    []diag.Diagnostic
 }
 
@@ -78,14 +80,14 @@ func (c *w11aUsageChecker) check(sym *symbols.Symbol) {
 	if !ok {
 		return
 	}
+	decl := declKind{useKind: u.Kind, direction: u.Direction, keyword: u.Keyword, span: u.Span(), sym: sym}
 	for _, typ := range usageTypesOf(c.resolver, sym, true, make(map[*symbols.Symbol]bool)) {
 		// A declared typing is reported by the type checker, and an
-		// unclassified or KerML type constrains nothing.
-		if typ.declared || typ.sym.Kind == symbols.SymbolUnknown ||
-			typ.sym.Kind == symbols.SymbolKerMLType || !isDefKind(typ.sym.Kind) {
+		// unclassified type constrains nothing.
+		if typ.declared || typ.sym.Kind == symbols.SymbolUnknown || !isDefKind(typ.sym.Kind) {
 			continue
 		}
-		if isCompatibleTyping(u.Kind, u.Direction, typ.sym.Kind, false) {
+		if usageTypeAllowed(c.model, c.resolver, decl, typ.sym) {
 			continue
 		}
 		c.diags = append(c.diags, diag.Diagnostic{
@@ -100,13 +102,19 @@ func (c *w11aUsageChecker) check(sym *symbols.Symbol) {
 }
 
 // checkReference checks that the feature a reference member names is of the kind
-// the keyword performs or exhibits.
+// the keyword performs or exhibits, in the reference form `perform p;` and in the
+// declared form `perform action f references p;` alike.
 func (c *w11aUsageChecker) checkReference(sym *symbols.Symbol, u *ast.Usage) {
 	keyword := u.Keyword
 	relKind := ast.RelReferences
-	if u.Kind == ast.UsageUseCase && keyword == "" {
+	switch {
+	case u.Kind == ast.UsageUseCase && keyword == "":
 		keyword = "include"
 		relKind = ast.RelIncludes
+	case u.IsPerformedAction():
+		keyword = "perform"
+	case u.IsExhibitedState():
+		keyword = "exhibit"
 	}
 	want, ok := w11aReferenceKinds[keyword]
 	if !ok {
@@ -120,8 +128,15 @@ func (c *w11aUsageChecker) checkReference(sym *symbols.Symbol, u *ast.Usage) {
 		if !ok || target == nil {
 			continue
 		}
+		if target.Kind == symbols.SymbolAlias {
+			if resolved, ok := c.resolver.ResolveAliasTarget(target); ok && resolved != nil {
+				target = resolved
+			}
+		}
+		// A reference subsetting names a feature, so a definition is never the
+		// use case, action or state the member references.
 		kind := w11aFamilyOf(target)
-		if kind == symbols.SymbolUnknown || defKindSpecializes(kind, want.kind) {
+		if target.IsFeature() && (kind == symbols.SymbolUnknown || defKindSpecializes(kind, want.kind)) {
 			if keyword == "include" && target.Kind == symbols.SymbolUseCaseUsage {
 				c.checkIncludedUseCase(sym, target)
 			}

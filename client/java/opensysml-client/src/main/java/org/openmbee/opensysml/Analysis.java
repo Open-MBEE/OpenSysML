@@ -22,6 +22,8 @@ import java.util.Optional;
  *     and those the outputs and evaluations refer to
  * @param diagnostics what the service reported while running
  * @param standing how strongly the run's answer stands
+ * @param toolDryRun for a run under {@link AnalysisOptions#withToolDryRun()}, the external tool
+ *     call the case would have made; empty for a run that made its calls
  */
 public record Analysis(
     Map<String, Value> outputs,
@@ -30,7 +32,8 @@ public record Analysis(
     List<CaseEvaluation> evaluations,
     List<Instance> instances,
     List<Diagnostic> diagnostics,
-    Standing standing) {
+    Standing standing,
+    Optional<ToolDryRun> toolDryRun) {
 
   /**
    * Creates an analysis, copying its collections and keeping the outputs' order.
@@ -42,6 +45,7 @@ public record Analysis(
    * @param instances the objects
    * @param diagnostics the diagnostics
    * @param standing the standing, never {@code null}
+   * @param toolDryRun the previewed tool call, for a dry run
    */
   public Analysis {
     outputs = Collections.unmodifiableMap(new LinkedHashMap<>(outputs));
@@ -51,6 +55,29 @@ public record Analysis(
     instances = List.copyOf(instances);
     diagnostics = List.copyOf(diagnostics);
     Objects.requireNonNull(standing, "standing");
+    Objects.requireNonNull(toolDryRun, "toolDryRun");
+  }
+
+  /**
+   * Creates an analysis that previewed no tool call.
+   *
+   * @param outputs the outputs by name
+   * @param verdicts the verdicts
+   * @param verifications the body verdicts
+   * @param evaluations the evaluations
+   * @param instances the objects
+   * @param diagnostics the diagnostics
+   * @param standing the standing, never {@code null}
+   */
+  public Analysis(
+      Map<String, Value> outputs,
+      List<Verdict> verdicts,
+      List<VerificationVerdict> verifications,
+      List<CaseEvaluation> evaluations,
+      List<Instance> instances,
+      List<Diagnostic> diagnostics,
+      Standing standing) {
+    this(outputs, verdicts, verifications, evaluations, instances, diagnostics, standing, Optional.empty());
   }
 
   /**

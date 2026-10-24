@@ -20,6 +20,9 @@ Design:
   exposing `sysml.exe` and `sysml-lsp.exe` as the commands `sysml` and `sysml-lsp`. A second
   installer entry pointing at the MSI can be added later once its signing story has settled;
   winget validates MSI installers by `ProductCode`, which changes with every `MajorUpgrade`.
+  `sysml-mcp` is not in this manifest: it ships as its own archive
+  (`sysml-mcp-windows-amd64.zip`), and a winget installer entry carries one archive per
+  architecture; `install.ps1 -Tools sysml-mcp`, Scoop and the MSI install it on Windows.
 - **`Dependencies.PackageDependencies: Microsoft.Z3`** as decided by the maintainers, so the
   experimental `%check`/`%explain` commands get a solver on `PATH`. Note: at the time of
   writing `microsoft/winget-pkgs` has **no** `Microsoft.Z3` package (nor any other Z3 package),

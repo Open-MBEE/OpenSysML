@@ -58,7 +58,7 @@ test("rendered view decoder preserves wire fields and message presence", () => {
       parent: "",
       ports: [{ id: "n0.0", name: "api", type: "Demo::API", direction: "inout" }],
       origin: { file: "views.sysml", startLine: 4 },
-      geometry: { x: 1, y: 2, width: 3, height: 4, hasSize: true, collapsed: true },
+      geometry: { x: 1, y: 2, width: 3, height: 4, hasSize: true, collapsed: true, unplaced: true },
       style: { fill: "#fff", line: "#000", text: "#111", font: "sans", fontSize: 12, bold: true, italic: true },
     }],
     edges: [{
@@ -77,6 +77,7 @@ test("rendered view decoder preserves wire fields and message presence", () => {
     canvas: { unit: "px", width: 800, height: 400, hasSize: true },
     notes: [{ text: "note", anchor: "n0", edgeFrom: "n0", edgeTo: "n1", x: 1, y: 2, width: 3, height: 4, hasSize: true }],
     notices: ["notice"],
+    shown: ["port-symbols", "typings"],
   });
   const rendered = renderedViewOf(response);
   assert.equal(rendered.view, "Demo::view");
@@ -84,6 +85,7 @@ test("rendered view decoder preserves wire fields and message presence", () => {
   assert.equal(rendered.nodes[0]?.ports[0]?.direction, "inout");
   assert.equal(rendered.nodes[0]?.origin?.startLine, 4);
   assert.equal(rendered.nodes[0]?.geometry?.collapsed, true);
+  assert.equal(rendered.nodes[0]?.geometry?.unplaced, true);
   assert.equal(rendered.nodes[0]?.style?.fontSize, 12);
   assert.equal(rendered.edges[0]?.fromPort, "n0.0");
   assert.deepEqual(rendered.edges[0]?.route, [{ x: 2, y: 3 }]);
@@ -91,6 +93,7 @@ test("rendered view decoder preserves wire fields and message presence", () => {
   assert.equal(rendered.canvas?.hasSize, true);
   assert.equal(rendered.notes[0]?.edgeTo, "n1");
   assert.deepEqual(rendered.notices, ["notice"]);
+  assert.deepEqual(rendered.shown, ["port-symbols", "typings"]);
   assert.equal(renderedViewOf(create(RenderViewResponseSchema, {})).canvas, undefined);
   const sparse = renderedViewOf(create(RenderViewResponseSchema, {
     nodes: [{}],
@@ -214,6 +217,21 @@ test("renderView returns ports, edge endpoints, and origins", async () => {
   assert.ok(rendered.edges[0]?.fromPort);
   assert.ok(rendered.edges[0]?.toPort);
   assert.ok(rendered.nodes.every((node) => node.origin !== undefined));
+});
+
+test("renderView folds members into compartment rows on request", async () => {
+  await using connection = await connect();
+  const model = await connection.load(VIEW_FIXTURE);
+  const boxes = await model.renderView("#tree:RenderViewDemo::Assembly");
+  assert.ok(boxes.nodes.every((node) => node.compartment === ""));
+  const folded = await model.renderView("#tree:RenderViewDemo::Assembly", { compartments: "most" });
+  const sender = folded.nodes.find((node) => node.name === "sender");
+  assert.equal(sender?.compartment, "parts");
+  assert.ok(folded.nodes.length < boxes.nodes.length);
+  await assert.rejects(
+    model.renderView("#tree:RenderViewDemo::Assembly", { compartments: "rows" as "most" }),
+    RangeError,
+  );
 });
 
 test("exportGraphs returns the canonical graphs form of a behavior", async () => {

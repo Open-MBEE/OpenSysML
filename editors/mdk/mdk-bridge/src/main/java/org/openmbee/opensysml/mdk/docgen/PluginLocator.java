@@ -9,7 +9,7 @@ import java.util.Collection;
 import java.util.Map;
 
 /**
- * Reaches the OpenSysML MDK plugin through Cameo's plugin registry. This jar is loaded by MDK's
+ * Reaches the OpenSysML MDK for Cameo plugin through Cameo's plugin registry. This jar is loaded by MDK's
  * extensions classloader and the plugin by its own, so the call goes through reflection on a
  * method whose signature uses only Cameo and JDK types.
  */
@@ -35,14 +35,14 @@ public final class PluginLocator implements BridgeRunner {
       method = plugin.getClass().getMethod(METHOD, BaseElement.class, String.class, String.class);
     } catch (NoSuchMethodException missing) {
       throw new IllegalStateException(
-          "the installed OpenSysML MDK plugin has no " + METHOD + " entry point; update it to match this extension",
+          "the installed OpenSysML MDK for Cameo plugin has no " + METHOD + " entry point; update it to match this extension",
           missing);
     }
     Object result;
     try {
       result = method.invoke(plugin, element, operation, calcArguments);
     } catch (IllegalAccessException inaccessible) {
-      throw new IllegalStateException(METHOD + " is not accessible on the OpenSysML MDK plugin", inaccessible);
+      throw new IllegalStateException(METHOD + " is not accessible on the OpenSysML MDK for Cameo plugin", inaccessible);
     } catch (InvocationTargetException failed) {
       Throwable cause = failed.getCause();
       if (cause instanceof RuntimeException runtime) throw runtime;
@@ -64,6 +64,6 @@ public final class PluginLocator implements BridgeRunner {
       }
     }
     throw new IllegalStateException(
-        "the OpenSysML MDK plugin (" + PLUGIN_ID + ") is not installed or did not load; install it from the same zip as this extension");
+        "the OpenSysML MDK for Cameo plugin (" + PLUGIN_ID + ") is not installed or did not load; install it from the same zip as this extension");
   }
 }

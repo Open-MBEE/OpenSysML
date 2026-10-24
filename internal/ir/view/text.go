@@ -24,6 +24,10 @@ func (r *Rendering) TextWidth(width int) string { return r.textWith(Options{Widt
 // of an interconnection or mixed rendering the ports options' Ports display
 // draws.
 func (r *Rendering) textWith(options Options) string {
+	r = r.showing(options.Show)
+	if options.Compartments.automatic() {
+		r = foldCompartments(r, options.Compartments)
+	}
 	width := options.Width
 	pictureNotices := refusedPictureNotices(r.Pictures, r.pictureRefusals())
 	var b strings.Builder
@@ -61,24 +65,18 @@ func (r *Rendering) textWith(options Options) string {
 		b.WriteString(canvasText(c) + "\n\n")
 	}
 	labels := map[string]string{}
+	names := map[*Node]string{}
+	if !r.Shown.Has(ElementQualifiers) {
+		names = simpleNames(r.Roots, nil)
+	}
 	ports := r.portView(options.Ports)
 	for _, root := range r.Roots {
-		writeNodeText(&b, root, 0, labels, ports)
+		writeNodeText(&b, root, 0, labels, names, ports, r.Shown)
 	}
 	if len(r.Edges) > 0 {
 		fmt.Fprintf(&b, "\n%s:\n", edgeSectionName(r.Kind))
 		for _, edge := range r.Edges {
-			line := fmt.Sprintf("  %s %s %s", endLabel(labels, edge.From, edge.FromPort), edgeArrow(r.Kind, edge.Kind), endLabel(labels, edge.To, edge.ToPort))
-			if label := textEdgeLabel(edge, ports); label != "" {
-				line += ": " + label
-			}
-			if len(edge.Route) > 0 {
-				line += " via"
-				for _, p := range edge.Route {
-					line += fmt.Sprintf(" (%s, %s)", formatCoord(p.X), formatCoord(p.Y))
-				}
-			}
-			b.WriteString(line + "\n")
+			b.WriteString(edgeText(r.Kind, edge, labels, ports) + "\n")
 		}
 	}
 	if len(r.Notes) > 0 {
@@ -95,6 +93,21 @@ func (r *Rendering) textWith(options Options) string {
 	}
 	writeNotices(&b, slices.Concat(r.Notices, pictureNotices, r.visualNotices(noStyleInText, false)))
 	return b.String()
+}
+
+// edgeText is an edge as one line: its ends, its label, and its route when it has one.
+func edgeText(kind Kind, edge Edge, labels map[string]string, ports portView) string {
+	line := fmt.Sprintf("  %s %s %s", endLabel(labels, edge.From, edge.FromPort), edgeArrow(kind, edge.Kind), endLabel(labels, edge.To, edge.ToPort))
+	if label := textEdgeLabel(edge, ports); label != "" {
+		line += ": " + label
+	}
+	if len(edge.Route) > 0 {
+		line += " via"
+		for _, p := range edge.Route {
+			line += fmt.Sprintf(" (%s, %s)", formatCoord(p.X), formatCoord(p.Y))
+		}
+	}
+	return line
 }
 
 // pictureText is a picture as one line: its file, its corner and size, its
@@ -127,9 +140,10 @@ func noteText(note Note, labels map[string]string) string {
 	return line
 }
 
-// EmptyReason says why a rendering shows nothing: a view exposing nothing, or a
-// view whose exposed elements this kind of rendering cannot show, which the
-// notices then account for one by one.
+// EmptyReason says why a rendering shows nothing: a view exposing nothing, one
+// whose filter rejects or whose expose does not reach any element, or one whose
+// exposed elements this kind of rendering cannot show, which the notices then
+// account for one by one.
 func (r *Rendering) EmptyReason() string {
 	if r.Run {
 		switch r.Kind {
@@ -179,28 +193,57 @@ func endLabel(labels map[string]string, node, port string) string {
 // under it,
 // each a line of its own, and recorded as `node.port`; elsewhere they are left
 // to the edges' labels, which an action's flows name their pins in.
-func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]string, ports portView) {
-	labels[node.ID] = nodeLabel(node)
+// rowLine is a compartment row's line of the text form: its kind, name, type
+// and value, as the graph forms' compartment rows read.
+func rowLine(row *Node) string {
+	line := row.Kind
+	if name := shown(row); name != "" {
+		line += " " + name
+	} else if row.Text != "" {
+		line += " " + row.Text
+	}
+	if row.Type != "" {
+		line += " : " + row.Type
+	}
+	if row.Value != "" {
+		line += " = " + row.Value
+	}
+	return line
+}
+
+func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]string, names map[*Node]string, ports portView, shown Shown) {
+	name, ok := names[node]
+	if !ok {
+		name = node.Name
+	}
+	labels[node.ID] = nodeLabel(node, name)
 	line := strings.Repeat("  ", depth) + node.Kind
-	if node.Name != "" {
-		line += " " + node.Name
+	if name != "" {
+		line += " " + name
 	}
 	if node.Type != "" {
 		line += " : " + node.Type
 	}
-	if node.Detail != "" {
+	if node.Detail != "" && shown.Has(ElementCompartments) {
 		line += " (" + node.Detail + ")"
 	}
-	if g := node.Geometry; g != nil {
+	if g := node.Geometry; g.placed() {
 		line += fmt.Sprintf(" at (%s, %s)", formatCoord(g.X), formatCoord(g.Y))
 		if g.HasSize {
 			line += fmt.Sprintf(" size %s×%s", formatCoord(g.Width), formatCoord(g.Height))
 		}
-		if g.Collapsed {
-			line += " collapsed"
-		}
+	}
+	if collapsed(node) {
+		line += " collapsed"
 	}
 	b.WriteString(line + "\n")
+	for _, compartment := range node.Compartments {
+		b.WriteString(strings.Repeat("  ", depth+1) + compartment.Name + "\n")
+		for _, row := range compartment.Rows {
+			labels[row.ID] = nodeLabel(row, row.Name)
+			b.WriteString(strings.Repeat("  ", depth+2) + rowLine(row) + "\n")
+		}
+	}
 	if ports.interconnection || ports.action {
 		for _, port := range ports.of(node) {
 			labels[port.ID] = labels[node.ID] + "." + port.Name
@@ -208,7 +251,10 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 		}
 	}
 	for _, child := range node.Children {
-		writeNodeText(b, child, depth+1, labels, ports)
+		if hiddenRow(node, child) {
+			continue
+		}
+		writeNodeText(b, child, depth+1, labels, names, ports, shown)
 		if child.Kind == startKind {
 			labels[child.ID] = "start of " + labels[node.ID]
 		}
@@ -223,14 +269,14 @@ func pinLine(port Port, ports portView) string {
 	return strings.TrimSpace(port.Direction.String() + " " + port.Name)
 }
 
-// textEdgeLabel is the text after an edge's ends: its label, except that an
-// action edge attached to pins is labelled by its name, since the ends name the
-// pins already.
+// textEdgeLabel is the text after an edge's ends: its texts folded into one,
+// the end names about its own, except that an action edge attached to pins is
+// labelled by its name, since the ends name the pins already.
 func textEdgeLabel(edge Edge, ports portView) string {
 	if ports.action && (edge.FromPort != "" || edge.ToPort != "") {
 		return edge.Name
 	}
-	return edge.Label
+	return edge.text()
 }
 
 // writeTableText writes a tabular rendering as aligned columns, padding each
@@ -396,9 +442,9 @@ func labelOr(labels map[string]string, id string) string {
 
 // nodeLabel names a node where an edge refers to it: its name, else its kind
 // with the identity the rendering gave it.
-func nodeLabel(node *Node) string {
-	if node.Name != "" {
-		return node.Name
+func nodeLabel(node *Node, name string) string {
+	if name != "" {
+		return name
 	}
 	return fmt.Sprintf("%s %s", node.Kind, node.ID)
 }

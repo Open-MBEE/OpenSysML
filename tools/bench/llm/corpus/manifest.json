@@ -1,0 +1,413 @@
+{
+  "version": 1,
+  "description": "Natural-language SysML v2 modelling tasks with gold models that validate under sysml -validate and the pinned pilot validator.",
+  "families": {
+    "structure": "part/attribute/port/connection/interface",
+    "behaviour": "action/state",
+    "requirements": "requirements and verification",
+    "calculations": "calculations and constraints with the ISQ/SI library",
+    "views": "views, viewpoints, renderings and documentation"
+  },
+  "tasks": [
+    {
+      "id": "S01",
+      "family": "structure",
+      "difficulty": "simple",
+      "title": "Bicycle part tree",
+      "task": "Model a package `Bicycle` with part definitions `Frame`, `Wheel`, `Saddle` and `Bicycle`. The `Bicycle` definition owns parts `mainFrame : Frame`, `frontWheel : Wheel`, `rearWheel : Wheel` and `saddle : Saddle`.",
+      "gold": "S01.sysml"
+    },
+    {
+      "id": "S02",
+      "family": "structure",
+      "difficulty": "simple",
+      "title": "Laptop attributes",
+      "task": "Model a package `Laptop` with a part definition `Laptop` that has attributes `serialNumber : String`, `screenSizeInches : Real`, `memoryGigabytes : Integer` and `isTouchscreen : Boolean`, typed by the ScalarValues standard library.",
+      "gold": "S02.sysml"
+    },
+    {
+      "id": "S03",
+      "family": "structure",
+      "difficulty": "simple",
+      "title": "Vehicle specialization",
+      "task": "Model a package `Drivetrain` with a part definition `Vehicle`, two specializations `Car` and `Truck`, a `PickupTruck` that specializes `Truck` and an `ElectricCar` that specializes `Car`.",
+      "gold": "S03.sysml"
+    },
+    {
+      "id": "S04",
+      "family": "structure",
+      "difficulty": "medium",
+      "title": "Pump ports",
+      "task": "Model a package `Pump` with a port definition `FluidPort` carrying attributes `flowRate : Real` and `pressure : Real`, and a part definition `Pump` with ports `inlet : FluidPort` and `outlet : FluidPort`.",
+      "gold": "S04.sysml"
+    },
+    {
+      "id": "S05",
+      "family": "structure",
+      "difficulty": "medium",
+      "title": "Charging station connection",
+      "task": "Model a package `Charger` with an item definition `Electricity`, a port definition `PowerOutPort` with an `out item power : Electricity`, a part definition `PowerSupply` with port `supply : PowerOutPort`, a part definition `Battery` with a conjugated port `charge : ~PowerOutPort`, and a part definition `ChargingStation` that owns `psu : PowerSupply` and `battery : Battery` and connects `psu.supply` to `battery.charge`.",
+      "gold": "S05.sysml"
+    },
+    {
+      "id": "S06",
+      "family": "structure",
+      "difficulty": "medium",
+      "title": "House wiring interface",
+      "task": "Model a package `HouseWiring` with an item definition `Current`, a port definition `ElectricalPort` with `inout item current : Current`, an interface definition `WireInterface` with ends `source : ElectricalPort` and `sink : ElectricalPort`, a part definition `Breaker` with port `feed`, a part definition `Outlet` with port `plug`, and a part definition `Circuit` owning `breaker : Breaker` and `outlet : Outlet` joined by an interface usage `wire : WireInterface` connecting `breaker.feed` to `outlet.plug`.",
+      "gold": "S06.sysml"
+    },
+    {
+      "id": "S07",
+      "family": "structure",
+      "difficulty": "medium",
+      "title": "Heating system flows",
+      "task": "Model a package `HeatingSystem` with an item definition `HotWater`, a port definition `WaterOutPort` with `out item water : HotWater`, a part definition `Boiler` with port `outlet : WaterOutPort`, a part definition `Radiator` with conjugated port `inlet : ~WaterOutPort`, and a part definition `House` owning `boiler : Boiler`, `livingRoomRadiator : Radiator` and `bedroomRadiator : Radiator` with a flow of `HotWater` from `boiler.outlet.water` to each radiator's `inlet.water`.",
+      "gold": "S07.sysml"
+    },
+    {
+      "id": "S08",
+      "family": "structure",
+      "difficulty": "complex",
+      "title": "Office multiplicities",
+      "task": "Model a package `Office` with part definitions `Desk`, `Chair`, `Monitor`, `Computer` and `Printer`. A `Workstation` definition owns `desk : Desk`, `chair : Chair`, `monitors : Monitor[1..2]` and `computer : Computer`. An `Office` definition owns `workstations : Workstation[1..*]` and `printer : Printer[0..1]`.",
+      "gold": "S08.sysml"
+    },
+    {
+      "id": "S09",
+      "family": "structure",
+      "difficulty": "complex",
+      "title": "Satellite subsystems",
+      "task": "Model a package `Satellite` with part definitions `SolarArray` (attribute `areaSquareMeters : Real`), `Battery` (attribute `capacityWattHours : Real`), `Antenna` and `Thruster`. Define `PowerSubsystem` owning `arrays : SolarArray[2]` and `battery : Battery`, `CommunicationSubsystem` owning `highGainAntenna : Antenna` and `lowGainAntenna : Antenna`, `PropulsionSubsystem` owning `thrusters : Thruster[4]`, and `Satellite` owning `power`, `comms` and `propulsion` typed by those three subsystems.",
+      "gold": "S09.sysml"
+    },
+    {
+      "id": "S10",
+      "family": "structure",
+      "difficulty": "complex",
+      "title": "Robot controller connections",
+      "task": "Model a package `Robot` with item definitions `MotorCommand` and `SensorReading`, a port definition `CommandPort` with `in item command : MotorCommand`, a port definition `SensorPort` with `out item reading : SensorReading`, a part definition `Controller` with conjugated ports `motorCommands : ~CommandPort` and `sensorInput : ~SensorPort`, a part definition `Motor` with attribute `maxTorqueNewtonMeters : Real` and port `commands : CommandPort`, a part definition `DistanceSensor` with port `readings : SensorPort`, and a part definition `Robot` owning `controller`, `leftMotor`, `rightMotor` and `frontSensor` with connections from `controller.motorCommands` to each motor's `commands` and from `frontSensor.readings` to `controller.sensorInput`.",
+      "gold": "S10.sysml"
+    },
+    {
+      "id": "B01",
+      "family": "behaviour",
+      "difficulty": "simple",
+      "title": "Coffee brewing sequence",
+      "task": "Model a package `CoffeeMaker` with an action definition `Brew` whose body performs the actions `heatWater`, `grindBeans` and `pourWater` in that order using succession.",
+      "gold": "B01.sysml"
+    },
+    {
+      "id": "B02",
+      "family": "behaviour",
+      "difficulty": "simple",
+      "title": "Lamp states",
+      "task": "Model a package `Lamp` with a state definition `LampStates` that enters state `off`, also has state `on`, and has transitions `off_to_on` from `off` to `on` and `on_to_off` from `on` to `off`.",
+      "gold": "B02.sysml"
+    },
+    {
+      "id": "B03",
+      "family": "behaviour",
+      "difficulty": "simple",
+      "title": "Dishwasher action flow",
+      "task": "Model a package `Dishwasher` with item definitions `Dish` and `CleanDish`, an action definition `Wash` (`in item dirty : Dish`, `out item clean : CleanDish`), an action definition `Dry` (`in item wet : CleanDish`, `out item dry : CleanDish`) and an action definition `RunCycle` with `in item dishes : Dish` and `out item result : CleanDish` that performs `wash : Wash` then `dry : Dry`, binds `dishes` to the wash input, flows `wash.clean` to `dry.wet` and binds `dry.dry` to `result`.",
+      "gold": "B03.sysml"
+    },
+    {
+      "id": "B04",
+      "family": "behaviour",
+      "difficulty": "medium",
+      "title": "Door lock state machine",
+      "task": "Model a package `Door` with attribute definitions `Unlock`, `Lock`, `Open` and `Close` used as signals, and a state definition `DoorStates` with states `locked` (entered first), `closed` and `opened`, and transitions `locked_to_closed` on `Unlock`, `closed_to_locked` on `Lock`, `closed_to_opened` on `Open` and `opened_to_closed` on `Close`.",
+      "gold": "B04.sysml"
+    },
+    {
+      "id": "B05",
+      "family": "behaviour",
+      "difficulty": "medium",
+      "title": "Checkout decision",
+      "task": "Model a package `Payment` with an action definition `Checkout` that has `in amount : Real` and `out approved : Boolean`, performs a nested action `checkBalance` with `in amount : Real` and `out sufficient : Boolean` bound to the outer `amount`, then a decision that goes to `charge` if `checkBalance.sufficient` and otherwise to `reject`, where `charge` and `reject` are nested actions each with `out approved : Boolean`, followed by a merge `continue` and then `done`.",
+      "gold": "B05.sysml"
+    },
+    {
+      "id": "B06",
+      "family": "behaviour",
+      "difficulty": "medium",
+      "title": "Thermostat guarded transitions",
+      "task": "Model a package `Thermostat` with a part definition `Thermostat` that has attributes `temperature : Real` and `setpoint : Real` and exhibits a state usage `behavior` with states `idle` (entered first), `heating` and `cooling`, and guarded transitions: `idle_to_heating` when `temperature < setpoint`, `idle_to_cooling` when `temperature > setpoint`, `heating_to_idle` when `temperature >= setpoint`, `cooling_to_idle` when `temperature <= setpoint`.",
+      "gold": "B06.sysml"
+    },
+    {
+      "id": "B07",
+      "family": "behaviour",
+      "difficulty": "medium",
+      "title": "Elevator state actions",
+      "task": "Model a package `Elevator` with attribute definitions `CallButton`, `ArrivedAtFloor` and `DoorTimeout` used as signals, action definitions `OpenDoors`, `CloseDoors` and `MoveToFloor`, and a state definition `ElevatorStates` with states `idle` (entered first, entry action `open : OpenDoors`), `moving` (entry action `close : CloseDoors`, do action `move : MoveToFloor`) and `doorsOpen`, with transitions `idle_to_moving` on `CallButton`, `moving_to_doorsOpen` on `ArrivedAtFloor` and `doorsOpen_to_idle` on `DoorTimeout`.",
+      "gold": "B07.sysml"
+    },
+    {
+      "id": "B08",
+      "family": "behaviour",
+      "difficulty": "complex",
+      "title": "Login authentication flow",
+      "task": "Model a package `Login` with action definitions `ReadCredentials` (`out username : String`, `out password : String`), `VerifyCredentials` (`in username : String`, `in password : String`, `out valid : Boolean`), `GrantAccess` and `DenyAccess`, and an action definition `Authenticate` with `out granted : Boolean` that performs `read : ReadCredentials` then `validation : VerifyCredentials` with flows of `read.username` and `read.password` into the validation inputs, then decides: if `validation.valid` perform `grant : GrantAccess`, else `deny : DenyAccess`, then merge `finish` and then `done`.",
+      "gold": "B08.sysml"
+    },
+    {
+      "id": "B09",
+      "family": "behaviour",
+      "difficulty": "complex",
+      "title": "Traffic light nested states",
+      "task": "Model a package `TrafficLight` with attribute definitions `TimerExpired` and `PedestrianRequest` as signals, and a state definition `LightStates` that enters a composite state `operating` whose substates are `red` (entered first), `green` and `yellow` with transitions `red_to_green`, `green_to_yellow` and `yellow_to_red` each on `TimerExpired`; a sibling state `pedestrianCrossing`; transition `operating_to_crossing` from `operating` on `PedestrianRequest` and `crossing_to_operating` back on `TimerExpired`.",
+      "gold": "B09.sysml"
+    },
+    {
+      "id": "B10",
+      "family": "behaviour",
+      "difficulty": "complex",
+      "title": "Vending machine behaviour",
+      "task": "Model a package `Vending` with attribute definitions `CoinInserted` (attribute `value : Real`), `ProductSelected` (attribute `code : String`) and `Dispensed`, action definitions `DispenseProduct` (`in code : String`) and `ReturnChange` (`in amount : Real`), and a part definition `VendingMachine` with attribute `credit : Real` and a nested state definition `MachineStates` exhibited as `machineBehavior`, with states `waitingForCoins` (entered first), `waitingForSelection` and `dispensing` (entry action `dispense : DispenseProduct`, exit action `refund : ReturnChange`), and transitions `coins_to_selection` on `CoinInserted`, `more_coins` from `waitingForSelection` to itself on `CoinInserted`, `selection_to_dispensing` on `ProductSelected` and `dispensing_to_coins` on `Dispensed`.",
+      "gold": "B10.sysml"
+    },
+    {
+      "id": "R01",
+      "family": "requirements",
+      "difficulty": "simple",
+      "title": "Kettle requirement",
+      "task": "Model a package `Kettle` with a requirement definition `BoilTimeRequirement` documented as: the kettle shall boil one litre of water in under three minutes.",
+      "gold": "R01.sysml"
+    },
+    {
+      "id": "R02",
+      "family": "requirements",
+      "difficulty": "simple",
+      "title": "Bridge requirement group",
+      "task": "Model a package `Bridge` with requirement definitions `LoadRequirement`, `SpanRequirement` and `SafetyRequirement`, each with a one-sentence doc comment, and a requirement usage `bridgeSpecification` that nests requirements `load`, `span` and `safety` typed by them.",
+      "gold": "R02.sysml"
+    },
+    {
+      "id": "R03",
+      "family": "requirements",
+      "difficulty": "simple",
+      "title": "Drone mass requirement",
+      "task": "Model a package `Drone` with a part definition `Drone` having attribute `massKilograms : Real`, a requirement definition `MassRequirement` with subject `drone : Drone` and a required constraint `drone.massKilograms <= 2.0`, and a requirement usage `droneMass : MassRequirement`.",
+      "gold": "R03.sysml"
+    },
+    {
+      "id": "R04",
+      "family": "requirements",
+      "difficulty": "medium",
+      "title": "Camera satisfaction",
+      "task": "Model a package `Camera` with a part definition `Camera` (attributes `resolutionMegapixels : Real`, `hasFlash : Boolean`), requirement definitions `ResolutionRequirement` (subject `camera : Camera`, require `camera.resolutionMegapixels >= 12.0`) and `FlashRequirement` (subject `camera : Camera`, require `camera.hasFlash`), a part usage `phoneCamera : Camera` redefining the attributes to `48.0` and `true`, and satisfy statements `resolution : ResolutionRequirement` and `flash : FlashRequirement` satisfied by `phoneCamera`.",
+      "gold": "R04.sysml"
+    },
+    {
+      "id": "R05",
+      "family": "requirements",
+      "difficulty": "medium",
+      "title": "Vehicle performance requirements",
+      "task": "Model a package `Vehicle` with a part definition `Vehicle` (attributes `topSpeedKilometresPerHour : Real`, `rangeKilometres : Real`), a requirement definition `PerformanceRequirement` with subject `vehicle : Vehicle`, specializations `TopSpeedRequirement` (require `vehicle.topSpeedKilometresPerHour >= 120.0`) and `RangeRequirement` (require `vehicle.rangeKilometres >= 400.0`), and a requirement usage `vehiclePerformance : PerformanceRequirement` nesting `topSpeed : TopSpeedRequirement` and `range : RangeRequirement`.",
+      "gold": "R05.sysml"
+    },
+    {
+      "id": "R06",
+      "family": "requirements",
+      "difficulty": "medium",
+      "title": "Scale verification case",
+      "task": "Model a package `Scale` with a part definition `Scale` (attribute `measurementErrorGrams : Real`), a requirement definition `AccuracyRequirement` with subject `scale : Scale` requiring `scale.measurementErrorGrams <= 5.0`, a verification definition `AccuracyTest` with subject `scale : Scale`, an objective that verifies requirement `accuracy : AccuracyRequirement`, and a `return verdict : VerdictKind`, plus a verification usage `accuracyTest : AccuracyTest`.",
+      "gold": "R06.sysml"
+    },
+    {
+      "id": "R07",
+      "family": "requirements",
+      "difficulty": "medium",
+      "title": "Pacemaker specification",
+      "task": "Model a package `Pacemaker` with a part definition `Pacemaker` (attributes `batteryLifeYears : Real`, `minimumRateBeatsPerMinute : Integer`), requirement definitions `BatteryLifeRequirement` (subject `device`, require `device.batteryLifeYears >= 7.0`) and `MinimumRateRequirement` (subject `device`, require `device.minimumRateBeatsPerMinute >= 60`), a requirement definition `PacemakerSpecification` with subject `device : Pacemaker` nesting `batteryLife` and `minimumRate`, a part usage `modelA : Pacemaker` redefining the attributes to `10.0` and `60`, a requirement usage `modelASpecification : PacemakerSpecification`, and a satisfy statement of `modelASpecification` by `modelA`.",
+      "gold": "R07.sysml"
+    },
+    {
+      "id": "R08",
+      "family": "requirements",
+      "difficulty": "complex",
+      "title": "Parachute drop test",
+      "task": "Model a package `Parachute` with a part definition `Parachute` (attributes `descentRateMetresPerSecond : Real`, `deploymentTimeSeconds : Real`), requirement definitions `DescentRateRequirement` (subject `chute`, require `chute.descentRateMetresPerSecond <= 5.0`) and `DeploymentTimeRequirement` (subject `chute`, require `chute.deploymentTimeSeconds <= 3.0`), a verification definition `DropTest` with subject `chute : Parachute`, an objective verifying `descentRate : DescentRateRequirement` and `deploymentTime : DeploymentTimeRequirement`, actions `measureDescent` then `measureDeployment`, and `return verdict : VerdictKind`, plus a verification usage `dropTest : DropTest`.",
+      "gold": "R08.sysml"
+    },
+    {
+      "id": "R09",
+      "family": "requirements",
+      "difficulty": "complex",
+      "title": "Smoke detector specification and test",
+      "task": "Model a package `Smoke` with a part definition `SmokeDetector` (attributes `alarmLoudnessDecibels : Real`, `responseTimeSeconds : Real`), requirement definitions `LoudnessRequirement` (subject `detector`, require `detector.alarmLoudnessDecibels >= 85.0`) and `ResponseRequirement` (subject `detector`, require `detector.responseTimeSeconds <= 30.0`), a requirement definition `DetectorSpecification` with subject `detector : SmokeDetector` nesting `loudness` and `response`, a part usage `kitchenDetector : SmokeDetector` redefining the attributes to `90.0` and `20.0`, a requirement usage `kitchenSpecification : DetectorSpecification` satisfied by `kitchenDetector`, a verification definition `DetectorTest` with subject `detector : SmokeDetector`, an objective that verifies `kitchenSpecification`, and `return verdict : VerdictKind`, plus a verification usage `kitchenTest : DetectorTest` whose subject is `kitchenDetector`.",
+      "gold": "R09.sysml"
+    },
+    {
+      "id": "R10",
+      "family": "requirements",
+      "difficulty": "complex",
+      "title": "Insulin pump specification tree",
+      "task": "Model a package `Insulin` with a part definition `InsulinPump` (attributes `doseAccuracyPercent : Real`, `occlusionAlarmSeconds : Real`, `batteryLifeHours : Real`), requirement definitions `DoseAccuracyRequirement` (require `pump.doseAccuracyPercent <= 5.0`), `OcclusionAlarmRequirement` (require `pump.occlusionAlarmSeconds <= 120.0`) and `BatteryLifeRequirement` (require `pump.batteryLifeHours >= 72.0`), each with subject `pump : InsulinPump`; a requirement definition `SafetyRequirements` nesting `doseAccuracy` and `occlusionAlarm`; a requirement definition `PumpSpecification` nesting `safety : SafetyRequirements` and `batteryLife : BatteryLifeRequirement`; a part usage `pumpModelX : InsulinPump` redefining the attributes to `3.0`, `60.0` and `96.0`; a requirement usage `modelXSpecification : PumpSpecification` satisfied by `pumpModelX`; a verification definition `BenchTest` with subject `pump : InsulinPump`, an objective verifying `modelXSpecification`, actions `measureDose`, `simulateOcclusion` and `dischargeBattery` in sequence and `return verdict : VerdictKind`; and a verification usage `modelXBenchTest : BenchTest` whose subject is `pumpModelX`.",
+      "gold": "R10.sysml"
+    },
+    {
+      "id": "C01",
+      "family": "calculations",
+      "difficulty": "simple",
+      "title": "Parcel quantities",
+      "task": "Model a package `Package` with a part definition `Parcel` whose attribute `mass` subsets `ISQ::mass` with value `2.5 [kg]` and whose attribute `length` subsets `ISQ::length` with value `0.4 [m]`, importing the ISQ and SI libraries.",
+      "gold": "C01.sysml"
+    },
+    {
+      "id": "C02",
+      "family": "calculations",
+      "difficulty": "simple",
+      "title": "Table area calculation",
+      "task": "Model a package `Rectangle` with a calculation definition `Area` taking `in width : LengthValue` and `in height : LengthValue` and returning `area : AreaValue = width * height`, and a part definition `Table` with attributes `width : LengthValue = 1.2 [m]`, `depth : LengthValue = 0.8 [m]` and `surface : AreaValue = Area(width, depth)`.",
+      "gold": "C02.sysml"
+    },
+    {
+      "id": "C03",
+      "family": "calculations",
+      "difficulty": "simple",
+      "title": "Elevator mass limit",
+      "task": "Model a package `Lift` with a constraint definition `MassLimit` taking `in actual : MassValue` and `in limit : MassValue` with body `actual <= limit`, and a part definition `Elevator` with attributes `payload : MassValue = 600 [kg]` and `ratedLoad : MassValue = 800 [kg]` that asserts a constraint usage `withinLimit : MassLimit` binding `actual` to `payload` and `limit` to `ratedLoad`.",
+      "gold": "C03.sysml"
+    },
+    {
+      "id": "C04",
+      "family": "calculations",
+      "difficulty": "medium",
+      "title": "Average speed",
+      "task": "Model a package `Journey` with a calculation definition `AverageSpeed` taking `in distance : LengthValue` and `in duration : DurationValue` and returning `speed : SpeedValue = distance / duration`, and a part definition `Trip` with attributes `distance : LengthValue = 150000 [m]`, `duration : DurationValue = 5400 [s]` and `averageSpeed : SpeedValue = AverageSpeed(distance, duration)`.",
+      "gold": "C04.sysml"
+    },
+    {
+      "id": "C05",
+      "family": "calculations",
+      "difficulty": "medium",
+      "title": "Heater electrical calculations",
+      "task": "Model a package `Circuit` with calculation definitions `OhmsLaw` (`in voltage : ElectricPotentialValue`, `in resistance : ResistanceValue`, `return current : ElectricCurrentValue = voltage / resistance`) and `Power` (`in voltage : ElectricPotentialValue`, `in current : ElectricCurrentValue`, `return power : PowerValue = voltage * current`), and a part definition `Heater` with attributes `supplyVoltage : ElectricPotentialValue = 230 [V]`, `resistance : ResistanceValue = 26.45 [ohm]`, `current : ElectricCurrentValue = OhmsLaw(supplyVoltage, resistance)` and `power : PowerValue = Power(supplyVoltage, current)`.",
+      "gold": "C05.sysml"
+    },
+    {
+      "id": "C06",
+      "family": "calculations",
+      "difficulty": "medium",
+      "title": "Water tank volume",
+      "task": "Model a package `Tank` with a calculation definition `CylinderVolume` (`in radius : LengthValue`, `in height : LengthValue`, `return volume : VolumeValue = 3.14159 * radius * radius * height`), a constraint definition `VolumeAtLeast` (`in volume : VolumeValue`, `in minimum : VolumeValue`, body `volume >= minimum`), and a part definition `WaterTank` with attributes `radius : LengthValue = 0.5 [m]`, `height : LengthValue = 2 [m]`, `volume : VolumeValue = CylinderVolume(radius, height)` and `requiredVolume : VolumeValue = 1.5 [m ** 3]`, asserting a constraint usage `enough : VolumeAtLeast` bound to `volume` and `requiredVolume`.",
+      "gold": "C06.sysml"
+    },
+    {
+      "id": "C07",
+      "family": "calculations",
+      "difficulty": "medium",
+      "title": "Vehicle mass budget",
+      "task": "Model a package `Assembly` with a part definition `Component` whose attribute `mass` subsets `ISQ::mass`, a constraint definition `TotalMassLimit` (`in parts : MassValue[0..*]`, `in limit : MassValue`, body `sum(parts) <= limit`), part definitions `Chassis`, `Motor` and `BatteryPack` that specialize `Component` and redefine `mass` to `120 [kg]`, `45 [kg]` and `300 [kg]`, and a part definition `Vehicle` owning `chassis : Chassis`, `motor : Motor`, `battery : BatteryPack` and attribute `massLimit : MassValue = 500 [kg]`, asserting a constraint usage `massBudget : TotalMassLimit` with `parts` bound to the sequence of the three masses and `limit` bound to `massLimit`.",
+      "gold": "C07.sysml"
+    },
+    {
+      "id": "C08",
+      "family": "calculations",
+      "difficulty": "complex",
+      "title": "Projectile energy",
+      "task": "Model a package `Orbit` with calculation definitions `KineticEnergy` (`in mass : MassValue`, `in speed : SpeedValue`, `return energy : EnergyValue = 0.5 * mass * speed * speed`), `PotentialEnergy` (`in mass : MassValue`, `in height : LengthValue`, `in gravity : AccelerationValue`, `return energy : EnergyValue = mass * gravity * height`) and `TotalEnergy` (`in kinetic : EnergyValue`, `in potential : EnergyValue`, `return total : EnergyValue = kinetic + potential`), and a part definition `Projectile` with attributes `mass = 10 [kg]`, `speed = 300 [m/s]`, `height = 1000 [m]`, `gravity = 9.81 [m/s**2]`, `kinetic = KineticEnergy(mass, speed)`, `potential = PotentialEnergy(mass, height, gravity)` and `total = TotalEnergy(kinetic, potential)`, each typed by the matching ISQ value type.",
+      "gold": "C08.sysml"
+    },
+    {
+      "id": "C09",
+      "family": "calculations",
+      "difficulty": "complex",
+      "title": "Steel beam safety factor",
+      "task": "Model a package `Beam` with calculation definitions `Stress` (`in force : ForceValue`, `in area : AreaValue`, `return stress : PressureValue = force / area`) and `SafetyFactor` (`in yieldStrength : PressureValue`, `in stress : PressureValue`, `return factor : Real = yieldStrength / stress`), a constraint definition `MinimumSafetyFactor` (`in factor : Real`, `in required : Real`, body `factor >= required`), and a part definition `SteelBeam` with attributes `load : ForceValue = 50000 [N]`, `crossSection : AreaValue = 0.002 [m ** 2]`, `yieldStrength : PressureValue = 250000000 [Pa]`, `stress : PressureValue = Stress(load, crossSection)`, `safetyFactor : Real = SafetyFactor(yieldStrength, stress)` and `requiredFactor : Real = 2.0`, asserting a constraint usage `safe : MinimumSafetyFactor` bound to `safetyFactor` and `requiredFactor`.",
+      "gold": "C09.sysml"
+    },
+    {
+      "id": "C10",
+      "family": "calculations",
+      "difficulty": "complex",
+      "title": "Battery pack runtime",
+      "task": "Model a package `Battery` with calculation definitions `StoredEnergy` (`in voltage : ElectricPotentialValue`, `in charge : ElectricChargeValue`, `return energy : EnergyValue = voltage * charge`) and `Runtime` (`in energy : EnergyValue`, `in power : PowerValue`, `return duration : DurationValue = energy / power`), a constraint definition `RuntimeAtLeast` (`in runtime : DurationValue`, `in minimum : DurationValue`, body `runtime >= minimum`), a part definition `Cell` with attributes `voltage : ElectricPotentialValue = 3.7 [V]`, `charge : ElectricChargeValue = 10800 [C]` and `energy : EnergyValue = StoredEnergy(voltage, charge)`, and a part definition `Device` owning `cells : Cell[4]` with attributes `drawPower : PowerValue = 5 [W]`, `packEnergy : EnergyValue = sum(cells.energy)`, `runtime : DurationValue = Runtime(packEnergy, drawPower)` and `requiredRuntime : DurationValue = 28800 [s]`, asserting a constraint usage `lastsLongEnough : RuntimeAtLeast` bound to `runtime` and `requiredRuntime`.",
+      "gold": "C10.sysml"
+    },
+    {
+      "id": "V01",
+      "family": "views",
+      "difficulty": "simple",
+      "title": "Garden documentation",
+      "task": "Model a package `Garden` with part definitions `Shed`, `Greenhouse` and `Garden`, each carrying a one-sentence `doc` comment, where `Garden` owns parts `shed : Shed` and `greenhouse : Greenhouse`.",
+      "gold": "V01.sysml"
+    },
+    {
+      "id": "V02",
+      "family": "views",
+      "difficulty": "simple",
+      "title": "Clock comments",
+      "task": "Model a package `Clock` with part definitions `Face`, `Hand`, `Movement` and `WallClock` (owning `face : Face`, `hourHand : Hand`, `minuteHand : Hand`, `movement : Movement`), a named comment `clockNote` about `WallClock` and a named comment `handsNote` about both hands.",
+      "gold": "V02.sysml"
+    },
+    {
+      "id": "V03",
+      "family": "views",
+      "difficulty": "simple",
+      "title": "Ship structure view",
+      "task": "Model a package `Shipping` with part definitions `Hull`, `Engine`, `Bridge` and `Ship` (owning `hull : Hull`, `engines : Engine[2]`, `bridge : Bridge`), a view definition `StructureView` and a view usage `shipStructure : StructureView` that exposes everything under `Ship` recursively.",
+      "gold": "V03.sysml"
+    },
+    {
+      "id": "V04",
+      "family": "views",
+      "difficulty": "medium",
+      "title": "Hospital safety viewpoint",
+      "task": "Model a package `Hospital` with part definitions `Person` and `Hospital`, a concern definition `PatientSafety` with a doc comment, subject `hospital : Hospital` and stakeholder `clinician : Person`, a viewpoint definition `SafetyViewpoint` that frames concern `safety : PatientSafety`, and a view definition `SafetyView` that satisfies a requirement usage `safetyPerspective : SafetyViewpoint`.",
+      "gold": "V04.sysml"
+    },
+    {
+      "id": "V05",
+      "family": "views",
+      "difficulty": "medium",
+      "title": "Factory line browser view",
+      "task": "Model a package `Factory` importing `StandardViewDefinitions::*`, with part definitions `Press`, `Conveyor`, `Robot` and `Line` (owning `press : Press`, `conveyor : Conveyor`, `robots : Robot[2]`), and a view usage `lineTree : BrowserView` that exposes everything under `Line` recursively.",
+      "gold": "V05.sysml"
+    },
+    {
+      "id": "V06",
+      "family": "views",
+      "difficulty": "medium",
+      "title": "Aircraft structural rendering",
+      "task": "Model a package `Aircraft` with part definitions `Wing`, `Fuselage`, `Engine` and `Aircraft` (doc comment; parts `leftWing : Wing`, `rightWing : Wing`, `fuselage : Fuselage`, `engines : Engine[2]`), a view definition `StructuralView` with a doc comment, a rendering definition `TreeDiagram` with a rendering usage `asTree : TreeDiagram`, and a view usage `aircraftStructure : StructuralView` that exposes everything under `Aircraft` recursively and renders with `asTree`.",
+      "gold": "V06.sysml"
+    },
+    {
+      "id": "V07",
+      "family": "views",
+      "difficulty": "medium",
+      "title": "Metro operations view",
+      "task": "Model a package `Metro` with part definitions `Person`, `Station`, `Train`, `Track` and `MetroLine` (owning `stations : Station[2..*]`, `trains : Train[1..*]`, `track : Track`), concern definitions `Punctuality` (subject `line : MetroLine`, stakeholders `passenger : Person` and `operator : Person`) and `Capacity` (subject `line : MetroLine`, stakeholder `operator : Person`), each with a doc comment, a viewpoint definition `OperationsViewpoint` framing concerns `punctuality : Punctuality` and `capacity : Capacity`, a view definition `OperationsView` satisfying a requirement usage `operationsPerspective : OperationsViewpoint`, and a view usage `lineOperations : OperationsView` exposing everything under `MetroLine` recursively.",
+      "gold": "V07.sysml"
+    },
+    {
+      "id": "V08",
+      "family": "views",
+      "difficulty": "complex",
+      "title": "Library structure and grid views",
+      "task": "Model a package `Library` importing `StandardViewDefinitions::*`, with part definitions `Book`, `Shelf` (owning `books : Book[0..*]`), `ReadingRoom` (owning `shelves : Shelf[1..*]`) and `Library` (doc comment; owning `readingRooms : ReadingRoom[1..*]` and `archive : Shelf[1..*]`), a requirement definition `CapacityRequirement` with a doc comment, a view usage `structure : BrowserView` exposing everything under `Library` recursively and a view usage `requirements : GridView` exposing `CapacityRequirement`.",
+      "gold": "V08.sysml"
+    },
+    {
+      "id": "V09",
+      "family": "views",
+      "difficulty": "complex",
+      "title": "Spacecraft viewpoints",
+      "task": "Model a package `Spacecraft` importing `StandardViewDefinitions::*`, with part definitions `Person`, `Bus`, `Payload` and `Spacecraft` (owning `bus : Bus`, `payload : Payload`), concern definitions `MassBudget` (subject `craft : Spacecraft`, stakeholder `systemsEngineer : Person`) and `ScienceReturn` (subject `craft : Spacecraft`, stakeholder `scientist : Person`), each with a doc comment, viewpoint definitions `EngineeringViewpoint` framing `mass : MassBudget` and `ScienceViewpoint` framing `science : ScienceReturn`, a view definition `EngineeringView` specializing `BrowserView` and satisfying `engineeringPerspective : EngineeringViewpoint`, a view definition `ScienceView` satisfying `sciencePerspective : ScienceViewpoint`, and view usages `busStructure : EngineeringView` exposing everything under `Spacecraft` recursively and `payloadOverview : ScienceView` exposing `Payload`.",
+      "gold": "V09.sysml"
+    },
+    {
+      "id": "V10",
+      "family": "views",
+      "difficulty": "complex",
+      "title": "Wind farm views",
+      "task": "Model a package `WindFarm` importing `StandardViewDefinitions::*`, with part definitions `Person`, `Turbine`, `Substation`, `Cable` and `WindFarm` (doc comment; owning `turbines : Turbine[1..*]`, `substation : Substation`, `cables : Cable[1..*]`), requirement definitions `OutputRequirement` and `AvailabilityRequirement` with doc comments, concern definitions `GridStability` (subject `farm : WindFarm`, stakeholder `gridOperator : Person`) and `Maintenance` (subject `farm : WindFarm`, stakeholder `maintenanceCrew : Person`) with doc comments, viewpoint definitions `OperatorViewpoint` framing `stability : GridStability` and `MaintenanceViewpoint` framing `maintenance : Maintenance`, a rendering definition `BrowserRendering` with rendering usage `asBrowser`, view definitions `OperatorView` specializing `GridView` (satisfying `operatorPerspective : OperatorViewpoint`) and `MaintenanceView` specializing `BrowserView` (satisfying `maintenancePerspective : MaintenanceViewpoint`), a view usage `operatorRequirements : OperatorView` exposing both requirement definitions, a view usage `farmLayout : MaintenanceView` exposing everything under `WindFarm` recursively and rendering with `asBrowser`, and an unnamed comment about `WindFarm`.",
+      "gold": "V10.sysml"
+    }
+  ]
+}

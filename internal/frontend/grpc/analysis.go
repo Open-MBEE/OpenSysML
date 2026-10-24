@@ -31,6 +31,10 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 		return nil, err
 	}
 	defer v.release()
+	policy, explores := analysis.Explores(v.engine, schedule)
+	if req.ToolDryRun && explores {
+		return nil, statusError(connect.CodeInvalidArgument, "a tool dry run previews one run of the case; it is unavailable under an explore schedule or engine")
+	}
 	sym, err := v.lookup(req.SymbolId)
 	if err != nil {
 		return &pb.RunAnalysisResponse{Error: err.Error()}, nil
@@ -43,11 +47,14 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 		return resp, err
 	}
 
-	if policy, explores := analysis.Explores(v.engine, schedule); explores {
+	if explores {
 		return s.exploreAnalysis(ctx, policy, v, req, sym)
 	}
 	if err := v.runtime.SetSchedule(schedule); err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
+	}
+	if req.ToolDryRun {
+		return s.toolDryRun(ctx, v, sym, args)
 	}
 
 	// The choices a run made are reported with its outcome, failed or not.
@@ -55,16 +62,22 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 	if gone := callerGone(ctx, err); gone != nil {
 		return nil, gone
 	}
+	return v.caseResponse(run, plan, err), nil
+}
+
+// caseResponse reports one run of a case: its outputs, verdicts, evaluations
+// and instances, or the failure that stopped it, with the plan's standing.
+func (v *verifyContext) caseResponse(run caseRun, plan analysis.Plan, err error) *pb.RunAnalysisResponse {
 	result, verdicts := run.result, run.verdicts()
-	st := s.standingOf(plan)
-	resp = analysisResponse(&pb.RunAnalysisResponse{}, st)
+	st := v.service.standingOf(plan)
+	resp := analysisResponse(&pb.RunAnalysisResponse{}, st)
 	if err != nil {
 		resp.Error = err.Error()
 		resp.FailureReason = failureReason(err)
 		// A client predating case_evaluations reads a failed run as its error alone.
 		if !v.service.capabilities.has(CapabilityCaseEvaluations) {
 			resp.Diagnostics = v.service.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached))
-			return resp, nil
+			return resp
 		}
 	}
 	resp.Diagnostics = v.service.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached))
@@ -88,8 +101,8 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 		evaluations = result.Evaluations
 		resp.Evaluations = v.caseEvaluations(evaluations)
 	}
-	resp.Instances = v.instanceGraphs(v.runRoots(subject, result.Outputs, evaluations))
-	return resp, nil
+	resp.Instances = v.instanceGraphs(v.runRoots(subject, verdicts, result.Outputs, evaluations))
+	return resp
 }
 
 // analysisResponse writes on a case's response the standing of the plan that ran it.
@@ -209,10 +222,17 @@ func (s *Service) exploreAnalysis(ctx context.Context, schedule runtime.Schedule
 	return analysisResponse(&pb.RunAnalysisResponse{Outcomes: x.outcomes, Exploration: x.status}, s.standingOf(x.plan)), nil
 }
 
-// runRoots are the objects a case run reports: its subject and every object an
-// output or a reported evaluation names — a trade study's alternatives.
-func (v *verifyContext) runRoots(subject *runtime.Instance, outputs []runtime.CalcOutputValue, evaluations []runtime.AnalysisEvaluation) []*runtime.Instance {
+// runRoots are the objects a case run reports: its subject, the object each
+// verification verdict is about (the one a type-owned case ran as a feature of,
+// which need not be its subject) and every object an output or a reported
+// evaluation names — a trade study's alternatives.
+func (v *verifyContext) runRoots(subject *runtime.Instance, verdicts []runtime.VerificationVerdict, outputs []runtime.CalcOutputValue, evaluations []runtime.AnalysisEvaluation) []*runtime.Instance {
 	roots := []*runtime.Instance{subject}
+	for _, verdict := range verdicts {
+		if verdict.Subject != nil {
+			roots = append(roots, verdict.Subject)
+		}
+	}
 	for _, out := range outputs {
 		roots = append(roots, v.namedInstances(out.Value)...)
 	}
@@ -313,13 +333,18 @@ func (v *verifyContext) verificationVerdicts(verdicts []runtime.VerificationVerd
 	}
 	out := make([]*pb.VerificationVerdict, 0, len(verdicts))
 	for _, verdict := range verdicts {
-		out = append(out, &pb.VerificationVerdict{
+		wire := &pb.VerificationVerdict{
 			CaseId:        verdict.Case,
 			Kind:          string(verdict.Kind),
 			Detail:        verdict.Detail,
 			Subcase:       verdict.Subcase,
 			RequirementId: requirementID,
-		})
+		}
+		if verdict.Subject != nil {
+			wire.InstanceId = verdict.Subject.ID
+			wire.InstanceTypeId = namedFQN(v.cached.Index, verdict.Subject.Type)
+		}
+		out = append(out, wire)
 	}
 	return out
 }

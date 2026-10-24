@@ -16,10 +16,10 @@ import (
 // to 0 (or false/off/no), leaving every calc to the reference evaluator.
 const CalcCompileEnvVar = "OPENSYSML_CALC_COMPILE"
 
-// CalcCompileFromEnv reports whether the environment leaves the compiled calc
+// calcCompileFromEnv reports whether the environment leaves the compiled calc
 // tier on, which it does unless CalcCompileEnvVar (or its legacy SYSML_ name)
 // switches it off.
-func CalcCompileFromEnv() bool {
+func calcCompileFromEnv() bool {
 	return calcCompileFromValue(envvar.Lookup(CalcCompileEnvVar))
 }
 
@@ -78,7 +78,9 @@ type compiledCalc struct {
 	// result checks what the body yields where the body is a bound result
 	// expression; a body of statements checks at its return.
 	result *scalarCheck
-	body   compiledExpr
+	// resultHeld shapes a bare result, which holds its one value as a one-element sequence.
+	resultHeld *writeTarget
+	body       compiledExpr
 	// bodyErr prefixes an error the body raises and resultWhat names the result
 	// in a refusal, each worded as the evaluator does for this body form.
 	bodyErr    string
@@ -306,6 +308,13 @@ func (c *calcCompiler) compile(cell *compiledCalc) error {
 		if param.IsCalc {
 			return ineligible(fmt.Sprintf("parameter %q binds a function value", param.Name))
 		}
+		// The compiled frame binds arguments by position, which an actor never takes.
+		if param.IsActor {
+			return ineligible(fmt.Sprintf("parameter %q is an actor, bound by name only", param.Name))
+		}
+		if param.Decl.statesCollection() {
+			return ineligible(fmt.Sprintf("parameter %q declares a multiplicity above one", param.Name))
+		}
 		check, ok := c.scalarCheckFor(&param.Decl)
 		if !ok {
 			return ineligible(fmt.Sprintf("parameter %q declares a type outside the scalar lattice", param.Name))
@@ -327,11 +336,17 @@ func (c *calcCompiler) compile(cell *compiledCalc) error {
 	}
 	var result *scalarCheck
 	if out := shape.resultOutput(); out != nil {
+		if out.Decl.statesCollection() {
+			return ineligible("result declares a multiplicity above one")
+		}
 		check, ok := c.scalarCheckFor(&out.Decl)
 		if !ok {
 			return ineligible("result declares a type outside the scalar lattice")
 		}
 		result = &check
+	}
+	if shape.ResultDecl.holdsCollection() {
+		cell.resultHeld = shape.ResultDecl.Target
 	}
 	layout := newFrameLayout(shape.ParamNames, shape.Aliases, len(shape.Params))
 	if len(shape.Steps) == 0 {
@@ -442,7 +457,7 @@ func (c *calcCompiler) scalarCheckFor(decl *calcMemberDecl) (scalarCheck, bool) 
 	check.rationalOK = holds(semantics.PrimRational)
 	check.realOK = holds(semantics.PrimReal)
 	check.holdsReal = prim == semantics.PrimReal
-	if c.ctx.positiveScalar(decl.Target.typ) {
+	if c.ctx.PositiveScalar(decl.Target.typ) {
 		check.least = 1
 	}
 	check.settle()
@@ -919,7 +934,7 @@ func (c *compiledCalc) invokeBoxed(ctx *Context, args calcArgs) (Value, bool, er
 	var bound paramSet
 	if args.named == nil {
 		for i, arg := range args.positional {
-			s, ok := scalarOf(arg)
+			s, ok := scalarOf(soleElement(arg))
 			if !ok {
 				ctx.scalarStack = ctx.scalarStack[:base]
 				return Value{}, false, nil
@@ -937,7 +952,7 @@ func (c *compiledCalc) invokeBoxed(ctx *Context, args calcArgs) (Value, bool, er
 			if !ok {
 				continue
 			}
-			s, ok := scalarOf(arg)
+			s, ok := scalarOf(soleElement(arg))
 			if !ok {
 				ctx.scalarStack = ctx.scalarStack[:base]
 				return Value{}, false, nil
@@ -955,5 +970,12 @@ func (c *compiledCalc) invokeBoxed(ctx *Context, args calcArgs) (Value, bool, er
 	if err != nil {
 		return Value{}, true, err
 	}
-	return result.boxed(), true, nil
+	value := result.boxed()
+	if c.resultHeld != nil {
+		// A bare result is `[0..*]` (SysML v2 §7.6.3) and holds its one value as a one-element sequence.
+		if err := ctx.shapeForTarget(c.resultHeld, &value); err != nil {
+			return Value{}, true, calcFrame(c.kind, c.name, err)
+		}
+	}
+	return value, true, nil
 }

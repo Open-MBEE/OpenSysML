@@ -84,7 +84,7 @@ func TestElementBudgetCountsElementsHeldNotProduced(t *testing.T) {
 	ctx.maxElements = 20
 	sym, scope := calcByName(t, idx.DocumentRoot("<test>"), "test", "Repeat")
 
-	result, err := ctx.InvokeCalc(sym, nil, scope)
+	result, err := invokeValue(ctx, sym, nil, scope)
 	if err != nil {
 		t.Fatalf("InvokeCalc: %v", err)
 	}
@@ -273,7 +273,7 @@ func TestElementBudgetIsReleasedByOpenReads(t *testing.T) {
 	wantFormatted(t, reads, val, err, "true")
 	val, err = evalIn(t, ctx, scope, "rack.gear")
 	wantUndetermined(t, "rack.gear", val, err, "[1..*]")
-	if u := val.Undetermined(); u != nil && len(u.Known()) != 1 {
-		t.Errorf("rack.gear certainly holds %v, want the one object of fixed", u.Known())
+	if u := val.Undetermined(); u != nil && len(u.knownValues()) != 1 {
+		t.Errorf("rack.gear certainly holds %v, want the one object of fixed", u.knownValues())
 	}
 }

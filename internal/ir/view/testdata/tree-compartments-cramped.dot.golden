@@ -1,0 +1,12 @@
+// view: AmplifierViews::cramped
+// kind: tree
+// stated: render asTreeDiagram
+// not represented: 10 node(s) without a position, drawn as compartment rows of the node above them, and 1 node(s) under them left undrawn
+// not represented: 9 compartment row(s) with no room in the stated size of their node's box, left unwritten
+// layout: neato -n
+digraph "AmplifierViews::cramped" {
+  graph [fontname="Helvetica", layout=neato, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«part def»</i></font><br/><b>Stage</b></td></tr><hr/><tr><td><font point-size="10">attributes</font></td></tr><tr><td align="left">gain = 15.0</td></tr></table>>, margin=0, pos="90,-55!", pin=true, width=2.2222222222222223, height=1.25, fixedsize=true];
+}

@@ -4,19 +4,19 @@
 
 ## approximated (2)
 OpaqueAction	Behavior::Drive::step	_act_step	-> 'step'	(the JavaScript body is translated to v2; going is declared nowhere, so it is declared a local attribute of the action: a script's assignment to an undeclared name creates it)
-Diagram	Structure::Vehicle Structure	_diag_bdd	-> Structure::'Vehicle Structure'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 1 of 8 shown ids resolve to no element)
+Diagram	Structure::Vehicle Structure	_diag_bdd	-> Model::Structure::'Vehicle Structure'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 1 of 8 shown ids resolve to no element)
 
 ## mapped (13)
-Package	Behavior	_pkg_behavior	-> Behavior
-Activity	Behavior::Drive	_act_drive	-> Behavior::Drive
+Package	Behavior	_pkg_behavior	-> Model::Behavior
+Activity	Behavior::Drive	_act_drive	-> Model::Behavior::Drive
 InitialNode	Behavior::Drive::<InitialNode>	_init	-> start
-Model	Model	_m	(the root model's members are written at the top level)
-Package	Structure	_pkg_structure	-> Structure
-«Block» Class	Structure::Engine	_blk_engine	-> Structure::Engine
-«Block» Class	Structure::Vehicle	_blk_vehicle	-> Structure::Vehicle
-Diagram	Structure::Vehicle::Vehicle Internals	_diag_ibd	-> Structure::Vehicle::'Vehicle Internals'	(a SysML Internal Block Diagram written as a view rendered asInterconnectionDiagram)
-Connector	Structure::Vehicle::drive	_conn_drive	-> Structure::Vehicle::drive
-Property	Structure::Vehicle::engine	_prop_engine	-> Structure::Vehicle::engine
-Property	Structure::Vehicle::height	_prop_height	-> Structure::Vehicle::height
-Property	Structure::Vehicle::wheel	_prop_wheel	-> Structure::Vehicle::wheel
-«Block» Class	Structure::Wheel	_blk_wheel	-> Structure::Wheel
+Model	Model	_m	-> Model	(written as package Model)
+Package	Structure	_pkg_structure	-> Model::Structure
+«Block» Class	Structure::Engine	_blk_engine	-> Model::Structure::Engine
+«Block» Class	Structure::Vehicle	_blk_vehicle	-> Model::Structure::Vehicle
+Diagram	Structure::Vehicle::Vehicle Internals	_diag_ibd	-> Model::Structure::Vehicle::'Vehicle Internals'	(a SysML Internal Block Diagram written as a view rendered asInterconnectionDiagram)
+Connector	Structure::Vehicle::drive	_conn_drive	-> Model::Structure::Vehicle::drive
+Property	Structure::Vehicle::engine	_prop_engine	-> Model::Structure::Vehicle::engine
+Property	Structure::Vehicle::height	_prop_height	-> Model::Structure::Vehicle::height
+Property	Structure::Vehicle::wheel	_prop_wheel	-> Model::Structure::Vehicle::wheel
+«Block» Class	Structure::Wheel	_blk_wheel	-> Model::Structure::Wheel

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:MagicDraw_Profile="http://www.omg.org/spec/UML/20131001/MagicDrawProfile"
+         xmlns:Optics="http://example.com/schemas/Optics.xmi"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <!-- A user profile in the document whose stereotypes specialize the standard ones. -->
+    <packagedElement xmi:type="uml:Profile" xmi:id="_optics" name="Optics" URI="http://example.com/schemas/Optics.xmi">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_segment" name="Segment">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_segment_gen">
+          <general xmi:type="uml:Stereotype" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Block"/>
+        </generalization>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_mount" name="Mount">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_mount_gen" general="_st_segment"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_coupling" name="Coupling">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_coupling_gen">
+          <general xmi:type="uml:Stereotype" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#InterfaceBlock"/>
+        </generalization>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_rule" name="Rule">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_rule_gen">
+          <general xmi:type="uml:Stereotype" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#ConstraintBlock"/>
+        </generalization>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_need" name="Need">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_need_gen">
+          <general xmi:type="uml:Stereotype" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Requirement"/>
+        </generalization>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_bench" name="Bench">
+      <packagedElement xmi:type="uml:Class" xmi:id="_ib_light" name="iLight"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_seg_lens" name="Lens"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_seg_telescope" name="Telescope">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_telescope_lens" name="objective" type="_seg_lens" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_telescope_light" name="light in" type="_ib_light" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_mount_tripod" name="Tripod"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_rule_focus" name="Focus Rule"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_need_sharp" name="Sharp Image"/>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc_carries" name="Carries" memberEnd="_carries_tripod _carries_telescope">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_carries_tripod" name="carrier" type="_mount_tripod" association="_assoc_carries"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="_carries_telescope" name="carried" type="_seg_telescope" association="_assoc_carries"/>
+      </packagedElement>
+    </packagedElement>
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+      <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_segments" name="Segments" ownerOfDiagram="_pkg_bench">
+        <xmi:Extension extender="Example UML Tool 1.0">
+          <diagramRepresentation>
+            <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+              <diagramContents/>
+            </diagram:DiagramRepresentationObject>
+          </diagramRepresentation>
+        </xmi:Extension>
+      </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+  <Optics:Coupling xmi:id="_app_ib_light" base_Class="_ib_light"/>
+  <Optics:Segment xmi:id="_app_seg_lens" base_Class="_seg_lens"/>
+  <Optics:Segment xmi:id="_app_seg_telescope" base_Class="_seg_telescope"/>
+  <Optics:Mount xmi:id="_app_mount_tripod" base_Class="_mount_tripod"/>
+  <Optics:Rule xmi:id="_app_rule_focus" base_Class="_rule_focus"/>
+  <Optics:Need xmi:id="_app_need_sharp" base_Class="_need_sharp" Text="The image is sharp."/>
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_segments" base_Diagram="_diag_segments" scope="_pkg_bench" includeSubtypesOfRowTypes="true">
+    <rowElementType xmi:idref="_st_segment"/>
+    <columnIds>QPROP:Element:name</columnIds>
+  </MagicDraw_Profile:DiagramTable>
+</xmi:XMI>

@@ -43,15 +43,12 @@ func HorizonAt(t float64) Horizon { return Horizon{at: t, bounded: true} }
 // initial transition only, as a run of a state machine with no `-advance` does.
 func HorizonInitial() Horizon { return Horizon{initial: true} }
 
-// Bounded is the instant the horizon stops the clock at, false for none.
-func (h Horizon) Bounded() (at float64, ok bool) { return h.at, h.bounded }
+// bound is the instant the horizon stops the clock at, false for none.
+func (h Horizon) Bound() (at float64, ok bool) { return h.at, h.bounded }
 
-// Initial reports whether the horizon stops the machines at their initial transition.
-func (h Horizon) Initial() bool { return h.initial }
-
-// Reaches reports whether the instant lies within the horizon; no wait ahead
+// reaches reports whether the instant lies within the horizon; no wait ahead
 // lies within an initial one.
-func (h Horizon) Reaches(t float64) bool { return !h.initial && (!h.bounded || t <= h.at) }
+func (h Horizon) reaches(t float64) bool { return !h.initial && (!h.bounded || t <= h.at) }
 
 // reachable is the refusal of a bounded horizon the clock cannot run to from
 // now: one behind it, or not a finite instant.
@@ -71,30 +68,30 @@ func (h Horizon) reachable(now float64) error {
 // replay starts the same invocation the same way.
 type Starter func(*Context) (*Invocation, error)
 
-// ErrNothingStarted is the typed error a check whose starter started no behavior,
+// errNothingStarted is the typed error a check whose starter started no behavior,
 // or one in another context, wraps.
-var ErrNothingStarted = errors.New("the invocation started nothing to check")
+var errNothingStarted = errors.New("the invocation started nothing to check")
 
 // started checks the invocation runs in ctx: at least one behavior, each started
 // there, and a horizon the clock can run to.
 func (inv *Invocation) started(ctx *Context) error {
 	if len(inv.Actions) == 0 && len(inv.States) == 0 {
-		return ErrNothingStarted
+		return errNothingStarted
 	}
 	if err := inv.Horizon.reachable(ctx.clock.now); err != nil {
 		return err
 	}
 	if inv.Horizon.initial && len(inv.Actions) > 0 {
-		return fmt.Errorf("%w: an initial-transition horizon stops state machines, and the invocation starts an action", ErrNothingStarted)
+		return fmt.Errorf("%w: an initial-transition horizon stops state machines, and the invocation starts an action", errNothingStarted)
 	}
 	for _, exec := range inv.Actions {
 		if exec.ctx != ctx {
-			return fmt.Errorf("%w: action %s runs in another context", ErrNothingStarted, symbolText(exec.action))
+			return fmt.Errorf("%w: action %s runs in another context", errNothingStarted, SymbolText(exec.action))
 		}
 	}
 	for _, exec := range inv.States {
 		if exec.ctx != ctx {
-			return fmt.Errorf("%w: state machine %s runs in another context", ErrNothingStarted, symbolText(exec.stateMachine))
+			return fmt.Errorf("%w: state machine %s runs in another context", errNothingStarted, SymbolText(exec.stateMachine))
 		}
 	}
 	return nil
@@ -119,16 +116,6 @@ func (inv *Invocation) Release() {
 	for _, exec := range inv.States {
 		exec.Release()
 	}
-}
-
-// Performer is the one object the started behaviors perform on: nil when none
-// performs on an object, or when they perform on different ones.
-func (inv *Invocation) Performer() *Instance {
-	performers := inv.performers()
-	if len(performers) != 1 {
-		return nil
-	}
-	return performers[0].self
 }
 
 // Performers lists the distinct objects the started behaviors perform on, in start order.
@@ -201,8 +188,8 @@ func (inv *Invocation) performerPrefixes() []performer {
 	return performers
 }
 
-// Snapshot captures every executor on the clock along with the context's state.
-func (inv *Invocation) Snapshot() (*Snapshot, error) {
+// snapshot captures every executor on the clock along with the context's state.
+func (inv *Invocation) snapshot() (*Snapshot, error) {
 	return inv.Context().snapshotWith(slices.Clone(inv.Actions), slices.Clone(inv.States))
 }
 
@@ -224,10 +211,10 @@ func (inv *Invocation) names() []string {
 	}
 	names := make([]string, 0, n)
 	for _, exec := range inv.Actions {
-		names = append(names, symbolText(exec.action))
+		names = append(names, SymbolText(exec.action))
 	}
 	for _, exec := range inv.States {
-		names = append(names, symbolText(exec.stateMachine))
+		names = append(names, SymbolText(exec.stateMachine))
 	}
 	return names
 }
@@ -286,11 +273,11 @@ func (inv *Invocation) Outcome() Outcome {
 	case 1:
 		outcome = outcomes[0]
 	default:
-		outcome = ctx.JointOutcome(inv.names(), outcomes)
+		outcome = ctx.jointOutcome(inv.names(), outcomes)
 	}
 	maps.Copy(outcome.Outputs, inv.PerformerAttributes())
 	if inv.leftPending() {
-		outcome.Scope = []ObservationReason{ReasonInitialTransitionOnly}
+		outcome.Scope = []ObservationReason{reasonInitialTransitionOnly}
 	}
 	return outcome
 }
@@ -299,9 +286,9 @@ func (inv *Invocation) Outcome() Outcome {
 // claim holds at that point, and its strength stands.
 type ObservationReason string
 
-// ReasonInitialTransitionOnly scopes the outcome of a machine stopped at its
+// reasonInitialTransitionOnly scopes the outcome of a machine stopped at its
 // initial transition with work left that a duration would run.
-const ReasonInitialTransitionOnly ObservationReason = "after the initial transition only; -advance <time> runs the do behaviors, events and waits it left pending"
+const reasonInitialTransitionOnly ObservationReason = "after the initial transition only; -advance <time> runs the do behaviors, events and waits it left pending"
 
 // leftPending reports whether the horizon stopped a machine at its initial
 // transition with a do behavior, an event, a signal, a wait or a change condition left.

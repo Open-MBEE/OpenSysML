@@ -329,6 +329,29 @@ pub enum RenderViewPorts {
     Full,
 }
 
+/// How a tree rendering folds a node's owned members into compartment rows.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum RenderViewCompartments {
+    /// Only the layout-less members of a tree some Layout positions.
+    #[default]
+    Positioned,
+    /// Every owned usage no Layout, nested definition or package keeps a node.
+    Most,
+    /// The port usages, with the ports nested under them.
+    Ports,
+}
+
+impl RenderViewCompartments {
+    /// The name the service reads the folding by; empty for the default.
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            RenderViewCompartments::Positioned => "",
+            RenderViewCompartments::Most => "most",
+            RenderViewCompartments::Ports => "ports",
+        }
+    }
+}
+
 /// A source location carried by a rendered node, edge, or row.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RenderSpan {
@@ -372,6 +395,8 @@ pub struct RenderGeometry {
     pub has_size: bool,
     /// Whether the node is collapsed.
     pub collapsed: bool,
+    /// Whether the layout only folds or hides the node, so x and y carry no position.
+    pub unplaced: bool,
 }
 
 /// Visual properties shared by nodes and edges.
@@ -423,6 +448,9 @@ pub struct RenderNode {
     pub stand_in: bool,
     /// Parent node identifier.
     pub parent: String,
+    /// The compartment of the parent this node is a row of ("attributes",
+    /// "parts", "ports", ...); empty for a node drawn as a box.
+    pub compartment: String,
     /// Ports included for this node.
     pub ports: Vec<RenderPort>,
     /// Source location, when available.
@@ -528,6 +556,8 @@ pub struct RenderedView {
     pub notes: Vec<RenderNote>,
     /// Renderer notices.
     pub notices: Vec<String>,
+    /// The optional notation elements the rendering drew.
+    pub shown: Vec<String>,
     wire: wire::RenderViewResponse,
 }
 
@@ -573,6 +603,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
                 text: node.text,
                 stand_in: node.stand_in,
                 parent: node.parent,
+                compartment: node.compartment,
                 ports: node
                     .ports
                     .into_iter()
@@ -591,6 +622,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
                     height: geometry.height,
                     has_size: geometry.has_size,
                     collapsed: geometry.collapsed,
+                    unplaced: geometry.unplaced,
                 }),
                 style: node.style.map(style),
             })
@@ -650,6 +682,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
             })
             .collect(),
         notices: response.notices,
+        shown: response.shown,
         wire,
     }
 }
@@ -692,6 +725,7 @@ mod render_view_tests {
                         height: 4.0,
                         has_size: true,
                         collapsed: true,
+                        unplaced: true,
                     }),
                     style: Some(wire::RenderStyle {
                         fill: "#fff".to_owned(),
@@ -735,6 +769,7 @@ mod render_view_tests {
                 ..Default::default()
             }],
             notices: vec!["notice".to_owned()],
+            shown: vec!["port-symbols".to_owned(), "compartments".to_owned()],
         };
 
         let rendered = rendered_view_of(response);
@@ -743,6 +778,7 @@ mod render_view_tests {
         assert_eq!(rendered.nodes[0].ports[0].direction, "inout");
         assert_eq!(rendered.nodes[0].origin.as_ref().unwrap().start_line, 4);
         assert!(rendered.nodes[0].geometry.as_ref().unwrap().collapsed);
+        assert!(rendered.nodes[0].geometry.as_ref().unwrap().unplaced);
         assert_eq!(rendered.nodes[0].style.as_ref().unwrap().font_size, 12.0);
         assert!(rendered.nodes[1].origin.is_none());
         assert!(rendered.nodes[1].geometry.is_none());
@@ -757,6 +793,10 @@ mod render_view_tests {
         assert_eq!(rendered.notes[0].edge_to, "n1");
         assert!(rendered.notes[0].origin.is_none());
         assert_eq!(rendered.notices, vec!["notice".to_owned()]);
+        assert_eq!(
+            rendered.shown,
+            vec!["port-symbols".to_owned(), "compartments".to_owned()]
+        );
 
         let empty = rendered_view_of(wire::RenderViewResponse::default());
         assert!(empty.canvas.is_none());

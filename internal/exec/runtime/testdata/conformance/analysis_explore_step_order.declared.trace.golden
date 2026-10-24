@@ -12,10 +12,10 @@ enter action node: analysis test::An
             eval feature x -> 10
             eval literal 2 -> 2
           eval operator + -> 12
-choice step 1: tokens 1@s1, 2@s2 (unordered; took 1@s1 first)
+choice step 1: tokens 1@s1, 2@s2 (unordered; took 1@s1 first; order-dependent: x)
 leave action node: analysis test::An
       stmt return
         eval feature x -> 12
-    exit analysis test::An -> 12
-  eval invoke An -> 12
+    exit analysis test::An -> (12)
+  eval invoke An -> (12)
 step 1: no active tokens

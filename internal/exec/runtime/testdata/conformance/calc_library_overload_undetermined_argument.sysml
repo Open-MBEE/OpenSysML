@@ -4,24 +4,20 @@
 package test {
 	private import ScalarValues::*;
 
-	package A {
+	part def A {
 		calc def label { in xs : Integer[*]; return : String = "integer"; }
 	}
-	package B {
+	part def B {
 		calc def label { in xs : String[*]; return : String = "string"; }
 	}
-	package C {
+	part def C {
 		calc def pick { in x : Integer; in y : Real; return : Integer = 1; }
 	}
-	package D {
+	part def D {
 		calc def pick { in x : Real; in y : Integer; return : Integer = 2; }
 	}
 
-	part def Probe {
-		private import A::*;
-		private import B::*;
-		private import C::*;
-		private import D::*;
+	part def Probe :> A, B, C, D {
 		calc def labelOf { in v[*]; return : String = label(v); }
 		calc def pickOf { in v; in w; return : Integer = pick(v, w); }
 		attribute fromInteger = labelOf(3);

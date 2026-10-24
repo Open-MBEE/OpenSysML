@@ -122,6 +122,8 @@ automatic column takes the mean stated width), so the default stylesheet lays
 the table out fixed in that proportion and a theme can read the source widths;
 the PDF backend gives an unsized wide table the same group, its columns
 sharing the width evenly and none narrower than its heading needs.
+Tables with seven or more written header cells carry `sysml-table-landscape`;
+those with eleven or more also carry `sysml-table-dense`.
 A nested row states its depth as `data-depth` and as the `--sysml-depth`
 property its first cell's `span.sysml-indent` is widened by
 ([hierarchical rows](#hierarchical-rows)).
@@ -358,11 +360,13 @@ word boundaries and breaks a token only when it fits no line on its own, so a
 long qualified name breaks rather than pushing the rightmost columns off the
 page; the header row repeats at the top of every page a table continues onto;
 a row never splits across pages, though a long table does. A table of seven or
-more columns — a traceability matrix, an instance table of many value
-properties — is placed on landscape pages in smaller type (9pt; 8pt from
-eleven columns), together with the heading and caption that introduce it,
-while the surrounding pages stay portrait, and its first column, the one
-naming each row, keeps a readable minimum width however many columns follow.
+more written header cells — a traceability matrix, an instance table of many
+value properties — is marked `sysml-table-landscape` and placed on landscape
+pages in smaller type (9pt; 8pt with the `sysml-table-dense` class from eleven
+columns), together with the heading and caption that introduce it, while the
+surrounding pages stay portrait, and its first column, the one naming each
+row, keeps a readable minimum width however many columns follow. The PDF
+stylesheets select these classes rather than counting cells in the table.
 A table whose `columnWidths` the model states
 ([Column widths](authoring.md#column-widths)) is sized in that proportion
 instead, though no column narrower than its heading's longest word needs, the
@@ -383,13 +387,15 @@ as head unbroken beside it (at most eleven), under the table's caption with
 line itself still sets beside the repeated column, the two sharing the line in
 proportion to their needs and the heading breaking. A table of few
 wide-headed columns therefore goes landscape or splits sooner than one of many
-short-headed ones, and a table that fits its own line is never moved or split. The `weasyprint` and `prince`
-engines split the HTML table; the `pandoc` engine gets the same split in the
-Markdown it converts, so every engine sets the same column sets, though a
-Markdown table carries no class, so `pandoc` sets a part of fewer than seven
-columns on a portrait page in the ordinary type. The landscape and first-column rules use the CSS `:has()` selector,
-which WeasyPrint — and so `weasyprint` and `pandoc` — supports; an engine
-without it keeps the whole document portrait.
+short-headed ones, and a table that fits its own line is never moved or split.
+The `weasyprint` and `prince` engines split the HTML table; the `pandoc` engine
+gets the same split in the Markdown it converts, then its Lua filter marks
+each generated table by its written header-cell count. A Pandoc split part
+with fewer than seven columns has no `sysml-table-wide` class (Markdown has no
+class for it), so it stays on a portrait page in the ordinary type. The table
+rules select by class, but the heading and lead-in rules still use `:has()`;
+an engine without `:has()` can set the table landscape while leaving its
+heading and lead-in on the preceding portrait page.
 
 ### Hierarchical rows
 

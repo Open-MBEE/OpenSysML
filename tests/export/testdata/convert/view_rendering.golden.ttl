@@ -1,0 +1,386 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Views
+    a sysml:Package ;
+    sysml:qualifiedName "Views" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "15"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "Views" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Views" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Views__Tree, elmt:Views__tree, elmt:Views__ByReference, elmt:Views__ByDeclaration, elmt:Views__WithBody ;
+    sysml:ownedMembership elmt:Views__Tree_om, elmt:Views__tree_om, elmt:Views__ByReference_om, elmt:Views__ByDeclaration_om, elmt:Views__WithBody_om ;
+    sysml:ownedRelationship elmt:Views__Tree_om, elmt:Views__tree_om, elmt:Views__ByReference_om, elmt:Views__ByDeclaration_om, elmt:Views__WithBody_om ;
+    sysx:sourceText "package Views {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"Views__Tree\"},{\"@id\":\"Views__tree\"},{\"@id\":\"Views__ByReference\"},{\"@id\":\"Views__ByDeclaration\"},{\"@id\":\"Views__WithBody\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Views__Tree_om\"},{\"@id\":\"Views__tree_om\"},{\"@id\":\"Views__ByReference_om\"},{\"@id\":\"Views__ByDeclaration_om\"},{\"@id\":\"Views__WithBody_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Views__Tree_om\"},{\"@id\":\"Views__tree_om\"},{\"@id\":\"Views__ByReference_om\"},{\"@id\":\"Views__ByDeclaration_om\"},{\"@id\":\"Views__WithBody_om\"}]" .
+
+elmt:Views__Tree
+    a sysml:RenderingDefinition ;
+    sysml:qualifiedName "Views::Tree" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
+    sysml:elementId "Views__Tree" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Views ;
+    sysml:owner elmt:Views ;
+    sysml:owningRelationship elmt:Views__Tree_om ;
+    sysml:owningMembership elmt:Views__Tree_om ;
+    sysml:declaredName "Tree" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    rendering def Tree;\n" .
+
+elmt:Views__Tree_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Views__Tree_om" ;
+    sysml:owner elmt:Views ;
+    sysml:memberElement elmt:Views__Tree ;
+    sysml:ownedMemberElement elmt:Views__Tree ;
+    sysml:ownedRelatedElement elmt:Views__Tree ;
+    sysml:owningRelatedElement elmt:Views ;
+    sysml:membershipOwningNamespace elmt:Views .
+
+elmt:Views__tree
+    a sysml:RenderingUsage ;
+    sysml:qualifiedName "Views::tree" ;
+    sysx:sourceLine "3"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "3"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
+    sysml:elementId "Views__tree" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Views ;
+    sysml:owner elmt:Views ;
+    sysml:owningRelationship elmt:Views__tree_om ;
+    sysml:owningMembership elmt:Views__tree_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:declaredName "tree" ;
+    sysml:type elmt:Views__Tree ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Views__tree_ft0 ;
+    sysml:ownedSpecialization elmt:Views__tree_ft0 ;
+    sysml:ownedRelationship elmt:Views__tree_ft0 ;
+    sysx:sourceText "    rendering tree : Tree;\n" .
+
+elmt:Views__tree_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Views__tree_om" ;
+    sysml:owner elmt:Views ;
+    sysml:memberElement elmt:Views__tree ;
+    sysml:ownedMemberElement elmt:Views__tree ;
+    sysml:ownedRelatedElement elmt:Views__tree ;
+    sysml:owningRelatedElement elmt:Views ;
+    sysml:membershipOwningNamespace elmt:Views .
+
+elmt:Views__ByReference
+    a sysml:ViewDefinition ;
+    sysml:qualifiedName "Views::ByReference" ;
+    sysx:sourceLine "4"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "6"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
+    sysml:elementId "Views__ByReference" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:Views ;
+    sysml:owner elmt:Views ;
+    sysml:owningRelationship elmt:Views__ByReference_om ;
+    sysml:owningMembership elmt:Views__ByReference_om ;
+    sysml:declaredName "ByReference" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Views__ByReference__tree ;
+    sysml:ownedMembership elmt:Views__ByReference__tree_om ;
+    sysml:ownedRelationship elmt:Views__ByReference__tree_om ;
+    sysml:ownedFeature elmt:Views__ByReference__tree ;
+    sysml:ownedFeatureMembership elmt:Views__ByReference__tree_om ;
+    sysx:sourceText "    view def ByReference {\n" ;
+    sysx:sourceTail "    }\n" .
+
+elmt:Views__ByReference_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Views__ByReference_om" ;
+    sysml:owner elmt:Views ;
+    sysml:memberElement elmt:Views__ByReference ;
+    sysml:ownedMemberElement elmt:Views__ByReference ;
+    sysml:ownedRelatedElement elmt:Views__ByReference ;
+    sysml:owningRelatedElement elmt:Views ;
+    sysml:membershipOwningNamespace elmt:Views .
+
+elmt:Views__ByReference__tree
+    a sysml:RenderingUsage ;
+    sysml:name "tree" ;
+    sysml:qualifiedName "Views::ByReference::tree" ;
+    sysx:sourceLine "5"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "21"^^xsd:integer ;
+    sysml:elementId "Views__ByReference__tree" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Views__ByReference ;
+    sysml:owner elmt:Views__ByReference ;
+    sysml:owningRelationship elmt:Views__ByReference__tree_om ;
+    sysml:owningMembership elmt:Views__ByReference__tree_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
+    sysml:references elmt:Views__tree ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedReferenceSubsetting elmt:Views__ByReference__tree_rs ;
+    sysml:ownedSubsetting elmt:Views__ByReference__tree_rs ;
+    sysml:ownedSpecialization elmt:Views__ByReference__tree_rs ;
+    sysml:ownedRelationship elmt:Views__ByReference__tree_rs ;
+    sysx:sourceText "        render tree;\n" .
+
+elmt:Views__ByReference__tree_om
+    a sysml:ViewRenderingMembership ;
+    sysml:elementId "Views__ByReference__tree_om" ;
+    sysml:owner elmt:Views__ByReference ;
+    sysml:memberElement elmt:Views__ByReference__tree ;
+    sysml:ownedMemberElement elmt:Views__ByReference__tree ;
+    sysml:ownedRelatedElement elmt:Views__ByReference__tree ;
+    sysml:owningRelatedElement elmt:Views__ByReference ;
+    sysml:membershipOwningNamespace elmt:Views__ByReference ;
+    sysml:ownedRendering elmt:Views__ByReference__tree ;
+    sysml:ownedMemberFeature elmt:Views__ByReference__tree ;
+    sysml:owningType elmt:Views__ByReference .
+
+elmt:Views__ByDeclaration
+    a sysml:ViewDefinition ;
+    sysml:qualifiedName "Views::ByDeclaration" ;
+    sysx:sourceLine "7"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
+    sysml:elementId "Views__ByDeclaration" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:Views ;
+    sysml:owner elmt:Views ;
+    sysml:owningRelationship elmt:Views__ByDeclaration_om ;
+    sysml:owningMembership elmt:Views__ByDeclaration_om ;
+    sysml:declaredName "ByDeclaration" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Views__ByDeclaration__t2 ;
+    sysml:ownedMembership elmt:Views__ByDeclaration__t2_om ;
+    sysml:ownedRelationship elmt:Views__ByDeclaration__t2_om ;
+    sysml:ownedFeature elmt:Views__ByDeclaration__t2 ;
+    sysml:ownedFeatureMembership elmt:Views__ByDeclaration__t2_om ;
+    sysx:sourceText "    view def ByDeclaration {\n" ;
+    sysx:sourceTail "    }\n" .
+
+elmt:Views__ByDeclaration_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Views__ByDeclaration_om" ;
+    sysml:owner elmt:Views ;
+    sysml:memberElement elmt:Views__ByDeclaration ;
+    sysml:ownedMemberElement elmt:Views__ByDeclaration ;
+    sysml:ownedRelatedElement elmt:Views__ByDeclaration ;
+    sysml:owningRelatedElement elmt:Views ;
+    sysml:membershipOwningNamespace elmt:Views .
+
+elmt:Views__ByDeclaration__t2
+    a sysml:RenderingUsage ;
+    sysml:qualifiedName "Views::ByDeclaration::t2" ;
+    sysx:sourceLine "8"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "8"^^xsd:integer ;
+    sysx:sourceEndColumn "36"^^xsd:integer ;
+    sysml:elementId "Views__ByDeclaration__t2" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Views__ByDeclaration ;
+    sysml:owner elmt:Views__ByDeclaration ;
+    sysml:owningRelationship elmt:Views__ByDeclaration__t2_om ;
+    sysml:owningMembership elmt:Views__ByDeclaration__t2_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
+    sysml:declaredName "t2" ;
+    sysml:type elmt:Views__Tree ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Views__ByDeclaration__t2_ft0 ;
+    sysml:ownedSpecialization elmt:Views__ByDeclaration__t2_ft0 ;
+    sysml:ownedRelationship elmt:Views__ByDeclaration__t2_ft0 ;
+    sysx:sourceText "        render rendering t2 : Tree;\n" .
+
+elmt:Views__ByDeclaration__t2_om
+    a sysml:ViewRenderingMembership ;
+    sysml:elementId "Views__ByDeclaration__t2_om" ;
+    sysml:owner elmt:Views__ByDeclaration ;
+    sysml:memberElement elmt:Views__ByDeclaration__t2 ;
+    sysml:ownedMemberElement elmt:Views__ByDeclaration__t2 ;
+    sysml:ownedRelatedElement elmt:Views__ByDeclaration__t2 ;
+    sysml:owningRelatedElement elmt:Views__ByDeclaration ;
+    sysml:membershipOwningNamespace elmt:Views__ByDeclaration ;
+    sysml:ownedRendering elmt:Views__ByDeclaration__t2 ;
+    sysml:ownedMemberFeature elmt:Views__ByDeclaration__t2 ;
+    sysml:owningType elmt:Views__ByDeclaration .
+
+elmt:Views__WithBody
+    a sysml:ViewDefinition ;
+    sysml:qualifiedName "Views::WithBody" ;
+    sysx:sourceLine "10"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
+    sysml:elementId "Views__WithBody" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:Views ;
+    sysml:owner elmt:Views ;
+    sysml:owningRelationship elmt:Views__WithBody_om ;
+    sysml:owningMembership elmt:Views__WithBody_om ;
+    sysml:declaredName "WithBody" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Views__WithBody__tree ;
+    sysml:ownedMembership elmt:Views__WithBody__tree_om ;
+    sysml:ownedRelationship elmt:Views__WithBody__tree_om ;
+    sysml:ownedFeature elmt:Views__WithBody__tree ;
+    sysml:ownedFeatureMembership elmt:Views__WithBody__tree_om ;
+    sysx:sourceText "    view def WithBody {\n" ;
+    sysx:sourceTail "    }\n" .
+
+elmt:Views__WithBody_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Views__WithBody_om" ;
+    sysml:owner elmt:Views ;
+    sysml:memberElement elmt:Views__WithBody ;
+    sysml:ownedMemberElement elmt:Views__WithBody ;
+    sysml:ownedRelatedElement elmt:Views__WithBody ;
+    sysml:owningRelatedElement elmt:Views ;
+    sysml:membershipOwningNamespace elmt:Views .
+
+elmt:Views__WithBody__tree
+    a sysml:RenderingUsage ;
+    sysml:name "tree" ;
+    sysml:qualifiedName "Views::WithBody::tree" ;
+    sysx:sourceLine "11"^^xsd:integer ;
+    sysx:sourceColumn "9"^^xsd:integer ;
+    sysx:sourceEndLine "13"^^xsd:integer ;
+    sysx:sourceEndColumn "10"^^xsd:integer ;
+    sysml:elementId "Views__WithBody__tree" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Views__WithBody ;
+    sysml:owner elmt:Views__WithBody ;
+    sysml:owningRelationship elmt:Views__WithBody__tree_om ;
+    sysml:owningMembership elmt:Views__WithBody__tree_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
+    sysml:references elmt:Views__tree ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Views__WithBody__tree___400 ;
+    sysml:ownedMembership elmt:Views__WithBody__tree___400_om ;
+    sysml:ownedRelationship elmt:Views__WithBody__tree_rs, elmt:Views__WithBody__tree___400_om ;
+    sysml:ownedReferenceSubsetting elmt:Views__WithBody__tree_rs ;
+    sysml:ownedSubsetting elmt:Views__WithBody__tree_rs ;
+    sysml:ownedSpecialization elmt:Views__WithBody__tree_rs ;
+    sysx:sourceText "        render tree {\n" ;
+    sysx:sourceTail "        }\n" ;
+    json:ownedRelationship "[{\"@id\":\"Views__WithBody__tree_rs\"},{\"@id\":\"Views__WithBody__tree___400_om\"}]" .
+
+elmt:Views__WithBody__tree_om
+    a sysml:ViewRenderingMembership ;
+    sysml:elementId "Views__WithBody__tree_om" ;
+    sysml:owner elmt:Views__WithBody ;
+    sysml:memberElement elmt:Views__WithBody__tree ;
+    sysml:ownedMemberElement elmt:Views__WithBody__tree ;
+    sysml:ownedRelatedElement elmt:Views__WithBody__tree ;
+    sysml:owningRelatedElement elmt:Views__WithBody ;
+    sysml:membershipOwningNamespace elmt:Views__WithBody ;
+    sysml:ownedRendering elmt:Views__WithBody__tree ;
+    sysml:ownedMemberFeature elmt:Views__WithBody__tree ;
+    sysml:owningType elmt:Views__WithBody .
+
+elmt:Views__WithBody__tree___400
+    a sysml:Documentation ;
+    sysml:qualifiedName "Views::WithBody::tree::@0" ;
+    sysx:sourceLine "12"^^xsd:integer ;
+    sysx:sourceColumn "13"^^xsd:integer ;
+    sysx:sourceEndLine "12"^^xsd:integer ;
+    sysx:sourceEndColumn "42"^^xsd:integer ;
+    sysml:elementId "Views__WithBody__tree___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Views__WithBody__tree ;
+    sysml:owner elmt:Views__WithBody__tree ;
+    sysml:owningRelationship elmt:Views__WithBody__tree___400_om ;
+    sysml:owningMembership elmt:Views__WithBody__tree___400_om ;
+    sysml:body "The tree rendering. " ;
+    sysx:sourceText "            doc /* The tree rendering. */\n" .
+
+elmt:Views__WithBody__tree___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Views__WithBody__tree___400_om" ;
+    sysml:owner elmt:Views__WithBody__tree ;
+    sysml:memberElement elmt:Views__WithBody__tree___400 ;
+    sysml:ownedMemberElement elmt:Views__WithBody__tree___400 ;
+    sysml:ownedRelatedElement elmt:Views__WithBody__tree___400 ;
+    sysml:owningRelatedElement elmt:Views__WithBody__tree ;
+    sysml:membershipOwningNamespace elmt:Views__WithBody__tree .
+
+elmt:Views__tree_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Views__tree_ft0" ;
+    sysml:typedFeature elmt:Views__tree ;
+    sysml:owningFeature elmt:Views__tree ;
+    sysml:specific elmt:Views__tree ;
+    sysml:source elmt:Views__tree ;
+    sysml:owningRelatedElement elmt:Views__tree ;
+    sysml:type elmt:Views__Tree ;
+    sysml:general elmt:Views__Tree ;
+    sysml:target elmt:Views__Tree ;
+    sysml:owner elmt:Views__tree ;
+    sysml:relatedElement elmt:Views__tree, elmt:Views__Tree ;
+    json:relatedElement "[{\"@id\":\"Views__tree\"},{\"@id\":\"Views__Tree\"}]" .
+
+elmt:Views__ByReference__tree_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Views__ByReference__tree_rs" ;
+    sysml:referencingFeature elmt:Views__ByReference__tree ;
+    sysml:subsettingFeature elmt:Views__ByReference__tree ;
+    sysml:owningFeature elmt:Views__ByReference__tree ;
+    sysml:specific elmt:Views__ByReference__tree ;
+    sysml:source elmt:Views__ByReference__tree ;
+    sysml:owningRelatedElement elmt:Views__ByReference__tree ;
+    sysml:referencedFeature elmt:Views__tree ;
+    sysml:subsettedFeature elmt:Views__tree ;
+    sysml:general elmt:Views__tree ;
+    sysml:target elmt:Views__tree ;
+    sysml:owner elmt:Views__ByReference__tree ;
+    sysml:relatedElement elmt:Views__ByReference__tree, elmt:Views__tree ;
+    json:relatedElement "[{\"@id\":\"Views__ByReference__tree\"},{\"@id\":\"Views__tree\"}]" .
+
+elmt:Views__ByDeclaration__t2_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Views__ByDeclaration__t2_ft0" ;
+    sysml:typedFeature elmt:Views__ByDeclaration__t2 ;
+    sysml:owningFeature elmt:Views__ByDeclaration__t2 ;
+    sysml:specific elmt:Views__ByDeclaration__t2 ;
+    sysml:source elmt:Views__ByDeclaration__t2 ;
+    sysml:owningRelatedElement elmt:Views__ByDeclaration__t2 ;
+    sysml:type elmt:Views__Tree ;
+    sysml:general elmt:Views__Tree ;
+    sysml:target elmt:Views__Tree ;
+    sysml:owner elmt:Views__ByDeclaration__t2 ;
+    sysml:relatedElement elmt:Views__ByDeclaration__t2, elmt:Views__Tree ;
+    json:relatedElement "[{\"@id\":\"Views__ByDeclaration__t2\"},{\"@id\":\"Views__Tree\"}]" .
+
+elmt:Views__WithBody__tree_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Views__WithBody__tree_rs" ;
+    sysml:referencingFeature elmt:Views__WithBody__tree ;
+    sysml:subsettingFeature elmt:Views__WithBody__tree ;
+    sysml:owningFeature elmt:Views__WithBody__tree ;
+    sysml:specific elmt:Views__WithBody__tree ;
+    sysml:source elmt:Views__WithBody__tree ;
+    sysml:owningRelatedElement elmt:Views__WithBody__tree ;
+    sysml:referencedFeature elmt:Views__tree ;
+    sysml:subsettedFeature elmt:Views__tree ;
+    sysml:general elmt:Views__tree ;
+    sysml:target elmt:Views__tree ;
+    sysml:owner elmt:Views__WithBody__tree ;
+    sysml:relatedElement elmt:Views__WithBody__tree, elmt:Views__tree ;
+    json:relatedElement "[{\"@id\":\"Views__WithBody__tree\"},{\"@id\":\"Views__tree\"}]" .

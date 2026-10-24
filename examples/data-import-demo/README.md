@@ -197,13 +197,14 @@ error: missing.csv line 2: no element named RoverDemo::rover3: RoverDemo has no 
   the model was left unchanged
 ```
 
-## The stripped-down binary
+## The RE binary
 
-Import is part of the `sysml_prod` build, so every command above runs the
-same with `bin/sysml-prod` in place of `bin/sysml`:
+Import is part of the RE build (`-tags sysml_re`, the Runtime Environment without the
+optional feature groups), so every command above runs the same with the RE `bin/re/sysml` in
+place of the DK `bin/sysml`:
 
 ```bash
-make build-prod                                  # writes bin/sysml-prod
+make build-re                                  # writes bin/re/sysml
 ```
 
 ## What this does not do yet

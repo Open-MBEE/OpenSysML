@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -54,6 +56,40 @@ const RenderStylesCapability = "openSysmlRenderStyles"
 // every port.
 const RenderPortsCapability = "openSysmlRenderPorts"
 
+// RenderLinesCapability is the experimental capability whose value lists the
+// edge routings a render request's `lines` draws the DOT or PlantUML form with,
+// the first the default; a server without it routes every edge as splines.
+const RenderLinesCapability = "openSysmlRenderLines"
+
+// RenderCompartmentsCapability is the experimental capability whose value lists
+// the foldings a render request's `compartments` folds a tree's owned members
+// into compartment rows with, the first the default; a server without it folds
+// only the layout-less members of a positioned tree.
+const RenderCompartmentsCapability = "openSysmlRenderCompartments"
+
+// RenderElementsCapability is the experimental capability whose value lists the
+// optional notation elements a render request's `show` names, in the order the
+// writer defines them, then "all", every one of them.
+const RenderElementsCapability = "openSysmlRenderElements"
+
+// RenderDepthCapability is the experimental capability a server advertises when
+// a render request's depth bounds how many levels are drawn below each exposed element.
+const RenderDepthCapability = "openSysmlRenderDepth"
+
+// RenderIncludeCapability is the capability a server advertises when a render
+// request's `include` draws elements besides the view's own content, marking
+// each node drawn that way `included`.
+const RenderIncludeCapability = "openSysmlRenderInclude"
+
+// renderElementNames lists the optional notation elements, then "all".
+func renderElementNames() []string {
+	names := make([]string, 0, len(view.Elements())+1)
+	for _, element := range view.Elements() {
+		names = append(names, string(element))
+	}
+	return append(names, view.ElementAll)
+}
+
 // RenderOverlaysCapability is the experimental capability whose value lists the
 // overlays a render request's `overlay` draws over a requirement rendering.
 const RenderOverlaysCapability = "openSysmlRenderOverlays"
@@ -63,6 +99,24 @@ func renderOverlayNames() []string {
 	names := make([]string, 0, len(view.Overlays()))
 	for _, overlay := range view.Overlays() {
 		names = append(names, string(overlay))
+	}
+	return names
+}
+
+// renderCompartmentsNames lists the compartment foldings in the order the writer defines them.
+func renderCompartmentsNames() []string {
+	names := make([]string, 0, len(view.CompartmentsChoices()))
+	for _, compartments := range view.CompartmentsChoices() {
+		names = append(names, string(compartments))
+	}
+	return names
+}
+
+// renderLinesNames lists the edge routings in the order the writer defines them.
+func renderLinesNames() []string {
+	names := make([]string, 0, len(view.LinesChoices()))
+	for _, lines := range view.LinesChoices() {
+		names = append(names, string(lines))
 	}
 	return names
 }
@@ -85,55 +139,66 @@ func renderStyleNames() []string {
 	return names
 }
 
-// renderFormNames lists the forms in the order the writer defines them.
+// renderFormNames lists the forms a view is written in, in the order the writer defines them.
 func renderFormNames() []string {
-	names := make([]string, 0, len(view.Forms()))
-	for _, form := range view.Forms() {
+	names := make([]string, 0, len(view.ViewForms()))
+	for _, form := range view.ViewForms() {
 		names = append(names, string(form))
 	}
 	return names
 }
 
-// renderParams asks for one rendering. View names a view the document declares,
+// RenderParams asks for one rendering. View names a view the document declares,
 // or a supported pseudo-view (`#<kind>` or `#<kind>:<fqn>`); empty renders the
 // document's own view. Form is the artifact written, defaulting to the machine
 // form of the rendering's kind. Palette names the palette that fills the nodes by
 // keyword family, in the artifact and as each node's Fill and Border; empty is black and white.
 // Style names the drawing style the DOT and Mermaid forms draw in; empty is the default, pilot.
 // Ports names how much of a part's ports an interconnection or mixed rendering
-// draws; empty is the default, minimal.
-type renderParams struct {
+// draws; empty is the default, minimal. Lines names how the DOT and PlantUML
+// forms route their edges; empty is the default, splines. Show names the
+// optional notation elements drawn besides the ones the view's rendering
+// shows, or "all".
+type RenderParams struct {
 	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
 	View         string                          `json:"view,omitempty"`
 	Form         string                          `json:"form,omitempty"`
 	Palette      string                          `json:"palette,omitempty"`
 	Style        string                          `json:"style,omitempty"`
 	Ports        string                          `json:"ports,omitempty"`
-	Overlay      string                          `json:"overlay,omitempty"`
-	LinkTemplate string                          `json:"linkTemplate,omitempty"`
+	Lines        string                          `json:"lines,omitempty"`
+	Compartments string                          `json:"compartments,omitempty"`
+	Show         []string                        `json:"show,omitempty"`
+	Depth        int                             `json:"depth,omitempty"`
+	// Include names elements drawn besides what the view exposes, each by
+	// qualified name, as if the view exposed them; nothing in the model changes.
+	Include      []string `json:"include,omitempty"`
+	Overlay      string   `json:"overlay,omitempty"`
+	LinkTemplate string   `json:"linkTemplate,omitempty"`
 }
 
-// renderResult is one rendering: the artifact a client draws, plus the nodes and
+// RenderResult is one rendering: the artifact a client draws, plus the nodes and
 // edges it is made of, each located in the source it was declared in. Style is
 // the drawing style the artifact was drawn in, the default named.
-type renderResult struct {
+type RenderResult struct {
 	View     string        `json:"view"`
 	Kind     string        `json:"kind"`
 	Style    string        `json:"style"`
 	Stated   string        `json:"stated"`
+	Shown    []string      `json:"shown"`
 	Form     string        `json:"form"`
 	Artifact string        `json:"artifact"`
-	Nodes    []renderNode  `json:"nodes"`
-	Edges    []renderEdge  `json:"edges"`
-	Rows     []renderRow   `json:"rows,omitempty"`
+	Nodes    []RenderNode  `json:"nodes"`
+	Edges    []RenderEdge  `json:"edges"`
+	Rows     []RenderRow   `json:"rows,omitempty"`
 	Columns  []string      `json:"columns,omitempty"`
 	Notices  []string      `json:"notices"`
-	Canvas   *renderCanvas `json:"canvas,omitempty"`
-	Palette  *editPalette  `json:"palette,omitempty"`
+	Canvas   *RenderCanvas `json:"canvas,omitempty"`
+	Palette  *EditPalette  `json:"palette,omitempty"`
 	Version  int           `json:"version"`
 }
 
-// renderNode is one node of a rendering, with the range of the declaration it
+// RenderNode is one node of a rendering, with the range of the declaration it
 // was built from when there is one, and its position when a Layout gives one.
 // FQN names that declaration the way opensysml/applyModelEdit targets it, and
 // Owners the namespaces declaring it, nearest first, drawn or not. Declaration
@@ -145,7 +210,7 @@ type renderResult struct {
 // `#RRGGBB` colours the palette gives the node, as the DOT, Mermaid, PlantUML and D2 forms draw it; absent
 // for a node left black and white, and for every node when no palette is asked for.
 // Style is the node's own Style annotation, which wins over the palette and the drawing style.
-type renderNode struct {
+type RenderNode struct {
 	ID              string          `json:"id"`
 	Kind            string          `json:"kind"`
 	Name            string          `json:"name"`
@@ -153,73 +218,76 @@ type renderNode struct {
 	Type            string          `json:"type"`
 	Detail          string          `json:"detail"`
 	Parent          string          `json:"parent,omitempty"`
+	Compartment     string          `json:"compartment,omitempty"`
 	Fill            string          `json:"fill,omitempty"`
 	Border          string          `json:"border,omitempty"`
-	Style           *renderStyle    `json:"style,omitempty"`
-	Ports           []renderPort    `json:"ports,omitempty"`
+	Style           *RenderStyle    `json:"style,omitempty"`
+	Ports           []RenderPort    `json:"ports,omitempty"`
 	FQN             string          `json:"fqn,omitempty"`
 	DeclaredHere    bool            `json:"declaredHere,omitempty"`
 	Notation        string          `json:"notation,omitempty"`
-	Owners          []renderOwner   `json:"owners,omitempty"`
+	Owners          []RenderOwner   `json:"owners,omitempty"`
 	Declaration     *protocol.Range `json:"declaration,omitempty"`
-	Origin          *renderOrigin   `json:"origin,omitempty"`
+	Origin          *RenderOrigin   `json:"origin,omitempty"`
 	X               *float64        `json:"x,omitempty"`
 	Y               *float64        `json:"y,omitempty"`
 	Width           *float64        `json:"width,omitempty"`
 	Height          *float64        `json:"height,omitempty"`
 	Collapsed       bool            `json:"collapsed,omitempty"`
 	Verdict         string          `json:"verdict,omitempty"`
+	// Included marks a node the request's `include` drew rather than the view.
+	Included bool `json:"included,omitempty"`
 }
 
-// renderOwner is a namespace declaring a node: its qualified name, and whether
+// RenderOwner is a namespace declaring a node: its qualified name, and whether
 // it is a feature, which an end path chains through with `.` rather than `::`.
-type renderOwner struct {
+type RenderOwner struct {
 	FQN     string `json:"fqn"`
 	Feature bool   `json:"feature"`
 }
 
-type renderPort struct {
+type RenderPort struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	Type      string `json:"type,omitempty"`
 	Direction string `json:"direction,omitempty"`
 }
 
-// renderEdge is one edge of a rendering, located at the connector, transition,
+// RenderEdge is one edge of a rendering, located at the connector, transition,
 // succession or flow it was written as, with the waypoints a Route gives it.
 // FQN and Declaration identify that declaration to a setRoute as a node's do.
 // Style is the edge's own Style annotation.
-type renderEdge struct {
+type RenderEdge struct {
 	From        string          `json:"from"`
 	To          string          `json:"to"`
 	Label       string          `json:"label"`
 	Kind        string          `json:"kind"`
 	FromPort    string          `json:"fromPort,omitempty"`
 	ToPort      string          `json:"toPort,omitempty"`
-	Style       *renderStyle    `json:"style,omitempty"`
+	Style       *RenderStyle    `json:"style,omitempty"`
 	FQN         string          `json:"fqn,omitempty"`
 	Declaration *protocol.Range `json:"declaration,omitempty"`
-	Origin      *renderOrigin   `json:"origin,omitempty"`
-	Route       []renderPoint   `json:"route,omitempty"`
+	Origin      *RenderOrigin   `json:"origin,omitempty"`
+	Route       []RenderPoint   `json:"route,omitempty"`
 }
 
-// renderPoint is one waypoint of an edge, in the canvas's pixels, y down.
-type renderPoint struct {
+// RenderPoint is one waypoint of an edge, in the canvas's pixels, y down.
+type RenderPoint struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 }
 
-// renderCanvas is the drawing surface the view states with a Canvas annotation.
-type renderCanvas struct {
+// RenderCanvas is the drawing surface the view states with a Canvas annotation.
+type RenderCanvas struct {
 	Unit   string   `json:"unit,omitempty"`
 	Width  *float64 `json:"width,omitempty"`
 	Height *float64 `json:"height,omitempty"`
 }
 
-// renderStyle is how a node or edge is drawn where a Style annotation says so:
+// RenderStyle is how a node or edge is drawn where a Style annotation says so:
 // `#RRGGBB` colours of fill, line and text, and the face, size in points and
 // weight of its text; each empty or zero when unstated.
-type renderStyle struct {
+type RenderStyle struct {
 	Fill     string  `json:"fill,omitempty"`
 	Line     string  `json:"line,omitempty"`
 	Text     string  `json:"text,omitempty"`
@@ -229,39 +297,39 @@ type renderStyle struct {
 	Italic   bool    `json:"italic,omitempty"`
 }
 
-// renderRow is one row of a table rendering, located at the element it reports.
-type renderRow struct {
+// RenderRow is one row of a table rendering, located at the element it reports.
+type RenderRow struct {
 	Cells  []string      `json:"cells"`
-	Origin *renderOrigin `json:"origin,omitempty"`
+	Origin *RenderOrigin `json:"origin,omitempty"`
 }
 
-// renderOrigin is where an element was declared: Range is the whole declaration,
+// RenderOrigin is where an element was declared: Range is the whole declaration,
 // SelectionRange the declared identifier alone, which is where a client goes.
 // Digest fingerprints the text the ranges are of; an operation naming a range
 // of another document hands it back, so a range of text since changed is
 // refused rather than misread.
-type renderOrigin struct {
+type RenderOrigin struct {
 	URI            uri.URI         `json:"uri"`
 	Range          protocol.Range  `json:"range"`
 	SelectionRange *protocol.Range `json:"selectionRange,omitempty"`
 	Digest         string          `json:"digest"`
 }
 
-// viewsParams asks for the views a document declares.
-type viewsParams struct {
+// ViewsParams asks for the views a document declares.
+type ViewsParams struct {
 	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
 }
 
-// viewsResult lists a document's views, unsupported ones included so a client
+// ViewsResult lists a document's views, unsupported ones included so a client
 // can say why they cannot be drawn.
-type viewsResult struct {
-	Views       []viewInfo `json:"views"`
+type ViewsResult struct {
+	Views       []ViewInfo `json:"views"`
 	PseudoViews []string   `json:"pseudoViews"`
 }
 
-// viewInfo is one view a document declares. Range is its whole declaration and
+// ViewInfo is one view a document declares. Range is its whole declaration and
 // SelectionRange its name, so a client can tell which view the cursor is in.
-type viewInfo struct {
+type ViewInfo struct {
 	Name           string          `json:"name"`
 	Kind           string          `json:"kind"`
 	Supported      bool            `json:"supported"`
@@ -283,7 +351,7 @@ func (s *Server) renderHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
 	return func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
 		switch req.Method() {
 		case MethodRender:
-			var params renderParams
+			var params RenderParams
 			if err := json.Unmarshal(req.Params(), &params); err != nil {
 				return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
 			}
@@ -293,15 +361,25 @@ func (s *Server) renderHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
 			}
 			return reply(ctx, result, nil)
 		case MethodViews:
-			var params viewsParams
+			var params ViewsParams
 			if err := json.Unmarshal(req.Params(), &params); err != nil {
 				return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
 			}
 			return reply(ctx, s.Views(&params), nil)
+		case MethodRelatedElements:
+			var params RelatedElementsParams
+			if err := json.Unmarshal(req.Params(), &params); err != nil {
+				return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
+			}
+			res, err := s.RelatedElements(&params)
+			if err != nil {
+				return reply(ctx, nil, err)
+			}
+			return reply(ctx, res, nil)
 		case MethodDocuments:
 			return reply(ctx, s.Documents(), nil)
 		case MethodRenderDocument:
-			var params renderDocumentParams
+			var params RenderDocumentParams
 			if err := json.Unmarshal(req.Params(), &params); err != nil {
 				return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
 			}
@@ -317,12 +395,12 @@ func (s *Server) renderHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
 
 // Views answers opensysml/views: the views the document declares, with the
 // rendering kind each states and why an unsupported one cannot be drawn.
-func (s *Server) Views(params *viewsParams) *viewsResult {
+func (s *Server) Views(params *ViewsParams) *ViewsResult {
 	name := uriToName(params.TextDocument.URI)
-	out := &viewsResult{Views: []viewInfo{}, PseudoViews: view.PseudoViewSpecs()}
+	out := &ViewsResult{Views: []ViewInfo{}, PseudoViews: view.PseudoViewSpecs()}
 	views, doc := s.ws.Views(name)
 	for _, info := range views {
-		listed := viewInfo{
+		listed := ViewInfo{
 			Name:      info.Name,
 			Kind:      string(info.Kind),
 			Supported: info.Supported,
@@ -341,15 +419,16 @@ func (s *Server) Views(params *viewsParams) *viewsResult {
 // for, in the form asked for, at the version of the document it was made from:
 // version, node FQNs, ranges and digests all come from the one read of the
 // workspace the rendering was made under.
-func (s *Server) Render(params *renderParams) (*renderResult, error) {
+func (s *Server) Render(params *RenderParams) (*RenderResult, error) {
 	name := uriToName(params.TextDocument.URI)
 	overlay, ok := view.ParseOverlay(params.Overlay)
 	if !ok {
 		return nil, fmt.Errorf("unknown overlay %q; overlay takes %s", params.Overlay, view.OverlayNames())
 	}
 	var (
-		rendering *view.Rendering
-		snapshot  *model.Snapshot
+		rendering  *view.Rendering
+		snapshot   *model.Snapshot
+		firstError *diag.Diagnostic
 	)
 	if err := s.ws.Read(func(r *model.Reading) (err error) {
 		var verdicts view.Verdicts
@@ -360,16 +439,19 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 			}
 			verdicts = rt.RequirementVerdicts()
 		}
-		rendering, snapshot, err = r.RenderOverlaidView(name, params.View, overlay, verdicts)
+		rendering, snapshot, err = r.RenderOverlaidView(name, params.View, overlay, verdicts, params.Depth, params.Include)
 		if err == nil && params.LinkTemplate != "" {
 			r.LinkSites(rendering, snapshot)
+		}
+		if err == nil {
+			firstError = firstBlocking(r.Diagnostics(name))
 		}
 		return err
 	}); err != nil {
 		return nil, err
 	}
 	doc := snapshot.Rendered
-	origin := func(o view.Origin) *renderOrigin { return s.originIn(snapshot, o) }
+	origin := func(o view.Origin) *RenderOrigin { return s.originIn(snapshot, o) }
 	form, err := renderForm(rendering, params.Form)
 	if err != nil {
 		return nil, err
@@ -386,8 +468,23 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	lines, err := renderLines(params.Lines)
+	if err != nil {
+		return nil, err
+	}
+	compartments, err := renderCompartments(params.Compartments)
+	if err != nil {
+		return nil, err
+	}
+	shown, err := renderShown(params.Show)
+	if err != nil {
+		return nil, err
+	}
+	if params.Depth < 0 {
+		return nil, &view.DepthError{Value: fmt.Sprint(params.Depth)}
+	}
 	artifact, err := rendering.WriteWith(form, view.Options{
-		Palette: colors, Style: style, Ports: ports,
+		Palette: colors, Style: style, Ports: ports, Lines: lines, Compartments: compartments, Show: shown,
 		Links: view.Links{Template: params.LinkTemplate, Sites: snapshot.Sites()},
 	})
 	if err != nil {
@@ -397,16 +494,17 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	data := rendering.DataFor(ports)
-	out := &renderResult{
+	data := rendering.DataWith(view.Options{Ports: ports, Compartments: compartments, Show: shown})
+	out := &RenderResult{
 		View:     data.View,
 		Kind:     string(data.Kind),
 		Style:    string(style),
 		Stated:   data.Stated,
+		Shown:    data.Shown,
 		Form:     string(form),
 		Artifact: artifact,
-		Nodes:    make([]renderNode, 0, len(data.Nodes)),
-		Edges:    make([]renderEdge, 0, len(data.Edges)),
+		Nodes:    make([]RenderNode, 0, len(data.Nodes)),
+		Edges:    make([]RenderEdge, 0, len(data.Edges)),
 		Columns:  data.Columns,
 		Notices:  data.Notices,
 		Palette:  palette(data.Kind, source.KindOf(name)),
@@ -416,28 +514,51 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 		out.Notices = []string{}
 	}
 	if c := data.Canvas; c != nil {
-		out.Canvas = &renderCanvas{Unit: c.Unit}
+		out.Canvas = &RenderCanvas{Unit: c.Unit}
 		if c.HasSize {
 			w, h := c.Width, c.Height
 			out.Canvas.Width, out.Canvas.Height = &w, &h
 		}
 	}
-	s.renderNodes(out, snapshot, data.Nodes, fills)
+	s.renderNodes(out, snapshot, data.Nodes, fills, rendering.Included)
 	s.renderEdges(out, snapshot, data.Edges)
 	for _, row := range data.Rows {
-		out.Rows = append(out.Rows, renderRow{Cells: row.Cells, Origin: origin(row.Origin)})
+		out.Rows = append(out.Rows, RenderRow{Cells: row.Cells, Origin: origin(row.Origin)})
+	}
+	if len(out.Nodes) == 0 && len(out.Edges) == 0 && len(out.Rows) == 0 && firstError != nil {
+		out.Notices = append([]string{analysisNotice(name, doc, *firstError)}, out.Notices...)
 	}
 	return out, nil
+}
+
+// firstBlocking is the first error among the diagnostics, nil when none blocks.
+func firstBlocking(diagnostics []diag.Diagnostic) *diag.Diagnostic {
+	for i := range diagnostics {
+		if diagnostics[i].Blocking() {
+			return &diagnostics[i]
+		}
+	}
+	return nil
+}
+
+// analysisNotice is what a rendering with nothing to draw says when the document
+// it was made from has an error: the error itself, in the words the CLI uses,
+// since an element the parser could not read is an element no view exposes.
+// The diagnostic and doc are of one reading, so the position is of the text rendered.
+func analysisNotice(name string, doc *model.Document, d diag.Diagnostic) string {
+	at := spanToRange(doc.Content, d.Span).Start
+	return fmt.Sprintf("%s did not analyse cleanly; nothing was rendered: %d:%d: %s",
+		filepath.Base(name), at.Line+1, at.Character+1, d.Message)
 }
 
 // renderNodes converts the rendering's nodes into out, each coloured as fills
 // says; a node the document declares confines the palette to its notation and
 // is admitted once all are known.
-func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes []view.NodeData, fills map[string]view.Fill) {
+func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes []view.NodeData, fills map[string]view.Fill, included []view.Origin) {
 	name := snapshot.Rendered.Name
 	var declared []declaredNode
 	for _, node := range nodes {
-		n := renderNode{
+		n := RenderNode{
 			ID:              node.ID,
 			Kind:            node.Kind,
 			Name:            node.Name,
@@ -445,13 +566,15 @@ func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes 
 			Type:            node.Type,
 			Detail:          node.Detail,
 			Parent:          node.Parent,
+			Compartment:     node.Compartment,
 			Fill:            fills[node.ID].Fill,
 			Border:          fills[node.ID].Border,
 			Style:           wireStyle(node.Style),
 			Verdict:         node.Verdict,
+			Included:        node.Parent == "" && slices.Contains(included, node.Origin),
 		}
 		for _, port := range node.Ports {
-			n.Ports = append(n.Ports, renderPort{
+			n.Ports = append(n.Ports, RenderPort{
 				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(),
 			})
 		}
@@ -481,8 +604,11 @@ func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes 
 			}
 		}
 		if g := node.Geometry; g != nil {
+			n.Collapsed = g.Collapsed
+		}
+		if g := node.Geometry; g != nil && !g.Unplaced {
 			x, y := g.X, g.Y
-			n.X, n.Y, n.Collapsed = &x, &y, g.Collapsed
+			n.X, n.Y = &x, &y
 			if g.HasSize {
 				w, h := g.Width, g.Height
 				n.Width, n.Height = &w, &h
@@ -497,11 +623,11 @@ func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes 
 
 // renderEdges converts the rendering's edges into out, each with its route and
 // the FQN or declaration range of the element it comes from.
-func (s *Server) renderEdges(out *renderResult, snapshot *model.Snapshot, edges []view.EdgeData) {
+func (s *Server) renderEdges(out *RenderResult, snapshot *model.Snapshot, edges []view.EdgeData) {
 	for _, edge := range edges {
-		e := renderEdge{
+		e := RenderEdge{
 			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
-			Label: edge.Label, Kind: edge.Kind.String(), Style: wireStyle(edge.Style),
+			Label: edge.Text(), Kind: edge.Kind.String(), Style: wireStyle(edge.Style),
 		}
 		declaring := s.declaring(snapshot, edge.Origin)
 		e.Origin = s.originOf(declaring, edge.Origin)
@@ -514,7 +640,7 @@ func (s *Server) renderEdges(out *renderResult, snapshot *model.Snapshot, edges 
 			}
 		}
 		for _, p := range edge.Route {
-			e.Route = append(e.Route, renderPoint{X: p.X, Y: p.Y})
+			e.Route = append(e.Route, RenderPoint{X: p.X, Y: p.Y})
 		}
 		out.Edges = append(out.Edges, e)
 	}
@@ -528,11 +654,11 @@ func renderForm(rendering *view.Rendering, asked string) (view.Form, error) {
 		return rendering.Kind.MachineForm(), nil
 	}
 	form := view.Form(asked)
-	if slices.Contains(view.Forms(), form) {
+	if slices.Contains(view.ViewForms(), form) {
 		return form, nil
 	}
-	names := make([]string, 0, len(view.Forms()))
-	for _, form := range view.Forms() {
+	names := make([]string, 0, len(view.ViewForms()))
+	for _, form := range view.ViewForms() {
 		names = append(names, strconv.Quote(string(form)))
 	}
 	return "", fmt.Errorf("%q is no rendering form: write %s or %s", asked, strings.Join(names[:len(names)-1], ", "), names[len(names)-1])
@@ -571,12 +697,38 @@ func renderPorts(asked string) (view.Ports, error) {
 	return ports, nil
 }
 
+// renderCompartments is the compartment folding a request names, the default
+// when it names none, and an error listing the foldings when it names something else.
+func renderCompartments(asked string) (view.Compartments, error) {
+	compartments, ok := view.ParseCompartments(asked)
+	if !ok {
+		return "", &view.UnknownCompartmentsError{Name: asked}
+	}
+	return compartments, nil
+}
+
+// renderLines is the edge routing a request names, the default when it names
+// none, and an error listing the routings there are when it names something else.
+func renderLines(asked string) (view.Lines, error) {
+	lines, ok := view.ParseLines(asked)
+	if !ok {
+		return "", &view.UnknownLinesError{Name: asked}
+	}
+	return lines, nil
+}
+
+// renderShown is the optional notation elements a request's show names,
+// each of which must be one there is; nil when it names none.
+func renderShown(asked []string) (view.Shown, error) {
+	return view.ShownOf(asked)
+}
+
 // wireStyle is a node's or edge's Style as the wire carries it; nil for none.
-func wireStyle(style *view.Style) *renderStyle {
+func wireStyle(style *view.Style) *RenderStyle {
 	if style == nil {
 		return nil
 	}
-	return &renderStyle{Fill: style.Fill, Line: style.Line, Text: style.Text, Font: style.Font, FontSize: style.FontSize, Bold: style.Bold, Italic: style.Italic}
+	return &RenderStyle{Fill: style.Fill, Line: style.Line, Text: style.Text, Font: style.Font, FontSize: style.FontSize, Bold: style.Bold, Italic: style.Italic}
 }
 
 // declaring is the document an origin is located in, as the rendering read it:
@@ -608,18 +760,18 @@ func (s *Server) targetable(snapshot *model.Snapshot, declaring *model.Document)
 
 // originIn is a core origin as a client navigates to it, placed in the text of
 // the document declaring it as the rendering read it.
-func (s *Server) originIn(snapshot *model.Snapshot, o view.Origin) *renderOrigin {
+func (s *Server) originIn(snapshot *model.Snapshot, o view.Origin) *RenderOrigin {
 	return s.originOf(s.declaring(snapshot, o), o)
 }
 
 // originOf places o in doc, the document declaring it; a standard library
 // declaration is located in its sysml-stdlib document. Nil for no document.
-func (s *Server) originOf(doc *model.Document, o view.Origin) *renderOrigin {
+func (s *Server) originOf(doc *model.Document, o view.Origin) *RenderOrigin {
 	if doc == nil {
 		return nil
 	}
 	pos := positionsOf(doc)
-	out := &renderOrigin{URI: s.documentURI(o.Doc), Range: pos.rangeOf(o.Span), Digest: doc.Digest()}
+	out := &RenderOrigin{URI: s.documentURI(o.Doc), Range: pos.rangeOf(o.Span), Digest: doc.Digest()}
 	if o.Name.Len > 0 {
 		name := pos.rangeOf(o.Name)
 		out.SelectionRange = &name

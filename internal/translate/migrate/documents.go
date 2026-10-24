@@ -175,9 +175,6 @@ func (m *migration) docHost(class *sysmlv1.Element) (host *sysmlv1.Element, ok b
 		if !m.hostsViews(host) {
 			continue
 		}
-		if m.flattened(host) {
-			host = nil
-		}
 		return host, true
 	}
 	return nil, class.Parent == nil
@@ -1318,13 +1315,13 @@ func (c *chain) collectHolders(op string, depth int) {
 }
 
 // diagramOwners names the owners of the current diagrams up to depth, all of
-// them for 0, or says which owner is not migrated. The root Model, which is
-// not written, ends the walk as it does for Ancestors.
+// them for 0, or says which owner is not migrated. The root Model, the model
+// itself rather than an owner within it, ends the walk as it does for Ancestors.
 func (c *chain) diagramOwners(depth int) (names []string, why string) {
 	for _, d := range c.diagrams {
 		owner := diagramOwner(d)
 		for i := 0; owner != nil && (depth == 0 || i < depth); i, owner = i+1, owner.Parent {
-			if isTopLevel(owner) {
+			if isRootModel(owner) {
 				break
 			}
 			if !c.m.written(owner) {

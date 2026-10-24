@@ -5,7 +5,7 @@ stmt action body
   stmt assign flag
     eval literal true -> true
 transition: prep -> work (event: accept Start)
-choice entry at t=0.0: next dispatch change a 1->b, work(entry) (unordered; took dispatch change a 1->b first)
+choice entry at t=0.0: next dispatch change a 1->b, work(entry) (unordered; took dispatch change a 1->b first; independent)
 eval feature flag -> true
 exit: a
 enter: b (entry action)

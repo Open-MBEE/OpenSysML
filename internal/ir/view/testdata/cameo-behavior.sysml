@@ -172,6 +172,7 @@ package NotationViews {
 		metadata Layout about Notation::Alignment::done { x = 350; y = 320; width = 20; height = 20; }
 		metadata Layout about Notation::Alignment::Phasing { x = 520; y = 20; width = 460; height = 360; }
 		metadata Layout about Notation::Alignment::Phasing::start { x = 560; y = 60; width = 15; height = 15; }
+		metadata Note about Notation::Alignment::Phasing::start { text = "phasing begins"; x = 600; y = 40; width = 100; height = 30; }
 		metadata Layout about Notation::Alignment::Phasing::Coarse { x = 540; y = 120; width = 120; height = 60; }
 		metadata Layout about Notation::Alignment::Phasing::which { x = 590; y = 220; width = 20; height = 20; }
 		metadata Layout about Notation::Alignment::Phasing::Fine { x = 700; y = 200; width = 120; height = 60; }

@@ -34,10 +34,17 @@ type MarkdownOptions struct {
 	// Unplaced is where a diagram some Layout positions puts the nodes none
 	// does: left undrawn when empty, or drawn too (a strip below a DOT drawing).
 	Unplaced view.Unplaced
+	// Compartments is how a tree rendering folds a node's owned members into
+	// compartment rows of its box; view.CompartmentsPositioned when empty.
+	Compartments view.Compartments
 
 	// Style is the drawing style every DOT diagram is drawn in, the Pilot look
 	// when empty; the other forms draw one look.
 	Style view.DrawingStyle
+
+	// Show is the optional notation elements every diagram draws besides the
+	// ones its view's rendering shows; nil adds none.
+	Show view.Shown
 
 	// LinkTemplate fills source links for diagram elements.
 	LinkTemplate string
@@ -81,7 +88,7 @@ type MarkdownOptions struct {
 
 // diagramOptions is the part of the options the diagrams are written by.
 func (o MarkdownOptions) diagramOptions() DiagramOptions {
-	return DiagramOptions{Form: o.DiagramForm, WithoutGraphviz: o.WithoutGraphviz, Unplaced: o.Unplaced, Style: o.Style, LinkTemplate: o.LinkTemplate}
+	return DiagramOptions{Form: o.DiagramForm, WithoutGraphviz: o.WithoutGraphviz, Unplaced: o.Unplaced, Compartments: o.Compartments, Style: o.Style, Show: o.Show, LinkTemplate: o.LinkTemplate}
 }
 
 // Markdown renders an evaluated document as deterministic CommonMark: the
@@ -151,12 +158,14 @@ type markdownWriter struct {
 }
 
 // figureOptions is what a diagram's rendering is written with: its stated
-// direction and palette, and the render's placement of unplaced nodes and
-// drawing style.
+// direction and palette, and the render's placement of unplaced nodes,
+// drawing style and notation elements shown.
 func figureOptions(node docir.Content, opts DiagramOptions) view.Options {
 	options := node.Options()
 	options.Unplaced = opts.Unplaced
+	options.Compartments = opts.Compartments
 	options.Style = opts.Style
+	options.Show = options.Show.Union(opts.Show)
 	options.Links = view.Links{Template: opts.LinkTemplate, Sites: node.Sites()}
 	return options
 }

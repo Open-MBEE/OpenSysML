@@ -8,7 +8,7 @@ import (
 
 const maxStatementOrderEvaluations = 1024
 
-var ErrStatementOrderSweepLimit = errors.New("statement-order evaluation limit exceeded")
+var errStatementOrderSweepLimit = errors.New("statement-order evaluation limit exceeded")
 
 type statementOrderSweep struct {
 	prefix       []int
@@ -51,7 +51,7 @@ func (ctx *Context) sweepStatementOrderVariantsNested(eval func(*statementOrderS
 	evaluations := 0
 	for len(pending) > 0 {
 		if evaluations == maxStatementOrderEvaluations {
-			return fmt.Errorf("%w: at most %d statement orders", ErrStatementOrderSweepLimit, maxStatementOrderEvaluations)
+			return fmt.Errorf("%w: at most %d statement orders", errStatementOrderSweepLimit, maxStatementOrderEvaluations)
 		}
 		last := len(pending) - 1
 		prefix := pending[last]

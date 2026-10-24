@@ -1,0 +1,27 @@
+# MicroscopeViews::positioned — tree rendering (render asTreeDiagram)
+# not represented: 7 positioned node(s) and 3 route(s) kept as comments; D2 pins no position, the dot form does
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  specialization: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+}
+# canvas: unit=px w=620 h=240
+# layout: n0 x=260 y=20 w=110 h=33
+# layout: n1 x=480 y=20 w=110 h=33
+# layout: n2 x=20 y=20 w=110 h=33
+# layout: n3 x=20 y=90 w=110 h=33
+# layout: n4 x=20 y=160 w=110 h=33
+# layout: n5 x=160 y=160 w=160 h=33
+# layout: n6 x=400 y=160 w=160 h=33
+# route: n5->n0 240,160 240,110 315,110 315,53
+# route: n6->n0 440,160 440,110 315,110 315,53
+# route: n6->n1 520,160 520,120 535,120 535,53
+n0: "«part def»\nDetector" { class: definition }
+n1: "«part def»\nSensor" { class: definition }
+n2: "«part def»\nInstrument" { class: definition }
+n3: "«part def»\n'Display System'" { class: definition }
+n4: "«part def»\n'Scanning Electron Microscope'" { class: definition }
+n5: "«part def»\n'Secondary Electron Detector'" { class: definition }
+n6: "«part def»\n'Backscattered Electron Detector'" { class: definition }
+n5 -> n0: { class: specialization }
+n6 -> n0: { class: specialization }
+n6 -> n1: { class: specialization }

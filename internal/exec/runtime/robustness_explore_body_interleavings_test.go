@@ -59,7 +59,7 @@ func outcomeValue(t *testing.T, o Outcome, feature string) string {
 	if !ok {
 		t.Fatalf("outcome %s has no %s", o, feature)
 	}
-	return FormatValue(v)
+	return FormatValue(soleElement(v))
 }
 
 func testBodyInterleavingsExplored(t *testing.T) {
@@ -289,8 +289,8 @@ func testBodyInterleavingsCalleeOutputs(t *testing.T) {
 	errs := 0
 	for _, o := range x.Outcomes {
 		if o.Outcome.Err != nil {
-			if !errors.Is(o.Outcome.Err, ErrNodeNotPerformed) {
-				t.Errorf("outcome error %v, want only %v", o.Outcome.Err, ErrNodeNotPerformed)
+			if !errors.Is(o.Outcome.Err, errNodeNotPerformed) {
+				t.Errorf("outcome error %v, want only %v", o.Outcome.Err, errNodeNotPerformed)
 			}
 			errs++
 			continue

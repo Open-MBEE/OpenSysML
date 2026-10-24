@@ -22,6 +22,8 @@ func TestRenderRunExampleMatchesGoldens(t *testing.T) {
 		"example-sequence.text.golden":     filepath.Join(dir, "sequence.txt"),
 		"example-sequence.mermaid.golden":  filepath.Join(dir, "sequence.mmd"),
 		"example-sequence.plantuml.golden": filepath.Join(dir, "sequence.puml"),
+		"example-timeline.svg.golden":      filepath.Join(dir, "timeline.svg"),
+		"example-sequence.svg.golden":      filepath.Join(dir, "sequence.svg"),
 	}
 	args := []string{
 		"-instantiate", "RunTimeline::mission",
@@ -194,7 +196,7 @@ func TestRenderRunRefusesJSONStdoutAndCompareResults(t *testing.T) {
 				"-render-run", "timeline=" + filepath.Join(dir, "timeline.txt"),
 				"-render-run", "sequence=-",
 			},
-			want: "-render-run cannot write to stdout with -json; name a file for the rendering",
+			want: "-render-run cannot write to stdout with -json or a -format document; name a file for the rendering",
 			path: filepath.Join(dir, "timeline.txt"),
 		},
 		{
@@ -230,7 +232,8 @@ func TestRenderRunRejectsUnsupportedModesAndForms(t *testing.T) {
 	}{
 		{"no behavior", []string{"-render-run", "timeline=run.txt"}, "needs -action, -state or -advance"},
 		{"unknown kind", []string{"-state", "Mission::Cycle", "-render-run", "other=run.txt"}, "unknown -render-run kind"},
-		{"unknown extension", []string{"-state", "Mission::Cycle", "-render-run", "timeline=run.svg"}, "use -render-form"},
+		{"unknown extension", []string{"-state", "Mission::Cycle", "-render-run", "timeline=run.png"}, "use -render-form"},
+		{"unknown form names the run forms", []string{"-state", "Mission::Cycle", "-render-run", "timeline=run.svg", "-render-form", "png"}, "svg, svg-animated"},
 		{"dot refused", []string{"-state", "Mission::Cycle", "-render-run", "timeline=run.dot"}, "not written as dot"},
 		{"model rendering conflict", []string{"-state", "Mission::Cycle", "-render-run", "timeline=run.txt", "-render", "Demo::view"}, "cannot be combined with -render"},
 		{"query conflict", []string{"-state", "Mission::Cycle", "-render-run", "timeline=run.txt", "-query", "sysml:name=*"}, "cannot be combined with -query"},
@@ -242,5 +245,43 @@ func TestRenderRunRejectsUnsupportedModesAndForms(t *testing.T) {
 				t.Errorf("status = %d, want 2 with %q:\n%s", got.status, tc.want, got.output())
 			}
 		})
+	}
+}
+
+func TestRenderRunFormSelectsAnimatedSVG(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "examples", "run-timeline", "run-timeline.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	outputs := map[string]string{
+		"example-timeline.svg-animated.golden": filepath.Join(dir, "timeline.svg"),
+		"example-sequence.svg-animated.golden": filepath.Join(dir, "sequence.svg"),
+	}
+	args := []string{
+		"-instantiate", "RunTimeline::mission",
+		"-state", "RunTimeline::Controller::modes RunTimeline::mission.controller",
+		"-state", "RunTimeline::Instrument::modes RunTimeline::mission.instrument",
+		"-advance", "6", "-render-form", "svg-animated",
+		"-render-run", "timeline=" + outputs["example-timeline.svg-animated.golden"],
+		"-render-run", "sequence=" + outputs["example-sequence.svg-animated.golden"],
+	}
+	got := check(t, binary, string(data), args...)
+	if got.status != 0 {
+		t.Fatalf("exit status = %d\n%s", got.status, got.output())
+	}
+	for golden, path := range outputs {
+		actual, err := os.ReadFile(path) // #nosec G304 -- the path is created by the test.
+		if err != nil {
+			t.Fatal(err)
+		}
+		want, err := os.ReadFile(filepath.Join("..", "..", "internal", "exec", "runtrace", "testdata", golden))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(actual) != string(want) {
+			t.Errorf("%s differs from %s", path, golden)
+		}
 	}
 }

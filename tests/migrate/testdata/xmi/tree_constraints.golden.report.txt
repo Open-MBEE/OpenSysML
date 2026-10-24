@@ -7,35 +7,35 @@ Constraint	Tanks::Tank::sealed	_sealedRule	(the UML Expression tree has no v2 fo
 Constraint	Tanks::Tank::unnamed operand	_unnamedRule	(the UML Expression tree has no v2 form: the construct "<InstanceValue>" is outside the translated subset: the instance value names no instance)
 
 ## approximated (7)
-Constraint	Tanks::Diagonal::<Constraint>	_dRule	-> Tanks::Diagonal	(the UML Expression tree is written as a v2 expression)
-Constraint	Tanks::Tank::filling below capacity	_fillingRule	-> Tanks::Tank::'filling below capacity'	(the UML Expression tree is written as a v2 expression)
-Property	Tanks::Tank::label	_label	-> Tanks::Tank::label	(default value not migrated: the UML StringExpression tree has no v2 form: the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset)
-Property	Tanks::Tank::reserve	_reserve	-> Tanks::Tank::reserve	(the UML Expression tree is written as a v2 expression)
-Constraint	Tanks::WithinCapacity::<Constraint>	_wRule	-> Tanks::WithinCapacity	(the UML Expression tree is written as a v2 expression)
-Slot	Tanks::dayTank::<Slot>	_dayLevel	-> Tanks::dayTank::level	(the UML Expression tree is written as a v2 expression)
-Slot	Tanks::dayTank::<Slot>	_dayMode	-> Tanks::dayTank::mode	(the UML Expression tree is written as a v2 expression)
+Constraint	Tanks::Diagonal::<Constraint>	_dRule	-> Model::Tanks::Diagonal	(the UML Expression tree is written as a v2 expression)
+Constraint	Tanks::Tank::filling below capacity	_fillingRule	-> Model::Tanks::Tank::'filling below capacity'	(acts on its owner Tanks::Tank, which it takes as its parameter context, since its this is the def's own occurrence; the constraint def Filling below capacity holds the specification as its result, asserted by the usage typed by it; the UML Expression tree is written as a v2 expression)
+Property	Tanks::Tank::label	_label	-> Model::Tanks::Tank::label	(default value not migrated: the UML StringExpression tree has no v2 form: the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset)
+Property	Tanks::Tank::reserve	_reserve	-> Model::Tanks::Tank::reserve	(the UML Expression tree is written as a v2 expression)
+Constraint	Tanks::WithinCapacity::<Constraint>	_wRule	-> Model::Tanks::WithinCapacity	(the UML Expression tree is written as a v2 expression)
+Slot	Tanks::dayTank::<Slot>	_dayLevel	-> Model::Tanks::dayTank::level	(the UML Expression tree is written as a v2 expression)
+Slot	Tanks::dayTank::<Slot>	_dayMode	-> Model::Tanks::dayTank::mode	(the UML Expression tree is written as a v2 expression)
 
 ## mapped (20)
-Model	Model	_m	(the root model's members are written at the top level)
-Package	Tanks	_pkg	-> Tanks
-«ConstraintBlock» Class	Tanks::Diagonal	_diag	-> Tanks::Diagonal
-Property	Tanks::Diagonal::height	_dHeight	-> Tanks::Diagonal::height
-Property	Tanks::Diagonal::span	_dSpan	-> Tanks::Diagonal::span
-Property	Tanks::Diagonal::width	_dWidth	-> Tanks::Diagonal::width
-Enumeration	Tanks::Mode	_modeEnum	-> Tanks::Mode
-EnumerationLiteral	Tanks::Mode::Filling	_filling	-> Tanks::Mode::Filling
-EnumerationLiteral	Tanks::Mode::Idle	_idle	-> Tanks::Mode::Idle
-«ConstraintBlock» Class	Tanks::Settled	_settled	-> Tanks::Settled
-Property	Tanks::Settled::level	_sLevel	-> Tanks::Settled::level
-«Block» Class	Tanks::Tank	_tank	-> Tanks::Tank
-Property	Tanks::Tank::capacity	_capacity	-> Tanks::Tank::capacity
-Property	Tanks::Tank::level	_level	-> Tanks::Tank::level
-Property	Tanks::Tank::mode	_mode	-> Tanks::Tank::mode
-«ConstraintBlock» Class	Tanks::WithinCapacity	_within	-> Tanks::WithinCapacity
-Property	Tanks::WithinCapacity::capacity	_wCapacity	-> Tanks::WithinCapacity::capacity
-Property	Tanks::WithinCapacity::level	_wLevel	-> Tanks::WithinCapacity::level
-Property	Tanks::WithinCapacity::margin	_wMargin	-> Tanks::WithinCapacity::margin
-InstanceSpecification	Tanks::dayTank	_day	-> Tanks::dayTank
+Model	Model	_m	-> Model	(written as package Model)
+Package	Tanks	_pkg	-> Model::Tanks
+«ConstraintBlock» Class	Tanks::Diagonal	_diag	-> Model::Tanks::Diagonal
+Property	Tanks::Diagonal::height	_dHeight	-> Model::Tanks::Diagonal::height
+Property	Tanks::Diagonal::span	_dSpan	-> Model::Tanks::Diagonal::span
+Property	Tanks::Diagonal::width	_dWidth	-> Model::Tanks::Diagonal::width
+Enumeration	Tanks::Mode	_modeEnum	-> Model::Tanks::Mode
+EnumerationLiteral	Tanks::Mode::Filling	_filling	-> Model::Tanks::Mode::Filling
+EnumerationLiteral	Tanks::Mode::Idle	_idle	-> Model::Tanks::Mode::Idle
+«ConstraintBlock» Class	Tanks::Settled	_settled	-> Model::Tanks::Settled
+Property	Tanks::Settled::level	_sLevel	-> Model::Tanks::Settled::level
+«Block» Class	Tanks::Tank	_tank	-> Model::Tanks::Tank
+Property	Tanks::Tank::capacity	_capacity	-> Model::Tanks::Tank::capacity
+Property	Tanks::Tank::level	_level	-> Model::Tanks::Tank::level
+Property	Tanks::Tank::mode	_mode	-> Model::Tanks::Tank::mode
+«ConstraintBlock» Class	Tanks::WithinCapacity	_within	-> Model::Tanks::WithinCapacity
+Property	Tanks::WithinCapacity::capacity	_wCapacity	-> Model::Tanks::WithinCapacity::capacity
+Property	Tanks::WithinCapacity::level	_wLevel	-> Model::Tanks::WithinCapacity::level
+Property	Tanks::WithinCapacity::margin	_wMargin	-> Model::Tanks::WithinCapacity::margin
+InstanceSpecification	Tanks::dayTank	_day	-> Model::Tanks::dayTank
 
 ## skipped (2)
 Constraint	Tanks::Tank::<Constraint>	_presentRule	(the constraint is notation only: the UML Expression tree spells nothing: no node has a symbol and every operand is an instance value naming no instance)

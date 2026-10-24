@@ -15,7 +15,7 @@ directory here with its own build.
   sdist (`make jupyterlab-build`); see [`docs/guide/12-jupyter.md`](../docs/guide/12-jupyter.md).
 
 <!-- mdk: begin -->
-- **[OpenSysML MDK](mdk/)** — a plugin for Cameo Systems Modeler 2026x Refresh1 (2024x
+- **[OpenSysML MDK for Cameo](mdk/)** — a plugin for Cameo Systems Modeler 2026x Refresh1 (2024x
   Refresh3 as the minimum), positioned as the successor to OpenMBEE's Model Development Kit
   (MDK) for SysML v2 work; it adds an *OpenSysML* group to the browser and diagram context menus with
   Instantiate, Execute action, Execute state machine, Verify requirement/constraint, Evaluate
@@ -31,8 +31,8 @@ directory here with its own build.
 
 - **Eclipse SysON** (`syson/`) — a plugin with a backend adapter and frontend dialog for
   [Eclipse SysON](https://github.com/eclipse-syson/syson), the Sirius Web based graphical SysML
-  v2 workbench. Phases 1–2 provide right-click instantiate, execute, explore or verify operations
-  on OpenSysML through the Java client in
+  v2 workbench. Phases 1–2 provide right-click instantiate, execute, explore, verify, render
+  document or run document query operations on OpenSysML through the Java client in
   [`client/java/opensysml-client`](../client/java/opensysml-client), shows the results in SysON
   with diagnostics attached to the elements they concern. Parser checks on import and structural
   synchronization are designed only; the discovery against release `v2026.9.0`, module layout,
@@ -41,7 +41,7 @@ directory here with its own build.
 
 ## Versions
 
-The editors carry the core version — `0.10.1` now — the same lockstep the clients
+The editors carry the core version — `0.11.0` now — the same lockstep the clients
 follow, even though nothing publishes them. `check_version.py --editors` checks
 every manifest (the three package.json files and their locks, the Cameo and SysON
 poms and their children's `<parent><version>`), and a release fails early when

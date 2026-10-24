@@ -135,7 +135,8 @@ func TestToolProfilesAreSkippedByExactPathOnly(t *testing.T) {
 	wantLine(t, r.Notation, "package Mockups {")
 	wantLine(t, r.Notation, "occurrence def Clock {")
 	wantLine(t, r.Notation, "exhibit state ticking : Ticking;")
-	wantLine(t, r.Notation, "/* applied stereotype «Frame»: title = Clock */")
+	wantLine(t, r.Notation, `stereotype = "Frame";`)
+	wantLine(t, r.Notation, `tags = "title = Clock";`)
 	wantLine(t, r.Notation, "part def Gauge {")
 	wantLine(t, r.Notation, "@Simulation::Configuration;")
 	wantNoLine(t, r.Notation, "Pump customization")
@@ -165,8 +166,8 @@ func TestToolProfilesAreSkippedByExactPathOnly(t *testing.T) {
 
 // An element-valued tag naming a definition is written as the element cast to
 // its metaclass — a block to SysML::PartDefinition, an instance of a block,
-// written `individual part def`, to the same, and an instance of an interface
-// block, written a bare `individual def`, to SysML::OccurrenceDefinition.
+// written as a part usage, to SysML::PartUsage, and an instance of an
+// interface block, written as a port usage, to SysML::PortUsage.
 func TestReferenceTagToDefinitionIsCastToItsMetaclass(t *testing.T) {
 	const profile = `xmlns:Tags="http://example.com/schemas/Tags.xmi"`
 	r := migrateDocument(t, `
@@ -197,10 +198,10 @@ func TestReferenceTagToDefinitionIsCastToItsMetaclass(t *testing.T) {
 		`<sysml:Block xmi:id="_a_car" base_Class="_car"/><sysml:Block xmi:id="_a_fleet" base_Class="_fleet"/>
   <sysml:InterfaceBlock xmi:id="_a_sock" base_Class="_sock"/>
   <Tags:Tracked `+profile+` xmi:id="_a_tr" base_Class="_fleet" sample="_mine" kind="_car" plug="_p1"/>`)
-	wantLine(t, r.Notation, "individual part def mine :> Car;")
-	wantLine(t, r.Notation, "individual def p1 :> Socket;")
-	wantLine(t, r.Notation, "sample = mine meta SysML::PartDefinition;")
+	wantLine(t, r.Notation, "part mine : Car;")
+	wantLine(t, r.Notation, "port p1 : Socket;")
+	wantLine(t, r.Notation, "sample = mine meta SysML::PartUsage;")
 	wantLine(t, r.Notation, "kind = Car meta SysML::PartDefinition;")
-	wantLine(t, r.Notation, "plug = p1 meta SysML::OccurrenceDefinition;")
+	wantLine(t, r.Notation, "plug = p1 meta SysML::PortUsage;")
 	wantClean(t, "tags.sysml", r)
 }

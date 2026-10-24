@@ -110,6 +110,16 @@ type StateGraph struct {
 	// it, absent for one declared directly in the machine.
 	TerminateOwner map[*ast.Usage]*ast.StateNode
 
+	// TerminateBehaviors: terminate action usage naming an occurrence (`action
+	// halt terminate worker;`) -> the behavior a transition ending at the usage
+	// performs in place of ending the machine: the usage's body, then the terminate.
+	TerminateBehaviors map[*ast.Usage]StateBehavior
+
+	// TerminateCompletion: terminate action usage naming an occurrence -> the
+	// completion vertex of the body declaring it, which a transition ending at
+	// the usage enters once its behavior has run, as one to `done` does.
+	TerminateCompletion map[*ast.Usage]*ast.StateNode
+
 	// Transitions: source node (StateNode or PseudostateNode) → list of transitions
 	Transitions map[ast.Node][]*Transition
 
@@ -117,8 +127,12 @@ type StateGraph struct {
 	// behaviorFootprints: entry, do or exit behavior (its Node) → what running it
 	// touches. Both are computed on the first call of their accessors.
 	transitionFootprints map[*Transition]Footprint
+	branchFootprints     map[*Transition]Footprint
 	behaviorFootprints   map[ast.Node]Footprint
 	footprintsOnce       sync.Once
+	effectFootprintsMu   sync.Mutex
+	branchFromMu         sync.Mutex
+	branchFrom           map[branchKey]Footprint
 	// transitionSteps: transition out of a state → its step short of do behaviors.
 	transitionSteps map[*Transition]TransitionStep
 	stepsOnce       sync.Once
@@ -130,7 +144,7 @@ type StateGraph struct {
 	// selection of an active composite owner.
 	CompositeStateOrder []*ast.StateNode
 
-	// RegionInitials: region → initial state
+	// RegionInitials: region → initial state, nil when default entry leaves it inactive.
 	RegionInitials map[*ast.StateRegion]*ast.StateNode
 
 	// ParentState: child → parent
@@ -163,8 +177,7 @@ type StateGraph struct {
 	// ForkPlans: fork → where its branches lead, checked when the graph is built.
 	ForkPlans map[*ast.PseudostateNode]*ForkPlan
 
-	// ForkEntered: region → the forks whose branches enter it, in declaration
-	// order. A region only forks enter needs no entry transition of its own.
+	// ForkEntered: region → the forks whose branches enter it, in declaration order.
 	ForkEntered map[*ast.StateRegion][]*ast.PseudostateNode
 
 	// JoinPlans: join → where its segments come from, checked when the graph is built.
@@ -334,7 +347,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	graph.recordRunToCompletion(nil, body, DescribeMember(stateMachineDecl))
 
 	graph.Connections = lowerConnections(members, OwnerBehavior, scope)
-	graph.Attributes = keptAttributes(lowerStateAttributes(graph, inherited), lowerStateAttributes(graph, ownMembers(members, scope)))
+	graph.Attributes = graph.keptAttributes(lowerStateAttributes(graph, inherited), lowerStateAttributes(graph, ownMembers(members, scope)))
 	parallelMachine := stateMachineIsParallel(stateMachineDecl)
 	for _, owner := range owners {
 		parallelMachine = parallelMachine || stateMachineIsParallel(owner)
@@ -342,7 +355,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	graph.Machine = graph.machineState(stateMachineDecl, inherited, members, scope)
 
 	for _, group := range groupMembers(body) {
-		if err := collectVertices(graph, group.nodes, group.scope, parallelMachine); err != nil {
+		if err := collectVertices(graph, group.nodes, group.scope, group.owner, parallelMachine); err != nil {
 			return nil, err
 		}
 	}
@@ -410,9 +423,8 @@ func (g *StateGraph) collectRegions(body []inheritedMember) {
 	}
 }
 
-// recordRegionInitials records where every region starts and refuses one that
-// nothing starts: a top-level region needs an entry transition, a composite
-// state's region an entry transition or a fork branch into it.
+// recordRegionInitials records where every region starts, refusing only a
+// top-level region without an entry transition.
 func (g *StateGraph) recordRegionInitials() error {
 	for _, region := range g.TopRegions {
 		g.RegionInitials[region] = g.UnconditionalStart(region)
@@ -423,14 +435,10 @@ func (g *StateGraph) recordRegionInitials() error {
 	for _, state := range g.CompositeStateOrder {
 		for _, region := range g.CompositeStates[state] {
 			g.RegionInitials[region] = g.UnconditionalStart(region)
-			if len(g.EntryTransitions[region]) > 0 || g.stateless(region) {
-				continue
-			}
-			if !g.ForkStarted(region) {
-				return g.noInitialState(region, fmt.Sprintf("region %s in state %s", region.Name, state.Name))
-			}
-			if err := g.checkForkOnlyRegion(state, region); err != nil {
-				return err
+			if len(g.EntryTransitions[region]) == 0 && !g.stateless(region) {
+				if wrapper := g.RegionState[region]; wrapper != nil && g.parallelState[wrapper] {
+					return g.noInitialState(region, "")
+				}
 			}
 		}
 	}
@@ -617,7 +625,7 @@ func stateNodeFromUsage(graph *StateGraph, usage *ast.Usage, scope *symbols.Scop
 	}
 
 	replaced := redeclare(state, base.node, own.node)
-	if attrs := keptAttributes(base.attrs, own.attrs); len(attrs) > 0 {
+	if attrs := graph.keptAttributes(base.attrs, own.attrs); len(attrs) > 0 {
 		graph.StateAttributes[state] = attrs
 	}
 	graph.bodyOf[state] = body
@@ -662,6 +670,8 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		PseudostateOwner:     make(map[*ast.PseudostateNode]*ast.StateNode),
 		PseudostateRegion:    make(map[*ast.PseudostateNode]*ast.StateRegion),
 		TerminateOwner:       make(map[*ast.Usage]*ast.StateNode),
+		TerminateBehaviors:   make(map[*ast.Usage]StateBehavior),
+		TerminateCompletion:  make(map[*ast.Usage]*ast.StateNode),
 		Transitions:          make(map[ast.Node][]*Transition),
 		CompositeStates:      make(map[*ast.StateNode][]*ast.StateRegion),
 		CompositeStateOrder:  make([]*ast.StateNode, 0),
@@ -699,6 +709,15 @@ func (g *StateGraph) DeclOf(state *ast.StateNode) ast.Node {
 		return decl
 	}
 	return state
+}
+
+// RegionDeclOf is the declaration region was built from: the direct substate of a
+// parallel state or machine that supplies its body, else the region itself.
+func (g *StateGraph) RegionDeclOf(region *ast.StateRegion) ast.Node {
+	if decl := g.regionDecl[region]; decl != nil {
+		return decl
+	}
+	return region
 }
 
 // Completes reports whether entering state completes the region it belongs to:
@@ -856,7 +875,7 @@ func machineMembers(stateMachineDecl ast.Node) ([]ast.Node, error) {
 
 // collectVertices records every state and pseudostate the machine body declares,
 // which are the vertices its transitions may name (UML 2.5.1 §14.2.3.9).
-func collectVertices(graph *StateGraph, members []ast.Node, scope *symbols.Scope, parallel bool) error {
+func collectVertices(graph *StateGraph, members []ast.Node, scope *symbols.Scope, body ast.Node, parallel bool) error {
 	if parallel {
 		regions, err := graph.parallelRegions(ownMembers(members, scope), nil)
 		if err != nil {
@@ -886,7 +905,7 @@ func collectVertices(graph *StateGraph, members []ast.Node, scope *symbols.Scope
 			}
 		case *ast.Usage:
 			if IsTerminateUsage(n) {
-				graph.addTerminate(n, scope, nil)
+				graph.addTerminate(n, scope, nil, body)
 			}
 			// `state <name> { … }`, parsed as a usage rather than a state node.
 			if n.Kind == ast.UsageState {
@@ -986,7 +1005,7 @@ func collectStateContents(graph *StateGraph, state *ast.StateNode, scope *symbol
 			graph.PseudostateOwner[child] = state
 		case *ast.Usage:
 			if IsTerminateUsage(child) {
-				graph.addTerminate(child, scope, state)
+				graph.addTerminate(child, scope, state, state)
 			}
 		}
 	}
@@ -1001,6 +1020,18 @@ func collectStateContents(graph *StateGraph, state *ast.StateNode, scope *symbol
 		}
 	}
 	return nil
+}
+
+// recordCompositeState registers a state's regions while retaining their
+// declaration order for deterministic consumers.
+func (g *StateGraph) recordCompositeState(state *ast.StateNode) {
+	if _, exists := g.CompositeStates[state]; !exists {
+		g.CompositeStateOrder = append(g.CompositeStateOrder, state)
+	}
+	g.CompositeStates[state] = state.Regions
+	for _, region := range state.Regions {
+		g.RegionOwner[region] = state
+	}
 }
 
 // stateless reports whether region is stood for by a state declaring no substates
@@ -1025,18 +1056,6 @@ func (g *StateGraph) stateless(region *ast.StateRegion) bool {
 		}
 	}
 	return true
-}
-
-// recordCompositeState registers a state's regions while retaining their
-// declaration order for deterministic consumers.
-func (g *StateGraph) recordCompositeState(state *ast.StateNode) {
-	if _, exists := g.CompositeStates[state]; !exists {
-		g.CompositeStateOrder = append(g.CompositeStateOrder, state)
-	}
-	g.CompositeStates[state] = state.Regions
-	for _, region := range state.Regions {
-		g.RegionOwner[region] = state
-	}
 }
 
 // stateScope returns the scope state's body was declared in, given the scope of
@@ -1084,7 +1103,7 @@ func collectRegionStates(graph *StateGraph, region *ast.StateRegion, parent *ast
 				continue
 			}
 			if IsTerminateUsage(n) {
-				graph.addTerminate(n, scope, parent)
+				graph.addTerminate(n, scope, parent, region)
 			}
 			if n.Kind != ast.UsageState {
 				continue
@@ -1142,15 +1161,16 @@ func isParallelRegionMember(member ast.Node) bool {
 // parallelOwnedMember reports whether a parallel state may own a member itself
 // rather than contribute it to a region: its behaviors, the
 // pseudostates its regions branch through, the edges between them, a metadata
-// usage annotating it, and a definition written in its body, which declares a
-// type rather than a region.
+// usage or prefix annotation annotating it, and a definition written in its
+// body, which declares a type rather than a region.
 func parallelOwnedMember(member ast.Node) bool {
 	switch n := member.(type) {
 	case *ast.Comment, *ast.Documentation, *ast.TextualRepresentation,
+		*ast.PrefixMetadata,
 		*ast.EntryMember, *ast.DoMember, *ast.ExitMember,
 		*ast.PseudostateNode,
 		*ast.SuccessionEdge, *ast.TransitionEdge, *ast.TransitionMember,
-		*ast.PrefixMetadata, *ast.Definition, *ast.Package, *ast.ErrorNode:
+		*ast.Definition, *ast.Package, *ast.ErrorNode:
 		return true
 	case *ast.Usage:
 		switch n.Kind {
@@ -1327,7 +1347,7 @@ func (g *StateGraph) regionScope(scope *symbols.Scope, region *ast.StateRegion) 
 	if inherited := g.regionScopeOf[region]; inherited != nil {
 		return inherited
 	}
-	if decl := g.regionDecl[region]; decl != nil {
+	if decl := g.RegionDeclOf(region); decl != region {
 		return childScope(scope, decl)
 	}
 	return childScope(scope, region)
@@ -1398,8 +1418,10 @@ func IsTerminateUsage(node ast.Node) bool {
 }
 
 // addTerminate records a terminate action usage declared in scope as a vertex of
-// the graph, owned by the composite state declaring it, nil for the machine.
-func (g *StateGraph) addTerminate(usage *ast.Usage, scope *symbols.Scope, owner *ast.StateNode) {
+// the graph, owned by the composite state declaring it, nil for the machine; body
+// is the machine body, state or region it is written in, whose completion a
+// usage naming an occurrence hands the transition on to.
+func (g *StateGraph) addTerminate(usage *ast.Usage, scope *symbols.Scope, owner *ast.StateNode, body ast.Node) {
 	g.Terminates = append(g.Terminates, usage)
 	g.putCopiedVertex(usage)
 	if g.declaredIn[usage] == nil {
@@ -1407,6 +1429,11 @@ func (g *StateGraph) addTerminate(usage *ast.Usage, scope *symbols.Scope, owner 
 	}
 	if owner != nil {
 		g.TerminateOwner[usage] = owner
+	}
+	if TerminatedOccurrence(usage) != nil {
+		declared := g.declaredIn[usage]
+		g.TerminateBehaviors[usage] = terminateBehavior(usage, declared, owner, g.resolver)
+		g.TerminateCompletion[usage] = g.completion(body, declared, usage.Span())
 	}
 }
 
@@ -1647,7 +1674,7 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 		return nil, err
 	}
 	via, viaSelf := ViaPortPath(member.Via)
-	trigger := classifyTrigger(member.Trigger)
+	trigger := classifyTrigger(member.Trigger, bodyScope, graph.resolver)
 	trans := &Transition{
 		Name:        member.Name,
 		Decl:        member,
@@ -1747,7 +1774,7 @@ func AcceptedNames(trigger ast.Node) []string {
 //
 // Payload typing and resolution come from the AST and resolver; the `when`
 // spelling retains its injected-signal interpretation.
-func classifyTrigger(trigger ast.Node) ast.Node {
+func classifyTrigger(trigger ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) ast.Node {
 	if trigger == nil {
 		return nil
 	}
@@ -1764,7 +1791,7 @@ func classifyTrigger(trigger ast.Node) ast.Node {
 	// parameter was parsed with (`accept when x > 1`).
 	if payload, ok := trigger.(*ast.Usage); ok {
 		if payload.Value != nil {
-			return classifyTrigger(payload.Value)
+			return classifyTrigger(payloadTrigger(payload.Value, scope, resolver), scope, resolver)
 		}
 		return &ast.AcceptEvent{
 			SignalType: typingTarget(payload),
@@ -1791,6 +1818,72 @@ func classifyTrigger(trigger ast.Node) ast.Node {
 	return &ast.ChangeEvent{
 		Condition: trigger,
 	}
+}
+
+// payloadTrigger returns the event an accept payload's value states. The
+// `when`, `at` and `after` forms are already events; a value invoking the
+// library's TriggerWhen, TriggerAt or TriggerAfter is the same event written in
+// full (SysML v2 §7.17.8: `accept : ChangeSignal = TriggerWhen({ c })`).
+func payloadTrigger(value ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) ast.Node {
+	inv, ok := value.(*ast.InvocationExpr)
+	if !ok || inv.Operand != nil || inv.Type == nil || len(inv.Args) != 1 || len(inv.NamedArgs) != 0 {
+		return value
+	}
+	arg := inv.Args[0]
+	switch libraryTrigger(inv.Type, scope, resolver) {
+	case "TriggerWhen":
+		// The condition is a bool parameter: a parameterless body expression
+		// states it directly.
+		if body, isBody := arg.(*ast.BodyExpr); isBody && len(body.Params) == 0 && len(body.Members) == 0 && body.Result != nil {
+			arg = body.Result
+		}
+		evt := &ast.ChangeEvent{Condition: arg}
+		evt.NodeSpan = inv.Span()
+		return evt
+	case "TriggerAt":
+		evt := &ast.TimeEvent{Duration: arg, Absolute: true}
+		evt.NodeSpan = inv.Span()
+		return evt
+	case "TriggerAfter":
+		evt := &ast.TimeEvent{Duration: arg}
+		evt.NodeSpan = inv.Span()
+		return evt
+	}
+	return value
+}
+
+// libraryTrigger names the Triggers library function an invocation's type
+// denotes from scope, "" for any other function: the one the resolver reaches
+// where there is one, else the spelling (`TriggerWhen`, `Triggers::TriggerWhen`)
+// taken at its word, as a model may shadow these names with functions of its own.
+func libraryTrigger(qn *ast.QualifiedName, scope *symbols.Scope, resolver *resolve.Resolver) string {
+	parts := qn.Parts
+	if len(parts) == 0 {
+		return ""
+	}
+	name := parts[len(parts)-1].Text
+	switch name {
+	case "TriggerWhen", "TriggerAt", "TriggerAfter":
+	default:
+		return ""
+	}
+	if resolver == nil || scope == nil {
+		if len(parts) == 1 || len(parts) == 2 && parts[0].Text == "Triggers" {
+			return name
+		}
+		return ""
+	}
+	sym, ok := resolver.ResolveQualified(scope, qn)
+	if !ok || sym == nil {
+		return ""
+	}
+	if target, isAlias := resolver.ResolveAliasTarget(sym); isAlias && target != nil {
+		sym = target
+	}
+	if !resolver.Index().IsLibraryDocument(sym.DocName) || symbols.FQNOf(sym) != "Triggers::"+name {
+		return ""
+	}
+	return name
 }
 
 // collectStateTransitions collects the transitions a state usage carries: those

@@ -23,7 +23,7 @@ import (
 	_ "github.com/Open-MBEE/OpenSysML/api/proto" // registers the schema this runner reflects over
 	"google.golang.org/protobuf/reflect/protoregistry"
 
-	"github.com/Open-MBEE/OpenSysML/tools/oracle/junit"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/report/junit"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -37,12 +37,13 @@ const (
 	testWithholdCapabilitiesEnv = "OPENSYSML_TEST_WITHHOLD_CAPABILITIES"
 )
 
-var knownProtocols = map[string]struct{}{"grpc": {}, "connect": {}, "connect-json": {}, "pkg": {}, "pkg-connect": {}}
+var knownProtocols = map[string]struct{}{"grpc": {}, "connect": {}, "connect-json": {}, "pkg": {}, "pkg-connect": {}, "mcp": {}}
 
 func main() {
 	var (
 		dir       = flag.String("dir", "", "conformance suite directory (scenarios/ and fixtures/; default: <repo>/conformance)")
 		binary    = flag.String("binary", "", "sysml-grpc binary to test; built from <repo>/cmd/sysml-grpc when empty")
+		mcpBinary = flag.String("mcp-binary", "", "sysml-mcp binary the mcp protocol tests; built from <repo>/cmd/sysml-mcp when empty")
 		repoRoot  = flag.String("repo", "", "repository root to build the service from (default: the product module root above the working directory)")
 		report    = flag.String("report", "", "write the machine-readable summary to this file (- for stdout)")
 		junitOut  = flag.String("junit", "", "also write the results as JUnit XML to this file")
@@ -70,6 +71,7 @@ func main() {
 	opts := options{
 		dir:       *dir,
 		binary:    repo.Resolve(root, *binary),
+		mcpBinary: repo.Resolve(root, *mcpBinary),
 		repoRoot:  root,
 		report:    *report,
 		junit:     repo.Resolve(root, *junitOut),
@@ -90,6 +92,7 @@ func main() {
 type options struct {
 	dir       string
 	binary    string
+	mcpBinary string
 	repoRoot  string
 	report    string
 	junit     string
@@ -102,32 +105,10 @@ type options struct {
 }
 
 func runSuite(opts options) error {
-	protocols, err := parseProtocols(opts.protocols)
+	plan, err := planSuite(opts)
 	if err != nil {
 		return err
 	}
-	if opts.transport != transportConnect && opts.transport != transportGRPC {
-		return fmt.Errorf("unknown -transport %q; want connect or grpc", opts.transport)
-	}
-	if err := validateProtocols(protocols, opts.transport); err != nil {
-		return err
-	}
-	unavailable, err := parseCapabilities(opts.withhold)
-	if err != nil {
-		return err
-	}
-	if len(unavailable) > 0 && slices.Contains(protocols, "pkg") {
-		return errors.New("-withhold-capabilities cannot test the in-process pkg protocol")
-	}
-	var filter *regexp.Regexp
-	if opts.run != "" {
-		compiled, err := regexp.Compile(opts.run)
-		if err != nil {
-			return fmt.Errorf("bad -run pattern: %w", err)
-		}
-		filter = compiled
-	}
-
 	scenarios, err := loadScenarios(filepath.Join(opts.dir, "scenarios"))
 	if err != nil {
 		return err
@@ -141,81 +122,197 @@ func runSuite(opts options) error {
 		return err
 	}
 	defer os.RemoveAll(workDir)
-
-	if opts.binary == "" {
-		built, err := buildService(opts.repoRoot, workDir)
-		if err != nil {
-			return err
-		}
-		opts.binary = built
+	if err := buildMissingBinaries(&opts, plan, workDir); err != nil {
+		return err
 	}
 	configurations := []configuration{{name: "default"}}
-	if len(unavailable) > 0 {
+	if len(plan.unavailable) > 0 {
 		configurations = append(configurations, configuration{
-			name:        "without-" + strings.Join(unavailable, "-"),
-			unavailable: unavailable,
+			name:        "without-" + strings.Join(plan.unavailable, "-"),
+			unavailable: plan.unavailable,
 		})
 	}
 
-	reportData := &Report{Service: opts.binary}
+	reportData := &Report{}
+	if plan.needsService {
+		reportData.Service = opts.binary
+	}
+	if plan.testsMCP {
+		reportData.MCPServer = opts.mcpBinary
+	}
 	defaultCapabilities := map[string][]string{}
 	for _, config := range configurations {
 		fmt.Fprintf(os.Stdout, "\nConfiguration %s\n", config.name)
-		configReport := &ConfigurationSummary{
-			Name:                    config.name,
-			UnavailableCapabilities: config.unavailable,
-		}
-		err := func() error {
-			logName := strings.ReplaceAll(config.name, string(os.PathSeparator), "-") + ".log"
-			svc, err := startServiceWithCapabilities(ctx, opts.binary, filepath.Join(workDir, logName),
-				len(scenarios)+16, opts.transport, config.unavailable)
-			if err != nil {
-				return err
-			}
-			defer svc.stop()
-
-			for _, protocol := range protocols {
-				c, err := svc.client(protocol)
-				if err != nil {
-					return err
-				}
-				runner := &runner{
-					service: svc, client: c,
-					fixtures: filepath.Join(opts.dir, "fixtures"),
-					models:   map[string]string{}, verbose: opts.verbose,
-					omitHandshakeScenarios: len(config.unavailable) > 0,
-					out:                    os.Stdout, scenarioLog: os.Stdout,
-				}
-				if err := runner.readCapabilities(ctx); err != nil {
-					c.close()
-					return err
-				}
-				if len(config.unavailable) == 0 {
-					defaultCapabilities[protocol] = append([]string(nil), runner.capabilities...)
-				} else if err := validateWithheldCapabilities(
-					defaultCapabilities[protocol], runner.capabilities, config.unavailable); err != nil {
-					c.close()
-					return fmt.Errorf("%s: %w", protocol, err)
-				}
-				summary := runner.runAll(ctx, scenarios, filter)
-				c.close()
-				configReport.Protocols = append(configReport.Protocols, summary)
-				configReport.add(summary)
-				if len(config.unavailable) == 0 && summary.Skipped > 0 && !opts.allowSkip {
-					configReport.unacceptedSkip = true
-				}
-				if err := validateFallbackExecution(summary, config.unavailable, opts.allowSkip); err != nil {
-					return fmt.Errorf("%s: %w", protocol, err)
-				}
-			}
-			return nil
-		}()
+		configReport, err := runConfiguration(ctx, opts, plan, config, scenarios, workDir, defaultCapabilities)
 		if err != nil {
 			return err
 		}
 		reportData.Configurations = append(reportData.Configurations, configReport)
 		reportData.add(configReport)
 	}
+	return finishSuite(opts, reportData)
+}
+
+// suitePlan is what the options ask the suite to run: the protocols, the
+// capabilities to withhold in a second configuration, and the scenario filter.
+type suitePlan struct {
+	protocols   []string
+	unavailable []string
+	filter      *regexp.Regexp
+	// The mcp protocol runs its own server; the service is started only for
+	// the protocols that talk to it.
+	needsService bool
+	testsMCP     bool
+}
+
+// planSuite validates the options against each other and reads the plan from them.
+func planSuite(opts options) (suitePlan, error) {
+	var plan suitePlan
+	protocols, err := parseProtocols(opts.protocols)
+	if err != nil {
+		return plan, err
+	}
+	if opts.transport != transportConnect && opts.transport != transportGRPC {
+		return plan, fmt.Errorf("unknown -transport %q; want connect or grpc", opts.transport)
+	}
+	if err := validateProtocols(protocols, opts.transport); err != nil {
+		return plan, err
+	}
+	unavailable, err := parseCapabilities(opts.withhold)
+	if err != nil {
+		return plan, err
+	}
+	if len(unavailable) > 0 && slices.Contains(protocols, "pkg") {
+		return plan, errors.New("-withhold-capabilities cannot test the in-process pkg protocol")
+	}
+	if opts.run != "" {
+		compiled, err := regexp.Compile(opts.run)
+		if err != nil {
+			return plan, fmt.Errorf("bad -run pattern: %w", err)
+		}
+		plan.filter = compiled
+	}
+	plan.protocols, plan.unavailable = protocols, unavailable
+	plan.needsService = slices.ContainsFunc(protocols, func(protocol string) bool { return protocol != "mcp" })
+	plan.testsMCP = slices.Contains(protocols, "mcp")
+	return plan, nil
+}
+
+// buildMissingBinaries builds the service and MCP server the plan needs when the
+// options name no binary for them.
+func buildMissingBinaries(opts *options, plan suitePlan, workDir string) error {
+	if plan.needsService && opts.binary == "" {
+		built, err := buildCommand(opts.repoRoot, workDir, "sysml-grpc")
+		if err != nil {
+			return err
+		}
+		opts.binary = built
+	}
+	if plan.testsMCP && opts.mcpBinary == "" {
+		built, err := buildCommand(opts.repoRoot, workDir, "sysml-mcp")
+		if err != nil {
+			return err
+		}
+		opts.mcpBinary = built
+	}
+	return nil
+}
+
+// runConfiguration runs every protocol against one capability configuration; the
+// default configuration records the capabilities a withholding one is checked against.
+func runConfiguration(ctx context.Context, opts options, plan suitePlan, config configuration, scenarios []*Scenario,
+	workDir string, defaultCapabilities map[string][]string) (*ConfigurationSummary, error) {
+	configReport := &ConfigurationSummary{
+		Name:                    config.name,
+		UnavailableCapabilities: config.unavailable,
+	}
+	logName := strings.ReplaceAll(config.name, string(os.PathSeparator), "-")
+	var svc *service
+	if plan.needsService {
+		started, err := startServiceWithCapabilities(ctx, opts.binary, filepath.Join(workDir, logName+".log"),
+			len(scenarios)+16, opts.transport, config.unavailable)
+		if err != nil {
+			return nil, err
+		}
+		defer started.stop()
+		svc = started
+	}
+
+	run := &configurationRun{opts: opts, plan: plan, config: config, svc: svc, scenarios: scenarios,
+		mcpLog: filepath.Join(workDir, logName+"-mcp.log"), defaultCapabilities: defaultCapabilities}
+	for _, protocol := range plan.protocols {
+		summary, err := run.protocol(ctx, protocol)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", protocol, err)
+		}
+		configReport.Protocols = append(configReport.Protocols, summary)
+		configReport.add(summary)
+		if len(config.unavailable) == 0 && summary.Skipped > 0 && !opts.allowSkip {
+			configReport.unacceptedSkip = true
+		}
+		if err := validateFallbackExecution(summary, config.unavailable, opts.allowSkip); err != nil {
+			return nil, fmt.Errorf("%s: %w", protocol, err)
+		}
+	}
+	return configReport, nil
+}
+
+// configurationRun is one capability configuration under test: the service
+// started for it and what every protocol's run shares.
+type configurationRun struct {
+	opts                options
+	plan                suitePlan
+	config              configuration
+	svc                 *service
+	scenarios           []*Scenario
+	mcpLog              string
+	defaultCapabilities map[string][]string
+}
+
+// protocol opens one protocol's client, checks the capabilities it advertises
+// and runs the scenarios over it.
+func (r *configurationRun) protocol(ctx context.Context, protocol string) (*Summary, error) {
+	var c client
+	var err error
+	served := r.opts.binary
+	if protocol == "mcp" {
+		served = r.opts.mcpBinary
+		c, err = startMCP(ctx, &mcpSettings{
+			binary:      r.opts.mcpBinary,
+			root:        filepath.Join(r.opts.dir, "fixtures"),
+			logPath:     r.mcpLog,
+			cacheSize:   len(r.scenarios) + 16,
+			unavailable: r.config.unavailable,
+		})
+	} else {
+		c, err = r.svc.client(protocol)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer c.close()
+	run := &runner{
+		service: served, client: c,
+		fixtures: filepath.Join(r.opts.dir, "fixtures"),
+		models:   map[string]string{}, verbose: r.opts.verbose,
+		omitHandshakeScenarios: len(r.config.unavailable) > 0,
+		out:                    os.Stdout, scenarioLog: os.Stdout,
+	}
+	if err := run.readCapabilities(ctx); err != nil {
+		return nil, err
+	}
+	if len(r.config.unavailable) == 0 {
+		r.defaultCapabilities[protocol] = append([]string(nil), run.capabilities...)
+	} else if err := validateWithheldCapabilities(
+		r.defaultCapabilities[protocol], run.capabilities, r.config.unavailable); err != nil {
+		return nil, err
+	}
+	return run.runAll(ctx, r.scenarios, r.plan.filter), nil
+}
+
+// finishSuite writes the reports and turns the suite's failures into the error
+// the command exits with.
+func finishSuite(opts options, reportData *Report) error {
 	if err := writeReport(opts.report, reportData); err != nil {
 		return err
 	}
@@ -307,8 +404,8 @@ func validateFallbackExecution(summary *Summary, unavailable []string, allowSkip
 func validateProtocols(protocols []string, transport string) error {
 	if transport == transportGRPC {
 		for _, protocol := range protocols {
-			if protocol != "grpc" && protocol != "pkg" {
-				return fmt.Errorf("protocol %q requires -transport connect; grpc transport only supports grpc and pkg", protocol)
+			if protocol != "grpc" && protocol != "pkg" && protocol != "mcp" {
+				return fmt.Errorf("protocol %q requires -transport connect; grpc transport only supports grpc, pkg and mcp", protocol)
 			}
 		}
 	}
@@ -324,7 +421,7 @@ func parseProtocols(value string) ([]string, error) {
 			continue
 		}
 		if _, ok := knownProtocols[item]; !ok {
-			return nil, fmt.Errorf("unknown protocol %q; want grpc, connect, connect-json, pkg or pkg-connect", item)
+			return nil, fmt.Errorf("unknown protocol %q; want grpc, connect, connect-json, pkg, pkg-connect or mcp", item)
 		}
 		if _, ok := seen[item]; ok {
 			return nil, fmt.Errorf("protocol %q is listed more than once", item)
@@ -340,7 +437,9 @@ func parseProtocols(value string) ([]string, error) {
 
 // Report contains aggregate and per-configuration conformance results.
 type Report struct {
-	Service           string                  `json:"service"`
+	Service string `json:"service"`
+	// MCPServer is the sysml-mcp binary the mcp protocol tested, when selected.
+	MCPServer         string                  `json:"mcp_server,omitempty"`
 	Total             int                     `json:"total"`
 	Passed            int                     `json:"passed"`
 	Failed            int                     `json:"failed"`

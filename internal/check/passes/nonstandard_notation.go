@@ -50,7 +50,7 @@ func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootName
 	// loaded from a .kerml file.
 	w := &notationWalker{
 		sysml:       ctx.Kind != source.KindKerML,
-		severity:    notationSeverity(ctx.Options.Conformance),
+		severity:    strictSeverity(ctx.Options.Conformance),
 		keywordName: keywordNameSpans(ctx.ParseDiagnostics),
 		doc:         name,
 		lookup:      ctx.Source,
@@ -80,14 +80,6 @@ func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootName
 	return w.diags
 }
 
-// notationSeverity maps the mode onto extension-notation severity.
-func notationSeverity(mode diag.ConformanceMode) diag.Severity {
-	if mode.IsStrict() {
-		return diag.SeverityError
-	}
-	return diag.SeverityWarning
-}
-
 // notationWalker accumulates the diagnostics of one document.
 type notationWalker struct {
 	sysml bool
@@ -97,12 +89,13 @@ type notationWalker struct {
 	// inActionBody records that the body being walked admits ActionBodyItem
 	// members (SysML.xtext:1367).
 	inActionBody bool
+	// inStateBody records that the body being walked is a state body, whose
+	// one-name `then <target>;` is a target transition rather than a target
+	// succession (SysML.xtext TargetTransitionUsage).
+	inStateBody bool
 	// inViewDefBody records that the body being walked is a ViewDefinitionBody
 	// (SysML.xtext ViewDefinitionBodyItem), which admits no Expose.
 	inViewDefBody bool
-	// inViewBody records that the body being walked is a view definition's or
-	// view usage's, neither of which admits a FramedConcernMember.
-	inViewBody bool
 	// inKerMLDeclaration counts the enclosing declarations already reported as
 	// KerML notation; their members move with them, so are not reported again.
 	inKerMLDeclaration int
@@ -155,7 +148,7 @@ func hasParseError(diags []diag.Diagnostic) bool {
 // bodies its members carry.
 func (w *notationWalker) walk(members []ast.Node) {
 	var previous ast.Node
-	for _, member := range members {
+	for i, member := range members {
 		unwrapped := kit.UnwrapMembership(member)
 		w.targetSuccession(unwrapped, previous)
 		if !isMemberAttachedSuccession(unwrapped) {
@@ -173,6 +166,8 @@ func (w *notationWalker) walk(members []ast.Node) {
 			reported := w.kermlDeclaration(n, n.Keyword)
 			w.kermlRelationships(n.Relationships)
 			w.sysmlDeclaration(n, n.Keyword)
+			w.prefixBeforeIndividual(n.Prefixes, n.IndividualKeyword)
+			w.caseKeyword(n, n.Keyword, n.HasDefKeyword)
 			w.keywordAsName(n.Ident)
 			w.walkDeclaration(n.Members, n)
 			w.leaveKerMLDeclaration(reported)
@@ -183,8 +178,9 @@ func (w *notationWalker) walk(members []ast.Node) {
 				w.kermlRelationships(n.CrossFeature.Relationships)
 			}
 			w.sysmlDeclaration(n, n.Keyword)
+			w.prefixBeforeIndividual(n.Prefixes, n.IndividualKeyword)
+			w.caseKeyword(n, n.Keyword, false)
 			w.keywordAsName(n.Ident)
-			w.framedConcern(n)
 			w.indexedEnds(n)
 			w.walkDeclaration(n.Members, n)
 			w.leaveKerMLDeclaration(reported)
@@ -203,6 +199,9 @@ func (w *notationWalker) walk(members []ast.Node) {
 			w.walk(n.Members)
 			w.leaveKerMLDeclaration(reported)
 		case *ast.ConstraintMember:
+			if i == len(members)-1 {
+				w.conditionTerminator(n)
+			}
 			w.walk(n.Body)
 		case *ast.AssumeMember:
 			w.walk(n.Body)
@@ -245,22 +244,25 @@ func (w *notationWalker) walk(members []ast.Node) {
 // walkDeclaration walks the body of a declaration under the body kind that
 // declaration opens.
 func (w *notationWalker) walkDeclaration(members []ast.Node, declaration ast.Node) {
-	action, viewDef, view := w.inActionBody, w.inViewDefBody, w.inViewBody
+	action, viewDef, state := w.inActionBody, w.inViewDefBody, w.inStateBody
 	w.inActionBody = admitsActionBodyItems(declaration)
 	w.inViewDefBody = isViewDefinition(declaration)
-	w.inViewBody = w.inViewDefBody || isViewUsage(declaration)
+	w.inStateBody = isStateDeclaration(declaration)
 	w.bodies = append(w.bodies, bodyFrame{members: members})
 	w.walk(members)
 	w.bodies = w.bodies[:len(w.bodies)-1]
-	w.inActionBody, w.inViewDefBody, w.inViewBody = action, viewDef, view
+	w.inActionBody, w.inViewDefBody, w.inStateBody = action, viewDef, state
 }
 
 // walkPackageMembers walks a namespace or package body, the member lists a fix
-// may add an import to.
+// may add an import to; such a body admits no action or state items.
 func (w *notationWalker) walkPackageMembers(members []ast.Node) {
+	action, viewDef, state := w.inActionBody, w.inViewDefBody, w.inStateBody
+	w.inActionBody, w.inViewDefBody, w.inStateBody = false, false, false
 	w.bodies = append(w.bodies, bodyFrame{members: members, namespaceish: true})
 	w.walk(members)
 	w.bodies = w.bodies[:len(w.bodies)-1]
+	w.inActionBody, w.inViewDefBody, w.inStateBody = action, viewDef, state
 }
 
 // walkActionBody walks the body of an action node, which is an ActionBody
@@ -269,10 +271,10 @@ func (w *notationWalker) walkActionBody(members []ast.Node) {
 	if len(members) == 0 {
 		return
 	}
-	action, viewDef, view := w.inActionBody, w.inViewDefBody, w.inViewBody
-	w.inActionBody, w.inViewDefBody, w.inViewBody = true, false, false
+	action, viewDef := w.inActionBody, w.inViewDefBody
+	w.inActionBody, w.inViewDefBody = true, false
 	w.walk(members)
-	w.inActionBody, w.inViewDefBody, w.inViewBody = action, viewDef, view
+	w.inActionBody, w.inViewDefBody = action, viewDef
 }
 
 func isViewDefinition(node ast.Node) bool {
@@ -280,9 +282,27 @@ func isViewDefinition(node ast.Node) bool {
 	return ok && def.Kind == ast.DefView
 }
 
-func isViewUsage(node ast.Node) bool {
-	usage, ok := node.(*ast.Usage)
-	return ok && usage.Kind == ast.UsageView
+// walkStateBody walks a state body's members, where a one-name `then
+// <target>;` spells the target of an entry transition.
+func (w *notationWalker) walkStateBody(members []ast.Node) {
+	if len(members) == 0 {
+		return
+	}
+	action, viewDef, state := w.inActionBody, w.inViewDefBody, w.inStateBody
+	w.inActionBody, w.inViewDefBody, w.inStateBody = false, false, true
+	w.walk(members)
+	w.inActionBody, w.inViewDefBody, w.inStateBody = action, viewDef, state
+}
+
+// isStateDeclaration reports whether the declaration opens a state body.
+func isStateDeclaration(node ast.Node) bool {
+	switch n := node.(type) {
+	case *ast.Definition:
+		return n.Kind == ast.DefState
+	case *ast.Usage:
+		return n.Kind == ast.UsageState
+	}
+	return false
 }
 
 // admitsActionBodyItems reports whether the body a declaration opens is an
@@ -318,12 +338,24 @@ func admitsActionBodyItems(node ast.Node) bool {
 // usage the pilot has no production for it and its source is unstated.
 func (w *notationWalker) targetSuccession(n, previous ast.Node) {
 	keyword := targetSuccessionKeyword(n)
-	if keyword == "" || !w.sysml || previous == nil || admitsTargetSuccession(previous) {
+	if keyword == "" || !w.sysml {
 		return
 	}
 	notation := "`" + keyword + " <target>;`"
 	if keyword == "if" {
 		notation = "`if <guard> then <target>;`"
+	}
+	// TargetSuccessionMember is an ActionBodyItem (SysML.xtext:1367), and a
+	// state body reads the same notation as a target transition; anywhere else
+	// the member sequences nothing the grammar admits.
+	if !w.inActionBody && !w.inStateBody {
+		w.extension(keywordSpan(n, keyword), notation+" outside an action or state body",
+			"a target succession sequences members of an action, calculation or case body, "+
+				"and a state body reads it as a target transition; this body admits neither")
+		return
+	}
+	if previous == nil || admitsTargetSuccession(previous) {
+		return
 	}
 	w.extension(keywordSpan(n, keyword), notation+" after a member that is not an action node",
 		"a target succession sequences from the member written right before it, so only an action node, "+
@@ -426,16 +458,6 @@ func (w *notationWalker) stateActivityImport(n *ast.Import) {
 		"neither States.sysml nor StatePerformances.kerml declares `isActive` on a state usage, so a conforming tool leaves `x.isActive` unresolved")
 }
 
-// framedConcern reports a `frame` in a view body: FramedConcernMember belongs to
-// requirement, concern and viewpoint bodies only (SysML v2 §8.3.20, §8.3.26).
-func (w *notationWalker) framedConcern(n *ast.Usage) {
-	if !w.inViewBody || n.Kind != ast.UsageFramedConcern {
-		return
-	}
-	w.extension(w.declarationKeywordSpan(n, "frame"), "`frame` in a view body",
-		"only a requirement, concern or viewpoint body frames a concern; a view is checked against the concerns the viewpoints it satisfies frame")
-}
-
 // transition reports a `transition` in an action body: only `succession … if …`
 // is standard there (SysML.xtext GuardedSuccession); TransitionUsageMember is a StateBodyItem.
 func (w *notationWalker) transition(n *ast.TransitionMember) {
@@ -451,9 +473,9 @@ func (w *notationWalker) stateNode(n *ast.StateNode) {
 	w.walkActionBody(n.Entry)
 	w.walkActionBody(n.Do)
 	w.walkActionBody(n.Exit)
-	w.walk(n.Substates)
+	w.walkStateBody(n.Substates)
 	for _, region := range n.Regions {
-		w.walk([]ast.Node{region})
+		w.walkStateBody(region.States)
 	}
 }
 
@@ -805,6 +827,112 @@ func (w *notationWalker) keywordAsName(id ast.Identification) {
 		Code:   CodeReservedKeywordName,
 		Source: "syntax",
 	})
+}
+
+// caseKeyword reports `analysis case` / `verification case`: SysML v2 8.2.2.23
+// and 8.2.2.24 spell `analysis` / `verification` alone before `def` or the name.
+func (w *notationWalker) caseKeyword(n ast.Node, keyword string, isDef bool) {
+	first, second, _ := strings.Cut(keyword, " ")
+	if !w.sysml || second != "case" || (first != "analysis" && first != "verification") {
+		return
+	}
+	span := w.declarationKeywordSpan(n, keyword)
+	written, standard, production := "`"+keyword+" <name>`", "`"+first+" <name>`", "OccurrenceUsagePrefix '"+first+"'"
+	if isDef {
+		written, standard, production = "`"+keyword+" def`", "`"+first+" def`", "OccurrenceDefinitionPrefix '"+first+"' 'def'"
+	}
+	d := diag.Diagnostic{
+		Severity: w.severity,
+		Span:     span,
+		Message: fmt.Sprintf("%s is an OpenSysML extension with no SysML v2 production: the keyword is %s (%s), "+
+			"so delete `case`", written, standard, production),
+		Code:   CodeNonstandardNotation,
+		Source: "syntax",
+	}
+	// The fix deletes the word `case` and the blank after it, leaving any
+	// comment between the two words where it is; it needs the source text.
+	if caseWord, ok := w.trailingWordSpan(span, second, n.Span().End()); ok {
+		d.Fixes = []diag.Fix{{
+			Title:     "Write the standard keyword " + standard,
+			Edits:     []diag.Edit{diag.Replace(caseWord, "")},
+			Preferred: true,
+		}}
+	}
+	w.diags = append(w.diags, d)
+}
+
+// trailingWordSpan spans the last word of a keyword span plus the blanks after
+// it up to limit, the declaration's end; false without the source text.
+func (w *notationWalker) trailingWordSpan(span source.Span, word string, limit int) (source.Span, bool) {
+	if w.lookup == nil {
+		return source.Span{}, false
+	}
+	text := w.lookup(w.doc, span)
+	lx := lexer.New(source.New(w.doc, []byte(text)))
+	var at source.Span
+	for tok := lx.Next(); tok.Kind != lexer.EOF; tok = lx.Next() {
+		if tok.Kind == lexer.Keyword && tok.KeywordID == word {
+			at = source.Span{Offset: span.Offset + tok.Span.Offset, Len: tok.Span.Len}
+		}
+	}
+	if at.Len == 0 {
+		return source.Span{}, false
+	}
+	for at.End() < limit {
+		if after := w.lookup(w.doc, source.Span{Offset: at.End(), Len: 1}); after != " " && after != "\t" {
+			break
+		}
+		at.Len++
+	}
+	return at, true
+}
+
+// conditionTerminator reports the `;` after a body's closing condition, its
+// ResultExpressionMember (SysML v2 8.2.2.19, KerML 8.2.5.7.1), which none ends.
+func (w *notationWalker) conditionTerminator(n *ast.ConstraintMember) {
+	if n.Keyword != "" || n.Expression == nil || n.Terminator.Len == 0 {
+		return
+	}
+	// A `;` where the condition itself failed to parse is the parser's error.
+	if _, failed := n.Expression.(*ast.ErrorNode); failed {
+		return
+	}
+	w.diags = append(w.diags, diag.Diagnostic{
+		Severity: w.severity,
+		Span:     n.Terminator,
+		Message: "`;` after a body's condition is an OpenSysML extension with no SysML v2 or KerML production: " +
+			"a bare condition is the body's result expression (ResultExpressionMember), which no terminator follows, " +
+			"so delete the `;`",
+		Code:   CodeNonstandardNotation,
+		Source: "syntax",
+		Fixes: []diag.Fix{{
+			Title:     "Delete the `;`",
+			Edits:     []diag.Edit{diag.Replace(n.Terminator, "")},
+			Preferred: true,
+		}},
+	})
+}
+
+// prefixBeforeIndividual reports prefix metadata written ahead of `individual`: the
+// productions (SysML.xtext IndividualDefinition, IndividualUsage) put it after the keyword.
+func (w *notationWalker) prefixBeforeIndividual(prefixes []*ast.PrefixMetadata, individual source.Span) {
+	if !w.sysml || individual.Len == 0 {
+		return
+	}
+	var before []*ast.PrefixMetadata
+	for _, prefix := range prefixes {
+		if prefix.Span().Offset < individual.Offset {
+			before = append(before, prefix)
+		}
+	}
+	if len(before) == 0 {
+		return
+	}
+	first, last := before[0].Span(), before[len(before)-1].Span()
+	tag := "#" + qualifiedNameText(before[0].Type)
+	w.extension(source.Span{Offset: first.Offset, Len: last.End() - first.Offset},
+		fmt.Sprintf("prefix metadata before `individual` (`%s individual …`)", tag),
+		fmt.Sprintf("the metadata follows the keyword, so write `individual %s …`", tag))
 }
 
 // extension reports one construct as an OpenSysML extension.

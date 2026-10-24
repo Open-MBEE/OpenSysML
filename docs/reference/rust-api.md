@@ -70,6 +70,11 @@ let external = Connection::external("localhost", 50051)?; // a service someone e
 
 `Model::render_view(name, RenderViewPorts::Minimal)` returns a typed
 `RenderedView`; use `RenderViewPorts::Full` to include every declared port.
+`Model::render_view_showing(name, ports, &["edge-labels", "typings"])` also names
+the [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
+to draw besides those the view's rendering shows (`"all"` for every one); the
+`RenderedView`'s `shown` lists the elements drawn, and a name none of them has
+is refused as `Error::InvalidArgument`.
 Unset geometry, style and canvas are represented as absent optionals. The RPC
 requires the `render_view` capability.
 
@@ -126,6 +131,15 @@ satisfaction assertion; `Validation` one per assertion about an object. `CalcRes
 `ActionRun` or `StateRun` its outputs, the states visited and the final clock instant; an
 `Exploration` its distinct `Outcome`s and whether it explored every order. A `SweepTable`
 is one `SweepRow` per point, and a failed row keeps the outputs and verdicts it reached.
+`RunOptions` also carries the run options of the `sysml` command — `advance` (simulated seconds to
+run for, reported back in `final_time`, on `Error::Execution` too when the run stops short), `seed`, `draws` (`"min"`, `"max"`, `"average"` or
+`"random"`) and `clock_step` — `AnalysisOptions.tool_dry_run` previews the first external tool
+call instead of making it, answered as the typed `ToolDryRun` in `AnalysisResult.tool_dry_run`
+(the tool, its executable, arguments, environment, the inputs handed over and the outputs read
+back, and the preview lines as `sysml -tool-dry-run` prints them), `Connection::probe_engines` starts each external engine and checks its
+handshake before listing it, and `Connection::diagnostics_with_lints` selects the lints of one
+answer.
+
 `RunOptions.trace` opts a state run into typed `DocumentEvent` records in
 `StateRun.trace`, with `StateRun.trace_dropped` reporting records the service
 discarded. The option requires `state_trace` and is refused with exploration.

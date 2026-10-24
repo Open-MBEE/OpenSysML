@@ -170,14 +170,36 @@ func conflictingFixed(q *solve.Query, core *solve.Core) []string {
 	for _, i := range core.Indices {
 		for _, pinned := range q.Pinned {
 			if pinned.Index == i {
-				conflicting = append(conflicting, notationName(pinned.Var.Name)+" = "+pinned.Value)
+				conflicting = append(conflicting, notationName(pinned.Var.Name)+" = "+solve.ValueText(pinned.Var, pinned.Value))
 			}
 		}
 	}
-	if len(conflicting) == 0 {
-		return []string{"  No fixed value is part of the conflict: the conditions conflict among themselves."}
+	lines := []string{"  No fixed value is part of the conflict: the conditions conflict among themselves."}
+	if len(conflicting) > 0 {
+		lines = []string{fmt.Sprintf("  In the conflict: %s", strings.Join(conflicting, ", "))}
 	}
-	return []string{fmt.Sprintf("  In the conflict: %s", strings.Join(conflicting, ", "))}
+	return append(lines, conflictingConditions(core)...)
+}
+
+// conflictingConditions names the conditions taking part in a conflict, each by
+// the element that declared it and where, so a selection a family refuses is
+// traced to the assertion refusing it.
+func conflictingConditions(core *solve.Core) []string {
+	var lines []string
+	for _, m := range core.Members {
+		if m.From.Role != solve.RoleRequired && m.From.Role != solve.RoleAssumed {
+			continue
+		}
+		line := fmt.Sprintf("  Against: %s %s", m.From.Role, m.From.Condition)
+		if m.From.Declared != nil && m.From.Declared.Name != "" {
+			line += " of " + notationName(m.From.Declared.Name)
+		}
+		if m.From.Location != "" {
+			line += " at " + m.From.Location
+		}
+		lines = append(lines, line)
+	}
+	return lines
 }
 
 // fixedLines lists the values a query fixed, and where each came from.
@@ -187,7 +209,7 @@ func fixedLines(q *solve.Query) []string {
 	}
 	lines := []string{"  Already fixed:"}
 	for _, p := range q.Pinned {
-		lines = append(lines, fmt.Sprintf("    %s = %s  (%s)", notationName(p.Var.Name), p.Value, fixedFrom(p)))
+		lines = append(lines, fmt.Sprintf("    %s = %s  (%s)", notationName(p.Var.Name), solve.ValueText(p.Var, p.Value), fixedFrom(p)))
 	}
 	return lines
 }
@@ -229,7 +251,17 @@ func unfixedLines(unfixed []solve.Unfixed) []string {
 	}
 	lines := []string{"  Left free, since their declared value could not be read:"}
 	for _, u := range unfixed {
-		lines = append(lines, fmt.Sprintf("    %s: %s", u.Name, u.Reason))
+		lines = append(lines, fmt.Sprintf("    %s: %s", notationName(u.Name), u.Reason))
+	}
+	return lines
+}
+
+// uncoveredLines names the nested parts whose own assertions the query does not
+// state, and why, so a selection it permits is not taken for one validation accepts.
+func uncoveredLines(q *solve.Query) []string {
+	lines := make([]string, 0, len(q.Uncovered))
+	for _, r := range q.Uncovered {
+		lines = append(lines, fmt.Sprintf("  Not in the query: what %s asserts about its own objects, as %s; %%instantiate and %%validate an object to check it", r.Path, r.Reason))
 	}
 	return lines
 }
@@ -243,7 +275,7 @@ func unreadLines(q *solve.Query) []string {
 			// A declared value the conditions do not read says nothing about them.
 			continue
 		}
-		lines = append(lines, fmt.Sprintf("  %s was not used: %s", u.Pin.Name, u.Reason))
+		lines = append(lines, fmt.Sprintf("  %s was not used: %s", notationName(u.Pin.Name), u.Reason))
 	}
 	return lines
 }
@@ -359,9 +391,17 @@ func (r configureRequest) ask(name string) analysis.Asking {
 			if q.Rounded() {
 				return nil, nil
 			}
-			return solver.Configurations(ctx, q, r.limit)
+			result, err := solver.Configurations(ctx, q, r.limit)
+			if err != nil || result == nil || len(result.Solutions) > 0 || result.Status == solve.StatusUnknown || !q.Fixes() {
+				return result, err
+			}
+			return withConflict(solver, ctx, q, result), nil
 		}
-		return solver.Solve(ctx, q)
+		result, err := solver.Solve(ctx, q)
+		if err != nil || result.Status != solve.StatusUnsat || q.Rounded() || !q.Fixes() {
+			return result, err
+		}
+		return withConflict(solver, ctx, q, result), nil
 	}
 }
 
@@ -386,6 +426,7 @@ func configureReport(name string, q *solve.Query, configured analysis.Evaluation
 // offer. A name that matches none, or matches several, is refused rather than
 // guessed at.
 func chooseVariants(q *solve.Query, variations []*solve.Var, request configureRequest) error {
+	chosen := make(map[*solve.Var]string, len(request.order))
 	for _, written := range request.order {
 		v, err := matchVariation(variations, written)
 		if err != nil {
@@ -398,8 +439,9 @@ func chooseVariants(q *solve.Query, variations []*solve.Var, request configureRe
 		if err := q.FixValue(v, variant, solve.PinChosen); err != nil {
 			return err
 		}
+		chosen[v] = variant
 	}
-	return nil
+	return q.ChooseLive(chosen)
 }
 
 // matchVariation is the variation point a written name denotes: the variable whose
@@ -517,6 +559,7 @@ func configurationReport(name string, q *solve.Query, result *solve.Result) Solv
 	switch result.Status {
 	case solve.StatusSat:
 		lines := []string{fmt.Sprintf("✓ %s permits a selection of variants (%s)", subject, solveDetail(result))}
+		lines = append(lines, fixedLines(q)...)
 		lines = append(lines, selectionLines(selectionOf(result.Model, q.Variations()))...)
 		lines = append(lines, fmt.Sprintf("  One witness: use %%configure %s all for every consistent selection.", name))
 		return SolveReport{Subject: name, Status: SolveSat, Solver: result.Solver, Lines: lines}
@@ -527,9 +570,7 @@ func configurationReport(name string, q *solve.Query, result *solve.Result) Solv
 				"  " + roundedUnsat,
 			}}
 		}
-		return SolveReport{Subject: name, Status: SolveUnsat, Solver: result.Solver, Lines: []string{
-			fmt.Sprintf("✗ %s permits no selection of variants (%s)", subject, solveDetail(result)),
-		}}
+		return noSelectionReport(name, q, result)
 	default:
 		lines := []string{fmt.Sprintf("? whether %s permits a selection of variants is undecided (%s)",
 			subject, solveDetail(result))}
@@ -538,6 +579,21 @@ func configurationReport(name string, q *solve.Query, result *solve.Result) Solv
 		}
 		return SolveReport{Subject: name, Status: SolveUnknown, Solver: result.Solver, Lines: lines}
 	}
+}
+
+// noSelectionReport reports that no selection of variants is consistent: with the
+// values the element fixes, naming those in the conflict and the assertion refusing
+// them, or with its conditions on their own.
+func noSelectionReport(name string, q *solve.Query, result *solve.Result) SolveReport {
+	subject := solveSubject(q)
+	lines := []string{fmt.Sprintf("✗ %s permits no selection of variants (%s)", subject, solveDetail(result))}
+	if q.Fixes() {
+		lines[0] = fmt.Sprintf("✗ %s permits no selection of variants consistent with the %s it fixes (%s)",
+			subject, plural(len(q.Pinned), "value", "values"), solveDetail(result))
+		lines = append(lines, fixedLines(q)...)
+		lines = append(lines, conflictingFixed(q, result.Core)...)
+	}
+	return SolveReport{Subject: name, Status: SolveUnsat, Solver: result.Solver, Lines: lines}
 }
 
 // configurationsReport reports the consistent selections of variants up to the bound, saying
@@ -558,9 +614,7 @@ func configurationsReport(name string, q *solve.Query, result *solve.Result) Sol
 		return SolveReport{Subject: name, Status: SolveUnknown, Solver: result.Solver, Lines: lines}
 	}
 	if len(result.Solutions) == 0 {
-		return SolveReport{Subject: name, Status: SolveUnsat, Solver: result.Solver, Lines: []string{
-			fmt.Sprintf("✗ %s permits no selection of variants (%s)", subject, solveDetail(result)),
-		}}
+		return noSelectionReport(name, q, result)
 	}
 	lines := []string{fmt.Sprintf("✓ %s permits %d %s of variants%s (%s)",
 		subject, len(result.Solutions), plural(len(result.Solutions), "selection", "selections"),
@@ -606,7 +660,10 @@ func selectionOf(model []solve.Assignment, variations []*solve.Var) []solve.Assi
 func selectionLines(selection []solve.Assignment) []string {
 	lines := make([]string, 0, len(selection))
 	for _, a := range selection {
-		lines = append(lines, fmt.Sprintf("  %s = %s", notationName(a.Var.Name), notationName(a.Value)))
+		if a.Dead {
+			continue
+		}
+		lines = append(lines, fmt.Sprintf("  %s = %s", notationName(a.Var.Name), solve.ValueText(a.Var, a.Value)))
 	}
 	return lines
 }

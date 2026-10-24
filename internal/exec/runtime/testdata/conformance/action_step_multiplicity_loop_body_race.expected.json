@@ -2,10 +2,9 @@
 	"type": "action",
 	"libraries": true,
 	"schedule": "declared",
-	"exploreNotes": [
-		"the performances of a repeated step in a loop or if body are each run as one move, so their interleavings were not explored"
+	"outcomes": [
+		{"outputs": {"c": {"type": "Integer", "value": 1}}},
+		{"outputs": {"c": {"type": "Integer", "value": 2}}}
 	],
-	"outputs": {
-		"c": {"type": "Integer", "value": 2}
-	}
+	"admissible": "Repeated action steps and shared writes"
 }

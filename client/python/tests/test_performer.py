@@ -260,7 +260,7 @@ class TestPerformerAgainstTheService:
 
     def test_an_action_reads_what_the_nested_part_holds(self):
         outputs = self.model.execute_action("Wire::Craft::look", performer="Wire::pair.craft")
-        assert outputs["seen"] is True
+        assert outputs["seen"] == [True]  # a bare `out seen` is [0..*]: one value, as a sequence
 
     def test_a_path_to_no_feature_is_refused(self):
         with pytest.raises(ExecutionError, match='Wire::pair has no feature "tug"'):
@@ -280,7 +280,7 @@ class TestPerformerAgainstTheService:
         road = self.conn.load_from_content(ROAD_MODEL)
         for performer, rated, logged in (("Road::slowCar", 4, 3), ("Road::fastCar", 18, 10)):
             outputs = road.execute_action("Road::Car::rate", performer=performer)
-            assert outputs["rated"] == rated
+            assert outputs["rated"] == [rated]  # a bare `out rated` holds its one value as a sequence
             assert not [name for name in outputs if name.startswith("this.")]
             assert outputs.performer["this.logged"] == logged
             (outcome,) = road.explore_action("Road::Car::rate", performer=performer)

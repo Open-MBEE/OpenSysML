@@ -7,19 +7,19 @@ Constraint	Signals::Clamp::dotted	_clampDotted	(the construct "Math.max(" is out
 Constraint	Signals::Clamp::words	_clampWords	(the name "sin phase" resolves to nothing readable: nothing visible from Signals::Clamp is called sin phase)
 
 ## mapped (16)
-Model	Model	_m	(the root model's members are written at the top level)
-Package	Signals	_pkg	-> Signals
-«ConstraintBlock» Class	Signals::Clamp	_clamp	-> Signals::Clamp
-Property	Signals::Clamp::clamped	_clampOut	-> Signals::Clamp::clamped
-Property	Signals::Clamp::phase	_clampPhase	-> Signals::Clamp::phase
-Property	Signals::Clamp::x	_clampX	-> Signals::Clamp::x
-«ConstraintBlock» Class	Signals::Damped Amplitude	_decay	-> Signals::'Damped Amplitude'
-Constraint	Signals::Damped Amplitude::<Constraint>	_decayRule	-> Signals::'Damped Amplitude'	(the English body is translated to v2)
-Property	Signals::Damped Amplitude::amplitude	_decayOut	-> Signals::'Damped Amplitude'::amplitude
-Property	Signals::Damped Amplitude::t	_decayT	-> Signals::'Damped Amplitude'::t
-Property	Signals::Damped Amplitude::x	_decayX	-> Signals::'Damped Amplitude'::x
-Property	Signals::Damped Amplitude::y	_decayY	-> Signals::'Damped Amplitude'::y
-«ConstraintBlock» Class	Signals::Sine Wave	_sine	-> Signals::'Sine Wave'
-Constraint	Signals::Sine Wave::<Constraint>	_sineRule	-> Signals::'Sine Wave'	(the English body is translated to v2)
-Property	Signals::Sine Wave::sine_wave	_sineOut	-> Signals::'Sine Wave'::sine_wave
-Property	Signals::Sine Wave::t	_sineT	-> Signals::'Sine Wave'::t
+Model	Model	_m	-> Model	(written as package Model)
+Package	Signals	_pkg	-> Model::Signals
+«ConstraintBlock» Class	Signals::Clamp	_clamp	-> Model::Signals::Clamp
+Property	Signals::Clamp::clamped	_clampOut	-> Model::Signals::Clamp::clamped
+Property	Signals::Clamp::phase	_clampPhase	-> Model::Signals::Clamp::phase
+Property	Signals::Clamp::x	_clampX	-> Model::Signals::Clamp::x
+«ConstraintBlock» Class	Signals::Damped Amplitude	_decay	-> Model::Signals::'Damped Amplitude'
+Constraint	Signals::Damped Amplitude::<Constraint>	_decayRule	-> Model::Signals::'Damped Amplitude'	(the English body is translated to v2)
+Property	Signals::Damped Amplitude::amplitude	_decayOut	-> Model::Signals::'Damped Amplitude'::amplitude
+Property	Signals::Damped Amplitude::t	_decayT	-> Model::Signals::'Damped Amplitude'::t
+Property	Signals::Damped Amplitude::x	_decayX	-> Model::Signals::'Damped Amplitude'::x
+Property	Signals::Damped Amplitude::y	_decayY	-> Model::Signals::'Damped Amplitude'::y
+«ConstraintBlock» Class	Signals::Sine Wave	_sine	-> Model::Signals::'Sine Wave'
+Constraint	Signals::Sine Wave::<Constraint>	_sineRule	-> Model::Signals::'Sine Wave'	(the English body is translated to v2)
+Property	Signals::Sine Wave::sine_wave	_sineOut	-> Model::Signals::'Sine Wave'::sine_wave
+Property	Signals::Sine Wave::t	_sineT	-> Model::Signals::'Sine Wave'::t

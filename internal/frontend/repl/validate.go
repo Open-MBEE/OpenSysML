@@ -46,7 +46,7 @@ func (s *Session) validateVerdicts(ref string) []Verdict {
 	}
 	verdicts := make([]Verdict, 0, len(report.Verdicts)+1)
 	for _, v := range report.Verdicts {
-		verdicts = append(verdicts, s.withVerifications(objectVerdict(v, label), ctx, v.Requirement))
+		verdicts = append(verdicts, s.withVerifications(objectVerdict(v, label), ctx, v.Requirement, v.Subject))
 	}
 	return append(verdicts, standing(validationSummary(report, label), plan))
 }

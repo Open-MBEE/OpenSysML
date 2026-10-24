@@ -1,5 +1,5 @@
 step 1: token 1@s
-choice statements in action node s: next 1 assign v, 2 assign doubled (unordered; took 2 assign doubled first)
+choice statements in action node s: next 1 assign v, 2 assign doubled (unordered; took 2 assign doubled first; order-dependent: v)
 stmt assign doubled
     enter calc test::CalcOrder::s::t
       eval feature v -> 1.0
@@ -8,8 +8,8 @@ stmt assign doubled
       eval feature k -> 1.0
       eval literal 2.0 -> 2.0
     eval operator * -> 2.0
-    output test::CalcOrder::s::t.d = 2.0
-  eval chain d -> 2.0
+    output test::CalcOrder::s::t.d = (2.0)
+  eval chain d -> (2.0)
 stmt assign v
   eval literal 2.0 -> 2.0
 step 2: token 1@done

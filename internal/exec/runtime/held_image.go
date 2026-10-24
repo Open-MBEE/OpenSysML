@@ -10,25 +10,25 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-// ErrImageIdentityTaken is the typed error for an image whose object's identity
+// errImageIdentityTaken is the typed error for an image whose object's identity
 // the destination context already holds an object under.
-var ErrImageIdentityTaken = errors.New("identity already held by the destination context")
+var errImageIdentityTaken = errors.New("identity already held by the destination context")
 
-// ErrImageBindingTaken is the typed error for a declaration the image has denote an
+// errImageBindingTaken is the typed error for a declaration the image has denote an
 // object of its own that already denotes another live object of the destination.
-var ErrImageBindingTaken = errors.New("declaration already denotes an object of the destination context")
+var errImageBindingTaken = errors.New("declaration already denotes an object of the destination context")
 
-// ErrImageClock is the typed error for a destination clock that cannot stand at the
+// errImageClock is the typed error for a destination clock that cannot stand at the
 // instant the image was taken at: already past it, or with a wait due before it.
-var ErrImageClock = errors.New("destination clock cannot stand at the image's instant")
+var errImageClock = errors.New("destination clock cannot stand at the image's instant")
 
-// ErrImageBound is the typed error for execution state bound to the context that
+// errImageBound is the typed error for execution state bound to the context that
 // made it, which no image carries: an evaluation under way, or a frame of a calc.
-var ErrImageBound = errors.New("execution state bound to its context")
+var errImageBound = errors.New("execution state bound to its context")
 
-// ErrImageRoot is the typed error for an object asked of an image that was not
+// errImageRoot is the typed error for an object asked of an image that was not
 // taken in the context of the object.
-var ErrImageRoot = errors.New("object is not of the context imaged")
+var errImageRoot = errors.New("object is not of the context imaged")
 
 // HeldImageError reports what of an object kept an image from being taken or
 // materialized: the object, and the typed reason.
@@ -44,7 +44,7 @@ func (e *HeldImageError) Error() string {
 	if e.ID == 0 {
 		return fmt.Sprintf("%s: %v", e.What, e.Err)
 	}
-	return fmt.Sprintf("%s of object #%d (%s): %v", e.What, e.ID, symbolText(e.Type), e.Err)
+	return fmt.Sprintf("%s of object #%d (%s): %v", e.What, e.ID, SymbolText(e.Type), e.Err)
 }
 
 // Unwrap exposes the typed reason.
@@ -62,6 +62,7 @@ type HeldImage struct {
 	clock             float64
 
 	occurrences      map[*symbols.Symbol][]int64
+	usageOccurrences map[calcUsageKey]int64
 	occurrenceTails  map[*symbols.Symbol]*requiredMembers
 	metadataObjects  map[metadataAnnotation]int64
 	variantObjects   map[variantObject]int64
@@ -140,6 +141,7 @@ func (obj imagedObject) keptIDs() []int64 {
 type imagedRun struct {
 	steps, elements int64
 	notes           []RunNote
+	marks           orderMarks
 	scheduled       bool
 	policy          SchedulePolicy
 	generator       *rand.PCG
@@ -149,12 +151,9 @@ type imagedRun struct {
 // Holds reports whether the image holds an object under id.
 func (img *HeldImage) Holds(id int64) bool { return img.held[id] }
 
-// Roots are the identities the image was taken of, in the order asked.
-func (img *HeldImage) Roots() []int64 { return slices.Clone(img.roots) }
-
 // Image takes the objects and everything they hold, own or name by value. It refuses, in a
-// HeldImageError, a destroyed root (ErrOccurrenceDestroyed), ErrSnapshotMidRun,
-// ErrSnapshotPausedBody, NotPortableError and ErrImageBound.
+// HeldImageError, a destroyed root (errOccurrenceDestroyed), ErrSnapshotMidRun,
+// ErrSnapshotPausedBody, notPortableError and errImageBound.
 func (ctx *Context) Image(objects ...*Instance) (*HeldImage, error) {
 	if ctx.midRun() {
 		return nil, ErrSnapshotMidRun
@@ -165,6 +164,7 @@ func (ctx *Context) Image(objects ...*Instance) (*HeldImage, error) {
 		runs:             ctx.runs,
 		clock:            ctx.clock.now,
 		occurrences:      make(map[*symbols.Symbol][]int64),
+		usageOccurrences: make(map[calcUsageKey]int64),
 		occurrenceTails:  make(map[*symbols.Symbol]*requiredMembers),
 		metadataObjects:  make(map[metadataAnnotation]int64),
 		variantObjects:   make(map[variantObject]int64),
@@ -177,10 +177,10 @@ func (ctx *Context) Image(objects ...*Instance) (*HeldImage, error) {
 			continue
 		}
 		if held, ok := ctx.instances[inst.ID]; !ok || held != inst {
-			return nil, &HeldImageError{ID: inst.ID, Type: inst.Type, What: "image", Err: ErrImageRoot}
+			return nil, &HeldImageError{ID: inst.ID, Type: inst.Type, What: "image", Err: errImageRoot}
 		}
 		if l, ok := ctx.lives[inst.ID]; ok && l.destroyed {
-			return nil, &HeldImageError{ID: inst.ID, Type: inst.Type, What: "image", Err: fmt.Errorf("%w at %d", ErrOccurrenceDestroyed, l.ended)}
+			return nil, &HeldImageError{ID: inst.ID, Type: inst.Type, What: "image", Err: fmt.Errorf("%w at %d", errOccurrenceDestroyed, l.ended)}
 		}
 		if !slices.Contains(img.roots, inst.ID) {
 			img.roots = append(img.roots, inst.ID)
@@ -226,7 +226,7 @@ func (t *imaging) reach(id int64) {
 func (t *imaging) bring(id int64) (*Instance, error) {
 	inst, ok := t.ctx.instances[id]
 	if !ok {
-		return nil, fmt.Errorf("%w: object #%d", ErrImageRoot, id)
+		return nil, fmt.Errorf("%w: object #%d", errImageRoot, id)
 	}
 	t.reach(id)
 	return inst, nil
@@ -279,6 +279,11 @@ func (t *imaging) close() error {
 // drains; when none are new it opens the image, taking the bus's open messages.
 func (t *imaging) widen() error {
 	ctx := t.ctx
+	for key, id := range ctx.usageOccurrences {
+		if _, live := ctx.instances[id]; live && t.img.held[key.instance] {
+			t.reach(id)
+		}
+	}
 	for sym, ids := range ctx.occurrences {
 		if !t.declaredUnderHeld(sym) {
 			continue
@@ -364,7 +369,7 @@ func (t *imaging) object(inst *Instance) error {
 			continue
 		}
 		if fv.changing {
-			return fmt.Errorf("%w: feature %s is being written", ErrImageBound, name)
+			return fmt.Errorf("%w: feature %s is being written", errImageBound, name)
 		}
 		if err := t.value(fv.Value); err != nil {
 			return fmt.Errorf("feature %s: %w", name, err)
@@ -425,7 +430,7 @@ func (t *imaging) carriesBus() bool {
 }
 
 // message checks that a message carries, reaching the objects it names; one the
-// context does not hold is ErrImageRoot.
+// context does not hold is errImageRoot.
 func (t *imaging) message(msg Message) error {
 	for _, id := range []int64{msg.EventObject, msg.PortID} {
 		if id == 0 {
@@ -458,13 +463,13 @@ func (t *imaging) run(state *runState) (int, error) {
 	if len(state.calcUsageRuns) > 0 {
 		return 0, fmt.Errorf("%w: calc usage evaluations open", ErrSnapshotMidRun)
 	}
-	run := imagedRun{steps: state.steps, elements: state.elements, notes: slices.Clone(state.notes)}
+	run := imagedRun{steps: state.steps, elements: state.elements, notes: slices.Clone(state.notes), marks: state.marks.clone()}
 	if s := state.scheduler; s != nil {
 		if s.explore != nil {
-			return 0, fmt.Errorf("%w: an exploration of the schedule under way", ErrImageBound)
+			return 0, fmt.Errorf("%w: an exploration of the schedule under way", errImageBound)
 		}
 		if s.replay != nil {
-			return 0, fmt.Errorf("%w: a witness being followed", ErrImageBound)
+			return 0, fmt.Errorf("%w: a witness being followed", errImageBound)
 		}
 		run.scheduled, run.policy = true, s.policy
 		if s.pcg != nil {
@@ -492,25 +497,8 @@ func (t *imaging) finish() {
 		created[id] = i
 	}
 	slices.SortFunc(img.objects, func(a, b imagedObject) int { return created[a.id] - created[b.id] })
-	for i := range img.objects {
-		inst := ctx.instances[img.objects[i].id]
-		for j := range img.objects[i].features {
-			fv := inst.FeatureValues[img.objects[i].features[j].names[0]]
-			img.objects[i].features[j].dependents = t.edges(fv.dependents)
-			img.objects[i].features[j].reads = t.edges(fv.reads)
-			img.objects[i].features[j].readsLives = slices.Contains(fv.reads, &ctx.lifetimes)
-		}
-	}
-	// A usage's occurrences are imaged whole: an image holding some of them holds none.
-	for sym, ids := range ctx.occurrences {
-		if !slices.ContainsFunc(ids, func(id int64) bool { return !img.held[id] }) {
-			img.occurrences[sym] = ids
-			if r := ctx.occurrenceTail(sym); r != nil &&
-				!slices.ContainsFunc(ctx.madeRequired(r), func(inst *Instance) bool { return !img.held[inst.ID] }) {
-				img.occurrenceTails[sym] = r
-			}
-		}
-	}
+	t.finishFeatureEdges()
+	t.finishOccurrences()
 	for key, id := range ctx.metadataObjects {
 		if img.held[id] {
 			img.metadataObjects[key] = id
@@ -533,6 +521,41 @@ func (t *imaging) finish() {
 	for _, msg := range ctx.messages {
 		if (msg.Object == 0 && t.carriesBus()) || img.held[msg.Object] {
 			img.messages = append(img.messages, msg)
+		}
+	}
+}
+
+// finishFeatureEdges maps each imaged feature's dependency and read edges onto the image.
+func (t *imaging) finishFeatureEdges() {
+	ctx, img := t.ctx, t.img
+	for i := range img.objects {
+		inst := ctx.instances[img.objects[i].id]
+		for j := range img.objects[i].features {
+			fv := inst.FeatureValues[img.objects[i].features[j].names[0]]
+			img.objects[i].features[j].dependents = t.edges(fv.dependents)
+			img.objects[i].features[j].reads = t.edges(fv.reads)
+			img.objects[i].features[j].readsLives = slices.Contains(fv.reads, &ctx.lifetimes)
+		}
+	}
+}
+
+// finishOccurrences carries the occurrences held whole by the image.
+func (t *imaging) finishOccurrences() {
+	ctx, img := t.ctx, t.img
+	// The occurrence a usage is on a held object goes with that object.
+	for key, id := range ctx.usageOccurrences {
+		if img.held[key.instance] && img.held[id] {
+			img.usageOccurrences[key] = id
+		}
+	}
+	// A usage's occurrences are imaged whole: an image holding some of them holds none.
+	for sym, ids := range ctx.occurrences {
+		if !slices.ContainsFunc(ids, func(id int64) bool { return !img.held[id] }) {
+			img.occurrences[sym] = ids
+			if r := ctx.occurrenceTail(sym); r != nil &&
+				!slices.ContainsFunc(ctx.madeRequired(r), func(inst *Instance) bool { return !img.held[inst.ID] }) {
+				img.occurrenceTails[sym] = r
+			}
 		}
 	}
 }
@@ -563,7 +586,7 @@ func (t *imaging) locate(fv *FeatureValue) (imagedFeatureRef, bool) {
 
 // Materialize gives dst objects of its own for the image under the same identities, advancing
 // dst's sequence past them and past the identities set aside for connectors not materialized
-// yet; ErrImageIdentityTaken and ErrImageClock refuse, leaving dst as it was.
+// yet; errImageIdentityTaken and errImageClock refuse, leaving dst as it was.
 func (img *HeldImage) Materialize(dst *Context) error {
 	if dst.midRun() {
 		return ErrSnapshotMidRun
@@ -571,11 +594,11 @@ func (img *HeldImage) Materialize(dst *Context) error {
 	held := dst.heldIdentities()
 	for _, obj := range img.objects {
 		if held[obj.id] {
-			return &HeldImageError{ID: obj.id, Type: obj.typ, What: "materialize", Err: ErrImageIdentityTaken}
+			return &HeldImageError{ID: obj.id, Type: obj.typ, What: "materialize", Err: errImageIdentityTaken}
 		}
 		for _, id := range obj.keptIDs() {
 			if held[id] {
-				return &HeldImageError{ID: obj.id, Type: obj.typ, What: "materialize", Err: fmt.Errorf("%w: connector #%d set aside", ErrImageIdentityTaken, id)}
+				return &HeldImageError{ID: obj.id, Type: obj.typ, What: "materialize", Err: fmt.Errorf("%w: connector #%d set aside", errImageIdentityTaken, id)}
 			}
 		}
 	}
@@ -602,11 +625,11 @@ func (img *HeldImage) Materialize(dst *Context) error {
 // due before it, already due or not: the clock reaches an instant by running what is due on the way.
 func (img *HeldImage) clockFree(dst *Context) error {
 	if dst.clock.now > img.clock {
-		return fmt.Errorf("%w: at t=%v, image at t=%v", ErrImageClock, dst.clock.now, img.clock)
+		return fmt.Errorf("%w: at t=%v, image at t=%v", errImageClock, dst.clock.now, img.clock)
 	}
 	if waits := dst.clock.armed(); len(waits) > 0 && waits[0].Due < img.clock {
 		return fmt.Errorf("%w: %s of %s is due at t=%v, before the image's t=%v",
-			ErrImageClock, waits[0].What(), waits[0].Holder(), waits[0].Due, img.clock)
+			errImageClock, waits[0].What(), waits[0].Holder(), waits[0].Due, img.clock)
 	}
 	return nil
 }
@@ -630,14 +653,19 @@ func (img *HeldImage) bindingsFree(dst *Context) error {
 		}
 		for _, prior := range priors {
 			if dst.holds(prior) {
-				refuse(ids[0], fmt.Errorf("%w: usage %s denotes #%d", ErrImageBindingTaken, dst.qualifiedSymbolName(sym), prior))
+				refuse(ids[0], fmt.Errorf("%w: usage %s denotes #%d", errImageBindingTaken, dst.QualifiedName(sym), prior))
 				break
 			}
 		}
 	}
+	for key, id := range img.usageOccurrences {
+		if prior, ok := dst.usageOccurrences[key]; ok && prior != id && dst.holds(prior) {
+			refuse(id, fmt.Errorf("%w: usage %s on #%d denotes #%d", errImageBindingTaken, dst.QualifiedName(key.sym), key.instance, prior))
+		}
+	}
 	for key, id := range img.metadataObjects {
 		if prior, ok := dst.metadataObjects[key]; ok && prior != id && dst.holds(prior) {
-			refuse(id, fmt.Errorf("%w: annotation %d of %s denotes #%d", ErrImageBindingTaken, key.index, dst.qualifiedSymbolName(key.element), prior))
+			refuse(id, fmt.Errorf("%w: annotation %d of %s denotes #%d", errImageBindingTaken, key.index, dst.QualifiedName(key.element), prior))
 		}
 	}
 	if err == nil {
@@ -707,7 +735,7 @@ type materializing struct {
 func (m *materializing) bring(id int64) (*Instance, error) {
 	inst, ok := m.made[id]
 	if !ok {
-		return nil, fmt.Errorf("%w: object #%d", ErrImageRoot, id)
+		return nil, fmt.Errorf("%w: object #%d", errImageRoot, id)
 	}
 	return inst, nil
 }
@@ -792,7 +820,7 @@ func (m *materializing) run() error {
 		}
 		carried, err := dst.carriedRequired(r, r.typ, keep)
 		if err != nil {
-			return &HeldImageError{What: "materialize the members " + symbolText(sym) + " denotes", Err: err}
+			return &HeldImageError{What: "materialize the members " + SymbolText(sym) + " denotes", Err: err}
 		}
 		tails[sym] = carried
 	}
@@ -803,6 +831,9 @@ func (m *materializing) run() error {
 	dst.workChanged()
 	for sym, ids := range img.occurrences {
 		dst.occurrences[sym] = slices.Clone(ids)
+	}
+	for key, id := range img.usageOccurrences {
+		dst.usageOccurrences[key] = id
 	}
 	for sym, r := range tails {
 		dst.recordOccurrenceTail(sym, r)
@@ -854,7 +885,7 @@ func (m *materializing) object(obj imagedObject) error {
 			if err != nil {
 				return fmt.Errorf("connector end %s: %w", end.Name, err)
 			}
-			inst.Ends[i] = ConnectorEnd{Name: end.Name, Value: v}
+			inst.Ends[i] = ConnectorEnd{Name: end.Name, Feature: end.Feature, Value: v}
 		}
 	}
 	return nil
@@ -947,7 +978,7 @@ func (m *materializing) featureAt(ref imagedFeatureRef) *FeatureValue {
 // where the imaged run drew from a seed its modeled stream's position.
 func (m *materializing) runState(run imagedRun) *runState {
 	state := &runState{
-		steps: run.steps, elements: run.elements, notes: slices.Clone(run.notes),
+		steps: run.steps, elements: run.elements, notes: slices.Clone(run.notes), marks: run.marks.clone(),
 		calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
 	}
 	if run.scheduled {

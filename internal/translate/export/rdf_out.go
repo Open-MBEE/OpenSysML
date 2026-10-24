@@ -142,6 +142,7 @@ const (
 	xEndElement                   = "endElement"
 	xSourceMultiplicityBeforeThen = "sourceMultiplicityBeforeThen"
 	xConjugatedTyping             = "conjugatedTyping"
+	xHeadClause                   = "headClause"
 	xEndVerb                      = "endVerb"
 	xSourceMember                 = "sourceMember"
 	xTargetMember                 = "targetMember"
@@ -447,7 +448,7 @@ func (e *encoder) declaredSubjects() []mintedSubject {
 	nodes := make([]ast.Node, 0, len(e.fqn))
 	for node := range e.fqn {
 		el, identified := e.ids.byNode[node]
-		if name, _ := declaredNameAndMembers(node); name != "" || identified && el.source != identity.SourceDerived {
+		if memberName(node) != "" || identified && el.source != identity.SourceDerived {
 			nodes = append(nodes, node)
 		}
 	}
@@ -476,6 +477,28 @@ func encodeDocument(file *source.SourceFile, root *ast.RootNamespace, library st
 	return e, nil
 }
 
+// mintedComposites states Feature::isComposite on the features the mapping
+// mints rather than reads from a usage head — expression nodes and parameters,
+// connector and message ends, implied parameters: none is written with a prefix,
+// so each takes its kind's value (the OMG API JSON shape states the flag on
+// every feature). The flag follows the type, where a head states it.
+func (e *encoder) mintedComposites() {
+	own := graphOwnership(e.graph)
+	triples := e.graph.Triples()
+	out := make([]rdf.Triple, 0, len(triples))
+	for _, t := range triples {
+		out = append(out, t)
+		if t.Predicate.Value != rdf.RDFType || !ontology.IsAncestorOrSelf(e.metaclassOf(t.Subject), mFeature) ||
+			e.graph.HasProperty(t.Subject, rdf.SysML+"isComposite") {
+			continue
+		}
+		composite := usageCompositeByDefault(e.graph, e.metaclassOf, own, t.Subject,
+			e.graph.HasProperty(t.Subject, rdf.SysML+pDirection), e.graph.BoolValue(t.Subject, rdf.SysML+"isEnd"))
+		out = append(out, rdf.Triple{Subject: t.Subject, Predicate: e.sysml("isComposite"), Object: rdf.Bool(composite)})
+	}
+	e.graph = rdf.NewGraphOf(out, e.graph.Prefixes)
+}
+
 // encodeDocument writes the graph of the document the encoder was made for.
 func (e *encoder) encodeDocument(root *ast.RootNamespace) error {
 	e.src = newAuthoredSource(e.file, root)
@@ -487,6 +510,7 @@ func (e *encoder) encodeDocument(root *ast.RootNamespace) error {
 	if e.idErr != nil {
 		return e.idErr
 	}
+	e.mintedComposites()
 	e.libraryNames()
 	e.sourceText()
 	if err := rdf.AnnotateCollections(e.graph); err != nil {
@@ -555,6 +579,8 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		payloads:           map[*ast.Usage]*ast.Usage{},
 		payloadFeatures:    map[*ast.Usage]bool{},
 		fqn:                map[ast.Node]string{},
+		positional:         map[ast.Node]string{},
+		positionalTaken:    map[string]bool{},
 		links:              map[*ast.QualifiedName]*symbols.Symbol{},
 		preceding:          map[ast.Node]ast.Node{},
 		introduced:         map[ast.Node]ast.Node{},
@@ -562,6 +588,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		subjects:           map[string]string{},
 		regions:            map[rdf.Term]region{},
 		verifiedReferences: map[rdf.Term]bool{},
+		heads:              map[rdf.Term]*declarationHead{},
 		bodies:             map[rdf.Term]region{},
 		offsets:            map[string]int{},
 	}
@@ -570,7 +597,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 			e.links[ref.QN] = sym
 		}
 	}
-	if err := e.collect(root.Members, ""); err != nil {
+	if err := e.collect(root.Members, "", ""); err != nil {
 		return nil, err
 	}
 	e.indexTriggerMembers()
@@ -619,6 +646,10 @@ type encoder struct {
 	// fqn is the qualified name of each member node, which is how a succession
 	// end the notation leaves unnamed addresses the member it binds.
 	fqn map[ast.Node]string
+	// positional is the name a graph stating no effective names gives a member
+	// (a declared name claimed among declared names, else its position); positionalTaken holds those claimed.
+	positional      map[ast.Node]string
+	positionalTaken map[string]bool
 	// links is what each written reference resolves to, read with the rule of
 	// its position (a redefinition among the generals, an edge end as a vertex).
 	links map[*ast.QualifiedName]*symbols.Symbol
@@ -646,6 +677,9 @@ type encoder struct {
 	// OwnedReferenceSubsetting of RequirementVerificationUsage, as against a
 	// declaration (`verify requirement :> r;`), whose `:>` is a Subsetting.
 	verifiedReferences map[rdf.Term]bool
+	// heads records each declaration head's clauses in the order the notation
+	// spelled them, for the order its relationship elements are owned in.
+	heads map[rdf.Term]*declarationHead
 	// membershipImports are the membership imports, whose imported membership
 	// is written once every membership is minted.
 	membershipImports []membershipImport
@@ -943,10 +977,12 @@ func (e *encoder) provenance(subject rdf.Term, node ast.Node) {
 // declared twice in one namespace is not an identity: the first member keeps
 // the qualified name, as the language's own naming rule fixes it, and each
 // later one is identified by its position, like a member declared unnamed.
-func (e *encoder) collect(members []ast.Node, owner string) error {
+// position is the owner's name in a graph that states no effective names.
+func (e *encoder) collect(members []ast.Node, owner, position string) error {
 	for i, member := range e.kept(members) {
 		node, _ := unwrapMember(member)
-		name, children := declaredNameAndMembers(node)
+		declared, children := declaredNameAndMembers(node)
+		name := memberName(node)
 		fqn := qualify(owner, name, i)
 		if fqn == "" {
 			continue
@@ -956,6 +992,14 @@ func (e *encoder) collect(members []ast.Node, owner string) error {
 			fqn = qualify(owner, "", i)
 		}
 		e.fqn[node] = fqn
+		positional := qualify(position, declared, i)
+		if declared != "" && e.positionalTaken[positional] {
+			positional = qualify(position, "", i)
+		}
+		e.positionalTaken[positional] = true
+		if positional != fqn {
+			e.positional[node] = positional
+		}
 		// A trigger's payload is a parameter of the transition's trigger action.
 		if transition, ok := node.(*ast.TransitionMember); ok {
 			if payload := e.triggerPayload(transition); payload != nil && payload == transition.Trigger {
@@ -963,7 +1007,7 @@ func (e *encoder) collect(members []ast.Node, owner string) error {
 			}
 		}
 		e.declared[fqn] = true
-		if err := e.collect(children, fqn); err != nil {
+		if err := e.collect(children, fqn, positional); err != nil {
 			return err
 		}
 		if err := e.collectPrefixes(node, fqn, len(e.kept(children))); err != nil {
@@ -1084,7 +1128,7 @@ func (e *encoder) collectPrefixes(node ast.Node, owner string, index int) error 
 		fqn := qualify(owner, "", index)
 		e.fqn[prefix] = fqn
 		e.declared[fqn] = true
-		if err := e.collect(prefix.Body, fqn); err != nil {
+		if err := e.collect(prefix.Body, fqn, fqn); err != nil {
 			return err
 		}
 		index++
@@ -1316,8 +1360,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 	// sibling of the same owner declared first is addressed by position there.
 	fqn, collected := e.fqn[node]
 	if !collected {
-		name, _ := declaredNameAndMembers(node)
-		fqn = qualify(owner, name, index)
+		fqn = qualify(owner, memberName(node), index)
 	}
 	subject := h.local
 	local := subject.Value != ""
@@ -1333,6 +1376,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if subject, err = e.mint(node, fqn); err != nil {
 			return err
 		}
+		e.derivedName(subject, node)
 	}
 	if e.effects[node] {
 		h.membershipClass = mTransitionFeatureMembership
@@ -1414,7 +1458,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			return err
 		}
 		e.flags(subject, []boolProperty{
-			{"isAbstract", n.IsAbstract},
+			{"isAbstract", n.IsAbstract || n.IsVariation || n.Kind == ast.DefEnumeration},
 			{"isVariation", n.IsVariation || n.Kind == ast.DefEnumeration},
 			{"isAll", n.IsAll},
 			{"isConstant", n.IsConstant},
@@ -1514,6 +1558,15 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			metaclass = mReferenceUsage
 		}
 		head(rdf.SysMLTerm(metaclass))
+		_, trigger := e.triggerParams[n]
+		directed := trigger || directionKeyword(n.Direction) != "" || parameterClass != ""
+		if ontology.IsAncestorOrSelf(metaclass, mFeature) {
+			// Feature::isComposite is authored, not derived, so it is stated true or
+			// false alike (the OMG API JSON shape); a SysML usage takes its kind's value unless `ref`.
+			composite := n.IsComposite || e.file.Kind() != source.KindKerML && !n.IsReference &&
+				usageCompositeByDefault(e.graph, e.metaclassOf, graphOwnership(e.graph), subject, directed, n.IsEnd)
+			e.graph.Add(subject, e.sysml("isComposite"), rdf.Bool(composite))
+		}
 		if !shorthandRelationship(n) {
 			if implicitTarget.Value != "" || variantReference {
 				// A metadata body's `name = …` redefines the metadata
@@ -1551,7 +1604,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(subject, e.sysx(xDeclaredPrefix), rdf.String(n.PrefixKeyword))
 		}
 		e.flags(subject, []boolProperty{
-			{"isAbstract", n.IsAbstract},
+			{"isAbstract", n.IsAbstract || n.IsVariation},
 			{"isVariation", n.IsVariation},
 			{"isVariant", e.variantMember(n, ownerTerm)},
 			{"isNegated", n.IsNegated},
@@ -1562,7 +1615,6 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{"isConstant", n.IsConstant},
 			{"isEvent", n.IsEvent && metaclass != mEventOccurrenceUsage},
 			{"isIndividual", n.IsIndividual},
-			{"isComposite", n.IsComposite},
 			// A snapshot or timeslice is a portion by its kind (OccurrenceUsage::portionKind).
 			{"isPortion", n.IsPortion || n.Portion != ast.PortionNone},
 			{"isDerived", n.IsDerived},
@@ -1580,7 +1632,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if err := e.prefixes(subject, fqn, n.Prefixes, bodyMembers(n)); err != nil {
 			return err
 		}
-		if _, trigger := e.triggerParams[n]; trigger {
+		if trigger {
 			// A trigger action's parameters are its inputs (SysML.xtext PayloadParameterMember, NodeParameterMember).
 			e.graph.Add(subject, e.sysml(pDirection), rdf.String("in"))
 		} else if keyword := directionKeyword(n.Direction); keyword != "" {
@@ -1614,11 +1666,11 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			return err
 		}
 		if implicitTarget.Value != "" {
-			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelRedefines]), implicitTarget)
+			e.headRelationship(subject, ast.RelRedefines, implicitTarget, nil)
 			e.graph.Add(subject, e.sysx(xImplicitRedefinition), rdf.Bool(true))
 		}
 		if variantTarget.Value != "" {
-			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelReferences]), variantTarget)
+			e.headRelationship(subject, ast.RelReferences, variantTarget, nil)
 		}
 		if err := e.featureValue(subject, within, n.Value, n.ValueIsDefault, n.ValueIsInitial); err != nil {
 			return err
@@ -1858,11 +1910,11 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		head(rdf.SysMLTerm(mReferenceUsage))
 		e.ident(subject, n.Ident)
 		e.graph.Add(subject, e.sysml(pDirection), rdf.String("in"))
-		if n.TypeRef != nil {
-			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelTyping]), e.reference(n.TypeRef))
-		}
 		if err := e.prefixes(subject, fqn, n.Prefixes, n.Body); err != nil {
 			return err
+		}
+		if n.TypeRef != nil {
+			e.headRelationship(subject, ast.RelTyping, e.reference(n.TypeRef), n.TypeRef)
 		}
 		e.relationships(subject, owner, n.Relationships)
 		if err := e.multiplicity(subject, within, n.Multiplicity); err != nil {
@@ -2691,22 +2743,22 @@ func (e *encoder) symbolTerm(target *symbols.Symbol) rdf.Term {
 	if decl, fqn, ok := e.linked(target, true); ok {
 		return e.ids.subjectForNode(decl, fqn)
 	}
-	// The member's own identity already claims a normative target's qualified
+	// The member's own identity already claims a library target's qualified
 	// name, which linked refuses to repeat; name its IRI as a reference does.
 	info, ok := identity.Of(e.ids.model, e.res, target)
-	if !ok || info.Source != identity.SourceNormative {
+	if !ok || !info.Fixed() {
 		return rdf.Term{}
 	}
 	el := elementIdentity{id: info.EffectiveID, source: info.Source, membership: info.OwningMembershipID()}
 	return e.ids.subjectOf(el, info.FQN)
 }
 
-// normativeFQN is the qualified name a symbol carries in the norm, or "" for
-// any other element: linked hides a library element whose qualified name the
-// element stating it already claimed, which this answers anyway.
+// normativeFQN is the qualified name a symbol carries in its library's fixed
+// scheme, or "" for any other element: linked hides a library element whose
+// qualified name the element stating it already claimed, which this answers anyway.
 func (e *encoder) normativeFQN(sym *symbols.Symbol) string {
 	info, ok := identity.Of(e.ids.model, e.res, sym)
-	if !ok || info.Source != identity.SourceNormative {
+	if !ok || !info.Fixed() {
 		return ""
 	}
 	return info.FQN
@@ -2805,11 +2857,12 @@ func (e *encoder) crossFeature(subject rdf.Term, fqn string, n *ast.Usage) error
 		{"isVariation", cross.IsVariation},
 		{"isReference", cross.IsReference},
 		{"isConstant", cross.IsConstant},
-		{"isComposite", cross.IsComposite},
 		{"isPortion", cross.IsPortion},
 		{"isDerived", cross.IsDerived},
 		{"isOrdered", cross.IsOrdered},
 	})
+	// An authored flag, stated whether true or false (the OMG API JSON shape).
+	e.graph.Add(crossSubject, e.sysml("isComposite"), rdf.Bool(cross.IsComposite))
 	e.nonunique(crossSubject, cross.IsNonunique)
 	if keyword := directionKeyword(cross.Direction); keyword != "" {
 		e.graph.Add(crossSubject, e.sysml(pDirection), rdf.String(keyword))
@@ -2890,11 +2943,12 @@ func withoutComments(text string) string {
 }
 
 // relationships writes a head's clauses in relationshipOrder, not the order the
-// notation spelled them in, so the Turtle is the same for every spelling.
+// notation spelled them in, so the collapsed Turtle is the same for every
+// spelling; the order spelled is kept for the relationship elements
+// materializeRelationships emits, as ownedRelationship is ordered.
 func (e *encoder) relationships(subject rdf.Term, owner string, rels []*ast.Relationship) {
 	chains := chainTargets(rels)
 	for _, kind := range relationshipOrder {
-		property := relationshipProperty[kind]
 		for _, rel := range rels {
 			if rel == nil || rel.Target == nil || rel.Kind != kind {
 				continue
@@ -2902,16 +2956,54 @@ func (e *encoder) relationships(subject rdf.Term, owner string, rels []*ast.Rela
 			// A name is a reference; a feature chain is the chain Feature the
 			// materialized relationship owns, other expressions written text.
 			if k, chained := chains[rel]; chained {
-				e.graph.Add(subject, e.sysml(property), e.headChain(subject, rel.Target, k))
+				e.headRelationship(subject, kind, e.headChain(subject, rel.Target, k), rel)
 				continue
 			}
 			if name, ok := rel.Target.(*ast.QualifiedName); ok {
-				e.graph.Add(subject, e.sysml(property), e.reference(name))
+				e.headRelationship(subject, kind, e.reference(name), rel)
 				continue
 			}
-			e.graph.Add(subject, e.sysml(property), rdf.TypedLiteral(e.text(rel.Target), rdf.OpenSysML+dtExpression))
+			e.headRelationship(subject, kind, rdf.TypedLiteral(e.text(rel.Target), rdf.OpenSysML+dtExpression), rel)
 		}
 	}
+}
+
+// headRelationship states one clause of subject's declaration head as the
+// collapsed property of its kind and records where the notation spelled it;
+// a clause no notation spelled (an implicit redefinition) passes a nil node.
+func (e *encoder) headRelationship(subject rdf.Term, kind ast.RelationshipKind, object rdf.Term, clause ast.Node) {
+	e.graph.Add(subject, e.sysml(relationshipProperty[kind]), object)
+	e.headOf(subject).items = append(e.headOf(subject).items, headItem{kind: kind, element: object, offset: clauseOffset(clause)})
+}
+
+// headOf is the record of subject's declaration head, opened where its
+// ownedRelationship stands when the head's first clause is stated: what is
+// owned ahead of that (prefix metadata) stays ahead of the head.
+func (e *encoder) headOf(subject rdf.Term) *declarationHead {
+	head := e.heads[subject]
+	if head == nil {
+		head = &declarationHead{anchor: len(e.graph.Objects(subject, rdf.SysML+pOwnedRelationship))}
+		e.heads[subject] = head
+	}
+	return head
+}
+
+// clauseOffset is where the notation spelled a head clause, read from the
+// clause's span or, for a relationship parsed without one, its target's; -1
+// for a clause nothing spelled.
+func clauseOffset(clause ast.Node) int {
+	if clause == nil {
+		return -1
+	}
+	if span := clause.Span(); span.Len > 0 {
+		return span.Offset
+	}
+	if rel, ok := clause.(*ast.Relationship); ok && rel.Target != nil {
+		if span := rel.Target.Span(); span.Len > 0 {
+			return span.Offset
+		}
+	}
+	return -1
 }
 
 // chainTargets indexes the qualified-name relationship targets written as a
@@ -2996,6 +3088,8 @@ func (e *encoder) multiplicity(subject rdf.Term, owner string, mult *ast.Multipl
 	e.graph.Add(rangeNode, e.sysml(pElementID), rdf.String(rdf.LocalName(rangeNode.Value)))
 	e.graph.Add(subject, e.sysml(pMultiplicity), rangeNode)
 	e.emitMembershipCore(membership, rangeNode, subject, mOwningMembership, true)
+	head := e.headOf(subject)
+	head.items = append(head.items, headItem{element: membership, offset: clauseOffset(mult), multiplicity: true})
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 	return e.multiplicityBounds(subject, rangeNode, owner, mult)
@@ -3480,6 +3574,30 @@ func declaredNameAndMembers(node ast.Node) (string, []ast.Node) {
 		return n.Ident.Name, nil
 	}
 	return "", nil
+}
+
+// memberName is a member's declared name, else the one its naming feature lends
+// it (KerML Feature::effectiveName): `render tree;` is tree, as the symbol table has it.
+func memberName(node ast.Node) string {
+	if name, _ := declaredNameAndMembers(node); name != "" {
+		return name
+	}
+	if rel := ast.DeclNamingFeature(node); rel != nil {
+		name, _ := ast.TargetName(rel.Target)
+		return name
+	}
+	return ""
+}
+
+// derivedName states sysml:name where the effective name is not the declared
+// one, so a reader need not re-derive it from the naming feature.
+func (e *encoder) derivedName(subject rdf.Term, node ast.Node) {
+	if declared, _ := declaredNameAndMembers(node); declared != "" {
+		return
+	}
+	if name := memberName(node); name != "" {
+		e.graph.Add(subject, e.sysml(pName), rdf.String(name))
+	}
 }
 
 // qualify builds the qualified name of a member. An unnamed declaration is

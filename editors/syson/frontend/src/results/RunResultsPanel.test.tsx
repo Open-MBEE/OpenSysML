@@ -18,6 +18,8 @@ const baseResult = (overrides: Partial<GQLOpenSysMLRunResult> = {}): GQLOpenSysM
   diagnostics: [],
   verdicts: [],
   instances: [],
+  document: null,
+  table: null,
   ...overrides,
 });
 
@@ -188,5 +190,80 @@ describe('RunResultsPanel', () => {
     expect(screen.queryByText('Outputs')).not.toBeInTheDocument();
     expect(screen.queryByText('Trace')).not.toBeInTheDocument();
     expect(screen.getByText('witness: first: left, second: right')).toBeInTheDocument();
+  });
+
+  it('renders a Markdown document with a download button', () => {
+    const createObjectURL = vi.fn(() => 'blob:report');
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    render(
+      <RunResultsPanel
+        result={baseResult({
+          operation: 'RENDER_DOCUMENT',
+          target: 'Observatory::MassReport',
+          document: {
+            form: 'MARKDOWN',
+            content: '# Telescope Mass Report\n\n| name | mass |',
+            fileName: 'MassReport.md',
+          },
+        })}
+      />
+    );
+    expect(screen.getByText('Document (Markdown)')).toBeInTheDocument();
+    expect(screen.getByText(/# Telescope Mass Report/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Download MassReport.md' }));
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:report');
+    click.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it('renders an HTML document in a sandboxed frame', () => {
+    const { container } = render(
+      <RunResultsPanel
+        result={baseResult({
+          operation: 'RENDER_DOCUMENT',
+          document: {
+            form: 'HTML',
+            content: '<!DOCTYPE html><html><body>report</body></html>',
+            fileName: 'MassReport.html',
+          },
+        })}
+      />
+    );
+    expect(screen.getByText('Document (HTML)')).toBeInTheDocument();
+    const frame = container.querySelector('iframe');
+    expect(frame).not.toBeNull();
+    expect(frame?.getAttribute('sandbox')).toBe('');
+    expect(frame?.getAttribute('srcdoc')).toContain('<body>report</body>');
+    expect(screen.getByRole('button', { name: 'Download MassReport.html' })).toBeInTheDocument();
+  });
+
+  it('renders document query rows and selects mapped elements', () => {
+    const onSelectElement = vi.fn();
+    render(
+      <RunResultsPanel
+        result={baseResult({
+          operation: 'RUN_DOCUMENT_QUERY',
+          resultText: '2 rows',
+          table: {
+            columns: ['name', 'mass'],
+            rows: [
+              { element: 'Observatory::telescope::mount', siriusId: 'mount-sid', cells: ['mount', '15'] },
+              { element: 'Observatory::telescope::optics', siriusId: null, cells: ['optics', '8.5'] },
+            ],
+          },
+        })}
+        onSelectElement={onSelectElement}
+      />
+    );
+    expect(screen.getByText('2 rows')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'mass' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('cell', { name: 'mount' }));
+    expect(onSelectElement).toHaveBeenCalledWith('mount-sid');
+    fireEvent.click(screen.getByRole('cell', { name: 'optics' }));
+    expect(onSelectElement).toHaveBeenCalledTimes(1);
   });
 });

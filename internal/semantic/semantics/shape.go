@@ -1,6 +1,8 @@
 package semantics
 
 import (
+	"strings"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -217,7 +219,13 @@ func IsShapeFeature(sym *symbols.Symbol) bool {
 		symbols.SymbolInterfaceUsage, symbols.SymbolFlowUsage, symbols.SymbolBindingUsage,
 		// An allocation usage is a connection usage of the allocation library
 		// (SysML v2 §8.3.19), so an object carries it as a feature.
-		symbols.SymbolAllocationUsage:
+		symbols.SymbolAllocationUsage,
+		// Cases, views and their concerns are occurrence usages of their owner
+		// (SysML v2 §7.21–7.26), an enumeration usage an attribute; an analysis or
+		// verification usage stays a calc the chain runs.
+		symbols.SymbolCaseUsage, symbols.SymbolUseCaseUsage, symbols.SymbolSatisfyRequirementUsage,
+		symbols.SymbolViewUsage, symbols.SymbolViewpointUsage, symbols.SymbolConcernUsage,
+		symbols.SymbolRenderingUsage, symbols.SymbolEnumerationUsage:
 		return true
 	default:
 		return false
@@ -286,7 +294,7 @@ func (m *Model) DescribesReference(typ, member *symbols.Symbol) bool {
 	if tier := m.libraryTier(member); tier == symbols.TierKernelSemantic || tier == symbols.TierLibrary {
 		return false
 	}
-	if m.restatesRoot(member, frameRoots) || m.NamesFeaturingReference(member) {
+	if m.restatesRoot(member, frameRootSet) || m.NamesFeaturingReference(member) {
 		return false
 	}
 	// A usage nested in a described reference (a transformation's rotationMatrix)
@@ -316,14 +324,29 @@ func (m *Model) FrameFeature(sym *symbols.Symbol) bool {
 	case IsParameter(sym):
 		return true
 	default:
-		return m.restatesRoot(sym, frameRoots) || m.NamesFeaturingReference(sym)
+		return m.restatesRoot(sym, frameRootSet) || m.NamesFeaturingReference(sym)
 	}
+}
+
+// FrameRoot reports a Kernel member of typ the runtime answers itself rather than from the shape:
+// a restatement of a frame root, a frame featuring, or what a frame root restates (`portions`).
+func (m *Model) FrameRoot(typ, sym *symbols.Symbol) bool {
+	if m.restatesRoot(sym, frameRootSet) || m.NamesFeaturingReference(sym) {
+		return true
+	}
+	for fqn := range frameRoots {
+		root, found := m.LookupMember(typ, fqn[strings.LastIndex(fqn, "::")+2:])
+		if found && root != nil && m.restatesAny(root, func(s *symbols.Symbol) bool { return s == sym }) {
+			return true
+		}
+	}
+	return false
 }
 
 // NamesFeaturingReference reports a member restating one of referenceSelfRoots:
 // the frame featuring a transformation, which its value answers rather than its object.
 func (m *Model) NamesFeaturingReference(sym *symbols.Symbol) bool {
-	return m != nil && m.restatesRoot(sym, referenceSelfRoots)
+	return m != nil && m.restatesRoot(sym, referenceSelfRootSet)
 }
 
 // RestatesFeaturingReference reports whether typ's member for feature is one
@@ -396,6 +419,20 @@ func IsParameter(sym *symbols.Symbol) bool {
 	return ok && (usage.Direction != ast.DirNone || usage.IsResult)
 }
 
+// IsOutputParameter reports whether sym is a parameter a behavior answers with: an
+// `out` or `inout` parameter, or a `return` result.
+func IsOutputParameter(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	if sym.Recorded() {
+		return sym.DeclaresUsage() &&
+			(sym.Facts.Direction == ast.DirOut || sym.Facts.Direction == ast.DirInOut || sym.Facts.Modifiers.Has(symbols.ModResult))
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && (usage.Direction == ast.DirOut || usage.Direction == ast.DirInOut || usage.IsResult)
+}
+
 // IsBehaviorParameter reports whether sym is a parameter a behavior or step owns; a
 // port's directed feature (`in item cmd`) is a flow item of the port, not a parameter.
 func IsBehaviorParameter(sym *symbols.Symbol) bool {
@@ -444,10 +481,37 @@ func namesFQN(fqn string) func(*symbols.Symbol) bool {
 	return func(sym *symbols.Symbol) bool { return symbols.FQNOf(sym) == fqn }
 }
 
-// restatesRoot reports whether sym redefines or subsets one of the roots, directly
-// or through the features those name.
-func (m *Model) restatesRoot(sym *symbols.Symbol, roots map[string]bool) bool {
-	return m.restatesAny(sym, func(sym *symbols.Symbol) bool { return roots[symbols.FQNOf(sym)] })
+// rootSet names one of the library root sets restatesRoot asks about.
+type rootSet int
+
+const (
+	frameRootSet rootSet = iota
+	referenceSelfRootSet
+)
+
+// restatesRoot reports whether sym redefines or subsets one of the roots, directly or
+// through the features those name; the answer is kept per symbol (every shape asks it).
+func (m *Model) restatesRoot(sym *symbols.Symbol, set rootSet) bool {
+	if sym == nil {
+		return false
+	}
+	roots, table := frameRoots, m.restatesFrameRoot
+	if set == referenceSelfRootSet {
+		roots, table = referenceSelfRoots, m.restatesReferenceRoot
+	}
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := table[sym]; ok {
+		return cached
+	}
+	m.resolver.Enter()
+	out := m.restatesAny(sym, func(sym *symbols.Symbol) bool { return roots[symbols.FQNOf(sym)] })
+	// A walk cut short by a guard may have missed a target, so it is not memoized.
+	if !m.resolver.Leave() {
+		return out
+	}
+	journal(m, table, sym, sym.Decl)
+	table[sym] = out
+	return out
 }
 
 // restatesAny reports whether sym, or a feature it redefines or subsets transitively,

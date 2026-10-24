@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="840.5" height="284" viewBox="0 0 840.5 284" font-family="Helvetica, Arial, sans-serif" font-size="12">
+<title>sequence of a run to t = 4 (animated)</title>
+<desc>the trace of a run to t = 4</desc>
+<rect width="840.5" height="284" fill="#ffffff"/>
+<text x="16" y="28" font-weight="bold">sequence of a run to t = 4 (animated)</text>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#333333"/></marker></defs>
+<g id="n0">
+<line x1="133.5" y1="88" x2="133.5" y2="268" stroke="#999999" stroke-dasharray="4 3"/>
+<rect x="23" y="52" width="221" height="36" rx="3" fill="#eef3f8" stroke="#3b6ea5"/><text x="133.5" y="75" text-anchor="middle">#1 : sender</text>
+</g>
+<g id="n1">
+<line x1="368.5" y1="88" x2="368.5" y2="268" stroke="#999999" stroke-dasharray="4 3"/>
+<rect x="258" y="52" width="221" height="36" rx="3" fill="#eef3f8" stroke="#3b6ea5"/><text x="368.5" y="75" text-anchor="middle">#2 : receiver</text>
+</g>
+<g id="n2">
+<line x1="603.5" y1="88" x2="603.5" y2="268" stroke="#999999" stroke-dasharray="4 3"/>
+<rect x="493" y="52" width="221" height="36" rx="3" fill="#eef3f8" stroke="#3b6ea5"/><text x="603.5" y="75" text-anchor="middle">environment</text>
+</g>
+<g id="m0"><title>t=0 Unmatched (not accepted)</title><line x1="133.5" y1="128" x2="368.5" y2="128" stroke="#333333" marker-end="url(#arrow)"/><text x="251" y="123" text-anchor="middle">t=0 Unmatched (not accepted)</text><circle cx="368.5" cy="128" r="4" fill="#c0392b" opacity="0"><animate attributeName="cx" values="133.5;368.5;368.5" keyTimes="0;0.2;1" dur="5s" repeatCount="indefinite"/><animate attributeName="cy" values="128;128;128" keyTimes="0;0.2;1" dur="5s" repeatCount="indefinite"/><animate attributeName="opacity" calcMode="discrete" values="1;0" keyTimes="0;0.2" dur="5s" repeatCount="indefinite"/></circle></g>
+<g id="m1"><title>t=1 Outside (not accepted)</title><path d="M603.5 162h32v12h-30" fill="none" stroke="#333333" marker-end="url(#arrow)"/><text x="642.5" y="173">t=1 Outside (not accepted)</text><animate attributeName="opacity" calcMode="discrete" values="0;1" keyTimes="0;0.2" dur="5s" repeatCount="indefinite"/><circle cx="605.5" cy="174" r="4" fill="#c0392b" opacity="0"><animate attributeName="cx" values="603.5;603.5;635.5;635.5;605.5;605.5" keyTimes="0;0.2;0.2667;0.3333;0.4;1" dur="5s" repeatCount="indefinite"/><animate attributeName="cy" values="162;162;162;174;174;174" keyTimes="0;0.2;0.2667;0.3333;0.4;1" dur="5s" repeatCount="indefinite"/><animate attributeName="opacity" calcMode="discrete" values="0;1;0" keyTimes="0;0.2;0.4" dur="5s" repeatCount="indefinite"/></circle></g>
+<g id="m2"><title>t=2..2.5 Broadcast</title><line x1="133.5" y1="208" x2="368.5" y2="208" stroke="#333333" marker-end="url(#arrow)"/><text x="251" y="203" text-anchor="middle">t=2..2.5 Broadcast</text><animate attributeName="opacity" calcMode="discrete" values="0;1" keyTimes="0;0.4" dur="5s" repeatCount="indefinite"/><circle cx="368.5" cy="208" r="4" fill="#c0392b" opacity="0"><animate attributeName="cx" values="133.5;133.5;368.5;368.5" keyTimes="0;0.4;0.6;1" dur="5s" repeatCount="indefinite"/><animate attributeName="cy" values="208;208;208;208" keyTimes="0;0.4;0.6;1" dur="5s" repeatCount="indefinite"/><animate attributeName="opacity" calcMode="discrete" values="0;1;0" keyTimes="0;0.4;0.6" dur="5s" repeatCount="indefinite"/></circle></g>
+<g id="m3"><title>t=3 Missing</title><line x1="603.5" y1="248" x2="368.5" y2="248" stroke="#333333" marker-end="url(#arrow)"/><text x="486" y="243" text-anchor="middle">t=3 Missing</text><animate attributeName="opacity" calcMode="discrete" values="0;1" keyTimes="0;0.6" dur="5s" repeatCount="indefinite"/><circle cx="368.5" cy="248" r="4" fill="#c0392b" opacity="0"><animate attributeName="cx" values="603.5;603.5;368.5;368.5" keyTimes="0;0.6;0.8;1" dur="5s" repeatCount="indefinite"/><animate attributeName="cy" values="248;248;248;248" keyTimes="0;0.6;0.8;1" dur="5s" repeatCount="indefinite"/><animate attributeName="opacity" calcMode="discrete" values="0;1;0" keyTimes="0;0.6;0.8" dur="5s" repeatCount="indefinite"/></circle></g>
+</svg>

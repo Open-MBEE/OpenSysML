@@ -1,0 +1,7 @@
+{
+  "type": "action",
+  "evaluate": "test::Main",
+  "outputs": {
+    "result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]}
+  }
+}

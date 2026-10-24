@@ -234,58 +234,65 @@ the same member-path parser as `Project` and `OrderBy`.
 
 | Flag | Shorthand | Description |
 |------|-----------|-------------|
-| `--eval <expr>` | `-e` | Evaluate expression and exit (repeatable) |
-| `--debug` | | Report every diagnostic over the whole session buffer, with the pass that produced it |
-| `--quiet` | | Report errors only, suppressing warnings |
-| `--strict` | | Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning (see [Strict conformance](../guide/03-command-line.md#strict-conformance)) |
-| `--disable-lint <code>` | | Leave the named [lint](diagnostics.md) out of the diagnostics: `undeclared-signal`, `port-type-mismatch`, `deferred-keeper-unmarked` or `rounded-real-literal`; comma-separated or repeated. An unknown code is a usage error |
-| `--enable-lint <code>` | | Report the named opt-in [lint](diagnostics.md), off by default, in the diagnostics: `rounded-real-literal`; comma-separated or repeated. `--disable-lint` wins over it, and an unknown code is a usage error |
-| `--no-record-cache` | | Parse every file loaded and hold it loaded, reading no interface record from the record cache and writing none: what a run does where `OPENSYSML_RECORD_CACHE=0`. By default a file whose bytes, library, conformance mode and record format match a record in the cache is held as that record — its scopes and symbols without its tree, and the diagnostics its analysis found — and a file analyzed by `-validate`, `-satisfy` or another load writes its record for the next run; see [Interface records](../internals/interface-records.md) |
-| `--trace` | | Report each execution step: expression evaluation, calc invocation, action tokens, state transitions, each `choice` the executor made among alternatives the library leaves unordered, naming the alternatives and the one taken, and each `unevaluable guard` it read only to report one and could not evaluate ([Choice points](../guide/06-behavior.md)). Under `-schedule explore` the table is printed first, then the trace of one witness run per distinct outcome, each under a `trace of outcome <n>'s witness (run <r>):` heading ([Exploring every linearization](#exploring-every-linearization)) |
-| `--render-run <kind>=<path>` | | Repeatable; write a recorded run's `timeline` or `sequence` as text, Mermaid or PlantUML. The extension `.txt`, `.mmd`/`.mermaid` or `.puml`/`.plantuml` selects a form; use `-render-form` for another extension. `-render-link` links PlantUML timeline lanes and single-state spans and sequence object participants; Mermaid gantt and messages remain unlinked. DOT is refused. Requires `-state`, `-action` or `-advance` and cannot be combined with model/document rendering or schedule exploration |
-| `--convert <format>` | | Convert the model instead of running it: `sysml`, `kerml`, `ttl`, `turtle`, `rdf`, `api-json` or `json`. `ttl` writes the RDF graph in Turtle, `api-json` the same graph as the API's JSON element objects; both are [experimental](rdf-mapping.md#status-experimental) and every run that converts either says so on stderr (see [the RDF mapping](rdf-mapping.md)). The model argument may be a Flexo MMS project branch URL — `http(s)://host[:port][/base]/projects/{project}/branches/{branch}` or `flexo://{project}/{branch}` — both naming the endpoint `FLEXO_SYSMLV2_URL` configures — which is read as its head commit's RDF graph; see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
-| `--migrate <format>` | | Migrate a SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a MagicDraw/Cameo `.mdzip` archive — to SysML v2 instead of running it, writing `sysml`, `kerml`, `ttl`, `turtle`, `rdf` or `api-json`. A migration is ledgered, not lossless: every v1 element is **mapped**, **approximated**, **unmapped** or **skipped**, and the run says so in a one-line summary, or element by element with `-migration-report`. The input is named by its `.xmi`, `.uml` or `.mdzip` extension or by `--from`; v2 input is refused with a pointer at `--convert`, and `--convert` on a v1 model is refused with a pointer here, since a migration is not a conversion (experimental; see [SysML v1 migration](sysml-v1-migration.md)) |
-| `--from <format>` | | Input format for `--convert` or `--migrate`: the `--convert` formats, `xmi`/`uml`/`mdzip` for a SysML v1 model to `--migrate`, or `fmu` for a Functional Mock-up Unit to import as a `calc def` evaluated through the `tool:fmi` engine (experimental; default: from the input's extension; `.xmi`, `.uml`, `.mdzip` and `.fmu` are recognized) — see [SysML v1 migration](sysml-v1-migration.md) and [FMI models (FMUs)](fmi.md) |
-| `--migration-report <file>` | | With `--migrate`: write the element-by-element migration report to this file, JSON when it ends in `.json`, text otherwise. Without it the one-line summary goes to stderr |
-| `--migration-results <file>` | | With `--migrate`: write the simulation tool's run configurations (`SimulationProfile:SimulationConfig`) and the result snapshots it stored for each of them to this JSON file — the sidecar `-compare-results` reads against the migrated model. See [Comparing a migrated configuration with the tool's results](#comparing-a-migrated-configuration-with-the-tools-results) |
-| `--image-base-url <url>` | | With `--migrate`: the absolute http(s) URL a comment's relative `<img src>` — a path the View Editor serves, such as `/projects/.../png` — is resolved against, so the migrated document's `Image` block points at the server instead of losing the image (see [SysML v1 migration](sysml-v1-migration.md)) |
-| `--portable` | | With `--migrate`: append the OpenSysML library packages the output refers to, so the one file loads in a tool that ships only the standard library; the report names them (see [Portable output with `--portable`](sysml-v1-migration.md#portable-output-with--portable)) |
-| `--render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
-| `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
-| `--graphs <subject>` | | Write the lowered graph of this action or state machine, and of every behavior it performs, as the canonical `graphs:1` JSON an external analysis engine is sent ([the `graphs:1` model form](external-engines.md#the-graphs1-model-form)) to stdout, or to `--output`. The subject is a qualified name, definition or usage; a name that is no behavior, or that nothing declares, is refused with exit status 2. Cannot be combined with checks, rendering, `--convert`, `--migrate`, `--query` or `--eval` |
-| `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot`, `plantuml`, `d2`, `csv` or `tsv` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`). D2 writes `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition` and `package` renderings; case and mixed views refuse it with a typed error |
-| `--render-palette <name>` | | Palette the `dot`, `mermaid`, `plantuml` or `d2` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid sequence diagrams cannot fill individual participants; text and Markdown ignore palettes. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
-| `--render-link <template>` | | Link nodes and edges back to their source in rendered diagrams. Templates accept `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`; `{file}` is the path as loaded, so pass absolute paths for `vscode://` or `file://` links. Applies to `--render`, `--render-all`, document diagrams and `--render-run`; without one of those render targets it is refused |
-| `--render-style <style>` | | Drawing style the `dot` or `mermaid` form of `--render`, `--render-all`, `--render-document` and `--render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML and D2 note the style as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
-| `--render-ports <display>` | | How much of a part's ports an interconnection or mixed rendering of `--render` or `--render-all` draws: `minimal` (the default), the ports its interconnection edges or mixed connectors end at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. An unknown name is refused with the two there are |
-| `--render-overlay <overlay>` | | What `--render` or `--render-all` draws over a requirement rendering: `verdicts` runs the verification cases verifying each requirement and labels and colours it by their verdicts. Refused on another kind, by name when unknown, and without something to render (see [Rendering a view](#rendering-a-view)) |
-| `--render-unplaced <placement>` | | Where a graph form of a view some `DiagramLayout::Layout` positions puts the nodes none does: `omit` (the default) leaves them, and the edges at them, undrawn in every form, so the `mermaid`, `dot`, `plantuml` and `d2` forms draw one node set; `strip` draws them too, in rows below the `dot` drawing, clear of the canvas and every positioned box, and among the placed nodes in the forms that lay nodes out themselves. Applies to `--render`, `--render-all` and the diagrams of `--render-document` and `--render-documents`; a view with no positioned node is laid out as before whichever is named. An unknown placement is refused with the placements there are (see [Rendering a view](#rendering-a-view)) |
-| `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, in a form chosen per diagram: a view some `DiagramLayout::Layout` or `Route` positions is drawn by Graphviz where it states — inline SVG when `dot` is installed, a fenced ` ```dot ` block otherwise — and every other graph-shaped view is a fenced ` ```mermaid ` block; when Graphviz is absent a positioned view is written as Mermaid under a visible notice saying so (`-diagram-form mermaid|dot|plantuml|d2` writes every graph-shaped block in that one form; a table or matrix view is a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. An `Image` block (`location` a path relative to the document's file or an http(s)/file URL, optional `caption` and `alt`) renders as a CommonMark image under its caption, a relative `location` resolved beside the document's source file and written relative to the `-o` output's directory; `-doc-form pdf` draws the file — a missing local `location` is a `missing-image` error — and an `http(s)` location is fetched by the engine. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
-| `--doc-form <form>` | | Form `--render-document` writes: `markdown` (default), `html`, rendered from the document tree itself (see [Rendering a document as HTML](#rendering-a-document-as-html)), or `pdf`, which drives an external converter |
-| `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid`, `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed, `plantuml`, PlantUML in the Pilot visualizer's B&W style, produced without a PlantUML jar, or `d2`, a [D2](https://d2lang.com) diagram in the same look, produced without `d2`. D2 writes `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition` and `package` renderings; case and mixed views are refused with a typed error. Unset, the form is chosen per diagram: `dot` for a view some `DiagramLayout::Layout` or `Route` positions, drawn by Graphviz where it states (inline SVG in Markdown and HTML when `dot`, or `OPENSYSML_DOT`, is installed; Mermaid under a visible notice naming the missing tool when it is not), `mermaid` for every other graph-shaped view. Stated, it applies to every diagram of the document in every `--doc-form`; a table or matrix view remains a table whichever form, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
-| `--list <what>` | | List what the loaded model declares by the qualified names `--render-document` and `--render` read, to stdout: `documents`, its document definitions; `views`, its views with the rendering kind each states, a view whose kind this build does not produce marked unsupported with the reason; `diagrams`, the graph-shaped views (`tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `requirement`, `definition` and `package`); `pseudo-views`, the pseudo-views a document declaring no view is rendered through, which needs no model; or `all`, the documents followed by the views. Cannot be combined with another mode, `-import`, `-o` or a check flag (see [Listing documents and views](#listing-documents-and-views)) |
-| `--list-kind <kinds>` | | Comma-separated view kinds `--list views`, `diagrams` or `all` keeps, as `state,action`; an unknown kind is refused with the kinds there are, and `--list documents` or `pseudo-views` with the flag is refused |
-| `--list-form <form>` | | Form `--list` writes: `text` (the default), one aligned line per item; `tsv`, a header record `category`, `kind`, `supported`, `file`, `line`, `name`, `reason` then a record per item; or `json`, an array of objects with those fields, each omitted when empty |
-| `--render-documents <dir>` | | Render every document definition the model declares as a linked set into the directory, one file per document, so cross-document references resolve on disk; a document that cannot be rendered gets a page stating why and the run exits 3. `--doc-form html` writes the set as HTML pages linking shared stylesheet files written beside them |
-| `--doc-title-page` | | Put the document title on a page of its own (`--doc-form html` or `pdf`) |
-| `--doc-toc` | | Write a table of contents ahead of the content (`--doc-form html` or `pdf`) |
-| `--doc-number-sections` | | Number the section headings hierarchically (`--doc-form html` or `pdf`) |
-| `--doc-number-figures` | | Caption the figures and tables with their number in document order — `Figure 1. <caption>` for a drawn diagram or an `Image` block, `Table 1. <caption>` for a query table or a table-kind diagram — in every `--doc-form`; a block without a caption is captioned by its number alone, and formulas are not numbered. Off, captions are written as stated |
-| `--html-theme <name>` | | Style the HTML page or PDF with a bundled theme layered over the default stylesheet: `default`, `acm`, `ieee`, `modern`, `nasa`, `print` or `report` (default: the default stylesheet alone) |
-| `--html-css <file\|url>` | | Style the HTML or PDF with this stylesheet: a file is inlined in a single page and written beside a set's pages, a URL is linked. Repeatable, applied in order after the default sheet (`--doc-form html` or `pdf`) |
-| `--html-no-default-css` | | Leave the default stylesheet out, so only `--html-css` sheets style the HTML or PDF |
-| `--html-default-css` | | Write the default document stylesheet and exit, as a starting point for your own; with `--html-theme`, the theme's whole sheet |
-| `--html-fragment` | | Write the document element alone, without the page shell or a stylesheet, to embed in a page of your own |
-| `--html-mermaid <cdn\|url>` | | Have the HTML page load Mermaid to draw its diagrams: `cdn` loads a pinned release from jsDelivr, a URL loads the script it names (default: diagrams stay Mermaid source) |
-| `--html-math <cdn\|url>` | | Have the HTML page load MathJax to typeset its formulas: `cdn` loads a pinned release from jsDelivr, a URL loads the script it names (default: formulas stay LaTeX source) |
-| `--pdf-engine <engine>` | | Converter `--doc-form pdf` drives: `weasyprint` (default), `pandoc` or `prince` |
-| `--pdf-title-page` | | Former name of `--doc-title-page` |
-| `--pdf-toc` | | Former name of `--doc-toc` |
-| `--pdf-number-sections` | | Former name of `--doc-number-sections` |
-| `--output <file>` | `-o` | Write the conversion, the rendering or the rendered document to a file instead of stdout; with `-convert ttl` a branch URL (the same two forms) replaces the branch's model graph with the converted Turtle — see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
-| `--version` | `-v` | Show version information |
-| `--help` | `-h` | Show usage information |
-| `--man` | | Write this command's manual page, in roff, to stdout (see [Installing](../guide/01-install.md)) |
+| `-eval <expr>` | `-e` | Evaluate expression and exit (repeatable) |
+| `-debug` | | Report every diagnostic over the whole session buffer, with the pass that produced it |
+| `-quiet` | | Report errors only, suppressing warnings |
+| `-strict` | | Judge the model as conforming SysML v2: notation no pinned production admits, and a namespace whose memberships are indistinguishable (`Duplicate of … member name`), are errors, not warnings (see [Strict conformance](../guide/03-command-line.md#strict-conformance)) |
+| `-disable-lint <code>` | | Leave the named [lint](diagnostics.md) out of the diagnostics: `undeclared-signal`, `port-type-mismatch`, `deferred-keeper-unmarked` or `rounded-real-literal`; comma-separated or repeated. An unknown code is a usage error |
+| `-enable-lint <code>` | | Report the named opt-in [lint](diagnostics.md), off by default, in the diagnostics: `rounded-real-literal`; comma-separated or repeated. `-disable-lint` wins over it, and an unknown code is a usage error |
+| `-library-root <dir>` | | Look for the installed projects a loaded file's project uses under this directory too, besides the project's own well-known library directories (`.sysand/lib`); separated as `PATH` is or repeated, added to `OPENSYSML_LIBRARY_ROOTS`. A directory holding a `.project.json` is a project, and naming one loads its files and those of the projects its usages select; see the [guide](../guide/03-command-line.md#working-inside-a-package-manager-project). A project interchange archive (`.kpar`) is read as the project directory it zips, under a root or named as an input; see [Project interchange archives](../guide/03-command-line.md#project-interchange-archives) |
+| `-no-record-cache` | | Parse every file loaded and hold it loaded, reading no interface record from the record cache and writing none: what a run does where `OPENSYSML_RECORD_CACHE=0`. By default a file whose bytes, library, conformance mode and record format match a record in the cache is held as that record — its scopes and symbols without its tree, and the diagnostics its analysis found — and a file analyzed by `-validate`, `-satisfy` or another load writes its record for the next run; see [Interface records](../internals/interface-records.md) |
+| `-trace` | | Report each execution step: expression evaluation, calc invocation, action tokens, state transitions, each `choice` the executor made among alternatives the library leaves unordered, naming the alternatives and the one taken, and each `unevaluable guard` it read only to report one and could not evaluate ([Choice points](../guide/06-behavior.md)). Under `-schedule explore` the table is printed first, then the trace of one witness run per distinct outcome, each under a `trace of outcome <n>'s witness (run <r>):` heading ([Exploring every linearization](#exploring-every-linearization)) |
+| `-render-run <kind>=<path>` | | Repeatable; write a recorded run's `timeline` or `sequence` as text, Mermaid or PlantUML. The extension `.txt`, `.mmd`/`.mermaid` or `.puml`/`.plantuml` selects a form; use `-render-form` for another extension. `-render-link` links PlantUML timeline lanes and single-state spans and sequence object participants; Mermaid gantt and messages remain unlinked. DOT is refused. Requires `-state`, `-action` or `-advance` and cannot be combined with model/document rendering or schedule exploration |
+| `-convert <format>` | | Convert the model instead of running it: `sysml`, `kerml`, `ttl`, `turtle`, `rdf`, `api-json` or `json`. `ttl` writes the RDF graph in Turtle, `api-json` the same graph as the API's JSON element objects; both are [experimental](rdf-mapping.md#status-experimental) and every run that converts either says so on stderr (see [the RDF mapping](rdf-mapping.md)). The model argument may be a Flexo MMS project branch URL — `http(s)://host[:port][/base]/projects/{project}/branches/{branch}` or `flexo://{project}/{branch}` — both naming the endpoint `FLEXO_SYSMLV2_URL` configures — which is read as its head commit's RDF graph; see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
+| `-migrate <format>` | | Migrate a SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a MagicDraw/Cameo `.mdzip` archive — to SysML v2 instead of running it, writing `sysml`, `kerml`, `ttl`, `turtle`, `rdf` or `api-json`. A migration is ledgered, not lossless: every v1 element is **mapped**, **approximated**, **unmapped** or **skipped**, and the run says so in a one-line summary, or element by element with `-migration-report`. The input is named by its `.xmi`, `.uml` or `.mdzip` extension or by `-from`; v2 input is refused with a pointer at `-convert`, and `-convert` on a v1 model is refused with a pointer here, since a migration is not a conversion (experimental; see [SysML v1 migration](sysml-v1-migration.md)) |
+| `-bundle <dir>` | | Write the project directory (`.project.json` and the files beside it) as a project interchange archive (KerML 1.0 §10.3, `.kpar`), to `-o` or to `<name>-<version>.kpar` after the project. Members are sorted and carry a fixed timestamp, so two runs give the same bytes; a `.meta.json` the directory lacks is generated (index, SHA256 checksums, `SOURCE_DATE_EPOCH` as the creation time when set). Takes no model; see [Project interchange archives](../guide/03-command-line.md#project-interchange-archives) |
+| `-unbundle <file>` | | Write the project interchange archive out as a project directory, to `-o` or to `<name>-<version>`, which must be new or empty; the archive is checked first (both files at the top level, index and checksums naming members, checksums verified). Takes no model |
+| `-from <format>` | | Input format for `-convert` or `-migrate`: the `-convert` formats, `xmi`/`uml`/`mdzip` for a SysML v1 model to `-migrate`, or `fmu` for a Functional Mock-up Unit to import as a `calc def` evaluated through the `tool:fmi` engine (experimental; default: from the input's extension; `.xmi`, `.uml`, `.mdzip` and `.fmu` are recognized) — see [SysML v1 migration](sysml-v1-migration.md) and [FMI models (FMUs)](fmi.md) |
+| `-migration-report <file>` | | With `-migrate`: write the element-by-element migration report to this file, JSON when it ends in `.json`, text otherwise. Without it the one-line summary goes to stderr |
+| `-migration-results <file>` | | With `-migrate`: write the simulation tool's run configurations (`SimulationProfile:SimulationConfig`) and the result snapshots it stored for each of them to this JSON file — the sidecar `-compare-results` reads against the migrated model. See [Comparing a migrated configuration with the tool's results](#comparing-a-migrated-configuration-with-the-tools-results) |
+| `-image-base-url <url>` | | With `-migrate`: the absolute http(s) URL a comment's relative `<img src>` — a path the View Editor serves, such as `/projects/.../png` — is resolved against, so the migrated document's `Image` block points at the server instead of losing the image (see [SysML v1 migration](sysml-v1-migration.md)) |
+| `-portable` | | With `-migrate`: append the OpenSysML library packages the output refers to, so the one file loads in a tool that ships only the standard library; the report names them (see [Portable output with `-portable`](sysml-v1-migration.md#portable-output-with--portable)) |
+| `-render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
+| `-render-all <dir>` | | Render every declared view into the directory, one artifact per view |
+| `-graphs <subject>` | | Write the lowered graph of this action or state machine, and of every behavior it performs, as the canonical `graphs:1` JSON an external analysis engine is sent ([the `graphs:1` model form](external-engines.md#the-graphs1-model-form)) to stdout, or to `-output`. The subject is a qualified name, definition or usage; a name that is no behavior, or that nothing declares, is refused with exit status 2. Cannot be combined with checks, rendering, `-convert`, `-migrate`, `-query` or `-eval` |
+| `-render-form <form>` | | Form `-render` or `-render-all` writes: `text`, `mermaid`, `markdown`, `dot`, `plantuml`, `d2`, `csv` or `tsv` (default: destination-dependent for `-render`, each kind's machine-readable form for `-render-all`). D2 writes `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition` and `package` renderings; case and mixed views refuse it with a typed error |
+| `-render-palette <name>` | | Palette the `dot`, `mermaid`, `plantuml` or `d2` form of `-render` or `-render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid sequence diagrams cannot fill individual participants; text and Markdown ignore palettes. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
+| `-render-link <template>` | | Link nodes and edges back to their source in rendered diagrams. Templates accept `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`; `{file}` is the path as loaded, so pass absolute paths for `vscode://` or `file://` links. Applies to `-render`, `-render-all`, document diagrams and `-render-run`; without one of those render targets it is refused |
+| `-render-style <style>` | | Drawing style the `dot` or `mermaid` form of `-render`, `-render-all`, `-render-document` and `-render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML and D2 note the style as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
+| `-render-ports <display>` | | How much of a part's ports an interconnection or mixed rendering of `-render` or `-render-all` draws: `minimal` (the default), the ports its interconnection edges or mixed connectors end at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. An unknown name is refused with the two there are |
+| `-render-lines <routing>` | | How the `dot` or `plantuml` form of `-render` or `-render-all` routes its edges: `splines` (the default) leaves each engine its curved routing unstated, `ortho` draws axis-parallel segments (`splines=ortho` on the DOT graph, with edge labels as `xlabel` since Graphviz places no `label` on an orthogonal edge, and with Graphviz's orthogonal router ignoring port positions, so an edge to a pin may cross its part; `skinparam linetype ortho` in PlantUML) and `polyline` straight segments (`splines=polyline`, `skinparam linetype polyline`) — the Pilot visualizer's `ORTHOLINE` and `POLYLINE` styles. Mermaid and D2, which route no edge themselves, note the routing as not represented; text and the tables ignore it. An unknown routing is refused with the three there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
+| `-render-show <elements>` | | Optional notation elements `-render`, `-render-all`, `-render-document` and `-render-documents` draw besides the default (port symbols, compartments and keywords), comma-separated: `parameter-symbols`, `port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`, or `all`; added to what the view's own rendering shows. |
+| `-render-depth <levels>` | | How many levels of nested elements `-render` and `-render-all` draw below each exposed element of a tree or interconnection rendering, overriding the `depth` the view states; `0` (the default) draws every level the view allows. |
+| `-render-overlay <overlay>` | | What `-render` or `-render-all` draws over a requirement rendering: `verdicts` runs the verification cases verifying each requirement and labels and colours it by their verdicts. Refused on another kind, by name when unknown, and without something to render (see [Rendering a view](#rendering-a-view)) |
+| `-render-unplaced <placement>` | | Where a graph form of a view some `DiagramLayout::Layout` positions puts the nodes none does: `omit` (the default) leaves them, and the edges at them, undrawn in every form, so the `mermaid`, `dot`, `plantuml` and `d2` forms draw one node set; `strip` draws them too, in rows below the `dot` drawing, clear of the canvas and every positioned box, and among the placed nodes in the forms that lay nodes out themselves. Applies to `-render`, `-render-all` and the diagrams of `-render-document` and `-render-documents`; a view with no positioned node is laid out as before whichever is named. An unknown placement is refused with the placements there are (see [Rendering a view](#rendering-a-view)) |
+| `-render-compartments <folding>` | | How a graph or text form of a tree view folds a node's owned members into compartment rows of its box instead of boxes of their own: `positioned` (the default) folds only the layout-less members of a tree some `DiagramLayout::Layout` positions, as `-render-unplaced` describes; `most` folds every owned usage that has no `Layout` of its own and no definition or package nested under it (the pilot's `COMPMOST`), so `part sensor : Sensor` reads `sensor : Sensor` in its owner's `parts` compartment; `ports` folds the port usages alone, the ports nested under them listed as `hub.bearing` rows (the pilot's `COMPTREE`). An edge at a folded member moves to its owner, the owner's containment of it is dropped as the nesting the row stands for, and the `not represented` notice counts the members drawn as compartment rows of their owner. Applies to `-render`, `-render-all`, `-render-document` and `-render-documents`; needs one of them. |
+| `-render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, in a form chosen per diagram: a view some `DiagramLayout::Layout` or `Route` positions is drawn by Graphviz where it states — inline SVG when `dot` is installed, a fenced ` ```dot ` block otherwise — and every other graph-shaped view is a fenced ` ```mermaid ` block; when Graphviz is absent a positioned view is written as Mermaid under a visible notice saying so (`-diagram-form mermaid|dot|plantuml|d2` writes every graph-shaped block in that one form; a table or matrix view is a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. An `Image` block (`location` a path relative to the document's file or an http(s)/file URL, optional `caption` and `alt`) renders as a CommonMark image under its caption, a relative `location` resolved beside the document's source file and written relative to the `-o` output's directory; `-doc-form pdf` draws the file — a missing local `location` is a `missing-image` error — and an `http(s)` location is fetched by the engine. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `-instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
+| `-doc-form <form>` | | Form `-render-document` writes: `markdown` (default), `html`, rendered from the document tree itself (see [Rendering a document as HTML](#rendering-a-document-as-html)), or `pdf`, which drives an external converter |
+| `-diagram-form <form>` | | Form the graph-shaped diagram blocks of `-render-document` and `-render-documents` are written in: `mermaid`, `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed, `plantuml`, PlantUML in the Pilot visualizer's B&W style, produced without a PlantUML jar, or `d2`, a [D2](https://d2lang.com) diagram in the same look, produced without `d2`. D2 writes `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition` and `package` renderings; case and mixed views are refused with a typed error. Unset, the form is chosen per diagram: `dot` for a view some `DiagramLayout::Layout` or `Route` positions, drawn by Graphviz where it states (inline SVG in Markdown and HTML when `dot`, or `OPENSYSML_DOT`, is installed; Mermaid under a visible notice naming the missing tool when it is not), `mermaid` for every other graph-shaped view. Stated, it applies to every diagram of the document in every `-doc-form`; a table or matrix view remains a table whichever form, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
+| `-list <what>` | | List what the loaded model declares by the qualified names `-render-document` and `-render` read, to stdout: `documents`, its document definitions; `views`, its views with the rendering kind each states, a view whose kind this build does not produce marked unsupported with the reason; `diagrams`, the graph-shaped views (`tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `requirement`, `definition` and `package`); `pseudo-views`, the pseudo-views a document declaring no view is rendered through, which needs no model; or `all`, the documents followed by the views. Cannot be combined with another mode, `-import`, `-o` or a check flag (see [Listing documents and views](#listing-documents-and-views)) |
+| `-list-kind <kinds>` | | Comma-separated view kinds `-list views`, `diagrams` or `all` keeps, as `state,action`; an unknown kind is refused with the kinds there are, and `-list documents` or `pseudo-views` with the flag is refused |
+| `-list-form <form>` | | Form `-list` writes: `text` (the default), one aligned line per item; `tsv`, a header record `category`, `kind`, `supported`, `file`, `line`, `name`, `reason` then a record per item; or `json`, an array of objects with those fields, each omitted when empty |
+| `-render-documents <dir>` | | Render every document definition the model declares as a linked set into the directory, one file per document, so cross-document references resolve on disk; a document that cannot be rendered gets a page stating why and the run exits 3. `-doc-form html` writes the set as HTML pages linking shared stylesheet files written beside them |
+| `-doc-title-page` | | Put the document title on a page of its own (`-doc-form html` or `pdf`) |
+| `-doc-toc` | | Write a table of contents ahead of the content (`-doc-form html` or `pdf`) |
+| `-doc-number-sections` | | Number the section headings hierarchically (`-doc-form html` or `pdf`) |
+| `-doc-number-figures` | | Caption the figures and tables with their number in document order — `Figure 1. <caption>` for a drawn diagram or an `Image` block, `Table 1. <caption>` for a query table or a table-kind diagram — in every `-doc-form`; a block without a caption is captioned by its number alone, and formulas are not numbered. Off, captions are written as stated |
+| `-html-theme <name>` | | Style the HTML page or PDF with a bundled theme layered over the default stylesheet: `default`, `acm`, `ieee`, `modern`, `nasa`, `print` or `report` (default: the default stylesheet alone) |
+| `-html-css <file\|url>` | | Style the HTML or PDF with this stylesheet: a file is inlined in a single page and written beside a set's pages, a URL is linked. Repeatable, applied in order after the default sheet (`-doc-form html` or `pdf`) |
+| `-html-no-default-css` | | Leave the default stylesheet out, so only `-html-css` sheets style the HTML or PDF |
+| `-html-default-css` | | Write the default document stylesheet and exit, as a starting point for your own; with `-html-theme`, the theme's whole sheet |
+| `-html-fragment` | | Write the document element alone, without the page shell or a stylesheet, to embed in a page of your own |
+| `-html-mermaid <cdn\|url>` | | Have the HTML page load Mermaid to draw its diagrams: `cdn` loads a pinned release from jsDelivr, a URL loads the script it names (default: diagrams stay Mermaid source) |
+| `-html-math <cdn\|url>` | | Have the HTML page load MathJax to typeset its formulas: `cdn` loads a pinned release from jsDelivr, a URL loads the script it names (default: formulas stay LaTeX source) |
+| `-pdf-engine <engine>` | | Converter `-doc-form pdf` drives: `weasyprint` (default), `pandoc` or `prince` |
+| `-pdf-title-page` | | Former name of `-doc-title-page` |
+| `-pdf-toc` | | Former name of `-doc-toc` |
+| `-pdf-number-sections` | | Former name of `-doc-number-sections` |
+| `-output <file>` | `-o` | Write the conversion, the rendering, the rendered document or a `-validate` report in a `-format` other than text to a file instead of stdout, or name what `-bundle` and `-unbundle` write; with `-convert ttl` a branch URL (the same two forms) replaces the branch's model graph with the converted Turtle — see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
+| `-version` | `-v` | Show version information |
+| `-help` | `-h` | Show usage information |
+| `-man` | | Write this command's manual page, in roff, to stdout (see [Installing](../guide/01-install.md)) |
 
 Check flags may be combined. `-instantiate` runs first whatever order the flags are
 written in, so the verdicts are about that object:
@@ -294,7 +301,7 @@ written in, so the verdicts are about that object:
 |------|--------|
 | `-validate` | Only that the model analyses cleanly and that the objects `-instantiate` asked for could be built; it says nothing about the model's constraints |
 | `-validate=<object>` | Every assertion about an object `-instantiate` created and the objects it holds, as `%validate` does: each `assert constraint` the carrier's type declares or inherits, each requirement usage it carries and each `satisfy` assertion whose subject is in the tree, one verdict per assertion per object, root first and then each held object as the walk reaches it (`Fleet::car.wheels[2]`), then one verdict about the object as a whole — valid only when every assertion holds and every held object was reached, so an assertion that could not be evaluated or a walk cut short by an object graph without end leaves it undecided rather than valid, as does an object no assertion is about (`states no assertion to validate`, exit status 2). The object is named as `%validate` names it: the usage's name, a feature path to a part it holds (`Fleet::car.engine`), or the id the report prints (`#2`). A constraint declared without `assert` is not swept; name it with `-constraint`. Repeatable; `-validate=false` asks for nothing and withdraws a bare `-validate` written before it, as `-satisfy=false` does |
-| `-constraint "<name>[(<args>)] [object]"` | One constraint, as `%constraint` does. Arguments in parentheses bind the constraint's `in` parameters, positionally in declaration order or by name (`-constraint "Pkg::Between(3, high = 4)"`), evaluated as `-calc`'s are; an object `-instantiate` created after them is the subject the verdict is about (`-constraint "Pkg::Fits(3.0) Pkg::part"`). An unknown name, more positional arguments than parameters, a parameter left without an argument, default or same-named value on the checked object, or a value not of the parameter's type leaves the check undecided (exit status 2) |
+| `-constraint "<name>[(<args>)] [object]"` | One constraint, as `%constraint` does. Arguments in parentheses bind the constraint's `in` parameters, positionally in declaration order or by name (`-constraint "Pkg::Between(3, high = 4)"`), evaluated as `-calc`'s are; an object `-instantiate` created after them is the subject the verdict is about (`-constraint "Pkg::Fits(3.0) Pkg::part"`); without one, a constraint carried by exactly one object is checked on it, and one carried by none against its type's declared defaults, `this` denoting an exemplar of the type made for the check and discarded with it. An unknown name, more positional arguments than parameters, a parameter left without an argument, default or same-named value on the checked object, or a value not of the parameter's type leaves the check undecided (exit status 2) |
 | `-self-check` | Applies the 50 constraints in the OpenSysML `SysMLValidation` library to each reflectively classified element in the workspace. A false result or evaluation error fails; a reflective feature not derived is counted as unevaluated, not as a failure. Runs only after the model analyses cleanly |
 | `-self-check-package <QualifiedName>` | Applies the `constraint def`s of the named package — nested packages included — together with the `SysMLValidation` ones in the same element walk; implies `-self-check`. Repeatable. See [Writing self-check rules](#writing-self-check-rules) |
 | `-requirement "<name>[(<args>)] [object]"` | One requirement, as `%requirement` does, with [the verdict of every verification case](#verification-case-verdicts) verifying it beside its own. Arguments and a subject are written as for `-constraint` (`-requirement "Pkg::Under(limit = 5) Pkg::part"`) |
@@ -302,7 +309,7 @@ written in, so the verdicts are about that object:
 | `-satisfy=<name>` | Only the assertions the named element states (`-satisfy=false` asks for none) |
 | `-instantiate <name>` | Creates an object first, so the verdicts are about it; with `-run-query` or `-render-document`, so the query reads it ([Objects the session holds](../manual/query-cookbook.md#objects-the-session-holds)). Under `-schedule explore`, `-engine check`, `smt` or `all` each run creates an object of the declaration of its own before its behaviors start, one per `-instantiate` as the session holds one per `-instantiate`, which a `-state` or `-action` named alone attaches to and a path such as `Mission::mission.vehicle` walks into ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
 | `-calc "<name>(<args>)"` | Invokes a calculation and reports what it computed |
-| `-analysis "<name>[(<args>)] [object]"` | Runs an analysis or [verification](#verification-case-verdicts) case — a [trade study](#trade-studies) included — and reports its `out` and `return` values with their units, then the verdict of its `objective` — `satisfied`, `not satisfied` with the violated condition, or `undecided` with the reason — as `%analysis` does. An objective typed by a requirement def binds the def's subject as a requirement usage does (`subject = ship;`, `subject s = ship;` or `subject :>> s = ship;`); one binding none checks the case's result, the library's default for it, and is `undecided` naming the type when that result is not of the subject's type. Arguments bind the case's `in` parameters, positionally (`Pkg::Case(3.0)`) or by name (`Pkg::Case(limit = 3.0)`); the object, one `-instantiate` created and named as `-state` names its performer, is the case's `subject`. A usage that binds its subject (`subject s = ship;`) needs no object; a definition, or a usage that binds none, is refused by name without one. A verification case runs the same way and reports beside those verdicts the `VerdictKind` its body produced. Repeatable |
+| `-analysis "<name>[(<args>)] [object]"` | Runs an analysis or [verification](#verification-case-verdicts) case — a [trade study](#trade-studies) included — and reports its `out` and `return` values with their units, then the verdict of its `objective` — `satisfied`, `not satisfied` with the violated condition, or `undecided` with the reason — as `%analysis` does. An objective typed by a requirement def binds the def's subject as a requirement usage does (`subject = ship;`, `subject s = ship;` or `subject :>> s = ship;`); one binding none checks the case's result, the library's default for it, and is `undecided` naming the type when that result is not of the subject's type. Arguments bind the case's `in` parameters, positionally (`Pkg::Case(3.0)`) or by name (`Pkg::Case(limit = 3.0)`); the object, one `-instantiate` created and named as `-state` names its performer, is the case's `subject`; for a case a part definition owns it is instead the object the case is a feature of (`-analysis "P::Definition::costTest P::product"`), binding a subject the case declares and leaves unbound as well, and without one the case runs on the single object of the definition the run holds. A usage that binds its subject (`subject s = ship;`) needs no object; a definition, or a usage that binds none, is refused by name without one. A verification case runs the same way and reports beside those verdicts the `VerdictKind` its body produced. Repeatable |
 | `-tool-dry-run "<case|action>[(<args>)] [object]"` | Shows what the external tool the case's or action's `ToolExecution` names would be given — manifest, executable, argv, environment, working directory, standard input, input file and reply mapping — with the model's current values and the invocation's arguments bound, without starting the process, then discards everything the run did — the session is as the preview found it — as `%tool` does. A run reaching no `ToolExecution`-annotated action reports that; a manifest fault, an unregistered tool or an input the call does not send reports the typed error the real run would fail with; refused under an exploring schedule, which runs many linearizations while a preview shows one run's first call. Repeatable. See [External tools](external-engines.md) |
 | `-record-run "<name>[(<args>)] [object]"` | Runs an analysis case as `-analysis` does and records the run into the model as `AnalysisRecords` elements: a record definition named for the case in a `Records` package beside the case's, and one part under it per run carrying the inputs bound and the outputs produced, annotated `@AnalysisRecords::RecordedRun` with when the run was made, the tool and command, and its kind. With `-sweep` the case sweeps as `-sweep` makes it and one record per row is written (`kind = "sweep"`); with `-runs <n>` and `-seed` a `Simulation::MonteCarlo` case is sampled as `-runs` makes it and each run recorded (`kind = "runs"`). Composes with `-convert sysml -o`, which writes the session text the records joined, and with `-render-document`, whose queries then see the records; a run that fails records nothing and leaves the model untouched. Repeatable. See [Recording analysis runs](#recording-analysis-runs) |
 | `-record-into <package>` | Records the `-record-run` runs into the package named instead of a `Records` package beside the case's; refused without `-record-run` |
@@ -334,10 +341,14 @@ written in, so the verdicts are about that object:
 | `-check-states <n>` | With `-engine check` or `-engine all`: the most distinct states the search may visit (default 1 000 000), named as the `states` bound when it is hit; a positive integer. It is the shared `runs` budget in the checker's unit, so under `-engine all` the one figure is also an exploration's linearizations |
 | `-check-timeout <duration>` | With `-engine check`, `-engine smt` or `-engine all`: the wall clock the check's plan may run for, as `30s` or `2m`, and the time each of the `smt` engine's solver queries may take, in place of `OPENSYSML_SMT_TIMEOUT`; a search the clock stops is reported `incomplete: time` with the states and depth it reached, not as a verdict, and exits 2. Unbounded by default, the solver's queries at `OPENSYSML_SMT_TIMEOUT` |
 | `-engines` | Lists the analysis engines this build knows — name, kind, protocol, authority, the question kinds each answers and its status — and exits, without a model and without starting a process: the external engines of `OPENSYSML_ENGINES` and the tools of `OPENSYSML_TOOLS` are listed from their manifests alone, each followed by a line naming its file and command. See [Analysis engines](#analysis-engines) |
+| `-metaclass-graph` | Writes the SysML metaclass hierarchy of the pinned pilot metamodel as Turtle to stdout, or to `--output`, and exits without reading a model: one `rdfs:Class` per metaclass in the `sysml:` namespace, `rdfs:subClassOf` per declared general metaclass and `sysx:abstract true` on the abstract ones, the file committed as `internal/translate/rdf/ontology/sysml-metaclasses.ttl`. A store holding one `rdf:type` per element finds the specializations of a metaclass through `rdf:type/rdfs:subClassOf*` once it is loaded. See [Metaclass hierarchy graph](rdf-mapping.md#metaclass-hierarchy-graph) |
 | `-probe` | With `-engines`, also start each external engine once, check its `describe` against its manifest entry field by field and report the outcome as its status (`ready (…; describe agrees)`, or the first field that disagrees). See [External engines](external-engines.md) |
 | `-engine <name>\|auto\|all` | The analysis engine every check of the invocation is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*, reaching an external engine only after every built-in one has; a name (`run`, `explore`, `check`, `smt`, `sweep`, `solve`, or an external engine's) puts the question to that engine alone, and its refusal is the answer; `all` puts it to every engine covering it, one after another in name order, and composes their answers. A name no engine is registered under is refused before anything runs. `-engine explore` explores as `-schedule explore` does; `-engine check` searches every schedule of each `-action` for a violation, a deadlock, a failure or a divergence ([Checking every schedule of an action](#checking-every-schedule-of-an-action-or-a-state-machine)); `-engine smt` decides a `-check-property` over every schedule and every value of the free inputs with an SMT solver ([Deciding a property over the inputs](#deciding-a-property-over-the-inputs)). See [Analysis engines](#analysis-engines) |
 | `-jobs <n>` | Runs of one check that may go concurrently — the linearizations of an exploration, the rows of a `-sweep`/`-samples`, the engines `-engine all` consults — each on a worker of its own over the shared model, and how many files of one load are parsed and validated at once (`-validate`, `-satisfy`, `-check` and every mode that loads files). `n` is a positive integer; the default is `OPENSYSML_JOBS`, else one per CPU, fewer where the memory available leaves less than 512 MiB per worker (Linux: `MemAvailable` and the cgroup's `memory.max`; one at least). The result of a check is the same at any count: the outcome table, the witness, the run count and the cut a violation makes are those of the runs taken one at a time in plan order. See [Running in parallel](#running-in-parallel) |
 | `-json` | Reports the checks as one JSON document rather than as lines. Each check carries its `plan` and `results[]` beside the fields it always carried ([Analysis engines](#analysis-engines)) |
+| `-format text\|json\|sarif\|junit` | How the checks are reported. `text` is the lines; `json` is `-json`; `sarif` and `junit` carry `-validate`'s diagnostics to a CI service — SARIF 2.1.0 ([Validating in CI](../guide/03-command-line.md#validating-in-ci)) with one run, the tool's name and version, one rule per diagnostic code (`diagnostic` for one that has none), the severity as the level, each finding's file relative to the working directory with its line and column (`columnKind` is `utf16CodeUnits`, as SARIF readers count; the JSON report counts bytes), and the fixes analysis offers; JUnit XML with one testsuite per file, one failing testcase per finding typed by its severity, one passing testcase for a file with none, and an error testcase in the `sysml` suite for whatever stopped the run — a file with no finding in a run stopped by something no finding explains is skipped rather than passed. A document goes to stdout, or to the file `-o` names; what stopped the run is printed as in the line form, since neither document has a place for it |
+| `-baseline <file>` | The findings already known: a JSON report `-validate -json -o <file>` wrote. A finding with the same code, file (relative to the working directory) and message as one in it is suppressed — left out of the report and of the exit status — whatever line it has moved to; the summary says how many were (`N known finding(s) suppressed by <file>`, the `suppressed` field of a JSON or SARIF document). A finding the baseline does not know is reported and judged as without it. A known error that stopped analysis is still one: the tiers after it did not run, so the run is undecided (exit status 2, `did not analyse cleanly: an error the baseline knows stopped analysis`) rather than clean; what a baseline can accept is a finding analysis ran through — a warning, or an error of the last tier |
+| `-warnings-as-errors` | A warning ends the run as an error does (exit status 2). A warning a check reports, as a bounded materialization does, counts as one of the model does. Only the exit status changes: the report keeps each finding's own severity, so a SARIF `level` stays `warning` |
 
 Other modes, each described in full by `sysml -help` and the manual page:
 
@@ -396,7 +407,23 @@ body is a Boolean expression over the element's reflective features (`name`,
 `qualifiedName`, `documentation`, `ownedMember`, `direction`, `isComposite`, …). A
 metaclass feature is read by the name of its most specific redefinition, since a
 redefinition hides the name it redefines (KerML §7.4.7, §8.3.3.3): on a
-`SysML::PortUsage` that is `portDefinition`, not `type`. Import
+`SysML::PortUsage` that is `portDefinition`, not `type`.
+
+Besides the intrinsic features (`name`, `shortName`, `documentation`, `ownedMember`,
+`ownedFeature`, `direction`, the `is…` flags, the `nested*`/`owned*` usage projections), a rule
+may read the relationship-valued ones: `ownedRelationship`, `ownedAnnotation`, `ownedMembership`,
+`ownedImport`, `ownedFeatureMembership`, `featureMembership`, `inheritedMembership`,
+`owningMembership`, `owningRelationship`, `textualRepresentation`; on an annotating element
+`annotation`, `annotatedElement` (`documentedElement` on a `doc`), `ownedAnnotatingRelationship`;
+and the requirement properties derived through memberships — `text`, `requiredConstraint`,
+`assumedConstraint`, `framedConcern`, `actorParameter`, `stakeholderParameter` on a requirement,
+`verifiedRequirement` on a verification case (not on a requirement: the metamodel declares no
+inverse), `satisfiedRequirement` and `satisfyingFeature` on a `satisfy`. Each Membership,
+Annotation or Import read this way is a metaobject answering the ends and attributes its
+metaclass declares (`memberElement`, `memberName`, `visibility`, `kind`, `annotatedElement`,
+`importedNamespace`, …). A feature the metaclass declares but the model cannot derive
+(`aliasIds`, `elementId`, `membership`, a `filter` member's `ElementFilterMembership`) is reported
+as unevaluated, never answered empty. Import
 `SequenceFunctions::*` for `->isEmpty()` and friends:
 
 ```sysml
@@ -439,17 +466,23 @@ $ sysml -analysis Landing::checkSlow model.sysml
   ✓ Verification Landing::checkSlow verdict: pass
 ```
 
-The body verdict is beside the objective's, not instead of it: an objective
-stating no condition to check — `objective { verify touchdown; }` with no
-`require constraint` of its own — stays `undecided`, and the case is reported
-unresolved however its body came out.
+The body verdict is beside the objective's, not instead of it. An objective
+stating no condition of its own — `objective { verify touchdown; }` with no
+`require constraint` — is `satisfied`: `verify` records the requirement the case
+verifies and is no condition of the objective, and a requirement check over no
+constraints is true (`Requirements::RequirementConstraintCheck`), so the body's
+verdict alone decides the case. An objective whose condition cannot be evaluated
+stays `undecided`, and the case unresolved.
 
 The verdict is what running the body answers, not a separate judgement of the
 model: a body whose result is a `VerificationCases::PassIf(...)` call is `pass`
 or `fail` as that library calculation computes it, a body binding `verdict` to a
 `VerdictKind` literal reports that literal, a body producing no verdict value is
 `inconclusive`, and a body whose run could not be carried out is `error` carrying
-the reason. Each nested `verification` step is reported on its own line, marked
+the reason. A case a part definition owns is a feature of the definition's objects:
+run with none instantiated it is `inconclusive` too, its detail saying it `needs an
+object of <Definition>: none is instantiated` as the definition's `satisfy` line does,
+since nothing is wrong with the model. Each nested `verification` step is reported on its own line, marked
 `(subcase)` and carrying `"subcase": true` in the JSON report: the library
 states no roll-up of a subcase's verdict into its parent's.
 
@@ -538,14 +571,26 @@ sysml examples/run-timeline/run-timeline.sysml \
   -render-run sequence=sequence.puml
 ```
 
-The output extension selects text (`.txt`), Mermaid (`.mmd`, `.mermaid`) or PlantUML
-(`.puml`, `.plantuml`); `-render-form` can select a form for another extension. DOT is not
-available for run output. A run rendering cannot be combined with a model or document rendering,
+The output extension selects text (`.txt`), Mermaid (`.mmd`, `.mermaid`), PlantUML
+(`.puml`, `.plantuml`) or SVG (`.svg`); `-render-form` can select a form for another extension,
+and is how the animated SVG is asked for: `-render-form svg-animated`. DOT is not
+available for run output.
+
+The `svg` form is a self-contained drawing that needs no other tool: a timeline is one lane per
+`<object>.<machine>` with each state a labelled bar over a shared time axis, a state held for no
+time a tick, and the notices the Mermaid form prints under the title; a sequence is one lifeline
+per participant with a labelled arrow per message in run order. `svg-animated` is the same
+drawing replaying the run with SMIL animation and no script: a cursor sweeps the timeline while
+the state under it brightens, and a sequence's messages appear in turn with a marker travelling
+along each arrow. The replay lasts one second per step of the run (an instant at which some lane
+changes, or a message) plus one second holding the final state, then loops; a viewer without
+SMIL shows the complete, final picture. See
+[SVG and animation](../project/view-rendering-forms.md#svg-and-animation). A run rendering cannot be combined with a model or document rendering,
 query, schedule exploration or multi-run analysis. Run output cannot be written to standard output
 with `-json`; name a file for each rendering instead. `-render-run` cannot be combined with
 `-compare-results`. `-render-link` links sequence object participants to their type declarations,
-and PlantUML timeline lanes and single-state spans to their declarations. Mermaid gantt and run
-messages are not linked.
+and PlantUML and SVG timeline lanes and single-state spans to their declarations (`<a href>`
+elements in the SVG). Mermaid gantt and run messages are not linked.
 
 ## Listing documents and views
 
@@ -676,6 +721,7 @@ sysml model.sysml -render Views::vehicleView -render-form text
 sysml model.sysml -render Views::vehicleView -render-form dot -o view.dot
 sysml model.sysml -render Views::vehicleView -render-form dot -render-palette okabe-ito -o view.dot
 sysml model.sysml -render Views::vehicleView -render-form dot -render-unplaced strip -o view.dot
+sysml model.sysml -render Views::vehicleView -render-form dot -render-compartments most -o view.dot
 
 # PlantUML in the Pilot visualizer's B&W style, for a PlantUML toolchain; no jar is run
 sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml
@@ -782,6 +828,18 @@ in each form:
 | `dot` | `"n1" [label=<<font point-size="10">«part»</font><br/><b>pump : Pump</b>>];` — an HTML-like label, the keyword line at 10pt over the name in bold |
 | `plantuml` | `rectangle "<size:10>//«part»//</size>\n**pump : Pump**" as n1 <<part>> <<usage>>` — a creole label, the keyword line italic at 10pt over the name in bold; the stereotypes drive the style and are hidden |
 | `d2` | `n1: "«part»\npump : Pump" { class: usage }` — a quoted label with the keyword line over the name, the class the B&W rule the node takes |
+
+An association end's name — a composite part's name and multiplicity on the composition from its
+owner to its type, a `ref`'s on its reference edge, each end of a connection def drawn as a line
+between its end types — is drawn at the end it names, as the graphical notation draws an end name,
+not along the edge; a connection's own name stays along the edge. Each form sets it where its
+grammar has a place at an end: `dot` as `headlabel` (`taillabel` at the tail; set by
+Graphviz beside the head of a laid-out edge, and by `head_lp` beside the last segment of a routed
+edge before that end, clear of the line, the boxes and the other labels), `plantuml` in quotes
+before the end's alias (`n0 *-- "wheels[4]" n16`), `d2` as the arrowhead's label
+(`target-arrowhead: { label: "wheels[4]" }`). `mermaid`'s flowchart and the `text` form have no
+place at an end and keep the name in the edge's text (`◆ wheels[4]`), where it reads as the
+edge's label; the LSP's render result carries no label positions and keeps it there too.
 
 An action rendering draws the action's own directed parameters as pins on its frame — `in` and
 `inout` on the frame's input side, `out` and `return` on the output side; a usage's are the ones its
@@ -954,8 +1012,8 @@ the default, draws on each part the ports a connector, interface, flow or bindin
 ends at and no other — each a small square on the part's border with its name beside it, the
 connector ending at the square — so a crowded diagram shows what it connects and nothing more;
 a part none of whose ports is connected draws as a part without ports does. `full` draws every
-port a part has, its own and those from its definition, labelled `name : Type` with `~` for a
-conjugated one. The display applies to the DOT, PlantUML, Mermaid and text forms alike, and to
+port a part has, its own and those from its definition, labelled `name : Type` (with `~` for a
+conjugated one) when `-render-show typings` shows the typings. The display applies to the DOT, PlantUML, Mermaid and text forms alike, and to
 no kinds but interconnection and mixed renderings; a `Diagram` block of a document states its own
 ([`ports`](../manual/authoring.md#diagrams)). A name that is neither display is refused with
 status 2 and the two there are; `-render-ports` without `-render` or `-render-all` is refused
@@ -963,6 +1021,43 @@ likewise.
 
 ```bash
 sysml model.sysml -render Views::loopView -render-form dot -render-ports full -o loop.dot
+```
+
+`-render-show <elements>` names the notation elements the SysML v2 notation makes optional that a
+rendering draws besides the ones its view's rendering shows. By default a rendering draws port
+symbols, compartments and keywords and leaves the rest out; each name adds one: `parameter-symbols`, a case's
+`actor`, `subject` and `stakeholder` parameters and an action's parameter pins as squares on the
+node's boundary (without them a connection that ended at a parameter ends at the node itself, one
+line per connection); `port-symbols`, a part's ports on its boundary (without them a connection
+ends at the part); `compartments`, the lists of nested features inside a node; `edge-labels`, the
+names of connections, flows and bindings along their lines (a sequence diagram's messages keep
+theirs); `keywords`, the `«keyword»` over each
+name; `multiplicities`; `typings`, the `: Type` after a name; `qualifiers`, the qualified-name
+prefix of each name; `all`, every one of them. A view's rendering chooses its own in the model, by
+a rendering specializing a standard one with Boolean `showParameterSymbols`, `showEdgeLabels`, …
+attributes ([rendering forms](../project/view-rendering-forms.md#optional-notation-elements));
+the option adds to that choice. The elements apply to the DOT, PlantUML, Mermaid, D2 and text
+forms alike, and to document diagrams. A name that is none of them is refused with status 2 and
+the names there are; `-render-show` without `-render`, `-render-all`, `-render-document` or
+`-render-documents` is refused likewise.
+
+```bash
+sysml lab.sysml -render 'Lab::useCases' -render-form dot -render-show parameter-symbols,edge-labels -o use-cases.dot
+```
+
+`-render-depth <levels>` bounds how many levels of nested elements a tree or interconnection
+rendering draws below each exposed element, for that render only: `1` draws the exposed elements
+and what they directly nest, `2` one level more, and so on. It overrides the `depth` attribute the
+view states ([limiting what a view draws](../project/view-rendering-forms.md#limiting-what-a-view-draws));
+`0`, the default, leaves the view's own depth in force, every level when it states none. An element
+at the bound is drawn with its compartment rows and its ports, carries the note `nested deeper than
+N levels; not shown`, and the elements directly below the bound are counted once in the notices.
+The option applies to `-render` and `-render-all`; a document's diagram blocks draw the depth their
+views state. A negative value is refused with status 2, as is `-render-depth` without `-render` or
+`-render-all`.
+
+```bash
+sysml vehicle.sysml -render 'Fleet::structure' -render-form text -render-depth 1
 ```
 
 A `GeneralView` whose filters select one of the specializations the OMG library documents —
@@ -1563,7 +1658,7 @@ sample's records — a `ref` to the subject and
 ```bash
 $ sysml model.sysml -record-run "Demo::timed"
 ✓ Demo::timed
-  x = 5.0
+  x = [5.0]
   standing: value (observed: 1 run under reverse)
   recorded Records::timed_run1 (Records::TimedRun)
 ```
@@ -1892,6 +1987,26 @@ on the command line are parsed on `n` workers, indexed together once, and analys
 each file as a document of its own; the diagnostics are those of `-jobs 1`, in command-line order,
 whatever `n` is. A model split over several files therefore validates faster on more CPUs where a
 single file does not; `docs/project/satellite-network-stress-test.md` records the measurements.
+
+## Diagnostic codes
+
+Every diagnostic carries the stable, kebab-case code of the rule that reported it, between the
+severity and the message of the text line and as `code` under `-json`:
+
+```text
+model.sysml:4:18: error[unresolved]: unresolved reference: Whel — did you mean Wheel?
+```
+
+`-explain <code>` prints what a code means, how to resolve it and the clause or validation
+constraint behind it, and needs no model; it is repeatable, and an unknown code is a usage
+error (exit 2). Bare `-explain` lists every code with a one-line summary, grouped by the tier
+that reports it. The [diagnostics reference](diagnostics.md#catalogue) is the same catalogue,
+generated from the registry.
+
+```bash
+$ sysml -explain unresolved
+$ sysml -explain
+```
 
 ## Analysis engines
 
@@ -2370,7 +2485,9 @@ As the model argument the branch is **read** as its head commit's RDF graph — 
 `turtle`, `rdf`). As `-o` the branch is **pushed**: `-convert ttl` replaces the branch's whole
 model graph with the converted Turtle, conditional on the branch's etag (`If-Match` against
 Layer 1), so a head the sync state says has moved is refused with exit 1 and nothing is
-written; `-convert sysml -o <url>` is refused, since a branch holds a graph, not notation.
+written; `-convert api-json -o <url>` pushes the same graph, which the service reads back
+as its JSON element form; `-convert sysml -o <url>` is refused, since a branch holds a graph,
+not notation.
 A run takes one side as a URL — reading a branch into a branch is refused — and `-o` naming
 the same file `-sync-state` does is refused, since the model would replace the recorded commit.
 
@@ -2386,7 +2503,38 @@ The head commit a read or push stood at is recorded in the sync state — `-sync
 or `<output>.sync.json` beside a `-o` file on a read and `<model>.sync.json` on a push — so a
 later push is refused rather than silently overwriting another writer's commit, exactly the
 moved-head refusal `-sync-apply` gives. A stdout-only read records nothing unless `-sync-state`
-names a file.
+names a file. `FLEXO_TIMEOUT` bounds each request, as a Go duration (`60s` unless set); a
+whole-graph write of a large model needs more.
+
+## Publishing the standard library
+
+`-stdlib` converts the bundled standard library — every KerML and SysML file under the
+Kernel, Systems, Domain and OpenSysML libraries, as one model — instead of a model file, to
+`ttl` or `api-json`, to stdout, to a `-o` file, or pushed to the branch `-o` names. Every element
+carries its normative id: the named ones the pilot implementation's library XMI assigns (the
+ids `tests/identity` is gated over), the derived ones — memberships, parameters, expressions —
+name-based uuids under them, as `-id uuid` spells them; `-id qualified` asks for the
+qualified-name spelling instead. No model file, `-from`, `-import` or check joins the run.
+
+```bash
+sysml -stdlib -convert api-json -o stdlib.json                   # the library as one element set
+sysml -stdlib -convert ttl -o stdlib.ttl                          # ...as one graph
+FLEXO_TIMEOUT=10m sysml -stdlib -convert api-json -o flexo://StandardLibrary/main
+```
+
+The push replaces the branch's graph with the whole library, a write Layer 1 takes minutes
+over — `tools/referee/flexo/testdata/library_expected.txt` records the measured size — so
+`FLEXO_TIMEOUT` has to allow for it. The project and branch exist beforehand: the SysML v2 API creates them
+(`POST {FLEXO_SYSMLV2_URL}/projects` with `{"@type": "Project", "@id": "StandardLibrary",
+"name": "StandardLibrary", "defaultBranch": {"@id": "main", "name": "main"}}` under the bearer
+token). The head commit is reported, and recorded only where `-sync-state` names a file: the
+library is no model a later `-sync-diff` compares against. Once published, another project
+types a part by a library element's `@id` (`ScalarValues::Real` is
+`14c0aa22-5489-59b5-b438-ded26e83ba31` in every publication, as in the pilot's XMI), names the
+library project in a `ProjectUsage`, and a query over the library project walks into the
+element the id names. What the service delivers of the library, element by element and property
+by property, is measured against a live stack by `TestFlexoInterop` in `tools/referee/flexo`
+and recorded in its `testdata/library_expected.txt`.
 
 ## Output Format
 
@@ -2433,7 +2581,7 @@ $ sysml -e "1+1" bad.sysml 2>/dev/null
 $ echo $?
 2
 $ sysml -e "1+1" bad.sysml 2>&1 >/dev/null
-bad.sysml:2:39: error: expected an expression
+bad.sysml:2:39: error[syntax]: expected an expression
   part def Vehicle { attribute mass = ; }
                                       ^
 sysml: bad.sysml did not analyse cleanly

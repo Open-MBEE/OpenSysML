@@ -1,0 +1,7 @@
+{
+  "rpc": "ExecuteAction",
+  "symbol_id": "test::delayed",
+  "advance": 2,
+  "expected_error": "without completing",
+  "expected_final_time": 2
+}

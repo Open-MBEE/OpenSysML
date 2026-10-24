@@ -25,7 +25,7 @@ const ASSETS = [
   "sysml-grpc-darwin-arm64",
   "sysml-grpc-windows-amd64.exe",
 ];
-const WASM_ASSETS = ["sysml-wasm.wasm", "wasm_exec.js"];
+const WASM_ASSETS = ["sysml-wasm.wasm", "sysml-prod.wasm.gz", "wasm_exec.js"];
 
 test("every platform package is built, described and digest-checked", () => {
   const binaries = fakeRelease();
@@ -118,6 +118,7 @@ test("the optional WASM package carries the exact release assets and exports", (
   assert.deepEqual(packageJson.files, [...WASM_ASSETS, "README.md"]);
   assert.deepEqual(packageJson.exports, {
     "./sysml-wasm.wasm": "./sysml-wasm.wasm",
+    "./sysml-prod.wasm.gz": "./sysml-prod.wasm.gz",
     "./wasm_exec.js": "./wasm_exec.js",
     "./package.json": "./package.json",
   });
@@ -154,15 +155,103 @@ test("the WASM package refuses a missing asset sidecar", () => {
   assert.match(result.stderr, /sha256 is missing/);
 });
 
+const MCP_ROOT = join(packageRoot, "..", "..", "packaging", "npm", "sysml-mcp");
+const MCP_ASSETS = ASSETS.map((asset) => asset.replace("sysml-grpc", "sysml-mcp"));
+
+test("the sysml-mcp platform packages carry the binary, LICENSE and man page, named for @openmbee/sysml-mcp", () => {
+  const out = mkdtempSync(join(tmpdir(), "packages-"));
+  const result = run(fakeRelease(), out, undefined, "0.0.0-test", fakeRelease({ assets: MCP_ASSETS }));
+  assert.equal(result.status, 0, result.stderr);
+
+  const mcp = JSON.parse(readFileSync(join(MCP_ROOT, "package.json"), "utf8")) as {
+    name: string;
+    optionalDependencies: Record<string, string>;
+  };
+  const manifest = JSON.parse(readFileSync(join(out, "packages.json"), "utf8")) as {
+    packages: { name: string; directory: string; digest: string }[];
+  };
+  const built = manifest.packages.filter((entry) => entry.name.startsWith(`${mcp.name}-`));
+  assert.equal(manifest.packages.length, ASSETS.length + MCP_ASSETS.length);
+  assert.deepEqual(built.map((entry) => entry.name).sort(), Object.keys(mcp.optionalDependencies).sort());
+
+  for (const entry of built) {
+    const meta = JSON.parse(readFileSync(join(entry.directory, "package.json"), "utf8")) as {
+      name: string;
+      version: string;
+      os: string[];
+      cpu: string[];
+      files: string[];
+      repository: { directory: string };
+    };
+    assert.equal(meta.name, entry.name);
+    assert.equal(meta.version, "0.0.0-test");
+    assert.ok(entry.name.endsWith(`${meta.os[0]}-${meta.cpu[0]}`));
+    assert.deepEqual(meta.files, ["bin", "LICENSE", "share", "README.md"]);
+    assert.equal(meta.repository.directory, "packaging/npm/sysml-mcp");
+    const binary = meta.os[0] === "win32" ? "sysml-mcp.exe" : "sysml-mcp";
+    assert.deepEqual(readdirSync(join(entry.directory, "bin")), [binary]);
+    const bytes: Uint8Array = readFileSync(join(entry.directory, "bin", binary));
+    assert.equal(createHash("sha256").update(bytes).digest("hex"), entry.digest);
+    assert.equal(
+      readFileSync(join(entry.directory, "LICENSE"), "utf8"),
+      readFileSync(join(packageRoot, "..", "..", "LICENSE"), "utf8"),
+    );
+    assert.equal(
+      readFileSync(join(entry.directory, "share", "man", "man1", "sysml-mcp.1"), "utf8"),
+      readFileSync(join(packageRoot, "..", "..", "packaging", "man", "man1", "sysml-mcp.1"), "utf8"),
+    );
+    const readme = readFileSync(join(entry.directory, "README.md"), "utf8");
+    assert.ok(readme.includes(entry.digest));
+    assert.ok(readme.includes(mcp.name));
+  }
+});
+
+test("a sysml-mcp binary whose digest does not match its sidecar is refused", () => {
+  const mcp = fakeRelease({ assets: MCP_ASSETS });
+  writeFileSync(join(mcp, `${MCP_ASSETS[0]}.sha256`), `${"0".repeat(64)}  ${MCP_ASSETS[0]}\n`);
+  const result = run(fakeRelease(), mkdtempSync(join(tmpdir(), "packages-")), undefined, "0.0.0-test", mcp);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /sysml-mcp-linux-amd64 hashes to/);
+});
+
+test("@openmbee/sysml-mcp declares the version @openmbee/opensysml does and pins its platform packages at it", () => {
+  const client = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")) as { version: string };
+  const mcp = JSON.parse(readFileSync(join(MCP_ROOT, "package.json"), "utf8")) as {
+    name: string;
+    version: string;
+    mcpName: string;
+    dependencies?: Record<string, string>;
+    optionalDependencies: Record<string, string>;
+  };
+  assert.equal(mcp.name, "@openmbee/sysml-mcp");
+  assert.equal(mcp.version, client.version);
+  assert.equal(mcp.mcpName, "org.opensysml/sysml-mcp");
+  assert.equal(mcp.dependencies, undefined);
+  assert.deepEqual(Object.keys(mcp.optionalDependencies).sort(), [
+    "@openmbee/sysml-mcp-darwin-arm64",
+    "@openmbee/sysml-mcp-darwin-x64",
+    "@openmbee/sysml-mcp-linux-arm64",
+    "@openmbee/sysml-mcp-linux-x64",
+    "@openmbee/sysml-mcp-win32-x64",
+  ]);
+  for (const [name, pinned] of Object.entries(mcp.optionalDependencies)) {
+    assert.equal(pinned, client.version, `${name} is pinned at ${pinned}`);
+  }
+});
+
 function run(
   binaries: string,
   out: string,
   wasm?: string,
   version = "0.0.0-test",
+  mcp?: string,
 ): { status: number | null; stderr: string } {
   const args = [SCRIPT, "--binaries", binaries, "--out", out, "--version", version];
   if (wasm !== undefined) {
     args.push("--wasm", wasm);
+  }
+  if (mcp !== undefined) {
+    args.push("--mcp", mcp);
   }
   const result = spawnSync(
     process.execPath,
@@ -186,10 +275,10 @@ function fakeWasm(options: { sidecars?: boolean } = {}): string {
 }
 
 /** A directory shaped like a release: one file per asset, with its .sha256 sidecar. */
-function fakeRelease(options: { sidecars?: boolean } = {}): string {
+function fakeRelease(options: { sidecars?: boolean; assets?: string[] } = {}): string {
   const dir = mkdtempSync(join(tmpdir(), "release-"));
   mkdirSync(dir, { recursive: true });
-  for (const asset of ASSETS) {
+  for (const asset of options.assets ?? ASSETS) {
     const bytes = Buffer.from(`#!/bin/sh\necho ${asset}\n`);
     writeFileSync(join(dir, asset), bytes);
     if (options.sidecars !== false) {

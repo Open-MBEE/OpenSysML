@@ -145,7 +145,7 @@
     },
     {
       "id": "parse_sources/two_documents_of_one_name_are_invalid",
-      "description": "Documents are told apart by name — a diagnostic names the document it came from — so a repeated name is refused rather than resolved by position.",
+      "description": "Documents are told apart by name \u2014 a diagnostic names the document it came from \u2014 so a repeated name is refused rather than resolved by position.",
       "rpc": "ParseSources",
       "requires_capabilities": [
         "parse_sources"
@@ -213,6 +213,89 @@
       },
       "expect": {
         "status": "NOT_FOUND"
+      }
+    },
+    {
+      "id": "diagnostics/the_default_selection_leaves_opt_in_lints_out",
+      "description": "A parsed model's diagnostics carry the lints on by default and not the opt-in ones.",
+      "rpc": "GetDiagnostics",
+      "model": {
+        "fixture": "lints.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}"
+      },
+      "expect": {
+        "contains_all": {
+          "diagnostics.*.code": [
+            "undeclared-signal"
+          ]
+        },
+        "counts": {
+          "diagnostics": 1
+        }
+      }
+    },
+    {
+      "id": "diagnostics/enable_lint_keeps_an_opt_in_lint_in",
+      "description": "`enable_lint` names opt-in lints kept in the answer, as `sysml -enable-lint` does.",
+      "rpc": "GetDiagnostics",
+      "model": {
+        "fixture": "lints.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "enable_lint": [
+          "rounded-real-literal"
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "diagnostics.*.code": [
+            "undeclared-signal",
+            "rounded-real-literal"
+          ]
+        },
+        "counts": {
+          "diagnostics": 2
+        }
+      }
+    },
+    {
+      "id": "diagnostics/disable_lint_leaves_a_lint_out",
+      "description": "`disable_lint` names lints left out of the answer, as `sysml -disable-lint` does; the selection is per request.",
+      "rpc": "GetDiagnostics",
+      "model": {
+        "fixture": "lints.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "disable_lint": [
+          "undeclared-signal"
+        ]
+      },
+      "expect": {
+        "counts": {
+          "diagnostics": 0
+        }
+      }
+    },
+    {
+      "id": "diagnostics/an_unknown_lint_code_is_refused",
+      "description": "A lint code the build does not know is an invalid argument naming it.",
+      "rpc": "GetDiagnostics",
+      "model": {
+        "fixture": "lints.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "disable_lint": [
+          "no-such-lint"
+        ]
+      },
+      "expect": {
+        "status": "INVALID_ARGUMENT",
+        "status_message_contains": "no-such-lint"
       }
     }
   ]

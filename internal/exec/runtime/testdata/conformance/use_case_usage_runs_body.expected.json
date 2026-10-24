@@ -1,0 +1,8 @@
+{
+  "type": "action",
+  "evaluate": "test::chargeDrone",
+  "trace": true,
+  "outputs": {
+    "charge": {"type": "Integer", "value": 11}
+  }
+}

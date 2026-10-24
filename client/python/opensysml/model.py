@@ -2,12 +2,15 @@
 
 import difflib
 
+from opensysml.runs import Recording, RunsResult, SelfCheckResult
+from opensysml.importcompare import Comparison, ImportResult
 from opensysml.capabilities import CAPABILITY_QUERY
 from opensysml.symbol import Symbol
 from opensysml.conversion import (
     FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, format_of_path,
 )
 from opensysml.diagnostic import Diagnostic
+from opensysml.check import CheckResult
 from opensysml.document import Graphs, RenderedView
 from opensysml.edit import Editor
 from opensysml.errors import ModelError, ServiceError, SymbolNotFoundError
@@ -110,6 +113,29 @@ class Model:
     def diagnostics(self):
         """Get list of diagnostics."""
         return self._diagnostics
+
+    def refresh_diagnostics(self, disable_lint=(), enable_lint=()):
+        """Ask the service for this model's diagnostics now, under a lint selection.
+
+        ``diagnostics`` is what the parse answered under the default selection;
+        this asks again, leaving out the lints ``disable_lint`` names and
+        keeping the opt-in ones ``enable_lint`` names, as
+        ``sysml -disable-lint``/``-enable-lint`` select them.
+
+        Args:
+            disable_lint (Iterable[str]): Lint codes to leave out
+            enable_lint (Iterable[str]): Opt-in lint codes to keep
+
+        Returns:
+            list[Diagnostic]: The diagnostics under that selection
+
+        Raises:
+            InvalidRequestError: If a code names no lint
+            ModelNotFoundError: If the service no longer holds this model
+        """
+        return self.connection.diagnostics(
+            self._hash, disable_lint=disable_lint, enable_lint=enable_lint
+        )
 
     @property
     def errors(self):
@@ -382,26 +408,92 @@ class Model:
         """
         return self.connection.render_document(self._hash, document_id, form=form)
 
-    def render_view(self, view_name, ports="minimal") -> RenderedView:
+    def render_view(self, view_name, ports="minimal", show=None, depth=0,
+                    compartments="positioned") -> RenderedView:
         """Render one named view as typed diagram data.
 
         Args:
             view_name (str): Qualified view name or targeted pseudo-view
             ports (str): ``"minimal"`` (the default) or ``"full"``
+            show (Iterable[str] | None): Optional notation elements to draw
+                besides those the view's rendering shows — ``"parameter-symbols"``,
+                ``"port-symbols"``, ``"compartments"``, ``"edge-labels"``,
+                ``"keywords"``, ``"multiplicities"``, ``"typings"``,
+                ``"qualifiers"`` or ``"all"``; the result's ``shown`` lists the
+                ones drawn
+            depth (int): How many levels of nested elements to draw below each
+                exposed element, overriding the view's own ``depth``; ``0`` (the
+                default) draws every level the view allows
+            compartments (str): How a tree rendering folds a node's owned
+                members into compartment rows of its box: ``"positioned"`` (the
+                default) folds only the layout-less members of a tree some
+                Layout positions, ``"most"`` every owned usage no Layout, nested
+                definition or package keeps a node, ``"ports"`` the port usages
+                with the ports nested under them; a row is a node whose
+                ``compartment`` names the compartment of its ``parent``
 
         Returns:
             RenderedView: Ordered nodes, edges, table data and optional layout
 
         Raises:
-            ValueError: If ``ports`` is neither ``"minimal"`` nor ``"full"``
+            ValueError: If ``ports`` is neither ``"minimal"`` nor ``"full"``, or
+                ``compartments`` none of its three foldings
             MissingCapabilityError: If the service cannot render views
             InvalidRequestError: If the view is malformed or does not render
             ViewNotFoundError: If the view or pseudo-view target is missing;
                 also a SymbolNotFoundError and KeyError
             ModelNotFoundError: If the service no longer holds this model
         """
-        return self.connection.render_view(self._hash, view_name, ports=ports)
+        return self.connection.render_view(self._hash, view_name, ports=ports, show=show, depth=depth,
+                                           compartments=compartments)
 
+
+    def check_action(self, action_symbol_id, inputs=None, performer=None, properties=(), diverge=(),
+                     free_inputs=(), assume=(), witness=False, depth=0, states=0, unroll=0,
+                     timeout=0.0, engine=None) -> CheckResult:
+        """Search every schedule of an action, as ``sysml -check-property`` does.
+
+        Args:
+            action_symbol_id (str): Qualified name of the action definition or usage
+            inputs (dict, optional): Input parameter name to value, bound first
+            performer (str, optional): Qualified name of the part or usage whose
+                object performs the action
+            properties (iterable of str): Constraints or requirements evaluated
+                at every stable state; one false at a state is a violation
+            diverge (iterable of str): Features whose final value the schedule
+                may decide; ``this.<name>`` names the performer's
+            free_inputs (iterable of str): Inputs the symbolic engine ranges over
+            assume (iterable of str): Constraints or requirements it assumes
+            witness (bool): Carry each witness's file in the answer
+            depth (int): Bound on moves per schedule; 0 is the engine's default
+            states (int): Bound on states visited; 0 is the engine's default
+            unroll (int): Bound on loop unrollings; 0 is the engine's default
+            timeout (float): Seconds the search may take; 0 is none
+            engine (str, optional): ``"check"`` (the default), ``"smt"`` or one
+                :meth:`~opensysml.Connection.list_engines` names
+
+        Returns:
+            CheckResult: The verdict with every violation, divergence and
+                final outcome witnessed
+
+        Raises:
+            MissingCapabilityError: If the service cannot check behaviors
+            ExecutionError: If the behavior, a property or the performer is
+                not found, or the search failed before deciding
+            InvalidRequestError: If a bound is negative or the engine unknown
+            ModelNotFoundError: If the service no longer holds this model
+        """
+        return self.connection.check_action(action_symbol_id, self._hash, inputs, performer,
+                                            properties, diverge, free_inputs, assume, witness,
+                                            depth, states, unroll, timeout, engine)
+
+    def check_state_machine(self, state_machine_symbol_id, performer=None, properties=(),
+                            diverge=(), free_inputs=(), assume=(), witness=False, depth=0,
+                            states=0, unroll=0, timeout=0.0, engine=None) -> CheckResult:
+        """Search every schedule of a state machine; see :meth:`check_action`."""
+        return self.connection.check_state_machine(state_machine_symbol_id, self._hash, performer,
+                                                   properties, diverge, free_inputs, assume,
+                                                   witness, depth, states, unroll, timeout, engine)
 
     def export_graphs(self, subject) -> Graphs:
         """Export the lowered graph of an action or state machine.
@@ -427,6 +519,31 @@ class Model:
         """
         return self.connection.export_graphs(self._hash, subject)
 
+
+    def import_data(self, imports, import_as="values", dry_run=False, accept_documents=False) -> ImportResult:
+        """Set the feature values data files assign into this model.
+
+        See :meth:`Connection.import_data` for the arguments.
+
+        Returns:
+            ImportResult: What each file set, the edited documents and the
+            hash of the imported model
+        """
+        return self._client.import_data(self._hash, imports, import_as=import_as, dry_run=dry_run,
+                                        accept_documents=accept_documents)
+
+    def compare_results(self, results, actions=(), runs=0, seed=None, draws=None, clock_step=None,
+                        observe=(), engine=None) -> Comparison:
+        """Run the configurations a results sidecar indexes against this
+        model and compare the runs with the tool's.
+
+        See :meth:`Connection.compare_results` for the arguments.
+
+        Returns:
+            Comparison: One ConfigurationComparison per configuration
+        """
+        return self._client.compare_results(self._hash, results, actions=actions, runs=runs, seed=seed,
+                                            draws=draws, clock_step=clock_step, observe=observe, engine=engine)
     def find(self, name):
         """Find symbol by short name or fully-qualified name.
 
@@ -622,7 +739,8 @@ class Model:
         """
         return self._client.instantiate(symbol_id, self._hash)
 
-    def execute_action(self, action_symbol_id, inputs=None, schedule=None, performer=None):
+    def execute_action(self, action_symbol_id, inputs=None, schedule=None, performer=None,
+                       advance=None, seed=None, draws=None, clock_step=0.0):
         """Execute one of this model's actions.
 
         Args:
@@ -632,6 +750,13 @@ class Model:
                 choice points under — ``"declared"``, ``"reverse"`` (the
                 default) or ``"seed:<n>"``; ``"explore"`` belongs to
                 :meth:`explore_action`
+            advance (float, optional): Simulated seconds to run for (``sysml
+                -advance``); ``None`` runs the action to completion
+            seed (int, optional): Seed of the model's own draws (``sysml -seed``)
+            draws (str, optional): How RandomFunctions draws resolve (``sysml
+                -draws``): ``"random"``, ``"min"``, ``"max"`` or ``"average"``
+            clock_step (float): Seconds the run's clock ticks by (``sysml
+                -clock-step``); 0 is a continuous clock
             performer (str, optional): The object the action runs on: a part
                 definition or usage to make an object of, or a path from one
                 into its parts (``"Mission::mission.vehicle"``), made for the
@@ -653,7 +778,8 @@ class Model:
             InvalidRequestError: If the schedule names no policy
         """
         return self._client.execute_action(
-            action_symbol_id, self._hash, inputs=inputs, schedule=schedule, performer=performer
+            action_symbol_id, self._hash, inputs=inputs, schedule=schedule, performer=performer,
+            advance=advance, seed=seed, draws=draws, clock_step=clock_step,
         )
 
     def explore_action(self, action_symbol_id, inputs=None, schedule="explore", performer=None):
@@ -686,7 +812,7 @@ class Model:
         )
 
     def execute_state(self, state_machine_symbol_id, events=None, schedule=None, performer=None,
-                      trace=False):
+                      trace=False, advance=None, seed=None, draws=None, clock_step=0.0):
         """Execute one of this model's state machines.
 
         Args:
@@ -725,7 +851,8 @@ class Model:
         """
         return self._client.execute_state(
             state_machine_symbol_id, self._hash, events=events, schedule=schedule,
-            performer=performer, trace=trace
+            performer=performer, trace=trace, advance=advance, seed=seed, draws=draws,
+            clock_step=clock_step,
         )
 
     def explore_state(self, state_machine_symbol_id, events=None, schedule="explore", performer=None):
@@ -905,7 +1032,7 @@ class Model:
         return self._client.calc(symbol_id, self._hash, arguments=arguments, engine=engine)
 
     def run_analysis(self, symbol_id, subject=None, arguments=None,
-                     named_arguments=None, schedule=None, engine=None):
+                     named_arguments=None, schedule=None, engine=None, tool_dry_run=False):
         """Run one of this model's analysis cases.
 
         Args:
@@ -938,6 +1065,7 @@ class Model:
         return self._client.run_analysis(
             symbol_id, self._hash, subject=subject, arguments=arguments,
             named_arguments=named_arguments, schedule=schedule, engine=engine,
+            tool_dry_run=tool_dry_run,
         )
 
     def explore_analysis(self, symbol_id, subject=None, arguments=None,
@@ -998,6 +1126,51 @@ class Model:
             symbol_id, self._hash, ranges, subject=subject,
             arguments=arguments, named_arguments=named_arguments,
             samples=samples, seed=seed, engine=engine,
+        )
+
+    def run_runs(self, action=None, analysis=None, runs=1, seed=None, draws=None, clock_step=0.0,
+                 observe=(), inputs=None, performer=None, subject=None, arguments=None,
+                 named_arguments=None, engine=None) -> RunsResult:
+        """Run one of this model's actions, or Monte Carlo cases, ``runs`` times.
+
+        See :meth:`Connection.run_runs` for the arguments.
+
+        Returns:
+            RunsResult: The table, each observable's distribution and a case's
+            conclusion over the sample
+        """
+        return self._client.run_runs(
+            self._hash, action=action, analysis=analysis, runs=runs, seed=seed, draws=draws,
+            clock_step=clock_step, observe=observe, inputs=inputs, performer=performer,
+            subject=subject, arguments=arguments, named_arguments=named_arguments, engine=engine,
+        )
+
+    def self_check(self, packages=()) -> SelfCheckResult:
+        """Apply the reflective SysMLValidation constraints, and those of the
+        rule packages named, to every element of this model.
+
+        Args:
+            packages (list[str], optional): FQNs of rule packages
+
+        Returns:
+            SelfCheckResult: Every finding and the counts over them
+        """
+        return self._client.self_check(self._hash, packages=packages)
+
+    def record_run(self, symbol_id, subject=None, arguments=None, named_arguments=None, into=None,
+                   ranges=None, runs=0, seed=None, engine=None) -> Recording:
+        """Run one of this model's analysis cases and record the runs into it.
+
+        See :meth:`Connection.record_run` for the arguments.
+
+        Returns:
+            Recording: The runs' report, what the model gained and the
+            notation the records were written into
+        """
+        return self._client.record_run(
+            symbol_id, self._hash, subject=subject, arguments=arguments,
+            named_arguments=named_arguments, into=into, ranges=ranges, runs=runs, seed=seed,
+            engine=engine,
         )
 
     def __getitem__(self, name):

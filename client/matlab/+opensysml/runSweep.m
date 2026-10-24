@@ -25,15 +25,7 @@ function result = runSweep(model, symbolId, ranges, varargin)
     if ~isempty(message)
         opensysml.internal.raiseFailure(message, fieldOr(raw, 'failureReason', ''), diagnostics);
     end
-    instances = containers.Map('KeyType', 'char', 'ValueType', 'any');
-    if isfield(raw, 'instances')
-        [~, instances] = opensysml.internal.decodeInstances(model.connection, raw.instances);
-    end
-    rows = opensysml.internal.decodeSweepRows(fieldOr(raw, 'rows', {}), instances, diagnostics);
-    parameters = textCells(fieldOr(raw, 'parameters', {}));
-    result = opensysml.SweepTable(rows, parameters, ...
-        fieldOr(raw, 'sampled', false), opensysml.parseUint64(fieldOr(raw, 'seed', '0')), ...
-        instances, diagnostics, opensysml.internal.decodeStanding(raw));
+    result = opensysml.internal.decodeSweepTable(model, raw);
 end
 
 function ranges = sweepRanges(conn, raw)
@@ -113,15 +105,6 @@ function text = uint64String(value)
     else
         opensysml.internal.raise('opensysml:argument', ...
             'seed values above flintmax must be supplied as uint64');
-    end
-end
-
-function values = textCells(raw)
-    if isempty(raw), values = {};
-    elseif ischar(raw), values = {raw};
-    elseif iscell(raw), values = cellfun(@char, raw(:)', 'UniformOutput', false);
-    elseif isstruct(raw), values = cellfun(@char, num2cell(raw(:)'), 'UniformOutput', false);
-    else, values = cellstr(raw);
     end
 end
 

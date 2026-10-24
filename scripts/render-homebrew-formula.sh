@@ -56,6 +56,10 @@ DARWIN_ARM64="$(sum_for opensysml-darwin-arm64.tar.gz)"
 DARWIN_AMD64="$(sum_for opensysml-darwin-amd64.tar.gz)"
 LINUX_ARM64="$(sum_for opensysml-linux-arm64.tar.gz)"
 LINUX_AMD64="$(sum_for opensysml-linux-amd64.tar.gz)"
+MCP_DARWIN_ARM64="$(sum_for sysml-mcp-darwin-arm64.tar.gz)"
+MCP_DARWIN_AMD64="$(sum_for sysml-mcp-darwin-amd64.tar.gz)"
+MCP_LINUX_ARM64="$(sum_for sysml-mcp-linux-arm64.tar.gz)"
+MCP_LINUX_AMD64="$(sum_for sysml-mcp-linux-amd64.tar.gz)"
 
 sed \
   -e "s|__TAG__|${TAG}|g" \
@@ -63,6 +67,10 @@ sed \
   -e "s|__SHA256_DARWIN_AMD64__|${DARWIN_AMD64}|g" \
   -e "s|__SHA256_LINUX_ARM64__|${LINUX_ARM64}|g" \
   -e "s|__SHA256_LINUX_AMD64__|${LINUX_AMD64}|g" \
+  -e "s|__SHA256_MCP_DARWIN_ARM64__|${MCP_DARWIN_ARM64}|g" \
+  -e "s|__SHA256_MCP_DARWIN_AMD64__|${MCP_DARWIN_AMD64}|g" \
+  -e "s|__SHA256_MCP_LINUX_ARM64__|${MCP_LINUX_ARM64}|g" \
+  -e "s|__SHA256_MCP_LINUX_AMD64__|${MCP_LINUX_AMD64}|g" \
   "$TEMPLATE" |
   awk 'started || /^class /{ started = 1; print }' > "$OUT" # drop the maintainer-facing header comment
 

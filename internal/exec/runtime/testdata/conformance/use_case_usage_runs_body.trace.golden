@@ -1,0 +1,12 @@
+step 1: token 1@plugDrone
+stmt assign charge
+    eval feature charge -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 2: token 1@chargeDroneBatteries
+stmt assign charge
+    eval feature charge -> 1
+    eval literal 10 -> 10
+  eval operator + -> 11
+step 3: token 1@done
+step 4: no active tokens

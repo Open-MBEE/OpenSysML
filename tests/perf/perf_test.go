@@ -1,4 +1,4 @@
-// Package perf holds the benchmarks behind docs/project/performance-profile-2026-09.md.
+// Package perf holds the benchmarks behind docs/project/archive/performance-profile-2026-09.md.
 // Run with: go test ./tests/perf -run '^$' -bench . -benchmem
 package perf
 

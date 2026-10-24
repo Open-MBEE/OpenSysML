@@ -58,10 +58,10 @@ func TestCalcTraceIsStableAcrossRuns(t *testing.T) {
 		"bind a = 3 [argument]",
 		"bind b = 4 [default]",
 		"enter calc test::double",
-		"exit calc test::double -> 6",
+		"exit calc test::double -> (6)",
 		"enter calc test::double",
-		"exit calc test::double -> 8",
-		"exit calc test::combine -> 14",
+		"exit calc test::double -> (8)",
+		"exit calc test::combine -> (14)",
 	}
 	rest := first
 	for _, entry := range want {
@@ -142,8 +142,8 @@ func TestTraceLabelsExpressionKinds(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		if got := TraceLabel(tc.node); got != tc.want {
-			t.Errorf("TraceLabel(%T) = %q, want %q", tc.node, got, tc.want)
+		if got := traceLabel(tc.node); got != tc.want {
+			t.Errorf("traceLabel(%T) = %q, want %q", tc.node, got, tc.want)
 		}
 	}
 }
@@ -170,7 +170,7 @@ func TestCalcTraceRecordsFailure(t *testing.T) {
 		t.Fatal("calc add not found")
 	}
 	arg := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 3}}
-	if _, err := ctx.InvokeCalc(sym, []Value{arg}, rootScope); err == nil {
+	if _, err := invokeValue(ctx, sym, []Value{arg}, rootScope); err == nil {
 		t.Fatal("expected an unbound parameter error")
 	}
 
@@ -210,13 +210,14 @@ func TestReturnedBodyIsTracedAsApplied(t *testing.T) {
 	makeBody := func(threshold int64) Value {
 		t.Helper()
 		body, err := ctx.InvokeCalc(above, []Value{intValue(threshold)}, rootScope)
+		body = soleElement(body)
 		if err != nil {
 			t.Fatalf("AboveThreshold(%d): %v", threshold, err)
 		}
-		if body.Kind != ValExpr {
+		if body.Kind != valExpr {
 			t.Fatalf("AboveThreshold(%d) = %s, want a body", threshold, FormatTraceValue(body))
 		}
-		return body
+		return soleElement(body)
 	}
 	applyBody := func(body Value, want string) {
 		t.Helper()

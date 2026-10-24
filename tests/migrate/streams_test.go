@@ -84,7 +84,7 @@ func TestStreamLaysOutView(t *testing.T) {
 	}
 	report := reportText(t, r)
 	wantInOrder(t, "modes entry", report,
-		"_diag_modes", "laid out from the diagram's own symbol stream: 2 of 3 shown elements positioned (1 not exposed), 2 of 2 connectors routed, 2 pasted images written as images/Plant_from_the_north.png, 2 pasted images not written: the pasted image \"logo.png\" is not in the archive and the pasted image of symbol _sym_torn has bytes that do not read (octet 19 is \"xx\", not a hexadecimal byte), 2 of 2 symbols drawn in their own colours or font styled, 3 notes written, 2 anchored, free symbols not represented: 2 ImageShape")
+		"_diag_modes", "laid out from the diagram's own symbol stream: 3 of 3 shown elements positioned, 2 of 2 connectors routed, 2 pasted images written as images/Plant_from_the_north.png, 2 pasted images not written: the pasted image \"logo.png\" is not in the archive and the pasted image of symbol _sym_torn has bytes that do not read (octet 19 is \"xx\", not a hexadecimal byte), 2 of 2 symbols drawn in their own colours or font styled, 3 notes written, 2 anchored, free symbols not represented: 2 ImageShape")
 	wantInOrder(t, "roster entry", report,
 		"_diag_roster", "1 pasted image written as images/Plant_from_the_north.png, which a view rendered asElementTable does not draw")
 	wantInOrder(t, "layout summary", report,
@@ -359,7 +359,7 @@ func TestExportPrecedesStream(t *testing.T) {
 		"1 joined views supplemented from their own symbol stream",
 		"_diag_partial", "laid out from the diagram's own symbol stream")
 	wantInOrder(t, "joined source", report,
-		"_diag_modes", "laid out from modes.layout.xml supplemented by the diagram's own symbol stream: 2 of 3 shown elements positioned")
+		"_diag_modes", "laid out from modes.layout.xml supplemented by the diagram's own symbol stream: 3 of 3 shown elements positioned")
 }
 
 // A strict migration joins the export's record to its view but writes no

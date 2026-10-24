@@ -1,6 +1,6 @@
 exit: start
 enter: Outer
-choice entering Outer: next lstart(entry), rstart(entry) (unordered; took lstart(entry) first)
+choice entering Outer: next lstart(entry), rstart(entry) (unordered; took lstart(entry) first; independent)
 enter: lstart
 enter: rstart
 transition: start -> Outer
@@ -14,7 +14,7 @@ transition: rstart -> Watching
 exit: gstart
 enter: g1
 transition: gstart -> g1
-choice exiting Outer: next g1(exit), Watching(exit) (unordered; took g1(exit) first)
+choice exiting Outer: next g1(exit), Watching(exit) (unordered; took g1(exit) first; order-dependent: log)
 exit: g1 (exit action)
 stmt action body
   stmt assign log
@@ -23,7 +23,7 @@ stmt action body
       eval operator * -> 0
       eval literal 3 -> 3
     eval operator + -> 3
-choice exiting Outer: next Grouping(exit), Watching(exit) (unordered; took Grouping(exit) first)
+choice exiting Outer: next Grouping(exit), Watching(exit) (unordered; took Grouping(exit) first; order-dependent: log)
 exit: Grouping (exit action)
 stmt action body
   stmt assign log

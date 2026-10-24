@@ -1,0 +1,15 @@
+// view: MicroscopeViews::second
+// kind: tree
+// stated: render asTreeDiagram
+// canvas: unit=px w=300 h=200
+// layout: neato -n2
+digraph "MicroscopeViews::second" {
+  graph [fontname="Helvetica", layout=neato, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,200!", pin=true];
+  "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="300,0!", pin=true];
+  "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Detector</b>>, margin=0, pos="75,163.5!", pin=true, width=1.5277777777777777, height=0.4583333333333333, fixedsize=true];
+  "n1" [label=<<font point-size="8"><i>«part def»</i></font><br/><font point-size="9"><b>&#39;Backscattered Electron<br/>Detector&#39;</b></font>>, margin=0, pos="200,43.5!", pin=true, width=2.2222222222222223, height=0.4583333333333333, fixedsize=true];
+  "n1" -> "n0" [arrowhead=empty, pos="e,75,147 200,60 200,60 200,110 200,110 200,110 75,110 75,110 75,110 75,137 75,137"];
+}

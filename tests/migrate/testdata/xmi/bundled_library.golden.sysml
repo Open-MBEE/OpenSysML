@@ -1,43 +1,45 @@
-part def Recorder {
-    action def Tally {
-        first start then count;
-        action count {
-            out result : ScalarValues::Integer[1] = 3;
+package Model {
+    part def Recorder {
+        action def Tally {
+            first start then count;
+            action count {
+                out result : ScalarValues::Integer[1] = 3;
+            }
+            first count then toString;
+            action toString {
+                in x : ScalarValues::Integer[1];
+                out result : ScalarValues::String[1] = IntegerFunctions::ToString(x);
+            }
+            first toString then label;
+            action label {
+                in x : ScalarValues::String[1] = "n=";
+                in y : ScalarValues::String[1];
+                out result : ScalarValues::String[1] = StringFunctions::'+'(x, y);
+            }
+            first label then size;
+            action size {
+                in list : ScalarValues::String[0..*] ordered nonunique;
+                out result : ScalarValues::Integer[1] = SequenceFunctions::size(list);
+            }
+            first size then get;
+            action get {
+                in list : ScalarValues::String[0..*] ordered nonunique;
+                in index : ScalarValues::Integer[1] = 1;
+                out result : ScalarValues::String[1] = SequenceFunctions::'#'(list, index);
+            }
+            first get then print;
+            action print {
+                in value : ScalarValues::String[1];
+                /* not migrated: CallBehaviorAction 'print' — the behavior fUML BasicInputOutput::WriteLine it calls has no v2 library function: writes a line to the standard output channel, which the v2 library has no function for; the behavior is known by the referentPath fUML_Library::BasicInputOutput::WriteLine recorded beside its href into the library module fUML-Library.mdzip */
+            }
+            first print then final;
+            action final terminate;
+            flow count.result to toString.x;
+            flow toString.result to label.y;
+            flow label.result to size.list;
+            succession flow of ScalarValues::String from label.result to get.list;
+            flow get.result to print.value;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
-        first count then toString;
-        action toString {
-            in x : ScalarValues::Integer[1];
-            out result : ScalarValues::String[1] = IntegerFunctions::ToString(x);
-        }
-        first toString then label;
-        action label {
-            in x : ScalarValues::String[1] = "n=";
-            in y : ScalarValues::String[1];
-            out result : ScalarValues::String[1] = StringFunctions::'+'(x, y);
-        }
-        first label then size;
-        action size {
-            in list : ScalarValues::String[0..*] ordered nonunique;
-            out result : ScalarValues::Integer[1] = SequenceFunctions::size(list);
-        }
-        first size then get;
-        action get {
-            in list : ScalarValues::String[0..*] ordered nonunique;
-            in index : ScalarValues::Integer[1] = 1;
-            out result : ScalarValues::String[1] = SequenceFunctions::'#'(list, index);
-        }
-        first get then print;
-        action print {
-            in value : ScalarValues::String[1];
-            /* not migrated: CallBehaviorAction 'print' — the behavior fUML BasicInputOutput::WriteLine it calls has no v2 library function: writes a line to the standard output channel, which the v2 library has no function for; the behavior is known by the referentPath fUML_Library::BasicInputOutput::WriteLine recorded beside its href into the library module fUML-Library.mdzip */
-        }
-        first print then final;
-        action final terminate;
-        flow count.result to toString.x;
-        flow toString.result to label.y;
-        flow label.result to size.list;
-        succession flow of ScalarValues::String from label.result to get.list;
-        flow get.result to print.value;
-        metadata MigrationMetadata::SynthesizedName about final;
     }
 }

@@ -2,6 +2,8 @@ package org.openmbee.opensysml;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.OptionalLong;
 
 /**
  * How a behavior is run.
@@ -14,8 +16,24 @@ import java.util.Optional;
  *     names it: a part definition or usage to make an object of, or a path from one into its parts
  *     ({@code "Mission::mission.vehicle"}), made for the run. Absent runs outside any object.
  * @param trace whether a state run returns its documented execution trace
+ * @param advance simulated time, in seconds, to run for ({@code sysml -advance}): the behavior is
+ *     started and its clock moved by this much; an action not completed by then fails with the
+ *     instant it waits for. Absent runs to completion.
+ * @param seed the seed the model's own draws are taken from ({@code sysml -seed}); absent leaves
+ *     them to the schedule
+ * @param draws how RandomFunctions draws resolve ({@code sysml -draws}): {@code "random"} (the
+ *     default), {@code "min"}, {@code "max"} or {@code "average"}
+ * @param clockStep the step, in seconds, the run's clock ticks by ({@code sysml -clock-step}); 0
+ *     is a continuous clock
  */
-public record ExecutionOptions(Optional<String> schedule, Optional<String> performer, boolean trace) {
+public record ExecutionOptions(
+    Optional<String> schedule,
+    Optional<String> performer,
+    boolean trace,
+    OptionalDouble advance,
+    OptionalLong seed,
+    Optional<String> draws,
+    double clockStep) {
 
   private static final String EXPLORE = "explore";
 
@@ -28,6 +46,9 @@ public record ExecutionOptions(Optional<String> schedule, Optional<String> perfo
   public ExecutionOptions {
     Objects.requireNonNull(schedule, "schedule");
     Objects.requireNonNull(performer, "performer");
+    Objects.requireNonNull(advance, "advance");
+    Objects.requireNonNull(seed, "seed");
+    Objects.requireNonNull(draws, "draws");
   }
 
   /**
@@ -36,7 +57,14 @@ public record ExecutionOptions(Optional<String> schedule, Optional<String> perfo
    * @return the default options
    */
   public static ExecutionOptions defaults() {
-    return new ExecutionOptions(Optional.empty(), Optional.empty(), false);
+    return new ExecutionOptions(
+        Optional.empty(),
+        Optional.empty(),
+        false,
+        OptionalDouble.empty(),
+        OptionalLong.empty(),
+        Optional.empty(),
+        0);
   }
 
   /**
@@ -46,7 +74,8 @@ public record ExecutionOptions(Optional<String> schedule, Optional<String> perfo
    * @return options naming it
    */
   public ExecutionOptions withSchedule(String schedule) {
-    return new ExecutionOptions(Optional.of(schedule), performer, trace);
+    return new ExecutionOptions(
+        Optional.of(schedule), performer, trace, advance, seed, draws, clockStep);
   }
 
   /**
@@ -56,12 +85,56 @@ public record ExecutionOptions(Optional<String> schedule, Optional<String> perfo
    * @return options naming it
    */
   public ExecutionOptions withPerformer(String performer) {
-    return new ExecutionOptions(schedule, Optional.of(performer), trace);
+    return new ExecutionOptions(
+        schedule, Optional.of(performer), trace, advance, seed, draws, clockStep);
   }
 
   /** The same options with a state-run trace requested. */
   public ExecutionOptions withTrace() {
-    return new ExecutionOptions(schedule, performer, true);
+    return new ExecutionOptions(schedule, performer, true, advance, seed, draws, clockStep);
+  }
+
+  /**
+   * The same options run for a duration of simulated time rather than to completion.
+   *
+   * @param seconds the duration, as {@code sysml -advance} takes it
+   * @return options running for it
+   */
+  public ExecutionOptions withAdvance(double seconds) {
+    return new ExecutionOptions(
+        schedule, performer, trace, OptionalDouble.of(seconds), seed, draws, clockStep);
+  }
+
+  /**
+   * The same options with the model's own draws seeded.
+   *
+   * @param seed the seed, as {@code sysml -seed} takes it
+   * @return options drawing from it
+   */
+  public ExecutionOptions withSeed(long seed) {
+    return new ExecutionOptions(
+        schedule, performer, trace, advance, OptionalLong.of(seed), draws, clockStep);
+  }
+
+  /**
+   * The same options resolving RandomFunctions draws under a policy.
+   *
+   * @param draws {@code "random"}, {@code "min"}, {@code "max"} or {@code "average"}
+   * @return options under it
+   */
+  public ExecutionOptions withDraws(String draws) {
+    return new ExecutionOptions(
+        schedule, performer, trace, advance, seed, Optional.of(draws), clockStep);
+  }
+
+  /**
+   * The same options with the run's clock ticking by a step.
+   *
+   * @param seconds the step; 0 is a continuous clock
+   * @return options ticking by it
+   */
+  public ExecutionOptions withClockStep(double seconds) {
+    return new ExecutionOptions(schedule, performer, trace, advance, seed, draws, seconds);
   }
 
   /**

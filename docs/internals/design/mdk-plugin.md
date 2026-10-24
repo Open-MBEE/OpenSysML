@@ -1,8 +1,8 @@
-# OpenSysML MDK: a Cameo Systems Modeler plugin with OpenSysML as the execution engine
+# OpenSysML MDK for Cameo: a Cameo Systems Modeler plugin with OpenSysML as the execution engine
 
 **Date:** 2026-09-20
 **Status:** Discovery and design, then built — `editors/mdk/` is the plugin (first proposed as
-`editors/cameo/`, renamed when it took the OpenSysML MDK name; §1.2)
+`editors/cameo/`, renamed when it took the OpenSysML MDK name, now OpenSysML MDK for Cameo; §1.2)
 **Scope:** the `editors/mdk/` plugin; the Java client (`client/java/opensysml-client`);
 `Migrate` (`internal/translate/xmi`, `internal/translate/migrate`); the results a
 Cameo user sees on their own elements
@@ -865,7 +865,7 @@ Each item says what is known, what is not, and what would settle it.
 ## 14. The MDK DocGen bridge
 
 OpenMBEE's MDK ([Open-MBEE/mdk](https://github.com/Open-MBEE/mdk)) is the plugin a large share
-of Cameo users already run for MMS synchronisation and DocGen documents. OpenSysML MDK is
+of Cameo users already run for MMS synchronisation and DocGen documents. OpenSysML MDK for Cameo is
 positioned as its successor ([`docs/project/mdk-parity.md`](../../project/mdk-parity.md)
 tracks the gap), and the first concrete step is to let an MDK document run OpenSysML.
 

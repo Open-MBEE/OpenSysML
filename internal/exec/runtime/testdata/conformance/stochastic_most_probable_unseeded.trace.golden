@@ -1,7 +1,7 @@
 step 1: token 1@select
 eval literal 0.3 -> 0.3
 eval literal 0.7 -> 0.7
-choice step 2: decision select branches 1->slow p=0.3, 2->fast p=0.7 hold (weighted; took 2->fast)
+choice step 2: decision select branches 1->slow p=0.3, 2->fast p=0.7 hold (weighted; took 2->fast; order-dependent: taken)
 step 2: token 1@fast
 stmt assign taken
   eval literal 1 -> 1

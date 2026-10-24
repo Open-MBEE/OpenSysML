@@ -1,0 +1,25 @@
+// view: MicroscopeViews::structure
+// kind: tree
+// not represented: 6 node(s) without a position, drawn as compartment rows of the node above them
+// not represented: 5 compartment row(s) with no room in the stated size of their node's box, left unwritten
+// canvas: unit=px w=1100 h=420
+// layout: neato -n2
+digraph "MicroscopeViews::structure" {
+  graph [fontname="Helvetica", layout=neato, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,420!", pin=true];
+  "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="1100,0!", pin=true];
+  "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«part def»</i></font><br/><b>ScanningElectronMicroscope</b></td></tr><hr/><tr><td><font point-size="10">parts</font></td></tr><tr><td align="left">imagingParameters</td></tr></table>>, margin=0, pos="550,360!", pin=true, width=4.166666666666667, height=1.1111111111111112, fixedsize=true];
+  "n7" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>ImagingParameters</b>>, margin=0, pos="110,85!", pin=true, width=2.5, height=0.9722222222222222, fixedsize=true];
+  "n8" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>FocusSettings</b>>, margin=0, pos="310,85!", pin=true, width=2.2222222222222223, height=0.9722222222222222, fixedsize=true];
+  "n9" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>ElectronDetector</b>>, margin=0, pos="520,85!", pin=true, width=2.7777777777777777, height=0.9722222222222222, fixedsize=true];
+  "n10" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>ObjectiveLens</b>>, margin=0, pos="740,85!", pin=true, width=2.2222222222222223, height=0.9722222222222222, fixedsize=true];
+  "n11" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Stigmator</b>>, margin=0, pos="940,85!", pin=true, width=2.2222222222222223, height=0.9722222222222222, fixedsize=true];
+  "n0" -> "n7" [headlabel="imagingParameters", dir=back, arrowtail=diamond, pos="s,550,320 550,310 550,310 550,220 550,220 550,220 110,220 110,220 110,220 110,120 110,120", head_lp="180.5,138"];
+  "n0" -> "n8" [headlabel="focusSettings", dir=back, arrowtail=diamond, pos="s,550,320 550,310 550,310 550,220 550,220 550,220 310,220 310,220 310,220 310,120 310,120", head_lp="364.5,138"];
+  "n0" -> "n9" [headlabel="backscatteredElectronDetector", dir=back, arrowtail=diamond, pos="s,550,320 550,310 550,310 550,220 550,220 550,220 480,220 480,220 480,220 480,120 480,120", head_lp="597,138"];
+  "n0" -> "n9" [headlabel="secondaryElectronDetector", dir=back, arrowtail=diamond, pos="s,550,320 550,310 550,310 550,220 550,220 550,220 560,220 560,220 560,220 560,120 560,120", head_lp="661.5,157.5"];
+  "n0" -> "n10" [headlabel="objectiveLens", dir=back, arrowtail=diamond, pos="s,550,320 550,310 550,310 550,220 550,220 550,220 740,220 740,220 740,220 740,120 740,120", head_lp="794.5,138"];
+  "n0" -> "n11" [headlabel="stigmator", dir=back, arrowtail=diamond, pos="s,550,320 550,310 550,310 550,220 550,220 550,220 940,220 940,220 940,220 940,120 940,120", head_lp="979,138"];
+}

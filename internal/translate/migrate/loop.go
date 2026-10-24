@@ -86,6 +86,9 @@ func (a *activity) loopShape(n *sysmlv1.Element) (s *loopShape, why string) {
 		!slices.Contains(s.parts[loopTest], s.decider.Parent) || !slices.Contains(outputPins(s.decider.Parent), s.decider) {
 		return nil, "the decider is not an output pin of a node in the test part"
 	}
+	if !a.hasResult(s.decider.Parent, s.decider) {
+		return nil, "the decider " + describe(s.decider) + " stands for no out parameter of what " + describe(s.decider.Parent) + " calls, so it is not written"
+	}
 	s.deciderNode = s.decider.Parent
 	for i, nodes := range s.parts {
 		for _, nd := range nodes {
@@ -118,6 +121,9 @@ func (a *activity) loopShape(n *sysmlv1.Element) (s *loopShape, why string) {
 		if bo.Parent == nil || nodeKind(bo) != nodePin || !slices.Contains(s.parts[loopBody], bo.Parent) ||
 			!slices.Contains(outputPins(bo.Parent), bo) {
 			return nil, "a body output is not an output pin written for a node in the body part"
+		}
+		if !a.hasResult(bo.Parent, bo) {
+			return nil, "the body output " + describe(bo) + " stands for no out parameter of what " + describe(bo.Parent) + " calls, so it is not written"
 		}
 	}
 	// A routing node may only pass a loop variable's value on: walk the

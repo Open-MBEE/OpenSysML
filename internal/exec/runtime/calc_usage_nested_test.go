@@ -56,7 +56,7 @@ func outputValue(t *testing.T, outputs []CalcOutputValue, name string) Value {
 func wantReal(t *testing.T, outputs []CalcOutputValue, name string, want float64) {
 	t.Helper()
 
-	value := outputValue(t, outputs, name)
+	value := soleElement(outputValue(t, outputs, name))
 	if value.Kind != ValConst || value.Const.Kind != semantics.ValReal {
 		t.Fatalf("%s = %s, want a real", name, FormatTraceValue(value))
 	}
@@ -69,7 +69,7 @@ func wantReal(t *testing.T, outputs []CalcOutputValue, name string, want float64
 func wantInt(t *testing.T, outputs []CalcOutputValue, name string, want int64) {
 	t.Helper()
 
-	value := outputValue(t, outputs, name)
+	value := soleElement(outputValue(t, outputs, name))
 	if value.Kind != ValConst || value.Const.Int != want {
 		t.Errorf("%s = %s, want %d", name, FormatTraceValue(value), want)
 	}
@@ -322,11 +322,11 @@ func TestCalcOutputChainIsNotNesting(t *testing.T) {
 	if sym == nil {
 		t.Fatal("calc usage ch not found")
 	}
-	value, err := ctx.CalcUsageOutput(sym, last, sym.OwnerScope, nil)
+	value, err := ctx.calcUsageOutput(sym, last, sym.OwnerScope, nil)
 	if err != nil {
 		t.Fatalf("reading %s: %v", last, err)
 	}
-	if want := int64(nestingProbeDepth + 9); value.Kind != ValConst || value.Const.Int != want {
+	if want := int64(nestingProbeDepth + 9); soleElement(value).Kind != ValConst || soleElement(value).Const.Int != want {
 		t.Errorf("%s = %s, want %d", last, FormatTraceValue(value), want)
 	}
 }

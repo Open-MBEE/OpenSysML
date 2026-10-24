@@ -494,8 +494,8 @@ func TestChainReachingAUsageNamedByAChainWritesItsEffectiveName(t *testing.T) {
 		t.Fatalf("to turtle: %v", err)
 	}
 	for _, want := range []string{
-		"sysml:chainingFeature elmt:P__generator, elmt:P__generator___400",
-		"sysml:chainingFeature elmt:P__train, elmt:P__train__engine, elmt:P__train__engine___400",
+		"sysml:chainingFeature elmt:P__generator, elmt:P__generator__generate",
+		"sysml:chainingFeature elmt:P__train, elmt:P__train__engine, elmt:P__train__engine__generate",
 	} {
 		if !strings.Contains(string(graph), want) {
 			t.Errorf("graph does not link %q\n%s", want, graph)
@@ -2543,7 +2543,7 @@ func TestBindingEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
 	graph := string(turtle)
 	for _, triple := range []string{
 		"sysml:connectorEnd expr:P__Car___402_pend0, expr:P__Car___402_pend1 ;",
-		"expr:P__Car___402_pend0\n    a sysml:ReferenceUsage ;\n    sysml:elementId \"P__Car___402_pend0\" ;\n    sysml:isEnd \"true\"^^xsd:boolean ;",
+		"expr:P__Car___402_pend0\n    a sysml:ReferenceUsage ;\n    sysml:isComposite \"false\"^^xsd:boolean ;\n    sysml:elementId \"P__Car___402_pend0\" ;\n    sysml:isEnd \"true\"^^xsd:boolean ;",
 		"sysml:referencedFeature elmt:P__Car__a ;\n    sysml:subsettedFeature elmt:P__Car__a ;\n    sysml:general elmt:P__Car__a ;\n    sysml:target elmt:P__Car__a ;",
 		"sysml:referencedFeature elmt:P__Car__b ;\n    sysml:subsettedFeature elmt:P__Car__b ;\n    sysml:general elmt:P__Car__b ;\n    sysml:target elmt:P__Car__b ;",
 		"expr:P__Car___402_pend0_plowerBound\n    a sysml:LiteralInteger ;\n    sysx:sourceText \"0\" ;",
@@ -3348,19 +3348,8 @@ var materializedExprID = regexp.MustCompile(`_(subject|conjugated|pc|referent|pr
 
 // name the element carries, and the encoding decodes back to that name.
 func TestFixtureElementIDsRoundTrip(t *testing.T) {
-	paths, err := filepath.Glob(filepath.Join("testdata", "convert", "*.golden.ttl"))
-	if err != nil || len(paths) == 0 {
-		t.Fatalf("no fixtures found: %v", err)
-	}
-	for _, path := range paths {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		graph, err := rdf.ParseTurtle(data)
-		if err != nil {
-			t.Fatalf("%s: %v", path, err)
-		}
+	for _, golden := range goldenGraphs(t) {
+		path, graph := golden.path, golden.graph
 		for _, subject := range graph.Subjects() {
 			// A library element the graph names keeps the normative id the
 			// references to it carry; its name is checked against the library.
@@ -3650,23 +3639,6 @@ func fixtureName(path string) (name, ext string) {
 	return strings.TrimSuffix(filepath.Base(path), ext), ext
 }
 
-func checkGolden(t *testing.T, path string, got []byte) {
-	t.Helper()
-	if *update {
-		if err := os.WriteFile(path, got, 0o644); err != nil {
-			t.Fatal(err)
-		}
-		return
-	}
-	want, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("%v (run with -update to create it)", err)
-	}
-	if string(got) != string(want) {
-		t.Errorf("%s differs\n--- want ---\n%s\n--- got ---\n%s", path, want, got)
-	}
-}
-
 // A save replaces the previous file only once the new bytes are safely written,
 // and the result is an ordinary readable document.
 func TestWriteFileIsAtomicAndReadable(t *testing.T) {
@@ -3905,7 +3877,7 @@ func TestLinkedReferencesCarryTheRoundTripWithoutSourceText(t *testing.T) {
 		"ref spare references spare;",
 		"attribute s = w.size;",
 		"part redefines G2::x;",
-		"part : Inner::Wheel redefines w;",
+		"part redefines w : Inner::Wheel;",
 		"transition idle then Done::done;",
 		"part unresolved : Elsewhere::Missing;",
 		"public import Meta::*[@Safety];",

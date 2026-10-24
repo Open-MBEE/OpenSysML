@@ -1,0 +1,41 @@
+sha256 3a096cebb40f1b81ff477383ce9a2d69369960f6ed5d6c5af9ce512d8d74fe66 bytes 272962 lines 5008
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:R89
+    a sysml:Package ;
+    sysml:qualifiedName "R89" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "22"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "R89" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "R89" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:R89__SeamCoupling, elmt:R89__P, elmt:R89__W, elmt:R89__Rd, elmt:R89__Ctx ;
+    sysml:ownedMembership elmt:R89__SeamCoupling_om, elmt:R89__P_om, elmt:R89__W_om, elmt:R89__Rd_om, elmt:R89__Ctx_om ;
+    sysml:ownedRelationship elmt:R89__SeamCoupling_om, elmt:R89__P_om, elmt:R89__W_om, elmt:R89__Rd_om, elmt:R89__Ctx_om ;
+    sysx:sourceText "package R89 {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"R89__SeamCoupling\"},{\"@id\":\"R89__P\"},{\"@id\":\"R89__W\"},{\"@id\":\"R89__Rd\"},{\"@id\":\"R89__Ctx\"}]" ;
+    json:ownedMembership "[{\"@id\":\"R89__SeamCoupling_om\"},{\"@id\":\"R89__P_om\"},{\"@id\":\"R89__W_om\"},{\"@id\":\"R89__Rd_om\"},{\"@id\":\"R89__Ctx_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"R89__SeamCoupling_om\"},{\"@id\":\"R89__P_om\"},{\"@id\":\"R89__W_om\"},{\"@id\":\"R89__Rd_om\"},{\"@id\":\"R89__Ctx_om\"}]" .
+
+elmt:R89__SeamCoupling
+    a sysml:EnumerationDefinition ;
+    sysml:qualifiedName "R89::SeamCoupling" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "5"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
+    sysml:elementId "R89__SeamCoupling" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:R89 ;
+    sysml:owner elmt:R89 ;

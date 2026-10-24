@@ -199,42 +199,11 @@ func (e *Encoding) assert(term *solve.Term, role string) {
 // the features they read and the bodies write, refusing one the stage does not
 // encode: a feature of the performing object, a free input of a type with no domain.
 func (e *Encoding) collectFeatures() error {
-	graph := e.Flow.Graph
 	declared := make(map[string]bool)
 	for _, attr := range e.held.Features() {
-		scope := attr.Scope
-		if scope == nil {
-			scope = graph.Scope
-		}
-		free, released := e.frees(attr)
-		if free {
-			if _, err := e.translator.Variable(attr.Name, scope, "attribute "+attr.Name); err != nil {
-				return noDomain(attr, err)
-			}
-		}
-		v, err := e.variable(attr.Name, scope, "attribute "+attr.Name, nodeLabel(graph.Initial))
-		if err != nil {
+		if err := e.collectAttribute(attr, declared); err != nil {
 			return err
 		}
-		declared[v.Name] = true
-		in := Input{Name: attr.Name, Type: attr.Type, Var: v, Free: free, Released: released, def: attr.Value}
-		switch {
-		case free && v.Sort.Kind == solve.SortString:
-			return noDomain(attr, errors.New("a string ranges over no domain the solver decides"))
-		case free && attr.Optional:
-			e.flagged[v.Name] = true
-			in.Optional = true
-		case free:
-		case attr.Value == nil:
-			e.flagged[v.Name] = true
-			in.Value, _ = e.held.Value(attr.Name)
-		default:
-			in.Value, _ = e.held.Value(attr.Name)
-			if _, err := e.expression(attr.Value, scope, "default of "+attr.Name, nodeLabel(graph.Initial)); err != nil {
-				return err
-			}
-		}
-		e.Inputs = append(e.Inputs, in)
 	}
 	for _, node := range e.Flow.Nodes {
 		if err := e.collectPins(node, declared); err != nil {
@@ -242,44 +211,12 @@ func (e *Encoding) collectFeatures() error {
 		}
 	}
 	for _, node := range e.Flow.Nodes {
-		label := e.Flow.label(node)
-		frame := e.Flow.graphOf(node)
-		if err := e.collectFlows(node); err != nil {
+		if err := e.collectNode(node, declared); err != nil {
 			return err
-		}
-		if err := e.collectBody(frame.Bodies[node], label, declared); err != nil {
-			return err
-		}
-		if action, ok := node.(*ast.ActionExecutionNode); ok && action.Expression != nil {
-			if _, err := e.expression(action.Expression, frame.Scope, "expression of "+label, label); err != nil {
-				return err
-			}
-			result := resultPin(frame, node)
-			v, err := e.variable(result, frame.Scope, "result "+result+" of "+label, label)
-			if err != nil {
-				return err
-			}
-			e.results[node] = v
-		}
-		for _, i := range e.Flow.Outgoing[node] {
-			edge := e.Flow.Edges[i]
-			if edge.Guard == nil {
-				continue
-			}
-			if _, err := e.boolean(edge.Guard, frame.Scope, "guard of "+edgeLabel(e.Flow, i), label); err != nil {
-				return err
-			}
 		}
 	}
-	for _, v := range e.translator.Vars() {
-		if _, ok := e.features[v.Name]; ok {
-			continue
-		}
-		if _, ok := e.aliases[v.Name]; ok {
-			continue
-		}
-		return &UnsupportedError{Node: nodeLabel(graph.Initial), Construct: "feature " + v.Name,
-			Reason: "a feature the action does not declare is read; objects and their features are encoded by a later stage"}
+	if err := e.checkReadsDeclared(); err != nil {
+		return err
 	}
 	for _, d := range e.translator.Domains() {
 		var read *solve.Var
@@ -299,6 +236,102 @@ func (e *Encoding) collectFeatures() error {
 		e.Features = append(e.Features, v)
 	}
 	sort.Slice(e.Features, func(i, j int) bool { return e.Features[i].Name < e.Features[j].Name })
+	return nil
+}
+
+// collectAttribute declares the variable of an attribute the performance holds,
+// free or valued, and records it as an input; declared gains the variable.
+func (e *Encoding) collectAttribute(attr lower.Attribute, declared map[string]bool) error {
+	graph := e.Flow.Graph
+	scope := attr.Scope
+	if scope == nil {
+		scope = graph.Scope
+	}
+	// A hidden inherited feature is keyed by its ShadowedKey; the declaring
+	// scope spells it by name.
+	written := attr.Name
+	if attr.Shadowed && attr.Symbol != nil {
+		written = attr.Symbol.Name
+	}
+	free, released := e.frees(attr)
+	if free {
+		if _, err := e.translator.Variable(written, scope, "attribute "+attr.Name); err != nil {
+			return noDomain(attr, err)
+		}
+	}
+	v, err := e.variable(written, scope, "attribute "+attr.Name, nodeLabel(graph.Initial))
+	if err != nil {
+		return err
+	}
+	declared[v.Name] = true
+	in := Input{Name: attr.Name, Type: attr.Type, Var: v, Free: free, Released: released, def: attr.Value}
+	switch {
+	case free && v.Sort.Kind == solve.SortString:
+		return noDomain(attr, errors.New("a string ranges over no domain the solver decides"))
+	case free && attr.Optional:
+		e.flagged[v.Name] = true
+		in.Optional = true
+	case free:
+	case attr.Value == nil:
+		e.flagged[v.Name] = true
+		in.Value, _ = e.held.Value(attr.Name)
+	default:
+		in.Value, _ = e.held.Value(attr.Name)
+		if _, err := e.expression(attr.Value, scope, "default of "+attr.Name, nodeLabel(graph.Initial)); err != nil {
+			return err
+		}
+	}
+	e.Inputs = append(e.Inputs, in)
+	return nil
+}
+
+// collectNode translates what one node evaluates: its flows, its body, an
+// inline expression and its result pin, and the guards of its outgoing edges.
+func (e *Encoding) collectNode(node ast.Node, declared map[string]bool) error {
+	label := e.Flow.label(node)
+	frame := e.Flow.graphOf(node)
+	if err := e.collectFlows(node); err != nil {
+		return err
+	}
+	if err := e.collectBody(frame.Bodies[node], label, declared); err != nil {
+		return err
+	}
+	if action, ok := node.(*ast.ActionExecutionNode); ok && action.Expression != nil {
+		if _, err := e.expression(action.Expression, frame.Scope, "expression of "+label, label); err != nil {
+			return err
+		}
+		result := resultPin(frame, node)
+		v, err := e.variable(result, frame.Scope, "result "+result+" of "+label, label)
+		if err != nil {
+			return err
+		}
+		e.results[node] = v
+	}
+	for _, i := range e.Flow.Outgoing[node] {
+		edge := e.Flow.Edges[i]
+		if edge.Guard == nil {
+			continue
+		}
+		if _, err := e.boolean(edge.Guard, frame.DeclScope(edge.Decl), "guard of "+edgeLabel(e.Flow, i), label); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkReadsDeclared refuses a variable the expressions read that is neither a
+// declared feature nor an alias of one.
+func (e *Encoding) checkReadsDeclared() error {
+	for _, v := range e.translator.Vars() {
+		if _, ok := e.features[v.Name]; ok {
+			continue
+		}
+		if _, ok := e.aliases[v.Name]; ok {
+			continue
+		}
+		return &UnsupportedError{Node: nodeLabel(e.Flow.Graph.Initial), Construct: "feature " + v.Name,
+			Reason: "a feature the action does not declare is read; objects and their features are encoded by a later stage"}
+	}
 	return nil
 }
 

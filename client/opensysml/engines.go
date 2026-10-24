@@ -103,11 +103,24 @@ func (c *client) requireEngine(ctx context.Context, engine string) error {
 	return nil
 }
 
-func (c *client) ListEngines(ctx context.Context) ([]EngineInfo, error) {
+// EngineOption configures ListEngines.
+type EngineOption func(*pb.ListEnginesRequest)
+
+// Probe starts each external engine the service serves and checks its
+// handshake, as sysml -probe does, so Ready reports what the process said.
+func Probe() EngineOption {
+	return func(req *pb.ListEnginesRequest) { req.Probe = true }
+}
+
+func (c *client) ListEngines(ctx context.Context, opts ...EngineOption) ([]EngineInfo, error) {
 	if err := c.live(); err != nil {
 		return nil, err
 	}
-	resp, err := c.caller.listEngines(ctx, &pb.ListEnginesRequest{})
+	req := &pb.ListEnginesRequest{}
+	for _, opt := range opts {
+		opt(req)
+	}
+	resp, err := c.caller.listEngines(ctx, req)
 	if err != nil {
 		return nil, err
 	}

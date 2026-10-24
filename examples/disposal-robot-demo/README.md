@@ -363,7 +363,7 @@ anything runs. Editing `store` to say `assign framesHeld := "fifteen";` and
 reloading reports:
 
 ```
-examples/disposal-robot-demo/robot.sysml:345:38: error: cannot bind String value to a feature typed by Integer
+examples/disposal-robot-demo/robot.sysml:345:38: error[binding-connector-type-conformance]: cannot bind String value to a feature typed by Integer
                 assign framesHeld := "fifteen";
                                      ^~~~~~~~~
 ```

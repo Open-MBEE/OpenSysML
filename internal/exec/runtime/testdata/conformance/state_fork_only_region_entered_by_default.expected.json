@@ -1,0 +1,18 @@
+{
+  "type": "state",
+  "events": [
+    {"signal": "Default"},
+    {"signal": "Back"},
+    {"signal": "Fork"},
+    {"signal": "FinishA"},
+    {"signal": "FinishB"},
+    {"signal": "Back"},
+    {"signal": "All"},
+    {"signal": "FinishA"},
+    {"signal": "FinishB"},
+    {"signal": "FinishC"}
+  ],
+  "finalState": "finished",
+  "outputs": {"log": {"type": "String", "value": "finished(entry) "}},
+  "trace": true
+}

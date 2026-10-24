@@ -59,45 +59,45 @@ var censusSentinels = []struct {
 	name string
 	err  error
 }{
-	{"ErrActionArity", ErrActionArity},
-	{"ErrActionPerformanceOccurrence", ErrActionPerformanceOccurrence},
-	{"ErrAmbiguousReference", ErrAmbiguousReference},
+	{"errActionArity", errActionArity},
+	{"errActionPerformanceOccurrence", errActionPerformanceOccurrence},
+	{"errAmbiguousReference", errAmbiguousReference},
 	{"ErrBodyArity", ErrBodyArity},
-	{"ErrCalcArity", ErrCalcArity},
-	{"ErrCalcNoReturn", ErrCalcNoReturn},
+	{"errCalcArity", errCalcArity},
+	{"errCalcNoReturn", errCalcNoReturn},
 	{"ErrIndexOutOfRange", ErrIndexOutOfRange},
-	{"ErrInvalidActionFlow", ErrInvalidActionFlow},
-	{"ErrInvalidInput", ErrInvalidInput},
+	{"errInvalidActionFlow", errInvalidActionFlow},
+	{"errInvalidInput", errInvalidInput},
 	{"ErrMultiplicityViolation", ErrMultiplicityViolation},
-	{"ErrNoResultExpression", ErrNoResultExpression},
-	{"ErrNoSuchBehavior", ErrNoSuchBehavior},
+	{"errNoResultExpression", errNoResultExpression},
+	{"errNoSuchBehavior", errNoSuchBehavior},
 	{"ErrNoSuchFeature", ErrNoSuchFeature},
 	{"ErrNoValue", ErrNoValue},
-	{"ErrNotABehavior", ErrNotABehavior},
+	{"errNotABehavior", errNotABehavior},
 	{"ErrNotACalc", ErrNotACalc},
-	{"ErrNotACalcUsage", ErrNotACalcUsage},
-	{"ErrNotAFunction", ErrNotAFunction},
+	{"errNotACalcUsage", errNotACalcUsage},
+	{"errNotAFunction", errNotAFunction},
 	{"ErrNotAnAnalysis", ErrNotAnAnalysis},
 	{"ErrNotAnObject", ErrNotAnObject},
-	{"ErrNotAnOccurrence", ErrNotAnOccurrence},
-	{"ErrOccurrenceDestroyed", ErrOccurrenceDestroyed},
-	{"ErrOccurrenceLifetime", ErrOccurrenceLifetime},
-	{"ErrStatePerformanceOccurrence", ErrStatePerformanceOccurrence},
-	{"ErrStateSpaceDiverged", ErrStateSpaceDiverged},
-	{"ErrStateSpaceStep", ErrStateSpaceStep},
-	{"ErrStateSpaceValue", ErrStateSpaceValue},
+	{"errNotAnOccurrence", errNotAnOccurrence},
+	{"errOccurrenceDestroyed", errOccurrenceDestroyed},
+	{"errOccurrenceLifetime", errOccurrenceLifetime},
+	{"errStatePerformanceOccurrence", errStatePerformanceOccurrence},
+	{"errStateSpaceDiverged", errStateSpaceDiverged},
+	{"errStateSpaceStep", errStateSpaceStep},
+	{"errStateSpaceValue", errStateSpaceValue},
 	{"ErrStepLimitExceeded", ErrStepLimitExceeded},
 	{"ErrTypeMismatch", ErrTypeMismatch},
-	{"ErrUnboundParameter", ErrUnboundParameter},
-	{"ErrUndeterminedValueType", ErrUndeterminedValueType},
-	{"ErrUnevaluableLibraryFunction", ErrUnevaluableLibraryFunction},
-	{"ErrUninitializedFeatureValue", ErrUninitializedFeatureValue},
-	{"ErrUnknownOutput", ErrUnknownOutput},
-	{"ErrUnknownParameter", ErrUnknownParameter},
+	{"errUnboundParameter", errUnboundParameter},
+	{"errUndeterminedValueType", errUndeterminedValueType},
+	{"errUnevaluableLibraryFunction", errUnevaluableLibraryFunction},
+	{"errUninitializedFeatureValue", errUninitializedFeatureValue},
+	{"errUnknownOutput", errUnknownOutput},
+	{"errUnknownParameter", errUnknownParameter},
 	{"ErrUnresolvedReference", ErrUnresolvedReference},
-	{"ErrUnresolvedType", ErrUnresolvedType},
-	{"ErrUnsupportedBodyDeclaration", ErrUnsupportedBodyDeclaration},
-	{"ErrUnsupportedOperator", ErrUnsupportedOperator},
+	{"errUnresolvedType", errUnresolvedType},
+	{"errUnsupportedBodyDeclaration", errUnsupportedBodyDeclaration},
+	{"errUnsupportedOperator", errUnsupportedOperator},
 	{"ErrUnsupportedStateSpace", lower.ErrUnsupportedStateSpace},
 	{"ErrViolated", ErrViolated},
 }
@@ -261,7 +261,8 @@ func readProbeFeature(t *testing.T, ctx *Context, idx *symbols.Index, probe libr
 		t.Errorf("%s: %s binds no value to evaluate", probe.decl, probe.read)
 		return Value{}, nil
 	}
-	return ctx.EvalWithScope(usage.Value, sym.OwnerScope)
+	// Read through the declaration: the value is held in the feature's own shape.
+	return evalIn(t, ctx, sym.OwnerScope, sym.Name)
 }
 
 func readProbeSlot(t *testing.T, ctx *Context, idx *symbols.Index, probe libraryProbe) (Value, error) {
@@ -293,7 +294,7 @@ func readProbeOutput(t *testing.T, ctx *Context, idx *symbols.Index, probe libra
 	}
 	value, ok := outputs[probe.output]
 	if !ok {
-		return Value{}, fmt.Errorf("%w: %s produced no output %q", ErrUnknownOutput, probe.action, probe.output)
+		return Value{}, fmt.Errorf("%w: %s produced no output %q", errUnknownOutput, probe.action, probe.output)
 	}
 	return value, nil
 }
@@ -369,7 +370,7 @@ func callableDeclarations(t *testing.T, ctx *Context, pkg string) []string {
 				continue
 			}
 			if sym.Name != "" && isCallableDeclaration(sym.Decl) {
-				names = append(names, ctx.qualifiedSymbolName(sym))
+				names = append(names, ctx.QualifiedName(sym))
 			}
 			if sym.Scope != nil && sym.Kind != symbols.SymbolAlias {
 				walk(sym.Scope)

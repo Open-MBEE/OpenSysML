@@ -28,6 +28,7 @@ elmt:Mult
 
 elmt:Mult__exactlyOne
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Mult::exactlyOne" ;
     sysx:sourceLine "2"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -64,6 +65,7 @@ elmt:Mult__exactlyOne_om
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "Mult__exactlyOne_plowerBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "1"^^xsd:integer ;
     sysml:owner elmt:Mult__exactlyOne ;
     sysml:owningRelationship <urn:opensysml:expr:Mult__exactlyOne_plowerBound_om> ;
@@ -83,6 +85,7 @@ elmt:Mult__exactlyOne_om
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "Mult__exactlyOne_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "1"^^xsd:integer ;
     sysml:owner elmt:Mult__exactlyOne ;
     sysml:owningRelationship <urn:opensysml:expr:Mult__exactlyOne_pupperBound_om> ;
@@ -100,6 +103,7 @@ elmt:Mult__exactlyOne_om
 
 elmt:Mult__optional
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Mult::optional" ;
     sysx:sourceLine "3"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -136,6 +140,7 @@ elmt:Mult__optional_om
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "Mult__optional_plowerBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "0"^^xsd:integer ;
     sysml:owner elmt:Mult__optional ;
     sysml:owningRelationship <urn:opensysml:expr:Mult__optional_plowerBound_om> ;
@@ -155,6 +160,7 @@ elmt:Mult__optional_om
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "Mult__optional_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "1"^^xsd:integer ;
     sysml:owner elmt:Mult__optional ;
     sysml:owningRelationship <urn:opensysml:expr:Mult__optional_pupperBound_om> ;
@@ -172,6 +178,7 @@ elmt:Mult__optional_om
 
 elmt:Mult__single
     a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Mult::single" ;
     sysx:sourceLine "4"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;

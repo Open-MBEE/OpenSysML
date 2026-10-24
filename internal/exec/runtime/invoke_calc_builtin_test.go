@@ -70,7 +70,7 @@ func TestInvokeCalcNamedDispatchesBuiltins(t *testing.T) {
 	ctx, idx := libraryModelContext(t, directBuiltinModel)
 	sum0, cond := lookupOne(t, idx, "NumericalFunctions::sum0"), lookupOne(t, idx, "ControlFunctions::if")
 
-	got, err := ctx.InvokeCalcNamed(sum0, map[string]Value{"zero": constInt(0)}, nil)
+	got, err := ctx.invokeCalcNamed(sum0, map[string]Value{"zero": constInt(0)}, nil)
 	if err != nil || !valueIdentical(got, constInt(0)) {
 		t.Errorf("sum0(zero = 0) = %s, %v; want 0", FormatValue(got), err)
 	}
@@ -78,23 +78,23 @@ func TestInvokeCalcNamedDispatchesBuiltins(t *testing.T) {
 	if err != nil || !valueIdentical(got, expr) {
 		t.Errorf("sum0(zero = 0) by expression = %s, %v; want %s", FormatValue(expr), err, FormatValue(got))
 	}
-	got, err = ctx.InvokeCalcNamed(cond, map[string]Value{"elseValue": constInt(2), "test": constBool(false)}, nil)
+	got, err = ctx.invokeCalcNamed(cond, map[string]Value{"elseValue": constInt(2), "test": constBool(false)}, nil)
 	if err != nil || !valueIdentical(got, constInt(2)) {
 		t.Errorf("'if'(elseValue = 2, test = false) = %s, %v; want 2", FormatValue(got), err)
 	}
-	got, err = ctx.InvokeCalcNamed(cond, map[string]Value{"test": constBool(true)}, nil)
+	got, err = ctx.invokeCalcNamed(cond, map[string]Value{"test": constBool(true)}, nil)
 	if err != nil || got.Kind != ValNull {
 		t.Errorf("'if'(test = true) = %s, %v; want null", FormatValue(got), err)
 	}
 
-	if _, err := ctx.InvokeCalcNamed(cond, map[string]Value{"cond": constBool(true)}, nil); !errors.Is(err, ErrUnknownParameter) {
-		t.Errorf("'if'(cond = true) = %v, want %v", err, ErrUnknownParameter)
+	if _, err := ctx.invokeCalcNamed(cond, map[string]Value{"cond": constBool(true)}, nil); !errors.Is(err, errUnknownParameter) {
+		t.Errorf("'if'(cond = true) = %v, want %v", err, errUnknownParameter)
 	}
-	if _, err := ctx.InvokeCalcNamed(sum0, map[string]Value{"collection": nullValue()}, nil); !errors.Is(err, ErrCalcArity) {
-		t.Errorf("sum0(collection = null) = %v, want %v", err, ErrCalcArity)
+	if _, err := ctx.invokeCalcNamed(sum0, map[string]Value{"collection": nullValue()}, nil); !errors.Is(err, errCalcArity) {
+		t.Errorf("sum0(collection = null) = %v, want %v", err, errCalcArity)
 	}
-	if _, err := ctx.InvokeCalc(cond, []Value{constBool(true), constInt(1), constInt(2), constInt(3)}, nil); !errors.Is(err, ErrCalcArity) {
-		t.Errorf("'if' with four arguments = %v, want %v", err, ErrCalcArity)
+	if _, err := ctx.InvokeCalc(cond, []Value{constBool(true), constInt(1), constInt(2), constInt(3)}, nil); !errors.Is(err, errCalcArity) {
+		t.Errorf("'if' with four arguments = %v, want %v", err, errCalcArity)
 	}
 }
 
@@ -103,8 +103,8 @@ func TestInvokeCalcNamedDispatchesBuiltins(t *testing.T) {
 func TestInvokeCalcDefersBodyArguments(t *testing.T) {
 	ctx, idx := libraryModelContext(t, directBuiltinModel)
 	body := func(calc string) Value {
-		val, err := ctx.InvokeCalc(lookupOne(t, idx, "test::"+calc), nil, nil)
-		if err != nil || val.Kind != ValExpr {
+		val, err := invokeValue(ctx, lookupOne(t, idx, "test::"+calc), nil, nil)
+		if err != nil || val.Kind != valExpr {
 			t.Fatalf("%s = %s, %v; want a body", calc, FormatValue(val), err)
 		}
 		return val
@@ -149,9 +149,9 @@ func TestInvokeCalcOmittedBodyOverEmptyCollection(t *testing.T) {
 				t.Errorf("InvokeCalc(%s, %d args) = %s, %v; want %s", tc.fqn, len(args), FormatValue(got), err, tc.want)
 			}
 		}
-		got, err := ctx.InvokeCalcNamed(sym, map[string]Value{"collection": empty}, nil)
+		got, err := ctx.invokeCalcNamed(sym, map[string]Value{"collection": empty}, nil)
 		if err != nil || FormatValue(got) != tc.want {
-			t.Errorf("InvokeCalcNamed(%s, collection = ()) = %s, %v; want %s", tc.fqn, FormatValue(got), err, tc.want)
+			t.Errorf("invokeCalcNamed(%s, collection = ()) = %s, %v; want %s", tc.fqn, FormatValue(got), err, tc.want)
 		}
 		if _, err := ctx.InvokeCalc(sym, []Value{one}, nil); !errors.Is(err, ErrTypeMismatch) {
 			t.Errorf("InvokeCalc(%s, 1) = %v, want %v", tc.fqn, err, ErrTypeMismatch)
@@ -177,7 +177,7 @@ func TestInvokeCalcNeverAnswersAModelDeclarationWithABuiltin(t *testing.T) {
 	if _, ok := ctx.builtinFor(sym); ok {
 		t.Fatal("the model's NumericalFunctions::sum0 dispatched to the built-in")
 	}
-	if _, err := ctx.InvokeCalc(sym, []Value{constInt(0)}, nil); !errors.Is(err, ErrNoResultExpression) {
-		t.Errorf("InvokeCalc(model sum0) = %v, want %v", err, ErrNoResultExpression)
+	if _, err := ctx.InvokeCalc(sym, []Value{constInt(0)}, nil); !errors.Is(err, errNoResultExpression) {
+		t.Errorf("InvokeCalc(model sum0) = %v, want %v", err, errNoResultExpression)
 	}
 }

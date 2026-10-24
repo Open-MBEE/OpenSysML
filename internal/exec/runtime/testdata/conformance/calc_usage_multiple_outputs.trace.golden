@@ -5,8 +5,8 @@ exit calc test::c
   eval feature n -> 5
   eval literal 1 -> 1
 eval operator + -> 6
-output test::c.a = 6
+output test::c.a = (6)
   eval feature n -> 5
   eval literal 2 -> 2
 eval operator * -> 10
-output test::c.b = 10
+output test::c.b = (10)

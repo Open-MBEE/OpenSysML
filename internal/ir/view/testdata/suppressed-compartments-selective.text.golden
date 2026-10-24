@@ -1,0 +1,8 @@
+CameraViews::selective - tree rendering (render asTreeDiagram)
+
+part def Imaging at (10, 10) size 240×220
+  attribute resolution
+  attribute exposure
+  part mount
+  port data
+  constraint focus

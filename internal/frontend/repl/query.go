@@ -236,15 +236,7 @@ func (s *Session) checkArgs(ctx *runtime.Context, argText string) (runtime.Check
 		return runtime.CheckArgs{}, err
 	}
 	var args runtime.CheckArgs
-	scope := s.promptScope()
-	for _, arg := range parsed.positional {
-		val, err := ctx.EvalWithScope(arg.expr, scope)
-		if err != nil {
-			return runtime.CheckArgs{}, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
-		}
-		args.Positional = append(args.Positional, val)
-	}
-	if args.Named, err = s.evalArguments(ctx, parsed.named); err != nil {
+	if args.Positional, args.Named, err = evalArgumentList(ctx, s.promptScope(), parsed.positional, parsed.named); err != nil {
 		return runtime.CheckArgs{}, err
 	}
 	return args, nil
@@ -297,7 +289,7 @@ func (s *Session) checkRequirement(text string) Verdict {
 		return ctx.CheckRequirementWith(target.sym, target.scope, inst, args)
 	})
 	inst, owner = s.reportedSubject(result, inst, owner)
-	verdict := s.withVerifications(requirementVerdict(name, result, err, inst, owner), target.ctx, target.sym)
+	verdict := s.withVerifications(requirementVerdict(name, result, err, inst, owner), target.ctx, target.sym, inst)
 	return standing(verdict, plan)
 }
 
@@ -356,7 +348,7 @@ func (s *Session) checkSatisfy(name string) []Verdict {
 			return []Verdict{unresolvedVerdict(name, lerr.Error())}
 		}
 		if a, aerr := ctx.SatisfyAssertionOf(sym); aerr == nil {
-			return []Verdict{s.satisfyVerdict(ctx, a)}
+			return s.satisfyVerdictsOf(ctx, a)
 		}
 		if sym.Scope == nil {
 			return []Verdict{unresolvedVerdict(name, fmt.Sprintf("%s states no satisfaction assertion", name))}
@@ -377,7 +369,7 @@ func (s *Session) checkSatisfy(name string) []Verdict {
 	defer ctx.ShareVerdicts()()
 	verdicts := make([]Verdict, 0, len(assertions))
 	for _, a := range assertions {
-		verdicts = append(verdicts, s.satisfyVerdict(ctx, a))
+		verdicts = append(verdicts, s.satisfyVerdictsOf(ctx, a)...)
 	}
 	return verdicts
 }

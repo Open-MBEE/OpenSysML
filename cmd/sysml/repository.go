@@ -1,4 +1,4 @@
-//go:build !sysml_prod && !sysml_nosync
+//go:build !sysml_re && !sysml_nosync
 
 package main
 

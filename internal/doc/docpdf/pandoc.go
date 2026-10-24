@@ -10,10 +10,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
-// This file hands a Markdown-reading converter the drawn diagrams, the typeset
-// formulas and the captions as a pandoc Lua filter, so pandoc reads the
-// Markdown backend's text as written and marks the artwork up on its own
-// syntax tree.
+// This file gives pandoc the Markdown backend's text as written and marks
+// tables and artwork on pandoc's syntax tree with a Lua filter.
 
 // artworkFilterName is the Lua filter Render writes beside the Markdown.
 const artworkFilterName = "artwork.lua"
@@ -27,16 +25,13 @@ const (
 	d2Notice       = "This diagram is written in D2, which the PDF backend did not draw: d2 was not found. Install it and point " + D2Env + " at its executable to have the diagram drawn; its source follows."
 )
 
-// writeArtworkFilter writes the filter for a document with diagrams (drawn,
-// or kept as source under a notice), typeset formulas or captions, returning
-// its name; a document with none needs no filter, and "" is returned.
+// writeArtworkFilter writes the filter that marks tables and captions, swaps
+// diagram fences for drawn images and formulas for their typeset HTML.
 func writeArtworkFilter(dir string, images []string, math formulas, captions []string) (string, error) {
-	if len(images) == 0 && len(math.html) == 0 && len(captions) == 0 {
-		return "", nil
-	}
 	var b strings.Builder
-	b.WriteString("-- Marks the captions, swaps the diagram fences for the images drawn from\n")
-	b.WriteString("-- them and the formulas for their typeset HTML, in document order.\n")
+	b.WriteString("-- Marks tables and captions, swaps diagram fences and typeset formulas.\n")
+	fmt.Fprintf(&b, "local landscapeColumns = %d\n", docrender.WideTableColumns)
+	fmt.Fprintf(&b, "local denseColumns = %d\n", docrender.DenseTableColumns)
 	b.WriteString("local forms = {")
 	for i, form := range view.DiagramForms() {
 		if i > 0 {
@@ -225,6 +220,22 @@ return {
         return nil
       end
       return {pandoc.Para({pandoc.Emph({pandoc.Str(notice)})}), el}
+    end,
+    Table = function(el)
+      local columns = 0
+      local rows = el.head.rows
+      if #rows > 0 then
+        for _, cell in ipairs(rows[1].cells) do
+          columns = columns + cell.col_span
+        end
+      end
+      if columns >= landscapeColumns then
+        el.classes:insert("sysml-table-landscape")
+      end
+      if columns >= denseColumns then
+        el.classes:insert("sysml-table-dense")
+      end
+      return el
     end,
   },
   {

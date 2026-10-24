@@ -1,0 +1,10 @@
+# SysML v1 to v2 migration report: root_model_unnamed.xmi
+# migrated 4 element(s): 3 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (1)
+Model	<Model>	_m	-> root_model_unnamed	(written as package root_model_unnamed; the Model has no name; the package is named after the file)
+
+## mapped (3)
+«Block» Class	Pump	_pump	-> root_model_unnamed::Pump
+Property	Pump::valve	_pumpValve	-> root_model_unnamed::Pump::valve
+«Block» Class	Valve	_valve	-> root_model_unnamed::Valve

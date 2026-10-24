@@ -110,8 +110,8 @@ func TestFirstStartNamingAModelStateUsageDesignatesNoStart(t *testing.T) {
 				t.Fatalf("newStateExecutor: %v", err)
 			}
 			err = exec.initialize()
-			if !errors.Is(err, ErrNoInitialState) {
-				t.Fatalf("initialize = %v; want ErrNoInitialState, `start` naming no shot of the library", err)
+			if !errors.Is(err, errNoInitialState) {
+				t.Fatalf("initialize = %v; want errNoInitialState, `start` naming no shot of the library", err)
 			}
 		})
 	}

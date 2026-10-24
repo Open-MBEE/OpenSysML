@@ -1,0 +1,12 @@
+{
+  "libraries": true,
+  "type": "action",
+  "evaluate": "test::experiment",
+  "outputs": {
+    "fall.stateSpace": {"type": "Vector", "elements": [
+      {"type": "Real", "value": 55.855000000000004},
+      {"type": "Real", "value": -29.429999999999996}
+    ]},
+    "fall.time": {"type": "Quantity", "value": 3.0, "unit": "s"}
+  }
+}

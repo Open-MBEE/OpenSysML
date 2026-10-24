@@ -10,6 +10,10 @@ trap 'rm -rf "$work"' EXIT
 git -C "$work" init -q
 git -C "$work" config user.email ci@example.com
 git -C "$work" config user.name CI
+# Auto maintenance detaches after a commit and writes under .git while the trap
+# removes it; a throwaway repository needs none.
+git -C "$work" config maintenance.auto false
+git -C "$work" config gc.auto 0
 mkdir -p "$work/scripts"
 cp "$script" "$work/scripts/"
 git -C "$work" add scripts
@@ -32,14 +36,19 @@ case_() {
   git -C "$work" -c commit.gpgsign=false commit -qm "$name"
 
   local actual
-  actual=$(cd "$work" && bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null |
+  actual=$(cd "$work" && CI_TIER="${CI_TIER:-full}" bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null |
     grep '=true$' | cut -d= -f1 | sort | paste -sd, -)
   if [[ "$actual" != "$expected" ]]; then
-    echo "FAIL $name: expected [$expected], got [$actual]" >&2
+    echo "FAIL $name (${CI_TIER:-full}): expected [$expected], got [$actual]" >&2
     failures=$((failures + 1))
   else
-    echo "ok   $name: $actual"
+    echo "ok   $name (${CI_TIER:-full}): $actual"
   fi
+}
+
+# quick_case_ <name> <expected areas> <files...>: the same pull request under CI_TIER=quick.
+quick_case_() {
+  CI_TIER=quick case_ "$@"
 }
 
 case_ docs-only docs docs/guide/index.md
@@ -85,9 +94,26 @@ case_ go-tools docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,v
 case_ proto docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode api/proto/sysml.proto
 case_ install-script docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode install.sh
 case_ install-script-windows docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode install.ps1
+case_ action docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode action.yml
 case_ conformance docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode conformance/scenarios/01-server-info.json
 case_ workflow docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/pr.yml
+# The Go hygiene suite caps every tracked fixture and test file, so these run it too.
+case_ client-fixture go,python client/python/tests/testdata/large.json
+case_ client-golden go,node client/node/test/render.golden.json
 case_ unclaimed docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
+
+# The quick tier runs the Go suite for a service change but not every client; a
+# client's or the docs' own paths still run it, and an unclaimed path is only Go.
+quick_case_ go-source go internal/syntax/parser/parser.go
+quick_case_ proto go api/proto/sysml.proto
+quick_case_ workflow go .github/workflows/pr.yml
+quick_case_ unclaimed go some-new-top-level/thing.txt
+quick_case_ go-and-node go,node internal/syntax/parser/parser.go client/node/src/node/binary.ts
+quick_case_ go-and-docs docs,go internal/syntax/parser/parser.go docs/guide/index.md
+quick_case_ docs-only docs docs/guide/index.md
+quick_case_ java-manifest java,mdk,python client/java/pom.xml
+quick_case_ node-only node client/node/src/node/binary.ts
+quick_case_ vscode-grammar go,vscode editors/vscode/tools/gengrammar/grammar.go
 
 if [[ "$failures" -ne 0 ]]; then
   echo "$failures case(s) failed" >&2

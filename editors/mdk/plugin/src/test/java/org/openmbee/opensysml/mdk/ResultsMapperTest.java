@@ -58,13 +58,27 @@ class ResultsMapperTest {
 
   @Test
   void verificationCaseRowsBecomeOutcomes() {
-    var row = new VerificationVerdict("A::case", VerificationVerdict.FAIL, Optional.of("too heavy"), false, Optional.of("A::req"));
+    var row = new VerificationVerdict(
+        "A::case",
+        VerificationVerdict.FAIL,
+        Optional.of("too heavy"),
+        false,
+        Optional.of("A::req"),
+        Optional.of(1L),
+        Optional.of("A::part"));
     var result = ResultsMapper.map(request(Operation.VERIFY, "A::req"),
         new Verification(verdict("A::req", false, Optional.empty()), List.of(row), List.of(), List.of()), ELAPSED);
     assertEquals(2, result.outcomes().size());
     assertEquals("A::req", result.outcomes().get(1).elementId());
     assertEquals(Status.FAILED, result.outcomes().get(1).status());
-    var undecided = new VerificationVerdict("A::case", VerificationVerdict.INCONCLUSIVE, Optional.empty(), false, Optional.empty());
+    var undecided = new VerificationVerdict(
+        "A::case",
+        VerificationVerdict.INCONCLUSIVE,
+        Optional.empty(),
+        false,
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty());
     var open = ResultsMapper.map(request(Operation.VERIFY, "A::req"),
         new Verification(verdict("A::req", true, Optional.empty()), List.of(undecided), List.of(), List.of()), ELAPSED);
     assertEquals(Status.INCONCLUSIVE, open.outcomes().get(1).status());

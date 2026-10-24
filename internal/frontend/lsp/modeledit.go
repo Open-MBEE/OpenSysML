@@ -25,7 +25,7 @@ import (
 // server rewrites nothing itself.
 const MethodApplyModelEdit = "opensysml/applyModelEdit"
 
-// The operation kinds a modelEditOperation names.
+// The operation kinds a ModelEditOperation names.
 const (
 	EditSetValue      = "setValue"
 	EditRename        = "rename"
@@ -40,15 +40,15 @@ const (
 	EditSetStyle      = "setStyle"
 )
 
-// applyModelEditParams asks for the operations to be applied to the document as
+// ApplyModelEditParams asks for the operations to be applied to the document as
 // the client holds it, at the version the client last sent.
-type applyModelEditParams struct {
+type ApplyModelEditParams struct {
 	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
 	Version      int                             `json:"version"`
-	Operations   []modelEditOperation            `json:"operations"`
+	Operations   []ModelEditOperation            `json:"operations"`
 }
 
-// modelEditOperation is one modeledit.Operation on the wire. Kind selects the
+// ModelEditOperation is one modeledit.Operation on the wire. Kind selects the
 // operation; the other fields are read as that operation reads them. Elements
 // are named by qualified name, as a rendering's nodes report them.
 //
@@ -66,7 +66,7 @@ type applyModelEditParams struct {
 // goes inline into Target's declaration and applies in every view. A setLayout
 // with no Layout, a setRoute with no or an empty Route, a setCanvas with no
 // Canvas and a setStyle with no Style clear the annotation.
-type modelEditOperation struct {
+type ModelEditOperation struct {
 	Kind           string               `json:"kind"`
 	Target         string               `json:"target,omitempty"`
 	Declaration    *protocol.Range      `json:"declaration,omitempty"`
@@ -92,65 +92,66 @@ type modelEditOperation struct {
 	Via            string               `json:"via,omitempty"`
 	Until          string               `json:"until,omitempty"`
 	Parameter      string               `json:"parameter,omitempty"`
-	Body           []modelEditOperation `json:"body,omitempty"`
-	ElseBody       []modelEditOperation `json:"elseBody,omitempty"`
-	Layout         *modelEditLayout     `json:"layout,omitempty"`
-	Route          []renderPoint        `json:"route,omitempty"`
-	Canvas         *renderCanvas        `json:"canvas,omitempty"`
-	Style          *renderStyle         `json:"style,omitempty"`
+	Body           []ModelEditOperation `json:"body,omitempty"`
+	ElseBody       []ModelEditOperation `json:"elseBody,omitempty"`
+	Layout         *ModelEditLayout     `json:"layout,omitempty"`
+	Route          []RenderPoint        `json:"route,omitempty"`
+	Canvas         *RenderCanvas        `json:"canvas,omitempty"`
+	Style          *RenderStyle         `json:"style,omitempty"`
 }
 
-// modelEditLayout is a node's geometry as setLayout writes it, in the units
+// ModelEditLayout is a node's geometry as setLayout writes it, in the units
 // opensysml/render reports: pixels, y down. Width and Height are written both
 // or neither; Collapsed is written only when set.
-type modelEditLayout struct {
-	X         float64  `json:"x"`
-	Y         float64  `json:"y"`
+type ModelEditLayout struct {
+	// X and Y go together; both absent, the Layout only folds and places nothing.
+	X         *float64 `json:"x,omitempty"`
+	Y         *float64 `json:"y,omitempty"`
 	Width     *float64 `json:"width,omitempty"`
 	Height    *float64 `json:"height,omitempty"`
 	Collapsed bool     `json:"collapsed,omitempty"`
 }
 
-// applyModelEditResult is exactly one of: an edit to apply, the refusals that
+// ApplyModelEditResult is exactly one of: an edit to apply, the refusals that
 // kept the model as it was, or a stale version. Version is the document version
 // the answer was made at, which tells a stale client how far behind it was. The
 // edit holds one versioned TextDocumentEdit per document it rewrites, the
 // requested document first when it is among them; the others carry the versions
 // the server holds, null for one it read from disk, so a client refuses to apply
 // them to text that has moved on rather than land them wrong.
-type applyModelEditResult struct {
+type ApplyModelEditResult struct {
 	Edit    *protocol.WorkspaceEdit `json:"edit,omitempty"`
-	Refused []modelEditRefusal      `json:"refused,omitempty"`
+	Refused []ModelEditRefusal      `json:"refused,omitempty"`
 	Stale   bool                    `json:"stale,omitempty"`
 	Version int                     `json:"version"`
 }
 
-// modelEditRefusal is why an operation was not applied. Operation is its index
+// ModelEditRefusal is why an operation was not applied. Operation is its index
 // in the request, or -1 when the edited model as a whole was refused. Referring
 // names the declarations that refer to a target whose delete or rename was
 // refused, qualified by document when that is another; Referrers tells each
 // name from its document, so a client can list them by file.
-type modelEditRefusal struct {
+type ModelEditRefusal struct {
 	Operation   int                   `json:"operation"`
 	Failure     string                `json:"failure"`
 	Message     string                `json:"message"`
 	Diagnostics []protocol.Diagnostic `json:"diagnostics,omitempty"`
 	Referring   []string              `json:"referring,omitempty"`
-	Referrers   []modelEditReferrer   `json:"referrers,omitempty"`
+	Referrers   []ModelEditReferrer   `json:"referrers,omitempty"`
 }
 
-// modelEditReferrer is one referring declaration and the document declaring it.
-type modelEditReferrer struct {
+// ModelEditReferrer is one referring declaration and the document declaring it.
+type ModelEditReferrer struct {
 	Name string               `json:"name"`
 	URI  protocol.DocumentURI `json:"uri"`
 }
 
-// editPalette lists the declarations a diagram of one rendering kind offers to
+// EditPalette lists the declarations a diagram of one rendering kind offers to
 // add, in the document's language; Typed are the Members that take a type.
 // Owners lists, for each Member only some bodies offer (`subject`) and for the
 // notation of each drawn declaration that is such a member, the nodes whose
 // declaration offers it; a kind absent from Owners goes into any node.
-type editPalette struct {
+type EditPalette struct {
 	Members     []string            `json:"members"`
 	Connections []string            `json:"connections"`
 	Typed       []string            `json:"typed"`
@@ -166,7 +167,7 @@ type declaredNode struct {
 
 // confine lists kind in Owners when only some bodies offer it, so a move of a
 // node declared with kind learns where it may go.
-func (p *editPalette) confine(kind string) {
+func (p *EditPalette) confine(kind string) {
 	if _, listed := p.Owners[kind]; listed || !modeledit.MemberKindOwnerBound(kind) {
 		return
 	}
@@ -178,7 +179,7 @@ func (p *editPalette) confine(kind string) {
 
 // admit records that the node with id, declared by decl, may own the members
 // only some bodies offer.
-func (p *editPalette) admit(id string, decl ast.Node) {
+func (p *EditPalette) admit(id string, decl ast.Node) {
 	for kind, ids := range p.Owners {
 		if modeledit.MemberKindAdmittedBy(decl, kind) {
 			p.Owners[kind] = append(ids, id)
@@ -193,7 +194,7 @@ func (s *Server) modelEditHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
 		if req.Method() != MethodApplyModelEdit {
 			return inner(ctx, reply, req)
 		}
-		var params applyModelEditParams
+		var params ApplyModelEditParams
 		if err := json.Unmarshal(req.Params(), &params); err != nil {
 			return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
 		}
@@ -213,14 +214,14 @@ func (s *Server) modelEditHandler(inner jsonrpc2.Handler) jsonrpc2.Handler {
 // the versions the server holds, which their edits carry; a document read for a
 // target's declaration and left as it was carries its version with no edits, so
 // that the client refuses the edit once that document has moved on too.
-func (s *Server) ApplyModelEdit(params *applyModelEditParams) (*applyModelEditResult, error) {
+func (s *Server) ApplyModelEdit(params *ApplyModelEditParams) (*ApplyModelEditResult, error) {
 	name := uriToName(params.TextDocument.URI)
 	doc := s.ws.Document(name)
 	if doc == nil {
 		return nil, fmt.Errorf("%s: no such document", name)
 	}
 	if doc.Version != params.Version {
-		return &applyModelEditResult{Stale: true, Version: doc.Version}, nil
+		return &ApplyModelEditResult{Stale: true, Version: doc.Version}, nil
 	}
 	ops := make([]modeledit.Operation, 0, len(params.Operations))
 	var read []*model.Document
@@ -228,7 +229,7 @@ func (s *Server) ApplyModelEdit(params *applyModelEditParams) (*applyModelEditRe
 		converted, declaring, err := s.operation(doc, op)
 		var stale *model.StaleError
 		if errors.As(err, &stale) {
-			return &applyModelEditResult{Stale: true, Version: doc.Version}, nil
+			return &ApplyModelEditResult{Stale: true, Version: doc.Version}, nil
 		}
 		if err != nil {
 			return nil, fmt.Errorf("%s: operation %d: %w", jsonrpc2.ErrInvalidParams, i, err)
@@ -244,14 +245,14 @@ func (s *Server) ApplyModelEdit(params *applyModelEditParams) (*applyModelEditRe
 	}
 	var stale *model.StaleError
 	if version != params.Version || errors.As(err, &stale) {
-		return &applyModelEditResult{Stale: true, Version: version}, nil
+		return &ApplyModelEditResult{Stale: true, Version: version}, nil
 	}
 	if err != nil {
 		var refusal *modeledit.Error
 		if !errors.As(err, &refusal) {
 			return nil, err
 		}
-		return &applyModelEditResult{Refused: []modelEditRefusal{s.refusal(refusal, doc.Content)}, Version: version}, nil
+		return &ApplyModelEditResult{Refused: []ModelEditRefusal{s.refusal(refusal, doc.Content)}, Version: version}, nil
 	}
 	changes := make([]protocol.TextDocumentEdit, 0, len(result.Documents))
 	for _, edited := range result.Documents {
@@ -261,7 +262,7 @@ func (s *Server) ApplyModelEdit(params *applyModelEditParams) (*applyModelEditRe
 		}
 		changes = append(changes, change)
 	}
-	return &applyModelEditResult{
+	return &ApplyModelEditResult{
 		Version: version,
 		Edit:    &protocol.WorkspaceEdit{DocumentChanges: changes},
 	}, nil
@@ -296,7 +297,7 @@ func documentChange(edited model.DocumentEdit) (protocol.TextDocumentEdit, error
 // snapshot the target was read in, so that the edit can be pinned to it; a
 // digest of other text is a *model.StaleError, since the range may fall on, or
 // the name reach, another declaration now.
-func (s *Server) operation(doc *model.Document, op modelEditOperation) (modeledit.Operation, *model.Document, error) {
+func (s *Server) operation(doc *model.Document, op ModelEditOperation) (modeledit.Operation, *model.Document, error) {
 	if op.DeclaredIn == "" {
 		converted, err := op.operation(doc.Content)
 		return converted, nil, err
@@ -333,7 +334,7 @@ func (s *Server) operation(doc *model.Document, op modelEditOperation) (modeledi
 
 // operation reads the wire operation as the edit operation it names; content
 // is the document a Declaration range is a range of.
-func (op modelEditOperation) operation(content []byte) (modeledit.Operation, error) {
+func (op ModelEditOperation) operation(content []byte) (modeledit.Operation, error) {
 	byDeclaration := op.Kind == EditSetLayout || op.Kind == EditSetRoute || op.Kind == EditSetStyle
 	if op.Declaration != nil && !byDeclaration {
 		return modeledit.Operation{}, fmt.Errorf("a declaration stands in for the target of a %s, %s or %s alone", EditSetLayout, EditSetRoute, EditSetStyle)
@@ -432,7 +433,7 @@ func (op modelEditOperation) operation(content []byte) (modeledit.Operation, err
 }
 
 // style reads the wire style as the edit layer writes it; nil clears.
-func (s *renderStyle) style() *semantics.Style {
+func (s *RenderStyle) style() *semantics.Style {
 	if s == nil {
 		return nil
 	}
@@ -440,14 +441,22 @@ func (s *renderStyle) style() *semantics.Style {
 }
 
 // layout reads the wire geometry as the edit layer writes it; nil clears.
-func (l *modelEditLayout) layout() (*semantics.Layout, error) {
+func (l *ModelEditLayout) layout() (*semantics.Layout, error) {
 	if l == nil {
 		return nil, nil
+	}
+	if (l.X == nil) != (l.Y == nil) {
+		return nil, errors.New("a layout places its node with both x and y or with neither")
 	}
 	if (l.Width == nil) != (l.Height == nil) {
 		return nil, errors.New("a layout sizes its node with both width and height or with neither")
 	}
-	out := &semantics.Layout{X: l.X, Y: l.Y, Collapsed: l.Collapsed}
+	out := &semantics.Layout{Collapsed: l.Collapsed}
+	if l.X != nil {
+		out.X, out.Y = *l.X, *l.Y
+	} else {
+		out.Unplaced = true
+	}
 	if l.Width != nil {
 		out.Width, out.Height, out.HasSize = *l.Width, *l.Height, true
 	}
@@ -455,7 +464,7 @@ func (l *modelEditLayout) layout() (*semantics.Layout, error) {
 }
 
 // canvas reads the wire canvas as the edit layer writes it; nil clears.
-func (c *renderCanvas) canvas() (*semantics.Canvas, error) {
+func (c *RenderCanvas) canvas() (*semantics.Canvas, error) {
 	if c == nil {
 		return nil, nil
 	}
@@ -472,15 +481,15 @@ func (c *renderCanvas) canvas() (*semantics.Canvas, error) {
 // refusal reports an edit refusal to the client. Diagnostics of the edited
 // notation are located in it, not in the document the client holds, so they are
 // carried as messages with their ranges in the text that was refused.
-func (s *Server) refusal(e *modeledit.Error, content []byte) modelEditRefusal {
-	out := modelEditRefusal{
+func (s *Server) refusal(e *modeledit.Error, content []byte) ModelEditRefusal {
+	out := ModelEditRefusal{
 		Operation: e.OperationIndex,
 		Failure:   e.Failure.String(),
 		Message:   e.Message,
 		Referring: e.Referring,
 	}
 	for _, r := range e.Referrers {
-		out.Referrers = append(out.Referrers, modelEditReferrer{Name: r.Name, URI: nameToURI(r.Document)})
+		out.Referrers = append(out.Referrers, ModelEditReferrer{Name: r.Name, URI: nameToURI(r.Document)})
 	}
 	diagnosed := content
 	if e.Diagnosed != nil {
@@ -537,7 +546,7 @@ func textEdits(content, edited []byte) []protocol.TextEdit {
 
 // palette is what a diagram of kind offers to add in lang: the member and
 // connection kinds it draws. A table draws rows, not nodes, so it offers none.
-func palette(kind view.Kind, lang source.Kind) *editPalette {
+func palette(kind view.Kind, lang source.Kind) *EditPalette {
 	members, connections := modeledit.MemberKinds(lang), modeledit.ConnectionKinds(lang)
 	keep := func(list []string, want func(string) bool) []string {
 		out := []string{}
@@ -558,25 +567,25 @@ func palette(kind view.Kind, lang source.Kind) *editPalette {
 			return false
 		}
 	}
-	var p *editPalette
+	var p *EditPalette
 	switch kind {
 	case view.KindInterconnection:
-		p = &editPalette{
+		p = &EditPalette{
 			Members:     keep(members, anyOf("part", "port", "item", "attribute", "feature")),
 			Connections: keep(connections, anyOf("connection", "interface", "flow", "binding", "allocation", "connector")),
 		}
 	case view.KindState:
-		p = &editPalette{
+		p = &EditPalette{
 			Members:     keep(members, anyOf("state")),
 			Connections: keep(connections, anyOf("transition", "succession")),
 		}
 	case view.KindAction, view.KindSequence:
-		p = &editPalette{
+		p = &EditPalette{
 			Members:     keep(members, anyOf("action", "fork", "join", "merge", "decide", "step", "item")),
 			Connections: keep(connections, anyOf("succession", "flow")),
 		}
 	case view.KindTree:
-		p = &editPalette{Members: members, Connections: connections}
+		p = &EditPalette{Members: members, Connections: connections}
 	default:
 		return nil
 	}
@@ -593,17 +602,17 @@ func palette(kind view.Kind, lang source.Kind) *editPalette {
 // nodeOwners lists the namespaces declaring sym, nearest first, as an edit names
 // them; false when sym or a namespace declaring it is unnamed, so no qualified
 // name reaches it.
-func nodeOwners(sym *symbols.Symbol) ([]renderOwner, bool) {
+func nodeOwners(sym *symbols.Symbol) ([]RenderOwner, bool) {
 	if sym.Name == "" {
 		return nil, false
 	}
-	owners := []renderOwner{}
+	owners := []RenderOwner{}
 	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
 		owner := scope.Owner()
 		if owner.Name == "" {
 			return nil, false
 		}
-		owners = append(owners, renderOwner{FQN: notationName(owner), Feature: owner.IsFeature()})
+		owners = append(owners, RenderOwner{FQN: notationName(owner), Feature: owner.IsFeature()})
 	}
 	return owners, true
 }

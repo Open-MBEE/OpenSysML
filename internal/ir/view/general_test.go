@@ -98,7 +98,7 @@ func TestGeneralViewFilteredExposeSelects(t *testing.T) {
 	if rendering.Kind != KindPackage {
 		t.Fatalf("kind = %q, want %q", rendering.Kind, KindPackage)
 	}
-	text := rendering.Text()
+	text := textWithQualifiers(t, rendering)
 	for _, want := range []string{"package Model::Inner", "package Model::Inner::Deeper", "Model::Inner +-- Model::Inner::Deeper"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("package rendering lacks %q:\n%s", want, text)
@@ -125,7 +125,7 @@ func TestGeneralViewUnresolvedRelationshipEnds(t *testing.T) {
 	if rendering.Kind != KindRequirement {
 		t.Fatalf("kind = %q, want %q", rendering.Kind, KindRequirement)
 	}
-	text := rendering.Text()
+	text := rendering.textWith(fullNotation)
 	for _, want := range []string{"requirement def Model::Limit", "requirement Model::limit : Limit", "Model::limit ..|> Model::Limit"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("rendering lacks %q:\n%s", want, text)
@@ -222,7 +222,7 @@ func TestOverlaySupport(t *testing.T) {
 // A verification usage verifies what the objective it inherits names, unless it
 // restates that objective.
 func TestGeneralViewInheritedObjectiveVerifies(t *testing.T) {
-	text := renderSource(t, "Model::requirements", `package Model {
+	text := textWithQualifiers(t, renderSource(t, "Model::requirements", `package Model {
 	private import StandardViewDefinitions::*;
 	requirement r;
 	requirement s;
@@ -241,7 +241,7 @@ func TestGeneralViewInheritedObjectiveVerifies(t *testing.T) {
 		filter @SysML::RequirementUsage;
 		expose Model::*;
 	}
-}`).Text()
+}`))
 	for _, want := range []string{"Model::Check ..> Model::r: verify", "Model::check ..> Model::r: verify", "Model::recheck ..> Model::s: verify"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("rendering lacks %q:\n%s", want, text)
@@ -255,7 +255,7 @@ func TestGeneralViewInheritedObjectiveVerifies(t *testing.T) {
 // A feature subsetting the inherited feature of its own name draws its edge to
 // that feature.
 func TestGeneralViewInheritedSubsetting(t *testing.T) {
-	text := renderSource(t, "Model::definitions", `package Model {
+	text := textWithQualifiers(t, renderSource(t, "Model::definitions", `package Model {
 	private import StandardViewDefinitions::*;
 	part def Base {
 		part p;
@@ -267,7 +267,7 @@ func TestGeneralViewInheritedSubsetting(t *testing.T) {
 		filter @SysML::PartDefinition or @SysML::PartUsage;
 		expose Model::**;
 	}
-}`).Text()
+}`))
 	if want := "Model::Derived::p --|> Model::Base::p: subsets"; !strings.Contains(text, want) {
 		t.Errorf("rendering lacks %q:\n%s", want, text)
 	}
@@ -291,7 +291,7 @@ func TestGeneralViewMemberImportsStayDistinct(t *testing.T) {
 		expose Model::**;
 	}
 }`)
-	text := rendering.Text()
+	text := textWithQualifiers(t, rendering)
 	for _, want := range []string{"Model::P ..> Model::Q: import ::A", "Model::P ..> Model::Q: import ::B"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("rendering lacks %q:\n%s", want, text)

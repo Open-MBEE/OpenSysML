@@ -20,19 +20,19 @@ type QueuedEvent struct {
 	Value  *Value
 }
 
-// ErrMalformedEvent is the typed error Enqueue returns for an event that is
+// errMalformedEvent is the typed error Enqueue returns for an event that is
 // not exactly one signal or one call.
-var ErrMalformedEvent = errors.New("malformed queued event")
+var errMalformedEvent = errors.New("malformed queued event")
 
 // Enqueue queues one event on the executor as a case declares it.
 func (e *StateExecutor) Enqueue(event QueuedEvent) error {
 	switch {
 	case event.Call != "" && event.Signal != "":
-		return fmt.Errorf("%w: event declares both signal %q and call %q", ErrMalformedEvent, event.Signal, event.Call)
+		return fmt.Errorf("%w: event declares both signal %q and call %q", errMalformedEvent, event.Signal, event.Call)
 	case event.Value != nil && (event.Call != "" || len(event.Args) > 0):
-		return fmt.Errorf("%w: event %s%s carries a bare value beside its arguments", ErrMalformedEvent, event.Signal, event.Call)
+		return fmt.Errorf("%w: event %s%s carries a bare value beside its arguments", errMalformedEvent, event.Signal, event.Call)
 	case event.Value != nil && event.Signal == "":
-		return fmt.Errorf("%w: event carries a bare value but declares no signal", ErrMalformedEvent)
+		return fmt.Errorf("%w: event carries a bare value but declares no signal", errMalformedEvent)
 	case event.Call != "":
 		payload, err := e.callPayload(event.Call, event.Args)
 		if err != nil {
@@ -49,14 +49,14 @@ func (e *StateExecutor) Enqueue(event QueuedEvent) error {
 		}
 		e.enqueueSignal(msg)
 	default:
-		return fmt.Errorf("%w: event declares neither a signal nor a call", ErrMalformedEvent)
+		return fmt.Errorf("%w: event declares neither a signal nor a call", errMalformedEvent)
 	}
 	return nil
 }
 
-// ErrCallNotReturned reports a call the run left queued, so a synchronous
+// errCallNotReturned reports a call the run left queued, so a synchronous
 // caller would still be waiting on it.
-var ErrCallNotReturned = errors.New("call not returned")
+var errCallNotReturned = errors.New("call not returned")
 
 // pendingCall is the synchronous call Call is waiting on, the outputs the
 // machine has returned to its caller so far, the names the operation's
@@ -103,7 +103,7 @@ func (e *StateExecutor) Call(operation string, args map[string]Value) (map[strin
 		return nil, err
 	}
 	if e.eventQueued(call.id) {
-		return nil, fmt.Errorf("%w: %s is still queued", ErrCallNotReturned, operation)
+		return nil, fmt.Errorf("%w: %s is still queued", errCallNotReturned, operation)
 	}
 	// A step undone within the run restored the call as it stood when captured.
 	if e.pendingCall != nil {
@@ -112,15 +112,15 @@ func (e *StateExecutor) Call(operation string, args map[string]Value) (map[strin
 	return call.outputs, nil
 }
 
-// ErrNoSuchAttribute is the typed error WriteAttribute returns for a name the
+// errNoSuchAttribute is the typed error WriteAttribute returns for a name the
 // machine declares no attribute for.
-var ErrNoSuchAttribute = errors.New("no such attribute")
+var errNoSuchAttribute = errors.New("no such attribute")
 
 // WriteAttribute assigns an attribute the machine declares from outside it,
 // between its steps, with the checks an assignment in its behavior gets.
 func (e *StateExecutor) WriteAttribute(name string, value Value) error {
 	if !e.declaresAttribute(name) {
-		return fmt.Errorf("%w: state machine %s declares no attribute %q", ErrNoSuchAttribute, symbolText(e.stateMachine), name)
+		return fmt.Errorf("%w: state machine %s declares no attribute %q", errNoSuchAttribute, SymbolText(e.stateMachine), name)
 	}
 	return e.assignAttribute(name, value)
 }
@@ -256,7 +256,7 @@ func (e *StateExecutor) newPendingCall(payload Call) (*pendingCall, error) {
 	return call, nil
 }
 
-// callInputs binds the arguments to the operation's inputs as InvokeOperation
+// callInputs binds the arguments to the operation's inputs as invokeOperation
 // binds them — by name, each value checked against its parameter's declaration, a
 // parameter no argument binds holding its default — so the event carries a value
 // for each parameter, as PSSM 8.5.9's call event execution does.
@@ -346,23 +346,30 @@ func (e *StateExecutor) eventQueued(id int64) bool {
 	return false
 }
 
-// PerformState drives one performance of a state machine, by self or by no
+// performStateWithEvents drives one performance of a state machine, by self or by no
 // object: it enters the initial state, queues the events, and runs through the
 // executor's own loop to completion or suspension, returning the executor for
-// its outcome. The conformance harness and the referees drive machines this way.
-func (ctx *Context) PerformState(stateMachine *symbols.Symbol, self *Instance, events []QueuedEvent) (*StateExecutor, error) {
-	exec, err := ctx.CreateStateExecutorFor(stateMachine, self)
+// its outcome. An object exhibiting the machine runs the one it exhibits rather
+// than a second. The conformance harness and the referees drive machines this way.
+func (ctx *Context) performStateWithEvents(stateMachine *symbols.Symbol, self *Instance, events []QueuedEvent) (*StateExecutor, error) {
+	exec, reused, err := ctx.stateRunFor(stateMachine, self, true)
+	release := func() {
+		if exec != nil && !reused {
+			exec.Release()
+		}
+	}
 	if err != nil {
+		release()
 		return nil, err
 	}
 	for _, event := range events {
 		if err := exec.Enqueue(event); err != nil {
-			exec.Release()
+			release()
 			return nil, err
 		}
 	}
 	if err := exec.RunToCompletion(); err != nil {
-		exec.Release()
+		release()
 		return nil, err
 	}
 	return exec, nil

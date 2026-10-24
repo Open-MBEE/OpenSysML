@@ -18,30 +18,30 @@ const dotEmptyCell = "<td></td>"
 // dotPinPts is the type a port's name is set in beside its square.
 const dotPinPts = 8
 
-// dotPortEnds is where the routes of the edges meet each port, by port ID: a
-// route's first waypoint at its source port, its last at its target port, and
-// the mean of those ends for a port several routes meet, since they all touch
-// the one pin.
-func dotPortEnds(edges []Edge) map[string]Point {
-	sums := map[string]Point{}
+// dotPortEnds is where the routes of the edges meet each port, by port ID, and
+// the waypoint they go on to: a route's first waypoint at its source port, its
+// last at its target port, and the mean of those for a port several routes meet.
+func dotPortEnds(edges []Edge) map[string]routeEnd {
+	sums := map[string]routeEnd{}
 	counts := map[string]int{}
-	meet := func(port string, p Point) {
+	meet := func(port string, at, next Point) {
 		if port == "" {
 			return
 		}
-		sums[port] = Point{X: sums[port].X + p.X, Y: sums[port].Y + p.Y}
+		sum := sums[port]
+		sums[port] = routeEnd{at: Point{X: sum.at.X + at.X, Y: sum.at.Y + at.Y}, next: Point{X: sum.next.X + next.X, Y: sum.next.Y + next.Y}}
 		counts[port]++
 	}
 	for _, edge := range edges {
 		if n := len(edge.Route); n > 1 {
-			meet(edge.FromPort, edge.Route[0])
-			meet(edge.ToPort, edge.Route[n-1])
+			meet(edge.FromPort, edge.Route[0], edge.Route[1])
+			meet(edge.ToPort, edge.Route[n-1], edge.Route[n-2])
 		}
 	}
-	ends := make(map[string]Point, len(sums))
+	ends := make(map[string]routeEnd, len(sums))
 	for port, sum := range sums {
 		n := float64(counts[port])
-		ends[port] = Point{X: sum.X / n, Y: sum.Y / n}
+		ends[port] = routeEnd{node: port, at: Point{X: sum.at.X / n, Y: sum.at.Y / n}, next: Point{X: sum.next.X / n, Y: sum.next.Y / n}}
 	}
 	return ends
 }
@@ -68,13 +68,7 @@ func (b nodeBox) faces(end, next Point) Point {
 	if b.holds(end) {
 		return end
 	}
-	c := b.centre()
-	dx, dy := next.X-c.X, next.Y-c.Y
-	if b.holds(next) || dx == 0 && dy == 0 {
-		return c
-	}
-	t := math.Min((b.high.X-b.low.X)/2/math.Abs(dx), (b.high.Y-b.low.Y)/2/math.Abs(dy))
-	return Point{X: halfPixel(c.X + dx*t), Y: halfPixel(c.Y + dy*t)}
+	return b.toward(next)
 }
 
 // holds reports whether p lies in the box, its border included.
@@ -82,10 +76,9 @@ func (b nodeBox) holds(p Point) bool {
 	return p.X >= b.low.X && p.X <= b.high.X && p.Y >= b.low.Y && p.Y <= b.high.Y
 }
 
-// placePorts finds the box of every port of a boxed node, under it: a port a
-// route meets sits outside the border where the route ends, touching it; the
-// rest are spread along the top edge and the bottom, by portSide.
-func (w *dotWriter) placePorts(node *Node, ends map[string]Point) {
+// placePorts boxes every port of a boxed node: by its Layout when the node has one too, else
+// where its route meets the border, else spread along the top or bottom; overlapping pins are moved apart.
+func (w *dotWriter) placePorts(node *Node, ends map[string]routeEnd) {
 	for _, child := range node.Children {
 		w.placePorts(child, ends)
 	}
@@ -95,75 +88,81 @@ func (w *dotWriter) placePorts(node *Node, ends map[string]Point) {
 		return
 	}
 	var free [2][]Port
+	var sides [4][]boundarySymbol
 	for _, port := range ports {
 		end, ok := ends[port.ID]
-		if !ok {
+		switch {
+		case port.Geometry.placed() && node.Geometry.placed():
+			at := port.Geometry.centre()
+			centre := box.centre()
+			side := box.nearestSide(at, Point{X: at.X - centre.X, Y: at.Y - centre.Y})
+			w.pins[port.ID] = pinBox(box, side, at)
+			sides[side] = append(sides[side], boundarySymbol{id: port.ID, box: w.pins[port.ID], at: at, from: at})
+		case ok:
+			side := box.pinSide(end.at, end.next)
+			w.pins[port.ID] = pinBox(box, side, end.at)
+			sides[side] = append(sides[side], boundarySymbol{id: port.ID, box: w.pins[port.ID], at: end.at, from: end.next})
+		default:
 			free[w.portSide(port)] = append(free[w.portSide(port)], port)
-			continue
 		}
-		w.pins[port.ID] = pinBox(box, end)
 	}
-	for side, ports := range free {
-		y := box.low.Y - dotPinSize/2
-		if side == 1 {
-			y = box.high.Y + dotPinSize/2
+	for i, ports := range free {
+		side, y := topSide, box.low.Y-dotPinSize/2
+		if i == 1 {
+			side, y = bottomSide, box.high.Y+dotPinSize/2
 		}
 		for i, port := range ports {
 			x := box.low.X + (box.high.X-box.low.X)*float64(i+1)/float64(len(ports)+1)
 			w.pins[port.ID] = pinAround(Point{X: halfPixel(x), Y: y})
+			at := w.pins[port.ID].centre()
+			sides[side] = append(sides[side], boundarySymbol{id: port.ID, box: w.pins[port.ID], at: at, from: at})
 		}
 	}
+	w.spreadPins(box, sides)
 }
 
-// pinBox is the box of a pin a route meets at end: the pin sits just outside
-// the node's border, touching it, on the side the end lies off — past a corner,
-// the side it lies farther off; an end on or inside the border puts the pin
-// outside its nearest side.
-func pinBox(box nodeBox, end Point) nodeBox {
+// pinBox is the box of a pin on side of box that a route meets at end: just
+// outside the border, touching it, level with end along the side.
+func pinBox(box nodeBox, side boundarySide, end Point) nodeBox {
 	border := Point{X: math.Min(math.Max(end.X, box.low.X), box.high.X), Y: math.Min(math.Max(end.Y, box.low.Y), box.high.Y)}
-	dx, dy := end.X-border.X, end.Y-border.Y
-	switch {
-	case dx == 0 && dy == 0:
-		dx, dy = outwardNormal(box, border)
-		border = Point{X: sideAlong(dx, box.low.X, box.high.X, border.X), Y: sideAlong(dy, box.low.Y, box.high.Y, border.Y)}
-	case math.Abs(dx) >= math.Abs(dy):
-		dx, dy = math.Copysign(1, dx), 0
-	default:
-		dx, dy = 0, math.Copysign(1, dy)
-	}
-	return pinAround(Point{X: halfPixel(border.X + dx*dotPinSize/2), Y: halfPixel(border.Y + dy*dotPinSize/2)})
+	return box.sideBox(side, pinAround(Point{}), side.along(border), true)
 }
 
-// sideAlong is the coordinate of the side an outward normal component points
-// at, low or high, and at for a component of zero.
-func sideAlong(normal, low, high, at float64) float64 {
-	switch {
-	case normal < 0:
-		return low
-	case normal > 0:
-		return high
+// pinLayoutPorts boxes every port member a Layout sizes as the notation's square, on the side of
+// its owner's stated box nearest the Layout's centre: the source rectangle gives a place, not a size.
+func (w *dotWriter) pinLayoutPorts(node *Node, owner *nodeBox) {
+	box, boxed := w.boxes[node.ID]
+	if boxed && w.layoutPinned(node) {
+		box = w.layoutPinBox(node, owner)
+		w.boxes[node.ID] = box
 	}
-	return at
+	var stated *nodeBox
+	if boxed && box.stated {
+		stated = &box
+	}
+	for _, child := range node.Children {
+		w.pinLayoutPorts(child, stated)
+	}
 }
 
-// outwardNormal is the unit normal of the side of box nearest p, pointing out.
-func outwardNormal(box nodeBox, p Point) (dx, dy float64) {
-	sides := []struct {
-		distance float64
-		dx, dy   float64
-	}{
-		{p.X - box.low.X, -1, 0},
-		{box.high.X - p.X, 1, 0},
-		{p.Y - box.low.Y, 0, -1},
-		{box.high.Y - p.Y, 0, 1},
+// layoutPinned reports whether node is a port drawn as a square where its sized Layout puts it:
+// not a cluster, which is boxed round its drawn members instead.
+func (w *dotWriter) layoutPinned(node *Node) bool {
+	cluster := len(node.Children) > 0 && !w.tree
+	return !cluster && isPortKind(node.Kind) && node.Geometry.placed() && node.Geometry.HasSize
+}
+
+// layoutPinBox is the square of a port a Layout sizes: on the side of owner nearest the Layout's
+// centre, level with it, or centred on the Layout when no stated box bounds the owner.
+func (w *dotWriter) layoutPinBox(node *Node, owner *nodeBox) nodeBox {
+	at := node.Geometry.centre()
+	if owner == nil {
+		return pinAround(Point{X: halfPixel(at.X), Y: halfPixel(at.Y)})
 	}
-	nearest := sides[0]
-	for _, side := range sides[1:] {
-		if side.distance < nearest.distance {
-			nearest = side
-		}
-	}
-	return nearest.dx, nearest.dy
+	centre := owner.centre()
+	side := owner.nearestSide(at, Point{X: at.X - centre.X, Y: at.Y - centre.Y})
+	w.spread[node.ID] = side
+	return pinBox(*owner, side, at)
 }
 
 // pinAround is a pin's box centred on a point.

@@ -73,7 +73,7 @@ func TestNestedInvocationArgumentsStayDistinct(t *testing.T) {
 		calc def three { in a : Integer; in b : Integer; in c : Integer; return : Integer = a * 100 + b * 10 + c; }
 	`)
 	ctx := NewContext(typedModel(model, resolver), 100000)
-	ec := NewEvalContext(ctx, root)
+	ec := newEvalContext(ctx, root)
 
 	for _, tc := range []struct {
 		src  string
@@ -87,6 +87,7 @@ func TestNestedInvocationArgumentsStayDistinct(t *testing.T) {
 		expr := parseExpr(t, tc.src)
 		for i := 0; i < 2; i++ {
 			got, err := ec.Eval(expr)
+			got = soleElement(got)
 			if err != nil || got.Kind != ValConst || got.Const.Int != tc.want {
 				t.Fatalf("eval %d of %s = %+v, %v; want %d", i, tc.src, got, err, tc.want)
 			}
@@ -104,6 +105,7 @@ func TestNestedInvocationArgumentsStayDistinct(t *testing.T) {
 		t.Fatalf("a failing argument left %d arguments on the stack", len(ctx.argStack))
 	}
 	got, err := ec.Eval(parseExpr(t, "sub(7, 2)"))
+	got = soleElement(got)
 	if err != nil || got.Const.Int != 5 {
 		t.Fatalf("sub(7, 2) after a failed invocation = %+v, %v; want 5", got, err)
 	}
@@ -118,7 +120,7 @@ func TestRepeatedInvocationEvaluationAnswersAlike(t *testing.T) {
 		calc def fib { in k : Integer; return : Integer = if k <= 1 ? k else fib(k - 1) + fib(k - 2); }
 	`)
 	ctx := NewContext(typedModel(model, resolver), 100000)
-	ec := NewEvalContext(ctx, root)
+	ec := newEvalContext(ctx, root)
 
 	for _, tc := range []struct {
 		src  string
@@ -130,6 +132,7 @@ func TestRepeatedInvocationEvaluationAnswersAlike(t *testing.T) {
 		expr := parseExpr(t, tc.src)
 		for i := 0; i < 3; i++ {
 			got, err := ec.Eval(expr)
+			got = soleElement(got)
 			if err != nil || got.Kind != ValConst || got.Const.Int != tc.want {
 				t.Fatalf("eval %d of %s = %+v, %v; want %d", i, tc.src, got, err, tc.want)
 			}

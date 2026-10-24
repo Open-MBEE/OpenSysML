@@ -67,8 +67,8 @@ func TestTensorQuantityFormats(t *testing.T) {
 		if got := describeOperand(val); got != "a tensor quantity" {
 			t.Errorf("describeOperand(%s) = %q", src, got)
 		}
-		if got := describeValue(val); got != "tensor quantity" {
-			t.Errorf("describeValue(%s) = %q", src, got)
+		if got := DescribeValue(val); got != "tensor quantity" {
+			t.Errorf("DescribeValue(%s) = %q", src, got)
 		}
 	}
 	if got := FormatTraceValue(Value{Kind: ValTensorQuantity}); got != "tensor quantity" {
@@ -140,8 +140,8 @@ func TestTensorQuantityFeatures(t *testing.T) {
 	}
 	for _, src := range []string{"stress.contravariantOrder", "stress.covariantOrder", "(2 * stress).isBound"} {
 		_, err := evalIn(t, ctx, scope, src)
-		if !errors.Is(err, ErrUnevaluableLibraryFunction) {
-			t.Errorf("%s: %v, want %v", src, err, ErrUnevaluableLibraryFunction)
+		if !errors.Is(err, errUnevaluableLibraryFunction) {
+			t.Errorf("%s: %v, want %v", src, err, errUnevaluableLibraryFunction)
 		}
 	}
 }
@@ -317,7 +317,7 @@ func TestTensorQuantityRankThree(t *testing.T) {
 	pkg, _ := idx.DocumentRoot("<test>").LookupLocal("test")
 	scope := pkg.Scope
 	cube := tensorEval(t, ctx, scope, "cube")
-	if cube.Kind != ValTensorQuantity || cube.TensorQuantity().Rank() != 3 || cube.TensorQuantity().FlattenedSize() != 8 {
+	if cube.Kind != ValTensorQuantity || cube.TensorQuantity().rank() != 3 || cube.TensorQuantity().flattenedSize() != 8 {
 		t.Fatalf("cube = %s, want a rank-3 tensor of 8 components", FormatValue(cube))
 	}
 	if got, want := FormatTraceValue(cube), "Tensor(2, 2, 2)[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0] [Pa]"; got != want {

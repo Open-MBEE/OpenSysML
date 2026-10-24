@@ -187,10 +187,17 @@ type HTMLOptions struct {
 	// Unplaced is where a diagram some Layout positions puts the nodes none
 	// does: left undrawn when empty, or drawn too (a strip below a DOT drawing).
 	Unplaced view.Unplaced
+	// Compartments is how a tree rendering folds a node's owned members into
+	// compartment rows of its box; view.CompartmentsPositioned when empty.
+	Compartments view.Compartments
 
 	// Style is the drawing style every DOT diagram is drawn in, the Pilot look
 	// when empty; the other forms draw one look.
 	Style view.DrawingStyle
+
+	// Show is the optional notation elements every diagram draws besides the
+	// ones its view's rendering shows; nil adds none.
+	Show view.Shown
 
 	// LinkTemplate fills source links for diagram elements. HTML content has no element-anchored sections.
 	LinkTemplate string
@@ -321,7 +328,7 @@ func (s Stylesheet) Check() error {
 
 // diagramOptions is the part of the options the diagrams are written by.
 func (o HTMLOptions) diagramOptions() DiagramOptions {
-	return DiagramOptions{Form: o.DiagramForm, WithoutGraphviz: o.WithoutGraphviz, Unplaced: o.Unplaced, Style: o.Style, LinkTemplate: o.LinkTemplate}
+	return DiagramOptions{Form: o.DiagramForm, WithoutGraphviz: o.WithoutGraphviz, Unplaced: o.Unplaced, Compartments: o.Compartments, Style: o.Style, Show: o.Show, LinkTemplate: o.LinkTemplate}
 }
 
 // htmlWriter accumulates one rendered document, its diagrams in the forms
@@ -609,22 +616,34 @@ type tablePartKind struct {
 	wide, split, continued bool
 }
 
-// Column counts from which the print stylesheet sets a table on a landscape
-// page in the wide type, and in the dense type; print.css states the same.
+// WideTableColumns and DenseTableColumns mark tables for the print and
+// Pandoc stylesheets to select by class.
 const (
-	wideTableColumns  = 7
-	denseTableColumns = 11
+	WideTableColumns  = 7
+	DenseTableColumns = 11
 )
 
+// tableColumnClasses returns print classes for a table's written header width.
+func tableColumnClasses(n int) string {
+	classes := ""
+	if n >= WideTableColumns {
+		classes += " sysml-table-landscape"
+	}
+	if n >= DenseTableColumns {
+		classes += " sysml-table-dense"
+	}
+	return classes
+}
+
 // tableLine is the characters a line of a table of n columns holds when the
-// dense landscape line holds measure: fewer than wideTableColumns set in the
+// dense landscape line holds measure: fewer than WideTableColumns set in the
 // ordinary type on a portrait page hold about half, fewer than
-// denseTableColumns in the wide type about four fifths.
+// DenseTableColumns in the wide type about four fifths.
 func tableLine(measure, n int) int {
 	switch {
-	case n >= denseTableColumns:
+	case n >= DenseTableColumns:
 		return measure
-	case n >= wideTableColumns:
+	case n >= WideTableColumns:
 		return measure * 4 / 5
 	default:
 		return measure / 2
@@ -751,6 +770,7 @@ func (w *htmlWriter) writeTablePart(
 	if kind.wide {
 		class += " sysml-table-wide"
 	}
+	class += tableColumnClasses(len(names))
 	if kind.split {
 		class += " sysml-table-split"
 	}
@@ -762,7 +782,7 @@ func (w *htmlWriter) writeTablePart(
 		line = tableLine(line, len(part))
 	}
 	shares := columnShares(part, line)
-	if shares == nil && line > 0 && (kind.wide || len(part) >= wideTableColumns) {
+	if shares == nil && line > 0 && (kind.wide || len(part) >= WideTableColumns) {
 		shares = evenShares(part, line)
 	}
 	if shares != nil {
@@ -1224,7 +1244,8 @@ func (w *htmlWriter) writeRenderingTable(rendering *view.Rendering) {
 	if rendering.Kind == view.KindMatrix {
 		content = "matrix"
 	}
-	w.b.WriteString("<table class=\"sysml-table\"" + attr("data-content", content) + ">\n")
+	w.b.WriteString("<table" + attr("class", "sysml-table"+tableColumnClasses(len(columns))) +
+		attr("data-content", content) + ">\n")
 	w.writeTableHead(columns, columns)
 	w.b.WriteString("<tbody>\n")
 	for _, row := range rendering.Rows {

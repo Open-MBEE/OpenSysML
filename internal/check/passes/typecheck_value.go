@@ -48,7 +48,7 @@ func (ec *exprChecker) checkElementConformance(valueScope *symbols.Scope, wants 
 		// Every element a collection value may hold binds, not the Anything the
 		// library declares; a scalar one written out is the lattice rules' to report.
 		if gots := ec.unboundElementTypes(elements, wants, scalar); len(gots) > 0 {
-			ec.errorf(value.Span(), msgBoundValueType, typeNames(gots), typeNames(wants))
+			ec.errorCode(codeBindingConnectorTypeConformance, value.Span(), msgBoundValueType, typeNames(gots), typeNames(wants))
 		}
 		return
 	}
@@ -64,7 +64,7 @@ func (ec *exprChecker) checkElementConformance(valueScope *symbols.Scope, wants 
 	// conform to it. Only literals and bodies are judged here: any other
 	// expression may produce an instance of the type.
 	if prim := literalPrimType(value); prim != semantics.PrimUnknown {
-		ec.errorf(value.Span(), "cannot bind %s value to a feature typed by %s", prim, typeNames(wants))
+		ec.errorCode(codeBindingConnectorTypeConformance, value.Span(), "cannot bind %s value to a feature typed by %s", prim, typeNames(wants))
 		return
 	}
 	if _, ok := value.(*ast.BodyExpr); !ok {
@@ -72,7 +72,7 @@ func (ec *exprChecker) checkElementConformance(valueScope *symbols.Scope, wants 
 	}
 	got := ec.model.ExprResultType(valueScope, value)
 	if got != nil && !ec.boundTypesConform(nil, []*symbols.Symbol{got}, wants) {
-		ec.errorf(value.Span(), "cannot bind %s value to a feature typed by %s", semantics.PrimExpression, typeNames(wants))
+		ec.errorCode(codeBindingConnectorTypeConformance, value.Span(), "cannot bind %s value to a feature typed by %s", semantics.PrimExpression, typeNames(wants))
 	}
 }
 
@@ -90,7 +90,7 @@ func (ec *exprChecker) checkBoundFeature(valueScope *symbols.Scope, wants []*sym
 	// either direction suffices; only unrelated types are rejected. The
 	// feature is judged as a whole: a variant is typed by its variation too.
 	if !ec.boundTypesConform(feature, gots, wants) {
-		ec.errorf(value.Span(), msgBoundValueType, typeNames(gots), typeNames(wants))
+		ec.errorCode(codeBindingConnectorTypeConformance, value.Span(), msgBoundValueType, typeNames(gots), typeNames(wants))
 	}
 }
 
@@ -104,7 +104,7 @@ func (ec *exprChecker) checkComputedValue(valueScope *symbols.Scope, wants []*sy
 		return
 	}
 	if !ec.boundTypesConform(nil, gots, wants) {
-		ec.errorf(value.Span(), msgBoundValueType, typeNames(gots), typeNames(wants))
+		ec.errorCode(codeBindingConnectorTypeConformance, value.Span(), msgBoundValueType, typeNames(gots), typeNames(wants))
 		return
 	}
 	ec.checkEnumeratedTarget(valueScope, wants, value)
@@ -130,7 +130,7 @@ func (ec *exprChecker) checkEnumeratedValue(scope *symbols.Scope, enum *symbols.
 	got = heldBy(ec.model.PrimTypeOf(enum), got)
 	literals := ec.model.EnumeratedValuesOf(enum)
 	if len(literals) == 0 {
-		ec.errorf(value.Span(), "cannot bind %s to a feature typed by %s, which enumerates no values", got.text, enum.Name)
+		ec.errorCode(codeBindingConnectorTypeConformance, value.Span(), "cannot bind %s to a feature typed by %s, which enumerates no values", got.text, enum.Name)
 		return
 	}
 	// A value of another kind than the enumerated ones is the lattice rules' to report.
@@ -153,13 +153,13 @@ func (ec *exprChecker) checkEnumeratedValue(scope *symbols.Scope, enum *symbols.
 		enumerated = append(enumerated, enumeratedText(enum, literal, want))
 	}
 	if len(enumerated) == 0 {
-		ec.errorf(value.Span(), "cannot bind %s to a feature typed by %s, whose values are only its literals", got.text, enum.Name)
+		ec.errorCode(codeBindingConnectorTypeConformance, value.Span(), "cannot bind %s to a feature typed by %s, whose values are only its literals", got.text, enum.Name)
 		return
 	}
 	if !sameKind {
 		return
 	}
-	ec.errorf(value.Span(), "cannot bind %s to a feature typed by %s, whose values are %s",
+	ec.errorCode(codeBindingConnectorTypeConformance, value.Span(), "cannot bind %s to a feature typed by %s, whose values are %s",
 		got.text, enum.Name, strings.Join(enumerated, ", "))
 }
 
@@ -183,6 +183,8 @@ func literalPrimType(value ast.Node) semantics.PrimType {
 		return semantics.PrimNatural
 	case *ast.LiteralReal:
 		return semantics.PrimRational
+	case *ast.LiteralInfinity:
+		return semantics.PrimNatural
 	}
 	return semantics.PrimUnknown
 }
@@ -199,7 +201,7 @@ func (ec *exprChecker) checkValueCount(valueScope, declScope *symbols.Scope, d f
 		return
 	}
 	if msg := r.HeldViolation(held); msg != "" {
-		ec.errorf(value.Span(), "%s", msg)
+		ec.errorCode(codeFeatureValueCount, value.Span(), "%s", msg)
 	}
 }
 
@@ -223,7 +225,7 @@ func (ec *exprChecker) checkValueUniqueness(valueScope, declScope *symbols.Scope
 		el.position = i + 1
 		for _, prior := range seen {
 			if prior.equal(el) {
-				ec.errorf(element.Span(), "%s", semantics.UniquenessViolation(el.text, prior.position, el.position))
+				ec.errorCode(codeUniqueFeatureValues, element.Span(), "%s", semantics.UniquenessViolation(el.text, prior.position, el.position))
 				return
 			}
 		}

@@ -1,0 +1,27 @@
+{
+  "type": "action",
+  "libraries": true,
+  "evaluate": "test::probe",
+  "outputs": {
+    "doubled": {
+      "type": "Integer",
+      "value": 10
+    },
+    "again": {
+      "type": "Integer",
+      "value": 15
+    },
+    "s.value": {
+      "type": "Integer",
+      "value": 5
+    },
+    "s.doubled": {
+      "type": "Integer",
+      "value": 10
+    },
+    "s.again": {
+      "type": "Integer",
+      "value": 15
+    }
+  }
+}

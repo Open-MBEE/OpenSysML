@@ -14,7 +14,7 @@ package test {
 	#Safety part belt : Belt;
 
 	// `x @ T` on a value is `x istype T`: it holds for T and every type the value's
-	// type specializes. `x @ Metadata` still tests x's annotations, `@@` its metaclass.
+	// type specializes. `x @ Metadata` still tests x's metadata, as `@@` does.
 	calc classify {
 		return : Boolean[*] nonunique = (
 			n3 @ Integer,

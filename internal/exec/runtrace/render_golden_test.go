@@ -42,7 +42,7 @@ func TestRunRenderingGoldens(t *testing.T) {
 				t.Fatal(err)
 			}
 			linkedOptions := view.Options{Links: linksForTestFile(path, data)}
-			for _, form := range []view.Form{view.FormMermaid, view.FormPlantUML} {
+			for _, form := range []view.Form{view.FormMermaid, view.FormPlantUML, view.FormSVG} {
 				cases = append(cases, renderingGolden{
 					name: "example-sequence-links", form: form, run: run, options: linkedOptions,
 				})
@@ -53,10 +53,12 @@ func TestRunRenderingGoldens(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			cases = append(cases, renderingGolden{
-				name: "example-timeline-links", form: view.FormPlantUML, run: run,
-				options: view.Options{Links: linksForTestFile(path, data)},
-			})
+			for _, form := range []view.Form{view.FormPlantUML, view.FormSVG} {
+				cases = append(cases, renderingGolden{
+					name: "example-timeline-links", form: form, run: run,
+					options: view.Options{Links: linksForTestFile(path, data)},
+				})
+			}
 		}
 		empty, err := Render(kind, runtime.NewTraceRecorder(), Options{})
 		if err != nil {
@@ -70,7 +72,9 @@ func TestRunRenderingGoldens(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cases = append(cases, renderingGolden{name: "parallel-regions-timeline", form: view.FormText, run: parallelTimeline})
+	for _, form := range []view.Form{view.FormText, view.FormSVG, view.FormSVGAnimated} {
+		cases = append(cases, renderingGolden{name: "parallel-regions-timeline", form: form, run: parallelTimeline})
+	}
 	parallelPath := filepath.Join("testdata", "parallel-regions.sysml")
 	parallelData, err := os.ReadFile(parallelPath)
 	if err != nil {
@@ -99,7 +103,9 @@ func TestRunRenderingGoldens(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cases = append(cases, renderingGolden{name: "serial-pairing-sequence", form: view.FormText, run: serialSequence})
+	for _, form := range []view.Form{view.FormText, view.FormSVG, view.FormSVGAnimated} {
+		cases = append(cases, renderingGolden{name: "serial-pairing-sequence", form: form, run: serialSequence})
+	}
 
 	terminationTrace, terminationOptions, _, _ := fixtureRun(t, "termination.sysml", "mission", 10)
 	terminationTimeline, err := Render(KindTimeline, terminationTrace, terminationOptions)
@@ -126,7 +132,9 @@ func TestRunRenderingGoldens(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cases = append(cases, renderingGolden{name: "truncated-timeline", form: view.FormText, run: truncated})
+	for _, form := range []view.Form{view.FormText, view.FormSVG} {
+		cases = append(cases, renderingGolden{name: "truncated-timeline", form: form, run: truncated})
+	}
 	truncatedSequence, err := Render(KindSequence, truncatedSequenceTrace(), Options{Until: 4})
 	if err != nil {
 		t.Fatal(err)
@@ -144,7 +152,9 @@ func TestRunRenderingGoldens(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cases = append(cases, renderingGolden{name: "messages-sequence", form: view.FormText, run: messageRun})
+	for _, form := range []view.Form{view.FormText, view.FormSVG, view.FormSVGAnimated} {
+		cases = append(cases, renderingGolden{name: "messages-sequence", form: form, run: messageRun})
+	}
 	selfTransition, err := Render(KindTimeline, selfTransitionTrace(), Options{Until: 2})
 	if err != nil {
 		t.Fatal(err)
@@ -211,7 +221,7 @@ func linksForTestFile(path string, data []byte) view.Links {
 }
 
 func appendForms(cases []renderingGolden, name string, run *view.Rendering) []renderingGolden {
-	for _, form := range []view.Form{view.FormText, view.FormMermaid, view.FormPlantUML} {
+	for _, form := range []view.Form{view.FormText, view.FormMermaid, view.FormPlantUML, view.FormSVG, view.FormSVGAnimated} {
 		cases = append(cases, renderingGolden{name: name, form: form, run: run})
 	}
 	return cases

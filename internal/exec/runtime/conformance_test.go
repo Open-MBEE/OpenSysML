@@ -133,7 +133,7 @@ type ExpectedOutcome struct {
 	// deriving that every listed outcome is valid. Required beside Outcomes.
 	Admissible string `json:"admissible,omitempty"`
 	// Schedule pins the scheduling policy the case was recorded under, spelled as
-	// ParseSchedulePolicy reads it. Empty is the default policy.
+	// ParseSchedulePolicy reads it. empty is the default policy.
 	Schedule string `json:"schedule,omitempty"`
 	// ModelSeed fixes the modeled draws — weighted branches, RandomFunctions — of
 	// a case under every policy of the sweep, as Context.SetModelSeed does.
@@ -156,7 +156,7 @@ type ExpectedOutcome struct {
 	TokenCount *int                     `json:"tokenCount,omitempty"`
 	// Error is the text the execution is expected to fail with, for a case whose
 	// contract is a diagnostic rather than a result (a loop that never
-	// terminates). Empty means the execution must succeed.
+	// terminates). empty means the execution must succeed.
 	Error string `json:"error,omitempty"`
 	// Diagnostics are the parse diagnostics the case's model is expected to
 	// report, one text per diagnostic, matched as a substring. Any diagnostic the
@@ -185,15 +185,23 @@ type ExpectedOutcome struct {
 	Bindings  map[string]ExpectedValue `json:"bindings,omitempty"`
 	Satisfied *bool                    `json:"satisfied,omitempty"`
 	// Evaluate names the element to execute or evaluate: a qualified path
-	// ("test::p::a") also reaches one nested in a part. Empty searches the model.
+	// ("test::p::a") also reaches one nested in a part. empty searches the model.
 	Evaluate string `json:"evaluate,omitempty"`
+	// Before names actions performed to completion on the case's runtime before its own.
+	Before []string `json:"before,omitempty"`
 	// Trace opts a case into a golden trace it does not carry yet, so
 	// -update-traces writes one. A case already carrying a golden needs no opt-in.
 	Trace bool `json:"trace,omitempty"`
-	// ExploreNotes are the coverage notes exploring the case must record, each
-	// matched exactly and in canonical order; stated, the case is explored even
-	// without an admissible set.
-	ExploreNotes []string `json:"exploreNotes,omitempty"`
+	// ExploreGaps are the coverage gaps exploring the case must record, by
+	// identifier, each matched exactly and in canonical order; stated, the case
+	// is explored even without an admissible set, and is complete short of them.
+	ExploreGaps []string `json:"exploreGaps,omitempty"`
+	// OrderDependent is, per output the default run may hold at an order-dependent
+	// value, the number of unresolved choice points touching it; stated, every
+	// other output must be marked by none. Admitting several outcomes does not
+	// state it: a case admits outcomes the library leaves open, and is marked only
+	// where the run's choice points conflict.
+	OrderDependent map[string]int `json:"orderDependent,omitempty"`
 
 	// Satisfy fields: the verdict expected of each satisfaction assertion the
 	// case states, keyed by the assertion as written ("satisfy r by p"), since
@@ -239,6 +247,8 @@ type ExpectedOutcome struct {
 	// exhibits or performs them, one entry per object whose performance the case
 	// states.
 	Objects []ObjectRun `json:"objects,omitempty"`
+	// Transfers names the messages an occurrence case realizes, in run order.
+	Transfers []string `json:"transfers,omitempty"`
 	// Materialization states what reading every feature value of the instance,
 	// and of the objects those hold, reports — the check `-instantiate` makes.
 	Materialization *ExpectedMaterialization `json:"materialization,omitempty"`
@@ -287,7 +297,7 @@ type ObjectRun struct {
 	// names; empty is the materialized object itself.
 	Path string `json:"path,omitempty"`
 	// Behavior names the behavior run, for an object running more than one.
-	// Empty is the machine the object exhibits.
+	// empty is the machine the object exhibits.
 	Behavior    string                   `json:"behavior,omitempty"`
 	Events      []ExpectedEvent          `json:"events,omitempty"`
 	FinalState  string                   `json:"finalState,omitempty"`
@@ -499,6 +509,8 @@ func runConformanceCaseWithOwned(t *testing.T, conformanceDir, caseName string, 
 		runVerificationConformance(t, ctx, idx, sysmlPath, expected)
 	case "instance":
 		runInstanceConformance(t, ctx, idx, sysmlPath, expected, forceOwned)
+	case "occurrence":
+		runOccurrenceConformance(t, ctx, idx, sysmlPath, expected, forceOwned)
 	default:
 		if forceOwned {
 			t.Skip("no object owns connectors before execution")
@@ -581,7 +593,7 @@ func casePolicy(t *testing.T, expected ExpectedOutcome, policy SchedulePolicy) S
 // outcomes within budget, naming any unlisted one with a witness.
 func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.Index, path string, expected ExpectedOutcome) {
 	t.Helper()
-	if len(expected.Outcomes) == 0 && len(expected.ExploreNotes) == 0 {
+	if len(expected.Outcomes) == 0 && len(expected.ExploreGaps) == 0 {
 		return
 	}
 	policy, err := ExplorePolicy(expected.ExploreBudget.budget())
@@ -592,15 +604,13 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 	if err != nil {
 		t.Fatalf("explore: %v", err)
 	}
-	if expected.ExploreNotes != nil {
-		notes := slices.Clone(expected.ExploreNotes)
-		slices.Sort(notes)
-		if !slices.Equal(exploration.Notes, notes) {
-			t.Errorf("exploration notes = %v, want %v", exploration.Notes, notes)
-		}
+	gaps := slices.Clone(expected.ExploreGaps)
+	slices.Sort(gaps)
+	if got := GapNames(exploration.Unenumerated); !slices.Equal(got, gaps) {
+		t.Errorf("exploration gaps = %v, want %v", got, gaps)
 	}
 	if len(expected.Outcomes) == 0 {
-		if !exploration.Complete() {
+		if len(exploration.BudgetsHit) > 0 {
 			t.Errorf("exploration %s under %s; raise the budget in %s with \"exploreBudget\": {\"runs\": N, \"depth\": D}",
 				exploration.Status(), policy, filepath.Base(strings.TrimSuffix(path, ".sysml"))+".expected.json")
 		}
@@ -672,7 +682,7 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 			}
 		}
 	}
-	if !exploration.Complete() {
+	if len(exploration.BudgetsHit) > 0 {
 		t.Errorf("exploration %s under %s; raise the budget in %s with \"exploreBudget\": {\"runs\": N, \"depth\": D}",
 			exploration.Status(), policy, filepath.Base(strings.TrimSuffix(path, ".sysml"))+".expected.json")
 	}
@@ -697,7 +707,7 @@ func conformanceRun(t *testing.T, idx *symbols.Index, path string, expected Expe
 		stateSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefState, ast.UsageState)
 		events := queuedEvents(t, expected.Events)
 		return func(ctx *Context) (Outcome, error) {
-			exec, err := ctx.PerformState(stateSym, nil, events)
+			exec, err := ctx.performStateWithEvents(stateSym, nil, events)
 			if err != nil {
 				return Outcome{}, err
 			}
@@ -805,12 +815,13 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 			problems = append(problems, "exploreBudget: "+err.Error())
 		}
 	}
+	problems = append(problems, beforeSchemaProblems(expected)...)
 	if len(expected.Outcomes) == 0 {
 		if expected.Admissible != "" {
 			problems = append(problems, "admissible is stated without outcomes to admit")
 		}
 		hasSingleOutcome := expected.Outputs != nil || expected.FinalState != "" || expected.StateVisits != nil || expected.Terminated
-		if expected.ExploreBudget != nil && !hasSingleOutcome && !checked && len(expected.ExploreNotes) == 0 {
+		if expected.ExploreBudget != nil && !hasSingleOutcome && !checked && len(expected.ExploreGaps) == 0 {
 			problems = append(problems, "exploreBudget is stated without outcomes to explore")
 		}
 		if expected.SolverBudget != nil {
@@ -1040,6 +1051,7 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 		runActionPerformers(t, ctx, idx, actionSym, expected.Performers)
 		return
 	}
+	performBefore(t, ctx, idx, rootScope, actionSym, expected)
 
 	// Execute action
 	outcome, err := ctx.ActionOutcomePerformedBy(actionSym, nil, nil)
@@ -1065,6 +1077,7 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 
 	validateTerminated(t, outcome.Terminated, expected.Terminated)
 	validateOutputs(t, ctx, expected.Outputs, outputs)
+	validateOrderDependence(t, ctx, expected.OrderDependent, outputs)
 	if len(expected.Outcomes) > 0 {
 		matchOutcome(t, expected.Outcomes, func(r reporter, admitted AdmittedOutcome) {
 			if validateOutcomeError(r, admitted.Error, nil) {
@@ -1083,44 +1096,6 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 	}
 }
 
-// runActionPerformers performs an action once per object performing it and
-// checks each performance against what that object expects: its outputs, the
-// feature values the body left on the object, or the error it must fail with.
-func runActionPerformers(t *testing.T, ctx *Context, idx *symbols.Index, actionSym *symbols.Symbol, performers []Performer) {
-	t.Helper()
-	for _, performer := range performers {
-		self, err := ctx.Instantiate(oneSymbol(t, idx, performer.Object))
-		if err != nil {
-			t.Fatalf("instantiate %s: %v", performer.Object, err)
-		}
-		t.Run(performer.Object, func(t *testing.T) {
-			outcome, err := ctx.ActionOutcomePerformedBy(actionSym, self, nil)
-			if performer.Error != "" {
-				requireError(t, "performance by "+performer.Object, err, performer.Error)
-				return
-			}
-			if err != nil {
-				t.Fatalf("performance by %s failed: %v", performer.Object, err)
-			}
-			validateTerminated(t, outcome.Terminated, performer.Terminated)
-			validateOutputs(t, ctx, performer.Outputs, outcome.Outputs)
-			for path, expectedVal := range performer.Slots {
-				fv, err := featureValueAtPath(t, ctx, self, path)
-				if err != nil {
-					t.Errorf("feature value %q of %s: %v", path, performer.Object, err)
-					continue
-				}
-				value, err := fv.ReadValue(path)
-				if err != nil {
-					t.Errorf("feature value %q of %s: %v", path, performer.Object, err)
-					continue
-				}
-				validateValue(t, ctx, path, expectedVal, value)
-			}
-		})
-	}
-}
-
 // runStateConformance executes a state machine and validates the final state. A
 // case naming performers runs the machine once per object performing it, each
 // against the outcome that object expects.
@@ -1135,10 +1110,7 @@ func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path st
 		return
 	}
 	for _, performer := range expected.Performers {
-		self, err := ctx.Instantiate(oneSymbol(t, idx, performer.Object))
-		if err != nil {
-			t.Fatalf("instantiate %s: %v", performer.Object, err)
-		}
+		self := performerObject(t, ctx, idx, performer.Object)
 		if forceOwned {
 			if err := forceOwnedConnectors(ctx, self); err != nil {
 				t.Fatalf("OwnedConnectors(%s) failed before execution: %v", performer.Object, err)
@@ -1151,6 +1123,7 @@ func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path st
 				Terminated:  performer.Terminated,
 				StateVisits: performer.StateVisits,
 				Outputs:     performer.Outputs,
+				Error:       performer.Error,
 			})
 		})
 	}
@@ -1223,7 +1196,7 @@ func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol
 	if returnsResults(expected.Events) {
 		exec, err = callingPerformance(t, ctx, stateSym, self, expected.Events)
 	} else {
-		exec, err = ctx.PerformState(stateSym, self, queuedEvents(t, expected.Events))
+		exec, err = ctx.performStateWithEvents(stateSym, self, queuedEvents(t, expected.Events))
 	}
 	if err != nil && listsError(expected.Outcomes) {
 		matchOutcome(t, expected.Outcomes, func(r reporter, outcome AdmittedOutcome) {
@@ -1251,6 +1224,7 @@ func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol
 			validateStateOutcome(r, ctx, exec, outcome)
 		})
 	}
+	validateOrderDependence(t, ctx, expected.OrderDependent, exec.StateData())
 }
 
 // callingPerformance performs a machine as a caller does, one event per step:
@@ -1258,26 +1232,32 @@ func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol
 // results the case states for it, every other event queued and run.
 func callingPerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol, self *Instance, events []ExpectedEvent) (*StateExecutor, error) {
 	t.Helper()
-	exec, err := ctx.CreateStateExecutorFor(stateSym, self)
+	exec, reused, err := ctx.stateRunFor(stateSym, self, true)
+	release := func() {
+		if exec != nil && !reused {
+			exec.Release()
+		}
+	}
 	if err != nil {
+		release()
 		return nil, err
 	}
 	for i, event := range events {
 		queued := queuedEvents(t, events[i:i+1])[0]
 		if event.Results == nil {
 			if err := exec.Enqueue(queued); err != nil {
-				exec.Release()
+				release()
 				return nil, err
 			}
 			if err := exec.RunToCompletion(); err != nil {
-				exec.Release()
+				release()
 				return nil, err
 			}
 			continue
 		}
 		results, err := exec.Call(queued.Call, queued.Args)
 		if err != nil {
-			exec.Release()
+			release()
 			return nil, fmt.Errorf("call %d %s: %w", i, queued.Call, err)
 		}
 		validateOutputs(t, ctx, event.Results, results)
@@ -1297,6 +1277,25 @@ func validateStateOutcome(r reporter, ctx *Context, exec *StateExecutor, outcome
 }
 
 // validateOutputs checks each output a case states against the value produced.
+// validateOrderDependence checks the order-dependence the default run reports
+// of each output against want, when the case states it: the unresolved choice
+// points touching each listed output, and none touching any other.
+func validateOrderDependence(r reporter, ctx *Context, want map[string]int, got map[string]Value) {
+	if want == nil {
+		return
+	}
+	for name := range got {
+		if n, w := ctx.OrderDependent(name), want[name]; n != w {
+			r.Errorf("output %q: %d unresolved choice points touch it, want %d", name, n, w)
+		}
+	}
+	for name := range want {
+		if _, ok := got[name]; !ok {
+			r.Errorf("orderDependent names %q, which the run did not output", name)
+		}
+	}
+}
+
 func validateOutputs(r reporter, ctx *Context, want map[string]ExpectedValue, got map[string]Value) {
 	r.Helper()
 	for name, expectedVal := range want {
@@ -1394,7 +1393,7 @@ func runCalcUsageConformance(t *testing.T, ctx *Context, idx *symbols.Index, pat
 		return
 	}
 	if err != nil {
-		t.Fatalf("CalcUsageOutputs(%s) failed: %v", ctx.qualifiedSymbolName(usageSym), err)
+		t.Fatalf("CalcUsageOutputs(%s) failed: %v", ctx.QualifiedName(usageSym), err)
 	}
 
 	values := make(map[string]Value, len(outputs))
@@ -1424,7 +1423,7 @@ func runCalcUsageConformance(t *testing.T, ctx *Context, idx *symbols.Index, pat
 		}
 		result, err := ctx.InvokeCalc(usageSym, args, rootScope)
 		if err != nil {
-			t.Fatalf("InvokeCalc(%s) failed: %v", ctx.qualifiedSymbolName(usageSym), err)
+			t.Fatalf("InvokeCalc(%s) failed: %v", ctx.QualifiedName(usageSym), err)
 		}
 		validateValue(t, ctx, "result", *expected.Result, result)
 	}
@@ -1541,7 +1540,7 @@ func runAnalysisConformance(t *testing.T, ctx *Context, idx *symbols.Index, path
 		return
 	}
 	if err != nil {
-		t.Fatalf("RunAnalysis(%s) failed: %v", ctx.qualifiedSymbolName(caseSym), err)
+		t.Fatalf("RunAnalysis(%s) failed: %v", ctx.QualifiedName(caseSym), err)
 	}
 
 	checkCaseRun(t, ctx, idx, result, expected)
@@ -1645,7 +1644,7 @@ func runVerificationConformance(t *testing.T, ctx *Context, idx *symbols.Index, 
 
 	result, err := ctx.RunVerification(caseSym, analysisArgsOf(t, ctx, idx, expected), rootScope, nil)
 	if err != nil {
-		t.Fatalf("RunVerification(%s) failed: %v", ctx.qualifiedSymbolName(caseSym), err)
+		t.Fatalf("RunVerification(%s) failed: %v", ctx.QualifiedName(caseSym), err)
 	}
 	if got := string(result.Verdict.Kind); got != expected.Verdict {
 		t.Errorf("verdict = %q (%s), want %q", got, result.Verdict.Detail, expected.Verdict)
@@ -1654,7 +1653,7 @@ func runVerificationConformance(t *testing.T, ctx *Context, idx *symbols.Index, 
 		t.Errorf("verdict detail = %q, want it to contain %q", result.Verdict.Detail, expected.VerdictDetail)
 	}
 	checkSubcaseVerdicts(t, result.Subcases, expected.Subcases)
-	if result.Verdict.Kind == VerdictError {
+	if result.Verdict.Kind == verdictError {
 		return
 	}
 	checkCaseRun(t, ctx, idx, result.Run, expected)
@@ -1929,7 +1928,7 @@ func featureValueAtPath(t *testing.T, ctx *Context, inst *Instance, path string)
 	current := inst
 	parts := strings.Split(path, ".")
 	for i, name := range parts {
-		fv, err := current.GetFeatureValue(ctx, name)
+		fv, err := current.MemberValue(ctx, name)
 		if err != nil || i == len(parts)-1 {
 			return fv, err
 		}
@@ -1987,9 +1986,9 @@ func validateObjectRuns(t *testing.T, ctx *Context, typeSym *symbols.Symbol, fir
 			if err := exec.RunToCompletion(); err != nil {
 				t.Fatalf("run machine of object #%d: %v", obj.ID, err)
 			}
-			validateFinalState(t, exec.FinalStateName(), run.FinalState)
+			validateFinalState(t, exec.finalStateName(), run.FinalState)
 			validateTerminated(t, exec.Outcome().Terminated, run.Terminated)
-			validateStateVisits(t, exec.GetStateVisits(), run.StateVisits)
+			validateStateVisits(t, exec.getStateVisits(), run.StateVisits)
 			for name, want := range run.Values {
 				fv, err := featureValueAtPath(t, ctx, obj, name)
 				if err != nil {
@@ -2049,7 +2048,7 @@ func objectMachine(t *testing.T, obj *Instance, name string) *StateExecutor {
 	t.Helper()
 	behavior, ok := obj.ExhibitedState()
 	if name != "" {
-		behavior, ok = obj.Behavior(name)
+		behavior, ok = obj.behavior(name)
 	}
 	if !ok {
 		t.Fatalf("object #%d runs no behavior %q", obj.ID, name)
@@ -2148,16 +2147,6 @@ func featureNamed(ctx *Context, typeSym *symbols.Symbol, name string) *Effective
 	return nil
 }
 
-// findBehavioralSymbol searches for first symbol matching defKind or usageKind,
-// failing the test when there is none.
-func findBehavioralSymbol(t *testing.T, scope *symbols.Scope, defKind ast.DefinitionKind, usageKind ast.UsageKind) *symbols.Symbol {
-	sym := lookupBehavioralSymbol(scope, defKind, usageKind)
-	if sym == nil {
-		t.Fatalf("no behavioral symbol found (defKind=%v, usageKind=%v)", defKind, usageKind)
-	}
-	return sym
-}
-
 // namedOrFoundSymbol returns the symbol the case names by qualified path, which
 // reaches a nested element, or searches the model when it names none.
 func namedOrFoundSymbol(t *testing.T, idx *symbols.Index, fqn string, scope *symbols.Scope, defKind ast.DefinitionKind, usageKind ast.UsageKind) *symbols.Symbol {
@@ -2184,14 +2173,14 @@ func namedSymbol(idx *symbols.Index, fqn string, defKind ast.DefinitionKind, usa
 	return matches[0]
 }
 
-// behavioralKind reports whether a symbol declares the definition or usage kind
-// an entry point asks for.
+// behavioralKind reports whether a symbol declares the definition or usage kind an
+// entry point asks for; the action entry point takes every action kind, use cases included.
 func behavioralKind(sym *symbols.Symbol, defKind ast.DefinitionKind, usageKind ast.UsageKind) bool {
 	switch decl := sym.Decl.(type) {
 	case *ast.Definition:
-		return decl.Kind == defKind
+		return decl.Kind == defKind || (defKind == ast.DefAction && decl.Kind.IsAction())
 	case *ast.Usage:
-		return decl.Kind == usageKind
+		return decl.Kind == usageKind || (usageKind == ast.UsageAction && decl.Kind.IsAction())
 	default:
 		return false
 	}
@@ -2357,7 +2346,7 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 			return
 		}
 		vq := actual.VectorQuantity()
-		axes := make([]Value, vq.Dimension())
+		axes := make([]Value, vq.dimension())
 		for i := range axes {
 			axes[i] = NewQuantityValue(vq.component(i))
 		}
@@ -2398,6 +2387,16 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 		// A valueless feature of a value type: materialized, holding no value.
 		if ctx == nil || !ctx.HoldsNoValue(actual) {
 			t.Errorf("%s: type = %v, want %s", name, actual.Kind, UnsetText)
+		}
+	case "Undetermined":
+		// A value the model leaves open, of the count the case pins as its value.
+		u := actual.Undetermined()
+		if u == nil {
+			t.Errorf("%s: type = %v, want %s", name, actual.Kind, UndeterminedText)
+			return
+		}
+		if count, pinned := expected.Value.(string); pinned && u.Count().Text() != count {
+			t.Errorf("%s: undetermined of %s values, want %s", name, u.Count().Text(), count)
 		}
 	case "Integer":
 		if actual.Kind != ValConst || actual.Const.Kind != semantics.ValInt {
@@ -2539,8 +2538,8 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 			t.Errorf("%s: type = %v, want Metaobject", name, actual.Kind)
 			return
 		}
-		if want, pinned := expected.Value.(string); pinned && actual.MetaobjectText() != want {
-			t.Errorf("%s: metaobject = %q, want %q", name, actual.MetaobjectText(), want)
+		if want, pinned := expected.Value.(string); pinned && actual.metaobjectText() != want {
+			t.Errorf("%s: metaobject = %q, want %q", name, actual.metaobjectText(), want)
 		}
 	case "CoordinateFrame":
 		actual = denotedObjectValue(t, ctx, name, actual)
@@ -2630,7 +2629,7 @@ func TestAdmissibleOutcomesSchema(t *testing.T) {
 		{"empty outcome", ExpectedOutcome{Type: "action", Outcomes: []AdmittedOutcome{outcomes[0], {}}, Admissible: cited}, 1, false},
 		{"calc case", ExpectedOutcome{Type: "calc", Outcomes: outcomes, Admissible: cited}, 1, false},
 		{"explore budget on a checked case", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, ExploreBudget: &ExpectedExploreBudget{Runs: &runs}}, 0, true},
-		{"explore budget on a noted case", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, ExploreNotes: []string{"a note"}, ExploreBudget: &ExpectedExploreBudget{Runs: &runs}}, 0, false},
+		{"explore budget on a case with a gap", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, ExploreGaps: []string{"coverage-gap-1"}, ExploreBudget: &ExpectedExploreBudget{Runs: &runs}}, 0, false},
 		{"single outcome explore budget", ExpectedOutcome{
 			Type: "action", Outputs: outcomes[0].Outputs, ExploreBudget: &ExpectedExploreBudget{Runs: &runs},
 		}, 0, false},

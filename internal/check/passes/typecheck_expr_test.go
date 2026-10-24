@@ -911,12 +911,10 @@ func TestExprBodyValueIsTheExpression(t *testing.T) {
 		calc def KE { in e : Performances::Evaluation; return : Integer = 1; }
 		calc def KF { in calc f : Performances::Evaluation; return : Integer = 1; }
 		calc def KC { in c : Base::Anything[0..*]; return : Integer = 1; }
-		package A { calc def K { in t : Temp; return : Integer = 1; } }
-		package B { calc def K { in e : Performances::Evaluation; return : Integer = 2; } }
+		part def A { calc def K { in t : Temp; return : Integer = 1; } }
+		part def B { calc def K { in e : Performances::Evaluation; return : Integer = 2; } }
 		part def Box { attribute inner : Temp; }
-		part def H {
-			private import A::*;
-			private import B::*;
+		part def H :> A, B {
 			attribute flag : Boolean;
 			attribute n : Integer;
 			%s
@@ -964,4 +962,31 @@ func TestExprBodyValueIsTheExpression(t *testing.T) {
 			t.Errorf("%s: want no diagnostics, got %v", decl, diags)
 		}
 	}
+}
+
+// `*` is a Positive (KerML checkLiteralInfinitySpecialization), so every numeric
+// type holds it and Boolean and String refuse it, as the pilot judges the same
+// bindings; it spells one value, so the value-count rule reads it as `= 1` is.
+func TestExprUnboundedLiteralIsPositive(t *testing.T) {
+	wantOneDiag(t,
+		`package P { attribute b : ScalarValues::Boolean = *; }`,
+		"cannot bind Natural value to a feature typed by Boolean")
+	wantOneDiag(t,
+		`package P { attribute s : ScalarValues::String = *; }`,
+		"cannot bind Natural value to a feature typed by String")
+	wantOneDiag(t,
+		`package P { attribute def Mass; attribute m : Mass = *; }`,
+		"cannot bind Natural value to a feature typed by Mass")
+	wantOneDiag(t,
+		`package P { attribute two : ScalarValues::Integer[2] = *; }`,
+		"1 value(s) bound to a feature with multiplicity lower bound 2")
+	wantNoDiags(t, `package P {
+		attribute n : ScalarValues::Natural = *;
+		attribute i : ScalarValues::Integer = *;
+		attribute q : ScalarValues::Rational = *;
+		attribute r : ScalarValues::Real = *;
+		attribute ng : ScalarValues::Integer = -*;
+		attribute cmp : ScalarValues::Boolean = * == 1;
+		attribute pair : ScalarValues::Integer[2] = (1, *);
+	}`)
 }

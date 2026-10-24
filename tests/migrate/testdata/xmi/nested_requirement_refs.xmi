@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1"
+         xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_model" name="Model">
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_requirements" name="Requirements">
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_outer" name="Outer Requirement">
+        <nestedClassifier xmi:type="uml:Class" xmi:id="_req_nested" name="Nested Requirement">
+          <nestedClassifier xmi:type="uml:Class" xmi:id="_req_inner" name="Innermost Requirement"/>
+        </nestedClassifier>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_block" name="block" type="_block_type" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_block_type" name="Block"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_refine" client="_req_inner" supplier="_block"/>
+      <ownedComment xmi:type="uml:Comment" xmi:id="_comment_inner" body="The innermost requirement is annotated.">
+        <annotatedElement xmi:idref="_req_inner"/>
+      </ownedComment>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Requirement xmi:id="_st_req_outer" base_Class="_req_outer" Id="R1" Text="The system shall."/>
+  <sysml:Requirement xmi:id="_st_req_nested" base_Class="_req_nested" Id="R1.1" Text="The subsystem shall."/>
+  <sysml:Requirement xmi:id="_st_req_inner" base_Class="_req_inner" Id="R1.1.1" Text="The component shall."/>
+  <sysml:Block xmi:id="_st_host" base_Class="_host"/>
+  <sysml:Block xmi:id="_st_block_type" base_Class="_block_type"/>
+  <sysml:Refine xmi:id="_st_refine" base_Abstraction="_dep_refine"/>
+</xmi:XMI>

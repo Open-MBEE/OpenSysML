@@ -12,6 +12,7 @@ import (
 type Drawn struct {
 	nodes, edges map[ast.Node]bool
 	members      map[ast.Node]map[ast.Node]bool // member decl -> owner decls it is drawn as a member of
+	generals     map[ast.Node]map[ast.Node]bool // element decl -> decls of the generals it is drawn with an edge to
 }
 
 // Node reports whether the rendering draws sym as a node a Layout positions.
@@ -38,6 +39,26 @@ func (d *Drawn) MemberNode(owner, sym *symbols.Symbol) bool {
 // Edge reports whether the rendering draws sym as an edge a Route steers.
 func (d *Drawn) Edge(sym *symbols.Symbol) bool {
 	return d != nil && sym != nil && d.edges[sym.Decl]
+}
+
+// Specialization reports whether the rendering draws an edge from sym to
+// general for the specialization, typing or subsetting sym states: the edge a
+// Route about sym naming general steers.
+func (d *Drawn) Specialization(sym, general *symbols.Symbol) bool {
+	return d != nil && sym != nil && general != nil && d.generals[sym.Decl][general.Decl]
+}
+
+// noteSpecialization records that the rendering drew an edge from elem to general.
+func (d *Drawn) noteSpecialization(elem, general *symbols.Symbol) {
+	if d == nil || elem == nil || general == nil || elem.Decl == nil || general.Decl == nil {
+		return
+	}
+	generals, ok := d.generals[elem.Decl]
+	if !ok {
+		generals = map[ast.Node]bool{}
+		d.generals[elem.Decl] = generals
+	}
+	generals[general.Decl] = true
 }
 
 // note records that the rendering drew elem; a nil Drawn collects nothing.
@@ -70,7 +91,7 @@ func (d *Drawn) noteMember(owner, member *symbols.Symbol) {
 // Layout or Route stated in the view's body can apply to. A view that does
 // not render is the error Render gives.
 func (r *Renderer) DrawnIn(view *symbols.Symbol) (*Drawn, error) {
-	drawn := &Drawn{nodes: map[ast.Node]bool{}, edges: map[ast.Node]bool{}, members: map[ast.Node]map[ast.Node]bool{}}
+	drawn := &Drawn{nodes: map[ast.Node]bool{}, edges: map[ast.Node]bool{}, members: map[ast.Node]map[ast.Node]bool{}, generals: map[ast.Node]map[ast.Node]bool{}}
 	if _, err := r.render(view, drawn); err != nil {
 		return nil, err
 	}
@@ -97,6 +118,8 @@ func (r *Renderer) draws(kind Kind, sym *symbols.Symbol) (node, edge bool) {
 		return generalNodeKind(r, sym), false
 	case KindPackage:
 		return sym.Kind == symbols.SymbolPackage, false
+	case KindSequence:
+		return lifelineLike(sym) && !behaviorLike(sym), isFlowUsage(sym)
 	case KindCase:
 		if caseFamily(sym) {
 			return !isReferencedIncludedCase(sym), isIncludedCase(sym) || hasCaseOwner(sym)
@@ -148,6 +171,27 @@ func (r *Renderer) mixedReferenceEdge(sym *symbols.Symbol) bool {
 			if r.model.RelationshipTarget(sym, rel) != nil {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// DrawsSpecializationAnywhere reports whether some rendering draws an edge from
+// sym to general: the tree draws one for each specialization, typing or
+// subsetting between two elements it draws as nodes.
+func (r *Renderer) DrawsSpecializationAnywhere(sym, general *symbols.Symbol) bool {
+	if sym == nil || general == nil || !r.contentKind(sym) || !r.contentKind(general) {
+		return false
+	}
+	for _, rel := range semantics.RelationshipsOf(sym) {
+		if rel == nil || rel.Target == nil {
+			continue
+		}
+		if _, _, ok := structuralEdgeKind(rel.Kind); !ok {
+			continue
+		}
+		if target, resolved := r.generalizationTarget(sym, rel); resolved && target.Decl == general.Decl {
+			return true
 		}
 	}
 	return false

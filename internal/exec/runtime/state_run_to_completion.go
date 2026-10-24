@@ -35,21 +35,21 @@ type heldEntry struct {
 	routeEffects map[*ast.StateRegion][]routeEffect
 }
 
-// RunToCompletionValueError reports an unevaluable or non-Boolean RTC value.
-type RunToCompletionValueError struct {
+// runToCompletionValueError reports an unevaluable or non-Boolean RTC value.
+type runToCompletionValueError struct {
 	State *ast.StateNode
 	Value ast.Node
 	Err   error
 }
 
-func (e *RunToCompletionValueError) Error() string {
+func (e *runToCompletionValueError) Error() string {
 	if e.Err != nil {
 		return fmt.Sprintf("evaluate run-to-completion value of %s: %v", StateVertexName(e.State), e.Err)
 	}
 	return fmt.Sprintf("run-to-completion value of %s must be boolean", StateVertexName(e.State))
 }
 
-func (e *RunToCompletionValueError) Unwrap() error { return e.Err }
+func (e *runToCompletionValueError) Unwrap() error { return e.Err }
 
 // rtcOf evaluates the effective isRunToCompletion value for state.
 func (e *StateExecutor) rtcOf(state *ast.StateNode) (bool, error) {
@@ -62,10 +62,10 @@ func (e *StateExecutor) rtcOf(state *ast.StateNode) (bool, error) {
 	}
 	value, err := e.evalStepOf(ast.Node(config.ValueOwner), config.Value, config.ValueScope)
 	if err != nil {
-		return false, &RunToCompletionValueError{State: state, Value: config.Value, Err: err}
+		return false, &runToCompletionValueError{State: state, Value: config.Value, Err: err}
 	}
 	if value.Kind != ValConst || value.Const.Kind != semantics.ValBool {
-		return false, &RunToCompletionValueError{State: state, Value: config.Value}
+		return false, &runToCompletionValueError{State: state, Value: config.Value}
 	}
 	return value.Const.Bool, nil
 }
@@ -180,7 +180,7 @@ func (e *StateExecutor) resumeFiring(f *firing) func() {
 	}
 	return func() {
 		unbind()
-		untake()
+		untake.restore()
 	}
 }
 
@@ -215,11 +215,14 @@ func (e *StateExecutor) entryStep(progress *dueProgress) (bool, error) {
 		return true, e.performHeld(item)
 	}
 	alternatives := make([]string, 0, len(e.held)+1)
+	fps := make([]lower.Footprint, 0, len(e.held)+1)
 	if free {
 		alternatives = append(alternatives, dispatch.label)
+		fps = append(fps, dispatchFootprint(e))
 	}
 	for _, item := range e.held {
 		alternatives = append(alternatives, e.entryLabel(item.owner))
+		fps = append(fps, e.heldEntryFootprint(item))
 	}
 	if len(alternatives) == 1 {
 		if free {
@@ -232,12 +235,13 @@ func (e *StateExecutor) entryStep(progress *dueProgress) (bool, error) {
 		return true, e.performHeld(item)
 	}
 	choice := ChoicePoint{
-		Kind:         ChoiceEntryStep,
+		Kind:         choiceEntryStep,
 		Where:        entryStepWherePrefix + semantics.FormatReal(e.ctx.clock.now),
 		Alternatives: alternatives,
 		File:         e.stateMachine.DocName,
 		Span:         e.stateMachine.DeclSpan,
 	}
+	classifyChoice(&choice, fps, nil)
 	choice.Taken = e.ctx.scheduling().choose(choice, nil)
 	if err := e.ctx.scheduling().refusal(); err != nil {
 		return false, err

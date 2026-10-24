@@ -20,7 +20,7 @@ func renderedFigure(t *testing.T, caption string, rendering *view.Rendering, dir
 
 func renderedFigureForm(t *testing.T, caption string, rendering *view.Rendering, direction view.Direction, form view.Form) string {
 	t.Helper()
-	return renderedFigureOptions(t, caption, rendering, view.Options{Direction: direction}, form)
+	return renderedFigureOptions(t, caption, rendering, view.Options{Direction: direction, Show: view.AllShown()}, form)
 }
 
 func renderedFigureOptions(t *testing.T, caption string, rendering *view.Rendering, options view.Options, form view.Form) string {

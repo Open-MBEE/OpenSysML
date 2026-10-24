@@ -1,0 +1,10 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Step"}],
+	"finalState": "Other",
+	"outputs": {
+		"entries": {"type": "Integer", "value": 1},
+		"exits": {"type": "Integer", "value": 1}
+	}
+}

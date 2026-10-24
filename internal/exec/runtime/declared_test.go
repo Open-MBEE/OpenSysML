@@ -94,7 +94,7 @@ func quantityText(t *testing.T, val Value) string {
 	t.Helper()
 	q := val.Quantity()
 	if q == nil {
-		t.Fatalf("value %s is not a quantity", describeValue(val))
+		t.Fatalf("value %s is not a quantity", DescribeValue(val))
 	}
 	return q.String()
 }
@@ -144,7 +144,7 @@ func TestDeclaredReaderPreservesIntegersAndEvaluatesConditionals(t *testing.T) {
 			continue
 		}
 		if val.Kind != ValConst || val.Const != tc.want {
-			t.Errorf("%s.%s = %s, want %v", tc.element, tc.feature, describeValue(val), tc.want)
+			t.Errorf("%s.%s = %s, want %v", tc.element, tc.feature, DescribeValue(val), tc.want)
 		}
 	}
 	val, err := reader.Read(symbolAt(t, resolver, scope, "Vehicle::s1"), "label")
@@ -152,7 +152,7 @@ func TestDeclaredReaderPreservesIntegersAndEvaluatesConditionals(t *testing.T) {
 		t.Fatalf("label: %v", err)
 	}
 	if val.Kind != ValString || val.Str() != "heavy" {
-		t.Errorf("label = %s, want \"heavy\"", describeValue(val))
+		t.Errorf("label = %s, want \"heavy\"", DescribeValue(val))
 	}
 }
 
@@ -198,7 +198,7 @@ func TestDeclaredReaderRunsNoBehavior(t *testing.T) {
 		t.Fatalf("Behaving.started: %v", err)
 	}
 	if val.Kind != ValConst || val.Const.Kind != semantics.ValBool || val.Const.Bool {
-		t.Errorf("Behaving.started = %s, want the declared false", describeValue(val))
+		t.Errorf("Behaving.started = %s, want the declared false", DescribeValue(val))
 	}
 }
 
@@ -229,7 +229,7 @@ func TestDeclaredReaderAgreesWithTheRun(t *testing.T) {
 
 // A feature valued by a call reads through the model's argument typing: the
 // fixture's typed model evaluates it, and a fresh semantic model with none
-// installed fails with ErrNoArgumentTyper rather than selecting untyped.
+// installed fails with errNoArgumentTyper rather than selecting untyped.
 func TestDeclaredReaderSelectsCallsThroughTheArgumentTyper(t *testing.T) {
 	reader, resolver, scope := declaredReaderFixture(t)
 	invoking := symbolAt(t, resolver, scope, "Invoking")
@@ -238,7 +238,7 @@ func TestDeclaredReaderSelectsCallsThroughTheArgumentTyper(t *testing.T) {
 		t.Fatalf("Invoking.n: %v", err)
 	}
 	if val.Kind != ValConst || val.Const.Kind != semantics.ValReal || val.Const.AsReal() != 6.0 {
-		t.Errorf("Invoking.n = %s, want 6.0", describeValue(val))
+		t.Errorf("Invoking.n = %s, want 6.0", DescribeValue(val))
 	}
 
 	untyped := semantics.NewModel(resolver)
@@ -246,7 +246,7 @@ func TestDeclaredReaderSelectsCallsThroughTheArgumentTyper(t *testing.T) {
 		t.Fatal("a fresh semantic model must not carry an argument typer")
 	}
 	_, err = NewDeclaredReader(untyped, resolver).Read(invoking, "n")
-	if !errors.Is(err, ErrNoArgumentTyper) {
-		t.Fatalf("Invoking.n over an untyped model: err = %v, want ErrNoArgumentTyper", err)
+	if !errors.Is(err, errNoArgumentTyper) {
+		t.Fatalf("Invoking.n over an untyped model: err = %v, want errNoArgumentTyper", err)
 	}
 }

@@ -51,6 +51,12 @@ type Server struct {
 	folders          []string
 	// openDirs are the directories indexed for documents opened under no folder.
 	openDirs map[string]bool
+	// libraryRoots are the directories installed projects are looked for
+	// under, besides the well-known ones beneath a folder's project.
+	libraryRoots []string
+	// dependencies records, per folder or opened directory, the sources the
+	// installed projects it uses contributed, so they are dropped with it.
+	dependencies map[string][]string
 	// hoverMarkdown records that the client advertised Markdown for hover.
 	hoverMarkdown bool
 	// completionMarkdown records that the client advertised Markdown for
@@ -69,6 +75,13 @@ type Option func(*Server)
 // version of the binary serving: the one its -version flag prints.
 func WithVersion(version string) Option {
 	return func(s *Server) { s.version = version }
+}
+
+// WithLibraryRoots sets the directories installed projects are looked for
+// under, besides the well-known ones beneath a folder's project; the
+// libraryRoots setting replaces them.
+func WithLibraryRoots(roots []string) Option {
+	return func(s *Server) { s.libraryRoots = append([]string(nil), roots...) }
 }
 
 // notifier sends a notification by method name, which a client connection does.

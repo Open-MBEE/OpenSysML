@@ -235,6 +235,96 @@
           "error"
         ]
       }
+    },
+    {
+      "id": "execute_action/advance_stops_the_clock_before_the_run_completes",
+      "description": "`advance` runs the action for that many simulated seconds; a run still waiting is an in-body failure that carries the clock it stopped at, as `sysml -advance` reports.",
+      "rpc": "ExecuteAction",
+      "model": {
+        "fixture": "timed.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "action_symbol_id": "Timed::delayed",
+        "advance": 2
+      },
+      "expect": {
+        "contains": {
+          "error": "without completing"
+        },
+        "response": {
+          "final_time": 2
+        }
+      }
+    },
+    {
+      "id": "execute_action/advance_past_the_wait_completes_the_run",
+      "description": "An `advance` long enough for every wait completes the run and reports the clock where it stopped.",
+      "rpc": "ExecuteAction",
+      "model": {
+        "fixture": "timed.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "action_symbol_id": "Timed::delayed",
+        "advance": 10
+      },
+      "expect": {
+        "absent": [
+          "error"
+        ],
+        "response": {
+          "outputs": {
+            "count": {
+              "int_value": 1
+            }
+          },
+          "final_time": 10
+        }
+      }
+    },
+    {
+      "id": "execute_action/clock_step_rounds_a_wait_up_to_the_next_tick",
+      "description": "`clock_step` ticks the run's clock in fixed steps, so a five-second wait on a four-second clock ends at eight.",
+      "rpc": "ExecuteAction",
+      "model": {
+        "fixture": "timed.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "action_symbol_id": "Timed::delayed",
+        "clock_step": 4
+      },
+      "expect": {
+        "absent": [
+          "error"
+        ],
+        "response": {
+          "outputs": {
+            "count": {
+              "int_value": 1
+            }
+          },
+          "final_time": 8
+        }
+      }
+    },
+    {
+      "id": "execute_action/an_unknown_draw_policy_is_refused",
+      "description": "`draws` takes `random`, `min`, `max` or `average`; anything else is an invalid argument naming the field.",
+      "rpc": "ExecuteAction",
+      "model": {
+        "fixture": "timed.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "action_symbol_id": "Timed::delayed",
+        "draws": "sometimes"
+      },
+      "expect": {
+        "status": "INVALID_ARGUMENT",
+        "status_message_contains": "draw policy"
+      }
     }
   ]
 }

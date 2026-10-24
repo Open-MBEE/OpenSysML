@@ -46,8 +46,8 @@ func TestSubjectBindingIsReadByShortName(t *testing.T) {
 
 			def := findSymbolByName(rootScope, "PayloadReq", ast.DefRequirement)
 			holds, err = ctx.EvaluateRequirement(def, rootScope)
-			if !errors.Is(err, ErrUnboundSubject) {
-				t.Fatalf("PayloadReq = %v, %v; want ErrUnboundSubject", holds, err)
+			if !errors.Is(err, errUnboundSubject) {
+				t.Fatalf("PayloadReq = %v, %v; want errUnboundSubject", holds, err)
 			}
 			if !strings.Contains(err.Error(), "t") {
 				t.Errorf("error %q does not name the subject", err)

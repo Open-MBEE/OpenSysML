@@ -4,6 +4,7 @@ import (
 	"flag"
 	"io"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -99,5 +100,28 @@ func TestPermuteArgsKeepsProtectedFiles(t *testing.T) {
 	}
 	if got := fs.Args(); !reflect.DeepEqual(got, []string{"-weird.sysml", "-o"}) {
 		t.Errorf("files = %q, want [-weird.sysml -o]", got)
+	}
+}
+
+// TestPermuteArgsJoinsAnOptionalValue checks that the word after a bare
+// -explain becomes its value by position, flags and files staying apart.
+func TestPermuteArgsJoinsAnOptionalValue(t *testing.T) {
+	fs := flag.NewFlagSet("sysml", flag.ContinueOnError)
+	var explain codeNames
+	fs.Var(&explain, "explain", "")
+	fs.Bool("validate", false, "")
+	cases := []struct{ in, want []string }{
+		{[]string{"-explain", "unresolved"}, []string{"-explain=unresolved"}},
+		{[]string{"-explain", "syntax", "model.sysml"}, []string{"-explain=syntax", "--", "model.sysml"}},
+		{[]string{"-explain", "-validate"}, []string{"-explain=", "-validate"}},
+		{[]string{"-explain"}, []string{"-explain="}},
+		{[]string{"-explain", "--", "syntax"}, []string{"-explain=", "--", "syntax"}},
+		{[]string{"-explain", "true"}, []string{"-explain=true"}},
+		{[]string{"-explain=syntax", "unresolved"}, []string{"-explain=syntax", "--", "unresolved"}},
+	}
+	for _, c := range cases {
+		if got := permuteArgs(fs, c.in); !slices.Equal(got, c.want) {
+			t.Errorf("permuteArgs(%q) = %q, want %q", c.in, got, c.want)
+		}
 	}
 }

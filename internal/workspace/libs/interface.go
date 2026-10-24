@@ -19,7 +19,7 @@ import (
 // interfaceFormatVersion is the on-disk format version of an interface record.
 // Bump it whenever InterfaceRecord, symbols.DocumentRecord or
 // symbols.LibraryFacts changes shape or meaning.
-const interfaceFormatVersion = 18
+const interfaceFormatVersion = 19
 
 // ErrUnrecordable reports a document whose interface cannot be written without
 // its tree: a fact a reader needs has no name to restore it by. The document is
@@ -155,13 +155,18 @@ func (w *interfaceWriter) refs(of *symbols.Symbol, syms []*symbols.Symbol, what 
 // facts states what sym's declaration yields, as its record carries it.
 func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	m := w.model
+	supers := m.DirectSupertypes(sym)
+	implied := slices.DeleteFunc(slices.Clone(m.ImplicitGenerals(sym)), func(base *symbols.Symbol) bool {
+		return !slices.Contains(supers, base)
+	})
 	facts := symbols.LibraryFacts{
-		Supers:    w.refs(sym, m.DirectSupertypes(sym), "supertype"),
-		Unit:      unitFactsEntry(unitFactsOf(sym, m, w.idx)),
-		Dimension: dimensionFactsEntry(dimensionFactsOf(sym, m, w.idx)),
-		Abstract:  symbols.IsAbstract(sym),
-		Redefines: w.refs(sym, m.RedefinedFeatures(sym), "redefined feature"),
-		About:     w.refs(sym, m.AnnotatedElementsOf(sym), "annotated element"),
+		Supers:        w.refs(sym, supers, "supertype"),
+		ImpliedSupers: w.refs(sym, implied, "implied supertype"),
+		Unit:          unitFactsEntry(unitFactsOf(sym, m, w.idx)),
+		Dimension:     dimensionFactsEntry(dimensionFactsOf(sym, m, w.idx)),
+		Abstract:      symbols.IsAbstract(sym),
+		Redefines:     w.refs(sym, m.RedefinedFeatures(sym), "redefined feature"),
+		About:         w.refs(sym, m.AnnotatedElementsOf(sym), "annotated element"),
 	}
 	if related, ok := m.ReflectiveElements(sym, "relatedFeature"); ok {
 		facts.RelatedFeatures = w.refs(sym, related, "related feature")
@@ -224,6 +229,9 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	facts.Modifiers |= w.r.DeclarationTraits(sym)
 	if m.UsageMayTimeVary(sym) {
 		facts.Modifiers |= symbols.ModMayTimeVary
+	}
+	if sym.Kind == symbols.SymbolMetadataUsage && symbols.AnnotatesOthers(sym.Decl) {
+		facts.Modifiers |= symbols.ModAnnotatesOthers
 	}
 	facts.Node = symbols.NodeKindOf(sym.Decl)
 	facts.Keyword = sym.Keyword()

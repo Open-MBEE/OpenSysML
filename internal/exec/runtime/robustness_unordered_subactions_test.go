@@ -17,8 +17,8 @@ func TestRuntimeRobustnessUnorderedSubactions(t *testing.T) {
 				succession b then a;
 			}
 		}`)
-		if !errors.Is(err, ErrInvalidActionFlow) {
-			t.Fatalf("error = %v, want ErrInvalidActionFlow: no step is unpreceded", err)
+		if !errors.Is(err, errInvalidActionFlow) {
+			t.Fatalf("error = %v, want errInvalidActionFlow: no step is unpreceded", err)
 		}
 	})
 	t.Run("unordered_accept_never_satisfied", func(t *testing.T) {

@@ -46,7 +46,7 @@ func testStringNotationReadsBack(t *testing.T) {
 
 func testInvalidNotationNamesTheLiteral(t *testing.T) {
 	err := invalidNotation("RealFunctions::ToReal", "1\u200b", "Real")
-	if !errors.Is(err, ErrInvalidNotation) || !strings.Contains(err.Error(), "\"1\u200b\" is not a Real") {
-		t.Errorf("invalidNotation = %v, want ErrInvalidNotation naming the String literal \"1\u200b\"", err)
+	if !errors.Is(err, errInvalidNotation) || !strings.Contains(err.Error(), "\"1\u200b\" is not a Real") {
+		t.Errorf("invalidNotation = %v, want errInvalidNotation naming the String literal \"1\u200b\"", err)
 	}
 }

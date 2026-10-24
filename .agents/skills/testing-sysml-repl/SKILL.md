@@ -27,6 +27,40 @@ description: How to build, drive, and record end-to-end tests of the OpenSysML s
   `-record-run ... -convert sysml -o ...`; a static rejection alone does not
   exercise failed analysis execution.
 
+## Session tools over the `sysml-mcp` stdio binary
+
+The MCP server's session group (`-tools session`) drives the same `repl.Session` as the
+prompt, so a REPL test has an MCP twin.
+
+- Build from the repository root: `go build -o bin/sysml-mcp ./cmd/sysml-mcp`, and
+  `go build -o bin/sysml ./cmd/sysml` for prompt comparisons.
+- Launch `bin/sysml-mcp -stdio -root <small workspace> -tools session`. Keep the
+  workspace under the home directory, not `/tmp` (the LSP wire tests index `/tmp`), and
+  leave the `lsp` group off when the root is large.
+- Drive it with the module's MCP Go SDK over `mcp.CommandTransport` (see
+  `cmd/sysml-mcp/lifecycle_test.go`), or newline-delimited JSON-RPC: `initialize`, then
+  `notifications/initialized`. Capture stdout and stderr apart; every stdout line must be
+  protocol JSON.
+- Read `tools/list` for the schemas, validate each successful result against its
+  `outputSchema`, and decode the text content before comparing it with
+  `structuredContent`. Then compare the `text` fields with what `bin/sysml` prints for
+  the same `%` command.
+- `runs` needs a seed unless `%draws` fixes the policy. A cancellation probe needs a
+  seeded run long enough to still be going; raise the process-local budget
+  (`OPENSYSML_MAX_SWEEP_RUNS=100000`) rather than asking for more than it admits. The
+  SDK's context cancellation can return before the server's reply; to see the reply,
+  send `notifications/cancelled` with the request id and read what comes back. A
+  literal `session_eval` afterwards proves the session still answers.
+- Instantiate the part before debugging its exhibited machine (`%instantiate`, then
+  `debug_start` with `kind: state` on the object). Run a completed action and then a
+  live machine in one session: `debug_current` must describe the machine in both text
+  and data.
+- A state run's `time` is the shared clock, so compare it with the clock before the run,
+  not with zero. Compare sampled sweep rows without their `millis`.
+- `session_save` without `apply` must leave the disk untouched and return the bytes the
+  file would hold, trailing newline included; an absolute path outside the root is
+  written as given.
+
 ### Devin Secrets Needed
 
 None for local recording and document-query testing.
@@ -4317,7 +4351,7 @@ Read-only printer of the session buffer or one element:
 `satisfy structure (from Demo::StructureView): violated` and one line per concern
 (`conforms` / `violated` naming the exposed element and condition / `unevaluable` + reason); the
 view frames nothing itself — every concern the viewpoint frames is evaluated against what it exposes,
-and a `frame` written in a view body draws a `nonstandard-notation` warning.
+and a `frame` written in a view body is a parser error.
 A satisfy target that is a `requirementUsage` is diagnosed at load *and* reported as
 `unevaluable (satisfy target spec is a requirementUsage, not a viewpoint)` — never a silent pass.
 `%view` registers no object: `%instances` afterwards says none created, a repeat is identical, and a
@@ -6297,11 +6331,11 @@ None for these local REPL/gRPC checks.
 - Compare an unwritten inherited result against an unwritten `out` in the same model. A completed
   action's output map leaves both out rather than inventing a zero.
 
-## Prod builds and default-build parity
+## RE builds and DK-build parity
 
 - If other agents own branches or worktrees, create detached testing worktrees at the PR and
   `origin/develop` revisions and record both hashes; do not switch a shared checkout.
-- Build the PR twice, `go build -tags sysml_prod -o <external-dir>/sysml-prod ./cmd/sysml` and
+- Build the PR twice, `go build -tags sysml_re -o <external-dir>/re/sysml ./cmd/sysml` and
   without the tag to a separate binary, and build `origin/develop` untagged to a third. Raw builds
   avoid unrelated version-string differences when comparing behavior.
 - Keep fixtures, output files, transcripts and comparison scripts outside source checkouts.
@@ -6319,7 +6353,7 @@ None for these local REPL/gRPC checks.
   because model loading writes declaration reports to stdout. Require the exact match line and exit
   0; do not assume stdout holds only match lines.
 
-### Comparing the default build against develop
+### Comparing the DK build against develop
 
 - Use the same relative input and output names in separate working directories, with fresh files,
   so `(replaced the existing file)` notes do not differ.
@@ -6363,3 +6397,90 @@ None for these local REPL/gRPC checks.
 ### Devin Secrets Needed
 
 None for native local CLI/REPL tests.
+
+## Driving `sysml-mcp` through a real MCP host (`cmd/sysml-mcp`)
+
+- Build the checkout under test: `go build -o /tmp/sysml-mcp ./cmd/sysml-mcp`. Do not rely on an installed binary.
+- Drive it with a client on the module's pinned `github.com/modelcontextprotocol/go-sdk/mcp`: a small Go program
+  run with `go run` from the module root (keep it outside the checkout), using `mcp.CommandTransport` to start
+  `/tmp/sysml-mcp -stdio -root <temporary fixture directory> -tools runtime` (`-tools all` for the whole
+  catalogue). This exercises process startup and wire serialization, which the in-memory transport of
+  `internal/frontend/mcp/server_test.go` does not. `cmd/sysml-mcp/lifecycle_test.go` shows the pattern.
+- Fixtures: the `demoModel` of `internal/frontend/mcp/runtimetools/runtimetools_test.go` (actions, a state
+  machine, calcs, constraints, requirements, satisfactions, an analysis case, a view); write it to the root as
+  `demo.sysml`. `internal/doc/docrender/testdata/telescope_report.sysml` supplies `Observatory::SubsystemTable`
+  (bind `root` to `{"elementId":"Observatory::telescope"}`) and `Observatory::MassReport` for Markdown/HTML
+  rendering; `tests/migrate/testdata/xmi/*.xmi` supplies `migrate` inputs.
+- Arguments use the proto JSON names and `Value` arms (`inputs: {"lo":{"intValue":"41"}}`); int64 fields in
+  answers are strings. Tell apart a transport error, a `CallToolResult.IsError` (a refused RPC, text
+  `NOT_FOUND: …` / `INVALID_ARGUMENT: …`) and a successful answer whose `structuredContent.error` is set.
+- Progress: `CallToolParams.SetProgressToken` on the request and `ClientOptions.ProgressNotificationHandler`
+  on the client (guard the slice with a mutex; notifications are asynchronous, so wait with a bound). A call
+  without a token must produce none.
+- Stdout hygiene: beside the SDK's parsed message log, capture the child's raw stdout and check it holds only
+  JSON-RPC frames; logging must be on stderr. `ClientSession.Close()` closes stdin and waits; read
+  `exec.Cmd.ProcessState.ExitCode()` and how long the close took, since a 0 after an SDK timeout and SIGTERM
+  does not prove graceful EOF handling.
+- Budgets: start a separate child with `OPENSYSML_MAX_ACTION_STEPS=1` so the setting cannot leak into the other
+  fixtures; exhaustion must be a response-level `error`, not a hang or a crash, and the child must still answer
+  a later call.
+- Read-only edits: compare the fixture's bytes before and after `apply_edits`, and evaluate the original model
+  hash afterwards; the edited `content` in the answer is not evidence that nothing was written.
+- The server has no GUI: the request/response log is the evidence. Do not record an idle desktop.
+
+## Edge routing through the real engines (`-render-lines`, `%render … ortho|polyline`)
+
+- Build the current CLI and LSP (`make build-sysml build-lsp`) after any writer change and
+  restart an already-running REPL; it holds the old binary.
+- Use a graph with several connectors and bends. One straight edge cannot tell `splines`,
+  `polyline` and `ortho` apart. Compare the per-edge SVG path `d` values, not just the
+  emitted `splines=` / `skinparam linetype` attribute; default and explicit `splines` output
+  must be byte-identical.
+- Feed DOT to `dot -Tsvg`; a positioned diagram (explicit `Route` metadata) goes through
+  `neato -n2 -Tsvg`. Keep stderr even on exit status zero: Graphviz warns, it does not fail.
+- Graphviz's orthogonal router ignores ports and may cross node bodies; on a pinned ported
+  diagram it can report touching bounding boxes and fall back to straight edges, so a clean
+  compile is no proof that the routing changed. Compare against the default output.
+- Under `ortho` the connector names are `xlabel=`, not `label=` (Graphviz places no `label`
+  on an orthogonal edge). Check the SVG `<text>` elements for every connector name; default
+  and polyline keep ordinary edge labels.
+- The document toolchain may already hold a PlantUML jar under `build/doc-pdf/plantuml/`;
+  look before installing one. `java -jar <jar> -tsvg -pipe` on the emitted PlantUML.
+  `skinparam linetype` sits after the direction and before the body; `hide circle` /
+  `hide empty members` may stand between them.
+- The low-level layout fixtures under `tests/testdata` deliberately include invalid
+  `Canvas`/`Style` members, so a CLI run over them fails validation. Copy the fixture outside
+  the checkout and remove only the explicitly negative members.
+- For a `-render-run` option-misuse check, give a behaviour (`-action …`) and a valid
+  `timeline=<path>` first; otherwise the missing-behaviour guard fires before the option
+  under test.
+- Keep scratch models under `~/scratch`, not `/tmp`, so no unrelated LSP workspace indexing
+  joins in. Real stdio JSON-RPC checks need no editor.
+
+
+## Expression fixtures must be semantically valid, not just parsed
+
+A probe that only needs the parser to accept a construct still goes through the
+full validation tiers in the CLI, the REPL and the LSP, so a fixture that is
+syntactically fine but semantically invalid reports errors that have nothing to
+do with the change under test. Shapes that have cost time:
+
+- `ScalarValues::*` provides the scalar types, not `floor`. Import
+  `RealFunctions::floor` (or `RealFunctions::*`) before calling it.
+- `calc c : Real { expression }` parses but is not a valid calculation usage:
+  its type must be a calculation definition. Write
+  `calc def C { return : Real; expression }` and `calc c : C;`, then `%calc P::c`.
+- A nested calculation definition cannot read an enclosing instance's feature.
+  For expression probes, bind the operands as package-level attributes and
+  declare the calculation definition at package level, or pass them in as
+  parameters.
+- Keep a duplicate-member probe apart from a qualified-reference probe: two
+  members of one name make `Type::name` an ambiguous reference, which is a
+  separate diagnostic from the one being tested.
+- Do not read a clean validation off the CLI exit status. In permissive mode a
+  foreign-notation diagnostic prints at `error` severity while the CLI exits 0
+  and says no error stops a check; inspect the messages and severities, and run
+  `-strict` separately to see the escalation (exit 2).
+- To tell a parser regression from a pre-existing semantic rule, run the same
+  fixture with the name quoted (`'step'`) on a develop build, and keep both the
+  original and the adjusted fixture outputs.

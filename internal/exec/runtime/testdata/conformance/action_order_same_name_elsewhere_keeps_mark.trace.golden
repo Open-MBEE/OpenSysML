@@ -1,0 +1,15 @@
+step 1: token 1@split
+step 2: token 2@a, token 3@b
+stmt assign level
+  eval literal 2 -> 2
+stmt assign level
+  eval literal 1 -> 1
+choice step 3: writes level := 1 by token 2, level := 2 by token 3 (unordered; level := 1 by token 2 stood; order-dependent: level)
+choice step 3: tokens 2@a, 3@b (unordered; took 3@b first; order-dependent: level)
+step 3: token 2@sync, token 3@sync
+step 4: token 4@other
+eval literal 0 -> 0
+stmt assign level
+  eval literal 5 -> 5
+step 5: token 4@done
+step 6: no active tokens

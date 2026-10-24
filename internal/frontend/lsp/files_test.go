@@ -1,9 +1,11 @@
 package lsp
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -188,6 +190,140 @@ func TestWatchedFileCreateAndChangeReindex(t *testing.T) {
 	}
 	if msgs := diagnosticsFor(fc, main); len(msgs) == 0 {
 		t.Fatalf("diagnostics for main = none, want an unresolved Gizmo")
+	}
+}
+
+func TestRescanReconcilesTheFoldersWithDisk(t *testing.T) {
+	s, _, dir, lib, main := multiFileWorkspace(t)
+	ctx := context.Background()
+	openFile(t, s, main, mainSource)
+
+	// A file created, one rewritten and one deleted with no watcher to report
+	// them: one rescan sees all three, and leaves the open buffer alone.
+	extra := filepath.Join(dir, "extra.sysml")
+	if err := os.WriteFile(extra, []byte("package Extra {\n    part def Gizmo;\n}\n"), 0o600); err != nil {
+		t.Fatalf("write extra: %v", err)
+	}
+	if err := os.WriteFile(lib, []byte("package Lib {\n    part def Doohickey;\n}\n"), 0o600); err != nil {
+		t.Fatalf("rewrite lib: %v", err)
+	}
+	if err := os.Remove(main); err != nil {
+		t.Fatalf("remove main: %v", err)
+	}
+	s.Rescan(ctx)
+
+	if s.ws.Document(extra) == nil {
+		t.Errorf("rescan did not index the created %q", extra)
+	}
+	if content, _ := s.ws.OnDisk(lib); !strings.Contains(string(content), "Doohickey") {
+		t.Errorf("rescan did not reread the rewritten %q: %q", lib, content)
+	}
+	if s.ws.Document(main) == nil {
+		t.Errorf("rescan dropped the open %q, whose buffer is authoritative", main)
+	}
+
+	// Closed and gone from disk, the document leaves the workspace.
+	if err := s.DidClose(ctx, &protocol.DidCloseTextDocumentParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(main)},
+	}); err != nil {
+		t.Fatalf("DidClose err = %v", err)
+	}
+	s.Rescan(ctx)
+	if s.ws.Document(main) != nil {
+		t.Errorf("rescan kept the deleted, closed %q", main)
+	}
+	if s.ws.Document(extra) == nil || s.ws.Document(lib) == nil {
+		t.Errorf("rescan dropped a document still on disk")
+	}
+
+	// A file grown past the size limit leaves the workspace, as a watched
+	// change to it would make it leave.
+	if err := os.WriteFile(lib, bytes.Repeat([]byte("// padding\n"), maxScannedFileSize/11+1), 0o600); err != nil {
+		t.Fatalf("grow lib: %v", err)
+	}
+	s.Rescan(ctx)
+	if s.ws.Document(lib) != nil {
+		t.Errorf("rescan kept %q after it grew past the size limit", lib)
+	}
+}
+
+func TestRescanKeepsSourcesUnderADirectoryItCannotList(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root lists every directory")
+	}
+	s, _, dir, _, _ := multiFileWorkspace(t)
+	ctx := context.Background()
+	sub := filepath.Join(dir, "models")
+	nested := filepath.Join(sub, "nested.sysml")
+	if err := os.Mkdir(sub, 0o750); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(nested, []byte("package Nested;\n"), 0o600); err != nil {
+		t.Fatalf("write nested: %v", err)
+	}
+	s.Rescan(ctx)
+	if s.ws.Document(nested) == nil {
+		t.Fatalf("rescan did not index %q", nested)
+	}
+
+	// The directory can be traversed and written and its file read, but not
+	// listed: the walk cannot say what it holds, so what was indexed there stays.
+	if err := os.Chmod(sub, 0o311); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(sub, 0o750) })
+	s.Rescan(ctx)
+	if s.ws.Document(nested) == nil {
+		t.Errorf("rescan dropped %q under a directory it could not list", nested)
+	}
+
+	// Its path is still known, so its deletion is still seen.
+	if err := os.Remove(nested); err != nil {
+		t.Fatalf("remove nested: %v", err)
+	}
+	s.Rescan(ctx)
+	if s.ws.Document(nested) != nil {
+		t.Errorf("rescan kept the deleted %q because its directory could not be listed", nested)
+	}
+}
+
+func TestFolderScanFollowsSymlinksOnlyWithinTheFolder(t *testing.T) {
+	outside := t.TempDir()
+	away := filepath.Join(outside, "away.sysml")
+	if err := os.WriteFile(away, []byte("package Away;\n"), 0o600); err != nil {
+		t.Fatalf("write away: %v", err)
+	}
+	s, _, dir, lib, _ := multiFileWorkspace(t)
+	escape := filepath.Join(dir, "escape.sysml")
+	alias := filepath.Join(dir, "alias.sysml")
+	if err := os.Symlink(away, escape); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := os.Symlink(lib, alias); err != nil {
+		t.Fatalf("symlink alias: %v", err)
+	}
+	ctx := context.Background()
+	s.Rescan(ctx)
+	if s.ws.Document(escape) != nil {
+		t.Errorf("indexed %q, a link out of the workspace", escape)
+	}
+	if s.ws.Document(alias) == nil {
+		t.Errorf("did not index %q, a link within the workspace", alias)
+	}
+
+	// A link out of the workspace that a watcher reported, and so was indexed
+	// by path, is dropped by the next rescan: the walk does not yield it.
+	if err := s.DidChangeWatchedFiles(ctx, &protocol.DidChangeWatchedFilesParams{
+		Changes: []*protocol.FileEvent{{URI: uri.File(escape), Type: protocol.FileChangeTypeCreated}},
+	}); err != nil {
+		t.Fatalf("DidChangeWatchedFiles err = %v", err)
+	}
+	if s.ws.Document(escape) == nil {
+		t.Fatalf("the watched creation of %q was not indexed", escape)
+	}
+	s.Rescan(ctx)
+	if s.ws.Document(escape) != nil {
+		t.Errorf("rescan kept %q, a link out of the workspace", escape)
 	}
 }
 

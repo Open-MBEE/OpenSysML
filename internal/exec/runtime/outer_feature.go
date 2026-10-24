@@ -16,9 +16,14 @@ func (ec *EvalContext) outerFeatureValue(sym *symbols.Symbol) (Value, bool, erro
 		if !ok {
 			continue
 		}
-		fv, err := inst.GetFeatureValue(ec.ctx, name)
+		fv, open, err := ec.memberFeatureValue(inst, name)
 		if err != nil {
 			return Value{}, true, err
+		}
+		// An object only the model stands behind holds, for a feature whose count
+		// the model leaves open, no fixed sequence of values.
+		if val, ok := ec.openFeatureRead(inst, fv, open, "", name); ok {
+			return val, true, nil
 		}
 		val, err := ec.ctx.readFeatureValue(fv, name)
 		if err != nil {

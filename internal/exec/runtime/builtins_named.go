@@ -38,17 +38,19 @@ func registerNamedOperatorBuiltins() {
 // expression as it was written, or the result of the parameterless body it is
 // or denotes.
 func (ec *EvalContext) evalDeferred(op string, val Value) (Value, error) {
-	if val.Kind != ValExpr {
+	val = soleElement(val)
+	if val.Kind != valExpr {
 		return val, nil
 	}
-	body, ok := val.Expr().(*ast.BodyExpr)
+	body, ok := val.expr().(*ast.BodyExpr)
 	if !ok {
 		denoted, err := ec.evalClosure(val)
-		if err != nil || denoted.Kind != ValExpr {
+		denoted = soleElement(denoted)
+		if err != nil || denoted.Kind != valExpr {
 			return denoted, err
 		}
-		if body, ok = denoted.Expr().(*ast.BodyExpr); !ok {
-			return Value{}, fmt.Errorf("%w: %s requires a value or a body expression, got %T", ErrTypeMismatch, op, denoted.Expr())
+		if body, ok = denoted.expr().(*ast.BodyExpr); !ok {
+			return Value{}, fmt.Errorf("%w: %s requires a value or a body expression, got %T", ErrTypeMismatch, op, denoted.expr())
 		}
 		val = denoted
 	}
@@ -62,13 +64,14 @@ func (ec *EvalContext) evalDeferred(op string, val Value) (Value, error) {
 // deferredCount is how many values evalDeferred would yield for val, as far as the
 // declarations fix that without evaluating it: `[0..*]` where they leave it open.
 func (ec *EvalContext) deferredCount(val Value) semantics.Range {
-	if val.Kind != ValExpr {
+	val = soleElement(val)
+	if val.Kind != valExpr {
 		return countOf(val)
 	}
 	env := val.exprEnv(ec)
-	body, ok := val.Expr().(*ast.BodyExpr)
+	body, ok := val.expr().(*ast.BodyExpr)
 	if !ok {
-		return ec.declaredCount(env.scope, val.Expr())
+		return ec.declaredCount(env.scope, val.expr())
 	}
 	if body.Result == nil || env.scope == nil {
 		return openRange()

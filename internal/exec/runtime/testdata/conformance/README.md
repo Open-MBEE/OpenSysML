@@ -69,6 +69,51 @@ top-level one is. `instantiate` names an instance case's type the same way.
   performance must fail with:
   `{"object": "test::plant", "slots": {"runs": {"type": "Integer", "value": 1}}}`.
   Omit for an action performed by no object.
+- `before`: qualified paths of actions performed to completion on the case's
+  runtime before its own, in order, for a case whose contract is that a
+  performance is unaffected by the ones before it — the clock they advanced,
+  the values they wrote. A path naming the case's own action is a prior
+  performance of it, and must yield the `outputs` too. Applies to an action case
+  run to completion by no object.
+
+### For Occurrences (`ExecuteOccurrence`)
+
+```json
+{
+  "type": "occurrence",
+  "evaluate": "Sequences::PubSubSequence",
+  "transfers": ["subscribe_message", "publish_message", "deliver_message"]
+}
+```
+
+An occurrence def or usage whose body states an interaction — usages (`part`,
+`item`, `port`, `occurrence`, `individual`) holding `event occurrence`s, ordered by
+`then`, and `message`s between those events — is performed as the transfers its
+messages are realized by (SysML v2.1 §7.16.1): the occurrence is materialized, and
+its nodes are visited in a topological order over the stated orders (declaration
+order breaking ties). At an event the messages reaching it are taken by the
+lifeline object holding it, the actions the event's body performs are performed
+on that object once per event, as many times as each perform's multiplicity
+states (an event reached by two messages performs them once), the
+constraints it asserts are checked on that object, and the messages leaving it are
+posted, typed by their payloads. A typed usage (`occurrence spinup : Spinup {
+ref part :>> c = ctrl; }`) inherits its def's lifelines, events and messages; an
+occurrence usage of a nested interaction (`occurrence shake : Handshake;`) is
+performed at its place in the order (declaration order among the events, where
+nothing orders them), its lifelines bound as the usage binds them, else to the
+outer lifelines of their names; an occurrence holding only such a use is an
+interaction too.
+
+- `evaluate`: the occurrence def or usage, by qualified name.
+- `transfers`: the messages realized, by name, in the order they were taken, a
+  nested interaction's among them.
+- `error`: text the run must fail with instead — an end naming no event of a
+  lifeline, orders forming a cycle, an asserted constraint that does not hold, an
+  interaction using itself.
+- The golden trace records each transfer as a `send` line at its source event and
+  an `accept` line at its target event, a `perform … at` line for each action an
+  event performs, an `assert at` line for each constraint it checks, and a
+  `perform occurrence` line where a nested interaction starts.
 
 ### For States (`ExecuteState`)
 
@@ -115,6 +160,10 @@ top-level one is. `instantiate` names an instance case's type the same way.
   object's usage plus the `events` / `finalState` / `stateVisits` / `outputs`
   expected of that object's performance:
   `{"object": "P::alpha", "finalState": "arrived", "stateVisits": ["start", "sending", "arrived"]}`.
+  An object may be a path from the usage into what it holds (`"test::scenario.tug.sup"`),
+  the usage instantiated and the path walked as `-state` and `performer_symbol_id` walk it;
+  an entry may state `error` in place of a result, the text that object's performance
+  must fail with (a machine a succession still holds).
   Omit for a machine performed by no object. Such a case may carry a golden
   trace too: it records each object's materialization followed by its own
   performance, in the order the performers are listed.
@@ -201,16 +250,27 @@ a case that hits it fails with a message telling the author to raise it:
   timeout; the referee's completion query still proves every run ends within N, so a
   budget too low fails the case rather than hiding behavior.
 
-- `exploreNotes`: optional; the coverage notes exploring the case must record,
-  each matched exactly and in canonical order — a schedule oracle's own
-  disclaimer about the orders it could not vary. Stating it explores the case
-  even without `outcomes`; the exact set it explores to is then asserted only
-  where the case also carries `outcomes` or `outputs`. Where the default budget
-  leaves that exploration incomplete, a case pairs `exploreNotes` with
-  `exploreBudget` for completeness only — a budget never changes a result's
-  standing.
+- `exploreGaps`: optional; the coverage gaps exploring the case must record,
+  by identifier (`runtime.CoverageGap`), each matched exactly and in canonical
+  order — the constructs whose orders the exploration could not vary, so it
+  reports itself incomplete short of them rather than complete. No construct
+  records one today, so no case states any; a case stating none must explore
+  complete. Stating it explores the case even without
+  `outcomes`; the exact set it explores to is then asserted only where the case
+  also carries `outcomes` or `outputs`. Where the default budget leaves that
+  exploration short, a case pairs `exploreGaps` with `exploreBudget` for the
+  budget only — a budget never changes a result's standing.
 
-`TestExecutionConformance` explores cases with `outcomes` or `exploreNotes`; the
+- `orderDependent`: optional; per output the default run holds at an
+  order-dependent value, the number of unresolved choice points touching it —
+  choice points whose alternatives write what another reads or writes, or meet
+  on the bus, as the run's result marks them (`x = 1 (order-dependent; 2 choice
+  points — explore shows the set)`). Stated, every other output must be touched
+  by none; `{}` asserts the run marks nothing, as a case whose open orders all
+  commute does. A case admitting several `outcomes` states it separately: the
+  marker is derived from the run's choice points, not from the outcomes admitted.
+
+`TestExecutionConformance` explores cases with `outcomes` or `exploreGaps`; the
 check corpus can also explore a single-result case with a `.check.expected.json`
 entry. The default schedule is deterministic, so a case with an admissible set
 still keeps its exact golden trace.
@@ -426,8 +486,8 @@ JSON number past 2^53 is read through a float64 that may round its digits.
 
 - `verdict`: the `VerdictKind` the run of the case's body produced — `pass` or
   `fail` as the library's `PassIf` calculation computed it, `inconclusive` for a
-  body that bound no verdict value, `error` for a body whose run could not be
-  carried out.
+  body that bound no verdict value or a case a definition owns with no object of
+  the definition to run on, `error` for a body whose run could not be carried out.
 - `verdictDetail`: text the verdict carries, matched as a substring — the
   message of an `error` verdict, or why an `inconclusive` one decided nothing.
 - `subcases`: the verdict of each verification case the body performs, by
@@ -571,6 +631,8 @@ Supported types:
   or any other feature the library declares unique and unordered
 - `Instance`: an object, whose identity a case does not pin (no `value`)
 - `Unset`: a valueless feature of a value type, holding no value (no `value`)
+- `Undetermined`: a value the model leaves open, optionally pinned to the count
+  it is undetermined of, as a JSON string (`{"type": "Undetermined", "value": "[1..*]"}`)
 - `Variant`: the name of the variant a variation feature is bound to, as a JSON
   string (`{"type": "Variant", "value": "cutIdeal"}`)
 - `EnumLiteral`: the enumeration literal a value is, written as the enumeration

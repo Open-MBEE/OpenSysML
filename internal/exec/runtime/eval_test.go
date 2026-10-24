@@ -199,6 +199,30 @@ func TestEval_QualifiedNameLookup(t *testing.T) {
 	}
 }
 
+// evalAttribute parses `attribute test = <src>;` and evaluates its value.
+func evalAttribute(t *testing.T, src string) Value {
+	t.Helper()
+	model, resolver, root := parseAndBuildModel(t, "attribute test = "+src+";")
+	ctx := NewContext(typedModel(model, resolver), 1000)
+	attrSym := resolveSymbol(t, root, "test")
+	attrDecl := attrSym.Decl.(*ast.Usage)
+	result, err := ctx.Eval(attrDecl.Value)
+	if err != nil {
+		t.Fatalf("Eval failed: %v", err)
+	}
+	return result
+}
+
+func assertBoolResult(t *testing.T, result Value, expected bool) {
+	t.Helper()
+	if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
+		t.Fatalf("expected bool, got %v", result)
+	}
+	if result.Const.Bool != expected {
+		t.Errorf("expected %v, got %v", expected, result.Const.Bool)
+	}
+}
+
 func TestEval_EqualityConst(t *testing.T) {
 	tests := []struct {
 		src      string
@@ -214,20 +238,7 @@ func TestEval_EqualityConst(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
-			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(typedModel(model, resolver), 1000)
-			attrSym := resolveSymbol(t, root, "test")
-			attrDecl := attrSym.Decl.(*ast.Usage)
-			result, err := ctx.Eval(attrDecl.Value)
-			if err != nil {
-				t.Fatalf("Eval failed: %v", err)
-			}
-			if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
-				t.Fatalf("expected bool, got %v", result)
-			}
-			if result.Const.Bool != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result.Const.Bool)
-			}
+			assertBoolResult(t, evalAttribute(t, tt.src), tt.expected)
 		})
 	}
 }
@@ -243,20 +254,7 @@ func TestEval_EqualityString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
-			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(typedModel(model, resolver), 1000)
-			attrSym := resolveSymbol(t, root, "test")
-			attrDecl := attrSym.Decl.(*ast.Usage)
-			result, err := ctx.Eval(attrDecl.Value)
-			if err != nil {
-				t.Fatalf("Eval failed: %v", err)
-			}
-			if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
-				t.Fatalf("expected bool, got %v", result)
-			}
-			if result.Const.Bool != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result.Const.Bool)
-			}
+			assertBoolResult(t, evalAttribute(t, tt.src), tt.expected)
 		})
 	}
 }
@@ -277,20 +275,7 @@ func TestEval_EqualityNull(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
-			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(typedModel(model, resolver), 1000)
-			attrSym := resolveSymbol(t, root, "test")
-			attrDecl := attrSym.Decl.(*ast.Usage)
-			result, err := ctx.Eval(attrDecl.Value)
-			if err != nil {
-				t.Fatalf("Eval failed: %v", err)
-			}
-			if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
-				t.Fatalf("expected bool, got %v", result)
-			}
-			if result.Const.Bool != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result.Const.Bool)
-			}
+			assertBoolResult(t, evalAttribute(t, tt.src), tt.expected)
 		})
 	}
 }
@@ -307,20 +292,7 @@ func TestEval_EqualityCrossKind(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
-			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(typedModel(model, resolver), 1000)
-			attrSym := resolveSymbol(t, root, "test")
-			attrDecl := attrSym.Decl.(*ast.Usage)
-			result, err := ctx.Eval(attrDecl.Value)
-			if err != nil {
-				t.Fatalf("Eval failed: %v", err)
-			}
-			if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
-				t.Fatalf("expected bool, got %v", result)
-			}
-			if result.Const.Bool != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result.Const.Bool)
-			}
+			assertBoolResult(t, evalAttribute(t, tt.src), tt.expected)
 		})
 	}
 }
@@ -337,20 +309,7 @@ func TestEval_LogicalAnd(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
-			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(typedModel(model, resolver), 1000)
-			attrSym := resolveSymbol(t, root, "test")
-			attrDecl := attrSym.Decl.(*ast.Usage)
-			result, err := ctx.Eval(attrDecl.Value)
-			if err != nil {
-				t.Fatalf("Eval failed: %v", err)
-			}
-			if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
-				t.Fatalf("expected bool, got %v", result)
-			}
-			if result.Const.Bool != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result.Const.Bool)
-			}
+			assertBoolResult(t, evalAttribute(t, tt.src), tt.expected)
 		})
 	}
 }
@@ -367,20 +326,7 @@ func TestEval_LogicalOr(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
-			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(typedModel(model, resolver), 1000)
-			attrSym := resolveSymbol(t, root, "test")
-			attrDecl := attrSym.Decl.(*ast.Usage)
-			result, err := ctx.Eval(attrDecl.Value)
-			if err != nil {
-				t.Fatalf("Eval failed: %v", err)
-			}
-			if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
-				t.Fatalf("expected bool, got %v", result)
-			}
-			if result.Const.Bool != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result.Const.Bool)
-			}
+			assertBoolResult(t, evalAttribute(t, tt.src), tt.expected)
 		})
 	}
 }
@@ -396,20 +342,7 @@ func TestEval_LogicalNot(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
-			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(typedModel(model, resolver), 1000)
-			attrSym := resolveSymbol(t, root, "test")
-			attrDecl := attrSym.Decl.(*ast.Usage)
-			result, err := ctx.Eval(attrDecl.Value)
-			if err != nil {
-				t.Fatalf("Eval failed: %v", err)
-			}
-			if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
-				t.Fatalf("expected bool, got %v", result)
-			}
-			if result.Const.Bool != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result.Const.Bool)
-			}
+			assertBoolResult(t, evalAttribute(t, tt.src), tt.expected)
 		})
 	}
 }
@@ -425,14 +358,7 @@ func TestEval_NegationArithmetic(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
-			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(typedModel(model, resolver), 1000)
-			attrSym := resolveSymbol(t, root, "test")
-			attrDecl := attrSym.Decl.(*ast.Usage)
-			result, err := ctx.Eval(attrDecl.Value)
-			if err != nil {
-				t.Fatalf("Eval failed: %v", err)
-			}
+			result := evalAttribute(t, tt.src)
 			if result.Kind != ValConst || result.Const.Kind != semantics.ValInt {
 				t.Fatalf("expected int, got %v", result)
 			}
@@ -453,14 +379,7 @@ func TestEval_NegationArithmeticRational(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
-			model, resolver, root := parseAndBuildModel(t, "attribute test = "+tt.src+";")
-			ctx := NewContext(typedModel(model, resolver), 1000)
-			attrSym := resolveSymbol(t, root, "test")
-			attrDecl := attrSym.Decl.(*ast.Usage)
-			result, err := ctx.Eval(attrDecl.Value)
-			if err != nil {
-				t.Fatalf("Eval failed: %v", err)
-			}
+			result := evalAttribute(t, tt.src)
 			if result.Kind != ValConst || result.Const.Kind != semantics.ValRational {
 				t.Fatalf("expected rational, got %v", result)
 			}

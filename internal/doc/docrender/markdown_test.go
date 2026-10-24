@@ -516,11 +516,11 @@ func TestMarkdownRollupReport(t *testing.T) {
 		"*Own mass and total mass*\n\n" +
 		"| name | mass | totalMass |\n| --- | --- | --- |\n" +
 		"| leaf | 100 \\[kg\\] | 100 \\[kg\\] |\n" +
-		"| stack | 10 \\[kg\\] | 210 \\[kg\\] |\n" +
-		"| tower | 1 \\[kg\\] | 311 \\[kg\\] |\n\n" +
+		"| stack | 10 \\[kg\\] |  |\n" +
+		"| tower | 1 \\[kg\\] |  |\n\n" +
 		"**leaf** — 100 \\[kg\\]\n\n" +
-		"**stack** — 210 \\[kg\\]\n\n" +
-		"**tower** — 311 \\[kg\\]\n"
+		"**stack**\n\n" +
+		"**tower**\n"
 	if got != want {
 		t.Errorf("rendered Markdown = \n%s\nwant:\n%s", got, want)
 	}

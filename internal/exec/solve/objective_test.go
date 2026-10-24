@@ -356,29 +356,29 @@ func TestDerivedAnalysisObjectivesRedefineByPosition(t *testing.T) {
 			require constraint { cost >= 1 and cost <= 9 }
 			require constraint { margin >= 0 and margin <= cost }
 			objective cheapest : MinimizeObjective;
-			objective widestMargin : MaximizeObjective;
+			analysis thenMargin { objective widestMargin : MaximizeObjective; }
 		}
 		analysis def Derived :> Base {
 			objective { in calc :>> eval { cost + 1 } }
-			objective { in calc :>> eval { margin } }
+			analysis :>> thenMargin { objective { in calc :>> eval { margin } } }
 		}
 		analysis d : Base {
 			objective { in calc :>> eval { cost + 1 } }
-			objective { in calc :>> eval { margin } }
+			analysis :>> thenMargin { objective { in calc :>> eval { margin } } }
 		}
 		analysis def Mid :> Base { objective { in calc :>> eval { cost } } }
 		analysis def ViaMid :> Mid {
 			objective { in calc :>> eval { cost + 1 } }
-			objective { in calc :>> eval { margin } }
+			analysis :>> thenMargin { objective { in calc :>> eval { margin } } }
 		}
 		analysis viaMid : Mid {
 			objective { in calc :>> eval { cost + 1 } }
-			objective { in calc :>> eval { margin } }
+			analysis :>> thenMargin { objective { in calc :>> eval { margin } } }
 		}
 	}`)
 	for _, name := range []string{"test::Derived", "test::d", "test::ViaMid", "test::viaMid"} {
 		sym := symbolNamed(t, idx, name)
-		objectives := ctx.ObjectivesOf(sym, sym.OwnerScope)
+		objectives := ctx.OptimizationObjectivesOf(sym, sym.OwnerScope)
 		if len(objectives) != 2 {
 			t.Fatalf("%s states %d objectives, want its 2 restatements: %+v", name, len(objectives), objectives)
 		}
@@ -418,12 +418,12 @@ func TestPositionalObjectivesInheritValues(t *testing.T) {
 			require constraint { cost >= 1 and cost <= 9 }
 			require constraint { margin >= 0 and margin <= cost }
 			objective cheapest : MinimizeObjective { in calc :>> eval { cost } }
-			objective widestMargin : MaximizeObjective { in calc :>> eval { margin } }
+			analysis thenMargin { objective widestMargin : MaximizeObjective { in calc :>> eval { margin } } }
 		}
 		analysis def Derived :> Base { objective; }
 		analysis def Twice :> Derived {
 			objective;
-			objective { in calc :>> eval { margin - 1 } }
+			analysis :>> thenMargin { objective { in calc :>> eval { margin - 1 } } }
 		}
 		analysis d : Twice { objective : MinimizeObjective; }
 	}`)
@@ -433,7 +433,7 @@ func TestPositionalObjectivesInheritValues(t *testing.T) {
 		"test::d":       {"(minimize |test::Base::cost|)", "(maximize (- |test::Base::margin| 1))"},
 	} {
 		sym := symbolNamed(t, idx, name)
-		if objectives := ctx.ObjectivesOf(sym, sym.OwnerScope); len(objectives) != 2 || objectives[0].Name != "cheapest" || objectives[1].Name != "widestMargin" {
+		if objectives := ctx.OptimizationObjectivesOf(sym, sym.OwnerScope); len(objectives) != 2 || objectives[0].Name != "cheapest" || objectives[1].Name != "widestMargin" {
 			t.Fatalf("%s states %+v, want cheapest then widestMargin", name, objectives)
 		}
 		q, err := Analysis(ctx, sym, sym.OwnerScope)
@@ -446,6 +446,25 @@ func TestPositionalObjectivesInheritValues(t *testing.T) {
 				t.Errorf("%s script states %q %d times, want once:\n%s", name, line, strings.Count(script, line), script)
 			}
 		}
+	}
+}
+
+// TestNestedStageConditionsAreTranslated: the conditions a nested analysis states
+// are part of the script, after the enclosing case's and before the objectives.
+func TestNestedStageConditionsAreTranslated(t *testing.T) {
+	ctx, idx := fixtureFile(t, "objectives.sysml")
+	sym := symbolNamed(t, idx, "test::CostThenBoundedMargin")
+	q, err := Analysis(ctx, sym, sym.OwnerScope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := Script(q)
+	bound := strings.Index(script, "(<= |test::CostThenBoundedMargin::margin| 2)")
+	if bound < 0 {
+		t.Fatalf("the nested stage's condition is not translated:\n%s", script)
+	}
+	if strings.Index(script, "(minimize ") < bound {
+		t.Errorf("the nested stage's condition follows an objective:\n%s", script)
 	}
 }
 

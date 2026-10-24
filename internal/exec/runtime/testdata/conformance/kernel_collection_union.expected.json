@@ -1,0 +1,18 @@
+{
+  "type": "instance",
+  "instantiate": "test::Hull",
+  "libraries": true,
+  "slots": {
+    "timeEnclosed": {"type": "Integer", "value": 3},
+    "selfFirst": {"type": "Boolean", "value": true},
+    "portsFollow": {"type": "Boolean", "value": true},
+    "spaceTimeEnclosed": {"type": "Integer", "value": 1},
+    "slices": {"type": "Integer", "value": 1},
+    "portEnclosed": {"type": "Integer", "value": 1},
+    "partEnclosed": {"type": "Integer", "value": 1},
+    "timeEnclosedOccurrences": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}]},
+    "timeSlices": {"type": "Sequence", "elements": [{"type": "Instance"}]},
+    "q1.timeEnclosedOccurrences": {"type": "Sequence", "elements": [{"type": "Instance"}]},
+    "pa.timeEnclosedOccurrences": {"type": "Sequence", "elements": [{"type": "Instance"}]}
+  }
+}

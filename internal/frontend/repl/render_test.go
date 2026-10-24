@@ -62,7 +62,7 @@ func TestRenderDiagnostics(t *testing.T) {
 	out := renderDiagnostics(r.Diagnostics, r.Source, r.diagLocation, false)
 	joined := strings.Join(out, "\n")
 	// Expect: a "line:col: severity: message" header and a caret line.
-	if !strings.Contains(joined, "error:") && !strings.Contains(joined, "warning:") {
+	if !strings.Contains(joined, "error[") && !strings.Contains(joined, "warning[") {
 		t.Errorf("missing severity header: %q", joined)
 	}
 	if !strings.Contains(joined, "^") {
@@ -89,7 +89,7 @@ func TestNotationErrorKeepsTheDeclaredSummary(t *testing.T) {
 	s.Submit("package Q { part def A; }")
 	r := s.Submit("package P { import Q::*; part def X; }")
 	found, declared := renderSplit(r, s.verbosity)
-	if !strings.Contains(strings.Join(found, "\n"), "error:") {
+	if !strings.Contains(strings.Join(found, "\n"), "error[import-visibility]:") {
 		t.Fatalf("the bare import produced no error to report: %q", found)
 	}
 	if !strings.Contains(strings.Join(declared, "\n"), "package P") {

@@ -63,8 +63,8 @@ func (e Entry) Validate() error {
 		return fmt.Errorf("entry %s: no derivation from %s is written down", e.ID, e.Citation)
 	case e.Corrected == e.AsPublished:
 		return fmt.Errorf("entry %s: the correction repeats the published text", e.ID)
-	case strings.Contains(e.AsPublished, "\n") || strings.Contains(e.Corrected, "\n"):
-		return fmt.Errorf("entry %s: an entry covers one line", e.ID)
+	case strings.Contains(e.AsPublished, "\n"):
+		return fmt.Errorf("entry %s: an entry covers one published line", e.ID)
 	}
 	return nil
 }
@@ -165,17 +165,58 @@ func LibraryEntries() []Entry {
 		Corrected:   "        private attribute zeroDegreeFahrenheitInKelvin: ThermodynamicTemperatureValue = (229835/900) [K];",
 		Citation:    sysmlUnitArithmetic,
 		Derivation:  "the unit postfix binds to PrimaryExpression (KerMLExpressions.xtext:308), below MultiplicativeExpression, so `[K]` qualifies 900 alone and the value is Θ^-1 where ThermodynamicTemperatureValue is Θ; the evident intent, 0 °F as a temperature in kelvin, is `(229835/900) [K]`.",
+	}, {
+		ID:          "Flows-46",
+		Heading:     "`Flows::Message` inherits `Transfer::source` and `Transfer::target`, KerML features, as its flow ends",
+		Path:        flowsPath,
+		Line:        46,
+		AsPublished: "        ref payload :>> MessageAction::payload, Transfer::payload;",
+		Corrected: "        ref payload :>> MessageAction::payload, Transfer::payload;\n" +
+			"        \n" +
+			"        end occurrence source: Occurrence :>> Transfer::source;\n" +
+			"        end occurrence target: Occurrence :>> Transfer::target;",
+		Citation:   sysmlFlowEnd,
+		Derivation: flowsDerivation,
+	}, {
+		ID:          "Flows-99",
+		Heading:     "`Flows::messages` is a flow usage whose ends are `Transfer::source` and `Transfer::target`",
+		Path:        flowsPath,
+		Line:        99,
+		AsPublished: "    abstract message messages: Message[0..*] nonunique :> transfers, actions {",
+		Corrected:   "    abstract action messages: Message[0..*] nonunique :> transfers, actions {",
+		Citation:    sysmlFlowEnd,
+		Derivation:  flowsDerivation,
+	}, {
+		ID:          "Flows-103",
+		Heading:     "`Flows::messages` owns no ends redefining `Message::source` and `Message::target`",
+		Path:        flowsPath,
+		Line:        103,
+		AsPublished: "         */",
+		Corrected: "         */\n" +
+			"         \n" +
+			"        end occurrence source: Occurrence :>> Message::source, transfers::source;\n" +
+			"        end occurrence target: Occurrence :>> Message::target, transfers::target;",
+		Citation:   sysmlFlowEnd,
+		Derivation: flowsDerivation,
 	}}
 }
 
 const siPath = LibraryRoot + "/Domain Libraries/Quantities and Units/SI.sysml"
+
+// flowsPath is the Systems Library file declaring Flows::Message and Flows::messages.
+const flowsPath = LibraryRoot + "/Systems Library/Flows.sysml"
 
 // The clauses the published defects violate.
 const (
 	sysmlUnitArithmetic = "SysML v2 §9.8.9.1"
 	kermlFeatureValue   = "KerML 7.4.9"
 	kermlImportHiding   = "KerML 7.2.5.4"
+	sysmlFlowEnd        = "SysML v2.1 Beta 2 §8.3.16.2"
 )
+
+// flowsDerivation is the derivation the three Flows.sysml entries share: one
+// defect, repaired as the pilot's master branch repairs it.
+const flowsDerivation = "§8.3.16.2 types `flowEnd : Usage [0..*] {redefines associationEnd}`, so every end feature of a flow definition, inherited ones included, is a Usage. Published, `Message` owns no ends and inherits `Transfer::source` and `Transfer::target`, KerML features, so the library's own base flow definition violates the clause, and with it every `flow def` that specializes `Message` without ends of its own. The repair is the one OMG issue SYSML21-681 and the pilot's ST6RI-974 apply: `Message` gets owned occurrence usage ends redefining `Transfer::source`/`target`, `messages` becomes an action usage (a flow definition is an action definition, so `Message` types it still) and owns ends redefining `Message::source`/`target` and `transfers::source`/`target`."
 
 // Overlay is a registry indexed by file, ready to apply.
 type Overlay struct {
@@ -289,17 +330,25 @@ func ApplyAll(entries []Entry, content []byte) ([]byte, error) {
 			return nil, fmt.Errorf("%s: %s:%d reads %q, the entry records %q", entry.ID, entry.Path, entry.Line, got, entry.AsPublished)
 		}
 	}
-	changed := false
+	corrected := map[int]string{}
 	for _, entry := range entries {
 		if entry.Corrects() {
-			lines[entry.Line-1] = entry.Corrected
-			changed = true
+			corrected[entry.Line-1] = entry.Corrected
 		}
 	}
-	if !changed {
+	if len(corrected) == 0 {
 		return content, nil
 	}
-	return []byte(strings.Join(lines, "\n")), nil
+	out := make([]string, 0, len(lines))
+	for i, line := range lines {
+		if replacement, ok := corrected[i]; ok {
+			// A correction may replace the one published line by several.
+			out = append(out, strings.Split(replacement, "\n")...)
+			continue
+		}
+		out = append(out, line)
+	}
+	return []byte(strings.Join(out, "\n")), nil
 }
 
 // SortedPaths returns the keys of an Under result in order.

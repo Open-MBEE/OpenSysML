@@ -111,7 +111,7 @@ package Readings {
 }
 ```
 ```
-readings.sysml:4:41: error: 1 (an Integer) is written at positions 1 and 2 of a unique feature
+readings.sysml:4:41: error[unique-feature-values]: 1 (an Integer) is written at positions 1 and 2 of a unique feature
 ```
 The check reports a repeat it can decide from the text; one that only appears when the model runs
 — a value reaching a feature through another feature, an `assign`, a calc's argument or result —
@@ -203,9 +203,15 @@ from a feature declared `Even` is kept, the declaration being what states it is 
 `Positive` are read the same way: their bounds refuse `-1` and `0`, and `7 as Natural` on a bare
 integer is reported, while `n as Natural` on `attribute n : Natural = 7` keeps `7`.
 
-**The unbounded value:** `*` is a value of its own, not a large number. It exceeds every finite
-number, equals itself and prints as `*`; arithmetic over it is refused with an error naming the
-operator.
+**The unbounded value:** `*` is a value of its own, not a large number (KerML types it as a
+`Positive` greater than all the integers). It exceeds every finite number, equals itself and prints
+as `*`, and whatever that ordering decides is answered, in the operator notation and the function
+notation alike: `* > 1`, `'>'(*, 1)`, `* == *`, `max(*, 1)` (`*`), `min(*, 1)` (`1`), `abs(*)`,
+`ToString(*)` (`"*"`) and unary `+`. Beside a feature the model leaves open, `max(*, u)` is still `*`
+and the ordering stays open. The Kernel Function Library defines no arithmetic result over
+it, so `+`, `-`, `*`, `/`, `%`, `**`, `^`, unary `-`, `..`, `sum` and `product` over `*` are well
+typed — the checker accepts them, as the pilot does — and evaluating one is an error naming the
+operator, as a division by zero is.
 
 ```sysml
 sysml> package Budget {
@@ -319,17 +325,17 @@ sysml> package Orbit {
 
 sysml> %calc Orbit::velocity(9.80665 [SI::'m⋅s⁻²'], 311 [SI::s])
 ✓ Orbit::velocity(9.80665 [SI::'m⋅s⁻²'], 311 [SI::s])
-  = 3049.86815 [SI::'m/s']
+  = [3049.86815 [SI::'m/s']]
   standing: value (observed: 1 run under reverse)
 
 sysml> %calc Orbit::orbital(3.986E14 [Orbit::'m³⋅s⁻²'], 6563 [SI::km])
 ✓ Orbit::orbital(3.986E14 [Orbit::'m³⋅s⁻²'], 6563 [SI::km])
-  = 7793.229127559948 [SI::'m/s']
+  = [7793.229127559948 [SI::'m/s']]
   standing: value (observed: 1 run under reverse)
 
 sysml> %calc Orbit::perMass(10 [SI::N], 2 [SI::kg])
 ✓ Orbit::perMass(10 [SI::N], 2 [SI::kg])
-  = 5.0 [SI::'m⋅s⁻²']
+  = [5.0 [SI::'m⋅s⁻²']]
   standing: value (observed: 1 run under reverse)
 ```
 
@@ -506,7 +512,7 @@ sysml> calc distance {
 
 sysml> %calc distance 3 4
 ✓ distance(3, 4)
-  = 25
+  = [25]
   standing: value (observed: 1 run under reverse)
 ```
 
@@ -576,7 +582,7 @@ sysml> package Gains {
 
 sysml> %calc Gains::Apply(Gains::square, 3.0)
 ✓ Gains::Apply(Gains::square, 3.0)
-  = 9.0
+  = [9.0]
   standing: value (observed: 1 run under reverse)
 
 sysml> %eval Gains::square

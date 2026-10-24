@@ -1,0 +1,24 @@
+step 1: token 1@split
+step 2: token 2@a, token 3@b
+stmt assign x
+  eval literal 1 -> 1
+stmt assign x
+  eval literal 2 -> 2
+choice step 3: writes x := 1 by token 2, x := 2 by token 3 (unordered; x := 2 by token 3 stood; order-dependent: x)
+choice step 3: tokens 2@a, 3@b (unordered; took 2@a first; order-dependent: x)
+step 3: token 2@sync, token 3@sync
+step 4: token 4@sender
+stmt send
+  eval feature x -> 2
+materialize: Reading #1
+step 5: token 4@receiver
+step 6: token 4@keep
+stmt assign total
+      eval feature msg -> (instance#1)
+    eval chain level -> (2)
+    eval literal 10 -> 10
+  eval operator + -> 12
+stmt assign count
+  eval literal 1 -> 1
+step 7: token 4@done
+step 8: no active tokens

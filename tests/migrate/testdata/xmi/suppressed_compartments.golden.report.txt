@@ -1,0 +1,26 @@
+# SysML v1 to v2 migration report: suppressed_compartments.xmi
+# exported by Example UML Tool
+# migrated 13 element(s): 13 mapped, 0 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 1 of 1 diagrams from the diagrams' own symbol streams: 4 elements positioned, 0 connectors routed, 0 styled, 0 notes
+
+## layout
+# source: the diagrams' own symbol streams
+# 1 views laid out from their own symbol stream, 0 without layout
+# placements: 4 of 5 written (0 not exposed, 0 resolving to no element); routes: 0 of 0 written (0 not pinned, 0 resolving to no element); malformed: 0
+# styles: 0 of 0 written; notes: 0 written (0 anchored, 0 freed of an anchor the view does not lay out)
+# compartments suppressed: 8 on 2 symbols
+# unsupported presentation properties, dropped: SUPPRESS_STRUCTURE (2)
+
+## mapped (13)
+Model	Model	_m	-> Model	(written as package Model)
+Package	Optics	_pkg_optics	-> Model::Optics
+«Block» Class	Optics::Camera	_blk_camera	-> Model::Optics::Camera
+Diagram	Optics::Camera BDD	_diag_bdd	-> Model::Optics::'Camera BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 6 of 10 shown elements are compartment rows or end labels of exposed elements, not exposed; laid out from the diagram's own symbol stream: 4 of 5 shown elements positioned, 0 of 0 connectors routed)
+Operation	Optics::Camera::capture	_op_capture	-> Model::Optics::Camera::capture	(written as an action usage of Optics::Camera, which a call on an object performs, so its body runs on the object and reaches its features)
+Port	Optics::Camera::data	_port_data	-> Model::Optics::Camera::data
+Property	Optics::Camera::lens	_prop_lens	-> Model::Optics::Camera::lens
+Property	Optics::Camera::mount	_prop_mount	-> Model::Optics::Camera::mount
+Property	Optics::Camera::resolution	_prop_resolution	-> Model::Optics::Camera::resolution
+«Block» Class	Optics::Lens	_blk_lens	-> Model::Optics::Lens
+Property	Optics::Lens::focalLength	_prop_focal	-> Model::Optics::Lens::focalLength
+«Block» Class	Optics::Mount	_blk_mount	-> Model::Optics::Mount
+Property	Optics::Mount::thread	_prop_thread	-> Model::Optics::Mount::thread

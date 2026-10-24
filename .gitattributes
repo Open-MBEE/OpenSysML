@@ -1,0 +1,27 @@
+# Generated stubs and the fixtures tests compare against: GitHub collapses them in
+# diffs and leaves them out of the language statistics. Hand-maintained prose,
+# docs/project/spec-compliance.md included, is not listed here.
+
+# Protobuf and Connect stubs
+api/proto/*.pb.go                                linguist-generated=true
+api/proto/**/*.connect.go                        linguist-generated=true
+client/node/src/generated/**                     linguist-generated=true
+client/python/opensysml/proto/**                 linguist-generated=true
+client/python/opensysml/metamodel/_generated.py  linguist-generated=true
+client/rust/opensysml/src/proto/**               linguist-generated=true
+client/rust/conformance/*.binpb                  linguist-generated=true -diff
+
+# Golden files and expected outputs
+tests/**/*.golden.*                              linguist-generated=true
+tests/**/*.expected.json                         linguist-generated=true
+internal/**/testdata/**/*.golden.*               linguist-generated=true
+internal/**/testdata/**/*.expected.json          linguist-generated=true
+tests/export/testdata/**/*.ttl                   linguist-generated=true
+tests/export/testdata/**/*.json                  linguist-generated=true
+tests/export/testdata/**/*.json.gz               linguist-generated=true -diff
+tests/export/testdata/**/*.sha256                linguist-generated=true
+
+# Measured baselines and binary build inputs
+docs/project/*-baseline.json                     linguist-generated=true
+internal/workspace/libs/stdlib.snapshot          linguist-generated=true -diff
+cmd/*/default.pgo                                linguist-generated=true -diff

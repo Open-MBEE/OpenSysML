@@ -186,7 +186,7 @@ func TestMismatchCaretOnlyForTypedOperator(t *testing.T) {
 func TestDeclarationCaretCountsPrintedCells(t *testing.T) {
 	lines := renderResult(NewSession().Submit("attribute αβ = 1 +"), VerbosityNormal)
 	got := strings.Join(lines, "\n")
-	for _, want := range []string{"1:11: error:", "attribute αβ = 1 +", "          ^~"} {
+	for _, want := range []string{"1:11: error[syntax]:", "attribute αβ = 1 +", "          ^~"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected %q in output:\n%s", want, got)
 		}

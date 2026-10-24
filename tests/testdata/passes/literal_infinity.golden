@@ -1,0 +1,5 @@
+10:26 error [type/binding-connector-type-conformance] cannot bind Natural value to a feature typed by Boolean
+11:25 error [type/binding-connector-type-conformance] cannot bind Natural value to a feature typed by String
+12:16 error [type/binding-connector-type-conformance] cannot bind Natural value to a feature typed by PD
+13:26 error [type/binding-connector-type-conformance] cannot bind Natural value to a feature typed by Level
+22:31 error [type/feature-value-count] 1 value(s) bound to a feature with multiplicity lower bound 2

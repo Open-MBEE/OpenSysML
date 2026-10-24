@@ -1,0 +1,210 @@
+package runtime
+
+import (
+	"errors"
+	"strings"
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+)
+
+// TestRuntimeRobustnessVerification covers verification cases whose bodies, objectives or
+// verdicts cannot be produced.
+func TestRuntimeRobustnessVerification(t *testing.T) {
+	t.Run("verification_body_that_cannot_run", testVerificationBodyThatCannotRun)
+	t.Run("verification_body_step_that_fails", testVerificationBodyStepThatFails)
+	t.Run("verification_subcase_that_cannot_run", testVerificationSubcaseThatCannotRun)
+	t.Run("verification_of_a_symbol_that_is_not_a_case", testVerificationOfASymbolThatIsNotACase)
+	t.Run("verification_with_an_argument_the_case_does_not_take", testVerificationWithAnArgumentTheCaseDoesNotTake)
+	t.Run("verification_objective_subject_of_another_type", testVerificationObjectiveSubjectOfAnotherType)
+	t.Run("verification_objective_subject_left_unbound", testVerificationObjectiveSubjectLeftUnbound)
+	t.Run("verification_objective_subject_rebound", testVerificationObjectiveSubjectRebound)
+}
+
+// testVerificationBodyThatCannotRun: a body whose subject nothing binds is the
+// case's error verdict carrying the typed error, not a failed call and not a
+// panic.
+func testVerificationBodyThatCannotRun(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, verificationRobustnessModel))
+	scope := idx.DocumentRoot("<test>")
+	result, err := ctx.RunVerification(lookupOne(t, idx, "test::Unbound"), AnalysisArgs{}, scope, nil)
+	if err != nil {
+		t.Fatalf("RunVerification error = %v, want an error verdict", err)
+	}
+	if result.Verdict.Kind != verdictError {
+		t.Fatalf("verdict = %q, want error", result.Verdict.Kind)
+	}
+	if !strings.Contains(result.Verdict.Detail, "sensor") {
+		t.Errorf("verdict detail %q does not name the unbound subject", result.Verdict.Detail)
+	}
+}
+
+// testVerificationBodyStepThatFails: a step that fails at run time — an action
+// performed with an input nothing binds — ends the run in the same error verdict.
+func testVerificationBodyStepThatFails(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, verificationRobustnessModel))
+	scope := idx.DocumentRoot("<test>")
+	result, err := ctx.RunVerification(lookupOne(t, idx, "test::stepping"), AnalysisArgs{}, scope, nil)
+	if err != nil {
+		t.Fatalf("RunVerification error = %v, want an error verdict", err)
+	}
+	if result.Verdict.Kind != verdictError {
+		t.Fatalf("verdict = %q (%s), want error", result.Verdict.Kind, result.Verdict.Detail)
+	}
+	if !strings.Contains(result.Verdict.Detail, "adder") {
+		t.Errorf("verdict detail %q does not name the step that failed", result.Verdict.Detail)
+	}
+}
+
+// testVerificationSubcaseThatCannotRun: a performed subcase whose input nothing
+// binds ends the performing case's run, so its verdict is the error naming the
+// subcase and the reason rather than a verdict of the body it never finished.
+func testVerificationSubcaseThatCannotRun(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, verificationRobustnessModel))
+	scope := idx.DocumentRoot("<test>")
+	result, err := ctx.RunVerification(lookupOne(t, idx, "test::plan"), AnalysisArgs{}, scope, nil)
+	if err != nil {
+		t.Fatalf("RunVerification error = %v, want an error verdict", err)
+	}
+	if result.Verdict.Kind != verdictError {
+		t.Fatalf("verdict = %q (%s), want error", result.Verdict.Kind, result.Verdict.Detail)
+	}
+	for _, want := range []string{"sub", "threshold"} {
+		if !strings.Contains(result.Verdict.Detail, want) {
+			t.Errorf("verdict detail %q does not name %q", result.Verdict.Detail, want)
+		}
+	}
+	if len(result.Subcases) != 0 {
+		t.Errorf("subcase verdicts = %v, want none from a body that did not finish", result.Subcases)
+	}
+}
+
+// testVerificationOfASymbolThatIsNotACase: asking a part for a verdict faults
+// the request, which is an error rather than a verdict.
+func testVerificationOfASymbolThatIsNotACase(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, verificationRobustnessModel))
+	scope := idx.DocumentRoot("<test>")
+	_, err := ctx.RunVerification(lookupOne(t, idx, "test::Sensor"), AnalysisArgs{}, scope, nil)
+	if !errors.Is(err, errNotAVerification) {
+		t.Fatalf("error = %v, want errNotAVerification", err)
+	}
+}
+
+// testVerificationWithAnArgumentTheCaseDoesNotTake: a named argument no
+// parameter of the case declares faults the request too.
+func testVerificationWithAnArgumentTheCaseDoesNotTake(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, verificationRobustnessModel))
+	scope := idx.DocumentRoot("<test>")
+	args := AnalysisArgs{Named: map[string]Value{"nope": integerValue(1)}}
+	_, err := ctx.RunVerification(lookupOne(t, idx, "test::stepping"), args, scope, nil)
+	if !errors.Is(err, errUnknownParameter) {
+		t.Fatalf("error = %v, want errUnknownParameter", err)
+	}
+}
+
+// testVerificationObjectiveSubjectOfAnotherType: the case's subject, a Lander, is
+// what the library binds the objective's subject to, so a requirement wanting a
+// Rover leaves the objective undecided by a typed mismatch naming both types,
+// while the body still answers.
+func testVerificationObjectiveSubjectOfAnotherType(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, verificationObjectiveModel))
+	scope := idx.DocumentRoot("<test>")
+	result, err := ctx.RunVerification(lookupOne(t, idx, "test::checkRover"), AnalysisArgs{}, scope, nil)
+	if err != nil {
+		t.Fatalf("RunVerification error = %v, want the body's verdict", err)
+	}
+	if result.Verdict.Kind != VerdictPass {
+		t.Fatalf("verdict = %q (%s), want pass", result.Verdict.Kind, result.Verdict.Detail)
+	}
+	if len(result.Run.Verdicts) != 1 || result.Run.Verdicts[0].Status != VerdictUndecided {
+		t.Fatalf("verdicts = %+v, want the objective undecided", result.Run.Verdicts)
+	}
+	detail := result.Run.Verdicts[0].Detail
+	for _, want := range []string{"subject rover", "case's subject", "VerificationCases::VerificationCase::obj", ErrTypeMismatch.Error(), "Lander", "is not a Rover"} {
+		if !strings.Contains(detail, want) {
+			t.Errorf("detail %q does not say %q", detail, want)
+		}
+	}
+	if strings.Contains(detail, "Cases::Case::obj") || strings.Contains(detail, "result") {
+		t.Errorf("detail %q reports the analysis case's default, not the verification's binding", detail)
+	}
+}
+
+// testVerificationObjectiveSubjectLeftUnbound: a verification binding no subject
+// is refused by the typed error naming the verification's subject, not the
+// objective's, on the run surface as on the verdict surface.
+func testVerificationObjectiveSubjectLeftUnbound(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, verificationObjectiveModel))
+	scope := idx.DocumentRoot("<test>")
+	sym := lookupOne(t, idx, "test::checkNothing")
+	_, err := ctx.RunAnalysis(sym, AnalysisArgs{}, scope, nil)
+	var unbound *subjectUnboundError
+	if !errors.As(err, &unbound) {
+		t.Fatalf("RunAnalysis error = %v, want an subjectUnboundError", err)
+	}
+	if unbound.Kind != "verification" || unbound.Element != "test::checkNothing" || unbound.Subject != "lander" {
+		t.Errorf("error names %s %s: %s, want verification test::checkNothing: lander", unbound.Kind, unbound.Element, unbound.Subject)
+	}
+	result, err := ctx.RunVerification(sym, AnalysisArgs{}, scope, nil)
+	if err != nil {
+		t.Fatalf("RunVerification error = %v, want an error verdict", err)
+	}
+	if result.Verdict.Kind != verdictError || result.Verdict.Detail != unbound.Error() {
+		t.Errorf("verdict = %q (%s), want error carrying %q", result.Verdict.Kind, result.Verdict.Detail, unbound.Error())
+	}
+}
+
+// testVerificationObjectiveSubjectRebound: the library binds a verification
+// objective's subject with `=`, so a usage binding it itself is refused by the
+// constraint tier, whichever way it names the subject.
+func testVerificationObjectiveSubjectRebound(t *testing.T) {
+	const src = `
+		package test {
+			private import ScalarValues::*;
+			part def Lander { attribute touchdownSpeed : Real; }
+			part scout : Lander { attribute :>> touchdownSpeed = 1.2; }
+			part other : Lander { attribute :>> touchdownSpeed = 1.3; }
+
+			requirement def SoftLanding {
+				subject lander : Lander;
+				require constraint { lander.touchdownSpeed <= 1.5 }
+			}
+
+			verification def Named {
+				subject lander : Lander;
+				objective : SoftLanding { subject lander = other; }
+				VerificationCases::PassIf(lander.touchdownSpeed <= 1.5)
+			}
+			verification def Anonymous {
+				subject lander : Lander;
+				objective : SoftLanding { subject = other; }
+				VerificationCases::PassIf(lander.touchdownSpeed <= 1.5)
+			}
+			verification def Redefining {
+				subject lander : Lander;
+				objective : SoftLanding { subject :>> subj = other; }
+				VerificationCases::PassIf(lander.touchdownSpeed <= 1.5)
+			}
+		}
+	`
+	file := parseAndBuild(t, src)
+	idx := libs.NewModelIndex()
+	idx.AddDocument("<test>", file)
+	idx.ExpandWildcardImports()
+	var refusals []string
+	for _, d := range passes.Analyze("<test>", file, nil, idx) {
+		if d.Code == "feature-value-overriding" && d.Severity == diag.SeverityError {
+			refusals = append(refusals, d.Message)
+		}
+	}
+	if len(refusals) != 3 {
+		t.Fatalf("got %d refusals, want one per rebinding: %v", len(refusals), refusals)
+	}
+	for _, msg := range refusals {
+		if !strings.Contains(msg, "cannot override the binding value of VerificationCases::VerificationCase::obj::subj") {
+			t.Errorf("refusal %q does not name the library's binding", msg)
+		}
+	}
+}

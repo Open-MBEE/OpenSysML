@@ -17,7 +17,7 @@ const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformanc
             "type" => "Demo::Part", "detail" => "detail", "text" => "text", "standIn" => true,
             "ports" => [Dict("id" => "n0.0", "name" => "api", "type" => "Demo::API", "direction" => "inout")],
             "origin" => Dict("file" => "views.sysml", "startLine" => 4),
-            "geometry" => Dict("x" => 1, "y" => 2, "width" => 3, "height" => 4, "hasSize" => true, "collapsed" => true),
+            "geometry" => Dict("x" => 1, "y" => 2, "width" => 3, "height" => 4, "hasSize" => true, "collapsed" => true, "unplaced" => true),
             "style" => Dict("fill" => "#fff", "fontSize" => 12, "bold" => true, "italic" => true),
         )],
         "edges" => [Dict("from" => "n0", "to" => "n1", "fromPort" => "n0.0",
@@ -36,6 +36,7 @@ const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformanc
     @test rendered.nodes[1].ports[1].direction == "inout"
     @test rendered.nodes[1].origin.start_line == 4
     @test rendered.nodes[1].geometry.collapsed
+    @test rendered.nodes[1].geometry.unplaced
     @test rendered.nodes[1].style.font_size == 12
     @test rendered.edges[1].from_port == "n0.0"
     @test rendered.edges[1].route[1].x == 2
@@ -54,6 +55,53 @@ const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformanc
     @test isnothing(sparse.edges[1].style)
     @test isnothing(sparse.rows[1].origin)
     @test isnothing(sparse.notes[1].origin)
+end
+
+@testset "tool dry run decoder reads the preview field by field" begin
+    preview = ToolDryRun(Dict{String,Any}(
+        "action" => "Demo::compute", "tool" => "octave", "version" => "8.4",
+        "manifest" => "/tools/octave.json", "executable" => "/usr/bin/octave",
+        "protocol" => "stdio", "args" => Any["--eval", "run"], "env" => Any["HOME=/tmp"],
+        "cwd" => "/tmp/run", "stdin" => "data", "stdinData" => "x = 1",
+        "inputFile" => Dict{String,Any}("name" => "in.json", "format" => "json", "data" => "{}"),
+        "outputDir" => true,
+        "inputs" => Any[Dict{String,Any}("variable" => "x", "parameter" => "p",
+            "value" => "250.0", "unit" => "m")],
+        "outputs" => Any[Dict{String,Any}("variable" => "y", "parameter" => "q")],
+        "replySource" => "stdout", "lines" => Any["would run /usr/bin/octave"]))
+    @test (preview.action, preview.tool, preview.version) == ("Demo::compute", "octave", "8.4")
+    @test preview.args == ["--eval", "run"]
+    @test preview.env == ["HOME=/tmp"]
+    @test preview.input_file == ToolDryRunFile("in.json", "json", "{}")
+    @test preview.output_dir
+    @test preview.inputs == [ToolDryRunInput("x", "p", "250.0", "m")]
+    @test preview.outputs == [ToolDryRunOutput("y", "q")]
+    @test preview.reply_source == "stdout"
+    @test preview.lines == ["would run /usr/bin/octave"]
+    bare = ToolDryRun(Dict{String,Any}("tool" => "t"))
+    @test bare.input_file === nothing && isempty(bare.args) && !bare.output_dir
+    @test AnalysisResult(Dict{String,Any}(), []).tool_dry_run === nothing
+    @test AnalysisResult(Dict{String,Any}(), []; tool_dry_run=bare).tool_dry_run === bare
+end
+
+@testset "run options are encoded as the service reads them" begin
+    request = OpenSysML._run_options!(Dict{String,Any}())
+    @test isempty(request)
+    request = OpenSysML._run_options!(Dict{String,Any}(); advance=2.5, seed=7, draws="min",
+        clock_step=4)
+    @test request == Dict{String,Any}("advance" => 2.5, "seed" => "7", "draws" => "min",
+        "clockStep" => 4.0)
+    @test OpenSysML._run_options!(Dict{String,Any}(); seed=typemax(UInt64))["seed"] ==
+        string(typemax(UInt64))
+    @test_throws ArgumentError OpenSysML._run_options!(Dict{String,Any}(); advance=-1)
+    @test_throws ArgumentError OpenSysML._run_options!(Dict{String,Any}(); seed=-1)
+    @test_throws ArgumentError OpenSysML._run_options!(Dict{String,Any}(); draws="most")
+    @test_throws ArgumentError OpenSysML._run_options!(Dict{String,Any}(); clock_step=-0.5)
+    @test_throws ArgumentError OpenSysML._run_options!(Dict{String,Any}(); advance=Inf)
+    @test_throws ArgumentError OpenSysML._run_options!(Dict{String,Any}(); clock_step=Inf)
+    @test_throws ArgumentError OpenSysML._run_options!(Dict{String,Any}(); seed=2.0^64)
+    @test_throws ArgumentError OpenSysML._run_options!(Dict{String,Any}(); seed=1.5)
+    @test_throws ArgumentError OpenSysML._run_options!(Dict{String,Any}(); seed=NaN)
 end
 
 @testset "RenderView preserves service not-found messages" begin

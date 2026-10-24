@@ -108,7 +108,7 @@ func TestEngineCheckWitnessesADivergence(t *testing.T) {
 	}
 	// The file is the schedule's choices, a blank line, then the run's trace.
 	if !strings.HasPrefix(string(content), "step 3: 2@left first of 2@left, 3@right\n\n") ||
-		!strings.Contains(string(content), "choice step 3: tokens 2@left, 3@right (unordered; took 2@left first)") {
+		!strings.Contains(string(content), "choice step 3: tokens 2@left, 3@right (unordered; took 2@left first; order-dependent: x)") {
 		t.Errorf("witness file:\n%s", content)
 	}
 	replayed := check(t, binary, forkModel, "-schedule", "replay:"+witness, "-trace", "-action", "Mission::race")
@@ -319,10 +319,10 @@ func TestEngineCheckBindsWitnessObjectsAcrossRuns(t *testing.T) {
 		}
 		// The run makes the spare's performance after the tank's: the spare is object #3 here.
 		replayed := check(t, binary, model, slices.Concat([]string{"-schedule", "replay:" + name(c.n), "-trace"}, invocation)...)
-		wantReport(t, replayed, 0, "materialize: spare #3", "ran action fill of object #3 first)",
+		wantReport(t, replayed, 0, "materialize: spare #3", "ran action fill of object #3 first; independent)",
 			"standing: value (observed: 1 run under replay:"+name(c.n)+")")
-		_, spareRan, _ := strings.Cut(replayed.output(), "ran action fill of object #3 first)")
-		if !strings.Contains(spareRan, "choice step 3: tokens 2@a, 3@b (unordered; took "+c.took+" first)") ||
+		_, spareRan, _ := strings.Cut(replayed.output(), "ran action fill of object #3 first; independent)")
+		if !strings.Contains(spareRan, "choice step 3: tokens 2@a, 3@b (unordered; took "+c.took+" first; order-dependent: level)") ||
 			strings.Count(replayed.output(), "Action completed") != 2 {
 			t.Errorf("witness %d does not replay to spare.level = %s:\n%s", c.n, c.level, replayed.output())
 		}
@@ -576,11 +576,11 @@ func TestEngineCheckWitnessOfBehaviorsOnOneClockReplays(t *testing.T) {
 			t.Fatal(err)
 		}
 		if !strings.HasPrefix(string(content), "object #1 = Shine::Lamp#1\nt=3.0: action peek of object #1 first of action peek of object #1, state machine glow of object #1\nt=3.0: "+c.first+" first of action peek of object #1, state machine glow of object #1\n\n") ||
-			!strings.Contains(string(content), "choice at t=3.0: due action peek of object #1, state machine glow of object #1 (unordered; ran "+c.first+" first)") {
+			!strings.Contains(string(content), "choice at t=3.0: due action peek of object #1, state machine glow of object #1 (unordered; ran "+c.first+" first; order-dependent: lit)") {
 			t.Errorf("witness %d:\n%s", c.n, content)
 		}
 		replayed := check(t, binary, lampModel, "-schedule", "replay:"+name(c.n), "-trace", "-instantiate", "Shine::Lamp", "-action", peek, "-state", glow, "-advance", "3")
-		wantReport(t, replayed, 0, "ran "+c.first+" first)", "saw = "+c.saw, "Current state: on",
+		wantReport(t, replayed, 0, "ran "+c.first+" first; order-dependent: lit)", "saw = "+c.saw, "Current state: on",
 			"standing: value (observed: 1 run under replay:"+name(c.n)+")")
 	}
 }

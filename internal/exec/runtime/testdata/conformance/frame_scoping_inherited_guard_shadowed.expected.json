@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"evaluate": "test::Derived",
+	"outputs": {
+		"c": {"type": "Integer", "value": 1},
+		"go": {"type": "Boolean", "value": false},
+		"Base::go": {"type": "Boolean", "value": true}
+	}
+}

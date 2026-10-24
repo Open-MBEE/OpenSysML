@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Compartment rows: a tool lists a class box's attributes, constraint
+     properties and enumeration literals among the diagram's used elements
+     though only the box has a symbol; a port is a symbol of its own on the
+     border, and an association end's role name lies on the line. The line
+     backing the enumeration-typed attribute is serialized from the
+     enumeration's box; a second, private, attribute has a line of its own. -->
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:MD_Customization_for_SysML__additional_stereotypes="http://www.magicdraw.com/spec/Customization/180/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_blocks" name="Blocks">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_vehicle" name="Vehicle">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_speed" name="speed">
+          <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_mass" name="mass" type="_vt_mass"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_limit" name="limit" type="_cb_maxspeed" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_port_fuel" name="fuel" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_engine" name="engine" type="_blk_engine" aggregation="composite" association="_assoc_engine"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_mode" name="mode" type="_enum_mode" association="_assoc_mode"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_trim" name="trim" visibility="private" type="_enum_mode" association="_assoc_trim"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_engine" name="Engine"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_cb_maxspeed" name="MaxSpeed"/>
+      <packagedElement xmi:type="uml:DataType" xmi:id="_vt_mass" name="Mass"/>
+      <packagedElement xmi:type="uml:Enumeration" xmi:id="_enum_mode" name="Mode">
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_lit_eco" name="eco"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_lit_sport" name="sport"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc_engine" memberEnd="_prop_engine _ae_vehicle">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_ae_vehicle" type="_blk_vehicle" association="_assoc_engine"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc_mode" memberEnd="_prop_mode _ae_mode">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_ae_mode" visibility="private" type="_blk_vehicle" association="_assoc_mode"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc_trim" memberEnd="_prop_trim _ae_trim">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_ae_trim" visibility="private" type="_blk_vehicle" association="_assoc_trim"/>
+      </packagedElement>
+    </packagedElement>
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_bdd" name="Vehicle BDD" ownerOfDiagram="_pkg_blocks">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_vehicle</usedElements>
+                  <usedElements>_prop_speed</usedElements>
+                  <usedElements>_prop_mass</usedElements>
+                  <usedElements>_prop_limit</usedElements>
+                  <usedElements>_port_fuel</usedElements>
+                  <usedElements>_prop_engine</usedElements>
+                  <usedElements>_prop_mode</usedElements>
+                  <usedElements>_prop_trim</usedElements>
+                  <usedElements>_blk_engine</usedElements>
+                  <usedElements>_enum_mode</usedElements>
+                  <usedElements>_lit_eco</usedElements>
+                  <usedElements>_lit_sport</usedElements>
+                  <usedElements>_assoc_engine</usedElements>
+                  <usedElements>_assoc_mode</usedElements>
+                  <usedElements>_assoc_trim</usedElements>
+                </diagramContents>
+                <binaryObject streamContentID="BINARY-compartment_rows"/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+  <sysml:Block xmi:id="_s_vehicle" base_Class="_blk_vehicle"/>
+  <sysml:Block xmi:id="_s_engine" base_Class="_blk_engine"/>
+  <sysml:ConstraintBlock xmi:id="_s_maxspeed" base_Class="_cb_maxspeed"/>
+  <MD_Customization_for_SysML__additional_stereotypes:ConstraintProperty xmi:id="_s_limit" base_Property="_prop_limit"/>
+  <sysml:ValueType xmi:id="_s_mass" base_DataType="_vt_mass"/>
+</xmi:XMI>

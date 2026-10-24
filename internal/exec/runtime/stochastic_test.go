@@ -103,15 +103,15 @@ func TestWeightedDecisionDrawsUnderASeed(t *testing.T) {
 		t.Fatal(err)
 	}
 	choices := ctx.Choices()
-	if len(choices) != 1 || !choices[0].Weighted() || !choices[0].Drawn {
+	if len(choices) != 1 || !choices[0].weighted() || !choices[0].Drawn {
 		t.Fatalf("choices %v, want one weighted, drawn decision", choices)
 	}
 	desc := choices[0].Describe()
 	if !strings.Contains(desc, "1->slow p=0.3, 2->fast p=0.7") || !strings.Contains(desc, "weighted; drew ") {
 		t.Errorf("trace line %q, want the weights and the draw", desc)
 	}
-	taken := ctx.ChoicesTaken()
-	if len(taken) != 1 || !taken[0].Weighted() || taken[0].Weights[0] != 0.3 || taken[0].Weights[1] != 0.7 {
+	taken := ctx.choicesTaken()
+	if len(taken) != 1 || !taken[0].weighted() || taken[0].Weights[0] != 0.3 || taken[0].Weights[1] != 0.7 {
 		t.Errorf("witness %v, want the weights carried", taken)
 	}
 }
@@ -319,7 +319,7 @@ func TestWeightedCaseStepsKeepTheirWeights(t *testing.T) {
 			t.Fatalf("subcases = %+v, want the one branch performed", result.Subcases)
 		}
 		choices := ctx.Choices()
-		if len(choices) != 1 || !choices[0].Weighted() {
+		if len(choices) != 1 || !choices[0].weighted() {
 			t.Fatalf("choices %v, want one weighted decision", choices)
 		}
 		return result.Subcases[0].Case, choices[0]
@@ -332,14 +332,14 @@ func TestWeightedCaseStepsKeepTheirWeights(t *testing.T) {
 		if err != nil {
 			t.Fatalf("RunAnalysis: %v", err)
 		}
-		if len(run.Outputs) != 1 || run.Outputs[0].Value.Const.Kind != semantics.ValInt {
+		if len(run.Outputs) != 1 || soleElement(run.Outputs[0].Value).Const.Kind != semantics.ValInt {
 			t.Fatalf("outputs = %+v, want the one Integer result", run.Outputs)
 		}
 		choices := ctx.Choices()
-		if len(choices) != 1 || !choices[0].Weighted() {
+		if len(choices) != 1 || !choices[0].weighted() {
 			t.Fatalf("choices %v, want one weighted decision", choices)
 		}
-		return run.Outputs[0].Value.Const.Int, choices[0]
+		return soleElement(run.Outputs[0].Value).Const.Int, choices[0]
 	}
 
 	for _, policy := range []string{"declared", "reverse"} {
@@ -370,7 +370,7 @@ func TestExploreEnumeratesWeightedBranches(t *testing.T) {
 		t.Fatalf("explore found %v, want both branches", outcomeTexts(x))
 	}
 	for _, o := range x.Outcomes {
-		if len(o.Witness) != 1 || !o.Witness[0].Weighted() {
+		if len(o.Witness) != 1 || !o.Witness[0].weighted() {
 			t.Errorf("witness %v, want the weighted decision", o.Witness)
 		}
 	}
@@ -388,7 +388,7 @@ func exactExploredProbability(t *testing.T, outcome ExploredOutcome) float64 {
 func TestExploreWeighsLinearizations(t *testing.T) {
 	m := parseLibraryModel(t, weightedRouteModel)
 	x := m.exploreAction(t, "explore", "route")
-	if !x.Complete() || !x.Weighted() || len(x.Outcomes) != 2 {
+	if !x.Complete() || !x.weighted || len(x.Outcomes) != 2 {
 		t.Fatalf("explore found %v, want both branches", outcomeTexts(x))
 	}
 	total := 0.0
@@ -464,16 +464,16 @@ func TestExploreSchedulingChoicesDoNotAddProbability(t *testing.T) {
 			t.Errorf("x=%d, y=%d: probability range %v, want %+v", xy[0], xy[1], p, want[xy])
 		}
 	}
-	if !x.Weighted() {
+	if !x.weighted {
 		t.Error("weighted model exploration reports Weighted() = false")
 	}
 }
 
 func TestExploreIncompleteProbabilityBoundsNeedWeightedDraws(t *testing.T) {
 	weighted := parseLibraryModel(t, weightedRouteModel).exploreAction(t, "explore:runs=1", "route")
-	if weighted.Complete() || !weighted.Weighted() || !weighted.ProbabilitiesBounded() {
+	if weighted.Complete() || !weighted.weighted || !weighted.ProbabilitiesBounded() {
 		t.Fatalf("weighted exploration status %q, weighted=%v bounded=%v; want incomplete weighted lower bounds",
-			weighted.Status(), weighted.Weighted(), weighted.ProbabilitiesBounded())
+			weighted.Status(), weighted.weighted, weighted.ProbabilitiesBounded())
 	}
 	if len(weighted.Outcomes) != 1 || weighted.Outcomes[0].Probability == nil ||
 		math.Abs(weighted.Outcomes[0].Probability.Min-0.3) > 1e-9 ||
@@ -482,9 +482,9 @@ func TestExploreIncompleteProbabilityBoundsNeedWeightedDraws(t *testing.T) {
 	}
 
 	unweighted := parseExploreModel(t, threeWritersModel).exploreAction(t, "explore:runs=1", "race")
-	if unweighted.Complete() || unweighted.Weighted() || unweighted.ProbabilitiesBounded() {
+	if unweighted.Complete() || unweighted.weighted || unweighted.ProbabilitiesBounded() {
 		t.Fatalf("unweighted exploration status %q, weighted=%v bounded=%v; want no probability lower bound",
-			unweighted.Status(), unweighted.Weighted(), unweighted.ProbabilitiesBounded())
+			unweighted.Status(), unweighted.weighted, unweighted.ProbabilitiesBounded())
 	}
 	for _, outcome := range unweighted.Outcomes {
 		if outcome.Probability != nil {
@@ -520,7 +520,7 @@ func TestExploreSchedulingIndependentOfWeightedDrawHasExactProbabilities(t *test
 		}
 	}`)
 	x := m.exploreAction(t, "explore", "mix")
-	if !x.Complete() || !x.Weighted() || len(x.Outcomes) != 2 {
+	if !x.Complete() || !x.weighted || len(x.Outcomes) != 2 {
 		t.Fatalf("explore found %v, want two weighted outcomes", outcomeTexts(x))
 	}
 	for _, outcome := range x.Outcomes {
@@ -569,7 +569,7 @@ func TestExploreMixedSchedulingAndWeightedProbabilityRanges(t *testing.T) {
 		}
 	}`)
 	x := m.exploreAction(t, "explore", "mixed")
-	if !x.Complete() || !x.Weighted() || len(x.Outcomes) != 3 {
+	if !x.Complete() || !x.weighted || len(x.Outcomes) != 3 {
 		t.Fatalf("explore found %v, want three mixed outcomes", outcomeTexts(x))
 	}
 	want := map[[2]int64]ProbabilityRange{
@@ -592,9 +592,9 @@ func TestRandomFunctionRefusesToDrawUnseeded(t *testing.T) {
 	m := parseLibraryModel(t, drawingModel)
 	for _, policy := range []string{"", "declared", "reverse"} {
 		ctx, _, err := runAction(t, m, "draw", policy)
-		var unseeded *UnseededDrawError
+		var unseeded *unseededDrawError
 		if !errors.As(err, &unseeded) || !errors.Is(err, ErrUnseededDraw) {
-			t.Fatalf("%q: error %T %v, want an UnseededDrawError", policy, err, err)
+			t.Fatalf("%q: error %T %v, want an unseededDrawError", policy, err, err)
 		}
 		if unseeded.What != "uniform(0.0, 1.0)" || !strings.Contains(err.Error(), "seed:<n>") {
 			t.Errorf("%q: error %q, want it to name the call and the seed", policy, err)
@@ -627,8 +627,8 @@ func TestRandomFunctionsRefuseAnEmptyDomain(t *testing.T) {
 					}
 				}`)
 			ctx, _, err := runAction(t, m, "draw", "seed:1")
-			if !errors.Is(err, ErrRandomDomain) {
-				t.Fatalf("error %v, want ErrRandomDomain", err)
+			if !errors.Is(err, errRandomDomain) {
+				t.Fatalf("error %v, want errRandomDomain", err)
 			}
 			if !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("error %q, want it to say %q", err, tc.want)
@@ -649,14 +649,14 @@ func TestRandomFunctionsRefuseANonFiniteBound(t *testing.T) {
 	ctx.run.scheduler = ctx.schedulerUnder(ctx.schedule)
 	for _, bad := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
 		args := []semantics.Value{drawnReal(0), drawnReal(bad)}
-		if _, err := drawUniform(ctx, RandomFunctionsFQN+"::uniform", args); !errors.Is(err, ErrRandomDomain) || !strings.Contains(err.Error(), "is not a finite number") {
-			t.Errorf("uniform(0, %v) = %v, want ErrRandomDomain naming the bound", bad, err)
+		if _, err := drawUniform(ctx, randomFunctionsFQN+"::uniform", args); !errors.Is(err, errRandomDomain) || !strings.Contains(err.Error(), "is not a finite number") {
+			t.Errorf("uniform(0, %v) = %v, want errRandomDomain naming the bound", bad, err)
 		}
-		if _, err := drawNormal(ctx, RandomFunctionsFQN+"::normal", args); !errors.Is(err, ErrRandomDomain) {
-			t.Errorf("normal(0, %v) = %v, want ErrRandomDomain", bad, err)
+		if _, err := drawNormal(ctx, randomFunctionsFQN+"::normal", args); !errors.Is(err, errRandomDomain) {
+			t.Errorf("normal(0, %v) = %v, want errRandomDomain", bad, err)
 		}
-		if _, err := drawTriangular(ctx, RandomFunctionsFQN+"::triangular", []semantics.Value{drawnReal(0), drawnReal(bad), drawnReal(1)}); !errors.Is(err, ErrRandomDomain) {
-			t.Errorf("triangular(0, %v, 1) = %v, want ErrRandomDomain", bad, err)
+		if _, err := drawTriangular(ctx, randomFunctionsFQN+"::triangular", []semantics.Value{drawnReal(0), drawnReal(bad), drawnReal(1)}); !errors.Is(err, errRandomDomain) {
+			t.Errorf("triangular(0, %v, 1) = %v, want errRandomDomain", bad, err)
 		}
 	}
 	if len(ctx.DrawsTaken()) != 0 {
@@ -919,7 +919,7 @@ func TestReplayReproducesTheDrawsAndTheWeightedBranch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		w := Witness{Draws: ctx.DrawsTaken(), Choices: ctx.ChoicesTaken()}
+		w := Witness{Draws: ctx.DrawsTaken(), Choices: ctx.choicesTaken()}
 		if len(w.Draws) != 2 || w.Draws[0].What != "uniform(0.0, 10.0)" || w.Draws[1].What != "uniformInteger(1, 6)" {
 			t.Fatalf("seed %d recorded %v, want the two draws in order", seed, w.Draws)
 		}
@@ -986,9 +986,9 @@ func TestReplayRefusesDrawsItCannotConsume(t *testing.T) {
 			if err == nil {
 				err = replay.Unfollowed()
 			}
-			var refused *WitnessDrawError
-			if !errors.As(err, &refused) || !errors.Is(err, ErrWitnessDraw) {
-				t.Fatalf("error %T %v, want a WitnessDrawError", err, err)
+			var refused *witnessDrawError
+			if !errors.As(err, &refused) || !errors.Is(err, errWitnessDraw) {
+				t.Fatalf("error %T %v, want a witnessDrawError", err, err)
 			}
 			if refused.Draw != tc.draw || !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("error = draw %d %q, want draw %d saying %q", refused.Draw, err, tc.draw, tc.want)
@@ -997,11 +997,11 @@ func TestReplayRefusesDrawsItCannotConsume(t *testing.T) {
 	}
 
 	for _, line := range []string{"draw uniform(0.0, 1.0)", "draw = 0.5", "draw uniform(0.0, 1.0) = half", "drew uniform(0.0, 1.0) = 0.5"} {
-		if _, err := ParseDraw(line); !errors.Is(err, ErrInvalidDraw) {
-			t.Errorf("ParseDraw(%q) = %v, want ErrInvalidDraw", line, err)
+		if _, err := ParseDraw(line); !errors.Is(err, errInvalidDraw) {
+			t.Errorf("ParseDraw(%q) = %v, want errInvalidDraw", line, err)
 		}
 	}
-	if _, err := ParseWitness("draw uniform(0.0, 1.0) = half\n"); !errors.Is(err, ErrInvalidDraw) {
+	if _, err := ParseWitness("draw uniform(0.0, 1.0) = half\n"); !errors.Is(err, errInvalidDraw) {
 		t.Errorf("a witness with a malformed draw parsed: %v", err)
 	}
 	for _, d := range good.Draws {
@@ -1075,8 +1075,8 @@ func TestReplayRefusesDrawsOutsideTheCallsDistribution(t *testing.T) {
 				}
 				return
 			}
-			if !errors.Is(err, ErrWitnessDraw) || !strings.Contains(err.Error(), "which the call cannot draw") {
-				t.Fatalf("error = %v, want a WitnessDrawError naming the draw the call cannot make", err)
+			if !errors.Is(err, errWitnessDraw) || !strings.Contains(err.Error(), "which the call cannot draw") {
+				t.Fatalf("error = %v, want a witnessDrawError naming the draw the call cannot make", err)
 			}
 		})
 	}
@@ -1117,7 +1117,7 @@ func TestReplayRefusesAWeightedMoveTheDecisionDoesNotFit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	good := ctx.ChoicesTaken()
+	good := ctx.choicesTaken()
 	if len(good) != 1 || !good[0].Drawn || good[0].Took != "2->fast" {
 		t.Fatalf("seed 7 recorded %v, want one drawn choice of 2->fast", FormatChoices(good))
 	}
@@ -1189,7 +1189,7 @@ func TestReplayCarriesTheWitnessedDraw(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w := Witness{Choices: ctx.ChoicesTaken()}
+	w := Witness{Choices: ctx.choicesTaken()}
 	replay, _ := m.fresh()
 	mustSchedule(t, replay, ReplayOf(w))
 	if _, err := replay.ExecuteAction(m.action(t, "route")); err != nil {
@@ -1198,7 +1198,7 @@ func TestReplayCarriesTheWitnessedDraw(t *testing.T) {
 	if err := replay.Unfollowed(); err != nil {
 		t.Fatal(err)
 	}
-	if again := FormatChoices(replay.ChoicesTaken()); again != FormatChoices(w.Choices) {
+	if again := FormatChoices(replay.choicesTaken()); again != FormatChoices(w.Choices) {
 		t.Errorf("the replay recorded %s, want the witness %s", again, FormatChoices(w.Choices))
 	}
 }
@@ -1249,7 +1249,7 @@ func TestCheckSearchesWeightedBranchesAsASet(t *testing.T) {
 	}
 	for _, final := range report.Finals {
 		choices := final.Witness.Choices
-		if len(choices) != 1 || !choices[0].Weighted() {
+		if len(choices) != 1 || !choices[0].weighted() {
 			t.Errorf("final %v carries the witness %v, want the weighted decision", final.Outcome, choices)
 		}
 	}

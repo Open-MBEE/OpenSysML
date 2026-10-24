@@ -1,49 +1,53 @@
 GeneralViews::plainView - tree rendering (view def GeneralView)
 
-part def VehicleStructure::Vehicle
-  attribute mass : Real
-  part chassis : Chassis
-  part driver : Driver
-part def VehicleStructure::Chassis
-part def VehicleStructure::LightChassis
-part def VehicleStructure::Driver
-action def VehicleStructure::Brake
-part VehicleStructure::vehicle : Vehicle
+part def Vehicle
   attribute mass
-part VehicleStructure::heavyVehicle : Vehicle
+  part chassis
+  part driver
+part def Chassis
+part def LightChassis
+part def Driver
+action def Brake
+part vehicle
   attribute mass
-action VehicleStructure::brake : Brake
-package VehicleStructure::Powertrain
+  part chassis
+  part driver
+part heavyVehicle
+  attribute mass
+  part chassis
+  part driver
+action brake
+package Powertrain
   part def Engine
-datatype ScalarValues::Boolean
-datatype ScalarValues::Complex
-datatype ScalarValues::Integer
-datatype ScalarValues::Natural
-datatype ScalarValues::Number
-datatype ScalarValues::NumericalValue
-datatype ScalarValues::Positive
-datatype ScalarValues::Rational
-datatype ScalarValues::Real
-datatype ScalarValues::ScalarValue
-datatype ScalarValues::String
+datatype Boolean
+datatype Complex
+datatype Integer
+datatype Natural
+abstract datatype Number
+abstract datatype NumericalValue
+datatype Positive
+datatype Rational
+datatype Real
+abstract datatype ScalarValue
+datatype String
 
 relationships:
-  VehicleStructure::Vehicle o-- ScalarValues::Real: mass
-  VehicleStructure::Vehicle *-- VehicleStructure::Chassis: chassis
-  VehicleStructure::Vehicle o-- VehicleStructure::Driver: driver
-  VehicleStructure::LightChassis --|> VehicleStructure::Chassis
-  VehicleStructure::vehicle ..|> VehicleStructure::Vehicle
+  Vehicle o-- Real: mass
+  Vehicle *-- Chassis: chassis
+  Vehicle o-- Driver: driver
+  LightChassis --|> Chassis
+  vehicle ..|> Vehicle
   mass --|> mass: redefines
-  VehicleStructure::heavyVehicle ..|> VehicleStructure::Vehicle
+  heavyVehicle ..|> Vehicle
   mass --|> mass: redefines
-  VehicleStructure::brake ..|> VehicleStructure::Brake
-  ScalarValues::Boolean --|> ScalarValues::ScalarValue
-  ScalarValues::Complex --|> ScalarValues::Number
-  ScalarValues::Integer --|> ScalarValues::Rational
-  ScalarValues::Natural --|> ScalarValues::Integer
-  ScalarValues::Number --|> ScalarValues::NumericalValue
-  ScalarValues::NumericalValue --|> ScalarValues::ScalarValue
-  ScalarValues::Positive --|> ScalarValues::Natural
-  ScalarValues::Rational --|> ScalarValues::Real
-  ScalarValues::Real --|> ScalarValues::Complex
-  ScalarValues::String --|> ScalarValues::ScalarValue
+  brake ..|> Brake
+  Boolean --|> ScalarValue
+  Complex --|> Number
+  Integer --|> Rational
+  Natural --|> Integer
+  Number --|> NumericalValue
+  NumericalValue --|> ScalarValue
+  Positive --|> Natural
+  Rational --|> Real
+  Real --|> Complex
+  String --|> ScalarValue

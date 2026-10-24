@@ -249,7 +249,7 @@ succession into it has delivered, so `both` is performed once by the one token t
 arrivals collapse into (golden: both arrivals held at `both` after step 3, its one
 performance in step 4). A join differs only in what it awaits: every incoming
 succession (source multiplicity 1..1), so a join one of whose sources no token can reach
-deadlocks (`robustness_test.go:deadlock_join_starvation`, `:deadlock_join_same_succession_twice`);
+deadlocks (`robustness_action_flow_test.go:deadlock_join_starvation`, `:deadlock_join_same_succession_twice`);
 a plain node awaits a succession only once it has delivered or while some token of the
 activation, other than one held at the node, can still reach its source without passing through
 the node — the branch a decision did not take, or a loop back over the node itself, imposes no
@@ -361,7 +361,7 @@ Fixtures: `action_step_multiplicity_exact`, `_reverse`, `_explore`, `_range`, `_
 `_unordered_nested`, `_unordered_unbounded`, `_unordered_unaddressable`, `_unordered_outgoing`,
 `_unordered_loop_body` and `state_step_multiplicity_unordered_do_body`;
 `action_step_multiplicity_shared_writers` states the open outcome set. Beyond plain successions:
-`_while_body` (trace golden), `_for_body`, `_if_body`, `_part_perform`, `_external_read`,
+`_while_body` (trace golden), `_for_body`, `_if_body`, `_inherited_loop_body`, `_part_perform`, `_external_read`,
 `_pin_value`, `_bind_input`, `_bind_output`, `_fork_barrier`, `_decision_barrier`,
 `_merge_fanout`, `_join_per_performance`, `_merge_per_performance`, `_loop_body_race`,
 `_fork_into_repeated` (trace goldens where carried), `_guard_true`, `_guard_false` and
@@ -472,7 +472,7 @@ refused. UML, fUML and PSSM were not used to settle any of these.
   the step, so each performance binds its own `x` (`_pin_value`). A `bind a.x = e` owned by the
   enclosing action equates the values of `a.x` over all `n` performances with those of `e`: a
   single-valued `e` into an in-pin gives every performance that value (`_bind_input`); an out-pin
-  into a single-valued `e` requires all `n` outputs to coincide, else `ErrBindingConflict`
+  into a single-valued `e` requires all `n` outputs to coincide, else `errBindingConflict`
   (`_bind_output`). A multi-valued `e` into in-pins leaves the assignment of its values to the
   performances open: refused.
 - **Flows** (KerML §9.2.7, `Transfers.kerml`). A flow end has no multiplicity in the grammar, a
@@ -482,16 +482,15 @@ refused. UML, fUML and PSSM were not used to settle any of these.
 - **External reads** (`ControlFunctions.kerml` `'.'`, source and result `[0..*]` nonunique;
   KerML §7.3.4.6 chains). `a.x` read outside `a` is the values of every performance's `x`,
   duplicates kept, listed in repetition-index order (a tool-chosen stable order where `a` is not
-  ordered); before all `n` performances end it is not yet performed (`ErrNodeNotPerformed`), as for
+  ordered); before all `n` performances end it is not yet performed (`errNodeNotPerformed`), as for
   one node (`_external_read`). Inside a performance, `x` is that performance's own (`_pin_value`).
 - **Block flows** (`LoopPerformance`, `IfThenPerformance`; each body pass is a performance of its
   own). `a[n]` in a `while`/`for`/`if` body performs `n` times per pass and `[0]` none
-  (`_while_body`, `_for_body`, `_if_body`, `_unordered_loop_body`). The runtime performs each
-  repetition as one move, so the orders between the repetitions are the ones exploration never
-  varies: explore and check report the result as observed rather than proved or bounded, with the
-  note "the performances of a repeated step in a loop or if body are each run as one move, so
-  their interleavings were not explored" (`_loop_body_race`, whose admitted set is
-  `{c = 1, c = 2}` of which only `c = 2` is observed).
+  (`_while_body`, `_for_body`, `_if_body`, `_unordered_loop_body`, `_inherited_loop_body` for a
+  count inherited by the body's redefining owner). The `n` performances of one
+  pass are sibling tokens of the body's flow, so they interleave as `n` top-level performances do:
+  two performances each reading `c` then writing it back admit `{c = 1, c = 2}`, and explore and
+  check enumerate both (`_loop_body_race`).
 - **Part-level performs** (SysML §8.4.13.11, `Parts::performedActions`,
   `Occurrences::enactedPerformances`). `perform action run[2]` on a part is two distinct
   performances enacted within the part's lifetime, unordered with respect to each other: `run`
@@ -601,7 +600,7 @@ Two control nodes keep a bound on their outgoing side that the static rules stat
 `validateJoinNodeOutgoingSuccessions` and `validateMergeNodeOutgoingSuccessions` each allow at
 most one outgoing succession, so a join or a merge with two is an ill-formed model, reported by
 `join-outgoing-successions` and `merge-outgoing-successions` and refused by the executor
-(`ErrInvalidActionFlow`). `Actions::MergeAction` on its own constrains only the incoming side;
+(`errInvalidActionFlow`). `Actions::MergeAction` on its own constrains only the incoming side;
 the outgoing bound is the validation constraint's, not the library's.
 
 Open: the order of `left` against `right`, and so which write of `x` stands — the same openness
@@ -659,7 +658,7 @@ zero (not selected)`) so the tool's reading is visible without changing the run
 (`TestLaterGuardErrorIsNotAChoiceNorAFailure`; fixture `action_choice_unevaluable_guard`, golden).
 The first guard read is the run's own, not a preview, and its failure fails the run as it always
 has. A decision whose guards are all false remains an execution error
-(`TestRuntimeRobustness/decision_all_guards_false`), as the library then admits no outgoing link.
+(`TestRuntimeRobustnessActionFlow/decision_all_guards_false`), as the library then admits no outgoing link.
 
 ### Three concurrent writers of one feature: six orders, three values
 
@@ -691,6 +690,63 @@ last, giving `x = 1`). Exploration is what makes the set checkable: `explore` re
 along every choice sequence and must reach each of the three outcomes and no other, in six runs.
 The first pick among three tokens and the next among the two left are two choice points in
 consecutive steps, so a linearization is a sequence of two choices, not one choice among six.
+Both choices conflict — each alternative writes `x`, which the others write — so the default run
+reports `x` only up to them, `x = 1 (order-dependent; 2 choice points — explore shows the set)`,
+while the `…Ran` flags, which no other branch reads or writes, print as fixed values
+(`orderDependent` states `x: 2`). Its counterpart `action_order_independent_branches` (golden)
+forks to two branches writing `x` and `y` apiece: the same open order, but the branches commute
+on every value, so the run's one token-order choice is independent and nothing is marked.
+
+### A decision with two guards holding: either branch
+
+Fixture: `action_order_overlapping_guards` (golden, explored).
+
+```
+start → choose ─ if level >= 0 → high { mode := 1 } ─┐→ done
+               └ if level <= 0 → low  { mode := 2 } ─┘
+```
+
+Derived constraints:
+
+- `choose` is a DecisionAction: exactly one outgoing succession is taken (ControlPerformances.kerml,
+  `DecisionPerformance`), so `mode` ends `1` or `2`, never `0`.
+- Both guards hold at `level = 0`; the library ranks neither succession over the other.
+
+Open: which holding succession is taken. The two linearizations reach two outcomes,
+`{mode = 1, mode = 2}`. A decision's alternatives are different continuations, not two moves of one
+run, so a default run holds `mode` only up to the choice whichever branch commutes with what:
+`mode = 1 (order-dependent; 1 choice point — explore shows the set)`.
+
+Pinned outcome: that admissible set as `outcomes` citing this section, `orderDependent` stating
+`mode: 1`. The default policy takes the first holding guard (`high`).
+
+### Two regions reacting to one occurrence: two orders, two values
+
+Fixtures: `state_order_regions_conflict` (golden, explored) and `state_order_regions_independent`
+(golden, one outcome).
+
+```
+work ∥ a: a1 ─ accept Go do last := 1 → a2
+     ∥ b: b1 ─ accept Go do last := 2 → b2
+```
+
+Derived constraints:
+
+- One occurrence of `Go` is dispatched to the whole machine, and a transition out of each region's
+  active state is triggered by it (StatePerformances.kerml, `TransitionPerformance` of each
+  orthogonal `StatePerformance` of the enclosing one), so both effects run and the machine ends in
+  `a2+b2`.
+- The library orders neither region's transition before the other's.
+
+Open: the order of the two effects. Both write `last`, so the last write stands: two
+linearizations, two outcomes, `{last = 1, last = 2}`, and the default run reports
+`last = 1 (order-dependent; 1 choice point — explore shows the set)`. In
+`state_order_regions_independent` the effects write `x` and `y` and neither region reads the
+other's, so the same open order is one outcome, `{x = 1, y = 2}`: the region-order choice is
+independent and the run marks nothing.
+
+Pinned outcome: the admissible set as `outcomes` citing this section with `orderDependent`
+stating `last: 1`; the independent case a single result with `orderDependent` `{}`.
 
 ### Subactions no succession orders: each is performed during the owner, in which order is open
 
@@ -1253,7 +1309,7 @@ enabled one and records the choice at the choice vertex (`choice choice pick: tr
 2->high (unordered; took 1->low)`); the golden pins that linearization, `seed:1` the other one. As
 for a transition conflict, branches after the first enabled one are read in a preview that is
 undone. A choice with no enabled branch and no unguarded one fails the run at that instant with a
-typed error naming the choice (`TestRuntimeRobustness/state_choice_without_an_enabled_branch`).
+typed error naming the choice (`TestRuntimeRobustnessStateTransitions/state_choice_without_an_enabled_branch`).
 
 ### Two branches of a junction enabled when the transition is selected: exactly one is taken, which one is open
 
@@ -1314,7 +1370,7 @@ Derived constraints:
 - A branch that reaches a later junction with no way through is removed from the current
   junction's drawable branches; if one branch remains, it is followed without a draw. Cycles,
   unevaluable guards and binding failures remain run errors. A route stays open at the first
-  choice: choices resolve dynamically on arrival and retain `ErrChoiceWithoutBranch`; a dead
+  choice: choices resolve dynamically on arrival and retain `errChoiceWithoutBranch`; a dead
   junction reached beyond a choice remains a run error.
 - A history default with no recorded history is statically checked only when the source is
   outside the history owner. A transition from the owner or one of its descendants can exit the
@@ -1784,7 +1840,7 @@ and `-> 100`, the third `decide` evaluating `level >= 100 -> true`, then `endCha
 previous two cases): `ActionExecutor.synchronizes` exempts `MergeNode`, since
 `MergePerformance` follows *one* source performance while a plain node or join follows one per
 succession. Loop termination is the guard's and the step budget's job, not the merge's:
-`robustness_test.go:unguarded_loop_through_a_merge` runs `start → m(merge) → a → m` with no
+`robustness_action_flow_test.go:unguarded_loop_through_a_merge` runs `start → m(merge) → a → m` with no
 exit to `ErrActionStepLimitExceeded`, both under `RunToCompletion` and after stepping it.
 
 ### A merge counts one performance per pass of a loop
@@ -2323,6 +2379,315 @@ not covered: the package-level `connect q::a to q::b;` form. Validation rejects 
 `Must be an accessible feature (use dot notation for nesting)`, although
 `deriveConnectorDefaultFeaturingType` makes it well-formed. That is a separate validation gap,
 and this change does not touch it.
+
+### Values computed from an order-dependent one stand on the same choice points
+
+Fixture: `action_order_derived_from_racing_writers` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → derive { y := x + 1; z := 5 } → done
+```
+
+Derived constraints:
+
+- `sync` follows both branches (JoinAction), so both writes of `x` have ended before `derive`
+  reads it, and `x` is `1` or `2`.
+- `derive` follows `sync`, so `y` is computed from the `x` that stands after both writes:
+  `y = x + 1`, so `{x = 1, y = 2}` or `{x = 2, y = 3}`; `z` is `5` in every linearization.
+
+Open: the order of the two branches. The library gives no `HappensBefore` link between them, so
+both orders are valid linearizations, and the last write of `x` stands. A later statement that
+reads `x` computes from whichever write stood, so its result is open exactly where `x` is: the
+dependence is the succession `sync < derive` (Performances.kerml) composed with the open order
+of the writes. `z` reads nothing the open order wrote, so it is fixed.
+
+Pinned outcome: the admissible set of two members, stated as `outcomes` citing this section. The
+default run reports both `x` and `y` up to the two choice points its order left open — the token
+order within the step and the write order of `x` — as `x = 1 (order-dependent; 2 choice points —
+explore shows the set)` and `y = 2 (order-dependent; 2 choice points — explore shows the set)`,
+while `z` prints bare (`orderDependent` states `x: 2, y: 2`). The marks follow what was read:
+`y` stands on the same choice points as the `x` it was computed from, not on a choice point of
+its own, since the statement writing it is not itself a choice.
+
+### A guard reading an order-dependent value leaves what its branch writes order-dependent
+
+Fixture: `action_order_guard_reads_racing_writer` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → choose ─[x == 1]→ low  { mode := 10 } ─┐
+                                              ─[x == 2]→ high { mode := 20 } ─┴→ rejoin → tail { later := 7 } → done
+```
+
+Derived constraints:
+
+- `sync` follows both writes of `x` (JoinAction), so `choose` reads an `x` of `1` or `2`, and
+  exactly one guard holds: the decision is not itself a choice point.
+- `low` or `high` follows as the guard decides, so `mode` is `10` where `x` is `1` and `20`
+  where `x` is `2`; `later` is `7` in every linearization.
+
+Open: the order of the two branches before the join, as in the previous case. Which guard
+holds is a function of the write that stood, so which branch runs — and the `mode` it writes —
+is open exactly where `x` is: control dependence through a guard carries the open order on,
+though the decision drew nothing. `later`, written past the merge where the branches rejoin,
+reads nothing open and is not on either branch, so it is fixed: the convergence itself adds no
+dependence.
+
+Pinned outcome: `{x = 1, mode = 10, later = 7}` or `{x = 2, mode = 20, later = 7}`, stated as
+`outcomes` citing this section. The default run marks `x` and `mode` with the two choice points
+of the racing writes and prints `later` bare (`orderDependent` states `x: 2, mode: 2`).
+
+### An inherited guard reading an order-dependent value leaves what its branch writes order-dependent
+
+Fixture: `action_order_inherited_guard_reads_racing_writer` (golden, explored).
+
+```
+Derived :> Base;   Base: start → split ⇉ a { go := true  } ─┐
+                                      ⇉ b { go := false } ─┘→ sync → choose ─[go]→   high { mode := 20 } ─┐
+                                                                         ─else→ low  { mode := 10 } ─┴→ rejoin → tail { later := 7 } → done
+```
+
+Derived constraints:
+
+- The run is `Derived`'s, whose body is `Base`'s; `sync` follows both writes of `go`
+  (JoinAction), so `choose` reads a `go` of `true` or `false` and exactly one branch is taken.
+- The guard `go` is `Base`'s succession and is read in `Base`'s scope, where it was declared,
+  as it is evaluated there: `go` is the feature `a` and `b` write.
+- `mode` is `20` where `go` is `true` and `10` where it is `false`; `later` is `7` in every
+  linearization.
+
+Open: the order of the two branches before the join. Which branch runs is a function of the
+write that stood, so `mode` is open exactly where `Base`'s `go` is: the guard's reads are
+resolved where the succession was declared, as its evaluation is, so inheriting the decision
+neither hides the dependence nor adds one. `later` reads nothing open and is fixed.
+
+Pinned outcome: `{go = true, mode = 20, later = 7}` or `{go = false, mode = 10, later = 7}`,
+stated as `outcomes` citing this section. The default run marks `go` and `mode` with the two
+choice points of the racing writes and prints `later` bare (`orderDependent` states
+`go: 2, mode: 2`).
+
+### A performed action's outputs stand on what its inputs were bound from
+
+Fixture: `action_order_through_performed_action` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → doIt (performs increment: in x, out result := x + 5) → keep { other := 3 } → done
+```
+
+Derived constraints:
+
+- `sync` follows both writes of `x`, so `increment` is performed with an input `x` of `1` or
+  `2` (its `in x` is bound by name from the outer `x`), and its `out result` binds the outer
+  `result` to `6` or `7` as its body computed.
+- `keep` follows `doIt`; `other` is `3` in every linearization.
+
+Open: the order of the two branches before the join. The performance's output is computed from
+its input, bound from the `x` that stood, so `result` is open exactly where `x` is: the
+dependence runs through the parameter binding and the performance's own body, over the
+succession `sync < doIt`. `other` reads nothing open.
+
+Pinned outcome: `{x = 1, result = 6, other = 3}` or `{x = 2, result = 7, other = 3}`, stated as
+`outcomes` citing this section. The default run marks `x` and `result` with the two choice
+points of the racing writes and prints `other` bare (`orderDependent` states `x: 2, result: 2`).
+
+### A message's payload carries what it stands on to the accept that binds it
+
+Fixture: `action_order_send_payload_from_racing_writer` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → sender { send new Reading(level = x) to receiver }
+                                      → receiver (accept msg : Reading) → keep { total := msg.level + 10; count := 1 } → done
+```
+
+Derived constraints:
+
+- `sync` follows both writes of `x`, so the message is built with a `level` of `1` or `2`.
+- The accept binds a message the send transferred (Transfers.kerml: the send happens before the
+  accept that takes its payload), so `msg.level` is the `x` that stood, and `total` is `11` or
+  `12`; `count` is `1` in every linearization.
+
+Open: the order of the two branches before the join. The payload was computed from `x`, so what
+the accept binds and what is computed from it are open exactly where `x` is: the transfer carries
+the dependence from the sender's side to the receiver's. `count` reads nothing open.
+
+Pinned outcome: `{x = 1, total = 11, count = 1}` or `{x = 2, total = 12, count = 1}`, stated as
+`outcomes` citing this section. The default run marks `x` and `total` with the two choice points
+of the racing writes and prints `count` bare (`orderDependent` states `x: 2, total: 2`).
+
+### An effect computing from an order-dependent attribute stands on its choice points
+
+Fixture: `state_order_effect_reads_racing_attribute` (golden, explored).
+
+```
+Machine: entry → work (parallel: a { a1 ─Go / last := 1→ a2 }, b { b1 ─Go / last := 2→ b2 })
+         work ─Next / { computed := last + 1; fixed := 5 }→ settled
+```
+
+Derived constraints:
+
+- One occurrence of Go fires a transition in each region (the regions are orthogonal), both
+  writing `last`, and the run-to-completion step ends with `last` at `1` or `2`.
+- Next is dispatched after Go's step has completed, so its effect reads the `last` that stood:
+  `computed` is `2` or `3`, and `fixed` is `5` in every linearization.
+
+Open: the order of the two regions' reactions to Go, as in "Two regions reacting to one
+occurrence". The effect of the Next transition computes from `last`, so `computed` is open exactly
+where `last` is; `fixed` reads nothing open.
+
+Pinned outcome: `{last = 1, computed = 2, fixed = 5}` or `{last = 2, computed = 3, fixed = 5}`,
+stated as `outcomes` citing this section. The default run marks `last` and `computed` with the one
+region-order choice point and prints `fixed` bare (`orderDependent` states `last: 1, derived: 1`).
+
+### A failed guard leaves what the unguarded branch writes order-dependent
+
+Fixture: `action_order_fallback_branch_reads_racing_writer` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → choose ─[x == 1]→ enabled { mode := 10 } ─┐
+                                              ─[else]───→ other   { mode := 20 } ─┴→ rejoin → done
+```
+
+Derived constraints:
+
+- `sync` follows both writes of `x`, so `choose` reads an `x` of `1` or `2`; the one guard
+  holds for `1` and fails for `2`, when the unguarded succession is taken.
+- `mode` is `10` where `x` is `1` and `20` where `x` is `2`.
+
+Open: the order of the two branches before the join. The guard was read to decide the branch
+whether it held or failed, so the unguarded branch stands on what the guard read as the guarded
+one does: `mode` is open exactly where `x` is.
+
+Pinned outcome: `{x = 1, mode = 10}` or `{x = 2, mode = 20}`, stated as `outcomes` citing this
+section. The default run marks `x` and `mode` with the two choice points.
+
+### A fork and join inside a branch carry the decision that took it
+
+Fixture: `action_order_fork_in_dependent_branch` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → choose ─[x == 1]→ spread ⇉ p { y := 10 } ─┐→ gather ─┐
+                                              │                 ⇉ q { z := 5 }  ─┘          │
+                                              └[x == 2]→ high { y := 1; z := 1 } ──────────┴→ rejoin → tail { later := 7 } → done
+```
+
+Derived constraints:
+
+- `choose` reads an `x` of `1` or `2` and exactly one guard holds.
+- Where `x` is `1`, `spread` forks into `p` and `q`, which `gather` joins: `y` is `10` and `z`
+  is `5`. Where `x` is `2`, `high` runs alone and writes `y` as `1` and `z` as `1`.
+- `later` is `7` in every linearization.
+
+Open: the order of the two writers of `x`. The tokens a fork spawns and the token a join
+performs with are the path the decision took, so every write on the branch stands on the
+guard's read however the branch is shaped inside: `y` and `z` are open exactly where `x` is.
+`later`, past the merge the branches rejoin at, is fixed.
+
+Pinned outcome: `{x = 1, y = 10, z = 5, later = 7}` or `{x = 2, y = 1, z = 1, later = 7}`, stated
+as `outcomes` citing this section. The default run marks `x`, `y` and `z` with the two choice
+points.
+
+### A write of a same-named feature elsewhere leaves an order-dependent value standing
+
+Fixture: `action_order_same_name_elsewhere_keeps_mark` (golden, explored).
+
+```
+start → split ⇉ a { level := 1 } ─┐
+              ⇉ b { level := 2 } ─┘→ sync → other { level := 5 } → done
+```
+
+where `other` declares a `level` of its own, which its assignment writes.
+
+Derived constraints:
+
+- `sync` follows both writes of the outer `level`, which `other` neither reads nor writes.
+- The outer `level` is `1` or `2`; `other`'s is `5`.
+
+Open: the order of the two writers of the outer `level`. A write rewrites what the one feature
+it writes stands on, not every value of that name: `other`'s literal write clears nothing of the
+outer `level`, which still stands on its writers' order, and `other.level`, written from a
+literal, stands on nothing.
+
+Pinned outcome: `{level = 1}` or `{level = 2}`, stated as `outcomes` citing this section. The
+default run marks `level` with the two choice points and prints `other.level` bare.
+
+### A literal rewrite of a node's own feature clears what its initializer stood on
+
+Fixture: `action_order_literal_rewrite_of_initialized_pin` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → other { level = x; level := 5 } → done
+```
+
+where `other` declares `attribute level : Integer = x` and then assigns `level := 5`.
+
+Derived constraints:
+
+- `sync` follows both writes of `x`, so `other` begins with a `level` of `1` or `2`.
+- Its assignment then writes `level` as `5` from a literal, in every linearization.
+
+Open: the order of the two writers of `x`. The initializer and the assignment write the one
+feature of the one performance of `other`, so the assignment replaces what the initializer
+left: `other.level` stands on nothing, though its initial value was open.
+
+Pinned outcome: `{x = 1}` or `{x = 2}`, stated as `outcomes` citing this section. The default run
+marks `x` with the two choice points and prints `other.level` bare.
+
+### An argument a node writes binds its pin, not the enclosing feature of the pin's name
+
+Fixture: `action_order_explicit_argument_binds_pin` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → mk { y := x + 10 } → lit = Add(x = 5) → dep = Add(x = y) → fin { fixed := lit; derived := dep } → done
+```
+
+where `Add` takes `in x` and answers `out result = x + 1`.
+
+Derived constraints:
+
+- `sync` follows both writes of `x`, so `mk` reads an `x` of `1` or `2` and `y` is `11` or `12`.
+- `lit` binds its `x` from the literal `5`, so its result is `6` and `fixed` is `6` in every
+  linearization; `dep` binds its `x` from `y`, so its result and `derived` are `12` or `13`.
+
+Open: the order of the two writers of `x`. An argument the node writes is what binds the pin,
+whatever the enclosing scope holds under the pin's name: `lit`'s input stands on nothing, while
+`dep`'s pins, its result and `derived` stand on what `y` stands on. The body of `Add` reads its
+own `x` by name, and a definition's body is read conservatively against the enclosing feature of
+that name, so `lit.result` and `fixed` print marked though their value is fixed: the marker errs
+towards reporting, never towards a bare value an order could change.
+
+Pinned outcome: `{x = 1, y = 11, fixed = 6, derived = 12}` or `{x = 2, y = 12, fixed = 6,
+derived = 13}`, stated as `outcomes` citing this section. The default run marks `x`, `y`,
+`derived`, `dep`'s pins, `lit.result` and `fixed` with the two choice points and prints `lit.x`
+bare.
+
+### A sibling node's pin read by its path stands on what the pin stands on
+
+Fixture: `action_order_sibling_pin_read_in_performed_action` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { x := 2 } ─┘→ sync → step { v := x } → finish { result := step.v } → done
+```
+
+where `step` declares `out v : Integer`.
+
+Derived constraints:
+
+- `sync` follows both writes of `x`, so `step` writes its `v` as `1` or `2`.
+- `finish` reads `step.v`, the pin of `step`, so `result` is `1` or `2` with it.
+
+Open: the order of the two writers of `x`. A pin read by its path is the pin of the node named,
+whichever node's body reads it: `result` stands on what `step.v` stands on.
+
+Pinned outcome: `{x = 1, result = 1}` or `{x = 2, result = 2}`, stated as `outcomes` citing
+this section. The default run marks `x`, `result` and `step.v` with the two choice points.
 
 ## What the executor gets wrong
 

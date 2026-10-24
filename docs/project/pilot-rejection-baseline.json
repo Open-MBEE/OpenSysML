@@ -7,7 +7,7 @@
     "pilotTag": "2026-08",
     "pilotCommit": "692170b71867353b8f90341e61556f49a5beb0e5",
     "pilotArtifact": "0.62.0",
-    "errataRegistry": "sha256:d5782936c5c92f29f24a077477b148fc5d178f83f174b143d1bb95c3693ab1b9",
+    "errataRegistry": "sha256:e92505147b15ab8e68a09f19632639383570f0cbe0fdc6f50fb76e03b8e04579",
     "tools": [
       {
         "name": "pilot-sysml-validator",
@@ -27,17 +27,17 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 313,
-        "digest": "sha256:4063e6eb535e7b65158b64b17e2afff63af3d3b5caa35d851c797744b9d521c4"
+        "files": 344,
+        "digest": "sha256:c7eae59945c405138d8daa88cd90303f6209c7102fdb293af47f2079fdf4b111"
       }
     ],
-    "recorded": "2026-10-12"
+    "recorded": "2026-10-23"
   },
   "totals": {
-    "cases": 313,
-    "bothReject": 304,
+    "cases": 344,
+    "bothReject": 332,
     "pilotOnlyRejects": 0,
-    "oursOnlyRejects": 9,
+    "oursOnlyRejects": 12,
     "bothAccept": 0
   },
   "strictOnlyAgreements": [
@@ -49,26 +49,26 @@
   "sources": [
     {
       "source": "extensions",
-      "cases": 11,
-      "bothReject": 11,
+      "cases": 12,
+      "bothReject": 12,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
     },
     {
       "source": "grammar",
-      "cases": 108,
-      "bothReject": 108,
+      "cases": 112,
+      "bothReject": 112,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
     },
     {
       "source": "semantic",
-      "cases": 159,
-      "bothReject": 150,
+      "cases": 185,
+      "bothReject": 173,
       "pilotOnlyRejects": 0,
-      "oursOnlyRejects": 9,
+      "oursOnlyRejects": 12,
       "bothAccept": 0
     },
     {
@@ -197,6 +197,17 @@
       "oursErrors": 1,
       "pilotErrors": 4,
       "defaultBucket": "pilot-only-rejects"
+    },
+    {
+      "path": "extensions/x12-target-succession-outside-action-body.sysml",
+      "source": "extensions",
+      "rule": "TargetSuccessionMember is an ActionBodyItem; a view body admits no 'then \u003ctarget\u003e;' succession (SysML.xtext:1367 ActionBodyItem, :1693 TargetSuccessionMember, :2359 ViewBodyItem).",
+      "mode": "strict",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2,
+      "defaultBucket": "both-reject",
+      "defaultErrors": 1
     },
     {
       "path": "grammar/g01-unclosed-package-body.sysml",
@@ -928,6 +939,42 @@
       "pilotErrors": 3
     },
     {
+      "path": "grammar/g82-frame-in-view-body.sysml",
+      "source": "grammar",
+      "rule": "FramedConcernMember is a RequirementBodyItem; a view body admits no 'frame' (SysML.xtext:2062 RequirementBodyItem, :2359 ViewBodyItem).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
+      "path": "grammar/g83-frame-in-view-def-body.sysml",
+      "source": "grammar",
+      "rule": "FramedConcernMember is a RequirementBodyItem; a view def body admits no 'frame' (SysML.xtext:2062 RequirementBodyItem, :2329 ViewDefinitionBodyItem).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
+      "path": "grammar/g84-filter-outside-package-or-view-body.sysml",
+      "source": "grammar",
+      "rule": "ElementFilterMember is a PackageBodyElement, ViewDefinitionBodyItem and ViewBodyItem; a rendering def body admits no 'filter' (SysML.xtext:227 ElementFilterMember, :2329 ViewDefinitionBodyItem, :2359 ViewBodyItem).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
+      "path": "grammar/g85-accept-outside-action-body.sysml",
+      "source": "grammar",
+      "rule": "AcceptNode is an ActionBodyItem; a view body admits no 'accept' (SysML.xtext:1367 ActionBodyItem, :1434 AcceptNode, :2359 ViewBodyItem).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
       "path": "grammar/k01-specializes-without-target.kerml",
       "source": "grammar",
       "rule": "OwnedSpecialization requires a general type after 'specializes' (KerML.xtext SpecializationPart).",
@@ -1273,6 +1320,30 @@
       "pilotErrors": 0,
       "ours": [
         "line 9: succession out of decide d has target multiplicity [1]; successions out of a decision node must have target multiplicity [0..1]"
+      ]
+    },
+    {
+      "path": "semantic/connection-def-end-not-usage.sysml",
+      "source": "semantic",
+      "rule": "a connection definition end must be a usage, inherited ends included (SysML v2.1 Beta 2 8.3.13.3 connectionEnd : Usage redefines associationEnd; the pilot's master branch adds the check as ST6RI-974, after the 2026-08 pin, so this case lands in ours-only-rejects).",
+      "mode": "default",
+      "bucket": "ours-only-rejects",
+      "oursErrors": 1,
+      "pilotErrors": 0,
+      "ours": [
+        "line 4: A connection definition end must be a usage."
+      ]
+    },
+    {
+      "path": "semantic/flow-def-end-not-usage.sysml",
+      "source": "semantic",
+      "rule": "a flow definition end must be a usage, inherited ends included (SysML v2.1 Beta 2 8.3.16.2 flowEnd : Usage redefines associationEnd; the pilot's master branch adds the check as ST6RI-974, after the 2026-08 pin, so this case lands in ours-only-rejects).",
+      "mode": "default",
+      "bucket": "ours-only-rejects",
+      "oursErrors": 1,
+      "pilotErrors": 0,
+      "ours": [
+        "line 4: A flow definition end must be a usage."
       ]
     },
     {
@@ -1713,7 +1784,7 @@
       "rule": "a binding connector is binary, so its ends must reference exactly two features (KerML 8.3.4.7.2 validateBindingConnectorIsBinary; pilot validateBindingConnectorIsBinary).",
       "mode": "default",
       "bucket": "both-reject",
-      "oursErrors": 2,
+      "oursErrors": 3,
       "pilotErrors": 2
     },
     {
@@ -1933,6 +2004,51 @@
       "pilotErrors": 3
     },
     {
+      "path": "semantic/k74-package-level-redefines-featured-feature.kerml",
+      "source": "semantic",
+      "rule": "a package-level feature has no featuring type, so a feature featured by a type is not accessible to it (KerML 8.3.3.3 validateSubsettingFeaturingTypes; pilot validateSubsettingFeaturingTypes).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/k75-nonend-redefines-end-in-connector.kerml",
+      "source": "semantic",
+      "rule": "a feature redefining an end feature within a connector must be an end (KerML 8.3.3.3 validateRedefinitionEndConformance; pilot validateRedefinitionEndConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/k76-undirected-redefinition-of-directed-feature.kerml",
+      "source": "semantic",
+      "rule": "a redefinition declaring no direction does not conform to a redefined `in`, `out` or `inout` feature (KerML 8.3.3.3.8 validateRedefinitionDirectionConformance; pilot validateRedefinitionDirectionConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
+    },
+    {
+      "path": "semantic/k77-standalone-subsetting-inaccessible-feature.kerml",
+      "source": "semantic",
+      "rule": "a subsetted feature must be accessible from the subsetting feature, whether the Subsetting is written inline or as a `specialization subset` member of its own (KerML 8.3.3.3.10 validateSubsettingFeaturingTypes; pilot validateSubsettingFeaturingTypes).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/k78-cross-feature-after-member-binding-type-differs.kerml",
+      "source": "semantic",
+      "rule": "a `member` binding connector ahead of an end's cross feature is not the owned cross feature, so the mistyped feature after it must still have the end's type (KerML 8.3.3.3.4 Feature::ownedCrossFeature, validateFeatureCrossFeatureType; pilot validateFeatureCrossFeatureType).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
       "path": "semantic/s01-action-typed-by-part-def.sysml",
       "source": "semantic",
       "rule": "An action must be typed by action definitions (SysML 7.16 Actions; pilot validateActionUsageType).",
@@ -2041,9 +2157,153 @@
       "pilotErrors": 2
     },
     {
+      "path": "semantic/s102-part-subsets-attribute-def.sysml",
+      "source": "semantic",
+      "rule": "a usage subsets a Feature, so a part subsetting an attribute definition names nothing that position admits (KerML 8.3.3.3 Subsetting::subsettedFeature is typed Feature, a rule SysML usages inherit; pilot fails to link the Subsetting — `Couldn't resolve reference to Feature 'Mass'` — exactly as for KerML's `feature f :\u003e D`).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s103-part-redefines-part-def.sysml",
+      "source": "semantic",
+      "rule": "a usage redefines a Feature, so a part redefining a part definition names nothing that position admits (KerML 8.3.3.3 Redefinition::redefinedFeature is typed Feature, a rule SysML usages inherit; pilot fails to link the Redefinition — `Couldn't resolve reference to Feature 'Engine'`).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s104-analysis-def-two-objectives.sysml",
+      "source": "semantic",
+      "rule": "An analysis case definition may have at most one objective (SysML 7.21 Cases; pilot validateCaseDefinitionOnlyOneObjective).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s104-root-level-feature-redefined.sysml",
+      "source": "semantic",
+      "rule": "a feature owned by the root namespace is package-level and cannot be redefined by another (KerML 7.4.7 validateRedefinitionFeaturingTypes; pilot validateRedefinitionFeaturingTypes).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s105-analysis-usage-two-objectives.sysml",
+      "source": "semantic",
+      "rule": "An analysis case usage may have at most one objective (SysML 7.21 Cases; pilot validateCaseUsageOnlyOneObjective).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s105-package-level-redefines-type-feature.sysml",
+      "source": "semantic",
+      "rule": "a package-level feature has no featuring type, so a feature of a type is not accessible to it (KerML 8.3.3.3 validateSubsettingFeaturingTypes; pilot validateSubsettingFeaturingTypes).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s106-exhibit-state-references-non-state.sysml",
+      "source": "semantic",
+      "rule": "A declared exhibit state usage must reference a state usage (SysML 7.17 States; pilot validateExhibitStateUsageReference).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
+    },
+    {
+      "path": "semantic/s107-perform-action-references-non-action.sysml",
+      "source": "semantic",
+      "rule": "A declared perform action usage must reference an action usage (SysML 7.16 Actions; pilot validatePerformActionUsageReference).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
+    },
+    {
+      "path": "semantic/s108-usage-subsets-constant-usage.sysml",
+      "source": "semantic",
+      "rule": "a usage that may vary in time cannot subset or redefine a constant one unless it is constant (KerML 8.3.3.3.9 validateSubsettingConstantConformance; pilot validateSubsettingConstantConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
+    },
+    {
       "path": "semantic/s11-case-two-objectives.sysml",
       "source": "semantic",
       "rule": "A case usage may have at most one objective (SysML 7.21 Cases; pilot validateCaseUsageOnlyOneObjective).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s110-nonend-redefines-end-in-connection-def.sysml",
+      "source": "semantic",
+      "rule": "a usage redefining an end feature within a connection definition must be an end (KerML 8.3.3.3 validateRedefinitionEndConformance; pilot validateRedefinitionEndConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
+      "path": "semantic/s111-nonend-redefines-end-in-connection-usage.sysml",
+      "source": "semantic",
+      "rule": "a usage redefining an end feature within a connection usage must be an end (KerML 8.3.3.3 validateRedefinitionEndConformance; pilot validateRedefinitionEndConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s112-concern-def-stakeholder-before-implicit-subject.sysml",
+      "source": "semantic",
+      "rule": "A stakeholder declared before any subject is the first input of a concern definition, displacing the subject it inherits (SysML 8.3.21.8 validateRequirementDefinitionSubjectParameterPosition; pilot validateRequirementDefinitionSubjectParameterPosition).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s113-framed-concern-stakeholder-before-inherited-subject.sysml",
+      "source": "semantic",
+      "rule": "A stakeholder a framed concern declares precedes the subject it inherits from its definition (SysML 8.3.21.9 validateRequirementUsageSubjectParameterPosition; pilot validateRequirementUsageSubjectParameterPosition).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s114-constructor-argument-overrides-bound-value.sysml",
+      "source": "semantic",
+      "rule": "a constructor argument binds a feature whose value is written with `=`, which every feature redefining it inherits; only a `default =` value may be overridden (KerML 8.3.4.10.2 validateFeatureValueOverriding; pilot validateFeatureValueOverriding).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
+    },
+    {
+      "path": "semantic/s115-undirected-redefinition-of-in-parameter.sysml",
+      "source": "semantic",
+      "rule": "a redefinition of an `in` parameter that declares no direction does not conform to it (KerML 8.3.3.3.8 validateRedefinitionDirectionConformance; pilot validateRedefinitionDirectionConformance).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s116-positional-parameter-direction-conflict.sysml",
+      "source": "semantic",
+      "rule": "the first parameter of a step redefines its behavior's first parameter by position, so an `out` written first under `in input; out output;` conflicts with `input` (KerML 8.4.4.6 checkFeatureParameterRedefinition, 8.3.3.3.8 validateRedefinitionDirectionConformance; pilot validateRedefinitionDirectionConformance).",
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 1,
@@ -2129,6 +2389,15 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s20b-include-references-definition.sysml",
+      "source": "semantic",
+      "rule": "An include use case usage must reference a use case usage; a use case definition is not a feature (SysML 7.24 Use Cases; pilot validateIncludeUseCaseUsageReference).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
     },
     {
       "path": "semantic/s21-interface-def-end-not-port.sysml",
@@ -2629,6 +2898,27 @@
       "pilotErrors": 6
     },
     {
+      "path": "semantic/variant-kind-inconsistent-with-variation.sysml",
+      "source": "semantic",
+      "rule": "the kind of a variant usage must be consistent with the kind of its owning variation (SysML 7.6.7; checkUsageVariationDefinitionSpecialization, checkUsageVariationUsageSpecialization; pilot SysMLValidator checkActionUsage typing).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 6,
+      "pilotErrors": 5
+    },
+    {
+      "path": "semantic/variation-usage-objective-not-variant.sysml",
+      "source": "semantic",
+      "rule": "An owned usage of a variation usage must be a variant, an objective included (SysML 8.3.6.4 validateUsageVariationOwnedFeatureMembership; pilot validateUsageVariationMembership).",
+      "mode": "default",
+      "bucket": "ours-only-rejects",
+      "oursErrors": 1,
+      "pilotErrors": 0,
+      "ours": [
+        "line 5: An owned usage of a variation must be a variant."
+      ]
+    },
+    {
       "path": "xpect/p01-public-root-import.kerml",
       "source": "xpect",
       "rule": "a root-namespace import must be private (KerML 8.2.3.5.2 validateImportTopLevelVisibility; pilot Import_RootNamspace_invalid.kerml.xt).",
@@ -2945,8 +3235,8 @@
     }
   ],
   "errata": {
-    "registryEntries": 13,
-    "corrections": 6,
+    "registryEntries": 16,
+    "corrections": 9,
     "documentedWithoutCorrection": 7,
     "correctionsApplied": 0,
     "entries": [
@@ -3053,13 +3343,37 @@
         "citation": "SysML v2 §9.8.9.1",
         "corrected": true,
         "derivation": "the unit postfix binds to PrimaryExpression (KerMLExpressions.xtext:308), below MultiplicativeExpression, so `[K]` qualifies 900 alone and the value is Θ^-1 where ThermodynamicTemperatureValue is Θ; the evident intent, 0 °F as a temperature in kelvin, is `(229835/900) [K]`."
+      },
+      {
+        "id": "Flows-46",
+        "path": "internal/workspace/libs/stdlib/Systems Library/Flows.sysml",
+        "line": 46,
+        "citation": "SysML v2.1 Beta 2 §8.3.16.2",
+        "corrected": true,
+        "derivation": "§8.3.16.2 types `flowEnd : Usage [0..*] {redefines associationEnd}`, so every end feature of a flow definition, inherited ones included, is a Usage. Published, `Message` owns no ends and inherits `Transfer::source` and `Transfer::target`, KerML features, so the library's own base flow definition violates the clause, and with it every `flow def` that specializes `Message` without ends of its own. The repair is the one OMG issue SYSML21-681 and the pilot's ST6RI-974 apply: `Message` gets owned occurrence usage ends redefining `Transfer::source`/`target`, `messages` becomes an action usage (a flow definition is an action definition, so `Message` types it still) and owns ends redefining `Message::source`/`target` and `transfers::source`/`target`."
+      },
+      {
+        "id": "Flows-99",
+        "path": "internal/workspace/libs/stdlib/Systems Library/Flows.sysml",
+        "line": 99,
+        "citation": "SysML v2.1 Beta 2 §8.3.16.2",
+        "corrected": true,
+        "derivation": "§8.3.16.2 types `flowEnd : Usage [0..*] {redefines associationEnd}`, so every end feature of a flow definition, inherited ones included, is a Usage. Published, `Message` owns no ends and inherits `Transfer::source` and `Transfer::target`, KerML features, so the library's own base flow definition violates the clause, and with it every `flow def` that specializes `Message` without ends of its own. The repair is the one OMG issue SYSML21-681 and the pilot's ST6RI-974 apply: `Message` gets owned occurrence usage ends redefining `Transfer::source`/`target`, `messages` becomes an action usage (a flow definition is an action definition, so `Message` types it still) and owns ends redefining `Message::source`/`target` and `transfers::source`/`target`."
+      },
+      {
+        "id": "Flows-103",
+        "path": "internal/workspace/libs/stdlib/Systems Library/Flows.sysml",
+        "line": 103,
+        "citation": "SysML v2.1 Beta 2 §8.3.16.2",
+        "corrected": true,
+        "derivation": "§8.3.16.2 types `flowEnd : Usage [0..*] {redefines associationEnd}`, so every end feature of a flow definition, inherited ones included, is a Usage. Published, `Message` owns no ends and inherits `Transfer::source` and `Transfer::target`, KerML features, so the library's own base flow definition violates the clause, and with it every `flow def` that specializes `Message` without ends of its own. The repair is the one OMG issue SYSML21-681 and the pilot's ST6RI-974 apply: `Message` gets owned occurrence usage ends redefining `Transfer::source`/`target`, `messages` becomes an action usage (a flow definition is an action definition, so `Message` types it still) and owns ends redefining `Message::source`/`target` and `transfers::source`/`target`."
       }
     ],
     "totals": {
-      "cases": 313,
-      "bothReject": 304,
+      "cases": 344,
+      "bothReject": 332,
       "pilotOnlyRejects": 0,
-      "oursOnlyRejects": 9,
+      "oursOnlyRejects": 12,
       "bothAccept": 0
     },
     "note": "no declared correction lies under tools/referee/reject/testdata/negative, so the errata-applied corpus is byte-identical to the published one and both figures coincide"

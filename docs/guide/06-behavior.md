@@ -2,8 +2,13 @@
 
 Actions and state machines are executed, not just parsed. A debugger steps through
 them, and the non-interactive `-action` and `-state` flags run them to completion and report the
-values they produce. A behavior can be performed by an object, in which case the messages it sends
-are routed over that object's connections.
+values they produce. A use case is an action, so `%action` and `-action` run a use case definition
+or usage the same way, its `include use case` members performing as nested actions. A behavior can be performed by an object, in which case the messages it sends
+are routed over that object's connections. What a run reports is one linearization of the partial
+order the model states — the default `reverse` policy picks it, deterministically — so when more
+than one order is valid, the values are *a* result, not *the* result; `explore` and `check` are
+how to see the whole set, up to their run and depth budgets — a result that hit one says so
+([below](#when-a-model-has-more-than-one-valid-run)).
 
 **Action execution (step-by-step):**
 ```sysml
@@ -688,47 +693,89 @@ $ sysml -action test::race action_explore_three_writers.sysml
     aRan = true
     bRan = true
     cRan = true
-    x = 1
+    x = 1 (order-dependent; 2 choice points — explore shows the set)
   standing: value (observed: 1 run under reverse)
 ```
 
 The same line closes `%step`, `%continue` and `%advance` in the REPL, and reads `2 choice points`
-without the hint once `%trace on` is showing them. Under `-trace` (or `%trace on`) each choice
-is a `choice` line naming what was open, every alternative, and the one taken:
+without the hint once `%trace on` is showing them. The result is stated only up to the partial
+order the library fixes: `x = 1` is what this linearization left, and the marker says that two
+of the run's choice points were between alternatives that write `x` — a value another order
+would hold otherwise — while `aRan`, `bRan` and `cRan`, which no competing alternative touches,
+print as they always have. A choice point marks a value when its alternatives *conflict*: one
+writes what another reads or writes, or they send and accept on one channel, judged from the
+same lowered footprints the checker's partial-order reduction uses (a read through an object
+reference or a chained target the declarations do not decide counts as conflicting). Alternatives
+that commute — two branches writing different features — are one outcome by construction: the
+choice is still recorded and still replayable, it is counted as `1 choice point (1 independent)`,
+and nothing is marked. Under `-trace` (or `%trace on`) each choice is a `choice` line naming
+what was open, every alternative, the one taken, and its standing:
 
 ```console
 $ sysml -trace -action test::race action_explore_three_writers.sysml
 …
 [trace] step 2: token 2@a, token 3@b, token 4@c
 …
-[trace] choice step 3: writes x := 1 by token 2, x := 2 by token 3, x := 3 by token 4 (unordered; x := 1 by token 2 stood)
-[trace] choice step 3: tokens 2@a, 3@b, 4@c (unordered; took 4@c first)
+[trace] choice step 3: writes x := 1 by token 2, x := 2 by token 3, x := 3 by token 4 (unordered; x := 1 by token 2 stood; order-dependent: x)
+[trace] choice step 3: tokens 2@a, 3@b, 4@c (unordered; took 4@c first; order-dependent: x)
 [trace] step 3: token 2@sync, token 3@sync, token 4@sync
 [trace] step 4: token 5@done
 [trace] step 5: no active tokens
 ```
 
 `tokens 2@a, 3@b, 4@c` names the tokens by id and node; `took 4@c first` is the reverse-order
-rule. The write line lists each token's last write to `x` and which one stood — `x = 1`, because
-token 2 stepped last. The other kinds read the same way: a decision with two holding guards is
-`choice step 2: decision select branches 1->warn, 2->alarm hold (unordered; took 1->warn)`, two
-transitions out of one state enabled by one event are `choice state idle on accept Go: transitions
-1->left, 2->right (unordered; took 1->left)`, and two regions reacting to one event are
-`choice on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)` — each firing
+rule; `order-dependent: x` is the standing, naming the features the conflicting alternatives
+write (`independent` when they commute, `order-dependent` alone when they meet on a channel or
+on a target the declarations do not decide). The write line lists each token's last write to `x`
+and which one stood — `x = 1`, because token 2 stepped last. The other kinds read the same way: a
+decision with two holding guards is `choice step 2: decision select branches 1->warn, 2->alarm
+hold (unordered; took 1->warn; order-dependent: mode)` — a decision's branches are different
+continuations, never independent — two transitions out of one state enabled by one event are
+`choice state idle on accept Go: transitions 1->left, 2->right (unordered; took 1->left;
+order-dependent)`, and two regions reacting to one event are `choice on accept Go: next a1(exit),
+b1(exit) (unordered; took a1(exit) first; order-dependent: last)` — each firing
 is drawn a unit at a time, its source's exit, its effect, its target's entry, so two firings may
 interleave; `reverse` and `declared` take the regions whole in declaration order and report each
 pick, and `seed:<n>` may take `b1(exit)` first. Entering a state of two regions draws the order
 of their entries the same way, `choice entering work: next left(entry), right(entry)
-(unordered; took left(entry) first)`, a fork's branches under `fork <name>` and the regions a
+(unordered; took left(entry) first; independent)`, a fork's branches under `fork <name>` and the regions a
 state leaves under `exiting <state>`; the fixed policies take declaration order there too, so a
 model that ran before these draws were recorded runs the same and gains only the `choice` lines —
 and two executors due at one instant of the clock are `choice at t=5.0: due action watcher, state
-machine blinking of object #1 (unordered; ran state machine blinking of object #1 first)`. One
+machine blinking of object #1 (unordered; ran state machine blinking of object #1 first; independent)`. One
 executor alone due at an instant is not a choice and is not reported, so a model with a single
 behavior runs and traces exactly as it did before the clock was shared. Over gRPC and
 Connect the same choice is an informational diagnostic with code `choice-point` and the message
-`choice point: step 3: tokens 2@a, 3@b, 4@c (unordered; took 4@c first)`, placed at the node,
-decision, feature or state that made it — a finding about the run, never an error.
+`choice point: step 3: tokens 2@a, 3@b, 4@c (unordered; took 4@c first; order-dependent: x)`,
+placed at the node, decision, feature or state that made it — a finding about the run, never an
+error — and its standing travels typed beside the message: `independent`, and `order_dependent`
+listing the features marked. The values themselves carry the count: `order_dependent` on a
+`FeatureValue` and, per output, on `ExecuteActionResponse` and `ExecuteStateResponse`
+(capability `order_dependence`); the Python client reads it as `ActionOutputs.order_dependent`
+and `Diagnostic.order_dependent`/`independent`, the Node client as `orderDependent` and
+`ModelDiagnostic.orderDependent`/`independent`.
+
+The marker follows the data, not only the choice. A statement that reads an order-dependent value
+and writes another feature is not a choice point — nothing was drawn — but what it wrote depends
+on the order as much as what it read, so it carries the same marks: after the join above, `assign
+y := x + 1` leaves `y = 2 (order-dependent; 2 choice points — explore shows the set)` beside
+`x = 1 (order-dependent; 2 choice points — explore shows the set)`, while `assign z := 5` in the
+same body leaves `z = 5` bare. The same holds through a guard — a decision, `if`, loop condition
+or transition that reads an order-dependent value makes everything the branch it selects writes
+order-dependent, though the branch past the merge where the alternatives rejoin is not — through a
+performed action's inputs to its outputs, through the payload a `send` carries to the `accept`
+that binds it (the library orders the accept after the send, and after nothing else), and through
+a state machine's effects. A value nothing order-dependent reaches is never marked, and a write
+that reads nothing order-dependent clears the mark of what it rewrites: `assign x := 10` after the
+join leaves `x = 10` and, computed from it, `y = 11`, both bare, though the run still reports the
+two choice points it drew. The mark describes the value a feature now holds, not the feature's
+history, and reporting it never changes the run. The conformance fixtures
+`action_order_derived_from_racing_writers`, `action_order_guard_reads_racing_writer`, `action_order_inherited_guard_reads_racing_writer`,
+`action_order_through_performed_action`, `action_order_send_payload_from_racing_writer`,
+`state_order_effect_reads_racing_attribute` and `action_order_rewrite_clears_mark` show each
+case, and
+[the scheduling design note](../internals/design/scheduling.md#what-a-value-stands-on-ordermarksgo)
+states the rule and its basis in the Kernel Semantic Library.
 
 Reporting never changes the run. Once a guard or transition holds, the ones after it are read in
 a preview that is undone, and one that cannot be evaluated there — a division by zero, say — is
@@ -817,7 +864,11 @@ maximum model-draw probability over schedulers; a range that collapses to one va
 incomplete exploration prefixes numeric cells with `≥` and adds `; probabilities are lower bounds`
 only when a weighted choice occurred, since the runs not taken can only add. Six
 linearizations, three outcomes, two each; `complete (6 runs)` says every choice sequence was
-tried. Under `explore` an action step is one token advancing one node — not, as under the fixed
+tried. `complete` is a claim about the model, not the budget: were the runtime to perform a
+construct in one order without offering the alternatives as a choice point (no construct does
+today), the status would read `incomplete after N runs; not enumerated: …` naming the
+construct, the standing *observed* rather than *proved*, and the gRPC and client results list
+it under `unenumerated`. Under `explore` an action step is one token advancing one node — not, as under the fixed
 policies, every steppable token moving once — so the picks fall in consecutive steps and a branch
 of several nodes can run ahead of, or be overtaken by, a concurrent one at each of them. A
 `complete` exploration therefore covers every interleaving of the nodes the library leaves
@@ -1375,7 +1426,7 @@ v1 idioms land on the machinery above:
   English (`[Align BTO]`) is written unguarded, and the runtime draws its branch with the model
   seed.
 - A **run configuration** (`SimulationProfile:SimulationConfig`) becomes an `action def` that
-  declares `part target : <the migrated execution target>` — the `individual def` the target
+  declares `part target :> <the migrated execution target>` — the `part` usage the target
   instance became, whose slots are its attribute values — and `perform action run ::>
   target.<the classifier behavior>`, with the tool's `numberOfRuns` and
   `durationSimulationMode` as `@Simulation::Configuration { runs = …; draws = …; }` metadata; so
@@ -1655,8 +1706,8 @@ package test {
 $ sysml -analysis test::steps steps.sysml
 ✓ package test
 ✓ test::steps
-  total = 66.0
-  result = 60.0
+  total = [66.0]
+  result = [60.0]
 ```
 
 The body's `action` steps run through the same executor `%action` debugs: `then` sequences them,
@@ -1734,7 +1785,38 @@ A case usage owned by a part definition (`part def Holder { analysis inner : Cos
 subject s = h; } part h : Ship; }`) is a feature of every object of that type, as a `calc` usage
 owned by a part is: `holder.inner.total` runs the case on first read and keeps the result until a
 value it depends on changes, and an attribute redefined from an analysis output (`attribute :>>
-fuelEconomy = cityAnalysis.fuelEconomyResult;`) evaluates through the same path.
+fuelEconomy = cityAnalysis.fuelEconomyResult;`) evaluates through the same path. Run by name, such a
+case takes the object named after it as the object it is a feature of (`-analysis "Holder::inner
+holder"`), else the single object of the definition the run holds; `-validate=<object>`,
+`-requirement` and `-satisfy` run a verification case a definition owns once per object of it the
+check is about, naming the object on its verdict.
+
+So a requirement a part definition `satisfy`s is checked on every usage of it, and a verification
+the definition owns runs on each usage's object; the usage's subject is the owning object, which
+an owned performance names `this` — `self` there is the case itself, and binding the subject to
+it draws `warning[bound-feature-types]`, as the reference implementation reports it:
+
+```sysml
+// in DefinitionPkg; RequirementPkg::costReq : CostRequirement { :>> maximumCost = 100.0; }
+part def Definition {
+    attribute cost : Real;
+    satisfy costReq;
+    verification def CostTest {
+        subject product : Definition;
+        objective { verify costReq; }
+        return verdict = VerificationCases::PassIf(product.cost <= RequirementPkg::costReq.maximumCost);
+    }
+    verification costTest : CostTest { subject product = this; }
+}
+// in ProductPkg
+part good : Definition { attribute :>> cost = 80.0; }
+```
+
+`sysml -instantiate ProductPkg::good -validate=ProductPkg::good model.sysml` reports `satisfy costReq
+holds (on ProductPkg::good ID: 1)` and `Verification DefinitionPkg::Definition::costTest on
+ProductPkg::good (object #1) verdict: pass`; a usage with `cost = 120.0` fails both.
+`-analysis DefinitionPkg::Definition::costTest` without an object has nothing to run on and says so:
+`verdict: inconclusive — needs an object of DefinitionPkg::Definition: none is instantiated`.
 
 What stops a case is reported as an error naming it, never as a silent empty result: a
 `subject` nothing binds (`analysis An::CostAnalysis: s subject is unbound: bind it
@@ -1774,8 +1856,8 @@ $ sysml -analysis L::checkSlow landing.sysml
 ```
 
 The two verdicts are independent: an objective stating no condition of its own —
-`objective { verify touchdown; }` alone — stays `undecided` and leaves the case unresolved, while
-the body verdict beside it still reports what the body answered.
+`objective { verify touchdown; }` alone — is `satisfied`, so the case's status is the body verdict
+beside it, which reports what the body answered.
 
 A verification case's objective checks the case's subject, not its verdict: the library binds it
 so (`VerificationCases::VerificationCase::obj` redefines `Cases::Case::obj` with `subject subj =
@@ -1822,7 +1904,10 @@ as for any case.
 A body whose result is a `VerificationCases::PassIf(...)` call is `pass` or `fail` as that library
 calculation computes it; one binding `verdict` to a `VerdictKind` literal reports that literal; one
 producing no verdict value is `inconclusive`; and one whose run could not be carried out is `error`
-carrying the same message the run failed with. Each nested `verification` step is reported on its
+carrying the same message the run failed with. A case a part definition owns, swept with no object
+of the definition instantiated, is `inconclusive` saying it needs an object of the definition — the
+case is a feature of such an object, so there is nothing for it to run on, and nothing wrong with the
+model. Each nested `verification` step is reported on its
 own line, marked `(subcase)`, since the library states no roll-up of a subcase's verdict into its
 parent's.
 
@@ -1839,11 +1924,11 @@ what that run computed and how long it took:
 %instantiate An::ship
 %sweep An::CostAnalysis An::ship limit=10.0..30.0:10.0
 sweep An::CostAnalysis — 3 run(s)
-limit | total | verdict                   | time
-------+-------+---------------------------+--------
-10.0  | 12.0  | affordable: not satisfied | 0.510ms
-20.0  | 12.0  | affordable: satisfied     | 0.022ms
-30.0  | 12.0  | affordable: satisfied     | 0.012ms
+limit | total  | verdict                   | time
+------+--------+---------------------------+--------
+10.0  | [12.0] | affordable: not satisfied | 0.510ms
+20.0  | [12.0] | affordable: satisfied     | 0.022ms
+30.0  | [12.0] | affordable: satisfied     | 0.012ms
 
 %samples 3 42 An::CostAnalysis An::ship limit=10.0..30.0
 samples An::CostAnalysis — 3 run(s), seed 42
@@ -1941,7 +2026,7 @@ whether its alternative is the one the case returned:
 $ sysml -analysis Trade::lightest trade.sysml
 ✓ package Trade
 ✓ Trade::lightest
-  selectedAlternative = Trade::b (object #2)
+  selectedAlternative = [Trade::b (object #2)]
   objective tradeStudyObjective: satisfied
   evaluationFunction(Trade::a (object #1)) = 30.0
   evaluationFunction(Trade::b (object #2)) = 10.0 [selected]
@@ -1972,11 +2057,11 @@ whose run failed keeps the evaluations it made before failing:
 ```
 %sweep Trade::weighted powerWeight=0.0..1.0:0.5
 sweep Trade::weighted — 3 run(s)
-powerWeight | selectedAlternative        | verdict                        | evaluations                                                                                                            | time
-------------+---------------------------+--------------------------------+------------------------------------------------------------------------------------------------------------------------+--------
-0.0         | Trade::light (object #2)  | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = -30.0; evaluationFunction(Trade::light (object #2)) = -10.0 [selected] | 3.053ms
-0.5         | Trade::strong (object #1) | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = 120.0 [selected]; evaluationFunction(Trade::light (object #2)) = 15.0  | 0.215ms
-1.0         | Trade::strong (object #1) | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = 270.0 [selected]; evaluationFunction(Trade::light (object #2)) = 40.0  | 0.153ms
+powerWeight | selectedAlternative         | verdict                        | evaluations                                                                                                            | time
+------------+----------------------------+--------------------------------+------------------------------------------------------------------------------------------------------------------------+--------
+0.0         | [Trade::light (object #2)]  | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = -30.0; evaluationFunction(Trade::light (object #2)) = -10.0 [selected] | 3.053ms
+0.5         | [Trade::strong (object #1)] | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = 120.0 [selected]; evaluationFunction(Trade::light (object #2)) = 15.0  | 0.215ms
+1.0         | [Trade::strong (object #1)] | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = 270.0 [selected]; evaluationFunction(Trade::light (object #2)) = 40.0  | 0.153ms
 ```
 
 The run and `%optimize` answer different questions. The run is the model's own answer: it
@@ -2077,7 +2162,10 @@ at all: each step adds `getDifference(input, stateSpace)` to the state.
 
 The clock is the runtime's one clock, so a state machine exhibited beside the dynamics sees the
 same time: its `accept after`/`at` triggers fire in step order, and a state's entry action can
-read `dynamics.output` as the state the last step wrote. When a step and a timed trigger fall
+read `dynamics.output` as the state the last step wrote. `stopTime` and `time` are durations
+from the performance's own start, not instants of that clock, so a performance begun after
+another has advanced the clock — a second `-action`, an action after an `-analysis` — steps as
+far and ends at the same values as the first. When a step and a timed trigger fall
 due at one instant, which runs first is a `due order` choice point the scheduling policy decides
 (see [When a model has more than one valid run](#when-a-model-has-more-than-one-valid-run)),
 never an implicit order; `explore` and the checker enumerate both. A model that states no

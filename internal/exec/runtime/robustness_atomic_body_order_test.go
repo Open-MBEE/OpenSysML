@@ -48,14 +48,14 @@ func testAtomicBodyOrderOrdinaryGuardPreviewError(t *testing.T) {
 	if !errors.Is(err, ErrDivisionByZero) {
 		t.Fatalf("dispatch error = %v, want ErrDivisionByZero from firing b's guard", err)
 	}
-	if errors.Is(err, ErrOrderDependentPreview) {
+	if errors.Is(err, errOrderDependentPreview) {
 		t.Fatalf("dispatch error = %v, want the ordinary firing error rather than a preview refusal", err)
 	}
 	if !strings.Contains(err.Error(), "fire transition out of b1") {
 		t.Fatalf("dispatch error = %v, want b's guard error from its firing", err)
 	}
-	if !containsState(exec.GetStateVisits(), "a2") || containsState(exec.GetStateVisits(), "b2") {
-		t.Fatalf("state visits = %v, want a to fire and b to remain in b1", exec.GetStateVisits())
+	if !containsState(exec.getStateVisits(), "a2") || containsState(exec.getStateVisits(), "b2") {
+		t.Fatalf("state visits = %v, want a to fire and b to remain in b1", exec.getStateVisits())
 	}
 	if got := intValue(t, exec.StateData(), "divisor"); got != 0 {
 		t.Errorf("divisor = %d, want a's effect to set it to zero", got)
@@ -73,11 +73,11 @@ func testAtomicBodyOrderOrderDependentGuardPreview(t *testing.T) {
 		y == 12
 	}`
 	exec, err := runAtomicBodyOrderStateDispatch(t, "seed:1", "Ok()", constraint)
-	if !errors.Is(err, ErrOrderDependentPreview) {
-		t.Fatalf("dispatch error = %v, want ErrOrderDependentPreview", err)
+	if !errors.Is(err, errOrderDependentPreview) {
+		t.Fatalf("dispatch error = %v, want errOrderDependentPreview", err)
 	}
-	if !containsState(exec.GetStateVisits(), "a2") {
-		t.Fatalf("dispatch error = %v, state visits = %v, want a to fire before b's preview refusal", err, exec.GetStateVisits())
+	if !containsState(exec.getStateVisits(), "a2") {
+		t.Fatalf("dispatch error = %v, state visits = %v, want a to fire before b's preview refusal", err, exec.getStateVisits())
 	}
 	if got := intValue(t, exec.StateData(), "divisor"); got != 0 {
 		t.Errorf("divisor = %d, want a's effect to run before b's preview refusal", got)
@@ -206,7 +206,7 @@ func testAtomicBodyOrderCompiledFallback(t *testing.T) {
 			x.Status(), x.Runs, outcomeTexts(x))
 	}
 	for _, outcome := range x.Outcomes {
-		if len(outcome.Witness) != 1 || outcome.Witness[0].Kind != ChoiceStatementOrder {
+		if len(outcome.Witness) != 1 || outcome.Witness[0].Kind != choiceStatementOrder {
 			t.Fatalf("compiled caller witness = %v, want one result-level statement-order choice", outcome.Witness)
 		}
 	}
@@ -267,7 +267,7 @@ func testAtomicBodyOrderCompiledCycle(t *testing.T) {
 		t.Fatalf("recursive result = %s, want an admitted statement order", got)
 	}
 	if !slices.ContainsFunc(ctx.Choices(), func(choice ChoicePoint) bool {
-		return choice.Kind == ChoiceStatementOrder
+		return choice.Kind == choiceStatementOrder
 	}) {
 		t.Fatalf("compiled cycle did not fall back to ordered execution: %v", ctx.Choices())
 	}
@@ -311,10 +311,10 @@ func testAtomicBodyOrderNestedLists(t *testing.T) {
 	}
 	choices := 0
 	for _, choice := range ctx.Choices() {
-		if choice.Kind == ChoiceStatementOrder {
+		if choice.Kind == choiceStatementOrder {
 			choices++
 			if !strings.HasPrefix(choice.Where, resultOrderWherePrefix) ||
-				!slices.Equal(choice.Alternatives, []string{"122", "140", "302", "320"}) {
+				!slices.Equal(choice.Alternatives, []string{"[122]", "[140]", "[302]", "[320]"}) {
 				t.Fatalf("nested calc choice = %+v, want one result choice among [122 140 302 320]", choice)
 			}
 		}
@@ -504,7 +504,7 @@ func testAtomicBodyOrderCheckerSweepCap(t *testing.T) {
 		},
 	}
 	report := checkStart(t, m, starterOf(m.action(t, "A")), CheckOptions{}, prop)
-	if report.Verdict == CheckExhaustive || !slices.Contains(report.BoundsHit, BoundStatementOrders) {
+	if report.Verdict == CheckExhaustive || !slices.Contains(report.BoundsHit, boundStatementOrders) {
 		t.Fatalf("check %s with violations %v, want a non-exhaustive statement-order bound", report.Status(), report.Violations)
 	}
 }
@@ -528,7 +528,7 @@ func testAtomicBodyOrderExploreSweepCap(t *testing.T) {
 	}`
 	m := parseLibraryModel(t, source)
 	x := m.exploreAction(t, "explore", "A")
-	if x.Complete() || !slices.Contains(x.BudgetsHit, BoundStatementOrders) {
+	if x.Complete() || !slices.Contains(x.BudgetsHit, boundStatementOrders) {
 		t.Fatalf("exploration %s, want an incomplete statement-orders bound", x.Status())
 	}
 	if !strings.Contains(x.Status(), "statement orders budget 1024") {
@@ -559,8 +559,8 @@ func testAtomicBodyOrderRecursiveResultChoices(t *testing.T) {
 				t.Fatalf("results = %v, want %v", got, want)
 			}
 			for _, outcome := range x.Outcomes {
-				if len(outcome.Witness) != 1 || outcome.Witness[0].Kind != ChoiceStatementOrder ||
-					!slices.Equal(outcome.Witness[0].Among, want) {
+				if len(outcome.Witness) != 1 || outcome.Witness[0].Kind != choiceStatementOrder ||
+					!slices.Equal(outcome.Witness[0].Among, []string{"[" + want[0] + "]", "[" + want[1] + "]"}) {
 					t.Fatalf("witness = %v, want one result choice among %v", outcome.Witness, want)
 				}
 				recorded, err := ParseChoices(FormatChoices(outcome.Witness))
@@ -621,8 +621,8 @@ func testAtomicBodyOrderInvocationErrorResults(t *testing.T) {
 			t.Fatalf("invocation witness = %v, want one result choice", outcome.Witness)
 		}
 		choice := outcome.Witness[0]
-		if choice.Kind != ChoiceStatementOrder || len(choice.Among) != 2 ||
-			choice.Among[0] != "0.0" || !strings.HasPrefix(choice.Among[1], "error:") {
+		if choice.Kind != choiceStatementOrder || len(choice.Among) != 2 ||
+			choice.Among[0] != "[0.0]" || !strings.HasPrefix(choice.Among[1], "error:") {
 			t.Fatalf("invocation choice = %+v, want value followed by its distinct error", choice)
 		}
 		if outcome.Outcome.Err != nil {
@@ -757,7 +757,7 @@ func testAtomicBodyOrderConstraintInvocationChoice(t *testing.T) {
 			t.Fatalf("constraint witness = %v, want one result-level choice", outcome.Witness)
 		}
 		choice := outcome.Witness[0]
-		if choice.Kind != ChoiceStatementOrder || choice.Step != 1 ||
+		if choice.Kind != choiceStatementOrder || choice.Step != 1 ||
 			!strings.Contains(choice.Where, "result of constraint test::Ok") ||
 			!slices.Equal(choice.Among, []string{"true", "false"}) {
 			t.Fatalf("constraint choice = %+v, want result values attributed to step 1", choice)
@@ -779,8 +779,8 @@ func testAtomicBodyOrderNestedPreviewInvocation(t *testing.T) {
 	restore := ctx.beginProbe()
 	defer restore()
 	_, err = ctx.EvalWithScope(expr, m.idx.DocumentRoot(m.path))
-	if !errors.Is(err, ErrOrderDependentPreview) {
-		t.Fatalf("invocation error = %v, want ErrOrderDependentPreview", err)
+	if !errors.Is(err, errOrderDependentPreview) {
+		t.Fatalf("invocation error = %v, want errOrderDependentPreview", err)
 	}
 	if !strings.Contains(err.Error(), "Ord") || !strings.Contains(err.Error(), "statement orders") ||
 		strings.Contains(err.Error(), "*ast.") {
@@ -802,8 +802,8 @@ func testAtomicBodyOrderCalcFlowRefusal(t *testing.T) {
 		t.Fatal("parse calc invocation")
 	}
 	_, err = ctx.EvalWithScope(expr, m.idx.DocumentRoot(m.path))
-	if !errors.Is(err, ErrStatementNotExecutable) {
-		t.Fatalf("error = %v, want ErrStatementNotExecutable", err)
+	if !errors.Is(err, errStatementNotExecutable) {
+		t.Fatalf("error = %v, want errStatementNotExecutable", err)
 	}
 	if !strings.Contains(err.Error(), "`first` statement") || strings.Contains(err.Error(), "*ast.") {
 		t.Fatalf("error %q does not name the unsupported construct", err)
@@ -829,6 +829,7 @@ func testAtomicBodyOrderCalcUnmatchedSuccession(t *testing.T) {
 		t.Fatal("parse calc invocation")
 	}
 	value, err := ctx.EvalWithScope(expr, m.idx.DocumentRoot(m.path))
+	value = soleElement(value)
 	if err != nil {
 		t.Fatalf("evaluation error = %v, want unmatched succession ignored", err)
 	}
@@ -918,8 +919,8 @@ func testAtomicBodyOrderNestedPreviewGuard(t *testing.T) {
 		}
 		return value.Const.Bool, nil
 	})
-	if !errors.Is(err, ErrOrderDependentPreview) {
-		t.Fatalf("guard error = %v, want ErrOrderDependentPreview", err)
+	if !errors.Is(err, errOrderDependentPreview) {
+		t.Fatalf("guard error = %v, want errOrderDependentPreview", err)
 	}
 	if !strings.Contains(err.Error(), "Ok") || strings.Contains(err.Error(), "*ast.") {
 		t.Fatalf("preview error %q does not name the guard and body", err)
@@ -957,8 +958,8 @@ func testAtomicBodyOrderGuardExternalWrite(t *testing.T) {
 		}
 		return value.Const.Bool, nil
 	})
-	if !errors.Is(err, ErrOrderDependentGuardEffect) {
-		t.Fatalf("guard error = %v, want ErrOrderDependentGuardEffect", err)
+	if !errors.Is(err, errOrderDependentGuardEffect) {
+		t.Fatalf("guard error = %v, want errOrderDependentGuardEffect", err)
 	}
 	if !strings.Contains(err.Error(), "Guard") || strings.Contains(err.Error(), "*ast.") {
 		t.Fatalf("guard refusal %q does not identify the guard body", err)
@@ -991,7 +992,7 @@ func testAtomicBodyOrderGuardErrorOutcome(t *testing.T) {
 	holds, fails, hasGuardOrder, errorTaken, hasDoesNotHold := false, false, false, false, false
 	for _, outcome := range x.Outcomes {
 		for _, choice := range outcome.Witness {
-			if choice.Kind != ChoiceGuardOrder {
+			if choice.Kind != choiceGuardOrder {
 				continue
 			}
 			hasGuardOrder = true
@@ -1026,7 +1027,7 @@ func testAtomicBodyOrderFalseGuardReplay(t *testing.T) {
 			continue
 		}
 		if !slices.ContainsFunc(final.Witness.Choices, func(choice ChoiceTaken) bool {
-			return choice.Kind == ChoiceGuardOrder && choice.Took == "does not hold"
+			return choice.Kind == choiceGuardOrder && choice.Took == "does not hold"
 		}) {
 			t.Fatalf("false-guard final witness lacks its guard choice: %s", final.Witness)
 		}
@@ -1070,8 +1071,8 @@ func testAtomicBodyOrderRecursiveBudget(t *testing.T) {
 	if !errors.Is(err, ErrCalcRecursionLimit) {
 		t.Fatalf("error = %v, want ErrCalcRecursionLimit", err)
 	}
-	if slices.ContainsFunc(ctx.ChoicesTaken(), func(choice ChoiceTaken) bool {
-		return choice.Kind == ChoiceStatementOrder
+	if slices.ContainsFunc(ctx.choicesTaken(), func(choice ChoiceTaken) bool {
+		return choice.Kind == choiceStatementOrder
 	}) {
 		t.Fatalf("recursive invocation has one distinct error result, but recorded statement-order choices: %s", ctx.Trace())
 	}

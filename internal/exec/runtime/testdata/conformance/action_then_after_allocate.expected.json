@@ -1,8 +1,8 @@
 {
 	"type": "action",
 	"outputs": {
-		"generateTorque.engineTorque": {"type": "Integer", "value": 21},
-		"amplifyTorque.torqueIn": {"type": "Integer", "value": 21},
-		"amplifyTorque.amplified": {"type": "Integer", "value": 42}
+		"generateTorque.engineTorque": {"type": "Sequence", "elements": [{"type": "Integer", "value": 21}]},
+		"amplifyTorque.torqueIn": {"type": "Sequence", "elements": [{"type": "Integer", "value": 21}]},
+		"amplifyTorque.amplified": {"type": "Sequence", "elements": [{"type": "Integer", "value": 42}]}
 	}
 }

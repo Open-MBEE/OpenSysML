@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_sym_frame'>
+    <elementID xmi:idref='_diag_sensor'></elementID>
+    <geometry>0, 0, 400, 300</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_controller'>
+    <elementID xmi:idref='_blk_controller'></elementID>
+    <geometry>240, 20, 120, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_sensor'>
+    <elementID xmi:idref='_blk_sensor'></elementID>
+    <geometry>40, 200, 120, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='Association' xmi:id='_sym_assoc_pair'>
+    <elementID xmi:idref='_assoc_pair'></elementID>
+    <linkFirstEndID xmi:idref='_sym_controller'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_sensor'></linkSecondEndID>
+    <geometry>300, 70; 300, 225; 160, 225; </geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='Role' xmi:id='_sym_end_controller'>
+        <elementID xmi:idref='_prop_controller'></elementID>
+        <geometry>295, 70, 10, 10</geometry>
+        <mdOwnedViews/>
+      </mdElement>
+    </mdOwnedViews>
+    <associationFirstEndID xmi:idref='_sym_end_controller'></associationFirstEndID>
+  </mdElement>
+</mdOwnedViews>

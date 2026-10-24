@@ -4,6 +4,6 @@ stmt send
 step 2: token 1@receiver
 step 3: token 1@processor
 stmt assign result
-  eval feature msg -> 100
+  eval feature msg -> (100)
 step 4: token 1@done
 step 5: no active tokens

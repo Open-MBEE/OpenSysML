@@ -49,7 +49,7 @@ func TestTransitionNameAvoidsMembers(t *testing.T) {
 			}
 			got := string(r.Notation)
 			for _, w := range tc.want {
-				if !strings.Contains(got, w) {
+				if !hasBlock(got, w) {
 					t.Errorf("notation lacks %q:\n%s", w, got)
 				}
 			}
@@ -87,8 +87,16 @@ func TestCommentAboutTransition(t *testing.T) {
 		"transition 'Idle accept Go then Run' first Idle accept Go then Run;",
 		"transition halt first Run then Idle;",
 	} {
-		if !strings.Contains(got, w) {
+		if !hasBlock(got, w) {
 			t.Errorf("notation lacks %q:\n%s", w, got)
+		}
+	}
+	for _, w := range []string{
+		"comment about Modes::'Idle accept Go then Run'",
+		"comment about Modes::halt",
+	} {
+		if strings.Contains(got, w) {
+			t.Errorf("notation refers to the v1 owner instead of the edge member %q:\n%s", w, got)
 		}
 	}
 	if i, j := strings.Index(got, "comment about halt"), strings.Index(got, "transition halt"); i > j {

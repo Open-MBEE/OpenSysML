@@ -368,18 +368,37 @@ func TestClassifierSubsetterSupersedesAFoldedDefault(t *testing.T) {
 }
 
 // TestSubsetterContributionIsTypedByTheSubsettedFeature: what a subsetter
-// contributes is judged by the subsetted feature's own type, an object or a
-// scalar alike, and a refused contribution leaves the feature unmaterialized.
+// contributes is judged by the subsetted feature's own type, and a refused
+// contribution leaves the feature unmaterialized.
 func TestSubsetterContributionIsTypedByTheSubsettedFeature(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, defaultNullCollectionModel))
-	for usage, feature := range map[string]string{"mistyped": "engines", "sized": "size"} {
-		inst := instantiateNamed(t, ctx, idx, "test::"+usage)
-		if _, err := inst.GetFeatureValue(ctx, feature); !errors.Is(err, ErrTypeMismatch) {
-			t.Errorf("%s.GetFeatureValue(%s) error = %v, want ErrTypeMismatch", usage, feature, err)
-		}
-		if fv := inst.FeatureValues[feature]; fv.Materialized || fv.Value.Kind != ValInvalid || fv.Values.Kind != ValInvalid {
-			t.Errorf("%s.%s = %+v after the refusal, want it left unmaterialized", usage, feature, fv)
-		}
+	inst := instantiateNamed(t, ctx, idx, "test::sized")
+	if _, err := inst.GetFeatureValue(ctx, "size"); !errors.Is(err, ErrTypeMismatch) {
+		t.Errorf("sized.GetFeatureValue(size) error = %v, want ErrTypeMismatch", err)
+	}
+	if fv := inst.FeatureValues["size"]; fv.Materialized || fv.Value.Kind != ValInvalid || fv.Values.Kind != ValInvalid {
+		t.Errorf("sized.size = %+v after the refusal, want it left unmaterialized", fv)
+	}
+}
+
+// TestSubsetterObjectHasTheSubsettedType: a subsetter typed by an unrelated definition
+// holds objects of both types (KerML 1.0 §7.3.4.4), so the subsetted feature admits them.
+func TestSubsetterObjectHasTheSubsettedType(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, defaultNullCollectionModel))
+	inst := instantiateNamed(t, ctx, idx, "test::mistyped")
+	fv, err := inst.GetFeatureValue(ctx, "engines")
+	if err != nil {
+		t.Fatalf("mistyped.GetFeatureValue(engines): %v", err)
+	}
+	if len(elementsOf(fv.HeldValue())) != 1 {
+		t.Fatalf("mistyped.engines = %s, want the one wheel", FormatValue(fv.HeldValue()))
+	}
+	wheel, err := inst.GetFeatureValue(ctx, "wheel")
+	if err != nil {
+		t.Fatalf("mistyped.GetFeatureValue(wheel): %v", err)
+	}
+	if elementsOf(fv.HeldValue())[0] != wheel.HeldValue() {
+		t.Errorf("mistyped.engines = %s, want the wheel %s", FormatValue(fv.HeldValue()), FormatValue(wheel.HeldValue()))
 	}
 }
 
@@ -441,5 +460,50 @@ func TestSubsettersAreFoundThroughEachClassifier(t *testing.T) {
 	}
 	if n := len(elementsOf(fv.HeldValue())); n != 2 {
 		t.Errorf("items holds %d elements after classifying, want the two subsetters'", n)
+	}
+}
+
+// A's `bar :>> foo` and B's `baz :>> bar` name one feature of an object typed
+// `A, B`, so foo, bar and baz share one feature value, holding foo's default.
+func TestOverlappingRedefinitionsOfConjoinedTypesShareOneValue(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ScalarValues::Real;
+			item def A0 { attribute foo : Real = 1.0; }
+			item def A :> A0 { attribute bar :>> foo; }
+			item def B0 { attribute bar : Real; }
+			item def B :> B0 { attribute baz :>> bar; }
+			part def Holder { item both : A, B [1]; }
+			part holder : Holder;
+		}
+	`))
+	matches := idx.LookupQualified("test::holder")
+	if len(matches) != 1 {
+		t.Fatalf("test::holder: %d matching symbols, want 1", len(matches))
+	}
+	holder, err := ctx.Instantiate(matches[0])
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	fv, err := holder.GetFeatureValue(ctx, "both")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(both): %v", err)
+	}
+	id, _ := fv.HeldValue().Object()
+	both, ok := ctx.Instance(id)
+	if !ok {
+		t.Fatalf("both = %s, want an object", FormatTraceValue(fv.HeldValue()))
+	}
+	for _, name := range []string{"foo", "bar", "baz"} {
+		fv, err := both.GetFeatureValue(ctx, name)
+		if err != nil {
+			t.Fatalf("GetFeatureValue(%s): %v", name, err)
+		}
+		if got := FormatTraceValue(fv.HeldValue()); got != "1.0" {
+			t.Errorf("both.%s = %s, want 1.0", name, got)
+		}
+		if both.FeatureValues[name] != both.FeatureValues["foo"] {
+			t.Errorf("%s and foo are separate feature values, want one shared feature value", name)
+		}
 	}
 }

@@ -1,4 +1,4 @@
-choice state idle on accept Go: transitions 1->left, 2->right (unordered; took 1->left)
+choice state idle on accept Go: transitions 1->left, 2->right (unordered; took 1->left; order-dependent: side)
 exit: idle
 enter: left (entry action)
 stmt action body

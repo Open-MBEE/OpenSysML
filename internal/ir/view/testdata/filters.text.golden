@@ -1,6 +1,5 @@
 FilteredViews::safetyView - tree rendering (the view states no rendering; a tree is the default)
 
-part def Systems::Radio
-part def Systems::Airbag
-part def Systems::Braking::Brake
-  part pad
+part def Radio
+part def Airbag
+part def Brake

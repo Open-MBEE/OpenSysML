@@ -347,7 +347,7 @@ def test_export_graphs_answers_the_canonical_form_of_a_behavior(real_service):
 def test_render_view_decodes_all_fields_and_optional_messages():
     response = sysml_pb2.RenderViewResponse(
         view="Demo::view", kind="interconnection", stated="rendered",
-        columns=["a"], notices=["notice"],
+        columns=["a"], notices=["notice"], shown=["port-symbols", "typings"],
     )
     response.canvas.unit = "px"
     response.canvas.width = 800
@@ -366,6 +366,7 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     node.geometry.height = 50
     node.geometry.has_size = True
     node.geometry.collapsed = True
+    node.geometry.unplaced = True
     node.style.fill = "#fff"
     node.style.line = "#000"
     node.style.text = "#111"
@@ -396,6 +397,7 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     assert rendered.nodes[0].ports[0].direction == "inout"
     assert rendered.nodes[0].origin.start_line == 4
     assert rendered.nodes[0].geometry.collapsed
+    assert rendered.nodes[0].geometry.unplaced
     assert rendered.nodes[0].style.font_size == 12
     assert (rendered.edges[0].from_id, rendered.edges[0].to_id) == ("n1", "n0")
     assert rendered.edges[0].route[0].x == 1
@@ -404,6 +406,7 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     assert rendered.notes[0].text == "note"
     assert rendered.notes[0].origin.file == "views.sysml"
     assert rendered.notices == ("notice",)
+    assert rendered.shown == ("port-symbols", "typings")
 
     sparse = render_view_result(sysml_pb2.RenderViewResponse(
         nodes=[sysml_pb2.RenderNode()],
@@ -435,6 +438,22 @@ def test_render_view_sends_minimal_and_full_ports(fake_service):
     minimal, full = service.requests
     assert minimal.ports == ""
     assert full.ports == "full"
+
+
+def test_render_view_sends_the_compartment_folding(fake_service):
+    response = sysml_pb2.RenderViewResponse(view="Demo::View")
+    port, service = fake_service(
+        capabilities=(CAPABILITY_RENDER_VIEW,), response=response,
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        model.render_view("Demo::View")
+        model.render_view("Demo::View", compartments="positioned")
+        model.render_view("Demo::View", compartments="most")
+        model.render_view("Demo::View", compartments="ports")
+        with pytest.raises(ValueError, match="compartments"):
+            model.render_view("Demo::View", compartments="rows")
+    assert [request.compartments for request in service.requests] == ["", "", "most", "ports"]
 
 
 def test_the_request_names_the_model_query_and_bindings(fake_service):

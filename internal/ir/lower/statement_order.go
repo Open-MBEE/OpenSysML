@@ -10,6 +10,8 @@ import (
 // those reordering two dependent statements differ.
 type StatementOrder struct {
 	fixed []bool
+	// footprints is what each statement touches, by which Dependent judged them.
+	footprints []Footprint
 	// dependent holds for two statements that may not commute; shared, for two
 	// that both may touch what another performance does.
 	dependent, shared [][]bool
@@ -47,7 +49,7 @@ func statementPrecedence(members []ast.Node, stmts []Statement) ([][]bool, map[*
 				continue
 			}
 		}
-		if node := statementNode(stmt); node != nil {
+		if node := StatementNode(stmt); node != nil {
 			index[node] = i
 		}
 	}
@@ -141,7 +143,17 @@ func bodyStatementOrder(graph *ActionGraph, node ast.Node, stmts []Statement, be
 			o.shared[i][j], o.shared[j][i] = shared, shared
 		}
 	}
+	o.footprints = footprints
 	return o
+}
+
+// Footprint is what statement i touches.
+func (o *StatementOrder) Footprint(i int) Footprint { return o.footprints[i] }
+
+// Dependent reports whether statements i and j may not commute: their
+// footprints meet, a succession orders them, or, divided, both touch a shared place.
+func (o *StatementOrder) Dependent(i, j int, divided bool) bool {
+	return o.dependentPair(i, j, divided)
 }
 
 // chainsStatements reports whether stmts is the body of an action written as one

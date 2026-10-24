@@ -27,12 +27,12 @@ func TestMigratedCrossReferences(t *testing.T) {
 		"part 'ref' : DocumentQueries::Ref {",
 		"ref redefines target = Observatory::Mount.metadata;",
 		`attribute redefines text = "is aligned in";`,
-		"ref redefines target = Documents::'Observatory Handbook Document'::Overview.Alignment;",
+		"ref redefines target = Model::Documents::'Observatory Handbook Document'::Overview.Alignment;",
 		`attribute redefines text = "and drawn in";`,
-		"ref redefines target = Documents::'Observatory Handbook Document'::Figures.diagram;",
+		"ref redefines target = Model::Documents::'Observatory Handbook Document'::Figures.diagram;",
 		`attribute redefines text = "Mount Structure";`,
 		`attribute redefines text = "(). Its focal length is 2.5; see Lost Procedure.\nOptics: Gathers the light. Coating: See";`,
-		"ref redefines target = Documents::'Observatory Handbook Document'::Overview.Alignment;",
+		"ref redefines target = Model::Documents::'Observatory Handbook Document'::Overview.Alignment;",
 		`attribute redefines text = ". Drawn in";`,
 		`attribute redefines text = "Profile Diagram";`,
 		`attribute redefines text = "for the Mount's crew.";`,
@@ -97,7 +97,7 @@ func TestMigratedCrossReferences(t *testing.T) {
 		t.Fatalf("render %s as HTML: %v", doc, err)
 	}
 	wantInOrder(t, "HTML", out,
-		`The <a class="sysml-ref" data-element="Observatory::Mount">Mount</a> is aligned in <a class="sysml-ref" href="#Overview-Alignment">Section 1.1 - Alignment</a> and drawn in <a class="sysml-ref" href="#Figures-diagram">Mount Structure</a> (). Its focal length is 2.5; see Lost Procedure.`,
+		`The <a class="sysml-ref" data-element="Model::Observatory::Mount">Mount</a> is aligned in <a class="sysml-ref" href="#Overview-Alignment">Section 1.1 - Alignment</a> and drawn in <a class="sysml-ref" href="#Figures-diagram">Mount Structure</a> (). Its focal length is 2.5; see Lost Procedure.`,
 		`id="Overview-Alignment"`,
 		`id="Figures-diagram"`,
 	)

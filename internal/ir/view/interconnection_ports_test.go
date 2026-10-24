@@ -88,21 +88,21 @@ func checkToasterPorts(t *testing.T, rendering *Rendering) {
 func TestTypedPartsPinTheirDefinitionsPorts(t *testing.T) {
 	rendering := render(t, "interconnection-ports.sysml", "ToasterViews::toasterView")
 	checkToasterPorts(t, rendering)
-	dot, err := rendering.DOT()
+	dot, err := rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	cameo, err := rendering.DOTWith(Options{Style: StyleCameo})
+	cameo, err := rendering.DOTWith(Options{Show: AllShown(), Style: StyleCameo})
 	if err != nil {
 		t.Fatalf("cameo DOT: %v", err)
 	}
-	plantuml, err := rendering.PlantUML()
+	plantuml, err := rendering.PlantUMLWith(fullNotation)
 	if err != nil {
 		t.Fatalf("PlantUML: %v", err)
 	}
 	// By default each pin is named alone, once, beside its square; the text
 	// form names the pins again at the connections' ends.
-	forms := map[string]string{"DOT": dot, "cameo DOT": cameo, "PlantUML": plantuml, "text": rendering.Text()}
+	forms := map[string]string{"DOT": dot, "cameo DOT": cameo, "PlantUML": plantuml, "text": rendering.textWith(fullNotation)}
 	for label, form := range forms {
 		if strings.Contains(form, "DurationPort") {
 			t.Errorf("%s types a pin, which the full display alone does:\n%s", label, form)
@@ -141,12 +141,12 @@ func TestTypedPartsPinTheirDefinitionsPorts(t *testing.T) {
 // the connectors end at the pins as before.
 func TestTheFullDisplayTypesThePins(t *testing.T) {
 	rendering := render(t, "interconnection-ports.sysml", "ToasterViews::toasterView")
-	full := Options{Ports: PortsFull}
+	full := Options{Show: AllShown(), Ports: PortsFull}
 	dot, err := rendering.DOTWith(full)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	cameo, err := rendering.DOTWith(Options{Style: StyleCameo, Ports: PortsFull})
+	cameo, err := rendering.DOTWith(Options{Show: AllShown(), Style: StyleCameo, Ports: PortsFull})
 	if err != nil {
 		t.Fatalf("cameo DOT: %v", err)
 	}
@@ -301,7 +301,7 @@ func TestACompositePartPinsItsPortsAndEndsItsBareEndsAtThem(t *testing.T) {
 		t.Errorf("feed = %s:%s -> %s:%s, want %s:%s -> %s:%s", edge.From, edge.FromPort, edge.To, edge.ToPort,
 			sensor.ID, reading.ID, probe.ID, in.ID)
 	}
-	mermaid := rendering.Mermaid()
+	mermaid := rendering.MermaidWith(fullNotation)
 	// The pins are nodes inside their parts' subgraphs and the edge runs between
 	// them, so it ends on no subgraph.
 	for _, want := range []string{
@@ -316,7 +316,7 @@ func TestACompositePartPinsItsPortsAndEndsItsBareEndsAtThem(t *testing.T) {
 	if strings.Contains(mermaid, "subGraphTitleMargin") {
 		t.Errorf("Mermaid reserves unneeded cluster-title height:\n%s", mermaid)
 	}
-	dot, err := rendering.DOT()
+	dot, err := rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}

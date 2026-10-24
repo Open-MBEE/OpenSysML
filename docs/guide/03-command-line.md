@@ -188,12 +188,18 @@ $ sysml -validate checks.sysml; echo "exit=$?"
 exit=0
 
 $ sysml -validate bad.sysml; echo "exit=$?"   # a file with a syntax error in it
-bad.sysml:2:45: error: expected an expression
+bad.sysml:2:45: error[syntax]: expected an expression
     part def Battery { attribute capacity = ; }
                                             ^
 sysml: bad.sysml did not analyse cleanly; no check was made
 exit=2
 ```
+
+The bracketed word after the severity is the diagnostic's *code*, the stable name of the rule
+that reported it, the same under `-json` and in the editor. `sysml -explain syntax` says what a
+code means and how to resolve it; bare `-explain` lists them all, as does the
+[diagnostics reference](../reference/diagnostics.md#catalogue). At the prompt, `%explain-code syntax`
+answers the same question without leaving the session.
 
 An explicitly named API element-form `.json` file is converted before validation. Diagnostic
 positions refer to the converted SysML notation, not to positions in the JSON document.
@@ -224,7 +230,11 @@ OpenSysML accepts several notations of its own that no SysML v2 production admit
 what the `StateMachines` library states as metadata — `#choice state pick;` and
 friends — reported as warnings that name the replacement, so a model that uses them
 still analyses cleanly. `-strict` promotes those warnings
-to errors, which turns the run into a test of whether the file is conforming SysML v2. The flag
+to errors, which turns the run into a test of whether the file is conforming SysML v2. It also
+promotes the one well-formedness warning the default mode keeps a warning: a namespace whose
+memberships are indistinguishable (`Duplicate of other owned member name` and its alias and
+inherited wordings, [Duplicate member names](../reference/diagnostics.md#duplicate-member-names)),
+which KerML's `validateNamespaceDistinguishibility` forbids. The flag
 applies to `-migrate` too: a strict SysML v1 migration writes no extension notation
 at all and refers to no OpenSysML library — see [Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict); `-portable` instead appends the OpenSysML library packages a default migration refers to, so the one file loads elsewhere unchanged.
 
@@ -247,7 +257,7 @@ package M {
 
 ```bash
 $ sysml -validate monitor.sysml; echo "exit=$?"
-monitor.sysml:7:9: warning: `choice pick;` is an OpenSysML extension; write `#choice state pick;` (with `private import StateMachines::*;`)
+monitor.sysml:7:9: warning[nonstandard-notation]: `choice pick;` is an OpenSysML extension; write `#choice state pick;` (with `private import StateMachines::*;`)
         choice pick;
         ^~~~~~
 ✓ package M
@@ -255,7 +265,7 @@ monitor.sysml:7:9: warning: `choice pick;` is an OpenSysML extension; write `#ch
 exit=0
 
 $ sysml -strict -validate monitor.sysml; echo "exit=$?"
-monitor.sysml:7:9: error: `choice pick;` is an OpenSysML extension; write `#choice state pick;` (with `private import StateMachines::*;`)
+monitor.sysml:7:9: error[nonstandard-notation]: `choice pick;` is an OpenSysML extension; write `#choice state pick;` (with `private import StateMachines::*;`)
         choice pick;
         ^~~~~~
 sysml: monitor.sysml did not analyse cleanly; no check was made
@@ -268,7 +278,30 @@ is added. `-strict` does not
 change what parses: the same file produces the same tree and the same findings in the same
 places. Only their severity changes, and with it the exit status and the tier gate. It is a
 portability check, so turn it on when another SysML v2 tool has to read the model and leave
-it off otherwise. Each finding names the standard notation to use instead, and
+it off otherwise.
+
+The same promotion applies to a namespace that declares one name twice, which the specification
+makes ill-formed (KerML §8.3.2.4.5, "All memberships of a Namespace must be distinguishable
+from each other") and the default mode reports as a warning so that published corpora still
+analyse cleanly:
+
+```bash
+$ sysml -strict -validate dup.sysml; echo "exit=$?"
+dup.sysml:2:14: error[name-conflict]: Duplicate of other owned member name
+    part def A;
+             ^
+dup.sysml:3:14: error[name-conflict]: Duplicate of other owned member name
+    part def A;
+             ^
+sysml: dup.sysml did not analyse cleanly; no check was made
+exit=2
+```
+
+Two members whose metaclasses are unrelated — `part def A;` beside `attribute def A;` — are
+distinguishable whatever their names and draw nothing in either mode. A collision between two
+*imported* names stays a warning under `-strict`: KerML §7.2.5.4 hides both from the importing
+namespace rather than leaving it ill-formed, and the warning marks where OpenSysML binds the
+first import's member instead. Each finding names the standard notation to use instead, and
 [the conformance audit](../reference/grammar/conformance-audit.md) cites the grammar production
 each extension is measured against. The same setting is available as `%strict` at the prompt
 ([4. The REPL](04-repl.md)), as the `sysml.strictConformance` editor setting
@@ -289,11 +322,115 @@ to a `Real` round: `-enable-lint rounded-real-literal` switches it on (`%lint
 rounded-real-literal on`, `enabledLints`). [The diagnostics reference](../reference/diagnostics.md)
 states exactly what each reports.
 
+## Working inside a package-manager project
+
+A SysML v2 package manager installs the projects a model uses into a directory inside the
+user's project, each in the OMG project interchange layout: a `.project.json` naming the
+project (its `name`, `publisher`, `version` and the `usage` entries whose `resource` IRIs
+name the projects it uses in turn) beside the model files. The user's own project root has a
+`.project.json` of the same shape. A directory holding one is a project, and `sysml` reads
+the file to find what the project uses — never a lock file, and never over the network.
+
+With such a project (here one `sysand` manages, whose installed projects live under
+`.sysand/lib`):
+
+```text
+proj/
+  .project.json                 usage: pkg:example/acme/widgets, …
+  model/main.sysml              private import Widgets::*;
+  .sysand/lib/
+    acme-widgets_1.0.0/
+      .project.json             publisher acme, name Widgets, usage: pkg:example/acme/gears
+      Widgets.sysml
+    acme-gears_2.0.0/
+      .project.json
+      Gears.kerml
+```
+
+the installed projects are found automatically:
+
+```console
+$ sysml -validate proj                 # the project and every project it uses
+$ sysml -validate proj/model/main.sysml  # Widgets, then Gears, found through the usages
+$ sysml -validate proj/.sysand/lib/acme-widgets_1.0.0   # Gears found beside it
+```
+
+Naming the project directory loads its own files and those of the projects its usages
+select, directly or through their own usages, as the package manager's own file listing
+would (`sysml -validate "$(sysand sources)"` still works as before). Naming a file keeps
+the usual search for the root namespaces it imports, which now also looks in the file's
+project and in the projects that uses. An installed project is matched to a usage by its
+own `.project.json`, never by its directory name: the resource IRI's last two path segments
+are its publisher and name (compared as lower-case slugs, so `Requirements Management`
+answers to `…/ode4hera/requirements-management`), and of several installed versions the one
+a `versionConstraint` names exactly is taken, else the latest. The standard library's
+`https://www.omg.org/spec/KerML/…/*.kpar` usages are answered by the bundled library.
+Hidden directories other than the library directories stay out of the search, and the
+diagnostics of the files loaded this way are reported like those of any other file the
+search finds.
+
+Another provider that installs projects elsewhere needs only its directory named. Each of
+the following adds a directory to look for installed projects under, besides the well-known
+ones in the project; the directory may hold the projects at any depth:
+
+```console
+$ sysml -library-root /path/to/store -validate proj     # repeatable, or a PATH-style list
+$ OPENSYSML_LIBRARY_ROOTS=/path/to/store sysml -validate proj
+```
+
+The language server reads the same variable, takes `sysml-lsp -library-root`, and a client
+that sends settings can name the directories with the `libraryRoots` list setting
+([LSP extensions](../reference/lsp.md#library-roots-setting)); see
+[Editors](08-editors.md#working-inside-a-package-manager-project).
+
+### Project interchange archives
+
+KerML 1.0 §10.3 also defines the zipped form of a project directory: a *project interchange
+archive*, extension `.kpar`, holding `.project.json`, a `.meta.json` (the project's index of
+root namespaces to files, its creation time and, usually, a checksum per file) and the model
+files, possibly in subdirectories. The OMG publishes the standard library as one archive per
+library, and a package manager may install a project as an archive rather than unpacking it.
+`sysml` reads an archive wherever it reads a project directory, from memory — nothing is
+extracted — and names its members under the archive's path in diagnostics:
+
+```console
+$ sysml -validate model.sysml vendor/acme-widgets_1.0.0.kpar   # the archive's files, with the model
+$ sysml -library-root /path/to/store -validate proj             # archives under the store are installed projects
+$ OPENSYSML_LIBRARY_PATH=/path/to/kpar sysml -validate model.sysml   # a directory of the OMG library archives in place of the bundled library
+```
+
+A usage in a `.project.json` is answered by an installed archive as by an installed
+directory, matched by the `.project.json` inside it. An archive is checked before anything
+is read from it: both files must be at its top level (an archive of a folder that holds the
+project is reported as such), `name` and `version` must be present, every usage must name a
+`resource`, the index and the checksums must name members, and every checksum whose
+algorithm this build computes is verified. A malformed archive named on the command line is
+refused with the reason; one found under a library root is a warning on its path and the
+load goes on without it.
+
+`-bundle` writes a project directory as an archive and `-unbundle` writes one back:
+
+```console
+$ sysml -bundle proj/.sysand/lib/acme-widgets_1.0.0 -o widgets.kpar
+wrote widgets.kpar (Widgets 1.0.0, 4 files)
+$ sysml -unbundle widgets.kpar -o widgets
+wrote widgets (Widgets 1.0.0, 4 files)
+```
+
+Without `-o` the archive is named `<name>-<version>.kpar` after the project, and the
+directory `<name>-<version>`. The archive's members are sorted and carry a fixed timestamp,
+so bundling the same directory twice gives the same bytes; a `.meta.json` the directory has
+is kept (and its checksums verified), and one it lacks is generated with the index, a SHA256
+checksum per file and a creation time of `SOURCE_DATE_EPOCH` when that is set. Hidden
+directories such as `.git` and `.sysand` stay out of the archive. `-unbundle` writes into a
+new or empty directory only, so an archive never overwrites a file.
+
 ## Running behavior
 
 The debuggers have non-interactive forms that run to completion and report the values they
 produce. `-calc` takes a call expression, while `-action` and `-state` take the name of the
-behavior, optionally followed by the object performing it:
+behavior, optionally followed by the object performing it. A use case definition or usage is an
+action, so `-action` runs its body too (`-analysis` does not take one):
 
 ```bash
 $ sysml -calc "MyModel::Margin(20.0, 100.0)" checks.sysml
@@ -357,7 +494,7 @@ package An {
 $ sysml -analysis An::shipCost analysis.sysml
 ✓ package An
 ✓ An::shipCost
-  total = 12.0
+  total = [12.0]
   objective affordable: satisfied
   standing: value (observed: 1 run under reverse)
 
@@ -368,11 +505,11 @@ $ sysml -instantiate An::barge -analysis "An::CostAnalysis An::barge" \
   ID: 1
   Use %features An::barge to inspect
 ✗ An::CostAnalysis on object #1 of "An::barge"
-  total = 37.0
+  total = [37.0]
   objective affordable: not satisfied: total <= limit
   standing: value (observed: 1 run under reverse)
 ✓ An::CostAnalysis(limit = 50.0) on object #1 of "An::barge"
-  total = 37.0
+  total = [37.0]
   objective affordable: satisfied
   standing: value (observed: 1 run under reverse)
 exit=1
@@ -620,6 +757,95 @@ it built and the milliseconds of `warming` spent building them), and `results` h
 per engine that answered, with the strength of its evidence, the bounds it ran under and the witness behind
 a violation ([Analysis engines](../reference/cli.md#analysis-engines)). The whole document goes
 to standard output, so nothing needs to be read from standard error.
+
+## Validating in CI
+
+A build server wants three things of `-validate` that the lines do not give it: a report in a
+form it reads, a way to accept the findings a model already has so that only a new one fails
+the build, and a say in whether a warning fails it. `-format` picks the form, `-baseline` names
+the accepted findings and `-warnings-as-errors` is the say.
+
+`-format sarif` writes the run as [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html),
+the form GitHub code scanning, GitLab and the other static-analysis dashboards read: one run,
+the tool's name and version, one rule per diagnostic code, each finding's severity as its
+`level`, its file relative to the working directory with its line and column, and the fixes
+analysis offers as `fixes`. `-format junit` writes JUnit XML, the form every CI service's test
+tab reads: one testsuite per file, one failing testcase per finding, typed by its severity, and
+one passing testcase for a file with no finding, and an error testcase under `sysml` for whatever
+stopped the run — a bad baseline, a file that could not be read. `-format json` is `-json`. A
+document goes to standard output, or to the file `-o` names, which may not be a file the run
+read; the summary line and whatever stopped the run keep going to standard error as well,
+since a SARIF document has no place for them. SARIF counts columns in UTF-16 code units, as
+its readers do, where the lines and the JSON report count bytes.
+
+```bash
+$ sysml -validate -format sarif -o sysml.sarif models
+sysml: models/m.sysml did not analyse cleanly; no check was made
+$ sysml -validate -format junit models > sysml-junit.xml
+```
+
+Run the exact binary your release ships, so the report is about the model and not about a
+version difference between the laptop and the build server. In GitHub Actions the repository's
+own action installs a release with the install scripts, runs `-validate` and uploads the SARIF
+to code scanning, where each finding appears on the pull request's changed lines:
+
+```yaml
+jobs:
+  sysml:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # upload-sarif
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Open-MBEE/OpenSysML@v0.11.0   # the release tag is the sysml installed
+        with:
+          path: models
+          format: sarif
+          upload-sarif: "true"
+```
+
+The action's inputs are `path` (what `-validate` loads), `format`, `baseline`,
+`warnings-as-errors`, `strict`, `library-path` (`OPENSYSML_LIBRARY_PATH` for the run),
+`version` (a release tag, by default the tag the action was referenced at), `upload-sarif` and
+`sarif-file`; it fails the job as `sysml` exits. Without the action, the same job is a shell step
+that pipes `install.sh` and then calls `sysml -validate -format sarif -o sysml.sarif`, followed
+by `github/codeql-action/upload-sarif` with `sarif_file: sysml.sarif`.
+
+A model that validates with findings you have decided to live with still has to fail the build
+on a new one. Record what it has today as a baseline — the JSON report, written to a file — and
+hand that file back on every run:
+
+```bash
+$ sysml -validate -json -o baseline.json models
+$ sysml -validate -baseline baseline.json models; echo "exit=$?"
+2 known finding(s) suppressed by baseline.json
+✓ package M
+✓ models: no errors
+exit=0
+```
+
+A finding is known when the baseline holds one with the same diagnostic code, the same file
+(relative to the working directory, as the report writes it) and the same message. Its line and
+column are not compared, so an edit above the finding does not make it new; a change to its
+message does, as does the same finding in another file. Known findings are left out of the
+report and of the exit status, and the summary says how many were; a JSON or SARIF document
+carries the count as `suppressed`. The finding the baseline does not know is reported alone and
+judged as it would be without a baseline, so the exit status says exactly whether anything new
+was found. Re-record the baseline when a known finding is fixed or deliberately accepted.
+
+A baseline accepts what analysis ran through: a warning, or an error of the last tier. An error
+that stopped analysis — a syntax error, a reference that does not resolve — is still one when
+the baseline knows it: the tiers after it did not run, so nothing can be said about the model,
+and the run is undecided (exit status 2, `did not analyse cleanly: an error the baseline knows
+stopped analysis before the later tiers ran`) rather than clean. The finding itself stays out of
+the report, and the summary still counts it.
+
+`-warnings-as-errors` makes a warning end the run as an error does, exit status 2 — a warning
+of the model, or one a check reports, as a materialization the tool had to bound. It changes
+the exit status and nothing else: the report keeps each finding's own severity, so a SARIF
+`level` stays `warning` and a dashboard still tells the two apart. Rewriting the severity would
+misreport what analysis found; the policy belongs to the build, not to the finding.
 
 ## Running from a script
 

@@ -20,7 +20,7 @@ const renderModel = `package Demo {
     part def Vehicle { part wheel : Wheel; }
     part def Wheel;
     part def Person;
-    use case def Mission { actor pilot : Person; }
+    use case def Mission { subject vehicle : Vehicle; actor pilot : Person; }
     view overview { expose Demo::Vehicle; }
     view cases { expose Demo::Mission; render asCaseDiagram; }
     view mixed { expose Demo; render asMixedDiagram; }
@@ -34,7 +34,7 @@ const renderModel = `package Demo {
 func TestRenderWritesTheArtifactOnStdout(t *testing.T) {
 	binary := buildCLI(t)
 
-	got := runStreams(t, binary, renderModel, "-render", "Demo::overview")
+	got := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-show", "keywords,typings")
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
@@ -240,7 +240,7 @@ func TestRenderAllForcedDelimitedFormWritesTablesOnly(t *testing.T) {
 func TestRenderDotForm(t *testing.T) {
 	binary := buildCLI(t)
 
-	got := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "dot")
+	got := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "dot", "-render-show", "keywords,typings")
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
@@ -290,7 +290,7 @@ func TestRenderDotForm(t *testing.T) {
 func TestRenderPlantUMLForm(t *testing.T) {
 	binary := buildCLI(t)
 
-	got := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "plantuml")
+	got := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "plantuml", "-render-show", "keywords,typings")
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
@@ -352,7 +352,7 @@ func TestRenderPlantUMLForm(t *testing.T) {
 func TestRenderD2Form(t *testing.T) {
 	binary := buildCLI(t)
 
-	got := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "d2")
+	got := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "d2", "-render-show", "keywords,typings")
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
@@ -366,7 +366,7 @@ func TestRenderD2Form(t *testing.T) {
 	}
 
 	dir := filepath.Join(t.TempDir(), "rendered")
-	got = runStreams(t, binary, renderAllModel, "-render-all", dir, "-render-form", "d2", "-render-palette", "okabe-ito")
+	got = runStreams(t, binary, renderAllModel, "-render-all", dir, "-render-form", "d2", "-render-palette", "okabe-ito", "-render-show", "keywords")
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
@@ -445,7 +445,7 @@ func TestRenderD2Form(t *testing.T) {
 func TestRenderPalette(t *testing.T) {
 	binary := buildCLI(t)
 
-	got := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "dot", "-render-palette", "okabe-ito")
+	got := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "dot", "-render-palette", "okabe-ito", "-render-show", "keywords,typings")
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
@@ -549,7 +549,7 @@ func TestRenderSeveralFiles(t *testing.T) {
 }
 `)
 
-	got := runFiles(t, binary, []string{types, diagrams}, "-render", "Diagrams::overview")
+	got := runFiles(t, binary, []string{types, diagrams}, "-render", "Diagrams::overview", "-render-show", "keywords")
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
@@ -585,7 +585,7 @@ func TestRenderSeveralFiles(t *testing.T) {
 		}
 	}
 
-	got = runFiles(t, binary, []string{types, diagrams}, "-render", "#tree", "-render-form", "text")
+	got = runFiles(t, binary, []string{types, diagrams}, "-render", "#tree", "-render-form", "text", "-render-show", "qualifiers")
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
@@ -621,9 +621,14 @@ func TestRenderReportsWhatItCouldNotDo(t *testing.T) {
 		stderr: []string{"sysml: "},
 	}, {
 		name:   "a form that is not a form is reported",
+		args:   []string{"-render", "Demo::overview", "-render-form", "png"},
+		status: exitUnevaluable,
+		stderr: []string{"unknown rendering form \"png\"", "text, mermaid, markdown, dot"},
+	}, {
+		name:   "the run-only svg form is refused for a model view with its own forms",
 		args:   []string{"-render", "Demo::overview", "-render-form", "svg"},
 		status: exitUnevaluable,
-		stderr: []string{"unknown rendering form \"svg\"", "text, mermaid, markdown, dot"},
+		stderr: []string{"a tree rendering is not written as svg", "text, mermaid, dot, plantuml or d2"},
 	}, {
 		name:   "a form without a view to render is reported",
 		args:   []string{"-render-form", "text"},
@@ -1184,7 +1189,7 @@ const portedModel = `package Demo {
 func TestRenderPorts(t *testing.T) {
 	binary := buildCLI(t)
 
-	minimal := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "dot")
+	minimal := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "dot", "-render-show", "edge-labels")
 	if minimal.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", minimal.status, exitHolds, minimal.output())
 	}
@@ -1197,7 +1202,7 @@ func TestRenderPorts(t *testing.T) {
 		t.Errorf("the default drew an unconnected port or a type:\n%s", minimal.stdout)
 	}
 
-	full := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "plantuml", "-render-ports", "full")
+	full := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "plantuml", "-render-ports", "full", "-render-show", "typings")
 	if full.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", full.status, exitHolds, full.output())
 	}
@@ -1215,6 +1220,42 @@ func TestRenderPorts(t *testing.T) {
 	alone := runStreams(t, binary, portedModel, "-render-ports", "full")
 	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-ports is how much of a part's ports -render or -render-all draws") {
 		t.Errorf("-render-ports alone = %d\n%s", alone.status, alone.output())
+	}
+}
+
+// -render-show names the optional notation elements a rendering draws besides
+// the port symbols, compartments and keywords it draws by default: an edge label is drawn
+// when asked for and not otherwise, a name none has is refused with the names
+// there are, and the option alone is refused.
+func TestRenderShow(t *testing.T) {
+	binary := buildCLI(t)
+
+	plain := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "dot")
+	if plain.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", plain.status, exitHolds, plain.output())
+	}
+	if strings.Contains(plain.stdout, `label="wire"`) || !strings.Contains(plain.stdout, `<font point-size="8">out1</font>`) {
+		t.Errorf("the default drew an edge label or no port symbol:\n%s", plain.stdout)
+	}
+
+	shown := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "dot", "-render-show", "edge-labels,typings")
+	if shown.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", shown.status, exitHolds, shown.output())
+	}
+	for _, want := range []string{`label="wire"`, `<font point-size="8">out1</font>`, "Sender"} {
+		if !strings.Contains(shown.stdout, want) {
+			t.Errorf("-render-show edge-labels,typings is missing %q:\n%s", want, shown.stdout)
+		}
+	}
+
+	unknown := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "dot", "-render-show", "edge-labels,boxes")
+	if unknown.status != exitUnevaluable || !strings.Contains(unknown.stderr, `-render-show: unknown notation element "boxes"; the elements are parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, all`) || unknown.stdout != "" {
+		t.Errorf("an unknown element = %d\n%s", unknown.status, unknown.output())
+	}
+
+	alone := runStreams(t, binary, portedModel, "-render-show", "all")
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-show is the optional notation elements a diagram draws") {
+		t.Errorf("-render-show alone = %d\n%s", alone.status, alone.output())
 	}
 }
 

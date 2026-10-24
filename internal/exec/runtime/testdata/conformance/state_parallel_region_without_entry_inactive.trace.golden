@@ -1,0 +1,21 @@
+exit: idle
+enter: working
+enter: A (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "A(entry) " -> "A(entry) "
+    eval operator + -> "A(entry) "
+transition: idle -> working (event: accept Go)
+exit: A
+enter: done
+transition: A -> done (event: accept FinishA)
+exit: done
+exit: working
+enter: outside (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "A(entry) "
+      eval literal "outside(entry) " -> "outside(entry) "
+    eval operator + -> "A(entry) outside(entry) "
+transition: working -> outside

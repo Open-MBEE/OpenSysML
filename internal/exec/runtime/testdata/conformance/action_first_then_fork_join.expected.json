@@ -2,6 +2,6 @@
 	"type": "action",
 	"trace": true,
 	"outputs": {
-		"total": {"type": "Integer", "value": 111}
+		"total": {"type": "Sequence", "elements": [{"type": "Integer", "value": 111}]}
 	}
 }

@@ -3,7 +3,7 @@ stmt assign engineTorque
   eval literal 21 -> 21
 step 2: token 1@amplifyTorque
 stmt assign amplified
-    eval feature torqueIn -> 21
+    eval feature torqueIn -> (21)
     eval literal 2 -> 2
   eval operator * -> 42
 step 3: token 1@done

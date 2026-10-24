@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_sym_frame'>
+    <elementID xmi:idref='_bdd'></elementID>
+    <geometry>0, 0, 400, 300</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_sensor'>
+    <elementID xmi:idref='_sensor'></elementID>
+    <geometry>140, 20, 120, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='DataType' xmi:id='_sym_mass'>
+    <elementID xmi:idref='_mass'></elementID>
+    <geometry>20, 180, 120, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_amplifier'>
+    <elementID xmi:idref='_amplifier'></elementID>
+    <geometry>260, 180, 120, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='Association' xmi:id='_sym_sensorMassAssoc'>
+    <elementID xmi:idref='_sensorMassAssoc'></elementID>
+    <linkFirstEndID xmi:idref='_sym_sensor'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_mass'></linkSecondEndID>
+    <geometry>160, 70; 80, 180; </geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='Role' xmi:id='_sym_end_sensorMass'>
+        <elementID xmi:idref='_sensorMassEnd'></elementID>
+        <geometry>155, 70, 10, 10</geometry>
+        <mdOwnedViews/>
+      </mdElement>
+      <mdElement elementClass='Role' xmi:id='_sym_end_mass'>
+        <elementID xmi:idref='_sensorMass'></elementID>
+        <geometry>75, 170, 10, 10</geometry>
+        <mdOwnedViews/>
+      </mdElement>
+    </mdOwnedViews>
+    <associationFirstEndID xmi:idref='_sym_end_sensorMass'></associationFirstEndID>
+    <associationSecondEndID xmi:idref='_sym_end_mass'></associationSecondEndID>
+  </mdElement>
+  <mdElement elementClass='Association' xmi:id='_sym_sensorAmpAssoc'>
+    <elementID xmi:idref='_sensorAmpAssoc'></elementID>
+    <linkFirstEndID xmi:idref='_sym_sensor'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_amplifier'></linkSecondEndID>
+    <geometry>240, 70; 320, 180; </geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='Role' xmi:id='_sym_end_sensorAmp'>
+        <elementID xmi:idref='_sensorAmpEnd'></elementID>
+        <geometry>235, 70, 10, 10</geometry>
+        <mdOwnedViews/>
+      </mdElement>
+      <mdElement elementClass='Role' xmi:id='_sym_end_amp'>
+        <elementID xmi:idref='_sensorAmp'></elementID>
+        <geometry>315, 170, 10, 10</geometry>
+        <mdOwnedViews/>
+      </mdElement>
+    </mdOwnedViews>
+    <associationFirstEndID xmi:idref='_sym_end_sensorAmp'></associationFirstEndID>
+    <associationSecondEndID xmi:idref='_sym_end_amp'></associationSecondEndID>
+  </mdElement>
+</mdOwnedViews>

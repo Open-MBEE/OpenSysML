@@ -1,4 +1,4 @@
-choice do round at t=0.0: states lwork, rwork react (unordered; took lwork first)
+choice do round at t=0.0: states lwork, rwork react (unordered; took lwork first; order-dependent: a, b)
 do: lwork
 stmt action body
 enter action node: state behavior <anonymous>
@@ -9,7 +9,7 @@ stmt action body
 enter action node: state behavior <anonymous>
   stmt assign b
     eval literal 1 -> 1
-choice do round at t=0.0: states lwork, rwork react (unordered; took lwork first)
+choice do round at t=0.0: states lwork, rwork react (unordered; took lwork first; order-dependent: b)
 do: lwork
   stmt terminate
 terminate state behavior <anonymous>: dropped token 1@terminate

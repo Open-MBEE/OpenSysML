@@ -85,7 +85,10 @@ func isBehaviorDefKind(kind symbols.SymbolKind) bool {
 // that takes its `this` from what owns it.
 func isBehaviorUsageKind(kind symbols.SymbolKind) bool {
 	switch kind {
-	case symbols.SymbolActionUsage, symbols.SymbolStateUsage, symbols.SymbolCalcUsage:
+	case symbols.SymbolActionUsage, symbols.SymbolStateUsage, symbols.SymbolCalcUsage,
+		symbols.SymbolCaseUsage, symbols.SymbolAnalysisCaseUsage,
+		symbols.SymbolVerificationCaseUsage, symbols.SymbolUseCaseUsage,
+		symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage:
 		return true
 	}
 	return false

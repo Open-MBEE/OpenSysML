@@ -1,0 +1,62 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% AmplifierViews::positioned — tree rendering (render asTreeDiagram)
+%% not represented: 10 node(s) without a position, drawn as compartment rows of the node above them, and 1 node(s) under them left undrawn
+%% layout: n0 x=10 y=10 w=240 h=260
+%% layout: n5 x=300 y=400 w=120 h=40
+%% layout: n6 x=40 y=220 w=100 h=30
+%% layout: n12 x=300 y=10 w=120 h=40
+%% layout: n13 x=500 y=10 w=100 h=100
+flowchart TD
+  n0["`*«part def»*
+**Stage**
+attributes
+gain = 15.0
+noiseFigure = RealFunctions::sqrt(4.0)
+parts
+heatsink
+ports
+input
+output
+actions
+calibrate
+constraints
+bound
+item defs
+Slot`"]
+    n5("`*«part»*
+**housing**`")
+  n0 --- n5
+    n6("`*«part»*
+**shield**`")
+  n0 --- n6
+  n12["`*«part def»*
+**Housing**`"]
+  n13["`*«enum def»*
+**Band**
+enumerations
+low
+high`"]
+  n0 ---|"◆ housing"| n12
+  n0 ---|"◆ shield"| n12

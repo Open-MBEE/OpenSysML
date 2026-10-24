@@ -11,6 +11,15 @@ from opensysml.connection import (
 )
 from opensysml.model import Model
 from opensysml.symbol import Symbol
+from opensysml.check import (
+    CheckDivergence,
+    CheckDivergentValue,
+    CheckFinal,
+    CheckResult,
+    CheckSearch,
+    CheckViolation,
+    CheckWitness,
+)
 from opensysml.diagnostic import Diagnostic
 from opensysml.enumeration import EnumLiteral
 from opensysml.instance import Instance
@@ -23,13 +32,21 @@ from opensysml.typefacts import (
     TypeFacts,
 )
 from opensysml.capabilities import (
+    CAPABILITY_RECORD_RUN,
+    CAPABILITY_RUNS,
+    CAPABILITY_SELF_CHECK,
+    CAPABILITY_IMPORT_DATA,
+    CAPABILITY_COMPARE_RESULTS,
+    CAPABILITY_CHECK,
     CAPABILITY_CONSTRAINT_BODY_AUTHORING,
     CAPABILITY_STATE_ACTION_AUTHORING,
     CAPABILITY_BIG_INT_VALUES,
     CAPABILITY_RATIONAL_VALUES,
     CAPABILITY_CONVERT_DOCUMENTS,
     CAPABILITY_CONVERT_COMPACT,
+    CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
     CAPABILITY_PARSE_SOURCES_AFFECTED,
+    CAPABILITY_RENDER_DOCUMENT_FILE_NAME,
     MissingCapabilityError,
     ServerInfo,
 )
@@ -38,13 +55,28 @@ from opensysml.values import (
     Undetermined, UnsetType,
     Vector, VectorQuantity,
 )
+from opensysml.importcompare import (
+    CaseStatistic, CaseStatistics, ComparedDistribution, Comparison, ConfigurationComparison,
+    ImportResult, ImportedFile, ImportedValue, ObservableComparison, StatisticDifference,
+)
 from opensysml.verdict import (
-    AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, Validation,
+    AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, ToolDryRun, Validation,
     Verdict, VerificationVerdict,
 )
 from opensysml.exploration import Exploration, Outcome
 from opensysml.action_run import ActionOutputs
 from opensysml.engines import Bound, EngineInfo, Standing
+from opensysml.runs import (
+    RecordedDocument,
+    Recording,
+    RunCountedValue,
+    RunDistribution,
+    RunHistogramBin,
+    RunPercentile,
+    RunsResult,
+    SelfCheckFinding,
+    SelfCheckResult,
+)
 from opensysml.query import QueryElement, QueryError
 from opensysml.sources import SourceDocument
 from opensysml.document import (
@@ -77,6 +109,26 @@ from opensysml.errors import (
 from opensysml.metamodel import read_json
 
 __all__ = [
+    "CAPABILITY_RECORD_RUN",
+    "CAPABILITY_RUNS",
+    "CAPABILITY_SELF_CHECK",
+    "RecordedDocument",
+    "Recording",
+    "RunCountedValue",
+    "RunDistribution",
+    "RunHistogramBin",
+    "RunPercentile",
+    "RunsResult",
+    "SelfCheckFinding",
+    "SelfCheckResult",
+    "CAPABILITY_CHECK",
+    "CheckDivergence",
+    "CheckDivergentValue",
+    "CheckFinal",
+    "CheckResult",
+    "CheckSearch",
+    "CheckViolation",
+    "CheckWitness",
     "Connection", "Model", "Symbol", "Diagnostic", "EnumLiteral", "Instance",
     "TypedObject", "TypeFacts", "Multiplicity", "Specialization", "SymbolFacts",
     "AttributeFacts",
@@ -90,6 +142,7 @@ __all__ = [
     "Migration", "MigrationEntry", "MigrationReport", "is_v1",
     "Editor", "Body", "EditResult", "AppliedEdit", "EditedDocument", "Referrer",
     "Verdict", "CalcResult", "AnalysisResult", "CaseEvaluation", "SweepRow", "SweepTable",
+    "ToolDryRun",
     "Validation", "VerificationVerdict",
     "Exploration", "Outcome", "ActionOutputs",
     "Bound", "EngineInfo", "Standing",
@@ -100,6 +153,9 @@ __all__ = [
     "RenderCanvas", "RenderEdge", "RenderGeometry", "RenderNode", "RenderNote",
     "RenderPoint", "RenderPort", "RenderRow", "RenderSpan", "RenderStyle", "RenderedView",
     "Graphs",
+    "CaseStatistic", "CaseStatistics", "ComparedDistribution", "Comparison", "ConfigurationComparison",
+    "ImportResult", "ImportedFile", "ImportedValue", "ObservableComparison", "StatisticDifference",
+    "CAPABILITY_IMPORT_DATA", "CAPABILITY_COMPARE_RESULTS",
     "OpenSysMLError", "AnalysisRunError", "ChecksumMismatchError", "ConnectionError",
     "ConversionError", "ExecutionError", "FeatureValueError", "MigrationError",
     "EditError", "NoEditsError", "EditTargetError", "InvalidEditError",
@@ -111,7 +167,9 @@ __all__ = [
     "MissingCapabilityError",
     "CAPABILITY_CONSTRAINT_BODY_AUTHORING", "CAPABILITY_STATE_ACTION_AUTHORING",
     "CAPABILITY_BIG_INT_VALUES", "CAPABILITY_RATIONAL_VALUES", "CAPABILITY_CONVERT_DOCUMENTS",
-    "CAPABILITY_CONVERT_COMPACT", "CAPABILITY_PARSE_SOURCES_AFFECTED",
+    "CAPABILITY_CONVERT_COMPACT", "CAPABILITY_CONVERT_CHECK_DIAGNOSTICS",
+    "CAPABILITY_PARSE_SOURCES_AFFECTED",
+    "CAPABILITY_RENDER_DOCUMENT_FILE_NAME",
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
     "ServiceError", "ServiceTimeoutError", "SigstoreUnavailableError", "StaleServiceError",
     "SymbolNotFoundError",
@@ -377,7 +435,7 @@ def migrate(to_format, file_path=None, content=None, from_format='', report=Fals
         >>> import opensysml
         >>> migrated = opensysml.migrate("sysml", file_path="Vehicle.mdzip", report=True)
         >>> migrated.report.summary
-        'migrated 93 element(s): 77 mapped, 13 approximated, 3 unmapped (...)'
+        'migrated 95 element(s): 77 mapped, 15 approximated, 3 unmapped (...)'
         >>> migrated.write("Vehicle.sysml")
         'Vehicle.sysml'
     """

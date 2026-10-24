@@ -69,8 +69,8 @@ func TestReplayScheduleEvaluatesAtTheMoveNamed(t *testing.T) {
 	if holds, err := end.Evaluate(xIsNot("2")); !holds || err != nil {
 		t.Fatalf("x != 2 at the end: %v, %v; want true, the later move having repaired it", holds, err)
 	}
-	if !strings.Contains(end.Outcome(), "x = 1") {
-		t.Fatalf("outcome %q, want x = 1", end.Outcome())
+	if !strings.Contains(end.outcome(), "x = 1") {
+		t.Fatalf("outcome %q, want x = 1", end.outcome())
 	}
 	before, err := ReplaySchedule(context.Background(), m.fresh, start, Witness{Choices: rightFirst}, 0)
 	if err != nil {

@@ -165,13 +165,13 @@ func TestNotationCoversTheFixture(t *testing.T) {
 		"flow of 'Vehicle Design'::Interfaces::Fuel from fuelIn.fuel to engine.fuelPort.fuel;",
 		"bind mass = massLimit.m;",
 		"bind speedOut = engine.piston.p;",
-		"satisfy RequirementsModel::'Mass Requirement';",
-		"satisfy RequirementsModel::'Engine Mass Requirement' by engine;",
+		"satisfy Requirements::'Mass Requirement';",
+		"satisfy Requirements::'Engine Mass Requirement' by engine;",
 		"part engine : Motor :>> engine;",
 		"connection def Drives {",
 		"constraint def MassLimit {",
 		"m < limit",
-		"individual part def myCar :> Vehicle {",
+		"part myCar : Vehicle {",
 		"attribute :>> mass = 1350.5;",
 		"requirement <R1> 'Mass Requirement' {",
 		"doc /* The vehicle shall have a mass of less than 1500 kg. */",
@@ -183,10 +183,10 @@ func TestNotationCoversTheFixture(t *testing.T) {
 		"end :>> source : 'Vehicle Design'::Motor;",
 		"end :>> target : 'Vehicle Design'::Engine;",
 		"state def 'Vehicle States' {",
-		"abstract action def start {",
+		"abstract action start {",
 		"action def Drive;",
 		"/* not migrated: «Unit» InstanceSpecification 'kilogram'",
-		"applied stereotype «Critical»",
+		`stereotype = "Critical";`,
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("notation lacks %q", want)
@@ -312,6 +312,11 @@ func TestRejectsNonXMI(t *testing.T) {
 // constructFixtures are the XMI documents under testdata/xmi that each exercise
 // one family of behavioral or profile constructs; their notation and report are golden.
 var constructFixtures = []string{
+	"root_model_defs",
+	"root_model_packages",
+	"root_model_unnamed",
+	"root_models_two",
+	"anonymous_associations",
 	"docgen_columns",
 	"plant_states",
 	"instant_waits",
@@ -364,7 +369,11 @@ var constructFixtures = []string{
 	"org_profile",
 	"profile_inheritance",
 	"tool_profiles",
+	"tool_block_stereotypes",
+	"block_specialization_profile",
+	"uml2_hostless_profile",
 	"property_markers",
+	"nested_requirement_refs",
 	"diagrams",
 	"diagram_edges",
 	"control_nodes",
@@ -384,6 +393,7 @@ var constructFixtures = []string{
 	"metaclass_tables",
 	"classifier_usages",
 	"empty_classifier_tables",
+	"unstored_requirement_tables",
 	"documents",
 	"figures",
 	"collectors",
@@ -394,6 +404,7 @@ var constructFixtures = []string{
 	"decision_else",
 	"calc_context",
 	"interaction_context",
+	"terminate_orthogonal",
 	"viewpoint_concerns",
 	"parameter_sets",
 }
@@ -463,5 +474,21 @@ func TestStrictMigrationAnalysesCleanUnderStrictConformance(t *testing.T) {
 				t.Errorf("%v", d)
 			}
 		})
+	}
+}
+
+// A stereotype or kind is never carried by a comment: a package-owned comment
+// is a note on every diagram a modeling tool draws, so the kind is in the
+// element's name or an AppliedStereotype marker, in default and strict output.
+func TestNoStereotypeIsKeptAsAComment(t *testing.T) {
+	for _, name := range append([]string{"vehicle"}, constructFixtures...) {
+		for _, opts := range []migrate.Options{{}, {Strict: true}} {
+			r := migrateFixtureFileOptions(t, name, opts)
+			for i, line := range strings.Split(string(r.Notation), "\n") {
+				if strings.Contains(line, "/* «") {
+					t.Errorf("%s (strict=%v) line %d keeps a stereotype as a comment: %s", name, opts.Strict, i+1, strings.TrimSpace(line))
+				}
+			}
+		}
 	}
 }

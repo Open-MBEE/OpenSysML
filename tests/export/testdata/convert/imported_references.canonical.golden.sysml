@@ -27,7 +27,7 @@ package R90 {
         part unresolved : Elsewhere::Missing;
     }
     part def B specializes A {
-        part : Inner::Wheel redefines w;
+        part redefines w : Inner::Wheel;
     }
     part def G1 {
         part x;
@@ -57,6 +57,6 @@ package Filtered {
     public import Meta::*[@Safety];
     part def C {
         attribute other : Tagged;
-        filter @Safety;
     }
+    filter @Safety;
 }

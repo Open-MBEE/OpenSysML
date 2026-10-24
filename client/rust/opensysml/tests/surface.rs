@@ -8,8 +8,8 @@ use std::env;
 use opensysml::{
     AnalysisOptions, Connection, Constraint, ConvertOptions, ConvertSource, DocumentForm,
     DocumentValue, ElementRef, Error, FailureReason, IdForm, MemberOptions, MigrateOptions,
-    MigrateSource, Model, Query, RenderViewPorts, RunOptions, SourceDocument, SourcesOptions,
-    SweepOptions, SweepRange, Value, VerifyOptions,
+    MigrateSource, Model, Query, RenderViewCompartments, RenderViewPorts, RunOptions,
+    SourceDocument, SourcesOptions, SweepOptions, SweepRange, Value, VerifyOptions,
 };
 
 const DEMO: &str = r#"
@@ -24,8 +24,8 @@ package Demo {
     }
     part vehicle : Vehicle;
 
-    calc def Add { in a : Integer; in b : Integer; return : Integer = a + b; }
-    calc def Sum { in a : Real; in b : Real; return : Real = a + b; }
+    calc def Add { in a : Integer; in b : Integer; return : Integer[1] = a + b; }
+    calc def Sum { in a : Real; in b : Real; return : Real[1] = a + b; }
 
     part def Ship {
         attribute cost : Real default = 30.0;
@@ -132,6 +132,7 @@ fn demo() -> Option<Model> {
 fn real(value: Option<&Value>) -> f64 {
     match value {
         Some(Value::Real(v)) => *v,
+        Some(Value::Sequence(elements)) if elements.len() == 1 => real(elements.first()),
         other => panic!("expected a real, got {other:?}"),
     }
 }
@@ -292,9 +293,9 @@ fn a_v1_model_is_migrated_and_refused_by_convert() {
             migrated.report.unmapped,
             migrated.report.skipped
         ),
-        (77, 13, 3, 2)
+        (77, 15, 3, 2)
     );
-    assert_eq!(migrated.report.entries.len(), 95);
+    assert_eq!(migrated.report.entries.len(), 97);
     assert_eq!(migrated.report.by_verdict("unmapped").len(), 3);
     assert!(migrated.report.text.contains("unmapped"));
     assert!(migrated
@@ -455,6 +456,35 @@ fn a_rendered_view_keeps_ports_edges_and_origins() {
         .iter()
         .flat_map(|node| &node.ports)
         .any(|port| port.name == "spare"));
+}
+
+#[test]
+fn rendered_views_fold_members_into_compartment_rows_on_request() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(
+        &connection,
+        include_str!("../../../../conformance/fixtures/views.sysml"),
+    );
+    let boxes = model.render_view("#tree:RenderViewDemo::Assembly").unwrap();
+    assert!(boxes.nodes.iter().all(|node| node.compartment.is_empty()));
+    let folded = model
+        .render_view_folded(
+            "#tree:RenderViewDemo::Assembly",
+            RenderViewPorts::Minimal,
+            &[],
+            0,
+            RenderViewCompartments::Most,
+        )
+        .unwrap();
+    let sender = folded
+        .nodes
+        .iter()
+        .find(|node| node.name == "sender")
+        .expect("sender is drawn");
+    assert_eq!(sender.compartment, "parts");
+    assert!(folded.nodes.len() < boxes.nodes.len());
 }
 
 #[test]
@@ -660,5 +690,534 @@ fn an_edit_rewrites_the_source_and_a_refusal_is_typed() {
     match editor.apply() {
         Err(Error::Edit(error)) => assert!(error.failure.is_target_error(), "{error}"),
         other => panic!("expected an edit error, got {other:?}"),
+    }
+}
+
+const RUNS_MODEL: &str = r#"package MC {
+    private import ScalarValues::*;
+    private import RandomFunctions::*;
+    action def Settle { out t : Real; first start; then assign t := uniform(1.0, 5.0); then done; }
+    part def Probe { attribute t : Real; action settle { first start; then assign t := uniform(1.0, 5.0); then done; } }
+    individual def probe :> Probe;
+    analysis def Mc :> Simulation::MonteCarlo {
+        subject analysed : Probe;
+        perform action run ::> analysed.settle;
+        attribute :>> observed : Real = analysed.t;
+        return Mean : Real[1] = mean;
+    }
+    part def P { attribute m : Real = 2.0; }
+    part p : P;
+    analysis def Cost { subject s : P; return total : Real[1] = s.m * 3.0; }
+}"#;
+
+#[test]
+fn repeated_runs_table_the_observables_and_conclude_a_sample() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(&connection, RUNS_MODEL);
+    let runs = model
+        .run_runs(&opensysml::RunsOptions {
+            action: Some("MC::Settle".to_owned()),
+            runs: 4,
+            seed: Some(7),
+            observe: vec!["t".to_owned()],
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(runs.len(), 4);
+    assert_eq!(runs.observables, vec!["t".to_owned()]);
+    assert_eq!(runs.distributions.len(), 1);
+    assert!(runs.distributions[0].numeric && runs.distributions[0].count == 4);
+    assert_eq!(runs.seed, Some(7));
+    let sample = model
+        .run_runs(&opensysml::RunsOptions {
+            analysis: Some("MC::Mc".to_owned()),
+            subject: Some("MC::probe".to_owned()),
+            runs: 3,
+            seed: Some(1),
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(sample.len(), 3);
+    assert!(sample.unconcluded.is_empty() && sample.output("Mean").is_some());
+    let unseeded = model.run_runs(&opensysml::RunsOptions {
+        action: Some("MC::Settle".to_owned()),
+        runs: 1,
+        ..Default::default()
+    });
+    assert!(
+        matches!(
+            unseeded,
+            Err(opensysml::Error::Service {
+                status: opensysml::Status::InvalidArgument,
+                ..
+            })
+        ),
+        "{unseeded:?}"
+    );
+    let unknown = model.run_runs(&opensysml::RunsOptions {
+        action: Some("MC::Nope".to_owned()),
+        runs: 1,
+        draws: Some("min".to_owned()),
+        ..Default::default()
+    });
+    assert!(
+        matches!(unknown, Err(opensysml::Error::Execution { .. })),
+        "{unknown:?}"
+    );
+}
+
+#[test]
+fn the_self_check_counts_its_checks_and_refuses_an_unknown_rule_package() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(&connection, RUNS_MODEL);
+    let check = model.self_check(&[]).unwrap();
+    assert!(check.elements > 0 && check.checks > 0, "{check:?}");
+    assert!(check.summary.starts_with("Self-model check: "));
+    assert!(!check.applications.is_empty());
+    let unknown = model.self_check(&["Nope".to_owned()]);
+    assert!(
+        matches!(unknown, Err(opensysml::Error::Execution { .. })),
+        "{unknown:?}"
+    );
+}
+
+#[test]
+fn recording_a_run_and_a_sample_grows_the_model() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(&connection, RUNS_MODEL);
+    let recording = model
+        .record_run(
+            "MC::Cost",
+            &opensysml::RecordOptions {
+                subject: Some("MC::p".to_owned()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(recording.run.is_some());
+    assert_eq!(recording.package, "Records");
+    assert_eq!(recording.records, vec!["Records::Cost_run1".to_owned()]);
+    assert_eq!(recording.documents.len(), 1);
+    assert!(!recording.model_hash.is_empty());
+    let sample = model
+        .record_run(
+            "MC::Mc",
+            &opensysml::RecordOptions {
+                subject: Some("MC::probe".to_owned()),
+                runs: 2,
+                seed: Some(3),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(sample.sample.is_some());
+    assert_eq!(sample.records.len(), 3);
+    let unknown = model.record_run("MC::Nope", &Default::default());
+    assert!(
+        matches!(unknown, Err(opensysml::Error::Execution { .. })),
+        "{unknown:?}"
+    );
+}
+
+const IMPORT_MODEL: &str = r#"package V {
+    private import ScalarValues::*;
+    part def Vehicle {
+        attribute count : Integer default 1;
+        attribute label : String default "plain";
+    }
+    part vehicle : Vehicle;
+    part car : Vehicle {
+        attribute :>> count = 2;
+    }
+}"#;
+
+const PROBE_MODEL: &str = r#"package Cfg {
+    private import ScalarValues::*;
+    part def Probe {
+        attribute total : Real = 1.0;
+        action steady { first start; then assign total := 4.0; then done; }
+    }
+    action def 'Group 1' { part target : Probe; perform action run ::> target.steady; }
+}"#;
+
+const PROBE_RESULTS: &str = r#"{"source":"probe.xmi","configurations":[
+ {"id":"_c1","name":"Cfg::'Group 1'","runs":2,"target":"target","behavior":"run","observables":["total"],
+  "snapshots":[{"id":"_r1","values":{"total":4.0}},{"id":"_r2","values":{"total":6.0}}]},
+ {"id":"_cn","name":"Cfg::Nothing","observables":[],"snapshots":[]}]}"#;
+
+#[test]
+fn import_data_sets_the_values_and_answers_the_edited_model() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(&connection, IMPORT_MODEL);
+    let imports = vec![
+        opensysml::DataImport {
+            name: "fleet.csv".to_owned(),
+            content: "element,count,label\nV::vehicle,7,fast\nV::car,9,\n".to_owned(),
+            format: None,
+            map: None,
+        },
+        opensysml::DataImport {
+            name: "labels.txt".to_owned(),
+            content: r#"[{"element":"V::car","label":"slow"}]"#.to_owned(),
+            format: Some("json".to_owned()),
+            map: None,
+        },
+    ];
+    let result = model
+        .import_data(&imports, &opensysml::DataImportOptions::default())
+        .unwrap();
+    let descriptions: Vec<&str> = result
+        .files
+        .iter()
+        .flat_map(|file| file.assignments.iter().map(|a| a.description.as_str()))
+        .collect();
+    assert_eq!(
+        descriptions,
+        vec![
+            "V::vehicle::count = 7 (redefines V::Vehicle::count)",
+            "V::vehicle::label = \"fast\" (redefines V::Vehicle::label)",
+            "V::car::count = 9",
+            "V::car::label = \"slow\" (redefines V::Vehicle::label)",
+        ]
+    );
+    assert_eq!(result.files.len(), 2);
+    assert_eq!((result.files[0].values, result.files[0].elements), (3, 2));
+    assert_eq!(
+        result.files[0].assignments[0].redefines,
+        "V::Vehicle::count"
+    );
+    assert!(!result.files[0].assignments[0].where_.is_empty());
+    assert!(result.content.contains("attribute :>> count = 7;"));
+    assert!(result.content.contains("attribute :>> label = \"slow\";"));
+    assert!(!result.model_hash.is_empty() && result.model_hash != model.hash());
+    assert_eq!(result.documents.len(), 1);
+
+    let dry = model
+        .import_data(
+            &[opensysml::DataImport {
+                name: "fleet.tsv".to_owned(),
+                content: "element\tcount\nV::vehicle\t7\n".to_owned(),
+                format: None,
+                map: None,
+            }],
+            &opensysml::DataImportOptions {
+                dry_run: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(dry.files.len(), 1);
+    assert_eq!(dry.files[0].assignments.len(), 1);
+    assert!(dry.model_hash.is_empty() && dry.content.is_empty() && dry.documents.is_empty());
+
+    let refused = model.import_data(
+        &[opensysml::DataImport {
+            name: "fleet.csv".to_owned(),
+            content: "element,count\nV::car,9\nV::Nowhere,1\n".to_owned(),
+            format: None,
+            map: None,
+        }],
+        &opensysml::DataImportOptions::default(),
+    );
+    assert!(
+        matches!(&refused, Err(opensysml::Error::Execution { message, .. }) if message.contains("V::Nowhere")),
+        "{refused:?}"
+    );
+    let empty = model.import_data(&[], &opensysml::DataImportOptions::default());
+    assert!(
+        matches!(
+            empty,
+            Err(opensysml::Error::Service {
+                status: opensysml::Status::InvalidArgument,
+                ..
+            })
+        ),
+        "{empty:?}"
+    );
+}
+
+#[test]
+fn compare_results_tables_the_tool_beside_the_runs() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(&connection, PROBE_MODEL);
+    let comparison = model
+        .compare_results(
+            PROBE_RESULTS,
+            &opensysml::CompareOptions {
+                seed: Some(7),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(comparison.source, "probe.xmi");
+    assert!(!comparison.holds());
+    assert_eq!(comparison.configurations.len(), 2);
+    let group = &comparison.configurations[0];
+    assert_eq!(group.name, "Cfg::'Group 1'");
+    assert_eq!(group.status, "holds");
+    assert_eq!((group.runs, group.completed, group.stored_runs), (2, 2, 2));
+    assert_eq!(group.seed, Some(7));
+    assert_eq!(group.rows.len(), 2);
+    assert_eq!(group.observables.len(), 1);
+    let total = &group.observables[0];
+    assert_eq!(
+        (total.stored.as_str(), total.feature.as_str()),
+        ("total", "target.total")
+    );
+    assert!(total.compared);
+    let tool = total.tool.as_ref().unwrap();
+    let run = total.run.as_ref().unwrap();
+    assert_eq!((tool.count, tool.mean, run.mean), (2, 5.0, 4.0));
+    assert_eq!(total.difference.as_ref().unwrap().mean, "-20.0%");
+    assert!(!group.lines.is_empty());
+    let nothing = &comparison.configurations[1];
+    assert_eq!(nothing.status, "unresolved");
+    assert!(!nothing.unresolved.is_empty());
+
+    let selected = model
+        .compare_results(
+            PROBE_RESULTS,
+            &opensysml::CompareOptions {
+                actions: vec!["Group 1".to_owned()],
+                runs: 1,
+                seed: Some(3),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(selected.configurations.len(), 1);
+    assert_eq!(selected.configurations[0].runs, 1);
+    assert!(selected.holds());
+
+    let negative = model.compare_results(
+        PROBE_RESULTS,
+        &opensysml::CompareOptions {
+            runs: -1,
+            ..Default::default()
+        },
+    );
+    assert!(
+        matches!(
+            negative,
+            Err(opensysml::Error::Service {
+                status: opensysml::Status::InvalidArgument,
+                ..
+            })
+        ),
+        "{negative:?}"
+    );
+    let malformed = model.compare_results("not json", &opensysml::CompareOptions::default());
+    assert!(
+        matches!(
+            malformed,
+            Err(opensysml::Error::Service {
+                status: opensysml::Status::InvalidArgument,
+                ..
+            })
+        ),
+        "{malformed:?}"
+    );
+}
+
+#[test]
+fn a_checked_behavior_witnesses_its_violation_and_divergence() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(
+        &connection,
+        include_str!("../../../../conformance/fixtures/tank.sysml"),
+    );
+    let options = opensysml::CheckOptions {
+        properties: vec!["Plant::Tank::low".to_owned()],
+        diverge: vec!["this.level".to_owned()],
+        witness: true,
+        performer: Some("Plant::tank".to_owned()),
+        ..Default::default()
+    };
+    let result = model
+        .check_action("Plant::Tank::fill", &Default::default(), &options)
+        .unwrap();
+    assert_eq!(result.verdict, "fails");
+    assert!(!result.holds());
+    assert!(!result.lines.is_empty());
+    let search = result.search.as_ref().expect("an explicit-state search");
+    assert_eq!((search.states, search.moves, search.max_depth), (11, 10, 6));
+    assert_eq!(result.violations.len(), 1, "{:?}", result.violations);
+    let violation = &result.violations[0];
+    assert_eq!(
+        (
+            violation.kind.as_str(),
+            violation.property.as_str(),
+            violation.depth
+        ),
+        ("property", "Plant::Tank::low", 3)
+    );
+    let witness = violation.witness.as_ref().expect("a witness");
+    assert!(
+        witness.schedule.starts_with("replay"),
+        "{}",
+        witness.schedule
+    );
+    assert!(!witness.file_name.is_empty() && witness.file_content.contains('\n'));
+    assert_eq!(result.divergences.len(), 1);
+    assert_eq!(result.divergences[0].feature, "this.level");
+    let values: Vec<&str> = result.divergences[0]
+        .values
+        .iter()
+        .map(|v| v.value.as_str())
+        .collect();
+    assert_eq!(values, ["1", "2"]);
+    assert_eq!(result.standing.engine, "check");
+
+    let held = model
+        .check_action(
+            "Plant::Tank::fill",
+            &Default::default(),
+            &opensysml::CheckOptions {
+                properties: vec!["Plant::Tank::capped".to_owned()],
+                diverge: vec!["this.capacity".to_owned()],
+                performer: Some("Plant::tank".to_owned()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(held.holds(), "{:?}", held.lines);
+    assert!(held.violations.is_empty() && held.divergences.is_empty());
+
+    let missing = model
+        .check_action(
+            "Plant::Tank::drain",
+            &Default::default(),
+            &Default::default(),
+        )
+        .unwrap_err();
+    assert!(
+        matches!(missing, opensysml::Error::Execution { .. }),
+        "{missing:?}"
+    );
+    let negative = model
+        .check_action(
+            "Plant::Tank::fill",
+            &Default::default(),
+            &opensysml::CheckOptions {
+                depth: -1,
+                ..Default::default()
+            },
+        )
+        .unwrap_err();
+    assert!(
+        matches!(&negative, opensysml::Error::Service { message, .. } if message.contains("check_depth")),
+        "{negative:?}"
+    );
+}
+
+/// Start a service of this checkout with the external-tool demo's manifests registered, so a
+/// dry run has a tool to preview; the registry refuses a manifest directory others may write.
+#[cfg(unix)]
+fn service_with_demo_tools() -> Option<(std::process::Child, Connection, std::path::PathBuf)> {
+    use std::io::{BufRead, BufReader};
+    use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+    use std::path::{Path, PathBuf};
+    use std::process::{Command, Stdio};
+
+    let checkout = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let binary = env::var("OPENSYSML_GRPC_BINARY")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| checkout.join("bin/sysml-grpc"));
+    if !binary.is_file() {
+        eprintln!("skipping: no sysml-grpc at {}", binary.display());
+        return None;
+    }
+    let tools = env::temp_dir().join(format!("opensysml-rust-tools-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&tools);
+    std::fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&tools)
+        .unwrap();
+    let demo = checkout.join("examples/external-tool-demo");
+    for name in ["thermal.json", "thermal.py"] {
+        let copied = tools.join(name);
+        std::fs::copy(demo.join("tools").join(name), &copied).unwrap();
+        std::fs::set_permissions(&copied, std::fs::Permissions::from_mode(0o644)).unwrap();
+    }
+    let mut child = Command::new(binary)
+        .args(["-port", "0", "-health-port", "0", "-report-address"])
+        .env("OPENSYSML_TOOLS", &tools)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let mut address = String::new();
+    BufReader::new(child.stdout.take().unwrap())
+        .read_line(&mut address)
+        .unwrap();
+    let (host, port) = address.trim().rsplit_once(':').unwrap();
+    let connection = Connection::external(
+        host.trim_start_matches('[').trim_end_matches(']'),
+        port.parse().unwrap(),
+    )
+    .unwrap();
+    Some((child, connection, tools))
+}
+
+#[cfg(unix)]
+#[test]
+fn a_tool_dry_run_previews_the_tool_call_instead_of_running_it() {
+    if service_or_skip().is_none() {
+        return;
+    }
+    let Some((mut child, connection, tools)) = service_with_demo_tools() else {
+        return;
+    };
+    let source = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../examples/external-tool-demo/thermal.sysml"),
+    )
+    .unwrap();
+    let outcome = std::panic::catch_unwind(|| {
+        let model = parsed(&connection, &source);
+        let result = model
+            .run_analysis(
+                "ThermalDemo::heating",
+                &AnalysisOptions {
+                    tool_dry_run: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert!(result.outputs.is_empty());
+        let preview = result
+            .tool_dry_run
+            .expect("the result carries the tool preview");
+        assert_eq!(preview.tool, "ThermalSolver");
+        assert_eq!(preview.version, "1.0");
+        assert!(preview.action.contains("Solve"), "{}", preview.action);
+        assert!(
+            preview.args.join(" ").contains("--mass 12.5"),
+            "{:?}",
+            preview.args
+        );
+        assert!(!preview.lines.is_empty());
+        let real = model
+            .run_analysis("ThermalDemo::heating", &AnalysisOptions::default())
+            .map(|result| result.tool_dry_run.is_none());
+        assert!(matches!(real, Ok(true) | Err(_)), "{real:?}");
+    });
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(&tools);
+    if let Err(panic) = outcome {
+        std::panic::resume_unwind(panic);
     }
 }

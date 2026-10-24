@@ -22,8 +22,8 @@ public class FakeElement extends ElementImpl {
 
     public FakeElement(String qualifiedName) {
         this.qualifiedName = qualifiedName;
-        this.declaredName = qualifiedName == null ? null
-                : qualifiedName.substring(qualifiedName.contains("::") ? qualifiedName.lastIndexOf("::") + 2 : 0);
+        int separator = qualifiedName == null ? -1 : qualifiedName.lastIndexOf("::");
+        this.declaredName = qualifiedName == null ? null : separator < 0 ? qualifiedName : qualifiedName.substring(separator + 2);
         this.elementId = qualifiedName == null ? null : "id-" + qualifiedName;
     }
 

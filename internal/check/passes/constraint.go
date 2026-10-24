@@ -453,13 +453,18 @@ func (cc *constraintChecker) checkRedefinition(sym *symbols.Symbol) {
 	}
 
 	// sym is declared in the scope its owning definition or usage owns; a scope
-	// with no owner is the root or internal, and redefines nothing.
+	// with no owner is the document root or internal, and only the root features.
 	var owner *symbols.Symbol
 	if sym.OwnerScope != nil {
 		owner = sym.OwnerScope.Owner()
 	}
-	if owner == nil {
+	packageLevel := isPackageLevelScope(sym.OwnerScope)
+	if owner == nil && !packageLevel {
 		return
+	}
+	ownerName := "the root namespace"
+	if owner != nil {
+		ownerName = owner.Name
 	}
 
 	// Extract all redefines relationships
@@ -484,7 +489,8 @@ func (cc *constraintChecker) checkRedefinition(sym *symbols.Symbol) {
 		}
 		featuringOwners, hasFeaturing := cc.featuringOwners(sym)
 		if !hasFeaturing {
-			if owner.Kind == symbols.SymbolPackage || owner.Kind == symbols.SymbolNamespace {
+			if packageLevel {
+				cc.checkPackageLevelRedefinition(sym, rel)
 				continue
 			}
 			featuringOwners = []*symbols.Symbol{owner}
@@ -521,7 +527,7 @@ func (cc *constraintChecker) checkRedefinition(sym *symbols.Symbol) {
 				Span:     rel.Target.Span(),
 				Message: fmt.Sprintf(
 					"%s redefines %s, but %s is not an inherited member of %s",
-					sym.Name, redefined.Name, redefined.Name, owner.Name),
+					sym.Name, redefined.Name, redefined.Name, ownerName),
 				Code:   "redefinition-no-inherited",
 				Source: "constraint",
 			})
@@ -547,6 +553,25 @@ func (cc *constraintChecker) checkRedefinition(sym *symbols.Symbol) {
 			}
 		}
 	}
+}
+
+// checkPackageLevelRedefinition reports a redefiner with no featuring type reaching
+// a type-featured target (KerML validateSubsettingFeaturingTypes); package-level pairs are W10B's.
+func (cc *constraintChecker) checkPackageLevelRedefinition(sym *symbols.Symbol, rel *ast.Relationship) {
+	target := cc.resolveRelationshipTarget(sym, rel)
+	if target == nil || target == sym || !isUsageKind(target.Kind) {
+		return
+	}
+	if len(cc.featuringContexts(target)) == 0 {
+		return
+	}
+	cc.diags = append(cc.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
+		Span:     rel.Target.Span(),
+		Message:  msgSubsettingFeaturingTypes,
+		Code:     "subsetting-featuring-types",
+		Source:   "constraint",
+	})
 }
 
 func (cc *constraintChecker) featuringOwners(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
@@ -722,12 +747,7 @@ func (cc *constraintChecker) isInheritedMember(
 }
 
 func isPackageLevelFeature(sym *symbols.Symbol) bool {
-	if sym == nil || sym.OwnerScope == nil || sym.OwnerScope.Owner() == nil {
-		return false
-	}
-	switch sym.OwnerScope.Owner().Kind {
-	case symbols.SymbolPackage, symbols.SymbolNamespace:
-	default:
+	if sym == nil || !isPackageLevelScope(sym.OwnerScope) {
 		return false
 	}
 	// A package-level feature has no featuring type to inherit its redefined member.
@@ -737,6 +757,19 @@ func isPackageLevelFeature(sym *symbols.Symbol) bool {
 		}
 	}
 	return true
+}
+
+// isPackageLevelScope reports whether scope's members are owned by a package or
+// namespace rather than a type, counting the unowned document root as package-level.
+func isPackageLevelScope(scope *symbols.Scope) bool {
+	if scope == nil {
+		return false
+	}
+	owner := scope.Owner()
+	if owner == nil {
+		return scope.Parent() == nil
+	}
+	return owner.Kind == symbols.SymbolPackage || owner.Kind == symbols.SymbolNamespace
 }
 
 // extractUsageType extracts the type of a usage via its RelTyping relationship.

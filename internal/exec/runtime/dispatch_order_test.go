@@ -68,17 +68,17 @@ func TestDispatchOrderChoice(t *testing.T) {
 		if last != tc.last {
 			t.Errorf("%s: last = %d, want %d (arrival order kept)", tc.policy, last, tc.last)
 		}
-		if len(choices) != 2 || choices[0].Kind != ChoiceEntryOrder {
+		if len(choices) != 2 || choices[0].Kind != choiceEntryOrder {
 			t.Fatalf("%s: choices = %v, want the regions' entry order and the one dispatch-order choice", tc.policy, choices)
 		}
 		c := choices[1]
-		if c.Kind != ChoiceDispatchOrder || c.Where != "events at t=2.0" || c.Taken != 0 {
+		if c.Kind != choiceDispatchOrder || c.Where != "events at t=2.0" || c.Taken != 0 {
 			t.Errorf("%s: choice = %+v, want a dispatch order at t=2.0 taking the first", tc.policy, c)
 		}
 		if len(c.Alternatives) != 2 || c.Alternatives[0] != "time a1 1->a2" || c.Alternatives[1] != "time b1 1->b2" {
 			t.Errorf("%s: alternatives = %v, want the two timers by state and transition", tc.policy, c.Alternatives)
 		}
-		want := "events at t=2.0: time a1 1->a2, time b1 1->b2 (unordered; dispatched time a1 1->a2 first)"
+		want := "events at t=2.0: time a1 1->a2, time b1 1->b2 (unordered; dispatched time a1 1->a2 first; order-dependent: last)"
 		if got := c.Describe(); got != want {
 			t.Errorf("%s: Describe() = %q, want %q", tc.policy, got, want)
 		}
@@ -88,7 +88,7 @@ func TestDispatchOrderChoice(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ParseChoice(%q): %v", line, err)
 		}
-		if parsed.Kind != ChoiceDispatchOrder || parsed.Where != taken.Where || parsed.Took != taken.Took || parsed.Taken != 0 {
+		if parsed.Kind != choiceDispatchOrder || parsed.Where != taken.Where || parsed.Took != taken.Took || parsed.Taken != 0 {
 			t.Errorf("ParseChoice(%q) = %+v, want %+v", line, parsed, taken)
 		}
 	}
@@ -96,7 +96,7 @@ func TestDispatchOrderChoice(t *testing.T) {
 	seen := map[int64]bool{}
 	for seed := 0; seed < 16; seed++ {
 		last, choices := dispatchOrderRun(t, mustPolicy(t, fmt.Sprintf("seed:%d", seed)))
-		if len(choices) != 2 || choices[1].Kind != ChoiceDispatchOrder {
+		if len(choices) != 2 || choices[1].Kind != choiceDispatchOrder {
 			t.Fatalf("seed:%d: choices = %v, want the entry order and one dispatch-order choice", seed, choices)
 		}
 		seen[last] = true

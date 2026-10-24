@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -28,6 +29,32 @@ func (r *Renderer) renderStates(view *symbols.Symbol, exposed []*symbols.Symbol,
 			out.Roots = append(out.Roots, node)
 		}
 	}
+}
+
+// rootsByOwner groups the roots of kind rootKind by the nearest owner of one of
+// ownerKinds declaring them, keeping only owners with two or more such roots
+// and not drawn themselves, whose body the roots are then drawn apart from.
+func rootsByOwner(roots map[*symbols.Symbol]*Node, rootKind symbols.SymbolKind, ownerKinds ...symbols.SymbolKind) map[*symbols.Symbol]map[*symbols.Symbol]*Node {
+	out := map[*symbols.Symbol]map[*symbols.Symbol]*Node{}
+	for sym, node := range roots {
+		if sym.Kind != rootKind {
+			continue
+		}
+		owner := behaviorOwnerOf(sym, ownerKinds...)
+		if owner == nil || roots[owner] != nil {
+			continue
+		}
+		if out[owner] == nil {
+			out[owner] = map[*symbols.Symbol]*Node{}
+		}
+		out[owner][sym] = node
+	}
+	for owner, group := range out {
+		if len(group) < 2 {
+			delete(out, owner)
+		}
+	}
+	return out
 }
 
 // renderState builds one state machine or state node with shared IDs.
@@ -54,7 +81,7 @@ func (r *Renderer) renderState(view *symbols.Symbol, elem *symbols.Symbol, ids *
 func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering,
 	record func(*symbols.Symbol, *Node)) *Node {
 	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), NameSynthesized: r.model.NameSynthesized(machine),
-		Type: declType(machine), Origin: symbolOrigin(machine), Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.geometryOf(view, machine, out)}
+		Type: r.headType(machine), Origin: symbolOrigin(machine), Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.geometryOf(view, machine, out)}
 	r.dress(view, machine, root, out)
 	if record != nil {
 		record(machine, root)
@@ -70,9 +97,10 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 	// Regions first: a state of an orthogonal region is nested in that region,
 	// and the region order is the order the machine enters and exits them in.
 	for _, region := range graph.TopRegions {
-		regions[region] = place(r.regionNode(region, graph, machine, ids), nil, region, region.Name)
+		decl := graph.RegionDeclOf(region)
+		regions[region] = place(r.regionNode(region, graph, machine, ids), nil, decl, region.Name)
 		if record != nil {
-			record(r.declaredSymbol(machine, region), regions[region])
+			record(r.declaredSymbol(machine, decl), regions[region])
 		}
 		root.Children = append(root.Children, regions[region])
 	}
@@ -82,13 +110,16 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 			record(r.declaredSymbol(machine, graph.DeclOf(state)), node)
 		}
 		if graph.Completes(state) {
-			node.Geometry = r.memberGeometryOf(view, r.bodySymbol(machine, graph, bodyOwning(graph, state)), ast.DoneFeature, out)
+			body := r.bodySymbol(machine, graph, bodyOwning(graph, state))
+			node.Geometry = r.memberGeometryOf(view, body, ast.DoneFeature, out)
+			r.memberDress(view, body, ast.DoneFeature, node, out)
 		}
 		nodes[state] = node
 		for _, region := range graph.CompositeStates[state] {
-			regions[region] = place(r.regionNode(region, graph, machine, ids), state, region, region.Name)
+			decl := graph.RegionDeclOf(region)
+			regions[region] = place(r.regionNode(region, graph, machine, ids), state, decl, region.Name)
 			if record != nil {
-				record(r.declaredSymbol(machine, region), regions[region])
+				record(r.declaredSymbol(machine, decl), regions[region])
 			}
 			node.Children = append(node.Children, regions[region])
 		}
@@ -157,8 +188,9 @@ func (r *Renderer) entryEdges(view, machine *symbols.Symbol, graph *lower.StateG
 	if len(entries) == 0 {
 		return
 	}
-	start := &Node{ID: ids.take(), Kind: startKind,
-		Geometry: r.memberGeometryOf(view, r.bodySymbol(machine, graph, body.owner), ast.StartFeature, out)}
+	bodySym := r.bodySymbol(machine, graph, body.owner)
+	start := &Node{ID: ids.take(), Kind: startKind, Geometry: r.memberGeometryOf(view, bodySym, ast.StartFeature, out)}
+	r.memberDress(view, bodySym, ast.StartFeature, start, out)
 	body.node.Children = append([]*Node{start}, body.node.Children...)
 	for _, entry := range entries {
 		entryTarget := ast.Node(entry.Target)
@@ -232,8 +264,11 @@ func (r *Renderer) bodySymbol(machine *symbols.Symbol, graph *lower.StateGraph, 
 		return machine
 	}
 	decl := owner
-	if state, ok := owner.(*ast.StateNode); ok {
-		decl = graph.DeclOf(state)
+	switch owner := owner.(type) {
+	case *ast.StateNode:
+		decl = graph.DeclOf(owner)
+	case *ast.StateRegion:
+		decl = graph.RegionDeclOf(owner)
 	}
 	return r.declaredSymbol(machine, decl)
 }
@@ -496,7 +531,38 @@ func joinNonEmpty(keyword, tail string) string {
 // collapseSpace folds the runs of whitespace in a label written across lines
 // into single spaces.
 func collapseSpace(text string) string {
-	return strings.Join(strings.Fields(text), " ")
+	var b strings.Builder
+	var quote rune
+	space := false
+	for i, r := range text {
+		switch {
+		case quote != 0:
+			if r == quote && !escaped(text, i) {
+				quote = 0
+			}
+		case r == '"' || r == '\'':
+			quote = r
+		case unicode.IsSpace(r):
+			space = b.Len() > 0
+			continue
+		}
+		if space {
+			b.WriteByte(' ')
+			space = false
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+// escaped reports whether the character at i in text is preceded by an odd run
+// of backslashes, which escapes it.
+func escaped(text string, i int) bool {
+	n := 0
+	for i--; i >= 0 && text[i] == '\\'; i-- {
+		n++
+	}
+	return n%2 == 1
 }
 
 // renderActions renders the nodes and successions of the exposed behaviors, from
@@ -505,9 +571,51 @@ func collapseSpace(text string) string {
 // outside any view.
 func (r *Renderer) renderActions(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
+	roots := map[*symbols.Symbol]*Node{}
 	for _, elem := range exposed {
 		if node, ok := r.renderAction(view, elem, ids, out, nil); ok {
 			out.Roots = append(out.Roots, node)
+			roots[elem] = node
+		}
+	}
+	r.rootSuccessionEdges(view, roots, out)
+}
+
+// rootSuccessionEdges draws the successions of one action between actions of
+// it exposed as roots of their own, read from the action's lowered graph and
+// labelled as actionEdges labels them within the action.
+func (r *Renderer) rootSuccessionEdges(view *symbols.Symbol, roots map[*symbols.Symbol]*Node, out *Rendering) {
+	for owner, actions := range rootsByOwner(roots, symbols.SymbolActionUsage, symbols.SymbolActionDef, symbols.SymbolActionUsage) {
+		graph, err := lower.ToActionGraphWith(owner.Decl, declScope(owner), r.resolver)
+		if err != nil {
+			continue
+		}
+		// A node inherited from another document is looked up in that document:
+		// its span could equally be a declaration of the owner's own.
+		actionOf := func(node ast.Node) *Node {
+			doc := docOf(graph, node, owner.DocName)
+			root := r.documentRoot(doc)
+			if root == nil {
+				return nil
+			}
+			return actions[root.DeclaredAt(nodeOrigin(doc, node).Span)]
+		}
+		for _, src := range graph.Nodes {
+			for _, edge := range graph.Edges[src] {
+				from, to := actionOf(src), actionOf(edge.Target)
+				if from == nil || to == nil || from == to {
+					continue
+				}
+				decl := edge.Decl
+				if edge.Gate != nil {
+					decl = edge.Gate
+				}
+				edgeDoc := docOf(graph, decl, owner.DocName)
+				out.Edges = append(out.Edges, Edge{From: from.ID, To: to.ID, Kind: EdgeSuccession,
+					Label:  r.successionLabel(edge, edgeDoc, owner.DocName, r.declaredNameSynthesized(owner, decl)),
+					Origin: nodeOrigin(edgeDoc, decl), Route: r.declaredRouteOf(view, owner, decl, out),
+					Style: r.declaredEdgeDress(view, owner, decl, from.ID, to.ID, out)})
+			}
 		}
 	}
 }
@@ -520,7 +628,7 @@ func (r *Renderer) renderAction(view *symbols.Symbol, elem *symbols.Symbol, ids 
 			declKind(elem), r.notationName(elem)))
 		return nil, false
 	}
-	subject := actionSubject{decl: elem.Decl, kind: declKind(elem), name: r.notationName(elem), typ: declType(elem),
+	subject := actionSubject{decl: elem.Decl, kind: declKind(elem), name: r.notationName(elem), typ: r.headType(elem),
 		scope: declScope(elem), doc: elem.DocName, view: view, elem: elem}
 	return r.actionNode(subject, ids, out, map[ast.Node]bool{}, map[ast.Node]*Node{}, 0, record)
 }
@@ -576,6 +684,18 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 	if record != nil {
 		record(owner, root)
 	}
+	// Every action has a start even when no succession leaves it; draw it when
+	// the view's Layout positions it, first among the body's nodes.
+	if r.placedStart(subject.view, owner, graph, out) {
+		start := &Node{ID: ids.take(), Kind: actionNodeKind(&ast.InitialNode{}, nil),
+			Name: nameText("start"), NameSynthesized: true}
+		start.Geometry = r.memberGeometryOf(subject.view, owner, "start", out)
+		r.memberDress(subject.view, owner, "start", start, out)
+		if member, ok := r.model.LookupMember(owner, "start"); ok {
+			start.Origin = nodeOrigin(member.DocName, member.Decl)
+		}
+		root.Children = append(root.Children, start)
+	}
 	for _, node := range graph.Nodes {
 		nodeDoc := docOf(graph, node, doc)
 		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: nameText(behaviorNodeName(node)),
@@ -583,10 +703,11 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 			Type: nodeType(node), Origin: nodeOrigin(nodeDoc, node)}
 		if languageNamed(node) {
 			child.Geometry = r.memberGeometryOf(subject.view, owner, behaviorNodeName(node), out)
+			r.memberDress(subject.view, owner, behaviorNodeName(node), child, out)
 		} else {
 			child.Geometry = r.nodeGeometryOf(subject.view, subject.elem, owner, node, behaviorNodeName(node), out)
+			r.declaredDress(subject.view, subject.elem, node, child, out)
 		}
-		r.declaredDress(subject.view, subject.elem, node, child, out)
 		child.Ports = r.inheritedPorts(subject.elem, node, child.ID, actionPorts(child.ID, graph.Features[node], nodeDoc))
 		if record != nil {
 			record(r.declaredSymbol(subject.elem, node), child)
@@ -612,10 +733,35 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 	}
 	r.actionEdges(subject, graph, nodes, out)
 	r.bindingEdges(subject, graph, root, nodes, drawn, out)
-	if subject.frame == nil && len(root.Children) == 0 {
+	if subject.frame == nil && len(graph.Nodes) == 0 {
 		root.Detail = detailWith(root.Detail, "declares no nodes")
 	}
 	return root, true
+}
+
+// placedStart reports whether view positions the start graph never draws: one
+// no succession leaves lowers to no InitialNode, so a Layout about it has no
+// node to hang on and is drawn as one of its own.
+func (r *Renderer) placedStart(view, owner *symbols.Symbol, graph *lower.ActionGraph, out *Rendering) bool {
+	if owner == nil {
+		return false
+	}
+	for _, node := range graph.Nodes {
+		// A declared `action start` is an ordinary node named start: the
+		// member already has a node and the Layout belongs to it.
+		if _, ok := node.(*ast.InitialNode); ok || behaviorNodeName(node) == "start" {
+			return false
+		}
+	}
+	site, ok := r.model.MemberLayoutOf(view, owner, "start")
+	if !ok {
+		return false
+	}
+	if site.Layout == nil || site.Layout.Unplaced {
+		r.noteLayoutProblems(site, owner, out)
+		return false
+	}
+	return true
 }
 
 // actionEdges draws the action's successions and object flows between its own
@@ -788,7 +934,7 @@ func actionPorts(id string, features []lower.Feature, doc string) []Port {
 		if feature.Direction == ast.DirNone && !feature.IsResult {
 			continue
 		}
-		ports = append(ports, Port{ID: portID(id, len(ports)), Name: nameText(feature.Name),
+		ports = append(ports, Port{ID: portID(id, len(ports)), Parameter: true, Name: nameText(feature.Name),
 			Direction: portDirection(feature), Origin: nodeOrigin(doc, feature.Node)})
 	}
 	return ports
@@ -811,7 +957,7 @@ func (r *Renderer) inheritedPorts(elem *symbols.Symbol, node ast.Node, id string
 		if slices.ContainsFunc(ports, func(port Port) bool { return port.Name == name }) {
 			continue
 		}
-		ports = append(ports, Port{ID: portID(id, len(ports)), Name: name,
+		ports = append(ports, Port{ID: portID(id, len(ports)), Parameter: true, Name: name,
 			Direction: portDirection(lower.Feature{Direction: usage.Direction, IsResult: usage.IsResult}), Origin: member.Origin()})
 	}
 	return ports
@@ -846,7 +992,7 @@ func portNamed(node *Node, name string, direction PortDirection) string {
 			return port.ID
 		}
 	}
-	port := Port{ID: portID(node.ID, len(node.Ports)), Name: name, Direction: direction}
+	port := Port{ID: portID(node.ID, len(node.Ports)), Name: name, Direction: direction, Parameter: true}
 	node.Ports = append(node.Ports, port)
 	return port.ID
 }

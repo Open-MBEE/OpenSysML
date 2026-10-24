@@ -87,7 +87,7 @@ func TestResultSnapshotsAreIndexedPerConfiguration(t *testing.T) {
 	}
 	got := r.Results.Configurations[0]
 	want := simresults.ConfigurationResults{
-		ID: "_g0", Name: "'Group 0'", Runs: 4, Draws: "average",
+		ID: "_g0", Name: "Model::'Group 0'", Runs: 4, Draws: "average",
 		Target: "target", Behavior: "run", Location: "Results",
 		Observables: []string{"pA", "pB"},
 		Snapshots: []simresults.Snapshot{
@@ -743,10 +743,10 @@ func TestSlotOwnersTypeOnlyResultSnapshots(t *testing.T) {
   <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
       executionTarget="_s0" resultLocation="_results _late"/>`)
 	wantNote(t, r, "_loose", migrate.Unmapped, "an instance specification without a classifier has no v2 form")
-	wantNoLine(t, r.Notation, "individual part def loose")
+	wantNoLine(t, r.Notation, "part loose")
 	wantNote(t, r, "_r3", migrate.Approximated, "classified by Chooser, the owner of its slots' defining features, since it names no classifier and is a result snapshot of the run configuration 'Group 0'")
 	wantNote(t, r, "_r5", migrate.Approximated, "classified by Sure, the owner of its slots' defining features, since it names no classifier and is a result snapshot of the run configuration 'Group 0'")
-	wantLine(t, r.Notation, "individual part def 'run 5' :> Sure {")
+	wantLine(t, r.Notation, "part 'run 5' : Sure {")
 	wantNote(t, r, "_split", migrate.Unmapped, "its slots are of features of Chooser, Other, none a special of all the others, so no one classifier is inferred under the result location of the run configuration 'Group 0'")
 	wantNote(t, r, "_foreign", migrate.Unmapped, "its slots are of features of Other, neither a classifier of the configuration's target nor a general of one, so it is no snapshot of a run on it under the result location of the run configuration 'Group 0'")
 	configs := r.Results.Configurations
@@ -949,7 +949,7 @@ func TestComparisonRunsEachConfigurationBesideItsStoredResults(t *testing.T) {
 	// sure fixes pA at 1.0, which the runs' snapshots record, and pB stays NaN, so pA compares and pB is noted;
 	// average draws need no seed, so the header names none.
 	for _, want := range []string{
-		"compare 'Group 0' — 4 stored run(s) in Results; 4 run(s) by OpenSysML, draws average",
+		"compare Model::'Group 0' — 4 stored run(s) in Results; 4 run(s) by OpenSysML, draws average",
 		"observable | source                | runs | min   | mean  | p50   | p90   | max",
 		"pA         | tool                  | 2    | 1.0   | 1.0   | 1.0   | 1.0   | 1.0",
 		"           | OpenSysML (target.pA) | 4    | 1.0   | 1.0   | 1.0   | 1.0   | 1.0",
@@ -979,7 +979,7 @@ func TestComparisonRunsEachConfigurationBesideItsStoredResults(t *testing.T) {
 	}
 	// A name no configuration bears is refused beside the ones compared, never dropped.
 	mixed := s.CompareResults(r.Results, repl.CompareOptions{Only: []string{"Group 0", "Group 9", "_g0", "Group 10"}})
-	if len(mixed) != 3 || !mixed[0].Holds() || mixed[0].Subject != "compare 'Group 0'" {
+	if len(mixed) != 3 || !mixed[0].Holds() || mixed[0].Subject != "compare Model::'Group 0'" {
 		t.Fatalf("a comparison naming a configuration twice and two unknown = %d verdict(s), want its one table and two refusals: %+v", len(mixed), mixed)
 	}
 	for i, name := range []string{"Group 9", "Group 10"} {
@@ -1000,4 +1000,32 @@ func TestComparisonRunsEachConfigurationBesideItsStoredResults(t *testing.T) {
 			t.Errorf("the paired comparison lacks %q:\n%s", want, lines)
 		}
 	}
+}
+
+// A property whose default names a result snapshot that infers its classifier
+// from its slots keeps the default: the snapshot is an instance of the type.
+func TestDefaultNamingAnInferredSnapshotIsKept(t *testing.T) {
+	r := migrateDocument(t, storedResults+`
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pick" name="pick" type="_chooser">
+        <defaultValue xmi:type="uml:InstanceValue" xmi:id="_pickv" instance="_r3"/>
+      </ownedAttribute>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Block xmi:id="_s2" base_Class="_sure"/>
+  <sysml:Block xmi:id="_s3" base_Class="_other"/>
+  <sysml:Block xmi:id="_s4" base_Class="_host"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
+      executionTarget="_sure" resultLocation="_results"/>`)
+	var pick string
+	for _, line := range strings.Split(string(r.Notation), "\n") {
+		if strings.Contains(line, " pick : ") {
+			pick = strings.TrimSpace(line)
+		}
+	}
+	if !strings.Contains(pick, "default = ") {
+		t.Errorf("pick is written %q, want its default naming the snapshot:\n%s", pick, r.Notation)
+	}
+	wantNote(t, r, "_pick", migrate.Mapped, "")
+	wantClean(t, "t.sysml", r)
 }

@@ -125,6 +125,7 @@ func doc() usage.Doc {
 			Examples: []usage.Example{
 				usage.Ex("sysml -engines", "List engines, kind and status; nothing runs"),
 				usage.Ex("sysml -engines -probe", "Also start each external engine once"),
+				usage.Ex("sysml -metaclass-graph -o metaclasses.ttl", "Write the metaclass hierarchy as Turtle"),
 				usage.Ex("sysml -engine explore -action Drive m.sysml", "The same as -schedule explore"),
 				usage.Ex("sysml -engine all -requirement R m.sysml", "Every engine that covers the question"),
 				usage.Ex("sysml -engine run -json -constraint C m.sysml", "One engine; the plan in the report"),
@@ -299,6 +300,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml in.txt -convert ttl -from sysml", "Name the input format explicitly"),
 				usage.Ex("sysml flexo://demo/main -convert sysml", "A Flexo branch as notation"),
 				usage.Ex("sysml model.sysml -convert ttl -o flexo://demo/main", "Push the graph to the branch"),
+				usage.Ex("sysml -stdlib -convert ttl -o flexo://lib/main", "Publish the standard library"),
 			},
 			Paragraphs: []string{
 				"The input format is taken from the file extension (.sysml, .kerml, " +
@@ -313,12 +315,17 @@ func doc() usage.Doc {
 					"http(s)://host[:port][/base]/projects/{project}/branches/{branch}, " +
 					"or flexo://{project}/{branch}, both naming the endpoint " +
 					"FLEXO_SYSMLV2_URL configures. A branch input is read as its head " +
-					"commit's RDF graph; a branch -o takes the -convert ttl output as " +
-					"the branch's whole model graph, conditional on the branch's etag, " +
-					"and refuses a head the sync state says has moved. Both need the " +
+					"commit's RDF graph; a branch -o takes the -convert ttl or api-json " +
+					"graph as the branch's whole model graph, conditional on the branch's " +
+					"etag, and refuses a head the sync state says has moved. Both need the " +
 					"bearer token in FLEXO_INTEROP_TOKEN and record the head commit " +
 					"in the sync state (-sync-state, or <output>.sync.json on a read / " +
-					"<model>.sync.json on a push).",
+					"<model>.sync.json on a push); FLEXO_TIMEOUT bounds one request " +
+					"(60s unless set), and a whole-library graph needs minutes.",
+				"-stdlib converts the bundled standard library instead — every KerML " +
+					"and SysML file as one model, each element under its normative id — " +
+					"to a file or to a branch, publishing the library as a project other " +
+					"projects type against by id.",
 				// Printed rather than restated, so the help cannot drift from what a
 				// conversion reports.
 				convert.ExperimentalNotice,
@@ -415,6 +422,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form mermaid -render-style cameo", "drawn in Mermaid's Cameo approximation"),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-style cameo", "drawn as Cameo draws it"),
 				usage.Ex("sysml model.sysml -render Views::loopView -render-form dot -render-ports full", "every port of every part, typed"),
+				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-lines ortho", "edges as axis-parallel segments"),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form d2 -o view.d2", ""),
 				usage.Ex("sysml model.sysml -render Views::partsTable -render-form csv -o parts.csv", ""),
@@ -457,7 +465,11 @@ func doc() usage.Doc {
 					"each part the ports its interconnection edges end at, each a small " +
 					"square on the part's border " +
 					"named beside it; -render-ports full draws every port a part has, " +
-					"labelled name : Type. A DiagramLayout Style on a member colours it over " +
+					"labelled name : Type. -render-lines routes the edges of the DOT and " +
+					"PlantUML forms: splines (default), each engine's curved routing, ortho, " +
+					"axis-parallel segments, or polyline, straight segments, as the Pilot " +
+					"visualizer's ORTHOLINE and POLYLINE styles do; Mermaid and D2 note the " +
+					"routing. A DiagramLayout Style on a member colours it over " +
 					"either look, and a Note is drawn beside the member it is about. " +
 					"A view whose members carry DiagramLayout positions draws the placed " +
 					"members and the edges between them in every graph form, and leaves a " +
@@ -647,9 +659,11 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&evalExprs, "e", "Evaluate this expression, against the model when one is loaded, and exit (repeatable)")
 	fs.StringVar(&queryText, "query", "", "Evaluate this OSLC Query text against the model and exit")
 
+	fs.Var(&explainCodes, "explain", "Explain a diagnostic code: what it means, how to resolve it and the clause or constraint behind it; bare, list every code with a one-line summary; a code may also follow the flag (repeatable)")
 	fs.Var(&modelChecks.validate, "validate", "Report the model's diagnostics and exit, nonzero on an error; -validate=<object> checks instead every assertion about that object (repeatable)")
 	fs.Var(&disabledLints, "disable-lint", "Leave this lint out of the model's diagnostics: undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or rounded-real-literal, comma-separated or repeated")
 	fs.Var(&enabledLints, "enable-lint", "Report this opt-in lint, off by default, in the model's diagnostics: rounded-real-literal, comma-separated or repeated; -disable-lint wins")
+	fs.Var(&libraryRoots, "library-root", "Look for the installed projects a loaded file's project uses under this directory too, besides the well-known ones in the project (.sysand/lib); separated as PATH is or repeated, added to OPENSYSML_LIBRARY_ROOTS")
 	fs.BoolVar(&noRecordCache, "no-record-cache", false, "Parse every file loaded and hold it loaded, reading no interface record from the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0")
 	fs.BoolVar(&strictMode, "strict", false, "Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning; a SysML v1 migration writes none of it and refers to no OpenSysML library")
 	fs.Var(&modelChecks.constraints, "constraint", "Evaluate this constraint and exit, with arguments for its in parameters and an object as its subject, as -constraint \"Pkg::Fits(3.0) Pkg::part\" (repeatable)")
@@ -665,6 +679,9 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.queries, "run-query", "Execute this document query and report its rows, as -run-query \"Heavy root=telescope\" (repeatable)")
 	fs.Var(&modelChecks.instantiate, "instantiate", "Create an object of this definition or usage before the checks, so a verdict is about it (repeatable)")
 	fs.BoolVar(&modelChecks.jsonOut, "json", false, "Report checks as one JSON document rather than as lines")
+	fs.StringVar(&modelChecks.format, "format", "", "Report checks as text, json, sarif or junit; json is -json, and sarif (SARIF 2.1.0) and junit (JUnit XML) carry -validate's diagnostics to a CI service")
+	fs.StringVar(&modelChecks.baseline, "baseline", "", "A JSON report (as -validate -json -o wrote) whose diagnostics are known: a finding with the same code, file and message is suppressed, whatever its line")
+	fs.BoolVar(&modelChecks.warningsAsErrors, "warnings-as-errors", false, "Exit nonzero on a warning as on an error; the report keeps the warning's severity")
 
 	fs.Var(&modelChecks.actions, "action", "Run this action to completion, as -action \"Drive rover1\" to run it on an object (repeatable)")
 	fs.Var(&modelChecks.states, "state", "Run this state machine, as -state \"Mission rover1\" to run it on an object (repeatable)")
@@ -679,6 +696,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.samples, "samples", "Draw this many values uniformly from each -sweep range instead of stepping through it; needs -seed")
 	fs.Var(&jobsFlag, "jobs", "Runs of one check that may go concurrently, each on a worker of its own, and files of one load that are parsed and validated at once; the result is the same at any count. Default OPENSYSML_JOBS, else one per CPU, fewer where the memory available leaves less than 512 MiB per worker")
 
+	fs.BoolVar(&metaclassGraph, "metaclass-graph", false, "Write the SysML metaclass hierarchy of the pinned pilot metamodel as Turtle (rdfs:Class, rdfs:subClassOf, sysx:abstract) to stdout or -o, without a model, and exit")
 	fs.BoolVar(&listEngines, "engines", false, "List the analysis engines this build knows and their status, spawning nothing, and exit")
 	fs.BoolVar(&probeEngines, "probe", false, "With -engines, also start each external engine once and report the outcome as its status")
 	fs.Var(&engine, "engine", "Analysis engine every check is put to: auto (default), all, or one by name — run, explore, check, smt, sweep, solve, tool:<name> or an external engine")
@@ -694,6 +712,8 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.checker.unroll, checkUnrollFlag, "Under smt, the most iterations of one loop the solver unrolls before it stops (default 4)")
 	fs.Var(&modelChecks.checker.timeout, "check-timeout", "The time the check's plan may run for, as 30s or 2m, and the time each smt solver query may take in place of OPENSYSML_SMT_TIMEOUT")
 
+	fs.StringVar(&bundleDir, "bundle", "", "Write this project directory as a project interchange archive (KerML 1.0 §10.3), to -o or to <name>-<version>.kpar; the archive is the same bytes on every run")
+	fs.StringVar(&unbundleFile, "unbundle", "", "Write this project interchange archive (.kpar) out as a project directory, to -o or to <name>-<version>, which must be new or empty")
 	fs.StringVar(&convertFormat, "convert", "", convertUsage())
 	fs.StringVar(&fromFormat, "from", "", fromUsage())
 	fs.Var(&dataImports, "import", "Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row per element, before -convert writes the model; an element column names the element and each other column a feature, as `mass [kg]` (repeatable)")
@@ -701,6 +721,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&importMap, "import-map", "Read the -import before it onto elements and features as this JSON mapping file says")
 	fs.Var(&importFormat, "import-format", "Read the -import before it as csv, tsv, json or jsonl rather than as its extension says")
 	fs.BoolVar(&importDryRun, "import-dry-run", false, "Report the values -import would set, changing and writing nothing")
+	fs.BoolVar(&stdlibModel, "stdlib", false, stdlibUsage())
 	fs.StringVar(&idForm, "id", "", "With -convert ttl or api-json, how derived element ids are spelled: qualified (default) derives each from its qualified name; uuid mints name-based uuids under each root package, as the library convention does")
 	fs.StringVar(&outputPath, "output", "", outputUsage())
 	fs.StringVar(&outputPath, "o", "", outputUsage())
@@ -709,13 +730,17 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states; #<kind> renders every file loaded and #<kind>:<element> one element, kind being tree, interconnection, state, action, case, mixed, sequence, table or matrix, without a declared view")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
 	fs.StringVar(&graphsSubject, "graphs", "", "Write the lowered graph of this action or state machine, and of every behavior it performs, as the canonical graphs:1 JSON an external analysis engine is sent, to stdout or -output")
-	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot, plantuml, d2, csv or tsv (csv and tsv for a table or matrix); D2 writes tree, interconnection, state, action, sequence, requirement, definition and package renderings, not case or mixed; default from the destination for -render, each kind's machine form for -render-all")
+	fs.StringVar(&renderForm, "render-form", "", "Form -render, -render-all or -render-run writes: text, mermaid, markdown, dot, plantuml, d2, csv or tsv (csv and tsv for a table or matrix; svg and svg-animated for -render-run); D2 writes tree, interconnection, state, action, sequence, requirement, definition and package renderings, not case or mixed; default from the destination for -render, each kind's machine form for -render-all")
 	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot, mermaid, plantuml or d2 form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
 	fs.StringVar(&renderLink, "render-link", "", "Source link template for -render, -render-all, -render-document, -render-documents and -render-run. Placeholders: {file}, {line}, {col}, {qname}, {id}; {file} is the path as loaded (use absolute paths for vscode:// or file:// links)")
 	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot or mermaid form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")
+	fs.StringVar(&renderLines, "render-lines", "", "How the dot or plantuml form of -render or -render-all routes its edges: splines (default), each engine's curved routing, ortho, axis-parallel segments, or polyline, straight segments; the Pilot visualizer's ORTHOLINE and POLYLINE styles. Mermaid and D2 note the routing as not represented")
 	fs.StringVar(&renderPorts, "render-ports", "", "How much of a part's ports -render or -render-all draws on an interconnection or mixed rendering: minimal (default), the ports its interconnection edges end at, each a small square on the part's border named beside it, or full, every port, labelled name : Type")
+	fs.StringVar(&renderShow, "render-show", "", "Optional notation elements -render, -render-all and document diagrams draw besides the default (port symbols, compartments and keywords), comma-separated: parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, or all; a view's own rendering adds its elements too")
+	fs.IntVar(&renderDepth, "render-depth", 0, "How many levels of nested elements -render and -render-all draw below each exposed element of a tree or interconnection rendering, overriding the depth the view states; 0 (default) draws every level the view's own depth allows")
 	fs.StringVar(&renderOverlay, "render-overlay", "", "What -render or -render-all draws over a requirement rendering's structure: verdicts runs the verification cases verifying each requirement and colours and labels it by their verdicts; default none, a purely structural drawing")
 	fs.StringVar(&renderUnplaced, "render-unplaced", "", "Where a graph form of a view some Layout positions puts the nodes none does: omit (default) leaves them undrawn in every form, strip draws them, in rows below the dot drawing; applies to -render, -render-all and document diagrams")
+	fs.StringVar(&renderCompartments, "render-compartments", "", "How a tree rendering of -render, -render-all or a document diagram folds a node's owned members into compartment rows of its box: positioned (default) folds only the members without a Layout of a tree some Layout positions, most folds every owned usage that no Layout, nested definition or package keeps a node (the pilot's COMPMOST), ports folds the port usages with the ports nested under them (COMPTREE)")
 
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered document")
 	fs.StringVar(&listWhat, "list", "", "List the model's documents, views, diagrams (the graph-shaped views), pseudo-views or all of them, by the qualified names -render-document and -render read: documents, views, diagrams, pseudo-views or all")
@@ -757,9 +782,11 @@ func optionGroups() []usage.OptionGroup {
 		Title: "Checking a model",
 		Options: []usage.Option{
 			usage.Opt("validate", "[=<object>]"),
+			usage.Opt("explain", "[<code>]"),
 			usage.Opt("strict", ""),
 			usage.Opt("disable-lint", "<code>"),
 			usage.Opt("enable-lint", "<code>"),
+			usage.Opt("library-root", "<dir>"),
 			usage.Opt("no-record-cache", ""),
 			usage.Opt("constraint", nameArg),
 			usage.Opt("self-check", ""),
@@ -774,6 +801,9 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("run-query", "<query>"),
 			usage.Opt("instantiate", nameArg),
 			usage.Opt("json", ""),
+			usage.Opt("format", "<format>"),
+			usage.Opt("baseline", "<file>"),
+			usage.Opt("warnings-as-errors", ""),
 		},
 	}, {
 		Title: "Running behaviors",
@@ -815,6 +845,8 @@ func optionGroups() []usage.OptionGroup {
 		Title: "Converting and migrating",
 		Options: []usage.Option{
 			usage.Opt("convert", formatArg),
+			usage.Opt("stdlib", ""),
+			usage.Opt("metaclass-graph", ""),
 			usage.Opt("migrate", formatArg),
 			usage.Opt("from", formatArg),
 			usage.Opt("import", fileArg),
@@ -823,6 +855,8 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("import-format", formatArg),
 			usage.Opt("import-dry-run", ""),
 			usage.Opt("id", nameArg),
+			usage.Opt("bundle", "<dir>"),
+			usage.Opt("unbundle", fileArg),
 			usage.Opt("output", fileArg, "o"),
 			usage.Opt("migration-report", fileArg),
 			usage.Opt("migration-results", fileArg),
@@ -848,8 +882,12 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("render-palette", "<palette>"),
 			usage.Opt("render-link", "<template>"),
 			usage.Opt("render-unplaced", "<placement>"),
+			usage.Opt("render-compartments", "<folding>"),
 			usage.Opt("render-style", "<style>"),
 			usage.Opt("render-ports", "<display>"),
+			usage.Opt("render-lines", "<routing>"),
+			usage.Opt("render-show", "<elements>"),
+			usage.Opt("render-depth", "<levels>"),
 			usage.Opt("render-overlay", "<overlay>"),
 		},
 	}, {

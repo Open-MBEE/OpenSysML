@@ -46,8 +46,8 @@ func escapedRun(t *testing.T, body Value) *calcRun {
 	t.Helper()
 
 	closure, ok := body.ref.(*exprValue)
-	if !ok || body.Kind != ValExpr || closure.env == nil {
-		t.Fatalf("got %s, want a body closing over its environment", describeValue(body))
+	if !ok || body.Kind != valExpr || closure.env == nil {
+		t.Fatalf("got %s, want a body closing over its environment", DescribeValue(body))
 	}
 	if closure.env.calcRun == nil {
 		t.Fatal("the escaped body holds no calc evaluation to read outputs from")
@@ -62,6 +62,7 @@ func escapedRun(t *testing.T, body Value) *calcRun {
 func TestEscapedBodyReadsCalcOutputsAfterFrameReuse(t *testing.T) {
 	scope, ctx := detachRuntime(t)
 	body, err := invokeInts(t, ctx, scope, "Window", 2)
+	body = soleElement(body)
 	if err != nil {
 		t.Fatalf("Window(2): %v", err)
 	}
@@ -75,7 +76,7 @@ func TestEscapedBodyReadsCalcOutputsAfterFrameReuse(t *testing.T) {
 	wantInvokedInt(t, ctx, scope, "Double", 2000, 1000)
 	wantInvokedInt(t, ctx, scope, "Double", 14, 7)
 
-	ec := NewEvalContext(ctx, scope)
+	ec := newEvalContext(ctx, scope)
 	for _, tc := range []struct {
 		x    int64
 		want bool
@@ -104,9 +105,9 @@ func TestEscapedBodyReportsOutputCycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Cyclic(2): %v", err)
 	}
-	_, err = NewEvalContext(ctx, scope).applyPredicate("select", body, Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 5}})
-	if !errors.Is(err, ErrCyclicOutput) {
-		t.Fatalf("Cyclic(2)(5): %v, want %v", err, ErrCyclicOutput)
+	_, err = newEvalContext(ctx, scope).applyPredicate("select", body, Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 5}})
+	if !errors.Is(err, errCyclicOutput) {
+		t.Fatalf("Cyclic(2)(5): %v, want %v", err, errCyclicOutput)
 	}
 	wantFramesReleased(t, ctx)
 }

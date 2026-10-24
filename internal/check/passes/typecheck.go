@@ -6,10 +6,21 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+)
+
+// Codes of the typing rules that classify what a declaration relates to.
+const (
+	codeRelationshipTargetKind   = "relationship-target-kind"
+	codeRelationshipEndKind      = "relationship-end-kind"
+	codeFeatureChainSegment      = "feature-chain-segment"
+	codeUsageReferenceKind       = "usage-reference-kind"
+	codeConjugatedPortDefinition = "conjugated-port-definition"
+	codeSubsettingFeature        = "subsetting-feature"
 )
 
 // TypeCheckPass validates that each def/usage relationship target has a symbol
@@ -80,6 +91,7 @@ func (tc *typeChecker) walk(scope *symbols.Scope, members []ast.Node) {
 				keyword:      d.Keyword,
 				hasType:      hasTypingRelationship(d.Relationships),
 				span:         d.Span(),
+				sym:          scope.MemberDeclaring(d),
 			})
 			tc.expr.checkUsageBounds(scope, d)
 			switch target := tc.metadataTargets[d]; {
@@ -309,6 +321,8 @@ type declKind struct {
 	span source.Span
 	// conjugated marks a `~T` typing, which the conjugation rule owns.
 	conjugated bool
+	// sym is the declared usage, whose kind's base decides which types are redundant.
+	sym *symbols.Symbol
 }
 
 // isPlainClassifier reports whether the declaration is written with `classifier`
@@ -352,8 +366,10 @@ func (d declKind) occurrenceModifier() string {
 }
 
 func (tc *typeChecker) checkRelationships(scope *symbols.Scope, rels []*ast.Relationship, decl declKind) {
-	for _, rel := range rels {
-		if rel == nil || rel.Target == nil {
+	for i, rel := range rels {
+		// The parser echoes `include use case u : T`'s typing as an inclusion;
+		// the echo is no relationship of its own.
+		if rel == nil || rel.Target == nil || semantics.IncludeUseCaseEcho(rels, i) {
 			continue
 		}
 		// Only a conjugated *typing* is a ConjugatedPortTyping (SysML.xtext:974); a
@@ -410,19 +426,23 @@ func (tc *typeChecker) checkTypeTarget(scope *symbols.Scope, target ast.Node, re
 	if relKind == ast.RelSpecializes && w11aFamilyRuleFires(decl, targetSym) {
 		return // a supertype of the wrong classifier family is the family rules' finding
 	}
+	if relKind == ast.RelTyping && targetSym.Kind == symbols.SymbolKerMLType {
+		tc.checkKerMLTyping(decl, targetSym)
+		return
+	}
 	kind := targetSym.Kind
-	if relKind == ast.RelReferences || relKind == ast.RelSubsets {
+	if relKind.ReferenceSubsets() || relKind == ast.RelSubsets {
 		kind = referentKind(targetSym)
 	}
 	msg := compatMessage(decl, relKind, kind)
-	if (relKind == ast.RelReferences || relKind == ast.RelSubsets) &&
+	if (relKind.ReferenceSubsets() || relKind == ast.RelSubsets) &&
 		kind == symbols.SymbolUnknown && targetSym.IsFeature() {
 		msg = unclassifiedReferenceKindMessage(decl, relKind, targetSym)
 	}
 	if msg == "" {
 		return
 	}
-	span, code := target.Span(), "type"
+	span, code := target.Span(), codeRelationshipTargetKind
 	// A wrong typing is the reference's per-kind message on the declaration.
 	if relKind == ast.RelTyping {
 		if pilot, pilotCode, ok := pilotTypingMessage(decl); ok {
@@ -464,7 +484,7 @@ func (tc *typeChecker) checkChainSegments(scope *symbols.Scope, target ast.Node)
 		Severity: diag.SeverityError,
 		Span:     chain.Operand.Span(),
 		Message:  fmt.Sprintf("feature chain segment must be a feature, found %s", sym.Kind),
-		Code:     "type",
+		Code:     codeFeatureChainSegment,
 		Source:   "type",
 	})
 }
@@ -490,7 +510,7 @@ func (tc *typeChecker) checkChainReferenceKind(scope *symbols.Scope, target ast.
 		Severity: diag.SeverityError,
 		Span:     target.Span(),
 		Message:  msg,
-		Code:     "type",
+		Code:     codeUsageReferenceKind,
 		Source:   "type",
 	})
 }
@@ -507,10 +527,7 @@ func (tc *typeChecker) checkNearestDeclaredUsageTyping(target *symbols.Symbol, d
 		return false
 	}
 	for _, typ := range nearestDeclaredUsageTypesOf(tc.resolver, target, make(map[*symbols.Symbol]bool)) {
-		if !isDefKind(typ.sym.Kind) {
-			continue
-		}
-		if compatibleTyping(decl.useKind, decl.direction, typ.sym.Kind) {
+		if !isDefKind(typ.sym.Kind) || tc.usageTypeAllowed(decl, typ.sym) {
 			continue
 		}
 		tc.appendUnique(diag.Diagnostic{
@@ -523,6 +540,34 @@ func (tc *typeChecker) checkNearestDeclaredUsageTyping(target *symbols.Symbol, d
 		return true
 	}
 	return false
+}
+
+// usageTypeAllowed judges a type the declared usage has, declared or inherited.
+func (tc *typeChecker) usageTypeAllowed(decl declKind, typ *symbols.Symbol) bool {
+	return usageTypeAllowed(tc.expr.model, tc.resolver, decl, typ)
+}
+
+// checkKerMLTyping checks a usage typed by a KerML type by the same rule as one
+// typed by a definition; a KerML declaration or a conjugated typing has none. An
+// `individual`/`snapshot`/`timeslice` usage is an occurrence whatever its keyword.
+func (tc *typeChecker) checkKerMLTyping(decl declKind, typ *symbols.Symbol) {
+	if decl.isDef || decl.isKerML() || decl.conjugated {
+		return
+	}
+	msg, code, ok := pilotTypingMessage(decl)
+	if !ok && decl.isOccurrenceUsage() {
+		msg, code, ok = msgOccurrenceUsageType, "usage-typing", true
+	}
+	if !ok || tc.usageTypeAllowed(decl, typ) {
+		return
+	}
+	tc.appendUnique(diag.Diagnostic{
+		Severity: diag.SeverityError,
+		Span:     decl.span,
+		Message:  msg,
+		Code:     code,
+		Source:   "type",
+	})
 }
 
 func nearestDeclaredUsageTypesOf(resolver *resolve.Resolver, sym *symbols.Symbol, visited map[*symbols.Symbol]bool) []w8dUsageType {
@@ -684,7 +729,7 @@ func (tc *typeChecker) checkConjugatedTyping(scope *symbols.Scope, rel *ast.Rela
 			Span:     target.Span(),
 			Message: fmt.Sprintf(
 				"'~' names the conjugated port definition of a port definition, found %s", sym.Kind),
-			Code:   "type",
+			Code:   codeConjugatedPortDefinition,
 			Source: "type",
 		})
 		return
@@ -694,7 +739,7 @@ func (tc *typeChecker) checkConjugatedTyping(scope *symbols.Scope, rel *ast.Rela
 			Severity: diag.SeverityError,
 			Span:     target.Span(),
 			Message:  "only a port usage or a connector end may be typed by a conjugated port definition",
-			Code:     "type",
+			Code:     codeConjugatedPortDefinition,
 			Source:   "type",
 		})
 	}
@@ -782,12 +827,6 @@ func compatMessage(decl declKind, rel ast.RelationshipKind, target symbols.Symbo
 		if decl.isReferenceUsage() {
 			return ""
 		}
-		// Every SysML definition specializes a KerML type (a part def is a
-		// Structure, an action def a Behavior …), so a KerML type may type a usage
-		// of any kind (KerML 1.0 §8.3.4).
-		if target == symbols.SymbolKerMLType {
-			return ""
-		}
 		// An `individual` or `snapshot` usage is an occurrence usage, and an
 		// occurrence is disjoint with the data values an attribute or enumeration
 		// definition classifies (SysML v2 §8.4.5.1), so name the modifier that
@@ -798,7 +837,7 @@ func compatMessage(decl declKind, rel ast.RelationshipKind, target symbols.Symbo
 		if !isCompatibleTyping(useKind, direction, target, decl.isOccurrenceUsage()) {
 			return fmt.Sprintf("%s cannot be typed by %s (kind mismatch)", useKind, target)
 		}
-	case ast.RelReferences, ast.RelCrosses, ast.RelVia, ast.RelSubject:
+	case ast.RelReferences, ast.RelIncludes, ast.RelCrosses, ast.RelVia, ast.RelSubject:
 		if msg := referenceKindMessage(decl, rel, target); msg != "" {
 			return msg
 		}

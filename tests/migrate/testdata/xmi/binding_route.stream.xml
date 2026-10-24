@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_sym_frame'>
+    <elementID xmi:idref='_diag_ibd'></elementID>
+    <geometry>0, 0, 400, 200</geometry>
+  </mdElement>
+  <mdElement elementClass='Part' xmi:id='_sym_mass'>
+    <elementID xmi:idref='_prop_mass'></elementID>
+    <geometry>20, 90, 100, 40</geometry>
+  </mdElement>
+  <mdElement elementClass='Part' xmi:id='_sym_limit'>
+    <elementID xmi:idref='_prop_limit'></elementID>
+    <geometry>200, 90, 100, 40</geometry>
+  </mdElement>
+  <mdElement elementClass='BindingConnector' xmi:id='_sym_bind'>
+    <elementID xmi:idref='_conn_bind'></elementID>
+    <linkFirstEndID xmi:idref='_sym_limit'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_mass'></linkSecondEndID>
+    <geometry>200, 110; 120, 110; </geometry>
+  </mdElement>
+</mdOwnedViews>

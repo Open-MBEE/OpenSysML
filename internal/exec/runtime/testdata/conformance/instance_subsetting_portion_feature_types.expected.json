@@ -1,0 +1,19 @@
+{
+  "type": "instance",
+  "instantiate": "test::rig",
+  "libraries": true,
+  "slots": {
+    "frontIsStructuredSurface": {"type": "Boolean", "value": true},
+    "frontIsSurface": {"type": "Boolean", "value": true},
+    "frontAtStructuredSurface": {"type": "Boolean", "value": true},
+    "frontIsPanel": {"type": "Boolean", "value": true},
+    "frontHasPanel": {"type": "Boolean", "value": true},
+    "frontHasStructuredSurface": {"type": "Boolean", "value": true},
+    "frontHasSurface": {"type": "Boolean", "value": false},
+    "frontIsStructuredCurve": {"type": "Boolean", "value": false},
+    "spareIsStructuredSurface": {"type": "Boolean", "value": false},
+    "facesAreStructuredSurfaces": {"type": "Boolean", "value": true},
+    "frontAsSurface": {"type": "Instance"}
+  },
+  "materialization": {}
+}

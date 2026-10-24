@@ -11,6 +11,9 @@
     "remainder": {"error": "operator '%' is not defined for the unbounded value '*': * % 2"},
     "power": {"error": "operator '**' is not defined for the unbounded value '*': * ** 2"},
     "negated": {"error": "unary '-' is not defined for *"},
-    "positive": {"error": "unary '+' is not defined for *"}
+    "functionForm": {"error": "operator '+' is not defined for the unbounded value '*': * + 1"},
+    "naturalQuotient": {"error": "operator '/' is not defined for the unbounded value '*'"},
+    "range": {"error": "'..' requires Integer bounds (IntegerFunctions::'..' declares in upper: Integer[1]), got an infinity"},
+    "total": {"error": "sum requires numeric elements, got an infinity"}
   }
 }

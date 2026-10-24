@@ -69,6 +69,12 @@ var compoundDefKinds = map[[2]string]bool{
 	{"verification", "case"}: true,
 }
 
+// isCaseKindCompound reports `analysis case` / `verification case`, parsed as
+// the first word's kind (SysML v2 8.2.2.23, 8.2.2.24) and reported as notation.
+func isCaseKindCompound(first, second string) bool {
+	return second == "case" && (first == "analysis" || first == "verification")
+}
+
 // kindPrefixKeywords are keywords that qualify a following kind keyword rather
 // than naming the declaration, even when no name follows the kind:
 // `assert constraint { ... }` is an asserted anonymous constraint, not a
@@ -228,6 +234,7 @@ type featureMods struct {
 	constantSeen  bool            // a constant prefix in the file kind's own spelling was read
 	isEvent       bool            // event modifier for occurrences
 	isIndividual  bool            // individual modifier for individuals/snapshots
+	individual    lexer.Token     // the `individual` token read
 	portion       ast.PortionKind // 'snapshot' / 'timeslice' portion prefix
 	isNegated     bool            // `not` of `assert not <kind>`: the conditions are asserted to be false
 	prefixKeyword string          // keyword qualifying the kind that follows it: the `assert` of `assert constraint c`
@@ -240,6 +247,7 @@ type featureMods struct {
 	isOrdered     bool
 	isNonunique   bool
 	isTerminate   bool                    // `terminate` closing an action usage head: a terminate action usage
+	terminated    *ast.TerminateStatement // the occurrence a terminate action usage names, nil for its own container
 	cross         *ast.CrossFeatureMember // the cross feature declared right after `end`
 	defPrefix     lexer.Token             // first abstract/variation/individual definition prefix
 	usageOnly     lexer.Token             // first prefix keyword only a usage prefix admits (`ref`, a direction, …)
@@ -366,7 +374,9 @@ func (p *Parser) tryParseCrossFeature() *ast.CrossFeatureMember {
 	}
 	declared := cross.Ident.Name != "" || cross.Ident.ShortName != "" ||
 		len(cross.Relationships) > 0 || cross.Multiplicity != nil || cross.IsOrdered || cross.IsNonunique
-	if !declared || !p.isKindKeyword(p.peek()) {
+	// `end a_cross[1] ref a[1] : A;`: the end's own usage may be a ReferenceUsage,
+	// whose `ref` follows the EndUsagePrefix (SysML.xtext ReferenceUsage).
+	if !declared || !(p.isKindKeyword(p.peek()) || p.atKeyword("ref")) {
 		p.restore(cp)
 		// `end [2] nonunique ref e : C`: the multiplicity part alone is still the crossing one.
 		if p.at(lexer.LBracket) {
@@ -535,6 +545,7 @@ func applyFeatureMods(decl ast.Node, mods featureMods) {
 		}
 		if mods.isIndividual {
 			d.IsIndividual = true
+			d.IndividualKeyword = mods.individual.Span
 		}
 		if mods.portion != ast.PortionNone {
 			d.Portion = mods.portion
@@ -834,7 +845,9 @@ func (p *Parser) keywordlessDeclarationTailAt(off int) bool {
 	case lexer.LBracket, lexer.Semicolon, lexer.LBrace:
 		return true
 	default:
-		return beginsDeclarationTail(next, p.peekN(off+1))
+		// `orderedContent ordered :>> content;`: a MultiplicityPart is its
+		// `ordered`/`nonunique` alone when no bracketed multiplicity precedes them.
+		return isPostModifierKeyword(next) || beginsDeclarationTail(next, p.peekN(off+1))
 	}
 }
 
@@ -1225,6 +1238,7 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			}
 			m.noteDefinitionPrefix(t)
 			m.isIndividual = true
+			m.individual = t
 		case "snapshot":
 			// The portion loop in parseDefUsage reads a portion prefix the same way
 			// for either keyword; only another modifier after it is handled here.
@@ -1330,7 +1344,7 @@ func (p *Parser) parsePostModifiers(kind ast.UsageKind) featureMods {
 				continue
 			}
 			m.isTerminate = true
-			p.skipPastTerminateMarker()
+			m.terminated = p.parseTerminatedOccurrence(t)
 			return m
 		default:
 			return m
@@ -1338,17 +1352,28 @@ func (p *Parser) parsePostModifiers(kind ast.UsageKind) featureMods {
 	}
 }
 
-// skipPastTerminateMarker diagnoses and skips whatever a terminate action usage
-// states between its `terminate` and its body: the marker takes no clause after it.
-func (p *Parser) skipPastTerminateMarker() {
+// parseTerminatedOccurrence reads the occurrence the `terminate` at kw names
+// (SysML.xtext TerminateNode's NodeParameterMember); nil when the usage
+// terminates the occurrence containing it.
+func (p *Parser) parseTerminatedOccurrence(kw lexer.Token) *ast.TerminateStatement {
 	if p.at(lexer.Semicolon) || p.at(lexer.LBrace) || p.at(lexer.RBrace) || p.atEOF() {
-		return
+		return nil
 	}
-	p.error(p.peek().Span, "'terminate' closes the declaration of a terminate action usage: only its body follows")
-	for !p.at(lexer.Semicolon) && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) && !p.atEOF() {
-		p.advance()
+	if !p.atUnaryExprStart() || isPostModifierKeyword(p.peek()) || p.atKeyword("terminate") {
+		p.error(p.peek().Span, msgTerminateClause)
+		for !p.at(lexer.Semicolon) && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) && !p.atEOF() {
+			p.advance()
+		}
+		return nil
 	}
+	ts := &ast.TerminateStatement{Target: p.ParseExpression()}
+	ts.NodeSpan = p.spanFrom(kw.Span.Offset)
+	return ts
 }
+
+// msgTerminateClause diagnoses a clause after `terminate` that is no occurrence
+// expression: the marker closes the declaration (SysML.xtext TerminateNode).
+const msgTerminateClause = "'terminate' closes the declaration of a terminate action usage: the occurrence it terminates (`terminate process`) or only its body follows"
 
 // modifierImpliedKind gives the kind an occurrence modifier declares with no kind
 // keyword after it (SysML.xtext IndividualUsage, PortionUsage, EventOccurrenceUsage).
@@ -1768,6 +1793,11 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 	// This handles patterns like `#scenario def X` where prefix acts as semantic annotation
 	if p.atKeyword("def") {
 		p.advance() // consume 'def'
+		// `individual #Tag def F` is an IndividualDefinition, not a generic class: the
+		// metadata sits between the two words (SysML.xtext IndividualDefinition).
+		if mods.isIndividual {
+			return applyPrefixes(p.parseDefinition(start, ast.DefIndividual, "individual", mods, false, true))
+		}
 		// Use generic definition kind (or could extract from prefix)
 		return applyPrefixes(p.parseDefinition(start, ast.DefClass, "", mods, false, true))
 	}
@@ -1807,6 +1837,7 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 	// handled with the usage-only keywords above.
 	if kw == "individual" {
 		mods.isIndividual = true
+		mods.individual = t
 	}
 
 	// Parse 'all' modifier if present (appears after keyword, before name)
@@ -1826,6 +1857,12 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 	if p.atSecondaryKind(kw) {
 		kindKeyword = p.peek().KeywordID
 		defKind = p.definitionKindOf(kindKeyword)
+		// `analysis case` keeps the kind its first word declares and both words
+		// as the keyword written: the production spells `analysis` alone.
+		if isCaseKindCompound(kw, kindKeyword) {
+			kindKeyword = kw + " " + kindKeyword
+			defKind = p.definitionKindOf(kw)
+		}
 		p.advance() // consume secondary keyword
 	}
 
@@ -1855,6 +1892,9 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 	keyword := kw
 	if kw == "assoc" && kindKeyword == "struct" {
 		keyword = "assoc struct"
+	}
+	if strings.Contains(kindKeyword, " ") {
+		keyword = kindKeyword
 	}
 	// A KerML classifier is read as a usage and classified later, but its
 	// prefix is still TypePrefix (KerML.xtext:313).
@@ -1887,6 +1927,9 @@ func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, keyword str
 		Visibility:    mods.visibility,
 		Ident:         p.parseIdentification(),
 	}
+	if mods.isIndividual {
+		def.IndividualKeyword = mods.individual.Span
+	}
 	if !defKeywordConsumed && isKerMLClassifierDefinitionKeyword(keyword) && p.at(lexer.LBracket) {
 		def.Multiplicity = p.parseMultiplicity()
 	}
@@ -1901,6 +1944,7 @@ func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, keyword str
 // parseDefinitionBody parses a definition's body, or the `;` ending a bodiless
 // one, in the notation its kind declares members in.
 func (p *Parser) parseDefinitionBody(def *ast.Definition) ([]ast.Node, bool) {
+	p.skipParameterList()
 	switch def.Kind {
 	case ast.DefAction, ast.DefOccurrence:
 		// Action/occurrence def bodies: mixed (declarations + behavioral statements)
@@ -1945,6 +1989,45 @@ func (p *Parser) parseDefinitionBody(def *ast.Definition) ([]ast.Node, bool) {
 	default:
 		return p.parseDefUsageBody()
 	}
+}
+
+// skipParameterList reports and skips a `( ... )` after a declaration head, so the kind's
+// body parser reads what follows; parameters are body features (KerML.xtext ParameterMember).
+func (p *Parser) skipParameterList() {
+	if !p.at(lexer.LParen) {
+		return
+	}
+	open := p.advance()
+	// A list that closes before the body is skipped whole, semicolons inside
+	// included; one that never closes ends at the first terminator.
+	closes := p.parenGroupCloses()
+	depth := 1
+	for depth > 0 && !p.atEOF() && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) && !(p.at(lexer.Semicolon) && !closes) {
+		switch p.advance().Kind {
+		case lexer.LParen:
+			depth++
+		case lexer.RParen:
+			depth--
+		}
+	}
+	p.error(open.Span, "a declaration takes no parenthesised parameter list: declare each parameter as a directed feature of the body, `in <name> : <Type>;`")
+}
+
+// parenGroupCloses reports whether the `(` just consumed is matched by a `)`
+// before a brace or the end of the file.
+func (p *Parser) parenGroupCloses() bool {
+	depth := 1
+	for off := 0; depth > 0; off++ {
+		switch p.peekN(off).Kind {
+		case lexer.EOF, lexer.LBrace, lexer.RBrace:
+			return false
+		case lexer.LParen:
+			depth++
+		case lexer.RParen:
+			depth--
+		}
+	}
+	return true
 }
 
 // parseBodyOrSemicolon accepts the `;` of a bodiless declaration, else parses
@@ -2031,30 +2114,40 @@ type ownedMember struct {
 	role   string // what the member declares, for the diagnostic
 	owner  string // the kind of element whose body offers it
 	bodies []bodyContext
+	code   string // the diagnostic code, named after the owning-type constraint
 }
+
+// stateSubactionOwningType is the rule a misplaced entry, do or exit action breaks.
+const stateSubactionOwningType = "state-subaction-membership-owning-type"
 
 // requirementOrCase names the bodies that offer the members shared by both.
 const requirementOrCase = "requirement or case"
 
 var ownedMembers = map[string]ownedMember{
-	"subject":     {"the subject of a requirement or case", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}},
-	"actor":       {"an actor of a requirement or case", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}},
-	"stakeholder": {"a stakeholder of a requirement", "requirement", []bodyContext{bodyRequirement}},
-	"objective":   {"the objective of a case", "case", []bodyContext{bodyCase}},
+	"subject":     {"the subject of a requirement or case", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}, "subject-membership-owning-type"},
+	"actor":       {"an actor of a requirement or case", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}, "actor-membership-owning-type"},
+	"stakeholder": {"a stakeholder of a requirement", "requirement", []bodyContext{bodyRequirement}, "stakeholder-membership-owning-type"},
+	"objective":   {"the objective of a case", "case", []bodyContext{bodyCase}, "objective-membership-owning-type"},
 	// RequirementConstraintMember (SysML.xtext:2039) is a requirement or case
 	// body's production alone, so the `assume`/`require` prefix is body-owned.
-	"assume":  {"a constraint assumption", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}},
-	"require": {"a required constraint", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}},
-	"entry":   {"the entry action of a state", "state", []bodyContext{bodyState}},
-	"do":      {"the do action of a state", "state", []bodyContext{bodyState}},
-	"exit":    {"the exit action of a state", "state", []bodyContext{bodyState}},
-	"render":  {"the rendering of a view", "view", []bodyContext{bodyViewDef, bodyView}},
+	"assume":  {"a constraint assumption", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}, "requirement-constraint-membership-owning-type"},
+	"require": {"a required constraint", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}, "requirement-constraint-membership-owning-type"},
+	"entry":   {"the entry action of a state", "state", []bodyContext{bodyState}, stateSubactionOwningType},
+	"do":      {"the do action of a state", "state", []bodyContext{bodyState}, stateSubactionOwningType},
+	"exit":    {"the exit action of a state", "state", []bodyContext{bodyState}, stateSubactionOwningType},
+	"render":  {"the rendering of a view", "view", []bodyContext{bodyViewDef, bodyView}, "view-rendering-membership-owning-type"},
+	// FramedConcernMember is a RequirementBodyItem only (SysML.xtext): a view
+	// frames nothing, which the conformance rules now reflect too.
+	"frame": {"the concern a requirement or viewpoint frames", "requirement", []bodyContext{bodyRequirement}, "framed-concern-membership-owning-type"},
+	// ElementFilterMember is a PackageBodyElement, a ViewDefinitionBodyItem and
+	// a ViewBodyItem (SysML.xtext), so a package, the root or a view admits it.
+	"filter": {"an element filter", "package or view", []bodyContext{bodyPackage, bodyViewDef, bodyView}, "element-filter-membership-owning-type"},
 	// TransitionUsageMember is a StateBodyItem only (SysML.xtext); a transition between
 	// action nodes is an extension the notation pass reports, so those bodies read it too.
-	"transition": {"a transition between states", "state", []bodyContext{bodyState, bodyAction, bodyCalc, bodyCase}},
+	"transition": {"a transition between states", "state", []bodyContext{bodyState, bodyAction, bodyCalc, bodyCase}, "transition-membership-owning-type"},
 	// Expose is a ViewBodyItem only (SysML.xtext); in a view def body it is an
 	// extension OpenSysML resolves, which the notation pass reports.
-	"expose": {"what a view usage exposes", "view usage", []bodyContext{bodyView, bodyViewDef}},
+	"expose": {"what a view usage exposes", "view usage", []bodyContext{bodyView, bodyViewDef}, "expose-owning-namespace"},
 }
 
 // MemberOwner names the body kind that alone offers the member keyword kw
@@ -2065,14 +2158,16 @@ func MemberOwner(kw string) string {
 }
 
 // memberKeyword is the keyword a member notation opens with: `entry` of `entry action`.
+// The `abstract`/`variation`/`variant` modifiers qualify the keyword that follows rather than open a member.
 func memberKeyword(notation string) string {
-	kw, _, _ := strings.Cut(notation, " ")
+	kw, _, _ := strings.Cut(ast.NotationKeyword(notation), " ")
 	return kw
 }
 
 // BodyAdmitsMember reports whether the body of owner — a Definition or Usage;
-// any other node, the document root included, opens a plain namespace body —
-// offers the member keyword kw introduces; as for MemberOwner, kw may be a notation.
+// a package or the document root opens a package body, anything else a plain
+// namespace body — offers the member keyword kw introduces; as for MemberOwner,
+// kw may be a notation.
 func BodyAdmitsMember(owner ast.Node, kw string) bool {
 	m, ok := ownedMembers[memberKeyword(kw)]
 	if !ok {
@@ -2117,6 +2212,8 @@ func declarationBodyContext(owner ast.Node) bodyContext {
 		body = usageBodyContext(d.Kind)
 	case *ast.SubstateMember:
 		body = usageBodyContext(ast.UsageState)
+	case *ast.Package, *ast.RootNamespace:
+		body = bodyPackage
 	}
 	return body
 }
@@ -2143,7 +2240,7 @@ func (p *Parser) misplacedMember(kw lexer.Token) *ast.ErrorNode {
 	m := ownedMembers[kw.KeywordID]
 	msg := fmt.Sprintf("'%s' declares %s and is only allowed in a %s body; move it into the %s it belongs to",
 		kw.KeywordID, m.role, m.owner, m.owner)
-	p.error(kw.Span, msg)
+	p.errorWithCode(kw.Span, msg, m.code)
 	return &ast.ErrorNode{Message: msg}
 }
 
@@ -2229,29 +2326,30 @@ func (p *Parser) atGuardedSuccession() bool {
 // token stream, kept for the same reason as in parseDefinition.
 func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods featureMods, isAll bool) *ast.Usage {
 	u := &ast.Usage{
-		Kind:          kind,
-		Keyword:       keyword,
-		PrefixKeyword: mods.prefixKeyword,
-		IsNegated:     mods.isNegated,
-		IsAbstract:    mods.isAbstract,
-		IsVariation:   mods.isVariation,
-		IsVariant:     mods.isVariant,
-		IsReference:   mods.isReference,
-		IsVariable:    mods.isVariable,
-		IsAll:         isAll,
-		IsEnd:         mods.isEnd,
-		IsChain:       mods.isChain,
-		IsConstant:    mods.isConstant,
-		IsEvent:       mods.isEvent,
-		IsIndividual:  mods.isIndividual,
-		Portion:       mods.portion,
-		Visibility:    mods.visibility,
-		Direction:     mods.direction,
-		IsComposite:   mods.isComposite,
-		IsPortion:     mods.isPortion,
-		IsDerived:     mods.isDerived,
-		IsOrdered:     mods.isOrdered,
-		IsNonunique:   mods.isNonunique,
+		Kind:              kind,
+		Keyword:           keyword,
+		PrefixKeyword:     mods.prefixKeyword,
+		IsNegated:         mods.isNegated,
+		IsAbstract:        mods.isAbstract,
+		IsVariation:       mods.isVariation,
+		IsVariant:         mods.isVariant,
+		IsReference:       mods.isReference,
+		IsVariable:        mods.isVariable,
+		IsAll:             isAll,
+		IsEnd:             mods.isEnd,
+		IsChain:           mods.isChain,
+		IsConstant:        mods.isConstant,
+		IsEvent:           mods.isEvent,
+		IsIndividual:      mods.isIndividual,
+		IndividualKeyword: mods.individual.Span,
+		Portion:           mods.portion,
+		Visibility:        mods.visibility,
+		Direction:         mods.direction,
+		IsComposite:       mods.isComposite,
+		IsPortion:         mods.isPortion,
+		IsDerived:         mods.isDerived,
+		IsOrdered:         mods.isOrdered,
+		IsNonunique:       mods.isNonunique,
 	}
 
 	u.CrossFeature = mods.cross
@@ -2424,8 +2522,16 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 
 	p.parseUsageValue(u)
 	p.parseTierBEnds(u, kind)
+	p.parseUsageBody(u, kind, start)
+	u.NodeSpan = p.spanFrom(start)
+	return u
+}
 
-	// Dispatch to specialized body parsers based on kind
+// parseUsageBody reads the body a usage of kind ends in, or the `;` of a
+// bodiless one, in the notation its kind declares members in; start is the
+// offset the usage's declaration began at.
+func (p *Parser) parseUsageBody(u *ast.Usage, kind ast.UsageKind, start int) {
+	p.skipParameterList()
 	var members []ast.Node
 	var hasBody bool
 	defer p.pushBodyContext(usageBodyContext(kind))()
@@ -2586,8 +2692,6 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 	// parsed, so the body members are appended rather than replacing it.
 	u.Members = append(u.Members, members...)
 	u.HasBody = hasBody
-	u.NodeSpan = p.spanFrom(start)
-	return u
 }
 
 // parseSuccessionAsUsage parses a succession stated without the `succession`
@@ -2896,6 +3000,11 @@ func (p *Parser) parseBodyMember() ast.Node {
 			return p.parseActionMember()
 		}
 		if p.atAcceptNodeAt(p.prefixLookahead()) {
+			if !p.bodyContext().admitsAcceptNode() {
+				en := p.errorNodeSkip(start, msgExpectedBodyMember)
+				en.SetLeadingTrivia(trivia)
+				return en
+			}
 			return p.parseAcceptNode(start, vis, trivia, p.parsePrefixMetadata())
 		}
 		// Delegate to parseDefUsage which handles prefixes; a prefixed
@@ -3071,6 +3180,14 @@ func (p *Parser) parseBodyMember() ast.Node {
 	// (`accept when x > 1`) — and is parsed by the one payload parser triggers
 	// also use, so every spelling reaches lowering the same way.
 	if p.atAcceptNode() {
+		// AcceptNode is an ActionBodyItem (SysML.xtext): outside an
+		// action-admitting body it stands where no member may, like the
+		// behavioral keywords. A state body keeps reading it as today.
+		if !p.bodyContext().admitsAcceptNode() {
+			en := p.errorNodeSkip(start, msgExpectedBodyMember)
+			en.SetLeadingTrivia(trivia)
+			return en
+		}
 		return p.parseAcceptNode(start, vis, trivia, nil)
 	}
 
@@ -3231,27 +3348,28 @@ func (p *Parser) parseBodyMember() ast.Node {
 				kind = p.anonymousUsageKind(mods)
 			}
 			u := &ast.Usage{
-				Kind:         kind,
-				Keyword:      keyword,
-				Ident:        id,
-				Visibility:   mods.visibility,
-				IsAbstract:   mods.isAbstract,
-				IsVariation:  mods.isVariation,
-				IsVariant:    mods.isVariant,
-				IsReference:  mods.isReference,
-				IsIndividual: mods.isIndividual,
-				IsEvent:      mods.isEvent,
-				Portion:      mods.portion,
-				IsVariable:   mods.isVariable,
-				IsConstant:   mods.isConstant,
-				IsDerived:    mods.isDerived,
-				IsComposite:  mods.isComposite,
-				IsPortion:    mods.isPortion,
-				IsEnd:        mods.isEnd,
-				IsChain:      mods.isChain,
-				Direction:    mods.direction,
-				IsOrdered:    mods.isOrdered,
-				IsNonunique:  mods.isNonunique,
+				Kind:              kind,
+				Keyword:           keyword,
+				Ident:             id,
+				Visibility:        mods.visibility,
+				IsAbstract:        mods.isAbstract,
+				IsVariation:       mods.isVariation,
+				IsVariant:         mods.isVariant,
+				IsReference:       mods.isReference,
+				IsIndividual:      mods.isIndividual,
+				IndividualKeyword: mods.individual.Span,
+				IsEvent:           mods.isEvent,
+				Portion:           mods.portion,
+				IsVariable:        mods.isVariable,
+				IsConstant:        mods.isConstant,
+				IsDerived:         mods.isDerived,
+				IsComposite:       mods.isComposite,
+				IsPortion:         mods.isPortion,
+				IsEnd:             mods.isEnd,
+				IsChain:           mods.isChain,
+				Direction:         mods.direction,
+				IsOrdered:         mods.isOrdered,
+				IsNonunique:       mods.isNonunique,
 			}
 
 			if hasTypeOnly {
@@ -3903,6 +4021,9 @@ func (p *Parser) parseSpecializationsAfterMultiplicity(u *ast.Usage, seen *relCl
 	u.IsOrdered = u.IsOrdered || post.isOrdered
 	u.IsNonunique = u.IsNonunique || post.isNonunique
 	u.IsTerminate = u.IsTerminate || post.isTerminate
+	if post.terminated != nil {
+		u.Terminates = post.terminated
+	}
 	u.Relationships = append(u.Relationships, p.parseRelationshipsInto(p.usageDeclShape(u.Keyword), seen)...)
 }
 
@@ -4390,12 +4511,23 @@ func (p *Parser) parseFeatureEnd() (*ast.ConnectorEnd, bool) {
 				end.NodeSpan = p.spanFrom(end.NodeSpan.Offset)
 				return end, true
 			}
+		} else if p.at(lexer.LBracket) {
+			// `hub ::> mainSwitch[1]`: a written end whose multiplicity trails the
+			// feature it references, where ConnectorEnd admits none.
+			p.error(p.peek().Span, msgConnectorEndTrailingMultiplicity)
+			p.parseMultiplicity()
+			end.NodeSpan = p.spanFrom(end.NodeSpan.Offset)
+			return end, true
 		}
 		p.restore(cp)
 		return nil, false
 	}
 	return end, true
 }
+
+// msgConnectorEndTrailingMultiplicity diagnoses a multiplicity after the feature a
+// connector end references: an end's multiplicity opens it (SysML.xtext ConnectorEnd).
+const msgConnectorEndTrailingMultiplicity = "a connector end's multiplicity precedes it, before the feature it references (`[1] hub ::> mainSwitch`); nothing follows that feature"
 
 // admitsIndexedEnd reports whether a usage of the kind states the ends an
 // indexed end may be written as: the connectors that attach to features. A

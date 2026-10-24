@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"x": {"type": "Integer", "value": 10},
+		"y": {"type": "Integer", "value": 11}
+	},
+	"orderDependent": {}
+}

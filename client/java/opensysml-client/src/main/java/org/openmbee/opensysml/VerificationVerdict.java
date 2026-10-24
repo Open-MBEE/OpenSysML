@@ -17,9 +17,17 @@ import java.util.Optional;
  *     because the library states no roll-up for it
  * @param requirementId FQN of the requirement the verdict was reported for, absent when the case
  *     ran for itself
+ * @param instanceId ID of the object the case ran on as its owner, absent when it ran on none
+ * @param instanceTypeId FQN of that object's type, absent with {@code instanceId}
  */
 public record VerificationVerdict(
-    String caseId, String kind, Optional<String> detail, boolean subcase, Optional<String> requirementId) {
+    String caseId,
+    String kind,
+    Optional<String> detail,
+    boolean subcase,
+    Optional<String> requirementId,
+    Optional<Long> instanceId,
+    Optional<String> instanceTypeId) {
 
   /** A body whose verdict value is {@code VerdictKind::pass}. */
   public static final String PASS = "pass";
@@ -41,12 +49,16 @@ public record VerificationVerdict(
    * @param detail the detail, when there is one
    * @param subcase whether it is a subcase's
    * @param requirementId the requirement, when reported for one
+   * @param instanceId the object the case ran on, when there is one
+   * @param instanceTypeId that object's type, when there is one
    */
   public VerificationVerdict {
     Objects.requireNonNull(caseId, "caseId");
     Objects.requireNonNull(kind, "kind");
     Objects.requireNonNull(detail, "detail");
     Objects.requireNonNull(requirementId, "requirementId");
+    Objects.requireNonNull(instanceId, "instanceId");
+    Objects.requireNonNull(instanceTypeId, "instanceTypeId");
   }
 
   /**

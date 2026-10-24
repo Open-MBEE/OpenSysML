@@ -16,11 +16,17 @@
           </ownedAttribute>
           <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_valve" name="valve" type="_blk_valve" aggregation="composite"/>
           <ownedOperation xmi:type="uml:Operation" xmi:id="_op_prime" name="prime"/>
+          <ownedOperation xmi:type="uml:Operation" xmi:id="_op_halt" name="halt" method="_act_halt"/>
+          <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_halt" name="HaltMethod" specification="_op_halt">
+            <node xmi:type="uml:InitialNode" xmi:id="_halt_init"/>
+            <node xmi:type="uml:ActivityFinalNode" xmi:id="_halt_final"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_halt_flow" source="_halt_init" target="_halt_final"/>
+          </ownedBehavior>
           <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm_cycle" name="Cycle">
             <region xmi:type="uml:Region" xmi:id="_rg_main" name="main">
               <subvertex xmi:type="uml:Pseudostate" xmi:id="_ps_init"/>
               <subvertex xmi:type="uml:State" xmi:id="_st_idle" name="Idle"/>
-              <subvertex xmi:type="uml:State" xmi:id="_st_running" name="Running"/>
+              <subvertex xmi:type="uml:State" xmi:id="_st_running" name="Running" entry="_act_halt"/>
               <transition xmi:type="uml:Transition" xmi:id="_tr_init" source="_ps_init" target="_st_idle"/>
               <transition xmi:type="uml:Transition" xmi:id="_tr_start" source="_st_idle" target="_st_running"/>
             </region>
@@ -92,6 +98,17 @@
             </diagramRepresentation>
           </xmi:Extension>
         </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_operations" name="Operations" ownerOfDiagram="_pkg_tables">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_pump</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
         <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_diagrams" name="Diagrams" ownerOfDiagram="_pkg_tables">
           <xmi:Extension extender="Example UML Tool 1.0">
             <diagramRepresentation>
@@ -147,6 +164,13 @@
 
   <MagicDraw_Profile:DiagramTable xmi:id="_tbl_classifiers" base_Diagram="_diag_classifiers" scope="_pkg_plant" includeSubtypesOfRowTypes="true">
     <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#Classifier"/>
+    <columnIds>_NUMBER_</columnIds>
+    <columnIds>QPROP:Element:qualifiedName</columnIds>
+    <sort>QPROP:Element:qualifiedName^Asc</sort>
+  </MagicDraw_Profile:DiagramTable>
+
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_operations" base_Diagram="_diag_operations" scope="_pkg_plant" includeSubtypesOfRowTypes="true">
+    <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#Operation"/>
     <columnIds>_NUMBER_</columnIds>
     <columnIds>QPROP:Element:qualifiedName</columnIds>
     <sort>QPROP:Element:qualifiedName^Asc</sort>

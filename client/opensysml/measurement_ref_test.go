@@ -27,9 +27,9 @@ const measurementRefSource = `package M {
 	attribute speed = m / s;
 	attribute units : MeasurementUnit[*] = (m, s);
 
-	calc def ToUnit { in x : ScalarQuantityValue; in target : MeasurementUnit; return : ScalarQuantityValue = ConvertQuantity(x, target); }
+	calc def ToUnit { in x : ScalarQuantityValue; in target : MeasurementUnit; return : ScalarQuantityValue[1] = ConvertQuantity(x, target); }
 	calc toUnit : ToUnit;
-	calc def UnitOf { in x : ScalarQuantityValue; return : MeasurementUnit = x.mRef; }
+	calc def UnitOf { in x : ScalarQuantityValue; return : MeasurementUnit[1] = x.mRef; }
 	calc unitOf : UnitOf;
 
 	action convert {
@@ -126,7 +126,7 @@ func TestMeasurementRefsCrossEveryTransport(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ExecuteAction: %v", err)
 			}
-			converted, ok = run.Outputs["y"].(opensysml.Quantity)
+			converted, ok = sole(t, "y", run.Outputs["y"]).(opensysml.Quantity)
 			if !ok || converted.Magnitude != opensysml.Real(3000) || converted.Unit != "m" {
 				t.Errorf("y = %#v, want 3000.0 m", run.Outputs["y"])
 			}

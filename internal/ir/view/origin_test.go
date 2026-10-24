@@ -33,7 +33,7 @@ func flatten(rendering *Rendering) map[string]NodeData {
 // nodeNamed is the first node of a rendering with the given name.
 func nodeNamed(t *testing.T, rendering *Rendering, name string) NodeData {
 	t.Helper()
-	for _, node := range rendering.Data().Nodes {
+	for _, node := range rendering.DataWith(fullNotation).Nodes {
 		if node.Name == name {
 			return node
 		}

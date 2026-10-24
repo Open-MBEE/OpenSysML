@@ -1,5 +1,5 @@
 exit: idle
-choice fork split: next split->a(effect), split->b(effect) (unordered; took split->a(effect) first)
+choice fork split: next split->a(effect), split->b(effect) (unordered; took split->a(effect) first; independent)
 enter: work
 enter: a
 stmt action body

@@ -36,29 +36,29 @@ const emptyRegionApplications = `
   <sysml:Block xmi:id="_s1" base_Class="_dev"/>
   <sysml:Block xmi:id="_s2" base_Class="_shell"/>`
 
-// A region with no vertex is not written: a state for it would be a region
-// nothing enters, which the runtime refuses. The populated sibling region is
-// then the state's only region and is written inline, and the machine runs.
+// A region with no vertex is not written. The populated sibling region is
+// wrapped under the composite state, and the machine runs.
 func TestEmptyRegionsAreNotWritten(t *testing.T) {
 	r := migrateDocument(t, emptyRegionMachine, emptyRegionApplications)
 	for _, line := range []string{
 		"state def Life {",
 		"entry; then On;",
-		"state On {",
+		"state On parallel {",
+		"state work {",
 		"entry; then Run;",
 		"state def Idle {",
 		"/* the StateMachine's regions hold no vertex: nothing enters them */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	for _, line := range []string{"parallel", "state spare"} {
+	for _, line := range []string{"state spare"} {
 		if strings.Contains(string(r.Notation), line) {
 			t.Errorf("notation writes %q for an empty region:\n%s", line, r.Notation)
 		}
 	}
 	wantNote(t, r, "_r2", migrate.Skipped, "the region holds no vertex, so nothing enters it and no state is written for it")
 	wantNote(t, r, "_r3", migrate.Skipped, "the region holds no vertex, so nothing enters it and no state is written for it")
-	wantNote(t, r, "_r1", migrate.Mapped, "the one region is written as the body of its owner")
+	wantNote(t, r, "_r1", migrate.Mapped, "the region is written as the sub-state work of the parallel state On, as a composite state's regions are")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Device")

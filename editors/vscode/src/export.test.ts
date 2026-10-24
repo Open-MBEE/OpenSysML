@@ -10,9 +10,10 @@ import {
   formPickItems,
   FormPickItem,
   serverForms,
+  serverElements,
   serverStyles,
 } from "./export";
-import { RENDER_FORMS_CAPABILITY, RENDER_STYLES_CAPABILITY, RenderParams, RenderResult } from "./protocol";
+import { RENDER_ELEMENTS_CAPABILITY, RENDER_FORMS_CAPABILITY, RENDER_STYLES_CAPABILITY, RenderParams, RenderResult } from "./protocol";
 
 const rendering = (form: string, artifact: string): RenderResult =>
   ({ view: "Kit::widgetTree", kind: "tree", stated: "", form, artifact, nodes: [], edges: [], version: 1 }) as unknown as RenderResult;
@@ -63,6 +64,12 @@ class FakeHost implements ExportHost {
 }
 
 const echoForm = (params: RenderParams) => rendering(params.form ?? "mermaid", `artifact in ${params.form}`);
+
+test("serverElements takes the optional notation elements the server advertises, none from a server predating them", () => {
+  assert.deepEqual(serverElements({ [RENDER_ELEMENTS_CAPABILITY]: ["parameter-symbols", "edge-labels", "all", "all"] }), ["parameter-symbols", "edge-labels", "all"]);
+  assert.deepEqual(serverElements({ [RENDER_ELEMENTS_CAPABILITY]: ["edge-labels", 3] }), []);
+  assert.deepEqual(serverElements(undefined), []);
+});
 
 test("serverStyles takes the drawing styles the server advertises, none from a server predating them", () => {
   assert.deepEqual(serverStyles({ [RENDER_STYLES_CAPABILITY]: ["pilot", "cameo", "cameo"] }), ["pilot", "cameo"]);

@@ -14,7 +14,7 @@ import (
 func evalDeclaredExpr(t *testing.T, src, expr string) (*Context, Value, error) {
 	t.Helper()
 	ctx, scope, decl := declaredExpr(t, src, expr)
-	got, err := NewEvalContext(ctx, scope).Eval(decl)
+	got, err := newEvalContext(ctx, scope).Eval(decl)
 	return ctx, got, err
 }
 
@@ -95,7 +95,11 @@ func TestInfinityComparison(t *testing.T) {
 }
 
 // TestInfinityArithmeticRefused refuses arithmetic over `*` with a typed error
-// naming the operation rather than answering with a number.
+// naming the operation rather than answering with a number: KerML 1.0 §9.4
+// defines no arithmetic result over the infinity §9.3.2 extends Natural with,
+// so the checker accepts the well-typed expression and the evaluator reports
+// the undefined value, as it reports a division by zero. The function forms
+// and the range operator refuse it the same way.
 func TestInfinityArithmeticRefused(t *testing.T) {
 	cases := []struct {
 		expr string
@@ -103,13 +107,26 @@ func TestInfinityArithmeticRefused(t *testing.T) {
 	}{
 		{"* + 1", "operator '+' is not defined for the unbounded value '*'"},
 		{"1 + *", "operator '+' is not defined for the unbounded value '*'"},
+		{"* + 1.5", "operator '+' is not defined for the unbounded value '*'"},
 		{"* - 1", "operator '-' is not defined for the unbounded value '*'"},
+		{"1 - *", "operator '-' is not defined for the unbounded value '*'"},
+		{"* - *", "operator '-' is not defined for the unbounded value '*'"},
 		{"2 * *", "operator '*' is not defined for the unbounded value '*'"},
+		{"* * 0", "operator '*' is not defined for the unbounded value '*'"},
 		{"* / 2", "operator '/' is not defined for the unbounded value '*'"},
+		{"2 / *", "operator '/' is not defined for the unbounded value '*'"},
 		{"* % 2", "operator '%' is not defined for the unbounded value '*'"},
 		{"* ** 2", "operator '**' is not defined for the unbounded value '*'"},
+		{"2 ** *", "operator '**' is not defined for the unbounded value '*'"},
+		{"* ^ 2", "operator '**' is not defined for the unbounded value '*'"},
 		{"-*", "unary '-' is not defined for *"},
-		{"+*", "unary '+' is not defined for *"},
+		{"NaturalFunctions::'+'(*, 1)", "operator '+' is not defined for the unbounded value '*'"},
+		{"IntegerFunctions::'-'(*)", "unary '-' is not defined for *"},
+		{"NaturalFunctions::'/'(*, 2)", "operator '/' is not defined for the unbounded value '*'"},
+		{"NaturalFunctions::'/'(4, *)", "operator '/' is not defined for the unbounded value '*'"},
+		{"1..*", "'..' requires Integer bounds"},
+		{"IntegerFunctions::sum((1, *))", "requires numeric elements, got an infinity"},
+		{"IntegerFunctions::product((2, *))", "requires numeric elements, got an infinity"},
 		{`* > "a"`, "'>' is not defined"},
 	}
 	for _, tc := range cases {
@@ -126,6 +143,89 @@ func TestInfinityArithmeticRefused(t *testing.T) {
 			}
 			if strings.Contains(err.Error(), "∞") || strings.Contains(err.Error(), "Inf") {
 				t.Errorf("%s: error %q names the value as an infinity, want `*`", tc.expr, err)
+			}
+		})
+	}
+}
+
+// TestInfinityOrderingFunctions answers what the ordering of `*` decides (KerML
+// 1.0 §8.2.5.8.4: a Positive greater than all the integers) in the function
+// notation as in the operator notation: the comparisons and equality, `max`,
+// `min` and `abs` in every numeric library package, `ToString`, and unary `+`.
+func TestInfinityOrderingFunctions(t *testing.T) {
+	cases := []struct {
+		expr string
+		want string
+	}{
+		{"+*", "*"},
+		{"NaturalFunctions::'+'(*)", "*"},
+		{"NaturalFunctions::'>'(*, 1)", "true"},
+		{"IntegerFunctions::'<'(*, -1)", "false"},
+		{"RealFunctions::'>='(*, 1.5)", "true"},
+		{"RationalFunctions::'<='(*, *)", "true"},
+		{"NumericalFunctions::'>'(2, *)", "false"},
+		{"NaturalFunctions::'=='(*, 1)", "false"},
+		{"IntegerFunctions::'=='(*, *)", "true"},
+		{"BaseFunctions::'!='(*, 1)", "true"},
+		{"NaturalFunctions::max(*, 1)", "*"},
+		{"NaturalFunctions::min(*, 1)", "1"},
+		{"IntegerFunctions::max(-3, *)", "*"},
+		{"IntegerFunctions::min(-3, *)", "-3"},
+		{"IntegerFunctions::max(*, *)", "*"},
+		{"IntegerFunctions::min(*, *)", "*"},
+		{"RationalFunctions::min(*, 2.5)", "2.5"},
+		{"RealFunctions::max(*, 2)", "*"},
+		{"RealFunctions::min(*, 2)", "2.0"},
+		{"NumericalFunctions::max(2.5, *)", "*"},
+		{"NumericalFunctions::min(2.5, *)", "2.5"},
+		{"ScalarFunctions::max(*, 3)", "*"},
+		{"DataFunctions::min(3, *)", "3"},
+		{"IntegerFunctions::abs(*)", "*"},
+		{"RationalFunctions::abs(*)", "*"},
+		{"RealFunctions::abs(*)", "*"},
+		{"NumericalFunctions::abs(*)", "*"},
+		{"BaseFunctions::ToString(*)", `"*"`},
+		{"NaturalFunctions::ToString(*)", `"*"`},
+		{"IntegerFunctions::ToString(*)", `"*"`},
+		{"RationalFunctions::ToString(*)", `"*"`},
+		{"RealFunctions::ToString(*)", `"*"`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.expr, func(t *testing.T) {
+			_, got, err := evalDeclaredExpr(t, "package test {}", tc.expr)
+			if err != nil {
+				t.Fatalf("%s failed: %v", tc.expr, err)
+			}
+			if text := FormatValue(got); text != tc.want {
+				t.Errorf("%s = %s, want %s", tc.expr, text, tc.want)
+			}
+		})
+	}
+}
+
+// TestInfinityOrderingFunctionsKeepTheirDomains checks the finite operand of
+// `max`, `min` and `abs` beside `*` as the function checks it alone.
+func TestInfinityOrderingFunctionsKeepTheirDomains(t *testing.T) {
+	cases := []struct {
+		expr string
+		want string
+	}{
+		{"IntegerFunctions::min(*, 2.5)", "requires an Integer argument, got a Rational"},
+		{"NaturalFunctions::max(*, -1)", "requires Natural arguments, got -1"},
+		{`NaturalFunctions::max(*, "a")`, "requires a numeric value, got string"},
+		{"IntegerFunctions::abs((1, *))", "requires a numeric value, got sequence"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.expr, func(t *testing.T) {
+			_, _, err := evalDeclaredExpr(t, "package test {}", tc.expr)
+			if err == nil {
+				t.Fatalf("%s succeeded, want a typed error", tc.expr)
+			}
+			if !errors.Is(err, ErrTypeMismatch) {
+				t.Errorf("%s: error %v, want a type mismatch", tc.expr, err)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("%s: error %q, want it to contain %q", tc.expr, err, tc.want)
 			}
 		})
 	}
@@ -194,8 +294,50 @@ func TestUnboundedAgainstDeclaredSubtype(t *testing.T) {
 		}
 	}
 	for _, expr := range []string{"* as test::Boundless", "* as test::Cost", "(1, *) as test::Boundless"} {
-		if _, _, err := evalDeclaredExpr(t, src, expr); !errors.Is(err, ErrUndecidedClassification) {
-			t.Errorf("%s error = %v, want ErrUndecidedClassification", expr, err)
+		if _, _, err := evalDeclaredExpr(t, src, expr); !errors.Is(err, errUndecidedClassification) {
+			t.Errorf("%s error = %v, want errUndecidedClassification", expr, err)
 		}
+	}
+}
+
+// TestInfinityOrderingOverOpenOperands orders `*` beside a feature the model
+// leaves open: the maximum is `*` whatever the feature holds, the minimum and the
+// comparisons stay open in both notations, and the arithmetic stays undefined.
+func TestInfinityOrderingOverOpenOperands(t *testing.T) {
+	const src = "package test {\n\tprivate import ScalarValues::*;\n\tattribute u : Integer;\n}"
+	for _, expr := range []string{"IntegerFunctions::max(*, test::u)", "IntegerFunctions::max(test::u, *)"} {
+		t.Run(expr, func(t *testing.T) {
+			_, got, err := evalDeclaredExpr(t, src, expr)
+			if err != nil {
+				t.Fatalf("%s failed: %v", expr, err)
+			}
+			if text := FormatValue(got); text != "*" {
+				t.Errorf("%s = %s, want *", expr, text)
+			}
+		})
+	}
+	open := []string{
+		"IntegerFunctions::min(*, test::u)", "IntegerFunctions::min(test::u, *)",
+		"test::u < *", "* > test::u", "test::u <= *", "test::u == *",
+		"IntegerFunctions::'<'(test::u, *)", "RealFunctions::'>='(*, test::u)",
+	}
+	for _, expr := range open {
+		t.Run(expr, func(t *testing.T) {
+			_, got, err := evalDeclaredExpr(t, src, expr)
+			if err != nil {
+				t.Fatalf("%s failed: %v", expr, err)
+			}
+			if got.Kind != ValUndetermined {
+				t.Errorf("%s = %s, want an undetermined value", expr, FormatValue(got))
+			}
+		})
+	}
+	for _, expr := range []string{"test::u + *", "* - test::u", "IntegerFunctions::'+'(test::u, *)"} {
+		t.Run(expr, func(t *testing.T) {
+			_, _, err := evalDeclaredExpr(t, src, expr)
+			if !errors.Is(err, ErrTypeMismatch) {
+				t.Errorf("%s: error %v, want a type mismatch", expr, err)
+			}
+		})
 	}
 }

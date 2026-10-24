@@ -54,7 +54,7 @@ func TestSignalMessageDrivesTheExhibitedMachine(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SignalMessage(go): %v", err)
 	}
-	if msg.Signal != goSym || msg.SignalType != "go" || msg.Object != bulb.ID || msg.Delivery != DeliverObject {
+	if msg.Signal != goSym || msg.SignalType != "go" || msg.Object != bulb.ID || msg.Delivery != deliverObject {
 		t.Errorf("message = %+v, want go typed by its definition and addressed to the bulb", msg)
 	}
 	if accepted, err := exec.AcceptsMessage(msg); err != nil || !accepted {
@@ -78,17 +78,17 @@ func TestSignalMessageDrivesTheExhibitedMachine(t *testing.T) {
 	}
 
 	dimSym := resolveSymbol(t, root, "Dim")
-	if _, err := ctx.SignalMessage(dimSym, map[string]Value{"brightness": integerValue(1)}, bulb); !errors.Is(err, ErrSignalArgument) {
-		t.Errorf("an argument Dim carries no feature for gave %v, want ErrSignalArgument", err)
+	if _, err := ctx.SignalMessage(dimSym, map[string]Value{"brightness": integerValue(1)}, bulb); !errors.Is(err, errSignalArgument) {
+		t.Errorf("an argument Dim carries no feature for gave %v, want errSignalArgument", err)
 	} else if !strings.Contains(err.Error(), "(it carries level)") {
 		t.Errorf("the argument error does not name what Dim carries: %v", err)
 	}
-	if _, err := ctx.SignalMessage(dimSym, map[string]Value{"level": NewStringValue("x")}, bulb); !errors.Is(err, ErrSignalArgument) || !errors.Is(err, ErrTypeMismatch) {
-		t.Errorf("a string for Dim.level gave %v, want ErrSignalArgument wrapping ErrTypeMismatch", err)
+	if _, err := ctx.SignalMessage(dimSym, map[string]Value{"level": NewStringValue("x")}, bulb); !errors.Is(err, errSignalArgument) || !errors.Is(err, ErrTypeMismatch) {
+		t.Errorf("a string for Dim.level gave %v, want errSignalArgument wrapping ErrTypeMismatch", err)
 	}
 	batchSym := resolveSymbol(t, root, "Batch")
-	if _, err := ctx.SignalMessage(batchSym, map[string]Value{"levels": integerValue(1)}, bulb); !errors.Is(err, ErrSignalArgument) || !errors.Is(err, ErrMultiplicityViolation) {
-		t.Errorf("one value for Batch.levels[2..*] gave %v, want ErrSignalArgument wrapping ErrMultiplicityViolation", err)
+	if _, err := ctx.SignalMessage(batchSym, map[string]Value{"levels": integerValue(1)}, bulb); !errors.Is(err, errSignalArgument) || !errors.Is(err, ErrMultiplicityViolation) {
+		t.Errorf("one value for Batch.levels[2..*] gave %v, want errSignalArgument wrapping ErrMultiplicityViolation", err)
 	}
 	if len(ctx.PendingMessages()) != 0 || activeLeaf(exec) != "on" {
 		t.Errorf("a refused message left the bus or the machine changed: %d pending, state %s", len(ctx.PendingMessages()), activeLeaf(exec))
@@ -151,8 +151,8 @@ func TestSignalMessageDrivesTheExhibitedMachine(t *testing.T) {
 	if exec.EventQueue().Len() != 1 {
 		t.Fatalf("queue holds %d events, want the dim_out timer", exec.EventQueue().Len())
 	}
-	if _, err := ctx.SignalMessage(resolveSymbol(t, root, "plain"), nil, bulb); !errors.Is(err, ErrNotASignal) {
-		t.Errorf("a usage as a signal gave %v, want ErrNotASignal", err)
+	if _, err := ctx.SignalMessage(resolveSymbol(t, root, "plain"), nil, bulb); !errors.Is(err, errNotASignal) {
+		t.Errorf("a usage as a signal gave %v, want errNotASignal", err)
 	}
 }
 
@@ -184,8 +184,8 @@ func TestSignalMessageRefusesBehaviorDefinitions(t *testing.T) {
 		if IsSignalDefinition(sym) {
 			t.Errorf("IsSignalDefinition(%s %s) = true, want false", sym.Notation(), name)
 		}
-		if _, err := ctx.SignalMessage(sym, nil, lamp); !errors.Is(err, ErrNotASignal) {
-			t.Errorf("SignalMessage(%s %s) = %v, want ErrNotASignal", sym.Notation(), name, err)
+		if _, err := ctx.SignalMessage(sym, nil, lamp); !errors.Is(err, errNotASignal) {
+			t.Errorf("SignalMessage(%s %s) = %v, want errNotASignal", sym.Notation(), name, err)
 		}
 	}
 }
@@ -546,7 +546,7 @@ func TestTimerUnderFalseGuardIsNotReportedFired(t *testing.T) {
 				t.Fatalf("waiting left on a timer whose guard is false; active: %v", exec.ActiveStates())
 			}
 			d, ok := exec.LastDispatch()
-			if !ok || d.Event.Type != EventTime {
+			if !ok || d.Event.Type != eventTime {
 				t.Fatalf("LastDispatch = %+v, %v; want the timer dispatched", d, ok)
 			}
 			if d.Fired {
@@ -1356,7 +1356,7 @@ func TestProbeDrainLeavesThePendingStartupRunsOfTheStartUnderWay(t *testing.T) {
 	ctx.behaviorRunDepth++
 	for _, obj := range []*Instance{twin, pump} {
 		if err := ctx.startBehaviorsOf(obj); err != nil {
-			t.Fatalf("startBehaviorsOf(%s): %v", symbolText(obj.Type), err)
+			t.Fatalf("startBehaviorsOf(%s): %v", SymbolText(obj.Type), err)
 		}
 	}
 	ctx.behaviorRunDepth--
@@ -1607,7 +1607,7 @@ func TestPreviewsDiscardThePortTheyMaterialize(t *testing.T) {
 	// use, so only materializing `in` can tell whether it is the same port.
 	four := integerValue(4)
 	elsewhere := Message{SignalType: "Integer", Port: "other", Object: listener.ID, PortID: -1,
-		Delivery: DeliverPort, Value: &four}
+		Delivery: deliverPort, Value: &four}
 	if accepted, err := exec.AcceptsMessage(elsewhere); err != nil || accepted {
 		t.Errorf("AcceptsMessage(Integer at another port) = %v, %v; want it left", accepted, err)
 	}
@@ -1819,11 +1819,11 @@ func TestAcceptTakingNamesThePerformedActionsAccept(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Instantiate Waiter: %v", err)
 	}
-	main, ok := waiter.Behavior("main")
+	main, ok := waiter.behavior("main")
 	if !ok || main.Action == nil || main.Action.Performer() != waiter {
 		t.Fatalf("the waiter performs no main action on its own behalf, behaviors: %v", waiter.Behaviors())
 	}
-	outer, ok := waiter.Behavior("outer")
+	outer, ok := waiter.behavior("outer")
 	if !ok || outer.Action == nil {
 		t.Fatalf("the waiter performs no outer action, behaviors: %v", waiter.Behaviors())
 	}
@@ -1925,7 +1925,7 @@ func TestAcceptTakingListsEveryParallelAccept(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Instantiate Waiter: %v", err)
 	}
-	main, ok := waiter.Behavior("main")
+	main, ok := waiter.behavior("main")
 	if !ok || main.Action == nil {
 		t.Fatalf("the waiter performs no main action, behaviors: %v", waiter.Behaviors())
 	}
@@ -1985,7 +1985,7 @@ func TestAcceptTakingLeavesThePortUnmaterialized(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Instantiate Waiter: %v", err)
 	}
-	main, ok := waiter.Behavior("main")
+	main, ok := waiter.behavior("main")
 	if !ok || main.Action == nil {
 		t.Fatalf("the waiter performs no main action, behaviors: %v", waiter.Behaviors())
 	}
@@ -1998,7 +1998,7 @@ func TestAcceptTakingLeavesThePortUnmaterialized(t *testing.T) {
 		t.Fatalf("SignalMessage(Ping): %v", err)
 	}
 	// Reaching a port object by identity makes the accept resolve its own port to compare.
-	ping.Delivery, ping.PortID = DeliverPort, -1
+	ping.Delivery, ping.PortID = deliverPort, -1
 	objects := len(ctx.instances)
 
 	if taking, err := main.Action.AcceptTaking(ping); err != nil || len(taking) != 0 {

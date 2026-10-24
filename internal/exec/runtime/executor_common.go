@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"container/heap"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 
@@ -40,6 +41,52 @@ type Token struct {
 	// body is the work of this token's step a breakpoint paused, resumed by the
 	// next step (action_body_run.go); nil for a token with none pending.
 	body *bodyRun
+
+	// control is what the token's path stands on: each decision it passed whose
+	// guard read or draw was order-dependent, until the node its branches rejoin at.
+	control []tokenControl
+	// accepted is what the message the token's accept node took stood on, for
+	// the marks of what the node's performance binds from it.
+	accepted []int64
+}
+
+// tokenControl is one decision a token's path stands on: the choice points its
+// guard read or draw stood on, and the nodes every branch of the decision reaches,
+// where the path no longer depends on which branch was taken.
+type tokenControl struct {
+	by   []int64
+	ends map[ast.Node]bool
+}
+
+// unionControl is the controls of two paths that meet: a decision both passed,
+// standing on the same choice points until the same ends, counts once.
+func unionControl(a, b []tokenControl) []tokenControl {
+	out := slices.Clone(a)
+	for _, c := range b {
+		if !slices.ContainsFunc(out, func(o tokenControl) bool {
+			return slices.Equal(o.by, c.by) && maps.Equal(o.ends, c.ends)
+		}) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// controlSerials is every choice point the token's path stands on.
+func (t Token) controlSerials() []int64 {
+	var out []int64
+	for _, c := range t.control {
+		out = unionSerials(out, c.by)
+	}
+	return out
+}
+
+// underControl is the token with its path standing on one more decision.
+func (t *Token) underControl(by []int64, ends map[ast.Node]bool) {
+	if len(by) == 0 {
+		return
+	}
+	t.control = append(slices.Clone(t.control), tokenControl{by: by, ends: ends})
 }
 
 // Within lists the nested action nodes whose own flows the token runs in,
@@ -53,6 +100,9 @@ func (t *Token) travel(edge lower.ActionEdge, sweep uint64) {
 	t.Location = edge.Target
 	t.Via = edge
 	t.moved = sweep
+	if slices.ContainsFunc(t.control, func(c tokenControl) bool { return c.ends[edge.Target] }) {
+		t.control = slices.DeleteFunc(slices.Clone(t.control), func(c tokenControl) bool { return c.ends[edge.Target] })
+	}
 }
 
 // AcceptWait describes the message a parked token is waiting for. It is the
@@ -123,21 +173,21 @@ func (s ExecutionState) String() string {
 type EventType int
 
 const (
-	EventTime   EventType = iota // TimeEvent - fires after duration
-	EventChange                  // ChangeEvent - fires when condition true
-	EventAccept                  // AcceptEvent - fires when signal received
-	EventCall                    // CallEvent - fires when operation invoked
+	eventTime   EventType = iota // TimeEvent - fires after duration
+	eventChange                  // ChangeEvent - fires when condition true
+	eventAccept                  // AcceptEvent - fires when signal received
+	eventCall                    // CallEvent - fires when operation invoked
 )
 
 func (t EventType) String() string {
 	switch t {
-	case EventTime:
+	case eventTime:
 		return "TimeEvent"
-	case EventChange:
+	case eventChange:
 		return "ChangeEvent"
-	case EventAccept:
+	case eventAccept:
 		return "AcceptEvent"
-	case EventCall:
+	case eventCall:
 		return "CallEvent"
 	default:
 		return "Unknown"
@@ -161,8 +211,8 @@ type EventQueue struct {
 	events eventHeap
 }
 
-// NewEventQueue creates an empty event queue.
-func NewEventQueue() *EventQueue {
+// newEventQueue creates an empty event queue.
+func newEventQueue() *EventQueue {
 	q := &EventQueue{events: make(eventHeap, 0)}
 	heap.Init(&q.events)
 	return q
@@ -188,11 +238,11 @@ func (q *EventQueue) Pop() Event {
 	return heap.Pop(&q.events).(Event)
 }
 
-// Tied lists the events the queue leaves unordered at its head, in arrival
+// tied lists the events the queue leaves unordered at its head, in arrival
 // order: none when the head is a completion event or every event at its instant
 // came from the pool, whose arrival order is fixed; else the time triggers due at
 // that instant and the earliest pool event, when there are two or more of them.
-func (q *EventQueue) Tied() []Event {
+func (q *EventQueue) tied() []Event {
 	if len(q.events) == 0 || isCompletionEvent(q.events[0]) {
 		return nil
 	}
@@ -204,7 +254,7 @@ func (q *EventQueue) Tied() []Event {
 		if event.Timestamp != at {
 			continue
 		}
-		if event.Type == EventTime {
+		if event.Type == eventTime {
 			tied = append(tied, *event)
 		} else if pool == nil || event.ID < pool.ID {
 			pool = event
@@ -223,9 +273,9 @@ func (q *EventQueue) Tied() []Event {
 	return tied
 }
 
-// CompletionsOf lists the queued completion events carrying a transition out of
+// completionsOf lists the queued completion events carrying a transition out of
 // source, in arrival order.
-func (q *EventQueue) CompletionsOf(source ast.Node) []Event {
+func (q *EventQueue) completionsOf(source ast.Node) []Event {
 	var events []Event
 	for _, event := range q.events {
 		if trans, ok := event.Payload.(*lower.Transition); ok && isCompletionEvent(event) && trans.Source == source {
@@ -236,23 +286,8 @@ func (q *EventQueue) CompletionsOf(source ast.Node) []Event {
 	return events
 }
 
-// TimerOf returns the queued time event carrying trans, false when its timer is
-// not running.
-func (q *EventQueue) TimerOf(trans *lower.Transition) (Event, bool) {
-	for _, event := range q.events {
-		if event.Type != EventTime {
-			continue
-		}
-		payload, ok := event.Payload.(*lower.Transition)
-		if ok && (payload == trans || sameTimerGroup(payload, trans)) {
-			return event, true
-		}
-	}
-	return Event{}, false
-}
-
-// Take removes and returns the event with the given ID, false when none has it.
-func (q *EventQueue) Take(id int64) (Event, bool) {
+// take removes and returns the event with the given ID, false when none has it.
+func (q *EventQueue) take(id int64) (Event, bool) {
 	for i, event := range q.events {
 		if event.ID == id {
 			heap.Remove(&q.events, i)
@@ -282,9 +317,9 @@ func (q *EventQueue) Events() []Event {
 	return events
 }
 
-// Withdraw drops every pending event the predicate accepts, which cancels an
+// withdraw drops every pending event the predicate accepts, which cancels an
 // occurrence a state no longer waits for.
-func (q *EventQueue) Withdraw(drop func(Event) bool) {
+func (q *EventQueue) withdraw(drop func(Event) bool) {
 	kept := q.events[:0]
 	for _, event := range q.events {
 		if !drop(event) {
@@ -318,7 +353,7 @@ func (h eventHeap) Less(i, j int) bool {
 // isCompletionEvent reports whether an event carries a completion transition,
 // the transition a state takes once it is done rather than on a trigger.
 func isCompletionEvent(event Event) bool {
-	if event.Type != EventTime {
+	if event.Type != eventTime {
 		return false
 	}
 	switch payload := event.Payload.(type) {

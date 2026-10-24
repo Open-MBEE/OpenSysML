@@ -4,7 +4,7 @@ stmt assign cRan
   eval literal true -> true
 stmt assign bRan
   eval literal true -> true
-choice step 3: tokens 2@b, 3@c (unordered; took 3@c first)
+choice step 3: tokens 2@b, 3@c (unordered; took 3@c first; independent)
 step 3: token 2@d, token 3@d
 stmt assign hits
     eval feature hits -> 0

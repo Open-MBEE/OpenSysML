@@ -33,23 +33,23 @@ flowchart TD
       direction TD
       n21_anchor[" "]
       n22("`*«port»*
-**outlet : FluidPort**`")
+**outlet**`")
     end
     subgraph n23 ["`*«part def»* **Tank**`"]
       direction TD
       n23_anchor[" "]
       n24("`*«port»*
-**inlet : FluidPort**`")
+**inlet**`")
     end
     subgraph n25 ["`*«part def»* **Plant**`"]
       direction TD
       n25_anchor[" "]
-      subgraph n26 ["`*«part»* **pump : Pump**`"]
+      subgraph n26 ["`*«part»* **pump**`"]
         direction TD
         n26_anchor[" "]
         n26.0["outlet"]
       end
-      subgraph n27 ["`*«part»* **tank : Tank**`"]
+      subgraph n27 ["`*«part»* **tank**`"]
         direction TD
         n27_anchor[" "]
         n27.0["inlet"]
@@ -70,7 +70,7 @@ declares no states`"]
       n2_anchor[" "]
       n4@{ shape: f-circ, label: "" }
       n3("`*«state»*
-**ready : Ready**
+**ready**
 initial`")
     end
     subgraph n5 ["`*«action def»* **Operate**`"]
@@ -83,20 +83,20 @@ initial`")
     end
     n9(["`*«use case def»*
 **Inspection**`"])
-    n10["`*«actor»*
-**operator : Person**`"]
-    n11["`*«subject»*
-**plant : Plant**`"]
+    n10["`*«subject»*
+**plant**`"]
+    n11["`*«actor»*
+**operator**`"]
     n12@{ shape: notch-rect, label: "objective<br>Inspect the plant and report its operating state." }
     n13("`*«perform action»*
-**run : Operate**
+**run**
 declares no nodes`")
-    subgraph n14 ["`*«exhibit state»* **mode : Modes**`"]
+    subgraph n14 ["`*«exhibit state»* **mode**`"]
       direction TD
       n14_anchor[" "]
       n16@{ shape: f-circ, label: "" }
       n15("`*«state»*
-**ready : Ready**
+**ready**
 initial`")
     end
     n31["`*«part def»*
@@ -109,14 +109,14 @@ initial`")
   n4 --> n3
   n6 --> n7
   n7 --> n8
-  n10 --- n9
-  n9 ---|"«subject»"| n11
+  n9 ---|"«subject»"| n10
+  n11 --- n9
   n9 -.- n12
   n16 --> n15
-  n26.0 ===|"supply"| n27.0
+  n26.0 === n27.0
   n3 -.-> n1
-  n10 -.-> n31
-  n11 -.-> n25_anchor
+  n10 -.-> n25_anchor
+  n11 -.-> n31
   n13 -.->|"«perform»"| n5_anchor
   n14_anchor -.->|"«exhibit»"| n2_anchor
   n21_anchor -->|"«specializes»"| n20

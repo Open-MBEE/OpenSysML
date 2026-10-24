@@ -133,8 +133,6 @@ func (r *Resolver) shortNamedMembers(scope *symbols.Scope, name string, hide *re
 	return out
 }
 
-// derivedShortName is the short name sym takes from its naming feature (KerML
-// 8.3.3.3 effectiveShortName): none past a declared name or a naming under way.
 // shortNameOf is the short name sym is referable by: declared, or derived.
 func (r *Resolver) shortNameOf(sym *symbols.Symbol) string {
 	if sym == nil || sym.ShortName != "" {
@@ -150,22 +148,102 @@ func symbolShortName(sym *symbols.Symbol) string {
 	return sym.ShortName
 }
 
+// shortNaming is one outermost derivation of a derived short name with the
+// derivations nested in it, which ask the same scopes for their siblings' names.
+type shortNaming struct {
+	derived   map[*symbols.Symbol]string // every short name this derivation settled on
+	guarded   map[*symbols.Symbol]bool   // features asked for while their naming was under way
+	hits      int                        // answers that may not hold: a guard's, or one reused unmemoized
+	dependent []*symbols.Symbol          // complete derivations that met such an answer
+}
+
+// derivedShortName is the short name sym takes from its naming feature (KerML
+// 8.3.3.3 effectiveShortName): none past a declared name or a naming under way.
+// Memoized, as deriving each sibling anew per sibling was exponential in them.
 func (r *Resolver) derivedShortName(sym *symbols.Symbol) string {
-	seen := map[*symbols.Symbol]bool{}
-	for sym != nil && !seen[sym] {
-		if sym.Naming == symbols.NamedByDeclaration || sym.ShortName != "" {
-			return sym.ShortName
-		}
-		if r.naming[sym] {
-			return ""
-		}
-		seen[sym] = true
-		r.naming[sym] = true
-		next := r.namingFeatureOf(sym)
-		delete(r.naming, sym)
-		sym = next
+	if sym == nil {
+		return ""
 	}
-	return ""
+	if sym.Naming == symbols.NamedByDeclaration || sym.ShortName != "" {
+		return sym.ShortName
+	}
+	// A filter condition and an `import all` resolve unfiltered (see memoize),
+	// so what they derive is theirs alone.
+	ordinary := r.inCondition == 0 && r.allVisible == 0
+	run := r.shortNaming
+	if ordinary {
+		// Deriving the name reads sym's document (see namingFeatureOf), whose
+		// frame owns the memo, so a reader of the memo depends on it the same.
+		if short, done := r.shortNames[sym]; done {
+			r.Depend(sym.DocName)
+			return short
+		}
+		if run != nil {
+			if short, done := run.derived[sym]; done {
+				run.hits++
+				r.Depend(sym.DocName)
+				return short
+			}
+		}
+	}
+	if r.naming[sym] != 0 {
+		if run != nil {
+			run.guarded[sym] = true
+			run.hits++
+		}
+		return ""
+	}
+	outermost := run == nil
+	if outermost {
+		run = &shortNaming{derived: map[*symbols.Symbol]string{}, guarded: map[*symbols.Symbol]bool{}}
+		r.shortNaming = run
+	}
+	hits := run.hits
+	r.naming[sym] = r.Enter()
+	next := r.namingFeatureOf(sym)
+	short := r.derivedShortName(next)
+	delete(r.naming, sym)
+	// A naming feature a semantic query could not reach is asked for again, as
+	// a failed reference is (see resolveQualified).
+	complete := r.Leave() && next != nil
+	if ordinary {
+		run.derived[sym] = short
+		switch {
+		case complete && run.hits == hits:
+			r.memoShortName(sym, short)
+		case complete:
+			run.dependent = append(run.dependent, sym)
+		}
+	}
+	if outermost {
+		r.shortNaming = nil
+		if run.truthful() {
+			for _, dep := range run.dependent {
+				r.memoShortName(dep, run.derived[dep])
+			}
+		}
+	}
+	return short
+}
+
+// truthful reports whether every feature asked for while its naming was under
+// way has, as it answered, no short name, so the answers that depended on it hold.
+func (run *shortNaming) truthful() bool {
+	for sym := range run.guarded {
+		if short, done := run.derived[sym]; !done || short != "" {
+			return false
+		}
+	}
+	return true
+}
+
+// memoShortName records sym's derived short name under the frame of sym's
+// document, which read what the derivation read and is dropped with it.
+func (r *Resolver) memoShortName(sym *symbols.Symbol, short string) {
+	r.EnterDoc(sym.DocName)
+	defer r.LeaveDoc()
+	journalNew(r, r.shortNames, sym, sym.Decl)
+	r.shortNames[sym] = short
 }
 
 // namingFeatureOf resolves the feature sym takes its name from as BindsName
@@ -245,12 +323,11 @@ func (r *Resolver) BindsName(sym *symbols.Symbol) bool {
 	if named, done := r.effNames[sym]; done {
 		return named
 	}
-	if r.naming[sym] {
+	if r.naming[sym] != 0 {
 		return true
 	}
-	r.naming[sym] = true
+	r.naming[sym] = r.Enter()
 	defer delete(r.naming, sym)
-	r.Enter()
 	named := true
 	r.aside(func() {
 		if sym.Naming == symbols.NamedByReference {
@@ -344,10 +421,10 @@ func (r *Resolver) implicitlyNamedMember(scope *symbols.Scope, name string, hide
 	}
 	var found *symbols.Symbol
 	for _, sym := range r.implicitParameters(scope) {
-		if r.naming[sym] || hide.hides(sym) {
+		if r.naming[sym] != 0 || hide.hides(sym) {
 			continue
 		}
-		r.naming[sym] = true
+		r.naming[sym] = r.Enter()
 		var redefined *symbols.Symbol
 		count := 0
 		for _, sup := range model.DirectSupertypes(sym) {
@@ -357,6 +434,7 @@ func (r *Resolver) implicitlyNamedMember(scope *symbols.Scope, name string, hide
 			}
 		}
 		delete(r.naming, sym)
+		r.Leave()
 		// One redefinition names the feature; several need not agree on a
 		// name, so the feature stays anonymous (KerML 7.3.4.5).
 		if count == 1 && simpleName(redefined) == name {
@@ -603,29 +681,16 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 	if r.resolvingImports[imp] {
 		return
 	}
-	// Resolved aside: a miss here may only mean sibling imports were suspended
-	// for cycle safety, so it must not be memoized or reported as unresolved.
-	// A hit is memoized (importTargets), except while a filter condition's own
-	// names resolve: that lookup is unfiltered, and its answers reach nothing
-	// else (InCondition).
-	var target *symbols.Symbol
-	var ok bool
-	remember := r.inCondition == 0
-	if res, done := r.importTargets[imp]; done && remember {
-		target, ok = res.sym, res.ok
-	} else {
-		r.resolvingImports[imp] = true
-		r.aside(func() { target, ok = r.resolveImportTarget(scope, imp) })
-		delete(r.resolvingImports, imp)
-		if ok && remember {
-			journalNew(r, r.importTargets, imp, imp)
-			r.importTargets[imp] = resolution{sym: target, ok: true}
-		}
-	}
+	target, ok := r.importTargetOf(scope, imp)
 	if !ok {
 		return
 	}
-	admit := r.importAdmitsInto(into, scope, imp)
+	// A membership the import brings under a name another import of scope
+	// also brings a distinct element under is hidden (KerML 7.2.5.4).
+	admitted := r.importAdmitsInto(into, scope, imp)
+	admit := func(sym *symbols.Symbol) bool {
+		return admitted(sym) && !r.hiddenImport(scope, name, sym)
+	}
 	if imp.Kind == ast.ImportMembership {
 		// A membership import names a membership: `import P::Car` where Car is an
 		// alias imports that name, so the alias is what it surfaces.
@@ -683,6 +748,9 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 		// The import names one namespace, so a same-named other namespace's
 		// members registered under the same path are not what it surfaces.
 		children = notConflatedWith(target, children)
+		// An entry re-exported under the target through a namespace that hides
+		// it is no member of the target, so the import does not bring it on.
+		children = r.withoutHiddenReexports(target.Scope, targetFQN, name, children)
 		for _, sym := range children {
 			// The target may itself have surfaced the name through an import of
 			// its own, filtered by its `filter` members: what it re-exports
@@ -700,6 +768,32 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 	if imp.IsRecursive {
 		r.eachSubtreeMatch(scope, target, name, imp, admit, yield)
 	}
+}
+
+// importTargetOf resolves what imp, declared in scope, names. Resolved aside:
+// a miss may only mean sibling imports were suspended for cycle safety, so it
+// is neither memoized nor reported as unresolved. A hit is memoized
+// (importTargets), except while a filter condition's own names resolve: that
+// lookup is unfiltered, and its answers reach nothing else (InCondition).
+func (r *Resolver) importTargetOf(scope *symbols.Scope, imp *ast.Import) (*symbols.Symbol, bool) {
+	remember := r.inCondition == 0
+	if res, done := r.importTargets[imp]; done && remember {
+		if res.sym != nil {
+			r.Depend(res.sym.DocName)
+		}
+		return res.sym, res.ok
+	}
+	var target *symbols.Symbol
+	var ok bool
+	r.resolvingImports[imp] = true
+	// The target is read on its own, apart from the lookup that needs it.
+	r.aside(func() { target, ok = r.resolveImportTarget(scope, imp) })
+	delete(r.resolvingImports, imp)
+	if ok && remember {
+		journalNew(r, r.importTargets, imp, imp)
+		r.importTargets[imp] = resolution{sym: target, ok: true}
+	}
+	return target, ok
 }
 
 // importPrefixAvailable reports whether imp can surface name from scope: a

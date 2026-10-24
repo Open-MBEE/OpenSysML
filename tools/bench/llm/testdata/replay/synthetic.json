@@ -1,0 +1,792 @@
+{
+ "provider": "replay",
+ "model": "synthetic",
+ "cells": {
+  "S01/compiler/1": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Bicycle {\n    part bogusPart : BogusType;\n    part def Frame;\n    part def Wheel;\n    part def Saddle;\n\n    part def Bicycle {\n        part mainFrame : Frame;\n        part frontWheel : Wheel;\n        part rearWheel : Wheel;\n        part saddle : Saddle;\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Bicycle {\n    part def Frame;\n    part def Wheel;\n    part def Saddle;\n\n    part def Bicycle {\n        part mainFrame : Frame;\n        part frontWheel : Wheel;\n        part rearWheel : Wheel;\n        part saddle : Saddle;\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "S01/compiler/2": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "```sysml\npackage Bicycle {\n    part def Frame;\n    part def Wheel;\n    part def Saddle;\n\n    part def Bicycle {\n        part mainFrame : Frame;\n        part frontWheel : Wheel;\n        part rearWheel : Wheel;\n        part saddle : Saddle;\n    }\n}\n\n```",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "S01/mcp/1": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     },
+     "toolCalls": [
+      {
+       "id": "c1",
+       "name": "parse",
+       "arguments": {
+        "sources": [
+         {
+          "path": "model.sysml",
+          "text": "package Bicycle {\n    part bogusPart : BogusType;\n    part def Frame;\n    part def Wheel;\n    part def Saddle;\n\n    part def Bicycle {\n        part mainFrame : Frame;\n        part frontWheel : Wheel;\n        part rearWheel : Wheel;\n        part saddle : Saddle;\n    }\n}\n"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Bicycle {\n    part bogusPart : BogusType;\n    part def Frame;\n    part def Wheel;\n    part def Saddle;\n\n    part def Bicycle {\n        part mainFrame : Frame;\n        part frontWheel : Wheel;\n        part rearWheel : Wheel;\n        part saddle : Saddle;\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     },
+     "toolCalls": [
+      {
+       "id": "c2",
+       "name": "explain_diagnostic",
+       "arguments": {
+        "code": "unresolved"
+       }
+      }
+     ]
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Bicycle {\n    part def Frame;\n    part def Wheel;\n    part def Saddle;\n\n    part def Bicycle {\n        part mainFrame : Frame;\n        part frontWheel : Wheel;\n        part rearWheel : Wheel;\n        part saddle : Saddle;\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "S01/mcp/2": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     },
+     "toolCalls": [
+      {
+       "id": "c3",
+       "name": "tool_catalog",
+       "arguments": {}
+      }
+     ]
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Bicycle {\n    part def Frame;\n    part def Wheel;\n    part def Saddle;\n\n    part def Bicycle {\n        part mainFrame : Frame;\n        part frontWheel : Wheel;\n        part rearWheel : Wheel;\n        part saddle : Saddle;\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "B01/compiler/1": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package CoffeeMaker {\n    part bogusPart : BogusType;\n    action def Brew {\n        action heatWater;\n        then action grindBeans;\n        then action pourWater;\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package CoffeeMaker {\n    action def Brew {\n        action heatWater;\n        then action grindBeans;\n        then action pourWater;\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "B01/compiler/2": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "```sysml\npackage CoffeeMaker {\n    action def Brew {\n        action heatWater;\n        then action grindBeans;\n        then action pourWater;\n    }\n}\n\n```",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "B01/mcp/1": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     },
+     "toolCalls": [
+      {
+       "id": "c1",
+       "name": "parse",
+       "arguments": {
+        "sources": [
+         {
+          "path": "model.sysml",
+          "text": "package CoffeeMaker {\n    part bogusPart : BogusType;\n    action def Brew {\n        action heatWater;\n        then action grindBeans;\n        then action pourWater;\n    }\n}\n"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package CoffeeMaker {\n    part bogusPart : BogusType;\n    action def Brew {\n        action heatWater;\n        then action grindBeans;\n        then action pourWater;\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     },
+     "toolCalls": [
+      {
+       "id": "c2",
+       "name": "explain_diagnostic",
+       "arguments": {
+        "code": "unresolved"
+       }
+      }
+     ]
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package CoffeeMaker {\n    action def Brew {\n        action heatWater;\n        then action grindBeans;\n        then action pourWater;\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "B01/mcp/2": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     },
+     "toolCalls": [
+      {
+       "id": "c3",
+       "name": "tool_catalog",
+       "arguments": {}
+      }
+     ]
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package CoffeeMaker {\n    action def Brew {\n        action heatWater;\n        then action grindBeans;\n        then action pourWater;\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "R01/compiler/1": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Kettle {\n    part bogusPart : BogusType;\n    requirement def BoilTimeRequirement {\n        doc /* The kettle shall boil one litre of water in under three minutes. */\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Kettle {\n    requirement def BoilTimeRequirement {\n        doc /* The kettle shall boil one litre of water in under three minutes. */\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "R01/compiler/2": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "```sysml\npackage Kettle {\n    requirement def BoilTimeRequirement {\n        doc /* The kettle shall boil one litre of water in under three minutes. */\n    }\n}\n\n```",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "R01/mcp/1": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     },
+     "toolCalls": [
+      {
+       "id": "c1",
+       "name": "parse",
+       "arguments": {
+        "sources": [
+         {
+          "path": "model.sysml",
+          "text": "package Kettle {\n    part bogusPart : BogusType;\n    requirement def BoilTimeRequirement {\n        doc /* The kettle shall boil one litre of water in under three minutes. */\n    }\n}\n"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Kettle {\n    part bogusPart : BogusType;\n    requirement def BoilTimeRequirement {\n        doc /* The kettle shall boil one litre of water in under three minutes. */\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     },
+     "toolCalls": [
+      {
+       "id": "c2",
+       "name": "explain_diagnostic",
+       "arguments": {
+        "code": "unresolved"
+       }
+      }
+     ]
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Kettle {\n    requirement def BoilTimeRequirement {\n        doc /* The kettle shall boil one litre of water in under three minutes. */\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "R01/mcp/2": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     },
+     "toolCalls": [
+      {
+       "id": "c3",
+       "name": "tool_catalog",
+       "arguments": {}
+      }
+     ]
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Kettle {\n    requirement def BoilTimeRequirement {\n        doc /* The kettle shall boil one litre of water in under three minutes. */\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "C01/compiler/1": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Package {\n    part bogusPart : BogusType;\n    private import ISQ::*;\n    private import SI::*;\n\n    part def Parcel {\n        attribute mass :> ISQ::mass = 2.5 [kg];\n        attribute length :> ISQ::length = 0.4 [m];\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Package {\n    private import ISQ::*;\n    private import SI::*;\n\n    part def Parcel {\n        attribute mass :> ISQ::mass = 2.5 [kg];\n        attribute length :> ISQ::length = 0.4 [m];\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "C01/compiler/2": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "```sysml\npackage Package {\n    private import ISQ::*;\n    private import SI::*;\n\n    part def Parcel {\n        attribute mass :> ISQ::mass = 2.5 [kg];\n        attribute length :> ISQ::length = 0.4 [m];\n    }\n}\n\n```",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "C01/mcp/1": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     },
+     "toolCalls": [
+      {
+       "id": "c1",
+       "name": "parse",
+       "arguments": {
+        "sources": [
+         {
+          "path": "model.sysml",
+          "text": "package Package {\n    part bogusPart : BogusType;\n    private import ISQ::*;\n    private import SI::*;\n\n    part def Parcel {\n        attribute mass :> ISQ::mass = 2.5 [kg];\n        attribute length :> ISQ::length = 0.4 [m];\n    }\n}\n"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Package {\n    part bogusPart : BogusType;\n    private import ISQ::*;\n    private import SI::*;\n\n    part def Parcel {\n        attribute mass :> ISQ::mass = 2.5 [kg];\n        attribute length :> ISQ::length = 0.4 [m];\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     },
+     "toolCalls": [
+      {
+       "id": "c2",
+       "name": "explain_diagnostic",
+       "arguments": {
+        "code": "unresolved"
+       }
+      }
+     ]
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Package {\n    private import ISQ::*;\n    private import SI::*;\n\n    part def Parcel {\n        attribute mass :> ISQ::mass = 2.5 [kg];\n        attribute length :> ISQ::length = 0.4 [m];\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "C01/mcp/2": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     },
+     "toolCalls": [
+      {
+       "id": "c3",
+       "name": "tool_catalog",
+       "arguments": {}
+      }
+     ]
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Package {\n    private import ISQ::*;\n    private import SI::*;\n\n    part def Parcel {\n        attribute mass :> ISQ::mass = 2.5 [kg];\n        attribute length :> ISQ::length = 0.4 [m];\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "V01/compiler/1": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Garden {\n    part bogusPart : BogusType;\n    part def Shed {\n        doc /* A wooden shed that stores the garden tools. */\n    }\n    part def Greenhouse {\n        doc /* A glass greenhouse for seedlings. */\n    }\n    part def Garden {\n        doc /* The whole back garden with its two buildings. */\n        part shed : Shed;\n        part greenhouse : Greenhouse;\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Garden {\n    part def Shed {\n        doc /* A wooden shed that stores the garden tools. */\n    }\n    part def Greenhouse {\n        doc /* A glass greenhouse for seedlings. */\n    }\n    part def Garden {\n        doc /* The whole back garden with its two buildings. */\n        part shed : Shed;\n        part greenhouse : Greenhouse;\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "V01/compiler/2": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "```sysml\npackage Garden {\n    part def Shed {\n        doc /* A wooden shed that stores the garden tools. */\n    }\n    part def Greenhouse {\n        doc /* A glass greenhouse for seedlings. */\n    }\n    part def Garden {\n        doc /* The whole back garden with its two buildings. */\n        part shed : Shed;\n        part greenhouse : Greenhouse;\n    }\n}\n\n```",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "V01/mcp/1": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     },
+     "toolCalls": [
+      {
+       "id": "c1",
+       "name": "parse",
+       "arguments": {
+        "sources": [
+         {
+          "path": "model.sysml",
+          "text": "package Garden {\n    part bogusPart : BogusType;\n    part def Shed {\n        doc /* A wooden shed that stores the garden tools. */\n    }\n    part def Greenhouse {\n        doc /* A glass greenhouse for seedlings. */\n    }\n    part def Garden {\n        doc /* The whole back garden with its two buildings. */\n        part shed : Shed;\n        part greenhouse : Greenhouse;\n    }\n}\n"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Garden {\n    part bogusPart : BogusType;\n    part def Shed {\n        doc /* A wooden shed that stores the garden tools. */\n    }\n    part def Greenhouse {\n        doc /* A glass greenhouse for seedlings. */\n    }\n    part def Garden {\n        doc /* The whole back garden with its two buildings. */\n        part shed : Shed;\n        part greenhouse : Greenhouse;\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     },
+     "toolCalls": [
+      {
+       "id": "c2",
+       "name": "explain_diagnostic",
+       "arguments": {
+        "code": "unresolved"
+       }
+      }
+     ]
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Garden {\n    part def Shed {\n        doc /* A wooden shed that stores the garden tools. */\n    }\n    part def Greenhouse {\n        doc /* A glass greenhouse for seedlings. */\n    }\n    part def Garden {\n        doc /* The whole back garden with its two buildings. */\n        part shed : Shed;\n        part greenhouse : Greenhouse;\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "V01/mcp/2": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     },
+     "toolCalls": [
+      {
+       "id": "c3",
+       "name": "tool_catalog",
+       "arguments": {}
+      }
+     ]
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Garden {\n    part def Shed {\n        doc /* A wooden shed that stores the garden tools. */\n    }\n    part def Greenhouse {\n        doc /* A glass greenhouse for seedlings. */\n    }\n    part def Garden {\n        doc /* The whole back garden with its two buildings. */\n        part shed : Shed;\n        part greenhouse : Greenhouse;\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "S02/compiler/1": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Laptop {\n    private import ScalarValues::*;\n\n    part def Laptop {\n        attribute serialNumber : String;\n        attribute screenSizeInches : Real;\n        attribute memoryGigabytes : Integer;\n        attribute isTouchscreen : Boolean;\n    \n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Laptop {\n    private import ScalarValues::*;\n\n    part def Laptop {\n        attribute serialNumber : String;\n        attribute screenSizeInches : Real;\n        attribute memoryGigabytes : Integer;\n        attribute isTouchscreen : Boolean;\n    \n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Laptop {\n    private import ScalarValues::*;\n\n    part def Laptop {\n        attribute serialNumber : String;\n        attribute screenSizeInches : Real;\n        attribute memoryGigabytes : Integer;\n        attribute isTouchscreen : Boolean;\n    \n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Laptop {\n    private import ScalarValues::*;\n\n    part def Laptop {\n        attribute serialNumber : String;\n        attribute screenSizeInches : Real;\n        attribute memoryGigabytes : Integer;\n        attribute isTouchscreen : Boolean;\n    \n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "S02/mcp/1": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     },
+     "toolCalls": [
+      {
+       "id": "c4",
+       "name": "symbol",
+       "arguments": {
+        "symbolId": "ScalarValues::Real"
+       }
+      }
+     ]
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Laptop {\n    private import ScalarValues::*;\n\n    part def Laptop {\n        attribute serialNumber : String;\n        attribute screenSizeInches : Real;\n        attribute memoryGigabytes : Integer;\n        attribute isTouchscreen : Boolean;\n    \n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Laptop {\n    private import ScalarValues::*;\n\n    part def Laptop {\n        attribute serialNumber : String;\n        attribute screenSizeInches : Real;\n        attribute memoryGigabytes : Integer;\n        attribute isTouchscreen : Boolean;\n    \n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Laptop {\n    private import ScalarValues::*;\n\n    part def Laptop {\n        attribute serialNumber : String;\n        attribute screenSizeInches : Real;\n        attribute memoryGigabytes : Integer;\n        attribute isTouchscreen : Boolean;\n    \n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Laptop {\n    private import ScalarValues::*;\n\n    part def Laptop {\n        attribute serialNumber : String;\n        attribute screenSizeInches : Real;\n        attribute memoryGigabytes : Integer;\n        attribute isTouchscreen : Boolean;\n    \n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "S02/compiler/2": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Laptop {\n    private import ScalarValues::*;\n\n    part def Laptop {\n        attribute serialNumber : String;\n        attribute screenSizeInches : Real;\n        attribute memoryGigabytes : Integer;\n        attribute isTouchscreen : Boolean;\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ],
+  "S02/mcp/2": [
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     },
+     "toolCalls": [
+      {
+       "id": "c5",
+       "name": "validate_instance",
+       "arguments": {
+        "symbolId": "Nothing"
+       }
+      }
+     ]
+    }
+   },
+   {
+    "requestDigest": "",
+    "response": {
+     "content": "package Laptop {\n    private import ScalarValues::*;\n\n    part def Laptop {\n        attribute serialNumber : String;\n        attribute screenSizeInches : Real;\n        attribute memoryGigabytes : Integer;\n        attribute isTouchscreen : Boolean;\n    }\n}\n",
+     "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20
+     }
+    }
+   }
+  ]
+ }
+}

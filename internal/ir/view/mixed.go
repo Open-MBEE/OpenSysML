@@ -145,8 +145,8 @@ func (w *mixedWalk) packageNode(sym *symbols.Symbol, exposed bool) *Node {
 		name = w.r.notationName(sym)
 	}
 	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name,
-		NameSynthesized: w.r.model.NameSynthesized(sym), Type: declType(sym),
-		Typings: w.r.declTypings(sym), Origin: symbolOrigin(sym),
+		NameSynthesized: w.r.model.NameSynthesized(sym), Type: w.r.headType(sym),
+		Typings: w.r.headTypings(sym), Origin: symbolOrigin(sym),
 		Geometry: w.r.geometryOf(w.view, sym, w.out)}
 	w.r.dress(w.view, sym, node, w.out)
 	return node
@@ -282,6 +282,7 @@ func (w *mixedWalk) renderStructures() {
 	w.out.Edges = append(w.out.Edges, temp.Edges...)
 	w.out.Notes = append(w.out.Notes, temp.Notes...)
 	w.out.Notices = append(w.out.Notices, temp.Notices...)
+	w.out.depthCut += temp.depthCut
 }
 
 // renderDeferredStructureMembers attaches members after their structural owners are indexed.
@@ -343,12 +344,14 @@ func (w *mixedWalk) removeStructuralSlots() {
 	}
 }
 
-// mixedStructural reports symbols rendered through the interconnection builder.
+// mixedStructural reports symbols rendered through the interconnection builder:
+// the structures, and the constraints bound to their values.
 func mixedStructural(sym *symbols.Symbol) bool {
 	switch sym.Kind {
 	case symbols.SymbolPartDef, symbols.SymbolPartUsage, symbols.SymbolItemDef, symbols.SymbolItemUsage,
 		symbols.SymbolPortDef, symbols.SymbolPortUsage, symbols.SymbolConnectionDef, symbols.SymbolConnectionUsage,
-		symbols.SymbolInterfaceDef, symbols.SymbolInterfaceUsage, symbols.SymbolAllocationDef, symbols.SymbolAllocationUsage:
+		symbols.SymbolInterfaceDef, symbols.SymbolInterfaceUsage, symbols.SymbolAllocationDef, symbols.SymbolAllocationUsage,
+		symbols.SymbolConstraintDef, symbols.SymbolConstraintUsage:
 		return true
 	}
 	return false

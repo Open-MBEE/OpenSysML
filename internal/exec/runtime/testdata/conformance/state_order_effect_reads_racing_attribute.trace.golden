@@ -1,0 +1,24 @@
+choice on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first; order-dependent: last)
+exit: a1
+stmt assign last
+  eval literal 1 -> 1
+enter: a2
+transition: a1 -> a2 (event: accept Go)
+exit: b1
+stmt assign last
+  eval literal 2 -> 2
+enter: b2
+transition: b1 -> b2 (event: accept Go)
+choice exiting work: next a2(exit), b2(exit) (unordered; took a2(exit) first; independent)
+exit: a2
+exit: b2
+exit: work
+stmt action body
+  stmt assign computed
+      eval feature last -> 2
+      eval literal 1 -> 1
+    eval operator + -> 3
+  stmt assign fixed
+    eval literal 5 -> 5
+enter: settled
+transition: work -> settled (event: accept Next)

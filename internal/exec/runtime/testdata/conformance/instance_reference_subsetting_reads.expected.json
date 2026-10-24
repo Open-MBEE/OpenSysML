@@ -1,0 +1,14 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::rig",
+  "slots": {
+    "own.id": {"type": "Integer", "value": 7},
+    "viaOwn": {"type": "Instance"},
+    "viaOwn.id": {"type": "Integer", "value": 7},
+    "viaSpare.id": {"type": "Integer", "value": 9},
+    "viaCargo": {"type": "Instance"},
+    "viaCargo.mass": {"type": "Real", "value": 2.5},
+    "viaGo": {"type": "Instance"}
+  }
+}

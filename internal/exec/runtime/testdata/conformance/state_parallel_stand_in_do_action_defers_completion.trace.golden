@@ -1,0 +1,26 @@
+do: R
+stmt action body
+enter action node: state behavior work
+  stmt assign log
+      eval feature log -> ""
+      eval literal "do1;" -> "do1;"
+    eval operator + -> "do1;"
+do: R
+  stmt assign log
+      eval feature log -> "do1;"
+      eval literal "do2;" -> "do2;"
+    eval operator + -> "do1;do2;"
+leave action node: state behavior work
+exit: S (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "do1;do2;"
+      eval literal "S(exit);" -> "S(exit);"
+    eval operator + -> "do1;do2;S(exit);"
+enter: finished (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "do1;do2;S(exit);"
+      eval literal "finished(entry);" -> "finished(entry);"
+    eval operator + -> "do1;do2;S(exit);finished(entry);"
+transition: S -> finished

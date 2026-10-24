@@ -83,7 +83,7 @@
       "%calc Speed 42.195 [SI::km] 2 [SI::h]"
      ],
      "expect": [
-      "= 2813/480 [SI::'m/s']"
+      "= [2813/480 [SI::'m/s']]"
      ]
     },
     {
@@ -127,12 +127,12 @@
     },
     {
      "title": "A gap that only the runtime finds",
-     "text": "<code>saturnVWithIU</code> adds an instrument unit that declares a <code>mass</code> but never gives it a value. That is legal SysML, so validation finds nothing wrong. The rollup is where the missing value shows up.",
+     "text": "<code>saturnVWithIU</code> adds an instrument unit that declares a <code>mass</code> but never gives it a value. That is legal SysML, so validation finds nothing wrong. The rollup is where the missing value shows up: a total nothing determines is <code>&lt;undetermined&gt;</code>, not a number.",
      "input": [
       "%eval MassRollup::saturnVWithIU.totalMass"
      ],
      "expect": [
-      "no value for feature mass"
+      "= <undetermined>"
      ]
     },
     {
@@ -168,7 +168,7 @@
       "%calc DeltaVBudget::RocketEquation 421 [SI::s] 9.80665 [SI::'m/s²'] 133000 [SI::kg] 28000 [SI::kg]"
      ],
      "expect": [
-      "= 6432.955324716369 [SI::'m/s']"
+      "= [6432.955324716369 [SI::'m/s']]"
      ]
     },
     {
@@ -251,7 +251,7 @@
    "steps": [
     {
      "title": "An action flow with a decision",
-     "text": "<code>LunarMission</code> is a sequence of burns that spends a delta-v budget, with a <code>decide</code> node that skips the landing if too little is left after lunar orbit insertion.",
+     "text": "<code>LunarMission</code> is a sequence of burns that spends a delta-v budget, with a <code>decide</code> node that skips the landing if too little is left after lunar orbit insertion, and an <code>accept</code> that holds the landing until mission control's GO arrives.",
      "input": [
       "%load examples/runtime-showcase/mission-sequence.sysml"
      ],
@@ -260,50 +260,65 @@
      ]
     },
     {
-     "title": "Start the action on an object",
-     "text": "Apollo 11 performs the mission. <code>%action</code> starts a debugger on the action, which waits with one token at the start.",
+     "title": "Attach to the action on an object",
+     "text": "Apollo 11 performs the mission as it is created. <code>%action</code> on the object attaches to that performance rather than starting a second one. It has already burned its way to lunar orbit and is waiting.",
      "input": [
       "%instantiate MissionSequence::apollo11",
       "%action MissionSequence::Flight::mission MissionSequence::apollo11"
      ],
      "expect": [
-      "Started action executor"
+      "attaches to that running performance",
+      "State: Waiting"
      ]
     },
     {
-     "title": "Step it and look at the token",
-     "text": "Each <code>%step</code> moves the token one node. <code>%tokens</code> shows where the token is and the value of <code>remaining</code> so far.",
+     "title": "Where the token waits",
+     "text": "<code>%tokens</code> shows the one token parked at <code>awaitGo</code>, the <code>accept</code> of a <code>GoForDescent</code> signal, with 5 450 m/s left after two burns. <code>%step</code> cannot move it: nothing in the model has sent the GO.",
      "input": [
-      "%step",
+      "%tokens",
+      "%step"
+     ],
+     "expect": [
+      "Token 1 @ awaitGo",
+      "remaining = 5450 ['m/s']",
+      "State: Waiting"
+     ]
+    },
+    {
+     "title": "Give the GO",
+     "text": "<code>%send</code> posts the signal to the object the session is attached to, as mission control would. The accept takes it on the next <code>%step</code>, and the token moves on to <code>descent</code>.",
+     "input": [
+      "%send GoForDescent",
       "%step",
       "%tokens"
      ],
      "expect": [
-      "Token 1 @ lunarOrbitInsertion",
-      "remaining = 6350 ['m/s']"
+      "waiting at accept go",
+      "Token 1 @ descent"
      ]
     },
     {
-     "title": "Run it to the end",
-     "text": "Enough delta-v is left, so the decision takes the landing branch.",
+     "title": "Land and come home",
+     "text": "<code>%continue</code> runs the rest of the flow. The descent, surface operations and ascent spend the budget down to 480 m/s, and the landing branch sets <code>landed</code>.",
      "input": [
       "%continue"
      ],
      "expect": [
-      "landed = true",
+      "landed = [true]",
       "remaining = 480 ['m/s']"
      ]
     },
     {
      "title": "Apollo 8 takes the other branch",
-     "text": "Apollo 8 carries 4 000 m/s less. The same flow run on that object skips the landing.",
+     "text": "Apollo 8 carries 4 000 m/s less. The same flow on that object skips the landing, so it never waits for a GO: its performance has already completed when the session attaches.",
      "input": [
       "%instantiate MissionSequence::apollo8",
       "%action MissionSequence::Flight::mission MissionSequence::apollo8",
       "%continue"
      ],
      "expect": [
-      "landed = false",
+      "State: Completed",
+      "landed = [false]",
       "remaining = 450 ['m/s']"
      ]
     },

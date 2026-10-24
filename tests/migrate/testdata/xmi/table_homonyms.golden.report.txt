@@ -14,37 +14,37 @@
 «DependencyMatrix» Diagram	Shop::Orphan Matrix	_mx_orphan	(MatrixFilter: no filter application names the diagram)
 
 ## approximated (6)
-Diagram	Shop::Ambiguous Scope	_diag_ambiguous	-> Shop::'Ambiguous Scope'	(a SysML Instance Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
-Diagram	Shop::Dangling Scope	_diag_dangling	-> Shop::'Dangling Scope'	(a SysML Instance Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
-Diagram	Shop::No Classifier	_diag_no_classifier	-> Shop::'No Classifier'	(a SysML Instance Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
-Diagram	Shop::Orphan Matrix	_diag_orphan_matrix	-> Shop::'Orphan Matrix'	(a Dependency Matrix written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
-Property	Shop::Report::a	_prop_report_a	-> Shop::Report::a	(typed by library element  with no known v2 counterpart; type http://example.com/modules/Warehouse.xmi#_shared lives outside the document and is not written)
-Property	Shop::Report::b	_prop_report_b	-> Shop::Report::b	(typed by library element  with no known v2 counterpart; type http://example.com/modules/Storefront.xmi#_shared lives outside the document and is not written)
+Diagram	Shop::Ambiguous Scope	_diag_ambiguous	-> Model::Shop::'Ambiguous Scope'	(a SysML Instance Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
+Diagram	Shop::Dangling Scope	_diag_dangling	-> Model::Shop::'Dangling Scope'	(a SysML Instance Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
+Diagram	Shop::No Classifier	_diag_no_classifier	-> Model::Shop::'No Classifier'	(a SysML Instance Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
+Diagram	Shop::Orphan Matrix	_diag_orphan_matrix	-> Model::Shop::'Orphan Matrix'	(a Dependency Matrix written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
+Property	Shop::Report::a	_prop_report_a	-> Model::Shop::Report::a	(typed by library element  with no known v2 counterpart; type http://example.com/modules/Warehouse.xmi#_shared lives outside the document and is not written)
+Property	Shop::Report::b	_prop_report_b	-> Model::Shop::Report::b	(typed by library element  with no known v2 counterpart; type http://example.com/modules/Storefront.xmi#_shared lives outside the document and is not written)
 
 ## mapped (23)
-Model	Model	_m	(the root model's members are written at the top level)
-Package	Shop	_pkg_shop	-> Shop
-Profile	Shop Profile	_shop_profile	-> 'Shop Profile'
-Stereotype	Shop Profile::Document	_st_shop_document	-> 'Shop Profile'::Document
-Stereotype	Shop Profile::InstanceTable	_st_shop_instances	-> 'Shop Profile'::InstanceTable
-Property	Shop Profile::InstanceTable::scope	_st_shop_instances_scope	-> 'Shop Profile'::InstanceTable::scope
-Stereotype	Shop Profile::TableStructure	_st_shop_table	-> 'Shop Profile'::TableStructure
-Property	Shop Profile::TableStructure::rows	_st_shop_table_rows	-> 'Shop Profile'::TableStructure::rows
-Diagram	Shop::Bad Sort	_diag_bad_sort	-> Shop::'Bad Sort'	(a SysML Instance Table written as a view rendered asElementTable)
-Diagram	Shop::Broken Matrix	_diag_broken_matrix	-> Shop::'Broken Matrix'	(a Dependency Matrix written as a view rendered asElementTable)
-«Block» Class	Shop::Catalog	_blk_catalog	-> Shop::Catalog
-«RelationMap» Diagram	Shop::Catalog Map	_map_catalog	-> part def Shop::'Catalog Map Document'	(the «RelationMap» is written as a Document holding a Table over the query 'Catalog Map Rows')
-Diagram	Shop::Catalog Map	_diag_catalog_map	-> Shop::'Catalog Map'	(a Relation Map written as a view rendered asTreeDiagram)
-Diagram	Shop::Catalog Table	_diag_shop_table	-> Shop::'Catalog Table'	(a SysML Instance Table written as a view rendered asElementTable)
-Property	Shop::Catalog::price	_prop_price	-> Shop::Catalog::price
-Diagram	Shop::Custom Table	_diag_custom_table	-> Shop::'Custom Table'	(a Generic Table written as a view rendered asElementTable)
-Diagram	Shop::Deep Map	_diag_deep_map	-> Shop::'Deep Map'	(a Relation Map written as a view rendered asTreeDiagram)
-Diagram	Shop::Ghost Column	_diag_ghost_column	-> Shop::'Ghost Column'	(a Generic Table written as a view rendered asElementTable)
-«Block» Class	Shop::Ledger	_blk_ledger	-> Shop::Ledger
-«Block» Class	Shop::Report	_blk_report	-> Shop::Report	(«Document» from http://www.magicdraw.com/schemas/manual/Document_Profile_Custom.xmi is applied from a profile the document does not define; the application is kept as a comment)
-«Block» Class	Shop::SeasonalCatalog	_blk_seasonal	-> Shop::SeasonalCatalog
-InstanceSpecification	Shop::c1	_inst_c1	-> Shop::c1
-Slot	Shop::c1::<Slot>	_slot_c1_price	-> Shop::c1::price
+Model	Model	_m	-> Model	(written as package Model)
+Package	Shop	_pkg_shop	-> Model::Shop
+Profile	Shop Profile	_shop_profile	-> Model::'Shop Profile'
+Stereotype	Shop Profile::Document	_st_shop_document	-> Model::'Shop Profile'::Document
+Stereotype	Shop Profile::InstanceTable	_st_shop_instances	-> Model::'Shop Profile'::InstanceTable
+Property	Shop Profile::InstanceTable::scope	_st_shop_instances_scope	-> Model::'Shop Profile'::InstanceTable::scope
+Stereotype	Shop Profile::TableStructure	_st_shop_table	-> Model::'Shop Profile'::TableStructure
+Property	Shop Profile::TableStructure::rows	_st_shop_table_rows	-> Model::'Shop Profile'::TableStructure::rows
+Diagram	Shop::Bad Sort	_diag_bad_sort	-> Model::Shop::'Bad Sort'	(a SysML Instance Table written as a view rendered asElementTable)
+Diagram	Shop::Broken Matrix	_diag_broken_matrix	-> Model::Shop::'Broken Matrix'	(a Dependency Matrix written as a view rendered asElementTable)
+«Block» Class	Shop::Catalog	_blk_catalog	-> Model::Shop::Catalog
+«RelationMap» Diagram	Shop::Catalog Map	_map_catalog	-> part def Model::Shop::'Catalog Map Document'	(the «RelationMap» is written as a Document holding a Table over the query 'Catalog Map Rows')
+Diagram	Shop::Catalog Map	_diag_catalog_map	-> Model::Shop::'Catalog Map'	(a Relation Map written as a view rendered asTreeDiagram)
+Diagram	Shop::Catalog Table	_diag_shop_table	-> Model::Shop::'Catalog Table'	(a SysML Instance Table written as a view rendered asElementTable)
+Property	Shop::Catalog::price	_prop_price	-> Model::Shop::Catalog::price
+Diagram	Shop::Custom Table	_diag_custom_table	-> Model::Shop::'Custom Table'	(a Generic Table written as a view rendered asElementTable)
+Diagram	Shop::Deep Map	_diag_deep_map	-> Model::Shop::'Deep Map'	(a Relation Map written as a view rendered asTreeDiagram)
+Diagram	Shop::Ghost Column	_diag_ghost_column	-> Model::Shop::'Ghost Column'	(a Generic Table written as a view rendered asElementTable)
+«Block» Class	Shop::Ledger	_blk_ledger	-> Model::Shop::Ledger
+«Block» Class	Shop::Report	_blk_report	-> Model::Shop::Report	(«Document» from http://www.magicdraw.com/schemas/manual/Document_Profile_Custom.xmi is applied from a profile the document does not define; the application is kept as metadata)
+«Block» Class	Shop::SeasonalCatalog	_blk_seasonal	-> Model::Shop::SeasonalCatalog
+InstanceSpecification	Shop::c1	_inst_c1	-> Model::Shop::c1
+Slot	Shop::c1::<Slot>	_slot_c1_price	-> Model::Shop::c1::price
 
 ## skipped (6)
 Extension	Shop Profile::<Extension>	_ext_shop_table	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)

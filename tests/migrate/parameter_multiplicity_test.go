@@ -81,7 +81,8 @@ func TestRedeclaredParametersKeepTheirDeclaredMultiplicity(t *testing.T) {
 	for _, line := range []string{
 		"in x : ScalarValues::Real[0..1];",
 		"in y : ScalarValues::Real[1];",
-		"action adjust : Adjust { in ref :>> context = Drive::context; in x[0..1]; in y[1]; }",
+		"flow two.result to adjust.x;",
+		"flow two.result to adjust.y;",
 	} {
 		wantLine(t, r.Notation, line)
 	}

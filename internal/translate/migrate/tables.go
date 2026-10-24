@@ -332,8 +332,8 @@ func summarizeMissing(items []string, many, one string) []string {
 }
 
 // topLevelNames lists the written top-level elements of the user model, the
-// members of the global namespace a whole-model scope starts from: the roots'
-// members and the views of the diagrams written there.
+// members of the global namespace a whole-model scope starts from: the roots
+// and the views of the diagrams written there.
 func (m *migration) topLevelNames() []string {
 	var names []string
 	add := func(c *sysmlv1.Element) {
@@ -342,14 +342,8 @@ func (m *migration) topLevelNames() []string {
 		}
 	}
 	for _, r := range m.model.Roots {
-		switch {
-		case m.isLibrary(r):
-		case r.Type != "Model":
+		if !m.isLibrary(r) {
 			add(r)
-		default:
-			for _, c := range r.Children {
-				add(c)
-			}
 		}
 	}
 	for _, v := range m.hosted[nil] {
@@ -388,7 +382,7 @@ func (m *migration) plainName(e *sysmlv1.Element) string {
 	return strings.Join(segments, "::")
 }
 
-// typedRows filters src by the row types; individuals only for an instance table.
+// typedRows filters src by the row types; package-owned usages only for an instance table.
 func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, individuals bool, l *lowered) qx {
 	if len(types) == 0 {
 		if individuals {
@@ -402,56 +396,152 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 	}
 	rows := src
 	if !typesAdmitAll(filters, l) {
-		var metadata uniqueNames
-		var filtersToMerge []typeFilter
-		var qs []qx
-		for _, f := range filters {
-			switch {
-			case f.refused != "" && len(filters) == 1:
-				l.refuse(f.refused)
-				return src
-			case f.refused != "":
-				l.note("elements of type " + f.label + " are not listed: " + f.refused)
-			case len(f.classifiers) > 0:
-				l.note(f.note)
-				for _, c := range f.classifiers {
-					filtersToMerge = append(filtersToMerge, typeFilter{types: []string{m.plainName(c)}})
-				}
-			case f.metadata != "":
-				metadata.add(f.metadata)
-			default:
-				l.note(f.note)
-				filtersToMerge = append(filtersToMerge, f)
-			}
-		}
-		var merged typeFilter
-		if len(filtersToMerge) > 0 {
-			merged = mergeTypeFilters(filtersToMerge)
-		}
-		source := src
-		if (merged.excluding != nil || len(merged.usages) > 0) && !l.perRow {
-			source = qshared(src)
-		}
-		if len(filtersToMerge) > 0 {
-			qs = append(qs, merged.query(source))
-		}
-		if len(metadata) > 0 {
-			qs = append(qs, qcall("WhereMetadata", qarg1("source", source), qstrs("'metadata'", metadata...)))
-		}
-		if len(qs) == 0 {
-			l.refuse("none of the element types has a v2 form rows could be filtered by")
+		var ok bool
+		if rows, ok = m.filteredRows(src, filters, individuals, l); !ok {
 			return src
 		}
-		rows = union(qs)
 	}
 	if !subtypes {
 		l.note("rows of subtypes of the row types are listed too: a type filter admits conforming elements")
 	}
 	if individuals {
-		rows = qcall("WhereFeature", qarg1("source", whereType(rows, "Definition")), qarg1("'feature'", qstr("isIndividual")),
-			qarg1("operator", qstr("=")), qarg1("value", qstr("true")))
+		rows = m.exceptSynthesizedUsages(packageOwnedUsages(whereType(rows, "Usage"), src, l.roots))
 	}
 	return rows
+}
+
+// typeFilterGroups sorts a table's type filters by how their rows are found:
+// those one query merges, the metadata names, and the classifiers written as usages.
+type typeFilterGroups struct {
+	toMerge              []typeFilter
+	metadata             uniqueNames
+	classifierUsageNames uniqueNames
+}
+
+// groupTypeFilters notes and groups each filter; false when the one filter is refused.
+func (m *migration) groupTypeFilters(filters []typeFilter, l *lowered) (typeFilterGroups, bool) {
+	var g typeFilterGroups
+	for _, f := range filters {
+		switch {
+		case f.refused != "" && len(filters) == 1:
+			l.refuse(f.refused)
+			return g, false
+		case f.refused != "":
+			l.note("elements of type " + f.label + " are not listed: " + f.refused)
+		case len(f.classifiers) > 0:
+			l.note(f.note)
+			for _, c := range f.classifiers {
+				name := m.plainName(c)
+				g.toMerge = append(g.toMerge, typeFilter{types: []string{name}})
+				if cat, _ := m.classify(c); slices.Contains(classifierUsages, cat) {
+					g.classifierUsageNames.add(name)
+				}
+			}
+		case f.metadata != "":
+			g.metadata.add(f.metadata)
+		default:
+			l.note(f.note)
+			g.toMerge = append(g.toMerge, f)
+		}
+	}
+	return g, true
+}
+
+// filteredRows narrows src to the rows the filters admit; false when none has
+// a v2 form rows could be filtered by.
+func (m *migration) filteredRows(src qx, filters []typeFilter, individuals bool, l *lowered) (qx, bool) {
+	groups, ok := m.groupTypeFilters(filters, l)
+	if !ok {
+		return src, false
+	}
+	var merged typeFilter
+	if len(groups.toMerge) > 0 {
+		merged = mergeTypeFilters(groups.toMerge)
+	}
+	source := src
+	if (merged.excluding != nil || len(merged.usages) > 0 || merged.instances) && !l.perRow {
+		source = qshared(src)
+	}
+	var qs []qx
+	if len(groups.toMerge) > 0 && !(merged.instances && len(merged.types) == 0 && len(merged.usages) == 0) {
+		qs = append(qs, merged.query(source))
+	}
+	if merged.instances {
+		qs = append(qs, m.instanceRows(source, merged.usages, l))
+	}
+	if len(groups.metadata) > 0 {
+		qs = append(qs, qcall("WhereMetadata", qarg1("source", source), qstrs("'metadata'", groups.metadata...)))
+	}
+	if len(qs) == 0 {
+		l.refuse("none of the element types has a v2 form rows could be filtered by")
+		return src, false
+	}
+	rows := union(qs)
+	if individuals && len(groups.classifierUsageNames) > 0 {
+		// A classifier written as a usage conforms to itself, and is no instance of itself.
+		rows = qcall("Except", qarg1("source", rows), qarg1("exclude", qcall("Named", qstrs("qualifiedName", groups.classifierUsageNames...))))
+	}
+	return rows, true
+}
+
+// instanceRows are the package-owned usages of source that stand for v1
+// instance specifications; listedUsages are the ones the table lists by name.
+func (m *migration) instanceRows(source qx, listedUsages []string, l *lowered) qx {
+	// A link is a connection usage, as the lines of a use case diagram are;
+	// a migration marker is a metadata usage. Neither is an instance.
+	links := qcall("Union", qarg1("source", whereType(source, "ConnectionUsage")), qarg1("other", whereType(source, "MetadataUsage")))
+	instances := qcall("Except", qarg1("source", whereType(source, "Usage")), qarg1("exclude", links))
+	// An actor, use case or requirement is a package-owned usage too, and no instance.
+	var classifiers uniqueNames
+	for _, name := range m.nameUsages(typeFilter{usageKinds: classifierUsages}).usages {
+		if !slices.Contains(listedUsages, name) {
+			classifiers.add(name)
+		}
+	}
+	if len(classifiers) > 0 {
+		instances = qcall("Except", qarg1("source", instances), qarg1("exclude", qcall("Named", qstrs("qualifiedName", classifiers...))))
+	}
+	return m.exceptSynthesizedUsages(packageOwnedUsages(instances, source, l.roots))
+}
+
+// exceptSynthesizedUsages drops the package-owned usages the migration wrote
+// for definitions a connection joins (planAssociations, the use case lines),
+// which stand for no v1 instance specification.
+func (m *migration) exceptSynthesizedUsages(rows qx) qx {
+	var names uniqueNames
+	for _, byDef := range m.defUsages {
+		for _, u := range byDef {
+			if u.self {
+				continue
+			}
+			if host := m.plainName(u.host); host != "" {
+				names.add(host + "::" + queryName(u.name))
+			} else {
+				names.add(queryName(u.name))
+			}
+		}
+	}
+	if len(names) == 0 {
+		return rows
+	}
+	slices.Sort(names)
+	return qcall("Except", qarg1("source", rows), qarg1("exclude", qcall("Named", qstrs("qualifiedName", names...))))
+}
+
+// packageOwnedUsages keeps the usages a package owns — the scope's instances —
+// dropping those nested in a type the scope's packages own or that a root is.
+func packageOwnedUsages(rows, src qx, roots []string) qx {
+	packages := whereType(src, "Package")
+	var members qx
+	if len(roots) > 0 {
+		named := qcall("Named", qstrs("qualifiedName", roots...))
+		packages = qcall("Union", qarg1("source", whereType(named, "Package")), qarg1("other", packages))
+		members = qcall("Union", qarg1("source", named), qarg1("other", qcall("Descendants", qarg1("source", packages), qarg1("maxDepth", qlit("1")))))
+	} else {
+		members = qcall("Descendants", qarg1("source", packages), qarg1("maxDepth", qlit("1")))
+	}
+	nested := qcall("Descendants", qarg1("source", whereType(members, "Type")))
+	return qcall("Except", qarg1("source", rows), qarg1("exclude", nested))
 }
 
 // typesAdmitAll reports whether one of the filters admits every element, which
@@ -495,7 +585,7 @@ func union(qs []qx) qx {
 // queryProperties maps the UML properties a column or sort reads to the query
 // properties the row's migrated element has. A requirement's Id and Text tags
 // are written as its short name and documentation; the classifier of an
-// instance is the general of the individual it became.
+// instance is the general of the usage it became.
 var queryProperties = map[string]string{
 	"name":          "name",
 	"documentation": "documentation",
@@ -651,7 +741,7 @@ func (m *migration) sorted(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, l *
 // isDefinition reports whether e migrates to a definition a feature can belong to.
 func (m *migration) isDefinition(e *sysmlv1.Element) bool {
 	cat, _ := m.classify(e)
-	return cat.keyword() != "" && cat != catPackage
+	return cat.keyword() != "" && cat != catPackage && !cat.usage()
 }
 
 func columnByID(t *sysmlv1.Table, id string) (sysmlv1.Column, bool) {
@@ -846,7 +936,7 @@ func (p *projection) build(source qx) (project qx, notes []string) {
 		}
 		name := names.claim(e.name)
 		if name != e.name {
-			notes = append(notes, columnSubject+e.name+" is written as "+name+", headed "+e.name+": column names are unique")
+			notes = append(notes, columnSubject+e.name+isWrittenAs+name+", headed "+e.name+": column names are unique")
 		}
 		cols = append(cols, qcall("Column", qarg1("name", qstr(name)), qarg1(e.argument, e.expression)))
 		widths = append(widths, e.width)
@@ -1010,7 +1100,7 @@ func (m *migration) lowerMatrix(t *sysmlv1.Table, host *sysmlv1.Element, l *lowe
 				name += " (" + dir + ")"
 			}
 			if unique := names.claim(name); unique != name {
-				l.note(columnSubject + name + " is written as " + unique + ": column names are unique")
+				l.note(columnSubject + name + isWrittenAs + unique + ": column names are unique")
 				name = unique
 			}
 			related = append(related, qcall("RelatedColumn", qarg1("name", qstr(name)),

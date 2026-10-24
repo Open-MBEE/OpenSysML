@@ -58,12 +58,12 @@ func testViaBoundReferenceHoldsAPart(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, hostViaBinding(
 		"in ref tx : Device;", "in ref :>> tx = device;",
 	), "test::Host")
-	var typed *ViaNotPortError
+	var typed *viaNotPortError
 	if !errors.As(err, &typed) || typed.Via != "tx" {
-		t.Fatalf("error = %v, want ViaNotPortError for tx", err)
+		t.Fatalf("error = %v, want viaNotPortError for tx", err)
 	}
-	if !errors.Is(err, ErrSendViaNotPort) || !strings.Contains(err.Error(), `"tx" holds`) {
-		t.Fatalf("error = %v, want ErrSendViaNotPort naming the binding", err)
+	if !errors.Is(err, errSendViaNotPort) || !strings.Contains(err.Error(), `"tx" holds`) {
+		t.Fatalf("error = %v, want errSendViaNotPort naming the binding", err)
 	}
 }
 
@@ -73,12 +73,12 @@ func testViaBoundReferenceHoldsAValue(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, hostViaBinding(
 		"in tx : Integer;", "in :>> tx = count;",
 	), "test::Host")
-	var typed *SendTargetValueError
-	if !errors.As(err, &typed) || typed.Target != "tx" || typed.Name != "tx" || typed.Value != "3" {
-		t.Fatalf("error = %v, want SendTargetValueError for tx holding 3", err)
+	var typed *sendTargetValueError
+	if !errors.As(err, &typed) || typed.Target != "tx" || typed.Name != "tx" || typed.Value != "[3]" {
+		t.Fatalf("error = %v, want sendTargetValueError for tx holding [3]", err)
 	}
-	if !errors.Is(err, ErrSendTargetNotObject) {
-		t.Fatalf("error = %v, want ErrSendTargetNotObject", err)
+	if !errors.Is(err, errSendTargetNotObject) {
+		t.Fatalf("error = %v, want errSendTargetNotObject", err)
 	}
 }
 
@@ -88,11 +88,11 @@ func testViaBoundReferenceHoldsTwoPorts(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, hostViaBinding(
 		"in ref port tx : PingOut[2];", "in ref port :>> tx = (device.tx, spare.tx);",
 	), "test::Host")
-	var typed *SendTargetValueError
+	var typed *sendTargetValueError
 	if !errors.As(err, &typed) || typed.Target != "tx" || typed.Name != "tx" {
-		t.Fatalf("error = %v, want SendTargetValueError for tx holding two ports", err)
+		t.Fatalf("error = %v, want sendTargetValueError for tx holding two ports", err)
 	}
-	if !errors.Is(err, ErrSendTargetNotObject) {
-		t.Fatalf("error = %v, want ErrSendTargetNotObject", err)
+	if !errors.Is(err, errSendTargetNotObject) {
+		t.Fatalf("error = %v, want errSendTargetNotObject", err)
 	}
 }

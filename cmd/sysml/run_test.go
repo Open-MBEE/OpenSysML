@@ -39,6 +39,16 @@ const behaviorModel = `package Mission {
         succession first accumulate then done;
     }
 
+    part def Drone;
+    use case chargeDrone {
+        subject drone : Drone;
+        attribute charge = 0;
+        first start;
+        then action plugDrone { assign charge := charge + 1; }
+        then action chargeDroneBatteries { assign charge := charge + 10; }
+        then done;
+    }
+
     state Cycle {
         entry; then init;
         state init;
@@ -147,9 +157,9 @@ func TestValidate(t *testing.T) {
 func TestRunCalc(t *testing.T) {
 	binary := buildCLI(t)
 
-	wantReport(t, check(t, binary, behaviorModel, "-calc", "Mission::Fall(3, 2)"), 0, "= 18")
+	wantReport(t, check(t, binary, behaviorModel, "-calc", "Mission::Fall(3, 2)"), 0, "= [18]")
 	// The prompt's spelling, arguments separated by spaces, is accepted too.
-	wantReport(t, check(t, binary, behaviorModel, "-calc", "Mission::Fall 3 2"), 0, "= 18")
+	wantReport(t, check(t, binary, behaviorModel, "-calc", "Mission::Fall 3 2"), 0, "= [18]")
 	wantReport(t, check(t, binary, behaviorModel, "-calc", "Mission::nosuch(1)"), 2, "unresolved reference: Mission::nosuch")
 	wantReport(t, check(t, binary, behaviorModel, "-calc", "Mission::Fall(3)"), 2, `parameter "g" has no argument`)
 }
@@ -195,8 +205,8 @@ func TestRunEvalDimensionOneIdentity(t *testing.T) {
 	binary := buildCLI(t)
 
 	cases := []struct{ expr, want string }{
-		{"P::rated.deliveredEnergy(120.0 [SI::s])", "= 67200.0 [SI::J]"},
-		{"P::rated2.deliveredEnergy(120.0 [SI::s])", "= 67200.0 [SI::J]"},
+		{"P::rated.deliveredEnergy(120.0 [SI::s])", "= [67200.0 [SI::J]]"},
+		{"P::rated2.deliveredEnergy(120.0 [SI::s])", "= [67200.0 [SI::J]]"},
 		{"P::rated.power * P::rated.efficiency", "= 560.0 [W]"},
 		{"0.7 [MeasurementReferences::one] * 800.0 [SI::W]", "= 560.0 [SI::W]"},
 		{"800.0 [SI::W] / 0.5 [MeasurementReferences::one]", "= 1600.0 [SI::W]"},
@@ -215,10 +225,10 @@ func TestRunEvalDimensionOneIdentity(t *testing.T) {
 func TestRunCalcQuantity(t *testing.T) {
 	binary := buildCLI(t)
 
-	wantReport(t, check(t, binary, quantityModel, "-calc", "Orbit::velocity(9.80665 [SI::'m⋅s⁻²'], 311 [SI::s])"), 0, "= 3049.86815 [SI::'m/s']")
-	wantReport(t, check(t, binary, quantityModel, "-calc", "Orbit::orbital(3.986E14 [Orbit::'m³⋅s⁻²'], 6563 [SI::km])"), 0, "= 7793.229127559948 [SI::'m/s']")
-	wantReport(t, check(t, binary, quantityModel, "-calc", "Orbit::orbital(3.986E14 [Orbit::'m³⋅s⁻²'], 6563000 [SI::m])"), 0, "= 7793.229127559948 [SI::'m/s']")
-	wantReport(t, check(t, binary, quantityModel, "-calc", "Orbit::perMass(10 [SI::N], 2 [SI::kg])"), 0, "= 5.0 [SI::'m⋅s⁻²']")
+	wantReport(t, check(t, binary, quantityModel, "-calc", "Orbit::velocity(9.80665 [SI::'m⋅s⁻²'], 311 [SI::s])"), 0, "= [3049.86815 [SI::'m/s']]")
+	wantReport(t, check(t, binary, quantityModel, "-calc", "Orbit::orbital(3.986E14 [Orbit::'m³⋅s⁻²'], 6563 [SI::km])"), 0, "= [7793.229127559948 [SI::'m/s']]")
+	wantReport(t, check(t, binary, quantityModel, "-calc", "Orbit::orbital(3.986E14 [Orbit::'m³⋅s⁻²'], 6563000 [SI::m])"), 0, "= [7793.229127559948 [SI::'m/s']]")
+	wantReport(t, check(t, binary, quantityModel, "-calc", "Orbit::perMass(10 [SI::N], 2 [SI::kg])"), 0, "= [5.0 [SI::'m⋅s⁻²']]")
 	wantReport(t, check(t, binary, quantityModel, "-eval", "6 [SI::km] / 3 [SI::km]"), 0, "= 2.0")
 }
 
@@ -258,24 +268,24 @@ func TestRunAnalysis(t *testing.T) {
 	binary := buildCLI(t)
 
 	wantReport(t, check(t, binary, analysisModel, "-analysis", "An::shipCost"), 0,
-		"✓ An::shipCost", "total = 12.0", "objective obj: satisfied")
+		"✓ An::shipCost", "total = [12.0]", "objective obj: satisfied")
 	wantReport(t, check(t, binary, analysisModel, "-instantiate", "An::ship", "-analysis", "An::Priced(0.5) An::ship"), 0,
-		`✓ An::Priced(0.5) on object #1 of "An::ship"`, "total = 18.0")
+		`✓ An::Priced(0.5) on object #1 of "An::ship"`, "total = [18.0]")
 	wantReport(t, check(t, binary, analysisModel, "-instantiate", "An::ship", "-analysis", "An::Priced(tax = 0.5, limit = 10.0) An::ship"), 1,
-		"✗ An::Priced(tax = 0.5, limit = 10.0)", "total = 18.0", "objective obj: not satisfied: total <= limit")
+		"✗ An::Priced(tax = 0.5, limit = 10.0)", "total = [18.0]", "objective obj: not satisfied: total <= limit")
 	wantReport(t, check(t, binary, analysisModel, "-instantiate", "An::Holder", "-analysis", "An::Holder::inner"), 0,
-		"✓ An::Holder::inner", "total = 12.0")
+		"✓ An::Holder::inner", "total = [12.0]")
 
 	// An objective typed by a requirement def binds the def's subject by keyword
 	// alone, and one binding none defaults to the case's result, of the wrong type here.
 	wantReport(t, check(t, binary, analysisModel, "-analysis", "An::cheap"), 0,
-		"✓ An::cheap", "r = 5.0", "objective obj: satisfied")
+		"✓ An::cheap", "r = [5.0]", "objective obj: satisfied")
 	wantReport(t, check(t, binary, analysisModel, "-analysis", "An::pricey"), 1,
-		"✗ An::pricey", "r = 9.0", "objective obj: not satisfied: it.cost < 6.0")
+		"✗ An::pricey", "r = [9.0]", "objective obj: not satisfied: it.cost < 6.0")
 	wantReport(t, check(t, binary, analysisModel, "-analysis", "An::unbound"), 2,
-		"? An::unbound", "r = 5.0", "objective obj: undecided: objective obj: subject it defaults to the case's result (Cases::Case::obj): type mismatch: 5.0 (a Real) is not a Ship")
+		"? An::unbound", "r = [5.0]", "objective obj: undecided: objective obj: subject it defaults to the case's result (Cases::Case::obj): type mismatch: 5.0 (a Real) is not a Ship")
 	wantReport(t, check(t, binary, analysisModel, "-analysis", "An::capped"), 1,
-		"✗ An::capped", "result = 9.0", "objective obj: not satisfied: c < 6.0")
+		"✗ An::capped", "result = [9.0]", "objective obj: not satisfied: c < 6.0")
 
 	wantReport(t, check(t, binary, analysisModel, "-analysis", "An::Priced(0.5)"), 2, "subject is unbound")
 	wantReport(t, check(t, binary, analysisModel, "-analysis", "An::Sum"), 2, "not an analysis case")
@@ -297,7 +307,7 @@ func TestRunAnalysis(t *testing.T) {
 		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.output())
 	}
 	if report.Status != "holds" || len(report.Checks) != 1 || len(report.Checks[0].Values) != 2 ||
-		report.Checks[0].Values[0].Name != "total" || report.Checks[0].Values[0].Value != "12.0" ||
+		report.Checks[0].Values[0].Name != "total" || report.Checks[0].Values[0].Value != "[12.0]" ||
 		report.Checks[0].Values[1].Name != "objective obj" || report.Checks[0].Values[1].Value != "satisfied" {
 		t.Errorf("report does not carry the outputs and verdict:\n%s", got.stdout)
 	}
@@ -313,6 +323,10 @@ func TestRunAction(t *testing.T) {
 	if strings.Contains(got.output(), "%step") {
 		t.Errorf("a non-interactive run advertised prompt commands:\n%s", got.output())
 	}
+
+	// A use case is an action (SysML v2 §7.19): -action runs its body; -analysis still refuses it.
+	wantReport(t, check(t, binary, behaviorModel, "-action", "Mission::chargeDrone"), 0, "✓ Action completed", "charge = 11")
+	wantReport(t, check(t, binary, behaviorModel, "-analysis", "Mission::chargeDrone"), 2, "not an analysis case")
 
 	wantReport(t, check(t, binary, behaviorModel, "-action", "Mission::Cycle"), 2, "is not an action")
 	wantReport(t, check(t, binary, behaviorModel, "-action", "Mission::nosuch"), 2, "unresolved reference: Mission::nosuch")
@@ -545,7 +559,7 @@ func TestRunUnderExplore(t *testing.T) {
 	got = check(t, binary, behaviorModel, "-schedule", "explore", "-calc", "Mission::Fall(3, 2)")
 	wantReport(t, got, 0, "✓ explored Mission::Fall: 1 outcome", "no choice points", "complete (1 runs)")
 	got = check(t, binary, analysisModel, "-schedule", "explore", "-analysis", "An::shipCost")
-	wantReport(t, got, 0, "✓ explored An::shipCost: 1 outcome", `objective obj = "satisfied"; total = 12.0`, "complete (1 runs)")
+	wantReport(t, got, 0, "✓ explored An::shipCost: 1 outcome", `objective obj = "satisfied"; total = [12.0]`, "complete (1 runs)")
 
 	for _, bad := range []string{"explore:", "explore:runs=0", "explore:depth=-1", "explore:bogus", "explore:runs=1,runs=2"} {
 		got := check(t, binary, forkModel, "-schedule", bad, "-action", "Mission::race")
@@ -976,7 +990,7 @@ func TestReportKeepsModelTextVerbatim(t *testing.T) {
 }`
 	const text = `"%state m %action a %instantiate x"`
 
-	wantReport(t, check(t, binary, model, "-calc", "Notes::Hint()"), 0, "= "+text)
+	wantReport(t, check(t, binary, model, "-calc", "Notes::Hint()"), 0, "= ["+text+"]")
 
 	got := check(t, binary, model, "-calc", "Notes::Hint()", "-json")
 	var report struct {
@@ -993,7 +1007,7 @@ func TestReportKeepsModelTextVerbatim(t *testing.T) {
 	if len(report.Checks) != 1 || len(report.Checks[0].Values) != 1 {
 		t.Fatalf("report carries no single value:\n%s", got.stdout)
 	}
-	if v := report.Checks[0].Values[0].Value; v != text {
+	if v, text := report.Checks[0].Values[0].Value, "["+text+"]"; v != text {
 		t.Errorf("value = %q, want %q", v, text)
 	}
 	if !strings.Contains(strings.Join(report.Checks[0].Lines, "\n"), text) {
@@ -1053,7 +1067,7 @@ func TestJSONReport(t *testing.T) {
 	if len(report.Checks) != 1 || len(report.Checks[0].Values) == 0 {
 		t.Fatalf("the calculation reported no value:\n%s", got.stdout)
 	}
-	if value := report.Checks[0].Values[0]; value.Name != "result" || value.Value != "18" {
+	if value := report.Checks[0].Values[0]; value.Name != "result" || value.Value != "[18]" {
 		t.Errorf("value = %s = %s, want result = 18", value.Name, value.Value)
 	}
 
@@ -1131,7 +1145,7 @@ func TestWarningsPrintBeforeTheLoadTheyQualify(t *testing.T) {
 	}
 	warning, loaded := -1, -1
 	for i, line := range report.Output {
-		if warning < 0 && strings.Contains(line, "warning:") {
+		if warning < 0 && strings.Contains(line, "warning[") {
 			warning = i
 		}
 		if loaded < 0 && strings.Contains(line, "✓ package Rover") {

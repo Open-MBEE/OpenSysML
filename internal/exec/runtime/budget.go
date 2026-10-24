@@ -53,9 +53,9 @@ const (
 // MinMaxIntegerBits is the least Integer size budget a run may be given.
 const MinMaxIntegerBits = semantics.MinMaxIntegerBits
 
-// MaxCalcDepthCeiling is the highest calc depth budget a run may be given: past
+// maxCalcDepthCeiling is the highest calc depth budget a run may be given: past
 // it the goroutine stack, whose exhaustion is fatal, would stop a runaway first.
-const MaxCalcDepthCeiling int64 = 25000
+const maxCalcDepthCeiling int64 = 25000
 
 // Environment variables overriding the defaults above, following the
 // OPENSYSML_LIBRARY_PATH convention. The legacy SYSML_-prefixed names remain
@@ -122,7 +122,7 @@ var budgetVars = []budgetVar{
 	{MaxStateEventsEnvVar, DefaultMaxStateEvents, "state machine events", func(b *Budgets) *int64 { return &b.MaxStateEvents }, 0, 0},
 	{MaxDoStepsEnvVar, DefaultMaxDoSteps, "do action steps", func(b *Budgets) *int64 { return &b.MaxDoSteps }, 0, 0},
 	{MaxElementsEnvVar, DefaultMaxElements, "collection elements", func(b *Budgets) *int64 { return &b.MaxElements }, 0, 0},
-	{MaxCalcDepthEnvVar, DefaultMaxCalcDepth, "nested calc invocations", func(b *Budgets) *int64 { return &b.MaxCalcDepth }, MaxCalcDepthCeiling, 0},
+	{MaxCalcDepthEnvVar, DefaultMaxCalcDepth, "nested calc invocations", func(b *Budgets) *int64 { return &b.MaxCalcDepth }, maxCalcDepthCeiling, 0},
 	{MaxSweepRunsEnvVar, DefaultMaxSweepRuns, "runs of one sweep", func(b *Budgets) *int64 { return &b.MaxSweepRuns }, 0, 0},
 	{MaxIntegerBitsEnvVar, DefaultMaxIntegerBits, "bits of one Integer", func(b *Budgets) *int64 { return &b.MaxIntegerBits }, 0, MinMaxIntegerBits},
 }
@@ -237,3 +237,6 @@ func (ctx *Context) SetBudgets(b Budgets) error {
 	ctx.maxIntegerBits = b.MaxIntegerBits
 	return nil
 }
+
+// SweepRunBudget is the number of runs one sweep may ask for when none is stated.
+func (ctx *Context) SweepRunBudget() int64 { return ctx.maxSweepRuns }

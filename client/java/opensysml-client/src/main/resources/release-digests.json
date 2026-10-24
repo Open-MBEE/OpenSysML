@@ -47,6 +47,18 @@
       "sysml-jupyter-kernel-linux-arm64": "b7a5550b4b3ffd1fdc0afcb1e81bc0cfd3493137d218101984a953aec9c19ef4",
       "sysml-jupyter-kernel-windows-amd64.exe": "35205d31051b4736b63fa740361f49e62dcece87cd39fd2f79e759e365e301e4"
     },
+    "v0.10.1": {
+      "sysml-grpc-darwin-amd64": "1dda8b2e340d95648c0bbb6df0f019c2e25c784ad73a5a9b3adce505d54d1be4",
+      "sysml-grpc-darwin-arm64": "1a0a03d46979be54273b1e3a76fee69412989b769809996a6fee51229c79122c",
+      "sysml-grpc-linux-amd64": "1469eb7516a439fc372bc99812bf8bb5b4d2fb1b7279af29b2f055d6edbd1134",
+      "sysml-grpc-linux-arm64": "0d8cb393e9bc3cfaf415d923d230b01a07feb455dd7a38c1fdd8306d3a20fcbb",
+      "sysml-grpc-windows-amd64.exe": "28fc5040cbfa4852200765c0d5f4a23bef2b4a7996babff89cbcda7492b1db73",
+      "sysml-jupyter-kernel-darwin-amd64": "fd8041a27f7964bb566482da79dff5ed128a5ed0bc4cfb99c4cb5f5c4b9786eb",
+      "sysml-jupyter-kernel-darwin-arm64": "6fe99ae8b0b12486747e0aca52ef763c463155aa5d0d27e47e8e616b10ae40c7",
+      "sysml-jupyter-kernel-linux-amd64": "cdc4e8f9a1e4a57873006fed0da878e5976dac163e4595e05a9097009a74525d",
+      "sysml-jupyter-kernel-linux-arm64": "eb63291bafe04eb2d13fbcf92968b5c907a5030e1caf85145713302a046457ca",
+      "sysml-jupyter-kernel-windows-amd64.exe": "6fb548175c825ab9955311a2d8f5444f57bbcefdb0455e13a48db1a57f1626a1"
+    },
     "v0.2.0": {
       "sysml-grpc-darwin-amd64": "52c34a3048e5fa03f45189264b85fbd21523ac45d91a65b1dff8fbe0187b5541",
       "sysml-grpc-darwin-arm64": "7caf5d8539c15cde8a076cd217b1f0581049436c092574ddcbf0f5a5af5c9a99",

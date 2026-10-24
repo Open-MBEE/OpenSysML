@@ -8,8 +8,9 @@ description: How to bring up a real Flexo MMS stack (Fuseki + Layer 1 + the SysM
 `internal/translate/export`'s RDF path writes the SysML v2 vocabulary the Flexo MMS SysML v2 service
 reads. Matching that service's `Namespaces.kt` is not evidence: a predicate can be spelled
 correctly and still be dropped, unreadable, or invisible to the read path. The only evidence is a
-round trip through a running stack, which is what `internal/translate/interop/flexo` performs and
-`internal/translate/interop/flexo/testdata/interop_expected.txt` records.
+round trip through a running stack, which is what `tools/referee/flexo` performs over the product's
+client (`internal/translate/interop/flexo`) and `tools/referee/flexo/testdata/interop_expected.txt`
+records.
 
 The gate is **opt-in and skips by default** (`FLEXO_INTEROP`), exactly like the corpus gates in
 `tests/corpus/corpus_gate_test.go`. `go test ./...` on a machine without Docker stays green,
@@ -53,7 +54,7 @@ Never commit a token or paste one into a report. The harness reads it from the e
 
 ```bash
 FLEXO_INTEROP=1 FLEXO_INTEROP_TOKEN="$FLEXO_INTEROP_TOKEN" \
-  go test -count=1 ./internal/translate/interop/flexo -run TestFlexoInterop
+  go test -C tools -count=1 ./referee/flexo -run 'TestFlexoInterop$|TestFlexoInteropApply'
 ```
 
 About 10–20 s against a local stack. Override `FLEXO_LAYER1_URL`, `FLEXO_SYSMLV2_URL` or
@@ -67,12 +68,38 @@ interoperability statement:
 
 ```bash
 FLEXO_INTEROP=1 FLEXO_INTEROP_TOKEN="$FLEXO_INTEROP_TOKEN" \
-  go test -count=1 ./internal/translate/interop/flexo -run TestFlexoInterop -update-flexo
-git diff internal/translate/interop/flexo/testdata/interop_expected.txt
+  go test -C tools -count=1 ./referee/flexo -run 'TestFlexoInterop$' -update-flexo
+git diff tools/referee/flexo/testdata/interop_expected.txt
 ```
 
 Everything else in the package (report determinism, the fixtures' coverage of the known gaps) runs
-without a stack, so `go test ./internal/translate/interop/flexo` is worth running on any change to it.
+without a stack, so `go test -C tools ./referee/flexo` is worth running on any change to it; the
+client's own tests stay with it in `go test ./internal/translate/interop/flexo`.
+
+## Publish the whole standard library
+
+`TestFlexoInteropLibrary` publishes the bundled library the way `sysml -stdlib -convert ttl -o
+flexo://{project}/main` does — one project, sized as `testdata/library_expected.txt` records —
+reads it back, and loads a user model typing parts by library ids into a second
+project. It is matched by `-run TestFlexoInterop` too, and it is not quick:
+
+```bash
+FLEXO_INTEROP=1 FLEXO_INTEROP_TOKEN="$FLEXO_INTEROP_TOKEN" \
+  go test -C tools -count=1 -timeout 30m ./referee/flexo -run TestFlexoInteropLibrary
+```
+
+About 3 min against a fresh local stack: ~14 s to convert, ~1.5–2 min for Layer 1 to take the
+graph, ~20 s to list it back. Bring the stack up fresh first (`docker compose down && up -d`): every
+library already loaded slows the next write, and a stack holding three or four of them takes a
+graph write past 10 min. The quick gates alone are `-run 'TestFlexoInterop$|TestFlexoInteropApply'`.
+The expectation is `tools/referee/flexo/testdata/library_expected.txt`; it counts elements by
+metaclass and property rather than listing them, and reads direct anchors (`ScalarValues::Real`,
+`ISQBase::mass`, …) by their normative ids.
+
+The CLI path needs the same patience: `FLEXO_TIMEOUT=10m` (a Go duration; default `60s`) for the
+one PUT, and the project created beforehand (`POST /projects` with a named `defaultBranch`, as
+under Traps). The conditional PUT answers 412 *after* committing on this Flexo version; the push
+reads the Location header and records the commit it names, so a 412 with a commit is a success.
 
 ## What a run does, and why each side exists
 
@@ -127,7 +154,7 @@ The CLI sync (`cmd/sysml/sync.go`) shares the client above, so the same token an
 (`FLEXO_INTEROP_TOKEN`, `FLEXO_LAYER1_URL`, `FLEXO_SYSMLV2_ORG`). Things that cost time when they
 are not known up front:
 
-- **The CLI does not create the project.** Only `apply_measure.go`'s `CreateProject` does. Against a
+- **The CLI does not create the project.** Only the harness's `Stack.CreateProject` (`tools/referee/flexo`) does. Against a
   project id the stack has never seen, `-sync-diff`/`-sync-apply` fail on the first Layer 1 read
   (`.../branches/main/query: Not Found`). Pre-create it exactly as the harness does:
   `POST :8083/projects` with `{"@type":"Project","@id":"<id>","name":"...","defaultBranch":{"@id":"main"}}`,

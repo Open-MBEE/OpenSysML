@@ -6,14 +6,14 @@ import "fmt"
 // stands for it; an error when none does.
 type Bring func(id int64) (*Instance, error)
 
-// NotPortableError reports a value bound to the run that made it, which no other
+// notPortableError reports a value bound to the run that made it, which no other
 // context can hold.
-type NotPortableError struct {
+type notPortableError struct {
 	Kind   ValueKind
 	Reason string
 }
 
-func (e *NotPortableError) Error() string {
+func (e *notPortableError) Error() string {
 	return fmt.Sprintf("a %s %s, which no other context carries", e.Kind, e.Reason)
 }
 
@@ -76,7 +76,7 @@ func (c *carrying) value(v Value) (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
-		return NewVariantValue(v.Variant(), id), nil
+		return newVariantValue(v.Variant(), id), nil
 	case ValSequence:
 		seq := v.Sequence()
 		if seq == nil {
@@ -104,9 +104,9 @@ func (c *carrying) value(v Value) (Value, error) {
 			out.Add(carried)
 		}
 		return NewSetValue(out), nil
-	case ValExpr:
+	case valExpr:
 		if ev, ok := v.ref.(*exprValue); ok && ev != nil && ev.env != nil {
-			return Value{}, &NotPortableError{Kind: v.Kind, Reason: "closes over the environment it was written in"}
+			return Value{}, &notPortableError{Kind: v.Kind, Reason: "closes over the environment it was written in"}
 		}
 		return v, nil
 	case ValArray:
@@ -157,9 +157,9 @@ func (c *carrying) value(v Value) (Value, error) {
 	case ValFunction:
 		return c.function(v)
 	case ValUndetermined:
-		return Value{}, &NotPortableError{Kind: v.Kind, Reason: "the model does not determine it"}
+		return Value{}, &notPortableError{Kind: v.Kind, Reason: "the model does not determine it"}
 	}
-	return Value{}, &NotPortableError{Kind: v.Kind, Reason: unknownKindReason}
+	return Value{}, &notPortableError{Kind: v.Kind, Reason: unknownKindReason}
 }
 
 // function reads the calc a function value is of again here, bound to the object
@@ -170,7 +170,7 @@ func (c *carrying) function(v Value) (Value, error) {
 		return v, nil
 	}
 	if len(fn.enclosing) > 0 {
-		return Value{}, &NotPortableError{Kind: v.Kind, Reason: fmt.Sprintf("%s closes over the bindings of the behavior body it was read in", fn.shape.Name)}
+		return Value{}, &notPortableError{Kind: v.Kind, Reason: fmt.Sprintf("%s closes over the bindings of the behavior body it was read in", fn.shape.Name)}
 	}
 	shape, err := c.ctx.calcInterfaceOf(fn.shape.Sym)
 	if err != nil {

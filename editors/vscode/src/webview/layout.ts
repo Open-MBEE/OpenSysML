@@ -25,18 +25,33 @@ import {
   type PortPosition,
   type Side,
 } from "./geometry";
-import { avoidRoutes, CLEARANCE, compactRoute, MIN_JOG, type AvoidShape } from "./avoid";
+import {
+  avoidRoutes,
+  CLEARANCE,
+  compactRoute,
+  MIN_JOG,
+  type AvoidShape,
+} from "./avoid";
 
-export { GAP, portBox, portCenter, portFace, PORT_SIZE, snap } from "./geometry";
+export {
+  GAP,
+  portBox,
+  portCenter,
+  portFace,
+  PORT_SIZE,
+  snap,
+} from "./geometry";
 export type { Box, PortPosition, Side } from "./geometry";
+import { DEFAULT_ROUTING, type Routing } from "../style";
 
 /** How a node is drawn: the label box of an element, or the symbol of a control node. */
-export type Shape = "box" | "point" | "circle" | "ring" | "diamond" | "bar" | "history";
+export type Shape =
+  "box" | "point" | "circle" | "ring" | "diamond" | "bar" | "history";
 
 export interface PlacedNode {
   node: RenderNode;
   box: Box;
-  /** The label's lines: head, «kind», then the detail; empty for a symbol. */
+  /** The label's lines: «kind», head, then the detail; empty for a symbol. */
   lines: string[];
   shape: Shape;
   /** The model, or a gesture in progress, states where the node goes. */
@@ -62,7 +77,7 @@ export interface PlacedEdge {
   route: RenderPoint[];
   /** Where the label sits, on the polyline's midpoint. */
   label: RenderPoint;
-  /** An end is under a collapsed owner, so the edge is not drawn. */
+  /** An end is under a collapsed owner, or the kind is hidden, so the edge is not drawn. */
   hidden: boolean;
   /** The route was found around the other boxes at layout time; the model states none, so a move does not write it. */
   rerouted: boolean;
@@ -90,10 +105,17 @@ export interface CanvasLayout {
   height: number;
   /** The rendering's kind reads DiagramLayout back, so gestures on it can be kept. */
   placeable: boolean;
+  /** Whose routes the edges follow: the model's stated ones, or the router's for every edge ELK did not route. */
+  routing: Routing;
 }
 
 /** The rendering kinds whose renderers position nodes and route edges from DiagramLayout. */
-export const PLACEABLE_KINDS = new Set(["tree", "interconnection", "state", "action"]);
+export const PLACEABLE_KINDS = new Set([
+  "tree",
+  "interconnection",
+  "state",
+  "action",
+]);
 
 /** Geometry a gesture in progress shows in place of the model's, before the model says so. */
 export interface Overrides {
@@ -102,8 +124,14 @@ export interface Overrides {
   routes?: Map<number, RenderPoint[] | undefined>;
   /** Rerouted edges stay inside this box. */
   bounds?: Box;
-  /** The layout a gesture started from: its rerouted edges whose ends have not moved are kept, the rest drawn straight, so a drag does not re-route. */
+  /** The layout a gesture started from: its rerouted edges whose ends have not moved are kept, the rest drawn straight, so a drag does not re-route; its canvas is covered, so the viewport is not clamped under the drag. */
   held?: CanvasLayout;
+  /** `router` sends every edge ELK did not route through the router, a stated `Route` notwithstanding; `model` (the default) draws a stated route verbatim. */
+  routing?: Routing;
+  /** Lay out from the auto layout alone, the model's Layout and Route placements ignored; a node the auto layout did not place keeps a grid slot. */
+  unplaced?: boolean;
+  /** Edge kinds the panel hides: their edges are laid out but not drawn, routed around or counted in the extents, as an edge at a hidden node is. */
+  hiddenKinds?: ReadonlySet<string>;
 }
 
 /** What one completed gesture puts in the model. */
@@ -140,22 +168,28 @@ const SELF_MESSAGE_REACH = 28;
  * is what ELK laid out for the same rendering: it places a node the model does
  * not, without pinning it, and routes an edge whose ends are not placed.
  */
-// The order Array.prototype.sort gives strings: by code unit, in every locale.
-function byCodeUnit(a: string, b: string): number {
+// byCodeUnit orders strings by code unit, the same in every locale.
+export function byCodeUnit(a: string, b: string): number {
   if (a < b) {
     return -1;
   }
   return a > b ? 1 : 0;
 }
 
-export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, auto?: AutoLayout): CanvasLayout {
+export function layoutCanvas(
+  result: RenderResult,
+  overrides: Overrides = {},
+  auto?: AutoLayout,
+): CanvasLayout {
+  const routing = overrides.routing ?? DEFAULT_ROUTING;
   const placed = new Map<string, PlacedNode>();
   const roots: PlacedNode[] = [];
+  const names = simpleNames(result.nodes ?? []);
   for (const node of result.nodes ?? []) {
     const entry: PlacedNode = {
       node,
       box: { x: 0, y: 0, width: 0, height: 0 },
-      lines: labelLines(node),
+      lines: labelLines(node, result.shown, names),
       shape: shapeOf(node.kind),
       pinned: false,
       collapsed: false,
@@ -166,7 +200,9 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, au
     placed.set(node.id, entry);
   }
   for (const entry of placed.values()) {
-    const parent = entry.node.parent ? placed.get(entry.node.parent) : undefined;
+    const parent = entry.node.parent
+      ? placed.get(entry.node.parent)
+      : undefined;
     if (parent && parent !== entry) {
       entry.parent = parent;
       parent.children.push(entry);
@@ -175,9 +211,9 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, au
     }
   }
   if (result.kind === "sequence") {
-    const layout = layoutSequence(result, roots, placed);
+    const layout = layoutSequence(result, roots, placed, overrides.hiddenKinds);
     placePorts(result.edges ?? [], placed, auto);
-    return includePortExtent(layout);
+    return includePortExtent({ ...layout, routing });
   }
   const geometry = (entry: PlacedNode): NodeGeometry => {
     const override = overrides.nodes?.get(entry.node.id);
@@ -185,13 +221,15 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, au
       return { stated: override, pinned: true };
     }
     const { x, y, width, height, collapsed } = entry.node;
-    if (x !== undefined && y !== undefined) {
+    if (x !== undefined && y !== undefined && overrides.unplaced !== true) {
       return { stated: { x, y, width, height, collapsed }, pinned: true };
     }
     // The auto layout's geometry is stated but not pinned: it is a guess, so
     // the node keeps a grid slot for a layout that runs without it.
     const laid = auto?.nodes.get(entry.node.id);
-    return laid !== undefined ? { stated: { ...laid, collapsed }, pinned: false } : { pinned: false };
+    return laid !== undefined
+      ? { stated: { ...laid, collapsed }, pinned: false }
+      : { pinned: false };
   };
   placeGrid(roots, { x: MARGIN, y: MARGIN }, geometry);
   placePorts(result.edges ?? [], placed, auto);
@@ -213,8 +251,10 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, au
     reach(nodeBounds.x, nodeBounds.y);
     reach(nodeBounds.x + nodeBounds.width, nodeBounds.y + nodeBounds.height);
   }
-  const edges = (result.edges ?? []).map((edge, index) => routeEdge(edge, index, placed, overrides.routes, auto));
-  rerouteAroundBoxes(edges, placed, roots, overrides, auto);
+  const edges = (result.edges ?? []).map((edge, index) =>
+    routeEdge(edge, index, placed, overrides.routes, auto, routing, overrides.hiddenKinds, overrides.unplaced === true),
+  );
+  rerouteAroundBoxes(edges, placed, roots, overrides, auto, routing);
   for (const edge of edges) {
     if (edge.hidden) {
       continue;
@@ -227,23 +267,52 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, au
     x: extent.left < 0 ? extent.left - MARGIN : 0,
     y: extent.top < 0 ? extent.top - MARGIN : 0,
   };
+  return coveringHeld(
+    {
+      roots,
+      nodes: placed,
+      edges,
+      origin,
+      width:
+        Math.max(extent.right + MARGIN, result.canvas?.width ?? 0) - origin.x,
+      height:
+        Math.max(extent.bottom + MARGIN, result.canvas?.height ?? 0) - origin.y,
+      placeable: PLACEABLE_KINDS.has(result.kind),
+      routing,
+    },
+    overrides.held,
+  );
+}
+
+// coveringHeld is a layout's canvas grown to cover the held layout's, so a preview that draws
+// less than the layout it started from does not shrink the canvas under the viewport's offsets.
+function coveringHeld(layout: CanvasLayout, held: CanvasLayout | undefined): CanvasLayout {
+  if (!held) {
+    return layout;
+  }
+  const origin = { x: Math.min(layout.origin.x, held.origin.x), y: Math.min(layout.origin.y, held.origin.y) };
   return {
-    roots,
-    nodes: placed,
-    edges,
+    ...layout,
     origin,
-    width: Math.max(extent.right + MARGIN, result.canvas?.width ?? 0) - origin.x,
-    height: Math.max(extent.bottom + MARGIN, result.canvas?.height ?? 0) - origin.y,
-    placeable: PLACEABLE_KINDS.has(result.kind),
+    width: Math.max(layout.origin.x + layout.width, held.origin.x + held.width) - origin.x,
+    height: Math.max(layout.origin.y + layout.height, held.origin.y + held.height) - origin.y,
   };
 }
 
 // layoutSequence lays lifelines out in a row, in the order rendered, and its
 // messages down them in the order the model states; nothing here reads the model's
 // geometry, since a sequence rendering carries none.
-function layoutSequence(result: RenderResult, roots: PlacedNode[], placed: Map<string, PlacedNode>): CanvasLayout {
+function layoutSequence(
+  result: RenderResult,
+  roots: PlacedNode[],
+  placed: Map<string, PlacedNode>,
+  hiddenKinds?: ReadonlySet<string>,
+): CanvasLayout {
   const edges = result.edges ?? [];
-  const bottom = MARGIN + headHeight(roots) + MESSAGE_GAP * (edges.length + 1);
+  // A hidden message takes no row of its own; the rows close up over it.
+  const hidden = edges.map((edge) => hiddenKinds?.has(edge.kind) === true);
+  const shown = hidden.filter((h) => !h).length;
+  const bottom = MARGIN + headHeight(roots) + MESSAGE_GAP * (shown + 1);
   let x = MARGIN;
   for (const root of roots) {
     const size = labelSize(root.lines);
@@ -251,16 +320,34 @@ function layoutSequence(result: RenderResult, roots: PlacedNode[], placed: Map<s
     root.lifeline = bottom;
     x += size.width + GAP;
   }
+  let row = 0;
   const routed = edges.map((edge, index): PlacedEdge => {
-    const y = MARGIN + headHeight(roots) + MESSAGE_GAP * (index + 1);
+    const y = MARGIN + headHeight(roots) + MESSAGE_GAP * (hidden[index] ? row : ++row);
     const from = placed.get(edge.from)?.box;
     const to = placed.get(edge.to)?.box;
     const fromX = from ? from.x + from.width / 2 : MARGIN;
     const toX = to ? to.x + to.width / 2 : MARGIN;
-    const points = edge.from === edge.to
-      ? [{ x: fromX, y }, { x: fromX + SELF_MESSAGE_REACH, y }, { x: fromX + SELF_MESSAGE_REACH, y: y + MESSAGE_GAP / 2 }, { x: fromX, y: y + MESSAGE_GAP / 2 }]
-      : [{ x: fromX, y }, { x: toX, y }];
-    return { edge, index, points, route: [], label: midpoint(points), hidden: false, rerouted: false };
+    const points =
+      edge.from === edge.to
+        ? [
+            { x: fromX, y },
+            { x: fromX + SELF_MESSAGE_REACH, y },
+            { x: fromX + SELF_MESSAGE_REACH, y: y + MESSAGE_GAP / 2 },
+            { x: fromX, y: y + MESSAGE_GAP / 2 },
+          ]
+        : [
+            { x: fromX, y },
+            { x: toX, y },
+          ];
+    return {
+      edge,
+      index,
+      points,
+      route: [],
+      label: midpoint(points),
+      hidden: hidden[index],
+      rerouted: false,
+    };
   });
   return {
     roots,
@@ -270,12 +357,16 @@ function layoutSequence(result: RenderResult, roots: PlacedNode[], placed: Map<s
     width: Math.max(x - GAP, MARGIN) + MARGIN,
     height: bottom + MARGIN,
     placeable: false,
+    routing: DEFAULT_ROUTING,
   };
 }
 
 // headHeight is the tallest lifeline box, so every lifeline starts under the same line.
 function headHeight(roots: PlacedNode[]): number {
-  return roots.reduce((max, root) => Math.max(max, labelSize(root.lines).height), 0);
+  return roots.reduce(
+    (max, root) => Math.max(max, labelSize(root.lines).height),
+    0,
+  );
 }
 
 /** Where a node goes and whether the model or a gesture, rather than a guess, states it. */
@@ -292,14 +383,26 @@ type Geometry = (entry: PlacedNode) => NodeGeometry;
 // further out), so columns are settled left to right and rows top to bottom, each
 // entry's extent taken once its slot is known. A pinned entry keeps its slot
 // empty, so its siblings do not shift when it moves.
-function placeGrid(entries: PlacedNode[], origin: RenderPoint, geometry: Geometry): void {
+function placeGrid(
+  entries: PlacedNode[],
+  origin: RenderPoint,
+  geometry: Geometry,
+): void {
   const columns = Math.max(1, Math.ceil(Math.sqrt(entries.length)));
-  spread(lanes(entries, columns, true), origin.x, (entry, x) => placeAcross(entry, x, geometry));
-  spread(lanes(entries, columns, false), origin.y, (entry, y) => placeDown(entry, y, geometry));
+  spread(lanes(entries, columns, true), origin.x, (entry, x) =>
+    placeAcross(entry, x, geometry),
+  );
+  spread(lanes(entries, columns, false), origin.y, (entry, y) =>
+    placeDown(entry, y, geometry),
+  );
 }
 
 // lanes groups a grid's entries by column, or by row.
-function lanes(entries: PlacedNode[], columns: number, byColumn: boolean): PlacedNode[][] {
+function lanes(
+  entries: PlacedNode[],
+  columns: number,
+  byColumn: boolean,
+): PlacedNode[][] {
   const out: PlacedNode[][] = [];
   entries.forEach((entry, i) => {
     const lane = byColumn ? i % columns : Math.floor(i / columns);
@@ -311,7 +414,11 @@ function lanes(entries: PlacedNode[], columns: number, byColumn: boolean): Place
 
 // spread lays lanes out one after another from start, GAP apart, each as far
 // as its longest entry reaches once placed at the lane's offset.
-function spread(lanes: PlacedNode[][], start: number, placeAt: (entry: PlacedNode, at: number) => number): void {
+function spread(
+  lanes: PlacedNode[][],
+  start: number,
+  placeAt: (entry: PlacedNode, at: number) => number,
+): void {
   let at = start;
   for (const lane of lanes) {
     let extent = 0;
@@ -325,7 +432,11 @@ function spread(lanes: PlacedNode[][], start: number, placeAt: (entry: PlacedNod
 // placeAcross settles a node's x and width: the model's x, else the slot's; the
 // model's width, else its label's, widened to hold every child shown. The columns
 // of its children are settled first, from inside its padding.
-function placeAcross(entry: PlacedNode, slot: number, geometry: Geometry): number {
+function placeAcross(
+  entry: PlacedNode,
+  slot: number,
+  geometry: Geometry,
+): number {
   const { stated, pinned } = geometry(entry);
   entry.pinned = pinned;
   entry.collapsed = stated?.collapsed === true;
@@ -335,14 +446,19 @@ function placeAcross(entry: PlacedNode, slot: number, geometry: Geometry): numbe
   entry.box.x = stated?.x ?? slot;
   const shown = shownChildren(entry, stated);
   const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
-  spread(lanes(shown, columns, true), entry.box.x + CONTAINER_PAD, (child, x) => placeAcross(child, x, geometry));
+  spread(lanes(shown, columns, true), entry.box.x + CONTAINER_PAD, (child, x) =>
+    placeAcross(child, x, geometry),
+  );
   if (stated?.width !== undefined && stated.height !== undefined) {
     entry.box.width = stated.width;
     return entry.box.width;
   }
   let width = (symbolSize(entry.shape) ?? labelSize(entry.lines)).width;
   for (const child of shown) {
-    width = Math.max(width, child.box.x + child.box.width + CONTAINER_PAD - entry.box.x);
+    width = Math.max(
+      width,
+      child.box.x + child.box.width + CONTAINER_PAD - entry.box.x,
+    );
   }
   entry.box.width = width;
   return width;
@@ -350,27 +466,41 @@ function placeAcross(entry: PlacedNode, slot: number, geometry: Geometry): numbe
 
 // placeDown settles a node's y and height as placeAcross does its x and width;
 // the rows of its children start below its label.
-function placeDown(entry: PlacedNode, slot: number, geometry: Geometry): number {
+function placeDown(
+  entry: PlacedNode,
+  slot: number,
+  geometry: Geometry,
+): number {
   const { stated } = geometry(entry);
   entry.box.y = stated?.y ?? slot;
   const shown = shownChildren(entry, stated);
   const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
   const header = symbolSize(entry.shape) ?? labelSize(entry.lines);
-  spread(lanes(shown, columns, false), entry.box.y + header.height, (child, y) => placeDown(child, y, geometry));
+  spread(
+    lanes(shown, columns, false),
+    entry.box.y + header.height,
+    (child, y) => placeDown(child, y, geometry),
+  );
   if (stated?.width !== undefined && stated.height !== undefined) {
     entry.box.height = stated.height;
     return entry.box.height;
   }
   let height = header.height;
   for (const child of shown) {
-    height = Math.max(height, child.box.y + child.box.height + CONTAINER_PAD - entry.box.y);
+    height = Math.max(
+      height,
+      child.box.y + child.box.height + CONTAINER_PAD - entry.box.y,
+    );
   }
   entry.box.height = height;
   return height;
 }
 
 // shownChildren is the children drawn inside a node: none when it is collapsed.
-function shownChildren(entry: PlacedNode, stated: LayoutGeometry | undefined): PlacedNode[] {
+function shownChildren(
+  entry: PlacedNode,
+  stated: LayoutGeometry | undefined,
+): PlacedNode[] {
   return stated?.collapsed ? [] : entry.children;
 }
 
@@ -382,28 +512,133 @@ function hide(entries: PlacedNode[]): void {
   }
 }
 
-/** labelLines is a node's label as the graphical notation orders it: head, «kind», detail. */
-export function labelLines(node: RenderNode): string[] {
+/**
+ * labelLines is a node's label as the graphical notation stacks it: «kind», head, detail —
+ * the «kind», the `: Type`, the detail and the name's qualification only when `shown`, the
+ * optional notation elements the rendering draws, names keywords, typings, compartments and
+ * qualifiers; a result without `shown` draws them all.
+ */
+export function labelLines(
+  node: RenderNode,
+  shown?: string[],
+  names?: ReadonlyMap<string, string>,
+): string[] {
   if (symbolSize(shapeOf(node.kind))) {
     return [];
   }
-  const lines = [labelHead(node)];
-  if (node.name !== "") {
+  const draws = (element: string): boolean =>
+    shown === undefined || shown.includes(element);
+  const lines: string[] = [];
+  if (node.name !== "" && draws("keywords")) {
     lines.push(`«${node.kind}»`);
   }
-  if (node.detail !== "") {
+  lines.push(labelHead(node, draws("typings"), draws("qualifiers"), names));
+  if (node.detail !== "" && draws("compartments")) {
     lines.push(node.detail);
   }
   return lines;
 }
 
+/** LabelLineClass is the part of a label a line is: its «kind», its head or a detail line. */
+export type LabelLineClass = "keyword" | "head" | "detail";
+
+/**
+ * labelLineClass is the part of its label the i-th of `lines` is: a leading «kind»
+ * over a head is the keyword, the line after it (or the first) the head, the rest detail.
+ */
+export function labelLineClass(lines: readonly string[], i: number): LabelLineClass {
+  const keyworded = lines.length > 1 && /^«.+»$/u.test(lines[0]);
+  if (keyworded && i === 0) {
+    return "keyword";
+  }
+  const head = keyworded ? 1 : 0;
+  return i === head ? "head" : "detail";
+}
+
+/** nameSegments splits a qualified name at its `::`, a quoted segment with its escapes kept whole. */
+function nameSegments(name: string): string[] {
+  const segments: string[] = [];
+  let start = 0;
+  let quoted = false;
+  for (let i = 0; i < name.length; i++) {
+    const c = name[i];
+    if (quoted && c === "\\") {
+      i++;
+    } else if (c === "'") {
+      quoted = !quoted;
+    } else if (!quoted && c === ":" && name[i + 1] === ":") {
+      segments.push(name.slice(start, i));
+      start = i + 2;
+      i++;
+    }
+  }
+  segments.push(name.slice(start));
+  return segments;
+}
+
+// nameSegments always yields a segment, so the fallback never applies.
+function lastSegment(segments: readonly string[]): string {
+  return segments.at(-1) ?? "";
+}
+
+/** simpleName is the last segment of a qualified name, a quoted segment kept whole. */
+export function simpleName(name: string): string {
+  return lastSegment(nameSegments(name));
+}
+
+/**
+ * simpleNames is each node's shortest own name, by id: its last segment, extended
+ * back over the qualifier until no other node ends in the same segments, as the
+ * server names the nodes of its own forms.
+ */
+export function simpleNames(nodes: readonly RenderNode[]): Map<string, string> {
+  const segments = new Map<string, string[]>();
+  const groups = new Map<string, RenderNode[]>();
+  for (const node of nodes) {
+    if (node.name === "") {
+      continue;
+    }
+    const parts = nameSegments(node.name);
+    segments.set(node.id, parts);
+    const last = lastSegment(parts);
+    groups.set(last, [...(groups.get(last) ?? []), node]);
+  }
+  const suffix = (parts: string[], n: number): string =>
+    parts.slice(parts.length - n).join("::");
+  const out = new Map<string, string>();
+  for (const group of groups.values()) {
+    for (const node of group) {
+      const parts = segments.get(node.id)!;
+      let n = 1;
+      while (
+        n < parts.length &&
+        group.some(
+          (other) =>
+            other !== node &&
+            suffix(segments.get(other.id)!, n) === suffix(parts, n),
+        )
+      ) {
+        n++;
+      }
+      out.set(node.id, n === parts.length ? node.name : suffix(parts, n));
+    }
+  }
+  return out;
+}
+
 /** glyphSize uses the same average-glyph metrics as a node label, without box padding. */
 export function glyphSize(text: string): { width: number; height: number } {
-  return { width: Math.ceil([...text].length * GLYPH_WIDTH), height: LINE_HEIGHT };
+  return {
+    width: Math.ceil([...text].length * GLYPH_WIDTH),
+    height: LINE_HEIGHT,
+  };
 }
 
 /** portLabelPlacement puts a port name outside its box and clear of its edge path. */
-export function portLabelPlacement(box: Box, port: PlacedPort): PortLabelPlacement {
+export function portLabelPlacement(
+  box: Box,
+  port: PlacedPort,
+): PortLabelPlacement {
   const center = portCenter(box, port);
   const square = portBox(box, port);
   const size = glyphSize(port.port.name);
@@ -433,7 +668,11 @@ export function portLabelPlacement(box: Box, port: PlacedPort): PortLabelPlaceme
     x,
     y,
     anchor,
-    bounds: { x: anchor === "end" ? x - size.width : x, y: y - size.height, ...size },
+    bounds: {
+      x: anchor === "end" ? x - size.width : x,
+      y: y - size.height,
+      ...size,
+    },
   };
 }
 
@@ -459,7 +698,8 @@ export function nodeExtent(
     reach(square.x + square.width, square.y + square.height);
     reach(label.x, label.y);
     reach(label.x + label.width, label.y + label.height);
-    const exitLeg = typeof portExitLeg === "function" ? portExitLeg(port) : portExitLeg;
+    const exitLeg =
+      typeof portExitLeg === "function" ? portExitLeg(port) : portExitLeg;
     if (exitLeg > 0) {
       const face = portFace(node.box, port);
       switch (port.side) {
@@ -496,8 +736,14 @@ export function clampNodeToBounds(
   const minX = bounds.x - left;
   const minY = bounds.y - top;
   return {
-    x: Math.min(Math.max(at.x, minX), Math.max(minX, bounds.x + bounds.width - right)),
-    y: Math.min(Math.max(at.y, minY), Math.max(minY, bounds.y + bounds.height - bottom)),
+    x: Math.min(
+      Math.max(at.x, minX),
+      Math.max(minX, bounds.x + bounds.width - right),
+    ),
+    y: Math.min(
+      Math.max(at.y, minY),
+      Math.max(minY, bounds.y + bounds.height - bottom),
+    ),
   };
 }
 
@@ -515,8 +761,12 @@ export function freePlacement(
   const clamp = (point: RenderPoint): RenderPoint =>
     clampNodeToBounds(node, point, bounds, (port) => exitLeg(node, port));
   const extentAt = (entry: PlacedNode, point: RenderPoint): Box =>
-    nodeExtent({ ...entry, box: { ...entry.box, x: point.x, y: point.y } }, (port) => exitLeg(entry, port));
-  const expandedAt = (point: RenderPoint): Box => inflate(extentAt(node, point), CLEARANCE);
+    nodeExtent(
+      { ...entry, box: { ...entry.box, x: point.x, y: point.y } },
+      (port) => exitLeg(entry, port),
+    );
+  const expandedAt = (point: RenderPoint): Box =>
+    inflate(extentAt(node, point), CLEARANCE);
   const otherExtents = others
     .filter((other) => other.node.id !== node.node.id && !other.hidden)
     .map((other) => inflate(extentAt(other, other.box), CLEARANCE));
@@ -537,8 +787,14 @@ export function freePlacement(
   const baseExtent = extentAt(node, node.box);
   const minX = bounds.x - (baseExtent.x - node.box.x);
   const minY = bounds.y - (baseExtent.y - node.box.y);
-  const maxX = Math.max(minX, bounds.x + bounds.width - (baseExtent.x + baseExtent.width - node.box.x));
-  const maxY = Math.max(minY, bounds.y + bounds.height - (baseExtent.y + baseExtent.height - node.box.y));
+  const maxX = Math.max(
+    minX,
+    bounds.x + bounds.width - (baseExtent.x + baseExtent.width - node.box.x),
+  );
+  const maxY = Math.max(
+    minY,
+    bounds.y + bounds.height - (baseExtent.y + baseExtent.height - node.box.y),
+  );
   const xs = new Set([at.x, minX, maxX]);
   const ys = new Set([at.y, minY, maxY]);
   for (const extent of otherExtents) {
@@ -561,7 +817,9 @@ export function freePlacement(
   }
 
   const ordered = [...candidates.values()].sort(
-    (first, second) => Math.hypot(first.x - at.x, first.y - at.y) - Math.hypot(second.x - at.x, second.y - at.y),
+    (first, second) =>
+      Math.hypot(first.x - at.x, first.y - at.y) -
+      Math.hypot(second.x - at.x, second.y - at.y),
   );
   for (const candidate of ordered) {
     if (direction && !movesInDirection(candidate, at, direction)) {
@@ -572,6 +830,23 @@ export function freePlacement(
     }
   }
   return direction ? undefined : clampedAt;
+}
+
+/** The axis two facing ports share when the other port lies on the far side of this one. */
+function facingAxis(
+  port: PlacedPort,
+  other: PlacedPort,
+  ownFace: RenderPoint,
+  otherFace: RenderPoint,
+): "x" | "y" | undefined {
+  const facesEast = port.side === "east" && other.side === "west" && otherFace.x > ownFace.x;
+  const facesWest = port.side === "west" && other.side === "east" && otherFace.x < ownFace.x;
+  if (facesEast || facesWest) {
+    return "y";
+  }
+  const facesSouth = port.side === "south" && other.side === "north" && otherFace.y > ownFace.y;
+  const facesNorth = port.side === "north" && other.side === "south" && otherFace.y < ownFace.y;
+  return facesSouth || facesNorth ? "x" : undefined;
 }
 
 /** Lines a dropped node's port up with a wired port less than MIN_JOG out of line, where that spot is free
@@ -612,25 +887,18 @@ export function alignedPlacement(
     if (ownPortId === undefined || otherPortId === undefined) {
       continue;
     }
-    const port = node.ports.find((candidate) => candidate.port.id === ownPortId);
-    const other = otherNode.ports.find((candidate) => candidate.port.id === otherPortId);
+    const port = node.ports.find(
+      (candidate) => candidate.port.id === ownPortId,
+    );
+    const other = otherNode.ports.find(
+      (candidate) => candidate.port.id === otherPortId,
+    );
     if (!port || !other) {
       continue;
     }
     const ownFace = portFace({ ...node.box, x: at.x, y: at.y }, port);
     const otherFace = portFace(otherNode.box, other);
-    let axis: "x" | "y" | undefined;
-    if (
-      (port.side === "east" && other.side === "west" && otherFace.x > ownFace.x) ||
-      (port.side === "west" && other.side === "east" && otherFace.x < ownFace.x)
-    ) {
-      axis = "y";
-    } else if (
-      (port.side === "south" && other.side === "north" && otherFace.y > ownFace.y) ||
-      (port.side === "north" && other.side === "south" && otherFace.y < ownFace.y)
-    ) {
-      axis = "x";
-    }
+    const axis = facingAxis(port, other, ownFace, otherFace);
     if (axis) {
       pairs.push({ port, other, otherNode, axis });
     }
@@ -640,9 +908,14 @@ export function alignedPlacement(
     pair: (typeof pairs)[number],
     position: RenderPoint,
   ): number => {
-    const ownCenter = portCenter({ ...node.box, x: position.x, y: position.y }, pair.port);
+    const ownCenter = portCenter(
+      { ...node.box, x: position.x, y: position.y },
+      pair.port,
+    );
     const otherCenter = portCenter(pair.otherNode.box, pair.other);
-    return pair.axis === "x" ? otherCenter.x - ownCenter.x : otherCenter.y - ownCenter.y;
+    return pair.axis === "x"
+      ? otherCenter.x - ownCenter.x
+      : otherCenter.y - ownCenter.y;
   };
   const xShifts = new Set([0]);
   const yShifts = new Set([0]);
@@ -664,7 +937,13 @@ export function alignedPlacement(
   for (const xShift of xShifts) {
     for (const yShift of yShifts) {
       const candidate = { x: at.x + xShift, y: at.y + yShift };
-      const placed = freePlacement(node, candidate, others, bounds, portExitLeg);
+      const placed = freePlacement(
+        node,
+        candidate,
+        others,
+        bounds,
+        portExitLeg,
+      );
       if (
         !placed ||
         Math.abs(placed.x - candidate.x) > 1e-6 ||
@@ -690,17 +969,26 @@ function orthogonalRoute(points: RenderPoint[]): boolean {
       return true;
     }
     const previous = points[index - 1];
-    return Math.abs(point.x - previous.x) <= 1e-6 || Math.abs(point.y - previous.y) <= 1e-6;
+    return (
+      Math.abs(point.x - previous.x) <= 1e-6 ||
+      Math.abs(point.y - previous.y) <= 1e-6
+    );
   });
 }
 
 function routeDirection(start: RenderPoint, end: RenderPoint): RenderPoint {
   const dx = end.x - start.x;
   const dy = end.y - start.y;
-  return Math.abs(dx) >= Math.abs(dy) ? { x: Math.sign(dx), y: 0 } : { x: 0, y: Math.sign(dy) };
+  return Math.abs(dx) >= Math.abs(dy)
+    ? { x: Math.sign(dx), y: 0 }
+    : { x: 0, y: Math.sign(dy) };
 }
 
-function followsDirection(start: RenderPoint, end: RenderPoint, direction: RenderPoint): boolean {
+function followsDirection(
+  start: RenderPoint,
+  end: RenderPoint,
+  direction: RenderPoint,
+): boolean {
   const dx = end.x - start.x;
   const dy = end.y - start.y;
   const length = Math.hypot(dx, dy);
@@ -711,7 +999,12 @@ function followsDirection(start: RenderPoint, end: RenderPoint, direction: Rende
   );
 }
 
-function manhattanRoute(start: RenderPoint, startDirection: RenderPoint, end: RenderPoint, endDirection: RenderPoint): RenderPoint[] {
+function manhattanRoute(
+  start: RenderPoint,
+  startDirection: RenderPoint,
+  end: RenderPoint,
+  endDirection: RenderPoint,
+): RenderPoint[] {
   const a = {
     x: start.x + startDirection.x * CLEARANCE,
     y: start.y + startDirection.y * CLEARANCE,
@@ -748,7 +1041,11 @@ function manhattanRoute(start: RenderPoint, startDirection: RenderPoint, end: Re
 }
 
 /** Moves an orthogonal route's ends to new points, keeping every segment orthogonal. */
-export function reattachRoute(route: RenderPoint[], start: RenderPoint, end: RenderPoint): RenderPoint[] {
+export function reattachRoute(
+  route: RenderPoint[],
+  start: RenderPoint,
+  end: RenderPoint,
+): RenderPoint[] {
   const points = compactRoute(route.map((point) => ({ ...point })));
   if (!orthogonalRoute(points) || points.length < 2) {
     return route;
@@ -831,7 +1128,10 @@ export function reattachRoute(route: RenderPoint[], start: RenderPoint, end: Ren
 }
 
 /** Keeps each edge's previous orthogonal route, reattached to its current ends, where the new route is not orthogonal. */
-export function keepOrthogonalRoutes(next: CanvasLayout, previous: CanvasLayout): CanvasLayout {
+export function keepOrthogonalRoutes(
+  next: CanvasLayout,
+  previous: CanvasLayout,
+): CanvasLayout {
   let edges: PlacedEdge[] | undefined;
   for (let index = 0; index < next.edges.length; index++) {
     const edge = next.edges[index];
@@ -852,21 +1152,39 @@ export function keepOrthogonalRoutes(next: CanvasLayout, previous: CanvasLayout)
 
     const source = next.nodes.get(edge.edge.from);
     const target = next.nodes.get(edge.edge.to);
-    const sourcePort = source?.ports.find((port) => port.port.id === edge.edge.fromPort);
-    const targetPort = target?.ports.find((port) => port.port.id === edge.edge.toPort);
-    const start = source && sourcePort ? portFace(source.box, sourcePort) : edge.points[0];
-    const end = target && targetPort ? portFace(target.box, targetPort) : edge.points.at(-1);
+    const sourcePort = source?.ports.find(
+      (port) => port.port.id === edge.edge.fromPort,
+    );
+    const targetPort = target?.ports.find(
+      (port) => port.port.id === edge.edge.toPort,
+    );
+    const start =
+      source && sourcePort ? portFace(source.box, sourcePort) : edge.points[0];
+    const end =
+      target && targetPort
+        ? portFace(target.box, targetPort)
+        : edge.points.at(-1);
     if (!start || !end) {
       continue;
     }
     const points = reattachRoute(old.points, start, end);
     edges ??= [...next.edges];
-    edges[index] = { ...edge, points, route: points.slice(1, -1), label: midpoint(points), rerouted: true };
+    edges[index] = {
+      ...edge,
+      points,
+      route: points.slice(1, -1),
+      label: midpoint(points),
+      rerouted: true,
+    };
   }
   return edges ? { ...next, edges } : next;
 }
 
-function movesInDirection(candidate: RenderPoint, at: RenderPoint, direction: RenderPoint): boolean {
+function movesInDirection(
+  candidate: RenderPoint,
+  at: RenderPoint,
+  direction: RenderPoint,
+): boolean {
   if (direction.x !== 0 && direction.y === 0) {
     return (candidate.x - at.x) * direction.x > 0 && candidate.y === at.y;
   }
@@ -894,7 +1212,11 @@ function intersectsBoxes(first: Box, second: Box): boolean {
   );
 }
 
-function placePorts(edges: RenderEdge[], placed: Map<string, PlacedNode>, auto?: AutoLayout): void {
+function placePorts(
+  edges: RenderEdge[],
+  placed: Map<string, PlacedNode>,
+  auto?: AutoLayout,
+): void {
   for (const entry of placed.values()) {
     if (entry.hidden) {
       continue;
@@ -920,10 +1242,16 @@ function placePorts(edges: RenderEdge[], placed: Map<string, PlacedNode>, auto?:
   }
 }
 
-function defaultPortSide(entry: PlacedNode, port: RenderPort, edges: RenderEdge[], placed: Map<string, PlacedNode>): Side {
-  const edge = edges.find((candidate) =>
-    (candidate.from === entry.node.id && candidate.fromPort === port.id) ||
-    (candidate.to === entry.node.id && candidate.toPort === port.id),
+function defaultPortSide(
+  entry: PlacedNode,
+  port: RenderPort,
+  edges: RenderEdge[],
+  placed: Map<string, PlacedNode>,
+): Side {
+  const edge = edges.find(
+    (candidate) =>
+      (candidate.from === entry.node.id && candidate.fromPort === port.id) ||
+      (candidate.to === entry.node.id && candidate.toPort === port.id),
   );
   if (!edge) {
     return "south";
@@ -970,24 +1298,36 @@ function includePortExtent(layout: CanvasLayout): CanvasLayout {
     ...layout,
     origin,
     width: Math.max(right + MARGIN, layout.origin.x + layout.width) - origin.x,
-    height: Math.max(bottom + MARGIN, layout.origin.y + layout.height) - origin.y,
+    height:
+      Math.max(bottom + MARGIN, layout.origin.y + layout.height) - origin.y,
   };
 }
 
 // labelHead is a label's first line: the kind of an unnamed node, else the name
 // with its type when it has one.
-function labelHead(node: RenderNode): string {
+function labelHead(
+  node: RenderNode,
+  typed: boolean,
+  qualified: boolean,
+  names?: ReadonlyMap<string, string>,
+): string {
   if (node.name === "") {
     return node.kind;
   }
-  return node.type === "" ? node.name : `${node.name} : ${node.type}`;
+  const name = qualified
+    ? node.name
+    : (names?.get(node.id) ?? simpleName(node.name));
+  return node.type === "" || !typed ? name : `${name} : ${node.type}`;
 }
 
 // labelSize is the box a label needs, its head in bold glyphs.
 export function labelSize(lines: string[]): { width: number; height: number } {
   let width = 0;
   lines.forEach((line, i) => {
-    width = Math.max(width, [...line].length * (i === 0 ? BOLD_GLYPH_WIDTH : GLYPH_WIDTH));
+    width = Math.max(
+      width,
+      [...line].length * (labelLineClass(lines, i) === "head" ? BOLD_GLYPH_WIDTH : GLYPH_WIDTH),
+    );
   });
   return {
     width: Math.max(MIN_WIDTH, Math.ceil(width + 2 * LABEL_PAD_X)),
@@ -1021,7 +1361,9 @@ export function shapeOf(kind: string): Shape {
 }
 
 // symbolSize is a symbol's fixed size; undefined for a label box.
-export function symbolSize(shape: Shape): { width: number; height: number } | undefined {
+export function symbolSize(
+  shape: Shape,
+): { width: number; height: number } | undefined {
   switch (shape) {
     case "point":
       return { width: POINT_SIZE, height: POINT_SIZE };
@@ -1037,8 +1379,32 @@ export function symbolSize(shape: Shape): { width: number; height: number } | un
   }
 }
 
+// statedRoute is the route the model or a gesture states for an edge, if one does;
+// under the router none is, since a stated route is metadata the panel does not draw.
+function statedRoute(
+  edge: RenderEdge,
+  index: number,
+  routes: Map<number, RenderPoint[] | undefined> | undefined,
+  routing: Routing,
+): RenderPoint[] | undefined {
+  if (routing === "router") {
+    return undefined;
+  }
+  return routes?.has(index) ? routes.get(index) : edge.route;
+}
+
 // routeEdge is an edge's polyline: from the border of its source, through the
 // route's waypoints, to the border of its target; a self-loop swings out to the right.
+// folded is whether an end of the edge is under a collapsed owner: the edge is then not drawn, whatever kinds the panel shows.
+function folded(placed: ReadonlyMap<string, PlacedNode>, edge: RenderEdge): boolean {
+  return placed.get(edge.from)?.hidden === true || placed.get(edge.to)?.hidden === true;
+}
+
+/** listedEdges is the rendering's edges at drawn nodes, those of a hidden kind included: what the canvas draws or its relation filter could, which the Relations list counts. */
+export function listedEdges(layout: CanvasLayout): RenderEdge[] {
+  return layout.edges.filter((edge) => !folded(layout.nodes, edge.edge)).map((edge) => edge.edge);
+}
+
 // The auto layout's route applies only where neither end is placed, since an end
 // the model or a gesture moved is where the route was computed around it.
 function routeEdge(
@@ -1047,11 +1413,15 @@ function routeEdge(
   placed: Map<string, PlacedNode>,
   routes: Map<number, RenderPoint[] | undefined> | undefined,
   auto?: AutoLayout,
+  routing: Routing = DEFAULT_ROUTING,
+  hiddenKinds?: ReadonlySet<string>,
+  unplaced = false,
 ): PlacedEdge {
-  const stated = routes?.has(index) ? routes.get(index) : edge.route;
+  const stated = unplaced && !routes?.has(index) ? undefined : statedRoute(edge, index, routes, routing);
   const source = placed.get(edge.from);
   const target = placed.get(edge.to);
-  const routed = autoRoute(edge, index, routes, auto, source, target);
+  const hidden = folded(placed, edge) || hiddenKinds?.has(edge.kind) === true;
+  const routed = autoRoute(stated, index, auto, source, target);
   if (routed !== undefined) {
     // ELK's anchors already lie on the boxes' borders, so its polyline is drawn
     // verbatim and a drag edits only the inner waypoints.
@@ -1061,7 +1431,7 @@ function routeEdge(
       points: routed,
       route: routed.slice(1, -1),
       label: midpoint(routed),
-      hidden: source?.hidden === true || target?.hidden === true,
+      hidden,
       rerouted: false,
     };
   }
@@ -1072,7 +1442,10 @@ function routeEdge(
   if (route.length === 0 && edge.from === edge.to) {
     inner = [
       { x: from.x + from.width + LOOP_REACH, y: from.y + from.height / 3 },
-      { x: from.x + from.width + LOOP_REACH, y: from.y + (2 * from.height) / 3 },
+      {
+        x: from.x + from.width + LOOP_REACH,
+        y: from.y + (2 * from.height) / 3,
+      },
     ];
   }
   const start = anchor(from, inner[0] ?? center(to));
@@ -1082,49 +1455,66 @@ function routeEdge(
   const startPoint = fromPort ? portFace(from, fromPort) : start;
   const endPoint = toPort ? portFace(to, toPort) : end;
   const points = [startPoint, ...inner, endPoint];
-  return { edge, index, points, route, label: midpoint(points), hidden: source?.hidden === true || target?.hidden === true, rerouted: false };
+  return {
+    edge,
+    index,
+    points,
+    route,
+    label: midpoint(points),
+    hidden,
+    rerouted: false,
+  };
 }
 
 function sameBox(a: Box | undefined, b: Box): boolean {
-  return a?.x === b.x && a?.y === b.y && a?.width === b.width && a?.height === b.height;
+  return (
+    a?.x === b.x &&
+    a.y === b.y &&
+    a.width === b.width &&
+    a.height === b.height
+  );
 }
 
 // autoRoute is the auto layout's route for an edge, usable only where neither end
 // is placed: an end the model or a gesture moved is where the route was computed.
 function autoRoute(
-  edge: RenderEdge,
+  stated: RenderPoint[] | undefined,
   index: number,
-  routes: Map<number, RenderPoint[] | undefined> | undefined,
   auto: AutoLayout | undefined,
   source: PlacedNode | undefined,
   target: PlacedNode | undefined,
 ): RenderPoint[] | undefined {
-  const stated = routes?.has(index) ? routes.get(index) : edge.route;
   const routed =
-    stated === undefined && source?.pinned === false && target?.pinned === false ? auto?.routes.get(index) : undefined;
+    stated === undefined && source?.pinned === false && target?.pinned === false
+      ? auto?.routes.get(index)
+      : undefined;
   return routed !== undefined && routed.length >= 2 ? routed : undefined;
 }
 
-// avoidable is an edge the panel routes around the boxes: nothing states its route,
-// the auto layout has none for it, and both ends are drawn, distinct and not hidden.
+// avoidable is an edge the panel routes around the boxes: nothing states its route
+// (or the router overrides what does), the auto layout has none for it, and both
+// ends are drawn, distinct and not hidden.
 function avoidable(
   edge: RenderEdge,
   index: number,
   placed: Map<string, PlacedNode>,
   routes: Map<number, RenderPoint[] | undefined> | undefined,
   auto: AutoLayout | undefined,
+  routing: Routing,
+  unplaced: boolean,
 ): boolean {
   const source = placed.get(edge.from);
   const target = placed.get(edge.to);
+  const stated = unplaced && !routes?.has(index) ? undefined : statedRoute(edge, index, routes, routing);
   return (
-    !routes?.has(index) &&
-    (edge.route?.length ?? 0) === 0 &&
+    (stated?.length ?? 0) === 0 &&
+    (routing === "router" || !routes?.has(index)) &&
     edge.from !== edge.to &&
     source !== undefined &&
     target !== undefined &&
     !source.hidden &&
     !target.hidden &&
-    autoRoute(edge, index, routes, auto, source, target) === undefined
+    autoRoute(stated, index, auto, source, target) === undefined
   );
 }
 
@@ -1138,9 +1528,14 @@ function rerouteAroundBoxes(
   roots: PlacedNode[],
   overrides: Overrides,
   auto: AutoLayout | undefined,
+  routing: Routing,
 ): void {
   const indices = edges
-    .filter((edge) => avoidable(edge.edge, edge.index, placed, overrides.routes, auto))
+    .filter(
+      (edge) =>
+        !edge.hidden &&
+        avoidable(edge.edge, edge.index, placed, overrides.routes, auto, routing, overrides.unplaced === true),
+    )
     .map((edge) => edge.index);
   const held = overrides.held;
   if (held) {
@@ -1156,7 +1551,13 @@ function rerouteAroundBoxes(
         sameBox(held.nodes.get(kept.edge.from)?.box, source.box) &&
         sameBox(held.nodes.get(kept.edge.to)?.box, target.box)
       ) {
-        edges[index] = { ...edge, points: kept.points, route: kept.route, label: kept.label, rerouted: true };
+        edges[index] = {
+          ...edge,
+          points: kept.points,
+          route: kept.route,
+          label: kept.label,
+          rerouted: true,
+        };
       }
     }
     return;
@@ -1220,7 +1621,10 @@ function rerouteAroundBoxes(
     };
     const shapes = new Map<string, AvoidShape>();
     for (const [id] of [...leaves, ...containers]) {
-      if (!covered(placed.get(id)!) && (!containers.has(id) || !exempt.has(id))) {
+      if (
+        !covered(placed.get(id)!) &&
+        (!containers.has(id) || !exempt.has(id))
+      ) {
         shapes.set(id, avoidShape(placed.get(id)!));
       }
     }
@@ -1249,7 +1653,13 @@ function rerouteAroundBoxes(
         continue;
       }
       const edge = edges[index];
-      edges[index] = { ...edge, points, route: points.slice(1, -1), label: midpoint(points), rerouted: true };
+      edges[index] = {
+        ...edge,
+        points,
+        route: points.slice(1, -1),
+        label: midpoint(points),
+        rerouted: true,
+      };
     }
   }
 }
@@ -1257,7 +1667,11 @@ function rerouteAroundBoxes(
 function avoidShape(entry: PlacedNode): AvoidShape {
   return {
     box: entry.box,
-    ports: entry.ports.map(({ port, side, offset }) => ({ id: port.id, side, offset })),
+    ports: entry.ports.map(({ port, side, offset }) => ({
+      id: port.id,
+      side,
+      offset,
+    })),
   };
 }
 
@@ -1284,14 +1698,23 @@ export function anchor(box: Box, toward: RenderPoint): RenderPoint {
 function midpoint(points: RenderPoint[]): RenderPoint {
   let total = 0;
   for (let i = 1; i < points.length; i++) {
-    total += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+    total += Math.hypot(
+      points[i].x - points[i - 1].x,
+      points[i].y - points[i - 1].y,
+    );
   }
   let remaining = total / 2;
   for (let i = 1; i < points.length; i++) {
-    const length = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+    const length = Math.hypot(
+      points[i].x - points[i - 1].x,
+      points[i].y - points[i - 1].y,
+    );
     if (remaining <= length || i === points.length - 1) {
       const t = length === 0 ? 0 : remaining / length;
-      return { x: points[i - 1].x + (points[i].x - points[i - 1].x) * t, y: points[i - 1].y + (points[i].y - points[i - 1].y) * t };
+      return {
+        x: points[i - 1].x + (points[i].x - points[i - 1].x) * t,
+        y: points[i - 1].y + (points[i].y - points[i - 1].y) * t,
+      };
     }
     remaining -= length;
   }
@@ -1303,14 +1726,23 @@ export function movable(layout: CanvasLayout, entry: PlacedNode): boolean {
   return layout.placeable && reachable(entry.node);
 }
 
-/** steerable reports whether an edge's route can be edited: a workspace document declares the connection. */
+/** steerable reports whether an edge's route can be edited by hand: the layout draws the model's routes and a workspace document declares the connection. */
 export function steerable(layout: CanvasLayout, edge: PlacedEdge): boolean {
+  return layout.routing === "model" && routable(layout, edge);
+}
+
+// routable reports whether a Route can be written for an edge: a workspace document declares the connection.
+function routable(layout: CanvasLayout, edge: PlacedEdge): boolean {
   return layout.placeable && reachable(edge.edge);
 }
 
 // nodeUnder is the node drawn on top at a point: the innermost, latest-drawn box holding it,
 // passing over hidden nodes and the subtree of `except`, which a drag holds over the others.
-export function nodeUnder(layout: CanvasLayout, at: RenderPoint, except?: string): PlacedNode | undefined {
+export function nodeUnder(
+  layout: CanvasLayout,
+  at: RenderPoint,
+  except?: string,
+): PlacedNode | undefined {
   let found: PlacedNode | undefined;
   const visit = (entry: PlacedNode): void => {
     if (entry.hidden || entry.node.id === except) {
@@ -1330,18 +1762,41 @@ export function nodeUnder(layout: CanvasLayout, at: RenderPoint, except?: string
 }
 
 function contains(box: Box, at: RenderPoint): boolean {
-  return at.x >= box.x && at.x <= box.x + box.width && at.y >= box.y && at.y <= box.y + box.height;
+  return (
+    at.x >= box.x &&
+    at.x <= box.x + box.width &&
+    at.y >= box.y &&
+    at.y <= box.y + box.height
+  );
+}
+
+// movedRoute is the route a moved subtree carries with an edge: under `router` only the model's
+// stated route, drawn or not; under `model` the drawn route unless the router re-drew it.
+function movedRoute(routing: Routing, edge: PlacedEdge): RenderPoint[] {
+  if (routing === "router") {
+    return edge.edge.route ?? [];
+  }
+  return edge.rerouted ? [] : edge.route;
 }
 
 /**
  * movedNode is what dragging a node by (dx, dy) puts in the model: the node itself,
  * every descendant the model already places, and every stated route between nodes
- * of that subtree — all shifted together, so the subtree keeps its shape.
+ * of that subtree — all shifted together; or, `alone` (under an auto layout), the node only.
  */
-export function movedNode(layout: CanvasLayout, id: string, dx: number, dy: number): Placements | undefined {
+export function movedNode(
+  layout: CanvasLayout,
+  id: string,
+  dx: number,
+  dy: number,
+  alone = false,
+): Placements | undefined {
   const entry = layout.nodes.get(id);
   if (!entry || !movable(layout, entry)) {
     return undefined;
+  }
+  if (alone) {
+    return { nodes: [{ id, layout: shifted(entry, dx, dy) }], edges: [] };
   }
   const subtree = new Set<string>();
   const nodes: NodePlacement[] = [];
@@ -1355,10 +1810,24 @@ export function movedNode(layout: CanvasLayout, id: string, dx: number, dy: numb
     }
   };
   visit(entry, true);
+  // Under `model` the drawn route moves with the subtree (the moved nodes are placed from now
+  // on); under `router` only the model's stated route does, drawn or not, never the router's.
   const edges: EdgePlacement[] = [];
   for (const edge of layout.edges) {
-    if (edge.route.length > 0 && !edge.rerouted && steerable(layout, edge) && subtree.has(edge.edge.from) && subtree.has(edge.edge.to)) {
-      edges.push({ index: edge.index, route: edge.route.map((p) => ({ x: snap(p.x + dx), y: snap(p.y + dy) })) });
+    const stated = movedRoute(layout.routing, edge);
+    if (
+      stated.length > 0 &&
+      routable(layout, edge) &&
+      subtree.has(edge.edge.from) &&
+      subtree.has(edge.edge.to)
+    ) {
+      edges.push({
+        index: edge.index,
+        route: stated.map((p) => ({
+          x: snap(p.x + dx),
+          y: snap(p.y + dy),
+        })),
+      });
     }
   }
   return { nodes, edges };
@@ -1366,7 +1835,12 @@ export function movedNode(layout: CanvasLayout, id: string, dx: number, dy: numb
 
 // liftedEdges routes the edges at the subtree under `id` lifted by (dx, dy): one within it moves
 // whole, waypoints included, as movedNode writes it; one crossing its border keeps its waypoints.
-export function liftedEdges(layout: CanvasLayout, id: string, dx: number, dy: number): PlacedEdge[] {
+export function liftedEdges(
+  layout: CanvasLayout,
+  id: string,
+  dx: number,
+  dy: number,
+): PlacedEdge[] {
   const entry = layout.nodes.get(id);
   if (!entry) {
     return [];
@@ -1375,7 +1849,10 @@ export function liftedEdges(layout: CanvasLayout, id: string, dx: number, dy: nu
   const subtree = new Set<string>();
   const visit = (current: PlacedNode): void => {
     subtree.add(current.node.id);
-    placed.set(current.node.id, { ...current, box: { ...current.box, x: current.box.x + dx, y: current.box.y + dy } });
+    placed.set(current.node.id, {
+      ...current,
+      box: { ...current.box, x: current.box.x + dx, y: current.box.y + dy },
+    });
     for (const child of current.children) {
       visit(child);
     }
@@ -1388,13 +1865,11 @@ export function liftedEdges(layout: CanvasLayout, id: string, dx: number, dy: nu
     if (edge.hidden || (!from && !to)) {
       continue;
     }
-    let route = edge.route;
-    if (from && to) {
-      route = edge.route.map((p) => ({ x: p.x + dx, y: p.y + dy }));
-    } else if (edge.rerouted) {
-      route = [];
-    }
-    out.push(routeEdge(edge.edge, edge.index, placed, new Map([[edge.index, route]])));
+    const kept = edge.rerouted ? [] : edge.route;
+    const route = from && to ? edge.route.map((p) => ({ x: p.x + dx, y: p.y + dy })) : kept;
+    out.push(
+      routeEdge(edge.edge, edge.index, placed, new Map([[edge.index, route]])),
+    );
   }
   return out;
 }
@@ -1403,7 +1878,10 @@ export function liftedEdges(layout: CanvasLayout, id: string, dx: number, dy: nu
 // stay as the model has them, so a drag changes position and nothing else.
 function shifted(entry: PlacedNode, dx: number, dy: number): LayoutGeometry {
   const { width, height, collapsed } = entry.node;
-  const out: LayoutGeometry = { x: snap(entry.box.x + dx), y: snap(entry.box.y + dy) };
+  const out: LayoutGeometry = {
+    x: snap(entry.box.x + dx),
+    y: snap(entry.box.y + dy),
+  };
   if (width !== undefined && height !== undefined) {
     out.width = width;
     out.height = height;
@@ -1415,34 +1893,72 @@ function shifted(entry: PlacedNode, dx: number, dy: number): LayoutGeometry {
 }
 
 /** movedWaypoint is the route with waypoint `point` of edge `index` dragged to `to`. */
-export function movedWaypoint(layout: CanvasLayout, index: number, point: number, to: RenderPoint): Placements | undefined {
+export function movedWaypoint(
+  layout: CanvasLayout,
+  index: number,
+  point: number,
+  to: RenderPoint,
+): Placements | undefined {
   const edge = layout.edges[index];
-  if (!edge || !steerable(layout, edge) || point < 0 || point >= edge.route.length) {
+  if (
+    !edge ||
+    !steerable(layout, edge) ||
+    point < 0 ||
+    point >= edge.route.length
+  ) {
     return undefined;
   }
-  const route = edge.route.map((p, i) => (i === point ? { x: snap(to.x), y: snap(to.y) } : p));
+  const route = edge.route.map((p, i) =>
+    i === point ? { x: snap(to.x), y: snap(to.y) } : p,
+  );
   return { nodes: [], edges: [{ index, route }] };
 }
 
 /** insertedWaypoint is the route with a new waypoint at `at`, splitting segment `segment` of the drawn polyline. */
-export function insertedWaypoint(layout: CanvasLayout, index: number, segment: number, at: RenderPoint): Placements | undefined {
+export function insertedWaypoint(
+  layout: CanvasLayout,
+  index: number,
+  segment: number,
+  at: RenderPoint,
+): Placements | undefined {
   const edge = layout.edges[index];
-  if (!edge || !steerable(layout, edge) || segment < 0 || segment >= edge.points.length - 1) {
+  if (
+    !edge ||
+    !steerable(layout, edge) ||
+    segment < 0 ||
+    segment >= edge.points.length - 1
+  ) {
     return undefined;
   }
   // Segment i of the polyline runs from the anchor or waypoint i-1 to waypoint i, so the new one takes index i.
-  const route = [...edge.route.slice(0, segment), { x: snap(at.x), y: snap(at.y) }, ...edge.route.slice(segment)];
+  const route = [
+    ...edge.route.slice(0, segment),
+    { x: snap(at.x), y: snap(at.y) },
+    ...edge.route.slice(segment),
+  ];
   return { nodes: [], edges: [{ index, route }] };
 }
 
 /** removedWaypoint is the route without waypoint `point`; no route at all once none is left. */
-export function removedWaypoint(layout: CanvasLayout, index: number, point: number): Placements | undefined {
+export function removedWaypoint(
+  layout: CanvasLayout,
+  index: number,
+  point: number,
+): Placements | undefined {
   const edge = layout.edges[index];
-  if (!edge || !steerable(layout, edge) || point < 0 || point >= edge.route.length) {
+  if (
+    !edge ||
+    !steerable(layout, edge) ||
+    point < 0 ||
+    point >= edge.route.length
+  ) {
     return undefined;
   }
   const route = edge.route.filter((_, i) => i !== point);
-  return { nodes: [], edges: [{ index, route: route.length > 0 ? route : undefined }] };
+  return {
+    nodes: [],
+    edges: [{ index, route: route.length > 0 ? route : undefined }],
+  };
 }
 
 /** overridesOf shows placements on the canvas before the model has them. */

@@ -4,7 +4,7 @@ import (
 	"encoding/xml"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/tools/oracle/junit"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/report/junit"
 )
 
 func TestJUnitReport(t *testing.T) {

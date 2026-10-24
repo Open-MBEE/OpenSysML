@@ -1,98 +1,99 @@
 # SysML v1 to v2 migration report: rig_interactions.xmi
-# migrated 87 element(s): 76 mapped, 5 approximated, 6 unmapped (1 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 88 element(s): 65 mapped, 17 approximated, 6 unmapped (1 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (6)
 Interaction	Rig::Astray	_astray	(the lifeline 'o' stands for 'motor' of Other, which no part of Rig reaches)
-Interaction	Rig::Spinup at 12.01	_trace	(the interaction has no message: it records 2 state invariant(s) under 2 time constraint(s), a timing trace, which no scenario step performs)
-MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_sNew	(the occurrence belongs to the message 'new', which is not written)
-MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_rNew	(the occurrence belongs to the message 'new', which is not written)
-Message	Rig::Spinup::new	_mNew	(the message creates drive.motor, a part that exists for as long as its owner does; the steps after it address it as it is)
+StateInvariant	Rig::Spinup at 12.01::<StateInvariant>	_inv1	(the state invariant states no condition)
+StateInvariant	Rig::Spinup at 12.01::<StateInvariant>	_inv2	(the state invariant states no condition)
+TimeConstraint	Rig::Spinup at 12.01::<TimeConstraint>	_tc1	(a TimeConstraint has no form in v2 sequence notation; the events it spans are ordered but not timed)
+TimeConstraint	Rig::Spinup at 12.01::<TimeConstraint>	_tc2	(a TimeConstraint has no form in v2 sequence notation; the events it spans are ordered but not timed)
 Interaction	Twin::Twinned	_twinned	(the lifeline 'm' stands for 'motor', which Twin reaches as both left.motor and right.motor)
 
-## approximated (5)
-Parameter	Motor::Spin::result	_spRes	-> Motor::spin::result	(the return parameter is written as an out parameter)
-Interaction	Rig::Spinup	_spinup	-> Rig::spinup	(written as an action usage of Rig, which a call on an object performs, so its body runs on the object and reaches its features; written as a scenario of 8 steps, one per message in occurrence order; the lifelines' own behavior is not part of it)
-«TestCase» Interaction	Rig::Spinup Test	_tc	-> Rig::'Spinup Test'	(written as a scenario of 1 step, one per message in occurrence order; the lifelines' own behavior is not part of it; the test case has no return parameter, so the verification case states no verdict and is inconclusive once its steps complete)
-Message	Rig::Spinup::brake	_mBrake	-> brake	(written as a call of Brake on drive.motor; the asynchronous call is performed to completion before the next step: an action performs what it calls)
-Message	Rig::Spinup::spun	_mRet	-> spun	(written as the assignment of the call spin's results to ctrl; the value 30.0 the reply states for result is the operation's own result, which the call computes)
+## approximated (17)
+Parameter	Motor::Spin::result	_spRes	-> Model::Motor::spin::result	(the return parameter is written as an out parameter)
+Message	Rig::Spinup Test::spin	_tmSpin	-> spin	(the call is the message; its receiving event performs spin on m; the message comes from the interaction's gate (unnamed), its environment: v2 sequence notation has no gate, so the message states no source)
+CombinedFragment	Rig::Spinup::<CombinedFragment>	_alt	(the alt fragment has no form in v2 sequence notation: its operands' messages are written in occurrence order, the operator and guards as comments)
+CombinedFragment	Rig::Spinup::<CombinedFragment>	_loop	(the loop fragment has no form in v2 sequence notation: its operands' messages are written in occurrence order, the operator and guards as comments)
+CombinedFragment	Rig::Spinup::<CombinedFragment>	_par	(the par fragment has no form in v2 sequence notation: its operands' messages are written in occurrence order, the operator and guards as comments; the concurrent operands are written one after the other)
+CombinedFragment	Rig::Spinup::<CombinedFragment>	_opt	(the opt fragment has no form in v2 sequence notation: its operands' messages are written in occurrence order, the operator and guards as comments)
+InteractionOperand	Rig::Spinup::<CombinedFragment>::<InteractionOperand>	_altFast	(the operand's messages are written in occurrence order under the comment alt [mode == 1]; the guard reads mode of the interaction's context, which its occurrence def has no access to, and is kept as its own text)
+InteractionOperand	Rig::Spinup::<CombinedFragment>::<InteractionOperand>	_altElse	(the operand's messages are written in occurrence order under the comment else)
+InteractionOperand	Rig::Spinup::<CombinedFragment>::<InteractionOperand>	_loopOp	(the operand's messages are written in occurrence order under the comment loop (2, 2))
+InteractionOperand	Rig::Spinup::<CombinedFragment>::<InteractionOperand>	_par1	(the operand's messages are written in occurrence order under the comment par)
+InteractionOperand	Rig::Spinup::<CombinedFragment>::<InteractionOperand>	_par2	(the operand's messages are written in occurrence order under the comment and)
+InteractionOperand	Rig::Spinup::<CombinedFragment>::<InteractionOperand>	_optOp	(the operand's messages are written in occurrence order under the comment opt [ctrl.got > 10.0]; the guard reads ctrl of the interaction's context, which its occurrence def has no access to, and is kept as its own text)
+Message	Rig::Spinup::<Message>	_mSpin2	-> callSpin	(the call is the message; its receiving event performs spin on m)
+Message	Rig::Spinup::brake	_mBrake	-> brake	(the call is the message; its receiving event performs brake on m, to completion within the event)
+Message	Rig::Spinup::new	_mNew	-> 'new'	(the message creates m: v2 sequence notation has no creation message, so it is an ordinary message to the object's first event)
+Message	Rig::Spinup::spin	_mSpin	-> spin	(the call is the message; its receiving event performs spin on m)
+Message	Rig::Spinup::spun	_mRet	-> spun	(the reply carries the result result of the call as its payload; the caller's got is not assigned the result result: a sequence states transfers, not assignments; the value 30.0 the reply states for result is the operation's own result, which the call computes)
 
-## mapped (76)
-«Block» Class	Controller	_ctrl	-> Controller
-Property	Controller::got	_got	-> Controller::got
-Signal	Done	_done	-> Done
-«Block» Class	Drive	_drive	-> Drive
-Property	Drive::motor	_dMotor	-> Drive::motor
-Signal	Go	_go	-> Go
-Property	Go::n	_goN	-> Go::n
-Model	Model	_m	(the root model's members are written at the top level)
-«Block» Class	Motor	_motor	-> Motor
-Operation	Motor::Brake	_brake	-> Motor::Brake	(its owner's usage brake performs it, as a call on an object does)
-Parameter	Motor::Brake::force	_brForce	-> Motor::Brake::force
-Parameter	Motor::Brake::hold	_brHold	-> Motor::Brake::hold
-Operation	Motor::Spin	_spin	-> Motor::spin	(written as an action usage of Motor, which a call on an object performs, so its body runs on the object and reaches its features)
-Parameter	Motor::Spin::rpm	_spRpm	-> Motor::spin::rpm
-Parameter	Motor::Spin::times	_spTimes	-> Motor::spin::times
-Activity	Motor::Spinning	_spinning	-> Motor::spin	(written as the body of the operation Motor::Spin, whose method it is)
+## mapped (65)
+«Block» Class	Controller	_ctrl	-> Model::Controller
+Property	Controller::got	_got	-> Model::Controller::got
+Signal	Done	_done	-> Model::Done
+«Block» Class	Drive	_drive	-> Model::Drive
+Property	Drive::motor	_dMotor	-> Model::Drive::motor
+Signal	Go	_go	-> Model::Go
+Property	Go::n	_goN	-> Model::Go::n
+Model	Model	_m	-> Model	(written as package Model)
+«Block» Class	Motor	_motor	-> Model::Motor
+Operation	Motor::Brake	_brake	-> Model::Motor::brake	(written as an action usage of Motor, which a call on an object performs, so its body runs on the object and reaches its features)
+Parameter	Motor::Brake::force	_brForce	-> Model::Motor::brake::force
+Parameter	Motor::Brake::hold	_brHold	-> Model::Motor::brake::hold
+Operation	Motor::Spin	_spin	-> Model::Motor::spin	(written as an action usage of Motor, which a call on an object performs, so its body runs on the object and reaches its features)
+Parameter	Motor::Spin::rpm	_spRpm	-> Model::Motor::spin::rpm
+Parameter	Motor::Spin::times	_spTimes	-> Model::Motor::spin::times
+Activity	Motor::Spinning	_spinning	-> Model::Motor::spin	(written as the body of the operation Motor::Spin, whose method it is)
 ControlFlow	Motor::Spinning::<ControlFlow>	_cfSet
 ObjectFlow	Motor::Spinning::<ObjectFlow>	_ofRpm
 ObjectFlow	Motor::Spinning::<ObjectFlow>	_ofRes
 ReadStructuralFeatureAction	Motor::Spinning::read speed	_read	-> 'read speed'
-OutputPin	Motor::Spinning::read speed::result	_readOut	-> Motor::spin::'read speed'.result
-Parameter	Motor::Spinning::result	_spRes2	-> Motor::spin::result	(stands for the operation's parameter result at the same position, which is written once)
-ActivityParameterNode	Motor::Spinning::result	_apnRes	-> Motor::spin::result	(the flows to and from the node name the parameter result)
-Parameter	Motor::Spinning::rpm	_spRpm2	-> Motor::spin::rpm	(stands for the operation's parameter rpm at the same position, which is written once)
-ActivityParameterNode	Motor::Spinning::rpm	_apnRpm	-> Motor::spin::rpm	(the flows to and from the node name the parameter rpm)
+OutputPin	Motor::Spinning::read speed::result	_readOut	-> Model::Motor::spin::'read speed'.result
+Parameter	Motor::Spinning::result	_spRes2	-> Model::Motor::spin::result	(stands for the operation's parameter result at the same position, which is written once)
+ActivityParameterNode	Motor::Spinning::result	_apnRes	-> Model::Motor::spin::result	(the flows to and from the node name the parameter result)
+Parameter	Motor::Spinning::rpm	_spRpm2	-> Model::Motor::spin::rpm	(stands for the operation's parameter rpm at the same position, which is written once)
+ActivityParameterNode	Motor::Spinning::rpm	_apnRpm	-> Model::Motor::spin::rpm	(the flows to and from the node name the parameter rpm)
 AddStructuralFeatureValueAction	Motor::Spinning::set speed	_set	-> 'set speed'	(no edge leads to the node, so it starts with the activity)
-InputPin	Motor::Spinning::set speed::value	_setVal	-> Motor::spin::'set speed'.value
-Parameter	Motor::Spinning::times	_spTimes2	-> Motor::spin::times	(stands for the operation's parameter times at the same position, which is written once)
-Property	Motor::speed	_speed	-> Motor::speed
-«Block» Class	Other	_other	-> Other
-Property	Other::motor	_oMotor	-> Other::motor
-«Block» Class	Rig	_rig	-> Rig
-MessageOccurrenceSpecification	Rig::Spinup Test::<MessageOccurrenceSpecification>	_tRSpin	-> spin	(the occurrence orders the step spin)
-Lifeline	Rig::Spinup Test::m	_tlm	-> context.drive.motor	(the lifeline stands for context.drive.motor, which the steps address)
-Message	Rig::Spinup Test::spin	_tmSpin	-> spin	(written as a call of spin on context.drive.motor)
-CombinedFragment	Rig::Spinup::<CombinedFragment>	_alt	-> alt	(written as the action alt, an if over the operands)
-CombinedFragment	Rig::Spinup::<CombinedFragment>	_loop	-> 'loop'	(written as the action 'loop', a for over the operands)
-CombinedFragment	Rig::Spinup::<CombinedFragment>	_par	-> par	(written as the action par, a fork over the operands)
-CombinedFragment	Rig::Spinup::<CombinedFragment>	_opt	-> opt	(written as the action opt, an if over the operands)
-InteractionOperand	Rig::Spinup::<CombinedFragment>::<InteractionOperand>	_altFast	-> altOp1	(written as the action altOp1; its guard is the condition [mode == 1])
-InteractionOperand	Rig::Spinup::<CombinedFragment>::<InteractionOperand>	_altElse	-> altOp2	(written as the action altOp2)
-InteractionOperand	Rig::Spinup::<CombinedFragment>::<InteractionOperand>	_loopOp	-> loopOp1	(written as the action loopOp1)
-InteractionOperand	Rig::Spinup::<CombinedFragment>::<InteractionOperand>	_par1	-> parOp12	(written as the action parOp12)
-InteractionOperand	Rig::Spinup::<CombinedFragment>::<InteractionOperand>	_par2	-> parOp2	(written as the action parOp2)
-InteractionOperand	Rig::Spinup::<CombinedFragment>::<InteractionOperand>	_optOp	-> optOp1	(written as the action optOp1; its guard is the condition [ctrl.got > 10.0])
-InteractionConstraint	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<InteractionConstraint>	_altFastG	(the guard is the operand's condition)
-InteractionConstraint	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<InteractionConstraint>	_altElseG	(the guard is the operand's condition)
-InteractionConstraint	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<InteractionConstraint>	_loopG	(the guard is the operand's condition)
-InteractionConstraint	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<InteractionConstraint>	_optG	(the guard is the operand's condition)
-MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_sGo	-> go	(the occurrence orders the step go)
-MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_rGo	-> go	(the occurrence orders the step go)
-MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_sBrake	-> brake	(the occurrence orders the step brake)
-MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_rBrake	-> brake	(the occurrence orders the step brake)
-MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_sSpin2	-> callSpin	(the occurrence orders the step callSpin)
-MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_rSpin2	-> callSpin	(the occurrence orders the step callSpin)
-MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_sGo2	-> parEnd	(the occurrence orders the step parEnd)
-MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_rGo2	-> parEnd	(the occurrence orders the step parEnd)
-MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_sDone	-> parOp1	(the occurrence orders the step parOp1)
-MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_rDone	-> parOp1	(the occurrence orders the step parOp1)
-Message	Rig::Spinup::<Message>	_mSpin2	-> callSpin	(written as a call of spin on drive.motor)
-MessageOccurrenceSpecification	Rig::Spinup::<MessageOccurrenceSpecification>	_sSpin	-> spin	(the occurrence orders the step spin)
-MessageOccurrenceSpecification	Rig::Spinup::<MessageOccurrenceSpecification>	_rSpin	-> spin	(the occurrence orders the step spin)
-MessageOccurrenceSpecification	Rig::Spinup::<MessageOccurrenceSpecification>	_sRet	-> spun	(the occurrence orders the step spun)
-MessageOccurrenceSpecification	Rig::Spinup::<MessageOccurrenceSpecification>	_rRet	-> spun	(the occurrence orders the step spun)
-Lifeline	Rig::Spinup::c	_lc	-> ctrl	(the lifeline stands for ctrl, which the steps address)
-Message	Rig::Spinup::go	_mGo	-> go	(written as a send to drive.motor)
-Lifeline	Rig::Spinup::m	_lm	-> drive.motor	(the lifeline stands for drive.motor, which the steps address)
-Message	Rig::Spinup::parEnd	_mGo2	-> parEnd	(written as a send to drive.motor)
-Message	Rig::Spinup::parOp1	_mDone	-> parOp1	(written as a send to ctrl)
-Message	Rig::Spinup::spin	_mSpin	-> spin	(written as a call of spin on drive.motor)
-Property	Rig::ctrl	_rCtrl	-> Rig::ctrl
-Property	Rig::drive	_rDrive	-> Rig::drive
-Property	Rig::mode	_mode	-> Rig::mode
-«Block» Class	Twin	_twin	-> Twin
-Property	Twin::left	_tLeft	-> Twin::left
-Property	Twin::right	_tRight	-> Twin::right
+InputPin	Motor::Spinning::set speed::value	_setVal	-> Model::Motor::spin::'set speed'.value
+Parameter	Motor::Spinning::times	_spTimes2	-> Model::Motor::spin::times	(stands for the operation's parameter times at the same position, which is written once)
+Property	Motor::speed	_speed	-> Model::Motor::speed
+«Block» Class	Other	_other	-> Model::Other
+Property	Other::motor	_oMotor	-> Model::Other::motor
+«Block» Class	Rig	_rig	-> Model::Rig
+Interaction	Rig::Spinup	_spinup	-> Model::Rig::Spinup	(written as an occurrence def of 2 lifeline usages and 8 messages between their event occurrences in occurrence order; its lifelines are bound to the features of Rig they stand for in the occurrence usage spinup)
+«TestCase» Interaction	Rig::Spinup Test	_tc	-> Model::Rig::'Spinup Test'	(written as a verification def of 1 lifeline usage and 1 message between their event occurrences in occurrence order, the lifelines bound to the subject's parts; the test case has no return parameter, so the verification case states no verdict and is inconclusive once its events complete)
+MessageOccurrenceSpecification	Rig::Spinup Test::<MessageOccurrenceSpecification>	_tRSpin	-> m.spinReceived	(written as the event occurrence m.spinReceived, which the message spin reaches)
+Lifeline	Rig::Spinup Test::m	_tlm	-> Model::Rig::'Spinup Test'::m	(written as the ref part usage m holding its 1 event occurrence, subsetting context.drive.motor)
+Interaction	Rig::Spinup at 12.01	_trace	-> Model::Rig::'Spinup at 12.01'	(written as an occurrence def of 1 lifeline usage and 0 messages between their event occurrences in occurrence order; its lifelines are bound to the features of Rig they stand for in the occurrence usage spinup at 12.01)
+Lifeline	Rig::Spinup at 12.01::motor	_trl	-> Model::Rig::'Spinup at 12.01'::motor	(written as the ref part usage motor holding its 0 event occurrences, bound to drive.motor of Rig where the def occurs)
+MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_sGo	-> c.goSent	(written as the event occurrence c.goSent, which the message go leaves)
+MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_rGo	-> m.goReceived	(written as the event occurrence m.goReceived, which the message go reaches)
+MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_sBrake	-> c.brakeSent	(written as the event occurrence c.brakeSent, which the message brake leaves)
+MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_rBrake	-> m.brakeReceived	(written as the event occurrence m.brakeReceived, which the message brake reaches)
+MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_sSpin2	-> c.callSpinSent	(written as the event occurrence c.callSpinSent, which the message callSpin leaves)
+MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_rSpin2	-> m.callSpinReceived	(written as the event occurrence m.callSpinReceived, which the message callSpin reaches)
+MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_sGo2	-> c.parEndSent	(written as the event occurrence c.parEndSent, which the message parEnd leaves)
+MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_rGo2	-> m.parEndReceived	(written as the event occurrence m.parEndReceived, which the message parEnd reaches)
+MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_sDone	-> m.parOp1Sent	(written as the event occurrence m.parOp1Sent, which the message parOp1 leaves)
+MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_rDone	-> c.parOp1Received	(written as the event occurrence c.parOp1Received, which the message parOp1 reaches)
+MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_sNew	-> c.newSent	(written as the event occurrence c.newSent, which the message 'new' leaves)
+MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_rNew	-> m.newReceived	(written as the event occurrence m.newReceived, which the message 'new' reaches)
+MessageOccurrenceSpecification	Rig::Spinup::<MessageOccurrenceSpecification>	_sSpin	-> c.spinSent	(written as the event occurrence c.spinSent, which the message spin leaves)
+MessageOccurrenceSpecification	Rig::Spinup::<MessageOccurrenceSpecification>	_rSpin	-> m.spinReceived	(written as the event occurrence m.spinReceived, which the message spin reaches)
+MessageOccurrenceSpecification	Rig::Spinup::<MessageOccurrenceSpecification>	_sRet	-> m.spunSent	(written as the event occurrence m.spunSent, which the message spun leaves)
+MessageOccurrenceSpecification	Rig::Spinup::<MessageOccurrenceSpecification>	_rRet	-> c.spunReceived	(written as the event occurrence c.spunReceived, which the message spun reaches)
+Lifeline	Rig::Spinup::c	_lc	-> Model::Rig::Spinup::c	(written as the ref part usage c holding its 8 event occurrences, bound to ctrl of Rig where the def occurs)
+Message	Rig::Spinup::go	_mGo	-> go
+Lifeline	Rig::Spinup::m	_lm	-> Model::Rig::Spinup::m	(written as the ref part usage m holding its 8 event occurrences, bound to drive.motor of Rig where the def occurs)
+Message	Rig::Spinup::parEnd	_mGo2	-> parEnd
+Message	Rig::Spinup::parOp1	_mDone	-> parOp1
+Property	Rig::ctrl	_rCtrl	-> Model::Rig::ctrl
+Property	Rig::drive	_rDrive	-> Model::Rig::drive
+Property	Rig::mode	_mode	-> Model::Rig::mode
+«Block» Class	Twin	_twin	-> Model::Twin
+Property	Twin::left	_tLeft	-> Model::Twin::left
+Property	Twin::right	_tRight	-> Model::Twin::right
 
 ## skipped (1)
-BehaviorExecutionSpecification	Rig::Spinup::<BehaviorExecutionSpecification>	_exec	(the execution spans the steps between its occurrences, which run in order without it)
+BehaviorExecutionSpecification	Rig::Spinup::<BehaviorExecutionSpecification>	_exec	(the execution spans the events between its start and finish, which the then successions order without it)

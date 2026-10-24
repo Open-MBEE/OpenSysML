@@ -4,7 +4,7 @@
 # on Linux, with the WiX v5 .NET tool.
 #
 # Usage:
-#   scripts/build-msi.sh <tag> <sysml.exe> <sysml-lsp.exe> <sysml-grpc.exe> [out.msi]
+#   scripts/build-msi.sh <tag> <sysml.exe> <sysml-lsp.exe> <sysml-grpc.exe> <sysml-mcp.exe> [out.msi]
 #
 # <tag> is the release tag (v0.5.0, v0.6.0-rc1). The MSI ProductVersion is its
 # numeric x.y.z part; the full tag is kept in the OPENSYSML_TAG property and
@@ -32,8 +32,8 @@ else
   wixpath() { local host="$1"; printf '%s%s' "$WIX_PATH_PREFIX" "$host"; }
 fi
 
-if [[ $# -lt 4 || $# -gt 5 ]]; then
-  echo "usage: $0 <tag> <sysml.exe> <sysml-lsp.exe> <sysml-grpc.exe> [out.msi]" >&2
+if [[ $# -lt 5 || $# -gt 6 ]]; then
+  echo "usage: $0 <tag> <sysml.exe> <sysml-lsp.exe> <sysml-grpc.exe> <sysml-mcp.exe> [out.msi]" >&2
   exit 2
 fi
 
@@ -41,7 +41,8 @@ TAG="$1"
 SYSML_EXE="$2"
 LSP_EXE="$3"
 GRPC_EXE="$4"
-OUT="${5:-}"
+MCP_EXE="$5"
+OUT="${6:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -54,7 +55,7 @@ LICENSE_FILE="$REPO_ROOT/LICENSE"
 for f in "$WXS" "$WIZARD_WXS" "$PIN" "$LICENSE_FILE"; do
   [[ -f "$f" ]] || { echo "error: $f not found" >&2; exit 1; }
 done
-for f in "$SYSML_EXE" "$LSP_EXE" "$GRPC_EXE"; do
+for f in "$SYSML_EXE" "$LSP_EXE" "$GRPC_EXE" "$MCP_EXE"; do
   [[ -f "$f" ]] || { echo "error: binary $f not found" >&2; exit 1; }
 done
 for tool in ${WIX_CMD%% *} curl sha256sum; do
@@ -103,6 +104,7 @@ mkdir -p "$WORK/bin" "$WORK/z3"
 cp "$SYSML_EXE" "$WORK/bin/sysml.exe"
 cp "$LSP_EXE" "$WORK/bin/sysml-lsp.exe"
 cp "$GRPC_EXE" "$WORK/bin/sysml-grpc.exe"
+cp "$MCP_EXE" "$WORK/bin/sysml-mcp.exe"
 
 # Z3: fetch the pinned zip, verify it, take z3.exe, its VC++ runtime and the MIT notice.
 Z3_CACHE_DIR="${Z3_ZIP_CACHE:-$WORK}"

@@ -1,6 +1,7 @@
 package export_test
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
 
 // withoutSourceLayout strips the lines a graph carries for layout alone, keeping
@@ -172,9 +174,10 @@ func TestPortionFlagIsCarriedOrRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	portion := "    sysml:isComposite \"true\"^^xsd:boolean ;\n    sysml:isPortion \"true\"^^xsd:boolean ;"
+	composite := "    sysml:isComposite \"true\"^^xsd:boolean ;\n"
+	portion := "    sysml:isPortion \"true\"^^xsd:boolean ;"
 	constant := "    sysml:isConstant \"true\"^^xsd:boolean ;"
-	if !strings.Contains(string(kermlGraph), portion) {
+	if !strings.Contains(string(kermlGraph), composite) || !strings.Contains(string(kermlGraph), portion) {
 		t.Fatalf("a KerML portion should state isComposite and isPortion:\n%s", kermlGraph)
 	}
 	cases := []struct {
@@ -188,11 +191,11 @@ func TestPortionFlagIsCarriedOrRefused(t *testing.T) {
 		want: []string{"the portion <urn:sysmlv2:element:Prefixes__B__k>", "no sysml:portionKind", "only as `snapshot` or `timeslice`"},
 	}, {
 		name: "sysml_root_composite_portion", graph: sysmlGraph,
-		old: constant, new: constant + "\n    sysml:isComposite \"true\"^^xsd:boolean ;\n    sysml:isPortion \"true\"^^xsd:boolean ;",
+		old: "    sysml:isComposite \"false\"^^xsd:boolean ;\n", new: composite + "    sysml:isPortion \"true\"^^xsd:boolean ;\n",
 		want: []string{"the portion <urn:sysmlv2:element:Prefixes__B__k>", "no sysml:portionKind"},
 	}, {
 		name: "kerml_portion_not_composite", graph: kermlGraph,
-		old: portion, new: "    sysml:isPortion \"true\"^^xsd:boolean ;",
+		old: composite, new: "",
 		want: []string{"the portion <urn:sysmlv2:element:FeatureMods__B__p>", "without sysml:isComposite", "a portion is composite"},
 	}}
 	for _, tc := range cases {
@@ -248,4 +251,67 @@ func TestPortionFlagIsCarriedOrRefused(t *testing.T) {
 		}
 		checkSpelling(t, string(back), []string{"constant feature k : A;"}, []string{"const feature"})
 	})
+}
+
+// Every feature the element form carries states isComposite, the ones the
+// mapping mints for an expression's parameters, a connector's ends and an
+// implied parameter included: none has a prefix, so each states false.
+func TestMintedFeaturesStateIsComposite(t *testing.T) {
+	src := []byte(`package Minted {
+    part def Car {
+        attribute total = 1 + 2;
+        port p;
+        port q;
+        connect p to q;
+        action a { in x; }
+        perform a2 : a { in x; }
+        message of Car from p to q;
+    }
+}
+`)
+	out, err := convert.Convert("m.sysml", src, convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(out, &elements); err != nil {
+		t.Fatal(err)
+	}
+	features := 0
+	for _, e := range elements {
+		typ, _ := e["@type"].(string)
+		if !ontology.IsAncestorOrSelf(typ, "Feature") {
+			continue
+		}
+		features++
+		if _, stated := e["isComposite"]; !stated {
+			t.Errorf("the %s %v states no isComposite", typ, e["@id"])
+		}
+	}
+	if features < 12 {
+		t.Errorf("the model should carry the minted parameters and ends, found %d features", features)
+	}
+}
+
+// A SysML head written `ref composite` states both authored facts; the graph
+// alone writes both words back, as `ref` beside a part would otherwise deny the composite.
+func TestRefCompositeReadsBackFromTheGraphAlone(t *testing.T) {
+	src := []byte("package Spare {\n    part def Car {\n        ref composite part spare;\n    }\n}\n")
+	graph, err := convert.Convert("m.sysml", src, convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current := withoutSourceLayout(t, graph)
+	back, err := convert.Convert("m.ttl", current, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	checkSpelling(t, string(back), []string{"ref composite part spare;"}, nil)
+	again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lost, gained := tripleSetDiff(t, current, withoutSourceLayout(t, again)); len(lost)+len(gained) > 0 {
+		t.Errorf("the graph alone changed the model\n--- lost ---\n%s\n--- gained ---\n%s", strings.Join(lost, "\n"), strings.Join(gained, "\n"))
+	}
 }

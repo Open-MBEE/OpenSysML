@@ -41,12 +41,15 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	if err := options.Ports.check(); err != nil {
 		return "", err
 	}
+	if err := options.Lines.check(); err != nil {
+		return "", err
+	}
 	if r.Run && r.Kind == KindTimeline {
 		return r.runTimelinePlantUML(options), nil
 	}
-	r = r.settleUnplaced(options.Unplaced, FormPlantUML)
+	r = r.showing(options.Show).settleUnplaced(options.Unplaced, options.Compartments, FormPlantUML)
 	w := &plantumlWriter{kind: r.Kind, borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},
-		labels: labelsOf(r.Roots, false, nil), ports: r.portView(options.Ports), links: options.Links,
+		labels: labelsOf(r.Roots, false, nil, r.Shown), ports: r.portView(options.Ports), links: options.Links,
 		writtenPorts: make(map[string]struct{})}
 	for _, root := range r.Roots {
 		w.fills.collect(root)
@@ -98,6 +101,9 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	if direction != "" {
 		b.WriteString(direction + "\n")
 	}
+	if statement := options.Lines.plantumlStatement(); statement != "" {
+		b.WriteString(statement + "\n")
+	}
 	r.writeGeometryComments(b, "'")
 	switch r.Kind {
 	case KindTree, KindRequirement, KindDefinition, KindPackage:
@@ -131,7 +137,7 @@ type plantumlWriter struct {
 func (r *Rendering) countGeometry() (placed, routed int) {
 	var walk func(node *Node)
 	walk = func(node *Node) {
-		if node.Geometry != nil {
+		if node.Geometry.placed() {
 			placed++
 		}
 		for _, child := range node.Children {
@@ -516,10 +522,19 @@ func (w *plantumlWriter) writeArrow(indent, from, to, arrow, label string, origi
 	fmt.Fprintf(&w.b, "%s%s %s %s : %s%s\n", indent, from, arrow, to, edgeText, link)
 }
 
+// writeArrowEdge writes an edge as an arrow between its ends, an end name set
+// at its end in quotes, `a "owner" *-- "wheels[4]" b`, the edge's own text
+// after the colon.
 func (w *plantumlWriter) writeArrowEdge(edge Edge, from, to string, sequence bool) {
 	arrow := plantumlArrow(w.kind, edge.Kind)
 	if sequence {
 		arrow = "->"
+	}
+	if edge.FromLabel != "" {
+		from += " " + plantumlQuote(plantumlEdgeText(w.kind, edge.FromLabel))
+	}
+	if edge.ToLabel != "" {
+		to = plantumlQuote(plantumlEdgeText(w.kind, edge.ToLabel)) + " " + to
 	}
 	w.writeArrow("", from, to, arrow, edge.Label, edge.Origin, sequence)
 }
@@ -677,6 +692,9 @@ func (w *plantumlWriter) plantumlLabel(node *Node) string {
 	}
 	parts = append(parts, "**"+plantumlText(w.labels.head(node))+"**")
 	for _, line := range w.labels.details(node) {
+		parts = append(parts, plantumlText(line))
+	}
+	for _, line := range w.labels.compartmentLines(node) {
 		parts = append(parts, plantumlText(line))
 	}
 	return strings.Join(parts, `\n`)

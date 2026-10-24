@@ -27,7 +27,7 @@ func isTypeModifier(s *sysmlv1.Stereotype) bool {
 }
 
 // readsTypeModifier reports whether the declaration of e reads application s
-// as a «typeModifier»: it is written exactly, or kept as a comment with its own note.
+// as a «typeModifier»: it is written exactly, or kept as an applied-stereotype marker with its own note.
 func readsTypeModifier(e *sysmlv1.Element, s *sysmlv1.Stereotype) bool {
 	return isTypeModifier(s) && (e.Type == "Property" || e.Type == "Parameter" || e.Type == "Port")
 }
@@ -109,10 +109,7 @@ func (tm *typeModifier) reference(m *migration, p *sysmlv1.Element) {
 
 // kwArticle names a usage keyword with its article.
 func kwArticle(kw string) string {
-	if strings.HasPrefix(kw, "a") || strings.HasPrefix(kw, "i") {
-		return "an " + kw
-	}
-	return "a " + kw
+	return article(kw) + kw
 }
 
 // shape is the multiplicity the type modifier writes in place of the declared
@@ -129,13 +126,13 @@ func (tm *typeModifier) shape(unique bool) string {
 }
 
 // note is what the report says of the modifier: nothing when it is written
-// exactly, else why it is kept as a comment.
+// exactly, else why it is kept as a marker.
 func (tm *typeModifier) note() string {
 	if tm == nil || tm.refused == "" {
 		return ""
 	}
 	if tm.text == "" {
-		return "an empty «typeModifier» is kept as a comment: " + tm.refused
+		return "an empty «typeModifier» is kept as a marker: " + tm.refused
 	}
-	return "«typeModifier» " + tm.text + " is kept as a comment: " + tm.refused
+	return "«typeModifier» " + tm.text + " is kept as a marker: " + tm.refused
 }

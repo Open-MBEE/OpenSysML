@@ -125,10 +125,30 @@ class SysMLServiceStub:
                 request_serializer=sysml__pb2.RunAnalysisRequest.SerializeToString,
                 response_deserializer=sysml__pb2.RunAnalysisResponse.FromString,
                 _registered_method=True)
+        self.CheckBehavior = channel.unary_unary(
+                '/sysml.SysMLService/CheckBehavior',
+                request_serializer=sysml__pb2.CheckBehaviorRequest.SerializeToString,
+                response_deserializer=sysml__pb2.CheckBehaviorResponse.FromString,
+                _registered_method=True)
         self.RunSweep = channel.unary_unary(
                 '/sysml.SysMLService/RunSweep',
                 request_serializer=sysml__pb2.RunSweepRequest.SerializeToString,
                 response_deserializer=sysml__pb2.RunSweepResponse.FromString,
+                _registered_method=True)
+        self.RunRuns = channel.unary_unary(
+                '/sysml.SysMLService/RunRuns',
+                request_serializer=sysml__pb2.RunRunsRequest.SerializeToString,
+                response_deserializer=sysml__pb2.RunRunsResponse.FromString,
+                _registered_method=True)
+        self.SelfCheck = channel.unary_unary(
+                '/sysml.SysMLService/SelfCheck',
+                request_serializer=sysml__pb2.SelfCheckRequest.SerializeToString,
+                response_deserializer=sysml__pb2.SelfCheckResponse.FromString,
+                _registered_method=True)
+        self.RecordRun = channel.unary_unary(
+                '/sysml.SysMLService/RecordRun',
+                request_serializer=sysml__pb2.RecordRunRequest.SerializeToString,
+                response_deserializer=sysml__pb2.RecordRunResponse.FromString,
                 _registered_method=True)
         self.ListEngines = channel.unary_unary(
                 '/sysml.SysMLService/ListEngines',
@@ -159,6 +179,16 @@ class SysMLServiceStub:
                 '/sysml.SysMLService/ExportGraphs',
                 request_serializer=sysml__pb2.ExportGraphsRequest.SerializeToString,
                 response_deserializer=sysml__pb2.ExportGraphsResponse.FromString,
+                _registered_method=True)
+        self.ImportData = channel.unary_unary(
+                '/sysml.SysMLService/ImportData',
+                request_serializer=sysml__pb2.ImportDataRequest.SerializeToString,
+                response_deserializer=sysml__pb2.ImportDataResponse.FromString,
+                _registered_method=True)
+        self.CompareResults = channel.unary_unary(
+                '/sysml.SysMLService/CompareResults',
+                request_serializer=sysml__pb2.CompareResultsRequest.SerializeToString,
+                response_deserializer=sysml__pb2.CompareResultsResponse.FromString,
                 _registered_method=True)
 
 
@@ -310,10 +340,48 @@ class SysMLServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CheckBehavior(self, request, context):
+        """CheckBehavior searches every schedule of an action or state machine, as
+        `sysml -check-property`/`-check-diverge` do: a violated property, a
+        deadlock, a failure or a divergent feature is witnessed and replayed.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def RunSweep(self, request, context):
         """Run one analysis case or calc once per row of a parameter sweep, as the
         CLI's -sweep and the REPL's %sweep do: each row is an ordinary run with the
         swept parameter bound to that row's value. Reported as the "verification"
+        capability.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RunRuns(self, request, context):
+        """Run an action, or a Simulation::MonteCarlo analysis case, a number of
+        times, each run seeded from the request's seed, and table what the runs
+        observed with each observable's distribution, as the CLI's -runs/-observe
+        do. Reported as the "runs" capability.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SelfCheck(self, request, context):
+        """SelfCheck applies the SysMLValidation constraints, and those of any rule
+        packages, reflectively to every element of the model, as `sysml -self-check`
+        does. Reported as the "self_check" capability.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RecordRun(self, request, context):
+        """RecordRun runs an analysis case — once, over the rows of a sweep, or as a
+        Monte Carlo sample — and records the runs into the model as AnalysisRecords
+        declarations, as `sysml -record-run` does. Reported as the "record_run"
         capability.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -372,6 +440,26 @@ class SysMLServiceServicer:
         """Export the lowered graph of an action or a state machine — the subject's
         and every behavior it performs — as the canonical `graphs:<version>` JSON
         external analysis engines read. Reported as the "export_graphs" capability.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ImportData(self, request, context):
+        """Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row
+        per element, as `sysml -import` does: a feature the element declares has its
+        value set, one it inherits is redefined with the value; a dry run reports the
+        values without changing the model. Reported as the "import_data" capability.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CompareResults(self, request, context):
+        """Run every configuration a SysML v1 tool's results sidecar indexes, as
+        `sysml -compare-results` does, and table the tool's and OpenSysML's min,
+        mean, p50, p90 and max of each observable with their relative difference.
+        Reported as the "compare_results" capability.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -470,10 +558,30 @@ def add_SysMLServiceServicer_to_server(servicer, server):
                     request_deserializer=sysml__pb2.RunAnalysisRequest.FromString,
                     response_serializer=sysml__pb2.RunAnalysisResponse.SerializeToString,
             ),
+            'CheckBehavior': grpc.unary_unary_rpc_method_handler(
+                    servicer.CheckBehavior,
+                    request_deserializer=sysml__pb2.CheckBehaviorRequest.FromString,
+                    response_serializer=sysml__pb2.CheckBehaviorResponse.SerializeToString,
+            ),
             'RunSweep': grpc.unary_unary_rpc_method_handler(
                     servicer.RunSweep,
                     request_deserializer=sysml__pb2.RunSweepRequest.FromString,
                     response_serializer=sysml__pb2.RunSweepResponse.SerializeToString,
+            ),
+            'RunRuns': grpc.unary_unary_rpc_method_handler(
+                    servicer.RunRuns,
+                    request_deserializer=sysml__pb2.RunRunsRequest.FromString,
+                    response_serializer=sysml__pb2.RunRunsResponse.SerializeToString,
+            ),
+            'SelfCheck': grpc.unary_unary_rpc_method_handler(
+                    servicer.SelfCheck,
+                    request_deserializer=sysml__pb2.SelfCheckRequest.FromString,
+                    response_serializer=sysml__pb2.SelfCheckResponse.SerializeToString,
+            ),
+            'RecordRun': grpc.unary_unary_rpc_method_handler(
+                    servicer.RecordRun,
+                    request_deserializer=sysml__pb2.RecordRunRequest.FromString,
+                    response_serializer=sysml__pb2.RecordRunResponse.SerializeToString,
             ),
             'ListEngines': grpc.unary_unary_rpc_method_handler(
                     servicer.ListEngines,
@@ -504,6 +612,16 @@ def add_SysMLServiceServicer_to_server(servicer, server):
                     servicer.ExportGraphs,
                     request_deserializer=sysml__pb2.ExportGraphsRequest.FromString,
                     response_serializer=sysml__pb2.ExportGraphsResponse.SerializeToString,
+            ),
+            'ImportData': grpc.unary_unary_rpc_method_handler(
+                    servicer.ImportData,
+                    request_deserializer=sysml__pb2.ImportDataRequest.FromString,
+                    response_serializer=sysml__pb2.ImportDataResponse.SerializeToString,
+            ),
+            'CompareResults': grpc.unary_unary_rpc_method_handler(
+                    servicer.CompareResults,
+                    request_deserializer=sysml__pb2.CompareResultsRequest.FromString,
+                    response_serializer=sysml__pb2.CompareResultsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -1004,6 +1122,33 @@ class SysMLService:
             _registered_method=True)
 
     @staticmethod
+    def CheckBehavior(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/CheckBehavior',
+            sysml__pb2.CheckBehaviorRequest.SerializeToString,
+            sysml__pb2.CheckBehaviorResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def RunSweep(request,
             target,
             options=(),
@@ -1020,6 +1165,87 @@ class SysMLService:
             '/sysml.SysMLService/RunSweep',
             sysml__pb2.RunSweepRequest.SerializeToString,
             sysml__pb2.RunSweepResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RunRuns(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/RunRuns',
+            sysml__pb2.RunRunsRequest.SerializeToString,
+            sysml__pb2.RunRunsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SelfCheck(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/SelfCheck',
+            sysml__pb2.SelfCheckRequest.SerializeToString,
+            sysml__pb2.SelfCheckResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RecordRun(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/RecordRun',
+            sysml__pb2.RecordRunRequest.SerializeToString,
+            sysml__pb2.RecordRunResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1182,6 +1408,60 @@ class SysMLService:
             '/sysml.SysMLService/ExportGraphs',
             sysml__pb2.ExportGraphsRequest.SerializeToString,
             sysml__pb2.ExportGraphsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ImportData(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/ImportData',
+            sysml__pb2.ImportDataRequest.SerializeToString,
+            sysml__pb2.ImportDataResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CompareResults(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/CompareResults',
+            sysml__pb2.CompareResultsRequest.SerializeToString,
+            sysml__pb2.CompareResultsResponse.FromString,
             options,
             channel_credentials,
             insecure,

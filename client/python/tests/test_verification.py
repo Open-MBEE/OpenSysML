@@ -242,6 +242,8 @@ def test_verify_satisfaction_reports_the_body_verdicts_of_the_run():
                 kind="error",
                 detail="no value for feature m",
                 requirement_id="Demo::r",
+                instance_id=1,
+                instance_type_id="Demo::sedan",
             ),
         ],
     )
@@ -254,6 +256,11 @@ def test_verify_satisfaction_reports_the_body_verdicts_of_the_run():
     assert [v.kind for v in verdicts[0].verifications] == ["error"]
     assert verdicts[0].verifications[0].detail == "no value for feature m"
     assert verdicts[0].verifications[0].requirement_id == "Demo::r"
+    assert verdicts[0].verifications[0].instance_id == 1
+    assert verdicts[0].verifications[0].instance_type_id == "Demo::sedan"
+    assert verdicts[0].verifications[0].explain().startswith(
+        "? verification Demo::check (on Demo::sedan ID: 1) verdict: error"
+    )
 
 
 def test_verify_satisfaction_gives_each_verdict_only_its_own_requirements_cases():

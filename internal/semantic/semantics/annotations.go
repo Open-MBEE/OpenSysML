@@ -873,6 +873,17 @@ func (m *Model) DeclaredFeatureValues(sym *symbols.Symbol, feature string) ([]sy
 	return m.constantFeatureValues(member, make(map[*symbols.Symbol]bool))
 }
 
+// OwnFeatureValues returns the ordered constant values a feature's own
+// valuation binds (KerML Feature::valuation): what its declaration writes, or
+// what the features it redefines write when it writes none. Not a feature: ok
+// is false. The error is a symbols.NeedsHydration for a recorded declaration.
+func (m *Model) OwnFeatureValues(sym *symbols.Symbol) ([]symbols.FilterValue, bool, error) {
+	if m == nil || sym == nil || !sym.IsFeature() {
+		return nil, false, nil
+	}
+	return m.constantFeatureValues(sym, make(map[*symbols.Symbol]bool))
+}
+
 // constantFeatureValues reads the values member's declaration writes, or those
 // of the features it redefines when it writes none. A recorded feature's record
 // says whether it writes a value but not what: that reading needs its tree.
@@ -892,7 +903,12 @@ func (m *Model) constantFeatureValues(member *symbols.Symbol, seen map[*symbols.
 	if usage == nil || usage.Value == nil {
 		var values []symbols.FilterValue
 		found := false
-		for _, redefined := range m.RedefinedFeatures(member) {
+		redefined := m.RedefinedFeatures(member)
+		if len(redefined) == 0 {
+			// A parameter redefines its general's parameter by position.
+			redefined = m.ImplicitParameterRedefinitions(member)
+		}
+		for _, redefined := range redefined {
 			inherited, ok, err := m.constantFeatureValues(redefined, seen)
 			if err != nil {
 				return nil, false, err
@@ -975,7 +991,7 @@ func (m *Model) readsValueOf(sym *symbols.Symbol) bool {
 	return EnumerationOwning(sym) == nil && !m.IsMeasurementUnit(sym)
 }
 
-// metaclassOf is the candidate's own metaclass — what `@@T` tests: a KerML
+// metaclassOf is the candidate's own metaclass — its reflective metadata: a KerML
 // declaration by its keyword (its kind cannot tell `struct` from `datatype`),
 // anything else by its symbol kind, so a cached element classifies alike.
 func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
@@ -1019,6 +1035,9 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 		return m.kermlMetaclass("TextualRepresentation")
 	case symbols.SymbolDependency:
 		return m.kermlMetaclass("Dependency")
+	case symbols.SymbolAlias:
+		// `alias` declares a Membership of the aliased element (KerML 8.2.3.5.2).
+		return m.kermlMetaclass("Membership")
 	}
 	if meta := m.kermlMetaclass(kermlMetaclassName(sym, m.isKerMLDoc(sym))); meta != nil {
 		return meta
@@ -1158,10 +1177,10 @@ func (m *Model) sysmlMetaclass(name string) *symbols.Symbol {
 	if name == "" {
 		return nil
 	}
-	if meta := m.symbolByFQN(sysmlMetaclassPrefix + name); meta != nil {
+	if meta := m.typeByFQN(sysmlMetaclassPrefix + name); meta != nil {
 		return meta
 	}
-	return m.symbolByFQN(name)
+	return m.typeByFQN(name)
 }
 
 // kermlMetaclass is the library element declaring the named KerML metaclass,
@@ -1171,7 +1190,7 @@ func (m *Model) kermlMetaclass(name string) *symbols.Symbol {
 		return nil
 	}
 	for _, prefix := range kermlMetaclassPrefixes {
-		if meta := m.symbolByFQN(prefix + name); meta != nil {
+		if meta := m.typeByFQN(prefix + name); meta != nil {
 			return meta
 		}
 	}
@@ -1318,7 +1337,7 @@ func (m *Model) Metaclass(name string) *symbols.Symbol {
 	if m == nil || name == "" {
 		return nil
 	}
-	if meta := m.symbolByFQN(sysmlMetaclassPrefix + name); meta != nil {
+	if meta := m.typeByFQN(sysmlMetaclassPrefix + name); meta != nil {
 		return meta
 	}
 	return m.kermlMetaclass(name)
@@ -1352,6 +1371,20 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	if elems, ok := m.implicitOwnerElements(sym, feature); ok {
 		return elems, true
 	}
+	if sym.Kind == symbols.SymbolAlias {
+		if elems, ok := m.aliasMembershipElements(sym, feature); ok {
+			return elems, true
+		}
+	}
+	if elems, ok := m.namespaceRelationshipElements(sym, feature); ok {
+		return elems, true
+	}
+	if elems, ok := m.annotatingElementElements(sym, feature); ok {
+		return elems, true
+	}
+	if elems, ok := m.requirementElements(sym, feature); ok {
+		return elems, true
+	}
 	switch feature {
 	case "owningNamespace":
 		if !m.reflectiveMetaclassConforms(sym, "Element") {
@@ -1377,7 +1410,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		var out []*symbols.Symbol
 		if owner := m.ownerOf(sym); owner != nil && m.reflectiveMetaclassConforms(owner, "Type") {
-			out = append(out, owner)
+			out = append(out, m.variantFeaturingTypes(sym, owner)...)
 		}
 		if sym.Recorded() {
 			for _, target := range m.RecordedRelationshipTargets(sym, ast.RelFeaturedBy) {
@@ -2028,6 +2061,11 @@ func (m *Model) ReflectiveFeatureValues(sym *symbols.Symbol, feature string) ([]
 		}
 		return values, true
 	}
+	if feature == "text" {
+		if values, ok := m.requirementTexts(sym); ok {
+			return values, true
+		}
+	}
 	if elements, ok := m.ReflectiveElements(sym, feature); ok {
 		values := make([]symbols.FilterValue, 0, len(elements))
 		for _, element := range elements {
@@ -2054,9 +2092,14 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 	if sym.Implicit != nil {
 		return m.implicitRelationshipValue(sym, feature)
 	}
+	if sym.Kind == symbols.SymbolAlias {
+		if value, ok := m.aliasMembershipValue(sym, feature); ok {
+			return value, true
+		}
+	}
 	switch feature {
 	case "isImplied":
-		if _, ok := sym.RelationshipDecl(); ok {
+		if _, ok := sym.RelationshipDecl(); ok || sym.Kind == symbols.SymbolAlias {
 			return boolValue(false), true
 		}
 	case "isConjugated":
@@ -2326,16 +2369,24 @@ func reflectiveMessageFlowUsage(sym *symbols.Symbol) bool {
 	return ok && kind == ast.UsageFlow && sym.Keyword() == "message"
 }
 
-func (m *Model) reflectiveUsageHasFeaturingType(sym *symbols.Symbol) bool {
-	if IsVariant(sym) {
-		owner := m.ownerOf(sym)
-		if owner == nil || !m.reflectiveMetaclassConforms(owner, "Usage") || !IsVariation(owner) {
-			return false
-		}
-		return m.reflectiveUsageHasFeaturingType(owner)
+// variantFeaturingTypes are the featuringTypes a feature takes from its owner:
+// the owner itself, except that a variant is an owned member but not an owned
+// feature of its variation, so it shares the featuringTypes of a variation
+// usage (SysML v2 checkUsageVariationUsageTypeFeaturing) and takes none from a
+// variation definition.
+func (m *Model) variantFeaturingTypes(sym, owner *symbols.Symbol) []*symbols.Symbol {
+	if !IsVariant(sym) || !IsVariation(owner) {
+		return []*symbols.Symbol{owner}
 	}
-	featuringTypes, ok := m.ReflectiveElements(sym, "featuringType")
-	return ok && len(featuringTypes) > 0
+	if !m.reflectiveMetaclassConforms(owner, "Usage") {
+		return nil
+	}
+	featuring, _ := m.ReflectiveElements(owner, "featuringType")
+	return featuring
+}
+
+func (m *Model) reflectiveUsageHasFeaturingType(sym *symbols.Symbol) bool {
+	return m.reflectiveExpectedFeaturingType(sym) != nil
 }
 
 func defaultUsageComposite(kind symbols.SymbolKind) bool {

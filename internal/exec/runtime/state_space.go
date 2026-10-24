@@ -15,15 +15,15 @@ import (
 
 // Errors a state-space run reports, each wrapping the detail of what went wrong.
 var (
-	// ErrStateSpaceValue reports a state, input, derivative, difference or output
+	// errStateSpaceValue reports a state, input, derivative, difference or output
 	// that is not the vector the protocol asks for, or one the action does not bind.
-	ErrStateSpaceValue = errors.New("state-space value")
-	// ErrStateSpaceStep reports a time step the dynamics cannot advance by: none
+	errStateSpaceValue = errors.New("state-space value")
+	// errStateSpaceStep reports a time step the dynamics cannot advance by: none
 	// stated, not a duration, or not positive.
-	ErrStateSpaceStep = errors.New("state-space time step")
-	// ErrStateSpaceDiverged reports a step that left the state with a component
+	errStateSpaceStep = errors.New("state-space time step")
+	// errStateSpaceDiverged reports a step that left the state with a component
 	// that is no longer a finite number.
-	ErrStateSpaceDiverged = errors.New("state-space dynamics diverged")
+	errStateSpaceDiverged = errors.New("state-space dynamics diverged")
 )
 
 // stateSpaceSemantics answers lowering's semantic questions from the context's model.
@@ -65,7 +65,7 @@ type stateSpaceRun struct {
 	start float64
 	steps int
 	step  float64
-	// stop is the instant the run stops at, stops false where it runs while driven.
+	// stop is the duration the run lasts from its start, stops false where it runs while driven.
 	stop  float64
 	stops bool
 	// stepValue is timeStep as the action holds it, what the state's rate is scaled by.
@@ -77,6 +77,15 @@ type stateSpaceRun struct {
 
 // settled reports whether the run has sampled its start, which its first step does.
 func (run *stateSpaceRun) settled() bool { return run.guards != nil }
+
+// soFar is the duration the run has stepped from its own start: the time feature's
+// value, exact where the clock's instant less the start would round at a late start.
+func (run *stateSpaceRun) soFar() float64 { return float64(run.steps) * run.step }
+
+// pastStop reports a run whose next step would end past the duration it stops at.
+func (run *stateSpaceRun) pastStop() bool {
+	return run.stops && float64(run.steps+1)*run.step > run.stop+run.step*1e-9
+}
 
 // ownsFeature reports a feature the run writes itself, whose declared default the
 // action leaves unevaluated: the output, sampled by getOutput as each step settles.
@@ -128,42 +137,45 @@ func (e *ActionExecutor) initializeDynamics() error {
 	return nil
 }
 
-// readStep reads the step the dynamics advance by and the instant they stop at, in clock units.
+// readStep reads the step the dynamics advance by and the duration they run for, in clock units.
 func (e *ActionExecutor) readStep(run *stateSpaceRun) error {
 	dyn := run.dyn
-	what := fmt.Sprintf("%s of action %s", lower.TimeStepFeature, symbolText(e.action))
+	what := fmt.Sprintf("%s of action %s", lower.TimeStepFeature, SymbolText(e.action))
 	step, ok, err := e.ctx.readBodyValue(e.root.cells, e.root.data, e.root.key(lower.TimeStepFeature))
 	if err != nil {
-		return fmt.Errorf("%w: %s: %w", ErrStateSpaceStep, what, err)
+		return fmt.Errorf("%w: %s: %w", errStateSpaceStep, what, err)
 	}
 	if dyn.TimeStep == nil || !ok {
 		return fmt.Errorf("%w: action %s states no %s; specialize %s or declare one",
-			ErrStateSpaceStep, symbolText(e.action), lower.TimeStepFeature, lower.FixedStepDynamicsFQN)
+			errStateSpaceStep, SymbolText(e.action), lower.TimeStepFeature, lower.FixedStepDynamicsFQN)
 	}
+	// A bound parameter holds the step as a one-element sequence; the rate is
+	// scaled by the duration itself.
+	step = soleElement(step)
 	magnitude, err := e.ctx.timeMagnitude(step, what)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrStateSpaceStep, err)
+		return fmt.Errorf("%w: %w", errStateSpaceStep, err)
 	}
 	if math.IsNaN(magnitude) || math.IsInf(magnitude, 0) || magnitude <= 0 {
-		return fmt.Errorf("%w: %s is %s, not a positive duration", ErrStateSpaceStep, what, FormatValue(step))
+		return fmt.Errorf("%w: %s is %s, not a positive duration", errStateSpaceStep, what, FormatValue(step))
 	}
 	run.step, run.stepValue = magnitude, step
 	if dyn.StopTime == nil {
 		return nil
 	}
-	what = fmt.Sprintf("%s of action %s", lower.StopTimeFeature, symbolText(e.action))
+	what = fmt.Sprintf("%s of action %s", lower.StopTimeFeature, SymbolText(e.action))
 	stop, ok, err := e.ctx.readBodyValue(e.root.cells, e.root.data, e.root.key(lower.StopTimeFeature))
 	if err != nil {
-		return fmt.Errorf("%w: %s: %w", ErrStateSpaceStep, what, err)
+		return fmt.Errorf("%w: %s: %w", errStateSpaceStep, what, err)
 	}
 	if !ok || stop.Kind == ValNull {
 		return nil
 	}
 	if run.stop, err = e.ctx.timeMagnitude(stop, what); err != nil {
-		return fmt.Errorf("%w: %w", ErrStateSpaceStep, err)
+		return fmt.Errorf("%w: %w", errStateSpaceStep, err)
 	}
-	if math.IsNaN(run.stop) {
-		return fmt.Errorf("%w: %s is not a number", ErrStateSpaceStep, what)
+	if math.IsNaN(run.stop) || run.stop < 0 {
+		return fmt.Errorf("%w: %s is %s, not a duration", errStateSpaceStep, what, FormatValue(stop))
 	}
 	run.stops = true
 	return nil
@@ -174,11 +186,11 @@ func (e *ActionExecutor) stateVector() (Value, error) {
 	state, ok, err := e.ctx.readBodyValue(e.root.cells, e.root.data, e.root.key(lower.StateSpaceFeature))
 	if err != nil {
 		return Value{}, fmt.Errorf("%w: action %s: read %s: %w",
-			ErrStateSpaceValue, symbolText(e.action), lower.StateSpaceFeature, err)
+			errStateSpaceValue, SymbolText(e.action), lower.StateSpaceFeature, err)
 	}
 	if !ok || state.Kind == ValNull {
 		return Value{}, fmt.Errorf("%w: action %s binds no %s; give it an initial value",
-			ErrStateSpaceValue, symbolText(e.action), lower.StateSpaceFeature)
+			errStateSpaceValue, SymbolText(e.action), lower.StateSpaceFeature)
 	}
 	return e.checkVector(lower.StateSpaceFeature, state)
 }
@@ -197,7 +209,7 @@ func (e *ActionExecutor) inputVector() (*Value, error) {
 	input, ok, err := e.ctx.readBodyValue(e.root.cells, e.root.data, e.root.key(lower.InputFeature))
 	if err != nil {
 		return nil, fmt.Errorf("%w: action %s: read %s: %w",
-			ErrStateSpaceValue, symbolText(e.action), lower.InputFeature, err)
+			errStateSpaceValue, SymbolText(e.action), lower.InputFeature, err)
 	}
 	if !ok || input.Kind == ValNull {
 		return nil, nil
@@ -211,9 +223,10 @@ func (e *ActionExecutor) inputVector() (*Value, error) {
 
 // checkVector refuses a value that is no vector, naming the protocol feature it stood for.
 func (e *ActionExecutor) checkVector(what string, val Value) (Value, error) {
+	val = soleElement(val)
 	if !isVectorKind(val) {
 		return Value{}, fmt.Errorf("%w: %s of action %s is %s, not a vector",
-			ErrStateSpaceValue, what, symbolText(e.action), describeValue(val))
+			errStateSpaceValue, what, SymbolText(e.action), DescribeValue(val))
 	}
 	return val, nil
 }
@@ -252,7 +265,7 @@ func (e *ActionExecutor) stepDynamics(tokenIdx int) error {
 		if err != nil {
 			return err
 		}
-		if ended || (run.stops && run.due() > run.stop+run.step*1e-9) {
+		if ended || run.pastStop() {
 			return e.retireToken(tokenIdx)
 		}
 		return e.parkDynamics(run, &e.tokens[tokenIdx])
@@ -272,7 +285,7 @@ func (e *ActionExecutor) stepDynamics(tokenIdx int) error {
 	if err != nil {
 		return err
 	}
-	if ended || (run.stops && run.due() > run.stop+run.step*1e-9) {
+	if ended || run.pastStop() {
 		return e.retireToken(tokenIdx)
 	}
 	return e.parkDynamics(run, &e.tokens[tokenIdx])
@@ -294,10 +307,10 @@ func (e *ActionExecutor) parkDynamics(run *stateSpaceRun, token *Token) error {
 	due := run.due()
 	if math.IsInf(due, 0) {
 		return fmt.Errorf("%w: step %d of action %s from t=%s leads past the last instant the clock can hold",
-			ErrStateSpaceStep, run.steps+1, symbolText(e.action), semantics.FormatReal(run.stepStart()))
+			errStateSpaceStep, run.steps+1, SymbolText(e.action), semantics.FormatReal(run.stepStart()))
 	}
 	token.Wait = &AcceptWait{
-		Trigger: fmt.Sprintf("step %d of %s", run.steps+1, symbolText(e.action)),
+		Trigger: fmt.Sprintf("step %d of %s", run.steps+1, SymbolText(e.action)),
 		Since:   e.stepCount + 1,
 		Timed:   true,
 		Due:     due,
@@ -305,12 +318,12 @@ func (e *ActionExecutor) parkDynamics(run *stateSpaceRun, token *Token) error {
 	return nil
 }
 
-// settleStep records the state reached at the clock's instant: the time feature,
-// the output, the trace line and the zero crossings, true when one ends the run.
+// settleStep records the state reached at the clock's instant: the time feature as the
+// duration stepped so far, the output, the trace line and the zero crossings, true when one ends the run.
 func (e *ActionExecutor) settleStep(run *stateSpaceRun, state Value, input *Value) (bool, error) {
 	now := e.ctx.clock.now
 	if run.dyn.Time != nil {
-		if err := e.setFeature(lower.TimeFeature, e.instantValue(now)); err != nil {
+		if err := e.setFeature(lower.TimeFeature, e.instantValue(run.soFar())); err != nil {
 			return false, err
 		}
 	}
@@ -331,7 +344,7 @@ func (e *ActionExecutor) settleStep(run *stateSpaceRun, state Value, input *Valu
 		return false, err
 	}
 	if tr := e.trace(); tr != nil {
-		tr.RecordStateSpaceStep(symbolText(e.action), now, state, output)
+		tr.recordStateSpaceStep(SymbolText(e.action), now, state, output)
 	}
 	return e.watchCrossings(run, now)
 }
@@ -357,7 +370,8 @@ func (e *ActionExecutor) nextState(run *stateSpaceRun, state Value, input *Value
 		if err != nil {
 			return Value{}, err
 		}
-		if _, err := e.checkVector(lower.GetDifferenceCalc, diff); err != nil {
+		diff, err = e.checkVector(lower.GetDifferenceCalc, diff)
+		if err != nil {
 			return Value{}, err
 		}
 		return e.vectorOp(ast.OpAdd, state, diff)
@@ -385,13 +399,13 @@ func (e *ActionExecutor) eulerStep(run *stateSpaceRun, state Value, input *Value
 
 // rk4Step advances the state by the classical Runge-Kutta scheme: the derivative
 // at the start, twice at the midpoint and at the end, each stage at its own
-// instant of the step, weighted 1:2:2:1.
+// duration into the step, weighted 1:2:2:1.
 func (e *ActionExecutor) rk4Step(run *stateSpaceRun, state Value, input *Value) (Value, error) {
 	half, err := e.vectorOp(ast.OpMul, run.stepValue, realConst(0.5))
 	if err != nil {
 		return Value{}, err
 	}
-	start := run.stepStart()
+	start := run.soFar()
 	mid, end := start+run.step/2, start+run.step
 	k1, err := e.derivative(run, input, state)
 	if err != nil {
@@ -447,15 +461,15 @@ func (e *ActionExecutor) derivativeAt(run *stateSpaceRun, input *Value, state, s
 	return e.atInstant(run, t, func() (Value, error) { return e.derivative(run, input, at) })
 }
 
-// atInstant evaluates a stage with the time feature holding instant t, then
-// restores the instant the step started from; without a time feature it just evaluates.
+// atInstant evaluates a stage with the time feature holding t, a duration from the
+// run's start, then restores the step's start; without a time feature it just evaluates.
 func (e *ActionExecutor) atInstant(run *stateSpaceRun, t float64, stage func() (Value, error)) (Value, error) {
 	if run.dyn.Time == nil {
 		return stage()
 	}
 	saved, held := e.root.data[e.root.key(lower.TimeFeature)]
 	if !held {
-		saved = e.instantValue(run.stepStart())
+		saved = e.instantValue(run.soFar())
 	}
 	if err := e.setFeature(lower.TimeFeature, e.instantValue(t)); err != nil {
 		return Value{}, err
@@ -483,17 +497,17 @@ func (e *ActionExecutor) vectorOp(op ast.OperatorKind, left, right Value) (Value
 	if !isVectorKind(left) && !isVectorKind(right) {
 		val, err := e.ctx.arithmeticValues(op, left, right, source.Span{})
 		if err != nil {
-			return Value{}, fmt.Errorf("%w: step of action %s: %w", ErrStateSpaceValue, symbolText(e.action), err)
+			return Value{}, fmt.Errorf("%w: step of action %s: %w", errStateSpaceValue, SymbolText(e.action), err)
 		}
 		return val, nil
 	}
 	val, handled, err := e.ctx.vectorArithmetic(op, left, right)
 	if err != nil {
-		return Value{}, fmt.Errorf("%w: step of action %s: %w", ErrStateSpaceValue, symbolText(e.action), err)
+		return Value{}, fmt.Errorf("%w: step of action %s: %w", errStateSpaceValue, SymbolText(e.action), err)
 	}
 	if !handled {
 		return Value{}, fmt.Errorf("%w: step of action %s: %s %s %s is not defined over these values",
-			ErrStateSpaceValue, symbolText(e.action), describeValue(left), op, describeValue(right))
+			errStateSpaceValue, SymbolText(e.action), DescribeValue(left), op, DescribeValue(right))
 	}
 	return val, nil
 }
@@ -504,20 +518,20 @@ func (e *ActionExecutor) divergence(run *stateSpaceRun, err error) error {
 	if !errors.Is(err, semantics.ErrArithmeticOverflow) {
 		return err
 	}
-	return fmt.Errorf("%w: step %d of action %s at t=%s: %w", ErrStateSpaceDiverged,
-		run.steps+1, symbolText(e.action), semantics.FormatReal(e.ctx.clock.now), err)
+	return fmt.Errorf("%w: step %d of action %s at t=%s: %w", errStateSpaceDiverged,
+		run.steps+1, SymbolText(e.action), semantics.FormatReal(e.ctx.clock.now), err)
 }
 
 // checkFinite refuses a state with a component that is not a finite number.
 func (e *ActionExecutor) checkFinite(state Value) error {
 	v, err := readVector(lower.StateSpaceFeature, lower.StateSpaceFeature, state)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrStateSpaceValue, err)
+		return fmt.Errorf("%w: %w", errStateSpaceValue, err)
 	}
 	for i, n := range v.num {
 		if x := asReal(n); math.IsNaN(x) || math.IsInf(x, 0) {
 			return fmt.Errorf("%w: component %d of %s of action %s is %s after step %d at t=%s",
-				ErrStateSpaceDiverged, i+1, lower.StateSpaceFeature, symbolText(e.action),
+				errStateSpaceDiverged, i+1, lower.StateSpaceFeature, SymbolText(e.action),
 				semantics.FormatReal(x), e.dynamics.steps, semantics.FormatReal(e.ctx.clock.now))
 		}
 	}
@@ -530,7 +544,7 @@ func (e *ActionExecutor) checkFinite(state Value) error {
 func (e *ActionExecutor) invokeProtocolCalc(calc *symbols.Symbol, what string, input *Value, state Value, step *Value) (Value, error) {
 	shape, err := e.ctx.calcShapeOf(calc)
 	if err != nil {
-		return Value{}, fmt.Errorf("%w: %s of action %s: %w", lower.ErrUnsupportedStateSpace, what, symbolText(e.action), err)
+		return Value{}, fmt.Errorf("%w: %s of action %s: %w", lower.ErrUnsupportedStateSpace, what, SymbolText(e.action), err)
 	}
 	named := map[string]Value{lower.StateSpaceFeature: state}
 	if input != nil {
@@ -543,7 +557,7 @@ func (e *ActionExecutor) invokeProtocolCalc(calc *symbols.Symbol, what string, i
 	defer ec.beginStep()()
 	result, err := e.ctx.invokeCalcShapeIn(shape, calcArgs{named: named}, ec.scope, ec.self, ec.enclosingRun(shape))
 	if err != nil {
-		return Value{}, fmt.Errorf("%s of action %s: %w", what, symbolText(e.action), err)
+		return Value{}, fmt.Errorf("%s of action %s: %w", what, SymbolText(e.action), err)
 	}
 	return result, nil
 }
@@ -588,7 +602,7 @@ func (e *ActionExecutor) watchCrossings(run *stateSpaceRun, now float64) (bool, 
 			Payload:     map[string]Value{},
 		})
 		if tr := e.trace(); tr != nil {
-			tr.RecordEvent("zero crossing "+crossing.Name+" of "+symbolText(e.action), now)
+			tr.recordEvent("zero crossing "+crossing.Name+" of "+SymbolText(e.action), now)
 		}
 		ended = ended || terminal
 	}
@@ -599,13 +613,13 @@ func (e *ActionExecutor) watchCrossings(run *stateSpaceRun, now float64) (bool, 
 func (e *ActionExecutor) evalGuard(crossing lower.ZeroCrossing) (float64, error) {
 	val, err := e.evalCrossingExpr(crossing.Guard, crossing.GuardScope)
 	if err != nil {
-		return 0, fmt.Errorf("guard of zero crossing %s of action %s: %w", crossing.Name, symbolText(e.action), err)
+		return 0, fmt.Errorf("guard of zero crossing %s of action %s: %w", crossing.Name, SymbolText(e.action), err)
 	}
 	if q, ok := asQuantity(val); ok {
 		return asReal(q.Num), nil
 	}
 	return 0, fmt.Errorf("%w: guard of zero crossing %s of action %s is %s, not a number",
-		ErrStateSpaceValue, crossing.Name, symbolText(e.action), describeValue(val))
+		errStateSpaceValue, crossing.Name, SymbolText(e.action), DescribeValue(val))
 }
 
 // crossingTerminal reads whether a crossing ends the run, false where it states nothing.
@@ -616,11 +630,11 @@ func (e *ActionExecutor) crossingTerminal(crossing lower.ZeroCrossing) (bool, er
 	return e.ctx.guardUnderStatementOrders(crossing.Terminal, e.stepCount+1, crossing.TerminalScope, func() (bool, error) {
 		val, err := e.evalCrossingExpr(crossing.Terminal, crossing.TerminalScope)
 		if err != nil {
-			return false, fmt.Errorf("terminal of zero crossing %s of action %s: %w", crossing.Name, symbolText(e.action), err)
+			return false, fmt.Errorf("terminal of zero crossing %s of action %s: %w", crossing.Name, SymbolText(e.action), err)
 		}
 		if val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
 			return false, fmt.Errorf("%w: terminal of zero crossing %s of action %s is %s, not a Boolean",
-				ErrStateSpaceValue, crossing.Name, symbolText(e.action), describeValue(val))
+				errStateSpaceValue, crossing.Name, SymbolText(e.action), DescribeValue(val))
 		}
 		return val.Const.Bool, nil
 	})

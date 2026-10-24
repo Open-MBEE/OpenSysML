@@ -25,6 +25,20 @@ jobs:
     timeout-minutes: 120
     env:
       REF: ${{ inputs.ref || 'main' }}
+      # The same require variables as the PR workflow: every corpus, the solver, the
+      # WebAssembly runtime and the Reference-FMUs are provisioned below, so a gate
+      # whose prerequisite went missing fails here instead of skipping, and a green
+      # verdict means the upstream libraries ran under the whole suite.
+      OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
+      OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+      OPENSYSML_REQUIRE_PSSM_SUITE: "1"
+      OPENSYSML_REQUIRE_SYSML_V1TOV2: "1"
+      OPENSYSML_REQUIRE_FUML_SUITE: "1"
+      OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
+      OPENSYSML_REQUIRE_SMT: "1"
+      OPENSYSML_REQUIRE_WASM: "1"
+      OPENSYSML_REQUIRE_REFERENCE_FMUS: "1"
+      OPENSYSML_REQUIRE_LLM_BENCH_TOOLCHAIN: "1"
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -35,10 +49,17 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # Node 24, as the WebAssembly gate pins: Node 22's WASI host crashes on the wasm
+      # binaries, and the runner's own Node is older still.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
       - name: Install Z3
+        timeout-minutes: 10
         run: |
-          sudo apt-get update
-          sudo apt-get install -y z3
+          scripts/ci-apt-install.sh z3
           z3 --version
 
       - name: Install cvc5
@@ -49,6 +70,11 @@ jobs:
           unzip -p /tmp/cvc5.zip '*/bin/cvc5' > /tmp/cvc5-bin
           sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
           cvc5 --version | head -1
+
+      - name: Provision the pinned corpora
+        uses: ./.github/actions/corpora
+        with:
+          reference-fmus: 'true'
 
       - name: Sync the upstream ref
         id: sync
@@ -72,11 +98,18 @@ jobs:
             make stdlib-snapshot
           fi
 
+      # The tools module's llm-bench tests drive bin/sysml and skip without it.
+      - name: Build binaries
+        run: make build
+
+      # One process runs every package, so the slowest ones share the runner's cores
+      # and outlive go test's default 10-minute cap; the per-package timeout is the
+      # quick tier's (make test-quick).
       - name: Run the test suite
         id: tests
         run: |
-          go test ./...
-          go test -C tools ./...
+          go test -timeout 45m ./...
+          go test -C tools -timeout 45m ./...
 
       - name: Report the verdict
         if: always()

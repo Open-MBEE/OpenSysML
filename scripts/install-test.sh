@@ -32,16 +32,19 @@ tampered=v9.9.7-test   # one whose manifest lies about the bundle
 unlisted=v9.9.6-test   # one whose manifest omits sysml-grpc and sysml-jupyter-kernel
 mismatch=v9.9.5-test   # one whose binaries report another version
 nokernel=v9.9.4-test   # one published before the kernel was, so it has no kernel asset
-nogrpc=v9.9.3-test     # one published before sysml-grpc was, so it has neither grpc nor kernel
+nogrpc=v9.9.3-test     # one published before sysml-grpc was, so it has neither grpc, kernel nor sysml-mcp
+repeated=v9.9.2-test   # one whose manifest lists the bundle twice, verbatim, as appends can
+conflicting=v9.9.1-test # one whose manifest lists the bundle twice with different digests
 
 sha256() {
 	if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi
 }
 
-# fake_tool <path> <tool> <version>: a stand-in binary that only knows --version.
+# fake_tool <path> <tool> <version>: a stand-in binary that only knows --version,
+# answering it over the several lines the real ones do.
 fake_tool() {
 	local path=$1 tool=$2 version=$3
-	printf '#!/bin/sh\necho "%s"\n' "$tool $version" >"$path"
+	printf '#!/bin/sh\necho "%s"\necho "  Commit:     0000000"\necho "  Build time: 2000-01-01_00:00:00"\necho "  Go version: go1.0"\n' "$tool $version" >"$path"
 	chmod +x "$path"
 }
 
@@ -56,6 +59,10 @@ bundle() {
 		echo "sysml $version for windows" >"$stage/sysml.exe"
 		echo "sysml-lsp $version for windows" >"$stage/sysml-lsp.exe"
 		(cd "$stage" && python3 -m zipfile -c "$dir/opensysml-$platform.zip" sysml.exe sysml-lsp.exe)
+		mkdir -p "$stage/mcp"
+		echo "sysml-mcp $version for windows" >"$stage/mcp/sysml-mcp.exe"
+		echo "Apache License" >"$stage/mcp/LICENSE"
+		(cd "$stage/mcp" && python3 -m zipfile -c "$dir/sysml-mcp-$platform.zip" sysml-mcp.exe LICENSE)
 		echo "sysml-grpc $version for windows" >"$dir/sysml-grpc-$platform.exe"
 		echo "sysml-jupyter-kernel $version for windows" >"$dir/sysml-jupyter-kernel-$platform.exe"
 		;;
@@ -65,6 +72,11 @@ bundle() {
 		echo ".TH SYSML 1" >"$stage/share/man/man1/sysml.1"
 		echo ".TH SYSML-LSP 1" >"$stage/share/man/man1/sysml-lsp.1"
 		tar -czf "$dir/opensysml-$platform.tar.gz" -C "$stage" sysml sysml-lsp share
+		mkdir -p "$stage/mcp/share/man/man1"
+		fake_tool "$stage/mcp/sysml-mcp" sysml-mcp "v$version"
+		echo "Apache License" >"$stage/mcp/LICENSE"
+		echo ".TH SYSML-MCP 1" >"$stage/mcp/share/man/man1/sysml-mcp.1"
+		tar -czf "$dir/sysml-mcp-$platform.tar.gz" -C "$stage/mcp" sysml-mcp LICENSE share
 		fake_tool "$dir/sysml-grpc-$platform" "sysml-grpc version" "v$version"
 		fake_tool "$dir/sysml-jupyter-kernel-$platform" "sysml-jupyter-kernel version" "v$version"
 		;;
@@ -110,9 +122,17 @@ sed -i.bak "/ sysml-jupyter-kernel-/d" "$work/site/releases/download/$nokernel/S
 rm "$work/site/releases/download/$nokernel/SHA256SUMS.txt.bak"
 
 release "$nogrpc" "${nogrpc#v}"
-rm "$work/site/releases/download/$nogrpc"/sysml-grpc-* "$work/site/releases/download/$nogrpc"/sysml-jupyter-kernel-*
-sed -i.bak "/ sysml-grpc-/d; / sysml-jupyter-kernel-/d" "$work/site/releases/download/$nogrpc/SHA256SUMS.txt"
+rm "$work/site/releases/download/$nogrpc"/sysml-grpc-* "$work/site/releases/download/$nogrpc"/sysml-jupyter-kernel-* "$work/site/releases/download/$nogrpc"/sysml-mcp-*
+sed -i.bak "/ sysml-grpc-/d; / sysml-jupyter-kernel-/d; / sysml-mcp-/d" "$work/site/releases/download/$nogrpc/SHA256SUMS.txt"
 rm "$work/site/releases/download/$nogrpc/SHA256SUMS.txt.bak"
+
+release "$repeated" "${repeated#v}"
+manifest="$work/site/releases/download/$repeated/SHA256SUMS.txt"
+line=$(grep "  opensysml-$host\.tar\.gz\$" "$manifest")
+printf '%s\n' "$line" >>"$manifest"
+
+release "$conflicting" "${conflicting#v}"
+printf '%s  opensysml-%s.tar.gz\n' "$(printf '1%.0s' $(seq 64))" "$host" >>"$work/site/releases/download/$conflicting/SHA256SUMS.txt"
 
 # A mirror that serves latest/download/ but has no /latest redirect to a tag.
 mkdir -p "$work/site/mirror/latest"
@@ -235,7 +255,7 @@ absent() {
 
 if ok "release by tag" --version "$good" --prefix @P@; then
 	installed bin/sysml bin/sysml-lsp
-	absent bin/sysml-grpc bin/sysml-jupyter-kernel
+	absent bin/sysml-grpc bin/sysml-jupyter-kernel bin/sysml-mcp
 	[[ -f "$prefix/share/man/man1/sysml.1" ]] && [[ -f "$prefix/share/man/man1/sysml-lsp.1" ]] ||
 		{ echo "FAIL: man pages not installed" >&2; failures=$((failures + 1)); }
 	said "Installing OpenSysML ($good) for $host"
@@ -251,14 +271,17 @@ if ok "tag without the v" --version "${good#v}" --prefix @P@; then
 fi
 
 if ok "all tools" --version "$good" --tools all --prefix @P@; then
-	installed bin/sysml bin/sysml-lsp bin/sysml-grpc bin/sysml-jupyter-kernel
-	said "tools:    sysml sysml-lsp sysml-grpc sysml-jupyter-kernel"
+	installed bin/sysml bin/sysml-lsp bin/sysml-grpc bin/sysml-jupyter-kernel bin/sysml-mcp
+	said "tools:    sysml sysml-lsp sysml-grpc sysml-jupyter-kernel sysml-mcp"
 	unsaid "--tools all:"
+	said "sysml-mcp-$host.tar.gz verified"
+	said "sysml-mcp $good"
+	[[ -f "$prefix/share/man/man1/sysml-mcp.1" ]] || { echo "FAIL: sysml-mcp.1 not installed" >&2; failures=$((failures + 1)); }
 	said "sysml-grpc-$host verified"
 	said "sysml-grpc version $good"
 	said "sysml-jupyter-kernel-$host verified"
 	said "sysml-jupyter-kernel version $good"
-	said "Installed: $prefix/bin/sysml $prefix/bin/sysml-lsp $prefix/bin/sysml-grpc $prefix/bin/sysml-jupyter-kernel"
+	said "Installed: $prefix/bin/sysml $prefix/bin/sysml-lsp $prefix/bin/sysml-grpc $prefix/bin/sysml-jupyter-kernel $prefix/bin/sysml-mcp"
 fi
 
 # `all` means what the chosen release published, read from its manifest.
@@ -266,39 +289,65 @@ if ok "all tools of a release without the kernel" --version "$nokernel" --tools 
 	installed bin/sysml bin/sysml-lsp bin/sysml-grpc
 	absent bin/sysml-jupyter-kernel
 	said "--tools all: $nokernel publishes no sysml-jupyter-kernel for $host"
-	said "tools:    sysml sysml-lsp sysml-grpc"
+	said "tools:    sysml sysml-lsp sysml-grpc sysml-mcp"
 	unsaid "sysml-jupyter-kernel-$host"
 	said "sysml-grpc version $nokernel"
-	said "Installed: $prefix/bin/sysml $prefix/bin/sysml-lsp $prefix/bin/sysml-grpc"
+	said "Installed: $prefix/bin/sysml $prefix/bin/sysml-lsp $prefix/bin/sysml-grpc $prefix/bin/sysml-mcp"
 fi
 
 if ok "all tools of a release without sysml-grpc" --version "$nogrpc" --tools all --prefix @P@; then
 	installed bin/sysml bin/sysml-lsp
-	absent bin/sysml-grpc bin/sysml-jupyter-kernel
-	said "--tools all: $nogrpc publishes no sysml-grpc or sysml-jupyter-kernel for $host"
+	absent bin/sysml-grpc bin/sysml-jupyter-kernel bin/sysml-mcp
+	said "--tools all: $nogrpc publishes no sysml-grpc or sysml-jupyter-kernel or sysml-mcp for $host"
 	said "tools:    sysml sysml-lsp"
 	said "Installed: $prefix/bin/sysml $prefix/bin/sysml-lsp"
 fi
 
 if ok "all tools of a release whose manifest omits assets" --version "$unlisted" --tools all --prefix @P@; then
-	installed bin/sysml bin/sysml-lsp
+	installed bin/sysml bin/sysml-lsp bin/sysml-mcp
 	absent bin/sysml-grpc bin/sysml-jupyter-kernel
+	said "tools:    sysml sysml-lsp sysml-mcp"
 	said "--tools all: $unlisted publishes no sysml-grpc or sysml-jupyter-kernel for $host"
 fi
 
 if ok "all tools of latest" --tools all --prefix @P@; then
 	said "Installing OpenSysML ($good)"
-	installed bin/sysml bin/sysml-lsp bin/sysml-grpc bin/sysml-jupyter-kernel
+	installed bin/sysml bin/sysml-lsp bin/sysml-grpc bin/sysml-jupyter-kernel bin/sysml-mcp
 fi
 
 if ok "all tools of the nightly" --version nightly --tools all --prefix @P@; then
 	said "Installing OpenSysML (the nightly snapshot)"
-	installed bin/sysml bin/sysml-lsp bin/sysml-grpc bin/sysml-jupyter-kernel
+	installed bin/sysml bin/sysml-lsp bin/sysml-grpc bin/sysml-jupyter-kernel bin/sysml-mcp
 fi
 
 if ok "the kernel alone" --version "$good" --tools sysml-jupyter-kernel --bin-dir @P@/k; then
 	[[ -x "$prefix/k/sysml-jupyter-kernel" ]] || { echo "FAIL: $prefix/k/sysml-jupyter-kernel missing" >&2; failures=$((failures + 1)); }
-	absent k/sysml k/sysml-lsp k/sysml-grpc
+	absent k/sysml k/sysml-lsp k/sysml-grpc k/sysml-mcp
+	unsaid "opensysml-$host.tar.gz"
+	said "download/$good/sysml-jupyter-kernel-$host"
+fi
+
+# A tool published on its own does not pull the bundle in.
+if ok "sysml-grpc alone" --version "$good" --tools sysml-grpc --bin-dir @P@/g; then
+	[[ -x "$prefix/g/sysml-grpc" ]] || { echo "FAIL: $prefix/g/sysml-grpc missing" >&2; failures=$((failures + 1)); }
+	absent g/sysml g/sysml-lsp g/sysml-jupyter-kernel
+	unsaid "opensysml-$host.tar.gz"
+	said "  from:     $base/download/$good/sysml-grpc-$host"
+	said "sysml-grpc-$host verified"
+	said "Installed: $prefix/g/sysml-grpc"
+fi
+
+# sysml-mcp comes from its own archive, with its manual page.
+if ok "the MCP server alone" --version "$good" --tools sysml-mcp --prefix @P@; then
+	installed bin/sysml-mcp
+	absent bin/sysml bin/sysml-lsp bin/sysml-grpc bin/sysml-jupyter-kernel
+	[[ -f "$prefix/share/man/man1/sysml-mcp.1" ]] || { echo "FAIL: sysml-mcp.1 not installed" >&2; failures=$((failures + 1)); }
+	[[ ! -f "$prefix/share/man/man1/sysml.1" ]] || { echo "FAIL: sysml.1 installed without sysml" >&2; failures=$((failures + 1)); }
+	unsaid "opensysml-$host.tar.gz"
+	said "download/$good/sysml-mcp-$host.tar.gz"
+	said "sysml-mcp-$host.tar.gz verified"
+	said "sysml-mcp $good"
+	said "Installed: $prefix/bin/sysml-mcp"
 fi
 
 if ok "one tool into a bin dir" --version "$good" --tools sysml --bin-dir @P@/b; then
@@ -334,7 +383,7 @@ if ok "staged for windows" --version "$good" --os windows --prefix @P@; then
 fi
 
 if ok "staged for another unix platform" --version "$good" --os "${other%-*}" --arch "${other#*-}" --tools all --prefix @P@; then
-	installed bin/sysml bin/sysml-lsp bin/sysml-grpc bin/sysml-jupyter-kernel
+	installed bin/sysml bin/sysml-lsp bin/sysml-grpc bin/sysml-jupyter-kernel bin/sysml-mcp
 	said "staged for $other, not run on this $host machine"
 fi
 
@@ -359,8 +408,9 @@ done
 
 if ok "dry run" --version "$good" --tools all --dry-run --prefix @P@; then
 	said "Dry run: nothing installed."
-	said "tools:    sysml sysml-lsp sysml-grpc sysml-jupyter-kernel"
+	said "tools:    sysml sysml-lsp sysml-grpc sysml-jupyter-kernel sysml-mcp"
 	said "download/$good/sysml-grpc-$host"
+	said "download/$good/sysml-mcp-$host.tar.gz"
 	said "download/$good/sysml-jupyter-kernel-$host"
 	[[ ! -e "$prefix" ]] || { echo "FAIL: dry run created $prefix" >&2; failures=$((failures + 1)); }
 fi
@@ -368,7 +418,7 @@ fi
 if ok "dry run of all tools of a release without the kernel" --version "$nokernel" --tools all --dry-run --prefix @P@; then
 	said "Dry run: nothing installed."
 	said "--tools all: $nokernel publishes no sysml-jupyter-kernel for $host"
-	said "tools:    sysml sysml-lsp sysml-grpc"
+	said "tools:    sysml sysml-lsp sysml-grpc sysml-mcp"
 	said "download/$nokernel/sysml-grpc-$host"
 	unsaid "sysml-jupyter-kernel-$host"
 	[[ ! -e "$prefix" ]] || { echo "FAIL: dry run created $prefix" >&2; failures=$((failures + 1)); }
@@ -376,6 +426,15 @@ fi
 
 if fails "tampered bundle" "opensysml-$host.tar.gz does not match SHA256SUMS.txt" --version "$tampered" --prefix @P@; then
 	[[ ! -e "$prefix" ]] || { echo "FAIL: a tampered release left files under $prefix" >&2; failures=$((failures + 1)); }
+fi
+# One digest listed twice is one digest; two digests for one asset is no manifest to trust.
+if ok "manifest repeating the bundle's line" --version "$repeated" --tools all --prefix @P@; then
+	installed bin/sysml bin/sysml-lsp bin/sysml-grpc bin/sysml-jupyter-kernel bin/sysml-mcp
+	said "opensysml-$host.tar.gz verified"
+fi
+if fails "manifest listing the bundle with two digests" "lists opensysml-$host.tar.gz with more than one digest" --version "$conflicting" --prefix @P@; then
+	unsaid "does not match"
+	[[ ! -e "$prefix" ]] || { echo "FAIL: a conflicting manifest left files under $prefix" >&2; failures=$((failures + 1)); }
 fi
 fails "asset the manifest omits" "does not list sysml-grpc-$host" --version "$unlisted" --tools sysml-grpc --prefix @P@
 if fails "kernel the manifest omits" "does not list sysml-jupyter-kernel-$host" --version "$unlisted" --tools sysml-jupyter-kernel --prefix @P@; then
@@ -394,7 +453,7 @@ fails "unpublished release" "could not download $base/download/v0.0.0/SHA256SUMS
 fails "unpublished windows arm64" "no windows/arm64 build is published" --os windows --arch arm64 --prefix @P@
 fails "bad version" "--version must be a release tag" --version main --prefix @P@
 if fails "bad tool" "unknown tool 'sysml-repl'" --tools sysml-repl --prefix @P@; then
-	said "the released tools are sysml, sysml-lsp, sysml-grpc and sysml-jupyter-kernel"
+	said "the released tools are sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel and sysml-mcp"
 fi
 fails "no tool" "--tools names nothing to install" --tools , --prefix @P@
 fails "all beside a tool" "'all' names every tool the release published and stands alone in --tools" --tools all,sysml --prefix @P@
@@ -451,9 +510,40 @@ else
 	echo "skip signature verification without cosign: curl or sha256sum not on PATH"
 fi
 
+# Only the bundle needs tar; a tool published on its own installs without it.
+no_tar=()
+for tool in "${essentials[@]}"; do
+	[[ "$tool" == tar || "$tool" == gzip ]] || no_tar+=("$tool")
+done
+if shim_path=$(shim "${no_tar[@]}" curl sha256sum); then
+	n=$((n + 1)) && prefix="$work/install-$n"
+	set +e
+	out=$(PATH="$shim_path" sh "$root/install.sh" --base-url "$base" --tools sysml-grpc --prefix "$prefix" 2>&1)
+	status=$?
+	set -e
+	if [[ "$status" -eq 0 ]] && [[ -x "$prefix/bin/sysml-grpc" ]] && [[ "$out" != *"opensysml-$host.tar.gz"* ]]; then
+		echo "ok   sysml-grpc alone without tar"
+	else
+		echo "FAIL sysml-grpc alone without tar: exit $status" >&2 && printf '%s\n' "$out" >&2 && failures=$((failures + 1))
+	fi
+	n=$((n + 1)) && prefix="$work/install-$n"
+	set +e
+	out=$(PATH="$shim_path" sh "$root/install.sh" --base-url "$base" --prefix "$prefix" 2>&1)
+	status=$?
+	set -e
+	if [[ "$status" -ne 0 ]] && [[ "$out" == *"tar is needed to extract opensysml-$host.tar.gz"* ]]; then
+		echo "ok   the bundle without tar"
+	else
+		echo "FAIL the bundle without tar: exit $status" >&2 && printf '%s\n' "$out" >&2 && failures=$((failures + 1))
+	fi
+else
+	echo "skip without tar: curl or sha256sum not on PATH"
+fi
+
 if command -v pwsh >/dev/null 2>&1; then
 	pwsh -NoProfile -File "$root/scripts/install-test.ps1" -Script "$root/install.ps1" -BaseUrl "$base" -MirrorUrl "$mirror" \
-		-HostPlatform "$host" -Good "$good" -Signed "$signed" -Tampered "$tampered" -Unlisted "$unlisted" -NoKernel "$nokernel" -NoGrpc "$nogrpc" ||
+		-HostPlatform "$host" -Good "$good" -Signed "$signed" -Tampered "$tampered" -Unlisted "$unlisted" -NoKernel "$nokernel" -NoGrpc "$nogrpc" \
+		-Repeated "$repeated" -Conflicting "$conflicting" ||
 		failures=$((failures + 1))
 else
 	echo "skip install.ps1: pwsh not on PATH"

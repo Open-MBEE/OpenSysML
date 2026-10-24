@@ -51,10 +51,11 @@ func TestSimpleNameShadowingOrder(t *testing.T) {
 		t.Errorf("Local(7) = %v, want the body-local k = 5 over the parameter: [5 10]", ints)
 	}
 
-	got, err = ctx.InvokeCalc(findSymbolByName(scope, "Param", ast.DefCalc), []Value{constInt(7)}, scope)
+	got, err = invokeValue(ctx, findSymbolByName(scope, "Param", ast.DefCalc), []Value{constInt(7)}, scope)
 	wantNamedInt(t, "Param(7)", got, err, 7)
 
 	got, err = ctx.InvokeCalc(findSymbolByName(scope, "Outer", ast.DefCalc), []Value{constInt(1)}, scope)
+	got = soleElement(got)
 	wantNamedInt(t, "Outer(1)", got, err, 101)
 }
 
@@ -78,7 +79,7 @@ func TestSimpleNameFallbackOrder(t *testing.T) {
 	run.outputs[name] = constInt(3)
 	feature := scopedExpr{expr: parseExpr(t, "9"), scope: scope}
 
-	ec := NewEvalContext(ctx, scope)
+	ec := newEvalContext(ctx, scope)
 	ec.calcRun = run
 	ec.features = map[string]scopedExpr{name: feature}
 	ec.Push(map[string]Value{name: constInt(7)})

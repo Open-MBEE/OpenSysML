@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{"outputs": {"x": {"type": "Integer", "value": 1}, "mode": {"type": "Integer", "value": 10}, "later": {"type": "Integer", "value": 7}}},
+		{"outputs": {"x": {"type": "Integer", "value": 2}, "mode": {"type": "Integer", "value": 20}, "later": {"type": "Integer", "value": 7}}}
+	],
+	"admissible": "A guard reading an order-dependent value leaves what its branch writes order-dependent",
+	"orderDependent": {"x": 2, "mode": 2}
+}

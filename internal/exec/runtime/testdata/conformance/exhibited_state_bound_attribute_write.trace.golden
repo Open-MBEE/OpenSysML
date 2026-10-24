@@ -1,0 +1,44 @@
+materialize: Flight #1
+start: exhibited state machine g of #1
+materialize: g #2
+eval feature Flight::missDistance -> 20000.0
+enter: cruise
+start: performed action nav of #1
+materialize: nav #3
+run: exhibited state machine g of #1
+  eval feature missDistance -> 20000.0
+  eval literal 10000.0 -> 10000.0
+eval operator < -> false
+run: performed action nav of #1
+step 1: token 1@degrade
+stmt assign g.missDistance
+  eval literal 5000.0 -> 5000.0
+  eval feature g -> instance#2
+step 2: token 1@a
+stmt send
+materialize: Abort #4
+step 3: token 1@done
+step 4: no active tokens
+run: exhibited state machine g of #1
+  eval feature missDistance -> 5000.0
+  eval literal 10000.0 -> 10000.0
+eval operator < -> true
+exit: cruise
+enter: aborting (entry action)
+stmt assign aborted
+  eval literal true -> true
+transition: cruise -> aborting (event: change)
+exit: aborting
+enter: safe
+transition: aborting -> safe (event: accept Abort)
+eval literal 0.0 -> 0.0
+eval literal false -> false
+enter: cruise
+  eval feature missDistance -> 0.0
+  eval literal 10000.0 -> 10000.0
+eval operator < -> true
+exit: cruise
+enter: aborting (entry action)
+stmt assign aborted
+  eval literal true -> true
+transition: cruise -> aborting (event: change)

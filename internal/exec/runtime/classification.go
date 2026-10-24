@@ -111,7 +111,7 @@ func (ctx *Context) classifyNarrower(
 // values are an enumeration's only instances (SysML v2 §8.3.7 EnumerationDefinition).
 func (ctx *Context) enumeratedValue(value Value, enum *symbols.Symbol) (Value, bool, error) {
 	for _, literal := range ctx.model.semantics.EnumeratedValuesOf(enum) {
-		enumerated, err := NewEvalContext(ctx, DeclScope(literal)).enumLiteralValue(literal)
+		enumerated, err := newEvalContext(ctx, DeclScope(literal)).enumLiteralValue(literal)
 		if err != nil {
 			return Value{}, false, err
 		}
@@ -155,8 +155,8 @@ func classifiesIf(yes bool) semantics.TypeClassification {
 // evaluation type, a quantity the scalar quantity type, a scalar its library type.
 func (ctx *Context) valueTypes(scope *symbols.Scope, value Value) ([]*symbols.Symbol, error) {
 	switch value.Kind {
-	case ValExpr:
-		if typ := ctx.model.semantics.ExprResultType(value.exprScope(scope), value.Expr()); typ != nil {
+	case valExpr:
+		if typ := ctx.model.semantics.ExprResultType(value.exprScope(scope), value.expr()); typ != nil {
 			return []*symbols.Symbol{typ}, nil
 		}
 		evaluation, err := ctx.loadedLibraryType(evaluationTypeFQN)
@@ -228,7 +228,7 @@ func (ctx *Context) representationClassifies(value Value, target *symbols.Symbol
 	case got == semantics.PrimUnknown:
 		return semantics.ClassifiesNone, true
 	case got == semantics.PrimInteger && prim == semantics.PrimNatural:
-		if sign := value.Const.IntSign(); sign < 0 || sign == 0 && ctx.positiveScalar(target) {
+		if sign := value.Const.IntSign(); sign < 0 || sign == 0 && ctx.PositiveScalar(target) {
 			return semantics.ClassifiesNone, true
 		}
 		return semantics.ClassifiesSome, true

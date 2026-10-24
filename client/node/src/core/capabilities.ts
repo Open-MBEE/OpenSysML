@@ -37,6 +37,9 @@ export const CAPABILITY_TENSOR_VALUES = "tensor_values";
 export const CAPABILITY_METAOBJECT_VALUES = "metaobject_values";
 /** `finalTime` on an execution response: the run's simulation clock when it ended, in seconds. */
 export const CAPABILITY_FINAL_TIME = "final_time";
+/** `orderDependent` on an execution response and a feature value, and `orderDependent`/`independent`
+ * on a choice-point diagnostic: what a run's values stand only up to. */
+export const CAPABILITY_ORDER_DEPENDENCE = "order_dependence";
 /** `ParseFileRequest.language`, which declares the language of inline content. */
 export const CAPABILITY_INLINE_LANGUAGE = "inline_language";
 /** `ParseFileRequest.strict_conformance`. */
@@ -63,6 +66,11 @@ export const CAPABILITY_RENDER_DOCUMENT_HTML = "render_document_html";
 export const CAPABILITY_RENDER_VIEW = "render_view";
 /** The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON. */
 export const CAPABILITY_EXPORT_GRAPHS = "export_graphs";
+export const CAPABILITY_IMPORT_DATA = "import_data";
+export const CAPABILITY_COMPARE_RESULTS = "compare_results";
+
+/** The `CheckBehavior` RPC, searching every schedule of a behavior for violations and divergent values. */
+export const CAPABILITY_CHECK = "check";
 /** What the body of a verification case answered, as `verification_verdicts`. */
 export const CAPABILITY_VERIFICATION_VERDICTS = "verification_verdicts";
 /** `RunAnalysisResponse.evaluations`: each call the run made to a calc held as a value, such as a trade study's evaluation of every alternative. */
@@ -127,8 +135,12 @@ export const CAPABILITY_RATIONAL_VALUES = "rational_values";
 export const CAPABILITY_CONVERT_DOCUMENTS = "convert_documents";
 /** `ConvertRequest.compact`, `omitDerived` and `keepDerived`: api-json written as the compact document (an id table and handles), optionally without derived properties. */
 export const CAPABILITY_CONVERT_COMPACT = "convert_compact";
+/** `ConvertRequest.includeCheckDiagnostics`: the semantic check's diagnostics, each with its own severity, reported alongside the converted output. */
+export const CAPABILITY_CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics";
 /** `ParseSourcesRequest.baseModelHash` and `ParseSourcesResponse.affected`: the documents whose results may differ from the base model's, so a client re-reads only those after an edit. */
 export const CAPABILITY_PARSE_SOURCES_AFFECTED = "parse_sources_affected";
+/** `RenderDocumentResponse.fileName`: the file a rendered set writes the document to, which the other documents' links to it name. */
+export const CAPABILITY_RENDER_DOCUMENT_FILE_NAME = "render_document_file_name";
 
 /**
  * Orders capability names by code unit, the order the service reports them in.
@@ -265,3 +277,12 @@ export function capabilityRefusal(
     return new MissingCapabilityError(capability, info, upgradeRemedy(capability));
   };
 }
+
+/** The `RunRuns` RPC: an action or a Monte Carlo case run repeatedly, the runs tabled. */
+export const CAPABILITY_RUNS = "runs";
+
+/** The `SelfCheck` RPC: the reflective SysMLValidation check of every element. */
+export const CAPABILITY_SELF_CHECK = "self_check";
+
+/** The `RecordRun` RPC: runs of an analysis case recorded into the model. */
+export const CAPABILITY_RECORD_RUN = "record_run";

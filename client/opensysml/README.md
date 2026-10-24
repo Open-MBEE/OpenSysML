@@ -44,7 +44,12 @@ inst, err := client.Instantiate(ctx, model, "Demo::Vehicle")
 
 `RenderView` returns ordered, typed node, edge, port and source-origin data.
 Ports used by connections are returned by default; pass `opensysml.WithFullPorts()`
-to include every declared port.
+to include every declared port, `opensysml.WithShow("edge-labels", ...)` to draw
+optional notation elements (the result's `Shown` lists the ones drawn) and
+`opensysml.WithDepth(n)` to draw only `n` levels of nested elements below each
+exposed element and `opensysml.WithCompartments("most")` (or `"ports"`) to fold a
+tree's owned members into compartment rows of their owner, each a node whose
+`Compartment` names the compartment of its `Parent`.
 
 Execution and verification take the same handles the rest of the API takes:
 

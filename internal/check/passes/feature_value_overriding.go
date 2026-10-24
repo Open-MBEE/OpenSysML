@@ -3,6 +3,7 @@ package passes
 import (
 	"fmt"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -63,24 +64,77 @@ func (cc *constraintChecker) checkFeatureValueOverriding(sym *symbols.Symbol) {
 	if !ok || inAnnotationBody(sym) {
 		return
 	}
-	for _, redefined := range cc.model.AllRedefinedFeatures(sym) {
-		bound, ok := featureValueOf(redefined)
-		if !ok || bound.isDefault {
-			continue
-		}
-		name := cc.featureName(redefined)
-		cc.diags = append(cc.diags, diag.Diagnostic{
-			Severity: diag.SeverityError,
-			Span:     value.span,
-			Message: fmt.Sprintf(
-				"cannot override the binding value of %s: a value written with `=` is fixed for every feature redefining it; "+
-					"write it as `default =` on %s to allow overriding, or remove this value",
-				name, name),
-			Code:   "feature-value-overriding",
-			Source: "constraint",
-		})
+	if bound := cc.boundFeatureAmong(cc.model.AllRedefinedFeatures(sym)); bound != nil {
+		cc.reportFeatureValueOverriding(value.span, bound)
+	}
+}
+
+// checkConstructorValueOverriding flags a `new T(…)` argument binding a feature bound with `=`,
+// itself or through what it redefines: the argument redefines it with a value (KerML §8.3.4.10.2).
+func (cc *constraintChecker) checkConstructorValueOverriding(scope *symbols.Scope, e *ast.ConstructorExpr) {
+	if e == nil || e.Type == nil || cc.model == nil || cc.resolver == nil {
 		return
 	}
+	typ, ok := cc.resolver.ResolveQualified(scope, e.Type)
+	if !ok || typ == nil {
+		return
+	}
+	if target, aliasOK := cc.resolver.ResolveAliasTarget(typ); aliasOK {
+		typ = target
+	}
+	features := cc.model.ConstructibleFeatures(typ)
+	for i, arg := range e.Args {
+		if i >= len(features) {
+			break
+		}
+		cc.checkConstructorArgument(arg, features[i])
+	}
+	for _, na := range e.NamedArgs {
+		if na.Name == nil || na.Value == nil {
+			continue
+		}
+		feature, ok := cc.resolver.ResolveReference(resolve.Reference{Scope: scope, QN: na.Name, Constructed: e.Type})
+		if !ok || feature == nil {
+			continue
+		}
+		cc.checkConstructorArgument(na.Value, feature)
+	}
+}
+
+// checkConstructorArgument reports value, bound to feature by a constructor
+// argument, when feature or a feature it redefines is bound with `=`.
+func (cc *constraintChecker) checkConstructorArgument(value ast.Node, feature *symbols.Symbol) {
+	chain := append([]*symbols.Symbol{feature}, cc.model.AllRedefinedFeatures(feature)...)
+	if bound := cc.boundFeatureAmong(chain); bound != nil {
+		cc.reportFeatureValueOverriding(value.Span(), bound)
+	}
+}
+
+// boundFeatureAmong returns the first feature of candidates whose value is
+// written with `=` rather than `default`, or nil.
+func (cc *constraintChecker) boundFeatureAmong(candidates []*symbols.Symbol) *symbols.Symbol {
+	for _, candidate := range candidates {
+		if bound, ok := featureValueOf(candidate); ok && !bound.isDefault {
+			return candidate
+		}
+	}
+	return nil
+}
+
+// reportFeatureValueOverriding reports the value at span as overriding the
+// binding value of bound (pilot: `Cannot override a binding feature value`).
+func (cc *constraintChecker) reportFeatureValueOverriding(span source.Span, bound *symbols.Symbol) {
+	name := cc.featureName(bound)
+	cc.diags = append(cc.diags, diag.Diagnostic{
+		Severity: diag.SeverityError,
+		Span:     span,
+		Message: fmt.Sprintf(
+			"cannot override the binding value of %s: a value written with `=` is fixed for every feature redefining it; "+
+				"write it as `default =` on %s to allow overriding, or remove this value",
+			name, name),
+		Code:   "feature-value-overriding",
+		Source: "constraint",
+	})
 }
 
 // featureName is the qualified name the index knows sym by, or its own name;

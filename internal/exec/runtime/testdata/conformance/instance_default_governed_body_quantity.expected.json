@@ -1,0 +1,12 @@
+{
+  "type": "instance",
+  "instantiate": "test::Rig",
+  "libraries": true,
+  "slots": {
+    "centered.offset.dimensions": {"type": "Sequence", "elements": []},
+    "centered.offset.num": {"type": "Sequence", "elements": [{"type": "Integer", "value": 0}]},
+    "nudged.offset.dimensions": {"type": "Sequence", "elements": []},
+    "nudged.offset.num": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]}
+  },
+  "materialization": {}
+}

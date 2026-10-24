@@ -107,7 +107,7 @@ func (ctx *Context) MeasurementUnitValue(sym *symbols.Symbol) (Value, bool, erro
 	}
 	term, err := ctx.model.semantics.UnitTermOf(sym)
 	if err != nil {
-		return Value{}, true, fmt.Errorf("%w: %s: %w", ErrNotAQuantity, sym.Name, err)
+		return Value{}, true, fmt.Errorf("%w: %s: %w", errNotAQuantity, sym.Name, err)
 	}
 	return DeclaredMeasurementRef(ctx.model.semantics, sym, "", term), true, nil
 }
@@ -148,7 +148,7 @@ func (ctx *Context) qualifiedUnitName(sym *symbols.Symbol) string {
 	if sym.OwnerScope == nil || sym.OwnerScope.Owner() == nil {
 		return name
 	}
-	return ctx.qualifiedSymbolName(sym.OwnerScope.Owner()) + "::" + name
+	return ctx.QualifiedName(sym.OwnerScope.Owner()) + "::" + name
 }
 
 // unitSymbolName is the symbol a unit is written by (`km`), its name otherwise.
@@ -205,7 +205,7 @@ func (ctx *Context) refuseScaleFactor(op ast.OperatorKind, units ...Unit) error 
 	for _, unit := range units {
 		if scale, ok := ctx.model.semantics.MeasurementScaleOf(unit.Term); ok {
 			return fmt.Errorf("%w: MeasurementRefCalculations::'%s': %s is a measurement scale, whose points are on the scale and not in a unit to compose",
-				ErrUnevaluableLibraryFunction, op.String(), unitSymbolName(scale))
+				errUnevaluableLibraryFunction, op.String(), unitSymbolName(scale))
 		}
 	}
 	return nil
@@ -249,7 +249,7 @@ func (ctx *Context) measurementRefFeature(val Value, name string) (Value, bool, 
 		}
 		return Value{}, true, fmt.Errorf(
 			"%w: %s::%s: %s is a %s reducing to %s, which names no declaration whose member %s could be read",
-			ErrUnevaluableLibraryFunction, derivedUnitFQN, name, ref, derivedUnitFQN, ref.Unit.Term, name,
+			errUnevaluableLibraryFunction, derivedUnitFQN, name, ref, derivedUnitFQN, ref.Unit.Term, name,
 		)
 	}
 	if member, ok, err := ctx.declarationMember(decl, name); ok || err != nil {
@@ -270,7 +270,7 @@ func (ctx *Context) measurementRefFeature(val Value, name string) (Value, bool, 
 	}
 	return Value{}, true, fmt.Errorf(
 		"%w: %s::%s: a measurement reference value holds the unit %s and its reduction %s, not the declaration's member %s",
-		ErrUnevaluableLibraryFunction, scalarMRefTypeFQN, name, ref, ref.Unit.Term, name,
+		errUnevaluableLibraryFunction, scalarMRefTypeFQN, name, ref, ref.Unit.Term, name,
 	)
 }
 
@@ -279,7 +279,7 @@ func (ctx *Context) measurementRefFeature(val Value, name string) (Value, bool, 
 func (ctx *Context) declarationMember(decl *symbols.Symbol, name string) (Value, bool, error) {
 	inst, err := ctx.occurrenceOf(decl)
 	if err != nil {
-		return Value{}, true, fmt.Errorf("usage %s: %w", symbolText(decl), err)
+		return Value{}, true, fmt.Errorf("usage %s: %w", SymbolText(decl), err)
 	}
 	if _, ok := inst.FeatureValues[name]; !ok {
 		return Value{}, false, nil
@@ -332,7 +332,7 @@ func (ctx *Context) declaredMemberValue(member *symbols.Symbol) (Value, error) {
 	if ctx.namesOneObject(member) {
 		inst, err := ctx.occurrenceOf(member)
 		if err != nil {
-			return Value{}, fmt.Errorf("usage %s: %w", symbolText(member), err)
+			return Value{}, fmt.Errorf("usage %s: %w", SymbolText(member), err)
 		}
 		return ctx.objectValue(inst)
 	}
@@ -366,7 +366,7 @@ func (ctx *Context) quantityFeature(val Value, name string) (Value, bool, error)
 	case mRefIsBoundFeature:
 		return Value{}, true, fmt.Errorf(
 			"%w: %s::isBound: a scalar quantity value holds its num and mRef, not whether the quantity is bound",
-			ErrUnevaluableLibraryFunction, scalarQuantityTypeFQN,
+			errUnevaluableLibraryFunction, scalarQuantityTypeFQN,
 		)
 	}
 	return Value{}, false, nil
@@ -383,7 +383,7 @@ func vectorQuantityMRef(vq *VectorQuantity) (Value, error) {
 	if !ok {
 		return Value{}, fmt.Errorf(
 			"%w: Quantities::VectorQuantityValue::mRef: the axes of %s carry different units, and no one measurement reference names them all",
-			ErrUnevaluableLibraryFunction, vq.format(semantics.FormatConst),
+			errUnevaluableLibraryFunction, vq.format(semantics.FormatConst),
 		)
 	}
 	return measurementRefOf(unit), nil
@@ -412,5 +412,5 @@ func (ctx *Context) measurementRefConforms(ref *MeasurementRef, declared *symbol
 		return true, "", nil
 	}
 	return false, fmt.Sprintf("cannot write the measurement reference %s, %s, to a feature typed by %s",
-		ref, c.Found, symbolText(declared)), nil
+		ref, c.Found, SymbolText(declared)), nil
 }

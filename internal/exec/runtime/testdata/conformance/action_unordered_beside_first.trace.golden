@@ -1,6 +1,6 @@
 stmt assign d
   eval literal 7 -> 7
-choice step 1: tokens 1@start, 2@side (unordered; took 2@side first)
+choice step 1: tokens 1@start, 2@side (unordered; took 2@side first; independent)
 step 1: token 1@a
 stmt assign c
     eval feature c -> 0

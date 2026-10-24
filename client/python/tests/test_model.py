@@ -647,7 +647,8 @@ class TestModelRuntimeCalls:
         model = self._model(client)
         assert model.execute_action("Demo::add", inputs={"result": 10}) == {"result": 15}
         client.execute_action.assert_called_once_with(
-            "Demo::add", "hash1", inputs={"result": 10}, schedule=None, performer=None
+            "Demo::add", "hash1", inputs={"result": 10}, schedule=None, performer=None,
+            advance=None, seed=None, draws=None, clock_step=0.0
         )
 
     def test_execute_state_passes_the_models_hash_and_events(self):
@@ -660,7 +661,7 @@ class TestModelRuntimeCalls:
         }
         client.execute_state.assert_called_once_with(
             "Demo::Machine", "hash1", events=["go"], schedule=None, performer=None,
-            trace=False
+            trace=False, advance=None, seed=None, draws=None, clock_step=0.0
         )
 
     def test_instantiate_raises_what_the_connection_raises(self):
@@ -675,7 +676,7 @@ class TestModelRuntimeCalls:
 #: Connection calls whose model-level counterpart is named differently:
 #: get_symbol is the raw protobuf lookup behind Model.get and model[name], and
 #: apply_edits is the call Model.edit()'s editor makes.
-MODEL_LEVEL_ALIASES = {"get_symbol": "get", "apply_edits": "edit"}
+MODEL_LEVEL_ALIASES = {"get_symbol": "get", "apply_edits": "edit", "diagnostics": "refresh_diagnostics"}
 
 
 def test_every_call_about_a_loaded_model_is_reachable_on_the_model():

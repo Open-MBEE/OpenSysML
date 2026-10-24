@@ -1,0 +1,11 @@
+// view: CameraViews::collapsed
+// kind: tree
+// stated: render asTreeDiagram
+// not represented: 9 node(s) without a position: 0 drawn as compartment rows of the node above them, 9 in compartments its Layout hides left undrawn
+// layout: neato -n
+digraph "CameraViews::collapsed" {
+  graph [fontname="Helvetica", layout=neato, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Imaging</b>>, margin=0, pos="110,-26.5!", pin=true, width=2.7777777777777777, height=0.4583333333333333, fixedsize=true];
+}

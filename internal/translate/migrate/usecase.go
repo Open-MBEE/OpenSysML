@@ -17,6 +17,11 @@ type actorLink struct {
 	// block marks a link to a block rather than a use case: its ends are the
 	// parts the association already writes, so only the connection is added.
 	block bool
+	// owned is the use case's own property typed by the actor, written as its
+	// actor parameter; nil when the use case body declares one for the link.
+	owned *sysmlv1.Element
+	// param is the name of the actor parameter the use case body declares for the link.
+	param string
 }
 
 // defUsage is the usage a connection joins for a v1 classifier: the classifier
@@ -41,6 +46,9 @@ type defConn struct {
 	def *sysmlv1.Element
 	// doc is what the connection's body documents: where and when an extend applies.
 	doc string
+	// fromFeature and toFeature name the member of an end's usage the connection
+	// joins, as the use case's actor parameter; "" for the usage itself.
+	fromFeature, toFeature string
 }
 
 // target is the report target of the connection.
@@ -143,6 +151,8 @@ type connectionEnds struct {
 // connection def written for e, when def is not nil.
 func (m *migration) connectTyped(e, def, host *sysmlv1.Element, ends connectionEnds, name string) *defConn {
 	fu, tu := m.defUsageOf(m.usageHost(ends.from), ends.from, ends.fromKw), m.defUsageOf(m.usageHost(ends.to), ends.to, ends.toKw)
+	// The usage's name is invented when e has none to give it, or a def keeps e's.
+	invented := name == "" || def != nil
 	if name == "" {
 		name = spoken(writeName(fu.name)) + " to " + spoken(writeName(tu.name))
 	}
@@ -159,12 +169,15 @@ func (m *migration) connectTyped(e, def, host *sysmlv1.Element, ends connectionE
 		m.moreConns[e] = append(m.moreConns[e], c)
 	}
 	m.extras[host] = append(m.extras[host], func() {
+		if invented {
+			m.w.madeUp(writeName(name))
+		}
 		typed := ""
 		if def != nil {
 			typed = " : " + m.ref(def, host)
 		}
-		header := "connection " + writeName(name) + typed + " connect " + m.usageRef(fu, host) + " to " + m.usageRef(tu, host)
-		m.w.trailed(header, ";", "", func() {
+		header := "connection " + writeName(name) + typed + " connect " + m.endRef(fu, c.fromFeature, host) + " to " + m.endRef(tu, c.toFeature, host)
+		m.w.trailed(header, ";", func() {
 			if def != nil {
 				return // the connection def carries the association's metadata
 			}
@@ -173,11 +186,20 @@ func (m *migration) connectTyped(e, def, host *sysmlv1.Element, ends connectionE
 			}
 			saved := m.scope
 			m.scope = host
-			m.metadataUsages(e)
+			m.stereotypeAnnotations(e)
 			m.scope = saved
 		})
 	})
 	return c
+}
+
+// endRef writes a connection end from inside scope's body: usage u, or its member feature.
+func (m *migration) endRef(u *defUsage, feature string, scope *sysmlv1.Element) string {
+	ref := m.usageRef(u, scope)
+	if feature != "" {
+		ref += "." + writeName(feature)
+	}
+	return ref
 }
 
 // usageRef writes a reference to usage u from inside scope's body.
@@ -189,8 +211,10 @@ func (m *migration) usageRef(u *defUsage, scope *sysmlv1.Element) string {
 }
 
 // connectActor writes the connection a link's association is written as,
-// between the actor's part usage and the use case usage, in the nearest
-// package holding both, and reports the ends the association owns as its ends.
+// between the actor's part usage and the use case's actor parameter, in the
+// nearest package holding both, and reports the ends the association owns as
+// its ends. A connection typed by the association's connection def joins the
+// use case usage itself, as the def's end does.
 func (m *migration) connectActor(link *actorLink) {
 	host, ok := m.connHost(link.assoc, link.actor, link.useCase)
 	if !ok {
@@ -211,19 +235,64 @@ func (m *migration) connectActor(link *actorLink) {
 	if link.block {
 		return
 	}
+	param := m.actorParameter(link)
+	if param != "" && def == nil {
+		if from == link.useCase {
+			link.conn.fromFeature = param
+		} else {
+			link.conn.toFeature = param
+		}
+	}
 	target := link.conn.target(m)
 	for _, end := range m.model.Refs(link.assoc, "memberEnd") {
 		if end.Parent != link.assoc {
 			continue
 		}
 		note := ""
-		if end == link.end {
+		switch {
+		case end == link.end:
 			_, note = m.multiplicity(end)
 			note = joinNotes(note, "the end at the actor is the connection's end at the actor's part usage")
-		} else {
-			note = "the end at the use case is the connection's end at the use case usage"
+			if link.owned == nil {
+				note = joinNotes(note, "the use case declares the actor parameter "+param+" subsetting that usage")
+			}
+			if link.end.Parent == link.useCase {
+				note = joinNotes(note, "the port that is the end stays a port")
+			}
+		case def != nil:
+			note = "the end at the use case is the connection's end at the use case usage, as the connection def's end is; the use case's actor parameter " + param + " subsets the actor"
+		default:
+			note = "the end at the use case is the connection's end at the use case's actor parameter " + param
 		}
 		m.add(end, verdictFor(note), target, note)
+	}
+}
+
+// actorParameter is the name of the use case's actor parameter for the link.
+func (m *migration) actorParameter(link *actorLink) string {
+	if link.owned == nil {
+		return link.param
+	}
+	return m.nameOf(link.owned)
+}
+
+// actorParameters writes the actor parameter the use case declares for each
+// link whose association owns the end at the actor: a parameter subsetting
+// the actor's part usage, so the use case reaches its actors.
+func (m *migration) actorParameters(e *sysmlv1.Element) {
+	for _, link := range m.linkedActors[e] {
+		if link.owned != nil {
+			continue
+		}
+		name := m.claimName(link.end, e, link.param)
+		if name != link.end.Name {
+			m.w.madeUp(writeName(name))
+		}
+		mult, _ := m.multiplicity(link.end)
+		if mult != "" {
+			mult = " " + mult
+		}
+		m.w.line("actor " + writeName(name) + mult + " :> " + m.ref(link.actor, e) + ";")
 	}
 }
 
@@ -314,6 +383,46 @@ func (m *migration) planConnections(rels []*sysmlv1.Element) {
 	}
 }
 
+// planAssociations writes, before any view is, the one usage of each
+// association written as a connection def: a connection typed by it joining
+// usages of its two end types, in the nearest package holding both. An actor's
+// association is placed by placeActors instead, whether or not it is written.
+func (m *migration) planAssociations(assocs []*sysmlv1.Element, links []*actorLink) {
+	linked := map[*sysmlv1.Element]bool{}
+	for _, link := range links {
+		linked[link.assoc] = true
+	}
+	for _, e := range assocs {
+		if linked[e] || !m.written(e) || !m.associationAsConnectionDef(e) {
+			continue
+		}
+		ends := m.model.Refs(e, "memberEnd")
+		if len(ends) != 2 {
+			continue
+		}
+		for _, end := range ends {
+			// A crossed property is reached from the def, so it cannot stay private.
+			typ, _ := m.typeRef(m.model.Ref(end, "type"), e)
+			if opp, _ := m.crossedProperty(e, end, typ); opp != nil {
+				m.expose(end, "the connection def of the association "+describe(e)+" in "+qualifiedName(e.Parent)+" crosses it")
+			}
+		}
+		from, to := m.model.Ref(ends[0], "type"), m.model.Ref(ends[1], "type")
+		if from == nil || to == nil {
+			continue
+		}
+		fromKw, toKw := m.usageKeyword(from), m.usageKeyword(to)
+		if fromKw == "" || toKw == "" {
+			continue
+		}
+		host, ok := m.connHost(e, from, to)
+		if !ok {
+			continue
+		}
+		m.connectTyped(e, e, host, connectionEnds{from: from, to: to, fromKw: fromKw, toKw: toKw}, lowerFirst(m.nameOf(e)))
+	}
+}
+
 // kindConnection writes the connection a relationship of a kind is drawn as,
 // named "A refines B" by its kind unless its author named it, when the kind
 // is the connection's doc instead.
@@ -363,8 +472,6 @@ func (m *migration) connHost(d, a, b *sysmlv1.Element) (host *sysmlv1.Element, o
 	for p := b.Parent; p != nil; p = p.Parent {
 		switch {
 		case !above[p]:
-		case isTopLevel(p):
-			return nil, true
 		case (p.Type == "Package" || p.Type == "Model") && m.written(p):
 			return p, true
 		}
@@ -400,20 +507,45 @@ func (m *migration) actorLink(a *sysmlv1.Element) *actorLink {
 			}
 			continue
 		}
-		if end.Parent == useCase || !m.written(actor) || !m.written(useCase) {
+		if !m.written(actor) || !m.written(useCase) {
 			return nil
 		}
-		return &actorLink{assoc: a, useCase: useCase, actor: actor, end: end}
+		link := &actorLink{assoc: a, useCase: useCase, actor: actor, end: end}
+		if end.Parent == useCase && end.Type != "Port" {
+			// A port the use case owns stays a port; the use case gets a parameter besides.
+			link.owned = end
+		}
+		return link
 	}
 	return nil
 }
 
 // placeActors writes the connection each link's association is written as,
-// once every member of the use cases is named, and records the link.
+// once every member of the use cases is named, and records the link, naming
+// the actor parameter the use case declares for it: the end at the actor when
+// the use case owns it, named after the actor if it is anonymous, else a new one.
 func (m *migration) placeActors(links []*actorLink) {
 	for _, link := range links {
-		if !link.block {
-			m.actors[link.assoc] = link
+		if link.block {
+			m.connectActor(link)
+			continue
+		}
+		m.actors[link.assoc] = link
+		m.linkedActors[link.useCase] = append(m.linkedActors[link.useCase], link)
+		base := m.nameOf(link.end)
+		if base == "" {
+			base = lowerFirst(m.nameFor(link.actor))
+		}
+		switch {
+		case link.owned == nil && link.end.Parent == link.useCase:
+			// The end is a port of the use case, which keeps its name: the
+			// parameter is named after the actor, clear of the port.
+			link.param = m.freshNameBut(nil, link.useCase, lowerFirst(m.nameFor(link.actor)))
+			m.takenBy[link.useCase][link.param] = link.end
+		case link.owned == nil:
+			link.param = m.reserveNameFor(link.end, link.useCase, base)
+		case m.nameOf(link.owned) == "":
+			m.names[link.owned], m.synthesized[link.owned] = m.reserveNameFor(link.owned, link.useCase, base), true
 		}
 		m.connectActor(link)
 	}
@@ -426,9 +558,11 @@ func (m *migration) useCaseBody(e *sysmlv1.Element) {
 	m.scope = e
 	m.comments(e)
 	m.subjects(e)
+	m.actorParameters(e)
 	m.members(e)
 	m.classifierBehavior(e)
-	m.stereotypeComments(e)
+	m.interactionOccurrences(e)
+	m.stereotypeMarkers(e)
 	m.scope = saved
 }
 
@@ -469,8 +603,11 @@ func (m *migration) subjects(e *sysmlv1.Element) {
 }
 
 // hasActors reports whether an actor usage is written in the use case's body,
-// for a property typed by an actor.
+// for a property typed by an actor or an association to one.
 func (m *migration) hasActors(useCase *sysmlv1.Element) bool {
+	if len(m.linkedActors[useCase]) > 0 {
+		return true
+	}
 	for _, p := range useCase.Owned("ownedAttribute") {
 		t := m.model.Ref(p, "type")
 		if p.Type != "Port" && t != nil && t.Type == "Actor" && m.written(t) {
@@ -498,21 +635,23 @@ func (m *migration) include(inc *sysmlv1.Element) {
 		return
 	}
 	m.wroteEdge(inc, m.scope, "include", "")
-	m.w.line("include " + m.ref(added, m.scope) + ";")
 	verdict, note := Mapped, ""
 	if name := m.nameOf(inc); name != "" {
 		verdict, note = Approximated, "an include referring to a use case usage has no name, so "+name+" is dropped"
 	}
 	if conn := m.conns[inc]; conn != nil {
+		// The connection drawn for the include carries its annotations.
+		m.w.line("include " + m.ref(added, m.scope) + ";")
 		m.wroteEdgeAlso(inc, conn.host, "connection", nil, conn.name)
+	} else {
+		m.w.trailed("include "+m.ref(added, m.scope), ";", func() { m.stereotypeAnnotations(inc) })
 	}
 	m.add(inc, verdict, m.qualified(m.segments(inc.Parent)), note)
-	m.stereotypeComments(inc)
 }
 
 // extend writes a UML Extend as a dependency of the extending use case on the
-// extended one, keeping the extension points and condition as a comment: v2
-// has no extend relationship.
+// extended one, named by its kind, keeping the extension points and condition
+// as its doc: v2 has no extend relationship.
 func (m *migration) extend(ext *sysmlv1.Element) {
 	extended := m.model.Ref(ext, "extendedCase")
 	switch {
@@ -524,34 +663,37 @@ func (m *migration) extend(ext *sysmlv1.Element) {
 		return
 	}
 	note := "v2 has no extend: the extension is written as a plain dependency on the extended use case"
-	comment := m.extendComment(ext)
-	if detail := m.extensionDetail(ext); detail != "" {
-		note += "; it applies " + detail + ", which only a comment keeps"
+	detail := m.extensionDetail(ext)
+	if detail != "" {
+		note += "; it applies " + detail + ", which only its doc keeps"
 	}
 	if conn := m.conns[ext]; conn != nil {
 		m.wroteEdgeAlso(ext, conn.host, "connection", nil, conn.name)
 		m.add(ext, Approximated, conn.target(m), strings.Replace(note, "a plain dependency on", "a connection between usages of the extending use case and", 1))
-		m.stereotypeComments(ext)
 		return
 	}
 	from, to := m.ref(ext.Parent, m.scope), m.ref(extended, m.scope)
-	decl, target := "dependency ", ""
-	name := m.nameOf(ext)
+	qualifiedFrom, qualifiedTo := m.qualifiedRef(ext.Parent, m.scope), m.qualifiedRef(extended, m.scope)
+	kind := spoken(from) + " extends " + spoken(to)
+	name, doc := m.nameOf(ext), ""
 	if name == "" {
-		if base := m.edgeName(ext, spoken(from)+" to "+spoken(to)); base != "" {
-			name = m.freshName(m.scope, base)
-			m.names[ext] = name
-		}
+		name = m.freshName(m.scope, kind)
+		m.names[ext], m.synthesized[ext] = name, true
+	} else {
+		doc = kind
 	}
-	if name != "" {
-		decl += writeName(name) + " from "
-		target = m.v2Name(ext)
-		m.madeUp(ext, writeName(name))
+	if detail != "" {
+		doc = m.extendComment(ext)
 	}
 	m.wroteEdge(ext, m.scope, "dependency", name)
-	m.w.line(decl + from + " to " + to + "; /* " + comment + " */")
-	m.add(ext, Approximated, target, note)
-	m.stereotypeComments(ext)
+	m.madeUp(ext, writeName(name))
+	m.w.trailed("dependency "+writeName(name)+" from "+qualifiedFrom+" to "+qualifiedTo, ";", func() {
+		if doc != "" {
+			m.w.line("doc /* " + doc + " */")
+		}
+		m.stereotypeAnnotations(ext)
+	})
+	m.add(ext, Approximated, m.v2Name(ext), note)
 }
 
 // extensionDetail says where and when an extension applies: at its extension

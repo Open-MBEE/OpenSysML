@@ -1,4 +1,4 @@
-choice exiting running: next idle(exit), parked(exit) (unordered; took idle(exit) first)
+choice exiting running: next idle(exit), parked(exit) (unordered; took idle(exit) first; independent)
 exit: idle
 exit: parked
 exit: running

@@ -343,15 +343,15 @@ func TestAddMetadataPrefixWritesInTheUsagePrefixSlot(t *testing.T) {
 		},
 		{
 			name:   "actor",
-			source: "metadata def M;\npart def T;\nrequirement def R { actor a : T; }\n",
+			source: "metadata def M;\npart def T;\nrequirement def R { subject s : T; actor a : T; }\n",
 			target: "R::a",
-			want:   "metadata def M;\npart def T;\nrequirement def R { actor #M a : T; }\n",
+			want:   "metadata def M;\npart def T;\nrequirement def R { subject s : T; actor #M a : T; }\n",
 		},
 		{
 			name:   "stakeholder",
-			source: "metadata def M;\npart def T;\nrequirement def R { stakeholder s : T; }\n",
+			source: "metadata def M;\npart def T;\nrequirement def R { subject t : T; stakeholder s : T; }\n",
 			target: "R::s",
-			want:   "metadata def M;\npart def T;\nrequirement def R { stakeholder #M s : T; }\n",
+			want:   "metadata def M;\npart def T;\nrequirement def R { subject t : T; stakeholder #M s : T; }\n",
 		},
 		{
 			name:   "objective",
@@ -385,9 +385,9 @@ func TestAddMetadataPrefixWritesInTheUsagePrefixSlot(t *testing.T) {
 		},
 		{
 			name:   "verify",
-			source: "metadata def M;\nrequirement def R;\nrequirement r :> R;\nverification def V { objective o { verify requirement rr :> r; } }\n",
+			source: "metadata def M;\nrequirement def R;\nrequirement r : R;\nverification def V { objective o { verify requirement rr :> r; } }\n",
 			target: "V::o::rr",
-			want:   "metadata def M;\nrequirement def R;\nrequirement r :> R;\nverification def V { objective o { verify #M requirement rr :> r; } }\n",
+			want:   "metadata def M;\nrequirement def R;\nrequirement r : R;\nverification def V { objective o { verify #M requirement rr :> r; } }\n",
 		},
 		{
 			name:   "frame",

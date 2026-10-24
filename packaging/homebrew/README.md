@@ -83,10 +83,11 @@ brew audit --strict --online local/systest/opensysml
 The release job publishes stable artifact names, so cutting a release takes one step:
 
 1. Tag `vX.Y.Z` and let CircleCI publish the release (per-binary archives,
-   `opensysml-<os>-<arch>.tar.gz`/`.zip` bundles, and `SHA256SUMS.txt`).
+   `opensysml-<os>-<arch>.tar.gz`/`.zip` bundles, the `sysml-mcp-<os>-<arch>.tar.gz`/`.zip`
+   archives, and `SHA256SUMS.txt`).
 2. Nothing else: the tap's own scheduled workflow renders and commits the formula within its
-   schedule interval. Five values change — the tag in the four URLs (which is also where
-   Homebrew reads the version from) and the four `sha256` lines.
+   schedule interval. Nine values change — the tag in the eight URLs (which is also where
+   Homebrew reads the version from) and the eight `sha256` lines.
 
 The manual route remains the fallback when the tap has to be corrected out of band — render
 from a checkout of this repository and commit the result in the tap:

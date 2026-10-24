@@ -25,12 +25,12 @@ config:
 %% not represented: 4 exposed standard library element(s) not drawn; a definition rendering draws the model's own elements
 flowchart TD
   n0["`*«part def»*
-**Loops::A**`"]
+**A**`"]
   n1["`*«part def»*
-**Loops::B**`"]
+**B**`"]
   n2["`*«requirement def»*
-**Loops::Looped**`"]
+**Looped**`"]
   n3["`*«part def»*
-**Cycles::C**`"]
+**C**`"]
   n0 ---|"◆ b"| n1
   n1 ---|"◆ a"| n0

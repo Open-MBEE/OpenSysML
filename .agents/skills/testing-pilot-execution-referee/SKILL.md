@@ -65,11 +65,15 @@ cases after it, so a disagreement among them buckets `differs-by-design` with th
 report. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (456 cases, all twenty-one default
+Reference values at the current implementation (500 cases, all twenty-two default
 fixtures):
-`agree 217 · kind-only 1 · order-only 0 · disagree 29 · differs-by-design 5 ·
-pilot-unevaluated 124 · pilot-silent 21 · pilot-error 5 · ours-error 10 · ours-undetermined 28 ·
+`agree 224 · kind-only 1 · order-only 0 · disagree 26 · differs-by-design 5 ·
+pilot-unevaluated 157 · pilot-silent 24 · pilot-error 5 · ours-error 10 · ours-undetermined 32 ·
 both-error 16 · nondeterministic 0`.
+The 44 of `unbounded_arithmetic.cases` add 33 `pilot-unevaluated` (every arithmetic operator,
+comparison, `max`/`min`/`abs`/`ToString` and conditional over `*`, with our error or answer
+recorded beside them), 3 `pilot-silent` (`-*`, `+*`) and 8 `agree` (equality, `size`,
+`includes` and two reads of a `*` value, which `parseOurValue` reads as the infinity).
 Four of the nine `pilot-error` are the whole of `unknown_bounds.cases`: the pilot rejects a
 model whose multiplicity bound names a valueless feature (`a : Real[n]`, `Must have a Natural
 value`) and resolves nothing in it afterwards, which is why those cases have a model of their
@@ -150,8 +154,8 @@ pilot answers the representation's own. See
   `pilot-exec-diff: <file>:<line>: model no/such/model.sysml: stat <abs>: no
   such file or directory`.
 - **Additivity.** `go run -C tools ./cmd/pilot-diff` must still print the headline the
-  committed baseline holds (`391 file(s), 353 fully agreeing; 45 agreed
-  diagnostic(s), 282 only ours, 92 only the pilot's` at the `2026-08` pin — read it from the baseline JSON, not from this line, since each
+  committed baseline holds (`916 file(s), 515 fully agreeing; 1092 agreed
+  diagnostic(s), 366 only ours, 2444 only the pilot's` at the `2026-08` pin — read it from the baseline JSON, not from this line, since each
   fix round moves it) and `jq -S` diff clean against
   `docs/project/pilot-differential-baseline.json`; `git status --porcelain`
   empty at the end.

@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.openmbee</groupId>
     <artifactId>opensysml-parent</artifactId>
-    <version>0.10.1</version>
+    <version>0.11.0</version>
   </parent>
 
   <artifactId>opensysml</artifactId>
@@ -65,6 +65,57 @@
       </resource>
     </resources>
     <plugins>
+      <!-- The schema declares no Java file options, so the build appends the two the
+           client's package layout needs to a copy of it; the repository's schema stays
+           untouched and the committed Go stubs carry the same two options. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>java-file-options</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <concat destfile="${project.build.directory}/proto/sysml.proto" fixlastline="yes">
+                  <file file="${project.basedir}/../../../api/proto/sysml.proto"/>
+                  <footer trimleading="yes">
+                    option java_package = "org.openmbee.opensysml.proto";
+                    option java_multiple_files = true;
+                  </footer>
+                </concat>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- The message classes are generated into target/ by the protoc release that
+           matches the protobuf-java runtime, so nothing generated is committed. -->
+      <plugin>
+        <groupId>io.github.ascopes</groupId>
+        <artifactId>protobuf-maven-plugin</artifactId>
+        <configuration>
+          <protoc>${protobuf.version}</protoc>
+          <sourceDirectories>
+            <sourceDirectory>${project.build.directory}/proto</sourceDirectory>
+          </sourceDirectories>
+          <!-- sysml.proto imports nothing, so the dependencies' bundled .proto files
+               have no part in the import path. -->
+          <ignoreProjectDependencies>true</ignoreProjectDependencies>
+          <!-- The jar ships classes, not the schema. -->
+          <embedSourcesInClassOutputs>false</embedSourcesInClassOutputs>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>

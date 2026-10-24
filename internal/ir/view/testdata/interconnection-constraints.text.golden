@@ -1,0 +1,22 @@
+ParametricViews::amplifierView - interconnection rendering (render asInterconnectionDiagram)
+
+part def Amplifier
+  attribute signal
+  attribute gain
+  attribute noise
+  attribute output
+  constraint amplify
+    port input
+    port gain
+    port output
+  constraint mix
+    port a
+    port b
+    port total
+
+connections:
+  signal == amplify.input
+  gain == amplify.gain
+  amplify.output == mix.a
+  noise == mix.b
+  mix.total == output

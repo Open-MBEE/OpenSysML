@@ -68,22 +68,27 @@ func TestEvalClassificationOverNamedSubjects(t *testing.T) {
 	}
 }
 
-// `@@` classifies an element by its own metaclass, so metadata stated about the
-// element does not satisfy it — the difference from `@`.
+// `@@` classifies the element's metadata as `@` does: an annotation stated about
+// it and its own metaclass both satisfy it, another metadata type does not.
 func TestEvalClassificationMetaVersusAnnotation(t *testing.T) {
 	const src = `
 		metadata def Safety;
+		metadata def Other;
 		metadata def PartDefinition;
 		#Safety part def Belt;
 		constraint annotated { Belt @ Safety }
 		constraint metaAnnotated { Belt @@ Safety }
+		constraint metaOther { Belt @@ Other }
 		constraint metaclass { Belt @@ PartDefinition }
 	`
 	if got, err := constraintVerdict(t, src, "annotated"); err != nil || !got {
 		t.Fatalf("`Belt @ Safety` = %v err=%v, want true", got, err)
 	}
-	if got, err := constraintVerdict(t, src, "metaAnnotated"); got || !errors.Is(err, ErrViolated) {
-		t.Fatalf("`Belt @@ Safety` = %v err=%v, want a violated assertion: metadata is not the metaclass", got, err)
+	if got, err := constraintVerdict(t, src, "metaAnnotated"); err != nil || !got {
+		t.Fatalf("`Belt @@ Safety` = %v err=%v, want true: the annotation is metadata of Belt", got, err)
+	}
+	if got, err := constraintVerdict(t, src, "metaOther"); got || !errors.Is(err, ErrViolated) {
+		t.Fatalf("`Belt @@ Other` = %v err=%v, want a violated assertion", got, err)
 	}
 	if got, err := constraintVerdict(t, src, "metaclass"); err != nil || !got {
 		t.Fatalf("`Belt @@ PartDefinition` = %v err=%v, want true", got, err)
@@ -100,7 +105,7 @@ func TestEvalClassificationInACalcBody(t *testing.T) {
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
 	ctx := NewContext(typedModel(model, resolver), 10000)
-	got, err := ctx.InvokeCalc(resolveSymbol(t, root, "classify"),
+	got, err := invokeValue(ctx, resolveSymbol(t, root, "classify"),
 		[]Value{{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: true}}}, root)
 	if err != nil {
 		t.Fatalf("InvokeCalc: %v", err)

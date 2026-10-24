@@ -143,8 +143,40 @@ classdef Model < handle
             result = opensysml.renderView(m, viewName, varargin{:});
         end
 
+        function diags = refreshDiagnostics(m, varargin)
+            diags = opensysml.refreshDiagnostics(m, varargin{:});
+        end
+
+        function result = checkAction(m, actionId, varargin)
+            result = opensysml.checkAction(m, actionId, varargin{:});
+        end
+
+        function result = checkStateMachine(m, stateMachineId, varargin)
+            result = opensysml.checkStateMachine(m, stateMachineId, varargin{:});
+        end
+
         function result = exportGraphs(m, subject)
             result = opensysml.exportGraphs(m, subject);
+        end
+
+        function result = runRuns(m, varargin)
+            result = opensysml.runRuns(m, varargin{:});
+        end
+
+        function result = selfCheck(m, varargin)
+            result = opensysml.selfCheck(m, varargin{:});
+        end
+
+        function result = recordRun(m, analysisId, varargin)
+            result = opensysml.recordRun(m, analysisId, varargin{:});
+        end
+
+        function result = importData(m, imports, varargin)
+            result = opensysml.importData(m, imports, varargin{:});
+        end
+
+        function result = compareResults(m, results, varargin)
+            result = opensysml.compareResults(m, results, varargin{:});
         end
 
         function result = symbol(m, id)

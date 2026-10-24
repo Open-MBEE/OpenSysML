@@ -179,13 +179,22 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 		if err != nil {
 			return nil, documentStatus(err)
 		}
-		return &pb.RenderDocumentResponse{Html: page}, nil
+		return &pb.RenderDocumentResponse{Html: page, FileName: s.documentFileName(files, sym)}, nil
 	}
 	markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{Files: files})
 	if err != nil {
 		return nil, documentStatus(err)
 	}
-	return &pb.RenderDocumentResponse{Markdown: markdown}, nil
+	return &pb.RenderDocumentResponse{Markdown: markdown, FileName: s.documentFileName(files, sym)}, nil
+}
+
+// documentFileName is the file a rendered set writes sym's document to,
+// under the render_document_file_name capability.
+func (s *Service) documentFileName(files map[string]string, sym *symbols.Symbol) string {
+	if !s.capabilities.has(CapabilityRenderDocumentFileName) {
+		return ""
+	}
+	return files[symbols.FQNOf(sym)]
 }
 
 // documentSymbol resolves the query or document a request names, failing with

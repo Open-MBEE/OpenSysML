@@ -2,6 +2,7 @@ package project
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -21,6 +22,24 @@ func ReadFile(path string) (string, []byte, error) {
 	if IsStdin(path) {
 		data, err := readStdin()
 		return StdinName, data, err
+	}
+	// A member of a project archive is read from the archive, in memory; the
+	// archive itself is never read as text, so a malformed one is reported as
+	// the archive it fails to be.
+	if archive, member, ok := SplitMemberPath(path); ok {
+		data, err := readMemberPath(archive, member)
+		return path, data, err
+	}
+	if IsArchiveFile(path) {
+		a, err := openCached(path)
+		var ae *ArchiveError
+		if errors.As(err, &ae) {
+			err = ae.Err
+		}
+		if err == nil {
+			err = fmt.Errorf("a project interchange archive of %s %s, not a model file; name it as an input to load its files", a.Project.Name, a.Project.Version)
+		}
+		return path, nil, err
 	}
 	// #nosec G304 -- the file is one the user named, or one found under a
 	// directory or pattern they named.

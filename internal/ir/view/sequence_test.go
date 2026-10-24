@@ -78,8 +78,8 @@ func TestSequenceRenderingReportsWhatItCannotShow(t *testing.T) {
 	if got := lifelineNames(rendering); !slices.Equal(got, []string{"caller", "callee"}) {
 		t.Errorf("lifelines = %v, want the parts only", got)
 	}
-	if got := messageLabels(rendering); !slices.Equal(got, []string{"echo", "of Ping"}) {
-		t.Errorf("messages = %v, want the self-message and the port-to-port flow", got)
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"of Ping", "echo"}) {
+		t.Errorf("messages = %v, want the port-to-port flow and the self-message in declaration order", got)
 	}
 	ping, echo := edgeLabeled(t, rendering, "of Ping"), edgeLabeled(t, rendering, "echo")
 	if ping.From != rendering.Roots[0].ID || ping.To != rendering.Roots[1].ID {
@@ -114,6 +114,81 @@ func TestSequenceRenderingHonoursStatedOrder(t *testing.T) {
 	}
 	if len(rendering.Notices) != 0 {
 		t.Errorf("notices = %v, want none: the order is stated and honoured", rendering.Notices)
+	}
+}
+
+// A send and a receive on one lifeline order their two messages whichever
+// lifelines receive them: q receives a, sends b, sends c, so the rows are a, b, c.
+func TestSequenceRenderingOrdersMessagesByTheirLifelines(t *testing.T) {
+	for _, view := range []string{"LifelineViews::relayView", "LifelineViews::relayReversedView"} {
+		rendering := render(t, "sequence-lifelines.sysml", view)
+		if got := messageLabels(rendering); !slices.Equal(got, []string{"a", "b", "c"}) {
+			t.Errorf("%s: messages = %v, want a, b, c as the successions on q state", view, got)
+		}
+		if len(rendering.Notices) != 0 {
+			t.Errorf("%s: notices = %v, want none", view, rendering.Notices)
+		}
+	}
+}
+
+// An order carried through an event no message attaches to still orders the
+// messages on either side of it.
+func TestSequenceRenderingFollowsOrdersThroughUnmessagedEvents(t *testing.T) {
+	rendering := render(t, "sequence-lifelines.sysml", "LifelineViews::settledView")
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"ask", "reply"}) {
+		t.Errorf("messages = %v, want ask before reply through the settle event", got)
+	}
+	if len(rendering.Notices) != 0 {
+		t.Errorf("notices = %v, want none", rendering.Notices)
+	}
+}
+
+// Messages nothing orders keep declaration order.
+func TestSequenceRenderingKeepsDeclarationOrderWhereNothingIsStated(t *testing.T) {
+	rendering := render(t, "sequence-lifelines.sysml", "LifelineViews::unorderedView")
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"pong", "ping"}) {
+		t.Errorf("messages = %v, want declaration order", got)
+	}
+	if len(rendering.Notices) != 0 {
+		t.Errorf("notices = %v, want none", rendering.Notices)
+	}
+}
+
+// An order against a message's own direction, or rows ordered both ways, is a
+// cycle too: reported naming the succession, and declaration order stands.
+func TestSequenceRenderingReportsOrdersNoRowCanSatisfy(t *testing.T) {
+	for _, tc := range []struct {
+		view     string
+		messages []string
+		named    string
+	}{
+		{"LifelineViews::reversedView", []string{"back", "m"}, "received to sent"},
+		{"LifelineViews::crossedView", []string{"two", "one"}, "crossing"},
+	} {
+		rendering := render(t, "sequence-lifelines.sysml", tc.view)
+		if got := messageLabels(rendering); !slices.Equal(got, tc.messages) {
+			t.Errorf("%s: messages = %v, want declaration order %v", tc.view, got, tc.messages)
+		}
+		if len(rendering.Notices) != 1 {
+			t.Fatalf("%s: notices = %v, want one about the cycle", tc.view, rendering.Notices)
+		}
+		for _, want := range []string{"cycle", tc.named, "declaration order"} {
+			if !strings.Contains(rendering.Notices[0], want) {
+				t.Errorf("%s: notice %q does not mention %q", tc.view, rendering.Notices[0], want)
+			}
+		}
+	}
+}
+
+// A message attached to a lifeline itself has no event of its own to order: two
+// running opposite ways are no cycle, and the other messages' orders still hold.
+func TestSequenceRenderingLeavesUntimedMessageEndsUnordered(t *testing.T) {
+	rendering := render(t, "sequence-lifelines.sysml", "LifelineViews::reciprocalView")
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"forward", "backward", "early", "late"}) {
+		t.Errorf("messages = %v, want the lifeline-attached pair in declaration order, then early before late", got)
+	}
+	if len(rendering.Notices) != 0 {
+		t.Errorf("notices = %v, want none", rendering.Notices)
 	}
 }
 
@@ -153,7 +228,7 @@ func TestEmptySequenceRenderingSaysWhy(t *testing.T) {
 // The Mermaid form is a sequence diagram declaring every participant before the
 // first message, which is what the grammar asks for.
 func TestSequenceMermaidDeclaresParticipantsFirst(t *testing.T) {
-	mermaid := render(t, "sequence.sysml", "SequenceViews::pubSubView").Mermaid()
+	mermaid := render(t, "sequence.sysml", "SequenceViews::pubSubView").MermaidWith(fullNotation)
 	if strings.HasPrefix(mermaid, "---\n") {
 		end := strings.Index(mermaid[4:], "\n---\n")
 		if end < 0 {

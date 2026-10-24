@@ -41,8 +41,8 @@ func testStateIsActiveWriteRefused(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, stateIsActiveWriteFixture))
 	m := findSymbolByName(idx.DocumentRoot("<test>"), "M", ast.DefState)
 	_, _, err := ctx.ExecuteStateWithEvents(m, nil)
-	if !errors.Is(err, ErrReadOnlyFeature) || !strings.Contains(err.Error(), "a.isActive is derived") {
-		t.Fatalf("assign a.isActive := true: %v, want ErrReadOnlyFeature naming the derived feature", err)
+	if !errors.Is(err, errReadOnlyFeature) || !strings.Contains(err.Error(), "a.isActive is derived") {
+		t.Fatalf("assign a.isActive := true: %v, want errReadOnlyFeature naming the derived feature", err)
 	}
 }
 
@@ -152,14 +152,14 @@ func testStateIsActiveOutsideTheRun(t *testing.T) {
 			t.Fatalf("%s: a.isActive: %v", when, err)
 		}
 		if val.Kind != ValConst || val.Const.Kind != semantics.ValBool || val.Const.Bool {
-			t.Errorf("%s: a.isActive = %s, want false", when, describeValue(val))
+			t.Errorf("%s: a.isActive = %s, want false", when, DescribeValue(val))
 		}
 	}
 	exec, err := ctx.CreateStateExecutor(m)
 	if err != nil {
 		t.Fatalf("CreateStateExecutor: %v", err)
 	}
-	if exec.Activity(nil) {
+	if exec.activity(nil) {
 		t.Error("Activity(nil) = true, want false")
 	}
 	read("before start")
@@ -212,7 +212,7 @@ func testStateIsActiveMachineUsage(t *testing.T) {
 			t.Fatalf("%s: %s: %v", when, text, err)
 		}
 		if val.Kind != ValConst || val.Const.Kind != semantics.ValBool || val.Const.Bool != want {
-			t.Errorf("%s: %s = %s, want %v", when, text, describeValue(val), want)
+			t.Errorf("%s: %s = %s, want %v", when, text, DescribeValue(val), want)
 		}
 	}
 	if got := exec.State(); got != StateSuspended {

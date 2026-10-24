@@ -122,7 +122,7 @@ func (e *ActionExecutor) Outcome() Outcome {
 // machine rests in, the states it entered and the values it holds.
 func (e *StateExecutor) Outcome() Outcome {
 	return Outcome{
-		FinalState:  e.FinalStateName(),
+		FinalState:  e.finalStateName(),
 		StateVisits: slices.Clone(e.stateVisits),
 		Outputs:     e.StateData(),
 		Terminated:  e.state == StateTerminated,
@@ -130,10 +130,10 @@ func (e *StateExecutor) Outcome() Outcome {
 	}
 }
 
-// JointOutcome is the outcome of several behaviors run on one clock: each one's
+// jointOutcome is the outcome of several behaviors run on one clock: each one's
 // observables under its name — a machine's `<name> finalState` and `<name> visits`,
 // the values it holds and an action's outputs as `<name>.<feature>`.
-func (ctx *Context) JointOutcome(names []string, outcomes []Outcome) Outcome {
+func (ctx *Context) jointOutcome(names []string, outcomes []Outcome) Outcome {
 	outputs := make(map[string]Value)
 	for i, o := range outcomes {
 		name := names[i]

@@ -10,13 +10,13 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// refusal checks Pristine refuses the object with a HeldStateError giving reason.
+// refusal checks Pristine refuses the object with a heldStateError giving reason.
 func refusal(t *testing.T, ctx *Context, obj *Instance, what, reason string) {
 	t.Helper()
-	var hse *HeldStateError
+	var hse *heldStateError
 	err := ctx.Pristine(obj)
 	if !errors.As(err, &hse) || !strings.Contains(err.Error(), reason) {
-		t.Errorf("Pristine %s = %v, want a HeldStateError saying %q", what, err, reason)
+		t.Errorf("Pristine %s = %v, want a heldStateError saying %q", what, err, reason)
 	}
 }
 
@@ -88,7 +88,7 @@ func TestPristineFollowsAPerformedActionsMoves(t *testing.T) {
 		t.Fatalf("Snapshot: %v", err)
 	}
 
-	behavior, _ := waiter.Behavior("await")
+	behavior, _ := waiter.behavior("await")
 	nine := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 9}}
 	ctx.PostMessage(Message{SignalType: "Integer", Object: waiter.ID, Value: &nine})
 	if err := behavior.Action.RunToCompletion(); err != nil {
@@ -153,7 +153,7 @@ func TestPristineRefusesATimedBehaviorOnceTheClockHasMoved(t *testing.T) {
 		t.Fatalf("Advance(1) dispatched %d events, leaf %s; want nothing due yet", report.Events, lampLeaf(t, charge))
 	}
 	fuse, _ := charge.ExhibitedState()
-	if fuse.Moved() {
+	if fuse.moved() {
 		t.Fatal("the machine reads as moved though no event was dispatched")
 	}
 	refusal(t, ctx, charge, "with the clock at 1", "waits on the clock (time -> spent) with the clock at t=1.0, not at zero")
@@ -233,8 +233,8 @@ func TestHeldImageRefusesADestinationWithAWaitDueBeforeItsInstant(t *testing.T) 
 	dst, charge := armed()
 	before, objects := dst.clock.now, len(dst.instances)
 	err := atFive.Materialize(dst)
-	if !errors.Is(err, ErrImageClock) || !strings.Contains(err.Error(), "due at t=2, before the image's t=5") {
-		t.Fatalf("Materialize over a wait due at t=2 = %v, want ErrImageClock naming the wait", err)
+	if !errors.Is(err, errImageClock) || !strings.Contains(err.Error(), "due at t=2, before the image's t=5") {
+		t.Fatalf("Materialize over a wait due at t=2 = %v, want errImageClock naming the wait", err)
 	}
 	if dst.clock.now != before || len(dst.instances) != objects || lampLeaf(t, charge) != "armed" {
 		t.Errorf("the refused materialization left the destination at t=%v with %d objects, fuse %s; want t=%v, %d, armed",
@@ -278,8 +278,8 @@ func TestHeldImageRefusesADestinationWithAWaitDueBeforeItsInstant(t *testing.T) 
 	}
 	before, objects = dueNow.clock.now, len(dueNow.instances)
 	err = atFive.Materialize(dueNow)
-	if !errors.Is(err, ErrImageClock) || !strings.Contains(err.Error(), "due at t=0, before the image's t=5") {
-		t.Fatalf("Materialize over a wait due at the destination's t=0 = %v, want ErrImageClock naming the wait", err)
+	if !errors.Is(err, errImageClock) || !strings.Contains(err.Error(), "due at t=0, before the image's t=5") {
+		t.Fatalf("Materialize over a wait due at the destination's t=0 = %v, want errImageClock naming the wait", err)
 	}
 	if dueNow.clock.now != before || len(dueNow.instances) != objects || lampLeaf(t, detonator) != "primed" {
 		t.Errorf("the refused materialization left the destination at t=%v with %d objects, squib %s; want t=%v, %d, primed",

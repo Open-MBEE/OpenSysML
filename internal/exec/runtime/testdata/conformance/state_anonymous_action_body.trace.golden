@@ -58,6 +58,7 @@ leave action node: loop body of state behavior <anonymous>
       eval operator > -> false
 enter: nstart
 transition: start -> working
+choice at t=0.0: next do working, dispatch completion nstart 1->nested (unordered; took do working first; order-dependent: log)
 do: working
 stmt action body
   stmt assign log

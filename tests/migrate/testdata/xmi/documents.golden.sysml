@@ -1,553 +1,735 @@
-package 'Fleet Profile' {
-    metadata def Safety {
-        attribute level : ScalarValues::String;
-    }
-}
-package Fleet {
-    package Structure {
-        part def Truck {
-            doc /* Hauls one trailer. */
-            attribute payload : ScalarValues::Real;
-            part axles : Axle[2] {
-                attribute mass : ScalarValues::Real;
-            }
-            satisfy Fleet::Requirements::'Load Limit';
-            view 'Truck Internals' {
-                expose axles;
-                render Views::asInterconnectionDiagram;
-            }
-        }
-        part def Trailer {
-            doc /* Carries the load. */
-            attribute payload : ScalarValues::Real;
-            satisfy Fleet::Requirements::'Brake Distance';
-        }
-        part def Axle;
-        view 'Truck Structure' {
-            expose Truck;
-            expose Trailer;
-            expose Axle;
-            render Views::asTreeDiagram;
+package Model {
+    package 'Fleet Profile' {
+        metadata def Safety {
+            attribute level : ScalarValues::String;
         }
     }
-    package Requirements {
-        requirement <'R-1'> 'Load Limit' {
-            doc /* The payload stays under the axle rating. */
-            comment /* The payload stays under the axle rating. */
-        }
-        requirement <'R-2'> 'Brake Distance' {
-            doc /* A loaded truck stops within the legal distance. */
-            comment /* A loaded truck stops within the legal distance. */
-            @'Fleet Profile'::Safety {
-                level = "brakes";
+    package Fleet {
+        package Structure {
+            part def Truck {
+                doc /* Hauls one trailer. */
+                attribute payload : ScalarValues::Real;
+                part axles : Axle[2] {
+                    attribute mass : ScalarValues::Real;
+                }
+                satisfy Fleet::Requirements::'Load Limit';
+                view 'Truck Internals' {
+                    expose axles;
+                    render Views::asInterconnectionDiagram;
+                }
+            }
+            part def Trailer {
+                doc /* Carries the load. */
+                attribute payload : ScalarValues::Real;
+                satisfy Fleet::Requirements::'Brake Distance';
+            }
+            part def Axle;
+            view 'Truck Structure' {
+                expose Truck;
+                expose Trailer;
+                expose Axle;
+                render Views::asTreeDiagram;
             }
         }
-        requirement <'R-3'> 'Axle Count' {
-            doc /* A truck has two axles. */
-            @'Fleet Profile'::Safety {
-                level = "many";
+        package Requirements {
+            requirement <'R-1'> 'Load Limit' {
+                doc /* The payload stays under the axle rating. */
+                comment /* The payload stays under the axle rating. */
+            }
+            requirement <'R-2'> 'Brake Distance' {
+                doc /* A loaded truck stops within the legal distance. */
+                comment /* A loaded truck stops within the legal distance. */
+                @'Fleet Profile'::Safety {
+                    level = "brakes";
+                }
+            }
+            requirement <'R-3'> 'Axle Count' {
+                doc /* A truck has two axles. */
+                @'Fleet Profile'::Safety {
+                    level = "many";
+                }
             }
         }
     }
-}
-package 'Fleet Viewpoints' {
-    view def 'Parts Viewpoint' {
-        viewpoint 'parts Viewpoint' {
-            subject;
-            require constraint {
-                doc /* List the parts of the fleet. */
+    package 'Fleet Viewpoints' {
+        view def 'Parts Viewpoint' {
+            viewpoint 'parts Viewpoint' {
+                subject;
+                require constraint {
+                    doc /* List the parts of the fleet. */
+                }
+            }
+            satisfy 'parts Viewpoint';
+            action def 'Parts Method' {
+                view 'Parts Method Flow' : StandardViewDefinitions::ActionFlowView {
+                    expose 'Parts Method';
+                    render Views::asInterconnectionDiagram;
+                }
+                first start then 'Collect Owned Elements';
+                action 'Collect Owned Elements' {
+                    out result[0..1];
+                }
+                first 'Collect Owned Elements' then 'Filter By Metaclasses';
+                action 'Filter By Metaclasses' {
+                    in input[0..1];
+                }
+                first 'Filter By Metaclasses' then 'Sort By Name';
+                action 'Sort By Name';
+                first 'Sort By Name' then 'Fleet Parts';
+                action 'Fleet Parts' {
+                    first start then Name;
+                    action Name;
+                    first Name then Payload;
+                    action Payload;
+                    first Payload then 'Qualified Name';
+                    action 'Qualified Name';
+                    first 'Qualified Name' then 'Owner Name';
+                    action 'Owner Name';
+                    first 'Owner Name' then Alias;
+                    action Alias;
+                    first Alias then 'Axle Mass';
+                    action 'Axle Mass';
+                    first 'Axle Mass' then done;
+                }
+                first 'Fleet Parts' then final;
+                action final terminate;
+                flow 'Collect Owned Elements'.result to 'Filter By Metaclasses'.input;
+                metadata MigrationMetadata::SynthesizedName about final;
+            }
+            perform action 'parts Method' : 'Parts Method';
+            metadata MigrationMetadata::SynthesizedName about 'parts Viewpoint';
+        }
+        view def 'Requirements Viewpoint' {
+            viewpoint 'requirements Viewpoint' {
+                subject;
+                require constraint {
+                    doc /* List the requirements. */
+                }
+            }
+            satisfy 'requirements Viewpoint';
+            rendering {
+                action : 'Requirements Method';
+            }
+            action def 'Requirements Method' {
+                first start then 'Collect Owned Elements';
+                action 'Collect Owned Elements';
+                first 'Collect Owned Elements' then 'Filter By Stereotypes';
+                action 'Filter By Stereotypes';
+                first 'Filter By Stereotypes' then 'Filter By Names';
+                action 'Filter By Names';
+                first 'Filter By Names' then Introduction;
+                action Introduction;
+                first Introduction then 'Requirement List';
+                action 'Requirement List';
+                first 'Requirement List' then 'Requirement Texts';
+                action 'Requirement Texts';
+                first 'Requirement Texts' then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
+            }
+            metadata MigrationMetadata::SynthesizedName about 'requirements Viewpoint';
+        }
+        view def 'Safety Viewpoint' {
+            viewpoint 'safety Viewpoint' {
+                subject;
+                require constraint {
+                    doc /* List the safety requirements. */
+                }
+            }
+            satisfy 'safety Viewpoint';
+            abstract action def View;
+            action 'view' : View;
+            action def 'Safety Method' {
+                first start then 'Collect Owned Elements';
+                action 'Collect Owned Elements';
+                first 'Collect Owned Elements' then 'Filter By Stereotypes';
+                action 'Filter By Stereotypes';
+                first 'Filter By Stereotypes' then 'Filter By Names';
+                action 'Filter By Names';
+                first 'Filter By Names' then 'Safety Requirements';
+                action 'Safety Requirements' {
+                    first start then Name;
+                    action Name;
+                    first Name then Text;
+                    action Text;
+                    first Text then Level;
+                    action Level;
+                    first Level then Owner;
+                    action Owner;
+                }
+                first 'Safety Requirements' then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
+            }
+            metadata MigrationMetadata::SynthesizedName about 'safety Viewpoint';
+        }
+        view def 'Figures Viewpoint' {
+            viewpoint 'figures Viewpoint' {
+                subject;
+            }
+            satisfy 'figures Viewpoint';
+            action def 'Figures Method' {
+                first start then Image;
+                action Image;
+                first Image then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
+            }
+            perform action 'figures Method' : 'Figures Method';
+            metadata MigrationMetadata::SynthesizedName about 'figures Viewpoint';
+        }
+        view def 'Gallery Viewpoint' {
+            viewpoint 'gallery Viewpoint' {
+                subject;
+            }
+            satisfy 'gallery Viewpoint';
+            action def 'Gallery Method' {
+                first start then Image;
+                action Image;
+                first Image then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
+            }
+            perform action 'gallery Method' : 'Gallery Method';
+            metadata MigrationMetadata::SynthesizedName about 'gallery Viewpoint';
+        }
+        view def 'Selected Figures Viewpoint' {
+            viewpoint 'selected Figures Viewpoint' {
+                subject;
+            }
+            satisfy 'selected Figures Viewpoint';
+            action def 'Selected Figures Method' {
+                first start then 'Truck Diagrams';
+                action 'Truck Diagrams';
+                first 'Truck Diagrams' then Sort;
+                action Sort;
+                first Sort then Image;
+                action Image;
+                first Image then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
+            }
+            perform action 'selected Figures Method' : 'Selected Figures Method';
+            metadata MigrationMetadata::SynthesizedName about 'selected Figures Viewpoint';
+        }
+        view def 'Other Figures Viewpoint' {
+            viewpoint 'other Figures Viewpoint' {
+                subject;
+            }
+            satisfy 'other Figures Viewpoint';
+            action def 'Other Figures Method' {
+                first start then 'Not Truck Diagrams';
+                action 'Not Truck Diagrams';
+                first 'Not Truck Diagrams' then Image;
+                action Image;
+                first Image then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
+            }
+            perform action 'other Figures Method' : 'Other Figures Method';
+            metadata MigrationMetadata::SynthesizedName about 'other Figures Viewpoint';
+        }
+        view def 'Figure Owners Viewpoint' {
+            viewpoint 'figure Owners Viewpoint' {
+                subject;
+            }
+            satisfy 'figure Owners Viewpoint';
+            action def 'Figure Owners Method' {
+                first start then 'Collect Owners';
+                action 'Collect Owners';
+                first 'Collect Owners' then Sort;
+                action Sort;
+                first Sort then List;
+                action List;
+                first List then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
+            }
+            perform action 'figure Owners Method' : 'Figure Owners Method';
+            metadata MigrationMetadata::SynthesizedName about 'figure Owners Viewpoint';
+        }
+        view def 'No Figures Viewpoint' {
+            viewpoint 'no Figures Viewpoint' {
+                subject;
+            }
+            satisfy 'no Figures Viewpoint';
+            action def 'No Figures Method' {
+                first start then 'Packages Only';
+                action 'Packages Only';
+                first 'Packages Only' then Image;
+                action Image;
+                first Image then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
+            }
+            perform action 'no Figures Method' : 'No Figures Method';
+            metadata MigrationMetadata::SynthesizedName about 'no Figures Viewpoint';
+        }
+        view def 'Traceability Viewpoint' {
+            viewpoint 'traceability Viewpoint' {
+                subject;
+            }
+            satisfy 'traceability Viewpoint';
+            action def 'Traceability Method' {
+                first start then 'fork';
+                fork 'fork';
+                first 'fork' then 'Collect Satisfiers';
+                first 'fork' then 'Collect Owned Elements';
+                action 'Collect Satisfiers';
+                first 'Collect Satisfiers' then 'merge';
+                action 'Collect Owned Elements';
+                first 'Collect Owned Elements' then 'merge';
+                merge 'merge';
+                first 'merge' then 'Related Elements';
+                action 'Related Elements';
+                first 'Related Elements' then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about 'fork', 'merge', final;
+            }
+            perform action 'traceability Method' : 'Traceability Method';
+            metadata MigrationMetadata::SynthesizedName about 'traceability Viewpoint';
+        }
+        view def 'Oddities Viewpoint' {
+            viewpoint 'oddities Viewpoint' {
+                subject;
+            }
+            satisfy 'oddities Viewpoint';
+            action def 'Oddities Method' {
+                first start then 'Evaluated Paragraph';
+                action 'Evaluated Paragraph';
+                first 'Evaluated Paragraph' then Image;
+                action Image;
+                first Image then 'Collect Owned Elements';
+                action 'Collect Owned Elements';
+                first 'Collect Owned Elements' then 'Collect Types';
+                action 'Collect Types';
+                first 'Collect Types' then 'Type Table';
+                action 'Type Table' {
+                    first start then Name;
+                    action Name;
+                }
+                first 'Type Table' then 'Per Truck';
+                action 'Per Truck' : 'Fleet Viewpoints'::'Oddities Viewpoint'::'Per Truck';
+                first 'Per Truck' then 'Missing Behavior';
+                action 'Missing Behavior' {
+                    /* not migrated: CallBehaviorAction 'Missing Behavior' — 1 behavior reference(s) resolve to nothing in the document (_act_gone); the action calls no behavior */
+                }
+                first 'Missing Behavior' then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
+            }
+            action def 'Per Truck' {
+                first start then Paragraph;
+                action Paragraph;
+                first Paragraph then 'Per Truck Again';
+                action 'Per Truck Again' : 'Per Truck';
+                first 'Per Truck Again' then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
+                @MigrationMetadata::AppliedStereotype {
+                    stereotype = "Dynamic_View";
+                    tags = ("loop = true", "title = Per Truck");
+                }
+            }
+            perform action 'oddities Method' : 'Oddities Method';
+            metadata MigrationMetadata::SynthesizedName about 'oddities Viewpoint';
+        }
+        view def 'Broken Viewpoint' {
+            viewpoint 'broken Viewpoint' {
+                subject;
+            }
+            satisfy 'broken Viewpoint';
+            action def 'Broken Method' {
+                first start then Paragraph;
+                action Paragraph;
+                first Paragraph then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
+            }
+            perform action 'broken Method' : 'Broken Method';
+            metadata MigrationMetadata::SynthesizedName about 'broken Viewpoint';
+        }
+        view def 'Severed Viewpoint' {
+            viewpoint 'severed Viewpoint' {
+                subject;
+            }
+            satisfy 'severed Viewpoint';
+            action def 'Severed Method' {
+                first start then Paragraph;
+                action Paragraph;
+            }
+            perform action 'severed Method' : 'Severed Method';
+            metadata MigrationMetadata::SynthesizedName about 'severed Viewpoint';
+        }
+        view def 'Headless Viewpoint' {
+            viewpoint 'headless Viewpoint' {
+                subject;
+                doc /* method: _act_vanished */
+            }
+            satisfy 'headless Viewpoint';
+            metadata MigrationMetadata::SynthesizedName about 'headless Viewpoint';
+        }
+    }
+    package 'Fleet Documents' {
+        occurrence def 'Fleet Handbook' {
+            view introduction :> Introduction;
+            view requirements :> Requirements;
+            view figures :> Figures;
+            view traceability :> Traceability;
+            view oddities :> Oddities;
+            view broken :> Broken;
+            view severed :> Severed;
+            view headless :> Headless;
+            view notes :> Notes;
+            attribute author : ScalarValues::String;
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "Document";
             }
         }
-        satisfy 'parts Viewpoint';
-        action def 'Parts Method' {
-            view 'Parts Method Flow' : StandardViewDefinitions::ActionFlowView {
-                expose 'Parts Method';
-                render Views::asInterconnectionDiagram;
-            }
-            first start then 'Collect Owned Elements';
-            action 'Collect Owned Elements' {
-                out result[0..1];
-            }
-            first 'Collect Owned Elements' then 'Filter By Metaclasses';
-            action 'Filter By Metaclasses' {
-                in input[0..1];
-            }
-            first 'Filter By Metaclasses' then 'Sort By Name';
-            action 'Sort By Name';
-            first 'Sort By Name' then 'Fleet Parts';
-            action 'Fleet Parts' {
-                first start then Name;
-                action Name;
-                first Name then Payload;
-                action Payload;
-                first Payload then 'Qualified Name';
-                action 'Qualified Name';
-                first 'Qualified Name' then 'Owner Name';
-                action 'Owner Name';
-                first 'Owner Name' then Alias;
-                action Alias;
-                first Alias then 'Axle Mass';
-                action 'Axle Mass';
-                first 'Axle Mass' then done;
-            }
-            first 'Fleet Parts' then final;
-            action final terminate;
-            flow 'Collect Owned Elements'.result to 'Filter By Metaclasses'.input;
-            metadata MigrationMetadata::SynthesizedName about final;
-        }
-        perform action 'parts Method' : 'Parts Method';
-        metadata MigrationMetadata::SynthesizedName about 'parts Viewpoint';
-    }
-    view def 'Requirements Viewpoint' {
-        viewpoint 'requirements Viewpoint' {
-            subject;
-            require constraint {
-                doc /* List the requirements. */
+        occurrence def 'Fleet Brief' {
+            view figures :> Figures;
+            view fleet :> 'Fleet Views'::Fleet;
+            view gallery :> 'Fleet Views'::Gallery;
+            view selected :> 'Fleet Views'::'Truck Figures';
+            view others :> 'Fleet Views'::'Other Figures';
+            view owners :> 'Fleet Views'::'Figure Owners';
+            view noFigures :> 'Fleet Views'::'No Figures';
+            view safety :> Safety;
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "Document";
             }
         }
-        satisfy 'requirements Viewpoint';
-        rendering {
-            action : 'Requirements Method';
+        view Introduction : 'Fleet Viewpoints'::'Parts Viewpoint' {
+            doc /* The fleet, in brief. */
+            expose Fleet::Structure::**;
         }
-        action def 'Requirements Method' {
-            first start then 'Collect Owned Elements';
-            action 'Collect Owned Elements';
-            first 'Collect Owned Elements' then 'Filter By Stereotypes';
-            action 'Filter By Stereotypes';
-            first 'Filter By Stereotypes' then 'Filter By Names';
-            action 'Filter By Names';
-            first 'Filter By Names' then Introduction;
-            action Introduction;
-            first Introduction then 'Requirement List';
-            action 'Requirement List';
-            first 'Requirement List' then 'Requirement Texts';
-            action 'Requirement Texts';
-            first 'Requirement Texts' then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
+        view Requirements : 'Fleet Viewpoints'::'Requirements Viewpoint' {
+            view safety :> Safety;
+            expose Fleet::Requirements::**;
+            expose Fleet::Requirements::**;
         }
-        metadata MigrationMetadata::SynthesizedName about 'requirements Viewpoint';
-    }
-    view def 'Safety Viewpoint' {
-        viewpoint 'safety Viewpoint' {
-            subject;
-            require constraint {
-                doc /* List the safety requirements. */
+        view Safety : 'Fleet Viewpoints'::'Safety Viewpoint' {
+            doc /* Safety comes first. */
+            public import Fleet::*;
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "view";
             }
         }
-        satisfy 'safety Viewpoint';
-        abstract action def View;
-        action 'view' : View;
-        action def 'Safety Method' {
-            first start then 'Collect Owned Elements';
-            action 'Collect Owned Elements';
-            first 'Collect Owned Elements' then 'Filter By Stereotypes';
-            action 'Filter By Stereotypes';
-            first 'Filter By Stereotypes' then 'Filter By Names';
-            action 'Filter By Names';
-            first 'Filter By Names' then 'Safety Requirements';
-            action 'Safety Requirements' {
-                first start then Name;
-                action Name;
-                first Name then Text;
-                action Text;
-                first Text then Level;
-                action Level;
-                first Level then Owner;
-                action Owner;
-            }
-            first 'Safety Requirements' then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
+        view Figures : 'Fleet Viewpoints'::'Figures Viewpoint' {
+            expose Fleet::Structure::'Truck Structure';
         }
-        metadata MigrationMetadata::SynthesizedName about 'safety Viewpoint';
-    }
-    view def 'Figures Viewpoint' {
-        viewpoint 'figures Viewpoint' {
-            subject;
+        view Traceability : 'Fleet Viewpoints'::'Traceability Viewpoint' {
+            expose Fleet::Requirements::'Load Limit';
         }
-        satisfy 'figures Viewpoint';
-        action def 'Figures Method' {
-            first start then Image;
-            action Image;
-            first Image then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
+        view Oddities : 'Fleet Viewpoints'::'Oddities Viewpoint' {
+            expose Fleet::Structure::Truck;
         }
-        perform action 'figures Method' : 'Figures Method';
-        metadata MigrationMetadata::SynthesizedName about 'figures Viewpoint';
-    }
-    view def 'Gallery Viewpoint' {
-        viewpoint 'gallery Viewpoint' {
-            subject;
+        view Broken : 'Fleet Viewpoints'::'Broken Viewpoint' {
+            expose Fleet::**;
         }
-        satisfy 'gallery Viewpoint';
-        action def 'Gallery Method' {
-            first start then Image;
-            action Image;
-            first Image then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
+        view Severed : 'Fleet Viewpoints'::'Severed Viewpoint' {
+            expose Fleet::**;
         }
-        perform action 'gallery Method' : 'Gallery Method';
-        metadata MigrationMetadata::SynthesizedName about 'gallery Viewpoint';
-    }
-    view def 'Selected Figures Viewpoint' {
-        viewpoint 'selected Figures Viewpoint' {
-            subject;
+        view Headless : 'Fleet Viewpoints'::'Headless Viewpoint';
+        view Notes {
+            doc /* Second note. */
+            comment /* First note. */
+            comment /* Figure: the fleet at the depot */
+            comment /* Named, not bodied. */
+            /* not migrated: «Conform» Generalization (_gen_notes) — the viewpoint is not in the document; applied stereotypes «Conform» */
         }
-        satisfy 'selected Figures Viewpoint';
-        action def 'Selected Figures Method' {
-            first start then 'Truck Diagrams';
-            action 'Truck Diagrams';
-            first 'Truck Diagrams' then Sort;
-            action Sort;
-            first Sort then Image;
-            action Image;
-            first Image then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
+        calc def 'Fleet Handbook Fleet Parts Rows' :> DocumentQueries::Query {
+            in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
+                source = DocumentQueries::Named(qualifiedName = ("Model::Fleet::Structure")),
+                maxDepth = 1);
+            DocumentQueries::Project(
+                source = DocumentQueries::OrderBy(
+                    source = DocumentQueries::Union(
+                        source = DocumentQueries::Except(
+                            source = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
+                            exclude = DocumentQueries::Except(
+                                source = DocumentQueries::WhereType(source = candidates, type = ("ItemDefinition")),
+                                exclude = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
+                        other = DocumentQueries::Except(
+                            source = DocumentQueries::Named(qualifiedName = ("Model::Fleet::Requirements::Load Limit", "Model::Fleet::Requirements::Brake Distance", "Model::Fleet::Requirements::Axle Count")),
+                            exclude = DocumentQueries::Except(
+                                source = DocumentQueries::Named(qualifiedName = ("Model::Fleet::Requirements::Load Limit", "Model::Fleet::Requirements::Brake Distance", "Model::Fleet::Requirements::Axle Count")),
+                                exclude = candidates))),
+                    property = "name",
+                    direction = "ascending",
+                    missing = "last",
+                    multiple = "first"),
+                properties = ("name", "qualifiedName", "documentation"),
+                columns = (
+                    DocumentQueries::Column(name = "Payload", cell = { in row : Fleet::Structure::Truck; row.payload ?? "" }),
+                    DocumentQueries::Column(name = "Owner Name", cell = { in row : KerML::Root::Element; row.owner.name }),
+                    DocumentQueries::Column(name = "name 2", cell = { in row : Fleet::Structure::Truck; row.payload ?? "" }),
+                    DocumentQueries::Column(name = "Axle Mass", expression = Fleet::Structure::Truck::axles.mass ?? "")))
         }
-        perform action 'selected Figures Method' : 'Selected Figures Method';
-        metadata MigrationMetadata::SynthesizedName about 'selected Figures Viewpoint';
-    }
-    view def 'Other Figures Viewpoint' {
-        viewpoint 'other Figures Viewpoint' {
-            subject;
-        }
-        satisfy 'other Figures Viewpoint';
-        action def 'Other Figures Method' {
-            first start then 'Not Truck Diagrams';
-            action 'Not Truck Diagrams';
-            first 'Not Truck Diagrams' then Image;
-            action Image;
-            first Image then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
-        }
-        perform action 'other Figures Method' : 'Other Figures Method';
-        metadata MigrationMetadata::SynthesizedName about 'other Figures Viewpoint';
-    }
-    view def 'Figure Owners Viewpoint' {
-        viewpoint 'figure Owners Viewpoint' {
-            subject;
-        }
-        satisfy 'figure Owners Viewpoint';
-        action def 'Figure Owners Method' {
-            first start then 'Collect Owners';
-            action 'Collect Owners';
-            first 'Collect Owners' then Sort;
-            action Sort;
-            first Sort then List;
-            action List;
-            first List then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
-        }
-        perform action 'figure Owners Method' : 'Figure Owners Method';
-        metadata MigrationMetadata::SynthesizedName about 'figure Owners Viewpoint';
-    }
-    view def 'No Figures Viewpoint' {
-        viewpoint 'no Figures Viewpoint' {
-            subject;
-        }
-        satisfy 'no Figures Viewpoint';
-        action def 'No Figures Method' {
-            first start then 'Packages Only';
-            action 'Packages Only';
-            first 'Packages Only' then Image;
-            action Image;
-            first Image then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
-        }
-        perform action 'no Figures Method' : 'No Figures Method';
-        metadata MigrationMetadata::SynthesizedName about 'no Figures Viewpoint';
-    }
-    view def 'Traceability Viewpoint' {
-        viewpoint 'traceability Viewpoint' {
-            subject;
-        }
-        satisfy 'traceability Viewpoint';
-        action def 'Traceability Method' {
-            first start then 'fork';
-            fork 'fork';
-            first 'fork' then 'Collect Satisfiers';
-            first 'fork' then 'Collect Owned Elements';
-            action 'Collect Satisfiers';
-            first 'Collect Satisfiers' then 'merge';
-            action 'Collect Owned Elements';
-            first 'Collect Owned Elements' then 'merge';
-            merge 'merge';
-            first 'merge' then 'Related Elements';
-            action 'Related Elements';
-            first 'Related Elements' then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about 'fork', 'merge', final;
-        }
-        perform action 'traceability Method' : 'Traceability Method';
-        metadata MigrationMetadata::SynthesizedName about 'traceability Viewpoint';
-    }
-    view def 'Oddities Viewpoint' {
-        viewpoint 'oddities Viewpoint' {
-            subject;
-        }
-        satisfy 'oddities Viewpoint';
-        action def 'Oddities Method' {
-            first start then 'Evaluated Paragraph';
-            action 'Evaluated Paragraph';
-            first 'Evaluated Paragraph' then Image;
-            action Image;
-            first Image then 'Collect Owned Elements';
-            action 'Collect Owned Elements';
-            first 'Collect Owned Elements' then 'Collect Types';
-            action 'Collect Types';
-            first 'Collect Types' then 'Type Table';
-            action 'Type Table' {
-                first start then Name;
-                action Name;
-            }
-            first 'Type Table' then 'Per Truck';
-            action 'Per Truck' : 'Fleet Viewpoints'::'Oddities Viewpoint'::'Per Truck';
-            first 'Per Truck' then 'Missing Behavior';
-            action 'Missing Behavior' {
-                /* not migrated: CallBehaviorAction 'Missing Behavior' — 1 behavior reference(s) resolve to nothing in the document (_act_gone); the action calls no behavior */
-            }
-            first 'Missing Behavior' then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
-        }
-        action def 'Per Truck' {
-            first start then Paragraph;
-            action Paragraph;
-            first Paragraph then 'Per Truck Again';
-            action 'Per Truck Again' : 'Per Truck';
-            first 'Per Truck Again' then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
-            /* applied stereotype «Dynamic_View»: loop = true; title = Per Truck */
-        }
-        perform action 'oddities Method' : 'Oddities Method';
-        metadata MigrationMetadata::SynthesizedName about 'oddities Viewpoint';
-    }
-    view def 'Broken Viewpoint' {
-        viewpoint 'broken Viewpoint' {
-            subject;
-        }
-        satisfy 'broken Viewpoint';
-        action def 'Broken Method' {
-            first start then Paragraph;
-            action Paragraph;
-            first Paragraph then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
-        }
-        perform action 'broken Method' : 'Broken Method';
-        metadata MigrationMetadata::SynthesizedName about 'broken Viewpoint';
-    }
-    view def 'Severed Viewpoint' {
-        viewpoint 'severed Viewpoint' {
-            subject;
-        }
-        satisfy 'severed Viewpoint';
-        action def 'Severed Method' {
-            first start then Paragraph;
-            action Paragraph;
-        }
-        perform action 'severed Method' : 'Severed Method';
-        metadata MigrationMetadata::SynthesizedName about 'severed Viewpoint';
-    }
-    view def 'Headless Viewpoint' {
-        viewpoint 'headless Viewpoint' {
-            subject;
-            doc /* method: _act_vanished */
-        }
-        satisfy 'headless Viewpoint';
-        metadata MigrationMetadata::SynthesizedName about 'headless Viewpoint';
-    }
-}
-package 'Fleet Documents' {
-    occurrence def 'Fleet Handbook' {
-        view introduction :> Introduction;
-        view requirements :> Requirements;
-        view figures :> Figures;
-        view traceability :> Traceability;
-        view oddities :> Oddities;
-        view broken :> Broken;
-        view severed :> Severed;
-        view headless :> Headless;
-        view notes :> Notes;
-        attribute author : ScalarValues::String;
-        /* applied stereotype «Document» */
-    }
-    occurrence def 'Fleet Brief' {
-        view figures :> Figures;
-        view fleet :> 'Fleet Views'::Fleet;
-        view gallery :> 'Fleet Views'::Gallery;
-        view selected :> 'Fleet Views'::'Truck Figures';
-        view others :> 'Fleet Views'::'Other Figures';
-        view owners :> 'Fleet Views'::'Figure Owners';
-        view noFigures :> 'Fleet Views'::'No Figures';
-        view safety :> Safety;
-        /* applied stereotype «Document» */
-    }
-    view Introduction : 'Fleet Viewpoints'::'Parts Viewpoint' {
-        doc /* The fleet, in brief. */
-        expose Fleet::Structure::**;
-    }
-    view Requirements : 'Fleet Viewpoints'::'Requirements Viewpoint' {
-        view safety :> Safety;
-        expose Fleet::Requirements::**;
-        expose Fleet::Requirements::**;
-    }
-    view Safety : 'Fleet Viewpoints'::'Safety Viewpoint' {
-        doc /* Safety comes first. */
-        public import Fleet::*;
-        /* applied stereotype «view» */
-    }
-    view Figures : 'Fleet Viewpoints'::'Figures Viewpoint' {
-        expose Fleet::Structure::'Truck Structure';
-    }
-    view Traceability : 'Fleet Viewpoints'::'Traceability Viewpoint' {
-        expose Fleet::Requirements::'Load Limit';
-    }
-    view Oddities : 'Fleet Viewpoints'::'Oddities Viewpoint' {
-        expose Fleet::Structure::Truck;
-    }
-    view Broken : 'Fleet Viewpoints'::'Broken Viewpoint' {
-        expose Fleet::**;
-    }
-    view Severed : 'Fleet Viewpoints'::'Severed Viewpoint' {
-        expose Fleet::**;
-    }
-    view Headless : 'Fleet Viewpoints'::'Headless Viewpoint';
-    view Notes {
-        doc /* Second note. */
-        comment /* First note. */
-        comment /* Figure: the fleet at the depot */
-        comment /* Named, not bodied. */
-        /* not migrated: «Conform» Generalization (_gen_notes) — the viewpoint is not in the document; applied stereotypes «Conform» */
-    }
-    calc def 'Fleet Handbook Fleet Parts Rows' :> DocumentQueries::Query {
-        in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
-            source = DocumentQueries::Named(qualifiedName = ("Fleet::Structure")),
-            maxDepth = 1);
-        DocumentQueries::Project(
-            source = DocumentQueries::OrderBy(
-                source = DocumentQueries::Union(
+        calc def 'Fleet Handbook Requirement List Rows' :> DocumentQueries::Query {
+            in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
+                source = DocumentQueries::Named(qualifiedName = ("Model::Fleet::Requirements")));
+            DocumentQueries::Project(
+                source = DocumentQueries::WhereName(
                     source = DocumentQueries::Except(
-                        source = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
+                        source = DocumentQueries::Named(qualifiedName = ("Model::Fleet::Requirements::Load Limit", "Model::Fleet::Requirements::Brake Distance", "Model::Fleet::Requirements::Axle Count")),
                         exclude = DocumentQueries::Except(
-                            source = DocumentQueries::WhereType(source = candidates, type = ("ItemDefinition")),
-                            exclude = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
-                    other = DocumentQueries::Except(
-                        source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements::Load Limit", "Fleet::Requirements::Brake Distance", "Fleet::Requirements::Axle Count")),
+                            source = DocumentQueries::Named(qualifiedName = ("Model::Fleet::Requirements::Load Limit", "Model::Fleet::Requirements::Brake Distance", "Model::Fleet::Requirements::Axle Count")),
+                            exclude = candidates)),
+                    operator = "matches",
+                    value = "^(?:Axle.*)$|^(?:Brake.*)$|^(?:Load.*)$"),
+                properties = ("name"))
+        }
+        calc def 'Fleet Handbook Requirement Texts Rows' :> DocumentQueries::Query {
+            in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
+                source = DocumentQueries::Named(qualifiedName = ("Model::Fleet::Requirements")));
+            DocumentQueries::Project(
+                source = DocumentQueries::WhereName(
+                    source = DocumentQueries::Except(
+                        source = DocumentQueries::Named(qualifiedName = ("Model::Fleet::Requirements::Load Limit", "Model::Fleet::Requirements::Brake Distance", "Model::Fleet::Requirements::Axle Count")),
                         exclude = DocumentQueries::Except(
-                            source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements::Load Limit", "Fleet::Requirements::Brake Distance", "Fleet::Requirements::Axle Count")),
-                            exclude = candidates))),
-                property = "name",
-                direction = "ascending",
-                missing = "last",
-                multiple = "first"),
-            properties = ("name", "qualifiedName", "documentation"),
-            columns = (
-                DocumentQueries::Column(name = "Payload", cell = { in row : Fleet::Structure::Truck; row.payload ?? "" }),
-                DocumentQueries::Column(name = "Owner Name", cell = { in row : KerML::Root::Element; row.owner.name }),
-                DocumentQueries::Column(name = "name 2", cell = { in row : Fleet::Structure::Truck; row.payload ?? "" }),
-                DocumentQueries::Column(name = "Axle Mass", expression = Fleet::Structure::Truck::axles.mass ?? "")))
-    }
-    calc def 'Fleet Handbook Requirement List Rows' :> DocumentQueries::Query {
-        in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
-            source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements")));
-        DocumentQueries::Project(
-            source = DocumentQueries::WhereName(
+                            source = DocumentQueries::Named(qualifiedName = ("Model::Fleet::Requirements::Load Limit", "Model::Fleet::Requirements::Brake Distance", "Model::Fleet::Requirements::Axle Count")),
+                            exclude = candidates)),
+                    operator = "matches",
+                    value = "^(?:Axle.*)$|^(?:Brake.*)$|^(?:Load.*)$"),
+                properties = ("documentation"))
+        }
+        calc def 'Fleet Handbook Safety Requirements Rows' :> DocumentQueries::Query {
+            DocumentQueries::Project(
                 source = DocumentQueries::Except(
-                    source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements::Load Limit", "Fleet::Requirements::Brake Distance", "Fleet::Requirements::Axle Count")),
-                    exclude = DocumentQueries::Except(
-                        source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements::Load Limit", "Fleet::Requirements::Brake Distance", "Fleet::Requirements::Axle Count")),
-                        exclude = candidates)),
-                operator = "matches",
-                value = "^(?:Axle.*)$|^(?:Brake.*)$|^(?:Load.*)$"),
-            properties = ("name"))
-    }
-    calc def 'Fleet Handbook Requirement Texts Rows' :> DocumentQueries::Query {
-        in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
-            source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements")));
-        DocumentQueries::Project(
-            source = DocumentQueries::WhereName(
-                source = DocumentQueries::Except(
-                    source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements::Load Limit", "Fleet::Requirements::Brake Distance", "Fleet::Requirements::Axle Count")),
-                    exclude = DocumentQueries::Except(
-                        source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements::Load Limit", "Fleet::Requirements::Brake Distance", "Fleet::Requirements::Axle Count")),
-                        exclude = candidates)),
-                operator = "matches",
-                value = "^(?:Axle.*)$|^(?:Brake.*)$|^(?:Load.*)$"),
-            properties = ("documentation"))
-    }
-    calc def 'Fleet Handbook Safety Requirements Rows' :> DocumentQueries::Query {
-        DocumentQueries::Project(
-            source = DocumentQueries::Except(
-                source = DocumentQueries::WhereMetadata(
-                    source = DocumentQueries::Descendants(
-                        source = DocumentQueries::Named(qualifiedName = ("Fleet"))),
-                    'metadata' = ("Fleet Profile::Safety")),
-                exclude = DocumentQueries::WhereName(
                     source = DocumentQueries::WhereMetadata(
                         source = DocumentQueries::Descendants(
-                            source = DocumentQueries::Named(qualifiedName = ("Fleet"))),
-                        'metadata' = ("Fleet Profile::Safety")),
-                    operator = "matches",
-                    value = "^(?:.*Count)$")),
-            properties = ("name", "documentation"),
-            columns = (
-                DocumentQueries::Column(name = "Level", cell = { in row : 'Fleet Profile'::Safety; row.level ?? "" }),
-                DocumentQueries::Column(name = "Owner", cell = { in row : KerML::Root::Element; row.owner.name })))
-    }
-    calc def 'Fleet Handbook Related Elements Rows' :> DocumentQueries::Query {
-        DocumentQueries::Project(
-            source = DocumentQueries::OrderBy(
-                source = DocumentQueries::Union(
-                    source = DocumentQueries::RelatedElements(
-                        source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements::Load Limit")),
-                        relationshipKind = "satisfaction",
-                        direction = "incoming",
-                        maxDepth = 1),
-                    other = DocumentQueries::Descendants(
-                        source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements::Load Limit")),
-                        maxDepth = 1)),
-                property = "name",
-                direction = "ascending",
-                missing = "last",
-                multiple = "first"),
-            properties = ("name", "documentation"))
-    }
-    part def 'Fleet Handbook Document' :> DocumentQueries::Document {
-        attribute redefines title = "Fleet Handbook";
-        part Introduction : DocumentQueries::Section {
-            attribute redefines title = "Introduction";
-            part paragraph : DocumentQueries::Paragraph {
-                attribute redefines text = "The fleet, in brief.";
+                            source = DocumentQueries::Named(qualifiedName = ("Model::Fleet"))),
+                        'metadata' = ("Model::Fleet Profile::Safety")),
+                    exclude = DocumentQueries::WhereName(
+                        source = DocumentQueries::WhereMetadata(
+                            source = DocumentQueries::Descendants(
+                                source = DocumentQueries::Named(qualifiedName = ("Model::Fleet"))),
+                            'metadata' = ("Model::Fleet Profile::Safety")),
+                        operator = "matches",
+                        value = "^(?:.*Count)$")),
+                properties = ("name", "documentation"),
+                columns = (
+                    DocumentQueries::Column(name = "Level", cell = { in row : 'Fleet Profile'::Safety; row.level ?? "" }),
+                    DocumentQueries::Column(name = "Owner", cell = { in row : KerML::Root::Element; row.owner.name })))
+        }
+        calc def 'Fleet Handbook Related Elements Rows' :> DocumentQueries::Query {
+            DocumentQueries::Project(
+                source = DocumentQueries::OrderBy(
+                    source = DocumentQueries::Union(
+                        source = DocumentQueries::RelatedElements(
+                            source = DocumentQueries::Named(qualifiedName = ("Model::Fleet::Requirements::Load Limit")),
+                            relationshipKind = "satisfaction",
+                            direction = "incoming",
+                            maxDepth = 1),
+                        other = DocumentQueries::Descendants(
+                            source = DocumentQueries::Named(qualifiedName = ("Model::Fleet::Requirements::Load Limit")),
+                            maxDepth = 1)),
+                    property = "name",
+                    direction = "ascending",
+                    missing = "last",
+                    multiple = "first"),
+                properties = ("name", "documentation"))
+        }
+        part def 'Fleet Handbook Document' :> DocumentQueries::Document {
+            attribute redefines title = "Fleet Handbook";
+            part Introduction : DocumentQueries::Section {
+                attribute redefines title = "Introduction";
+                part paragraph : DocumentQueries::Paragraph {
+                    attribute redefines text = "The fleet, in brief.";
+                }
+                /* not migrated: «Paragraph» Comment '<Comment>' — property "META:QPROP:Element:name" is not the comment body */
+                part table : DocumentQueries::Table {
+                    attribute redefines caption = "Fleet Parts";
+                    calc rows : 'Fleet Handbook Fleet Parts Rows';
+                }
+                part 'paragraph 2' : DocumentQueries::Paragraph {
+                    attribute redefines text = "The parts of the fleet, by name.";
+                }
             }
-            /* not migrated: «Paragraph» Comment '<Comment>' — property "META:QPROP:Element:name" is not the comment body */
-            part table : DocumentQueries::Table {
-                attribute redefines caption = "Fleet Parts";
-                calc rows : 'Fleet Handbook Fleet Parts Rows';
+            part Requirements : DocumentQueries::Section {
+                attribute redefines title = "Requirements";
+                part paragraph : DocumentQueries::Paragraph {
+                    attribute redefines text = "Every truck of the fleet satisfies these requirements.";
+                }
+                part list : DocumentQueries::List {
+                    attribute redefines style = "number";
+                    calc items : 'Fleet Handbook Requirement List Rows';
+                }
+                part 'paragraph 2' : DocumentQueries::Paragraph {
+                    calc values : 'Fleet Handbook Requirement Texts Rows';
+                }
+                part Safety : DocumentQueries::Section {
+                    attribute redefines title = "Safety";
+                    part paragraph : DocumentQueries::Paragraph {
+                        attribute redefines text = "Safety comes first.";
+                    }
+                    part table : DocumentQueries::Table {
+                        attribute redefines caption = "Safety Requirements";
+                        calc rows : 'Fleet Handbook Safety Requirements Rows';
+                    }
+                }
             }
-            part 'paragraph 2' : DocumentQueries::Paragraph {
-                attribute redefines text = "The parts of the fleet, by name.";
+            part Figures : DocumentQueries::Section {
+                attribute redefines title = "Figures";
+                part diagram : DocumentQueries::Diagram {
+                    attribute redefines caption = "Truck Structure";
+                    ref redefines source = Fleet::Structure::'Truck Structure';
+                }
+                part paragraph : DocumentQueries::Paragraph {
+                    attribute redefines text = "The truck and what it hauls";
+                }
+            }
+            part Traceability : DocumentQueries::Section {
+                attribute redefines title = "Traceability";
+                part list : DocumentQueries::List {
+                    attribute redefines style = "bullet";
+                    calc items : 'Fleet Handbook Related Elements Rows';
+                }
+            }
+            part Oddities : DocumentQueries::Section {
+                attribute redefines title = "Oddities";
+                /* not migrated: «Paragraph» CallBehaviorAction 'Evaluated Paragraph' — its body is evaluated as OCL, which no query evaluates */
+                /* not migrated: «TableStructure» StructuredActivityNode 'Type Table' — the elements it shows pass through «CollectOwnedElements» Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Collect Owned Elements is not migrated: the depth "many" is not a whole number */
+                part 'Per Truck' : DocumentQueries::Section {
+                    attribute redefines title = "Per Truck";
+                    part paragraph : DocumentQueries::Paragraph {
+                        attribute redefines text = "One truck.";
+                    }
+                    part 'Per Truck' : DocumentQueries::Section {
+                        attribute redefines title = "Per Truck";
+                        /* not migrated: the «Dynamic_View» Activity Fleet Viewpoints::Oddities Viewpoint::Per Truck calls itself, and a recursive section has no static spelling */
+                    }
+                }
+            }
+            part Broken : DocumentQueries::Section {
+                attribute redefines title = "Broken";
+                /* not migrated: the method Fleet Viewpoints::Broken Viewpoint::Broken Method is not migrated: no initial node */
+            }
+            part Severed : DocumentQueries::Section {
+                attribute redefines title = "Severed";
+                /* not migrated: the method Fleet Viewpoints::Severed Viewpoint::Severed Method is not migrated: ControlFlow _severed_e2's target "_severed_gone" names no node */
+            }
+            part Headless : DocumentQueries::Section {
+                attribute redefines title = "Headless";
+                /* not migrated: the viewpoint Fleet Viewpoints::Headless Viewpoint's method is not migrated: method "_act_vanished" names no element */
+            }
+            part Notes : DocumentQueries::Section {
+                attribute redefines title = "Notes";
+                /* not migrated: the view Fleet Documents::Notes's conformance is not migrated: Conform general "_vp_gone" names no element */
+                part paragraph : DocumentQueries::Paragraph {
+                    attribute redefines text = "First note.";
+                }
+                part 'paragraph 2' : DocumentQueries::Paragraph {
+                    attribute redefines text = "Second note.";
+                }
+                part 'paragraph 3' : DocumentQueries::Paragraph {
+                    attribute redefines text = "Figure: the fleet at the depot";
+                }
+                /* not migrated: «Image Paragraph» Comment '<Comment>' — the attached image "depot.png" is not in the archive */
+                /* not migrated: «Paragraph» Comment '<Comment>' — property "META:QPROP:Element:name" is not the comment body */
+                /* not migrated: «Paragraph» Comment '<Comment>' — the paragraph's comment has no body */
             }
         }
-        part Requirements : DocumentQueries::Section {
-            attribute redefines title = "Requirements";
-            part paragraph : DocumentQueries::Paragraph {
-                attribute redefines text = "Every truck of the fleet satisfies these requirements.";
+        calc def 'Fleet Brief List Rows' :> DocumentQueries::Query {
+            DocumentQueries::Project(
+                source = DocumentQueries::OrderBy(
+                    source = DocumentQueries::Named(qualifiedName = ("Model::Fleet::Structure::Truck", "Model::Fleet::Structure")),
+                    property = "name",
+                    direction = "ascending",
+                    missing = "last",
+                    multiple = "first"),
+                properties = ("name"))
+        }
+        calc def 'Fleet Brief Safety Requirements Rows' :> DocumentQueries::Query {
+            DocumentQueries::Project(
+                source = DocumentQueries::Except(
+                    source = DocumentQueries::WhereMetadata(
+                        source = DocumentQueries::Descendants(
+                            source = DocumentQueries::Named(qualifiedName = ("Model::Fleet"))),
+                        'metadata' = ("Model::Fleet Profile::Safety")),
+                    exclude = DocumentQueries::WhereName(
+                        source = DocumentQueries::WhereMetadata(
+                            source = DocumentQueries::Descendants(
+                                source = DocumentQueries::Named(qualifiedName = ("Model::Fleet"))),
+                            'metadata' = ("Model::Fleet Profile::Safety")),
+                        operator = "matches",
+                        value = "^(?:.*Count)$")),
+                properties = ("name", "documentation"),
+                columns = (
+                    DocumentQueries::Column(name = "Level", cell = { in row : 'Fleet Profile'::Safety; row.level ?? "" }),
+                    DocumentQueries::Column(name = "Owner", cell = { in row : KerML::Root::Element; row.owner.name })))
+        }
+        part def 'Fleet Brief Document' :> DocumentQueries::Document {
+            attribute redefines title = "Fleet Brief";
+            ref 'parts Method' : 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method';
+            ref truck : Model::Fleet::Structure::Truck;
+            part Figures : DocumentQueries::Section {
+                attribute redefines title = "Figures";
+                part diagram : DocumentQueries::Diagram {
+                    attribute redefines caption = "Truck Structure";
+                    ref redefines source = Model::Fleet::Structure::'Truck Structure';
+                }
+                part paragraph : DocumentQueries::Paragraph {
+                    attribute redefines text = "The truck and what it hauls";
+                }
             }
-            part list : DocumentQueries::List {
-                attribute redefines style = "number";
-                calc items : 'Fleet Handbook Requirement List Rows';
+            part Fleet : DocumentQueries::Section {
+                attribute redefines title = "Fleet";
+                part diagram : DocumentQueries::Diagram {
+                    attribute redefines caption = "Truck Structure";
+                    ref redefines source = Model::Fleet::Structure::'Truck Structure';
+                }
+                part paragraph : DocumentQueries::Paragraph {
+                    attribute redefines text = "The truck and what it hauls";
+                }
+                part 'diagram 2' : DocumentQueries::Diagram {
+                    attribute redefines caption = "Parts Method Flow";
+                    ref redefines source = 'parts Method'.'Parts Method Flow';
+                }
+                part 'diagram 3' : DocumentQueries::Diagram {
+                    attribute redefines caption = "Truck Internals";
+                    ref redefines source = truck.'Truck Internals';
+                }
+                part 'diagram 4' : DocumentQueries::Diagram {
+                    attribute redefines caption = "Fleet Overview";
+                    ref redefines source = 'Fleet Views'::Fleet.'Fleet Overview';
+                }
             }
-            part 'paragraph 2' : DocumentQueries::Paragraph {
-                calc values : 'Fleet Handbook Requirement Texts Rows';
+            part Gallery : DocumentQueries::Section {
+                attribute redefines title = "Gallery";
+                part diagram : DocumentQueries::Diagram {
+                    attribute redefines caption = "Figure: Inside the truck";
+                    ref redefines source = truck.'Truck Internals';
+                }
+            }
+            part 'Truck Figures' : DocumentQueries::Section {
+                attribute redefines title = "Truck Figures";
+                part diagram : DocumentQueries::Diagram {
+                    attribute redefines caption = "Truck Internals";
+                    ref redefines source = truck.'Truck Internals';
+                }
+                part 'diagram 2' : DocumentQueries::Diagram {
+                    attribute redefines caption = "Truck Structure";
+                    ref redefines source = Model::Fleet::Structure::'Truck Structure';
+                }
+            }
+            part 'Other Figures' : DocumentQueries::Section {
+                attribute redefines title = "Other Figures";
+                part diagram : DocumentQueries::Diagram {
+                    attribute redefines caption = "Fleet Overview";
+                    ref redefines source = 'Fleet Views'::Fleet.'Fleet Overview';
+                }
+            }
+            part 'Figure Owners' : DocumentQueries::Section {
+                attribute redefines title = "Figure Owners";
+                part list : DocumentQueries::List {
+                    attribute redefines style = "bullet";
+                    calc items : 'Fleet Brief List Rows';
+                }
+            }
+            part 'No Figures' : DocumentQueries::Section {
+                attribute redefines title = "No Figures";
             }
             part Safety : DocumentQueries::Section {
                 attribute redefines title = "Safety";
@@ -556,216 +738,45 @@ package 'Fleet Documents' {
                 }
                 part table : DocumentQueries::Table {
                     attribute redefines caption = "Safety Requirements";
-                    calc rows : 'Fleet Handbook Safety Requirements Rows';
+                    calc rows : 'Fleet Brief Safety Requirements Rows';
                 }
             }
         }
-        part Figures : DocumentQueries::Section {
-            attribute redefines title = "Figures";
-            part diagram : DocumentQueries::Diagram {
-                attribute redefines caption = "Truck Structure";
-                ref redefines source = Fleet::Structure::'Truck Structure';
-            }
-            part paragraph : DocumentQueries::Paragraph {
-                attribute redefines text = "The truck and what it hauls";
-            }
-        }
-        part Traceability : DocumentQueries::Section {
-            attribute redefines title = "Traceability";
-            part list : DocumentQueries::List {
-                attribute redefines style = "bullet";
-                calc items : 'Fleet Handbook Related Elements Rows';
-            }
-        }
-        part Oddities : DocumentQueries::Section {
-            attribute redefines title = "Oddities";
-            /* not migrated: «Paragraph» CallBehaviorAction 'Evaluated Paragraph' — its body is evaluated as OCL, which no query evaluates */
-            /* not migrated: «TableStructure» StructuredActivityNode 'Type Table' — the elements it shows pass through «CollectOwnedElements» Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Collect Owned Elements is not migrated: the depth "many" is not a whole number */
-            part 'Per Truck' : DocumentQueries::Section {
-                attribute redefines title = "Per Truck";
-                part paragraph : DocumentQueries::Paragraph {
-                    attribute redefines text = "One truck.";
-                }
-                part 'Per Truck' : DocumentQueries::Section {
-                    attribute redefines title = "Per Truck";
-                    /* not migrated: the «Dynamic_View» Activity Fleet Viewpoints::Oddities Viewpoint::Per Truck calls itself, and a recursive section has no static spelling */
-                }
-            }
-        }
-        part Broken : DocumentQueries::Section {
-            attribute redefines title = "Broken";
-            /* not migrated: the method Fleet Viewpoints::Broken Viewpoint::Broken Method is not migrated: no initial node */
-        }
-        part Severed : DocumentQueries::Section {
-            attribute redefines title = "Severed";
-            /* not migrated: the method Fleet Viewpoints::Severed Viewpoint::Severed Method is not migrated: ControlFlow _severed_e2's target "_severed_gone" names no node */
-        }
-        part Headless : DocumentQueries::Section {
-            attribute redefines title = "Headless";
-            /* not migrated: the viewpoint Fleet Viewpoints::Headless Viewpoint's method is not migrated: method "_act_vanished" names no element */
-        }
-        part Notes : DocumentQueries::Section {
-            attribute redefines title = "Notes";
-            /* not migrated: the view Fleet Documents::Notes's conformance is not migrated: Conform general "_vp_gone" names no element */
-            part paragraph : DocumentQueries::Paragraph {
-                attribute redefines text = "First note.";
-            }
-            part 'paragraph 2' : DocumentQueries::Paragraph {
-                attribute redefines text = "Second note.";
-            }
-            part 'paragraph 3' : DocumentQueries::Paragraph {
-                attribute redefines text = "Figure: the fleet at the depot";
-            }
-            /* not migrated: «Image Paragraph» Comment '<Comment>' — the attached image "depot.png" is not in the archive */
-            /* not migrated: «Paragraph» Comment '<Comment>' — property "META:QPROP:Element:name" is not the comment body */
-            /* not migrated: «Paragraph» Comment '<Comment>' — the paragraph's comment has no body */
-        }
     }
-    calc def 'Fleet Brief List Rows' :> DocumentQueries::Query {
-        DocumentQueries::Project(
-            source = DocumentQueries::OrderBy(
-                source = DocumentQueries::Named(qualifiedName = ("Fleet::Structure::Truck", "Fleet::Structure")),
-                property = "name",
-                direction = "ascending",
-                missing = "last",
-                multiple = "first"),
-            properties = ("name"))
-    }
-    calc def 'Fleet Brief Safety Requirements Rows' :> DocumentQueries::Query {
-        DocumentQueries::Project(
-            source = DocumentQueries::Except(
-                source = DocumentQueries::WhereMetadata(
-                    source = DocumentQueries::Descendants(
-                        source = DocumentQueries::Named(qualifiedName = ("Fleet"))),
-                    'metadata' = ("Fleet Profile::Safety")),
-                exclude = DocumentQueries::WhereName(
-                    source = DocumentQueries::WhereMetadata(
-                        source = DocumentQueries::Descendants(
-                            source = DocumentQueries::Named(qualifiedName = ("Fleet"))),
-                        'metadata' = ("Fleet Profile::Safety")),
-                    operator = "matches",
-                    value = "^(?:.*Count)$")),
-            properties = ("name", "documentation"),
-            columns = (
-                DocumentQueries::Column(name = "Level", cell = { in row : 'Fleet Profile'::Safety; row.level ?? "" }),
-                DocumentQueries::Column(name = "Owner", cell = { in row : KerML::Root::Element; row.owner.name })))
-    }
-    part def 'Fleet Brief Document' :> DocumentQueries::Document {
-        attribute redefines title = "Fleet Brief";
-        ref 'parts Method' : 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method';
-        ref truck : $::Fleet::Structure::Truck;
-        part Figures : DocumentQueries::Section {
-            attribute redefines title = "Figures";
-            part diagram : DocumentQueries::Diagram {
-                attribute redefines caption = "Truck Structure";
-                ref redefines source = $::Fleet::Structure::'Truck Structure';
-            }
-            part paragraph : DocumentQueries::Paragraph {
-                attribute redefines text = "The truck and what it hauls";
+    package 'Fleet Views' {
+        view Fleet : 'Fleet Viewpoints'::'Figures Viewpoint' {
+            expose Model::Fleet::Structure::'Truck Structure';
+            expose 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Parts Method Flow';
+            expose Model::Fleet::Structure::Truck::'Truck Internals';
+            expose 'Fleet Overview';
+            view 'Fleet Overview' {
+                expose Model::Fleet::Structure;
+                expose Model::Fleet::Requirements;
+                render Views::asTreeDiagram;
             }
         }
-        part Fleet : DocumentQueries::Section {
-            attribute redefines title = "Fleet";
-            part diagram : DocumentQueries::Diagram {
-                attribute redefines caption = "Truck Structure";
-                ref redefines source = $::Fleet::Structure::'Truck Structure';
-            }
-            part paragraph : DocumentQueries::Paragraph {
-                attribute redefines text = "The truck and what it hauls";
-            }
-            part 'diagram 2' : DocumentQueries::Diagram {
-                attribute redefines caption = "Parts Method Flow";
-                ref redefines source = 'parts Method'.'Parts Method Flow';
-            }
-            part 'diagram 3' : DocumentQueries::Diagram {
-                attribute redefines caption = "Truck Internals";
-                ref redefines source = truck.'Truck Internals';
-            }
-            part 'diagram 4' : DocumentQueries::Diagram {
-                attribute redefines caption = "Fleet Overview";
-                ref redefines source = 'Fleet Views'::Fleet.'Fleet Overview';
-            }
+        view Gallery : 'Fleet Viewpoints'::'Gallery Viewpoint' {
+            expose Model::Fleet::Structure::Truck::'Truck Internals';
         }
-        part Gallery : DocumentQueries::Section {
-            attribute redefines title = "Gallery";
-            part diagram : DocumentQueries::Diagram {
-                attribute redefines caption = "Figure: Inside the truck";
-                ref redefines source = truck.'Truck Internals';
-            }
+        view 'Truck Figures' : 'Fleet Viewpoints'::'Selected Figures Viewpoint' {
+            expose Model::Fleet::Structure::'Truck Structure';
+            expose 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Parts Method Flow';
+            expose Model::Fleet::Structure::Truck::'Truck Internals';
+            expose Fleet::'Fleet Overview';
+            expose Model::Fleet::Structure::'Truck Structure';
         }
-        part 'Truck Figures' : DocumentQueries::Section {
-            attribute redefines title = "Truck Figures";
-            part diagram : DocumentQueries::Diagram {
-                attribute redefines caption = "Truck Internals";
-                ref redefines source = truck.'Truck Internals';
-            }
-            part 'diagram 2' : DocumentQueries::Diagram {
-                attribute redefines caption = "Truck Structure";
-                ref redefines source = $::Fleet::Structure::'Truck Structure';
-            }
+        view 'Other Figures' : 'Fleet Viewpoints'::'Other Figures Viewpoint' {
+            expose Model::Fleet::Structure::'Truck Structure';
+            expose 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Parts Method Flow';
+            expose Model::Fleet::Structure::Truck::'Truck Internals';
+            expose Fleet::'Fleet Overview';
         }
-        part 'Other Figures' : DocumentQueries::Section {
-            attribute redefines title = "Other Figures";
-            part diagram : DocumentQueries::Diagram {
-                attribute redefines caption = "Fleet Overview";
-                ref redefines source = 'Fleet Views'::Fleet.'Fleet Overview';
-            }
+        view 'Figure Owners' : 'Fleet Viewpoints'::'Figure Owners Viewpoint' {
+            expose Model::Fleet::Structure::Truck::'Truck Internals';
+            expose Model::Fleet::Structure::'Truck Structure';
         }
-        part 'Figure Owners' : DocumentQueries::Section {
-            attribute redefines title = "Figure Owners";
-            part list : DocumentQueries::List {
-                attribute redefines style = "bullet";
-                calc items : 'Fleet Brief List Rows';
-            }
+        view 'No Figures' : 'Fleet Viewpoints'::'No Figures Viewpoint' {
+            expose Model::Fleet::Structure::'Truck Structure';
         }
-        part 'No Figures' : DocumentQueries::Section {
-            attribute redefines title = "No Figures";
-        }
-        part Safety : DocumentQueries::Section {
-            attribute redefines title = "Safety";
-            part paragraph : DocumentQueries::Paragraph {
-                attribute redefines text = "Safety comes first.";
-            }
-            part table : DocumentQueries::Table {
-                attribute redefines caption = "Safety Requirements";
-                calc rows : 'Fleet Brief Safety Requirements Rows';
-            }
-        }
-    }
-}
-package 'Fleet Views' {
-    view Fleet : 'Fleet Viewpoints'::'Figures Viewpoint' {
-        expose $::Fleet::Structure::'Truck Structure';
-        expose 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Parts Method Flow';
-        expose $::Fleet::Structure::Truck::'Truck Internals';
-        expose 'Fleet Overview';
-        view 'Fleet Overview' {
-            expose $::Fleet::Structure;
-            expose $::Fleet::Requirements;
-            render Views::asTreeDiagram;
-        }
-    }
-    view Gallery : 'Fleet Viewpoints'::'Gallery Viewpoint' {
-        expose $::Fleet::Structure::Truck::'Truck Internals';
-    }
-    view 'Truck Figures' : 'Fleet Viewpoints'::'Selected Figures Viewpoint' {
-        expose $::Fleet::Structure::'Truck Structure';
-        expose 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Parts Method Flow';
-        expose $::Fleet::Structure::Truck::'Truck Internals';
-        expose Fleet::'Fleet Overview';
-        expose $::Fleet::Structure::'Truck Structure';
-    }
-    view 'Other Figures' : 'Fleet Viewpoints'::'Other Figures Viewpoint' {
-        expose $::Fleet::Structure::'Truck Structure';
-        expose 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Parts Method Flow';
-        expose $::Fleet::Structure::Truck::'Truck Internals';
-        expose Fleet::'Fleet Overview';
-    }
-    view 'Figure Owners' : 'Fleet Viewpoints'::'Figure Owners Viewpoint' {
-        expose $::Fleet::Structure::Truck::'Truck Internals';
-        expose $::Fleet::Structure::'Truck Structure';
-    }
-    view 'No Figures' : 'Fleet Viewpoints'::'No Figures Viewpoint' {
-        expose $::Fleet::Structure::'Truck Structure';
     }
 }

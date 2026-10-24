@@ -13,7 +13,7 @@
 /site/
 
 # In-browser engine assets (make docs-engine-assets); built, never vendored
-/docs/assets/sysml-engine.wasm*
+/docs/assets/sysml-wasm.wasm*
 /docs/assets/sysml-repl.wasm*
 /docs/assets/repl-examples/
 /docs/assets/wasm_exec.js
@@ -27,6 +27,8 @@ client/julia/**/Manifest.toml
 
 # Downloaded OMG corpora (run scripts/download-pilot-corpora.sh)
 /examples/pilot-corpora/
+# Extracted OMG specification examples (run scripts/download-spec-examples.sh)
+/examples/spec-examples/
 
 # Downloaded Modelica Reference-FMUs (run scripts/download-reference-fmus.sh)
 /examples/reference-fmus/
@@ -50,6 +52,12 @@ coverage-scripts.xml
 .coverage-scripts
 coverage-node.lcov
 /client/node/coverage/
+coverage-vscode.lcov
+/editors/vscode/coverage/
+coverage-jupyterlab.lcov
+/editors/jupyterlab/coverage/
+coverage-mcp-npm.lcov
+/packaging/npm/sysml-mcp/coverage/
 .coverage
 
 # Generated stubs for the upcoming clients (make proto-ts / proto-rust)
@@ -71,3 +79,7 @@ cmd/*/rsrc_windows_*.syso
 # The kernel a platform wheel bundles, staged by the release pipeline (setup.py)
 /client/jupyter-kernel/jupyter_opensysml_kernel/bin/
 /client/jupyter-kernel/labextension/
+/tools/conformance
+
+# The whole output a digested golden (*.golden.ttl.sha256) was compared against
+tests/export/testdata/**/*.actual

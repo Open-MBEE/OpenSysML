@@ -234,6 +234,8 @@ pub enum Error {
         trace: Vec<DocumentEvent>,
         /// Oldest trace records the service discarded.
         trace_dropped: i32,
+        /// The simulated time the run stopped at; 0 when the service reported none.
+        final_time: f64,
     },
     /// A call named an element of another kind than it asks about: a wrong request, not a verdict.
     #[error("wrong kind: {message}")]

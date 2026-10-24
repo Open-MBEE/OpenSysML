@@ -818,7 +818,7 @@ func TestAdoptBeginsEveryPartWithItsWhole(t *testing.T) {
 			t.Fatalf("round %d: Adopt: %v", round, err)
 		}
 		whole, ok := ctx.OccurrenceLife(obj.ID)
-		if !ok || !whole.Alive() {
+		if !ok || !whole.alive() {
 			t.Fatalf("round %d: OccurrenceLife(vehicle) = %v, %v; want alive", round, whole, ok)
 		}
 		for _, id := range held {
@@ -870,8 +870,8 @@ func TestAdoptKeepsADestroyedObjectFromPerformingAgain(t *testing.T) {
 	if len(obj.Behaviors()) != 0 {
 		t.Errorf("the destroyed object performs %d behaviors, want none", len(obj.Behaviors()))
 	}
-	if _, err := obj.GetFeatureValue(ctx, "count"); !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Errorf("read of the carried destroyed object: %v, want %v", err, ErrOccurrenceDestroyed)
+	if _, err := obj.GetFeatureValue(ctx, "count"); !errors.Is(err, errOccurrenceDestroyed) {
+		t.Errorf("read of the carried destroyed object: %v, want %v", err, errOccurrenceDestroyed)
 	}
 }
 
@@ -939,10 +939,10 @@ func TestShapeFollowsAGoverningValueBody(t *testing.T) {
 }`
 	prev := contextOver(t, src)
 	sym := lookupOne(t, prev.Resolver().Index(), "Demo::Band")
-	before := prev.ShapeDigest(sym)
+	before := prev.shapeDigest(sym)
 
 	ctx := contextOver(t, strings.Replace(src, "v = 11.0", "v = 12.0", 1))
-	if after := ctx.ShapeDigest(lookupOne(t, ctx.model.resolver.Index(), "Demo::Band")); after == before {
+	if after := ctx.shapeDigest(lookupOne(t, ctx.model.resolver.Index(), "Demo::Band")); after == before {
 		t.Errorf("shape unchanged by an edit to the governing body: %s", after)
 	}
 }
@@ -1100,12 +1100,12 @@ func TestShapeDigestExpandsALibraryOfUnknownText(t *testing.T) {
 	if _, known := ctx.model.resolver.Index().LibraryIdentity(); known {
 		t.Fatal("LibraryIdentity is known for a library document of no digest")
 	}
-	digest := ctx.ShapeDigest(lookupOne(t, ctx.model.resolver.Index(), "Demo::Crate"))
+	digest := ctx.shapeDigest(lookupOne(t, ctx.model.resolver.Index(), "Demo::Crate"))
 	if !strings.Contains(digest, "Shapes::Box/partDef{n:1..1=1@") {
 		t.Errorf("digest names the library type without expanding it: %s", digest)
 	}
 	other := crateContextOver(t, strings.Replace(lib, "n = 1", "n = 2", 1), false)
-	if other.ShapeDigest(lookupOne(t, other.Resolver().Index(), "Demo::Crate")) == digest {
+	if other.shapeDigest(lookupOne(t, other.Resolver().Index(), "Demo::Crate")) == digest {
 		t.Error("digest unchanged by an edit to the library type it expands")
 	}
 }
@@ -1174,9 +1174,9 @@ func TestAdoptRebindsTheUnitsAWrittenValueNames(t *testing.T) {
 	}
 
 	gone := libraryContextOver(t, strings.Replace(adoptUnitSrc, "attribute furlong : LengthUnit { :>> unitConversion : ConversionByConvention { :>> referenceUnit = m; :>> conversionFactor = 201.168; } }", "", 1))
-	var adoptErr *AdoptError
+	var adoptErr *adoptError
 	if _, err := gone.Adopt(prev, shapes, field); !errors.As(err, &adoptErr) {
-		t.Fatalf("Adopt into a re-analysis without the unit: %v, want an AdoptError", err)
+		t.Fatalf("Adopt into a re-analysis without the unit: %v, want an adoptError", err)
 	} else if !strings.Contains(err.Error(), "the unit furlong it is measured in is no longer declared") {
 		t.Errorf("Adopt refused for %q, want the missing unit named", err)
 	}
@@ -1272,10 +1272,10 @@ func TestAdoptRefusesAUnitWhoseReductionChanged(t *testing.T) {
 		if _, err := same.Adopt(prev, shapes, field); err != nil {
 			t.Fatalf("Adopt of %s into a re-analysis with the same furlong: %v", feature, err)
 		}
-		var adoptErr *AdoptError
+		var adoptErr *adoptError
 		_, err = changed.Adopt(prev, shapes, field)
 		if !errors.As(err, &adoptErr) {
-			t.Fatalf("Adopt of %s into a re-analysis redefining furlong: %v, want an AdoptError", feature, err)
+			t.Fatalf("Adopt of %s into a re-analysis redefining furlong: %v, want an adoptError", feature, err)
 		}
 		if !strings.Contains(err.Error(), "the unit furlong it is measured in now reduces to 220·metre, not 201.168·metre") {
 			t.Errorf("Adopt of %s refused for %q, want the changed reduction named", feature, err)
@@ -1344,9 +1344,9 @@ func TestAdoptRebindsAModelsOwnBaseUnit(t *testing.T) {
 	}
 
 	gone := libraryContextOver(t, strings.Replace(src, "attribute chain : LengthUnit;", "attribute chain : LengthUnit { :>> unitConversion : ConversionByConvention { :>> referenceUnit = m; :>> conversionFactor = 20.1168; } }", 1))
-	var adoptErr *AdoptError
+	var adoptErr *adoptError
 	if _, err := gone.Adopt(prev, shapes, field); !errors.As(err, &adoptErr) {
-		t.Fatalf("Adopt into a re-analysis converting chain to metres: %v, want an AdoptError", err)
+		t.Fatalf("Adopt into a re-analysis converting chain to metres: %v, want an adoptError", err)
 	} else if !strings.Contains(err.Error(), "·metre, not ") || !strings.HasSuffix(err.Error(), "chain") {
 		t.Errorf("Adopt refused for %q, want the changed reduction named", err)
 	}
@@ -1369,7 +1369,7 @@ func TestAdoptRebindsTheUnitOfAnEmptyQuantitySequence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("furlong: %v", err)
 	}
-	if err := field.SetFeatureValue(prev, "widths", NewEmptySequenceOf(furlong.MeasurementRef().Unit)); err != nil {
+	if err := field.SetFeatureValue(prev, "widths", newEmptySequenceOf(furlong.MeasurementRef().Unit)); err != nil {
 		t.Fatalf("write widths: %v", err)
 	}
 	shapes := prev.ShapesOf(field)
@@ -1382,7 +1382,7 @@ func TestAdoptRebindsTheUnitOfAnEmptyQuantitySequence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFeatureValue(widths): %v", err)
 	}
-	unit, ok := widths.Values.Sequence().ElementUnit()
+	unit, ok := widths.Values.Sequence().emptyElementUnit()
 	if !ok {
 		t.Fatalf("widths after the carry-over = %s, want an empty sequence measured in furlong", FormatValue(widths.Values))
 	}
@@ -1399,10 +1399,10 @@ func TestAdoptRebindsTheUnitOfAnEmptyQuantitySequence(t *testing.T) {
 		"redefined": {strings.Replace(src, "conversionFactor = 201.168", "conversionFactor = 220", 1),
 			"the unit furlong it is measured in now reduces to 220·metre, not 201.168·metre"},
 	} {
-		var adoptErr *AdoptError
+		var adoptErr *adoptError
 		_, err := libraryContextOver(t, tc.src).Adopt(prev, shapes, field)
 		if !errors.As(err, &adoptErr) {
-			t.Fatalf("Adopt into a re-analysis with furlong %s: %v, want an AdoptError", name, err)
+			t.Fatalf("Adopt into a re-analysis with furlong %s: %v, want an adoptError", name, err)
 		}
 		if !strings.Contains(err.Error(), tc.reason) {
 			t.Errorf("Adopt into a re-analysis with furlong %s refused for %q, want %q", name, err, tc.reason)
@@ -1619,9 +1619,9 @@ func TestAdoptRebindsTheFramesAWrittenValueNames(t *testing.T) {
 	}
 
 	gone := libraryContextOver(t, strings.Replace(adoptFrameSrc, "attribute datum : CartesianSpatial3dCoordinateFrame { :>> mRefs = (mm, mm, mm); }", "", 1))
-	var adoptErr *AdoptError
+	var adoptErr *adoptError
 	if _, err := gone.Adopt(prev, shapes, body); !errors.As(err, &adoptErr) {
-		t.Fatalf("Adopt into a re-analysis without the frame: %v, want an AdoptError", err)
+		t.Fatalf("Adopt into a re-analysis without the frame: %v, want an adoptError", err)
 	} else if !strings.Contains(err.Error(), "the coordinate frame datum it holds is no longer declared") {
 		t.Errorf("Adopt refused for %q, want the missing frame named", err)
 	}
@@ -1679,16 +1679,15 @@ func TestAdoptRebindsAFunctionValue(t *testing.T) {
 		"Fn(holder.scaled, 5.0)":               "10.0",
 		"holder.scaled == holder.scaler.scale": "true",
 	} {
-		got, err := evalIn(t, ctx, newScope, expr)
-		if err != nil || FormatValue(got) != want {
-			t.Errorf("%s after the carry-over = %s, %v; want %s", expr, FormatValue(got), err, want)
+		if got, err := evalIn(t, ctx, newScope, expr); err != nil || FormatValue(soleElement(got)) != want {
+			t.Errorf("%s after the carry-over = %s, %v; want %s", expr, FormatValue(soleElement(got)), err, want)
 		}
 	}
 
 	gone := libraryContextOver(t, strings.Replace(adoptFunctionSrc, "calc def Sq { in v : Real; return : Real = v * v; }", "", 1))
-	var adoptErr *AdoptError
+	var adoptErr *adoptError
 	if _, err := gone.Adopt(prev, shapes, holder); !errors.As(err, &adoptErr) {
-		t.Fatalf("Adopt into a re-analysis without the calc: %v, want an AdoptError", err)
+		t.Fatalf("Adopt into a re-analysis without the calc: %v, want an adoptError", err)
 	} else if !strings.Contains(err.Error(), "the function Demo::Sq it holds is no longer declared") {
 		t.Errorf("Adopt refused for %q, want the missing calc named", err)
 	}
@@ -1737,7 +1736,7 @@ func TestAdoptCarriesANamespaceBinding(t *testing.T) {
 	got := carIn(t, ctx)
 	if got == obj || got.Type != lookupOne(t, ctx.Resolver().Index(), "Demo::Truck") {
 		t.Errorf("car in the re-analysis denotes %d of %s, want a Truck read against the declaration as it is now",
-			got.ID, symbolText(got.Type))
+			got.ID, SymbolText(got.Type))
 	}
 }
 
@@ -1892,7 +1891,7 @@ func TestAdoptRebindsWhenABindingsDependencyChanges(t *testing.T) {
 	alias := objectIn(t, ctx, "alias")
 	if alias != spare || alias == obj || alias.Type != lookupOne(t, ctx.Resolver().Index(), "Demo::Truck") {
 		t.Errorf("alias in the re-analysis denotes %d of %s, spare %d; want alias to denote the Truck spare now binds",
-			alias.ID, symbolText(alias.Type), spare.ID)
+			alias.ID, SymbolText(alias.Type), spare.ID)
 	}
 }
 
@@ -2006,7 +2005,7 @@ func TestAdoptRebindsWhenABindingsNameIsShadowed(t *testing.T) {
 	alias := objectIn(t, ctx, "alias")
 	if alias == obj || alias.Type != lookupOne(t, ctx.Resolver().Index(), "Demo::Truck") {
 		t.Errorf("alias in the re-analysis denotes %d of %s; want the Truck the nearer spare binds",
-			alias.ID, symbolText(alias.Type))
+			alias.ID, SymbolText(alias.Type))
 	}
 	if got := objectIn(t, ctx, "kept"); got != kept {
 		t.Errorf("kept in the re-analysis denotes %d, want the carried object %d", got.ID, kept.ID)
@@ -2058,9 +2057,10 @@ func TestAdoptRebindsAnExtentWhenAHierarchyChanges(t *testing.T) {
 	}
 }
 
-// A binding to an extent read the name of the type it is over: a nearer declaration of that
-// name, added in another document, is what the extent is over in the re-analysis; the object a
-// usage the binding did not read denotes is carried.
+// A binding to an extent read the name of the type it is over: a second import of that name,
+// added in another document, hides both from the package (KerML 7.2.5.4), so the binding is
+// re-read and the extent unresolved in the re-analysis; the object a usage the binding did not
+// read denotes is carried.
 func TestAdoptRebindsAnExtentWhenItsTypeNameIsShadowed(t *testing.T) {
 	const model = `package Demo {
 	package A { part def Car; }
@@ -2095,8 +2095,9 @@ func TestAdoptRebindsAnExtentWhenItsTypeNameIsShadowed(t *testing.T) {
 	if _, err := ctx.Adopt(prev, prev.ShapesOf(car), car); err != nil {
 		t.Fatalf("Adopt: %v", err)
 	}
-	if got := objects(t, ctx, "cars"); len(got) != 0 {
-		t.Errorf("cars in the re-analysis = %v, want none: Car now names B::Car, of which there is no object", got)
+	pkg := lookupOne(t, ctx.Resolver().Index(), "Demo::P")
+	if val, err := evalIn(t, ctx, pkg.Scope, "cars"); err == nil || !strings.Contains(err.Error(), "Car") {
+		t.Errorf("cars in the re-analysis = %v, %v; want unresolved: import A::* and import B::* now hide Car", heldObjects(val), err)
 	}
 	if got := objects(t, ctx, "car"); len(got) != 1 || got[0] != car.ID {
 		t.Errorf("car in the re-analysis = %v, want the carried object %d", got, car.ID)
@@ -2122,7 +2123,7 @@ func TestAdoptRebindsWhenAWarmedCallGainsACandidate(t *testing.T) {
 		t.Helper()
 		pkg := lookupOne(t, ctx.Resolver().Index(), "Demo::P")
 		val, err := evalIn(t, ctx, pkg.Scope, name)
-		if err != nil {
+		if val = soleElement(val); err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
 		id, ok := val.Object()
@@ -2153,7 +2154,7 @@ func TestAdoptRebindsWhenAWarmedCallGainsACandidate(t *testing.T) {
 	got := objectIn(t, ctx, "car")
 	if got == car || got.Type != lookupOne(t, ctx.Resolver().Index(), "Demo::Truck") {
 		t.Errorf("car in the re-analysis denotes %d of %s; want the Truck the nearer makeCar makes",
-			got.ID, symbolText(got.Type))
+			got.ID, SymbolText(got.Type))
 	}
 	if got := objectIn(t, ctx, "kept"); got != kept {
 		t.Errorf("kept in the re-analysis denotes %d, want the carried object %d", got.ID, kept.ID)

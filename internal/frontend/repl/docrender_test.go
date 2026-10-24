@@ -153,7 +153,8 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		t.Errorf("default rendering is DOT:\n%s", mermaid)
 	}
 	wants(t, run(t, s, "%render-document Imaging::ChainReport mermaid"), "```mermaid\n")
-	dot := run(t, s, "%render-document Imaging::ChainReport dot")
+	wants(t, run(t, s, "%render-document Imaging::ChainReport show=edge-labels"), "```mermaid\n", `===|"link"|`)
+	dot := run(t, s, "%render-document Imaging::ChainReport dot show=edge-labels")
 	wants(t, dot,
 		"```dot\n// view: Imaging::chainView\n// kind: interconnection\n",
 		"digraph \"Imaging::chainView\" {",
@@ -169,7 +170,7 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 	}
 	wants(t, run(t, s, "%render-document Imaging::ChainReport dot cameo"), "```dot\n", `subgraph "cluster_frame"`, `fontname="Arial"`)
 	wants(t, run(t, s, "%render-document Imaging::ChainReport mermaid cameo"), "```mermaid\n", "%% style cameo")
-	d2 := run(t, s, "%render-document Imaging::ChainReport d2")
+	d2 := run(t, s, "%render-document Imaging::ChainReport d2 show=edge-labels")
 	wants(t, d2, "```d2\n# Imaging::chainView — interconnection rendering", `n0.n1."n1.0" -- n0.n3."n3.0": "link" { class: connection }`, "| name | mass |")
 	if strings.Contains(d2, "```mermaid") || strings.Contains(d2, "```dot") {
 		t.Errorf("a diagram is not D2 under d2:\n%s", d2)
@@ -181,7 +182,7 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 	if !strings.Contains(markdown, "```dot\n") {
 		t.Errorf("API rendering does not write DOT:\n%s", markdown)
 	}
-	puml := run(t, s, "%render-document Imaging::ChainReport plantuml")
+	puml := run(t, s, "%render-document Imaging::ChainReport plantuml show=edge-labels")
 	wants(t, puml,
 		"```plantuml\n@startuml\n' Imaging::chainView — interconnection rendering",
 		"<style>\n",

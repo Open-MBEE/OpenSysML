@@ -95,6 +95,10 @@ type Assignment struct {
 	// Var is the variable the solver assigned, naming the feature it stands for.
 	Var *Var
 
+	// Dead marks a variable the model gives no meaning: a variation point of a
+	// variant the model does not select (Var.Live is false in it).
+	Dead bool
+
 	// Value renders the value as the notation writes it: a quantity with its
 	// unit, an enumeration value by name, a number, a boolean or a string.
 	Value string
@@ -231,15 +235,6 @@ func timeoutFromEnv() time.Duration {
 		return DefaultTimeout
 	}
 	return d
-}
-
-// Solve discovers a solver and asks it about the query.
-func Solve(ctx context.Context, q *Query) (*Result, error) {
-	solver, err := Discover()
-	if err != nil {
-		return nil, err
-	}
-	return solver.Solve(ctx, q)
 }
 
 // Solve writes the query's script to the solver and reads its verdict, plus the
@@ -388,6 +383,9 @@ func (s *session) run(q *Query) (*Result, error) {
 	switch status {
 	case StatusSat:
 		model, err := s.values(q.Vars)
+		if err == nil {
+			err = s.liveness(model)
+		}
 		if err != nil {
 			return nil, err
 		}

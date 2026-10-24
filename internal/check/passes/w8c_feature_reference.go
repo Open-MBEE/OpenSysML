@@ -34,8 +34,11 @@ func (FeatureReferencePass) Run(ctx *Context, name string, root *ast.RootNamespa
 	w := &kit.Walker{Ctx: ctx}
 	w.Walk(rootScope, c.checkSymbol)
 	c.walkFilters(rootScope, make(map[*symbols.Scope]bool))
-	return c.diags
+	return append(c.diags, c.cc.diags...)
 }
+
+// Operators whose operand may name any element, a type included (`all T`, `x meta T`, `x @@ T`).
+var w8cElementOperators = map[ast.OperatorKind]bool{ast.OpAll: true, ast.OpMeta: true, ast.OpMetaAt: true}
 
 // Operators taking a type, not a feature, as an operand.
 var w8cTypeOperators = map[ast.OperatorKind]bool{
@@ -404,8 +407,9 @@ func (c *featureReferenceChecker) walkExpr(site refSite, scope *symbols.Scope, n
 		}
 		c.checkReferent(site, scope, e, span)
 	case *ast.OperatorExpr:
-		// These operators name types rather than features.
-		if w8cTypeOperators[e.Operator] {
+		// These take an element, a type's name included; a classification or cast
+		// keeps its type in TypeRef, so its operand is an expression to walk.
+		if w8cElementOperators[e.Operator] {
 			return
 		}
 		for _, o := range e.Operands {
@@ -433,6 +437,9 @@ func (c *featureReferenceChecker) walkExpr(site refSite, scope *symbols.Scope, n
 			c.walkExpr(argSite, scope, arg.Value)
 		}
 	case *ast.ConstructorExpr:
+		// The arguments are features of the result redefining the type's; one
+		// binding a feature bound with `=` overrides it (validateFeatureValueOverriding).
+		c.cc.checkConstructorValueOverriding(scope, e)
 		for _, a := range e.Args {
 			c.walkExpr(site, scope, a)
 		}
@@ -443,6 +450,12 @@ func (c *featureReferenceChecker) walkExpr(site refSite, scope *symbols.Scope, n
 		for _, el := range e.Elements {
 			c.walkExpr(site, scope, el)
 		}
+	case *ast.CollectExpr:
+		c.walkExpr(site, scope, e.Operand)
+		c.walkExpr(site, scope, e.Body)
+	case *ast.SelectExpr:
+		c.walkExpr(site, scope, e.Operand)
+		c.walkExpr(site, scope, e.Body)
 	case *ast.BodyExpr:
 		body := symbols.BodyExprScope(scope, e)
 		for i := range e.Params {

@@ -52,8 +52,8 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		if err := ctx.destroy(target); err != nil {
 			t.Fatalf("destroy Target: %v", err)
 		}
-		if _, _, err := ctx.readBodyValue(exec.root.cells, exec.root.data, "live"); !errors.Is(err, ErrOccurrenceDestroyed) {
-			t.Fatalf("read live after destroying target = %v, want ErrOccurrenceDestroyed", err)
+		if _, _, err := ctx.readBodyValue(exec.root.cells, exec.root.data, "live"); !errors.Is(err, errOccurrenceDestroyed) {
+			t.Fatalf("read live after destroying target = %v, want errOccurrenceDestroyed", err)
 		}
 	})
 
@@ -88,8 +88,8 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 			t.Fatalf("destroy Target: %v", err)
 		}
 		results, err := exec.ResultsWithError()
-		if !errors.Is(err, ErrOccurrenceDestroyed) {
-			t.Fatalf("ResultsWithError error = %v, want ErrOccurrenceDestroyed", err)
+		if !errors.Is(err, errOccurrenceDestroyed) {
+			t.Fatalf("ResultsWithError error = %v, want errOccurrenceDestroyed", err)
 		}
 		if _, ok := results["live"]; ok {
 			t.Fatalf("ResultsWithError returned failed live binding: %s", FormatValue(results["live"]))
@@ -133,8 +133,8 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		); err != nil {
 			t.Fatalf("ExecuteActionWithInputs update: %v", err)
 		}
-		if got := FormatValue(exec.Results()["live"]); got != "2" {
-			t.Fatalf("live after target.n := 5 = %s, want termination-time value 2", got)
+		if got := FormatValue(exec.Results()["live"]); got != "[2]" {
+			t.Fatalf("live after target.n := 5 = %s, want termination-time value [2]", got)
 		}
 	})
 
@@ -171,7 +171,7 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		if !ok {
 			t.Fatal("initialized stop parameter is missing")
 		}
-		if stop.Kind != ValQuantity {
+		if stop = soleElement(stop); stop.Kind != ValQuantity {
 			t.Fatalf("stop = %s, want a quantity", FormatValue(stop))
 		}
 		step, ok := exec.root.data[exec.root.key("timeStep")]
@@ -212,7 +212,7 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		}
 		data, err := exec.StateDataWithError()
 		if err != nil {
-			if !errors.Is(err, ErrNoValue) && !errors.Is(err, ErrUninitializedFeatureValue) && !errors.Is(err, ErrUnresolvedReference) {
+			if !errors.Is(err, ErrNoValue) && !errors.Is(err, errUninitializedFeatureValue) && !errors.Is(err, ErrUnresolvedReference) {
 				t.Fatalf("read top after state exit = %v, want a typed inactive-state value error", err)
 			}
 			return
@@ -271,8 +271,8 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 				if err != nil {
 					t.Fatalf("CreateActionExecutor: %v", err)
 				}
-				if err := exec.RunToCompletion(); !errors.Is(err, ErrReadOnlyFeature) {
-					t.Fatalf("RunToCompletion = %v, want ErrReadOnlyFeature (%s)", err, tc.want)
+				if err := exec.RunToCompletion(); !errors.Is(err, errReadOnlyFeature) {
+					t.Fatalf("RunToCompletion = %v, want errReadOnlyFeature (%s)", err, tc.want)
 				}
 			})
 		}
@@ -328,7 +328,7 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		if got := exec.PausedAt(); got != "finish" {
 			t.Fatalf("PausedAt = %q, want finish", got)
 		}
-		snapshot, err := exec.Snapshot()
+		snapshot, err := exec.snapshot()
 		if err != nil {
 			t.Fatalf("Snapshot: %v", err)
 		}
@@ -373,7 +373,7 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Instantiate Host: %v", err)
 		}
-		behavior, ok := host.Behavior("run")
+		behavior, ok := host.behavior("run")
 		if !ok || behavior.Action == nil {
 			t.Fatal("Host has no run action")
 		}
@@ -386,7 +386,7 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		if !ok {
 			t.Fatalf("image has no Host #%d", host.ID)
 		}
-		copiedBehavior, ok := copied.Behavior("run")
+		copiedBehavior, ok := copied.behavior("run")
 		if !ok || copiedBehavior.Action == nil {
 			t.Fatal("image has no run action")
 		}
@@ -425,7 +425,7 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Instantiate Host: %v", err)
 		}
-		behavior, ok := host.Behavior("work")
+		behavior, ok := host.behavior("work")
 		if !ok || behavior.Action == nil {
 			t.Fatal("Host has no work action")
 		}
@@ -444,7 +444,7 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		if !ok {
 			t.Fatalf("image has no Host #%d", host.ID)
 		}
-		copiedBehavior, ok := copied.Behavior("work")
+		copiedBehavior, ok := copied.behavior("work")
 		if !ok || copiedBehavior.Action == nil {
 			t.Fatal("image has no work action")
 		}
@@ -455,13 +455,8 @@ func TestRuntimeRobustnessBodyFeatureBindings(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ResultsWithError: %v", err)
 		}
-		result := results["reader.result"]
-		if result.Kind != ValSequence || result.Sequence() == nil || result.Sequence().Size() != 1 {
-			t.Fatalf("imaged reader result = %s, want one value from performer z", FormatValue(result))
-		}
-		got, err := result.Sequence().At(0)
-		if err != nil || FormatValue(got) != "4" {
-			t.Fatalf("imaged reader result element = %s, %v; want 4", FormatValue(got), err)
+		if got := FormatValue(results["reader.result"]); got != "4" {
+			t.Fatalf("imaged reader result = %s, want the performer's z, 4, held by the [1] result", got)
 		}
 	})
 

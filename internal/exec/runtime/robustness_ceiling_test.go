@@ -39,7 +39,7 @@ func ceilingCalc(t *testing.T, xType string) func(x semantics.Value) (Value, err
 		t.Fatal("whole calc not found")
 	}
 	return func(x semantics.Value) (Value, error) {
-		return ctx.InvokeCalc(sym, []Value{{Kind: ValConst, Const: x}}, rootScope)
+		return invokeValue(ctx, sym, []Value{{Kind: ValConst, Const: x}}, rootScope)
 	}
 }
 

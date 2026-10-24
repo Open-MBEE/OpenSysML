@@ -1004,3 +1004,83 @@ func TestConstraintSatisfyOutsideAViewIsNotChecked(t *testing.T) {
 		t.Fatalf("unexpected view-satisfy-viewpoint, got %v", diags)
 	}
 }
+
+// A package-level feature has no featuring type, so it cannot reach a type-featured
+// target; the pilot reports `Must be an accessible feature` on the redefinition.
+func TestConstraint_PackageLevelRedefinitionOfTypeFeatureIsInaccessible(t *testing.T) {
+	cases := map[string]struct{ src, target string }{
+		"qualified part": {`
+			package Pk {
+				part def Engine;
+				part def Car { part engine : Engine; }
+				part e2 : Engine :>> Car::engine;
+			}
+		`, "Car::engine"},
+		"root namespace": {`
+			part def Engine;
+			part def Car { part engine : Engine; }
+			part e2 : Engine :>> Car::engine;
+		`, "Car::engine"},
+		"featured by": {`
+			package Pk {
+				class Engine;
+				feature f : Engine featured by Engine;
+				feature g : Engine :>> f;
+			}
+		`, "f"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			diags := only(constraintDiags(t, tc.src), "subsetting-featuring-types")
+			if len(diags) != 1 {
+				t.Fatalf("got %d diagnostics, want 1: %v", len(diags), diags)
+			}
+			if diags[0].Message != msgSubsettingFeaturingTypes {
+				t.Errorf("message = %q, want %q", diags[0].Message, msgSubsettingFeaturingTypes)
+			}
+			if diags[0].Severity != diag.SeverityError {
+				t.Errorf("severity = %v, want an error", diags[0].Severity)
+			}
+			if got := spanText(tc.src, diags[0]); got != tc.target {
+				t.Errorf("span text = %q, want %q", got, tc.target)
+			}
+		})
+	}
+}
+
+// A package-level redefinition is accessible when its target is package-level
+// too (the pair is checkW10BRedefinition's) or when the redefining feature
+// declares a featuring type the target is featured within.
+func TestConstraint_PackageLevelRedefinitionAccessibleTargets(t *testing.T) {
+	cases := map[string]string{
+		"package-level target": `
+			package Pk {
+				part def Engine;
+				part eng : Engine;
+				part eng2 : Engine :>> eng;
+			}
+		`,
+		"featured by the target's type": `
+			package Pk {
+				class Engine;
+				feature f : Engine featured by Engine;
+				feature g : Engine :>> f featured by Engine;
+			}
+		`,
+		"redefined from inside a type": `
+			package Pk {
+				part def Engine;
+				part def Car { part engine : Engine; }
+				part def Truck :> Car { part :>> engine; }
+				part truck : Truck { part :>> engine; }
+			}
+		`,
+	}
+	for name, src := range cases {
+		t.Run(name, func(t *testing.T) {
+			if diags := only(constraintDiags(t, src), "subsetting-featuring-types"); len(diags) != 0 {
+				t.Fatalf("expected no accessibility diagnostic, got %v", diags)
+			}
+		})
+	}
+}

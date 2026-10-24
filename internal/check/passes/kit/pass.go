@@ -88,6 +88,10 @@ type Batch struct {
 	// Record has each analysis record what it read of the index, for the
 	// interface record written from it; off, nothing of a run is kept.
 	Record bool
+	// Collisions is the import-collision memo the batch's analyses share, so
+	// a chain of imports is settled once for the batch rather than once per
+	// document; nil leaves each analysis to settle its own.
+	Collisions *resolve.SharedCollisions
 }
 
 // Options is the analysis configuration of one run. The zero value is what
@@ -115,6 +119,9 @@ func (c *Context) InBatch(b *Batch) {
 	if b != nil {
 		c.gathers = b.Gathers
 		c.Source = b.Source
+		if b.Collisions != nil {
+			c.Resolver().ShareCollisions(b.Collisions)
+		}
 	}
 }
 
@@ -148,6 +155,20 @@ func (c *Context) DownstreamSpan(span source.Span) bool {
 	}
 	for _, f := range c.failures {
 		if f.Offset >= span.Offset && f.End() <= span.End() {
+			return true
+		}
+	}
+	return false
+}
+
+// DownstreamAnchoredIn reports whether a blocking failure begins inside span (within it, or
+// anchored on the declaration it heads); a fault on an enclosing declaration begins before it.
+func (c *Context) DownstreamAnchoredIn(span source.Span) bool {
+	if c == nil {
+		return false
+	}
+	for _, f := range c.failures {
+		if f.Offset >= span.Offset && f.Offset < span.End() {
 			return true
 		}
 	}

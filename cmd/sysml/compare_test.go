@@ -40,7 +40,7 @@ func TestSummarisedMigrationResultsThroughCLI(t *testing.T) {
 		t.Fatalf("exit status = %d, want 0\n%s", compared.status, compared.output())
 	}
 	for _, want := range []string{
-		"compare 'Group 0' — 15 stored run(s) over 11 snapshot(s) in Results; 3 run(s) by OpenSysML, draws average, seed 1\n",
+		"compare Model::'Group 0' — 15 stored run(s) over 11 snapshot(s) in Results; 3 run(s) by OpenSysML, draws average, seed 1\n",
 		"p          | tool                 | 1    | 0.5   | 0.5               | 0.5   | 0.5   | 0.5",
 		"t          | tool                 | 13   |       | 4.615384615384615 |       |       |",
 		"           | OpenSysML (target.t) | 3    | 3.0   | 3.0               | 3.0   | 3.0   | 3.0",
@@ -52,11 +52,11 @@ func TestSummarisedMigrationResultsThroughCLI(t *testing.T) {
 		"note: 2 snapshot(s) record a MonteCarloAnalysis statistic that is no one number, so they hold no statistics",
 		"u          | tool                 | 1    | 9.0   | 9.0               | 9.0   | 9.0   | 9.0",
 		"note: 2 snapshot(s) record MonteCarloAnalysis statistics whose Mean no value of t holds, though the analysis binds the two, so the statistics are not read",
-		"compare 'Group 1' — no stored run in Empty; 1 run(s) by OpenSysML, draws average, seed 1\n",
+		"compare Model::'Group 1' — no stored run in Empty; 1 run(s) by OpenSysML, draws average, seed 1\n",
 		"t          | tool (no stored result to compare) | 0    |     |      |     |     |",
 		"           | OpenSysML (target.t)               | 1    | 3.0 | 3.0  | 3.0 | 3.0 | 3.0",
 		"note: the configuration states no numberOfRuns, so one run is made, as its tool makes without one; -runs <number> makes more",
-		"compare 'Group 2' — 1 stored run(s) in Unbound Results; 1 run(s) by OpenSysML, draws average, seed 1\n",
+		"compare Model::'Group 2' — 1 stored run(s) in Unbound Results; 1 run(s) by OpenSysML, draws average, seed 1\n",
 		"note: 'Unbound Analysis' inherits MonteCarloAnalysis but binds its Mean to no value of its own, so its statistics summarise no observable",
 	} {
 		if !strings.Contains(compared.stdout, want) {
@@ -94,7 +94,7 @@ func TestMigrationResultsThroughCLI(t *testing.T) {
 		t.Fatalf("sidecar = %s", body)
 	}
 	cfg := results.Configurations[0]
-	if cfg.Name != "'Group 0'" || cfg.Runs != 4 || cfg.Draws != "average" || cfg.Target != "target" || cfg.Behavior != "run" ||
+	if cfg.Name != "Model::'Group 0'" || cfg.Runs != 4 || cfg.Draws != "average" || cfg.Target != "target" || cfg.Behavior != "run" ||
 		cfg.Location != "Results" || strings.Join(cfg.Observables, ",") != "pA,pB" || len(cfg.Snapshots) != 4 {
 		t.Errorf("configuration = %+v", cfg)
 	}
@@ -107,7 +107,7 @@ func TestMigrationResultsThroughCLI(t *testing.T) {
 		t.Fatalf("exit status = %d, want 0\n%s", configured.status, configured.output())
 	}
 	for _, want := range []string{
-		"compare 'Group 0' — 4 stored run(s) in Results; 4 run(s) by OpenSysML, draws average\n",
+		"compare Model::'Group 0' — 4 stored run(s) in Results; 4 run(s) by OpenSysML, draws average\n",
 		"pA         | tool                  | 2    | 1.0   | 1.0   | 1.0   | 1.0   | 1.0",
 		"           | OpenSysML (target.pA) | 4    | 1.0   | 1.0   | 1.0   | 1.0   | 1.0",
 		"           | difference            |      | +0.0% | +0.0% | +0.0% | +0.0% | +0.0%",
@@ -129,7 +129,7 @@ func TestMigrationResultsThroughCLI(t *testing.T) {
 		t.Fatalf("exit status = %d, want 0\n%s", overridden.status, overridden.output())
 	}
 	for _, want := range []string{
-		"compare 'Group 0' — 4 stored run(s) in Results; 3 run(s) by OpenSysML, draws random, seed 5, clock step 0.5 s\n",
+		"compare Model::'Group 0' — 4 stored run(s) in Results; 3 run(s) by OpenSysML, draws random, seed 5, clock step 0.5 s\n",
 		"           | OpenSysML (target.pA) | 3    | 1.0       | 1.0   | 1.0     | 1.0    | 1.0",
 		"pB         | tool                  | 4    | 0.0       | 1.0   | 0.25    | 3.0    | 3.0",
 		"           | difference            |      | +1 (of 0) | +0.0% | +300.0% | -66.7% | -66.7%",
@@ -154,7 +154,7 @@ func TestMigrationResultsThroughCLI(t *testing.T) {
 	if err := json.Unmarshal([]byte(asJSON.stdout), &report); err != nil {
 		t.Fatalf("-json wrote no JSON: %v\n%s", err, asJSON.output())
 	}
-	if report.Status != "holds" || len(report.Checks) != 1 || report.Checks[0].Subject != "compare 'Group 0'" || len(report.Checks[0].Lines) < 8 {
+	if report.Status != "holds" || len(report.Checks) != 1 || report.Checks[0].Subject != "compare Model::'Group 0'" || len(report.Checks[0].Lines) < 8 {
 		t.Errorf("-json report = %s", asJSON.stdout)
 	}
 

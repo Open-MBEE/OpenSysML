@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{"outputs": {"x": {"type": "Integer", "value": 1}, "result": {"type": "Integer", "value": 1}}},
+		{"outputs": {"x": {"type": "Integer", "value": 2}, "result": {"type": "Integer", "value": 2}}}
+	],
+	"admissible": "A sibling node's pin read by its path stands on what the pin stands on",
+	"orderDependent": {"x": 2, "result": 2, "step.v": 2}
+}

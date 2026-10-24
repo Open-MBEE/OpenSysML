@@ -143,7 +143,7 @@ func scalarResult(op ast.OperatorKind, res semantics.Value) (scalar, error) {
 	out, ok := scalarOfConst(res)
 	if !ok {
 		return scalar{}, fmt.Errorf("compiled '%s' produced a non-scalar %s", op,
-			describeValue(Value{Kind: ValConst, Const: res}))
+			DescribeValue(Value{Kind: ValConst, Const: res}))
 	}
 	return out, nil
 }
@@ -668,9 +668,9 @@ func (ctx *Context) libraryArgs(n int) []Value {
 // scalarOfResult unboxes a library function's result, which a function the
 // tier calls keeps on the scalar lattice.
 func scalarOfResult(name string, res Value) (scalar, error) {
-	out, ok := scalarOf(res)
+	out, ok := scalarOf(soleElement(res))
 	if !ok {
-		return scalar{}, fmt.Errorf("compiled call of %s produced a non-scalar %s", name, describeValue(res))
+		return scalar{}, fmt.Errorf("compiled call of %s produced a non-scalar %s", name, DescribeValue(res))
 	}
 	return out, nil
 }

@@ -1,10 +1,12 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -364,7 +366,7 @@ func (shape *calcShape) designatedOutput() (calcOutput, error) {
 	case 0:
 		// The calc computed nothing to hand back: a body that fell off its end,
 		// or outputs none of which states a value.
-		return calcOutput{}, fmt.Errorf("%w: %s ended without a return", ErrCalcNoReturn, shape.Label)
+		return calcOutput{}, fmt.Errorf("%w: %s ended without a return", errCalcNoReturn, shape.Label)
 	case 1:
 		return valued[0], nil
 	default:
@@ -374,7 +376,7 @@ func (shape *calcShape) designatedOutput() (calcOutput, error) {
 		}
 		return calcOutput{}, fmt.Errorf(
 			"%w: %s computes %d output features (%s) and designates no result; read them from a usage instead: %s",
-			ErrAmbiguousResult, shape.Label, len(valued), strings.Join(names, ", "), shape.usageSpelling(valued[0].Name),
+			errAmbiguousResult, shape.Label, len(valued), strings.Join(names, ", "), shape.usageSpelling(valued[0].Name),
 		)
 	}
 }
@@ -385,6 +387,9 @@ func (shape *calcShape) usageSpelling(output string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s c : %s {", shape.Kind, shape.Name)
 	for _, param := range shape.Params {
+		if param.IsActor {
+			continue
+		}
 		fmt.Fprintf(&b, " in %s = ...;", param.Name)
 	}
 	fmt.Fprintf(&b, " } then read c.%s", output)
@@ -435,6 +440,9 @@ type calcRun struct {
 	perf *actionFrame
 	// boundInputs are the values the run's input parameters were bound to.
 	boundInputs []InputBinding
+	// unsupplied names the parameters nothing bound: a read of one is undetermined,
+	// whatever the body ran with (SysML v2 §7.17.2: the caller binds a parameter).
+	unsupplied map[string]bool
 	// occurrence is the performance instance a definition invocation's `this`
 	// denotes, shared with the invocation so its output bindings see the one
 	// made there; nil for a usage, which materializes none.
@@ -457,7 +465,7 @@ func boundInputs(shape *calcShape, env frame) []InputBinding {
 	var inputs []InputBinding
 	for i := range shape.Params {
 		param := &shape.Params[i]
-		if param.IsSubject {
+		if param.IsSubject || param.IsActor {
 			continue
 		}
 		if value, ok := env.lookup(param.Name); ok {
@@ -507,12 +515,12 @@ type CalcOutputValue struct {
 	Value Value
 }
 
-// CalcUsageOutput evaluates a calc usage and returns the value of one of its
+// calcUsageOutput evaluates a calc usage and returns the value of one of its
 // output features. The usage's inputs bind from its own member values, falling
 // back to the defaults declared along its specialization chain; self, when
 // non-null, is the object the usage is a feature of, whose feature values the inputs may
 // name. Reading several outputs of the same usage runs its body once.
-func (ctx *Context) CalcUsageOutput(sym *symbols.Symbol, name string, scope *symbols.Scope, self *Instance) (Value, error) {
+func (ctx *Context) calcUsageOutput(sym *symbols.Symbol, name string, scope *symbols.Scope, self *Instance) (Value, error) {
 	defer ctx.beginRun()()
 
 	run, err := ctx.calcUsageRun(NewEvalContextIn(ctx, scope, self), sym)
@@ -573,9 +581,9 @@ func (ctx *Context) caseReadWaits(start *calcUsageStart) error {
 		what = "a message"
 	}
 	err := fmt.Errorf("%w: %s waits for %s (%s) while its outputs are read, which only a case performed as a step may",
-		ErrCaseReadWaits, start.shape.Label, what, wait.exec.describeWaits(wait.perf))
+		errCaseReadWaits, start.shape.Label, what, wait.exec.describeWaits(wait.perf))
 	if start.ec.trace != nil {
-		start.ec.trace.RecordCalculationExitError(start.shape.Kind, start.shape.Name, err)
+		start.ec.trace.recordCalculationExitError(start.shape.Kind, start.shape.Name, err)
 	}
 	return calcFrame(start.shape.Kind, start.shape.Name, err)
 }
@@ -595,6 +603,8 @@ type calcUsageStart struct {
 	// deferResults leaves the results ending the steps unrun, for a Monte Carlo to
 	// evaluate over its sample once the run's observation is in.
 	deferResults bool
+	// unsupplied names the parameters no argument and no default bound.
+	unsupplied map[string]bool
 	// inputs are the values each input parameter was bound to, captured before the
 	// body runs so a body's assignments cannot rewrite what it was given.
 	inputs []InputBinding
@@ -606,7 +616,7 @@ type calcUsageStart struct {
 func (ctx *Context) beginCalcUsage(reader *EvalContext, sym *symbols.Symbol) (*calcUsageStart, *calcRun, error) {
 	if !isCalcUsageSymbol(sym) {
 		return nil, nil, fmt.Errorf(
-			"%w: %s does not evaluate output features", ErrNotACalcUsage, ctx.qualifiedSymbolName(sym),
+			"%w: %s does not evaluate output features", errNotACalcUsage, ctx.QualifiedName(sym),
 		)
 	}
 	if err := ctx.checkCalcTyping(sym); err != nil {
@@ -630,7 +640,7 @@ func (ctx *Context) beginCalcUsage(reader *EvalContext, sym *symbols.Symbol) (*c
 	}
 	if run, ok := ctx.run.calcUsageRuns[reader.activation][key]; ok {
 		if ctx.trace != nil {
-			ctx.trace.RecordCalcUsageReuse(shape.Kind, shape.Name)
+			ctx.trace.recordCalcUsageReuse(shape.Kind, shape.Name)
 		}
 		return nil, run, nil
 	}
@@ -669,7 +679,7 @@ func (ctx *Context) startCalcUsage(shape *calcShape, key calcUsageKey, reader *E
 				if value, held := start.occurrence.params.lookup(name); held {
 					if err := inst.BindFeatureValue(ctx, name, value); err != nil {
 						return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
-							ErrActionPerformanceOccurrence, name, inst.ID, err)
+							errActionPerformanceOccurrence, name, inst.ID, err)
 					}
 				}
 			}
@@ -686,7 +696,13 @@ func (ctx *Context) startCalcUsage(shape *calcShape, key calcUsageKey, reader *E
 			if start.occurrence.inst != nil {
 				return start.occurrence.inst, nil
 			}
-			inst, err := ctx.occurrenceOf(start.key.sym)
+			var inst *Instance
+			var err error
+			if reader.self != nil {
+				inst, err = ctx.usageOccurrenceOf(start.key, reader.self)
+			} else {
+				inst, err = ctx.occurrenceOf(start.key.sym)
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -706,6 +722,7 @@ func (ctx *Context) startCalcUsage(shape *calcShape, key calcUsageKey, reader *E
 		return nil, err
 	}
 	start.inputs = boundInputs(shape, start.env)
+	start.unsupplied = shape.unsuppliedParameters(args)
 	start.host = &calcStmtHost{ctx: ctx, shape: shape, self: reader.self, occ: start.occurrence}
 	// A usage nested in a behavior body computes over that body's bindings, as
 	// an invocation of it does.
@@ -756,7 +773,7 @@ func (ctx *Context) finishCalcUsage(start *calcUsageStart) (*calcRun, error) {
 // read while its own body runs would run itself without end, so that is an error.
 func (ctx *Context) enterCalcUsage(shape *calcShape, key calcUsageKey) (leave func(), err error) {
 	if running := ctx.calcUsageRunning[key]; running != nil && running.reads(shape.Sym) {
-		return nil, fmt.Errorf("%w: %s reads itself while its body runs", ErrCalcUsageRecursion, shape.Label)
+		return nil, fmt.Errorf("%w: %s reads itself while its body runs", errCalcUsageRecursion, shape.Label)
 	}
 	ctx.calcUsageRunning[key] = shape
 	return func() { delete(ctx.calcUsageRunning, key) }, nil
@@ -773,13 +790,13 @@ func (shape *calcShape) reads(sym *symbols.Symbol) bool {
 // scope the declaration was written in.
 func (ctx *Context) bodyUsageSymbol(stmt lower.DeclareUsage) (*symbols.Symbol, error) {
 	if ctx.model.resolver == nil {
-		return nil, fmt.Errorf("%w: calc usage %s needs a resolved model", ErrNotACalcUsage, stmt.Name)
+		return nil, fmt.Errorf("%w: calc usage %s needs a resolved model", errNotACalcUsage, stmt.Name)
 	}
 	sym, ok := ctx.lookupName(stmt.Scope, stmt.Name)
 	if !ok || !isCalcUsageSymbol(sym) {
 		return nil, fmt.Errorf(
 			"%w: calc usage %s is declared in this body but is not resolved to one",
-			ErrNotACalcUsage, stmt.Name,
+			errNotACalcUsage, stmt.Name,
 		)
 	}
 	if err := ctx.checkCalcTyping(sym); err != nil {
@@ -809,7 +826,7 @@ func (ctx *Context) forgetCalcUsage(activation int64, sym *symbols.Symbol) {
 func (ctx *Context) bindCalcUsage(shape *calcShape, reader *EvalContext, args calcArgs, occurrence *calcOccurrence) (*EvalContext, *EvalContext, frame, error) {
 	ec := NewEvalContextIn(ctx, ctx.calcScope(shape.BodyOwner, shape.Sym, reader.scope), reader.self)
 	if ec.trace != nil {
-		ec.trace.RecordCalculationEnter(shape.Kind, shape.Name)
+		ec.trace.recordCalculationEnter(shape.Kind, shape.Name)
 	}
 	// A parameter default written `this` reads the run's own occurrence, made on
 	// that first read, as an invoked def's does; the run's bindings then mirror
@@ -840,7 +857,7 @@ func (ctx *Context) bindCalcUsage(shape *calcShape, reader *EvalContext, args ca
 	// value the usage or its definition declares for it.
 	if err := ctx.bindCalcParameters(shape, ec, args, reader.scope, env, nested, occurrence); err != nil {
 		if ec.trace != nil {
-			ec.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
+			ec.trace.recordCalculationExitError(shape.Kind, shape.Name, err)
 		}
 		return nil, nil, frame{}, err
 	}
@@ -927,7 +944,7 @@ func (ctx *Context) checkCalcTyping(sym *symbols.Symbol) error {
 		}
 		return fmt.Errorf(
 			"%w: calc usage %s specializes %s, which is not a calc",
-			ErrNotACalc, ctx.qualifiedSymbolName(sym), ctx.qualifiedSymbolName(super),
+			ErrNotACalc, ctx.QualifiedName(sym), ctx.QualifiedName(super),
 		)
 	}
 	return nil
@@ -952,6 +969,7 @@ func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
 	run := newCalcRun(shape, reader.scope, reader.self, env)
 	run.outer = nested
 	run.activation, run.perf, run.boundInputs, run.occurrence = engine.activation, host.performance(), start.inputs, start.occurrence
+	run.unsupplied = start.unsupplied
 	// A definition's occurrence lives for the whole run: a run abandoned to an
 	// error has nothing left to read, so its occurrence ends here; one returned
 	// is its caller's to end after the outputs and verdicts are read.
@@ -969,7 +987,7 @@ func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
 		result, returned, outputs, err := ctx.computeCalcByTool(shape, ec.scope, env.lookup)
 		if err != nil {
 			if ec.trace != nil {
-				ec.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
+				ec.trace.recordCalculationExitError(shape.Kind, shape.Name, err)
 			}
 			return nil, calcFrame(shape.Kind, shape.Name, err)
 		}
@@ -979,9 +997,9 @@ func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
 		}
 		if ec.trace != nil {
 			if returned {
-				ec.trace.RecordCalculationExit(shape.Kind, shape.Name, result)
+				ec.trace.recordCalculationExit(shape.Kind, shape.Name, result)
 			} else {
-				ec.trace.RecordCalcUsageExit(shape.Kind, shape.Name)
+				ec.trace.recordCalcUsageExit(shape.Kind, shape.Name)
 			}
 		}
 		kept = true
@@ -1000,15 +1018,15 @@ func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
 			return nil, err
 		}
 		if ec.trace != nil {
-			ec.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
+			ec.trace.recordCalculationExitError(shape.Kind, shape.Name, err)
 		}
 		return nil, calcFrame(shape.Kind, shape.Name, err)
 	}
 	if ec.trace != nil {
 		if returned {
-			ec.trace.RecordCalculationExit(shape.Kind, shape.Name, result)
+			ec.trace.recordCalculationExit(shape.Kind, shape.Name, result)
 		} else {
-			ec.trace.RecordCalcUsageExit(shape.Kind, shape.Name)
+			ec.trace.recordCalcUsageExit(shape.Kind, shape.Name)
 		}
 	}
 
@@ -1052,9 +1070,12 @@ func (run *calcRun) output(ctx *Context, name string) (Value, error) {
 	}
 	out, ok := run.shape.output(name)
 	if !ok {
+		if value, answered, err := run.inheritedResult(ctx, name); answered {
+			return value, err
+		}
 		return Value{}, fmt.Errorf(
 			"%w: %s declares no output %s (it declares: %s)",
-			ErrUnknownOutput, run.shape.Label, name, run.shape.outputNames(),
+			errUnknownOutput, run.shape.Label, name, run.shape.outputNames(),
 		)
 	}
 	value, err := run.value(ctx, out)
@@ -1062,9 +1083,25 @@ func (run *calcRun) output(ctx *Context, name string) (Value, error) {
 		return Value{}, err
 	}
 	if ctx.trace != nil {
-		ctx.trace.RecordCalcOutput(run.shape.Name, name, value)
+		ctx.trace.recordCalcOutput(run.shape.Name, name, value)
 	}
 	return value, nil
+}
+
+// inheritedResult answers a read of a result parameter the calc inherits rather
+// than declares (`Case::result`, `VerificationCase::verdict`): the result parameter
+// the calc declares redefines it and answers for it; a calc declaring none binds it no value.
+func (run *calcRun) inheritedResult(ctx *Context, name string) (Value, bool, error) {
+	sym, found := ctx.model.semantics.LookupMember(run.shape.Sym, name)
+	if !found || !resultParameter(sym) {
+		return Value{}, false, nil
+	}
+	if out := run.shape.resultOutput(); out != nil && out.Name != "" && out.Name != name {
+		value, err := run.output(ctx, out.Name)
+		return value, true, err
+	}
+	feat := ctx.effectiveFeature(name, sym, run.shape.Sym)
+	return undeterminedFeatureValue(fmt.Sprintf("%s binds no value to %s", run.shape.Label, name), feat.Multiplicity, sym), true, nil
 }
 
 // readBodyOutput returns a calc output after deriving its body-local dependencies.
@@ -1109,12 +1146,12 @@ func (run *calcRun) value(ctx *Context, out calcOutput) (Value, error) {
 		}
 	}
 	if out.Value == nil {
-		return Value{}, &UnassignedOutputError{Output: run.outputDescription(out), Calc: run.shape.Label}
+		return Value{}, &unassignedOutputError{Output: run.outputDescription(out), Calc: run.shape.Label}
 	}
 	if run.computing[out.Name] {
 		return Value{}, fmt.Errorf(
 			"%w: output %s of %s depends on itself",
-			ErrCyclicOutput, run.outputDescription(out), run.shape.Label,
+			errCyclicOutput, run.outputDescription(out), run.shape.Label,
 		)
 	}
 	run.computing[out.Name] = true
@@ -1235,6 +1272,9 @@ func (ec *EvalContext) evalCalcUsageMembers(sym *symbols.Symbol, parts []ast.Nam
 	}
 	run, err := ec.ctx.calcUsageRun(ec, sym)
 	if err != nil {
+		if value, ok := ec.ctx.unboundSubjectRead(sym, parts[0].Text, err); ok {
+			return ec.chainMemberValue(value, parts[1:], parts[0].Text)
+		}
 		return Value{}, err
 	}
 	for {
@@ -1256,11 +1296,147 @@ func (ec *EvalContext) evalCalcUsageMembers(sym *symbols.Symbol, parts []ast.Nam
 			)
 		}
 	}
-	value, err := run.output(ec.ctx, parts[0].Text)
+	name := parts[0].Text
+	if value, ok, err := run.memberValue(ec.ctx, name); ok {
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.chainMemberValue(value, parts[1:], name)
+	}
+	value, err := run.output(ec.ctx, name)
+	if errors.Is(err, errUnknownOutput) {
+		if value, ok, readErr := ec.occurrenceMember(run, parts); ok {
+			return value, readErr
+		}
+	}
 	if err != nil {
 		return Value{}, err
 	}
-	return ec.chainMemberValue(value, parts[1:], parts[0].Text)
+	return ec.chainMemberValue(value, parts[1:], name)
+}
+
+// memberValue reads a member of the usage that is no output — a parameter (subject,
+// actor or input) or a body local as the run bound it; undetermined where it bound none.
+func (run *calcRun) memberValue(ctx *Context, name string) (Value, bool, error) {
+	if _, isOutput := run.shape.output(name); isOutput {
+		return Value{}, false, nil
+	}
+	param := run.shape.parameter(name)
+	if param == nil && !run.shape.declaresUsage(name) {
+		if value, ok := run.lookupBody(name); ok {
+			return value, true, nil
+		}
+		return Value{}, false, nil
+	}
+	if value, ok := run.lookup(name); ok && !run.unsupplied[name] {
+		return value, true, nil
+	}
+	var member *symbols.Symbol
+	if param != nil {
+		member = param.Sym
+	}
+	var count semantics.Range
+	if member != nil {
+		count = ctx.effectiveFeature(name, member, run.shape.Sym).Multiplicity
+	}
+	return undeterminedFeatureValue(fmt.Sprintf("%s binds no value to %s", run.shape.Label, name), count, member), true, nil
+}
+
+// unsuppliedParameters names the parameters args and the declared defaults leave
+// unbound; the subject binds through its own rule and is never among them.
+func (shape *calcShape) unsuppliedParameters(args calcArgs) map[string]bool {
+	var out map[string]bool
+	positional := 0
+	for i := range shape.Params {
+		param := &shape.Params[i]
+		// An actor takes no positional slot, so the cursor passes it by.
+		supplied := false
+		if !param.IsActor {
+			supplied = positional < len(args.positional)
+			positional++
+		}
+		if param.Default != nil || param.IsSubject || supplied {
+			continue
+		}
+		if _, named := args.named[param.Name]; named {
+			continue
+		}
+		if out == nil {
+			out = make(map[string]bool)
+		}
+		out[param.Name] = true
+	}
+	return out
+}
+
+// lookupBody answers a local the run's body statements left bound, never a parameter.
+func (run *calcRun) lookupBody(name string) (Value, bool) {
+	for i := len(run.bodyFrames) - 1; i >= 0; i-- {
+		if value, ok := run.bodyFrames[i].lookup(name); ok {
+			return value, true
+		}
+	}
+	return Value{}, false
+}
+
+// unboundSubjectRead answers a read of the subject the case binds nothing to as
+// undetermined — a feature holding no value — though the case cannot run for want of it.
+func (ctx *Context) unboundSubjectRead(sym *symbols.Symbol, name string, err error) (Value, bool) {
+	var unbound *subjectUnboundError
+	if !errors.As(err, &unbound) || unbound.Subject != name {
+		return Value{}, false
+	}
+	shape, shapeErr := ctx.calcShapeOf(sym)
+	if shapeErr != nil || unbound.Element != shape.Name {
+		return Value{}, false
+	}
+	param, ok := shape.subjectParameter()
+	if !ok || param.Name != name {
+		return Value{}, false
+	}
+	feat := ctx.effectiveFeature(name, param.Sym, sym)
+	reason := fmt.Sprintf("%s binds no value to its subject %s", shape.Label, name)
+	return undeterminedFeatureValue(reason, feat.Multiplicity, param.Sym), true
+}
+
+// usageOccurrenceOf returns the occurrence the usage is on the object it is a feature
+// of, materializing it once per object: two owners read two objectives, two parts.
+func (ctx *Context) usageOccurrenceOf(key calcUsageKey, owner *Instance) (*Instance, error) {
+	if id, ok := ctx.usageOccurrences[key]; ok {
+		if inst, live := ctx.instances[id]; live {
+			return inst, nil
+		}
+	}
+	mark := len(ctx.created)
+	inst, err := ctx.materialize(key.sym, 0, owner, key.sym.Name)
+	if err != nil {
+		ctx.abandonInstancesSince(mark)
+		return nil, err
+	}
+	ctx.usageOccurrences[key] = inst.ID
+	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
+		return nil, err
+	}
+	return inst, nil
+}
+
+// occurrenceMember reads a feature the run holds no binding for — the objective, a
+// requirement or part the usage declares — from the usage's occurrence, as on any object.
+func (ec *EvalContext) occurrenceMember(run *calcRun, parts []ast.NameSegment) (Value, bool, error) {
+	name := parts[0].Text
+	sym, found := ec.ctx.model.semantics.LookupMember(run.shape.Sym, name)
+	if !found || declaresType(sym) || run.occurrence == nil || run.occurrence.materialize == nil {
+		return Value{}, false, nil
+	}
+	inst, err := run.occurrence.materialize()
+	if err != nil {
+		return Value{}, true, err
+	}
+	if _, carried := inst.FeatureValues[name]; !carried {
+		return Value{}, false, nil
+	}
+	value, err := ec.chainFeatureValue(inst, name, parts[1:], name)
+	return value, true, err
 }
 
 // nestedUsage is the evaluation of a calc or analysis usage this run's body

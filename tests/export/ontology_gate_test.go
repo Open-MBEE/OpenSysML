@@ -17,8 +17,8 @@ import (
 const knownViolationsFile = "testdata/ontology-known-violations.txt"
 
 // TestGoldenGraphsMatchOntology checks every golden Turtle graph against the
-// generated ontology table. The fixtures are read from disk rather than embedded,
-// so the gate keeps working when element identity changes underneath it.
+// generated ontology table. The graphs are converted from the models rather than
+// embedded, so the gate keeps working when element identity changes underneath it.
 func TestGoldenGraphsMatchOntology(t *testing.T) {
 	known, err := readKnownViolations(knownViolationsFile)
 	if err != nil {
@@ -28,15 +28,8 @@ func TestGoldenGraphsMatchOntology(t *testing.T) {
 	total := 0
 	occurrences := make(map[string]int)
 	examples := make(map[string]ontology.Violation)
-	for _, path := range graphs {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		graph, err := rdf.ParseTurtle(data)
-		if err != nil {
-			t.Fatalf("%s: %v", path, err)
-		}
+	for _, golden := range graphs {
+		graph := golden.graph
 		for _, violation := range ontology.Check(graph) {
 			key := violation.Key()
 			occurrences[key]++
@@ -70,15 +63,8 @@ func TestGoldenGraphsMatchOntology(t *testing.T) {
 // on a dependency or a subject — states its owner but no owningNamespace.
 func TestOwningNamespaceNamesANamespace(t *testing.T) {
 	relationshipOwned := 0
-	for _, path := range goldenGraphs(t) {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		graph, err := rdf.ParseTurtle(data)
-		if err != nil {
-			t.Fatalf("%s: %v", path, err)
-		}
+	for _, golden := range goldenGraphs(t) {
+		path, graph := golden.path, golden.graph
 		for _, triple := range graph.Triples() {
 			property := triple.Predicate.Value
 			if property != rdf.SysML+"owner" && property != rdf.SysML+"owningNamespace" {
@@ -102,19 +88,28 @@ func TestOwningNamespaceNamesANamespace(t *testing.T) {
 	}
 }
 
-// goldenGraphs returns the golden Turtle fixtures, failing when none are found so
-// that a moved fixture directory cannot make the gate vacuous.
-func goldenGraphs(t *testing.T) []string {
+// goldenGraph is the Turtle graph of one model under testdata/convert, the one
+// TestGoldenConversions pins, parsed back.
+type goldenGraph struct {
+	path  string
+	graph *rdf.Graph
+}
+
+// goldenGraphs converts every model under testdata/convert to its golden Turtle
+// graph, failing when none is found so a moved fixture directory cannot make the gate vacuous.
+func goldenGraphs(t *testing.T) []goldenGraph {
 	t.Helper()
-	paths, err := filepath.Glob(filepath.Join("testdata", "convert", "*.golden.ttl"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(paths) == 0 {
-		t.Fatal("no golden Turtle fixtures under testdata/convert")
-	}
+	paths := modelFiles(t)
 	sort.Strings(paths)
-	return paths
+	graphs := make([]goldenGraph, 0, len(paths))
+	for _, path := range paths {
+		graph, err := rdf.ParseTurtle([]byte(toTurtle(t, path)))
+		if err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		graphs = append(graphs, goldenGraph{path: path, graph: graph})
+	}
+	return graphs
 }
 
 // readKnownViolations reads the committed list: one violation key per line,

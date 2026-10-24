@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -14,8 +15,10 @@ import (
 // its name first and then reads the frame holding that feature, falling back to
 // the name walk only for a name resolution does not bind.
 
-// holdFeature records that held binds sym, and every feature sym redefines,
-// under name: a body written against the redefined feature reads the redefining one.
+// holdFeature records that held binds sym, and every feature sym redefines — by
+// clause or implicitly, as a step's parameter redefines its behavior's at the same
+// position — under name: a body written against the redefined feature reads the
+// redefining one.
 func (ctx *Context) holdFeature(held *map[*symbols.Symbol]string, sym *symbols.Symbol, name string) {
 	if sym == nil || name == "" {
 		return
@@ -27,8 +30,10 @@ func (ctx *Context) holdFeature(held *map[*symbols.Symbol]string, sym *symbols.S
 		return
 	}
 	(*held)[sym] = name
-	for _, redefined := range ctx.model.semantics.RedefinedFeatures(sym) {
-		ctx.holdFeature(held, redefined, name)
+	for _, redefined := range ctx.model.semantics.AllRedefinedFeatures(sym) {
+		if _, bound := (*held)[redefined]; !bound {
+			(*held)[redefined] = name
+		}
 	}
 }
 
@@ -87,20 +92,21 @@ func (ec *EvalContext) lookupHeld(qn *ast.QualifiedName) (val Value, ok bool, un
 		return Value{}, false, nil, nil
 	}
 	for i := len(ec.frames) - 1; i >= 0; i-- {
-		bound, holds := ec.frames[i].heldName(sym)
+		f := &ec.frames[i]
+		bound, holds := f.heldName(sym)
 		if !holds {
-			if ec.frames[i].bindsUnheld(name) {
+			if f.bindsUnheld(name) {
 				return Value{}, false, nil, nil
 			}
 			continue
 		}
-		if val, ok, err := ec.frames[i].read(ec.ctx, bound); err != nil {
+		if val, ok, err := f.read(ec.ctx, bound); err != nil {
 			return Value{}, false, nil, err
 		} else if ok {
 			return val, true, nil, nil
 		}
 		// A frame masking or hiding its binding leaves the read to the frames outside it.
-		if ec.frames[i].hides(bound) {
+		if f.hides(bound) {
 			continue
 		}
 		return Value{}, false, sym, nil
@@ -136,4 +142,86 @@ func (f *frame) holdsAnother(name string, sym *symbols.Symbol) bool {
 		}
 	}
 	return false
+}
+
+// shadowedInherited yields the features action inherits that a same-named member
+// hides without redefining them (KerML 1.0 §8.2.3.5.3): taken reports the names the
+// performance binds, bound the features it holds, the visible and the redefined.
+// A hidden feature is yielded with its ShadowedKey; library features stay behind
+// the seam as everywhere else.
+func (ctx *Context) shadowedInherited(
+	action *symbols.Symbol, taken func(string) bool, bound func(*symbols.Symbol) bool,
+	yield func(member *symbols.Symbol, usage *ast.Usage, key string),
+) {
+	if action == nil {
+		return
+	}
+	var seen map[*symbols.Symbol]bool
+	for _, general := range ctx.model.semantics.AllSupertypes(action) {
+		if ctx.libraryDeclared(general) {
+			continue
+		}
+		for _, member := range ctx.model.semantics.MembersOf(general) {
+			usage, ok := member.Decl.(*ast.Usage)
+			if !ok || !lower.DeclaresNodeFeature(usage) {
+				continue
+			}
+			name, _ := ast.EffectiveName(usage)
+			if name == "" {
+				name = member.Name
+			}
+			if name == "" || !taken(name) || seen[member] || bound(member) || ctx.libraryDeclared(member) {
+				continue
+			}
+			key := lower.ShadowedKey(member)
+			if key == "" {
+				continue
+			}
+			if seen == nil {
+				seen = make(map[*symbols.Symbol]bool)
+			}
+			seen[member] = true
+			yield(member, usage, key)
+		}
+	}
+}
+
+// heldKey is the name a frame binds the feature that name, written in scope,
+// resolves to — the ShadowedKey of a hidden inherited feature — or name itself when
+// the frame holds no other binding for it. A statement written in the frame's own
+// scope spells its features by name, so only one written elsewhere resolves.
+func heldKey(ctx *Context, held map[*symbols.Symbol]string, own, scope *symbols.Scope, name string) string {
+	if scope == nil || scope == own || len(held) == 0 {
+		return name
+	}
+	sym, ok := ctx.lookupName(scope, name)
+	if !ok || sym == nil {
+		return name
+	}
+	if key, holds := held[sym]; holds && key != name {
+		return key
+	}
+	return name
+}
+
+// heldDeclaration is the scope and name a write to the feature f binds under key
+// is checked against: a hidden inherited feature's own declaration, found through
+// the held index, else scope and key as written.
+func heldDeclaration(f *actionFrame, scope *symbols.Scope, key string) (*symbols.Scope, string) {
+	if f == nil || !f.shadowed {
+		return scope, key
+	}
+	return declarationHeldUnder(f.declared, scope, key)
+}
+
+// declarationHeldUnder finds the hidden feature held binds under key — the one
+// whose ShadowedKey it is, not a feature it redefines, which the index binds under
+// the same key — and answers its declaring scope and name.
+func declarationHeldUnder(held map[*symbols.Symbol]string, scope *symbols.Scope, key string) (*symbols.Scope, string) {
+	for sym, bound := range held {
+		if bound == key && sym.OwnerScope != nil && lower.ShadowedKey(sym) == key {
+			return sym.OwnerScope, sym.Name
+		}
+	}
+	return scope, key
 }

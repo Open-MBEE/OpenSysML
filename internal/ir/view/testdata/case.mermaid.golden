@@ -25,20 +25,20 @@ config:
 %% not represented: part def CaseExamples::Tool holds no case; a case rendering does not show it
 flowchart LR
   n0(["`*«use case»*
-**CaseExamples::'Provide Transportation' : 'Enter Vehicle'**`"])
+**'Provide Transportation'**`"])
   n1["`*«subject»*
-**vehicle : Vehicle**`"]
+**vehicle**`"]
   n2["`*«actor»*
-**driver : Person**`"]
+**driver**`"]
   n3@{ shape: notch-rect, label: "objective<br>Transport the vehicle and its passengers safely." }
-  n4(["`*«use case def»*
-**CaseExamples::'Add Fuel'**`"])
-  n5["`*«subject»*
-**vehicle : Vehicle**`"]
-  n6["`*«actor»*
-**fueler : Person**`"]
+  n4(["`*«use case»*
+**addFuel**`"])
+  n5["`*«actor»*
+**fueler**`"]
+  n6["`*«subject»*
+**vehicle**`"]
   n7(["`*«include use case»*
-**'enter vehicle' : 'Enter Vehicle'**`"])
+**'enter vehicle'**`"])
   n8["`*«subject»*
 **vehicle**`"]
   n9["`*«actor»*
@@ -50,20 +50,20 @@ flowchart LR
   n12["`*«actor»*
 **driver**`"]
   n13(["`*«analysis def»*
-**CaseExamples::FuelAnalysis**`"])
+**FuelAnalysis**`"])
   n14["`*«subject»*
-**vehicle : Vehicle**`"]
+**vehicle**`"]
   n15@{ shape: notch-rect, label: "objective<br>Estimate the fuel remaining after a journey." }
   n16(["`*«verification def»*
-**CaseExamples::FuelVerification**`"])
+**FuelVerification**`"])
   n17["`*«subject»*
-**vehicle : Vehicle**`"]
+**vehicle**`"]
   n18@{ shape: notch-rect, label: "objective" }
   n0 ---|"«subject»"| n1
   n2 --- n0
   n0 -.- n3
-  n4 ---|"«subject»"| n5
-  n6 --- n4
+  n5 --- n4
+  n4 ---|"«subject»"| n6
   n0 -.->|"«include»"| n4
   n0 -.->|"«include»"| n7
   n7 ---|"«subject»"| n8

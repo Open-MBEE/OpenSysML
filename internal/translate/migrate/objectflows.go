@@ -21,6 +21,8 @@ func (a *activity) successionFlow(e *sysmlv1.Element) bool {
 	var v bool
 	_, stamped := a.after[ownerNode(src)]
 	switch {
+	case a.handlers[ownerNode(src)] != nil || a.handlers[ownerNode(tgt)] != nil:
+		// The handler body never fires, so no flow orders it or follows it.
 	case stamped:
 	case a.through[src] || a.through[tgt]:
 		v = e.Type == "ObjectFlow" && !realGuard(e) && !a.dataOnly[e] && slices.Contains(a.succ[ownerNode(src)], e)
@@ -242,6 +244,17 @@ func (a *activity) hasParameter(n, pin *sysmlv1.Element) bool {
 	t := firstOwned(n, "target")
 	pins := slices.DeleteFunc(inputPins(n), func(p *sysmlv1.Element) bool { return n.Type == "CallOperationAction" && p == t })
 	return slices.Index(pins, pin) < ins
+}
+
+// hasResult reports whether a call's output pin is written: an untyped call
+// declares every pin, a typed one only those its callee has an out parameter for.
+func (a *activity) hasResult(n, pin *sysmlv1.Element) bool {
+	callee := a.typedCallee(n)
+	if callee == nil {
+		return true
+	}
+	_, outs := a.m.directedParameters(callee)
+	return slices.Index(outputPins(n), pin) < len(outs)
 }
 
 // typedCallee returns the definition a call is written typed by, as callBehavior

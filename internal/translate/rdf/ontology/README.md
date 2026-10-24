@@ -17,8 +17,11 @@ metamodel names it — `https://www.omg.org/spec/SysML#<DefiningClass>_<name>` �
 | `Name`, `DefiningClass`, `IRI` | the feature's name and the `EClass` declaring it |
 | `Kind` | `ObjectProperty` for an `EReference`, `DatatypeProperty` for an `EAttribute` |
 | `Range` | the referenced class, the attribute's enumeration, or the XSD/OWL datatype of its primitive (`Boolean` → `xsd:boolean`, `String` → `xsd:string`, `Integer` → `xsd:int`, `Real` → `owl:real`) |
+| `Lower` | `lowerBound`; absent is 0 |
+| `Default`, `HasDefault` | `defaultValueLiteral`, or `false` for a Boolean attribute stating none (EMF's primitive default); a string or enumeration attribute without one has no default |
 | `Many` | `upperBound="-1"`: the API JSON form spells it as an array |
 | `Ordered` | a multi-valued feature without `ordered="false"` (ecore's default is ordered) |
+| `Nonunique` | a multi-valued feature with `unique="false"` |
 | `Derived` | `derived="true"` |
 | `Redefines`, `Subsets` | the `redefines` / `subsets` annotations' references, as `Class::feature` |
 | `Opposite` | `eOpposite`, as `Class::feature` |
@@ -45,7 +48,15 @@ From the repository root:
 ```bash
 make ontology-table          # ./scripts/download-pilot-metamodel.sh && go run -C tools ./gen/ontology
 make ontology-table-check    # the same with -check, as CI runs it
+make metaclass-graph         # sysml -metaclass-graph -o sysml-metaclasses.ttl, from the committed table
+make metaclass-graph-check   # TestMetaclassGraphIsCurrent, as CI runs it
 ```
+
+`sysml-metaclasses.ttl` is the table's class hierarchy as an RDF vocabulary graph, written by
+`MetaclassGraph` (`hierarchy.go`): one `rdfs:Class` per metaclass, `rdfs:subClassOf` per declared
+parent, `sysx:abstract true` on the abstract ones. It is regenerated from the table, so a table
+change is followed by `make metaclass-graph`; `TestMetaclassGraphIsCurrent` fails until it is. See
+[docs/reference/rdf-mapping.md](../../../../docs/reference/rdf-mapping.md) § Metaclass hierarchy graph.
 
 `scripts/download-pilot-metamodel.sh` fetches the pinned pilot's `org.omg.sysml/model` into
 `build/pilot-metamodel/` and stamps it with the pin; the generator refuses a download whose stamp

@@ -450,7 +450,7 @@ func TestSequenceIndexIsNotAQuantity(t *testing.T) {
 	if _, err := evalIn(t, ctx, scope, "speeds#(4)"); !errors.Is(err, ErrIndexOutOfRange) {
 		t.Errorf("speeds#(4) error = %v, want ErrIndexOutOfRange", err)
 	}
-	if _, err := evalIn(t, ctx, scope, "speeds#(4)"); errors.Is(err, ErrNotAQuantity) {
+	if _, err := evalIn(t, ctx, scope, "speeds#(4)"); errors.Is(err, errNotAQuantity) {
 		t.Errorf("a sequence index is not a malformed quantity: %v", err)
 	}
 }
@@ -486,8 +486,8 @@ func TestQuantityAndIndexNotationsCoexist(t *testing.T) {
 	}
 	// A unit named where an index belongs stays a quantity error, since the
 	// bracket says the expression is a quantity.
-	if _, err := evalIn(t, ctx, scope, "speeds [m]"); !errors.Is(err, ErrNotAQuantity) {
-		t.Errorf("speeds [m] error = %v, want ErrNotAQuantity", err)
+	if _, err := evalIn(t, ctx, scope, "speeds [m]"); !errors.Is(err, errNotAQuantity) {
+		t.Errorf("speeds [m] error = %v, want errNotAQuantity", err)
 	}
 }
 
@@ -526,8 +526,8 @@ func TestNotAQuantityHintIsStatic(t *testing.T) {
 	} {
 		before := len(ctx.InstanceIDs())
 		_, err := evalIn(t, ctx, pkg.Scope, tc.src)
-		if !errors.Is(err, ErrNotAQuantity) {
-			t.Errorf("%s: error = %v, want ErrNotAQuantity", tc.src, err)
+		if !errors.Is(err, errNotAQuantity) {
+			t.Errorf("%s: error = %v, want errNotAQuantity", tc.src, err)
 			continue
 		}
 		if tc.want == "" && strings.Contains(err.Error(), hint) {
@@ -546,5 +546,30 @@ func TestNotAQuantityHintIsStatic(t *testing.T) {
 	}
 	if len(ctx.InstanceIDs()) == 0 {
 		t.Error("pick() materialized no object: the effect the diagnostic must not have is not observable")
+	}
+}
+
+// An open magnitude is a quantity's only where a number or a vector may be read from
+// it: a feature typed String, Boolean or by a quantity is no magnitude, bound or not.
+func TestOpenMagnitudeMustAdmitANumber(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+		private import ScalarValues::*;
+		private import ISQ::*;
+		private import SI::*;
+		attribute x : Real;
+		attribute n : Integer;
+		attribute label : String;
+		attribute flag : Boolean;
+		attribute m : MassValue;
+	}`))
+	scope := oneSymbol(t, idx, "test").Scope
+	for src, count := range map[string]string{"x [kg]": "[1]", "n [kg]": "[1]"} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+	for _, src := range []string{"label [kg]", "flag [kg]", "m [kg]"} {
+		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, errNotAQuantity) {
+			t.Errorf("%s error = %v, want ErrNotAQuantity", src, err)
+		}
 	}
 }

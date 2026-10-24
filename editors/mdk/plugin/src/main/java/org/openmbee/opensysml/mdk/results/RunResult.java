@@ -51,6 +51,15 @@ public record RunResult(
     Objects.requireNonNull(elapsed);
   }
 
+  /** The result with every outcome's label and element id renamed by {@code rename}. */
+  public RunResult withOutcomeNames(java.util.function.UnaryOperator<String> rename) {
+    List<Outcome> renamed = outcomes.stream()
+        .map(outcome -> new Outcome(rename.apply(outcome.label()), outcome.detail(), outcome.status(),
+            outcome.elementId() == null ? null : rename.apply(outcome.elementId())))
+        .toList();
+    return new RunResult(operation, path, subject, status, renamed, diagnostics, finalTime, schedule, elapsed);
+  }
+
   public RunResult withLeadingDiagnostics(List<Diagnostic> leading) {
     if (leading.isEmpty()) return this;
     List<Diagnostic> merged = new ArrayList<>(leading);

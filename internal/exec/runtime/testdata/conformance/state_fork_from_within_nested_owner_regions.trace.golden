@@ -1,18 +1,18 @@
-choice exiting work: next a(exit), a2(exit), b(exit) (unordered; took a(exit) first)
+choice exiting work: next a(exit), a2(exit), b(exit) (unordered; took a(exit) first; order-dependent: log)
 exit: a (exit action)
 stmt action body
   stmt assign log
       eval feature log -> "work(entry) inner(entry) a(entry) a2(entry) b(entry) "
       eval literal "a(exit) " -> "a(exit) "
     eval operator + -> "work(entry) inner(entry) a(entry) a2(entry) b(entry) a(exit) "
-choice exiting work: next a2(exit), b(exit) (unordered; took a2(exit) first)
+choice exiting work: next a2(exit), b(exit) (unordered; took a2(exit) first; order-dependent: log)
 exit: a2 (exit action)
 stmt action body
   stmt assign log
       eval feature log -> "work(entry) inner(entry) a(entry) a2(entry) b(entry) a(exit) "
       eval literal "a2(exit) " -> "a2(exit) "
     eval operator + -> "work(entry) inner(entry) a(entry) a2(entry) b(entry) a(exit) a2(exit) "
-choice exiting work: next inner(exit), b(exit) (unordered; took inner(exit) first)
+choice exiting work: next inner(exit), b(exit) (unordered; took inner(exit) first; order-dependent: log)
 exit: inner (exit action)
 stmt action body
   stmt assign log
@@ -30,13 +30,13 @@ stmt action body
       eval feature log -> "work(entry) inner(entry) a(entry) a2(entry) b(entry) a(exit) a2(exit) inner(exit) b(exit) "
       eval literal "T1(effect) " -> "T1(effect) "
     eval operator + -> "work(entry) inner(entry) a(entry) a2(entry) b(entry) a(exit) a2(exit) inner(exit) b(exit) T1(effect) "
-choice fork split: next split->c(effect), split->d(effect) (unordered; took split->c(effect) first)
+choice fork split: next split->c(effect), split->d(effect) (unordered; took split->c(effect) first; order-dependent: log)
 stmt action body
   stmt assign log
       eval feature log -> "work(entry) inner(entry) a(entry) a2(entry) b(entry) a(exit) a2(exit) inner(exit) b(exit) T1(effect) "
       eval literal "T1.1(effect) " -> "T1.1(effect) "
     eval operator + -> "work(entry) inner(entry) a(entry) a2(entry) b(entry) a(exit) a2(exit) inner(exit) b(exit) T1(effect) T1.1(effect) "
-choice fork split: next c(entry), split->d(effect) (unordered; took c(entry) first)
+choice fork split: next c(entry), split->d(effect) (unordered; took c(entry) first; order-dependent: log)
 enter: c (entry action)
 stmt action body
   stmt assign log
@@ -61,7 +61,7 @@ transition: c -> done
 exit: d
 enter: done
 transition: d -> done
-choice exiting work: next left.done(exit), right.done(exit) (unordered; took left.done(exit) first)
+choice exiting work: next left.done(exit), right.done(exit) (unordered; took left.done(exit) first; independent)
 exit: done
 exit: done
 exit: work (exit action)

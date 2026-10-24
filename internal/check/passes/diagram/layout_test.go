@@ -48,6 +48,7 @@ func TestDiagramLayoutWellFormedAnnotationsPass(t *testing.T) {
 	part def Loop {
 		part pump : Pump { @Layout { x = 10; y = 20; } }
 		part tank : Tank;
+		part valve : Pump { @Layout { collapsed = true; } }
 		connection supply connect pump to tank { @Route { points = (100, 20, 150, 60); } }
 	}
 	state def Machine {
@@ -388,6 +389,26 @@ func TestDiagramLayoutViewLocalAnnotationsFollowInheritedBehavior(t *testing.T) 
 	}
 }
 
+func TestDiagramLayoutParallelRegionIsDrawn(t *testing.T) {
+	src := layoutModel(`	state def Machine {
+		entry; then Active;
+		state Active parallel {
+			state r1 {
+				entry; then inside;
+				state inside;
+			}
+		}
+	}
+	view lifecycle : StandardViewDefinitions::StateTransitionView {
+		expose Machine;
+		metadata Layout about Machine::Active::r1 { x = 10; y = 20; width = 300; height = 100; }
+	}
+`)
+	if diags := layoutDiags(t, src); len(diags) != 0 {
+		t.Fatalf("got %d diagnostics, want none: %v", len(diags), diags)
+	}
+}
+
 // Every action body inherits one start from the library; a Layout naming it as
 // one body's positions that body's start alone, so the checker judges it by
 // whether the view draws that body, not by whether it draws any start.
@@ -437,6 +458,40 @@ func TestDiagramLayoutInheritedNodesJudgedPerBody(t *testing.T) {
 	}
 	wantLayoutDiag(t, src, diags[0], diag.SeverityWarning, "diagram-layout-unplaced", 13,
 		"Layout positions", "P::Base::s", "action rendering of view P::flow does not draw as a node")
+}
+
+// A start no succession leaves still exists in the body, so a view's Layout
+// about it places it: the renderer draws it as that body's initial node. One
+// naming the start of a body the view does not draw stays unplaced.
+func TestDiagramLayoutUnconnectedStartIsDrawn(t *testing.T) {
+	src := layoutModel(`	action def A { action a; }
+	action def B { action b; }
+	view flow : StandardViewDefinitions::ActionFlowView {
+		expose A;
+		metadata Layout about A::start { x = 1; y = 1; }
+		metadata Layout about B::start { x = 2; y = 2; }
+	}
+`)
+	diags := layoutDiags(t, src)
+	if len(diags) != 1 {
+		t.Fatalf("got %d diagnostics, want 1: %v", len(diags), diags)
+	}
+	wantLayoutDiag(t, src, diags[0], diag.SeverityWarning, "diagram-layout-unplaced", 9,
+		"Layout positions", "start", "action rendering of view P::flow does not draw as a node")
+}
+
+// A body declaring `action start` of its own draws it, so a view's Layout
+// about it is placed by that node like any declared member's.
+func TestDiagramLayoutDeclaredStartIsDrawn(t *testing.T) {
+	src := layoutModel(`	action def D { action start; action d; first start then d; }
+	view flow : StandardViewDefinitions::ActionFlowView {
+		expose D;
+		metadata Layout about D::start { x = 1; y = 1; }
+	}
+`)
+	if diags := layoutDiags(t, src); len(diags) != 0 {
+		t.Fatalf("got %d diagnostics, want none: %v", len(diags), diags)
+	}
 }
 
 func TestDiagramLayoutDuplicateViewLocalAnnotationWarnsOnTheSecond(t *testing.T) {
@@ -495,4 +550,25 @@ func TestDiagramLayoutReportsOnlyTheStatingDocument(t *testing.T) {
 	if got := len(only(diagsB, "diagram-layout-unplaced")); got != 1 {
 		t.Fatalf("got %d placement diagnostics in document B, want 1: %v", got, diagsB)
 	}
+}
+
+// A view's depth bound to anything but a non-negative integer literal is an
+// error naming the attribute, at the value; a well-formed one is silent.
+func TestViewDepthValueMustBeANonNegativeIntegerLiteral(t *testing.T) {
+	src := layoutModel(`	part def Pump;
+	view bounded { expose Pump; attribute depth = 2; render asTreeDiagram; }
+	view negative { expose Pump; attribute depth = -1; render asTreeDiagram; }
+	view real { expose Pump; attribute depth = 2.5; render asTreeDiagram; }
+`)
+	var got []diag.Diagnostic
+	for _, d := range w8dDiags(t, src) {
+		if d.Code == "view-depth-value" {
+			got = append(got, d)
+		}
+	}
+	if len(got) != 2 {
+		t.Fatalf("got %d view-depth-value diagnostics, want one each for negative and real: %v", len(got), got)
+	}
+	wantLayoutDiag(t, src, got[0], diag.SeverityError, "view-depth-value", 6, "view P::negative", "depth")
+	wantLayoutDiag(t, src, got[1], diag.SeverityError, "view-depth-value", 7, "view P::real", "depth")
 }

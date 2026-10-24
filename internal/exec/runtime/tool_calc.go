@@ -19,7 +19,7 @@ import (
 // ToolVariable is an input whose value held answers, every `out`/`inout` one an output,
 // and the result parameter is always an output — keyed by its ToolVariable name, else its
 // declared name, else `result`. The same refusals as a performance's call apply: an
-// unbound non-optional input is ErrUnboundParameter, a ToolVariable name two parameters
+// unbound non-optional input is errUnboundParameter, a ToolVariable name two parameters
 // carry is a ToolError. The name the result is bound under is returned with the call,
 // empty when the calc declares no result parameter — an out-only calc asks for none.
 func (ctx *Context) calcToolCall(shape *calcShape, scope *symbols.Scope, held func(param string) (Value, bool)) (*ToolCall, string, error) {
@@ -56,7 +56,7 @@ func (ctx *Context) calcToolCall(shape *calcShape, scope *symbols.Scope, held fu
 			variable = named
 		}
 		if other, taken := namedBy[variable]; taken {
-			return nil, "", &ToolError{Tool: tool, Kind: ToolAmbiguousVariable,
+			return nil, "", &ToolError{Tool: tool, Kind: toolAmbiguousVariable,
 				Detail: fmt.Sprintf("%s names both %s and %s of %s", variable, other, resultKey, shape.Label)}
 		}
 		call.Outputs = append(call.Outputs, ToolOutput{Variable: variable, Parameter: resultKey, Declared: result})
@@ -78,7 +78,7 @@ func (ctx *Context) addToolCallParameter(call *ToolCall, shape *calcShape, param
 		return nil
 	}
 	if other, taken := namedBy[variable]; taken {
-		return &ToolError{Tool: tool, Kind: ToolAmbiguousVariable,
+		return &ToolError{Tool: tool, Kind: toolAmbiguousVariable,
 			Detail: fmt.Sprintf("%s names both %s and %s of %s", variable, other, param.Symbol.Name, shape.Label)}
 	}
 	namedBy[variable] = param.Symbol.Name
@@ -88,7 +88,7 @@ func (ctx *Context) addToolCallParameter(call *ToolCall, shape *calcShape, param
 		optional := ctx.model.semantics.OptionalParameter(param.Symbol)
 		if !bound && !optional {
 			return fmt.Errorf("%w: %s: input parameter %s is bound by no argument",
-				ErrUnboundParameter, shape.Label, name)
+				errUnboundParameter, shape.Label, name)
 		}
 		// An optional input bound to null is omitted: nothing is sent for it,
 		// as an action's unbound optional sends none.
@@ -137,7 +137,7 @@ func (ctx *Context) computeCalcByTool(shape *calcShape, scope *symbols.Scope, he
 	if answer.Diverged {
 		ctx.note(ToolDivergence{
 			Tool:   tool,
-			Action: ctx.qualifiedSymbolName(shape.Tool.on),
+			Action: ctx.QualifiedName(shape.Tool.on),
 			File:   shape.Tool.on.DocName,
 			Span:   shape.Tool.on.DeclSpan,
 		})

@@ -53,8 +53,8 @@ func testSendTargetHoldsAValue(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, hostNotifying(
 		"in recipient : Integer;", "in recipient = 4;", "recipient",
 	), "test::Host")
-	if !errors.Is(err, ErrSendTargetNotObject) || !strings.Contains(err.Error(), `"recipient" holds 4, which is no object to address "recipient" to`) {
-		t.Fatalf("error = %v, want ErrSendTargetNotObject over a number", err)
+	if !errors.Is(err, errSendTargetNotObject) || !strings.Contains(err.Error(), `"recipient" holds [4], which is no object to address "recipient" to`) {
+		t.Fatalf("error = %v, want errSendTargetNotObject over a number", err)
 	}
 }
 
@@ -64,8 +64,8 @@ func testSendTargetHoldsNothing(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, hostNotifying(
 		"in recipient : Worker[0..1];", "in recipient = null;", "recipient",
 	), "test::Host")
-	if !errors.Is(err, ErrSendTargetNotObject) || !strings.Contains(err.Error(), `"recipient" holds null, which is no object`) {
-		t.Fatalf("error = %v, want ErrSendTargetNotObject over an empty parameter", err)
+	if !errors.Is(err, errSendTargetNotObject) || !strings.Contains(err.Error(), `"recipient" holds null, which is no object`) {
+		t.Fatalf("error = %v, want errSendTargetNotObject over an empty parameter", err)
 	}
 }
 
@@ -75,7 +75,7 @@ func testSendTargetChainNamesNoFeature(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, hostNotifying(
 		"in recipient : Worker;", "in recipient = context.worker;", "recipient.nowhere",
 	), "test::Host")
-	if !errors.Is(err, ErrUnroutableSend) || !strings.Contains(err.Error(), `"recipient.nowhere" names no port of an object`) {
-		t.Fatalf("error = %v, want ErrUnroutableSend over a chain naming no feature", err)
+	if !errors.Is(err, errUnroutableSend) || !strings.Contains(err.Error(), `"recipient.nowhere" names no port of an object`) {
+		t.Fatalf("error = %v, want errUnroutableSend over a chain naming no feature", err)
 	}
 }

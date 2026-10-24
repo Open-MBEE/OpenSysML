@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -12,9 +13,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// BindingConflictError reports unequal values held by the two ends of a
+// bindingConflictError reports unequal values held by the two ends of a
 // binding connector.
-type BindingConflictError struct {
+type bindingConflictError struct {
 	Target     string
 	Left       string
 	Right      string
@@ -22,32 +23,32 @@ type BindingConflictError struct {
 	RightValue Value
 }
 
-func (e *BindingConflictError) Error() string {
+func (e *bindingConflictError) Error() string {
 	if e.Target != "" {
-		return fmt.Sprintf("%s at %s: %s = %s, %s = %s", ErrBindingConflict,
+		return fmt.Sprintf("%s at %s: %s = %s, %s = %s", errBindingConflict,
 			e.Target, e.Left, bindingValueText(e.LeftValue), e.Right, bindingValueText(e.RightValue))
 	}
-	return fmt.Sprintf("%s: %s = %s, %s = %s", ErrBindingConflict,
+	return fmt.Sprintf("%s: %s = %s, %s = %s", errBindingConflict,
 		e.Left, bindingValueText(e.LeftValue), e.Right, bindingValueText(e.RightValue))
 }
 
-func (e *BindingConflictError) Unwrap() error { return ErrBindingConflict }
+func (e *bindingConflictError) Unwrap() error { return errBindingConflict }
 
-// BindingCycleError reports a binding component that has no valued end.
-type BindingCycleError struct {
+// bindingCycleError reports a binding component that has no valued end.
+type bindingCycleError struct {
 	Features []string
 }
 
-func (e *BindingCycleError) Error() string {
-	return fmt.Sprintf("%s: %s", ErrBindingCycle, strings.Join(e.Features, " -> "))
+func (e *bindingCycleError) Error() string {
+	return fmt.Sprintf("%s: %s", errBindingCycle, strings.Join(e.Features, " -> "))
 }
 
-func (e *BindingCycleError) Unwrap() error { return ErrBindingCycle }
+func (e *bindingCycleError) Unwrap() error { return errBindingCycle }
 
-// UndeterminedBindingError reports a feature valued by nothing but bindings that each
+// undeterminedBindingError reports a feature valued by nothing but bindings that each
 // link one unspecified value of it, or bind it together with the same feature of other
 // objects a collection holds, so none of them determines what it holds.
-type UndeterminedBindingError struct {
+type undeterminedBindingError struct {
 	Target   string
 	Binding  string
 	Endpoint string
@@ -57,16 +58,16 @@ type UndeterminedBindingError struct {
 	Across string
 }
 
-func (e *UndeterminedBindingError) Error() string {
+func (e *undeterminedBindingError) Error() string {
 	if e.Across != "" {
 		return fmt.Sprintf("%s: %s is bound by `%s` through every object %s holds; the model does not determine which of the bound values %s holds",
-			ErrBindingEnd, e.Target, e.Binding, e.Across, e.Target)
+			errBindingEnd, e.Target, e.Binding, e.Across, e.Target)
 	}
 	return fmt.Sprintf("%s: %s is bound by `%s`, which makes some value of %s a value of %s without saying which value of either; the model does not state what %s holds",
-		ErrBindingEnd, e.Target, e.Binding, e.Endpoint, e.Other, e.Endpoint)
+		errBindingEnd, e.Target, e.Binding, e.Endpoint, e.Other, e.Endpoint)
 }
 
-func (e *UndeterminedBindingError) Unwrap() error { return ErrBindingEnd }
+func (e *undeterminedBindingError) Unwrap() error { return errBindingEnd }
 
 type bindingLocation struct {
 	instance *Instance
@@ -193,7 +194,7 @@ func (ctx *Context) resolveBindingValue(inst *Instance, name string) (Value, boo
 	}
 	key := featureValueRef{instance: inst.ID, feature: name}
 	if ctx.resolvingBindings[key] {
-		return Value{}, false, &BindingCycleError{Features: []string{bindingLocationText(bindingLocation{instance: inst, name: name})}}
+		return Value{}, false, &bindingCycleError{Features: []string{bindingLocationText(bindingLocation{instance: inst, name: name})}}
 	}
 	if !target.BindingDerived || target.Written || ctx.CompositeTypeOf(target.Feature) != nil {
 		return ctx.resolveBindings(inst, target, name, key)
@@ -215,7 +216,7 @@ func (ctx *Context) resolveBindingValue(inst *Instance, name string) (Value, boo
 func (ctx *Context) resolveBindings(inst *Instance, target *FeatureValue, name string, key featureValueRef) (Value, bool, error) {
 	// A binding linking one unspecified value determines nothing, so it is reported
 	// only once no binding at any level determines the feature.
-	var undetermined *UndeterminedBindingError
+	var undetermined *undeterminedBindingError
 	var unmet []lower.Binding
 	path := name
 	for current := inst; current != nil; {
@@ -224,7 +225,7 @@ func (ctx *Context) resolveBindings(inst *Instance, target *FeatureValue, name s
 			ctx.resolvingBindings[key] = true
 			result, err := ctx.resolveBindingSet(current, inst, target, path, bindings, key)
 			delete(ctx.resolvingBindings, key)
-			var partial *UndeterminedBindingError
+			var partial *undeterminedBindingError
 			if errors.As(err, &partial) {
 				if undetermined == nil {
 					undetermined = partial
@@ -239,7 +240,7 @@ func (ctx *Context) resolveBindings(inst *Instance, target *FeatureValue, name s
 				if err := ctx.unmetBindingCounts(unmet); err != nil {
 					return Value{}, false, err
 				}
-				return Value{}, false, &BindingCycleError{Features: result.cycleFeatures}
+				return Value{}, false, &bindingCycleError{Features: result.cycleFeatures}
 			}
 		}
 		owner, ownerFeature := current.Owner()
@@ -296,7 +297,7 @@ func (ctx *Context) resolveBindingSet(owner, targetInst *Instance, target *Featu
 	endpointName string, bindings []lower.Binding, key featureValueRef) (bindingSetResult, error) {
 	var result bindingSetResult
 	var attempts []bindingAttempt
-	var undetermined *UndeterminedBindingError
+	var undetermined *undeterminedBindingError
 	for _, binding := range bindings {
 		partial, across, err := ctx.partialBinding(owner, targetInst, target, binding, key)
 		if err != nil {
@@ -306,7 +307,7 @@ func (ctx *Context) resolveBindingSet(owner, targetInst *Instance, target *Featu
 			// A binding of one unspecified value per end constrains the ends without
 			// determining either: the value comes from a default, a write or a whole binding.
 			if undetermined == nil && target.Feature.DefaultValue == nil && !target.Written && !heldOnItsOwn(target) {
-				undetermined = &UndeterminedBindingError{
+				undetermined = &undeterminedBindingError{
 					Target:   bindingLocationText(bindingLocation{instance: targetInst, name: key.feature}),
 					Binding:  ctx.bindingText(binding),
 					Endpoint: endpointName,
@@ -342,7 +343,7 @@ func (ctx *Context) resolveBindingSet(owner, targetInst *Instance, target *Featu
 	if len(attempts) > 1 {
 		for _, attempt := range attempts[1:] {
 			if !ctx.equalValues(attempts[0].value, attempt.value) {
-				return result, &BindingConflictError{
+				return result, &bindingConflictError{
 					Target:     bindingLocationText(bindingLocation{instance: targetInst, name: key.feature}),
 					Left:       attempts[0].contributor,
 					Right:      attempt.contributor,
@@ -496,7 +497,7 @@ func (ctx *Context) ownEndpointValue(loc bindingLocation) (Value, bool, error) {
 	fv := loc.instance.FeatureValues[loc.name]
 	if !fv.Materialized && !fv.BindingDerived && ctx.CompositeTypeOf(fv.Feature) == nil {
 		if _, err := loc.instance.materializeFeatureValueIntrinsic(ctx, loc.name); err != nil {
-			return Value{}, false, err
+			return Value{}, false, &FeatureValueError{Err: err, Instance: loc.instance, Feature: loc.name}
 		}
 	}
 	ctx.noteRead(loc.instance, fv)
@@ -616,7 +617,7 @@ func (ctx *Context) attemptBinding(owner, targetInst *Instance, target *FeatureV
 	// assigned through an index. Ends holding nothing are left to the unmet-binding check.
 	if (leftCarries && left.selects()) || (rightCarries && right.selects()) {
 		if leftSet && rightSet && !ctx.equalValues(leftValue, rightValue) {
-			attempt.err = &BindingConflictError{
+			attempt.err = &bindingConflictError{
 				Left: ctx.bindingEndpointText(binding, 0), Right: ctx.bindingEndpointText(binding, 1),
 				LeftValue: leftValue, RightValue: rightValue,
 			}
@@ -654,7 +655,7 @@ func (ctx *Context) attemptBinding(owner, targetInst *Instance, target *FeatureV
 			return attempt
 		}
 		if !ctx.equalValues(leftValue, rightValue) {
-			attempt.err = &BindingConflictError{
+			attempt.err = &bindingConflictError{
 				Left: ctx.bindingEndpointText(binding, 0), Right: ctx.bindingEndpointText(binding, 1),
 				LeftValue: leftValue, RightValue: rightValue,
 			}
@@ -750,7 +751,7 @@ func (ctx *Context) resolveBindingEndpoint(owner *Instance, binding lower.Bindin
 		if binding.Ends[end].Expr != nil {
 			return bindingEndpoint{expr: binding.Ends[end].Expr, scope: binding.Scope}, nil
 		}
-		return bindingEndpoint{}, fmt.Errorf("%w: empty endpoint", ErrBindingEnd)
+		return bindingEndpoint{}, fmt.Errorf("%w: empty endpoint", errBindingEnd)
 	}
 	locations, err := ctx.resolveBindingLocations(owner, path)
 	if err != nil {
@@ -761,12 +762,79 @@ func (ctx *Context) resolveBindingEndpoint(owner *Instance, binding lower.Bindin
 	}, nil
 }
 
+// withBoundMembers adds the Kernel frame members the model binds through feature
+// (`cf.edges = ae`) to the object's features, so each holds a value like any other.
+func (ctx *Context) withBoundMembers(inst, owner *Instance, feature string, features []EffectiveFeature) []EffectiveFeature {
+	if owner == nil || feature == "" {
+		return features
+	}
+	types := inst.types()
+	held := make(map[string]bool, len(features))
+	for i := range features {
+		held[features[i].Name] = true
+	}
+	added := false
+	path := feature
+	for current := owner; current != nil; {
+		for _, name := range ctx.membersBoundThrough(current, path) {
+			if held[name] {
+				continue
+			}
+			member, typ := ctx.boundFrameMember(types, name)
+			if member == nil {
+				continue
+			}
+			if !added {
+				features, added = slices.Clone(features), true
+			}
+			held[name] = true
+			features = append(features, ctx.effectiveFeature(name, member, typ))
+		}
+		next, nextFeature := current.Owner()
+		if next == nil || nextFeature == "" {
+			break
+		}
+		path = nextFeature + "." + path
+		current = next
+	}
+	return features
+}
+
+// membersBoundThrough names the members of the object at path below owner that
+// the bindings of owner's types reach directly, in binding order.
+func (ctx *Context) membersBoundThrough(owner *Instance, path string) []string {
+	var names []string
+	for _, typ := range owner.types() {
+		for _, binding := range ctx.objectBindings(typ) {
+			for _, end := range binding.Ends {
+				if name, ok := strings.CutPrefix(end.Path, path+"."); ok && !strings.Contains(name, ".") {
+					names = append(names, name)
+				}
+			}
+		}
+	}
+	return names
+}
+
+// boundFrameMember finds the Kernel frame member name of the first of types
+// declaring it that the shape leaves out, with that type.
+func (ctx *Context) boundFrameMember(types []*symbols.Symbol, name string) (*symbols.Symbol, *symbols.Symbol) {
+	sem := ctx.model.semantics
+	for _, typ := range types {
+		member, found := sem.LookupMember(typ, name)
+		if found && member.IsFeature() && sem.FrameFeature(member) && !sem.FrameRoot(typ, member) {
+			return member, typ
+		}
+	}
+	return nil, nil
+}
+
 // resolveBindingLocations follows an end's path from owner to the named feature on every
 // object it reaches, visiting each object a collection-valued step holds, in order.
 func (ctx *Context) resolveBindingLocations(owner *Instance, path string) ([]bindingLocation, error) {
 	parts := strings.Split(path, ".")
 	if len(parts) == 0 || parts[0] == "" {
-		return nil, fmt.Errorf("%w: empty endpoint", ErrBindingEnd)
+		return nil, fmt.Errorf("%w: empty endpoint", errBindingEnd)
 	}
 	reached := []*Instance{owner}
 	for _, part := range parts[:len(parts)-1] {
@@ -774,23 +842,23 @@ func (ctx *Context) resolveBindingLocations(owner *Instance, path string) ([]bin
 		for _, current := range reached {
 			fv, err := current.GetFeatureValue(ctx, part)
 			if err != nil {
-				return nil, fmt.Errorf("%w %q: %w", ErrBindingEnd, path, err)
+				return nil, fmt.Errorf("%w %q: %w", errBindingEnd, path, err)
 			}
 			heldValues, err := ctx.HeldElements(fv.HeldValue())
 			if err != nil {
-				return nil, fmt.Errorf("%w %q: %w", ErrBindingEnd, path, err)
+				return nil, fmt.Errorf("%w %q: %w", errBindingEnd, path, err)
 			}
 			for _, held := range heldValues {
 				id, isObject := held.Object()
 				if !isObject {
-					return nil, fmt.Errorf("%w %q: %s is not an object", ErrBindingEnd, path, part)
+					return nil, fmt.Errorf("%w %q: %s is not an object", errBindingEnd, path, part)
 				}
 				obj, ok, err := ctx.reachedObject(id)
 				if err != nil {
-					return nil, fmt.Errorf("%w %q: %w", ErrBindingEnd, path, err)
+					return nil, fmt.Errorf("%w %q: %w", errBindingEnd, path, err)
 				}
 				if !ok {
-					return nil, fmt.Errorf("%w %q: instance %d is not materialized", ErrBindingEnd, path, id)
+					return nil, fmt.Errorf("%w %q: instance %d is not materialized", errBindingEnd, path, id)
 				}
 				next = append(next, obj)
 			}
@@ -803,10 +871,10 @@ func (ctx *Context) resolveBindingLocations(owner *Instance, path string) ([]bin
 		// A destroyed object's feature is neither read into nor written from a
 		// binding, whichever end of it the object is.
 		if err := ctx.checkNotDestroyed(current); err != nil {
-			return nil, fmt.Errorf("%w %q: %w", ErrBindingEnd, path, err)
+			return nil, fmt.Errorf("%w %q: %w", errBindingEnd, path, err)
 		}
 		if _, ok := current.FeatureValues[name]; !ok {
-			return nil, fmt.Errorf("%w %q: feature %s not found", ErrBindingEnd, path, name)
+			return nil, fmt.Errorf("%w %q: feature %s not found", errBindingEnd, path, name)
 		}
 		locations = append(locations, bindingLocation{instance: current, name: name, path: path})
 	}
@@ -826,11 +894,11 @@ func (ctx *Context) bindingEndpointValue(endpoint bindingEndpoint, owner *Instan
 	if endpoint.expr != nil {
 		value, err := ctx.EvalWithScopeOn(endpoint.expr, endpoint.scope, owner)
 		if err != nil {
-			if errors.Is(err, ErrUninitializedFeatureValue) {
+			if errors.Is(err, errUninitializedFeatureValue) {
 				return Value{}, false, nil
 			}
 			return Value{}, false, fmt.Errorf("%w: expression %s: %w",
-				ErrBindingEnd, ctx.bindingExprText(endpoint.expr, endpoint.scope), err)
+				errBindingEnd, ctx.bindingExprText(endpoint.expr, endpoint.scope), err)
 		}
 		if value.Kind == ValInvalid {
 			return Value{}, false, nil
@@ -843,7 +911,7 @@ func (ctx *Context) bindingEndpointValue(endpoint bindingEndpoint, owner *Instan
 	var all []Value
 	for _, loc := range endpoint.locations {
 		val, found, err := ctx.bindingLocationValue(loc, materialize)
-		var undetermined *UndeterminedBindingError
+		var undetermined *undeterminedBindingError
 		if errors.As(err, &undetermined) {
 			return Value{}, false, nil
 		}
@@ -873,7 +941,7 @@ func (ctx *Context) selectedBindingElement(endpoint bindingEndpoint, owner *Inst
 		}
 	}
 	return Value{}, false, fmt.Errorf("%w: expression %s: %w",
-		ErrBindingEnd, ctx.bindingExprText(endpoint.selection, endpoint.scope), err)
+		errBindingEnd, ctx.bindingExprText(endpoint.selection, endpoint.scope), err)
 }
 
 func (ctx *Context) bindingLocationValue(loc bindingLocation, materialize bool) (Value, bool, error) {
@@ -902,7 +970,7 @@ func (ctx *Context) bindingLocationValue(loc bindingLocation, materialize bool) 
 			return Value{}, false, nil
 		}
 		if _, err := loc.instance.materializeFeatureValueIntrinsic(ctx, loc.name); err != nil {
-			return Value{}, false, err
+			return Value{}, false, &FeatureValueError{Err: err, Instance: loc.instance, Feature: loc.name}
 		}
 	}
 	ctx.noteRead(loc.instance, fv)
@@ -949,12 +1017,12 @@ func bindingEndpointDerived(endpoint bindingEndpoint) bool {
 func (ctx *Context) assignBindingEndpoint(endpoint bindingEndpoint, val Value, binding lower.Binding, end int) error {
 	if endpoint.expr != nil {
 		return fmt.Errorf("%w: cannot assign %s from %s",
-			ErrBindingEnd, ctx.bindingEndpointText(binding, end), ctx.bindingEndpointText(binding, 1-end))
+			errBindingEnd, ctx.bindingEndpointText(binding, end), ctx.bindingEndpointText(binding, 1-end))
 	}
 	if endpoint.spread() {
 		// The objects a spread end reaches each hold a part of the value; which part is not stated.
 		return fmt.Errorf("%w: cannot assign %s from %s through every object %s holds",
-			ErrBindingEnd, ctx.bindingEndpointText(binding, end), ctx.bindingEndpointText(binding, 1-end), endpoint.across())
+			errBindingEnd, ctx.bindingEndpointText(binding, end), ctx.bindingEndpointText(binding, 1-end), endpoint.across())
 	}
 	loc := endpoint.locations[0]
 	fv := loc.instance.FeatureValues[loc.name]

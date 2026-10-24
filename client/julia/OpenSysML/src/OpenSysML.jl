@@ -25,7 +25,8 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        QueryElement, build_query, as_dict,
        TypeFacts, Multiplicity, Specialization, AttributeFacts, SymbolFacts, SymbolInfo,
        Bound, Standing, EngineInfo, VerificationVerdict, WitnessAssignment, Verdict,
-       Validation, CalcResult, CaseEvaluation, AnalysisResult, SweepRow, SweepTable,
+       Validation, CalcResult, CaseEvaluation, AnalysisResult, ToolDryRun, ToolDryRunFile,
+       ToolDryRunInput, ToolDryRunOutput, refresh_diagnostics, SweepRow, SweepTable,
        holds, valid, violated, undecided, selected, failures, is_collection, is_optional, facts, children,
        attributes, attribute_facts, parts, get_attr, get_symbol, find, list_engines,
        ServerInfo, mismatch_reason, upgrade_remedy, require_capability,
@@ -47,7 +48,14 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        DocumentRow, DocumentQueryResult, build_document_bindings,
        run_document_query, render_document, RenderedView, RenderNode, RenderPort, RenderEdge,
        RenderGeometry, RenderCanvas, RenderStyle, RenderPoint, RenderRow, RenderNote, RenderSpan,
-       render_view, Graphs, export_graphs, Editor, Body, operations, applied, AppliedEdit,
+       render_view, Graphs, export_graphs, RunDistribution, RunsResult, run_runs, completed,
+       distribution, SelfCheckFinding, SelfCheckResult, self_check, Recording, record_run,
+       DataImport, ImportedValue, ImportedFile,
+       ImportResult, import_data, ComparedDistribution, StatisticDifference, CaseStatistic,
+       CaseStatistics, ObservableComparison, ConfigurationComparison, Comparison,
+       compare_results, CheckResult, CheckSearch, CheckViolation,
+       CheckDivergence, CheckDivergentValue, CheckFinal, CheckWitness, check_action,
+       check_state_machine, holds, Editor, Body, operations, applied, AppliedEdit,
        EditedDocument, EditResult, edit, apply, apply_edits,
        ActionOutputs, StateRun,
        decode_value, encode_value, resolve_binary, ensure_binary, download_binary,
@@ -71,9 +79,12 @@ include("engines.jl")
 include("verdict.jl")
 include("verification.jl")
 include("document.jl")
+include("check.jl")
 include("conversion.jl")
 include("migration.jl")
 include("authoring.jl")
+include("runs.jl")
+include("importcompare.jl")
 include("exploration.jl")
 
 for operation in (
@@ -101,7 +112,9 @@ for capability in (
     :CAPABILITY_VERIFICATION_QUESTIONS, :CAPABILITY_VERIFICATION_ARGUMENTS, :CAPABILITY_QUERY, :CAPABILITY_OSLC_QUERY,
     :CAPABILITY_DOCUMENT_QUERY,
     :CAPABILITY_RENDER_DOCUMENT, :CAPABILITY_RENDER_DOCUMENT_HTML, :CAPABILITY_RENDER_VIEW,
-    :CAPABILITY_EXPORT_GRAPHS, :CAPABILITY_ENUM_VALUES,
+    :CAPABILITY_EXPORT_GRAPHS, :CAPABILITY_RUNS, :CAPABILITY_SELF_CHECK, :CAPABILITY_RECORD_RUN,
+    :CAPABILITY_IMPORT_DATA, :CAPABILITY_COMPARE_RESULTS,
+    :CAPABILITY_CHECK, :CAPABILITY_ENUM_VALUES,
     :CAPABILITY_EVALUATE_SUBJECT, :CAPABILITY_SYMBOL_ATTRIBUTES, :CAPABILITY_UNSET_VALUE,
     :CAPABILITY_FEATURE_VALUES, :CAPABILITY_APPLY_EDITS, :CAPABILITY_AUTHORING,
     :CAPABILITY_CONNECTION_AUTHORING, :CAPABILITY_SATISFY_AUTHORING,
@@ -122,7 +135,7 @@ for capability in (
     :CAPABILITY_FINAL_TIME,
     :CAPABILITY_ENGINES, :CAPABILITY_UNDETERMINED_VALUE, :CAPABILITY_BIG_INT_VALUES,
     :CAPABILITY_RATIONAL_VALUES, :CAPABILITY_CONVERT_DOCUMENTS, :CAPABILITY_CONVERT_COMPACT,
-    :CAPABILITY_PARSE_SOURCES_AFFECTED
+    :CAPABILITY_CONVERT_CHECK_DIAGNOSTICS, :CAPABILITY_PARSE_SOURCES_AFFECTED, :CAPABILITY_RENDER_DOCUMENT_FILE_NAME
 )
     @eval export $capability
 end

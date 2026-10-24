@@ -50,7 +50,7 @@ func TestSynthesizedNamesMarked(t *testing.T) {
 			}
 			got := string(r.Notation)
 			for _, w := range tc.wantNotation {
-				if !strings.Contains(got, w) {
+				if !hasBlock(got, w) {
 					t.Errorf("notation lacks %q:\n%s", w, got)
 				}
 			}

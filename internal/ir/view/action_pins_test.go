@@ -210,7 +210,7 @@ func wantEdgeEndsDrawn(t *testing.T, r *Rendering) {
 // the frame's cluster, and a binding as an undirected edge pin to pin.
 func TestDOTActionFramePins(t *testing.T) {
 	rendering := renderActionPins(t, "Pins::ToastBread")
-	source, err := rendering.DOT()
+	source, err := rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -232,7 +232,7 @@ func TestDOTActionFramePins(t *testing.T) {
 // and names an edge's ends by them.
 func TestTextActionFramePins(t *testing.T) {
 	rendering := renderActionPins(t, "Pins::ToastBread")
-	text := rendering.Text()
+	text := rendering.textWith(fullNotation)
 	for _, want := range []string{"action def Pins::ToastBread\n  in bread\n  out toast\n", "  action heat : Heat\n    in b\n    out t\n",
 		"  Pins::ToastBread.bread == heat.b\n", "  pack.boxed == Pins::ToastBread.toast\n", "  heat.t => pack.t\n"} {
 		if !strings.Contains(text, want) {
@@ -245,13 +245,13 @@ func TestTextActionFramePins(t *testing.T) {
 // frame's subgraph, as it draws the nodes' pins, and says which pins it leaves out.
 func TestMermaidActionFramePins(t *testing.T) {
 	rendering := renderActionPins(t, "Pins::ToastBread")
-	source := rendering.Mermaid()
+	source := rendering.MermaidWith(fullNotation)
 	for _, want := range []string{"\n    n0_p0[\"bread\"]\n", "\n    n0_p1[\"toast\"]\n", `n0_p0 ===|"bread = b"| n1_p0`, `n2_p1 ===|"boxed = toast"| n0_p1`} {
 		if !strings.Contains(source, want) {
 			t.Errorf("Mermaid lacks %q:\n%s", want, source)
 		}
 	}
-	loose := renderActionPins(t, "Pins::Loose").Mermaid()
+	loose := renderActionPins(t, "Pins::Loose").MermaidWith(fullNotation)
 	if want := "%% not represented: 3 pin(s) not drawn (heat.t, pack.t, pack.boxed); a flowchart draws the pins an edge ends at"; !strings.Contains(loose, want) {
 		t.Errorf("Mermaid lacks the notice %q:\n%s", want, loose)
 	}
@@ -261,7 +261,7 @@ func TestMermaidActionFramePins(t *testing.T) {
 // the frame and the node naming the pins, and the pins left undrawn are noticed.
 func TestPlantUMLActionFramePins(t *testing.T) {
 	rendering := renderActionPins(t, "Pins::ToastBread")
-	source, _ := rendering.PlantUML()
+	source, _ := rendering.PlantUMLWith(fullNotation)
 	for _, want := range []string{"n0 -- n1 : bread = b\n", "n2 -- n0 : boxed = toast\n",
 		"' not represented: 6 pin(s) not drawn (Pins::ToastBread.bread, Pins::ToastBread.toast, heat.b, heat.t, pack.t, pack.boxed); PlantUML's state grammar has no pin, so the edges name them\n"} {
 		if !strings.Contains(source, want) {

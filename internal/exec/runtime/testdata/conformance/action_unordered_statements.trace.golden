@@ -50,5 +50,5 @@ stmt if
   eval literal true -> true
   stmt assign d
     eval literal 1 -> 1
-choice step 1: tokens 1@if, 2@while, 3@for i (unordered; took 3@for i first)
+choice step 1: tokens 1@if, 2@while, 3@for i (unordered; took 3@for i first; independent)
 step 1: no active tokens

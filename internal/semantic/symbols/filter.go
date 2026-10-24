@@ -55,8 +55,8 @@ const (
 	// FilterClassify is `@T`: the candidate is annotated by metadata
 	// conforming to TypeFQN.
 	FilterClassify
-	// FilterMetaClassify is `@@T`: the candidate's own metaclass conforms to
-	// TypeFQN.
+	// FilterMetaClassify is `@@T`: metadata of the candidate — an annotation or
+	// its own metaclass — conforms to TypeFQN.
 	FilterMetaClassify
 	FilterEq
 	FilterNeq
@@ -98,6 +98,10 @@ type FilterPredicate struct {
 	// TypeFQN is the metadata type a classification tests against, or whose
 	// annotation a feature is read from.
 	TypeFQN string
+
+	// Type is the element TypeFQN resolved to when the condition was compiled,
+	// so namesakes of it are told apart; nil when only the name is known.
+	Type *Symbol
 
 	// Feature is the annotation feature FilterFeature reads.
 	Feature string

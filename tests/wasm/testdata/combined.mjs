@@ -19,6 +19,7 @@ console.log('ParseFile', parseFile);
 console.log('Evaluate', call('Evaluate', { modelHash: hash, expression: '1 + 1' }));
 console.log('GetSymbol', call('GetSymbol', { modelHash: hash, symbolId: 'Demo::Item' }));
 console.log('GetDiagnostics', call('GetDiagnostics', { modelHash: hash }));
+console.log('RenderView', call('RenderView', { modelHash: hash, view: '#interconnection:Demo::Item' }));
 console.log('malformed', globalThis.sysmlWasm.call('ParseFile', '{'));
 console.log('afterMalformed', call('GetDiagnostics', { modelHash: hash }));
 process.exit(0);

@@ -47,15 +47,15 @@ func TestSimulationConfigBecomesARunnableActionDef(t *testing.T) {
 		"stepSize = 1.0;",
 		`timeUnit = "second";`,
 		"parallelForks = true;",
-		"part target : sure;",
+		"part target :> sure;",
 		"perform action run ::> target.choose;",
 		"/* results of the simulation tool: 0 snapshot(s) in Results */",
-		"/* «SimulationConfig» settings of the simulation tool: animationSpeed = 95; silent = true */",
+		`tags = ("animationSpeed = 95", "silent = true");`,
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	if strings.Contains(string(r.Notation), "applied stereotype «SimulationConfig»") {
-		t.Errorf("the consumed «SimulationConfig» is also kept as a comment:\n%s", r.Notation)
+	if n := strings.Count(string(r.Notation), `stereotype = "SimulationConfig";`); n != 1 {
+		t.Errorf("«SimulationConfig» marked %d times, want once for its unread settings:\n%s", n, r.Notation)
 	}
 	wantNote(t, r, "_g0", migrate.Mapped, "")
 	wantNote(t, r, "_act", migrate.Mapped, "written as an action usage every object of Chooser performs from creation, so its body runs on the object and reaches its features")
@@ -91,13 +91,13 @@ func TestSimulationConfigReportsWhatItCannotRun(t *testing.T) {
 	for _, line := range []string{
 		"action def 'Group 0' {",
 		"runs = 3;",
-		"part target : other;",
-		"/* «SimulationConfig» settings of the simulation tool: durationSimulationMode = fastest */",
+		"part target :> other;",
+		`tags = "durationSimulationMode = fastest";`,
 		"action def 'Group 1' {",
 		"draws = Simulation::DrawPolicy::random;",
-		"/* «SimulationConfig» settings of the simulation tool: treatAllClassifiersAsActive = false */",
+		`tags = "treatAllClassifiersAsActive = false";`,
 		"action def 'Group 2' {",
-		"/* «SimulationConfig» settings of the simulation tool: numberOfRuns = 9223372036854775808 */",
+		`tags = "numberOfRuns = 9223372036854775808";`,
 		"action def 'Group 3' {",
 	} {
 		wantLine(t, r.Notation, line)
@@ -197,7 +197,7 @@ func TestSimulationConfigRecordsTheClockStepOfTheToolsInternalClock(t *testing.T
 	wantNote(t, r, "_g11", migrate.Approximated, "stepSize is unstated, and endTime = 12 with numberOfSteps = 0 counts no steps, so the tool's default step, 1.0, stands")
 	wantNote(t, r, "_g12", migrate.Approximated, "startTime = 3.0 in timeUnit = \"tick\" started the tool's clock at an instant no number of seconds tells, and a run's clock starts at 0")
 	wantNote(t, r, "_g12", migrate.Approximated, `timeUnit = "tick" is no fixed number of seconds, so the clock's step is not derived and the runs' clock is continuous`)
-	for _, line := range []string{"endTime = 12; numberOfSteps = 4", "endTime = 12; numberOfSteps = 0"} {
+	for _, line := range []string{`tags = ("endTime = 12", "numberOfSteps = 4");`, `tags = ("endTime = 12", "numberOfSteps = 0");`} {
 		wantLine(t, r.Notation, line)
 	}
 	if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
@@ -232,8 +232,8 @@ func TestSimulationConfigOfAnotherProfileIsNotARunConfiguration(t *testing.T) {
 	for _, line := range []string{"action def 'Group 1'", "action def 'Group 2'", "action def 'Group 3'"} {
 		wantNoLine(t, r.Notation, line)
 	}
-	if n := strings.Count(string(r.Notation), "applied stereotype «SimulationConfig»"); n != 3 {
-		t.Errorf("%d «SimulationConfig» comment(s), want one per lookalike:\n%s", n, r.Notation)
+	if n := strings.Count(string(r.Notation), `stereotype = "SimulationConfig";`); n != 3 {
+		t.Errorf("%d «SimulationConfig» marker(s), want one per lookalike:\n%s", n, r.Notation)
 	}
 	if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
 		t.Errorf("the migrated document does not analyse clean: %v\n%s", errs, r.Notation)
@@ -345,23 +345,33 @@ func TestSimulationConfigPerformsATestCaseClassifierBehavior(t *testing.T) {
 	for _, line := range []string{
 		"verification def 'Bench Test' {",
 		"subject context : Bench;",
+		"ref part c :> context.ctrl {",
+		"ref part m :> context.motor {",
+		"perform action spinCall ::> Motor::spin { in rpm[1] = 12.0; }",
+		"message spin from c.spinSent to m.spinReceived;",
+		"message spun of result : ScalarValues::Real = m.spinReceived.spinCall.result from m.spunSent to c.spunReceived;",
 		"part target : Bench;",
 		"verification run : Bench::'Bench Test' { subject context = target; }",
+		"verification def Idling {",
+		"ref part m :> context.motor;",
 		"part target : 'Idle Bench';",
+		"verification run : 'Idle Bench'::Idling { subject context = target; }",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNoLine(t, r.Notation, "perform action run")
 	wantNote(t, r, "_g0", migrate.Mapped, "")
-	wantNote(t, r, "_g1", migrate.Approximated, "the classifier behavior of Idle Bench is a test case whose scenario is not migrated, so no action is performed; the configuration only holds 'Idle Bench': the interaction has no message")
+	wantNote(t, r, "_g1", migrate.Mapped, "")
+	wantNote(t, r, "_tc", migrate.Mapped, "written as a verification def of 2 lifeline usages and 2 messages between their event occurrences in occurrence order, the lifelines bound to the subject's parts; the test case has no return parameter, so the verification case states no verdict")
+	wantNote(t, r, "_mRet", migrate.Approximated, "the caller's got is not assigned the result result: a sequence states transfers, not assignments")
 	if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
 		t.Errorf("the migrated configurations do not analyse clean: %v\n%s", errs, r.Notation)
 	}
 	if cfg := r.Results.Configurations[0]; cfg.Behavior != "run" || cfg.Target != "target" {
 		t.Errorf("the sidecar of Group 0 = behavior %q on target %q, want run on target", cfg.Behavior, cfg.Target)
 	}
-	if cfg := r.Results.Configurations[1]; cfg.Behavior != "" {
-		t.Errorf("the sidecar of Group 1 performs %q, want nothing", cfg.Behavior)
+	if cfg := r.Results.Configurations[1]; cfg.Behavior != "run" || cfg.Target != "target" {
+		t.Errorf("the sidecar of Group 1 = behavior %q on target %q, want run on target", cfg.Behavior, cfg.Target)
 	}
 
 	s := session(t, r)
@@ -370,12 +380,13 @@ func TestSimulationConfigPerformsATestCaseClassifierBehavior(t *testing.T) {
 		t.Fatalf("CompareResults = %d verdict(s), want 1", len(verdicts))
 	}
 	lines := strings.Join(verdicts[0].Lines, "\n")
-	if !verdicts[0].Holds() {
-		t.Fatalf("the comparison = %s:\n%s", verdicts[0].Status, lines)
+	if verdicts[0].Holds() {
+		t.Fatalf("the comparison holds, yet the sequence form assigns no got and states no verdict:\n%s", lines)
 	}
 	for _, want := range []string{
-		"got        | tool                   | 1    | 12.0  | 12.0  | 12.0  | 12.0  | 12.0",
-		"           | OpenSysML (target.got) | 1    | 12.0  | 12.0  | 12.0  | 12.0  | 12.0",
+		"got        | tool                   | 1    | 12.0 | 12.0 | 12.0 | 12.0 | 12.0",
+		"no completed run produced target.got, which answers got",
+		"verification Model::Group 0::run has no return expression",
 	} {
 		if !strings.Contains(lines, want) {
 			t.Errorf("the comparison lacks %q:\n%s", want, lines)
@@ -448,13 +459,13 @@ func TestSimulationConfigNamesTheConstraintsOfAParametricTarget(t *testing.T) {
   <sysml:ConstraintProperty xmi:id="_s8" base_Property="_cPeak"/>
   <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
       executionTarget="_c1" numberOfRuns="1"/>`)
-	wantLine(t, r.Notation, "part target : circuit;")
+	wantLine(t, r.Notation, "part target :> circuit;")
 	wantNoLine(t, r.Notation, "perform action run")
 	wantNote(t, r, "_g0", migrate.Approximated, "neither Circuit nor any general of it has a classifier behavior, so the configuration only holds 'circuit'"+
 		"; the tool solves the constraints it holds for values, which a v2 run checks and does not solve: "+
-		`Circuit::worst : 'Peak', whose rule {Javascript Rhino} p=max(a,b) is not migrated: the call "max" is not in the translated function table`+
-		"; Network::law : 'Ohm', whose rule is migrated as a constraint"+
-		"; Load::peak : 'Peak', as above")
+		`Model::Circuit::worst : 'Peak', whose rule {Javascript Rhino} p=max(a,b) is not migrated: the call "max" is not in the translated function table`+
+		"; Model::Network::law : 'Ohm', whose rule is migrated as a constraint"+
+		"; Model::Load::peak : 'Peak', as above")
 	if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
 		t.Errorf("the migrated configuration does not analyse clean: %v\n%s", errs, r.Notation)
 	}

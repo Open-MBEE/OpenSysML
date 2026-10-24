@@ -1,0 +1,15 @@
+{
+  "rpc": "CompareResults",
+  "results": "{\"source\":\"probe.xmi\",\"configurations\":[{\"id\":\"_c1\",\"name\":\"Cfg::'Group 1'\",\"runs\":2,\"target\":\"target\",\"behavior\":\"run\",\"resultLocation\":\"Results\",\"observables\":[],\"snapshots\":[{\"id\":\"_r1\",\"values\":{}},{\"id\":\"_r2\",\"values\":{}}]}]}",
+  "seed": 7,
+  "expected_configurations": [
+    {
+      "name": "Cfg::'Group 1'",
+      "status": "undecided",
+      "runs": 2,
+      "completed": 2,
+      "stored_runs": 2,
+      "lines_contain": ["no observable was compared"]
+    }
+  ]
+}

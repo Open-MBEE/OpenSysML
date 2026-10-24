@@ -1,2 +1,3 @@
 6:17 Duplicate of imported member name 'Engine': ImportsA::Engine (import ImportsA::*), ImportsB::Engine (import ImportsB::*)
+7:11 unresolved reference: Engine — did you mean ImportsA::Engine, ImportsB::Engine or ImportsE::Engine? The name is hidden here: import ImportsA::* and import ImportsB::* bring distinct elements named 'Engine', so none is a member; qualify the one meant: ImportsA::Engine or ImportsB::Engine.
 13:35 Duplicate of imported member name 'vb': ImportsV::ImportsP::vb (import ImportsV::**), ImportsV::ImportsR::vb (import ImportsV::**)

@@ -1,4 +1,4 @@
-choice join meet: states l1, r1 react (unordered; took l1 first)
+choice join meet: states l1, r1 react (unordered; took l1 first; order-dependent: log)
 exit: l1 (exit action)
 stmt action body
   stmt assign log

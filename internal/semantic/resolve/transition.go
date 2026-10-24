@@ -35,7 +35,7 @@ func (r *Resolver) ResolveEndpoint(scope *symbols.Scope, qn *ast.QualifiedName) 
 		r.report(Diagnostic{
 			Span:    qn.Span(),
 			Message: r.endpointMessage(scope, qn),
-			Code:    "unresolved",
+			Code:    CodeUnresolved,
 			// A suggestion names a vertex, so it replaces the last segment alone,
 			// leaving the qualifiers saying which state or region it lives in.
 			Fixes: endpointFixes(last.Text, last.Span, r.vertexSuggestions(scope, qn)),
@@ -101,7 +101,7 @@ func (r *Resolver) resolveEndpointChain(scope *symbols.Scope, chain *ast.Feature
 		r.report(Diagnostic{
 			Span:    chain.Span(),
 			Message: suggest.With(unresolvedReferencePrefix+name, name, cands),
-			Code:    "unresolved",
+			Code:    CodeUnresolved,
 			Fixes:   endpointFixes(last.Text, last.Span, cands),
 		})
 	case stateMachineEndpoint(scope) && !r.endpointIsVertex(scope, member, sym):
@@ -349,11 +349,11 @@ func enclosingActionScope(scope *symbols.Scope) *symbols.Scope {
 	for s := scope; s != nil; s = s.Parent() {
 		switch n := s.Node().(type) {
 		case *ast.Definition:
-			if n.Kind == ast.DefAction {
+			if n.Kind.IsAction() {
 				return s
 			}
 		case *ast.Usage:
-			if n.Kind == ast.UsageAction {
+			if n.Kind.IsAction() {
 				return s
 			}
 		}
@@ -370,6 +370,22 @@ func ActionGeneralization(scope *symbols.Scope, typing bool) (bodies []*symbols.
 	if body == nil {
 		return nil, false
 	}
+	return generalization(body, typing)
+}
+
+// GeneralBodies returns the bodies of the types the declaration owning body
+// specializes, subsets, redefines or is typed by, nearest first and each once:
+// where a member the declaration inherits was declared.
+func GeneralBodies(body *symbols.Scope) []*symbols.Scope {
+	if body == nil {
+		return nil
+	}
+	bodies, _ := generalization(body, true)
+	return bodies
+}
+
+// generalization walks the generals of body, nearest first and each once.
+func generalization(body *symbols.Scope, typing bool) (bodies []*symbols.Scope, cyclic bool) {
 	seen := make(map[*symbols.Scope]bool)
 	onStack := map[*symbols.Scope]bool{body: true}
 	var collect func(body *symbols.Scope)
@@ -641,7 +657,7 @@ func lookupScopePartsText(scope *symbols.Scope, parts []string) (*symbols.Symbol
 func isActionNode(decl ast.Node) bool {
 	switch n := decl.(type) {
 	case *ast.Usage:
-		return n.Kind == ast.UsageAction || n.Kind == ast.UsageAnalysisCase ||
+		return n.Kind.IsAction() || n.Kind == ast.UsageAnalysisCase ||
 			n.Kind == ast.UsageVerificationCase || IsAssertion(n)
 	case *ast.InitialNode, *ast.FinalNode, *ast.ForkNode, *ast.JoinNode, *ast.MergeNode,
 		*ast.DecisionNode, *ast.ActionExecutionNode, *ast.PerformActionNode,
@@ -780,17 +796,17 @@ func stateMachineEndpoint(scope *symbols.Scope) bool {
 	for s := scope; s != nil; s = s.Parent() {
 		switch n := s.Node().(type) {
 		case *ast.Definition:
-			switch n.Kind {
-			case ast.DefState:
+			switch {
+			case n.Kind == ast.DefState:
 				return true
-			case ast.DefAction:
+			case n.Kind.IsAction():
 				return false
 			}
 		case *ast.Usage:
-			switch n.Kind {
-			case ast.UsageState:
+			switch {
+			case n.Kind == ast.UsageState:
 				return true
-			case ast.UsageAction:
+			case n.Kind.IsAction():
 				return false
 			}
 		}

@@ -114,6 +114,11 @@ type VerificationVerdict struct {
 	// RequirementID is the FQN of the requirement this verdict was reported
 	// for, empty when the case ran for itself rather than for a requirement.
 	RequirementID string
+	// InstanceID is the ID of the object the case ran on as its owner, 0 when
+	// it ran on none; its feature values are in the response's Instances.
+	InstanceID int64
+	// InstanceTypeID is the FQN of that object's type.
+	InstanceTypeID string
 }
 
 // Question names the question a verify call asks: the evaluation of the
@@ -750,11 +755,13 @@ func verificationVerdictsFromProto(verdicts []*pb.VerificationVerdict) []Verific
 			continue
 		}
 		out = append(out, VerificationVerdict{
-			CaseID:        verdict.CaseId,
-			Kind:          VerdictKind(verdict.Kind),
-			Detail:        verdict.Detail,
-			Subcase:       verdict.Subcase,
-			RequirementID: verdict.RequirementId,
+			CaseID:         verdict.CaseId,
+			Kind:           VerdictKind(verdict.Kind),
+			Detail:         verdict.Detail,
+			Subcase:        verdict.Subcase,
+			RequirementID:  verdict.RequirementId,
+			InstanceID:     verdict.InstanceId,
+			InstanceTypeID: verdict.InstanceTypeId,
 		})
 	}
 	return out

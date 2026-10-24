@@ -25,14 +25,14 @@ type Shapes struct {
 	unnamed bool              // an object of a type with no qualified name
 }
 
-// AdoptError says which object could not be carried over into a new context, and
+// adoptError says which object could not be carried over into a new context, and
 // why, so the loss is reported rather than silently absorbed.
-type AdoptError struct {
+type adoptError struct {
 	Type   string // qualified name of the object's type, as far as it is known
 	Reason string
 }
 
-func (e *AdoptError) Error() string {
+func (e *adoptError) Error() string {
 	if e.Type == "" {
 		return "cannot carry the object over: " + e.Reason
 	}
@@ -79,7 +79,7 @@ func (ctx *Context) Changed(shapes *Shapes) (string, bool) {
 // the recorded shape.
 func (ctx *Context) resolvesTo(fqn, digest string) bool {
 	for _, cand := range ctx.model.resolver.Index().LookupQualified(fqn) {
-		if ctx.ShapeDigest(cand) == digest {
+		if ctx.shapeDigest(cand) == digest {
 			return true
 		}
 	}
@@ -136,7 +136,7 @@ func (ctx *Context) recordReached(sym *symbols.Symbol, shapes *Shapes) {
 	if _, done := shapes.digests[fqn]; done {
 		return
 	}
-	shapes.digests[fqn] = ctx.ShapeDigest(sym)
+	shapes.digests[fqn] = ctx.shapeDigest(sym)
 	shapes.types = append(shapes.types, fqn)
 	if _, named := ctx.libraryShapeIdentity(sym); named {
 		return
@@ -300,11 +300,11 @@ func (ctx *Context) walkValueFrom(val Value, visit func(Value), seen map[*Coordi
 	}
 }
 
-// ShapeDigest renders what instantiating a type produces as this context
+// shapeDigest renders what instantiating a type produces as this context
 // resolves it now: the features an object of it gets, with the type,
 // multiplicity and default of each, and the shapes of the types those features
 // hold. Two contexts that agree on the digest agree on the object.
-func (ctx *Context) ShapeDigest(sym *symbols.Symbol) string {
+func (ctx *Context) shapeDigest(sym *symbols.Symbol) string {
 	var b strings.Builder
 	ctx.writeShape(&b, sym, make(map[string]bool))
 	return b.String()
@@ -446,10 +446,10 @@ func (ctx *Context) fqnOf(sym *symbols.Symbol) string {
 // restarted are returned, so the carry-over reports what it cost.
 func (ctx *Context) Adopt(prev *Context, shapes *Shapes, obj *Instance) ([]string, error) {
 	if prev == nil || shapes == nil || obj == nil {
-		return nil, &AdoptError{Reason: "there is nothing to carry over"}
+		return nil, &adoptError{Reason: "there is nothing to carry over"}
 	}
 	if shapes.unnamed {
-		return nil, &AdoptError{Reason: "it is of a declaration with no qualified name"}
+		return nil, &adoptError{Reason: "it is of a declaration with no qualified name"}
 	}
 	a := &adoption{ctx: ctx, prev: prev, shapes: shapes,
 		plans:   make(map[int64]*adoptPlan),
@@ -497,7 +497,7 @@ func (p *adoptPlan) featureFor(name string, fv *FeatureValue) *EffectiveFeature 
 
 func (a *adoption) plan(obj *Instance) error {
 	if obj == nil {
-		return &AdoptError{Reason: "there is nothing to carry over"}
+		return &adoptError{Reason: "there is nothing to carry over"}
 	}
 	if _, planned := a.plans[obj.ID]; planned {
 		return nil
@@ -509,7 +509,7 @@ func (a *adoption) plan(obj *Instance) error {
 		if existing == obj {
 			return nil
 		}
-		return &AdoptError{Type: a.ctx.fqnOf(obj.Type), Reason: fmt.Sprintf("its identity %d is taken", obj.ID)}
+		return &adoptError{Type: a.ctx.fqnOf(obj.Type), Reason: fmt.Sprintf("its identity %d is taken", obj.ID)}
 	}
 	typeSym, err := a.rebindShaped(obj.Type, "its type")
 	if err != nil {
@@ -557,10 +557,10 @@ func (a *adoption) rebindShaped(sym *symbols.Symbol, what string) (*symbols.Symb
 	fqn := a.ctx.fqnOf(found)
 	want, recorded := a.shapes.digests[fqn]
 	if !recorded {
-		return nil, &AdoptError{Type: fqn, Reason: "the shape it was materialized against was not recorded"}
+		return nil, &adoptError{Type: fqn, Reason: "the shape it was materialized against was not recorded"}
 	}
-	if a.ctx.ShapeDigest(found) != want {
-		return nil, &AdoptError{Type: fqn, Reason: "its declaration resolves to a different shape now"}
+	if a.ctx.shapeDigest(found) != want {
+		return nil, &adoptError{Type: fqn, Reason: "its declaration resolves to a different shape now"}
 	}
 	return found, nil
 }
@@ -599,7 +599,7 @@ func (a *adoption) planFeature(owner string, typeSym *symbols.Symbol, name strin
 		return feat, nil
 	}
 	if fv.Feature == nil || fv.Feature.DefaultValue != nil {
-		return nil, &AdoptError{Type: owner, Reason: fmt.Sprintf("it no longer has a feature %q", name)}
+		return nil, &adoptError{Type: owner, Reason: fmt.Sprintf("it no longer has a feature %q", name)}
 	}
 	feat := *fv.Feature
 	feat.OwnerType = typeSym
@@ -642,12 +642,12 @@ func (a *adoption) planValue(owner string, val Value) error {
 		}
 		// An unevaluated expression reads names in the document that just
 		// changed, so it cannot be carried over as the value it stands for.
-		if v.Kind == ValExpr {
-			err = &AdoptError{Type: owner, Reason: "it holds an expression that was never evaluated"}
+		if v.Kind == valExpr {
+			err = &adoptError{Type: owner, Reason: "it holds an expression that was never evaluated"}
 			return
 		}
 		if v.Kind == ValUndetermined {
-			err = &AdoptError{Type: owner, Reason: "it holds a value the model does not determine"}
+			err = &adoptError{Type: owner, Reason: "it holds a value the model does not determine"}
 			return
 		}
 		// A function value denotes its calc by name, so it is rebound as a variant is;
@@ -694,14 +694,14 @@ func (a *adoption) planValue(owner string, val Value) error {
 func (a *adoption) planFunction(owner string, v Value) error {
 	held := "the function " + v.FunctionName() + " it holds"
 	if v.FunctionClosesOverBody() {
-		return &AdoptError{Type: owner, Reason: held + " closes over the bindings of a run that has ended"}
+		return &adoptError{Type: owner, Reason: held + " closes over the bindings of a run that has ended"}
 	}
 	found, err := a.rebind(v.Function(), held)
 	if err != nil {
 		return err
 	}
 	if _, err := a.ctx.calcShapeOf(found); err != nil {
-		return &AdoptError{Type: owner, Reason: held + " cannot be invoked here: " + err.Error()}
+		return &adoptError{Type: owner, Reason: held + " cannot be invoked here: " + err.Error()}
 	}
 	if self := v.FunctionSelf(); self != nil {
 		return a.planHeld(owner, self.ID)
@@ -722,7 +722,7 @@ func unitsOf(v Value) []Unit {
 	case ValTensorQuantity:
 		return v.TensorQuantity().Units
 	case ValSequence:
-		if unit, ok := v.Sequence().ElementUnit(); ok {
+		if unit, ok := v.Sequence().emptyElementUnit(); ok {
 			return []Unit{unit}
 		}
 	}
@@ -746,7 +746,7 @@ func (a *adoption) planUnit(unit Unit) error {
 				return err
 			}
 			if reduces, err = a.ctx.model.semantics.UnitTermOf(found); err != nil {
-				return &AdoptError{Type: a.ctx.fqnOf(found), Reason: what + " no longer reduces: " + err.Error()}
+				return &adoptError{Type: a.ctx.fqnOf(found), Reason: what + " no longer reduces: " + err.Error()}
 			}
 		case power.Reduces != nil:
 			if err := a.planTerm(*power.Reduces); err != nil {
@@ -762,7 +762,7 @@ func (a *adoption) planUnit(unit Unit) error {
 		return err
 	}
 	if was := a.rewriteTerm(unit.Term); !term.Same(was) {
-		return &AdoptError{Reason: "the unit " + unit.Product.String() + " it is measured in now reduces to " +
+		return &adoptError{Reason: "the unit " + unit.Product.String() + " it is measured in now reduces to " +
 			term.String() + ", not " + was.String()}
 	}
 	return nil
@@ -826,7 +826,7 @@ func (a *adoption) rewriteTerm(term semantics.UnitTerm) semantics.UnitTerm {
 func (a *adoption) planHeld(owner string, id int64) error {
 	held, ok := a.prev.instances[id]
 	if !ok {
-		return &AdoptError{Type: owner, Reason: fmt.Sprintf("the object %d it holds is gone", id)}
+		return &adoptError{Type: owner, Reason: fmt.Sprintf("the object %d it holds is gone", id)}
 	}
 	return a.plan(held)
 }
@@ -836,7 +836,7 @@ func (a *adoption) planHeld(owner string, id int64) error {
 // declares it — and records it for the values that name it.
 func (a *adoption) rebind(sym *symbols.Symbol, what string) (*symbols.Symbol, error) {
 	if sym == nil {
-		return nil, &AdoptError{Reason: what + " was never resolved"}
+		return nil, &adoptError{Reason: what + " was never resolved"}
 	}
 	if found, ok := a.rebound[sym]; ok {
 		return found, nil
@@ -846,7 +846,7 @@ func (a *adoption) rebind(sym *symbols.Symbol, what string) (*symbols.Symbol, er
 		fqn = a.ctx.fqnOf(sym)
 	}
 	if fqn == "" {
-		return nil, &AdoptError{Reason: what + " has no qualified name"}
+		return nil, &adoptError{Reason: what + " has no qualified name"}
 	}
 	idx := a.ctx.model.resolver.Index()
 	var found *symbols.Symbol
@@ -855,12 +855,12 @@ func (a *adoption) rebind(sym *symbols.Symbol, what string) (*symbols.Symbol, er
 			continue
 		}
 		if found != nil {
-			return nil, &AdoptError{Type: fqn, Reason: what + " is now declared more than once"}
+			return nil, &adoptError{Type: fqn, Reason: what + " is now declared more than once"}
 		}
 		found = cand
 	}
 	if found == nil {
-		return nil, &AdoptError{Type: fqn, Reason: what + " is no longer declared"}
+		return nil, &adoptError{Type: fqn, Reason: what + " is no longer declared"}
 	}
 	found = a.ctx.declaredSymbol(found)
 	a.rebound[sym] = found
@@ -997,7 +997,7 @@ func (a *adoption) restartBehaviors() ([]string, error) {
 	}
 	if err := a.ctx.restartClassifierBehaviors(objects); err != nil {
 		a.abandon()
-		return nil, &AdoptError{Type: a.ctx.fqnOf(objects[0].Type),
+		return nil, &adoptError{Type: a.ctx.fqnOf(objects[0].Type),
 			Reason: "the behavior it runs could not be started again: " + err.Error()}
 	}
 	return restarted, nil
@@ -1037,6 +1037,16 @@ func (a *adoption) carryDerived(adopted map[int64]bool) {
 		}
 		if found, err := a.rebind(sym, aUsageOfIt); err == nil {
 			a.ctx.occurrences[found] = ids
+		}
+	}
+	for key, id := range a.prev.usageOccurrences {
+		if !adopted[id] || !adopted[key.instance] {
+			continue
+		}
+		if found, ok := a.rebound[key.sym]; ok {
+			a.ctx.usageOccurrences[calcUsageKey{sym: found, instance: key.instance}] = id
+		} else if found, err := a.rebind(key.sym, aUsageOfIt); err == nil {
+			a.ctx.usageOccurrences[calcUsageKey{sym: found, instance: key.instance}] = id
 		}
 	}
 	for sym := range a.prev.occurrenceTails {
@@ -1226,7 +1236,7 @@ func (a *adoption) rewrite(val Value) Value {
 	switch val.Kind {
 	case ValVariant:
 		if found, ok := a.rebound[val.Variant()]; ok {
-			return NewVariantValue(found, val.Instance)
+			return newVariantValue(found, val.Instance)
 		}
 		return val
 	case ValMetaobject:
@@ -1252,8 +1262,8 @@ func (a *adoption) rewrite(val Value) Value {
 		if val.Sequence() == nil {
 			return val
 		}
-		if unit, ok := val.Sequence().ElementUnit(); ok {
-			return NewEmptySequenceOf(a.rewriteUnit(unit))
+		if unit, ok := val.Sequence().emptyElementUnit(); ok {
+			return newEmptySequenceOf(a.rewriteUnit(unit))
 		}
 		seq := NewSequence()
 		for _, elem := range val.Sequence().elements {
@@ -1294,7 +1304,7 @@ func (a *adoption) rewrite(val Value) Value {
 			units[i] = a.rewriteUnit(unit)
 		}
 		if vq.Frame != nil {
-			return NewFramedVectorQuantityValue(vq.Num, a.rewriteFrame(vq.Frame, map[*CoordinateFrame]*CoordinateFrame{}))
+			return newFramedVectorQuantityValue(vq.Num, a.rewriteFrame(vq.Frame, map[*CoordinateFrame]*CoordinateFrame{}))
 		}
 		return NewVectorQuantityValue(vq.Num, units)
 	case ValTensorQuantity:

@@ -31,6 +31,7 @@ public class ModelException extends OpenSysMLException {
   private transient List<Diagnostic> diagnostics;
   private transient List<DocumentValue.DocumentEvent> trace;
   private final int traceDropped;
+  private final double finalTime;
 
   /**
    * Creates a model exception.
@@ -68,11 +69,32 @@ public class ModelException extends OpenSysMLException {
       List<Diagnostic> diagnostics,
       List<DocumentValue.DocumentEvent> trace,
       int traceDropped) {
+    this(message, failureReason, diagnostics, trace, traceDropped, 0);
+  }
+
+  /**
+   * Creates a run failure that reports the simulated time the run stopped at.
+   *
+   * @param message the failure, as the service worded it
+   * @param failureReason what kind of failure it is
+   * @param diagnostics diagnostics the answer carried
+   * @param trace records made before the run failed
+   * @param traceDropped oldest records the service discarded
+   * @param finalTime the simulated time, in seconds, the run stopped at; 0 when unreported
+   */
+  public ModelException(
+      String message,
+      FailureReason failureReason,
+      List<Diagnostic> diagnostics,
+      List<DocumentValue.DocumentEvent> trace,
+      int traceDropped,
+      double finalTime) {
     super(message);
     this.failureReason = Objects.requireNonNull(failureReason, "failureReason");
     this.diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
     this.trace = List.copyOf(Objects.requireNonNull(trace, "trace"));
     this.traceDropped = traceDropped;
+    this.finalTime = finalTime;
   }
 
   /**
@@ -101,6 +123,16 @@ public class ModelException extends OpenSysMLException {
   /** The oldest trace records the service discarded. */
   public int traceDropped() {
     return traceDropped;
+  }
+
+  /**
+   * The simulated time the failed run stopped at, as {@code sysml -advance} reports a run still
+   * waiting when its time is up.
+   *
+   * @return the time in seconds; 0 when the service reported none
+   */
+  public double finalTime() {
+    return finalTime;
   }
 
   @Serial

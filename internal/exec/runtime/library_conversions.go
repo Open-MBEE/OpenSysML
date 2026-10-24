@@ -12,9 +12,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// ErrInvalidNotation reports a String a conversion function cannot read as a
+// errInvalidNotation reports a String a conversion function cannot read as a
 // value of the type it converts to.
-var ErrInvalidNotation = errors.New("string is not a valid notation")
+var errInvalidNotation = errors.New("string is not a valid notation")
 
 // registerConversionFunctions registers the Kernel Function Library's
 // conversions between String, Boolean and the numeric scalar types, plus the
@@ -78,9 +78,9 @@ func anythingToString(name string, _ *Context, args []Value) (Value, error) {
 	case ValQuantity, ValEnumLiteral, ValMeasurementRef, ValCoordinateFrame, ValCoordinateTransformation:
 		return NewStringValue(FormatValue(x)), nil
 	case ValComplex:
-		return Value{}, fmt.Errorf("%w: %s: no string notation for a Complex value is defined", ErrUnevaluableLibraryFunction, name)
+		return Value{}, fmt.Errorf("%w: %s: no string notation for a Complex value is defined", errUnevaluableLibraryFunction, name)
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:
-		return Value{}, fmt.Errorf("%w: %s: no string notation for %s is defined", ErrUnevaluableLibraryFunction, name, describeOperand(x))
+		return Value{}, fmt.Errorf("%w: %s: no string notation for %s is defined", errUnevaluableLibraryFunction, name, describeOperand(x))
 	}
 	return Value{}, fmt.Errorf(
 		"%w: function %s parameter %q has no String notation for %s",
@@ -99,6 +99,9 @@ func booleanToString(name string, _ *Context, args []Value) (Value, error) {
 
 // integerToString is IntegerFunctions::ToString, the decimal digits of x.
 func integerToString(name string, _ *Context, args []Value) (Value, error) {
+	if isUnbounded(soleElement(args[0])) {
+		return NewStringValue("*"), nil
+	}
 	x, err := integerArg(name, "x", args[0])
 	if err != nil {
 		return Value{}, err
@@ -108,6 +111,9 @@ func integerToString(name string, _ *Context, args []Value) (Value, error) {
 
 // naturalToString is NaturalFunctions::ToString over a Natural argument.
 func naturalToString(name string, _ *Context, args []Value) (Value, error) {
+	if isUnbounded(soleElement(args[0])) {
+		return NewStringValue("*"), nil
+	}
 	x, err := naturalArg(name, "x", args[0])
 	if err != nil {
 		return Value{}, err
@@ -121,6 +127,9 @@ func naturalToString(name string, _ *Context, args []Value) (Value, error) {
 // for a Rational, a non-terminating one written `numer/denom`. An Integer
 // argument keeps its digits.
 func numberToString(name string, _ *Context, args []Value) (Value, error) {
+	if isUnbounded(soleElement(args[0])) {
+		return NewStringValue("*"), nil
+	}
 	x, err := numericArg(name, "x", args[0])
 	if err != nil {
 		return Value{}, err
@@ -373,7 +382,7 @@ func parseReal(name, s, typeName string) (Value, error) {
 
 // invalidNotation is the error for a String that is no notation of a type.
 func invalidNotation(name, s, typeName string) error {
-	return fmt.Errorf("%w: function %s: %s is not a %s", ErrInvalidNotation, name, source.StringText(s), typeName)
+	return fmt.Errorf("%w: function %s: %s is not a %s", errInvalidNotation, name, source.StringText(s), typeName)
 }
 
 // naturalValue wraps a non-negative Integer as a Natural.

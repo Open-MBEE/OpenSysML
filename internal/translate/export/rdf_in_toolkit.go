@@ -3,6 +3,7 @@ package export
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
@@ -260,9 +261,10 @@ func lastSegmentText(qname string) string {
 func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*rdf.Graph, error) {
 	meta := func(t rdf.Term) string { return rdf.LocalName(metaclasses[t]) }
 	chainIndex := chainOwnerIndex(graph, meta)
-	// A graph written in the API element form spells every default, so its
-	// stated defaults are dropped and its collapsed properties derived; a
-	// graph minted to this mapping states only what it means.
+	// This mapping never states Element::isImpliedIncluded in its graph (the
+	// reader drops the flag from its own documents), so a graph that does is an
+	// external writer's element form: its stated defaults are dropped and its
+	// collapsed properties derived; a graph minted to this mapping states only what it means.
 	elementForm := false
 	for _, subject := range graph.Subjects() {
 		if graph.HasProperty(subject, rdf.SysML+"isImpliedIncluded") {
@@ -486,6 +488,24 @@ func (n *normalizer) orderedMembersOf(owner string) []rdf.Term {
 	return ordered
 }
 
+// positionalIndex is the member position a qualifiedName of the form
+// `Owner::@n` states, for an anonymous member named by its place.
+func positionalIndex(graph *rdf.Graph, m rdf.Term) (int, bool) {
+	name, ok := graph.Lexical(m, rdf.SysML+pQualifiedName)
+	if !ok {
+		return 0, false
+	}
+	at := strings.LastIndex(name, "::@")
+	if at < 0 {
+		return 0, false
+	}
+	n, err := strconv.Atoi(name[at+3:])
+	if err != nil || n < 0 {
+		return 0, false
+	}
+	return n, true
+}
+
 // collapseRelationships collapses the minted relationship elements into the
 // head properties their owner states them as, when the element is owned
 // directly rather than declared through a membership.
@@ -688,12 +708,8 @@ func (n *normalizer) rangeBounds(subject rdf.Term) ([]rdf.Term, int) {
 	return bounds, stated
 }
 
-// deriveSuccessionEnds states the ends of a succession written between
-// members through its unnamed reference features: the member an end targets
-// where the toolkit resolves it, `then` beside the next member where it names
-// nothing. A source the notation names by position alone — the `entry;`
-// action or another nameless member written right before — is stated as that
-// position, since `first` has no name to spell for it.
+// deriveSuccessionEnds states a succession's ends from its unnamed end features:
+// a source or target only position (or an implied subsetting) names is stated as that position.
 func (n *normalizer) deriveSuccessionEnds() {
 	graph := n.graph
 	for _, subject := range graph.Subjects() {
@@ -705,8 +721,11 @@ func (n *normalizer) deriveSuccessionEnds() {
 		if owner.Value == "" {
 			continue
 		}
-		source, target := n.successionEnds(subject)
+		source, sourceImplied, target, targetWritten := n.successionEnds(subject)
 		previous, next := n.sequencedNeighbours(owner, subject)
+		if sourceImplied && n.sequencesFrom(source, previous) {
+			source = rdf.Term{}
+		}
 		named := source.Value != "" && !n.positionalSource(source, previous)
 		if named {
 			graph.Add(subject, rdf.SysMLTerm(pSourceFeature), source)
@@ -716,7 +735,9 @@ func (n *normalizer) deriveSuccessionEnds() {
 			graph.Add(subject, rdf.OpenSysMLTerm(xSourceMember), previous)
 		}
 		switch {
-		case target.Value != "" && (target != next || source.Value != ""):
+		// A written target beside the member it names is `then idle; state idle;`,
+		// a derived one `then state idle;` — the declaration the `then` is attached to.
+		case target.Value != "" && (target != next || source.Value != "" || targetWritten):
 			graph.Add(subject, rdf.SysMLTerm(pTargetFeature), target)
 			if !named {
 				graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String(formThen))
@@ -737,18 +758,22 @@ func (n *normalizer) deriveSuccessionEnds() {
 // names: a nameless member — or the one a nameless `entry;` membership owns —
 // written right before the succession (SysML v2 1.0 § 7.17.4).
 func (n *normalizer) positionalSource(source, previous rdf.Term) bool {
-	if previous.Value == "" || n.graph.HasProperty(source, rdf.SysML+pDeclaredName) {
-		return false
-	}
-	return source == previous || n.memberOwner[source.Value] == previous
+	return !n.graph.HasProperty(source, rdf.SysML+pDeclaredName) && n.sequencesFrom(source, previous)
+}
+
+// sequencesFrom reports a source end that is the member before the succession
+// or the action that member owns: the source a `then` leaves to position.
+func (n *normalizer) sequencesFrom(source, previous rdf.Term) bool {
+	return previous.Value != "" && (source == previous || n.memberOwner[source.Value] == previous)
 }
 
 // successionEnds is what a succession's end features refer to, falling back
-// to the featureTarget of its first and last unnamed ends.
-func (n *normalizer) successionEnds(subject rdf.Term) (source, target rdf.Term) {
+// to the featureTarget of its first and last unnamed ends, and how each end states it.
+func (n *normalizer) successionEnds(subject rdf.Term) (source rdf.Term, sourceImplied bool, target rdf.Term, targetWritten bool) {
 	graph, meta, ownerMembers := n.graph, n.meta, n.ownerMembers
 	if referents := successionEndReferents(graph, meta, subject); len(referents) == 2 {
-		source, target = referents[0], referents[1]
+		source, sourceImplied = referents[0].feature, referents[0].implied
+		target, targetWritten = referents[1].feature, referents[1].written
 	}
 	if ends := ownerMembers[subject.Value]; len(ends) >= 2 {
 		if t := firstIRI(graph, ends[0], "featureTarget"); source.Value == "" && t.IsIRI() && t != ends[0] {
@@ -759,7 +784,7 @@ func (n *normalizer) successionEnds(subject rdf.Term) (source, target rdf.Term) 
 			target = t
 		}
 	}
-	return source, target
+	return source, sourceImplied, target, targetWritten
 }
 
 // sequencedNeighbours is the members a `then` is written between: the
@@ -1275,8 +1300,8 @@ func (d *transitionHeadDeriver) derive(subject rdf.Term) {
 func (d *transitionHeadDeriver) deriveBodyMember(subject, member rdf.Term) {
 	if d.meta(member) == mSuccession {
 		ends := successionEndReferents(d.graph, d.meta, member)
-		if len(ends) == 2 && ends[1].Value != "" {
-			d.stateEnd(subject, pTarget, pTargetFeature, d.tail(ends[1]))
+		if len(ends) == 2 && ends[1].feature.Value != "" {
+			d.stateEnd(subject, pTarget, pTargetFeature, d.tail(ends[1].feature))
 		}
 		return
 	}
@@ -1284,10 +1309,17 @@ func (d *transitionHeadDeriver) deriveBodyMember(subject, member rdf.Term) {
 	d.graph.Add(subject, rdf.OpenSysMLTerm(xHasBody), rdf.Bool(true))
 }
 
+// endReferent is what a succession end refers to, and how: through a written
+// ReferenceSubsetting, an implied one (a derivation, not a written end), or a collapsed edge alone.
+type endReferent struct {
+	feature          rdf.Term
+	written, implied bool
+}
+
 // successionEndReferents is what each end feature a succession owns through
 // EndFeatureMembership refers to, in order; an end that refers to nothing is empty.
-func successionEndReferents(graph *rdf.Graph, meta func(rdf.Term) string, succession rdf.Term) []rdf.Term {
-	var out []rdf.Term
+func successionEndReferents(graph *rdf.Graph, meta func(rdf.Term) string, succession rdf.Term) []endReferent {
+	var out []endReferent
 	for _, ms := range graph.Objects(succession, rdf.SysML+pOwnedRelationship) {
 		if meta(ms) != mEndFeatureMembership {
 			continue
@@ -1296,10 +1328,19 @@ func successionEndReferents(graph *rdf.Graph, meta func(rdf.Term) string, succes
 		if end.Value == "" {
 			continue
 		}
-		referent := firstObject(graph, end, pReferences)
+		referent := endReferent{feature: firstObject(graph, end, pReferences)}
 		for _, rel := range graph.Objects(end, rdf.SysML+pOwnedRelationship) {
-			if meta(rel) == mReferenceSubsetting {
-				referent = firstObject(graph, rel, pReferencedFeature, pTarget)
+			if meta(rel) != mReferenceSubsetting {
+				continue
+			}
+			implied := graph.BoolValue(rel, rdf.SysML+pIsImplied)
+			referent = endReferent{
+				feature: firstObject(graph, rel, pReferencedFeature, pTarget),
+				written: !implied,
+				implied: implied,
+			}
+			if referent.written {
+				break
 			}
 		}
 		out = append(out, referent)
@@ -1448,6 +1489,9 @@ func newDefaultDropper(graph *rdf.Graph, meta func(rdf.Term) string, chainIndex 
 // a membership owns, an implied one, or an unresolved-name annotation.
 func (d *defaultDropper) dropped(v string) bool {
 	subject := rdf.IRI(v)
+	if d.implied[v] && d.membershipSubjects[v] {
+		return false
+	}
 	if d.implied[v] && d.meta(subject) == mReferenceSubsetting {
 		referencing := firstIRI(d.graph, subject, pReferencingFeature, pOwningFeature, pOwningRelatedElement, pOwner)
 		if d.meta(referencing) == mReferenceUsage &&
@@ -1482,6 +1526,8 @@ func (d *defaultDropper) ownsDroppedMember(subject rdf.Term) bool {
 	return member.Value != "" && d.unresolvedTR[member.Value]
 }
 
+// impliedIncluded reports whether subject came from an external writer's
+// element form, the only graph that states Element::isImpliedIncluded.
 func (d *defaultDropper) impliedIncluded(subject rdf.Term) bool {
 	return d.graph.HasProperty(subject, rdf.SysML+"isImpliedIncluded")
 }
@@ -1614,25 +1660,8 @@ func (d *defaultDropper) dropsLiteral(subject rdf.Term, local string, object rdf
 	case local == pVisibility && object.Value == "public":
 		// Public is the visibility a member writes nothing for.
 		return true
-	case local == "isComposite" && object.Value == "true":
-		return d.compositeByDefault(subject)
 	}
 	return false
-}
-
-// compositeByDefault reports a usage that is composite without a keyword.
-func (d *defaultDropper) compositeByDefault(subject rdf.Term) bool {
-	graph, meta := d.graph, d.meta
-	switch meta(subject) {
-	case "PartUsage", mPortUsage, "ItemUsage", "ConstraintUsage":
-		// Compositional usages are composite without a keyword.
-		return true
-	}
-	// A usage nested in a type is composite unless `ref` (SysML
-	// Usage::isComposite); only one elsewhere writes `composite`.
-	owner := firstIRI(graph, firstIRI(graph, subject, pOwningRelationship), pOwningRelatedElement, pOwner)
-	return (meta(subject) == "FlowUsage" || ontology.IsAncestorOrSelf(meta(subject), "Usage")) && owner.IsIRI() &&
-		ontology.IsAncestorOrSelf(meta(owner), "Type")
 }
 
 // membershipOwnedIn is every element owned by a membership — an annotation of

@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -72,6 +73,7 @@ func (h *actionStmtHost) send(ec *EvalContext, s lower.Send) error {
 // assignOuter writes a name the body's blocks do not declare: to the running performance,
 // else the innermost enclosing one holding it, else the performing object, else the body.
 func (h *actionStmtHost) assignOuter(env *stmtEnv, name string, value Value, s lower.Assign) error {
+	name = h.perf.heldKey(h.exec.ctx, s.Scope, name)
 	if h.perf.declares(name) {
 		return h.exec.setFrameFeature(h.perf, name, value)
 	}
@@ -85,6 +87,7 @@ func (h *actionStmtHost) assignOuter(env *stmtEnv, name string, value Value, s l
 }
 
 func (h *actionStmtHost) assignData(env *stmtEnv, name string, value Value, s lower.Assign) error {
+	name = h.perf.heldKey(h.exec.ctx, s.Scope, name)
 	if h.perf.declares(name) {
 		return h.exec.setFrameFeature(h.perf, name, value)
 	}
@@ -116,7 +119,7 @@ func assignQualifiedForeign(ec *EvalContext, s lower.Assign, value Value, descri
 	if target != nil && ec.ctx.isOrSpecializes(target.Type, s.Owner) {
 		if _, ok := target.FeatureValues[s.Target]; !ok {
 			return fmt.Errorf("%s: object #%d (%s) has no feature %s",
-				ErrNoSuchFeature, target.ID, symbolText(target.Type), s.Target)
+				ErrNoSuchFeature, target.ID, SymbolText(target.Type), s.Target)
 		}
 		if err := target.SetFeatureValue(ec.ctx, s.Target, value); err != nil {
 			return err
@@ -155,11 +158,58 @@ func (h *actionStmtHost) statementOrder(stmts []lower.Statement) *lower.Statemen
 	if len(stmts) < 2 {
 		return nil
 	}
-	order := h.exec.statementOrder(h.graph, h.node, stmts)
+	order := h.exec.statementOrder(h.graph, nil, h.node, stmts)
 	if h.exec.ctx.scheduling().ordersStatements() || order.HasReversePrecedence() || order.HasSkipped() {
 		return order
 	}
 	return nil
+}
+
+func (h *actionStmtHost) statementFootprint(stmts []lower.Statement, i int) lower.Footprint {
+	order := h.exec.statementOrder(h.graph, nil, h.node, stmts)
+	fp := order.Footprint(i)
+	if h.perf == nil || h.perf.node == nil {
+		return fp
+	}
+	// The stamped footprint depends only on the statement and the performed
+	// node, so each performance of a node computes it once, not per execution.
+	list, keyed := statementListKey(h.node, stmts)
+	key := stampedFootprint{list: list, i: i, node: h.perf.node}
+	model := h.exec.ctx.model
+	if stamped, done := model.stamped[key]; done && keyed {
+		return stamped
+	}
+	// The node's own features are this performance's places, as its pins are;
+	// another node's pin the body reads stays that node's.
+	own := make(map[ast.Node]bool)
+	for _, f := range h.graph.Features[h.perf.node] {
+		own[f.Node] = true
+	}
+	fp.Reads, fp.Writes = placesOf(fp.Reads, h.perf.node, own), placesOf(fp.Writes, h.perf.node, own)
+	if !keyed {
+		return fp
+	}
+	if model.stamped == nil {
+		model.stamped = make(map[stampedFootprint]lower.Footprint)
+	}
+	model.stamped[key] = fp
+	return fp
+}
+
+// placesOf is the places with those declared by node's own features, the
+// declarations in own, stamped as node's; the places themselves when none is.
+func placesOf(places []lower.Place, node ast.Node, own map[ast.Node]bool) []lower.Place {
+	stamps := func(p lower.Place) bool { return p.Node == nil && p.Sym != nil && own[p.Sym.Decl] }
+	if !slices.ContainsFunc(places, stamps) {
+		return places
+	}
+	out := slices.Clone(places)
+	for i := range out {
+		if stamps(out[i]) {
+			out[i].Node = node
+		}
+	}
+	return out
 }
 
 func (h *actionStmtHost) orderStep() int {
@@ -172,7 +222,7 @@ func (h *actionStmtHost) orderStep() int {
 func (h *actionStmtHost) yieldsBetweenStatements() bool { return true }
 
 func (h *actionStmtHost) acceptReturn(Value, lower.Return) error {
-	return fmt.Errorf("%w: %s", ErrReturnOutsideCalc, h.describe())
+	return fmt.Errorf("%w: %s", errReturnOutsideCalc, h.describe())
 }
 
 // effect performs the action a `perform` in statement form names, where it
@@ -236,7 +286,7 @@ func (h *actionStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGrap
 // executor's, and a block of its body sequences its nodes.
 func (h *actionStmtHost) runFlow(lower.Block) (stmtFlow, error) {
 	return flowNext, fmt.Errorf("%w: %s: a flow of steps in a block is not executable",
-		ErrStatementNotExecutable, h.describe())
+		errStatementNotExecutable, h.describe())
 }
 
 func (h *actionStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stmtFlow, error) {
@@ -303,6 +353,28 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 		return flowNext, e.flow.endAlongside(ended)
 	}
 	return flowNext, nil
+}
+
+// markPerformance records what performing node binds, for the marks of the run's
+// values: as it begins, its own features and pins stand on what they are bound
+// from; once ended, its outputs — the pins and the enclosing features they are
+// carried to — stand on what its body left on its pins. The body's statements
+// are recorded one by one as they run, so an ended performance's pins are not
+// bound again from what its initializers read.
+func (e *performances) markPerformance(graph *lower.ActionGraph, node ast.Node, ended bool) {
+	fp := graph.BindingFootprints()[node]
+	if !ended {
+		own := slices.DeleteFunc(slices.Clone(fp.Writes), func(w lower.Place) bool { return !w.Local })
+		e.ctx.writeMarks(own, e.ctx.standingOf(fp, false))
+		return
+	}
+	by := slices.Clone(e.ctx.controls)
+	for _, w := range fp.Writes {
+		if w.Local {
+			by = unionSerials(by, e.ctx.run.marks.at(w))
+		}
+	}
+	e.ctx.writeMarks(fp.Writes, by)
 }
 
 // performFrame is a node a body performs (performNode) where the body paused: at
@@ -435,7 +507,7 @@ func (e *performances) performNodeBody(f *performFrame, graph *lower.ActionGraph
 		return e.performCase(perf)
 	}
 	if f.phase == performInvoking {
-		if inv, ok := nestedInvocationInGraph(graph, node); ok {
+		if inv, ok := nodeInvocation(graph, perf, node); ok {
 			if err := e.performInvocation(perf, inv); err != nil {
 				return err
 			}

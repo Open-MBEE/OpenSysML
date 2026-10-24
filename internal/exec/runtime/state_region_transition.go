@@ -391,6 +391,7 @@ func (e *StateExecutor) exitRegionTo(region *ast.StateRegion, stop *ast.StateNod
 	}
 	path := e.regionExitPath(region, stop)
 	delete(e.activeConfig.regionStates, region)
+	delete(e.activeConfig.defaultComplete, region)
 	if stop == nil {
 		// The region keeps no active state, so it has none to restore either.
 		e.forgetRegionHistory(region)
@@ -457,6 +458,7 @@ func (e *StateExecutor) exitRegionOwnerTo(owner, lca *ast.StateNode) error {
 			if active, isActive := e.activeConfig.regionStates[declaring]; isActive && e.isBelowOrEqual(active, current) {
 				e.recordRegionHistory(declaring, active)
 				delete(e.activeConfig.regionStates, declaring)
+				delete(e.activeConfig.defaultComplete, declaring)
 			}
 		}
 		if err := e.exitState(current); err != nil {
@@ -470,25 +472,25 @@ func (e *StateExecutor) exitRegionOwnerTo(owner, lca *ast.StateNode) error {
 // owns: every region is exited in declaration order and the target — outside
 // all of them — is then entered as the machine's single active state.
 func (e *StateExecutor) leaveTopRegions(trans *lower.Transition, effects []routeEffect, source, target *ast.StateNode) error {
-	var bodies []func() error
+	var units []unit
 	for _, region := range e.graph.TopRegions {
 		active, ok := e.activeConfig.regionStates[region]
 		if !ok {
 			continue
 		}
 		delete(e.activeConfig.regionStates, region)
-		bodies = append(bodies, func() error {
-			leaving := make([]*ast.StateNode, 0)
-			for current := active; current != nil; current = e.graph.ParentState[current] {
-				leaving = append(leaving, current)
-			}
-			return e.exitStates(leaving)
-		})
+		delete(e.activeConfig.defaultComplete, region)
+		leaving := make([]*ast.StateNode, 0)
+		for current := active; current != nil; current = e.graph.ParentState[current] {
+			leaving = append(leaving, current)
+		}
+		units = append(units, unit{run: func() error { return e.exitStates(leaving) }, footprint: e.exitFootprint(leaving)})
 	}
-	if err := e.performUnits(ChoiceExitOrder, exitingWherePrefix+e.stateMachine.Name, bodies, true); err != nil {
+	if err := e.performUnits(choiceExitOrder, exitingWherePrefix+e.stateMachine.Name, units, true); err != nil {
 		return err
 	}
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
+	e.activeConfig.defaultComplete = make(map[*ast.StateRegion]bool)
 	e.activeConfig.simpleState = nil
 
 	if err := e.runEffects(effects, e.descendantChain(nil, target)); err != nil {

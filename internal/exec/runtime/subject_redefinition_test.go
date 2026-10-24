@@ -91,8 +91,8 @@ func TestUnboundRedefiningSubjectIsReportedAsUnbound(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", file)
 	rootScope := idx.DocumentRoot("<test>")
 	holds, err := ctx.EvaluateRequirement(findSymbolByName(rootScope, "payloadOpen", ast.DefRequirement), rootScope)
-	if !errors.Is(err, ErrUnboundSubject) {
-		t.Fatalf("payloadOpen = %v, %v; want ErrUnboundSubject", holds, err)
+	if !errors.Is(err, errUnboundSubject) {
+		t.Fatalf("payloadOpen = %v, %v; want errUnboundSubject", holds, err)
 	}
 	if !strings.Contains(err.Error(), "t subject is unbound") {
 		t.Errorf("error %q does not name the subject as read", err)

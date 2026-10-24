@@ -132,17 +132,35 @@ verify_satisfaction(model, "Demo::satisfy"; question=nothing, engine=nothing)
 satisfied(model, "Demo::requirement"; question=nothing, engine=nothing)
 validate_instance(model, "Demo::car"; engine=nothing)
 calc(model, "Demo::sum"; inputs=Dict("x" => 2), engine=nothing)
-run_analysis(model, "Demo::analysis"; inputs=Dict(), engine=nothing)
+run_analysis(model, "Demo::analysis"; inputs=Dict(), engine=nothing, tool_dry_run=false)
 run_sweep(model, "Demo::analysis", ["Demo::x" => [1, 2]];
           inputs=Dict(), engine=nothing)
-list_engines(conn)
+list_engines(conn; probe=false)
+execute_action(model, "Demo::action"; inputs=Dict(), schedule="", performer=nothing,
+               advance=nothing, seed=nothing, draws=nothing, clock_step=0.0)
+execute_state(model, "Demo::machine"; events=String[], schedule="", performer=nothing,
+              trace=false, advance=nothing, seed=nothing, draws=nothing, clock_step=0.0)
+refresh_diagnostics(model; disable_lint=(), enable_lint=())
 explore_analysis(model, "Demo::analysis"; engine=nothing)
 explore_action(model, "Demo::action"; inputs=Dict(), engine=nothing)
 explore_state(model, "Demo::machine"; events=String[], engine=nothing)
 ```
 
 Engine, question, and schedule options are checked against their respective
-service capabilities before the RPC. Sweep ranges may be one `Pair`, an
+service capabilities before the RPC. `execute_action` and `execute_state` take
+the run options of the `sysml` command: `advance` (simulated seconds to run
+for), `seed` (the model's own draws), `draws` (`"random"`, `"min"`, `"max"` or
+`"average"`) and `clock_step`; a negative or unknown one is an `ArgumentError`
+before anything is sent. `run_analysis(...; tool_dry_run=true)` runs the case
+only to its first external tool call and answers what the tool would be given
+in the result's `tool_dry_run` (a `ToolDryRun`: `action`, `tool`, `version`,
+`executable`, `args`, `env`, `inputs`, `outputs`, `lines`, ...), as
+`sysml -tool-dry-run` does. `list_engines(conn; probe=true)` starts each
+external engine and checks its handshake before listing it.
+`refresh_diagnostics(model; disable_lint, enable_lint)` asks the service for
+the model's diagnostics again under a lint selection, as
+`sysml -disable-lint`/`-enable-lint` select them; `model.diagnostics` stays
+what the parse answered. Sweep ranges may be one `Pair`, an
 ordered `AbstractVector` of pairs, or an `AbstractDict` with no more than one
 entry. Multi-entry dictionaries are rejected because iteration order is not a
 stable parameter order.
@@ -153,8 +171,13 @@ stable parameter order.
 `query(model, payload; scope, select, where)` runs it. Document APIs are
 `build_document_bindings`, `run_document_query(model, query; bindings,
 options)`, `render_document(model, query; bindings, format)`, and
-`render_view(model, name; ports="minimal")`, returning typed query and view
-data. `ports="full"` includes all declared ports.
+`render_view(model, name; ports="minimal", show=String[], depth=0)`, returning
+typed query and view data. `ports="full"` includes all declared ports;
+`depth=n` draws only `n` levels of nested elements below each exposed element
+(`0` draws every level the view allows); `show=["edge-labels"]` draws
+those [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
+besides the ones the view's rendering shows (`"all"` for every one), and the
+`RenderedView`'s `shown` lists the elements drawn.
 
 Conversion is available through `convert_file(conn, path, to_format; ...)`,
 `convert_source(conn, content, to_format; from_format, ...)`,

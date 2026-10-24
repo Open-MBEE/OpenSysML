@@ -20,6 +20,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
 	fsyntax "github.com/Open-MBEE/OpenSysML/internal/frontend/syntax"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -320,8 +321,21 @@ func (e *Engine) renderView(req *JRenderViewRequest) ([]byte, error) {
 	if !ok {
 		return nil, statusError(codeInvalidArgument, (&view.UnknownPortsError{Name: req.Ports}).Error())
 	}
+	shown, err := view.ShownOf(req.Show)
+	if err != nil {
+		return nil, statusError(codeInvalidArgument, err.Error())
+	}
+
+	if req.Depth < 0 {
+		return nil, statusError(codeInvalidArgument, (&view.DepthError{Value: fmt.Sprint(req.Depth)}).Error())
+	}
+	compartments, ok := view.ParseCompartments(req.Compartments)
+	if !ok {
+		return nil, statusError(codeInvalidArgument, (&view.UnknownCompartmentsError{Name: req.Compartments}).Error())
+	}
 
 	renderer := view.NewRenderer(cached.typedModel(), cached.resolver, cached.sourceText())
+	renderer.SetDepth(req.Depth)
 	rendering, err := view.RenderNamed(renderer, req.View, func(name string) []*symbols.Symbol {
 		return lookupNamed(cached.Index, name)
 	})
@@ -332,65 +346,79 @@ func (e *Engine) renderView(req *JRenderViewRequest) ([]byte, error) {
 		}
 		return nil, statusError(codeInvalidArgument, err.Error())
 	}
-	return marshalRenderView(rendering.DataFor(ports))
+	return marshalRenderView(cached, rendering.DataWith(view.Options{Ports: ports, Show: shown, Compartments: compartments}))
 }
 
-func marshalRenderView(data view.Data) ([]byte, error) {
+// renderOrigins resolves the declaration spans a rendering refers to, in the
+// model's documents and behind them its library, as the service does.
+type renderOrigins struct {
+	model   *cachedModel
+	sources map[string]*source.SourceFile
+}
+
+func (o *renderOrigins) span(origin view.Origin) *JSpan {
+	if !origin.Located() {
+		return nil
+	}
+	sf, seen := o.sources[origin.Doc]
+	if !seen {
+		sf = o.model.document(origin.Doc)
+		if sf == nil && o.model.Library != nil {
+			if content, err := o.model.Library.Read(origin.Doc); err == nil {
+				sf = source.New(origin.Doc, content)
+			}
+		}
+		o.sources[origin.Doc] = sf
+	}
+	if sf == nil {
+		return &JSpan{File: origin.Doc}
+	}
+	return fsyntax.SpanOf(sf, origin.Span)
+}
+
+// marshalRenderView writes a rendering as protojson writes the service's
+// RenderViewResponse for the same view.Data.
+func marshalRenderView(model *cachedModel, data view.Data) ([]byte, error) {
+	origins := &renderOrigins{model: model, sources: make(map[string]*source.SourceFile)}
 	out := &JRenderViewResponse{
 		View:    data.View,
 		Kind:    string(data.Kind),
 		Stated:  data.Stated,
+		Columns: data.Columns,
 		Notices: data.Notices,
+		Shown:   data.Shown,
 		Nodes:   make([]JRenderNode, 0, len(data.Nodes)),
 		Edges:   make([]JRenderEdge, 0, len(data.Edges)),
 	}
-	if out.Notices == nil {
-		out.Notices = []string{}
-	}
-	if len(data.Columns) > 0 {
-		out.Columns = data.Columns
-	}
 	if data.Canvas != nil {
-		out.Canvas = &JRenderCanvas{Unit: data.Canvas.Unit}
-		if data.Canvas.HasSize {
-			width, height := data.Canvas.Width, data.Canvas.Height
-			out.Canvas.Width, out.Canvas.Height = &width, &height
+		out.Canvas = &JRenderCanvas{
+			Unit: data.Canvas.Unit, Width: data.Canvas.Width, Height: data.Canvas.Height, HasSize: data.Canvas.HasSize,
 		}
 	}
 	for _, node := range data.Nodes {
 		item := JRenderNode{
-			ID:              node.ID,
-			Kind:            node.Kind,
-			Name:            node.Name,
-			NameSynthesized: node.NameSynthesized,
-			Type:            node.Type,
-			Detail:          node.Detail,
-			Parent:          node.Parent,
-			Style:           jRenderStyle(node.Style),
-		}
-		if node.Style != nil {
-			item.Fill = node.Style.Fill
-			item.Border = node.Style.Line
-		}
-		if node.Geometry != nil {
-			x, y := node.Geometry.X, node.Geometry.Y
-			item.X, item.Y, item.Collapsed = &x, &y, node.Geometry.Collapsed
-			if node.Geometry.HasSize {
-				width, height := node.Geometry.Width, node.Geometry.Height
-				item.Width, item.Height = &width, &height
-			}
+			ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
+			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn,
+			Parent: node.Parent, Compartment: node.Compartment, Origin: origins.span(node.Origin), Style: jRenderStyle(node.Style),
 		}
 		for _, port := range node.Ports {
 			item.Ports = append(item.Ports, JRenderPort{
 				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(),
 			})
 		}
+		if node.Geometry != nil {
+			item.Geometry = &JRenderGeometry{
+				X: node.Geometry.X, Y: node.Geometry.Y, Width: node.Geometry.Width, Height: node.Geometry.Height,
+				HasSize: node.Geometry.HasSize, Collapsed: node.Geometry.Collapsed, Unplaced: node.Geometry.Unplaced,
+			}
+		}
 		out.Nodes = append(out.Nodes, item)
 	}
 	for _, edge := range data.Edges {
 		item := JRenderEdge{
 			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
-			Label: edge.Label, Kind: edge.Kind.String(), Style: jRenderStyle(edge.Style),
+			Label: edge.Text(), Name: edge.Name, Kind: edge.Kind.String(),
+			Origin: origins.span(edge.Origin), Style: jRenderStyle(edge.Style),
 		}
 		for _, point := range edge.Route {
 			item.Route = append(item.Route, JRenderPoint{X: point.X, Y: point.Y})
@@ -398,7 +426,14 @@ func marshalRenderView(data view.Data) ([]byte, error) {
 		out.Edges = append(out.Edges, item)
 	}
 	for _, row := range data.Rows {
-		out.Rows = append(out.Rows, JRenderRow{Cells: row.Cells})
+		out.Rows = append(out.Rows, JRenderRow{Cells: row.Cells, Origin: origins.span(row.Origin)})
+	}
+	for _, note := range data.Notes {
+		out.Notes = append(out.Notes, JRenderNote{
+			Text: note.Text, Anchor: note.Anchor, EdgeFrom: note.EdgeFrom, EdgeTo: note.EdgeTo,
+			X: note.X, Y: note.Y, Width: note.Width, Height: note.Height, HasSize: note.HasSize,
+			Origin: origins.span(note.Origin),
+		})
 	}
 	return marshal(out)
 }
@@ -915,7 +950,7 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	}
 	self, err := e.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		trace, dropped := stateTraceToJSON(runtimeCtx, traceRecorder)
+		trace, dropped := stateTraceToJSON(runtimeCtx, cached.Index, traceRecorder)
 		return marshal(&JExecuteStateResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped})
 	}
 
@@ -927,7 +962,7 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	}
 	finalContext, statesVisited := outcome.Outputs, outcome.StateVisits
 	diags := runNoteDiagnosticsToProto(runtimeCtx.Notes(), cached)
-	trace, dropped := stateTraceToJSON(runtimeCtx, traceRecorder)
+	trace, dropped := stateTraceToJSON(runtimeCtx, cached.Index, traceRecorder)
 	if err != nil {
 		return marshal(&JExecuteStateResponse{
 			Error:        fmt.Sprintf("state machine execution failed: %v", err),
@@ -948,34 +983,106 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	})
 }
 
-func stateTraceToJSON(rt *runtime.Context, recorder *runtime.TraceRecorder) ([]JTraceEvent, int) {
+func stateTraceToJSON(rt *runtime.Context, idx *symbols.Index, recorder *runtime.TraceRecorder) ([]JDocumentEvent, int) {
 	if recorder == nil {
 		return nil, 0
 	}
 	events := queryexec.EventsFromTrace(rt, recorder.Records())
-	trace := make([]JTraceEvent, len(events))
+	trace := make([]JDocumentEvent, len(events))
 	for i, event := range events {
-		record := event.Record()
-		_, object := event.Object()
-		_, target := event.Target()
-		trace[i] = JTraceEvent{
-			Kind:         event.Kind(),
-			At:           F64(event.At()),
-			Object:       object,
-			Machine:      event.Machine(),
-			State:        record.State,
-			From:         record.From,
-			To:           record.To,
-			Target:       target,
-			Event:        record.Event,
-			Payload:      event.Payload(),
-			Alternatives: event.Alternatives(),
-			Taken:        event.Taken(),
-			Text:         event.Text(),
-		}
+		trace[i] = documentEventToJSON(idx, event)
 	}
 	dropped, _ := recorder.Dropped()
 	return trace, dropped
+}
+
+// documentEventToJSON writes one trace record as the service's DocumentEvent.
+func documentEventToJSON(idx *symbols.Index, event queryexec.Event) JDocumentEvent {
+	record := event.Record()
+	out := JDocumentEvent{
+		Kind:         event.Kind(),
+		Time:         documentValueToJSON(idx, event.Time()),
+		Machine:      event.Machine(),
+		State:        record.State,
+		From:         record.From,
+		To:           record.To,
+		Event:        record.Event,
+		Payload:      event.Payload(),
+		Alternatives: event.Alternatives(),
+		Taken:        event.Taken(),
+		Text:         event.Text(),
+	}
+	if inst, label := event.Object(); inst != nil {
+		out.Object = documentObjectToJSON(idx, queryexec.ObjectValue(inst, label))
+	}
+	if inst, label := event.Target(); inst != nil {
+		out.Target = documentObjectToJSON(idx, queryexec.ObjectValue(inst, label))
+	}
+	return out
+}
+
+// documentValueToJSON writes a query value as the service's DocumentValue; a
+// row value (verdict, state, event) has no arm here, as a trace carries none.
+func documentValueToJSON(idx *symbols.Index, value queryexec.Value) *JDocumentValue {
+	switch value.Kind() {
+	case queryexec.ValueElement:
+		sym, ok := value.Element()
+		if !ok {
+			return &JDocumentValue{}
+		}
+		return elementValueToJSON(idx, sym)
+	case queryexec.ValueObject:
+		return &JDocumentValue{Object: documentObjectToJSON(idx, value)}
+	case queryexec.ValueString:
+		text, _ := value.String()
+		return &JDocumentValue{StringValue: &text}
+	case queryexec.ValueInteger:
+		integer, _ := value.IntegerConst()
+		if n, fits := integer.Int64(); fits {
+			v := I64(n)
+			return &JDocumentValue{IntValue: &v}
+		}
+		big := integer.FormatInt()
+		return &JDocumentValue{BigIntValue: &big}
+	case queryexec.ValueRational:
+		rational, _ := value.Rational()
+		if f, exact := rational.BinaryExact(); exact {
+			v := F64(f)
+			return &JDocumentValue{RealValue: &v}
+		}
+		return &JDocumentValue{RationalValue: rationalToProto(rational)}
+	case queryexec.ValueReal:
+		realVal, _ := value.Real()
+		v := F64(realVal)
+		return &JDocumentValue{RealValue: &v}
+	case queryexec.ValueBoolean:
+		boolean, _ := value.Boolean()
+		return &JDocumentValue{BoolValue: &boolean}
+	case queryexec.ValueInfinity:
+		yes := true
+		return &JDocumentValue{Infinity: &yes}
+	case queryexec.ValueQuantity:
+		quantity, _ := value.Quantity()
+		return &JDocumentValue{Quantity: quantityToProto(&quantity)}
+	default:
+		return &JDocumentValue{}
+	}
+}
+
+// documentObjectToJSON writes an object by id, label and declaring element.
+func documentObjectToJSON(idx *symbols.Index, value queryexec.Value) *JDocumentObject {
+	inst, label, _ := value.Object()
+	out := &JDocumentObject{InstanceId: I64(inst.ID), Path: label}
+	if decl := value.Declaration(); decl != nil {
+		out.Element = elementValueToJSON(idx, decl)
+	}
+	return out
+}
+
+// elementValueToJSON names an element by qualified name and metamodel type.
+func elementValueToJSON(idx *symbols.Index, sym *symbols.Symbol) *JDocumentValue {
+	fqn := idx.GetFQN(sym)
+	return &JDocumentValue{ElementId: &fqn, ElementType: corequery.MetamodelTypeNameOf(sym)}
 }
 
 // valuesToProto converts each value of a named map.

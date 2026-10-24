@@ -18,7 +18,7 @@ const functionSource = `package F {
 	private import ScalarValues::*;
 	calc def Sq { in v : Real; return : Real = v * v; }
 	calc def Cube { in v : Real; return : Real = v * v * v; }
-	calc def Apply { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
+	calc def Apply { in calc f { in v : Real; return : Real; } in a : Real; return : Real[1] = f(a); }
 	calc apply : Apply;
 	calc def Identity { in calc f { in v : Real; return : Real; } return r = f; }
 	attribute pick = Identity(Sq);
@@ -101,7 +101,7 @@ func TestFunctionsCrossEveryTransport(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ExecuteAction: %v", err)
 			}
-			if run.Outputs["y"] != opensysml.Real(81) {
+			if sole(t, "y", run.Outputs["y"]) != opensysml.Real(81) {
 				t.Errorf("y = %#v, want 81.0", run.Outputs["y"])
 			}
 

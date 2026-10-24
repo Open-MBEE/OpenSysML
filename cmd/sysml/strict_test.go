@@ -26,12 +26,12 @@ func TestStrictConformanceDecidesTheExitStatus(t *testing.T) {
 	binary := buildCLI(t)
 
 	wantReport(t, check(t, binary, extensionModel, "-validate"),
-		0, "warning:", "is an OpenSysML extension; write")
+		0, "warning[", "is an OpenSysML extension; write")
 
 	strict := check(t, binary, extensionModel, "-validate", "-strict")
-	wantReport(t, strict, 2, "error:", "is an OpenSysML extension; write",
+	wantReport(t, strict, 2, "error[", "is an OpenSysML extension; write",
 		"did not analyse cleanly")
-	rejectReport(t, strict, "warning:")
+	rejectReport(t, strict, "warning[")
 }
 
 // Every state-body notation outside StateBodyItem (SysML.xtext) is a
@@ -46,12 +46,12 @@ func TestStateBodyExtensionsAreReportedByDefault(t *testing.T) {
 	} {
 		want := tc.old + " is an OpenSysML extension; write " + tc.replacement
 		got := checkPaths(t, binary, "-validate", corpus+tc.file)
-		wantReport(t, got, got.status, "warning: "+want)
-		rejectReport(t, got, "error: "+want)
+		wantReport(t, got, got.status, "warning[nonstandard-notation]: "+want)
+		rejectReport(t, got, "error[nonstandard-notation]: "+want)
 
 		strict := checkPaths(t, binary, "-validate", "-strict", corpus+tc.file)
-		wantReport(t, strict, 2, "error: "+want)
-		rejectReport(t, strict, "warning: "+want)
+		wantReport(t, strict, 2, "error[nonstandard-notation]: "+want)
+		rejectReport(t, strict, "warning[nonstandard-notation]: "+want)
 	}
 }
 
@@ -60,15 +60,42 @@ func TestStateBodyExtensionsAreReportedByDefault(t *testing.T) {
 func TestRemovedDeferMemberIsAnErrorInEitherMode(t *testing.T) {
 	binary := buildCLI(t)
 	const file = "../../tools/referee/reject/testdata/negative/extensions/x05-defer-member.sysml"
-	const want = "error: the OpenSysML `defer <event>;` extension was removed"
+	const want = "error[defer-notation-removed]: the OpenSysML `defer <event>;` extension was removed"
 	for _, args := range [][]string{{"-validate"}, {"-validate", "-strict"}} {
 		got := checkPaths(t, binary, append(args, file)...)
 		wantReport(t, got, 2, want, "ordered", "exit action", "did not analyse cleanly")
-		rejectReport(t, got, "warning:", "is an OpenSysML extension with no SysML v2 production")
+		rejectReport(t, got, "warning[", "is an OpenSysML extension with no SysML v2 production")
 		if n := strings.Count(got.output(), want); n != 1 {
 			t.Errorf("%v: the removed notation reported %d times, want once:\n%s", args, n, got.output())
 		}
 	}
+}
+
+// indistinguishableModel declares one name twice in one namespace, which
+// KerML's validateNamespaceDistinguishibility forbids.
+const indistinguishableModel = `package P {
+    part def A;
+    part def A;
+}
+`
+
+// A namespace with indistinguishable memberships is a warning by default and,
+// under -strict, the error that decides the exit status.
+func TestStrictConformanceRejectsIndistinguishableMemberships(t *testing.T) {
+	binary := buildCLI(t)
+
+	def := check(t, binary, indistinguishableModel, "-validate")
+	wantReport(t, def, 0, "warning[name-conflict]: Duplicate of other owned member name", "no errors")
+	rejectReport(t, def, "error[")
+
+	strict := check(t, binary, indistinguishableModel, "-validate", "-strict")
+	wantReport(t, strict, 2, "error[name-conflict]: Duplicate of other owned member name", "did not analyse cleanly")
+	rejectReport(t, strict, "warning[", "no errors")
+
+	// Unrelated metaclasses are distinguishable whatever the names (KerML 8.3.2.4.3).
+	distinct := check(t, binary, "package P {\n    part def A;\n    attribute def A;\n}\n", "-validate", "-strict")
+	wantReport(t, distinct, 0, "no errors")
+	rejectReport(t, distinct, "Duplicate of")
 }
 
 // A model in standard notation is unaffected, so -strict is a check and not a
@@ -104,9 +131,9 @@ func TestStrictConformanceKeepsUnboundParameterAdvisory(t *testing.T) {
 	for _, args := range [][]string{{"-validate"}, {"-validate", "-strict"}} {
 		got := check(t, binary, unbound, args...)
 		wantReport(t, got, 0, "no errors",
-			"4:30: warning: F leaves parameter y unbound, so the call cannot be evaluated",
-			"5:29: warning: F leaves parameter y unbound, so the call cannot be evaluated")
-		rejectReport(t, got, "error:")
+			"4:30: warning[unbound-parameter]: F leaves parameter y unbound, so the call cannot be evaluated",
+			"5:29: warning[unbound-parameter]: F leaves parameter y unbound, so the call cannot be evaluated")
+		rejectReport(t, got, "error[")
 	}
 }
 
@@ -117,7 +144,7 @@ func TestValidateDoesNotCallAReportedErrorNone(t *testing.T) {
 	const bare = "package Q {\n    part def A;\n}\npackage P {\n    import Q::*;\n}\n"
 
 	got := check(t, binary, bare, "-validate")
-	wantReport(t, got, 0, "error: import without a visibility indicator",
+	wantReport(t, got, 0, "error[import-visibility]: import without a visibility indicator",
 		"no error that stops a check")
 	rejectReport(t, got, ": no errors")
 }
@@ -134,7 +161,7 @@ func TestKeywordAsNameReportsOnceInEitherMode(t *testing.T) {
 		{2, []string{"-validate", "-strict"}},
 	} {
 		got := check(t, binary, keywordName, tc.args...)
-		wantReport(t, got, tc.status, "error: \"part\" is a reserved keyword, not a name the ID terminal admits")
-		rejectReport(t, got, "warning:")
+		wantReport(t, got, tc.status, "error[reserved-keyword-name]: \"part\" is a reserved keyword, not a name the ID terminal admits")
+		rejectReport(t, got, "warning[")
 	}
 }

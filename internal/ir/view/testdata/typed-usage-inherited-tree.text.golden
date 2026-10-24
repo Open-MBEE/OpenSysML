@@ -1,0 +1,36 @@
+TypedUsageViews::vehicleTree - tree rendering (render asTreeDiagram)
+
+part def Vehicle
+  attribute mass
+  port telemetry
+  part stage1
+    attribute propellantMass
+    port status
+    part engines
+      attribute thrust
+      attribute mass
+      part subcomponents
+        attribute mass
+    part subcomponents
+      attribute mass
+      part subcomponents
+        attribute mass
+    attribute mass
+  part stage2
+    attribute propellantMass
+    port status
+    part engines
+      attribute thrust
+      attribute mass
+      part subcomponents
+        attribute mass
+    part subcomponents
+      attribute mass
+      part subcomponents
+        attribute mass
+    attribute mass
+  part subcomponents
+    attribute mass
+    part subcomponents
+      attribute mass
+  connect

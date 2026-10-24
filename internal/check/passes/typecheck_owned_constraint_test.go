@@ -62,7 +62,7 @@ func TestOwnedConstraintTypedTwice(t *testing.T) {
 }
 
 func TestOwnedConstraintIncompatibleValue(t *testing.T) {
-	ordinary, _, _ := ownedVsOrdinary(t, typeDiags, "type.expr", "c : C = 5;", "5")
+	ordinary, _, _ := ownedVsOrdinary(t, typeDiags, "binding-connector-type-conformance", "c : C = 5;", "5")
 	if ordinary.Message != "cannot bind Natural value to a feature typed by C" {
 		t.Errorf("message = %q", ordinary.Message)
 	}

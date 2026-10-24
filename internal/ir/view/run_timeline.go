@@ -59,7 +59,7 @@ func writeRunTimelineText(b *strings.Builder, r *Rendering) {
 
 func (r *Rendering) runTimelineMermaid(options Options) string {
 	var b strings.Builder
-	r.writeMermaidFrontmatter(&b, labelsOf(nil, false, nil), options, portView{})
+	r.writeMermaidFrontmatter(&b, labelsOf(nil, false, nil, r.Shown), options, portView{})
 	fmt.Fprintf(&b, "%%%% run — %s rendering", r.Kind)
 	if r.Stated != "" {
 		fmt.Fprintf(&b, " (%s)", r.Stated)
@@ -199,7 +199,7 @@ func (r *Rendering) runTimelinePlantUML(options Options) string {
 func plantumlTimelineLabel(links Links, origin Origin, label string) string {
 	text := plantumlText(label)
 	url, ok := links.URL(origin)
-	if !ok || !safePlantUMLLinkURL(url) {
+	if !ok || !safeLinkURL(url) {
 		return text
 	}
 	for _, r := range label {
@@ -211,7 +211,7 @@ func plantumlTimelineLabel(links Links, origin Origin, label string) string {
 	return "[[" + url + " " + text + "]]"
 }
 
-func safePlantUMLLinkURL(url string) bool {
+func safeLinkURL(url string) bool {
 	if url == "" {
 		return false
 	}
@@ -221,7 +221,7 @@ func safePlantUMLLinkURL(url string) bool {
 			strings.ContainsRune("-._~:/?#@!$&'()*+,;=", rune(c)) {
 			continue
 		}
-		if c == '%' && i+2 < len(url) && plantumlHexDigit(url[i+1]) && plantumlHexDigit(url[i+2]) {
+		if c == '%' && i+2 < len(url) && hexDigit(url[i+1]) && hexDigit(url[i+2]) {
 			i += 2
 			continue
 		}
@@ -230,7 +230,7 @@ func safePlantUMLLinkURL(url string) bool {
 	return true
 }
 
-func plantumlHexDigit(c byte) bool {
+func hexDigit(c byte) bool {
 	return c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F'
 }
 

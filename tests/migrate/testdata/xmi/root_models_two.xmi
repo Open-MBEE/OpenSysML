@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_alpha" name="Alpha">
+    <packagedElement xmi:type="uml:Class" xmi:id="_sensor" name="Sensor"/>
+  </uml:Model>
+  <uml:Model xmi:type="uml:Model" xmi:id="_beta" name="Beta">
+    <packagedElement xmi:type="uml:Class" xmi:id="_station" name="Station">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_stationSensor" name="Sensor" type="_sensor" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_stationAlpha" name="Alpha" type="_sensor" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_relay" name="Relay">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_relaySensor" name="sensor" type="_sensor" aggregation="composite"/>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_s1" base_Class="_sensor"/>
+  <sysml:Block xmi:id="_s2" base_Class="_station"/>
+  <sysml:Block xmi:id="_s3" base_Class="_relay"/>
+</xmi:XMI>

@@ -776,3 +776,118 @@ func TestReadSymbolsDecodesPastedImages(t *testing.T) {
 		t.Errorf("free = %v, want %v", syms.free, want)
 	}
 }
+
+// A symbol's compartment settings come from its own SUPPRESS_* properties and
+// then from its symbol style's property-manager chain; a property with no
+// value is Cameo's default, shown.
+func TestReadSymbolsCompartmentsInheritStyle(t *testing.T) {
+	stream := `<?xml version='1.0' encoding='UTF-8'?>
+<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_frame'>
+    <elementID xmi:idref='_diag'/>
+    <geometry>5, 5, 533, 457</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_c1'>
+    <elementID xmi:idref='_block1'/>
+    <symbolStyleID>_byStereotype</symbolStyleID>
+    <properties>
+      <mdElement elementClass='BooleanProperty'>
+        <propertyID>SUPPRESS_PARTS_COMPARTMENT</propertyID>
+      </mdElement>
+      <mdElement elementClass='BooleanProperty'>
+        <propertyID>SUPPRESS_VALUES_COMPARTMENT</propertyID>
+        <value xmi:value='true'/>
+      </mdElement>
+    </properties>
+    <geometry>35, 392, 200, 33</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_c2'>
+    <elementID xmi:idref='_block2'/>
+    <symbolStyleID>_missing</symbolStyleID>
+    <geometry>266, 392, 119, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_c3'>
+    <elementID xmi:idref='_block3'/>
+    <geometry>266, 100, 119, 50</geometry>
+  </mdElement>
+  <symbolStyles>
+    <mdElement elementClass='SimpleStyle'>
+      <mdElement elementClass='PropertyManagerByStereotype'>
+        <propertyManagerID>_byStereotype</propertyManagerID>
+        <parentPropertyManager>_classes</parentPropertyManager>
+        <mdElement elementClass='ColorProperty'>
+          <propertyID>FILL_COLOR</propertyID>
+          <value xmi:value='-1973821'/>
+        </mdElement>
+        <mdElement elementClass='BooleanProperty'>
+          <propertyID>SUPPRESS_PARTS_COMPARTMENT</propertyID>
+          <value xmi:value='true'/>
+        </mdElement>
+        <mdElement elementClass='BooleanProperty'>
+          <propertyID>SUPPRESS_CLASS_ATTRIBUTES</propertyID>
+        </mdElement>
+        <mdElement elementClass='BooleanProperty'>
+          <propertyID>SHOW_STEREOTYPES</propertyID>
+          <value xmi:value='true'/>
+        </mdElement>
+      </mdElement>
+      <mdElement elementClass='ExtendableManager'>
+        <propertyManagerID>_classes</propertyManagerID>
+        <parentPropertyManager>_root</parentPropertyManager>
+        <mdElement elementClass='BooleanProperty'>
+          <propertyID>SUPPRESS_CLASS_ATTRIBUTES</propertyID>
+          <value xmi:value='true'/>
+        </mdElement>
+        <mdElement elementClass='BooleanProperty'>
+          <propertyID>SUPPRESS_CLASS_OPERATIONS</propertyID>
+          <value xmi:value='true'/>
+        </mdElement>
+      </mdElement>
+      <mdElement elementClass='ExtendableManager'>
+        <propertyManagerID>_root</propertyManagerID>
+        <mdElement elementClass='BooleanProperty'>
+          <propertyID>SUPPRESS_STRUCTURE</propertyID>
+          <value xmi:value='true'/>
+        </mdElement>
+      </mdElement>
+    </mdElement>
+  </symbolStyles>
+</mdOwnedViews>`
+	syms, err := readSymbols([]byte(stream), "_diag")
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]*Symbol{}
+	for _, s := range syms.list {
+		byID[s.ID] = s
+	}
+	if len(byID) != 4 {
+		t.Fatalf("read %d symbols, want 4: %v", len(byID), syms.list)
+	}
+	if want := []string{"_block1", "_block2", "_block3"}; !reflect.DeepEqual(syms.shown, want) {
+		t.Errorf("shown = %q, want %q", syms.shown, want)
+	}
+	c1 := byID["_c1"]
+	if c1.StyleID != "_byStereotype" {
+		t.Errorf("style id = %q, want _byStereotype", c1.StyleID)
+	}
+	if c1.Style.Fill != "" {
+		t.Errorf("style colour inherited as %q, want none", c1.Style.Fill)
+	}
+	want := map[string]bool{
+		"SUPPRESS_PARTS_COMPARTMENT":  false, // the symbol's own, unvalued, over the style's true
+		"SUPPRESS_VALUES_COMPARTMENT": true,  // the symbol's own
+		"SUPPRESS_CLASS_ATTRIBUTES":   false, // the style's unvalued over its parent's true
+		"SUPPRESS_CLASS_OPERATIONS":   true,  // the parent manager
+		"SUPPRESS_STRUCTURE":          true,  // the grandparent manager
+	}
+	if !reflect.DeepEqual(c1.Compartments, want) {
+		t.Errorf("compartments = %v, want %v", c1.Compartments, want)
+	}
+	if c2 := byID["_c2"]; c2.Compartments != nil {
+		t.Errorf("compartments of a symbol with an unknown style = %v, want none", c2.Compartments)
+	}
+	if c3 := byID["_c3"]; c3.Compartments != nil || c3.StyleID != "" {
+		t.Errorf("compartments of an unstyled symbol = %v (style %q), want none", c3.Compartments, c3.StyleID)
+	}
+}

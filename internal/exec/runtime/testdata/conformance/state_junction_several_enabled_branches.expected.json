@@ -18,5 +18,6 @@
 			}
 		}
 	],
-	"admissible": "Two branches of a junction enabled when the transition is selected: exactly one is taken, which one is open"
+	"admissible": "Two branches of a junction enabled when the transition is selected: exactly one is taken, which one is open",
+	"orderDependent": {"route": 1}
 }

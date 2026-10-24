@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
@@ -1180,6 +1181,68 @@ func TestRenderTwentyColumnTableWithInstalledEngines(t *testing.T) {
 			}
 			if !strings.Contains(text, "Table 1. Alignment timing results (continued)") {
 				t.Errorf("the continuation keeps no caption number:\n%s", text)
+			}
+		})
+	}
+}
+
+// TestRenderLongWideTablePromptlyWithInstalledEngines keeps large tables on
+// landscape pages without making selector matching grow with every table row.
+func TestRenderLongWideTablePromptlyWithInstalledEngines(t *testing.T) {
+	const (
+		rows        = 1000
+		renderBound = 60 * time.Second
+	)
+	columns := len(longWideColumns) + 1
+	document := longWideTableDocument(t, rows)
+	for _, engine := range Engines() {
+		t.Run(engine, func(t *testing.T) {
+			installedConverter(t, engine)
+			started := time.Now()
+			pdf, err := Render(document, engine, Options{})
+			elapsed := time.Since(started)
+			if err != nil {
+				t.Fatalf("Render: %v", err)
+			}
+			t.Logf("rendered %d rows across %d columns in %s", rows, columns, elapsed)
+			if elapsed >= renderBound {
+				t.Fatalf("render took %s, want less than %s", elapsed, renderBound)
+			}
+
+			text := pdfText(t, pdf)
+			orientations := pageOrientations(t, pdf)
+			pages := strings.Split(strings.TrimRight(text, "\f\n"), "\f")
+			if len(pages) != len(orientations) {
+				t.Fatalf("pdftotext reads %d pages, /MediaBox %d", len(pages), len(orientations))
+			}
+
+			firstWidePage, lastWideRow, narrowPage := false, false, false
+			for i, page := range pages {
+				if strings.Contains(page, "Wide Scenario") {
+					if orientations[i] != "landscape" {
+						t.Errorf("page %d holds wide-table rows in %s", i+1, orientations[i])
+					}
+					if strings.Contains(page, "Wide Scenario 0001") {
+						firstWidePage = true
+						for _, want := range []string{"Wide table heading", "Wide table lead-in."} {
+							if !strings.Contains(page, want) {
+								t.Errorf("first landscape page lacks %q:\n%s", want, page)
+							}
+						}
+					}
+					if strings.Contains(page, "Wide Scenario "+strconv.Itoa(rows)) {
+						lastWideRow = true
+					}
+				}
+				if strings.Contains(page, "Narrow table sentinel") {
+					narrowPage = true
+					if orientations[i] != "portrait" {
+						t.Errorf("page %d holds the narrow table in %s", i+1, orientations[i])
+					}
+				}
+			}
+			if !firstWidePage || !lastWideRow || !narrowPage {
+				t.Fatalf("first wide row=%t, last wide row=%t, narrow table=%t:\n%s", firstWidePage, lastWideRow, narrowPage, text)
 			}
 		})
 	}

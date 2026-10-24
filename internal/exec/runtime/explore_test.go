@@ -741,7 +741,7 @@ func TestExploreJunctionDrawnAsTransitionFires(t *testing.T) {
 		if got := junctionDraw(o.Witness); got != draw {
 			t.Errorf("%s: witness %q draws %q at the junction, want %q", o.Outcome, FormatChoices(o.Witness), got, draw)
 		}
-		if o.Witness[0].Kind != ChoiceEntryOrder || o.Witness[1].Kind != ChoiceRegionOrder {
+		if o.Witness[0].Kind != choiceEntryOrder || o.Witness[1].Kind != ChoiceRegionOrder {
 			t.Errorf("%s: witness %q, want the entry then a firing unit drawn first", o.Outcome, FormatChoices(o.Witness))
 		}
 	}
@@ -991,7 +991,7 @@ func checkSiblingRegionOrder(t *testing.T, m *exploreModel, signal, where string
 		if len(ctx.Notes()) != len(choices) || len(choices) != 2 {
 			t.Fatalf("%s: notes %v, want the entry and firing-unit choices alone", spelling, ctx.Notes())
 		}
-		if choices[0].Kind != ChoiceEntryOrder || strings.Join(choices[0].Alternatives, ", ") != "a1(entry), b1(entry)" {
+		if choices[0].Kind != choiceEntryOrder || strings.Join(choices[0].Alternatives, ", ") != "a1(entry), b1(entry)" {
 			t.Fatalf("%s: note %v, want the entry order drawn among a1(entry), b1(entry)", spelling, choices[0])
 		}
 		if choices[1].Kind != ChoiceRegionOrder || choices[1].Where != where || strings.Join(choices[1].Alternatives, ", ") != "a1(exit), b1(exit)" {
@@ -1544,7 +1544,7 @@ func TestFinalStateNameOrdersRegionsOfOneNameByDeclaration(t *testing.T) {
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatal(err)
 		}
-		if got := exec.FinalStateName(); got != "inner+l1+r1+inner+l2+r2" {
+		if got := exec.finalStateName(); got != "inner+l1+r1+inner+l2+r2" {
 			t.Fatalf("run %d: final state %q, want inner+l1+r1+inner+l2+r2", run, got)
 		}
 	}

@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{"outputs": {"level": {"type": "Integer", "value": 1}}},
+		{"outputs": {"level": {"type": "Integer", "value": 2}}}
+	],
+	"admissible": "A write of a same-named feature elsewhere leaves an order-dependent value standing",
+	"orderDependent": {"level": 2}
+}

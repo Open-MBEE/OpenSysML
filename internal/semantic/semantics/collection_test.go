@@ -895,3 +895,20 @@ func TestCollectionCastDecidedByAnyElement(t *testing.T) {
 		t.Errorf("cast2 to Integer: %+v, want known, not holding, found String", c)
 	}
 }
+
+// `*` results in a Positive (KerML checkLiteralInfinitySpecialization) and is one
+// value, so a sequence holding it is sized as one holding a number is.
+func TestUnboundedLiteralIsOnePositive(t *testing.T) {
+	m, s := collectionModel(t, `
+		attribute inf = *;
+		attribute pair = (1, *);
+		attribute mapped = cs.{ in c : C; (c.name, *) };`)
+	wantValueTypes(t, m, s, "inf", "Positive")
+	r, ok := m.CollectionValues(s, valueOf(t, s, "mapped"))
+	if !ok || r.Text() != "[0..*]" {
+		t.Errorf("mapped: %s %v, want [0..*]", r.Text(), ok)
+	}
+	if held, ok := m.valuesHeldBy(s, valueOf(t, s, "pair")); !ok || held.Text() != "[2]" {
+		t.Errorf("pair: %s %v, want [2]", held.Text(), ok)
+	}
+}

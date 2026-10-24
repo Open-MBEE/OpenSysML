@@ -1,150 +1,167 @@
-package Structure {
-    doc /* The rolling stock. */
-    part def Vehicle {
-        part engine : Engine;
-        part wheel : Wheel;
-        attribute mass : ScalarValues::Real;
-        connection 'engine to wheel' connect engine to wheel;
-        view 'Vehicle Internals' {
-            expose Vehicle;
-            expose engine;
-            expose wheel;
-            expose 'engine to wheel';
-            expose Structure::Engine::power;
-            render Views::asInterconnectionDiagram;
-        }
-        view 'Engine Matrix' {
-            expose Engine;
-            render Views::asElementTable;
-        }
-        metadata MigrationMetadata::SynthesizedName about 'engine to wheel';
-    }
-    part def Engine {
-        attribute power : ScalarValues::Real;
-        part wheel : Wheel;
-        action def Crank {
-            view Cranking : StandardViewDefinitions::ActionFlowView {
-                expose Crank;
+package Model {
+    package Structure {
+        doc /* The rolling stock. */
+        part def Vehicle {
+            part engine : Engine;
+            part wheel : Wheel;
+            attribute mass : ScalarValues::Real;
+            connection 'engine to wheel' connect engine to wheel;
+            view 'Vehicle Internals' {
+                expose Vehicle;
+                expose engine;
+                expose wheel;
+                expose 'engine to wheel';
+                expose Structure::Engine::power;
                 render Views::asInterconnectionDiagram;
             }
-            view Ignition : StandardViewDefinitions::ActionFlowView {
-                expose Crank;
-                render Views::asInterconnectionDiagram;
-            }
-            succession 'start to ignite' first start then ignite;
-            action ignite {
-                attribute ignited : ScalarValues::Boolean;
-                assign ignited := true;
-            }
-            succession 'ignite to final' first ignite then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about 'start to ignite', 'ignite to final', final;
-        }
-        action crank : Crank;
-        action def Halt {
-            view Halting {
-                expose Halt;
+            view 'Engine Matrix' {
                 expose Engine;
-                render Views::asTextualNotation;
+                render Views::asElementTable;
             }
-            first start then body;
-            action body {
-                attribute ignited : ScalarValues::Boolean;
-                assign ignited := false;
+            metadata MigrationMetadata::SynthesizedName about 'engine to wheel';
+        }
+        part def Engine {
+            attribute power : ScalarValues::Real;
+            part wheel : Wheel;
+            action crank {
+                view Cranking : StandardViewDefinitions::ActionFlowView {
+                    expose crank;
+                    render Views::asInterconnectionDiagram;
+                }
+                view Ignition : StandardViewDefinitions::ActionFlowView {
+                    expose crank;
+                    render Views::asInterconnectionDiagram;
+                }
+                succession 'start to ignite' first start then ignite;
+                action ignite {
+                    rep language "JavaScript" /* ignited = true;*/
+                    attribute ignited : ScalarValues::Boolean;
+                    assign ignited := true;
+                }
+                succession 'ignite to final' first ignite then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about 'start to ignite', 'ignite to final', final;
             }
-            first body then done;
+            action halt {
+                view Halting {
+                    expose halt;
+                    expose Engine;
+                    render Views::asTextualNotation;
+                }
+                rep language "JavaScript" /* ignited = false;*/
+                first start then body;
+                action body {
+                    attribute ignited : ScalarValues::Boolean;
+                    assign ignited := false;
+                }
+                first body then done;
+            }
+            metadata MigrationMetadata::SynthesizedName about wheel;
         }
-        action halt : Halt;
-        metadata MigrationMetadata::SynthesizedName about wheel;
-    }
-    part def Wheel;
-    view 'Vehicle Structure' {
-        doc /* The blocks the vehicle is built from. */
-        expose Vehicle;
-        expose Engine;
-        expose Wheel;
-        expose Structure::Vehicle::engine;
-        expose Structure::Vehicle::mass;
-        expose Structure::Engine::wheel;
-        expose Behavior::Drive;
-        expose ScalarValues::Real;
-        render Views::asTreeDiagram;
-    }
-    view 'Vehicle Structure 2' {
-        expose Structure;
-        expose Behavior;
-        render Views::asTreeDiagram;
-    }
-    view 'Engine 2' {
-        expose Engine;
-        render Views::asInterconnectionDiagram;
-    }
-}
-package Behavior {
-    action def Drive {
-        view 'Drive Flow' : StandardViewDefinitions::ActionFlowView {
-            expose Drive;
+        part def Wheel;
+        connection def EngineToVehicle {
+            end engine : Engine crosses vehicle.engine;
+            end vehicle : Vehicle;
+            metadata MigrationMetadata::SynthesizedName about vehicle;
+        }
+        part engine : Engine;
+        part vehicle : Vehicle;
+        connection 'engine to vehicle' : EngineToVehicle connect engine to vehicle;
+        view 'Vehicle Structure' {
+            doc /* The blocks the vehicle is built from. */
+            expose Vehicle;
+            expose Engine;
+            expose Wheel;
+            expose Structure::Vehicle::engine;
+            expose Structure::Vehicle::mass;
+            expose Structure::Engine::wheel;
+            expose EngineToVehicle;
+            expose Behavior::Drive;
+            expose ScalarValues::Real;
+            render Views::asTreeDiagram;
+        }
+        view 'Vehicle Structure 2' {
+            expose Structure;
+            expose Behavior;
+            render Views::asTreeDiagram;
+        }
+        view 'Engine 2' {
+            expose engine;
             render Views::asInterconnectionDiagram;
         }
-        view 'start engine 2' : StandardViewDefinitions::ActionFlowView {
-            expose Drive;
+        metadata MigrationMetadata::SynthesizedName about EngineToVehicle, 'engine to vehicle';
+    }
+    package Behavior {
+        action def Drive {
+            view 'Drive Flow' : StandardViewDefinitions::ActionFlowView {
+                expose Drive;
+                render Views::asInterconnectionDiagram;
+            }
+            view 'start engine 2' : StandardViewDefinitions::ActionFlowView {
+                expose Drive;
+                render Views::asInterconnectionDiagram;
+            }
+            succession 'start to start engine' first start then 'start engine';
+            action 'start engine' {
+                rep language "JavaScript" /* running = true;*/
+                attribute running : ScalarValues::Boolean;
+                assign running := true;
+            }
+            succession 'start engine to final' first 'start engine' then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about 'start to start engine', 'start engine to final', final;
+        }
+        state def Modes {
+            view 'Idle 2' : StandardViewDefinitions::StateTransitionView {
+                expose Modes;
+                render Views::asInterconnectionDiagram;
+            }
+            entry; then Idle;
+            state Idle;
+            state Running;
+            transition 'Idle then Running' first Idle then Running;
+            metadata MigrationMetadata::SynthesizedName about 'Idle then Running';
+        }
+    }
+    package Usage {
+        comment /* The driver drives. */
+        part Driver;
+        use case 'Drive Vehicle' {
+            subject;
+            actor driver :> Driver;
+        }
+        connection 'Driver to Drive Vehicle' connect Driver to 'Drive Vehicle'.driver;
+        view Driving {
+            expose Driver;
+            expose 'Drive Vehicle';
+            expose 'Driver to Drive Vehicle';
             render Views::asInterconnectionDiagram;
         }
-        succession 'start to start engine' first start then 'start engine';
-        action 'start engine' {
-            attribute running : ScalarValues::Boolean;
-            assign running := true;
-        }
-        succession 'start engine to final' first 'start engine' then final;
-        action final terminate;
-        metadata MigrationMetadata::SynthesizedName about 'start to start engine', 'start engine to final', final;
+        metadata MigrationMetadata::SynthesizedName about 'Driver to Drive Vehicle';
     }
-    state def Modes {
-        view 'Idle 2' : StandardViewDefinitions::StateTransitionView {
-            expose Modes;
-            render Views::asInterconnectionDiagram;
-        }
-        entry; then Idle;
-        state Idle;
-        state Running;
-        transition 'Idle then Running' first Idle then Running;
-        metadata MigrationMetadata::SynthesizedName about 'Idle then Running';
-    }
-}
-package Usage {
-    comment /* The driver drives. */
-    part Driver;
-    use case 'Drive Vehicle';
-    connection 'Driver to Drive Vehicle' connect Driver to 'Drive Vehicle';
-    view Driving {
-        expose Driver;
-        expose 'Drive Vehicle';
-        expose 'Driver to Drive Vehicle';
-        render Views::asInterconnectionDiagram;
-    }
-}
-package Reports {
-    view 'Vehicle Overview' {
-        expose 'Vehicle Overview';
+    package Reports {
         view 'Vehicle Overview' {
-            expose Structure::Vehicle;
+            expose 'Vehicle Overview';
+            view 'Vehicle Overview' {
+                expose Structure::Vehicle;
+                render Views::asTreeDiagram;
+            }
+        }
+        view Fleet {
+            view summary :> 'Vehicle Overview';
+            expose 'Fleet 2';
+            expose Structure::Vehicle::'Vehicle Internals';
+        }
+        view 'Fleet 2' {
+            expose Structure;
+            expose Reports::Fleet::summary;
             render Views::asTreeDiagram;
         }
     }
-    view Fleet {
-        view summary :> 'Vehicle Overview';
-        expose 'Fleet 2';
-        expose Structure::Vehicle::'Vehicle Internals';
+    view 'Block Table' {
+        expose Structure::Vehicle;
+        expose Structure::Engine;
+        expose Structure::Engine::power;
+        render Views::asElementTable;
     }
-    view 'Fleet 2' {
-        expose Structure;
-        expose Reports::Fleet::summary;
-        render Views::asTreeDiagram;
-    }
-}
-view 'Block Table' {
-    expose Structure::Vehicle;
-    expose Structure::Engine;
-    expose Structure::Engine::power;
-    render Views::asElementTable;
 }

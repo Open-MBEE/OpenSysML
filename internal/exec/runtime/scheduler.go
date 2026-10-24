@@ -532,7 +532,7 @@ func (s *scheduler) draw(what string, dist distribution) (semantics.Value, error
 			return val, nil
 		}
 		if s.draws.Fixed() {
-			return semantics.Value{}, &DrawUnboundedError{What: what, Policy: s.draws}
+			return semantics.Value{}, &drawUnboundedError{What: what, Policy: s.draws}
 		}
 	}
 	return s.modeled.draw(what, dist)

@@ -49,6 +49,35 @@ type executeOptions struct {
 	schedule  string
 	performer string
 	trace     bool
+	advance   *float64
+	seed      *uint64
+	draws     string
+	clockStep float64
+}
+
+// WithAdvance runs the behavior for that many simulated seconds, as sysml
+// -advance does, instead of to completion; a run still waiting then is a
+// *FailureError that still reports FinalTime.
+func WithAdvance(seconds float64) ExecuteOption {
+	return func(o *executeOptions) { o.advance = &seconds }
+}
+
+// WithSeed seeds the model's own draws, as sysml -seed does, so RandomFunctions
+// answer the same values each run.
+func WithSeed(seed uint64) ExecuteOption {
+	return func(o *executeOptions) { o.seed = &seed }
+}
+
+// WithDraws chooses how the model's draws resolve, as sysml -draws spells it:
+// "random", "min", "max" or "average".
+func WithDraws(policy string) ExecuteOption {
+	return func(o *executeOptions) { o.draws = policy }
+}
+
+// WithClockStep ticks the run's clock in steps of that many seconds, as sysml
+// -clock-step does; 0 is a continuous clock.
+func WithClockStep(seconds float64) ExecuteOption {
+	return func(o *executeOptions) { o.clockStep = seconds }
 }
 
 // WithSchedule names the policy a run resolves its choice points under, as sysml
@@ -150,7 +179,16 @@ func (c *client) ExecuteAction(
 	if err := c.requirePerformer(ctx, options.performer); err != nil {
 		return nil, err
 	}
-	req := &pb.ExecuteActionRequest{ModelHash: hash, ActionSymbolId: actionSymbolID, Schedule: options.schedule, PerformerSymbolId: options.performer}
+	req := &pb.ExecuteActionRequest{
+		ModelHash:         hash,
+		ActionSymbolId:    actionSymbolID,
+		Schedule:          options.schedule,
+		PerformerSymbolId: options.performer,
+		Advance:           options.advance,
+		Seed:              options.seed,
+		Draws:             options.draws,
+		ClockStep:         options.clockStep,
+	}
 	if len(inputs) > 0 {
 		if err := c.requireValueCapabilities(ctx, slices.Collect(maps.Values(inputs))...); err != nil {
 			return nil, err
@@ -173,7 +211,7 @@ func (c *client) ExecuteAction(
 	}
 	diagnostics := diagnosticsFromProto(resp.Diagnostics)
 	if resp.Error != "" {
-		return nil, &FailureError{Op: "ExecuteAction", Message: resp.Error, Diagnostics: diagnostics}
+		return nil, &FailureError{Op: "ExecuteAction", Message: resp.Error, Diagnostics: diagnostics, FinalTime: resp.FinalTime}
 	}
 	return &ActionRun{
 		Outputs:     valuesFromProto(resp.Outputs),
@@ -224,6 +262,10 @@ func (c *client) ExecuteState(
 		Schedule:             options.schedule,
 		PerformerSymbolId:    options.performer,
 		Trace:                options.trace,
+		Advance:              options.advance,
+		Seed:                 options.seed,
+		Draws:                options.draws,
+		ClockStep:            options.clockStep,
 	})
 	if err != nil {
 		return nil, err
@@ -236,6 +278,7 @@ func (c *client) ExecuteState(
 			Diagnostics:  diagnostics,
 			Trace:        documentEventsFromProto(resp.Trace),
 			TraceDropped: int(resp.TraceDropped),
+			FinalTime:    resp.FinalTime,
 		}
 	}
 	return &StateRun{

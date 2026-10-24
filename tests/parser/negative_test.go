@@ -16,6 +16,11 @@ func TestNegative(t *testing.T) {
 		input string
 	}{
 		{"unclosed_brace", "part {"},
+		// One `;` after a condition is its terminator; a second ends nothing, and
+		// `case` after `analysis case` is no name.
+		{"doubled_condition_terminator", "constraint def K { in x : ScalarValues::Real; x > 0.0;; }"},
+		{"condition_terminator_without_condition", "constraint def K { in x : ScalarValues::Real; ; x > 0.0 }"},
+		{"case_keyword_twice", "package P { analysis case case def X; }"},
 		// The reference form of `include` subsets an existing use case, so it names
 		// one (SysML.xtext:2300 IncludeUseCaseUsage).
 		{"include_without_target", "package P { use case def U { include ; } }"},
@@ -320,6 +325,21 @@ func TestNegative(t *testing.T) {
 		// ValuePart, unlike the performed action reference that shares its shape.
 		{"render_reference_value", "view def V { render r = 3; }"},
 
+		// FramedConcernMember is a RequirementBodyItem, ElementFilterMember a
+		// package/view-body item, and AcceptNode an ActionBodyItem (SysML.xtext):
+		// each is rejected by the bodies its grammar omits.
+		{"frame_in_view_body", "view V { frame concern c : C; }"},
+		{"frame_ref_in_view_body", "view V { frame c; }"},
+		{"frame_in_view_def_body", "view def V { frame concern c : C; }"},
+		{"frame_in_rendering_body", "rendering def R { frame c; }"},
+		{"frame_in_part_def_body", "part def P { frame c; }"},
+		{"filter_in_viewpoint_def_body", "viewpoint def V { filter true; }"},
+		{"filter_in_rendering_body", "rendering def R { filter true; }"},
+		{"filter_in_part_def_body", "part def P { filter true; }"},
+		{"accept_in_view_body", "view V { accept S; }"},
+		{"accept_action_in_view_body", "view V { action a accept S; }"},
+		{"accept_in_part_def_body", "part def P { accept S; }"},
+
 		// The sequence index and the collection notations: `#` indexes through a
 		// parenthesized index and `.?` selects through a body, so each is
 		// rejected where the notation it needs is absent rather than parsed as
@@ -516,6 +536,33 @@ func TestNegative(t *testing.T) {
 		{"sequence_index_comma_only", "package P { attribute s = (1, 2); attribute e = s#(,); }"},
 		{"argument_list_trailing_comma", "package P { attribute s = f(1,); }"},
 		{"named_argument_list_trailing_comma", "package P { attribute s = f(x = 1,); }"},
+		// A terminate action usage is an action usage (SysML.xtext TerminateNode);
+		// `terminate` closes no other kind of usage.
+		{"part_terminate", "package P { part p terminate; }"},
+		{"attribute_terminate", "package P { part def D { attribute x : Integer terminate; } }"},
+		{"state_terminate", "package P { state def S { state s terminate; } }"},
+		// The marker closes the declaration (`ActionNodeUsageDeclaration? 'terminate'
+		// NodeParameterMember? ActionBody`): only the occurrence it terminates may
+		// follow it, then the body.
+		{"terminate_repeated", "package P { action def A { first start; then stop; action stop terminate terminate; } }"},
+		{"terminate_then_typing", "package P { action def A { first start; then stop; action stop terminate : Brake; } }"},
+		{"terminate_then_ordered", "package P { action def A { first start; then stop; action stop terminate ordered; } }"},
+		{"terminate_then_value", "package P { action def A { first start; then stop; action stop terminate = 3; } }"},
+		// A connector end's multiplicity opens the end (SysML.xtext ConnectorEnd:
+		// `OwnedCrossMultiplicityMember? (NAME REFERENCES)? OwnedReferenceSubsetting`);
+		// none follows the feature it references.
+		{"connector_end_trailing_multiplicity", "package P { part def D; connection def DC { end hub : D; end device : D; } part s { part h : D; part d : D; connection c : DC connect ([1] hub ::> h[1], [1] device ::> d); } }"},
+		// A payload's value part takes an expression (SysML.xtext PayloadFeature).
+		{"accept_payload_value_missing", "package P { action def A { accept : ChangeSignal = ; } }"},
+		// `ordered` and `nonunique` are stated once each (SysML.xtext MultiplicityPart).
+		{"keywordless_ordered_repeated", "package P { part def S { ref part content[*]; } part def O :> S { c ordered ordered :>> content; } }"},
+		// No production puts a parenthesised parameter list on a declaration:
+		// parameters are directed features of the body (SysML.xtext
+		// ParameterMember). The group is reported and the body still read.
+		{"action_def_parameter_list", "package P { action def A(x : Integer) { in y : Integer; } }"},
+		{"calc_def_parameter_list_bodiless", "package P { calc def C(x : Integer); }"},
+		{"action_def_parameter_list_semicolons", "package P { action def A(x : Integer; y : Integer) { in z : Integer; } }"},
+		{"part_def_parameter_list_unclosed", "package P { part def D(x : Integer { } }"},
 	}
 
 	for _, tt := range tests {
@@ -721,18 +768,17 @@ func TestNegativeKerML(t *testing.T) {
 		// declaration so named is still reported.
 		{"feature_named_frame_no_type", "package P { feature frame : ; }"},
 		{"feature_named_state_no_terminator", "package P { feature state }"},
-		// A terminate action usage is an action usage (SysML.xtext TerminateNode);
-		// `terminate` closes no other kind of usage.
-		{"part_terminate", "package P { part p terminate; }"},
-		{"attribute_terminate", "package P { part def D { attribute x : Integer terminate; } }"},
-		{"state_terminate", "package P { state def S { state s terminate; } }"},
-		// The marker closes the declaration (`ActionNodeUsageDeclaration? 'terminate'
-		// ActionBody`): nothing but the body follows it.
-		{"terminate_repeated", "package P { action def A { first start; then stop; action stop terminate terminate; } }"},
-		{"terminate_then_typing", "package P { action def A { first start; then stop; action stop terminate : Brake; } }"},
-		{"terminate_then_ordered", "package P { action def A { first start; then stop; action stop terminate ordered; } }"},
-		{"terminate_then_value", "package P { action def A { first start; then stop; action stop terminate = 3; } }"},
-		{"terminate_then_target", "package P { action def A { first start; then stop; action stop terminate stop; } }"},
+		// AliasMember spells `for` (KerML.xtext:161) and TypeFeaturing `by`
+		// (KerML.xtext:651); the mis-spelt keyword is reported and the member
+		// kept, so the body around it is still read.
+		{"alias_of", "package P { feature f; alias g of f; }"},
+		{"alias_of_in_type_body", "package P { feature f; class C { alias g of f; } }"},
+		{"alias_of_no_target", "package P { feature f; alias g of ; }"},
+		{"featuring_featured_by", "package P { class T; feature f; featuring f featured by T; }"},
+		{"featuring_featured_by_body", "package P { class T; feature f; featuring f featured by T { doc /* d */ } }"},
+		{"featuring_featured_no_by", "package P { class T; feature f; featuring f featured T; }"},
+		{"behavior_parameter_list", "package P { behavior B(x : Real) { language \"alf\" /* x */ } }"},
+		{"behavior_parameter_list_semicolons", "package P { behavior B(x : T; y : U) { in a : T; } behavior C; }"},
 	}
 
 	for _, tt := range tests {

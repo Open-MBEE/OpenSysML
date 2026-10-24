@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="389" height="76" viewBox="0 0 389 76" font-family="Helvetica, Arial, sans-serif" font-size="12">
+<title>sequence of a run</title>
+<desc>the trace of a run to t = 0</desc>
+<rect width="389" height="76" fill="#ffffff"/>
+<text x="16" y="28" font-weight="bold">sequence of a run</text>
+<text x="16" y="44" fill="#666666">the run recorded no message; the rendering is empty</text>
+</svg>

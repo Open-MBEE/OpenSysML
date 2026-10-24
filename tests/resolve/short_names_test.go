@@ -79,6 +79,28 @@ func TestImportsSurfaceTheDerivedShortName(t *testing.T) {
 	}
 }
 
+// Two imports bringing distinct features in under one derived short name hide
+// both memberships (KerML 7.2.5.4), as they do under a declared one.
+func TestCollidingDerivedShortNamesAreHidden(t *testing.T) {
+	r, root, scope := resolvedDoc(t, `package Q {
+		part def A { part <tms> t; }
+		part def A2 :> A { part :>> t; }
+		part def B { part <tms> u; }
+		part def B2 :> B { part :>> u; }
+		package Use { private import A2::*; private import B2::*; part x :> tms; }
+	}`)
+	if got := bindingOf(t, r, root, scope, "tms"); got != "" {
+		t.Errorf("tms binds %q, want it hidden", got)
+	}
+	warnings, errs := diagnosticsOf(r)
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "Duplicate of imported member name 'tms'") {
+		t.Errorf("warnings %v, want the duplicate imported member name", warnings)
+	}
+	if len(errs) != 1 || !strings.Contains(errs[0], "hidden here") {
+		t.Errorf("errors %v, want the hidden-name diagnostic", errs)
+	}
+}
+
 // A redefining feature that declares a short name of its own has that short
 // name, not the redefined feature's (effectiveShortName returns the
 // declaredShortName when one is given), and the redefinition hides the

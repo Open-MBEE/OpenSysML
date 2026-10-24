@@ -1,0 +1,11 @@
+{
+  "type": "action",
+  "libraries": true,
+  "trace": true,
+  "evaluate": "test::timed",
+  "outputs": {
+    "at1": {"type": "Sequence", "elements": [{"type": "Real", "value": 5.0}]},
+    "at2": {"type": "Sequence", "elements": [{"type": "Real", "value": 7.0}]},
+    "at3": {"type": "Sequence", "elements": [{"type": "Real", "value": 12.0}]}
+  }
+}

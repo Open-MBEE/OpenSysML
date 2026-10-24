@@ -17,12 +17,15 @@ import java.util.Optional;
  * @param namedArguments values binding its {@code in} parameters by name
  * @param schedule the policy the actions the case performs resolve their choice points under, as
  *     for {@link ExecutionOptions#schedule()}
+ * @param toolDryRun whether to stop at the case's first external tool call and report what would
+ *     run instead of running it ({@code sysml -tool-dry-run})
  */
 public record AnalysisOptions(
     Optional<String> subject,
     List<Value> arguments,
     Map<String, Value> namedArguments,
-    Optional<String> schedule) {
+    Optional<String> schedule,
+    boolean toolDryRun) {
 
   /**
    * Validates the options, copying their collections.
@@ -45,7 +48,7 @@ public record AnalysisOptions(
    * @return the default options
    */
   public static AnalysisOptions defaults() {
-    return new AnalysisOptions(Optional.empty(), List.of(), Map.of(), Optional.empty());
+    return new AnalysisOptions(Optional.empty(), List.of(), Map.of(), Optional.empty(), false);
   }
 
   /**
@@ -55,7 +58,7 @@ public record AnalysisOptions(
    * @return options naming it
    */
   public AnalysisOptions withSubject(String subject) {
-    return new AnalysisOptions(Optional.of(subject), arguments, namedArguments, schedule);
+    return new AnalysisOptions(Optional.of(subject), arguments, namedArguments, schedule, toolDryRun);
   }
 
   /**
@@ -65,7 +68,7 @@ public record AnalysisOptions(
    * @return options carrying them
    */
   public AnalysisOptions withArguments(List<Value> arguments) {
-    return new AnalysisOptions(subject, arguments, namedArguments, schedule);
+    return new AnalysisOptions(subject, arguments, namedArguments, schedule, toolDryRun);
   }
 
   /**
@@ -75,7 +78,7 @@ public record AnalysisOptions(
    * @return options carrying them
    */
   public AnalysisOptions withNamedArguments(Map<String, Value> namedArguments) {
-    return new AnalysisOptions(subject, arguments, namedArguments, schedule);
+    return new AnalysisOptions(subject, arguments, namedArguments, schedule, toolDryRun);
   }
 
   /**
@@ -85,7 +88,17 @@ public record AnalysisOptions(
    * @return options naming it
    */
   public AnalysisOptions withSchedule(String schedule) {
-    return new AnalysisOptions(subject, arguments, namedArguments, Optional.of(schedule));
+    return new AnalysisOptions(subject, arguments, namedArguments, Optional.of(schedule), toolDryRun);
+  }
+
+  /**
+   * The same options previewing the first external tool call instead of making it, as {@code
+   * sysml -tool-dry-run} does; the answer's {@link Analysis#toolDryRun()} carries the preview.
+   *
+   * @return options that stop at the first tool invocation
+   */
+  public AnalysisOptions withToolDryRun() {
+    return new AnalysisOptions(subject, arguments, namedArguments, schedule, true);
   }
 
   /**

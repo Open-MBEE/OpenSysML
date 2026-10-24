@@ -37,6 +37,11 @@ Report the model's diagnostics and exit, nonzero on an error;
 \-validate=<object> checks instead every assertion about that object
 (repeatable)
 .TP
+.BR \-explain "[\fIcode\fP]"
+Explain a diagnostic code: what it means, how to resolve it and the clause or
+constraint behind it; bare, list every code with a one\-line summary; a code
+may also follow the flag (repeatable)
+.TP
 .B \-strict
 Judge the model as conforming SysML v2: notation no pinned production admits
 is an error, not a warning; a SysML v1 migration writes none of it and refers
@@ -50,6 +55,11 @@ comma\-separated or repeated
 .BR \-enable\-lint " \fIcode\fP"
 Report this opt\-in lint, off by default, in the model's diagnostics:
 rounded\-real\-literal, comma\-separated or repeated; \-disable\-lint wins
+.TP
+.BR \-library\-root " \fIdir\fP"
+Look for the installed projects a loaded file's project uses under this
+directory too, besides the well\-known ones in the project (.sysand/lib);
+separated as PATH is or repeated, added to OPENSYSML_LIBRARY_ROOTS
 .TP
 .B \-no\-record\-cache
 Parse every file loaded and hold it loaded, reading no interface record from
@@ -108,6 +118,18 @@ is about it (repeatable)
 .TP
 .B \-json
 Report checks as one JSON document rather than as lines
+.TP
+.BR \-format " \fIformat\fP"
+Report checks as text, json, sarif or junit; json is \-json, and sarif (SARIF
+2.1.0) and junit (JUnit XML) carry \-validate's diagnostics to a CI service
+.TP
+.BR \-baseline " \fIfile\fP"
+A JSON report (as \-validate \-json \-o wrote) whose diagnostics are known: a
+finding with the same code, file and message is suppressed, whatever its line
+.TP
+.B \-warnings\-as\-errors
+Exit nonzero on a warning as on an error; the report keeps the warning's
+severity
 .SS Running behaviors
 .TP
 .BR \-action " \fIname\fP"
@@ -224,6 +246,17 @@ input may be a Flexo branch URL (host[:port][/base]/projects/{p}/branches/{b}
 of the FLEXO_SYSMLV2_URL endpoint, or flexo://{p}/{b}), read as its RDF graph.
 A SysML v1 model is refused: it is migrated, with \-migrate
 .TP
+.B \-stdlib
+With \-convert ttl or api\-json, convert the bundled standard library \(em
+every KerML and SysML file of it, as one model whose elements carry their
+normative ids \(em instead of a model file; \-id defaults to uuid. \-o may
+name a Flexo branch to publish the library to
+.TP
+.B \-metaclass\-graph
+Write the SysML metaclass hierarchy of the pinned pilot metamodel as Turtle
+(rdfs:Class, rdfs:subClassOf, sysx:abstract) to stdout or \-o, without a
+model, and exit
+.TP
 .BR \-migrate " \fIformat\fP"
 Migrate the SysML v1 model (.xmi, .uml or .mdzip; \-from names the format when
 the extension does not) to SysML v2, written in this format: sysml, kerml,
@@ -261,10 +294,20 @@ With \-convert ttl or api\-json, how derived element ids are spelled:
 qualified (default) derives each from its qualified name; uuid mints
 name\-based uuids under each root package, as the library convention does
 .TP
+.BR \-bundle " \fIdir\fP"
+Write this project directory as a project interchange archive (KerML 1.0
+\(sc10.3), to \-o or to <name>\-<version>.kpar; the archive is the same bytes
+on every run
+.TP
+.BR \-unbundle " \fIfile\fP"
+Write this project interchange archive (.kpar) out as a project directory, to
+\-o or to <name>\-<version>, which must be new or empty
+.TP
 .BR \-o ", " \-output " \fIfile\fP"
 Write what \-convert, \-migrate, \-compile, \-render or \-render\-document
-produces to this file instead of stdout; with \-convert ttl or \-migrate ttl,
-a Flexo branch URL pushes the graph to the branch
+produces, or a \-validate report in a \-format other than text, to this file
+instead of stdout; with \-convert ttl or \-migrate ttl, a Flexo branch URL
+pushes the graph to the branch
 .TP
 .BR \-migration\-report " \fIfile\fP"
 With \-migrate, write the element\-by\-element migration report to this file:
@@ -321,11 +364,12 @@ it performs, as the canonical graphs:1 JSON an external analysis engine is
 sent, to stdout or \-output
 .TP
 .BR \-render\-form " \fIform\fP"
-Form \-render or \-render\-all writes: text, mermaid, markdown, dot, plantuml,
-d2, csv or tsv (csv and tsv for a table or matrix); D2 writes tree,
-interconnection, state, action, sequence, requirement, definition and package
-renderings, not case or mixed; default from the destination for \-render, each
-kind's machine form for \-render\-all
+Form \-render, \-render\-all or \-render\-run writes: text, mermaid, markdown,
+dot, plantuml, d2, csv or tsv (csv and tsv for a table or matrix; svg and
+svg\-animated for \-render\-run); D2 writes tree, interconnection, state,
+action, sequence, requirement, definition and package renderings, not case or
+mixed; default from the destination for \-render, each kind's machine form for
+\-render\-all
 .TP
 .BR \-render\-palette " \fIpalette\fP"
 Palette the dot, mermaid, plantuml or d2 form fills nodes from, by keyword
@@ -344,6 +388,14 @@ omit (default) leaves them undrawn in every form, strip draws them, in rows
 below the dot drawing; applies to \-render, \-render\-all and document
 diagrams
 .TP
+.BR \-render\-compartments " \fIfolding\fP"
+How a tree rendering of \-render, \-render\-all or a document diagram folds a
+node's owned members into compartment rows of its box: positioned (default)
+folds only the members without a Layout of a tree some Layout positions, most
+folds every owned usage that no Layout, nested definition or package keeps a
+node (the pilot's COMPMOST), ports folds the port usages with the ports nested
+under them (COMPTREE)
+.TP
 .BR \-render\-style " \fIstyle\fP"
 Drawing style of the dot or mermaid form: pilot (default), the Pilot
 visualizer's black and white, or cameo, the look of Cameo Systems Modeler;
@@ -354,6 +406,24 @@ How much of a part's ports \-render or \-render\-all draws on an
 interconnection or mixed rendering: minimal (default), the ports its
 interconnection edges end at, each a small square on the part's border named
 beside it, or full, every port, labelled name : Type
+.TP
+.BR \-render\-lines " \fIrouting\fP"
+How the dot or plantuml form of \-render or \-render\-all routes its edges:
+splines (default), each engine's curved routing, ortho, axis\-parallel
+segments, or polyline, straight segments; the Pilot visualizer's ORTHOLINE and
+POLYLINE styles. Mermaid and D2 note the routing as not represented
+.TP
+.BR \-render\-show " \fIelements\fP"
+Optional notation elements \-render, \-render\-all and document diagrams draw
+besides the default (port symbols, compartments and keywords),
+comma\-separated: parameter\-symbols, port\-symbols, compartments,
+edge\-labels, keywords, multiplicities, typings, qualifiers, or all; a view's
+own rendering adds its elements too
+.TP
+.BR \-render\-depth " \fIlevels\fP"
+How many levels of nested elements \-render and \-render\-all draw below each
+exposed element of a tree or interconnection rendering, overriding the depth
+the view states; 0 (default) draws every level the view's own depth allows
 .TP
 .BR \-render\-overlay " \fIoverlay\fP"
 What \-render or \-render\-all draws over a requirement rendering's structure:
@@ -612,6 +682,8 @@ per worker.
 sysml \-engines
 # Also start each external engine once
 sysml \-engines \-probe
+# Write the metaclass hierarchy as Turtle
+sysml \-metaclass\-graph \-o metaclasses.ttl
 # The same as \-schedule explore
 sysml \-engine explore \-action Drive m.sysml
 # Every engine that covers the question
@@ -808,6 +880,8 @@ sysml in.txt \-convert ttl \-from sysml
 sysml flexo://demo/main \-convert sysml
 # Push the graph to the branch
 sysml model.sysml \-convert ttl \-o flexo://demo/main
+# Publish the standard library
+sysml \-stdlib \-convert ttl \-o flexo://lib/main
 .fi
 .RE
 .PP
@@ -824,11 +898,17 @@ Either side may name a Flexo MMS project branch instead of a file:
 http(s)://host[:port][/base]/projects/{project}/branches/{branch}, or
 flexo://{project}/{branch}, both naming the endpoint FLEXO_SYSMLV2_URL
 configures. A branch input is read as its head commit's RDF graph; a branch
-\-o takes the \-convert ttl output as the branch's whole model graph,
-conditional on the branch's etag, and refuses a head the sync state says has
-moved. Both need the bearer token in FLEXO_INTEROP_TOKEN and record the head
-commit in the sync state (\-sync\-state, or <output>.sync.json on a read /
-<model>.sync.json on a push).
+\-o takes the \-convert ttl or api\-json graph as the branch's whole model
+graph, conditional on the branch's etag, and refuses a head the sync state
+says has moved. Both need the bearer token in FLEXO_INTEROP_TOKEN and record
+the head commit in the sync state (\-sync\-state, or <output>.sync.json on a
+read / <model>.sync.json on a push); FLEXO_TIMEOUT bounds one request (60s
+unless set), and a whole\-library graph needs minutes.
+.PP
+\-stdlib converts the bundled standard library instead \(em every KerML and
+SysML file as one model, each element under its normative id \(em to a file or
+to a branch, publishing the library as a project other projects type against
+by id.
 .PP
 RDF conversion \(em Turtle and the API's JSON element form alike \(em is
 experimental: the mapping covers model structure and the behavior its bodies
@@ -955,6 +1035,9 @@ sysml model.sysml \-render Views::vehicleView \-render\-form dot \e
 # every port of every part, typed
 sysml model.sysml \-render Views::loopView \-render\-form dot \e
     \-render\-ports full
+# edges as axis\-parallel segments
+sysml model.sysml \-render Views::vehicleView \-render\-form dot \e
+    \-render\-lines ortho
 sysml model.sysml \-render Views::vehicleView \-render\-form plantuml \-o \e
     view.puml
 sysml model.sysml \-render Views::vehicleView \-render\-form d2 \-o view.d2
@@ -998,15 +1081,18 @@ pseudo\-state symbols \(em for a diagram migrated from Cameo to keep its look.
 An interconnection or mixed rendering draws on each part the ports its
 interconnection edges end at, each a small square on the part's border named
 beside it; \-render\-ports full draws every port a part has, labelled name :
-Type. A DiagramLayout Style on a member colours it over either look, and a
-Note is drawn beside the member it is about. A view whose members carry
-DiagramLayout positions draws the placed members and the edges between them in
-every graph form, and leaves a member with no position undrawn: the DOT form
-pins each at its stated place, so nothing lands on a positioned box, while
-Mermaid, PlantUML and D2 lay the same members out themselves.
-\-render\-unplaced strip draws the unplaced members too, in rows in a strip
-below a DOT drawing. The same setting shapes the diagrams of
-\-render\-document and \-render\-documents.
+Type. \-render\-lines routes the edges of the DOT and PlantUML forms: splines
+(default), each engine's curved routing, ortho, axis\-parallel segments, or
+polyline, straight segments, as the Pilot visualizer's ORTHOLINE and POLYLINE
+styles do; Mermaid and D2 note the routing. A DiagramLayout Style on a member
+colours it over either look, and a Note is drawn beside the member it is
+about. A view whose members carry DiagramLayout positions draws the placed
+members and the edges between them in every graph form, and leaves a member
+with no position undrawn: the DOT form pins each at its stated place, so
+nothing lands on a positioned box, while Mermaid, PlantUML and D2 lay the same
+members out themselves. \-render\-unplaced strip draws the unplaced members
+too, in rows in a strip below a DOT drawing. The same setting shapes the
+diagrams of \-render\-document and \-render\-documents.
 .SH LISTING DOCUMENTS AND VIEWS
 .RS 2
 .nf
@@ -1170,6 +1256,11 @@ prefixed "sysml: " unless it locates a finding in the source.
 .B OPENSYSML_LIBRARY_PATH
 Directory to load the SysML/KerML standard library from, instead of the copy
 embedded in the binary.
+.TP
+.B OPENSYSML_LIBRARY_ROOTS
+Directories, separated as PATH is, to look for installed projects under when a
+loaded file belongs to a project (a directory holding .project.json), besides
+the project's own well\-known library directory (.sysand/lib).
 .TP
 .B OPENSYSML_MAX_STEPS
 Expression evaluations one run may spend before it is reported as a runaway.

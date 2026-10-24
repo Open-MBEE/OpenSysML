@@ -251,6 +251,38 @@ corpora, the gate every new warning passes.
 
 ---
 
+### Indistinguishable memberships are a warning by default and an error under strict conformance
+
+```sysml
+package P {
+    part def A;
+    part def A;
+}
+```
+
+KerML's `validateNamespaceDistinguishibility` (8.3.2.4.5) says that "All memberships of a Namespace
+must be distinguishable from each other", with `Membership::isDistinguishableFrom` (8.3.2.4.3)
+deciding the pair: distinguishable when either side is unnamed, when neither name nor short name
+repeats the other's, or when the member elements' metaclasses conform in neither direction. A model
+that fails it is not well-formed, so a warning under-reports it. The pilot reports a warning and
+skips bodiless repeats ([gap register](spec-pilot-gap-register.md#13-indistinguishable-memberships-severity-and-anonymous-performed-actions)).
+
+**Adjudicated divergence, kept as a warning by default; an error under strict conformance.** The
+default severity stays a warning so that the published corpora, which repeat names, still analyse
+cleanly and the differential compares like with like. Strict conformance judges a model as
+conforming SysML v2, so there each wording of the finding is an error: `Duplicate of other owned
+member name`, `Duplicate of owned member name` (an alias), `Duplicate of other alias name`, the
+short-name variant, and `Duplicate of inherited member name` — for an owned member repeating an
+inherited one, for a name inherited from two supertypes, and from a library base — because
+`Type::inheritedMembership` "subsets membership" (8.3.3.1.10) and 7.3.2.1 requires inherited member
+names to be "distinct from each other and from the member names of all owned memberships". The
+finding, its wording and its position are those of the default mode; only the severity moves.
+`Duplicate of imported member name` is not escalated: 7.2.5.4 hides a colliding imported membership
+from the importing namespace, so the namespace keeps no indistinguishable membership and is
+well-formed, and the warning marks only that OpenSysML binds the first import's member where the
+specification binds none. The tests are `TestIndistinguishableMembershipsAreErrorsUnderStrictConformance`
+and `TestImportedNameCollisionStaysAWarningUnderStrictConformance` in `internal/check/passes`.
+
 ## Metadata and model-level evaluability
 
 Model-level evaluability is a walk over the expression (`semantics/evaluable.go`,

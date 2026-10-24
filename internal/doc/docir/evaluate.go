@@ -805,6 +805,7 @@ func (e *evaluator) evaluateDiagram(node docplan.Content) (Content, error) {
 		direction: reference.Direction(),
 		palette:   reference.Palette(),
 		ports:     reference.Ports(),
+		shown:     reference.Shown(),
 		origin:    node.Origin(),
 	}, nil
 }

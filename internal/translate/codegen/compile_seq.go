@@ -58,6 +58,9 @@ func (fc *funcCompiler) bind(v Expr, b binding, where, label string) (Expr, erro
 	if err != nil {
 		return nil, err
 	}
+	if b.shaped {
+		many = Held{X: many, Many: b.m.MultiValued()}
+	}
 	if b.m == MultAny && b.r == RangeAny && !b.unique {
 		return many, nil
 	}
@@ -294,6 +297,15 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 	l, r, err := fc.rawOperands(n)
 	if err != nil {
 		return nil, err
+	}
+	// A function value held in a sequence (a bare calc result) compares as its one element.
+	where := fmt.Sprintf("'%s'", n.Operator)
+	if lt, rt := l.Type(), r.Type(); lt.Many() && lt.Elem().IsFn() && !rt.Many() {
+		fc.c.collections = true
+		l = ToOne{X: l, Where: where}
+	} else if rt.Many() && rt.Elem().IsFn() && !lt.Many() {
+		fc.c.collections = true
+		r = ToOne{X: r, Where: where}
 	}
 	if l.Type().MayUnset() || r.Type().MayUnset() {
 		neq := n.Operator == ast.OpNeq || n.Operator == ast.OpNeqEqEq

@@ -2,19 +2,19 @@ step 1: token 1@zero
 stmt assign y
   eval literal 0 -> 0
 step 2: token 1@again
-  eval feature inputObject1 -> 0
+  eval feature inputObject1 -> (0)
   eval feature inputObject2 -> ()
 eval sequence of 2 -> (0)
 step 3: token 1@inc
 enter action node: inc
 step 4: token 1@assign y
 stmt assign y
-    eval feature x -> 0
+    eval feature x -> (0)
     eval literal 1 -> 1
   eval operator + -> 1
 step 5: token 1@assign n
 stmt assign n
-  eval feature y -> 1
+  eval feature y -> (1)
 leave action node: inc
 step 6: token 1@check
   eval feature n -> 1
@@ -22,18 +22,18 @@ step 6: token 1@check
 eval operator < -> true
 step 7: token 1@again
   eval feature inputObject1 -> ()
-  eval feature inputObject2 -> 1
+  eval feature inputObject2 -> (1)
 eval sequence of 2 -> (1)
 step 8: token 1@inc
 enter action node: inc
 step 9: token 1@assign y
 stmt assign y
-    eval feature x -> 1
+    eval feature x -> (1)
     eval literal 1 -> 1
   eval operator + -> 2
 step 10: token 1@assign n
 stmt assign n
-  eval feature y -> 2
+  eval feature y -> (2)
 leave action node: inc
 step 11: token 1@check
   eval feature n -> 2
@@ -41,18 +41,18 @@ step 11: token 1@check
 eval operator < -> true
 step 12: token 1@again
   eval feature inputObject1 -> ()
-  eval feature inputObject2 -> 2
+  eval feature inputObject2 -> (2)
 eval sequence of 2 -> (2)
 step 13: token 1@inc
 enter action node: inc
 step 14: token 1@assign y
 stmt assign y
-    eval feature x -> 2
+    eval feature x -> (2)
     eval literal 1 -> 1
   eval operator + -> 3
 step 15: token 1@assign n
 stmt assign n
-  eval feature y -> 3
+  eval feature y -> (3)
 leave action node: inc
 step 16: token 1@check
   eval feature n -> 3

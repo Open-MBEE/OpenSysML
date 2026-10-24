@@ -20,7 +20,11 @@ import org.openmbee.opensysml.SourceDocument;
 import org.openmbee.opensysml.syson.export.ExportedProject;
 import org.openmbee.opensysml.syson.export.ProjectExporter;
 import org.openmbee.opensysml.syson.identity.ElementIndex;
+import org.openmbee.opensysml.syson.export.ServiceLibraries;
+import org.assertj.core.api.InstanceOfAssertFactories;
+import org.openmbee.opensysml.syson.run.RunDocumentForm;
 import org.openmbee.opensysml.syson.run.RunOperation;
+import org.openmbee.opensysml.syson.run.RunTableRow;
 import org.openmbee.opensysml.syson.run.RunResult;
 import org.openmbee.opensysml.syson.run.RunResultStore;
 import org.openmbee.opensysml.syson.run.RunWithOpenSysMLInput;
@@ -64,7 +68,7 @@ class RunWithOpenSysMLIntegrationTest {
         Element target = target("Counter");
         RunResult result = service(project("counter.sysml", source, target)).run(context(), target,
                 new RunWithOpenSysMLInput(UUID.randomUUID(), "ctx", target.getElementId(), RunOperation.EXECUTE_ACTION,
-                        Map.of("x", "21"), List.of(), List.of(), "declared", null));
+                        Map.of("x", "21"), List.of(), List.of(), "declared", null, null));
         assertThat(result.ok()).isTrue();
         assertThat(result.schedule()).isEqualTo("declared");
         assertThat(result.outputs()).anyMatch(value -> value.name().equals("y") && value.value().contains("42"));
@@ -120,6 +124,95 @@ class RunWithOpenSysMLIntegrationTest {
         assertThat(result.outcomes()).hasSizeGreaterThanOrEqualTo(2);
     }
 
+    @Test
+    void rendersDocumentAsMarkdownAndHtml() throws Exception {
+        String source = Files.readString(repository.resolve("editors/syson/backend/src/test/resources/models/report.sysml"));
+        Element target = target("Observatory::MassReport");
+        RunResult markdown = service(project("report.sysml", source, target)).run(context(), target,
+                new RunWithOpenSysMLInput(UUID.randomUUID(), "ctx", "target", RunOperation.RENDER_DOCUMENT, Map.of(),
+                        List.of(), List.of(), null, null, null));
+        assertThat(markdown.ok()).isTrue();
+        assertThat(markdown.document().form()).isEqualTo(RunDocumentForm.MARKDOWN);
+        assertThat(markdown.document().fileName()).isEqualTo("Observatory-MassReport.md");
+        assertThat(markdown.document().content()).startsWith("# Telescope Mass Report").contains("| mount | 15 |");
+        RunResult html = service(project("report.sysml", source, target)).run(context(), target,
+                new RunWithOpenSysMLInput(UUID.randomUUID(), "ctx", "target", RunOperation.RENDER_DOCUMENT, Map.of(),
+                        List.of(), List.of(), null, null, RunDocumentForm.HTML));
+        assertThat(html.ok()).isTrue();
+        assertThat(html.document().fileName()).isEqualTo("Observatory-MassReport.html");
+        assertThat(html.document().content()).startsWith("<!DOCTYPE html>").contains("<title>Telescope Mass Report</title>");
+    }
+
+    @Test
+    void refusesRenderingANonDocument() throws Exception {
+        String source = Files.readString(repository.resolve("editors/syson/backend/src/test/resources/models/report.sysml"));
+        Element target = target("Observatory::Subsystem");
+        RunResult result = service(project("report.sysml", source, target)).run(context(), target,
+                input(RunOperation.RENDER_DOCUMENT, Map.of()));
+        assertThat(result.ok()).isFalse();
+        assertThat(result.document()).isNull();
+        assertThat(result.diagnostics()).anyMatch(diagnostic -> diagnostic.message().contains("is not a document"));
+    }
+
+    @Test
+    void runsDocumentQueryWithElementAndLiteralBindings() throws Exception {
+        String source = Files.readString(repository.resolve("editors/syson/backend/src/test/resources/models/report.sysml"));
+        Element target = target("Observatory::HeavySubsystemNames");
+        Map<String, String> bindings = new java.util.LinkedHashMap<>();
+        bindings.put("root", "Observatory::telescope");
+        bindings.put("threshold", "\"10\"");
+        RunResult result = service(project("report.sysml", source, target)).run(context(), target,
+                input(RunOperation.RUN_DOCUMENT_QUERY, bindings));
+        assertThat(result.ok()).isTrue();
+        assertThat(result.table().columns()).containsExactly("name");
+        assertThat(result.table().rows()).extracting(row -> row.cells().get(0)).containsExactly("mount", "segmentControl");
+        assertThat(result.table().rows()).extracting(RunTableRow::element)
+                .containsExactly("Observatory::telescope::mount", "Observatory::telescope::segmentControl");
+        assertThat(result.resultText()).isEqualTo("2 rows");
+    }
+
+    @Test
+    void reportsAMistypedBindingAsADiagnostic() throws Exception {
+        String source = Files.readString(repository.resolve("editors/syson/backend/src/test/resources/models/report.sysml"));
+        Element target = target("Observatory::HeavySubsystemNames");
+        Map<String, String> bindings = new java.util.LinkedHashMap<>();
+        bindings.put("root", "Observatory::telescope");
+        bindings.put("threshold", "10");
+        RunResult result = service(project("report.sysml", source, target)).run(context(), target,
+                input(RunOperation.RUN_DOCUMENT_QUERY, bindings));
+        assertThat(result.ok()).isFalse();
+        assertThat(result.table()).isNull();
+        assertThat(result.diagnostics()).anyMatch(diagnostic -> diagnostic.message().contains("threshold"));
+    }
+
+    @Test
+    void recognizesTheLibrariesTheServiceBundles() {
+        ServiceLibraries libraries = new ServiceLibraries(connection);
+        assertThat(libraries.declarations("DocumentQueries")).isPresent().get(InstanceOfAssertFactories.collection(String.class))
+                .contains("Query", "Query::result", "Document", "Document::title", "Verdict::kind", "Paragraph", "Section", "Table");
+        assertThat(libraries.declarations("ScalarValues")).isPresent();
+        assertThat(libraries.declarations("Observatory")).isEmpty();
+        assertThat(libraries.declarations("")).isEmpty();
+    }
+
+    @Test
+    void namesDownloadsAsTheServiceLinksThem() throws Exception {
+        String source = Files.readString(repository.resolve("editors/syson/backend/src/test/resources/models/linked.sysml"));
+        Element report = target("Observatory::SystemReport");
+        Element appendix = target("Observatory::'Mass Appendix'");
+        RunResult html = service(project("linked.sysml", source, report)).run(context(), report,
+                new RunWithOpenSysMLInput(UUID.randomUUID(), "ctx", "target", RunOperation.RENDER_DOCUMENT, Map.of(),
+                        List.of(), List.of(), null, null, RunDocumentForm.HTML));
+        RunResult markdown = service(project("linked.sysml", source, appendix)).run(context(), appendix,
+                input(RunOperation.RENDER_DOCUMENT, Map.of()));
+        assertThat(html.ok()).isTrue();
+        assertThat(markdown.ok()).isTrue();
+        assertThat(html.document().fileName()).isEqualTo("Observatory-SystemReport.html");
+        assertThat(markdown.document().fileName()).isEqualTo("Observatory-Mass.20Appendix.md");
+        assertThat(html.document().content()).contains("href=\"" + markdown.document().fileName().replace(".md", ".html") + "\"");
+        assertThat(markdown.document().content()).contains("](" + html.document().fileName().replace(".html", ".md") + ")");
+    }
+
     private RunWithOpenSysMLService service(ExportedProject project) {
         ProjectExporter exporter = context -> project;
         return new RunWithOpenSysMLService(connection, exporter, new RunResultStore(), new OpenSysMLProperties());
@@ -150,6 +243,6 @@ class RunWithOpenSysMLIntegrationTest {
 
     private static RunWithOpenSysMLInput input(RunOperation operation, Map<String, String> values) {
         return new RunWithOpenSysMLInput(UUID.randomUUID(), "ctx", "target", operation, values, List.of(), List.of(),
-                null, null);
+                null, null, null);
     }
 }

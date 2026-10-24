@@ -197,10 +197,23 @@ impl Connection {
 
     /// Retrieve diagnostics for a model cached by the service.
     pub fn diagnostics(&self, model_hash: &str) -> Result<Vec<crate::Diagnostic>, Error> {
+        self.diagnostics_with_lints(model_hash, &[], &[])
+    }
+
+    /// Retrieve diagnostics under a lint selection: the lints `disabled` left out and the
+    /// opt-in lints `enabled` kept, as `sysml -disable-lint`/`-enable-lint` select them.
+    pub fn diagnostics_with_lints(
+        &self,
+        model_hash: &str,
+        disabled: &[&str],
+        enabled: &[&str],
+    ) -> Result<Vec<crate::Diagnostic>, Error> {
         let response: wire::DiagnosticsResponse = self.rpc(
             "GetDiagnostics",
             wire::DiagnosticsRequest {
                 model_hash: model_hash.to_owned(),
+                disable_lint: disabled.iter().map(|c| (*c).to_owned()).collect(),
+                enable_lint: enabled.iter().map(|c| (*c).to_owned()).collect(),
             },
         )?;
         if !response.error.is_empty() {

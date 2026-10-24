@@ -94,7 +94,7 @@ func TestAnonymousKeywordsComeBackFromTheTypedFactsAlone(t *testing.T) {
 		want:    []string{"event occurrence", "event occurrence ack;", "event occurrence : Exchange;"},
 	}, {
 		fixture: "anonymous_portions.sysml",
-		want:    []string{"snapshot occurrence redefines start {", "timeslice occurrence redefines portionOfLife {", "snapshot occurrence subsets fuel redefines done {"},
+		want:    []string{"snapshot occurrence redefines start {", "timeslice occurrence redefines portionOfLife {", "snapshot occurrence redefines done subsets fuel {"},
 	}, {
 		fixture: "anonymous_assertions.sysml",
 		want:    []string{"assert constraint references massConstraint {", "assert not constraint references massConstraint;", "assert constraint {"},
@@ -140,7 +140,7 @@ func TestContradictoryKeywordGraphsAreRefused(t *testing.T) {
 	}{{
 		name: "portion_missing", fixture: "anonymous_portions.sysml",
 		old: snapshot, new: "    sysx:declaredKeyword \"snapshot\" ;\n    sysml:isPortion \"true\"^^xsd:boolean ;\n    sysml:redefines elmt:ed80d442-d498-5236-96ae-71a8a52531d2 ;",
-		want: []string{"the `snapshot` declaration <urn:sysmlv2:element:AnonymousPortions__car___400>", "no sysml:portionKind"},
+		want: []string{"the `snapshot` declaration <urn:sysmlv2:element:AnonymousPortions__car__start>", "no sysml:portionKind"},
 	}, {
 		name: "portion_wrong", fixture: "anonymous_portions.sysml",
 		old: snapshot, new: strings.Replace(snapshot, "portionKind \"snapshot\"", "portionKind \"timeslice\"", 1),
@@ -148,7 +148,7 @@ func TestContradictoryKeywordGraphsAreRefused(t *testing.T) {
 	}, {
 		name: "portion_unknown", fixture: "anonymous_portions.sysml",
 		old: snapshot, new: strings.Replace(snapshot, "portionKind \"snapshot\"", "portionKind \"slice\"", 1),
-		want: []string{`the portion kind "slice" of <urn:sysmlv2:element:AnonymousPortions__car___400>`, "is `snapshot` or `timeslice`"},
+		want: []string{`the portion kind "slice" of <urn:sysmlv2:element:AnonymousPortions__car__start>`, "is `snapshot` or `timeslice`"},
 	}, {
 		name: "event_untyped", fixture: "anonymous_events.sysml",
 		old: event, new: strings.Replace(event, "EventOccurrenceUsage", "OccurrenceUsage", 1),

@@ -170,7 +170,7 @@ package OpenSysMLStack {
 
     // Where one model change travels. Flexo is the hub: every project commits or
     // pushes to it and pulls from it, and no two projects trade directly. The
-    // start and each Pull are free choices, so a seeded schedule picks the path.
+    // begin and each Pull are free choices, so a seeded schedule picks the path.
     // Each state is named for the part it is at.
     item def Commit;
     item def Pull;
@@ -178,11 +178,11 @@ package OpenSysMLStack {
     item def Push;
 
     state def ModelJourney {
-        entry; then start;
+        entry; then begin;
 
-        state start;
-        transition write_first first start then opensysml;
-        transition store_first first start then flexo;
+        state begin;
+        transition write_first first begin then opensysml;
+        transition store_first first begin then flexo;
 
         state opensysml;
         transition commit_change first opensysml accept Commit then flexo;

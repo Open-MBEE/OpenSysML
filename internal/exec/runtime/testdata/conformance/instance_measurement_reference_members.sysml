@@ -11,8 +11,9 @@
 // declaration too, so a conversion can follow the declared reference unit. An
 // optional record whose body binds a feature only at depth (`:>> conv { :>>
 // prefix { :>> conversionFactor = 1000.0; } }`) is one object, not none; one whose only
-// binding sits under an abstract member stays none, as the abstract member holds nothing,
-// and so does one whose body only values a calc's parameters, which bind no field. A field
+// binding sits under an abstract member binds nothing, as the abstract member holds nothing,
+// and neither does one whose body only values a calc's parameters, which bind no field: each
+// stays undetermined of its `[0..1]`, through a bound member as read directly. A field
 // the model adds to a TensorMeasurementReference (`label`) is state of its own and reads;
 // a constraint the model adds holds no value, so a usage stating none stays unset.
 package test {

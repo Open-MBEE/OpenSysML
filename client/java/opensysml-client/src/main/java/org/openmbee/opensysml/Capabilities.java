@@ -69,8 +69,14 @@ public final class Capabilities {
   /** api-json converts as the compact document, optionally without derived properties. */
   public static final String CONVERT_COMPACT = "convert_compact";
 
+  /** Convert reports the semantic check's diagnostics, with their severities, alongside the output. */
+  public static final String CONVERT_CHECK_DIAGNOSTICS = "convert_check_diagnostics";
+
   /** A parse names the documents whose results may differ from those of {@code base_model_hash}. */
   public static final String PARSE_SOURCES_AFFECTED = "parse_sources_affected";
+
+  /** A rendered document names the file a rendered set writes it to. */
+  public static final String RENDER_DOCUMENT_FILE_NAME = "render_document_file_name";
 
   /** A complex number travels as itself rather than as an unsupported null. */
   public static final String COMPLEX_VALUES = "complex_values";
@@ -181,6 +187,15 @@ public final class Capabilities {
   /** The {@code ExportGraphs} RPC exports a behavior's lowered graph as {@code graphs:1} JSON. */
   public static final String EXPORT_GRAPHS = "export_graphs";
 
+  /** The {@code ImportData} RPC sets feature values from CSV, TSV, JSON or JSON Lines data. */
+  public static final String IMPORT_DATA = "import_data";
+
+  /** The {@code CompareResults} RPC runs a SysML v1 tool's results index and compares. */
+  public static final String COMPARE_RESULTS = "compare_results";
+
+  /** The {@code CheckBehavior} RPC searches every schedule of a behavior for violations. */
+  public static final String CHECK = "check";
+
   /** A parse can judge the source as conforming SysML v2. */
   public static final String STRICT_CONFORMANCE = "strict_conformance";
 
@@ -195,6 +210,15 @@ public final class Capabilities {
 
   /** The action and state requests take a {@code performer_symbol_id}, the object the behavior runs on: a declaration or a path from one into its parts. */
   public static final String PERFORMER = "performer";
+
+  /** The {@code RunRuns} RPC runs an action or a Monte Carlo case repeatedly and tables it. */
+  public static final String RUNS = "runs";
+
+  /** The {@code SelfCheck} RPC applies the {@code SysMLValidation} library to the model. */
+  public static final String SELF_CHECK = "self_check";
+
+  /** The {@code RecordRun} RPC records a case's run, sweep or sample into the model. */
+  public static final String RECORD_RUN = "record_run";
 
   /** The {@code trace} field on {@code ExecuteStateRequest}. */
   public static final String STATE_TRACE = "state_trace";

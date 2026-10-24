@@ -1,16 +1,15 @@
 // A table-kind rendering drawn as an HTML table: one header row of its column
 // names, one row per element, every cell plain text.
 import type { RenderResult } from "../protocol";
+import { emptyElement } from "./empty";
 
 // tableOf draws the rendering's rows; a row the server traced to a declaration
-// is marked located, so a click on it can open that declaration.
+// is marked located, so a click on it can open that declaration. A table with
+// no row says why, as the server's notices have it.
 export function tableOf(result: RenderResult): HTMLElement {
   const rows = result.rows ?? [];
   if (rows.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "empty";
-    empty.textContent = "No elements to list.";
-    return empty;
+    return emptyElement(result);
   }
   const columns = result.columns?.length ? result.columns.length : Math.max(...rows.map((row) => row.cells.length));
   const table = document.createElement("table");

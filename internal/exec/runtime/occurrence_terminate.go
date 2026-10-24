@@ -17,7 +17,7 @@ func (e *performances) terminateOccurrence(engine *stmtEngine, s lower.Effect) e
 	}
 	ended, err := e.ctx.endOccurrence(target)
 	if err != nil {
-		return fmt.Errorf("%w: 'terminate %s': %w", ErrTerminateOccurrence, text, err)
+		return fmt.Errorf("%w: 'terminate %s': %w", errTerminateOccurrence, text, err)
 	}
 	if e.flow.endsWith(ended) {
 		return &terminated{object: target, ended: ended}
@@ -30,17 +30,17 @@ func (e *performances) terminateOccurrence(engine *stmtEngine, s lower.Effect) e
 func (e *performances) terminateTargetOf(engine *stmtEngine, s lower.Effect, text string) (*Instance, error) {
 	value, err := engine.evalIn(s.Scope).Eval(s.TargetExpr)
 	if err != nil {
-		return nil, fmt.Errorf("%w: 'terminate %s': %w", ErrTerminateTarget, text, err)
+		return nil, fmt.Errorf("%w: 'terminate %s': %w", errTerminateTarget, text, err)
 	}
 	id, ok := value.Object()
 	if !ok {
 		return nil, fmt.Errorf("%w: 'terminate %s' names a %s: %w",
-			ErrTerminateOccurrence, text, value.Kind, ErrNotAnOccurrence)
+			errTerminateOccurrence, text, value.Kind, errNotAnOccurrence)
 	}
 	inst, found := e.ctx.Instance(id)
 	if !found {
 		return nil, fmt.Errorf("%w: 'terminate %s' names object #%d, which this context does not hold: %w",
-			ErrTerminateOccurrence, text, id, ErrOccurrenceLifetime)
+			errTerminateOccurrence, text, id, errOccurrenceLifetime)
 	}
 	return inst, nil
 }
@@ -53,7 +53,7 @@ func (ctx *Context) endOccurrence(inst *Instance) (map[int64]bool, error) {
 		return nil, err
 	}
 	if tr := ctx.trace; tr != nil {
-		tr.RecordOccurrenceTerminated(symbolText(inst.Type), inst.ID)
+		tr.recordOccurrenceTerminated(SymbolText(inst.Type), inst.ID)
 	}
 	ended := make(map[int64]bool)
 	// One boundary ends the whole and its portions: none outlives its whole.
@@ -178,7 +178,7 @@ func (e *StateExecutor) endTerminated() {
 	}
 	abandoned := e.abandonMachine()
 	if e.trace() != nil {
-		e.trace().RecordStateEndedWithOccurrence(e.traceOrigin(), symbolText(e.stateMachine), abandoned)
+		e.trace().recordStateEndedWithOccurrence(e.traceOrigin(), SymbolText(e.stateMachine), abandoned)
 	}
 	e.state = StateTerminated
 	e.ctx.endPerformanceLife(e.occurrence)

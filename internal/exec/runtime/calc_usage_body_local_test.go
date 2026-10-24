@@ -75,6 +75,7 @@ func TestBodyLocalCalcUsageInLoopBindsPerIteration(t *testing.T) {
 		{2, 0.75*1000.0 - 1.0},
 	} {
 		got, err := ctx.InvokeCalc(propagate, []Value{constInt(want.n)}, scope)
+		got = soleElement(got)
 		if err != nil {
 			t.Fatalf("Propagate(%d): %v", want.n, err)
 		}
@@ -94,6 +95,7 @@ func TestBodyLocalCalcUsageInBranch(t *testing.T) {
 
 	// k = 3: dx = 6, dv = -3.
 	taken, err := ctx.InvokeCalc(branch, []Value{constReal(3.0)}, scope)
+	taken = soleElement(taken)
 	if err != nil {
 		t.Fatalf("Branch(3): %v", err)
 	}
@@ -103,6 +105,7 @@ func TestBodyLocalCalcUsageInBranch(t *testing.T) {
 
 	// k = -2: the else branch's usage binds pv = 1, so dx = 1.
 	other, err := ctx.InvokeCalc(branch, []Value{constReal(-2.0)}, scope)
+	other = soleElement(other)
 	if err != nil {
 		t.Fatalf("Branch(-2): %v", err)
 	}
@@ -120,6 +123,7 @@ func TestBodyLocalCalcUsageInNestedBodies(t *testing.T) {
 
 	// The branch runs on iterations 1 and 2 only: acc = 0 -> 2 -> 2 + 2 - 2 = 2.
 	got, err := ctx.InvokeCalc(nested, []Value{constInt(3)}, scope)
+	got = soleElement(got)
 	if err != nil {
 		t.Fatalf("NestedBodies(3): %v", err)
 	}

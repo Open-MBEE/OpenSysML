@@ -184,6 +184,11 @@ func (fc *funcCompiler) compileFuncArg(node ast.Node, where string) (funcValue, 
 		if err != nil {
 			return funcValue{}, err
 		}
+		if v.Type().Many() && v.Type().Elem().IsFn() {
+			// A function value held in a sequence (a bare calc result) is its one element.
+			fc.c.collections = true
+			v = ToOne{X: v, Where: where}
+		}
 		if !v.Type().Scalar() || !v.Type().IsFn() {
 			return funcValue{}, fc.unsupported(fmt.Sprintf("%s: a %s where a function value is expected", where, v.Type()))
 		}
@@ -198,10 +203,15 @@ func (fc *funcCompiler) compileFuncArg(node ast.Node, where string) (funcValue, 
 			if b.sampled != nil {
 				return funcValue{}, fc.unsupported(fmt.Sprintf("%s: %s, a SampledFunction, where a function value is expected", where, qn.Parts[0].Text))
 			}
-			if b.t.Scalar() && b.t.IsFn() {
+			if b.t.Scalar() && b.t.IsFn() || b.t.Many() && b.t.Elem().IsFn() {
 				v, err := fc.compileExpr(node)
 				if err != nil {
 					return funcValue{}, err
+				}
+				if v.Type().Many() {
+					// A function value held in a sequence (a bare calc result) is its one element.
+					fc.c.collections = true
+					v = ToOne{X: v, Where: where}
 				}
 				return funcValue{dyn: v.Type(), read: v}, nil
 			}

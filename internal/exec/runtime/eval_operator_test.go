@@ -20,8 +20,8 @@ func TestUnimplementedOperatorReportsWhy(t *testing.T) {
 	complement := resolveSymbol(t, root, "complement")
 
 	_, err := ctx.InvokeCalc(complement, []Value{constInt(1)}, root)
-	if !errors.Is(err, ErrUnsupportedOperator) {
-		t.Fatalf("InvokeCalc: got %v, want ErrUnsupportedOperator", err)
+	if !errors.Is(err, errUnsupportedOperator) {
+		t.Fatalf("InvokeCalc: got %v, want errUnsupportedOperator", err)
 	}
 	if !strings.Contains(err.Error(), "function library") {
 		t.Fatalf("InvokeCalc: %v does not say what the complement would need", err)
@@ -91,7 +91,7 @@ func evalTypeClassificationExpr(t *testing.T, expr string) (bool, error) {
 	pkg := resolveSymbol(t, root, "test")
 	result := resolveSymbol(t, pkg.Scope, "result")
 	decl := result.Decl.(*ast.Usage)
-	value, err := NewEvalContext(NewContext(typedModel(model, resolver), 10000), pkg.Scope).Eval(decl.Value)
+	value, err := newEvalContext(NewContext(typedModel(model, resolver), 10000), pkg.Scope).Eval(decl.Value)
 	if err != nil {
 		return false, err
 	}
@@ -213,7 +213,7 @@ package test {
 	if !ok {
 		t.Fatalf("result declares %T, want a usage", sym.Decl)
 	}
-	ec := NewEvalContext(NewContext(typedModel(model, resolver), 10000), pkg.Scope)
+	ec := newEvalContext(NewContext(typedModel(model, resolver), 10000), pkg.Scope)
 
 	type outcome struct {
 		value Value
@@ -352,8 +352,8 @@ func TestComposedCastUndecidedWhenNoOperandExcludes(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			sym := resolveSymbol(t, root, name)
 			if _, err := ctx.Eval(sym.Decl.(*ast.Usage).Value); !errors.Is(
-				err, ErrUndecidedClassification) {
-				t.Fatalf("expected ErrUndecidedClassification, got: %v", err)
+				err, errUndecidedClassification) {
+				t.Fatalf("expected errUndecidedClassification, got: %v", err)
 			}
 		})
 	}

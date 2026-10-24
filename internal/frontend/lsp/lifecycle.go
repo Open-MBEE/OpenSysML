@@ -14,6 +14,7 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 	if params != nil {
 		s.applyConformanceSettings(ctx, params.InitializationOptions)
 		s.applyLintSettings(ctx, params.InitializationOptions)
+		s.applyLibraryRootsSetting(params.InitializationOptions)
 		s.setHoverMarkdown(clientRendersMarkdownHover(params.Capabilities))
 		s.setCompletionMarkdown(clientRendersMarkdownCompletion(params.Capabilities))
 		s.setCrossDocument(clientAdvertisesCrossDocument(params.Capabilities))
@@ -54,17 +55,23 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 			// A client that draws diagrams speaks opensysml/render, which is no
 			// protocol method; this is how it learns the server serves it.
 			Experimental: map[string]any{
-				"openSysmlRender":         true,
-				"openSysmlRenderDocument": true,
-				"openSysmlApplyModelEdit": true,
-				"openSysmlStdlibContent":  true,
-				"openSysmlDebug":          true,
-				CrossDocumentCapability:   true,
-				RenderPaletteCapability:   true,
-				RenderFormsCapability:     renderFormNames(),
-				RenderStylesCapability:    renderStyleNames(),
-				RenderPortsCapability:     renderPortsNames(),
-				RenderOverlaysCapability:  renderOverlayNames(),
+				"openSysmlRender":            true,
+				"openSysmlRenderDocument":    true,
+				"openSysmlApplyModelEdit":    true,
+				"openSysmlStdlibContent":     true,
+				"openSysmlDebug":             true,
+				CrossDocumentCapability:      true,
+				RenderPaletteCapability:      true,
+				RenderFormsCapability:        renderFormNames(),
+				RenderStylesCapability:       renderStyleNames(),
+				RenderPortsCapability:        renderPortsNames(),
+				RenderLinesCapability:        renderLinesNames(),
+				RenderCompartmentsCapability: renderCompartmentsNames(),
+				RenderElementsCapability:     renderElementNames(),
+				RenderDepthCapability:        true,
+				RenderIncludeCapability:      true,
+				RelatedElementsCapability:    relatedKindNames(),
+				RenderOverlaysCapability:     renderOverlayNames(),
 			},
 			// Folders added mid-session are only indexed if the client reports them.
 			Workspace: &protocol.ServerCapabilitiesWorkspace{

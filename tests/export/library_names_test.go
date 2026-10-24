@@ -19,11 +19,11 @@ const libraryNamesModel = `package L {
 }
 `
 
-// A converted model names each standard library element it references, marked
-// isLibraryElement (KerML Element::isLibraryElement), so every @id the output
-// references is an element of it; the library itself is not exported, and the
-// document's root namespace does not take the library elements (#731).
-func TestConvertNamesTheLibraryElementsItReferences(t *testing.T) {
+// The API element form carries the model's own elements only: a standard
+// library element it references stays a bare `{"@id"}` of its normative id,
+// as the OMG API JSON shape has it, since an ownerless element there is a root
+// a reader would declare anew. The graph (Turtle) still names each one (#731).
+func TestAPIJSONCarriesNoLibraryElements(t *testing.T) {
 	out, err := convert.Convert("l.sysml", []byte(libraryNamesModel), convert.FormatSysML, convert.FormatAPIJSON)
 	if err != nil {
 		t.Fatal(err)
@@ -33,21 +33,23 @@ func TestConvertNamesTheLibraryElementsItReferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	ids := map[string]bool{}
-	library := map[string]map[string]any{}
 	for _, e := range elements {
 		id, _ := e["@id"].(string)
 		ids[id] = true
 		if e["isLibraryElement"] == true {
-			library[id] = e
+			t.Errorf("the element form holds the library element %v", e["qualifiedName"])
+		}
+		if _, owned := e["owner"]; !owned && e["@type"] != "Namespace" {
+			t.Errorf("the element form holds an ownerless %v %v, which a reader takes for a root", e["@type"], id)
 		}
 	}
-	var dangling []string
+	unheld := map[string]bool{}
 	var walk func(any)
 	walk = func(v any) {
 		switch v := v.(type) {
 		case map[string]any:
 			if id, ok := v["@id"].(string); ok && len(v) == 1 && !ids[id] {
-				dangling = append(dangling, id)
+				unheld[id] = true
 			}
 			for _, x := range v {
 				walk(x)
@@ -61,37 +63,60 @@ func TestConvertNamesTheLibraryElementsItReferences(t *testing.T) {
 	for _, e := range elements {
 		walk(e)
 	}
-	if len(dangling) > 0 {
-		t.Errorf("the output references ids it does not hold: %v", dangling)
+	turtle, err := convert.Convert("l.sysml", []byte(libraryNamesModel), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
 	}
-	want := map[string]string{
-		"ScalarValues::Real":    "DataType",
-		"ScalarValues::Integer": "DataType",
-		"ISQBase::MassValue":    "AttributeDefinition",
-		"ISQ":                   "LibraryPackage",
-	}
-	named := map[string]string{}
-	memberships := 0
-	for _, e := range library {
-		for _, owned := range []string{"owner", "owningRelationship", "owningNamespace", "owningMembership"} {
-			if _, ok := e[owned]; ok {
-				t.Errorf("the library element %v states an owner (%s) in the graph", e["qualifiedName"], owned)
-			}
+	// Each id the element form leaves unheld is one the graph names as a library element.
+	named := 0
+	for id := range unheld {
+		if !strings.Contains(string(turtle), "<urn:sysmlv2:element:"+id+">\n    a sysml:") &&
+			!strings.Contains(string(turtle), "\nelmt:"+id+"\n    a sysml:") {
+			t.Errorf("the element form references %s, which is no library element the graph names", id)
 		}
-		if e["@type"] == "OwningMembership" {
-			memberships++
-			continue
-		}
-		name, _ := e["qualifiedName"].(string)
-		named[name], _ = e["@type"].(string)
+		named++
 	}
-	for name, typ := range want {
-		if named[name] != typ {
-			t.Errorf("%s is named as %q, want a %s", name, named[name], typ)
+	// Real, Integer, MassValue, the ISQ package and the membership import of Real.
+	if named != 5 {
+		t.Errorf("the element form leaves %d library ids unheld, want 5", named)
+	}
+	for _, want := range []string{
+		`sysml:qualifiedName "ScalarValues::Real" ;`, `sysml:qualifiedName "ISQBase::MassValue" ;`,
+		`sysml:qualifiedName "ISQ" ;`, `sysml:isLibraryElement "true"^^xsd:boolean`,
+	} {
+		if !strings.Contains(string(turtle), want) {
+			t.Errorf("the graph should still name the library element: %s", want)
 		}
 	}
-	if memberships != 1 {
-		t.Errorf("the membership import of Real names %d library memberships, want 1", memberships)
+}
+
+// An older element form that named its library elements as ownerless
+// isLibraryElement stubs still reads: the stubs are references, not declarations.
+func TestAPIJSONWithLibraryStubsStillReads(t *testing.T) {
+	out, err := convert.Convert("l.sysml", []byte(libraryNamesModel), convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var elements []json.RawMessage
+	if err := json.Unmarshal(out, &elements); err != nil {
+		t.Fatal(err)
+	}
+	for _, stub := range []string{
+		`{"@type":"DataType","@id":"14c0aa22-5489-59b5-b438-ded26e83ba31","elementId":"14c0aa22-5489-59b5-b438-ded26e83ba31","qualifiedName":"ScalarValues::Real","declaredName":"Real","isLibraryElement":true}`,
+		`{"@type":"OwningMembership","@id":"ab72a695-5fe9-58a3-9d48-9e9a8711862d","elementId":"ab72a695-5fe9-58a3-9d48-9e9a8711862d","memberElement":{"@id":"14c0aa22-5489-59b5-b438-ded26e83ba31"},"isLibraryElement":true}`,
+	} {
+		elements = append(elements, json.RawMessage(stub))
+	}
+	older, err := json.Marshal(elements)
+	if err != nil {
+		t.Fatal(err)
+	}
+	back, err := convert.Convert("l.json", older, convert.FormatAPIJSON, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("the older element form did not read back: %v", err)
+	}
+	if string(back) != libraryNamesModel {
+		t.Errorf("the notation read back changed:\n%s", back)
 	}
 }
 

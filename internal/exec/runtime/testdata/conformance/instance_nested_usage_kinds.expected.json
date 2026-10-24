@@ -1,0 +1,23 @@
+{
+  "type": "instance",
+  "instantiate": "test::Vehicle",
+  "libraries": true,
+  "slots": {
+    "inspection": {"type": "Instance"},
+    "inspection.subcases": {"type": "Sequence", "elements": []},
+    "drive": {"type": "Instance"},
+    "drive.includedUseCases": {"type": "Sequence", "elements": []},
+    "drive.subUseCases": {"type": "Sequence", "elements": []},
+    "overview": {"type": "Instance"},
+    "overview.subviews": {"type": "Sequence", "elements": []},
+    "overview.viewpointSatisfactions": {"type": "Sequence", "elements": []},
+    "operator": {"type": "Instance"},
+    "safety": {"type": "Instance"},
+    "table": {"type": "Instance"},
+    "table.subrenderings": {"type": "Sequence", "elements": []},
+    "mode": {"type": "EnumLiteral", "value": "Mode::on"},
+    "limit": {"type": "Instance"},
+    "limit.concerns": {"type": "Sequence", "elements": []},
+    "trip": {"type": "Instance"}
+  }
+}

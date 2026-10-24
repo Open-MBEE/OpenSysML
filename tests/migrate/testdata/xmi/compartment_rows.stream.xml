@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_sym_frame'>
+    <elementID xmi:idref='_diag_bdd'></elementID>
+    <geometry>0, 0, 480, 320</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_vehicle'>
+    <elementID xmi:idref='_blk_vehicle'></elementID>
+    <geometry>40, 20, 160, 120</geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='Port' xmi:id='_sym_fuel'>
+        <elementID xmi:idref='_port_fuel'></elementID>
+        <geometry>195, 60, 10, 10</geometry>
+        <mdOwnedViews/>
+      </mdElement>
+    </mdOwnedViews>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_sym_engine'>
+    <elementID xmi:idref='_blk_engine'></elementID>
+    <geometry>40, 220, 120, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='Enumeration' xmi:id='_sym_mode'>
+    <elementID xmi:idref='_enum_mode'></elementID>
+    <geometry>300, 220, 120, 60</geometry>
+  </mdElement>
+  <mdElement elementClass='Association' xmi:id='_sym_assoc_engine'>
+    <elementID xmi:idref='_assoc_engine'></elementID>
+    <linkFirstEndID xmi:idref='_sym_vehicle'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_engine'></linkSecondEndID>
+    <geometry>100, 140; 100, 220; </geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='Role' xmi:id='_sym_end_vehicle'>
+        <elementID xmi:idref='_ae_vehicle'></elementID>
+        <geometry>95, 140, 10, 10</geometry>
+        <mdOwnedViews/>
+      </mdElement>
+      <mdElement elementClass='Role' xmi:id='_sym_end_engine'>
+        <elementID xmi:idref='_prop_engine'></elementID>
+        <geometry>95, 210, 10, 10</geometry>
+        <mdOwnedViews>
+          <mdElement elementClass='TextBox' xmi:id='_sym_end_engine_name'>
+            <elementID xmi:idref='_prop_engine'></elementID>
+            <geometry>105, 200, 40, 12</geometry>
+            <mdOwnedViews/>
+            <text>engine</text>
+          </mdElement>
+        </mdOwnedViews>
+        <roleNameID xmi:idref='_sym_end_engine_name'></roleNameID>
+      </mdElement>
+    </mdOwnedViews>
+    <associationFirstEndID xmi:idref='_sym_end_vehicle'></associationFirstEndID>
+    <associationSecondEndID xmi:idref='_sym_end_engine'></associationSecondEndID>
+  </mdElement>
+  <mdElement elementClass='Association' xmi:id='_sym_assoc_mode'>
+    <elementID xmi:idref='_assoc_mode'></elementID>
+    <linkFirstEndID xmi:idref='_sym_mode'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_vehicle'></linkSecondEndID>
+    <geometry>360, 220; 200, 100; </geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='Role' xmi:id='_sym_end_mode'>
+        <elementID xmi:idref='_prop_mode'></elementID>
+        <geometry>355, 210, 10, 10</geometry>
+        <mdOwnedViews/>
+      </mdElement>
+      <mdElement elementClass='Role' xmi:id='_sym_end_mode_owner'>
+        <elementID xmi:idref='_ae_mode'></elementID>
+        <geometry>195, 100, 10, 10</geometry>
+        <mdOwnedViews/>
+      </mdElement>
+    </mdOwnedViews>
+    <associationFirstEndID xmi:idref='_sym_end_mode'></associationFirstEndID>
+    <associationSecondEndID xmi:idref='_sym_end_mode_owner'></associationSecondEndID>
+  </mdElement>
+  <mdElement elementClass='Association' xmi:id='_sym_assoc_trim'>
+    <elementID xmi:idref='_assoc_trim'></elementID>
+    <linkFirstEndID xmi:idref='_sym_vehicle'></linkFirstEndID>
+    <linkSecondEndID xmi:idref='_sym_mode'></linkSecondEndID>
+    <geometry>200, 120; 330, 220; </geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='Role' xmi:id='_sym_end_trim_owner'>
+        <elementID xmi:idref='_ae_trim'></elementID>
+        <geometry>195, 120, 10, 10</geometry>
+        <mdOwnedViews/>
+      </mdElement>
+      <mdElement elementClass='Role' xmi:id='_sym_end_trim'>
+        <elementID xmi:idref='_prop_trim'></elementID>
+        <geometry>325, 210, 10, 10</geometry>
+        <mdOwnedViews/>
+      </mdElement>
+    </mdOwnedViews>
+    <associationFirstEndID xmi:idref='_sym_end_trim_owner'></associationFirstEndID>
+    <associationSecondEndID xmi:idref='_sym_end_trim'></associationSecondEndID>
+  </mdElement>
+</mdOwnedViews>

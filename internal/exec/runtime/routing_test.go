@@ -63,8 +63,8 @@ func TestSendIntoAnOutboundOnlyEndIsATypedError(t *testing.T) {
 			succession first sender then done;
 		}
 	}`)
-	if !errors.Is(err, ErrUnroutableSend) {
-		t.Fatalf("expected ErrUnroutableSend, got: %v", err)
+	if !errors.Is(err, errUnroutableSend) {
+		t.Fatalf("expected errUnroutableSend, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "src") {
 		t.Errorf("expected the refusing end in the message, got: %v", err)
@@ -84,8 +84,8 @@ func TestSendThroughAnUnjoinedPortIsATypedError(t *testing.T) {
 			succession first sender then done;
 		}
 	}`)
-	if !errors.Is(err, ErrUnroutableSend) {
-		t.Fatalf("expected ErrUnroutableSend, got: %v", err)
+	if !errors.Is(err, errUnroutableSend) {
+		t.Fatalf("expected errUnroutableSend, got: %v", err)
 	}
 }
 
@@ -409,8 +409,8 @@ func TestSendCrossingToAnOutboundOnlySiblingEndIsATypedError(t *testing.T) {
 	}
 	console := nestedObject(t, ctx, site, "bay", "console")
 	_, err = ctx.ExecuteActionPerformedBy(oneSymbol(t, idx, "P::site::ship"), console, nil)
-	if !errors.Is(err, ErrUnroutableSend) {
-		t.Fatalf("execute action: err = %v, want %v", err, ErrUnroutableSend)
+	if !errors.Is(err, errUnroutableSend) {
+		t.Fatalf("execute action: err = %v, want %v", err, errUnroutableSend)
 	}
 	if len(ctx.PendingMessages()) != 0 {
 		t.Errorf("pending messages = %v, want none", ctx.PendingMessages())
@@ -452,8 +452,8 @@ func TestBehaviorLocalPortShadowsThePerformersConnectedPort(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 	err = exec.RunToCompletion()
-	if !errors.Is(err, ErrUnroutableSend) {
-		t.Fatalf("run state machine: err = %v, want %v", err, ErrUnroutableSend)
+	if !errors.Is(err, errUnroutableSend) {
+		t.Fatalf("run state machine: err = %v, want %v", err, errUnroutableSend)
 	}
 	if pending := ctx.PendingMessages(); len(pending) != 0 {
 		t.Errorf("pending messages = %v, want none over the shadowed connector", pending)
@@ -497,8 +497,8 @@ func TestInheritedBehaviorPortShadowsThePerformersConnectedPort(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 	err = exec.RunToCompletion()
-	if !errors.Is(err, ErrUnroutableSend) {
-		t.Fatalf("run state machine: err = %v, want %v", err, ErrUnroutableSend)
+	if !errors.Is(err, errUnroutableSend) {
+		t.Fatalf("run state machine: err = %v, want %v", err, errUnroutableSend)
 	}
 	if pending := ctx.PendingMessages(); len(pending) != 0 {
 		t.Errorf("pending messages = %v, want none over the shadowed connector", pending)

@@ -134,7 +134,7 @@ func (s *stateSpeller) deferredBehaviors() {
 		var waits []string
 		for _, block := range s.ctx.behaviorOrderBlocks(behavior) {
 			object := s.objectPath(block.predecessor.Object.ID)
-			waits = append(waits, fmt.Sprintf("%s on %s for %s", symbolText(endFeature(block.order.Earlier)), object, behaviorOrderName(block.order)))
+			waits = append(waits, fmt.Sprintf("%s on %s for %s", SymbolText(endFeature(block.order.Earlier)), object, behaviorOrderName(block.order)))
 		}
 		sort.Strings(waits)
 		if len(waits) == 0 {
@@ -154,9 +154,9 @@ func (s *stateSpeller) nameExecutors(execs []checkedExecutor) {
 		var name string
 		switch e := exec.(type) {
 		case *ActionExecutor:
-			name = "action " + symbolText(e.action) + s.performer(e.self)
+			name = "action " + SymbolText(e.action) + s.performer(e.self)
 		case *StateExecutor:
-			name = "state machine " + symbolText(e.stateMachine) + s.performer(e.self)
+			name = "state machine " + SymbolText(e.stateMachine) + s.performer(e.self)
 		default:
 			name = exec.dueLabel()
 		}
@@ -273,6 +273,16 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 		}
 		for _, region := range e.orderedActiveRegions() {
 			fmt.Fprintf(&s.out, " active{%s = %s}", regionKey(region), e.statePath(e.activeConfig.regionStates[region]))
+		}
+		complete := make([]*ast.StateRegion, 0, len(e.activeConfig.defaultComplete))
+		for region, isComplete := range e.activeConfig.defaultComplete {
+			if isComplete {
+				complete = append(complete, region)
+			}
+		}
+		sort.Slice(complete, func(i, j int) bool { return regionKey(complete[i]) < regionKey(complete[j]) })
+		for _, region := range complete {
+			fmt.Fprintf(&s.out, " default-complete{%s}", regionKey(region))
 		}
 	}
 	for _, state := range e.stateStack {
@@ -837,7 +847,7 @@ func (s *stateSpeller) required(seq *Sequence) string {
 	next := r.first
 	unmade := func(upTo int64) {
 		if upTo > next {
-			parts = append(parts, fmt.Sprintf("%d unmade %s", upTo-next, symbolText(r.typ)))
+			parts = append(parts, fmt.Sprintf("%d unmade %s", upTo-next, SymbolText(r.typ)))
 		}
 	}
 	for _, inst := range s.ctx.madeRequired(r) {

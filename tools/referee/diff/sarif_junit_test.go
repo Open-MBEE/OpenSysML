@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/report/sarif"
 )
 
 func exportReport() *Report {
@@ -99,7 +101,7 @@ func TestSarifReport(t *testing.T) {
 		t.Fatalf("third result = %+v", results[2])
 	}
 
-	data, err := marshalSarif(log)
+	data, err := sarif.Marshal(log)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,26 +109,11 @@ func TestSarifReport(t *testing.T) {
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("output is not JSON: %v", err)
 	}
-	again, err := marshalSarif(sarifReport(exportReport()))
+	again, err := sarif.Marshal(sarifReport(exportReport()))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(data, again) {
 		t.Fatal("two renders of the same report differ")
-	}
-}
-
-func TestSarifLevel(t *testing.T) {
-	for severity, want := range map[string]string{"error": "error", "warning": "warning", "info": "note", "": "note"} {
-		if got := sarifLevel(severity); got != want {
-			t.Fatalf("sarifLevel(%q) = %q, want %q", severity, got, want)
-		}
-	}
-}
-
-func TestSarifWholeFileLine(t *testing.T) {
-	locations := sarifLocations("a.sysml", 0)
-	if locations[0].PhysicalLocation.Region.StartLine != 1 {
-		t.Fatalf("line 0 mapped to %d, want 1", locations[0].PhysicalLocation.Region.StartLine)
 	}
 }

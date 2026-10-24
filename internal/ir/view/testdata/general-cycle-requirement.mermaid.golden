@@ -25,8 +25,8 @@ config:
 %% not represented: 2 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements
 flowchart TD
   n0("`*«requirement»*
-**primary : Looped**`")
+**primary**`")
   n1("`*«requirement»*
-**secondary : Looped**`")
+**secondary**`")
   n1 -.->|"derive"| n0
   n0 -.->|"derive"| n1

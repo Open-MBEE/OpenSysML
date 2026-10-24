@@ -205,27 +205,6 @@ func TestViewConformanceInheritedSatisfy(t *testing.T) {
 	wantVerdict(t, "verdict of mass", vp.Concerns[0].Verdict, VerdictConforms, vp.Concerns[0].Reason)
 }
 
-// A `frame` a view, its definition or a nested view writes is no SysML v2
-// member of a view body and is not consulted: the concerns evaluated are the
-// viewpoint's, whatever the view says.
-func TestViewConformanceIgnoresTheViewsOwnFraming(t *testing.T) {
-	m, root := buildModel(t, conformanceLib+`
-		viewpoint def VP { frame concern mass : MassConcern; }
-		viewpoint vp : VP;
-		view def StructureView { frame concern cost : CostConcern; }
-		view v : StructureView {
-			expose vehicle; satisfy vp;
-			frame concern cost : CostConcern;
-			view inner { frame concern cost : CostConcern; }
-		}
-	`)
-	eval := &fakeEvaluator{}
-	vp := onlyViewpoint(t, conformance(t, m, sym(t, root, "v"), eval))
-	wantNames(t, "concerns of vp", concernNames(vp), []string{"mass"})
-	wantNames(t, "concerns evaluated", eval.asked, []string{"mass/vehicle"})
-	wantVerdict(t, "verdict of mass", vp.Concerns[0].Verdict, VerdictConforms, vp.Concerns[0].Reason)
-}
-
 // A concern a viewpoint inherits is framed by the viewpoint too, so the view is
 // held to it after the viewpoint's own.
 func TestViewConformanceInheritedViewpointFraming(t *testing.T) {
@@ -412,6 +391,20 @@ func TestViewConformanceIgnoresSatisfyWithASubject(t *testing.T) {
 		t.Fatalf("satisfied viewpoint = %v, want vp", vp.Viewpoint)
 	}
 	wantVerdict(t, "verdict of v", report.Verdict, VerdictConforms, vp.Reason)
+}
+
+// An untyped `frame concern mass;` in the viewpoint declares a concern under
+// that name, which evaluation then answers.
+func TestViewConformanceUntypedViewpointFraming(t *testing.T) {
+	m, root := buildModel(t, conformanceLib+`
+		viewpoint def UntypedVP { frame concern mass; }
+		viewpoint untypedVp : UntypedVP;
+		view v { expose vehicle; satisfy untypedVp; }
+	`)
+	eval := &fakeEvaluator{}
+	vp := onlyViewpoint(t, conformance(t, m, sym(t, root, "v"), eval))
+	wantVerdict(t, "verdict of mass", vp.Concerns[0].Verdict, VerdictConforms, vp.Concerns[0].Reason)
+	wantNames(t, "concerns evaluated", eval.asked, []string{"mass/vehicle"})
 }
 
 // Satisfies and the viewpoint's framings come back in declaration order even

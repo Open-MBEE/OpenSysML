@@ -32,7 +32,7 @@ func articleFor(word string) string {
 func describeOperand(val Value) string {
 	switch val.Kind {
 	case ValConst, ValComplex:
-		return describeValue(val)
+		return DescribeValue(val)
 	case ValString:
 		return "a string"
 	case ValNull:
@@ -43,7 +43,7 @@ func describeOperand(val Value) string {
 		return "a sequence"
 	case ValSet:
 		return "a set"
-	case ValExpr:
+	case valExpr:
 		return "an expression"
 	case ValQuantity:
 		return "a quantity"
@@ -62,7 +62,7 @@ func describeOperand(val Value) string {
 	case ValMeasurementRef:
 		return "a measurement reference"
 	case ValCoordinateFrame:
-		if val.CoordinateFrame().IsScale() {
+		if val.CoordinateFrame().isScale() {
 			return "a measurement scale"
 		}
 		return "a coordinate frame"

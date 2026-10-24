@@ -350,10 +350,10 @@ func TestMeasurementRefReport(t *testing.T) {
 		{"misPowered", ErrTypeMismatch, "cannot write the measurement reference m**2, a measurement reference of dimension L^2, to a feature typed by LengthUnit"},
 		{"notAScale", ErrTypeMismatch, "cannot write the measurement reference h*s/min, a measurement reference typed DerivedUnit, to a feature typed by TimeScale"},
 		{"notAnInterval", ErrTypeMismatch, "cannot write the measurement reference h*s/min, a measurement reference typed DerivedUnit, to a feature typed by IntervalScale"},
-		{"ConvertQuantity(3 [s], Time::UTC)", ErrUnevaluableLibraryFunction, "Time::UTC"},
-		{"ConvertQuantity(3 [Time::UTC], s)", ErrUnevaluableLibraryFunction, "Time::UTC"},
+		{"ConvertQuantity(3 [s], Time::UTC)", errUnevaluableLibraryFunction, "Time::UTC"},
+		{"ConvertQuantity(3 [Time::UTC], s)", errUnevaluableLibraryFunction, "Time::UTC"},
 		{"ConvertQuantity(3 [K], Time::UTC)", ErrIncommensurableUnits, ""},
-		{"Time::UTC / s", ErrUnevaluableLibraryFunction, "UTC is a measurement scale"},
+		{"Time::UTC / s", errUnevaluableLibraryFunction, "UTC is a measurement scale"},
 		{"m + m", ErrTypeMismatch, "operator '+' is not defined for a measurement reference and a measurement reference"},
 		{"m - s", ErrTypeMismatch, "operator '-' is not defined for a measurement reference and a measurement reference"},
 		{"m * 3", ErrTypeMismatch, "operator '*' is not defined for a measurement reference and an Integer"},
@@ -362,14 +362,14 @@ func TestMeasurementRefReport(t *testing.T) {
 		{"m ** s", ErrTypeMismatch, "operator '**' is not defined for a measurement reference and a measurement reference"},
 		{"-m", ErrTypeMismatch, "unary '-' requires numeric operand, got measurement reference"},
 		{"m < s", ErrTypeMismatch, "operator '<' is not defined for a measurement reference and a measurement reference; DataFunctions::'<' is abstract and no library function declares '<' for a measurement reference, which is no ScalarValue"},
-		{"(m / s).quantityDimension", ErrUnevaluableLibraryFunction, "MeasurementReferences::DerivedUnit::quantityDimension: m/s is a MeasurementReferences::DerivedUnit reducing to metre·second^-1, which names no declaration whose member quantityDimension could be read"},
-		{"(m / s).unitConversion", ErrUnevaluableLibraryFunction, "MeasurementReferences::DerivedUnit::unitConversion: m/s is a MeasurementReferences::DerivedUnit reducing to metre·second^-1"},
-		{"(m / s).unitPowerFactors", ErrUnevaluableLibraryFunction, "MeasurementReferences::DerivedUnit::unitPowerFactors: m/s is a MeasurementReferences::DerivedUnit reducing to metre·second^-1"},
-		{"(m ** exponent).definitionalQuantityValues", ErrUnevaluableLibraryFunction, "MeasurementReferences::DerivedUnit::definitionalQuantityValues: m**2 is a MeasurementReferences::DerivedUnit reducing to metre^2"},
-		{"m.hasValidUnitPowerFactors", ErrUnevaluableLibraryFunction, "MeasurementReferences::ScalarMeasurementReference::hasValidUnitPowerFactors: a measurement reference value holds the unit m and its reduction metre, not the declaration's member hasValidUnitPowerFactors"},
+		{"(m / s).quantityDimension", errUnevaluableLibraryFunction, "MeasurementReferences::DerivedUnit::quantityDimension: m/s is a MeasurementReferences::DerivedUnit reducing to metre·second^-1, which names no declaration whose member quantityDimension could be read"},
+		{"(m / s).unitConversion", errUnevaluableLibraryFunction, "MeasurementReferences::DerivedUnit::unitConversion: m/s is a MeasurementReferences::DerivedUnit reducing to metre·second^-1"},
+		{"(m / s).unitPowerFactors", errUnevaluableLibraryFunction, "MeasurementReferences::DerivedUnit::unitPowerFactors: m/s is a MeasurementReferences::DerivedUnit reducing to metre·second^-1"},
+		{"(m ** exponent).definitionalQuantityValues", errUnevaluableLibraryFunction, "MeasurementReferences::DerivedUnit::definitionalQuantityValues: m**2 is a MeasurementReferences::DerivedUnit reducing to metre^2"},
+		{"m.hasValidUnitPowerFactors", errUnevaluableLibraryFunction, "MeasurementReferences::ScalarMeasurementReference::hasValidUnitPowerFactors: a measurement reference value holds the unit m and its reduction metre, not the declaration's member hasValidUnitPowerFactors"},
 		{"(m / s).foo", ErrTypeMismatch, "measurement reference has no feature foo"},
 		{"m.foo", ErrTypeMismatch, "measurement reference has no feature foo"},
-		{"side.isBound", ErrUnevaluableLibraryFunction, "Quantities::ScalarQuantityValue::isBound: a scalar quantity value holds its num and mRef, not whether the quantity is bound"},
+		{"side.isBound", errUnevaluableLibraryFunction, "Quantities::ScalarQuantityValue::isBound: a scalar quantity value holds its num and mRef, not whether the quantity is bound"},
 		{"side.quantityDimension", ErrTypeMismatch, "a quantity in km has no feature quantityDimension"},
 		{"ConvertQuantity(side, s)", ErrIncommensurableUnits, "function QuantityCalculations::ConvertQuantity: incommensurable units: cannot express km (1000·metre) in s (second)"},
 		{"ConvertQuantity(1 [m], SI::'m/s')", ErrIncommensurableUnits, "cannot express m (metre) in 'm/s' (metre·second^-1)"},
@@ -433,8 +433,8 @@ func TestVectorQuantityMRefNeedsOneUnit(t *testing.T) {
 		t.Helper()
 		vq := NewVectorQuantityValue(num, units)
 		_, ok, err := ctx.structuredFeature(vq, "mRef")
-		if !ok || !errors.Is(err, ErrUnevaluableLibraryFunction) {
-			t.Fatalf("mRef of %s = %v, %v; want %v", FormatValue(vq), ok, err, ErrUnevaluableLibraryFunction)
+		if !ok || !errors.Is(err, errUnevaluableLibraryFunction) {
+			t.Fatalf("mRef of %s = %v, %v; want %v", FormatValue(vq), ok, err, errUnevaluableLibraryFunction)
 		}
 		want := "Quantities::VectorQuantityValue::mRef: the axes of " + axes + " carry different units, and no one measurement reference names them all"
 		if !strings.Contains(err.Error(), want) {
@@ -459,8 +459,8 @@ func TestMeasurementRefDescribed(t *testing.T) {
 	if got := describeOperand(ref); got != "a measurement reference" {
 		t.Errorf("describeOperand(km/h) = %q", got)
 	}
-	if got := describeValue(ref); got != "measurement reference" {
-		t.Errorf("describeValue(km/h) = %q", got)
+	if got := DescribeValue(ref); got != "measurement reference" {
+		t.Errorf("DescribeValue(km/h) = %q", got)
 	}
 	if got := FormatValue(ref); got != "km/h" {
 		t.Errorf("FormatValue(km/h) = %q", got)

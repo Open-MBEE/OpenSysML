@@ -137,7 +137,7 @@ func testNamespaceSuccessionCycle(t *testing.T) {
 	}`
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
 	_, err := ctx.Instantiate(oneSymbol(t, idx, "test::Ring"))
-	requireSuccessionError(t, err, ErrSuccessionOrderCycle, successionOrderCycleCode)
+	requireSuccessionError(t, err, errSuccessionOrderCycle, successionOrderCycleCode)
 }
 
 func testNamespaceSuccessionExplicitStartViolation(t *testing.T) {
@@ -164,7 +164,7 @@ func testNamespaceSuccessionExplicitStartViolation(t *testing.T) {
 	}`
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
 	_, err := ctx.ExecuteAction(oneSymbol(t, idx, "test::Kick"))
-	requireSuccessionError(t, err, ErrSuccessionOrderViolated, successionOrderViolatedCode)
+	requireSuccessionError(t, err, errSuccessionOrderViolated, successionOrderViolatedCode)
 }
 
 func testNamespaceSuccessionCompletedLaterBeforeEarlier(t *testing.T) {
@@ -188,7 +188,7 @@ func testNamespaceSuccessionCompletedLaterBeforeEarlier(t *testing.T) {
 		t.Fatalf("later performance is not completed: %s", behavior.Describe())
 	}
 	err = ctx.startBehaviorOn(inst, oneSymbol(t, idx, "test::Holder::earlier"))
-	requireSuccessionError(t, err, ErrSuccessionOrderViolated, successionOrderViolatedCode)
+	requireSuccessionError(t, err, errSuccessionOrderViolated, successionOrderViolatedCode)
 }
 
 func testNamespaceSuccessionAlreadyRunningLaterStartIsNoop(t *testing.T) {
@@ -258,9 +258,9 @@ func testNamespaceSuccessionExplicitStateStart(t *testing.T) {
 	}
 	laterSymbol := oneSymbol(t, idx, "test::Later")
 	_, err = ctx.CreateStateExecutorFor(laterSymbol, inst)
-	requireSuccessionError(t, err, ErrSuccessionOrderViolated, successionOrderViolatedCode)
+	requireSuccessionError(t, err, errSuccessionOrderViolated, successionOrderViolatedCode)
 	_, _, err = ctx.ExecuteStatePerformedBy(laterSymbol, inst, nil)
-	requireSuccessionError(t, err, ErrSuccessionOrderViolated, successionOrderViolatedCode)
+	requireSuccessionError(t, err, errSuccessionOrderViolated, successionOrderViolatedCode)
 	if later.deferred == nil || later.State != nil {
 		t.Fatal("rejected explicit starts changed the held exhibit")
 	}
@@ -326,7 +326,7 @@ func testNamespaceSuccessionExplicitEarlierWithoutLater(t *testing.T) {
 		t.Fatalf("explicitly start earlier without a later performance: %v", err)
 	}
 	for _, note := range ctx.Notes() {
-		if _, ok := note.(SuccessionOrdersNothing); ok {
+		if _, ok := note.(successionOrdersNothing); ok {
 			t.Errorf("notes = %v, want no succession-orders-nothing note", ctx.Notes())
 			break
 		}
@@ -357,8 +357,8 @@ func testNamespaceSuccessionDestroyedExhibitorStateExecutorReuse(t *testing.T) {
 	if err := ctx.destroy(exhibitor); err != nil {
 		t.Fatalf("destroy Exhibitor: %v", err)
 	}
-	if _, err := ctx.CreateStateExecutorFor(machine, exhibitor); !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Fatalf("CreateStateExecutorFor on destroyed exhibitor = %v, want ErrOccurrenceDestroyed", err)
+	if _, err := ctx.CreateStateExecutorFor(machine, exhibitor); !errors.Is(err, errOccurrenceDestroyed) {
+		t.Fatalf("CreateStateExecutorFor on destroyed exhibitor = %v, want errOccurrenceDestroyed", err)
 	}
 }
 
@@ -433,7 +433,7 @@ func testNamespaceSuccessionActionPerformanceViolation(t *testing.T) {
 	}
 	later := oneSymbol(t, idx, "test::Holder::later")
 	_, err = ctx.CreateActionExecutorFor(later, holder)
-	requireSuccessionError(t, err, ErrSuccessionOrderViolated, successionOrderViolatedCode)
+	requireSuccessionError(t, err, errSuccessionOrderViolated, successionOrderViolatedCode)
 }
 
 func testNamespaceSuccessionClockRelease(t *testing.T) {
@@ -529,7 +529,7 @@ func testNamespaceSuccessionMissingPredecessor(t *testing.T) {
 		t.Errorf("notes = %v, want a succession-orders-nothing note for the missing predecessor", ctx.Notes())
 	}
 	for _, note := range ctx.Notes() {
-		finding, ok := note.(SuccessionOrdersNothing)
+		finding, ok := note.(successionOrdersNothing)
 		if !ok || !strings.Contains(finding.Reason, "no earlier-end performance") {
 			continue
 		}
@@ -613,9 +613,9 @@ func testNamespaceSuccessionMultipleLaterPerformances(t *testing.T) {
 	if err := ctx.checkSuccessionOrderViolation(rights[0], later.member); err != nil {
 		t.Fatalf("explicit later start with ambiguous pairing: %v", err)
 	}
-	var findings []SuccessionOrdersNothing
+	var findings []successionOrdersNothing
 	for _, note := range notes {
-		if finding, ok := note.(SuccessionOrdersNothing); ok &&
+		if finding, ok := note.(successionOrdersNothing); ok &&
 			strings.Contains(finding.Reason, "later-end performances") {
 			findings = append(findings, finding)
 		}
@@ -873,7 +873,7 @@ func testNamespaceSuccessionEventAndPerformedActionNote(t *testing.T) {
 	notes := ctx.Notes()
 	count := 0
 	for _, note := range notes {
-		if finding, ok := note.(SuccessionOrdersNothing); ok &&
+		if finding, ok := note.(successionOrdersNothing); ok &&
 			strings.Contains(finding.Reason, "event is a occurrence usage") {
 			count++
 		}
@@ -913,7 +913,7 @@ func testNamespaceSuccessionRefusalAgreement(t *testing.T) {
 		t.Fatalf("instantiate part1: %v", err)
 	}
 	for _, note := range ctx.Notes() {
-		if runtimeNote, ok := note.(SuccessionOrdersNothing); ok {
+		if runtimeNote, ok := note.(successionOrdersNothing); ok {
 			if runtimeNote.Reason != checked.Message {
 				t.Errorf("runtime reason %q differs from check reason %q", runtimeNote.Reason, checked.Message)
 			}
@@ -956,7 +956,7 @@ func instantiateTimedSuccession(t *testing.T) (*Context, *Instance) {
 
 func behaviorNamed(t *testing.T, inst *Instance, name string) *ObjectBehavior {
 	t.Helper()
-	behavior, ok := inst.Behavior(name)
+	behavior, ok := inst.behavior(name)
 	if !ok {
 		t.Fatalf("object #%d has no %s behavior", inst.ID, name)
 	}
@@ -980,15 +980,15 @@ func requireSuccessionError(t *testing.T, err, sentinel error, code string) {
 	if !errors.Is(err, sentinel) {
 		t.Fatalf("error = %v, want %v", err, sentinel)
 	}
-	var orderErr *SuccessionOrderError
+	var orderErr *successionOrderError
 	if !errors.As(err, &orderErr) || orderErr.Code != code {
-		t.Fatalf("error = %v, want SuccessionOrderError code %s", err, code)
+		t.Fatalf("error = %v, want successionOrderError code %s", err, code)
 	}
 }
 
 func hasSuccessionNothingNote(notes []RunNote, fragment string) bool {
 	for _, note := range notes {
-		if finding, ok := note.(SuccessionOrdersNothing); ok && strings.Contains(finding.Reason, fragment) {
+		if finding, ok := note.(successionOrdersNothing); ok && strings.Contains(finding.Reason, fragment) {
 			return true
 		}
 	}

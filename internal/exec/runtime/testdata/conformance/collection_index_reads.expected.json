@@ -1,0 +1,14 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Rig",
+  "slots": {
+    "element1": {"type": "Integer", "value": 3},
+    "element3": {"type": "Integer", "value": 7},
+    "qualified": {"type": "Integer", "value": 7},
+    "second": {"type": "String", "value": "b"},
+    "cell": {"type": "Integer", "value": 4},
+    "wrappedCell": {"type": "Integer", "value": 6},
+    "nestedCell": {"type": "Integer", "value": 4}
+  }
+}

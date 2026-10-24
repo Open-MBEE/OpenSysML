@@ -1,0 +1,155 @@
+name: OpenSysML validate
+description: Validate SysML v2 and KerML models with sysml -validate and report the findings as SARIF, JUnit XML, JSON or lines.
+author: Open-MBEE
+
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  path:
+    description: The file or directory sysml -validate loads, relative to the workspace.
+    required: true
+  format:
+    description: "How the findings are reported: text, json, sarif or junit."
+    required: false
+    default: sarif
+  baseline:
+    description: A JSON report sysml -validate -json -o wrote; the findings in it are known and suppressed.
+    required: false
+  warnings-as-errors:
+    description: Fail on a warning as on an error; the report keeps the warning's severity.
+    required: false
+    default: "false"
+  strict:
+    description: Judge the model as conforming SysML v2, so notation no pinned production admits is an error.
+    required: false
+    default: "false"
+  library-path:
+    description: A directory to load the standard library from instead of the bundled copy (OPENSYSML_LIBRARY_PATH).
+    required: false
+  version:
+    description: The OpenSysML release to install, a tag like v0.10.1 or latest; by default the tag this action was referenced at.
+    required: false
+  install:
+    description: Install sysml from the release; "false" runs the sysml already on PATH.
+    required: false
+    default: "true"
+  upload-sarif:
+    description: Upload the SARIF report to GitHub code scanning when the format is sarif.
+    required: false
+    default: "true"
+  sarif-file:
+    description: The file the SARIF report is written to when the format is sarif.
+    required: false
+    default: sysml.sarif
+
+outputs:
+  exit-code:
+    description: The exit status of sysml -validate (0 when the model validates).
+    value: ${{ steps.validate.outputs.exit-code }}
+  sarif-file:
+    description: The file the SARIF report was written to when the format is sarif.
+    value: ${{ inputs.sarif-file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve the release
+      id: release
+      if: ${{ inputs.install == 'true' }}
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        # A composite action's steps do not see GITHUB_ACTION_REF; the caller's ref is passed in.
+        ACTION_REF: ${{ github.action_ref }}
+      run: |
+        set -euo pipefail
+        version="${INPUT_VERSION:-${ACTION_REF:-}}"
+        if [ -z "$version" ]; then
+          echo "::error::no release to install: reference the action at a release tag (Open-MBEE/OpenSysML@vX.Y.Z) or set the version input" >&2
+          exit 1
+        fi
+        if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+          version="v$version"
+        fi
+        if [ "$version" != latest ] && [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+          echo "::error::$version is not a release tag; a branch has no release to install" >&2
+          exit 1
+        fi
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
+    - name: Install sysml
+      if: ${{ inputs.install == 'true' && runner.os != 'Windows' }}
+      shell: bash
+      env:
+        VERSION: ${{ steps.release.outputs.version }}
+      run: |
+        set -euo pipefail
+        sh "$GITHUB_ACTION_PATH/install.sh" --version "$VERSION" --tools sysml --prefix "$RUNNER_TEMP/opensysml"
+        echo "$RUNNER_TEMP/opensysml/bin" >> "$GITHUB_PATH"
+
+    - name: Install sysml (Windows)
+      if: ${{ inputs.install == 'true' && runner.os == 'Windows' }}
+      shell: pwsh
+      env:
+        VERSION: ${{ steps.release.outputs.version }}
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $dir = Join-Path $env:RUNNER_TEMP 'opensysml'
+        & "$env:GITHUB_ACTION_PATH\install.ps1" -Version $env:VERSION -Tools sysml -InstallDir $dir -NoPath
+        if ((Test-Path variable:LASTEXITCODE) -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        Add-Content -Path $env:GITHUB_PATH -Value $dir
+
+    - name: Validate
+      id: validate
+      shell: bash
+      env:
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_FORMAT: ${{ inputs.format }}
+        INPUT_BASELINE: ${{ inputs.baseline }}
+        INPUT_WARNINGS_AS_ERRORS: ${{ inputs.warnings-as-errors }}
+        INPUT_STRICT: ${{ inputs.strict }}
+        INPUT_LIBRARY_PATH: ${{ inputs.library-path }}
+        INPUT_SARIF_FILE: ${{ inputs.sarif-file }}
+      run: |
+        set -euo pipefail
+        sysml -version
+        # text is what -validate writes without -format, so a release before -format reports it too.
+        args=(-validate)
+        if [ "$INPUT_FORMAT" != text ]; then
+          args+=(-format "$INPUT_FORMAT")
+        fi
+        if [ -n "$INPUT_BASELINE" ]; then
+          args+=(-baseline "$INPUT_BASELINE")
+        fi
+        if [ "$INPUT_WARNINGS_AS_ERRORS" = true ]; then
+          args+=(-warnings-as-errors)
+        fi
+        if [ "$INPUT_STRICT" = true ]; then
+          args+=(-strict)
+        fi
+        if [ "$INPUT_FORMAT" = sarif ]; then
+          args+=(-o "$INPUT_SARIF_FILE")
+        fi
+        if [ -n "$INPUT_LIBRARY_PATH" ]; then
+          export OPENSYSML_LIBRARY_PATH="$INPUT_LIBRARY_PATH"
+        fi
+        status=0
+        sysml "${args[@]}" "$INPUT_PATH" || status=$?
+        echo "exit-code=$status" >> "$GITHUB_OUTPUT"
+
+    - name: Upload the SARIF report
+      if: ${{ inputs.format == 'sarif' && inputs.upload-sarif == 'true' }}
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: ${{ inputs.sarif-file }}
+
+    - name: Fail as sysml did
+      if: ${{ steps.validate.outputs.exit-code != '0' }}
+      shell: bash
+      env:
+        STATUS: ${{ steps.validate.outputs.exit-code }}
+      run: |
+        echo "::error::sysml -validate exited $STATUS" >&2
+        exit "$STATUS"

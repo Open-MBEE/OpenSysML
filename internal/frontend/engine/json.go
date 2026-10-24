@@ -327,53 +327,73 @@ type JParseSourcesResponse struct {
 }
 
 type JRenderViewRequest struct {
-	ModelHash string `json:"modelHash,omitempty"`
-	View      string `json:"view,omitempty"`
-	Ports     string `json:"ports,omitempty"`
+	ModelHash string   `json:"modelHash,omitempty"`
+	View      string   `json:"view,omitempty"`
+	Ports     string   `json:"ports,omitempty"`
+	Show      []string `json:"show,omitempty"`
+	Depth     int      `json:"depth,omitempty"`
+	// Compartments is the folding of a tree's owned members into compartment rows:
+	// "" or "positioned" (the default), "most" or "ports".
+	Compartments string `json:"compartments,omitempty"`
 }
 
+// The RenderView reply, shaped as protojson writes the service's RenderViewResponse
+// so one client decodes either transport's answer.
+
 type JRenderViewResponse struct {
-	View    string         `json:"view"`
-	Kind    string         `json:"kind"`
-	Stated  string         `json:"stated"`
-	Notices []string       `json:"notices"`
-	Canvas  *JRenderCanvas `json:"canvas,omitempty"`
-	Nodes   []JRenderNode  `json:"nodes"`
-	Edges   []JRenderEdge  `json:"edges"`
+	View    string         `json:"view,omitempty"`
+	Kind    string         `json:"kind,omitempty"`
+	Stated  string         `json:"stated,omitempty"`
+	Nodes   []JRenderNode  `json:"nodes,omitempty"`
+	Edges   []JRenderEdge  `json:"edges,omitempty"`
 	Columns []string       `json:"columns,omitempty"`
 	Rows    []JRenderRow   `json:"rows,omitempty"`
+	Canvas  *JRenderCanvas `json:"canvas,omitempty"`
+	Notes   []JRenderNote  `json:"notes,omitempty"`
+	Notices []string       `json:"notices,omitempty"`
+	Shown   []string       `json:"shown,omitempty"`
 }
 
 type JRenderCanvas struct {
-	Unit   string   `json:"unit,omitempty"`
-	Width  *float64 `json:"width,omitempty"`
-	Height *float64 `json:"height,omitempty"`
+	Unit    string  `json:"unit,omitempty"`
+	Width   float64 `json:"width,omitempty"`
+	Height  float64 `json:"height,omitempty"`
+	HasSize bool    `json:"hasSize,omitempty"`
 }
 
 type JRenderNode struct {
-	ID              string        `json:"id"`
-	Kind            string        `json:"kind"`
-	Name            string        `json:"name"`
-	NameSynthesized bool          `json:"nameSynthesized,omitempty"`
-	Type            string        `json:"type"`
-	Detail          string        `json:"detail"`
-	Parent          string        `json:"parent,omitempty"`
-	Fill            string        `json:"fill,omitempty"`
-	Border          string        `json:"border,omitempty"`
-	Style           *JRenderStyle `json:"style,omitempty"`
-	X               *float64      `json:"x,omitempty"`
-	Y               *float64      `json:"y,omitempty"`
-	Width           *float64      `json:"width,omitempty"`
-	Height          *float64      `json:"height,omitempty"`
-	Collapsed       bool          `json:"collapsed,omitempty"`
-	Ports           []JRenderPort `json:"ports,omitempty"`
+	ID              string           `json:"id,omitempty"`
+	Kind            string           `json:"kind,omitempty"`
+	Name            string           `json:"name,omitempty"`
+	NameSynthesized bool             `json:"nameSynthesized,omitempty"`
+	Type            string           `json:"type,omitempty"`
+	Detail          string           `json:"detail,omitempty"`
+	Text            string           `json:"text,omitempty"`
+	StandIn         bool             `json:"standIn,omitempty"`
+	Parent          string           `json:"parent,omitempty"`
+	Compartment     string           `json:"compartment,omitempty"`
+	Ports           []JRenderPort    `json:"ports,omitempty"`
+	Origin          *JSpan           `json:"origin,omitempty"`
+	Geometry        *JRenderGeometry `json:"geometry,omitempty"`
+	Style           *JRenderStyle    `json:"style,omitempty"`
 }
 
 type JRenderPort struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
+	ID        string `json:"id,omitempty"`
+	Name      string `json:"name,omitempty"`
 	Type      string `json:"type,omitempty"`
 	Direction string `json:"direction,omitempty"`
+}
+
+type JRenderGeometry struct {
+	X         float64 `json:"x,omitempty"`
+	Y         float64 `json:"y,omitempty"`
+	Width     float64 `json:"width,omitempty"`
+	Height    float64 `json:"height,omitempty"`
+	HasSize   bool    `json:"hasSize,omitempty"`
+	Collapsed bool    `json:"collapsed,omitempty"`
+	// Unplaced marks a layout that only folds or hides: x and y carry no position.
+	Unplaced bool `json:"unplaced,omitempty"`
 }
 
 type JRenderStyle struct {
@@ -387,23 +407,39 @@ type JRenderStyle struct {
 }
 
 type JRenderEdge struct {
-	From     string         `json:"from"`
-	To       string         `json:"to"`
+	From     string         `json:"from,omitempty"`
+	To       string         `json:"to,omitempty"`
 	FromPort string         `json:"fromPort,omitempty"`
 	ToPort   string         `json:"toPort,omitempty"`
-	Label    string         `json:"label"`
-	Kind     string         `json:"kind"`
-	Style    *JRenderStyle  `json:"style,omitempty"`
+	Label    string         `json:"label,omitempty"`
+	Name     string         `json:"name,omitempty"`
+	Kind     string         `json:"kind,omitempty"`
+	Origin   *JSpan         `json:"origin,omitempty"`
 	Route    []JRenderPoint `json:"route,omitempty"`
+	Style    *JRenderStyle  `json:"style,omitempty"`
 }
 
 type JRenderPoint struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
+	X float64 `json:"x,omitempty"`
+	Y float64 `json:"y,omitempty"`
 }
 
 type JRenderRow struct {
-	Cells []string `json:"cells"`
+	Cells  []string `json:"cells,omitempty"`
+	Origin *JSpan   `json:"origin,omitempty"`
+}
+
+type JRenderNote struct {
+	Text     string  `json:"text,omitempty"`
+	Anchor   string  `json:"anchor,omitempty"`
+	EdgeFrom string  `json:"edgeFrom,omitempty"`
+	EdgeTo   string  `json:"edgeTo,omitempty"`
+	X        float64 `json:"x,omitempty"`
+	Y        float64 `json:"y,omitempty"`
+	Width    float64 `json:"width,omitempty"`
+	Height   float64 `json:"height,omitempty"`
+	HasSize  bool    `json:"hasSize,omitempty"`
+	Origin   *JSpan  `json:"origin,omitempty"`
 }
 
 type JEvaluateRequest struct {
@@ -462,23 +498,47 @@ type JExecuteStateResponse struct {
 	Error         string             `json:"error,omitempty"`
 	Diagnostics   []*JDiagnostic     `json:"diagnostics,omitempty"`
 	FinalTime     F64                `json:"finalTime,omitempty"`
-	Trace         []JTraceEvent      `json:"trace,omitempty"`
+	Trace         []JDocumentEvent   `json:"trace,omitempty"`
 	TraceDropped  int                `json:"traceDropped,omitempty"`
 }
 
-// JTraceEvent is one documented state-machine execution record.
-type JTraceEvent struct {
-	Kind         string   `json:"kind"`
-	At           F64      `json:"at"`
-	Object       string   `json:"object,omitempty"`
-	Machine      string   `json:"machine,omitempty"`
-	State        string   `json:"state,omitempty"`
-	From         string   `json:"from,omitempty"`
-	To           string   `json:"to,omitempty"`
-	Target       string   `json:"target,omitempty"`
-	Event        string   `json:"event,omitempty"`
-	Payload      []string `json:"payload,omitempty"`
-	Alternatives []string `json:"alternatives,omitempty"`
-	Taken        string   `json:"taken,omitempty"`
-	Text         string   `json:"text"`
+// JDocumentEvent is the DocumentEvent message: one documented record of a traced
+// state-machine run, as the service's ExecuteState answers it.
+type JDocumentEvent struct {
+	Kind         string           `json:"kind"`
+	Time         *JDocumentValue  `json:"time,omitempty"`
+	Object       *JDocumentObject `json:"object,omitempty"`
+	Machine      string           `json:"machine,omitempty"`
+	State        string           `json:"state,omitempty"`
+	From         string           `json:"from,omitempty"`
+	To           string           `json:"to,omitempty"`
+	Target       *JDocumentObject `json:"target,omitempty"`
+	Event        string           `json:"event,omitempty"`
+	Payload      []string         `json:"payload,omitempty"`
+	Alternatives []string         `json:"alternatives,omitempty"`
+	Taken        string           `json:"taken,omitempty"`
+	Text         string           `json:"text"`
+}
+
+// JDocumentObject is the DocumentObject message: an object Instantiate created,
+// by id, by the label it is reached under, and by the element declaring it.
+type JDocumentObject struct {
+	InstanceId I64             `json:"instanceId,omitempty"`
+	Path       string          `json:"path,omitempty"`
+	Element    *JDocumentValue `json:"element,omitempty"`
+}
+
+// JDocumentValue is the DocumentValue message: a oneof, so at most one arm is set.
+type JDocumentValue struct {
+	ElementId     *string          `json:"elementId,omitempty"`
+	StringValue   *string          `json:"stringValue,omitempty"`
+	IntValue      *I64             `json:"intValue,omitempty"`
+	RealValue     *F64             `json:"realValue,omitempty"`
+	BoolValue     *bool            `json:"boolValue,omitempty"`
+	Infinity      *bool            `json:"infinity,omitempty"`
+	Quantity      *JQuantity       `json:"quantity,omitempty"`
+	Object        *JDocumentObject `json:"object,omitempty"`
+	BigIntValue   *string          `json:"bigIntValue,omitempty"`
+	RationalValue *JRational       `json:"rationalValue,omitempty"`
+	ElementType   string           `json:"elementType,omitempty"`
 }

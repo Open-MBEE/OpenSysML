@@ -250,6 +250,7 @@ elmt:NestedNamespaceImport__Pkg2__a
     sysml:owner elmt:NestedNamespaceImport__Pkg2 ;
     sysml:owningRelationship elmt:NestedNamespaceImport__Pkg2__a_om ;
     sysml:owningMembership elmt:NestedNamespaceImport__Pkg2__a_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "a" ;
     sysml:type elmt:NestedNamespaceImport__Pkg1__A ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -281,6 +282,7 @@ elmt:NestedNamespaceImport__Pkg2__b
     sysml:owner elmt:NestedNamespaceImport__Pkg2 ;
     sysml:owningRelationship elmt:NestedNamespaceImport__Pkg2__b_om ;
     sysml:owningMembership elmt:NestedNamespaceImport__Pkg2__b_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "b" ;
     sysml:type elmt:NestedNamespaceImport__Pkg1__Pkg11__B ;
     sysx:hasBody "false"^^xsd:boolean ;

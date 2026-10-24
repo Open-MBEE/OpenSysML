@@ -27,5 +27,6 @@
 			}
 		}
 	],
-	"admissible": "Three concurrent writers of one feature: six orders, three values"
+	"admissible": "Three concurrent writers of one feature: six orders, three values",
+	"orderDependent": {"x": 2}
 }

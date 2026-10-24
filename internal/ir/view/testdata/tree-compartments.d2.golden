@@ -1,0 +1,23 @@
+# AmplifierViews::positioned — tree rendering (render asTreeDiagram)
+# not represented: 10 node(s) without a position, drawn as compartment rows of the node above them, and 1 node(s) under them left undrawn
+# not represented: 5 positioned node(s) and 0 route(s) kept as comments; D2 pins no position, the dot form does
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  composition: { source-arrowhead: { shape: diamond; style: { filled: true } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+}
+# layout: n0 x=10 y=10 w=240 h=260
+# layout: n5 x=300 y=400 w=120 h=40
+# layout: n6 x=40 y=220 w=100 h=30
+# layout: n12 x=300 y=10 w=120 h=40
+# layout: n13 x=500 y=10 w=100 h=100
+n0: "«part def»\nStage\nattributes\ngain = 15.0\nnoiseFigure = RealFunctions::sqrt(4.0)\nparts\nheatsink\nports\ninput\noutput\nactions\ncalibrate\nconstraints\nbound\nitem defs\nSlot" { class: definition }
+n5: "«part»\nhousing" { class: usage }
+n6: "«part»\nshield" { class: usage }
+n12: "«part def»\nHousing" { class: definition }
+n13: "«enum def»\nBand\nenumerations\nlow\nhigh" { class: definition }
+n0 -- n5: { class: edge }
+n0 -- n6: { class: edge }
+n0 <- n12: { class: composition; target-arrowhead: { label: "housing" } }
+n0 <- n12: { class: composition; target-arrowhead: { label: "shield" } }

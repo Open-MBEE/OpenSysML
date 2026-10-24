@@ -73,7 +73,7 @@ func testInitialHorizonScopesPendingDo(t *testing.T) {
 	if got := finalOutcomes(report); len(got) != 1 || !strings.Contains(got[0], "c = 0") {
 		t.Fatalf("finals = %v, want c = 0 alone", got)
 	}
-	if !slices.Equal(report.Scope, []ObservationReason{ReasonInitialTransitionOnly}) {
+	if !slices.Equal(report.Scope, []ObservationReason{reasonInitialTransitionOnly}) {
 		t.Fatalf("scope = %v, want the initial transition only", report.Scope)
 	}
 }
@@ -131,8 +131,8 @@ func testInitialHorizonRefusesAnAction(t *testing.T) {
 		return &Invocation{Actions: []*ActionExecutor{exec}, States: []*StateExecutor{state}, Horizon: HorizonInitial()}, nil
 	}
 	_, err := Check(context.Background(), m.fresh, start, CheckBudget{}, unreduced(), nil)
-	if !errors.Is(err, ErrNothingStarted) {
-		t.Fatalf("err = %v, want ErrNothingStarted", err)
+	if !errors.Is(err, errNothingStarted) {
+		t.Fatalf("err = %v, want errNothingStarted", err)
 	}
 }
 

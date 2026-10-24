@@ -1,38 +1,41 @@
-package Structure {
-    part def Vehicle {
-        part engine : Engine;
-        part wheel : Wheel;
-        attribute height : ScalarValues::Real;
-        connection drive connect engine to wheel;
-        view 'Vehicle Internals' {
+package Model {
+    package Structure {
+        part def Vehicle {
+            part engine : Engine;
+            part wheel : Wheel;
+            attribute height : ScalarValues::Real;
+            connection drive connect engine to wheel;
+            view 'Vehicle Internals' {
+                expose Vehicle;
+                expose engine;
+                expose wheel;
+                expose drive;
+                expose Behavior::Drive::'start to step';
+                render Views::asInterconnectionDiagram;
+            }
+        }
+        part def Engine;
+        part def Wheel;
+        view 'Vehicle Structure' {
             expose Vehicle;
-            expose engine;
-            expose wheel;
-            expose drive;
-            expose Behavior::Drive::'start to step';
-            render Views::asInterconnectionDiagram;
+            expose Engine;
+            expose Wheel;
+            expose Structure::Vehicle::engine;
+            expose Structure::Vehicle::height;
+            expose Structure::Vehicle::drive;
+            expose Behavior::Drive::'step';
+            render Views::asTreeDiagram;
         }
     }
-    part def Engine;
-    part def Wheel;
-    view 'Vehicle Structure' {
-        expose Vehicle;
-        expose Engine;
-        expose Wheel;
-        expose Structure::Vehicle::engine;
-        expose Structure::Vehicle::height;
-        expose Structure::Vehicle::drive;
-        expose Behavior::Drive::'step';
-        render Views::asTreeDiagram;
-    }
-}
-package Behavior {
-    action def Drive {
-        succession 'start to step' first start then 'step';
-        action 'step' {
-            attribute going : ScalarValues::Boolean;
-            assign going := true;
+    package Behavior {
+        action def Drive {
+            succession 'start to step' first start then 'step';
+            action 'step' {
+                rep language "JavaScript" /* going = true;*/
+                attribute going : ScalarValues::Boolean;
+                assign going := true;
+            }
+            metadata MigrationMetadata::SynthesizedName about 'start to step';
         }
-        metadata MigrationMetadata::SynthesizedName about 'start to step';
     }
 }

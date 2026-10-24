@@ -20,11 +20,14 @@ const nestedReadSource = `package test {
 		attribute broken : Real = 1.0 / 0.0;
 		attribute fine : Real = 2.0;
 		attribute free : Real;
+		attribute spare : Real[0..1];
+		attribute reordered : Real = SequenceFunctions::size(spare) + input;
 	}
 	part def Item {
 		part inner : Inner;
 		attribute gate : Real;
 		assert constraint direct { inner.dependent > 0.0 }
+		assert constraint reordered { inner.reordered > 0.0 }
 		assert constraint always { false or inner.dependent > 0.0 }
 		assert constraint never { true or inner.broken > 0.0 }
 		assert constraint gated { gate > 0.0 or inner.dependent > 0.0 }
@@ -200,5 +203,25 @@ func TestGuardedChainReadsDecideWhereTheEvaluatorDoes(t *testing.T) {
 	solved(t, solver, always.question.Reached(), StatusSat)
 	if _, err := ctx.CheckConstraintOn(always.sym, always.sym.OwnerScope, nil); !errors.Is(err, runtime.ErrNoValue) {
 		t.Errorf("evaluate always = %v, want the evaluator failing on the read", err)
+	}
+}
+
+// TestChainPinsReportAMissingInputBehindAnOpenCount: a declared value that is open
+// for a count the model leaves open and for a feature with no value is unreadable
+// for the latter whichever operand the evaluation meets first.
+func TestChainPinsReportAMissingInputBehindAnOpenCount(t *testing.T) {
+	ctx, idx := fixture(t, "nested_read.sysml", nestedReadSource)
+	reordered := symbolNamed(t, idx, "test::Inner::reordered")
+	q := guardedItemQueries(t, ctx, idx, "reordered")
+	pins, unfixed := ChainPins(ctx, q.question, ObjectReader(ctx, nil), nil)
+	if len(pins) != 0 {
+		t.Errorf("ChainPins reordered pinned %+v, want nothing", pins)
+	}
+	if len(unfixed) != 1 || unfixed[0].Var != "test::Item::inner.reordered" || unfixed[0].Feature != reordered ||
+		!errors.Is(unfixed[0].Err, runtime.ErrNoValue) || !strings.HasSuffix(unfixed[0].Reason, "no value for feature input") {
+		t.Fatalf("ChainPins reordered unfixed = %+v, want inner.reordered by the missing input", unfixed)
+	}
+	if err := UnfixedRead(ctx, q.question, unfixed); err == nil || !errors.Is(err, runtime.ErrNoValue) {
+		t.Errorf("UnfixedRead reordered = %v, want the read refused", err)
 	}
 }

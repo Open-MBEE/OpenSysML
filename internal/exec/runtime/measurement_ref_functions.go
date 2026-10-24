@@ -11,7 +11,7 @@ func measurementRefArg(name, param string, val Value) (*MeasurementRef, error) {
 	val = soleElement(val)
 	if val.Kind != ValMeasurementRef || val.MeasurementRef() == nil {
 		return nil, fmt.Errorf("%w: function %s parameter %q requires a measurement reference such as SI::m, got %s",
-			ErrTypeMismatch, name, param, describeValue(val))
+			ErrTypeMismatch, name, param, DescribeValue(val))
 	}
 	return val.MeasurementRef(), nil
 }
@@ -22,7 +22,7 @@ func scalarReferenceArg(name, param string, val Value) (*MeasurementRef, error) 
 	val = soleElement(val)
 	if val.Kind == ValCoordinateFrame {
 		frame := val.CoordinateFrame()
-		if frame.IsScale() {
+		if frame.isScale() {
 			return &MeasurementRef{Unit: frame.Axes[0]}, nil
 		}
 		return nil, fmt.Errorf("%w: function %s parameter %q requires a ScalarMeasurementReference, got the coordinate frame %s of %d axes",
@@ -77,7 +77,7 @@ func measurementRefArithmetic(op ast.OperatorKind) libraryApply {
 		ref, ok, err := ctx.composeMeasurementRefs(op, x, y)
 		if !ok {
 			return Value{}, fmt.Errorf("%w: function %s is not defined over %s and %s",
-				ErrTypeMismatch, name, describeValue(x), describeValue(y))
+				ErrTypeMismatch, name, DescribeValue(x), DescribeValue(y))
 		}
 		return ref, err
 	}

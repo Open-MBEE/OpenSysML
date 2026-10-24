@@ -5,9 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,8 +26,9 @@ import (
 // expectedValue is the fixture encoding of a pb.Value: the oneof field name
 // plus its JSON literal.
 type expectedValue struct {
-	Kind  string      `json:"kind"`
-	Value interface{} `json:"value"`
+	Kind     string          `json:"kind"`
+	Value    interface{}     `json:"value"`
+	Elements []expectedValue `json:"elements"`
 }
 
 // expectedFeatureValue is the fixture encoding of a pb.FeatureValue.
@@ -72,8 +75,54 @@ type conformanceCase struct {
 	// ExecuteAction
 	Inputs map[string]expectedValue `json:"inputs,omitempty"`
 
-	// ExecuteState
-	Events []string `json:"events,omitempty"`
+	// ExecuteAction run options, as `sysml -advance`, `-seed`, `-draws` and
+	// `-clock-step` take them; absent sends none.
+	Advance   *float64 `json:"advance,omitempty"`
+	Seed      *uint64  `json:"seed,omitempty"`
+	Draws     string   `json:"draws,omitempty"`
+	ClockStep float64  `json:"clock_step,omitempty"`
+
+	// RenderView: the view or pseudo-view, the compartment folding, and the
+	// nodes the rendering must draw in order, the compartment each row is drawn
+	// in by its name, and the labels of its edges in order.
+	View                 string            `json:"view,omitempty"`
+	Compartments         string            `json:"compartments,omitempty"`
+	ExpectedNodeNames    []string          `json:"expected_node_names,omitempty"`
+	ExpectedCompartments map[string]string `json:"expected_compartments,omitempty"`
+	ExpectedEdgeLabels   []string          `json:"expected_edge_labels,omitempty"`
+
+	// GetDiagnostics lint selection and the codes the answer must and must not carry.
+	DisableLint   []string `json:"disable_lint,omitempty"`
+	EnableLint    []string `json:"enable_lint,omitempty"`
+	ExpectedCodes []string `json:"expected_codes,omitempty"`
+	AbsentCodes   []string `json:"absent_codes,omitempty"`
+
+	// ExecuteState: the events injected in order, whether to ask for the run's
+	// trace, and the usages the traced transitions' objects are held under, in
+	// first-appearance order (one entry per object that took a transition).
+	Events               []string `json:"events,omitempty"`
+	Trace                bool     `json:"trace,omitempty"`
+	ExpectedTraceObjects []string `json:"expected_trace_objects,omitempty"`
+
+	// RunRuns, RecordRun
+	Runs             int64    `json:"runs,omitempty"`
+	ObserveFeatures  []string `json:"observe_features,omitempty"`
+	RecordInto       string   `json:"record_into,omitempty"`
+	SelfCheckPackage []string `json:"self_check_package,omitempty"`
+
+	ExpectedRowCount    int      `json:"expected_row_count,omitempty"`
+	ExpectedObservables []string `json:"expected_observables,omitempty"`
+	ExpectedStatus      string   `json:"expected_status,omitempty"`
+	MinChecks           int64    `json:"min_checks,omitempty"`
+	ExpectedPackage     string   `json:"expected_package,omitempty"`
+	ExpectedRecords     []string `json:"expected_records,omitempty"`
+
+	PerformerSymbolID   string              `json:"performer_symbol_id,omitempty"`
+	CheckProperty       []string            `json:"check_property,omitempty"`
+	CheckDiverge        []string            `json:"check_diverge,omitempty"`
+	ExpectedVerdict     string              `json:"expected_verdict,omitempty"`
+	ExpectedViolations  []expectedViolation `json:"expected_violations"`
+	ExpectedDivergences map[string][]string `json:"expected_divergences"`
 
 	// RunDocumentQuery: the symbols Instantiate creates objects of first, in
 	// order, then the query and its bindings.
@@ -96,10 +145,55 @@ type conformanceCase struct {
 	// MinWithheldLibraryAttributes requires the response to state at least this
 	// many library-inherited attributes withheld from the list.
 	MinWithheldLibraryAttributes int32 `json:"min_withheld_library_attributes,omitempty"`
+	// ExpectedMetadata are metadata entries the symbol must carry with these
+	// values; AbsentMetadata are keys it must not carry.
+	ExpectedMetadata map[string]string `json:"expected_metadata,omitempty"`
+	AbsentMetadata   []string          `json:"absent_metadata,omitempty"`
+
+	// ImportData: the imports, in order.
+	Imports      []conformanceImport `json:"imports,omitempty"`
+	ImportDryRun bool                `json:"import_dry_run,omitempty"`
+	// ExpectedAssignments are the assignments' descriptions, in order, over
+	// every import; ExpectedContent (shared with ApplyEdits) the edited model.
+	ExpectedAssignments []string `json:"expected_assignments,omitempty"`
+
+	// CompareResults: the results index as JSON, the configurations selected,
+	// and how the runs draw.
+	Results         string            `json:"results,omitempty"`
+	Actions         []string          `json:"actions,omitempty"`
+	Observe         map[string]string `json:"observe,omitempty"`
+	ExpectedConfigs []expectedConfig  `json:"expected_configurations,omitempty"`
 
 	// ExpectedError, when set, requires the RPC to report an in-band error
 	// containing this substring (a status error, for RunDocumentQuery).
 	ExpectedError string `json:"expected_error,omitempty"`
+
+	// ExecuteAction: the simulation clock the run ended at, checked when set.
+	ExpectedFinalTime *float64 `json:"expected_final_time,omitempty"`
+}
+
+// conformanceImport is one ImportData import: a name whose extension selects
+// the format unless import_format does, its content, and an optional mapping.
+type conformanceImport struct {
+	Name    string `json:"name"`
+	Content string `json:"content"`
+	Format  string `json:"import_format,omitempty"`
+	Map     string `json:"import_map,omitempty"`
+}
+
+// expectedConfig is what one CompareResults configuration must answer.
+type expectedConfig struct {
+	Name       string `json:"name"`
+	Status     string `json:"status"`
+	Runs       int64  `json:"runs,omitempty"`
+	Completed  int64  `json:"completed,omitempty"`
+	StoredRuns int64  `json:"stored_runs,omitempty"`
+	// Observables maps each stored observable to whether it was compared.
+	Observables map[string]bool `json:"observables,omitempty"`
+	// Unresolved is a substring of why the configuration could not run.
+	Unresolved string `json:"unresolved,omitempty"`
+	// LinesContain are substrings the CLI-formatted lines must contain.
+	LinesContain []string `json:"lines_contain,omitempty"`
 }
 
 type conformanceEditBody struct {
@@ -259,6 +353,10 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		runInstantiateCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "ExecuteAction":
 		runExecuteActionCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "GetDiagnostics":
+		runGetDiagnosticsCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "RenderView":
+		runRenderViewCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "ExecuteState":
 		runExecuteStateCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "ApplyEdits":
@@ -267,8 +365,140 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		runRunDocumentQueryCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "EvaluateCalc":
 		runEvaluateCalcCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "RunRuns":
+		runRunRunsCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "SelfCheck":
+		runSelfCheckCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "RecordRun":
+		runRecordRunCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "ImportData":
+		runImportDataCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "CompareResults":
+		runCompareResultsCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "CheckBehavior":
+		runCheckBehaviorCase(t, srv, ctx, parseResp.ModelHash, tc)
 	default:
 		t.Fatalf("unknown rpc %q", tc.RPC)
+	}
+}
+
+func runImportDataCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+	req := &pb.ImportDataRequest{ModelHash: modelHash, ImportDryRun: tc.ImportDryRun}
+	for _, item := range tc.Imports {
+		req.Imports = append(req.Imports, &pb.DataImport{
+			Name: item.Name, Content: item.Content, ImportFormat: item.Format, ImportMap: item.Map,
+		})
+	}
+	resp, err := srv.ImportData(ctx, req)
+	if err != nil {
+		t.Fatalf("ImportData: %v", err)
+	}
+	if checkExpectedError(t, tc, resp.Error) {
+		if len(resp.Files) != 0 || resp.ModelHash != "" || resp.Content != "" {
+			t.Errorf("a refused import answered files %v, model %q, content %q; want nothing changed", resp.Files, resp.ModelHash, resp.Content)
+		}
+		return
+	}
+	if len(resp.Files) != len(tc.Imports) {
+		t.Fatalf("files = %d, want one per import (%d)", len(resp.Files), len(tc.Imports))
+	}
+	var descriptions []string
+	for i, file := range resp.Files {
+		if file.Name != tc.Imports[i].Name {
+			t.Errorf("file %d is %q, want %q", i, file.Name, tc.Imports[i].Name)
+		}
+		if int(file.Values) != len(file.Assignments) {
+			t.Errorf("%s counts %d values over %d assignments", file.Name, file.Values, len(file.Assignments))
+		}
+		for _, a := range file.Assignments {
+			if a.Element == "" || a.Feature == "" || a.Value == "" || a.Where == "" {
+				t.Errorf("assignment %v is incomplete", a)
+			}
+			descriptions = append(descriptions, a.Description)
+		}
+	}
+	if !slices.Equal(descriptions, tc.ExpectedAssignments) {
+		t.Errorf("assignments = %q, want %q", descriptions, tc.ExpectedAssignments)
+	}
+	if tc.ImportDryRun {
+		if resp.ModelHash != "" || resp.Content != "" || len(resp.Documents) != 0 {
+			t.Errorf("a dry run answered model %q, content %q, documents %d; want the model untouched", resp.ModelHash, resp.Content, len(resp.Documents))
+		}
+		return
+	}
+	if resp.ModelHash == "" || resp.ModelHash == modelHash {
+		t.Fatalf("the imported model's hash %q is not a new model", resp.ModelHash)
+	}
+	if resp.Content != tc.ExpectedContent {
+		t.Errorf("content:\n%s\nwant:\n%s", resp.Content, tc.ExpectedContent)
+	}
+	if len(resp.Documents) != 1 || resp.Documents[0].Content != resp.Content {
+		t.Errorf("documents = %v; want the one edited document", resp.Documents)
+	}
+	if sym, err := srv.GetSymbol(ctx, &pb.GetSymbolRequest{ModelHash: resp.ModelHash, SymbolId: resp.Files[0].Assignments[0].Element}); err != nil || sym.Error != "" {
+		t.Errorf("the imported model does not answer GetSymbol: %v %s", err, sym.GetError())
+	}
+}
+
+func runCompareResultsCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+	req := &pb.CompareResultsRequest{ModelHash: modelHash, Results: tc.Results, Actions: tc.Actions, Runs: tc.Runs, Seed: tc.Seed}
+	for _, stored := range slices.Sorted(maps.Keys(tc.Observe)) {
+		req.Observe = append(req.Observe, &pb.ObservablePair{Stored: stored, Feature: tc.Observe[stored]})
+	}
+	resp, err := srv.CompareResults(ctx, req)
+	if err != nil {
+		t.Fatalf("CompareResults: %v", err)
+	}
+	if checkExpectedError(t, tc, resp.Error) {
+		return
+	}
+	if len(resp.Configurations) != len(tc.ExpectedConfigs) {
+		t.Fatalf("configurations = %d, want %d", len(resp.Configurations), len(tc.ExpectedConfigs))
+	}
+	for i, want := range tc.ExpectedConfigs {
+		got := resp.Configurations[i]
+		if got.Name != want.Name || got.Status != want.Status {
+			t.Errorf("configuration %d is %s (%s), want %s (%s)", i, got.Name, got.Status, want.Name, want.Status)
+		}
+		if got.Runs != want.Runs || got.Completed != want.Completed || got.StoredRuns != want.StoredRuns {
+			t.Errorf("%s ran %d (%d completed) beside %d stored, want %d (%d) beside %d", want.Name, got.Runs, got.Completed, got.StoredRuns, want.Runs, want.Completed, want.StoredRuns)
+		}
+		if len(got.Rows) != int(got.Runs) {
+			t.Errorf("%s tables %d rows for %d runs", want.Name, len(got.Rows), got.Runs)
+		}
+		if want.Unresolved != "" && !strings.Contains(got.Unresolved, want.Unresolved) {
+			t.Errorf("%s unresolved = %q, want it to mention %q", want.Name, got.Unresolved, want.Unresolved)
+		}
+		if tc.Seed != nil && want.Status != "unresolved" && (got.Seed == nil || *got.Seed != *tc.Seed) {
+			t.Errorf("%s seed = %v, want %d", want.Name, got.Seed, *tc.Seed)
+		}
+		if len(got.Observables) != len(want.Observables) {
+			t.Errorf("%s observables = %d, want %d", want.Name, len(got.Observables), len(want.Observables))
+		}
+		for _, o := range got.Observables {
+			compared, known := want.Observables[o.Stored]
+			if !known {
+				t.Errorf("%s compares %q, which the fixture does not expect", want.Name, o.Stored)
+				continue
+			}
+			if o.Compared != compared {
+				t.Errorf("%s %s compared = %v, want %v (notes %v)", want.Name, o.Stored, o.Compared, compared, o.Notes)
+			}
+			if compared && (o.Tool == nil || o.Run == nil || o.Difference == nil || o.Run.Count != got.Completed) {
+				t.Errorf("%s %s is compared without both distributions and their difference: %v", want.Name, o.Stored, o)
+			}
+		}
+		if len(got.Lines) == 0 {
+			t.Errorf("%s answers no lines", want.Name)
+		}
+		joined := strings.Join(got.Lines, "\n")
+		for _, text := range want.LinesContain {
+			if !strings.Contains(joined, text) {
+				t.Errorf("%s lines:\n%s\nwant them to contain %q", want.Name, joined, text)
+			}
+		}
 	}
 }
 
@@ -583,6 +813,16 @@ func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 			t.Errorf("attributes = %v, want %v", got, tc.ExpectedAttributeNames)
 		}
 	}
+	for key, want := range tc.ExpectedMetadata {
+		if got, ok := resp.Symbol.GetMetadata()[key]; !ok || got != want {
+			t.Errorf("metadata[%s] = %q (present %v), want %q", key, got, ok, want)
+		}
+	}
+	for _, key := range tc.AbsentMetadata {
+		if got, ok := resp.Symbol.GetMetadata()[key]; ok {
+			t.Errorf("metadata[%s] = %q, want it absent", key, got)
+		}
+	}
 	if want := tc.MinWithheldLibraryAttributes; want > 0 {
 		if got := resp.Symbol.GetWithheldLibraryAttributes(); got < want {
 			t.Errorf("withheld library attributes = %d, want at least %d", got, want)
@@ -672,12 +912,20 @@ func runExecuteActionCase(t *testing.T, srv *grpc.Service, ctx context.Context, 
 	}
 
 	resp, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
-		ModelHash:      modelHash,
-		ActionSymbolId: tc.SymbolID,
-		Inputs:         inputs,
+		ModelHash:         modelHash,
+		ActionSymbolId:    tc.SymbolID,
+		PerformerSymbolId: tc.PerformerSymbolID,
+		Inputs:            inputs,
+		Advance:           tc.Advance,
+		Seed:              tc.Seed,
+		Draws:             tc.Draws,
+		ClockStep:         tc.ClockStep,
 	})
 	if err != nil {
 		t.Fatalf("ExecuteAction: %v", err)
+	}
+	if tc.ExpectedFinalTime != nil && resp.FinalTime != *tc.ExpectedFinalTime {
+		t.Errorf("final_time = %g, want %g", resp.FinalTime, *tc.ExpectedFinalTime)
 	}
 	if checkExpectedError(t, tc, resp.Error) {
 		return
@@ -692,6 +940,71 @@ func runExecuteActionCase(t *testing.T, srv *grpc.Service, ctx context.Context, 
 	}
 }
 
+// runRenderViewCase renders the case's view under its compartment folding and
+// checks the nodes drawn, the compartment each row is drawn in and the edges.
+func runRenderViewCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+	resp, err := srv.RenderView(ctx, &pb.RenderViewRequest{ModelHash: modelHash, View: tc.View, Compartments: tc.Compartments})
+	if tc.ExpectedError != "" {
+		if err == nil || !strings.Contains(err.Error(), tc.ExpectedError) {
+			t.Fatalf("RenderView error = %v, want %q", err, tc.ExpectedError)
+		}
+		return
+	}
+	if err != nil {
+		t.Fatalf("RenderView: %v", err)
+	}
+	names := make([]string, 0, len(resp.Nodes))
+	compartments := map[string]string{}
+	for _, node := range resp.Nodes {
+		names = append(names, node.GetName())
+		if node.GetCompartment() != "" {
+			compartments[node.GetName()] = node.GetCompartment()
+		}
+	}
+	if !slices.Equal(names, tc.ExpectedNodeNames) {
+		t.Errorf("nodes = %v, want %v", names, tc.ExpectedNodeNames)
+	}
+	if !maps.Equal(compartments, tc.ExpectedCompartments) {
+		t.Errorf("compartment rows = %v, want %v", compartments, tc.ExpectedCompartments)
+	}
+	labels := make([]string, 0, len(resp.Edges))
+	for _, edge := range resp.Edges {
+		labels = append(labels, edge.GetLabel())
+	}
+	if !slices.Equal(labels, tc.ExpectedEdgeLabels) {
+		t.Errorf("edge labels = %v, want %v", labels, tc.ExpectedEdgeLabels)
+	}
+}
+
+// runGetDiagnosticsCase asks for the model's diagnostics under the case's lint
+// selection and checks the codes present and absent.
+func runGetDiagnosticsCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+	resp, err := srv.GetDiagnostics(ctx, &pb.DiagnosticsRequest{
+		ModelHash:   modelHash,
+		DisableLint: tc.DisableLint,
+		EnableLint:  tc.EnableLint,
+	})
+	if err != nil {
+		t.Fatalf("GetDiagnostics: %v", err)
+	}
+	codes := map[string]bool{}
+	for _, d := range resp.Diagnostics {
+		codes[d.GetCode()] = true
+	}
+	for _, code := range tc.ExpectedCodes {
+		if !codes[code] {
+			t.Errorf("diagnostics lack %s: %v", code, codes)
+		}
+	}
+	for _, code := range tc.AbsentCodes {
+		if codes[code] {
+			t.Errorf("diagnostics carry %s under the selection: %v", code, codes)
+		}
+	}
+}
+
 func runExecuteStateCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
 
@@ -699,12 +1012,23 @@ func runExecuteStateCase(t *testing.T, srv *grpc.Service, ctx context.Context, m
 		ModelHash:            modelHash,
 		StateMachineSymbolId: tc.SymbolID,
 		Events:               tc.Events,
+		PerformerSymbolId:    tc.PerformerSymbolID,
+		Trace:                tc.Trace,
+		Advance:              tc.Advance,
 	})
 	if err != nil {
 		t.Fatalf("ExecuteState: %v", err)
 	}
 	if checkExpectedError(t, tc, resp.Error) {
 		return
+	}
+	if tc.ExpectedFinalTime != nil && resp.FinalTime != *tc.ExpectedFinalTime {
+		t.Errorf("final_time = %g, want %g", resp.FinalTime, *tc.ExpectedFinalTime)
+	}
+	if tc.ExpectedTraceObjects != nil {
+		if got := transitionObjects(resp.Trace); !slices.Equal(got, tc.ExpectedTraceObjects) {
+			t.Errorf("trace transition objects = %v, want %v", got, tc.ExpectedTraceObjects)
+		}
 	}
 	if tc.ExpectedStatesVisited != nil {
 		if len(resp.StatesVisited) != len(tc.ExpectedStatesVisited) {
@@ -726,8 +1050,204 @@ func runExecuteStateCase(t *testing.T, srv *grpc.Service, ctx context.Context, m
 	}
 }
 
+// transitionObjects lists the usages the objects taking the traced transitions
+// are held under, in first-appearance order, one entry per object.
+func transitionObjects(trace []*pb.DocumentEvent) []string {
+	var objects []string
+	for _, event := range trace {
+		if event.Kind != "transition" || event.Object == nil || event.Object.Element == nil {
+			continue
+		}
+		if element := event.Object.Element.GetElementId(); !slices.Contains(objects, element) {
+			objects = append(objects, element)
+		}
+	}
+	return objects
+}
+
 // checkExpectedError validates the in-band error field and reports whether the
 // case is a negative one, in which case no further assertions apply.
+func runRunRunsCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+	req := &pb.RunRunsRequest{
+		ModelHash:       modelHash,
+		SubjectSymbolId: tc.SubjectSymbolID,
+		Runs:            tc.Runs,
+		Seed:            tc.Seed,
+		Observe:         tc.ObserveFeatures,
+		Draws:           tc.Draws,
+	}
+	if tc.ContextSymbolID != "" {
+		req.AnalysisSymbolId = tc.ContextSymbolID
+	} else {
+		req.ActionSymbolId = tc.SymbolID
+	}
+	resp, err := srv.RunRuns(ctx, req)
+	if err != nil {
+		if tc.ExpectedError != "" && strings.Contains(err.Error(), tc.ExpectedError) {
+			return
+		}
+		t.Fatalf("RunRuns: %v", err)
+	}
+	if checkExpectedError(t, tc, resp.Error) {
+		return
+	}
+	if len(resp.Rows) != tc.ExpectedRowCount {
+		t.Errorf("rows = %d, want %d", len(resp.Rows), tc.ExpectedRowCount)
+	}
+	for i, row := range resp.Rows {
+		if row.Error != "" {
+			t.Errorf("run %d failed: %s", i+1, row.Error)
+		}
+	}
+	if !slices.Equal(resp.Observables, tc.ExpectedObservables) {
+		t.Errorf("observables = %v, want %v", resp.Observables, tc.ExpectedObservables)
+	}
+	if len(resp.Distributions) != len(tc.ExpectedObservables) {
+		t.Errorf("distributions = %d, want one per observable", len(resp.Distributions))
+	}
+	for _, d := range resp.Distributions {
+		if int(d.Count) != tc.ExpectedRowCount {
+			t.Errorf("distribution %s counts %d runs, want %d", d.Name, d.Count, tc.ExpectedRowCount)
+		}
+	}
+	for name, want := range tc.ExpectedOutputs {
+		var got *pb.Value
+		for _, entry := range resp.Outputs {
+			if entry.Name == name {
+				got = entry.Value
+			}
+		}
+		if got == nil {
+			t.Errorf("output %q is missing from %v", name, resp.Outputs)
+			continue
+		}
+		checkValue(t, "output "+name, want, got)
+	}
+	if tc.Seed != nil && (resp.Seed == nil || *resp.Seed != *tc.Seed) {
+		t.Errorf("seed = %v, want %d", resp.Seed, *tc.Seed)
+	}
+}
+
+func runSelfCheckCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+	resp, err := srv.SelfCheck(ctx, &pb.SelfCheckRequest{ModelHash: modelHash, SelfCheckPackage: tc.SelfCheckPackage})
+	if err != nil {
+		t.Fatalf("SelfCheck: %v", err)
+	}
+	if checkExpectedError(t, tc, resp.Error) {
+		return
+	}
+	if resp.Status != tc.ExpectedStatus {
+		t.Errorf("status = %q, want %q; findings %v", resp.Status, tc.ExpectedStatus, resp.Findings)
+	}
+	if resp.Checks < tc.MinChecks {
+		t.Errorf("checks = %d, want at least %d", resp.Checks, tc.MinChecks)
+	}
+	if resp.Elements == 0 || len(resp.Applications) == 0 || !strings.HasPrefix(resp.Summary, "Self-model check: ") {
+		t.Errorf("the answer is incomplete: elements %d, applications %d, summary %q", resp.Elements, len(resp.Applications), resp.Summary)
+	}
+}
+
+func runRecordRunCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+	resp, err := srv.RecordRun(ctx, &pb.RecordRunRequest{
+		ModelHash:        modelHash,
+		AnalysisSymbolId: tc.SymbolID,
+		SubjectSymbolId:  tc.SubjectSymbolID,
+		RecordInto:       tc.RecordInto,
+		Runs:             tc.Runs,
+		Seed:             tc.Seed,
+		AcceptDocuments:  true,
+	})
+	if err != nil {
+		t.Fatalf("RecordRun: %v", err)
+	}
+	if checkExpectedError(t, tc, resp.Error) {
+		return
+	}
+	if resp.Package != tc.ExpectedPackage {
+		t.Errorf("package = %q, want %q", resp.Package, tc.ExpectedPackage)
+	}
+	if !slices.Equal(resp.Records, tc.ExpectedRecords) {
+		t.Errorf("records = %v, want %v", resp.Records, tc.ExpectedRecords)
+	}
+	if (tc.Runs > 0) != (resp.Sample != nil) || (tc.Runs == 0) != (resp.Run != nil) {
+		t.Errorf("runs=%d answered run=%v sample=%v", tc.Runs, resp.Run != nil, resp.Sample != nil)
+	}
+	if resp.ModelHash == "" || resp.ModelHash == modelHash {
+		t.Fatalf("the recorded model's hash %q is not a new model", resp.ModelHash)
+	}
+	if len(resp.Documents) == 0 || resp.Documents[0].Content == "" {
+		t.Errorf("the answer carries no recorded document")
+	}
+	for _, record := range tc.ExpectedRecords {
+		sym, err := srv.GetSymbol(ctx, &pb.GetSymbolRequest{ModelHash: resp.ModelHash, SymbolId: record})
+		if err != nil || sym.Error != "" {
+			t.Errorf("%s is not in the recorded model: %v %s", record, err, sym.GetError())
+		}
+	}
+}
+
+type expectedViolation struct {
+	Kind     string `json:"kind"`
+	Property string `json:"property"`
+	Depth    int32  `json:"depth"`
+}
+
+func runCheckBehaviorCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+
+	resp, err := srv.CheckBehavior(ctx, &pb.CheckBehaviorRequest{
+		ModelHash:         modelHash,
+		ActionSymbolId:    tc.SymbolID,
+		PerformerSymbolId: tc.PerformerSymbolID,
+		CheckProperty:     tc.CheckProperty,
+		CheckDiverge:      tc.CheckDiverge,
+	})
+	if err != nil {
+		t.Fatalf("CheckBehavior: %v", err)
+	}
+	if checkExpectedError(t, tc, resp.Error) {
+		return
+	}
+	if resp.Verdict != tc.ExpectedVerdict {
+		t.Errorf("verdict = %q, want %q; lines %v", resp.Verdict, tc.ExpectedVerdict, resp.Lines)
+	}
+	if len(resp.Lines) == 0 {
+		t.Errorf("the answer carries no report lines")
+	}
+	if len(resp.Violations) != len(tc.ExpectedViolations) {
+		t.Fatalf("violations = %v, want %d", resp.Violations, len(tc.ExpectedViolations))
+	}
+	for i, want := range tc.ExpectedViolations {
+		got := resp.Violations[i]
+		if got.Kind != want.Kind || got.Property != want.Property || got.Depth != want.Depth {
+			t.Errorf("violation %d = %v, want %+v", i, got, want)
+		}
+		if got.Witness == nil || got.Witness.Schedule == "" {
+			t.Errorf("violation %d carries no replay witness", i)
+		}
+	}
+	if len(resp.Divergences) != len(tc.ExpectedDivergences) {
+		t.Fatalf("divergences = %v, want %v", resp.Divergences, tc.ExpectedDivergences)
+	}
+	for _, got := range resp.Divergences {
+		want, ok := tc.ExpectedDivergences[got.Feature]
+		if !ok {
+			t.Errorf("unexpected divergence of %q", got.Feature)
+			continue
+		}
+		var values []string
+		for _, v := range got.Values {
+			values = append(values, v.Value)
+		}
+		if !slices.Equal(values, want) {
+			t.Errorf("%s ends as %v, want %v", got.Feature, values, want)
+		}
+	}
+}
+
 func checkExpectedError(t *testing.T, tc conformanceCase, actual string) bool {
 	t.Helper()
 
@@ -773,6 +1293,14 @@ func toProtoValue(t *testing.T, ev expectedValue) *pb.Value {
 		return &pb.Value{Kind: &pb.Value_StringValue{StringValue: s}}
 	case "null":
 		return &pb.Value{Kind: &pb.Value_Null{Null: ""}}
+	case "instance_id":
+		return &pb.Value{Kind: &pb.Value_InstanceId{InstanceId: int64(mustFloat(t, ev))}}
+	case "sequence":
+		seq := &pb.ValueSequence{}
+		for _, element := range ev.Elements {
+			seq.Elements = append(seq.Elements, toProtoValue(t, element))
+		}
+		return &pb.Value{Kind: &pb.Value_Sequence{Sequence: seq}}
 	default:
 		t.Fatalf("unknown value kind %q", ev.Kind)
 		return nil
@@ -806,6 +1334,15 @@ func checkValue(t *testing.T, label string, want expectedValue, got *pb.Value) {
 		}
 	case "null", "instance_id", "unset":
 		// The oneof arm carries all the information; ids are runtime-assigned.
+	case "sequence":
+		elements := got.GetSequence().GetElements()
+		if len(elements) != len(want.Elements) {
+			t.Errorf("%s: %d element(s), want %d", label, len(elements), len(want.Elements))
+			return
+		}
+		for i, element := range want.Elements {
+			checkValue(t, fmt.Sprintf("%s element %d", label, i+1), element, elements[i])
+		}
 	default:
 		if fmt.Sprint(gotValue) != fmt.Sprint(want.Value) {
 			t.Errorf("%s: value = %v, want %v", label, gotValue, want.Value)

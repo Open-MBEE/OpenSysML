@@ -20,6 +20,22 @@ type functionValue struct {
 	enclosing []frame
 }
 
+// arity is the fewest and the most positional arguments the function binds: the
+// fewest reach its last parameter without a default or an optional multiplicity,
+// since positional arguments bind from the first parameter on.
+func (fn *functionValue) arity() (low, high int) {
+	if fn.library != nil {
+		return fn.library.leastPositional(), len(fn.library.params)
+	}
+	indexes := fn.shape.positionalIndexes()
+	for k := len(indexes) - 1; k >= 0; k-- {
+		if fn.shape.Params[indexes[k]].Default == nil {
+			return k + 1, len(indexes)
+		}
+	}
+	return 0, len(indexes)
+}
+
 // function is the payload of a ValFunction; nil for every other kind.
 func (v Value) function() *functionValue {
 	if v.Kind != ValFunction {
@@ -80,7 +96,7 @@ func (v Value) functionRun() int64 {
 func (ec *EvalContext) functionValueOf(sym *symbols.Symbol) (Value, error) {
 	if _, builtin := ec.ctx.builtinFor(sym); builtin {
 		return Value{}, fmt.Errorf("%w: %s binds its arguments unevaluated and cannot be read as a value",
-			ErrNotAFunction, ec.ctx.qualifiedSymbolName(sym))
+			errNotAFunction, ec.ctx.QualifiedName(sym))
 	}
 	shape, err := ec.ctx.calcInterfaceOf(sym)
 	if err != nil {
@@ -118,7 +134,7 @@ func (ctx *Context) readsAsFunction(sym *symbols.Symbol) bool {
 func (shape *calcShape) hasUnsuppliedInput() bool {
 	for i := range shape.Params {
 		param := &shape.Params[i]
-		if param.Default == nil && !param.IsSubject && !param.declaredOptional() {
+		if param.Default == nil && !param.IsSubject && !param.IsActor && !param.declaredOptional() {
 			return true
 		}
 	}
@@ -222,19 +238,21 @@ func (ec *EvalContext) qualifiedBoundFunction(callee *symbols.Symbol, qn *ast.Qu
 // checkFunction refuses a value bound to a calc usage parameter that is no
 // function; an omitted optional parameter holds null.
 func (param *calcParameter) checkFunction(value *Value, what func() string) error {
-	if !param.IsCalc || value.Kind == ValFunction || value.Kind == ValNull {
+	held := soleElement(*value)
+	if !param.IsCalc || held.Kind == ValFunction || held.Kind == ValNull {
 		return nil
 	}
 	return fmt.Errorf("%s: %w: %s is %s, not a function",
-		what(), ErrNotAFunction, FormatValue(*value), describeValue(*value))
+		what(), errNotAFunction, FormatValue(*value), DescribeValue(*value))
 }
 
 // invokeFunction applies a value called as a function to args through the calc
 // invocation path: a value that is no function is refused with a typed error.
 func (ec *EvalContext) invokeFunction(callee string, val Value, args calcArgs) (Value, error) {
+	val = soleElement(val)
 	fn := val.function()
 	if fn == nil || fn.shape == nil {
-		return Value{}, fmt.Errorf("%w: %s is %s, not a function", ErrNotAFunction, callee, describeValue(val))
+		return Value{}, fmt.Errorf("%w: %s is %s, not a function", errNotAFunction, callee, DescribeValue(val))
 	}
 	var result Value
 	var err error

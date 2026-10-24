@@ -6,7 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
@@ -236,8 +238,8 @@ func TestRunRunsRefusesFewerThanOneRun(t *testing.T) {
 	for _, count := range []int64{0, -3} {
 		verdict := s.RunRuns("MC::fixed", nil, count, seedOf(7), nil)
 		got := strings.Join(verdict.Lines, "\n")
-		wants(t, got, runtime.ErrSweepRuns.Error(), "runs nothing; ask for at least one")
-		if strings.Contains(got, runtime.ErrSweepEmpty.Error()) {
+		wants(t, got, sweep.ErrSweepRuns.Error(), "runs nothing; ask for at least one")
+		if strings.Contains(got, sweep.ErrSweepEmpty.Error()) {
 			t.Errorf("%d runs were refused as an empty sweep:\n%s", count, got)
 		}
 	}
@@ -251,20 +253,20 @@ func TestObservableLinesRefuseMixedUnitsInAnyOrder(t *testing.T) {
 		Unit: runtime.Unit{Text: "s"},
 	})
 	bare := runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 3}}
-	row := func(v runtime.Value) runtime.SweepRow {
-		return runtime.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "t", Value: v}}}
+	row := func(v runtime.Value) sweep.SweepRow {
+		return sweep.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "t", Value: v}}}
 	}
-	for name, rows := range map[string][]runtime.SweepRow{
+	for name, rows := range map[string][]sweep.SweepRow{
 		"quantity first": {row(quantity), row(bare)},
 		"bare first":     {row(bare), row(quantity)},
 	} {
-		got := strings.Join(observableLines(runtime.SweepTable{Target: "MC::x", Rows: rows}, "t"), "\n")
+		got := strings.Join(analysis.Summarize(sweep.SweepTable{Target: "MC::x", Rows: rows}, "t", objectText).Lines(), "\n")
 		if !strings.Contains(got, "more than one unit; no distribution") {
 			t.Errorf("%s: mixed units summarised:\n%s", name, got)
 		}
 	}
-	same := runtime.SweepTable{Target: "MC::x", Rows: []runtime.SweepRow{row(quantity), row(quantity)}}
-	if got := strings.Join(observableLines(same, "t"), "\n"); !strings.Contains(got, "min 2.0 [s]") {
+	same := sweep.SweepTable{Target: "MC::x", Rows: []sweep.SweepRow{row(quantity), row(quantity)}}
+	if got := strings.Join(analysis.Summarize(same, "t", objectText).Lines(), "\n"); !strings.Contains(got, "min 2.0 [s]") {
 		t.Errorf("one unit not summarised in it:\n%s", got)
 	}
 }

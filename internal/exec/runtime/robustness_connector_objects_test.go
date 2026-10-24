@@ -17,12 +17,12 @@ func TestRuntimeRobustnessConnectorObjects(t *testing.T) {
 			}`)
 		before := len(ctx.instances)
 		_, err := inst.GetFeatureValue(ctx, "bnd")
-		if !errors.Is(err, ErrConnectorEnd) {
-			t.Fatalf("GetFeatureValue(bnd) = %v, want ErrConnectorEnd", err)
+		if !errors.Is(err, errConnectorEnd) {
+			t.Fatalf("GetFeatureValue(bnd) = %v, want errConnectorEnd", err)
 		}
-		var endErr *ConnectorEndError
+		var endErr *connectorEndError
 		if !errors.As(err, &endErr) {
-			t.Fatalf("error = %T, want *ConnectorEndError", err)
+			t.Fatalf("error = %T, want *connectorEndError", err)
 		}
 		if endErr.Location == "" || !strings.Contains(endErr.Location, "<test>") {
 			t.Errorf("connector end error location = %q, want <test> location", endErr.Location)
@@ -43,12 +43,12 @@ func TestRuntimeRobustnessConnectorObjects(t *testing.T) {
 			}`)
 		before := len(ctx.instances)
 		_, err := inst.GetFeatureValue(ctx, "f")
-		if !errors.Is(err, ErrConnectorEnd) {
-			t.Fatalf("GetFeatureValue(f) = %v, want ErrConnectorEnd", err)
+		if !errors.Is(err, errConnectorEnd) {
+			t.Fatalf("GetFeatureValue(f) = %v, want errConnectorEnd", err)
 		}
-		var endErr *ConnectorEndError
+		var endErr *connectorEndError
 		if !errors.As(err, &endErr) {
-			t.Fatalf("error = %T, want *ConnectorEndError", err)
+			t.Fatalf("error = %T, want *connectorEndError", err)
 		}
 		if endErr.Location == "" || !strings.Contains(endErr.Location, "<test>") {
 			t.Errorf("connector end error location = %q, want <test> location", endErr.Location)
@@ -68,7 +68,7 @@ func TestRuntimeRobustnessConnectorObjects(t *testing.T) {
 				}
 			}`)
 		_, err := inst.GetFeatureValue(ctx, "bnd")
-		if !errors.Is(err, ErrConnectorEnd) && !errors.Is(err, ErrBindingEnd) {
+		if !errors.Is(err, errConnectorEnd) && !errors.Is(err, errBindingEnd) {
 			t.Fatalf("GetFeatureValue(bnd) = %v, want connector or binding end error", err)
 		}
 	})
@@ -88,7 +88,7 @@ func TestRuntimeRobustnessConnectorObjects(t *testing.T) {
 		if len(owned) != 0 {
 			t.Fatalf("owned connectors = %d, want none", len(owned))
 		}
-		if _, err := inst.GetFeatureValue(ctx, "b"); err != nil && errors.Is(err, ErrConnectorEnd) {
+		if _, err := inst.GetFeatureValue(ctx, "b"); err != nil && errors.Is(err, errConnectorEnd) {
 			t.Fatalf("one-ended binding read as connector: %v", err)
 		}
 	})

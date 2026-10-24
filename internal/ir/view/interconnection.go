@@ -16,14 +16,15 @@ import (
 // never re-derived from the source text. Nodes and edges are placed by the
 // Layout and Route annotations positioning their elements in view, nil for a
 // rendering outside any view. An exposed feature another exposed feature draws
-// nested in it is not a second root.
+// nested in it is not a second root, nor is an exposed port a drawn feature
+// pins on its border from its type.
 func (r *Renderer) renderInterconnection(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	r.renderInterconnectionWithIDs(view, exposed, out, &nodeIDs{}, false)
 }
 
 // renderInterconnectionWithIDs walks structural features with shared node IDs.
 func (r *Renderer) renderInterconnectionWithIDs(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering, ids *nodeIDs, mixed bool) map[*symbols.Symbol]*Node {
-	w := &featureWalk{r: r, view: view, ids: ids, nodes: map[*symbols.Symbol]*Node{},
+	w := &featureWalk{r: r, view: view, ids: ids, nodes: map[*symbols.Symbol][]*Node{}, pruned: map[*symbols.Symbol]bool{},
 		pins: map[*Node]map[*symbols.Symbol]string{}, parent: map[*Node]*Node{}, out: out, mixed: mixed}
 	var roots []*symbols.Symbol
 	for _, elem := range exposed {
@@ -31,52 +32,159 @@ func (r *Renderer) renderInterconnectionWithIDs(view *symbols.Symbol, exposed []
 			roots = append(roots, elem)
 		}
 	}
-	descendants := r.exposedDescendants(roots, w.nestedFeatures)
+	descendants := r.exposedDescendants(view, roots, w.nestedFeatures)
+	var ports []*symbols.Symbol
 	for _, elem := range exposed {
 		switch {
 		case r.drawsConnector(elem):
-			w.connectors = append(w.connectors, elem)
+			w.connectors = append(w.connectors, connectorSite{sym: elem})
 		case w.drawsFeature(elem):
 			if descendants[symbols.KeyOf(elem)] {
 				continue
 			}
-			out.Roots = append(out.Roots, w.featureNode(elem, map[*symbols.Symbol]bool{}, 0, true))
+			if elem.Kind == symbols.SymbolPortUsage {
+				ports = append(ports, elem)
+				continue
+			}
+			out.Roots = append(out.Roots, w.featureNode(elem, expansion{}, 0, true))
 		default:
 			out.Notices = append(out.Notices, fmt.Sprintf(
 				"%s %s has no place in an interconnection rendering; it is not shown",
 				declKind(elem), r.notationName(elem)))
 		}
 	}
-	seen := map[*symbols.Symbol]bool{}
+	w.exposedPorts(ports)
+	w.connectorEdges()
+	w.valueBindingEdges()
+	first := make(map[*symbols.Symbol]*Node, len(w.nodes))
+	for sym, nodes := range w.nodes {
+		first[sym] = nodes[0]
+	}
+	return first
+}
+
+// exposedPorts marks each exposed port where the drawn usages of its owner pin
+// it — on each of them, whatever the display shows — and draws the rest as nodes.
+func (w *featureWalk) exposedPorts(ports []*symbols.Symbol) {
+	for _, port := range ports {
+		if w.node(port) != nil {
+			continue
+		}
+		sites := w.pinSites(port)
+		if len(sites) == 0 {
+			w.out.Roots = append(w.out.Roots, w.featureNode(port, expansion{}, 0, true))
+			continue
+		}
+		for _, site := range sites {
+			for i := range site.node.Ports {
+				if site.node.Ports[i].ID == site.port {
+					site.node.Ports[i].Exposed = true
+				}
+			}
+		}
+	}
+}
+
+// connectorEdges draws each collected connector once: one found in a node is
+// drawn there, and not again from outside when the view also exposes it.
+func (w *featureWalk) connectorEdges() {
+	seen, within := map[connectorSite]bool{}, map[*symbols.Symbol]bool{}
 	for _, connector := range w.connectors {
-		if seen[connector] {
+		if connector.within != nil {
+			within[connector.sym] = true
+		}
+	}
+	for _, connector := range w.connectors {
+		if seen[connector] || connector.within == nil && within[connector.sym] {
 			continue
 		}
 		seen[connector] = true
-		w.connectionEdges(connector)
+		w.connectionEdges(connector.sym, connector.within)
 	}
-	w.valueBindingEdges()
-	return w.nodes
 }
 
 // featureWalk is one interconnection rendering's walk over the exposed features:
-// the nodes rendered so far, by the feature each draws, and the connectors
-// collected along the way. pins is the ports drawn on the border of a node
-// rather than as nodes of their own — the ports a feature has from its type
-// without declaring them, and a case's parameters — by node and port; drawn is
-// every feature drawn, as a node or a pin, in drawing order; parent is the node
-// each nested node is drawn in.
+// the nodes rendered so far, by the feature each draws — a feature inherited
+// into several usages is drawn under each — and the connectors collected along
+// the way, each with the node it was found in. pins is the ports drawn on the
+// border of a node rather than as nodes of their own — the ports a feature has
+// from its type without declaring them, and a case's parameters — by node and
+// port; sites is every feature drawn, as a node or a pin, in drawing order;
+// parent is the node each nested node is drawn in.
 type featureWalk struct {
 	r          *Renderer
 	view       *symbols.Symbol
 	ids        *nodeIDs
-	nodes      map[*symbols.Symbol]*Node
-	drawn      []*symbols.Symbol
+	nodes      map[*symbols.Symbol][]*Node
+	sites      []drawnSite
 	pins       map[*Node]map[*symbols.Symbol]string
 	parent     map[*Node]*Node
-	connectors []*symbols.Symbol
+	connectors []connectorSite
 	out        *Rendering
 	mixed      bool
+	// pruned is each member the view's filter conditions kept the walk from drawing.
+	pruned map[*symbols.Symbol]bool
+}
+
+// drawnSite is one drawing of a feature: as a node, or as a pin of one.
+type drawnSite struct {
+	sym *symbols.Symbol
+	at  edgeEnd
+}
+
+// connectorSite is a connector and the node whose members it was found among,
+// nil for one the view exposes by itself; its bare end names resolve there first.
+type connectorSite struct {
+	sym    *symbols.Symbol
+	within *Node
+}
+
+// node is the first node drawing sym, nil when none does.
+func (w *featureWalk) node(sym *symbols.Symbol) *Node {
+	if nodes := w.nodes[sym]; len(nodes) > 0 {
+		return nodes[0]
+	}
+	return nil
+}
+
+// walkMembers is the renderer's walkMembers for the walk's view, remembering
+// what the filters pruned so a connector ending there is reported, not rerouted.
+func (w *featureWalk) walkMembers(sym *symbols.Symbol) []*symbols.Symbol {
+	all := w.r.effectiveMembers(sym)
+	kept := w.r.walkMembers(w.view, sym)
+	if len(kept) == len(all) {
+		return kept
+	}
+	drawn := map[*symbols.Symbol]bool{}
+	for _, member := range kept {
+		drawn[member] = true
+	}
+	for _, member := range all {
+		if !drawn[member] {
+			w.pruned[member] = true
+		}
+	}
+	return kept
+}
+
+// excluded reports whether target, or an owner of it below the nearest drawn
+// node, was pruned by the view's filter conditions: nothing stands in for it.
+func (w *featureWalk) excluded(target *symbols.Symbol) bool {
+	for sym := target; sym != nil; sym = sym.Owner() {
+		if w.pruned[sym] {
+			return true
+		}
+		if w.node(sym) != nil {
+			return false
+		}
+	}
+	return false
+}
+
+// pinnedAt reports whether member is drawn on owner's border rather than
+// nested in it: a port, or a pin of a case or constraint.
+func pinnedAt(owner, member *symbols.Symbol) bool {
+	return member.Kind == symbols.SymbolPortUsage || casePin(owner, member) || constraintParameter(owner, member)
 }
 
 // drawsFeature reports whether the interconnection traversal emits sym as a feature node.
@@ -87,52 +195,67 @@ func (w *featureWalk) drawsFeature(sym *symbols.Symbol) bool {
 	if !w.mixed {
 		return true
 	}
-	switch sym.Kind {
-	case symbols.SymbolPartDef, symbols.SymbolPartUsage, symbols.SymbolItemDef, symbols.SymbolItemUsage,
-		symbols.SymbolPortDef, symbols.SymbolPortUsage, symbols.SymbolConnectionDef, symbols.SymbolConnectionUsage,
-		symbols.SymbolInterfaceDef, symbols.SymbolInterfaceUsage, symbols.SymbolAllocationDef, symbols.SymbolAllocationUsage:
-		return true
-	}
-	return false
+	return mixedStructural(sym)
 }
 
 // featureNode renders one exposed feature and the features nested in it,
 // collecting the connectors declared along the way, which join the nodes it
-// renders.
-func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]bool, depth int, qualified bool) *Node {
+// renders. A member it has from its type and pins is not drawn nested as well.
+func (w *featureWalk) featureNode(sym *symbols.Symbol, path expansion, depth int, qualified bool) *Node {
 	r := w.r
 	name := r.notationName(sym)
 	if !qualified {
 		name = localName(sym)
 	}
 	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
-		Type: declType(sym), Typings: r.declTypings(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(w.view, sym, w.out),
+		Type: r.headType(sym), Typings: r.headTypings(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(w.view, sym, w.out),
 		Style: r.styleOf(w.view, sym, w.out)}
-	if existing, ok := w.nodes[sym]; ok {
-		node.Detail = detailWith(node.Detail, "already shown as "+existing.ID)
+	if path[sym] {
+		node.Detail = detailWith(node.Detail, "already shown as "+w.node(sym).ID)
 		return node
 	}
-	w.nodes[sym] = node
-	w.drawn = append(w.drawn, sym)
+	w.nodes[sym] = append(w.nodes[sym], node)
+	w.sites = append(w.sites, drawnSite{sym: sym, at: edgeEnd{node: node}})
 	w.pinPorts(node, sym)
+	w.pinParameters(node, sym)
 	r.notesOf(w.view, sym, node.ID, w.out)
-	if seen[sym] || depth >= r.treeDepth() {
-		return node
+	recursive, added := r.enter(path, sym)
+	defer leave(path, added)
+	if recursive != nil {
+		node.Detail = detailWith(node.Detail, recursionNote(recursive))
 	}
-	seen[sym] = true
-	for _, member := range r.containedMembers(sym) {
+	// At the depth bound, or collapsed, an element keeps its ports and pins — they
+	// count at their owner's depth — and nothing nested is drawn.
+	bound, cut := r.walkBound(w.view), 0
+	folded := depth >= bound || collapsed(node)
+	for _, member := range w.walkMembers(sym) {
+		if _, pinned := w.pins[node][member]; pinned || recursive != nil && member.Owner() != sym {
+			continue
+		}
+		if folded && !pinnedAt(sym, member) {
+			if depth >= bound && w.drawsFeature(member) {
+				cut++
+			}
+			continue
+		}
 		switch {
 		case r.drawsConnector(member):
-			w.connectors = append(w.connectors, member)
+			w.connectors = append(w.connectors, connectorSite{sym: member, within: node})
 		case casePin(sym, member):
-			w.pin(node, member, pinDirection(member))
+			w.pin(node, member, pinDirection(member), true, r.geometryOf(w.view, member, w.out))
+		case constraintParameter(sym, member):
+			w.pin(node, member, pinDirection(member), false, r.geometryOf(w.view, member, w.out))
 		case isReferencedIncludedCase(member):
 			// an `include u;` is drawn by the connection to the case it names
 		case w.drawsFeature(member):
-			child := w.featureNode(member, seen, depth+1, false)
+			child := w.featureNode(member, path, depth+1, false)
 			w.parent[child] = node
 			node.Children = append(node.Children, child)
 		}
+	}
+	if cut > 0 {
+		node.Detail = detailWith(node.Detail, cutNote(bound))
+		w.out.depthCut += cut
 	}
 	return node
 }
@@ -143,43 +266,90 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 // at `heating.durationIn` ends at that pin.
 func (w *featureWalk) pinPorts(node *Node, sym *symbols.Symbol) {
 	for _, port := range w.r.typedPorts(sym) {
-		w.pin(node, port, PortUndirected)
+		if !w.admitted(port) {
+			continue
+		}
+		w.pin(node, port, PortUndirected, false, w.r.memberGeometryOf(w.view, sym, localName(port), w.out))
 	}
 }
 
-// pin draws sym as a port on node's border, with the given direction.
-func (w *featureWalk) pin(node *Node, sym *symbols.Symbol, direction PortDirection) {
+// admitted reports whether the view's filter conditions admit an inherited port
+// or parameter sym pins; one they reject is pruned like a declared member.
+func (w *featureWalk) admitted(sym *symbols.Symbol) bool {
+	if w.r.admits(w.r.walkFilters(w.view), sym) {
+		return true
+	}
+	if w.pruned == nil {
+		w.pruned = map[*symbols.Symbol]bool{}
+	}
+	w.pruned[sym] = true
+	return false
+}
+
+// pinParameters draws on node's border the parameters sym has from its constraint
+// def without declaring them: `constraint c : Law` shows the `in x` Law declares.
+func (w *featureWalk) pinParameters(node *Node, sym *symbols.Symbol) {
+	for _, parameter := range w.r.typedParameters(sym) {
+		if !w.admitted(parameter) {
+			continue
+		}
+		w.pin(node, parameter, pinDirection(parameter), false, w.r.memberGeometryOf(w.view, sym, localName(parameter), w.out))
+	}
+}
+
+// pin draws sym as a port on node's border, with the given direction and the geometry
+// a Layout gives it; a parameter pin stands for a case's subject or attribute, not a port.
+func (w *featureWalk) pin(node *Node, sym *symbols.Symbol, direction PortDirection, parameter bool, geometry *Geometry) {
 	id := portID(node.ID, len(node.Ports))
-	node.Ports = append(node.Ports, Port{ID: id, Name: localName(sym), Type: declType(sym),
-		Direction: direction, Origin: symbolOrigin(sym)})
+	node.Ports = append(node.Ports, Port{ID: id, Name: localName(sym), NameSynthesized: w.r.model.NameSynthesized(sym),
+		Type: w.r.headType(sym), Direction: direction, Parameter: parameter, Origin: symbolOrigin(sym), Geometry: geometry})
 	if w.pins[node] == nil {
 		w.pins[node] = map[*symbols.Symbol]string{}
 	}
 	w.pins[node][sym] = id
-	w.drawn = append(w.drawn, sym)
+	w.sites = append(w.sites, drawnSite{sym: sym, at: edgeEnd{node: node, port: id}})
 }
 
 // siteOf is where a drawn feature is: its own node, or the node it is a pin of
 // and the pin; the zero edgeEnd for one not drawn.
 func (w *featureWalk) siteOf(sym *symbols.Symbol) edgeEnd {
-	if node := w.nodes[sym]; node != nil {
+	if node := w.node(sym); node != nil {
 		return edgeEnd{node: node}
 	}
-	for node, pins := range w.pins {
-		if id, ok := pins[sym]; ok {
-			return edgeEnd{node: node, port: id}
-		}
+	return w.pinSite(sym)
+}
+
+// pinSite is the node that pins sym on its border, and the pin, when exactly
+// one drawn node does; the zero edgeEnd when none or several do, since a bare
+// name of the port names no one of them.
+func (w *featureWalk) pinSite(sym *symbols.Symbol) edgeEnd {
+	if sites := w.pinSites(sym); len(sites) == 1 {
+		return sites[0]
 	}
 	return edgeEnd{}
 }
 
-// casePin reports whether member, a member of an analysis case drawn as a
-// node, is drawn as a pin on its border rather than a node inside it: the
-// case's subject, parameters and attributes, as the graphical notation draws
+// pinSites is each node that pins sym on its border, with the pin, in drawing order.
+func (w *featureWalk) pinSites(sym *symbols.Symbol) []edgeEnd {
+	var sites []edgeEnd
+	for _, drawn := range w.sites {
+		if drawn.sym == sym && drawn.at.port != "" {
+			sites = append(sites, drawn.at)
+		}
+	}
+	return sites
+}
+
+// casePin reports whether member, a member of a case drawn as a node, is
+// drawn as a pin on its border rather than a node inside it: the case's
+// subject, actors, parameters and attributes, as the graphical notation draws
 // a case's parameters. Its parts, actions and nested cases are not.
 func casePin(owner, member *symbols.Symbol) bool {
 	switch owner.Kind {
-	case symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage:
+	case symbols.SymbolCaseDef, symbols.SymbolCaseUsage,
+		symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage,
+		symbols.SymbolVerificationCaseDef, symbols.SymbolVerificationCaseUsage,
+		symbols.SymbolUseCaseDef, symbols.SymbolUseCaseUsage:
 	default:
 		return false
 	}
@@ -188,7 +358,23 @@ func casePin(owner, member *symbols.Symbol) bool {
 		return true
 	}
 	usage, ok := member.Decl.(*ast.Usage)
-	return ok && usage.Kind == ast.UsageSubject
+	return ok && (usage.Kind == ast.UsageSubject || usage.Kind == ast.UsageActor || usage.Kind == ast.UsageStakeholder)
+}
+
+// constraintParameter reports whether member is a parameter of the constraint owner —
+// a directed attribute or reference usage — drawn as a square on the constraint's border.
+func constraintParameter(owner, member *symbols.Symbol) bool {
+	return isConstraintKind(owner) && isParameterKind(member) && pinDirection(member) != PortUndirected
+}
+
+// isConstraintKind reports whether sym is a constraint def or usage.
+func isConstraintKind(sym *symbols.Symbol) bool {
+	return sym.Kind == symbols.SymbolConstraintDef || sym.Kind == symbols.SymbolConstraintUsage
+}
+
+// isParameterKind reports whether sym is a usage a constraint's parameter is declared as.
+func isParameterKind(sym *symbols.Symbol) bool {
+	return sym.Kind == symbols.SymbolAttributeUsage || sym.Kind == symbols.SymbolReferenceUsage
 }
 
 // pinDirection is the direction a parameter is declared with: `return` and
@@ -231,29 +417,69 @@ func (r *Renderer) typedPorts(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
+// typedParameters is the parameters a constraint has from its def and what that specializes
+// without declaring them, less any it redefines and the library's own features of every constraint.
+func (r *Renderer) typedParameters(sym *symbols.Symbol) []*symbols.Symbol {
+	if !isConstraintKind(sym) {
+		return nil
+	}
+	owned := map[*symbols.Symbol]bool{}
+	for _, member := range r.containedMembers(sym) {
+		owned[member] = true
+	}
+	var out []*symbols.Symbol
+	for _, member := range r.model.MembersOf(sym) {
+		if !isParameterKind(member) || pinDirection(member) == PortUndirected || owned[member] || member.Owner() == sym ||
+			!r.contentKind(member) || r.libraryDeclared(member) {
+			continue
+		}
+		out = append(out, member)
+	}
+	return out
+}
+
 // libraryDeclared reports whether the bundled standard library declares sym.
 func (r *Renderer) libraryDeclared(sym *symbols.Symbol) bool {
 	idx := r.resolver.Index()
-	return idx != nil && idx.Library(sym)
+	if idx == nil {
+		return false
+	}
+	// The index marks what it names; an unnamed member is the library's when
+	// what owns it is.
+	for ; sym != nil; sym = sym.Owner() {
+		if idx.Library(sym) {
+			return true
+		}
+	}
+	return false
 }
 
-// nestedFeatures is the members featureNode draws as nested nodes of sym:
-// the features this walk draws, connectors being edges.
+// nestedFeatures is what featureNode draws under sym: its nested feature nodes and the
+// parameters pinned from its def, which a view exposing them beside it does not draw again.
+// A port it has from its type is a pin, which an exposure of the port marks; a pin of a
+// case or constraint shows nothing nested in it.
 func (w *featureWalk) nestedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
+	if owner := sym.Owner(); owner != nil && (casePin(owner, sym) || constraintParameter(owner, sym)) {
+		return nil
+	}
 	var out []*symbols.Symbol
-	for _, member := range w.r.containedMembers(sym) {
+	for _, member := range w.walkMembers(sym) {
+		if member.Kind == symbols.SymbolPortUsage && member.Owner() != sym {
+			continue
+		}
 		if w.drawsFeature(member) && !isReferencedIncludedCase(member) {
 			out = append(out, member)
 		}
 	}
-	return out
+	return append(out, w.r.typedParameters(sym)...)
 }
 
 // connectionEdges adds the edges one connector or flow contributes. A binary
 // connector joins its two ends; a multi-end connector makes every end reachable
 // from every other, so each pair is an edge. An end attaching to something the
-// view does not expose is reported rather than dropped.
-func (w *featureWalk) connectionEdges(connector *symbols.Symbol) {
+// view does not expose is reported rather than dropped. within is the node the
+// connector was found in, where its ends are looked for first.
+func (w *featureWalk) connectionEdges(connector *symbols.Symbol, within *Node) {
 	r, out := w.r, w.out
 	label := r.connectorLabel(connector)
 	ends, kind := r.connectorEnds(connector)
@@ -264,10 +490,14 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol) {
 	}
 	resolved := make([]edgeEnd, 0, len(ends))
 	for _, end := range ends {
-		at := w.endNode(connector, end.attachment)
+		at := w.endNode(connector, within, end.attachment)
 		if at.node == nil {
-			out.Notices = append(out.Notices, fmt.Sprintf("%s %s attaches to %s, which the view does not expose; no edge is drawn",
-				declKind(connector), r.notationName(connector), notationName(end.path)))
+			why := "which the view does not expose"
+			if target, ok := r.resolver.ResolveTarget(connector.OwnerScope, end.attachment); ok && w.excluded(target) {
+				why = "which the view's filter conditions exclude"
+			}
+			out.Notices = append(out.Notices, fmt.Sprintf("%s %s attaches to %s, %s; no edge is drawn",
+				declKind(connector), r.notationName(connector), notationName(end.path), why))
 			return
 		}
 		resolved = append(resolved, at)
@@ -288,20 +518,25 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol) {
 // edge. The value attaches where a connector end naming it would — `second.y` is
 // the y under second's node, not its type's — and only when that is the valued
 // feature's own node (the subject pinned on it) does it reach the feature drawn
-// for itself. A value drawn nowhere, or one wiring two pins of one node, is no edge.
+// for itself. A feature drawn in several places binds from each. A value drawn
+// nowhere, or one wiring two pins of one node, is no edge.
 func (w *featureWalk) valueBindingEdges() {
 	r, out := w.r, w.out
-	for _, sym := range w.drawn {
+	for _, drawn := range w.sites {
+		sym, from := drawn.sym, drawn.at
 		value := featureValue(sym)
 		if value == nil {
 			continue
 		}
-		from := w.siteOf(sym)
 		target, resolved := r.resolver.ResolveTarget(sym.OwnerScope, value)
 		if !resolved {
 			continue
 		}
-		at := w.endNode(sym, value)
+		within := from.node
+		if from.port == "" {
+			within = w.parent[from.node]
+		}
+		at := w.endNode(sym, within, value)
 		if at.node == nil || at.node == from.node {
 			at = w.siteOf(target)
 		}
@@ -402,53 +637,105 @@ type edgeEnd struct {
 // type — and control's node where none is drawn. A bare name is first what the
 // connector's owner draws for it — a port the owner has from its type, pinned on
 // the owner's node, before the same port drawn nested under the type itself —
-// and otherwise what the rendering draws for it anywhere.
-func (w *featureWalk) endNode(connector *symbols.Symbol, attachment ast.Node) edgeEnd {
+// and otherwise what the rendering draws for it anywhere. within is the node
+// the connector was found in — the usage whose type declares it, when it is
+// inherited — and what it draws for a name comes before what its owner draws.
+func (w *featureWalk) endNode(connector *symbols.Symbol, within *Node, attachment ast.Node) edgeEnd {
 	if attachment == nil {
 		return edgeEnd{}
 	}
 	target, resolved := w.r.resolver.ResolveTarget(connector.OwnerScope, attachment)
 	if operand := chainOperand(attachment); operand != nil {
-		if resolved && w.mixed && target.Owner() != nil && !mixedStructural(target.Owner()) {
-			if node := w.nodes[target]; node != nil {
-				return edgeEnd{node: node}
-			}
-		}
-		if base := w.endNode(connector, operand); base.node != nil {
-			if at := w.memberEnd(base.node, target); at.node != nil {
-				return at
-			}
-			return base
+		if at, ok := w.chainEnd(connector, within, operand, target, resolved); ok {
+			return at
 		}
 	}
-	if !resolved {
+	if !resolved || w.excluded(target) {
 		return edgeEnd{}
 	}
+	if within != nil {
+		if at := w.memberEnd(within, target); at.node != nil {
+			return at
+		}
+	}
 	for owner := connector.Owner(); owner != nil; owner = owner.Owner() {
-		if node, ok := w.nodes[owner]; ok {
+		for _, node := range w.nodes[owner] {
 			if at := w.memberEnd(node, target); at.node != nil {
 				return at
 			}
 		}
 	}
 	for sym := target; sym != nil; sym = sym.Owner() {
-		if node, ok := w.nodes[sym]; ok {
+		if node := w.node(sym); node != nil {
 			return edgeEnd{node: node}
+		}
+	}
+	// A port of a definition drawn only as the pin of the one usage typed by it.
+	return w.pinSite(target)
+}
+
+// chainEnd is where a feature chain's target attaches under what its operand
+// draws; ok is false when the operand draws nothing, leaving the end to the
+// rendering at large.
+func (w *featureWalk) chainEnd(connector *symbols.Symbol, within *Node, operand ast.Node, target *symbols.Symbol, resolved bool) (at edgeEnd, ok bool) {
+	if resolved && w.mixed && target.Owner() != nil && !mixedStructural(target.Owner()) {
+		if node := w.node(target); node != nil {
+			return edgeEnd{node: node}, true
+		}
+	}
+	base := w.endNode(connector, within, operand)
+	if base.node == nil {
+		return edgeEnd{}, false
+	}
+	if at := w.memberEnd(base.node, target); at.node != nil {
+		return at, true
+	}
+	// A member the view's filters exclude ends no edge at its owner; one
+	// below the depth bound or a collapsed body does.
+	if resolved && w.excluded(target) {
+		return edgeEnd{}, true
+	}
+	return base, true
+}
+
+// memberEnd is where a member of what base draws attaches: the node under base
+// drawing it — or drawing the feature that redefines it there, which stands in
+// its place — or the nearest feature owning it, or base's pin for it. The zero
+// edgeEnd when base draws nothing for it.
+func (w *featureWalk) memberEnd(base *Node, target *symbols.Symbol) edgeEnd {
+	if w.excluded(target) {
+		return edgeEnd{}
+	}
+	for sym := target; sym != nil; sym = sym.Owner() {
+		for _, node := range w.nodes[sym] {
+			if w.under(node, base) {
+				return edgeEnd{node: node}
+			}
+		}
+		if pin, ok := w.pins[base][sym]; ok {
+			return edgeEnd{node: base, port: pin}
+		}
+		if at := w.redefiningEnd(base, sym); at.node != nil {
+			return at
 		}
 	}
 	return edgeEnd{}
 }
 
-// memberEnd is where a member of what base draws attaches: the node under base
-// drawing it or the nearest feature owning it, or base's pin for it. The zero
-// edgeEnd when base draws nothing for it.
-func (w *featureWalk) memberEnd(base *Node, target *symbols.Symbol) edgeEnd {
-	for sym := target; sym != nil; sym = sym.Owner() {
-		if node, ok := w.nodes[sym]; ok && w.under(node, base) {
-			return edgeEnd{node: node}
+// redefiningEnd is where a feature redefining sym is drawn as base's own: a
+// node nested directly in base or a pin of it, not one of a part nested
+// deeper, which redefines the feature for itself. `:>> engines = (e1, e2)` is
+// the engines a binding to engines names.
+func (w *featureWalk) redefiningEnd(base *Node, sym *symbols.Symbol) edgeEnd {
+	for _, drawn := range w.sites {
+		if drawn.sym == sym || drawn.at.node == nil {
+			continue
 		}
-		if pin, ok := w.pins[base][sym]; ok {
-			return edgeEnd{node: base, port: pin}
+		if drawn.at.port == "" && w.parent[drawn.at.node] != base || drawn.at.port != "" && drawn.at.node != base {
+			continue
+		}
+		if slices.Contains(w.r.model.RedefinedFeatures(drawn.sym), sym) {
+			return drawn.at
 		}
 	}
 	return edgeEnd{}
@@ -519,13 +806,12 @@ func isFlowUsage(sym *symbols.Symbol) bool {
 	return ok && usage.Kind == ast.UsageFlow && usage.FlowEnds != nil
 }
 
-// featureLike reports whether an element is a feature an interconnection
-// rendering shows as a node: the structural elements a system is built from, and
-// the analysis cases bound to their values, which a parametric view draws beside
-// them. Behaviors, views and namespaces are not, and are reported rather than drawn.
+// featureLike reports whether an interconnection rendering shows sym as a node: structures and the
+// constraints and analysis cases bound to their values; behaviors, views and namespaces are reported.
 func featureLike(sym *symbols.Symbol) bool {
 	switch sym.Kind {
 	case symbols.SymbolPartDef, symbols.SymbolPartUsage,
+		symbols.SymbolConstraintDef, symbols.SymbolConstraintUsage,
 		symbols.SymbolItemDef, symbols.SymbolItemUsage,
 		symbols.SymbolPortDef, symbols.SymbolPortUsage,
 		symbols.SymbolOccurrenceDef, symbols.SymbolOccurrenceUsage,

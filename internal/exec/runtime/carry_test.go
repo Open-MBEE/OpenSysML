@@ -111,6 +111,7 @@ func TestCarryTakesAValueIntoAnotherContext(t *testing.T) {
 	}
 	f := fn.function()
 	result, err := row.invokeCalcShapeIn(f.shape, calcArgs{positional: []Value{eval("3.0")}}, f.scope, f.self, f.enclosing)
+	result = soleElement(result)
 	if err != nil {
 		t.Fatalf("applying the carried function: %v", err)
 	}
@@ -137,9 +138,9 @@ func TestCarryRefusesWhatNoOtherContextHolds(t *testing.T) {
 		shape:     &calcShape{Sym: sym, Name: "inBody"},
 		enclosing: []frame{{vars: map[string]Value{"k": integerValue(1)}, run: 1}},
 	}}
-	var notPortable *NotPortableError
+	var notPortable *notPortableError
 	_, err = row.Carry(fn, func(int64) (*Instance, error) { t.Fatal("bring called"); return nil, nil })
 	if !errors.As(err, &notPortable) || notPortable.Kind != ValFunction {
-		t.Errorf("Carry(function over a body) = %v, want a NotPortableError of a function", err)
+		t.Errorf("Carry(function over a body) = %v, want a notPortableError of a function", err)
 	}
 }

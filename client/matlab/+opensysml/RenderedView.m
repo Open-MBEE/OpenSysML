@@ -12,6 +12,7 @@ classdef RenderedView
         canvas
         notes
         notices
+        shown
     end
 
     methods
@@ -94,6 +95,7 @@ classdef RenderedView
                 result.notes = appendStruct(result.notes, value);
             end
             result.notices = stringSequence(fieldOr(answer, 'notices', {}));
+            result.shown = stringSequence(fieldOr(answer, 'shown', {}));
         end
     end
 end
@@ -143,7 +145,8 @@ function result = optionalGeometry(value)
         result = struct('x', fieldOr(value, 'x', 0), 'y', fieldOr(value, 'y', 0), ...
             'width', fieldOr(value, 'width', 0), 'height', fieldOr(value, 'height', 0), ...
             'hasSize', fieldOr(value, 'hasSize', false), ...
-            'collapsed', fieldOr(value, 'collapsed', false));
+            'collapsed', fieldOr(value, 'collapsed', false), ...
+            'unplaced', fieldOr(value, 'unplaced', false));
     end
 end
 

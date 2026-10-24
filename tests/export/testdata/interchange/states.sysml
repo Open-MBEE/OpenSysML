@@ -3,7 +3,6 @@ package States {
     action x;
     state def S {
         entry action e : A;
-        do x;
         exit action;
         state s1;
         state s2;
@@ -14,5 +13,8 @@ package States {
             then action a : A;
             then done;
         }
+    }
+    state def T {
+        do x;
     }
 }

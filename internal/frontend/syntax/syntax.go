@@ -53,43 +53,37 @@ func int32Clamp(n int) int32 {
 	return int32(n)
 }
 
+// SpanOf converts a byte span of sf to the Span message, in lines and columns.
+func SpanOf(sf *source.SourceFile, span source.Span) *Span {
+	li := sf.Lines()
+	start := li.PosAt(span.Offset)
+	end := li.PosAt(span.End())
+	return &Span{
+		File:      sf.Name(),
+		StartLine: int32Clamp(start.Line),
+		StartCol:  int32Clamp(start.Col),
+		EndLine:   int32Clamp(end.Line),
+		EndCol:    int32Clamp(end.Col),
+	}
+}
+
 // FromDiag converts a diag.Diagnostic to the Diagnostic message.
 func FromDiag(d diag.Diagnostic, sf *source.SourceFile) *Diagnostic {
-	li := sf.Lines()
-	start := li.PosAt(d.Span.Offset)
-	end := li.PosAt(d.Span.End())
-
 	return &Diagnostic{
 		Severity: d.Severity.String(),
 		Message:  d.Message,
 		Code:     d.Code,
-		Span: &Span{
-			File:      sf.Name(),
-			StartLine: int32Clamp(start.Line),
-			StartCol:  int32Clamp(start.Col),
-			EndLine:   int32Clamp(end.Line),
-			EndCol:    int32Clamp(end.Col),
-		},
+		Span:     SpanOf(sf, d.Span),
 	}
 }
 
 // ParserDiagnostic converts a parser error to the Diagnostic message.
 func ParserDiagnostic(d parser.Diagnostic, sf *source.SourceFile) *Diagnostic {
-	li := sf.Lines()
-	start := li.PosAt(d.Span.Offset)
-	end := li.PosAt(d.Span.End())
-
 	return &Diagnostic{
 		Severity: "error", // Parser diagnostics are always errors
 		Message:  d.Message,
 		Code:     d.ErrorCode(),
-		Span: &Span{
-			File:      sf.Name(),
-			StartLine: int32Clamp(start.Line),
-			StartCol:  int32Clamp(start.Col),
-			EndLine:   int32Clamp(end.Line),
-			EndCol:    int32Clamp(end.Col),
-		},
+		Span:     SpanOf(sf, d.Span),
 	}
 }
 

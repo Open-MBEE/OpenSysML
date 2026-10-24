@@ -139,4 +139,16 @@ package test {
 		assign a := a + 1;
 		return : Integer = a;
 	}
+
+	// Evaluator only: a result holding a collection.
+	calc def ManyResult {
+		in k : Integer;
+		return : Integer[0..*] = k + 1;
+	}
+
+	// Evaluator only: a parameter holding a collection.
+	calc def ManyParameter {
+		in k : Integer[0..*];
+		return : Integer = 1;
+	}
 }

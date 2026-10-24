@@ -67,6 +67,7 @@ elmt:ReferenceSubsets__vehicle_5fc1
     sysml:owner elmt:ReferenceSubsets ;
     sysml:owningRelationship elmt:ReferenceSubsets__vehicle_5fc1_om ;
     sysml:owningMembership elmt:ReferenceSubsets__vehicle_5fc1_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "vehicle_c1" ;
     sysml:type elmt:ReferenceSubsets__Vehicle ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -125,6 +126,7 @@ elmt:ReferenceSubsets__design
     sysml:owner elmt:ReferenceSubsets ;
     sysml:owningRelationship elmt:ReferenceSubsets__design_om ;
     sysml:owningMembership elmt:ReferenceSubsets__design_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "design" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ReferenceSubsets__design__vehicle_5fdesign, elmt:ReferenceSubsets__design__spare, elmt:ReferenceSubsets__design__spare_20wheel, elmt:ReferenceSubsets__design__fleet, elmt:ReferenceSubsets__design__presidentOfCountry ;
@@ -163,6 +165,7 @@ elmt:ReferenceSubsets__design__vehicle_5fdesign
     sysml:owner elmt:ReferenceSubsets__design ;
     sysml:owningRelationship elmt:ReferenceSubsets__design__vehicle_5fdesign_om ;
     sysml:owningMembership elmt:ReferenceSubsets__design__vehicle_5fdesign_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "vehicle_design" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
@@ -198,6 +201,7 @@ elmt:ReferenceSubsets__design__spare
     sysml:owner elmt:ReferenceSubsets__design ;
     sysml:owningRelationship elmt:ReferenceSubsets__design__spare_om ;
     sysml:owningMembership elmt:ReferenceSubsets__design__spare_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "spare" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
@@ -233,6 +237,7 @@ elmt:ReferenceSubsets__design__spare_20wheel
     sysml:owner elmt:ReferenceSubsets__design ;
     sysml:owningRelationship elmt:ReferenceSubsets__design__spare_20wheel_om ;
     sysml:owningMembership elmt:ReferenceSubsets__design__spare_20wheel_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "spare wheel" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
@@ -268,6 +273,7 @@ elmt:ReferenceSubsets__design__fleet
     sysml:owner elmt:ReferenceSubsets__design ;
     sysml:owningRelationship elmt:ReferenceSubsets__design__fleet_om ;
     sysml:owningMembership elmt:ReferenceSubsets__design__fleet_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "fleet" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
@@ -297,6 +303,7 @@ elmt:ReferenceSubsets__design__fleet_om
 
 expr:ReferenceSubsets__design__fleet_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ReferenceSubsets__design__fleet_pmultiplicity" ;
     sysml:owner elmt:ReferenceSubsets__design__fleet ;
     sysml:owningRelationship expr:ReferenceSubsets__design__fleet_pmultiplicity_om ;
@@ -322,6 +329,7 @@ expr:ReferenceSubsets__design__fleet_plowerBound
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "ReferenceSubsets__design__fleet_plowerBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "0"^^xsd:integer ;
     sysml:owner expr:ReferenceSubsets__design__fleet_pmultiplicity ;
     sysml:owningRelationship expr:ReferenceSubsets__design__fleet_plowerBound_om ;
@@ -341,6 +349,7 @@ expr:ReferenceSubsets__design__fleet_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
     sysml:elementId "ReferenceSubsets__design__fleet_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:owner expr:ReferenceSubsets__design__fleet_pmultiplicity ;
     sysml:owningRelationship expr:ReferenceSubsets__design__fleet_pupperBound_om ;
     sysml:owningMembership expr:ReferenceSubsets__design__fleet_pupperBound_om .
@@ -368,6 +377,7 @@ elmt:ReferenceSubsets__design__presidentOfCountry
     sysml:owner elmt:ReferenceSubsets__design ;
     sysml:owningRelationship elmt:ReferenceSubsets__design__presidentOfCountry_om ;
     sysml:owningMembership elmt:ReferenceSubsets__design__presidentOfCountry_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "presidentOfCountry" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
@@ -400,6 +410,7 @@ elmt:ReferenceSubsets__design__presidentOfCountry_om
 
 expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "ReferenceSubsets__design__presidentOfCountry_pmultiplicity" ;
     sysml:owner elmt:ReferenceSubsets__design__presidentOfCountry ;
     sysml:owningRelationship expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity_om ;
@@ -425,6 +436,7 @@ expr:ReferenceSubsets__design__presidentOfCountry_plowerBound
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "ReferenceSubsets__design__presidentOfCountry_plowerBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "0"^^xsd:integer ;
     sysml:owner expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity ;
     sysml:owningRelationship expr:ReferenceSubsets__design__presidentOfCountry_plowerBound_om ;
@@ -444,6 +456,7 @@ expr:ReferenceSubsets__design__presidentOfCountry_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "ReferenceSubsets__design__presidentOfCountry_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "1"^^xsd:integer ;
     sysml:owner expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity ;
     sysml:owningRelationship expr:ReferenceSubsets__design__presidentOfCountry_pupperBound_om ;

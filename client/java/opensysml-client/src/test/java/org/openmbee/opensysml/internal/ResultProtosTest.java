@@ -188,7 +188,9 @@ class ResultProtosTest {
                     .setKind("fail")
                     .setDetail("10 < 1200")
                     .setSubcase(true)
-                    .setRequirementId("Demo::massTiny"))
+                    .setRequirementId("Demo::massTiny")
+                    .setInstanceId(1)
+                    .setInstanceTypeId("Demo::sedan"))
             .addInstances(Instance.newBuilder().setId(1).setTypeSymbolId("Demo::sedan"))
             .setBounded(true)
             .build();
@@ -204,7 +206,9 @@ class ResultProtosTest {
             VerificationVerdict.FAIL,
             Optional.of("10 < 1200"),
             true,
-            Optional.of("Demo::massTiny")),
+            Optional.of("Demo::massTiny"),
+            Optional.of(1L),
+            Optional.of("Demo::sedan")),
         body);
     assertFalse(body.passed());
   }

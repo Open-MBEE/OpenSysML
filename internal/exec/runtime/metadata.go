@@ -19,7 +19,7 @@ func (ec *EvalContext) evalMetadataAccess(n *ast.MetadataAccessExpr) (Value, err
 	}
 	if ec.ctx.model.semantics == nil {
 		return Value{}, fmt.Errorf("%w: no model holds the metadata of %s",
-			ErrTypeMismatch, ec.ctx.qualifiedSymbolName(sym))
+			ErrTypeMismatch, ec.ctx.QualifiedName(sym))
 	}
 	annotations := ec.ctx.model.semantics.ElementMetadataOf(sym)
 	// One access answers every annotation or none: what a failing one wrote, made
@@ -82,7 +82,7 @@ func metadataOfAValue(value Value, parts []ast.NameSegment) error {
 		return nil
 	}
 	return fmt.Errorf("%w: metadata access requires an element, but %s is a value",
-		ErrTypeMismatch, describeValue(value))
+		ErrTypeMismatch, DescribeValue(value))
 }
 
 // metadataAnnotation names one annotation of one element: the element it
@@ -110,7 +110,7 @@ func (ctx *Context) metadataAnnotationDigest(element *symbols.Symbol, index int)
 	}
 	// An `about` annotation states itself away from the element it annotates, so
 	// the text comes from the document stating it.
-	return ctx.qualifiedSymbolName(annotation.Type) + " " + annotation.Doc + " " +
+	return ctx.QualifiedName(annotation.Type) + " " + annotation.Doc + " " +
 		ctx.textIn(annotation.Doc, annotation.Node.Span())
 }
 
@@ -127,7 +127,7 @@ func (ec *EvalContext) metadataInstance(key metadataAnnotation, annotation seman
 	}
 	inst, err := ctx.materialize(annotation.Type, 0, nil, "")
 	if err != nil {
-		return Value{}, fmt.Errorf("metadata %s: %w", ctx.qualifiedSymbolName(annotation.Type), err)
+		return Value{}, fmt.Errorf("metadata %s: %w", ctx.QualifiedName(annotation.Type), err)
 	}
 	if err := ec.bindMetadataFeatures(annotation.Type, inst, annotation.Bindings); err != nil {
 		return Value{}, err
@@ -140,7 +140,7 @@ func (ec *EvalContext) metadataInstance(key metadataAnnotation, annotation seman
 // annotates, descending into the object a nested declaration writes through.
 func (ec *EvalContext) bindMetadataFeatures(typ *symbols.Symbol, inst *Instance, bindings []semantics.MetadataBinding) error {
 	ctx := ec.ctx
-	name := ctx.qualifiedSymbolName(typ)
+	name := ctx.QualifiedName(typ)
 	for _, binding := range bindings {
 		if fv, held := inst.FeatureValues[binding.Feature]; !held || fv == nil {
 			return fmt.Errorf("%w: metadata %s declares no feature %s",
@@ -175,7 +175,7 @@ func (ec *EvalContext) bindMetadataFeatures(typ *symbols.Symbol, inst *Instance,
 // has none of.
 func (ec *EvalContext) metadataNestedObject(typ *symbols.Symbol, inst *Instance, feature string) (*Instance, error) {
 	ctx := ec.ctx
-	name := ctx.qualifiedSymbolName(typ)
+	name := ctx.QualifiedName(typ)
 	fv, err := inst.GetFeatureValue(ctx, feature)
 	if err != nil {
 		return nil, fmt.Errorf("metadata %s: %s: %w", name, feature, err)

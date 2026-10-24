@@ -78,11 +78,11 @@ is the value of `y > 3` in that performance.
   copied into it, so writing one changes this check's copy only.
 - **Refused, with typed errors, until the open points above are decided:**
   - an untargeted assignment to a name that is no feature of the performance
-    (`ErrConstraintExternalAssignment`, by point 3 above, not a policy choice);
+    (`errConstraintExternalAssignment`, by point 3 above, not a policy choice);
   - explicit, chained or qualified assignment targets, `send`, `perform`, and `terminate`
-    (`ErrConstraintEffect`);
+    (`errConstraintEffect`);
   - stated flow: `first`/`then` successions and control nodes in a constraint body
-    (`ErrStatementNotExecutable`), since honouring them would need a decision on how they
+    (`errStatementNotExecutable`), since honouring them would need a decision on how they
     combine with the unordered result expression.
 - **Analysis and verification cases** keep their own procedure: their steps are the case's
   action flow, not a constraint body, and are unchanged.
@@ -114,7 +114,7 @@ corrected:
 
 1. **Namespace-owned bindings.** `bind a = b;` written in a package now makes `a` and `b` one
    object; a usage bound to a feature chain denotes the chain's object; ends with values of
-   their own must agree (`BindingConflictError`). Bindings join usages into one equivalence
+   their own must agree (`bindingConflictError`). Bindings join usages into one equivalence
    class wherever in the model they are written.
 2. **Held performances and connections.** Action, state, connection, interface, allocation and
    flow usages an object holds are reached by the extent walk, as its parts are. Constraint,

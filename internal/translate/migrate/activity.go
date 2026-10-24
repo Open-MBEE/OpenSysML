@@ -109,6 +109,9 @@ type activity struct {
 	fed map[*sysmlv1.Element]bool
 	// starved maps each action that never fires to the input pin no value reaches.
 	starved map[*sysmlv1.Element]*sysmlv1.Element
+	// handlers maps each node some ExceptionHandler names as its handlerBody to
+	// those handlers: v1 runs the body only on an exception, which v2 has no form for.
+	handlers map[*sysmlv1.Element][]*sysmlv1.Element
 	// pinType is the classifier an untyped pin is declared with, when what
 	// the pin feeds settles it.
 	pinType map[*sysmlv1.Element]*sysmlv1.Element
@@ -192,6 +195,7 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 		selfFed:     map[*sysmlv1.Element]bool{},
 		fed:         map[*sysmlv1.Element]bool{},
 		starved:     map[*sysmlv1.Element]*sysmlv1.Element{},
+		handlers:    map[*sysmlv1.Element][]*sysmlv1.Element{},
 		pinType:     map[*sysmlv1.Element]*sysmlv1.Element{},
 		payload:     map[*sysmlv1.Element]*sysmlv1.Element{},
 		sources:     map[*sysmlv1.Element][]*sysmlv1.Element{},
@@ -231,6 +235,13 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 	// Every action inherits start and done, which shadow outer names.
 	m.take(def, "start")
 	m.take(def, "done")
+	for _, n := range a.nodes {
+		for _, h := range n.Owned("handler") {
+			if body := m.model.Ref(h, "handlerBody"); body != nil && slices.Contains(a.nodes, body) {
+				a.handlers[body] = append(a.handlers[body], h)
+			}
+		}
+	}
 	return a
 }
 
@@ -649,7 +660,7 @@ func (a *activity) entries(n *sysmlv1.Element) {
 	if nodeKind(n) != nodeFlowFinal && !a.sink[n] {
 		name = writeName(a.name(n, baseName(n)))
 	}
-	if a.starved[n] != nil {
+	if a.starved[n] != nil || a.handlers[n] != nil {
 		a.entry[n] = name
 		return
 	}
@@ -695,15 +706,15 @@ func (a *activity) endpointIn(n *sysmlv1.Element) string {
 			return e
 		}
 		return "done"
-	case k == nodeInitial || k == nodeParam || k == nodePin || a.starved[n] != nil:
+	case k == nodeInitial || k == nodeParam || k == nodePin || a.starved[n] != nil || a.handlers[n] != nil:
 		return ""
 	}
 	return a.entry[n]
 }
 
 // startTargets lists the nodes start successions lead to: the initial nodes'
-// targets, then every node no edge leads to (a starved one only marked, never a
-// target). seen marks either.
+// targets, then every node no edge leads to (a starved one or an exception
+// handler's body only marked, never a target). seen marks either.
 func (a *activity) startTargets() (targets []*sysmlv1.Element, seen map[*sysmlv1.Element]bool) {
 	seen = map[*sysmlv1.Element]bool{}
 	for _, n := range a.nodes {
@@ -726,7 +737,7 @@ func (a *activity) startTargets() (targets []*sysmlv1.Element, seen map[*sysmlv1
 			// A join or merge nothing leads to would never fire.
 			continue
 		}
-		if a.starved[n] == nil {
+		if a.starved[n] == nil && a.handlers[n] == nil {
 			targets = append(targets, n)
 			a.m.add(n, Mapped, "", "no edge leads to the node, so it starts with the activity")
 		}
@@ -750,6 +761,8 @@ func (a *activity) unwritableTarget(e *sysmlv1.Element) string {
 		return "an initial node, which nothing may lead to"
 	case a.starved[n] != nil:
 		return "which never fires: no value reaches its input pin " + describe(a.starved[n])
+	case a.handlers[n] != nil:
+		return "the handler body of " + describe(a.handlers[n][0]) + ", which v1 starts only on an exception"
 	case a.entry[n] == "":
 		return "which is not a node of the activity"
 	}
@@ -914,6 +927,40 @@ func (a *activity) starvation(n *sysmlv1.Element) {
 	a.m.add(n, Approximated, "", "the action never fires: its input pin "+describe(pin)+" must hold a value, but "+why+"; no succession leads to it or leaves it, where v1 would wait on it forever, and it is written as a reference action usage, which the activity does not perform")
 }
 
+// handled diagnoses the exception handlers whose body n is, next to n: UML runs
+// the body only when the protected node raises a matching exception, which SysML
+// v2 has no form for, so the body is written referential and nothing starts it.
+func (a *activity) handled(n *sysmlv1.Element) {
+	hs := a.handlers[n]
+	if hs == nil {
+		return
+	}
+	for _, h := range hs {
+		a.m.unmapped(h, handlerNote(a.m, h, n))
+		if pin := a.m.model.Ref(h, "exceptionInput"); pin != nil {
+			a.m.add(pin, Unmapped, "", "the exception input of "+describe(h)+": v2 has no exception to hold")
+		}
+	}
+	a.m.add(n, Approximated, "", "the handler body of "+describe(hs[0])+": written as a reference action usage, which the activity does not perform, since v1 runs it only on an exception; no succession leads to it")
+}
+
+// handlerNote words why handler h, whose body is body, is not migrated.
+func handlerNote(m *migration, h, body *sysmlv1.Element) string {
+	note := "SysML v2 has no exception handler: UML runs the handler body " + describe(body) + " only when its protected node "
+	if p := h.Parent; p != nil {
+		note += describe(p) + " "
+	}
+	note += "raises a matching exception"
+	var types []string
+	for _, t := range m.model.Refs(h, "exceptionType") {
+		types = append(types, describe(t))
+	}
+	if len(types) == 0 {
+		return note + "; no exception type: catches nothing in UML"
+	}
+	return note + " of type " + strings.Join(types, ", ") + "; the body is written as a reference action usage the activity does not perform"
+}
+
 // waitFor writes the delay a duration constraint on e stands for: a fixed
 // delay for a point interval and a uniform draw over the interval otherwise.
 func (a *activity) waitFor(e *sysmlv1.Element) (string, bool) {
@@ -1009,6 +1056,12 @@ func (a *activity) successions(n *sysmlv1.Element) {
 		}
 		return
 	}
+	if a.handlers[n] != nil {
+		for _, e := range a.succ[n] {
+			a.m.add(e, Unmapped, "", "the edge leaves "+describe(n)+", the handler body of "+describe(a.handlers[n][0])+", which the activity does not perform, so no token travels it")
+		}
+		return
+	}
 	from := writeName(a.name(n, baseName(n)))
 	if s, ok := a.after[n]; ok {
 		a.m.w.line(firstKw + from + thenKw + s.name + ";")
@@ -1026,6 +1079,10 @@ func (a *activity) successions(n *sysmlv1.Element) {
 	var outs []*sysmlv1.Element
 	entry := map[*sysmlv1.Element]string{}
 	for _, e := range a.succ[n] {
+		if a.handlers[ownerNode(a.m.model.Ref(e, "target"))] != nil {
+			a.unwritableEdge(e) // no token travels into a handler body, so no fork carries the edge
+			continue
+		}
 		if a.successionFlow(e) {
 			if entry[e] = a.flowEntry(ownerNode(a.m.model.Ref(e, "target"))); entry[e] == "" {
 				continue
@@ -1548,6 +1605,7 @@ func finiteNumber(text string) (string, bool) {
 func (a *activity) declare(n *sysmlv1.Element) {
 	name := writeName(a.name(n, baseName(n)))
 	a.leadIn(n, name)
+	a.handled(n)
 	a.declareNode(n, name)
 	a.m.madeUp(n, name)
 	a.m.declared[n] = true
@@ -1582,10 +1640,11 @@ func (a *activity) leadIn(n *sysmlv1.Element, into string) {
 }
 
 // declareNode writes the declaration of n itself, named name. An action v1
-// never fires is written referential: as a composite action usage no succession
-// reaches it would be a subaction performed with the activity (Actions::subactions).
+// never fires, or runs only as an exception handler's body, is written referential:
+// as a composite action usage no succession reaches it would be a subaction
+// performed with the activity (Actions::subactions).
 func (a *activity) declareNode(n *sysmlv1.Element, name string) {
-	if a.starved[n] != nil {
+	if a.starved[n] != nil || a.handlers[n] != nil {
 		a.m.w.prefixed("ref ", actionKw, func() { a.declareKind(n, name) })
 		return
 	}
@@ -1750,23 +1809,33 @@ func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element,
 
 // declarePinsWithValues is declarePins binding each pin in values to its expression.
 func (a *activity) declarePinsWithValues(n *sysmlv1.Element, ins, outs []*sysmlv1.Element, callee *sysmlv1.Element, values map[*sysmlv1.Element]string) {
-	typed := callee != nil
-	var params, inParams, outParams []*sysmlv1.Element
-	if typed {
-		params = a.m.actionParameters(callee)
-	}
-	for _, p := range params {
+	a.declarePinsReserving(n, ins, outs, callee, values, map[string]bool{})
+}
+
+// directedParameters splits a behavior's parameters into those a call feeds and
+// those it reads, an inout one in both, in declaration order.
+func (m *migration) directedParameters(b *sysmlv1.Element) (ins, outs []*sysmlv1.Element) {
+	for _, p := range m.actionParameters(b) {
 		switch p.Attrs["direction"] {
 		case "out", "return":
-			outParams = append(outParams, p)
+			outs = append(outs, p)
 		case "inout":
-			inParams = append(inParams, p)
-			outParams = append(outParams, p)
+			ins = append(ins, p)
+			outs = append(outs, p)
 		default:
-			inParams = append(inParams, p)
+			ins = append(ins, p)
 		}
 	}
-	used := map[string]bool{}
+	return ins, outs
+}
+
+// declarePinsReserving is declarePinsWithValues naming no pin in used, which it extends.
+func (a *activity) declarePinsReserving(n *sysmlv1.Element, ins, outs []*sysmlv1.Element, callee *sysmlv1.Element, values map[*sysmlv1.Element]string, used map[string]bool) {
+	typed := callee != nil
+	var inParams, outParams []*sysmlv1.Element
+	if typed {
+		inParams, outParams = a.m.directedParameters(callee)
+	}
 	declare := func(pin *sysmlv1.Element, dir string, byPos []*sysmlv1.Element, i int) {
 		if typed {
 			if i < len(byPos) {
@@ -2258,17 +2327,25 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 // or performing the usage its swimlane's object or the def's own usage stands for.
 func (a *activity) callActionDef(n *sysmlv1.Element, name string, b *sysmlv1.Element) {
 	var note string
+	declared := false
 	if l, _, why := a.m.lanePerformer(n); l != nil {
 		usage := joinDot(a.m.anchorExpr(l.expr, a.def), writeName(a.m.behaviorUsage(b)))
 		a.m.w.line("perform action " + name + " ::> " + usage + ";")
 		a.m.add(n, Mapped, name, "performed by "+l.expr+", the object its swimlane represents, as its usage "+usage)
 		note = why
 	} else if a.m.asUsage[b] {
-		note = joinNotes(why, a.performUsage(name, b))
+		usageNote, performed := a.performUsage(name, b)
+		note = joinNotes(why, usageNote)
+		if !performed {
+			a.emptyStep(n, name, inputPins(n), outputPins(n))
+			declared = true
+		}
 	} else {
 		note = joinNotes(why, a.callTyped(n, name, b))
 	}
-	a.pins(n, b)
+	if !declared {
+		a.pins(n, b)
+	}
 	note = joinNotes(note, a.absentArguments(inputPins(n), b))
 	a.m.add(n, verdictFor(note), name, note)
 }
@@ -2328,7 +2405,8 @@ func (a *activity) callCalc(n *sysmlv1.Element, name string, b *sysmlv1.Element)
 	}
 	cat, _ := a.m.classify(b)
 	a.m.w.block(actionKw+name, func() {
-		a.pins(n, nil)
+		ins, outs := inputPins(n), outputPins(n)
+		a.prepareInputPinNames(n, ins)
 		var args []string
 		if ctxArg != "" && a.m.contextLeads(b, cat) {
 			args = append(args, ctxArg)
@@ -2342,13 +2420,15 @@ func (a *activity) callCalc(n *sysmlv1.Element, name string, b *sysmlv1.Element)
 		results := n.Owned("result")
 		call := a.m.ref(b, a.def) + "(" + strings.Join(args, ", ") + ")"
 		if len(results) == 0 {
+			a.declarePinsWithValues(n, ins, outs, nil, nil)
 			a.m.w.lines(commentLines("evaluates " + call + ", whose result no pin takes"))
 			return
 		}
+		// The result pin is declared once, taking the call's value.
+		a.declarePinsWithValues(n, ins, outs, nil, map[*sysmlv1.Element]string{results[0]: call})
 		for _, r := range results[1:] {
 			a.m.add(r, Unmapped, "", "a calc has one result; the pin takes nothing")
 		}
-		a.m.w.line("out " + writeName(a.names[results[0]]) + "[1] = " + call + ";")
 	})
 	a.m.add(n, Approximated, name, joinNotes(cnote, "the calc "+qualifiedName(b)+" is evaluated when the action runs; a calc is no action node"))
 }
@@ -2395,8 +2475,11 @@ func classifierOf(b *sysmlv1.Element) *sysmlv1.Element {
 	return nil
 }
 
-// callOperation writes a call on the object its target pin holds as `perform
-// action x ::> obj.op`; any other target leaves the call an action typed by the operation.
+// callOperation writes a call of an operation as `perform action x ::> obj.op`,
+// chaining to the owner's usage through the object its target pin holds: an object
+// read from this, reached over a port, or handed in, which the call declares as its
+// parameter. A call naming no object is an empty step; an operation written as a
+// def, which no block owns, types the call.
 func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 	if why, v, refused := a.refusal(n); refused {
 		a.placeholder(n, name, why, v)
@@ -2417,6 +2500,7 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 		}
 		return ";"
 	}
+	declared := false
 	switch {
 	case ok:
 		a.m.w.line("perform action " + name + " ::> " + receiver + ";")
@@ -2427,22 +2511,31 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 			a.receivers[t] = receiver
 		}
 		note = ""
+	case a.m.asUsage[op] && a.targetBound(n, t):
+		note = a.callOnUsageTarget(n, t, op, name, ins, outs)
+		declared = true
 	case a.m.asUsage[op] && t == nil:
-		note = joinNotes(note, a.performUsage(name, op))
-	case a.targetBound(n, t) && a.callOnTargetLine(n, t, op, name, &note):
+		why, performed := a.performUsage(name, op)
+		note = joinNotes(note, why)
+		if !performed {
+			a.emptyStep(n, name, ins, outs)
+			declared = true
+		}
 	case a.m.asUsage[op]:
-		a.m.w.line(actionKw + name + ";")
+		a.emptyStep(n, name, ins, outs)
+		declared = true
 		note = joinNotes(note, a.m.nameOf(op)+" is an action of "+qualifiedName(op.Parent)+", performed on an object of it, and the target pin names none read from this, so an empty step stands for the call")
 		a.m.add(t, Approximated, "", "the target pin is not written: it names no object read from this")
-	case port != nil && t == nil:
-		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + withIns())
+	case a.targetBound(n, t) && a.callOnTargetLine(n, t, op, name, &note):
 	case t != nil:
 		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + withIns())
 		a.m.add(t, Approximated, "", "the target pin is not written; the call runs in the caller's context")
 	default:
 		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + withIns())
 	}
-	a.declarePins(n, ins, outs, op)
+	if !declared {
+		a.declarePins(n, ins, outs, op)
+	}
 	note = joinNotes(note, a.absentArguments(ins, op))
 	a.m.add(n, verdictFor(note), name, note)
 }
@@ -2456,13 +2549,13 @@ func (a *activity) receiverOf(t, op *sysmlv1.Element) (receiver, note string, ok
 	obj, typ, ok := a.objectOf(t)
 	switch {
 	case !ok && len(a.sources[t]) == 0:
-		return "", "the call runs in the caller's context: no flow feeds its target pin", false
+		return "", noReceiver + "no flow feeds its target pin", false
 	case !ok:
-		return "", "the call runs in the caller's context: the target the flow into its pin names is not an object read from this", false
+		return "", noReceiver + "the target the flow into its pin names is not an object read from this", false
 	case typ == nil:
-		return "", "the call runs in the caller's context: the target " + obj + " has no known type to hold the operation", false
+		return "", noReceiver + "the target " + obj + " has no known type to hold the operation", false
 	case !a.m.hasFeature(typ, op):
-		return "", "the call runs in the caller's context: the target " + obj + " is a " + qualifiedName(typ) + ", which has no operation " + a.m.nameOf(op), false
+		return "", noReceiver + "the target " + obj + " is a " + qualifiedName(typ) + ", which has no operation " + a.m.nameOf(op), false
 	}
 	usage := writeName(a.m.operationUsage(op))
 	if obj == a.self() {
@@ -2506,17 +2599,25 @@ func (a *activity) unassigned(pin *sysmlv1.Element) bool {
 	return pin.Parent != nil && pin.Parent.Type == "OpaqueAction" && !a.opaqueOf(pin.Parent).assigned[pin]
 }
 
-// opaqueAction writes an opaque action as an action of assignments when its body is
-// a sequence of them, else with the body kept as a comment; its pins stay unwritten.
+// opaqueAction writes translated assignments and keeps every opaque body as text.
 func (a *activity) opaqueAction(n *sysmlv1.Element, name string) {
 	r := a.opaqueOf(n)
 	a.m.w.block(actionKw+name, func() {
 		a.pins(n, nil)
+		a.m.textualReps(n)
 		if !r.ok {
 			a.inert[n] = true
-			body, lang := opaqueBody(n)
-			a.m.opaqueComment(body, lang, r.note)
-			a.m.add(n, Approximated, name, "the body is kept as a comment: "+r.note)
+			if r.note == emptyBodyNote && opaqueBodiesEmpty(n) {
+				a.m.add(n, Mapped, name, "its body is empty, so it is written as an action that does nothing")
+				return
+			}
+			a.m.opaqueBodyComments(n, r.note)
+			_, lang := opaqueBody(n)
+			keptAs := "a textual representation, which is not executed"
+			if lang == "" {
+				keptAs = "a comment"
+			}
+			a.m.add(n, Approximated, name, "the body is kept as "+keptAs+": "+r.note)
 			return
 		}
 		a.m.w.lines(r.lines)
@@ -3046,7 +3147,7 @@ func (a *activity) declareVariables() {
 			form = "no v2 form"
 		}
 		for _, v := range variables {
-			a.m.add(v, Unmapped, "", "a variable of "+describe(a.act)+" is not written: the "+a.act.Type+" is written as "+form+", whose body declares no local features")
+			a.m.add(v, Unmapped, "", "a variable of "+describe(a.act)+" is not written: the "+a.act.Type+isWrittenAs+form+", whose body declares no local features")
 		}
 		return
 	}
@@ -3340,7 +3441,7 @@ func (a *activity) reducerFunc(n *sysmlv1.Element) (fn, why string) {
 		if form == "" {
 			form = "no v2 form"
 		}
-		return "", theReducer + qualifiedName(reducer) + " is written as " + form + ", not a calc or function def, so it has no v2 function"
+		return "", theReducer + qualifiedName(reducer) + isWrittenAs + form + ", not a calc or function def, so it has no v2 function"
 	}
 	var ins, rets int
 	for _, p := range a.m.actionParameters(reducer) {
@@ -3357,12 +3458,14 @@ func (a *activity) reducerFunc(n *sysmlv1.Element) (fn, why string) {
 	return a.m.ref(reducer, a.def), ""
 }
 
-// raiseException writes a raise exception action: its pins and a sibling
-// terminate action the succession after it leads to, since v2 has no
-// exceptions — with no handler, raising ends the activity. The action's own
-// outgoing edges carry no token; successions reports each.
+// raiseException writes a raise exception action and, as v2 has no exceptions, a sibling terminate its
+// succession leads to (none for a handler body, which the activity never performs); successions reports its edges.
 func (a *activity) raiseException(n *sysmlv1.Element, name string) {
 	a.m.w.block(actionKw+name, func() { a.pins(n, nil) })
+	if hs := a.handlers[n]; hs != nil {
+		a.m.add(n, Approximated, name, "v2 has no exceptions, and the action is the handler body of "+describe(hs[0])+", which the activity never performs, so raising ends nothing")
+		return
+	}
 	end := writeName(a.fresh("terminate"))
 	a.m.w.line(actionKw + end + " terminate;")
 	a.madeUp(end)
@@ -3434,11 +3537,11 @@ func (a *activity) sendDestination(n *sysmlv1.Element, what string) (string, str
 		path, hasPath := a.portPath(port)
 		switch {
 		case !a.m.written(port):
-			return "", "the port " + qualifiedName(port) + " has no v2 declaration; the " + what + sentToSender
+			return "", thePort + qualifiedName(port) + " has no v2 declaration; the " + what + sentToSender
 		case hasPath:
 			return " via " + a.m.respellThis(a.self()+"."+path, a.act), ""
 		default:
-			return "", "the port " + qualifiedName(port) + " is no port of the object the sender acts on; the " + what + sentToSender
+			return "", thePort + qualifiedName(port) + " is no port of the object the sender acts on; the " + what + sentToSender
 		}
 	}
 	t := firstOwned(n, "target")
@@ -3762,3 +3865,13 @@ func (a *activity) rules() {
 }
 
 // observations reports the activity's observations: what a run measures.
+
+// emptyStep writes the step standing for a call that performs nothing, declaring
+// the call's pins as its own features, so that the flows naming them resolve.
+func (a *activity) emptyStep(n *sysmlv1.Element, name string, ins, outs []*sysmlv1.Element) {
+	if len(ins)+len(outs) == 0 {
+		a.m.w.line(actionKw + name + ";")
+		return
+	}
+	a.m.w.block(actionKw+name, func() { a.declarePins(n, ins, outs, nil) })
+}

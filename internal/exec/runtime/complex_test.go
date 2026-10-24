@@ -50,8 +50,8 @@ func TestComplexIsOneValue(t *testing.T) {
 	if got := FormatTraceValue(zs); got != "(1.0 + 2.0i, 3.0 + 4.0i)" {
 		t.Fatalf("FormatTraceValue = %s", got)
 	}
-	if got := describeValue(z); got != "a Complex" {
-		t.Fatalf("describeValue = %q", got)
+	if got := DescribeValue(z); got != "a Complex" {
+		t.Fatalf("DescribeValue = %q", got)
 	}
 }
 

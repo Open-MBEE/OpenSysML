@@ -1,0 +1,10 @@
+{
+  "rpc": "ImportData",
+  "import_dry_run": true,
+  "imports": [
+    {"name": "fleet.tsv", "content": "element\tcount\nV::vehicle\t7\n"}
+  ],
+  "expected_assignments": [
+    "V::vehicle::count = 7 (redefines V::Vehicle::count)"
+  ]
+}

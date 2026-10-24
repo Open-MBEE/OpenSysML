@@ -1,0 +1,11 @@
+step 1: token 1@work
+stmt assign n
+  eval literal 1 -> 1
+step 2: token 1@charge
+step 1: token 1@top
+stmt assign charged
+  eval literal 10 -> 10
+step 2: token 1@done
+step 3: no active tokens
+step 3: token 1@done
+step 4: no active tokens

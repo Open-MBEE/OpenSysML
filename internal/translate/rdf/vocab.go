@@ -14,6 +14,8 @@ const (
 	// OWL is the Web Ontology Language namespace; the SysML ontology types a
 	// LiteralRational's value owl:real.
 	OWL = "http://www.w3.org/2002/07/owl#"
+	// RDFS is the RDF Schema namespace; the metaclass hierarchy graph is stated in it.
+	RDFS = "http://www.w3.org/2000/01/rdf-schema#"
 	// SysML is the OMG SysML vocabulary namespace, used for metaclasses and
 	// metamodel properties.
 	SysML = "https://www.omg.org/spec/SysML#"

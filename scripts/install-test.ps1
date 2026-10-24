@@ -17,7 +17,9 @@ param(
     [Parameter(Mandatory)][string]$Tampered,
     [Parameter(Mandatory)][string]$Unlisted,
     [Parameter(Mandatory)][string]$NoKernel,
-    [Parameter(Mandatory)][string]$NoGrpc
+    [Parameter(Mandatory)][string]$NoGrpc,
+    [Parameter(Mandatory)][string]$Repeated,
+    [Parameter(Mandatory)][string]$Conflicting
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -96,7 +98,7 @@ function Assert-Absent([string[]]$Names) {
 
 if (Test-Ok 'release by tag' -Version $Good) {
     Assert-Installed sysml, sysml-lsp
-    Assert-Absent sysml-grpc, sysml-jupyter-kernel
+    Assert-Absent sysml-grpc, sysml-jupyter-kernel, sysml-mcp
     Assert-Said "Installing OpenSysML ($Good) for $HostPlatform"
     Assert-Said "opensysml-$HostPlatform.tar.gz verified"
     Assert-Said "sysml $Good"
@@ -109,14 +111,16 @@ if (Test-Ok 'tag without the v' -Version $Good.Substring(1)) {
 }
 
 if (Test-Ok 'all tools' -Version $Good -Tools all) {
-    Assert-Installed sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel
-    Assert-Said 'tools:    sysml sysml-lsp sysml-grpc sysml-jupyter-kernel'
+    Assert-Installed sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel, sysml-mcp
+    Assert-Said 'tools:    sysml sysml-lsp sysml-grpc sysml-jupyter-kernel sysml-mcp'
     Assert-Unsaid '-Tools all:'
     Assert-Said "sysml-grpc-$HostPlatform verified"
     Assert-Said "sysml-grpc version $Good"
     Assert-Said "sysml-jupyter-kernel-$HostPlatform verified"
     Assert-Said "sysml-jupyter-kernel version $Good"
-    Assert-Said "Installed: $script:dir/sysml $script:dir/sysml-lsp $script:dir/sysml-grpc $script:dir/sysml-jupyter-kernel"
+    Assert-Said "sysml-mcp-$HostPlatform.tar.gz verified"
+    Assert-Said "sysml-mcp $Good"
+    Assert-Said "Installed: $script:dir/sysml $script:dir/sysml-lsp $script:dir/sysml-grpc $script:dir/sysml-jupyter-kernel $script:dir/sysml-mcp"
 }
 
 # `all` means what the chosen release published, read from its manifest.
@@ -124,47 +128,80 @@ if (Test-Ok 'all tools of a release without the kernel' -Version $NoKernel -Tool
     Assert-Installed sysml, sysml-lsp, sysml-grpc
     Assert-Absent sysml-jupyter-kernel
     Assert-Said "-Tools all: $NoKernel publishes no sysml-jupyter-kernel for $HostPlatform"
-    Assert-Said 'tools:    sysml sysml-lsp sysml-grpc'
+    Assert-Said 'tools:    sysml sysml-lsp sysml-grpc sysml-mcp'
     Assert-Unsaid "sysml-jupyter-kernel-$HostPlatform"
     Assert-Said "sysml-grpc version $NoKernel"
-    Assert-Said "Installed: $script:dir/sysml $script:dir/sysml-lsp $script:dir/sysml-grpc"
+    Assert-Said "Installed: $script:dir/sysml $script:dir/sysml-lsp $script:dir/sysml-grpc $script:dir/sysml-mcp"
 }
 
 if (Test-Ok 'all tools of a release without sysml-grpc' -Version $NoGrpc -Tools all) {
     Assert-Installed sysml, sysml-lsp
-    Assert-Absent sysml-grpc, sysml-jupyter-kernel
-    Assert-Said "-Tools all: $NoGrpc publishes no sysml-grpc or sysml-jupyter-kernel for $HostPlatform"
+    Assert-Absent sysml-grpc, sysml-jupyter-kernel, sysml-mcp
+    Assert-Said "-Tools all: $NoGrpc publishes no sysml-grpc or sysml-jupyter-kernel or sysml-mcp for $HostPlatform"
     Assert-Said 'tools:    sysml sysml-lsp'
     Assert-Said "Installed: $script:dir/sysml $script:dir/sysml-lsp"
 }
 
 if (Test-Ok 'all tools of a release whose manifest omits assets' -Version $Unlisted -Tools all) {
-    Assert-Installed sysml, sysml-lsp
+    Assert-Installed sysml, sysml-lsp, sysml-mcp
     Assert-Absent sysml-grpc, sysml-jupyter-kernel
     Assert-Said "-Tools all: $Unlisted publishes no sysml-grpc or sysml-jupyter-kernel for $HostPlatform"
 }
 
 if (Test-Ok 'all tools of latest' -Tools all) {
     Assert-Said "Installing OpenSysML ($Good)"
-    Assert-Installed sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel
+    Assert-Installed sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel, sysml-mcp
 }
 
 if (Test-Ok 'all tools of the nightly' -Version nightly -Tools all) {
     Assert-Said 'Installing OpenSysML (the nightly snapshot)'
-    Assert-Installed sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel
+    Assert-Installed sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel, sysml-mcp
 }
 
 if (Test-Ok 'all tools staged for windows, from a release without the kernel' -Version $NoKernel -Os windows -Tools all) {
-    Assert-Installed sysml.exe, sysml-lsp.exe, sysml-grpc.exe
+    Assert-Installed sysml.exe, sysml-lsp.exe, sysml-grpc.exe, sysml-mcp.exe
     Assert-Absent sysml-jupyter-kernel.exe
     Assert-Said "-Tools all: $NoKernel publishes no sysml-jupyter-kernel for windows-amd64"
 }
 
 if (Test-Ok 'the kernel alone' -Version $Good -Tools sysml-jupyter-kernel) {
     Assert-Installed sysml-jupyter-kernel
-    Assert-Absent sysml, sysml-lsp, sysml-grpc
+    Assert-Absent sysml, sysml-lsp, sysml-grpc, sysml-mcp
     Assert-Said "download/$Good/sysml-jupyter-kernel-$HostPlatform"
+    Assert-Unsaid "opensysml-$HostPlatform.tar.gz"
     Assert-Said "Installed: $script:dir/sysml-jupyter-kernel"
+}
+
+# A tool published on its own does not pull the bundle in.
+if (Test-Ok 'sysml-grpc alone' -Version $Good -Tools sysml-grpc) {
+    Assert-Installed sysml-grpc
+    Assert-Absent sysml, sysml-lsp, sysml-jupyter-kernel
+    Assert-Unsaid "opensysml-$HostPlatform.tar.gz"
+    Assert-Said "  from:     $BaseUrl/download/$Good/sysml-grpc-$HostPlatform"
+    Assert-Said "sysml-grpc-$HostPlatform verified"
+    Assert-Said "Installed: $script:dir/sysml-grpc"
+}
+
+# sysml-mcp comes from its own archive.
+if (Test-Ok 'the MCP server alone' -Version $Good -Tools sysml-mcp) {
+    Assert-Installed sysml-mcp
+    Assert-Absent sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel
+    Assert-Unsaid "opensysml-$HostPlatform.tar.gz"
+    Assert-Said "download/$Good/sysml-mcp-$HostPlatform.tar.gz"
+    Assert-Said "sysml-mcp-$HostPlatform.tar.gz verified"
+    Assert-Said "sysml-mcp $Good"
+    Assert-Said "Installed: $script:dir/sysml-mcp"
+}
+
+if (Test-Ok 'MCP server staged for windows' -Version $Good -Os windows -Tools sysml-mcp) {
+    Assert-Installed sysml-mcp.exe
+    Assert-Absent sysml.exe, sysml-lsp.exe, sysml-mcp
+    Assert-Said "download/$Good/sysml-mcp-windows-amd64.zip"
+    Assert-Said 'sysml-mcp-windows-amd64.zip verified'
+    Assert-Said "Installed: $(Join-Path $script:dir sysml-mcp.exe)"
+    if ((Get-Content -LiteralPath (Join-Path $script:dir sysml-mcp.exe) -Raw) -notlike "sysml-mcp $($Good.Substring(1)) for windows*") {
+        Write-Failure 'the windows MCP server was not the one installed'
+    }
 }
 
 if (Test-Ok 'one tool' -Version $Good -Tools sysml) {
@@ -201,8 +238,9 @@ if (Test-Ok 'staged for windows, unsigned release' -Version $Good -Os windows) {
 
 if (Test-Ok 'kernel staged for windows' -Version $Good -Os windows -Tools sysml-jupyter-kernel) {
     Assert-Installed sysml-jupyter-kernel.exe
-    Assert-Absent sysml.exe, sysml-lsp.exe, sysml-grpc.exe, sysml-jupyter-kernel
+    Assert-Absent sysml.exe, sysml-lsp.exe, sysml-grpc.exe, sysml-mcp.exe, sysml-jupyter-kernel
     Assert-Said "download/$Good/sysml-jupyter-kernel-windows-amd64.exe"
+    Assert-Unsaid 'opensysml-windows-amd64.zip'
     Assert-Said 'sysml-jupyter-kernel-windows-amd64.exe verified'
     Assert-Said "Installed: $(Join-Path $script:dir sysml-jupyter-kernel.exe)"
     if ((Get-Content -LiteralPath (Join-Path $script:dir sysml-jupyter-kernel.exe) -Raw) -notlike "sysml-jupyter-kernel $($Good.Substring(1)) for windows*") {
@@ -257,6 +295,8 @@ if (-not $HostIsWindows) {
     # release and is checked against SHA256SUMS.txt; alone it needs no Authenticode.
     if (Test-Ok 'kernel from the signed release' -Version $Signed -Os windows -Tools sysml-jupyter-kernel) {
         Assert-Said 'the release carries the signed Windows build'
+        Assert-Said 'none of the requested tools is among its assets'
+        Assert-Unsaid 'installing opensysml-windows-amd64-signed.zip'
         Assert-Said 'sysml-jupyter-kernel is not among the signed assets'
         Assert-Said "download/$Signed/sysml-jupyter-kernel-windows-amd64.exe"
         Assert-Said 'sysml-jupyter-kernel-windows-amd64.exe verified'
@@ -266,16 +306,17 @@ if (-not $HostIsWindows) {
 
 if (Test-Ok 'dry run' -Version $Good -Tools all -DryRun) {
     Assert-Said 'Dry run: nothing installed.'
-    Assert-Said 'tools:    sysml sysml-lsp sysml-grpc sysml-jupyter-kernel'
+    Assert-Said 'tools:    sysml sysml-lsp sysml-grpc sysml-jupyter-kernel sysml-mcp'
     Assert-Said "download/$Good/sysml-grpc-$HostPlatform"
     Assert-Said "download/$Good/sysml-jupyter-kernel-$HostPlatform"
+    Assert-Said "download/$Good/sysml-mcp-$HostPlatform.tar.gz"
     if (Test-Path -LiteralPath $script:dir) { Write-Failure "dry run created $script:dir" }
 }
 
 if (Test-Ok 'dry run of all tools of a release without the kernel' -Version $NoKernel -Tools all -DryRun) {
     Assert-Said 'Dry run: nothing installed.'
     Assert-Said "-Tools all: $NoKernel publishes no sysml-jupyter-kernel for $HostPlatform"
-    Assert-Said 'tools:    sysml sysml-lsp sysml-grpc'
+    Assert-Said 'tools:    sysml sysml-lsp sysml-grpc sysml-mcp'
     Assert-Said "download/$NoKernel/sysml-grpc-$HostPlatform"
     Assert-Unsaid "sysml-jupyter-kernel-$HostPlatform"
     if (Test-Path -LiteralPath $script:dir) { Write-Failure "dry run created $script:dir" }
@@ -283,6 +324,15 @@ if (Test-Ok 'dry run of all tools of a release without the kernel' -Version $NoK
 
 if (Test-Failure 'tampered bundle' "opensysml-$HostPlatform.tar.gz does not match SHA256SUMS.txt" -Version $Tampered) {
     if (Test-Path -LiteralPath $script:dir) { Write-Failure "a tampered release left files under $script:dir" }
+}
+# One digest listed twice is one digest; two digests for one asset is no manifest to trust.
+if (Test-Ok "manifest repeating the bundle's line" -Version $Repeated -Tools all) {
+    Assert-Installed sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel, sysml-mcp
+    Assert-Said "opensysml-$HostPlatform.tar.gz verified"
+}
+if (Test-Failure 'manifest listing the bundle with two digests' "lists opensysml-$HostPlatform.tar.gz with more than one digest" -Version $Conflicting) {
+    Assert-Unsaid 'does not match'
+    if (Test-Path -LiteralPath $script:dir) { Write-Failure "a conflicting manifest left files under $script:dir" }
 }
 Test-Failure 'asset the manifest omits' "does not list sysml-grpc-$HostPlatform" -Version $Unlisted -Tools sysml-grpc | Out-Null
 if (Test-Failure 'kernel the manifest omits' "does not list sysml-jupyter-kernel-$HostPlatform" -Version $Unlisted -Tools sysml-jupyter-kernel) {
@@ -298,7 +348,7 @@ Test-Failure 'unpublished release' "could not download $BaseUrl/download/v0.0.0/
 Test-Failure 'unpublished windows arm64' 'no windows/arm64 build is published' -Os windows -Arch arm64 | Out-Null
 Test-Failure 'bad version' '-Version must be a release tag' -Version main | Out-Null
 if (Test-Failure 'bad tool' "unknown tool 'sysml-repl'" -Tools sysml-repl) {
-    Assert-Said 'the released tools are sysml, sysml-lsp, sysml-grpc and sysml-jupyter-kernel'
+    Assert-Said 'the released tools are sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel and sysml-mcp'
 }
 Test-Failure 'all beside a tool' "'all' names every tool the release published and stands alone in -Tools" -Tools 'all,sysml' | Out-Null
 Test-Failure 'all with a stray space' "unknown tool 'a ll'" -Tools 'a ll' | Out-Null

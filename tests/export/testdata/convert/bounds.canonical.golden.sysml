@@ -6,7 +6,7 @@ package Bounds {
         part many : Vehicle[0..*];
         part loose : Vehicle[*] ordered nonunique;
         ref part shared : Vehicle;
-        composite part owned : Vehicle;
+        part owned : Vehicle;
         derived attribute count : Integer;
     }
 }

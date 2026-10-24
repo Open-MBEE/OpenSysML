@@ -307,6 +307,21 @@ the source had none (`MigrationMetadata::SynthesizedName`) never becomes a label
 text of its own and such a name is drawn unlabelled, as its source drew it. The rule is one place,
 so the text, Mermaid, DOT and PlantUML forms label an edge alike.
 
+An association end's name is not the edge's text but the name of one end of it: a composite
+part's name and multiplicity on the composition from its owner to its type, `wheels[4]`, and a
+`ref`'s on the reference edge, belong at the type's end, where the graphical notation and the
+v1 tools draw an end name. The edge records them as `Edge.ToLabel` (`Edge.FromLabel` for the
+end at the owner; neither is set today, the graphs name only the type's end), apart from
+`Edge.Label`, and each writer sets them at the end where its grammar has such a place: DOT as
+`headlabel`/`taillabel` — Graphviz sets them by the head and tail of a laid-out edge, and a
+routed edge places them itself ([Geometry](#geometry)) — PlantUML in quotes before the end's
+alias (`n0 *-- "wheels[4]" n16`), D2 as the arrowhead's label (`target-arrowhead: { label:
+"wheels[4]" }`). Mermaid's flowchart and the text form have no place at an end, so they fold the
+names into the edge's text about its own (`Edge.text`), `◆ wheels[4]`, as they read before; the
+render JSON of the LSP does the same (`EdgeData.Text`), since it carries no label positions.
+A connection's own name stays the edge's text, mid-edge. A `connection def` drawn as an edge
+through the same path would name its `end` features the same way, one at each end.
+
 A trigger names its signal or operation the way a node's type is named, by the name the reference
 ends in (`triggerLabel` in `behavior.go`): `accept Signals::'APS Internal'::'Go Now'` reads
 `accept 'Go Now'`, a named payload keeps its name (`accept msg : Halt`) and a call trigger its
@@ -347,6 +362,23 @@ undirected association lines and dotted anchor lines; DOT uses ellipses, boxes a
 objectives with the corresponding edge attributes; PlantUML uses `usecase`, `actor`, subject
 rectangles and notes. Graph kinds keep Mermaid as their machine form. Markdown, CSV and TSV are
 table-only forms and return `WrongFormError` for both new kinds.
+
+## Sequence renderings
+
+A `SequenceView` draws the occurrences an interaction declares in its body as lifelines and
+each `message` or `flow` whose ends are events on them as a directed message, a message whose
+ends are on one lifeline as a self-message. A message is one row, so its send and receive events
+share the row's time, and the rows are ordered by the successions the model states between the
+events on them (`sequence.go`, `orderMessages`): a member-attached `then` and a
+`succession first a then b` between two events each order the two messages those events are on,
+an order running through an event no message attaches to is carried through it, and
+declaration order decides only between messages nothing orders. A message attached to a
+lifeline itself or to a port of it, rather than to an event on it, has no time of its own at that
+end, so it neither orders nor is ordered there. A relay whose successions on
+one lifeline order message `b`'s send before message `c`'s is drawn `b` above `c` whatever order
+the receiving events are declared in. A succession running against a message's own direction (its receive before its send), or
+successions that order one message both above and below another, cannot be drawn as rows, so the cycle is reported as not represented and the messages
+keep declaration order. The Mermaid, PlantUML and D2 forms write the messages in that order.
 
 ## Mermaid
 
@@ -450,7 +482,9 @@ digraph "VehicleViews::vehicleView" {
   `subgraph "cluster_<id>" { label=<…>; color=black; penwidth=<w>; … }`, the containment Mermaid writes as `subgraph`;
   in a tree, containment is an `arrowhead=none` edge, as the Mermaid tree draws it, so a tree has
   no clusters. In a positioned tree a child boxed inside its owner's box draws as a compartment
-  row of it and no edge is written for it; a child boxed outside keeps its edge. Since DOT edges join nodes, not subgraphs, every cluster holds an invisible,
+  row of it and no edge is written for it; a child boxed outside keeps its edge; a member child
+  with no position at all lists in a compartment of its owner's box (see *Compartment rows*
+  below). Since DOT edges join nodes, not subgraphs, every cluster holds an invisible,
   sizeless anchor node named by the cluster's own ID; an edge whose end is a cluster names that
   anchor, so the rendering's endpoints survive verbatim, and is clipped at the cluster with
   `lhead`/`ltail` — except at an end that encloses the other, where the edge starts or ends
@@ -484,7 +518,9 @@ digraph "VehicleViews::vehicleView" {
   notice; it states a value, not a wire. A boxed node's pins are nodes of their own,
   `"n5.0" [shape=box, label="", xlabel="mask", fontsize=8, width=0.1667, height=0.1667,
   fixedsize=true, pos="…!"]`, 12 px squares set on the node's border with the name in small type
-  beside them (`writePins` in `dot_ports.go`): a pin a route meets sits where the route's end
+  beside them (`writePins` in `dot_ports.go`): a pin a `Layout` places (`Port.Geometry`) sits
+  outside the side of the border nearest the Layout, level with the Layout's centre; a pin a
+  route meets sits where the route's end
   waypoint leaves or reaches the box, outside the border and touching it — a pin several routes
   meet, at the mean of their ends, and each route's end waypoint is brought onto that pin's
   border, facing its next waypoint, so every spline touches the one square (`pinnedRoute`); the
@@ -540,6 +576,20 @@ digraph "VehicleViews::vehicleView" {
   `minimal`, `n1.0["durationIn"]`) with the connector between the pins
   (`n2.0 ---|"durationInterface"| n1.0`), so no edge ends on a subgraph — which ELK, the layout
   the pinned `mermaid-cli` applies, refuses.
+- **Constraint parameters.** A constraint usage or def is a node of an interconnection rendering
+  as a part is (`featureLike`), nested under its owner, and carries as its `Ports` its parameters:
+  the directed (`in`/`out`/`inout`) attribute and reference usages its constraint def declares
+  and what that specializes (`featureWalk.pinParameters`, `Renderer.typedParameters`), and any
+  the usage declares itself (`constraintParameter`), each with its direction and labelled by
+  name. A binding end that names a parameter — `amplify.input`, a chain over the usage — ends at
+  the pin. A view that exposes the def's parameters beside the usage, as a migrated parametric
+  diagram does, draws them as the pins alone, not as nodes of their own (`nestedFeatures`), and
+  a `DiagramLayout::Layout` about a parameter is the pin's `Port.Geometry`, resolved per usage as
+  an inherited member's is (`memberGeometryOf`: `about first::input` places first's square,
+  `about Law::input` every usage's); a pin's Layout places it only on a node a Layout places
+  too. The parameters are shown and hidden with the port symbols (`port-symbols`), not the
+  parameter symbols a case's actors are. A mixed rendering draws constraints the same way
+  (`mixedStructural`).
 - **Edges.** The `EdgeKind` styles parallel the Mermaid arrows so the two forms read alike:
 
   | `EdgeKind` | Mermaid | DOT |
@@ -569,6 +619,21 @@ Three methods of the writer produce every attribute list — `graphAttributes`,
 `dotNodeAttributes` (with `dotClusterAttributes` and `dotAnchorAttributes` for a node drawn as a
 cluster) and `dotEdgeAttributes` — so what is said about a node or an edge changes without
 touching how the graph is walked.
+
+### Edge routing
+
+`view.Options.Lines` is how the writer routes its edges: `splines`, the default and the empty
+value, states nothing and leaves Graphviz its curved splines; `ortho` adds `splines=ortho` to the
+graph attribute list and `polyline` `splines=polyline`, after `compound` and before the positioned
+layout's `layout=neato` scale attributes, so a pinned drawing keeps its routes and only the edges
+Graphviz still routes follow the setting (where pinned boxes touch, Graphviz falls back to straight
+edges). Under `ortho` an edge's `label` is written as `xlabel`, since Graphviz places no label on an
+orthogonal edge but does place an external one. Graphviz's orthogonal router also ignores edge
+ports, so an edge drawn to a part's pin may run through the part's body to reach it; the default
+splines honour the pins. These are the Pilot visualizer's `ORTHOLINE` and
+`POLYLINE` styles, which `%viz` maps to them; PlantUML draws the same routing as
+`skinparam linetype ortho|polyline`, and Mermaid and D2, which route no edge themselves, note it
+(`lines ortho; mermaid routes no edge itself, the dot and plantuml forms do`).
 
 ## Style
 
@@ -645,7 +710,7 @@ horizontal gradient, sampled at the left and right of a box. The constants live 
 | Lines: `#424242`, 1 px, open arrowheads on transitions and flows | edge default `color="#424242"`, `penwidth=1`, `arrowhead=open`; a routed edge's spline keeps both stated ends — `e,x,y` before the curve for an arrowhead, `s,x,y` for a tail arrow — the curve stopping an arrow's length short so Graphviz draws the arrow between, and the box a routed node is drawn in is never grown beyond its stated one, so the drawn end is the stated end (`dotSpline`, `TestDOTRoutedEdgesEndAtTheirRoutes`, which runs Graphviz when `OPENSYSML_DOT` names it and asserts every drawn endpoint within 3 px of its route's) |
 | Pins: 12 px squares on an action's border, the pin name in ~8 px type beside it, object flows pin to pin | each `Port` a node `shape=box, label="", xlabel="<name>", fontsize=8, fixedsize=true`, `fillcolor="#FFFFFF"`, at the route's end on the border, or spread along the top (inputs) and bottom (outputs); the flow edge runs between the pin nodes ([Action pins](#what-the-dot-writer-emits)) |
 | Pseudo-states and control nodes: initial a 10 px filled dot, final a 15 px bull's-eye, decision, merge and choice a diamond, fork and join a thin filled bar (10×60 px or 60×10 px), junction a dot, history a ring lettered H or H* | `shape=circle`/`doublecircle` with `fillcolor=black, label=""` at the stated box, or 0.2 in when none is stated; `shape=diamond`, 24×12 px when none is stated; a bar `shape=box, fillcolor=black, fixedsize=true` at the stated box's width and height, so a 10×60 box stands and a 60×10 box lies, 60×5 px when none is stated; `shape=circle, fillcolor=white, label="H"` (`"H*"`) for a history — drawn as symbols with no text inside even when no Layout sizes them, where the Pilot style needs a stated box; a name the model gave is set beside the symbol as `xlabel`, a synthesized one not at all |
-| Transition and edge labels: `trigger [guard] / effect` beside the line, not on it, the `accept` keyword and quotes off | one `label` per edge, never an `xlabel` beside it: the `EdgeKind` label text with `accept ` removed and every name bare (`Finished / diffTime`), placed with `lp` beside one of the route's segments — the candidates are the normals of every segment, scored for the state boxes and notes the label box would cover and for leaving the canvas, the least covered wins — so a label never sits on a box a route hugs ([Geometry](#geometry)) |
+| Transition and edge labels: `trigger [guard] / effect` beside the line, not on it, the `accept` keyword and quotes off | one `label` per edge, never an `xlabel` beside it: the `EdgeKind` label text with `accept ` removed and every name bare (`Finished / diffTime`), placed with `lp` beside the route's longest segment — the candidates step out from its midpoint on both sides, scored for the state boxes, notes and other routes' lines the label box would cover, for leaving the canvas and for the labels already placed, the least covered wins — so a label never sits on a box a route hugs, nor on another label ([Geometry](#geometry)) |
 | Notes: white box with a folded corner, `«comment»` above the text, a dashed anchor to the element | `shape=note`, `fillcolor="#FFFFFF"`, `color="#5B5B59"`, label `«comment»` at 9 pt over the text — left off a stated box too narrow for the word or too short for a body line below it — pinned at the Note's box; the anchor `style=dashed, arrowhead=none` |
 | Drop shadow: a 2 px light grey shadow under every box | dropped; Graphviz draws no shadow |
 | Corner radius: ~20 px on states and actions | Graphviz's fixed radius, as in the Pilot style |
@@ -818,13 +883,86 @@ digraph "PlantViews::placedView" {
   a corner and no positioned member has no box to state and pins its anchor at the corner.
 - **Edges.** A `Route` becomes `pos` as the cubic B-spline Graphviz reads: each segment's ends
   are its own control points, so the spline is the polyline through the waypoints. A route of
-  one waypoint draws no line; it is left out and noticed as `// not represented:`. Every edge a
+  one waypoint draws no line; it is left out and noticed as `// not represented:`. The edge's
+  texts are placed too (`labelPlacer` in `edge_labels.go`): its own label as `lp` beside the
+  midpoint of the route's longest segment, an end's name as `head_lp`/`tail_lp` beside the last
+  segment before that end, clear of the arrowhead there, or beside the middle of that segment
+  when the route is too short to hold the name beside any; each label is measured at the font
+  size it is drawn in (its `Style`'s when that sets one, else the skin's), centred clear of its
+  line by its half-extent and a 4 px gap, and takes the first of its candidate spots — the nearest,
+  the other side of the line, then a step farther along — that covers no drawn box, note or
+  routed line, stays on the canvas and overlaps no label placed before it, else the least
+  covered; an end name leaves its last segment for the ones before only when every spot beside
+  it lies on a box, a note or a label, bearing a line across it rather than straying from its
+  end; labels are placed in edge order, so the placement is the same on every run. Every edge a
   kind draws takes a route: a connection, binding or flow of an interconnection, a transition
   of a state rendering, a succession or flow of an action rendering — the annotation names the
   member (`metadata DiagramLayout::Route about 'a to b'`), so only a named edge can carry one.
+- **Compartment rows.** A migrated diagram gives a `Layout` only to what its source drew as a
+  symbol of its own; a block's attributes, nested parts, constraints, ports listed in a
+  compartment and enum literals never had one. In a positioned tree, a member child with no
+  position whose subtree holds no positioned node is drawn as a row of a compartment inside its
+  owner's box rather than left undrawn (`foldCompartments` in placement.go, run by every
+  graphical form before it settles the unplaced nodes; `Node.Compartments` carries the rows,
+  `labeller.compartmentLines` writes them). The rows are grouped by the member's keyword under
+  the plural compartment name of the graphical notation (§8.2.3 `compartment`): `attributes`,
+  `enumerations`, `occurrences`, `items`, `parts`, `ports`, `connections`, `interfaces`,
+  `allocations`, `actions`, `states`, `calculations`, `constraints`, `requirements`, `cases`,
+  `analyses`, `verifications`, `use cases`, `views`, `viewpoints`, `renderings`, `metadata`
+  (the order Part 7 of the language spec introduces the kinds), any other keyword after them in
+  first-seen order, and the rows of a compartment keep declaration order. A row is the member's
+  textual notation, as the label shows it: a modifier of its keyword (`ref`), its name, `: Type`
+  when typings are shown, `= value` when the usage is bound (`gain : dB = 15.0`,
+  `constraint1 : 'Signal Output'`; a value the renderer does not spell, such as an invocation,
+  is its source text; a member with no name or type to show reads as its keyword, as a head
+  does, so no row is ever empty). No edge is written to a member drawn as a row, and the
+  notice counts them (`4 node(s) without a position, drawn as compartment rows of the node
+  above them`); a row shows the member alone, so the members nested under a row are left undrawn
+  and the notice counts them apart (`, and 1 node(s) under them left undrawn`). A member of a
+  compartment the owner's `Layout` hides with a `show…` switch (`showParts = false`; see
+  [DiagramLayout annotations](diagram-layout-annotations.md)) is not drawn as a row and the
+  notice says so (`9 node(s) without a position: 7 drawn as compartment rows of the node above
+  them, 2 in compartments its Layout hides left undrawn`); its edges are dropped as a row's are. A member with a
+  `Layout` of its own stays a node (a compartment row by its box when inside the owner's, an edge
+  when outside), as does an unplaced member with a positioned node under it, so that node keeps
+  its owner. An unpositioned tree is unchanged: every member
+  stays a node of its own — unless the folding is asked for. `view.Options.Compartments`
+  (`-render-compartments`, `%render … compartments=`, `%viz --style COMPMOST|COMPTREE`, the
+  LSP and gRPC `compartments` field; `UnknownCompartmentsError` names the three) is `positioned`
+  by default, the behaviour above; `most` (the pilot's `COMPMOST`, `VCompartment.compartmentMost`)
+  folds every member child of a tree node that is a usage — not a definition, package, view node
+  or stand-in — with no `Layout` of its own and no positioned node, definition or package under it,
+  so the issue's `Controller` draws `enabled : Boolean` in `attributes` and `sensor : Sensor` in
+  `parts`; `ports` (the pilot's `COMPTREE`) folds the port usages alone, the ports nested under a
+  folded port listed under it as `hub.bearing` rows, the way the pilot's compartment tree nests
+  them. `most` folds every port `ports` folds and more, so the two values are exclusive and
+  `%viz` given both styles folds as `most`. Under either, an edge whose end is a row moves to the
+  row's owner (deduplicated; one whose ends both fall inside one owner is dropped), the owner's
+  containment of the row is dropped as the nesting the row stands for, a note anchored at a row
+  moves to the owner, and the notice counts the members `drawn as compartment rows of their
+  owner` (the nested members left undrawn counted apart, as above). In the data form a row is a
+  node whose `compartment` names the compartment of its `parent`. The default output is unchanged
+  in every form (`tree-compartments-most.*`, `tree-compartments-ports.*` goldens beside the
+  positioned `tree-compartments.*`). Nothing folds when `compartments` is not shown (`ElementCompartments`
+  off, `showCompartments = false`): the layout-less members are left undrawn as before. DOT keeps
+  the owner's box at its `Layout` size and fits the compartments into its headroom after the
+  title and detail lines (`fitParts`): a compartment's name is set at the keyword size, its rows
+  left-aligned at the title size, each kept only while the strip has room for it and none written
+  over the border; a compartment with no row that fits is dropped with its name, and once a row is
+  clipped every later row is, so the box reads in order. A `// not represented:` notice counts the
+  rows clipped (`2 compartment row(s) with no room in the stated size of their node's box, left
+  unwritten`); a box whose `Layout` has a corner and no size is sized to its rows
+  (`dotLabelExtent`). Mermaid, PlantUML and D2 write every row as a label line, as they write detail
+  lines, and size the box to it. The text form never settled the unplaced nodes and lists the
+  members as before; the data form is unchanged too — a row is a child `Node` with no `Geometry`
+  under a parent with one. The VS Code webview (`editors/vscode/src/webview/layout.ts`) draws
+  no compartment rows: it builds its tree from `Parent` and places such a child as a box of its
+  own in a grid slot (`placeGrid`), so it never dropped the member; drawing it as a row there
+  is the webview's own change to make.
 - **Unplaced nodes.** A node counts as positioned however its box was found — by its
   `Layout`, round its members, or from a route. When some nodes are positioned and others are
-  not, the drawing shows what its source showed: the unpositioned nodes are left undrawn, with
+  not, the drawing shows what its source showed: the unpositioned nodes are left undrawn (a
+  tree's member children of a positioned node list in its compartments instead, above), with
   every edge at one of them and the containment edge a tree would draw to it, and a
   `// not represented:` notice counts them (`2 node(s) without a position, left undrawn, and 1
   edge(s) at them`), so nothing lands on a placed box — a migrated diagram's members the source
@@ -1126,6 +1264,133 @@ Mermaid and PlantUML forms share, D2 laying the diagram out itself. A `-render-l
 each located node's and edge's URL as `link: "…"`
 beside its `class` — see [Source links](#source-links).
 
+## Optional notation elements
+
+SysML v2.0 (ptc/25-04-05) leaves several notation elements to the diagram: §7.26.5 says a
+definition or usage node *can* include symbols on its boundary for its ports and parameters
+and *can* include compartments, and the graphical BNF of §8.2.3 offers alternatives for the
+same model content — a case's actors as boundary `distinguished-parameter` symbols joined by
+a `distinguished-parameter-link` or the actor joined to the case node directly, a part's
+ports drawn or not, an edge's label, the `«keyword»` and the name's qualification, a
+multiplicity, a feature's `: Type`. A rendering draws the required notation and, of the
+optional, what it is told to show. `view.DefaultShown` is the default, one named constant:
+port symbols, compartments and keywords, the three the notation's own examples draw on every
+node. Each element has a name every surface uses and a Boolean
+attribute a rendering in the model chooses it by:
+
+| Element | Attribute | What it draws | Optional by |
+| --- | --- | --- | --- |
+| `parameter-symbols` | `showParameterSymbols` | A case's `actor`, `subject` and `stakeholder` parameters and an action's parameter pins as squares on the node's boundary. Without them a connection that ended at a parameter ends at the node that declares it: one line per connection, one node per actor. A tree lists a case's parameters as members, which stay. | §7.26.5; §8.2.3 `distinguished-parameter`, `distinguished-parameter-link` |
+| `port-symbols` | `showPortSymbols` | A part's ports, and a constraint's parameters, as pins on its boundary. Without them a connection that ended at a port ends at the part, a binding that ended at a parameter at the constraint; a port drawn as a nested member of a tree is model structure and stays. Default. | §7.26.5; §8.2.3 `port-node` |
+| `compartments` | `showCompartments` | The lists of nested features inside a node. Default. | §7.26.5; §8.2.3 `compartment` |
+| `edge-labels` | `showEdgeLabels` | The names of connections, flows, bindings and allocations along their lines. Without them no label box is left. A sequence diagram's message lines keep their labels: the label is the message. | §8.2.3 `edge-label` |
+| `keywords` | `showKeywords` | The `«keyword»` over each name (`«part def»`, `«part»`, `«enum def»`, …), as the notation's examples, the pilot and SysON draw every node. Default. | §8.2.3 `keyword-list` |
+| `multiplicities` | `showMultiplicities` | A feature's `[m..n]` after its name and at a composition's part end. | §8.2.3 `multiplicity` |
+| `typings` | `showTypings` | The `: Type` and `:> general` text after a name. | §8.2.3 `feature-typing-text` |
+| `qualifiers` | `showQualifiers` | The qualified-name prefix of each name, in the text form as in the diagram forms; without it a name is the shortest suffix of its qualified name that is its own in the rendering. | §8.2.3 `qualified-name` |
+
+In the model, a view chooses them by rendering a usage or definition that specializes a standard
+`Views` rendering and declares the attributes, each `true` to show the element and `false` to
+leave it out; a switch is declared `default` so that a rendering specializing the one declaring it
+redefines it (`:>>`) to turn it again. The renderer recognises the standard rendering through the specialization chain and
+reads the attributes from the chosen rendering and its generals, the nearest declaration of each
+deciding. An attribute left undeclared keeps the default, so a rendering need only name what it
+changes. The notation stays library-only — `ScalarValues::Boolean`, `rendering def`, `rendering`
+and the standard renderings — and the pilot validates it.
+
+```sysml
+private import ScalarValues::Boolean;
+rendering def PlainInterconnection :> Views::asInterconnectionDiagram {
+    attribute showParameterSymbols : Boolean default = false;
+    attribute showEdgeLabels : Boolean default = true;
+}
+rendering labelled :> PlainInterconnection { attribute :>> showParameterSymbols = true; }
+view useCases { expose Lab::*; render PlainInterconnection; }
+```
+
+Ad hoc, `-render-show <elements>`, the REPL's `show=<elements>` on `%render` and `%render-document`,
+the `show` array of the LSP `opensysml/render` and `opensysml/renderDocument` requests, of the
+sysml-engine `RenderView` request and of the gRPC `RenderView` RPC, the VS Code `opensysml.diagram.show` setting and a document
+diagram's `show` attribute ([authoring](../manual/authoring.md#diagrams)) add elements to what the
+rendering shows (or `all`); they never take one away. The elements are applied once, before any form is written, to a copy
+of the rendering (`Rendering.showing`): hidden parameter symbols and port symbols are removed
+with their edges' ends moved to the node that declared them and a note anchored at one moved
+likewise, hidden labels, typings, multiplicities, keywords, compartments and qualifiers are left
+unwritten, so DOT, Mermaid, PlantUML, D2, text and `Rendering.Data` agree. A name none of the
+elements has is refused with the names there are.
+
+## Limiting what a view draws
+
+A tree or interconnection rendering draws the contents of every element the view exposes, as the
+Pilot visualizer does; the specification leaves what a rendering draws to the tool (SysML v2
+§10.2). Three mechanisms bound it, all applied by the one containment walk (`Renderer.walkMembers`,
+`Renderer.walkBound`), so the DOT, Mermaid, PlantUML, D2 and text forms and `Rendering.Data` agree:
+
+- **`expose` and `filter`** (SysML v2 §7.24, normative). What a view exposes are its roots; its
+  filter conditions — `filter` members, the `[…]` clauses of its `expose` lines, and those
+  inherited from its view definition and that definition's supertypes — also decide which contained
+  members the walk draws beneath each root: a member a condition rejects is not drawn, nor its
+  subtree. The one admission (`semantics.Model.SatisfiesElementFilter`) decides roots and children
+  alike. So `filter @SysML::PartUsage;` prunes attributes and ports from a part tree, and a
+  standard metadata marker blacklists single elements:
+
+  ```sysml
+  metadata def Hidden;
+  part rover { part chassis; #Hidden part telemetry; }
+  view structure { expose rover; filter not @Hidden; render asTreeDiagram; }
+  ```
+
+  A connector whose end lies in a pruned element is not drawn and is counted in the notices
+  (`… attaches to telemetry.tx, which the view's filter conditions exclude; no edge is drawn`). A
+  view with no filter conditions renders as it always has.
+
+- **`depth`** (a non-normative convention). An attribute usage named `depth` bound to a
+  non-negative integer literal on the view usage, else on the nearest view definition it
+  specializes, bounds how many levels of nested elements are drawn below each exposed root; `0`
+  or none draws every level. Filtering applies first, so the levels are counted over what the
+  filters keep. Ports and action, case and constraint parameters count at their owner's depth, so an
+  element at the bound keeps them pinned on its border; it is drawn with its compartment rows, carries
+  the detail `nested deeper than N levels; not shown`, and the elements directly below the bound are
+  counted once in the notices. The bare form is the one SysIDE reads, so a model renders alike in
+  both tools; a view definition may declare the attribute typed (`attribute depth :
+  ScalarValues::Natural[0..1];`) for its specializations to redefine. The `OpenSysMLRenderings`
+  library is vendored from the OpenSysML Extensions Library, so a shared `DepthLimitedView`
+  declaring it belongs there, not in this tree:
+
+  ```sysml
+  view overview { expose vehicle; attribute depth = 2; render asTreeDiagram; }
+  view def DepthLimited { attribute depth : ScalarValues::Natural[0..1]; }
+  view def TwoLevels :> DepthLimited { :>> depth = 2; }
+  ```
+
+  A `depth` bound to anything but a non-negative integer literal is the `view-depth-value` error,
+  naming the attribute. `-render-depth`, `%render depth=`, the LSP request's `depth`, the gRPC
+  `RenderViewRequest.depth` and the VS Code `opensysml.diagram.depth` setting override the model's
+  depth for one render. Tables draw their rows unbounded: a table has no levels to cut.
+
+- **`DiagramLayout::Layout.collapsed`** (a non-normative convention,
+  [design record](diagram-layout-annotations.md)). A `Layout` with `collapsed = true` about an
+  element draws it with no children in every form, keeping its ports and the `collapsed` tag
+  (`comment="collapsed"` in DOT, ` collapsed` in text, `Geometry.Collapsed` in the data); its
+  `show…` switches hide single compartments, in the text form as in DOT. A `Layout` binding only
+  `collapsed` or `show…` switches needs no `x` and `y`: it folds or hides without placing
+  (`Geometry.Unplaced`), so the rendering stays one the form lays out itself rather than a
+  positioned one that leaves unplaced nodes undrawn. The LSP node then carries `collapsed` and no
+  `x`, `y`; the gRPC and engine renderings carry its geometry with `collapsed` and `unplaced` set,
+  the coordinates meaning nothing.
+
+  ```sysml
+  view wiring { expose vehicle; render asInterconnectionDiagram;
+      metadata Layout about vehicle::engine { collapsed = true; } }
+  ```
+
+A whitelist is the filter's other direction: `expose rover::**[@Shown]` selects the marked
+elements and draws each as a root, the condition pruning their unmarked contents as any filter
+does, and nothing synthesizes the ancestors between them; `filter @Shown` on `expose rover`
+rejects an unmarked root and renders empty, naming the filter. The specification's filter
+conditions exclude, they never add (SysML v2 §7.24), so a picture of a few deep elements with
+their context is stated by exposing the context and bounding its `depth`, not by a whitelist.
+
 ## Surfaces
 
 `dot`, `mermaid`, `plantuml` and `d2` are accepted wherever a diagram form is chosen,
@@ -1136,13 +1401,16 @@ refuse D2:
 | --- | --- | --- |
 | CLI | `-render <view> -render-form mermaid\|dot\|plantuml\|d2`; `-render-all <dir>` writes `.mmd`, `.dot`, `.puml` or `.d2`; `-render-palette <name>` fills nodes in each form where applicable | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view) |
 | REPL | `%render <view> mermaid\|dot\|plantuml\|d2 [palette] [pilot\|cameo]`; `%help` names the options; form, palette and style complete where accepted | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view) |
-| CLI run output | `-render-run timeline=<path>` or `sequence=<path>` writes text, Mermaid or PlantUML; `-render-link` links PlantUML timeline lanes and single-state spans and sequence participants; DOT is refused | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-run) |
-| REPL run output | `%render-run timeline\|sequence [text\|mermaid\|plantuml\|dot] [link=<template>]` renders the recorded run without changing the session; links follow the CLI run-rendering rules | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-run) |
+| CLI run output | `-render-run timeline=<path>` or `sequence=<path>` writes text, Mermaid, PlantUML or SVG (`.svg`; `-render-form svg-animated` for the SMIL replay); `-render-link` links PlantUML and SVG timeline lanes and single-state spans and sequence participants; DOT is refused | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-run) |
+| REPL run output | `%render-run timeline\|sequence [text\|mermaid\|plantuml\|svg\|svg-animated\|dot] [link=<template>]` renders the recorded run without changing the session; links follow the CLI run-rendering rules | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-run) |
 | LSP | `"form": "mermaid"`, `"dot"`, `"plantuml"` or `"d2"` and `"palette": "<name>"` on `opensysml/render`; `Rendering.Fills` carries each node's fill and border for clients drawing their own SVG | [`docs/reference/lsp.md`](../reference/lsp.md) |
 | VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented six for a server without it, which predates `csv` and `tsv`), sends the pick as `form`, and saves `.dot`, `.puml` or `.d2` (`.mmd`, `.md`, `.csv`, `.tsv`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`; `%render <view> mermaid [palette] [pilot\|cameo]`; `"style": "cameo"` on `opensysml/render` and the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. Unsupported style details receive a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`, on `-render`, `-render-all` and the document renderers; `%render <view> dot [palette] [pilot\|cameo]` and `%render-document <name> dot [style]`; `"style": "cameo"` on `opensysml/render`, the styles listed by the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. A form that draws no style writes a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` naming the styles there are | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
+| CLI, REPL, LSP, VS Code, documents | `-render-show <elements>` on `-render`, `-render-all`, `-render-document` and `-render-documents`; `%render <view> <form> show=<elements>` and `%render-document <name> <form> show=<elements>`; `"show": [...]` on `opensysml/render`, `opensysml/renderDocument`, the sysml-engine `RenderView` request and the gRPC `RenderView` RPC (`model.render_view(view, show=[...])` in Python), the `openSysmlRenderElements` capability listing the names and the result's `shown` what was drawn; a document diagram's `show` attribute; the `opensysml.diagram.show` setting in the diagram panel and export; a view's rendering chooses its own in the model ([optional notation elements](#optional-notation-elements)) | [`docs/reference/cli.md`](../reference/cli.md), [`docs/reference/repl-commands.md`](../reference/repl-commands.md), [`docs/reference/lsp.md`](../reference/lsp.md), [`editors/vscode/README.md`](../../editors/vscode/README.md) |
 | CLI, REPL, LSP, documents | `-render-ports minimal\|full` on `-render` and `-render-all`; `%render <view> <form> [minimal\|full]` in any order with the palette and style; `"ports": "full"` on `opensysml/render`, the displays listed by the `openSysmlRenderPorts` capability; `Diagram::ports` in a document, carried as `view.Options.Ports` (`invalid-ports`, `unsupported-ports` errors) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md), [`docs/manual/authoring.md`](../manual/authoring.md#diagrams) |
+| CLI, REPL, LSP | `-render-lines splines\|ortho\|polyline` on `-render` and `-render-all`; `%render <view> dot\|plantuml [splines\|ortho\|polyline]` in any order with the palette, style and port display, and `%viz --style ORTHOLINE\|POLYLINE`; `"lines": "ortho"` on `opensysml/render`, the routings listed by the `openSysmlRenderLines` capability; carried as `view.Options.Lines` (`UnknownLinesError`) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
+| CLI, REPL, LSP, gRPC, clients, documents | `-render-compartments positioned\|most\|ports` on `-render`, `-render-all`, `-render-document` and `-render-documents`; `%render <view> <form> compartments=<folding>`; `%viz --style COMPMOST\|COMPTREE`; `"compartments": "most"` on `opensysml/render`, the foldings listed by the `openSysmlRenderCompartments` capability; `compartments` on gRPC `RenderView`, whose rows carry their parent's `compartment`, and on the Python, Go, Rust and Node clients; carried as `view.Options.Compartments` (`UnknownCompartmentsError`) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | VS Code | The diagram panel's **Style** list and `opensysml.diagram.style`: `pilot` draws the panel's SVG under this section's B&W rules, `cameo` asks the server for the [Cameo look](#the-cameo-style), a palette name fills its nodes from the `fill` and `border` the server returns | [`editors/vscode/README.md`](../../editors/vscode/README.md#the-diagram-panel) |
 | CLI, REPL, LSP, VS Code | A table or matrix view takes `csv` or `tsv` as well: `-render <view> -render-form csv\|tsv` (`-render-all` writes `.csv` or `.tsv` for each tabular view and skips every other view), `%render <view> csv\|tsv`, `"form": "csv"` or `"tsv"` on `opensysml/render`. Either is a header record of the columns, then a record per row, fields quoted as RFC 4180 quotes them; a notice is never inside the records: the CLI writes it to standard error, LSP returns it in the response, and `%render` lists it after a blank line | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | Documents | `-render-document`/`-render-documents … -diagram-form mermaid\|dot\|plantuml\|d2`, `%render-document <name> mermaid\|dot\|plantuml\|d2`, `"diagramForm"` on `opensysml/renderDocument`: graph-shaped blocks use Mermaid, DOT, PlantUML or D2 source; HTML carries `data-palette` and `data-style`, and local Mermaid pictures are inlined before source is collected. PDF draws with the selected tool; absent optional DOT/PlantUML/D2 tools leave readable source under a notice, while a missing Mermaid CLI is an error. A `Diagram` block states what is drawn, not the notation; its palette and style apply where the selected form supports them | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md), [`docs/reference/environment.md`](../reference/environment.md) |
@@ -1160,7 +1428,7 @@ Run renderings describe a recorded execution, not a model view. A timeline is a 
 declared states rather than the states an object held during one run. A run sequence reuses
 `KindSequence` and its existing writers because both are lifelines with ordered messages.
 
-The timeline forms are text, Mermaid and PlantUML. Mermaid uses a compact Gantt chart with a
+The timeline forms are text, Mermaid, PlantUML and the two SVG forms below. Mermaid uses a compact Gantt chart with a
 shared time axis; Mermaid's `timeline` grammar groups categorical periods and has neither
 durations nor a shared time axis. PlantUML uses `concise` lifelines because parallel state
 configurations are free text rather than a fixed ordered state axis that `robust` requires. DOT
@@ -1169,6 +1437,50 @@ DOT. With source links enabled, PlantUML timeline lanes link to machine declarat
 link only when exactly one state is active; Mermaid gantt remains byte-identical because its
 `click` directives do not create anchors in Mermaid CLI SVGs. Run sequence links belong to object
 participants' type declarations, not messages or the environment participant.
+
+### SVG and animation
+
+`svg` and `svg-animated` are the only forms drawn by this implementation itself rather than
+handed to a diagram engine; they exist for run renderings only (`view.FormSVG`,
+`view.FormSVGAnimated`, written by `Rendering.SVGWith` in `internal/ir/view/run_svg.go`), and a
+model view asked for either gets the wrong-form error naming its forms. `view.ViewForms()` is the
+list without them, the forms a model view is written in: the LSP's `openSysmlRenderForms`, the
+REPL's `%render` completion and `-render-form`'s help and unknown-form error name those. Both kinds already carry
+geometry-free data — a timeline is lanes × clock time, a sequence is lifelines × message order —
+so the writer needs no layout engine, and the two kinds share one document frame (header, title,
+notices, escaping, links, animation timing) and differ only in the shapes.
+
+What is drawn. A timeline has the title and the notices the Mermaid form prints, one row per lane
+labelled `<object>.<machine>`, each state a rounded bar from its start to its end over a shared
+time axis ticked at the instants where some lane changes (tick labels thin out when they would
+overlap), a state held for no time a red tick, the transient states a span was entered through a
+red tick with a tooltip, and a lane's marks (choice, guard, terminate) yellow diamonds with their
+text as a tooltip; a bar's label is shortened with an ellipsis when it does not fit, its full text
+and `t = from to to` staying in a `<title>`. A sequence has one head box and dashed lifeline per
+participant and one labelled arrow per message in run order, a message to the sender itself as a
+loop. The run data carries no activation intervals, so none are drawn. `-render-link` wraps lane
+labels, single-state spans and object participants' heads in `<a href>` where the PlantUML form
+links them; messages and the environment participant are unlinked.
+
+Animation. `svg-animated` writes the same shapes with the same base attributes — the complete,
+final picture of the run — and adds SMIL `<animate>` elements, no script, so a viewer without
+SMIL shows the whole run and never a blank frame. Every animation shares one `dur` and
+`repeatCount="indefinite"`, so the loop stays in step without sync-base timing. In a timeline a
+cursor sweeps the axis at constant clock speed while each bar's `fill-opacity` steps to 1 for the
+clock span it was held and dims to 0.25 outside it (a state open at the end stays bright), and
+ticks and diamonds appear at their instants. In a sequence each message's group steps from
+hidden to shown at its turn while a marker travels along its arrow during that step. The pacing
+is `view.DefaultAnimationStep` (one second) per step — an instant at which some lane changes
+state, or a message — plus one step holding the final state before the replay loops;
+`view.Options.AnimationStep` overrides it.
+
+Hygiene. The output is deterministic: ids follow drawing order (`l0`, `l0s2`, `n1`, `m3`), there
+is no timestamp or random value, every text node and attribute value is XML-escaped, there is no
+`<script>`, `<style>`, `<foreignObject>`, `<image>` or `<use>`, the only `url(#…)` is the
+arrowhead marker, the `viewBox` matches the content and the only namespace is SVG's. Unlinked
+output passes `imagefile.CheckStaticSVG`, the check the document backends apply to inline
+pictures; a linked rendering carries external `href`s and so is refused by that check, as any
+linked picture would be.
 
 Each rendering is capped at 200 spans or messages for readability and to keep renderer input
 within practical text-size limits. Timelines select spans in stable time order, with lane order
@@ -1197,6 +1509,12 @@ no live run and therefore does not offer run rendering.
   truncated, guard, unmatched and broadcast-message cases; choice marks, self-transitions and
   DOT refusal. `internal/ir/view/run_timeline_test.go` checks that timeline form support does not
   make it a model view kind or a pseudo-view.
+- `internal/exec/runtrace/render_svg_test.go`: every SVG golden parses with `encoding/xml` as
+  one `svg` document with a `viewBox`, has no script, style, foreign object, image, use, event
+  handler or (unlinked) `href`, and passes `imagefile.CheckStaticSVG`, a linked golden carrying
+  its `<a href>` and being refused for it; two renderings are byte-identical; the animated form
+  stripped of its `<animate>` elements and markers equals the static form, and its animations
+  all loop over one duration; an empty run draws its reason.
 - `cmd/sysml/render_run_test.go` and `internal/frontend/repl/run_render_test.go`: CLI artifact
   output and incompatible modes, source links and invalid templates, and REPL output,
   missing-trace handling, form refusal, link parsing and completion.

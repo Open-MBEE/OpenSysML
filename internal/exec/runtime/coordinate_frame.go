@@ -85,13 +85,13 @@ func NewCoordinateTransformationValue(t *CoordinateTransformation) Value {
 	return Value{Kind: ValCoordinateTransformation, ref: t}
 }
 
-// IsScale reports whether the frame is a measurement scale.
-func (f *CoordinateFrame) IsScale() bool { return f != nil && f.Scale != nil }
+// isScale reports whether the frame is a measurement scale.
+func (f *CoordinateFrame) isScale() bool { return f != nil && f.Scale != nil }
 
-// FlattenedSize is the number of axes the dimensions shape: their product, 1 for
+// flattenedSize is the number of axes the dimensions shape: their product, 1 for
 // a scalar reference's empty dimensions; false when it is beyond int64, more
 // axes than anything can hold.
-func (f *CoordinateFrame) FlattenedSize() (int64, bool) {
+func (f *CoordinateFrame) flattenedSize() (int64, bool) {
 	return flattenedSize(f.Dimensions)
 }
 
@@ -110,7 +110,7 @@ func (f *CoordinateFrame) Name() string {
 		return f.Text
 	}
 	if f.Decl != nil {
-		return symbolText(f.Decl)
+		return SymbolText(f.Decl)
 	}
 	return "a coordinate frame"
 }
@@ -226,10 +226,10 @@ func (t *CoordinateTransformation) Name() string {
 		return unknownText
 	}
 	if t.Decl != nil {
-		return symbolText(t.Decl)
+		return SymbolText(t.Decl)
 	}
 	if t.Type != nil {
-		return "a " + symbolText(t.Type)
+		return "a " + SymbolText(t.Type)
 	}
 	return "a coordinate transformation"
 }
@@ -380,7 +380,7 @@ func frameOfReference(what string, val Value) (*CoordinateFrame, error) {
 		return scalarFrame(val.MeasurementRef()), nil
 	}
 	return nil, fmt.Errorf("%w: %s is %s, want a coordinate frame or a measurement reference",
-		ErrTypeMismatch, what, describeValue(val))
+		ErrTypeMismatch, what, DescribeValue(val))
 }
 
 // scaleAnchoredUnit is the unit a quantity `x [S]` on scale S carries: named by

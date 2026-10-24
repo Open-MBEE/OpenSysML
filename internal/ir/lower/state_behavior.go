@@ -37,6 +37,9 @@ type StateBehavior struct {
 	// the steps of that body and by no other: a `terminate` in one ends them all.
 	// Every other behavior is a performance of its own and has none (nil).
 	Block ast.Node
+	// Ordered marks a Body whose statements run in the order written where a
+	// schedule would otherwise pick it: a terminate node's body, then its terminate.
+	Ordered bool
 }
 
 // StateBehaviors are the lowered entry, do and exit behaviors of one state, each
@@ -105,7 +108,7 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 		behavior.Name = node.Name
 		behavior.Body = lowerActionExecution(node, scope)
 	default:
-		behavior.Body = []Statement{lowerStatement(action, scope, resolver)}
+		behavior.Body = []Statement{lowerStatement(action, scope, resolver, nil)}
 	}
 	behavior.Nodes = blockNodesOf(behavior.Body, nil)
 	behavior.Multiplicities = make(map[ast.Node]*ast.Multiplicity)
@@ -126,7 +129,7 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 // one stating none runs its statements in declaration order.
 func lowerBehaviorBody(node *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver) Statement {
 	if !statesOwnFlow(node.Members) {
-		return lowerBlock(node, node.Members, scope, resolver)
+		return lowerBlock(node, node.Members, scope, resolver, nil)
 	}
 	graph, err := ToActionGraphWith(node, scope, resolver)
 	if err != nil {
@@ -184,14 +187,44 @@ func performsAction(usage *ast.Usage) bool {
 	for _, rel := range usage.Relationships {
 		switch rel.Target.(type) {
 		case *ast.QualifiedName:
-			if rel.Kind == ast.RelTyping || rel.Kind == ast.RelReferences {
+			if rel.Kind == ast.RelTyping || rel.Kind.ReferenceSubsets() {
 				return true
 			}
 		case *ast.FeatureChainExpr:
-			if rel.Kind == ast.RelReferences {
+			if rel.Kind.ReferenceSubsets() {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// terminateBehavior is the performance a transition ending at a terminate action
+// usage naming an occurrence (`action halt terminate worker;`) makes of it: what
+// its body states, as a behavior's inline body runs, then the terminate ending
+// what the usage names, with the attributes of owner, the composite state
+// declaring the usage, nil for the machine.
+func terminateBehavior(usage *ast.Usage, scope *symbols.Scope, owner *ast.StateNode, resolver *resolve.Resolver) StateBehavior {
+	name, _ := ast.EffectiveName(usage)
+	var body []Statement
+	if usage.HasBody {
+		body = append(body, lowerBehaviorBody(usage, childScope(scope, usage), resolver))
+	}
+	behavior := StateBehavior{
+		Node:           usage,
+		Name:           name,
+		Body:           append(body, terminateUsageEffect(usage, scope)),
+		Multiplicities: make(map[ast.Node]*ast.Multiplicity),
+		Multiplicity:   usage.Multiplicity,
+		Scope:          scope,
+		Owner:          owner,
+		Ordered:        true,
+	}
+	behavior.Nodes = blockNodesOf(behavior.Body, nil)
+	for _, graph := range BlockFlows(behavior.Body) {
+		for node, multiplicity := range graph.Multiplicities {
+			behavior.Multiplicities[node] = multiplicity
+		}
+	}
+	return behavior
 }

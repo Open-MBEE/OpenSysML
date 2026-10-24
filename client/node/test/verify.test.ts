@@ -183,7 +183,7 @@ test("a satisfaction verdict takes only the verifications of its own requirement
         { kind: "satisfy", elementId: "Demo::s3", holds: true },
       ],
       verificationVerdicts: [
-        { caseId: "c1", kind: "pass", requirementId: "Demo::r1" },
+        { caseId: "c1", kind: "pass", requirementId: "Demo::r1", instanceId: 1n, instanceTypeId: "Demo::sedan" },
         { caseId: "c2", kind: "fail", requirementId: "Demo::r2" },
         { caseId: "c3", kind: "pass", requirementId: "Demo::r1" },
       ],
@@ -197,6 +197,10 @@ test("a satisfaction verdict takes only the verifications of its own requirement
   assert.deepEqual(
     verdicts[1]?.verdict.verifications.map((v) => v.caseId),
     ["c2"],
+  );
+  assert.deepEqual(
+    verdicts[0]?.verdict.verifications.map((v) => [v.instanceId, v.instanceTypeId]),
+    [[1n, "Demo::sedan"], [0n, ""]],
   );
   assert.deepEqual(verdicts[2]?.verdict.verifications, []);
 });

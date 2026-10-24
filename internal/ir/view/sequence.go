@@ -29,7 +29,7 @@ func runParticipantLabel(node *Node) string {
 // lifeline list is flat — a sequence diagram nests nothing — so a message
 // attaching to an event nested in a lifeline is drawn on that lifeline. Anything
 // a sequence rendering cannot show is reported rather than dropped.
-func (r *Renderer) renderSequence(exposed []*symbols.Symbol, out *Rendering) {
+func (r *Renderer) renderSequence(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
 	lifelines := map[*symbols.Symbol]*Node{}
 	stated := &interactions{}
@@ -52,7 +52,9 @@ func (r *Renderer) renderSequence(exposed []*symbols.Symbol, out *Rendering) {
 					name = localName(participant)
 				}
 				node := &Node{ID: ids.take(), Kind: declKind(participant), Name: name, NameSynthesized: r.model.NameSynthesized(participant),
-					Type: declType(participant), Typings: r.declTypings(participant), Origin: symbolOrigin(participant)}
+					Type: r.headType(participant), Typings: r.headTypings(participant), Origin: symbolOrigin(participant),
+					Geometry: r.geometryOf(view, participant, out)}
+				r.dress(view, participant, node, out)
 				out.Roots = append(out.Roots, node)
 				lifelines[participant] = node
 			}
@@ -69,7 +71,7 @@ func (r *Renderer) renderSequence(exposed []*symbols.Symbol, out *Rendering) {
 			"%s states no direction; a sequence rendering shows directed messages only",
 			r.noticeSubject(connector)))
 	}
-	out.Edges = r.orderMessages(r.messages(stated.flows, lifelines, out), stated.orders, out)
+	out.Edges = r.orderMessages(r.messages(view, stated.flows, lifelines, out), stated.orders, out)
 }
 
 // lifelinesOf are the lifelines an exposed element contributes: the occurrences
@@ -97,7 +99,10 @@ func (r *Renderer) lifelinesOf(elem *symbols.Symbol) []*symbols.Symbol {
 type message struct {
 	flow     *symbols.Symbol
 	from, to *symbols.Symbol
-	edge     Edge
+	// Whether each end is an event of its own on the lifeline, with a time the
+	// orders can state, rather than the lifeline itself or a port of it.
+	fromTimed, toTimed bool
+	edge               Edge
 }
 
 // order is a sequence the model states between two occurrences, and how a notice
@@ -266,7 +271,7 @@ func declaredMembers(decl ast.Node) []ast.Node {
 // declarations. An end naming nothing the rendering shows is reported and the
 // message dropped; both ends resolving to one lifeline is a self-message, which
 // a sequence diagram draws.
-func (r *Renderer) messages(flows []*symbols.Symbol, lifelines map[*symbols.Symbol]*Node, out *Rendering) []message {
+func (r *Renderer) messages(view *symbols.Symbol, flows []*symbols.Symbol, lifelines map[*symbols.Symbol]*Node, out *Rendering) []message {
 	var messages []message
 	for _, flow := range flows {
 		usage, _ := flow.Decl.(*ast.Usage)
@@ -277,6 +282,7 @@ func (r *Renderer) messages(flows []*symbols.Symbol, lifelines map[*symbols.Symb
 		}
 		var ends []*symbols.Symbol
 		var nodes []*Node
+		var timed []bool
 		for _, end := range []ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
 			occurrence, node := r.messageEnd(flow, ast.EndTarget(end), lifelines)
 			if node == nil {
@@ -286,14 +292,16 @@ func (r *Renderer) messages(flows []*symbols.Symbol, lifelines map[*symbols.Symb
 				break
 			}
 			ends, nodes = append(ends, occurrence), append(nodes, node)
+			timed = append(timed, lifelines[occurrence] != node && lifelineLike(occurrence))
 		}
 		if len(nodes) != 2 {
 			continue
 		}
 		messages = append(messages, message{
-			flow: flow, from: ends[0], to: ends[1],
+			flow: flow, from: ends[0], to: ends[1], fromTimed: timed[0], toTimed: timed[1],
 			edge: Edge{From: nodes[0].ID, To: nodes[1].ID, Label: r.messageLabel(flow), Kind: EdgeFlow,
-				Origin: symbolOrigin(flow)},
+				Origin: symbolOrigin(flow), Route: r.routeOf(view, flow, out),
+				Style: r.edgeDress(view, flow, nodes[0].ID, nodes[1].ID, out)},
 		})
 	}
 	sort.SliceStable(messages, func(i, j int) bool { return declaredBefore(messages[i].flow, messages[j].flow) })
@@ -411,61 +419,143 @@ func declaredBefore(a, b *symbols.Symbol) bool {
 	return a.DeclSpan.Offset < b.DeclSpan.Offset
 }
 
-// orderMessages is the messages in the order the model states. The model states
-// no order over messages directly: it orders the occurrences they run between,
-// so the occurrences are sorted and each message takes the place of the one it
-// runs from. A cycle among the stated orders cannot be sorted, so it is reported
-// and declaration order stands for the whole rendering.
+// orderMessages is the messages in the order the model states: each one a row
+// its events share, sorted by the orders between those events (declaration order
+// between rows nothing orders); a cycle is reported and declaration order stands.
 func (r *Renderer) orderMessages(messages []message, orders []order, out *Rendering) []Edge {
 	occurrences := sequencedOccurrences(messages, orders)
 	at := make(map[*symbols.Symbol]int, len(occurrences))
 	for i, occurrence := range occurrences {
 		at[occurrence] = i
 	}
-	later := make([][]int, len(occurrences))
-	indegree := make([]int, len(occurrences))
-	constrain := func(from, to *symbols.Symbol) bool {
-		i, iOK := at[from]
-		j, jOK := at[to]
-		if !iOK || !jOK || i == j {
-			return false
-		}
-		later[i] = append(later[i], j)
-		indegree[j]++
-		return true
-	}
-	for _, msg := range messages {
-		constrain(msg.from, msg.to)
-	}
 	stated := make([]order, 0, len(orders))
 	for _, o := range orders {
-		if constrain(o.from, o.to) {
-			stated = append(stated, o)
+		if _, ok := at[o.from]; ok && o.from != o.to {
+			if _, ok := at[o.to]; ok {
+				stated = append(stated, o)
+			}
 		}
 	}
-	if sorted, ok := stableTopological(later, indegree); ok {
-		rank := make(map[*symbols.Symbol]int, len(sorted))
-		for place, i := range sorted {
-			rank[occurrences[i]] = place
+	// The events first: an order against a message's own send → receive
+	// direction cannot hold on one row however the rows are placed.
+	eventsLater := make([][]int, len(occurrences))
+	eventsIndegree := make([]int, len(occurrences))
+	for _, msg := range messages {
+		if i, j := at[msg.from], at[msg.to]; msg.fromTimed && msg.toTimed && i != j {
+			eventsLater[i] = append(eventsLater[i], j)
+			eventsIndegree[j]++
 		}
-		// A row states order at both ends, so the receiving occurrence ranks first;
-		// each message's own from → to edge carries the sending order into it.
-		sort.SliceStable(messages, func(i, j int) bool {
-			if rank[messages[i].to] != rank[messages[j].to] {
-				return rank[messages[i].to] < rank[messages[j].to]
-			}
-			return rank[messages[i].from] < rank[messages[j].from]
-		})
+	}
+	for _, o := range stated {
+		eventsLater[at[o.from]] = append(eventsLater[at[o.from]], at[o.to])
+		eventsIndegree[at[o.to]]++
+	}
+	var cyclic []string
+	if placed, ok := stableTopological(eventsLater, eventsIndegree); !ok {
+		cyclic = r.cyclicOrders(stated, at, placed)
 	} else {
+		cyclic = r.sortMessageRows(messages, occurrences, stated)
+	}
+	if cyclic != nil {
 		out.Notices = append(out.Notices, fmt.Sprintf(
 			"successions form a cycle (%s); the messages are shown in declaration order",
-			strings.Join(r.cyclicOrders(stated, at, sorted), ", ")))
+			strings.Join(cyclic, ", ")))
 	}
 	edges := make([]Edge, 0, len(messages))
 	for _, msg := range messages {
 		edges = append(edges, msg.edge)
 	}
 	return edges
+}
+
+// sortMessageRows sorts the messages by the orders between their rows, or
+// reports the orders forming a cycle and leaves the messages as declared.
+func (r *Renderer) sortMessageRows(messages []message, occurrences []*symbols.Symbol, stated []order) []string {
+	rowOf, row, rows := messageRows(messages, occurrences)
+	later := make([][]int, rows)
+	indegree := make([]int, rows)
+	for _, o := range stated {
+		if i, j := row[o.from], row[o.to]; i != j {
+			later[i] = append(later[i], j)
+			indegree[j]++
+		}
+	}
+	sorted, ok := stableTopological(later, indegree)
+	if !ok {
+		return r.cyclicOrders(stated, row, sorted)
+	}
+	rank := make([]int, rows)
+	for place, i := range sorted {
+		rank[i] = place
+	}
+	place := make(map[*symbols.Symbol]int, len(messages))
+	for i, msg := range messages {
+		place[msg.flow] = rank[rowOf[i]]
+	}
+	sort.SliceStable(messages, func(i, j int) bool {
+		return place[messages[i].flow] < place[messages[j].flow]
+	})
+	return nil
+}
+
+// messageRows numbers the rows the orders sort: events on no message first (one
+// each), then the messages in declaration order, those sharing an event as one.
+func messageRows(messages []message, occurrences []*symbols.Symbol) ([]int, map[*symbols.Symbol]int, int) {
+	parent := make([]int, len(messages))
+	for i := range parent {
+		parent[i] = i
+	}
+	find := func(i int) int {
+		for parent[i] != i {
+			parent[i] = parent[parent[i]]
+			i = parent[i]
+		}
+		return i
+	}
+	holder := make(map[*symbols.Symbol]int, 2*len(messages))
+	for i, msg := range messages {
+		for _, end := range msg.events() {
+			if j, ok := holder[end]; ok {
+				parent[find(i)] = find(j)
+			} else {
+				holder[end] = i
+			}
+		}
+	}
+	rows := 0
+	row := make(map[*symbols.Symbol]int, len(occurrences))
+	for _, occurrence := range occurrences {
+		if _, held := holder[occurrence]; !held {
+			row[occurrence] = rows
+			rows++
+		}
+	}
+	numbered := make([]int, len(messages))
+	rowOf := make([]int, len(messages))
+	for i := range messages {
+		root := find(i)
+		if numbered[root] == 0 {
+			rows++
+			numbered[root] = rows
+		}
+		rowOf[i] = numbered[root] - 1
+	}
+	for end, i := range holder {
+		row[end] = rowOf[i]
+	}
+	return rowOf, row, rows
+}
+
+// events are the ends of a message that are events of their own on a lifeline.
+func (m message) events() []*symbols.Symbol {
+	var events []*symbols.Symbol
+	if m.fromTimed {
+		events = append(events, m.from)
+	}
+	if m.toTimed {
+		events = append(events, m.to)
+	}
+	return events
 }
 
 // sequencedOccurrences are the occurrences the message order is sorted over: the

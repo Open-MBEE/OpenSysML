@@ -1,8 +1,8 @@
 step 1: token 1@loop
 eval literal 0 -> 0
 eval literal 0 -> 0
-eval feature iIn -> 0
-eval feature sIn -> 0
+eval feature iIn -> (0)
+eval feature sIn -> (0)
 eval literal false -> false
 enter action node: loop
 step 2: token 1@start
@@ -20,38 +20,38 @@ enter action node: loop body of action node iterate
 enter action node: test
     eval feature i -> 0
     eval feature s -> 0
-    eval chain r -> 0
+    eval chain r -> (0)
     stmt assign r
-        eval feature x -> 0
-        eval feature y -> 0
+        eval feature x -> (0)
+        eval feature y -> (0)
       eval operator <= -> true
     stmt assign k
         eval literal 10 -> 10
-        eval feature x -> 0
+        eval feature x -> (0)
       eval operator * -> 0
 leave action node: test
     stmt if
-        eval chain r -> true
+        eval chain r -> (true)
       eval operator not -> false
 enter action node: branch body of loop body of action node iterate
 enter action node: body
       eval feature s -> 0
-      eval chain k -> 0
+      eval chain k -> (0)
       stmt assign r
-          eval feature x -> 0
-          eval feature y -> 0
+          eval feature x -> (0)
+          eval feature y -> (0)
         eval operator + -> 0
       eval feature i -> 0
       stmt assign r
-          eval feature x -> 0
+          eval feature x -> (0)
           eval literal 1 -> 1
         eval operator + -> 1
 leave action node: body
 enter action node: next
       stmt assign i
-        eval chain r -> 1
+        eval chain r -> (1)
       stmt assign s
-        eval chain r -> 0
+        eval chain r -> (0)
 leave action node: next
 leave action node: branch body of loop body of action node iterate
 leave action node: loop body of action node iterate
@@ -61,18 +61,18 @@ enter action node: loop body of action node iterate
 enter action node: test
     eval feature i -> 1
     eval feature s -> 0
-    eval chain r -> 0
+    eval chain r -> (0)
     stmt assign r
-        eval feature x -> 1
-        eval feature y -> 0
+        eval feature x -> (1)
+        eval feature y -> (0)
       eval operator <= -> false
     stmt assign k
         eval literal 10 -> 10
-        eval feature x -> 1
+        eval feature x -> (1)
       eval operator * -> 10
 leave action node: test
     stmt if
-        eval chain r -> false
+        eval chain r -> (false)
       eval operator not -> true
       stmt assign ended
         eval literal true -> true

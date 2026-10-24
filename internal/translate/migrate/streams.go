@@ -70,24 +70,14 @@ func (m *migration) streamRecord(d *sysmlv1.Diagram) *mtip.Diagram {
 			rec.Connectors = append(rec.Connectors, c)
 		case s.Bounds != nil:
 			b := s.Bounds
+			hidden, unsupported := hiddenCompartments(s)
 			rec.Placements = append(rec.Placements, mtip.Placement{
-				ID: s.ElementID, Type: s.Class, X: b.X, Y: b.Y, Width: b.Width, Height: b.Height, OnPath: onPath(s),
+				ID: s.ElementID, Type: s.Class, X: b.X, Y: b.Y, Width: b.Width, Height: b.Height, OnPath: s.OnPath(),
+				HiddenCompartments: hidden, UnsupportedCompartments: unsupported,
 			})
 		}
 	}
 	return rec
-}
-
-// onPath reports a shape nested in a path symbol: the tool keeps a line's end
-// symbols there (an association's Role, a connector's ConnectorEnd), so the
-// shape marks where the line ends and stands for no node of its own.
-func onPath(s *sysmlv1.Symbol) bool {
-	for p := s.Parent; p != nil; p = p.Parent {
-		if p.IsPath() {
-			return true
-		}
-	}
-	return false
 }
 
 // layoutSources names where a view's geometry came from.
@@ -128,9 +118,24 @@ func (m *migration) layoutRecord(v *view) (*mtip.Diagram, layoutSources) {
 			onPath[p.ID] = p.OnPath
 		}
 	}
+	// Nor about suppressed compartments: the stream's settings stay with the
+	// export's box when the element's symbols agree on the hidden kinds.
+	compartments := map[string]mtip.Placement{}
+	disagree := map[string]bool{}
+	for _, p := range stream.Placements {
+		if first, ok := compartments[p.ID]; !ok {
+			compartments[p.ID] = p
+		} else if !slices.Equal(first.HiddenCompartments, p.HiddenCompartments) {
+			disagree[p.ID] = true
+		}
+	}
 	for i := range merged.Placements {
 		if onPath[merged.Placements[i].ID] {
 			merged.Placements[i].OnPath = true
+		}
+		if c, ok := compartments[merged.Placements[i].ID]; ok && !disagree[c.ID] {
+			merged.Placements[i].HiddenCompartments = c.HiddenCompartments
+			merged.Placements[i].UnsupportedCompartments = c.UnsupportedCompartments
 		}
 	}
 	routed := map[string]bool{}

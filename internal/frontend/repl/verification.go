@@ -21,29 +21,48 @@ type VerificationVerdict struct {
 	Detail string
 	// Subcase marks a case another case performed as a step of its body.
 	Subcase bool
+	// Object names the object the case ran as a feature of, by its usage and
+	// id; empty for a package-level case.
+	Object string
 }
 
-// withVerifications appends to a verdict the body verdict of every verification
-// case in the session that verifies req, and of every subcase those cases
-// perform. A requirement no case verifies adds nothing.
-func (s *Session) withVerifications(v Verdict, ctx *runtime.Context, req *symbols.Symbol) Verdict {
+// withVerifications appends to a verdict about subject the body and subcase verdicts of every
+// verification case verifying req, a type-owned case run on each object of it subject is or holds.
+func (s *Session) withVerifications(v Verdict, ctx *runtime.Context, req *symbols.Symbol, subject *runtime.Instance) Verdict {
 	if ctx == nil || req == nil {
 		return v
 	}
-	for _, verdict := range ctx.VerificationVerdictsIn(s.docScopes(), req) {
-		v.Verifications = append(v.Verifications, VerificationVerdict{
-			Case: verdict.Case, Kind: string(verdict.Kind), Detail: verdict.Detail,
-			Subcase: verdict.Subcase,
-		})
-		v.Lines = append(v.Lines, verificationLine(verdict))
+	for _, verdict := range ctx.VerificationVerdictsOn(s.docScopes(), req, subject) {
+		v.Verifications = append(v.Verifications, verificationVerdictOf(ctx, verdict))
+		v.Lines = append(v.Lines, verificationLine(ctx, verdict))
 	}
 	return v
 }
 
+// verificationVerdictOf reports one body verdict as data, naming the object the case ran on.
+func verificationVerdictOf(ctx *runtime.Context, v runtime.VerificationVerdict) VerificationVerdict {
+	return VerificationVerdict{
+		Case: v.Case, Kind: string(v.Kind), Detail: v.Detail, Subcase: v.Subcase,
+		Object: verificationObject(ctx, v),
+	}
+}
+
+// verificationObject names the object a case ran as a feature of as objectText does, "" for none.
+func verificationObject(ctx *runtime.Context, v runtime.VerificationVerdict) string {
+	if v.Subject == nil {
+		return ""
+	}
+	return objectText(ctx, runtime.Value{Kind: runtime.ValInstance, Instance: v.Subject.ID})
+}
+
 // verificationLine reports one body verdict the way the prompt reports every
-// other one: a mark, what ran, and the verdict it answered.
-func verificationLine(v runtime.VerificationVerdict) string {
-	line := fmt.Sprintf("%s Verification %s verdict: %s", verdictMark(v.Kind), v.Case, v.Kind)
+// other one: a mark, what ran, the object it ran on, and the verdict it answered.
+func verificationLine(ctx *runtime.Context, v runtime.VerificationVerdict) string {
+	line := fmt.Sprintf("%s Verification %s", verdictMark(v.Kind), v.Case)
+	if object := verificationObject(ctx, v); object != "" {
+		line += " on " + object
+	}
+	line += " verdict: " + string(v.Kind)
 	if v.Subcase {
 		line += " (subcase)"
 	}

@@ -17,7 +17,7 @@ const lintTypo = `package P {
 func TestDisableLintSilencesALint(t *testing.T) {
 	binary := buildCLI(t)
 	wantReport(t, check(t, binary, lintTypo, "-validate"), 0, "`when Pnig` names no declaration", "did you mean Ping?")
-	wantReport(t, check(t, binary, lintTypo, "-strict", "-validate"), 0, "warning: `when Pnig`")
+	wantReport(t, check(t, binary, lintTypo, "-strict", "-validate"), 0, "warning[undeclared-signal]: `when Pnig`")
 	got := check(t, binary, lintTypo, "-disable-lint", passes.CodeUndeclaredSignal+","+passes.CodePortTypeMismatch, "-validate")
 	wantReport(t, got, 0)
 	if strings.Contains(got.output(), "Pnig") {
@@ -53,7 +53,7 @@ func TestEnableLintReportsAnOptInLint(t *testing.T) {
 		t.Fatalf("an opt-in lint reported by default:\n%s", quiet.output())
 	}
 	wantReport(t, check(t, binary, roundedLiteral, "-enable-lint", passes.CodeRoundedRealLiteral, "-validate"), 0,
-		"warning: 0.1 is rounded to the nearest Real, 0.10000000000000001")
+		"warning[rounded-real-literal]: 0.1 is rounded to the nearest Real, 0.10000000000000001")
 	both := check(t, binary, roundedLiteral, "-enable-lint", passes.CodeRoundedRealLiteral,
 		"-disable-lint", passes.CodeRoundedRealLiteral, "-validate")
 	wantReport(t, both, 0)

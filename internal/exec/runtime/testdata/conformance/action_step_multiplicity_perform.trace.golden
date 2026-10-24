@@ -16,6 +16,6 @@ stmt assign c
   eval operator + -> 1
 step 2: token 1@done
 step 3: no active tokens
-choice step 3: tokens 1@p, 2@p (unordered; took 2@p first)
+choice step 3: tokens 1@p, 2@p (unordered; took 2@p first; order-dependent)
 step 3: token 1@done
 step 4: no active tokens

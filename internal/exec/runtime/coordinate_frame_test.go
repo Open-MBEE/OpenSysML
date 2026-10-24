@@ -61,8 +61,8 @@ func TestCoordinateFrameDescribed(t *testing.T) {
 		if got := describeOperand(val); got != tc.operand {
 			t.Errorf("describeOperand(%s) = %q, want %q", tc.expr, got, tc.operand)
 		}
-		if got := describeValue(val); got != tc.value {
-			t.Errorf("describeValue(%s) = %q, want %q", tc.expr, got, tc.value)
+		if got := DescribeValue(val); got != tc.value {
+			t.Errorf("DescribeValue(%s) = %q, want %q", tc.expr, got, tc.value)
 		}
 		if got := FormatValue(val); got != tc.text {
 			t.Errorf("FormatValue(%s) = %q, want %q", tc.expr, got, tc.text)

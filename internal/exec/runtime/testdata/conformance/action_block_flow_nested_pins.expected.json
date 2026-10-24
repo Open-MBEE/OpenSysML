@@ -3,7 +3,7 @@
 	"evaluate": "test::outer",
 	"outputs": {
 		"total": {"type": "Integer", "value": 9},
-		"run.leg.v": {"type": "Integer", "value": 5},
-		"run.leg.inner.v": {"type": "Integer", "value": 4}
+		"run.leg.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]},
+		"run.leg.inner.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 4}]}
 	}
 }

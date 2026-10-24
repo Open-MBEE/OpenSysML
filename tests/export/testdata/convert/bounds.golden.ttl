@@ -105,17 +105,18 @@ elmt:Bounds__Fleet__exact
     sysml:owner elmt:Bounds__Fleet ;
     sysml:owningRelationship elmt:Bounds__Fleet__exact_om ;
     sysml:owningMembership elmt:Bounds__Fleet__exact_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "exact" ;
     sysml:type elmt:Bounds__Vehicle ;
     sysml:multiplicity expr:Bounds__Fleet__exact_pmultiplicity ;
-    sysml:ownedRelationship expr:Bounds__Fleet__exact_pmultiplicity_om, elmt:Bounds__Fleet__exact_ft0 ;
+    sysml:ownedRelationship elmt:Bounds__Fleet__exact_ft0, expr:Bounds__Fleet__exact_pmultiplicity_om ;
     sysml:ownedMembership expr:Bounds__Fleet__exact_pmultiplicity_om ;
     sysml:upperBound expr:Bounds__Fleet__exact_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Bounds__Fleet__exact_ft0 ;
     sysml:ownedSpecialization elmt:Bounds__Fleet__exact_ft0 ;
     sysx:sourceText "        part exact : Vehicle[3];\n" ;
-    json:ownedRelationship "[{\"@id\":\"Bounds__Fleet__exact_pmultiplicity_om\"},{\"@id\":\"Bounds__Fleet__exact_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Bounds__Fleet__exact_ft0\"},{\"@id\":\"Bounds__Fleet__exact_pmultiplicity_om\"}]" .
 
 elmt:Bounds__Fleet__exact_om
     a sysml:FeatureMembership ;
@@ -131,6 +132,7 @@ elmt:Bounds__Fleet__exact_om
 
 expr:Bounds__Fleet__exact_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Bounds__Fleet__exact_pmultiplicity" ;
     sysml:owner elmt:Bounds__Fleet__exact ;
     sysml:owningRelationship expr:Bounds__Fleet__exact_pmultiplicity_om ;
@@ -153,6 +155,7 @@ expr:Bounds__Fleet__exact_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "3" ;
     sysml:elementId "Bounds__Fleet__exact_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "3"^^xsd:integer ;
     sysml:owner expr:Bounds__Fleet__exact_pmultiplicity ;
     sysml:owningRelationship expr:Bounds__Fleet__exact_pupperBound_om ;
@@ -181,10 +184,11 @@ elmt:Bounds__Fleet__range
     sysml:owner elmt:Bounds__Fleet ;
     sysml:owningRelationship elmt:Bounds__Fleet__range_om ;
     sysml:owningMembership elmt:Bounds__Fleet__range_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "range" ;
     sysml:type elmt:Bounds__Vehicle ;
     sysml:multiplicity expr:Bounds__Fleet__range_pmultiplicity ;
-    sysml:ownedRelationship expr:Bounds__Fleet__range_pmultiplicity_om, elmt:Bounds__Fleet__range_ft0 ;
+    sysml:ownedRelationship elmt:Bounds__Fleet__range_ft0, expr:Bounds__Fleet__range_pmultiplicity_om ;
     sysml:ownedMembership expr:Bounds__Fleet__range_pmultiplicity_om ;
     sysml:lowerBound expr:Bounds__Fleet__range_plowerBound ;
     sysml:upperBound expr:Bounds__Fleet__range_pupperBound ;
@@ -192,7 +196,7 @@ elmt:Bounds__Fleet__range
     sysml:ownedTyping elmt:Bounds__Fleet__range_ft0 ;
     sysml:ownedSpecialization elmt:Bounds__Fleet__range_ft0 ;
     sysx:sourceText "        part range : Vehicle[1..4];\n" ;
-    json:ownedRelationship "[{\"@id\":\"Bounds__Fleet__range_pmultiplicity_om\"},{\"@id\":\"Bounds__Fleet__range_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Bounds__Fleet__range_ft0\"},{\"@id\":\"Bounds__Fleet__range_pmultiplicity_om\"}]" .
 
 elmt:Bounds__Fleet__range_om
     a sysml:FeatureMembership ;
@@ -208,6 +212,7 @@ elmt:Bounds__Fleet__range_om
 
 expr:Bounds__Fleet__range_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Bounds__Fleet__range_pmultiplicity" ;
     sysml:owner elmt:Bounds__Fleet__range ;
     sysml:owningRelationship expr:Bounds__Fleet__range_pmultiplicity_om ;
@@ -233,6 +238,7 @@ expr:Bounds__Fleet__range_plowerBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "Bounds__Fleet__range_plowerBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "1"^^xsd:integer ;
     sysml:owner expr:Bounds__Fleet__range_pmultiplicity ;
     sysml:owningRelationship expr:Bounds__Fleet__range_plowerBound_om ;
@@ -252,6 +258,7 @@ expr:Bounds__Fleet__range_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "4" ;
     sysml:elementId "Bounds__Fleet__range_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "4"^^xsd:integer ;
     sysml:owner expr:Bounds__Fleet__range_pmultiplicity ;
     sysml:owningRelationship expr:Bounds__Fleet__range_pupperBound_om ;
@@ -280,10 +287,11 @@ elmt:Bounds__Fleet__many
     sysml:owner elmt:Bounds__Fleet ;
     sysml:owningRelationship elmt:Bounds__Fleet__many_om ;
     sysml:owningMembership elmt:Bounds__Fleet__many_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "many" ;
     sysml:type elmt:Bounds__Vehicle ;
     sysml:multiplicity expr:Bounds__Fleet__many_pmultiplicity ;
-    sysml:ownedRelationship expr:Bounds__Fleet__many_pmultiplicity_om, elmt:Bounds__Fleet__many_ft0 ;
+    sysml:ownedRelationship elmt:Bounds__Fleet__many_ft0, expr:Bounds__Fleet__many_pmultiplicity_om ;
     sysml:ownedMembership expr:Bounds__Fleet__many_pmultiplicity_om ;
     sysml:lowerBound expr:Bounds__Fleet__many_plowerBound ;
     sysml:upperBound expr:Bounds__Fleet__many_pupperBound ;
@@ -291,7 +299,7 @@ elmt:Bounds__Fleet__many
     sysml:ownedTyping elmt:Bounds__Fleet__many_ft0 ;
     sysml:ownedSpecialization elmt:Bounds__Fleet__many_ft0 ;
     sysx:sourceText "        part many : Vehicle[0..*];\n" ;
-    json:ownedRelationship "[{\"@id\":\"Bounds__Fleet__many_pmultiplicity_om\"},{\"@id\":\"Bounds__Fleet__many_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Bounds__Fleet__many_ft0\"},{\"@id\":\"Bounds__Fleet__many_pmultiplicity_om\"}]" .
 
 elmt:Bounds__Fleet__many_om
     a sysml:FeatureMembership ;
@@ -307,6 +315,7 @@ elmt:Bounds__Fleet__many_om
 
 expr:Bounds__Fleet__many_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Bounds__Fleet__many_pmultiplicity" ;
     sysml:owner elmt:Bounds__Fleet__many ;
     sysml:owningRelationship expr:Bounds__Fleet__many_pmultiplicity_om ;
@@ -332,6 +341,7 @@ expr:Bounds__Fleet__many_plowerBound
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "Bounds__Fleet__many_plowerBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "0"^^xsd:integer ;
     sysml:owner expr:Bounds__Fleet__many_pmultiplicity ;
     sysml:owningRelationship expr:Bounds__Fleet__many_plowerBound_om ;
@@ -351,6 +361,7 @@ expr:Bounds__Fleet__many_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
     sysml:elementId "Bounds__Fleet__many_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:owner expr:Bounds__Fleet__many_pmultiplicity ;
     sysml:owningRelationship expr:Bounds__Fleet__many_pupperBound_om ;
     sysml:owningMembership expr:Bounds__Fleet__many_pupperBound_om .
@@ -378,19 +389,20 @@ elmt:Bounds__Fleet__loose
     sysml:owner elmt:Bounds__Fleet ;
     sysml:owningRelationship elmt:Bounds__Fleet__loose_om ;
     sysml:owningMembership elmt:Bounds__Fleet__loose_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "loose" ;
     sysml:isOrdered "true"^^xsd:boolean ;
     sysml:isUnique "false"^^xsd:boolean ;
     sysml:type elmt:Bounds__Vehicle ;
     sysml:multiplicity expr:Bounds__Fleet__loose_pmultiplicity ;
-    sysml:ownedRelationship expr:Bounds__Fleet__loose_pmultiplicity_om, elmt:Bounds__Fleet__loose_ft0 ;
+    sysml:ownedRelationship elmt:Bounds__Fleet__loose_ft0, expr:Bounds__Fleet__loose_pmultiplicity_om ;
     sysml:ownedMembership expr:Bounds__Fleet__loose_pmultiplicity_om ;
     sysml:upperBound expr:Bounds__Fleet__loose_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Bounds__Fleet__loose_ft0 ;
     sysml:ownedSpecialization elmt:Bounds__Fleet__loose_ft0 ;
     sysx:sourceText "        part loose : Vehicle[*] ordered nonunique;\n" ;
-    json:ownedRelationship "[{\"@id\":\"Bounds__Fleet__loose_pmultiplicity_om\"},{\"@id\":\"Bounds__Fleet__loose_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Bounds__Fleet__loose_ft0\"},{\"@id\":\"Bounds__Fleet__loose_pmultiplicity_om\"}]" .
 
 elmt:Bounds__Fleet__loose_om
     a sysml:FeatureMembership ;
@@ -406,6 +418,7 @@ elmt:Bounds__Fleet__loose_om
 
 expr:Bounds__Fleet__loose_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Bounds__Fleet__loose_pmultiplicity" ;
     sysml:owner elmt:Bounds__Fleet__loose ;
     sysml:owningRelationship expr:Bounds__Fleet__loose_pmultiplicity_om ;
@@ -428,6 +441,7 @@ expr:Bounds__Fleet__loose_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
     sysml:elementId "Bounds__Fleet__loose_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:owner expr:Bounds__Fleet__loose_pmultiplicity ;
     sysml:owningRelationship expr:Bounds__Fleet__loose_pupperBound_om ;
     sysml:owningMembership expr:Bounds__Fleet__loose_pupperBound_om .
@@ -455,6 +469,7 @@ elmt:Bounds__Fleet__shared
     sysml:owner elmt:Bounds__Fleet ;
     sysml:owningRelationship elmt:Bounds__Fleet__shared_om ;
     sysml:owningMembership elmt:Bounds__Fleet__shared_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "shared" ;
     sysml:isReference "true"^^xsd:boolean ;
     sysml:type elmt:Bounds__Vehicle ;
@@ -489,8 +504,8 @@ elmt:Bounds__Fleet__owned
     sysml:owner elmt:Bounds__Fleet ;
     sysml:owningRelationship elmt:Bounds__Fleet__owned_om ;
     sysml:owningMembership elmt:Bounds__Fleet__owned_om ;
-    sysml:declaredName "owned" ;
     sysml:isComposite "true"^^xsd:boolean ;
+    sysml:declaredName "owned" ;
     sysml:type elmt:Bounds__Vehicle ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Bounds__Fleet__owned_ft0 ;
@@ -523,6 +538,7 @@ elmt:Bounds__Fleet__count
     sysml:owner elmt:Bounds__Fleet ;
     sysml:owningRelationship elmt:Bounds__Fleet__count_om ;
     sysml:owningMembership elmt:Bounds__Fleet__count_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "count" ;
     sysml:isDerived "true"^^xsd:boolean ;
     sysml:type "Integer" ;

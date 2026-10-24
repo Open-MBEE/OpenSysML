@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.openmbee.opensysml.proto.RenderCanvas;
 import org.openmbee.opensysml.proto.RenderEdge;
@@ -50,7 +51,8 @@ class RenderedViewTest {
                             .setWidth(3)
                             .setHeight(4)
                             .setHasSize(true)
-                            .setCollapsed(true))
+                            .setCollapsed(true)
+                            .setUnplaced(true))
                     .setStyle(
                         RenderStyle.newBuilder()
                             .setFill("#fff")
@@ -86,6 +88,8 @@ class RenderedViewTest {
                     .setHeight(4)
                     .setHasSize(true))
             .addNotices("notice")
+            .addShown("port-symbols")
+            .addShown("typings")
             .build();
 
     RenderedView rendered = RenderedView.from(response);
@@ -94,6 +98,7 @@ class RenderedViewTest {
     assertEquals("inout", rendered.nodes().get(0).ports().get(0).direction());
     assertEquals(4, rendered.nodes().get(0).origin().orElseThrow().startLine());
     assertTrue(rendered.nodes().get(0).geometry().orElseThrow().collapsed());
+    assertTrue(rendered.nodes().get(0).geometry().orElseThrow().unplaced());
     assertEquals(12, rendered.nodes().get(0).style().orElseThrow().fontSize());
     assertEquals("n0.0", rendered.edges().get(0).fromPort());
     assertEquals(2, rendered.edges().get(0).route().get(0).x());
@@ -101,6 +106,7 @@ class RenderedViewTest {
     assertTrue(rendered.canvas().orElseThrow().hasSize());
     assertEquals("n1", rendered.notes().get(0).edgeTo());
     assertEquals("notice", rendered.notices().get(0));
+    assertEquals(List.of("port-symbols", "typings"), rendered.shown());
 
     RenderedView empty = RenderedView.from(RenderViewResponse.getDefaultInstance());
     assertFalse(empty.canvas().isPresent());

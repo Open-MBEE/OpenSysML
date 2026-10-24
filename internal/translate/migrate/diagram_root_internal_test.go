@@ -26,7 +26,7 @@ func TestRootDiagramBesideRootPackages(t *testing.T) {
 	}
 	out := string(r.Notation)
 	want := "view Overview {\n    expose A::Pump;\n    expose B::Valve;\n    render Views::asTreeDiagram;\n}"
-	if !strings.Contains(out, want) {
+	if !hasBlock(out, want) {
 		t.Errorf("output lacks a top-level view:\n%s", out)
 	}
 	if strings.Contains(out, "    view Overview") {

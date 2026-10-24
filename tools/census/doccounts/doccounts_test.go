@@ -19,20 +19,103 @@ const complianceFixture = `# Compliance
 | b | x | y | ⚠️ Approximate |
 | c | x | y | ❌ Not implemented |
 | d | x | y | ⛔ Deliberate |
+| e | x | y | 🧩 Extension (UML-derived) |
 | notes | mentions ✅ and ❌ together | y | ⚠️ Approximate |
 `
 
-func TestCountRulesCountsOneMarkerPerRow(t *testing.T) {
-	counts := CountRules(complianceFixture)
-	want := RuleCounts{Total: 4, Faithful: 1, Approximate: 1, NotImplemented: 1, Deliberate: 1}
+func TestCountRulesReadsTheStatusColumn(t *testing.T) {
+	counts, err := CountRules(complianceFixture)
+	if err != nil {
+		t.Fatalf("census: %v", err)
+	}
+	want := RuleCounts{Total: 6, Faithful: 1, Extension: 1, Approximate: 2, NotImplemented: 1, Deliberate: 1}
 	if counts != want {
 		t.Fatalf("census: want %+v, got %+v", want, counts)
 	}
 }
 
+// TestCountRulesAttributesARowByItsStatusCell: the Status column need not be last,
+// a marker another column mentions is prose, and a pipe inside a code span does
+// not move the columns.
+func TestCountRulesAttributesARowByItsStatusCell(t *testing.T) {
+	page := "| RPC | Implementation | Status | Tests |\n|---|---|---|---|\n" +
+		"| Query | `a|b` was ❌ once | ⛔ Deliberate | ✅ when `x \\| y` holds |\n" +
+		"| Parse | service.go | ✅ Faithful | t.go |\n"
+	counts, err := CountRules(page)
+	if err != nil {
+		t.Fatalf("census: %v", err)
+	}
+	if want := (RuleCounts{Total: 2, Faithful: 1, Deliberate: 1}); counts != want {
+		t.Fatalf("census: want %+v, got %+v", want, counts)
+	}
+}
+
+// TestCountRulesTakesTheRenderersTableDelimiter: Python-Markdown's tables
+// extension accepts a delimiter row of spaces alone, so the census does too.
+func TestCountRulesTakesTheRenderersTableDelimiter(t *testing.T) {
+	counts, err := CountRules("| Rule | Status |\n|   |   |\n| a | ✅ Faithful |\n")
+	if err != nil {
+		t.Fatalf("census: %v", err)
+	}
+	if want := (RuleCounts{Total: 1, Faithful: 1}); counts != want {
+		t.Fatalf("census: want %+v, got %+v", want, counts)
+	}
+}
+
 func TestCountRulesIgnoresProseAndHeaders(t *testing.T) {
-	if counts := CountRules("✅ prose outside a table\n\n| header | Status |\n|---|---|\n"); counts.Total != 0 {
+	page := "✅ prose outside a table, naming ⚠️ and ❌ too\n\n| header | Status |\n|---|---|\n\n| Not implemented | Why |\n|---|---|\n| `at` | not declared |\n"
+	counts, err := CountRules(page)
+	if err != nil {
+		t.Fatalf("census: %v", err)
+	}
+	if counts.Total != 0 {
 		t.Fatalf("census of a table with no rule rows: want 0 rows, got %+v", counts)
+	}
+}
+
+// TestCountRulesRefusesAnAmbiguousRow is the gate: a row the census cannot
+// attribute is an error naming its line, never a row silently left out.
+func TestCountRulesRefusesAnAmbiguousRow(t *testing.T) {
+	table := "| Rule | Where | Test | Status |\n|---|---|---|---|\n| a | x | y | ✅ Faithful |\n"
+	for name, tc := range map[string]struct{ page, want string }{
+		"two statuses in the status cell": {table + "| b | x | y | ✅ Faithful; compiled ⚠️ Approximate |\n",
+			"docs/project/spec-compliance.md:4: 2 status markers in the Status column (✅, ⚠); state one"},
+		"the same status twice in the status cell": {table + "| b | x | y | ✅ Faithful; was ✅ before |\n",
+			"docs/project/spec-compliance.md:4: 2 status markers in the Status column (✅, ✅); state one"},
+		"no status in the status cell": {table + "| b | x | y | pending |\n",
+			"docs/project/spec-compliance.md:4: no status marker in the Status column"},
+		"a row wrapped over two lines": {table + "| b | x | y\n  z | ✅ Faithful |\n",
+			"docs/project/spec-compliance.md:4: no status marker in the Status column"},
+		"a row a blank line separates from its table": {table + "\n| b | x | y | ✅ Faithful |\n",
+			"docs/project/spec-compliance.md:5: a row with a status marker outside a table"},
+		"a row in a table without a status column": {"| Rule | Where | Test | Verdict |\n|---|---|---|---|\n| a | x | y | ✅ Faithful |\n",
+			"docs/project/spec-compliance.md:3: a row with a status marker in a table without a Status column"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := CountRules(tc.page)
+			if err == nil || err.Error() != tc.want {
+				t.Fatalf("want error %q, got %v", tc.want, err)
+			}
+		})
+	}
+}
+
+func TestSplitCellsSplitsAsTheSiteRendererDoes(t *testing.T) {
+	for _, tc := range []struct {
+		row  string
+		want []string
+	}{
+		{"| a | b |", []string{"a", "b"}},
+		{"| a | `x|y` | b |", []string{"a", "`x|y`", "b"}},
+		{"| a \\| b | c |", []string{"a \\| b", "c"}},
+		{"| a | b \\|", []string{"a", "b \\|"}},
+		{"| ``a `b` c | d`` | e |", []string{"``a `b` c | d``", "e"}},
+		{"| `a \\`b\\` c | d` | e |", []string{"`a \\`b\\` c", "d`", "e"}},
+		{"no pipes at all", []string{"no pipes at all"}},
+	} {
+		if got := splitCells(tc.row); strings.Join(got, "\x00") != strings.Join(tc.want, "\x00") {
+			t.Errorf("splitCells(%q): want %q, got %q", tc.row, tc.want, got)
+		}
 	}
 }
 
@@ -241,6 +324,7 @@ func TestRewriteBaselineLineRestatesOnlyCapturedValues(t *testing.T) {
 
 func writeDoccountsFixture(t *testing.T, root string) {
 	t.Helper()
+	writeAt(t, root, "docs/project/constraint-manifest.json", fixtureManifest)
 	writeAt(t, root, SpecCompliancePath, `# Compliance
 
 **No external referee:** self-assessed.

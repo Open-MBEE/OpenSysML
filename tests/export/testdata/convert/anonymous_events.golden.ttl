@@ -72,6 +72,7 @@ elmt:AnonymousEvents__Exchange__request
     sysml:owner elmt:AnonymousEvents__Exchange ;
     sysml:owningRelationship elmt:AnonymousEvents__Exchange__request_om ;
     sysml:owningMembership elmt:AnonymousEvents__Exchange__request_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "request" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\t\toccurrence request;\n" .
@@ -139,6 +140,7 @@ elmt:AnonymousEvents__Sender__exchange
     sysml:owner elmt:AnonymousEvents__Sender ;
     sysml:owningRelationship elmt:AnonymousEvents__Sender__exchange_om ;
     sysml:owningMembership elmt:AnonymousEvents__Sender__exchange_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "exchange" ;
     sysml:type elmt:AnonymousEvents__Exchange ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -172,6 +174,7 @@ elmt:AnonymousEvents__Sender___401
     sysml:owner elmt:AnonymousEvents__Sender ;
     sysml:owningRelationship elmt:AnonymousEvents__Sender___401_om ;
     sysml:owningMembership elmt:AnonymousEvents__Sender___401_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:declaredKeyword "event" ;
     sysml:references <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -195,6 +198,7 @@ elmt:AnonymousEvents__Sender___401_om
 
 <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0>
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "AnonymousEvents__Sender___401_pchain0" ;
     sysml:ownedFeatureChaining <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0_pfc0>, <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0_pfc1> ;
     sysml:ownedRelationship <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0_pfc0>, <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0_pfc1> ;
@@ -242,6 +246,7 @@ elmt:AnonymousEvents__Sender__ack
     sysml:owner elmt:AnonymousEvents__Sender ;
     sysml:owningRelationship elmt:AnonymousEvents__Sender__ack_om ;
     sysml:owningMembership elmt:AnonymousEvents__Sender__ack_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "ack" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\t\tevent occurrence ack;\n" .
@@ -271,6 +276,7 @@ elmt:AnonymousEvents__Sender___403
     sysml:owner elmt:AnonymousEvents__Sender ;
     sysml:owningRelationship elmt:AnonymousEvents__Sender___403_om ;
     sysml:owningMembership elmt:AnonymousEvents__Sender___403_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\t\tevent occurrence;\n" .
 
@@ -299,6 +305,7 @@ elmt:AnonymousEvents__Sender___404
     sysml:owner elmt:AnonymousEvents__Sender ;
     sysml:owningRelationship elmt:AnonymousEvents__Sender___404_om ;
     sysml:owningMembership elmt:AnonymousEvents__Sender___404_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:type elmt:AnonymousEvents__Exchange ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:AnonymousEvents__Sender___404_ft0 ;

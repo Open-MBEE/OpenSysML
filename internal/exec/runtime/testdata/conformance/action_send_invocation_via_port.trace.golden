@@ -5,7 +5,7 @@ materialize: Data #1
 step 2: token 1@receive
 step 3: token 1@record
 stmt assign received
-    eval feature msg -> instance#1
-  eval chain value -> 7
+    eval feature msg -> (instance#1)
+  eval chain value -> (7)
 step 4: token 1@done
 step 5: no active tokens

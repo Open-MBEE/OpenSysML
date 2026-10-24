@@ -1,8 +1,6 @@
 package passes
 
 import (
-	"strings"
-
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
@@ -30,15 +28,12 @@ func (NameResolutionPass) Run(ctx *Context, name string, root *ast.RootNamespace
 	out := make([]diag.Diagnostic, 0, len(rd))
 	for _, d := range rd {
 		code := d.Code
-		if code == "" {
-			code = "unresolved"
-			if strings.HasPrefix(d.Message, "ambiguous") {
-				code = "ambiguous"
-			}
-		}
 		severity := diag.SeverityError
 		if d.Warning {
 			severity = diag.SeverityWarning
+			if d.IllFormed {
+				severity = strictSeverity(ctx.Options.Conformance)
+			}
 		}
 		out = append(out, diag.Diagnostic{
 			Severity: severity,

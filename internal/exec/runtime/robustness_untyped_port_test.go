@@ -55,8 +55,8 @@ func rigWithUntypedPorts(binding, wiring string) string {
 // is refused as unroutable rather than dropped.
 func testUntypedPortJoinedToNothing(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, rigWithUntypedPorts("bind cmd = r.rx;", ""), "test::Rig")
-	if !errors.Is(err, ErrUnroutableSend) || !strings.Contains(err.Error(), `port "context.tx" is joined to no port that can receive it`) {
-		t.Fatalf("error = %v, want ErrUnroutableSend over an unjoined untyped port", err)
+	if !errors.Is(err, errUnroutableSend) || !strings.Contains(err.Error(), `port "context.tx" is joined to no port that can receive it`) {
+		t.Fatalf("error = %v, want errUnroutableSend over an unjoined untyped port", err)
 	}
 }
 
@@ -64,8 +64,8 @@ func testUntypedPortJoinedToNothing(t *testing.T) {
 // nested part fails as an unresolvable binding end when the send reaches it.
 func testUntypedPortBoundToNoFeature(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, rigWithUntypedPorts("bind cmd = r.nowhere;", "connect s.tx to b.cmd;"), "test::Rig")
-	if !errors.Is(err, ErrBindingEnd) || !strings.Contains(err.Error(), `"r.nowhere"`) {
-		t.Fatalf("error = %v, want ErrBindingEnd naming r.nowhere", err)
+	if !errors.Is(err, errBindingEnd) || !strings.Contains(err.Error(), `"r.nowhere"`) {
+		t.Fatalf("error = %v, want errBindingEnd naming r.nowhere", err)
 	}
 }
 
@@ -80,7 +80,7 @@ func testUntypedPortBoundInwardDelivers(t *testing.T) {
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run receiver machine: %v", err)
 	}
-	if got := exec.FinalStateName(); got != "got" {
+	if got := exec.finalStateName(); got != "got" {
 		t.Fatalf("receiver state = %q, want got", got)
 	}
 }

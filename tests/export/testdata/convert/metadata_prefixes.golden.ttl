@@ -114,6 +114,7 @@ elmt:Prefixed__Car_om
 
 elmt:Prefixed__Car___400
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::Car::@0" ;
     sysx:sourceLine "4"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -178,6 +179,7 @@ elmt:Prefixed__Vehicle_om
 
 elmt:Prefixed__Vehicle___400
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::Vehicle::@0" ;
     sysx:sourceLine "5"^^xsd:integer ;
     sysx:sourceColumn "14"^^xsd:integer ;
@@ -208,6 +210,7 @@ elmt:Prefixed__Vehicle___400_om
 
 elmt:Prefixed__Vehicle___401
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::Vehicle::@1" ;
     sysx:sourceLine "5"^^xsd:integer ;
     sysx:sourceColumn "24"^^xsd:integer ;
@@ -249,6 +252,7 @@ elmt:Prefixed__car
     sysml:owner elmt:Prefixed ;
     sysml:owningRelationship elmt:Prefixed__car_om ;
     sysml:owningMembership elmt:Prefixed__car_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "car" ;
     sysml:ownedMember elmt:Prefixed__car___400 ;
     sysml:ownedMembership elmt:Prefixed__car___400_om ;
@@ -272,6 +276,7 @@ elmt:Prefixed__car_om
 
 elmt:Prefixed__car___400
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::car::@0" ;
     sysx:sourceLine "6"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -313,6 +318,7 @@ elmt:Prefixed__spare
     sysml:owner elmt:Prefixed ;
     sysml:owningRelationship elmt:Prefixed__spare_om ;
     sysml:owningMembership elmt:Prefixed__spare_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "spare" ;
     sysml:isReference "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Prefixed__spare___400 ;
@@ -338,6 +344,7 @@ elmt:Prefixed__spare_om
 
 elmt:Prefixed__spare___400
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::spare::@0" ;
     sysx:sourceLine "7"^^xsd:integer ;
     sysx:sourceColumn "17"^^xsd:integer ;
@@ -379,6 +386,7 @@ elmt:Prefixed__option
     sysml:owner elmt:Prefixed ;
     sysml:owningRelationship elmt:Prefixed__option_om ;
     sysml:owningMembership elmt:Prefixed__option_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "option" ;
     sysml:isVariant "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Prefixed__option___400 ;
@@ -404,6 +412,7 @@ elmt:Prefixed__option_om
 
 elmt:Prefixed__option___400
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::option::@0" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "13"^^xsd:integer ;
@@ -445,6 +454,7 @@ elmt:Prefixed__wheel
     sysml:owner elmt:Prefixed ;
     sysml:owningRelationship elmt:Prefixed__wheel_om ;
     sysml:owningMembership elmt:Prefixed__wheel_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "wheel" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Prefixed__wheel___400 ;
@@ -469,6 +479,7 @@ elmt:Prefixed__wheel_om
 
 elmt:Prefixed__wheel___400
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::wheel::@0" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -529,6 +540,7 @@ elmt:Prefixed__Notes_om
 
 elmt:Prefixed__Notes___400
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::Notes::@0" ;
     sysx:sourceLine "10"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -589,6 +601,7 @@ elmt:Prefixed___409_om
 
 elmt:Prefixed___409___400
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::@9::@0" ;
     sysx:sourceLine "11"^^xsd:integer ;
     sysx:sourceColumn "5"^^xsd:integer ;
@@ -681,12 +694,13 @@ elmt:Prefixed__context
     sysml:owner elmt:Prefixed ;
     sysml:owningRelationship elmt:Prefixed__context_om ;
     sysml:owningMembership elmt:Prefixed__context_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "context" ;
     sysml:type elmt:Prefixed__Car ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Prefixed__context__stopped, elmt:Prefixed__context__moving, elmt:Prefixed__context__go ;
     sysml:ownedMembership elmt:Prefixed__context__stopped_om, elmt:Prefixed__context__moving_om, elmt:Prefixed__context__go_om ;
-    sysml:ownedRelationship elmt:Prefixed__context__stopped_om, elmt:Prefixed__context__moving_om, elmt:Prefixed__context__go_om, elmt:Prefixed__context_ft0 ;
+    sysml:ownedRelationship elmt:Prefixed__context_ft0, elmt:Prefixed__context__stopped_om, elmt:Prefixed__context__moving_om, elmt:Prefixed__context__go_om ;
     sysml:ownedFeature elmt:Prefixed__context__stopped, elmt:Prefixed__context__moving, elmt:Prefixed__context__go ;
     sysml:ownedFeatureMembership elmt:Prefixed__context__stopped_om, elmt:Prefixed__context__moving_om, elmt:Prefixed__context__go_om ;
     sysml:ownedTyping elmt:Prefixed__context_ft0 ;
@@ -695,7 +709,7 @@ elmt:Prefixed__context
     sysx:sourceTail "    }\n" ;
     json:ownedMember "[{\"@id\":\"Prefixed__context__stopped\"},{\"@id\":\"Prefixed__context__moving\"},{\"@id\":\"Prefixed__context__go\"}]" ;
     json:ownedMembership "[{\"@id\":\"Prefixed__context__stopped_om\"},{\"@id\":\"Prefixed__context__moving_om\"},{\"@id\":\"Prefixed__context__go_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Prefixed__context__stopped_om\"},{\"@id\":\"Prefixed__context__moving_om\"},{\"@id\":\"Prefixed__context__go_om\"},{\"@id\":\"Prefixed__context_ft0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Prefixed__context_ft0\"},{\"@id\":\"Prefixed__context__stopped_om\"},{\"@id\":\"Prefixed__context__moving_om\"},{\"@id\":\"Prefixed__context__go_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Prefixed__context__stopped\"},{\"@id\":\"Prefixed__context__moving\"},{\"@id\":\"Prefixed__context__go\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Prefixed__context__stopped_om\"},{\"@id\":\"Prefixed__context__moving_om\"},{\"@id\":\"Prefixed__context__go_om\"}]" .
 
@@ -722,6 +736,7 @@ elmt:Prefixed__context__stopped
     sysml:owner elmt:Prefixed__context ;
     sysml:owningRelationship elmt:Prefixed__context__stopped_om ;
     sysml:owningMembership elmt:Prefixed__context__stopped_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "stopped" ;
     sysml:ownedMember elmt:Prefixed__context__stopped___400 ;
     sysml:ownedMembership elmt:Prefixed__context__stopped___400_om ;
@@ -747,6 +762,7 @@ elmt:Prefixed__context__stopped_om
 
 elmt:Prefixed__context__stopped___400
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::context::stopped::@0" ;
     sysx:sourceLine "15"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -788,6 +804,7 @@ elmt:Prefixed__context__moving
     sysml:owner elmt:Prefixed__context ;
     sysml:owningRelationship elmt:Prefixed__context__moving_om ;
     sysml:owningMembership elmt:Prefixed__context__moving_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "moving" ;
     sysml:isNegated "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Prefixed__context__moving___400 ;
@@ -814,6 +831,7 @@ elmt:Prefixed__context__moving_om
 
 elmt:Prefixed__context__moving___400
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::context::moving::@0" ;
     sysx:sourceLine "16"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -855,6 +873,7 @@ elmt:Prefixed__context__go
     sysml:owner elmt:Prefixed__context ;
     sysml:owningRelationship elmt:Prefixed__context__go_om ;
     sysml:owningMembership elmt:Prefixed__context__go_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "go" ;
     sysx:declaredPrefix "perform" ;
     sysml:ownedMember elmt:Prefixed__context__go___400 ;
@@ -881,6 +900,7 @@ elmt:Prefixed__context__go_om
 
 elmt:Prefixed__context__go___400
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::context::go::@0" ;
     sysx:sourceLine "17"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -949,6 +969,7 @@ elmt:Prefixed__Braking_om
 
 elmt:Prefixed__Braking__brakes
     a sysml:ReferenceUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::Braking::brakes" ;
     sysx:sourceLine "20"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -962,10 +983,10 @@ elmt:Prefixed__Braking__brakes
     sysml:owningMembership elmt:Prefixed__Braking__brakes_om ;
     sysml:declaredName "brakes" ;
     sysml:direction "in" ;
-    sysml:type elmt:Prefixed__Car ;
     sysml:ownedMember elmt:Prefixed__Braking__brakes___400 ;
     sysml:ownedMembership elmt:Prefixed__Braking__brakes___400_om ;
     sysml:ownedRelationship elmt:Prefixed__Braking__brakes___400_om, elmt:Prefixed__Braking__brakes_ft0 ;
+    sysml:type elmt:Prefixed__Car ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Prefixed__Braking__brakes_ft0 ;
     sysml:ownedSpecialization elmt:Prefixed__Braking__brakes_ft0 ;
@@ -988,6 +1009,7 @@ elmt:Prefixed__Braking__brakes_om
 
 elmt:Prefixed__Braking__brakes___400
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::Braking::brakes::@0" ;
     sysx:sourceLine "20"^^xsd:integer ;
     sysx:sourceColumn "17"^^xsd:integer ;
@@ -1018,6 +1040,7 @@ elmt:Prefixed__Braking__brakes___400_om
 
 elmt:Prefixed__Braking___401
     a sysml:ConstraintUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::Braking::@1" ;
     sysx:sourceLine "21"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -1057,6 +1080,7 @@ elmt:Prefixed__Braking___401_om
 
 elmt:Prefixed__Braking___401___401
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::Braking::@1::@1" ;
     sysx:sourceLine "21"^^xsd:integer ;
     sysx:sourceColumn "16"^^xsd:integer ;
@@ -1087,6 +1111,7 @@ elmt:Prefixed__Braking___401___401_om
 
 elmt:Prefixed__Braking___401___400
     a sysml:LiteralBoolean ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::Braking::@1::@0" ;
     sysx:sourceLine "21"^^xsd:integer ;
     sysx:sourceColumn "39"^^xsd:integer ;
@@ -1115,6 +1140,7 @@ elmt:Prefixed__Braking___401___400_om
 
 elmt:Prefixed__Braking___402
     a sysml:ConstraintUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::Braking::@2" ;
     sysx:sourceLine "22"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -1154,6 +1180,7 @@ elmt:Prefixed__Braking___402_om
 
 elmt:Prefixed__Braking___402___401
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::Braking::@2::@1" ;
     sysx:sourceLine "22"^^xsd:integer ;
     sysx:sourceColumn "17"^^xsd:integer ;
@@ -1184,6 +1211,7 @@ elmt:Prefixed__Braking___402___401_om
 
 elmt:Prefixed__Braking___402___400
     a sysml:LiteralBoolean ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::Braking::@2::@0" ;
     sysx:sourceLine "22"^^xsd:integer ;
     sysx:sourceColumn "38"^^xsd:integer ;
@@ -1212,6 +1240,7 @@ elmt:Prefixed__Braking___402___400_om
 
 elmt:Prefixed__Braking__stopped
     a sysml:ConstraintUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::Braking::stopped" ;
     sysx:sourceLine "23"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -1251,6 +1280,7 @@ elmt:Prefixed__Braking__stopped_om
 
 elmt:Prefixed__Braking__stopped___400
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::Braking::stopped::@0" ;
     sysx:sourceLine "23"^^xsd:integer ;
     sysx:sourceColumn "16"^^xsd:integer ;
@@ -1281,6 +1311,7 @@ elmt:Prefixed__Braking__stopped___400_om
 
 elmt:Prefixed__Braking__braked
     a sysml:ConstraintUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::Braking::braked" ;
     sysx:sourceLine "24"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -1321,6 +1352,7 @@ elmt:Prefixed__Braking__braked_om
 
 elmt:Prefixed__Braking__braked___400
     a sysml:MetadataUsage ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:qualifiedName "Prefixed::Braking::braked::@0" ;
     sysx:sourceLine "24"^^xsd:integer ;
     sysx:sourceColumn "17"^^xsd:integer ;
@@ -1351,6 +1383,7 @@ elmt:Prefixed__Braking__braked___400_om
 
 expr:Prefixed__Braking__braked_pmultiplicity
     a sysml:MultiplicityRange ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Prefixed__Braking__braked_pmultiplicity" ;
     sysml:owner elmt:Prefixed__Braking__braked ;
     sysml:owningRelationship expr:Prefixed__Braking__braked_pmultiplicity_om ;
@@ -1373,6 +1406,7 @@ expr:Prefixed__Braking__braked_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "Prefixed__Braking__braked_pupperBound" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "1"^^xsd:integer ;
     sysml:owner expr:Prefixed__Braking__braked_pmultiplicity ;
     sysml:owningRelationship expr:Prefixed__Braking__braked_pupperBound_om ;
@@ -1392,6 +1426,7 @@ expr:Prefixed__Braking__braked_pvalue
     a sysml:LiteralBoolean ;
     sysx:sourceText "true" ;
     sysml:elementId "Prefixed__Braking__braked_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:value "true"^^xsd:boolean ;
     sysml:owner elmt:Prefixed__Braking__braked ;
     sysml:owningRelationship expr:Prefixed__Braking__braked_pvalue_om ;

@@ -248,6 +248,10 @@ export interface VerificationVerdict {
   subcase: boolean;
   /** FQN of the requirement this verdict was reported for; empty for a case run for itself. */
   requirementId: string;
+  /** ID of the object the case ran on as its owner; 0n when it ran on none. */
+  instanceId: bigint;
+  /** FQN of that object's type, for naming it; empty with `instanceId` 0n. */
+  instanceTypeId: string;
 }
 
 /** One limit an engine ran under, and whether the run stopped at it. */

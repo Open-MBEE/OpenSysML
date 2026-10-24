@@ -1,0 +1,9 @@
+{
+  "rpc": "ImportData",
+  "import_dry_run": true,
+  "imports": [
+    {"name": "fleet.csv", "content": "element,count\nV::vehicle,7\n"},
+    {"name": "pairs.csv", "content": "element,pair\nV::vehicle,7\n"}
+  ],
+  "expected_error": "the edited model is not valid"
+}

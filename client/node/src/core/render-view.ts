@@ -1,3 +1,5 @@
+import { fromJson, type JsonValue } from "@bufbuild/protobuf";
+import { RenderViewResponseSchema } from "../generated/sysml_pb.js";
 import type {
   RenderCanvas as PbRenderCanvas,
   RenderEdge as PbRenderEdge,
@@ -34,6 +36,8 @@ export interface RenderGeometry {
   height: number;
   hasSize: boolean;
   collapsed: boolean;
+  /** The layout only folds or hides the node: x and y carry no position. */
+  unplaced: boolean;
 }
 
 export interface RenderStyle {
@@ -61,6 +65,8 @@ export interface RenderNode {
   text: string;
   standIn: boolean;
   parent: string;
+  /** The compartment of the parent this node is a row of ("attributes", "parts", ...); empty for a box. */
+  compartment: string;
   ports: readonly RenderPort[];
   origin?: RenderSpan;
   geometry?: RenderGeometry;
@@ -116,6 +122,8 @@ export interface RenderedView {
   canvas?: RenderCanvas;
   notes: readonly RenderNote[];
   notices: readonly string[];
+  /** The optional notation elements the rendering drew. */
+  shown: readonly string[];
 }
 
 function spanOf(span: PbSpan | undefined): RenderSpan | undefined {
@@ -140,6 +148,7 @@ function geometryOf(geometry: PbRenderGeometry | undefined): RenderGeometry | un
         height: geometry.height,
         hasSize: geometry.hasSize,
         collapsed: geometry.collapsed,
+        unplaced: geometry.unplaced,
       };
 }
 
@@ -178,6 +187,7 @@ function nodeOf(node: PbRenderNode): RenderNode {
     detail: node.detail,
     text: node.text,
     standIn: node.standIn,
+    compartment: node.compartment,
     parent: node.parent,
     ports: node.ports.map(portOf),
     ...(origin === undefined ? {} : { origin }),
@@ -233,6 +243,11 @@ function canvasOf(canvas: PbRenderCanvas | undefined): RenderCanvas | undefined 
     : { unit: canvas.unit, width: canvas.width, height: canvas.height, hasSize: canvas.hasSize };
 }
 
+/** Reads a rendering saved as the protojson of a RenderViewResponse (as JSON.parse returns it), as a service or a WASM module answers it. */
+export function renderedViewFromJson(json: unknown): RenderedView {
+  return renderedViewOf(fromJson(RenderViewResponseSchema, json as JsonValue));
+}
+
 export function renderedViewOf(response: RenderViewResponse): RenderedView {
   const canvas = canvasOf(response.canvas);
   return {
@@ -245,6 +260,7 @@ export function renderedViewOf(response: RenderViewResponse): RenderedView {
     rows: response.rows.map(rowOf),
     notes: response.notes.map(noteOf),
     notices: [...response.notices],
+    shown: [...response.shown],
     ...(canvas === undefined ? {} : { canvas }),
   };
 }

@@ -6,12 +6,16 @@ export { opensysmlExtensionRegistry, addOpenSysMLContributions } from './registr
 export { useRunWithOpenSysML } from './graphql/runWithOpenSysML';
 export type {
   GQLRunOperation,
+  GQLRunDocumentForm,
   GQLRunInputValue,
   GQLRunWithOpenSysMLInput,
   GQLOpenSysMLNamedValue,
   GQLOpenSysMLDiagnostic,
   GQLOpenSysMLVerdict,
   GQLOpenSysMLInstance,
+  GQLOpenSysMLDocument,
+  GQLOpenSysMLTable,
+  GQLOpenSysMLTableRow,
   GQLOpenSysMLRunResult,
   GQLRunWithOpenSysMLSuccessPayload,
   GQLRunWithOpenSysMLPayload,

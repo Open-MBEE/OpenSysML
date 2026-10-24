@@ -33,12 +33,14 @@ type Source interface {
 // accepted; the OPENSYSML_ name wins when both are set.
 const LibraryPathEnvVar = "OPENSYSML_LIBRARY_PATH"
 
-// DefaultSource returns a dirSource rooted at LibraryPathEnvVar when that
-// environment variable is set and non-empty, otherwise BundledSource. A
-// directory override is read as it stands: its text is the caller's to correct.
+// DefaultSource returns the source LibraryPathEnvVar names when that
+// environment variable is set and non-empty — a directory of library files, a
+// project interchange archive, or a directory of archives — otherwise
+// BundledSource. An override is read as it stands: its text is the caller's
+// to correct.
 func DefaultSource() Source {
-	if dir := envvar.Lookup(LibraryPathEnvVar); dir != "" {
-		return &dirSource{dir: dir}
+	if path := envvar.Lookup(LibraryPathEnvVar); path != "" {
+		return libraryPathSource(path)
 	}
 	return BundledSource()
 }

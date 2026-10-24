@@ -46,7 +46,7 @@ func splitFinalOrderChoices(w Witness) (Witness, []ChoiceTaken) {
 	run.Choices = run.Choices[:0]
 	var final []ChoiceTaken
 	for _, choice := range w.Choices {
-		if choice.Kind == ChoiceStatementOrder && strings.HasSuffix(choice.Where, finalOrderChoiceSuffix) {
+		if choice.Kind == choiceStatementOrder && strings.HasSuffix(choice.Where, finalOrderChoiceSuffix) {
 			choice.Where = strings.TrimSuffix(choice.Where, finalOrderChoiceSuffix)
 			final = append(final, choice)
 		} else {
@@ -199,7 +199,7 @@ func (r *Replayed) evaluate(p CheckProperty) (bool, error) {
 	holds, err := r.Ctx.everyStatementOrder(func() (bool, error) {
 		return p.Holds(r.Ctx, r.Inv)
 	})
-	if errors.Is(err, ErrStatementOrderSweepLimit) && !holds {
+	if errors.Is(err, errStatementOrderSweepLimit) && !holds {
 		return false, nil
 	}
 	return holds, err

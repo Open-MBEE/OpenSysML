@@ -42,10 +42,10 @@ func (r *Rendering) MermaidWith(options Options) string {
 	if r.Run && r.Kind == KindTimeline {
 		return r.runTimelineMermaid(options)
 	}
-	r = r.settleUnplaced(options.Unplaced, FormMermaid)
+	r = r.showing(options.Show).settleUnplaced(options.Unplaced, options.Compartments, FormMermaid)
 	direction := options.Direction
 	var b strings.Builder
-	labels := labelsOf(r.Roots, false, nil)
+	labels := labelsOf(r.Roots, false, nil, r.Shown)
 	labels.skin = skinOf(options.Style)
 	ports := r.portView(options.Ports)
 	r.writeMermaidFrontmatter(&b, labels, options, ports)
@@ -135,6 +135,9 @@ func (r *Rendering) mermaidNotices(options Options) []string {
 	notices = append(notices, r.mermaidPictureNotices()...)
 	if options.Style != "" && options.Style != StylePilot && options.Style != StyleCameo {
 		notices = append(notices, styleNotice(options.Style))
+	}
+	if options.Lines.routed() {
+		notices = append(notices, linesNotice(options.Lines, FormMermaid))
 	}
 	return notices
 }
@@ -460,9 +463,9 @@ func (r *Rendering) writeGeometryComments(b *strings.Builder, prefix string) {
 }
 
 // writeLayoutComments writes the placement of node and of the nodes under it,
-// as comments opened by prefix.
+// as comments opened by prefix; a fold-only Layout writes its collapsed tag alone.
 func writeLayoutComments(b *strings.Builder, prefix string, node *Node) {
-	if g := node.Geometry; g != nil {
+	if g := node.Geometry; g.placed() {
 		fmt.Fprintf(b, "%s layout: %s x=%s y=%s", prefix, node.ID, formatCoord(g.X), formatCoord(g.Y))
 		if g.HasSize {
 			fmt.Fprintf(b, " w=%s h=%s", formatCoord(g.Width), formatCoord(g.Height))
@@ -471,6 +474,8 @@ func writeLayoutComments(b *strings.Builder, prefix string, node *Node) {
 			b.WriteString(" collapsed")
 		}
 		b.WriteString("\n")
+	} else if collapsed(node) {
+		fmt.Fprintf(b, "%s layout: %s collapsed\n", prefix, node.ID)
 	}
 	for _, child := range node.Children {
 		writeLayoutComments(b, prefix, child)
@@ -1256,6 +1261,7 @@ func mermaidLabel(node *Node, labels labeller, lines []string, title bool) strin
 		markdown = append(markdown, "**"+line+"**")
 	}
 	markdown = append(markdown, labels.details(node)...)
+	markdown = append(markdown, labels.compartmentLines(node)...)
 	return `"` + "`" + strings.Join(markdown, "\n") + "`" + `"`
 }
 
@@ -1516,6 +1522,10 @@ func mermaidPinLabel(ports portView, port Port) string {
 	label := mermaidText(ports.pinLabel(port))
 	if !ports.minimal {
 		return "«port»<br>" + label
+	}
+	if label == "" {
+		// A flowchart node needs some text; an unnamed pin is a bare square.
+		return " "
 	}
 	return label
 }
@@ -1948,15 +1958,17 @@ func mermaidArrow(kind Kind, edge EdgeKind) string {
 	return "-->"
 }
 
-// mermaidEdgeLabel is an edge's flowchart label: its own, or for an edge whose
-// arrow a flowchart draws like another kind's, its kind. A flowchart has no
-// diamond head, so a graph's composition and reference lead with a filled or
-// hollow one, in a tree as in a graph; a case or mixed diagram names
-// composition and specialization.
+// mermaidEdgeLabel is an edge's flowchart label: its texts folded into one, a
+// flowchart placing no text at an end, or for an edge whose arrow a flowchart
+// draws like another kind's, its kind. A flowchart has no diamond head, so a
+// graph's composition and reference lead with a filled or hollow one, in a
+// tree as in a graph; a case or mixed diagram names composition and
+// specialization.
 func mermaidEdgeLabel(kind Kind, edge Edge) string {
+	label := edge.text()
 	if caseNotation(kind) {
-		if edge.Label != "" {
-			return edge.Label
+		if label != "" {
+			return label
 		}
 		switch edge.Kind {
 		case EdgeComposition:
@@ -1967,17 +1979,17 @@ func mermaidEdgeLabel(kind Kind, edge Edge) string {
 		return ""
 	}
 	if kind != KindTree && kind != KindRequirement && kind != KindDefinition && kind != KindPackage {
-		return edge.Label
+		return label
 	}
 	switch {
 	case edge.Kind == EdgeComposition:
-		return strings.TrimSpace("◆ " + edge.Label)
+		return strings.TrimSpace("◆ " + label)
 	case edge.Kind == EdgeReference:
-		return strings.TrimSpace("◇ " + edge.Label)
-	case edge.Label == "" && (edge.Kind == EdgeSpecialization || edge.Kind == EdgeTyping):
+		return strings.TrimSpace("◇ " + label)
+	case label == "" && (edge.Kind == EdgeSpecialization || edge.Kind == EdgeTyping):
 		return edge.Kind.String()
 	}
-	return edge.Label
+	return label
 }
 
 // mermaidText escapes what a Mermaid label may not carry literally. A semicolon

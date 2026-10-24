@@ -1,6 +1,5 @@
 /* The print stylesheet for pandoc's own HTML, which carries pandoc's
-   structure — a title block, nav#TOC, bare tables — and none of the
-   sysml- classes the HTML backend's sheets style. */
+   structure — a title block and nav#TOC — with table classes from its filter. */
 @page {
   size: A4;
   margin: 2.2cm;
@@ -79,21 +78,21 @@ thead { display: table-header-group; }
 p:has(.caption) { break-after: avoid; page-break-after: avoid; }
 p:has(+ table) { break-after: avoid; page-break-after: avoid; }
 
-/* A table of seven or more columns goes on a landscape page in smaller type with
-   the heading, caption and group key ahead of it; :has() nests since cssselect2 misreads "+ p + table". */
+/* Seven+ written headers (.sysml-table-landscape) and their heading/lead-in
+   use smaller landscape pages; nested :has() handles cssselect2 misreading "+ p + table". */
 @page wide { size: A4 landscape; }
-table:has(thead > tr > th:nth-child(7)) { page: wide; font-size: 9pt; table-layout: fixed; }
+table.sysml-table-landscape { page: wide; font-size: 9pt; table-layout: fixed; }
 
 /* A wide table's first column, naming each row, keeps a readable width however
    many columns follow; eleven or more step the type down once more before the
    backend splits the column set into continuation tables. */
-table:has(thead > tr > th:nth-child(7)) thead > tr > th:first-child { width: 22%; }
-table:has(thead > tr > th:nth-child(11)) { font-size: 8pt; }
-p:has(+ table:has(thead > tr > th:nth-child(7))),
-p:has(.caption):has(+ p:has(+ table:has(thead > tr > th:nth-child(7)))),
-:is(h1, h2, h3, h4, h5, h6):has(+ table:has(thead > tr > th:nth-child(7))),
-:is(h1, h2, h3, h4, h5, h6):has(+ p:has(+ table:has(thead > tr > th:nth-child(7)))),
-:is(h1, h2, h3, h4, h5, h6):has(+ p:has(.caption):has(+ p:has(+ table:has(thead > tr > th:nth-child(7))))) { page: wide; }
+table.sysml-table-landscape thead > tr > th:first-child { width: 22%; }
+table.sysml-table-dense { font-size: 8pt; }
+p:has(+ table.sysml-table-landscape),
+p:has(.caption):has(+ p:has(+ table.sysml-table-landscape)),
+:is(h1, h2, h3, h4, h5, h6):has(+ table.sysml-table-landscape),
+:is(h1, h2, h3, h4, h5, h6):has(+ p:has(+ table.sysml-table-landscape)),
+:is(h1, h2, h3, h4, h5, h6):has(+ p:has(.caption):has(+ p:has(+ table.sysml-table-landscape))) { page: wide; }
 
 /* A figure taller than the page is scaled onto it, with its caption. */
 figure { margin: 0.8em 0; break-inside: avoid; page-break-inside: avoid; }

@@ -22,8 +22,9 @@ held-declared-two ::  :: W6D::holder.ys
 held-lower-three-no-value ::  :: W6D::holder.zs
 held-single ::  :: W6D::holder.one
 
-# A subsetting part is one of the objects the subsetted feature holds, so the
-# roll-up over `subsystem` reads the mass of `a`.
+# A subsetting part is one of the objects the subsetted feature holds, and a `[*]`
+# collection the model leaves open may hold more: the roll-up over `subsystem`, a
+# bound member of the package-level `sys`, is undetermined as `sum(sys.subsystem.mass)` is.
 subsetting-rollup ::  :: W6D::sys.total
 
 # A body on a redefining declaration governs the value it inherits: `v` is
@@ -58,7 +59,8 @@ add-empty-quantity-sum ::  :: W6D::AddEmptyQuantitySum()
 
 # The pilot folds a `default null` collection to its default rather than to the
 # parts subsetting it, and counts an undefaulted collection as one value whether
-# two parts subset it or none does, so membership is unrefereeable here.
+# two parts subset it or none does, so membership is unrefereeable here; we answer
+# undetermined of the open `[*]` through the bound member `n`, as `size(sysTwo.subsystem)` is.
 subsetting-defaulted-count ::  :: W6D::sysDefaulted.n
 subsetting-two-count ::  :: W6D::sysTwo.n
 subsetting-none-count ::  :: W6D::sysNone.n

@@ -87,6 +87,13 @@ A value written with `=` on the variant is fixed for every occurrence and
 cannot be redefined beneath it; write `default =` for anything a unit may
 state for itself, and `=` for what is genuinely a property of the design.
 
+A variant written this way is a design the fleet is built from; a *choice*
+the design leaves open — this engine or that one, with an assertion saying
+which goes with which transmission — is a `variation` with `variant`
+members, and a product is a specialization that picks one variant per choice.
+That is the subject of [Modeling product lines and
+variability](modeling-product-lines.md).
+
 ## Per-occurrence values
 
 A unit whose as-built values differ from its variant's — a heavier terminal,

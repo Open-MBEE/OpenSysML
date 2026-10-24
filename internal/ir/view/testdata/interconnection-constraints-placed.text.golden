@@ -1,0 +1,23 @@
+ParametricViews::placedView - interconnection rendering (render asInterconnectionDiagram)
+
+canvas size 900×220
+
+attribute signal at (20, 40) size 100×30
+attribute gain at (20, 100) size 100×30
+attribute noise at (20, 160) size 100×30
+attribute output at (780, 40) size 100×30
+constraint amplify at (200, 20) size 200×80
+  port input
+  port gain
+  port output
+constraint mix at (500, 20) size 200×80
+  port a
+  port b
+  port total
+
+connections:
+  signal == amplify.input via (120, 55) (200, 52)
+  gain == amplify.gain via (120, 115) (200, 92)
+  amplify.output == mix.a via (400, 67) (500, 52)
+  noise == mix.b via (120, 175) (500, 92)
+  mix.total == output via (700, 67) (780, 55)

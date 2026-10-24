@@ -173,7 +173,7 @@ func TestAdoptKeepsTheKindOfAWrittenEmptyQuantityCollection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("select: %v", err)
 	}
-	if _, ok := emptied.Sequence().ElementUnit(); !ok {
+	if _, ok := emptied.Sequence().emptyElementUnit(); !ok {
 		t.Fatalf("select yielded %s without an element unit", FormatValue(emptied))
 	}
 	if err := obj.SetFeatureValue(prev, "masses", emptied); err != nil {
@@ -193,7 +193,7 @@ func TestAdoptKeepsTheKindOfAWrittenEmptyQuantityCollection(t *testing.T) {
 	if !fv.Written {
 		t.Fatal("the written collection was not carried")
 	}
-	if unit, ok := fv.Values.Sequence().ElementUnit(); !ok || unit.Text != "kg" {
+	if unit, ok := fv.Values.Sequence().emptyElementUnit(); !ok || unit.Text != "kg" {
 		t.Fatalf("carried masses = %s with element unit %v, %v; want kg, true", FormatValue(fv.Values), unit, ok)
 	}
 	for _, tc := range []struct{ src, want string }{
@@ -268,18 +268,18 @@ func TestEmptyAggregateIdentityIsNotLenientAddition(t *testing.T) {
 // an element is appended.
 func TestEmptySequenceKeepsItsElementUnitOnlyWhileEmpty(t *testing.T) {
 	unit := Unit{Text: "kg"}
-	val := NewEmptySequenceOf(unit)
-	if got, ok := val.Sequence().ElementUnit(); !ok || got.Text != "kg" {
-		t.Fatalf("ElementUnit() = %v, %v; want kg, true", got, ok)
+	val := newEmptySequenceOf(unit)
+	if got, ok := val.Sequence().emptyElementUnit(); !ok || got.Text != "kg" {
+		t.Fatalf("emptyElementUnit() = %v, %v; want kg, true", got, ok)
 	}
 	if val.Sequence().Size() != 0 {
 		t.Fatalf("Size() = %d, want 0", val.Sequence().Size())
 	}
 	val.Sequence().Append(Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 1}})
-	if _, ok := val.Sequence().ElementUnit(); ok {
-		t.Fatal("ElementUnit() reported a unit for a sequence with an element")
+	if _, ok := val.Sequence().emptyElementUnit(); ok {
+		t.Fatal("emptyElementUnit() reported a unit for a sequence with an element")
 	}
-	if _, ok := NewSequence().ElementUnit(); ok {
-		t.Fatal("ElementUnit() reported a unit for an untyped sequence")
+	if _, ok := NewSequence().emptyElementUnit(); ok {
+		t.Fatal("emptyElementUnit() reported a unit for an untyped sequence")
 	}
 }

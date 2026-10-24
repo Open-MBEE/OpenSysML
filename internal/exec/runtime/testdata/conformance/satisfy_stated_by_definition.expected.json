@@ -1,0 +1,5 @@
+{
+  "type": "satisfy",
+  "evaluate": "test::SafeLander",
+  "error": "an object of test::SafeLander is needed"
+}

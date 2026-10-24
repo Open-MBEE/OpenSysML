@@ -125,10 +125,10 @@ func testObjectLifecycleTwoOfOneUsage(t *testing.T) {
 	}
 	carsFeature := fleet.FeatureValues["cars"].Feature.heldBy()
 	for _, car := range cars {
-		if l, ok := ctx.OccurrenceLife(car.ID); !ok || !l.Alive() {
+		if l, ok := ctx.OccurrenceLife(car.ID); !ok || !l.alive() {
 			t.Errorf("OccurrenceLife(#%d) = %v, %v; want alive", car.ID, l, ok)
 		}
-		if b, ok := car.Behavior("running"); !ok || b.State == nil || b.State.State().Ended() {
+		if b, ok := car.behavior("running"); !ok || b.State == nil || b.State.State().Ended() {
 			t.Errorf("#%d running = %v, %v; want the machine under way", car.ID, b, ok)
 		}
 		if car.owner != fleet || car.ownerFeature != "cars" {
@@ -198,10 +198,10 @@ func testObjectLifecycleDestroyThroughReference(t *testing.T) {
 	if _, err := invoke("Destroy", spare.Value); err != nil {
 		t.Fatalf("destroy(spare) = %v", err)
 	}
-	if l, _ := ctx.OccurrenceLife(cars[1].ID); !l.Destroyed || l.Alive() {
+	if l, _ := ctx.OccurrenceLife(cars[1].ID); !l.Destroyed || l.alive() {
 		t.Errorf("OccurrenceLife(spare) = %v; want destroyed", l)
 	}
-	if l, _ := ctx.OccurrenceLife(cars[0].ID); !l.Alive() {
+	if l, _ := ctx.OccurrenceLife(cars[0].ID); !l.alive() {
 		t.Errorf("OccurrenceLife(first) = %v; want alive", l)
 	}
 	if got, err := invoke("Extent", objectValue(fleet)); err != nil || FormatValue(got) != "1" {
@@ -211,14 +211,14 @@ func testObjectLifecycleDestroyThroughReference(t *testing.T) {
 		t.Errorf("cars = %v after destroy; want the stale reference kept", after)
 	}
 	_, err = invoke("SpareN", objectValue(fleet))
-	if !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Errorf("spare.n = %v; want %v", err, ErrOccurrenceDestroyed)
+	if !errors.Is(err, errOccurrenceDestroyed) {
+		t.Errorf("spare.n = %v; want %v", err, errOccurrenceDestroyed)
 	}
-	if _, err := cars[1].GetFeatureValue(ctx, "n"); !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Errorf("cars[2].n = %v; want %v", err, ErrOccurrenceDestroyed)
+	if _, err := cars[1].GetFeatureValue(ctx, "n"); !errors.Is(err, errOccurrenceDestroyed) {
+		t.Errorf("cars[2].n = %v; want %v", err, errOccurrenceDestroyed)
 	}
-	if _, err := ctx.HeldObjects(cars[1]); !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Errorf("HeldObjects(destroyed) = %v; want %v", err, ErrOccurrenceDestroyed)
+	if _, err := ctx.HeldObjects(cars[1]); !errors.Is(err, errOccurrenceDestroyed) {
+		t.Errorf("HeldObjects(destroyed) = %v; want %v", err, errOccurrenceDestroyed)
 	}
 }
 
@@ -228,7 +228,7 @@ func testObjectLifecycleDestroyEndsMachine(t *testing.T) {
 	instantiate, invoke, ctx := lifetimeFixture(t, objectLifecycleModel)
 	fleet := instantiate("Fleet")
 	car := heldCars(t, ctx, fleet)[1]
-	running, ok := car.Behavior("running")
+	running, ok := car.behavior("running")
 	if !ok || running.State == nil || running.State.State().Ended() {
 		t.Fatalf("running = %v, %v; want the machine under way", running, ok)
 	}
@@ -238,7 +238,7 @@ func testObjectLifecycleDestroyEndsMachine(t *testing.T) {
 	if running.State.State() != StateTerminated {
 		t.Errorf("running = %v after destroy; want terminated", running.State.State())
 	}
-	if l, ok := ctx.OccurrenceLife(running.State.occurrence.ID); !ok || l.Alive() {
+	if l, ok := ctx.OccurrenceLife(running.State.occurrence.ID); !ok || l.alive() {
 		t.Errorf("OccurrenceLife(running) = %v, %v; want ended", l, ok)
 	}
 	if err := ctx.drainObjectBehaviors(); err != nil {
@@ -255,8 +255,8 @@ func testObjectLifecycleDestroyTwice(t *testing.T) {
 		t.Fatalf("destroy(car) = %v", err)
 	}
 	_, err := invoke("Destroy", objectValue(car))
-	if !errors.Is(err, ErrOccurrenceDestroyed) || !strings.Contains(err.Error(), "was destroyed at") {
-		t.Errorf("second destroy = %v; want %v naming the first", err, ErrOccurrenceDestroyed)
+	if !errors.Is(err, errOccurrenceDestroyed) || !strings.Contains(err.Error(), "was destroyed at") {
+		t.Errorf("second destroy = %v; want %v naming the first", err, errOccurrenceDestroyed)
 	}
 }
 
@@ -277,11 +277,11 @@ func testObjectLifecycleDestroyWholeEndsCreatedParts(t *testing.T) {
 		if l, _ := ctx.OccurrenceLife(car.ID); !l.Destroyed {
 			t.Errorf("OccurrenceLife(#%d) = %v; want destroyed with the fleet", car.ID, l)
 		}
-		if b, ok := car.Behavior("running"); !ok || b.State.State() != StateTerminated {
+		if b, ok := car.behavior("running"); !ok || b.State.State() != StateTerminated {
 			t.Errorf("#%d running = %v, %v; want terminated with the fleet", car.ID, b, ok)
 		}
-		if _, err := invoke("Destroy", objectValue(car)); !errors.Is(err, ErrOccurrenceDestroyed) {
-			t.Errorf("destroy(#%d) after the fleet = %v; want %v", car.ID, err, ErrOccurrenceDestroyed)
+		if _, err := invoke("Destroy", objectValue(car)); !errors.Is(err, errOccurrenceDestroyed) {
+			t.Errorf("destroy(#%d) after the fleet = %v; want %v", car.ID, err, errOccurrenceDestroyed)
 		}
 	}
 }
@@ -327,14 +327,14 @@ func testObjectLifecycleMovedPart(t *testing.T) {
 		t.Fatalf("#%d owned by %v.%s; want the garage's cars", moved.ID, moved.owner, moved.ownerFeature)
 	}
 	destroyWith("DestroyFleet", fleet)
-	if l, _ := ctx.OccurrenceLife(moved.ID); !l.Alive() {
+	if l, _ := ctx.OccurrenceLife(moved.ID); !l.alive() {
 		t.Errorf("OccurrenceLife(moved) = %v after destroying the fleet; want alive", l)
 	}
-	if l, _ := ctx.OccurrenceLife(cars[1].ID); l.Alive() {
+	if l, _ := ctx.OccurrenceLife(cars[1].ID); l.alive() {
 		t.Errorf("OccurrenceLife(kept) = %v after destroying the fleet; want ended with it", l)
 	}
 	destroyWith("DestroyGarage", garage)
-	if l, _ := ctx.OccurrenceLife(moved.ID); l.Alive() {
+	if l, _ := ctx.OccurrenceLife(moved.ID); l.alive() {
 		t.Errorf("OccurrenceLife(moved) = %v after destroying the garage; want ended with it", l)
 	}
 }
@@ -360,10 +360,10 @@ func testObjectLifecycleSendNew(t *testing.T) {
 	if sent == nil {
 		t.Fatal("no Car constructed by the send")
 	}
-	if l, ok := ctx.OccurrenceLife(sent.ID); !ok || !l.Alive() {
+	if l, ok := ctx.OccurrenceLife(sent.ID); !ok || !l.alive() {
 		t.Errorf("OccurrenceLife(sent) = %v, %v; want alive", l, ok)
 	}
-	if b, ok := sent.Behavior("running"); !ok || b.State == nil || b.State.State().Ended() {
+	if b, ok := sent.behavior("running"); !ok || b.State == nil || b.State.State().Ended() {
 		t.Errorf("sent running = %v, %v; want the machine under way", b, ok)
 	}
 }
@@ -412,10 +412,10 @@ func testObjectLifecycleDestroyedHolderExtent(t *testing.T) {
 		t.Fatalf("#%d owned by %v; want released", loose.ID, loose.owner)
 	}
 	sym, scope := calcByName(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "more", "DestroyFleet")
-	if _, err := ctx.InvokeCalc(sym, []Value{objectValue(fleet)}, scope); err != nil {
+	if _, err := invokeValue(ctx, sym, []Value{objectValue(fleet)}, scope); err != nil {
 		t.Fatalf("destroy(fleet) = %v", err)
 	}
-	if l, _ := ctx.OccurrenceLife(loose.ID); !l.Alive() {
+	if l, _ := ctx.OccurrenceLife(loose.ID); !l.alive() {
 		t.Fatalf("OccurrenceLife(spare) = %v after destroying the fleet; want alive", l)
 	}
 	if got, err := invoke("Extent", objectValue(fleet)); err != nil || FormatValue(got) != "1" {
@@ -438,7 +438,7 @@ func testObjectLifecycleDestroyedNotSubject(t *testing.T) {
 	if _, err := invoke("Destroy", objectValue(doomed)); err != nil {
 		t.Fatalf("destroy = %v", err)
 	}
-	if l, _ := ctx.OccurrenceLife(live.ID); !l.Alive() {
+	if l, _ := ctx.OccurrenceLife(live.ID); !l.alive() {
 		t.Fatalf("the other car ended too")
 	}
 	satisfied, err := ctx.EvaluateConstraint(small, small.OwnerScope)
@@ -534,7 +534,7 @@ func testObjectLifecycleFailedConstructorDestroy(t *testing.T) {
 			part plant : Plant;
 		}`)
 	plant := instantiate("plant")
-	b, ok := plant.Behavior("running")
+	b, ok := plant.behavior("running")
 	if !ok || b.State == nil || b.State.State().Ended() {
 		t.Fatalf("running = %v, %v; want the machine under way", b, ok)
 	}
@@ -543,7 +543,7 @@ func testObjectLifecycleFailedConstructorDestroy(t *testing.T) {
 	if _, err := evalIn(t, ctx, scope, "new Worker(plant)"); err == nil {
 		t.Fatal("new Worker(plant) succeeded; want its failing action reported")
 	}
-	if l, _ := ctx.OccurrenceLife(plant.ID); !l.Alive() {
+	if l, _ := ctx.OccurrenceLife(plant.ID); !l.alive() {
 		t.Errorf("OccurrenceLife(plant) = %v after the failed constructor; want alive again", l)
 	}
 	if got := b.State.State(); got != was {
@@ -584,7 +584,7 @@ func testObjectLifecycleSharedPortion(t *testing.T) {
 	if l, _ := ctx.OccurrenceLife(id); !l.Destroyed {
 		t.Errorf("OccurrenceLife(car) = %v after destroying b; want destroyed with the whole holding it", l)
 	}
-	if l, _ := ctx.OccurrenceLife(a.ID); !l.Alive() {
+	if l, _ := ctx.OccurrenceLife(a.ID); !l.alive() {
 		t.Errorf("OccurrenceLife(a) = %v; want alive, it was not destroyed", l)
 	}
 }
@@ -635,7 +635,7 @@ func testObjectLifecycleSharedPortionRehomed(t *testing.T) {
 }
 
 // testObjectLifecycleEndedWholeAdoptsNothing: a composite write giving an ended whole a portion live or
-// ended after it is refused with ErrOccurrenceLifetime and holds nothing; a reference to the live
+// ended after it is refused with errOccurrenceLifetime and holds nothing; a reference to the live
 // object, and a portion ended no later than the whole, are held.
 func testObjectLifecycleEndedWholeAdoptsNothing(t *testing.T) {
 	instantiate, _, ctx := lifetimeFixture(t, `
@@ -656,8 +656,8 @@ func testObjectLifecycleEndedWholeAdoptsNothing(t *testing.T) {
 	if _, err := ctx.endOccurrence(garage); err != nil {
 		t.Fatalf("endOccurrence(garage): %v", err)
 	}
-	if err := garage.SetFeatureValue(ctx, "slot", car); !errors.Is(err, ErrOccurrenceLifetime) {
-		t.Fatalf("ended garage.slot := live car = %v; want ErrOccurrenceLifetime", err)
+	if err := garage.SetFeatureValue(ctx, "slot", car); !errors.Is(err, errOccurrenceLifetime) {
+		t.Fatalf("ended garage.slot := live car = %v; want errOccurrenceLifetime", err)
 	}
 	id, _ := car.Object()
 	if owner := ctx.instances[id].owner; owner != nil {
@@ -666,7 +666,7 @@ func testObjectLifecycleEndedWholeAdoptsNothing(t *testing.T) {
 	if fv, err := garage.GetFeatureValue(ctx, "slot"); err != nil || len(heldObjects(fv.HeldValue())) != 0 {
 		t.Errorf("ended garage.slot = %s, %v; want no object, the write refused", FormatValue(fv.HeldValue()), err)
 	}
-	if l, _ := ctx.OccurrenceLife(id); !l.Alive() {
+	if l, _ := ctx.OccurrenceLife(id); !l.alive() {
 		t.Errorf("OccurrenceLife(car) = %v; want alive, the refused write ended nothing", l)
 	}
 	if err := garage.SetFeatureValue(ctx, "seen", car); err != nil {
@@ -678,8 +678,8 @@ func testObjectLifecycleEndedWholeAdoptsNothing(t *testing.T) {
 	if _, err := ctx.endOccurrence(shed); err != nil {
 		t.Fatalf("endOccurrence(shed): %v", err)
 	}
-	if err := garage.SetFeatureValue(ctx, "slot", car); !errors.Is(err, ErrOccurrenceLifetime) {
-		t.Errorf("ended garage.slot := car ended after it = %v; want ErrOccurrenceLifetime", err)
+	if err := garage.SetFeatureValue(ctx, "slot", car); !errors.Is(err, errOccurrenceLifetime) {
+		t.Errorf("ended garage.slot := car ended after it = %v; want errOccurrenceLifetime", err)
 	}
 	if _, err := ctx.endOccurrence(barn); err != nil {
 		t.Fatalf("endOccurrence(barn): %v", err)
@@ -690,7 +690,7 @@ func testObjectLifecycleEndedWholeAdoptsNothing(t *testing.T) {
 }
 
 // testObjectLifecycleCompositeCycle: a composite write that would make the holder a portion of
-// itself — holding itself, or a whole it is a portion of — is refused with ErrOccurrenceLifetime and
+// itself — holding itself, or a whole it is a portion of — is refused with errOccurrenceLifetime and
 // holds nothing, so destroying the would-be portion cannot end its whole.
 func testObjectLifecycleCompositeCycle(t *testing.T) {
 	instantiate, _, ctx := lifetimeFixture(t, `
@@ -713,8 +713,8 @@ func testObjectLifecycleCompositeCycle(t *testing.T) {
 	leafInst := ctx.instances[id]
 	for _, whole := range []*Instance{root, leafInst} {
 		err := leafInst.SetFeatureValue(ctx, "child", objectValue(whole))
-		if !errors.Is(err, ErrOccurrenceLifetime) {
-			t.Errorf("leaf.child := #%d = %v; want ErrOccurrenceLifetime, it would make the leaf a portion of itself", whole.ID, err)
+		if !errors.Is(err, errOccurrenceLifetime) {
+			t.Errorf("leaf.child := #%d = %v; want errOccurrenceLifetime, it would make the leaf a portion of itself", whole.ID, err)
 		}
 	}
 	if fv := leafInst.FeatureValues["child"]; fv != nil && fv.Written {
@@ -723,7 +723,7 @@ func testObjectLifecycleCompositeCycle(t *testing.T) {
 	if _, err := evalIn(t, ctx, scope, "Drop(root.child)"); err != nil {
 		t.Fatalf("Drop(root.child): %v", err)
 	}
-	if l, _ := ctx.OccurrenceLife(root.ID); !l.Alive() {
+	if l, _ := ctx.OccurrenceLife(root.ID); !l.alive() {
 		t.Errorf("OccurrenceLife(root) = %v after destroying its leaf; want alive", l)
 	}
 }
@@ -772,11 +772,11 @@ func testObjectLifecycleForgetsMessages(t *testing.T) {
 	if err != nil {
 		t.Fatalf("portInstanceID(other.ear): %v", err)
 	}
-	ctx.PostMessage(Message{SignalType: "Ping", Object: other.ID, Port: "ear", PortID: ear, Delivery: DeliverPort})
+	ctx.PostMessage(Message{SignalType: "Ping", Object: other.ID, Port: "ear", PortID: ear, Delivery: deliverPort})
 	if err := ctx.destroy(ctx.instances[ear]); err != nil {
 		t.Fatalf("destroy(other.ear): %v", err)
 	}
-	if l, _ := ctx.OccurrenceLife(other.ID); !l.Alive() {
+	if l, _ := ctx.OccurrenceLife(other.ID); !l.alive() {
 		t.Fatalf("OccurrenceLife(other) = %v after destroying its port; want alive", l)
 	}
 	for _, msg := range ctx.PendingMessages() {
@@ -857,8 +857,8 @@ func testObjectLifecycleDerivationsFollowLives(t *testing.T) {
 	if _, err := evalIn(t, ctx, scope, "Scrap(garage.slot)"); err != nil {
 		t.Fatalf("Scrap(garage.slot): %v", err)
 	}
-	if _, err := read("slotN"); !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Errorf("garage.slotN after scrapping the car = %v; want ErrOccurrenceDestroyed, derived again", err)
+	if _, err := read("slotN"); !errors.Is(err, errOccurrenceDestroyed) {
+		t.Errorf("garage.slotN after scrapping the car = %v; want errOccurrenceDestroyed, derived again", err)
 	}
 	if got, err := read("slotAlive"); err != nil || got != "false" {
 		t.Errorf("garage.slotAlive after scrapping the car = %s, %v; want false", got, err)

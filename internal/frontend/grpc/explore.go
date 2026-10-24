@@ -24,10 +24,19 @@ type explored struct {
 // workers; a failed run is an outcome, a diverging replay an error. An outcome's values
 // and notes are spelled from its witness run's context, which the outcome keeps.
 func (s *Service) explore(ctx context.Context, subject string, policy runtime.SchedulePolicy, selection analysis.Selection, cached *CachedModel, run func(*runtime.Context) (runtime.Outcome, error)) (explored, error) {
+	return s.exploreWith(ctx, subject, policy, selection, cached, runOptions{}, run)
+}
+
+// exploreWith is explore under the request's run options, which every run of the
+// plan draws and ticks under.
+func (s *Service) exploreWith(ctx context.Context, subject string, policy runtime.SchedulePolicy, selection analysis.Selection, cached *CachedModel, opts runOptions, run func(*runtime.Context) (runtime.Outcome, error)) (explored, error) {
 	plan, err := s.engines.Explore(ctx, analysis.Request{
 		Model:     s.model(cached),
 		Subject:   subject,
 		Schedule:  policy,
+		ModelSeed: opts.modelSeed(),
+		Draws:     opts.draws,
+		ClockStep: opts.clockStep,
 		Budget:    analysis.BudgetOf(s.budgets, policy, analysis.Outcomes, s.jobs),
 		Selection: selection,
 	}, run)
@@ -84,6 +93,7 @@ func (s *Service) explore(ctx context.Context, subject string, policy runtime.Sc
 		Complete:                x.Complete(),
 		Runs:                    int32Clamp(x.Runs),
 		BudgetsHit:              x.BudgetsHit,
+		Unenumerated:            runtime.GapNames(x.Unenumerated),
 		RunsBudget:              int32Clamp(x.Budget.Runs),
 		DepthBudget:             int32Clamp(x.Budget.Depth),
 		ProbabilitiesLowerBound: x.ProbabilitiesBounded(),

@@ -248,9 +248,9 @@ func (m *migration) tagReference(id string) (string, string) {
 
 // metaclassOf is the SysML metaclass e is written as — a definition's, or the
 // action usage's of a block behavior written so — and "" for
-// an element written as something other than a definition. An individual's is
-// the metaclass of the kind its classifier gives it (`individual part def` is
-// a PartDefinition; a bare `individual def`, an OccurrenceDefinition).
+// an element written as something other than a definition. An instance's is
+// the usage metaclass of the kind its classifier gives it (`part` is a
+// PartUsage); a link's, ConnectionUsage.
 func (m *migration) metaclassOf(e *sysmlv1.Element) string {
 	if m.asUsage[e] {
 		if m.performed(e) {
@@ -259,12 +259,12 @@ func (m *migration) metaclassOf(e *sysmlv1.Element) string {
 		return "SysML::ActionUsage"
 	}
 	cat, _ := m.classify(e)
-	if cat == catIndividualDef {
-		kind, _, _ := m.individualClassifiers(e)
-		if kind == catNone {
-			return "SysML::OccurrenceDefinition"
+	if cat == catInstance {
+		if m.instanceAssociation(e) != nil {
+			return "SysML::ConnectionUsage"
 		}
-		return kind.metaclass()
+		kind, _, _, _ := m.instanceKind(e)
+		return kind.usageMetaclass()
 	}
 	return cat.metaclass()
 }

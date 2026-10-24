@@ -1095,7 +1095,37 @@ func TestToActionGraphFeatureOnlySelfTypedNodeKeepsInvocation(t *testing.T) {
 	}
 }
 
-func TestToActionGraphExecutableSelfTypedNodeRefusesRecursiveMerge(t *testing.T) {
+// unfoldedDeferred asserts that node's subflow is deferred and unfolds to a flow
+// whose own node of the same name is deferred to that very flow.
+func unfoldedDeferred(t *testing.T, graph *ActionGraph, name string) *ActionGraph {
+	t.Helper()
+	node := namedNode(graph, name)
+	subflow := graph.Subflows[node]
+	if subflow == nil || subflow.Deferred == nil || subflow.Graph != nil || subflow.Err != nil {
+		t.Fatalf("%s subflow = %#v, want a deferred typed subflow", name, subflow)
+	}
+	if _, merged := graph.MergedTypedSubflows[node]; !merged {
+		t.Fatalf("%s was not marked as a merged typed subflow", name)
+	}
+	unfolded, err := subflow.Unfold()
+	if err != nil || unfolded == nil {
+		t.Fatalf("Unfold %s = %v, %v, want the type's flow", name, unfolded, err)
+	}
+	if again, err := subflow.Unfold(); again != unfolded || err != nil {
+		t.Fatalf("second Unfold %s = %v, %v, want the memoized flow", name, again, err)
+	}
+	inner := namedNode(unfolded, name)
+	innerSubflow := unfolded.Subflows[inner]
+	if innerSubflow == nil || innerSubflow.Deferred == nil {
+		t.Fatalf("inner %s subflow = %#v, want deferred", name, innerSubflow)
+	}
+	if cycle, err := innerSubflow.Unfold(); cycle != unfolded || err != nil {
+		t.Fatalf("inner Unfold %s = %v, %v, want the same flow once", name, cycle, err)
+	}
+	return unfolded
+}
+
+func TestToActionGraphExecutableSelfTypedNodeDefersRecursiveMerge(t *testing.T) {
 	src := `
 		action def A {
 			attribute c : Integer := 0;
@@ -1111,11 +1141,7 @@ func TestToActionGraphExecutableSelfTypedNodeRefusesRecursiveMerge(t *testing.T)
 	if err != nil {
 		t.Fatalf("lower A: %v", err)
 	}
-	node := namedNode(graph, "x")
-	subflow := graph.Subflows[node]
-	if subflow == nil || !errors.Is(subflow.Err, ErrRecursiveActionTyping) {
-		t.Fatalf("x subflow = %#v, want ErrRecursiveActionTyping", subflow)
-	}
+	unfoldedDeferred(t, graph, "x")
 }
 
 func TestToActionGraphBodyStatingTypedNodeMergesFiniteGeneral(t *testing.T) {
@@ -1147,7 +1173,7 @@ func TestToActionGraphBodyStatingTypedNodeMergesFiniteGeneral(t *testing.T) {
 	}
 }
 
-func TestToActionGraphInheritedTypedBodyRecursionIsRefused(t *testing.T) {
+func TestToActionGraphInheritedTypedBodyRecursionIsDeferred(t *testing.T) {
 	src := `
 		action def Base {
 			attribute c : Integer := 0;
@@ -1167,14 +1193,10 @@ func TestToActionGraphInheritedTypedBodyRecursionIsRefused(t *testing.T) {
 	if outerSubflow == nil || outerSubflow.Graph == nil || outerSubflow.Err != nil {
 		t.Fatalf("outer x subflow = %#v, want P's graph", outerSubflow)
 	}
-	inner := namedNode(outerSubflow.Graph, "x")
-	innerSubflow := outerSubflow.Graph.Subflows[inner]
-	if innerSubflow == nil || !errors.Is(innerSubflow.Err, ErrRecursiveActionTyping) {
-		t.Fatalf("inner x subflow = %#v, want ErrRecursiveActionTyping", innerSubflow)
-	}
+	unfoldedDeferred(t, outerSubflow.Graph, "x")
 }
 
-func TestToActionGraphExecutableMutuallyTypedNodesRefuseRecursiveMerge(t *testing.T) {
+func TestToActionGraphExecutableMutuallyTypedNodesDeferRecursiveMerge(t *testing.T) {
 	src := `
 		action def A {
 			attribute c : Integer := 0;
@@ -1201,8 +1223,27 @@ func TestToActionGraphExecutableMutuallyTypedNodesRefuseRecursiveMerge(t *testin
 	}
 	z := namedNode(subflow.Graph, "z")
 	recursive := subflow.Graph.Subflows[z]
-	if recursive == nil || !errors.Is(recursive.Err, ErrRecursiveActionTyping) {
-		t.Fatalf("z subflow = %#v, want ErrRecursiveActionTyping", recursive)
+	if recursive == nil || recursive.Deferred == nil {
+		t.Fatalf("z subflow = %#v, want deferred", recursive)
+	}
+	unfolded, err := recursive.Unfold()
+	if err != nil || unfolded == nil {
+		t.Fatalf("Unfold z = %v, %v, want A's flow", unfolded, err)
+	}
+	inner := unfolded.Subflows[namedNode(unfolded, "y")]
+	if inner == nil || inner.Deferred == nil {
+		t.Fatalf("inner y subflow = %#v, want deferred", inner)
+	}
+	innerB, err := inner.Unfold()
+	if err != nil || innerB == nil {
+		t.Fatalf("inner Unfold y = %v, %v, want B's flow", innerB, err)
+	}
+	innerZ := innerB.Subflows[namedNode(innerB, "z")]
+	if innerZ == nil || innerZ.Deferred == nil {
+		t.Fatalf("inner z subflow = %#v, want deferred", innerZ)
+	}
+	if cycle, err := innerZ.Unfold(); cycle != unfolded || err != nil {
+		t.Fatalf("inner Unfold z = %v, %v, want A's flow lowered once", cycle, err)
 	}
 }
 

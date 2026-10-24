@@ -11,6 +11,6 @@ stmt assign c
     eval feature c -> 2
     eval literal 1 -> 1
   eval operator + -> 3
-choice step 2: writes c := 3 by token 1, c := 2 by token 2, c := 1 by token 3 (unordered; c := 3 by token 1 stood)
-choice step 2: tokens 1@a, 2@a, 3@a (unordered; took 3@a first)
+choice step 2: writes c := 3 by token 1, c := 2 by token 2, c := 1 by token 3 (unordered; c := 3 by token 1 stood; order-dependent: c)
+choice step 2: tokens 1@a, 2@a, 3@a (unordered; took 3@a first; order-dependent: c)
 step 2: no active tokens

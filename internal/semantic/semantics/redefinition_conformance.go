@@ -45,6 +45,7 @@ func (m *Model) ConformanceViolations(sym *symbols.Symbol) []ConformanceViolatio
 	}
 	var out []ConformanceViolation
 	written := map[*symbols.Symbol]bool{}
+	redefined := map[*symbols.Symbol]bool{}
 	for _, rel := range RelationshipsOf(sym) {
 		if rel == nil || rel.Target == nil {
 			continue
@@ -59,6 +60,7 @@ func (m *Model) ConformanceViolations(sym *symbols.Symbol) []ConformanceViolatio
 		written[target] = true
 		ref := ast.Node(rel.Target)
 		if rel.Kind == ast.RelRedefines {
+			redefined[target] = true
 			out = append(out, m.directionViolations(sym, traits, target, ref)...)
 		}
 		out = append(out, m.restrictionViolations(sym, traits, target, ref)...)
@@ -73,10 +75,17 @@ func (m *Model) ConformanceViolations(sym *symbols.Symbol) []ConformanceViolatio
 		}
 		out = append(out, m.restrictionViolations(sym, traits, target, sym.Decl)...)
 	}
-	// A parameter redefines the parameter at its position implicitly, and the
-	// direction it declares must be the redefined one's (KerML 7.4.7.2).
+	// A parameter redefines the parameter at its position implicitly (KerML 7.4.7.2),
+	// and that Redefinition is held to the direction and restriction rules like a written one.
+	// A written clause naming the counterpart was judged above: for direction only a
+	// redefinition is, since a subsetting one is not held to it.
 	for _, target := range m.implicitParameterCounterparts(sym) {
-		out = append(out, m.directionViolations(sym, traits, target, sym.Decl)...)
+		if !redefined[target] {
+			out = append(out, m.directionViolations(sym, traits, target, sym.Decl)...)
+		}
+		if !written[target] {
+			out = append(out, m.restrictionViolations(sym, traits, target, sym.Decl)...)
+		}
 	}
 	return out
 }
@@ -102,16 +111,15 @@ func (m *Model) conformanceTarget(sym *symbols.Symbol, rel *ast.Relationship) *s
 	return found
 }
 
-// directionViolations reports a redefinition whose declared direction differs
-// from the redefined feature's. An undeclared direction takes the redefined
-// one's, and a redefined `inout` admits any direction.
+// directionViolations reports a redefinition whose direction does not conform (KerML 8.3.3.3.8):
+// a redefined `in`/`out` must be restated as such, `inout` by some direction, none by none only.
 func (m *Model) directionViolations(sym *symbols.Symbol, traits featureTraits,
 	target *symbols.Symbol, ref ast.Node) []ConformanceViolation {
-	if traits.Direction == ast.DirNone {
+	targetDir := m.directionThrough(owningTypeOf(sym), target)
+	if targetDir == ast.DirNone || targetDir == traits.Direction {
 		return nil
 	}
-	targetDir := m.directionThrough(owningTypeOf(sym), target)
-	if targetDir == ast.DirNone || targetDir == ast.DirInOut || targetDir == traits.Direction {
+	if targetDir == ast.DirInOut && traits.Direction != ast.DirNone {
 		return nil
 	}
 	return []ConformanceViolation{{
@@ -119,9 +127,8 @@ func (m *Model) directionViolations(sym *symbols.Symbol, traits featureTraits,
 	}}
 }
 
-// restrictionViolations reports the uniqueness and constancy rules: a subsetting
-// or redefining feature may not be nonunique where the target is unique, nor
-// variable where the target is constant (KerML 8.3.3.3).
+// restrictionViolations reports the uniqueness and constancy rules (KerML 8.3.3.3.9) on the
+// derived isVariable/isConstant: a SysML usage varies by mayTimeVary, a varying end is constant.
 func (m *Model) restrictionViolations(sym *symbols.Symbol, traits featureTraits,
 	target *symbols.Symbol, ref ast.Node) []ConformanceViolation {
 	if _, ok := featureTraitsOf(target); !ok {
@@ -133,7 +140,7 @@ func (m *Model) restrictionViolations(sym *symbols.Symbol, traits featureTraits,
 			Kind: ViolationUniqueness, Feature: sym, Target: target, Ref: ref,
 		})
 	}
-	if traits.IsVariable && m.constantDeclaration(target, map[*symbols.Symbol]bool{}) != nil {
+	if m.FeatureIsVariable(sym) && !m.FeatureIsConstant(sym) && m.FeatureIsConstant(target) {
 		out = append(out, ConformanceViolation{
 			Kind: ViolationConstancy, Feature: sym, Target: target, Ref: ref,
 		})
@@ -162,6 +169,26 @@ func (m *Model) directionThrough(owner, feature *symbols.Symbol) ast.FeatureDire
 	return dir
 }
 
+// EffectiveDirection returns a feature's direction in the context of its owner.
+func (m *Model) EffectiveDirection(owner, feature *symbols.Symbol) ast.FeatureDirection {
+	if m == nil || feature == nil {
+		return ast.DirNone
+	}
+	return m.directionThrough(owner, feature)
+}
+
+// DeclaredDirection returns the direction stated on a feature declaration.
+func (m *Model) DeclaredDirection(feature *symbols.Symbol) ast.FeatureDirection {
+	if m == nil {
+		return ast.DirNone
+	}
+	traits, ok := featureTraitsOf(feature)
+	if !ok {
+		return ast.DirNone
+	}
+	return traits.Direction
+}
+
 // owningTypeOf returns the type declaring sym, or nil at the top level.
 func owningTypeOf(sym *symbols.Symbol) *symbols.Symbol {
 	if sym == nil || sym.OwnerScope == nil {
@@ -175,8 +202,6 @@ func owningTypeOf(sym *symbols.Symbol) *symbols.Symbol {
 type featureTraits struct {
 	Direction   ast.FeatureDirection
 	IsNonunique bool
-	IsVariable  bool
-	IsConstant  bool
 }
 
 // featureTraitsOf returns the traits sym's declaration states, if it is a feature.
@@ -186,11 +211,9 @@ func featureTraitsOf(sym *symbols.Symbol) (featureTraits, bool) {
 	}
 	switch d := sym.Decl.(type) {
 	case *ast.Usage:
-		return featureTraits{Direction: d.Direction, IsNonunique: d.IsNonunique,
-			IsVariable: d.IsVariable, IsConstant: d.IsConstant}, true
+		return featureTraits{Direction: d.Direction, IsNonunique: d.IsNonunique}, true
 	case *ast.CrossFeatureMember:
-		return featureTraits{Direction: d.Direction, IsNonunique: d.IsNonunique,
-			IsVariable: d.IsVariable, IsConstant: d.IsConstant}, true
+		return featureTraits{Direction: d.Direction, IsNonunique: d.IsNonunique}, true
 	}
 	return featureTraits{}, false
 }

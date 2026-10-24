@@ -1,5 +1,6 @@
 // A requirement def inherits RequirementCheck's subject, actors, stakeholders and
-// constraints; its result parameter and `requirement :>> self` stay in the frame.
+// constraints; its result parameter answers the object's own check, undetermined
+// while the subject is unbound, and `requirement :>> self` stays in the frame.
 package test {
     private import ScalarValues::*;
 

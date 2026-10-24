@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{"outputs": {"x": {"type": "Integer", "value": 1}, "y": {"type": "Integer", "value": 10}, "z": {"type": "Integer", "value": 5}, "later": {"type": "Integer", "value": 7}}},
+		{"outputs": {"x": {"type": "Integer", "value": 2}, "y": {"type": "Integer", "value": 1}, "z": {"type": "Integer", "value": 1}, "later": {"type": "Integer", "value": 7}}}
+	],
+	"admissible": "A fork and join inside a branch carry the decision that took it",
+	"orderDependent": {"x": 2, "y": 2, "z": 2}
+}

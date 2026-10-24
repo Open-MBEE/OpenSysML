@@ -1,0 +1,19 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Rig",
+  "slots": {
+    "sum": {"type": "Integer", "value": 6},
+    "product": {"type": "Integer", "value": 24},
+    "largest": {"type": "Integer", "value": 9},
+    "single": {"type": "Integer", "value": 7},
+    "viaCalc": {"type": "Integer", "value": 6},
+    "viaBody": {"type": "Integer", "value": 6},
+    "negated": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": -1},
+      {"type": "Integer", "value": -2},
+      {"type": "Integer", "value": -3}
+    ]},
+    "summed": {"type": "Integer", "value": 6}
+  }
+}

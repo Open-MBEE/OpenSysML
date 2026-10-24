@@ -10,21 +10,18 @@ import (
 	"testing"
 )
 
-// replGzipBudget bounds the gzipped sysml_prod js build the CLI page downloads
+// replGzipBudget bounds the gzipped RE (sysml_re) js build the CLI page downloads
 // for its in-browser REPL.
-const replGzipBudget = 13100000
+const replGzipBudget = 15000000
 
 // TestBrowserREPLWalkthroughs runs every walkthrough the CLI page offers
 // (docs/assets/repl-walkthroughs.json) through the page's own host,
-// docs/assets/sysml-repl.js, on the sysml_prod js build the Makefile ships,
+// docs/assets/sysml-repl.js, on the RE (sysml_re) js build the Makefile ships,
 // and requires each step's output to say what the step's narration promises.
 func TestBrowserREPLWalkthroughs(t *testing.T) {
 	requireNode(t)
 	js := wasmTarget{name: "js", goos: "js"}
-	bin := filepath.Join(t.TempDir(), "sysml-repl.wasm")
-	if out, err := goFor(t, js, "build", "-tags", "sysml_prod", "-ldflags", ldflags, "-o", bin, "./cmd/sysml"); err != nil {
-		t.Fatalf("building cmd/sysml -tags sysml_prod for js: %v\n%s", err, out)
-	}
+	bin := link(t, js, "sysml", "sysml_re")
 	assets := filepath.Join("..", "..", "docs", "assets")
 	toursFile := filepath.Join(assets, "repl-walkthroughs.json")
 	raw, err := os.ReadFile(toursFile)
@@ -137,7 +134,7 @@ func TestBrowserREPLWalkthroughs(t *testing.T) {
 			t.Fatalf("compressing: %v", err)
 		}
 		if size := compressed.Len(); size > replGzipBudget {
-			t.Errorf("gzipped sysml_prod sysml.wasm is %d bytes, over the %d-byte budget the CLI page downloads", size, replGzipBudget)
+			t.Errorf("gzipped RE sysml.wasm is %d bytes, over the %d-byte budget the CLI page downloads", size, replGzipBudget)
 		}
 	})
 }

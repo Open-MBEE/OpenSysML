@@ -1,0 +1,16 @@
+{
+  "type": "state",
+  "events": [
+    {"signal": "Go"},
+    {"signal": "FinishA"},
+    {"signal": "Back"},
+    {"signal": "Direct"},
+    {"signal": "FinishA"},
+    {"signal": "FinishB"}
+  ],
+  "finalState": "outside",
+  "outputs": {
+    "log": {"type": "String", "value": "A(entry) outside(entry) "}
+  },
+  "trace": true
+}

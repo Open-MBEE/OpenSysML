@@ -85,12 +85,12 @@ func (s *Session) Complete(line string, pos int) Completion {
 			}
 			return completion(word, matchingPrefix(kinds, word))
 		case 2:
-			return completion(word, matchingPrefix([]string{"text", "mermaid", "plantuml", "dot", "link="}, word))
+			return completion(word, matchingPrefix([]string{"text", "mermaid", "plantuml", "svg", "svg-animated", "dot", "link="}, word))
 		case 3:
 			args := typedArgs(head)
 			options := []string{"link="}
 			if len(args) > 2 && strings.HasPrefix(args[2], "link=") {
-				options = []string{"text", "mermaid", "plantuml", "dot"}
+				options = []string{"text", "mermaid", "plantuml", "svg", "svg-animated", "dot"}
 			}
 			return completion(word, matchingPrefix(options, word))
 		default:
@@ -160,13 +160,13 @@ func atSecondArgument(head string) bool {
 	return !inUnfinishedName(head) && argumentIndex(head) == 2
 }
 
-// atPaletteArgument reports whether the word being typed is %render's third,
-// fourth or fifth argument after a form that takes a palette: the palette to
-// fill from, the style to draw in or the port display to draw parts with.
+// atPaletteArgument reports whether the word being typed is one of %render's
+// options after a form that takes a palette: the palette to fill from, the
+// style to draw in, the port display to draw parts with or the line routing to
+// draw edges with, in any order.
 func atPaletteArgument(head string) bool {
 	args := typedArgs(head)
-	index := argumentIndex(head)
-	return !inUnfinishedName(head) && index >= 3 && index <= 5 && len(args) > 2 && view.Form(args[2]).TakesPalette()
+	return !inUnfinishedName(head) && argumentIndex(head) >= 3 && len(args) > 2 && view.Form(args[2]).TakesPalette()
 }
 
 // atObjectArgument reports whether the word being typed is an argument the

@@ -84,7 +84,7 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		return false, nil
 	}
 
-	occurrence := &Event{Type: EventChange, Payload: poll}
+	occurrence := &Event{Type: eventChange, Payload: poll}
 	selected, err := e.selectCandidates(func(state *ast.StateNode) ([]int, []RunNote, error) {
 		return e.risenChangeTransitions(state, poll, occurrence)
 	})
@@ -289,7 +289,7 @@ func (e *StateExecutor) probeChangeGuard(poll *changePoll, state *ast.StateNode,
 	transition := transitions[i]
 	e.preview(func() { pass, err = e.passesGuard(transition) })
 	if err != nil {
-		if errors.Is(err, ErrOrderDependentPreview) || errors.Is(err, ErrOrderDependentGuardEffect) {
+		if errors.Is(err, errOrderDependentPreview) || errors.Is(err, errOrderDependentGuardEffect) {
 			return false, nil, err
 		}
 		note := e.unevaluableTransition(state, transitions, i, fmt.Errorf("eval change guard: %w", err))
@@ -327,7 +327,14 @@ func (e *StateExecutor) changeConditionHolds(changeEvent *ast.ChangeEvent, trans
 }
 
 func (e *StateExecutor) observeFeatureWrite(fv *FeatureValue) {
-	if !e.hasChangeTriggers || fv == nil || e.ctx.probes > 0 || e.changeEvaluating {
+	if fv == nil || e.ctx.probes > 0 {
+		return
+	}
+	if e.mirrorOccurrenceWrite(fv) {
+		e.observeStateDataWrite()
+		return
+	}
+	if !e.hasChangeTriggers || e.changeEvaluating {
 		return
 	}
 	e.observeChangedValue(func(reads []*FeatureValue) bool {
@@ -456,9 +463,9 @@ func (e *StateExecutor) PollChangeEvents() (dispatched bool, err error) {
 	return e.pollChangeEvents()
 }
 
-// ChangeWaits describes the change conditions the active configuration was
+// describeChangeWaits describes the change conditions the active configuration was
 // waiting on as of the last poll, and nothing when it watches none.
-func (e *StateExecutor) ChangeWaits() []string {
+func (e *StateExecutor) describeChangeWaits() []string {
 	waits := make([]string, 0, len(e.changeWaits))
 	for _, wait := range e.changeWaits {
 		waits = append(waits, wait.String())
@@ -498,7 +505,7 @@ func (e *StateExecutor) SuspendReason() string {
 		return ""
 	}
 	reason := "quiesced: nothing left can fire (no queued event, signal in flight, running do behavior or watched change condition)"
-	if waits := e.ChangeWaits(); len(waits) > 0 {
+	if waits := e.describeChangeWaits(); len(waits) > 0 {
 		reason = "waiting on change condition: " + strings.Join(waits, "; ")
 	}
 	if due, waiting := e.NextWait(); waiting {

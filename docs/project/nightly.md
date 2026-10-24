@@ -51,8 +51,8 @@ the [install guide](../guide/01-install.md)) carries it.
   path changes because a snapshot exists.
 - **Identified by its version.** Every binary reports `nightly-<yyyymmdd>-<commit>` from
   `--version`, with the commit and build time on the following lines, and the release title
-  and tag carry the same string; the VS Code extension shows it after its own version. The
-  clients report the development version of the release the snapshot leads to —
+  and tag carry the same string; the VS Code extension shows it after the clients' development
+  version. The clients report the development version of the release the snapshot leads to —
   `0.9.3.dev20261006` from `opensysml.__version__`, `0.9.3-nightly.20261006.gabc1234` from
   the npm manifest — whose date and commit name the night. Quote it when reporting a
   problem.
@@ -67,8 +67,9 @@ The assets are the ones a stable release ships, laid out the same way (see
   darwin/arm64 and windows/amd64;
 - `sysml-<os>-<arch>.tar.gz` and `sysml-lsp-<os>-<arch>.tar.gz` — each binary on its own;
 - `sysml-grpc-<os>-<arch>` with a `.sha256` sidecar — the gRPC service, raw;
-- `wasm/sysml-wasm.wasm` and `wasm/wasm_exec.js` with `.sha256` sidecars — the
-  combined WebAssembly module and matching Go runtime;
+- `wasm/sysml-wasm.wasm`, `wasm/sysml-prod.wasm.gz` and `wasm/wasm_exec.js` with
+  `.sha256` sidecars — the combined WebAssembly module, the gzip-compressed browser
+  build of the `sysml` REPL and the matching Go runtime;
 - `opensysml-<version>-py3-none-any.whl` and `opensysml-<version>.tar.gz` — the Python
   client, the same files published to PyPI, with that night's `sysml-grpc` digests pinned
   inside;
@@ -82,10 +83,11 @@ And one a stable release does not ship:
 - `opensysml-sysml.vsix` — the [VS Code extension](../guide/08-editors.md#vs-code) packaged
   from the same commit (as `make vscode-package` does). The extension is side-loaded rather than
   published to a marketplace, so the snapshot is where a build of it is picked up. Its
-  version is the extension manifest's with the snapshot version appended as the pre-release
-  part — `0.9.0-nightly-<yyyymmdd>-<commit>` — so VS Code tells one night's build from the
-  next, installs a later night over an earlier one without `--force`, and ranks any stable
-  `0.9.0` above them all. It is in `SHA256SUMS.txt` with the rest.
+  version is the clients' development version with the snapshot version appended as the
+  pre-release part — `0.9.3-nightly-<yyyymmdd>-<commit>` — so VS Code tells one night's build
+  from the next, installs a later night over an earlier one without `--force`, ranks every
+  night above the `0.9.2` it builds on, and ranks the stable `0.9.3` above them all when it
+  ships. It is in `SHA256SUMS.txt` with the rest.
 
 The npm packages are not release assets: the seven tarballs go to the registry, where npm
 verifies them against the registry's integrity hashes and the provenance the workflow signs.
@@ -135,9 +137,9 @@ sha256sum -c --ignore-missing SHA256SUMS.txt
 code --install-extension opensysml-sysml.vsix
 ```
 
-VS Code installs a later night over an earlier one as an update. To go back to an earlier
-night, or from a snapshot to a stable build of the extension whose version is lower, add
-`--force`.
+VS Code installs a later night over an earlier one as an update, and the release the nights
+lead to over the last of them. To go back to an earlier night, or from a snapshot to the
+stable build of the extension it builds on, whose version is lower, add `--force`.
 
 ### The client packages
 
@@ -222,8 +224,8 @@ committed); builds the assets with
 [`scripts/build-release-artifacts.sh`](../../scripts/build-release-artifacts.sh)
 — the same targets, platforms, layout and version check as the CircleCI `build-release`
 job; packages the VS Code extension with its own `npm run package` stamped with the
-snapshot version (not through the Makefile, which the older selected commit may lack the
-knob for) and checks the `.vsix` carries it; pins the digests of the `sysml-grpc` binaries
+clients' development version and the snapshot version (not through the Makefile, which the
+older selected commit may lack the knob for) and checks the `.vsix` carries them; pins the digests of the `sysml-grpc` binaries
 it just built under the night's tag in the wheel's table with
 `pin_release_checksums.py --from-binaries`, builds the wheel and sdist, and checks the
 installed wheel reports the snapshot version, names the night's release as the one it was

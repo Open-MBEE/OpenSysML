@@ -46,6 +46,7 @@ func combinedSubtests(t *testing.T, target wasmTarget, r runner, bins map[string
 			{method: "GetSymbol", params: fmt.Sprintf(`{"modelHash":%q,"symbolId":"Demo::Item"}`, parsed.ModelHash)},
 			{method: "GetDiagnostics", params: fmt.Sprintf(`{"modelHash":%q}`, parsed.ModelHash)},
 			{method: "Instantiate", params: fmt.Sprintf(`{"modelHash":%q,"symbolId":"Demo::Item"}`, parsed.ModelHash)},
+			{method: "RenderView", params: fmt.Sprintf(`{"modelHash":%q,"view":"#interconnection:Demo::Item"}`, parsed.ModelHash)},
 			{method: "GetServerInfo", params: `{}`},
 			{method: "Convert", params: `{}`},
 			{method: "ParseFile", params: `"{"`},
@@ -75,15 +76,15 @@ func combinedSubtests(t *testing.T, target wasmTarget, r runner, bins map[string
 				t.Fatalf("decoding combined frame %d: %v\n%s", i, err, body)
 			}
 			switch i {
-			case 0, 1, 2, 3, 4, 5, 8:
+			case 0, 1, 2, 3, 4, 5, 6, 9:
 				if answer.Error != nil {
 					t.Fatalf("combined call %s failed: %+v", calls[i].method, answer.Error)
 				}
-			case 6:
+			case 7:
 				if answer.Error == nil || answer.Error.Code != jsonrpc.CodeUnimplemented {
 					t.Errorf("unserved method error = %+v, want Unimplemented", answer.Error)
 				}
-			case 7:
+			case 8:
 				if answer.Error == nil || answer.Error.Code != jsonrpc.CodeInvalidArgument {
 					t.Errorf("malformed params error = %+v, want InvalidArgument", answer.Error)
 				}
@@ -97,7 +98,10 @@ func combinedSubtests(t *testing.T, target wasmTarget, r runner, bins map[string
 			if i == 4 && !strings.Contains(string(answer.Result), `"instance"`) {
 				t.Errorf("Instantiate returned no instance: %s", answer.Result)
 			}
-			if i == 5 && !strings.Contains(string(answer.Result), `"capabilities"`) {
+			if i == 5 && !strings.Contains(string(answer.Result), `"kind":"interconnection"`) {
+				t.Errorf("RenderView returned no interconnection drawing: %s", answer.Result)
+			}
+			if i == 6 && !strings.Contains(string(answer.Result), `"capabilities"`) {
 				t.Errorf("GetServerInfo returned no capabilities: %s", answer.Result)
 			}
 		}
@@ -117,7 +121,7 @@ func combinedSubtests(t *testing.T, target wasmTarget, r runner, bins map[string
 		if answers["version"] != versionStamp {
 			t.Errorf("sysmlWasm.version = %q, want %q", answers["version"], versionStamp)
 		}
-		for _, method := range []string{"ParseFile", "Evaluate", "GetSymbol", "GetDiagnostics", "afterMalformed"} {
+		for _, method := range []string{"ParseFile", "Evaluate", "GetSymbol", "GetDiagnostics", "RenderView", "afterMalformed"} {
 			var answer struct {
 				Result json.RawMessage `json:"result"`
 				Error  json.RawMessage `json:"error"`
@@ -127,6 +131,9 @@ func combinedSubtests(t *testing.T, target wasmTarget, r runner, bins map[string
 			} else if len(answer.Error) != 0 {
 				t.Errorf("%s returned an error: %s", method, answer.Error)
 			}
+		}
+		if !strings.Contains(answers["RenderView"], `"kind":"interconnection"`) {
+			t.Errorf("RenderView answered %s, want an interconnection drawing", answers["RenderView"])
 		}
 		if !strings.Contains(answers["malformed"], `"code":3`) {
 			t.Errorf("malformed params answered %s, want InvalidArgument (3)", answers["malformed"])
@@ -264,6 +271,18 @@ func TestCombinedWireParity(t *testing.T) {
 			},
 		},
 		{
+			method: "RenderView",
+			params: fmt.Sprintf(`{"modelHash":%q,"view":"#tree:enginedemo::Switch","ports":"minimal"}`, hash),
+			call: func() ([]byte, error) {
+				request := fmt.Sprintf(`{"modelHash":%q,"view":"#tree:enginedemo::Switch","ports":"minimal"}`, hash)
+				response, err := svc.RenderView(ctx, mustUnmarshal[pb.RenderViewRequest](t, request))
+				if err != nil {
+					return nil, err
+				}
+				return mustMarshal(t, response), nil
+			},
+		},
+		{
 			method: "ExecuteState",
 			params: fmt.Sprintf(`{"modelHash":%q,"stateMachineSymbolId":"enginedemo::Switch"}`, hash),
 			call: func() ([]byte, error) {
@@ -341,7 +360,7 @@ func TestCombinedWireParity(t *testing.T) {
 		"parse_sources", "complex_values", "structured_values", "measurement_refs",
 		"function_values", "set_values", "tensor_values", "infinity_value",
 		"diagnostic_codes", "schedule", "final_time", "metaobject_values",
-		"undetermined_value", "performer", "big_int_values",
+		"undetermined_value", "performer", "big_int_values", "render_view", "state_trace",
 	}
 	if info.Version != "combined-wire-test" {
 		t.Errorf("GetServerInfo version = %q", info.Version)

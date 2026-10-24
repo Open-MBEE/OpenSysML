@@ -221,7 +221,7 @@ Run it with `go run -C tools ./cmd/pilot-exec-diff` after `./scripts/download-pi
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `tools/referee/diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run -C tools ./cmd/pilot-exec-diff`
-prints the current ones. State of the 456 committed cases, the original 32, the 62 the
+prints the current ones. State of the 500 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
@@ -230,11 +230,12 @@ the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases`, the 23
 `enumeration_classification.cases`, the 24 of `metadata_access.cases`, the 13 of
 `extent_expressions.cases`, the 1 of `extent_count_mismatch.cases`, the 166 of
 `undetermined_operands.cases`, the 4 of `unknown_bounds.cases`, the 2 of `vast_bounds.cases` and
-the 4 of `body_local_conformance.cases` and the 10 of `exact_rationals.cases`:
+the 4 of `body_local_conformance.cases`, the 10 of `exact_rationals.cases` and the 44 of
+`unbounded_arithmetic.cases`:
 
 ```
-agree: 217 · kind-only: 1 · order-only: 0 · disagree: 29 · differs-by-design: 5
-pilot-unevaluated: 124 · pilot-silent: 21 · pilot-error: 5 · ours-error: 10 · ours-undetermined: 28
+agree: 224 · kind-only: 1 · order-only: 0 · disagree: 26 · differs-by-design: 5
+pilot-unevaluated: 157 · pilot-silent: 24 · pilot-error: 5 · ours-error: 10 · ours-undetermined: 32
 both-error: 16 · nondeterministic: 0
 ```
 
@@ -656,7 +657,7 @@ agree: `n as Real` on `n : Integer = 7` answers `7` on both sides, and `(1, 2.5,
 answers `(1, 3)` on both — the cast selects element-wise and converts nothing. Three are
 `pilot-silent`: `n as Natural`, `2.5 as Integer` and `4.0 as Integer` draw no output at all from
 the pilot, so its reading of a cast is unobservable here; we answer the empty sequence for both
-`2.5 as Integer` and `4.0 as Integer`, and the typed `ErrUndecidedClassification` for `n as
+`2.5 as Integer` and `4.0 as Integer`, and the typed `errUndecidedClassification` for `n as
 Natural`, because a cast keeps exactly the values `istype` affirms and the pilot's `istype`
 verdicts below fix those. The two part cases, `car as Vehicle` and `car as Car`, land in
 `pilot-unevaluated`: the pilot answers with the unevaluated `PartUsage car`, which names the same
@@ -702,7 +703,7 @@ stays undecided. Twelve agree, eight disagree and three are `pilot-silent`, per 
 | `two-istype-level`, `three-hastype-level`, `three-hastype-integer`, `high-istype-integer`, `high-eq-three`, `high-plus-one`, `cast-hastype-level`, `red-istype-color`, `red-hastype-color`, `c-hastype-color`, `three-istype-color`, `red-istype-level` | as ours | `false`, `false`, `true`, `true`, `true`, `4`, `true`, `true`, `true`, `true`, `false`, `false` | **Agree.** A bare `3` is directly an `Integer` and no `Level`; a `Level` literal is an `Integer` by specialization and equals and computes as its value; `(3 as Level) hastype Level` is `true` on both sides; a plain enumeration's literal is of its enumeration alone and a scalar is of no plain enumeration |
 | `three-istype-level`, `three-at-level` | `false` | `true` | **Ours.** The pilot's `IsTypeFunction`/`AtFunction` compare the literal's type (`Integer`) against `Level` by specialization alone and never consult the enumerated values, so they answer `false` for a value §8.3.7 makes an instance of `Level`. The same evaluator answers `two-istype-level` `false` for the right reason and the wrong one at once; the two verdicts cannot both come from the extent |
 | `high-istype-level`, `high-hastype-level`, `high-hastype-integer`, `lvl-hastype-level`, `lvl-hastype-integer`, `held-hastype-level` | `false`, `false`, `true`, `false`, `true`, `false` | `true`, `true`, `false`, `true`, `false`, `true` | **Ours.** The pilot folds a scalar-valued enumeration literal to the `LiteralInteger 3` it is assigned and classifies that — so `Level::high istype Level` is `false` from the pilot, which no reading of §8.3.7 (the enumerated values are the instances) or of `hastype` (KerML 1.0 §7.4.9.2) allows, and contradicts its own `cast-hastype-level` and `red-hastype-color` answers. The runtime keeps the literal's identity on its scalar value (`runtime.Value.EnumerationLiteral`), so a literal is directly of its enumeration and only indirectly an `Integer` |
-| `three-as-level`, `two-as-level`, `five-as-even` | no output | `3`, `()`, `ErrUndecidedClassification` | **Unrefereeable.** As for `cast_expressions.cases`, a cast draws no output from the pilot, so its reading is unobservable; ours follows the `istype` verdicts above, and `5 as Even` keeps the undecided refusal the plain-subtype row pins |
+| `three-as-level`, `two-as-level`, `five-as-even` | no output | `3`, `()`, `errUndecidedClassification` | **Unrefereeable.** As for `cast_expressions.cases`, a cast draws no output from the pilot, so its reading is unobservable; ours follows the `istype` verdicts above, and `5 as Even` keeps the undecided refusal the plain-subtype row pins |
 
 The 24 `literal_types.cases` all agree, and they pin the rule the runtime's two typing paths now
 share: a literal's own type is its `ScalarValues` definition, found in the library and not by its
@@ -769,7 +770,7 @@ is declared `Rational` or `Real` where the model computes such a value (the REPL
 fixtures, the compiled-calculation and choice-point fixtures; the disposal-robot demo computes
 no such value and runs unchanged), converts with
 `ToInteger` where it means the integer (`value_conformance_test.go`, the checker's own tests), or
-pins the typed error where the write is the point of the fixture (`runtime/robustness_test.go`, the
+pins the typed error where the write is the point of the fixture (`runtime/robustness_quantities_test.go`, the
 coordinate-frame failure modes, `calc_cast_scalar_values`). Each movement is cited in the
 feature-write conformance row of [spec-compliance.md](spec-compliance.md).
 
@@ -793,16 +794,23 @@ us — the pilot's `re`/`im` have no evaluable body, and the same run answers `f
 zero. Read it as unrefereeable, and see the `ComplexFunctions` row of
 [spec-compliance.md](spec-compliance.md) for the adjudication.
 
-The remaining three are the subsetting-membership cases added with the fix they were meant to
-referee, and they are unrefereeable in the same way. `w6d:subsetting-defaulted-count` asks
-`size(subsystem)` of a `part subsystem : Sub[*] default null;` that `part a : Sub :> subsystem;`
-and `part b : Sub :> subsystem;` subset: we answer `2`, the pilot `0`. Its `0` is the folded
-default, not a count of members — `w6d:subsetting-two-count` drops the default and the pilot
-answers `1` for the same two parts, and `w6d:subsetting-none-count` answers `1` for a collection
-nothing subsets (we answer `2` and `0`). A count that is `1` for two members and for none is the
-static evaluator reading the feature as one value, so it decides nothing about which objects a
-subsetted collection holds; `w6d:subsetting-rollup` agrees only because `Sub::mass` defaults to
-`1.0` and one part subsets. The two empty-aggregate cases of the same round land in
+The subsetting-membership cases added with the fix they were meant to referee are
+unrefereeable in the same way, and now bucket `ours-undetermined`. `w6d:subsetting-defaulted-count`
+asks `size(subsystem)` of a `part subsystem : Sub[*] default null;` that `part a : Sub :> subsystem;`
+and `part b : Sub :> subsystem;` subset: the pilot answers `0`, the folded default, not a count of
+members — `w6d:subsetting-two-count` drops the default and the pilot answers `1` for the same two
+parts, and `w6d:subsetting-none-count` answers `1` for a collection nothing subsets. A count that is
+`1` for two members and for none is the static evaluator reading the feature as one value, so it
+decides nothing about which objects a subsetted collection holds. We answer `<undetermined>` for
+all three, and for `w6d:subsetting-rollup` (`total default sum(subsystem.mass)`): `n` and `total`
+are bound members of the package-level `sysDefaulted`, `sysTwo`, `sysNone` and `sys`, and a
+`[*]` collection the model leaves open holds its subsetters certainly and possibly more, so the
+read through the bound member is the read the direct chain `size(sysTwo.subsystem)` and
+`sum(sys.subsystem.mass)` already made (the open-cardinality row of
+[spec-compliance.md](spec-compliance.md)). The pilot's `1.0` for `subsetting-rollup` is the same
+fold — `Sub::mass` defaults to `1.0` and it reads `subsystem` as the one part — and agreed with the
+materialized lower bound we no longer make up for an object only the model stands behind. The two
+empty-aggregate cases of the same round land in
 `pilot-unevaluated`: `sum(qsNone)` over an empty `MassValue[*]` is `InvocationExpression sum` and
 `3.0 [SI::kg] + sum(qsNone)` is `OperatorExpression +` where we answer `0 [kg]` and `3.0 [SI::kg]`,
 so the kind of an empty quantity sum, like every other unit-carrying value, has no reference
@@ -836,6 +844,43 @@ The cases that were `ours-error` before that round, and what closed them:
 | `dot-perform-out`, `dot-machine-attr` | `usage machine: performed action p of machine: bind c: unresolved reference: cc` | A name that denotes one object — an occurrence, or a structured attribute usage holding features rather than a value — evaluates to that object (`runtime.Context.namesOneObject`), so a binding in a performed action's body resolves the package-level sibling it names |
 | `w6d:inherited-value-no-body`, `w6d:inherited-value-template` | `unresolved reference: template`, `usage W6D::template has no value` | The same classification: `template` is a structured value, so `plain.cost` reads its features and `template.v` reads the redefined one, with the features it does not redefine keeping their inherited values |
 | `w6d:vector-elements` | `cannot chain through non-instance member` | A numerical vector is the sequence of its elements, so `elements` of one is that same sequence (`runtime.isNumericVector`) rather than an element-wise member lookup |
+
+## The unbounded value `*` as an operand
+
+KerML 1.0 §8.3.4.8.11 types a `LiteralInfinity` as a `Positive`, §8.2.5.8.4 calls its result "a
+number from the DataType ScalarValues::Positive that is greater than all the integers", and
+§9.3.2 extends `Natural`, `Integer`, `Rational` and `Real` with it. The Kernel Function Library
+(§9.4) defines no arithmetic result over it. `unbounded_arithmetic.cases` (44 cases over
+`unbounded_arithmetic.sysml`) measures what each side does with it; the pinned pilot validator is
+silent on the whole model, as our checker is, so every probe is a well-typed expression and the
+difference is entirely in evaluation.
+
+| Probe (feature value and `%eval`) | Pilot evaluator | Ours |
+|---|---|---|
+| `* + 1`, `1 + *`, `* + 1.5`, `* - 1`, `1 - *`, `* - *`, `2 * *`, `* * 0`, `* / 2`, `2 / *`, `* % 2`, `* ** 2`, `2 ** *`, `* ^ 2` | unevaluated (the `OperatorExpression` comes back) | typed error naming the operator (`operator '+' is not defined for the unbounded value '*'`) |
+| `-*` | silent (no output) | typed error (`unary '-' is not defined for *`) |
+| `1..*`, `sum((1, *))` | unevaluated | typed error naming the function |
+| `hi + 1` for `attribute hi : Natural = *`; `Bump(*)` for a calc adding one; a calc whose body is `* + 1` | unevaluated | the same operator error, raised where the arithmetic is |
+| `* > 1`, `* < 1`, `* >= 3`, `* <= *` | unevaluated | `true`, `false`, `true`, `true` |
+| `* == *`, `* == 1`, `* != 1` | `true`, `false`, `true` | the same — the only probes both sides answer |
+| `'>'(*, 1)`, `'=='(*, 1)` | unevaluated (`InvocationExpression`) | `true`, `false`: the function form answers as the operator form does |
+| `max(*, 1)`, `min(*, 1)`, `abs(*)` | unevaluated | `*`, `1`, `*` |
+| `ToString(*)` | unevaluated | `"*"` |
+| `+*` | silent | `*` |
+| `if * > 1 ? * else 1` | unevaluated | `*` |
+| `size((1, *))`, `includes((1, *), *)` | `2`, `true` | `2`, `true` |
+| `attribute hi : Natural = *`; `Same(*)` for the identity calc | `LiteralInfinity *` | `*` |
+| `attribute many : Integer[0..hi]` | unevaluated (the usage) | `<undetermined>` |
+
+The pilot therefore defines nothing over `*` beyond equality, and the specification states only
+the ordering. The contract this record pins is: the checker accepts every expression above (no
+clause states a static rule, and a diagnostic the specification does not imply is not added);
+the evaluator answers what the ordering decides — comparisons and equality in both notations,
+`max`, `min`, `abs`, `ToString`, unary `+` — and reports arithmetic over `*` as an undefined
+value at evaluation, as it reports a division by zero. The 20 arithmetic probes bucket
+`pilot-unevaluated` with our error recorded beside them, the three equality probes and the two
+sequence probes `agree`, and the two `LiteralInfinity` reads `agree` since `parseOurValue` reads
+our `*` as the infinity the pilot prints.
 
 ## Findings to carry forward
 

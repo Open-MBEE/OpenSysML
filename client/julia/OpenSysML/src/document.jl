@@ -73,6 +73,7 @@ struct RenderGeometry
     height::Float64
     has_size::Bool
     collapsed::Bool
+    unplaced::Bool
 end
 
 struct RenderStyle
@@ -155,6 +156,7 @@ struct RenderedView
     canvas::Union{Nothing,RenderCanvas}
     notes::Vector{RenderNote}
     notices::Vector{String}
+    shown::Vector{String}
 end
 
 function _document_ref(raw)
@@ -346,7 +348,8 @@ function _render_geometry(raw)
     raw isa AbstractDict || return nothing
     RenderGeometry(_render_float(raw, "x"), _render_float(raw, "y"),
         _render_float(raw, "width"), _render_float(raw, "height"),
-        _render_bool(raw, "hasSize"), _render_bool(raw, "collapsed"))
+        _render_bool(raw, "hasSize"), _render_bool(raw, "collapsed"),
+        _render_bool(raw, "unplaced"))
 end
 
 function _render_style(raw)
@@ -391,19 +394,27 @@ function rendered_view_result(raw)
     RenderedView(_render_string(raw, "view"), _render_string(raw, "kind"),
         _render_string(raw, "stated"), nodes, edges,
         String[String(c) for c in get(raw, "columns", Any[])], rows, canvas, notes,
-        String[String(n) for n in get(raw, "notices", Any[])])
+        String[String(n) for n in get(raw, "notices", Any[])],
+        String[String(n) for n in get(raw, "shown", Any[])])
 end
 
-"""Render a named view with minimal or full ports."""
-function render_view(model::Model, view_name::AbstractString; ports="minimal")
+"""
+Render a named view with minimal or full ports. `show` names the optional
+notation elements to draw besides those the view's rendering shows
+(`"edge-labels"`, `"all"`, ...); the service refuses a name it does not know.
+"""
+function render_view(model::Model, view_name::AbstractString; ports="minimal", show=String[],
+                     depth::Integer=0)
     ports in ("minimal", "full") || throw(ArgumentError("ports must be 'minimal' or 'full'"))
+    depth >= 0 || throw(ArgumentError("depth must be a non-negative integer"))
     conn = model.connection
     require_capability(conn, CAPABILITY_RENDER_VIEW)
     answer = _translate(; not_found=(message, _) ->
         SymbolNotFoundError(view_name; service_message=message),
         capabilities=(CAPABILITY_RENDER_VIEW,), connection=conn) do
         call(conn, "RenderView", Dict{String,Any}("modelHash" => model.hash,
-            "view" => String(view_name), "ports" => ports == "minimal" ? "" : ports))
+            "view" => String(view_name), "ports" => ports == "minimal" ? "" : ports,
+            "show" => String[String(s) for s in show], "depth" => Int(depth)))
     end
     rendered_view_result(answer)
 end

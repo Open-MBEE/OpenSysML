@@ -12,6 +12,15 @@
       </mdElement>
     </properties>
   </mdElement>
+  <mdElement elementClass="Pseudostate" xmi:id="_symbol_initial">
+    <elementID xmi:idref="_initial"/>
+    <properties>
+      <mdElement elementClass="ColorProperty">
+        <propertyID>FILL_COLOR</propertyID>
+        <value xmi:value="-16777216"/>
+      </mdElement>
+    </properties>
+  </mdElement>
   <mdElement elementClass="Pseudostate" xmi:id="_symbol_choice">
     <elementID xmi:idref="_choice"/>
   </mdElement>
@@ -32,5 +41,14 @@
     <linkFirstEndID xmi:idref="_note_junction"/>
     <linkSecondEndID xmi:idref="_symbol_junction"/>
     <geometry>350, 55; 220, 70; </geometry>
+  </mdElement>
+  <mdElement elementClass="TextBox" xmi:id="_note_initial">
+    <geometry>-150, 40, 120, 30</geometry>
+    <text>Entry note</text>
+  </mdElement>
+  <mdElement elementClass="NoteAnchor" xmi:id="_anchor_initial_note">
+    <linkFirstEndID xmi:idref="_note_initial"/>
+    <linkSecondEndID xmi:idref="_symbol_initial"/>
+    <geometry>-30, 55; -10, 20; </geometry>
   </mdElement>
 </mdOwnedViews>

@@ -1,0 +1,15 @@
+materialize: session #1
+materialize: x #2
+eval feature x -> instance#2
+materialize: y #3
+eval feature y -> instance#3
+materialize: Handshake #4
+perform occurrence shake
+send hello from a.hello_sent
+accept hello at b.hello_received
+send ack from b.ack_sent
+accept ack at a.ack_received
+eval feature ready -> true
+assert at a.closed
+send bye from a.closed
+accept bye at b.bye_received

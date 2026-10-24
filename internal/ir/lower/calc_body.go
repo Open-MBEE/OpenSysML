@@ -117,8 +117,8 @@ func calcStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver)
 			return Unsupported{Description: statedFlowKeyword(member), Node: member, Scope: scope}, true
 		}
 		return usageStatement(m, scope)
-	case *ast.Definition, *ast.Documentation, *ast.Comment, *ast.Import, *ast.Alias:
-		// Declares a member of the calculation, not a step of it.
+	case *ast.Definition, *ast.Documentation, *ast.Comment, *ast.TextualRepresentation, *ast.PrefixMetadata, *ast.Import, *ast.Alias:
+		// An annotation or declaration describes the calculation, not a step of it.
 		return nil, false
 	case *ast.SuccessionEdge:
 		return nil, false
@@ -129,7 +129,7 @@ func calcStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver)
 		if ast.IsExpression(member) {
 			return Return{Value: member, Node: member, Scope: scope}, true
 		}
-		return lowerStatement(member, scope, resolver), true
+		return lowerStatement(member, scope, resolver, nil), true
 	}
 }
 
@@ -238,15 +238,18 @@ func calcSuccessionEnd(member ast.Node, name *ast.QualifiedName, stmts []Stateme
 				continue
 			}
 		}
-		if statementDeclares(statementNode(stmt), target) {
+		if statementDeclares(StatementNode(stmt), target) {
 			return i, true
 		}
 	}
 	return 0, false
 }
 
-func statementNode(stmt Statement) ast.Node {
+// StatementNode is the syntax a lowered statement came from, nil for none.
+func StatementNode(stmt Statement) ast.Node {
 	switch s := stmt.(type) {
+	case Assert:
+		return s.Node
 	case Assign:
 		return s.Node
 	case Block:

@@ -16,6 +16,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
 var (
@@ -93,7 +94,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		fmt.Fprintf(stderr, "%srecord cache unavailable, holding every document loaded: %v\n", commandPrefix, err)
 	}
-	return serve(stderr, diag.ConformanceModeOf(opts.strict), cache, build().Version)
+	roots := append(project.EnvLibraryRoots(), opts.libraryRoots...)
+	return serve(stderr, diag.ConformanceModeOf(opts.strict), cache, roots, build().Version)
 }
 
 // printUsage writes the help to w, which the caller chooses: help asked for is
@@ -105,9 +107,9 @@ func printUsage(w io.Writer, fs *flag.FlagSet) {
 // serve speaks the protocol over stdin/stdout until the client ends it, and
 // reports the status the session earned: the one the client's exit notification
 // asks for, or 1 for a session that ended in a protocol error.
-func serve(stderr io.Writer, mode diag.ConformanceMode, cache *libs.Cache, version string) int {
+func serve(stderr io.Writer, mode diag.ConformanceMode, cache *libs.Cache, libraryRoots []string, version string) int {
 	ws := model.NewWorkspace(model.WithConformanceMode(mode), model.WithRecordCache(cache))
-	srv := lsp.NewServer(ws, lsp.WithVersion(version))
+	srv := lsp.NewServer(ws, lsp.WithVersion(version), lsp.WithLibraryRoots(libraryRoots))
 	err := srv.Run(context.Background(), stdio{})
 	if err != nil && !endedWithTheStream(err) {
 		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)

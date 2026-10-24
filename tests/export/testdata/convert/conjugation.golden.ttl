@@ -110,6 +110,7 @@ elmt:Conjugation__CommunicationPort__signal
     sysml:owner elmt:Conjugation__CommunicationPort ;
     sysml:owningRelationship elmt:Conjugation__CommunicationPort__signal_om ;
     sysml:owningMembership elmt:Conjugation__CommunicationPort__signal_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "signal" ;
     sysml:direction "out" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -178,6 +179,7 @@ elmt:Conjugation__Ground__groundPort
     sysml:owner elmt:Conjugation__Ground ;
     sysml:owningRelationship elmt:Conjugation__Ground__groundPort_om ;
     sysml:owningMembership elmt:Conjugation__Ground__groundPort_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "groundPort" ;
     sysml:type elmt:Conjugation__CommunicationPort ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -211,6 +213,7 @@ elmt:Conjugation__Ground__spacePort
     sysml:owner elmt:Conjugation__Ground ;
     sysml:owningRelationship elmt:Conjugation__Ground__spacePort_om ;
     sysml:owningMembership elmt:Conjugation__Ground__spacePort_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "spacePort" ;
     sysx:conjugatedTyping "true"^^xsd:boolean ;
     sysml:type elmt:Conjugation__CommunicationPort ;
@@ -283,6 +286,7 @@ elmt:Conjugation__Link__a
     sysml:owner elmt:Conjugation__Link ;
     sysml:owningRelationship elmt:Conjugation__Link__a_om ;
     sysml:owningMembership elmt:Conjugation__Link__a_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "a" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:type elmt:Conjugation__CommunicationPort ;
@@ -317,6 +321,7 @@ elmt:Conjugation__Link__b
     sysml:owner elmt:Conjugation__Link ;
     sysml:owningRelationship elmt:Conjugation__Link__b_om ;
     sysml:owningMembership elmt:Conjugation__Link__b_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "b" ;
     sysml:isEnd "true"^^xsd:boolean ;
     sysx:conjugatedTyping "true"^^xsd:boolean ;

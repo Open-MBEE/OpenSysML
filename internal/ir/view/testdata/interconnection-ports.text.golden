@@ -1,12 +1,12 @@
 ToasterViews::toasterView - interconnection rendering (render asInterconnectionDiagram)
 
-part def ToasterDemo::Toaster
-  part heating : HeatingSystem
+part def Toaster
+  part heating
     port durationIn
-  part control : ControlSystem
+  part control
     port durationOut
-  part chassis : Chassis
+  part chassis
 
 connections:
-  control.durationOut -- heating.durationIn: durationInterface
-  control.durationOut => heating.durationIn: of Real
+  control.durationOut -- heating.durationIn
+  control.durationOut => heating.durationIn

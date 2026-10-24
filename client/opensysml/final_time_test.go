@@ -46,7 +46,7 @@ func TestARunReportsItsFinalTime(t *testing.T) {
 	if action.FinalTime != 5 {
 		t.Errorf("ExecuteAction: FinalTime = %v, want 5", action.FinalTime)
 	}
-	if got := action.Outputs["fired"]; got != opensysml.Bool(true) {
+	if got := sole(t, "fired", action.Outputs["fired"]); got != opensysml.Bool(true) {
 		t.Errorf("ExecuteAction: fired = %#v, want Bool(true)", got)
 	}
 

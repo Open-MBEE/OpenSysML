@@ -58,21 +58,30 @@ func TestBundledSourceIsThePublishedTextPlusTheDeclaredErrata(t *testing.T) {
 			t.Errorf("%s: the bundled text is not the published text with its corrections applied", name)
 		}
 		publishedLines, loadedLines := strings.Split(string(before), "\n"), strings.Split(string(loaded), "\n")
-		if len(publishedLines) != len(loadedLines) {
-			t.Fatalf("%s: a correction changed the line count", name)
-		}
 		corrected := map[int]errata.Entry{}
 		for _, entry := range entries {
 			corrected[entry.Line] = entry
 		}
+		// A correction replaces its one published line by one or several lines;
+		// every other line is served as published, in place.
+		j := 0
 		for i := range publishedLines {
 			entry, ok := corrected[i+1]
-			switch {
-			case !ok && publishedLines[i] != loadedLines[i]:
-				t.Errorf("%s:%d changed without a declared correction", name, i+1)
-			case ok && loadedLines[i] != entry.Corrected:
-				t.Errorf("%s:%d reads %q, the entry corrects to %q", name, i+1, loadedLines[i], entry.Corrected)
+			if !ok {
+				if j >= len(loadedLines) || publishedLines[i] != loadedLines[j] {
+					t.Errorf("%s:%d changed without a declared correction", name, i+1)
+				}
+				j++
+				continue
 			}
+			want := strings.Split(entry.Corrected, "\n")
+			if j+len(want) > len(loadedLines) || !equalStrings(loadedLines[j:j+len(want)], want) {
+				t.Errorf("%s:%d does not read as the entry corrects it: %q", name, i+1, entry.Corrected)
+			}
+			j += len(want)
+		}
+		if j != len(loadedLines) {
+			t.Errorf("%s: the bundled text has %d line(s) past the published text's corrected %d", name, len(loadedLines)-j, len(publishedLines))
 		}
 	}
 	if changed != len(corrections) {

@@ -133,13 +133,14 @@ func TestMetaSaveThenLoadRoundTrip(t *testing.T) {
 	}
 }
 
-// A session the parser could not fully read is still written as notation, with
+// A session the parser could not fully read (here a declaration kept, since it
+// names what a redeclaration would replace) is still written as notation, with
 // its syntax errors reported: the file is the user's own text, and refusing
 // would strand work that exists nowhere else.
 func TestMetaSaveWithSyntaxErrorWarnsAndWrites(t *testing.T) {
 	s := NewSession()
 	s.Submit("package P { part x; }")
-	s.Submit("part 3x;")
+	s.Submit("part y : 3x;")
 	path := filepath.Join(t.TempDir(), "out.sysml")
 
 	out, _, err := s.runMeta("%save " + path)
@@ -156,7 +157,7 @@ func TestMetaSaveWithSyntaxErrorWarnsAndWrites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"package P", "part 3x;"} {
+	for _, want := range []string{"package P", "part y : 3x;"} {
 		if !strings.Contains(string(data), want) {
 			t.Errorf("saved file is missing %q:\n%s", want, data)
 		}
@@ -167,7 +168,7 @@ func TestMetaSaveWithSyntaxErrorWarnsAndWrites(t *testing.T) {
 // would be quietly missing declarations.
 func TestMetaSaveTurtleWithSyntaxErrorRefuses(t *testing.T) {
 	s := NewSession()
-	s.Submit("part 3x;")
+	s.Submit("part y : 3x;")
 	path := filepath.Join(t.TempDir(), "out.ttl")
 
 	out, _, err := s.runMeta("%save " + path)
@@ -373,5 +374,63 @@ func TestMetaSaveUnterminatedComment(t *testing.T) {
 		if !strings.Contains(string(data), want) {
 			t.Errorf("saved file is missing %q:\n%s", want, data)
 		}
+	}
+}
+
+func TestSaveWithoutAWriterWritesThePathItIsGiven(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "elsewhere.sysml")
+	if err := os.WriteFile(target, []byte("package Old;"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "link.sysml")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skip(err)
+	}
+	s := NewSession()
+	s.Submit("package Demo { part def Engine; }")
+	// A bare session writes through the link wherever it points and keeps the
+	// target's mode, as the command line does.
+	lines, written, err := s.Save(link)
+	if err != nil || !written || !strings.Contains(strings.Join(lines, "\n"), "replaced the existing file") {
+		t.Fatalf("Save through a link = %v, %v, %v", lines, written, err)
+	}
+	if data, _ := os.ReadFile(target); !strings.Contains(string(data), "part def Engine;") {
+		t.Errorf("the link's target was not written: %q", data)
+	}
+	if info, err := os.Stat(target); err != nil || info.Mode().Perm() != 0o640 {
+		t.Errorf("the target's mode = %v, %v; want 0640 kept", info.Mode(), err)
+	}
+	if info, err := os.Lstat(link); err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("the link was replaced by a file: %v, %v", info, err)
+	}
+}
+
+func TestSaveWritesWithTheInstalledWriter(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "out.sysml")
+	var got []byte
+	var gotPath string
+	s := NewSession()
+	s.SetFileWriter(func(p string, content []byte) (bool, error) {
+		gotPath, got = p, content
+		return true, nil
+	})
+	s.Submit("package Demo { part def Engine; }")
+	lines, written, err := s.Save(path)
+	if err != nil || !written || !strings.Contains(strings.Join(lines, "\n"), "replaced the existing file") {
+		t.Fatalf("Save with a writer = %v, %v, %v; want the writer's verdict reported", lines, written, err)
+	}
+	if gotPath != path || !strings.Contains(string(got), "part def Engine;") {
+		t.Errorf("the writer was handed %q, %q", gotPath, got)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("the session wrote the path beside the writer: %v", err)
+	}
+	s.SetFileWriter(nil)
+	if _, written, err := s.Save(path); err != nil || !written {
+		t.Errorf("with the writer lifted Save = %v, %v; want the path written directly", written, err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Errorf("with the writer lifted the file was not written: %v", err)
 	}
 }

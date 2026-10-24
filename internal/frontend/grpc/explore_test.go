@@ -843,8 +843,8 @@ func TestActionRunReportsItsPerformerOverTheWire(t *testing.T) {
 		if err != nil || resp.Error != "" {
 			t.Fatalf("rate on %s: %v %q", tc.performer, err, resp.GetError())
 		}
-		if resp.Outputs["rated"].GetIntValue() != tc.rated {
-			t.Errorf("rate on %s outputs %v, want rated = %d", tc.performer, resp.Outputs, tc.rated)
+		if soleElement(t, "rated", resp.Outputs["rated"]).GetIntValue() != tc.rated {
+			t.Errorf("rate on %s outputs %v, want rated = [%d]", tc.performer, resp.Outputs, tc.rated)
 		}
 		for name := range resp.Outputs {
 			if strings.HasPrefix(name, "this.") {

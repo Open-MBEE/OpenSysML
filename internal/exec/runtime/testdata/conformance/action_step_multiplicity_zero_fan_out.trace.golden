@@ -4,5 +4,5 @@ stmt assign d
   eval literal 8 -> 8
 stmt assign c
   eval literal 7 -> 7
-choice step 3: tokens 2@q, 3@r (unordered; took 3@r first)
+choice step 3: tokens 2@q, 3@r (unordered; took 3@r first; independent)
 step 3: no active tokens

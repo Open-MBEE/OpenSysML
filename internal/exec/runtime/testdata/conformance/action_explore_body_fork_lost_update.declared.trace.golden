@@ -10,8 +10,8 @@ stmt assign c
     eval feature t -> 1
     eval literal 1 -> 1
   eval operator + -> 2
-choice step 3: writes c := 1 by token 2, c := 2 by token 3 (unordered; c := 2 by token 3 stood)
-choice step 3: tokens 2@a, 3@b (unordered; took 2@a first)
+choice step 3: writes c := 1 by token 2, c := 2 by token 3 (unordered; c := 2 by token 3 stood; order-dependent: c)
+choice step 3: tokens 2@a, 3@b (unordered; took 2@a first; order-dependent: c)
 step 3: token 2@j, token 3@j
 step 4: token 4@done
 step 5: no active tokens

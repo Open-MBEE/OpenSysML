@@ -58,10 +58,18 @@ library package DiagramLayout {
         attribute width : ScalarValues::Real[0..1];
         attribute height : ScalarValues::Real[0..1];
         attribute collapsed : ScalarValues::Boolean[0..1];
+        attribute showAttributes : ScalarValues::Boolean[0..1];
+        attribute showParts : ScalarValues::Boolean[0..1];
+        attribute showReferences : ScalarValues::Boolean[0..1];
+        attribute showPorts : ScalarValues::Boolean[0..1];
+        attribute showConstraints : ScalarValues::Boolean[0..1];
+        attribute showItems : ScalarValues::Boolean[0..1];
+        attribute showActions : ScalarValues::Boolean[0..1];
     }
 
     metadata def Route {
         attribute points : ScalarValues::Real[0..*] ordered nonunique;
+        ref general : Base::Anything[0..1];
     }
 
     metadata def Canvas {
@@ -191,6 +199,16 @@ Decisions, each with its reason:
   waypoints are one flattened sequence (`x0, y0, x1, y1, …`) because a metadata feature
   holds scalars: a sequence of pairs would need a second attribute definition for the
   pair, which no other tool would read as a point.
+- **A specialization edge is routed from its specific element, naming the general.** A
+  `:>`, `:` or `:>>` clause declares no element of its own that an `about` could name, so
+  the Route of the line a tree draws for it is stated about the specific element and
+  types its `general` with the element the line is drawn to:
+  `metadata Route about Sub { points = (…); ref :>> general : Sup; }`. One Route per
+  general steers each line of a subtype with several, and a Route naming a general
+  never steers an edge the specific element declares itself (a `connection def Sub :>
+  Base` keeps its own Route for its line). A standalone KerML `specialization` member
+  could be named instead, but SysML v2 textual notation does not admit one, and the
+  pilot rejects it in a `.sysml` file.
 - **`Route.points` is `nonunique`.** The specification's default for a feature is
   uniqueness (KerML 7.3.4.4), and OpenSysML's type checker enforces it on a sequence
   written at a unique feature. A vertical segment repeats its x coordinate and a route
@@ -237,7 +255,21 @@ For a (view, element) pair the **effective layout** is, in order:
 3. none: the element is laid out by the consumer.
 
 A `Route` resolves the same way for an edge's declaring element. A `Canvas` belongs to a
-view alone, stated in its body. Where a view's body states two `about` annotations of one
+view alone, stated in its body.
+
+A `Layout`'s `show…` switches are per symbol, as its box is: `showParts = false` hides the
+parts compartment of the annotated element's box in that view (and, inline, in every view
+that states nothing), while the same element drawn in another view, or by another `Layout`,
+keeps its compartments. Unset, a switch leaves the compartment to the rendering, whose
+`showCompartments = false` hides every compartment whatever the switches say. The seven
+switches follow the compartments a modelling tool lets a modeler collapse symbol by symbol:
+`showAttributes` the attributes, `showParts` the composite part rows, `showReferences` the
+`ref` rows of every compartment, `showPorts`, `showConstraints`, `showItems` and `showActions`
+the compartments of those kinds. A hidden compartment's members are neither listed in the
+box nor counted among the rows its stated size clips; the folding notice counts them apart
+(`9 node(s) without a position: 7 drawn as compartment rows of the node above them, 2 in
+compartments its Layout hides left undrawn`). The SysML v1 migrator writes them from a
+Cameo symbol's `SUPPRESS_*` properties (see [migrating from SysML v1](../guide/11-migrating-from-sysml-v1.md#publishing-a-migrated-document-with-cameo-style-diagrams)). Where a view's body states two `about` annotations of one
 kind for one element, the first in declaration order applies and the second is a warning.
 
 With no view — a `#tree`, `#interconnection:X`, `#case` or `#mixed` pseudo-view, and the
@@ -254,7 +286,7 @@ annotation stated anywhere else is element-level.
 ### The rendering tree
 
 `view.Node` carries `Geometry *Geometry` (`X`, `Y`, `Width`, `Height`, `HasSize`,
-`Collapsed`), `view.Edge` carries `Route []Point`, and `view.Rendering` carries
+`Collapsed`, `Hidden`), `view.Edge` carries `Route []Point`, and `view.Rendering` carries
 `Canvas *Canvas` (`Unit`, `Width`, `Height`, `HasSize`). They are values: the tree stays free of AST
 nodes and symbols, and `Rendering.Clone` copies them. Every graph-shaped rendering
 populates them — the containment tree, the interconnection diagram, the state machine
@@ -262,6 +294,19 @@ and the action flow — through `Renderer.Render` (the view given, so `about` an
 in its body apply) and `Renderer.RenderExposed` (no view, element fallback only). The
 sequence diagram and the table carry none: a lifeline has no box to position and a row
 has no geometry.
+
+`collapsed = true` folds the element's body: the containment tree and the interconnection
+diagram draw the element with no children in every form (`view/walk.go` `collapsed`, read by
+`treeNode` and `featureNode`), its ports stay pinned on its border and a connector still ends
+at them, and the tag is kept — `comment="collapsed"` in DOT, ` collapsed` in text,
+`Geometry.Collapsed` in the data. The `show…` switches hide single compartments; the text
+form omits the hidden rows as DOT does (`writeNodeText` skips `hiddenRow`). A `Layout` binding
+only `collapsed` or `show…` switches binds no `x` and `y` and places nothing
+(`Layout.Unplaced`): it folds or hides and leaves the place to the tool, so it does not turn the
+drawing into a positioned one. A `Layout` binding a size, one coordinate, or nothing without both `x` and `y` is
+still the `diagram-layout-value` error `Layout binds no x and y to place the element at`. What a view draws
+is also bounded by its filter conditions and its `depth` attribute
+([limiting what a view draws](view-rendering-forms.md#limiting-what-a-view-draws)).
 
 The state and action renderings draw the lowered `StateGraph` and `ActionGraph`, so their
 nodes are lowered declarations; each graph maps a lowered node back to the declaration
@@ -315,7 +360,7 @@ reads a feature rather than a literal is already an error of the type tier
 | Form | Positions | Style, Note and Picture | Notes |
 |---|---|---|---|
 | `mermaid` | Not representable | Supported node and edge Style fields use Mermaid CSS; palettes use `classDef`/`class`; flowchart notes and safe pictures are drawn, as are state and sequence notes with supported anchors. Active-content SVGs, including recursively checked nested data SVGs, and locations with a non-`data:` URL scheme are omitted with reasoned `%% not represented:` notices. State and sequence diagrams still draw no pictures; refused pictures name their reason, while drawable ones receive the generic no-picture notice. | Geometry survives as `%% canvas:`, `%% layout:` and `%% route:` comments. Flowchart node labels use safe Markdown; Mermaid's own layout decides positions. Document backends inline readable local picture files before Mermaid CLI draws them. |
-| `text` | Not representable | Counted in the notice; nothing coloured is written; each `Picture` listed under `pictures:` with its file, box and alt text, with refusal reasons also reported in notices | `at (120, 80)` after a positioned node, `size 200×90` and `collapsed` when stated; `via (320, 125) (400, 125)` after a routed edge; a `canvas size … in px` line under the title. |
+| `text` | Not representable | Counted in the notice; nothing coloured is written; each `Picture` listed under `pictures:` with its file, box and alt text, with refusal reasons also reported in notices | `at (120, 80)` after a positioned node, `size 200×90` and `collapsed` when stated — a collapsed node lists no children, and the rows a `show…` switch hides are omitted; `via (320, 125) (400, 125)` after a routed edge; a `canvas size … in px` line under the title. |
 | `dot` | Honored | Honored whole: `fillcolor`, `color`, `fontcolor`, `fontname`, `fontsize` written after the drawing style's defaults so they win, `<b>`/`<i>` round the label; a `Note` as a `shape=note` node pinned at its box, anchored by a dashed headless edge (see [view rendering forms](view-rendering-forms.md#style)); a safe `Picture` as a `shape=none` node with `image=` its file, `imagescale=both`, `fixedsize=true` and its box's `width`/`height`, pinned at the box's centre, written before the element nodes (Graphviz draws in order, so it lies under them) or after them when `above`, its `alt` as the `tooltip`; refused pictures are omitted with a reasoned `// not represented:` notice | Graphviz's own vocabulary, converted from y-down pixels to y-up points (`inputscale=72`, `dpi=72`; y measured from the canvas's bottom edge, negated with no canvas height): a node pinned at the centre of its box with `pos="x,y!"`, `pin=true`, `width`/`height` in inches — `fixedsize=true` for a stated size, fitted to the label for an unstated one — and `comment="collapsed"`; a cluster's `bb` stated (the stated box, or the one round its positioned members) and its anchor pinned at the centre; a route as a `pos` spline through the waypoints, a route of one waypoint noticed, as is a route `neato` redraws; the canvas echoed as `// canvas:` and held by an invisible point pinned at each corner, so the drawing's bounding box is the canvas. The `// layout:` header names `neato -n2` when every node is placed and any edge routed, `neato -n` when every node is placed and none routed, `neato` when some nodes are, `dot` when none — see [view rendering forms](view-rendering-forms.md#geometry). |
 | `plantuml` | Not representable | A node's colours as `#fill;line:line;text:text`; drawable pictures are counted in the `' not represented:` notice, and refused pictures receive a separate reasoned notice | The node set and edge set the `dot` form draws, as above |
 | `d2` | Not representable | A node's colours as `style: { fill; stroke; font-color }`, a stated font size as `font-size`, bold and italic as `bold`/`italic`; a font family, notes and drawable pictures are counted in the `# not represented:` notice, and refused pictures receive a separate reasoned notice | The node set and edge set the `dot` form draws, as above; geometry survives as `# canvas:`, `# layout:` and `# route:` comments |
@@ -333,7 +378,7 @@ exactly the bytes it produced before; the existing rendering goldens pin that.
   is `opensysml/applyModelEdit` with `setLayout`, `setRoute`, `setCanvas` and `setStyle`
   ([the LSP reference](../reference/lsp.md)): `metadata Layout about … { x = …; y = …;
   }` into the view body when the operation names a view, inline into the element's own
-  body when it does not, updated in place when one is already stated and removed with
+  body when it does not (`{ collapsed = true; }` alone for a layout given no `x` and `y`), updated in place when one is already stated and removed with
   its line when cleared. Each annotation goes into the workspace document that declares
   what holds it, whichever document the request came from: a view-local `Layout` or
   `Route` and a `Canvas` into the view's document, an inline `Layout` or `Route` into

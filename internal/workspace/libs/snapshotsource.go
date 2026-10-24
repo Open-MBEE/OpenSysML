@@ -2,6 +2,7 @@ package libs
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -80,4 +81,9 @@ func (s *snapshotSource) seal() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.sealed = true
+}
+
+// TierOf defers to the inner source when it states the tiers of its files.
+func (s *snapshotSource) TierOf(name string) symbols.LibraryTier {
+	return tierOf(s.inner, name)
 }

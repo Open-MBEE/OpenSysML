@@ -37,7 +37,7 @@ func checkedOn(t *testing.T, ctx *Context, action *symbols.Symbol) *checkedActio
 	mustSchedule(t, ctx, checkPolicy(&checkScript{due: -1}))
 	exec, err := ctx.CreateActionExecutor(action)
 	if err != nil {
-		t.Fatalf("create %s: %v", symbolText(action), err)
+		t.Fatalf("create %s: %v", SymbolText(action), err)
 	}
 	return checkedActionOf(ctx, exec)
 }
@@ -120,9 +120,9 @@ func TestMakeMoveRefusesATokenUnableToAct(t *testing.T) {
 	a.make(t, a.only(t, "1@start:plain")[0])
 	a.make(t, a.only(t, "1@split:plain")[0])
 	_, err := a.run.makeMove(enabledMove{Owner: a.exec, Token: 9, Label: "9@nowhere"})
-	var refused *CheckMoveError
+	var refused *checkMoveError
 	if !errors.As(err, &refused) || !errors.Is(err, ErrCheckRefused) || !strings.Contains(refused.Move, "token 9") {
-		t.Fatalf("moving token 9: %v, want a CheckMoveError for token 9", err)
+		t.Fatalf("moving token 9: %v, want a checkMoveError for token 9", err)
 	}
 	a.only(t, "2@a:plain 3@b:plain 4@c:plain")
 }
@@ -134,7 +134,7 @@ func TestMakeMoveTakesTheSelectedBranch(t *testing.T) {
 	a := startChecked(t, m, "count")
 	a.make(t, a.only(t, "1@start:plain")[0])
 	pick := a.only(t, "1@pick:decision")[0]
-	before, err := a.exec.Snapshot()
+	before, err := a.exec.snapshot()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +256,7 @@ func TestAFailingAcceptIsAMoveThatRaisesItsError(t *testing.T) {
 	}
 	four := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 4}}
 	ctx.PostMessage(Message{SignalType: "Integer", Target: "reader", Port: "other", Object: listener.ID, PortID: -1,
-		Delivery: DeliverPort, Value: &four})
+		Delivery: deliverPort, Value: &four})
 	moves := a.only(t, "1@reader:accept")
 	if !errors.Is(moves[0].Fails, ErrDivisionByZero) {
 		t.Fatalf("the move fails with %v, want the port's %v", moves[0].Fails, ErrDivisionByZero)
@@ -328,7 +328,7 @@ func TestMakeMoveDrawsTheDueOrderOnce(t *testing.T) {
 	run := &invocationRun{ctx: ctx, inv: inv}
 	dueOrders := func() []ChoiceTaken {
 		var drawn []ChoiceTaken
-		for _, c := range ctx.ChoicesTaken() {
+		for _, c := range ctx.choicesTaken() {
 			if c.Kind == ChoiceDueOrder {
 				drawn = append(drawn, c)
 			}
@@ -369,8 +369,8 @@ func TestMakeMoveDrawsTheDueOrderOnce(t *testing.T) {
 	if orders := dueOrders(); len(orders) != 1 {
 		t.Fatalf("drew %d due orders, want the one move both executors were due for", len(orders))
 	}
-	if x := FormatValue(action.Results()["x"]); x != "2" {
-		t.Fatalf("x = %s, want 2", x)
+	if x := FormatValue(action.Results()["x"]); x != "[2]" {
+		t.Fatalf("x = %s, want [2]", x)
 	}
 	if y := FormatValue(machine.StateData()["y"]); y != "2" {
 		t.Fatalf("y = %s, want 2", y)

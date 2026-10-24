@@ -130,6 +130,19 @@ func (ctx *Context) collectionObjectElements(val Value) (Value, bool, error) {
 	return elements, true, err
 }
 
+// orderedCollectionObjectElements is collectionObjectElements for an object of an
+// OrderedCollection, whose positions are its elements'; false for every other value.
+func (ctx *Context) orderedCollectionObjectElements(val Value) (Value, bool, error) {
+	if val.Kind != ValInstance {
+		return Value{}, false, nil
+	}
+	inst, ok := ctx.Instance(val.Instance)
+	if !ok || !ctx.specializes(inst.Type, ctx.librarySymbol(orderedCollectionTypeFQN)) {
+		return Value{}, false, nil
+	}
+	return ctx.collectionObjectElements(val)
+}
+
 // elementCount is len(elementsOf(val)) without materializing a scalar's
 // one-element sequence.
 func elementCount(val *Value) int64 {
@@ -180,7 +193,7 @@ func (ctx *Context) newSequence(elements []Value) (Value, error) {
 func (ec *EvalContext) sequenceFrom(kept []Value, sources ...Value) (Value, error) {
 	if len(kept) == 0 {
 		if unit, ok := elementUnitOf(sources...); ok {
-			return NewEmptySequenceOf(unit), nil
+			return newEmptySequenceOf(unit), nil
 		}
 	}
 	return ec.newSequence(kept)
@@ -190,7 +203,7 @@ func (ec *EvalContext) sequenceFrom(kept []Value, sources ...Value) (Value, erro
 // the unit an empty sequence declares, or that of a quantity it holds.
 func elementUnitOf(sources ...Value) (Unit, bool) {
 	for _, source := range sources {
-		if unit, ok := source.Sequence().ElementUnit(); ok {
+		if unit, ok := source.Sequence().emptyElementUnit(); ok {
 			return unit, true
 		}
 		for _, elem := range elementsOf(source) {
@@ -209,12 +222,12 @@ func integerValue(n int64) Value {
 }
 
 // addressableInteger is the Integer v as a position or count, refused with
-// ErrIntegerUnaddressable when it is beyond int64.
+// errIntegerUnaddressable when it is beyond int64.
 func addressableInteger(name, param string, v semantics.Value) (int64, error) {
 	if n, ok := v.Int64(); ok {
 		return n, nil
 	}
-	return 0, fmt.Errorf("%w: %s parameter %q is %s", ErrIntegerUnaddressable, name, param, v.FormatInt())
+	return 0, fmt.Errorf("%w: %s parameter %q is %s", errIntegerUnaddressable, name, param, v.FormatInt())
 }
 
 // nullValue is the empty result of an operation declared `Anything[0..1]` —
@@ -233,7 +246,7 @@ func indexOf(op string, val Value) (int64, error) {
 			return 0, fmt.Errorf("%w: %s: index %s addresses no position", ErrIndexOutOfRange, op, n.FormatInt())
 		}
 	}
-	return 0, fmt.Errorf("%w: %s requires an Integer index, got %s", ErrTypeMismatch, op, describeValue(val))
+	return 0, fmt.Errorf("%w: %s requires an Integer index, got %s", ErrTypeMismatch, op, DescribeValue(val))
 }
 
 // wholeBeyondInt64 is the whole number v is, an Integer or a Real, where it is
@@ -269,9 +282,9 @@ func indexWithin(op, what string, index, first int64, count semantics.Range, sla
 	return nil
 }
 
-// describeValue names a value's kind for a diagnostic, distinguishing the
+// DescribeValue names a value's kind for a diagnostic, distinguishing the
 // numeric constants a single kind covers.
-func describeValue(val Value) string {
+func DescribeValue(val Value) string {
 	if val.Kind == ValComplex {
 		return "a Complex"
 	}
@@ -335,6 +348,14 @@ func (ec *EvalContext) evalSequenceIndex(n *ast.IndexExpr) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
+	// `col#(i)` over an OrderedCollection is CollectionFunctions::'#': the element
+	// at i of `col.elements`, not the one-element sequence the object itself is.
+	if elements, ok, err := ec.ctx.orderedCollectionObjectElements(operand); ok || err != nil {
+		if err != nil {
+			return Value{}, err
+		}
+		operand = elements
+	}
 	if indexes := elementsOf(indexVal); len(indexes) != 1 || isStructuredValue(&operand) {
 		return builtinBaseIndex(ec, []Value{operand, indexVal})
 	}
@@ -392,7 +413,7 @@ func (ctx *Context) undeterminedIndex(op string, seq, indexVal Value) (Value, bo
 	if index < 1 || (upper.Known && !upper.Infinite && index > upper.Value) {
 		return Value{}, true, fmt.Errorf("%w: %s %d is outside 1..%s", ErrIndexOutOfRange, op, index, upper.Text())
 	}
-	if val, fixed := positionAt(u.Positions(), index); fixed {
+	if val, fixed := positionAt(u.fixedPositions(), index); fixed {
 		return val, true, nil
 	}
 	return undeterminedOne(seq), true, nil
@@ -431,18 +452,18 @@ func (ec *EvalContext) bodyOver(op string, val Value, arity int, elements []Valu
 // isDeferredNonBody reports a deferred argument that denotes a body rather
 // than being one, so reading it means evaluating it.
 func isDeferredNonBody(val Value) bool {
-	if val.Kind != ValExpr {
+	if val.Kind != valExpr {
 		return false
 	}
-	_, isBody := val.Expr().(*ast.BodyExpr)
+	_, isBody := val.expr().(*ast.BodyExpr)
 	return !isBody
 }
 
 // denotedBody evaluates a deferred argument that is not itself a body to the
 // value it denotes; a body or an evaluated value is returned as is.
 func (ec *EvalContext) denotedBody(val Value) (Value, error) {
-	if val.Kind == ValExpr {
-		if _, ok := val.Expr().(*ast.BodyExpr); !ok {
+	if val.Kind == valExpr {
+		if _, ok := val.expr().(*ast.BodyExpr); !ok {
 			return ec.evalClosure(val)
 		}
 	}
@@ -451,12 +472,21 @@ func (ec *EvalContext) denotedBody(val Value) (Value, error) {
 
 // checkBody verifies a denoted value is a body declaring arity parameters.
 func checkBody(op string, val Value, arity int) (Value, error) {
-	if val.Kind != ValExpr {
-		return Value{}, fmt.Errorf("%w: %s requires a body expression, got %s", ErrTypeMismatch, op, describeValue(val))
+	val = soleElement(val)
+	if fn := val.function(); fn != nil && fn.shape != nil {
+		// A function the argument names (`->reduce '+'`) is applied as the body is.
+		if low, high := fn.arity(); arity < low || arity > high {
+			return Value{}, fmt.Errorf("%w: %s calls %s with %d argument(s), but it declares %d parameter(s)",
+				ErrBodyArity, op, fn.shape.Name, arity, high)
+		}
+		return val, nil
 	}
-	body, ok := val.Expr().(*ast.BodyExpr)
+	if val.Kind != valExpr {
+		return Value{}, fmt.Errorf("%w: %s requires a body expression, got %s", ErrTypeMismatch, op, DescribeValue(val))
+	}
+	body, ok := val.expr().(*ast.BodyExpr)
 	if !ok {
-		return Value{}, fmt.Errorf("%w: %s requires a body expression, got %T", ErrTypeMismatch, op, val.Expr())
+		return Value{}, fmt.Errorf("%w: %s requires a body expression, got %T", ErrTypeMismatch, op, val.expr())
 	}
 	if len(body.Params) != arity {
 		return Value{}, fmt.Errorf("%w: %s calls its body with %d argument(s), but it declares %d parameter(s)",
@@ -467,19 +497,30 @@ func checkBody(op string, val Value, arity int) (Value, error) {
 
 // evalClosure evaluates a deferred expression in the environment it closes over.
 func (ec *EvalContext) evalClosure(val Value) (Value, error) {
-	return val.exprEnv(ec).Eval(val.Expr())
+	return val.exprEnv(ec).Eval(val.expr())
 }
 
 // applyBody evaluates a body with its parameters bound to args, as a frame of
 // its own over the environment the body closes over.
 func (ec *EvalContext) applyBody(val Value, args ...Value) (Value, error) {
-	body, ok := val.Expr().(*ast.BodyExpr)
+	val = soleElement(val)
+	if val.Kind == ValFunction {
+		// A library function runs no expression of its own, so each application is
+		// one step, as a body's evaluation is; a calc body charges its own.
+		if fn := val.function(); fn != nil && fn.library != nil {
+			if err := ec.ctx.incrementStep(); err != nil {
+				return Value{}, err
+			}
+		}
+		return ec.invokeFunction(val.FunctionName(), val, calcArgs{positional: args})
+	}
+	body, ok := val.expr().(*ast.BodyExpr)
 	if !ok {
-		return Value{}, fmt.Errorf("%w: a body expression is required, got %s", ErrTypeMismatch, describeValue(val))
+		return Value{}, fmt.Errorf("%w: a body expression is required, got %s", ErrTypeMismatch, DescribeValue(val))
 	}
 	ec = val.exprEnv(ec)
 	if body.Result == nil {
-		return Value{}, fmt.Errorf("%w: body expression states no result", ErrNoResultExpression)
+		return Value{}, fmt.Errorf("%w: body expression states no result", errNoResultExpression)
 	}
 	for _, member := range body.Members {
 		decl := member
@@ -491,9 +532,9 @@ func (ec *EvalContext) applyBody(val Value, args ...Value) (Value, error) {
 		}
 		if _, ok := decl.(*ast.Usage); !ok {
 			if decl == nil {
-				return Value{}, fmt.Errorf("%w: nil body member", ErrUnsupportedBodyDeclaration)
+				return Value{}, fmt.Errorf("%w: nil body member", errUnsupportedBodyDeclaration)
 			}
-			return Value{}, fmt.Errorf("%w: %T", ErrUnsupportedBodyDeclaration, decl)
+			return Value{}, fmt.Errorf("%w: %T", errUnsupportedBodyDeclaration, decl)
 		}
 	}
 	bindings := make(map[string]Value, len(body.Params))
@@ -527,7 +568,7 @@ func (ec *EvalContext) applyValueBody(body Value, args ...Value) (Value, error) 
 	if err != nil {
 		return Value{}, err
 	}
-	if expr, ok := body.Expr().(*ast.BodyExpr); ok && ec.ctx.HoldsNoValue(val) {
+	if expr, ok := body.expr().(*ast.BodyExpr); ok && ec.ctx.HoldsNoValue(val) {
 		return Value{}, ec.ctx.noValueError(val, expr.Result)
 	}
 	return val, nil
@@ -543,7 +584,7 @@ func (ec *EvalContext) applyPredicate(op string, body Value, arg Value) (bool, e
 		return false, err
 	}
 	if val.Kind == ValUndetermined {
-		return false, fmt.Errorf("%w: %s: predicate must return boolean, got %s", ErrTypeMismatch, op, describeValue(val))
+		return false, fmt.Errorf("%w: %s: predicate must return boolean, got %s", ErrTypeMismatch, op, DescribeValue(val))
 	}
 	return val.Const.Bool, nil
 }
@@ -559,7 +600,7 @@ func (ec *EvalContext) applyTest(op string, body Value, arg Value) (Value, error
 		return val, nil
 	}
 	if val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
-		return Value{}, fmt.Errorf("%w: %s: predicate must return boolean, got %s", ErrTypeMismatch, op, describeValue(val))
+		return Value{}, fmt.Errorf("%w: %s: predicate must return boolean, got %s", ErrTypeMismatch, op, DescribeValue(val))
 	}
 	return val, nil
 }
@@ -613,8 +654,12 @@ func builtinBaseIndex(ec *EvalContext, args []Value) (Value, error) {
 	case 1:
 		return ec.ctx.sequenceIndex(op, []Value{args[0], indexes[0]})
 	}
+	// Several indexes address an Array; one held as a one-element sequence is that Array.
+	if held := soleElement(args[0]); isStructuredValue(&held) {
+		return arrayIndex(op, held, args[1])
+	}
 	return Value{}, fmt.Errorf("%w: %s: %d indexes address an Array, got %s",
-		ErrTypeMismatch, op, len(indexes), describeValue(args[0]))
+		ErrTypeMismatch, op, len(indexes), DescribeValue(args[0]))
 }
 
 // builtinArrayIndex is CollectionFunctions::'array#': the element of an Array
@@ -631,6 +676,7 @@ func builtinArrayIndex(ec *EvalContext, args []Value) (Value, error) {
 // dimension — by its indexes in row-major order. The library body answers null
 // for an array of rank 0, which no index addresses.
 func arrayIndex(op string, arr Value, indexesVal Value) (Value, error) {
+	arr = soleElement(arr)
 	indexes, err := indexList(op, elementsOf(indexesVal))
 	if err != nil {
 		return Value{}, err
@@ -647,15 +693,15 @@ func arrayIndex(op string, arr Value, indexesVal Value) (Value, error) {
 		return (&Array{Dimensions: []int64{int64(v.Dimension())}, Elements: constValues(v.Elements)}).at(op, indexes)
 	case ValVectorQuantity:
 		vq := arr.VectorQuantity()
-		elements := make([]Value, vq.Dimension())
+		elements := make([]Value, vq.dimension())
 		for i := range elements {
 			elements[i] = NewQuantityValue(vq.component(i))
 		}
-		return (&Array{Dimensions: []int64{int64(vq.Dimension())}, Elements: elements}).at(op, indexes)
+		return (&Array{Dimensions: []int64{int64(vq.dimension())}, Elements: elements}).at(op, indexes)
 	case ValTensorQuantity:
 		return arr.TensorQuantity().componentArray().at(op, indexes)
 	}
-	return Value{}, fmt.Errorf("%w: %s requires an Array (arr: Array[1]), got %s", ErrTypeMismatch, op, describeValue(arr))
+	return Value{}, fmt.Errorf("%w: %s requires an Array (arr: Array[1]), got %s", ErrTypeMismatch, op, DescribeValue(arr))
 }
 
 // builtinSequenceSize is SequenceFunctions::size.
@@ -1187,7 +1233,7 @@ func (ec *EvalContext) filter(op string, args []Value, keep bool) (Value, error)
 // emptyMapping is the result of mapping no element through body: empty, and
 // typed by the dimension the body's result declares where its parameters fix one.
 func (ec *EvalContext) emptyMapping(val Value) Value {
-	body, ok := val.Expr().(*ast.BodyExpr)
+	body, ok := val.expr().(*ast.BodyExpr)
 	if !ok || body.Result == nil {
 		return sequenceOf(nil)
 	}
@@ -1279,7 +1325,7 @@ func builtinControlCollect(ec *EvalContext, args []Value) (Value, error) {
 	}
 	if len(mapped) == 0 {
 		if unit, ok := elementUnitOf(answers...); ok {
-			return NewEmptySequenceOf(unit), nil
+			return newEmptySequenceOf(unit), nil
 		}
 		return ec.emptyMapping(args[1]), nil
 	}
@@ -1348,7 +1394,7 @@ func (ec *EvalContext) extremum(op string, args []Value, least bool) (Value, err
 		}
 		if val.Kind != ValConst || !val.Const.IsNumeric() {
 			return Value{}, fmt.Errorf("%w: %s requires numeric values, got %s",
-				ErrTypeMismatch, op, describeValue(val))
+				ErrTypeMismatch, op, DescribeValue(val))
 		}
 		if i == 0 {
 			best = val
@@ -1468,7 +1514,7 @@ func truthOf(op string, args []Value, universal bool) (Value, error) {
 			continue
 		}
 		if elem.Kind != ValConst || elem.Const.Kind != semantics.ValBool {
-			return Value{}, fmt.Errorf("%w: %s requires Boolean elements, got %s", ErrTypeMismatch, op, describeValue(elem))
+			return Value{}, fmt.Errorf("%w: %s requires Boolean elements, got %s", ErrTypeMismatch, op, DescribeValue(elem))
 		}
 		if elem.Const.Bool != universal {
 			return boolValue(!universal), nil
@@ -1570,7 +1616,7 @@ func (ctx *Context) aggregate(op string, args []Value, operator ast.OperatorKind
 	}
 	elements := elementsOf(args[0])
 	if operator == ast.OpAdd && len(elements) == 0 {
-		if unit, ok := args[0].Sequence().ElementUnit(); ok {
+		if unit, ok := args[0].Sequence().emptyElementUnit(); ok {
 			return typedZero(unit, kind), nil
 		}
 	}
@@ -1592,7 +1638,7 @@ func (ctx *Context) aggregate(op string, args []Value, operator ast.OperatorKind
 	acc := kind.identity(identity)
 	for _, elem := range elements {
 		if elem.Kind != ValConst || !elem.Const.IsNumeric() {
-			return Value{}, fmt.Errorf("%w: %s requires numeric elements, got %s", ErrTypeMismatch, op, describeValue(elem))
+			return Value{}, fmt.Errorf("%w: %s requires numeric elements, got %s", ErrTypeMismatch, op, DescribeValue(elem))
 		}
 		if a, ok := acc.Int64(); ok && operator == ast.OpAdd {
 			if b, ok := elem.Const.Int64(); ok {
@@ -1626,7 +1672,7 @@ func (ctx *Context) aggregateQuantities(op string, elements []Value, operator as
 	for i, elem := range elements {
 		q, ok := asQuantity(elem)
 		if !ok {
-			return Value{}, fmt.Errorf("%w: %s requires numeric elements, got %s", ErrTypeMismatch, op, describeValue(elem))
+			return Value{}, fmt.Errorf("%w: %s requires numeric elements, got %s", ErrTypeMismatch, op, DescribeValue(elem))
 		}
 		if num := kind.element(q.Num); num != q.Num {
 			held := *q
@@ -1729,7 +1775,7 @@ func (ctx *Context) containsValue(elements []Value, val Value) bool {
 // default, so the count is exact.
 func checkArity(op string, args []Value, want int) error {
 	if len(args) != want {
-		return fmt.Errorf("%w: %s takes %d argument(s), got %d", ErrCalcArity, op, want, len(args))
+		return fmt.Errorf("%w: %s takes %d argument(s), got %d", errCalcArity, op, want, len(args))
 	}
 	return nil
 }

@@ -223,6 +223,8 @@ class RenderGeometry:
     height: float
     has_size: bool
     collapsed: bool
+    # The layout only folds or hides the node: x and y carry no position.
+    unplaced: bool = False
 
 
 @dataclass(frozen=True)
@@ -253,6 +255,9 @@ class RenderNode:
     text: str
     stand_in: bool
     parent: str
+    #: The compartment of ``parent`` this node is a row of ("attributes",
+    #: "parts", "ports", ...); empty for a node drawn as a box.
+    compartment: str
     ports: tuple
     origin: Optional[RenderSpan]
     geometry: Optional[RenderGeometry]
@@ -339,6 +344,7 @@ class RenderedView:
     canvas: Optional[RenderCanvas]
     notes: tuple
     notices: tuple
+    shown: tuple
 
 
 def _render_span(span):
@@ -360,12 +366,12 @@ def render_view_result(response):
     nodes = tuple(
         RenderNode(
             node.id, node.kind, node.name, node.name_synthesized, node.type, node.detail,
-            node.text, node.stand_in, node.parent,
+            node.text, node.stand_in, node.parent, node.compartment,
             tuple(RenderPort(port.id, port.name, port.type, port.direction) for port in node.ports),
             _render_span(node.origin if node.HasField("origin") else None),
             None if not node.HasField("geometry") else RenderGeometry(
                 node.geometry.x, node.geometry.y, node.geometry.width, node.geometry.height,
-                node.geometry.has_size, node.geometry.collapsed,
+                node.geometry.has_size, node.geometry.collapsed, node.geometry.unplaced,
             ),
             _render_style(node.style if node.HasField("style") else None),
         )
@@ -398,7 +404,7 @@ def render_view_result(response):
     )
     return RenderedView(
         response.view, response.kind, response.stated, nodes, edges, tuple(response.columns),
-        rows, canvas, notes, tuple(response.notices),
+        rows, canvas, notes, tuple(response.notices), tuple(response.shown),
     )
 #: What a binding value or an answered cell value may be.
 DocumentValue = Union[

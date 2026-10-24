@@ -6,8 +6,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // steppedModel waits three times and reads the clock after each wait, so the
@@ -42,19 +40,6 @@ func runUnderStep(t *testing.T, m *exploreModel, name string, step float64) (*Co
 	return ctx, out, err
 }
 
-func realOutputs(t *testing.T, out map[string]Value, names ...string) []float64 {
-	t.Helper()
-	got := make([]float64, len(names))
-	for i, name := range names {
-		v := out[name]
-		if v.Kind != ValConst || v.Const.Kind != semantics.ValReal {
-			t.Fatalf("%s = %v, want a Real", name, v)
-		}
-		got[i] = v.Const.AsReal()
-	}
-	return got
-}
-
 // A continuous clock (the default) reads a wait due exactly when it ends: the
 // instants are the sums of the durations, and an absolute wait is its instant.
 func TestContinuousClockReadsWaitsExactly(t *testing.T) {
@@ -66,7 +51,7 @@ func TestContinuousClockReadsWaitsExactly(t *testing.T) {
 	if ctx.ClockStep() != 0 {
 		t.Errorf("ClockStep() = %v, want 0", ctx.ClockStep())
 	}
-	got := realOutputs(t, out, "t1", "t2", "t3")
+	got := soleRealOutputs(t, out, "t1", "t2", "t3")
 	for i, want := range []float64{2.3, 2.7, 6.0} {
 		if math.Abs(got[i]-want) > 1e-12 {
 			t.Errorf("t%d = %v, want %v", i+1, got[i], want)
@@ -95,7 +80,7 @@ func TestSteppedClockReadsWaitsOnTicks(t *testing.T) {
 		if ctx.ClockStep() != tc.step {
 			t.Errorf("step %v: ClockStep() = %v", tc.step, ctx.ClockStep())
 		}
-		got := realOutputs(t, out, "t1", "t2", "t3")
+		got := soleRealOutputs(t, out, "t1", "t2", "t3")
 		for i, want := range tc.want {
 			if math.Abs(got[i]-want) > 1e-9 {
 				t.Errorf("step %v: t%d = %v, want %v", tc.step, i+1, got[i], want)
@@ -176,7 +161,7 @@ func TestWitnessCarriesTheClockStep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w := Witness{DrawPolicy: ctx.DrawPolicyTaken(), ClockStep: ctx.ClockStepTaken(), Draws: ctx.DrawsTaken(), Choices: ctx.ChoicesTaken()}
+	w := Witness{DrawPolicy: ctx.drawPolicyTaken(), ClockStep: ctx.clockStepTaken(), Draws: ctx.DrawsTaken(), Choices: ctx.choicesTaken()}
 	text := w.String()
 	if !strings.HasPrefix(text, "clock steps by 1.0\n") {
 		t.Fatalf("the witness does not open with the clock step:\n%s", text)
@@ -190,7 +175,7 @@ func TestWitnessCarriesTheClockStep(t *testing.T) {
 	}
 	replay, _ := m.fresh()
 	mustSchedule(t, replay, ReplayOf(parsed))
-	if got := replay.ClockStepTaken(); got != 1 {
+	if got := replay.clockStepTaken(); got != 1 {
 		t.Fatalf("the replay's clock steps by %v, want the witness's 1", got)
 	}
 	got, err := replay.ExecuteAction(m.action(t, "Stepped"))
@@ -200,7 +185,7 @@ func TestWitnessCarriesTheClockStep(t *testing.T) {
 	if err != nil {
 		t.Fatalf("replay: %v", err)
 	}
-	if want, have := realOutputs(t, out, "t1", "t2", "t3"), realOutputs(t, got, "t1", "t2", "t3"); !slices.Equal(want, have) {
+	if want, have := soleRealOutputs(t, out, "t1", "t2", "t3"), soleRealOutputs(t, got, "t1", "t2", "t3"); !slices.Equal(want, have) {
 		t.Errorf("the replay read %v, want the stepped run's %v", have, want)
 	}
 	if replay.ClockStep() != 0 {
@@ -211,11 +196,11 @@ func TestWitnessCarriesTheClockStep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if text := (Witness{ClockStep: continuous.ClockStepTaken(), Choices: continuous.ChoicesTaken()}).String(); strings.Contains(text, clockStepPrefix) {
+	if text := (Witness{ClockStep: continuous.clockStepTaken(), Choices: continuous.choicesTaken()}).String(); strings.Contains(text, clockStepPrefix) {
 		t.Errorf("a continuous run's witness names a clock step:\n%s", text)
 	}
 
-	var parse *ClockStepParseError
+	var parse *clockStepParseError
 	for _, bad := range []struct{ text, reason string }{
 		{"draw uniform(0.0, 1.0) = 1.0\nclock steps by 1.0\nno choice points\n", "before the draws"},
 		{"clock steps by 1.0\nclock steps by 0.5\nno choice points\n", "named twice"},
@@ -225,7 +210,7 @@ func TestWitnessCarriesTheClockStep(t *testing.T) {
 	} {
 		_, err := ParseWitness(bad.text)
 		if !errors.As(err, &parse) || !errors.Is(err, ErrClockStep) || !strings.Contains(err.Error(), bad.reason) || parse.Line == 0 {
-			t.Errorf("%q parsed as %v, want a ClockStepParseError on its line saying %q", bad.text, err, bad.reason)
+			t.Errorf("%q parsed as %v, want a clockStepParseError on its line saying %q", bad.text, err, bad.reason)
 		}
 	}
 }

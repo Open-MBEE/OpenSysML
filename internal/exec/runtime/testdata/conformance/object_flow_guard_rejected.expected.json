@@ -5,6 +5,6 @@
 	"outputs": {
 		"runs": {"type": "Integer", "value": 1},
 		"took": {"type": "Integer", "value": 2},
-		"b.v": {"type": "Integer", "value": 2}
+		"b.v": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]}
 	}
 }

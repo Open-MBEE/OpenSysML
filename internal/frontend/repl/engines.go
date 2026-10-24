@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 )
 
 // budgetFor is the session's bounds as a question of kind under policy states them.
@@ -123,8 +124,8 @@ func (e *EnginesArgumentError) Error() string {
 // Is matches ErrEnginesArgument.
 func (e *EnginesArgumentError) Is(target error) bool { return target == ErrEnginesArgument }
 
-// standingPrefix opens the line that follows a verdict with its standing.
-const standingPrefix = "  standing: "
+// StandingPrefix opens the line that follows a verdict with its standing.
+const StandingPrefix = "  standing: "
 
 // standing attaches to a verdict the plan that answered it and the line
 // reporting the standing of the answer; a verdict no engine was asked for keeps its lines.
@@ -133,7 +134,7 @@ func standing(v Verdict, plan *analysis.Plan) Verdict {
 		return v
 	}
 	v.Plan = plan
-	v.Lines = append(v.Lines, standingPrefix+plan.Standing())
+	v.Lines = append(v.Lines, StandingPrefix+plan.Standing())
 	return v
 }
 
@@ -242,7 +243,7 @@ func (s *Session) explore(subject string, policy runtime.SchedulePolicy, selecti
 // target once per row of the plan, each in a context of the plan's own over model
 // drawing under draws on a clock stepping by step; a Monte Carlo's runs are seeded from
 // the plan, not the session.
-func (s *Session) sweep(target string, model *analysis.Model, plan runtime.SweepPlan, row runtime.SweepRun, draws runtime.DrawPolicy, step float64) (analysis.Plan, error) {
+func (s *Session) sweep(target string, model *analysis.Model, plan sweep.SweepPlan, row sweep.SweepRun, draws runtime.DrawPolicy, step float64) (analysis.Plan, error) {
 	schedule := s.drivenSchedule()
 	req := analysis.Request{
 		Model:     model,
@@ -288,6 +289,7 @@ func solveReports(name string, queries []*solve.Query, plan analysis.Plan, err e
 	reports := make([]SolveReport, 0, len(queries))
 	for i, q := range queries {
 		r := report(name, q, plan.Result.Values[i])
+		r.Lines = append(r.Lines, uncoveredLines(q)...)
 		r.Plan = &plan
 		reports = append(reports, r)
 	}
@@ -297,6 +299,6 @@ func solveReports(name string, queries []*solve.Query, plan analysis.Plan, err e
 
 func withStanding(r SolveReport, plan *analysis.Plan) SolveReport {
 	r.Plan = plan
-	r.Lines = append(r.Lines, standingPrefix+plan.Standing())
+	r.Lines = append(r.Lines, StandingPrefix+plan.Standing())
 	return r
 }

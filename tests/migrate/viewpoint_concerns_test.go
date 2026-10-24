@@ -35,7 +35,10 @@ func TestViewpointConcernMigration(t *testing.T) {
 		"doc /* language: English",
 		" * presentation: dashboard",
 		"frame 'concern 2';",
-		"frame ViewsModel::'concern';",
+		"frame concern 'concern 3' ::> 'concern';",
+		"frame concern 'concern 4' ::> Views::'concern';",
+		"frame concern 'concern 5' ::> Model::'concern';",
+		"metadata MigrationMetadata::SynthesizedName about reviewer, 'concern 3', 'concern 4', 'concern 5';",
 		"doc /* legacy concern */",
 		"concern 'concern' {",
 		"concern 'concern 2' {",
@@ -49,15 +52,15 @@ func TestViewpointConcernMigration(t *testing.T) {
 		"view 'Inherited Derived' :> 'Inherited Base' {",
 		"view 'Inherited Same' :> 'Inherited Base';",
 		"view 'Multiple Bases' :> 'Generalized View', 'Tagged View';",
-		"individual view def review :> 'Review Viewpoint';",
+		"view review : 'Review Viewpoint';",
 		"doc /* Package concern */",
 		"doc /* Viewpoint concern */",
 		"doc /* Root concern */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	rootConcern := strings.Index(string(r.Notation), "concern 'concern' {\n    doc /* Root concern */")
-	viewsPackage := strings.Index(string(r.Notation), "package ViewsModel {")
+	rootConcern := strings.Index(string(r.Notation), "concern 'concern' {\n        doc /* Root concern */")
+	viewsPackage := strings.Index(string(r.Notation), "package Views {")
 	if rootConcern < 0 || viewsPackage < 0 || rootConcern > viewsPackage {
 		t.Errorf("root-owned concern was not written before its nested package:\n%s", r.Notation)
 	}
@@ -86,7 +89,7 @@ func TestViewpointConcernMigration(t *testing.T) {
 		if start < 0 {
 			return ""
 		}
-		next := strings.Index(notation[start+len(header):], "\n    view ")
+		next := strings.Index(notation[start+len(header):], "\n        view ")
 		if next < 0 {
 			return notation[start:]
 		}
@@ -103,6 +106,15 @@ func TestViewpointConcernMigration(t *testing.T) {
 	}
 	if diagnostics := errors(t, "viewpoint_concerns.sysml", r.Notation); len(diagnostics) != 0 {
 		t.Fatalf("migrated notation has %d errors: %v", len(diagnostics), diagnostics)
+	}
+	if n := strings.Count(string(r.Notation), "frame 'concern 2';"); n != 1 {
+		t.Errorf("the one frame whose effective name is its own appears %d times unnamed, want 1", n)
+	}
+	for _, id := range []string{"_cVp", "_shared", "_cRoot"} {
+		if entries := entriesFor(r, id); len(entries) != 1 ||
+			!strings.Contains(entries[0].Note, "since an unnamed frame would repeat the name 'concern' of another member") {
+			t.Errorf("concern %s framed under a fresh name has entries %+v, want the frame's name explained", id, entries)
+		}
 	}
 
 	for _, id := range []string{"_cPkg", "_shared", "_cRoot"} {
@@ -155,7 +167,7 @@ func TestViewpointConcernMigration(t *testing.T) {
 	idx.ExpandWildcardImports()
 	sem := semantics.NewModel(resolve.New(idx))
 	for _, name := range []string{"Generalized View", "Tagged View", "Conforming View", "Combined View", "Inherited Base", "Inherited Derived", "Inherited Same", "Multiple Bases"} {
-		view := symbolByName(t, idx, "ViewsModel::"+name)
+		view := symbolByName(t, idx, "Model::Views::"+name)
 		sats := sem.SatisfyMembersOf(view)
 		want := 1
 		if name == "Multiple Bases" {
@@ -165,7 +177,7 @@ func TestViewpointConcernMigration(t *testing.T) {
 			t.Errorf("%s inherits %d viewpoint satisfy members, want %d", name, len(sats), want)
 		}
 	}
-	viewpoint := symbolByName(t, idx, "ViewsModel::Review Viewpoint")
+	viewpoint := symbolByName(t, idx, "Model::Views::Review Viewpoint")
 	var viewpointUsage *symbols.Symbol
 	for _, member := range sem.MembersOf(viewpoint) {
 		if usage, ok := member.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageViewpoint {
@@ -188,4 +200,27 @@ func symbolByName(t *testing.T, idx *symbols.Index, name string) *symbols.Symbol
 		t.Fatalf("%s matched %d symbols, want 1", name, len(matches))
 	}
 	return matches[0]
+}
+
+// Two concerns of one name framed from elsewhere: the first named frame takes
+// the concern's own name, so its reference must be qualified rather than
+// resolve to the frame itself.
+func TestFramedConcernNamedLikeItsConcernRefersToItQualified(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Package" xmi:id="_pa" name="A">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_ca"><body>Cost</body></ownedComment>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_pb" name="B">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_cb"><body>Mass</body></ownedComment>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_vp" name="Review"/>`, `
+  <sysml:Viewpoint xmi:id="_svp" base_Class="_vp" concernList="_ca _cb"/>
+  <sysml:Concern xmi:id="_sca" base_Comment="_ca"/>
+  <sysml:Concern xmi:id="_scb" base_Comment="_cb"/>`)
+	notation := string(r.Notation)
+	wantLine(t, r.Notation, "frame concern 'concern' ::> A::'concern';")
+	wantLine(t, r.Notation, "frame concern 'concern 2' ::> B::'concern';")
+	if strings.Contains(notation, "::> 'concern';") {
+		t.Errorf("a frame refers to an unqualified 'concern' it shadows:\n%s", notation)
+	}
 }

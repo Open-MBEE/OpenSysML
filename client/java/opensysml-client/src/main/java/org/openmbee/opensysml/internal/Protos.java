@@ -8,6 +8,7 @@ import org.openmbee.opensysml.Capabilities;
 import org.openmbee.opensysml.CaseEvaluation;
 import org.openmbee.opensysml.Condition;
 import org.openmbee.opensysml.Conversion;
+import org.openmbee.opensysml.CheckResult;
 import org.openmbee.opensysml.Diagnostic;
 import org.openmbee.opensysml.DocumentQueryResult;
 import org.openmbee.opensysml.DocumentRow;
@@ -28,12 +29,16 @@ import org.openmbee.opensysml.MigrationReport;
 import org.openmbee.opensysml.Outcome;
 import org.openmbee.opensysml.Quantity;
 import org.openmbee.opensysml.Rational;
+import org.openmbee.opensysml.Recording;
+import org.openmbee.opensysml.Runs;
+import org.openmbee.opensysml.SelfCheck;
 import org.openmbee.opensysml.Query;
 import org.openmbee.opensysml.QueryElement;
 import org.openmbee.opensysml.Referrer;
 import org.openmbee.opensysml.Satisfaction;
 import org.openmbee.opensysml.SourceDocument;
 import org.openmbee.opensysml.Standing;
+import org.openmbee.opensysml.ToolDryRun;
 import org.openmbee.opensysml.StateRun;
 import org.openmbee.opensysml.Sweep;
 import org.openmbee.opensysml.SweepRange;
@@ -67,7 +72,23 @@ import org.openmbee.opensysml.proto.PrimitiveOperator;
 import org.openmbee.opensysml.proto.QueryResultElement;
 import org.openmbee.opensysml.proto.RunAnalysisResponse;
 import org.openmbee.opensysml.proto.RunDocumentQueryResponse;
+import org.openmbee.opensysml.proto.RecordRunResponse;
+import org.openmbee.opensysml.proto.RunRunsResponse;
+import org.openmbee.opensysml.CaseStatistic;
+import org.openmbee.opensysml.CaseStatistics;
+import org.openmbee.opensysml.ComparedDistribution;
+import org.openmbee.opensysml.Comparison;
+import org.openmbee.opensysml.ConfigurationComparison;
+import org.openmbee.opensysml.ImportResult;
+import org.openmbee.opensysml.ImportedFile;
+import org.openmbee.opensysml.ImportedValue;
+import org.openmbee.opensysml.ObservableComparison;
+import org.openmbee.opensysml.StatisticDifference;
+import org.openmbee.opensysml.proto.CompareResultsResponse;
+import org.openmbee.opensysml.proto.ImportDataResponse;
+import java.util.OptionalLong;
 import org.openmbee.opensysml.proto.RunSweepResponse;
+import org.openmbee.opensysml.proto.SelfCheckResponse;
 import org.openmbee.opensysml.proto.Span;
 import org.openmbee.opensysml.proto.Specialization;
 import org.openmbee.opensysml.proto.SymbolInfo;
@@ -928,6 +949,82 @@ public final class Protos {
    * @param bounds the bounds
    * @return the immutable standing
    */
+  /** The check result a {@code CheckBehaviorResponse} carries. */
+  public static CheckResult checkResult(org.openmbee.opensysml.proto.CheckBehaviorResponse r) {
+    return new CheckResult(
+        r.getVerdict(),
+        r.getLinesList(),
+        r.hasSearch() ? Optional.of(checkSearch(r.getSearch())) : Optional.empty(),
+        r.getViolationsList().stream().map(Protos::checkViolation).toList(),
+        r.getDivergencesList().stream().map(Protos::checkDivergence).toList(),
+        r.getFinalsList().stream().map(Protos::checkFinal).toList(),
+        r.getClaim(),
+        r.getFreeInputsList(),
+        r.getAssumptionsList(),
+        r.hasWitness() ? Optional.of(checkWitness(r.getWitness())) : Optional.empty(),
+        r.hasContrast() ? Optional.of(checkWitness(r.getContrast())) : Optional.empty(),
+        standing(r.getEngine(), r.getStrength(), r.getBoundsList()),
+        r.getReason());
+  }
+
+  private static CheckResult.Search checkSearch(org.openmbee.opensysml.proto.CheckSearch s) {
+    return new CheckResult.Search(
+        s.getStates(),
+        s.getMoves(),
+        s.getMaxDepth(),
+        s.getBoundsHitList(),
+        s.getHorizon(),
+        s.getHorizonSet(),
+        s.getMassBounded(),
+        s.getNotesList(),
+        s.getScopeList(),
+        s.getStatus());
+  }
+
+  private static CheckResult.Witness checkWitness(org.openmbee.opensysml.proto.CheckWitness w) {
+    return new CheckResult.Witness(
+        w.getSchedule(),
+        w.getDrawsList(),
+        w.getChoicesList(),
+        w.getInputsList(),
+        w.getFileName(),
+        w.getFileContent());
+  }
+
+  private static CheckResult.Violation checkViolation(
+      org.openmbee.opensysml.proto.CheckViolation v) {
+    return new CheckResult.Violation(
+        v.getKind(),
+        v.getProperty(),
+        v.getError(),
+        v.getDepth(),
+        v.getProbability(),
+        v.hasWitness() ? Optional.of(checkWitness(v.getWitness())) : Optional.empty(),
+        v.getText());
+  }
+
+  private static CheckResult.Divergence checkDivergence(
+      org.openmbee.opensysml.proto.CheckDivergence d) {
+    return new CheckResult.Divergence(
+        d.getFeature(),
+        d.getValuesList().stream()
+            .map(
+                v ->
+                    new CheckResult.DivergentValue(
+                        v.getValue(),
+                        v.hasWitness()
+                            ? Optional.of(checkWitness(v.getWitness()))
+                            : Optional.empty()))
+            .toList());
+  }
+
+  private static CheckResult.Final checkFinal(org.openmbee.opensysml.proto.CheckFinal f) {
+    return new CheckResult.Final(
+        f.getOutcome(),
+        f.getValuesMap(),
+        f.hasWitness() ? Optional.of(checkWitness(f.getWitness())) : Optional.empty());
+  }
+
   public static Standing standing(String engine, String strength, List<Bound> bounds) {
     List<Standing.Bound> out = new ArrayList<>(bounds.size());
     for (Bound bound : bounds) {
@@ -1007,7 +1104,9 @@ public final class Protos {
                     verdict.getKind(),
                     present(verdict.getDetail()),
                     verdict.getSubcase(),
-                    present(verdict.getRequirementId())))
+                    present(verdict.getRequirementId()),
+                    verdict.getInstanceId() == 0 ? Optional.empty() : Optional.of(verdict.getInstanceId()),
+                    present(verdict.getInstanceTypeId())))
         .toList();
   }
 
@@ -1149,7 +1248,50 @@ public final class Protos {
         evaluations,
         instances(response.getInstancesList()),
         diagnostics(response.getDiagnosticsList()),
-        standing(response.getEngine(), response.getStrength(), response.getBoundsList()));
+        standing(response.getEngine(), response.getStrength(), response.getBoundsList()),
+        response.hasToolDryRun()
+            ? Optional.of(toolDryRun(response.getToolDryRun()))
+            : Optional.empty());
+  }
+
+  /**
+   * The tool call a dry run previewed.
+   *
+   * @param preview the generated preview
+   * @return the immutable preview
+   */
+  public static ToolDryRun toolDryRun(org.openmbee.opensysml.proto.ToolDryRun preview) {
+    return new ToolDryRun(
+        preview.getAction(),
+        preview.getTool(),
+        preview.getVersion(),
+        preview.getManifest(),
+        preview.getExecutable(),
+        preview.getProtocol(),
+        preview.getArgsList(),
+        preview.getEnvList(),
+        preview.getCwd(),
+        preview.getStdin(),
+        preview.getStdinData(),
+        preview.hasInputFile()
+            ? Optional.of(
+                new ToolDryRun.InputFile(
+                    preview.getInputFile().getName(),
+                    preview.getInputFile().getFormat(),
+                    preview.getInputFile().getData()))
+            : Optional.empty(),
+        preview.getOutputDir(),
+        preview.getInputsList().stream()
+            .map(
+                input ->
+                    new ToolDryRun.Input(
+                        input.getVariable(), input.getParameter(), input.getValue(), input.getUnit()))
+            .toList(),
+        preview.getOutputsList().stream()
+            .map(output -> new ToolDryRun.Output(output.getVariable(), output.getParameter()))
+            .toList(),
+        preview.getReplySource(),
+        preview.getLinesList());
   }
 
   /**
@@ -1625,14 +1767,14 @@ public final class Protos {
   }
 
   /**
-   * What a sweep ran.
+   * Rows of a sweep or of repeated runs, with their values made readable.
    *
-   * @param response the generated answer
-   * @return the immutable table
+   * @param rows the generated rows
+   * @return immutable rows, in order
    */
-  public static Sweep sweep(RunSweepResponse response) {
-    List<SweepRow> rows = new ArrayList<>(response.getRowsCount());
-    for (org.openmbee.opensysml.proto.SweepRow row : response.getRowsList()) {
+  public static List<SweepRow> sweepRows(List<org.openmbee.opensysml.proto.SweepRow> rows) {
+    List<SweepRow> converted = new ArrayList<>(rows.size());
+    for (org.openmbee.opensysml.proto.SweepRow row : rows) {
       List<CaseEvaluation> evaluations = new ArrayList<>(row.getEvaluationsCount());
       for (org.openmbee.opensysml.proto.CaseEvaluation evaluation : row.getEvaluationsList()) {
         List<Value> arguments = new ArrayList<>(evaluation.getArgumentsCount());
@@ -1650,7 +1792,7 @@ public final class Protos {
                 evaluation.getSelected(),
                 evaluation.getTied()));
       }
-      rows.add(
+      converted.add(
           new SweepRow(
               outputs(row.getInputsList()),
               outputs(row.getOutputsList()),
@@ -1660,6 +1802,152 @@ public final class Protos {
               row.getError(),
               failureReason(row.getFailureReason())));
     }
+    return List.copyOf(converted);
+  }
+
+  /**
+   * What an import set, with the edited model.
+   *
+   * @param response the generated response
+   * @return the import result
+   */
+  public static ImportResult importResult(ImportDataResponse response) {
+    List<ImportedFile> files = new ArrayList<>(response.getFilesCount());
+    for (org.openmbee.opensysml.proto.ImportedFile file : response.getFilesList()) {
+      List<ImportedValue> assignments = new ArrayList<>(file.getAssignmentsCount());
+      for (org.openmbee.opensysml.proto.ImportedValue value : file.getAssignmentsList()) {
+        assignments.add(
+            new ImportedValue(
+                value.getElement(),
+                value.getFeature(),
+                value.getValue(),
+                value.getRedefines(),
+                value.getWhere(),
+                value.getDescription()));
+      }
+      files.add(new ImportedFile(file.getName(), file.getValues(), file.getElements(), assignments));
+    }
+    List<EditedDocument> documents = new ArrayList<>(response.getDocumentsCount());
+    for (org.openmbee.opensysml.proto.EditedDocument document : response.getDocumentsList()) {
+      documents.add(new EditedDocument(document.getName(), document.getContent()));
+    }
+    return new ImportResult(
+        files,
+        documents,
+        response.getContent(),
+        present(response.getModelHash()),
+        diagnostics(response.getDiagnosticsList()),
+        response);
+  }
+
+  /**
+   * A tool's results compared with runs, configuration by configuration.
+   *
+   * @param response the generated response
+   * @return the comparison
+   */
+  public static Comparison comparison(CompareResultsResponse response) {
+    List<ConfigurationComparison> configurations =
+        new ArrayList<>(response.getConfigurationsCount());
+    for (org.openmbee.opensysml.proto.ConfigurationComparison configuration :
+        response.getConfigurationsList()) {
+      List<ObservableComparison> observables =
+          new ArrayList<>(configuration.getObservablesCount());
+      for (org.openmbee.opensysml.proto.ObservableComparison observable :
+          configuration.getObservablesList()) {
+        observables.add(
+            new ObservableComparison(
+                observable.getStored(),
+                observable.getFeature(),
+                observable.getUnit(),
+                observable.hasTool()
+                    ? Optional.of(distribution(observable.getTool()))
+                    : Optional.empty(),
+                observable.getPooled(),
+                observable.getUnstored(),
+                observable.hasRun()
+                    ? Optional.of(distribution(observable.getRun()))
+                    : Optional.empty(),
+                observable.getProduced(),
+                observable.getCompared(),
+                observable.hasDifference()
+                    ? Optional.of(
+                        new StatisticDifference(
+                            observable.getDifference().getMin(),
+                            observable.getDifference().getMean(),
+                            observable.getDifference().getP50(),
+                            observable.getDifference().getP90(),
+                            observable.getDifference().getMax()))
+                    : Optional.empty(),
+                observable.hasDeclared()
+                    ? Optional.of(caseStatistics(observable.getDeclared()))
+                    : Optional.empty(),
+                observable.getNotesList()));
+      }
+      configurations.add(
+          new ConfigurationComparison(
+              configuration.getId(),
+              configuration.getName(),
+              configuration.getBehavior(),
+              configuration.getTarget(),
+              configuration.getResultLocation(),
+              configuration.getStatus(),
+              configuration.getUnresolved(),
+              configuration.getStoredRuns(),
+              configuration.getStoredSnapshots(),
+              configuration.getRuns(),
+              configuration.getCompleted(),
+              configuration.getDraws(),
+              configuration.hasSeed()
+                  ? OptionalLong.of(configuration.getSeed())
+                  : OptionalLong.empty(),
+              configuration.getClockStep(),
+              sweepRows(configuration.getRowsList()),
+              instances(configuration.getInstancesList()),
+              observables,
+              configuration.getErrorsList(),
+              configuration.getNotesList(),
+              configuration.getLinesList()));
+    }
+    return new Comparison(
+        response.getSource(),
+        configurations,
+        standing(response.getEngine(), response.getStrength(), response.getBoundsList()),
+        diagnostics(response.getDiagnosticsList()),
+        response);
+  }
+
+  private static ComparedDistribution distribution(
+      org.openmbee.opensysml.proto.ComparedDistribution distribution) {
+    return new ComparedDistribution(
+        distribution.getCount(),
+        distribution.getMin(),
+        distribution.getMean(),
+        distribution.getP50(),
+        distribution.getP90(),
+        distribution.getMax(),
+        distribution.getDeviation());
+  }
+
+  private static CaseStatistics caseStatistics(
+      org.openmbee.opensysml.proto.CaseStatistics declared) {
+    List<CaseStatistic> rows = new ArrayList<>(declared.getRowsCount());
+    for (org.openmbee.opensysml.proto.CaseStatistic row : declared.getRowsList()) {
+      rows.add(
+          new CaseStatistic(
+              row.getStatistic(), row.getOf(), row.getTool(), row.getRun(), row.getDifference()));
+    }
+    return new CaseStatistics(declared.getAnalysis(), rows, declared.getNotesList());
+  }
+
+  /**
+   * What a sweep ran.
+   *
+   * @param response the generated answer
+   * @return the immutable table
+   */
+  public static Sweep sweep(RunSweepResponse response) {
+    List<SweepRow> rows = sweepRows(response.getRowsList());
     return new Sweep(
         rows,
         response.getParametersList(),
@@ -1668,6 +1956,113 @@ public final class Protos {
         instances(response.getInstancesList()),
         diagnostics(response.getDiagnosticsList()),
         standing(response.getEngine(), response.getStrength(), response.getBoundsList()));
+  }
+
+  /**
+   * The table a {@code RunRunsResponse} carries.
+   *
+   * @param response the generated answer
+   * @return the immutable table
+   */
+  public static Runs runs(RunRunsResponse response) {
+    List<Runs.Distribution> distributions = new ArrayList<>(response.getDistributionsCount());
+    for (org.openmbee.opensysml.proto.RunDistribution d : response.getDistributionsList()) {
+      distributions.add(
+          new Runs.Distribution(
+              d.getName(),
+              d.getUnit(),
+              d.getCount(),
+              d.getNumeric(),
+              d.hasMin() ? Optional.of(readable(d.getMin())) : Optional.empty(),
+              d.hasMax() ? Optional.of(readable(d.getMax())) : Optional.empty(),
+              d.hasMean() ? Optional.of(readable(d.getMean())) : Optional.empty(),
+              d.getDeviation(),
+              d.getPercentilesList().stream()
+                  .map(p -> new Runs.Percentile(p.getPercentile(), readable(p.getValue())))
+                  .toList(),
+              d.getHistogramList().stream()
+                  .map(
+                      b ->
+                          new Runs.HistogramBin(
+                              readable(b.getLow()), readable(b.getHigh()), b.getCount()))
+                  .toList(),
+              d.getValuesList().stream()
+                  .map(v -> new Runs.CountedValue(readable(v.getValue()), v.getCount()))
+                  .toList()));
+    }
+    return new Runs(
+        sweepRows(response.getRowsList()),
+        response.getObservablesList(),
+        distributions,
+        outputs(response.getOutputsList()),
+        verdicts(response.getVerdictsList()),
+        response.getUnconcluded(),
+        response.hasSeed() ? Optional.of(response.getSeed()) : Optional.empty(),
+        instances(response.getInstancesList()),
+        diagnostics(response.getDiagnosticsList()),
+        standing(response.getEngine(), response.getStrength(), response.getBoundsList()));
+  }
+
+  /**
+   * The findings a {@code SelfCheckResponse} carries.
+   *
+   * @param response the generated answer
+   * @return the immutable report
+   */
+  public static SelfCheck selfCheck(SelfCheckResponse response) {
+    Map<String, Long> applications = new LinkedHashMap<>();
+    for (org.openmbee.opensysml.proto.SelfCheckApplication a : response.getApplicationsList()) {
+      applications.put(a.getConstraint(), a.getCount());
+    }
+    return new SelfCheck(
+        response.getStatus(),
+        response.getFindingsList().stream()
+            .map(
+                f ->
+                    new SelfCheck.Finding(
+                        f.getStatus(),
+                        f.getSubject(),
+                        f.getLocation(),
+                        f.getConstraint(),
+                        f.getElement(),
+                        f.getMessage(),
+                        f.getLine()))
+            .toList(),
+        response.getElements(),
+        response.getChecks(),
+        response.getViolations(),
+        response.getUnevaluated(),
+        response.getEvaluationErrors(),
+        applications,
+        response.getSummary(),
+        diagnostics(response.getDiagnosticsList()));
+  }
+
+  /**
+   * The recording a {@code RecordRunResponse} carries.
+   *
+   * @param response the generated answer
+   * @return the immutable recording
+   */
+  public static Recording recording(RecordRunResponse response) {
+    List<EditedDocument> documents = new ArrayList<>(response.getDocumentsCount());
+    for (org.openmbee.opensysml.proto.EditedDocument document : response.getDocumentsList()) {
+      documents.add(new EditedDocument(document.getName(), document.getContent()));
+    }
+    return new Recording(
+        response.hasRun() ? Optional.of(analysis(response.getRun())) : Optional.empty(),
+        response.hasSweep() ? Optional.of(sweep(response.getSweep())) : Optional.empty(),
+        response.hasSample() ? Optional.of(runs(response.getSample())) : Optional.empty(),
+        response.getPackage(),
+        response.getDefinition(),
+        response.getRecordsList(),
+        response.getSource(),
+        response.getContent(),
+        documents,
+        response.getSkipped(),
+        response.getReasonsList(),
+        diagnostics(response.getDiagnosticsList()),
+        response.getModelHash());
   }
 
   /**

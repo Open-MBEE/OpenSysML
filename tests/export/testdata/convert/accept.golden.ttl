@@ -165,6 +165,7 @@ elmt:Accepts__Observe__trigger
     sysml:owner elmt:Accepts__Observe ;
     sysml:owningRelationship elmt:Accepts__Observe__trigger_om ;
     sysml:owningMembership elmt:Accepts__Observe__trigger_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "trigger" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:parameter elmt:Accepts__Observe__trigger__scene ;
@@ -201,6 +202,7 @@ elmt:Accepts__Observe__trigger__scene
     sysml:owner elmt:Accepts__Observe__trigger ;
     sysml:owningRelationship elmt:Accepts__Observe__trigger__scene_om ;
     sysml:owningMembership elmt:Accepts__Observe__trigger__scene_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "scene" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
@@ -276,6 +278,7 @@ elmt:Accepts__Watch__lens
     sysml:owner elmt:Accepts__Watch ;
     sysml:owningRelationship elmt:Accepts__Watch__lens_om ;
     sysml:owningMembership elmt:Accepts__Watch__lens_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "lens" ;
     sysml:type elmt:Accepts__Camera ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -309,6 +312,7 @@ elmt:Accepts__Watch__framed
     sysml:owner elmt:Accepts__Watch ;
     sysml:owningRelationship elmt:Accepts__Watch__framed_om ;
     sysml:owningMembership elmt:Accepts__Watch__framed_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "framed" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:parameter elmt:Accepts__Watch__framed__scene, elmt:Accepts__Watch__framed___401 ;
@@ -353,6 +357,7 @@ elmt:Accepts__Watch__framed__scene
     sysml:owner elmt:Accepts__Watch__framed ;
     sysml:owningRelationship elmt:Accepts__Watch__framed__scene_om ;
     sysml:owningMembership elmt:Accepts__Watch__framed__scene_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "scene" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
@@ -390,6 +395,7 @@ elmt:Accepts__Watch__framed___401
     sysml:owner elmt:Accepts__Watch__framed ;
     sysml:owningRelationship elmt:Accepts__Watch__framed___401_om ;
     sysml:owningMembership elmt:Accepts__Watch__framed___401_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isReference "true"^^xsd:boolean ;
     sysml:direction "in" ;
@@ -415,9 +421,10 @@ expr:Accepts__Watch__framed___401_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "lens" ;
     sysml:elementId "Accepts__Watch__framed___401_pvalue" ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:ownedRelationship expr:Accepts__Watch__framed___401_pvalue_preferent, expr:Accepts__Watch__framed___401_pvalue_pout_om ;
+    sysml:ownedMembership expr:Accepts__Watch__framed___401_pvalue_preferent, expr:Accepts__Watch__framed___401_pvalue_pout_om ;
     sysml:referent elmt:Accepts__Watch__lens ;
-    sysml:ownedRelationship expr:Accepts__Watch__framed___401_pvalue_pout_om, expr:Accepts__Watch__framed___401_pvalue_preferent ;
-    sysml:ownedMembership expr:Accepts__Watch__framed___401_pvalue_pout_om ;
     sysml:ownedFeatureMembership expr:Accepts__Watch__framed___401_pvalue_pout_om ;
     sysml:ownedFeature expr:Accepts__Watch__framed___401_pvalue_pout ;
     sysml:parameter expr:Accepts__Watch__framed___401_pvalue_pout ;
@@ -425,10 +432,19 @@ expr:Accepts__Watch__framed___401_pvalue
     sysml:owner elmt:Accepts__Watch__framed___401 ;
     sysml:owningRelationship expr:Accepts__Watch__framed___401_pvalue_om ;
     sysml:owningMembership expr:Accepts__Watch__framed___401_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"Accepts__Watch__framed___401_pvalue_pout_om\"},{\"@id\":\"Accepts__Watch__framed___401_pvalue_preferent\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Accepts__Watch__framed___401_pvalue_preferent\"},{\"@id\":\"Accepts__Watch__framed___401_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Accepts__Watch__framed___401_pvalue_preferent\"},{\"@id\":\"Accepts__Watch__framed___401_pvalue_pout_om\"}]" .
+
+expr:Accepts__Watch__framed___401_pvalue_preferent
+    a sysml:Membership ;
+    sysml:elementId "Accepts__Watch__framed___401_pvalue_preferent" ;
+    sysml:memberElement elmt:Accepts__Watch__lens ;
+    sysml:owner expr:Accepts__Watch__framed___401_pvalue ;
+    sysml:owningRelatedElement expr:Accepts__Watch__framed___401_pvalue .
 
 expr:Accepts__Watch__framed___401_pvalue_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Accepts__Watch__framed___401_pvalue_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Accepts__Watch__framed___401_pvalue ;
@@ -503,10 +519,3 @@ elmt:Accepts__Watch__framed__scene_ft0
     sysml:owner elmt:Accepts__Watch__framed__scene ;
     sysml:relatedElement elmt:Accepts__Watch__framed__scene, elmt:Accepts__Scene ;
     json:relatedElement "[{\"@id\":\"Accepts__Watch__framed__scene\"},{\"@id\":\"Accepts__Scene\"}]" .
-
-expr:Accepts__Watch__framed___401_pvalue_preferent
-    a sysml:Membership ;
-    sysml:elementId "Accepts__Watch__framed___401_pvalue_preferent" ;
-    sysml:memberElement elmt:Accepts__Watch__lens ;
-    sysml:owner expr:Accepts__Watch__framed___401_pvalue ;
-    sysml:owningRelatedElement expr:Accepts__Watch__framed___401_pvalue .

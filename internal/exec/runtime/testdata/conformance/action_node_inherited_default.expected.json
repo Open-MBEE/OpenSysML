@@ -2,19 +2,19 @@
 	"type": "action",
 	"evaluate": "test::outer",
 	"outputs": {
-		"typed": {"type": "Integer", "value": 9},
-		"redefined": {"type": "Integer", "value": 15},
-		"invoked": {"type": "Integer", "value": 30},
-		"performed": {"type": "Integer", "value": 30},
-		"d.x": {"type": "Integer", "value": 3},
-		"d.z": {"type": "Integer", "value": 6},
-		"d.y": {"type": "Integer", "value": 9},
-		"rd.x": {"type": "Integer", "value": 5},
-		"rd.z": {"type": "Integer", "value": 10},
-		"rd.y": {"type": "Integer", "value": 15},
-		"c.x": {"type": "Integer", "value": 3},
-		"c.result": {"type": "Integer", "value": 30},
-		"p.x": {"type": "Integer", "value": 3},
-		"p.result": {"type": "Integer", "value": 30}
+		"typed": {"type": "Sequence", "elements": [{"type": "Integer", "value": 9}]},
+		"redefined": {"type": "Sequence", "elements": [{"type": "Integer", "value": 15}]},
+		"invoked": {"type": "Sequence", "elements": [{"type": "Integer", "value": 30}]},
+		"performed": {"type": "Sequence", "elements": [{"type": "Integer", "value": 30}]},
+		"d.x": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
+		"d.z": {"type": "Sequence", "elements": [{"type": "Integer", "value": 6}]},
+		"d.y": {"type": "Sequence", "elements": [{"type": "Integer", "value": 9}]},
+		"rd.x": {"type": "Sequence", "elements": [{"type": "Integer", "value": 5}]},
+		"rd.z": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]},
+		"rd.y": {"type": "Sequence", "elements": [{"type": "Integer", "value": 15}]},
+		"c.x": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
+		"c.result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 30}]},
+		"p.x": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
+		"p.result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 30}]}
 	}
 }

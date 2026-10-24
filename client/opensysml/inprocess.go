@@ -174,6 +174,18 @@ func (p *inprocess) runAnalysis(ctx context.Context, req *pb.RunAnalysisRequest)
 	return answer(ctx, req, p.svc.RunAnalysis)
 }
 
+func (p *inprocess) runRuns(ctx context.Context, req *pb.RunRunsRequest) (*pb.RunRunsResponse, error) {
+	return answer(ctx, req, p.svc.RunRuns)
+}
+
+func (p *inprocess) selfCheck(ctx context.Context, req *pb.SelfCheckRequest) (*pb.SelfCheckResponse, error) {
+	return answer(ctx, req, p.svc.SelfCheck)
+}
+
+func (p *inprocess) recordRun(ctx context.Context, req *pb.RecordRunRequest) (*pb.RecordRunResponse, error) {
+	return answer(ctx, req, p.svc.RecordRun)
+}
+
 func (p *inprocess) query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
 	return answer(ctx, req, p.svc.Query)
 }
@@ -204,6 +216,13 @@ func (p *inprocess) exportGraphs(
 	req *pb.ExportGraphsRequest,
 ) (*pb.ExportGraphsResponse, error) {
 	return answer(ctx, req, p.svc.ExportGraphs)
+}
+
+func (p *inprocess) checkBehavior(
+	ctx context.Context,
+	req *pb.CheckBehaviorRequest,
+) (*pb.CheckBehaviorResponse, error) {
+	return answer(ctx, req, p.svc.CheckBehavior)
 }
 
 func (p *inprocess) convert(ctx context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, error) {
@@ -277,4 +296,12 @@ func recoverToError(err *error) {
 	if recovered := recover(); recovered != nil {
 		*err = &StatusError{Code: CodeInternal, Message: fmt.Sprintf("panic: %v", recovered)}
 	}
+}
+
+func (p *inprocess) importData(ctx context.Context, req *pb.ImportDataRequest) (*pb.ImportDataResponse, error) {
+	return answer(ctx, req, p.svc.ImportData)
+}
+
+func (p *inprocess) compareResults(ctx context.Context, req *pb.CompareResultsRequest) (*pb.CompareResultsResponse, error) {
+	return answer(ctx, req, p.svc.CompareResults)
 }

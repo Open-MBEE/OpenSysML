@@ -2,7 +2,7 @@
   "type": "action",
   "trace": true,
   "outputs": {
-    "count": {"type": "Integer", "value": 4},
-    "total": {"type": "Integer", "value": 6}
+    "count": {"type": "Sequence", "elements": [{"type": "Integer", "value": 4}]},
+    "total": {"type": "Sequence", "elements": [{"type": "Integer", "value": 6}]}
   }
 }

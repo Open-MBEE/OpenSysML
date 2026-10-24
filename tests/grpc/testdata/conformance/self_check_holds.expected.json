@@ -1,0 +1,5 @@
+{
+  "rpc": "SelfCheck",
+  "expected_status": "holds",
+  "min_checks": 1
+}

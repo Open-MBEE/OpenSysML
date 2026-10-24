@@ -7,30 +7,30 @@ InputPin	Rig::Sampling::record::stamp	_recordStamp	(the called Rig::Record has n
 
 ## approximated (10)
 AddStructuralFeatureValueAction	Rig::Record::set last	_rSet	-> 'set last'	(the pin 'value' admits no value, which the feature cannot hold: it is written only when the pin holds one)
-InputPin	Rig::Record::set last::value	_rSetVal	-> Rig::record::'set last'.value	(it is declared admitting no value: the parameter value of Rig::Record, which feeds it, admits no value)
-Parameter	Rig::Record::value	_recordIn	-> Rig::record::value	(it is declared admitting no value: the pin 'value' the call 'record' in Rig::Sampling passes for it receives none: 'measure', which feeds it, produces no value, and v1 runs the callee without one)
+InputPin	Rig::Record::set last::value	_rSetVal	-> Model::Rig::record::'set last'.value	(it is declared admitting no value: the parameter value of Rig::Record, which feeds it, admits no value)
+Parameter	Rig::Record::value	_recordIn	-> Model::Rig::record::value	(it is declared admitting no value: the pin 'value' the call 'record' in Rig::Sampling passes for it receives none: 'measure', which feeds it, produces no value, and v1 runs the callee without one)
 ObjectFlow	Rig::Sampling::<ObjectFlow>	_of2	(the flow is written, but 'measure' calls no behavior and computes nothing, so no value travels it, and 'record' does not wait for one)
 ObjectFlow	Rig::Sampling::<ObjectFlow>	_of4	(the flow is written, but 'measure' calls no behavior and computes nothing, so no value travels it)
 CallBehaviorAction	Rig::Sampling::measure	_measure	-> measure	(a step with no behavior and no duration, which passes the token on; its pins are declared as its parameters, but the action computes nothing, so its output 'reading' holds no value; its «Allocate» to Rig::probe says where it runs, not what it does)
-OutputPin	Rig::Sampling::measure::reading	_measureOut	-> Rig::sampling::measure.reading	(it is declared admitting no value: the action calls no behavior, so nothing computes it)
+OutputPin	Rig::Sampling::measure::reading	_measureOut	-> Model::Rig::sampling::measure.reading	(it is declared admitting no value: the action calls no behavior, so nothing computes it)
 CallBehaviorAction	Rig::Sampling::record	_recordCall	-> record	(several edges lead to the node, which waits for all of them through the join 'join'; the pin 'value' it passes for the parameter value of Rig::Record receives none: 'measure', which feeds it, produces no value; v1 runs the callee without the value, so the parameter is declared admitting none)
-Parameter	Rig::Sampling::sample	_sample	-> Rig::sampling::sample	(it is declared admitting no value: the pin 'reading' of 'measure', which feeds it, admits no value: the action calls no behavior, so nothing computes it)
+Parameter	Rig::Sampling::sample	_sample	-> Model::Rig::sampling::sample	(it is declared admitting no value: the pin 'reading' of 'measure', which feeds it, admits no value: the action calls no behavior, so nothing computes it)
 ValueSpecificationAction	Rig::Sampling::stamp	_stamp	-> stamp	(several edges leave the node, which a fork fork carries)
 
 ## mapped (29)
-«Allocate» Abstraction	<Abstraction>	_allocMeasure	-> 'measure to probe'
-«Allocate» Dependency	<Dependency>	_allocRecord	-> 'record to logger'
-«Block» Class	Logger	_logger	-> Logger
-Model	Model	_m	(the root model's members are written at the top level)
-«Block» Class	Probe	_probe	-> Probe
-«Block» Class	Rig	_rig	-> Rig
-Activity	Rig::Record	_record	-> Rig::record	(written as an action usage of Rig, which a call on an object performs, so its body runs on the object and reaches its features)
+«Allocate» Abstraction	<Abstraction>	_allocMeasure	-> Model::'measure to probe'
+«Allocate» Dependency	<Dependency>	_allocRecord	-> Model::'record to logger'
+«Block» Class	Logger	_logger	-> Model::Logger
+Model	Model	_m	-> Model	(written as package Model)
+«Block» Class	Probe	_probe	-> Model::Probe
+«Block» Class	Rig	_rig	-> Model::Rig
+Activity	Rig::Record	_record	-> Model::Rig::record	(written as an action usage of Rig, which a call on an object performs, so its body runs on the object and reaches its features)
 ActivityFinalNode	Rig::Record::<ActivityFinalNode>	_rFinal	-> final
 ControlFlow	Rig::Record::<ControlFlow>	_rE2
 InitialNode	Rig::Record::<InitialNode>	_rInit	-> start
 ObjectFlow	Rig::Record::<ObjectFlow>	_rOf
-ActivityParameterNode	Rig::Record::value	_rApn	-> Rig::record::value	(the flows to and from the node name the parameter value)
-Activity	Rig::Sampling	_sampling	-> Rig::sampling	(written as an action usage of Rig, which a call on an object performs, so its body runs on the object and reaches its features)
+ActivityParameterNode	Rig::Record::value	_rApn	-> Model::Rig::record::value	(the flows to and from the node name the parameter value)
+Activity	Rig::Sampling	_sampling	-> Model::Rig::sampling	(written as an action usage of Rig, which a call on an object performs, so its body runs on the object and reaches its features)
 ActivityFinalNode	Rig::Sampling::<ActivityFinalNode>	_final	-> final
 ControlFlow	Rig::Sampling::<ControlFlow>	_e2
 ControlFlow	Rig::Sampling::<ControlFlow>	_e3
@@ -39,11 +39,11 @@ ControlFlow	Rig::Sampling::<ControlFlow>	_e5
 InitialNode	Rig::Sampling::<InitialNode>	_init	-> start
 ObjectFlow	Rig::Sampling::<ObjectFlow>	_of1	(the action waits for the value as well as for the control flow into it, as its pin did)
 ValueSpecificationAction	Rig::Sampling::gain	_gain	-> gain
-OutputPin	Rig::Sampling::gain::result	_gainOut	-> Rig::sampling::gain.result
-InputPin	Rig::Sampling::measure::gain	_measureIn	-> Rig::sampling::measure.gain
-InputPin	Rig::Sampling::record::value	_recordVal	-> Rig::sampling::record.value	(the pin stands for the parameter value of the definition, which the flows name)
-ActivityParameterNode	Rig::Sampling::sample	_sApn	-> Rig::sampling::sample	(the flows to and from the node name the parameter sample)
-OutputPin	Rig::Sampling::stamp::result	_stampOut	-> Rig::sampling::stamp.result
-Property	Rig::last	_last	-> Rig::last
-Property	Rig::logger	_log	-> Rig::logger
-Property	Rig::probe	_eye	-> Rig::probe
+OutputPin	Rig::Sampling::gain::result	_gainOut	-> Model::Rig::sampling::gain.result
+InputPin	Rig::Sampling::measure::gain	_measureIn	-> Model::Rig::sampling::measure.gain
+InputPin	Rig::Sampling::record::value	_recordVal	-> Model::Rig::sampling::record.value	(the pin stands for the parameter value of the definition, which the flows name)
+ActivityParameterNode	Rig::Sampling::sample	_sApn	-> Model::Rig::sampling::sample	(the flows to and from the node name the parameter sample)
+OutputPin	Rig::Sampling::stamp::result	_stampOut	-> Model::Rig::sampling::stamp.result
+Property	Rig::last	_last	-> Model::Rig::last
+Property	Rig::logger	_log	-> Model::Rig::logger
+Property	Rig::probe	_eye	-> Model::Rig::probe

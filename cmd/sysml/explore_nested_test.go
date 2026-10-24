@@ -169,7 +169,7 @@ func TestEngineCheckWitnessesANestedObjectsDivergence(t *testing.T) {
 	for witness, received := range map[string]string{one: "listen of object #2 first", two: "modes of object #4 first"} {
 		replayed := check(t, binary, linkedPairModel, "-schedule", "replay:"+witness, "-trace", "-instantiate", "Comms::pair",
 			"-state", "Comms::Ground::listen Comms::pair.ground", "-advance", "5")
-		wantReport(t, replayed, 0, "(unordered; ran state machine "+received+")", "Current state: quiet",
+		wantReport(t, replayed, 0, "(unordered; ran state machine "+received+"; order-dependent: received, sent)", "Current state: quiet",
 			"standing: value (observed: 1 run under replay:"+witness+")")
 		rejectReport(t, replayed, "replay refused", "names no move to follow")
 	}

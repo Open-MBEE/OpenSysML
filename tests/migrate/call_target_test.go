@@ -92,13 +92,16 @@ var motorNetworkApplications = `
   <sysml:Block xmi:id="_s2" base_Class="_net"/>`
 
 // A call whose target pin a flow feeds with an object not read from this is
-// written with the pin as a parameter typed by the operation's class, to which
-// the operation's context is bound. The result runs Spin on the motor the
-// parameter holds, and on no other.
+// written with the pin as a parameter typed by the operation's class, through
+// which a nested perform chains to the operation. The result runs Spin on the
+// motor the parameter holds, and on no other.
 func TestCallOperationRunsOnTheObjectItsTargetPinHolds(t *testing.T) {
 	r := migrateDocument(t, motorNetwork, motorNetworkApplications)
 	for _, line := range []string{
-		"action spin : Motor::Spin { in ref :>> context = target; in 'to'[1]; in target : Motor[1]; }",
+		"action spin {",
+		"in target : Motor[1];",
+		"perform action 'spin on target' ::> target.spin;",
+		"bind 'spin on target'.'to' = 'to';",
 		"succession flow ten.result to spin.'to';",
 		"bind spin.target = motor;",
 	} {
@@ -126,13 +129,99 @@ func TestCallOperationRunsOnTheObjectItsTargetPinHolds(t *testing.T) {
 	}
 }
 
+// extraPinsNetwork is motorNetwork with Turn's call of Spin carrying an input pin
+// and an output pin that no parameter of Spin receives or produces.
+var extraPinsNetwork = strings.NewReplacer(
+	`<argument xmi:type="uml:InputPin" xmi:id="_callTo" name="to"/>`,
+	`<argument xmi:type="uml:InputPin" xmi:id="_callTo" name="to"/>
+          <argument xmi:type="uml:InputPin" xmi:id="_callExtra" name="extra"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_callEcho" name="echo"/>`,
+	`<node xmi:type="uml:ActivityFinalNode" xmi:id="_tf"/>`,
+	`<node xmi:type="uml:ActivityFinalNode" xmi:id="_tf"/>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_turnCount" name="count" direction="out">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_turnCountN" name="count" parameter="_turnCount"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_tof3" source="_tenOut" target="_callExtra"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_tof4" source="_callEcho" target="_turnCountN"/>`,
+).Replace(motorNetwork)
+
+// A pin of a call on a handed-in object that no parameter of the operation pairs
+// with is not declared, as in a typed call: the flows naming it are reported, and
+// the call still runs the operation with its paired pin.
+func TestCallOperationOnATargetLeavesUnpairedPinsUndeclared(t *testing.T) {
+	r := migrateDocument(t, extraPinsNetwork, motorNetworkApplications)
+	for _, line := range []string{
+		"in target : Motor[1];",
+		"perform action 'spin on target' ::> target.spin;",
+		"bind 'spin on target'.'to' = 'to';",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	for _, line := range []string{"in extra", "out echo", "spin.extra", "spin.echo"} {
+		wantNoLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_callExtra", migrate.Unmapped, "the called Motor::Spin has no in parameter for the pin, its in parameters being to")
+	wantNote(t, r, "_callEcho", migrate.Unmapped, "the called Motor::Spin has no out parameter for the pin, declaring none of that direction")
+	wantNote(t, r, "_call", migrate.Approximated, "the called Motor::Spin has no in parameter for the pin")
+	wantNote(t, r, "_tof3", migrate.Unmapped, "has no v2 name")
+	wantNote(t, r, "_tof4", migrate.Approximated, "stands for no out parameter")
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Net")
+	meta(t, s, "%action Net::kick #1")
+	meta(t, s, "%continue")
+	meta(t, s, "%advance 0")
+	if out := meta(t, s, "%eval in #1 : m2.rpm"); !strings.Contains(out, "= 10") {
+		t.Errorf("the motor the target pin held did not spin: %s", out)
+	}
+}
+
+// loopOnExtraPin is motorNetwork with Turn's call of Spin, carrying an output pin
+// no parameter of Spin produces, as the test of a loop that pin decides.
+var loopOnExtraPin = strings.NewReplacer(
+	`<node xmi:type="uml:CallOperationAction" xmi:id="_call" name="spin" operation="_spin">
+          <argument xmi:type="uml:InputPin" xmi:id="_callTo" name="to"/>
+          <target xmi:type="uml:InputPin" xmi:id="_callTgt" name="target"/>
+        </node>`,
+	`<node xmi:type="uml:LoopNode" xmi:id="_loop" name="check" isTestedFirst="true" decider="_callEcho">
+          <test xmi:idref="_call"/>
+          <bodyPart xmi:idref="_lbody"/>
+          <node xmi:type="uml:CallOperationAction" xmi:id="_call" name="spin" operation="_spin">
+            <argument xmi:type="uml:InputPin" xmi:id="_callTo" name="to"/>
+            <result xmi:type="uml:OutputPin" xmi:id="_callEcho" name="echo"/>
+            <target xmi:type="uml:InputPin" xmi:id="_callTgt" name="target"/>
+          </node>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_lbody" name="rest">
+            <language>JavaScript</language>
+            <body>x = 1;</body>
+          </node>
+        </node>`,
+	`<edge xmi:type="uml:ControlFlow" xmi:id="_te2" source="_call" target="_tf"/>`,
+	`<edge xmi:type="uml:ControlFlow" xmi:id="_te2" source="_loop" target="_tf"/>`,
+).Replace(motorNetwork)
+
+// A loop whose decider is a pin of a call on a handed-in object that no parameter
+// of the operation produces is not written as a loop: nothing declares the pin,
+// so the loop's test could not name it.
+func TestLoopDecidedByAnUnpairedPinOfACallOnATargetFallsBack(t *testing.T) {
+	r := migrateDocument(t, loopOnExtraPin, motorNetworkApplications)
+	wantNote(t, r, "_loop", migrate.Approximated, "the decider 'echo' stands for no out parameter of what 'spin' calls, so it is not written: the body is written once")
+	for _, line := range []string{"spin.echo", "loop {", "until"} {
+		wantNoLine(t, r.Notation, line)
+	}
+	session(t, r)
+}
+
 // A call on an object a CreateObjectAction creates keeps its target pin and the
 // flow into it, but CreateObjectAction is not migrated: the ledger says the pin
 // holds no object, and a run stops at the call rather than running it elsewhere.
 func TestCallOperationOnACreatedObjectActsOnAnEmptyPin(t *testing.T) {
 	r := migrateDocument(t, createdTarget, motorNetworkApplications)
 	for _, line := range []string{
-		"action spin : Motor::Spin { in target : Motor[1]; }",
+		"action spin {",
+		"in target : Motor[1];",
+		"perform action 'spin on target' ::> target.spin;",
 		"flow create.result to spin.target;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -145,6 +234,60 @@ func TestCallOperationOnACreatedObjectActsOnAnEmptyPin(t *testing.T) {
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "node create produced no value at result") {
 		t.Errorf("a run did not stop at the call's empty target pin: %s", out)
 	}
+}
+
+// controlNamedOperations calls the operations Start and Done of a Motor on one
+// a CreateObjectAction creates.
+const controlNamedOperations = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_motor" name="Motor">
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_opStart" name="Start"/>
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_opDone" name="Done"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_build" name="Build">
+      <node xmi:type="uml:InitialNode" xmi:id="_bi"/>
+      <node xmi:type="uml:CreateObjectAction" xmi:id="_create" name="create" classifier="_motor">
+        <result xmi:type="uml:OutputPin" xmi:id="_createOut" name="result" type="_motor"/>
+      </node>
+      <node xmi:type="uml:ForkNode" xmi:id="_fork" name="copy"/>
+      <node xmi:type="uml:CallOperationAction" xmi:id="_callStart" name="begin" operation="_opStart">
+        <target xmi:type="uml:InputPin" xmi:id="_callStartTgt" name="target"/>
+      </node>
+      <node xmi:type="uml:CallOperationAction" xmi:id="_callDone" name="finish" operation="_opDone">
+        <target xmi:type="uml:InputPin" xmi:id="_callDoneTgt" name="target"/>
+      </node>
+      <node xmi:type="uml:ActivityFinalNode" xmi:id="_bf"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_be1" source="_bi" target="_create"/>
+      <edge xmi:type="uml:ObjectFlow" xmi:id="_bof1" source="_createOut" target="_fork"/>
+      <edge xmi:type="uml:ObjectFlow" xmi:id="_bof2" source="_fork" target="_callStartTgt"/>
+      <edge xmi:type="uml:ObjectFlow" xmi:id="_bof3" source="_fork" target="_callDoneTgt"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_be2" source="_callStart" target="_callDone"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_be3" source="_callDone" target="_bf"/>
+    </packagedElement>`
+
+// The step a call on a handed-in object performs is named after the operation,
+// which must not take the name of a control node every action inherits: Start
+// and Done are performed as 'start on target' and 'done on target', so the
+// successions from start and into done reach the step.
+func TestCallOperationNamedLikeAControlNodeKeepsItsSuccessions(t *testing.T) {
+	r := migrateDocument(t, controlNamedOperations, motorNetworkApplications)
+	for _, line := range []string{
+		"action begin {",
+		"perform action 'start on target' ::> target.start;",
+		"first start then 'start on target';",
+		"first 'start on target' then done;",
+		"action finish {",
+		"perform action 'done on target' ::> target.done;",
+		"first start then 'done on target';",
+		"first 'done on target' then done;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	for _, line := range []string{"first start then start;", "first done then done;"} {
+		if strings.Contains(string(r.Notation), line) {
+			t.Errorf("a succession names a control node for the performed step: %q in\n%s", line, r.Notation)
+		}
+	}
+	wantClean(t, "Build", r)
 }
 
 // startedBehaviors starts the behavior of an object a CreateObjectAction creates,

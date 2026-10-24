@@ -1,3 +1,4 @@
+choice at t=0.0: next do top, dispatch accept Stop (unordered; took do top first; order-dependent: log)
 do: top
 stmt action body
   stmt assign log

@@ -96,8 +96,8 @@ func (w *caseWalk) render(sym *symbols.Symbol, exposed bool, owner *Node) *Node 
 		name = w.r.notationName(sym)
 	}
 	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name,
-		NameSynthesized: w.r.model.NameSynthesized(sym), Type: declType(sym),
-		Typings: w.r.declTypings(sym), Origin: symbolOrigin(sym),
+		NameSynthesized: w.r.model.NameSynthesized(sym), Type: w.r.headType(sym),
+		Typings: w.r.headTypings(sym), Origin: symbolOrigin(sym),
 		Geometry: w.r.geometryOf(w.view, sym, w.out)}
 	w.r.dress(w.view, sym, node, w.out)
 	w.drawn[sym] = node
@@ -200,7 +200,7 @@ func (w *caseWalk) resolveIncludedCases() {
 // roleNode adds an actor or subject node and its association.
 func (w *caseWalk) roleNode(owner *symbols.Symbol, caseNode *Node, sym *symbols.Symbol, kind string, edgeKind EdgeKind, label string) {
 	node := &Node{ID: w.ids.take(), Kind: kind, Name: localName(sym), NameSynthesized: w.r.model.NameSynthesized(sym),
-		Type: declType(sym), Typings: w.r.declTypings(sym), Origin: symbolOrigin(sym),
+		Type: w.r.headType(sym), Typings: w.r.headTypings(sym), Origin: symbolOrigin(sym),
 		Geometry: w.r.geometryOf(w.view, sym, w.out)}
 	w.r.dress(w.view, sym, node, w.out)
 	w.append(node)
@@ -222,7 +222,7 @@ func (w *caseWalk) roleNode(owner *symbols.Symbol, caseNode *Node, sym *symbols.
 func (w *caseWalk) objectiveNode(owner *symbols.Symbol, caseNode *Node, sym *symbols.Symbol) {
 	detail := strings.Join(w.r.documentation(sym), "\n")
 	node := &Node{ID: w.ids.take(), Kind: "objective", Name: localName(sym), NameSynthesized: w.r.model.NameSynthesized(sym),
-		Type: declType(sym), Detail: detail, Typings: w.r.declTypings(sym), Origin: symbolOrigin(sym),
+		Type: w.r.headType(sym), Detail: detail, Typings: w.r.headTypings(sym), Origin: symbolOrigin(sym),
 		Geometry: w.r.geometryOf(w.view, sym, w.out)}
 	w.r.dress(w.view, sym, node, w.out)
 	w.append(node)
@@ -367,5 +367,6 @@ func isReferencedIncludedCase(sym *symbols.Symbol) bool {
 
 // caseNodeKind reports whether a notation kind names a case-family member.
 func caseNodeKind(kind string) bool {
+	kind = ast.NotationKeyword(kind)
 	return strings.Contains(kind, "case") || strings.HasPrefix(kind, "analysis ") || strings.HasPrefix(kind, "verification ")
 }

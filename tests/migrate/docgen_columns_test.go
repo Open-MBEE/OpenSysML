@@ -12,7 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
 
-const icdDocument = "Observatory::Documents::'Interface Control Document Document'"
+const icdDocument = "Model::Observatory::Documents::'Interface Control Document Document'"
 
 // TestDocGenExpressionColumnsLowered checks the OCL subset of a
 // TableExpressionColumn is written as a Column computed over the row: a
@@ -118,7 +118,7 @@ func TestDocGenLoopTableListsTogether(t *testing.T) {
 	r := migrateFixtureFile(t, "docgen_columns")
 	wantInOrder(t, "looped table", string(r.Notation),
 		"calc def 'Interface Control Document Per Type Rows'",
-		`source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),`,
+		`source = DocumentQueries::Named(qualifiedName = ("Model::Observatory::Interface Types")),`,
 		`DocumentQueries::Column(name = "Number of Interfaces"`,
 		"part 'Interface Totals' : DocumentQueries::Section {",
 		"calc rows : 'Interface Control Document Interface Totals Rows';",
@@ -137,9 +137,9 @@ func TestDocGenLoopTableListsTogether(t *testing.T) {
 	}
 	wantInOrder(t, "nested table", string(r.Notation),
 		"calc def 'Interface Control Document Interfaces Table Rows'",
-		`DocumentQueries::Named(qualifiedName = ("Observatory::Assemblies::Optical Bench::collimator"))`,
+		`DocumentQueries::Named(qualifiedName = ("Model::Observatory::Assemblies::Optical Bench::collimator"))`,
 		"calc def 'Interface Control Document Interfaces Table Rows 2'",
-		`DocumentQueries::Named(qualifiedName = ("Observatory::Assemblies::Optical Bench::mirror"))`)
+		`DocumentQueries::Named(qualifiedName = ("Model::Observatory::Assemblies::Optical Bench::mirror"))`)
 }
 
 // TestDocGenLoopsUnrolled checks a looping StructuredQuery writes its body
@@ -154,13 +154,13 @@ func TestDocGenLoopsUnrolled(t *testing.T) {
 	}
 	wantInOrder(t, "looped tables", string(r.Notation),
 		"calc def 'Interface Control Document Assembly Rows'",
-		`DocumentQueries::Named(qualifiedName = ("Observatory::Assemblies::Optical Bench::collimator"))`,
+		`DocumentQueries::Named(qualifiedName = ("Model::Observatory::Assemblies::Optical Bench::collimator"))`,
 		"calc def 'Interface Control Document Interfaces Table Rows'",
-		`DocumentQueries::Named(qualifiedName = ("Observatory::Assemblies::Optical Bench::collimator"))`,
+		`DocumentQueries::Named(qualifiedName = ("Model::Observatory::Assemblies::Optical Bench::collimator"))`,
 		"calc def 'Interface Control Document Assembly Rows 2'",
-		`DocumentQueries::Named(qualifiedName = ("Observatory::Assemblies::Optical Bench::mirror"))`,
+		`DocumentQueries::Named(qualifiedName = ("Model::Observatory::Assemblies::Optical Bench::mirror"))`,
 		"calc def 'Interface Control Document Interfaces Table Rows 2'",
-		`DocumentQueries::Named(qualifiedName = ("Observatory::Assemblies::Optical Bench::mirror"))`,
+		`DocumentQueries::Named(qualifiedName = ("Model::Observatory::Assemblies::Optical Bench::mirror"))`,
 		"part Interfaces : DocumentQueries::Section {",
 		"part list : DocumentQueries::List {",
 		"calc items : 'Interface Control Document Assembly Rows';",

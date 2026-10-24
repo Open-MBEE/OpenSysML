@@ -50,7 +50,7 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 			t.Fatalf("ExecuteAction(Bodyless): %v", err)
 		}
 		assertIntOutput(t, outputs, "observed", 1)
-		assertIntOutput(t, outputs, "m.y", 1)
+		assertSoleIntOutput(t, outputs, "m.y", 1)
 	})
 
 	t.Run("typed_usage_body_preserves_inherited_pin_binding", func(t *testing.T) {
@@ -72,8 +72,8 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ExecuteAction(WithBody): %v", err)
 		}
-		assertIntOutput(t, outputs, "m.source", 2)
-		assertIntOutput(t, outputs, "m.y", 2)
+		assertSoleIntOutput(t, outputs, "m.source", 2)
+		assertSoleIntOutput(t, outputs, "m.y", 2)
 		assertIntOutput(t, outputs, "observed", 2)
 	})
 
@@ -90,8 +90,8 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 				succession first p then a;
 			}
 		}`, "Derived")
-		if !errors.Is(err, ErrActionStepMultiplicity) {
-			t.Fatalf("ExecuteAction(Derived) error = %v, want ErrActionStepMultiplicity", err)
+		if !errors.Is(err, errActionStepMultiplicity) {
+			t.Fatalf("ExecuteAction(Derived) error = %v, want errActionStepMultiplicity", err)
 		}
 		var stepErr *lower.StepMultiplicityError
 		if !errors.As(err, &stepErr) || stepErr.Code != lower.StepOrderUnsatisfiableCode {
@@ -187,11 +187,11 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ExecuteAction(Redefined): %v", err)
 		}
-		assertIntOutput(t, outputs, "add.a", 5)
-		assertIntOutput(t, outputs, "add.b", 100)
-		assertIntOutput(t, outputs, "add.sum", 105)
-		assertIntOutput(t, outputs, "fin.n", 105)
-		assertIntOutput(t, outputs, "result", 105)
+		assertSoleIntOutput(t, outputs, "add.a", 5)
+		assertSoleIntOutput(t, outputs, "add.b", 100)
+		assertSoleIntOutput(t, outputs, "add.sum", 105)
+		assertSoleIntOutput(t, outputs, "fin.n", 105)
+		assertSoleIntOutput(t, outputs, "result", 105)
 	})
 
 	t.Run("terminate_usage_body_flow_is_inherited", func(t *testing.T) {
@@ -270,7 +270,7 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ExecuteAction(S): %v", err)
 		}
-		if got, ok := outputs["b.v"]; !ok || got.Kind != ValConst || got.Const.Int != 7 {
+		if got, ok := outputs["b.v"]; !ok || heldInt(t, "v", got) != 7 {
 			t.Fatalf("S b.v = %v, want 7", got)
 		}
 	})
@@ -302,12 +302,12 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 				if err != nil {
 					t.Fatalf("ExecuteAction(S): %v", err)
 				}
-				if got, ok := outputs["c.v"]; !ok || got.Kind != ValConst || got.Const.Int != 7 {
+				if got, ok := outputs["c.v"]; !ok || heldInt(t, "v", got) != 7 {
 					t.Fatalf("S c.v = %v, want 7", got)
 				}
 				b, hasB := outputs["b.v"]
 				if tc.wantB {
-					if !hasB || b.Kind != ValConst || b.Const.Int != 7 {
+					if !hasB || heldInt(t, "b.v", b) != 7 {
 						t.Fatalf("S b.v = %v, want 7", b)
 					}
 				} else if hasB {
@@ -353,7 +353,7 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 					t.Fatalf("ExecuteAction(S) outputs = %v, want G outputs %v", specialized, general)
 				}
 				got, ok := specialized["b.v"]
-				if !ok || got.Kind != ValConst || got.Const.Int != tc.value {
+				if !ok || heldInt(t, "b.v", got) != tc.value {
 					t.Fatalf("S b.v = %v, want %d", got, tc.value)
 				}
 			})
@@ -467,8 +467,8 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		}
 	})
 
-	t.Run("recursive_typed_action_body", func(t *testing.T) {
-		_, err := executeInheritedAction(t, `package test {
+	t.Run("unbounded_recursive_typed_action_body", func(t *testing.T) {
+		_, err := executeRecursiveTypedAction(t, `package test {
 			private import ScalarValues::*;
 			action def A {
 				attribute c : Integer = 0;
@@ -478,9 +478,9 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 				}
 				then done;
 			}
-		}`, "A")
-		if !errors.Is(err, lower.ErrRecursiveActionTyping) {
-			t.Fatalf("ExecuteAction error = %v, want ErrRecursiveActionTyping", err)
+		}`, "A", 200)
+		if !errors.Is(err, ErrActionStepLimitExceeded) {
+			t.Fatalf("ExecuteAction error = %v, want ErrActionStepLimitExceeded", err)
 		}
 	})
 

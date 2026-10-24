@@ -1,9 +1,15 @@
 function result = runAnalysis(model, symbolId, varargin)
 %RUNANALYSIS Run an analysis case once.
+%   runAnalysis(model, id, 'toolDryRun', true) runs the case only to its first
+%   external tool call and answers what the tool would be given, as
+%   sysml -tool-dry-run does, in the result's toolDryRun with no outputs.
 
     options = opensysml.internal.nameValueOptions(struct( ...
         'subject', '', 'arguments', {{}}, 'namedArguments', struct(), ...
-        'schedule', '', 'engine', ''), varargin, 'runAnalysis');
+        'schedule', '', 'engine', '', 'toolDryRun', false), varargin, 'runAnalysis');
+    if ~(islogical(options.toolDryRun) && isscalar(options.toolDryRun))
+        opensysml.internal.raise('opensysml:argument', 'toolDryRun must be true or false');
+    end
     schedule = char(options.schedule);
     engineOption = char(options.engine);
     rejectExplore(schedule, 'opensysml.exploreAnalysis');
@@ -24,6 +30,7 @@ function result = runAnalysis(model, symbolId, varargin)
     if ~isempty(schedule), request.schedule = schedule; end
     engine = opensysml.internal.normalizeEngine(options.engine);
     if ~isempty(engine), request.engine = engine; end
+    if options.toolDryRun, request.toolDryRun = true; end
     capabilities = [{'verification', 'complex_values', 'structured_values', ...
         'measurement_refs', 'set_values', 'tensor_values', 'metaobject_values'}, ...
         scheduleCapabilities];
@@ -34,19 +41,7 @@ function result = runAnalysis(model, symbolId, varargin)
     if ~isempty(message) && ~hasPartialResult(raw)
         opensysml.internal.raiseFailure(message, fieldOr(raw, 'failureReason', ''), diagnostics);
     end
-    instances = containers.Map('KeyType', 'char', 'ValueType', 'any');
-    if isfield(raw, 'instances')
-        [~, instances] = opensysml.internal.decodeInstances(model.connection, raw.instances);
-    end
-    outputs = opensysml.internal.decodeOutputEntries(fieldOr(raw, 'outputs', {}), ...
-        model.connection, instances);
-    verifications = opensysml.internal.decodeVerificationVerdicts( ...
-        fieldOr(raw, 'verificationVerdicts', {}));
-    verdicts = opensysml.internal.decodeVerdicts(fieldOr(raw, 'verdicts', {}), ...
-        instances, diagnostics, verifications);
-    evaluations = opensysml.internal.decodeEvaluations(fieldOr(raw, 'evaluations', {}), instances);
-    result = opensysml.AnalysisResult(outputs, verdicts, instances, diagnostics, ...
-        verifications, evaluations, opensysml.internal.decodeStanding(raw));
+    result = opensysml.internal.decodeAnalysisResult(model, raw);
     if ~isempty(message)
         opensysml.internal.raise('opensysml:diagnostics:analysisRun', message, ...
             diagnostics, struct('result', result, ...

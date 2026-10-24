@@ -57,7 +57,7 @@ func TestBuiltinInvocationExpressionIsTraced(t *testing.T) {
 		"bind thenValue = expr(literal 1) [argument]",
 		"bind elseValue = expr(literal 2) [argument]",
 		"exit calc ControlFunctions::if -> 1",
-		"exit calc test::IfTrue -> 1",
+		"exit calc test::IfTrue -> (1)",
 	)
 	if strings.Contains(got, "eval literal 2 ->") {
 		t.Errorf("the branch not selected was evaluated:\n%s", got)
@@ -116,8 +116,8 @@ func TestInvokeCalcBuiltinIsTraced(t *testing.T) {
 	balanced(t, trace)
 
 	trace.Clear()
-	if _, err := ctx.InvokeCalcNamed(cond, map[string]Value{"test": constBool(true), "other": constInt(1)}, nil); err == nil {
-		t.Fatal("InvokeCalcNamed('if', other): expected an unknown parameter error")
+	if _, err := ctx.invokeCalcNamed(cond, map[string]Value{"test": constBool(true), "other": constInt(1)}, nil); err == nil {
+		t.Fatal("invokeCalcNamed('if', other): expected an unknown parameter error")
 	}
 	got := trace.String()
 	inOrder(t, got,

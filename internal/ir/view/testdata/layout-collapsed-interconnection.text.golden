@@ -1,0 +1,12 @@
+FoldedViews::links - interconnection rendering (render asInterconnectionDiagram)
+
+part vehicle
+  part wheel at (0, 40)
+    part hub
+  part engine at (120, 40) collapsed
+    port fuelIn
+  part tank at (240, 40)
+    port 'out'
+
+connections:
+  'out' -- fuelIn

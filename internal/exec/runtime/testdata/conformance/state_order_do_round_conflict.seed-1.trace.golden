@@ -1,0 +1,11 @@
+choice do round at t=0.0: states b1, a1 react (unordered; took b1 first; order-dependent: log)
+do: b1
+stmt assign log
+    eval feature log -> 0
+    eval literal 2 -> 2
+  eval operator * -> 0
+do: a1
+stmt assign log
+    eval feature log -> 0
+    eval literal 10 -> 10
+  eval operator + -> 10

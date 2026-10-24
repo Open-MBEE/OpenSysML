@@ -1,4 +1,4 @@
-choice on accept Go: next l1(exit), r1(exit) (unordered; took l1(exit) first)
+choice on accept Go: next l1(exit), r1(exit) (unordered; took l1(exit) first; order-dependent: log)
 exit: l1
 enter: l2
 transition: l1 -> l2 (event: accept Go)
@@ -10,13 +10,14 @@ stmt action body
       eval literal "r2(entry) " -> "r2(entry) "
     eval operator + -> "r2(entry) "
 transition: r1 -> r2 (event: accept Go)
+choice at t=0.0: next do l2, dispatch accept Pause (unordered; took do l2 first; order-dependent: log)
 do: l2
 stmt action body
   stmt assign log
       eval feature log -> "r2(entry) "
       eval literal "did " -> "did "
     eval operator + -> "r2(entry) did "
-choice exiting work: next l2(exit), r2(exit) (unordered; took l2(exit) first)
+choice exiting work: next l2(exit), r2(exit) (unordered; took l2(exit) first; order-dependent: log)
 exit: l2 (exit action)
 stmt action body
   stmt assign log
@@ -34,7 +35,7 @@ enter: paused
 transition: work -> paused (event: accept Pause)
 exit: paused
 enter: work
-choice entering work: next l2(entry), r2(entry) (unordered; took l2(entry) first)
+choice entering work: next l2(entry), r2(entry) (unordered; took l2(entry) first; independent)
 enter: l2
 enter: r2 (entry action)
 stmt action body

@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -197,8 +198,8 @@ func TestSequenceCountsAddUpFixedMultiplicities(t *testing.T) {
 	val, err := evalIn(t, ctx, scope, "(1, u)")
 	wantUndetermined(t, "(1, u)", val, err, "[2]")
 	if u := val.Undetermined(); u != nil {
-		if len(u.Known()) != 1 || FormatValue(u.Known()[0]) != "1" {
-			t.Errorf("(1, u) certainly holds %v, want [1]", u.Known())
+		if len(u.knownValues()) != 1 || FormatValue(u.knownValues()[0]) != "1" {
+			t.Errorf("(1, u) certainly holds %v, want [1]", u.knownValues())
 		}
 	}
 	for src, want := range map[string]string{
@@ -311,6 +312,7 @@ func TestInvocationsPropagateUndeterminedArguments(t *testing.T) {
 	}
 	for src, want := range map[string]string{"twice(known)": "4.0", "known * 2.0": "4.0"} {
 		val, err := evalIn(t, ctx, scope, src)
+		val = soleElement(val)
 		wantFormatted(t, src, val, err, want)
 	}
 }
@@ -387,8 +389,8 @@ func TestOpenCollectionKnowsItsSubsetters(t *testing.T) {
 	}
 	val, err := evalIn(t, ctx, scope, "rack.gear")
 	wantUndetermined(t, "rack.gear", val, err, "[1..*]")
-	if u := val.Undetermined(); u != nil && (len(u.Known()) != 1 || u.Known()[0].Kind != ValInstance) {
-		t.Errorf("rack.gear certainly holds %v, want the one object of fixed", u.Known())
+	if u := val.Undetermined(); u != nil && (len(u.knownValues()) != 1 || u.knownValues()[0].Kind != ValInstance) {
+		t.Errorf("rack.gear certainly holds %v, want the one object of fixed", u.knownValues())
 	}
 	for src, count := range map[string]string{"size(rack.gear)": "[1]", "includes(rack.gear, rack.lone)": "[1]", "rack.gear#(2)": "[1]"} {
 		val, err := evalIn(t, ctx, scope, src)
@@ -465,7 +467,7 @@ func TestCollectionTransformsKeepKnownElements(t *testing.T) {
 	} {
 		val, _ := evalIn(t, ctx, scope, src)
 		if u := val.Undetermined(); u != nil {
-			if got := FormatValue(sequenceOf(u.Known())); got != known {
+			if got := FormatValue(sequenceOf(u.knownValues())); got != known {
 				t.Errorf("%s certainly holds %s, want %s", src, got, known)
 			}
 		}
@@ -912,7 +914,7 @@ func TestBodyLocalKeepsOpenInitializerCount(t *testing.T) {
 		}
 	}`))
 	open := oneSymbol(t, idx, "test::Open")
-	ec := NewEvalContext(ctx, open.Scope)
+	ec := newEvalContext(ctx, open.Scope)
 	initializer := func() Value {
 		return NewUndeterminedValue(noValueReason("xs"), semantics.Range{
 			Lower: semantics.Bound{Known: true, Value: 2}, Upper: semantics.Bound{Known: true, Infinite: true},
@@ -1032,7 +1034,7 @@ func TestChainThroughOpenCollectionKeepsKnownValues(t *testing.T) {
 	} {
 		val, _ := evalIn(t, ctx, scope, src)
 		if u := val.Undetermined(); u != nil {
-			if got := FormatValue(sequenceOf(u.Known())); got != known {
+			if got := FormatValue(sequenceOf(u.knownValues())); got != known {
 				t.Errorf("%s certainly holds %s, want %s", src, got, known)
 			}
 		}
@@ -1119,8 +1121,8 @@ func TestOpenSubsettersAreNotMaterializedAtModelLevel(t *testing.T) {
 	}
 	for src, known := range map[string]int{"store.base": 0, "store.cap": 0, "store.pool": 2} {
 		val, _ := evalIn(t, ctx, scope, src)
-		if u := val.Undetermined(); u != nil && len(u.Known()) != known {
-			t.Errorf("%s certainly holds %d objects, want %d", src, len(u.Known()), known)
+		if u := val.Undetermined(); u != nil && len(u.knownValues()) != known {
+			t.Errorf("%s certainly holds %d objects, want %d", src, len(u.knownValues()), known)
 		}
 	}
 }
@@ -1146,7 +1148,7 @@ func TestBodyLocalIntersectsRedefinedMultiplicities(t *testing.T) {
 	if want := (semantics.Range{Lower: semantics.Bound{Known: true, Value: 2}, Upper: semantics.Bound{Known: true, Value: 4}}); !stated || mult != want {
 		t.Fatalf("statedMultiplicity(ab) = %v, %v; want [2..4], true", mult, stated)
 	}
-	ec := NewEvalContext(ctx, both.Scope)
+	ec := newEvalContext(ctx, both.Scope)
 	integers := func(n int64) Value {
 		seq := NewSequence()
 		for i := int64(1); i <= n; i++ {
@@ -1193,6 +1195,88 @@ func TestMultiValuedWithUnknownUpperBound(t *testing.T) {
 	for _, r := range []semantics.Range{semantics.AssumedRange(), {Lower: semantics.Bound{Known: true}, Upper: semantics.Bound{Known: true, Value: 1}}} {
 		if multiValued(r) {
 			t.Fatalf("%v judged multi-valued", r)
+		}
+	}
+}
+
+// An open scalar quantity is admitted where a determined one is: by a feature typed
+// Real, NumericalValue, a commensurable quantity type or Array (a scalar quantity is
+// one), and as a numeric operand, and one whose own dimension is open where a quantity
+// is; a feature typed Integer, by a quantity of another dimension (or of none) or by a
+// type of no dimension at all refuses it.
+func TestOpenQuantityIsAdmittedWhereADeterminedOneIs(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+		private import ScalarValues::*;
+		private import ISQ::*;
+		private import SI::*;
+		private import Quantities::ScalarQuantityValue;
+		attribute def AnyQuantity :> ScalarQuantityValue;
+		part def Src {
+			attribute m : MassValue;
+			attribute q : AnyQuantity;
+			attribute any : ScalarQuantityValue;
+		}
+		part src : Src;
+		part def Holder {
+			attribute massFromAny : MassValue = src.any;
+			attribute massFromOpen : MassValue = src.q;
+			attribute partFromOpen : Parts::Part = src.q;
+			attribute asReal : Real = src.m;
+			attribute asNumber : NumericalValue = src.m;
+			attribute asMass : MassValue = src.m;
+			attribute plusOne : MassValue = src.m + 1 [kg];
+			attribute asArray : Collections::Array = src.m;
+			attribute asInteger : Integer = src.m;
+			attribute asLength : LengthValue = src.m;
+			attribute asOne : MeasurementReferences::DimensionOneValue = src.m;
+			attribute asPart : Parts::Part = src.m;
+		}
+		part h : Holder;
+	}`))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::h"))
+	if err != nil {
+		t.Fatalf("instantiate h: %v", err)
+	}
+	for _, name := range []string{"asReal", "asNumber", "asMass", "plusOne", "asArray", "massFromAny", "massFromOpen"} {
+		val, err := evalOn(t, ctx, inst, name)
+		wantUndetermined(t, "h."+name, val, err, "[1]")
+	}
+	for _, name := range []string{"asInteger", "asLength", "asOne", "asPart", "partFromOpen"} {
+		_, err := inst.GetFeatureValue(ctx, name)
+		if !errors.Is(err, ErrTypeMismatch) || !strings.Contains(err.Error(), "cannot write") {
+			t.Errorf("h.%s: %v, want ErrTypeMismatch refusing the write", name, err)
+		}
+	}
+}
+
+// An operation is open for every valueless feature its operands are, in either order:
+// an open count before an unset input does not hide the input.
+func TestUndeterminedResultsKeepEveryUnsetCause(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+		private import ScalarValues::*;
+		private import SequenceFunctions::*;
+		part def D;
+		part def Inner {
+			part some : D[0..1];
+			attribute input : Real;
+			attribute other : Real;
+			attribute dependent : Real = size(some) + input;
+			attribute reversed : Real = input + size(some);
+			attribute both : Real = input + other;
+			attribute countOnly : Real = size(some) + 1;
+		}
+		part inner : Inner;
+	}`))
+	scope := oneSymbol(t, idx, "test").Scope
+	input := oneSymbol(t, idx, "test::Inner::input")
+	other := oneSymbol(t, idx, "test::Inner::other")
+	for src, want := range map[string][]*symbols.Symbol{
+		"inner.dependent": {input}, "inner.reversed": {input}, "inner.both": {input, other}, "inner.countOnly": nil,
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, "[1]")
+		if got := val.Undetermined().Unsets(); !slices.Equal(got, want) {
+			t.Errorf("%s open for %v, want %v", src, got, want)
 		}
 	}
 }

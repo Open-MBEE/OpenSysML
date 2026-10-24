@@ -117,47 +117,52 @@ func TestRenameRefusesSegmentLeftAmbiguous(t *testing.T) {
 // A renamed call selects by arguments among the overloads its new spelling denotes:
 // another overload chosen, a tie, or an alias is refused; the target still chosen applies.
 func TestRenameSelectsAmongOverloadsOfRenamedCall(t *testing.T) {
-	const lib = "package Lib {\n\tcalc def g { in v : ScalarValues::Integer; return r : ScalarValues::Integer = v; }\n" +
+	const lib = "part def Lib {\n\tcalc def g { in v : ScalarValues::Integer; return r : ScalarValues::Integer = v; }\n" +
 		"\tcalc def h { in v : ScalarValues::Integer; return r : ScalarValues::Integer = v; }\n\talias gg for h;\n}\n"
-	const realF = "package P {\n\tcalc def f { in v : ScalarValues::Real; return r : ScalarValues::Real = v; }\n}\n"
-	const intF = "package P {\n\tcalc def f { in v : ScalarValues::Integer; return r : ScalarValues::Integer = v; }\n}\n"
+	const realF = "part def P {\n\tcalc def f { in v : ScalarValues::Real; return r : ScalarValues::Real = v; }\n}\n"
+	const intF = "part def P {\n\tcalc def f { in v : ScalarValues::Integer; return r : ScalarValues::Integer = v; }\n}\n"
 	call := func(imports, arg string) string {
 		return "package R {\n" + imports + "\tattribute c : ScalarValues::Real = f(" + arg + ");\n}\n"
+	}
+	// Selection among overloads needs a set the arguments choose from, which two
+	// imports would hide: R inherits Lib's and P's calcs instead.
+	inherits := func(arg string) string {
+		return "part def R :> P, Lib {\n\tattribute c : ScalarValues::Real = f(" + arg + ");\n}\n"
 	}
 	const both = "\tprivate import P::*;\n\tprivate import Lib::*;\n"
 
 	ws := model.NewWorkspace()
-	name := openRenameDoc(t, ws, "/tmp/overload_other.sysml", lib+realF+call(both, "1"))
+	name := openRenameDoc(t, ws, "/tmp/overload_other.sysml", lib+realF+inherits("1"))
 	msg := refuseRename(t, ws, name, "f {", "g")
 	wantRefusal(t, msg, `P::f cannot be renamed to "g"`, "reference to it in R", "would read Lib::g instead")
 
 	ws = model.NewWorkspace()
-	name = openRenameDoc(t, ws, "/tmp/overload_tie.sysml", lib+intF+call(both, "1"))
+	name = openRenameDoc(t, ws, "/tmp/overload_tie.sysml", lib+intF+inherits("1"))
 	msg = refuseRename(t, ws, name, "f {", "g")
 	wantRefusal(t, msg, `P::f cannot be renamed to "g"`, "reference to it in R", "would name 2 elements at once")
 
 	ws = model.NewWorkspace()
-	name = openRenameDoc(t, ws, "/tmp/overload_alias.sysml", lib+realF+call(both, "1"))
+	name = openRenameDoc(t, ws, "/tmp/overload_alias.sysml", lib+realF+inherits("1"))
 	msg = refuseRename(t, ws, name, "f {", "gg")
 	wantRefusal(t, msg, `P::f cannot be renamed to "gg"`, "reference to it in R", "would read Lib::gg instead")
 
-	// The name alone still reads the target through its short name; the arguments do not.
+	// A short name of the target already reads it: renaming to that short name
+	// changes nothing the call reads. (Imported beside Lib::g the short name would
+	// collide and hide f, so Lib is not imported here.)
 	ws = model.NewWorkspace()
-	name = openRenameDoc(t, ws, "/tmp/overload_short.sysml", lib+strings.Replace(realF, "def f", "def <g> f", 1)+call(both, "1"))
-	msg = refuseRename(t, ws, name, "f {", "g")
-	wantRefusal(t, msg, `P::f cannot be renamed to "g"`, "reference to it in R", "would read Lib::g instead")
+	name = openRenameDoc(t, ws, "/tmp/overload_short.sysml", lib+strings.Replace(realF, "def f", "def <g> f", 1)+call("\tprivate import P::*;\n", "1"))
+	if _, err := applyRename(t, ws, name, "f {", "g"); err != nil {
+		t.Fatalf("rename to the target's own short name refused: %v", err)
+	}
 
+	// Renaming onto a name another import brings leaves the call reading a hidden
+	// name (KerML 7.2.5.4): `g(1.5)` would be unresolved in R, so the rename is refused
+	// even though the arguments would tell the Real one from Lib's Integer one.
 	for _, imports := range []string{both, "\tprivate import Lib::*;\n\tprivate import P::*;\n"} {
 		ws = model.NewWorkspace()
-		name = openRenameDoc(t, ws, "/tmp/overload_kept.sysml", lib+realF+call(imports, "1.5"))
-		got, err := applyRename(t, ws, name, "f {", "g")
-		if err != nil {
-			t.Fatalf("Rename err = %v", err)
-		}
-		want := lib + strings.Replace(realF, "def f", "def g", 1) + strings.Replace(call(imports, "1.5"), "= f(", "= g(", 1)
-		if got[name] != want {
-			t.Fatalf("got:\n%s\nwant:\n%s", got[name], want)
-		}
+		name = openRenameDoc(t, ws, "/tmp/overload_hidden.sysml", lib+realF+call(imports, "1.5"))
+		msg = refuseRename(t, ws, name, "f {", "g")
+		wantRefusal(t, msg, `P::f cannot be renamed to "g"`, "reference to it in R", "Lib::g beside it", "hidden there")
 	}
 }
 

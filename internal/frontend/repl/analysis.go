@@ -50,8 +50,8 @@ func splitAnalysisArgs(tail string) (analysisInvocation, error) {
 	return inv, nil
 }
 
-// analysisArgs are an invocation's arguments parsed and not yet evaluated:
-// positional ones in order, and the ones written as `<parameter> = <expr>`.
+// analysisArgs are an invocation's arguments parsed and not yet evaluated, positional
+// and `<parameter> = <expr>` ones, each at its position in the written list.
 type analysisArgs struct {
 	positional []argExpr
 	named      []argument
@@ -61,12 +61,13 @@ type analysisArgs struct {
 // one binding a parameter by name may be mixed, as a case's inputs allow.
 func parseAnalysisArgs(text string) (analysisArgs, error) {
 	var args analysisArgs
-	for _, arg := range splitArgs(text) {
+	for i, arg := range splitArgs(text) {
 		if isNamedArgument(arg) {
 			named, err := parseArguments([]string{arg})
 			if err != nil {
 				return analysisArgs{}, err
 			}
+			named[0].at = i
 			args.named = append(args.named, named...)
 			continue
 		}
@@ -74,7 +75,7 @@ func parseAnalysisArgs(text string) (analysisArgs, error) {
 		if err != nil {
 			return analysisArgs{}, err
 		}
-		args.positional = append(args.positional, argExpr{expr: expr, text: arg})
+		args.positional = append(args.positional, argExpr{expr: expr, text: arg, at: i})
 	}
 	return args, nil
 }
@@ -143,10 +144,8 @@ func (s *Session) caseVerdict(inv analysisInvocation, run caseRun, err error) Ve
 	verdict := Verdict{Subject: label, Status: status, Lines: []string{fmt.Sprintf("%s %s%s", mark, label, on)}}
 	s.reportCaseRun(&verdict, result)
 	for _, v := range run.verdicts {
-		verdict.Verifications = append(verdict.Verifications, VerificationVerdict{
-			Case: v.Case, Kind: string(v.Kind), Detail: v.Detail, Subcase: v.Subcase,
-		})
-		verdict.Lines = append(verdict.Lines, "  "+verificationLine(v))
+		verdict.Verifications = append(verdict.Verifications, verificationVerdictOf(s.rtCtx, v))
+		verdict.Lines = append(verdict.Lines, "  "+verificationLine(s.rtCtx, v))
 	}
 	return standing(verdict, run.plan)
 }
@@ -210,6 +209,13 @@ func evaluationOf(ctx *runtime.Context, caseName string, e runtime.AnalysisEvalu
 // objectText spells a value as a report names it: an object that is the
 // occurrence of a usage by that usage, anything else as %eval prints it.
 func objectText(ctx *runtime.Context, val runtime.Value) string {
+	if held := heldElements(val); held != nil {
+		parts := make([]string, len(held))
+		for i, e := range held {
+			parts[i] = objectText(ctx, e)
+		}
+		return "[" + strings.Join(parts, ", ") + "]"
+	}
 	if val.Kind == runtime.ValInstance {
 		if inst, ok := ctx.Instance(val.Instance); ok {
 			if usage := ctx.OccurrenceUsage(inst); usage != "" {
@@ -271,15 +277,7 @@ func (s *Session) runAnalysisIn(x execution, ctx *runtime.Context, inv analysisI
 		return caseRun{}, err
 	}
 	var args runtime.AnalysisArgs
-	scope := s.promptScope()
-	for _, arg := range parsed.positional {
-		val, err := ctx.EvalWithScope(arg.expr, scope)
-		if err != nil {
-			return caseRun{}, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
-		}
-		args.Positional = append(args.Positional, val)
-	}
-	if args.Named, err = s.evalArguments(ctx, parsed.named); err != nil {
+	if args.Positional, args.Named, err = evalArgumentList(ctx, s.promptScope(), parsed.positional, parsed.named); err != nil {
 		return caseRun{}, err
 	}
 
@@ -321,4 +319,19 @@ func (s *Session) runAnalysisIn(x execution, ctx *runtime.Context, inv analysisI
 		return run, fmt.Errorf("analysis run failed: %w", err)
 	}
 	return run, nil
+}
+
+// heldElements is what a sequence or set holds, nil for any other value.
+func heldElements(val runtime.Value) []runtime.Value {
+	switch val.Kind {
+	case runtime.ValSequence:
+		if seq := val.Sequence(); seq != nil {
+			return seq.Elements()
+		}
+	case runtime.ValSet:
+		if set := val.Set(); set != nil {
+			return set.Elements()
+		}
+	}
+	return nil
 }

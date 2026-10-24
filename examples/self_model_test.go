@@ -24,6 +24,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	service "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/lsp"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
@@ -265,7 +266,7 @@ func TestSelfModelBudgetsMatchImplementation(t *testing.T) {
 		runtime.MaxDoStepsEnvVar:     {runtime.DefaultMaxDoSteps, runtime.ErrDoStepLimitExceeded.Error()},
 		runtime.MaxElementsEnvVar:    {runtime.DefaultMaxElements, runtime.ErrElementLimitExceeded.Error()},
 		runtime.MaxCalcDepthEnvVar:   {runtime.DefaultMaxCalcDepth, runtime.ErrCalcRecursionLimit.Error()},
-		runtime.MaxSweepRunsEnvVar:   {runtime.DefaultMaxSweepRuns, runtime.ErrSweepBudget.Error()},
+		runtime.MaxSweepRunsEnvVar:   {runtime.DefaultMaxSweepRuns, sweep.ErrSweepBudget.Error()},
 		runtime.MaxIntegerBitsEnvVar: {runtime.DefaultMaxIntegerBits, runtime.ErrIntegerSizeLimit.Error()},
 	}
 	if fields := reflect.TypeOf(runtime.Budgets{}).NumField(); fields != len(actual) {

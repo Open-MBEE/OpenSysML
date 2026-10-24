@@ -4,6 +4,7 @@
 
 mod binary;
 mod capabilities;
+mod check;
 mod connection;
 mod conversion;
 mod document;
@@ -27,6 +28,10 @@ pub mod wire {
     include!("proto/sysml/sysml.rs");
 }
 
+pub use check::{
+    CheckDivergence, CheckDivergentValue, CheckFinal, CheckOptions, CheckResult, CheckSearch,
+    CheckViolation, CheckWitness,
+};
 pub use connection::Connection;
 pub use domain::{
     Array, BigInteger, Capabilities, Complex, Diagnostic, EnumLiteral, EvalOptions, Evaluation,
@@ -48,7 +53,7 @@ pub use document::{
     document_event_to_wire, DocumentEvent, DocumentForm, DocumentQueryResult, DocumentRow,
     DocumentState, DocumentValue, DocumentVerdict, ElementRef, ObjectRef, RenderCanvas, RenderEdge,
     RenderGeometry, RenderNode, RenderNote, RenderPoint, RenderPort, RenderRow, RenderSpan,
-    RenderStyle, RenderViewPorts, RenderedView,
+    RenderStyle, RenderViewCompartments, RenderViewPorts, RenderedView,
 };
 pub use edit::{
     ActionOptions, AppliedEdit, Body, CalcOptions, CommentOptions, ConnectionOptions,
@@ -62,7 +67,8 @@ pub use migration::{
     VERDICT_MAPPED, VERDICT_SKIPPED, VERDICT_UNMAPPED,
 };
 pub use operations::{
-    AnalysisOptions, RunOptions, SourcesOptions, SweepOptions, VerifyOptions, SCHEDULE_EXPLORE,
+    AnalysisOptions, CompareOptions, DataImport, DataImportOptions, RecordOptions, RunOptions,
+    RunsOptions, SourcesOptions, SweepOptions, VerifyOptions, SCHEDULE_EXPLORE,
 };
 pub use query::{
     CompositeOperator, Constraint, PrimitiveOperator, Query, QueryElement,

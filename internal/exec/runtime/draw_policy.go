@@ -10,7 +10,7 @@ import (
 
 // DrawPolicy is how a run resolves the draws of the RandomFunctions library: at
 // random from the seeded stream, or at a fixed point of each call's distribution.
-// Weighted decisions are not durations, so they draw the same under every policy.
+// weighted decisions are not durations, so they draw the same under every policy.
 type DrawPolicy int
 
 const (
@@ -24,8 +24,8 @@ const (
 	DrawAverage
 )
 
-// DrawPolicyNames lists the spellings ParseDrawPolicy accepts, for usage text.
-var DrawPolicyNames = []string{"random", "min", "max", "average"}
+// drawPolicyNames lists the spellings ParseDrawPolicy accepts, for usage text.
+var drawPolicyNames = []string{"random", "min", "max", "average"}
 
 // String is the policy's spelling, as ParseDrawPolicy reads it.
 func (p DrawPolicy) String() string {
@@ -43,10 +43,10 @@ func (p DrawPolicy) String() string {
 // Fixed reports whether the policy resolves every draw without a random stream.
 func (p DrawPolicy) Fixed() bool { return p != DrawRandom }
 
-// ErrDrawPolicy is the typed error every unreadable draw policy spelling wraps.
-var ErrDrawPolicy = errors.New("invalid draw policy")
+// errDrawPolicy is the typed error every unreadable draw policy spelling wraps.
+var errDrawPolicy = errors.New("invalid draw policy")
 
-// ParseDrawPolicy reads a policy spelling: one of DrawPolicyNames.
+// ParseDrawPolicy reads a policy spelling: one of drawPolicyNames.
 func ParseDrawPolicy(text string) (DrawPolicy, error) {
 	switch strings.TrimSpace(text) {
 	case "random":
@@ -58,25 +58,25 @@ func ParseDrawPolicy(text string) (DrawPolicy, error) {
 	case "average":
 		return DrawAverage, nil
 	}
-	return DrawRandom, fmt.Errorf("%w: %q is not one of %s", ErrDrawPolicy, text, strings.Join(DrawPolicyNames, ", "))
+	return DrawRandom, fmt.Errorf("%w: %q is not one of %s", errDrawPolicy, text, strings.Join(drawPolicyNames, ", "))
 }
 
-// ErrDrawUnbounded is the typed error a fixed policy raises at a call whose
+// errDrawUnbounded is the typed error a fixed policy raises at a call whose
 // distribution has no such point: a normal has neither a least nor a greatest value.
-var ErrDrawUnbounded = errors.New("draw policy has no value for the call")
+var errDrawUnbounded = errors.New("draw policy has no value for the call")
 
-// DrawUnboundedError names the call a fixed policy could not resolve.
-type DrawUnboundedError struct {
+// drawUnboundedError names the call a fixed policy could not resolve.
+type drawUnboundedError struct {
 	What   string
 	Policy DrawPolicy
 }
 
-func (e *DrawUnboundedError) Error() string {
-	return fmt.Sprintf("%v: %s under %s: the distribution is unbounded", ErrDrawUnbounded, e.What, e.Policy)
+func (e *drawUnboundedError) Error() string {
+	return fmt.Sprintf("%v: %s under %s: the distribution is unbounded", errDrawUnbounded, e.What, e.Policy)
 }
 
-// Is makes every DrawUnboundedError match ErrDrawUnbounded.
-func (e *DrawUnboundedError) Is(target error) bool { return target == ErrDrawUnbounded }
+// Is makes every drawUnboundedError match errDrawUnbounded.
+func (e *drawUnboundedError) Is(target error) bool { return target == errDrawUnbounded }
 
 // SetDrawPolicy fixes how the runs started from now on resolve their random draws;
 // a run under way, paused or not, keeps the policy it started under.
@@ -89,10 +89,10 @@ func (ctx *Context) DrawPolicy() DrawPolicy {
 	return ctx.drawPolicy
 }
 
-// DrawPolicyTaken is the policy the last run's draws were resolved under: the
+// drawPolicyTaken is the policy the last run's draws were resolved under: the
 // witness's under a `replay` policy, whose recorded draws the run consumed, else
 // the one the run started under, else the context's own before any run.
-func (ctx *Context) DrawPolicyTaken() DrawPolicy {
+func (ctx *Context) drawPolicyTaken() DrawPolicy {
 	if w, ok := ctx.schedule.Witness(); ok {
 		return w.DrawPolicy
 	}

@@ -90,4 +90,12 @@ package MassRollup {
     }
 
     part saturnVWithIU : LaunchVehicleWithIU;
+
+    // The fix belongs in the model, where SysML expects a usage to supply what its
+    // definition left open: value the mass on the usage and the rollup completes.
+    part saturnVComplete : LaunchVehicleWithIU {
+        part :>> instrumentUnit {
+            attribute :>> mass = 2000 [kg];
+        }
+    }
 }

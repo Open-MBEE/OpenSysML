@@ -91,13 +91,13 @@ func TestTableQueriesNameActionsInADeferralBuffer(t *testing.T) {
 	r := migrateDocument(t, bufferedCallMachine, bufferedCallTables)
 	wantClean(t, "buffered_call_tables.sysml", r)
 	s := session(t, r)
-	got := rows(t, s, "Tables::'Listed Calls Rows'")
+	got := rows(t, s, "Model::Tables::'Listed Calls Rows'")
 	for _, action := range []string{"Acquiring::buffer::Acquire::call", "Acquiring::flush::Release::free"} {
 		if !strings.Contains(got, "Executive::Behavior::"+action) {
 			t.Errorf("Listed Calls rows lack %s:\n%s", action, got)
 		}
 	}
-	for _, document := range []string{"Tables::'Listed Calls Document'", "Tables::'Report Document'"} {
+	for _, document := range []string{"Model::Tables::'Listed Calls Document'", "Model::Tables::'Report Document'"} {
 		page := html(t, s, document)
 		if strings.Contains(page, "names no single element") || !strings.Contains(page, "Acquiring::buffer::Acquire::call") {
 			t.Errorf("%s does not render the buffered actions:\n%s", document, page)
@@ -114,7 +114,7 @@ func TestDeferredSignalDeclaredInTheBufferedBehavior(t *testing.T) {
                 <node xmi:type="uml:InitialNode" xmi:id="_ai"/>`, 1)
 	r := migrateDocument(t, machine, bufferedCallTables)
 	wantClean(t, "buffered_signal_tables.sysml", r)
-	got := rows(t, session(t, r), "Tables::'Listed Calls Rows'")
+	got := rows(t, session(t, r), "Model::Tables::'Listed Calls Rows'")
 	if !strings.Contains(got, "Executive::Behavior::Acquiring::buffer::Acquire::call") {
 		t.Errorf("Listed Calls rows lack the buffered call:\n%s", got)
 	}

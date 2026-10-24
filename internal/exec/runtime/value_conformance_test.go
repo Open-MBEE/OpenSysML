@@ -200,16 +200,16 @@ func TestCalcParameterAndResultMustConform(t *testing.T) {
 		expr string
 		want string
 	}{
-		{"Half(ToInteger(4 / 2))", "1.0"},
-		{"Half(x = ToInteger(4 / 2))", "1.0"},
-		{"Half(ToInteger(two))", "1.0"},
-		{"Twice(2)", "4"},
-		{"Twice(x = ToInteger(4 / 2))", "4"},
-		{"Derived(ToInteger(4 / 2))", "2"},
-		{"Redef(ToInteger(4 / 2))", "2"},
-		{"Redef(x = ToInteger(4 / 2))", "2"},
-		{"WholeDivConverted()", "2"},
-		{"WholeDivRational()", "2.0"},
+		{"Half(ToInteger(4 / 2))", "(1.0)"},
+		{"Half(x = ToInteger(4 / 2))", "(1.0)"},
+		{"Half(ToInteger(two))", "(1.0)"},
+		{"Twice(2)", "(4)"},
+		{"Twice(x = ToInteger(4 / 2))", "(4)"},
+		{"Derived(ToInteger(4 / 2))", "(2)"},
+		{"Redef(ToInteger(4 / 2))", "(2)"},
+		{"Redef(x = ToInteger(4 / 2))", "(2)"},
+		{"WholeDivConverted()", "(2)"},
+		{"WholeDivRational()", "(2.0)"},
 	} {
 		got, err := evalIn(t, ctx, scope, tc.expr)
 		if err != nil {
@@ -255,6 +255,8 @@ func calcMultiplicityContext(t *testing.T) (*Context, *symbols.Index, *symbols.S
 			private import SequenceFunctions::*;
 
 			calc def One { in x : Integer[1]; return : Integer = x; }
+			calc def OneStated { in x : Integer[1]; return : Integer[1] = x; }
+			calc def OneAttr { in x : Integer[1]; return attribute result : Integer = x; }
 			calc def Untyped { in x; return : Integer = x; }
 			calc def Opt { in x : Integer[0..1] = null; return : Integer = x ?? 0; }
 			calc def Many { in xs : Integer[*]; return : Integer = xs->size(); }
@@ -267,6 +269,8 @@ func calcMultiplicityContext(t *testing.T) (*Context, *symbols.Index, *symbols.S
 
 			calc def TwoResults { return : Integer = (1, 2); }
 			calc def NoResult { return : Integer = null; }
+			calc def TwoResultsStated { return : Integer[1] = (1, 2); }
+			calc def NoResultStated { return : Integer[1] = null; }
 			calc def ManyResults { return : Integer[*] = (1, 2); }
 			calc def Returned {
 				in xs : Integer[*];
@@ -275,9 +279,11 @@ func calcMultiplicityContext(t *testing.T) (*Context, *symbols.Index, *symbols.S
 			}
 			calc def ManyOut { in xs : Integer[*]; out ys : Integer[*] = xs; }
 			calc def OneOut { in xs : Integer[*]; out y : Integer = xs; }
+			calc def OneOutStated { in xs : Integer[*]; out y : Integer[1] = xs; }
 			calc def ManyOutRedecl :> ManyOut { out :>> ys; }
 			calc def ManyResultsRedecl :> ManyResults { return : Integer; }
 			calc def BoundOne { in xs : Integer[*]; return : Integer; bind result = xs; }
+			calc def BoundOneStated { in xs : Integer[*]; return : Integer[1]; bind result = xs; }
 			calc def BoundMany { in xs : Integer[*]; return : Integer[*]; bind result = xs; }
 			calc def BoundDerived :> BoundOne {
 				in :>> xs;
@@ -291,6 +297,8 @@ func calcMultiplicityContext(t *testing.T) (*Context, *symbols.Index, *symbols.S
 			calc def UnitReal { return : Real = ComplexFunctions::i; }
 			calc def Units { return : Complex[2] = (ComplexFunctions::i, ComplexFunctions::rect(1.0, 0.0)); }
 			calc def UnitsOne { return : Complex = (ComplexFunctions::i, ComplexFunctions::rect(1.0, 0.0)); }
+			calc def UnitsOneStated { return : Complex[1] = (ComplexFunctions::i, ComplexFunctions::rect(1.0, 0.0)); }
+			calc def UnitStated { return : Complex[1] = ComplexFunctions::i; }
 			part def P {
 				attribute z : Complex = ComplexFunctions::rect(0.0, 1.0);
 				attribute r : Complex = 2.0;
@@ -315,7 +323,8 @@ func calcMultiplicityContext(t *testing.T) (*Context, *symbols.Index, *symbols.S
 
 // A positional, named or default argument — through an inherited or redefined
 // parameter too — and the result, returned or bound, answer to the declared
-// (else 1..1) multiplicity.
+// multiplicity, else the effective one: `[0..*]` (SysML v2 §7.6.3), under which
+// one value is held as a one-element sequence and a stated `[1]` holds it bare.
 func TestCalcParameterAndResultMultiplicity(t *testing.T) {
 	ctx, _, scope := calcMultiplicityContext(t)
 
@@ -323,27 +332,35 @@ func TestCalcParameterAndResultMultiplicity(t *testing.T) {
 		expr string
 		want string
 	}{
-		{"One(1)", "1"},
-		{"Untyped(1)", "1"},
-		{"Opt()", "0"},
-		{"Opt(null)", "0"},
-		{"Opt(x = 5)", "5"},
-		{"Many((1, 2, 3))", "3"},
-		{"Many(1)", "1"},
-		{"Many(null)", "0"},
-		{"UpTo2((1, 2))", "2"},
-		{"DerivedMany((1, 2))", "2"},
-		{"RedefOne(1)", "1"},
-		{"RedeclMany((1, 2))", "2"},
-		{"RedeclManyTyped((1, 2))", "2"},
+		{"One(1)", "(1)"},
+		{"OneAttr(1)", "1"},
+		{"Untyped(1)", "(1)"},
+		{"Opt()", "(0)"},
+		{"Opt(null)", "(0)"},
+		{"Opt(x = 5)", "(5)"},
+		{"Many((1, 2, 3))", "(3)"},
+		{"Many(1)", "(1)"},
+		{"Many(null)", "(0)"},
+		{"UpTo2((1, 2))", "(2)"},
+		{"DerivedMany((1, 2))", "(2)"},
+		{"RedefOne(1)", "(1)"},
+		{"RedeclMany((1, 2))", "(2)"},
+		{"RedeclManyTyped((1, 2))", "(2)"},
 		{"ManyOutRedecl((1, 2))", "(1, 2)"},
 		{"ManyResultsRedecl()", "(1, 2)"},
 		{"ManyResults()", "(1, 2)"},
-		{"Returned(1)", "1"},
+		{"Returned(1)", "(1)"},
 		{"ManyOut((1, 2))", "(1, 2)"},
-		{"OneOut(1)", "1"},
-		{"BoundOne(1)", "1"},
+		{"OneOut(1)", "(1)"},
+		{"BoundOne(1)", "(1)"},
 		{"BoundMany((1, 2))", "(1, 2)"},
+		{"OneStated(1)", "1"},
+		{"Untyped((1, 2))", "(1, 2)"},
+		{"TwoResults()", "(1, 2)"},
+		{"NoResult()", "()"},
+		{"Returned((1, 2))", "(1, 2)"},
+		{"OneOut((1, 2))", "(1, 2)"},
+		{"BoundOne((1, 2))", "(1, 2)"},
 	} {
 		got, err := evalIn(t, ctx, scope, tc.expr)
 		if err != nil {
@@ -358,22 +375,23 @@ func TestCalcParameterAndResultMultiplicity(t *testing.T) {
 		"One((1, 2))",
 		"One(x = (1, 2))",
 		"One(null)",
-		"Untyped((1, 2))",
 		"Opt((1, 2))",
 		"UpTo2((1, 2, 3))",
 		"UpTo2(null)",
 		"BadDefault()",
 		"RedefOne((1, 2))",
-		"TwoResults()",
-		"NoResult()",
-		"Returned((1, 2))",
-		"OneOut((1, 2))",
-		"BoundOne((1, 2))",
-		"BoundDerived(1)",
+		"OneStated((1, 2))",
+		"TwoResultsStated()",
+		"NoResultStated()",
+		"OneOutStated((1, 2))",
+		"BoundOneStated((1, 2))",
 	} {
 		if _, err := evalIn(t, ctx, scope, expr); !errors.Is(err, ErrMultiplicityViolation) {
 			t.Errorf("%s: error = %v, want ErrMultiplicityViolation", expr, err)
 		}
+	}
+	if _, err := evalIn(t, ctx, scope, "BoundDerived(1)"); !errors.Is(err, ErrUniquenessViolation) {
+		t.Errorf("BoundDerived(1): error = %v, want ErrUniquenessViolation", err)
 	}
 	for _, expr := range []string{"BoundString()", `RedeclMany("s")`} {
 		if _, err := evalIn(t, ctx, scope, expr); !errors.Is(err, ErrTypeMismatch) {
@@ -393,7 +411,7 @@ func TestCalcMultiplicityViolationNamesTheBinding(t *testing.T) {
 		{"One((1, 2))", `calc test::One: argument for parameter "x": multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1`},
 		{"BadDefault()", `calc test::BadDefault: default for parameter "x": multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1`},
 		{"UpTo2(null)", `calc test::UpTo2: argument for parameter "xs": multiplicity violation: 0 value(s) bound to a feature with multiplicity lower bound 1`},
-		{"TwoResults()", `calc test::TwoResults: result: multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1`},
+		{"TwoResultsStated()", `calc test::TwoResultsStated: result: multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1`},
 	} {
 		_, err := evalIn(t, ctx, scope, tc.expr)
 		if err == nil || err.Error() != tc.want {
@@ -412,8 +430,10 @@ func TestComplexCountsAsOneValue(t *testing.T) {
 		expr string
 		want string
 	}{
-		{"Unit()", "0.0 + 1.0i"},
-		{"UnitOut()", "0.0 + 1.0i"},
+		{"Unit()", "(0.0 + 1.0i)"},
+		{"UnitOut()", "(0.0 + 1.0i)"},
+		{"UnitStated()", "0.0 + 1.0i"},
+		{"UnitsOne()", "(0.0 + 1.0i, 1.0 + 0.0i)"},
 		{"Units()", "(0.0 + 1.0i, 1.0 + 0.0i)"},
 	} {
 		got, err := evalIn(t, ctx, scope, tc.expr)
@@ -428,8 +448,8 @@ func TestComplexCountsAsOneValue(t *testing.T) {
 	if _, err := evalIn(t, ctx, scope, "UnitReal()"); !errors.Is(err, ErrTypeMismatch) {
 		t.Errorf("UnitReal(): error = %v, want ErrTypeMismatch", err)
 	}
-	if _, err := evalIn(t, ctx, scope, "UnitsOne()"); !errors.Is(err, ErrMultiplicityViolation) {
-		t.Errorf("UnitsOne(): error = %v, want ErrMultiplicityViolation", err)
+	if _, err := evalIn(t, ctx, scope, "UnitsOneStated()"); !errors.Is(err, ErrMultiplicityViolation) {
+		t.Errorf("UnitsOneStated(): error = %v, want ErrMultiplicityViolation", err)
 	}
 
 	inst := instantiateNamed(t, ctx, idx, "test::p")
@@ -516,8 +536,8 @@ func TestNaNIsOfNoScalarType(t *testing.T) {
 			if err != nil || conforms {
 				t.Errorf("valueConforms(%s, %s) = %v, %v; want false", FormatValue(value), name, conforms, err)
 			}
-			if _, err := ctx.directValueType(scope, value); !errors.Is(err, ErrUndeterminedValueType) {
-				t.Errorf("directValueType(%s) error = %v, want ErrUndeterminedValueType", FormatValue(value), err)
+			if _, err := ctx.directValueType(scope, value); !errors.Is(err, errUndeterminedValueType) {
+				t.Errorf("directValueType(%s) error = %v, want errUndeterminedValueType", FormatValue(value), err)
 			}
 		}
 	}
@@ -535,7 +555,45 @@ func TestNaNIsOfNoScalarType(t *testing.T) {
 			t.Fatalf("directValueType(%s): %v", FormatValue(tc.value), err)
 		}
 		if typ != ctx.librarySymbol(tc.want) {
-			t.Errorf("directValueType(%s) = %s, want %s", FormatValue(tc.value), symbolText(typ), tc.want)
+			t.Errorf("directValueType(%s) = %s, want %s", FormatValue(tc.value), SymbolText(typ), tc.want)
+		}
+	}
+}
+
+// A declared feature is read in the shape its own multiplicity gives it: one value held
+// by an at-most-one multiplicity (an attribute's implicit `[1..1]`, SysML v2 §7.6.3) is
+// bare, however the binding computed it; a calc usage is read as its result.
+func TestDeclaredReadHoldsTheFeaturesShape(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ScalarValues::*;
+			calc def K { return : Real = 2.0; }
+			attribute r : Real = K();
+			attribute r1 : Real[1] = K();
+			attribute rs : Real[*] = K();
+			attribute rn = (1.0, 2.0);
+			calc k : K;
+			part def P { attribute m : Real = K(); }
+			part p : P;
+		}
+	`))
+	pkg, _ := idx.DocumentRoot("<test>").LookupLocal("test")
+	for _, tc := range []struct{ expr, want string }{
+		{"K()", "(2.0)"},
+		{"r", "2.0"},
+		{"r1", "2.0"},
+		{"rs", "(2.0)"},
+		{"rn", "(1.0, 2.0)"},
+		{"k", "(2.0)"},
+		{"p.m", "2.0"},
+	} {
+		val, err := evalIn(t, ctx, pkg.Scope, tc.expr)
+		if err != nil {
+			t.Errorf("%s: %v", tc.expr, err)
+			continue
+		}
+		if got := FormatTraceValue(val); got != tc.want {
+			t.Errorf("%s = %s, want %s", tc.expr, got, tc.want)
 		}
 	}
 }

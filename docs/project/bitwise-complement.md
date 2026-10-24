@@ -157,7 +157,7 @@ Table 5 it does not fold.
   (`semantics/valuetype.go` `operatorResultFQN`), which is what `DataFunctions::'~'` declares.
   Both stay: the notation is KerML, and the typer reads the library's declaration.
 - **Evaluation.** `runtime/eval.go` `unimplementedOperators` refuses `OpBitNot` with a typed
-  `ErrUnsupportedOperator` naming the reason; the two library functions are registered by name
+  `errUnsupportedOperator` naming the reason; the two library functions are registered by name
   and signature in `runtime/library_unevaluable.go`, so `DataFunctions::'~'(5)` written as a call
   reports the same reason rather than "unknown function". The solver reports it outside its
   subset (`solve/translate.go`, "bitwise negation is outside the subset"). All three are pinned by

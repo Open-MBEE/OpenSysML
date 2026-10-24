@@ -94,7 +94,7 @@ func (ctx *Context) readOnlyRefusal(what func() string, name string, feature *sy
 	if ro.Kind == semantics.Writable {
 		return nil
 	}
-	return fmt.Errorf("%s: %w: %s", what(), ErrReadOnlyFeature, semantics.ReadOnlyViolation(name, feature, ro))
+	return fmt.Errorf("%s: %w: %s", what(), errReadOnlyFeature, semantics.ReadOnlyViolation(name, feature, ro))
 }
 
 // checkAssignable refuses an assignment whose target names a constant or derived
@@ -129,7 +129,7 @@ func (ctx *Context) checkMutable(scope *symbols.Scope, what func() string, name 
 	if !ok || target.readOnly.Kind == semantics.Writable {
 		return nil
 	}
-	return fmt.Errorf("%s: %w: %s", what(), ErrReadOnlyFeature,
+	return fmt.Errorf("%s: %w: %s", what(), errReadOnlyFeature,
 		semantics.ReadOnlyViolation(name, target.feature, target.readOnly))
 }
 
@@ -155,6 +155,13 @@ func (ctx *Context) checkTarget(scope *symbols.Scope, what string, target *write
 // checkTargetAs is checkTarget naming the write only when it is refused, so a
 // conformant write on a hot path does not pay for its description.
 func (ctx *Context) checkTargetAs(scope *symbols.Scope, what func() string, target *writeTarget, value *Value, how admission, countJudged bool) error {
+	return ctx.checkTargetHeld(scope, what, target, value, how, countJudged, true)
+}
+
+// checkTargetHeld is checkTargetAs, holding a conformant value in the target's shape
+// (shapeForTarget) when shaped, and as computed otherwise — a calculation body's features
+// are held as computed until calculation results take the shape rule too.
+func (ctx *Context) checkTargetHeld(scope *symbols.Scope, what func() string, target *writeTarget, value *Value, how admission, countJudged, shaped bool) error {
 	if countJudged {
 		if msg := ctx.writeCountRefusal(target, value); msg != "" {
 			return fmt.Errorf("%s: %w: %s", what(), ErrMultiplicityViolation, msg)
@@ -169,6 +176,89 @@ func (ctx *Context) checkTargetAs(scope *symbols.Scope, what func() string, targ
 	if msg := ctx.uniquenessRefusal(target.unique, target.holdsSet, value); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what(), ErrUniquenessViolation, msg)
 	}
+	if !countJudged {
+		// A multiplicity left unstated judges no count, but a usage the implicit [1..1]
+		// governs (SysML v2 §7.6.3) still holds one held value as that value.
+		if ctx.model.semantics.ImplicitMultiplicityApplies(target.feature) {
+			*value = soleElement(*value)
+		}
+		return nil
+	}
+	if shaped {
+		return ctx.shapeForTarget(target, value)
+	}
+	// A computed host keeps a multi-valued target as computed, but a target of at most
+	// one value still holds the element: a [1] output fed from a bare pin is its value.
+	if target.mult.Upper.Known && !multiValued(target.mult) {
+		*value = soleElement(*value)
+	}
+	return nil
+}
+
+// checkNamedWriteComputed is checkNamedWrite for a calculation body, whose features hold
+// what the body computed rather than the shape their multiplicity gives it.
+func (ctx *Context) checkNamedWriteComputed(scope *symbols.Scope, where, name string, value *Value) error {
+	return ctx.checkNamedWriteHeld(scope, func() string { return where }, name, value, false)
+}
+
+// shapeForTarget holds a conformant value in the shape the target's multiplicity gives
+// its values, as an occurrence feature does (admitted): a multi-valued target holds a
+// collection however the value was written, a single-valued one its sole element.
+func (ctx *Context) shapeForTarget(target *writeTarget, value *Value) error {
+	if !target.mult.Upper.Known || value.Kind == ValInvalid || value.Kind == ValUndetermined {
+		return nil
+	}
+	if !multiValued(target.mult) {
+		*value = soleElement(*value)
+		return nil
+	}
+	if (value.Kind == ValSequence || value.Kind == ValSet) && target.holdsSet == (value.Kind == ValSet) {
+		return ctx.chargeShaped(*value)
+	}
+	elements := elementsOf(*value)
+	if value.Kind != ValSequence && value.Kind != ValSet && semantics.IsOutputParameter(target.feature) {
+		// A result takes the one-element shape it leaves its body in; the element is
+		// charged once a feature holds the shape, as a value written to one is.
+		*value = ctx.collectionOf(&EffectiveFeature{HoldsSet: target.holdsSet}, elements)
+		markShaped(*value)
+		return nil
+	}
+	if err := ctx.chargeElements(int64(len(elements))); err != nil {
+		return err
+	}
+	*value = ctx.collectionOf(&EffectiveFeature{HoldsSet: target.holdsSet}, elements)
+	return nil
+}
+
+// markShaped notes that the collection is the shape one value is held in, its
+// element not yet charged.
+func markShaped(value Value) {
+	switch value.Kind {
+	case ValSequence:
+		value.Sequence().shaped = true
+	case ValSet:
+		value.Set().shaped = true
+	}
+}
+
+// chargeShaped charges the element of a shape a feature now holds, once.
+func (ctx *Context) chargeShaped(value Value) error {
+	var shaped *bool
+	switch value.Kind {
+	case ValSequence:
+		shaped = &value.Sequence().shaped
+	case ValSet:
+		shaped = &value.Set().shaped
+	default:
+		return nil
+	}
+	if !*shaped {
+		return nil
+	}
+	if err := ctx.chargeElements(int64(len(elementsOf(value)))); err != nil {
+		return err
+	}
+	*shaped = false
 	return nil
 }
 
@@ -182,7 +272,8 @@ func (ctx *Context) writeCountRefusal(target *writeTarget, value *Value) string 
 // block-local, a parameter, an output - against the declaration of the name it
 // writes, before that value is stored.
 func (ctx *Context) checkBodyWrite(host stmtHost, s lower.Assign, value *Value) error {
-	return ctx.checkNamedWriteAs(s.Scope, host.describe, s.Target, value)
+	_, calc := host.(*calcStmtHost)
+	return ctx.checkNamedWriteHeld(s.Scope, host.describe, s.Target, value, !calc)
 }
 
 // checkNamedWrite checks a write of a name resolved in scope, for a path that
@@ -194,12 +285,18 @@ func (ctx *Context) checkNamedWrite(scope *symbols.Scope, where, name string, va
 // checkNamedWriteAs is checkNamedWrite naming where the write ran only when it is
 // refused, so a conformant write on a hot path does not pay for the description.
 func (ctx *Context) checkNamedWriteAs(scope *symbols.Scope, where func() string, name string, value *Value) error {
+	return ctx.checkNamedWriteHeld(scope, where, name, value, true)
+}
+
+// checkNamedWriteHeld is checkNamedWriteAs holding the value in the target's shape when
+// shaped, and as computed otherwise (a calculation body's features, checkTargetHeld).
+func (ctx *Context) checkNamedWriteHeld(scope *symbols.Scope, where func() string, name string, value *Value, shaped bool) error {
 	target, ok := ctx.writeTargetIn(scope, name)
 	if !ok {
 		return nil
 	}
 	what := func() string { return fmt.Sprintf("%s: assignment to %s", where(), name) }
-	return ctx.checkTargetAs(scope, what, target, value, admitWritten, true)
+	return ctx.checkTargetHeld(scope, what, target, value, admitWritten, true, shaped)
 }
 
 // checkBodyDeclaration checks the initial value a body-local declaration binds against
@@ -215,6 +312,12 @@ func (ctx *Context) checkBodyDeclaration(scope *symbols.Scope, where, name strin
 // checkBodyDeclarationAs is checkBodyDeclaration naming where the declaration ran
 // only when it is refused, so a conformant binding does not pay for the description.
 func (ctx *Context) checkBodyDeclarationAs(scope *symbols.Scope, where func() string, name string, value *Value) error {
+	return ctx.checkBodyDeclarationHeld(scope, where, name, value, true)
+}
+
+// checkBodyDeclarationHeld is checkBodyDeclarationAs holding the value in the declared
+// shape when shaped, and as computed otherwise (a calculation body's features).
+func (ctx *Context) checkBodyDeclarationHeld(scope *symbols.Scope, where func() string, name string, value *Value, shaped bool) error {
 	target, ok := ctx.writeTargetIn(scope, name)
 	if !ok {
 		return nil
@@ -222,7 +325,7 @@ func (ctx *Context) checkBodyDeclarationAs(scope *symbols.Scope, where func() st
 	declared := *target
 	declared.unique = target.unique && multiValued(target.mult)
 	what := func() string { return fmt.Sprintf("%s: declaration of %s", where(), name) }
-	return ctx.checkTargetAs(scope, what, &declared, value, admitDeclared, target.countJudged)
+	return ctx.checkTargetHeld(scope, what, &declared, value, admitDeclared, target.countJudged, shaped)
 }
 
 // storeBodyValue writes a value into the behavior's own data once it conforms
@@ -397,7 +500,7 @@ func (ctx *Context) elementRefusal(scope *symbols.Scope, declared *symbols.Symbo
 	}
 	if refusal == "" {
 		refusal = fmt.Sprintf("cannot write %s (%s) to a feature typed by %s",
-			FormatValue(*element), describeValue(*element), symbolText(declared))
+			FormatValue(*element), DescribeValue(*element), SymbolText(declared))
 	}
 	return refusal, true
 }
@@ -419,7 +522,7 @@ func (ctx *Context) valueConforms(scope *symbols.Scope, value *Value, declared *
 			return true, "", nil
 		}
 		return false, fmt.Sprintf("cannot write %s to a feature typed by %s",
-			ctx.describeOpenOperand(*value), symbolText(declared)), nil
+			ctx.describeOpenOperand(*value), SymbolText(declared)), nil
 	case ValQuantity:
 		return ctx.quantityConforms(*value, declared)
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:
@@ -436,7 +539,7 @@ func (ctx *Context) valueConforms(scope *symbols.Scope, value *Value, declared *
 		// value of a narrower type, it is classified by that type too (see classify.go).
 		inst, ok := ctx.instances[id]
 		if !ok || inst == nil || inst.Type == nil {
-			return false, "", fmt.Errorf("%w: instance %d", ErrUndeterminedValueType, id)
+			return false, "", fmt.Errorf("%w: instance %d", errUndeterminedValueType, id)
 		}
 		if how == admitDeclared {
 			return ctx.canClassify(inst, declared), "", nil
@@ -483,7 +586,7 @@ func (ctx *Context) structuredConforms(scope *symbols.Scope, value Value, declar
 		}
 		if scalar := ctx.librarySymbol(scalarValueTypeFQN); scalar != nil && ctx.modelConforms(declared, scalar) {
 			return false, fmt.Sprintf("cannot write %s (%s) to a feature typed by %s: it is a %s, which holds one scalar",
-				FormatValue(value), describeValue(value), symbolText(declared), symbolText(scalar)), nil
+				FormatValue(value), DescribeValue(value), SymbolText(declared), SymbolText(scalar)), nil
 		}
 		if refusal := ctx.shapeRefusal(value, declared); refusal != "" {
 			return false, refusal, nil
@@ -495,7 +598,7 @@ func (ctx *Context) structuredConforms(scope *symbols.Scope, value Value, declar
 	switch value.Kind {
 	case ValVectorQuantity:
 		vq := value.VectorQuantity()
-		for i := 0; i < vq.Dimension(); i++ {
+		for i := 0; i < vq.dimension(); i++ {
 			if ok, refusal, err := ctx.quantityConforms(NewQuantityValue(vq.component(i)), declared); !ok || err != nil {
 				return ok, refusal, err
 			}
@@ -518,7 +621,7 @@ func (ctx *Context) shapeRefusal(value Value, declared *symbols.Symbol) string {
 	size, _ := flattenedSize(dims)
 	refuse := func(declares string) string {
 		return fmt.Sprintf("cannot write %s (%s) to a feature typed by %s: it declares %s",
-			FormatValue(value), describeValue(value), symbolText(declared), declares)
+			FormatValue(value), DescribeValue(value), SymbolText(declared), declares)
 	}
 	for _, member := range ctx.model.semantics.MembersOfIncludingRedefined(declared) {
 		if !semantics.IsShapeFeature(member) {
@@ -601,10 +704,10 @@ func (ctx *Context) elementsConform(scope *symbols.Scope, value Value, declared 
 	refuse := func(feat EffectiveFeature, mult, got string) string {
 		declares := feat.Name
 		if feat.Type != nil {
-			declares += " : " + symbolText(feat.Type)
+			declares += " : " + SymbolText(feat.Type)
 		}
 		return fmt.Sprintf("cannot write %s (%s) to a feature typed by %s: it declares %s%s, got %s",
-			FormatValue(value), describeValue(value), symbolText(declared), declares, mult, got)
+			FormatValue(value), DescribeValue(value), SymbolText(declared), declares, mult, got)
 	}
 	for _, feat := range ctx.FeaturesOf(declared) {
 		if base, ok := ctx.arrayFeatureOf(feat.Symbol); !ok || base != arrayElementsFeature {
@@ -620,7 +723,7 @@ func (ctx *Context) elementsConform(scope *symbols.Scope, value Value, declared 
 			ok, refusal, err := ctx.valueConforms(scope, &elem, feat.Type, how)
 			if err != nil || !ok {
 				if refusal == "" {
-					refusal = refuse(feat, "", fmt.Sprintf("element %s (%s)", FormatValue(elem), describeValue(elem)))
+					refusal = refuse(feat, "", fmt.Sprintf("element %s (%s)", FormatValue(elem), DescribeValue(elem)))
 				}
 				return false, refusal, err
 			}
@@ -637,7 +740,7 @@ func structuredDimensions(value Value) []int64 {
 	case ValVector:
 		return []int64{int64(value.Vector().Dimension())}
 	case ValVectorQuantity:
-		return []int64{int64(value.VectorQuantity().Dimension())}
+		return []int64{int64(value.VectorQuantity().dimension())}
 	case ValTensorQuantity:
 		return value.TensorQuantity().Dimensions
 	}
@@ -689,7 +792,7 @@ func (ctx *Context) quantityConforms(value Value, declared *symbols.Symbol) (boo
 		return true, "", nil
 	}
 	return false, fmt.Sprintf("cannot write %s (%s) to a feature typed by %s (%s)",
-		FormatValue(value), dimensionText(got), symbolText(declared), dimensionText(want)), nil
+		FormatValue(value), dimensionText(got), SymbolText(declared), dimensionText(want)), nil
 }
 
 // dimensionText names a dimension as a message about a mismatch reads it.
@@ -713,4 +816,14 @@ func (ctx *Context) featuredChainTarget(s lower.Assign) (*symbols.Symbol, bool) 
 		return nil, false
 	}
 	return feature, true
+}
+
+// shapeDeclared holds a value bound to the feature name declares in scope in the shape
+// its multiplicity gives it (shapeForTarget), where that multiplicity judges the count.
+func (ctx *Context) shapeDeclared(scope *symbols.Scope, name string, value *Value) error {
+	target, ok := ctx.writeTargetIn(scope, name)
+	if !ok || !target.countJudged {
+		return nil
+	}
+	return ctx.shapeForTarget(target, value)
 }

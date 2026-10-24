@@ -319,7 +319,7 @@ func TestThenAfterFirstSequencesFromTheMemberTheStartNames(t *testing.T) {
 	}
 	// `first start;` is a Membership of the start; the `then` after it
 	// sequences from that same member.
-	for _, want := range []string{"sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__drive___400", "sysml:sourceFeature elmt:P__drive___400"} {
+	for _, want := range []string{"sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__drive__start", "sysml:sourceFeature elmt:P__drive__start"} {
 		if n := strings.Count(string(turtle), want); n != 1 {
 			t.Fatalf("the initial node and the then after it should state %s once, found %d:\n%s", want, n, turtle)
 		}
@@ -685,11 +685,14 @@ func TestSupersededThenDoneMembershipReadsBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The fixture is the earlier exporter's graph of the one action def that ends in `then done;`.
+	if !strings.Contains(string(turtle), "sysx:targetMember") {
+		t.Fatal("the fixture no longer exhibits the superseded shape: no sysx:targetMember")
+	}
 	back, err := convert.Convert("old.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("the superseded shape should still convert: %v", err)
 	}
-	// The fixture's bodies carry the earlier exporter's surrounding spaces, which KerML keeps, so its notation differs from the canonical golden only in those bodies.
 	checkGolden(t, filepath.Join("testdata", "superseded", "then_done_membership.golden.sysml"), back)
 }
 
@@ -916,14 +919,16 @@ func TestANameOnlySourceIsNotFoldedBesideASameNamedLinkedMember(t *testing.T) {
 	}
 
 	// Without a member declaring the name, the name reaches the redefinition
-	// before the `then`, which answers to it: the source links that member.
+	// before the `then`, which answers to it and is named by it: the source
+	// links that member.
+	const named = "sysml:sourceFeature elmt:P__A__walk"
 	own := "package P {\n    action def Step;\n    action def Base {\n        action walk : Step;\n    }\n" +
 		"    action def A specializes Base {\n        action w : Step;\n        action redefines walk;\n        then action b : Step;\n    }\n}\n"
 	turtle, err = convert.Convert("m.sysml", []byte(own), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	if !strings.Contains(string(turtle), linked) || strings.Contains(string(turtle), positional) {
+	if !strings.Contains(string(turtle), named) || strings.Contains(string(turtle), positional) {
 		t.Fatalf("the source should link the redefinition the name reaches:\n%s", turtle)
 	}
 	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)

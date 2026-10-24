@@ -41,10 +41,17 @@ type DiagramOptions struct {
 	// Unplaced is where a diagram some Layout positions puts the nodes none
 	// does: left undrawn when empty, or drawn too (a strip below a DOT drawing).
 	Unplaced view.Unplaced
+	// Compartments is how a tree rendering folds a node's owned members into
+	// compartment rows of its box; view.CompartmentsPositioned when empty.
+	Compartments view.Compartments
 
 	// Style is the drawing style every DOT or Mermaid diagram is drawn in, the
 	// Pilot look when empty; the other forms draw one look.
 	Style view.DrawingStyle
+
+	// Show is the optional notation elements every diagram draws besides the
+	// ones its view's rendering shows; nil adds none.
+	Show view.Shown
 
 	// LinkTemplate fills source links for diagram elements.
 	LinkTemplate string

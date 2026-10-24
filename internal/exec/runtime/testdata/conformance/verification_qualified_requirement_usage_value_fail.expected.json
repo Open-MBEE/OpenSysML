@@ -1,0 +1,15 @@
+{
+  "libraries": true,
+  "type": "verification",
+  "evaluate": "ProductPkg::costTest",
+  "verdict": "fail",
+  "outputs": {
+    "verdict": {"type": "Sequence", "elements": [{
+        "type": "EnumLiteral",
+        "value": "VerdictKind::fail"
+      }]}
+  },
+  "verdicts": {
+    "costObjective": "satisfied"
+  }
+}

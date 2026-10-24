@@ -15,7 +15,7 @@ import (
 
 // A view stating no rendering renders as a containment tree, of what it exposes.
 func TestRenderDefaultsToATree(t *testing.T) {
-	out, _, err := viewSession(t).RunMeta("%render Demo::summary")
+	out, _, err := viewSession(t).RunMeta("%render Demo::summary text show=typings,qualifiers")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestRenderLinksUseLoadedSourcePositions(t *testing.T) {
 // offered by the usage and help text.
 func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 	s := viewSession(t)
-	out, _, err := s.RunMeta("%render Demo::summary dot")
+	out, _, err := s.RunMeta("%render Demo::summary dot show=keywords,qualifiers")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,15 +95,16 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 		t.Errorf("%%render dot wrote Mermaid or a palette:\n%s", text)
 	}
 	wants(t, run(t, s, "%render"), renderUsage)
-	wants(t, run(t, s, "%render Demo::summary svg"), `unknown form "svg"`, renderUsage)
-	wants(t, run(t, s, "%help"), "%render <name> [form [palette] [style] [ports] [link=<template>]]", "Graphviz DOT", "PlantUML")
+	wants(t, run(t, s, "%render Demo::summary png"), `unknown form "png"`, renderUsage)
+	wants(t, run(t, s, "%render Demo::summary svg"), "a tree rendering is not written as svg", "text, mermaid, dot, plantuml or d2")
+	wants(t, run(t, s, "%help"), "%render <name> [form [palette] [style] [ports] [lines] [verdicts]", "[compartments=<folding>] [show=<elements>] [depth=<levels>]", "[link=<template>]]", "Graphviz DOT", "PlantUML")
 }
 
 // The PlantUML form is asked for by name, is the same rendering in PlantUML
 // grammar, takes a palette as the dot form does, and completes with it.
 func TestRenderWritesPlantUMLWhenAskedFor(t *testing.T) {
 	s := viewSession(t)
-	out, _, err := s.RunMeta("%render Demo::summary plantuml")
+	out, _, err := s.RunMeta("%render Demo::summary plantuml show=keywords")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +147,7 @@ func TestRenderWritesPlantUMLWhenAskedFor(t *testing.T) {
 // an unknown palette names the known ones, and no other form takes one.
 func TestRenderDotTakesAPalette(t *testing.T) {
 	s := viewSession(t)
-	out, _, err := s.RunMeta("%render Demo::summary dot okabe-ito")
+	out, _, err := s.RunMeta("%render Demo::summary dot okabe-ito show=keywords")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -361,6 +362,7 @@ func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
         succession first start then finish;
     }
     use case def Mission {
+        subject network : Network;
         actor operator : Person;
     }
     view missionView {
@@ -379,7 +381,7 @@ func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
 		form view.Form
 		want string
 	}{
-		{"#tree", view.KindTree, view.FormText, "part def Direct::Network"},
+		{"#tree", view.KindTree, view.FormText, "part def Network"},
 		{"#state:Direct::Machine", view.KindState, view.FormMermaid, "stateDiagram-v2"},
 		{"#action:Flow", view.KindAction, view.FormMermaid, "flowchart TD"},
 		{"#interconnection:Direct::Network", view.KindInterconnection, view.FormMermaid, "flowchart LR"},
@@ -475,7 +477,10 @@ func TestTargetlessPseudoViewSpansLoadedDocuments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	text := rendering.Text()
+	text, err := rendering.WriteWith(view.FormText, view.Options{Show: view.Shown{view.ElementQualifiers: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
 	at := -1
 	for _, want := range []string{"Second::TwoA", "Second::TwoB", "First::OneA", "First::OneB"} {
 		next := strings.Index(text, want)
@@ -515,7 +520,7 @@ func TestViewsListsSessionViewsInDeclarationOrder(t *testing.T) {
 
 func TestRenderMisuseShowsUsage(t *testing.T) {
 	s := viewSession(t)
-	for _, line := range []string{"%render", "%render Demo::summary svg"} {
+	for _, line := range []string{"%render", "%render Demo::summary png"} {
 		out, _, err := s.RunMeta(line)
 		if err != nil {
 			t.Fatal(err)
@@ -690,6 +695,24 @@ func TestRenderDotTakesAStyle(t *testing.T) {
 	}
 }
 
+// A word show=<elements> after the form names the optional notation elements
+// the rendering draws besides its own, once at most; a name none has is
+// refused with the names there are.
+func TestRenderTakesTheNotationElementsToShow(t *testing.T) {
+	s := viewSession(t)
+	for _, line := range []string{"%render Demo::summary dot show=all", "%render Demo::summary dot okabe-ito show=edge-labels,typings full", "%render Demo::summary text show=keywords"} {
+		out, _, err := s.RunMeta(line)
+		if err != nil {
+			t.Fatalf("%s: %v", line, err)
+		}
+		if text := strings.Join(out, "\n"); !strings.Contains(text, "Vehicle") || strings.Contains(text, "usage: %render") {
+			t.Errorf("%s did not render:\n%s", line, text)
+		}
+	}
+	wants(t, run(t, s, "%render Demo::summary dot show=all show=typings"), renderUsage)
+	wants(t, run(t, s, "%render Demo::summary dot show=boxes"), "show= names the optional notation elements to draw", "parameter-symbols", renderUsage)
+}
+
 // A word after the form names the port display an interconnection or mixed
 // view's parts are drawn with — minimal, the default, or full — one of them at
 // most; it completes beside the palettes and styles, and a name none has is refused
@@ -743,7 +766,7 @@ func TestRenderDrawsAGeneralViewCaseRoute(t *testing.T) {
 	s := exampleSession(t, "use-cases.sysml")
 	wants(t, run(t, s, "%render UseCaseViews::useCaseView mermaid"),
 		"case rendering (view def GeneralView, filter @UseCaseUsage)", "flowchart LR", "«include»")
-	wants(t, run(t, s, "%render UseCaseViews::caseDefinitionView text"), "use case def VehicleUseCases::'Add Fuel'")
+	wants(t, run(t, s, "%render UseCaseViews::caseDefinitionView text show=qualifiers"), "use case def VehicleUseCases::'Add Fuel'")
 	wants(t, run(t, s, "%render UseCaseViews::useCaseView text verdicts"), "a case rendering draws no verdicts overlay")
 }
 
@@ -755,11 +778,11 @@ func TestRenderDrawsVerdictsWhenAskedFor(t *testing.T) {
 	if !strings.Contains(plain, "requirement rendering") || strings.Contains(plain, "verdict") {
 		t.Errorf("the structural rendering is not purely structural:\n%s", plain)
 	}
-	overlaid := run(t, s, "%render GeneralViews::requirementView text verdicts")
+	overlaid := run(t, s, "%render GeneralViews::requirementView text verdicts show=typings")
 	wants(t, overlaid,
 		"vehicleMass : MassRequirement (id R1.1, verdict pass by VehicleVerification::lightMassTest, fail by VehicleVerification::heavyMassTest)",
 		"emergencyStop : EmergencyStopRequirement (id R3.1, verdict inconclusive by VehicleVerification::stopTest")
-	dot := run(t, s, "%render GeneralViews::requirementView dot okabe-ito cameo verdicts")
+	dot := run(t, s, "%render GeneralViews::requirementView dot okabe-ito cameo verdicts show=typings")
 	if !strings.Contains(dot, `color="#D55E00"`) {
 		t.Errorf("the failed requirement is not drawn in the fail colour:\n%s", dot)
 	}
@@ -768,4 +791,100 @@ func TestRenderDrawsVerdictsWhenAskedFor(t *testing.T) {
 	if got := s.Complete("%render GeneralViews::requirementView dot verd", len("%render GeneralViews::requirementView dot verd")); !slices.Equal(got.Candidates, []string{"verdicts"}) {
 		t.Errorf("completing the overlay offered %v", got.Candidates)
 	}
+}
+
+// %render takes an edge routing for the dot and plantuml forms — splines, the
+// default, ortho or polyline — one of them at most, anywhere among the palette,
+// style and port display; it completes beside them, and a form that routes no
+// edge itself notes the routing.
+func TestRenderTakesALineRouting(t *testing.T) {
+	s := viewSession(t)
+	for line, want := range map[string]string{
+		"%render Demo::summary dot ortho":                                                       "splines=ortho",
+		"%render Demo::summary dot okabe-ito polyline cameo":                                    "splines=polyline",
+		"%render Demo::summary dot okabe-ito cameo full ortho link=https://example.test/{file}": "splines=ortho",
+		"%render Demo::summary plantuml ortho":                                                  "skinparam linetype ortho",
+		"%render Demo::summary mermaid polyline":                                                "%% not represented: lines polyline; mermaid routes no edge itself, the dot and plantuml forms do",
+	} {
+		wants(t, run(t, s, line), want)
+	}
+	if got := run(t, s, "%render Demo::summary dot splines"); strings.Contains(got, "splines=") {
+		t.Errorf("the splines routing is the engine's default, stated nowhere:\n%s", got)
+	}
+	wants(t, run(t, s, "%render Demo::summary dot ortho polyline"), renderUsage)
+	for _, head := range []string{"%render Demo::summary dot cameo ort", "%render Demo::summary dot okabe-ito cameo full ort"} {
+		if got := s.Complete(head, len(head)); !slices.Equal(got.Candidates, []string{"ortho"}) {
+			t.Errorf("Complete(%q) = %v, want ortho", head, got.Candidates)
+		}
+	}
+	general := generalViewsSession(t)
+	wants(t, run(t, general, "%render GeneralViews::requirementView dot okabe-ito cameo full ortho verdicts link=https://example.test/{file}"), "splines=ortho")
+	head := "%render GeneralViews::requirementView dot okabe-ito cameo full verdicts link=https://example.test/{file} ort"
+	if got := general.Complete(head, len(head)); !slices.Equal(got.Candidates, []string{"ortho"}) {
+		t.Errorf("Complete(%q) = %v, want ortho", head, got.Candidates)
+	}
+}
+
+// The form is optional before the options: an option word first reads as the text form.
+func TestRenderReadsAnOptionWithoutAForm(t *testing.T) {
+	s := viewSession(t)
+	withForm, _, err := s.RunMeta("%render Demo::summary text show=typings")
+	if err != nil {
+		t.Fatal(err)
+	}
+	withoutForm, _, err := s.RunMeta("%render Demo::summary show=typings")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(withoutForm, "\n") != strings.Join(withForm, "\n") {
+		t.Errorf("show= without a form rendered:\n%s\nwant, as with text:\n%s", strings.Join(withoutForm, "\n"), strings.Join(withForm, "\n"))
+	}
+	refused, _, err := s.RunMeta("%render Demo::summary show=bogus")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(refused, "\n")
+	for _, want := range []string{"show= names the optional notation elements to draw", view.ElementNames()} {
+		if !strings.Contains(text, want) {
+			t.Errorf("show=bogus answered %q, want it to contain %q", text, want)
+		}
+	}
+	unknown, _, err := s.RunMeta("%render Demo::summary png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(unknown, "\n"), `unknown form "png"`) {
+		t.Errorf("a word that is neither a form nor an option answered %q", unknown)
+	}
+}
+
+// %render takes compartments=<folding> for a tree: positioned, the default,
+// folds only the layout-less members of a positioned tree; most folds every
+// owned usage and ports the port usages into compartment rows of their owner.
+func TestRenderTakesACompartmentFolding(t *testing.T) {
+	dir := t.TempDir()
+	path := writeFile(t, filepath.Join(dir, "folded.sysml"), `package Folded {
+    part def Wheel;
+    port def Hub { port bearing : Hub; }
+    attribute def Speed;
+    part def Car { attribute speed : Speed; part fl : Wheel; port hub : Hub; }
+    view overview { expose Folded::Car; expose Folded::Wheel; }
+}
+`)
+	s := NewSession()
+	if _, err := s.LoadFilesSummary([]string{path}); err != nil {
+		t.Fatal(err)
+	}
+	got := run(t, s, "%render Folded::overview dot compartments=most")
+	wants(t, got, "speed : Speed", "fl : Wheel", "hub : Hub<br/>hub.bearing : Hub", "drawn as compartment rows of their owner")
+	if strings.Count(got, "[label=") != 2 {
+		t.Errorf("most folds Car's members into its node, leaving Car and Wheel:\n%s", got)
+	}
+	got = run(t, s, "%render Folded::overview compartments=ports")
+	wants(t, got, "  part fl", "  attribute speed", "port hub : Folded::Hub", "port hub.bearing : Folded::Hub")
+	if got := run(t, s, "%render Folded::overview text"); strings.Contains(got, "hub.bearing") || !strings.Contains(got, "port hub") {
+		t.Errorf("without a folding every member is a node:\n%s", got)
+	}
+	wants(t, run(t, s, "%render Folded::overview dot compartments=rows"), "compartments= names the folding of a tree's owned members into compartment rows, positioned, most, ports")
+	wants(t, run(t, s, "%render Folded::overview dot compartments=most compartments=ports"), renderUsage)
 }

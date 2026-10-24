@@ -180,3 +180,46 @@ func TestMetadataLocalAliasSpelling(t *testing.T) {
 		t.Fatalf("pseudostates are %v, want [choice:pick]", got)
 	}
 }
+
+func TestDeferredSignalsOnParallelState(t *testing.T) {
+	src := `package M {
+		item def Ping;
+		state m parallel {
+			@MigrationMetadata::DeferredEvent { ref :>> signal : Ping; }
+			state r {
+				entry; then active;
+				state active;
+			}
+		}
+	}`
+	p := parser.New(source.New("m.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse errors: %v", p.Diagnostics)
+	}
+	idx := libs.NewModelIndex()
+	idx.AddDocument("m.sysml", root)
+	idx.ExpandWildcardImports()
+	pkg, ok := idx.DocumentRoot("m.sysml").LookupLocal("M")
+	if !ok {
+		t.Fatal("package M not indexed")
+	}
+	sym, ok := pkg.Scope.LookupLocal("m")
+	if !ok {
+		t.Fatal("state m not indexed")
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok {
+		t.Fatalf("state m declaration is %T, want *ast.Usage", sym.Decl)
+	}
+	deferred := DeferredSignals(resolve.New(idx), sym.Scope, usage)
+	if len(deferred) != 1 {
+		t.Fatalf("DeferredSignals = %v, want one signal", deferred)
+	}
+	if got := deferred[0].Type.Text(); got != "Ping" {
+		t.Fatalf("deferred signal type = %q, want Ping", got)
+	}
+	if deferred[0].Scope == nil {
+		t.Fatal("deferred signal has no state body scope")
+	}
+}

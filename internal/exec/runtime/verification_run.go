@@ -26,10 +26,11 @@ const (
 	VerdictPass VerdictKind = "pass"
 	// VerdictFail is a body whose verdict value is VerdictKind::fail.
 	VerdictFail VerdictKind = "fail"
-	// VerdictInconclusive is a body that ran and produced no verdict value.
+	// VerdictInconclusive is a body that ran and produced no verdict value, or
+	// one a definition owns with no object of the definition to run on.
 	VerdictInconclusive VerdictKind = "inconclusive"
-	// VerdictError is a body whose run could not be carried out.
-	VerdictError VerdictKind = "error"
+	// verdictError is a body whose run could not be carried out.
+	verdictError VerdictKind = "error"
 )
 
 // VerificationVerdict is the verdict one run of a verification case's body
@@ -54,6 +55,10 @@ type VerificationVerdict struct {
 	// Subcase marks the verdict of a case performed by another, which the
 	// library states no roll-up for and which is therefore reported on its own.
 	Subcase bool
+
+	// Subject is the object the case ran as a feature of: an object of the type
+	// owning it; nil for a package-level case or a run on no object.
+	Subject *Instance
 }
 
 // VerificationResult is what one run of a verification case produced: the
@@ -92,15 +97,15 @@ func IsVerificationCaseSymbol(sym *symbols.Symbol) bool {
 	return sym.Kind == symbols.SymbolVerificationCaseDef || sym.Kind == symbols.SymbolVerificationCaseUsage
 }
 
-// RequireVerificationCase reports ErrNotAVerification for a symbol that is not a
+// requireVerificationCase reports errNotAVerification for a symbol that is not a
 // verification case definition or usage, describing what it is instead.
-func (ctx *Context) RequireVerificationCase(sym *symbols.Symbol) error {
+func (ctx *Context) requireVerificationCase(sym *symbols.Symbol) error {
 	if sym == nil {
-		return fmt.Errorf("%w: invalid symbol", ErrNotAVerification)
+		return fmt.Errorf("%w: invalid symbol", errNotAVerification)
 	}
 	if !IsVerificationCaseSymbol(sym) {
 		return fmt.Errorf("%w: %s is %s, not a verification case definition or usage",
-			ErrNotAVerification, ctx.qualifiedSymbolName(sym), describeDecl(sym.Decl))
+			errNotAVerification, ctx.QualifiedName(sym), describeDecl(sym.Decl))
 	}
 	return nil
 }
@@ -115,23 +120,31 @@ func (ctx *Context) RequireVerificationCase(sym *symbols.Symbol) error {
 // is returned only for a request that cannot be made at all — a symbol that is
 // not a verification case, or arguments the case does not take.
 func (ctx *Context) RunVerification(sym *symbols.Symbol, args AnalysisArgs, scope *symbols.Scope, self *Instance) (VerificationResult, error) {
-	if err := ctx.RequireVerificationCase(sym); err != nil {
+	if err := ctx.requireVerificationCase(sym); err != nil {
 		return VerificationResult{}, err
 	}
 	defer ctx.beginRun()()
 
-	name := ctx.qualifiedSymbolName(sym)
-	caseRun, run, err := ctx.runCase(sym, args, scope, self)
+	name := ctx.QualifiedName(sym)
+	caseRun, performer, run, err := ctx.runCase(sym, args, scope, self)
 	defer caseRun.endOccurrence(ctx)
 	if err != nil {
 		if badRequest(err) || errors.Is(err, ErrToolDryRun) {
 			return VerificationResult{}, err
 		}
+		if errors.Is(err, ErrNeedsObject) {
+			// Nothing is wrong with the case: it decided nothing for want of an
+			// object of its owner, which is no verdict and no fault of the run.
+			return VerificationResult{
+				Verdict: VerificationVerdict{Case: name, Symbol: sym, Kind: VerdictInconclusive, Detail: err.Error()},
+			}, nil
+		}
 		return VerificationResult{
-			Verdict: VerificationVerdict{Case: name, Symbol: sym, Kind: VerdictError, Detail: err.Error()},
+			Verdict: VerificationVerdict{Case: name, Symbol: sym, Kind: verdictError, Detail: err.Error(), Subject: performer},
 		}, nil
 	}
 	result := VerificationResult{Verdict: ctx.bodyVerdict(sym, name, caseRun, run), Run: run}
+	result.Verdict.Subject = caseRun.self
 	result.Subcases = ctx.subcaseVerdicts(caseRun)
 	return result, nil
 }
@@ -141,9 +154,9 @@ func (ctx *Context) RunVerification(sym *symbols.Symbol, args AnalysisArgs, scop
 // Every other failure is a run that could not be carried out.
 func badRequest(err error) bool {
 	return errors.Is(err, ErrNotAnAnalysis) ||
-		errors.Is(err, ErrNotAVerification) ||
-		errors.Is(err, ErrCalcArity) ||
-		errors.Is(err, ErrUnknownParameter)
+		errors.Is(err, errNotAVerification) ||
+		errors.Is(err, errCalcArity) ||
+		errors.Is(err, errUnknownParameter)
 }
 
 // bodyVerdict reads the verdict the case returned: the VerdictKind literal its
@@ -171,9 +184,10 @@ func (ctx *Context) bodyVerdict(sym *symbols.Symbol, name string, run *calcRun, 
 }
 
 // verdictOf reads a value as a verdict: a literal of the library's VerdictKind
-// enumeration, or of an enumeration specializing it.
+// enumeration, or of an enumeration specializing it, held alone or as the one
+// element of a result declared to hold a collection.
 func (ctx *Context) verdictOf(value Value) (VerdictKind, bool) {
-	lit := value.Literal()
+	lit := soleElement(value).Literal()
 	if lit == nil {
 		return "", false
 	}
@@ -181,7 +195,7 @@ func (ctx *Context) verdictOf(value Value) (VerdictKind, bool) {
 		return "", false
 	}
 	switch kind := VerdictKind(lit.Name); kind {
-	case VerdictPass, VerdictFail, VerdictInconclusive, VerdictError:
+	case VerdictPass, VerdictFail, VerdictInconclusive, verdictError:
 		return kind, true
 	}
 	return "", false
@@ -193,11 +207,11 @@ func (ctx *Context) isVerdictKind(enum *symbols.Symbol) bool {
 	if enum == nil {
 		return false
 	}
-	if ctx.qualifiedSymbolName(enum) == verdictKindName {
+	if ctx.QualifiedName(enum) == verdictKindName {
 		return true
 	}
 	for _, super := range ctx.model.semantics.MemberSources(enum) {
-		if super != nil && ctx.qualifiedSymbolName(super) == verdictKindName {
+		if super != nil && ctx.QualifiedName(super) == verdictKindName {
 			return true
 		}
 	}
@@ -224,9 +238,10 @@ func (ctx *Context) subcaseVerdicts(run *calcRun) []VerificationVerdict {
 }
 
 // subcaseVerdict reads the verdict of one performed subcase from the outputs its
-// performance holds; performed reports whether the run took the step at all.
+// performance holds; performed reports whether the run took the step at all. A
+// step runs as a feature of the object the run does (case_step.go), so it is about that object.
 func (ctx *Context) subcaseVerdict(run *calcRun, node ast.Node, sym *symbols.Symbol) (VerificationVerdict, bool) {
-	verdict := VerificationVerdict{Case: ctx.qualifiedSymbolName(sym), Symbol: sym, Subcase: true}
+	verdict := VerificationVerdict{Case: ctx.QualifiedName(sym), Symbol: sym, Subcase: true, Subject: run.self}
 	perf, _, err := run.perf.subaction(ActionNodeName(node), node)
 	if err != nil || perf == nil {
 		return verdict, false

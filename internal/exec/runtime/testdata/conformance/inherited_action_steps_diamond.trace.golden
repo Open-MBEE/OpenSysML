@@ -6,8 +6,8 @@ stmt assign c
     eval feature c -> 100
     eval literal 10 -> 10
   eval operator + -> 110
-choice step 1: writes c := 110 by token 2, c := 100 by token 3 (unordered; c := 110 by token 2 stood)
-choice step 1: tokens 1@start, 2@l, 3@r (unordered; took 3@r first)
+choice step 1: writes c := 110 by token 2, c := 100 by token 3 (unordered; c := 110 by token 2 stood; order-dependent: c)
+choice step 1: tokens 1@start, 2@l, 3@r (unordered; took 3@r first; order-dependent: c)
 step 1: token 1@a
 stmt assign c
     eval feature c -> 110

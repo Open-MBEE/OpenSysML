@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?><packet>
+   <metadata>
+      <mtipVersion>2022x v1.0.0</mtipVersion>
+      <cameoVersion>2022x Refresh2</cameoVersion>
+      <exportTime>2025-06-12T21:38:50.779458500Z</exportTime>
+   </metadata>
+   <data>
+      <attributes _dtype="dict">
+         <attribute _dtype="dict" key="name">
+            <attribute _dtype="str" key="value">Model</attribute>
+         </attribute>
+      </attributes>
+      <id _dtype="dict">
+         <cameo _dtype="str">_m</cameo>
+      </id>
+      <relationships _dtype="dict"/>
+      <type _dtype="str">sysml.Model</type>
+   </data>
+   <data>
+      <attributes _dtype="dict">
+         <attribute _dtype="dict" key="name">
+            <attribute _dtype="str" key="value">Camera BDD</attribute>
+         </attribute>
+      </attributes>
+      <id _dtype="dict">
+         <cameo _dtype="str">_diag_bdd</cameo>
+      </id>
+      <relationships _dtype="dict">
+         <element _dtype="list">
+            <element _dtype="dict" key="0">
+               <relationship_metadata _dtype="dict">
+                  <top _dtype="int">-30</top>
+                  <bottom _dtype="int">-130</bottom>
+                  <left _dtype="int">50</left>
+                  <right _dtype="int">250</right>
+               </relationship_metadata>
+               <id _dtype="str">_blk_camera</id>
+               <type _dtype="str">sysml.Block</type>
+            </element>
+            <element _dtype="dict" key="1">
+               <relationship_metadata _dtype="dict">
+                  <top _dtype="int">-230</top>
+                  <bottom _dtype="int">-290</bottom>
+                  <left _dtype="int">60</left>
+                  <right _dtype="int">180</right>
+               </relationship_metadata>
+               <id _dtype="str">_blk_lens</id>
+               <type _dtype="str">sysml.Block</type>
+            </element>
+         </element>
+      </relationships>
+      <type _dtype="str">sysml.BlockDefinitionDiagram</type>
+   </data>
+</packet>

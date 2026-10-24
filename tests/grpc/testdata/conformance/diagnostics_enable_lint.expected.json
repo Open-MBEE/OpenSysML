@@ -1,0 +1,10 @@
+{
+  "rpc": "GetDiagnostics",
+  "enable_lint": [
+    "rounded-real-literal"
+  ],
+  "expected_codes": [
+    "undeclared-signal",
+    "rounded-real-literal"
+  ]
+}

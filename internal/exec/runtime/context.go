@@ -82,6 +82,9 @@ type Context struct {
 	// occurrences holds the objects each usage carrying no value of its own denotes, in
 	// declaration order: one for a usage of one occurrence, its lower bound for a collection.
 	occurrences map[*symbols.Symbol][]int64
+	// usageOccurrences holds the occurrence a calc or case usage is on each object it
+	// is a feature of, keyed by the usage and that object.
+	usageOccurrences map[calcUsageKey]int64
 	// occurrenceTails holds, per usage whose lower bound is held lazily, the members past the recorded occurrences.
 	occurrenceTails map[*symbols.Symbol]*requiredMembers
 	// required holds the lazily held populations (required.go) by first identity, so an
@@ -93,6 +96,9 @@ type Context struct {
 	// bindingStack holds the namespace-level usages whose values are being evaluated, innermost
 	// last, so a value reaching back to its own usage is a cycle, and an extent finds no object of it yet.
 	bindingStack []*symbols.Symbol
+	// chainStack holds the chains being read through package-level usages no object
+	// stands for, innermost last, so a value reading its own chain again is a cycle.
+	chainStack []chainRead
 	// bindingReads holds, per bound usage, the declarations its value read to arrive at the binding,
 	// so a re-analysis carries the binding only while every one of them still reads the same.
 	bindingReads map[*symbols.Symbol]*bindingReads
@@ -159,9 +165,9 @@ type Context struct {
 	// behavior starts when an object is materialized (see DeclaredReader).
 	declarative bool
 
-	// coverageNotes holds the distinct reasons this run's coverage is narrower
-	// than its schedules, recorded once each (coverage_note.go).
-	coverageNotes map[string]bool
+	// coverageGaps holds the constructs this run performed in one order without
+	// a choice point, recorded once each (coverage_gap.go).
+	coverageGaps map[CoverageGap]bool
 
 	// heldBehaviors are the behaviors already holding work when the outermost
 	// start under way began: a driver put it in flight, and dispatches it.
@@ -178,6 +184,15 @@ type Context struct {
 	trace *TraceRecorder
 	// stepWrites is the ledger of the action step under way, nil between steps.
 	stepWrites *stepWriteLedger
+	// controls is the choice points the move under way stands on by control: the
+	// guards read and branches drawn around it (order_marks.go).
+	controls []int64
+	// performing is the node whose performance the executor running is, nil for a
+	// run of its own: a body's own place is stamped as that performance's.
+	performing ast.Node
+	// performingParams are the parameters of the action performing runs, which
+	// are that performance's own as its pins are.
+	performingParams map[*symbols.Symbol]bool
 
 	// actionDepth is the number of action invocations currently on the stack,
 	// bounding recursion across nested action executors.
@@ -261,6 +276,8 @@ type Context struct {
 	sharedTaken    int64
 	// verdicts is the span sharing verdicts between objects of one shape; nil outside one.
 	verdicts *verdictMemo
+	// exemplars are the objects `this` denotes in the check about no object under way (exemplar.go).
+	exemplars *exemplars
 	// behaviorsAttached counts the object behaviors attached so far, so a
 	// derivation knows whether one was attached under it.
 	behaviorsAttached int64
@@ -392,7 +409,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		instances: make(map[int64]*Instance),
 		lives:     make(map[int64]life),
 
-		compileCalcs: CalcCompileFromEnv(),
+		compileCalcs: calcCompileFromEnv(),
 
 		run: &runState{
 			calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
@@ -408,6 +425,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		maxIntegerBits: DefaultMaxIntegerBits,
 
 		occurrences:       make(map[*symbols.Symbol][]int64),
+		usageOccurrences:  make(map[calcUsageKey]int64),
 		occurrenceTails:   make(map[*symbols.Symbol]*requiredMembers),
 		namespaceBindings: make(map[*symbols.Symbol]Value),
 		bindingReads:      make(map[*symbols.Symbol]*bindingReads),
@@ -427,7 +445,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		namespaceChainReads:       make(map[*namespaceClass]bool),
 		namespaceCollecting:       make(map[*symbols.Symbol]bool),
 
-		shareDefaults:  SharedDefaultsFromEnv(),
+		shareDefaults:  sharedDefaultsFromEnv(),
 		sharedDefaults: make(map[sharedKey]*sharedDefault),
 		shapes:         make(map[shapeNode]*shapeNode),
 	}
@@ -755,6 +773,11 @@ type runState struct {
 	steps    int64
 	elements int64
 	notes    []RunNote
+	// marks is what the run's values stand on (order_marks.go).
+	marks orderMarks
+	// performers are the objects the run's executors have performed on, kept
+	// after an executor leaves the clock so a value of theirs is still matched.
+	performers []*Instance
 	// scheduler is the resolutions the run's choices draw from (scheduler.go).
 	scheduler *scheduler
 	// calcUsageRuns holds, per activation under way, the evaluation of each calc
@@ -763,6 +786,13 @@ type runState struct {
 	// extentCandidates holds, per type an extent was taken of, the namespace usages
 	// that may hold one (extent.go).
 	extentCandidates map[*symbols.Symbol]*extentCandidates
+}
+
+// notePerformer records the object an executor joining the clock performs on.
+func (r *runState) notePerformer(w clockWaiter) {
+	if self := executorSelf(w); self != nil && !slices.Contains(r.performers, self) {
+		r.performers = append(r.performers, self)
+	}
 }
 
 // newRunState is the state a run starts with, under the schedule policy set now.
@@ -1187,7 +1217,9 @@ func (ctx *Context) registerInstance(inst *Instance) {
 
 // EvaluateConstraint evaluates a constraint definition/usage naming no object:
 // against the single object of this runtime carrying it, the declared defaults
-// when there is none, ErrAmbiguousSubject when there are several.
+// when there is none, ErrAmbiguousSubject when there are several. Checked against
+// the defaults, `this` denotes an exemplar of the type made for the check and
+// abandoned with it (exemplar.go).
 // Returns (satisfied, error). If IsAssert=true, violation is an error.
 // If IsAssert=false (assume), always returns (true, nil) but logs assumptions.
 func (ctx *Context) EvaluateConstraint(sym *symbols.Symbol, scope *symbols.Scope) (bool, error) {
@@ -1294,6 +1326,10 @@ type CheckResult struct {
 	Subject     *Instance
 	SubjectRoot *Instance
 	SubjectPath []string
+
+	// Vacuous says why a holding requirement check judged no condition: it
+	// states no required constraint. Empty for a verdict about conditions.
+	Vacuous string
 }
 
 // checkResultOf reports a verdict about the object a check resolved to.
@@ -1341,6 +1377,20 @@ func (ctx *Context) memberBindings(sym *symbols.Symbol, kind, element string, me
 	}
 
 	commit, rollback := ctx.beginJournal()
+	// A satisfy usage's `by` is its subject's binding (SysML v2 §7.21.4), read like
+	// a body's `subject = x;` unless an object is supplied from outside.
+	suppliedBy := false
+	if by := satisfiedBy(sym); by != nil && subject == nil {
+		value, err := evalIn(sym.OwnerScope).Eval(by)
+		if err != nil {
+			rollback()
+			return nil, fmt.Errorf("%s %s: subject binding evaluation failed: %w", kind, element, err)
+		}
+		for _, name := range ctx.subjectParameterNames(sym) {
+			bindings[name] = value
+		}
+		suppliedBy = true
+	}
 	for _, member := range members {
 		var what string
 		var names []string
@@ -1370,9 +1420,13 @@ func (ctx *Context) memberBindings(sym *symbols.Symbol, kind, element string, me
 			}
 			continue
 		}
-		if expr == nil {
-			// A redeclaration valuing nothing reads the value the feature it
-			// redefines binds, under its own names too.
+		// A redeclaration valuing nothing reads the value the feature it redefines binds,
+		// under its own names too; so does the subject the `by` operand supersedes (§7.21.4).
+		superseded := false
+		if isSubject && suppliedBy {
+			_, superseded = boundUnder(bindings, names)
+		}
+		if expr == nil || superseded {
 			if value, ok := boundUnder(bindings, names); ok {
 				if err := hold(member, what+" binding", value); err != nil {
 					rollback()
@@ -1384,7 +1438,20 @@ func (ctx *Context) memberBindings(sym *symbols.Symbol, kind, element string, me
 			}
 			continue
 		}
-		value, err := evalIn(member.scope).Eval(expr)
+		var value Value
+		var err error
+		bound := false
+		if isSubject {
+			value, bound, err = ctx.qualifiedMemberOf(self, member.scope, expr)
+			// A subject defaulted to a member holding nothing determined stays unbound;
+			// a value written with `=` is held, and refused when it is empty.
+			if bound && err == nil && valueIsDefault(member.node) && (value.Kind == ValUndetermined || certainlyEmpty(value)) {
+				continue
+			}
+		}
+		if !bound && err == nil {
+			value, err = evalIn(member.scope).Eval(expr)
+		}
 		if err != nil {
 			rollback()
 			return nil, fmt.Errorf("%s %s: %s binding evaluation failed: %w", kind, element, what, err)
@@ -1466,6 +1533,35 @@ func (ctx *Context) memberNames(owner *symbols.Symbol, member scopedMember, name
 		}
 	}
 	return names
+}
+
+// subjectParameterNames are the names a condition of sym reads its subject parameter
+// by: the subject's own and those of the subjects it redefines.
+func (ctx *Context) subjectParameterNames(sym *symbols.Symbol) []string {
+	subject := ctx.model.semantics.SubjectParameterOf(sym)
+	if subject == nil {
+		return nil
+	}
+	names := bindingNames(subject.Name, subject.ShortName)
+	for _, redefined := range ctx.redefinedFeatures(subject, sym) {
+		for _, n := range bindingNames(redefined.Name, redefined.ShortName) {
+			if !slices.Contains(names, n) {
+				names = append(names, n)
+			}
+		}
+	}
+	return names
+}
+
+// valueIsDefault reports whether a member's value expression is written as `default`.
+func valueIsDefault(node ast.Node) bool {
+	switch m := node.(type) {
+	case *ast.SubjectMember:
+		return m.ValueIsDefault
+	case *ast.Usage:
+		return m.ValueIsDefault
+	}
+	return false
 }
 
 // boundUnder returns the value bindings hold under any of names.
@@ -1603,18 +1699,23 @@ func (ctx *Context) checkRequirementOn(sym *symbols.Symbol, scope *symbols.Scope
 
 	// Second pass: evaluate the assumed and required conditions.
 	conds := ctx.conditionsOf(sym, members)
-	holds, err := ctx.evaluateConditions(conditionCheck{
+	check := conditionCheck{
 		sym:      sym,
 		kind:     "requirement",
 		what:     "require condition",
-		self:     subject.instance,
+		self:     ctx.conditionSelf(sym, subject.instance),
 		bindings: mapFrame(reqBindings),
 		negated:  NegatedDecl(sym),
-	}, conds)
+	}
+	holds, err := ctx.evaluateConditions(check, conds)
 	if err != nil {
 		err = unboundSubjectError(err, "requirement", sym.Name, ctx.unboundSubjectNames(sym, members, subject.instance))
 	}
-	return ctx.checkResultOf(holds, subject), err
+	result := ctx.checkResultOf(holds, subject)
+	if err == nil && holds {
+		result.Vacuous = vacuity(check, conds)
+	}
+	return result, err
 }
 
 // unboundSubjectNames are the subjects the members declare that nothing supplies
@@ -1650,7 +1751,7 @@ func unboundSubjectError(err error, kind, element string, unbound map[string]boo
 	if !errors.As(err, &noValue) || !unbound[noValue.Feature] {
 		return err
 	}
-	return &UnboundSubjectError{Kind: kind, Element: element, Subject: noValue.Feature}
+	return &subjectUnboundError{Kind: kind, Element: element, Subject: noValue.Feature}
 }
 
 // ExecuteAction executes an action definition/usage to completion.
@@ -1884,7 +1985,7 @@ func (ctx *Context) ExecuteStatePerformedBy(stateMachine *symbols.Symbol, self *
 	if err != nil {
 		return nil, nil, err
 	}
-	return data, exec.GetStateVisits(), nil
+	return data, exec.getStateVisits(), nil
 }
 
 // StateOutcomeWithEvents runs a state machine as ExecuteStateWithEvents does and
@@ -1906,17 +2007,17 @@ func (ctx *Context) StateOutcomePerformedBy(stateMachine *symbols.Symbol, self *
 	return (&Invocation{States: []*StateExecutor{exec}}).Outcome(), nil
 }
 
-// ErrAmbiguousMachine is the typed error a machine named on an object exhibiting
+// errAmbiguousMachine is the typed error a machine named on an object exhibiting
 // it under several usages wraps.
-var ErrAmbiguousMachine = errors.New("ambiguous state machine")
+var errAmbiguousMachine = errors.New("ambiguous state machine")
 
-// ErrAmbiguousAction is the typed error an action named on an object performing
+// errAmbiguousAction is the typed error an action named on an object performing
 // it under several usages wraps.
-var ErrAmbiguousAction = errors.New("ambiguous action")
+var errAmbiguousAction = errors.New("ambiguous action")
 
-// ErrPerformedInputs is the typed error inputs given for an action the object
+// errPerformedInputs is the typed error inputs given for an action the object
 // performs already wrap: its performance took the arguments its declaration binds.
-var ErrPerformedInputs = errors.New("inputs for a performed action")
+var errPerformedInputs = errors.New("inputs for a performed action")
 
 // performanceOf is the performance self runs of action's declaration, to run in
 // place of a second; nil when self performs none. The `in ref` parameters a
@@ -1932,35 +2033,110 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 	case 0:
 		return nil, nil
 	case 1:
-		conflicts := 0
-		for name, value := range inputs {
-			implicit := false
-			for _, param := range ctx.actionParametersOf(action) {
-				if param.Name != name || !param.IsReference {
-					continue
-				}
-				root := performed[0].Action.root
-				if bound, held := root.data[root.key(name)]; held {
-					implicit = ctx.valueEqual(bound, value)
-				} else {
-					implicit = value.Kind == ValInstance && value.Instance == self.ID
-				}
-				break
-			}
-			if !implicit {
-				conflicts++
-			}
+		if err := ctx.refusePerformedInputs(action, performed[0], inputs); err != nil {
+			return nil, err
 		}
-		if conflicts > 0 {
-			return nil, fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", ErrPerformedInputs, symbolText(action))
-		}
-		return performed[0].Action, nil
+		return ctx.PerformedExecutor(performed[0])
 	default:
 		if member := sameBehaviorMember(performed); member != nil {
-			return nil, fmt.Errorf("%w: the object performs %s %d times, under %s", ErrAmbiguousAction, symbolText(action), len(performed), member.Name)
+			return nil, fmt.Errorf("%w: the object performs %s %d times, under %s", errAmbiguousAction, SymbolText(action), len(performed), member.Name)
 		}
-		return nil, fmt.Errorf("%w: the object performs %s as %s", ErrAmbiguousAction, symbolText(action), strings.Join(behaviorUsages(performed), " and "))
+		return nil, fmt.Errorf("%w: the object performs %s as %s", errAmbiguousAction, SymbolText(action), strings.Join(behaviorUsages(performed), " and "))
 	}
+}
+
+// CheckPerformedInputs is refusePerformedInputs for a caller attaching to the
+// performance itself: inputs equal to the bindings the performance stored, or its
+// declaration states while it is held, pass; any other is refused.
+func (ctx *Context) CheckPerformedInputs(action *symbols.Symbol, behavior *ObjectBehavior, inputs map[string]Value) error {
+	return ctx.refusePerformedInputs(action, behavior, inputs)
+}
+
+// refusePerformedInputs refuses inputs for a performed action that are not the bindings
+// its declaration states, whether the performance has started or is still held.
+func (ctx *Context) refusePerformedInputs(action *symbols.Symbol, behavior *ObjectBehavior, inputs map[string]Value) error {
+	conflicts := 0
+	for name, value := range inputs {
+		implicit := false
+		for _, param := range ctx.actionParametersOf(action) {
+			if param.Name != name || !param.IsReference {
+				continue
+			}
+			implicit = value.Kind == ValInstance && value.Instance == behavior.Object.ID
+			bound, held, err := ctx.performedBinding(behavior, name)
+			if err != nil {
+				return err
+			}
+			if held {
+				// A reference binding is the one-element sequence a bare pin holds.
+				implicit = ctx.valueEqual(soleElement(bound), soleElement(value))
+			}
+			break
+		}
+		if !implicit {
+			conflicts++
+		}
+	}
+	if conflicts > 0 {
+		return fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", errPerformedInputs, SymbolText(action))
+	}
+	return nil
+}
+
+// performedBinding is the value a performance binds parameter name to: the one its
+// frame stores once started, else the one its declaration states while it is held.
+func (ctx *Context) performedBinding(behavior *ObjectBehavior, name string) (Value, bool, error) {
+	if behavior.Action != nil {
+		root := behavior.Action.root
+		bound, held := root.data[root.key(name)]
+		return bound, held, nil
+	}
+	if behavior.deferred == nil {
+		return Value{}, false, nil
+	}
+	return ctx.heldBinding(behavior, name)
+}
+
+// heldBinding evaluates the argument a held performance's declaration binds parameter
+// name with, in the performer's scope, as a probe: nothing the evaluation materializes
+// or starts outlives it, so the held performance is neither released nor rescheduled.
+// Outside a run it has a run's own budget, as the start it precedes would.
+func (ctx *Context) heldBinding(behavior *ObjectBehavior, name string) (Value, bool, error) {
+	decl := *behavior.deferred
+	scope := ctx.argumentScope(behavior.Object, decl)
+	for _, arg := range decl.behavior.Arguments {
+		if ctx.argumentParameter(scope, arg) != name {
+			continue
+		}
+		defer ctx.beginRun()()
+		defer ctx.beginProbe()()
+		value, err := ctx.classifierBehaviorArgument(behavior.Object, decl, scope, arg)
+		if err != nil {
+			return Value{}, false, err
+		}
+		return value, true, nil
+	}
+	return Value{}, false, nil
+}
+
+// PerformedExecutor is the executor of an action the object performs; one a succession
+// order holds back is started once the order admits it, as stateRunFor starts a held machine.
+func (ctx *Context) PerformedExecutor(behavior *ObjectBehavior) (*ActionExecutor, error) {
+	if behavior.deferred != nil {
+		if err := ctx.checkHeldBehaviorStart(behavior); err != nil {
+			return nil, err
+		}
+		if err := ctx.releaseDeferredBehavior(behavior); err != nil {
+			return nil, err
+		}
+	}
+	if behavior.Err != nil {
+		return nil, behavior.Err
+	}
+	if behavior.Action == nil {
+		return nil, fmt.Errorf("%s runs no action", behavior.Describe())
+	}
+	return behavior.Action, nil
 }
 
 // sameBehaviorMember is the usage every behavior is bound under when they
@@ -1998,12 +2174,35 @@ func exhibitedBy(stateMachine *symbols.Symbol, self *Instance) (*ObjectBehavior,
 	}
 	switch exhibited := self.ExhibitedStatesOf(stateMachine); len(exhibited) {
 	case 0:
-		return nil, nil
+		return exhibitedAs(stateMachine, self), nil
 	case 1:
 		return exhibited[0], nil
 	default:
-		return nil, fmt.Errorf("%w: the object exhibits %s as %s", ErrAmbiguousMachine, symbolText(stateMachine), strings.Join(behaviorUsages(exhibited), " and "))
+		return nil, fmt.Errorf("%w: the object exhibits %s as %s", errAmbiguousMachine, SymbolText(stateMachine), strings.Join(behaviorUsages(exhibited), " and "))
 	}
+}
+
+// exhibitedAs is the exhibited state whose performance self is the occurrence of,
+// nil when self is none: `tug.fdir` names the machine tug performs (SysML v2
+// §7.18.4, the exhibiting part is the exhibited state's performer), not a second performer.
+func exhibitedAs(stateMachine *symbols.Symbol, self *Instance) *ObjectBehavior {
+	owner := self.owner
+	if owner == nil {
+		return nil
+	}
+	fv, ok := owner.FeatureValues[self.ownerFeature]
+	if !ok || fv.Feature == nil {
+		return nil
+	}
+	for _, behavior := range owner.ExhibitedStatesOf(stateMachine) {
+		if behavior.member != fv.Feature.Symbol {
+			continue
+		}
+		if behavior.State == nil || behavior.State.occurrence == self {
+			return behavior
+		}
+	}
+	return nil
 }
 
 func (ctx *Context) checkStateSuccessionOrder(stateMachine *symbols.Symbol, self *Instance, behavior *ObjectBehavior) error {
@@ -2029,7 +2228,7 @@ func (ctx *Context) stateRunFor(stateMachine *symbols.Symbol, self *Instance, to
 		return behavior.State, true, nil
 	}
 	if behavior != nil && behavior.deferred != nil {
-		if err := ctx.checkStateSuccessionOrder(stateMachine, self, behavior); err != nil {
+		if err := ctx.checkStateSuccessionOrder(stateMachine, behavior.Object, behavior); err != nil {
 			return nil, true, err
 		}
 		if err := ctx.releaseDeferredBehavior(behavior); err != nil {
@@ -2138,6 +2337,20 @@ func (ctx *Context) CreateActionExecutorWithInputs(action *symbols.Symbol, self 
 	return exec, nil
 }
 
+// StartActionPerformedBy is CreateActionExecutorWithInputs binding to the performance self
+// already runs of the action as performanceOf does; reused marks it, not the caller's to release.
+func (ctx *Context) StartActionPerformedBy(action *symbols.Symbol, self *Instance, inputs map[string]Value) (exec *ActionExecutor, reused bool, err error) {
+	exec, err = ctx.performanceOf(action, self, inputs)
+	if err != nil {
+		return nil, false, err
+	}
+	if exec != nil {
+		return exec, true, nil
+	}
+	exec, err = ctx.CreateActionExecutorWithInputs(action, self, inputs)
+	return exec, false, err
+}
+
 // CreateStateExecutor creates a state executor without starting execution.
 // For REPL debugging - allows step-by-step execution control.
 func (ctx *Context) CreateStateExecutor(stateMachine *symbols.Symbol) (*StateExecutor, error) {
@@ -2167,4 +2380,22 @@ func (ctx *Context) CreateStateExecutorFor(stateMachine *symbols.Symbol, self *I
 		return nil, err
 	}
 	return exec, nil
+}
+
+// StartStatePerformedBy is CreateStateExecutorFor binding to the machine self already
+// exhibits as stateRunFor does; reused marks it, not the caller's to release.
+func (ctx *Context) StartStatePerformedBy(stateMachine *symbols.Symbol, self *Instance) (exec *StateExecutor, reused bool, err error) {
+	if self != nil {
+		if err := ctx.checkPerformer(self); err != nil {
+			return nil, false, err
+		}
+	}
+	exec, reused, err = ctx.stateRunFor(stateMachine, self, true)
+	if err != nil {
+		if exec != nil && !reused {
+			exec.Release()
+		}
+		return nil, false, err
+	}
+	return exec, reused, nil
 }

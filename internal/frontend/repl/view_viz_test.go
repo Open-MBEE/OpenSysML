@@ -70,7 +70,7 @@ func TestVizChoosesTheKindTheElementsCallFor(t *testing.T) {
 
 func TestVizDrawsSeveralNamesInOneRendering(t *testing.T) {
 	s := vizSession(t)
-	got := run(t, s, "%viz P::Lamp P::Start")
+	got := run(t, s, "%viz show=qualifiers P::Lamp P::Start")
 	wants(t, got, "rendering P::Lamp, P::Start directly", "state def P::Lamp", "action def P::Start", "off -> on", "a -> b")
 }
 
@@ -103,7 +103,9 @@ func TestVizTakesAFormWhereverItStands(t *testing.T) {
 	wants(t, run(t, s, "%viz --style PUMLCODE P::car"), "@startuml")
 	wants(t, run(t, s, "%viz --style pumlcode plantuml P::car"), "@startuml")
 	// A quoted word is a name, not a form.
-	wants(t, run(t, s, "%viz 'text'"), "tree rendering", "part P::text")
+	wants(t, run(t, s, "%viz show=qualifiers 'text'"), "tree rendering", "part P::text")
+	wants(t, run(t, s, "%viz 'text'"), "tree rendering", "\npart text")
+	wants(t, run(t, s, "%viz show=boxes 'text'"), `unknown notation element "boxes"`, "parameter-symbols", vizUsage)
 	if got := run(t, s, "%viz text P::Car"); !strings.HasPrefix(got, "tree rendering") {
 		t.Errorf("the text form drew %q", strings.SplitN(got, "\n", 2)[0])
 	}
@@ -123,13 +125,55 @@ func TestVizMapsTheStylesItDraws(t *testing.T) {
 
 func TestVizNotesThePilotStylesItDoesNotDraw(t *testing.T) {
 	s := vizSession(t)
-	got := run(t, s, "%viz --style ortholine --style LR --style ShowInherited --style ORTHOLINE P::Car")
-	wants(t, got, "tree rendering", "not represented:", "style ORTHOLINE (orthogonal line style) is not drawn", "style SHOWINHERITED (show inherited members) is not drawn")
-	if strings.Count(got, "ORTHOLINE") != 1 {
+	got := run(t, s, "%viz --style showlib --style LR --style ShowInherited --style SHOWLIB P::Car")
+	wants(t, got, "tree rendering", "not represented:", "style SHOWLIB (show elements of the standard libraries) is not drawn", "style SHOWINHERITED (show inherited members) is not drawn")
+	if strings.Count(got, "SHOWLIB") != 1 {
 		t.Errorf("a style given twice is noted once:\n%s", got)
 	}
-	wants(t, run(t, s, "%viz --style polyline mermaid P::Car"), "%% not represented: style POLYLINE (polyline style) is not drawn", "flowchart")
-	wants(t, run(t, s, "%viz --style compmost dot P::Car"), "// not represented: style COMPMOST")
+}
+
+// The pilot's COMPMOST and COMPTREE styles fold a tree's owned members into
+// compartment rows of their owner: COMPMOST every usage, COMPTREE the ports,
+// and both together COMPMOST, which folds what COMPTREE folds and more.
+func TestVizDrawsTheCompartmentStyles(t *testing.T) {
+	s := vizSession(t)
+	got := run(t, s, "%viz --style compmost dot P::Car")
+	if strings.Contains(got, "not represented: style") {
+		t.Errorf("COMPMOST is drawn, not noted:\n%s", got)
+	}
+	wants(t, got, "parts</font>", "fl : Wheel<br/>fr : Wheel", "drawn as compartment rows of their owner")
+	if strings.Count(got, "[label=") != 1 {
+		t.Errorf("COMPMOST folds Car's parts into one node:\n%s", got)
+	}
+	got = run(t, s, "%viz --style COMPTREE --style comptree P::Car")
+	if strings.Contains(got, "not represented") || !strings.Contains(got, "  part fl") {
+		t.Errorf("COMPTREE folds only ports, leaving Car's parts as nodes with nothing noted:\n%s", got)
+	}
+	for _, styles := range []string{"--style COMPTREE --style COMPMOST", "--style compmost --style comptree"} {
+		wants(t, run(t, s, "%viz "+styles+" P::Car"), "parts", "fl : P::Wheel", "fr : P::Wheel")
+	}
+	wants(t, run(t, s, "%viz --style=COMPMOST --style ORTHOLINE plantuml P::Car"), "fl : Wheel", "skinparam linetype ortho")
+}
+
+// The pilot's ORTHOLINE and POLYLINE styles route the DOT and PlantUML edges
+// rather than being noted: `splines=ortho|polyline` on the DOT graph and
+// `skinparam linetype ortho|polyline` in PlantUML, in any letter case and
+// given twice once; a form that routes no edge notes the routing, and two
+// routings at once are refused.
+func TestVizDrawsThePilotLineStyles(t *testing.T) {
+	s := vizSession(t)
+	got := run(t, s, "%viz --style ortholine --style ORTHOLINE dot P::Car")
+	wants(t, got, "splines=ortho")
+	if strings.Contains(got, "not represented") {
+		t.Errorf("ORTHOLINE is drawn, not noted:\n%s", got)
+	}
+	wants(t, run(t, s, "%viz --style polyline plantuml P::Car"), "skinparam linetype polyline")
+	wants(t, run(t, s, "%viz --style POLYLINE dot P::Car"), "splines=polyline")
+	if got := run(t, s, "%viz --style ortholine dot P::Car"); !strings.Contains(got, "splines=ortho") || strings.Contains(got, "splines=polyline") {
+		t.Errorf("ORTHOLINE routes orthogonally:\n%s", got)
+	}
+	wants(t, run(t, s, "%viz --style polyline mermaid P::Car"), "%% not represented: lines polyline; mermaid routes no edge itself, the dot and plantuml forms do", "flowchart")
+	wants(t, run(t, s, "%viz --style ortholine --style polyline dot P::Car"), errPrefix+"style POLYLINE asks for polyline lines, but ortho lines were asked for", vizUsage)
 }
 
 func TestVizMisuseShowsUsage(t *testing.T) {

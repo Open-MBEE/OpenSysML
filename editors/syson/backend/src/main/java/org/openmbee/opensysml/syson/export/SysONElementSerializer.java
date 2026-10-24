@@ -9,7 +9,6 @@ import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.syson.sysml.Element;
 import org.eclipse.syson.sysml.impl.MembershipCacheAdapter;
-import org.eclipse.syson.sysml.metamodel.services.textual.SysMLElementSerializer;
 import org.eclipse.syson.sysml.metamodel.services.textual.SysMLSerializingOptions;
 import org.eclipse.syson.sysml.metamodel.services.textual.utils.FileNameDeresolver;
 import org.eclipse.syson.sysml.metamodel.services.textual.utils.Status;
@@ -37,7 +36,7 @@ public class SysONElementSerializer implements ElementSerializer {
     }
 
     // Records each visited Element's serialized text so callers can map it to line ranges.
-    private static final class RecordingSerializer extends SysMLElementSerializer {
+    private static final class RecordingSerializer extends CalculationSerializer {
         private final Map<EObject, String> fragments = new IdentityHashMap<>();
 
         RecordingSerializer(SysMLSerializingOptions options, Consumer<Status> report) {

@@ -72,7 +72,14 @@
         "y",
         "width",
         "height",
-        "collapsed"
+        "collapsed",
+        "showAttributes",
+        "showParts",
+        "showReferences",
+        "showPorts",
+        "showConstraints",
+        "showItems",
+        "showActions"
       ],
       "migratorEmitted": true,
       "consumers": [
@@ -139,9 +146,17 @@
       "name": "DiagramLayout::Route",
       "kind": "metadata",
       "attributes": [
-        "points"
+        "points",
+        "general"
       ],
       "migratorEmitted": true,
+      "consumers": [
+        "internal/semantic/semantics/layout.go"
+      ]
+    },
+    {
+      "name": "DiagramLayout::Route::general",
+      "kind": "element",
       "consumers": [
         "internal/semantic/semantics/layout.go"
       ]
@@ -631,6 +646,20 @@
       "name": "MigrationMetadata",
       "kind": "package",
       "consumers": []
+    },
+    {
+      "name": "MigrationMetadata::AppliedStereotype",
+      "kind": "metadata",
+      "attributes": [
+        "stereotype",
+        "profile",
+        "tags"
+      ],
+      "migratorEmitted": true,
+      "consumers": [
+        "internal/semantic/semantics/synthesized_name.go",
+        "internal/translate/migrate/migrate.go"
+      ]
     },
     {
       "name": "MigrationMetadata::DeferredEvent",

@@ -53,7 +53,7 @@ package Vehicles {
         }
     }
 
-    calc def Doubled { in x : Real; return : Real = x * 2.0; }
+    calc def Doubled { in x : Real; return : Real[1] = x * 2.0; }
 }
 "#;
 

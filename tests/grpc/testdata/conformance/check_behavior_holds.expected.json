@@ -1,0 +1,10 @@
+{
+  "rpc": "CheckBehavior",
+  "symbol_id": "Plant::Tank::fill",
+  "performer_symbol_id": "Plant::tank",
+  "check_property": ["Plant::Tank::capped"],
+  "check_diverge": ["this.capacity"],
+  "expected_verdict": "holds",
+  "expected_violations": [],
+  "expected_divergences": {}
+}

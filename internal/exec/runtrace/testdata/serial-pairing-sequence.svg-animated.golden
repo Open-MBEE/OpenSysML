@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="998" height="204" viewBox="0 0 998 204" font-family="Helvetica, Arial, sans-serif" font-size="12">
+<title>sequence of a run to t = 2 (animated)</title>
+<desc>the trace of a run to t = 2</desc>
+<rect width="998" height="204" fill="#ffffff"/>
+<text x="16" y="28" font-weight="bold">sequence of a run to t = 2 (animated)</text>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#333333"/></marker></defs>
+<g id="n0">
+<line x1="177" y1="88" x2="177" y2="188" stroke="#999999" stroke-dasharray="4 3"/>
+<rect x="23" y="52" width="308" height="36" rx="3" fill="#eef3f8" stroke="#3b6ea5"/><text x="177" y="75" text-anchor="middle">SerialPairing::mission.alpha : alpha</text>
+</g>
+<g id="n1">
+<line x1="499" y1="88" x2="499" y2="188" stroke="#999999" stroke-dasharray="4 3"/>
+<rect x="345" y="52" width="308" height="36" rx="3" fill="#eef3f8" stroke="#3b6ea5"/><text x="499" y="75" text-anchor="middle">SerialPairing::mission.receiver : Receiver</text>
+</g>
+<g id="n2">
+<line x1="821" y1="88" x2="821" y2="188" stroke="#999999" stroke-dasharray="4 3"/>
+<rect x="667" y="52" width="308" height="36" rx="3" fill="#eef3f8" stroke="#3b6ea5"/><text x="821" y="75" text-anchor="middle">SerialPairing::mission.beta : beta</text>
+</g>
+<g id="m0"><title>t=0 Ping (seq = 1) (not accepted)</title><line x1="177" y1="128" x2="499" y2="128" stroke="#333333" marker-end="url(#arrow)"/><text x="338" y="123" text-anchor="middle">t=0 Ping (seq = 1) (not accepted)</text><circle cx="499" cy="128" r="4" fill="#c0392b" opacity="0"><animate attributeName="cx" values="177;499;499" keyTimes="0;0.3333;1" dur="3s" repeatCount="indefinite"/><animate attributeName="cy" values="128;128;128" keyTimes="0;0.3333;1" dur="3s" repeatCount="indefinite"/><animate attributeName="opacity" calcMode="discrete" values="1;0" keyTimes="0;0.3333" dur="3s" repeatCount="indefinite"/></circle></g>
+<g id="m1"><title>t=1 Ping (seq = 2)</title><line x1="821" y1="168" x2="499" y2="168" stroke="#333333" marker-end="url(#arrow)"/><text x="660" y="163" text-anchor="middle">t=1 Ping (seq = 2)</text><animate attributeName="opacity" calcMode="discrete" values="0;1" keyTimes="0;0.3333" dur="3s" repeatCount="indefinite"/><circle cx="499" cy="168" r="4" fill="#c0392b" opacity="0"><animate attributeName="cx" values="821;821;499;499" keyTimes="0;0.3333;0.6667;1" dur="3s" repeatCount="indefinite"/><animate attributeName="cy" values="168;168;168;168" keyTimes="0;0.3333;0.6667;1" dur="3s" repeatCount="indefinite"/><animate attributeName="opacity" calcMode="discrete" values="0;1;0" keyTimes="0;0.3333;0.6667" dur="3s" repeatCount="indefinite"/></circle></g>
+</svg>

@@ -1,6 +1,6 @@
 MachineViews::vehicleStates - state rendering (view def StateTransitionView)
 
-state def Machines::VehicleStates
+state def VehicleStates
   start
   state off (initial)
   state operating
@@ -9,7 +9,7 @@ state def Machines::VehicleStates
     state moving
 
 transitions:
-  start of Machines::VehicleStates -> off
+  start of VehicleStates -> off
   start of operating -> idle
   off -> operating
   operating -> off

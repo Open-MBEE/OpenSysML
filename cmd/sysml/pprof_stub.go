@@ -1,4 +1,4 @@
-//go:build sysml_prod || sysml_noprofile
+//go:build sysml_re || sysml_noprofile
 
 package main
 

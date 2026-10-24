@@ -3,6 +3,7 @@ package org.openmbee.opensysml.syson;
 import org.openmbee.opensysml.Connection;
 import org.openmbee.opensysml.syson.export.ElementSerializer;
 import org.openmbee.opensysml.syson.export.ProjectTextExporter;
+import org.openmbee.opensysml.syson.export.ServiceLibraries;
 import org.eclipse.sirius.components.core.api.IIdentityService;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -21,7 +22,8 @@ public class OpenSysMLAutoConfiguration {
     }
 
     @Bean
-    public ProjectTextExporter projectTextExporter(ElementSerializer serializer, IIdentityService identityService) {
-        return new ProjectTextExporter(serializer, identityService);
+    public ProjectTextExporter projectTextExporter(ElementSerializer serializer, IIdentityService identityService,
+            Connection connection) {
+        return new ProjectTextExporter(serializer, identityService, new ServiceLibraries(connection));
     }
 }

@@ -1,4 +1,4 @@
-//go:build sysml_prod || sysml_nosync
+//go:build sysml_re || sysml_nosync
 
 package main
 
@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
 // syncTokenEnv is unnamed: the help leaves the section naming it out.
@@ -47,3 +48,6 @@ func namesRepository(path string) bool {
 	scheme, _, ok := strings.Cut(path, "://")
 	return ok && slices.Contains([]string{"flexo", "http", "https"}, scheme)
 }
+
+// pushLibrary refuses to publish the library: no repository is linked.
+func pushLibrary(*rdf.Graph, convert.Format, int) (int, error) { return 0, errSyncNotLinked }

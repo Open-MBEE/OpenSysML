@@ -1,0 +1,14 @@
+{
+  "type": "instance",
+  "instantiate": "test::wedge",
+  "libraries": true,
+  "slots": {
+    "width": {"type": "Real", "value": 4.0},
+    "rf.width": {"error": "cyclic feature value dependency: rf.width"},
+    "rf.depth": {"error": "cyclic feature value dependency: rf.width"},
+    "edge.length": {"error": "cyclic feature value dependency: rf.width"}
+  },
+  "materialization": {
+    "errors": ["feature value rf.width: cyclic feature value dependency: rf.width"]
+  }
+}

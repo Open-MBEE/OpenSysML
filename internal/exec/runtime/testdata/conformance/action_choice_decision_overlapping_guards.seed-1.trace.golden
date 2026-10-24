@@ -5,7 +5,7 @@ eval operator > -> true
   eval feature level -> 75
   eval literal 70 -> 70
 eval operator > -> true
-choice step 2: decision select branches 1->warn, 2->alarm hold (unordered; took 2->alarm)
+choice step 2: decision select branches 1->warn, 2->alarm hold (unordered; took 2->alarm; order-dependent: handler)
 step 2: token 1@alarm
 stmt assign handler
   eval literal 2 -> 2

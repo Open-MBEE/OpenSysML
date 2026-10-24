@@ -1,221 +1,222 @@
-package Plant {
-    item def Start;
-    part def Pump {
-        doc /* Moves the coolant. */
-        state def Modes {
-            view 'Pump Modes' : StandardViewDefinitions::StateTransitionView {
-                expose Modes;
-                @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
-                metadata DiagramLayout::Layout about Plant::Pump::Modes::Idle { x = 40; y = 100; width = 120; height = 50; }
-                metadata DiagramLayout::Layout about Plant::Pump::Modes::Running { x = 260; y = 100; width = 120; height = 50; }
-                metadata DiagramLayout::Route about 'start then Idle' { points = (68, 56, 68, 100); }
-                metadata DiagramLayout::Route about 'Idle accept Start then Running' { points = (160, 125, 210, 125, 210, 130, 260, 130); }
-                @DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 20; y = 20; width = 400; height = 300; }
-                @DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 350; y = 120; width = 40; height = 40; above = true; }
-                metadata DiagramLayout::Style about Plant::Pump::Modes::Idle { fill = "#E1E1C3"; line = "#99995C"; text = "#000000"; font = "Arial"; fontSize = 11; bold = true; }
-                metadata DiagramLayout::Note about Plant::Pump::Modes::Idle { text = "Moves the coolant."; x = 40; y = 200; width = 150; height = 40; }
-                metadata DiagramLayout::Note about 'Idle accept Start then Running' { text = "On demand."; x = 180; y = 40; width = 100; height = 30; }
-                @DiagramLayout::Note { text = "Draft only"; x = 600; y = 20; width = 80; height = 12; }
-                render Views::asInterconnectionDiagram;
+package Model {
+    package Plant {
+        item def Start;
+        part def Pump {
+            doc /* Moves the coolant. */
+            state def Modes {
+                view 'Pump Modes' : StandardViewDefinitions::StateTransitionView {
+                    expose Modes;
+                    @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+                    metadata DiagramLayout::Layout about Modes::start { x = 60; y = 40; width = 16; height = 16; }
+                    metadata DiagramLayout::Layout about Plant::Pump::Modes::Idle { x = 40; y = 100; width = 120; height = 50; }
+                    metadata DiagramLayout::Layout about Plant::Pump::Modes::Running { x = 260; y = 100; width = 120; height = 50; }
+                    metadata DiagramLayout::Route about 'start then Idle' { points = (68, 56, 68, 100); }
+                    metadata DiagramLayout::Route about 'Idle accept Start then Running' { points = (160, 125, 210, 125, 210, 130, 260, 130); }
+                    @DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 20; y = 20; width = 400; height = 300; }
+                    @DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 350; y = 120; width = 40; height = 40; above = true; }
+                    metadata DiagramLayout::Style about Plant::Pump::Modes::Idle { fill = "#E1E1C3"; line = "#99995C"; text = "#000000"; font = "Arial"; fontSize = 11; bold = true; }
+                    metadata DiagramLayout::Note about Plant::Pump::Modes::Idle { text = "Moves the coolant."; x = 40; y = 200; width = 150; height = 40; }
+                    metadata DiagramLayout::Note about 'Idle accept Start then Running' { text = "On demand."; x = 180; y = 40; width = 100; height = 30; }
+                    @DiagramLayout::Note { text = "Draft only"; x = 600; y = 20; width = 80; height = 12; }
+                    render Views::asInterconnectionDiagram;
+                }
+                transition 'start then Idle' first start then Idle;
+                state Idle;
+                state Running;
+                transition 'Idle accept Start then Running' first Idle accept Start then Running;
+                metadata MigrationMetadata::SynthesizedName about 'start then Idle', 'Idle accept Start then Running';
             }
-            transition 'start then Idle' first start then Idle;
-            state Idle;
-            state Running;
-            transition 'Idle accept Start then Running' first Idle accept Start then Running;
-            metadata MigrationMetadata::SynthesizedName about 'start then Idle', 'Idle accept Start then Running';
-        }
-        action def Prime {
-            view Priming : StandardViewDefinitions::ActionFlowView {
-                expose Prime;
-                render Views::asInterconnectionDiagram;
-            }
-            first start then Fill;
-            action Fill {
-                /* body not migrated (the body is empty) */
-            }
-            first Fill then Vent;
-            action Vent {
-                /* body not migrated (the body is empty) */
-            }
-            first Vent then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
-        }
-    }
-    part def Tank;
-    view Blank {
-        @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
-        render Views::asTreeDiagram;
-    }
-    view Poster {
-        @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
-        @DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 40; y = 40; width = 300; height = 200; alt = "Plant from the north"; }
-        @DiagramLayout::Note { text = "The plant from the north"; x = 40; y = 260; width = 300; height = 40; }
-        render Views::asTreeDiagram;
-    }
-    view Unlisted {
-        expose Tank;
-        expose Pump;
-        @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
-        metadata DiagramLayout::Layout about Tank { x = 100; y = 100; width = 120; height = 60; }
-        render Views::asTreeDiagram;
-    }
-    view Silent {
-        render Views::asTreeDiagram;
-    }
-    view Stale {
-        expose Tank;
-        @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
-        metadata DiagramLayout::Layout about Tank { x = 100; y = 100; width = 120; height = 60; }
-        render Views::asTreeDiagram;
-    }
-    view Roster {
-        expose Tank;
-        @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
-        metadata DiagramLayout::Layout about Tank { x = 20; y = 20; width = 200; height = 30; }
-        @DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 300; y = 20; width = 120; height = 80; }
-        render Views::asElementTable;
-    }
-    view Partial {
-        expose Tank;
-        expose Pump;
-        @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
-        metadata DiagramLayout::Layout about Tank { x = 100; y = 100; width = 120; height = 60; }
-        metadata DiagramLayout::Layout about Pump { x = 300; y = 100; width = 120; height = 60; }
-        render Views::asTreeDiagram;
-    }
-}
-package 'Plant Viewpoints' {
-    view def 'Figures Viewpoint' {
-        viewpoint 'figures Viewpoint' {
-            subject;
-        }
-        satisfy 'figures Viewpoint';
-        action def 'Figures Method' {
-            first start then Image;
-            action Image;
-            first Image then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
-        }
-        perform action 'figures Method' : 'Figures Method';
-        metadata MigrationMetadata::SynthesizedName about 'figures Viewpoint';
-    }
-    view def 'Pictures Viewpoint' {
-        viewpoint 'pictures Viewpoint' {
-            subject;
-        }
-        satisfy 'pictures Viewpoint';
-        action def 'Pictures Method' {
-            first start then Image;
-            action Image;
-            first Image then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
-        }
-        perform action 'pictures Method' : 'Pictures Method';
-        metadata MigrationMetadata::SynthesizedName about 'pictures Viewpoint';
-    }
-    view def 'Shown Viewpoint' {
-        viewpoint 'shown Viewpoint' {
-            subject;
-        }
-        satisfy 'shown Viewpoint';
-        action def 'Shown Method' {
-            first start then 'Collect Things On Diagram';
-            action 'Collect Things On Diagram';
-            first 'Collect Things On Diagram' then 'Shown Blocks';
-            action 'Shown Blocks' {
-                first start then Name;
-                action Name;
-            }
-            first 'Shown Blocks' then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
-        }
-        perform action 'shown Method' : 'Shown Method';
-        metadata MigrationMetadata::SynthesizedName about 'shown Viewpoint';
-    }
-}
-package 'Plant Documents' {
-    occurrence def 'Plant Handbook' {
-        view behaviors :> Behaviors;
-        view pictures :> Pictures;
-        view shown :> Shown;
-        /* applied stereotype «Document» */
-    }
-    view Behaviors : 'Plant Viewpoints'::'Figures Viewpoint' {
-        expose Plant::Pump::Modes::'Pump Modes';
-        expose Plant::Pump::Prime::Priming;
-    }
-    view Pictures : 'Plant Viewpoints'::'Pictures Viewpoint' {
-        expose Plant::Blank;
-        expose Plant::Poster;
-        expose Plant::Unlisted;
-        expose Plant::Silent;
-        expose Plant::Stale;
-        expose Plant::Roster;
-    }
-    view Shown : 'Plant Viewpoints'::'Shown Viewpoint' {
-        expose Plant::Partial;
-        expose Plant::Unlisted;
-    }
-    calc def 'Plant Handbook Shown Blocks Rows' :> DocumentQueries::Query {
-        DocumentQueries::Project(
-            source = DocumentQueries::Named(qualifiedName = ("Plant::Tank", "Plant::Pump")),
-            properties = ("name"))
-    }
-    part def 'Plant Handbook Document' :> DocumentQueries::Document {
-        attribute redefines title = "Plant Handbook";
-        ref modes : Plant::Pump::Modes;
-        ref prime : Plant::Pump::Prime;
-        part Behaviors : DocumentQueries::Section {
-            attribute redefines title = "Behaviors";
-            part diagram : DocumentQueries::Diagram {
-                attribute redefines caption = "Pump Modes";
-                ref redefines source = modes.'Pump Modes';
-            }
-            part paragraph : DocumentQueries::Paragraph {
-                attribute redefines text = "How the pump behaves";
-            }
-            part 'diagram 2' : DocumentQueries::Diagram {
-                attribute redefines caption = "Priming";
-                ref redefines source = prime.Priming;
-            }
-            part 'paragraph 2' : DocumentQueries::Paragraph {
-                attribute redefines text = "How the pump is primed";
+            action def Prime {
+                view Priming : StandardViewDefinitions::ActionFlowView {
+                    expose Prime;
+                    render Views::asInterconnectionDiagram;
+                }
+                first start then Fill;
+                action Fill;
+                first Fill then Vent;
+                action Vent;
+                first Vent then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
             }
         }
-        part Pictures : DocumentQueries::Section {
-            attribute redefines title = "Pictures";
-            part paragraph : DocumentQueries::Paragraph {
-                attribute redefines text = "Nothing to see";
+        part def Tank;
+        view Blank {
+            @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+            render Views::asTreeDiagram;
+        }
+        view Poster {
+            @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+            @DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 40; y = 40; width = 300; height = 200; alt = "Plant from the north"; }
+            @DiagramLayout::Note { text = "The plant from the north"; x = 40; y = 260; width = 300; height = 40; }
+            render Views::asTreeDiagram;
+        }
+        view Unlisted {
+            expose Tank;
+            expose Pump;
+            @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+            metadata DiagramLayout::Layout about Tank { x = 100; y = 100; width = 120; height = 60; }
+            render Views::asTreeDiagram;
+        }
+        view Silent {
+            render Views::asTreeDiagram;
+        }
+        view Stale {
+            expose Tank;
+            @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+            metadata DiagramLayout::Layout about Tank { x = 100; y = 100; width = 120; height = 60; }
+            render Views::asTreeDiagram;
+        }
+        view Roster {
+            expose Tank;
+            @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+            metadata DiagramLayout::Layout about Tank { x = 20; y = 20; width = 200; height = 30; }
+            @DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 300; y = 20; width = 120; height = 80; }
+            render Views::asElementTable;
+        }
+        view Partial {
+            expose Tank;
+            expose Pump;
+            @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+            metadata DiagramLayout::Layout about Tank { x = 100; y = 100; width = 120; height = 60; }
+            metadata DiagramLayout::Layout about Pump { x = 300; y = 100; width = 120; height = 60; }
+            render Views::asTreeDiagram;
+        }
+    }
+    package 'Plant Viewpoints' {
+        view def 'Figures Viewpoint' {
+            viewpoint 'figures Viewpoint' {
+                subject;
             }
-            part diagram : DocumentQueries::Diagram {
-                attribute redefines caption = "Poster";
-                ref redefines source = Plant::Poster;
+            satisfy 'figures Viewpoint';
+            action def 'Figures Method' {
+                first start then Image;
+                action Image;
+                first Image then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
             }
-            part 'paragraph 2' : DocumentQueries::Paragraph {
-                attribute redefines text = "The plant, photographed";
+            perform action 'figures Method' : 'Figures Method';
+            metadata MigrationMetadata::SynthesizedName about 'figures Viewpoint';
+        }
+        view def 'Pictures Viewpoint' {
+            viewpoint 'pictures Viewpoint' {
+                subject;
             }
-            part 'diagram 2' : DocumentQueries::Diagram {
-                attribute redefines caption = "Unlisted";
-                ref redefines source = Plant::Unlisted;
+            satisfy 'pictures Viewpoint';
+            action def 'Pictures Method' {
+                first start then Image;
+                action Image;
+                first Image then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
             }
-            part 'diagram 3' : DocumentQueries::Diagram {
-                attribute redefines caption = "Stale";
-                ref redefines source = Plant::Stale;
+            perform action 'pictures Method' : 'Pictures Method';
+            metadata MigrationMetadata::SynthesizedName about 'pictures Viewpoint';
+        }
+        view def 'Shown Viewpoint' {
+            viewpoint 'shown Viewpoint' {
+                subject;
             }
-            part 'diagram 4' : DocumentQueries::Diagram {
-                attribute redefines caption = "Roster";
-                ref redefines source = Plant::Roster;
+            satisfy 'shown Viewpoint';
+            action def 'Shown Method' {
+                first start then 'Collect Things On Diagram';
+                action 'Collect Things On Diagram';
+                first 'Collect Things On Diagram' then 'Shown Blocks';
+                action 'Shown Blocks' {
+                    first start then Name;
+                    action Name;
+                }
+                first 'Shown Blocks' then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
+            }
+            perform action 'shown Method' : 'Shown Method';
+            metadata MigrationMetadata::SynthesizedName about 'shown Viewpoint';
+        }
+    }
+    package 'Plant Documents' {
+        occurrence def 'Plant Handbook' {
+            view behaviors :> Behaviors;
+            view pictures :> Pictures;
+            view shown :> Shown;
+            @MigrationMetadata::AppliedStereotype {
+                stereotype = "Document";
             }
         }
-        part Shown : DocumentQueries::Section {
-            attribute redefines title = "Shown";
-            part table : DocumentQueries::Table {
-                attribute redefines caption = "Shown Blocks";
-                calc rows : 'Plant Handbook Shown Blocks Rows';
+        view Behaviors : 'Plant Viewpoints'::'Figures Viewpoint' {
+            expose Plant::Pump::Modes::'Pump Modes';
+            expose Plant::Pump::Prime::Priming;
+        }
+        view Pictures : 'Plant Viewpoints'::'Pictures Viewpoint' {
+            expose Plant::Blank;
+            expose Plant::Poster;
+            expose Plant::Unlisted;
+            expose Plant::Silent;
+            expose Plant::Stale;
+            expose Plant::Roster;
+        }
+        view Shown : 'Plant Viewpoints'::'Shown Viewpoint' {
+            expose Plant::Partial;
+            expose Plant::Unlisted;
+        }
+        calc def 'Plant Handbook Shown Blocks Rows' :> DocumentQueries::Query {
+            DocumentQueries::Project(
+                source = DocumentQueries::Named(qualifiedName = ("Model::Plant::Tank", "Model::Plant::Pump")),
+                properties = ("name"))
+        }
+        part def 'Plant Handbook Document' :> DocumentQueries::Document {
+            attribute redefines title = "Plant Handbook";
+            ref modes : Plant::Pump::Modes;
+            ref prime : Plant::Pump::Prime;
+            part Behaviors : DocumentQueries::Section {
+                attribute redefines title = "Behaviors";
+                part diagram : DocumentQueries::Diagram {
+                    attribute redefines caption = "Pump Modes";
+                    ref redefines source = modes.'Pump Modes';
+                }
+                part paragraph : DocumentQueries::Paragraph {
+                    attribute redefines text = "How the pump behaves";
+                }
+                part 'diagram 2' : DocumentQueries::Diagram {
+                    attribute redefines caption = "Priming";
+                    ref redefines source = prime.Priming;
+                }
+                part 'paragraph 2' : DocumentQueries::Paragraph {
+                    attribute redefines text = "How the pump is primed";
+                }
+            }
+            part Pictures : DocumentQueries::Section {
+                attribute redefines title = "Pictures";
+                part paragraph : DocumentQueries::Paragraph {
+                    attribute redefines text = "Nothing to see";
+                }
+                part diagram : DocumentQueries::Diagram {
+                    attribute redefines caption = "Poster";
+                    ref redefines source = Plant::Poster;
+                }
+                part 'paragraph 2' : DocumentQueries::Paragraph {
+                    attribute redefines text = "The plant, photographed";
+                }
+                part 'diagram 2' : DocumentQueries::Diagram {
+                    attribute redefines caption = "Unlisted";
+                    ref redefines source = Plant::Unlisted;
+                }
+                part 'diagram 3' : DocumentQueries::Diagram {
+                    attribute redefines caption = "Stale";
+                    ref redefines source = Plant::Stale;
+                }
+                part 'diagram 4' : DocumentQueries::Diagram {
+                    attribute redefines caption = "Roster";
+                    ref redefines source = Plant::Roster;
+                }
+            }
+            part Shown : DocumentQueries::Section {
+                attribute redefines title = "Shown";
+                part table : DocumentQueries::Table {
+                    attribute redefines caption = "Shown Blocks";
+                    calc rows : 'Plant Handbook Shown Blocks Rows';
+                }
             }
         }
     }

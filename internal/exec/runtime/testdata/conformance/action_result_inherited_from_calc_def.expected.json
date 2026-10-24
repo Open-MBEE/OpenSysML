@@ -2,6 +2,6 @@
   "type": "action",
   "evaluate": "test::Compute",
   "outputs": {
-    "r": {"type": "Integer", "value": 42}
+    "r": {"type": "Sequence", "elements": [{"type": "Integer", "value": 42}]}
   }
 }

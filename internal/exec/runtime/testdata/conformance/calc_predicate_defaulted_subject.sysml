@@ -8,24 +8,21 @@ package test {
 	part def Widget { attribute m : Real; }
 	part light : Widget { attribute :>> m = 1.0; }
 	part heavy : Widget { attribute :>> m = 9.0; }
-	package A {
-		requirement def Light {
+	package Lights {
+		requirement def <LA> Light {
 			subject w : Widget default = light;
 			in limit : Real default = 5.0;
 			require constraint { w.m < limit }
 		}
-	}
-	package B {
-		requirement def Light {
+		requirement def <LB> Light {
 			subject w : Widget;
 			in limit : Real;
 			in slack : Real;
 			require constraint { w.m < limit + slack }
 		}
 	}
-	private import A::*;
-	private import B::*;
-	requirement lightEnough : A::Light { subject :>> w; in :>> limit = 0.5; }
+	private import Lights::*;
+	requirement lightEnough : Lights::LA { subject :>> w; in :>> limit = 0.5; }
 	calc picks {
 		attribute defaulted : Boolean = Light(limit = 2.0);
 		attribute redefined : Boolean = lightEnough();

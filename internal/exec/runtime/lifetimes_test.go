@@ -26,7 +26,7 @@ func lifetimeFixture(t *testing.T, src string) (instantiate func(name string) *I
 	}
 	invoke = func(calc string, args ...Value) (Value, error) {
 		sym, scope := calcByName(t, idx.DocumentRoot("<test>"), "test", calc)
-		return ctx.InvokeCalc(sym, args, scope)
+		return invokeValue(ctx, sym, args, scope)
 	}
 	return instantiate, invoke, ctx
 }
@@ -59,7 +59,7 @@ func TestOccurrenceLifeBeginsWithWhole(t *testing.T) {
 	instantiate, invoke, ctx := lifetimeFixture(t, lifetimeModel)
 	bench := instantiate("Bench")
 	whole, ok := ctx.OccurrenceLife(bench.ID)
-	if !ok || !whole.Alive() {
+	if !ok || !whole.alive() {
 		t.Fatalf("OccurrenceLife(bench) = %v, %v; want alive", whole, ok)
 	}
 	fv, err := bench.GetFeatureValue(ctx, "w")
@@ -111,11 +111,11 @@ func TestBindingRefusesADestroyedEnd(t *testing.T) {
 		t.Fatalf("destroy(w): %v", err)
 	}
 
-	if _, err := rig.GetFeatureValue(ctx, "shown"); !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Errorf("shown bound to a destroyed end: %v; want %v", err, ErrOccurrenceDestroyed)
+	if _, err := rig.GetFeatureValue(ctx, "shown"); !errors.Is(err, errOccurrenceDestroyed) {
+		t.Errorf("shown bound to a destroyed end: %v; want %v", err, errOccurrenceDestroyed)
 	}
-	if _, err := rig.GetFeatureValue(ctx, "knob"); !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Errorf("knob bound into a destroyed end: %v; want %v", err, ErrOccurrenceDestroyed)
+	if _, err := rig.GetFeatureValue(ctx, "knob"); !errors.Is(err, errOccurrenceDestroyed) {
+		t.Errorf("knob bound into a destroyed end: %v; want %v", err, errOccurrenceDestroyed)
 	}
 	if m := w.FeatureValues["m"]; m.Materialized || m.HeldValue().Kind != ValInvalid {
 		t.Errorf("destroyed w.m = %s; want it left unwritten", FormatValue(m.HeldValue()))
@@ -141,7 +141,7 @@ func TestDestroyedObjectPerformsNothing(t *testing.T) {
 		}
 	`)
 	beacon := instantiate("Beacon")
-	if _, err := ctx.InvokeOperation(beacon, "ping", nil); err != nil {
+	if _, err := ctx.invokeOperation(beacon, "ping", nil); err != nil {
 		t.Fatalf("ping before destroy: %v", err)
 	}
 	if sent := len(ctx.PendingMessages()); sent != 1 {
@@ -151,8 +151,8 @@ func TestDestroyedObjectPerformsNothing(t *testing.T) {
 		t.Fatalf("destroy(beacon): %v", err)
 	}
 	for _, op := range []string{"ping", "Seven", "Sure", "missing"} {
-		if _, err := ctx.InvokeOperation(beacon, op, nil); !errors.Is(err, ErrOccurrenceDestroyed) {
-			t.Errorf("invoke %s on a destroyed object = %v; want %v", op, err, ErrOccurrenceDestroyed)
+		if _, err := ctx.invokeOperation(beacon, op, nil); !errors.Is(err, errOccurrenceDestroyed) {
+			t.Errorf("invoke %s on a destroyed object = %v; want %v", op, err, errOccurrenceDestroyed)
 		}
 	}
 	if sent := len(ctx.PendingMessages()); sent != 0 {
@@ -162,17 +162,17 @@ func TestDestroyedObjectPerformsNothing(t *testing.T) {
 	for _, member := range ctx.model.semantics.MembersOf(beacon.Type) {
 		members[member.Name] = member
 	}
-	if _, err := ctx.ExecuteActionPerformedBy(members["ping"], beacon, nil); !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Errorf("ExecuteActionPerformedBy a destroyed object = %v; want %v", err, ErrOccurrenceDestroyed)
+	if _, err := ctx.ExecuteActionPerformedBy(members["ping"], beacon, nil); !errors.Is(err, errOccurrenceDestroyed) {
+		t.Errorf("ExecuteActionPerformedBy a destroyed object = %v; want %v", err, errOccurrenceDestroyed)
 	}
-	if _, _, err := ctx.ExecuteStatePerformedBy(members["Blink"], beacon, nil); !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Errorf("ExecuteStatePerformedBy a destroyed object = %v; want %v", err, ErrOccurrenceDestroyed)
+	if _, _, err := ctx.ExecuteStatePerformedBy(members["Blink"], beacon, nil); !errors.Is(err, errOccurrenceDestroyed) {
+		t.Errorf("ExecuteStatePerformedBy a destroyed object = %v; want %v", err, errOccurrenceDestroyed)
 	}
-	if _, err := ctx.CreateActionExecutorFor(members["ping"], beacon); !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Errorf("CreateActionExecutorFor a destroyed object = %v; want %v", err, ErrOccurrenceDestroyed)
+	if _, err := ctx.CreateActionExecutorFor(members["ping"], beacon); !errors.Is(err, errOccurrenceDestroyed) {
+		t.Errorf("CreateActionExecutorFor a destroyed object = %v; want %v", err, errOccurrenceDestroyed)
 	}
-	if _, err := ctx.CreateStateExecutorFor(members["Blink"], beacon); !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Errorf("CreateStateExecutorFor a destroyed object = %v; want %v", err, ErrOccurrenceDestroyed)
+	if _, err := ctx.CreateStateExecutorFor(members["Blink"], beacon); !errors.Is(err, errOccurrenceDestroyed) {
+		t.Errorf("CreateStateExecutorFor a destroyed object = %v; want %v", err, errOccurrenceDestroyed)
 	}
 }
 
@@ -196,33 +196,33 @@ func TestDestroyEndsPortionsAndRefusesReads(t *testing.T) {
 	whole, _ := ctx.OccurrenceLife(bench.ID)
 	for _, inst := range []*Instance{bench, part} {
 		l, ok := ctx.OccurrenceLife(inst.ID)
-		if !ok || !l.Destroyed || l.Alive() {
+		if !ok || !l.Destroyed || l.alive() {
 			t.Errorf("OccurrenceLife(#%d) = %v; want destroyed", inst.ID, l)
 		}
 		if l.Ended != whole.Ended {
 			t.Errorf("OccurrenceLife(#%d) ended at %d; want %d, with its whole", inst.ID, l.Ended, whole.Ended)
 		}
 	}
-	if _, err := bench.GetFeatureValue(ctx, "w"); !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Errorf("read of a destroyed object: %v, want %v", err, ErrOccurrenceDestroyed)
+	if _, err := bench.GetFeatureValue(ctx, "w"); !errors.Is(err, errOccurrenceDestroyed) {
+		t.Errorf("read of a destroyed object: %v, want %v", err, errOccurrenceDestroyed)
 	}
-	if _, err := part.GetFeatureValue(ctx, "n"); !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Errorf("read of a destroyed portion: %v, want %v", err, ErrOccurrenceDestroyed)
+	if _, err := part.GetFeatureValue(ctx, "n"); !errors.Is(err, errOccurrenceDestroyed) {
+		t.Errorf("read of a destroyed portion: %v, want %v", err, errOccurrenceDestroyed)
 	}
-	if err := part.SetFeatureValue(ctx, "n", constInt(2)); !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Errorf("write to a destroyed portion: %v, want %v", err, ErrOccurrenceDestroyed)
+	if err := part.SetFeatureValue(ctx, "n", constInt(2)); !errors.Is(err, errOccurrenceDestroyed) {
+		t.Errorf("write to a destroyed portion: %v, want %v", err, errOccurrenceDestroyed)
 	}
-	if _, err := part.GetFeatureValue(ctx, "nowhere"); !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Errorf("read of no feature of a destroyed object: %v, want %v", err, ErrOccurrenceDestroyed)
+	if _, err := part.GetFeatureValue(ctx, "nowhere"); !errors.Is(err, errOccurrenceDestroyed) {
+		t.Errorf("read of no feature of a destroyed object: %v, want %v", err, errOccurrenceDestroyed)
 	}
-	if err := part.SetFeatureValue(ctx, "nowhere", constInt(2)); !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Errorf("write to no feature of a destroyed object: %v, want %v", err, ErrOccurrenceDestroyed)
+	if err := part.SetFeatureValue(ctx, "nowhere", constInt(2)); !errors.Is(err, errOccurrenceDestroyed) {
+		t.Errorf("write to no feature of a destroyed object: %v, want %v", err, errOccurrenceDestroyed)
 	}
 	if got, err := invoke("WidgetDuring", objectValue(part)); err != nil || got.Const.Bool {
 		t.Errorf("isDuring(destroyed part) = %s, %v; want false", FormatValue(got), err)
 	}
-	if _, err := invoke("Destroy", objectValue(bench)); !errors.Is(err, ErrOccurrenceDestroyed) {
-		t.Errorf("second destroy: %v, want %v", err, ErrOccurrenceDestroyed)
+	if _, err := invoke("Destroy", objectValue(bench)); !errors.Is(err, errOccurrenceDestroyed) {
+		t.Errorf("second destroy: %v, want %v", err, errOccurrenceDestroyed)
 	}
 	if got, err := invoke("Destroy", nullValue()); err != nil || !isEmptyValue(got) {
 		t.Errorf("destroy() = %s, %v; want nothing", FormatValue(got), err)
@@ -251,7 +251,7 @@ func TestTerminateEndsPortionsWithTheirWhole(t *testing.T) {
 		t.Fatalf("endOccurrence(bench): %v", err)
 	}
 	whole, _ := ctx.OccurrenceLife(bench.ID)
-	if whole.Alive() || whole.Destroyed {
+	if whole.alive() || whole.Destroyed {
 		t.Fatalf("OccurrenceLife(bench) = %v; want ended, not destroyed", whole)
 	}
 	for _, part := range parts {
@@ -259,15 +259,15 @@ func TestTerminateEndsPortionsWithTheirWhole(t *testing.T) {
 			t.Errorf("portion #%d is not among the objects ended", part.ID)
 		}
 		l, ok := ctx.OccurrenceLife(part.ID)
-		if !ok || l.Alive() || l.Destroyed {
+		if !ok || l.alive() || l.Destroyed {
 			t.Errorf("OccurrenceLife(#%d) = %v; want ended, not destroyed", part.ID, l)
 		}
 		if l.Ended != whole.Ended {
 			t.Errorf("OccurrenceLife(#%d) ended at %d; want %d, with its whole", part.ID, l.Ended, whole.Ended)
 		}
 	}
-	if _, err := ctx.endOccurrence(bench); !errors.Is(err, ErrOccurrenceLifetime) {
-		t.Errorf("second terminate: %v, want %v", err, ErrOccurrenceLifetime)
+	if _, err := ctx.endOccurrence(bench); !errors.Is(err, errOccurrenceLifetime) {
+		t.Errorf("second terminate: %v, want %v", err, errOccurrenceLifetime)
 	}
 }
 
@@ -276,7 +276,7 @@ func TestTerminateEndsPortionsWithTheirWhole(t *testing.T) {
 func TestDestroyEndsTheMachinePerformed(t *testing.T) {
 	instantiate, invoke, ctx := lifetimeFixture(t, lifetimeModel)
 	rover := instantiate("Rover")
-	modes, ok := rover.Behavior("modes")
+	modes, ok := rover.behavior("modes")
 	if !ok || modes.State == nil || modes.State.State().Ended() {
 		t.Fatalf("modes = %v, %v; want a machine under way", modes, ok)
 	}
@@ -289,7 +289,7 @@ func TestDestroyEndsTheMachinePerformed(t *testing.T) {
 	if modes.State.State() != StateTerminated {
 		t.Errorf("modes = %v after destroy; want terminated", modes.State.State())
 	}
-	if l, ok := ctx.OccurrenceLife(modes.State.occurrence.ID); !ok || l.Alive() {
+	if l, ok := ctx.OccurrenceLife(modes.State.occurrence.ID); !ok || l.alive() {
 		t.Errorf("OccurrenceLife(modes) = %v, %v; want ended", l, ok)
 	}
 }
@@ -310,7 +310,7 @@ const noFlowModel = `
 func TestPerformedActionWithoutAFlowCompletes(t *testing.T) {
 	instantiate, invoke, ctx := lifetimeFixture(t, noFlowModel)
 	camera := instantiate("Camera")
-	behavior, ok := camera.Behavior("report")
+	behavior, ok := camera.behavior("report")
 	if !ok || behavior.Action == nil || behavior.Action.State() != StateCompleted {
 		t.Fatalf("report = %v, %v; want a completed action", behavior, ok)
 	}
@@ -318,7 +318,7 @@ func TestPerformedActionWithoutAFlowCompletes(t *testing.T) {
 	if report == nil {
 		t.Fatal("the performed action stands for no occurrence")
 	}
-	if l, ok := ctx.OccurrenceLife(report.ID); !ok || l.Alive() || l.Destroyed || l.Began > l.Ended {
+	if l, ok := ctx.OccurrenceLife(report.ID); !ok || l.alive() || l.Destroyed || l.Began > l.Ended {
 		t.Errorf("OccurrenceLife(report) = %v, %v; want ended after it began, not destroyed", l, ok)
 	}
 	if got, err := invoke("ReportDuring", objectValue(camera)); err != nil || got.Const.Bool {
@@ -346,7 +346,7 @@ const noFlowInputModel = `
 func TestPerformedActionWithoutAFlowTakesItsInputs(t *testing.T) {
 	instantiate, invoke, ctx := lifetimeFixture(t, noFlowInputModel)
 	camera := instantiate("Camera")
-	behavior, ok := camera.Behavior("report")
+	behavior, ok := camera.behavior("report")
 	if !ok || behavior.Action == nil || behavior.Action.State() != StateCompleted {
 		t.Fatalf("report = %v, %v; want a completed action", behavior, ok)
 	}
@@ -381,13 +381,14 @@ const createBehavingModel = `
 func TestCreateBeginsBeforeWhatItReachesWith(t *testing.T) {
 	_, invoke, ctx := lifetimeFixture(t, createBehavingModel)
 	got, err := invoke("CreateProbe")
+	got = soleElement(got)
 	if err != nil {
 		t.Fatalf("create(probe): %v", err)
 	}
 	probeID, _ := got.Object()
 	probe, _ := ctx.getInstance(probeID)
 	life, _ := ctx.OccurrenceLife(probeID)
-	if !life.Alive() {
+	if !life.alive() {
 		t.Fatalf("OccurrenceLife(probe) = %v; want alive", life)
 	}
 	fv, err := probe.GetFeatureValue(ctx, "sensor")
@@ -399,7 +400,7 @@ func TestCreateBeginsBeforeWhatItReachesWith(t *testing.T) {
 		t.Errorf("OccurrenceLife(sensor) = %v; want begun with the probe at %d", l, life.Began)
 	}
 	for _, name := range []string{"tick", "modes"} {
-		behavior, ok := probe.Behavior(name)
+		behavior, ok := probe.behavior(name)
 		if !ok {
 			t.Fatalf("probe performs no %s", name)
 		}
@@ -471,21 +472,22 @@ func TestDestroyEndsAnAliasedPartOnce(t *testing.T) {
 func TestCreateOnlyWhatTheCallReaches(t *testing.T) {
 	instantiate, invoke, ctx := lifetimeFixture(t, lifetimeModel)
 	bench := instantiate("Bench")
-	if _, err := invoke("Create", objectValue(bench)); !errors.Is(err, ErrOccurrenceLifetime) {
-		t.Errorf("create(bench) = %v; want %v", err, ErrOccurrenceLifetime)
+	if _, err := invoke("Create", objectValue(bench)); !errors.Is(err, errOccurrenceLifetime) {
+		t.Errorf("create(bench) = %v; want %v", err, errOccurrenceLifetime)
 	}
 	whole, _ := ctx.OccurrenceLife(bench.ID)
 	got, err := invoke("CreateSpare", objectValue(bench))
+	got = soleElement(got)
 	if err != nil {
 		t.Fatalf("create(bench.spare): %v", err)
 	}
 	spareID, _ := got.Object()
 	spare, _ := ctx.OccurrenceLife(spareID)
-	if !spare.Alive() || spare.Began <= whole.Began {
+	if !spare.alive() || spare.Began <= whole.Began {
 		t.Errorf("OccurrenceLife(spare) = %v; want begun after the bench at %d", spare, whole.Began)
 	}
-	if _, err := invoke("CreateSpare", objectValue(bench)); !errors.Is(err, ErrOccurrenceLifetime) {
-		t.Errorf("second create(bench.spare) = %v; want %v", err, ErrOccurrenceLifetime)
+	if _, err := invoke("CreateSpare", objectValue(bench)); !errors.Is(err, errOccurrenceLifetime) {
+		t.Errorf("second create(bench.spare) = %v; want %v", err, errOccurrenceLifetime)
 	}
 
 	widget := instantiate("Widget")
@@ -518,7 +520,7 @@ func TestAddNewCreatesNothingWhenTheGroupCannotGrow(t *testing.T) {
 	if _, err := invoke("AddSpare", objectValue(bench), nullValue()); err != nil {
 		t.Fatalf("addNew((), spare) within budget: %v", err)
 	}
-	if l := spareOf(bench); !l.Alive() || l.Began <= whole.Began {
+	if l := spareOf(bench); !l.alive() || l.Began <= whole.Began {
 		t.Errorf("OccurrenceLife(spare) = %v; want begun after the bench at %d", l, whole.Began)
 	}
 
@@ -534,7 +536,7 @@ func TestAddNewCreatesNothingWhenTheGroupCannotGrow(t *testing.T) {
 	if _, err := invoke("AddSpare", objectValue(other), held); !errors.Is(err, ErrElementLimitExceeded) {
 		t.Fatalf("addNew((w), spare) over budget = %v; want %v", err, ErrElementLimitExceeded)
 	}
-	if l := spareOf(other); !l.Alive() || l.Began != whole.Began {
+	if l := spareOf(other); !l.alive() || l.Began != whole.Began {
 		t.Errorf("OccurrenceLife(spare) = %v after the refusal; want begun with the bench at %d", l, whole.Began)
 	}
 }

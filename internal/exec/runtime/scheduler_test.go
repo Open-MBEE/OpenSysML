@@ -163,7 +163,7 @@ func TestSeededSchedulingIsReproducible(t *testing.T) {
 		for _, c := range choices {
 			kinds[c.Kind]++
 		}
-		if kinds[ChoiceTokenOrder] < 1 || kinds[ChoiceWriteOrder] < 2 || kinds[ChoiceDecisionBranch] != 1 {
+		if kinds[ChoiceTokenOrder] < 1 || kinds[choiceWriteOrder] < 2 || kinds[ChoiceDecisionBranch] != 1 {
 			t.Fatalf("%s: choices = %v, want token orders, two or more write orders and a decision branch", policy, choices)
 		}
 		assertChoicesMatchTrace(t, policy, first, choices, outputs)
@@ -187,7 +187,7 @@ func assertChoicesMatchRun(t *testing.T, choices []ChoicePoint, outputs map[stri
 			if !strings.HasSuffix(took, "@"+order[:1]) {
 				t.Errorf("%s: took %q, but %q ran first", c, took, order[:1])
 			}
-		case ChoiceWriteOrder:
+		case choiceWriteOrder:
 			name := strings.SplitN(took, " := ", 2)[0]
 			if !strings.HasPrefix(took, name+" := "+FormatTraceValue(outputs[name])+" ") {
 				t.Errorf("%s: %q stood, but %s = %s", c, took, name, FormatTraceValue(outputs[name]))
@@ -240,7 +240,7 @@ func assertChoicesMatchTrace(t *testing.T, policy SchedulePolicy, trace string, 
 			if len(step) == 0 || !strings.HasSuffix(took, "@"+step[0].branch) {
 				t.Errorf("%s: %s: took %q, but the step's writes were %v", policy, c, took, step)
 			}
-		case ChoiceWriteOrder:
+		case choiceWriteOrder:
 			name := strings.SplitN(took, " := ", 2)[0]
 			last := ""
 			for _, w := range step {
@@ -574,7 +574,7 @@ func TestSharedAncestorChoiceDrawsOnce(t *testing.T) {
 // out of busy, its regions' exit and the transition after, each taking the seed's next draw.
 func checkSharedAncestorDraws(t *testing.T, name string, policy SchedulePolicy, choices []ChoicePoint, visited []string) {
 	t.Helper()
-	kinds := []ChoiceKind{ChoiceEntryOrder, ChoiceTransition, ChoiceExitOrder, ChoiceTransition}
+	kinds := []ChoiceKind{choiceEntryOrder, ChoiceTransition, choiceExitOrder, ChoiceTransition}
 	if len(choices) != len(kinds) {
 		t.Fatalf("%s %s: choices = %v, want the entry, one out of busy, the exit and one after it (visited %v)",
 			name, policy, choices, visited)
@@ -744,7 +744,7 @@ func TestDueOrderChoice(t *testing.T) {
 		if c.Kind != ChoiceDueOrder || c.Where != "t=5.0" || len(c.Alternatives) != 2 || c.Taken != tc.taken {
 			t.Errorf("%s: choice = %+v, want a due order at t=5.0 over two machines taking %d", tc.policy, c, tc.taken)
 		}
-		want := fmt.Sprintf("at t=5.0: due %s, %s (unordered; ran %s first)",
+		want := fmt.Sprintf("at t=5.0: due %s, %s (unordered; ran %s first; independent)",
 			c.Alternatives[0], c.Alternatives[1], c.Alternatives[tc.taken])
 		if got := c.Describe(); got != want {
 			t.Errorf("%s: Describe() = %q, want %q", tc.policy, got, want)

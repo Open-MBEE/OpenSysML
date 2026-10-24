@@ -78,7 +78,7 @@ For signature verification with cosign, see the [install guide](guide/01-install
   `cargo add opensysml`, at the core's version.
 - **Go:** `go install github.com/Open-MBEE/OpenSysML/cmd/sysml@latest`, or use the
   [Go client](reference/api.md).
-- **Java:** not on Maven Central; build from a checkout with
+- **Java:** `org.openmbee:opensysml` on Maven Central at the core's version; for unreleased changes build from a checkout with
   `make build && mvn -f client/java/pom.xml install` ([Java client](reference/java-api.md)).
 - **Julia:** not in the General registry; develop from a checkout with
   `Pkg.develop(path="client/julia/OpenSysML")` ([Julia client](reference/julia-api.md)).

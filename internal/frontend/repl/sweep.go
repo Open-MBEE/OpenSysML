@@ -13,6 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -116,7 +117,7 @@ func (s *Session) sweepVerdict(inv analysisInvocation, specs []sweepSpec, draws 
 }
 
 // sweepReport is the verdict a completed sweep's table reports.
-func (s *Session) sweepReport(inv analysisInvocation, table runtime.SweepTable, draws sweepDraws) Verdict {
+func (s *Session) sweepReport(inv analysisInvocation, table sweep.SweepTable, draws sweepDraws) Verdict {
 	status, rows := sweepStatus(table)
 	return Verdict{
 		Subject: sweepLabel(inv, draws),
@@ -128,7 +129,7 @@ func (s *Session) sweepReport(inv analysisInvocation, table runtime.SweepTable, 
 }
 
 // sweepTraces is what the rows' runs traced, in plan order, as trace lines print.
-func sweepTraces(table runtime.SweepTable) []string {
+func sweepTraces(table sweep.SweepTable) []string {
 	var lines []string
 	for _, row := range table.Rows {
 		if row.Trace == nil {
@@ -156,72 +157,72 @@ func sweepLabel(inv analysisInvocation, draws sweepDraws) string {
 // runSweep resolves the invocation, its arguments and ranges once at the prompt and runs one
 // row per value in a context of its own, held objects made there from their declarations or
 // from one image of the held graph; the session's state is released while the rows run.
-func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws sweepDraws) (runtime.SweepTable, *analysis.Plan, error) {
+func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws sweepDraws) (sweep.SweepTable, *analysis.Plan, error) {
 	if !s.hasDeclarations() {
-		return runtime.SweepTable{}, nil, errors.New("no declarations loaded")
+		return sweep.SweepTable{}, nil, errors.New("no declarations loaded")
 	}
 	sym, fqn, err := s.lookupSymbolOfKinds(inv.name,
 		symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage,
 		symbols.SymbolCalcDef, symbols.SymbolCalcUsage)
 	if err != nil {
-		return runtime.SweepTable{}, nil, err
+		return sweep.SweepTable{}, nil, err
 	}
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
-		return runtime.SweepTable{}, nil, err
+		return sweep.SweepTable{}, nil, err
 	}
 
 	parsed, err := parseAnalysisArgs(inv.argText)
 	if err != nil {
-		return runtime.SweepTable{}, nil, err
+		return sweep.SweepTable{}, nil, err
 	}
 	args, err := s.sweptArgs(ctx, s.promptScope(), parsed)
 	if err != nil {
-		return runtime.SweepTable{}, nil, err
+		return sweep.SweepTable{}, nil, err
 	}
 
 	plan, err := s.sweepPlan(ctx, specs, draws)
 	if err != nil {
-		return runtime.SweepTable{}, nil, err
+		return sweep.SweepTable{}, nil, err
 	}
 	namedNames := make([]string, 0, len(args.named))
 	for name := range args.named {
 		namedNames = append(namedNames, name)
 	}
-	plan, err = ctx.ResolveSweepPlan(sym, plan, len(args.positional), namedNames)
+	plan, err = sweep.ResolvePlan(ctx, sym, plan, len(args.positional), namedNames)
 	if err != nil {
-		return runtime.SweepTable{}, nil, err
+		return sweep.SweepTable{}, nil, err
 	}
 
 	isCase := runtime.IsRunnableCaseSymbol(sym)
 	var subject, owner freshRef
 	if inv.object != "" {
 		if !isCase {
-			return runtime.SweepTable{}, nil, fmt.Errorf("%s is a calc, which has no subject", inv.name)
+			return sweep.SweepTable{}, nil, fmt.Errorf("%s is a calc, which has no subject", inv.name)
 		}
 		if subject, err = s.sweptObject(ctx, inv.object); err != nil {
-			return runtime.SweepTable{}, nil, err
+			return sweep.SweepTable{}, nil, err
 		}
 	}
 	if isNestedCase(sym) {
 		if owner, err = s.sweptOwner(ctx, fqn); err != nil {
-			return runtime.SweepTable{}, nil, err
+			return sweep.SweepTable{}, nil, err
 		}
 	}
 	image, err := s.sweptImage(ctx, subject, owner, args.objects)
 	if err != nil {
-		return runtime.SweepTable{}, nil, err
+		return sweep.SweepTable{}, nil, err
 	}
 	runScope := declaringScope(sym, s.rootScopeOf(sym))
 
-	run := func(rt *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+	run := func(rt *runtime.Context, bindings []sweep.SweepBinding) (sweep.SweepRunResult, error) {
 		row, err := s.rowObjects(rt, args.objects, image)
 		if err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
 		positional, named, err := args.in(row)
 		if err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
 		bound := make(map[string]runtime.Value, len(named)+len(bindings))
 		for name, value := range named {
@@ -233,22 +234,22 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 		if !isCase {
 			value, err := rt.InvokeCalcWith(sym, positional, bound, runScope)
 			if err != nil {
-				return runtime.SweepRunResult{}, err
+				return sweep.SweepRunResult{}, err
 			}
-			return runtime.SweepRunResult{
+			return sweep.SweepRunResult{
 				Outputs: []runtime.CalcOutputValue{{Name: calcResultName, Value: value}},
 			}, nil
 		}
 		args := runtime.AnalysisArgs{Positional: positional, Named: bound}
 		if args.Subject, err = row.object(subject); err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
 		self, err := row.object(owner)
 		if err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
 		result, err := rt.RunAnalysis(sym, args, runScope, self)
-		return runtime.SweepRunResult{
+		return sweep.SweepRunResult{
 			Outputs:     result.Outputs,
 			Verdicts:    result.Verdicts,
 			Subject:     result.Subject,
@@ -262,7 +263,7 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 	answered, err := s.sweep(fqn, model, plan, run, s.draws, s.clockStep)
 	s.state.Lock()
 	if err != nil {
-		return runtime.SweepTable{}, &answered, err
+		return sweep.SweepTable{}, &answered, err
 	}
 	return answered.Result.Table(), &answered, nil
 }
@@ -270,19 +271,7 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 // evalInvocationArgs evaluates an invocation's positional and named arguments in ctx,
 // where scope names what the prompt reaches.
 func evalInvocationArgs(ctx *runtime.Context, scope *symbols.Scope, parsed analysisArgs) ([]runtime.Value, map[string]runtime.Value, error) {
-	var positional []runtime.Value
-	for _, arg := range parsed.positional {
-		val, err := ctx.EvalWithScope(arg.expr, scope)
-		if err != nil {
-			return nil, nil, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
-		}
-		positional = append(positional, val)
-	}
-	named, err := evalArgumentsIn(ctx, scope, parsed.named)
-	if err != nil {
-		return nil, nil, err
-	}
-	return positional, named, nil
+	return evalArgumentList(ctx, scope, parsed.positional, parsed.named)
 }
 
 // sweptArgs are an invocation's arguments as the prompt evaluates them, with what each
@@ -568,26 +557,26 @@ const calcResultName = "result"
 
 // sweepPlan evaluates each range's endpoints where the prompt evaluates any
 // expression, so a range carries the same literals and units an argument does.
-func (s *Session) sweepPlan(ctx *runtime.Context, specs []sweepSpec, draws sweepDraws) (runtime.SweepPlan, error) {
-	plan := runtime.SweepPlan{
-		Ranges:  make([]runtime.SweepRange, 0, len(specs)),
+func (s *Session) sweepPlan(ctx *runtime.Context, specs []sweepSpec, draws sweepDraws) (sweep.SweepPlan, error) {
+	plan := sweep.SweepPlan{
+		Ranges:  make([]sweep.SweepRange, 0, len(specs)),
 		Sampled: draws.sampled,
 		Samples: draws.count,
 		Seed:    draws.seed,
 	}
 	scope := s.promptScope()
 	for _, spec := range specs {
-		r := runtime.SweepRange{Param: spec.param, HasStep: spec.hasStep}
+		r := sweep.SweepRange{Param: spec.param, HasStep: spec.hasStep}
 		var err error
 		if r.From, err = s.evalRangeBound(ctx, scope, spec, "start", spec.from); err != nil {
-			return runtime.SweepPlan{}, err
+			return sweep.SweepPlan{}, err
 		}
 		if r.To, err = s.evalRangeBound(ctx, scope, spec, "end", spec.to); err != nil {
-			return runtime.SweepPlan{}, err
+			return sweep.SweepPlan{}, err
 		}
 		if spec.hasStep {
 			if r.Step, err = s.evalRangeBound(ctx, scope, spec, "step", spec.step); err != nil {
-				return runtime.SweepPlan{}, err
+				return sweep.SweepPlan{}, err
 			}
 		}
 		plan.Ranges = append(plan.Ranges, r)
@@ -599,12 +588,12 @@ func (s *Session) sweepPlan(ctx *runtime.Context, specs []sweepSpec, draws sweep
 func (s *Session) evalRangeBound(ctx *runtime.Context, scope *symbols.Scope, spec sweepSpec, what, text string) (runtime.Value, error) {
 	expr, err := parseWholeExpr(text)
 	if err != nil {
-		return runtime.Value{}, fmt.Errorf("%w: range %s: %v", runtime.ErrSweepRange, spec.param, err)
+		return runtime.Value{}, fmt.Errorf("%w: range %s: %v", sweep.ErrSweepRange, spec.param, err)
 	}
 	value, err := ctx.EvalWithScope(expr, scope)
 	if err != nil {
 		return runtime.Value{}, fmt.Errorf("%w: range %s: %s %q: %v",
-			runtime.ErrSweepRange, spec.param, what, text, err)
+			sweep.ErrSweepRange, spec.param, what, text, err)
 	}
 	return value, nil
 }
@@ -612,7 +601,7 @@ func (s *Session) evalRangeBound(ctx *runtime.Context, scope *symbols.Scope, spe
 // sweepStatus judges a table and reports each of its runs: a run that failed or
 // an objective that was not satisfied fails the table, an undecided one leaves
 // it unresolved.
-func sweepStatus(table runtime.SweepTable) (VerdictStatus, []VerdictRow) {
+func sweepStatus(table sweep.SweepTable) (VerdictStatus, []VerdictRow) {
 	status := VerdictHolds
 	rows := make([]VerdictRow, 0, len(table.Rows))
 	for _, row := range table.Rows {
@@ -656,7 +645,7 @@ func sweepStatus(table runtime.SweepTable) (VerdictStatus, []VerdictRow) {
 
 // sweepValues summarises a table for a caller reporting values rather than
 // rows: how many runs it made and how many of them failed.
-func sweepValues(table runtime.SweepTable, rows []VerdictRow) []NamedValue {
+func sweepValues(table sweep.SweepTable, rows []VerdictRow) []NamedValue {
 	failed := 0
 	for _, row := range rows {
 		if row.Error != "" {
@@ -687,11 +676,11 @@ func splitSamplesTail(tail string) (int64, uint64, string, error) {
 	}
 	count, err := strconv.ParseInt(fields[0], 10, 64)
 	if err != nil || count <= 0 {
-		return 0, 0, "", fmt.Errorf("%w: %q is not a number of samples to draw", runtime.ErrSweepSamples, fields[0])
+		return 0, 0, "", fmt.Errorf("%w: %q is not a number of samples to draw", sweep.ErrSweepSamples, fields[0])
 	}
 	seed, err := strconv.ParseUint(fields[1], 10, 64)
 	if err != nil {
-		return 0, 0, "", fmt.Errorf("%w: %q is not a seed", runtime.ErrSweepSamples, fields[1])
+		return 0, 0, "", fmt.Errorf("%w: %q is not a seed", sweep.ErrSweepSamples, fields[1])
 	}
 	rest := strings.TrimSpace(tail)
 	for range 2 {
@@ -842,11 +831,11 @@ func parseSweepSpec(text string) (sweepSpec, error) {
 	eq := specSeparator(text, "=")
 	if eq < 0 {
 		return sweepSpec{}, fmt.Errorf("%w: %q is not written as <parameter>=<from>..<to>[:<step>]",
-			runtime.ErrSweepRange, text)
+			sweep.ErrSweepRange, text)
 	}
 	spec := sweepSpec{param: unquoteSpecName(strings.TrimSpace(text[:eq])), text: text}
 	if spec.param == "" {
-		return sweepSpec{}, fmt.Errorf("%w: %q names no parameter", runtime.ErrSweepParameter, text)
+		return sweepSpec{}, fmt.Errorf("%w: %q names no parameter", sweep.ErrSweepParameter, text)
 	}
 	body := strings.TrimSpace(text[eq+1:])
 	dots := specSeparator(body, "..")
@@ -854,10 +843,10 @@ func parseSweepSpec(text string) (sweepSpec, error) {
 		if name, ok := distributionCall(body); ok {
 			return sweepSpec{}, fmt.Errorf(
 				"%w: %s asks for the distribution %s; sampling is uniform over a range written <from>..<to>, since no library in this build states a probability distribution",
-				runtime.ErrSweepDistribution, spec.param, name)
+				sweep.ErrSweepDistribution, spec.param, name)
 		}
 		return sweepSpec{}, fmt.Errorf("%w: %s=%s states no range; write it as <from>..<to>[:<step>]",
-			runtime.ErrSweepRange, spec.param, body)
+			sweep.ErrSweepRange, spec.param, body)
 	}
 	spec.from = strings.TrimSpace(body[:dots])
 	rest := strings.TrimSpace(body[dots+2:])
@@ -870,7 +859,7 @@ func parseSweepSpec(text string) (sweepSpec, error) {
 	}
 	if spec.from == "" || spec.to == "" || (spec.hasStep && spec.step == "") {
 		return sweepSpec{}, fmt.Errorf("%w: %s=%s leaves an endpoint of the range empty",
-			runtime.ErrSweepRange, spec.param, body)
+			sweep.ErrSweepRange, spec.param, body)
 	}
 	return spec, nil
 }
@@ -919,7 +908,7 @@ func distributionCall(text string) (string, bool) {
 // sweepTableLines renders a table: a header naming what was run, its ranges and,
 // for a sampled table, the seed it was drawn from, then one row per run, each read
 // through the context that ran it.
-func sweepTableLines(table runtime.SweepTable) []string {
+func sweepTableLines(table sweep.SweepTable) []string {
 	header := fmt.Sprintf("sweep %s — %d run(s)", table.Target, len(table.Rows))
 	switch {
 	case table.Runs > 0 && table.Seedless:
@@ -954,7 +943,7 @@ func sweepTableLines(table runtime.SweepTable) []string {
 
 // untypedNotes says which parameters declare no type, since their ranges are
 // read as written rather than in a type of the parameter's.
-func untypedNotes(table runtime.SweepTable) []string {
+func untypedNotes(table sweep.SweepTable) []string {
 	var notes []string
 	for i, typ := range table.Types {
 		if typ.Untyped {
@@ -993,7 +982,7 @@ type sweepColumns struct {
 }
 
 // newSweepColumns decides a table's columns from what its runs produced.
-func newSweepColumns(table runtime.SweepTable) sweepColumns {
+func newSweepColumns(table sweep.SweepTable) sweepColumns {
 	cols := sweepColumns{params: table.Params}
 	seen := make(map[string]bool)
 	for _, row := range table.Rows {
@@ -1029,7 +1018,7 @@ func (c sweepColumns) titles() []string {
 }
 
 // row renders one run under the columns, in the context that made it.
-func (c sweepColumns) row(target string, row runtime.SweepRow) []string {
+func (c sweepColumns) row(target string, row sweep.SweepRow) []string {
 	ctx := row.Context
 	cells := make([]string, 0, len(c.params)+len(c.outputs)+4)
 	bound := make(map[string]runtime.Value, len(row.Bindings))
@@ -1074,7 +1063,7 @@ func (c sweepColumns) row(target string, row runtime.SweepRow) []string {
 
 // formatElapsed renders how long one run took, in milliseconds, so two runs of
 // the same table are read against each other.
-func formatElapsed(row runtime.SweepRow) string {
+func formatElapsed(row sweep.SweepRow) string {
 	return fmt.Sprintf("%.3fms", float64(row.Elapsed.Nanoseconds())/1e6)
 }
 

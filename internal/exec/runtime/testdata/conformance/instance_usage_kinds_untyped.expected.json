@@ -1,0 +1,27 @@
+{
+  "type": "instance",
+  "instantiate": "test::Vehicle",
+  "libraries": true,
+  "slots": {
+    "overview": {"type": "Instance"},
+    "inspection": {"type": "Instance"},
+    "sketch": {"type": "Instance"},
+    "audit": {"type": "Instance"},
+    "drive": {"type": "Instance"},
+    "ownerView": {"type": "Instance"},
+    "cost": {"type": "Instance"},
+    "table": {"type": "Instance"},
+    "safe": {"type": "Instance"}
+  },
+  "materialization": {},
+  "validation": {
+    "verdicts": [
+      {"kind": "satisfaction", "assertion": "satisfy safe", "status": "holds"},
+      {"kind": "constraint", "assertion": "assert constraint shallow", "object": "overview",
+       "status": "violated", "error": "evaluated to false"},
+      {"kind": "constraint", "assertion": "assert constraint repeated", "object": "inspection",
+       "status": "holds"}
+    ],
+    "valid": false
+  }
+}

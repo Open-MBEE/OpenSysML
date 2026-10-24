@@ -36,7 +36,7 @@ func runRender(files []string) error {
 		return err
 	}
 
-	rendering, err := sess.OverlaidViewRendering(renderView, overlay)
+	rendering, err := sess.OverlaidViewRendering(renderView, overlay, renderDepth)
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func runRenderAll(files []string) error {
 		if !kind.SupportsOverlay(overlay) {
 			viewOverlay = ""
 		}
-		rendering, err := sess.OverlaidViewRendering(info.Name, viewOverlay)
+		rendering, err := sess.OverlaidViewRendering(info.Name, viewOverlay, renderDepth)
 		if err != nil {
 			return err
 		}
@@ -165,8 +165,9 @@ func renderFilenames(views []model.ViewInfo, form view.Form) (map[string]string,
 
 // renderOptions is what -render and -render-all write with: the text width,
 // the palette -render-palette names, the port display -render-ports names,
-// the placement -render-unplaced names and the drawing style -render-style
-// names, each of which must be one there is.
+// the placement -render-unplaced names, the drawing style -render-style
+// names, the edge routing -render-lines names and the notation elements
+// -render-show names, each of which must be one there is.
 func renderOptions(width int) (view.Options, error) {
 	options := view.Options{Width: width}
 	if renderLink != "" {
@@ -187,17 +188,42 @@ func renderOptions(width int) (view.Options, error) {
 		return view.Options{}, fmt.Errorf("-render-ports: %w", &view.UnknownPortsError{Name: renderPorts})
 	}
 	options.Ports = ports
+	lines, ok := view.ParseLines(renderLines)
+	if !ok {
+		return view.Options{}, fmt.Errorf("-render-lines: %w", &view.UnknownLinesError{Name: renderLines})
+	}
+	options.Lines = lines
+	shown, err := showOption()
+	if err != nil {
+		return view.Options{}, err
+	}
+	options.Show = shown
 	unplaced, err := unplacedOption()
 	if err != nil {
 		return view.Options{}, err
 	}
 	options.Unplaced = unplaced
+	compartments, err := compartmentsOption()
+	if err != nil {
+		return view.Options{}, err
+	}
+	options.Compartments = compartments
 	style, err := styleOption()
 	if err != nil {
 		return view.Options{}, err
 	}
 	options.Style = style
 	return options, nil
+}
+
+// showOption is the optional notation elements -render-show names, each of
+// which must be one there is; nil when none is named.
+func showOption() (view.Shown, error) {
+	shown, err := view.ParseShown(renderShow)
+	if err != nil {
+		return nil, fmt.Errorf("-render-show: %w", err)
+	}
+	return shown, nil
 }
 
 // styleOption is the drawing style -render-style names for a DOT or Mermaid drawing,
@@ -235,6 +261,20 @@ func unplacedOption() (view.Unplaced, error) {
 		return "", fmt.Errorf("-render-unplaced: %w", &view.UnknownUnplacedError{Name: renderUnplaced})
 	}
 	return unplaced, nil
+}
+
+// compartmentsOption is the folding -render-compartments names for a tree's
+// owned members, which must be one there is; none named is the default,
+// folding only the layout-less members of a positioned tree.
+func compartmentsOption() (view.Compartments, error) {
+	if renderCompartments == "" {
+		return "", nil
+	}
+	compartments, ok := view.ParseCompartments(renderCompartments)
+	if !ok {
+		return "", fmt.Errorf("-render-compartments: %w", &view.UnknownCompartmentsError{Name: renderCompartments})
+	}
+	return compartments, nil
 }
 
 // loadRenderingModel loads and reports a model whose stdout is reserved for
@@ -365,7 +405,7 @@ func terminalWidth() int {
 func atStdoutTerminal() bool { return isTerminal(int(os.Stdout.Fd())) }
 
 // formList names the forms -render-form takes, as its help and errors spell them.
-func formList() string { return view.FormNames(view.Forms()) }
+func formList() string { return view.FormNames(view.ViewForms()) }
 
 // reportRenderNotices reports on stderr what the rendering says about itself: an
 // empty artifact, and every element it could not represent.

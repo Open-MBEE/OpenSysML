@@ -144,6 +144,9 @@ func parseOurValue(text string) (normalized, bool) {
 	if text == "<undetermined>" {
 		return normalized{Kind: kindUndetermined}, true
 	}
+	if text == "*" {
+		return normalized{Kind: kindInfinity, Value: text}, true
+	}
 	if quantity.MatchString(text) {
 		return normalized{Kind: kindQuantity, Value: text}, true
 	}

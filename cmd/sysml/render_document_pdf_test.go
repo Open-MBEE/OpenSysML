@@ -427,7 +427,7 @@ printf '%%PDF-1.7 fake' > "$2"
 	render := func(d2 string) string {
 		t.Helper()
 		cmd := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport",
-			"-doc-form", "pdf", "-diagram-form", "d2", "-o", out)
+			"-doc-form", "pdf", "-diagram-form", "d2", "-render-show", "edge-labels", "-o", out)
 		cmd.Env = append(os.Environ(), docpdf.WeasyPrintEnv+"="+weasyprint, docpdf.MermaidEnv+"="+mmdc, docpdf.D2Env+"="+d2)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("render: %v\n%s", err, output)

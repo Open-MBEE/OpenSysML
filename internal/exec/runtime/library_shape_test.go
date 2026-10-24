@@ -230,8 +230,8 @@ func TestInstanceReadsInheritedLibraryFeatures(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MassLimit.subj: %v", err)
 	}
-	if _, err := subj.ReadValue("subj"); !errors.Is(err, ErrUninitializedFeatureValue) {
-		t.Errorf("reading the required subj = %v, want ErrUninitializedFeatureValue", err)
+	if _, err := subj.ReadValue("subj"); !errors.Is(err, errUninitializedFeatureValue) {
+		t.Errorf("reading the required subj = %v, want errUninitializedFeatureValue", err)
 	}
 	actors, err := req.GetFeatureValue(ctx, "actors")
 	if err != nil {
@@ -273,7 +273,7 @@ func TestShapeDigestNamesLibraryTypes(t *testing.T) {
 		part def Crate { part box : Box; attribute n = 1; }
 	}`
 	ctx, idx := libraryShapeContext(t, src)
-	digest := ctx.ShapeDigest(oneSymbol(t, idx, "test::Crate"))
+	digest := ctx.shapeDigest(oneSymbol(t, idx, "test::Crate"))
 	if len(digest) > 2000 {
 		t.Errorf("digest of Crate is %d bytes, want the library types named, not expanded", len(digest))
 	}
@@ -284,7 +284,7 @@ func TestShapeDigestNamesLibraryTypes(t *testing.T) {
 		t.Errorf("digest cut a recursion the library types should not have opened: %s", digest)
 	}
 	other, idx2 := libraryShapeContext(t, strings.Replace(src, "part box : Box;", "part box : Box[2];", 1))
-	if other.ShapeDigest(oneSymbol(t, idx2, "test::Crate")) == digest {
+	if other.shapeDigest(oneSymbol(t, idx2, "test::Crate")) == digest {
 		t.Errorf("digest unchanged by an edit to the model's own multiplicity")
 	}
 }
@@ -312,7 +312,7 @@ func TestUnevaluableLibraryFeatureIsATypedError(t *testing.T) {
 	if got := sortedFeatureNames(ctx.FeaturesOf(obj.Type)); !containsString(got, "broken") || !containsString(got, "unsupported") {
 		t.Fatalf("P features = %v, want the library's broken and unsupported", got)
 	}
-	for name, want := range map[string]error{"broken": ErrDivisionByZero, "unsupported": ErrUnevaluableLibraryFunction} {
+	for name, want := range map[string]error{"broken": ErrDivisionByZero, "unsupported": errUnevaluableLibraryFunction} {
 		fv, err := obj.GetFeatureValue(ctx, name)
 		if err == nil {
 			_, err = fv.ReadValue(name)

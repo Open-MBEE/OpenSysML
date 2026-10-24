@@ -13,12 +13,12 @@ import (
 func sparseSides(t *testing.T, src, part string) (sharing, materializing string, shared int) {
 	t.Helper()
 	ctx, idx := contextForSource(t, src)
-	ctx.SetSharedDefaults(true)
+	ctx.setSharedDefaults(true)
 	sym := lookupOne(t, idx, part)
 	root := idx.DocumentRoot("<test>")
 	sharing, shared = sparseReading(ctx, sym, root)
 	off, _ := contextForSource(t, src)
-	off.SetSharedDefaults(false)
+	off.setSharedDefaults(false)
 	materializing, _ = sparseReading(off, sym, root)
 	if sharing != materializing {
 		t.Errorf("sharing reads differently from materializing\n--- sharing\n%s\n--- materializing\n%s", sharing, materializing)
@@ -238,7 +238,7 @@ func TestSharedVerdictsOncePerDistinctInput(t *testing.T) {
 	}
 	expectTaken := func(want int) {
 		t.Helper()
-		if got := ctx.SharedVerdictsTaken(); got != want {
+		if got := ctx.sharedVerdictsTaken(); got != want {
 			t.Errorf("verdicts taken = %d, want %d", got, want)
 		}
 	}
@@ -269,7 +269,7 @@ func TestSharedVerdictsOncePerDistinctInput(t *testing.T) {
 func TestTracedContextSharesNothing(t *testing.T) {
 	traced := func(share bool) (*TraceRecorder, string, int) {
 		ctx, idx := contextForSource(t, mixedVerdictSrc)
-		ctx.SetSharedDefaults(share)
+		ctx.setSharedDefaults(share)
 		tr := NewTraceRecorder()
 		ctx.SetTrace(tr)
 		reading, shared := sparseReading(ctx, lookupOne(t, idx, "test::fleet"), idx.DocumentRoot("<test>"))
@@ -289,7 +289,7 @@ func TestTracedContextSharesNothing(t *testing.T) {
 	}
 
 	ctx, idx := contextForSource(t, mixedVerdictSrc)
-	ctx.SetSharedDefaults(true)
+	ctx.setSharedDefaults(true)
 	ctx.SetTrace(NewTraceRecorder())
 	ctx.SetTrace(nil)
 	if _, shared := sparseReading(ctx, lookupOne(t, idx, "test::fleet"), idx.DocumentRoot("<test>")); shared == 0 {
@@ -301,7 +301,7 @@ func TestTracedContextSharesNothing(t *testing.T) {
 // nothing is shared, and an occurrence whose part has ended gets its own verdict.
 func TestLifetimeVerdictsAreNotShared(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, lifetimeFleetSrc))
-	ctx.SetSharedDefaults(true)
+	ctx.setSharedDefaults(true)
 	fleet, err := ctx.Instantiate(lookupOne(t, idx, "test::fleet"))
 	if err != nil {
 		t.Fatalf("instantiate: %v", err)
@@ -328,7 +328,7 @@ func TestLifetimeVerdictsAreNotShared(t *testing.T) {
 	if strings.Join(lines, "\n") != strings.Join(want, "\n") {
 		t.Errorf("verdicts:\n%s\nwant:\n%s", strings.Join(lines, "\n"), strings.Join(want, "\n"))
 	}
-	if shared := int(ctx.SharedDefaultsTaken()) + ctx.SharedVerdictsTaken(); shared != 0 {
+	if shared := int(ctx.sharedDefaultsTaken()) + ctx.sharedVerdictsTaken(); shared != 0 {
 		t.Errorf("shared %d values or verdicts deciding on a lifetime", shared)
 	}
 }
@@ -338,7 +338,7 @@ func TestLifetimeVerdictsAreNotShared(t *testing.T) {
 func libraryVerdicts(t *testing.T, src string, on bool) ([]string, int) {
 	t.Helper()
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
-	ctx.SetSharedDefaults(on)
+	ctx.setSharedDefaults(on)
 	fleet, err := ctx.Instantiate(lookupOne(t, idx, "test::fleet"))
 	if err != nil {
 		t.Fatalf("instantiate: %v", err)
@@ -353,7 +353,7 @@ func libraryVerdicts(t *testing.T, src string, on bool) ([]string, int) {
 	for _, v := range report.Verdicts {
 		lines = append(lines, fmt.Sprintf("%s on %q: %s", v.Kind, strings.Join(v.Path, "."), v.Status))
 	}
-	return lines, int(ctx.SharedDefaultsTaken()) + ctx.SharedVerdictsTaken()
+	return lines, int(ctx.sharedDefaultsTaken()) + ctx.sharedVerdictsTaken()
 }
 
 // An extent reads through every object it may reach, so one enumerated after a
@@ -410,7 +410,7 @@ func TestDestroyedPartIsNotCheckedThroughSharedVerdict(t *testing.T) {
 	var got [2][]string
 	for i, on := range []bool{true, false} {
 		ctx, idx := contextForSource(t, src)
-		ctx.SetSharedDefaults(on)
+		ctx.setSharedDefaults(on)
 		fleet, err := ctx.Instantiate(lookupOne(t, idx, "test::fleet"))
 		if err != nil {
 			t.Fatalf("instantiate: %v", err)

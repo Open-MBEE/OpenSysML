@@ -1,0 +1,7 @@
+{
+  "rpc": "SelfCheck",
+  "self_check_package": [
+    "Nope"
+  ],
+  "expected_error": "Nope"
+}

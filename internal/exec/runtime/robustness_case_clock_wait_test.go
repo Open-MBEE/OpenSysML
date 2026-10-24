@@ -95,8 +95,8 @@ func testCaseClockWaitUnderHeldClock(t *testing.T) {
 		}
 	}`
 	ctx, _, err := instantiateWithLibraries(t, src, "test::Station")
-	if !errors.Is(err, ErrStateBehaviorWaits) {
-		t.Fatalf("error = %v, want ErrStateBehaviorWaits", err)
+	if !errors.Is(err, errStateBehaviorWaits) {
+		t.Fatalf("error = %v, want errStateBehaviorWaits", err)
 	}
 	if !strings.Contains(err.Error(), "test::Station::pause") || !strings.Contains(err.Error(), "t=60.0") {
 		t.Errorf("error %q does not name the case and the instant it waits for", err)
@@ -117,7 +117,7 @@ func testCaseClockWaitDetachesAfterRun(t *testing.T) {
 		if err != nil {
 			t.Fatalf("run %d: %v", i, err)
 		}
-		if want := fmt.Sprintf("%d.0", i); len(res.Outputs) != 1 || FormatValue(res.Outputs[0].Value) != want {
+		if want := fmt.Sprintf("%d.0", i); len(res.Outputs) != 1 || FormatValue(soleElement(res.Outputs[0].Value)) != want {
 			t.Errorf("run %d: outputs = %+v, want total = %s", i, res.Outputs, want)
 		}
 		if got := len(ctx.clock.waiters); got != waiters {
@@ -172,8 +172,8 @@ func testCaseClockWaitListedByPerformingAction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExecuteAction: %v", err)
 	}
-	if got := FormatValue(out["ended"]); got != "60.0" {
-		t.Errorf("ended = %s, want 60.0: the step after the case runs at the case's instant", got)
+	if got := FormatValue(out["ended"]); got != "[60.0]" {
+		t.Errorf("ended = %s, want [60.0]: the step after the case runs at the case's instant", got)
 	}
 	if ctx.clock.now != 60.0 {
 		t.Errorf("clock = %v, want 60.0", ctx.clock.now)
@@ -234,8 +234,8 @@ func testCaseClockWaitRefusedUnderRead(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, caseReadModel))
 	waiters := len(ctx.clock.waiters)
 	_, err := ctx.ExecuteAction(oneSymbol(t, idx, "test::Read"))
-	if !errors.Is(err, ErrCaseReadWaits) {
-		t.Fatalf("error = %v, want ErrCaseReadWaits", err)
+	if !errors.Is(err, errCaseReadWaits) {
+		t.Fatalf("error = %v, want errCaseReadWaits", err)
 	}
 	for _, want := range []string{"test::Station::voyage", "t=60.0"} {
 		if !strings.Contains(err.Error(), want) {

@@ -30,7 +30,7 @@ func TestStepOrderDrawsTheActingTiedEventAlone(t *testing.T) {
 		t.Fatalf("finals %v, want the step first under either trigger and the unguarded trigger first", got)
 	}
 	for _, final := range report.Finals {
-		steps := slices.DeleteFunc(slices.Clone(final.Witness.Choices), func(c ChoiceTaken) bool { return c.Kind != ChoiceStepOrder })
+		steps := slices.DeleteFunc(slices.Clone(final.Witness.Choices), func(c ChoiceTaken) bool { return c.Kind != choiceStepOrder })
 		if len(steps) == 0 {
 			t.Fatalf("%s: no step order drawn, want one between the step and the group's timer", final.Outcome)
 		}
@@ -42,7 +42,7 @@ func TestStepOrderDrawsTheActingTiedEventAlone(t *testing.T) {
 				t.Fatalf("%s: step order %d took the dispatch before the last, got %s", final.Outcome, i, FormatChoices(final.Witness.Choices))
 			}
 		}
-		dispatched := slices.ContainsFunc(final.Witness.Choices, func(c ChoiceTaken) bool { return c.Kind == ChoiceDispatchOrder })
+		dispatched := slices.ContainsFunc(final.Witness.Choices, func(c ChoiceTaken) bool { return c.Kind == choiceDispatchOrder })
 		if dispatched {
 			t.Fatalf("%s: one timer is one occurrence, no dispatch order drawn, got %s", final.Outcome, FormatChoices(final.Witness.Choices))
 		}

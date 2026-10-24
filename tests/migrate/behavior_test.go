@@ -20,6 +20,18 @@ func session(t *testing.T, r *migrate.Result) *repl.Session {
 			t.Fatalf("migrated notation: %v\n%s", d, r.Notation)
 		}
 	}
+	// A root Model is written as a package; importing it lets a script name
+	// the model's members as the model does.
+	for _, e := range r.Report.Entries {
+		if e.Kind != "Model" || e.Target == "" {
+			continue
+		}
+		for _, d := range s.Submit("private import " + e.Target + "::*;").Diagnostics {
+			if d.Severity == diag.SeverityError {
+				t.Fatalf("import %s::*: %v", e.Target, d)
+			}
+		}
+	}
 	return s
 }
 
@@ -153,7 +165,7 @@ func TestActivityMigratesToAnExecutableActionDef(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNote(t, r, "_stamp", migrate.Approximated, "the body is kept as a comment")
+	wantNote(t, r, "_stamp", migrate.Approximated, "the body is kept as a textual representation, which is not executed")
 	wantNote(t, r, "_e8", migrate.Approximated, "the guard [Focus lost] is kept as a comment and the edge written unguarded")
 	wantNote(t, r, "_dcA", migrate.Approximated, "written as a fixed wait of 3.0 s before 'Point'")
 	wantNote(t, r, "_dcB", migrate.Approximated, "written as a wait drawn uniformly over [1.0, 8.0] s before 'Focus'")
@@ -288,7 +300,7 @@ func TestWeightedDecisionReadsOnlyTheSysMLProfilesProbability(t *testing.T) {
 	wantNote(t, r, "_eReject", migrate.Approximated, "the edge carries no «Probability»: it is weighted 1.0 - (bias + 0.3)")
 	s := session(t, r)
 	meta(t, s, "%seed 1")
-	wantVerdict(t, s.RunAction("Sorter::route"))
+	wantVerdict(t, s.RunAction("Sorter::Sorter::route"))
 }
 
 // weightedChooser is a block whose value properties hold the probabilities the
@@ -505,7 +517,7 @@ func TestAcceptPayloadNameDoesNotShadowSignalType(t *testing.T) {
 
 func TestAcceptPayloadNameAnchorsShadowedSignalPath(t *testing.T) {
 	r := migrateFixtureFileOptions(t, "accept_payload_package_shadow", migrate.Options{Strict: true})
-	wantLine(t, r.Notation, "accept Alarm : $::Alarm::Alarm;")
+	wantLine(t, r.Notation, "accept Alarm : Model::Alarm::Alarm;")
 	if errs := errorsMode(t, "accept_payload_package_shadow.sysml", r.Notation, diag.ConformanceStrict); len(errs) > 0 {
 		t.Errorf("strict accept signal migration has errors: %v\n%s", errs, r.Notation)
 	}
@@ -513,7 +525,7 @@ func TestAcceptPayloadNameAnchorsShadowedSignalPath(t *testing.T) {
 
 func TestAcceptPayloadDoesNotShadowSignalPackagePath(t *testing.T) {
 	r := migrateFixtureFileOptions(t, "accept_payload_package_segment_shadow", migrate.Options{Strict: true})
-	wantLine(t, r.Notation, "accept Alarm : $::Alarm::Beep;")
+	wantLine(t, r.Notation, "accept Alarm : Model::Alarm::Beep;")
 	if errs := errorsMode(t, "accept_payload_package_segment_shadow.sysml", r.Notation, diag.ConformanceStrict); len(errs) > 0 {
 		t.Errorf("strict accept signal migration has errors: %v\n%s", errs, r.Notation)
 	}
@@ -611,8 +623,10 @@ func TestParallelControlFlowsAreEachWritten(t *testing.T) {
 	wantNote(t, r, "_retry", migrate.Approximated, "several edges leave the node, which a fork fork carries")
 	s := session(t, r)
 	meta(t, s, "%instantiate Retrier")
+	// The object performs recover, so the session attaches to the performance
+	// that ran at instantiation, which reports itself already completed.
 	meta(t, s, "%action Retrier::recover #1")
-	if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
+	if out := meta(t, s, "%continue"); !strings.Contains(strings.ToLower(out), "completed") {
 		t.Errorf("the action with parallel flows did not run to completion:\n%s", out)
 	}
 }
@@ -696,7 +710,7 @@ func TestStateMachineMigratesToAnExecutableStateDef(t *testing.T) {
 	for _, line := range []string{
 		"state def Control {",
 		"entry; then Idle;",
-		"state Busy {",
+		"state Busy parallel {",
 		"entry; then Warm;",
 		"transition first Warm accept after 2.0 [SI::s] then Hot;",
 		"state Cool : Cooling { in ref :>> context = Control::context; }",
@@ -858,9 +872,9 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 		"action 'set azimuth' {",
 		"assign azimuth := value;",
 		"bind 'set azimuth'.value = az;",
-		"abstract action def Park;",
+		"abstract action park;",
 		"action def Go {",
-		"action receive accept go : $::Go;",
+		"action receive accept go : Model::Go;",
 		"first receive then receive;",
 		"perform action go : Go;",
 		"calc def Twice {",
@@ -869,7 +883,6 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 		"send new Go() to tel;",
 		"action 'wait Ack' accept Ack;",
 		"out result[1] = 90.0;",
-		"action park : Park;",
 		"perform action point ::> tel.point;",
 		"* var t = java.lang.System.currentTimeMillis();",
 		"action log : Logging;",
@@ -889,7 +902,7 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 	wantNote(t, r, "_twice", migrate.Mapped, "")
 	wantNote(t, r, "_tr", migrate.Approximated, "the return parameter is written as an out parameter")
 	wantNote(t, r, "_rcv", migrate.Approximated, "the reception has no method, so it only accepts the signal")
-	wantNote(t, r, "_js", migrate.Approximated, "the body is kept as a comment")
+	wantNote(t, r, "_js", migrate.Approximated, "the body is kept as a textual representation, which is not executed")
 	wantNote(t, r, "_log", migrate.Approximated, "the pin 't' it passes for the parameter t of Station::Logging receives none: 'compute', which feeds it, produces no value; v1 runs the callee without the value, so the parameter is declared admitting none")
 	wantNote(t, r, "_point", migrate.Mapped, "written as an action usage of Telescope, which a call on an object performs, so its body runs on the object and reaches its features")
 	wantNote(t, r, "_callTgt", migrate.Mapped, "the call performs the usage point of the target this.tel")
@@ -934,7 +947,7 @@ func TestNestedDefProbabilityReadsThroughContext(t *testing.T) {
 		meta(t, s, "%seed 1")
 		meta(t, s, "%instantiate Mission::Sub")
 		meta(t, s, "%action Mission::Sub::run #1")
-		if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
+		if out := meta(t, s, "%continue"); !strings.Contains(strings.ToLower(out), "completed") {
 			t.Errorf("the nested def did not run to completion:\n%s", out)
 		}
 	}
@@ -1001,7 +1014,7 @@ func TestNestedDefProbabilityReadsThroughContext(t *testing.T) {
 	t.Run("held by a part a node of the body is named like", func(t *testing.T) {
 		r := migrateFixtureFile(t, "probability_part_shadowed")
 		wantLine(t, r.Notation, "part mission : Mission;")
-		wantLine(t, r.Notation, "action mission {")
+		wantLine(t, r.Notation, "action mission;")
 		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = Sub::mission.pr; } }")
 		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 1.0 - Sub::mission.pr; } }")
 		wantNote(t, r, "_ea", migrate.Mapped, "the probability reads the property pr of the object performing the action")

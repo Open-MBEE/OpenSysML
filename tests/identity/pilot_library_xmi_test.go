@@ -27,6 +27,18 @@ const (
 // every named library element the pilot serializes is derived.
 var pilotOnlyElements = map[string]string{}
 
+// errataOnlyElements are elements the bundled library derives an id for because a
+// declared erratum (internal/workspace/libs/errata) inserts their declaration, so
+// the pinned pilot's XMI, which predates the correction, serializes none of them.
+// Kept exact, by qualified name and derived id: the gate fails once the pilot
+// serializes one, so the entry is dropped when the pin catches up.
+var errataOnlyElements = map[string]string{
+	"Flows::Message::source":  "c3df6eb7-2f73-52e7-a81b-ba81e88b65fe",
+	"Flows::Message::target":  "332f4e0b-e3f4-58b6-bf25-7aa9437cb732",
+	"Flows::messages::source": "c2f9d8ff-1e69-5ea4-b499-07f41d3b0af9",
+	"Flows::messages::target": "2c05de02-010a-5e6e-aef9-c87a5651546b",
+}
+
 // referenceNamedKinds are the usage kinds named after the feature they reference
 // rather than one they redefine (`perform a`, `exhibit s`, `event e` and the like).
 var referenceNamedKinds = map[string]bool{
@@ -99,10 +111,25 @@ func TestPilotLibraryXMI(t *testing.T) {
 		t.Fatal("the bundled library yields no normative identities")
 	}
 	derived := map[string]bool{}
+	seenErrataOnly := 0
 	for _, el := range ours {
+		if el.Language == identity.OpenSysML {
+			// An extension's fixed id is this implementation's, not the norm's: the
+			// pilot's XMI must know nothing under it.
+			if _, collides := lib.byID[el.ID]; collides {
+				wrong = append(wrong, fmt.Sprintf("%s: the extension id %s is a pilot library element's", el.FQN, el.ID))
+			}
+			continue
+		}
 		derived[el.ID] = true
 		node, ok := lib.byID[el.ID]
+		errataOnly, listed := errataOnlyElements[el.FQN]
+		listed = listed && errataOnly == el.ID
 		switch {
+		case ok && listed:
+			wrong = append(wrong, fmt.Sprintf("%s: the pilot serializes it now, so no longer errata-only; drop it from the list", el.FQN))
+		case !ok && listed:
+			seenErrataOnly++
 		case !ok:
 			wrong = append(wrong, fmt.Sprintf("%s: derived %s, the pilot serializes no element with that id", el.FQN, el.ID))
 		case lib.owningRelationship(node) != el.OwningMembershipID:
@@ -120,14 +147,17 @@ func TestPilotLibraryXMI(t *testing.T) {
 			wrong = append(wrong, fmt.Sprintf("%s: the pilot serializes %s, nothing derived", el.path, el.id))
 		}
 	}
+	if seenErrataOnly != len(errataOnlyElements) {
+		wrong = append(wrong, fmt.Sprintf("%d errata-only element(s) listed, %d derived and absent from the pilot", len(errataOnlyElements), seenErrataOnly))
+	}
 	sort.Strings(wrong)
 	if len(wrong) != 0 {
 		limit := min(len(wrong), 40)
 		t.Fatalf("%d identities differ from the pilot's XMI (first %d):\n  %s",
 			len(wrong), limit, strings.Join(wrong[:limit], "\n  "))
 	}
-	t.Logf("pilot library XMI: %d derived and %d named elements agree with their owning memberships across %d files (%d known pilot-only)",
-		len(ours), len(named), len(lib.files), len(pilotOnlyElements))
+	t.Logf("pilot library XMI: %d derived and %d named elements agree with their owning memberships across %d files (%d known pilot-only, %d errata-only)",
+		len(ours), len(named), len(lib.files), len(pilotOnlyElements), len(errataOnlyElements))
 }
 
 // readPilotLibraryXMI reads every downloaded XMI file, skipping (or failing,

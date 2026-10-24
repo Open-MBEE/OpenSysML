@@ -1,0 +1,64 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% MicroscopeViews::structure — tree rendering
+%% not represented: 6 node(s) without a position, drawn as compartment rows of the node above them
+%% canvas: unit=px w=1100 h=420
+%% layout: n0 x=400 y=20 w=300 h=80
+%% layout: n7 x=20 y=300 w=180 h=70
+%% layout: n8 x=230 y=300 w=160 h=70
+%% layout: n9 x=420 y=300 w=200 h=70
+%% layout: n10 x=660 y=300 w=160 h=70
+%% layout: n11 x=860 y=300 w=160 h=70
+%% route: n0->n7 550,100 550,200 110,200 110,300
+%% route: n0->n8 550,100 550,200 310,200 310,300
+%% route: n0->n9 550,100 550,200 480,200 480,300
+%% route: n0->n9 550,100 550,200 560,200 560,300
+%% route: n0->n10 550,100 550,200 740,200 740,300
+%% route: n0->n11 550,100 550,200 940,200 940,300
+flowchart TD
+  n0["`*«part def»*
+**ScanningElectronMicroscope**
+parts
+imagingParameters
+focusSettings
+backscatteredElectronDetector
+secondaryElectronDetector
+objectiveLens
+stigmator`"]
+  n7["`*«part def»*
+**ImagingParameters**`"]
+  n8["`*«part def»*
+**FocusSettings**`"]
+  n9["`*«part def»*
+**ElectronDetector**`"]
+  n10["`*«part def»*
+**ObjectiveLens**`"]
+  n11["`*«part def»*
+**Stigmator**`"]
+  n0 ---|"◆ imagingParameters"| n7
+  n0 ---|"◆ focusSettings"| n8
+  n0 ---|"◆ backscatteredElectronDetector"| n9
+  n0 ---|"◆ secondaryElectronDetector"| n9
+  n0 ---|"◆ objectiveLens"| n10
+  n0 ---|"◆ stigmator"| n11

@@ -62,7 +62,8 @@ const (
 )
 
 func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
-	if b == nil || m.asUsage[b] {
+	if b == nil || m.asUsage[b] || b.Type == "Interaction" {
+		// An interaction's occurrence def declares no parameter; its lifelines are bound in the context's occurrence usage of it.
 		return nil
 	}
 	if c, settled := m.contexts[b]; settled {
@@ -181,7 +182,14 @@ func defScope(e *sysmlv1.Element) bool {
 	case "entry", "exit", "doActivity", "effect", "method", "guard":
 		return false
 	}
-	return isBehavior(e) || e.Type == "Operation" || e.Type == "Reception"
+	return isBehavior(e) || e.Type == "Operation" || e.Type == "Reception" || ruleDef(e)
+}
+
+// ruleDef reports whether e is an owned rule written as a def of its own: a
+// plain constraint of a classifier or package, not of a behavior, operation,
+// state or transition, whose rule is asserted inline where it is read.
+func ruleDef(e *sysmlv1.Element) bool {
+	return e.Type == "Constraint" && e.Role == "ownedRule" && e.Parent != nil && !behaviorScope(e.Parent)
 }
 
 // enclosingDef is the def e's body is written inside: the innermost enclosing
@@ -1168,19 +1176,18 @@ func (a *activity) on(obj, member string) string {
 // performUsage writes a call of a behavior written as an action usage of its
 // owner: the call performs that usage of the one object of the owner in
 // reach; when there is none, an empty step stands where the call was.
-func (a *activity) performUsage(name string, b *sysmlv1.Element) string {
+func (a *activity) performUsage(name string, b *sysmlv1.Element) (note string, performed bool) {
 	owner := b.Parent
 	obj, _, why := a.m.objectOf(owner, a.selfType(), a.self())
 	if obj == "" {
-		a.m.w.line(actionKw + name + ";")
-		return a.m.nameOf(b) + " is an action of " + qualifiedName(owner) + ", performed on an object of it; " + why + ", so an empty step stands for the call"
+		return a.m.nameOf(b) + " is an action of " + qualifiedName(owner) + ", performed on an object of it; " + why + ", so an empty step stands for the call", false
 	}
 	usage := a.on(obj, writeName(a.m.nameOf(b)))
 	a.m.w.line("perform action " + name + " ::> " + a.unshadowed(usage) + ";")
 	if obj == a.self() {
-		return ""
+		return "", true
 	}
-	return "performed on " + obj + why + ", as its usage " + usage
+	return "performed on " + obj + why + ", as its usage " + usage, true
 }
 
 // unshadowed writes the path to a feature of the object the activity acts on so

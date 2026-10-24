@@ -1,0 +1,11 @@
+// view: CameraViews::roomy
+// kind: tree
+// stated: render asTreeDiagram
+// not represented: 9 node(s) without a position: 7 drawn as compartment rows of the node above them, 2 in compartments its Layout hides left undrawn
+// layout: neato -n
+digraph "CameraViews::roomy" {
+  graph [fontname="Helvetica", layout=neato, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«part def»</i></font><br/><b>Imaging</b></td></tr><hr/><tr><td><font point-size="10">attributes</font></td></tr><tr><td align="left">resolution = 4096<br/>exposure</td></tr><hr/><tr><td><font point-size="10">items</font></td></tr><tr><td align="left">&#39;frame&#39;</td></tr><hr/><tr><td><font point-size="10">parts</font></td></tr><tr><td align="left">mount</td></tr><hr/><tr><td><font point-size="10">ports</font></td></tr><tr><td align="left">data</td></tr><hr/><tr><td><font point-size="10">actions</font></td></tr><tr><td align="left">capture</td></tr><hr/><tr><td><font point-size="10">constraints</font></td></tr><tr><td align="left">focus</td></tr></table>>, margin=0, pos="160,-220!", pin=true, width=4.166666666666667, height=5.833333333333333, fixedsize=true];
+}

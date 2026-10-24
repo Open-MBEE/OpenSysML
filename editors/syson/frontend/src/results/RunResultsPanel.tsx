@@ -1,8 +1,10 @@
 import CheckIcon from '@mui/icons-material/Check';
+import DownloadIcon from '@mui/icons-material/Download';
 import ClearIcon from '@mui/icons-material/Clear';
 import ErrorIcon from '@mui/icons-material/Error';
 import InfoIcon from '@mui/icons-material/Info';
 import WarningIcon from '@mui/icons-material/Warning';
+import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -14,7 +16,12 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
-import { GQLRunOperation, GQLOpenSysMLRunOutcome, GQLOpenSysMLRunResult } from '../graphql/runWithOpenSysML';
+import {
+  GQLOpenSysMLDocument,
+  GQLOpenSysMLRunOutcome,
+  GQLOpenSysMLRunResult,
+  GQLRunOperation,
+} from '../graphql/runWithOpenSysML';
 
 export interface RunResultsPanelProps {
   result: GQLOpenSysMLRunResult;
@@ -33,6 +40,21 @@ const operationLabels: Record<GQLRunOperation, string> = {
   EVALUATE_CALC: 'Evaluate calculation',
   RUN_ANALYSIS: 'Run analysis',
   VALIDATE_INSTANCE: 'Validate instance',
+  RENDER_DOCUMENT: 'Render document',
+  RUN_DOCUMENT_QUERY: 'Run document query',
+};
+
+const documentMediaType = (document: GQLOpenSysMLDocument): string =>
+  document.form === 'HTML' ? 'text/html;charset=utf-8' : 'text/markdown;charset=utf-8';
+
+// Offers the rendered document as a file download through a transient object URL.
+const downloadDocument = (document: GQLOpenSysMLDocument): void => {
+  const url = URL.createObjectURL(new Blob([document.content], { type: documentMediaType(document) }));
+  const anchor = window.document.createElement('a');
+  anchor.href = url;
+  anchor.download = document.fileName;
+  anchor.click();
+  URL.revokeObjectURL(url);
 };
 
 const verdictColor = (result: GQLOpenSysMLRunResult): 'success' | 'error' | 'warning' => {
@@ -179,6 +201,64 @@ export const RunResultsPanel = ({ result, onSelectElement }: RunResultsPanelProp
                   </TableRow>
                 );
               })}
+            </TableBody>
+          </Table>
+        </section>
+      )}
+
+      {result.document && (
+        <section data-testid="opensysml-document">
+          <Typography variant="subtitle2">
+            Document ({result.document.form === 'HTML' ? 'HTML' : 'Markdown'})
+            <Button
+              size="small"
+              startIcon={<DownloadIcon />}
+              onClick={() => result.document && downloadDocument(result.document)}>
+              Download {result.document.fileName}
+            </Button>
+          </Typography>
+          {result.document.form === 'HTML' ? (
+            <iframe
+              title={result.document.fileName}
+              sandbox=""
+              srcDoc={result.document.content}
+              style={{ width: '100%', height: '32rem', border: '1px solid rgba(0, 0, 0, 0.12)' }}
+            />
+          ) : (
+            <Typography
+              component="pre"
+              variant="body2"
+              style={{ whiteSpace: 'pre-wrap', maxHeight: '32rem', overflow: 'auto' }}>
+              {result.document.content}
+            </Typography>
+          )}
+        </section>
+      )}
+
+      {result.table && (
+        <section data-testid="opensysml-table">
+          <Typography variant="subtitle2">Rows</Typography>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Element</TableCell>
+                {result.table.columns.map((column) => (
+                  <TableCell key={column}>{column}</TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {result.table.rows.map((row, index) => (
+                <TableRow
+                  key={`${row.element}-${index}`}
+                  hover={Boolean(row.siriusId)}
+                  onClick={() => row.siriusId && onSelectElement?.(row.siriusId)}>
+                  <TableCell>{row.element}</TableCell>
+                  {row.cells.map((cell, cellIndex) => (
+                    <TableCell key={`${result.table?.columns[cellIndex] ?? cellIndex}`}>{cell}</TableCell>
+                  ))}
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </section>

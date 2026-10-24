@@ -76,14 +76,14 @@ func TestCaseViewSelectionAndRelationships(t *testing.T) {
 	for _, root := range rendering.Roots {
 		visit(root)
 	}
-	for _, name := range []string{"CaseExamples::'Provide Transportation'", "CaseExamples::'Add Fuel'",
+	for _, name := range []string{"CaseExamples::'Provide Transportation'", "CaseExamples::addFuel",
 		"'enter vehicle'", "'Drive Vehicle'", "CaseExamples::FuelAnalysis", "CaseExamples::FuelVerification"} {
 		if len(names[name]) == 0 {
 			t.Errorf("case rendering has no node named %q; got %v", name, mapNodeNames(names))
 		}
 	}
-	if len(names["CaseExamples::'Add Fuel'"]) != 1 {
-		t.Errorf("included target appears %d times, want once", len(names["CaseExamples::'Add Fuel'"]))
+	if len(names["CaseExamples::addFuel"]) != 1 {
+		t.Errorf("included target appears %d times, want once", len(names["CaseExamples::addFuel"]))
 	}
 	var objectives []*Node
 	for _, nodes := range names {
@@ -117,7 +117,7 @@ func TestCaseViewSelectionAndRelationships(t *testing.T) {
 		if edge.Label != "«include»" {
 			t.Errorf("include label = %q", edge.Label)
 		}
-		if len(names["CaseExamples::'Add Fuel'"]) == 1 && names["CaseExamples::'Add Fuel'"][0].ID == edge.To {
+		if len(names["CaseExamples::addFuel"]) == 1 && names["CaseExamples::addFuel"][0].ID == edge.To {
 			includedReference = true
 		}
 		if len(names["'enter vehicle'"]) == 1 && names["'enter vehicle'"][0].ID == edge.To {
@@ -577,7 +577,7 @@ func TestMixedInheritedReferencesFollowQualifiedCases(t *testing.T) {
 	}
 	checkEdges(data.Nodes, dataEdges)
 
-	text := rendering.Text()
+	text := textWithQualifiers(t, rendering)
 	wantTextEdges := map[string]int{}
 	for _, edge := range rendering.Edges {
 		if edge.Kind != EdgeReference {
@@ -662,7 +662,7 @@ func TestCaseAndMixedLayoutRoutesReachDrawnElements(t *testing.T) {
 	caseView := lookup(t, caseIndex, "CaseExamples::caseLayout")
 	caseElement := lookup(t, caseIndex, "CaseExamples::Provide Transportation")
 	caseActor := lookup(t, caseIndex, "CaseExamples::Provide Transportation::driver")
-	caseInclude := lookup(t, caseIndex, "CaseExamples::Provide Transportation::Add Fuel")
+	caseInclude := lookup(t, caseIndex, "CaseExamples::Provide Transportation::addFuel")
 	caseDrawn, err := caseRenderer.DrawnIn(caseView)
 	if err != nil {
 		t.Fatalf("DrawnIn(caseLayout): %v", err)
@@ -787,7 +787,7 @@ func TestCaseShapesAndEdgeLabelsAreKindScoped(t *testing.T) {
 	for _, nodeKind := range []string{"use case", "actor", "subject", "objective"} {
 		node := &Node{ID: "n0", Kind: nodeKind, Name: "Example"}
 		for _, kind := range []Kind{KindTree, KindInterconnection} {
-			labels := labelsOf([]*Node{node}, false, nil)
+			labels := labelsOf([]*Node{node}, false, nil, AllShown())
 			shape := mermaidNodeShape(kind, node, labels, Options{})
 			if strings.Contains(shape, "([") || strings.Contains(shape, "notch-rect") {
 				t.Errorf("%s Mermaid node kind %q uses a case-only shape: %s", kind, nodeKind, shape)
@@ -817,7 +817,7 @@ func TestCaseShapesAndEdgeLabelsAreKindScoped(t *testing.T) {
 			shape    string
 		}{{"use case", "shape=ellipse"}, {"actor", "shape=box"}, {"subject", "shape=box"}, {"objective", "shape=note"}} {
 			node := &Node{ID: "n0", Kind: tc.nodeKind, Name: "Example"}
-			labels := labelsOf([]*Node{node}, false, nil)
+			labels := labelsOf([]*Node{node}, false, nil, AllShown())
 			if shape := mermaidNodeShape(kind, node, labels, Options{}); tc.nodeKind == "use case" && !strings.HasPrefix(shape, "([") ||
 				tc.nodeKind == "objective" && !strings.Contains(shape, "notch-rect") {
 				t.Errorf("%s Mermaid node kind %q has unexpected shape %q", kind, tc.nodeKind, shape)

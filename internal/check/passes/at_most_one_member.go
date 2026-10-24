@@ -97,20 +97,55 @@ func (cc *constraintChecker) checkSubjectParameterPosition(sym *symbols.Symbol, 
 		return
 	}
 
-	var firstInput *symbols.Symbol
-	for _, member := range cc.model.MembersOf(sym) {
-		if member == nil {
-			continue
-		}
-		if isSubjectDecl(member.Decl) || isInputParameterDecl(member.Decl) {
-			firstInput = member
+	if firstInput := cc.firstInputParameter(sym); firstInput != nil && !isSubjectSymbol(firstInput) {
+		cc.reportSubjectParameterPosition(sym, members)
+	}
+}
+
+// firstInputParameter is the first subject or input parameter in featureMembership
+// order, owned then inherited (KerML 8.3.3.1); an anonymous `subject;` counts too.
+func (cc *constraintChecker) firstInputParameter(sym *symbols.Symbol) *symbols.Symbol {
+	var first *symbols.Symbol
+	scan := func(scope *symbols.Scope) {
+		scope.ForEachMember(func(member *symbols.Symbol) bool {
+			if isSubjectSymbol(member) || isInputParameterSymbol(member) {
+				first = member
+			}
+			return first == nil
+		})
+	}
+	scan(sym.Scope)
+	for _, src := range cc.model.MemberSources(sym) {
+		if first != nil {
 			break
 		}
+		scan(src.Scope)
 	}
-	if firstInput == nil || isSubjectDecl(firstInput.Decl) {
-		return
+	return first
+}
+
+// isSubjectSymbol reads the declaration of a loaded symbol and the recorded facts
+// of one whose document is held as a record.
+func isSubjectSymbol(s *symbols.Symbol) bool {
+	if !s.Recorded() {
+		return isSubjectDecl(s.Decl)
 	}
-	cc.reportSubjectParameterPosition(sym, members)
+	return s.Facts.Node == symbols.NodeSubject || (s.Facts.Node == symbols.NodeUsage && s.Facts.UsageKind == ast.UsageSubject)
+}
+
+// isInputParameterSymbol is isInputParameterDecl over a loaded or recorded symbol.
+func isInputParameterSymbol(s *symbols.Symbol) bool {
+	if !s.Recorded() {
+		return isInputParameterDecl(s.Decl)
+	}
+	if s.Facts.Node != symbols.NodeUsage {
+		return false
+	}
+	switch s.Facts.UsageKind {
+	case ast.UsageActor, ast.UsageStakeholder:
+		return true
+	}
+	return s.Facts.Direction == ast.DirIn || s.Facts.Direction == ast.DirInOut
 }
 
 func isParameterDecl(u *ast.Usage) bool {
@@ -182,9 +217,18 @@ func isSubjectDecl(decl ast.Node) bool {
 	return false
 }
 
+// isInputParameterDecl reports an `in`/`inout` usage, an actor or a stakeholder:
+// Actor/StakeholderMembership are ParameterMemberships directed `in` (SysML 8.3.19).
 func isInputParameterDecl(decl ast.Node) bool {
 	u, ok := decl.(*ast.Usage)
-	return ok && (u.Direction == ast.DirIn || u.Direction == ast.DirInOut)
+	if !ok {
+		return false
+	}
+	switch u.Kind {
+	case ast.UsageActor, ast.UsageStakeholder:
+		return true
+	}
+	return u.Direction == ast.DirIn || u.Direction == ast.DirInOut
 }
 
 // reportExtraMembers errors on every member after the first, the reference's
@@ -240,24 +284,42 @@ func stateLikeDecl(decl ast.Node) bool {
 	return false
 }
 
+// subjectOwnerDecl reports a requirement or case declaration; concerns and
+// viewpoints are requirements (SysML 8.3.19 ConcernDefinition, ViewpointDefinition).
 func subjectOwnerDecl(decl ast.Node) bool {
 	switch d := decl.(type) {
 	case *ast.Definition:
-		return d.Kind == ast.DefRequirement || isCaseDefKind(d.Kind)
+		return requirementLikeDefKind(d.Kind) || isCaseDefKind(d.Kind)
 	case *ast.Usage:
-		return d.Kind == ast.UsageRequirement || isCaseUsageKind(d.Kind)
+		return requirementLikeUsageKind(d.Kind) || isCaseUsageKind(d.Kind)
+	}
+	return false
+}
+
+func requirementLikeDefKind(k ast.DefinitionKind) bool {
+	switch k {
+	case ast.DefRequirement, ast.DefConcern, ast.DefViewpoint:
+		return true
+	}
+	return false
+}
+
+func requirementLikeUsageKind(k ast.UsageKind) bool {
+	switch k {
+	case ast.UsageRequirement, ast.UsageConcern, ast.UsageFramedConcern, ast.UsageViewpoint:
+		return true
 	}
 	return false
 }
 
 // objectiveOwnerDecl reports whether a case declaration is judged by the objective
-// cardinality rule; analysis cases are exempt, see internal/exec/solve.
+// cardinality rule: every case kind, analysis cases included (SysML 8.3.22.2-3).
 func objectiveOwnerDecl(decl ast.Node) bool {
 	switch d := decl.(type) {
 	case *ast.Definition:
-		return isCaseDefKind(d.Kind) && d.Kind != ast.DefAnalysisCase
+		return isCaseDefKind(d.Kind)
 	case *ast.Usage:
-		return isCaseUsageKind(d.Kind) && d.Kind != ast.UsageAnalysisCase
+		return isCaseUsageKind(d.Kind)
 	}
 	return false
 }

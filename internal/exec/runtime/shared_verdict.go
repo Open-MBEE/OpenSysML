@@ -25,9 +25,9 @@ func (ctx *Context) ShareVerdicts() (done func()) {
 	return func() { ctx.verdicts = nil }
 }
 
-// SharedVerdictsTaken counts the verdicts taken from the open span rather than
+// sharedVerdictsTaken counts the verdicts taken from the open span rather than
 // decided by evaluating; zero outside a span.
-func (ctx *Context) SharedVerdictsTaken() int {
+func (ctx *Context) sharedVerdictsTaken() int {
 	if ctx.verdicts == nil {
 		return 0
 	}

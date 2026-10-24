@@ -16,9 +16,9 @@ use normalize::normalize;
 use opensysml::{
     wire, AnalysisOptions, Connection, ConvertOptions, ConvertSource, DocumentForm, DocumentValue,
     EditError, Error, EvalOptions, ExploredResponse, FailureReason, IdForm, Language, Layout,
-    MigrateOptions, MigrateSource, Model, ModelResponse, ParseOptions, Query, RenderViewPorts,
-    RunOptions, SourceDocument, SourcesOptions, Status, SweepOptions, SweepRange,
-    Value as SysmlValue, VerifyOptions,
+    MigrateOptions, MigrateSource, Model, ModelResponse, ParseOptions, Query, RecordOptions,
+    RenderViewPorts, RunOptions, RunsOptions, SourceDocument, SourcesOptions, Status, SweepOptions,
+    SweepRange, Value as SysmlValue, VerifyOptions,
 };
 use prost::Message;
 use prost_reflect::{DescriptorPool, DeserializeOptions, DynamicMessage, SerializeOptions};
@@ -422,9 +422,12 @@ impl Runner {
             "RenderDocument" => self.render_document(request),
             "RenderView" => self.render_view(request),
             "ExportGraphs" => self.export_graphs(request),
+            "ImportData" => self.import_data(request),
+            "CompareResults" => self.compare_results(request),
+            "CheckBehavior" => self.check_behavior(request),
             "ExecuteAction" => self.execute_action(request),
             "ExecuteState" => self.execute_state(request),
-            "ListEngines" => self.list_engines(),
+            "ListEngines" => self.list_engines(request),
             "VerifyConstraint" => self.verify_constraint(request),
             "VerifyRequirement" => self.verify_requirement(request),
             "VerifySatisfaction" => self.verify_satisfaction(request),
@@ -432,6 +435,9 @@ impl Runner {
             "EvaluateCalc" => self.evaluate_calc(request),
             "RunAnalysis" => self.run_analysis(request),
             "RunSweep" => self.run_sweep(request),
+            "RunRuns" => self.run_runs(request),
+            "SelfCheck" => self.self_check(request),
+            "RecordRun" => self.record_run(request),
             other => Answer::Unrepresentable(format!("no typed method calls {other}")),
         }
     }
@@ -477,7 +483,14 @@ impl Runner {
             Ok(hash) => hash,
             Err(error) => return Answer::Other(error),
         };
-        match self.connection.diagnostics(&hash) {
+        let disabled = string_list_field(request, "disable_lint");
+        let enabled = string_list_field(request, "enable_lint");
+        let disabled: Vec<&str> = disabled.iter().map(String::as_str).collect();
+        let enabled: Vec<&str> = enabled.iter().map(String::as_str).collect();
+        match self
+            .connection
+            .diagnostics_with_lints(&hash, &disabled, &enabled)
+        {
             Ok(diagnostics) => {
                 let response = opensysml::wire::DiagnosticsResponse {
                     diagnostics: diagnostics
@@ -851,15 +864,140 @@ impl Runner {
             "full" => RenderViewPorts::Full,
             other => return Answer::Unrepresentable(format!("render-view ports {other:?}")),
         };
+        let show: Vec<&str> = request.show.iter().map(String::as_str).collect();
         match self
             .connection
-            .render_view_with_ports(&request.model_hash, &request.view, ports)
+            .render_view_showing(&request.model_hash, &request.view, ports, &show)
         {
             Ok(rendered) => {
                 Answer::Response(self.wire_json("sysml.RenderViewResponse", rendered.wire()))
             }
             Err(error) => classify_error(error),
         }
+    }
+
+    fn import_data(&self, request: &DynamicMessage) -> Answer {
+        let request: wire::ImportDataRequest = match decode(request) {
+            Ok(request) => request,
+            Err(answer) => return answer,
+        };
+        let imports: Vec<opensysml::DataImport> = request
+            .imports
+            .iter()
+            .map(|i| opensysml::DataImport {
+                name: i.name.clone(),
+                content: i.content.clone(),
+                format: Some(i.import_format.clone()).filter(|f| !f.is_empty()),
+                map: Some(i.import_map.clone()).filter(|m| !m.is_empty()),
+            })
+            .collect();
+        let options = opensysml::DataImportOptions {
+            dry_run: request.import_dry_run,
+            accept_documents: request.accept_documents,
+        };
+        match self
+            .connection
+            .import_data(&request.model_hash, &imports, &options)
+        {
+            Ok(result) => {
+                Answer::Response(self.wire_json("sysml.ImportDataResponse", result.wire()))
+            }
+            Err(error) => match Failure::of(error) {
+                Ok(failure) => Answer::Response(self.wire_json(
+                    "sysml.ImportDataResponse",
+                    &wire::ImportDataResponse {
+                        error: failure.error,
+                        diagnostics: failure.diagnostics,
+                        ..Default::default()
+                    },
+                )),
+                Err(answer) => answer,
+            },
+        }
+    }
+
+    fn compare_results(&self, request: &DynamicMessage) -> Answer {
+        let request: wire::CompareResultsRequest = match decode(request) {
+            Ok(request) => request,
+            Err(answer) => return answer,
+        };
+        let options = opensysml::CompareOptions {
+            actions: request.actions.clone(),
+            runs: request.runs,
+            seed: request.seed,
+            draws: Some(request.draws.clone()).filter(|d| !d.is_empty()),
+            clock_step: request.clock_step,
+            observe: request
+                .observe
+                .iter()
+                .map(|o| (o.stored.clone(), o.feature.clone()))
+                .collect(),
+            engine: Some(request.engine.clone()).filter(|e| !e.is_empty()),
+        };
+        match self
+            .connection
+            .compare_results(&request.model_hash, &request.results, &options)
+        {
+            Ok(result) => {
+                Answer::Response(self.wire_json("sysml.CompareResultsResponse", result.wire()))
+            }
+            Err(error) => match Failure::of(error) {
+                Ok(failure) => Answer::Response(self.wire_json(
+                    "sysml.CompareResultsResponse",
+                    &wire::CompareResultsResponse {
+                        failure_reason: failure.reason(),
+                        error: failure.error,
+                        diagnostics: failure.diagnostics,
+                        ..Default::default()
+                    },
+                )),
+                Err(answer) => answer,
+            },
+        }
+    }
+
+    fn check_behavior(&self, request: &DynamicMessage) -> Answer {
+        let request: wire::CheckBehaviorRequest = match decode(request) {
+            Ok(request) => request,
+            Err(answer) => return answer,
+        };
+        let inputs = match named_values_of(request.inputs) {
+            Ok(inputs) => inputs,
+            Err(answer) => return answer,
+        };
+        let options = opensysml::CheckOptions {
+            properties: request.check_property,
+            diverge: request.check_diverge,
+            free_inputs: request.check_input,
+            assume: request.check_assume,
+            witness: request.check_witness,
+            depth: request.check_depth,
+            states: request.check_states,
+            unroll: request.check_unroll,
+            timeout: request.check_timeout,
+            engine: Some(request.engine).filter(|e| !e.is_empty()),
+            performer: Some(request.performer_symbol_id).filter(|p| !p.is_empty()),
+        };
+        let hash = &request.model_hash;
+        let checked = if request.state_machine_symbol_id.is_empty() {
+            self.connection
+                .check_action(hash, &request.action_symbol_id, &inputs, &options)
+        } else {
+            self.connection
+                .check_state_machine(hash, &request.state_machine_symbol_id, &options)
+        };
+        let response = match checked {
+            Ok(result) => result.wire().clone(),
+            Err(error) => match Failure::of(error) {
+                Ok(failure) => wire::CheckBehaviorResponse {
+                    verdict: "undecided".to_owned(),
+                    error: failure.error,
+                    ..Default::default()
+                },
+                Err(answer) => return answer,
+            },
+        };
+        Answer::Response(self.wire_json("sysml.CheckBehaviorResponse", &response))
     }
 
     fn export_graphs(&self, request: &DynamicMessage) -> Answer {
@@ -905,6 +1043,10 @@ impl Runner {
             schedule: optional(request.schedule),
             performer: optional(request.performer_symbol_id),
             trace: false,
+            advance: request.advance,
+            seed: request.seed,
+            draws: optional(request.draws),
+            clock_step: request.clock_step,
         };
         let hash = &request.model_hash;
         let action = &request.action_symbol_id;
@@ -925,6 +1067,7 @@ impl Runner {
                 &wire::ExecuteActionResponse {
                     error: failure.error,
                     diagnostics: failure.diagnostics,
+                    final_time: failure.final_time,
                     ..Default::default()
                 },
             ),
@@ -941,6 +1084,10 @@ impl Runner {
             schedule: optional(request.schedule),
             performer: optional(request.performer_symbol_id),
             trace: request.trace,
+            advance: request.advance,
+            seed: request.seed,
+            draws: optional(request.draws),
+            clock_step: request.clock_step,
         };
         let hash = &request.model_hash;
         let machine = &request.state_machine_symbol_id;
@@ -963,6 +1110,7 @@ impl Runner {
                     diagnostics: failure.diagnostics,
                     trace: failure.trace,
                     trace_dropped: failure.trace_dropped,
+                    final_time: failure.final_time,
                     ..Default::default()
                 },
             ),
@@ -970,8 +1118,17 @@ impl Runner {
         })
     }
 
-    fn list_engines(&self) -> Answer {
-        match self.connection.list_engines() {
+    fn list_engines(&self, request: &DynamicMessage) -> Answer {
+        let probe = request
+            .get_field_by_name("probe")
+            .and_then(|value| value.as_ref().as_bool())
+            .unwrap_or(false);
+        let engines = if probe {
+            self.connection.probe_engines()
+        } else {
+            self.connection.list_engines()
+        };
+        match engines {
             Ok(engines) => Answer::Response(self.wire_json(
                 "sysml.ListEnginesResponse",
                 &wire::ListEnginesResponse {
@@ -1027,6 +1184,7 @@ impl Runner {
                     diagnostics: failure.diagnostics,
                     trace: Vec::new(),
                     trace_dropped: 0,
+                    final_time: 0.0,
                 },
             ));
         }
@@ -1215,6 +1373,7 @@ impl Runner {
                 named_arguments,
                 schedule: optional(request.schedule),
                 engine: optional(request.engine),
+                tool_dry_run: request.tool_dry_run,
             },
             (Err(answer), _) | (_, Err(answer)) => return answer,
         };
@@ -1248,6 +1407,138 @@ impl Runner {
                 Err(answer) => answer,
             },
         })
+    }
+
+    fn run_runs(&self, request: &DynamicMessage) -> Answer {
+        let request: wire::RunRunsRequest = match decode(request) {
+            Ok(request) => request,
+            Err(answer) => return answer,
+        };
+        let (inputs, arguments, named_arguments) = match (
+            named_values_of(request.inputs),
+            values_of(request.arguments),
+            named_values_of(request.named_arguments),
+        ) {
+            (Ok(inputs), Ok(arguments), Ok(named)) => (inputs, arguments, named),
+            (Err(answer), _, _) | (_, Err(answer), _) | (_, _, Err(answer)) => return answer,
+        };
+        let options = RunsOptions {
+            action: optional(request.action_symbol_id),
+            analysis: optional(request.analysis_symbol_id),
+            runs: request.runs,
+            seed: request.seed,
+            draws: optional(request.draws),
+            clock_step: request.clock_step,
+            observe: request.observe,
+            inputs,
+            performer: optional(request.performer_symbol_id),
+            subject: optional(request.subject_symbol_id),
+            arguments,
+            named_arguments,
+            engine: optional(request.engine),
+        };
+        match self.connection.run_runs(&request.model_hash, &options) {
+            Ok(runs) => Answer::Response(self.wire_json("sysml.RunRunsResponse", runs.wire())),
+            Err(error) => match Failure::of(error) {
+                Ok(failure) => self.in_band(
+                    "sysml.RunRunsResponse",
+                    &wire::RunRunsResponse {
+                        failure_reason: failure.reason(),
+                        error: failure.error,
+                        diagnostics: failure.diagnostics,
+                        ..Default::default()
+                    },
+                ),
+                Err(answer) => answer,
+            },
+        }
+    }
+
+    fn self_check(&self, request: &DynamicMessage) -> Answer {
+        let request: wire::SelfCheckRequest = match decode(request) {
+            Ok(request) => request,
+            Err(answer) => return answer,
+        };
+        match self
+            .connection
+            .self_check(&request.model_hash, &request.self_check_package)
+        {
+            Ok(check) => Answer::Response(self.wire_json("sysml.SelfCheckResponse", check.wire())),
+            Err(error) => match Failure::of(error) {
+                Ok(failure) => self.in_band(
+                    "sysml.SelfCheckResponse",
+                    &wire::SelfCheckResponse {
+                        error: failure.error,
+                        diagnostics: failure.diagnostics,
+                        ..Default::default()
+                    },
+                ),
+                Err(answer) => answer,
+            },
+        }
+    }
+
+    fn record_run(&self, request: &DynamicMessage) -> Answer {
+        let request: wire::RecordRunRequest = match decode(request) {
+            Ok(request) => request,
+            Err(answer) => return answer,
+        };
+        if !request.accept_documents {
+            return Answer::Unrepresentable("the client always accepts the documents".to_owned());
+        }
+        let mut ranges = Vec::new();
+        for range in request.ranges {
+            let (Some(start), Some(end)) = (range.start, range.end) else {
+                return Answer::Unrepresentable("a sweep range without both ends".to_owned());
+            };
+            let (start, end, step) = match (
+                value_of(start),
+                value_of(end),
+                range.step.map(value_of).transpose(),
+            ) {
+                (Ok(start), Ok(end), Ok(step)) => (start, end, step),
+                (Err(answer), _, _) | (_, Err(answer), _) | (_, _, Err(answer)) => return answer,
+            };
+            let mut typed = SweepRange::new(range.parameter, start, end);
+            typed.step = step;
+            ranges.push(typed);
+        }
+        let options = match (
+            values_of(request.arguments),
+            named_values_of(request.named_arguments),
+        ) {
+            (Ok(arguments), Ok(named_arguments)) => RecordOptions {
+                subject: optional(request.subject_symbol_id),
+                arguments,
+                named_arguments,
+                into: optional(request.record_into),
+                ranges,
+                runs: request.runs,
+                seed: request.seed,
+                engine: optional(request.engine),
+            },
+            (Err(answer), _) | (_, Err(answer)) => return answer,
+        };
+        match self
+            .connection
+            .record_run(&request.model_hash, &request.analysis_symbol_id, &options)
+        {
+            Ok(recording) => {
+                Answer::Response(self.wire_json("sysml.RecordRunResponse", recording.wire()))
+            }
+            Err(error) => match Failure::of(error) {
+                Ok(failure) => self.in_band(
+                    "sysml.RecordRunResponse",
+                    &wire::RecordRunResponse {
+                        failure_reason: failure.reason(),
+                        error: failure.error,
+                        diagnostics: failure.diagnostics,
+                        ..Default::default()
+                    },
+                ),
+                Err(answer) => answer,
+            },
+        }
     }
 
     fn run_sweep(&self, request: &DynamicMessage) -> Answer {
@@ -1381,6 +1672,7 @@ struct Failure {
     diagnostics: Vec<wire::Diagnostic>,
     trace: Vec<wire::DocumentEvent>,
     trace_dropped: i32,
+    final_time: f64,
 }
 
 impl Failure {
@@ -1392,6 +1684,7 @@ impl Failure {
                 diagnostics,
                 trace,
                 trace_dropped,
+                final_time,
             } => Ok(Self {
                 error: message,
                 reason,
@@ -1402,6 +1695,7 @@ impl Failure {
                     .collect::<Result<_, _>>()
                     .map_err(classify_error)?,
                 trace_dropped,
+                final_time,
             }),
             Error::WrongKind {
                 message,
@@ -1412,6 +1706,7 @@ impl Failure {
                 diagnostics: diagnostics_wire(&diagnostics),
                 trace: Vec::new(),
                 trace_dropped: 0,
+                final_time: 0.0,
             }),
             Error::Conversion {
                 message,
@@ -1426,6 +1721,7 @@ impl Failure {
                 diagnostics: diagnostics_wire(&diagnostics),
                 trace: Vec::new(),
                 trace_dropped: 0,
+                final_time: 0.0,
             }),
             other => Err(classify_error(other)),
         }
@@ -1497,6 +1793,20 @@ fn string_field(request: &DynamicMessage, name: &str) -> Result<String, Error> {
         .get_field_by_name(name)
         .and_then(|value| value.as_ref().as_str().map(ToOwned::to_owned))
         .ok_or_else(|| Error::Decode(format!("request field {name} is not a string")))
+}
+
+fn string_list_field(request: &DynamicMessage, name: &str) -> Vec<String> {
+    request
+        .get_field_by_name(name)
+        .and_then(|value| {
+            value.as_ref().as_list().map(|items| {
+                items
+                    .iter()
+                    .filter_map(|item| item.as_str().map(ToOwned::to_owned))
+                    .collect()
+            })
+        })
+        .unwrap_or_default()
 }
 
 fn string_or_none(request: &DynamicMessage, name: &str) -> Option<String> {

@@ -5,8 +5,8 @@ stmt assign s.reading
 materialize: s #1
 stmt assign s.reading
   eval literal 2.5 -> 2.5
-choice step 3: writes reading of object #1 := 1.5 by token 2, reading of object #1 := 2.5 by token 3 (unordered; reading of object #1 := 2.5 by token 3 stood)
-choice step 3: tokens 2@coarse, 3@fine (unordered; took 2@coarse first)
+choice step 3: writes reading of object #1 := 1.5 by token 2, reading of object #1 := 2.5 by token 3 (unordered; reading of object #1 := 2.5 by token 3 stood; order-dependent: reading)
+choice step 3: tokens 2@coarse, 3@fine (unordered; took 2@coarse first; order-dependent: reading)
 step 3: token 2@settle, token 3@settle
 step 4: token 4@read
 stmt assign seen

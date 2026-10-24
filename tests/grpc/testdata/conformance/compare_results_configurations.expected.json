@@ -1,0 +1,21 @@
+{
+  "rpc": "CompareResults",
+  "results": "{\"source\":\"probe.xmi\",\"configurations\":[{\"id\":\"_c1\",\"name\":\"Cfg::'Group 1'\",\"runs\":2,\"target\":\"target\",\"behavior\":\"run\",\"resultLocation\":\"Results\",\"observables\":[\"total\"],\"snapshots\":[{\"id\":\"_r1\",\"values\":{\"total\":4.0}},{\"id\":\"_r2\",\"values\":{\"total\":6.0}}]},{\"id\":\"_cn\",\"name\":\"Cfg::Nothing\",\"observables\":[],\"snapshots\":[],\"notes\":[\"migrated without a behavior\"]}]}",
+  "seed": 7,
+  "expected_configurations": [
+    {
+      "name": "Cfg::'Group 1'",
+      "status": "holds",
+      "runs": 2,
+      "completed": 2,
+      "stored_runs": 2,
+      "observables": {"total": true},
+      "lines_contain": ["total", "mean"]
+    },
+    {
+      "name": "Cfg::Nothing",
+      "status": "unresolved",
+      "unresolved": "behavior"
+    }
+  ]
+}

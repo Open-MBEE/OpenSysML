@@ -74,8 +74,8 @@ func TestRuntimeRobustnessActionResultParameter(t *testing.T) {
 			}
 		}`))
 		_, err := ctx.ExecuteAction(oneSymbol(t, idx, "test::Bad"))
-		if !errors.Is(err, ErrActionResultParameter) {
-			t.Fatalf("ExecuteAction error = %v, want ErrActionResultParameter", err)
+		if !errors.Is(err, errActionResultParameter) {
+			t.Fatalf("ExecuteAction error = %v, want errActionResultParameter", err)
 		}
 		if !strings.Contains(err.Error(), "declares `return r2`") {
 			t.Errorf("error = %v, want it to name the declared return parameter", err)

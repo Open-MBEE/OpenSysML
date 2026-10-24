@@ -67,6 +67,9 @@ type Message struct {
 	// the occurrence `send new T(…)` constructed, or the one an accept built from
 	// Payload; nil until any.
 	Value *Value
+	// dependence is the choice points the payload stood on where it was sent
+	// (order_marks.go), which what an accept binds from it stands on.
+	dependence []int64
 }
 
 // DeliveryKind is what a message's destination resolved to, and so what a
@@ -75,20 +78,20 @@ type Message struct {
 type DeliveryKind uint8
 
 const (
-	// DeliverAnyone is a message no send addressed, such as one injected from
+	// deliverAnyone is a message no send addressed, such as one injected from
 	// outside the model: it has no destination to hold a consumer to.
-	DeliverAnyone DeliveryKind = iota
-	// DeliverPort is the port of an object, reached by a connection or addressed.
-	DeliverPort
-	// DeliverPortReceiver is a receiver of an object reached through a port.
-	DeliverPortReceiver
-	// DeliverReceiver is the receiving node named within an object.
-	DeliverReceiver
-	// DeliverObject is an object itself, whichever of its consumers accepts.
-	DeliverObject
+	deliverAnyone DeliveryKind = iota
+	// deliverPort is the port of an object, reached by a connection or addressed.
+	deliverPort
+	// deliverPortReceiver is a receiver of an object reached through a port.
+	deliverPortReceiver
+	// deliverReceiver is the receiving node named within an object.
+	deliverReceiver
+	// deliverObject is an object itself, whichever of its consumers accepts.
+	deliverObject
 )
 
-// Call is the payload of an EventCall: the operation invoked, its declaration as
+// Call is the payload of an eventCall: the operation invoked, its declaration as
 // a behavior member of the machine's owner (nil when it declares none) and the
 // arguments.
 type Call struct {
@@ -111,7 +114,7 @@ func (ctx *Context) PostMessage(msg Message) {
 // postFrom puts a message on the bus as PostMessage does, recording the object
 // and behavior that sent it in the trace; nil is a message from outside the run.
 func (ctx *Context) postFrom(msg Message, from *Instance, behavior *symbols.Symbol) {
-	if msg.Delivery == DeliverAnyone {
+	if msg.Delivery == deliverAnyone {
 		msg.Delivery = deliveryOf(msg)
 	}
 	ctx.messageSerial++
@@ -137,7 +140,7 @@ func acceptedEventName(msg Message) string {
 // addressedTo reports whether the message was sent to the object itself
 // (`send m to obj`), leaving which of the object's behaviors takes it open.
 func (m Message) addressedTo(object int64) bool {
-	return m.Delivery == DeliverObject && object != 0 && m.Object == object
+	return m.Delivery == deliverObject && object != 0 && m.Object == object
 }
 
 // deliveryOf is what the fields of a message name as its destination, most
@@ -145,22 +148,22 @@ func (m Message) addressedTo(object int64) bool {
 func deliveryOf(msg Message) DeliveryKind {
 	switch {
 	case msg.Port != "" && msg.Target != "":
-		return DeliverPortReceiver
+		return deliverPortReceiver
 	case msg.Port != "":
-		return DeliverPort
+		return deliverPort
 	case msg.Target != "":
-		return DeliverReceiver
+		return deliverReceiver
 	case msg.Object != 0:
-		return DeliverObject
+		return deliverObject
 	}
-	return DeliverAnyone
+	return deliverAnyone
 }
 
-// TakeMessage removes and returns the oldest message satisfying match. Messages
+// takeMessage removes and returns the oldest message satisfying match. Messages
 // that do not match keep their place in the queue, so a consumer looking for
 // one type does not consume or reorder another's. A match probing the machines
 // may post and drop messages behind the one it examines; those are visited too.
-func (ctx *Context) TakeMessage(match func(Message) bool) (Message, bool) {
+func (ctx *Context) takeMessage(match func(Message) bool) (Message, bool) {
 	for i := 0; i < len(ctx.messages); i++ {
 		if msg := ctx.messages[i]; match(msg) {
 			ctx.messages = append(ctx.messages[:i], ctx.messages[i+1:]...)
@@ -236,10 +239,10 @@ func (ctx *Context) acceptable() []Message {
 	return ctx.PendingMessages()
 }
 
-// takeAcceptable is TakeMessage over the messages an accept may take now.
+// takeAcceptable is takeMessage over the messages an accept may take now.
 func (ctx *Context) takeAcceptable(match func(Message) bool) (Message, bool) {
 	if ctx.mail == nil {
-		return ctx.TakeMessage(match)
+		return ctx.takeMessage(match)
 	}
 	for i, msg := range *ctx.mail {
 		if match(msg) {
@@ -271,10 +274,10 @@ func IsSignalDefinition(sym *symbols.Symbol) bool {
 // SignalMessage builds the message `send Signal(args) to <object>` posts, for PostMessage;
 // a nil object is one anyone may take, an argument no feature of the signal admits is refused.
 // An element that is no signal definition (see SignalDefinitionKinds) is refused with
-// ErrNotASignal.
+// errNotASignal.
 func (ctx *Context) SignalMessage(signal *symbols.Symbol, args map[string]Value, to *Instance) (Message, error) {
 	if !IsSignalDefinition(signal) {
-		return Message{}, fmt.Errorf("%w: %s", ErrNotASignal, symbolText(signal))
+		return Message{}, fmt.Errorf("%w: %s", errNotASignal, SymbolText(signal))
 	}
 	features := ctx.FeaturesOf(signal)
 	payload := make(map[string]Value, len(args))
@@ -282,12 +285,12 @@ func (ctx *Context) SignalMessage(signal *symbols.Symbol, args map[string]Value,
 		feat := carriedFeature(features, name)
 		if feat == nil {
 			return Message{}, fmt.Errorf("%w: %s carries no feature %q%s",
-				ErrSignalArgument, symbolText(signal), name, carriedFeaturesNote(features))
+				errSignalArgument, SymbolText(signal), name, carriedFeaturesNote(features))
 		}
 		arg := args[name]
-		what := func() string { return symbolText(signal) + "." + name }
+		what := func() string { return SymbolText(signal) + "." + name }
 		if err := ctx.checkAdmits(feat, what, &arg, admitWritten); err != nil {
-			return Message{}, fmt.Errorf("%w: %w", ErrSignalArgument, err)
+			return Message{}, fmt.Errorf("%w: %w", errSignalArgument, err)
 		}
 		payload[name] = arg
 	}
@@ -348,11 +351,11 @@ func (m Message) reaches(name, port string, object int64) bool {
 		return false
 	}
 	switch m.Delivery {
-	case DeliverPort, DeliverObject:
+	case deliverPort, deliverObject:
 		return m.Object == object
-	case DeliverPortReceiver:
+	case deliverPortReceiver:
 		return m.Target == name && m.Object == object
-	case DeliverReceiver:
+	case deliverReceiver:
 		return m.Target == name && (m.Object == object || m.Object == 0 || object == 0)
 	}
 	return true
@@ -386,9 +389,9 @@ func (ctx *Context) messageReaches(m Message, name, port string, self *Instance)
 		return false, nil
 	}
 	switch m.Delivery {
-	case DeliverPort:
+	case deliverPort:
 		return true, nil
-	case DeliverPortReceiver:
+	case deliverPortReceiver:
 		return m.Target == name, nil
 	}
 	return false, nil
@@ -432,7 +435,7 @@ func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Messa
 		return err
 	}
 	if send.Receiver != "" && send.Scope != nil && !ctx.sendsOwnPort(routed, holder, holder != self) {
-		return &UnknownSendPortError{Port: send.Target, Receiver: send.Receiver}
+		return &unknownSendPortError{Port: send.Target, Receiver: send.Receiver}
 	}
 	receiver, receiverObjects, err := ctx.sendReceiver(ec, send, routed, holder, receivers)
 	if err != nil {
@@ -452,7 +455,7 @@ func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Messa
 		return err
 	}
 	if receiverObjects != nil && len(copies) == 0 {
-		return &UnreachableSendReceiverError{Port: send.Target, Receiver: exprText(send.ReceiverExpr)}
+		return &unreachableSendReceiverError{Port: send.Target, Receiver: exprText(send.ReceiverExpr)}
 	}
 	for _, c := range copies {
 		ctx.postFrom(c.msg, c.from, behavior)
@@ -494,11 +497,11 @@ func (ctx *Context) viaRoutes(ec *EvalContext, conns []lower.Connection, path vi
 	outbound = appendUnseen(outbound, held...)
 	if len(own) == 0 && len(receiving) == 0 && len(crossing) == 0 {
 		if typeMismatch && receiver != "" {
-			return nil, 0, &SendPortTypeMismatchError{
+			return nil, 0, &sendPortTypeMismatchError{
 				Port: send.Target, Receiver: receiver, SignalType: msg.SignalType,
 			}
 		}
-		return nil, 0, &UnroutableSendError{Port: send.Target, Outbound: outbound}
+		return nil, 0, &unroutableSendError{Port: send.Target, Outbound: outbound}
 	}
 	return slices.Concat(own, receiving, crossing), len(own), nil
 }
@@ -532,7 +535,7 @@ func (ctx *Context) sendReceiver(ec *EvalContext, send lower.Send, routed lower.
 	receiverSend.IsVia = false
 	addr, err := ctx.resolveRoutedReceiver(receiverSend, holder)
 	if err != nil || (addr.Object != 0 && addr.Object != objectID(holder)) {
-		return "", nil, &UnreachableSendReceiverError{Port: send.Target, Receiver: send.Receiver}
+		return "", nil, &unreachableSendReceiverError{Port: send.Target, Receiver: send.Receiver}
 	}
 	return addr.Name, nil, nil
 }
@@ -592,9 +595,9 @@ func (ctx *Context) portCopy(delivery ownerDelivery, receiver string, msg Messag
 	copied.Port = delivery.port
 	copied.Object = delivery.object
 	copied.PortID = portID
-	copied.Delivery = DeliverPort
+	copied.Delivery = deliverPort
 	if receiver != "" {
-		copied.Delivery = DeliverPortReceiver
+		copied.Delivery = deliverPortReceiver
 	}
 	return copied, true, nil
 }
@@ -648,12 +651,12 @@ func (ctx *Context) resolveRoutedReceiver(send lower.Send, self *Instance) (mess
 	// A routed receiver is a node of the sending object, so of the addresses
 	// resolved the one held to that object — or to none — is the receiver's.
 	for _, addr := range addrs {
-		if addr.Delivery == DeliverReceiver && (addr.Object == 0 || addr.Object == objectID(self)) {
+		if addr.Delivery == deliverReceiver && (addr.Object == 0 || addr.Object == objectID(self)) {
 			return addr, nil
 		}
 	}
 	for _, addr := range addrs {
-		if addr.Delivery == DeliverReceiver {
+		if addr.Delivery == deliverReceiver {
 			return addr, nil
 		}
 	}
@@ -724,7 +727,7 @@ func portAddress(port string, object int64) (messageAddress, bool) {
 	if port == "" {
 		return messageAddress{}, false
 	}
-	return messageAddress{Delivery: DeliverPort, Port: port, Object: object}, true
+	return messageAddress{Delivery: deliverPort, Port: port, Object: object}, true
 }
 
 // receiverAddress is a receiving node of an object, refused where it is unnamed.
@@ -732,7 +735,7 @@ func receiverAddress(name string, object int64) (messageAddress, bool) {
 	if name == "" {
 		return messageAddress{}, false
 	}
-	return messageAddress{Delivery: DeliverReceiver, Name: name, Object: object}, true
+	return messageAddress{Delivery: deliverReceiver, Name: name, Object: object}, true
 }
 
 // objectAddress is an object itself, refused where no object was reached: a
@@ -741,7 +744,7 @@ func objectAddress(object int64) (messageAddress, bool) {
 	if object == 0 {
 		return messageAddress{}, false
 	}
-	return messageAddress{Delivery: DeliverObject, Object: object}, true
+	return messageAddress{Delivery: deliverObject, Object: object}, true
 }
 
 // postTo delivers an addressed send to every object its target resolves to,
@@ -762,7 +765,7 @@ func (ctx *Context) postAt(msg Message, addrs []messageAddress, self *Instance, 
 		copied := msg
 		copied.Target, copied.Port, copied.Object = addr.Name, addr.Port, addr.Object
 		copied.Delivery = addr.Delivery
-		if addr.Delivery == DeliverPort {
+		if addr.Delivery == deliverPort {
 			copied.PortID, err = ctx.portInstanceID(ctx.instances[addr.Object], addr.Port)
 			if err != nil {
 				return err
@@ -789,7 +792,7 @@ func (ctx *Context) resolveAddresses(send lower.Send, self *Instance) ([]message
 		if addr, ok := objectAddress(objectID(self)); ok {
 			return []messageAddress{addr}, nil
 		}
-		return []messageAddress{{Delivery: DeliverAnyone}}, nil
+		return []messageAddress{{Delivery: deliverAnyone}}, nil
 	}
 	if !send.TargetPath {
 		return ctx.namedAddresses(send, self)
@@ -808,7 +811,7 @@ func (ctx *Context) resolveAddresses(send lower.Send, self *Instance) ([]message
 			return []messageAddress{addr}, nil
 		}
 	}
-	return nil, &UnroutableSendError{Port: send.Target, Address: true}
+	return nil, &unroutableSendError{Port: send.Target, Address: true}
 }
 
 // namedAddresses resolves a target named rather than chained (`R`, `P::R`): an
@@ -833,12 +836,12 @@ func (ctx *Context) namedAddresses(send lower.Send, self *Instance) ([]messageAd
 		if addr, built := portAddress(name, objectID(self)); built {
 			return []messageAddress{addr}, nil
 		}
-		return nil, &UnroutableSendError{Port: send.Target, Address: true}
+		return nil, &unroutableSendError{Port: send.Target, Address: true}
 	}
 	if addr, built := receiverAddress(name, objectID(self)); built {
 		return []messageAddress{addr}, nil
 	}
-	return nil, &UnroutableSendError{Port: send.Target, Address: true}
+	return nil, &unroutableSendError{Port: send.Target, Address: true}
 }
 
 // qualifiedAddresses resolves a target naming a namespace path (`alpha::reader`,
@@ -855,7 +858,7 @@ func (ctx *Context) qualifiedAddresses(send lower.Send, self *Instance, segments
 	}
 	target, resolved := ctx.pathSymbol(send.Scope, segments)
 	if !resolved {
-		return nil, &UnroutableSendError{Port: send.Target, Address: true}
+		return nil, &unroutableSendError{Port: send.Target, Address: true}
 	}
 	name := segments[len(segments)-1]
 	// A path leading through no occurrence names an element of the sending
@@ -884,7 +887,7 @@ func (ctx *Context) qualifiedAddresses(send lower.Send, self *Instance, segments
 			return []messageAddress{addr}, nil
 		}
 	}
-	return nil, &UnroutableSendError{Port: send.Target, Address: true}
+	return nil, &unroutableSendError{Port: send.Target, Address: true}
 }
 
 // featureAddresses walks a target through the instance graph from the object
@@ -967,21 +970,21 @@ func (ec *EvalContext) boundTargetAddresses(send lower.Send) ([]messageAddress, 
 	var owners []*Instance
 	for _, held := range heldElements(value) {
 		if held.Kind != ValInstance {
-			return nil, true, &SendTargetValueError{Target: send.Target, Name: root, Value: FormatValue(value)}
+			return nil, true, &sendTargetValueError{Target: send.Target, Name: root, Value: FormatValue(value)}
 		}
 		if inst, ok := ec.ctx.instances[held.Instance]; ok {
 			owners = append(owners, inst)
 		}
 	}
 	if len(owners) == 0 {
-		return nil, true, &SendTargetValueError{Target: send.Target, Name: root, Value: FormatValue(value)}
+		return nil, true, &sendTargetValueError{Target: send.Target, Name: root, Value: FormatValue(value)}
 	}
 	addrs, err := ec.ctx.addressesFrom(owners, segments[1:])
 	if err != nil {
 		return nil, true, err
 	}
 	if len(addrs) == 0 {
-		return nil, true, &UnroutableSendError{Port: send.Target, Address: true}
+		return nil, true, &unroutableSendError{Port: send.Target, Address: true}
 	}
 	return addrs, true, nil
 }
@@ -1179,6 +1182,7 @@ func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Co
 		ctx.abandonCreationSince(mark, attached)
 		return err
 	}
+	msg.dependence = ctx.standingOf(ctx.model.expressionFootprint(scope, s.Message), true)
 	receivers, err := ec.valuedReceivers(s)
 	if err != nil {
 		ctx.abandonCreationSince(mark, attached)
@@ -1239,7 +1243,7 @@ func (ec *EvalContext) receiverObjects(node ast.Node) ([]*Instance, error) {
 		id, isObject := held.Object()
 		inst, ok := ec.ctx.instances[id]
 		if !isObject || !ok {
-			return nil, &SendReceiverValueError{Receiver: text, Value: FormatValue(value)}
+			return nil, &sendReceiverValueError{Receiver: text, Value: FormatValue(value)}
 		}
 		if err := ec.ctx.checkNotDestroyed(inst); err != nil {
 			return nil, err
@@ -1247,7 +1251,7 @@ func (ec *EvalContext) receiverObjects(node ast.Node) ([]*Instance, error) {
 		out = append(out, inst)
 	}
 	if len(out) == 0 {
-		return nil, &SendReceiverValueError{Receiver: text, Value: FormatValue(value)}
+		return nil, &sendReceiverValueError{Receiver: text, Value: FormatValue(value)}
 	}
 	return out, nil
 }
@@ -1526,6 +1530,8 @@ func (e *EvalContext) buildMessage(scope *symbols.Scope, send lower.Send) (Messa
 	if err != nil {
 		return Message{}, fmt.Errorf("eval send message: %w", err)
 	}
+	// A one-element sequence (a calc's bare result) is sent as the message it holds.
+	value = soleElement(value)
 	signalType := valueTypeName(value)
 	var signal *symbols.Symbol
 	if signalType == "" && value.Kind == ValInstance {
@@ -1941,9 +1947,9 @@ func eventName(event *Event) string {
 		return "call " + orAny(payload.Operation)
 	}
 	switch event.Type {
-	case EventTime:
+	case eventTime:
 		return "time"
-	case EventChange:
+	case eventChange:
 		return "change"
 	default:
 		return event.Type.String()

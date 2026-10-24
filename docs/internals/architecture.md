@@ -95,7 +95,7 @@ github.com/Open-MBEE/OpenSysML
 │   │   ├── xmi/            # XMI element tree indexed by xmi:id; xmi/sysmlv1 reads SysML v1 exports over it
 │   │   ├── migrate/        # SysML v1 XMI → SysML v2 notation
 │   │   ├── convert/        # Conversion entry point: formats, Convert, Migrate, SyntaxError
-│   │   ├── codegen/        # Code generation from models
+│   │   ├── codegen/        # Native compilation of a calc to Go or C (`sysml -compile`); reached only from cmd/sysml and tests/codegen
 │   │   └── interop/        # Flexo MMS (interop/flexo) and repository sync (interop/reposync)
 │   ├── doc/
 │   │   ├── queryexec/      # Query plan execution → typed, ordered row sets
@@ -138,6 +138,8 @@ The layering test (`tests/hygiene/layering_test.go`) checks the directory order 
 | `frontend` | every layer |
 
 Two edges cross the order by design and stay pinned: `translate/export` imports `syntax/parser`, because the graph → notation decoder parses by nature, and `exec/runtime` receives its expression parser and argument typer from the caller (`SetExpressionParser`, `SetArgumentTyper`) rather than importing `check`. The remaining upward edges the test tolerates are listed in its `tolerated` table with the package that carries each.
+
+`internal/translate/codegen`, the native compilation backend behind `sysml -compile`, is confined the other way round: `tests/hygiene/codegen_boundary_test.go` lists its importers, tests included — `cmd/sysml` and the black-box suite `tests/codegen` — so no core package's build or tests pay for it. Its own tests pin the compiler's typed refusals; the differential contract against the interpreter, which needs a REPL session and a C compiler, is `tests/codegen`.
 
 
 ---
@@ -222,7 +224,7 @@ source → lexer → parser → AST → symbol index → resolve → passes
 - **Tiered execution:** a document-scoped pass at a higher tier is skipped once a lower tier errors; a pass marked `ElementScoped` runs and gates itself per subject through `Context.DownstreamOfFailure` ([element-scoped tier gating](../project/element-scoped-tier-gating.md))
 - **Diagnostics:** `Diagnostic` and `Severity` live in `internal/syntax/diag`, a leaf package beside `source`, so the runtime and the parser report findings in the same type without importing the validation suite; the strict/default conformance switch is `diag.ConformanceMode` in the same package
 - **Quick fixes:** A `Diagnostic` carries the `diag.Fix` values the layer reporting it attached, so an editor offers edits without parsing messages
-- **Argument typing:** `NewArgumentTyper` is the checker's expression typing as a `semantics.ArgumentTyper`; `NewTypedModel(resolver)` is a semantic model with it installed, which is what every path that builds a `runtime.Model` (REPL, LSP workspace, gRPC cache, the analysis drivers) constructs. The runtime never installs it itself: a call selected on a model without one fails with `runtime.ErrNoArgumentTyper` rather than selecting on weaker typing than validation used, and `tests/hygiene` checks the production construction sites
+- **Argument typing:** `NewArgumentTyper` is the checker's expression typing as a `semantics.ArgumentTyper`; `NewTypedModel(resolver)` is a semantic model with it installed, which is what every path that builds a `runtime.Model` (REPL, LSP workspace, gRPC cache, the analysis drivers) constructs. The runtime never installs it itself: a call selected on a model without one fails with `errNoArgumentTyper` rather than selecting on weaker typing than validation used, and `tests/hygiene` checks the production construction sites
 
 ### 6a. Highlighting (`internal/semantic/highlight`)
 
@@ -327,8 +329,8 @@ Harden `MembersOf` into stable, ordered **effective-feature list** per type:
 Full evaluator with **user-defined calc invocation**, **constraint evaluation**, and **requirement evaluation**:
 - Feature access `x.y.z` resolved against instance feature values
 - KerML operator library (`->select`, `->collect`, `size`, string ops)
-- **Calc invocation:** Resolve calc symbol → extract params/return → bind args to parameters → evaluate return expression. Overloads are selected through `semantics.Model.SelectCall` with the argument typing the model carries (`ErrNoArgumentTyper` when it carries none)
-- **Function values** (`function_value.go`, `ValFunction`): a calc definition, a calc usage with an unsupplied input or an `in calc` parameter read as a value is the calc's lowered `calcShape` plus the environment it was read in — declaring scope, the object it was read off, and, for a calc declared inside a behavior body, the frames through the innermost active run of that behavior (`EvalContext.enclosingRun`, by `frame.runs`) — never a caller's frames, and none when no such run is active. Invoking one (`f(a)` through a calc-typed parameter, or `SampledFunctions::Sample` applying its `calculation`) takes the calc invocation path (`invokeCalcShapeIn`), never a closure over statements; `ValExpr` remains the distinct kind for an expression body a collection operation evaluates per element
+- **Calc invocation:** Resolve calc symbol → extract params/return → bind args to parameters → evaluate return expression. Overloads are selected through `semantics.Model.SelectCall` with the argument typing the model carries (`errNoArgumentTyper` when it carries none)
+- **Function values** (`function_value.go`, `ValFunction`): a calc definition, a calc usage with an unsupplied input or an `in calc` parameter read as a value is the calc's lowered `calcShape` plus the environment it was read in — declaring scope, the object it was read off, and, for a calc declared inside a behavior body, the frames through the innermost active run of that behavior (`EvalContext.enclosingRun`, by `frame.runs`) — never a caller's frames, and none when no such run is active. Invoking one (`f(a)` through a calc-typed parameter, or `SampledFunctions::Sample` applying its `calculation`) takes the calc invocation path (`invokeCalcShapeIn`), never a closure over statements; `valExpr` remains the distinct kind for an expression body a collection operation evaluates per element
 - **Constraint evaluation:** Extract `assert`/`assume` members → evaluate boolean expressions → check satisfaction (with optional `not` negation)
 - **Requirement evaluation:** Extract `subject`/`assume`/`require`/`actor` members → validate bindings → evaluate conditions
 - **Scoped evaluation:** `EvalContext.scope` for name resolution, frame stack for parameter bindings
@@ -343,15 +345,15 @@ Parse + model all behavioral bodies with unified fallback grammar:
 - **Calc bodies** — `return` expressions + mixed parameter declarations (✅ **fully executable**)
 - **Constraint bodies** — `assert`/`assume` with optional `not` negation (✅ **fully executable**)
 - **Requirement bodies** — `subject`/`assume`/`require`/`actor` declarations (✅ **fully executable**)
-- **Action bodies** — Control flow nodes (initial/final/fork/join/merge/decision) + action execution nodes + succession edges (✅ **parsed**, executor infrastructure complete)
-- **State bodies** — Entry/do/exit behaviors, substates, transitions with triggers/guards/effects (✅ **parsed**, executor infrastructure complete)
+- **Action bodies** — Control flow nodes (initial/final/fork/join/merge/decision) + action execution nodes + succession edges (✅ **parsed**; executed for the subset the compliance map lists)
+- **State bodies** — Entry/do/exit behaviors, substates, transitions with triggers/guards/effects (✅ **parsed**; executed for the subset the compliance map lists)
 - **Unified Grammar:** Body parsers use graceful fallback to general member grammar (no terminal keyword whitelists)
-- **Status:** All parsers complete. Calc/constraint/requirement **fully executable**. Action/state **executors complete** with control flow keywords, nested invocation, send statement.
+- **Status:** All parsers complete. Calc/constraint/requirement executable and refereed against the pilot's evaluator. Action/state executed for the subset below — control flow keywords, nested invocation, send statement — with no external referee.
 
-### Tier 5 — Behavioral Interpreter ✅ Complete
+### Tier 5 — Behavioral Interpreter ✅ Supported subset
 
 **Package:** `internal/exec/runtime`  
-**Status:** Complete. Conformance gate: every case passing (calc/constraint/requirement/satisfy/action/state all functional); count in [the measured counts](../project/spec-compliance.md).  
+**Status:** Executes the subset the [compliance map](../project/spec-compliance.md#detailed-semantic-compliance-map) lists row by row — action flows (successions, fork/join/merge/decision, nested and typed action usages, accept and send, timed waits), state machines (hierarchical and orthogonal states, transitions with triggers/guards/effects, entry/do/exit, history, pseudostates, deferred events) and classifier behaviors over objects. Evidence: every conformance case passes (`TestExecutionConformance`; count in [the measured counts](../project/spec-compliance.md)), self-assessed against the Kernel Semantic Library — the pinned pilot evaluates expressions but executes neither actions nor state machines, so behavioral execution has **no external referee** ([what cannot be claimed](../project/spec-compliance.md#what-cant-be-claimed-for-spec-compliance)). How many rows are ✅ faithful, how many ⚠️ approximate and how many 🧩 extension (UML/PSSM-derived or OpenSysML, not a SysML v2 claim) is counted from the map when the documentation site is built, not typed in here. A default run is one tool-chosen linearization (the `reverse` policy, [scheduling](design/scheduling.md)) of the partial order the model states; `explore` and `-engine check` are how the whole outcome set is seen.  
 **Spec Alignment:** The governing reference is the SysML v2 metamodel or the bundled KerML semantic library (`internal/workspace/libs/stdlib/`); UML 2.5.1 is a fallback only where the SysML v2 notation has no production for a concept *and* the KerML library no performance for it (state-body `fork`/`join`, history, regions). The runtime is not a UML or fUML activity engine: "token" names the executor's bookkeeping for where each performance is along the successions of the lowered graph, an implementation device, not the semantic model. What the tokens realize is succession order: a succession is a KerML `HappensBefore` link (`Occurrences.kerml`), which orders occurrences in time and carries no values — a `SuccessionFlow` is the form that carries a payload (`KerML.kerml`: `Succession specializes Connector`, `SuccessionFlow specializes Succession, Flow`). State machine execution is `Occurrences::Occurrence::isRunToCompletion` over its `runToCompletionScope` ("determines whether transition performances might happen during state entry performances within the run to completion scope"), with event dispatch `isDispatch` / `dispatchScope`. See [SPEC_COMPLIANCE.md](../project/spec-compliance.md) for the detailed compliance mapping, and [the pilot differential](../project/pilot-differential.md) for what is checked against the reference implementation.
 
 **Architecture:**
@@ -398,9 +400,9 @@ Parse + model all behavioral bodies with unified fallback grammar:
    - `CreateActionExecutor(symbol)` — Create executor for debugging
    - `CreateStateExecutor(symbol)` — Create executor for debugging
    - `SetSchedule(policy)`, `Schedule()` — the policy runs started from now on resolve their choice points under (`explore` is refused: `Explore` drives it)
-   - `Notes()`, `Choices()`, `UnevaluableGuards()` — what the last run recorded
+   - `Notes()`, `Choices()`, `unevaluableGuards()` — what the last run recorded
 
-5. **Notation text the run reads** — the runtime imports no parser. The two places a run receives notation as text — a witness file's `input <feature> = <value>` lines (`replay.go`) and the unit a tool answers a value in (`tool.go`, `Context.UnitOf`) — are read through the `runtime.ExpressionParser` the frontend installs on the `Model` (`Model.SetExpressionParser`, normally `parser.ParseOneExpression`). Reaching either with none installed is the typed `ErrNoExpressionParser`, never a refused witness or a tool's malformed output; `tests/hygiene` checks that every shipped construction site installs it and that `internal/exec/runtime` does not depend on `internal/syntax/parser`.
+5. **Notation text the run reads** — the runtime imports no parser. The two places a run receives notation as text — a witness file's `input <feature> = <value>` lines (`replay.go`) and the unit a tool answers a value in (`tool.go`, `Context.UnitOf`) — are read through the `runtime.ExpressionParser` the frontend installs on the `Model` (`Model.SetExpressionParser`, normally `parser.ParseOneExpression`). Reaching either with none installed is the typed `errNoExpressionParser`, never a refused witness or a tool's malformed output; `tests/hygiene` checks that every shipped construction site installs it and that `internal/exec/runtime` does not depend on `internal/syntax/parser`.
 
 **Implementation:**
 - `context.go` (460 lines) — Public Execute/Invoke/Evaluate APIs, step budget enforcement
@@ -419,7 +421,7 @@ Parse + model all behavioral bodies with unified fallback grammar:
 - **Conformance gate**: `.sysml` + `.expected.json` pairs, all passing - `conformance_test.go` — counts and per-category breakdown in [the measured counts](../project/spec-compliance.md); a case whose model admits several results lists them as `outcomes`, each cited to [the semantic oracle](../project/behavior-semantic-oracle.md), and is explored to prove every one reachable and nothing else; `TestExecutionConformanceUnderPolicies` re-runs the suite under `declared` and `seed:1`
 - **Golden traces**: `.trace.golden` files - `trace_test.go` — count in [the measured counts](../project/spec-compliance.md); `.trace.order` files state the partial order a trace must respect (`a < b`), and a case with `outcomes` owns a `<case>.<policy>.trace.golden` per sweep policy
 - **Exploration**: `explore_test.go` — every linearization reached once, determinism, each budget's incompleteness, an error as an outcome, transition, region and due order
-- **Robustness**: failure-mode cases (deadlock, unbound params, missing features, dangling transitions, sourceless accept, step budget, pseudostate dead ends and cycles, history misuse, send/accept misrouting, calc arity/recursion, `perform` reference failures) - `robustness_test.go` and the per-feature `robustness_*_test.go`
+- **Robustness**: failure-mode cases (deadlock, unbound params, missing features, dangling transitions, sourceless accept, step budget, pseudostate dead ends and cycles, history misuse, send/accept misrouting, calc arity/recursion, `perform` reference failures) - the per-feature `robustness_*_test.go` files, with the shared helpers in `robustness_test.go`
 - **Coverage**: All behavioral types fully functional. Action: 14/14 features ✅. State: 13/13 features ✅. Calc: 8/8 ✅. Constraint: 5/5 ✅. Requirement: 5/5 ✅. Evaluation: 7/7 ✅.
 
 **Measured Compliance:** See [SPEC_COMPLIANCE.md](../project/spec-compliance.md) for semantic rule → implementation → test case mapping with status (✅ faithful / ⚠️ approximate / ❌ not yet implemented).
@@ -438,6 +440,22 @@ Parse + model all behavioral bodies with unified fallback grammar:
   `sweep` and `solve` engines as adapters over the runtime and `internal/exec/solve`; the REPL
   session and the gRPC service ask every check, run, exploration, sweep and solver question
   through it with no change to what they print or return
+- Landed: `internal/exec/sweep` — sweep plans, ranges, rows, tables and the row work queue,
+  and the Monte Carlo plan, layered on the runtime through the parameters a calc or case
+  declares (`Context.Parameters`), the classification of a value against a type
+  (`Context.ClassifyValue`) and the scalar-type reads a range is typed by
+  (`Context.PositiveScalar`, `Context.QuantityNumber`); the runtime imports no package
+  layered on it, and no `sweep*`, `montecarlo*`, `explore*`, `replay*`, `adopt*` or `check*`
+  file may appear in it (`tests/hygiene/orchestration_test.go`); the files of those names
+  still in the runtime are listed there until their feature leaves. The `montecarlo*` files
+  are the runtime's own: they execute a `Simulation::MonteCarlo` case, binding the sample's
+  statistics into the case's run, and leaving would export 73 identifiers of the calc run.
+  The `explore*` files are the runtime's own as well: a scheduler choice-point hook
+  (`Chooser`, `StepChooser`, `StepTokens`) would close the boundary at 904 exports, but 18 of
+  the runtime's test files (110 tests of replay, the checker, the conformance corpus and the
+  robustness suites) drive explorations as their harness, and a package's tests cannot import
+  a package that imports it. Replay and the checker sit on that same hook, the held images and
+  adoption copy frames, so each stays with the runtime
 
 ---
 
@@ -657,8 +675,8 @@ See [the guide](../guide/) for VS Code configuration.
 | Workspace/reindex/file watching | ✅ Complete |
 | Behavioral parser (all behavioral bodies) | ✅ Complete |
 | Calc invocation & constraint evaluation | ✅ Complete |
-| Action execution engine (Tier 5) | ✅ Complete |
-| State machine runtime (Tier 5) | ✅ Complete |
+| Action execution engine (Tier 5) | ✅ Supported subset — every conformance case passes; self-assessed, no external referee; the ✅/⚠️/🧩 rows are counted in the [compliance map](../project/spec-compliance.md) at site build |
+| State machine runtime (Tier 5) | ✅ Supported subset — every conformance case passes; self-assessed, no external referee; pseudostates, call-event triggers and completion semantics are UML/PSSM-derived (🧩 in the [compliance map](../project/spec-compliance.md)) |
 | REPL debugging commands | ✅ Complete |
 | REPL implementation | ✅ Complete |
 | Standard library bundling | ✅ Complete |
@@ -785,7 +803,7 @@ go test -v -run TestExecutionConformance ./internal/exec/runtime
 
 #### 4. Runtime Robustness Tests
 - **Purpose:** Verify malformed/pathological behaviors fail gracefully (typed errors, no panics/hangs)
-- **Location:** `internal/exec/runtime/robustness_test.go` and one `robustness_<feature>_test.go` per feature
+- **Location:** one `internal/exec/runtime/robustness_<feature>_test.go` per feature, with the shared helpers in `robustness_test.go`
 - **Test:** the `TestRuntimeRobustness*` functions, one subtest per failure mode; a feature's cases live in its own file and function, so two features never edit one registry
 - **Acceptance:** All return typed errors, never panic, timeout guard (60s) prevents hangs
 
@@ -841,11 +859,11 @@ Every behavioral feature must have:
 <!-- doc-counts:begin refereed-figures -->
 **Measured against the pinned reference** (`PILOT_TAG=2026-08`, artifact `0.62.0`). Every number below is generated by `make docs-counts` from the committed baselines and gated; none of them is typed in by hand.
 
-- **Corpus agreement:** 353 of 391 files agree diagnostic-by-diagnostic; 282 diagnostics are ours alone and 92 the reference's alone, and the first number must be read by root: the aggregate includes candidate conformance differences, intentional execution-scope warnings on reference corpora and diagnostics from our own examples ([differential](../project/pilot-differential.md), `go run -C tools ./cmd/pilot-diff`).
+- **Corpus agreement:** 515 of 916 files agree diagnostic-by-diagnostic; 366 diagnostics are ours alone and 2444 the reference's alone, and the first number must be read by root: the aggregate includes candidate conformance differences, intentional execution-scope warnings on reference corpora and diagnostics from our own examples ([differential](../project/pilot-differential.md), `go run -C tools ./cmd/pilot-diff`).
 - **Declared-diagnostic silence:** of the 512 declared `errors` rows in the reference's own Xpect suites, we report nothing for 0. 245 we report word-for-word; 248 wording-only and 7 location-only differences are agreement in substance and are not counted as gaps; 0 more we report as a warning and 2 elsewhere in the file ([Xpect oracle](../project/pilot-xpect.md), `go run -C tools ./cmd/pilot-xpect`).
 - **Scope agreement:** 230 of 230 declared scope assertions match exactly (same source).
-- **Permissiveness gaps:** of 313 invalid models we wrote ourselves, the reference rejects 4 that we accept by default, and 300 both reject; 4 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](../project/pilot-rejection.md), `go run -C tools ./cmd/pilot-reject`).
-- **Declared errata:** the registry declares 13 defect(s) in the published reference material — 6 with a specification-derived correction, 7 documented without one, since no intended reading can be inferred ([OMG issues](../project/omg-issues.md), `tools/oracle/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 354 of 391 files agreeing, 281 diagnostics ours alone and 92 the reference's alone, 0 declared rows we are silent on, and 0 of 313 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
+- **Permissiveness gaps:** of 344 invalid models we wrote ourselves, the reference rejects 4 that we accept by default, and 328 both reject; 4 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](../project/pilot-rejection.md), `go run -C tools ./cmd/pilot-reject`).
+- **Declared errata:** the registry declares 16 defect(s) in the published reference material — 9 with a specification-derived correction, 7 documented without one, since no intended reading can be inferred ([OMG issues](../project/omg-issues.md), `tools/oracle/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 516 of 916 files agreeing, 365 diagnostics ours alone and 2444 the reference's alone, 0 declared rows we are silent on, and 0 of 344 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
 - **Self-assessed surface:** the action, state-machine and classifier-behavior rows have no external referee at all — the four refereed figures above cannot see them, because the pinned artifact evaluates expressions but executes neither actions nor state machines. [Spec compliance](../project/spec-compliance.md) counts them.
 
 What these numbers cannot show: the OMG corpora are demonstrations rather than an official conformance suite; the differential is one-directional, comparing the diagnostics the two implementations report on the same files; the Xpect suites are the pilot authors' test intent rather than a certification oracle; and none of these is a percentage of the specification — no global compliance figure is claimed anywhere.
@@ -853,7 +871,7 @@ What these numbers cannot show: the OMG corpora are demonstrations rather than a
 **Row bookkeeping:** the ✅/⚠️/❌/⛔ status of each tracked rule stays in [spec compliance](../project/spec-compliance.md) as a census of our own row list, counted when the documentation site is built rather than committed. It moves when rows are rewritten and does not move when an oracle does, so it is not the progress measure.
 <!-- doc-counts:end refereed-figures -->
 
-Calc/constraint/requirement functional. Action/state executor infrastructure complete (fork/join/decision, TimeEvent/ChangeEvent, guards, hierarchy, orthogonal regions all tested); every conformance case passes. Fork/join, shallow/deep history and deferred events are implemented and reachable from source text — see docs/project/spec-compliance.md and docs/reference/grammar/README.md.
+Calc/constraint/requirement functional and refereed. Action/state executed for the supported subset (fork/join/decision, TimeEvent/ChangeEvent, guards, hierarchy, orthogonal regions all tested); every conformance case passes, with no external behavioral referee. Fork/join, shallow/deep history and deferred events are implemented and reachable from source text — see docs/project/spec-compliance.md and docs/reference/grammar/README.md.
 
 ---
 

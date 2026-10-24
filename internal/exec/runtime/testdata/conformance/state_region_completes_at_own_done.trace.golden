@@ -1,3 +1,4 @@
+choice at t=0.0: next do C, dispatch accept B (unordered; took do C first; order-dependent: log)
 do: C
 stmt action body
 enter action node: state behavior wait
@@ -21,7 +22,7 @@ stmt assign log
   eval operator + -> "waited C-done "
 enter: done
 transition: done -> done
-choice exiting S1: next r2.done(exit), r3.done(exit) (unordered; took r2.done(exit) first)
+choice exiting S1: next r2.done(exit), r3.done(exit) (unordered; took r2.done(exit) first; independent)
 exit: done
 exit: done
 exit: S1

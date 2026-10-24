@@ -44,7 +44,5 @@ hide circle
 hide empty members
 class "<size:10>//«part def»//</size>\n**Radio**" as n0 <<part def>>
 class "<size:10>//«part def»//</size>\n**Airbag**" as n1 <<part def>>
-class "<size:10>//«part def»//</size>\n**Braking::Brake**" as n2 <<part def>>
-class "<size:10>//«part»//</size>\n**pad**" as n3 <<part>> <<usage>>
-n2 -- n3
+class "<size:10>//«part def»//</size>\n**Brake**" as n2 <<part def>>
 @enduml

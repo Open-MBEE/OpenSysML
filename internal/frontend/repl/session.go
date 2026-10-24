@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -27,6 +28,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
 // docName is the workspace key of the transcript: the typed submissions, joined,
@@ -74,6 +76,9 @@ type snippet struct {
 	// found, mapped as the workspace maps a document's.
 	open  bool
 	diags []diag.Diagnostic
+	// rejected marks a typed submission that declares nothing and does not parse:
+	// it is reported once, against the buffer it was typed into, then dropped.
+	rejected bool
 }
 
 // SourceConverter transforms a named source file before the REPL parses it.
@@ -99,7 +104,14 @@ type Session struct {
 	ws              *model.Workspace
 	sourceConverter SourceConverter
 	snippets        []snippet
-	version         int
+	// suppress, when set, names the diagnostics kept out of every report, and
+	// suppressed counts how many the last report left out.
+	suppress   func(file, code, message string) bool
+	suppressed int
+	version    int
+	// libraryRoots are the directories installed projects are looked for
+	// under, besides the well-known ones beneath a loaded file's project.
+	libraryRoots []string
 
 	// Runtime execution context
 	rtCtx *runtime.Context
@@ -185,6 +197,12 @@ type Session struct {
 	progress *progressPrinter
 
 	verbosity Verbosity
+	// fileGuard, when set, is asked before the session reads or writes a file
+	// a command named, so a host can confine the session to a workspace.
+	fileGuard func(path string, exempt []string) error
+	// fileWriter, when set, writes the files the session saves, so a host can
+	// decide where the bytes land; nil writes each path directly.
+	fileWriter replext.FileWriter
 
 	// renderWidth is the width a text rendering's table is written to fit, 0 for
 	// as wide as its widest cell.
@@ -223,6 +241,9 @@ type actionSession struct {
 	selfFQN  string
 	symbol   *symbols.Symbol
 	executor *runtime.ActionExecutor
+	// attached marks the session as driving a performance the object performs
+	// itself, which runs on after the session rather than being released with it.
+	attached bool
 	// rtCtx is the context the executor runs in. A submission rebuilds the
 	// session's own, so results are read against the one that produced them.
 	rtCtx *runtime.Context
@@ -255,7 +276,7 @@ func (a *actionSession) selfOf() string {
 // release lets go of the session's run, ending any work a breakpoint left
 // paused; a nil session has none.
 func (a *actionSession) release() {
-	if a != nil {
+	if a != nil && !a.attached {
 		a.executor.Release()
 	}
 }
@@ -327,6 +348,7 @@ func newSession(converter SourceConverter) *Session {
 	s := &Session{
 		ws:              model.NewWorkspace(),
 		sourceConverter: converter,
+		libraryRoots:    project.EnvLibraryRoots(),
 		instances:       make(map[string]*runtime.Instance),
 		budgets:         runtime.DefaultBudgets(),
 		engines:         engines.Default(),
@@ -410,6 +432,18 @@ func (s *Session) endDebugSessions(cause string) {
 func (s *Session) Budgets() runtime.Budgets {
 	defer s.reading()()
 	return s.budgets
+}
+
+// Files returns the path of every file loaded into the session, in load order.
+func (s *Session) Files() []string {
+	defer s.enter()()
+	var out []string
+	for _, sn := range s.snippets {
+		if sn.origin != "" {
+			out = append(out, sn.origin)
+		}
+	}
+	return out
 }
 
 // List returns a one-line summary per surviving snippet.
@@ -581,13 +615,14 @@ func (s *Session) acceptParsed(origin, key, of, src string, pre parsed, kind sou
 	// diagnostics keep the line numbers of the submission. A merge folded the
 	// comments into the text it rewrote, where own marks what was added.
 	s.snippets = append(s.snippets, snippet{
-		src:    comments + text,
-		names:  names,
-		origin: origin,
-		kind:   kind,
-		gen:    s.version,
-		prefix: len(comments),
-		own:    mergedOwn,
+		src:      comments + text,
+		names:    names,
+		origin:   origin,
+		kind:     kind,
+		gen:      s.version,
+		prefix:   len(comments),
+		own:      mergedOwn,
+		rejected: len(names) == 0 && len(p.Diagnostics) > 0,
 	})
 	return declared, drops
 }
@@ -812,7 +847,15 @@ func (s *Session) foreignSpans() []source.Span {
 
 // diagnostics reports the analysis of every session document and the syntax errors
 // of the masked submissions, each moved to where its text sits in the session buffer.
-func (s *Session) diagnostics() []diag.Diagnostic {
+func (s *Session) diagnostics() []diag.Diagnostic { return s.gather(true) }
+
+// allDiagnostics reports them all, suppression aside: whether an error stopped
+// analysis is decided over every error it found, known or not.
+func (s *Session) allDiagnostics() []diag.Diagnostic { return s.gather(false) }
+
+// gather collects the diagnostics, leaving out the ones Suppress accepted when
+// suppressing and counting them.
+func (s *Session) gather(suppressing bool) []diag.Diagnostic {
 	names := []string{docName}
 	for _, sn := range s.snippets {
 		if sn.origin != "" && !sn.open {
@@ -821,7 +864,10 @@ func (s *Session) diagnostics() []diag.Diagnostic {
 	}
 	// One batch: the documents not analyzed yet are analyzed at once.
 	analyzed := s.ws.DiagnosticsAll(names)
-	out := append([]diag.Diagnostic{}, analyzed[0]...)
+	if suppressing {
+		s.suppressed = 0
+	}
+	out := s.keep(nil, analyzed[0], "", suppressing)
 	next := 1
 	acc := 0
 	for _, sn := range s.snippets {
@@ -835,11 +881,25 @@ func (s *Session) diagnostics() []diag.Diagnostic {
 		}
 		for _, d := range own {
 			d.Span.Offset += acc
-			out = append(out, d)
+			d.Fixes = rebasedFixes(d.Fixes, acc)
+			out = s.keep(out, []diag.Diagnostic{d}, sn.origin, suppressing)
 		}
 		acc += len(sn.src) + 1 // the newline joined() writes between snippets
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Span.Offset < out[j].Span.Offset })
+	return out
+}
+
+// keep appends to out the diagnostics of file, less the ones the suppression
+// accepts when suppressing, counting those.
+func (s *Session) keep(out, diags []diag.Diagnostic, file string, suppressing bool) []diag.Diagnostic {
+	for _, d := range diags {
+		if suppressing && s.suppress != nil && s.suppress(file, d.Code, d.Message) {
+			s.suppressed++
+			continue
+		}
+		out = append(out, d)
+	}
 	return out
 }
 
@@ -886,7 +946,8 @@ func intersects(names []string, set map[string]bool) bool {
 // is still accumulated, so its diagnostics are reported against the live session
 // context; one that leaves a brace, comment or quoted name open is masked out of
 // the buffer instead, since it would otherwise absorb the next submission. A
-// later redeclaration of the same name replaces the prior snippet (see accept).
+// later redeclaration of the same name replaces the prior snippet (see accept);
+// one that declares no name to redeclare is dropped once its errors are reported.
 func (s *Session) Submit(src string) Result {
 	defer s.enter()()
 	return s.submitAll([]string{src})
@@ -1025,7 +1086,30 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 		Notices: notices,
 	}
 	res.Blocked = s.blockedBy(res, load)
+	// A rejected submission was reported against the buffer it was typed into;
+	// nothing declared it, so nothing replaces it, and it leaves the buffer now.
+	if before := s.dropRejected(); before != nil {
+		res.buffer = before
+		// The index still holds that buffer: it is rebuilt before the objects
+		// the session holds are rebound, so they resolve against the cleaned one.
+		s.idxVersion = 0
+		more := s.rebuildOver(nil)
+		whole = append(whole, more...)
+		res.Notices = append(res.Notices, more...)
+	}
 	return res, byFile, whole
+}
+
+// dropRejected removes the snippets this submission rejected, returning the
+// buffer their diagnostics were reported over; nil when there was none to drop.
+func (s *Session) dropRejected() []bufferPart {
+	rejected := func(sn snippet) bool { return sn.rejected }
+	if !slices.ContainsFunc(s.snippets, rejected) {
+		return nil
+	}
+	before := s.bufferParts()
+	s.snippets = slices.DeleteFunc(s.snippets, rejected)
+	return before
 }
 
 // dropReadWhole drops every snippet of a file the submission read whole, a
@@ -1444,8 +1528,10 @@ func (s *Session) symbolIndex() *symbols.Index {
 		}
 	}
 	s.idxDocs = s.idxDocs[:0]
+	// The index holds each document's own tree rather than one built again from its
+	// AST, so a declaration the runtime reaches through either is one symbol.
 	for _, doc := range docs {
-		s.idx.AddDocument(doc.Name, doc.AST)
+		s.idx.AddDocumentScopeWithKind(doc.Name, doc.AST, doc.Scope, doc.Kind())
 		s.idxDocs = append(s.idxDocs, doc.Name)
 	}
 	s.idx.ExpandWildcardImports()
@@ -1564,4 +1650,62 @@ func qualifiedOr(fqn, typed string) string {
 		return fqn
 	}
 	return typed
+}
+
+// rebasedFixes copies fixes with every edit moved by delta into the session
+// buffer, leaving the snippet's own diagnostics untouched.
+func rebasedFixes(fixes []diag.Fix, delta int) []diag.Fix {
+	if len(fixes) == 0 || delta == 0 {
+		return fixes
+	}
+	out := make([]diag.Fix, len(fixes))
+	for i, f := range fixes {
+		edits := make([]diag.Edit, len(f.Edits))
+		for j, e := range f.Edits {
+			e.Span.Offset += delta
+			edits[j] = e
+		}
+		f.Edits = edits
+		out[i] = f
+	}
+	return out
+}
+
+// SetFileGuard installs a check every file the session is asked to read or
+// write must pass: the files %load and %save name, those a directory or glob
+// expands to, and the dependencies found beside them. For a file a load may
+// take from an installed project, the guard is handed the library roots as
+// exempt directories, since those live outside a workspace. A nil guard lifts
+// the check.
+func (s *Session) SetFileGuard(guard func(path string, exempt []string) error) {
+	s.fileGuard = guard
+}
+
+// SetFileWriter installs the writer every file the session saves is written
+// with, so a host confining the session to a workspace can perform the write
+// through the workspace root itself. A nil writer writes each path directly.
+func (s *Session) SetFileWriter(write replext.FileWriter) {
+	s.fileWriter = write
+}
+
+// guardFiles asks the file guard about each file; with libraries true, the
+// library roots are passed as exempt.
+func (s *Session) guardFiles(files []string, libraries bool) error {
+	for _, f := range files {
+		if err := s.guardFile(f, libraries); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Session) guardFile(file string, libraries bool) error {
+	if s.fileGuard == nil {
+		return nil
+	}
+	var exempt []string
+	if libraries {
+		exempt = s.libraryRoots
+	}
+	return s.fileGuard(file, exempt)
 }

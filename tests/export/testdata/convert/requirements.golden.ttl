@@ -72,6 +72,7 @@ elmt:Reqs__Safe__margin
     sysml:owner elmt:Reqs__Safe ;
     sysml:owningRelationship elmt:Reqs__Safe__margin_om ;
     sysml:owningMembership elmt:Reqs__Safe__margin_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "margin" ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -138,6 +139,7 @@ elmt:Reqs__Positive__value
     sysml:owner elmt:Reqs__Positive ;
     sysml:owningRelationship elmt:Reqs__Positive__value_om ;
     sysml:owningMembership elmt:Reqs__Positive__value_om ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:declaredName "value" ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -204,6 +206,7 @@ elmt:Reqs__System__safety
     sysml:owner elmt:Reqs__System ;
     sysml:owningRelationship elmt:Reqs__System__safety_om ;
     sysml:owningMembership elmt:Reqs__System__safety_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "safety" ;
     sysml:type elmt:Reqs__Safe ;
     sysx:hasBody "false"^^xsd:boolean ;

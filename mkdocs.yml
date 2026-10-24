@@ -1,7 +1,7 @@
 # The site is the docs/ tree unmodified: every page stays a Markdown file read on
 # GitHub, and MkDocs is only the renderer. The landing page is the exception: it
 # frames docs/README.md with a hero that only makes sense on a web page.
-site_name: OpenSysML REDK
+site_name: OpenSysML MDK
 site_description: The OpenSysML Runtime Environment and Development Kit — a SysML v2 and KerML implementation in Go with a language server, REPL, execution runtime, and Go, Python, Node, Java, Rust, Julia and MATLAB clients
 site_url: https://runtime.opensysml.org/
 repo_url: https://github.com/Open-MBEE/OpenSysML
@@ -63,9 +63,6 @@ extra:
       link: https://lord.opensysml.org/
       name: Legend of the Red Dragon
 
-extra_javascript:
-  - assets/sysml-engine-loader.js
-
 plugins:
   - search
   # A page published under another name keeps answering there: the site redirects the old
@@ -107,6 +104,7 @@ not_in_nav: |
   project/exception-handlers.md
   project/pilot-differential.md
   project/spec-pilot-gap-register.md
+  project/library-and-prefix-sweep.md
   project/roadmap.md
   project/nightly.md
 
@@ -167,15 +165,9 @@ exclude_docs: |
   internals/notes/**
   project/*.json
   project/omg-issues.md
-  project/performance-census-2026-09.md
-  project/execution-performance-2026-09.md
-  project/performance-profile-2026-09.md
-  project/performance-release-0.5-vs-0.4.3.md
-  project/performance-release-0.6-vs-0.4.2.md
-  project/performance-release-0.8-vs-0.7.0.md
-  project/performance-release-0.9.1-vs-0.9.0.md
-  project/performance-release-0.9.2-vs-0.9.1.md
   project/performance-release-0.10.1-vs-0.10.0.md
+  project/performance-release-0.11.0-vs-0.10.1.md
+  project/archive/**
   project/satellite-network-stress-test.md
   project/large-model-scaling-design.md
   project/native-compilation.md
@@ -185,17 +177,21 @@ exclude_docs: |
   project/demo.md
   project/training-examples.md
   project/pilot-corpora.md
+  project/spec-examples.md
   project/rdf-corpus-roundtrip.md
   project/pssm-migration.md
   project/pilot-xpect.md
   project/pilot-rejection.md
   project/pilot-execution-referee.md
+  project/api-json-differential.md
   project/pssm-referee.md
+  project/llm-benchmark.md
   project/fuml-referee.md
   project/behavior-semantic-oracle.md
   project/grammar-coverage.md
   project/grammar-metaclass-map.md
   project/validation-constraints.md
+  project/constraint-census-triage.md
   project/sysml-v1-transformation-census.md
   project/element-identity-annotations.md
   project/diagram-layout-annotations.md
@@ -250,6 +246,7 @@ nav:
       - guide/11-migrating-from-sysml-v1.md
       - guide/12-jupyter.md
       - guide/modeling-fleets.md
+      - guide/modeling-product-lines.md
   - Document generation:
       - manual/README.md
       - Introduction and concepts: manual/introduction.md
@@ -280,8 +277,9 @@ nav:
       - Environment variables: reference/environment.md
       - External engines: reference/external-engines.md
       - Language server: reference/lsp.md
+      - MCP server: reference/sysml-mcp.md
       - Jupyter kernel: reference/jupyter-kernel.md
-      - Diagnostics (lints): reference/diagnostics.md
+      - Diagnostics: reference/diagnostics.md
       - Client libraries: reference/clients.md
       - Go packages: reference/api.md
       - Python API: reference/python-api.md

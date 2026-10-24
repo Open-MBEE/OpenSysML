@@ -51,10 +51,11 @@ func TestCalcUsageOutputsShareOneInputBinding(t *testing.T) {
 		t.Fatalf("Interleaved: %v", err)
 	}
 	want, err := ctx.InvokeCalc(snapshotted, nil, scope)
+	want = soleElement(want)
 	if err != nil {
 		t.Fatalf("Snapshotted: %v", err)
 	}
-	if got.Const.AsReal() != want.Const.AsReal() {
+	if soleElement(got).Const.AsReal() != want.Const.AsReal() {
 		t.Errorf("Interleaved = %v, Snapshotted = %v; reading order must not be observable",
 			got.Const.AsReal(), want.Const.AsReal())
 	}
@@ -107,6 +108,7 @@ func TestCalcUsageOutputsInAssignmentLoop(t *testing.T) {
 
 	// One iteration: x = 1 + 0.5*0 = 1, v = 0 + 0.5*(-1) = -0.5, sum = 1, count = 1.
 	one, err := ctx.InvokeCalc(step, []Value{constInt(1)}, scope)
+	one = soleElement(one)
 	if err != nil {
 		t.Fatalf("Step(1): %v", err)
 	}
@@ -117,6 +119,7 @@ func TestCalcUsageOutputsInAssignmentLoop(t *testing.T) {
 	// Two iterations: the second reads x = 1, v = -0.5 — the values the first
 	// iteration left — so x = 0.75, v = -1.0, sum = 1.5, count = 2.
 	two, err := ctx.InvokeCalc(step, []Value{constInt(2)}, scope)
+	two = soleElement(two)
 	if err != nil {
 		t.Fatalf("Step(2): %v", err)
 	}
@@ -155,6 +158,7 @@ func TestCalcUsageMemoDistinguishesEnclosingArguments(t *testing.T) {
 	both, scope := calcByName(t, root, "test", "Both")
 
 	got, err := ctx.InvokeCalc(both, nil, scope)
+	got = soleElement(got)
 	if err != nil {
 		t.Fatalf("Both: %v", err)
 	}
@@ -181,7 +185,7 @@ package test {
 `
 
 // TestCyclicCalcUsageOutputStillDiagnosed requires a genuine cycle to fail with
-// ErrCyclicOutput rather than to be answered from a stale evaluation.
+// errCyclicOutput rather than to be answered from a stale evaluation.
 func TestCyclicCalcUsageOutputStillDiagnosed(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, cyclicOutputModel))
 	root := idx.DocumentRoot("<test>")
@@ -191,7 +195,7 @@ func TestCyclicCalcUsageOutputStillDiagnosed(t *testing.T) {
 	if err == nil {
 		t.Fatal("Cycle: want an error, got a value")
 	}
-	if !errors.Is(err, ErrCyclicOutput) {
-		t.Errorf("Cycle: error = %v, want ErrCyclicOutput", err)
+	if !errors.Is(err, errCyclicOutput) {
+		t.Errorf("Cycle: error = %v, want errCyclicOutput", err)
 	}
 }

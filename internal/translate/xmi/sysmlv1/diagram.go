@@ -74,6 +74,12 @@ type ElementRef struct {
 	// Element is the element ID resolves to: one the read documents define, or
 	// the proxy standing for one of another document; nil when it is dangling.
 	Element *Element
+	// Listed marks an element the tool lists as used on the diagram that no
+	// symbol stands for: a compartment row of an ancestor's symbol.
+	Listed bool
+	// OnPath marks an element whose every symbol lies on a path: an association
+	// end's role label, which is no node of its own.
+	OnPath bool
 }
 
 // Represented reports whether the tool serialized what the diagram is and shows;

@@ -9,6 +9,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 )
 
 // Held is the model as a surface reaches it through a context it holds: an
@@ -83,7 +84,7 @@ func CheckAnswer(result runtime.CheckResult, err error) Answer {
 	case err != nil:
 		return Answer{Err: err}
 	case result.Holds:
-		return Answer{Claim: ClaimHolds}
+		return Answer{Claim: ClaimHolds, Reason: result.Vacuous}
 	}
 	return Answer{Claim: ClaimViolated}
 }
@@ -240,7 +241,7 @@ func CheckKind(check *CheckAsk, holds *HoldsAsk, unroll int) Kind {
 // Sweep puts a domain to the registry: row runs the subject once per row of the
 // plan, each in a context of its own the request's model builds; the answered
 // plan's result tables the rows.
-func (r *Registry) Sweep(ctx context.Context, req Request, plan runtime.SweepPlan, row runtime.SweepRun) (Plan, error) {
+func (r *Registry) Sweep(ctx context.Context, req Request, plan sweep.SweepPlan, row sweep.SweepRun) (Plan, error) {
 	return r.ask(ctx, req, Question{
 		Kind:  Sweep,
 		Sweep: &SweepAsk{Plan: plan, Row: row},

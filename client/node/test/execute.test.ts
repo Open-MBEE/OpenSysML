@@ -99,6 +99,71 @@ const PERFORMER_MODEL = `package Wire {
 }
 `;
 
+const PIN_SHAPE_MODEL = `package Pins {
+    private import ScalarValues::*;
+    action def Shape {
+        in value : Integer[1];
+        out one : Integer[1];
+        out bare : Integer;
+        out many : Integer[0..*];
+        first start;
+        then action s { assign one := value; assign bare := value; assign many := (value, value + 1); }
+        then done;
+    }
+}
+`;
+
+test("a pin is held in the shape its multiplicity gives it", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(PIN_SHAPE_MODEL);
+  const run = await model.executeAction("Pins::Shape", { inputs: { value: { kind: "int", value: 5n } } });
+  assert.deepEqual(run.outputs.get("one"), { kind: "int", value: 5n });
+  assert.deepEqual(run.outputs.get("bare"), { kind: "sequence", elements: [{ kind: "int", value: 5n }] });
+  assert.deepEqual(run.outputs.get("many"), {
+    kind: "sequence",
+    elements: [
+      { kind: "int", value: 5n },
+      { kind: "int", value: 6n },
+    ],
+  });
+});
+
+const DERIVED_MODEL = `package Sched {
+    private import ScalarValues::*;
+
+    action derived {
+        attribute x : Integer = 0;
+        attribute y : Integer = 0;
+        attribute z : Integer = 0;
+        first start;
+        fork split;
+        action a { assign x := 1; }
+        action b { assign x := 2; }
+        join sync;
+        action derive { assign y := x + 1; assign z := 5; }
+        done;
+        succession first start then split;
+        succession first split then a;
+        succession first split then b;
+        succession first a then sync;
+        succession first b then sync;
+        succession first sync then derive;
+        succession first derive then done;
+    }
+}
+`;
+
+test("a value computed from an order-dependent one is marked, one computed from a literal is not", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(DERIVED_MODEL);
+  const run = await model.executeAction("Sched::derived");
+  const x = run.outputs.get("x");
+  assert.ok(x !== undefined && "kind" in x && x.kind === "int");
+  assert.deepEqual(run.outputs.get("y"), { kind: "int", value: x.value + 1n });
+  assert.deepEqual(run.outputs.get("z"), { kind: "int", value: 5n });
+  assert.deepEqual(run.orderDependent, new Map([["x", 2], ["y", 2]]));
+});
+
 test("the service advertises schedule, explore and performer", async () => {
   await using connection = await connect();
   assert.ok(connection.info.has("schedule"));
@@ -187,7 +252,8 @@ test("an analysis performs its actions under the policy", async () => {
   await using connection = await connect();
   const model = await connection.loads(SCHEDULE_MODEL);
   const result = await model.runAnalysis("Sched::raced", { schedule: "declared" });
-  assert.deepEqual(result.outputs.get("winner"), { kind: "int", value: 2n });
+  // The bare `out winner` is [0..*]: its one value is a one-element sequence.
+  assert.deepEqual(result.outputs.get("winner"), { kind: "sequence", elements: [{ kind: "int", value: 2n }] });
 });
 
 test("the same seed answers the same way", async () => {
@@ -244,7 +310,7 @@ test("an analysis explores the actions it performs", async () => {
   const exploration = await model.exploreAnalysis("Sched::raced");
   assert.deepEqual(
     exploration.outcomes
-      .map((o) => (o.outputs.get("winner") as { value: bigint }).value)
+      .map((o) => ((o.outputs.get("winner") as { elements: { value: bigint }[] }).elements[0]).value)
       .sort(),
     [1n, 2n],
   );
@@ -258,7 +324,7 @@ test("a runs budget of one is incomplete", async () => {
   assert.equal(exploration.length, 1);
   assert.equal(
     exploration.status,
-    "incomplete: runs budget 1 hit after 1 runs; probabilities are lower bounds",
+    "incomplete: runs budget 1 hit after 1 runs",
   );
 });
 

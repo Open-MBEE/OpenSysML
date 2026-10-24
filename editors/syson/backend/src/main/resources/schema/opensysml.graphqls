@@ -14,6 +14,13 @@ enum RunOperation {
   EVALUATE_CALC
   RUN_ANALYSIS
   VALIDATE_INSTANCE
+  RENDER_DOCUMENT
+  RUN_DOCUMENT_QUERY
+}
+
+enum RunDocumentForm {
+  MARKDOWN
+  HTML
 }
 
 input RunWithOpenSysMLInput {
@@ -26,6 +33,7 @@ input RunWithOpenSysMLInput {
   arguments: [String!]
   schedule: String
   subject: String
+  form: RunDocumentForm
 }
 
 input RunInputValue {
@@ -56,6 +64,8 @@ type OpenSysMLRunResult {
   diagnostics: [OpenSysMLDiagnostic!]!
   verdicts: [OpenSysMLVerdict!]!
   instances: [OpenSysMLInstance!]!
+  document: OpenSysMLDocument
+  table: OpenSysMLTable
 }
 
 type OpenSysMLRunOutcome {
@@ -97,4 +107,21 @@ type OpenSysMLInstance {
   type: String!
   typeSiriusId: String
   featureValues: [OpenSysMLNamedValue!]!
+}
+
+type OpenSysMLDocument {
+  form: RunDocumentForm!
+  content: String!
+  fileName: String!
+}
+
+type OpenSysMLTable {
+  columns: [String!]!
+  rows: [OpenSysMLTableRow!]!
+}
+
+type OpenSysMLTableRow {
+  element: String!
+  siriusId: String
+  cells: [String!]!
 }

@@ -237,7 +237,7 @@ end
 
 function _analysis_request(model::Model, symbol_id; subject=nothing, arguments=Any[],
                            named_arguments=Dict(), schedule=nothing, engine=nothing,
-                           allow_exploration=false)
+                           allow_exploration=false, tool_dry_run::Bool=false)
     conn = model.connection
     _is_exploring(schedule) && !allow_exploration &&
         throw(ArgumentError("schedule $(repr(String(schedule))) answers with every outcome, not one run's result: use explore_analysis"))
@@ -263,6 +263,7 @@ function _analysis_request(model::Model, symbol_id; subject=nothing, arguments=A
         "arguments" => args, "namedArguments" => named,
         "schedule" => schedule === nothing ? "" : String(schedule),
         "engine" => engine === nothing || engine == "auto" ? "" : String(engine))
+    tool_dry_run && (request["toolDryRun"] = true)
     answer = _translate(; capabilities=Tuple(needed), connection=conn) do
         call(conn, "RunAnalysis", request)
     end
@@ -281,14 +282,24 @@ function _analysis_result(conn::Connection, answer)
         instances=instances, diagnostics=diags,
         verifications=verifications,
         evaluations=_case_evaluations(get(answer, "evaluations", Any[]), graph),
-        standing=Standing(answer))
+        standing=Standing(answer),
+        tool_dry_run=haskey(answer, "toolDryRun") ? ToolDryRun(answer["toolDryRun"]) : nothing)
 end
 
-"""Run an analysis case once and return outputs and verdicts."""
+"""
+    run_analysis(model, symbol_id; subject, arguments, named_arguments, schedule, engine,
+                 tool_dry_run=false)
+
+Run an analysis case once and return outputs and verdicts. `tool_dry_run=true` runs the case
+only to its first external tool call and answers what the tool would be given, as
+`sysml -tool-dry-run` does, in the result's `tool_dry_run` (a `ToolDryRun`) with no outputs.
+"""
 function run_analysis(model::Model, symbol_id::AbstractString; subject=nothing,
-                      arguments=Any[], named_arguments=Dict(), schedule=nothing, engine=nothing)
+                      arguments=Any[], named_arguments=Dict(), schedule=nothing, engine=nothing,
+                      tool_dry_run::Bool=false)
     answer = _analysis_request(model, symbol_id; subject=subject, arguments=arguments,
-        named_arguments=named_arguments, schedule=schedule, engine=engine)
+        named_arguments=named_arguments, schedule=schedule, engine=engine,
+        tool_dry_run=tool_dry_run)
     message = String(get(answer, "error", ""))
     partial = any(!isempty(get(answer, key, Any[])) for key in
                   ("outputs", "verdicts", "evaluations", "instances"))
@@ -308,6 +319,20 @@ function _ordered_sweep_ranges(ranges)
         return collect(pairs(ranges))
     end
     throw(ArgumentError("ranges must be a Pair, a vector of pairs, or a dictionary with at most one entry"))
+end
+
+function _sweep_rows(answer, graph, instances, diags)
+    rows = SweepRow[]
+    for row in get(answer, "rows", Any[])
+        row_inputs = _output_map(get(row, "inputs", Any[]), graph)
+        row_outputs = _output_map(get(row, "outputs", Any[]), graph)
+        verdicts = Verdict[_verdict(v, instances, diags) for v in get(row, "verdicts", Any[])]
+        push!(rows, SweepRow(row_inputs, row_outputs, verdicts,
+            parse(Float64, string(get(row, "elapsedMicros", 0))) / 1e6,
+            String(get(row, "error", "")),
+            _case_evaluations(get(row, "evaluations", Any[]), graph)))
+    end
+    return rows
 end
 
 function run_sweep(model::Model, symbol_id::AbstractString, ranges;
@@ -342,20 +367,15 @@ function run_sweep(model::Model, symbol_id::AbstractString, ranges;
     answer = _translate(; capabilities=Tuple(needed), connection=conn) do
         call(conn, "RunSweep", request)
     end
+    return _sweep_table(conn, answer)
+end
+
+function _sweep_table(conn::Connection, answer)
     diags = _diagnostics(answer)
     _raise_answer_error(answer; diagnostics=diags)
     instances = _reported_instances(conn, answer)
     graph = Dict{Int64,Instance}(inst.id => inst for inst in instances)
-    rows = SweepRow[]
-    for row in get(answer, "rows", Any[])
-        row_inputs = _output_map(get(row, "inputs", Any[]), graph)
-        row_outputs = _output_map(get(row, "outputs", Any[]), graph)
-        verdicts = Verdict[_verdict(v, instances, diags) for v in get(row, "verdicts", Any[])]
-        push!(rows, SweepRow(row_inputs, row_outputs, verdicts,
-            parse(Float64, string(get(row, "elapsedMicros", 0))) / 1e6,
-            String(get(row, "error", "")),
-            _case_evaluations(get(row, "evaluations", Any[]), graph)))
-    end
+    rows = _sweep_rows(answer, graph, instances, diags)
     SweepTable(rows, String[String(v) for v in get(answer, "parameters", Any[])],
         Bool(get(answer, "sampled", false)), parse(UInt64, string(get(answer, "seed", 0))),
         instances, diags, Standing(answer))

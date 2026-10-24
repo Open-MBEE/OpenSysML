@@ -70,7 +70,7 @@ func TestBindingIsAnInterconnectionEdge(t *testing.T) {
 	if len(rendering.Edges) != 1 || rendering.Edges[0].Kind != EdgeBinding || len(rendering.Edges[0].Route) != 2 {
 		t.Fatalf("edges = %+v, want one routed binding", rendering.Edges)
 	}
-	dot, err := rendering.DOT()
+	dot, err := rendering.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestEdgeLabelsYieldToTheEdgesOwnText(t *testing.T) {
 		if err != nil {
 			t.Fatalf("render %s: %v", tc.view, err)
 		}
-		text := rendering.Text()
+		text := rendering.textWith(fullNotation)
 		for _, want := range tc.want {
 			if !strings.Contains(text, want) {
 				t.Errorf("%s lacks %q:\n%s", tc.view, want, text)
@@ -181,18 +181,20 @@ func TestDOTLabelPointClearsTheRoute(t *testing.T) {
 		route []Point
 		want  Point
 	}{
-		{"down", []Point{{X: 50, Y: 0}, {X: 50, Y: 100}}, Point{X: halfPixel(50 + width/2 + dotLabelGap), Y: 50}},
-		{"up", []Point{{X: 50, Y: 100}, {X: 50, Y: 0}}, Point{X: halfPixel(50 - width/2 - dotLabelGap), Y: 50}},
-		{"right", []Point{{X: 0, Y: 50}, {X: 100, Y: 50}}, Point{X: 50, Y: halfPixel(50 - height/2 - dotLabelGap)}},
-		{"left", []Point{{X: 100, Y: 50}, {X: 0, Y: 50}}, Point{X: 50, Y: halfPixel(50 + height/2 + dotLabelGap)}},
-		{"bent", []Point{{X: 0, Y: 0}, {X: 10, Y: 0}, {X: 10, Y: 200}}, Point{X: halfPixel(10 + width/2 + dotLabelGap), Y: 100}},
+		{"down", []Point{{X: 50, Y: 0}, {X: 50, Y: 100}}, Point{X: halfPixel(50 + width/2 + labelGap), Y: 50}},
+		{"up", []Point{{X: 50, Y: 100}, {X: 50, Y: 0}}, Point{X: halfPixel(50 - width/2 - labelGap), Y: 50}},
+		{"right", []Point{{X: 0, Y: 50}, {X: 100, Y: 50}}, Point{X: 50, Y: halfPixel(50 - height/2 - labelGap)}},
+		{"left", []Point{{X: 100, Y: 50}, {X: 0, Y: 50}}, Point{X: 50, Y: halfPixel(50 + height/2 + labelGap)}},
+		{"bent", []Point{{X: 0, Y: 0}, {X: 10, Y: 0}, {X: 10, Y: 200}}, Point{X: halfPixel(10 + width/2 + labelGap), Y: 100}},
 	}
 	for _, c := range cases {
-		if got := w.dotLabelPoint(Edge{Label: "go", Route: c.route}); got != c.want {
+		w.placer = nil
+		if got := w.placeLabel(c.route, "go", w.skin.edgePts, labelMid); got != c.want {
 			t.Errorf("%s: label at %v, want %v", c.name, got, c.want)
 		}
 	}
-	diagonal := w.dotLabelPoint(Edge{Label: "go", Route: []Point{{X: 0, Y: 0}, {X: 100, Y: 100}}})
+	w.placer = nil
+	diagonal := w.placeLabel([]Point{{X: 0, Y: 0}, {X: 100, Y: 100}}, "go", w.skin.edgePts, labelMid)
 	if !(diagonal.X > 50 && diagonal.Y < 50) {
 		t.Errorf("diagonal: label at %v, want it above-right of the line's midpoint (50,50)", diagonal)
 	}

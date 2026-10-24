@@ -147,13 +147,6 @@ func TestParseSourcesAffectedNeedsTheCapability(t *testing.T) {
 	}
 }
 
-// The capability is the newest, appended after every one before it.
-func TestParseSourcesAffectedCapabilityIsTheNewest(t *testing.T) {
-	if all := Capabilities(); all[len(all)-1] != CapabilityParseSourcesAffected {
-		t.Errorf("capabilities %v do not end with %q, the newest", all, CapabilityParseSourcesAffected)
-	}
-}
-
 // Whether a model's ids are qualified depends on how many identity scopes its
 // documents declare together, so an edit to one document can change every
 // document's conversion without changing its analysis: a model naming

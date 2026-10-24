@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:MagicDraw_Profile="http://www.omg.org/spec/UML/20131001/MagicDrawProfile"
+         xmlns:Tailoring="http://example.com/schemas/Tailoring.xmi"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <!-- A user profile's own «Subsystem», which specializes nothing. -->
+    <packagedElement xmi:type="uml:Profile" xmi:id="_tailoring" name="Tailoring" URI="http://example.com/schemas/Tailoring.xmi">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_paper" name="Subsystem">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_paper_base" name="base_Class" association="_ext_paper">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_ext_paper" memberEnd="_st_paper_base _ext_paper_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_paper_end" name="extension_Subsystem" type="_st_paper" aggregation="composite"/>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_plant" name="Plant">
+      <packagedElement xmi:type="uml:Class" xmi:id="_ib_power" name="iPower"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_source" name="Electron Source"/>
+      <!-- The tool's SysML-profile block stereotypes, whose profile is not in the document. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_sub_column" name="Beam Column">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_column_source" name="source" type="_blk_source" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_column_pwr" name="pwr in" type="_ib_power" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_sys_microscope" name="Microscope">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_microscope_column" name="column" type="_sub_column" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_microscope_lab" name="lab" type="_ext_lab"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_ext_lab" name="Laboratory"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_dom_imaging" name="Imaging"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_paperwork" name="Paperwork"/>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc_feeds" name="Feeds" memberEnd="_feeds_column _feeds_lab">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_feeds_column" name="fed" type="_sub_column" association="_assoc_feeds"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="_feeds_lab" name="feeder" type="_ext_lab" association="_assoc_feeds"/>
+      </packagedElement>
+    </packagedElement>
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+      <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_subsystems" name="Subsystems" ownerOfDiagram="_pkg_plant">
+        <xmi:Extension extender="Example UML Tool 1.0">
+          <diagramRepresentation>
+            <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+              <diagramContents/>
+            </diagram:DiagramRepresentationObject>
+          </diagramRepresentation>
+        </xmi:Extension>
+      </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+  <sysml:InterfaceBlock xmi:id="_app_ib_power" base_Class="_ib_power"/>
+  <sysml:Block xmi:id="_app_blk_source" base_Class="_blk_source"/>
+  <sysml:Subsystem xmi:id="_app_sub_column" base_Class="_sub_column"/>
+  <sysml:System xmi:id="_app_sys_microscope" base_Class="_sys_microscope"/>
+  <sysml:External xmi:id="_app_ext_lab" base_Class="_ext_lab"/>
+  <sysml:Domain xmi:id="_app_dom_imaging" base_Class="_dom_imaging"/>
+  <Tailoring:Subsystem xmi:id="_app_paperwork" base_Class="_paperwork"/>
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_subsystems" base_Diagram="_diag_subsystems" scope="_pkg_plant" includeSubtypesOfRowTypes="true">
+    <rowElementType href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.Subsystem"/>
+    <columnIds>QPROP:Element:name</columnIds>
+  </MagicDraw_Profile:DiagramTable>
+</xmi:XMI>

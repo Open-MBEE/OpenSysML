@@ -13,7 +13,11 @@ import (
 // a standard library package: a qualified name starting with it can resolve
 // to the library package instead, as the OMG pilot's index does where the
 // library is indexed first, so the name is a portability hazard. The warning
-// is not an error: the specification allows same-named roots.
+// is not an error: the specification allows same-named roots. The bundled
+// OpenSysML extension libraries are `library package`s, not standard ones
+// (KerML 1.0 §7.2.5.3 reserves the standard library's names alone), and a
+// model inlining one — the migrator's -portable output — declares what another
+// tool lacks, so a root named like one is not reported.
 type LibraryRootNamePass struct{}
 
 func (LibraryRootNamePass) Level() PassLevel { return LevelNameResolution }
@@ -37,7 +41,7 @@ func (LibraryRootNamePass) Run(ctx *Context, name string, root *ast.RootNamespac
 				continue
 			}
 			for _, lib := range ctx.Index.LookupQualified(key.name) {
-				if ctx.Index.Library(lib) {
+				if standardLibraryTier(ctx.Index.LibraryTier(lib)) {
 					seen[key.span] = true
 					diags = append(diags, diag.Diagnostic{
 						Severity: diag.SeverityWarning,
@@ -54,6 +58,13 @@ func (LibraryRootNamePass) Run(ctx *Context, name string, root *ast.RootNamespac
 	})
 	sort.SliceStable(diags, func(i, j int) bool { return diags[i].Span.Offset < diags[j].Span.Offset })
 	return diags
+}
+
+// standardLibraryTier reports a tier of the standard library — the Kernel,
+// Systems and Domain libraries, and library content of no stated tier — as
+// against this implementation's own extension libraries.
+func standardLibraryTier(tier symbols.LibraryTier) bool {
+	return tier.Library() && tier != symbols.TierOpenSysML
 }
 
 // libraryRootKeys is w9cKeysOf plus the alias case w9cIdentOf does not carry:

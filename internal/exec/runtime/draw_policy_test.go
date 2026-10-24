@@ -70,11 +70,11 @@ func TestDrawPolicySpellsAndParses(t *testing.T) {
 			t.Errorf("%s.Fixed() = %v", policy, policy.Fixed())
 		}
 	}
-	if _, err := ParseDrawPolicy("median"); !errors.Is(err, ErrDrawPolicy) || !strings.Contains(err.Error(), "random, min, max, average") {
-		t.Errorf("ParseDrawPolicy(median) = %v, want ErrDrawPolicy naming the policies", err)
+	if _, err := ParseDrawPolicy("median"); !errors.Is(err, errDrawPolicy) || !strings.Contains(err.Error(), "random, min, max, average") {
+		t.Errorf("ParseDrawPolicy(median) = %v, want errDrawPolicy naming the policies", err)
 	}
-	if _, err := ParseDrawPolicy(""); !errors.Is(err, ErrDrawPolicy) {
-		t.Errorf("ParseDrawPolicy(\"\") = %v, want ErrDrawPolicy", err)
+	if _, err := ParseDrawPolicy(""); !errors.Is(err, errDrawPolicy) {
+		t.Errorf("ParseDrawPolicy(\"\") = %v, want errDrawPolicy", err)
 	}
 	var ctx Context
 	if ctx.DrawPolicy() != DrawRandom {
@@ -115,8 +115,8 @@ func TestFixedDrawPoliciesResolveEveryCallWithoutASeed(t *testing.T) {
 			if len(draws) != 4 || draws[3].String() != tc.wait {
 				t.Errorf("recorded %v, want four draws ending in %q", draws, tc.wait)
 			}
-			if ctx.DrawPolicyTaken() != tc.policy {
-				t.Errorf("the run drew by %s, want %s", ctx.DrawPolicyTaken(), tc.policy)
+			if ctx.drawPolicyTaken() != tc.policy {
+				t.Errorf("the run drew by %s, want %s", ctx.drawPolicyTaken(), tc.policy)
 			}
 			again, _, err := runUnderDraws(t, m, "draw", tc.policy, 5)
 			if err != nil {
@@ -179,7 +179,7 @@ func TestRandomDrawPolicyIsTheSeededStream(t *testing.T) {
 	if u := realOut(t, out, "u"); u < 2 || u >= 6 {
 		t.Errorf("u = %v, want a draw in [2, 6)", u)
 	}
-	w := Witness{DrawPolicy: random.DrawPolicyTaken(), Draws: ctx.DrawsTaken(), Choices: ctx.ChoicesTaken()}
+	w := Witness{DrawPolicy: random.drawPolicyTaken(), Draws: ctx.DrawsTaken(), Choices: ctx.choicesTaken()}
 	if strings.Contains(w.String(), drawPolicyPrefix) {
 		t.Errorf("a random run's witness names a policy:\n%s", w)
 	}
@@ -194,7 +194,7 @@ func TestWitnessCarriesTheDrawPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w := Witness{DrawPolicy: ctx.DrawPolicyTaken(), Draws: ctx.DrawsTaken(), Choices: ctx.ChoicesTaken()}
+	w := Witness{DrawPolicy: ctx.drawPolicyTaken(), Draws: ctx.DrawsTaken(), Choices: ctx.choicesTaken()}
 	text := w.String()
 	if !strings.HasPrefix(text, "draws by max\ndraw uniform(2.0, 6.0) = 6.0\n") {
 		t.Fatalf("the witness does not open with the policy and the first draw:\n%s", text)
@@ -220,17 +220,17 @@ func TestWitnessCarriesTheDrawPolicy(t *testing.T) {
 			t.Errorf("replay gave %s = %v, want %v", name, got[name], out[name])
 		}
 	}
-	if replay.DrawPolicyTaken() != DrawMax {
-		t.Errorf("the replay drew by %s, want the witness's max", replay.DrawPolicyTaken())
+	if replay.drawPolicyTaken() != DrawMax {
+		t.Errorf("the replay drew by %s, want the witness's max", replay.drawPolicyTaken())
 	}
 
 	misplaced := strings.Replace(text, "draws by max\n", "", 1)
 	misplaced = strings.Replace(misplaced, "\nno choice points", "\ndraws by max\nno choice points", 1)
-	var parse *DrawParseError
+	var parse *drawParseError
 	if _, err := ParseWitness(misplaced); !errors.As(err, &parse) || !strings.Contains(err.Error(), "comes before the draws") {
 		t.Errorf("a policy after the draws parsed: %v", err)
 	}
-	if _, err := ParseWitness("draws by median\nno choice points\n"); !errors.As(err, &parse) || !errors.Is(err, ErrDrawPolicy) && !strings.Contains(err.Error(), "median") {
+	if _, err := ParseWitness("draws by median\nno choice points\n"); !errors.As(err, &parse) || !errors.Is(err, errDrawPolicy) && !strings.Contains(err.Error(), "median") {
 		t.Errorf("an unknown policy parsed: %v", err)
 	}
 	for _, twice := range []string{
@@ -282,9 +282,9 @@ func TestReplayAdmitsDrawsUnderTheWitnessPolicy(t *testing.T) {
 				}
 				return
 			}
-			var refused *WitnessDrawError
+			var refused *witnessDrawError
 			if !errors.As(err, &refused) {
-				t.Fatalf("error = %v, want a WitnessDrawError", err)
+				t.Fatalf("error = %v, want a witnessDrawError", err)
 			}
 			if !strings.Contains(err.Error(), tc.reason) {
 				t.Errorf("error %q does not say %q", err, tc.reason)
@@ -348,8 +348,8 @@ func TestFixedPolicyWitnessWithoutDrawsReplaysByThePolicy(t *testing.T) {
 		if u, tri, n := realOut(t, out, "u"), realOut(t, out, "tri"), takenInt(t, out, "n"); u != tc.u || tri != tc.tri || n != tc.n {
 			t.Errorf("%s replayed u = %v, tri = %v, n = %d, want %v, %v, %d", tc.policy, u, tri, n, tc.u, tc.tri, tc.n)
 		}
-		if replay.DrawPolicyTaken() != tc.policy || len(replay.DrawsTaken()) != 4 {
-			t.Errorf("%s replay drew by %s over %s, want the policy and its four draws", tc.policy, replay.DrawPolicyTaken(), formatDraws(replay.DrawsTaken()))
+		if replay.drawPolicyTaken() != tc.policy || len(replay.DrawsTaken()) != 4 {
+			t.Errorf("%s replay drew by %s over %s, want the policy and its four draws", tc.policy, replay.drawPolicyTaken(), formatDraws(replay.DrawsTaken()))
 		}
 	}
 	partial, err := ParseWitness("draws by max\ndraw uniform(2.0, 6.0) = 6.0\nno choice points\n")
@@ -359,7 +359,7 @@ func TestFixedPolicyWitnessWithoutDrawsReplaysByThePolicy(t *testing.T) {
 	replay, _ := m.fresh()
 	mustSchedule(t, replay, ReplayOf(partial))
 	_, err = replay.ExecuteAction(m.action(t, "draw"))
-	var refused *WitnessDrawError
+	var refused *witnessDrawError
 	if !errors.As(err, &refused) || !strings.Contains(err.Error(), "records no draw left for it") {
 		t.Fatalf("a witness recording one draw of four replayed: %v", err)
 	}

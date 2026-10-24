@@ -1,0 +1,41 @@
+sha256 f051b3133b23fca3581cdedde6875d10ce0e4f123051217418affdf699086681 bytes 241404 lines 3678
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:IrregularLayout
+    a sysml:Package ;
+    sysml:qualifiedName "IrregularLayout" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "69"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "IrregularLayout" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "IrregularLayout" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedRelationship elmt:IrregularLayout___400, elmt:IrregularLayout___401_om, elmt:IrregularLayout__Speed_om, elmt:IrregularLayout__Wheel_om, elmt:IrregularLayout__Axle_om, elmt:IrregularLayout__Rover_om, elmt:IrregularLayout__Drive_om, elmt:IrregularLayout__Ops_om ;
+    sysml:ownedImport elmt:IrregularLayout___400 ;
+    sysml:ownedMember elmt:IrregularLayout___401, elmt:IrregularLayout__Speed, elmt:IrregularLayout__Wheel, elmt:IrregularLayout__Axle, elmt:IrregularLayout__Rover, elmt:IrregularLayout__Drive, elmt:IrregularLayout__Ops ;
+    sysml:ownedMembership elmt:IrregularLayout___401_om, elmt:IrregularLayout__Speed_om, elmt:IrregularLayout__Wheel_om, elmt:IrregularLayout__Axle_om, elmt:IrregularLayout__Rover_om, elmt:IrregularLayout__Drive_om, elmt:IrregularLayout__Ops_om ;
+    sysx:sourceText "package IrregularLayout {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedRelationship "[{\"@id\":\"IrregularLayout___400\"},{\"@id\":\"IrregularLayout___401_om\"},{\"@id\":\"IrregularLayout__Speed_om\"},{\"@id\":\"IrregularLayout__Wheel_om\"},{\"@id\":\"IrregularLayout__Axle_om\"},{\"@id\":\"IrregularLayout__Rover_om\"},{\"@id\":\"IrregularLayout__Drive_om\"},{\"@id\":\"IrregularLayout__Ops_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"IrregularLayout___401\"},{\"@id\":\"IrregularLayout__Speed\"},{\"@id\":\"IrregularLayout__Wheel\"},{\"@id\":\"IrregularLayout__Axle\"},{\"@id\":\"IrregularLayout__Rover\"},{\"@id\":\"IrregularLayout__Drive\"},{\"@id\":\"IrregularLayout__Ops\"}]" ;
+    json:ownedMembership "[{\"@id\":\"IrregularLayout___401_om\"},{\"@id\":\"IrregularLayout__Speed_om\"},{\"@id\":\"IrregularLayout__Wheel_om\"},{\"@id\":\"IrregularLayout__Axle_om\"},{\"@id\":\"IrregularLayout__Rover_om\"},{\"@id\":\"IrregularLayout__Drive_om\"},{\"@id\":\"IrregularLayout__Ops_om\"}]" .
+
+elmt:IrregularLayout___400
+    a sysml:NamespaceImport ;
+    sysml:qualifiedName "IrregularLayout::@0" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "36"^^xsd:integer ;
+    sysml:elementId "IrregularLayout___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:IrregularLayout ;

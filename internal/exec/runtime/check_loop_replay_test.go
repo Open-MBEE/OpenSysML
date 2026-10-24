@@ -98,7 +98,7 @@ func TestCheckWitnessesOfALoopingDoRoundReplay(t *testing.T) {
 				if final.Values["finalState"] != "heard+finished" || final.Values["late"] != "1" {
 					t.Fatalf("final %s, want heard+finished with late at 1", final.Outcome)
 				}
-				if !slices.ContainsFunc(final.Witness.Choices, func(c ChoiceTaken) bool { return c.Kind == ChoiceStepOrder }) {
+				if !slices.ContainsFunc(final.Witness.Choices, func(c ChoiceTaken) bool { return c.Kind == choiceStepOrder }) {
 					t.Fatalf("witness %s records no step order at the round the exit is due", FormatChoices(final.Witness.Choices))
 				}
 				if !slices.ContainsFunc(final.Witness.Choices, func(c ChoiceTaken) bool { return c.Kind == ChoiceTokenOrder }) {

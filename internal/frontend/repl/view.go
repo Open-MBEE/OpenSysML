@@ -84,8 +84,8 @@ func (s *Session) view(name string) ([]string, error) {
 // doRender renders a view, reporting a name the session cannot find, an element
 // that is no view, a rendering kind not produced, or a form the kind is not
 // written in, as a line.
-func (s *Session) doRender(name string, form view.Form, opts view.Options, overlay view.Overlay) ([]string, bool, error) {
-	lines, err := s.renderLines(name, form, opts, overlay)
+func (s *Session) doRender(name string, form view.Form, opts view.Options, overlay view.Overlay, depth int) ([]string, bool, error) {
+	lines, err := s.renderLines(name, form, opts, overlay, depth)
 	if err != nil {
 		return []string{"error: " + err.Error()}, false, nil
 	}
@@ -116,11 +116,11 @@ func (e *UsageError) Error() string {
 // prompt prints; a view that could not be rendered is an error.
 func (s *Session) Render(args []string) (Rendered, error) {
 	defer s.enter()()
-	name, form, opts, overlay, usage := parseRenderArgs(args)
+	name, form, opts, overlay, depth, usage := parseRenderArgs(args)
 	if usage != nil {
 		return Rendered{}, &UsageError{Lines: usage}
 	}
-	lines, err := s.renderLines(name, form, opts, overlay)
+	lines, err := s.renderLines(name, form, opts, overlay, depth)
 	if err != nil {
 		return Rendered{}, err
 	}
@@ -129,17 +129,17 @@ func (s *Session) Render(args []string) (Rendered, error) {
 
 // renderForms are the forms %render writes, as its second argument spells them.
 func renderForms() []string {
-	out := make([]string, 0, len(view.Forms()))
-	for _, form := range view.Forms() {
+	out := make([]string, 0, len(view.ViewForms()))
+	for _, form := range view.ViewForms() {
 		out = append(out, string(form))
 	}
 	return out
 }
 
-// renderPalettes are the palette, style, port display and overlay values
-// %render accepts after a form.
+// renderPalettes are the palette, style, port display, edge routing and
+// overlay values %render accepts after a form.
 func renderPalettes() []string {
-	out := make([]string, 0, len(view.Palettes())+len(view.DrawingStyles())+len(view.PortsChoices())+len(view.Overlays()))
+	out := make([]string, 0, len(view.Palettes())+len(view.DrawingStyles())+len(view.PortsChoices())+len(view.LinesChoices())+len(view.Overlays()))
 	for _, palette := range view.Palettes() {
 		out = append(out, string(palette))
 	}
@@ -148,6 +148,9 @@ func renderPalettes() []string {
 	}
 	for _, ports := range view.PortsChoices() {
 		out = append(out, string(ports))
+	}
+	for _, lines := range view.LinesChoices() {
+		out = append(out, string(lines))
 	}
 	for _, overlay := range view.Overlays() {
 		out = append(out, string(overlay))
@@ -158,8 +161,8 @@ func renderPalettes() []string {
 // renderLines renders a view in the kind its `render` member states and the form
 // asked for, filled from the palette, drawn in the style and overlaid when they
 // are named, one line per line of the artifact.
-func (s *Session) renderLines(name string, form view.Form, opts view.Options, overlay view.Overlay) ([]string, error) {
-	rendering, err := s.viewRendering(name, overlay)
+func (s *Session) renderLines(name string, form view.Form, opts view.Options, overlay view.Overlay, depth int) ([]string, error) {
+	rendering, err := s.viewRendering(name, overlay, depth)
 	if err != nil {
 		return nil, err
 	}
@@ -251,28 +254,29 @@ func (s *Session) SetRenderWidth(width int) {
 // debugging session in progress.
 func (s *Session) ViewRendering(name string) (*view.Rendering, error) {
 	defer s.enter()()
-	return s.viewRendering(name, "")
+	return s.viewRendering(name, "", 0)
 }
 
 // OverlaidViewRendering is ViewRendering with an overlay drawn over the view's
 // structure. The verdict overlay runs the verification cases verifying each
 // requirement drawn in a runtime of its own, so the session's runtime, its
 // objects and any debugging session in progress stay untouched.
-func (s *Session) OverlaidViewRendering(name string, overlay view.Overlay) (*view.Rendering, error) {
+func (s *Session) OverlaidViewRendering(name string, overlay view.Overlay, depth int) (*view.Rendering, error) {
 	defer s.enter()()
-	return s.viewRendering(name, overlay)
+	return s.viewRendering(name, overlay, depth)
 }
 
-// viewRendering renders a view with the session already held.
-func (s *Session) viewRendering(name string, overlay view.Overlay) (*view.Rendering, error) {
+// viewRendering renders a view with the session already held; a depth above 0
+// overrides the depth the view states.
+func (s *Session) viewRendering(name string, overlay view.Overlay, depth int) (*view.Rendering, error) {
 	if strings.HasPrefix(name, view.PseudoViewPrefix) {
-		return s.renderPseudoView(name, overlay)
+		return s.renderPseudoView(name, overlay, depth)
 	}
 	sym, fqn, err := s.lookupSymbol(name)
 	if err != nil {
 		return nil, err
 	}
-	renderer, err := s.overlaidRenderer(overlay)
+	renderer, err := s.overlaidRenderer(overlay, depth)
 	if err != nil {
 		return nil, err
 	}
@@ -295,11 +299,15 @@ func overlaid(rendering *view.Rendering, overlay view.Overlay) (*view.Rendering,
 }
 
 // overlaidRenderer is viewRenderer drawing overlay, the verdicts answered by a
-// fresh runtime over the session's declarations.
-func (s *Session) overlaidRenderer(overlay view.Overlay) (*view.Renderer, error) {
+// fresh runtime over the session's declarations, and bounded by depth when set.
+func (s *Session) overlaidRenderer(overlay view.Overlay, depth int) (*view.Renderer, error) {
 	renderer, err := s.viewRenderer()
-	if err != nil || overlay != view.OverlayVerdicts {
-		return renderer, err
+	if err != nil {
+		return nil, err
+	}
+	renderer.SetDepth(depth)
+	if overlay != view.OverlayVerdicts {
+		return renderer, nil
 	}
 	ctx, err := s.newRuntime()
 	if err != nil {
@@ -309,7 +317,7 @@ func (s *Session) overlaidRenderer(overlay view.Overlay) (*view.Renderer, error)
 	return renderer, nil
 }
 
-func (s *Session) renderPseudoView(spec string, overlay view.Overlay) (*view.Rendering, error) {
+func (s *Session) renderPseudoView(spec string, overlay view.Overlay, depth int) (*view.Rendering, error) {
 	kind, target, ok := view.ParsePseudoView(spec)
 	if !ok {
 		return nil, fmt.Errorf("%s is no pseudo-view: write %s", spec, strings.Join(view.PseudoViewSpecs(), ", "))
@@ -318,14 +326,14 @@ func (s *Session) renderPseudoView(spec string, overlay view.Overlay) (*view.Ren
 	if target != "" {
 		targets = []string{target}
 	}
-	return s.renderExposed(kind, targets, overlay)
+	return s.renderExposed(kind, targets, overlay, depth)
 }
 
 // renderExposed renders the named elements directly, with no view declared, in
 // kind — or, when kind is empty, in the kind the elements call for (see
 // view.Renderer.DefaultKind). No name renders the loaded documents.
-func (s *Session) renderExposed(kind view.Kind, targets []string, overlay view.Overlay) (*view.Rendering, error) {
-	renderer, err := s.overlaidRenderer(overlay)
+func (s *Session) renderExposed(kind view.Kind, targets []string, overlay view.Overlay, depth int) (*view.Rendering, error) {
+	renderer, err := s.overlaidRenderer(overlay, depth)
 	if err != nil {
 		return nil, err
 	}
@@ -525,7 +533,7 @@ func (e concernEvaluator) EvaluateConcern(concern, element *symbols.Symbol) (boo
 	assertion := &runtime.SatisfyAssertion{
 		Symbol:     concern,
 		Subject:    element,
-		SubjectRef: e.session.viewElementName(element),
+		SubjectRef: e.session.viewElementFQN(element),
 	}
 	if requirement := e.ctx.Semantics().FramedConcernTarget(concern); requirement != nil {
 		// Named only when it resolved, so a reference naming nothing is reported
@@ -534,8 +542,9 @@ func (e concernEvaluator) EvaluateConcern(concern, element *symbols.Symbol) (boo
 		assertion.RequirementRef = requirement.Name
 	}
 	result, err := ctx.CheckSatisfactionOn(assertion, inst)
-	// A concern stating no condition lacks a condition, not a requirement.
-	if errors.Is(err, runtime.ErrNoRequirement) || errors.Is(err, runtime.ErrNoConditions) {
+	// A concern resolving to no requirement states no condition; one stating
+	// none holds vacuously, as the runtime reports it.
+	if errors.Is(err, runtime.ErrNoRequirement) {
 		return false, errNoConcernCondition
 	}
 	return result.Holds, err

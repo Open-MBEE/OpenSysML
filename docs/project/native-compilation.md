@@ -34,8 +34,10 @@ The generated source is always written beside the executable (`fib.c` / `fib.go`
 compiled is inspectable. `OPENSYSML_CC` names the C compiler (default `cc`) and `OPENSYSML_GO`
 the go command (default `go`).
 
-Programmatically: `Session.CompileCalc(name)` in `internal/frontend/repl` yields a `codegen.Program`, which
-`codegen.Source` renders and `codegen.Build` compiles.
+Programmatically: `repl.CompileCalc(session, name, compile)` resolves the named calc in a REPL session and
+hands it to `compile`, the backend the caller links — `codegen.New(model, resolver).Compile(entry, target)` in
+`cmd/sysml` and `tests/codegen` — yielding a `codegen.Program`, which `codegen.Source` renders and
+`codegen.Build` compiles.
 
 ## The compiled subset
 
@@ -357,7 +359,7 @@ arithmetic rather than the host language's:
   line a sequence argument is written as the interpreter would read it: `null`, `4`, `(4)`,
   `(1, 2)`, `()`.
 
-`internal/frontend/repl/compile_test.go:TestCompiledCalcsAgreeWithInterpreter` is the differential contract:
+`tests/codegen/compiled_calcs_test.go:TestCompiledCalcsAgreeWithInterpreter` is the differential contract:
 every calc in `testdata/compile_calcs.sysml` is compiled by both backends and run over a matrix of
 values and failure inputs (overflow, zero divisors, non-finite Reals, deep recursion, null and
 many-valued operands, out-of-range indexes, multiplicity, uniqueness and element-budget violations), and each
@@ -463,12 +465,12 @@ functions, Booleans and enumeration literals (`StrClosure`, `SeqClosure`, `FnClo
 
 ## Benchmark methodology
 
-`internal/frontend/repl/compile_bench_test.go:BenchmarkCompiledCalc` times the same invocation three ways
+`tests/codegen/compiled_calcs_bench_test.go:BenchmarkCompiledCalc` times the same invocation three ways
 in one process: interpreted (`Session.RunCalc`), and as the C and Go executables run once with
 `--repeat b.N`, so process start-up is amortized and each figure is per invocation.
 
 ```
-go test ./internal/frontend/repl -run '^$' -bench BenchmarkCompiledCalc -benchtime 2s
+go test ./tests/codegen -run '^$' -bench BenchmarkCompiledCalc -benchtime 2s
 ```
 
 The C loop is confirmed to do the work each iteration rather than being hoisted: `SumTo` scales
@@ -488,7 +490,7 @@ Intel Xeon Platinum 8559C, 8 vCPUs, Go 1.25, GCC 11.4 `-O3 -flto`, 2026-09-02. P
 Reading the table:
 
 - **Compilation is worth three orders of magnitude** on compute-bound calcs. That matches the
-  interpreter census in `execution-performance-2026-09.md` (~1.1 µs per calc invocation, ~130 B
+  interpreter census in `archive/execution-performance-2026-09.md` (~1.1 µs per calc invocation, ~130 B
   allocated each): generated C spends about a nanosecond per `Fib` call.
 - **C beats Go by 2–5× on every loop or recursion**, which is the justification asked for. The gap is
   most likely the checked arithmetic: GCC lowers `__builtin_add_overflow` to a flag test after the
@@ -558,7 +560,7 @@ enumeration's literals — because objects materialize lazily and no run holds t
 spec's Object semantics describe in the abstract. A compiled program has no run to consult: its
 structs are the values its statements build, so the compiler refuses `all` with a typed
 `UnsupportedError` (`operator 'all'`) rather than answering a smaller extent than the
-interpreter would (`internal/frontend/repl/compile_test.go` `Refused::Extent`).
+interpreter would (`tests/codegen/compiled_calcs_test.go` `Refused::Extent`).
 
 ### Phases
 

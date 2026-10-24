@@ -1,0 +1,53 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% MicroscopeViews::positioned — tree rendering (render asTreeDiagram)
+%% canvas: unit=px w=620 h=240
+%% layout: n0 x=260 y=20 w=110 h=33
+%% layout: n1 x=480 y=20 w=110 h=33
+%% layout: n2 x=20 y=20 w=110 h=33
+%% layout: n3 x=20 y=90 w=110 h=33
+%% layout: n4 x=20 y=160 w=110 h=33
+%% layout: n5 x=160 y=160 w=160 h=33
+%% layout: n6 x=400 y=160 w=160 h=33
+%% route: n5->n0 240,160 240,110 315,110 315,53
+%% route: n6->n0 440,160 440,110 315,110 315,53
+%% route: n6->n1 520,160 520,120 535,120 535,53
+flowchart TD
+  n0["`*«part def»*
+**Detector**`"]
+  n1["`*«part def»*
+**Sensor**`"]
+  n2["`*«part def»*
+**Instrument**`"]
+  n3["`*«part def»*
+**'Display System'**`"]
+  n4["`*«part def»*
+**'Scanning Electron Microscope'**`"]
+  n5["`*«part def»*
+**'Secondary Electron Detector'**`"]
+  n6["`*«part def»*
+**'Backscattered Electron Detector'**`"]
+  n5 -->|"specialization"| n0
+  n6 -->|"specialization"| n0
+  n6 -->|"specialization"| n1

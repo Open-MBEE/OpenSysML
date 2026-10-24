@@ -375,7 +375,7 @@ func TestRenderDocumentAmbiguousName(t *testing.T) {
 	s := NewServer(ws)
 	ws.Open("one.sysml", []byte(documentModel), 1)
 	ws.Open("two.sysml", []byte(documentModel), 1)
-	if _, err := s.RenderDocument(&renderDocumentParams{Name: "Observatory::MassReport"}); err == nil ||
+	if _, err := s.RenderDocument(&RenderDocumentParams{Name: "Observatory::MassReport"}); err == nil ||
 		!strings.Contains(err.Error(), "names 2 elements") {
 		t.Fatalf("err = %v, want an ambiguity error", err)
 	}
@@ -451,7 +451,7 @@ func TestDocumentsListsWorkspaceDocuments(t *testing.T) {
 
 func TestRenderDocumentMarkdown(t *testing.T) {
 	_, s, _ := openDocumentModel(t)
-	res, err := s.RenderDocument(&renderDocumentParams{Name: "Observatory::MassReport"})
+	res, err := s.RenderDocument(&RenderDocumentParams{Name: "Observatory::MassReport"})
 	if err != nil {
 		t.Fatalf("RenderDocument err = %v", err)
 	}
@@ -514,7 +514,7 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		"d2":       {"```d2\n", "# Imaging::chainView — interconnection rendering"},
 	}
 	for form, want := range cases {
-		res, err := s.RenderDocument(&renderDocumentParams{Name: "Imaging::ChainReport", DiagramForm: form})
+		res, err := s.RenderDocument(&RenderDocumentParams{Name: "Imaging::ChainReport", DiagramForm: form, Show: []string{"edge-labels"}})
 		if err != nil {
 			t.Fatalf("diagramForm %q: %v", form, err)
 		}
@@ -534,12 +534,12 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 			t.Errorf("diagramForm %q: not a D2 interconnection:\n%s", form, res.Markdown)
 		}
 	}
-	if _, err := s.RenderDocument(&renderDocumentParams{Name: "Imaging::ChainReport", DiagramForm: "svg"}); err == nil ||
+	if _, err := s.RenderDocument(&RenderDocumentParams{Name: "Imaging::ChainReport", DiagramForm: "svg"}); err == nil ||
 		!strings.Contains(err.Error(), `no diagram form is named "svg"`) || !strings.Contains(err.Error(), "mermaid, dot, plantuml") {
 		t.Fatalf("err = %v, want an unknown-form error naming the forms", err)
 	}
 	for _, form := range []string{"dot", "plantuml", "d2"} {
-		res, err := s.RenderDocument(&renderDocumentParams{Name: "Observatory::MassReport", DiagramForm: form})
+		res, err := s.RenderDocument(&RenderDocumentParams{Name: "Observatory::MassReport", DiagramForm: form})
 		if err != nil {
 			t.Fatalf("table-only document as %s: %v", form, err)
 		}
@@ -554,13 +554,13 @@ func TestRenderDocumentDiagramSourceLinks(t *testing.T) {
 	name := uri.File("/tmp/imaging.sysml").Filename()
 	ws.Open(name, []byte(diagramDocumentModel), 1)
 	template := "https://example.test/src/{file}#L{line}:{col}"
-	raw, err := call(t, s, MethodRenderDocument, &renderDocumentParams{
+	raw, err := call(t, s, MethodRenderDocument, &RenderDocumentParams{
 		Name: "Imaging::ChainReport", DiagramForm: "plantuml", LinkTemplate: template,
 	})
 	if err != nil {
 		t.Fatalf("render linked document: %v", err)
 	}
-	var out renderDocumentResult
+	var out RenderDocumentResult
 	if err := json.Unmarshal(raw, &out); err != nil {
 		t.Fatal(err)
 	}
@@ -572,11 +572,11 @@ func TestRenderDocumentDiagramSourceLinks(t *testing.T) {
 
 func TestRenderDocumentTypedErrors(t *testing.T) {
 	_, s, _ := openDocumentModel(t)
-	if _, err := s.RenderDocument(&renderDocumentParams{Name: "Observatory::Subsystem"}); err == nil ||
+	if _, err := s.RenderDocument(&RenderDocumentParams{Name: "Observatory::Subsystem"}); err == nil ||
 		!strings.Contains(err.Error(), "is not a document") {
 		t.Fatalf("err = %v, want a not-a-document error", err)
 	}
-	if _, err := s.RenderDocument(&renderDocumentParams{Name: "Observatory::Nothing"}); err == nil ||
+	if _, err := s.RenderDocument(&RenderDocumentParams{Name: "Observatory::Nothing"}); err == nil ||
 		!strings.Contains(err.Error(), "no element named") {
 		t.Fatalf("err = %v, want a no-element error", err)
 	}

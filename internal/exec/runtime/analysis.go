@@ -29,9 +29,9 @@ const (
 type ObjectiveDirection int
 
 const (
-	// NoDirection is an objective specializing neither MinimizeObjective nor
+	// noDirection is an objective specializing neither MinimizeObjective nor
 	// MaximizeObjective, whose direction the model therefore does not state.
-	NoDirection ObjectiveDirection = iota
+	noDirection ObjectiveDirection = iota
 	// Minimize is an objective specializing TradeStudies::MinimizeObjective.
 	Minimize
 	// Maximize is an objective specializing TradeStudies::MaximizeObjective.
@@ -154,6 +154,81 @@ func (ctx *Context) ObjectivesOf(sym *symbols.Symbol, scope *symbols.Scope) []Ob
 		out = ctx.placeObjective(out, ctx.objectiveOf(objSym, sym))
 	}
 	return out
+}
+
+// OptimizationStage is one stage of a lexicographic optimization: a case, the
+// objectives it states and the conditions bounding it — the enclosing case
+// first, then each analysis nested in it, in declaration order.
+type OptimizationStage struct {
+	Case       *symbols.Symbol
+	Objectives []Objective
+	Conditions []Condition
+}
+
+// OptimizationStagesOf returns the stages of sym's optimization: the case's own
+// objectives and conditions, then each nested analysis's, each stage refining
+// the optimum the stages before it settled within its own conditions too.
+func (ctx *Context) OptimizationStagesOf(sym *symbols.Symbol, scope *symbols.Scope) []OptimizationStage {
+	return ctx.optimizationStages(sym, scope, nil, map[*symbols.Symbol]bool{})
+}
+
+// OptimizationObjectivesOf returns the objectives of every stage, in stage order.
+func (ctx *Context) OptimizationObjectivesOf(sym *symbols.Symbol, scope *symbols.Scope) []Objective {
+	var out []Objective
+	for _, stage := range ctx.OptimizationStagesOf(sym, scope) {
+		out = append(out, stage.Objectives...)
+	}
+	return out
+}
+
+func (ctx *Context) optimizationStages(sym *symbols.Symbol, scope *symbols.Scope, out []OptimizationStage, seen map[*symbols.Symbol]bool) []OptimizationStage {
+	if sym == nil || seen[sym] {
+		return out
+	}
+	seen[sym] = true
+	if scope == nil {
+		scope = sym.OwnerScope
+	}
+	out = append(out, OptimizationStage{
+		Case:       sym,
+		Objectives: ctx.ObjectivesOf(sym, scope),
+		Conditions: ctx.CaseConditionsOf(sym, scope),
+	})
+	for _, stage := range ctx.analysisStagesOf(sym, scope) {
+		out = ctx.optimizationStages(stage, stage.OwnerScope, out, seen)
+	}
+	return out
+}
+
+// analysisStagesOf returns the analysis usages sym's body and its generals'
+// declare, inherited ones first; one restating an inherited one, by name or by
+// redefinition, is the same stage declared again and keeps its place.
+func (ctx *Context) analysisStagesOf(sym *symbols.Symbol, scope *symbols.Scope) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, member := range ctx.chainMembers(sym, scope) {
+		usage, ok := member.node.(*ast.Usage)
+		if !ok || usage.Kind != ast.UsageAnalysisCase {
+			continue
+		}
+		if stage := memberSymbol(member.scope, member.node); stage != nil {
+			out = ctx.placeStage(out, stage)
+		}
+	}
+	return out
+}
+
+func (ctx *Context) placeStage(out []*symbols.Symbol, stage *symbols.Symbol) []*symbols.Symbol {
+	redefined := ctx.model.semantics.AllRedefinedFeatures(stage)
+	for i, prev := range out {
+		if prev == stage || slices.Contains(ctx.model.semantics.AllRedefinedFeatures(prev), stage) {
+			return out
+		}
+		if slices.Contains(redefined, prev) || (stage.Name != "" && stage.Name == prev.Name) {
+			out[i] = stage
+			return out
+		}
+	}
+	return append(out, stage)
 }
 
 // placeObjective adds obj to out: in place of the first objective it restates,
@@ -363,7 +438,7 @@ func (ctx *Context) specializesLibraryType(typ *symbols.Symbol, fqn string) bool
 // specializes, matched by identity so a type merely named alike is not one.
 func (ctx *Context) objectiveDirection(typ *symbols.Symbol) ObjectiveDirection {
 	if typ == nil || ctx.model.resolver == nil || ctx.model.resolver.Index() == nil {
-		return NoDirection
+		return noDirection
 	}
 	idx := ctx.model.resolver.Index()
 	directions := make(map[*symbols.Symbol]ObjectiveDirection, 2)
@@ -387,7 +462,7 @@ func (ctx *Context) objectiveDirection(typ *symbols.Symbol) ObjectiveDirection {
 			return direction
 		}
 	}
-	return NoDirection
+	return noDirection
 }
 
 // objectiveConditionsOf returns the conditions an objective states or inherits
@@ -493,10 +568,5 @@ func memberSymbol(scope *symbols.Scope, node ast.Node) *symbols.Symbol {
 	if scope == nil || node == nil {
 		return nil
 	}
-	for _, member := range scope.AllMembers() {
-		if member.Decl == node {
-			return member
-		}
-	}
-	return nil
+	return scope.MemberDeclaring(node)
 }

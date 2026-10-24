@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -134,6 +135,42 @@ func TestMemberLayoutOfKeepsInheritedMembersApartByOwner(t *testing.T) {
 	}
 	if sites := m.LayoutSitesOf(start); len(sites) != 3 {
 		t.Fatalf("LayoutSitesOf(start) has %d sites, want 3", len(sites))
+	}
+}
+
+// A Style and the Notes about an inherited member resolve by owner as its
+// Layout does, so one body's start is coloured and annotated alone.
+func TestMemberStyleAndNotesOfKeepInheritedMembersApartByOwner(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		action def A { action a; first start then a; }
+		action def B { action b; first start then b; }
+		view v {
+			expose A; expose B;
+			metadata Style about A::start { fill = "#C00000"; }
+			metadata Note about A::start { text = "first"; x = 1; y = 1; }
+			metadata Note about A::start { text = "second"; x = 2; y = 2; }
+			metadata Note about B::start { text = "other"; x = 3; y = 3; }
+		}
+	`)
+	view := sym(t, p, "v")
+	if site, ok := m.MemberStyleOf(view, sym(t, p, "A"), "start"); !ok || site.Style == nil || site.Style.Fill != "#C00000" {
+		t.Errorf("MemberStyleOf(v, A, start) = %+v, %v", site, ok)
+	}
+	if site, ok := m.MemberStyleOf(view, sym(t, p, "B"), "start"); ok {
+		t.Errorf("MemberStyleOf(v, B, start) = %+v, want none", site)
+	}
+	var texts []string
+	for _, site := range m.MemberNotesOf(view, sym(t, p, "A"), "start") {
+		if site.Note != nil {
+			texts = append(texts, site.Note.Text)
+		}
+	}
+	if want := []string{"first", "second"}; !slices.Equal(texts, want) {
+		t.Errorf("MemberNotesOf(v, A, start) = %q, want %q", texts, want)
+	}
+	if notes := m.MemberNotesOf(view, sym(t, p, "B"), "start"); len(notes) != 1 || notes[0].Note == nil || notes[0].Note.Text != "other" {
+		t.Errorf("MemberNotesOf(v, B, start) = %+v, want the one note", notes)
 	}
 }
 
@@ -612,5 +649,45 @@ func TestSymbolDeclaringSearchesEveryDocument(t *testing.T) {
 	}
 	if site, ok := m.LayoutOf(nil, got); !ok || site.Layout == nil || site.Layout.X != 1 {
 		t.Fatalf("LayoutOf(nil, off) = %+v, %v", site, ok)
+	}
+}
+
+// A Layout binding only collapsed or a show… switch needs no x and y: it folds
+// or hides without placing. One binding a size, one coordinate, or nothing still needs a place.
+func TestLayoutFoldOnlyNeedsNoPlace(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part def Engine;
+		part engine : Engine;
+		view folded { expose engine; metadata Layout about engine { collapsed = true; } }
+		view hidden { expose engine; metadata Layout about engine { showAttributes = false; } }
+		view sized { expose engine; metadata Layout about engine { collapsed = true; width = 10; height = 10; } }
+		view bare { expose engine; metadata Layout about engine { } }
+		view xOnly { expose engine; metadata Layout about engine { x = 120; collapsed = true; } }
+		view yOnly { expose engine; metadata Layout about engine { y = 40; showAttributes = false; } }
+	`)
+	engine := sym(t, p, "engine")
+
+	site, ok := m.LayoutOf(sym(t, p, "folded"), engine)
+	if !ok || site.Layout == nil || len(site.Problems) != 0 {
+		t.Fatalf("LayoutOf(folded, engine) = %+v, %v", site, ok)
+	}
+	if !site.Layout.Unplaced || !site.Layout.Collapsed || site.Layout.HasSize {
+		t.Errorf("fold-only layout = %+v, want unplaced and collapsed", site.Layout)
+	}
+
+	site, ok = m.LayoutOf(sym(t, p, "hidden"), engine)
+	if !ok || site.Layout == nil || len(site.Problems) != 0 {
+		t.Fatalf("LayoutOf(hidden, engine) = %+v, %v", site, ok)
+	}
+	if !site.Layout.Unplaced || !site.Layout.Hidden.Attributes || site.Layout.Collapsed {
+		t.Errorf("hide-only layout = %+v, want unplaced with attributes hidden", site.Layout)
+	}
+
+	for _, name := range []string{"sized", "bare", "xOnly", "yOnly"} {
+		site, ok = m.LayoutOf(sym(t, p, name), engine)
+		if !ok || site.Layout != nil || len(site.Problems) != 1 || site.Problems[0].Message != "Layout binds no x and y to place the element at" {
+			t.Errorf("LayoutOf(%s, engine) = %+v, %v, want the missing-place problem and no Layout", name, site, ok)
+		}
 	}
 }

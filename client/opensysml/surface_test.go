@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -497,7 +498,7 @@ func TestEvaluateCalcAppliesPositionalArguments(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EvaluateCalc: %v", err)
 	}
-	if got, ok := calculation.Result.(opensysml.Int); !ok || got != 5 {
+	if got, ok := sole(t, "add", calculation.Result).(opensysml.Int); !ok || got != 5 {
 		t.Errorf("result = %#v, want Int(5)", calculation.Result)
 	}
 }
@@ -719,6 +720,107 @@ func TestRenderViewAgainstService(t *testing.T) {
 	}
 	if !slices.Contains(names, "spare") {
 		t.Errorf("full ports = %v, want spare", names)
+	}
+	if !slices.Contains(rendered.Shown, "port-symbols") {
+		t.Errorf("shown = %v, want the view's own port-symbols", rendered.Shown)
+	}
+	labelled, err := client.RenderView(context.Background(), model, "RenderViewDemo::connections", opensysml.WithShow("edge-labels"))
+	if err != nil {
+		t.Fatalf("RenderView with edge labels: %v", err)
+	}
+	if !slices.Contains(labelled.Shown, "edge-labels") {
+		t.Errorf("shown = %v, want edge-labels", labelled.Shown)
+	}
+	if _, err := client.RenderView(context.Background(), model, "RenderViewDemo::connections", opensysml.WithShow("no-such-element")); err == nil {
+		t.Error("RenderView showing an unknown element returned no error")
+	}
+}
+
+func TestRenderViewCompartmentsAgainstService(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, `package Folded {
+    private import Views::*;
+    attribute def Label;
+    port def Hub { port bearing : Hub; }
+    part def Sensor { attribute label : Label; }
+    part def Controller { part sensor : Sensor; port hub : Hub; }
+    view structure { expose Sensor; expose Controller; render asTreeDiagram; }
+}
+`)
+	rowsOf := func(rendered *opensysml.RenderedView) map[string]string {
+		rows := map[string]string{}
+		for _, node := range rendered.Nodes {
+			if node.Compartment != "" {
+				rows[node.Name] = node.Compartment
+			}
+		}
+		return rows
+	}
+	plain, err := client.RenderView(context.Background(), model, "Folded::structure")
+	if err != nil {
+		t.Fatalf("RenderView: %v", err)
+	}
+	if rows := rowsOf(plain); len(rows) != 0 || len(plain.Nodes) != 7 {
+		t.Errorf("without a folding %d nodes with rows %v; want 7 boxes", len(plain.Nodes), rows)
+	}
+	most, err := client.RenderView(context.Background(), model, "Folded::structure", opensysml.WithCompartments("most"))
+	if err != nil {
+		t.Fatalf("RenderView with most: %v", err)
+	}
+	if rows := rowsOf(most); rows["label"] != "attributes" || rows["sensor"] != "parts" || rows["hub"] != "ports" || rows["hub.bearing"] != "ports" || len(most.Nodes) != 6 {
+		t.Errorf("most: %d nodes with rows %v; want two boxes and four rows", len(most.Nodes), rows)
+	}
+	if len(most.Edges) != 1 || most.Edges[0].Label != "sensor" {
+		t.Errorf("most edges = %+v, want the composition sensor alone", most.Edges)
+	}
+	if !strings.Contains(strings.Join(most.Notices, "\n"), "drawn as compartment rows of their owner") {
+		t.Errorf("notices = %v, want the folding noticed", most.Notices)
+	}
+	ports, err := client.RenderView(context.Background(), model, "Folded::structure", opensysml.WithCompartments("ports"))
+	if err != nil {
+		t.Fatalf("RenderView with ports: %v", err)
+	}
+	if rows := rowsOf(ports); rows["hub"] != "ports" || rows["sensor"] != "" {
+		t.Errorf("ports rows = %v, want the ports alone folded", rows)
+	}
+	if _, err := client.RenderView(context.Background(), model, "Folded::structure", opensysml.WithCompartments("rows")); err == nil {
+		t.Error("RenderView with an unknown folding returned no error")
+	}
+}
+
+func TestRenderViewDepthAgainstService(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, `package Deep {
+    private import Views::*;
+    part vehicle {
+        part wheel { part hub { part bearing; } }
+        part engine { part piston; }
+    }
+    view structure { expose vehicle; render asTreeDiagram; }
+}
+`)
+	whole, err := client.RenderView(context.Background(), model, "Deep::structure")
+	if err != nil {
+		t.Fatalf("RenderView: %v", err)
+	}
+	bounded, err := client.RenderView(context.Background(), model, "Deep::structure", opensysml.WithDepth(1))
+	if err != nil {
+		t.Fatalf("RenderView with depth 1: %v", err)
+	}
+	if len(whole.Nodes) != 6 || len(bounded.Nodes) != 3 {
+		t.Errorf("nodes = %d whole, %d at depth 1; want 6 and 3", len(whole.Nodes), len(bounded.Nodes))
+	}
+	if !strings.Contains(strings.Join(bounded.Notices, "\n"), "nested deeper than 1 level") {
+		t.Errorf("notices = %v, want the depth noticed", bounded.Notices)
+	}
+	if _, err := client.RenderView(context.Background(), model, "Deep::structure", opensysml.WithDepth(-1)); err == nil {
+		t.Error("RenderView with depth -1 returned no error")
+	}
+	tooDeep := math.MaxInt32
+	tooDeep++
+	var status *opensysml.StatusError
+	if _, err := client.RenderView(context.Background(), model, "Deep::structure", opensysml.WithDepth(tooDeep)); !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument {
+		t.Errorf("RenderView with depth %d: err = %v, want CodeInvalidArgument before the request", tooDeep, err)
 	}
 }
 
@@ -1408,5 +1510,137 @@ func TestAModelThatNoParseAnsweredIsInvalid(t *testing.T) {
 	_, err := client.VerifyConstraint(context.Background(), &opensysml.Model{}, "Demo::c")
 	if !errors.Is(err, opensysml.CodeInvalidArgument) {
 		t.Errorf("err = %v, want CodeInvalidArgument", err)
+	}
+}
+
+const runsSurfaceSource = `package MC {
+	private import ScalarValues::*;
+	private import RandomFunctions::*;
+	action def Settle { out t : Real; first start; then assign t := uniform(1.0, 5.0); then done; }
+	part def Probe { attribute t : Real; action settle { first start; then assign t := uniform(1.0, 5.0); then done; } }
+	individual def probe :> Probe;
+	analysis def Mc :> Simulation::MonteCarlo {
+		subject analysed : Probe;
+		perform action run ::> analysed.settle;
+		attribute :>> observed : Real = analysed.t;
+		return Mean : Real = mean;
+	}
+	part def P { attribute m : Real = 2.0; }
+	part p : P;
+	analysis def Cost { subject s : P; return total : Real = s.m * 3.0; }
+}`
+
+func TestRunActionAgainstService(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, runsSurfaceSource)
+	ctx := context.Background()
+	runs, err := client.RunAction(ctx, model, "MC::Settle", 4, opensysml.RunsSeed(7), opensysml.RunsObserve("t"))
+	if err != nil {
+		t.Fatalf("RunAction: %v", err)
+	}
+	if len(runs.Rows) != 4 || len(runs.Distributions) != 1 || runs.Distributions[0].Count != 4 || !runs.Distributions[0].Numeric || runs.Seed == nil {
+		t.Errorf("runs = %+v, want 4 rows and t's distribution", runs)
+	}
+	sample, err := client.RunMonteCarlo(ctx, model, "MC::Mc", 3, opensysml.RunsSeed(1), opensysml.RunsSubject("MC::probe"))
+	if err != nil || len(sample.Rows) != 3 || sample.Unconcluded != "" || len(sample.Outputs) == 0 {
+		t.Errorf("RunMonteCarlo: %v %+v, want 3 concluded rows", err, sample)
+	}
+	_, err = client.RunAction(ctx, model, "MC::Settle", 1)
+	var status *opensysml.StatusError
+	if !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument {
+		t.Errorf("random runs without a seed: %v, want INVALID_ARGUMENT", err)
+	}
+	_, err = client.RunAction(ctx, model, "MC::Nope", 1, opensysml.RunsDraws("min"))
+	var failure *opensysml.VerifyError
+	if !errors.As(err, &failure) || failure.Op != "RunAction" {
+		t.Errorf("unknown action: %v, want an in-band VerifyError", err)
+	}
+}
+
+func TestSelfCheckAgainstService(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, runsSurfaceSource)
+	check, err := client.SelfCheck(context.Background(), model)
+	if err != nil {
+		t.Fatalf("SelfCheck: %v", err)
+	}
+	if check.Elements == 0 || check.Checks == 0 || !strings.HasPrefix(check.Summary, "Self-model check: ") || len(check.Applications) == 0 {
+		t.Errorf("check = %+v, want the counts of a check that ran", check)
+	}
+	_, err = client.SelfCheck(context.Background(), model, "Nope")
+	var failure *opensysml.FailureError
+	if !errors.As(err, &failure) || failure.Op != "SelfCheck" || !strings.Contains(failure.Message, "Nope") {
+		t.Errorf("unknown rule package: %v, want an in-band FailureError", err)
+	}
+}
+
+func TestRecordRunAgainstService(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, runsSurfaceSource)
+	ctx := context.Background()
+	rec, err := client.RecordRun(ctx, model, "MC::Cost", opensysml.RecordSubject("MC::p"))
+	if err != nil {
+		t.Fatalf("RecordRun: %v", err)
+	}
+	if rec.Run == nil || rec.Package != "Records" || len(rec.Records) != 1 || rec.ModelHash == "" || len(rec.Documents) != 1 || !strings.Contains(rec.Source, "Cost_run1") {
+		t.Errorf("recording = %+v, want Cost_run1 in Records", rec)
+	}
+	sample, err := client.RecordRun(ctx, model, "MC::Mc", opensysml.RecordSubject("MC::probe"), opensysml.RecordSample(2, 3))
+	if err != nil || sample.Sample == nil || len(sample.Records) != 3 {
+		t.Errorf("recording a sample: %v %+v, want two runs and the sample", err, sample)
+	}
+	_, err = client.RecordRun(ctx, model, "MC::Nope")
+	var failure *opensysml.VerifyError
+	if !errors.As(err, &failure) || failure.Op != "RecordRun" {
+		t.Errorf("unknown case: %v, want an in-band VerifyError", err)
+	}
+}
+
+func TestCheckActionAgainstService(t *testing.T) {
+	client := newClient(t)
+	source, err := os.ReadFile(filepath.Join("..", "..", "conformance", "fixtures", "tank.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	model := parse(t, client, string(source))
+	ctx := context.Background()
+	check, err := client.CheckAction(ctx, model, "Plant::Tank::fill",
+		opensysml.CheckPerformer("Plant::tank"), opensysml.CheckProperties("Plant::Tank::low"),
+		opensysml.CheckDiverge("this.level"), opensysml.CheckWitnessFiles())
+	if err != nil {
+		t.Fatalf("CheckAction: %v", err)
+	}
+	if check.Verdict != "fails" || check.Search == nil || check.Search.States != 11 || check.Standing.Engine != "check" {
+		t.Errorf("check = %+v, want fails after 11 states under the check engine", check)
+	}
+	if len(check.Violations) != 1 || check.Violations[0].Property != "Plant::Tank::low" || check.Violations[0].Depth != 3 {
+		t.Errorf("violations = %+v, want Plant::Tank::low false after 3 moves", check.Violations)
+	}
+	if len(check.Violations) == 1 && (check.Violations[0].Witness == nil || check.Violations[0].Witness.FileContent == "") {
+		t.Errorf("the violation's witness file was asked for and not carried: %+v", check.Violations[0].Witness)
+	}
+	if len(check.Divergences) != 1 || check.Divergences[0].Feature != "this.level" || len(check.Divergences[0].Values) != 2 {
+		t.Errorf("divergences = %+v, want this.level ending as two values", check.Divergences)
+	}
+	if !strings.HasPrefix(check.String(), "✗ Action Plant::Tank::fill") {
+		t.Errorf("report = %q, want the command's", check.String())
+	}
+
+	held, err := client.CheckAction(ctx, model, "Plant::Tank::fill",
+		opensysml.CheckPerformer("Plant::tank"), opensysml.CheckProperties("Plant::Tank::capped"),
+		opensysml.CheckDiverge("this.capacity"))
+	if err != nil || held.Verdict != "holds" || len(held.Finals) == 0 {
+		t.Errorf("capped: %v %+v, want holds with its finals", err, held)
+	}
+
+	_, err = client.CheckAction(ctx, model, "Plant::Tank::drain")
+	var failure *opensysml.FailureError
+	if !errors.As(err, &failure) || failure.Op != "CheckAction" || !strings.Contains(failure.Message, "Plant::Tank::drain") {
+		t.Errorf("unknown action: %v, want an in-band FailureError", err)
+	}
+	_, err = client.CheckAction(ctx, model, "Plant::Tank::fill", opensysml.CheckBounds(-1, 0, 0, 0))
+	var status *opensysml.StatusError
+	if !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument {
+		t.Errorf("negative depth: %v, want INVALID_ARGUMENT", err)
 	}
 }

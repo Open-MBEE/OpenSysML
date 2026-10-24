@@ -185,7 +185,7 @@ func TestObjectiveSubjectBindsTheQualifiedResult(t *testing.T) {
 		if err != nil {
 			t.Fatalf("RunAnalysis(%s): %v", tc.fqn, err)
 		}
-		if len(result.Outputs) != 1 || result.Outputs[0].Name != tc.output || FormatValue(result.Outputs[0].Value) != tc.value {
+		if len(result.Outputs) != 1 || result.Outputs[0].Name != tc.output || FormatValue(soleElement(result.Outputs[0].Value)) != tc.value {
 			t.Errorf("%s: outputs = %+v, want %s = %s", tc.fqn, result.Outputs, tc.output, tc.value)
 		}
 		if len(result.Verdicts) != 1 || result.Verdicts[0].Kind != tc.kind || result.Verdicts[0].Status != tc.status {
@@ -211,7 +211,7 @@ func TestQualifiedResultNamesItsOwnCase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Outputs) != 1 || FormatValue(result.Outputs[0].Value) != "5000.0" {
+	if len(result.Outputs) != 1 || FormatValue(soleElement(result.Outputs[0].Value)) != "5000.0" {
 		t.Errorf("outputs = %+v, want result = 5000.0", result.Outputs)
 	}
 	if len(result.Verdicts) != 2 {
@@ -782,8 +782,8 @@ func TestHoldAsReportsAnUndeterminedValueType(t *testing.T) {
 	writes, journals := len(ctx.journalWrites), ctx.journals
 
 	err = ctx.holdAs(DeclScope(owner), "subject binding", ctx.boundMemberDecl(owner, []*symbols.Symbol{pair}), NewSequenceValue(seq), pair)
-	if !errors.Is(err, ErrUndeterminedValueType) {
-		t.Fatalf("error = %v, want ErrUndeterminedValueType", err)
+	if !errors.Is(err, errUndeterminedValueType) {
+		t.Fatalf("error = %v, want errUndeterminedValueType", err)
 	}
 	if errors.Is(err, ErrTypeMismatch) {
 		t.Errorf("error = %v, must not be reported as a type mismatch", err)

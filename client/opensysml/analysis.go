@@ -32,6 +32,52 @@ type Analysis struct {
 	Standing Standing
 	// Diagnostics the run reported.
 	Diagnostics []Diagnostic
+	// ToolDryRun is the external tool call a run under ToolDryRun previewed
+	// instead of making; nil otherwise.
+	ToolDryRun *ToolDryRun
+}
+
+// ToolDryRun is the first external tool call an analysis would have made, as
+// sysml -tool-dry-run previews it.
+type ToolDryRun struct {
+	// Action is the FQN of the ToolExecution-annotated step reached.
+	Action string
+	// Tool, Version and Manifest identify the manifest entry the step resolved to.
+	Tool, Version, Manifest string
+	// Executable and Args are the program and arguments; Env its added
+	// environment and Cwd its working directory.
+	Executable string
+	Args, Env  []string
+	Cwd        string
+	// Protocol is how the tool is spoken to; Stdin and StdinData what it
+	// would read; InputFile the file it would be handed, if any.
+	Protocol, Stdin, StdinData string
+	InputFile                  *ToolDryRunFile
+	// OutputDir reports whether an output directory would be created.
+	OutputDir bool
+	// Inputs and Outputs are the values handed over and asked for.
+	Inputs  []ToolDryRunInput
+	Outputs []ToolDryRunOutput
+	// ReplySource says where the reply would be read from.
+	ReplySource string
+	// Lines is the preview the sysml command prints.
+	Lines []string
+}
+
+// ToolDryRunFile is the input file a dry run would hand the tool.
+type ToolDryRunFile struct {
+	Name, Format, Data string
+}
+
+// ToolDryRunInput is one value the tool would be handed: the tool's variable,
+// the case parameter it is bound to, the rendered value and its unit.
+type ToolDryRunInput struct {
+	Variable, Parameter, Value, Unit string
+}
+
+// ToolDryRunOutput is one value the tool would be asked for.
+type ToolDryRunOutput struct {
+	Variable, Parameter string
 }
 
 // Evaluation is one application of a calc the case declares, made while it
@@ -129,6 +175,13 @@ type analysisOptions struct {
 	named           []namedArgument
 	schedule        string
 	engine          string
+	toolDryRun      bool
+}
+
+// WithToolDryRun runs the case up to its first external tool call and previews
+// it in Analysis.ToolDryRun instead of making it, as sysml -tool-dry-run does.
+func WithToolDryRun() AnalysisOption {
+	return func(o *analysisOptions) { o.toolDryRun = true }
 }
 
 type namedArgument struct {
@@ -207,6 +260,7 @@ func analysisFromProto(resp *pb.RunAnalysisResponse, diagnostics []Diagnostic) *
 		Diagnostics:   diagnostics,
 		Verifications: verificationVerdictsFromProto(resp.VerificationVerdicts),
 		Evaluations:   evaluationsFromProto(resp.Evaluations),
+		ToolDryRun:    toolDryRunFromProto(resp.ToolDryRun),
 	}
 	for _, output := range resp.Outputs {
 		out.Outputs = append(out.Outputs, CalcOutput{Name: output.Name, Value: valueFromProto(output.Value)})
@@ -268,6 +322,7 @@ func (c *client) analysisRequest(ctx context.Context, hash, symbolID string, opt
 		SubjectSymbolId: options.subjectSymbolID,
 		Schedule:        options.schedule,
 		Engine:          engineField(options.engine),
+		ToolDryRun:      options.toolDryRun,
 	}
 	for _, argument := range options.positional {
 		sent, err := valueToProto(argument)
@@ -290,4 +345,36 @@ func (c *client) analysisRequest(ctx context.Context, hash, symbolID string, opt
 		return nil, err
 	}
 	return c.caller.runAnalysis(ctx, req)
+}
+
+func toolDryRunFromProto(p *pb.ToolDryRun) *ToolDryRun {
+	if p == nil {
+		return nil
+	}
+	out := &ToolDryRun{
+		Action:      p.Action,
+		Tool:        p.Tool,
+		Version:     p.Version,
+		Manifest:    p.Manifest,
+		Executable:  p.Executable,
+		Protocol:    p.Protocol,
+		Args:        append([]string(nil), p.Args...),
+		Env:         append([]string(nil), p.Env...),
+		Cwd:         p.Cwd,
+		Stdin:       p.Stdin,
+		StdinData:   p.StdinData,
+		OutputDir:   p.OutputDir,
+		ReplySource: p.ReplySource,
+		Lines:       append([]string(nil), p.Lines...),
+	}
+	if p.InputFile != nil {
+		out.InputFile = &ToolDryRunFile{Name: p.InputFile.Name, Format: p.InputFile.Format, Data: p.InputFile.Data}
+	}
+	for _, in := range p.Inputs {
+		out.Inputs = append(out.Inputs, ToolDryRunInput{Variable: in.Variable, Parameter: in.Parameter, Value: in.Value, Unit: in.Unit})
+	}
+	for _, o := range p.Outputs {
+		out.Outputs = append(out.Outputs, ToolDryRunOutput{Variable: o.Variable, Parameter: o.Parameter})
+	}
+	return out
 }

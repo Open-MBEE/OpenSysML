@@ -131,6 +131,31 @@ HTTP/1.1 400 Bad Request
 {"code":"invalid_argument","message":"documents 0 and 1 are both named \"a.sysml\": each document of a model needs its own name"}
 ```
 
+### `GetSymbol` and the `SymbolInfo` metadata keys
+
+`GetSymbol` answers one `SymbolInfo` for a fully qualified name. Beside its typed fields
+(`typeInfo`, `multiplicity`, `specializations`, `attributes`), `metadata` is a string map of
+facts about the declaration, each present only when it holds:
+
+| Key | Value | When |
+|-----|-------|------|
+| `visibility` | `default` (none written), `public`, `private` or `protected` | always |
+| `type` | the first typing target as written (`Engine`) | a typed usage |
+| `multiplicity` | the declared range as written (`1`, `0..*`) | a usage declaring one |
+| `direction` | `in`, `out` or `inout` | a directed usage |
+| `specializes` | the first specialization target as written | a definition specializing one |
+| `abstract` | `true` | an `abstract` definition or usage, and every variation (a variation is always abstract, SysML v2.1 §7.6.7) |
+| `variation` | `true` | a `variation` definition or usage, and every enumeration definition (SysML v2.1 §8.3: an enumeration is a variation of its values) |
+| `variant` | `true` | a `variant` usage, and every enumerated value of an enumeration definition |
+
+```console
+$ … /GetSymbol -d '{"modelHash":"…","symbolId":"PLE::EngineChoices"}'
+{"symbol":{"id":"PLE::EngineChoices","name":"EngineChoices","kind":"partDef","metadata":{"abstract":"true","specializes":"Engine","variation":"true","visibility":"default"},"childIds":["PLE::EngineChoices::fourCyl"],…}}
+```
+
+A client telling a variation point from an ordinary part, or a variant from an ordinary member,
+reads `variation` and `variant`; `kind` alone does not say (`partDef` for both).
+
 ### What a model hash is
 
 A model hash is the lowercase hex SHA-256 (64 characters) of the request that produced it: the
@@ -148,7 +173,9 @@ $ … /ParseSources -d '{"documents":[{"name":"vehicle.sysml","content":"…"}],
 ```
 
 `strictConformance` makes OpenSysML's extension notation a parse error rather than an accepted
-extension; what that covers is under [Strict conformance](../guide/03-command-line.md#strict-conformance)
+extension, and a namespace whose memberships are indistinguishable (`Duplicate of other owned
+member name` and its alias and inherited wordings) an error rather than a warning; what that
+covers is under [Strict conformance](../guide/03-command-line.md#strict-conformance)
 in the guide.
 
 ### How long a hash is valid
@@ -796,6 +823,11 @@ type-check, an action has no start, a value overflowed.
 {"severity":"error","message":"expected a namespace member","span":{"file":"syntax_error.sysml","startLine":1,"startCol":16,"endLine":1,"endCol":23},"code":"syntax"}
 ```
 
+`GetDiagnostics` reads a parsed model's findings again under a lint selection: `disableLint`
+(`-disable-lint`) names lint codes left out, and `enableLint` (`-enable-lint`) names opt-in
+lints, off by default, kept in. The selection is per request; the model's cached diagnostics,
+as `ParseSources` reported them, are unchanged. An unknown lint code is an `invalid_argument`.
+
 | Field | Type | Meaning |
 |---|---|---|
 | `severity` | string | `"error"`, `"warning"` or `"info"` |
@@ -1175,7 +1207,13 @@ call above; the FQN of a part definition or usage creates an object of it for th
 path from such a declaration through its parts — `Mission::mission.vehicle`,
 `Fleet::convoy.escorts[2]` for a multi-valued part — creates the declaration and reaches the
 object at the end of the path, so the action's `this` is a part *inside* its assembly and the
-assembly's connectors reach it. Each explored run creates the declaration anew, and each
+assembly's connectors reach it. When the object reached performs the action (`perform action
+run : Run { in ref :>> ctx = this; }` in its definition, say), the call runs that performance
+rather than a second one — with or without `advance`, which bounds how far it proceeds and
+nothing else — so `outputs`, `performerAttributes` and the occurrence are the object's own;
+`inputs` for it are refused, as its declaration binds its arguments, and an object performing
+the action under two usages is refused as ambiguous. An object not performing the action
+performs a fresh one, as an empty performer does outside any object. Each explored run creates the declaration anew, and each
 outcome's `outputs` carry the object's attributes as the run left them under `this.`
 (`this.pinged`), beside the action's own, so runs that differ only in what they left the
 object holding are distinct outcomes. An executed run reports the same entries, spelled and
@@ -1211,6 +1249,21 @@ with `error` as it always has, and no `guard not evaluable` diagnostic is added.
 told apart by `code`, `"choice-point"` and `"guard-unevaluable"`; both are `"info"`, and the
 message prefixes `choice point: ` and `guard not evaluable: ` are for reading, not branching.
 `RunAnalysis` carries the same two codes for the runs it makes.
+
+#### Run options
+
+`ExecuteActionRequest` and `ExecuteStateRequest` take the run options the `sysml` command does,
+under the flags' names. `advance` (`-advance`) is a simulated duration in seconds: the run is
+started, the clock advanced by that much, and the response's `finalTime` reports where the
+clock stopped; a run that has not completed by then is an in-body failure ("without
+completing"), still carrying `finalTime`. Absent, the run goes to completion. `seed` (`-seed`)
+seeds the model's own draws so a `RandomFunctions` call answers the same values each run, and
+`draws` (`-draws`) chooses how those draws resolve: `random` (the default), or `min`, `max` or
+`average`, which replace every draw by that moment of its distribution. `clockStep`
+(`-clock-step`) is the tick, in seconds, the run's clock advances by, so an `accept after` wait
+rounds up to the next tick; `0` is a continuous clock. A negative or non-finite `advance`, an
+unknown `draws` or a bad `clockStep` is an `invalid_argument` naming the field; neither changes
+the `schedule` the choice points resolve under.
 
 ### `ExecuteState`
 
@@ -1284,9 +1337,11 @@ $ … /ExecuteState -d '{"modelHash":"70ee…0c59","stateMachineSymbolId":"Test:
 `performerSymbolId` names the object the machine runs on, spelled as `ExecuteAction`'s is —
 empty, a declaration's FQN, or a path from one such as `Mission::mission.vehicle` — with the
 same errors. When the object reached exhibits the machine (`exhibit state modes;` in the part
-definition of a vehicle, say), the call runs that exhibited machine rather than a second copy,
-so the object's own transitions, the messages its ports receive over the assembly's
-connectors and the features it assigns are the run's; an object exhibiting the machine under
+definition of a vehicle, say), the call runs that exhibited machine rather than a second copy —
+with or without `advance` — so the object's own transitions, the messages its ports receive over the assembly's
+connectors and the features it assigns are the run's; a path reaching the exhibited usage itself
+(`Mission::mission.vehicle.modes`, as the CLI's `-state` names it) runs that same machine, since the
+object held under an `exhibit state` is the performance its owner runs; an object exhibiting the machine under
 two usages is refused as ambiguous, since the call cannot tell which it means. An object not
 exhibiting the machine performs a fresh one, as an empty performer does outside any object.
 Either way the machine's guards, effects and state behaviors read and write the object's feature
@@ -1463,6 +1518,19 @@ $ … /RunAnalysis -d '{"modelHash":"96c9…994d","symbolId":"Ver::checkSlow"}'
 {"outputs":[{"name":"result","value":{"enumLiteral":{"literalId":"VerificationCases::VerdictKind::pass","enumerationId":"VerificationCases::VerdictKind","name":"VerdictKind::pass"}}}],"verdicts":[{"kind":"objective","element":"obj","holds":true,"instanceId":"1","instanceTypeId":"Ver::slow"}],"instances":[…],"verificationVerdicts":[{"caseId":"Ver::checkSlow","kind":"pass"}]}
 ```
 
+#### Tool dry run
+
+`toolDryRun` (`-tool-dry-run`) runs the case up to its first `ToolExecution`-annotated action
+and, instead of starting the external tool, answers the call that would have been made as a
+`ToolDryRun`: `action`, `tool`, `version`, `manifest` and `executable` identify the step and the
+manifest entry it resolved to; `protocol`, `args`, `env`, `cwd`, `stdin`, `stdinData`,
+`inputFile`, `outputDir`, `inputs` and `outputs` are the process and the values it would have
+been handed and asked for; `replySource` says where the reply would be read from; and `lines`
+is the preview the command prints. A dry run reaches no result, so `outputs`, `verdicts` and
+`instances` stay empty; a case that calls no tool is an in-body failure saying so, and a dry
+run under `"schedule":"explore"` or `"engine":"explore"` is an `invalid_argument`, since an
+exploration runs the case many times.
+
 ### Verification verdicts
 
 `verificationVerdicts` is a repeated `VerificationVerdict` on `RunAnalysisResponse`,
@@ -1475,9 +1543,11 @@ what they meant before.
 - `caseId` — the qualified name of the verification case that ran.
 - `kind` — `"pass"` or `"fail"` as the library's own `VerificationCases::PassIf` calculation
   computed it, the `VerdictKind` literal a body bound directly, `"inconclusive"` for a body that
-  produced no verdict value, or `"error"` for a body whose run could not be carried out.
+  produced no verdict value or for a case a definition owns that no object of the definition
+  exists to run on, or `"error"` for a body whose run could not be carried out.
 - `detail` — why an `error` or `inconclusive` verdict decided nothing, carrying the message the
-  run failed with. Omitted for `pass` and `fail`.
+  run failed with (`needs an object of <Definition>: none is instantiated` for a case with no
+  object to run on, which then carries no `instanceId`). Omitted for `pass` and `fail`.
 - `subcase` — true for a verification case the run performed as a step of another. The library
   states no roll-up of a subcase's verdict into its parent's, so each is reported on its own.
 - `requirementId` — the qualified name of the requirement the case was reported for, the one its
@@ -1485,6 +1555,12 @@ what they meant before.
   by it: a `"satisfy"` verdict carries the same `requirementId` for the requirement it asserts
   satisfied, so a client reads a verdict's own cases rather than the whole response's. Empty for a
   case run for itself by `RunAnalysis`, and for a requirement no qualified name reaches.
+- `instanceId` — the ID of the object the case ran on as its owner, resolving to an entry of the
+  response's `instances`. A case a part definition owns runs once per object of that definition,
+  so two verdicts of one `caseId` are told apart by it. `0` (omitted in JSON) when the case ran on
+  no object.
+- `instanceTypeId` — the qualified name of that object's type, as the `instanceTypeId` of a
+  requirement verdict spells it, for naming the object in a report. Empty with `instanceId` `0`.
 
 ```console
 $ … /VerifyRequirement -d '{"modelHash":"96c9…994d","symbolId":"Ver::touchdown"}'
@@ -1843,7 +1919,9 @@ Every verification, analysis and sweep request is a question put to an analysis 
 service advertising the `engines` capability reports which engine answered and how strongly.
 The transcripts above omit these fields for brevity; a service with the capability adds them.
 
-`ListEngines` takes an empty request and returns the engines of the build in name order, each
+`ListEngines` takes a request with one optional field, `probe` (`-probe`): set, the service
+starts each external engine it serves and checks its handshake, so `ready` and `unavailable`
+report what the process actually said rather than whether it was found. Unset, it returns the engines of the build in name order, each
 an `EngineInfo`: `name`; `authority`, the strongest evidence the engine can produce, spelled as
 `strength` is; `answers`, the question kinds it covers; `bounds`, the budget bounds it takes;
 `process` and `processFound` for an engine that needs an external process, where it was found;
@@ -1943,6 +2021,37 @@ object in place of the element array; `omit_derived` and `keep_derived` leave ou
 derived properties. Expanded, it is the element array. The format is defined in
 [Compact API JSON](api-json-compact.md).
 
+`includeCheckDiagnostics`, under the `convert_check_diagnostics` capability, adds the semantic
+check's diagnostics to `diagnostics` alongside the output, each with its own `severity` (`error`,
+`warning` or `info`) and `code`, as `ParseFile` and
+`GetDiagnostics` [report them](#diagnostics-the-shape-of-a-finding): the notation is analyzed as a parse analyzes it, so an unresolved
+type is an `error` here while the conversion itself succeeds or fails exactly as it does without
+the field. It is for notation sources only — a graph has no notation to check — so one with a
+`ttl`, `api-json` or XMI source is `invalid_argument`. A source with syntax errors reports those
+alone, as before: the check passes do not run on a model that did not parse, whether the
+conversion refused it or `tolerateSyntaxErrors` let it through. For a `modelHash` the analysis
+the parse cached is reported, and with `documents`, that of the written documents only. Off, the
+default, `diagnostics` holds the syntax errors alone, as it always has.
+
+```console
+$ … /Convert -d '{"content":"package P { part x : NoSuchType; }","toFormat":"api-json","includeCheckDiagnostics":true}'
+{
+  "content": "[\n  {\n    \"@type\": \"Namespace\",\n…",
+  "fromFormat": "sysml",
+  "toFormat": "api-json",
+  "diagnostics": [
+    {
+      "severity": "error",
+      "message": "unresolved reference: NoSuchType",
+      "span": {"file": "<content>", "startLine": 1, "startColumn": 21, "endLine": 1, "endColumn": 31},
+      "code": "unresolved"
+    }
+  ],
+  "experimental": true,
+  "experimentalNotice": "…"
+}
+```
+
 ```console
 $ … /Convert -d '{"filePath":"Vehicle.sysml","toFormat":"ttl"}'
 {
@@ -1998,9 +2107,9 @@ $ … /Migrate -d '{"filePath":"Vehicle.xmi","toFormat":"sysml"}'
   "report": {
     "source": "Vehicle.xmi",
     "exporter": "Example UML Tool",
-    "summary": "migrated 93 element(s): 77 mapped, 13 approximated, 3 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)",
+    "summary": "migrated 95 element(s): 77 mapped, 15 approximated, 3 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)",
     "mapped": 77,
-    "approximated": 13,
+    "approximated": 15,
     "unmapped": 3,
     "skipped": 2
   }
@@ -2217,6 +2326,108 @@ own pins; a state machine's graph lists `states`, `transitions` with their guard
 effects, and pseudostates in the same way. A behavior a node `performs` is exported after the
 subject under its own name, so the form is closed over everything the subject runs.
 
+## `RunRuns`
+
+`RunRuns` runs an action or a Monte Carlo case `runs` times and tables the result: what
+`sysml -runs N -observe f` prints, as data. `RunRunsRequest` names what runs by exactly one of
+`action_symbol_id` and `analysis_symbol_id`, binds it through `inputs`, `performer_symbol_id`,
+`subject_symbol_id`, `arguments` and `named_arguments` as `ExecuteActionRequest` and
+`RunAnalysisRequest` do, and carries the CLI's flags under their names: `runs` (int64), `seed`
+(optional uint64, required unless `draws` is `min`, `max` or `average`), `draws`, `clock_step`
+(double seconds), `observe` (repeated feature names) and `engine`. `RunRunsResponse` carries
+`rows` (one `SweepRow` per run, each with its `inputs`, `outputs`, `verdicts` and `error`),
+`observables`, `distributions` (`RunDistribution`: `name`, `unit`, `count`, `numeric`, `min`,
+`max`, `mean`, `deviation`, `percentiles`, `histogram`, `values`), `lines`, `outputs`,
+`verdicts`, `unconcluded`, `seed`, `instances`, `engine`, `strength`, `bounds`, `diagnostics`,
+`error` and `failure_reason`. A count below one, an unseeded random run and an ambiguous request
+are `INVALID_ARGUMENT`; an action, case or subject the model lacks is answered in band through
+`error`. The service advertises this method as the `runs` capability, and one without it refuses
+the call with `UNIMPLEMENTED`.
+
+## `SelfCheck`
+
+`SelfCheck` applies the `SysMLValidation` rule constraints to the model's own elements: what
+`sysml -self-check` prints, as data. `SelfCheckRequest` carries `model_hash` and
+`self_check_package` (repeated; rule packages applied beside `SysMLValidation`).
+`SelfCheckResponse` carries `status` (`holds` or `fails`), `findings` (`SelfCheckFinding`:
+`status`, `subject`, `location`, `constraint`, `element`, `message`, `line`), the int64 counts
+`elements`, `checks`, `violations`, `unevaluated` and `evaluation_errors`, `applications`
+(`SelfCheckApplication`: `constraint`, `count`), `summary`, `diagnostics` and `error`. A rule
+package the model lacks is answered in band through `error`. The service advertises this method
+as the `self_check` capability.
+
+## `RecordRun`
+
+`RecordRun` runs a case and records the result into the model: what `sysml -record-run` writes,
+as a new model the service holds. `RecordRunRequest` carries `model_hash`, `analysis_symbol_id`,
+`subject_symbol_id`, `arguments`, `named_arguments`, `ranges` (a sweep), `runs` and `seed` (a
+Monte Carlo sample), `record_into` (the target package; `Records` when empty), `engine` and
+`accept_documents`, which must be true because the answer rewrites documents.
+`RecordRunResponse` carries exactly one of `run` (`RunAnalysisResponse`), `sweep`
+(`RunSweepResponse`) and `sample` (`RunRunsResponse`), then `package`, `definition`, `records`
+(qualified names, `<Package>::<Case>_run<n>`), `source`, `content` (the whole document when the
+model has one and the records joined it), `documents` (`EditedDocument`; a standalone record
+document is named after its package, `Records.sysml`), `skipped`, `reasons`, `diagnostics`,
+`model_hash` (the recorded model; every record resolves through `GetSymbol` under it), `error`
+and `failure_reason`. A case or subject the model lacks, and a record that would leave the model
+with new errors, are answered in band through `error` with the model unchanged. The service
+advertises this method as the `record_run` capability.
+
+## `ImportData`
+
+`ImportData` sets the feature values tabular or JSON data assigns: what `sysml -import` does, as
+data. `ImportDataRequest` carries `model_hash`, `imports` (repeated `DataImport`: `name`,
+`content`, `import_format` — `csv`, `tsv`, `json` or `jsonl`, the name's extension when empty —
+and `import_map`, the mapping file's content), `import_as` (`values` when empty), `import_dry_run`
+and `accept_documents`. `ImportDataResponse` carries `files` (one `ImportedFile` per import, in
+order: `name`, the int64 `values` and `elements`, and `assignments` of `ImportedValue`: `element`,
+`feature`, `value`, `redefines`, `where`, `description`), `documents` (`EditedDocument`),
+`content` (a one-document model's edited text), `model_hash` (the imported model the service now
+holds; unset on a dry run), `diagnostics` and `error`. A request with no `imports` is
+`INVALID_ARGUMENT`; an import the model refuses is answered in band through `error` with `files`,
+`content` and `model_hash` unset and the model unchanged. The service advertises this method as
+the `import_data` capability, and one without it refuses the call with `UNIMPLEMENTED`.
+
+## `CompareResults`
+
+`CompareResults` runs the configurations a SysML v1 tool's results index names and tables the
+tool's distributions beside the runs': what `sysml -compare-results` prints, as data.
+`CompareResultsRequest` carries `model_hash`, `results` (the index JSON `-migration-results`
+writes), `actions` (repeated names or ids; all when empty), `runs` (int64; 0 for as many as the
+tool stored), `seed` (optional uint64), `draws`, `clock_step` (optional double seconds), `observe`
+(repeated `ObservablePair`: `stored`, `feature`) and `engine`. `CompareResultsResponse` carries
+`configurations` (`ConfigurationComparison`: `id`, `name`, `behavior`, `target`,
+`result_location`, `status`, `unresolved`, `stored_runs`, `stored_snapshots`, `runs`,
+`completed`, `draws`, `seed`, `clock_step`, `rows` of `SweepRow`, `instances`, `observables`,
+`errors`, `notes`, `lines`), `source`, `error`, `diagnostics`, `failure_reason`, `engine`,
+`strength` and `bounds`. Each `ObservableComparison` carries `stored`, `feature`, `unit`, the
+tool's `ComparedDistribution` (`count`, `min`, `mean`, `p50`, `p90`, `max`, `deviation`) with
+`pooled` and `unstored`, the runs' `run` distribution with `produced`, `compared`, the
+`StatisticDifference` (`min`, `mean`, `p50`, `p90`, `max`, each a signed percentage as text),
+the case's `declared` statistics (`CaseStatistics`: `analysis`, `rows` of `CaseStatistic`, `notes`)
+and `notes`. A malformed index, a negative `runs` and an unknown `draws` are `INVALID_ARGUMENT`;
+a configuration that cannot run is answered as `unresolved` within the list. The service
+advertises this method as the `compare_results` capability.
+
+
+## `CheckBehavior`
+
+`CheckBehavior` searches every schedule of an action or state machine for a violated
+property, a deadlock, a failure or a divergent value: what `sysml -check-property` prints,
+as data. `CheckBehaviorRequest` names the behavior by exactly one of `action_symbol_id` and
+`state_machine_symbol_id`, binds it through `inputs` and `performer_symbol_id` as
+`ExecuteActionRequest` does, and carries the CLI's flags under their names: `check_property`,
+`check_diverge`, `check_input`, `check_assume` (repeated strings), `check_witness` (bool),
+`check_depth`, `check_states`, `check_unroll` (int32 counts, 0 for the engine's default),
+`check_timeout` (double seconds, 0 for none) and `engine`. `CheckBehaviorResponse` carries
+`verdict`, `lines`, `search` (`CheckSearch`), `violations` (`CheckViolation`), `divergences`
+(`CheckDivergence`, each value a `CheckDivergentValue`), `finals` (`CheckFinal`), `claim`,
+`free_inputs`, `assumptions`, `witness`, `contrast`, `engine`, `strength`, `bounds`, `reason`
+and `error`; every witness is a `CheckWitness` whose `schedule` any run replays.
+Malformed bounds and an ambiguous behavior are `INVALID_ARGUMENT`; a behavior, property or
+performer the model lacks is answered in band through `error`. The service advertises this
+method as the `check` capability, and one without it refuses the call with `UNIMPLEMENTED`.
+
 ## Queries
 
 Two query surfaces exist and answer differently shaped tables. Their semantics — what may be
@@ -2225,7 +2436,9 @@ selected, filtered and bound — are on the Go API page and are not repeated her
 [Native document queries and rendering over gRPC](api.md#native-documents-and-views-over-grpc).
 Each is its own capability: `Query` needs `query` (and `oslc_query` when the request uses
 `oslcQuery`); `RunDocumentQuery` needs `document_query`; `RenderDocument` needs
-`render_document`, and `render_document_html` too when its `form` is `html`.
+`render_document`, and `render_document_html` too when its `form` is `html`; its `file_name` (the
+file a rendered set writes the document to, which the other documents' links to it name) is
+populated under `render_document_file_name`.
 
 ### `Query`
 

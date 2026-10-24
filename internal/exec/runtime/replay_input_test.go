@@ -24,7 +24,7 @@ func TestParseInputReadsEverySpelling(t *testing.T) {
 		{"input 'odd name' = 1 + 2", "odd name", "1 + 2"},
 	}
 	for _, c := range cases {
-		got, err := ParseInput(c.line)
+		got, err := parseInput(c.line)
 		if err != nil {
 			t.Errorf("%q: %v", c.line, err)
 			continue
@@ -37,10 +37,10 @@ func TestParseInputReadsEverySpelling(t *testing.T) {
 		}
 	}
 	for _, text := range []string{"n = 5", "input n", "input = 5", "input n =", "input two words = 1", "input 'open = 1"} {
-		_, err := ParseInput(text)
-		var typed *InputParseError
-		if !errors.As(err, &typed) || !errors.Is(err, ErrInvalidInput) || typed.Text != text {
-			t.Errorf("%q: error %T %v, want an InputParseError naming the line", text, err, err)
+		_, err := parseInput(text)
+		var typed *inputParseError
+		if !errors.As(err, &typed) || !errors.Is(err, errInvalidInput) || typed.Text != text {
+			t.Errorf("%q: error %T %v, want an inputParseError naming the line", text, err, err)
 		}
 	}
 	if in := InputOf("n", intOf(7)); in.Written != "7" || in.Value.Kind != ValConst || in.String() != "input n = 7" {
@@ -69,7 +69,7 @@ func TestParseWitnessReadsInputsBeforeChoices(t *testing.T) {
 		t.Errorf("does not round-trip: %v\n%s", err, again)
 	}
 	inputsOnly, err := ParseWitness("input n = 5\nno choice points\n")
-	if err != nil || len(inputsOnly.Inputs) != 1 || len(inputsOnly.Choices) != 0 || inputsOnly.Empty() {
+	if err != nil || len(inputsOnly.Inputs) != 1 || len(inputsOnly.Choices) != 0 || inputsOnly.empty() {
 		t.Errorf("inputs alone read as %+v, %v", inputsOnly, err)
 	}
 	if inputsOnly.String() != "input n = 5\nno choice points\n\n" {
@@ -79,18 +79,18 @@ func TestParseWitnessReadsInputsBeforeChoices(t *testing.T) {
 	if err != nil || len(movesOnly.Inputs) != 0 || len(movesOnly.Choices) != 1 {
 		t.Errorf("moves alone read as %+v, %v", movesOnly, err)
 	}
-	if none, err := ParseWitness("no choice points\n"); err != nil || !none.Empty() {
+	if none, err := ParseWitness("no choice points\n"); err != nil || !none.empty() {
 		t.Errorf("no choice points read as %+v, %v", none, err)
 	}
 	_, err = ParseWitness("step 1: 2@b first of 1@a, 2@b\ninput n = 5\n")
-	var typed *InputParseError
+	var typed *inputParseError
 	if !errors.As(err, &typed) || typed.Line != 2 || !strings.Contains(err.Error(), "before the moves") {
 		t.Errorf("an input after a move: %v", err)
 	}
 	if _, err := ParseWitness("input n = 5\ninput = 6\n"); !errors.As(err, &typed) || typed.Line != 2 {
 		t.Errorf("an unreadable input line is not named: %v", err)
 	}
-	if _, err := ParseChoices("input n = 5\nstep 1: 2@b first of 1@a, 2@b\n"); !errors.Is(err, ErrInvalidInput) {
+	if _, err := ParseChoices("input n = 5\nstep 1: 2@b first of 1@a, 2@b\n"); !errors.Is(err, errInvalidInput) {
 		t.Errorf("ParseChoices over inputs: %v", err)
 	}
 	choices, err := ParseChoices("step 1: 2@b first of 1@a, 2@b\n")
@@ -237,7 +237,7 @@ func TestReplayFixesWitnessInputs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("materializing the performer: %v", err)
 		}
-		warm, ok := rig.Behavior("warm")
+		warm, ok := rig.behavior("warm")
 		if !ok || warm.Action == nil {
 			t.Fatalf("the performer runs %v, want the action warm", rig.Behaviors())
 		}

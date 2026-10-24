@@ -24,30 +24,10 @@ config:
 %% RobustViews::unrecognized — tree rendering (view def GeneralView)
 flowchart TD
   n0["`*«part def»*
-**Loops::A**`"]
-    n1("`*«part»*
-**b : B**`")
-  n0 --- n1
+**A**`"]
+  n1["`*«part def»*
+**B**`"]
   n2["`*«part def»*
-**Loops::B**`"]
-    n3("`*«part»*
-**a : A**`")
-  n2 --- n3
-  n4["`*«part def»*
-**Cycles::C**`"]
-  n5["`*«connection def»*
-**DerivationConnections::Derivation**`"]
-    n6("`*«requirement»*
-**originalRequirement**`")
-  n5 --- n6
-    n7("`*«requirement»*
-**derivedRequirements**`")
-  n5 --- n7
-    n8("`*«assert constraint»*
-**originalNotDerived**`")
-  n5 --- n8
-    n9("`*«assert constraint»*
-**originalImpliesDerived**`")
-  n5 --- n9
-  n0 ---|"◆ b"| n2
-  n2 ---|"◆ a"| n0
+**C**`"]
+  n3["`*«abstract connection def»*
+**Derivation**`"]

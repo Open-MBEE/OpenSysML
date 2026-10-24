@@ -1,0 +1,16 @@
+{
+  "libraries": true,
+  "type": "verification",
+  "evaluate": "test::Definition::costTest",
+  "subject": "test::cheap",
+  "verdict": "pass",
+  "outputs": {
+    "verdict": {"type": "Sequence", "elements": [{
+        "type": "EnumLiteral",
+        "value": "VerdictKind::pass"
+      }]}
+  },
+  "verdicts": {
+    "costObjective": "satisfied"
+  }
+}

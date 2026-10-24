@@ -32,30 +32,50 @@ func AnalysisWith(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scop
 	if err := runtime.RequireAnalysis(sym); err != nil {
 		return nil, err
 	}
-	conds := ctx.CaseConditionsOf(sym, scope)
-	objectives := ctx.ObjectivesOf(sym, scope)
+	stages := ctx.OptimizationStagesOf(sym, scope)
+	var objectives []runtime.Objective
+	conflicts := false
+	for _, stage := range stages {
+		objectives = append(objectives, stage.Objectives...)
+		conflicts = conflicts || conflictsResult(stage.Conditions)
+	}
 	// A shape validation rejects is refused as such even when no goal is stated.
-	if len(objectives) == 0 && !conflictsResult(conds) {
+	if len(objectives) == 0 && !conflicts {
 		return nil, &NoObjectiveError{Element: sym.Name}
 	}
-	subject := Subject{Kind: "analysis", Name: sym.Name, Symbol: sym}
-	// An objective's own conditions bound it as the case's do, so they are part
-	// of what is feasible; a case stating none is unbounded rather than refused.
+	subject := Subject{Kind: "analysis", Name: source.NameText(sym.Name), Symbol: sym}
+	// A nested analysis is performed as part of the case, so what it asserts
+	// holds for the case: every stage's conditions, and every objective's own,
+	// bound the one feasible region the objectives are improved within; a case
+	// stating none is unbounded rather than refused.
 	t := newTranslator(ctx, subject)
-	if err := t.translate(conds); err != nil {
-		return nil, err
+	for i, stage := range stages {
+		t.stage = nil
+		if i > 0 {
+			t.stage = stage.Case
+		}
+		if err := t.translate(stage.Conditions); err != nil {
+			return nil, err
+		}
+		for _, obj := range stage.Objectives {
+			t.within = obj.Symbol
+			err := t.translate(obj.Conditions)
+			t.within = nil
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
-	for _, obj := range objectives {
-		t.within = obj.Symbol
-		err := t.translate(obj.Conditions)
-		t.within = nil
-		if err != nil {
+	for i, stage := range stages {
+		t.stage = nil
+		if i > 0 {
+			t.stage = stage.Case
+		}
+		if err := t.optimize(stage.Objectives); err != nil {
 			return nil, err
 		}
 	}
-	if err := t.optimize(objectives); err != nil {
-		return nil, err
-	}
+	t.stage = nil
 	if err := t.fix(pins); err != nil {
 		return nil, err
 	}

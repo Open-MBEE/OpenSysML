@@ -19,20 +19,20 @@ type OperationArguments struct {
 	Named      map[string]Value
 }
 
-// InvokeOperation runs a behavior the object's type owns with the object as the
+// invokeOperation runs a behavior the object's type owns with the object as the
 // performer: what the body reads and writes is that object's feature values, and
 // what it sends and accepts carries that object's identity. Arguments bind to the
 // operation's `in` and `inout` parameters by name.
-func (ctx *Context) InvokeOperation(inst *Instance, name string, args map[string]Value) (map[string]Value, error) {
+func (ctx *Context) invokeOperation(inst *Instance, name string, args map[string]Value) (map[string]Value, error) {
 	return ctx.InvokeOperationWith(inst, name, OperationArguments{Named: args})
 }
 
-// InvokeOperationWith is InvokeOperation taking either argument list form.
+// InvokeOperationWith is invokeOperation taking either argument list form.
 func (ctx *Context) InvokeOperationWith(inst *Instance, name string, args OperationArguments) (map[string]Value, error) {
 	defer ctx.beginRun()()
 
 	if inst == nil {
-		return nil, fmt.Errorf("%w: no object to perform %s", ErrNoSuchBehavior, name)
+		return nil, fmt.Errorf("%w: no object to perform %s", errNoSuchBehavior, name)
 	}
 	if err := ctx.checkPerformer(inst); err != nil {
 		return nil, fmt.Errorf("invoke %s on object #%d: %w", name, inst.ID, err)
@@ -120,7 +120,7 @@ func (ctx *Context) InvokeOperationWith(inst *Instance, name string, args Operat
 		}
 		return map[string]Value{"result": boolValue(holds)}, nil
 	}
-	return nil, fmt.Errorf("%w: %s of %s", ErrNotABehavior, name, symbolText(inst.Type))
+	return nil, fmt.Errorf("%w: %s of %s", errNotABehavior, name, SymbolText(inst.Type))
 }
 
 // resultName is the name an invocation returns the calc's result under: its
@@ -144,20 +144,20 @@ func (ctx *Context) operationOf(inst *Instance, name string, args OperationArgum
 	}
 	if member == nil {
 		return nil, fmt.Errorf("%w: %s of object #%d (type %s)",
-			ErrNoSuchBehavior, name, inst.ID, symbolText(inst.Type))
+			errNoSuchBehavior, name, inst.ID, SymbolText(inst.Type))
 	}
 	switch member.Kind {
 	case symbols.SymbolActionDef, symbols.SymbolActionUsage:
 		return member, nil
 	case symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return nil, fmt.Errorf("%w: %s of %s is a state machine, which runs as the object's exhibited machine",
-			ErrUnsupportedClassifierBehavior, name, symbolText(inst.Type))
+			errUnsupportedClassifierBehavior, name, SymbolText(inst.Type))
 	case symbols.SymbolCalcDef, symbols.SymbolCalcUsage,
 		symbols.SymbolConstraintDef, symbols.SymbolConstraintUsage:
 		return member, nil
 	default:
 		return nil, fmt.Errorf("%w: %s of %s is a %s",
-			ErrNotABehavior, name, symbolText(inst.Type), member.Kind)
+			errNotABehavior, name, SymbolText(inst.Type), member.Kind)
 	}
 }
 
@@ -236,7 +236,7 @@ func (ctx *Context) evaluateConstraintInvocation(sym *symbols.Symbol, scope *sym
 func positionalArguments(params []semantics.SignatureParameter, name string, positional []Value) (map[string]Value, error) {
 	if len(positional) > len(params) {
 		return nil, fmt.Errorf("%w: operation %s takes %d input parameter(s), got %d argument(s)",
-			ErrOperationArity, name, len(params), len(positional))
+			errOperationArity, name, len(params), len(positional))
 	}
 	named := make(map[string]Value, len(positional))
 	for i, value := range positional {
@@ -259,13 +259,13 @@ func operationInputs(params []semantics.SignatureParameter, name string, named m
 		case param.Optional:
 		default:
 			return nil, fmt.Errorf("%w: parameter %s of operation %s has no argument and no default",
-				ErrUnboundParameter, param.Name, name)
+				errUnboundParameter, param.Name, name)
 		}
 	}
 	for arg := range named {
 		if !bindsParameter(params, arg) {
 			return nil, fmt.Errorf("%w: %s is no input parameter of operation %s",
-				ErrUnboundParameter, arg, name)
+				errUnboundParameter, arg, name)
 		}
 	}
 	return inputs, nil

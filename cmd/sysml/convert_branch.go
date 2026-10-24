@@ -1,4 +1,4 @@
-//go:build !sysml_prod && !sysml_nosync
+//go:build !sysml_re && !sysml_nosync
 
 package main
 
@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/flexo"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
@@ -155,9 +156,12 @@ func readBranch(ref flexo.BranchRef, to convert.Format) (int, error) {
 // by produce — converted under -convert, migrated under -migrate, which verb
 // names; a sync state the head moved past refuses the write.
 func pushBranch(input string, to convert.Format, ref flexo.BranchRef, verb string, produce producer) (int, error) {
-	if to != convert.FormatTurtle {
-		return 0, fmt.Errorf("a repository branch holds a graph; %s ttl to push, not %s", strings.TrimPrefix(verb, "-"), to)
+	if to != convert.FormatTurtle && to != convert.FormatAPIJSON {
+		return 0, fmt.Errorf("a repository branch holds a graph; %s ttl or api-json to push, not %s", strings.TrimPrefix(verb, "-"), to)
 	}
+	// The branch holds the graph itself, which Layer 1 takes as Turtle; the API's
+	// JSON element form is how the service reads it back.
+	wire := convert.FormatTurtle
 	statePath := syncState
 	if statePath == "" {
 		if project.IsStdin(input) {
@@ -205,7 +209,7 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef, verb strin
 	if err != nil {
 		return 0, err
 	}
-	for _, notice := range convert.Notices(from, to) {
+	for _, notice := range convert.Notices(from, wire) {
 		fmt.Fprintf(os.Stderr, "note: %s\n", notice)
 	}
 	if err := migrationResultsMisuse(input); err != nil {
@@ -214,7 +218,7 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef, verb strin
 	if err := layoutMisuse(input); err != nil {
 		return 0, err
 	}
-	made, err := produce(name, data, from, to)
+	made, err := produce(name, data, from, wire)
 	if err != nil {
 		return 0, err
 	}
@@ -224,8 +228,44 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef, verb strin
 	if err := made.writeSidecars(); err != nil {
 		return 0, err
 	}
-	out := made.out
-	head, err := repo.Push(context.Background(), out, "sysml "+verb+" ttl")
+	return pushGraph(repo, ref, scope, made.out, fmt.Sprintf("sysml %s %s", verb, to), state, statePath)
+}
+
+// pushLibrary publishes the standard library's graph to the repository branch
+// -o names, as -stdlib asks: one commit replacing the branch's graph. The head
+// is recorded only where -sync-state names a file; the library is no model a
+// later sync diffs against.
+func pushLibrary(graph *rdf.Graph, to convert.Format, files int) (int, error) {
+	ref, _, err := flexo.ParseBranchURL(outputPath)
+	if err != nil {
+		return 0, err
+	}
+	repo, cfg, err := openBranch(ref)
+	if err != nil {
+		return 0, err
+	}
+	scope := reposync.Scope{Org: cfg.Org, ProjectID: ref.Project, Branch: ref.Branch}
+	var state *reposync.State
+	if syncState != "" {
+		if state, err = reposync.LoadState(syncState); err != nil {
+			return 0, err
+		}
+		if state != nil {
+			if err := state.Check(scope); err != nil {
+				return 0, err
+			}
+			repo.Resume(state.LastSeenCommit)
+		}
+	}
+	turtle := rdf.WriteTurtle(graph)
+	fmt.Fprintf(os.Stderr, "publishing the standard library: %d files, %d subjects, %d triples\n", files, len(graph.Subjects()), graph.Len())
+	return pushGraph(repo, ref, scope, turtle, fmt.Sprintf("sysml -stdlib -convert %s", to), state, syncState)
+}
+
+// pushGraph replaces the branch's graph with turtle and records the head commit
+// in the sync state at statePath; an empty statePath reports the head only.
+func pushGraph(repo *flexo.Repository, ref flexo.BranchRef, scope reposync.Scope, turtle []byte, message string, state *reposync.State, statePath string) (int, error) {
+	head, err := repo.Push(context.Background(), turtle, message)
 	if err != nil {
 		var stale *flexo.StaleBranchError
 		var unrecorded *flexo.UnrecordedPushError
@@ -240,15 +280,20 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef, verb strin
 		}
 		return failRepository(fmt.Errorf("push to the repository: %w", err)), nil
 	}
+	if statePath == "" {
+		fmt.Fprintf(os.Stderr, "pushed %d bytes of Turtle to branch %s of %s; head commit %s\n",
+			len(turtle), ref.Branch, ref.Project, head)
+		return exitHolds, nil
+	}
 	if state == nil {
 		state = &reposync.State{}
 	}
-	state.Org, state.ProjectID, state.Branch, state.LastSeenCommit = cfg.Org, ref.Project, ref.Branch, head
+	state.Org, state.ProjectID, state.Branch, state.LastSeenCommit = scope.Org, scope.ProjectID, scope.Branch, head
 	if err := state.Save(statePath); err != nil {
-		return 0, fmt.Errorf("pushed %d bytes of Turtle as commit %s, but could not record it: %w", len(out), head, err)
+		return 0, fmt.Errorf("pushed %d bytes of Turtle as commit %s, but could not record it: %w", len(turtle), head, err)
 	}
 	fmt.Fprintf(os.Stderr, "pushed %d bytes of Turtle to branch %s of %s; head commit %s recorded in %s\n",
-		len(out), ref.Branch, ref.Project, head, statePath)
+		len(turtle), ref.Branch, ref.Project, head, statePath)
 	return exitHolds, nil
 }
 

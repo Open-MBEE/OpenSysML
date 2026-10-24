@@ -4,6 +4,6 @@
   "libraries": true,
   "outputs": {
     "result": {"type": "Instance"},
-    "alive": {"type": "Boolean", "value": false}
+    "alive": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]}
   }
 }

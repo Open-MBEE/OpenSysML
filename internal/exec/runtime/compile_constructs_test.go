@@ -28,7 +28,7 @@ var compiledFixtures = []struct {
 	{
 		file:       "body_locals.sysml",
 		eligible:   []string{"Chain", "MasksParameter", "Branches", "Clamp", "Shadow", "Sign", "FailsInLocal", "NaturalResult", "BadCondition", "CallsChain"},
-		ineligible: []string{"ReadsEarly", "NoValue", "MayFall", "StringLocal", "Assigns"},
+		ineligible: []string{"ReadsEarly", "NoValue", "MayFall", "StringLocal", "Assigns", "ManyResult", "ManyParameter"},
 	},
 	{
 		file:       "specialization.sysml",
@@ -117,7 +117,7 @@ func (f *compiledFixture) outcomes(t *testing.T, name string, args calcArgs) (co
 	invoke := func(ctx *Context) calcOutcome {
 		var out calcOutcome
 		if args.named != nil {
-			out.value, out.err = ctx.InvokeCalcNamed(sym, args.named, f.root)
+			out.value, out.err = ctx.invokeCalcNamed(sym, args.named, f.root)
 		} else {
 			out.value, out.err = ctx.InvokeCalc(sym, args.positional, f.root)
 		}
@@ -190,6 +190,7 @@ func TestCompiledConstructs(t *testing.T) {
 
 func wantOutcomeReal(t *testing.T, name string, got calcOutcome, want float64) {
 	t.Helper()
+	got.value = soleElement(got.value)
 	if got.err != nil {
 		t.Fatalf("%s: %v", name, got.err)
 	}
@@ -324,7 +325,7 @@ func TestCompiledIntrinsics(t *testing.T) {
 		t.Errorf("OwnPi: eligible %v, reason %q", ok, why)
 	}
 
-	if str := f.same(t, "Length", NewStringValue("abc")); str.err != nil || str.value.Const.Int != 3 {
+	if str := f.same(t, "Length", NewStringValue("abc")); str.err != nil || soleElement(str.value).Const.Int != 3 {
 		t.Errorf("Length(\"abc\") = %s, %v", FormatTraceValue(str.value), str.err)
 	}
 }
@@ -350,9 +351,9 @@ func TestCompiledNamedArguments(t *testing.T) {
 	wantOutcomeReal(t, "Weighted(weight = 3, value = 2)",
 		f.sameNamed(t, "Weighted", map[string]Value{"weight": realArg(3), "value": realArg(2)}), 6)
 	unknownEntry := f.sameNamed(t, "Weighted", map[string]Value{"value": realArg(2), "scale": realArg(1)})
-	wantErrorIs(t, "Weighted(scale = 1)", unknownEntry, ErrUnknownParameter)
+	wantErrorIs(t, "Weighted(scale = 1)", unknownEntry, errUnknownParameter)
 	missingEntry := f.sameNamed(t, "Weighted", map[string]Value{"weight": realArg(2)})
-	wantErrorIs(t, "Weighted(weight = 2)", missingEntry, ErrUnboundParameter)
+	wantErrorIs(t, "Weighted(weight = 2)", missingEntry, errUnboundParameter)
 	mistyped := f.sameNamed(t, "Weighted", map[string]Value{"value": boolArg(true)})
 	wantErrorIs(t, "Weighted(value = true)", mistyped, ErrTypeMismatch)
 	if stringy := f.sameNamed(t, "Weighted", map[string]Value{"value": NewStringValue("x")}); !errors.Is(stringy.err, ErrTypeMismatch) {
@@ -386,7 +387,7 @@ func TestCompiledNamedArgumentSpellings(t *testing.T) {
 		t.Errorf("Twice: eligible %v, reason %q", ok, why)
 	}
 	twice := f.same(t, "Twice", intArg(2))
-	wantErrorIs(t, "Twice(2)", twice, ErrCalcArity)
+	wantErrorIs(t, "Twice(2)", twice, errCalcArity)
 	if !strings.Contains(twice.err.Error(), `binds parameter "x" twice`) {
 		t.Errorf("Twice(2) = %v", twice.err)
 	}
@@ -413,14 +414,14 @@ func TestCompiledNamedArgumentsIllFormed(t *testing.T) {
 			t.Errorf("%s: eligible %v, reason %q", name, ok, why)
 		}
 	}
-	wantErrorIs(t, "Missing(1)", f.same(t, "Missing", realArg(1)), ErrUnboundParameter)
+	wantErrorIs(t, "Missing(1)", f.same(t, "Missing", realArg(1)), errUnboundParameter)
 	elsewhere := f.same(t, "Elsewhere", realArg(1))
-	wantErrorIs(t, "Elsewhere(1)", elsewhere, ErrUnknownParameter)
+	wantErrorIs(t, "Elsewhere(1)", elsewhere, errUnknownParameter)
 	if !strings.Contains(elsewhere.err.Error(), `"Other::value"`) {
 		t.Errorf("Elsewhere(1) = %v", elsewhere.err)
 	}
 	duplicate := f.same(t, "Duplicate", realArg(1))
-	wantErrorIs(t, "Duplicate(1)", duplicate, ErrCalcArity)
+	wantErrorIs(t, "Duplicate(1)", duplicate, errCalcArity)
 	if !strings.Contains(duplicate.err.Error(), `binds parameter "value" twice`) {
 		t.Errorf("Duplicate(1) = %v", duplicate.err)
 	}

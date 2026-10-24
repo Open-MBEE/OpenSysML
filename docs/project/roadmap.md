@@ -132,7 +132,7 @@ tracks below carry the detail and what each pull request deliberately leaves.
   #640); a constraint asked whether it holds for all values or is satisfiable (#685, #712).
 
 The previous baselines' retirements — the `v0.6.0`–`v0.8.0` closures recorded in
-`CHANGELOG.md`'s 0.7.0 and 0.8.0 sections, native compilation's first phase, the wire contract,
+the 0.7.0 and 0.8.0 sections of `docs/project/archive/CHANGELOG-0.0-0.8.md`, native compilation's first phase, the wire contract,
 L3–L6, the nested-action frames, D3, Q4, the changelog fragments, the census and its gate, the
 enumeration rules (#907, #909) — stay retired and are not repeated.
 
@@ -145,47 +145,44 @@ of the pilot corpora fails `tools/cmd/pilot-diff`, `tools/cmd/pilot-xpect` and t
 `TestPilotCorpora` gate with a provenance message naming the drift; that is the gate working, not
 a regression — re-fetch before re-recording anything.
 
-| Gate | Count at `v0.9.1` (`b9de3b070`, 2026-09-30, Go 1.25.0); the `v0.8.0` figure in brackets where it moved |
+| Gate | Count at `develop` `687d6f501` (2026-10-12, Go 1.25.11), one day past `v0.10.0` (`08ef39784`, 2026-10-11); the `v0.9.1` figure — the previous baseline — in brackets where it moved |
 |---|---|
 | OMG training corpus | **100/100 clean** — asserted, not ratcheted: no file reports a semantic error |
-| OMG pilot corpora (ratchet) | 213 files; 9 report a diagnostic [7] — 2 of 58 KerML examples, 7 of 99 SysML examples, 0 of 56 validation files — each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
-| Stdlib parser conformance | 107/107 clean — 94 vendored OMG files and 13 non-normative OpenSysML extensions [100/100: 94 and 6] |
-| Execution conformance cases | 1224, all run and pass, none skipped [894] |
+| OMG pilot corpora (ratchet) | 213 files; 16 report a diagnostic [9] — 3 of 58 KerML examples, 11 of 99 SysML examples, 2 of 56 validation files — each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
+| Stdlib parser conformance | 110/110 clean — 94 vendored OMG files and 16 non-normative OpenSysML extensions [107/107: 94 and 13] |
+| Execution conformance cases | 1569, all run and pass, none skipped [1224] |
 | Known execution-conformance failures | **0** — `known_failures.txt` holds no case |
-| Cases admitting several outcomes | 92 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [26] |
-| Trace partial orders | 8 `.trace.order` files, each a set of `a < b` lines the recorded trace must satisfy |
-| Golden execution traces | 554 `.trace.golden` files: 388 under the default schedule and 166 per-policy goldens (`<case>.declared`, `<case>.seed-<n>`) [276: 230 and 46] |
-| Runtime robustness cases | 794 first-level subtests across the `TestRuntimeRobustness*` functions [459 of the one function] |
-| gRPC conformance fixtures / robustness cases | 33 / 13 (`TestGRPCConformance`, first-level subtests across the `TestGRPCRobustness*` functions) [15 / 8] |
-| Golden AST fixtures | 227 (`TestGolden`: 199 SysML, 28 KerML) [205: 177 and 28] |
-| Negative parser subtests | 277 first-level subtests of `TestNegative` (432 across the `TestNegative*` functions, 490 across every `*Negative*` parser test) [252: 396 and 454] |
-| Rejection oracle | 310 self-authored invalid models: 297 both reject by default and 301 when we are asked strictly, 4 the pilot alone by default and none strictly, 9 ours alone [306: 293 and 297] (the control-node rules the pilot leaves unimplemented and a non-Boolean succession guard) |
-| Validation census | 164 of 217 named constraints reported (158 faithful, 6 approximate), 0 not implemented, 1 deliberate, 52 unknown [162: 156 and 6; 1 not implemented, 53 unknown] |
-| PSSM referee (advisory) | 103 tests: 60 `pass`, 12 `fail`, 30 `not-expressible`, 1 `differs-by-design` |
+| Cases admitting several outcomes | 146 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [92] |
+| Trace partial orders | 16 `.trace.order` files, each a set of `a < b` lines the recorded trace must satisfy [8] |
+| Golden execution traces | 810 `.trace.golden` files: 574 under the default schedule and 236 per-policy goldens (`<case>.declared`, `<case>.seed-<n>`) [554: 388 and 166] |
+| Runtime robustness cases | 1208 first-level subtests across the `TestRuntimeRobustness*` functions [794] |
+| gRPC conformance fixtures / robustness cases | 38 / 13 (`TestGRPCConformance`, first-level subtests across the `TestGRPCRobustness*` functions) [33 / 13] |
+| Golden AST fixtures | 259 (`TestGolden`: 231 SysML, 28 KerML) [227: 199 and 28] |
+| Negative parser subtests | 307 first-level subtests of `TestNegative` (463 across the `TestNegative*` functions, 521 across every `*Negative*` parser test) [277: 432 and 490] |
+| Rejection oracle | 313 self-authored invalid models: 300 both reject by default and 304 when we are asked strictly, 4 the pilot alone by default and none strictly, 9 ours alone [310: 297 and 301] (the control-node rules the pilot leaves unimplemented and a non-Boolean succession guard) |
+| Validation census | 164 of 217 named constraints reported (155 faithful, 9 approximate), 0 not implemented, 1 deliberate, 52 unknown [158 faithful and 6 approximate] |
+| PSSM referee (advisory) | 103 tests: 56 `pass`, 6 `fail`, 34 `not-expressible`, 7 `differs-by-design` [60, 12, 30 and 1] |
+| Top-level `Test` functions | 12,131 across the module, 1,840 of them in `internal/exec/runtime` and 455 in `internal/frontend/lsp` [10,698; 1,737 and 424] |
 | fUML referee (advisory) | 55 activities: 23 `pass`, 0 `fail`, 28 `not-expressible`, 4 `differs-by-design` |
-| RDF corpus round trip | 358 models: 351 stable, 7 whitespace-only, none graph-diff or refused [353 of 353 stable] |
-| API element form corpus round trip | 358 models: 349 stable, 7 whitespace-only, 2 graph-diff (a `.1` real respelled `0.1`), none refused [354 of 356 stable] |
+| RDF corpus round trip | 365 models: 358 stable, 7 whitespace-only, none graph-diff or refused [358: 351 stable] |
+| API element form corpus round trip | 365 models: 356 stable, 7 whitespace-only, 2 graph-diff (a `.1` real respelled `0.1`), none refused [358: 349 stable] |
 
 The pilot differential, the Xpect oracle, the scope oracle and the rejection oracle are the
 external conformance statement, and their figures are generated into `README.md` by `make
 docs-counts` from the committed baselines; they are not repeated here.
 
 The test-suite figures in the table are what `go run -C tools ./cmd/doc-counts -site-blocks`
-counts from the `v0.9.1` tree, the way the gates enumerate them. No committed page carries them:
+counts from the `develop` tree the table names, the way the gates enumerate them. No committed
+page carries them:
 since #291 and #345 the site build counts them into the compliance map's test inventory
 (`scripts/mkdocs_suite_figures.py`), the committed pages name what is counted without a figure,
-and a branch adding a test rewrites no shared line. The same run reads 10,698 top-level `Test`
-functions across the module, 1,737 of them in `internal/exec/runtime` and 424 in
-`internal/frontend/lsp`. The README's prose figure for the standard library still reads 105 of
-105 with 11 extensions; the tag bundles 106 files, 12 of them OpenSysML's, and `develop` 107
-with 13 — the parser gate reads every one clean, and the prose is the line that lags.
+and a branch adding a test rewrites no shared line.
 
-At `develop`'s head three of the gates read differently from the tag, each by a pull request
-named above: the rejection oracle has 311 models with one more both-reject case, and the PSSM
-referee reads 52 `pass` / 12 `fail` / 34 `not-expressible` / 5 `differs-by-design` because #694
-removed the `defer` extension and the referee now writes a deferred signal the way the SysML v1
-migrator does, its eight movements adjudicated in [pssm-referee.md](pssm-referee.md); the
-census, the corpus round trips and the fUML referee did not move.
+The fourteen commits between the `v0.10.0` tag and the `develop` head named above touch CI
+configuration, the release digest pins and the client packaging tests only — none of them is an
+input to a gate in the table, so every row reads the same at the tag. The PSSM movement since the
+previous baseline (three `fail` rows now `pass`, two are re-adjudicated `differs-by-design`) is
+recorded in [pssm-referee.md](pssm-referee.md).
 
 Statement coverage is no longer tabulated here. The previous baseline's table counted only each
 package's own tests, and since P2 moved the parser, corpus and gRPC suites under `tests/` that
@@ -227,12 +224,12 @@ already ran. The procedure and its post-tag verification are in `docs/project/re
 
 ## R1 — the changelog agrees with the tags (done)
 
-`CHANGELOG.md`'s **0.4.3** section holds what `99e02003` shipped (#877), its **0.5.0** section
-what `0fdeb11e` shipped (#894), its **0.5.1** section what `d7b3eb45` shipped, its **0.6.0**
-section what `30f103bb9` shipped (#988), its **0.7.0** section what `e0fbfea5b` shipped (#145,
-#154, #159), its **0.8.0** section what `238aed650` shipped (#268, #277), and its **0.9.0** and
-**0.9.1** sections what `ee54ea03e` (#564) and `b9de3b070` (#614) shipped, each dated to its
-tag; **Unreleased** is empty in the file because since #852 a change adds a fragment under
+In `docs/project/archive/CHANGELOG-0.0-0.8.md`, the **0.4.3** section holds what `99e02003`
+shipped (#877), its **0.5.0** section what `0fdeb11e` shipped (#894), its **0.5.1** section what
+`d7b3eb45` shipped, its **0.6.0** section what `30f103bb9` shipped (#988), its **0.7.0** section
+what `e0fbfea5b` shipped (#145, #154, #159) and its **0.8.0** section what `238aed650` shipped
+(#268, #277); `CHANGELOG.md`'s **0.9.0** and **0.9.1** sections hold what `ee54ea03e` (#564) and
+`b9de3b070` (#614) shipped, each dated to its tag; its **Unreleased** is empty in the file because since #852 a change adds a fragment under
 `changes/unreleased/` instead, and `python3 scripts/changelog.py release X.Y.Z` folds the
 fragments in at release time (`releasing.md`). The 0.5.0 fold was the first release cut that way
 and every release since followed it; under git-flow the fold rides the `release/x.y.z` pull
@@ -398,7 +395,7 @@ expression calls, document queries, `send` — use it; [PR #862](https://github.
 keeps a calc that specializes a library function on its own signature. The `ToReal("2.5")` probe
 under L5 reaches the scalar overload. On an ill-formed model the runtime package now agrees with
 the checker about a named argument it cannot place (#904, #908): the label is kept as written and
-refused as `ErrUnknownParameter` rather than bound by its last segment.
+refused as `errUnknownParameter` rather than bound by its last segment.
 
 ## L7 — the analysis libraries run in part, measured (landed)
 
@@ -453,9 +450,9 @@ it declares, so that binding is partial — it relates the disc's edge to some v
 `runtime/binding.go` `partialBinding` now decides so from the declared bounds (`lower/binding.go`
 `Binding.Multiplicity`). What stays a typed error is what the library leaves open, not a runtime
 gap: the `[0..1]`-bound edge and vertex groups (`tfe`, `tflv`, and so `Box::vertices`), which no
-binding pins to a member, are `ErrBindingEnd` naming the binding; `be`/`ae` and `Cylinder::edges`/
-`vertices` reach `cf : Surface`, whose `edges`/`vertices` are the Kernel frame's, not the object's;
-and `matingOccurrences`/`spaceBoundary` are frame features of `Occurrences.kerml`. See the
+binding pins to a member, are `errBindingEnd` naming the binding; `be`/`ae` and `Cylinder::edges`
+reach `cf.edges` through `binding [1] bind [0..*] cf.edges = [0..*] be`, one link that pins no
+member, and are `errBindingEnd` naming it; and `matingOccurrences`/`spaceBoundary` are frame features of `Occurrences.kerml`. See the
 `ShapeItems` rows and Known Limitations in `spec-compliance.md` and the record in `omg-issues.md`.
 
 ---
@@ -598,27 +595,32 @@ rather than claimed — see the next section.
 
 ## D3 — make a converted graph readable through Flexo, and prove it
 
-The harness is `internal/translate/interop/flexo`, the `FLEXO_INTEROP` gate `TestFlexoInterop`, documented
+The harness is `tools/referee/flexo`, the `FLEXO_INTEROP` gate `TestFlexoInterop`, documented
 in `.agents/skills/flexo-interop`; it brings up the published `openmbee/*` images, `PUT`s our
 Turtle to a branch graph, reads every element back through `flexo-mms-sysmlv2` and compares with
 what the service's own commit path stores for the same model. It measures the gap instead of
 asserting the fix, so every item below shows up as movement in
-`internal/translate/interop/flexo/testdata/interop_expected.txt`. Keep it out of `go test ./...`.
+`tools/referee/flexo/testdata/interop_expected.txt`. Keep it out of `go test ./...`.
 
-What the current recording measures, for the identity-carrying fixture: **59 of 59 elements
-listed and 505 of 582 properties delivered** on the graph-load side, against 33 of 33 and 158 of
-158 for the same model posted through the service's own commit path; 1 of 59 reads as a root, and
-1 has no owner in the model (expression nodes and connector ends are owned elements now); every
-element is readable directly by id; no subject of the graph is outside the element namespace.
-**Every standard property is delivered, the 26 multi-valued ones included** — `connectorEnd`,
-`ownedEndFeature`, `chainingFeature`, `relatedElement`, `ownedRelationship` (6/6), `ownedMembership`
-(4/4), `ownedFeature`, `ownedFeatureMembership`, `ownedMember` (3/3 each), `specializes` (1/1) —
-since D3.4 landed. The 77 lost properties are one thing:
+What the current recording measures, for the reference fixture: **76 of 76 elements
+listed and 702 of 863 properties delivered** on the graph-load side, against 33 of 33 and 158 of
+158 for the same model posted through the service's own commit path, and 78 of 78 and 717 of 878
+for the API element form (its root `Namespace` and `OwningMembership` included); 1 of 76 reads as a
+root, and 1 has no owner in the model (expression nodes and connector ends are owned elements now);
+every element is readable directly by id; no subject of the graph is outside the element namespace.
+**Every standard property is delivered, the 49 multi-valued ones included** — `connectorEnd`,
+`ownedEndFeature`, `chainingFeature` (2/2), `ownedFeatureChaining` (2/2), `relatedElement` (17/17),
+`ownedRelationship` (9/9), `ownedMembership` (4/4), `ownedMember` (4/4), `ownedFeature`,
+`ownedFeatureMembership` (3/3 each), `specializes`, `ownedSpecialization`, `ownedSubclassification`
+(1/1 each) — since D3.4 landed; a connector end's feature chain reaches the service as one
+`FeatureChaining` per link, owned through the end's `ReferenceSubsetting`. The 161 lost properties
+are one thing:
 
-- **The remaining loss is annotation vocabulary in `sysx:`** — seven predicates: source text and
-  tail, notation spelling (`declaredKeyword`, `endForm`, `sourceLanguage`), body presence and
-  member order. `sysx:argumentIndex`, `sysx:endIndex` and `sysx:relatedFeature` no longer appear,
-  because operand order and end targets are standard `sysml:` structure; the remaining `sysx:`
+- **The remaining loss is annotation vocabulary in `sysx:`** — eleven predicates: source text,
+  tail and position (`sourceLine`, `sourceColumn`, `sourceEndLine`, `sourceEndColumn`), notation
+  spelling (`declaredKeyword`, `endForm`, `sourceLanguage`), body presence and member order.
+  `sysx:argumentIndex`, `sysx:endIndex` and `sysx:relatedFeature` no longer appear, because
+  operand order and end targets are standard `sysml:` structure; the remaining `sysx:`
   annotations are intentionally documented in D1 and D2 below.
 
 The commit path delivers 6 of 6 of its own multi-valued properties, because it stores each array
@@ -1348,9 +1350,9 @@ The outcome is `Outcome.Terminated` with an empty `FinalState`, the executor's s
 `StateTerminated` (distinct from `StateCompleted`), the REPL's `State machine terminated` and
 `Execution state: Terminated`, the LSP debug snapshot's `terminated`. A `terminate` naming a
 performance that ended, a value that is no occurrence, or an occurrence `destroy` emptied is a
-typed error (`ErrPerformanceEnded`, `ErrTerminateOccurrence`, `ErrTerminateTarget`,
-`robustness_terminate_test.go`); a calculation still refuses it as `ErrCalcSideEffect`
-(`robustness_test.go:calc_terminate_is_rejected`). The PSSM referee translates the suite's
+typed error (`errPerformanceEnded`, `errTerminateOccurrence`, `errTerminateTarget`,
+`robustness_terminate_test.go`); a calculation still refuses it as `errCalcSideEffect`
+(`robustness_calc_invocation_test.go:calc_terminate_is_rejected`). The PSSM referee translates the suite's
 terminate pseudostate to the same spelling, which retired its `terminate-gap` bucket
 (`docs/project/pssm-referee.md`).
 
@@ -1433,11 +1435,11 @@ source reads the pin as the source left it; the writes of distinct source perfor
 per target performance, oldest first, so a stream inside a loop body — the value of one pass
 taken by that pass's target — and fork/join around the two nodes all read what was written for them.
 The source completing carries nothing more for a pin it streamed (`actionFrame.streamed`), so
-no value arrives twice; a source that completes with the pin never written is `ErrFlowSource`.
+no value arrives twice; a source that completes with the pin never written is `errFlowSource`.
 A write after the target's last performance ended reaches no performance: it waits, the target's
 next performance takes it (`takeDeliveries`), and the enclosing performance completing with it
-still waiting is `ErrStreamUnreceived` (`actionFrame.unreceived`, `checkStreamsReceived`); a
-stream to a pin the ongoing target does not declare is `ErrNodePin` at the write. *Succession*
+still waiting is `errStreamUnreceived` (`actionFrame.unreceived`, `checkStreamsReceived`); a
+stream to a pin the ongoing target does not declare is `errNodePin` at the write. *Succession*
 (`runtime/action_executor.go` `applyDataFlows` → `deliverFlow`): unchanged — the value the pin
 holds at completion moves, and the target begins after the source.
 
@@ -1464,7 +1466,7 @@ object. Ordering operation calls, post-conditions, `ProtocolConformance` and sta
 checking have no SysML v2 spelling and are not OpenSysML gaps.
 
 **What it leaves.** The order the machine declares is enforced only for events a debugger injects
-directly (`StateExecutor.SendSignal` → dispatched, dropped, reported in `AdvanceReport.Dropped`;
+directly (`StateExecutor.sendSignal` → dispatched, dropped, reported in `AdvanceReport.Dropped`;
 the REPL's `%send` refuses one by machine and state). A message a *model* sends that the active
 state does not accept is not dropped: it waits on the context-wide bus and is taken by
 the first later state that accepts it, so an out-of-order `Read` before `Open` is counted as if it
@@ -1478,7 +1480,7 @@ typed error and align port-definition routing with the direct-injection path.
 ## E6 — operation invocation with positional arguments (landed)
 
 **Landed.** `Context.InvokeOperationWith(inst, name, OperationArguments{Positional, Named})`
-(`runtime/invoke_operation.go`) takes the ordered list; `InvokeOperation` keeps the named map and
+(`runtime/invoke_operation.go`) takes the ordered list; `invokeOperation` keeps the named map and
 delegates to it. A positional list binds to the operation's effective input parameters —
 `semantics.Model.SignatureParametersOf`, the `in`/`inout` parameters `signatureOf` gives an
 invocation expression in signature order, `out` and result excluded — so a trailing defaulted
@@ -1488,9 +1490,9 @@ parameter may be omitted, an `inout` parameter takes a position and comes back a
 its `PerformsOperation` mode — every behavior admitted alike, an expression's preference for a
 calc set aside — so two calcs of one name are told apart by arity, an action and a calc of one
 name by the arguments' types, and a list none takes is refused. A surplus is
-`ErrOperationArity` (`operation … takes N input parameter(s), got M argument(s)`), a list mixing
+`errOperationArity` (`operation … takes N input parameter(s), got M argument(s)`), a list mixing
 the two forms is `ErrMixedArguments`, and a required parameter left unbound is still
-`ErrUnboundParameter`. The REPL's `%invoke <object> <op>` takes bare expressions or `<p>=<expr>`
+`errUnboundParameter`. The REPL's `%invoke <object> <op>` takes bare expressions or `<p>=<expr>`
 pairs (`repl/meta.go` `parseInvokeArguments`), refusing a mixed list and a parameter named twice
 before the object is reached. Proof: `runtime/classifier_behavior_test.go`
 `TestInvokeOperationWithPositionalArguments`, `runtime/robustness_positional_invoke_test.go`,
@@ -1498,7 +1500,7 @@ before the object is reached. Proof: `runtime/classifier_behavior_test.go`
 `TestInvokeReportsItsFailureModes`; the bullet left the compliance list. The gRPC surface exposes
 no operation invocation, so nothing there changed.
 
-**Before it landed.** `Context.InvokeOperation(inst, name, args map[string]Value)`
+**Before it landed.** `Context.invokeOperation(inst, name, args map[string]Value)`
 (`runtime/invoke_operation.go`) runs a member of an object's type with the object as performer,
 whichever behavior the member is — an action through `ExecuteActionPerformedBy`, a calc through
 the calc invocation with the object as its featuring object, a constraint through condition
@@ -1507,8 +1509,8 @@ covers all three. The compliance bullet used to name an operation "given as a `c
 `constraint`" beside the positional form; that half is closed by the Classifier Behaviors row that
 says so, the bullet is re-worded to the positional form with this record, and this item is that
 form only. Arguments bind by name and only by name: `operationInputs` takes a map, binds each
-`in`/`inout` parameter by its name and refuses a missing one (`ErrUnboundParameter: parameter …
-has no argument and no default`) and an unknown one (`ErrUnboundParameter: … is no input
+`in`/`inout` parameter by its name and refuses a missing one (`errUnboundParameter: parameter …
+has no argument and no default`) and an unknown one (`errUnboundParameter: … is no input
 parameter of operation …`). The REPL's `%invoke <object> <op> [<p>=<expr>]` (`repl/meta.go`
 `operationArguments`) formerly required named arguments, while model invocation expressions already
 supported positional binding. The target was to expose the same positional-or-named choice through
@@ -1520,7 +1522,7 @@ API list, bare REPL expressions, mixed-list and surplus-argument diagnostics.
 **Landed** in one change set. Before it an object was materialized once, from its declaration,
 and nothing destroyed it: `new T(…)` built a message-shaped value for `send`, an object written
 into a feature was classified by it but owned by nothing, `destroy` refused an object whose state
-machine was under way (`ErrOccurrenceLifetime`), and a destroyed object stayed in `all T`. Now an
+machine was under way (`errOccurrenceLifetime`), and a destroyed object stayed in `all T`. Now an
 object created while a behavior runs is a first-class occurrence of the run
 (`runtime/signal.go` `evalConstructor` → `EvalContext.constructObject`): it has an identity of its own,
 begins its life where it is made, is classified by the type it is created as, and starts the
@@ -1537,7 +1539,7 @@ holding one car per iteration, each a distinct object `all Car`, feature chains,
 its portions, terminates the state machine it exhibits and the actions it performs where they
 stand (`occurrence_terminate.go` `endBehaviorsWith`), and releases it from the extent
 (`extent.go` `objectsOf`); a feature still naming it keeps the value and reading through it is
-`ErrOccurrenceDestroyed`, the library declaring `destroy` over the occurrence and not over what
+`errOccurrenceDestroyed`, the library declaring `destroy` over the occurrence and not over what
 refers to it. Under `explore` creation and destruction are ordinary moves — identities are
 allotted in run order, so every linearization of two creating branches reaches one outcome and a
 destroy racing a read reaches exactly two — and a snapshot carries created objects, a destroyed
@@ -1559,8 +1561,8 @@ name it reduces to; a target that is neither a name nor a feature chain — `car
 the identity of every live object it yields, while a plain name still resolves by usage as before.
 In the `via` form a `to` that names no receiving node of the sender is evaluated the same way and
 the routed copies are kept only where they reach one of those objects (`routedReceiverObjects`).
-A receiver yielding no object or a data value is `ErrSendTargetNotObject`, a destroyed one
-`ErrOccurrenceDestroyed`, a routed receiver no connection reaches `ErrUnreachableSendReceiver`.
+A receiver yielding no object or a data value is `errSendTargetNotObject`, a destroyed one
+`errOccurrenceDestroyed`, a routed receiver no connection reaches `errUnreachableSendReceiver`.
 Proof: conformance `send_to_second_object_of_usage` and `send_via_to_second_object_of_usage` with
 trace goldens, `send_to_object_held_in_feature`, `send_to_object_through_chain`,
 `signal_test.go` `TestSendToConstructedObjectReachesIt`,
@@ -1627,11 +1629,11 @@ enabled branch still meaning the transition is not enabled — and firing exits 
 branch of the choice leaves, runs the effects into it and only then reads its guards
 (`state_route.go:travel` → `resolveChoice`); several enabled is the existing `ChoiceTransition`
 point at `choice <name>`, enumerated by `explore`; none enabled is the typed
-`ErrChoiceWithoutBranch`. On a chain each pseudostate follows its own rule at the point the route
+`errChoiceWithoutBranch`. On a chain each pseudostate follows its own rule at the point the route
 reaches it. Pinned by `state_choice_after_incoming_effect` (`assign x := 1 then pick; … if x == 1
 then seen` reaches `seen`), `state_choice_dynamic_conflict`, the three
 `state_pseudostate_chain_*` fixtures, `TestExploreDynamicChoiceBranches` and
-`robustness_test.go:state_choice_without_an_enabled_branch`; every other `state_choice_*` fixture
+`robustness_state_transitions_test.go:state_choice_without_an_enabled_branch`; every other `state_choice_*` fixture
 kept its outcome.
 
 ## Exception handlers (closed)
@@ -1650,7 +1652,7 @@ step reports its failure on an `out` parameter and a `decide` routes on it, or t
 failure signal to an `accept` forked beside it whose branch `terminate`s the work — §7.17.10's
 `MonitoredActivity` — both run to completion under `bin/sysml` in the record; a failure the model
 does not spell is a typed error at the boundary (`ErrDivisionByZero`, `ErrAcceptDeadlock`,
-`ErrTerminateTarget`, …), never a panic, and an `error` verdict under a verification case.
+`errTerminateTarget`, …), never a panic, and an `error` verdict under a verification case.
 No AST, IR or runtime change follows; the behavior guide's *Terminate* section teaches the
 by-signal shape. A later SysML v2 revision adding an action kind for exceptions reopens the item
 with a spelling to implement.
@@ -1758,8 +1760,8 @@ library's alike, so `all Clock` answers `Time::universalClock` — materialized 
 taken, with a variation's extent its variants, an enumeration's its literals, and a usage of
 several occurrences (`part wheels : Wheel[2];`) denoting its lower bound of objects. What it
 leaves, by design: a data type's extent (`all Integer`, `all Point`) is refused with
-`ErrUnboundedExtent`, since a run creates no data values to enumerate; a namespace-level port or
-open-count collection that may hold a `T` refuses the extent with `ErrExtentUnavailable` naming
+`errUnboundedExtent`, since a run creates no data values to enumerate; a namespace-level port or
+open-count collection that may hold a `T` refuses the extent with `errExtentUnavailable` naming
 it rather than answering short; `all T` is never model-level evaluable; and the native compiler
 keeps refusing `all`, a compiled program having no run whose extent it could report. The
 named-reducer half landed earlier: `->reduce '+'` and the other named spellings resolve to the
@@ -2344,7 +2346,7 @@ evaluates from its own body; a bodiless library function reaches a Go implementa
 *library-declared* (`libraryDeclared` in `library_functions.go` asks the index) and then looks the
 qualified name up in a table compiled into the binary. A feature without a value expression is
 unset, and stays unset. An `accept` fires only for events the model itself sends, or that a host
-injects by hand through `StateExecutor.SendSignal`, the REPL's `%state` commands or the
+injects by hand through `StateExecutor.sendSignal`, the REPL's `%state` commands or the
 `ExecuteState` request's event list. The arguments to `Evaluate`, `EvaluateCalc`, `ExecuteAction`
 and `RunAnalysis` are the entire surface through which anything outside the model reaches inside
 it, and none of it survives the call. There is, in short, no way for a model to say *this function
@@ -2909,7 +2911,7 @@ REPL reaching into `grpc` for a conversion.
 The instance model is clean: `runtime.Instance` is an id, a `*symbols.Symbol` and a map of
 `FeatureValue`s over `EffectiveFeature`s, `Value` wraps `semantics.Value`, instance ids,
 collections and symbols, and `instance.go`, `value.go` and `features.go` together name `ast.`
-24 times, all for the expression payload of a `ValExpr` or function value. There is no
+24 times, all for the expression payload of a `valExpr` or function value. There is no
 execution-owned layer between it and the syntax tree, though: the lowered graphs in
 `internal/ir/lower` are side tables keyed by AST nodes (`ActionGraph.Nodes []ast.Node`,
 `Edges map[ast.Node][]ActionEdge`, `StateGraph.Behaviors map[*ast.StateNode]*StateBehaviors`,
@@ -2970,11 +2972,11 @@ Each landed as a pull request of its own, cut from `develop`:
    `semantics.Model.SelectCall`, and `ChainCallee` and `InvocationArgs` live in `semantics`. The
    checker's argument typing stays in `passes` — it is the whole expression checker — and the
    code that builds a model for execution installs it with `SetArgumentTyper`; a runtime that
-   reaches selection with no typer installed returns `runtime.ErrNoArgumentTyper` rather than
+   reaches selection with no typer installed returns `errNoArgumentTyper` rather than
    selecting with weaker typing than validation used, and a hygiene test checks every product
    construction site installs it.
 4. `runtime → parser`: the runtime parses notation text through an `ExpressionParser` the model's
-   builder installs with `SetExpressionParser`, and returns `ErrNoExpressionParser` without one.
+   builder installs with `SetExpressionParser`, and returns `errNoExpressionParser` without one.
    `go list -deps ./internal/exec/runtime` names neither `passes` nor `parser`.
 5. `repl → grpc`: the value and instance-graph conversion lives in `internal/frontend/protoconv`, which
    depends on `api/proto`, `internal/*` and the protobuf runtime; `repl`, `grpc` and the Go

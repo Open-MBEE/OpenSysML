@@ -19,7 +19,7 @@ RunTimeline::mission.controller.modes
     t=5 sending -> acknowledged (accept Ack)
     t=6 acknowledged -> waiting (time)
   noted:
-    t=0 choice entering modes: next waiting(entry), charged(entry) (unordered; took waiting(entry) first)
+    t=0 choice entering modes: next waiting(entry), charged(entry) (unordered; took waiting(entry) first; independent)
 
 RunTimeline::mission.instrument.modes
   0 .. 1    waiting

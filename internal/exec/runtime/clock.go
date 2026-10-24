@@ -64,12 +64,6 @@ func (c *Clock) Now() float64 {
 	return c.now
 }
 
-// Step is the step the clock advances by, in seconds: waits come due at the
-// first multiple of it not before they end; 0 is a continuous clock.
-func (c *Clock) Step() float64 {
-	return c.step
-}
-
 // ErrClockStep is the typed error a clock step that is not a finite,
 // non-negative number is refused with.
 var ErrClockStep = errors.New("invalid clock step")
@@ -98,9 +92,9 @@ func (ctx *Context) ClockStep() float64 {
 	return ctx.clock.step
 }
 
-// ClockStepTaken is the step the run's waits come due on: the witness's under a
+// clockStepTaken is the step the run's waits come due on: the witness's under a
 // `replay` policy, which follows the clock the witness ran on, else the clock's own.
-func (ctx *Context) ClockStepTaken() float64 {
+func (ctx *Context) clockStepTaken() float64 {
 	if ctx.schedule.kind == scheduleReplay {
 		return ctx.schedule.replay.witness.ClockStep
 	}
@@ -120,21 +114,21 @@ func ParseClockStep(text string) (float64, error) {
 	return step, nil
 }
 
-// ClockStepParseError is a witness's clock step line that does not read as one.
-type ClockStepParseError struct {
+// clockStepParseError is a witness's clock step line that does not read as one.
+type clockStepParseError struct {
 	Text   string
 	Line   int
 	Reason string
 }
 
-func (e *ClockStepParseError) Error() string {
+func (e *clockStepParseError) Error() string {
 	if e.Line > 0 {
 		return fmt.Sprintf("%v: line %d: %q: %s", ErrClockStep, e.Line, e.Text, e.Reason)
 	}
 	return fmt.Sprintf("%v: %q: %s", ErrClockStep, e.Text, e.Reason)
 }
 
-func (e *ClockStepParseError) Unwrap() error { return ErrClockStep }
+func (e *clockStepParseError) Unwrap() error { return ErrClockStep }
 
 // onTick is the first tick of a clock stepping by step not before the instant t: t itself on a
 // continuous clock, within rounding (at most a millionth of a tick) of a tick, or past what a float64 counts.
@@ -274,7 +268,7 @@ func (ctx *Context) dueInstant(t *ast.TimeEvent, val Value, what string) (float6
 		if magnitude <= ctx.clock.now {
 			return ctx.clock.now, nil
 		}
-		return ctx.clock.tickOf(magnitude, ctx.ClockStepTaken(), what)
+		return ctx.clock.tickOf(magnitude, ctx.clockStepTaken(), what)
 	}
 	if magnitude < 0 {
 		return 0, fmt.Errorf("%w: %s %s is negative", ErrNegativeDuration, what, semantics.FormatReal(magnitude))
@@ -283,7 +277,7 @@ func (ctx *Context) dueInstant(t *ast.TimeEvent, val Value, what string) (float6
 	if err != nil {
 		return 0, err
 	}
-	return ctx.clock.tickOf(due, ctx.ClockStepTaken(), what)
+	return ctx.clock.tickOf(due, ctx.clockStepTaken(), what)
 }
 
 // tickOf is the tick a wait for the finite instant due comes due on under step; one
@@ -310,7 +304,15 @@ func (c *Clock) instantAfter(duration float64, what string) (float64, error) {
 
 // timeMagnitude reads a time trigger's duration or instant as a number of clock
 // units: a bare number is already one, a quantity is converted from its unit.
+// A feature's value is a sequence, so one holding a single element is read as it.
 func (ctx *Context) timeMagnitude(val Value, what string) (float64, error) {
+	if val.Kind == ValSequence || val.Kind == ValSet {
+		elements := elementsOf(val)
+		if len(elements) != 1 {
+			return 0, fmt.Errorf("%w: %s must be one value, got %d", ErrTypeMismatch, what, len(elements))
+		}
+		val = elements[0]
+	}
 	switch val.Kind {
 	case ValConst:
 		switch val.Const.Kind {
@@ -338,7 +340,7 @@ func (ctx *Context) judgeTimeTriggerType(scope *symbols.Scope, t *ast.TimeEvent)
 		keyword = "at"
 	}
 	return fmt.Errorf("%w: `%s %s` must be a %s, found %s",
-		ErrTimeTriggerType, keyword, ctx.bindingExprText(t.Duration, scope), semantics.TimeEventType(t), c.Found)
+		errTimeTriggerType, keyword, ctx.bindingExprText(t.Duration, scope), semantics.TimeEventType(t), c.Found)
 }
 
 // durationInClockUnits expresses a quantity in the clock's unit, reporting a

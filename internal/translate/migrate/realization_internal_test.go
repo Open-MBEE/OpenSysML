@@ -1,7 +1,6 @@
 package migrate
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -81,7 +80,7 @@ func TestInterfaceRealizationForms(t *testing.T) {
 			}
 			got := string(r.Notation)
 			for _, w := range tc.want {
-				if !strings.Contains(got, w) {
+				if !hasBlock(got, w) {
 					t.Errorf("notation lacks %q:\n%s", w, got)
 				}
 			}

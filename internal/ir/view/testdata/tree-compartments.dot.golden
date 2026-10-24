@@ -1,0 +1,19 @@
+// view: AmplifierViews::positioned
+// kind: tree
+// stated: render asTreeDiagram
+// not represented: 10 node(s) without a position, drawn as compartment rows of the node above them, and 1 node(s) under them left undrawn
+// not represented: 2 compartment row(s) with no room in the stated size of their node's box, left unwritten
+// layout: neato -n
+digraph "AmplifierViews::positioned" {
+  graph [fontname="Helvetica", layout=neato, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«part def»</i></font><br/><b>Stage</b></td></tr><hr/><tr><td><font point-size="10">attributes</font></td></tr><tr><td align="left">gain = 15.0<br/>noiseFigure =<br/>RealFunctions::sqrt(4.0)</td></tr><hr/><tr><td><font point-size="10">parts</font></td></tr><tr><td align="left">heatsink</td></tr><hr/><tr><td><font point-size="10">ports</font></td></tr><tr><td align="left">input<br/>output</td></tr><hr/><tr><td><font point-size="10">actions</font></td></tr><tr><td align="left">calibrate</td></tr></table>>, margin=0, labelloc=t, pos="130,-140!", pin=true, width=3.3333333333333335, height=3.611111111111111, fixedsize=true];
+  "n5" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>housing</b>>, margin=0, pos="360,-420!", pin=true, width=1.6666666666666667, height=0.5555555555555556, fixedsize=true];
+  "n0" -> "n5" [arrowhead=none];
+  "n6" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>shield</b>>, margin=0, pos="90,-235!", pin=true, width=1.3888888888888888, height=0.4166666666666667, fixedsize=true];
+  "n12" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Housing</b>>, margin=0, pos="360,-30!", pin=true, width=1.6666666666666667, height=0.5555555555555556, fixedsize=true];
+  "n13" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«enum def»</i></font><br/><b>Band</b></td></tr><hr/><tr><td><font point-size="10">enumerations</font></td></tr><tr><td align="left">low<br/>high</td></tr></table>>, margin=0, pos="550,-60!", pin=true, width=1.3888888888888888, height=1.3888888888888888, fixedsize=true];
+  "n0" -> "n12" [headlabel="housing", dir=back, arrowtail=diamond];
+  "n0" -> "n12" [headlabel="shield", dir=back, arrowtail=diamond];
+}

@@ -66,6 +66,7 @@ func runStarter(t *testing.T, src string) (*Context, *Instance, error) {
 		return ctx, nil, err
 	}
 	made, ok := results["made"]
+	made = soleElement(made)
 	if !ok || made.Kind != ValInstance {
 		t.Fatalf("made = %v, want the Counter", results)
 	}
@@ -106,11 +107,11 @@ func testStartRunsAsTheObject(t *testing.T) {
 	if got := featureInt(t, ctx, counter, "n"); got != 1 {
 		t.Errorf("n = %d after the start, want 1", got)
 	}
-	b, ok := counter.Behavior("count")
+	b, ok := counter.behavior("count")
 	if !ok || b.Action == nil || b.Action.state != StateCompleted {
 		t.Fatalf("count = %+v, %v; want the behavior complete on the object", b, ok)
 	}
-	if l, ok := ctx.OccurrenceLife(counter.ID); !ok || !l.Alive() {
+	if l, ok := ctx.OccurrenceLife(counter.ID); !ok || !l.alive() {
 		t.Errorf("OccurrenceLife(counter) = %v, %v; want the object alive once its behavior is done", l, ok)
 	}
 }
@@ -136,7 +137,7 @@ func testStartWokenByMessage(t *testing.T) {
 	if got := featureInt(t, ctx, counter, "seen"); got != 1 {
 		t.Errorf("seen = %d, want 1 once the Tick woke the started behavior", got)
 	}
-	b, ok := counter.Behavior("count")
+	b, ok := counter.behavior("count")
 	if !ok || b.Action == nil || b.Action.state != StateCompleted {
 		t.Errorf("count = %+v, %v; want the woken behavior complete", b, ok)
 	}
@@ -192,12 +193,12 @@ func testStartInherited(t *testing.T) {
 		t.Fatalf("Starter: %v", err)
 	}
 	if clicker.Type == nil || clicker.Type.Name != "Clicker" {
-		t.Fatalf("made a %s, want a Clicker", symbolText(clicker.Type))
+		t.Fatalf("made a %s, want a Clicker", SymbolText(clicker.Type))
 	}
 	if got := featureInt(t, ctx, clicker, "n"); got != 1 {
 		t.Errorf("n = %d after the inherited start, want 1", got)
 	}
-	if b, ok := clicker.Behavior("count"); !ok || b.Action == nil || b.Action.state != StateCompleted {
+	if b, ok := clicker.behavior("count"); !ok || b.Action == nil || b.Action.state != StateCompleted {
 		t.Errorf("count = %+v, %v; want the inherited behavior complete on the Clicker", b, ok)
 	}
 }
@@ -208,8 +209,8 @@ func testStartOnNoObject(t *testing.T) {
 	_, _, err := runStarter(t, starterModel(countOnce, `
 		action kick { in target : Counter[0..1] = (); perform target.count.start; }
 		first start then create; first create then kick; first kick then done;`))
-	if !errors.Is(err, ErrPerformerNotObject) || !strings.Contains(err.Error(), "target.count is started on null, which is no one object") {
-		t.Fatalf("error = %v, want ErrPerformerNotObject over an empty target", err)
+	if !errors.Is(err, errPerformerNotObject) || !strings.Contains(err.Error(), "target.count is started on null, which is no one object") {
+		t.Fatalf("error = %v, want errPerformerNotObject over an empty target", err)
 	}
 }
 
@@ -220,8 +221,8 @@ func testStartOfNoBehavior(t *testing.T) {
 		action kick { in target : Counter; perform target.n.start; }
 		flow create.result to kick.target;
 		first start then create; first create then kick; first kick then done;`))
-	if !errors.Is(err, ErrNoSuchBehavior) || !strings.Contains(err.Error(), "n is no behavior of object #") {
-		t.Fatalf("error = %v, want ErrNoSuchBehavior naming n", err)
+	if !errors.Is(err, errNoSuchBehavior) || !strings.Contains(err.Error(), "n is no behavior of object #") {
+		t.Fatalf("error = %v, want errNoSuchBehavior naming n", err)
 	}
 }
 
@@ -337,12 +338,12 @@ func testStartWakesOlderBehaviorAfterCommit(t *testing.T) {
 		}
 		switch inst.Type.Name {
 		case "Pinger":
-			b, ok := inst.Behavior("ping")
+			b, ok := inst.behavior("ping")
 			if !ok || b.Action == nil || b.Action.state != StateCompleted {
 				t.Errorf("ping = %+v, %v; want the start kept and its behavior complete", b, ok)
 			}
 		case "Listener":
-			b, ok := inst.Behavior("listen")
+			b, ok := inst.behavior("listen")
 			if !ok || b.Action == nil || b.Action.state == StateWaiting {
 				t.Errorf("listen = %+v, %v; want the woken behavior past its accept", b, ok)
 			}

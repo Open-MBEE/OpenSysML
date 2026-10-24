@@ -27,6 +27,24 @@ func (c *commandContext) request() {
 	c.mu.Unlock()
 }
 
+// expect notes commands a host is about to make on the session's behalf, before
+// any is requested, so an interrupt arriving first stops the first of them at
+// its first step. The function returned withdraws the expectation, lowering a
+// flag raised for a command that was never made.
+func (c *commandContext) expect() func() {
+	c.mu.Lock()
+	c.waiting++
+	c.mu.Unlock()
+	return func() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		c.waiting--
+		if c.waiting == 0 && c.cancel == nil {
+			c.flag.Store(false)
+		}
+	}
+}
+
 // begin opens the context of a command requested; the function returned closes
 // it and lowers the flag, which the next command then starts without.
 func (c *commandContext) begin() func() {
@@ -90,3 +108,9 @@ func (c *commandContext) interrupt() {
 // file being read — ends on its own, and with no command under way or waiting
 // there is nothing to stop.
 func (s *Session) Interrupt() { s.command.interrupt() }
+
+// Expecting tells the session a host is about to run commands on it, so an
+// Interrupt that arrives before the first one begins stops that command at its
+// first step instead of finding nothing to stop. Call the function returned
+// once the commands are done.
+func (s *Session) Expecting() func() { return s.command.expect() }

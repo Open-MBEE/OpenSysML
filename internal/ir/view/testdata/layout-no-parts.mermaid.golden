@@ -1,0 +1,31 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% FoldedViews::noParts — tree rendering (render asTreeDiagram)
+%% not represented: 4 node(s) without a position: 1 drawn as compartment rows of the node above them, 3 in compartments its Layout hides left undrawn, and 6 node(s) under them left undrawn
+%% layout: n0 x=0 y=0
+flowchart TD
+  n0("`*«part»*
+**vehicle**
+connects
+connect`")

@@ -1,0 +1,24 @@
+step 1: token 1@split
+step 2: token 2@a, token 3@b
+choice statements in action node a: next 1 assign x, 2 assign p (unordered; took 1 assign x first; order-dependent: p, x)
+stmt assign x
+  eval literal 1 -> 1
+stmt assign x
+  eval literal 2 -> 2
+choice step 3: writes x := 1 by token 2, x := 2 by token 3 (unordered; x := 2 by token 3 stood; order-dependent: x)
+choice step 3: tokens 2@a, 3@b (unordered; took 2@a first; order-dependent: x)
+step 3: token 2@a, token 3@sync
+stmt assign p
+  eval literal 3 -> 3
+step 4: token 2@sync, token 3@sync
+step 5: token 4@derive
+stmt assign y
+    eval feature x -> 2
+    eval literal 1 -> 1
+  eval operator + -> 3
+stmt assign q
+    eval feature p -> 3
+    eval literal 1 -> 1
+  eval operator + -> 4
+step 6: token 4@done
+step 7: no active tokens

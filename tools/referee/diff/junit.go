@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/tools/oracle/junit"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/report/junit"
 )
 
 // junitReport renders the comparison as JUnit XML: one suite per corpus root,

@@ -80,6 +80,14 @@ type heldObjects struct {
 	runner func(context.Context) runtime.ToolRunner
 }
 
+// heldObjects is the population held for cached, and false when no Instantiate
+// has built one: a reader that would hold nothing need not build it.
+func (s *Service) heldObjects(cached *CachedModel) (*heldObjects, bool) {
+	cached.objectsMu.Lock()
+	defer cached.objectsMu.Unlock()
+	return cached.objects, cached.objects != nil
+}
+
 // objects is the population held for cached, built by the first Instantiate
 // over a runtime of its own so a request's worker never carries objects.
 func (s *Service) objects(cached *CachedModel) *heldObjects {
@@ -151,6 +159,27 @@ func (h *heldObjects) documentStatus(err error) error {
 		return status
 	}
 	return documentStatus(err)
+}
+
+// rootObjects are the objects the population holds — named and displaced — in
+// identity order, each once.
+func (h *heldObjects) rootObjects() []*runtime.Instance {
+	seen := make(map[int64]bool, len(h.named)+len(h.displaced))
+	out := make([]*runtime.Instance, 0, len(h.named)+len(h.displaced))
+	keep := func(inst *runtime.Instance) {
+		if inst != nil && !seen[inst.ID] {
+			seen[inst.ID] = true
+			out = append(out, inst)
+		}
+	}
+	for _, inst := range h.named {
+		keep(inst)
+	}
+	for _, inst := range h.displaced {
+		keep(inst)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
 }
 
 // roots are the objects a query enumerates from, each under the label it is

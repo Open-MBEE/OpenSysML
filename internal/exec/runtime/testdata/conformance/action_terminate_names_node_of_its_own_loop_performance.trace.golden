@@ -1,6 +1,6 @@
 step 1: token 1@split
 step 2: token 2@gate, token 3@pre, token 4@pre1
-choice step 3: tokens 2@gate, 3@pre, 4@pre1 (unordered; took 4@pre1 first)
+choice step 3: tokens 2@gate, 3@pre, 4@pre1 (unordered; took 4@pre1 first; independent)
 step 3: token 2@loop until, token 3@gate, token 4@pre2
 stmt loop until
   iteration 1
@@ -17,7 +17,7 @@ stmt loop until
 enter action node: inner
             eval literal 10 -> 10
           eval index -> 10 [s]
-choice step 4: tokens 2@loop until, 3@gate, 4@pre2 (unordered; took 4@pre2 first)
+choice step 4: tokens 2@loop until, 3@gate, 4@pre2 (unordered; took 4@pre2 first; order-dependent: entered, later, napped, passed)
 step 4: token 2@loop until, token 3@loop until, token 4@gate, token 5@nap
 stmt loop until
   iteration 1
@@ -34,7 +34,7 @@ stmt loop until
 enter action node: inner
             eval literal 10 -> 10
           eval index -> 10 [s]
-choice step 5: tokens 2@loop until, 3@loop until, 4@gate (unordered; took 4@gate first)
+choice step 5: tokens 2@loop until, 3@loop until, 4@gate (unordered; took 4@gate first; order-dependent: entered, later, napped, passed)
 step 5: token 2@loop until, token 3@loop until, token 4@loop until, token 5@nap, token 6@nap
 stmt loop until
   iteration 1
@@ -53,9 +53,9 @@ enter action node: guard
           eval index -> 5 [s]
             eval literal 10 -> 10
           eval index -> 10 [s]
-choice step 6: tokens 2@loop until, 3@loop until, 4@loop until (unordered; took 4@loop until first)
+choice step 6: tokens 2@loop until, 3@loop until, 4@loop until (unordered; took 4@loop until first; order-dependent: entered, later, napped, passed)
 step 6: token 2@loop until, token 3@loop until, token 4@loop until, token 5@nap, token 6@nap, token 8@nap, token 9@watch
-choice step 7: tokens 2@loop until, 3@loop until, 4@loop until (unordered; took 4@loop until first)
+choice step 7: tokens 2@loop until, 3@loop until, 4@loop until (unordered; took 4@loop until first; order-dependent: entered, later, napped, passed)
           stmt terminate
 terminate action node slow: dropped token 8@nap, token 9@stop
     stmt assign passed
@@ -67,11 +67,11 @@ terminate action node slow: dropped token 8@nap, token 9@stop
         eval literal 1 -> 1
       eval operator + -> 1
     eval literal true -> true
-choice step 7: tokens 2@loop until, 3@loop until, 4@loop until (unordered; took 4@loop until first)
+choice step 7: tokens 2@loop until, 3@loop until, 4@loop until (unordered; took 4@loop until first; order-dependent: entered, later, napped, passed)
 step 7: token 2@loop until, token 3@loop until, token 4@done, token 5@nap, token 6@nap
-choice step 8: tokens 2@loop until, 3@loop until, 4@done (unordered; took 4@done first)
+choice step 8: tokens 2@loop until, 3@loop until, 4@done (unordered; took 4@done first; order-dependent: entered, later, napped, passed)
 step 8: token 2@loop until, token 3@loop until, token 5@nap, token 6@nap
-choice step 9: tokens 2@loop until, 3@loop until (unordered; took 3@loop until first)
+choice step 9: tokens 2@loop until, 3@loop until (unordered; took 3@loop until first; order-dependent: entered, later, napped, passed)
 leave action node: inner
         stmt assign napped
             eval feature napped -> 0
@@ -100,10 +100,10 @@ leave action node: inner
         eval literal 1 -> 1
       eval operator + -> 3
     eval literal true -> true
-choice step 9: writes napped := 2 by token 2, napped := 1 by token 3 (unordered; napped := 2 by token 2 stood)
-choice step 9: writes passed := 3 by token 2, passed := 2 by token 3 (unordered; passed := 3 by token 2 stood)
-choice step 9: writes later := 3 by token 2, later := 2 by token 3 (unordered; later := 3 by token 2 stood)
-choice step 9: tokens 2@loop until, 3@loop until (unordered; took 3@loop until first)
+choice step 9: writes napped := 2 by token 2, napped := 1 by token 3 (unordered; napped := 2 by token 2 stood; order-dependent: napped)
+choice step 9: writes passed := 3 by token 2, passed := 2 by token 3 (unordered; passed := 3 by token 2 stood; order-dependent: passed)
+choice step 9: writes later := 3 by token 2, later := 2 by token 3 (unordered; later := 3 by token 2 stood; order-dependent: later)
+choice step 9: tokens 2@loop until, 3@loop until (unordered; took 3@loop until first; order-dependent: entered, later, napped, passed)
 step 9: token 2@done, token 3@done
-choice step 10: tokens 2@done, 3@done (unordered; took 3@done first)
+choice step 10: tokens 2@done, 3@done (unordered; took 3@done first; independent)
 step 10: no active tokens

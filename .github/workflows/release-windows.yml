@@ -100,7 +100,7 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Build sysml, sysml-lsp and sysml-grpc for windows/amd64
+      - name: Build sysml, sysml-lsp, sysml-grpc and sysml-mcp for windows/amd64
         env:
           VERSION: ${{ steps.version.outputs.version }}
           COMMIT: ${{ steps.version.outputs.commit }}
@@ -119,6 +119,9 @@ jobs:
 
           GOOS=windows GOARCH=amd64 make build-grpc VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
           mv bin/sysml-grpc dist/unsigned/sysml-grpc-windows-amd64.exe
+
+          GOOS=windows GOARCH=amd64 make build-mcp VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+          mv bin/sysml-mcp dist/unsigned/sysml-mcp-windows-amd64.exe
 
       - name: Check the embedded VERSIONINFO matches VERSION
         env:
@@ -207,7 +210,7 @@ jobs:
         env:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
-          bash scripts/build-msi.sh "$VERSION" dist/unsigned/sysml-windows-amd64.exe dist/unsigned/sysml-lsp-windows-amd64.exe dist/unsigned/sysml-grpc-windows-amd64.exe
+          bash scripts/build-msi.sh "$VERSION" dist/unsigned/sysml-windows-amd64.exe dist/unsigned/sysml-lsp-windows-amd64.exe dist/unsigned/sysml-grpc-windows-amd64.exe dist/unsigned/sysml-mcp-windows-amd64.exe
           msi=$(ls dist/opensysml-*-windows-amd64.msi)
           wix msi validate "$msi"
           mkdir -p dist/release
@@ -311,7 +314,7 @@ jobs:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
           ls -la dist/signed
-          for name in sysml sysml-lsp sysml-grpc; do
+          for name in sysml sysml-lsp sysml-grpc sysml-mcp; do
             test -f "dist/signed/${name}-windows-amd64.exe" || { echo "Error: signed ${name}-windows-amd64.exe missing"; exit 1; }
           done
           for exe in dist/signed/*.exe; do
@@ -369,7 +372,7 @@ jobs:
         env:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
-          bash scripts/build-msi.sh "$VERSION" dist/signed/sysml-windows-amd64.exe dist/signed/sysml-lsp-windows-amd64.exe dist/signed/sysml-grpc-windows-amd64.exe
+          bash scripts/build-msi.sh "$VERSION" dist/signed/sysml-windows-amd64.exe dist/signed/sysml-lsp-windows-amd64.exe dist/signed/sysml-grpc-windows-amd64.exe dist/signed/sysml-mcp-windows-amd64.exe
           msi=$(ls dist/opensysml-*-windows-amd64.msi)
           wix msi validate "$msi"
           mkdir -p dist/presign
@@ -436,6 +439,14 @@ jobs:
           name: windows-amd64-msi-signed
           path: dist/release
 
+      # No checkout here either; the LICENSE the sysml-mcp zip carries comes
+      # from the packaging inputs the build job uploaded.
+      - name: Download the MSI packaging inputs
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.MSI_INPUTS_ARTIFACT }}
+          path: .
+
       - name: Package the signed assets
         run: |
           # Same layouts as the CircleCI assets of the same base name, under a
@@ -444,6 +455,11 @@ jobs:
           cd dist/signed
           zip -q ../release/sysml-windows-amd64-signed.zip sysml-windows-amd64.exe
           zip -q ../release/sysml-lsp-windows-amd64-signed.zip sysml-lsp-windows-amd64.exe
+          mkdir -p stage-mcp
+          cp sysml-mcp-windows-amd64.exe stage-mcp/sysml-mcp.exe
+          cp ../../LICENSE stage-mcp/LICENSE
+          (cd stage-mcp && zip -q ../../release/sysml-mcp-windows-amd64-signed.zip sysml-mcp.exe LICENSE)
+          rm -rf stage-mcp
           cp sysml-grpc-windows-amd64.exe ../release/sysml-grpc-windows-amd64-signed.exe
           mkdir -p stage
           cp sysml-windows-amd64.exe stage/sysml.exe

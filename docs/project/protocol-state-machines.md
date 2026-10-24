@@ -122,15 +122,15 @@ authors mean by "protocol" they write as the part's own behavior.
 | Guarantee | SysML v2 spelling | Runtime | Evidence |
 |---|---|---|---|
 | 1 Order, machine on the part | `part def P { port p; exhibit state m { … accept S via p … } }` | Runs at materialization of the part (`lower.ExhibitedState`, `runtime/classifier_behavior.go:startClassifierBehaviors`); a message to `p` reaches the transition (`state_executor.go:matchesEvent`, `acceptsSignalFrom`) | `classifier_behavior_test.go:TestInstantiateStartsExhibitedStateMachine`, conformance `state_transition_accept_via_port`, `accept_via_bound_context_port`; compliance rows *Classifier behaviors* and *`accept … via <port>`* |
-| 1 Order, machine on the port definition | `port def FilePort { in item open : Open; exhibit state protocol { … accept Open then opened; … } }` | Runs at materialization of the port object, which is an object of the port definition; a bare `accept` takes a transfer addressed **to the port object itself** (the REPL's `%send … to #1.f`). A transfer a model action sends `to file.f` is routed to the port *of the part* (`signal.go:deliveryOf` → `DeliverPort`) and the port's own machine does not take it: it stays on the bus | Probed against the tree, not a fixture — see *Probes* below |
-| 1 Order, an arrival the current state does not accept | — | **Directly injected event** (`StateExecutor.SendSignal`, a debugger driving one machine): dispatched, no transition fires, dropped and reported (`advance.go:dueProgress.noteDispatch`, `AdvanceReport.Dropped`); the machine stays in its state. **Model-posted message** (an action's `send`, `signal.go:Context.postFrom`): left on the context-wide bus — a machine takes a message only when its active configuration accepts it (`state_executor.go:takesMessage`, `acceptableMessage`), so nothing is dispatched, nothing is reported, and the message is **taken later** by the first state that accepts it. **Debugger surface:** the REPL's `%send` refuses to enqueue it — `object … accepts no signal Read now: state machine "protocol" in state closed` (`frontend/repl/send.go`) | conformance `state_undeferred_event` (direct injection only), `robustness_test.go:testCallOfUnhandledOperation` (state stays `waiting`), `repl/send_test.go` (`accepts no signal … now`); the model-posted case has no test — see *Probes* |
+| 1 Order, machine on the port definition | `port def FilePort { in item open : Open; exhibit state protocol { … accept Open then opened; … } }` | Runs at materialization of the port object, which is an object of the port definition; a bare `accept` takes a transfer addressed **to the port object itself** (the REPL's `%send … to #1.f`). A transfer a model action sends `to file.f` is routed to the port *of the part* (`signal.go:deliveryOf` → `deliverPort`) and the port's own machine does not take it: it stays on the bus | Probed against the tree, not a fixture — see *Probes* below |
+| 1 Order, an arrival the current state does not accept | — | **Directly injected event** (`StateExecutor.sendSignal`, a debugger driving one machine): dispatched, no transition fires, dropped and reported (`advance.go:dueProgress.noteDispatch`, `AdvanceReport.Dropped`); the machine stays in its state. **Model-posted message** (an action's `send`, `signal.go:Context.postFrom`): left on the context-wide bus — a machine takes a message only when its active configuration accepts it (`state_executor.go:takesMessage`, `acceptableMessage`), so nothing is dispatched, nothing is reported, and the message is **taken later** by the first state that accepts it. **Debugger surface:** the REPL's `%send` refuses to enqueue it — `object … accepts no signal Read now: state machine "protocol" in state closed` (`frontend/repl/send.go`) | conformance `state_undeferred_event` (direct injection only), `robustness_operations_test.go:testCallOfUnhandledOperation` (state stays `waiting`), `repl/send_test.go` (`accepts no signal … now`); the model-posted case has no test — see *Probes* |
 | 1 Order, deferral | the standard encoding: `item deferred : S[*] ordered;`, a do action whose accept loop keeps each `S`, an exit action that sends each kept `S` to `self` | Kept while the state is active and re-sent to the object as the state is left, so it is dispatched to the configuration the exit leaves (behind whatever is already queued) | conformance `state_deferred_signal_kept_and_replayed`, `state_guard_reads_deferred_payload` |
 | 2 Pre-condition | `accept S if <guard>` | Guard evaluated against the performer at dispatch | compliance *State Machine* rows for guards; conformance `state_transition_guard_exit_effect_entry_order` |
 | 2 Post-condition | no spelling (a transition has no post-condition slot) | — | — |
 | 2 "Constrains, does not perform" | a machine whose transitions have no `do` | Runs like any other; nothing marks it as a protocol or forbids effects | — |
 | 3 Conformance of a behavior machine to a protocol machine | no spelling | — | — |
 | 4 Static reading (legal call sequences checked for a caller) | no spelling | — | — |
-| Order of *operation calls* (perform, not send) | `perform action` on the object | `runtime/invoke_operation.go` executes the action directly; the object's exhibited machine is not consulted and receives no event. `StateExecutor.InvokeOperation` injects an `EventCall` into one machine, but only when a debugger drives that machine directly | compliance *Classifier behaviors*: "an operation call … does not travel over connections"; `pssm-referee.md` on call events whose results do not return to the caller |
+| Order of *operation calls* (perform, not send) | `perform action` on the object | `runtime/invoke_operation.go` executes the action directly; the object's exhibited machine is not consulted and receives no event. `StateExecutor.invokeOperation` injects an `eventCall` into one machine, but only when a debugger drives that machine directly | compliance *Classifier behaviors*: "an operation call … does not travel over connections"; `pssm-referee.md` on call events whose results do not return to the caller |
 | Occurrence-order constraints (`HappensBefore`, `succession`) | `first a then b`; `constraint { a.happensBefore(b) }` | Successions between action nodes and state transitions are executed as the graph; a user-written `HappensBefore` constraint or a `happensBefore` call in a `constraint` is not evaluated at run time over recorded performances | compliance *Structural, Interface and Analysis Notation* (§8.3.9.11 Occurrences); nothing asserts over a performance log |
 
 ### Probes
@@ -190,7 +190,7 @@ Instantiating `System` and advancing (`Context.Instantiate`, `Context.Advance(5)
 variants:
 
 - *Machine on the port definition* (`FilePort` as in probe 1): all three messages remain in
-  `Context.PendingMessages()` after the advance (`Delivery: DeliverPort`, `Object` the `File`,
+  `Context.PendingMessages()` after the advance (`Delivery: deliverPort`, `Object` the `File`,
   `PortID` the port), the port's machine stays in `closed`, `reads` is `0`, `AdvanceReport.Dropped`
   is empty. A message routed to the port of a part is not taken by the port object's own machine.
 - *Machine on the part* (`File` exhibiting `protocol`, triggers `accept Open via f`,
@@ -203,7 +203,7 @@ So at the model surface the runtime does not refuse an out-of-order reception; t
 bus holds it until some state accepts it, which is an implicit, unbounded deferral that the model
 did not write (SysML v2 has no deferral notation; the standard encoding above is the spelling for a chosen one). UML's behavior-state-machine semantics,
 and the PSSM suite the referee runs, discard an event the active configuration neither accepts nor
-defers; the direct-injection path (`SendSignal` → dispatch → `Dropped`) does that, the bus path
+defers; the direct-injection path (`sendSignal` → dispatch → `Dropped`) does that, the bus path
 does not.
 
 ## The gap
@@ -244,8 +244,8 @@ configuration does not accept (follow-up).** Two changes in the state executor, 
 change, no new notation:
 
 1. *An addressed message no machine of its destination takes is consumed and dropped, not held.*
-   When a message with a destination (`DeliverPort`, `DeliverPortReceiver`, `DeliverReceiver`,
-   `DeliverObject` — not `DeliverAnyone`, which has no destination to hold it to) reaches a
+   When a message with a destination (`deliverPort`, `deliverPortReceiver`, `deliverReceiver`,
+   `deliverObject` — not `deliverAnyone`, which has no destination to hold it to) reaches a
    performer whose exhibited machines are all started and none of which accepts it in
    its active configuration (`takesMessage` false for every one), the machine that would have been
    its receiver takes it off the bus and dispatches it as a non-firing `Dispatch`, so it lands in
@@ -263,7 +263,7 @@ for a model whose machine is *meant* as a protocol. Proof: probe 2, both variant
 fixtures (`state_model_send_out_of_order_dropped`: final state `opened`, `reads` **`1`**, one
 dropped dispatch naming `Read`; `state_port_def_exhibited_machine`: the port machine reaches
 `opened`, `reads` `1`), a trace golden for the dispatch order, a runtime test posting through
-`Context.PostMessage` (not `SendSignal`) and asserting `AdvanceReport.Dropped`, a robustness case
+`Context.PostMessage` (not `sendSignal`) and asserting `AdvanceReport.Dropped`, a robustness case
 for the typed error, and probe 1 as a REPL `send_test.go` case. Risk: every fixture whose sender
 runs before its receiver's machine has started, or whose message is taken by a state entered after
 the send, now drops it — the conformance suite, `state_deferred_event` and the PSSM referee must be

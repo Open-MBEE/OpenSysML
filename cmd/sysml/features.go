@@ -9,7 +9,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 )
 
-// feature is a group a build leaves out under sysml_prod or sysml_no<name>; its
+// feature is a group the RE build (sysml_re) or sysml_no<name> leaves out; its
 // files link it from init, and without them its flags are hidden and refused.
 type feature struct {
 	// name is the group's tag suffix, as "built without <name>" reports it.
@@ -49,7 +49,7 @@ func boolFlags(names ...string) []featureFlag {
 	return out
 }
 
-// The feature groups, one per sysml_no<name> tag; sysml_prod leaves out all.
+// The feature groups, one per sysml_no<name> tag; the RE build (sysml_re) leaves out all.
 var (
 	v1Feature = &feature{
 		name:     "v1",
@@ -329,7 +329,7 @@ func outputUsage() string {
 	if codegenFeature.linked {
 		modes = append(modes, "-compile")
 	}
-	text := "Write what " + strings.Join(modes, ", ") + ", -render or -render-document produces to this file instead of stdout"
+	text := "Write what " + strings.Join(modes, ", ") + ", -render or -render-document produces, or a -validate report in a -format other than text, to this file instead of stdout"
 	if syncFeature.linked {
 		text += "; with " + pushes + ", a Flexo branch URL pushes the graph to the branch"
 	}
@@ -353,6 +353,14 @@ func docNumberFiguresUsage() string {
 }
 
 // convertUsage is -convert's usage, naming the inputs this build reads.
+func stdlibUsage() string {
+	text := "With -convert ttl or api-json, convert the bundled standard library — every KerML and SysML file of it, as one model whose elements carry their normative ids — instead of a model file; -id defaults to uuid"
+	if syncFeature.linked {
+		text += ". -o may name a Flexo branch to publish the library to"
+	}
+	return text
+}
+
 func convertUsage() string {
 	text := "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle, rdf or api-json (RDF and the API element form are experimental)"
 	if syncFeature.linked {

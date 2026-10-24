@@ -48,7 +48,7 @@ func TestForElementsRejectsANonCollection(t *testing.T) {
 		"a real":           Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 2.5}},
 		"a boolean":        boolValue(true),
 		"a string":         NewStringValue("xs"),
-		"an expression":    Value{Kind: ValExpr},
+		"an expression":    Value{Kind: valExpr},
 		"an invalid value": Value{Kind: ValInvalid},
 	}
 	for name, value := range cases {

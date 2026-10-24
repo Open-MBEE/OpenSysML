@@ -13,8 +13,8 @@ enter calc test::UseFn
                   eval feature v -> 3.0
                   eval feature v -> 3.0
                 eval operator * -> 9.0
-            exit calc test::Sq -> 9.0
-          eval invoke f -> 9.0
-      exit calc test::Fn -> 9.0
-    eval invoke Fn -> 9.0
-exit calc test::UseFn -> 9.0
+            exit calc test::Sq -> (9.0)
+          eval invoke f -> (9.0)
+      exit calc test::Fn -> (9.0)
+    eval invoke Fn -> (9.0)
+exit calc test::UseFn -> (9.0)

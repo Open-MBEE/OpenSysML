@@ -226,6 +226,15 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"convert check diagnostics", CapabilityConvertCheckDiagnostics, func(s *Service) error {
+			_, err := s.Convert(ctx, &pb.ConvertRequest{
+				Source:                  &pb.ConvertRequest_Content{Content: "package P;"},
+				FromFormat:              "sysml",
+				ToFormat:                "api-json",
+				IncludeCheckDiagnostics: true,
+			})
+			return err
+		}},
 		{"parse sources affected", CapabilityParseSourcesAffected, func(s *Service) error {
 			_, err := s.ParseSources(ctx, &pb.ParseSourcesRequest{
 				Documents:     inlineDocuments("p.sysml", "package P;"),
@@ -297,6 +306,10 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 		}},
 		{"export graphs", CapabilityExportGraphs, func(s *Service) error {
 			_, err := s.ExportGraphs(ctx, &pb.ExportGraphsRequest{ModelHash: "any", Subject: "Any"})
+			return err
+		}},
+		{"check behavior", CapabilityCheck, func(s *Service) error {
+			_, err := s.CheckBehavior(ctx, &pb.CheckBehaviorRequest{ModelHash: "any", ActionSymbolId: "Any"})
 			return err
 		}},
 		{"render document html", CapabilityRenderDocumentHTML, func(s *Service) error {
@@ -402,6 +415,27 @@ part def P {
 	}
 	if len(instantiated.Instance.GetFeatureValues()) != 0 {
 		t.Errorf("feature_values = %v, want none", instantiated.Instance.GetFeatureValues())
+	}
+}
+
+func TestRenderDocumentFileNameIsWithheldWithoutItsCapability(t *testing.T) {
+	srv := mustNewServiceWithout(t, CapabilityRenderDocumentFileName)
+	hash := parseTelescope(t, srv)
+	resp, err := srv.RenderDocument(context.Background(), &pb.RenderDocumentRequest{
+		ModelHash: hash, DocumentId: "Observatory::MassReport",
+	})
+	if err != nil {
+		t.Fatalf("RenderDocument: %v", err)
+	}
+	if resp.FileName != "" || resp.Markdown == "" {
+		t.Errorf("file name = %q (want empty), markdown empty = %v", resp.FileName, resp.Markdown == "")
+	}
+}
+
+// The capability is the newest, appended after every one before it.
+func TestRenderDocumentFileNameCapabilityIsTheNewest(t *testing.T) {
+	if all := Capabilities(); all[len(all)-1] != CapabilityOrderDependence {
+		t.Errorf("capabilities %v do not end with %q, the newest", all, CapabilityOrderDependence)
 	}
 }
 

@@ -39,6 +39,30 @@
         "status": "UNIMPLEMENTED",
         "status_message_contains": "engines"
       }
+    },
+    {
+      "id": "list_engines/probe_checks_each_engine_it_lists",
+      "description": "`probe` starts each external engine the service serves and checks its handshake; the built-in engines are listed as before.",
+      "rpc": "ListEngines",
+      "requires_capabilities": [
+        "engines"
+      ],
+      "request": {
+        "probe": true
+      },
+      "expect": {
+        "min_counts": {
+          "engines": 4
+        },
+        "contains_all": {
+          "engines.*.name": [
+            "explore",
+            "run",
+            "solve",
+            "sweep"
+          ]
+        }
+      }
     }
   ]
 }

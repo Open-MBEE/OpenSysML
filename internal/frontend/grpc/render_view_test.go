@@ -5,13 +5,15 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/engine"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestRenderViewRendersInterconnectionAndPorts(t *testing.T) {
@@ -142,7 +144,14 @@ func TestRenderViewRendersCaseAndMixed(t *testing.T) {
 		port telemetry : Signal;
 		perform action descend : Descend;
 	}
+	part def Rover {
+		part wheels[4] : Vehicle;
+	}
 
+	view structure {
+		expose Rover;
+		expose Vehicle;
+	}
 	view useCases {
 		expose CrewOperation;
 		render asCaseDiagram;
@@ -216,6 +225,23 @@ func TestRenderViewRendersCaseAndMixed(t *testing.T) {
 		t.Errorf("mixed view has no perform reference edge: %+v", mixedView.Edges)
 	}
 
+	// An association end's name, drawn at the type's end, reaches the wire as
+	// the edge's label, the response placing no label; multiplicities are an
+	// optional element, off by default.
+	structure, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{
+		ModelHash: parsed.ModelHash, View: "RenderViewKinds::structure",
+	})
+	if err != nil {
+		t.Fatalf("RenderView structure: %v", err)
+	}
+	var wheels bool
+	for _, edge := range structure.Edges {
+		wheels = wheels || edge.Kind == "composition" && edge.Label == "wheels"
+	}
+	if !wheels {
+		t.Errorf("structure view has no composition labelled wheels: %+v", structure.Edges)
+	}
+
 	casePseudo, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{
 		ModelHash: parsed.ModelHash, View: "#case:RenderViewKinds::CrewOperation",
 	})
@@ -263,7 +289,12 @@ func TestRenderViewMatchesEngineJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsed, _ := parseContent(t, srv, string(content))
+	parsed, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{Documents: []*pb.SourceDocument{{
+		Source: &pb.SourceDocument_Content{Content: string(content)}, Name: "opensysml-stack.sysml",
+	}}})
+	if err != nil {
+		t.Fatalf("gRPC ParseSources: %v", err)
+	}
 
 	eng, err := engine.New()
 	if err != nil {
@@ -294,9 +325,9 @@ func TestRenderViewMatchesEngineJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("engine RenderView: %v", err)
 	}
-	var engineView engine.JRenderViewResponse
-	if err := json.Unmarshal(engineBody, &engineView); err != nil {
-		t.Fatalf("decode engine RenderView: %v", err)
+	var engineView pb.RenderViewResponse
+	if err := protojson.Unmarshal(engineBody, &engineView); err != nil {
+		t.Fatalf("decode engine RenderView as protojson: %v\n%s", err, engineBody)
 	}
 	grpcView, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{
 		ModelHash: parsed.ModelHash, View: viewName, Ports: "minimal",
@@ -304,75 +335,10 @@ func TestRenderViewMatchesEngineJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("gRPC RenderView: %v", err)
 	}
-	if got := engineProjection(grpcView); !reflect.DeepEqual(got, engineView) {
-		t.Errorf("shared engine/gRPC render fields differ:\nengine JSON: %+v\ngRPC projection: %+v",
-			engineView, got)
+	if !proto.Equal(grpcView, &engineView) {
+		t.Errorf("engine RenderView JSON differs from the gRPC answer:\nengine: %s\ngRPC: %s",
+			engineBody, protojson.Format(grpcView))
 	}
-}
-
-func engineProjection(response *pb.RenderViewResponse) engine.JRenderViewResponse {
-	projected := engine.JRenderViewResponse{
-		View: response.View, Kind: response.Kind, Stated: response.Stated,
-		Notices: response.Notices, Columns: response.Columns,
-		Nodes: make([]engine.JRenderNode, 0, len(response.Nodes)),
-		Edges: make([]engine.JRenderEdge, 0, len(response.Edges)),
-	}
-	if response.Canvas != nil {
-		projected.Canvas = &engine.JRenderCanvas{Unit: response.Canvas.Unit}
-		if response.Canvas.HasSize {
-			width, height := response.Canvas.Width, response.Canvas.Height
-			projected.Canvas.Width, projected.Canvas.Height = &width, &height
-		}
-	}
-	for _, node := range response.Nodes {
-		item := engine.JRenderNode{
-			ID: node.Id, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
-			Type: node.Type, Detail: node.Detail, Parent: node.Parent,
-		}
-		if node.Style != nil {
-			item.Style = &engine.JRenderStyle{
-				Fill: node.Style.Fill, Line: node.Style.Line, Text: node.Style.Text,
-				Font: node.Style.Font, FontSize: node.Style.FontSize, Bold: node.Style.Bold,
-				Italic: node.Style.Italic,
-			}
-			item.Fill, item.Border = node.Style.Fill, node.Style.Line
-		}
-		if node.Geometry != nil {
-			x, y := node.Geometry.X, node.Geometry.Y
-			item.X, item.Y, item.Collapsed = &x, &y, node.Geometry.Collapsed
-			if node.Geometry.HasSize {
-				width, height := node.Geometry.Width, node.Geometry.Height
-				item.Width, item.Height = &width, &height
-			}
-		}
-		for _, port := range node.Ports {
-			item.Ports = append(item.Ports, engine.JRenderPort{
-				ID: port.Id, Name: port.Name, Type: port.Type, Direction: port.Direction,
-			})
-		}
-		projected.Nodes = append(projected.Nodes, item)
-	}
-	for _, edge := range response.Edges {
-		item := engine.JRenderEdge{
-			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
-			Label: edge.Label, Kind: edge.Kind,
-		}
-		if edge.Style != nil {
-			item.Style = &engine.JRenderStyle{
-				Fill: edge.Style.Fill, Line: edge.Style.Line, Text: edge.Style.Text,
-				Font: edge.Style.Font, FontSize: edge.Style.FontSize, Bold: edge.Style.Bold,
-				Italic: edge.Style.Italic,
-			}
-		}
-		for _, point := range edge.Route {
-			item.Route = append(item.Route, engine.JRenderPoint{X: point.X, Y: point.Y})
-		}
-		projected.Edges = append(projected.Edges, item)
-	}
-	for _, row := range response.Rows {
-		projected.Rows = append(projected.Rows, engine.JRenderRow{Cells: row.Cells})
-	}
-	return projected
 }
 
 func TestRenderViewErrorsMatchEngineSelection(t *testing.T) {
@@ -414,4 +380,143 @@ func TestRenderViewRequiresCapability(t *testing.T) {
 	if connect.CodeOf(err) != connect.CodeUnimplemented || !strings.Contains(err.Error(), CapabilityRenderView) {
 		t.Fatalf("RenderView error = %v, want UNIMPLEMENTED naming %s", err, CapabilityRenderView)
 	}
+}
+
+// A request's depth bounds how many levels are drawn below each exposed
+// element; a negative one is refused as an invalid argument.
+func TestRenderViewDepth(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	parsed, _ := parseContent(t, srv, `package Deep {
+    private import Views::*;
+    part vehicle {
+        part wheel { part hub { part bearing; } }
+        part engine { part piston; }
+    }
+    view structure { expose vehicle; render asTreeDiagram; }
+}
+`)
+	whole, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{ModelHash: parsed.ModelHash, View: "Deep::structure"})
+	if err != nil {
+		t.Fatalf("RenderView: %v", err)
+	}
+	bounded, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{ModelHash: parsed.ModelHash, View: "Deep::structure", Depth: 1})
+	if err != nil {
+		t.Fatalf("RenderView depth 1: %v", err)
+	}
+	if len(whole.Nodes) != 6 || len(bounded.Nodes) != 3 {
+		t.Errorf("nodes = %d whole, %d at depth 1; want 6 and 3", len(whole.Nodes), len(bounded.Nodes))
+	}
+	if !strings.Contains(strings.Join(bounded.Notices, "\n"), "2 elements nested deeper than 1 level not shown") {
+		t.Errorf("notices = %v, want the depth noticed", bounded.Notices)
+	}
+	_, err = srv.RenderView(context.Background(), &pb.RenderViewRequest{ModelHash: parsed.ModelHash, View: "Deep::structure", Depth: -1})
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("depth -1: err = %v, want InvalidArgument", err)
+	}
+}
+
+// An interconnection rendering of a bodiless usage shows the parts it has from
+// its definition, each expanded through its own type.
+func TestRenderViewExpandsUsagesThroughTheirTypes(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	content, err := os.ReadFile(filepath.Join("..", "..", "..", "examples", "runtime-showcase", "mass-rollup.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, _ := parseContent(t, srv, string(content))
+	rendered, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{
+		ModelHash: parsed.ModelHash, View: "#interconnection:MassRollup::saturnV", Ports: "minimal", Depth: 3,
+	})
+	if err != nil {
+		t.Fatalf("RenderView: %v", err)
+	}
+	children := map[string][]string{}
+	for _, node := range rendered.Nodes {
+		children[node.Parent] = append(children[node.Parent], node.Name)
+	}
+	if roots := children[""]; len(roots) != 1 || roots[0] != "MassRollup::saturnV" {
+		t.Fatalf("roots = %v, want saturnV alone", roots)
+	}
+	root := rendered.Nodes[0]
+	want := []string{"mass", "stage1", "stage2", "stage3", "subcomponents", "totalMass"}
+	if got := slices.Sorted(slices.Values(children[root.Id])); !slices.Equal(got, want) {
+		t.Errorf("saturnV holds %v, want %v", got, want)
+	}
+	for _, node := range rendered.Nodes {
+		if node.Parent != root.Id || !strings.HasPrefix(node.Name, "stage") {
+			continue
+		}
+		for _, name := range []string{"engine1", "engines", "propellantMass", "mass", "totalMass", "subcomponents"} {
+			if !slices.Contains(children[node.Id], name) {
+				t.Errorf("%s lacks %s from its type; holds %v", node.Name, name, children[node.Id])
+			}
+		}
+	}
+}
+
+// A Layout binding only collapsed reaches gRPC and engine clients as geometry
+// that is collapsed and unplaced, so they can fold the node without a place.
+func TestRenderViewCarriesFoldOnlyLayoutUnplaced(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	content, err := os.ReadFile(filepath.Join("..", "..", "..", "internal", "ir", "view", "testdata", "layout-collapsed.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, _ := parseContent(t, srv, string(content))
+	const viewName = "FoldedViews::foldOnly"
+	rendered, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{ModelHash: parsed.ModelHash, View: viewName})
+	if err != nil {
+		t.Fatalf("RenderView: %v", err)
+	}
+	checkFoldOnly := func(label string, nodes []*pb.RenderNode) {
+		t.Helper()
+		var engineGeometry *pb.RenderGeometry
+		for _, node := range nodes {
+			switch node.Name {
+			case "engine":
+				engineGeometry = node.Geometry
+			case "piston":
+				t.Errorf("%s: piston is drawn under the collapsed engine", label)
+			}
+		}
+		if engineGeometry == nil || !engineGeometry.Collapsed || !engineGeometry.Unplaced || engineGeometry.X != 0 || engineGeometry.Y != 0 {
+			t.Errorf("%s: engine geometry = %+v, want collapsed and unplaced at no position", label, engineGeometry)
+		}
+	}
+	checkFoldOnly("gRPC", rendered.Nodes)
+
+	eng, err := engine.New()
+	if err != nil {
+		t.Fatalf("engine.New: %v", err)
+	}
+	params, err := json.Marshal(map[string]any{
+		"documents": []map[string]string{{"name": "layout-collapsed.sysml", "content": string(content)}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := eng.Call(context.Background(), "ParseSources", params)
+	if err != nil {
+		t.Fatalf("engine ParseSources: %v", err)
+	}
+	var engineParsed engine.JParseSourcesResponse
+	if err := json.Unmarshal(body, &engineParsed); err != nil {
+		t.Fatalf("decode engine ParseSources: %v", err)
+	}
+	engineRequest, err := json.Marshal(map[string]string{"modelHash": engineParsed.ModelHash, "view": viewName})
+	if err != nil {
+		t.Fatal(err)
+	}
+	engineBody, err := eng.Call(context.Background(), "RenderView", engineRequest)
+	if err != nil {
+		t.Fatalf("engine RenderView: %v", err)
+	}
+	var engineView pb.RenderViewResponse
+	if err := protojson.Unmarshal(engineBody, &engineView); err != nil {
+		t.Fatalf("decode engine RenderView as protojson: %v\n%s", err, engineBody)
+	}
+	checkFoldOnly("engine", engineView.Nodes)
 }

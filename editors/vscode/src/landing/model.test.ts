@@ -2,29 +2,33 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
+import type { Connection, DocumentEvent, FeatureValue, Instance, SysMLValue } from "@openmbee/opensysml/browser";
+import { ExecutionError, renderedViewFromJson } from "@openmbee/opensysml/browser";
 import type { RenderResult } from "../protocol";
 import {
-  EngineClient,
   EngineInstance,
-  JOURNEY_EVENTS,
-  JOURNEY_SYMBOL,
   debugSteps,
   landingModel,
   journey,
   readModel,
-  rpc,
+  renderResult,
   runJourney,
   TraceRecord,
+  journeyOf,
+  sceneTarget,
 } from "./model";
+import { STACK_SCENE } from "./scene";
 
 interface LandingFixture {
   hash: string;
-  render: Omit<RenderResult, "form" | "artifact" | "version">;
+  /** The protojson RenderViewResponse the module answered. */
+  render: unknown;
   instances: EngineInstance[];
 }
 
 const fixture = JSON.parse(readFileSync("src/landing/stack.json", "utf8")) as LandingFixture;
-const fixtureRender = fixture.render as RenderResult;
+const fixtureView = renderedViewFromJson(fixture.render);
+const fixtureRender: RenderResult = renderResult(fixtureView);
 
 const PROJECTS = ["flexo", "opensysml", "pilot"];
 const COMPONENTS: Record<string, string[]> = {
@@ -40,7 +44,7 @@ const COMPONENT_PATHS = Object.entries(COMPONENTS).flatMap(([project, features])
 );
 
 test("landingModel keeps the three ported project parts and their interface edges", () => {
-  const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
+  const model = landingModel(sceneTarget(STACK_SCENE), fixture.hash, fixtureRender, fixture.instances);
   assert.deepEqual([...model.parts.keys()].sort(), [...COMPONENT_PATHS, ...PROJECTS].sort());
   assert.ok(model.render.nodes.every((node) => node.kind !== "attribute"));
   const nodeOf = (feature: string) => model.render.nodes.find(({ id }) => id === model.parts.get(feature)?.id)!;
@@ -66,7 +70,7 @@ test("landingModel keeps the three ported project parts and their interface edge
 });
 
 test("landingModel keeps each project's components inside it, with their own attributes", () => {
-  const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
+  const model = landingModel(sceneTarget(STACK_SCENE), fixture.hash, fixtureRender, fixture.instances);
   for (const [project, features] of Object.entries(COMPONENTS)) {
     const owner = model.parts.get(project)!;
     for (const feature of features) {
@@ -88,151 +92,157 @@ test("landingModel keeps each project's components inside it, with their own att
   assert.equal(model.parts.get("flexo.layer1")?.attrs.label, "Layer 1 service");
 });
 
-test("readModel returns parse diagnostics without requesting a rendering", () => {
-  const calls: string[] = [];
-  const engine: EngineClient = {
-    call(method) {
-      calls.push(method);
-      return JSON.stringify({
-        result: {
-          diagnostics: [{
-            message: "unresolved name",
-            severity: "error",
-            span: { startLine: 3, startCol: 5 },
-          }],
+/** The fixture's instances as the typed client decodes them. */
+function typedInstance(instance: EngineInstance): Instance {
+  const features = new Map<string, FeatureValue>();
+  for (const [name, feature] of Object.entries(instance.featureValues ?? {})) {
+    const value: SysMLValue | undefined = feature.value?.stringValue !== undefined
+      ? { kind: "string", value: feature.value.stringValue }
+      : feature.value?.instanceId === undefined
+        ? undefined
+        : { kind: "instance", id: BigInt(feature.value.instanceId) };
+    if (value !== undefined) {
+      features.set(name, { kind: "single", value, materialized: true });
+    }
+  }
+  return { id: BigInt(instance.id ?? 0), typeId: instance.typeSymbolId ?? "", features } as unknown as Instance;
+}
+
+function traceEvent(record: TraceRecord): DocumentEvent {
+  return {
+    kind: record.kind,
+    state: record.state ?? "",
+    fromState: record.from ?? "",
+    toState: record.to ?? "",
+    event: record.event ?? "",
+    alternatives: record.alternatives ?? [],
+    taken: record.taken ?? "",
+    text: record.text,
+  } as unknown as DocumentEvent;
+}
+
+interface Call {
+  method: string;
+  params: unknown[];
+}
+
+interface FakeAnswers {
+  diagnostics?: unknown[];
+  statesVisited?: string[];
+  trace?: TraceRecord[];
+  executeError?: Error;
+}
+
+/** A connection answering as the fixture's engine would, recording every call. */
+function fakeConnection(answers: FakeAnswers = {}): { connection: Connection; calls: Call[] } {
+  const calls: Call[] = [];
+  const instances = fixture.instances.map(typedInstance);
+  const connection = {
+    parseSources(...params: unknown[]) {
+      calls.push({ method: "ParseSources", params });
+      return Promise.resolve({
+        hash: fixture.hash,
+        diagnostics: answers.diagnostics ?? [],
+        instantiate(name: string) {
+          calls.push({ method: "Instantiate", params: [fixture.hash, name] });
+          return Promise.resolve({ root: instances[0], all: instances.slice(1) });
         },
       });
     },
-  };
-  assert.deepEqual(readModel(engine, "bad model"), {
-    diagnostics: [{ message: "unresolved name", severity: "error", line: 3, column: 5 }],
-  });
-  assert.deepEqual(calls, ["ParseSources"]);
-});
-
-test("rpc throws errors returned in the envelope or result", () => {
-  assert.throws(
-    () => rpc({ call: () => JSON.stringify({ error: { message: "engine unavailable" } }) }, "RenderView", {}),
-    /engine unavailable/,
-  );
-  assert.throws(
-    () => rpc({ call: () => JSON.stringify({ result: { error: "symbol not found" } }) }, "Instantiate", {}),
-    /symbol not found/,
-  );
-});
-
-test("readModel requests a minimal interconnection render before instantiating the stack", () => {
-  const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
-  const engine: EngineClient = {
-    call(method, params) {
-      calls.push({ method, params: JSON.parse(params) as Record<string, unknown> });
-      const result = method === "ParseSources"
-        ? { modelHash: fixture.hash, diagnostics: [] }
-        : method === "RenderView"
-          ? fixture.render
-          : { instances: fixture.instances };
-      return JSON.stringify({ result });
+    renderView(...params: unknown[]) {
+      calls.push({ method: "RenderView", params });
+      return Promise.resolve(fixtureView);
+    },
+    executeState(...params: unknown[]) {
+      calls.push({ method: "ExecuteState", params });
+      if (answers.executeError) {
+        return Promise.reject(answers.executeError);
+      }
+      return Promise.resolve({
+        statesVisited: answers.statesVisited ?? [],
+        trace: (answers.trace ?? []).map(traceEvent),
+      });
     },
   };
-  const read = readModel(engine, "model source");
+  return { connection: connection as unknown as Connection, calls };
+}
+
+test("readModel returns parse diagnostics without requesting a rendering", async () => {
+  const { connection, calls } = fakeConnection({
+    diagnostics: [{
+      message: "unresolved name",
+      severity: "error",
+      file: "opensysml-stack.sysml", startLine: 3, startColumn: 5, endLine: 3, endColumn: 9,
+    }],
+  });
+  assert.deepEqual(await readModel(connection, STACK_SCENE, "bad model"), {
+    diagnostics: [{ message: "unresolved name", severity: "error", line: 3, column: 5 }],
+  });
+  assert.deepEqual(calls.map(({ method }) => method), ["ParseSources"]);
+});
+
+test("readModel requests a minimal interconnection render before instantiating the stack", async () => {
+  const { connection, calls } = fakeConnection();
+  const read = await readModel(connection, STACK_SCENE, "model source");
   assert.deepEqual(read.diagnostics, []);
   assert.ok(read.model);
   assert.deepEqual(calls.map(({ method }) => method), ["ParseSources", "RenderView", "Instantiate"]);
-  assert.deepEqual(calls[1].params, {
-    modelHash: fixture.hash,
-    view: "#interconnection:OpenSysMLStack::stack",
-    ports: "minimal",
-  });
+  assert.deepEqual(calls[0].params, [[["opensysml-stack.sysml", "model source"]]]);
+  assert.deepEqual(calls[1].params, [
+    fixture.hash,
+    "#interconnection:OpenSysMLStack::stack",
+    { ports: "minimal", show: ["edge-labels", "typings", "keywords"] },
+  ]);
+  assert.deepEqual(calls[2].params, [fixture.hash, "OpenSysMLStack::stack"]);
+  // The typed rendering and instances read back to the same model the fixture does.
+  const expected = landingModel(sceneTarget(STACK_SCENE), fixture.hash, fixtureRender, fixture.instances);
+  assert.deepEqual([...read.model.parts.keys()], [...expected.parts.keys()]);
+  assert.deepEqual(read.model.parts.get("opensysml.engine"), expected.parts.get("opensysml.engine"));
+  assert.deepEqual(read.model.render.edges, expected.render.edges);
 });
 
-test("journey maps visited feature names to node ids and drops unknown states", () => {
-  const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
-  const engine: EngineClient = {
-    call(method, params) {
-      assert.equal(method, "ExecuteState");
-      assert.deepEqual(JSON.parse(params), {
-        modelHash: fixture.hash,
-        stateMachineSymbolId: JOURNEY_SYMBOL,
-        events: JOURNEY_EVENTS,
-      });
-      return JSON.stringify({
-        result: { statesVisited: ["start", "opensysml", "unknown", "flexo", "pilot", "flexo", "pilot"] },
-      });
-    },
-  };
+test("journey maps visited feature names to node ids and drops unknown states", async () => {
+  const model = landingModel(sceneTarget(STACK_SCENE), fixture.hash, fixtureRender, fixture.instances);
+  const { connection, calls } = fakeConnection({
+    statesVisited: ["start", "opensysml", "unknown", "flexo", "pilot", "flexo", "pilot"],
+  });
   assert.deepEqual(
-    journey(engine, model),
+    await journey(connection, STACK_SCENE, model),
     ["opensysml", "flexo", "pilot", "flexo", "pilot"].map((feature) => model.parts.get(feature)!.id),
   );
+  assert.deepEqual(calls, [{
+    method: "ExecuteState",
+    params: [fixture.hash, journeyOf(STACK_SCENE).symbol, { events: journeyOf(STACK_SCENE).events }],
+  }]);
 });
 
-test("journey adds a seed only when defined", () => {
-  const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
-  const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
-  const engine: EngineClient = {
-    call(method, params) {
-      calls.push({ method, params: JSON.parse(params) as Record<string, unknown> });
-      return JSON.stringify({ result: { statesVisited: [] } });
-    },
-  };
+test("journey adds a seed only when defined", async () => {
+  const model = landingModel(sceneTarget(STACK_SCENE), fixture.hash, fixtureRender, fixture.instances);
+  const { connection, calls } = fakeConnection();
 
-  journey(engine, model, 42);
-  journey(engine, model);
+  await journey(connection, STACK_SCENE, model, 42);
+  await journey(connection, STACK_SCENE, model);
 
-  assert.deepEqual(calls, [
-    {
-      method: "ExecuteState",
-      params: {
-        modelHash: fixture.hash,
-        stateMachineSymbolId: JOURNEY_SYMBOL,
-        events: JOURNEY_EVENTS,
-        schedule: "seed:42",
-      },
-    },
-    {
-      method: "ExecuteState",
-      params: {
-        modelHash: fixture.hash,
-        stateMachineSymbolId: JOURNEY_SYMBOL,
-        events: JOURNEY_EVENTS,
-      },
-    },
+  assert.deepEqual(calls.map(({ params }) => params[2]), [
+    { events: journeyOf(STACK_SCENE).events, schedule: "seed:42" },
+    { events: journeyOf(STACK_SCENE).events },
   ]);
 });
 
-test("runJourney requests a trace and adds a seed only when defined", () => {
-  const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
-  const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
-  const engine: EngineClient = {
-    call(method, params) {
-      calls.push({ method, params: JSON.parse(params) as Record<string, unknown> });
-      return JSON.stringify({
-        result: {
-          statesVisited: ["start", "flexo"],
-          trace: [
-            {
-              kind: "entry",
-              state: "start",
-              text: "entry start",
-              machine: "ModelJourney",
-              at: 0,
-            },
-            { kind: "accept", event: "Commit", text: "accept Commit" },
-          ],
-        },
-      });
-    },
-  };
+test("runJourney requests a trace and adds a seed only when defined", async () => {
+  const model = landingModel(sceneTarget(STACK_SCENE), fixture.hash, fixtureRender, fixture.instances);
+  const { connection, calls } = fakeConnection({
+    statesVisited: ["start", "flexo"],
+    trace: [
+      { kind: "entry", state: "start", text: "entry start" },
+      { kind: "accept", event: "Commit", text: "accept Commit" },
+    ],
+  });
   const unseededEvents = ["Commit", "Pull", "Check", "Push"];
-  const unseeded = runJourney(engine, model, unseededEvents);
+  const unseeded = await runJourney(connection, STACK_SCENE, model, unseededEvents);
   assert.deepEqual(calls[0], {
     method: "ExecuteState",
-    params: {
-      modelHash: fixture.hash,
-      stateMachineSymbolId: JOURNEY_SYMBOL,
-      events: unseededEvents,
-      trace: true,
-    },
+    params: [fixture.hash, journeyOf(STACK_SCENE).symbol, { events: unseededEvents, trace: true }],
   });
   assert.deepEqual(unseeded, {
     visited: ["start", "flexo"],
@@ -244,46 +254,36 @@ test("runJourney requests a trace and adds a seed only when defined", () => {
   assert.equal(Object.hasOwn(unseeded.trace[1], "state"), false);
 
   const seededEvents = ["Commit", "Pull"];
-  runJourney(engine, model, seededEvents, 2);
-  assert.deepEqual(calls[1], {
-    method: "ExecuteState",
-    params: {
-      modelHash: fixture.hash,
-      stateMachineSymbolId: JOURNEY_SYMBOL,
-      events: seededEvents,
-      trace: true,
-      schedule: "seed:2",
-    },
-  });
+  await runJourney(connection, STACK_SCENE, model, seededEvents, 2);
+  assert.deepEqual(calls[1].params, [
+    fixture.hash,
+    journeyOf(STACK_SCENE).symbol,
+    { events: seededEvents, trace: true, schedule: "seed:2" },
+  ]);
 });
 
-test("runJourney returns partial traces on result errors and throws envelope errors", () => {
-  const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
-  const failed: EngineClient = {
-    call: () => JSON.stringify({
-      result: {
-        statesVisited: ["start", "flexo"],
-        trace: [
-          { kind: "entry", state: "start", text: "entry start" },
-          { kind: "accept", event: "Commit", text: "accept Commit" },
-        ],
-        error: "state machine execution failed: incomplete run",
-      },
-    }),
-  };
-  assert.deepEqual(runJourney(failed, model, ["Commit"]), {
-    visited: ["start", "flexo"],
-    trace: [
-      { kind: "entry", state: "start", text: "entry start" },
-      { kind: "accept", event: "Commit", text: "accept Commit" },
-    ],
+test("runJourney returns the partial trace of a failed run and rethrows other errors", async () => {
+  const model = landingModel(sceneTarget(STACK_SCENE), fixture.hash, fixtureRender, fixture.instances);
+  const trace: TraceRecord[] = [
+    { kind: "entry", state: "start", text: "entry start" },
+    { kind: "accept", event: "Commit", text: "accept Commit" },
+  ];
+  const failed = fakeConnection({
+    executeError: new ExecutionError(
+      "state machine execution failed: incomplete run",
+      "unspecified",
+      [],
+      trace.map(traceEvent),
+    ),
+  });
+  assert.deepEqual(await runJourney(failed.connection, STACK_SCENE, model, ["Commit"]), {
+    visited: [],
+    trace,
     error: "state machine execution failed: incomplete run",
   });
 
-  const unavailable: EngineClient = {
-    call: () => JSON.stringify({ error: { message: "engine unavailable" } }),
-  };
-  assert.throws(() => runJourney(unavailable, model, ["Commit"]), /engine unavailable/);
+  const unavailable = fakeConnection({ executeError: new Error("engine unavailable") });
+  await assert.rejects(runJourney(unavailable.connection, STACK_SCENE, model, ["Commit"]), /engine unavailable/);
 });
 
 test("debugSteps tracks active state, transitions, accepts, and ignored events", () => {
@@ -353,4 +353,43 @@ test("debugSteps marks the seed:2 Commit ignored and Pull fired", () => {
   assert.equal(steps[5].accepted, 1);
   assert.equal(steps[6].accepted, 2);
   assert.deepEqual(steps[10].edge, { from: "flexo", to: "opensysml" });
+});
+
+test("renderResult carries a node's Style colours as the fill and border the canvas paints", () => {
+  const result = renderResult(
+    renderedViewFromJson({
+      view: "#interconnection:Demo::Item",
+      kind: "interconnection",
+      nodes: [
+        { id: "n0", kind: "part", name: "Demo::Item" },
+        { id: "n1", kind: "part", name: "red", parent: "n0", style: { fill: "#ff0000", line: "#800000", bold: true } },
+        { id: "n2", kind: "part", name: "plain", parent: "n0" },
+      ],
+    }),
+  );
+  const [, red, plain] = result.nodes;
+  assert.equal(red.fill, "#ff0000");
+  assert.equal(red.border, "#800000");
+  assert.equal(red.style?.bold, true);
+  assert.equal(plain.fill, undefined);
+  assert.equal(plain.border, undefined);
+});
+
+test("renderResult states no x and y for a geometry that only folds the node", () => {
+  const result = renderResult(
+    renderedViewFromJson({
+      view: "#interconnection:Demo::Item",
+      kind: "interconnection",
+      nodes: [
+        { id: "n0", kind: "part", name: "Demo::Item" },
+        { id: "n1", kind: "part", name: "folded", parent: "n0", geometry: { collapsed: true, unplaced: true } },
+        { id: "n2", kind: "part", name: "pinned", parent: "n0", geometry: { x: 10, y: 20 } },
+      ],
+    }),
+  );
+  const [, folded, pinned] = result.nodes;
+  assert.equal(folded.collapsed, true);
+  assert.equal(folded.x, undefined);
+  assert.equal(folded.y, undefined);
+  assert.deepEqual([pinned.x, pinned.y], [10, 20]);
 });

@@ -81,8 +81,8 @@ func TestControlFunctionCallFormErrors(t *testing.T) {
 		{"ControlFunctions::'or'(1, true)", ErrTypeMismatch},
 		{"ControlFunctions::'??'(null, 1 / 0)", ErrDivisionByZero},
 		{"ControlFunctions::'??'((), 1 / 0)", ErrDivisionByZero},
-		{"ControlFunctions::'if'()", ErrCalcArity},
-		{"ControlFunctions::'if'(true, 1, 2, 3)", ErrCalcArity},
+		{"ControlFunctions::'if'()", errCalcArity},
+		{"ControlFunctions::'if'(true, 1, 2, 3)", errCalcArity},
 		{"ControlFunctions::'and'(true)", ErrMultiplicityViolation},
 	}
 	for _, tc := range cases {
@@ -142,7 +142,7 @@ func TestAggregationsWithIdentityErrors(t *testing.T) {
 		{"NumericalFunctions::product1((1, 2), 0)", ErrTypeMismatch, "isUnit(one)"},
 		{`NumericalFunctions::sum0(("a", "b"), 0)`, ErrTypeMismatch, "numeric elements"},
 		{"NumericalFunctions::product1((1e200 * (1.0 ** 0.5), 1e200), 1)", semantics.ErrArithmeticOverflow, "finite"},
-		{"NumericalFunctions::sum0((1, 2))", ErrCalcArity, "sum0"},
+		{"NumericalFunctions::sum0((1, 2))", errCalcArity, "sum0"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.expr, func(t *testing.T) {

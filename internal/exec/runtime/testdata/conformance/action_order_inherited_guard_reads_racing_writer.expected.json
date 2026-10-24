@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{"outputs": {"go": {"type": "Boolean", "value": true}, "mode": {"type": "Integer", "value": 20}, "later": {"type": "Integer", "value": 7}}},
+		{"outputs": {"go": {"type": "Boolean", "value": false}, "mode": {"type": "Integer", "value": 10}, "later": {"type": "Integer", "value": 7}}}
+	],
+	"admissible": "An inherited guard reading an order-dependent value leaves what its branch writes order-dependent",
+	"orderDependent": {"go": 2, "mode": 2}
+}

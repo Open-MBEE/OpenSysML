@@ -45,7 +45,19 @@ type checks struct {
 	states            stringSlice
 	advance           advanceTime
 	jsonOut           bool
-	checker           checkerOptions
+	// format is the report format -format named, output the file -o writes the
+	// report to, baseline the file of known findings -baseline accepts, and
+	// warningsAsErrors the exit policy -warnings-as-errors sets.
+	format           string
+	output           string
+	baseline         string
+	warningsAsErrors bool
+	checker          checkerOptions
+}
+
+// machine reports whether the report was asked for as one document rather than lines.
+func (c *checks) machine() bool {
+	return c.jsonOut || (c.format != "" && c.format != formatText)
 }
 
 // checkerOptions are the -check-* flags: what the check and smt engines are asked
@@ -234,7 +246,7 @@ func (a *advanceTime) Set(value string) error {
 // -json and -advance check nothing themselves, but are included so their misuse
 // is reported rather than leaving a script at a prompt it cannot answer.
 func (c *checks) requested() bool {
-	return c.validate.given || c.selfCheck || c.jsonOut || c.advance.given || c.satisfy.given || len(c.instantiate) > 0 ||
+	return c.validate.given || c.selfCheck || c.format != "" || c.jsonOut || c.baseline != "" || c.warningsAsErrors || c.advance.given || c.satisfy.given || len(c.instantiate) > 0 ||
 		len(c.constraints) > 0 || len(c.requirements) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 ||
 		len(c.toolDryRuns) > 0 || len(c.records) > 0 ||
 		len(c.queries) > 0 || len(c.actions) > 0 || len(c.states) > 0 ||
@@ -432,7 +444,7 @@ func (c *checks) sweepMisuse() string {
 // instantiatesOnly reports whether the run creates objects and decides nothing
 // about them, so a document can be rendered over what it holds.
 func (c *checks) instantiatesOnly() bool {
-	return len(c.instantiate) > 0 && !c.validate.given && !c.selfCheck && !c.jsonOut && !c.advance.given && !c.satisfy.given &&
+	return len(c.instantiate) > 0 && !c.validate.given && !c.selfCheck && !c.machine() && !c.advance.given && !c.satisfy.given &&
 		len(c.constraints) == 0 && len(c.requirements) == 0 && len(c.calcs) == 0 && len(c.analyses) == 0 &&
 		len(c.toolDryRuns) == 0 && len(c.records) == 0 &&
 		len(c.queries) == 0 && len(c.actions) == 0 && len(c.states) == 0 && !c.sweeping() && !c.running() && c.compare == "" && !c.checker.given()
@@ -443,7 +455,7 @@ func (c *checks) instantiatesOnly() bool {
 // The bounds the records run under — a sweep's ranges, a Monte Carlo's runs,
 // seed and draws — and the objects -instantiate materializes for them, serve them.
 func (c *checks) recordsOnly() bool {
-	return len(c.records) > 0 && !c.validate.given && !c.selfCheck && !c.jsonOut && !c.advance.given && !c.satisfy.given &&
+	return len(c.records) > 0 && !c.validate.given && !c.selfCheck && !c.machine() && !c.advance.given && !c.satisfy.given &&
 		len(c.constraints) == 0 && len(c.requirements) == 0 && len(c.calcs) == 0 &&
 		len(c.analyses) == 0 && len(c.toolDryRuns) == 0 && len(c.observe) == 0 &&
 		len(c.queries) == 0 && len(c.actions) == 0 && len(c.states) == 0 && c.compare == "" && !c.checker.given()
@@ -547,7 +559,11 @@ func (c *checks) valueMisuse(path string) string {
 // refuse reports a misused flag in whichever form the caller asked for, so a
 // script reading the JSON document reads why no check was made.
 func refuse(c checks, message string) int {
-	rep := newReporter(c.jsonOut)
+	format, _ := reportFormat(c.format, c.jsonOut)
+	if format == "" {
+		format = formatText
+	}
+	rep := newReporter(format, "")
 	rep.failed(message)
 	return rep.finish()
 }
@@ -557,7 +573,15 @@ func refuse(c checks, message string) int {
 // is decided. The result is the exit status: every verdict held, one of them
 // failed, or a check could not be made at all.
 func runChecks(files []string, exprs []string, c checks) int {
-	rep := newReporter(c.jsonOut)
+	format, misuse := reportFormat(c.format, c.jsonOut)
+	if misuse != "" {
+		return refuse(c, misuse)
+	}
+	if c.output != "" && format == formatText {
+		return refuse(c, "-o names the file the report document is written to; ask for one with -json or -format json|sarif|junit")
+	}
+	rep := newReporter(format, c.output)
+	rep.warningsAsErrors = c.warningsAsErrors
 
 	var advance float64
 	if c.advance.given {
@@ -589,9 +613,16 @@ func runChecks(files []string, exprs []string, c checks) int {
 		return rep.finish()
 	}
 	if !c.checksOnly() {
-		if c.jsonOut {
+		switch {
+		case c.jsonOut:
 			rep.failed("-json reports a check; name one, as -validate or -constraint <name>")
-		} else {
+		case c.format != "":
+			rep.failed("-format reports a check; name one, as -validate or -constraint <name>")
+		case c.baseline != "":
+			rep.failed("-baseline accepts the known findings of a check; name one, as -validate")
+		case c.warningsAsErrors:
+			rep.failed("-warnings-as-errors judges the warnings of a check; name one, as -validate")
+		default:
 			rep.failed("no check was named; name one, as -validate or -constraint <name>")
 		}
 		return rep.finish()
@@ -614,7 +645,7 @@ func runChecks(files []string, exprs []string, c checks) int {
 
 	// A checked model may be named as a directory or a glob as well as by file, so
 	// the paths are expanded to the files they stand for before loading.
-	paths, err := repl.ExpandPaths(files)
+	paths, err := sess.ExpandPaths(files)
 	if err != nil {
 		rep.failed(err.Error())
 		if len(files) == 1 {
@@ -627,6 +658,15 @@ func runChecks(files []string, exprs []string, c checks) int {
 
 	// The files are loaded as one submission, each a document of its own indexed
 	// with the others, and each is summarized on its own.
+	if c.baseline != "" {
+		known, err := readBaseline(rep.root, c.baseline)
+		if err != nil {
+			rep.failed(fmt.Sprintf("-baseline %v", err))
+			return rep.finish()
+		}
+		sess.Suppress(known.accepts(rep.root))
+	}
+	rep.files = paths
 	loaded, err := sess.LoadFilesSummary(paths)
 	if err != nil {
 		rep.failed(err.Error())
@@ -638,15 +678,42 @@ func runChecks(files []string, exprs []string, c checks) int {
 		}
 		return rep.finish()
 	}
+	// The report must not land on a file the run read: a model, or the baseline.
+	if c.output != "" {
+		for _, read := range append(sess.Files(), c.baseline) {
+			if read != "" && samePath(c.output, read) {
+				rep.output = ""
+				rep.failed(fmt.Sprintf("-o %s is a file this run reads; name another for the report", c.output))
+				return rep.finish()
+			}
+		}
+	}
 
 	// A model that did not analyse cleanly answers nothing, so its diagnostics end
 	// the run rather than a verdict being reported about a model nobody could read.
 	// One file's reference to another only resolves once every file is loaded, so
 	// the gate is about the whole model rather than about each file in turn.
+	if c.baseline != "" {
+		rep.suppress(sess.Suppressed(), c.baseline)
+	}
 	if sess.HasErrors() {
 		rep.diags(sess.LocatedDiagnostics())
 		rep.problem(sess.DiagnosticLines())
-		rep.failed(fmt.Sprintf("%s did not analyse cleanly; no check was made", namedModels(files)))
+		if c.baseline != "" && !reportedErrors(sess.LocatedDiagnostics()) {
+			// A known error is still one: analysis stopped at it, so the tiers
+			// after it did not run and nothing can be said about the model.
+			rep.failed(fmt.Sprintf("%s did not analyse cleanly: an error the baseline knows stopped analysis before the later tiers ran; no check was made", namedModels(files)))
+		} else {
+			rep.failed(fmt.Sprintf("%s did not analyse cleanly; no check was made", namedModels(files)))
+		}
+		return rep.finish()
+	}
+	// -warnings-as-errors judges a warning as an error does: the report keeps
+	// its severity, and the run ends on it as it would on an error.
+	if c.warningsAsErrors && reportedWarnings(sess.LocatedDiagnostics()) {
+		rep.diags(sess.LocatedDiagnostics())
+		rep.problem(sess.DiagnosticLines())
+		rep.failed(fmt.Sprintf("%s has warnings, which -warnings-as-errors judges errors; no check was made", namedModels(files)))
 		return rep.finish()
 	}
 	// A clean model's warnings are still findings rather than results, so they
@@ -886,6 +953,17 @@ func (c *checks) sweep(sess *repl.Session, invocation string) repl.Verdict {
 		return sess.RunSamples(invocation, c.sweeps, c.samples.value, c.seed.value)
 	}
 	return sess.RunSweep(invocation, c.sweeps)
+}
+
+// reportedWarnings reports whether analysis found a warning, which
+// -warnings-as-errors ends the run on.
+func reportedWarnings(diags []repl.Diagnostic) bool {
+	for _, d := range diags {
+		if d.Severity == "warning" {
+			return true
+		}
+	}
+	return false
 }
 
 // reportedErrors reports whether analysis found an error, which a check runs

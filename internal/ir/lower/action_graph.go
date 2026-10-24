@@ -52,6 +52,10 @@ type ActionGraph struct {
 	// send, accept and converge on; computed on the first call of Footprints.
 	footprints     map[ast.Node]Footprint
 	footprintsOnce sync.Once
+	// bindingFootprints: node → what binding its features, pins and payload
+	// touches, apart from its body's statements; computed by BindingFootprints.
+	bindingFootprints     map[ast.Node]Footprint
+	bindingFootprintsOnce sync.Once
 
 	// incoming: node → the successions into it; computed on the first call of Incoming.
 	incoming     map[ast.Node][]ActionEdge
@@ -132,6 +136,9 @@ type ActionGraph struct {
 	// lowering holds the declarations whose action content is being lowered on
 	// this path.
 	lowering []ast.Node
+	// unfolded memoizes, on the outermost flow, the flow each deferred typed body
+	// lowered to, keyed by its node, so a recursive definition is lowered once.
+	unfolded map[ast.Node]*ActionGraph
 
 	// inherited are the actions the action specializes, nearest general first.
 	inherited []Inherited
@@ -183,16 +190,22 @@ func (g *ActionGraph) recordDeclaredIn(decl ast.Node, scope *symbols.Scope) {
 	g.declaredIn[decl] = scope
 }
 
+// DeclScope is the scope a declaration of the graph was written in, where the
+// names its expressions spell resolve: the general's body where inherited, else
+// the action's own.
+func (g *ActionGraph) DeclScope(decl ast.Node) *symbols.Scope {
+	if decl != nil {
+		if declared := g.declaredIn[decl]; declared != nil {
+			return declared
+		}
+	}
+	return g.Scope
+}
+
 // DocOf is the document a declaration of the graph was written in: the general's
 // where inherited, else the action's own; "" outside any document.
 func (g *ActionGraph) DocOf(decl ast.Node) string {
-	scope := g.Scope
-	if decl != nil {
-		if declared := g.declaredIn[decl]; declared != nil {
-			scope = declared
-		}
-	}
-	return symbols.DocNameOf(scope)
+	return symbols.DocNameOf(g.DeclScope(decl))
 }
 
 // Inherited lists the declarations the action's content came from besides its
@@ -609,7 +622,7 @@ func terminateTarget(m *ast.TerminateStatement, scope *symbols.Scope) (ast.Node,
 		segments[i] = part.Text
 	}
 	if sym, ok := resolve.FeatureSymbolInScope(scope, segments); ok {
-		if usage, isUsage := sym.Decl.(*ast.Usage); isUsage && usage.Kind == ast.UsageAction {
+		if usage, isUsage := sym.Decl.(*ast.Usage); isUsage && usage.Kind.IsAction() {
 			return usage, TerminateNode
 		}
 	}
@@ -694,6 +707,25 @@ type Attribute struct {
 	// Symbol is the feature the attribute declares, which a performance holding it
 	// binds its cell by; nil when no scope declares Node.
 	Symbol *symbols.Symbol
+	// Shadowed marks an inherited feature a same-named member of the specialization
+	// hides without redefining it (KerML 1.0 §8.2.3.5.3): both are held, and Name is
+	// then the hidden one's owner-qualified key (ShadowedKey).
+	Shadowed bool
+}
+
+// ShadowedKey is the name a performance binds a hidden inherited feature under:
+// the declaring type's name and the feature's, `Base::go`, which no simple name
+// spells.
+func ShadowedKey(sym *symbols.Symbol) string {
+	if sym == nil {
+		return ""
+	}
+	if sym.OwnerScope != nil {
+		if owner := sym.OwnerScope.Owner(); owner != nil && owner.Name != "" {
+			return owner.Name + "::" + sym.Name
+		}
+	}
+	return "::" + sym.Name
 }
 
 // TypeText spells the type a usage declares with `:` as the notation writes it
@@ -736,6 +768,9 @@ type Feature struct {
 	Binding   bool
 	Node      ast.Node // the declaration, for diagnostics
 	Scope     *symbols.Scope
+	// Shadowed marks an inherited feature a same-named nearer feature hides without
+	// redefining it; Name is then its ShadowedKey (see Attribute.Shadowed).
+	Shadowed bool
 }
 
 // valueIsBinding reports whether the declaration uses a live `=` value.
@@ -835,7 +870,7 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 // a succession's `@Probability { p = ...; }` becomes its edge's weight.
 func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
 	typing := true
-	if usage, ok := actionDecl.(*ast.Usage); ok && usage.Kind == ast.UsageAction {
+	if usage, ok := actionDecl.(*ast.Usage); ok && usage.Kind.IsAction() {
 		typing, _ = mergedTypedActionBody(usage, scope)
 	}
 	return toActionGraphWithTyping(actionDecl, scope, resolver, typing)
@@ -1254,7 +1289,7 @@ func (l *actionEdgeLowerer) objectFlowEdge(n *ast.ObjectFlowEdge) error {
 
 func (l *actionEdgeLowerer) usage(n *ast.Usage) error {
 	switch n.Kind {
-	case ast.UsageAction:
+	case ast.UsageAction, ast.UsageUseCase:
 		return l.weights.refuseStrayIn(n.Prefixes, n.Members)
 	case ast.UsageBinding:
 		nodes := l.nodes
@@ -1571,7 +1606,12 @@ func lowerPinBindings(graph *ActionGraph, nodes nodeLookup, u *ast.Usage, scope 
 // is nil for an end addressing no node; a path reaching into a node that holds no
 // such nested action is an error.
 func pinPath(graph *ActionGraph, nodes nodeLookup, end ast.Node) (node ast.Node, path []ast.Node, pin string, err error) {
-	segments := endSegments(end)
+	return pinPathOf(graph, nodes, end, endSegments(end))
+}
+
+// pinPathOf is pinPath over segments, the names of end left once a prefix the
+// graph is reached through is dropped.
+func pinPathOf(graph *ActionGraph, nodes nodeLookup, end ast.Node, segments []string) (node ast.Node, path []ast.Node, pin string, err error) {
 	if len(segments) == 0 {
 		return nil, nil, "", nil
 	}
@@ -1696,14 +1736,22 @@ func lowerEffectiveActionNodeFeatures(graph *ActionGraph, node *ast.Usage, scope
 					continue
 				}
 				name, _ := ast.EffectiveName(m)
-				if name == "" || seen[name] {
+				if name == "" {
 					continue
 				}
 				feature, ok := declaredFeature(m, general)
 				if !ok {
 					continue
 				}
-				seen[name] = true
+				if seen[name] {
+					// Hidden by a nearer same-named feature: held under its own key
+					// unless that feature redefines it (KerML 1.0 §8.2.3.5.3).
+					feature.Name, feature.Shadowed = ShadowedKey(general.MemberDeclaring(m)), true
+					if feature.Name == "" || seen[feature.Name] || redefinesFeature(graph.resolver, features, name, feature.Node) {
+						continue
+					}
+				}
+				seen[feature.Name] = true
 				graph.recordDeclaredIn(m, general)
 				features = append(features, feature)
 			}
@@ -1731,6 +1779,62 @@ func declaredFeature(m *ast.Usage, scope *symbols.Scope) (Feature, bool) {
 		Node:      m,
 		Scope:     scope,
 	}, true
+}
+
+// redefinesFeature reports whether the feature among features named name
+// redefines the declaration hidden by clause.
+func redefinesFeature(resolver *resolve.Resolver, features []Feature, name string, hidden ast.Node) bool {
+	var target *symbols.Symbol
+	for _, feature := range features {
+		if feature.Name != name {
+			continue
+		}
+		if feature.Scope != nil {
+			target = feature.Scope.MemberDeclaring(hidden)
+		}
+		if usage, ok := feature.Node.(*ast.Usage); ok {
+			var r redefinitionResolver
+			if resolver != nil {
+				r = resolver
+			}
+			return redefinesByClause(r, feature.Scope, usage, target)
+		}
+	}
+	return false
+}
+
+// redefinitionResolver resolves what a redefinition clause names.
+type redefinitionResolver interface {
+	RedefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) (*symbols.Symbol, bool)
+}
+
+// redefinesByClause reports whether usage, declared in scope, redefines target by
+// a `:>>` clause; with no resolver, or no target to compare, a clause naming the
+// feature's own name is taken at its word.
+func redefinesByClause(resolver redefinitionResolver, scope *symbols.Scope, usage *ast.Usage, target *symbols.Symbol) bool {
+	name, _ := ast.EffectiveName(usage)
+	for _, rel := range usage.Relationships {
+		if rel == nil || rel.Kind != ast.RelRedefines || rel.Target == nil {
+			continue
+		}
+		if resolver == nil || target == nil {
+			path := FeaturePath(rel.Target)
+			if i := strings.LastIndex(path, "::"); i >= 0 {
+				path = path[i+2:]
+			}
+			if i := strings.LastIndex(path, "."); i >= 0 {
+				path = path[i+1:]
+			}
+			if path == name {
+				return true
+			}
+			continue
+		}
+		if resolved, ok := resolver.RedefinitionTarget(scope, usage, rel.Target); ok && resolved == target {
+			return true
+		}
+	}
+	return false
 }
 
 // lowerParameters is the directed parameters an action declares among its own
@@ -1859,9 +1963,9 @@ func isParameter(decl ast.Node) bool {
 func isActionDecl(node ast.Node) bool {
 	switch n := node.(type) {
 	case *ast.Definition:
-		return n.Kind == ast.DefAction
+		return n.Kind.IsAction()
 	case *ast.Usage:
-		return n.Kind == ast.UsageAction
+		return n.Kind.IsAction()
 	}
 	return false
 }
@@ -1943,7 +2047,7 @@ func DeclaresNodeFeature(m *ast.Usage) bool {
 func lowerNodeBody(graph *ActionGraph, node ast.Node, members []ast.Node, scope *symbols.Scope) {
 	body := childScope(scope, node)
 	for _, member := range BodyStatementMembers(members) {
-		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(unwrapMembership(member), body, graph.resolver))
+		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(unwrapMembership(member), body, graph.resolver, graph.lowering))
 	}
 }
 
@@ -1998,7 +2102,7 @@ func BodyStatementMembers(members []ast.Node) []ast.Node {
 		case *ast.Usage:
 			// A declared action is a feature of the node; only one naming the action
 			// it performs is a step (`perform a;`).
-			if m.Kind == ast.UsageAction && !m.IsBodyParameter && performsAction(m) {
+			if m.Kind.IsAction() && !m.IsBodyParameter && performsAction(m) {
 				stmts = append(stmts, member)
 			}
 		}
@@ -2009,7 +2113,7 @@ func BodyStatementMembers(members []ast.Node) []ast.Node {
 // lowerStatement lowers one executable body statement, in the scope it was
 // written in. Every form it recognizes is lowered losslessly; a form it does not
 // becomes Unsupported, so the executor reports it rather than skipping it.
-func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) Statement {
+func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Statement {
 	switch m := member.(type) {
 	case *ast.SendStatement:
 		return lowerSend(m, scope)
@@ -2023,17 +2127,17 @@ func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Res
 			Until:      m.Until,
 			Variable:   variable,
 			Collection: m.Collection,
-			Body:       lowerBlock(m, m.Body, childScope(scope, m), resolver),
+			Body:       lowerBlock(m, m.Body, childScope(scope, m), resolver, ancestors),
 			Node:       m,
 			Scope:      scope,
 		}
 	case *ast.IfActionNode:
 		lowered := If{Condition: m.Condition, Node: m, Scope: scope}
 		if m.Then != nil {
-			lowered.Then = lowerBlock(m.Then, m.Then.Body, childScope(scope, m.Then), resolver)
+			lowered.Then = lowerBlock(m.Then, m.Then.Body, childScope(scope, m.Then), resolver, ancestors)
 		}
 		if m.Else != nil {
-			block := lowerBlock(m.Else, m.Else.Body, childScope(scope, m.Else), resolver)
+			block := lowerBlock(m.Else, m.Else.Body, childScope(scope, m.Else), resolver, ancestors)
 			lowered.Else = &block
 		}
 		return lowered
@@ -2043,7 +2147,7 @@ func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Res
 		target, terminates := terminateTarget(m, scope)
 		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: terminates, Target: target, TargetExpr: m.Target}
 	case *ast.Usage:
-		return lowerUsageStatement(m, scope, resolver)
+		return lowerUsageStatement(m, scope, resolver, ancestors)
 	default:
 		return Unsupported{Description: statedFlowKeyword(member), Node: member, Scope: scope}
 	}
@@ -2132,20 +2236,40 @@ func lowerAssignment(m *ast.AssignmentActionNode, scope *symbols.Scope) Statemen
 // (`loop action charging { … } until charging.done`). An action usage naming
 // the action it performs is a performed action, which the host executes or
 // rejects as its own purity demands.
-func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver) Statement {
+func lowerUsageStatement(m *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Statement {
 	if m.IsTerminate {
-		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: TerminateEnclosing}
+		return terminateUsageEffect(m, scope)
 	}
 	if stmt, ok := usageStatement(m, scope); ok {
 		return stmt
 	}
-	if m.Kind == ast.UsageAction && m.IsBodyParameter {
-		return lowerBlock(m, m.Members, childScope(scope, m), resolver)
+	if m.Kind.IsAction() && m.IsBodyParameter {
+		return lowerBlock(m, m.Members, childScope(scope, m), resolver, ancestors)
 	}
-	if m.Kind == ast.UsageAction && performsAction(m) {
+	if m.Kind.IsAction() && performsAction(m) {
 		return performEffect(m, scope)
 	}
 	return Unsupported{Description: usageDescription(m), Node: m, Scope: scope}
+}
+
+// terminateUsageEffect is the effect a terminate action usage declared in scope
+// performs: ending the occurrence it names, or else the performance its node is
+// a step of.
+func terminateUsageEffect(m *ast.Usage, scope *symbols.Scope) Effect {
+	if ts := TerminatedOccurrence(m); ts != nil {
+		target, terminates := terminateTarget(ts, scope)
+		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: terminates, Target: target, TargetExpr: ts.Target}
+	}
+	return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: TerminateEnclosing}
+}
+
+// TerminatedOccurrence returns the occurrence a terminate action usage names
+// (`action stop terminate process;`), nil when it terminates its own container.
+func TerminatedOccurrence(m *ast.Usage) *ast.TerminateStatement {
+	if m == nil || !m.IsTerminate {
+		return nil
+	}
+	return m.Terminates
 }
 
 // SendPayload returns the message a send with no argument carries: the value
@@ -2198,13 +2322,13 @@ func redefinedNames(u *ast.Usage) []string {
 // lowerBlock lowers the body of a loop or of one branch of a conditional. owner
 // is the node the block belongs to, which is the element that owns the block's
 // body-local namespace, and scope is the namespace it owns.
-func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) Block {
+func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ancestors []ast.Node) Block {
 	if statesOwnFlow(members) {
-		return lowerStatedBlock(owner, members, scope, resolver)
+		return lowerStatedBlock(owner, members, scope, resolver, ancestors)
 	}
 	if blockNeedsFlow(members) {
-		graph := lowerBlockFlow(members, scope, false, resolver)
-		return Block{Node: owner, Scope: scope, Graph: graph, Stated: len(graph.Accepts) > 0}
+		graph := lowerBlockFlow(members, scope, false, resolver, ancestors)
+		return Block{Node: owner, Scope: scope, Graph: graph, Stated: flowStated(graph)}
 	}
 	block := Block{Node: owner, Scope: scope}
 	for _, member := range members {
@@ -2212,7 +2336,7 @@ func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolv
 		if actual == nil || isAnnotation(actual) {
 			continue
 		}
-		block.Statements = append(block.Statements, lowerStatement(actual, scope, resolver))
+		block.Statements = append(block.Statements, lowerStatement(actual, scope, resolver, ancestors))
 	}
 	return block
 }
@@ -2221,7 +2345,7 @@ func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolv
 // stating a step of it.
 func isAnnotation(n ast.Node) bool {
 	switch n.(type) {
-	case *ast.Comment, *ast.Documentation, *ast.TextualRepresentation:
+	case *ast.Comment, *ast.Documentation, *ast.TextualRepresentation, *ast.PrefixMetadata:
 		return true
 	}
 	if usage, ok := n.(*ast.Usage); ok && usage.Kind == ast.UsageMetadata {

@@ -13,11 +13,13 @@ import org.openmbee.opensysml.AnalysisOptions;
 import org.openmbee.opensysml.Calculation;
 import org.openmbee.opensysml.CapabilityException;
 import org.openmbee.opensysml.Diagnostic;
+import org.openmbee.opensysml.DocumentQueryResult;
 import org.openmbee.opensysml.ExecutionOptions;
 import org.openmbee.opensysml.Exploration;
 import org.openmbee.opensysml.Instance;
 import org.openmbee.opensysml.Instantiation;
 import org.openmbee.opensysml.Model;
+import org.openmbee.opensysml.RenderedDocument;
 import org.openmbee.opensysml.ModelException;
 import org.openmbee.opensysml.ServiceException;
 import org.openmbee.opensysml.Satisfaction;
@@ -146,8 +148,12 @@ public class RunWithOpenSysMLService {
             case RUN_ANALYSIS -> ResultParts.analysis(model.runAnalysis(target,
                     new AnalysisOptions(Optional.ofNullable(input.subject()), arguments(model, input),
                             namedValues(model, input),
-                            options.schedule())), project);
+                            options.schedule(), false)), project);
             case VALIDATE_INSTANCE -> ResultParts.validation(model.validateInstance(target), project);
+            case RENDER_DOCUMENT -> ResultParts.document(model.renderDocument(target, input.form().form()), target,
+                    input.form(), project);
+            case RUN_DOCUMENT_QUERY -> ResultParts.table(
+                    model.runDocumentQuery(target, DocumentBindings.bind(model, project, input.inputs())), project);
         };
     }
 
@@ -171,7 +177,8 @@ public class RunWithOpenSysMLService {
         return RunResult.builder().modelHash(hash).operation(input.operation()).target(target).ok(parts.ok)
                 .verdict(parts.verdict).schedule(parts.schedule).finalTime(parts.finalTime).outputs(parts.outputs)
                 .trace(parts.trace).resultText(parts.resultText).outcomes(parts.outcomes).verdicts(parts.verdicts)
-                .instances(parts.instances).mappedDiagnostics(mappedDiagnostics).build();
+                .instances(parts.instances).document(parts.document).table(parts.table)
+                .mappedDiagnostics(mappedDiagnostics).build();
     }
 
     static final class ResultParts {
@@ -191,6 +198,8 @@ public class RunWithOpenSysMLService {
         private List<Diagnostic> diagnostics = List.of();
         private List<RunVerdict> verdicts = List.of();
         private List<RunInstance> instances = List.of();
+        private RunDocument document;
+        private RunTable table;
 
         private ResultParts(ExportedProject project) {
             this.project = project;
@@ -301,6 +310,21 @@ public class RunWithOpenSysMLService {
             p.verdict = verdictLabel(result.summary().decided(), result.holds(), HOLDS, VIOLATED);
             p.diagnostics = result.diagnostics();
             p.instances = p.instances(result.instances());
+            return p;
+        }
+        static ResultParts document(RenderedDocument rendered, String target, RunDocumentForm form,
+                ExportedProject project) {
+            ResultParts p = new ResultParts(project);
+            p.document = RunDocument.of(form, rendered, target);
+            return p;
+        }
+        static ResultParts table(DocumentQueryResult result, ExportedProject project) {
+            ResultParts p = new ResultParts(project);
+            p.table = new RunTable(result.columns(), result.rows().stream().map(row -> new RunTableRow(
+                    DocumentValueText.rowLabel(row),
+                    project.index().byQualifiedName(row.element().id()).map(IndexedElement::siriusId).orElse(null),
+                    row.cells().stream().map(DocumentValueText::render).toList())).toList());
+            p.resultText = result.rows().size() + (result.rows().size() == 1 ? " row" : " rows");
             return p;
         }
         // verdictLabel is the summary word a decided verdict writes.

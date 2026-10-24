@@ -11,6 +11,6 @@ sequence: "" {
   shape: sequence_diagram
   n0: "«part»\ncaller" { class: usage }
   n1: "«part»\ncallee" { class: usage }
-  n0 -> n0: "echo" { class: flow }
   n0 -> n1: "of Ping" { class: flow }
+  n0 -> n0: "echo" { class: flow }
 }

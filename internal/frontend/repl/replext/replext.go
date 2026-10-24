@@ -11,6 +11,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
+// FileWriter puts content at path, reporting whether it replaced a file: how a
+// host confining the session to a workspace has its files written.
+type FileWriter func(path string, content []byte) (replaced bool, err error)
+
 // NotationWriter prints the model as SysML notation and saves it in the format
 // a file name selects, for %print and %save.
 type NotationWriter interface {
@@ -22,8 +26,12 @@ type NotationWriter interface {
 	PrintElement(file *source.SourceFile, span source.Span, shown string) []string
 	// Save writes src, the session buffer named origin, to path in the format
 	// its extension names, and is the lines reporting what it did. The error is
-	// only the write's own.
-	Save(origin string, src []byte, path string) ([]string, error)
+	// only the write's own. The file is written with write, or directly when nil.
+	Save(origin string, src []byte, path string, write FileWriter) (lines []string, written bool, err error)
+	// Preview is the file Save would write to path, in the format its extension
+	// names, with the lines Save prints before writing; ok is false when the
+	// save would be refused, the lines then saying why.
+	Preview(origin string, src []byte, path string) (content []byte, lines []string, ok bool)
 }
 
 // GraphWriter writes an object and what is reachable from it as the API's

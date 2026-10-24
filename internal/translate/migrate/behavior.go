@@ -23,7 +23,7 @@ const (
 )
 
 // classifyBehavior decides the v2 declaration a UML behavior becomes: action def,
-// state def, calc def for an expression body, or a scenario action def for an interaction.
+// state def, calc def for an expression body, or an occurrence def for an interaction's sequence.
 
 // The note fragments the writer repeats.
 const (
@@ -50,14 +50,14 @@ func (m *migration) classifyBehavior(e *sysmlv1.Element) (category, string) {
 		}
 		return catActionDef, ""
 	case "Interaction":
-		// While its scenario is being resolved, its own members are taken as written.
+		// While its sequence is being resolved, its own members are taken as written.
 		if m.deciding[e] {
-			return catActionDef, ""
+			return catOccurrenceDef, ""
 		}
 		if note := m.interactionNote(e); note != "" {
 			return catUnmapped, note
 		}
-		return catActionDef, ""
+		return catOccurrenceDef, ""
 	}
 	return catUnmapped, "no v2 form for a UML " + e.Type
 }
@@ -93,6 +93,8 @@ func (m *migration) behaviorWritesMember(b, c *sysmlv1.Element) bool {
 		return m.declaresVariable(b)
 	case "ownedOperation", "connectionPoint":
 		return b.Type == "StateMachine"
+	case "lifeline", "message":
+		return b.Type == "Interaction"
 	}
 	return false
 }
@@ -120,7 +122,7 @@ func (m *migration) unwrittenMembers(b *sysmlv1.Element, accounted ...string) {
 	body := "parameters and code"
 	switch b.Type {
 	case "Interaction":
-		body = "parameters and scenario steps"
+		body = "lifelines and messages"
 	case "Activity":
 		body = "parameters and flow"
 	case "StateMachine":
@@ -139,8 +141,11 @@ func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
-	// Views open the body: a calc def's must end in its result expression.
-	m.views(e)
+	// Views open the body: a calc def's must end in its result expression. An
+	// interaction's follow its lifelines, which its sequence view lays out.
+	if e.Type != "Interaction" {
+		m.views(e)
+	}
 	switch {
 	case m.contextLeads(e, cat):
 		if e.Type == "Operation" {
@@ -151,8 +156,8 @@ func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 	case cat == catStateDef:
 		m.stateMachineBody(e)
 	case e.Type == "Interaction":
-		m.parameters(e, e)
-		m.bodyWithContext(e, func() { m.interactionBody(e) })
+		m.interactionBody(e)
+		m.views(e)
 	case e.Type == "Activity":
 		m.parameters(e, e)
 		m.bodyWithContext(e, func() { m.activityBody(e, e) })
@@ -230,6 +235,24 @@ func (m *migration) operationUsage(op *sysmlv1.Element) string {
 	return name
 }
 
+// operationDirection is the direction prefix of an operation's usage: that of
+// its «DirectedFeature» application, or none.
+func (m *migration) operationDirection(op *sysmlv1.Element) string {
+	directed := stereo(op, "DirectedFeature")
+	if directed == nil {
+		return ""
+	}
+	switch directed.Tag("featureDirection") {
+	case "provided":
+		return "out "
+	case "required":
+		return "in "
+	case "providedRequired":
+		return "inout "
+	}
+	return ""
+}
+
 // operationFeature writes the action usage that makes an operation a feature of
 // its owner, as a v1 operation is; the classifier behavior's own performance is that usage.
 // In a port def, whose usages may not be composite, the action is referential.
@@ -242,18 +265,13 @@ func (m *migration) operationFeature(op *sysmlv1.Element) {
 	if cat, _ := m.classify(op.Parent); cat == catPortDef {
 		kw = "ref " + actionKw
 	}
-	direction := ""
-	if directed := stereo(op, "DirectedFeature"); directed != nil {
-		switch directed.Tag("featureDirection") {
-		case "provided":
-			direction = "out "
-		case "required":
-			direction = "in "
-		case "providedRequired":
-			direction = "inout "
-		}
+	line := m.operationDirection(op) + kw + writeName(usage) + " : " + m.ref(op, op.Parent)
+	if ins, _ := m.contextIns(m.contextOf(op), op.Parent); ins != "" {
+		line += " { " + ins + "; }"
+	} else {
+		line += ";"
 	}
-	m.w.line(direction + kw + writeName(usage) + " : " + m.ref(op, op.Parent) + ";")
+	m.w.line(line)
 	m.add(op, Mapped, "", "its owner's usage "+usage+" performs it, as a call on an object does")
 }
 
@@ -570,6 +588,9 @@ func (m *migration) qualifySelf(text string, refs []reference, scope *sysmlv1.El
 		}
 		starts = append(starts, r.start)
 	}
+	if len(starts) == 0 {
+		return text
+	}
 	// Inside a def a classifier feature spells through the context parameter;
 	// inside a usage it resolves bare, so no prefix is inserted there.
 	prefix := m.self + "."
@@ -591,7 +612,7 @@ func (m *migration) ownedByClassifier(f, scope *sysmlv1.Element) bool {
 		return false
 	}
 	cur := scope
-	for ; cur != nil && !isBehavior(cur) && cur.Type != "Operation"; cur = cur.Parent {
+	for ; cur != nil && !isBehavior(cur) && cur.Type != "Operation" && !ruleDef(cur); cur = cur.Parent {
 		if cur == owner {
 			return false
 		}
@@ -600,7 +621,7 @@ func (m *migration) ownedByClassifier(f, scope *sysmlv1.Element) bool {
 		if cur == owner {
 			return !behaviorScope(cur)
 		}
-		if !behaviorScope(cur) {
+		if !behaviorScope(cur) && !ruleDef(cur) {
 			return m.inherits(cur, owner)
 		}
 	}
@@ -626,7 +647,7 @@ var assignment = regexp.MustCompile(`^([\p{L}_][\p{L}\p{N}_ ]*)\s*(\+\+|--|[-+*/
 func (m *migration) statements(body, lang string, scope *sysmlv1.Element) (lines []string, ok bool, note string) {
 	body = strings.TrimSpace(body)
 	if body == "" {
-		return nil, false, "the body is empty"
+		return nil, false, emptyBodyNote
 	}
 	if dialectOf(lang).script() {
 		lines, note, otherwise, refused := m.translatedStatements(body, lang, scope)
@@ -711,7 +732,7 @@ func (m *migration) v2Assignments(body, lang string, scope *sysmlv1.Element) (as
 		assigns = append(assigns, a)
 	}
 	if len(assigns) == 0 {
-		return nil, false, "the body is empty"
+		return nil, false, emptyBodyNote
 	}
 	return assigns, true, ""
 }
@@ -989,24 +1010,32 @@ func (m *migration) calcBody(e *sysmlv1.Element) {
 	m.parameters(e, e)
 	expr, _, _, translated := m.calcExprHow(e)
 	_, lang := opaqueBody(e)
+	m.textualReps(e)
 	m.w.line(expr)
 	if lang != "" && !translated {
 		m.downgrade(e, "the "+lang+" body is written verbatim as the result expression, since it is also v2 expression syntax")
 	}
 }
 
-// opaqueBehaviorBody writes an opaque or function behavior's body that is no single
-// expression: as assignments when every statement is one, else as a comment.
+// opaqueBehaviorBody writes assignments when possible and keeps every body as text.
 func (m *migration) opaqueBehaviorBody(e, scope *sysmlv1.Element) {
 	m.unwrittenMembers(e)
+	m.textualReps(e)
 	body, lang := opaqueBody(e)
 	lines, ok, note := m.statements(body, lang, scope)
 	if !ok {
+		if note == emptyBodyNote && opaqueBodiesEmpty(e) {
+			return
+		}
 		if r := m.resultRefusal(e); r != "" && r != note {
 			note = "as the result expression, " + r + "; as statements, " + note
 		}
-		m.opaqueComment(body, lang, note)
-		m.downgrade(e, "the body is kept as a comment: "+note)
+		m.opaqueBodyComments(e, note)
+		keptAs := "a textual representation, which is not executed"
+		if lang == "" {
+			keptAs = "a comment"
+		}
+		m.downgrade(e, "the body is kept as "+keptAs+": "+note)
 		return
 	}
 	name := m.freshName(scope, "body")
@@ -1015,6 +1044,22 @@ func (m *migration) opaqueBehaviorBody(e, scope *sysmlv1.Element) {
 	m.w.line(firstKw + writeName(name) + " then done;")
 	if note != "" {
 		m.downgrade(e, note)
+	}
+}
+
+func (m *migration) textualReps(e *sysmlv1.Element) {
+	for _, pair := range opaqueBodyPairs(e) {
+		if strings.TrimSpace(pair.body) != "" && pair.language != "" {
+			m.w.lines(prefixFirst("rep language "+stringLiteral(pair.language)+" ", opaqueRepresentationCommentLines(pair.body)))
+		}
+	}
+}
+
+func (m *migration) opaqueBodyComments(e *sysmlv1.Element, note string) {
+	for _, pair := range opaqueBodyPairs(e) {
+		if pair.body != "" && pair.language == "" {
+			m.opaqueComment(pair.body, "", note)
+		}
 	}
 }
 

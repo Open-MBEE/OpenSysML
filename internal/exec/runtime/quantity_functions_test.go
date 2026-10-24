@@ -38,7 +38,7 @@ func TestQuantityCalculationsAreAllDispatchable(t *testing.T) {
 					continue
 				}
 				declared++
-				fqn := ctx.qualifiedSymbolName(sym)
+				fqn := ctx.QualifiedName(sym)
 				fn, ok := libraryFunctionByName(fqn)
 				if !ok {
 					if _, isBuiltin := builtins[fqn]; !isBuiltin {
@@ -69,7 +69,7 @@ func effectiveInputs(t *testing.T, ctx *Context, sym *symbols.Symbol) []declared
 		}
 		usage, ok := param.Symbol.Decl.(*ast.Usage)
 		if !ok {
-			t.Fatalf("%s: parameter %s is declared by a %T, not a usage", ctx.qualifiedSymbolName(sym), param.Symbol.Name, param.Symbol.Decl)
+			t.Fatalf("%s: parameter %s is declared by a %T, not a usage", ctx.QualifiedName(sym), param.Symbol.Name, param.Symbol.Decl)
 		}
 		params = append(params, declaredParam{
 			name:     ctx.model.semantics.EffectiveNameOf(param.Symbol),
@@ -104,8 +104,8 @@ func TestAnonymousLibraryParametersBindByPositionOnly(t *testing.T) {
 	}
 	for _, name := range []string{"v", "x", ""} {
 		_, err = fn.invoke(libCtx(t), calcArgs{named: map[string]Value{name: unit}})
-		if !errors.Is(err, ErrUnknownParameter) {
-			t.Fatalf("isUnitVectorQuantity(%s = ...) error = %v, want %v", name, err, ErrUnknownParameter)
+		if !errors.Is(err, errUnknownParameter) {
+			t.Fatalf("isUnitVectorQuantity(%s = ...) error = %v, want %v", name, err, errUnknownParameter)
 		}
 		if !strings.Contains(err.Error(), "(expected #1)") {
 			t.Fatalf("isUnitVectorQuantity(%s = ...) error %q does not list the parameter by position", name, err)
@@ -121,8 +121,8 @@ func TestAnonymousLibraryParametersBindByPositionOnly(t *testing.T) {
 		t.Fatal("VectorCalculations::outer is not registered")
 	}
 	_, err = outer.invoke(libCtx(t), calcArgs{named: map[string]Value{"v": unit, "w": unit}})
-	if !errors.Is(err, ErrUnknownParameter) || !strings.Contains(err.Error(), "(expected #1, #2)") {
-		t.Fatalf("outer(v = ..., w = ...) error = %v, want %v listing #1, #2", err, ErrUnknownParameter)
+	if !errors.Is(err, errUnknownParameter) || !strings.Contains(err.Error(), "(expected #1, #2)") {
+		t.Fatalf("outer(v = ..., w = ...) error = %v, want %v listing #1, #2", err, errUnknownParameter)
 	}
 
 	angle, ok := libraryFunctionByName("VectorCalculations::angle")
@@ -273,13 +273,13 @@ func TestQuantityCalculationsReport(t *testing.T) {
 		want error
 		text string
 	}{
-		{"sqrt(9 [m])", ErrUnitRoot, "function QuantityCalculations::sqrt: unit has no root: m (metre) raises metre to the odd power 1"},
-		{"sqrt(8 [m**3])", ErrUnitRoot, "raises metre to the odd power 3"},
-		{"sqrt(4 [m**2/s])", ErrUnitRoot, "raises second to the odd power -1"},
-		{"sqrt(9 [rad])", ErrUnitRoot, "function QuantityCalculations::sqrt: unit has no root: rad raises the dimension-one unit rad to the odd power 1"},
-		{"sqrt(9 ['°'])", ErrUnitRoot, "'°' raises the dimension-one unit '°' to the odd power 1"},
-		{"sqrt(9 [rad**3])", ErrUnitRoot, "raises the dimension-one unit rad to the odd power 3"},
-		{"sqrt(9 [rad*m**2])", ErrUnitRoot, "raises the dimension-one unit rad to the odd power 1"},
+		{"sqrt(9 [m])", errUnitRoot, "function QuantityCalculations::sqrt: unit has no root: m (metre) raises metre to the odd power 1"},
+		{"sqrt(8 [m**3])", errUnitRoot, "raises metre to the odd power 3"},
+		{"sqrt(4 [m**2/s])", errUnitRoot, "raises second to the odd power -1"},
+		{"sqrt(9 [rad])", errUnitRoot, "function QuantityCalculations::sqrt: unit has no root: rad raises the dimension-one unit rad to the odd power 1"},
+		{"sqrt(9 ['°'])", errUnitRoot, "'°' raises the dimension-one unit '°' to the odd power 1"},
+		{"sqrt(9 [rad**3])", errUnitRoot, "raises the dimension-one unit rad to the odd power 3"},
+		{"sqrt(9 [rad*m**2])", errUnitRoot, "raises the dimension-one unit rad to the odd power 1"},
 		{"sqrt(-4 [m**2])", semantics.ErrArithmeticDomain, "sqrt of a negative quantity -4 [m**2]"},
 		{"sqrt(\"9\")", ErrTypeMismatch, `function QuantityCalculations::sqrt parameter "x" requires a quantity, got string`},
 		{"abs(true)", ErrTypeMismatch, `function QuantityCalculations::abs parameter "x" requires a quantity`},
@@ -311,7 +311,7 @@ func TestQuantityCalculationsReport(t *testing.T) {
 		{"MeasurementRefCalculations::ToString(1)", ErrTypeMismatch, `function MeasurementRefCalculations::ToString parameter "x" requires a measurement reference such as SI::m, got an Integer`},
 		{"MeasurementRefCalculations::'CoordinateFrame*'(m, s)", ErrTypeMismatch, `function MeasurementRefCalculations::'CoordinateFrame*' parameter "x" requires a coordinate frame`},
 		{"VectorCalculations::'['((1.0, 2.0), m)", ErrTypeMismatch, `function VectorCalculations::'[' parameter "mRef" requires a coordinate frame`},
-		{"VectorCalculations::outer((1.0, 2.0), (3.0, 4.0))", ErrUnevaluableLibraryFunction, "VectorCalculations::outer: the declaration `calc def outer { in : VectorQuantityValue[1]; in : VectorQuantityValue[1]; return : VectorQuantityValue[1]; }` returns a VectorQuantityValue, and the outer product of two vectors is a tensor of order two"},
+		{"VectorCalculations::outer((1.0, 2.0), (3.0, 4.0))", errUnevaluableLibraryFunction, "VectorCalculations::outer: the declaration `calc def outer { in : VectorQuantityValue[1]; in : VectorQuantityValue[1]; return : VectorQuantityValue[1]; }` returns a VectorQuantityValue, and the outer product of two vectors is a tensor of order two"},
 		{"VectorCalculations::vectorScalarQuantityDiv(VectorFunctions::VectorOf((1.0, 2.0)) [m], 0 [s])", ErrDivisionByZero, "function VectorCalculations::vectorScalarQuantityDiv"},
 		{"VectorCalculations::'+'(VectorFunctions::VectorOf((1.0, 2.0)) [m], VectorFunctions::VectorOf((1.0, 2.0)) [s])", ErrIncommensurableUnits, "function VectorCalculations::'+'"},
 		{"VectorCalculations::'+'(VectorFunctions::VectorOf((1.0, 2.0)) [m], VectorFunctions::VectorOf((1.0, 2.0, 3.0)) [m])", ErrTypeMismatch, "requires vectors of equal dimension, got 2 and 3"},
@@ -320,10 +320,10 @@ func TestQuantityCalculationsReport(t *testing.T) {
 		{"VectorCalculations::norm((3 [m], 4 [m]))", ErrTypeMismatch, `function VectorCalculations::norm parameter "v" requires a vector of numeric values, element 1 is a quantity in m`},
 		{"VectorCalculations::vectorScalarMult((1.0, 2.0), 2 [m])", ErrTypeMismatch, `function VectorCalculations::vectorScalarMult parameter "x" requires a numeric value`},
 		{"TensorCalculations::'+'(1, 2)", ErrTypeMismatch, `function TensorCalculations::'+' parameter "x" requires a TensorQuantityValue (a tensor, vector or scalar quantity), got an Integer`},
-		{"TensorCalculations::tensorTensorMult(1, 2)", ErrUnevaluableLibraryFunction, "TensorCalculations::tensorTensorMult: the declaration `calc def tensorTensorMult { in : TensorQuantityValue[1]; in : TensorQuantityValue[1]; return : TensorQuantityValue[1]; }` states only the parameter and result types; neither TensorCalculations nor the Kernel says which indices contract"},
-		{"TensorCalculations::tensorVectorMult(1, 2)", ErrUnevaluableLibraryFunction, "TensorCalculations::tensorVectorMult: the declaration `calc def tensorVectorMult { in : TensorQuantityValue[1]; in : VectorQuantityValue[1]; return : VectorQuantityValue[1]; }` states only the parameter and result types"},
-		{"TensorCalculations::vectorTensorMult(1, 2)", ErrUnevaluableLibraryFunction, "TensorCalculations::vectorTensorMult: the declaration `calc def vectorTensorMult { in : VectorQuantityValue[1]; in : TensorQuantityValue[1]; return : VectorQuantityValue[1]; }` states only the parameter and result types"},
-		{"TensorCalculations::transform(1, 2)", ErrUnevaluableLibraryFunction, "TensorCalculations::transform: the declaration `calc def transform { in transformation : CoordinateTransformation; in sourceTensor : TensorQuantityValue; return targetTensor : TensorQuantityValue; }` has no body, and neither TensorCalculations nor the Kernel says how a CoordinateTransformation acts on a tensor's contravariant and covariant indices: the runtime transforms a vector quantity (VectorCalculations::transform), and a tensor quantity carries a unit per component and no source frame"},
+		{"TensorCalculations::tensorTensorMult(1, 2)", errUnevaluableLibraryFunction, "TensorCalculations::tensorTensorMult: the declaration `calc def tensorTensorMult { in : TensorQuantityValue[1]; in : TensorQuantityValue[1]; return : TensorQuantityValue[1]; }` states only the parameter and result types; neither TensorCalculations nor the Kernel says which indices contract"},
+		{"TensorCalculations::tensorVectorMult(1, 2)", errUnevaluableLibraryFunction, "TensorCalculations::tensorVectorMult: the declaration `calc def tensorVectorMult { in : TensorQuantityValue[1]; in : VectorQuantityValue[1]; return : VectorQuantityValue[1]; }` states only the parameter and result types"},
+		{"TensorCalculations::vectorTensorMult(1, 2)", errUnevaluableLibraryFunction, "TensorCalculations::vectorTensorMult: the declaration `calc def vectorTensorMult { in : VectorQuantityValue[1]; in : TensorQuantityValue[1]; return : VectorQuantityValue[1]; }` states only the parameter and result types"},
+		{"TensorCalculations::transform(1, 2)", errUnevaluableLibraryFunction, "TensorCalculations::transform: the declaration `calc def transform { in transformation : CoordinateTransformation; in sourceTensor : TensorQuantityValue; return targetTensor : TensorQuantityValue; }` has no body, and neither TensorCalculations nor the Kernel says how a CoordinateTransformation acts on a tensor's contravariant and covariant indices: the runtime transforms a vector quantity (VectorCalculations::transform), and a tensor quantity carries a unit per component and no source frame"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.src, func(t *testing.T) {
@@ -414,15 +414,15 @@ func testQuantityCalculationThatHasNoValue(t *testing.T) {
 		expr string
 		want error
 	}{
-		{"sqrt(side)", ErrUnitRoot},
+		{"sqrt(side)", errUnitRoot},
 		{"sqrt(-1 * area)", semantics.ErrArithmeticDomain},
-		{"sqrt(side, side)", ErrCalcArity},
+		{"sqrt(side, side)", errCalcArity},
 		{"max(side, 1 [s])", ErrIncommensurableUnits},
 		{"QuantityCalculations::'/'(side, 0 [s])", ErrDivisionByZero},
 		{"ConvertQuantity(side, side)", ErrTypeMismatch},
 		{"ConvertQuantity(side, s)", ErrIncommensurableUnits},
-		{"VectorCalculations::outer((1.0, 2.0), (3.0, 4.0))", ErrUnevaluableLibraryFunction},
-		{"TensorCalculations::tensorTensorMult(side, side)", ErrUnevaluableLibraryFunction},
+		{"VectorCalculations::outer((1.0, 2.0), (3.0, 4.0))", errUnevaluableLibraryFunction},
+		{"TensorCalculations::tensorTensorMult(side, side)", errUnevaluableLibraryFunction},
 	} {
 		got, err := evalIn(t, ctx, scope, tt.expr)
 		if !errors.Is(err, tt.want) {

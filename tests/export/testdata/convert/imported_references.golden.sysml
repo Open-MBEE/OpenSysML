@@ -56,6 +56,6 @@ package Filtered {
     public import Meta::*[@Safety];
     part def C {
         attribute other : Tagged;
-        filter @Safety;
     }
+    filter @Safety;
 }

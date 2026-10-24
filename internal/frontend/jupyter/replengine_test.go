@@ -117,8 +117,7 @@ func TestFailuresAreNamedByWhatFailed(t *testing.T) {
 		"1 +":                                "SubmissionError",
 	}
 	for code, want := range cases {
-		// Each in its own session: as at the prompt, a snippet that did not parse
-		// stays in the buffer and holds back the deeper checks of what follows.
+		// Each in its own session, so a failure is judged on its own.
 		e := newEngine(t)
 		if got := mustFail(t, e, code); got.Name != want {
 			t.Errorf("Execute(%q) failed as %s (%s), want %s", code, got.Name, got.Value, want)
@@ -402,9 +401,17 @@ func TestVizShowsADiagram(t *testing.T) {
 			t.Errorf("%s: %s present = %t, want %t (Graphviz drawn)", c.code, mimeSVG, ok, dotDrawn())
 		}
 	}
-	out := mustRun(t, e, "%viz --style ortholine P::Car")
-	if mermaid, _ := out.displays[0][mimeMermaid].(string); !strings.Contains(mermaid, "%% not represented: style ORTHOLINE (orthogonal line style) is not drawn") {
+	out := mustRun(t, e, "%viz --style showinherited P::Car")
+	if mermaid, _ := out.displays[0][mimeMermaid].(string); !strings.Contains(mermaid, "%% not represented: style SHOWINHERITED (show inherited members) is not drawn") {
 		t.Errorf("a pilot style not drawn was not noted in the diagram:\n%s", mermaid)
+	}
+	out = mustRun(t, e, "%viz --style compmost P::Car")
+	if mermaid, _ := out.displays[0][mimeMermaid].(string); !strings.Contains(mermaid, "fl : Wheel") || strings.Contains(mermaid, "not represented: style") {
+		t.Errorf("the pilot's COMPMOST style did not fold Car's parts into compartment rows:\n%s", mermaid)
+	}
+	out = mustRun(t, e, "%viz --style ortholine P::Car")
+	if dot, _ := out.displays[0][mimeDot].(string); !strings.Contains(dot, "splines=ortho") {
+		t.Errorf("the pilot's ORTHOLINE style did not route the DOT edges orthogonally:\n%s", dot)
 	}
 	out = mustRun(t, e, "%viz --view SEQUENCE P::Car")
 	if bundle := out.displays[0]; bundle[mimeMermaid] == nil || bundle[mimeDot] != nil {
@@ -496,4 +503,24 @@ func TestLoadingAPythonNotebookIsACommandError(t *testing.T) {
 	if failure.Name != "CommandError" || !strings.Contains(failure.Value, "a python notebook") {
 		t.Errorf("failure = %+v, want a CommandError naming the python notebook", failure)
 	}
+}
+
+// A cell the session rejects leaves nothing behind: the corrected expression
+// of the next cell evaluates as it did before the rejected one.
+func TestARejectedCellDoesNotHoldBackTheNextOne(t *testing.T) {
+	e := newEngine(t)
+	mustRun(t, e, "calc add { in x; in y; x + y }")
+	mustRun(t, e, "private import SI::*;")
+	answer := func(cell string) {
+		t.Helper()
+		out := mustRun(t, e, cell)
+		if len(out.results) != 1 || !strings.Contains(out.results[0][mimeText].(string), "10.02 [m]") {
+			t.Fatalf("Execute(%q) results = %v, want 10.02 [m]", cell, out.results)
+		}
+	}
+	answer("add(10 [m], 20 [mm])")
+	if got := mustFail(t, e, "add(10 [m], 20 [mm]);"); got.Name != "SubmissionError" {
+		t.Fatalf("the trailing semicolon failed as %s (%s), want SubmissionError", got.Name, got.Value)
+	}
+	answer("add(10 [m], 20 [mm])")
 }

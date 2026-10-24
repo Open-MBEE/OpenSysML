@@ -238,7 +238,7 @@ func TestReferencesLocateLibraryDeclaration(t *testing.T) {
 
 func TestStdlibContentServesBundledText(t *testing.T) {
 	s := NewServer(model.NewWorkspace())
-	res, err := s.StdlibContent(&stdlibContentParams{URI: libraryURI(baseName)})
+	res, err := s.StdlibContent(&StdlibContentParams{URI: libraryURI(baseName)})
 	if err != nil {
 		t.Fatalf("StdlibContent err = %v", err)
 	}
@@ -251,7 +251,7 @@ func TestStdlibContentServesBundledText(t *testing.T) {
 		uri.File("/tmp/Base.kerml"),
 		"sysml-stdlib:///../Base.kerml",
 	} {
-		_, err := s.StdlibContent(&stdlibContentParams{URI: bad})
+		_, err := s.StdlibContent(&StdlibContentParams{URI: bad})
 		var rpcErr *jsonrpc2.Error
 		if !errors.As(err, &rpcErr) || rpcErr.Code != jsonrpc2.InvalidParams {
 			t.Errorf("StdlibContent(%q) err = %v, want an invalid-params error", bad, err)
@@ -300,7 +300,7 @@ func TestLibraryDocumentIsReadOnly(t *testing.T) {
 	if got := ws.LookupQualified("Base::Anything"); len(got) != 1 {
 		t.Errorf("Base::Anything resolves to %d symbols after closing Base.kerml, want 1", len(got))
 	}
-	res, err := s.StdlibContent(&stdlibContentParams{URI: docURI})
+	res, err := s.StdlibContent(&StdlibContentParams{URI: docURI})
 	if err != nil || res.Text != text {
 		t.Errorf("StdlibContent after close = (%v, %v), want the bundled text", err, res)
 	}
@@ -361,7 +361,7 @@ func TestLibraryLocationsUseUTF16Positions(t *testing.T) {
 	if locs[0].Range.Start != want {
 		t.Errorf("start = %+v, want %+v", locs[0].Range.Start, want)
 	}
-	res, err := s.StdlibContent(&stdlibContentParams{URI: locs[0].URI})
+	res, err := s.StdlibContent(&StdlibContentParams{URI: locs[0].URI})
 	if err != nil || res.Text != src[libName] {
 		t.Errorf("StdlibContent = (%v, %v), want the library text", res, err)
 	}

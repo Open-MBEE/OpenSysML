@@ -8,12 +8,12 @@
 # styles: 0 of 0 written; notes: 0 written (0 anchored, 0 freed of an anchor the view does not lay out)
 
 ## approximated (1)
-Property	B::x	_b_x	-> B::x	(the untyped property is written as an attribute)
+Property	B::x	_b_x	-> Model::B::x	(the untyped property is written as an attribute)
 
 ## mapped (6)
-«Block» Class	A	_a	-> A
-Diagram	A::A BDD	_diag	-> A::'A BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; laid out from private_layout_alias.layout.xml: 2 of 2 shown elements positioned, 0 of 0 connectors routed)
-Property	A::b	_a_b	-> A::b
-Property	A::x	_a_x	-> A::x
-«Block» Class	B	_b	-> B
-Model	Model	_m	(the root model's members are written at the top level)
+«Block» Class	A	_a	-> Model::A
+Diagram	A::A BDD	_diag	-> Model::A::'A BDD'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; laid out from private_layout_alias.layout.xml: 2 of 2 shown elements positioned, 0 of 0 connectors routed)
+Property	A::b	_a_b	-> Model::A::b
+Property	A::x	_a_x	-> Model::A::x
+«Block» Class	B	_b	-> Model::B
+Model	Model	_m	-> Model	(written as package Model)

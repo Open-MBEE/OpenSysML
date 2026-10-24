@@ -86,8 +86,8 @@ type ToolRunner interface {
 	RunTool(call *ToolCall) (ToolAnswer, error)
 }
 
-// ErrToolNotRegistered is the typed error for a ToolExecution naming a tool no manifest entry registers.
-var ErrToolNotRegistered = errors.New("tool is not registered")
+// errToolNotRegistered is the typed error for a ToolExecution naming a tool no manifest entry registers.
+var errToolNotRegistered = errors.New("tool is not registered")
 
 // ErrToolDryRun is the error a dry run stops the performance with at its first
 // tool call; it passes through unchanged.
@@ -103,8 +103,8 @@ func (e *ToolNotRegisteredError) Error() string {
 	return fmt.Sprintf("tool '%s' is not registered; set OPENSYSML_TOOLS", e.Tool)
 }
 
-// Is matches ErrToolNotRegistered.
-func (e *ToolNotRegisteredError) Is(target error) bool { return target == ErrToolNotRegistered }
+// Is matches errToolNotRegistered.
+func (e *ToolNotRegisteredError) Is(target error) bool { return target == errToolNotRegistered }
 
 // ErrTool is the typed error every failure of a tool invocation unwraps to.
 var ErrTool = errors.New("tool failed")
@@ -128,8 +128,8 @@ const (
 	ToolRefused
 	// ToolUnsentInput is an input the protocol carries no value of.
 	ToolUnsentInput
-	// ToolAmbiguousVariable is a ToolVariable name two parameters of the action carry.
-	ToolAmbiguousVariable
+	// toolAmbiguousVariable is a ToolVariable name two parameters of the action carry.
+	toolAmbiguousVariable
 )
 
 // String names the kind as the error spells it.
@@ -149,7 +149,7 @@ func (k ToolErrorKind) String() string {
 		return "tool error"
 	case ToolUnsentInput:
 		return "input not carried"
-	case ToolAmbiguousVariable:
+	case toolAmbiguousVariable:
 		return "ambiguous variable"
 	}
 	return "unknown failure"
@@ -313,11 +313,11 @@ func (ctx *Context) metadataObject(element *symbols.Symbol, index int, annotatio
 	}
 	id, ok := val.Object()
 	if !ok {
-		return nil, fmt.Errorf("%w: metadata %s denotes no object", ErrTypeMismatch, ctx.qualifiedSymbolName(annotation.Type))
+		return nil, fmt.Errorf("%w: metadata %s denotes no object", ErrTypeMismatch, ctx.QualifiedName(annotation.Type))
 	}
 	inst, live := ctx.instances[id]
 	if !live || inst == nil {
-		return nil, fmt.Errorf("%w: metadata %s denotes no object", ErrTypeMismatch, ctx.qualifiedSymbolName(annotation.Type))
+		return nil, fmt.Errorf("%w: metadata %s denotes no object", ErrTypeMismatch, ctx.QualifiedName(annotation.Type))
 	}
 	return inst, nil
 }
@@ -327,12 +327,12 @@ func (ctx *Context) metadataObject(element *symbols.Symbol, index int, annotatio
 func (ctx *Context) metadataString(inst *Instance, typ *symbols.Symbol, feature string) (string, error) {
 	fv, err := inst.GetFeatureValue(ctx, feature)
 	if err != nil {
-		return "", fmt.Errorf("metadata %s: %s: %w", ctx.qualifiedSymbolName(typ), feature, err)
+		return "", fmt.Errorf("metadata %s: %s: %w", ctx.QualifiedName(typ), feature, err)
 	}
 	held := fv.Value
 	if held.Kind != ValString {
 		return "", fmt.Errorf("%w: metadata %s: %s holds %s, not a String",
-			ErrTypeMismatch, ctx.qualifiedSymbolName(typ), feature, describeValue(held))
+			ErrTypeMismatch, ctx.QualifiedName(typ), feature, DescribeValue(held))
 	}
 	return held.Str(), nil
 }
@@ -372,7 +372,7 @@ func (e *ActionExecutor) performByTool(execution *toolExecution) error {
 	if answer.Diverged {
 		e.ctx.note(ToolDivergence{
 			Tool:   tool,
-			Action: e.ctx.qualifiedSymbolName(execution.on),
+			Action: e.ctx.QualifiedName(execution.on),
 			File:   execution.on.DocName,
 			Span:   execution.on.DeclSpan,
 		})
@@ -383,7 +383,7 @@ func (e *ActionExecutor) performByTool(execution *toolExecution) error {
 
 // toolCall is the performance as the tool sees it: of the action performed, every `in`/`inout`
 // parameter carrying a ToolVariable is an input, every `out`/`inout` one an output. An unbound
-// input is ErrUnboundParameter unless optional, which the call omits; a ToolVariable name two
+// input is errUnboundParameter unless optional, which the call omits; a ToolVariable name two
 // parameters carry is a ToolError, since the protocol keys by it. The declaration the tool
 // binds (e.action) names and types each parameter, and the performance holds it under that name.
 func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
@@ -402,8 +402,8 @@ func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 			continue
 		}
 		if other, taken := namedBy[variable]; taken {
-			return nil, &ToolError{Tool: tool, Kind: ToolAmbiguousVariable,
-				Detail: fmt.Sprintf("%s names both %s and %s of %s", variable, other, param.Symbol.Name, symbolText(e.performed))}
+			return nil, &ToolError{Tool: tool, Kind: toolAmbiguousVariable,
+				Detail: fmt.Sprintf("%s names both %s and %s of %s", variable, other, param.Symbol.Name, SymbolText(e.performed))}
 		}
 		namedBy[variable] = param.Symbol.Name
 		name := param.Symbol.Name
@@ -416,7 +416,7 @@ func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 			}
 			if !bound && !e.ctx.model.semantics.OptionalParameter(param.Symbol) {
 				return nil, fmt.Errorf("%w: action %s: input parameter %s is bound by no argument",
-					ErrUnboundParameter, symbolText(e.performed), name)
+					errUnboundParameter, SymbolText(e.performed), name)
 			}
 			if bound {
 				sent, err := toolInput(tool, param.Symbol, held)
@@ -498,14 +498,15 @@ func (ctx *Context) performanceParameters(performed, callee *symbols.Symbol) ([]
 	return ctx.actionParametersOf(held), nil
 }
 
-// toolInput is one parameter's value as the protocol carries it: a number, truth or string
-// as is, a quantity as the run holds it, its unit spelt by short names (`km/h`).
+// toolInput is one parameter's value as the protocol carries it (a scalar, a quantity with its
+// unit by short names); a one-element collection is sent as its element, several as Items.
 func toolInput(tool string, param *symbols.Symbol, held Value) (ToolValue, error) {
+	held = soleElement(held)
 	if v, ok := ToolValueOf(held); ok {
 		return v, nil
 	}
 	return ToolValue{}, &ToolError{Tool: tool, Kind: ToolUnsentInput,
-		Detail: fmt.Sprintf("%s holds %s, which the protocol does not carry", param.Name, describeValue(held))}
+		Detail: fmt.Sprintf("%s holds %s, which the protocol does not carry", param.Name, DescribeValue(held))}
 }
 
 // ToolValueOf is a value as the tool protocol carries it; false for one it does not carry.
@@ -566,14 +567,14 @@ func (c *ToolCall) Bind(outputs map[string]ToolValue) (map[string]Value, error) 
 	if len(unknown) > 0 {
 		sort.Strings(unknown)
 		return nil, &ToolError{Tool: c.ToolName, Kind: ToolUnknownOutput,
-			Detail: fmt.Sprintf("%s: no ToolVariable of %s receives it", strings.Join(unknown, ", "), symbolText(c.Action))}
+			Detail: fmt.Sprintf("%s: no ToolVariable of %s receives it", strings.Join(unknown, ", "), SymbolText(c.Action))}
 	}
 	bound := make(map[string]Value, len(c.Outputs))
 	for _, out := range c.Outputs {
 		answered, ok := outputs[out.Variable]
 		if !ok {
 			return nil, &ToolError{Tool: c.ToolName, Kind: ToolMissingOutput,
-				Detail: fmt.Sprintf("%s (%s of %s) was not answered", out.Variable, out.Parameter, symbolText(c.Action))}
+				Detail: fmt.Sprintf("%s (%s of %s) was not answered", out.Variable, out.Parameter, SymbolText(c.Action))}
 		}
 		value, err := c.ctx.toolOutput(c.scope, c.ToolName, out, answered)
 		if err != nil {
@@ -596,7 +597,7 @@ func (c *ToolCall) ConvertInput(in ToolInput, unit string) (semantics.Value, err
 		return semantics.Value{}, fault(errors.New("the call has no context to read units in"))
 	}
 	if !in.Value.Value.IsNumeric() {
-		return semantics.Value{}, fault(fmt.Errorf("%s is not a number", describeValue(Value{Kind: ValConst, Const: in.Value.Value})))
+		return semantics.Value{}, fault(fmt.Errorf("%s is not a number", DescribeValue(Value{Kind: ValConst, Const: in.Value.Value})))
 	}
 	from, err := c.ctx.UnitOf(c.scope, in.Value.Unit)
 	if err != nil {
@@ -643,7 +644,7 @@ func (ctx *Context) toolOutput(scope *symbols.Scope, tool string, out ToolOutput
 			if _, err := semantics.ConvertQuantity(Quantity{Num: semantics.Value{Kind: semantics.ValReal}, Unit: from}, to); err != nil {
 				return Value{}, malformed("%s does not measure %s: %v", answered.Unit, out.Parameter, err)
 			}
-			value = NewEmptySequenceOf(to)
+			value = newEmptySequenceOf(to)
 		} else {
 			elements := make([]Value, 0, len(answered.Items))
 			for i, item := range answered.Items {
@@ -723,7 +724,7 @@ func (ctx *Context) toolOutputValue(scope *symbols.Scope, malformed func(string,
 func (ctx *Context) toolMeasuredUnits(scope *symbols.Scope, malformed func(string, ...any) error, out ToolOutput, text string) (from semantics.Unit, to semantics.Unit, err error) {
 	unit, err := ctx.UnitOf(scope, text)
 	switch {
-	case errors.Is(err, ErrNoExpressionParser):
+	case errors.Is(err, errNoExpressionParser):
 		return semantics.Unit{}, semantics.Unit{}, err
 	case err != nil:
 		return semantics.Unit{}, semantics.Unit{}, malformed("%v", err)

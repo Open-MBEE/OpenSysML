@@ -1,7 +1,7 @@
 // The custom methods the OpenSysML language server adds for diagrams, and the
 // payloads they carry. They mirror internal/frontend/lsp/render.go.
 
-import type { DiagramStyle } from "./style";
+import type { DiagramStyle, Routing } from "./style";
 
 export const RENDER_METHOD = "opensysml/render";
 export const VIEWS_METHOD = "opensysml/views";
@@ -32,6 +32,21 @@ export const RENDER_PALETTE_CAPABILITY = "openSysmlRenderPalette";
 
 /** The capability whose value lists the drawing styles a render request's `style` draws the DOT form in, the first the default. */
 export const RENDER_STYLES_CAPABILITY = "openSysmlRenderStyles";
+
+/** The capability whose value lists the optional notation elements a render request's `show` draws, then `all`. */
+export const RENDER_ELEMENTS_CAPABILITY = "openSysmlRenderElements";
+
+/** The capability the server advertises when a render request's `depth` bounds how many levels are drawn below each exposed element. */
+export const RENDER_DEPTH_CAPABILITY = "openSysmlRenderDepth";
+
+/** The capability the server advertises when a render request's `include` draws elements besides the view's own content, each node drawn that way marked `included`. */
+export const RENDER_INCLUDE_CAPABILITY = "openSysmlRenderInclude";
+
+/** Answers what relates to an element and how, grouped by relationship kind; mirrors internal/frontend/lsp/related.go. */
+export const RELATED_ELEMENTS_METHOD = "opensysml/relatedElements";
+
+/** The capability the server advertises when it serves the related-elements request; its value lists the relationship kinds in listing order. */
+export const RELATED_ELEMENTS_CAPABILITY = "openSysmlRelatedElements";
 
 /** The URI scheme the server locates standard-library declarations in. */
 export const STDLIB_SCHEME = "sysml-stdlib";
@@ -84,6 +99,8 @@ export interface RenderNode {
   fqn?: string;
   /** The requested document declares the node, so every edit reaches it; absent, only a layout does. */
   declaredHere?: boolean;
+  /** True when the request's `include` drew the node rather than the view; a node the view's own content draws is never marked. */
+  included?: boolean;
   /** The keyword the declaration was written with (`part def`, `port`); with `fqn`. A move asks its new owner to admit it. */
   notation?: string;
   /** The namespaces declaring the node, nearest first, drawn or not; absent with `fqn`, and for a top-level declaration. */
@@ -177,6 +194,12 @@ export interface RenderParams {
   palette?: string;
   /** The drawing style the DOT form is drawn in, one the server lists under `openSysmlRenderStyles`; absent is its default, `pilot`. */
   style?: string;
+  /** The optional notation elements drawn besides the ones the view's rendering shows, each one the server lists under `openSysmlRenderElements`, or `all`. */
+  show?: string[];
+  /** How many levels of nested elements are drawn below each exposed element, overriding the view's own depth, on a server advertising `openSysmlRenderDepth`; absent or 0 draws every level. */
+  depth?: number;
+  /** Qualified names of elements drawn besides what the view exposes, as if it exposed them, on a server advertising `openSysmlRenderInclude`; nothing is written to the model. */
+  include?: string[];
   /** The link template each diagram element is written with. */
   linkTemplate?: string;
 }
@@ -187,6 +210,8 @@ export interface RenderResult {
   /** The drawing style the artifact was drawn in; absent from a server predating drawing styles. */
   style?: string;
   stated: string;
+  /** The optional notation elements the artifact draws; absent from a server predating them. */
+  shown?: string[];
   form: string;
   artifact: string;
   nodes: RenderNode[];
@@ -195,7 +220,7 @@ export interface RenderResult {
   columns?: string[];
   notices: string[];
   canvas?: RenderCanvas;
-  /** What a diagram of this kind offers to add; absent when the rendering is not editable. */
+  /** What the server lets a diagram of this kind edit; absent when the rendering is not editable. */
   palette?: EditPalette;
   version: number;
 }
@@ -209,13 +234,12 @@ export interface LayoutGeometry {
   collapsed?: boolean;
 }
 
-/** The member and connection kinds a rendering's kind offers, in the document's language. */
+/** What a `setLayout` writes: a place, or a Layout that only folds and places nothing. */
+export type SetLayoutGeometry = LayoutGeometry | { collapsed: true };
+
+/** Sent with every editable rendering; the server also lists the member and connection kinds a diagram of the kind may add, which the panel does not read. */
 export interface EditPalette {
-  members: string[];
-  connections: string[];
-  /** The members that take a type. */
-  typed: string[];
-  /** For each member only some bodies offer (`subject`), and each drawn notation that is one, the ids of the nodes that open one. */
+  /** For each member only some bodies declare (`subject`), and each drawn notation that is one, the ids of the nodes that open one. */
   owners?: Record<string, string[]>;
 }
 
@@ -232,6 +256,11 @@ export function normalizeRender(result: RenderResult): RenderResult {
     edges: (result.edges ?? []).map((edge) => ({ ...edge, label: edge.label ?? "" })),
     notices: result.notices ?? [],
   };
+}
+
+/** nothingToDraw reports whether a rendering has no node, edge or row: a panel shows why instead of an empty drawing. */
+export function nothingToDraw(result: RenderResult): boolean {
+  return (result.nodes ?? []).length === 0 && (result.edges ?? []).length === 0 && (result.rows ?? []).length === 0;
 }
 
 /** admits: whether a member may go into node — any node, unless the palette confines the kind to some. */
@@ -259,14 +288,12 @@ export function reachable(element: RenderNode | RenderEdge): boolean {
 export type ModelEditOperation =
   | { kind: "setValue"; target: string; value: string }
   | { kind: "rename"; target: string; newName: string }
-  | { kind: "addMember"; owner: string; memberKind: string; name: string; type?: string; multiplicity?: string; value?: string; specializes?: string[] }
-  | { kind: "addConnection"; owner: string; memberKind: string; from: string; to: string; name?: string; type?: string }
   | { kind: "delete"; target: string; cascade?: boolean }
   | { kind: "move"; target: string; owner: string }
   /** Places `target` in `view`'s body, or inline in its own declaration without a view; no `layout` clears the annotation. `declaredIn` names the document declaring `target`, whose text `digest` fingerprints as its origin reported, so that a namesake declared since is answered stale rather than placed. */
-  | { kind: "setLayout"; target: string; declaredIn?: string; digest?: string; view?: string; layout?: LayoutGeometry }
+  | { kind: "setLayout"; target: string; declaredIn?: string; digest?: string; view?: string; layout?: SetLayoutGeometry }
   /** Places the node declared at `declaration`, which no qualified name reaches, inline: a view body cannot name it. The range is one of the document `declaredIn` names — whose text `digest` fingerprints, as its origin reported — or of the edited document without it. */
-  | { kind: "setLayout"; declaration: Range; declaredIn?: string; digest?: string; layout?: LayoutGeometry }
+  | { kind: "setLayout"; declaration: Range; declaredIn?: string; digest?: string; layout?: SetLayoutGeometry }
   /** Steers the connection `target` through `route`, per view or inline as above; an empty or absent route clears it. */
   | { kind: "setRoute"; target: string; declaredIn?: string; digest?: string; view?: string; route?: RenderPoint[] }
   /** Steers the connection declared at `declaration` inline, as `setLayout` by declaration places a node. */
@@ -375,12 +402,57 @@ export interface PickerEntry {
   reason?: string;
 }
 
+export interface RelatedElementsParams {
+  textDocument: { uri: string };
+  /** The qualified name of the element, as a rendering's node carries it in `fqn`. */
+  element: string;
+}
+
+/** An element a rendering can include, named as `include` takes it. */
+export interface RelatedElement {
+  fqn: string;
+  name: string;
+  /** The keyword the notation declares it with. */
+  kind: string;
+  declaredHere?: boolean;
+  origin?: RenderOrigin;
+}
+
+/** The elements one kind of relationship relates an element to. */
+export interface RelatedGroup {
+  kind: string;
+  label: string;
+  elements: RelatedElement[];
+}
+
+/** What relates to an element, one group per relationship kind relating anything, in the server's listing order. */
+export interface RelatedElementsResult {
+  element: RelatedElement;
+  groups: RelatedGroup[];
+}
+
 /** A message the extension sends the webview; `drawn` counts the panel's drawings and names this one. */
 export type ToWebview =
-  | { type: "render"; result: RenderResult; selected: string; drawn: number; style: DiagramStyle; hint?: string }
+  | {
+    type: "render";
+    result: RenderResult;
+    selected: string;
+    drawn: number;
+    style: DiagramStyle;
+    routing: Routing;
+    hint?: string;
+    /** The relationship kinds the workspace hides by default; the panel's own filter, once set, takes precedence. */
+    hideRelations?: string[];
+    /** `related` says whether the server answers what relates to a node, so its menu offers to show related elements. */
+    related?: boolean;
+    /** What the panel draws besides the view, kept in the webview's state so a reload restores it. */
+    include?: string[];
+  }
   | { type: "views"; views: PickerEntry[]; selected: string }
   /** The look to redraw the diagram on screen in, ahead of the rendering coloured for it. */
   | { type: "style"; style: DiagramStyle }
+  /** Whose routes to lay the edges on screen along: the model's stated ones, or the panel's router's. */
+  | { type: "routing"; routing: Routing }
   | { type: "error"; message: string }
   | { type: "highlight"; id: string | undefined }
   /** A drop the model did not take: the canvas goes back to the model's layout, the status line says why. */
@@ -388,8 +460,6 @@ export type ToWebview =
 
 /** A diagram action naming nodes by rendering id; the extension asks for the rest. */
 export type EditAction =
-  | { kind: "addMember"; memberKind: string; typed: boolean; owner?: string }
-  | { kind: "addConnection"; connectionKind: string; from?: string; to?: string }
   | { kind: "rename"; id: string }
   | { kind: "delete"; id: string }
   | { kind: "move"; id: string };
@@ -408,7 +478,8 @@ export interface EdgePlacement {
 
 /** A message the webview sends the extension; `drawn` is the drawing a message's ids name. */
 export type FromWebview =
-  | { type: "ready" }
+  /** `include` is what the webview's saved state says the panel drew besides the view, restored after a reload. */
+  | { type: "ready"; include?: string[] }
   | { type: "reveal"; id: string; drawn: number }
   /** A located table row opens its element; `row` indexes the drawing's rows. */
   | { type: "revealRow"; row: number; drawn: number }
@@ -416,6 +487,10 @@ export type FromWebview =
   /** The user chose a look in the panel's toolbar; the extension keeps it as the setting. */
   | { type: "style"; style: DiagramStyle }
   | { type: "edit"; action: EditAction; drawn: number }
+  /** The user asked for a node's related elements; the extension lists them and includes the ones chosen. */
+  | { type: "related"; id: string; drawn: number }
+  /** The user asked to leave an included node out of the drawing again. */
+  | { type: "hide"; id: string; drawn: number }
   /** One completed gesture: everything it moved, applied as one edit. */
   | { type: "place"; nodes: NodePlacement[]; edges: EdgePlacement[]; drawn: number }
   /** A node dropped on another: moved into it as a declaration, and placed where it was released. */

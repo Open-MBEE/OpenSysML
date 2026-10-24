@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"github.com/Open-MBEE/OpenSysML/internal/check/codes"
 
 	"go.lsp.dev/protocol"
 )
@@ -46,13 +47,17 @@ func (s *Server) sendDiagnosticsLocked(ctx context.Context, name string) {
 		out = make([]protocol.Diagnostic, 0, len(diags))
 		pos := positionsFor(content)
 		for _, d := range diags {
-			out = append(out, protocol.Diagnostic{
+			ld := protocol.Diagnostic{
 				Range:    pos.rangeOf(d.Span),
 				Severity: protocol.DiagnosticSeverity(int(d.Severity) + 1),
 				Message:  d.Message,
 				Code:     d.Code,
 				Source:   d.Source,
-			})
+			}
+			if d.Code != "" {
+				ld.CodeDescription = &protocol.CodeDescription{Href: protocol.URI(codes.URL(d.Code))}
+			}
+			out = append(out, ld)
 		}
 	}
 	// Best-effort push: a failed notification has no recovery path here and the

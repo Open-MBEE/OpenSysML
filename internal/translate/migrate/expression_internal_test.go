@@ -55,45 +55,45 @@ func TestExpressionTreeLowering(t *testing.T) {
 			   <operand xmi:type="uml:Expression" xmi:id="_s1" symbol="+">` + leaf("a") + `<operand xmi:type="uml:LiteralInteger" xmi:id="_l" value="2"/></operand>
 			   <operand xmi:type="uml:Expression" xmi:id="_s2" symbol="*">` + leaf("b") + `<operand xmi:type="uml:LiteralReal" xmi:id="_r" value="1.5"/></operand>
 			 </specification>`,
-			"constraint r { a + 2 <= b * 1.5 }"},
+			"context.a + 2 <= context.b * 1.5"},
 		{"unary minus and not",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="not">
 			   <operand xmi:type="uml:Expression" xmi:id="_s1" symbol="&lt;">` + leaf("a") + `<operand xmi:type="uml:Expression" xmi:id="_s2" symbol="-">` + leaf("b") + `</operand></operand>
 			 </specification>`,
-			"constraint r { not (a < -b) }"},
+			"not (context.a < -context.b)"},
 		{"nested boolean operators fold several operands",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="and">
 			   <operand xmi:type="uml:Expression" xmi:id="_s1" symbol="&gt;">` + leaf("a") + `<operand xmi:type="uml:LiteralInteger" xmi:id="_l" value="0"/></operand>
 			   <operand xmi:type="uml:Expression" xmi:id="_s2" symbol="&gt;">` + leaf("b") + `<operand xmi:type="uml:LiteralInteger" xmi:id="_l2" value="0"/></operand>
 			   <operand xmi:type="uml:Expression" xmi:id="_s3" symbol="!=">` + leaf("a") + leaf("b") + `</operand>
 			 </specification>`,
-			"constraint r { a > 0 and b > 0 and a != b }"},
+			"context.a > 0 and context.b > 0 and context.a != context.b"},
 		{"a power over several operands keeps the tree's left fold",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="==">` + leaf("a") +
 				`<operand xmi:type="uml:Expression" xmi:id="_s1" symbol="**"><operand xmi:type="uml:LiteralInteger" xmi:id="_l1" value="2"/><operand xmi:type="uml:LiteralInteger" xmi:id="_l2" value="3"/><operand xmi:type="uml:LiteralInteger" xmi:id="_l3" value="2"/></operand></specification>`,
-			"constraint r { a == (2 ** 3) ** 2 }"},
+			"context.a == (2 ** 3) ** 2"},
 		{"instance value of an enumeration literal",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="==">` + leaf("m") + `<operand xmi:type="uml:InstanceValue" xmi:id="_iv" instance="_on"/></specification>`,
-			"constraint r { m == Mode::On }"},
+			"context.m == Mode::On"},
 		{"function of the translated table",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="&gt;=">
 			   <operand xmi:type="uml:Expression" xmi:id="_s1" symbol="Math.abs">` + leaf("a") + `</operand>
 			   <operand xmi:type="uml:Expression" xmi:id="_s2" symbol="min">` + leaf("a") + leaf("b") + `</operand>
 			 </specification>`,
-			"constraint r { RealFunctions::abs(a) >= RealFunctions::min(a, b) }"},
+			"RealFunctions::abs(context.a) >= RealFunctions::min(context.a, context.b)"},
 		{"script operand inside a tree",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="&gt;">` + leaf("a") +
 				`<operand xmi:type="uml:OpaqueExpression" xmi:id="_o"><body>b / 2</body><language>JavaScript</language></operand></specification>`,
-			"constraint r { a > b / 2 }"},
+			"context.a > context.b / 2"},
 		{"java operand inside a tree keeps its own reading",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="&gt;">` + leaf("a") +
 				`<operand xmi:type="uml:OpaqueExpression" xmi:id="_o"><body>7 / 2</body><language>Java</language></operand></specification>`,
-			"constraint r { a > OpenSysMLMathFunctions::quotient(7, 2) }"},
+			"context.a > OpenSysMLMathFunctions::quotient(7, 2)"},
 		{"a script operand's precedence is kept under the tree's operator",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="&gt;">` + leaf("a") +
 				`<operand xmi:type="uml:Expression" xmi:id="_s1" symbol="*"><operand xmi:type="uml:OpaqueExpression" xmi:id="_o"><body>b + 2</body><language>JavaScript</language></operand>` +
 				`<operand xmi:type="uml:LiteralInteger" xmi:id="_l" value="2"/></operand></specification>`,
-			"constraint r { a > (b + 2) * 2 }"},
+			"context.a > (context.b + 2) * 2"},
 		{"named operators and element values a tool keeps in an extension",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="Equal">
 			   <operand xmi:type="uml:Expression" xmi:id="_s1" symbol="Plus">
@@ -109,13 +109,13 @@ func TestExpressionTreeLowering(t *testing.T) {
 			   </operand>
 			   <operand xmi:type="uml:LiteralReal" xmi:id="_r" value="4.0"/>
 			 </specification>`,
-			"constraint r { a ** 2 + -b == 4.0 }"},
+			"context.a ** 2 + -context.b == 4.0"},
 		{"a power over three operands folds left, as the other operators do",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="==">
 			   <operand xmi:type="uml:Expression" xmi:id="_s1" symbol="**">` + leaf("a") + leaf("b") + `<operand xmi:type="uml:LiteralInteger" xmi:id="_l" value="2"/></operand>
 			   <operand xmi:type="uml:Expression" xmi:id="_s2" symbol="-">` + leaf("a") + leaf("b") + `<operand xmi:type="uml:LiteralInteger" xmi:id="_l2" value="2"/></operand>
 			 </specification>`,
-			"constraint r { (a ** b) ** 2 == a - b - 2 }"},
+			"(context.a ** context.b) ** 2 == context.a - context.b - 2"},
 		{"element value of an element the scope does not read is refused",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="==">` + leaf("a") + `<operand xmi:type="uml:ElementValue" xmi:id="_ev" element="_on"/></specification>`,
 			`the UML Expression tree has no v2 form: the name "On" resolves to nothing readable: nothing visible from Blk is called On`},
@@ -127,23 +127,23 @@ func TestExpressionTreeLowering(t *testing.T) {
 			`the UML Expression tree has no v2 form: the construct "<ElementValue>" is outside the translated subset: the element value names no element`},
 		{"xor over Booleans is written",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="xor">` + leaf("p") + leaf("q") + `</specification>`,
-			"constraint r { p xor q }"},
+			"context.p xor context.q"},
 		{"implies over Booleans is written",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="implies">` + leaf("p") + leaf("q") + `</specification>`,
-			"constraint r { p implies q }"},
+			"context.p implies context.q"},
 		{"a conditional operand of implies is parenthesized",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="implies">` +
 				`<operand xmi:type="uml:OpaqueExpression" xmi:id="_o"><body>p ? q : p</body><language>JavaScript</language></operand>` +
 				leaf("q") + `</specification>`,
-			"constraint r { (if p ? q else p) implies q }"},
+			"(if context.p ? context.q else context.p) implies context.q"},
 		{"an implies operand of or is parenthesized",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="or">` + leaf("p") +
 				`<operand xmi:type="uml:Expression" xmi:id="_s1" symbol="implies">` + leaf("q") + leaf("p") + `</operand></specification>`,
-			"constraint r { p or (q implies p) }"},
+			"context.p or (context.q implies context.p)"},
 		{"an or operand of implies needs no parentheses",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="implies">` +
 				`<operand xmi:type="uml:Expression" xmi:id="_s1" symbol="or">` + leaf("p") + leaf("q") + `</operand>` + leaf("p") + `</specification>`,
-			"constraint r { p or q implies p }"},
+			"context.p or context.q implies context.p"},
 		{"xor over non-Booleans is a type refusal",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="xor">` + leaf("a") + leaf("b") + `</specification>`,
 			`the UML Expression tree has no v2 form: the types at "xor" disagree: an operand is a Real, not a Boolean`},
@@ -163,7 +163,7 @@ func TestExpressionTreeLowering(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := string(r.Notation); !strings.Contains(got, tc.want) {
+			if got := string(r.Notation); !hasBlock(got, tc.want) {
 				t.Errorf("notation lacks %q:\n%s", tc.want, got)
 			}
 		})
@@ -174,10 +174,10 @@ func TestExpressionTreeLowering(t *testing.T) {
 // by its bare name through the whole migration, beside the tree cases above.
 func TestEnglishConstraintCalls(t *testing.T) {
 	for _, tc := range []struct{ name, body, want string }{
-		{"a trigonometric function", "a = sin(b)", "a == TrigFunctions::sin(b)"},
-		{"functions of the script table", "abs(a) &lt;= sqrt(b) and floor(a) &lt; max(a, b)", "RealFunctions::abs(a) <= RealFunctions::sqrt(b) and RealFunctions::floor(a) < RealFunctions::max(a, b)"},
-		{"a power", "a = pow(b, 2)", "a == b ** 2"},
-		{"the extension library's functions", "a = exp(b) + ln(b) + log(b, 2)", "a == OpenSysMLMathFunctions::exp(b) + OpenSysMLMathFunctions::ln(b) + OpenSysMLMathFunctions::log(b, 2)"},
+		{"a trigonometric function", "a = sin(b)", "context.a == TrigFunctions::sin(context.b)"},
+		{"functions of the script table", "abs(a) &lt;= sqrt(b) and floor(a) &lt; max(a, b)", "RealFunctions::abs(context.a) <= RealFunctions::sqrt(context.b) and RealFunctions::floor(context.a) < RealFunctions::max(context.a, context.b)"},
+		{"a power", "a = pow(b, 2)", "context.a == context.b ** 2"},
+		{"the extension library's functions", "a = exp(b) + ln(b) + log(b, 2)", "context.a == OpenSysMLMathFunctions::exp(context.b) + OpenSysMLMathFunctions::ln(context.b) + OpenSysMLMathFunctions::log(context.b, 2)"},
 		{"a dotted name is refused", "a = Math.sin(b)", `the construct "Math.sin(" is outside the translated subset: a call is not English`},
 		{"a name outside the table is refused", "a = sinh(b)", `the construct "sinh(" is outside the translated subset: a call is not English`},
 		{"a name of several words is not a call", "a = sin b", `the name "sin b" resolves to nothing readable`},
@@ -220,7 +220,7 @@ func TestBlankTreeIsNotationOnly(t *testing.T) {
 			Unmapped, `the types at "a" disagree: the expression is a Real, not the Boolean wanted`},
 		{"an instance value naming a literal is read and type checked",
 			`<specification xmi:type="uml:Expression" xmi:id="_s"><operand xmi:type="uml:InstanceValue" xmi:id="_iv" instance="_on"/></specification>`,
-			Unmapped, `the types at "On" disagree: the expression is a Mode, not the Boolean wanted`},
+			Unmapped, `the types at "On" disagree: the expression is a Model::Mode, not the Boolean wanted`},
 		{"a tree without operands is not blank",
 			`<specification xmi:type="uml:Expression" xmi:id="_s"/>`,
 			Unmapped, "the UML Expression tree has no v2 form"},
@@ -261,7 +261,7 @@ func TestTreeOpaqueLiteralDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "attribute n : ScalarValues::Integer default = 2;"; !strings.Contains(string(r.Notation), want) {
+	if want := "attribute n : ScalarValues::Integer default = 2;"; !hasBlock(string(r.Notation), want) {
 		t.Errorf("notation lacks %q:\n%s", want, r.Notation)
 	}
 }
@@ -276,7 +276,7 @@ func TestTreePlaceholderShadowing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "constraint r { On == Mode::On }"; !strings.Contains(string(r.Notation), want) {
+	if want := "context.On == Mode::On"; !hasBlock(string(r.Notation), want) {
 		t.Errorf("notation lacks %q:\n%s", want, r.Notation)
 	}
 }

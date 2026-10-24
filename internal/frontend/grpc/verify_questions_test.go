@@ -977,13 +977,19 @@ func TestVerifyQuestionsGuardNestedReads(t *testing.T) {
 		missing := "reads P::Item::inner.dependent, whose value could not be read: feature value " + object + ".dependent: no value for feature input"
 		someMissing := "reads P::Item::inner.dependent under some assignment of its free features, whose value could not be read: feature value " + object + ".dependent: no value for feature input"
 		someBroken := "reads P::Item::inner.broken under some assignment of its free features, whose value could not be read: feature value " + object + ".broken: division by zero"
+		// Evaluated on no object, the chain reads the declaration, where a value
+		// nothing gives is undetermined; on an object it is a missing value.
+		evaluated := "constraint direct: assertion evaluation failed: feature value " + object + ".dependent: no value for feature input"
+		if object == "inner" {
+			evaluated = "constraint direct: assertion evaluation failed: no value: condition is undetermined: input has no value in the model"
+		}
 		return []struct {
 			symbol, question, status string
 			holds                    bool
 			err                      string
 			witness                  string
 		}{
-			{"P::Item::direct", questionEvaluate, statusUndecided, false, "constraint direct: assertion evaluation failed: feature value " + object + ".dependent: no value for feature input", ""},
+			{"P::Item::direct", questionEvaluate, statusUndecided, false, evaluated, ""},
 			{"P::Item::direct", questionHolds, statusUndecided, false, "constraint direct " + missing, ""},
 			{"P::Item::direct", questionSatisfiable, statusUndecided, false, "constraint direct " + missing, ""},
 
@@ -1069,6 +1075,34 @@ func TestVerifyQuestionsAGuardAfterTheReadCertifiesNoProof(t *testing.T) {
 		want := "requirement " + strings.TrimPrefix(symbol, "P::") + " reads bad under some assignment of its free features, whose value could not be read: division by zero"
 		if v.Status != statusUndecided || v.Holds || v.Error != want || len(v.Witness) != 0 {
 			t.Errorf("%s satisfiable: status=%q holds=%v error=%q witness=%+v, want undecided %q", symbol, v.Status, v.Holds, v.Error, v.Witness, want)
+		}
+	}
+}
+
+// TestVerifyQuestionsAssumptionOnlyRequirement: a requirement assuming but
+// requiring nothing holds vacuously — its assumptions are the antecedent of a
+// claim over no constraint — so the holds question proves it and the
+// satisfiable one is met, whatever the assumption says of the free feature.
+func TestVerifyQuestionsAssumptionOnlyRequirement(t *testing.T) {
+	requireSolver(t)
+	srv := mustNewService(t, 10)
+	source := `package P {
+	private import ScalarValues::*;
+	part def Rig {
+		attribute level : Integer;
+		requirement onlyAssumed { assume constraint { level > 1 } }
+	}
+}`
+	hash := mustVerifyModel(t, srv, source, "verify-assumption-only")
+	for _, question := range []string{"holds", "satisfiable"} {
+		resp, err := srv.VerifyRequirement(context.Background(), &pb.VerifyRequirementRequest{
+			ModelHash: hash, SymbolId: "P::Rig::onlyAssumed", Question: question,
+		})
+		if err != nil {
+			t.Fatalf("VerifyRequirement %s: %v", question, err)
+		}
+		if !resp.Verdict.Holds || resp.Verdict.Error != "" {
+			t.Errorf("%s: status=%q holds=%v, want a vacuous pass: %q", question, resp.Verdict.Status, resp.Verdict.Holds, resp.Verdict.Error)
 		}
 	}
 }

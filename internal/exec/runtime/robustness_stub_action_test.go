@@ -83,8 +83,8 @@ func testStubActionOptionalOutputFlowsNoValue(t *testing.T) {
 func testStubActionRequiredOutputNeverWritten(t *testing.T) {
 	_, err := executeChain(t, stubChain("[1]", "[0..1]",
 		"assign seen := value->size();"))
-	if !errors.Is(err, ErrFlowSource) || !strings.Contains(err.Error(), "node stub produced no value at reading") {
-		t.Fatalf("error = %v, want ErrFlowSource from an output never written", err)
+	if !errors.Is(err, errFlowSource) || !strings.Contains(err.Error(), "node stub produced no value at reading") {
+		t.Fatalf("error = %v, want errFlowSource from an output never written", err)
 	}
 }
 

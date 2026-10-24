@@ -123,7 +123,7 @@ func TestREPLPackagedModelWorkflow(t *testing.T) {
 		"✓ Demo::Vehicle::mass",
 		"= 1500.0",
 		"✓ add(2, 3)",
-		"= 5",
+		"= [5]",
 		"✓ Constraint withinMassLimit passed",
 		"Instances:",
 	)
@@ -283,7 +283,7 @@ func TestEvalResolvesALibraryOperationAsTheCheckerDoes(t *testing.T) {
 	own := NewSession()
 	own.Submit("private import NumericalFunctions::*;")
 	own.Submit("calc sum { in a; in b; return : Integer = a + b; }")
-	wants(t, run(t, own, "%eval sum(1, 2)"), "= 3")
+	wants(t, run(t, own, "%eval sum(1, 2)"), "= [3]")
 	wants(t, run(t, own, "%eval sum((1, 2, 3))"), "error:")
 }
 
@@ -309,13 +309,13 @@ func TestEvalAndCalcOfAnUnimportedLibraryFunction(t *testing.T) {
 	imported := NewSession()
 	imported.Submit(strings.Replace(wheels, "package Demo {", "package Demo {\n\t\t\tprivate import SequenceFunctions::*;", 1))
 	wants(t, run(t, imported, "%eval Demo::Car::wheelCount"), "= 4")
-	wants(t, run(t, imported, "%calc Demo::Count((1, 2, 3))"), "= 3")
+	wants(t, run(t, imported, "%calc Demo::Count((1, 2, 3))"), "= [3]")
 }
 
 func TestCalcWithPositionalArgs(t *testing.T) {
 	s := loadFixture(t, "testdata/vehicle_package.sysml")
-	wants(t, run(t, s, "%calc add 20 22"), "✓ add(20, 22)", "= 42")
-	wants(t, run(t, s, "%calc Demo::add 1 2"), "= 3")
+	wants(t, run(t, s, "%calc add 20 22"), "✓ add(20, 22)", "= [42]")
+	wants(t, run(t, s, "%calc Demo::add 1 2"), "= [3]")
 	wants(t, run(t, s, "%calc nosuch 1"), `unresolved reference: nosuch`)
 }
 
@@ -394,6 +394,30 @@ func TestActionDebuggerRunsToResult(t *testing.T) {
 	wants(t, run(t, s, "%continue"), "✓ Action completed", "total = 5")
 	wants(t, run(t, s, "%continue"), "already completed")
 	wants(t, run(t, s, "%stop"), `✓ Stopped debugging session for "tally"`)
+}
+
+// A use case is an action (SysML v2 §7.19): the debugger steps its body as it
+// does an action's, a use case def and an included use case run the same way,
+// and the analysis runner still refuses it, since it is no analysis case.
+func TestActionDebuggerRunsAUseCase(t *testing.T) {
+	s := loadFixture(t, "testdata/use_case_debug.sysml")
+
+	wants(t, run(t, s, "%action Drones::chargeDrone"), `✓ Started action executor for "Drones::chargeDrone"`, "Tokens: 1")
+	wants(t, run(t, s, "%tokens"), "Active tokens (1):", "Token 1 @ start")
+	wants(t, run(t, s, "%step"), "✓ Step complete")
+	wants(t, run(t, s, "%tokens"), "Token 1 @ plugDrone")
+	wants(t, run(t, s, "%continue"), "✓ Action completed", "charge = 11")
+	wants(t, run(t, s, "%stop"), `✓ Stopped debugging session for "Drones::chargeDrone"`)
+
+	wants(t, run(t, s, "%action Drones::Weigh"), `✓ Started action executor for "Drones::Weigh"`)
+	wants(t, run(t, s, "%continue"), "✓ Action completed", "m = [3.5]")
+	run(t, s, "%stop")
+
+	wants(t, run(t, s, "%action Drones::mission"), `✓ Started action executor for "Drones::mission"`)
+	wants(t, run(t, s, "%continue"), "✓ Action completed", "charge.charge = 1", "weigh.m = [3.5]", "total = [4.5]")
+	run(t, s, "%stop")
+
+	wants(t, run(t, s, "%analysis Drones::chargeDrone"), "error: not an analysis case: Drones::chargeDrone is an use case usage")
 }
 
 // A perform usage states no flow of its own: the debugger runs the flow of the
@@ -931,12 +955,12 @@ func TestPromptScopeIsTheLastNamespaceDeclared(t *testing.T) {
 // spaces — a quantity, a parenthesized expression, a nested call — survives.
 func TestCalcParsesExpressionArguments(t *testing.T) {
 	s := quantitySession(t)
-	wants(t, run(t, s, "%calc Fall -15.0 [m/s] 8.5 [s]"), "✓ Fall(-15.0 [m/s], 8.5 [s])", "= -127.5 [SI::m]")
+	wants(t, run(t, s, "%calc Fall -15.0 [m/s] 8.5 [s]"), "✓ Fall(-15.0 [m/s], 8.5 [s])", "= [-127.5 [SI::m]]")
 	// The same invocation written the way the notation writes one.
-	wants(t, run(t, s, "%calc Fall(-15.0 [m/s], 8.5 [s])"), "= -127.5 [SI::m]")
+	wants(t, run(t, s, "%calc Fall(-15.0 [m/s], 8.5 [s])"), "= [-127.5 [SI::m]]")
 	// A parenthesized subexpression, and a call standing as an argument.
-	wants(t, run(t, s, "%calc Fall (-5.0 [m/s] - 10.0 [m/s]) 8.5 [s]"), "= -127.5 [SI::m]")
-	wants(t, run(t, s, "%calc Fall -15.0 [m/s] (4.0 [s] + 4.5 [s])"), "= -127.5 [SI::m]")
+	wants(t, run(t, s, "%calc Fall (-5.0 [m/s] - 10.0 [m/s]) 8.5 [s]"), "= [-127.5 [SI::m]]")
+	wants(t, run(t, s, "%calc Fall -15.0 [m/s] (4.0 [s] + 4.5 [s])"), "= [-127.5 [SI::m]]")
 	// Named arguments are a different production; the limitation is reported.
 	wants(t, run(t, s, "%calc Fall v0=-15.0 [m/s] tb=8.5 [s]"), "named arguments are not supported")
 }
@@ -964,24 +988,24 @@ func TestCalcRunsAStatementBody(t *testing.T) {
 			return : Integer = 0;
 		}
 	}`)
-	wants(t, run(t, s, "%calc P::factorial 6"), "✓ P::factorial(6)", "= 720")
-	wants(t, run(t, s, "%calc P::factorial 0"), "= 1")
-	wants(t, run(t, s, "%calc P::firstOver 3"), "= 5")
-	wants(t, run(t, s, "%calc P::firstOver 100"), "= 0")
+	wants(t, run(t, s, "%calc P::factorial 6"), "✓ P::factorial(6)", "= [720]")
+	wants(t, run(t, s, "%calc P::factorial 0"), "= [1]")
+	wants(t, run(t, s, "%calc P::firstOver 3"), "= [5]")
+	wants(t, run(t, s, "%calc P::firstOver 100"), "= [0]")
 }
 
 // A whitespace-separated argument may be signed: `5 -3` is two arguments, while
 // `5 - 3` — an expression left unfinished across the space — is one.
 func TestCalcSeparatesSignedArguments(t *testing.T) {
 	s := loadFixture(t, "testdata/vehicle_package.sysml")
-	wants(t, run(t, s, "%calc add 5 -3"), "✓ add(5, -3)", "= 2")
-	wants(t, run(t, s, "%calc add 5, -3"), "✓ add(5, -3)", "= 2")
-	wants(t, run(t, s, "%calc add -5 -3"), "✓ add(-5, -3)", "= -8")
-	wants(t, run(t, s, "%calc add (2 + 3) -3"), "✓ add((2 + 3), -3)", "= 2")
+	wants(t, run(t, s, "%calc add 5 -3"), "✓ add(5, -3)", "= [2]")
+	wants(t, run(t, s, "%calc add 5, -3"), "✓ add(5, -3)", "= [2]")
+	wants(t, run(t, s, "%calc add -5 -3"), "✓ add(-5, -3)", "= [-8]")
+	wants(t, run(t, s, "%calc add (2 + 3) -3"), "✓ add((2 + 3), -3)", "= [2]")
 	wants(t, run(t, s, "%calc add 5 - 3"), `parameter "y" has no argument`)
 	// An `=` inside an argument's own parentheses binds that call's parameter,
 	// not the argument, so only the argument's own binding is refused.
-	wants(t, run(t, s, "%calc add add(x = 1, y = 2) 4"), "✓ add(add(x = 1, y = 2), 4)", "= 7")
+	wants(t, run(t, s, "%calc add add(x = 1, y = 2) 4"), "✓ add(add(x = 1, y = 2), 4)", "= [7]")
 	wants(t, run(t, s, "%calc add a=1 2"), "named arguments are not supported")
 	// Malformed input is diagnosed rather than parsed past.
 	wants(t, run(t, s, "%calc add (5 3"), "failed to parse argument")
@@ -1012,9 +1036,9 @@ func TestCalcUsageOutputsAtThePrompt(t *testing.T) {
 			attribute q = d.a;
 		}
 	}`)
-	wants(t, run(t, s, "%calc M::c"), "✓ M::c", "a = 6", "b = 10")
-	wants(t, run(t, s, "%eval M::c.a"), "= 6")
-	wants(t, run(t, s, "%eval M::c.b"), "= 10")
+	wants(t, run(t, s, "%calc M::c"), "✓ M::c", "a = [6]", "b = [10]")
+	wants(t, run(t, s, "%eval M::c.a"), "= [6]")
+	wants(t, run(t, s, "%eval M::c.b"), "= [10]")
 	wants(t, run(t, s, "%eval M::z"), "= 10")
 	wants(t, run(t, s, "%eval M::p::q"), "= 8")
 }

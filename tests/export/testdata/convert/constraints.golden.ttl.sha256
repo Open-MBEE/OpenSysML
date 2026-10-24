@@ -1,0 +1,41 @@
+sha256 7987c6a34f7762196bfb4220a852d113cb94163c369194e8bedb0d000b459162 bytes 252840 lines 3885
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Constraints
+    a sysml:Package ;
+    sysml:qualifiedName "Constraints" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "52"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "Constraints" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Constraints" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Constraints__Mass, elmt:Constraints__MassLimit, elmt:Constraints__Margin, elmt:Constraints__Rover ;
+    sysml:ownedMembership elmt:Constraints__Mass_om, elmt:Constraints__MassLimit_om, elmt:Constraints__Margin_om, elmt:Constraints__Rover_om ;
+    sysml:ownedRelationship elmt:Constraints__Mass_om, elmt:Constraints__MassLimit_om, elmt:Constraints__Margin_om, elmt:Constraints__Rover_om ;
+    sysx:sourceText "package Constraints {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"Constraints__Mass\"},{\"@id\":\"Constraints__MassLimit\"},{\"@id\":\"Constraints__Margin\"},{\"@id\":\"Constraints__Rover\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Mass_om\"},{\"@id\":\"Constraints__MassLimit_om\"},{\"@id\":\"Constraints__Margin_om\"},{\"@id\":\"Constraints__Rover_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Mass_om\"},{\"@id\":\"Constraints__MassLimit_om\"},{\"@id\":\"Constraints__Margin_om\"},{\"@id\":\"Constraints__Rover_om\"}]" .
+
+elmt:Constraints__Mass
+    a sysml:AttributeDefinition ;
+    sysml:qualifiedName "Constraints::Mass" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
+    sysml:elementId "Constraints__Mass" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Constraints ;
+    sysml:owner elmt:Constraints ;

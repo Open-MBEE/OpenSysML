@@ -60,10 +60,16 @@ type Options struct {
 	// Unplaced is where a diagram some Layout positions puts the nodes none
 	// does: left undrawn when empty, or drawn too (a strip below a DOT drawing).
 	Unplaced view.Unplaced
+	// Compartments is how a tree rendering folds a node's owned members into
+	// compartment rows of its box; view.CompartmentsPositioned when empty.
+	Compartments view.Compartments
 
 	// Style is the drawing style every DOT diagram is drawn in, the Pilot look
 	// when empty.
 	Style view.DrawingStyle
+	// Show is the optional notation elements every diagram draws besides the
+	// ones its view's rendering shows.
+	Show view.Shown
 
 	// LinkTemplate fills source links for diagram elements.
 	LinkTemplate string
@@ -132,7 +138,7 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	if err := checkOptions(converter, opts); err != nil {
 		return nil, err
 	}
-	forms := docrender.DiagramOptions{Form: opts.DiagramForm, Unplaced: opts.Unplaced, Style: opts.Style, LinkTemplate: opts.LinkTemplate}
+	forms := docrender.DiagramOptions{Form: opts.DiagramForm, Unplaced: opts.Unplaced, Compartments: opts.Compartments, Style: opts.Style, Show: opts.Show, LinkTemplate: opts.LinkTemplate}
 	forms.WithoutGraphviz = opts.DiagramForm == "" && !Graphviz{}.Available()
 	diagrams, err := docrender.Diagrams(document, forms)
 	if err != nil {
@@ -167,7 +173,7 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	switch converter.Capabilities().Input {
 	case InputMarkdown:
 		markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{
-			DiagramForm: opts.DiagramForm, WithoutGraphviz: forms.WithoutGraphviz, Unplaced: opts.Unplaced, Style: opts.Style, LinkTemplate: opts.LinkTemplate,
+			DiagramForm: opts.DiagramForm, WithoutGraphviz: forms.WithoutGraphviz, Unplaced: opts.Unplaced, Compartments: opts.Compartments, Style: opts.Style, Show: opts.Show, LinkTemplate: opts.LinkTemplate,
 			OutputDir: base, NumberFigures: opts.NumberFigures, TableColumns: tableColumns(opts), TableMeasure: tableMeasure(opts),
 		})
 		if err != nil {
@@ -199,7 +205,7 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 
 // checkOptions rejects a malformed reader stylesheet for every converter, and
 // the HTML backend's stylesheet choices for a converter reading Markdown,
-// whose HTML carries none of the backend's classes.
+// whose HTML is written by pandoc with table classes from its filter.
 func checkOptions(converter Converter, opts Options) error {
 	if opts.TableColumns < 0 || opts.TableColumns == 1 {
 		return &Error{Kind: ErrorTableColumns, Columns: opts.TableColumns}
@@ -245,6 +251,7 @@ func htmlOptions(opts Options, withoutGraphviz bool, dir, base string, images []
 	}
 	sheets = append(sheets, opts.Stylesheets...)
 	return docrender.HTMLOptions{
+		Show:                opts.Show,
 		NoDefaultStylesheet: opts.NoDefaultStylesheet,
 		Theme:               opts.Theme,
 		Stylesheets:         sheets,
@@ -256,6 +263,7 @@ func htmlOptions(opts Options, withoutGraphviz bool, dir, base string, images []
 		DiagramForm:         opts.DiagramForm,
 		WithoutGraphviz:     withoutGraphviz,
 		Unplaced:            opts.Unplaced,
+		Compartments:        opts.Compartments,
 		Style:               opts.Style,
 		LinkTemplate:        opts.LinkTemplate,
 		DiagramImages:       images,

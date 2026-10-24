@@ -82,30 +82,30 @@ func TestReceptionsAcceptAndPerformTheirMethod(t *testing.T) {
 	wantNote(t, r, "_apply", migrate.Mapped, "")
 
 	h := newHeaterRun(t, r)
-	if got := len(h.heater.PerformedActionsOf(h.sym("Heater::setLevel"))); got != 1 {
+	if got := len(h.heater.PerformedActionsOf(h.sym("Model::Heater::setLevel"))); got != 1 {
 		t.Fatalf("the object performs SetLevel %d time(s) from creation, want 1", got)
 	}
 	for _, level := range []float64{3.5, 7.25} {
-		h.send(t, "Signals::SetLevel", map[string]runtime.Value{"value": realValue(level)})
+		h.send(t, "Model::Signals::SetLevel", map[string]runtime.Value{"value": realValue(level)})
 		if got := h.level(t); got != level {
 			t.Errorf("after SetLevel(value=%v) the method left level = %v", level, got)
 		}
 	}
-	h.send(t, "Signals::Boost", nil)
+	h.send(t, "Model::Signals::Boost", nil)
 	if got := h.level(t); got != 7.25 {
 		t.Errorf("the refused method ran: level = %v", got)
 	}
-	h.send(t, "Signals::SetName", map[string]runtime.Value{"name": runtime.NewStringValue("4")})
-	h.send(t, "Signals::SetLevels", map[string]runtime.Value{"values": realValue(1.5)})
+	h.send(t, "Model::Signals::SetName", map[string]runtime.Value{"name": runtime.NewStringValue("4")})
+	h.send(t, "Model::Signals::SetLevels", map[string]runtime.Value{"values": realValue(1.5)})
 	if got := h.level(t); got != 7.25 {
 		t.Errorf("a method whose parameter the signal's attribute does not fit ran: level = %v", got)
 	}
-	h.send(t, "Signals::Stop", nil)
-	h.send(t, "Signals::Nudge", map[string]runtime.Value{"delta": realValue(2.5)})
+	h.send(t, "Model::Signals::Stop", nil)
+	h.send(t, "Model::Signals::Nudge", map[string]runtime.Value{"delta": realValue(2.5)})
 	if got := h.level(t); got != 2.5 {
 		t.Errorf("the method run as its operation left level = %v, want 2.5", got)
 	}
-	if got := len(h.heater.PerformedActionsOf(h.sym("Heater::setLevel"))); got != 1 {
+	if got := len(h.heater.PerformedActionsOf(h.sym("Model::Heater::setLevel"))); got != 1 {
 		t.Errorf("after the signals the object performs SetLevel %d time(s), want the one it was created with", got)
 	}
 
@@ -141,7 +141,7 @@ func newHeaterRun(t *testing.T, r *migrate.Result) *heaterRun {
 	res := resolve.New(idx)
 	ctx := runtime.NewContext(runtime.NewModel(passes.NewTypedModel(res), res), 10_000_000)
 	h := &heaterRun{t: t, idx: idx, ctx: ctx}
-	heater, err := ctx.Instantiate(h.sym("Heater"))
+	heater, err := ctx.Instantiate(h.sym("Model::Heater"))
 	if err != nil {
 		t.Fatalf("instantiate Heater: %v", err)
 	}

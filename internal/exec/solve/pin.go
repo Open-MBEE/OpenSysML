@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -368,8 +369,8 @@ func (t *translator) fix(pins []Pin) error {
 			Term: Binary(OpEq, Bool, VarTerm(v), term),
 			From: Provenance{
 				Kind:      "feature",
-				Element:   v.Name,
-				Condition: v.Name + " == " + text + ", " + p.Source.phrase(),
+				Element:   source.QualifiedNameText(v.Name),
+				Condition: source.QualifiedNameText(v.Name) + " == " + ValueText(v, text) + ", " + p.Source.phrase(),
 				Role:      RolePinned,
 				Declared:  p.Feature,
 				File:      v.File,
@@ -441,6 +442,11 @@ const (
 // pinTerm builds the term a fixed value is asserted equal to, and the value as
 // the notation writes it. A value the variable's sort cannot hold refuses.
 func (t *translator) pinTerm(p Pin, v *Var) (*Term, string, error) {
+	// A one-element collection is its element (KerML 1.0 §7.4.8), so a multi-valued
+	// feature holding one value pins as that value.
+	if element, ok := soleHeld(p.Value); ok {
+		p.Value = element
+	}
 	text := pinText(t, p.Value)
 	// A literal of a scalar-valued enumeration pins a datatype variable by its
 	// identity, and an Integer or Real one by the scalar it equals.
@@ -613,6 +619,15 @@ func (t *translator) pinRefusal(p Pin, v *Var, text, reason string) error {
 	return err
 }
 
+// ValueText writes a value stated for v as the notation does: a datatype's value is
+// a qualified name, quoted where it needs quoting; any other is already written so.
+func ValueText(v *Var, value string) string {
+	if v != nil && v.Sort.Kind == SortDatatype {
+		return source.QualifiedNameText(value)
+	}
+	return value
+}
+
 // pinText renders a fixed value as the notation writes it.
 func pinText(t *translator, val runtime.Value) string {
 	if lit := val.EnumerationLiteral(); lit != nil {
@@ -723,6 +738,18 @@ func ChainPins(ctx *runtime.Context, q *Query, read Reader, self *runtime.Instan
 			if errors.Is(err, runtime.ErrNoValue) && !errors.Is(err, runtime.ErrFeatureValueMaterialization) {
 				continue
 			}
+			unfixed = append(unfixed, Unfixed{Feature: v.Symbol, Name: v.Name, Var: v.Name, Reason: err.Error(), Err: err})
+			continue
+		}
+		if unset := unsetOutside(value.Undetermined(), v.Steps); unset != nil {
+			// A declared value open for a feature nothing gives a value to does not evaluate,
+			// as a failed read does; a chain whose own step holds nothing stays free.
+			spelled := v.Name
+			if i := strings.LastIndex(spelled, "::"); i >= 0 {
+				spelled = spelled[i+2:]
+			}
+			noValue := &runtime.NoValueError{Feature: unset.Name, Symbol: unset}
+			err := &runtime.FeatureValueError{Err: fmt.Errorf("feature value %s: %w", spelled, noValue)}
 			unfixed = append(unfixed, Unfixed{Feature: v.Symbol, Name: v.Name, Var: v.Name, Reason: err.Error(), Err: err})
 			continue
 		}
@@ -878,4 +905,36 @@ func (q *Query) ReachedError() error {
 	}
 	return fmt.Errorf("%s %s reads %s under some assignment of its free features, whose values could not be read: %w",
 		q.Kind, q.Element, strings.Join(names, ", "), errors.Join(errs...))
+}
+
+// soleHeld is the one element a sequence or set of one holds, when it does.
+func soleHeld(v runtime.Value) (runtime.Value, bool) {
+	var elements []runtime.Value
+	switch v.Kind {
+	case runtime.ValSequence:
+		if v.Sequence() != nil {
+			elements = v.Sequence().Elements()
+		}
+	case runtime.ValSet:
+		if v.Set() != nil {
+			elements = v.Set().Elements()
+		}
+	default:
+		return runtime.Value{}, false
+	}
+	if len(elements) != 1 {
+		return runtime.Value{}, false
+	}
+	return elements[0], true
+}
+
+// unsetOutside is the first feature with no value u is open for that is none of the
+// chain's own steps, nil when u is determined or open only for its own steps or a count.
+func unsetOutside(u *runtime.Undetermined, steps []*symbols.Symbol) *symbols.Symbol {
+	for _, unset := range u.Unsets() {
+		if !slices.Contains(steps, unset) {
+			return unset
+		}
+	}
+	return nil
 }

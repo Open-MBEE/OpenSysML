@@ -1,0 +1,41 @@
+sha256 eb4560391dbb51f9c4e25422045f0abd164be4094d10bc57173429e22febb599 bytes 417354 lines 7447
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Results
+    a sysml:Package ;
+    sysml:qualifiedName "Results" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "95"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "Results" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Results" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Results__Real, elmt:Results__Boolean, elmt:Results__Double, elmt:Results__Only, elmt:Results__AfterMembers, elmt:Results__Body, elmt:Results__Quoted, elmt:Results__Nested, elmt:Results__Documented, elmt:Results__Passes, elmt:Results__Says, elmt:Results__Empty, elmt:Results__Named, elmt:Results__Scaled, elmt:Results__Predicate, elmt:Results__Chained, elmt:Results__Conditional, elmt:Results__Widened, elmt:Results__Ranged, elmt:Results__Vehicle, elmt:Results__MassAnalysis, elmt:Results__MassCheck, elmt:Results__MassCase, elmt:Results__rover ;
+    sysml:ownedMembership elmt:Results__Real_om, elmt:Results__Boolean_om, elmt:Results__Double_om, elmt:Results__Only_om, elmt:Results__AfterMembers_om, elmt:Results__Body_om, elmt:Results__Quoted_om, elmt:Results__Nested_om, elmt:Results__Documented_om, elmt:Results__Passes_om, elmt:Results__Says_om, elmt:Results__Empty_om, elmt:Results__Named_om, elmt:Results__Scaled_om, elmt:Results__Predicate_om, elmt:Results__Chained_om, elmt:Results__Conditional_om, elmt:Results__Widened_om, elmt:Results__Ranged_om, elmt:Results__Vehicle_om, elmt:Results__MassAnalysis_om, elmt:Results__MassCheck_om, elmt:Results__MassCase_om, elmt:Results__rover_om ;
+    sysml:ownedRelationship elmt:Results__Real_om, elmt:Results__Boolean_om, elmt:Results__Double_om, elmt:Results__Only_om, elmt:Results__AfterMembers_om, elmt:Results__Body_om, elmt:Results__Quoted_om, elmt:Results__Nested_om, elmt:Results__Documented_om, elmt:Results__Passes_om, elmt:Results__Says_om, elmt:Results__Empty_om, elmt:Results__Named_om, elmt:Results__Scaled_om, elmt:Results__Predicate_om, elmt:Results__Chained_om, elmt:Results__Conditional_om, elmt:Results__Widened_om, elmt:Results__Ranged_om, elmt:Results__Vehicle_om, elmt:Results__MassAnalysis_om, elmt:Results__MassCheck_om, elmt:Results__MassCase_om, elmt:Results__rover_om ;
+    sysx:sourceText "package Results {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"Results__Real\"},{\"@id\":\"Results__Boolean\"},{\"@id\":\"Results__Double\"},{\"@id\":\"Results__Only\"},{\"@id\":\"Results__AfterMembers\"},{\"@id\":\"Results__Body\"},{\"@id\":\"Results__Quoted\"},{\"@id\":\"Results__Nested\"},{\"@id\":\"Results__Documented\"},{\"@id\":\"Results__Passes\"},{\"@id\":\"Results__Says\"},{\"@id\":\"Results__Empty\"},{\"@id\":\"Results__Named\"},{\"@id\":\"Results__Scaled\"},{\"@id\":\"Results__Predicate\"},{\"@id\":\"Results__Chained\"},{\"@id\":\"Results__Conditional\"},{\"@id\":\"Results__Widened\"},{\"@id\":\"Results__Ranged\"},{\"@id\":\"Results__Vehicle\"},{\"@id\":\"Results__MassAnalysis\"},{\"@id\":\"Results__MassCheck\"},{\"@id\":\"Results__MassCase\"},{\"@id\":\"Results__rover\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Results__Real_om\"},{\"@id\":\"Results__Boolean_om\"},{\"@id\":\"Results__Double_om\"},{\"@id\":\"Results__Only_om\"},{\"@id\":\"Results__AfterMembers_om\"},{\"@id\":\"Results__Body_om\"},{\"@id\":\"Results__Quoted_om\"},{\"@id\":\"Results__Nested_om\"},{\"@id\":\"Results__Documented_om\"},{\"@id\":\"Results__Passes_om\"},{\"@id\":\"Results__Says_om\"},{\"@id\":\"Results__Empty_om\"},{\"@id\":\"Results__Named_om\"},{\"@id\":\"Results__Scaled_om\"},{\"@id\":\"Results__Predicate_om\"},{\"@id\":\"Results__Chained_om\"},{\"@id\":\"Results__Conditional_om\"},{\"@id\":\"Results__Widened_om\"},{\"@id\":\"Results__Ranged_om\"},{\"@id\":\"Results__Vehicle_om\"},{\"@id\":\"Results__MassAnalysis_om\"},{\"@id\":\"Results__MassCheck_om\"},{\"@id\":\"Results__MassCase_om\"},{\"@id\":\"Results__rover_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Results__Real_om\"},{\"@id\":\"Results__Boolean_om\"},{\"@id\":\"Results__Double_om\"},{\"@id\":\"Results__Only_om\"},{\"@id\":\"Results__AfterMembers_om\"},{\"@id\":\"Results__Body_om\"},{\"@id\":\"Results__Quoted_om\"},{\"@id\":\"Results__Nested_om\"},{\"@id\":\"Results__Documented_om\"},{\"@id\":\"Results__Passes_om\"},{\"@id\":\"Results__Says_om\"},{\"@id\":\"Results__Empty_om\"},{\"@id\":\"Results__Named_om\"},{\"@id\":\"Results__Scaled_om\"},{\"@id\":\"Results__Predicate_om\"},{\"@id\":\"Results__Chained_om\"},{\"@id\":\"Results__Conditional_om\"},{\"@id\":\"Results__Widened_om\"},{\"@id\":\"Results__Ranged_om\"},{\"@id\":\"Results__Vehicle_om\"},{\"@id\":\"Results__MassAnalysis_om\"},{\"@id\":\"Results__MassCheck_om\"},{\"@id\":\"Results__MassCase_om\"},{\"@id\":\"Results__rover_om\"}]" .
+
+elmt:Results__Real
+    a sysml:AttributeDefinition ;
+    sysml:qualifiedName "Results::Real" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "24"^^xsd:integer ;
+    sysml:elementId "Results__Real" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Results ;
+    sysml:owner elmt:Results ;

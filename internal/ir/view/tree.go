@@ -2,10 +2,12 @@ package view
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // maxTreeDepth bounds how deep a containment tree is walked, so a model whose
@@ -30,7 +32,7 @@ func (r *Renderer) treeDepth() int {
 func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
 	out.sites = map[*Node]treeSite{}
-	descendants := r.exposedDescendants(exposed, r.containedMembers)
+	descendants := r.exposedDescendants(view, exposed, func(sym *symbols.Symbol) []*symbols.Symbol { return r.walkMembers(view, sym) })
 	for _, elem := range exposed {
 		if descendants[symbols.KeyOf(elem)] {
 			continue
@@ -44,10 +46,10 @@ func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, o
 // exposedDescendants is the key of each exposed element a surviving root's
 // walk by members already draws — a fixpoint, since an element whose
 // containers are all suppressed must stand as a root itself.
-func (r *Renderer) exposedDescendants(exposed []*symbols.Symbol, members func(*symbols.Symbol) []*symbols.Symbol) map[symbols.ElementKey]bool {
+func (r *Renderer) exposedDescendants(view *symbols.Symbol, exposed []*symbols.Symbol, members func(*symbols.Symbol) []*symbols.Symbol) map[symbols.ElementKey]bool {
 	by := make([]map[symbols.ElementKey]bool, len(exposed))
 	for i, elem := range exposed {
-		by[i] = r.treeDescendants(elem, members)
+		by[i] = r.treeDescendants(view, elem, members)
 	}
 	suppressed := map[symbols.ElementKey]bool{}
 	for range exposed {
@@ -82,20 +84,33 @@ func (r *Renderer) exposedDescendants(exposed []*symbols.Symbol, members func(*s
 // treeDescendants is the set of element keys the walk given by members draws
 // below sym, dry-run by the same walk: a member is drawn even when the guard
 // stubs its node.
-func (r *Renderer) treeDescendants(sym *symbols.Symbol, members func(*symbols.Symbol) []*symbols.Symbol) map[symbols.ElementKey]bool {
+func (r *Renderer) treeDescendants(view, sym *symbols.Symbol, members func(*symbols.Symbol) []*symbols.Symbol) map[symbols.ElementKey]bool {
 	out := map[symbols.ElementKey]bool{}
-	var walk func(sym *symbols.Symbol, seen map[*symbols.Symbol]bool, depth int)
-	walk = func(sym *symbols.Symbol, seen map[*symbols.Symbol]bool, depth int) {
-		if seen[sym] || depth >= r.treeDepth() {
+	bound := r.walkBound(view)
+	// An element inherited into several places is walked once per depth it
+	// is first reached at: shallower, it reaches more.
+	visited := map[*symbols.Symbol]int{}
+	var walk func(sym *symbols.Symbol, path expansion, depth int)
+	walk = func(sym *symbols.Symbol, path expansion, depth int) {
+		if path[sym] {
 			return
 		}
-		seen[sym] = true
+		if shallowest, ok := visited[sym]; ok && shallowest <= depth {
+			return
+		}
+		visited[sym] = depth
+		recursive, added := r.enter(path, sym)
+		defer leave(path, added)
+		folded := depth >= bound || r.collapsedIn(view, sym)
 		for _, member := range members(sym) {
+			if recursive != nil && member.Owner() != sym || folded && !pinnedAt(sym, member) {
+				continue
+			}
 			out[symbols.KeyOf(member)] = true
-			walk(member, seen, depth+1)
+			walk(member, path, depth+1)
 		}
 	}
-	walk(sym, map[*symbols.Symbol]bool{}, 0)
+	walk(sym, expansion{}, 0)
 	return out
 }
 
@@ -114,11 +129,11 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 		}
 		rendered[sub] = true
 		node := &Node{ID: ids.take(), Kind: declKind(sub), Name: r.notationName(sub), NameSynthesized: r.model.NameSynthesized(sub),
-			Type: declType(sub), Typings: r.declTypings(sub), Origin: symbolOrigin(sub), Geometry: r.geometryOf(view, sub, out)}
+			Type: r.headType(sub), Typings: r.headTypings(sub), Origin: symbolOrigin(sub), Geometry: r.geometryOf(view, sub, out)}
 		r.dress(view, sub, node, out)
 		exposed, err := r.model.ExposedElements(sub)
 		if err == nil {
-			descendants := r.exposedDescendants(exposed, r.containedMembers)
+			descendants := r.exposedDescendants(sub, exposed, func(sym *symbols.Symbol) []*symbols.Symbol { return r.walkMembers(sub, sym) })
 			for _, elem := range exposed {
 				if descendants[symbols.KeyOf(elem)] {
 					continue
@@ -139,47 +154,149 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 // qualified name, which is what an exposed element is reported by; a member
 // nested in it is named as it was declared. view is the view the element is
 // shown in, nil outside any view.
-func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, seen map[*symbols.Symbol]bool, depth int, qualified bool, out *Rendering) *Node {
-	shown := seen[sym]
-	node := r.treeNodeShallow(view, sym, ids, seen, depth, qualified, out)
-	if shown || depth >= r.treeDepth() {
+func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, path expansion, depth int, qualified bool, out *Rendering) *Node {
+	node := r.treeNodeShallow(view, sym, ids, path, depth, qualified, out)
+	if path[sym] {
 		return node
 	}
-	for _, member := range r.containedMembers(sym) {
-		node.Children = append(node.Children, r.treeNode(view, member, ids, seen, depth+1, false, out))
+	recursive, added := r.enter(path, sym)
+	defer leave(path, added)
+	if recursive != nil {
+		node.Detail = detailWith(node.Detail, recursionNote(recursive))
+	}
+	// At the depth bound, or collapsed, an element keeps its ports and pins — they
+	// count at their owner's depth — and nothing else nested is drawn.
+	bound, cut := r.walkBound(view), 0
+	folded := depth >= bound || collapsed(node)
+	for _, member := range r.walkMembers(view, sym) {
+		if recursive != nil && member.Owner() != sym {
+			continue
+		}
+		if folded && !pinnedAt(sym, member) {
+			if depth >= bound {
+				cut++
+			}
+			continue
+		}
+		node.Children = append(node.Children, r.treeNode(view, member, ids, path, depth+1, false, out))
+	}
+	if cut > 0 {
+		node.Detail = detailWith(node.Detail, cutNote(bound))
+		out.depthCut += cut
 	}
 	return node
 }
 
-// treeNodeShallow draws sym without recursively drawing its members.
-func (r *Renderer) treeNodeShallow(view, sym *symbols.Symbol, ids *nodeIDs, seen map[*symbols.Symbol]bool, depth int, qualified bool, out *Rendering) *Node {
+// treeNodeShallow draws sym without recursively drawing its members; one on
+// the path being expanded above it is noted as already shown.
+func (r *Renderer) treeNodeShallow(view, sym *symbols.Symbol, ids *nodeIDs, path expansion, depth int, qualified bool, out *Rendering) *Node {
 	name := r.notationName(sym)
 	if !qualified {
 		name = localName(sym)
 	}
 	node := &Node{ID: ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
-		Type: declType(sym), Typings: r.declTypings(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(view, sym, out),
-		Style: r.styleOf(view, sym, out)}
+		Type: r.headType(sym), Typings: r.headTypings(sym), Value: r.declValue(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(view, sym, out),
+		Style: r.styleOf(view, sym, out), Referential: referenceRow(sym)}
 	out.noteTreeSite(node, view, sym)
-	if seen[sym] {
+	if path[sym] {
 		node.Detail = detailWith(node.Detail, "already shown")
 		return node
 	}
 	r.notesOf(view, sym, node.ID, out)
-	if depth >= r.treeDepth() {
-		if len(r.containedMembers(sym)) > 0 {
-			node.Detail = detailWith(node.Detail, fmt.Sprintf("nested deeper than %d levels; not shown", r.treeDepth()))
-		}
-		return node
-	}
-	seen[sym] = true
 	return node
 }
 
+// expansion is what a walk is drawing above the element at hand: each element
+// on the path down to it and each type those elements are typed by. An element
+// reached again through its own typing shows what it declares itself and is
+// noted, rather than unfolded without end; the depth bound stops everything else.
+type expansion map[*symbols.Symbol]bool
+
+// enter marks sym and its declared types as being expanded, returning what
+// leave undoes. A type of sym already being expanded above is returned as well,
+// and then sym alone is marked: the walk shows its own members and no inherited one.
+func (r *Renderer) enter(path expansion, sym *symbols.Symbol) (recursive *symbols.Symbol, added []*symbols.Symbol) {
+	types := r.model.DeclaredTypes(sym)
+	for _, typ := range types {
+		if path[typ] {
+			recursive, types = typ, nil
+			break
+		}
+	}
+	for _, elem := range append(slices.Clone(types), sym) {
+		if !path[elem] {
+			path[elem] = true
+			added = append(added, elem)
+		}
+	}
+	return recursive, added
+}
+
+func leave(path expansion, added []*symbols.Symbol) {
+	for _, elem := range added {
+		delete(path, elem)
+	}
+}
+
+// recursionNote says why an element typed by what is being expanded above it
+// shows only what it declares itself.
+func recursionNote(typ *symbols.Symbol) string {
+	return fmt.Sprintf("recursive through %s; inherited members not shown", localName(typ))
+}
+
+// effectiveMembers returns the elements a containment walk shows beneath an
+// element: the members it declares in its own body, then those it inherits
+// from its definitions and from the features it redefines or subsets (its
+// effective features, KerML Type::feature), source by source in declaration
+// order. A redefining member stands in for the one it redefines, and the
+// connectors a definition declares without a name come along with its named
+// members. A variant is a choice, not a feature of what the variation types,
+// and a member the standard library declares stays out: an attribute typed by
+// a library quantity does not unfold into it.
+func (r *Renderer) effectiveMembers(sym *symbols.Symbol) []*symbols.Symbol {
+	out := r.containedMembers(sym)
+	if sym == nil {
+		return nil
+	}
+	seen := make(map[*symbols.Symbol]bool, len(out))
+	for _, member := range out {
+		seen[member] = true
+	}
+	inherited := map[*symbols.Symbol]bool{}
+	for _, member := range r.model.MembersOf(sym) {
+		if member != sym && !seen[member] && member.Owner() != sym && member.IsFeature() && !semantics.IsVariant(member) &&
+			r.contentKind(member) && !r.libraryDeclared(member) {
+			inherited[member] = true
+		}
+	}
+	for _, source := range r.model.MemberSources(sym) {
+		if source == sym || source.Scope == nil {
+			continue
+		}
+		anonymous := map[*symbols.Symbol]bool{}
+		for _, member := range source.Scope.AnonymousMembers() {
+			anonymous[member] = true
+		}
+		for _, member := range r.containedMembers(source) {
+			if seen[member] || !(inherited[member] || (anonymous[member] && !r.libraryDeclared(member))) {
+				continue
+			}
+			seen[member] = true
+			out = append(out, member)
+		}
+	}
+	for _, member := range r.model.MembersOf(sym) {
+		if inherited[member] && !seen[member] {
+			seen[member] = true
+			out = append(out, member)
+		}
+	}
+	return out
+}
+
 // containedMembers returns what an element declares in its own body, in
-// declaration order: the elements a containment tree shows beneath it. A
-// reference member is anonymous, so the two member lists a scope keeps are
-// merged by source position rather than concatenated.
+// declaration order. A reference member is anonymous, so the two member lists
+// a scope keeps are merged by source position rather than concatenated.
 func (r *Renderer) containedMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil || sym.Scope == nil {
 		return nil
@@ -235,4 +352,18 @@ func detailWith(detail, note string) string {
 		return note
 	}
 	return detail + ", " + note
+}
+
+// declValue is the value a usage is bound to, as the notation writes it
+// after the `=`, or "" when it declares none: the expression spelled out, or
+// its source text for a form (an invocation, a constructor) nothing spells.
+func (r *Renderer) declValue(sym *symbols.Symbol) string {
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok || usage.Value == nil {
+		return ""
+	}
+	if text := expressionText(usage.Value); text != "" {
+		return text
+	}
+	return r.nodeText(sym.Origin().Doc, usage.Value)
 }

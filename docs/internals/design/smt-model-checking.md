@@ -103,7 +103,7 @@ The executor and the SMT engine share one count: before analyzing an action, `An
 each lowered action node's own multiplicity through `ActionGraph.StepCount`. An unevaluable or
 non-fixed count returns typed `ErrNotEncoded` as an `UnsupportedError` naming the step and the
 declared multiplicity, with the reason that the SMT engine requires a fixed step count; a bound
-beyond 64 bits also wraps `semantics.ErrIntegerUnaddressable`. An exact count `n` other than one is
+beyond 64 bits also wraps `semantics.errIntegerUnaddressable`. An exact count `n` other than one is
 encoded as the executor performs it (`Flow.Repeats`): the move taking a succession into `a[n]`
 leaves the token pending there, and the next move splits it into `n - 1` sibling tokens at `a` in
 free slots, mirroring `splitRepeatedStep`'s own step; `sizeSlots` adds `n - 1` slots per bounded

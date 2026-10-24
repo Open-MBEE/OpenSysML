@@ -403,6 +403,15 @@ func (w *Workspace) SetOnDisk(name string, content []byte) {
 	}
 }
 
+// OnDisk returns a copy of the bytes last recorded as name's file on disk, and
+// whether any were.
+func (w *Workspace) OnDisk(name string) ([]byte, bool) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	content, ok := w.onDisk[name]
+	return bytes.Clone(content), ok
+}
+
 // DeleteOnDisk forgets the on-disk bytes recorded for name. An open document
 // keeps its authoritative buffer; a closed one leaves the document set.
 func (w *Workspace) DeleteOnDisk(name string) {
@@ -625,6 +634,18 @@ func (w *Workspace) Diagnostics(name string) []diag.Diagnostic {
 		return nil
 	}
 	return passes.WithoutLints(w.diagnosticsLocked(name, doc), w.disabledLints, w.enabledLints)
+}
+
+// UnfilteredDiagnostics is Diagnostics with every lint finding kept, for a
+// reader applying a lint selection of its own (passes.WithoutLints).
+func (w *Workspace) UnfilteredDiagnostics(name string) []diag.Diagnostic {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	doc := w.docs[name]
+	if doc == nil {
+		return nil
+	}
+	return w.diagnosticsLocked(name, doc)
 }
 
 // AnalyzedContent returns a document's diagnostics together with the content
@@ -901,6 +922,15 @@ func (w *Workspace) bundledLocked(name string) bool {
 	}
 	_, ok := w.library[name]
 	return ok
+}
+
+// LibraryNames returns the relative paths of the bundled library files the
+// workspace can serve through LibraryDocument, sorted; nil without a source.
+func (w *Workspace) LibraryNames() []string {
+	if w.libSource == nil {
+		return nil
+	}
+	return w.libSource.List()
 }
 
 // LibraryDocument returns the parsed text of the named bundled library file,

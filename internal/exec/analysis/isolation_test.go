@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
@@ -120,7 +121,7 @@ func TestSweepsOnOneModelHaveWorkersOfTheirOwn(t *testing.T) {
 			t.Fatalf("plan %d tabled %d rows, want 3", i, len(table.Rows))
 		}
 		for j, row := range table.Rows {
-			if row.Err != nil || row.Outputs[0].Value.Const.Int != int64(2*(j+1)) {
+			if row.Err != nil || row.Outputs[0].Value.Sole().Const.Int != int64(2*(j+1)) {
 				t.Fatalf("plan %d row %d %+v, want result = %d in plan order", i, j, row, 2*(j+1))
 			}
 			if row.Context == nil || row.Context == ctx {
@@ -237,7 +238,7 @@ func TestTheSurfacesContextKeepsItsLimits(t *testing.T) {
 	var rows []runtime.Budgets
 	double := doubleRow(t, f)
 	sweep := Question{Kind: Sweep, Subject: "test::Double", Schedule: ctx.Schedule(), Sweep: &SweepAsk{Plan: doublePlan(t, f, ctx),
-		Row: func(rctx *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+		Row: func(rctx *runtime.Context, bindings []sweep.SweepBinding) (sweep.SweepRunResult, error) {
 			if rctx == ctx {
 				t.Error("a sweep row ran in the surface's context")
 			}

@@ -1,6 +1,7 @@
 package view
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"slices"
 	"strings"
 
@@ -15,6 +16,7 @@ type labeller struct {
 	owned   map[*Node]string // a node's name relative to the nearest drawn owner
 	simple  map[*Node]string // a node's distinguishing suffix, when names are drawn simple
 	skin    dotSkin          // the DOT skin labels are composed and measured for
+	shown   Shown            // the optional notation elements the labels carry
 }
 
 // labelsOf finds the namespace the named roots share — the longest run of
@@ -23,10 +25,12 @@ type labeller struct {
 // simple instead heads each node by the minimal suffix of its qualified name
 // that distinguishes it among the nodes the drawing declares, as a positioned
 // drawing of scattered elements names them; omitted lists the node IDs a
-// drawing leaves undeclared (nil counts every node).
-func labelsOf(roots []*Node, simple bool, omitted map[string]bool) labeller {
-	if simple {
-		return labeller{simple: simpleNames(roots, omitted)}
+// drawing leaves undeclared (nil counts every node). Names are simple too when
+// shown leaves out the qualifiers, and the keyword and detail lines are left
+// out as shown says.
+func labelsOf(roots []*Node, simple bool, omitted map[string]bool, shown Shown) labeller {
+	if simple || !shown.Has(ElementQualifiers) {
+		return labeller{simple: simpleNames(roots, omitted), shown: shown}
 	}
 	var context []string
 	found := false
@@ -49,7 +53,7 @@ func labelsOf(roots []*Node, simple bool, omitted map[string]bool) labeller {
 		}
 		context = context[:n]
 	}
-	return labeller{context: context, owned: ownedNames(roots)}
+	return labeller{context: context, owned: ownedNames(roots), shown: shown}
 }
 
 // ownedNames names each node relative to the nearest drawn owner its qualified
@@ -303,7 +307,7 @@ func (l labeller) keyworded(node *Node) bool {
 // keyword is a node's keyword line, the kind in guillemets, or "" when the
 // skin writes none for it.
 func (l labeller) keyword(node *Node) string {
-	if !l.keyworded(node) {
+	if !l.shown.Has(ElementKeywords) || !l.keyworded(node) {
 		return ""
 	}
 	return "«" + node.Kind + "»"
@@ -313,9 +317,9 @@ func (l labeller) keyword(node *Node) string {
 // entry a line.
 func (l labeller) details(node *Node) []string {
 	switch {
-	case node.Detail == "":
+	case node.Detail == "" || !l.shown.Has(ElementCompartments):
 		return nil
-	case l.skin.cameo && node.Kind == "state":
+	case l.skin.cameo && ast.NotationKeyword(node.Kind) == "state":
 		return cameoStateDetails(node.Detail)
 	case l.skin.cameo:
 		return []string{bareNames(node.Detail)}
@@ -334,7 +338,8 @@ func (l labeller) lines(node *Node) []string {
 		lines = append(lines, keyword)
 	}
 	lines = append(lines, l.headLines(node)...)
-	return append(lines, l.details(node)...)
+	lines = append(lines, l.details(node)...)
+	return append(lines, l.compartmentLines(node)...)
 }
 
 // titleLines joins the keyword to the first head line for a container title.
@@ -345,7 +350,8 @@ func (l labeller) titleLines(node *Node) []string {
 		head[0] = keyword + " " + head[0]
 	}
 	lines = append(lines, head...)
-	return append(lines, l.details(node)...)
+	lines = append(lines, l.details(node)...)
+	return append(lines, l.compartmentLines(node)...)
 }
 
 // cameoStateDetails splits a state's detail into Cameo's compartment lines, one

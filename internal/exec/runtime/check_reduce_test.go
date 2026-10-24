@@ -180,7 +180,7 @@ func TestCheckReductionKeepsEveryAddressee(t *testing.T) {
 	addressed := func(node string) CheckProperty {
 		return CheckProperty{Name: node + " unaddressed", Holds: func(ctx *Context, _ *Invocation) (bool, error) {
 			for _, msg := range ctx.PendingMessages() {
-				if inst, held := ctx.instances[msg.Object]; held && symbolText(inst.Type) == node {
+				if inst, held := ctx.instances[msg.Object]; held && SymbolText(inst.Type) == node {
 					return false, nil
 				}
 			}

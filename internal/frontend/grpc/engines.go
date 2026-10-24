@@ -45,11 +45,15 @@ func (s *Service) engineSelection(spelling string) (analysis.Selection, error) {
 }
 
 // ListEngines lists the engines this build registers, in name order.
-func (s *Service) ListEngines(_ context.Context, _ *pb.ListEnginesRequest) (*pb.ListEnginesResponse, error) {
+func (s *Service) ListEngines(_ context.Context, req *pb.ListEnginesRequest) (*pb.ListEnginesResponse, error) {
 	if err := s.requireCapability(CapabilityEngines); err != nil {
 		return nil, err
 	}
+	// A probe starts each external engine once, as -engines -probe does.
 	listings := s.engines.Listings()
+	if req.GetProbe() {
+		listings = s.engines.Probed()
+	}
 	resp := &pb.ListEnginesResponse{Engines: make([]*pb.EngineInfo, 0, len(listings))}
 	for _, l := range listings {
 		info := &pb.EngineInfo{

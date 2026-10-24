@@ -117,62 +117,6 @@ func TestStateExtensionsAreReported(t *testing.T) {
 	}
 }
 
-// A `frame` in a view body is an extension: FramedConcernMember belongs to a
-// requirement, concern or viewpoint body. Both spellings are reported, in a view
-// definition, a view usage and a view nested in another view alike.
-func TestFrameInAViewBodyIsReported(t *testing.T) {
-	const lib = "concern def C; concern c : C; "
-	for _, src := range []string{
-		lib + "view def V { frame concern k : C; }",
-		lib + "view def V { frame c; }",
-		lib + "view v { frame concern k : C; }",
-		lib + "view v { frame c; }",
-		lib + "view v { view inner { frame c; } }",
-		lib + "part def P { view v { frame c; } }",
-	} {
-		wantNotation(t, "a.sysml", src, CodeNonstandardNotation, "`frame` in a view body")
-	}
-}
-
-// A `frame` where the grammar places it stays silent: in a requirement,
-// concern or viewpoint body, including one declared inside a view body.
-func TestFrameOutsideAViewBodyIsSilent(t *testing.T) {
-	const lib = "concern def C; concern c : C; "
-	for _, src := range []string{
-		lib + "viewpoint def VP { frame concern k : C; frame c; }",
-		lib + "viewpoint vp { frame c; }",
-		lib + "requirement def R { frame c; }",
-		lib + "requirement r { frame concern k : C; }",
-		lib + "concern def D { frame c; }",
-		lib + "view def V { viewpoint vp { frame c; } }",
-		lib + "view v { requirement r { frame c; } }",
-	} {
-		wantSilent(t, "a.sysml", src)
-	}
-}
-
-// The `frame` warning points at the keyword, not at the whole member.
-func TestFrameInAViewBodyIsReportedAtItsKeyword(t *testing.T) {
-	src := `concern def C;
-	view def V {
-		frame concern k : C;
-	}`
-	root, pd, idx := analyzeInputs(t, "a.sysml", src)
-	if len(pd) != 0 {
-		t.Fatalf("%s: parse errors %+v", src, pd)
-	}
-	got := (NonstandardNotationPass{}).Run(NewContext("a.sysml", idx, pd), "a.sysml", root)
-	if len(got) != 1 {
-		t.Fatalf("%s: got %d diagnostics %+v, want 1", src, len(got), got)
-	}
-	if line := strings.Count(src[:got[0].Span.Offset], "\n") + 1; line != 3 {
-		t.Errorf("diagnostic is on line %d, want 3", line)
-	}
-	if got[0].Span.Len != len("frame") {
-		t.Errorf("diagnostic spans %d bytes, want the keyword", got[0].Span.Len)
-	}
-}
-
 // A transition stating its ends with `first` and `then` is standard.
 func TestStandardTransitionStaysSilent(t *testing.T) {
 	wantSilent(t, "a.sysml", "state def S { state a; state b; transition first a then b; }")
@@ -321,6 +265,44 @@ func TestTargetSuccessionAfterANonActionMemberIsAnExtension(t *testing.T) {
 	wantSilent(t, "a.sysml", "part def V { exhibit state vs { entry; then on; state on; then off; state off; } }")
 	wantSilent(t, "a.sysml", "part def P { action a; action b; first a then b; }")
 	wantSilent(t, "a.kerml", "behavior A { step a; then a; }")
+}
+
+// Outside an action body (TargetSuccessionMember) or a state body (a target
+// transition), `then <target>;` is an extension whatever member precedes it.
+func TestTargetSuccessionOutsideAnActionOrStateBodyIsAnExtension(t *testing.T) {
+	const outside = "`then <target>;` outside an action or state body"
+	wantNotation(t, "a.sysml", "view v { action x; then y; }", CodeNonstandardNotation, outside)
+	wantNotation(t, "a.sysml", "view def V { action x; then y; }", CodeNonstandardNotation, outside)
+	wantNotation(t, "a.sysml", "part def P { action x; then y; }", CodeNonstandardNotation, outside)
+	wantNotation(t, "a.sysml", "viewpoint def V { frame f; then y; }", CodeNonstandardNotation, outside)
+	// A package body admits no target succession: the parser rejects it, and the
+	// pass must not stack a notation finding on the same span.
+	for _, src := range []string{
+		"action def A { package P { action x; then y; } }",
+		"state def S { package P { action x; then y; } }",
+	} {
+		root, pd, idx := analyzeInputs(t, "a.sysml", src)
+		if !hasParseError(pd) {
+			t.Fatalf("%s: want a parse error on the package body's `then`", src)
+		}
+		for _, d := range (NonstandardNotationPass{}).Run(NewContext("a.sysml", idx, pd), "a.sysml", root) {
+			if d.Code == CodeNonstandardNotation {
+				t.Errorf("%s: got notation finding %+v, want none beside the parse error", src, d)
+			}
+		}
+	}
+
+	got := notationDiags(t, "a.sysml", "view v { action x; then y; }", diag.ConformanceStrict)
+	if len(got) != 1 || got[0].Severity != diag.SeverityError || !got[0].Notation {
+		t.Fatalf("strict got %+v, want one notation error", got)
+	}
+
+	wantSilent(t, "a.sysml", "action def A { action x; then y; }")
+	wantSilent(t, "a.sysml", "action def A { action x; if true then y; else y; }")
+	wantSilent(t, "a.sysml", "state def S { state x; then y; state y; }")
+	wantSilent(t, "a.sysml", "state s { state x; then t; state t; }")
+	wantSilent(t, "a.sysml", "action def A { action x; then action y; }")
+	wantSilent(t, "a.sysml", "action def A { action x; action y; first x then y; }")
 }
 
 // RequirementConstraintMember belongs to a RequirementBody; anywhere else the
@@ -511,4 +493,136 @@ func TestStateActivityImportIsReported(t *testing.T) {
 		}
 	}
 	wantSilent(t, "a.sysml", "package P { private import ScalarValues::*; private import States::*; state def S { state a; } }")
+}
+
+// `analysis case` / `verification case` are no keywords (SysML v2 8.2.2.23,
+// 8.2.2.24): the pair stays parsed, is reported at its span and fixed to one word.
+func TestCaseKeywordIsAnExtension(t *testing.T) {
+	for _, tc := range []struct{ src, want, fixed string }{
+		{"package P { analysis case def AD; }", "`analysis case def` is an OpenSysML extension", "package P { analysis def AD; }"},
+		{"package P { verification case def VD; }", "`verification case def` is an OpenSysML extension", "package P { verification def VD; }"},
+		{"package P { analysis case ad; }", "`analysis case <name>` is an OpenSysML extension", "package P { analysis ad; }"},
+		{"package P { verification case vd; }", "`verification case <name>` is an OpenSysML extension", "package P { verification vd; }"},
+		{"package P { abstract analysis case def AD; }", "`analysis case def` is an OpenSysML extension", "package P { abstract analysis def AD; }"},
+		{"package P { analysis\n    case def AD; }", "`analysis case def` is an OpenSysML extension", "package P { analysis\n    def AD; }"},
+	} {
+		wantNotation(t, "a.sysml", tc.src, CodeNonstandardNotation, tc.want)
+		_, _, got := notationDiagnostics(t, "a.sysml", tc.src)
+		if len(got) != 1 || len(got[0].Fixes) != 1 || len(got[0].Fixes[0].Edits) != 1 {
+			t.Fatalf("%s: want one diagnostic with one single-edit fix, got %+v", tc.src, got)
+		}
+		edit := got[0].Fixes[0].Edits[0]
+		if fixed := tc.src[:edit.Span.Offset] + edit.NewText + tc.src[edit.Span.End():]; fixed != tc.fixed {
+			t.Errorf("%s: fix gives %q, want %q", tc.src, fixed, tc.fixed)
+		}
+	}
+	for _, src := range []string{
+		"package P { analysis def AD; analysis ad : AD; }",
+		"package P { verification def VD; verification vd : VD; }",
+		"package P { use case def U; use case u : U; case def C; case c : C; }",
+	} {
+		wantSilent(t, "a.sysml", src)
+	}
+}
+
+// A `;` after a body's closing condition (SysML v2 8.2.2.19, KerML 8.2.5.7.1) is
+// reported at its span in either notation and deleted by the fix; `assert c;` is not.
+func TestConditionTerminatorIsAnExtension(t *testing.T) {
+	const want = "`;` after a body's condition is an OpenSysML extension"
+	for _, tc := range []struct{ name, src string }{
+		{"a.sysml", "constraint def K { in x : ScalarValues::Real; x > 0.0; }"},
+		{"a.sysml", "part def P { attribute m : ScalarValues::Real; constraint k { m > 0.0; } }"},
+		{"a.sysml", "part def P { attribute m : ScalarValues::Real; assert constraint { m > 0.0; } }"},
+		{"a.kerml", "predicate Q { in x : ScalarValues::Real; x > 0.0; }"},
+		{"a.kerml", "classifier C { feature m : ScalarValues::Real; inv positive { m > 0.0; } }"},
+	} {
+		wantNotation(t, tc.name, tc.src, CodeNonstandardNotation, want)
+		root, pd, idx := analyzeInputs(t, tc.name, tc.src)
+		got := NonstandardNotationPass{}.Run(NewContext(tc.name, idx, pd), tc.name, root)
+		if len(got) != 1 || tc.src[got[0].Span.Offset:got[0].Span.End()] != ";" {
+			t.Fatalf("%s: want the diagnostic at the `;`, got %+v", tc.src, got)
+		}
+		if len(got[0].Fixes) != 1 || len(got[0].Fixes[0].Edits) != 1 || got[0].Fixes[0].Edits[0].Span != got[0].Span || got[0].Fixes[0].Edits[0].NewText != "" {
+			t.Errorf("%s: want a fix deleting the `;`, got %+v", tc.src, got[0].Fixes)
+		}
+	}
+	// Only the closing condition is the result expression: the `;` between two
+	// conditions separates them, and only a `;` after the last one is reported.
+	wantNotation(t, "a.sysml", "constraint def K { in x : ScalarValues::Real; x > 0.0; x < 1.0; }",
+		CodeNonstandardNotation, want)
+	wantSilent(t, "a.sysml", "constraint def K { in x : ScalarValues::Real; x > 0.0; x < 1.0 }")
+	for _, tc := range []struct{ name, src string }{
+		{"a.sysml", "constraint def K { in x : ScalarValues::Real; x > 0.0 }"},
+		{"a.sysml", "part def P { attribute m : ScalarValues::Real; constraint k { m > 0.0 } }"},
+		{"a.sysml", "constraint def K; part def P { assert constraint c : K; assert c; }"},
+		{"a.sysml", "calc def C { in x : ScalarValues::Real; x * 2.0 }"},
+		{"a.kerml", "predicate Q { in x : ScalarValues::Real; x > 0.0 }"},
+		{"a.kerml", "classifier C { feature m : ScalarValues::Real; inv positive { m > 0.0 } }"},
+	} {
+		wantSilent(t, tc.name, tc.src)
+	}
+}
+
+// Prefix metadata belongs between `individual` and the declaration keyword
+// (SysML.xtext IndividualDefinition, IndividualUsage); written ahead of
+// `individual` it is reported once per declaration, on the metadata.
+func TestPrefixMetadataBeforeIndividualIsAnExtension(t *testing.T) {
+	const prelude = "package P { metadata def Tag; metadata def Other; occurrence def O; part def B; "
+	for _, member := range []string{
+		"#Tag individual def F :> O;",
+		"#Tag individual part def A :> B;",
+		"#Tag individual f : F;",
+		"#Tag individual part a : A;",
+		"#Tag individual occurrence o : O;",
+		"#Tag #Other individual part a : A;",
+		"#Tag individual #Other part a : A;",
+		"part def Q { #Tag individual part a : A; }",
+	} {
+		wantNotation(t, "a.sysml", prelude+member+" }", CodeNonstandardNotation,
+			"prefix metadata before `individual` (`#Tag individual …`) is an OpenSysML extension with no SysML v2 production: the metadata follows the keyword, so write `individual #Tag …`")
+	}
+	src := prelude + "\n#Tag #Other individual part a : A;\n#Tag individual part def A2 :> B; }"
+	root, pd, idx := analyzeInputs(t, "a.sysml", src)
+	if len(pd) != 0 {
+		t.Fatalf("%s: parse errors %+v", src, pd)
+	}
+	got := (NonstandardNotationPass{}).Run(NewContext("a.sysml", idx, pd), "a.sysml", root)
+	if len(got) != 2 {
+		t.Fatalf("%s: got %d diagnostics %+v, want 2", src, len(got), got)
+	}
+	for i, want := range []struct {
+		line int
+		text string
+	}{
+		{2, "#Tag #Other"},
+		{3, "#Tag"},
+	} {
+		if line := strings.Count(src[:got[i].Span.Offset], "\n") + 1; line != want.line {
+			t.Errorf("diagnostic %d is on line %d, want %d", i, line, want.line)
+		}
+		if text := src[got[i].Span.Offset:got[i].Span.End()]; text != want.text {
+			t.Errorf("diagnostic %d spans %q, want %q", i, text, want.text)
+		}
+	}
+}
+
+// The standard order and the forms without `individual` stay silent, as the
+// pinned validator accepts each of them.
+func TestPrefixMetadataAfterIndividualIsSilent(t *testing.T) {
+	const prelude = "package P { metadata def Tag; metadata def Other; occurrence def O; part def B; "
+	for _, member := range []string{
+		"individual #Tag def F :> O;",
+		"abstract individual #Tag def F :> O;",
+		"individual #Tag #Other def F :> O;",
+		"individual #Tag part def A :> B;",
+		"individual #Tag f : O;",
+		"individual #Tag part a : B;",
+		"individual #Tag occurrence o : O;",
+		"individual def F :> O; individual f : F;",
+		"#Tag part def A :> B; #Tag part a : A;",
+		"abstract #Tag part def A :> B;",
+		"part def Q { individual #Tag part a : B; }",
+	} {
+		wantSilent(t, "a.sysml", prelude+member+" }")
+	}
 }

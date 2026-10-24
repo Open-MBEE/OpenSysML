@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis/modelform"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
 
 // runGraphs writes the lowered graph of the action or state machine -graphs
@@ -24,4 +26,15 @@ func runGraphs(files []string) error {
 		return err
 	}
 	return writeOutputFile(outputPath, raw, fmt.Sprintf("graphs:%d", modelform.GraphsVersion))
+}
+
+// writeMetaclassGraph writes the Turtle committed as
+// internal/translate/rdf/ontology/sysml-metaclasses.ttl to stdout or to -output.
+func writeMetaclassGraph() error {
+	out := rdf.WriteTurtle(ontology.MetaclassGraph())
+	if outputPath == "" {
+		_, err := os.Stdout.Write(out)
+		return err
+	}
+	return writeOutputFile(outputPath, out, "metaclass hierarchy")
 }

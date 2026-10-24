@@ -1,6 +1,7 @@
 package passes
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -118,9 +119,9 @@ func TestW7GVerificationAndUseCaseReportTheExtraObjective(t *testing.T) {
 	}
 }
 
-// An analysis case improves several objectives lexicographically
-// (internal/exec/solve), so the cardinality rule does not judge it.
-func TestW7GAnalysisCaseAdmitsSeveralObjectives(t *testing.T) {
+// An analysis case is judged like every other case kind (SysML 8.3.22.2-3):
+// its second objective is reported, as the pilot reports it.
+func TestW7GAnalysisCaseReportsSecondObjective(t *testing.T) {
 	for _, src := range []string{
 		`package C {
 			analysis def As {
@@ -135,8 +136,12 @@ func TestW7GAnalysisCaseAdmitsSeveralObjectives(t *testing.T) {
 			}
 		}`,
 	} {
-		if diags := only(constraintDiags(t, src), "only-one-objective"); len(diags) != 0 {
-			t.Fatalf("analysis case objectives were diagnosed for %q: %v", src, diags)
+		diags := only(constraintDiags(t, src), "only-one-objective")
+		if len(diags) != 1 {
+			t.Fatalf("expected one objective diagnostic for %q, got %v", src, diags)
+		}
+		if line, _ := lineCol(src, diags[0].Span.Offset); line != 4 {
+			t.Errorf("diagnostic for %q is on line %d, want the second objective's line 4", src, line)
 		}
 	}
 }
@@ -312,6 +317,54 @@ func TestW7GRequirementWithNoParameterIsSilent(t *testing.T) {
 	}`
 	if diags := constraintDiags(t, src); len(diags) != 0 {
 		t.Fatalf("a requirement with no parameter has an implicit subject, got %v", diags)
+	}
+}
+
+// A stakeholder is an `in` parameter: declared before any subject it displaces the
+// inherited subject, reported on the declaration and on a concern framing it.
+func TestW7GStakeholderBeforeAnImplicitSubjectIsReported(t *testing.T) {
+	const src = `package C {
+		part def P;
+		concern def Rejected {
+			stakeholder owner : P;
+		}
+		viewpoint def AlsoRejected {
+			frame concern c : Rejected;
+		}
+		concern def Accepted {
+			subject s : P;
+			stakeholder owner : P;
+		}
+	}`
+	diags := constraintDiags(t, src)
+	if len(diags) != 2 {
+		t.Fatalf("want 2 subject-parameter-position diagnostics, got %v", diags)
+	}
+	for i, want := range []string{"3:3", "7:4"} {
+		if diags[i].Code != "subject-parameter-position" {
+			t.Fatalf("diag %d code = %q, want %q", i, diags[i].Code, "subject-parameter-position")
+		}
+		if line, col := lineCol(src, diags[i].Span.Offset); fmt.Sprintf("%d:%d", line, col) != want {
+			t.Fatalf("diag %d at %d:%d, want %s: %v", i, line, col, want, diags[i])
+		}
+	}
+}
+
+// An actor before an owned subject is reported on the subject, the pilot's placement.
+func TestW7GActorBeforeTheSubjectIsReportedOnTheSubject(t *testing.T) {
+	const src = `package U {
+		part def P;
+		use case def Run {
+			actor driver : P;
+			subject car : P;
+		}
+	}`
+	diags := constraintDiags(t, src)
+	if len(diags) != 1 || diags[0].Code != "subject-parameter-position" {
+		t.Fatalf("want one subject-parameter-position diagnostic, got %v", diags)
+	}
+	if line, _ := lineCol(src, diags[0].Span.Offset); line != 5 {
+		t.Fatalf("reported on line %d, want the subject on line 5", line)
 	}
 }
 

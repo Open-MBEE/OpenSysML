@@ -1,4 +1,4 @@
-choice entry at t=0.0: next dispatch accept Go, working(entry) (unordered; took dispatch accept Go first)
+choice entry at t=0.0: next dispatch accept Go, working(entry) (unordered; took dispatch accept Go first; independent)
 exit: working
 enter: done
 transition: working -> done (event: accept Go)

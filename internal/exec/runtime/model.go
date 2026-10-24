@@ -13,16 +13,16 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// ErrNoArgumentTyper reports a call reached on a semantic model with no argument
+// errNoArgumentTyper reports a call reached on a semantic model with no argument
 // typing installed: the run would select among overloads by arity alone, weaker
 // than the checker did, so it selects nothing.
-var ErrNoArgumentTyper = errors.New("no argument typing installed on the semantic model")
+var errNoArgumentTyper = errors.New("no argument typing installed on the semantic model")
 
 // selectCall is the declaration e calls in scope as the checker selects it, from the
-// semantic model's typing of the arguments; ErrNoArgumentTyper when none is installed.
+// semantic model's typing of the arguments; errNoArgumentTyper when none is installed.
 func (m *Model) selectCall(scope *symbols.Scope, e *ast.InvocationExpr, performs semantics.Performs) (*semantics.InvocationSelection, error) {
 	if !m.semantics.HasArgumentTyper() {
-		return nil, ErrNoArgumentTyper
+		return nil, errNoArgumentTyper
 	}
 	return m.semantics.SelectCall(scope, e, performs), nil
 }
@@ -41,6 +41,8 @@ type Model struct {
 	resolver  *resolve.Resolver
 
 	features map[*symbols.Symbol][]EffectiveFeature
+	// effectiveTypes memoizes effectiveTypes by feature symbol.
+	effectiveTypes map[*symbols.Symbol][]*symbols.Symbol
 	// declaresChains memoizes, by type, whether it or a member source of it
 	// declares a nested redefinition chain (see pendingNestedRedefinitions).
 	declaresChains map[*symbols.Symbol]bool
@@ -97,6 +99,14 @@ type Model struct {
 	// exclusion: a run reads the same names on every step. A plain map, under
 	// the Model's one-goroutine contract like the other memos.
 	names map[nameKey]nameHit
+	// footprints memoizes what an expression reads, by scope and expression: a
+	// loop re-reads its condition and a branch its guard on every pass.
+	footprints map[footprintKey]lower.Footprint
+	// orders memoizes lower.BodyStatementOrder by the body or block the statements
+	// are, and stamped a statement's footprint stamped for one performed node
+	// (actionStmtHost.statementFootprint): every execution of a body reads both.
+	orders  map[orderKey]*lower.StatementOrder
+	stamped map[stampedFootprint]lower.Footprint
 
 	// predicateShapes memoizes the invocation interfaces of constraints and
 	// requirements applied as predicates.
@@ -193,9 +203,9 @@ type Model struct {
 // anything else. The caller that builds a Model supplies it; the runtime parses nothing itself.
 type ExpressionParser func(origin, text string) (ast.Node, bool)
 
-// ErrNoExpressionParser is the typed error a run returns on reaching notation text
+// errNoExpressionParser is the typed error a run returns on reaching notation text
 // to read with no ExpressionParser installed on its Model.
-var ErrNoExpressionParser = errors.New("no expression parser installed on the runtime model")
+var errNoExpressionParser = errors.New("no expression parser installed on the runtime model")
 
 // SetExpressionParser installs the parser the Model reads witness input values and tool
 // units with; units the previous parser read are forgotten, so every lookup goes through it.
@@ -205,10 +215,10 @@ func (m *Model) SetExpressionParser(parse ExpressionParser) {
 }
 
 // parseOneExpression reads text as exactly one expression with the installed parser; ok is
-// false for text that is not one, err ErrNoExpressionParser when no parser is installed.
+// false for text that is not one, err errNoExpressionParser when no parser is installed.
 func (m *Model) parseOneExpression(origin, text string) (expr ast.Node, ok bool, err error) {
 	if m.parse == nil {
-		return nil, false, ErrNoExpressionParser
+		return nil, false, errNoExpressionParser
 	}
 	expr, ok = m.parse(origin, text)
 	return expr, ok, nil
@@ -218,7 +228,7 @@ func (m *Model) parseOneExpression(origin, text string) (expr ast.Node, ok bool,
 // the resolver it resolves names with; either may be nil for a context that
 // evaluates literals alone. The caller installs the checker's argument typing on
 // sem (semantics.Model.SetArgumentTyper) before any call is selected; a run that
-// selects a call without one fails with ErrNoArgumentTyper. Contexts are built
+// selects a call without one fails with errNoArgumentTyper. Contexts are built
 // over it with NewContext.
 func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 	return &Model{
@@ -367,4 +377,70 @@ func (m *Model) resolvedName(scope *symbols.Scope, name string, excluding ast.No
 	}
 	m.names[key] = nameHit{sym: sym, ok: ok}
 	return sym, ok
+}
+
+type footprintKey struct {
+	scope *symbols.Scope
+	expr  ast.Node
+}
+
+// orderKey names a statement list by the node whose body or block it is, its first
+// statement's syntax and its length: one list per model has those. A list whose
+// first statement has no syntax (keyed returns false) is not memoized.
+type orderKey struct {
+	node, first ast.Node
+	n           int
+}
+
+func statementListKey(node ast.Node, stmts []lower.Statement) (key orderKey, keyed bool) {
+	key = orderKey{node: node, first: lower.StatementNode(stmts[0]), n: len(stmts)}
+	return key, key.first != nil
+}
+
+// stampedFootprint keys a statement's footprint stamped for one performed node.
+type stampedFootprint struct {
+	list orderKey
+	i    int
+	node ast.Node
+}
+
+// statementOrder is lower.BodyStatementOrder of stmts, statements of node's body in
+// graph or of a block within it, computed once per model; graph may be nil for a
+// body lowered without one, whose statements resolve in scope.
+func (m *Model) statementOrder(graph *lower.ActionGraph, scope *symbols.Scope, node ast.Node, stmts []lower.Statement) *lower.StatementOrder {
+	key, keyed := statementListKey(node, stmts)
+	if order, known := m.orders[key]; known && keyed {
+		return order
+	}
+	var order *lower.StatementOrder
+	if graph != nil {
+		order = graph.StatementOrders[node]
+	}
+	if order == nil {
+		if graph == nil && scope != nil {
+			graph = &lower.ActionGraph{Scope: scope}
+		}
+		order = lower.BodyStatementOrder(graph, node, stmts)
+	}
+	if keyed {
+		if m.orders == nil {
+			m.orders = map[orderKey]*lower.StatementOrder{}
+		}
+		m.orders[key] = order
+	}
+	return order
+}
+
+// expressionFootprint is lower.ExpressionFootprint, computed once per expression.
+func (m *Model) expressionFootprint(scope *symbols.Scope, expr ast.Node) lower.Footprint {
+	key := footprintKey{scope: scope, expr: expr}
+	if fp, ok := m.footprints[key]; ok {
+		return fp
+	}
+	fp := lower.ExpressionFootprint(scope, expr)
+	if m.footprints == nil {
+		m.footprints = map[footprintKey]lower.Footprint{}
+	}
+	m.footprints[key] = fp
+	return fp
 }

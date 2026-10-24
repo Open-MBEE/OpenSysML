@@ -2,8 +2,12 @@ package export
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -18,13 +22,33 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
+// interchangeFixture reads a committed interchange export by the name of its contents; the
+// largest are committed gzip-compressed as name + ".gz" and decompressed here.
 func interchangeFixture(t *testing.T, name string) []byte {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("..", "..", "..", "tests", "export", "testdata", "interchange", name))
+	path := filepath.Join("..", "..", "..", "tests", "export", "testdata", "interchange", name)
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		data, err = readGzip(path + ".gz")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
 	return data
+}
+
+func readGzip(path string) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	reader, err := gzip.NewReader(file)
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+	return io.ReadAll(reader)
 }
 
 func decodeAPIJSON(t *testing.T, data []byte) []byte {
@@ -572,7 +596,7 @@ func TestUUIDQuotedRootDecodesImplied(t *testing.T) {
 // notation the qualified form's does.
 func TestUUIDRoundTrip(t *testing.T) {
 	data := interchangeFixture(t, "p10_interchange.sysml")
-	decode := func(form IDForm) []byte {
+	roundTrip := func(form IDForm) ([]byte, *rdf.Graph, *rdf.Graph) {
 		file := source.New("p10.sysml", data)
 		p := parser.New(file)
 		root := p.ParseFile()
@@ -587,13 +611,56 @@ func TestUUIDRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatalf("WriteAPIJSON: %v", err)
 		}
-		return decodeAPIJSON(t, document)
+		roundTripGraph, err := ReadAPIJSON(document)
+		if err != nil {
+			t.Fatalf("ReadAPIJSON: %v", err)
+		}
+		out, err := ToSysML(roundTripGraph)
+		if err != nil {
+			t.Fatalf("ToSysML: %v", err)
+		}
+		return out, graph, roundTripGraph
 	}
-	qualified, uuid := decode(IDQualifiedName), decode(IDUUID)
+	qualified, before, after := roundTrip(IDQualifiedName)
+	uuid, _, _ := roundTrip(IDUUID)
 	// The id form changes element identity alone, so both forms decode to the
 	// same notation: a mode-derived id is implied again, not re-declared.
 	if !bytes.Equal(uuid, qualified) {
 		t.Fatalf("the uuid form decoded differently than the qualified form:\n%s", uuid)
+	}
+	subject := rdf.IRI(rdf.Expression + "P10__car__mass_pvalue_pa1")
+	beforeTriples, afterTriples := map[rdf.Triple]bool{}, map[rdf.Triple]bool{}
+	for _, triple := range before.Triples() {
+		if triple.Subject == subject {
+			beforeTriples[triple] = true
+		}
+	}
+	for _, triple := range after.Triples() {
+		if triple.Subject == subject {
+			afterTriples[triple] = true
+		}
+	}
+	var missing, extra []rdf.Triple
+	for triple := range beforeTriples {
+		if !afterTriples[triple] {
+			missing = append(missing, triple)
+		}
+	}
+	for triple := range afterTriples {
+		if !beforeTriples[triple] {
+			extra = append(extra, triple)
+		}
+	}
+	if len(missing) > 0 || len(extra) > 0 {
+		t.Errorf("API-JSON changed triples for %s:\nbefore: %v\nafter: %v\nmissing: %v\nextra: %v",
+			subject.Value, beforeTriples, afterTriples, missing, extra)
+	}
+	if !before.Has(rdf.Triple{
+		Subject: subject, Predicate: rdf.SysMLTerm("referent"), Object: rdf.String("kg"),
+	}) || !after.Has(rdf.Triple{
+		Subject: subject, Predicate: rdf.SysMLTerm("referent"), Object: rdf.String("kg"),
+	}) {
+		t.Fatal("API-JSON did not preserve the literal referent for the P10 feature reference expression")
 	}
 }
 

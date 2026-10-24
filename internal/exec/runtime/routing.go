@@ -11,133 +11,133 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// ErrUnroutableSend is returned when a `send … via p` reaches no end able to
+// errUnroutableSend is returned when a `send … via p` reaches no end able to
 // receive it: p is joined to nothing, or only to ends whose flow features carry
 // outward. It lives here rather than in errors.go because routing is the only
 // thing that raises it.
-var ErrUnroutableSend = errors.New("send reaches no receiving port")
+var errUnroutableSend = errors.New("send reaches no receiving port")
 
-// ErrSendViaUnknownPort reports a routed send naming no sender port.
-var ErrSendViaUnknownPort = errors.New("send via names no port of the sender")
+// errSendViaUnknownPort reports a routed send naming no sender port.
+var errSendViaUnknownPort = errors.New("send via names no port of the sender")
 
-// ErrSendPortTypeMismatch reports a typed receiving port rejecting a message.
-var ErrSendPortTypeMismatch = errors.New("send message type is not carried by the receiving port")
+// errSendPortTypeMismatch reports a typed receiving port rejecting a message.
+var errSendPortTypeMismatch = errors.New("send message type is not carried by the receiving port")
 
-// ErrUnreachableSendReceiver reports a routed receiver that cannot be resolved.
-var ErrUnreachableSendReceiver = errors.New("send receiver is unreachable")
+// errUnreachableSendReceiver reports a routed receiver that cannot be resolved.
+var errUnreachableSendReceiver = errors.New("send receiver is unreachable")
 
-// ErrSendTargetNotObject reports an addressed send whose target holds no object:
+// errSendTargetNotObject reports an addressed send whose target holds no object:
 // a binding of the sending behavior holding none, or a receiver expression
 // yielding none.
-var ErrSendTargetNotObject = errors.New("send target holds no object")
+var errSendTargetNotObject = errors.New("send target holds no object")
 
-// SendTargetValueError gives the bound target that holds no object, and what it holds.
-type SendTargetValueError struct {
+// sendTargetValueError gives the bound target that holds no object, and what it holds.
+type sendTargetValueError struct {
 	Target string // the target as written
 	Name   string // the binding leading it
 	Value  string // what the binding holds, formatted
 }
 
-func (e *SendTargetValueError) Error() string {
+func (e *sendTargetValueError) Error() string {
 	return fmt.Sprintf("%s: %q holds %s, which is no object to address %q to",
-		ErrSendTargetNotObject, e.Name, e.Value, e.Target)
+		errSendTargetNotObject, e.Name, e.Value, e.Target)
 }
 
-func (e *SendTargetValueError) Unwrap() error { return ErrSendTargetNotObject }
+func (e *sendTargetValueError) Unwrap() error { return errSendTargetNotObject }
 
-// SendReceiverValueError gives a receiver expression that yields no object, and what it yielded.
-type SendReceiverValueError struct {
+// sendReceiverValueError gives a receiver expression that yields no object, and what it yielded.
+type sendReceiverValueError struct {
 	Receiver string // the expression as written
 	Value    string // what it yielded, formatted
 }
 
-func (e *SendReceiverValueError) Error() string {
+func (e *sendReceiverValueError) Error() string {
 	return fmt.Sprintf("%s: %q yields %s, which is no object to send to",
-		ErrSendTargetNotObject, e.Receiver, e.Value)
+		errSendTargetNotObject, e.Receiver, e.Value)
 }
 
-func (e *SendReceiverValueError) Unwrap() error { return ErrSendTargetNotObject }
+func (e *sendReceiverValueError) Unwrap() error { return errSendTargetNotObject }
 
-// ErrSendViaNotPort reports a via path that is a binding of the sending behavior
+// errSendViaNotPort reports a via path that is a binding of the sending behavior
 // holding an object which is no port.
-var ErrSendViaNotPort = errors.New("send via holds no port")
+var errSendViaNotPort = errors.New("send via holds no port")
 
-// ViaNotPortError gives the bound via path holding an object that is no port, and what it holds.
-type ViaNotPortError struct {
+// viaNotPortError gives the bound via path holding an object that is no port, and what it holds.
+type viaNotPortError struct {
 	Via   string // the via path as written
 	Value string // the object the binding holds, formatted
 }
 
-func (e *ViaNotPortError) Error() string {
-	return fmt.Sprintf("%s: %q holds %s, which is no port to send via", ErrSendViaNotPort, e.Via, e.Value)
+func (e *viaNotPortError) Error() string {
+	return fmt.Sprintf("%s: %q holds %s, which is no port to send via", errSendViaNotPort, e.Via, e.Value)
 }
 
-func (e *ViaNotPortError) Unwrap() error { return ErrSendViaNotPort }
+func (e *viaNotPortError) Unwrap() error { return errSendViaNotPort }
 
-// UnknownSendPortError gives the routed send's invalid port and receiver.
-type UnknownSendPortError struct {
+// unknownSendPortError gives the routed send's invalid port and receiver.
+type unknownSendPortError struct {
 	Port     string
 	Receiver string
 }
 
-func (e *UnknownSendPortError) Error() string {
+func (e *unknownSendPortError) Error() string {
 	return fmt.Sprintf("%s: port %q names no port of the sender for receiver %q",
-		ErrSendViaUnknownPort, e.Port, e.Receiver)
+		errSendViaUnknownPort, e.Port, e.Receiver)
 }
 
-func (e *UnknownSendPortError) Unwrap() error { return ErrSendViaUnknownPort }
+func (e *unknownSendPortError) Unwrap() error { return errSendViaUnknownPort }
 
-// SendPortTypeMismatchError gives the routed send's incompatible type.
-type SendPortTypeMismatchError struct {
+// sendPortTypeMismatchError gives the routed send's incompatible type.
+type sendPortTypeMismatchError struct {
 	Port       string
 	Receiver   string
 	SignalType string
 }
 
-func (e *SendPortTypeMismatchError) Error() string {
+func (e *sendPortTypeMismatchError) Error() string {
 	return fmt.Sprintf("%s: port %q carries no flow feature for message type %q to receiver %q",
-		ErrSendPortTypeMismatch, e.Port, e.SignalType, e.Receiver)
+		errSendPortTypeMismatch, e.Port, e.SignalType, e.Receiver)
 }
 
-func (e *SendPortTypeMismatchError) Unwrap() error { return ErrSendPortTypeMismatch }
+func (e *sendPortTypeMismatchError) Unwrap() error { return errSendPortTypeMismatch }
 
-// UnreachableSendReceiverError gives the routed send's unresolved receiver.
-type UnreachableSendReceiverError struct {
+// unreachableSendReceiverError gives the routed send's unresolved receiver.
+type unreachableSendReceiverError struct {
 	Port     string
 	Receiver string
 }
 
-func (e *UnreachableSendReceiverError) Error() string {
+func (e *unreachableSendReceiverError) Error() string {
 	return fmt.Sprintf("%s: receiver %q is not reachable through port %q",
-		ErrUnreachableSendReceiver, e.Receiver, e.Port)
+		errUnreachableSendReceiver, e.Receiver, e.Port)
 }
 
-func (e *UnreachableSendReceiverError) Unwrap() error { return ErrUnreachableSendReceiver }
+func (e *unreachableSendReceiverError) Unwrap() error { return errUnreachableSendReceiver }
 
-// UnroutableSendError reports a send that could not be delivered, naming the
+// unroutableSendError reports a send that could not be delivered, naming the
 // port it was sent through and the ends joined to it that refused it, so the
 // model can be corrected. An addressed send names a target rather than a port it
 // routes through, so it reports the path that reached no port of any object.
-type UnroutableSendError struct {
+type unroutableSendError struct {
 	Port     string   // the port or target the send named, as written
 	Outbound []string // ends joined to Port that only carry outward
 	Address  bool     // the send addressed a target rather than routing through a port
 }
 
-func (e *UnroutableSendError) Error() string {
+func (e *unroutableSendError) Error() string {
 	if e.Address {
-		return fmt.Sprintf("%s: %q names no port of an object the sender can address", ErrUnroutableSend, e.Port)
+		return fmt.Sprintf("%s: %q names no port of an object the sender can address", errUnroutableSend, e.Port)
 	}
 	if len(e.Outbound) == 0 {
-		return fmt.Sprintf("%s: port %q is joined to no port that can receive it", ErrUnroutableSend, e.Port)
+		return fmt.Sprintf("%s: port %q is joined to no port that can receive it", errUnroutableSend, e.Port)
 	}
 	return fmt.Sprintf(
 		"%s: port %q is joined only to outbound ends (%s)",
-		ErrUnroutableSend, e.Port, strings.Join(e.Outbound, ", "),
+		errUnroutableSend, e.Port, strings.Join(e.Outbound, ", "),
 	)
 }
 
-func (e *UnroutableSendError) Unwrap() error { return ErrUnroutableSend }
+func (e *unroutableSendError) Unwrap() error { return errUnroutableSend }
 
 // ownerDelivery is where a connection of an object holding the sender delivers:
 // the peer object reached and the port within it the message arrives at.
@@ -194,7 +194,7 @@ func (ctx *Context) ownerDeliveries(
 					return nil, mismatch, err
 				}
 				for _, addr := range addrs {
-					if addr.Delivery != DeliverPort || addr.Object == 0 {
+					if addr.Delivery != deliverPort || addr.Object == 0 {
 						continue
 					}
 					delivery := ownerDelivery{object: addr.Object, port: addr.Port}
@@ -370,7 +370,7 @@ func (ctx *Context) endDeliveries(ec *EvalContext, conn lower.Connection, self *
 	}
 	var out []ownerDelivery
 	for _, addr := range addrs {
-		if addr.Delivery != DeliverPort || addr.Object == 0 {
+		if addr.Delivery != deliverPort || addr.Object == 0 {
 			continue
 		}
 		out = append(out, ownerDelivery{object: addr.Object, port: addr.Port})

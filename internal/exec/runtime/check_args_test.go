@@ -41,9 +41,9 @@ func TestCheckRequirementWithBindsArguments(t *testing.T) {
 		{"positional in declaration order", CheckArgs{Positional: []Value{integerValue(1), integerValue(6), integerValue(4)}}, true, nil, ""},
 		{"positional beyond the default", CheckArgs{Positional: []Value{integerValue(1), integerValue(5), integerValue(5)}}, false, nil, ""},
 		{"positional after named", CheckArgs{Positional: []Value{integerValue(1)}, Named: map[string]Value{"limit": integerValue(5)}}, true, nil, ""},
-		{"unknown parameter", CheckArgs{Named: map[string]Value{"bound": integerValue(1)}}, false, ErrUnknownParameter, `no input parameter "bound"`},
-		{"too many arguments", CheckArgs{Positional: []Value{integerValue(1), integerValue(2), integerValue(3), integerValue(4)}}, false, ErrCalcArity, "takes 3 argument(s), got 4"},
-		{"unbound without default", CheckArgs{}, false, ErrUnboundParameter, `parameter "limit" has no argument and no default`},
+		{"unknown parameter", CheckArgs{Named: map[string]Value{"bound": integerValue(1)}}, false, errUnknownParameter, `no input parameter "bound"`},
+		{"too many arguments", CheckArgs{Positional: []Value{integerValue(1), integerValue(2), integerValue(3), integerValue(4)}}, false, errCalcArity, "takes 3 argument(s), got 4"},
+		{"unbound without default", CheckArgs{}, false, errUnboundParameter, `parameter "limit" has no argument and no default`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -82,8 +82,8 @@ func TestCheckConstraintWithBindsArguments(t *testing.T) {
 	if err == nil {
 		t.Fatal("a String bound to an Integer parameter was held")
 	}
-	if _, err = ctx.CheckConstraintOn(between, scope, nil); !errors.Is(err, ErrUnboundParameter) {
-		t.Fatalf("Between with low unbound: err = %v, want ErrUnboundParameter", err)
+	if _, err = ctx.CheckConstraintOn(between, scope, nil); !errors.Is(err, errUnboundParameter) {
+		t.Fatalf("Between with low unbound: err = %v, want errUnboundParameter", err)
 	}
 }
 
@@ -129,7 +129,7 @@ func TestCheckArgsRenamedParameterKeepsSlotAndDefault(t *testing.T) {
 	if (err != nil && !errors.Is(err, ErrViolated)) || result.Holds {
 		t.Fatalf("Derived(z = 4, y = 3) = %v, %v; want fails", result.Holds, err)
 	}
-	if _, err = ctx.CheckConstraintWith(derived, scope, nil, CheckArgs{Positional: []Value{integerValue(1), integerValue(2), integerValue(3)}}); !errors.Is(err, ErrCalcArity) || !strings.Contains(err.Error(), "takes 2 argument(s)") {
+	if _, err = ctx.CheckConstraintWith(derived, scope, nil, CheckArgs{Positional: []Value{integerValue(1), integerValue(2), integerValue(3)}}); !errors.Is(err, errCalcArity) || !strings.Contains(err.Error(), "takes 2 argument(s)") {
 		t.Fatalf("Derived(1, 2, 3): err = %v, want arity of 2", err)
 	}
 }
@@ -140,7 +140,7 @@ func TestCheckArgsRenamedParameterKeepsSlotAndDefault(t *testing.T) {
 func TestCheckArgsAreNotSharedAcrossVerdicts(t *testing.T) {
 	m := parseLibraryModel(t, renamedCheckArgsModel)
 	ctx, _ := m.fresh()
-	ctx.SetSharedDefaults(true)
+	ctx.setSharedDefaults(true)
 	between := m.idx.LookupQualified("test::Base")[0]
 	scope := between.OwnerScope
 	thing, err := ctx.Instantiate(m.idx.LookupQualified("test::thing")[0])
@@ -158,7 +158,7 @@ func TestCheckArgsAreNotSharedAcrossVerdicts(t *testing.T) {
 	if (err != nil && !errors.Is(err, ErrViolated)) || result.Holds {
 		t.Fatalf("Base(y = 0) after Base(y = 9) = %v, %v; want fails", result.Holds, err)
 	}
-	if taken := ctx.SharedVerdictsTaken(); taken != 0 {
+	if taken := ctx.sharedVerdictsTaken(); taken != 0 {
 		t.Errorf("verdicts taken = %d, want 0 for checks with arguments", taken)
 	}
 }

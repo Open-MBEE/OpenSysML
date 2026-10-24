@@ -136,8 +136,8 @@ func TestPointRefusals(t *testing.T) {
 			if err == nil {
 				t.Fatalf("%s = %v, want an error", tc.src, got)
 			}
-			if !errors.Is(err, ErrScalePoint) {
-				t.Errorf("%s: err = %v, want ErrScalePoint", tc.src, err)
+			if !errors.Is(err, errScalePoint) {
+				t.Errorf("%s: err = %v, want errScalePoint", tc.src, err)
 			}
 			if !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("%s: err = %q, want it to contain %q", tc.src, err, tc.want)
@@ -196,8 +196,8 @@ func TestPointCollections(t *testing.T) {
 		"sum((5.0 [Time::UTC], 3.0 [Time::UTC]))",
 	} {
 		_, err := evalIn(t, ctx, scope, src)
-		if !errors.Is(err, ErrScalePoint) {
-			t.Errorf("%s: err = %v, want ErrScalePoint", src, err)
+		if !errors.Is(err, errScalePoint) {
+			t.Errorf("%s: err = %v, want errScalePoint", src, err)
 		}
 	}
 }
@@ -327,8 +327,8 @@ func TestAnchoredOrdinalPointsInSets(t *testing.T) {
 	if ratio, err := ctx.toRatioReference(*evalQuantity(t, ctx, scope, "7 [mohs]")); err != nil || ratio.String() != "279.16 [K]" {
 		t.Fatalf("the mapping does not anchor mohs on K: %v, %v", ratio, err)
 	}
-	if _, err := evalIn(t, ctx, scope, "7 [mohs] == 279.16 [K]"); !errors.Is(err, ErrScalePoint) {
-		t.Errorf("7 [mohs] == 279.16 [K]: err = %v, want ErrScalePoint", err)
+	if _, err := evalIn(t, ctx, scope, "7 [mohs] == 279.16 [K]"); !errors.Is(err, errScalePoint) {
+		t.Errorf("7 [mohs] == 279.16 [K]: err = %v, want errScalePoint", err)
 	}
 	got, err := evalIn(t, ctx, scope, "hardnesses.elements")
 	if err != nil {
@@ -378,8 +378,8 @@ func TestPointsInQuantityOperators(t *testing.T) {
 	if got, err := ctx.addQuantities(ast.OpSub, quantity("30.0 [SI::'°C_abs']"), quantity("20.0 [SI::'°C_abs']")); err != nil || got.Quantity().String() != "10.0 ['°C']" {
 		t.Errorf("30 °C_abs - 20 °C_abs = %s, %v", FormatTraceValue(got), err)
 	}
-	if _, err := ctx.addQuantities(ast.OpSub, kelvin, warm); !errors.Is(err, ErrScalePoint) {
-		t.Errorf("10 K - warm: err = %v, want ErrScalePoint", err)
+	if _, err := ctx.addQuantities(ast.OpSub, kelvin, warm); !errors.Is(err, errScalePoint) {
+		t.Errorf("10 K - warm: err = %v, want errScalePoint", err)
 	}
 	if got, err := ctx.compareQuantities(ast.OpLt, quantity("300.0 [K]"), warm); err != nil || got.Const.Bool {
 		t.Errorf("300 K < warm = %v, %v; want false", got, err)
@@ -387,7 +387,7 @@ func TestPointsInQuantityOperators(t *testing.T) {
 	if got, err := ctx.equalQuantities(ast.OpEq, quantity("300.0 [K]"), warm); err != nil || !got.Const.Bool {
 		t.Errorf("300 K == warm = %v, %v; want true", got, err)
 	}
-	if _, err := ctx.negateQuantity(warm); !errors.Is(err, ErrScalePoint) {
-		t.Errorf("-warm: err = %v, want ErrScalePoint", err)
+	if _, err := ctx.negateQuantity(warm); !errors.Is(err, errScalePoint) {
+		t.Errorf("-warm: err = %v, want errScalePoint", err)
 	}
 }

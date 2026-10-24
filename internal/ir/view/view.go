@@ -159,9 +159,41 @@ type Renderer struct {
 	text     SourceText
 	// treeDepthBound overrides the containment depth bound when set; tests only.
 	treeDepthBound int
+	// depth, when set, overrides the depth every view states (SetDepth).
+	depth int
+	// filters caches each view's filter conditions for its walks.
+	filters map[*symbols.Symbol][]symbols.ElementFilter
 	// verdicts overlays verification verdicts on a requirement rendering; nil
 	// draws it structurally.
 	verdicts Verdicts
+	// included are elements drawn besides the exposed ones (SetIncluded).
+	included []*symbols.Symbol
+}
+
+// SetIncluded names elements every rendering draws besides what its view
+// exposes, as if the view exposed them too; nil draws the view's own content.
+func (r *Renderer) SetIncluded(included []*symbols.Symbol) { r.included = included }
+
+// withIncluded appends the included elements the exposed ones do not already
+// name, recording where each was declared in out.Included.
+func (r *Renderer) withIncluded(exposed []*symbols.Symbol, out *Rendering) []*symbols.Symbol {
+	if len(r.included) == 0 {
+		return exposed
+	}
+	seen := map[symbols.ElementKey]bool{}
+	for _, sym := range exposed {
+		seen[symbols.KeyOf(sym)] = true
+	}
+	for _, sym := range r.included {
+		key := symbols.KeyOf(sym)
+		if sym == nil || seen[key] {
+			continue
+		}
+		seen[key] = true
+		exposed = append(exposed, sym)
+		out.Included = append(out.Included, symbolOrigin(sym))
+	}
+	return exposed
 }
 
 // NewRenderer returns a renderer over the model and resolver of a loaded
@@ -209,7 +241,8 @@ const (
 	EdgeRefine
 	// EdgeAllocate is an allocation, from the allocated element.
 	EdgeAllocate
-	// EdgeAssociation connects an actor or subject to a case.
+	// EdgeAssociation is an association drawn as a plain line: an actor or subject
+	// to a case, or a connection def between the definitions typing its two ends.
 	EdgeAssociation
 	// EdgeInclude includes one case in another.
 	EdgeInclude
@@ -278,6 +311,9 @@ type Node struct {
 	// NameSynthesized marks a name the model did not give: a migration made it up, or
 	// it is the language's `start`/`done`. A name to key by, not one a picture shows.
 	NameSynthesized bool
+	// Referential marks a structural usage that refers to its value rather
+	// than owning it (`ref part`): a row of a tool's references compartment.
+	Referential bool
 	// StandIn marks a node a migration made up that stands for no element of its
 	// source, so no diagram symbol is at it: a join it wrote several edges through.
 	StandIn bool
@@ -290,6 +326,14 @@ type Node struct {
 	// Detail is what else the rendering says about the node, such as a state's
 	// "initial" or "already shown". It is empty when there is nothing to add.
 	Detail string
+	// Value is the value a usage is bound to, as the notation writes it after
+	// the `=`. It is empty for a definition or an unbound usage.
+	Value string
+	// Compartments are the members drawn as rows inside the node's box rather
+	// than as nodes of their own, grouped by kind in the notation's compartment
+	// order: in a positioned tree, the members with no position. Nil when
+	// every member is a node.
+	Compartments []Compartment
 	// Text is what heads a node whose name is not shown, in place of its kind:
 	// the literal a value specification's result is bound to, the event an
 	// accept waits for, the message a send sends. Empty when its kind heads it.
@@ -327,15 +371,27 @@ type Port struct {
 	ID string
 	// Name is the pin's name, as the notation writes it.
 	Name string
+	// NameSynthesized marks a name the model did not give, which a form
+	// leaves off the pin's label as it does off a node's.
+	NameSynthesized bool
 	// Type is the port's declared type as the notation writes it, `~T` for a
 	// conjugated one; empty for a pin, whose type the flow's label carries.
 	Type string
 	// Direction is the pin's direction: `in`, `out` or `inout`; PortUndirected
 	// for a part's port, whose features carry the directions.
 	Direction PortDirection
+	// Parameter marks a pin standing for a parameter — a case's subject or
+	// attribute, an action's pin — rather than for a port the part declares.
+	Parameter bool
 	// Origin is where the pin was declared, the zero Origin for one with no
 	// locatable declaration.
 	Origin Origin
+	// Geometry is where the pin is drawn, from the Layout annotation that
+	// positions it in this view; nil leaves the placement to the writer.
+	Geometry *Geometry `json:",omitempty"`
+	// Exposed marks a pin the view exposes in its own right, drawn whatever
+	// the display shows of the other pins.
+	Exposed bool `json:",omitempty"`
 }
 
 // PortDirection is which way a port's values flow.
@@ -367,10 +423,14 @@ func (d PortDirection) String() string {
 
 // label is the text a port is drawn with: its name, and its type where it has one.
 func (p Port) label() string {
-	if p.Type == "" {
-		return p.Name
+	name := p.Name
+	if p.NameSynthesized {
+		name = ""
 	}
-	return p.Name + " : " + p.Type
+	if p.Type == "" {
+		return name
+	}
+	return name + " : " + p.Type
 }
 
 // Edge joins two nodes of a rendering.
@@ -385,6 +445,12 @@ type Edge struct {
 	// Label is what the edge carries: a connector's name, a transition's
 	// trigger, guard and effect, a succession's guard, a flow's pins. It may be empty.
 	Label string
+	// FromLabel and ToLabel name the edge's ends — the association or
+	// connector end at From and the one at To, a composite part usage's name
+	// and multiplicity on the composition to its type — drawn beside that end,
+	// not along the edge; empty for an unnamed end.
+	FromLabel string
+	ToLabel   string
 	// Name is the edge's own name, for a writer whose drawing shows the rest
 	// of its Label another way; empty for one anonymous or named by a migration.
 	Name string
@@ -433,6 +499,9 @@ type Rendering struct {
 	Lanes []Lane
 	// RowOrigins is where each row's element was declared, one entry per row.
 	RowOrigins []Origin
+	// Shown is the optional notation elements the view's rendering shows, read
+	// from the rendering the view states; nil is DefaultShown.
+	Shown Shown
 	// Canvas is the drawing surface the view states, nil for a view stating
 	// none.
 	Canvas *Canvas
@@ -447,10 +516,17 @@ type Rendering struct {
 	// connection to something the view does not expose, a behavior that does not
 	// lower.
 	Notices []string
+	// Included is where each element drawn by SetIncluded rather than by the
+	// view was declared, in the order the renderer was given them.
+	Included []Origin
+	// depthCut counts the elements a depth bound kept the walk from drawing.
+	depthCut int
 
 	emptyReason string
 	// drawn collects the elements drawn while rendering, nil when no one asked.
 	drawn *Drawn
+	// narrowed marks a rendering showing() already narrowed to its Shown.
+	narrowed bool
 	// sites records, while a tree renders, what each of its nodes draws; nil
 	// once its edges are drawn and for every other kind.
 	sites map[*Node]treeSite
@@ -527,7 +603,8 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 	if err != nil {
 		return nil, err
 	}
-	out := &Rendering{View: r.notationName(view), Kind: kind, Stated: stated, drawn: drawn}
+	out := &Rendering{View: r.notationName(view), Kind: kind, Stated: stated, Shown: r.shownOf(view), drawn: drawn}
+	exposed = r.withIncluded(exposed, out)
 	switch kind {
 	case KindTree:
 		r.renderTree(view, exposed, out)
@@ -546,12 +623,16 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 	case KindMatrix:
 		r.renderMatrix(exposed, r.matrixShownKinds(view), false, out)
 	case KindSequence:
-		r.renderSequence(exposed, out)
+		r.renderSequence(view, exposed, out)
 	case KindRequirement, KindDefinition, KindPackage:
 		r.renderGeneral(view, exposed, out)
 	default:
 		// Unreachable: KindOf refuses an unsupported kind.
 		return nil, &UnsupportedKindError{Kind: kind, View: r.notationName(view), Stated: stated}
+	}
+	r.noteDepthCuts(view, out)
+	if out.Empty() && out.emptyReason == "" {
+		out.emptyReason = r.exposureReason(view, exposed, out)
 	}
 	switch kind {
 	case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindRequirement, KindDefinition, KindPackage:
@@ -572,6 +653,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 // *UnsupportedKindError.
 func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated string) (*Rendering, error) {
 	out := &Rendering{Kind: kind, Stated: stated}
+	exposed = r.withIncluded(exposed, out)
 	switch kind {
 	case KindTree:
 		r.renderTree(nil, exposed, out)
@@ -590,11 +672,15 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 	case KindMatrix:
 		r.renderMatrix(exposed, allMatrixKinds(), true, out)
 	case KindSequence:
-		r.renderSequence(exposed, out)
+		r.renderSequence(nil, exposed, out)
 	case KindRequirement, KindDefinition, KindPackage:
 		r.renderGeneral(nil, exposed, out)
 	default:
 		return nil, &UnsupportedKindError{Kind: kind, Stated: stated, Remedy: remedyFor(kind)}
+	}
+	r.noteDepthCuts(nil, out)
+	if out.Empty() && out.emptyReason == "" {
+		out.emptyReason = exposedReason(exposed, out)
 	}
 	return out, nil
 }
@@ -842,6 +928,84 @@ func (r *Renderer) declTypings(sym *symbols.Symbol) []string {
 	return names
 }
 
+// typeSources are the declarations whose typings head sym's box: sym when it declares one,
+// else those of each feature it directly redefines, found the same way (KerML 1.0 §7.3.4.5).
+func (r *Renderer) typeSources(sym *symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	seen := map[*symbols.Symbol]bool{}
+	var visit func(*symbols.Symbol)
+	visit = func(cur *symbols.Symbol) {
+		if cur == nil || seen[cur] {
+			return
+		}
+		seen[cur] = true
+		if declType(cur) != "" {
+			out = append(out, cur)
+			return
+		}
+		for _, redefined := range r.model.DirectRedefinedFeatures(cur) {
+			visit(redefined)
+		}
+	}
+	visit(sym)
+	return out
+}
+
+// headTyping is one typing a box's head spells: its text as written, and the
+// qualified name of the element it resolves to, empty when it resolves to none.
+type headTyping struct {
+	text string
+	name string
+}
+
+// headTypingsOf are the typings heading sym's box, in redefinition then declaration
+// order, each element once however its declarations spell it.
+func (r *Renderer) headTypingsOf(sym *symbols.Symbol) []headTyping {
+	var out []headTyping
+	seen := map[string]bool{}
+	for _, source := range r.typeSources(sym) {
+		texts := typingTexts(viewRelationshipsOf(source))
+		names := r.declTypings(source)
+		for i, text := range texts {
+			typing := headTyping{text: text}
+			// A source whose typings all resolve pairs each text with its element.
+			if len(names) == len(texts) {
+				typing.name = names[i]
+			}
+			key := "name:" + typing.name
+			if typing.name == "" {
+				key = "text:" + text
+			}
+			if !seen[key] {
+				seen[key] = true
+				out = append(out, typing)
+			}
+		}
+	}
+	return out
+}
+
+// headType is the type a usage's box is headed with, as the notation writes it:
+// its declared typing, or else the ones it inherits from the features it redefines.
+func (r *Renderer) headType(sym *symbols.Symbol) string {
+	var texts []string
+	for _, typing := range r.headTypingsOf(sym) {
+		texts = append(texts, typing.text)
+	}
+	return strings.Join(texts, ", ")
+}
+
+// headTypings are the qualified names of the elements headType resolves to, each once.
+func (r *Renderer) headTypings(sym *symbols.Symbol) []string {
+	var names []string
+	for _, typing := range r.headTypingsOf(sym) {
+		if typing.name != "" {
+			names = append(names, typing.name)
+		}
+	}
+	return names
+}
+
 // nodeType is the type a usage lowered into a behavior graph is declared with
 // ("Provide" of `action provide : Provide`), empty for any other node.
 func nodeType(decl ast.Node) string {
@@ -854,6 +1018,11 @@ func nodeType(decl ast.Node) string {
 // typingOf spells a declaration's typings as the notation does: every typing in
 // declaration order, a conjugated one behind its `~`, each name quoted as needed.
 func typingOf(rels []*ast.Relationship) string {
+	return strings.Join(typingTexts(rels), ", ")
+}
+
+// typingTexts are a declaration's typings as the notation writes each, in declaration order.
+func typingTexts(rels []*ast.Relationship) []string {
 	var types []string
 	for _, rel := range rels {
 		if rel == nil || rel.Target == nil || rel.Kind != ast.RelTyping {
@@ -868,7 +1037,7 @@ func typingOf(rels []*ast.Relationship) string {
 		}
 		types = append(types, text)
 	}
-	return strings.Join(types, ", ")
+	return types
 }
 
 // referenceText spells a name reference as written: a `$::` root, `::` between

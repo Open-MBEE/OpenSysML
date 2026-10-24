@@ -35,6 +35,9 @@ type edgePlace struct {
 	// standIn marks a member ending at a node the migrator made up, such as the
 	// join gathering several edges: no diagram symbol stands at that end.
 	standIn bool
+	// reversed marks a member running from the edge's second end to its first,
+	// as a flow against its connector's end order does: its route runs the other way.
+	reversed bool
 }
 
 func (p edgePlace) equal(q edgePlace) bool {
@@ -169,10 +172,10 @@ func (m *migration) wroteEdgeEnding(e, owner *sysmlv1.Element, keyword, name str
 }
 
 // edgePlaceIn locates a member declared in owner's body within the actions nest
-// names; a lone region's members are its owner's, a method's its operation's.
+// names; an inline region's members are its owner's, a method's its operation's.
 func (m *migration) edgePlaceIn(owner *sysmlv1.Element, nest []string, name string) edgePlace {
 	for owner != nil && owner.Type == "Region" && owner.Role == "region" {
-		if _, parallel := m.parallel[owner]; parallel {
+		if m.regionWrittenAsState(owner) {
 			break
 		}
 		owner = owner.Parent
@@ -186,14 +189,20 @@ func (m *migration) edgePlaceIn(owner *sysmlv1.Element, nest []string, name stri
 // wroteEdgeAlso records one more member edge e was written as, the first when none
 // is recorded yet: a transition per trigger, a dependency per client–supplier pair.
 func (m *migration) wroteEdgeAlso(e, owner *sysmlv1.Element, keyword string, nest []string, name string) {
-	em, ok := m.edgeMembers[e]
-	if !ok {
-		m.wroteNestedEdge(e, owner, keyword, nest, name)
-		return
-	}
 	p := m.edgePlaceIn(owner, nest, name)
 	p.keyword = keyword
-	if em.none || em.name == "" || name == "" || slices.ContainsFunc(em.places(), p.equal) {
+	m.wroteEdgePlace(e, p)
+}
+
+// wroteEdgePlace records the member at p as one more edge e was written as, the
+// first when none is recorded yet; see wroteEdgeAlso.
+func (m *migration) wroteEdgePlace(e *sysmlv1.Element, p edgePlace) {
+	em, ok := m.edgeMembers[e]
+	if !ok {
+		m.edgeMembers[e] = edgeMember{edgePlace: p, keyword: p.keyword}
+		return
+	}
+	if em.none || em.name == "" || p.name == "" || slices.ContainsFunc(em.places(), p.equal) {
 		return
 	}
 	em.also = append(em.also, p)
@@ -218,7 +227,7 @@ func (m *migration) wroteSameEdge(e, first *sysmlv1.Element) {
 // reaches reports whether a qualified name reaches the members of owner's body: the
 // top level, a declaration that is written, or a state's or transition's named inline action.
 func (m *migration) reaches(owner *sysmlv1.Element) bool {
-	return owner == nil || owner.Parent == nil && owner.Type == "Model" || m.written(owner) || m.inlineWritten(owner)
+	return owner == nil || m.written(owner) || m.inlineWritten(owner)
 }
 
 // edgePath is the qualified-name segments of the member declared at p.
@@ -237,7 +246,12 @@ func (m *migration) edgeTarget(e *sysmlv1.Element) string {
 	if !ok || em.name == "" {
 		return ""
 	}
-	path := m.edgePath(em.edgePlace)
+	return m.placeTarget(em.edgePlace)
+}
+
+// placeTarget is the qualified name a report entry records for the member declared at p.
+func (m *migration) placeTarget(p edgePlace) string {
+	path := m.edgePath(p)
 	segs := make([]string, len(path))
 	for i, s := range path {
 		segs[i] = s.name
@@ -269,17 +283,55 @@ func (m *migration) routeRefs(e, scope *sysmlv1.Element, f viewForm) []string {
 // refPlaces writes a reference to each of the members of e that of selects and
 // a name reaches, from inside scope's body.
 func (m *migration) refPlaces(e, scope *sysmlv1.Element, of func(edgeMember) []edgePlace) []string {
+	var refs []string
+	for _, p := range m.reachedPlaces(e, of) {
+		refs = append(refs, m.refEdge(p, scope))
+	}
+	return refs
+}
+
+// reachedPlaces lists the members of e that of selects and a name reaches.
+func (m *migration) reachedPlaces(e *sysmlv1.Element, of func(edgeMember) []edgePlace) []edgePlace {
 	em, ok := m.edgeMembers[e]
 	if !ok || !m.written(e) {
 		return nil
 	}
-	var refs []string
+	var places []edgePlace
 	for _, p := range of(em) {
 		if m.reaches(p.owner) {
-			refs = append(refs, m.refEdge(p, scope))
+			places = append(places, p)
 		}
 	}
-	return refs
+	return places
+}
+
+// routeLines groups the references a route of edge e is pinned to, in refs as
+// routeRefs lists them, by the way each member runs along the line points: a
+// member running against the edge's end order takes the points reversed, so one
+// connector written as flows of both directions is routed once per direction.
+func (m *migration) routeLines(e *sysmlv1.Element, f viewForm, refs []string, points []float64) ([]string, [][]float64) {
+	places := m.reachedPlaces(e, func(em edgeMember) []edgePlace { return em.routed(f) })
+	if len(places) != len(refs) {
+		// A connection def's or backed attribute's line is referred to without edge members.
+		return []string{strings.Join(refs, ", ")}, [][]float64{points}
+	}
+	var along, against []string
+	for i, ref := range refs {
+		if places[i].reversed {
+			against = append(against, ref)
+			continue
+		}
+		along = append(along, ref)
+	}
+	var groups []string
+	var lines [][]float64
+	if len(along) > 0 {
+		groups, lines = append(groups, strings.Join(along, ", ")), append(lines, points)
+	}
+	if len(against) > 0 {
+		groups, lines = append(groups, strings.Join(against, ", ")), append(lines, reversePoints(points))
+	}
+	return groups, lines
 }
 
 // refEdge writes a reference from inside scope's body to the member declared at p.
@@ -362,31 +414,114 @@ func routeKindName(exported string, el *sysmlv1.Element) string {
 }
 
 // routeTarget is every member a route of el is pinned to, as scope's view of
-// form f exposes them; or nil and the reason there is none.
-func (m *migration) routeTarget(el, scope *sysmlv1.Element, f viewForm) ([]string, string) {
+// form f exposes them; or nil and the reason there is none. A generalization's
+// route is pinned to the specific, naming the general the `:>` is drawn to.
+func (m *migration) routeTarget(el, scope *sysmlv1.Element, f viewForm) (refs []string, general, why string) {
 	if c := m.connOf(el); f.useCases && c != nil {
-		return m.connRefs(c.of, scope)[:1], ""
+		return m.connRefs(c.of, scope)[:1], "", ""
+	}
+	if m.associationDef(el) {
+		if !f.drawsEdge("connection def") || !m.associationLine(el) {
+			return nil, "", routeNotDrawn
+		}
+		return []string{m.exposure(el, scope)}, "", ""
+	}
+	if el.Type == "Generalization" {
+		return m.generalizationRouteTarget(el, scope, f)
+	}
+	if prop := m.backedProperty(el); prop != nil {
+		// The line is the backed attribute's typing edge, drawn from its owner's
+		// box to its type's; the route pins that edge to the attribute.
+		if !f.drawsEdge("attribute") {
+			return nil, "", routeNotDrawn
+		}
+		if m.writtenHidden(prop) {
+			// A private attribute is out of the view's reach.
+			return nil, "", routeNotExposed
+		}
+		return []string{m.exposure(prop, scope)}, "", ""
 	}
 	if nameableEdge(el) {
 		em, ok := m.edgeMembers[el]
 		switch {
 		case !ok:
-			return nil, routeNotWritten
+			return nil, "", routeNotWritten
 		case em.none:
-			return nil, routeNoMember
+			return nil, "", routeNoMember
 		case em.name == "":
-			return nil, routeUnnamed
+			return nil, "", routeUnnamed
 		case !f.drawsEdge(em.keyword):
-			return nil, routeNotDrawn
+			return nil, "", routeNotDrawn
 		case !m.reaches(em.owner):
-			return nil, routeNotExposed
+			return nil, "", routeNotExposed
 		}
-		return m.routeRefs(el, scope, f), ""
+		return m.routeRefs(el, scope, f), "", ""
 	}
 	if m.exposure(el, scope) != "" {
-		return nil, routeNotDrawn
+		return nil, "", routeNotDrawn
 	}
-	return nil, routeNoMember
+	return nil, "", routeNoMember
+}
+
+// generalizationRouteTarget is routeTarget for generalization el: the specific
+// its `:>` clause is written on, and the general the tree draws the edge to.
+func (m *migration) generalizationRouteTarget(el, scope *sysmlv1.Element, f viewForm) (refs []string, general, why string) {
+	specific, target := el.Parent, m.model.Ref(el, "general")
+	if specific == nil || target == nil {
+		return nil, "", routeNotWritten
+	}
+	cat, _ := m.classify(specific)
+	if ref, _ := m.general(specific, el, cat); ref == "" {
+		return nil, "", routeNotWritten
+	}
+	if !f.drawsEdge("specialization") {
+		return nil, "", routeNotDrawn
+	}
+	ref, generalRef := m.exposure(specific, scope), m.exposure(target, scope)
+	if ref == "" || generalRef == "" {
+		return nil, "", routeNotExposed
+	}
+	return []string{ref}, generalRef, ""
+}
+
+// associationDef reports whether e is an association written as a connection
+// def, which a tree draws as a line between its end types' boxes.
+func (m *migration) associationDef(e *sysmlv1.Element) bool {
+	return e != nil && (e.Type == "Association" || e.Type == "AssociationClass") && m.written(e) && m.associationAsConnectionDef(e)
+}
+
+// associationLine reports whether a tree draws the connection def written for
+// association e as a line rather than a box, as the renderer decides it: the
+// def is binary, its ends are typed by written definitions, it specializes
+// nothing and holds no member but its ends, and no end keeps a qualifier of
+// its own. The diagram shows both end types when it draws the association.
+func (m *migration) associationLine(e *sysmlv1.Element) bool {
+	ends := m.model.Refs(e, "memberEnd")
+	if len(ends) != 2 || len(m.extras[e]) > 0 || len(m.hosted[e]) > 0 || len(m.annotated(e)) > 0 {
+		return false
+	}
+	if gens, _ := m.generals(e, catConnectionDef); gens != "" {
+		return false
+	}
+	for _, c := range e.Children {
+		if c.Role != "ownedEnd" && c.Role != "ownedComment" && m.written(c) {
+			return false
+		}
+	}
+	for _, end := range ends {
+		t := m.model.Ref(end, "type")
+		if t == nil || t == e {
+			return false
+		}
+		typ, _ := m.typeRef(t, e)
+		if typ == "" || strings.TrimSpace(m.typing(t)) != ":" {
+			return false
+		}
+		if opp, _ := m.crossedProperty(e, end, typ); opp == nil && len(end.Owned("qualifier")) > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // viewForm is how a diagram's view is drawn: its Views rendering, the standard view
@@ -449,16 +584,24 @@ func (m *migration) form(d *sysmlv1.Diagram) (viewForm, string) {
 		}
 	}
 	if strings.Contains(kind, "sequence diagram") {
-		return f, m.sequenceNote(d.Owner)
+		graph := viewForm{definition: "SequenceView"}
+		graph.subject = m.graphSubject(d.Owner, graph)
+		switch {
+		case graph.subject == nil:
+			return f, m.sequenceNote(d.Owner)
+		case !m.showsGraph(d, graph):
+			return f, "it shows no lifeline or message of " + m.hostName(m.bodyOf(graph.subject)) + ", whose sequence a SequenceView draws"
+		}
+		return graph, ""
 	}
 	return f, ""
 }
 
 // sequenceNote says why a sequence diagram is not drawn as a SequenceView, which draws
-// the message flows between the events of occurrence parts: a migrated interaction is a
-// scenario of send, accept and call steps, which declares none, or has no v2 form at all.
+// the messages between the events of an interaction's lifeline usages: the
+// interaction has no v2 form, or no interaction owns the diagram.
 func (m *migration) sequenceNote(owner *sysmlv1.Element) string {
-	const draws = "a SequenceView draws the message flows between the events of occurrence parts"
+	const draws = "a SequenceView draws the messages between the events of an interaction's lifeline usages"
 	for cur := owner; cur != nil; cur = cur.Parent {
 		if cur.Type != "Interaction" {
 			continue
@@ -466,7 +609,7 @@ func (m *migration) sequenceNote(owner *sysmlv1.Element) string {
 		if note := m.interactionNote(cur); note != "" {
 			return "its Interaction " + qualifiedName(cur) + " has no v2 form: " + note
 		}
-		return "its Interaction " + qualifiedName(cur) + " is written as a scenario of send, accept and call steps, and " + draws + ", which a scenario does not declare"
+		return "its Interaction " + qualifiedName(cur) + " has no v2 declaration, and " + draws
 	}
 	return draws + ", and no Interaction owns the diagram"
 }
@@ -474,10 +617,23 @@ func (m *migration) sequenceNote(owner *sysmlv1.Element) string {
 // graphNames names, article included, a standard view definition and the
 // definition kind whose graph it draws.
 func graphNames(definition string) (view, kind string) {
-	if definition == "StateTransitionView" {
+	switch definition {
+	case "StateTransitionView":
 		return "a StateTransitionView", "a state def"
+	case "SequenceView":
+		return "a SequenceView", "an occurrence def"
 	}
 	return "an ActionFlowView", "an action def"
+}
+
+// drawnAs names the diagram a view of a standard view definition is drawn as when
+// the Views library has no rendering for it: a SequenceView draws a sequence diagram.
+func drawnAs(definition string) string {
+	switch definition {
+	case "SequenceView":
+		return "a sequence diagram"
+	}
+	return "a diagram"
 }
 
 // drawsEdge reports whether the form draws a member declared by keyword as an
@@ -488,8 +644,16 @@ func (f viewForm) drawsEdge(keyword string) bool {
 		return keyword == "succession" || keyword == "flow"
 	case "StateTransitionView":
 		return keyword == "transition"
+	case "SequenceView":
+		return keyword == "message"
 	}
-	return f.rendering == interconnectionRendering && (keyword == "connection" || keyword == "binding")
+	switch f.rendering {
+	case interconnectionRendering:
+		return keyword == "connection" || keyword == "binding" || keyword == "flow"
+	case treeRendering:
+		return keyword == "connection def" || keyword == "attribute" || keyword == "specialization"
+	}
+	return false
 }
 
 // drawsPictures reports whether the form's rendering draws the Pictures its
@@ -509,18 +673,22 @@ func (m *migration) showsGraph(d *sysmlv1.Diagram, f viewForm) bool {
 // nearest enclosing behavior, when it is written as the definition kind f presents.
 func (m *migration) graphSubject(owner *sysmlv1.Element, f viewForm) *sysmlv1.Element {
 	want := catActionDef
-	if f.definition == "StateTransitionView" {
+	switch f.definition {
+	case "StateTransitionView":
 		want = catStateDef
+	case "SequenceView":
+		want = catOccurrenceDef
 	}
 	for cur := owner; cur != nil; cur = cur.Parent {
-		if !isBehavior(cur) {
+		if !isBehavior(cur) || want == catOccurrenceDef && cur.Type != "Interaction" {
 			continue
 		}
 		decl := m.exposable(cur)
 		if decl == nil {
 			return nil
 		}
-		if cat, _ := m.classify(decl); cat == want {
+		cat, _ := m.classify(decl)
+		if cat == want || want == catOccurrenceDef && cat == catVerificationDef {
 			return cur
 		}
 		return nil
@@ -536,7 +704,9 @@ func (m *migration) drawsNode(el *sysmlv1.Element, f viewForm) bool {
 		k := nodeKind(el)
 		return el.Role == "node" && k != nodePin && k != nodeParam
 	case "StateTransitionView":
-		return el.Role == "subvertex" || el.Type == "Region" && m.parallel[el] != ""
+		return el.Role == "subvertex" || el.Type == "Region" && m.regionWrittenAsState(el)
+	case "SequenceView":
+		return el.Type == "Lifeline"
 	}
 	return false
 }
@@ -555,10 +725,4 @@ func within(e, owner *sysmlv1.Element) bool {
 		}
 	}
 	return false
-}
-
-// associationDef reports whether e is an association written as a connection
-// def, which a tree draws as a line between its end types' boxes.
-func (m *migration) associationDef(e *sysmlv1.Element) bool {
-	return e != nil && (e.Type == "Association" || e.Type == "AssociationClass") && m.written(e) && m.associationAsConnectionDef(e)
 }

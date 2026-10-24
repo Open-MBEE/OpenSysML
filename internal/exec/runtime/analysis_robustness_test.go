@@ -112,9 +112,9 @@ func TestAnalysisRobustness(t *testing.T) {
 func testAnalysisUnboundSubject(t *testing.T) {
 	ctx, _, sym := analysisRuntime(t, "test::CostAnalysis")
 	_, err := ctx.RunAnalysis(sym, AnalysisArgs{}, nil, nil)
-	var unbound *UnboundSubjectError
-	if !errors.As(err, &unbound) || !errors.Is(err, ErrUnboundSubject) {
-		t.Fatalf("error = %v, want *UnboundSubjectError", err)
+	var unbound *subjectUnboundError
+	if !errors.As(err, &unbound) || !errors.Is(err, errUnboundSubject) {
+		t.Fatalf("error = %v, want *subjectUnboundError", err)
 	}
 	if unbound.Subject != "s" || unbound.Element != "test::CostAnalysis" {
 		t.Errorf("unbound subject %q of %q, want s of test::CostAnalysis", unbound.Subject, unbound.Element)
@@ -148,8 +148,8 @@ func testAnalysisMissingInParameter(t *testing.T) {
 	ctx, idx, sym := analysisRuntime(t, "test::Scaled")
 	ship := instanceOfUsage(t, ctx, idx, "test::ship")
 	_, err := ctx.RunAnalysis(sym, AnalysisArgs{Subject: ship}, nil, nil)
-	if !errors.Is(err, ErrUnboundParameter) {
-		t.Fatalf("error = %v, want ErrUnboundParameter", err)
+	if !errors.Is(err, errUnboundParameter) {
+		t.Fatalf("error = %v, want errUnboundParameter", err)
 	}
 	if !strings.Contains(err.Error(), "factor") || !strings.Contains(err.Error(), "test::Scaled") {
 		t.Errorf("error %q names neither the parameter nor the case", err)
@@ -163,8 +163,8 @@ func testAnalysisTooManyArguments(t *testing.T) {
 	ship := instanceOfUsage(t, ctx, idx, "test::ship")
 	args := AnalysisArgs{Subject: ship, Positional: []Value{constReal(2), constReal(3)}}
 	result, err := ctx.RunAnalysis(sym, args, nil, nil)
-	if !errors.Is(err, ErrCalcArity) {
-		t.Fatalf("error = %v, want ErrCalcArity", err)
+	if !errors.Is(err, errCalcArity) {
+		t.Fatalf("error = %v, want errCalcArity", err)
 	}
 	assertNoPartialRun(t, result)
 }
@@ -176,8 +176,8 @@ func testAnalysisUnknownNamedArgument(t *testing.T) {
 	ship := instanceOfUsage(t, ctx, idx, "test::ship")
 	args := AnalysisArgs{Subject: ship, Named: map[string]Value{"nope": constReal(2)}}
 	result, err := ctx.RunAnalysis(sym, args, nil, nil)
-	if !errors.Is(err, ErrUnknownParameter) {
-		t.Fatalf("error = %v, want ErrUnknownParameter", err)
+	if !errors.Is(err, errUnknownParameter) {
+		t.Fatalf("error = %v, want errUnknownParameter", err)
 	}
 	assertNoPartialRun(t, result)
 }
@@ -274,8 +274,8 @@ func testCalcRecursionThroughAUsage(t *testing.T) {
 func testAnalysisUsageReadingItsOwnOutput(t *testing.T) {
 	ctx, _, sym := analysisRuntime(t, "test::selfRead")
 	_, err := ctx.RunAnalysis(sym, AnalysisArgs{}, nil, nil)
-	if !errors.Is(err, ErrCyclicOutput) {
-		t.Fatalf("error = %v, want ErrCyclicOutput", err)
+	if !errors.Is(err, errCyclicOutput) {
+		t.Fatalf("error = %v, want errCyclicOutput", err)
 	}
 	if !strings.Contains(err.Error(), "test::selfRead") {
 		t.Errorf("error %q does not name the case", err)
@@ -287,8 +287,8 @@ func testAnalysisUsageReadingItsOwnOutput(t *testing.T) {
 func testAnalysisOutputsReadingEachOther(t *testing.T) {
 	ctx, _, sym := analysisRuntime(t, "test::pair")
 	_, err := ctx.RunAnalysis(sym, AnalysisArgs{}, nil, nil)
-	if !errors.Is(err, ErrCyclicOutput) {
-		t.Fatalf("error = %v, want ErrCyclicOutput", err)
+	if !errors.Is(err, errCyclicOutput) {
+		t.Fatalf("error = %v, want errCyclicOutput", err)
 	}
 	if !strings.Contains(err.Error(), "test::pair") {
 		t.Errorf("error %q does not name the case", err)
@@ -300,8 +300,8 @@ func testAnalysisOutputsReadingEachOther(t *testing.T) {
 func testAnalysisOutputNeverBound(t *testing.T) {
 	ctx, _, sym := analysisRuntime(t, "test::deferred")
 	_, err := ctx.RunAnalysis(sym, AnalysisArgs{}, nil, nil)
-	if !errors.Is(err, ErrNoResultExpression) {
-		t.Fatalf("error = %v, want ErrNoResultExpression", err)
+	if !errors.Is(err, errNoResultExpression) {
+		t.Fatalf("error = %v, want errNoResultExpression", err)
 	}
 	if !strings.Contains(err.Error(), "d") {
 		t.Errorf("error %q does not name the output", err)
@@ -329,8 +329,8 @@ func testAnalysisCyclicSuccessions(t *testing.T) {
 	if err == nil {
 		t.Fatal("a cyclic body ran to completion")
 	}
-	if !errors.Is(err, ErrInvalidActionFlow) {
-		t.Fatalf("error = %v, want ErrInvalidActionFlow", err)
+	if !errors.Is(err, errInvalidActionFlow) {
+		t.Fatalf("error = %v, want errInvalidActionFlow", err)
 	}
 	for _, want := range []string{"test::Looping", "cycle"} {
 		if !strings.Contains(err.Error(), want) {
@@ -348,7 +348,7 @@ func testAnalysisUnorderedSteps(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	if len(result.Outputs) != 1 || FormatValue(result.Outputs[0].Value) != "12.0" {
+	if len(result.Outputs) != 1 || FormatValue(soleElement(result.Outputs[0].Value)) != "12.0" {
 		t.Fatalf("outputs = %v, want 12.0: c reads a.v + b.w after both ran", result.Outputs)
 	}
 }

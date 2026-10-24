@@ -29,6 +29,21 @@ func (g *StateGraph) BehaviorFootprints() map[ast.Node]Footprint {
 	return g.behaviorFootprints
 }
 
+// BehaviorFootprint is what running the behavior touches: its table entry for
+// an entry, do or exit behavior, computed on first use for a transition's or
+// an entry transition's effect, which the table does not key.
+func (g *StateGraph) BehaviorFootprint(behavior StateBehavior) Footprint {
+	g.lowerFootprints()
+	g.effectFootprintsMu.Lock()
+	defer g.effectFootprintsMu.Unlock()
+	if fp, ok := g.behaviorFootprints[behavior.Node]; ok {
+		return fp
+	}
+	fp := behaviorFootprint(g, behavior)
+	g.behaviorFootprints[behavior.Node] = fp
+	return fp
+}
+
 // lowerFootprints computes both footprint tables once; the behaviors' first,
 // since a transition's footprint folds in the behaviors of the states it crosses.
 func (g *StateGraph) lowerFootprints() {
@@ -44,13 +59,19 @@ func (g *StateGraph) lowerFootprints() {
 				}
 			}
 		}
+		for _, behavior := range g.TerminateBehaviors {
+			g.behaviorFootprints[behavior.Node] = behaviorFootprint(g, behavior)
+		}
 		g.transitionFootprints = make(map[*Transition]Footprint)
+		g.branchFootprints = make(map[*Transition]Footprint)
 		for source, transitions := range g.Transitions {
-			if _, isState := source.(*ast.StateNode); !isState {
-				continue
-			}
+			_, isState := source.(*ast.StateNode)
 			for _, trans := range transitions {
-				g.transitionFootprints[trans] = transitionFootprint(g, trans)
+				if isState {
+					g.transitionFootprints[trans] = transitionFootprint(g, trans)
+				} else {
+					g.branchFootprints[trans] = branchFootprint(g, trans)
+				}
 			}
 		}
 	})
@@ -75,6 +96,153 @@ func (g *StateGraph) activity(state *ast.StateNode) Place {
 // transitionFootprint projects the footprint of a transition out of a state.
 func transitionFootprint(graph *StateGraph, trans *Transition) Footprint {
 	return transitionBuilder(graph, trans, false).footprint
+}
+
+// BranchFootprints is segment out of a pseudostate → what taking that branch of
+// a junction or choice may touch, computed on first use as TransitionFootprints
+// is; a pseudostate's branches are segments of the transitions into it, so they
+// are not among TransitionFootprints.
+func (g *StateGraph) BranchFootprints() map[*Transition]Footprint {
+	g.lowerFootprints()
+	return g.branchFootprints
+}
+
+// branchFootprint projects a segment out of a pseudostate — a branch of a
+// junction or choice — taken by whichever transition routed there: what its
+// guard, probability and effects touch and the state it enters; a further
+// pseudostate is not followed and leaves the footprint dynamic.
+func branchFootprint(graph *StateGraph, seg *Transition) Footprint {
+	b := &stateFootprintBuilder{footprintBuilder: &footprintBuilder{resolver: graph.resolver}, graph: graph, crossed: make(map[*ast.PseudostateNode]bool)}
+	b.reads(seg.BodyScope, seg.Guard)
+	if seg.Probability != nil {
+		b.reads(seg.BodyScope, seg.Probability.Expr)
+	}
+	for _, effect := range seg.Effect {
+		b.statements(effect.Body)
+	}
+	switch target := seg.Target.(type) {
+	case *ast.StateNode:
+		b.enters(target)
+		b.entersBelow(target)
+	case *ast.Usage:
+		if completion, named := b.performs(target); named {
+			b.enters(completion)
+			b.entersBelow(completion)
+		} else {
+			b.footprint.Dynamic = true
+		}
+	default:
+		b.footprint.Dynamic = true
+	}
+	return b.footprint
+}
+
+// branchKey is a branch out of a pseudostate taken by a transition out of a
+// state, with the boundary up to which its exits are shared by every branch.
+type branchKey struct {
+	source *ast.StateNode
+	seg    *Transition
+	upTo   *ast.StateNode
+	shared bool
+}
+
+// BranchFootprintsFrom is what taking each of segs, the branches out of one
+// pseudostate, does for a transition that left origin: the states left and
+// entered, their exit, entry and do behaviors, and the branch's guard,
+// probability and effects, followed through further pseudostates as the
+// transition's own footprint is. The exits every branch shares — origin up to
+// the nearest of the branches' boundaries — are left out, since they happen
+// whichever branch is drawn; a branch into a further pseudostate leaves its
+// boundary unknown, so then nothing is left out.
+func (g *StateGraph) BranchFootprintsFrom(origin *ast.StateNode, segs []*Transition) []Footprint {
+	g.lowerFootprints()
+	upTo, shared := g.sharedExitBoundary(origin, segs)
+	fps := make([]Footprint, len(segs))
+	for i, seg := range segs {
+		fps[i] = g.branchFootprintFrom(origin, seg, upTo, shared)
+	}
+	return fps
+}
+
+// sharedExitBoundary is the state up to which every branch out of origin exits
+// the same states: the nearest to origin of the branches' move boundaries, nil
+// for the top; shared is false when a branch's target is no state.
+func (g *StateGraph) sharedExitBoundary(origin *ast.StateNode, segs []*Transition) (upTo *ast.StateNode, shared bool) {
+	boundaries := make(map[*ast.StateNode]bool, len(segs))
+	for _, seg := range segs {
+		target, ok := seg.Target.(*ast.StateNode)
+		if !ok {
+			return nil, false
+		}
+		boundary := g.commonAncestor(origin, target)
+		if g.encloses(origin, target) {
+			boundary = g.ParentState[origin]
+		}
+		boundaries[boundary] = true
+	}
+	for state := origin; state != nil; state = g.ParentState[state] {
+		if boundaries[state] {
+			return state, true
+		}
+	}
+	return nil, boundaries[nil]
+}
+
+// branchFootprintFrom is one branch's footprint for a transition out of source,
+// without the exits from source up to upTo when shared; computed on first use.
+func (g *StateGraph) branchFootprintFrom(source *ast.StateNode, seg *Transition, upTo *ast.StateNode, shared bool) Footprint {
+	g.branchFromMu.Lock()
+	defer g.branchFromMu.Unlock()
+	key := branchKey{source: source, seg: seg, upTo: upTo, shared: shared}
+	if fp, ok := g.branchFrom[key]; ok {
+		return fp
+	}
+	b := &stateFootprintBuilder{footprintBuilder: &footprintBuilder{resolver: g.resolver}, graph: g, crossed: make(map[*ast.PseudostateNode]bool)}
+	if shared {
+		b.exitedBefore = make(map[*ast.StateNode]bool)
+		for state := source; state != nil && state != upTo; state = g.ParentState[state] {
+			b.exitedBefore[state] = true
+		}
+	}
+	b.segment(source, seg)
+	if g.branchFrom == nil {
+		g.branchFrom = make(map[branchKey]Footprint)
+	}
+	g.branchFrom[key] = b.footprint
+	return b.footprint
+}
+
+// JoinSegmentFootprints is what firing each of segs, transitions pending into
+// one join, does on its own once the join fires: its source's activity, trigger
+// and guard read, its effects run, and the states from its source up to the
+// join's owner exited. The owner's exit and the join's way out follow whichever
+// segment fires first, so they are left out of every segment's footprint, as the
+// exits a junction's branches share are; a join without a plan leaves each
+// footprint dynamic.
+func (g *StateGraph) JoinSegmentFootprints(join *ast.PseudostateNode, segs []*Transition) []Footprint {
+	g.lowerFootprints()
+	plan := g.JoinPlans[join]
+	fps := make([]Footprint, len(segs))
+	for i, seg := range segs {
+		b := &stateFootprintBuilder{footprintBuilder: &footprintBuilder{resolver: g.resolver}, graph: g, crossed: make(map[*ast.PseudostateNode]bool)}
+		source, fromState := seg.Source.(*ast.StateNode)
+		if plan == nil || !fromState {
+			b.footprint.Dynamic = true
+			fps[i] = b.footprint
+			continue
+		}
+		b.read(g.activity(source))
+		b.trigger(seg)
+		b.reads(seg.BodyScope, seg.Guard)
+		for _, effect := range seg.Effect {
+			b.statements(effect.Body)
+		}
+		for state := source; state != nil && state != plan.Owner; state = g.ParentState[state] {
+			b.exits(state)
+		}
+		fps[i] = b.footprint
+	}
+	return fps
 }
 
 // transitionBuilder projects a transition out of a state, without the do
@@ -117,6 +285,9 @@ type stateFootprintBuilder struct {
 	// withoutDo leaves out the do behaviors of the states entered, listed in entered.
 	withoutDo bool
 	entered   []*ast.StateNode
+	// exitedBefore are states whose exits are not the move's own: left whichever
+	// branch of a pseudostate is drawn, so left out of each branch's footprint.
+	exitedBefore map[*ast.StateNode]bool
 }
 
 // trigger adds what the trigger reads: a change condition or a time duration. An
@@ -149,9 +320,33 @@ func (b *stateFootprintBuilder) segment(source *ast.StateNode, seg *Transition) 
 		b.move(source, target)
 	case *ast.PseudostateNode:
 		b.pseudostate(source, seg, target)
+	case *ast.Usage:
+		b.terminate(source, target)
 	default:
 		b.footprint.Dynamic = true
 	}
+}
+
+// terminate adds a named node's body, its termination and the move to its body's
+// completion vertex; a node ending the performance itself reaches beyond it.
+func (b *stateFootprintBuilder) terminate(source *ast.StateNode, node *ast.Usage) {
+	completion, named := b.performs(node)
+	if !named {
+		b.footprint.Dynamic = true
+		return
+	}
+	b.move(source, completion)
+}
+
+// performs adds the body and termination of a terminate node naming the occurrence
+// it ends and returns the completion vertex it moves to; false for an unnamed one.
+func (b *stateFootprintBuilder) performs(node *ast.Usage) (*ast.StateNode, bool) {
+	behavior, named := b.graph.TerminateBehaviors[node]
+	if !named {
+		return nil, false
+	}
+	b.merge(b.graph.behaviorFootprints[behavior.Node])
+	return b.graph.TerminateCompletion[node], true
 }
 
 // pseudostate adds what a route through the pseudostate may do: every branch of
@@ -276,6 +471,9 @@ func (b *stateFootprintBuilder) move(source, target *ast.StateNode) {
 // exits writes the activity of the state and of every state below it, and adds
 // their exit behaviors.
 func (b *stateFootprintBuilder) exits(state *ast.StateNode) {
+	if b.exitedBefore[state] {
+		return
+	}
 	b.write(b.graph.activity(state))
 	if behaviors := b.graph.Behaviors[state]; behaviors != nil {
 		for _, behavior := range behaviors.Exit {

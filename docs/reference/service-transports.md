@@ -56,8 +56,8 @@ capability's definition rather than something a client has to guess:
 
 | The capability describes | A request that needs it | What a client should do |
 |---|---|---|
-| what the service can be *asked*: `strict_conformance`, `inline_language`, `parse_sources`, `evaluate_subject`, `verification`, `convert`, `apply_edits`, `authoring`, `connection_authoring`, `edit_documents`, `query`, `oslc_query`, `document_query`, `render_document`, `render_document_html`, `render_view`, `export_graphs`, `schedule`, `performer`, `state_trace`, `satisfy_authoring`, `requirement_constraint_authoring`, `member_modifiers`, `transition_authoring`, `verification_objective_authoring`, `metadata_authoring`, `metadata_prefix_authoring`, `sequence_authoring`, `implicit_parameters`, `action_body_statement_authoring`, `constraint_body_authoring`, `state_action_authoring`, `import_authoring`, `documentation_authoring`, `comment_authoring`, `migrate`, `convert_documents`, `convert_compact`, `parse_sources_affected`, `schedule_explore`, `verification_questions`, `verification_arguments`, `engines_external`, `set_values`, `tensor_values` | is **refused** with `UNIMPLEMENTED`, naming the capability | check the advertised list first, and report the missing capability locally rather than spending a round trip |
-| how a response is *populated*: `type_facts`, `symbol_attributes`, `feature_values`, `enum_values`, `unset_value`, `undetermined_value`, `complex_values`, `structured_values`, `measurement_refs`, `function_values`, `metaobject_values`, `set_values`, `tensor_values`, `big_int_values`, `rational_values`, `verification_verdicts`, `case_evaluations`, `infinity_value`, `diagnostic_codes`, `final_time`, `engines`, `edit_documents` | is answered with those fields **omitted** | check before reading the fields; an omitted field is not an error |
+| what the service can be *asked*: `strict_conformance`, `inline_language`, `parse_sources`, `evaluate_subject`, `verification`, `convert`, `apply_edits`, `authoring`, `connection_authoring`, `edit_documents`, `query`, `runs`, `self_check`, `record_run`, `oslc_query`, `document_query`, `render_document`, `render_document_html`, `render_view`, `export_graphs`, `import_data`, `compare_results`, `schedule`, `performer`, `state_trace`, `satisfy_authoring`, `requirement_constraint_authoring`, `member_modifiers`, `transition_authoring`, `verification_objective_authoring`, `metadata_authoring`, `metadata_prefix_authoring`, `sequence_authoring`, `implicit_parameters`, `action_body_statement_authoring`, `constraint_body_authoring`, `state_action_authoring`, `import_authoring`, `documentation_authoring`, `comment_authoring`, `migrate`, `convert_documents`, `convert_compact`, `convert_check_diagnostics`, `parse_sources_affected`, `schedule_explore`, `verification_questions`, `verification_arguments`, `engines_external`, `check`, `set_values`, `tensor_values` | is **refused** with `UNIMPLEMENTED`, naming the capability | check the advertised list first, and report the missing capability locally rather than spending a round trip |
+| how a response is *populated*: `type_facts`, `symbol_attributes`, `feature_values`, `enum_values`, `unset_value`, `undetermined_value`, `complex_values`, `structured_values`, `measurement_refs`, `function_values`, `metaobject_values`, `set_values`, `tensor_values`, `big_int_values`, `rational_values`, `verification_verdicts`, `case_evaluations`, `infinity_value`, `diagnostic_codes`, `final_time`, `engines`, `edit_documents`, `render_document_file_name` | is answered with those fields **omitted** | check before reading the fields; an omitted field is not an error |
 
 `edit_documents` sits in both rows: without it `ApplyEdits` still edits a model of one document
 and answers `content`, but omits `documents`, `referrers` and each applied edit's `document`;
@@ -220,6 +220,17 @@ page: no reflection, no `/health`, no CORS, no TLS, one client per process. Writ
 the default port instead. The prototype is kept behind the flag and tested (`internal/frontend/stdiorpc`
 covers the protocol and `cmd/sysml-grpc` covers the binary answering a framed call) so that it
 cannot rot unnoticed while it is still in the tree.
+
+The stdio transport this project does support is a different protocol for a different caller:
+[`sysml-mcp`](sysml-mcp.md) serves the Model Context Protocol over stdin/stdout to a coding
+agent's host, which starts the process itself — the one situation where a child process is the
+right shape. Its `runtime` tool group is this service's RPC surface, one tool per RPC with the
+RPC's request and response, so an agent gets the same contract the clients on this page do. Its
+`-http` flag serves the same protocol over a port to many agents, with the TLS and origin
+stance this page takes — loopback unless the address says otherwise, TLS from a certificate and
+key pair, an origin allow-list that is not authentication — and one difference the Model Context
+Protocol asks for: an address other machines reach is served only with a bearer token
+(`-token-file`), which every request must carry; loopback alone is served without one.
 
 ## Every protocol is tested, not merely served
 

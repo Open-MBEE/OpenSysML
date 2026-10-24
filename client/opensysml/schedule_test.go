@@ -63,7 +63,12 @@ const scheduleSource = `package Sched {
 
 func winner(t *testing.T, outputs map[string]opensysml.Value) opensysml.Int {
 	t.Helper()
-	got, ok := outputs["winner"].(opensysml.Int)
+	// An action's bare `out winner` is a one-element Sequence; a case's result is as computed.
+	value := outputs["winner"]
+	if seq, isSeq := value.(opensysml.Sequence); isSeq && len(seq) == 1 {
+		value = seq[0]
+	}
+	got, ok := value.(opensysml.Int)
 	if !ok {
 		t.Fatalf("winner = %#v, want an Int", outputs["winner"])
 	}
@@ -115,7 +120,7 @@ func TestWithScheduleSelectsTheOrderARunTakes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunAnalysis under declared: %v", err)
 	}
-	if got, ok := analysis.Output("winner"); !ok || got != opensysml.Int(2) {
+	if got, ok := analysis.Output("winner"); !ok || sole(t, "winner", got) != opensysml.Int(2) {
 		t.Errorf("RunAnalysis under declared: winner = %#v, want Int(2)", got)
 	}
 }

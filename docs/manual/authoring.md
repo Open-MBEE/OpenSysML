@@ -537,6 +537,13 @@ part structure : Diagram {
   part's border named beside it; `"full"` draws every port a part has,
   labelled `name : Type`. Any other name, or `ports` on another kind, is a
   typed error.
+  `show` — a comma-separated list of the
+  [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
+  (`"parameter-symbols"`, `"port-symbols"`, `"compartments"`, `"edge-labels"`,
+  `"keywords"`, `"multiplicities"`, `"typings"`, `"qualifiers"`) or `"all"` —
+  draws those elements besides the ones the view's rendering shows, as
+  `-render-show` does for the whole document; the two add up. An unknown name
+  is a typed error.
   `overlay` — `"verdicts"` — is accepted by a requirement diagram alone: it
   runs the verification cases verifying each requirement drawn and labels
   and colours the requirement by their verdicts. Any other name, or

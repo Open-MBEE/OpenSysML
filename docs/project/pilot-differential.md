@@ -129,6 +129,7 @@ repeated runs are byte-identical.
 | `pilot-examples` | `examples/pilot-corpora/sysml-examples` (`sysml/src/examples`) | `scripts/download-pilot-corpora.sh` |
 | `pilot-validation` | `examples/pilot-corpora/sysml-validation` (`sysml/src/validation`) | `scripts/download-pilot-corpora.sh` |
 | `kerml-examples` | `examples/pilot-corpora/kerml-examples` (`kerml/src/examples`) | `scripts/download-pilot-corpora.sh` |
+| `spec-examples` | `examples/spec-examples` (clause 7 and 8.4 examples extracted from `doc/*.pdf`) | `scripts/download-spec-examples.sh` |
 | `testdata` | `testdata` | vendored |
 | `examples` | `examples`, less the downloaded corpora | vendored |
 | `probes` | `tools/referee/diff/testdata` | vendored |
@@ -244,18 +245,19 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 391 files)
+## Results (pilot `2026-08`, 916 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | `examples/sysml-v2-training` | 100 | 99 | 1 | 0 | 0 | 0 | 1 | 0 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 88 | 235 | 0 | 0 | 0 | 235 | 0 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 54 | 8 | 0 | 0 | 0 | 8 | 0 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 55 | 13 | 0 | 0 | 0 | 13 | 0 |
-| `tests/testdata` | 22 | 11 | 57 | 77 | 45 | 1 | 11 | 31 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 88 | 261 | 0 | 0 | 0 | 261 | 0 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 54 | 11 | 0 | 0 | 0 | 11 | 0 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 55 | 16 | 0 | 0 | 0 | 16 | 0 |
+| `examples/spec-examples` | 511 | 150 | 1094 | 3395 | 1038 | 6 | 50 | 2351 |
+| `tests/testdata` | 36 | 23 | 72 | 91 | 54 | 5 | 13 | 32 |
 | `examples` | 52 | 45 | 8 | 61 | 0 | 0 | 8 | 61 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **391** | **353** | **328** | **138** | **45** | **1** | **282** | **92** |
+| **Total** | **916** | **515** | **1469** | **3547** | **1092** | **11** | **366** | **2444** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -290,16 +292,27 @@ true positives about our own examples, not candidate false positives about our i
 column header is wrong for them, and the honest count of suspect diagnostics of ours against the
 reference corpora is **20** (11 on `sysml-examples`, 9 on `kerml-examples`) once the 235 imported-member
 distinguishability warnings (223 on `sysml-examples`, 8 on `sysml-validation`, 4 on `kerml-examples`)
-are set aside as the known pilot omission they are (see the imported-membership round below) — of which six, the
-`Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (1) holds pairs of the same shape:
-where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
-changing what it detects.
+and the 32 `unresolved-reference` errors on names those warnings hide (26 on `sysml-examples`, 3 on
+`sysml-validation`, 3 on `kerml-examples`) are set aside as the known pilot omission they are (see the
+imported-membership and hidden-imported-memberships rounds below) — of which six, the
+`Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (5) holds pairs of the same shape:
+where the pilot errors on a line we warn on, or warns where we error — the four `*` values
+`passes/literal_infinity.sysml` binds to a Boolean, a String, a part and an enumeration, which
+the pilot flags as non-conforming bound features and we as `binding-connector-type-conformance`
+errors — the pair sits in severity-only rather than either side changing what it detects.
 
 Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-examples` 227
-`unmapped`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `pilot-validation` 8 `unmapped`;
-`kerml-examples` 13 `unmapped`; `testdata` 10 `unmapped`, 1 `multiplicity`; `examples` 5
-`unmapped`, 1 `kind-mismatch`, 2 `multiplicity`; `probes` 6 `unmapped`. Only-pilot: `testdata` 12 `kind-mismatch`, 14 `unmapped`,
-3 `syntax`, 2 `unresolved-reference`; `examples` 23 `unmapped`, 38 `kind-mismatch`.
+`unmapped`, 26 `unresolved-reference`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `pilot-validation` 8 `unmapped`,
+3 `unresolved-reference`; `kerml-examples` 13 `unmapped`, 3 `unresolved-reference`; `testdata` 10 `unmapped`,
+1 `unresolved-reference`, 2 `multiplicity`; `examples` 5
+`unmapped`, 1 `kind-mismatch`, 2 `multiplicity`; `probes` 6 `unmapped`; `spec-examples` 7 `syntax`,
+38 `unresolved-reference`, 3 `kind-mismatch`, 2 `unmapped`. Only-pilot: `testdata` 13 `kind-mismatch`, 14 `unmapped`,
+3 `syntax`, 2 `unresolved-reference`; `examples` 23 `unmapped`, 38 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
+586 `kind-mismatch`, 196 `syntax`, 156 `unresolved-reference`, 50 `multiplicity`, 4 `units`.
+
+The `spec-examples` figures are dominated by fragments: the specification's examples leave
+cross-example names undeclared, and the pilot's typing and EMF cascade follows each one; every
+file is adjudicated in [spec-examples.md](spec-examples.md).
 
 ### View concern framing round
 
@@ -311,8 +324,8 @@ admits `frame` (FramedConcernMember, §8.3.20/§8.3.26) only in a requirement, c
 body, and the reference failed to parse each of those lines (`mismatched input 'frame' expecting
 '}'`, then `extraneous input '}' expecting EOF`): two `syntax` rows per demo. The evaluator now
 checks every concern a viewpoint frames directly against what the view exposes, the three demos drop
-the view-body framings with their `%view` output unchanged, and a `frame` left in a view body draws
-the `nonstandard-notation` warning that `-strict` escalates to an error, as the reference rejects it.
+the view-body framings with their `%view` output unchanged, and a `frame` left in a view body is a
+parser error, as the reference rejects it.
 The six `syntax` rows go, the three demos become fully agreeing, and `examples` keeps only the 37
 `DocumentQueries` binding warnings and the 17 duplicate-inherited-name warnings on the pilot side.
 
@@ -964,9 +977,9 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **92** |
-| pilot diagnostics | 123 | **138** |
-| severity-only | 9 | **1** |
+| only pilot | 82 | **2444** |
+| pilot diagnostics | 123 | **3547** |
+| severity-only | 9 | **11** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
 those counts as the later rounds leave them.
@@ -1189,13 +1202,13 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **353 / 282 / 328** |
-| only pilot | **92** |
-| pilot diagnostics | **138** |
-| severity-only | **1** |
-| unmapped, our side | **284** |
-| kerml-examples: only ours | **13** |
-| pilot-examples: only ours | **235** |
+| overall: fully agreeing / only ours / our diagnostics | **515 / 366 / 1469** |
+| only pilot | **2444** |
+| pilot diagnostics | **3547** |
+| severity-only | **11** |
+| unmapped, our side | **287** |
+| kerml-examples: only ours | **16** |
+| pilot-examples: only ours | **261** |
 | examples: only pilot | **61** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
@@ -1353,6 +1366,21 @@ annotations and specializations of the `AnalysisRecords` library defs, and the r
 usages' quoted `'objective'`/`'subject'` names and `ref part :>>`/`part :>>` redefinitions. The
 file draws no diagnostic from this implementation — it validates clean — so `fully agreeing`,
 `only ours`, `agreed` and `severity-only` all stay where the expressions walkthrough left them.
+
+### Project interchange fixture round
+
+`tests/testdata/interchange/` is a project interchange fixture added to the `tests/testdata`
+root: a project root (`proj/.project.json`, `proj/model/main.sysml`) with three installed
+projects under `proj/.sysand/lib/`, an unrelated hidden directory (`proj/.unrelated/shadow.sysml`)
+and a second provider layout (`store/acme/Vendored Parts/`). Files 22 → **28** on the root,
+391 → **397** overall. The root is validated as one batch of its `.sysml` files, so
+`main.sysml` resolves `Widgets` and `VendoredParts` and five of the six files draw nothing from
+either side (fully agreeing 353 → **358**). `Gears.kerml` is not in that batch, so
+`Widgets.sysml:3,4,5` (`Gears`, `Thing`, `gearMass`) are three agreement rows (agreed 45 →
+**48**), and the pilot additionally reports `Bound features should have conforming types` at
+`Widgets.sysml:5`, a kind rule over the unresolved initializer `gearMass` — one more W13 row
+(only pilot 92 → **93**, pilot diagnostics 138 → **142**). `only ours` and `severity-only` stay
+at 315 and 1.
 
 ## Adjudications
 
@@ -1778,7 +1806,7 @@ package KF1 {
 Ours:
 
 ```text
-kf1.kerml:5:2: error: expected a namespace member
+kf1.kerml:5:2: error[syntax]: expected a namespace member
 	a : Integer;
  ^
 kf1.kerml:6:2: error: expected a namespace member
@@ -2528,7 +2556,7 @@ which retired those rows rather than reclassifying them. The paragraph under W2 
 | W10 | recovery surplus after a failed parse, including the one semantic row the pilot derives from a recovered succession | 30 | `examples/phase-c-behavioral-bodies.sysml:60` ×4, `:67` ×6, `:75` ×6; `examples/orthogonal-regions-demo.sysml:16` (`Must have at least two related elements`) | **adjudicated divergence** |
 | W11 | the file-level give-up row | 4 | `examples/phase-c-behavioral-bodies.sysml:89`, `examples/repl-behavioral-demo.sysml:35`, `examples/views-demo.sysml:90`, `testdata/passes/import_no_visibility.sysml:13` | **adjudicated divergence** |
 | W12 | `Duplicate of other owned member name` | 15 | `testdata/passes/import_no_visibility.sysml:3,8,12`, `examples/orthogonal-regions-demo.sysml:11,12,16` ×2, `examples/pseudostates-demo.sysml:9,10,16` ×2, `examples/semantic-layer/demo.sysml:35,105` | **measurement artifact** — every row is recovery-only; the rule agrees on clean inputs, and the one real gap the class hid is fixed (F110, done) |
-| W13 | a kind rule over an unresolved or absent type | 19 | `testdata/lex/basic.sysml:4`, `examples/phase-c-behavioral-bodies.sysml:64,65,71,72,73,83,84` | **adjudicated divergence** |
+| W13 | a kind rule over an unresolved or absent type | 20 | `testdata/lex/basic.sysml:4`, `testdata/interchange/proj/.sysand/lib/acme-widgets_1.0.0/Widgets.sysml:5`, `examples/phase-c-behavioral-bodies.sysml:64,65,71,72,73,83,84` | **adjudicated divergence** |
 | W14 | implicit binding connectors and filter rules over unresolved operands | 24 | `testdata/parse/expressions.sysml:3,4,5,6`, `examples/solver-demo.sysml:120,124` | **adjudicated divergence** |
 | W15 | `Must be an accessible feature` downstream of `namespace` | 5 | `examples/semantic-layer/demo.sysml:44,45,46,50,51` | **adjudicated divergence** — F5, F20 |
 | ~~W16~~ | the `Type::ownedDisjoining` EMF pair | ~~6~~ 0 | all six `kerml-examples` rows, retired at `2026-08` | **defect of the pilot** — F80, fixed upstream |
@@ -2711,7 +2739,7 @@ file has clean duplicate state or transition names, all 15 rows above being reco
 reproducer-only movement, pinned by `passes/f110_state_duplicate_names_test.go`. Follow-up **F110**
 is done.
 
-#### W13, W14 — the tier boundary (43, adjudicated divergence)
+#### W13, W14 — the tier boundary (44, adjudicated divergence)
 
 `testdata/lex/basic.sysml:4` is the whole argument in one line. `attribute mass : Real;` in a file
 with no `ScalarValues` import: both implementations report `Real` unresolved — that is an agreement
@@ -2914,7 +2942,7 @@ one.
 | ~~F95~~ | **Done** (#403). K18, 1 diagnostic (`Simple Tests/Expressions.kerml:23`). A *named* `expr` whose body is a brace-enclosed expression (`in expr whileTest {v > 3}`); F30 unreserved `expr at`/`expr while` but the named form with an expression body is still unparsed. |
 | ~~F34~~ | **Done** (#358). Compares our own 11 `.kerml` fixtures (`testdata/lex/basic.kerml`, `examples/parser_features_demo_*.kerml`) too: a root carries one language today, so they are collected as SysML and excluded (see the known limitation above). Needs per-file language dispatch within a root, and a second pilot invocation per root. |
 | ~~F96~~ | **Done** (#373, whose title mislabels it "F84" — F84 is K7). Our own 10 `.kerml` demo fixtures carried SysML notation under a `.kerml` suffix, which is why F34 drew 314 pilot diagnostics on them. Two were SysML demos and were renamed (`parser_features_demo_connectors`, `parser_features_demo_messages_events`); the other eight were corrected to notation the KerML grammar accepts. The `examples` root now has **no** `.kerml` pilot diagnostic. F97/F98 were the two further fixture gaps #358 proposed under the same renumbering. |
-| ~~F99~~ | **Done** (#387), in `internal/core/symbols/` and the evaluator: a declaration in an expression body is in scope for the body's result expression, with shadowing preserved, and the runtime evaluates it instead of returning `ErrUnsupportedBodyDeclaration`. `Analysis Examples/Vehicle Analysis Demo.sysml` 6 → 0 and `Geometry Examples/VehicleGeometryAndCoordinateFrames.sysml` 2 → 1. A declaration inside an expression body parses (#375, F64b) but its name is not visible to the body's result expression: `Analysis Examples/Vehicle Analysis Demo.sysml:214-218` now reports 6 `unresolved reference: nextSample`/`thisSample` diagnostics over 5 report lines (line 214 carries `x2`) where it previously reported 2 syntax errors, and the evaluator returns the typed `ErrUnsupportedBodyDeclaration` rather than a wrong result. The scope member is `internal/core/symbols/` work, which #375 did not own. Strictly an unmasking: the reference is silent on the file, and the diagnostic count rose because parsing advanced. |
+| ~~F99~~ | **Done** (#387), in `internal/core/symbols/` and the evaluator: a declaration in an expression body is in scope for the body's result expression, with shadowing preserved, and the runtime evaluates it instead of returning `errUnsupportedBodyDeclaration`. `Analysis Examples/Vehicle Analysis Demo.sysml` 6 → 0 and `Geometry Examples/VehicleGeometryAndCoordinateFrames.sysml` 2 → 1. A declaration inside an expression body parses (#375, F64b) but its name is not visible to the body's result expression: `Analysis Examples/Vehicle Analysis Demo.sysml:214-218` now reports 6 `unresolved reference: nextSample`/`thisSample` diagnostics over 5 report lines (line 214 carries `x2`) where it previously reported 2 syntax errors, and the evaluator returns the typed `errUnsupportedBodyDeclaration` rather than a wrong result. The scope member is `internal/core/symbols/` work, which #375 did not own. Strictly an unmasking: the reference is silent on the file, and the diagnostic count rose because parsing advanced. |
 | ~~F100~~ | **Done** (#388). It was a false positive of ours, as suspected: a redefinition target that is separately `featured by` need not be an inherited member of the immediately enclosing feature, and the check now falls back to the KerML accessibility rule cited in `internal/core/passes/`. Our `unmapped` total drops 16 → 15; the other two unmaskings of that round (F69's `Rationale` name conflicts) are a deliberate one-sided check and stay. `member feature isLicensed1 :>> Person1_::isLicensed featured by …` (`Variable Feature Examples/TimeVaryingCarDriver.kerml:93`, 1 `unmapped`) draws `isLicensed1 redefines isLicensed, but isLicensed is not an inherited member of driver`; the reference is silent. The line only parses now that F50 (#374) accepts `member abstract feature`, so this is unmasked, not new — but unlike F99 it looks like a **false positive of ours**: the redefinition target is *qualified* (`Person1_::isLicensed`) and separately `featured by`, so requiring it to be an inherited member of the immediately enclosing feature is too strict. Confirm against the reference on a reduced fixture before widening the check. |
 | ~~F101~~ | **Done**. Re-measured on `main` before the fix, **2** of the 12 remained — both `no scope for member lookup in Actions::TransitionAction::effect`, on `ServerSequenceOutsideRealization-2.sysml:91` and `ServerSequenceRealization-2.sysml:96`; the `accepter`, `acceptedMessage` and `PartTest.sysml:25` `receiver` rows had already been retired by earlier rounds, so the count below is stale rather than wrong when written. The cause was not implicit typing: `kindBaseFQN` already gives `*ast.TransitionMember` the `Actions::TransitionAction` base, and the chain resolved to the library's abstract `effect` feature, which comes back from the library cache without a scope. A transition's own effect action *is* the `effect` it redefines (SysML v2 §7.19.2), so `symbols/builder.go` names it in the transition's scope and the chain reads that action; a `send` written as an action node is a SendActionUsage in its own right, so `semantics/model.go` types it by `Actions::SendAction` whether or not a usage declares it, which is what supplies `sentMessage`. Both files' rows go to 0 and `ServerSequenceRealization-2.sysml` becomes fully agreeing. **Unmasking:** with the name-resolution error gone the constraint tier now runs on `ServerSequenceOutsideRealization-2.sysml` and surfaces 3 `Must be a valid feature` rows on `:>> incomingTransferSort = Occurrences::earlierFirstIncomingTransferSort` (lines 18, 32, 57) — a KerML `bool` expression *is* a feature, so these are false positives of `passes/w8c_feature_reference.go`, they reproduce on `main` when nothing masks the tier, and they are handed to the passes owner with F69. Net on this oracle: fully agreeing 309 → 310, only ours 119 → 120. As handed back: **12** of F68's 39 diagnostics remained, all implicit `Actions::TransitionAction` members. 11 are in the two files #391 measured — `ServerSequenceOutsideRealization-2.sysml` 10 → 4 and `ServerSequenceRealization-2.sysml` 13 → 7 — and name `accepter` (6), `effect` (3) and `acceptedMessage` (2); the twelfth is `Simple Tests/PartTest.sysml:25`'s `unresolved member: receiver`, unchanged at 1. `semantics/implicit.go` `kindBaseFQN` must give `*ast.TransitionMember` the base its usage kind already has — a layer #391 did not own. **Residue closed:** the two `effect` cases needed a cached library symbol to carry a scope, and fact-only library records (a library document is parsed on every load path) leave every restored symbol its declaration and scope, so both files are clean and the chain resolves identically cold and warm (`model/w8g_f68_effect_member_test.go`). |
 | ~~F102~~ | **Done** (#428), re-verified on `main`: all three forms parse clean, pinned by the `w7c_f66_generalized_usage_declarations` golden fixture and the two neighbouring negative cases. Handback from F66 (#375): `verify r :>> massRequirement;`, `variant use case uc11;` and `ref redefines cylinderBR[4];` stay rejected. All three are the generalized usage-declaration path in `parser/defusage.go` `parseUsage`, which #375 did not own; #383 owned that file but scoped itself to F65's three forms. |
@@ -3133,10 +3161,11 @@ and inherited ones ([spec-pilot-gap-register.md](spec-pilot-gap-register.md) §1
 memberships"): two imports surfacing members of one name or short name whose metaclasses conform
 warn once per name, on the import bringing the later membership, naming the colliding members
 and their imports — `Duplicate of imported member name 'Engine': A::Engine (import A::*),
-B::Engine (import B::*)`. KerML 7.2.5.4 hides such a pair from the importing namespace; the pilot
-instead binds the first import's member and compares owned and inherited memberships only, so
-every one of these rows is only-ours and the pilot is expected to stay silent; they are a known
-pilot omission, not candidate false positives. Nothing else moved: the agreed, severity-only
+B::Engine (import B::*)`. KerML 7.2.5.4 hides such a pair from the importing namespace (which
+OpenSysML does since the [hidden imported memberships round](#hidden-imported-memberships-round));
+the pilot instead binds the first import's member and compares owned and inherited memberships
+only, so every one of these rows is only-ours and the pilot is expected to stay silent; they are a
+known pilot omission, not candidate false positives. Nothing else moved: the agreed, severity-only
 and only-pilot columns are what they were, and the `testdata` root gained one file,
 `resolve/imports.sysml`, the fixture of the new rule (two rows).
 
@@ -3164,6 +3193,42 @@ records the six corpus files' new counts; the training corpus is unmoved.
 | `kerml-examples`: fully agreeing / only ours | 56 / 9 | **55 / 13** |
 | `testdata`: files / only ours | 21 / 9 | **22 / 11** |
 | `examples`: only ours | 7 | **8** |
+
+### Hidden imported memberships round
+
+The memberships the warning above marks are now hidden from the importing namespace, as KerML
+7.2.5.4 and 8.3.2.4.5 `Namespace::importedMemberships` require ([spec-pilot-gap-register.md](spec-pilot-gap-register.md)
+§13, "Imported memberships"): an unqualified reference to such a name is looked up in the enclosing
+namespaces instead and is an `unresolved reference` error where none has it, with a hint naming the
+imports that hide the name and the qualified names that reach each. The pilot binds the first
+import's member and is silent, so every new row is only-ours `unresolved-reference` and the pilot
+is expected to stay silent; they are the same pilot omission as the warnings, not candidate false
+positives — pilot acceptance of a reference the specification leaves unresolved does not make the
+model valid. Only the files that reference a hidden name unqualified move; the warnings themselves
+do not, and nothing else does: the agreed, severity-only and only-pilot columns and the training
+corpus are what they were.
+
+The 33 new rows, all `error`: `Simple Tests/Imports.kerml` 3 (`class X :> A;` twice, `class Y :> D;`),
+`13a-Model Containment.sysml` 3 (`alias 'Sport Sedan' for vehicle1_c1;`, `public import Engine;`,
+`public import Transmission;`), `Annex_A_VehicleViews.sysml` 6 (unqualified `vehicle_b`, which the
+recursive `import …VehicleConfiguration_b::**` brings three times), `SysML v2 Spec Annex A
+SimpleVehicleModel.sysml` 20 (eleven `vehicle_b`, two `redefines engine`, one `redefines
+providePower`, and six consequences — redefinitions under an unresolved `engine`, members read
+through `vehicle_b_1 :> vehicle_b`), and the fixture `resolve/imports.sysml` 1. The per-file
+ratchet in `tests/corpus/testdata/pilot_corpora_expected.txt` records the four corpus files' new
+counts ([pilot-corpora.md](pilot-corpora.md), "Imported memberships the specification hides").
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 353 | 353 |
+| only ours | 282 | **315** |
+| only pilot | 92 | 92 |
+| severity-only | 1 | 1 |
+| our diagnostics / pilot diagnostics | 328 / 138 | **361** / 138 |
+| `pilot-examples`: fully agreeing / only ours | 88 / 235 | **88 / 261** |
+| `pilot-validation`: fully agreeing / only ours | 54 / 8 | **54 / 11** |
+| `kerml-examples`: fully agreeing / only ours | 55 / 13 | **55 / 16** |
+| `testdata`: files / only ours | 22 / 11 | **22 / 12** |
 
 ## Current branch movement and adjudications
 

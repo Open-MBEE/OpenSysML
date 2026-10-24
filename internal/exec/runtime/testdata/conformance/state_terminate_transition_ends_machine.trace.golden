@@ -1,3 +1,4 @@
+choice at t=0.0: next do Machine, dispatch accept Abort (unordered; took do Machine first; order-dependent: count, effects)
 do: Machine
 stmt action body
 enter action node: state behavior tick

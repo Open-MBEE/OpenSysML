@@ -1,7 +1,8 @@
-# OpenSysML MDK
+# OpenSysML MDK for Cameo
 
-The Cameo Systems Modeler plugin that runs, verifies and analyzes a model with OpenSysML, and the
-successor to OpenMBEE's Model Development Kit (MDK) for SysML v2 work. Where MDK is still
+The Cameo Systems Modeler plugin of the OpenSysML MDK: it runs, verifies and analyzes a model with
+OpenSysML inside Cameo, and is the successor to OpenMBEE's Model Development Kit (MDK) for SysML v2
+work. OpenSysML MDK is the whole kit; OpenSysML MDK for Cameo is this plugin. Where MDK is still
 installed, the plugin also plugs OpenSysML into MDK's DocGen as a set of «JavaExtension»
 queries (see *MDK DocGen bridge* below). The capability-by-capability comparison with MDK, and
 the order the gaps are being closed in, is

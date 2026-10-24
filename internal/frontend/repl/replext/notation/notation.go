@@ -53,9 +53,9 @@ func (writer) PrintElement(file *source.SourceFile, span source.Span, shown stri
 	return lines
 }
 
-// Save writes the model to path. The format follows the file extension:
-// `.sysml`/`.kerml` writes the notation, `.ttl` writes RDF Turtle, `.json` the
-// API element form.
+// Save writes the model to path, with write or directly when write is nil. The
+// format follows the file extension: `.sysml`/`.kerml` writes the notation,
+// `.ttl` writes RDF Turtle, `.json` the API element form.
 //
 // A session that does not fully parse is still saved as notation, with its
 // syntax errors reported as warnings: that save writes the user's own text back
@@ -63,10 +63,34 @@ func (writer) PrintElement(file *source.SourceFile, span source.Span, shown stri
 // refusing it would leave the only copy inside a REPL they are about to close.
 // A `.ttl` save of the same session is refused, because a graph built from a
 // tree the parser recovered would be quietly missing declarations.
-func (writer) Save(origin string, src []byte, path string) ([]string, error) {
+func (w writer) Save(origin string, src []byte, path string, write replext.FileWriter) ([]string, bool, error) {
+	out, lines, ok := w.Preview(origin, src, path)
+	if !ok {
+		return lines, false, nil
+	}
+	format, _ := convert.FormatOfPath(path)
+	if write == nil {
+		write = export.WriteFile
+	}
+	// The writer's errors already name the path, so they are not prefixed again.
+	replaced, err := write(path, out)
+	if err != nil {
+		return nil, false, err
+	}
+	saved := fmt.Sprintf("saved %d bytes of %s to %s", len(out), format, path)
+	if replaced {
+		saved += " (replaced the existing file)"
+	}
+	return append(lines, saved), true, nil
+}
+
+// Preview converts the model as Save would for path, writing nothing: the
+// bytes the file would hold and the lines Save prints before writing them, or
+// the lines refusing the save with ok false.
+func (writer) Preview(origin string, src []byte, path string) ([]byte, []string, bool) {
 	format, err := convert.FormatOfPath(path)
 	if err != nil {
-		return []string{errPrefix + convert.Advise(err, formatAdvice).Error()}, nil
+		return nil, []string{errPrefix + convert.Advise(err, formatAdvice).Error()}, false
 	}
 	var lines []string
 	// Reported before the conversion, so a refused .ttl save carries it too.
@@ -77,22 +101,13 @@ func (writer) Save(origin string, src []byte, path string) ([]string, error) {
 	// be written, so they are labelled as such.
 	out, syntax, err := convert.ConvertTolerant(origin, src, convert.FormatSysML, format)
 	if err != nil {
-		return append(lines, errPrefix+err.Error()), nil
+		return nil, append(lines, errPrefix+err.Error()), false
 	}
 	if syntax != nil {
 		lines = append(lines, strings.Split("warning: "+syntax.Error(), "\n")...)
 		lines = append(lines, "warning: the file is saved as typed; fix these and save again")
 	}
-	// WriteFile's errors already name the path, so they are not prefixed again.
-	replaced, err := export.WriteFile(path, out)
-	if err != nil {
-		return nil, err
-	}
-	saved := fmt.Sprintf("saved %d bytes of %s to %s", len(out), format, path)
-	if replaced {
-		saved += " (replaced the existing file)"
-	}
-	return append(lines, saved), nil
+	return out, lines, true
 }
 
 // printWarnings reports the syntax errors of a printed buffer, in the wording a

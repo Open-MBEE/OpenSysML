@@ -31,7 +31,7 @@ Needs: PowerShell 5.1+ (Windows) or PowerShell 7 (elsewhere, with tar).
 Release tag (v0.9.1), `latest` (default) or `nightly`. [OPENSYSML_VERSION]
 
 .PARAMETER Tools
-Subset of sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel (an array, or
+Subset of sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel, sysml-mcp (an array, or
 comma-separated), or `all` for every tool the chosen release published (read
 from its SHA256SUMS.txt); default sysml and sysml-lsp. [OPENSYSML_TOOLS,
 comma-separated]
@@ -106,14 +106,14 @@ switch -Regex ($Version) {
 # `all` is resolved against the release's manifest once that is downloaded: a
 # release predating a tool does not have it, and `all` means what it published.
 $Tools = @($Tools | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-$KnownTools = @('sysml', 'sysml-lsp', 'sysml-grpc', 'sysml-jupyter-kernel')
+$KnownTools = @('sysml', 'sysml-lsp', 'sysml-grpc', 'sysml-jupyter-kernel', 'sysml-mcp')
 if ($Tools.Count -eq 0) { Fail '-Tools names nothing to install' }
 $InstallAll = ($Tools.Count -eq 1) -and ($Tools[0] -eq 'all')
 if (-not $InstallAll) {
     foreach ($tool in $Tools) {
         if ($tool -eq 'all') { Fail "'all' names every tool the release published and stands alone in -Tools" }
         if ($tool -notin $KnownTools) {
-            Fail "unknown tool '$tool'; the released tools are sysml, sysml-lsp, sysml-grpc and sysml-jupyter-kernel"
+            Fail "unknown tool '$tool'; the released tools are sysml, sysml-lsp, sysml-grpc, sysml-jupyter-kernel and sysml-mcp"
         }
     }
 }
@@ -224,17 +224,21 @@ function Get-Asset([string]$Asset, [switch]$Optional) {
 }
 
 function Get-ManifestDigest([string]$Asset, [string]$Manifest) {
-    # The asset's digest in the manifest, $null when it is not listed.
+    # The asset's distinct digests in the manifest, none when it is not listed;
+    # a line repeated verbatim counts once.
+    $digests = @()
     foreach ($line in Get-Content -LiteralPath (Join-Path $Work $Manifest)) {
         $fields = $line.Trim() -split '\s+', 2
-        if ($fields.Count -eq 2 -and $fields[1].TrimStart('*') -eq $Asset) { return $fields[0].ToLowerInvariant() }
+        if ($fields.Count -eq 2 -and $fields[1].TrimStart('*') -eq $Asset) { $digests += $fields[0].ToLowerInvariant() }
     }
-    return $null
+    return @($digests | Select-Object -Unique)
 }
 
 function Test-Checksum([string]$Asset, [string]$Manifest) {
-    $expected = Get-ManifestDigest $Asset $Manifest
-    if (-not $expected) { Fail "$Manifest of $ReleaseName does not list $Asset; releases before v0.0.4 have no bundle, sysml-grpc is published from v0.9.0 and sysml-jupyter-kernel from v0.10.0" }
+    $expected = @(Get-ManifestDigest $Asset $Manifest)
+    if ($expected.Count -eq 0) { Fail "$Manifest of $ReleaseName does not list $Asset; releases before v0.0.4 have no bundle, sysml-grpc is published from v0.9.0 and sysml-jupyter-kernel from v0.10.0, and sysml-mcp has its own archive only from the release that introduced it" }
+    if ($expected.Count -gt 1) { Fail "$Manifest of $ReleaseName lists $Asset with more than one digest ($($expected -join ' ')); the manifest is corrupt or tampered with" }
+    $expected = $expected[0]
     $actual = (Get-FileHash -LiteralPath (Join-Path $Work $Asset) -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($actual -ne $expected) { Fail "$Asset does not match $Manifest (expected $expected, got $actual); the download is corrupt or tampered with" }
     Write-Host "  $Asset verified"
@@ -273,9 +277,12 @@ try {
     $ReleaseManifest = 'SHA256SUMS.txt'
     $ReleaseBundle = if ($Os -eq 'windows') { "opensysml-$Platform.zip" } else { "opensysml-$Platform.tar.gz" }
     $ReleaseGrpcAsset = "sysml-grpc-$Platform$Exe"
+    # sysml-mcp ships in its own archive, apart from the bundle.
+    $ReleaseMcpAsset = if ($Os -eq 'windows') { "sysml-mcp-$Platform.zip" } else { "sysml-mcp-$Platform.tar.gz" }
     $Manifest = $ReleaseManifest
     $Bundle = $ReleaseBundle
     $GrpcAsset = $ReleaseGrpcAsset
+    $McpAsset = $ReleaseMcpAsset
     # The signed Windows build has no kernel; it is always the release's own
     # asset, listed in SHA256SUMS.txt.
     $KernelAsset = "sysml-jupyter-kernel-$Platform$Exe"
@@ -293,6 +300,7 @@ try {
         $Manifest = 'SHA256SUMS-windows-signed.txt'
         $Bundle = "opensysml-$Platform-signed.zip"
         $GrpcAsset = "sysml-grpc-$Platform-signed$Exe"
+        $McpAsset = "sysml-mcp-$Platform-signed.zip"
     }
 
     Write-Host "Installing OpenSysML ($ReleaseName) for $Platform"
@@ -305,6 +313,7 @@ try {
             $asset = switch ($tool) {
                 'sysml-grpc' { $ReleaseGrpcAsset }
                 'sysml-jupyter-kernel' { $KernelAsset }
+                'sysml-mcp' { $ReleaseMcpAsset }
                 default { $ReleaseBundle }
             }
             if (Get-ManifestDigest $asset $ReleaseManifest) { $Tools += $tool } else { $missing += $tool }
@@ -312,14 +321,32 @@ try {
         if ($Tools.Count -eq 0) { Fail "$ReleaseManifest of $ReleaseName lists no $Platform build; releases before v0.0.4 have no bundle" }
         if ($missing.Count -gt 0) { Write-Host "  -Tools all: $ReleaseName publishes no $($missing -join ' or ') for $Platform" }
     }
+    # The bundle is fetched only for the tools it carries; a tool published on
+    # its own (sysml-grpc, sysml-jupyter-kernel) alone does not pull it in.
+    $WantBundle = ($Tools -contains 'sysml') -or ($Tools -contains 'sysml-lsp')
     $WantGrpc = $Tools -contains 'sysml-grpc'
     $WantKernel = $Tools -contains 'sysml-jupyter-kernel'
+    $WantMcp = $Tools -contains 'sysml-mcp'
     Write-Host "  tools:    $($Tools -join ' ')"
     Write-Host "  binaries: $InstallDir"
-    Write-Host "  from:     $(Get-AssetUrl $Bundle)"
-    if ($WantGrpc) { Write-Host "            $(Get-AssetUrl $GrpcAsset)" }
-    if ($WantKernel) { Write-Host "            $(Get-AssetUrl $KernelAsset)" }
-    if ($SignedBuild) { Write-Host "  the release carries the signed Windows build (its $Manifest was fetched to tell); installing $Bundle" }
+    $fromAssets = @()
+    if ($WantBundle) { $fromAssets += $Bundle }
+    if ($WantGrpc) { $fromAssets += $GrpcAsset }
+    if ($WantKernel) { $fromAssets += $KernelAsset }
+    if ($WantMcp) { $fromAssets += $McpAsset }
+    $fromLabel = '  from:     '
+    foreach ($asset in $fromAssets) {
+        Write-Host "$fromLabel$(Get-AssetUrl $asset)"
+        $fromLabel = '            '
+    }
+    if ($SignedBuild) {
+        $signedAssets = @()
+        if ($WantBundle) { $signedAssets += $Bundle }
+        if ($WantGrpc) { $signedAssets += $GrpcAsset }
+        if ($WantMcp) { $signedAssets += $McpAsset }
+        $use = if ($signedAssets.Count -gt 0) { "installing $($signedAssets -join ' and ')" } else { 'none of the requested tools is among its assets' }
+        Write-Host "  the release carries the signed Windows build (its $Manifest was fetched to tell); $use"
+    }
     if ($SignedBuild -and $WantKernel) { Write-Host "  sysml-jupyter-kernel is not among the signed assets; $KernelAsset is checked against $ReleaseManifest" }
     if ($SignedBuildNote) { Write-Host $SignedBuildNote }
     if ($DryRun) {
@@ -329,8 +356,10 @@ try {
 
     Write-Host 'Downloading...'
     if (-not (Test-Path -LiteralPath (Join-Path $Work $Manifest))) { Get-Asset $Manifest | Out-Null }
-    Get-Asset $Bundle | Out-Null
-    Test-Checksum $Bundle $Manifest
+    if ($WantBundle) {
+        Get-Asset $Bundle | Out-Null
+        Test-Checksum $Bundle $Manifest
+    }
     if ($WantGrpc) {
         Get-Asset $GrpcAsset | Out-Null
         Test-Checksum $GrpcAsset $Manifest
@@ -340,18 +369,27 @@ try {
         Get-Asset $KernelAsset | Out-Null
         Test-Checksum $KernelAsset $ReleaseManifest
     }
+    if ($WantMcp) {
+        Get-Asset $McpAsset | Out-Null
+        Test-Checksum $McpAsset $Manifest
+    }
 
     # --- install ------------------------------------------------------------
 
-    $Extracted = Join-Path $Work 'bundle'
-    New-Item -ItemType Directory -Path $Extracted -Force | Out-Null
-    if ($Bundle -like '*.zip') {
-        Expand-Archive -LiteralPath (Join-Path $Work $Bundle) -DestinationPath $Extracted -Force
-    } else {
-        if (-not (Get-Command tar -ErrorAction SilentlyContinue)) { Fail "tar is needed to extract $Bundle" }
-        & tar -xzf (Join-Path $Work $Bundle) -C $Extracted
-        if ($LASTEXITCODE -ne 0) { Fail "tar could not extract $Bundle" }
+    function Expand-Release([string]$Archive, [string]$Destination) {
+        New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+        if ($Archive -like '*.zip') {
+            Expand-Archive -LiteralPath (Join-Path $Work $Archive) -DestinationPath $Destination -Force
+        } else {
+            if (-not (Get-Command tar -ErrorAction SilentlyContinue)) { Fail "tar is needed to extract $Archive" }
+            & tar -xzf (Join-Path $Work $Archive) -C $Destination
+            if ($LASTEXITCODE -ne 0) { Fail "tar could not extract $Archive" }
+        }
     }
+    $Extracted = Join-Path $Work 'bundle'
+    if ($WantBundle) { Expand-Release $Bundle $Extracted }
+    $McpExtracted = Join-Path $Work 'mcp'
+    if ($WantMcp) { Expand-Release $McpAsset $McpExtracted }
 
     try {
         New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
@@ -363,12 +401,14 @@ try {
     # never leaves a mix of old and new tools behind.
     $Sources = @{}
     foreach ($tool in $Tools) {
+        $carrier = $Bundle
         $source = switch ($tool) {
-            'sysml-grpc' { Join-Path $Work $GrpcAsset }
-            'sysml-jupyter-kernel' { Join-Path $Work $KernelAsset }
+            'sysml-grpc' { $carrier = $GrpcAsset; Join-Path $Work $GrpcAsset }
+            'sysml-jupyter-kernel' { $carrier = $KernelAsset; Join-Path $Work $KernelAsset }
+            'sysml-mcp' { $carrier = $McpAsset; Join-Path $McpExtracted "$tool$Exe" }
             default { Join-Path $Extracted "$tool$Exe" }
         }
-        if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { Fail "$Bundle has no $tool$Exe" }
+        if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { Fail "$carrier has no $tool$Exe" }
         if ($SignedBuild -and $tool -ne 'sysml-jupyter-kernel') { Test-Authenticode $source "$tool$Exe" }
         $Sources[$tool] = $source
     }
@@ -402,8 +442,11 @@ if ($IsHostPlatform) {
         $previous = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
         try {
-            $reported = (& $binary --version 2>&1 | ForEach-Object { "$_" } | Select-Object -First 1) -join ''
+            # Every line is read before the first is kept: a pipeline Select-Object
+            # stops early kills the binary before its exit status is recorded.
+            $lines = @(& $binary --version 2>&1 | ForEach-Object { "$_" })
             $exit = $LASTEXITCODE
+            $reported = ($lines | Select-Object -First 1) -join ''
         } finally {
             $ErrorActionPreference = $previous
         }

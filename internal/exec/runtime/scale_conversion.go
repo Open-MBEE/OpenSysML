@@ -19,7 +19,7 @@ type scaleAnchor struct {
 // differenceUnit is the unit two points on a one-axis reference differ in: a
 // scale's declared unit, or the unit a ratio reference is.
 func differenceUnit(frame *CoordinateFrame) Unit {
-	if frame.IsScale() {
+	if frame.isScale() {
 		return frame.Scale.Unit
 	}
 	return frame.Axes[0]
@@ -63,7 +63,7 @@ func (ctx *Context) anchorOf(scale *CoordinateFrame) (*scaleAnchor, error) {
 	switch {
 	case placed == nil && mapped == nil:
 		return nil, fmt.Errorf("%w: %s states neither a transformation placing it on another reference nor a quantityValueMapping, so its magnitudes convert to no other reference",
-			ErrUnevaluableLibraryFunction, name)
+			errUnevaluableLibraryFunction, name)
 	case placed == nil:
 		return mapped, nil
 	case mapped == nil:
@@ -72,11 +72,11 @@ func (ctx *Context) anchorOf(scale *CoordinateFrame) (*scaleAnchor, error) {
 	mappedOrigin, err := semantics.ConvertQuantity(mapped.origin, placed.origin.Unit)
 	if err != nil || !sameReference(placed.source, mapped.source) {
 		return nil, fmt.Errorf("%w: %s: its transformation places zero on %s but its quantityValueMapping places it on %s",
-			ErrUnevaluableLibraryFunction, name, placed.source.Name(), mapped.source.Name())
+			errUnevaluableLibraryFunction, name, placed.source.Name(), mapped.source.Name())
 	}
 	if !nearlyEqual(placed.origin.Num.AsReal(), mappedOrigin.Num.AsReal()) {
 		return nil, fmt.Errorf("%w: %s: its transformation places zero at %s but its quantityValueMapping places it at %s",
-			ErrUnevaluableLibraryFunction, name, placed.origin.String(), mappedOrigin.String())
+			errUnevaluableLibraryFunction, name, placed.origin.String(), mappedOrigin.String())
 	}
 	return placed, nil
 }
@@ -90,7 +90,7 @@ func (ctx *Context) placementAnchor(name string, scale *CoordinateFrame) (*scale
 	}
 	if t.Placement == nil {
 		return nil, fmt.Errorf("%w: %s: its transformation %s is %s; a scale is placed on its source by a CoordinateFramePlacement",
-			ErrUnevaluableLibraryFunction, name, t.Name(), t.shapeName())
+			errUnevaluableLibraryFunction, name, t.Name(), t.shapeName())
 	}
 	if t.Source == nil || t.Target == nil {
 		return nil, fmt.Errorf("%w: %s: its transformation %s states no source or no target", ErrNoValue, name, t.Name())
@@ -101,7 +101,7 @@ func (ctx *Context) placementAnchor(name string, scale *CoordinateFrame) (*scale
 	origin, ok := asQuantity(t.Placement.Origin)
 	if !ok {
 		return nil, fmt.Errorf("%w: %s: the origin of its transformation %s is %s, not a quantity on %s",
-			ErrUnevaluableLibraryFunction, name, t.Name(), describeValue(t.Placement.Origin), t.Source.Name())
+			errUnevaluableLibraryFunction, name, t.Name(), DescribeValue(t.Placement.Origin), t.Source.Name())
 	}
 	onSource, err := semantics.ConvertQuantity(*origin, t.Source.Axes[0])
 	if err != nil {
@@ -123,7 +123,7 @@ func (ctx *Context) placementAnchor(name string, scale *CoordinateFrame) (*scale
 // source of magnitude one there; any other size scales the axis, which the library gives no meaning.
 func identityBasis(name string, t *CoordinateTransformation, dir Value) error {
 	q, ok := asQuantity(dir)
-	if vq := dir.VectorQuantity(); !ok && vq != nil && vq.Dimension() == 1 {
+	if vq := dir.VectorQuantity(); !ok && vq != nil && vq.dimension() == 1 {
 		if vq.Frame != nil && !vq.Frame.equal(t.Source) {
 			return fmt.Errorf("%w: %s: the basisDirection of its transformation %s is a vector quantity in %s, not a quantity on %s, its source",
 				ErrTypeMismatch, name, t.Name(), vq.Frame.Name(), t.Source.Name())
@@ -132,7 +132,7 @@ func identityBasis(name string, t *CoordinateTransformation, dir Value) error {
 	}
 	if !ok {
 		return fmt.Errorf("%w: %s: a basisDirection of its transformation %s is %s, not a quantity on %s",
-			ErrUnevaluableLibraryFunction, name, t.Name(), describeValue(dir), t.Source.Name())
+			errUnevaluableLibraryFunction, name, t.Name(), DescribeValue(dir), t.Source.Name())
 	}
 	onSource, err := semantics.ConvertQuantity(*q, t.Source.Axes[0])
 	if err != nil {
@@ -141,7 +141,7 @@ func identityBasis(name string, t *CoordinateTransformation, dir Value) error {
 	}
 	if onSource.Num.AsReal() != 1 {
 		return fmt.Errorf("%w: %s: the basisDirection %s of its transformation %s is not the identity 1 [%s], and the library gives a scale no other basis",
-			ErrUnevaluableLibraryFunction, name, q.String(), t.Name(), t.Source.Name())
+			errUnevaluableLibraryFunction, name, q.String(), t.Name(), t.Source.Name())
 	}
 	return nil
 }
@@ -187,7 +187,7 @@ func sameReference(a, b *CoordinateFrame) bool {
 	if a.equal(b) {
 		return true
 	}
-	return !a.IsScale() && !b.IsScale() && len(a.Axes) == 1 && len(b.Axes) == 1 &&
+	return !a.isScale() && !b.isScale() && len(a.Axes) == 1 && len(b.Axes) == 1 &&
 		(&MeasurementRef{Unit: a.Axes[0]}).equal(&MeasurementRef{Unit: b.Axes[0]})
 }
 
@@ -276,7 +276,7 @@ func (ctx *Context) checkCommensurable(q Quantity, unit Unit) error {
 // convertToReference is ConvertQuantity over a target that may be a scale, or a
 // source that is: a quantity on a scale is carried to a ratio unit first.
 func (ctx *Context) convertToReference(q Quantity, target *CoordinateFrame) (Quantity, error) {
-	if target.IsScale() {
+	if target.isScale() {
 		return ctx.onScale(q, target)
 	}
 	if err := ctx.checkCommensurable(q, target.Axes[0]); err != nil {
@@ -292,17 +292,18 @@ func (ctx *Context) convertToReference(q Quantity, target *CoordinateFrame) (Qua
 // conversionTarget reads ConvertQuantity's targetMRef: a unit or a scale, as the
 // one-axis frame either is; a frame of more axes is no scalar reference.
 func (ctx *Context) conversionTarget(name string, val Value) (*CoordinateFrame, error) {
+	val = soleElement(val)
 	switch val.Kind {
 	case ValMeasurementRef:
 		return scalarFrame(val.MeasurementRef()), nil
 	case ValCoordinateFrame:
 		frame := val.CoordinateFrame()
-		if frame.IsScale() {
+		if frame.isScale() {
 			return frame, nil
 		}
 		return nil, fmt.Errorf("%w: function %s parameter %q requires a scalar measurement reference such as SI::m, got the coordinate frame %s of %d axes",
 			ErrTypeMismatch, name, "targetMRef", frame.Name(), len(frame.Axes))
 	}
 	return nil, fmt.Errorf("%w: function %s parameter %q requires a measurement reference such as SI::m, got %s",
-		ErrTypeMismatch, name, "targetMRef", describeValue(val))
+		ErrTypeMismatch, name, "targetMRef", DescribeValue(val))
 }

@@ -285,7 +285,7 @@ func (g *generalGraph) node(sym *symbols.Symbol) *Node {
 	}
 	r := g.r
 	node := &Node{ID: g.ids.take(), Kind: declKind(sym), Name: r.notationName(sym), NameSynthesized: r.model.NameSynthesized(sym),
-		Type: declType(sym), Typings: r.declTypings(sym), Origin: symbolOrigin(sym),
+		Type: r.headType(sym), Typings: r.headTypings(sym), Origin: symbolOrigin(sym),
 		Geometry: r.geometryOf(g.view, sym, g.out), Style: r.styleOf(g.view, sym, g.out)}
 	if g.kind == KindRequirement && isRequirement(sym) {
 		node.Detail = r.requirementDetail(sym)
@@ -308,7 +308,7 @@ func (g *generalGraph) drawn(sym *symbols.Symbol) *Node {
 
 // add records an edge once: an import edge once per import declaration.
 func (g *generalGraph) add(edge Edge) {
-	key := generalEdgeKey{from: edge.From, to: edge.To, label: edge.Label, kind: edge.Kind}
+	key := generalEdgeKey{from: edge.From, to: edge.To, label: edge.text(), kind: edge.Kind}
 	if edge.Kind == EdgeImport {
 		key.origin = edge.Origin
 	}
@@ -471,7 +471,7 @@ func (g *generalGraph) featureEdges(sym *symbols.Symbol, from *Node) {
 		}
 		for _, typ := range g.r.model.DeclaredTypes(member) {
 			if to := g.drawn(typ); to != nil {
-				g.add(Edge{From: from.ID, To: to.ID, Kind: kind, Label: simpleName(g.r.fqn(member)), Origin: symbolOrigin(member)})
+				g.add(Edge{From: from.ID, To: to.ID, Kind: kind, ToLabel: simpleName(g.r.fqn(member)), Origin: symbolOrigin(member)})
 			}
 		}
 	}

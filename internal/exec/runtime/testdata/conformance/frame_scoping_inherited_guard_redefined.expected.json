@@ -3,6 +3,6 @@
 	"evaluate": "test::Derived",
 	"outputs": {
 		"x": {"type": "Integer", "value": 10},
-		"path": {"type": "String", "value": "high"}
+		"path": {"type": "Sequence", "elements": [{"type": "String", "value": "high"}]}
 	}
 }

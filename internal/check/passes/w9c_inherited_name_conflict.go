@@ -2,6 +2,7 @@ package passes
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -40,6 +41,7 @@ func (W9CInheritedNameConflictPass) Run(ctx *Context, name string, root *ast.Roo
 		model:    ctx.Model(),
 		idx:      ctx.Index,
 		resolver: ctx.Resolver(),
+		severity: strictSeverity(ctx.Options.Conformance),
 		members:  map[*symbols.Symbol]w9cContributor{},
 		own:      map[*symbols.Symbol]w9cContributor{},
 	}
@@ -54,6 +56,8 @@ type w9cConflictChecker struct {
 	model    *semantics.Model
 	idx      *symbols.Index
 	resolver *resolve.Resolver
+	// severity is what the conformance mode makes of an indistinguishable name.
+	severity diag.Severity
 	// members memoizes the visible member of each library base, per name.
 	members map[*symbols.Symbol]w9cContributor
 	// own memoizes the own members of each type passed through, per name.
@@ -390,8 +394,14 @@ func (c *w9cConflictChecker) libraryBases(sym *symbols.Symbol) w9cReach {
 			out.through = append(out.through, cur)
 		}
 		sups := c.model.DirectSupertypes(cur)
+		implied := c.model.ImplicitGenerals(cur)
 		for _, sup := range sups {
 			if sup == nil || seen[sup] {
+				continue
+			}
+			// The base usage a kind implies is typed by the kind's base definition,
+			// reached on its own, so the library chain above it draws no diamond.
+			if sup.IsFeature() && slices.Contains(implied, sup) {
 				continue
 			}
 			// A feature's implicit value typing is only added when nothing else
@@ -553,7 +563,7 @@ func (c *w9cConflictChecker) declares(sym *symbols.Symbol, name string) bool {
 
 func (c *w9cConflictChecker) report(span source.Span, name string, from []string) {
 	c.diags = append(c.diags, diag.Diagnostic{
-		Severity: diag.SeverityWarning,
+		Severity: c.severity,
 		Span:     span,
 		Message:  fmt.Sprintf("%s '%s' from %s", msgW9CDuplicateInherited, name, strings.Join(from, ", ")),
 		Code:     "name-conflict",

@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -71,7 +72,44 @@ func (ctx *Context) openOperandAdmits(val Value, accepts ...string) bool {
 // type is unknown, or typ is unknown, or either conforms to the other.
 func (ctx *Context) openValueMayBe(val Value, typ *symbols.Symbol) bool {
 	declared := ctx.openOperandType(val)
-	return declared == nil || typ == nil || ctx.modelConforms(declared, typ) || ctx.modelConforms(typ, declared)
+	if declared == nil || typ == nil || ctx.modelConforms(declared, typ) || ctx.modelConforms(typ, declared) {
+		return true
+	}
+	return ctx.openScalarQuantity(declared) && ctx.openQuantityMayBe(declared, typ)
+}
+
+// openScalarQuantity reports whether declared is a scalar quantity type.
+func (ctx *Context) openScalarQuantity(declared *symbols.Symbol) bool {
+	quantity := ctx.librarySymbol(scalarQuantityTypeFQN)
+	return quantity != nil && ctx.modelConforms(declared, quantity)
+}
+
+// openQuantityMayBe reports whether an open scalar quantity of the type declared may
+// be a value of typ, by the relation a determined quantity is admitted by: the scalar
+// lattice where typ is a scalar type (a quantity is a rational, so no Integer), else
+// typ fixes a dimension and declared leaves it open or fixes a commensurable one.
+func (ctx *Context) openQuantityMayBe(declared, typ *symbols.Symbol) bool {
+	if prim := ctx.model.semantics.PrimTypeOf(typ); prim != semantics.PrimUnknown {
+		return semantics.PrimConforms(semantics.PrimRational, prim)
+	}
+	want, ok := ctx.model.semantics.DimensionOfType(typ)
+	got, known := ctx.model.semantics.DimensionOfType(declared)
+	return ok && (!known || want.Term.Commensurable(got.Term))
+}
+
+// openMagnitudeMayBe reports whether an open magnitude of a quantity may hold what the
+// notation `num [unit]` takes: a number or a vector, which no String, Boolean or
+// quantity is.
+func (ctx *Context) openMagnitudeMayBe(val Value) bool {
+	declared := ctx.openOperandType(val)
+	if declared == nil {
+		return true
+	}
+	if ctx.openScalarQuantity(declared) {
+		return false
+	}
+	return ctx.openValueMayBe(val, ctx.librarySymbol(numericalValueTypeFQN)) ||
+		ctx.openValueMayBe(val, ctx.librarySymbol(arrayTypeFQN))
 }
 
 // openBoolOperand rejects an open operand whose declared type admits no Boolean,
@@ -172,14 +210,14 @@ func arithmeticDomain(op ast.OperatorKind) func(other Value) ([]string, bool) {
 }
 
 // comparisonDomain is the types an open operand of an ordering may hold beside
-// other: a String orders against a String, a number or quantity against a number,
-// and a Boolean or Complex against nothing.
+// other: a String orders against a String, a number, the unbounded `*` or a
+// quantity against a number, and a Boolean or Complex against nothing.
 func comparisonDomain(other Value) ([]string, bool) {
 	switch other.Kind {
 	case ValString:
 		return []string{stringTypeFQN}, true
 	case ValConst:
-		return []string{numericalValueTypeFQN}, other.Const.IsNumeric()
+		return []string{numericalValueTypeFQN}, other.Const.IsNumeric() || other.Const.IsUnbounded()
 	case ValQuantity:
 		return []string{numericalValueTypeFQN}, true
 	case ValComplex:

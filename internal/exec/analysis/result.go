@@ -8,6 +8,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 )
 
 // Claim is what a result asserts about its question.
@@ -295,7 +296,7 @@ type Evaluation struct {
 	// Value is a feature value or output.
 	Value runtime.Value
 	// Row is one row of a sweep.
-	Row *runtime.SweepRow
+	Row *sweep.SweepRow
 	// Explored is the outcome set an exploration reached.
 	Explored *runtime.Exploration
 	// Solved is a solver's answer to one query.
@@ -352,12 +353,12 @@ type Result struct {
 func (r Result) Covered() bool { return r.Strength != NotCovered }
 
 // Table is the rows of a Sweep result as runtime.RunSweep tables them.
-func (r Result) Table() runtime.SweepTable {
-	var plan runtime.SweepPlan
+func (r Result) Table() sweep.SweepTable {
+	var plan sweep.SweepPlan
 	if r.Question.Sweep != nil {
 		plan = r.Question.Sweep.Plan
 	}
-	table := runtime.NewSweepTable(r.Question.Subject, plan)
+	table := sweep.NewSweepTable(r.Question.Subject, plan)
 	for _, v := range r.Values {
 		if v.Row != nil {
 			table.Rows = append(table.Rows, *v.Row)

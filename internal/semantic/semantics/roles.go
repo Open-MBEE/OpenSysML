@@ -201,7 +201,12 @@ func redefinesExplicitly(sym *symbols.Symbol) bool {
 // the usage it reference-subsets, a subsetting too (KerML 8.3.3.3.9) but kept out of
 // DirectSupertypes.
 func (m *Model) roleSources(sym *symbols.Symbol) []*symbols.Symbol {
-	out := m.DirectSupertypes(sym)
+	// The base feature a kind implies declares no roles; those of its type are
+	// reached through the kind's base definition or the declared chain already.
+	baseFeatures := m.ImpliedBaseFeatures(sym)
+	out := slices.DeleteFunc(slices.Clone(m.DirectSupertypes(sym)), func(sup *symbols.Symbol) bool {
+		return slices.Contains(baseFeatures, sup)
+	})
 	if ref := m.ReferencedFeature(sym); ref != nil && !slices.Contains(out, ref) {
 		out = append(out[:len(out):len(out)], ref)
 	}

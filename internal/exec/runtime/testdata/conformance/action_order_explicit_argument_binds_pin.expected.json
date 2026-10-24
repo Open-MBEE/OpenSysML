@@ -1,0 +1,11 @@
+{
+	"type": "action",
+	"evaluate": "test::outer",
+	"trace": true,
+	"outcomes": [
+		{"outputs": {"x": {"type": "Integer", "value": 1}, "y": {"type": "Integer", "value": 11}, "fixed": {"type": "Integer", "value": 6}, "derived": {"type": "Integer", "value": 12}}},
+		{"outputs": {"x": {"type": "Integer", "value": 2}, "y": {"type": "Integer", "value": 12}, "fixed": {"type": "Integer", "value": 6}, "derived": {"type": "Integer", "value": 13}}}
+	],
+	"admissible": "An argument a node writes binds its pin, not the enclosing feature of the pin's name",
+	"orderDependent": {"x": 2, "y": 2, "derived": 2, "dep.x": 2, "dep.result": 2, "fixed": 2, "lit.result": 2}
+}

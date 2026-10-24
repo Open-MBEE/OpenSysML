@@ -150,6 +150,18 @@ func wantOutcomesEqual(t *testing.T, name string, compiled, reference calcOutcom
 // outcomeValuesIdentical is identity down to the bits of a Real, so a NaN is
 // identical to the same NaN and a negative zero only to a negative zero.
 func outcomeValuesIdentical(compiled, reference Value) bool {
+	if compiled.Kind == ValSequence && reference.Kind == ValSequence {
+		a, b := elementsOf(compiled), elementsOf(reference)
+		if len(a) != len(b) {
+			return false
+		}
+		for i := range a {
+			if !outcomeValuesIdentical(a[i], b[i]) {
+				return false
+			}
+		}
+		return true
+	}
 	if compiled.Kind == ValConst && reference.Kind == ValConst &&
 		compiled.Const.Kind == semantics.ValReal && reference.Const.Kind == semantics.ValReal {
 		return math.Float64bits(compiled.Const.AsReal()) == math.Float64bits(reference.Const.AsReal())
@@ -162,6 +174,7 @@ func wantOutcomeInt(t *testing.T, name string, got calcOutcome, want int64) {
 	if got.err != nil {
 		t.Fatalf("%s: %v", name, got.err)
 	}
+	got.value = soleElement(got.value)
 	if got.value.Kind != ValConst || got.value.Const.Kind != semantics.ValInt || got.value.Const.Int != want {
 		t.Fatalf("%s = %s, want %d", name, FormatTraceValue(got.value), want)
 	}
@@ -170,6 +183,7 @@ func wantOutcomeInt(t *testing.T, name string, got calcOutcome, want int64) {
 // wantOutcomeDecimal fails unless got is the Integer the decimal text spells.
 func wantOutcomeDecimal(t *testing.T, name string, got calcOutcome, want string) {
 	t.Helper()
+	got.value = soleElement(got.value)
 	if got.err != nil {
 		t.Fatalf("%s: %v", name, got.err)
 	}
@@ -295,10 +309,12 @@ func TestCompiledCalcErrorParity(t *testing.T) {
 // Defaults literal in the declaration bind as the evaluator binds them.
 func TestCompiledCalcDefaults(t *testing.T) {
 	full := wantSameOutcome(t, "Dflt", intArg(1), intArg(2), realArg(3))
+	full.value = soleElement(full.value)
 	if full.err != nil || full.value.Const.AsReal() != 7 {
 		t.Fatalf("Dflt(1, 2, 3) = %s, %v", FormatTraceValue(full.value), full.err)
 	}
 	partial := wantSameOutcome(t, "Dflt", intArg(1))
+	partial.value = soleElement(partial.value)
 	if partial.err != nil || partial.value.Const.AsReal() != 26 {
 		t.Fatalf("Dflt(1) = %s, %v", FormatTraceValue(partial.value), partial.err)
 	}
@@ -307,6 +323,7 @@ func TestCompiledCalcDefaults(t *testing.T) {
 	inherited := wantSameOutcome(t, "Inherits", intArg(2), intArg(3))
 	wantOutcomeInt(t, "Inherits(2, 3)", inherited, 5)
 	redeclared := wantSameOutcome(t, "Redeclares", intArg(1))
+	redeclared.value = soleElement(redeclared.value)
 	if redeclared.err != nil || redeclared.value.Const.AsReal() != 8.5 {
 		t.Fatalf("Redeclares(1) = %s, %v", FormatTraceValue(redeclared.value), redeclared.err)
 	}
@@ -373,8 +390,8 @@ func TestCompiledCalcEligibility(t *testing.T) {
 	for _, name := range ineligible {
 		wantSameOutcome(t, name, intArg(3))
 	}
-	wantErrorIs(t, "UnknownName", wantSameOutcome(t, "UnknownName", intArg(3)), ErrUnknownParameter)
-	wantErrorIs(t, "ReceiverNamed", wantSameOutcome(t, "ReceiverNamed", intArg(3)), ErrReceiverWithNamedArgs)
+	wantErrorIs(t, "UnknownName", wantSameOutcome(t, "UnknownName", intArg(3)), errUnknownParameter)
+	wantErrorIs(t, "ReceiverNamed", wantSameOutcome(t, "ReceiverNamed", intArg(3)), errReceiverWithNamedArgs)
 }
 
 // A traced run takes the evaluator, so the trace records every sub-expression.
@@ -408,7 +425,8 @@ func TestCompiledCalcTraceFallsBack(t *testing.T) {
 func TestCompiledCalcDeclines(t *testing.T) {
 	scope, ctx := compileRuntime(t, true)
 	sym := findSymbolByName(scope, "Add", ast.DefCalc)
-	named, err := ctx.InvokeCalcNamed(sym, map[string]Value{"b": intArg(2), "a": intArg(1)}, scope)
+	named, err := ctx.invokeCalcNamed(sym, map[string]Value{"b": intArg(2), "a": intArg(1)}, scope)
+	named = soleElement(named)
 	if err != nil || named.Const.Int != 3 {
 		t.Fatalf("Add(a = 1, b = 2) = %s, %v", FormatTraceValue(named), err)
 	}

@@ -184,14 +184,14 @@ func TestAcceptPayloadDoesNotEscapeBody(t *testing.T) {
 	}
 }
 
-// Only a behavior body shares a feature space: a part declaring an action node
-// does not read that node's payload.
+// Only a behavior body shares a feature space: a part whose action body
+// declares an action node does not read that node's payload.
 func TestAcceptPayloadNotSharedByAPartBody(t *testing.T) {
 	r := resolveDoc(t, "d.sysml", `
 		package P {
 			item def Warning;
 			part p {
-				action wait accept msg : Warning;
+				action a { action wait accept msg : Warning; }
 				attribute seen = msg;
 			}
 		}

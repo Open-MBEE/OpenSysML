@@ -21,7 +21,7 @@ import (
 // evalRange evaluates `lower..upper` (IntegerFunctions::'..').
 func (ec *EvalContext) evalRange(n *ast.OperatorExpr) (Value, error) {
 	if len(n.Operands) != 2 {
-		return Value{}, fmt.Errorf("%w: '..' requires 2 operands, got %d", ErrCalcArity, len(n.Operands))
+		return Value{}, fmt.Errorf("%w: '..' requires 2 operands, got %d", errCalcArity, len(n.Operands))
 	}
 	lower, err := ec.Eval(n.Operands[0])
 	if err != nil {
@@ -116,10 +116,11 @@ func (ec *EvalContext) bigRangeSequence(lower, upper semantics.Value) (Value, er
 // `Integer[1]`, so a Real bound does not conform and is reported rather than
 // truncated to the integer it is nearest.
 func rangeBound(op, which string, val Value) (semantics.Value, error) {
+	val = soleElement(val)
 	if val.Kind != ValConst || val.Const.Kind != semantics.ValInt {
 		return semantics.Value{}, fmt.Errorf(
 			"%w: %s requires Integer bounds (IntegerFunctions::'..' declares in %s: Integer[1]), got %s",
-			ErrTypeMismatch, op, which, describeValue(val),
+			ErrTypeMismatch, op, which, DescribeValue(val),
 		)
 	}
 	return val.Const, nil

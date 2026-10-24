@@ -50,27 +50,27 @@ func TestRenderUnplaced(t *testing.T) {
 		if strip {
 			placement = []string{"-render-unplaced", "strip"}
 		}
-		one := runFiles(t, binary, []string{fixture}, append([]string{"-render", "Placed::placedView", "-render-form", "dot"}, placement...)...)
+		one := runFiles(t, binary, []string{fixture}, append([]string{"-render", "Placed::placedView", "-render-form", "dot", "-render-show", "keywords,typings"}, placement...)...)
 		if one.status != exitHolds {
 			t.Fatalf("-render exit status = %d, want %d\n%s", one.status, exitHolds, one.output())
 		}
 		check(t, "-render", one.stdout, strip)
 
 		dir := filepath.Join(t.TempDir(), "rendered")
-		all := runFiles(t, binary, []string{fixture}, append([]string{"-render-all", dir, "-render-form", "dot"}, placement...)...)
+		all := runFiles(t, binary, []string{fixture}, append([]string{"-render-all", dir, "-render-form", "dot", "-render-show", "keywords,typings"}, placement...)...)
 		if all.status != exitHolds {
 			t.Fatalf("-render-all exit status = %d, want %d\n%s", all.status, exitHolds, all.output())
 		}
 		check(t, "-render-all", readFile(t, filepath.Join(dir, "Placed.placedView.dot")), strip)
 
-		doc := runFiles(t, binary, []string{fixture}, append([]string{"-render-document", "Placed::PlacedReport", "-diagram-form", "dot"}, placement...)...)
+		doc := runFiles(t, binary, []string{fixture}, append([]string{"-render-document", "Placed::PlacedReport", "-diagram-form", "dot", "-render-show", "keywords,typings"}, placement...)...)
 		if doc.status != exitHolds {
 			t.Fatalf("-render-document exit status = %d, want %d\n%s", doc.status, exitHolds, doc.output())
 		}
 		check(t, "-render-document", doc.stdout, strip)
 
 		site := filepath.Join(t.TempDir(), "docs")
-		docs := runFiles(t, binary, []string{fixture}, append([]string{"-render-documents", site, "-diagram-form", "dot"}, placement...)...)
+		docs := runFiles(t, binary, []string{fixture}, append([]string{"-render-documents", site, "-diagram-form", "dot", "-render-show", "keywords,typings"}, placement...)...)
 		if docs.status != exitHolds {
 			t.Fatalf("-render-documents exit status = %d, want %d\n%s", docs.status, exitHolds, docs.output())
 		}

@@ -15,11 +15,14 @@ func (s *Session) noteSummary(notes []runtime.RunNote, before int) []string {
 	if before >= len(notes) {
 		return nil
 	}
-	var choices, unevaluable, diverged int
+	var choices, independent, unevaluable, diverged int
 	for _, n := range notes[before:] {
-		switch n.(type) {
+		switch n := n.(type) {
 		case runtime.ChoicePoint:
 			choices++
+			if n.Independent {
+				independent++
+			}
 		case runtime.UnevaluableGuard:
 			unevaluable++
 		case runtime.ToolDivergence:
@@ -28,7 +31,11 @@ func (s *Session) noteSummary(notes []runtime.RunNote, before int) []string {
 	}
 	var parts []string
 	if choices > 0 {
-		parts = append(parts, fmt.Sprintf("%d %s", choices, plural(choices, "choice point", "choice points")))
+		part := fmt.Sprintf("%d %s", choices, plural(choices, "choice point", "choice points"))
+		if independent > 0 {
+			part += fmt.Sprintf(" (%d independent)", independent)
+		}
+		parts = append(parts, part)
 	}
 	if unevaluable > 0 {
 		parts = append(parts, fmt.Sprintf("%d %s", unevaluable, plural(unevaluable, "guard not evaluable", "guards not evaluable")))

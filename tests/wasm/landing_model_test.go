@@ -1,18 +1,23 @@
 package wasm
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
 	"testing"
 
+	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/combined"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/engine"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
-var updateLanding = flag.Bool("update-landing", false, "rewrite editors/vscode/src/landing/stack.json")
+var updateLanding = flag.Bool("update-landing", false, "rewrite the landing snapshots under editors/vscode/src/landing")
 
 // TestLandingStackModel pins what the landing page reads from
 // docs/assets/opensysml-stack.sysml through sysml-engine: a clean parse, the
@@ -23,9 +28,11 @@ func TestLandingStackModel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading the landing model: %v", err)
 	}
-	eng, err := engine.New()
+	// The page drives the combined sysml-wasm module through the browser client,
+	// so the fixture is read through the same server and the same calls.
+	server, err := combined.New("landing-test")
 	if err != nil {
-		t.Fatalf("engine.New: %v", err)
+		t.Fatalf("combined.New: %v", err)
 	}
 	call := func(method string, params any, into any) []byte {
 		t.Helper()
@@ -33,7 +40,10 @@ func TestLandingStackModel(t *testing.T) {
 		if err != nil {
 			t.Fatalf("encoding %s params: %v", method, err)
 		}
-		body := mustCall(t, eng, method, string(raw))
+		body, err := server.Call(context.Background(), method, raw)
+		if err != nil {
+			t.Fatalf("%s refused: %v", method, err)
+		}
 		if err := json.Unmarshal(body, into); err != nil {
 			t.Fatalf("decoding %s: %v\n%s", method, err, body)
 		}
@@ -133,18 +143,19 @@ func TestLandingStackModel(t *testing.T) {
 	}
 
 	var diagram engine.JRenderViewResponse
-	renderBody := call("RenderView", map[string]string{
+	renderBody := call("RenderView", map[string]any{
 		"modelHash": parsed.ModelHash,
 		"view":      "#interconnection:OpenSysMLStack::stack",
 		"ports":     "minimal",
+		"show":      []string{"edge-labels", "typings", "keywords"},
 	}, &diagram)
-	pinLandingFixture(t, parsed.ModelHash, renderBody, instantiateBody)
+	pinLandingFixture(t, "stack.json", "TestLandingStackModel", parsed.ModelHash, renderBody, instantiateBody)
 	if diagram.Kind != "interconnection" {
 		t.Fatalf("landing diagram kind = %q, want interconnection", diagram.Kind)
 	}
-	if diagram.Notices == nil || diagram.Nodes == nil || diagram.Edges == nil {
-		t.Fatalf("landing diagram arrays are null: notices=%#v nodes=%#v edges=%#v",
-			diagram.Notices, diagram.Nodes, diagram.Edges)
+	// The page decodes the rendering as protojson, so the fixture must read as one.
+	if err := protojson.Unmarshal(renderBody, &pb.RenderViewResponse{}); err != nil {
+		t.Fatalf("landing diagram is not a protojson RenderViewResponse: %v", err)
 	}
 	nodesByID := make(map[string]engine.JRenderNode, len(diagram.Nodes))
 	partsByName := make(map[string]engine.JRenderNode)
@@ -223,9 +234,9 @@ func TestLandingStackModel(t *testing.T) {
 	t.Logf("RenderView landing edges: %+v; API port ids: %+v", diagram.Edges, portIDs)
 
 	var journey struct {
-		StatesVisited []string             `json:"statesVisited"`
-		Trace         []engine.JTraceEvent `json:"trace"`
-		Error         string               `json:"error"`
+		StatesVisited []string                `json:"statesVisited"`
+		Trace         []engine.JDocumentEvent `json:"trace"`
+		Error         string                  `json:"error"`
 	}
 	call("ExecuteState", map[string]any{
 		"modelHash":            parsed.ModelHash,
@@ -238,15 +249,15 @@ func TestLandingStackModel(t *testing.T) {
 	if len(journey.Trace) != 0 {
 		t.Fatalf("unrequested trace has %d records", len(journey.Trace))
 	}
-	if want := []string{"start", "opensysml", "flexo", "pilot", "flexo", "pilot"}; !reflect.DeepEqual(journey.StatesVisited, want) {
+	if want := []string{"begin", "opensysml", "flexo", "pilot", "flexo", "pilot"}; !reflect.DeepEqual(journey.StatesVisited, want) {
 		t.Errorf("journey: got %v, want %v", journey.StatesVisited, want)
 	}
 
 	var tracedJourney struct {
-		Trace []engine.JTraceEvent `json:"trace"`
-		Error string               `json:"error"`
+		Trace []engine.JDocumentEvent `json:"trace"`
+		Error string                  `json:"error"`
 	}
-	call("ExecuteState", map[string]any{
+	traceBody := call("ExecuteState", map[string]any{
 		"modelHash":            parsed.ModelHash,
 		"stateMachineSymbolId": "OpenSysMLStack::ModelJourney",
 		"events":               []string{"Commit", "Pull", "Push", "Check"},
@@ -255,12 +266,21 @@ func TestLandingStackModel(t *testing.T) {
 	if tracedJourney.Error != "" {
 		t.Fatalf("traced ExecuteState: %s", tracedJourney.Error)
 	}
-	wantTrace := []engine.JTraceEvent{
-		{Kind: "entry", State: "start"},
+	// The page's debugger reads the trace through the typed client, which decodes the
+	// service's ExecuteStateResponse; the module's answer must be that message.
+	var tracedResponse pb.ExecuteStateResponse
+	if err := protojson.Unmarshal(traceBody, &tracedResponse); err != nil {
+		t.Fatalf("traced ExecuteState is not a protojson ExecuteStateResponse: %v", err)
+	}
+	if len(tracedResponse.Trace) == 0 || tracedResponse.Trace[0].Time == nil {
+		t.Fatalf("traced ExecuteState records carry no time: %+v", tracedResponse.Trace)
+	}
+	wantTrace := []engine.JDocumentEvent{
+		{Kind: "entry", State: "begin"},
 		{Kind: "choice", Alternatives: []string{"1->opensysml", "2->flexo"}, Taken: "1->opensysml"},
-		{Kind: "exit", State: "start"},
+		{Kind: "exit", State: "begin"},
 		{Kind: "entry", State: "opensysml"},
-		{Kind: "transition", From: "start", To: "opensysml"},
+		{Kind: "transition", From: "begin", To: "opensysml"},
 		{Kind: "accept", Event: "Commit"},
 		{Kind: "exit", State: "opensysml"},
 		{Kind: "entry", State: "flexo"},
@@ -293,9 +313,9 @@ func TestLandingStackModel(t *testing.T) {
 	}
 
 	var seedFifteen struct {
-		StatesVisited []string             `json:"statesVisited"`
-		Trace         []engine.JTraceEvent `json:"trace"`
-		Error         string               `json:"error"`
+		StatesVisited []string                `json:"statesVisited"`
+		Trace         []engine.JDocumentEvent `json:"trace"`
+		Error         string                  `json:"error"`
 	}
 	call("ExecuteState", map[string]any{
 		"modelHash":            parsed.ModelHash,
@@ -307,7 +327,7 @@ func TestLandingStackModel(t *testing.T) {
 	if seedFifteen.Error != "" {
 		t.Fatalf("seed:15 ExecuteState: %s", seedFifteen.Error)
 	}
-	if want := []string{"start", "flexo", "opensysml"}; !reflect.DeepEqual(seedFifteen.StatesVisited, want) {
+	if want := []string{"begin", "flexo", "opensysml"}; !reflect.DeepEqual(seedFifteen.StatesVisited, want) {
 		t.Errorf("seed:15 journey: got %v, want %v", seedFifteen.StatesVisited, want)
 	}
 	commitIndex := -1
@@ -321,7 +341,7 @@ func TestLandingStackModel(t *testing.T) {
 		seedFifteen.Trace[commitIndex+1].Kind != "accept" || seedFifteen.Trace[commitIndex+1].Event != "Pull" {
 		t.Errorf("seed:15 expected consecutive Commit and Pull accepts, got %+v", seedFifteen.Trace)
 	}
-	var lastTransition *engine.JTraceEvent
+	var lastTransition *engine.JDocumentEvent
 	for i := range seedFifteen.Trace {
 		if seedFifteen.Trace[i].Kind == "transition" {
 			lastTransition = &seedFifteen.Trace[i]
@@ -345,7 +365,7 @@ func TestLandingStackModel(t *testing.T) {
 	if seedFive.Error != "" {
 		t.Fatalf("seed:5 ExecuteState: %s", seedFive.Error)
 	}
-	if want := []string{"start", "flexo", "pilot", "flexo", "pilot"}; !reflect.DeepEqual(seedFive.StatesVisited, want) {
+	if want := []string{"begin", "flexo", "pilot", "flexo", "pilot"}; !reflect.DeepEqual(seedFive.StatesVisited, want) {
 		t.Errorf("seed:5 journey: got %v, want %v", seedFive.StatesVisited, want)
 	}
 }
@@ -356,7 +376,10 @@ type landingFixture struct {
 	Instances json.RawMessage `json:"instances"`
 }
 
-func pinLandingFixture(t *testing.T, hash string, render, instantiate []byte) {
+// pinLandingFixture pins the snapshot a scene paints before the module loads, under
+// editors/vscode/src/landing/<name>: the ParseSources hash, the RenderView answer and the
+// Instantiate instances exactly as the module sent them. -update-landing rewrites it.
+func pinLandingFixture(t *testing.T, name, test, hash string, render, instantiate []byte) {
 	t.Helper()
 	var response struct {
 		Instances json.RawMessage `json:"instances"`
@@ -369,7 +392,8 @@ func pinLandingFixture(t *testing.T, hash string, render, instantiate []byte) {
 		Render:    json.RawMessage(render),
 		Instances: response.Instances,
 	}
-	path := filepath.Join("..", "..", "editors", "vscode", "src", "landing", "stack.json")
+	path := filepath.Join("..", "..", "editors", "vscode", "src", "landing", name)
+	rerun := fmt.Sprintf("run go test -count=1 ./tests/wasm -run '^%s$' -update-landing", test)
 	if *updateLanding {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatalf("creating landing fixture directory: %v", err)
@@ -386,7 +410,7 @@ func pinLandingFixture(t *testing.T, hash string, render, instantiate []byte) {
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("reading %s: %v; run go test -count=1 ./tests/wasm -run '^TestLandingStackModel$' -update-landing", path, err)
+		t.Fatalf("reading %s: %v; %s", path, err, rerun)
 	}
 	var want landingFixture
 	if err := json.Unmarshal(data, &want); err != nil {
@@ -406,6 +430,6 @@ func pinLandingFixture(t *testing.T, hash string, render, instantiate []byte) {
 		t.Fatalf("decoding fixture Instantiate instances: %v", err)
 	}
 	if fixture.Hash != want.Hash || !reflect.DeepEqual(gotRender, wantRender) || !reflect.DeepEqual(gotInstances, wantInstances) {
-		t.Fatalf("%s is stale; run go test -count=1 ./tests/wasm -run '^TestLandingStackModel$' -update-landing", path)
+		t.Fatalf("%s is stale; %s", path, rerun)
 	}
 }

@@ -89,14 +89,13 @@ func TestCallsWithoutRequiredArgumentsAdmitNone(t *testing.T) {
 	for _, line := range []string{
 		"action def Needs {",
 		"in image : ScalarValues::Integer[0..1];",
-		"action def Tune {",
+		"action tune {",
 		"in gain : ScalarValues::Integer[0..1];",
 		"in image : ScalarValues::Integer[1] default = 3;",
 		"action find : Needs;",
 		"action refind : Needs;",
 		"action peek : Admits;",
 		"perform action settle ::> defaults;",
-		"action tune : Tune;",
 		"/* flow find.found to refind.image not written: nothing in the called Ctl::Needs gives its parameter found a value */",
 		"first find then refind;",
 		"first refind then peek;",
@@ -494,18 +493,19 @@ func TestSendsOmittingRequiredSignalAttributesAreReported(t *testing.T) {
 		"action warn {",
 		"/* not migrated: SendSignalAction 'warn' — the send passes no argument for the attribute level of Alert, which must hold a value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing */",
 		"send new Alert(code, level);",
-		"/* not migrated: Interaction 'Short' — the message 'warn' binds no argument to the attribute level of Alert, which must hold a value */",
-		"action alarm send new Alert(level = 2, code = 1) to s;",
-		"action mixed send new Alert(tag = 7, code = 4, level = 5) to s;",
+		"message warn of alert : Alert = new Alert(code = 1);",
+		"message alarm of alert : Alert = new Alert(level = 2, code = 1);",
+		"message mixed of alert : Alert = new Alert(tag = 7, code = 4, level = 5);",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNoLine(t, r.Notation, "send new Alert(code);")
 	wantNoLine(t, r.Notation, "level = 4")
 	wantNote(t, r, "_sendShort", migrate.Approximated, "the send passes no argument for the attribute level of Alert, which must hold a value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing")
-	wantNote(t, r, "_short", migrate.Unmapped, "the message 'warn' binds no argument to the attribute level of Alert, which must hold a value")
-	wantNote(t, r, "_mFull", migrate.Mapped, "written as a send to s")
-	wantNote(t, r, "_mMixed", migrate.Mapped, "written as a send to s")
+	wantNote(t, r, "_short", migrate.Mapped, "written as an occurrence def of 1 lifeline usage and 1 message")
+	wantNote(t, r, "_mShort", migrate.Approximated, "no argument binds the attribute level of Alert, which must hold a value; it stays unbound")
+	wantNote(t, r, "_mFull", migrate.Approximated, "the message comes from the interaction's gate (unnamed), its environment: v2 sequence notation has no gate, so the message states no source")
+	wantNote(t, r, "_mMixed", migrate.Approximated, "v2 sequence notation has no gate, so the message states no source")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}

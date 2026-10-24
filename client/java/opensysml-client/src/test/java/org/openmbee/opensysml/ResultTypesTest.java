@@ -71,14 +71,22 @@ class ResultTypesTest {
   void aSatisfactionFindsTheVerificationCasesOfARequirement() {
     VerificationVerdict pass =
         new VerificationVerdict(
-            "Demo::checkZero", VerificationVerdict.PASS, Optional.empty(), false, Optional.of("Demo::zeroed"));
+            "Demo::checkZero",
+            VerificationVerdict.PASS,
+            Optional.empty(),
+            false,
+            Optional.of("Demo::zeroed"),
+            Optional.of(1L),
+            Optional.of("Demo::sedan"));
     VerificationVerdict fail =
         new VerificationVerdict(
             "Demo::checkBound",
             VerificationVerdict.FAIL,
             Optional.of("bound exceeded"),
             false,
-            Optional.of("Demo::bounded"));
+            Optional.of("Demo::bounded"),
+            Optional.empty(),
+            Optional.empty());
     Satisfaction satisfaction =
         new Satisfaction(List.of(), List.of(pass, fail), List.of(), List.of());
     assertEquals(List.of(fail), satisfaction.verificationsOf("Demo::bounded"));
@@ -93,7 +101,15 @@ class ResultTypesTest {
     Map<String, Value> outputs = new LinkedHashMap<>();
     outputs.put("total", new Value.RealValue(12.0));
     Analysis analysis =
-        new Analysis(outputs, verdicts, List.of(), List.of(), List.of(), List.of(), Standing.none());
+        new Analysis(
+            outputs,
+            verdicts,
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            Standing.none(),
+            Optional.empty());
     verdicts.clear();
     outputs.put("later", new Value.RealValue(1.0));
     assertEquals(1, analysis.verdicts().size());
@@ -192,7 +208,8 @@ class ResultTypesTest {
             List.of(loser, winner),
             List.of(engine),
             List.of(),
-            new Standing("run", "observed", List.of()));
+            new Standing("run", "observed", List.of()),
+            Optional.empty());
     assertTrue(analysis.holds());
     assertEquals(Optional.of(objective), analysis.objective());
     assertEquals(Optional.of(winner), analysis.selected());
@@ -206,7 +223,14 @@ class ResultTypesTest {
   void anAnalysisExceptionKeepsWhatTheRunLeft() {
     Analysis partial =
         new Analysis(
-            Map.of(), List.of(verdict(false, "division by zero")), List.of(), List.of(), List.of(), List.of(), Standing.none());
+            Map.of(),
+            List.of(verdict(false, "division by zero")),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            Standing.none(),
+            Optional.empty());
     AnalysisException e =
         new AnalysisException("division by zero", FailureReason.EVALUATION, List.of(), partial);
     assertEquals(Optional.of(partial), e.partial());

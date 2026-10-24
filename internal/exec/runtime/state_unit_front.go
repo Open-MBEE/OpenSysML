@@ -134,18 +134,19 @@ type unitFront struct {
 // unitQueue is one region's remaining units: the coroutine performing them and the head it
 // yielded. A queue drawn for a unit it has yet to name is prepaid; one spawned at a head starts when drawn.
 type unitQueue struct {
-	front   *unitFront
-	head    unitHead
-	done    bool
-	closed  bool
-	err     error
-	body    func() error
-	next    func() (unitHead, bool)
-	stop    func()
-	yield   func(unitHead) bool
-	perform bool
-	prepaid bool
-	firing  firingScope
+	front     *unitFront
+	head      unitHead
+	done      bool
+	closed    bool
+	err       error
+	body      func() error
+	next      func() (unitHead, bool)
+	stop      func()
+	yield     func(unitHead) bool
+	perform   bool
+	prepaid   bool
+	firing    firingScope
+	footprint lower.Footprint
 }
 
 // unitHead is a queue's next unit: shared (performed once, by the first drawn), waiting (until
@@ -305,43 +306,43 @@ func (e *StateExecutor) openFront(kind ChoiceKind, where string) *unitFront {
 
 // performUnits performs the bodies as queues of a front of the kind (the one under way, waited
 // for when wait says, or a front of their own at where); one body alone runs as it stands.
-func (e *StateExecutor) performUnits(kind ChoiceKind, where string, bodies []func() error, wait bool) error {
+func (e *StateExecutor) performUnits(kind ChoiceKind, where string, units []unit, wait bool) error {
 	if e.inFront(kind) {
-		return e.spawnUnits(kind, bodies, wait)
+		return e.spawnUnits(kind, units, wait)
 	}
-	if len(bodies) < 2 {
-		for _, body := range bodies {
-			if err := body(); err != nil {
+	if len(units) < 2 {
+		for _, u := range units {
+			if err := u.run(); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
-	return e.drawUnits(kind, where, bodies)
+	return e.drawUnits(kind, where, units)
 }
 
 // drawUnits performs the bodies as the queues of a front of their own; an entry front also
 // offers the due steps of the do behaviors the move began before it opened.
-func (e *StateExecutor) drawUnits(kind ChoiceKind, where string, bodies []func() error) error {
+func (e *StateExecutor) drawUnits(kind ChoiceKind, where string, units []unit) error {
 	f := e.openFront(kind, where)
-	if f.accepts(ChoiceEntryOrder) {
+	if f.accepts(choiceEntryOrder) {
 		e.path = pathDraw{}
 		for _, act := range e.dueAmong(e.began) {
 			f.offer(act)
 		}
 	}
-	for _, body := range bodies {
-		f.spawn(body)
+	for _, u := range units {
+		f.spawn(u)
 	}
 	return f.drain()
 }
 
 // spawnUnits adds the bodies as queues of the front under way, and parks the
 // running queue until they are done when wait says.
-func (e *StateExecutor) spawnUnits(kind ChoiceKind, bodies []func() error, wait bool) error {
-	queues := make([]*unitQueue, 0, len(bodies))
-	for _, body := range bodies {
-		queues = append(queues, e.front.spawn(body))
+func (e *StateExecutor) spawnUnits(kind ChoiceKind, units []unit, wait bool) error {
+	queues := make([]*unitQueue, 0, len(units))
+	for _, u := range units {
+		queues = append(queues, e.front.spawn(u))
 	}
 	if !wait {
 		return nil
@@ -369,8 +370,8 @@ func (f *unitFront) close() {
 
 // spawn adds a queue performing body and runs it to its first head; a queue spawned by a
 // running one goes right before it, as the nested region was entered before its spawner went on.
-func (f *unitFront) spawn(body func() error) *unitQueue {
-	q := f.add(body)
+func (f *unitFront) spawn(u unit) *unitQueue {
+	q := f.add(u)
 	q.start()
 	f.resume(q, false)
 	return q
@@ -378,8 +379,8 @@ func (f *unitFront) spawn(body func() error) *unitQueue {
 
 // spawnAt adds a queue whose first unit head names; body runs when the queue is first drawn,
 // performing that unit without a draw of its own.
-func (f *unitFront) spawnAt(head unitHead, body func() error) *unitQueue {
-	q := f.add(body)
+func (f *unitFront) spawnAt(head unitHead, u unit) *unitQueue {
+	q := f.add(u)
 	q.head = head
 	return q
 }
@@ -391,7 +392,7 @@ func (f *unitFront) offer(act *doAction) {
 		return
 	}
 	var q *unitQueue
-	q = f.spawnAt(f.doStepHead(act), func() error { return f.offerDoSteps(q, act) })
+	q = f.spawnAt(f.doStepHead(act), unit{run: func() error { return f.offerDoSteps(q, act) }, footprint: doStepFootprint(f.exec, act.state)})
 	q.head.void = func() bool { return !f.offering(q, act) }
 }
 
@@ -401,8 +402,8 @@ func (f *unitFront) doStepHead(act *doAction) unitHead {
 }
 
 // add places a queue for body in the front, before the running queue.
-func (f *unitFront) add(body func() error) *unitQueue {
-	q := &unitQueue{front: f, body: body, firing: f.exec.firing()}
+func (f *unitFront) add(u unit) *unitQueue {
+	q := &unitQueue{front: f, body: u.run, footprint: u.footprint, firing: f.exec.firing()}
 	q.firing.bound, q.firing.shadowed = make(map[string]Value), make(map[string]dataSlot)
 	at := len(f.queues)
 	if i := slices.Index(f.queues, f.current); i >= 0 {
@@ -451,7 +452,7 @@ func (f *unitFront) resume(q *unitQueue, perform bool) {
 func (e *StateExecutor) unit(kind ChoiceKind, head unitHead) (bool, error) {
 	f := e.front
 	if f == nil || !f.accepts(kind) || f.current == nil {
-		if kind == ChoiceEntryOrder {
+		if kind == choiceEntryOrder {
 			return true, e.drawOnPath(head)
 		}
 		return true, nil
@@ -475,7 +476,7 @@ func (e *StateExecutor) unit(kind ChoiceKind, head unitHead) (bool, error) {
 func (e *StateExecutor) unitAhead(kind ChoiceKind, head unitHead) error {
 	f := e.front
 	if f == nil || !f.accepts(kind) || f.current == nil {
-		if kind != ChoiceEntryOrder {
+		if kind != choiceEntryOrder {
 			return nil
 		}
 		if err := e.drawOnPath(head); err != nil {
@@ -513,11 +514,15 @@ func (e *StateExecutor) drawOnPath(head unitHead) error {
 			return nil
 		}
 		alternatives := make([]string, 0, len(due)+1)
+		fps := make([]lower.Footprint, 0, len(due)+1)
 		for _, act := range due {
 			alternatives = append(alternatives, doStepLabel([]string{e.stateName(act.state)}))
+			fps = append(fps, doStepFootprint(e, act.state))
 		}
 		alternatives = append(alternatives, head.label)
-		choice := ChoicePoint{Kind: ChoiceEntryOrder, Where: head.site, Alternatives: alternatives, File: e.stateMachine.DocName}
+		fps = append(fps, e.headFootprint(head))
+		choice := ChoicePoint{Kind: choiceEntryOrder, Where: head.site, Alternatives: alternatives, File: e.stateMachine.DocName}
+		classifyChoice(&choice, fps, nil)
 		pick := e.ctx.scheduling().choose(choice, nil)
 		if err := e.ctx.scheduling().refusal(); err != nil {
 			return err
@@ -587,6 +592,11 @@ func (f *unitFront) drain() (err error) {
 		pick := 0
 		if len(ready) >= 2 {
 			choice := ChoicePoint{Kind: f.kind, Where: f.where, Alternatives: f.labels(ready), File: f.exec.stateMachine.DocName}
+			fps := make([]lower.Footprint, len(ready))
+			for i, q := range ready {
+				fps[i] = q.footprint
+			}
+			classifyChoice(&choice, fps, nil)
 			pick = f.exec.ctx.scheduling().choose(choice, nil)
 			if err := f.exec.ctx.scheduling().refusal(); err != nil {
 				return err

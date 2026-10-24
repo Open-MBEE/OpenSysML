@@ -3,11 +3,11 @@
   "type": "analysis",
   "evaluate": "test::study",
   "outputs": {
-    "total": {"type": "Real", "value": 2.0},
-    "result": {"type": "Real", "value": 4.0}
+    "total": {"type": "Sequence", "elements": [{"type": "Real", "value": 2.0}]},
+    "result": {"type": "Sequence", "elements": [{"type": "Real", "value": 4.0}]}
   },
   "evaluations": [
-    {"function": "test::Study::flat", "arguments": [{"type": "Real", "value": 4.0}], "result": {"type": "Real", "value": 1.0}},
-    {"function": "test::Study::flat", "arguments": [{"type": "Real", "value": 2.0}], "result": {"type": "Real", "value": 1.0}}
+    {"function": "test::Study::flat", "arguments": [{"type": "Real", "value": 4.0}], "result": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.0}]}},
+    {"function": "test::Study::flat", "arguments": [{"type": "Real", "value": 2.0}], "result": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.0}]}}
   ]
 }

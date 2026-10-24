@@ -1,0 +1,10 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Go"}],
+	"outputs": {
+		"x": {"type": "Integer", "value": 1},
+		"y": {"type": "Integer", "value": 2}
+	},
+	"orderDependent": {}
+}

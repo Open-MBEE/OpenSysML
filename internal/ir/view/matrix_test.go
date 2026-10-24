@@ -73,7 +73,7 @@ view v : GridView {
 	if rendering.Kind != KindTable || !rendering.Empty() || len(rendering.Rows) != 0 {
 		t.Fatalf("rendering kind=%s, rows=%v, want an empty table", rendering.Kind, rendering.Rows)
 	}
-	const wantReason = "the view exposes nothing; the rendering is empty"
+	const wantReason = "every element the view exposes is rejected by its filter @SysML::SuccessionAsUsage; the rendering is empty"
 	for _, form := range []Form{FormText, FormMarkdown, FormCSV, FormTSV} {
 		artifact, err := rendering.Write(form)
 		if err != nil {
@@ -209,7 +209,7 @@ func TestGridViewMatrixSelectorsAndEmptyCases(t *testing.T) {
 					t.Fatalf("empty matrix notice = %q, want %q", rendering.Notices[0], want)
 				}
 			case "MatrixViews::nothingExposedMatrix":
-				if !rendering.Empty() || len(rendering.Notices) != 0 || rendering.EmptyReason() != "the view exposes nothing; the rendering is empty" {
+				if !rendering.Empty() || len(rendering.Notices) != 0 || rendering.EmptyReason() != "every element the view exposes is rejected by its filter @SysML::AllocationUsage; the rendering is empty" {
 					t.Fatalf("nothing-exposed state = %q, notices %v", rendering.EmptyReason(), rendering.Notices)
 				}
 			case "MatrixViews::unknownSelectorTable":
@@ -476,7 +476,7 @@ package Views {
 		if err != nil {
 			t.Fatalf("Render: %v", err)
 		}
-		const want = "Views::satisfyOnlyMatrix - matrix rendering (view def GridView)\n\nthe view exposes nothing; the rendering is empty\n"
+		const want = "Views::satisfyOnlyMatrix - matrix rendering (view def GridView)\n\nevery element the view exposes is rejected by its filter @SysML::SatisfyRequirementUsage; the rendering is empty\n"
 		if rendering.Kind != KindMatrix || !rendering.Empty() ||
 			len(rendering.Columns) != 0 || len(rendering.Rows) != 0 ||
 			len(rendering.Notices) != 0 || rendering.Text() != want {

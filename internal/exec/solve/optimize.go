@@ -78,15 +78,6 @@ type Optimum struct {
 	Detail string
 }
 
-// Optimize discovers a solver and asks it for the query's optima.
-func Optimize(ctx context.Context, q *Query) (*Result, error) {
-	solver, err := Discover()
-	if err != nil {
-		return nil, err
-	}
-	return solver.Optimize(ctx, q)
-}
-
 // Optimize asks the solver for the optimum of each objective, in the
 // lexicographic order the query declares them.
 //
@@ -160,6 +151,9 @@ func (s *session) optimize(q *Query) (*Result, error) {
 	// The model must be read before any further check-sat, as a solver keeps
 	// only the model of its latest one.
 	model, err := s.values(q.Vars)
+	if err == nil {
+		err = s.liveness(model)
+	}
 	if err != nil {
 		return nil, err
 	}

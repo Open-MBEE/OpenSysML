@@ -65,12 +65,12 @@ func TestRuntimeRobustnessIndexedConnectorEnd(t *testing.T) {
 			connection c : C connect [1] s.y#(third) to [1] k.u;`))
 		before := len(ctx.instances)
 		_, err := inst.GetFeatureValue(ctx, "c")
-		if !errors.Is(err, ErrConnectorEnd) || !errors.Is(err, ErrIndexOutOfRange) {
+		if !errors.Is(err, errConnectorEnd) || !errors.Is(err, ErrIndexOutOfRange) {
 			t.Fatalf("GetFeatureValue(c) = %v, want a connector end error wrapping ErrIndexOutOfRange", err)
 		}
-		var endErr *ConnectorEndError
+		var endErr *connectorEndError
 		if !errors.As(err, &endErr) || endErr.End != "s.y#(third)" {
-			t.Errorf("error = %+v, want a *ConnectorEndError naming the end as written", err)
+			t.Errorf("error = %+v, want a *connectorEndError naming the end as written", err)
 		}
 		if len(ctx.instances) != before {
 			t.Errorf("failed connector materialized %d object(s)", len(ctx.instances)-before)
@@ -81,12 +81,12 @@ func TestRuntimeRobustnessIndexedConnectorEnd(t *testing.T) {
 		inst, ctx := instantiatePart(t, "Asm", indexedEndAssembly(`
 			connection c : C connect [1] s.y#(fraction) to [1] k.u;`))
 		_, err := inst.GetFeatureValue(ctx, "c")
-		if !errors.Is(err, ErrConnectorEnd) {
+		if !errors.Is(err, errConnectorEnd) {
 			t.Fatalf("GetFeatureValue(c) = %v, want a connector end error", err)
 		}
-		var endErr *ConnectorEndError
+		var endErr *connectorEndError
 		if !errors.As(err, &endErr) || endErr.End != "s.y#(fraction)" || endErr.Err == nil {
-			t.Errorf("error = %+v, want a *ConnectorEndError naming the end and its cause", err)
+			t.Errorf("error = %+v, want a *connectorEndError naming the end and its cause", err)
 		}
 	})
 
@@ -97,8 +97,8 @@ func TestRuntimeRobustnessIndexedConnectorEnd(t *testing.T) {
 		if err == nil {
 			t.Fatalf("OwnedConnectors = %d connector(s), want an error: the end's feature holds no value", len(conns))
 		}
-		if !errors.Is(err, ErrConnectorEnd) || !errors.Is(err, ErrUninitializedFeatureValue) {
-			t.Fatalf("OwnedConnectors = %v, want a connector end error wrapping ErrUninitializedFeatureValue", err)
+		if !errors.Is(err, errConnectorEnd) || !errors.Is(err, errUninitializedFeatureValue) {
+			t.Fatalf("OwnedConnectors = %v, want a connector end error wrapping errUninitializedFeatureValue", err)
 		}
 	})
 
@@ -120,7 +120,7 @@ func TestRuntimeRobustnessIndexedConnectorEnd(t *testing.T) {
 			bind k.v = xs#(third);`))
 		sink := fvInstance(t, ctx, inst, "k")
 		_, err := sink.GetFeatureValue(ctx, "v")
-		if !errors.Is(err, ErrBindingEnd) || !errors.Is(err, ErrIndexOutOfRange) {
+		if !errors.Is(err, errBindingEnd) || !errors.Is(err, ErrIndexOutOfRange) {
 			t.Fatalf("k.v = %v, want a binding end error wrapping ErrIndexOutOfRange", err)
 		}
 	})
@@ -179,7 +179,7 @@ func TestRuntimeRobustnessIndexedBindingBetweenSelectedElements(t *testing.T) {
 	t.Run("unequal_selected_elements_are_a_binding_conflict_from_either_side", func(t *testing.T) {
 		for _, name := range []string{"xs", "ys"} {
 			_, err := read(t, `bind xs#(1) = ys#(1);`, name)
-			if !errors.Is(err, ErrBindingConflict) {
+			if !errors.Is(err, errBindingConflict) {
 				t.Errorf("%s = %v, want a binding conflict: xs#(1) is 1.5 and ys#(1) is 2.5", name, err)
 			}
 		}
@@ -188,7 +188,7 @@ func TestRuntimeRobustnessIndexedBindingBetweenSelectedElements(t *testing.T) {
 	t.Run("selected_element_out_of_range_is_a_binding_end_error_from_either_side", func(t *testing.T) {
 		for _, name := range []string{"xs", "ys"} {
 			_, err := read(t, `bind xs#(third) = ys#(1);`, name)
-			if !errors.Is(err, ErrBindingEnd) || !errors.Is(err, ErrIndexOutOfRange) {
+			if !errors.Is(err, errBindingEnd) || !errors.Is(err, ErrIndexOutOfRange) {
 				t.Errorf("%s = %v, want a binding end error wrapping ErrIndexOutOfRange", name, err)
 			}
 		}

@@ -1,0 +1,11 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::Derived",
+	"outputs": {
+		"c": {"type": "Integer", "value": 1},
+		"seen": {"type": "Integer", "value": 0},
+		"go": {"type": "Boolean", "value": false},
+		"Base::go": {"type": "Boolean", "value": true}
+	}
+}

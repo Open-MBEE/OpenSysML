@@ -49,6 +49,11 @@ type Symbol struct {
 	// Hidden reports a symbol the tool keeps but does not draw (visible false):
 	// it takes no room on the diagram, and a hidden frame does not bound it.
 	Hidden bool
+	// Compartments are the symbol's SUPPRESS_* compartment properties by
+	// property id, its own and then its symbol style's: true when suppressed.
+	Compartments map[string]bool
+	// StyleID names the symbol style the symbol is drawn in (symbolStyleID).
+	StyleID string
 }
 
 // Bounds is a rectangle in diagram pixels: its top-left corner and size.
@@ -109,6 +114,17 @@ func (e *ImageError) Reason() string {
 // IsPath reports whether the symbol is drawn as a line between two others.
 func (s *Symbol) IsPath() bool {
 	return s.Ends[0] != "" || s.Ends[1] != "" || len(s.Points) > 0 && s.Bounds == nil
+}
+
+// OnPath reports a shape nested in a path symbol: a line's end symbol (an
+// association's Role, a connector's ConnectorEnd), which is no node of its own.
+func (s *Symbol) OnPath() bool {
+	for p := s.Parent; p != nil; p = p.Parent {
+		if p.IsPath() {
+			return true
+		}
+	}
+	return false
 }
 
 // symbols is what a stream draws: its symbols in serialized order, the model
@@ -176,7 +192,7 @@ var symbolContainers = map[string]bool{"mdOwnedViews": true, "parts": true, "reg
 func readSymbols(data []byte, diagramID string) (*symbols, error) {
 	dec := xml.NewDecoder(bytes.NewReader(data))
 	dec.Strict = false
-	r := &symbolReader{syms: &symbols{free: map[string]int{}}, diagramID: diagramID}
+	r := &symbolReader{syms: &symbols{free: map[string]int{}}, diagramID: diagramID, styles: map[string]*symbolStyle{}}
 	for {
 		tok, err := dec.RawToken()
 		if err == io.EOF {
@@ -206,6 +222,7 @@ func readSymbols(data []byte, diagramID string) (*symbols, error) {
 	if len(r.stack) > 0 {
 		return nil, errTornSymbols
 	}
+	r.inherit()
 	r.syms.settle(diagramID)
 	return r.syms, nil
 }
@@ -213,10 +230,11 @@ func readSymbols(data []byte, diagramID string) (*symbols, error) {
 // symbolFrame is one open element of a symbol stream.
 type symbolFrame struct {
 	tag    string
-	sym    *Symbol   // the symbol this mdElement is, nil for anything else
-	prop   *property // the property this mdElement is, nil for anything else
-	listed *listing  // the element this mdElement names, nil when it names none
-	hidden bool      // marked not visible, kept for a listing its elementID has yet to open
+	sym    *Symbol      // the symbol this mdElement is, nil for anything else
+	prop   *property    // the property this mdElement is, nil for anything else
+	style  *symbolStyle // the style manager this mdElement is, nil for anything else
+	listed *listing     // the element this mdElement names, nil when it names none
+	hidden bool         // marked not visible, kept for a listing its elementID has yet to open
 	text   strings.Builder
 	valued bool // whether a value child appeared
 }
@@ -228,6 +246,53 @@ type symbolReader struct {
 	stack      []*symbolFrame
 	rooted     bool
 	symbolPath []*Symbol
+	styles     map[string]*symbolStyle
+}
+
+// symbolStyle is one property manager of the stream's symbolStyles: the
+// SUPPRESS_* settings the symbols drawn in it inherit, and the manager it extends.
+type symbolStyle struct {
+	id, parent   string
+	compartments map[string]bool
+}
+
+// openStyle is the nearest open style manager, nil when none is.
+func (r *symbolReader) openStyle() *symbolStyle {
+	for i := len(r.stack) - 1; i >= 0; i-- {
+		if r.stack[i].style != nil {
+			return r.stack[i].style
+		}
+	}
+	return nil
+}
+
+// inStyles reports whether the open element is a style of the symbolStyles list.
+func (r *symbolReader) inStyles() bool {
+	return len(r.stack) >= 2 && r.stack[len(r.stack)-2].tag == "symbolStyles"
+}
+
+// inherit gives each symbol the compartment settings of its style chain that
+// its own properties do not state.
+func (r *symbolReader) inherit() {
+	for _, sym := range r.syms.list {
+		seen := map[string]bool{}
+		for id := sym.StyleID; id != "" && !seen[id]; {
+			seen[id] = true
+			st := r.styles[id]
+			if st == nil {
+				break
+			}
+			for prop, suppressed := range st.compartments {
+				if _, own := sym.Compartments[prop]; !own {
+					if sym.Compartments == nil {
+						sym.Compartments = map[string]bool{}
+					}
+					sym.Compartments[prop] = suppressed
+				}
+			}
+			id = st.parent
+		}
+	}
 }
 
 // enclosing is the nearest open symbol, the one a tag belongs to.
@@ -268,7 +333,9 @@ func (r *symbolReader) start(t xml.StartElement) error {
 		f.sym = &Symbol{ID: attr(t, "id"), Class: attr(t, "elementClass"), Parent: r.enclosing()}
 		r.syms.list = append(r.syms.list, f.sym)
 		r.symbolPath = append(r.symbolPath, f.sym)
-	case t.Name.Local == "mdElement" && r.enclosing() != nil:
+	case t.Name.Local == "mdElement" && parentTag == "mdElement" && r.inStyles():
+		f.style = &symbolStyle{compartments: map[string]bool{}}
+	case t.Name.Local == "mdElement" && (r.enclosing() != nil || r.openStyle() != nil):
 		f.prop = &property{class: attr(t, "elementClass")}
 	case parentTag == "mdElement":
 		r.startField(t)
@@ -337,9 +404,24 @@ func (r *symbolReader) end(t xml.EndElement) error {
 	switch {
 	case f.sym != nil:
 		r.symbolPath = r.symbolPath[:len(r.symbolPath)-1]
+	case f.style != nil:
+		if f.style.id != "" {
+			r.styles[f.style.id] = f.style
+		}
 	case f.prop != nil:
 		if sym := r.enclosing(); sym != nil {
 			f.prop.apply(sym)
+		} else if st := r.openStyle(); st != nil {
+			if id, suppressed, ok := f.prop.compartmentSwitch(); ok {
+				st.compartments[id] = suppressed
+			}
+		}
+	case parent != nil && parent.style != nil:
+		switch f.tag {
+		case "propertyManagerID":
+			parent.style.id = text
+		case "parentPropertyManager":
+			parent.style.parent = text
 		}
 	case parent != nil && parent.sym != nil:
 		readSymbolField(parent.sym, f.tag, text, r.diagramID)
@@ -395,6 +477,8 @@ func readSymbolField(sym *Symbol, tag, text, diagramID string) {
 		sym.Bounds, sym.Points = parseGeometry(text)
 	case tag == "text":
 		sym.Text = text
+	case tag == "symbolStyleID":
+		sym.StyleID = text
 	case tag == "image" && text != "":
 		data, offset, octet := decodeOctets(text)
 		if octet != "" {
@@ -465,6 +549,16 @@ type property struct {
 	fontStyle        string
 }
 
+// compartmentSwitch reads p as a SUPPRESS_* compartment property: its id and
+// whether the compartment is suppressed; a property with no value is Cameo's
+// default, shown.
+func (p *property) compartmentSwitch() (id string, suppressed, ok bool) {
+	if p.class != "BooleanProperty" || !strings.HasPrefix(p.id, "SUPPRESS_") {
+		return "", false, false
+	}
+	return p.id, p.value == "true", true
+}
+
 // set records a property's child by tag.
 func (p *property) set(tag, text string) {
 	switch tag {
@@ -506,6 +600,12 @@ func (p *property) apply(sym *Symbol) {
 		if font.Name != "" || font.Size != 0 {
 			sym.Style.Font = font
 		}
+	case p.class == "BooleanProperty" && strings.HasPrefix(p.id, "SUPPRESS_"):
+		id, suppressed, _ := p.compartmentSwitch()
+		if sym.Compartments == nil {
+			sym.Compartments = map[string]bool{}
+		}
+		sym.Compartments[id] = suppressed
 	case p.class == "BooleanProperty" && p.id == "USE_FILL_COLOR":
 		sym.Style.NoFill = p.value == "false"
 	case (p.class == "FileProperty" || p.class == "StringProperty") && p.value != "" && sym.Attachment == "":
@@ -620,27 +720,18 @@ func (m *Model) readStreams(entries map[string]*zip.File) {
 // visible symbol stands for or displays, then those the symbols stand for.
 // A listed element the stream hides is off the diagram, whatever its owner shows.
 func (m *Model) shownRefs(d *Diagram, syms *symbols) []ElementRef {
-	stood := map[*Element]bool{}
-	for _, id := range syms.shown {
-		if e := m.shown(id); e != nil {
-			stood[e] = true
-		}
-	}
-	hidden, hiddenIDs := map[*Element]bool{}, map[string]bool{}
-	for _, id := range syms.hidden {
-		if e := m.shown(id); e != nil {
-			hidden[e] = true
-		} else {
-			hiddenIDs[id] = true
-		}
-	}
+	stood := m.resolved(syms.shown, nil)
+	own := m.standingSymbols(syms.list)
+	hiddenIDs := map[string]bool{}
+	hidden := m.resolved(syms.hidden, hiddenIDs)
 	// Two spellings name one element when they resolve to it; ones resolving
 	// to none are the same only when spelled alike.
 	elements := map[*Element]bool{}
 	dangling := map[string]bool{}
 	var shown []ElementRef
 	add := func(id string) {
-		if e := m.shown(id); e != nil {
+		e := m.shown(id)
+		if e != nil {
 			if elements[e] {
 				return
 			}
@@ -651,7 +742,7 @@ func (m *Model) shownRefs(d *Diagram, syms *symbols) []ElementRef {
 			}
 			dangling[id] = true
 		}
-		shown = append(shown, ElementRef{ID: id})
+		shown = append(shown, ElementRef{ID: id, Listed: e != nil && !stood[e], OnPath: e != nil && stood[e] && !own[e]})
 	}
 	for _, ref := range d.Shown {
 		e := m.shown(ref.ID)
@@ -666,6 +757,34 @@ func (m *Model) shownRefs(d *Diagram, syms *symbols) []ElementRef {
 		add(id)
 	}
 	return shown
+}
+
+// resolved marks the elements the ids name; an id naming none is recorded in
+// unresolved when that is non-nil.
+func (m *Model) resolved(ids []string, unresolved map[string]bool) map[*Element]bool {
+	elements := map[*Element]bool{}
+	for _, id := range ids {
+		if e := m.shown(id); e != nil {
+			elements[e] = true
+		} else if unresolved != nil {
+			unresolved[id] = true
+		}
+	}
+	return elements
+}
+
+// standingSymbols marks the elements a visible symbol off every path stands for.
+func (m *Model) standingSymbols(list []*Symbol) map[*Element]bool {
+	own := map[*Element]bool{}
+	for _, s := range list {
+		if s.Hidden || s.OnPath() {
+			continue
+		}
+		if e := m.shown(s.ElementID); e != nil {
+			own[e] = true
+		}
+	}
+	return own
 }
 
 // displayed reports whether a symbol stands for e or an ancestor of it, which

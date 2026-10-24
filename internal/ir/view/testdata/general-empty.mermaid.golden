@@ -23,4 +23,4 @@ config:
 ---
 %% RobustViews::noRequirements — requirement rendering (view def GeneralView, filter @RequirementUsage)
 flowchart TD
-  empty["the view exposes nothing#59; the rendering is empty"]
+  empty["every element the view exposes is rejected by its filter @SysML::RequirementUsage#59; the rendering is empty"]

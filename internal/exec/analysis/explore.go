@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -84,9 +83,9 @@ func (e exploreEngine) Run(ctx context.Context, model *Model, q Question, budget
 		Elapsed: time.Since(started),
 	}
 	switch {
+	case len(x.Unenumerated) > 0:
+		result.Reason = runtime.DescribeGaps(x.Unenumerated)
 	case !x.Complete() || x.FailedLinearizations() > 0:
-	case len(x.Notes) > 0:
-		result.Reason = strings.Join(x.Notes, "; ")
 	default:
 		result.Strength = Proved
 	}

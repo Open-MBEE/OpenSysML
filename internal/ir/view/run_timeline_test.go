@@ -45,7 +45,7 @@ func TestRunSequenceDoesNotSupportD2(t *testing.T) {
 	if !errors.As(err, &wrong) {
 		t.Fatalf("WriteWith(d2) = %v, want WrongFormError", err)
 	}
-	if got, want := err.Error(), "a sequence rendering is not written as d2; ask for text, mermaid or plantuml"; got != want {
+	if got, want := err.Error(), "a sequence rendering is not written as d2; ask for text, mermaid, plantuml, svg or svg-animated"; got != want {
 		t.Errorf("WriteWith(d2) error = %q, want %q", got, want)
 	}
 }
@@ -406,15 +406,15 @@ func TestRunSequenceHeadersDoNotChangeItsWriters(t *testing.T) {
 		Roots: []*Node{{ID: "n0", Kind: "object", Name: "A"}, {ID: "n1", Kind: "object", Name: "B"}},
 		Edges: []Edge{{From: "n0", To: "n1", Label: "t=1 Ping", Kind: EdgeFlow}},
 	}
-	if got := rendering.Text(); !strings.HasPrefix(got, "run - sequence rendering (the trace of a run to t = 2)") ||
+	if got := rendering.textWith(fullNotation); !strings.HasPrefix(got, "run - sequence rendering (the trace of a run to t = 2)") ||
 		!strings.Contains(got, "A => B: t=1 Ping") {
 		t.Errorf("run sequence text:\n%s", got)
 	}
-	if got := rendering.Mermaid(); !strings.Contains(got, "%% run — sequence rendering (the trace of a run to t = 2)") ||
+	if got := rendering.MermaidWith(fullNotation); !strings.Contains(got, "%% run — sequence rendering (the trace of a run to t = 2)") ||
 		!strings.Contains(got, "n0->>n1: t=1 Ping") {
 		t.Errorf("run sequence Mermaid:\n%s", got)
 	}
-	puml, err := rendering.PlantUML()
+	puml, err := rendering.PlantUMLWith(fullNotation)
 	if err != nil || !strings.Contains(puml, "' run — sequence rendering (the trace of a run to t = 2)") ||
 		!strings.Contains(puml, "n0 -> n1 : t=1 Ping") {
 		t.Errorf("run sequence PlantUML = %q, %v", puml, err)
@@ -430,7 +430,7 @@ func TestRunSequenceParticipantLabelsPreserveSessionPaths(t *testing.T) {
 			{ID: "n1", Kind: "object", Name: "RunTimeline::mission.instrument", Type: "Instrument"},
 		},
 	}
-	mermaid := rendering.Mermaid()
+	mermaid := rendering.MermaidWith(fullNotation)
 	for _, want := range []string{
 		"participant n0 as RunTimeline::mission.controller : Controller",
 		"participant n1 as RunTimeline::mission.instrument : Instrument",
@@ -439,7 +439,7 @@ func TestRunSequenceParticipantLabelsPreserveSessionPaths(t *testing.T) {
 			t.Errorf("run Mermaid is missing %q:\n%s", want, mermaid)
 		}
 	}
-	puml, err := rendering.PlantUML()
+	puml, err := rendering.PlantUMLWith(fullNotation)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -454,10 +454,10 @@ func TestRunSequenceParticipantLabelsPreserveSessionPaths(t *testing.T) {
 
 	model := *rendering
 	model.Run = false
-	if got, want := model.Mermaid(), "  participant n0 as «object»<br>'mission.controller' : Controller"; !strings.Contains(got, want) {
+	if got, want := model.MermaidWith(fullNotation), "  participant n0 as «object»<br>'mission.controller' : Controller"; !strings.Contains(got, want) {
 		t.Errorf("model Mermaid participant changed: want %q in\n%s", want, got)
 	}
-	modelPUML, err := model.PlantUML()
+	modelPUML, err := model.PlantUMLWith(fullNotation)
 	if err != nil {
 		t.Fatal(err)
 	}

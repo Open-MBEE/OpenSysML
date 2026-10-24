@@ -209,6 +209,9 @@ var (
 	MultOne = Mult{Lower: 1, Upper: 1}
 )
 
+// MultiValued reports whether m admits more than one value.
+func (m Mult) MultiValued() bool { return m.Upper < 0 || m.Upper > 1 }
+
 // Admits reports whether a value count n satisfies m.
 func (m Mult) Admits(n int64) bool {
 	return n >= m.Lower && (m.Upper < 0 || n <= m.Upper)
@@ -266,7 +269,11 @@ type Func struct {
 	// ResultRange is checked on every return; a collection result's
 	// multiplicity is checked by the Checked the return wraps.
 	ResultRange Range
-	Body        []Stmt
+	// HeldResult shapes a scalar Result into a one-element sequence as it leaves
+	// the program: the result states no multiplicity, so it is held in the
+	// effective `[0..*]` of the result it redefines (SysML v2 §7.6.3, §7.19.2).
+	HeldResult bool
+	Body       []Stmt
 	// Captured is the count of trailing Params a closure's value carries, the
 	// bindings of its enclosing body it reads.
 	Captured int
@@ -286,6 +293,8 @@ type Param struct {
 	Range  Range
 	Mult   Mult
 	Unique bool
+	// Held: a collection parameter is held in the shape Mult gives it (Held).
+	Held bool
 }
 
 // Expr is a typed expression.
@@ -431,6 +440,13 @@ type ToOne struct {
 	Bare     bool
 	Other    Expr
 	OtherOne string
+}
+
+// Held is X in the shape its binding's multiplicity gives its values: a multi-valued
+// binding holds a sequence (one or none included), an at-most-one its sole element.
+type Held struct {
+	X    Expr
+	Many bool
 }
 
 // Checked binds a collection to a feature of multiplicity M and range R at
@@ -639,6 +655,7 @@ func (s SeqLit) Type() Type   { return s.T }
 func (t ToMany) Type() Type   { return t.X.Type().Seq() }
 func (t ToOne) Type() Type    { return t.X.Type().Elem() }
 func (c Checked) Type() Type  { return c.X.Type() }
+func (h Held) Type() Type     { return h.X.Type() }
 func (l Let) Type() Type      { return l.In.Type() }
 func (c Coalesce) Type() Type { return c.T }
 func (SeqEq) Type() Type      { return TypeBool }

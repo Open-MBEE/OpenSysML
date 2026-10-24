@@ -50,8 +50,8 @@ func TestBehaviorMembersUnwritten(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			[]string{"_r"}, nil, 0,
-			[]string{"action def Shut {\n        view Rules {\n            expose Shut;\n            render Views::asTextualNotation;\n        }\n        /* not migrated: Constraint 'keep' — owned by a OpaqueBehavior"}},
-		{"an interaction written as a scenario has no place for an attribute",
+			[]string{"action shut {\n        view Rules {\n            expose shut;\n            render Views::asTextualNotation;\n        }\n        /* not migrated: Constraint 'keep' — owned by a OpaqueBehavior"}},
+		{"an interaction written as a sequence declares only the properties its lifelines stand for",
 			`<packagedElement xmi:type="uml:Signal" xmi:id="_go" name="Go"/>
 			 <packagedElement xmi:type="uml:Class" xmi:id="_rig" name="Rig">
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_rCtrl" name="ctrl" type="_pump" aggregation="composite"/>
@@ -64,7 +64,7 @@ func TestBehaviorMembersUnwritten(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			[]string{"_p"}, nil, 0,
-			[]string{"action spin {\n        view Rules {\n            expose spin;\n            render Views::asTextualNotation;\n        }\n        /* not migrated: Property 'p' — owned by a Interaction, whose v2 body is its parameters and scenario steps, not a place for a Property */\n        action go send new Go() to ctrl;"}},
+			[]string{"occurrence def Spin {\n            ref part c : Sys::Pump {\n                event occurrence goSent;\n                then event occurrence goReceived;\n            }\n            message go of Go[1] from c.goSent to c.goReceived;\n            /* not migrated: Property 'p' — owned by an Interaction, whose v2 body is its lifelines and messages, not a place for a Property no lifeline stands for */\n            view Rules {\n                expose Spin;\n                render Views::asTextualNotation;\n            }\n        }"}},
 		{"an activity writes its constraint and attribute, and has no place for a port",
 			`<packagedElement xmi:type="uml:Activity" xmi:id="_b" name="Run">` + rule("_r", "keep") + `
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="p"/>
@@ -89,7 +89,7 @@ func TestBehaviorMembersUnwritten(t *testing.T) {
 			}
 			got := string(r.Notation)
 			for _, w := range tc.wantNotation {
-				if !strings.Contains(got, w) {
+				if !hasBlock(got, w) {
 					t.Errorf("notation lacks %q:\n%s", w, got)
 				}
 			}

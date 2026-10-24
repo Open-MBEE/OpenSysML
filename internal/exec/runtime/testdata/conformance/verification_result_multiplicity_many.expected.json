@@ -1,0 +1,9 @@
+{
+  "libraries": true,
+  "type": "verification",
+  "evaluate": "test::checkZeroed",
+  "verdict": "pass",
+  "outputs": {
+    "verdict": {"type": "Sequence", "elements": [{"type": "EnumLiteral", "value": "VerdictKind::pass"}]}
+  }
+}

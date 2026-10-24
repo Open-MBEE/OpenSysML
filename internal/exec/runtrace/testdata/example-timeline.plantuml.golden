@@ -6,7 +6,7 @@ concise "RunTimeline::mission.controller.modes" as l0
 concise "RunTimeline::mission.instrument.modes" as l1
 @0
 l0 is "waiting | charged"
-note top of l0 : choice entering modes: next waiting(entry), charged(entry) (unordered; took waiting(entry) first)
+note top of l0 : choice entering modes: next waiting(entry), charged(entry) (unordered; took waiting(entry) first; independent)
 l1 is "waiting"
 @1
 l0 is "acknowledged | charged (time, accept Ack)"

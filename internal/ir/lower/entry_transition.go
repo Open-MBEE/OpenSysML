@@ -89,10 +89,14 @@ func (g *StateGraph) UnconditionalStart(owner ast.Node) *ast.StateNode {
 	if len(transitions) == 0 || transitions[0].Guard != nil {
 		return nil
 	}
-	if transitions[0].Via != nil {
-		return g.unconditionalEntryTarget(transitions[0].Via, nil)
+	switch target := entryTransitionTarget(transitions[0]).(type) {
+	case *ast.StateNode:
+		return target
+	case *ast.PseudostateNode:
+		return g.unconditionalEntryTarget(target, nil)
+	default:
+		return nil
 	}
-	return transitions[0].Target
 }
 
 func (g *StateGraph) unconditionalEntryTarget(target ast.Node, seen map[*ast.PseudostateNode]bool) *ast.StateNode {

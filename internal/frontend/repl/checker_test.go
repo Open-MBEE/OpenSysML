@@ -229,7 +229,7 @@ func TestReplayStepsTheRunAWitnessRecords(t *testing.T) {
 	run(t, s, "%action Debug::tally")
 	run(t, s, "%step")
 	run(t, s, "%step")
-	wants(t, run(t, s, "%step"), "choice step 3: tokens 2@left, 3@right (unordered; took 3@right first)")
+	wants(t, run(t, s, "%step"), "choice step 3: tokens 2@left, 3@right (unordered; took 3@right first; independent)")
 	wants(t, run(t, s, "%continue"), "Action completed", "leftCount = 1", "rightCount = 10")
 }
 

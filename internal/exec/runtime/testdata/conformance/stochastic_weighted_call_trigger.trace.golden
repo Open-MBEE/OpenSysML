@@ -2,7 +2,7 @@ eval feature priority -> 0.25
   eval literal 1.0 -> 1.0
   eval feature priority -> 0.25
 eval operator - -> 0.75
-choice state idle on call route: transitions 1->slow p=0.25, 2->fast p=0.75 (weighted; drew 0.774817894359002, took 2->fast)
+choice state idle on call route: transitions 1->slow p=0.25, 2->fast p=0.75 (weighted; drew 0.774817894359002, took 2->fast; order-dependent: log)
 exit: idle
 enter: fast (entry action)
 stmt action body

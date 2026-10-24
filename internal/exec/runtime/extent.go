@@ -21,7 +21,7 @@ func (ec *EvalContext) evalExtent(n *ast.OperatorExpr) (Value, error) {
 	sem := ec.ctx.model.semantics
 	target, ok := ec.ctx.extentOperand(ec.scope, qn)
 	if !ok {
-		return Value{}, fmt.Errorf("%w: %s", ErrUnresolvedType, qualifiedNameToString(qn))
+		return Value{}, fmt.Errorf("%w: %s", errUnresolvedType, qualifiedNameToString(qn))
 	}
 	if !semantics.IsType(target) {
 		return Value{}, fmt.Errorf("%w: 'all' requires a type, %s is a %s",
@@ -38,7 +38,7 @@ func (ec *EvalContext) evalExtent(n *ast.OperatorExpr) (Value, error) {
 	case sem.IsDataType(target):
 		// A data value is not created by a run, so what a run's attributes hold is not the extent.
 		return Value{}, fmt.Errorf("%w: %s is a data type, whose values are not enumerated (only an enumeration's literals are)",
-			ErrUnboundedExtent, qualifiedNameToString(qn))
+			errUnboundedExtent, qualifiedNameToString(qn))
 	}
 	// The extent is the objects there are, alive: what derives it reads the lives.
 	ec.ctx.readsLives()
@@ -79,13 +79,9 @@ func (ec *EvalContext) literalValues(literals []*symbols.Symbol) (Value, error) 
 // variantValues is what a variation's variants stand for: the value each declares, or an
 // object of it, materialized once for the object evaluating, as a selection is.
 func (ec *EvalContext) variantValues(variation *symbols.Symbol, variants []*symbols.Symbol) (Value, error) {
-	owner := int64(0)
-	if ec.self != nil {
-		owner = ec.self.ID
-	}
 	values := make([]Value, 0, len(variants))
 	for _, variant := range variants {
-		val, err := ec.ctx.variantValue(variation, variant, owner)
+		val, err := ec.ctx.variantValue(variation, variant, ec.readingObject())
 		if err != nil {
 			return Value{}, err
 		}
@@ -146,7 +142,7 @@ func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value,
 		}()
 		children, err := ctx.heldObjectsOf(inst, through, true, extentHoldsObjects)
 		if err != nil {
-			return fmt.Errorf("object of %s: %w", symbolText(inst.Type), err)
+			return fmt.Errorf("object of %s: %w", SymbolText(inst.Type), err)
 		}
 		for _, child := range children {
 			if err := descend(child.instance); err != nil {
@@ -194,7 +190,7 @@ func (ctx *Context) readUnlessRecursive(inst *Instance, name string, target *sym
 	rollback()
 	if reached != nil {
 		return nil, fmt.Errorf("%w: the value of %s makes an object of %s, already on the path, together with one of %s, which the extent cannot reach without it",
-			ErrExtentUnavailable, name, symbolText(ctx.onPath(recursive, path)), symbolText(reached.Type))
+			errExtentUnavailable, name, SymbolText(ctx.onPath(recursive, path)), SymbolText(reached.Type))
 	}
 	return nil, nil
 }
@@ -302,13 +298,13 @@ func (ec *EvalContext) extentRoots(target *symbols.Symbol) ([]*Instance, error) 
 // boundObjects is the objects a namespace-level usage's value binds it to, read once for the run;
 // a value depending on a usage still being bound yields none yet.
 func (ec *EvalContext) boundObjects(sym *symbols.Symbol) ([]*Instance, error) {
-	val, err := NewEvalContext(ec.ctx, sym.OwnerScope).declaredValue(sym, sym.Decl.(*ast.Usage).Value)
+	val, err := newEvalContext(ec.ctx, sym.OwnerScope).declaredValue(sym, sym.Decl.(*ast.Usage).Value)
 	if err != nil {
-		var cycle *CyclicBindingError
+		var cycle *cyclicBindingError
 		if errors.As(err, &cycle) && ec.ctx.binding(cycle.Usage) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+		return nil, fmt.Errorf("usage %s: %w", SymbolText(sym), err)
 	}
 	var out []*Instance
 	for _, id := range heldObjects(val) {
@@ -325,10 +321,10 @@ func (ec *EvalContext) boundObjects(sym *symbols.Symbol) ([]*Instance, error) {
 func (ctx *Context) undenotedUsage(sym *symbols.Symbol) error {
 	if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); !mult.Lower.Known || !mult.Upper.Known {
 		return fmt.Errorf("%w: usage %s declares %s occurrences, a count the model does not fix, which the run denotes no object of",
-			ErrExtentUnavailable, symbolText(sym), mult.Text())
+			errExtentUnavailable, SymbolText(sym), mult.Text())
 	}
 	return fmt.Errorf("%w: usage %s is a %s at namespace level, which the run denotes no object of",
-		ErrExtentUnavailable, symbolText(sym), sym.Notation())
+		errExtentUnavailable, SymbolText(sym), sym.Notation())
 }
 
 // usageCensus is the object usages the namespaces of every document of the model declare, in

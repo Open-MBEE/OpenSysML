@@ -36,6 +36,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(ElementFilterPass{})
 	reg.Register(ConstraintPass{})
 	reg.Register(VariantOwnerPass{})
+	reg.Register(VariantKindPass{})
 	reg.Register(document.QueryPass{})
 	reg.Register(document.PlanPass{})
 	reg.Register(TypeRelationshipsPass{})
@@ -138,6 +139,9 @@ func AnalyzeWithOptions(name string, kind source.Kind, root *ast.RootNamespace,
 func PrepareBatch(idx *symbols.Index, batch *Batch) {
 	if idx == nil || batch == nil {
 		return
+	}
+	if batch.Collisions == nil {
+		batch.Collisions = resolve.NewSharedCollisions()
 	}
 	linker := resolve.New(idx)
 	model := NewTypedModel(linker)

@@ -3,6 +3,7 @@ package repl
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/nsmerge"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -104,20 +105,20 @@ func lostMembers(om, nm ast.Node) []string {
 	if nm == nil {
 		return nil
 	}
-	oldMembers, ok := bodyMembers(om)
+	oldMembers, ok := nsmerge.BodyMembers(om)
 	if !ok {
 		return nil
 	}
 	// A new declaration with no body of its own declares none of the members,
 	// so all of them are lost.
-	newMembers, _ := bodyMembers(nm)
+	newMembers, _ := nsmerge.BodyMembers(nm)
 	var lost []string
 	for _, m := range oldMembers {
 		name := memberName(m)
 		if name == "" {
 			continue
 		}
-		_, kept := findNamed(newMembers, name)
+		_, kept := nsmerge.FindNamed(newMembers, name)
 		if kept == nil {
 			desc := renderMember(libs.TopMemberOf(m))
 			if desc == "" {

@@ -496,7 +496,7 @@ func debugTargetKind(kind view.Kind, target *symbols.Symbol) error {
 		}
 		return fmt.Errorf("%w: %s is a %s, not a state machine", ErrDebugTarget, target.Name, target.Notation())
 	case view.KindAction:
-		if target.Kind == symbols.SymbolActionDef || target.Kind == symbols.SymbolActionUsage {
+		if target.Kind.IsAction() {
 			return nil
 		}
 		return fmt.Errorf("%w: %s is a %s, not an action", ErrDebugTarget, target.Name, target.Notation())

@@ -127,6 +127,79 @@ func TestLexicographicOptima(t *testing.T) {
 	}
 }
 
+// TestNestedStageConditionBoundsTheOptimum: a nested analysis's own conditions
+// bound its objective, not only the enclosing case's.
+func TestNestedStageConditionBoundsTheOptimum(t *testing.T) {
+	result := optimized(t, "CostThenBoundedMargin")
+	if result.Status != StatusSat {
+		t.Fatalf("CostThenBoundedMargin answered %s, want sat", result.Status)
+	}
+	if len(result.Optima) != 2 {
+		t.Fatalf("reported %d optima, want 2", len(result.Optima))
+	}
+	cost, margin := result.Optima[0], result.Optima[1]
+	if cost.Status != OptimumAttained || cost.Value != "3" {
+		t.Errorf("least cost is %s %q: %s", cost.Status, cost.Value, cost.Detail)
+	}
+	if margin.Status != OptimumAttained || margin.Value != "2" {
+		t.Errorf("greatest margin within the nested stage's bound is %s %q: %s",
+			margin.Status, margin.Value, margin.Detail)
+	}
+}
+
+// TestNestedStageShadowsAndBoundsTheCase: a nested analysis's own `cap` is a value
+// of its own, and its conditions hold for the case: cost is held to the nested cap.
+func TestNestedStageShadowsAndBoundsTheCase(t *testing.T) {
+	result := optimized(t, "ShadowedStage")
+	if result.Status != StatusSat {
+		t.Fatalf("ShadowedStage answered %s, want sat (the two caps are two values)", result.Status)
+	}
+	if len(result.Optima) != 2 {
+		t.Fatalf("reported %d optima, want 2", len(result.Optima))
+	}
+	cost, bound := result.Optima[0], result.Optima[1]
+	if cost.Status != OptimumAttained || cost.Value != "5" {
+		t.Errorf("greatest cost under the nested cap is %s %q: %s", cost.Status, cost.Value, cost.Detail)
+	}
+	if bound.Status != OptimumAttained || bound.Value != "5" {
+		t.Errorf("the nested cap is %s %q, want the nested 5 rather than the case's 9: %s", bound.Status, bound.Value, bound.Detail)
+	}
+}
+
+// TestNestedStageConstraintParameterIsItsOwn: a nested analysis's constraint reads
+// its own `cap` parameter (3), not the analysis's `cap` attribute (5).
+func TestNestedStageConstraintParameterIsItsOwn(t *testing.T) {
+	result := optimized(t, "StageLocalParameter")
+	if result.Status != StatusSat {
+		t.Fatalf("StageLocalParameter answered %s, want sat (the parameter is not the attribute)", result.Status)
+	}
+	if len(result.Optima) != 2 {
+		t.Fatalf("reported %d optima, want 2", len(result.Optima))
+	}
+	if cost := result.Optima[0]; cost.Status != OptimumAttained || cost.Value != "5" {
+		t.Errorf("greatest cost under the nested cap is %s %q: %s", cost.Status, cost.Value, cost.Detail)
+	}
+	if bound := result.Optima[1]; bound.Status != OptimumAttained || bound.Value != "5" {
+		t.Errorf("the nested cap is %s %q, want 5: %s", bound.Status, bound.Value, bound.Detail)
+	}
+}
+
+// TestNestedObjectiveAttributeIsOneValue: a nested objective's own attribute is one
+// value whether read inside the objective or as `goal.weight` from the analysis.
+func TestNestedObjectiveAttributeIsOneValue(t *testing.T) {
+	result := optimized(t, "NestedObjectiveAttribute")
+	if result.Status != StatusSat {
+		t.Fatalf("NestedObjectiveAttribute answered %s, want sat", result.Status)
+	}
+	if len(result.Optima) != 2 {
+		t.Fatalf("reported %d optima, want 2", len(result.Optima))
+	}
+	if weight := result.Optima[1]; weight.Status != OptimumAttained || weight.Value != "5" {
+		t.Errorf("the nested objective's weight is %s %q, want the 5 the analysis binds: %s",
+			weight.Status, weight.Value, weight.Detail)
+	}
+}
+
 // TestUnboundedOptimum: an objective the conditions do not bound has no optimum,
 // which is its own answer rather than a number.
 func TestUnboundedOptimum(t *testing.T) {

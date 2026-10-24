@@ -1,0 +1,140 @@
+# The composite action at the repository root, run over examples/ with a sysml built
+# from the tree and, on each runner platform, with the release the install scripts fetch.
+# The release jobs download the published archives, so they run only when the action
+# or the install scripts change; every download they make counts as an install.
+name: Validate action
+
+on:
+  pull_request:
+    paths:
+      - action.yml
+      - install.sh
+      - install.ps1
+      - cmd/sysml/**
+      - internal/frontend/repl/**
+      - internal/frontend/report/**
+      - .github/workflows/validate-action.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-action-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Changed areas
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      installer: ${{ steps.installer.outputs.installer }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Decide whether the installed release runs
+        id: installer
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          changed=$(git diff --name-only "$(git merge-base "origin/$BASE_REF" HEAD)" HEAD -- \
+            action.yml install.sh install.ps1 .github/workflows/validate-action.yml)
+          if [ -n "$changed" ]; then echo "installer=true"; else echo "installer=false"; fi | tee -a "$GITHUB_OUTPUT"
+
+  tree:
+    name: From the tree
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build sysml
+        run: |
+          go build -o "$RUNNER_TEMP/bin/sysml" ./cmd/sysml
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Validate the examples as SARIF
+        id: sarif
+        uses: ./
+        with:
+          install: "false"
+          path: examples
+          format: sarif
+          sarif-file: examples.sarif
+          upload-sarif: "false"
+      - name: Check the SARIF report
+        env:
+          EXIT_CODE: ${{ steps.sarif.outputs.exit-code }}
+        run: |
+          test "$EXIT_CODE" = 0
+          python3 - <<'PY'
+          import json
+          log = json.load(open("examples.sarif"))
+          assert log["version"] == "2.1.0", log["version"]
+          (run,) = log["runs"]
+          assert run["tool"]["driver"]["name"] == "sysml"
+          print(len(run["results"]), "results over examples/")
+          PY
+
+      - name: Validate the examples as JUnit XML
+        uses: ./
+        with:
+          install: "false"
+          path: examples
+          format: junit
+          upload-sarif: "false"
+
+      # A warning analysis ran through is what a baseline accepts; under
+      # -warnings-as-errors it fails the run until the baseline knows it.
+      - name: Write a model with a finding and its baseline
+        run: |
+          mkdir -p "$RUNNER_TEMP/model"
+          printf 'package S {\n  state def M {\n    entry; then pick;\n    choice pick;\n    transition pick then a;\n    state a;\n  }\n}\n' > "$RUNNER_TEMP/model/s.sysml"
+          sysml -validate -warnings-as-errors -json -o "$RUNNER_TEMP/baseline.json" "$RUNNER_TEMP/model" || true
+          python3 -c 'import json,sys; d = json.load(open(sys.argv[1]))["diagnostics"]; assert [x["code"] for x in d] == ["nonstandard-notation"], d' "$RUNNER_TEMP/baseline.json"
+      - name: The finding fails the run without the baseline
+        id: without
+        continue-on-error: true
+        uses: ./
+        with:
+          install: "false"
+          path: ${{ runner.temp }}/model
+          format: text
+          warnings-as-errors: "true"
+      - name: The baseline accepts it
+        uses: ./
+        with:
+          install: "false"
+          path: ${{ runner.temp }}/model
+          format: text
+          warnings-as-errors: "true"
+          baseline: ${{ runner.temp }}/baseline.json
+      - name: Check both verdicts
+        env:
+          WITHOUT: ${{ steps.without.outcome }}
+          WITHOUT_EXIT: ${{ steps.without.outputs.exit-code }}
+        run: |
+          test "$WITHOUT" = failure
+          test "$WITHOUT_EXIT" = 2
+
+  release:
+    name: Installed release (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.installer == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate the showcase with the latest release
+        uses: ./
+        with:
+          version: latest
+          path: examples/runtime-showcase
+          format: text
+          upload-sarif: "false"

@@ -8,15 +8,13 @@ package test {
 		in label : String;
 	}
 
-	package A {
+	package Tags {
 		action def tag :> Labelled {
 			out code : Integer;
 			first step;
 			action step { assign code := 1; }
 		}
-	}
 
-	package B {
 		action def tag {
 			in label : Integer;
 			out code : Integer;
@@ -26,8 +24,7 @@ package test {
 	}
 
 	action outer {
-		private import A::*;
-		private import B::*;
+		private import Tags::*;
 		out attribute chosen : Integer;
 
 		first start;

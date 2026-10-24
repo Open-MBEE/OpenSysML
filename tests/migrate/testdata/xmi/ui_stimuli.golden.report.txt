@@ -4,13 +4,13 @@
 ## approximated (9)
 AcceptEventAction	Await Start::started	_awAccept	-> started	(no send action of the document sends 'Start', which only 1 button of the tool's UI prototype posts, which the migration does not write; an accept of it waits for a message nothing in the model posts)
 Trigger	Await Start::started::<Trigger>	_awTr	(no send action of the document sends 'Start', which only 1 button of the tool's UI prototype posts, which the migration does not write; an accept of it waits for a message nothing in the model posts)
-StateMachine	Controller::Controller Behavior	_sm	-> Controller::'Controller Behavior'	(the classifier behavior is run by every object of Controller as its usage controller Behavior)
+StateMachine	Controller::Controller Behavior	_sm	-> Model::Controller::'Controller Behavior'	(the classifier behavior is run by every object of Controller as its usage controller Behavior)
 Trigger	Controller::Controller Behavior::<Region>::<Transition>::<Trigger>	_trStart	(no send action of the document sends 'Start', which only 1 button of the tool's UI prototype posts, which the migration does not write; an accept of it waits for a message nothing in the model posts)
 Trigger	Controller::Controller Behavior::<Region>::<Transition>::<Trigger>	_trPause	(no send action of the document sends 'Pause' or a signal specializing it ('Long Pause'), which only 1 button of the tool's UI prototype posts, which the migration does not write; an accept of it waits for a message nothing in the model posts)
 Trigger	Controller::Controller Behavior::<Region>::<Transition>::<Trigger>	_trResume	(no send action of the document sends 'Resume', which only 1 button of the tool's UI prototype posts, which the migration does not write; an accept of it waits for a message nothing in the model posts)
-Activity	Controller::Run	_run	-> Controller::Run	(also run as the do action of 'Running')
+Activity	Controller::Run	_run	-> Model::Controller::Run	(also run as the do action of 'Running')
 SendSignalAction	Controller::Run::send resume	_sendResume	-> 'send resume'	(the send passes no argument for the attribute delay of Resume, which must hold a value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing)
-«SimulationConfig» Class	Interactive	_cfg	-> Interactive	(«SimulationConfig» UI = 'Operate the controller' is the tool's UI prototype, through which a user of the tool's run posts signals and reads values; it has no v2 form, so a run here takes no input from it; the classifier behavior of Controller is a state machine, which a run performs as no action; the configuration only holds 'Controller')
+«SimulationConfig» Class	Interactive	_cfg	-> Model::Interactive	(«SimulationConfig» UI = 'Operate the controller' is the tool's UI prototype, through which a user of the tool's run posts signals and reads values; it has no v2 form, so a run here takes no input from it; the classifier behavior of Controller is a state machine, which a run performs as no action; the configuration only holds 'Controller')
 
 ## mapped (44)
 SignalEvent	<SignalEvent>	_startEv	(written where a trigger refers to it, as accept Start)
@@ -19,11 +19,11 @@ SignalEvent	<SignalEvent>	_resetEv	(written where a trigger refers to it, as acc
 SignalEvent	<SignalEvent>	_pauseEv	(written where a trigger refers to it, as accept Pause)
 SignalEvent	<SignalEvent>	_resumeEv	(written where a trigger refers to it, as accept Resume)
 SignalEvent	<SignalEvent>	_finishEv	(written where a trigger refers to it, as accept Finish)
-Activity	Await Start	_await	-> 'Await Start'
+Activity	Await Start	_await	-> Model::'Await Start'
 ActivityFinalNode	Await Start::<ActivityFinalNode>	_awFinal	-> final
 ControlFlow	Await Start::<ControlFlow>	_awE2
 InitialNode	Await Start::<InitialNode>	_awInit	-> start
-«Block» Class	Controller	_ctl	-> Controller
+«Block» Class	Controller	_ctl	-> Model::Controller
 Region	Controller::Controller Behavior::<Region>	_r	(the one region is written as the body of its owner)
 Pseudostate	Controller::Controller Behavior::<Region>::<Pseudostate>	_init	(written as the entry of the region)
 Transition	Controller::Controller Behavior::<Region>::<Transition>	_t0
@@ -46,17 +46,17 @@ ControlFlow	Controller::Run::<ControlFlow>	_runE2
 InitialNode	Controller::Run::<InitialNode>	_runInit	-> start
 SendSignalAction	Controller::Run::send hard reset	_sendHardReset	-> 'send hard reset'
 SendSignalAction	Controller::Run::send stop	_sendStop	-> 'send stop'
-Signal	Finish	_finish	-> Finish
-Package	Gui	_gui	-> Gui
-Signal	Hard Reset	_hardReset	-> 'Hard Reset'
-Signal	Long Pause	_longPause	-> 'Long Pause'
-Model	Model	_m	(the root model's members are written at the top level)
-Signal	Pause	_pause	-> Pause
-Signal	Reset	_reset	-> Reset
-Signal	Resume	_resume	-> Resume
-Property	Resume::delay	_resumeDelay	-> Resume::delay
-Signal	Start	_start	-> Start
-Signal	Stop	_stop	-> Stop
+Signal	Finish	_finish	-> Model::Finish
+Package	Gui	_gui	-> Model::Gui
+Signal	Hard Reset	_hardReset	-> Model::'Hard Reset'
+Signal	Long Pause	_longPause	-> Model::'Long Pause'
+Model	Model	_m	-> Model	(written as package Model)
+Signal	Pause	_pause	-> Model::Pause
+Signal	Reset	_reset	-> Model::Reset
+Signal	Resume	_resume	-> Model::Resume
+Property	Resume::delay	_resumeDelay	-> Model::Resume::delay
+Signal	Start	_start	-> Model::Start
+Signal	Stop	_stop	-> Model::Stop
 
 ## skipped (5)
 «Button» Class	Gui::<Class>	_button	(«Button» marks the modeling tool's UI prototyping mockup, which has no model meaning)

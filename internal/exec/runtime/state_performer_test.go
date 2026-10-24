@@ -124,7 +124,7 @@ func TestActionRunReportsItsPerformersAttributesAsItsOutcomeDoes(t *testing.T) {
 		if err != nil {
 			t.Fatalf("rate on %s: %v", tc.performer, err)
 		}
-		if got := intOutput(t, outputs, "rated"); got != tc.rated {
+		if got := soleIntOutput(t, outputs, "rated"); got != tc.rated {
 			t.Errorf("rate on %s: rated = %d, want %d", tc.performer, got, tc.rated)
 		}
 		if got := intOutput(t, performer, "this.logged"); got != tc.logged {

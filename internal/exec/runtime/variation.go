@@ -12,7 +12,7 @@ import (
 // variantReference is the value a name resolving to a variant evaluates to: the
 // choice itself, which a variation is bound to and compared with.
 func variantReference(sym *symbols.Symbol) Value {
-	return NewVariantValue(sym, 0)
+	return newVariantValue(sym, 0)
 }
 
 // IsVariationFeature reports whether a feature is a variation point, whose feature value
@@ -23,11 +23,11 @@ func (ctx *Context) IsVariationFeature(feat *EffectiveFeature) bool {
 
 // variantSegment reads a variant named through the variation feature it belongs
 // to, as in `ring.nesting::nestingTrue`, returning it and the segments left.
-func (ec *EvalContext) variantSegment(feat *EffectiveFeature, rest []ast.NameSegment) (*symbols.Symbol, []ast.NameSegment, bool) {
-	if len(rest) == 0 || feat == nil || !ec.ctx.model.semantics.IsVariationFeature(feat.Symbol) {
+func (ec *EvalContext) variantSegment(variation *symbols.Symbol, rest []ast.NameSegment) (*symbols.Symbol, []ast.NameSegment, bool) {
+	if len(rest) == 0 || variation == nil || !ec.ctx.model.semantics.IsVariationFeature(variation) {
 		return nil, nil, false
 	}
-	variant, ok := ec.ctx.model.semantics.VariantOf(feat.Symbol, rest[0].Text)
+	variant, ok := ec.ctx.model.semantics.VariantOf(variation, rest[0].Text)
 	if !ok {
 		return nil, nil, false
 	}
@@ -61,7 +61,7 @@ func (ctx *Context) bindVariation(feat *EffectiveFeature, selection Value, owner
 	case ValVariant:
 	default:
 		if ctx.model.semantics.IsVariationFeature(feat.Symbol) {
-			return Value{}, fmt.Errorf("%w: variation %s is bound to a %s", ErrNotAVariant, name, selection.Kind)
+			return Value{}, fmt.Errorf("%w: variation %s is bound to a %s", errNotAVariant, name, selection.Kind)
 		}
 		return selection, nil
 	}
@@ -69,7 +69,7 @@ func (ctx *Context) bindVariation(feat *EffectiveFeature, selection Value, owner
 	variant := selection.Variant()
 	if !ctx.model.semantics.SelectsVariantOf(feat.Symbol, variant) {
 		return Value{}, fmt.Errorf("%w: %s is not a variant of %s (%s)",
-			ErrNotAVariant, variant.Name, name, ctx.variantSummary(feat.Symbol))
+			errNotAVariant, variant.Name, name, ctx.variantSummary(feat.Symbol))
 	}
 	ctx.selectVariant(variantSelection{owner: owner, variation: name}, variant.Name)
 	return ctx.variantValue(feat.Symbol, variant, owner)
@@ -114,7 +114,7 @@ func (ctx *Context) bindOneVariant(feat *EffectiveFeature, elements []Value, own
 	for _, el := range elements {
 		if el.Kind != ValVariant {
 			return Value{}, fmt.Errorf("%w: variation %s is bound to a collection holding a %s (%s)",
-				ErrNotAVariant, feat.Name, el.Kind, ctx.variantSummary(feat.Symbol))
+				errNotAVariant, feat.Name, el.Kind, ctx.variantSummary(feat.Symbol))
 		}
 		selected = append(selected, el)
 	}
@@ -125,12 +125,12 @@ func (ctx *Context) bindOneVariant(feat *EffectiveFeature, elements []Value, own
 			names = append(names, el.Variant().Name)
 		}
 		return Value{}, fmt.Errorf("%w: variation %s selects %d variants (%s)",
-			ErrMultipleVariants, feat.Name, len(selected), strings.Join(names, ", "))
+			errMultipleVariants, feat.Name, len(selected), strings.Join(names, ", "))
 	case len(selected) == 1:
 		return ctx.bindVariation(feat, selected[0], owner)
 	default:
 		return Value{}, fmt.Errorf("%w: variation %s is bound to a collection naming no variant (%s)",
-			ErrNotAVariant, feat.Name, ctx.variantSummary(feat.Symbol))
+			errNotAVariant, feat.Name, ctx.variantSummary(feat.Symbol))
 	}
 }
 
@@ -139,7 +139,7 @@ func (ctx *Context) bindOneVariant(feat *EffectiveFeature, elements []Value, own
 // the owner that selected it, materialized once for that owner.
 func (ctx *Context) variantValue(variation, variant *symbols.Symbol, owner int64) (Value, error) {
 	if value := semantics.VariantValue(variant); value != nil {
-		ec := NewEvalContext(ctx, DeclScope(variant))
+		ec := newEvalContext(ctx, DeclScope(variant))
 		val, err := ec.Eval(value)
 		if err != nil {
 			return Value{}, fmt.Errorf("variant %s: %w", variant.Name, err)
@@ -149,7 +149,7 @@ func (ctx *Context) variantValue(variation, variant *symbols.Symbol, owner int64
 	key := variantObject{owner: owner, variation: variation, variant: variant}
 	if id, ok := ctx.variantObjects[key]; ok {
 		if _, live := ctx.instances[id]; live {
-			return NewVariantValue(variant, id), nil
+			return newVariantValue(variant, id), nil
 		}
 	}
 	var inst *Instance
@@ -160,7 +160,7 @@ func (ctx *Context) variantValue(variation, variant *symbols.Symbol, owner int64
 	if err != nil {
 		return Value{}, fmt.Errorf("variant %s: %w", variant.Name, err)
 	}
-	return NewVariantValue(variant, inst.ID), nil
+	return newVariantValue(variant, inst.ID), nil
 }
 
 // variantInstance builds the object a selected variant stands for. A variant
@@ -181,7 +181,7 @@ func (ctx *Context) variantInstance(variant *symbols.Symbol, owner int64, keep f
 	ownerInst, ok := ctx.Instance(owner)
 	if !ok {
 		return fmt.Errorf("%w: %s connects features of the object selecting it, and no object selected it",
-			ErrConnectorEnd, variant.Name)
+			errConnectorEnd, variant.Name)
 	}
 	return ctx.materializeConnector(ownerInst, variant, ctx.variantConnectorBase(variant), keep)
 }
@@ -210,6 +210,43 @@ func (ctx *Context) variantAsValue(v Value) (Value, error) {
 	}
 	// A variant reached this way declares a value, so no object of it is needed.
 	return ctx.variantValue(nil, v.Variant(), 0)
+}
+
+// variantStandsFor resolves a variant named with no selecting object (`Case::big`) to the
+// value it declares, else an object of it materialized once for the object evaluating.
+func (ec *EvalContext) variantStandsFor(v Value) (Value, error) {
+	variant := v.Variant()
+	if v.Kind != ValVariant || variant == nil || v.Instance != 0 {
+		return v, nil
+	}
+	return ec.ctx.variantValue(ec.ctx.model.semantics.VariationPointOwning(variant), variant, ec.readingObject())
+}
+
+// readingObject is the object evaluating, for which a variant named with no
+// selecting object is materialized once; 0 at model level.
+func (ec *EvalContext) readingObject() int64 {
+	if ec.self == nil {
+		return 0
+	}
+	return ec.self.ID
+}
+
+// chainThroughNamedVariant reads a variant named through the variation usage it
+// belongs to, `engine.electric.power`, as that variant whatever the usage selects.
+func (ec *EvalContext) chainThroughNamedVariant(variation *symbols.Symbol, parts []ast.NameSegment, owner int64) (Value, bool, error) {
+	variant, rest, ok := ec.variantSegment(variation, parts)
+	if !ok {
+		return Value{}, false, nil
+	}
+	if len(rest) == 0 {
+		return variantReference(variant), true, nil
+	}
+	val, err := ec.ctx.variantValue(variation, variant, owner)
+	if err != nil {
+		return Value{}, true, err
+	}
+	val, err = ec.chainMemberValue(val, rest, variant.Name)
+	return val, true, err
 }
 
 // variantObject keys the object a variant stands for by the selection that made

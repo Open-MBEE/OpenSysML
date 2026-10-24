@@ -123,9 +123,9 @@ func TestDefaultKindsAreRenderable(t *testing.T) {
 }
 
 func TestPilotStylesParseInAnyCaseAndNoteWhatTheyDo(t *testing.T) {
-	for _, name := range []string{"ortholine", "ORTHOLINE", "OrthoLine"} {
+	for _, name := range []string{"showinherited", "SHOWINHERITED", "ShowInherited"} {
 		style, ok := ParsePilotStyle(name)
-		if !ok || style != "ORTHOLINE" {
+		if !ok || style != "SHOWINHERITED" {
 			t.Errorf("ParsePilotStyle(%q) = %q, %t", name, style, ok)
 		}
 	}
@@ -142,7 +142,15 @@ func TestPilotStylesParseInAnyCaseAndNoteWhatTheyDo(t *testing.T) {
 			t.Errorf("%s.Notice() = %q", style, notice)
 		}
 	}
-	if got := PilotStyle("ORTHOLINE").Notice(); got != "style ORTHOLINE (orthogonal line style) is not drawn" {
+	if got := PilotStyle("SHOWINHERITED").Notice(); got != "style SHOWINHERITED (show inherited members) is not drawn" {
+		t.Errorf("Notice = %q", got)
+	}
+	for _, drawn := range []string{"COMPMOST", "COMPTREE", "ORTHOLINE", "POLYLINE"} {
+		if _, ok := ParsePilotStyle(drawn); ok {
+			t.Errorf("%s is drawn, not a pilot style noted as undrawn", drawn)
+		}
+	}
+	if got := PilotStyle("SHOWLIB").Notice(); got != "style SHOWLIB (show elements of the standard libraries) is not drawn" {
 		t.Errorf("Notice = %q", got)
 	}
 }

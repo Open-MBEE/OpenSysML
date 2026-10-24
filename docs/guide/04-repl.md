@@ -223,9 +223,9 @@ declaration order. Each `satisfy` gets a verdict of `conforms`, `violated` or `u
 followed by a verdict for each concern the viewpoint frames; a concern whose condition fails
 names the exposed element it failed for and the reason. A `satisfy` inherited from a
 specialized view is marked `(from <view>)`. The view restates no framing: every concern the
-viewpoint frames is checked against what the view exposes. A concern that states no condition,
-or names one that does not resolve, is reported as `unevaluable` with the reason, not as a
-pass. These verdicts are this implementation's own decisions, because SysML v2 leaves
+viewpoint frames is checked against what the view exposes. A concern that states no condition
+`conforms` vacuously — a requirement check over no constraint is true — while one that names a
+concern that does not resolve is reported as `unevaluable` with the reason. These verdicts are this implementation's own decisions, because SysML v2 leaves
 verification verdict semantics non-normative. (The extension
 libraries these documents name are maintained upstream at
 [Open-MBEE/OpenSysML-Extensions-Library](https://github.com/Open-MBEE/OpenSysML-Extensions-Library)
@@ -338,7 +338,8 @@ owner's composition stands for it. A `Route` about the usage steers its composit
 specialization or typing has no member of its own and is routed by the drawing.
 
 A view that states `render asElementTable;` is rendered as aligned columns instead, listing the
-exposed elements, what they declare, and the views nested inside the rendered view.
+exposed elements, what they declare (an element the view exposes in its own right is a row of
+its own, not repeated under what declares it), and the views nested inside the rendered view.
 
 The bundled `OpenSysMLRenderings` library selects cases with `render asCaseDiagram;` and mixed content
 with `render asMixedDiagram;`; `CaseView` and `MixedView` provide the same choices by specialization.
@@ -349,7 +350,9 @@ For a model with no declared view, `%render #case` and `%render #mixed` draw the
 elements in one rendering, choosing the kind from what the names resolve to (a state def draws a
 state rendering, a part with connections an interconnection, a package a tree, a mixed set a mixed
 rendering) unless `--view <VIEW>` names one, and takes the pilot's `--style` words — `LR` and `TB`
-set the direction, and a style no form here draws is noted as not represented rather than dropped.
+set the direction, `COMPMOST` folds a tree node's owned usages into compartment rows of its box
+and `COMPTREE` its ports alone (the pilot's compartment styles, `compartments=most` and `ports` on
+`%render`), and a style no form here draws is noted as not represented rather than dropped.
 `%viz --view STATE P::Lamp mermaid` writes what `%render #state:P::Lamp mermaid` writes.
 
 `%render <name> mermaid` writes a graph-shaped rendering as a Mermaid diagram, `dot` as Graphviz
@@ -370,6 +373,78 @@ renders as empty and says so. A rendering kind the build does not produce is rep
 name along with the view, not silently substituted, and an element the rendering cannot
 represent is reported rather than left out. The same operation outside the prompt is
 [`sysml -render`](../reference/cli.md#rendering-a-view).
+
+### Limiting what a view draws
+
+A tree or interconnection rendering draws everything the exposed elements contain, which on a
+model with several levels of decomposition is more than one picture wants. Three mechanisms bound
+it ([the details](../project/view-rendering-forms.md#limiting-what-a-view-draws)):
+
+- The view's `filter` conditions prune the walk as well as choosing the roots:
+  `view parts { expose vehicle; filter @SysML::PartUsage; render asTreeDiagram; }` draws the parts
+  and none of their attributes or ports, and `filter not @Hidden;` leaves out every element marked
+  `#Hidden`.
+- An attribute `depth` on the view bounds how many levels are drawn below each exposed element:
+  `view overview { expose vehicle; attribute depth = 2; render asTreeDiagram; }`. An element at the
+  bound keeps its ports and compartment rows and says `nested deeper than 2 levels; not shown`.
+  `%render Fleet::overview depth=1` overrides it for one render.
+- A `DiagramLayout::Layout` with `collapsed = true` about an element folds its children away in
+  every form: `metadata Layout about vehicle::engine { collapsed = true; }`. A Layout that only
+  folds (or only hides compartments with its `show…` switches) needs no `x` and `y`; the form
+  still lays the diagram out itself. Give it a position too and the diagram becomes a positioned
+  one, in which nodes without a position are left undrawn.
+
+Together they cut a deep decomposition down to one picture. Mark what every picture should
+leave out with a metadata definition of your own, mark what one picture should single out with
+another, and let each view say how deep it goes:
+
+```sysml
+package Rover {
+    private import Views::*;
+    private import DiagramLayout::*;
+    metadata def Hidden;
+    metadata def Shown;
+    metadata def Owner { attribute team : ScalarValues::String; }
+
+    part rover {
+        part chassis {
+            @Owner { team = "Mechanical"; }
+            part drive { part controller { part cpu; part firmware; } #Hidden part wheels[6]; }
+            #Hidden part suspension;
+        }
+        #Shown part power { part battery; }
+        part comms { #Shown part radio; part antenna; }
+    }
+
+    // Two levels below rover, nothing marked Hidden, and no metadata usages drawn as nodes.
+    view overview {
+        expose rover;
+        attribute depth = 2;
+        filter not @Hidden;
+        filter not @SysML::MetadataUsage;
+        render asTreeDiagram;
+    }
+
+    // Only the elements marked Shown, each a root of its own.
+    view picked { expose rover::**[@Shown]; render asInterconnectionDiagram; }
+
+    // Everything, with drive folded to a single box.
+    view folded {
+        expose rover;
+        render asTreeDiagram;
+        metadata Layout about rover::chassis::drive { collapsed = true; }
+    }
+}
+```
+
+`%render Rover::overview` draws `rover`, `chassis`, `drive`, `power`, `battery`, `comms` and
+`antenna`; `drive` says `nested deeper than 2 levels; not shown`, and `wheels`, `suspension`,
+`radio`'s absent sibling marks and the `@Owner` usage are left out. `%render Rover::overview depth=1`
+stops at `chassis`, `power` and `comms`. `%render Rover::picked` draws `power` and `radio` alone:
+a filter condition only ever prunes, so neither the ancestors between the marked elements nor
+their unmarked contents (`battery`) are drawn — mark everything the picture should hold, or
+expose the marked elements' owners and let a `depth` bound the rest. `filter @Shown` on
+`expose rover` would reject `rover` itself and render empty, saying so.
 
 ## Where an expression is evaluated
 
@@ -394,6 +469,17 @@ The pinned name may be an element, in which case the expression reads that eleme
 or an object reference, in which case the expression reads that object's feature values, the same
 values an unpinned `%eval` reads after `%instantiate`. A single `:` separates the context from the
 expression; the `::` inside a qualified name is not a separator.
+
+### Arguments
+
+The arguments of an invocation — `%calc`, `%analysis`, `%sweep`, `%runs`, `%invoke` and `%check`,
+written positionally or, except for `%calc`, as `parameter=expression` — evaluate where `%eval`
+does, and the whole list evaluates as one expression list in one run, in the order written, as the
+Kernel Semantics evaluate an invocation's argument expressions in one evaluation context. A draw in
+one argument therefore continues the stream of the draw before it: under `%seed 7`, `%calc Pair(uniform(0.0, 1.0), uniform(0.0, 1.0))`
+binds two different values, the same two that `%eval uniform(0.0, 1.0) - uniform(0.0, 1.0)` draws,
+and repeating the command under the same seed binds them again. An argument that fails to evaluate
+is reported by its text (`evaluation of argument "x" failed`) or, when named, by its parameter.
 
 ## Addressing an object
 
@@ -436,8 +522,9 @@ completes them: `#` offers the ids there are, `car.` the objects `car` holds.
 | what it computes across a range of one parameter | `%sweep`, `%samples` | [6](06-behavior.md#running-an-analysis-case) |
 | whether a check *can* hold at all (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%check` | [reference](../reference/repl-commands.md) |
 | which conditions conflict when it cannot (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%explain` | [reference](../reference/repl-commands.md) |
+| what a diagnostic code means and how to resolve it | `%explain-code` | [3](03-command-line.md#checking-as-a-gate) |
 | what values satisfy it, keeping what is already fixed (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%solve` | [reference](../reference/repl-commands.md) |
-| which variants its conditions permit (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%configure` | [reference](../reference/repl-commands.md) |
+| which variants its conditions permit — of one assertion, or of a variation family or configuration over every assertion about it (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional); walkthrough in [Modeling product lines and variability](modeling-product-lines.md#solving-the-family)) | `%configure` | [reference](../reference/repl-commands.md) |
 | which values are best for an analysis case's objectives (experimental, needs [z3](01-install.md#installing-a-solver-optional)) | `%optimize` | [reference](../reference/repl-commands.md) |
 | what a behavior does, step by step | `%action`, `%state`, `%step`, `%tokens`, `%advance` | [6](06-behavior.md) |
 | whether a result depends on the order the run happened to take, and how to replay another | `%schedule`, `%trace` | [6](06-behavior.md#when-a-model-has-more-than-one-valid-run) |

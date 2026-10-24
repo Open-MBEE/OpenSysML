@@ -41,7 +41,7 @@ func TestStreamsAndStatus(t *testing.T) {
 		model:  brokenModel,
 		args:   []string{"-e", "1+1"},
 		status: exitUnevaluable,
-		stderr: []string{"error: expected a name", "did not analyse cleanly"},
+		stderr: []string{"error[syntax]: expected a name", "did not analyse cleanly"},
 	}, {
 		name:   "an unresolved expression is reported",
 		model:  checkModel,
@@ -49,47 +49,47 @@ func TestStreamsAndStatus(t *testing.T) {
 		status: exitUnevaluable,
 		stdout: []string{"✓ package Rover"},
 		stderr: []string{"sysml: unresolved reference: nope"},
-		absent: []string{"error: unresolved reference"},
+		absent: []string{"error[unresolved]: unresolved reference"},
 	}, {
 		name:   "a model that does not analyse is a failed load",
 		model:  brokenModel,
 		args:   nil,
 		status: exitUnevaluable,
-		stderr: []string{"error: expected a name", "did not analyse cleanly"},
+		stderr: []string{"error[syntax]: expected a name", "did not analyse cleanly"},
 	}, {
 		name:   "a calculation reports what it computed",
 		model:  behaviorModel,
 		args:   []string{"-calc", "Mission::Fall(3, 2)"},
 		status: exitHolds,
-		stdout: []string{"= 18"},
+		stdout: []string{"= [18]"},
 	}, {
 		name:   "a calculation that could not be invoked is reported",
 		model:  behaviorModel,
 		args:   []string{"-calc", "Mission::nosuch(1)"},
 		status: exitUnevaluable,
 		stderr: []string{"sysml: unresolved reference: Mission::nosuch"},
-		absent: []string{"error: unresolved reference"},
+		absent: []string{"error[unresolved]: unresolved reference"},
 	}, {
 		name:   "an action that could not be run is reported",
 		model:  behaviorModel,
 		args:   []string{"-action", "Mission::nosuch"},
 		status: exitUnevaluable,
 		stderr: []string{"nosuch", "sysml: unresolved reference: Mission::nosuch"},
-		absent: []string{"error: unresolved reference"},
+		absent: []string{"error[unresolved]: unresolved reference"},
 	}, {
 		name:   "a state machine that could not be run is reported",
 		model:  behaviorModel,
 		args:   []string{"-state", "Mission::nosuch"},
 		status: exitUnevaluable,
 		stderr: []string{"nosuch", "sysml: unresolved reference: Mission::nosuch"},
-		absent: []string{"error: unresolved reference"},
+		absent: []string{"error[unresolved]: unresolved reference"},
 	}, {
 		name:   "a constraint that could not be checked is reported",
 		model:  checkModel,
 		args:   []string{"-constraint", "Rover::nosuch"},
 		status: exitUnevaluable,
 		stderr: []string{"sysml: unresolved reference: Rover::nosuch"},
-		absent: []string{"error: unresolved reference"},
+		absent: []string{"error[unresolved]: unresolved reference"},
 	}, {
 		// The line goes through the same boundary as the other undecided
 		// verdicts, so the command reports it under the command's prefix.
@@ -116,13 +116,13 @@ func TestStreamsAndStatus(t *testing.T) {
 		args:   []string{"-constraint", "Rover::MassBudget"},
 		status: exitHolds,
 		stdout: []string{"✓ Constraint Rover::MassBudget passed"},
-		stderr: []string{"warning:"},
+		stderr: []string{"warning["},
 	}, {
 		name:   "a validated model reports its diagnostics on stderr",
 		model:  brokenModel,
 		args:   []string{"-validate"},
 		status: exitUnevaluable,
-		stderr: []string{"error: expected a name", "did not analyse cleanly"},
+		stderr: []string{"error[syntax]: expected a name", "did not analyse cleanly"},
 	}, {
 		name:   "an RDF conversion writes only the model out, and its status on stderr",
 		model:  sampleModel,
@@ -254,7 +254,7 @@ func TestPipedSessionGatesOnTheModel(t *testing.T) {
 	if broken.status != exitUnevaluable {
 		t.Errorf("exit status = %d, want %d\n%s", broken.status, exitUnevaluable, broken.output())
 	}
-	if strings.Contains(broken.stdout, "error: expected a name") {
+	if strings.Contains(broken.stdout, "error[syntax]: expected a name") {
 		t.Errorf("the diagnostic was reported on stdout:\n%s", broken.stdout)
 	}
 

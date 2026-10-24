@@ -1,0 +1,35 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% FoldedViews::links — interconnection rendering (render asInterconnectionDiagram)
+%% not represented: 4 node(s) without a position, left undrawn, and 1 edge(s) at them
+%% layout: n1 x=0 y=40
+%% layout: n3 x=120 y=40 collapsed
+%% layout: n5 x=240 y=40
+flowchart LR
+  n1("`*«part»*
+**wheel**`")
+  n3("`*«part»*
+**engine**`")
+  n5("`*«part»*
+**tank**`")

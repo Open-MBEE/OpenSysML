@@ -6,6 +6,7 @@ import type { RenderPoint } from "../protocol";
 import {
   CanvasLayout,
   FONT_SIZE,
+  labelLineClass,
   liftedEdges,
   MARGIN,
   movable,
@@ -105,8 +106,10 @@ export function liftNode(svg: SVGSVGElement, layout: CanvasLayout, id: string, d
   }
   const width = right - layout.origin.x;
   const height = bottom - layout.origin.y;
-  svg.setAttribute("width", String(width));
-  svg.setAttribute("height", String(height));
+  // The canvas is drawn at its viewBox's size times the zoom; growing keeps that zoom.
+  const zoom = Number(svg.getAttribute("width")) / layout.width || 1;
+  svg.setAttribute("width", String(width * zoom));
+  svg.setAttribute("height", String(height * zoom));
   svg.setAttribute("viewBox", `${layout.origin.x} ${layout.origin.y} ${width} ${height}`);
 }
 
@@ -160,10 +163,11 @@ function markers(): SVGDefsElement {
 }
 
 // drawNode appends a node's group to parent: its shape, its label, then its children
-// so they draw over it. The group is marked movable when a Layout can name the node.
+// so they draw over it. The group is marked movable when a Layout can name the node,
+// and included when the panel rather than the view drew the node.
 function drawNode(parent: SVGElement, entry: PlacedNode, layout: CanvasLayout): void {
   const group = element("g", {
-    class: `opensysml-node${movable(layout, entry) ? " movable" : ""}`,
+    class: `opensysml-node${movable(layout, entry) ? " movable" : ""}${entry.node.included ? " included" : ""}`,
     "data-opensysml-id": entry.node.id,
     "data-kind": entry.node.kind,
   });
@@ -181,7 +185,7 @@ function drawNode(parent: SVGElement, entry: PlacedNode, layout: CanvasLayout): 
       const span = element("tspan", {
         x: String(box.x + LABEL_PAD_X),
         dy: String(i === 0 ? LINE_HEIGHT * 0.8 : LINE_HEIGHT),
-        class: labelLineClass(i, entry.node.name !== ""),
+        class: labelLineClass(entry.lines, i),
       });
       span.textContent = line;
       text.append(span);
@@ -241,15 +245,6 @@ function drawPort(box: PlacedNode["box"], port: PlacedPort, entry: PlacedNode): 
   text.textContent = port.port.name;
   group.append(title, rect, text);
   return group;
-}
-
-// labelLineClass styles the i-th label line: the head, then the «kind» of a
-// named node, then detail.
-function labelLineClass(i: number, named: boolean): string {
-  if (i === 0) {
-    return "head";
-  }
-  return i === 1 && named ? "keyword" : "detail";
 }
 
 // shape is the outline a node is drawn with: a box for an element, square-cornered

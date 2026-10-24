@@ -48,7 +48,7 @@ func wrapSetupError(err error) error {
 	var setup *SetupError
 	var binding inputBindingError
 	if errors.As(err, &setup) || errors.As(err, &binding) ||
-		errors.Is(err, ErrOccurrenceDestroyed) || errors.Is(err, ErrOccurrenceLifetime) {
+		errors.Is(err, errOccurrenceDestroyed) || errors.Is(err, errOccurrenceLifetime) {
 		return err
 	}
 	return &SetupError{Err: err}
@@ -78,8 +78,8 @@ type ChoiceTaken struct {
 	Drawn bool
 }
 
-// Weighted reports whether the model weights the alternatives.
-func (c ChoiceTaken) Weighted() bool { return len(c.Weights) == c.Alternatives && c.Alternatives > 0 }
+// weighted reports whether the model weights the alternatives.
+func (c ChoiceTaken) weighted() bool { return len(c.Weights) == c.Alternatives && c.Alternatives > 0 }
 
 // String renders the choice for a table or a failure message, as ParseChoice
 // reads it back: a name the line's own punctuation occurs in is quoted, and a
@@ -92,12 +92,12 @@ func (c ChoiceTaken) String() string {
 		return fmt.Sprintf("step %d: %s -> %s%s", c.Step, choiceLabel(c.Where), choiceLabel(c.Took), c.weightedTail())
 	case ChoiceTransition:
 		return fmt.Sprintf("%s -> %s%s", choiceLabel(c.Where), choiceLabel(c.Took), c.weightedTail())
-	case ChoiceStatementOrder, ChoiceGuardOrder:
+	case choiceStatementOrder, choiceGuardOrder:
 		if c.Step > 0 {
 			return fmt.Sprintf("step %d: %s: %s first of %s", c.Step, choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
 		}
 		return fmt.Sprintf("%s: %s first of %s", choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
-	case ChoiceRegionOrder, ChoiceDueOrder, ChoiceDispatchOrder, ChoiceEntryOrder, ChoiceExitOrder, ChoiceStepOrder, ChoiceEntryStep:
+	case ChoiceRegionOrder, ChoiceDueOrder, choiceDispatchOrder, choiceEntryOrder, choiceExitOrder, choiceStepOrder, choiceEntryStep:
 		return fmt.Sprintf("%s: %s first of %s", choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
 	}
 	return fmt.Sprintf("%s -> %s", c.Kind, choiceLabel(c.Took))
@@ -106,7 +106,7 @@ func (c ChoiceTaken) String() string {
 // weightedTail spells what a weighted choice carries past the branch taken —
 // ` among <alt> p=<w>, …` and ` drew <u>` when a draw selected it — "" for an unweighted one.
 func (c ChoiceTaken) weightedTail() string {
-	if !c.Weighted() || len(c.Among) != len(c.Weights) {
+	if !c.weighted() || len(c.Among) != len(c.Weights) {
 		return ""
 	}
 	tail := markAmong + weightedLabels(c.Among, c.Weights)
@@ -166,21 +166,18 @@ type Exploration struct {
 	// BudgetsHit names the budgets the exploration ran into, `runs` before
 	// `depth`; none when it is complete.
 	BudgetsHit []string
-	// Notes are the distinct reasons the runs' coverage is narrower than their
-	// schedules, so a complete outcome set is observed rather than proved.
-	Notes []string
+	// Unenumerated are the constructs whose unordered alternatives the runs took
+	// in one order without a choice point, so fewer orders were run than the
+	// library admits; none when the exploration is complete.
+	Unenumerated []CoverageGap
 	// Scope is the distinct reasons the runs' outcomes were observed short of quiescence.
 	Scope    []ObservationReason
 	weighted bool
 }
 
-// Complete reports whether every linearization was run.
-func (x *Exploration) Complete() bool { return len(x.BudgetsHit) == 0 }
-
-// Covered reports whether a complete exploration saw every schedule: a note the
-// runs left, like a repeated step's performances run one move apiece, says it
-// did not.
-func (x *Exploration) Covered() bool { return x.Complete() && len(x.Notes) == 0 }
+// Complete reports whether every linearization the library admits was run: no
+// budget stopped the exploration and no construct was left unenumerated.
+func (x *Exploration) Complete() bool { return len(x.BudgetsHit) == 0 && len(x.Unenumerated) == 0 }
 
 // Weighted reports whether a committed run made a weighted choice.
 func (x *Exploration) Weighted() bool { return x.weighted }
@@ -201,22 +198,28 @@ func (x *Exploration) FailedLinearizations() int {
 func (x *Exploration) ProbabilitiesBounded() bool { return !x.Complete() && x.Weighted() }
 
 // Status renders how the exploration ended: `complete (N runs)`, or which budget
-// was hit after how many runs.
+// was hit after how many runs and what was left unenumerated.
 func (x *Exploration) Status() string {
 	if x.Complete() {
 		return fmt.Sprintf("complete (%d runs)", x.Runs)
 	}
-	named := make([]string, len(x.BudgetsHit))
-	for i, budget := range x.BudgetsHit {
-		limit := x.Budget.Runs
-		if budget == "depth" {
-			limit = x.Budget.Depth
-		} else if budget == BoundStatementOrders {
-			limit = maxStatementOrderEvaluations
+	status := fmt.Sprintf("incomplete after %d runs", x.Runs)
+	if len(x.BudgetsHit) > 0 {
+		named := make([]string, len(x.BudgetsHit))
+		for i, budget := range x.BudgetsHit {
+			limit := x.Budget.Runs
+			if budget == "depth" {
+				limit = x.Budget.Depth
+			} else if budget == boundStatementOrders {
+				limit = maxStatementOrderEvaluations
+			}
+			named[i] = fmt.Sprintf("%s budget %d", budget, limit)
 		}
-		named[i] = fmt.Sprintf("%s budget %d", budget, limit)
+		status = fmt.Sprintf("incomplete: %s hit after %d runs", strings.Join(named, " and "), x.Runs)
 	}
-	status := fmt.Sprintf("incomplete: %s hit after %d runs", strings.Join(named, " and "), x.Runs)
+	if len(x.Unenumerated) > 0 {
+		status += "; not enumerated: " + DescribeGaps(x.Unenumerated)
+	}
 	if x.ProbabilitiesBounded() {
 		status += "; probabilities are lower bounds"
 	}
@@ -491,7 +494,7 @@ func (s exploreSlot) asChoice() ChoiceTaken {
 		if s.taken < len(s.choice.Alternatives) {
 			c.Took = s.choice.Alternatives[s.taken]
 		}
-		if s.choice.Weighted() {
+		if s.choice.weighted() {
 			c.Weights, c.Drew, c.Drawn = slices.Clone(s.choice.Weights), s.choice.Drew, s.choice.Drawn
 		}
 	}

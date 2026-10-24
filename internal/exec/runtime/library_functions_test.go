@@ -169,9 +169,9 @@ func TestLibraryFunctionErrors(t *testing.T) {
 		// cot does, at zero.
 		{"cotangent of a zero sine", "TrigFunctions::cot", []Value{constReal(0)}, semantics.ErrArithmeticOverflow},
 		// int64 conversion would silently wrap.
-		{"too few arguments", "RealFunctions::max", []Value{constReal(1)}, ErrCalcArity},
-		{"too many arguments", "RealFunctions::sqrt", []Value{constReal(1), constReal(2)}, ErrCalcArity},
-		{"no arguments", "RealFunctions::sqrt", nil, ErrCalcArity},
+		{"too few arguments", "RealFunctions::max", []Value{constReal(1)}, errCalcArity},
+		{"too many arguments", "RealFunctions::sqrt", []Value{constReal(1), constReal(2)}, errCalcArity},
+		{"no arguments", "RealFunctions::sqrt", nil, errCalcArity},
 		{"boolean argument", "RealFunctions::sqrt", []Value{boolValue(true)}, ErrTypeMismatch},
 		{"string argument", "RealFunctions::sqrt", []Value{NewStringValue("4")}, ErrTypeMismatch},
 		{"Real argument to an Integer parameter", "IntegerFunctions::abs", []Value{constReal(1.5)}, ErrTypeMismatch},
@@ -185,9 +185,9 @@ func TestLibraryFunctionErrors(t *testing.T) {
 		{"logarithm to base zero", "OpenSysMLMathFunctions::log", []Value{constReal(8), constReal(0)}, semantics.ErrArithmeticDomain},
 		{"angle at the origin", "OpenSysMLMathFunctions::atan2", []Value{constReal(0), constReal(0)}, semantics.ErrArithmeticDomain},
 		{"exponential beyond the Real range", "OpenSysMLMathFunctions::exp", []Value{constReal(1000)}, semantics.ErrArithmeticOverflow},
-		{"exponential with no argument", "OpenSysMLMathFunctions::exp", nil, ErrCalcArity},
-		{"logarithm with one argument", "OpenSysMLMathFunctions::log", []Value{constReal(8)}, ErrCalcArity},
-		{"angle with three arguments", "OpenSysMLMathFunctions::atan2", []Value{constReal(1), constReal(1), constReal(1)}, ErrCalcArity},
+		{"exponential with no argument", "OpenSysMLMathFunctions::exp", nil, errCalcArity},
+		{"logarithm with one argument", "OpenSysMLMathFunctions::log", []Value{constReal(8)}, errCalcArity},
+		{"angle with three arguments", "OpenSysMLMathFunctions::atan2", []Value{constReal(1), constReal(1), constReal(1)}, errCalcArity},
 		{"boolean argument to the exponential", "OpenSysMLMathFunctions::exp", []Value{boolValue(true)}, ErrTypeMismatch},
 		{"string argument to the logarithm", "OpenSysMLMathFunctions::ln", []Value{NewStringValue("1")}, ErrTypeMismatch},
 		{"string base", "OpenSysMLMathFunctions::log", []Value{constReal(8), NewStringValue("2")}, ErrTypeMismatch},
@@ -196,7 +196,7 @@ func TestLibraryFunctionErrors(t *testing.T) {
 		{"quotient by zero", "OpenSysMLMathFunctions::quotient", []Value{constInt(7), constInt(0)}, ErrDivisionByZero},
 		{"Real argument to the quotient", "OpenSysMLMathFunctions::quotient", []Value{constReal(7.5), constInt(2)}, ErrTypeMismatch},
 		{"Real divisor to the quotient", "OpenSysMLMathFunctions::quotient", []Value{constInt(7), constReal(2.0)}, ErrTypeMismatch},
-		{"quotient with one argument", "OpenSysMLMathFunctions::quotient", []Value{constInt(7)}, ErrCalcArity},
+		{"quotient with one argument", "OpenSysMLMathFunctions::quotient", []Value{constInt(7)}, errCalcArity},
 	}
 
 	for _, tc := range cases {
@@ -217,8 +217,8 @@ func TestLibraryFunctionNamedArguments(t *testing.T) {
 		t.Fatalf("sin(theta = 0.0) = %+v, %v", got, err)
 	}
 
-	if _, err := fn.invoke(libCtx(t), calcArgs{named: map[string]Value{"x": constReal(0)}}); !errors.Is(err, ErrUnknownParameter) {
-		t.Fatalf("sin(x = 0.0) error = %v, want %v", err, ErrUnknownParameter)
+	if _, err := fn.invoke(libCtx(t), calcArgs{named: map[string]Value{"x": constReal(0)}}); !errors.Is(err, errUnknownParameter) {
+		t.Fatalf("sin(x = 0.0) error = %v, want %v", err, errUnknownParameter)
 	}
 }
 
@@ -260,7 +260,7 @@ func TestOpenSysMLMathFunctionsMatchTheShippedDeclarations(t *testing.T) {
 			continue
 		}
 		declared++
-		fqn := ctx.qualifiedSymbolName(sym)
+		fqn := ctx.QualifiedName(sym)
 		fn, ok := ctx.libraryFunctionFor(sym)
 		if !ok {
 			t.Errorf("%s is declared in %s but has no built-in implementation", fqn, path)
@@ -318,6 +318,7 @@ func TestLibraryFunctionUnqualifiedNames(t *testing.T) {
 			ctx, idx = libraryModelContext(t, model("\tprivate import "+tc.imported+"::*;"))
 			sym = lookupOne(t, idx, "test::f")
 			got, err := ctx.InvokeCalc(sym, []Value{constReal(4)}, nil)
+			got = soleElement(got)
 			if err != nil {
 				t.Fatalf("%s under import %s::*: %v", tc.call, tc.imported, err)
 			}
@@ -336,6 +337,7 @@ func TestLibraryFunctionQualifiedCallNeedsNoImport(t *testing.T) {
 	calc f { in x : Real; OpenSysMLMathFunctions::exp(0.0 * x) + RealFunctions::sqrt(x) + (x, x)->SequenceFunctions::size() }
 }`)
 	got, err := ctx.InvokeCalc(lookupOne(t, idx, "test::f"), []Value{constReal(4)}, nil)
+	got = soleElement(got)
 	if err != nil || FormatValue(got) != "5.0" {
 		t.Fatalf("qualified calls = %s, %v; want 5.0", FormatValue(got), err)
 	}
@@ -379,8 +381,8 @@ func TestLibraryFunctionNeverAnswersAModelDeclaration(t *testing.T) {
 		if _, ok := ctx.libraryFunctionFor(sym); ok {
 			t.Errorf("%s: the model's RealFunctions::sqrt dispatched to the built-in", name)
 		}
-		if _, err := ctx.InvokeCalc(sym, []Value{constReal(25)}, nil); !errors.Is(err, ErrNoResultExpression) {
-			t.Errorf("%s: InvokeCalc(model sqrt, 25.0) = %v, want %v", name, err, ErrNoResultExpression)
+		if _, err := ctx.InvokeCalc(sym, []Value{constReal(25)}, nil); !errors.Is(err, errNoResultExpression) {
+			t.Errorf("%s: InvokeCalc(model sqrt, 25.0) = %v, want %v", name, err, errNoResultExpression)
 		}
 	}
 }
@@ -399,13 +401,14 @@ package mine {
 	if _, ok := ctx.libraryFunctionFor(libSym); ok {
 		t.Fatalf("a declaration with a body dispatched to the built-in implementation")
 	}
-	got, err := ctx.InvokeCalc(libSym, []Value{constReal(25)}, nil)
+	got, err := invokeValue(ctx, libSym, []Value{constReal(25)}, nil)
 	if err != nil || got.Const.AsReal() != 25 {
 		t.Fatalf("InvokeCalc(RealFunctions::sqrt, 25.0) = %+v, %v; want the declared body", got, err)
 	}
 
 	ownSym := lookupOne(t, idx, "mine::sqrt")
 	got, err = ctx.InvokeCalc(ownSym, []Value{constReal(25)}, nil)
+	got = soleElement(got)
 	if err != nil || got.Const.AsReal() != 42 {
 		t.Fatalf("InvokeCalc(mine::sqrt, 25.0) = %+v, %v; want the declared body", got, err)
 	}
@@ -841,8 +844,8 @@ func TestLibraryFunctionOptionalOperand(t *testing.T) {
 	}
 
 	// A required operand is still required: '*' declares both [1].
-	if _, err := applyLibrary(t, "ComplexFunctions::*", cx(1, 2)); !errors.Is(err, ErrCalcArity) {
-		t.Fatalf("*(1.0 + 2.0i) error = %v, want %v", err, ErrCalcArity)
+	if _, err := applyLibrary(t, "ComplexFunctions::*", cx(1, 2)); !errors.Is(err, errCalcArity) {
+		t.Fatalf("*(1.0 + 2.0i) error = %v, want %v", err, errCalcArity)
 	}
 }
 
@@ -915,8 +918,8 @@ func TestVectorAndComplexNamedArguments(t *testing.T) {
 	if _, err := fn.invoke(libCtx(t), calcArgs{named: map[string]Value{"v": realVec(1, 2)}}); err != nil {
 		t.Fatalf("+(v = (1.0, 2.0)) = error %v", err)
 	}
-	if _, err := fn.invoke(libCtx(t), calcArgs{named: map[string]Value{"u": realVec(1, 2)}}); !errors.Is(err, ErrUnknownParameter) {
-		t.Fatalf("+(u = (1.0, 2.0)) error = %v, want %v", err, ErrUnknownParameter)
+	if _, err := fn.invoke(libCtx(t), calcArgs{named: map[string]Value{"u": realVec(1, 2)}}); !errors.Is(err, errUnknownParameter) {
+		t.Fatalf("+(u = (1.0, 2.0)) error = %v, want %v", err, errUnknownParameter)
 	}
 }
 
@@ -941,8 +944,8 @@ func TestVectorAndComplexUnknownNamedArgument(t *testing.T) {
 			t.Fatalf("%s is not registered", tt.fn)
 		}
 		got, err := fn.invoke(libCtx(t), calcArgs{named: tt.named})
-		if !errors.Is(err, ErrUnknownParameter) {
-			t.Errorf("%s with an unknown name = (%v, %v), want %v", tt.fn, got, err, ErrUnknownParameter)
+		if !errors.Is(err, errUnknownParameter) {
+			t.Errorf("%s with an unknown name = (%v, %v), want %v", tt.fn, got, err, errUnknownParameter)
 		}
 	}
 }
@@ -981,7 +984,7 @@ func TestVectorAndComplexFunctionErrors(t *testing.T) {
 		{"a Complex sum beyond the Real range", "ComplexFunctions::+", []Value{cx(1e308, 0), cx(1e308, 0)}, semantics.ErrArithmeticOverflow},
 		{"zero to a negative power", "ComplexFunctions::**", []Value{constReal(0), constReal(-1)}, semantics.ErrArithmeticDomain},
 		{"a power beyond the Real range", "ComplexFunctions::**", []Value{constReal(1e200), constReal(2)}, semantics.ErrArithmeticOverflow},
-		{"too many arguments to a vector constructor", "VectorFunctions::CartesianVectorOf", []Value{realVec(1), realVec(2)}, ErrCalcArity},
+		{"too many arguments to a vector constructor", "VectorFunctions::CartesianVectorOf", []Value{realVec(1), realVec(2)}, errCalcArity},
 	}
 
 	for _, tc := range cases {
@@ -1103,9 +1106,9 @@ func TestStringFunctionErrors(t *testing.T) {
 			[]Value{strValue("abc"), strValue("a"), constInt(2)}, ErrTypeMismatch},
 		{"substring of a collection", "StringFunctions::Substring",
 			[]Value{vec(strValue("a"), strValue("b")), constInt(1), constInt(1)}, ErrTypeMismatch},
-		{"length without an argument", "StringFunctions::Length", nil, ErrCalcArity},
+		{"length without an argument", "StringFunctions::Length", nil, errCalcArity},
 		{"concatenation of three strings", "StringFunctions::+",
-			[]Value{strValue("a"), strValue("b"), strValue("c")}, ErrCalcArity},
+			[]Value{strValue("a"), strValue("b"), strValue("c")}, errCalcArity},
 	}
 
 	for _, tc := range cases {
@@ -1166,8 +1169,8 @@ func TestUnevaluableLibraryFunctionsNameThemselves(t *testing.T) {
 	for _, tc := range unevaluable {
 		t.Run(tc.fn, func(t *testing.T) {
 			_, err := applyLibrary(t, tc.fn, tc.args...)
-			if !errors.Is(err, ErrUnevaluableLibraryFunction) {
-				t.Fatalf("%s error = %v, want %v", tc.fn, err, ErrUnevaluableLibraryFunction)
+			if !errors.Is(err, errUnevaluableLibraryFunction) {
+				t.Fatalf("%s error = %v, want %v", tc.fn, err, errUnevaluableLibraryFunction)
 			}
 			if !strings.Contains(err.Error(), writtenName(tc.fn)) {
 				t.Fatalf("%s error %q does not name the function", tc.fn, err)
@@ -1188,7 +1191,7 @@ func applyBuiltin(t *testing.T, name string, args calcArgs) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return fn(NewEvalContext(libCtx(t), nil), bound)
+	return fn(newEvalContext(libCtx(t), nil), bound)
 }
 
 // TestOccurrenceFunctionArity pins arity before binding: `group [0..*]` may be
@@ -1200,28 +1203,28 @@ func TestOccurrenceFunctionArity(t *testing.T) {
 		args calcArgs
 		want error
 	}{
-		{"OccurrenceFunctions::addNew", calcArgs{positional: []Value{one}}, ErrCalcArity},
-		{"OccurrenceFunctions::addNew", calcArgs{named: map[string]Value{"group": one}}, ErrCalcArity},
-		{"OccurrenceFunctions::addNew", calcArgs{named: map[string]Value{"occ": one}}, ErrNotAnOccurrence},
-		{"OccurrenceFunctions::addNew", calcArgs{positional: []Value{one, one}}, ErrNotAnOccurrence},
-		{"OccurrenceFunctions::addNewAt", calcArgs{positional: []Value{one, one}}, ErrCalcArity},
-		{"OccurrenceFunctions::addNewAt", calcArgs{named: map[string]Value{"occ": one}}, ErrCalcArity},
-		{"OccurrenceFunctions::addNewAt", calcArgs{named: map[string]Value{"group": one, "index": one}}, ErrCalcArity},
-		{"OccurrenceFunctions::addNewAt", calcArgs{named: map[string]Value{"occ": one, "index": one}}, ErrNotAnOccurrence},
-		{"OccurrenceFunctions::addNewAt", calcArgs{positional: []Value{one, one, one}}, ErrNotAnOccurrence},
-		{"OccurrenceFunctions::create", calcArgs{}, ErrCalcArity},
-		{"OccurrenceFunctions::create", calcArgs{positional: []Value{one}}, ErrNotAnOccurrence},
-		{"OccurrenceFunctions::isDuring", calcArgs{}, ErrCalcArity},
-		{"OccurrenceFunctions::isDuring", calcArgs{positional: []Value{one}}, ErrNotAnOccurrence},
-		{"OccurrenceFunctions::destroy", calcArgs{positional: []Value{one}}, ErrNotAnOccurrence},
-		{"OccurrenceFunctions::===", calcArgs{positional: []Value{one, one}}, ErrNotAnOccurrence},
-		{"OccurrenceFunctions::===", calcArgs{positional: []Value{one, one, one}}, ErrCalcArity},
+		{"OccurrenceFunctions::addNew", calcArgs{positional: []Value{one}}, errCalcArity},
+		{"OccurrenceFunctions::addNew", calcArgs{named: map[string]Value{"group": one}}, errCalcArity},
+		{"OccurrenceFunctions::addNew", calcArgs{named: map[string]Value{"occ": one}}, errNotAnOccurrence},
+		{"OccurrenceFunctions::addNew", calcArgs{positional: []Value{one, one}}, errNotAnOccurrence},
+		{"OccurrenceFunctions::addNewAt", calcArgs{positional: []Value{one, one}}, errCalcArity},
+		{"OccurrenceFunctions::addNewAt", calcArgs{named: map[string]Value{"occ": one}}, errCalcArity},
+		{"OccurrenceFunctions::addNewAt", calcArgs{named: map[string]Value{"group": one, "index": one}}, errCalcArity},
+		{"OccurrenceFunctions::addNewAt", calcArgs{named: map[string]Value{"occ": one, "index": one}}, errNotAnOccurrence},
+		{"OccurrenceFunctions::addNewAt", calcArgs{positional: []Value{one, one, one}}, errNotAnOccurrence},
+		{"OccurrenceFunctions::create", calcArgs{}, errCalcArity},
+		{"OccurrenceFunctions::create", calcArgs{positional: []Value{one}}, errNotAnOccurrence},
+		{"OccurrenceFunctions::isDuring", calcArgs{}, errCalcArity},
+		{"OccurrenceFunctions::isDuring", calcArgs{positional: []Value{one}}, errNotAnOccurrence},
+		{"OccurrenceFunctions::destroy", calcArgs{positional: []Value{one}}, errNotAnOccurrence},
+		{"OccurrenceFunctions::===", calcArgs{positional: []Value{one, one}}, errNotAnOccurrence},
+		{"OccurrenceFunctions::===", calcArgs{positional: []Value{one, one, one}}, errCalcArity},
 	} {
 		_, err := applyBuiltin(t, tc.fn, tc.args)
 		if !errors.Is(err, tc.want) {
 			t.Errorf("%s(%+v) error = %v, want %v", tc.fn, tc.args, err, tc.want)
 		}
-		if errors.Is(err, ErrNotAnOccurrence) && !strings.Contains(err.Error(), writtenName(tc.fn)) {
+		if errors.Is(err, errNotAnOccurrence) && !strings.Contains(err.Error(), writtenName(tc.fn)) {
 			t.Errorf("%s(%+v) error %q does not name the function", tc.fn, tc.args, err)
 		}
 	}
@@ -1290,7 +1293,7 @@ func TestVendoredFunctionsAreAllDispatchable(t *testing.T) {
 					continue
 				}
 				declared++
-				fqn := ctx.qualifiedSymbolName(sym)
+				fqn := ctx.QualifiedName(sym)
 				fn, ok := libraryFunctionByName(fqn)
 				if !ok {
 					if _, isBuiltin := builtins[fqn]; !isBuiltin {
@@ -1407,7 +1410,7 @@ func TestLibraryFeatureNameReadFromItsLibraryDeclaration(t *testing.T) {
 	}
 
 	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 10000)
-	got, err := NewEvalContext(ctx, pkg.Scope).Eval(decl.Value)
+	got, err := newEvalContext(ctx, pkg.Scope).Eval(decl.Value)
 	if err != nil {
 		t.Fatalf("2 * TrigFunctions::pi = error %v", err)
 	}
@@ -1654,6 +1657,7 @@ func TestArraySpecializationKeepsOwnMembers(t *testing.T) {
 		{"plain.label", `"grid"`},
 	} {
 		got, err := evalIn(t, ctx, pkg.Scope, tc.src)
+		got = soleElement(got)
 		if err != nil {
 			t.Errorf("%s: %v", tc.src, err)
 			continue

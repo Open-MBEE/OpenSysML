@@ -82,6 +82,9 @@ type view struct {
 	// tables are the table definitions the diagram carries, written beside
 	// the view in definition order; empty for a diagram that defines none.
 	tables []*tableDoc
+	// rebuilt lists what the view exposes in place of rows the tool never
+	// stored; nil for a diagram whose content the tool serialized.
+	rebuilt *reconstruction
 }
 
 // planViews assigns every diagram the body its view is written in and reserves
@@ -111,13 +114,17 @@ func (m *migration) planViews() {
 		}
 		v.name = m.viewName(v.host, name)
 		if v.name != name && d.Name != "" {
-			v.note = joinNotes(v.note, "written as "+v.name+" since a member of its owner is also named "+name)
+			v.note = joinNotes(v.note, writtenAs+v.name+" since a member of its owner is also named "+name)
 		}
 		where := "view '" + v.name + "'"
 		if d.Owner != nil {
 			where += " in " + qualifiedName(d.Owner)
 		}
+		form := m.formOf(d)
 		for _, shown := range d.Shown {
+			if !symbolized(form, shown) {
+				continue
+			}
 			if x := m.exposable(shown.Element); x != nil && x.Parent != v.host {
 				m.expose(x, where+" exposes it")
 			}
@@ -126,6 +133,7 @@ func (m *migration) planViews() {
 	}
 	m.planPrivateLayoutAliasHoles()
 	m.planTables()
+	m.planReconstructions()
 	m.planDocuments()
 }
 
@@ -160,8 +168,8 @@ func (m *migration) viewName(host *sysmlv1.Element, name string) string {
 // owner when that hosts views — the operation, for a behavior written as the
 // operation's method — else the owner's nearest ancestor that does; for a
 // diagram naming no owner the element whose extension holds it, and failing
-// that the document's top level. The top level is a nil host; the root model,
-// whose members are written there, is never one. note says why the host is not
+// that the document's top level, a nil host; a root Model hosts views as any
+// package does. note says why the host is not
 // the owner; placed is false when nothing written can hold the view.
 func (m *migration) viewHost(d *sysmlv1.Diagram) (host *sysmlv1.Element, placed bool, note string) {
 	from := m.viewOwner(d)
@@ -181,9 +189,6 @@ func (m *migration) viewHost(d *sysmlv1.Diagram) (host *sysmlv1.Element, placed 
 		host := m.bodyOf(cur)
 		if !m.hostsViews(host) {
 			continue
-		}
-		if m.flattened(host) {
-			host = nil
 		}
 		switch {
 		case cur == from && d.Owner != nil:
@@ -214,12 +219,9 @@ func (m *migration) bodyOf(e *sysmlv1.Element) *sysmlv1.Element {
 	return e
 }
 
-// hostsViews reports whether e is written with a body a view can be a member of: the
-// root model, or a declared package or definition (not an enum def, node, vertex or region).
+// hostsViews reports whether e is written with a body a view can be a member of: a
+// declared package or definition (not an enum def, node, vertex or region).
 func (m *migration) hostsViews(e *sysmlv1.Element) bool {
-	if m.flattened(e) {
-		return true
-	}
 	switch e.Type {
 	case "Property", "Port", "Parameter", "EnumerationLiteral", "Region":
 		return false
@@ -250,12 +252,6 @@ func (m *migration) writtenIn(host *sysmlv1.Element) string {
 		return "written at the top level"
 	}
 	return "written in " + m.hostName(host)
-}
-
-// isTopLevel reports whether e is the root model, whose members are the
-// document's top level.
-func isTopLevel(e *sysmlv1.Element) bool {
-	return e.Parent == nil && e.Type == "Model"
 }
 
 // views leaves room for the views of the diagrams host owns (nil: the top level's), written
@@ -352,6 +348,15 @@ type exposures struct {
 	unwritten int
 	// dangling counts shown ids that resolve to no element.
 	dangling int
+	// symbolless counts shown elements with no symbol of their own, drawn by an
+	// exposed element's symbol: compartment rows and end labels on lines.
+	symbolless int
+}
+
+// symbolized reports whether a view of form f exposes shown: a tree exposes only what
+// a symbol of its own stands for, not a compartment row or an end label on a line.
+func symbolized(f viewForm, shown sysmlv1.ElementRef) bool {
+	return f.rendering != treeRendering || !shown.Listed && !shown.OnPath
 }
 
 // exposed reports whether the view exposes what ref names.
@@ -391,6 +396,15 @@ func diagramLayoutAttribute(prefix, definition, name, value string, x exposures)
 // diagramLayoutAttributeForHost also qualifies an attribute shadowed by its containing scopes.
 func (m *migration) diagramLayoutAttributeForHost(prefix, definition, name, value string, host *sysmlv1.Element, x exposures) string {
 	return diagramLayoutAttributeText(prefix, definition, name, value, x.shadows(name) || m.shadows(scopeChain(host), name))
+}
+
+// diagramLayoutFeatureForHost names a feature redefined in an annotation body,
+// qualified when the view or its containing scopes shadow its name.
+func (m *migration) diagramLayoutFeatureForHost(prefix, definition, name string, host *sysmlv1.Element, x exposures) string {
+	if x.shadows(name) || m.shadows(scopeChain(host), name) {
+		return prefix + definition + "::" + name
+	}
+	return name
 }
 
 func diagramLayoutAttributeText(prefix, definition, name, value string, shadowed bool) string {
@@ -436,7 +450,12 @@ func (m *migration) drawsEntry(f viewForm, el *sysmlv1.Element) bool {
 
 // draws reports whether a view of form f exposing x shows el, which ref names, where
 // geometry can pin it: an element it exposes, or a node or edge its subject's graph draws.
-func (m *migration) draws(x exposures, f viewForm, el *sysmlv1.Element, ref string) bool {
+func (m *migration) draws(x exposures, f viewForm, host, el *sysmlv1.Element, ref string) bool {
+	if prop := m.backedProperty(el); prop != nil {
+		// A tree draws an attribute's typing edge between its owner's and its type's
+		// boxes; a private attribute is out of the view's reach.
+		return !m.writtenHidden(prop) && x.exposed(m.exposure(prop.Parent, host)) && x.exposed(m.exposure(m.model.Ref(prop, "type"), host))
+	}
 	return x.exposed(ref) || m.graphPins(f, el)
 }
 
@@ -477,6 +496,8 @@ func (m *migration) emptyView(v *view, f viewForm) string {
 	switch {
 	case !d.Represented():
 		return "no diagram representation is serialized, so what it shows is unknown and its view exposes nothing"
+	case v.rebuilt != nil:
+		return v.rebuilt.note(m, d.Owner, v.host)
 	case len(d.Shown) == 0 && pictured > 0:
 		return "it shows no model element, only " + plural(pictured, pastedImage) + " a view rendered " + f.rendering + " does not draw, and its view exposes nothing"
 	case len(d.Shown) == 0:
@@ -585,7 +606,7 @@ func (m *migration) writeViewBody(v *view, form viewForm) {
 		}
 	}
 	geo := m.viewGeometry(v, x, form)
-	note = joinNotes(note, m.viewShownNote(d, x, geo, untyped))
+	note = joinNotes(note, m.viewShownNote(v, x, geo, untyped))
 	doc, docNotes := m.proseNoted(d.Documentation)
 	note = joinNotes(note, strings.Join(docNotes, "; "))
 	m.w.block(decl, func() {
@@ -603,14 +624,16 @@ func (m *migration) writeViewBody(v *view, form viewForm) {
 		for _, line := range geo.lines {
 			m.w.line(line)
 		}
-		m.w.line("render " + prefix + form.rendering + ";")
+		if form.rendering != "" {
+			m.w.line("render " + prefix + form.rendering + ";")
+		}
 	})
 	for _, td := range v.tables {
 		m.writeTable(td)
 	}
 	verdict := Mapped
 	drawsNothing := (shown == 0 || len(x.refs) == 0) && geo.pictures == 0
-	if v.note != "" || untyped || drawsNothing || x.unwritten+x.dangling > 0 || geo.underlaid+geo.undrawn+geo.lost > 0 || len(docNotes) > 0 {
+	if v.note != "" || untyped || drawsNothing || v.rebuilt != nil || x.unwritten+x.dangling > 0 || geo.underlaid+geo.undrawn+geo.lost > 0 || len(docNotes) > 0 {
 		verdict = Approximated
 	}
 	v.entry = m.diagramEntry(d, verdict, m.qualified(append(m.segments(host), v.name)), note)
@@ -621,10 +644,16 @@ func (m *migration) writeViewBody(v *view, form viewForm) {
 func (m *migration) viewDeclaration(v *view, form viewForm, x exposures) (decl, note string) {
 	d, host := v.d, v.host
 	kind := diagramKind(d)
-	note = article(strings.ToLower(kind)) + kind + " written as a view rendered " + form.rendering
+	note = article(strings.ToLower(kind)) + kind + " written as a view"
+	if form.rendering != "" {
+		note += " rendered " + form.rendering
+	}
 	decl = "view " + writeName(v.name)
 	if form.definition != "" {
 		note += " of " + form.definition
+		if form.rendering == "" {
+			note += ", drawn as " + drawnAs(form.definition) + " by its definition"
+		}
 		prefix := viewDefinitionsPrefix
 		if m.shadowsLibrary("StandardViewDefinitions", host) {
 			prefix = globalViewDefinitionsPrefix
@@ -645,13 +674,17 @@ func (m *migration) viewDeclaration(v *view, form viewForm, x exposures) (decl, 
 }
 
 // viewShownNote notes what of the diagram's shown elements the view exposes
-// and draws, and what it leaves out.
-func (m *migration) viewShownNote(d *sysmlv1.Diagram, x exposures, geo viewGeometry, untyped bool) string {
+// and draws, and what it leaves out; for rows the tool never stored, what the
+// view exposes in their place.
+func (m *migration) viewShownNote(v *view, x exposures, geo viewGeometry, untyped bool) string {
+	d := v.d
 	shown := len(d.Shown)
 	var note string
 	switch {
 	case !d.Represented():
 		note = "no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing"
+	case v.rebuilt != nil:
+		note = v.rebuilt.note(m, d.Owner, v.host)
 	case shown == 0 && geo.pictures > 0:
 		note = "the diagram shows no model element; the view draws the " + plural(geo.pictures, pastedImage) + " it carries and exposes nothing"
 	case shown == 0 && geo.undrawn > 0:
@@ -666,6 +699,9 @@ func (m *migration) viewShownNote(d *sysmlv1.Diagram, x exposures, geo viewGeome
 	}
 	if x.unwritten > 0 {
 		note = joinNotes(note, fmt.Sprintf("%d of %d shown elements are not written and not exposed", x.unwritten, shown))
+	}
+	if x.symbolless > 0 {
+		note = joinNotes(note, fmt.Sprintf("%d of %d shown elements are compartment rows or end labels of exposed elements, not exposed", x.symbolless, shown))
 	}
 	if x.dangling > 0 {
 		note = joinNotes(note, fmt.Sprintf("%d of %d shown ids resolve to no element", x.dangling, shown))
@@ -705,6 +741,8 @@ func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form vi
 			// written as a Note the view's dressing lays out
 		case ref == "":
 			x.unwritten++
+		case !symbolized(form, shown):
+			x.symbolless++
 		default:
 			add(ref)
 			if c := m.connOf(shown.Element); form.useCases && c != nil {
@@ -717,6 +755,12 @@ func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form vi
 			for _, also := range m.edgeRefs(shown.Element, host) {
 				add(also)
 			}
+		}
+	}
+	if v := m.viewOf[d]; v != nil && v.rebuilt != nil {
+		refs, _ := v.rebuilt.refs(m, host)
+		for _, ref := range refs {
+			add(ref)
 		}
 	}
 	return x
@@ -1003,7 +1047,62 @@ func (m *migration) shownRef(e, scope *sysmlv1.Element, f viewForm) string {
 			return m.connRefs(c.of, scope)[0]
 		}
 	}
+	if e.Type == "Property" && m.associationDef(e.Parent) {
+		// An end an association's def declares is shown by the def's line or box;
+		// exposed by itself it would shadow a same-named end of another def.
+		return m.exposure(e.Parent, scope)
+	}
 	return m.exposure(e, scope)
+}
+
+// inheritedNodeRef names the library member a graph draws el as — the start an
+// initial node or pseudostate is written as, the done a flow final or final state
+// ends at — qualified through the body it is drawn in, as `about Run::start` names
+// Run's start: a view is a part with a start and done of its own, which the bare
+// name would reach. "" for a node written as a member of its own.
+func (m *migration) inheritedNodeRef(el, scope *sysmlv1.Element) string {
+	var name string
+	switch {
+	case el.Type == "InitialNode", pseudoKind(el) == "initial":
+		name = "start"
+	case el.Type == "FlowFinalNode", el.Type == "FinalState":
+		name = "done"
+	default:
+		return ""
+	}
+	body := el.Parent
+	if pseudoKind(el) == "initial" {
+		body = m.entryRegion(el)
+	}
+	if body == nil {
+		return ""
+	}
+	owner := m.edgePlaceIn(body, nil, name).owner
+	if owner == nil || !m.reaches(owner) {
+		return ""
+	}
+	return m.memberRef(owner, scope) + "::" + name
+}
+
+// entryRegion is the region whose start the initial pseudostate init is written as:
+// its own region when it is that region's entry, or the orthogonal region it is
+// donated to; nil for a duplicate, dangling, coinciding, conflicting or foreign
+// initial, which no start stands for.
+func (m *migration) entryRegion(init *sysmlv1.Element) *sysmlv1.Element {
+	r := init.Parent
+	if r == nil || r.Type != "Region" {
+		return nil
+	}
+	e := m.regionEntry(r)
+	if e.init == init {
+		return r
+	}
+	for _, st := range e.strays {
+		if st.init == init && m.regionEntry(st.into).init == init {
+			return st.into
+		}
+	}
+	return nil
 }
 
 // exposable is the declaration written for e that a view can expose: its own, the
@@ -1236,6 +1335,9 @@ func (p *layoutPlan) placements(rec *mtip.Diagram) []string {
 		if vertexBase(el) == "" || m.vertexWritten(el) {
 			ref = m.shownRef(el, v.host, p.form)
 		}
+		if ref == "" {
+			ref = m.inheritedNodeRef(el, v.host)
+		}
 		if ref == "" || !m.places(p.x, p.form, el, ref) {
 			s.PlacementsUnexposed++
 			p.unexposed++
@@ -1256,6 +1358,16 @@ func (p *layoutPlan) placements(rec *mtip.Diagram) []string {
 			m.diagramLayoutAttributeForHost(p.prefix, "Layout", "y", layoutNumber(pl.Y), v.host, p.x),
 			m.diagramLayoutAttributeForHost(p.prefix, "Layout", "width", layoutNumber(pl.Width), v.host, p.x),
 			m.diagramLayoutAttributeForHost(p.prefix, "Layout", "height", layoutNumber(pl.Height), v.host, p.x),
+		}
+		for _, kind := range pl.HiddenCompartments {
+			attrs = append(attrs, m.diagramLayoutAttributeForHost(p.prefix, "Layout", "show"+kind, "false", v.host, p.x))
+		}
+		if len(pl.HiddenCompartments) > 0 {
+			s.CompartmentsSuppressed += len(pl.HiddenCompartments)
+			s.SymbolsSuppressing++
+		}
+		for _, id := range pl.UnsupportedCompartments {
+			s.Unsupported[id]++
 		}
 		placements = append(placements, fmt.Sprintf("metadata %sLayout about %s { %s; }",
 			p.prefix, ref, strings.Join(attrs, "; ")))
@@ -1283,6 +1395,10 @@ func (p *layoutPlan) routes(rec *mtip.Diagram) []string {
 	var routes []string
 	p.reasons = map[string]int{}
 	pinned := map[string]bool{}
+	boxes := map[string]mtip.Placement{}
+	for _, pl := range rec.Placements {
+		boxes[pl.ID] = pl
+	}
 	for _, c := range rec.Connectors {
 		s.Routes++
 		el := m.model.Lookup(c.ID)
@@ -1295,16 +1411,15 @@ func (p *layoutPlan) routes(rec *mtip.Diagram) []string {
 		kind := routeKindName(c.Type, el)
 		var refs []string
 		var points [][]float64
-		why := ""
-		if refs, why = m.routeTarget(el, v.host, p.form); why == "" {
-			if !m.draws(p.x, p.form, el, refs[0]) {
+		general, why := "", ""
+		if refs, general, why = m.routeTarget(el, v.host, p.form); why == "" {
+			if !m.draws(p.x, p.form, v.host, el, refs[0]) || general != "" && !p.x.exposed(general) {
 				why = routeNotExposed
 			}
-			refs = []string{strings.Join(refs, ", ")}
-			points = [][]float64{m.linePoints(el, c)}
+			refs, points = m.routeLines(el, p.form, refs, m.linePoints(el, c, boxes))
 		}
 		ref := strings.Join(refs, ", ")
-		if why == "" && pinned[ref] {
+		if why == "" && pinned[ref+" :> "+general] {
 			p.refOf[c.ID] = ref
 			why = routeDuplicate
 		}
@@ -1314,20 +1429,21 @@ func (p *layoutPlan) routes(rec *mtip.Diagram) []string {
 			m.routeKinds.add(kind, why)
 			continue
 		}
-		pinned[ref] = true
+		pinned[ref+" :> "+general] = true
 		p.refOf[c.ID] = ref
 		s.RoutesWritten++
 		p.reasons[routeWritten]++
 		m.routeKinds.add(kind, routeWritten)
 		for i, r := range refs {
-			routes = append(routes, p.route(r, points[i]))
+			routes = append(routes, p.route(r, general, points[i]))
 		}
 	}
 	return routes
 }
 
-// route writes a Route pinning points, x then y per point, to the member ref names.
-func (p *layoutPlan) route(ref string, points []float64) string {
+// route writes a Route pinning points, x then y per point, to the member ref
+// names; a general names the element a specialization edge is steered to.
+func (p *layoutPlan) route(ref, general string, points []float64) string {
 	var b strings.Builder
 	b.WriteString("metadata " + p.prefix + "Route about " + ref + " { ")
 	b.WriteString(p.m.diagramLayoutAttributeForHost(p.prefix, "Route", "points", "(", p.v.host, p.x))
@@ -1342,28 +1458,99 @@ func (p *layoutPlan) route(ref string, points []float64) string {
 			p.grow(p.maxX, n)
 		}
 	}
-	b.WriteString("); }")
+	b.WriteString(");")
+	if general != "" {
+		b.WriteString(" ref :>> " + p.m.diagramLayoutFeatureForHost(p.prefix, "Route", "general", p.v.host, p.x) + " : " + general + ";")
+	}
+	b.WriteString(" }")
 	return b.String()
 }
 
-// linePoints is the line's points as the Route of el lists them: a connection
-// def's run from its first end's type to its second's, as a tree reads them.
-func (m *migration) linePoints(el *sysmlv1.Element, c mtip.Connector) []float64 {
-	if !m.associationDef(el) {
-		return c.Points
+// linePoints is the line's points as the Route of el lists them, run from the written
+// element's first end to its second as a rendering reads them: the record's ends, or
+// failing those the boxes it places, say which way the tool drew the line.
+func (m *migration) linePoints(el *sysmlv1.Element, c mtip.Connector, boxes map[string]mtip.Placement) []float64 {
+	if el.Type == "Connector" {
+		return m.connectorLinePoints(el, c)
 	}
-	ends := m.model.Refs(el, "memberEnd")
-	if len(ends) != 2 {
-		return c.Points
-	}
-	first, second := m.model.Ref(ends[0], "type"), m.model.Ref(ends[1], "type")
+	first, second := m.lineEnds(el)
 	if first == nil || second == nil || first == second {
 		return c.Points
 	}
-	if c.Ends[0] == second.ID || c.Ends[1] == first.ID {
+	reversed, known := lineReversed(c, first.ID, second.ID, boxes)
+	if !known {
+		// A flow between pins may be drawn, or its ends placed, at the actions owning them.
+		if a, b := ownerNode(first), ownerNode(second); a != b && (a != first || b != second) {
+			reversed, _ = lineReversed(c, a.ID, b.ID, boxes)
+		}
+	}
+	if reversed {
 		return reversePoints(c.Points)
 	}
 	return c.Points
+}
+
+// lineReversed reports whether c's points run from the element at the line's second
+// end to the one at its first, by the ends the record names or, naming none, the
+// boxes it places; known is false when neither end is named or placed.
+func lineReversed(c mtip.Connector, first, second string, boxes map[string]mtip.Placement) (reversed, known bool) {
+	ends := c.Ends
+	if ends == [2]string{} {
+		ends = endsAt(c.Points, [2]string{first, second}, boxes)
+	}
+	switch {
+	case ends[0] == second, ends[1] == first:
+		return true, true
+	case ends[0] == first, ends[1] == second:
+		return false, true
+	}
+	return false, false
+}
+
+// lineEnds are the elements at the ends of the line el is drawn as, in the order its
+// member names them: a flow's or transition's source then target, a connection def's end
+// types, or a backed attribute's owner then its type.
+func (m *migration) lineEnds(el *sysmlv1.Element) (first, second *sysmlv1.Element) {
+	if el.Role == "edge" || el.Type == "Transition" {
+		return m.model.Ref(el, "source"), m.model.Ref(el, "target")
+	}
+	if prop := m.backedProperty(el); prop != nil {
+		return prop.Parent, m.model.Ref(prop, "type")
+	}
+	if el.Type == "Generalization" {
+		return el.Parent, m.model.Ref(el, "general")
+	}
+	if !m.associationDef(el) {
+		return nil, nil
+	}
+	ends := m.model.Refs(el, "memberEnd")
+	if len(ends) != 2 {
+		return nil, nil
+	}
+	return m.model.Ref(ends[0], "type"), m.model.Ref(ends[1], "type")
+}
+
+// connectorLinePoints is connector el's line run as `bind a = b` names its ends: reversed when
+// the stream drew it from the second end's feature; as drawn when it names no end or one feature.
+func (m *migration) connectorLinePoints(el *sysmlv1.Element, c mtip.Connector) []float64 {
+	segs, note := m.connectorEnds(el, el.Parent)
+	if note != "" || c.Ends[0] == "" && c.Ends[1] == "" {
+		return c.Points
+	}
+	first, second := endFeature(segs[0]), endFeature(segs[1])
+	if first == second {
+		return c.Points
+	}
+	if c.Ends[0] == second || c.Ends[1] == first {
+		return reversePoints(c.Points)
+	}
+	return c.Points
+}
+
+// endFeature is the id of the feature a connector end's path names last, the element
+// the symbol at that end of the line stands for.
+func endFeature(seg []*sysmlv1.Element) string {
+	return seg[len(seg)-1].ID
 }
 
 // reversePoints is the flattened point list read from its last point to its first.
@@ -1385,8 +1572,11 @@ func (m *migration) drawnRef(x exposures, f viewForm, host *sysmlv1.Element, id 
 	if ref := m.shownRef(el, host, f); ref != "" && m.places(x, f, el, ref) {
 		return ref
 	}
-	refs, why := m.routeTarget(el, host, f)
-	if why != "" || !m.draws(x, f, el, refs[0]) {
+	if ref := m.inheritedNodeRef(el, host); ref != "" && m.places(x, f, el, ref) {
+		return ref
+	}
+	refs, _, why := m.routeTarget(el, host, f)
+	if why != "" || !m.draws(x, f, host, el, refs[0]) {
 		return ""
 	}
 	return strings.Join(refs, ", ")

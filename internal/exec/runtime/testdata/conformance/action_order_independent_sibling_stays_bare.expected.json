@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{"outputs": {"x": {"type": "Integer", "value": 1}, "p": {"type": "Integer", "value": 3}, "y": {"type": "Integer", "value": 2}, "q": {"type": "Integer", "value": 4}}},
+		{"outputs": {"x": {"type": "Integer", "value": 2}, "p": {"type": "Integer", "value": 3}, "y": {"type": "Integer", "value": 3}, "q": {"type": "Integer", "value": 4}}}
+	],
+	"admissible": "Values computed from an order-dependent one stand on the same choice points",
+	"orderDependent": {"x": 2, "y": 2}
+}

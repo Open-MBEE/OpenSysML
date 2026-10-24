@@ -75,6 +75,7 @@ elmt:Loops__Charge__prep
     sysml:owner elmt:Loops__Charge ;
     sysml:owningRelationship elmt:Loops__Charge__prep_om ;
     sysml:owningMembership elmt:Loops__Charge__prep_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "prep" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        action prep;\n" .
@@ -93,6 +94,7 @@ elmt:Loops__Charge__prep_om
 
 elmt:Loops__Charge___401
     a sysml:WhileLoopActionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Loops::Charge::@1" ;
     sysx:sourceLine "4"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -132,9 +134,10 @@ expr:Loops__Charge___401_puntilCondition
     a sysml:FeatureChainExpression ;
     sysx:sourceText "charging.done" ;
     sysml:elementId "Loops__Charge___401_puntilCondition" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Loops__Charge___401_puntilCondition_pa0 ;
-    sysml:ownedRelationship expr:Loops__Charge___401_puntilCondition_pin0_om, expr:Loops__Charge___401_puntilCondition_pout_om, expr:Loops__Charge___401_puntilCondition_ptargetFeature ;
-    sysml:ownedMembership expr:Loops__Charge___401_puntilCondition_pin0_om, expr:Loops__Charge___401_puntilCondition_pout_om ;
+    sysml:ownedRelationship expr:Loops__Charge___401_puntilCondition_pin0_om, expr:Loops__Charge___401_puntilCondition_ptargetFeature, expr:Loops__Charge___401_puntilCondition_pout_om ;
+    sysml:ownedMembership expr:Loops__Charge___401_puntilCondition_pin0_om, expr:Loops__Charge___401_puntilCondition_ptargetFeature, expr:Loops__Charge___401_puntilCondition_pout_om ;
     sysml:ownedFeatureMembership expr:Loops__Charge___401_puntilCondition_pin0_om, expr:Loops__Charge___401_puntilCondition_pout_om ;
     sysml:ownedFeature expr:Loops__Charge___401_puntilCondition_pin0, expr:Loops__Charge___401_puntilCondition_pout ;
     sysml:parameter expr:Loops__Charge___401_puntilCondition_pin0, expr:Loops__Charge___401_puntilCondition_pout ;
@@ -144,8 +147,8 @@ expr:Loops__Charge___401_puntilCondition
     sysml:owner elmt:Loops__Charge___401 ;
     sysml:owningRelationship expr:Loops__Charge___401_puntilCondition_om ;
     sysml:owningMembership expr:Loops__Charge___401_puntilCondition_om ;
-    json:ownedRelationship "[{\"@id\":\"Loops__Charge___401_puntilCondition_pin0_om\"},{\"@id\":\"Loops__Charge___401_puntilCondition_pout_om\"},{\"@id\":\"Loops__Charge___401_puntilCondition_ptargetFeature\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Loops__Charge___401_puntilCondition_pin0_om\"},{\"@id\":\"Loops__Charge___401_puntilCondition_pout_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Loops__Charge___401_puntilCondition_pin0_om\"},{\"@id\":\"Loops__Charge___401_puntilCondition_ptargetFeature\"},{\"@id\":\"Loops__Charge___401_puntilCondition_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Loops__Charge___401_puntilCondition_pin0_om\"},{\"@id\":\"Loops__Charge___401_puntilCondition_ptargetFeature\"},{\"@id\":\"Loops__Charge___401_puntilCondition_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Loops__Charge___401_puntilCondition_pin0_om\"},{\"@id\":\"Loops__Charge___401_puntilCondition_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Loops__Charge___401_puntilCondition_pin0\"},{\"@id\":\"Loops__Charge___401_puntilCondition_pout\"}]" ;
     json:parameter "[{\"@id\":\"Loops__Charge___401_puntilCondition_pin0\"},{\"@id\":\"Loops__Charge___401_puntilCondition_pout\"}]" .
@@ -154,9 +157,10 @@ expr:Loops__Charge___401_puntilCondition_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "charging" ;
     sysml:elementId "Loops__Charge___401_puntilCondition_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:ownedRelationship expr:Loops__Charge___401_puntilCondition_pa0_preferent, expr:Loops__Charge___401_puntilCondition_pa0_pout_om ;
+    sysml:ownedMembership expr:Loops__Charge___401_puntilCondition_pa0_preferent, expr:Loops__Charge___401_puntilCondition_pa0_pout_om ;
     sysml:referent elmt:Loops__Charge___401__charging ;
-    sysml:ownedRelationship expr:Loops__Charge___401_puntilCondition_pa0_pout_om, expr:Loops__Charge___401_puntilCondition_pa0_preferent ;
-    sysml:ownedMembership expr:Loops__Charge___401_puntilCondition_pa0_pout_om ;
     sysml:ownedFeatureMembership expr:Loops__Charge___401_puntilCondition_pa0_pout_om ;
     sysml:ownedFeature expr:Loops__Charge___401_puntilCondition_pa0_pout ;
     sysml:parameter expr:Loops__Charge___401_puntilCondition_pa0_pout ;
@@ -164,10 +168,19 @@ expr:Loops__Charge___401_puntilCondition_pa0
     sysml:owner expr:Loops__Charge___401_puntilCondition_pin0 ;
     sysml:owningRelationship expr:Loops__Charge___401_puntilCondition_pa0_om ;
     sysml:owningMembership expr:Loops__Charge___401_puntilCondition_pa0_om ;
-    json:ownedRelationship "[{\"@id\":\"Loops__Charge___401_puntilCondition_pa0_pout_om\"},{\"@id\":\"Loops__Charge___401_puntilCondition_pa0_preferent\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Loops__Charge___401_puntilCondition_pa0_preferent\"},{\"@id\":\"Loops__Charge___401_puntilCondition_pa0_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Loops__Charge___401_puntilCondition_pa0_preferent\"},{\"@id\":\"Loops__Charge___401_puntilCondition_pa0_pout_om\"}]" .
+
+expr:Loops__Charge___401_puntilCondition_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Loops__Charge___401_puntilCondition_pa0_preferent" ;
+    sysml:memberElement elmt:Loops__Charge___401__charging ;
+    sysml:owner expr:Loops__Charge___401_puntilCondition_pa0 ;
+    sysml:owningRelatedElement expr:Loops__Charge___401_puntilCondition_pa0 .
 
 expr:Loops__Charge___401_puntilCondition_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___401_puntilCondition_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Loops__Charge___401_puntilCondition_pa0 ;
@@ -188,6 +201,7 @@ expr:Loops__Charge___401_puntilCondition_pa0_pout_om
 
 expr:Loops__Charge___401_puntilCondition_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___401_puntilCondition_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Loops__Charge___401_puntilCondition ;
@@ -220,8 +234,16 @@ expr:Loops__Charge___401_puntilCondition_pa0_om
     sysml:featureWithValue expr:Loops__Charge___401_puntilCondition_pin0 ;
     sysml:value expr:Loops__Charge___401_puntilCondition_pa0 .
 
+expr:Loops__Charge___401_puntilCondition_ptargetFeature
+    a sysml:Membership ;
+    sysml:elementId "Loops__Charge___401_puntilCondition_ptargetFeature" ;
+    sysml:memberElement <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysml:owner expr:Loops__Charge___401_puntilCondition ;
+    sysml:owningRelatedElement expr:Loops__Charge___401_puntilCondition .
+
 expr:Loops__Charge___401_puntilCondition_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___401_puntilCondition_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Loops__Charge___401_puntilCondition ;
@@ -263,6 +285,7 @@ elmt:Loops__Charge___401__charging
     sysml:owner elmt:Loops__Charge___401 ;
     sysml:owningRelationship elmt:Loops__Charge___401__charging_om ;
     sysml:owningMembership elmt:Loops__Charge___401__charging_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "charging" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "            action charging;\n" .
@@ -281,6 +304,7 @@ elmt:Loops__Charge___401__charging_om
 
 elmt:Loops__Charge___402
     a sysml:WhileLoopActionUsage ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:qualifiedName "Loops::Charge::@2" ;
     sysx:sourceLine "7"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -321,9 +345,10 @@ expr:Loops__Charge___402_pwhileCondition
     a sysml:FeatureChainExpression ;
     sysx:sourceText "prep.done" ;
     sysml:elementId "Loops__Charge___402_pwhileCondition" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Loops__Charge___402_pwhileCondition_pa0 ;
-    sysml:ownedRelationship expr:Loops__Charge___402_pwhileCondition_pin0_om, expr:Loops__Charge___402_pwhileCondition_pout_om, expr:Loops__Charge___402_pwhileCondition_ptargetFeature ;
-    sysml:ownedMembership expr:Loops__Charge___402_pwhileCondition_pin0_om, expr:Loops__Charge___402_pwhileCondition_pout_om ;
+    sysml:ownedRelationship expr:Loops__Charge___402_pwhileCondition_pin0_om, expr:Loops__Charge___402_pwhileCondition_ptargetFeature, expr:Loops__Charge___402_pwhileCondition_pout_om ;
+    sysml:ownedMembership expr:Loops__Charge___402_pwhileCondition_pin0_om, expr:Loops__Charge___402_pwhileCondition_ptargetFeature, expr:Loops__Charge___402_pwhileCondition_pout_om ;
     sysml:ownedFeatureMembership expr:Loops__Charge___402_pwhileCondition_pin0_om, expr:Loops__Charge___402_pwhileCondition_pout_om ;
     sysml:ownedFeature expr:Loops__Charge___402_pwhileCondition_pin0, expr:Loops__Charge___402_pwhileCondition_pout ;
     sysml:parameter expr:Loops__Charge___402_pwhileCondition_pin0, expr:Loops__Charge___402_pwhileCondition_pout ;
@@ -333,8 +358,8 @@ expr:Loops__Charge___402_pwhileCondition
     sysml:owner elmt:Loops__Charge___402 ;
     sysml:owningRelationship expr:Loops__Charge___402_pwhileCondition_om ;
     sysml:owningMembership expr:Loops__Charge___402_pwhileCondition_om ;
-    json:ownedRelationship "[{\"@id\":\"Loops__Charge___402_pwhileCondition_pin0_om\"},{\"@id\":\"Loops__Charge___402_pwhileCondition_pout_om\"},{\"@id\":\"Loops__Charge___402_pwhileCondition_ptargetFeature\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Loops__Charge___402_pwhileCondition_pin0_om\"},{\"@id\":\"Loops__Charge___402_pwhileCondition_pout_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Loops__Charge___402_pwhileCondition_pin0_om\"},{\"@id\":\"Loops__Charge___402_pwhileCondition_ptargetFeature\"},{\"@id\":\"Loops__Charge___402_pwhileCondition_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Loops__Charge___402_pwhileCondition_pin0_om\"},{\"@id\":\"Loops__Charge___402_pwhileCondition_ptargetFeature\"},{\"@id\":\"Loops__Charge___402_pwhileCondition_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Loops__Charge___402_pwhileCondition_pin0_om\"},{\"@id\":\"Loops__Charge___402_pwhileCondition_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Loops__Charge___402_pwhileCondition_pin0\"},{\"@id\":\"Loops__Charge___402_pwhileCondition_pout\"}]" ;
     json:parameter "[{\"@id\":\"Loops__Charge___402_pwhileCondition_pin0\"},{\"@id\":\"Loops__Charge___402_pwhileCondition_pout\"}]" .
@@ -343,9 +368,10 @@ expr:Loops__Charge___402_pwhileCondition_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "prep" ;
     sysml:elementId "Loops__Charge___402_pwhileCondition_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:ownedRelationship expr:Loops__Charge___402_pwhileCondition_pa0_preferent, expr:Loops__Charge___402_pwhileCondition_pa0_pout_om ;
+    sysml:ownedMembership expr:Loops__Charge___402_pwhileCondition_pa0_preferent, expr:Loops__Charge___402_pwhileCondition_pa0_pout_om ;
     sysml:referent elmt:Loops__Charge__prep ;
-    sysml:ownedRelationship expr:Loops__Charge___402_pwhileCondition_pa0_pout_om, expr:Loops__Charge___402_pwhileCondition_pa0_preferent ;
-    sysml:ownedMembership expr:Loops__Charge___402_pwhileCondition_pa0_pout_om ;
     sysml:ownedFeatureMembership expr:Loops__Charge___402_pwhileCondition_pa0_pout_om ;
     sysml:ownedFeature expr:Loops__Charge___402_pwhileCondition_pa0_pout ;
     sysml:parameter expr:Loops__Charge___402_pwhileCondition_pa0_pout ;
@@ -353,10 +379,19 @@ expr:Loops__Charge___402_pwhileCondition_pa0
     sysml:owner expr:Loops__Charge___402_pwhileCondition_pin0 ;
     sysml:owningRelationship expr:Loops__Charge___402_pwhileCondition_pa0_om ;
     sysml:owningMembership expr:Loops__Charge___402_pwhileCondition_pa0_om ;
-    json:ownedRelationship "[{\"@id\":\"Loops__Charge___402_pwhileCondition_pa0_pout_om\"},{\"@id\":\"Loops__Charge___402_pwhileCondition_pa0_preferent\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Loops__Charge___402_pwhileCondition_pa0_preferent\"},{\"@id\":\"Loops__Charge___402_pwhileCondition_pa0_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Loops__Charge___402_pwhileCondition_pa0_preferent\"},{\"@id\":\"Loops__Charge___402_pwhileCondition_pa0_pout_om\"}]" .
+
+expr:Loops__Charge___402_pwhileCondition_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Loops__Charge___402_pwhileCondition_pa0_preferent" ;
+    sysml:memberElement elmt:Loops__Charge__prep ;
+    sysml:owner expr:Loops__Charge___402_pwhileCondition_pa0 ;
+    sysml:owningRelatedElement expr:Loops__Charge___402_pwhileCondition_pa0 .
 
 expr:Loops__Charge___402_pwhileCondition_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___402_pwhileCondition_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Loops__Charge___402_pwhileCondition_pa0 ;
@@ -377,6 +412,7 @@ expr:Loops__Charge___402_pwhileCondition_pa0_pout_om
 
 expr:Loops__Charge___402_pwhileCondition_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___402_pwhileCondition_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Loops__Charge___402_pwhileCondition ;
@@ -409,8 +445,16 @@ expr:Loops__Charge___402_pwhileCondition_pa0_om
     sysml:featureWithValue expr:Loops__Charge___402_pwhileCondition_pin0 ;
     sysml:value expr:Loops__Charge___402_pwhileCondition_pa0 .
 
+expr:Loops__Charge___402_pwhileCondition_ptargetFeature
+    a sysml:Membership ;
+    sysml:elementId "Loops__Charge___402_pwhileCondition_ptargetFeature" ;
+    sysml:memberElement <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysml:owner expr:Loops__Charge___402_pwhileCondition ;
+    sysml:owningRelatedElement expr:Loops__Charge___402_pwhileCondition .
+
 expr:Loops__Charge___402_pwhileCondition_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___402_pwhileCondition_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Loops__Charge___402_pwhileCondition ;
@@ -443,9 +487,10 @@ expr:Loops__Charge___402_puntilCondition
     a sysml:FeatureChainExpression ;
     sysx:sourceText "pace.done" ;
     sysml:elementId "Loops__Charge___402_puntilCondition" ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:argument expr:Loops__Charge___402_puntilCondition_pa0 ;
-    sysml:ownedRelationship expr:Loops__Charge___402_puntilCondition_pin0_om, expr:Loops__Charge___402_puntilCondition_pout_om, expr:Loops__Charge___402_puntilCondition_ptargetFeature ;
-    sysml:ownedMembership expr:Loops__Charge___402_puntilCondition_pin0_om, expr:Loops__Charge___402_puntilCondition_pout_om ;
+    sysml:ownedRelationship expr:Loops__Charge___402_puntilCondition_pin0_om, expr:Loops__Charge___402_puntilCondition_ptargetFeature, expr:Loops__Charge___402_puntilCondition_pout_om ;
+    sysml:ownedMembership expr:Loops__Charge___402_puntilCondition_pin0_om, expr:Loops__Charge___402_puntilCondition_ptargetFeature, expr:Loops__Charge___402_puntilCondition_pout_om ;
     sysml:ownedFeatureMembership expr:Loops__Charge___402_puntilCondition_pin0_om, expr:Loops__Charge___402_puntilCondition_pout_om ;
     sysml:ownedFeature expr:Loops__Charge___402_puntilCondition_pin0, expr:Loops__Charge___402_puntilCondition_pout ;
     sysml:parameter expr:Loops__Charge___402_puntilCondition_pin0, expr:Loops__Charge___402_puntilCondition_pout ;
@@ -455,8 +500,8 @@ expr:Loops__Charge___402_puntilCondition
     sysml:owner elmt:Loops__Charge___402 ;
     sysml:owningRelationship expr:Loops__Charge___402_puntilCondition_om ;
     sysml:owningMembership expr:Loops__Charge___402_puntilCondition_om ;
-    json:ownedRelationship "[{\"@id\":\"Loops__Charge___402_puntilCondition_pin0_om\"},{\"@id\":\"Loops__Charge___402_puntilCondition_pout_om\"},{\"@id\":\"Loops__Charge___402_puntilCondition_ptargetFeature\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Loops__Charge___402_puntilCondition_pin0_om\"},{\"@id\":\"Loops__Charge___402_puntilCondition_pout_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Loops__Charge___402_puntilCondition_pin0_om\"},{\"@id\":\"Loops__Charge___402_puntilCondition_ptargetFeature\"},{\"@id\":\"Loops__Charge___402_puntilCondition_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Loops__Charge___402_puntilCondition_pin0_om\"},{\"@id\":\"Loops__Charge___402_puntilCondition_ptargetFeature\"},{\"@id\":\"Loops__Charge___402_puntilCondition_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Loops__Charge___402_puntilCondition_pin0_om\"},{\"@id\":\"Loops__Charge___402_puntilCondition_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Loops__Charge___402_puntilCondition_pin0\"},{\"@id\":\"Loops__Charge___402_puntilCondition_pout\"}]" ;
     json:parameter "[{\"@id\":\"Loops__Charge___402_puntilCondition_pin0\"},{\"@id\":\"Loops__Charge___402_puntilCondition_pout\"}]" .
@@ -465,9 +510,10 @@ expr:Loops__Charge___402_puntilCondition_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "pace" ;
     sysml:elementId "Loops__Charge___402_puntilCondition_pa0" ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:ownedRelationship expr:Loops__Charge___402_puntilCondition_pa0_preferent, expr:Loops__Charge___402_puntilCondition_pa0_pout_om ;
+    sysml:ownedMembership expr:Loops__Charge___402_puntilCondition_pa0_preferent, expr:Loops__Charge___402_puntilCondition_pa0_pout_om ;
     sysml:referent elmt:Loops__Charge___402__pace ;
-    sysml:ownedRelationship expr:Loops__Charge___402_puntilCondition_pa0_pout_om, expr:Loops__Charge___402_puntilCondition_pa0_preferent ;
-    sysml:ownedMembership expr:Loops__Charge___402_puntilCondition_pa0_pout_om ;
     sysml:ownedFeatureMembership expr:Loops__Charge___402_puntilCondition_pa0_pout_om ;
     sysml:ownedFeature expr:Loops__Charge___402_puntilCondition_pa0_pout ;
     sysml:parameter expr:Loops__Charge___402_puntilCondition_pa0_pout ;
@@ -475,10 +521,19 @@ expr:Loops__Charge___402_puntilCondition_pa0
     sysml:owner expr:Loops__Charge___402_puntilCondition_pin0 ;
     sysml:owningRelationship expr:Loops__Charge___402_puntilCondition_pa0_om ;
     sysml:owningMembership expr:Loops__Charge___402_puntilCondition_pa0_om ;
-    json:ownedRelationship "[{\"@id\":\"Loops__Charge___402_puntilCondition_pa0_pout_om\"},{\"@id\":\"Loops__Charge___402_puntilCondition_pa0_preferent\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Loops__Charge___402_puntilCondition_pa0_preferent\"},{\"@id\":\"Loops__Charge___402_puntilCondition_pa0_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Loops__Charge___402_puntilCondition_pa0_preferent\"},{\"@id\":\"Loops__Charge___402_puntilCondition_pa0_pout_om\"}]" .
+
+expr:Loops__Charge___402_puntilCondition_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Loops__Charge___402_puntilCondition_pa0_preferent" ;
+    sysml:memberElement elmt:Loops__Charge___402__pace ;
+    sysml:owner expr:Loops__Charge___402_puntilCondition_pa0 ;
+    sysml:owningRelatedElement expr:Loops__Charge___402_puntilCondition_pa0 .
 
 expr:Loops__Charge___402_puntilCondition_pa0_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___402_puntilCondition_pa0_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Loops__Charge___402_puntilCondition_pa0 ;
@@ -499,6 +554,7 @@ expr:Loops__Charge___402_puntilCondition_pa0_pout_om
 
 expr:Loops__Charge___402_puntilCondition_pin0
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___402_puntilCondition_pin0" ;
     sysml:direction "in" ;
     sysml:owner expr:Loops__Charge___402_puntilCondition ;
@@ -531,8 +587,16 @@ expr:Loops__Charge___402_puntilCondition_pa0_om
     sysml:featureWithValue expr:Loops__Charge___402_puntilCondition_pin0 ;
     sysml:value expr:Loops__Charge___402_puntilCondition_pa0 .
 
+expr:Loops__Charge___402_puntilCondition_ptargetFeature
+    a sysml:Membership ;
+    sysml:elementId "Loops__Charge___402_puntilCondition_ptargetFeature" ;
+    sysml:memberElement <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysml:owner expr:Loops__Charge___402_puntilCondition ;
+    sysml:owningRelatedElement expr:Loops__Charge___402_puntilCondition .
+
 expr:Loops__Charge___402_puntilCondition_pout
     a sysml:Feature ;
+    sysml:isComposite "false"^^xsd:boolean ;
     sysml:elementId "Loops__Charge___402_puntilCondition_pout" ;
     sysml:direction "out" ;
     sysml:owner expr:Loops__Charge___402_puntilCondition ;
@@ -574,6 +638,7 @@ elmt:Loops__Charge___402__pace
     sysml:owner elmt:Loops__Charge___402 ;
     sysml:owningRelationship elmt:Loops__Charge___402__pace_om ;
     sysml:owningMembership elmt:Loops__Charge___402__pace_om ;
+    sysml:isComposite "true"^^xsd:boolean ;
     sysml:declaredName "pace" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "            action pace;\n" .
@@ -589,48 +654,6 @@ elmt:Loops__Charge___402__pace_om
     sysml:membershipOwningNamespace elmt:Loops__Charge___402 ;
     sysml:ownedMemberFeature elmt:Loops__Charge___402__pace ;
     sysml:owningType elmt:Loops__Charge___402 .
-
-expr:Loops__Charge___401_puntilCondition_ptargetFeature
-    a sysml:Membership ;
-    sysml:elementId "Loops__Charge___401_puntilCondition_ptargetFeature" ;
-    sysml:memberElement <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
-    sysml:owner expr:Loops__Charge___401_puntilCondition ;
-    sysml:owningRelatedElement expr:Loops__Charge___401_puntilCondition .
-
-expr:Loops__Charge___401_puntilCondition_pa0_preferent
-    a sysml:Membership ;
-    sysml:elementId "Loops__Charge___401_puntilCondition_pa0_preferent" ;
-    sysml:memberElement elmt:Loops__Charge___401__charging ;
-    sysml:owner expr:Loops__Charge___401_puntilCondition_pa0 ;
-    sysml:owningRelatedElement expr:Loops__Charge___401_puntilCondition_pa0 .
-
-expr:Loops__Charge___402_pwhileCondition_ptargetFeature
-    a sysml:Membership ;
-    sysml:elementId "Loops__Charge___402_pwhileCondition_ptargetFeature" ;
-    sysml:memberElement <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
-    sysml:owner expr:Loops__Charge___402_pwhileCondition ;
-    sysml:owningRelatedElement expr:Loops__Charge___402_pwhileCondition .
-
-expr:Loops__Charge___402_pwhileCondition_pa0_preferent
-    a sysml:Membership ;
-    sysml:elementId "Loops__Charge___402_pwhileCondition_pa0_preferent" ;
-    sysml:memberElement elmt:Loops__Charge__prep ;
-    sysml:owner expr:Loops__Charge___402_pwhileCondition_pa0 ;
-    sysml:owningRelatedElement expr:Loops__Charge___402_pwhileCondition_pa0 .
-
-expr:Loops__Charge___402_puntilCondition_ptargetFeature
-    a sysml:Membership ;
-    sysml:elementId "Loops__Charge___402_puntilCondition_ptargetFeature" ;
-    sysml:memberElement <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
-    sysml:owner expr:Loops__Charge___402_puntilCondition ;
-    sysml:owningRelatedElement expr:Loops__Charge___402_puntilCondition .
-
-expr:Loops__Charge___402_puntilCondition_pa0_preferent
-    a sysml:Membership ;
-    sysml:elementId "Loops__Charge___402_puntilCondition_pa0_preferent" ;
-    sysml:memberElement elmt:Loops__Charge___402__pace ;
-    sysml:owner expr:Loops__Charge___402_puntilCondition_pa0 ;
-    sysml:owningRelatedElement expr:Loops__Charge___402_puntilCondition_pa0 .
 
 <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64>
     a sysml:ActionUsage ;

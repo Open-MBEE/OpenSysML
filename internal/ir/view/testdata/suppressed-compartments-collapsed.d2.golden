@@ -1,0 +1,8 @@
+# CameraViews::collapsed — tree rendering (render asTreeDiagram)
+# not represented: 9 node(s) without a position: 0 drawn as compartment rows of the node above them, 9 in compartments its Layout hides left undrawn
+# not represented: 1 positioned node(s) and 0 route(s) kept as comments; D2 pins no position, the dot form does
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+}
+# layout: n0 x=10 y=10 w=200 h=33
+n0: "«part def»\nImaging" { class: definition }

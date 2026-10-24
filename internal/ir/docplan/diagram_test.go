@@ -510,3 +510,35 @@ func TestCompileDiagramTakesVerdictsOnARequirementRendering(t *testing.T) {
 		t.Fatalf("kind %q overlay %q", reference.Kind(), reference.Overlay())
 	}
 }
+
+func TestCompileDiagramCarriesTheNotationElementsShown(t *testing.T) {
+	fixture := loadPlanningFixture(t, diagramDocument(`
+		part imaging : Diagram {
+			attribute redefines show = "edge-labels, typings";
+			ref redefines source = interconnectView;
+		}
+	`))
+	plan := fixture.mustCompile(t, "Report")
+	reference := plan.Content()[0].Diagram()
+	if shown := reference.Shown(); !shown.Has(view.ElementEdgeLabels) || !shown.Has(view.ElementTypings) || shown.Has(view.ElementKeywords) {
+		t.Fatalf("shown = %v", shown)
+	}
+}
+
+func TestCompileDiagramRejectsAnUnknownNotationElement(t *testing.T) {
+	fixture := loadPlanningFixture(t, diagramDocument(`
+		part imaging : Diagram {
+			attribute redefines show = "boxes";
+			ref redefines source = interconnectView;
+		}
+	`))
+	_, err := fixture.compile(t, "Report")
+	planning := planningError(t, err)
+	if planning.Kind != ErrorInvalidShow || planning.Actual != "boxes" {
+		t.Fatalf("error = %+v", planning)
+	}
+	want := `document Observatory::Report diagram Observatory::Report::imaging show must name the notation elements to draw, ` + view.ElementNames() + ` or all, got "boxes"`
+	if planning.Error() != want {
+		t.Fatalf("error = %q, want %q", planning.Error(), want)
+	}
+}

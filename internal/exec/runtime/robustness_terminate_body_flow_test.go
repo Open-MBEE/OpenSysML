@@ -86,8 +86,8 @@ func testTerminateBodyFlowCycle(t *testing.T) {
 			then done;
 		}
 	}`)
-	if !errors.Is(err, ErrInvalidActionFlow) {
-		t.Fatalf("error = %v, want ErrInvalidActionFlow", err)
+	if !errors.Is(err, errInvalidActionFlow) {
+		t.Fatalf("error = %v, want errInvalidActionFlow", err)
 	}
 }
 
@@ -106,7 +106,7 @@ func testTerminateBodyFlowUnknownStep(t *testing.T) {
 			then done;
 		}
 	}`)
-	if !errors.Is(err, ErrInvalidActionFlow) {
-		t.Fatalf("error = %v, want ErrInvalidActionFlow", err)
+	if !errors.Is(err, errInvalidActionFlow) {
+		t.Fatalf("error = %v, want errInvalidActionFlow", err)
 	}
 }

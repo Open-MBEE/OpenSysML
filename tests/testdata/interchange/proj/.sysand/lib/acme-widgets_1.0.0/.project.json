@@ -1,0 +1,8 @@
+{
+  "name": "Widgets",
+  "publisher": "acme",
+  "version": "1.0.0",
+  "usage": [
+    { "resource": "pkg:registry/acme/gears", "versionConstraint": "2.0.0" }
+  ]
+}

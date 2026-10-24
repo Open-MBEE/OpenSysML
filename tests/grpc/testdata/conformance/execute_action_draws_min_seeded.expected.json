@@ -1,0 +1,26 @@
+{
+  "rpc": "ExecuteAction",
+  "symbol_id": "test::draw",
+  "draws": "min",
+  "seed": 7,
+  "expected_outputs": {
+    "d": {
+      "kind": "sequence",
+      "elements": [
+        {
+          "kind": "real_value",
+          "value": 0.0
+        }
+      ]
+    },
+    "n": {
+      "kind": "sequence",
+      "elements": [
+        {
+          "kind": "int_value",
+          "value": 1
+        }
+      ]
+    }
+  }
+}

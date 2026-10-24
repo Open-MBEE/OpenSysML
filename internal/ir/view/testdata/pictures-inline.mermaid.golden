@@ -31,9 +31,9 @@ flowchart LR
   subgraph n0 ["`*«part def»* **Table**`"]
     direction LR
     n1("`*«part»*
-**bench : Bench**`")
+**bench**`")
     n2("`*«part»*
-**camera : Camera**`")
+**camera**`")
   end
   picture0@{ img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGJigAI4AxAAAP//AEgABdCvTH4AAAAASUVORK5CYII=", label: "the bench, from above", w: 823, h: 577 }
   picture1@{ img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGJigAI4AxAAAP//AEgABdCvTH4AAAAASUVORK5CYII=", label: "", w: 80, h: 40 }

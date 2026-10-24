@@ -8,31 +8,32 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/sweep"
 )
 
 // doubleRow runs the fixture's calc once per row, in the row's context, with the swept
 // parameter bound.
-func doubleRow(t *testing.T, f *fixture) runtime.SweepRun {
+func doubleRow(t *testing.T, f *fixture) sweep.SweepRun {
 	t.Helper()
 	double := f.symbol(t, "Double")
-	return func(ctx *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+	return func(ctx *runtime.Context, bindings []sweep.SweepBinding) (sweep.SweepRunResult, error) {
 		bound := make(map[string]runtime.Value, len(bindings))
 		for _, b := range bindings {
 			bound[b.Param] = b.Value
 		}
 		value, err := ctx.InvokeCalcWith(double, nil, bound, f.pkg)
 		if err != nil {
-			return runtime.SweepRunResult{}, err
+			return sweep.SweepRunResult{}, err
 		}
-		return runtime.SweepRunResult{Outputs: []runtime.CalcOutputValue{{Name: "result", Value: value}}}, nil
+		return sweep.SweepRunResult{Outputs: []runtime.CalcOutputValue{{Name: "result", Value: value}}}, nil
 	}
 }
 
 // doublePlan sweeps x over 1..3 as the calc's parameter types it.
-func doublePlan(t *testing.T, f *fixture, ctx *runtime.Context) runtime.SweepPlan {
+func doublePlan(t *testing.T, f *fixture, ctx *runtime.Context) sweep.SweepPlan {
 	t.Helper()
-	plan := runtime.SweepPlan{Ranges: []runtime.SweepRange{{Param: "x", From: intOf(1), To: intOf(3)}}}
-	resolved, err := ctx.ResolveSweepPlan(f.symbol(t, "Double"), plan, 0, nil)
+	plan := sweep.SweepPlan{Ranges: []sweep.SweepRange{{Param: "x", From: intOf(1), To: intOf(3)}}}
+	resolved, err := sweep.ResolvePlan(ctx, f.symbol(t, "Double"), plan, 0, nil)
 	if err != nil {
 		t.Fatalf("resolve the plan: %v", err)
 	}
@@ -40,8 +41,8 @@ func doublePlan(t *testing.T, f *fixture, ctx *runtime.Context) runtime.SweepPla
 }
 
 // sweepIn is the one-job sweep with every row in ctx, as a test of a plan's rows takes it.
-func sweepIn(ctx *runtime.Context, target string, plan runtime.SweepPlan, run runtime.SweepRun) (runtime.SweepTable, error) {
-	return runtime.RunSweepWith(context.Background(), runtime.SweepWorkers{First: ctx, Jobs: 1, Fresh: func(int) (*runtime.Context, error) { return ctx, nil }}, target, plan, 0, run)
+func sweepIn(ctx *runtime.Context, target string, plan sweep.SweepPlan, run sweep.SweepRun) (sweep.SweepTable, error) {
+	return sweep.RunSweepWith(context.Background(), sweep.SweepWorkers{First: ctx, Jobs: 1, Fresh: func(int) (*runtime.Context, error) { return ctx, nil }}, target, plan, 0, run)
 }
 
 func TestSweepObservesATable(t *testing.T) {
@@ -62,13 +63,13 @@ func TestSweepObservesATable(t *testing.T) {
 	}
 	for i, row := range table.Rows {
 		want := int64(2 * (i + 1))
-		if row.Err != nil || len(row.Outputs) != 1 || row.Outputs[0].Value.Const.Int != want {
+		if row.Err != nil || len(row.Outputs) != 1 || row.Outputs[0].Value.Sole().Const.Int != want {
 			t.Fatalf("row %d %+v, want result = %d", i, row, want)
 		}
 		if row.Context == nil || row.Context == ctx {
 			t.Fatalf("row %d ran in %p, want a context of its own", i, row.Context)
 		}
-		if result.Values[i].Row == nil || result.Values[i].Row.Outputs[0].Value.Const.Int != want || result.Values[i].Name != fmt.Sprintf("row %d", i+1) {
+		if result.Values[i].Row == nil || result.Values[i].Row.Outputs[0].Value.Sole().Const.Int != want || result.Values[i].Name != fmt.Sprintf("row %d", i+1) {
 			t.Fatalf("value %d %+v, want row %d", i, result.Values[i], i+1)
 		}
 	}
@@ -92,7 +93,7 @@ func TestSweepTakesTheBudgetsRuns(t *testing.T) {
 		t.Fatalf("bounds %s, want the budget's 5 runs unreached", result.Bounds)
 	}
 	_, err := Default().Answer(context.Background(), f.building(), q, Budget{Runs: 2})
-	if !errors.Is(err, runtime.ErrSweepBudget) || !strings.Contains(err.Error(), "at most 2 allowed") {
+	if !errors.Is(err, sweep.ErrSweepBudget) || !strings.Contains(err.Error(), "at most 2 allowed") {
 		t.Fatalf("3 rows within 2 runs: %v, want the runtime's refusal of the budget's 2", err)
 	}
 }
@@ -122,9 +123,9 @@ func TestRegistrySweepIsTheRuntimesSweep(t *testing.T) {
 func TestSweepRefusalIsTheRuntimes(t *testing.T) {
 	f := parseFixture(t)
 	ctx := f.context(t)
-	plan := runtime.SweepPlan{Ranges: []runtime.SweepRange{{Param: "x", From: intOf(1), To: intOf(4), Step: intOf(0), HasStep: true}}}
+	plan := sweep.SweepPlan{Ranges: []sweep.SweepRange{{Param: "x", From: intOf(1), To: intOf(4), Step: intOf(0), HasStep: true}}}
 	_, err := Default().Sweep(context.Background(), request(f.building(), "test::Double", ctx.Schedule()), plan, doubleRow(t, f))
-	if !errors.Is(err, runtime.ErrSweepRange) {
+	if !errors.Is(err, sweep.ErrSweepRange) {
 		t.Fatalf("sweep with a zero step: %v, want the runtime's range refusal", err)
 	}
 	_, direct := sweepIn(ctx, "test::Double", plan, doubleRow(t, f))
@@ -135,8 +136,8 @@ func TestSweepRefusalIsTheRuntimes(t *testing.T) {
 
 func TestSweepRefusesWhatItCannotRun(t *testing.T) {
 	e := NewSweep()
-	ask := &SweepAsk{Row: func(*runtime.Context, []runtime.SweepBinding) (runtime.SweepRunResult, error) {
-		return runtime.SweepRunResult{}, nil
+	ask := &SweepAsk{Row: func(*runtime.Context, []sweep.SweepBinding) (sweep.SweepRunResult, error) {
+		return sweep.SweepRunResult{}, nil
 	}}
 	if c := e.Covers(nil, Question{Kind: Evaluate}); c.Covered || !errors.Is(c.Refusal, ErrNotAsked) {
 		t.Fatalf("evaluate: %+v, want not asked", c)

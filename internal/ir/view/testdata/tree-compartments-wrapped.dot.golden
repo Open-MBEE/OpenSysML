@@ -1,0 +1,11 @@
+// view: AmplifierViews::wrapped
+// kind: tree
+// stated: render asTreeDiagram
+// not represented: 3 node(s) without a position, drawn as compartment rows of the node above them
+// layout: neato -n
+digraph "AmplifierViews::wrapped" {
+  graph [fontname="Helvetica", layout=neato, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«part def»</i></font><br/><b>Label</b></td></tr><hr/><tr><td><font point-size="10">attributes</font></td></tr><tr><td align="left">attribute<br/>&#39;upper<br/>lower&#39;<br/>length = StringFunctions::Length(&#34;a  b&#34;)</td></tr></table>>, pos="188,-72!", pin=true, width=4.944444444444445, height=1.7222222222222223];
+}

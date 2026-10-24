@@ -1,105 +1,107 @@
 # SysML v1 to v2 migration report: vehicle.xmi
 # exported by Example UML Tool
-# migrated 93 element(s): 77 mapped, 13 approximated, 3 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 95 element(s): 77 mapped, 15 approximated, 3 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (3)
 «Verify» Abstraction	Requirements::<Abstraction>	_dep_verify_block	(a verify whose client is not a test case has no v2 form; applied stereotypes «Verify»)
 «Unit» InstanceSpecification	Vehicle Design::Value Types::kilogram	_unit_kg	(units and quantity kinds are not migrated; use the SI and ISQ libraries; applied stereotypes «Unit» (quantityKind = Vehicle Design::Value Types::mass; symbol = kg))
 «QuantityKind» InstanceSpecification	Vehicle Design::Value Types::mass	_qk_mass	(units and quantity kinds are not migrated; use the SI and ISQ libraries; applied stereotypes «QuantityKind»)
 
-## approximated (13)
-Package	Requirements	_pkg_reqs	-> RequirementsModel	(written as RequirementsModel since a root package named Requirements would be hidden by the standard library's Requirements)
-«Refine» Abstraction	Requirements::<Abstraction>	_dep_refine	-> 'Drive refines Speed Requirement'	(written as a connection between usages of its ends, which a diagram draws; the standard Refinement metadata annotates only a dependency, so the connection's name says it refines)
-«Trace» Abstraction	Requirements::<Abstraction>	_dep_trace	(a trace is written as a plain dependency)
-«TestCase» Activity	Requirements::Mass Test	_tc_mass	-> RequirementsModel::'Mass Test'	(the test case's behavior is not migrated; only its verified requirements are)
-Diagram	Vehicle BDD	_diag_bdd	-> 'Vehicle BDD'	(a diagram of unknown kind written as a view rendered asTextualNotation; the diagram names no owner; written at the top level, which holds it; no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing)
-Actor	Vehicle Design::Driver	_actor_driver	-> 'Vehicle Design'::Driver	(a UML actor is written as a part usage)
-«FlowPort» Port	Vehicle Design::Engine::speedIn	_port_speedIn	-> 'Vehicle Design'::Engine::speedIn	(a port typed by a DataType is written as a port holding one directed attribute)
-«FlowPort» Port	Vehicle Design::Piston::p	_port_piston_p	-> 'Vehicle Design'::Piston::p	(a port typed by a DataType is written as a port holding one directed attribute)
-«ValueType» DataType	Vehicle Design::Value Types::Mass	_vt_mass	-> 'Vehicle Design'::'Value Types'::Mass	(«ValueType» quantityKind = Vehicle Design::Value Types::mass; unit = Vehicle Design::Value Types::kilogram has no v2 form)
-«Block» Class	Vehicle Design::Vehicle	_blk_vehicle	-> 'Vehicle Design'::Vehicle	(«Block» isEncapsulated = true has no v2 form)
-Property	Vehicle Design::Vehicle::sharedCharger	_prop_charger	-> 'Vehicle Design'::Vehicle::sharedCharger	(shared aggregation is written as a reference part)
-«FlowPort» Port	Vehicle Design::Vehicle::speedOut	_port_speedOut	-> 'Vehicle Design'::Vehicle::speedOut	(a port typed by a DataType is written as a port holding one directed attribute)
-Property	Vehicle Design::Vehicle::totalMass	_prop_total	-> 'Vehicle Design'::Vehicle::totalMass	(opaque expression copied verbatim (language SysML))
+## approximated (15)
+«Refine» Abstraction	Requirements::<Abstraction>	_dep_refine	-> Model::'Drive refines Speed Requirement'	(written as a connection between usages of its ends, which a diagram draws; the standard Refinement metadata annotates only a dependency, so the connection's name says it refines)
+«Trace» Abstraction	Requirements::<Abstraction>	_dep_trace	-> Model::Requirements::'Speed Requirement traces Engine'	(a trace is written as a plain dependency named by its kind)
+«TestCase» Activity	Requirements::Mass Test	_tc_mass	-> Model::Requirements::'Mass Test'	(the test case's behavior is not migrated; only its verified requirements are)
+Diagram	Vehicle BDD	_diag_bdd	-> Model::'Vehicle BDD'	(a diagram of unknown kind written as a view rendered asTextualNotation; the diagram names no owner; written in package Model, which holds it; no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing)
+Association	Vehicle Design::<Association>	_assoc_vehicle_engine	-> Model::'Vehicle Design'::EngineToVehicle	(the anonymous Association is written as connection def EngineToVehicle; its one usage is the connection engine to vehicle joining engine and vehicle)
+Association	Vehicle Design::<Association>	_assoc_vehicle_wheel	-> Model::'Vehicle Design'::WheelToVehicle	(the anonymous Association is written as connection def WheelToVehicle; its one usage is the connection wheel to vehicle joining wheel and vehicle)
+Actor	Vehicle Design::Driver	_actor_driver	-> Model::'Vehicle Design'::Driver	(a UML actor is written as a part usage)
+Association	Vehicle Design::Drives	_assoc_vehicle_driver	-> Model::'Vehicle Design'::Drives	(its one usage is the connection drives joining Driver and vehicle; end driver crosses no property: its type Vehicle Design::Driver is written as a usage, not a definition, so the property's type and the end's cannot be the same)
+«FlowPort» Port	Vehicle Design::Engine::speedIn	_port_speedIn	-> Model::'Vehicle Design'::Engine::speedIn	(a port typed by a DataType is written as a port holding one directed attribute)
+«FlowPort» Port	Vehicle Design::Piston::p	_port_piston_p	-> Model::'Vehicle Design'::Piston::p	(a port typed by a DataType is written as a port holding one directed attribute)
+«ValueType» DataType	Vehicle Design::Value Types::Mass	_vt_mass	-> Model::'Vehicle Design'::'Value Types'::Mass	(«ValueType» quantityKind = Vehicle Design::Value Types::mass; unit = Vehicle Design::Value Types::kilogram has no v2 form)
+«Block» Class	Vehicle Design::Vehicle	_blk_vehicle	-> Model::'Vehicle Design'::Vehicle	(«Block» isEncapsulated = true has no v2 form)
+Property	Vehicle Design::Vehicle::sharedCharger	_prop_charger	-> Model::'Vehicle Design'::Vehicle::sharedCharger	(shared aggregation is written as a reference part)
+«FlowPort» Port	Vehicle Design::Vehicle::speedOut	_port_speedOut	-> Model::'Vehicle Design'::Vehicle::speedOut	(a port typed by a DataType is written as a port holding one directed attribute)
+Property	Vehicle Design::Vehicle::totalMass	_prop_total	-> Model::'Vehicle Design'::Vehicle::totalMass	(opaque expression copied verbatim (language SysML))
 
 ## mapped (77)
 Comment	<Comment>	_cmt_model
-Package	Empty Package	_pkg_unused	-> 'Empty Package'
-Model	Model	_model	(the root model's members are written at the top level)
-«Satisfy» Abstraction	Requirements::<Abstraction>	_dep_satisfy	-> 'Vehicle Design'::Vehicle
-«Satisfy» Abstraction	Requirements::<Abstraction>	_dep_satisfy_prop	-> 'Vehicle Design'::Vehicle
-«DeriveReqt» Abstraction	Requirements::<Abstraction>	_dep_derive	-> RequirementsModel::'Derive Engine Mass Requirement'
-«Verify» Abstraction	Requirements::<Abstraction>	_dep_verify	-> RequirementsModel::'Mass Test'
-«Allocate» Abstraction	Requirements::<Abstraction>	_dep_allocate	-> RequirementsModel::'Drive to Engine'
-«Allocate» Abstraction	Requirements::<Abstraction>	_dep_allocate_blocks	-> RequirementsModel::'Motor to Engine'
+Package	Empty Package	_pkg_unused	-> Model::'Empty Package'
+Model	Model	_model	-> Model	(written as package Model)
+Package	Requirements	_pkg_reqs	-> Model::Requirements
+«Satisfy» Abstraction	Requirements::<Abstraction>	_dep_satisfy	-> Model::'Vehicle Design'::Vehicle
+«Satisfy» Abstraction	Requirements::<Abstraction>	_dep_satisfy_prop	-> Model::'Vehicle Design'::Vehicle
+«DeriveReqt» Abstraction	Requirements::<Abstraction>	_dep_derive	-> Model::Requirements::'Derive Engine Mass Requirement'
+«Verify» Abstraction	Requirements::<Abstraction>	_dep_verify	-> Model::Requirements::'Mass Test'
+«Allocate» Abstraction	Requirements::<Abstraction>	_dep_allocate	-> Model::Requirements::'Drive to Engine'
+«Allocate» Abstraction	Requirements::<Abstraction>	_dep_allocate_blocks	-> Model::Requirements::'Motor to Engine'
 Dependency	Requirements::<Dependency>	_dep_plain
-«Requirement» Class	Requirements::Engine Mass Requirement	_req_derived	-> RequirementsModel::'Engine Mass Requirement'
-«Requirement» Class	Requirements::Mass Requirement	_req_mass	-> RequirementsModel::'Mass Requirement'
-«Requirement» Class	Requirements::Mass Requirement::Chassis Mass	_req_mass_1	-> RequirementsModel::'Mass Requirement'::'Chassis Mass'
-«Requirement» Class	Requirements::Speed Requirement	_req_speed	-> RequirementsModel::'Speed Requirement'
-Package	Vehicle Design	_pkg_design	-> 'Vehicle Design'
-Association	Vehicle Design::<Association>	_assoc_vehicle_engine	(the anonymous association is written as its member-end properties)
-Association	Vehicle Design::<Association>	_assoc_vehicle_wheel	(the anonymous association is written as its member-end properties)
+«Requirement» Class	Requirements::Engine Mass Requirement	_req_derived	-> Model::Requirements::'Engine Mass Requirement'
+«Requirement» Class	Requirements::Mass Requirement	_req_mass	-> Model::Requirements::'Mass Requirement'
+«Requirement» Class	Requirements::Mass Requirement::Chassis Mass	_req_mass_1	-> Model::Requirements::'Mass Requirement'::'Chassis Mass'
+«Requirement» Class	Requirements::Speed Requirement	_req_speed	-> Model::Requirements::'Speed Requirement'
+Package	Vehicle Design	_pkg_design	-> Model::'Vehicle Design'
+Property	Vehicle Design::<Association>::<Property>	_ae_vehicle_1	-> Model::'Vehicle Design'::EngineToVehicle::vehicle
+Property	Vehicle Design::<Association>::<Property>	_ae_vehicle_2	-> Model::'Vehicle Design'::WheelToVehicle::vehicle
 Comment	Vehicle Design::<Comment>	_cmt_pkg
 «ItemFlow» InformationFlow	Vehicle Design::<InformationFlow>	_if_fuel
-Activity	Vehicle Design::Drive	_act_drive	-> 'Vehicle Design'::Drive
-Association	Vehicle Design::Drives	_assoc_vehicle_driver	-> 'Vehicle Design'::Drives
-Property	Vehicle Design::Drives::vehicle	_ae_vehicle_3	-> 'Vehicle Design'::Drives::vehicle
-«Block» Class	Vehicle Design::Electric Vehicle	_blk_ev	-> 'Vehicle Design'::'Electric Vehicle'
-Property	Vehicle Design::Electric Vehicle::engine	_prop_ev_engine	-> 'Vehicle Design'::'Electric Vehicle'::engine
-Property	Vehicle Design::Electric Vehicle::spare	_prop_ev_spare	-> 'Vehicle Design'::'Electric Vehicle'::spare
-«Block» Class	Vehicle Design::Engine	_blk_engine	-> 'Vehicle Design'::Engine	(«Critical» from http://example.com/profiles/Safety is applied from a profile the document does not define; the application is kept as a comment)
-«ProxyPort» Port	Vehicle Design::Engine::fuelPort	_port_engine_fuel	-> 'Vehicle Design'::Engine::fuelPort
-Property	Vehicle Design::Engine::mass	_prop_engine_mass	-> 'Vehicle Design'::Engine::mass
-Property	Vehicle Design::Engine::piston	_prop_piston	-> 'Vehicle Design'::Engine::piston
-Class	Vehicle Design::Helper	_plain_helper	-> 'Vehicle Design'::Helper
-Package	Vehicle Design::Interfaces	_pkg_interfaces	-> 'Vehicle Design'::Interfaces
-«Block» Class	Vehicle Design::Interfaces::Fuel	_blk_fuel	-> 'Vehicle Design'::Interfaces::Fuel
-«InterfaceBlock» Class	Vehicle Design::Interfaces::FuelInterface	_ib_fuel	-> 'Vehicle Design'::Interfaces::FuelInterface
-«FlowProperty» Property	Vehicle Design::Interfaces::FuelInterface::fuel	_fp_fuel	-> 'Vehicle Design'::Interfaces::FuelInterface::fuel
-«FlowProperty» Property	Vehicle Design::Interfaces::FuelInterface::rate	_fp_rate	-> 'Vehicle Design'::Interfaces::FuelInterface::rate
-«ConstraintBlock» Class	Vehicle Design::MassLimit	_cb_masslimit	-> 'Vehicle Design'::MassLimit
-Constraint	Vehicle Design::MassLimit::<Constraint>	_cb_rule	-> 'Vehicle Design'::MassLimit	(the English body is translated to v2)
-Property	Vehicle Design::MassLimit::limit	_cp_limit	-> 'Vehicle Design'::MassLimit::limit
-Property	Vehicle Design::MassLimit::m	_cp_m	-> 'Vehicle Design'::MassLimit::m
-«Block» Class	Vehicle Design::Motor	_blk_motor	-> 'Vehicle Design'::Motor
-«Block» Class	Vehicle Design::Piston	_blk_piston	-> 'Vehicle Design'::Piston
-«Block» Class	Vehicle Design::System	_blk_system	-> 'Vehicle Design'::System
-Package	Vehicle Design::Value Types	_pkg_types	-> 'Vehicle Design'::'Value Types'
-Enumeration	Vehicle Design::Value Types::Color	_enum_color	-> 'Vehicle Design'::'Value Types'::Color
-EnumerationLiteral	Vehicle Design::Value Types::Color::blue	_lit_blue	-> 'Vehicle Design'::'Value Types'::Color::blue
-EnumerationLiteral	Vehicle Design::Value Types::Color::green	_lit_green	-> 'Vehicle Design'::'Value Types'::Color::green
-EnumerationLiteral	Vehicle Design::Value Types::Color::red	_lit_red	-> 'Vehicle Design'::'Value Types'::Color::red
-«ValueType» DataType	Vehicle Design::Value Types::Speed	_vt_speed	-> 'Vehicle Design'::'Value Types'::Speed
-Signal	Vehicle Design::Value Types::StartSignal	_sig_start	-> 'Vehicle Design'::'Value Types'::StartSignal
-Property	Vehicle Design::Value Types::StartSignal::key	_sig_start_key	-> 'Vehicle Design'::'Value Types'::StartSignal::key
+Activity	Vehicle Design::Drive	_act_drive	-> Model::'Vehicle Design'::Drive
+Property	Vehicle Design::Drives::vehicle	_ae_vehicle_3	-> Model::'Vehicle Design'::Drives::vehicle
+«Block» Class	Vehicle Design::Electric Vehicle	_blk_ev	-> Model::'Vehicle Design'::'Electric Vehicle'
+Property	Vehicle Design::Electric Vehicle::engine	_prop_ev_engine	-> Model::'Vehicle Design'::'Electric Vehicle'::engine
+Property	Vehicle Design::Electric Vehicle::spare	_prop_ev_spare	-> Model::'Vehicle Design'::'Electric Vehicle'::spare
+«Block» Class	Vehicle Design::Engine	_blk_engine	-> Model::'Vehicle Design'::Engine	(«Critical» from http://example.com/profiles/Safety is applied from a profile the document does not define; the application is kept as metadata)
+«ProxyPort» Port	Vehicle Design::Engine::fuelPort	_port_engine_fuel	-> Model::'Vehicle Design'::Engine::fuelPort
+Property	Vehicle Design::Engine::mass	_prop_engine_mass	-> Model::'Vehicle Design'::Engine::mass
+Property	Vehicle Design::Engine::piston	_prop_piston	-> Model::'Vehicle Design'::Engine::piston
+Class	Vehicle Design::Helper	_plain_helper	-> Model::'Vehicle Design'::Helper
+Package	Vehicle Design::Interfaces	_pkg_interfaces	-> Model::'Vehicle Design'::Interfaces
+«Block» Class	Vehicle Design::Interfaces::Fuel	_blk_fuel	-> Model::'Vehicle Design'::Interfaces::Fuel
+«InterfaceBlock» Class	Vehicle Design::Interfaces::FuelInterface	_ib_fuel	-> Model::'Vehicle Design'::Interfaces::FuelInterface
+«FlowProperty» Property	Vehicle Design::Interfaces::FuelInterface::fuel	_fp_fuel	-> Model::'Vehicle Design'::Interfaces::FuelInterface::fuel
+«FlowProperty» Property	Vehicle Design::Interfaces::FuelInterface::rate	_fp_rate	-> Model::'Vehicle Design'::Interfaces::FuelInterface::rate
+«ConstraintBlock» Class	Vehicle Design::MassLimit	_cb_masslimit	-> Model::'Vehicle Design'::MassLimit
+Constraint	Vehicle Design::MassLimit::<Constraint>	_cb_rule	-> Model::'Vehicle Design'::MassLimit	(the English body is translated to v2)
+Property	Vehicle Design::MassLimit::limit	_cp_limit	-> Model::'Vehicle Design'::MassLimit::limit
+Property	Vehicle Design::MassLimit::m	_cp_m	-> Model::'Vehicle Design'::MassLimit::m
+«Block» Class	Vehicle Design::Motor	_blk_motor	-> Model::'Vehicle Design'::Motor
+«Block» Class	Vehicle Design::Piston	_blk_piston	-> Model::'Vehicle Design'::Piston
+«Block» Class	Vehicle Design::System	_blk_system	-> Model::'Vehicle Design'::System
+Package	Vehicle Design::Value Types	_pkg_types	-> Model::'Vehicle Design'::'Value Types'
+Enumeration	Vehicle Design::Value Types::Color	_enum_color	-> Model::'Vehicle Design'::'Value Types'::Color
+EnumerationLiteral	Vehicle Design::Value Types::Color::blue	_lit_blue	-> Model::'Vehicle Design'::'Value Types'::Color::blue
+EnumerationLiteral	Vehicle Design::Value Types::Color::green	_lit_green	-> Model::'Vehicle Design'::'Value Types'::Color::green
+EnumerationLiteral	Vehicle Design::Value Types::Color::red	_lit_red	-> Model::'Vehicle Design'::'Value Types'::Color::red
+«ValueType» DataType	Vehicle Design::Value Types::Speed	_vt_speed	-> Model::'Vehicle Design'::'Value Types'::Speed
+Signal	Vehicle Design::Value Types::StartSignal	_sig_start	-> Model::'Vehicle Design'::'Value Types'::StartSignal
+Property	Vehicle Design::Value Types::StartSignal::key	_sig_start_key	-> Model::'Vehicle Design'::'Value Types'::StartSignal::key
 Comment	Vehicle Design::Vehicle::<Comment>	_cmt_vehicle
 Comment	Vehicle Design::Vehicle::<Comment>	_cmt_vehicle_2
 «BindingConnector» Connector	Vehicle Design::Vehicle::<Connector>	_conn_bind
 Connector	Vehicle Design::Vehicle::<Connector>	_conn_nested	(the connector delegates the owner's port to the part's, so it is written as a binding, which relays a message either way)
-«Block» Class	Vehicle Design::Vehicle::Chassis	_blk_chassis	-> 'Vehicle Design'::Vehicle::Chassis
-Property	Vehicle Design::Vehicle::Chassis::mass	_prop_chassis_mass	-> 'Vehicle Design'::Vehicle::Chassis::mass
-StateMachine	Vehicle Design::Vehicle::Vehicle States	_sm_vehicle	-> 'Vehicle Design'::Vehicle::'Vehicle States'
+«Block» Class	Vehicle Design::Vehicle::Chassis	_blk_chassis	-> Model::'Vehicle Design'::Vehicle::Chassis
+Property	Vehicle Design::Vehicle::Chassis::mass	_prop_chassis_mass	-> Model::'Vehicle Design'::Vehicle::Chassis::mass
+StateMachine	Vehicle Design::Vehicle::Vehicle States	_sm_vehicle	-> Model::'Vehicle Design'::Vehicle::'Vehicle States'
 Region	Vehicle Design::Vehicle::Vehicle States::<Region>	_reg_1	(the one region is written as the body of its owner)
 State	Vehicle Design::Vehicle::Vehicle States::<Region>::Off	_st_off	-> Off
-Property	Vehicle Design::Vehicle::color	_prop_color	-> 'Vehicle Design'::Vehicle::color
-«FullPort» Port	Vehicle Design::Vehicle::diag	_port_untyped	-> 'Vehicle Design'::Vehicle::diag
-Property	Vehicle Design::Vehicle::driver	_prop_driver	-> 'Vehicle Design'::Vehicle::driver
-Property	Vehicle Design::Vehicle::engine	_prop_engine	-> 'Vehicle Design'::Vehicle::engine
-Connector	Vehicle Design::Vehicle::fuel line	_conn_fuel	-> 'Vehicle Design'::Vehicle::'fuel line'	(the connector delegates the owner's port to the part's, so it is written as a binding, which relays a message either way)
-«ProxyPort» Port	Vehicle Design::Vehicle::fuelIn	_port_fuelIn	-> 'Vehicle Design'::Vehicle::fuelIn
-Property	Vehicle Design::Vehicle::isElectric	_prop_isElectric	-> 'Vehicle Design'::Vehicle::isElectric
-Property	Vehicle Design::Vehicle::mass	_prop_mass	-> 'Vehicle Design'::Vehicle::mass
-Property	Vehicle Design::Vehicle::massLimit	_prop_limit	-> 'Vehicle Design'::Vehicle::massLimit
-Constraint	Vehicle Design::Vehicle::positive mass	_rule_positive	-> 'Vehicle Design'::Vehicle::'positive mass'	(the English body is translated to v2)
-Operation	Vehicle Design::Vehicle::start	_op_start	-> 'Vehicle Design'::Vehicle::start	(its owner's usage start 2 performs it, as a call on an object does)
-Parameter	Vehicle Design::Vehicle::start::key	_par_start	-> 'Vehicle Design'::Vehicle::start::key
-Property	Vehicle Design::Vehicle::vehicle name	_prop_name	-> 'Vehicle Design'::Vehicle::'vehicle name'
-Property	Vehicle Design::Vehicle::wheels	_prop_wheels	-> 'Vehicle Design'::Vehicle::wheels
-«Block» Class	Vehicle Design::Wheel	_blk_wheel	-> 'Vehicle Design'::Wheel
-InstanceSpecification	Vehicle Design::myCar	_inst_mycar	-> 'Vehicle Design'::myCar
-Slot	Vehicle Design::myCar::<Slot>	_slot_mass	-> 'Vehicle Design'::myCar::mass
-Slot	Vehicle Design::myCar::<Slot>	_slot_color	-> 'Vehicle Design'::myCar::color
+Property	Vehicle Design::Vehicle::color	_prop_color	-> Model::'Vehicle Design'::Vehicle::color
+«FullPort» Port	Vehicle Design::Vehicle::diag	_port_untyped	-> Model::'Vehicle Design'::Vehicle::diag
+Property	Vehicle Design::Vehicle::driver	_prop_driver	-> Model::'Vehicle Design'::Vehicle::driver
+Property	Vehicle Design::Vehicle::engine	_prop_engine	-> Model::'Vehicle Design'::Vehicle::engine
+Connector	Vehicle Design::Vehicle::fuel line	_conn_fuel	-> Model::'Vehicle Design'::Vehicle::'fuel line'	(the connector delegates the owner's port to the part's, so it is written as a binding, which relays a message either way)
+«ProxyPort» Port	Vehicle Design::Vehicle::fuelIn	_port_fuelIn	-> Model::'Vehicle Design'::Vehicle::fuelIn
+Property	Vehicle Design::Vehicle::isElectric	_prop_isElectric	-> Model::'Vehicle Design'::Vehicle::isElectric
+Property	Vehicle Design::Vehicle::mass	_prop_mass	-> Model::'Vehicle Design'::Vehicle::mass
+Property	Vehicle Design::Vehicle::massLimit	_prop_limit	-> Model::'Vehicle Design'::Vehicle::massLimit
+Constraint	Vehicle Design::Vehicle::positive mass	_rule_positive	-> Model::'Vehicle Design'::Vehicle::'positive mass'	(the English body is translated to v2; acts on its owner Vehicle Design::Vehicle, which it takes as its parameter context, since its this is the def's own occurrence; the constraint def Positive mass holds the specification as its result, asserted by the usage typed by it)
+Operation	Vehicle Design::Vehicle::start	_op_start	-> Model::'Vehicle Design'::Vehicle::start	(written as an action usage of Vehicle Design::Vehicle, which a call on an object performs, so its body runs on the object and reaches its features)
+Parameter	Vehicle Design::Vehicle::start::key	_par_start	-> Model::'Vehicle Design'::Vehicle::start::key
+Property	Vehicle Design::Vehicle::vehicle name	_prop_name	-> Model::'Vehicle Design'::Vehicle::'vehicle name'
+Property	Vehicle Design::Vehicle::wheels	_prop_wheels	-> Model::'Vehicle Design'::Vehicle::wheels
+«Block» Class	Vehicle Design::Wheel	_blk_wheel	-> Model::'Vehicle Design'::Wheel
+InstanceSpecification	Vehicle Design::myCar	_inst_mycar	-> Model::'Vehicle Design'::myCar
+Slot	Vehicle Design::myCar::<Slot>	_slot_mass	-> Model::'Vehicle Design'::myCar::mass
+Slot	Vehicle Design::myCar::<Slot>	_slot_color	-> Model::'Vehicle Design'::myCar::color
 
 ## skipped (2)
 ProfileApplication	<ProfileApplication>	_pa_sysml	(profile applications and package merges are not written)

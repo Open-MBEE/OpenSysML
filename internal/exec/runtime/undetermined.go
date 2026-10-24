@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -18,8 +19,49 @@ type Undetermined struct {
 	reason    string
 	count     semantics.Range
 	known     []Value
-	positions []Value         // the leading positions the model fixes, see Positions
-	feature   *symbols.Symbol // the feature read, whose members a chain resolves against
+	positions []Value           // the leading positions the model fixes, see fixedPositions
+	feature   *symbols.Symbol   // the feature read, whose members a chain resolves against
+	causes    []*symbols.Symbol // the valueless features the result is open for, carried through operations
+}
+
+// Feature is the feature the result is the read of, nil for a computed result.
+func (u *Undetermined) Feature() *symbols.Symbol {
+	if u == nil {
+		return nil
+	}
+	return u.feature
+}
+
+// Unset is the feature nothing gives a value to that the result is open for — read
+// directly or through the operations computing from it — nil where the count alone is open.
+func (u *Undetermined) Unset() *symbols.Symbol {
+	if u == nil || len(u.causes) == 0 {
+		return nil
+	}
+	return u.causes[0]
+}
+
+// Unsets lists every feature with no value the result is open for, in the order the
+// evaluation met them; empty when it is open only for a count the model leaves open.
+func (u *Undetermined) Unsets() []*symbols.Symbol {
+	if u == nil {
+		return nil
+	}
+	return u.causes
+}
+
+// unsetsAmong lists, once each, the valueless features the undetermined values among
+// vals are open for: an operation over them is open for every one.
+func unsetsAmong(vals ...Value) []*symbols.Symbol {
+	var causes []*symbols.Symbol
+	for _, v := range vals {
+		for _, cause := range v.Undetermined().Unsets() {
+			if !slices.Contains(causes, cause) {
+				causes = append(causes, cause)
+			}
+		}
+	}
+	return causes
 }
 
 // Reason names why the result is undetermined, phrased for a diagnostic.
@@ -38,30 +80,30 @@ func (u *Undetermined) Count() semantics.Range {
 	return u.count
 }
 
-// Known lists the values the result certainly contains.
-func (u *Undetermined) Known() []Value {
+// knownValues lists the values the result certainly contains.
+func (u *Undetermined) knownValues() []Value {
 	if u == nil {
 		return nil
 	}
 	return u.known
 }
 
-// Positions lists the leading positions the model fixes, in order: a determined value
+// fixedPositions lists the leading positions the model fixes, in order: a determined value
 // fills one, an undetermined one holding an exact count fills that many. Nil fixes none.
-func (u *Undetermined) Positions() []Value {
+func (u *Undetermined) fixedPositions() []Value {
 	if u == nil {
 		return nil
 	}
 	return u.positions
 }
 
-// positional reports whether Positions are every value u holds.
+// positional reports whether fixedPositions are every value u holds.
 func (u *Undetermined) positional() bool {
 	n, exact := u.Count().Exactly()
-	return exact && spanOf(u.Positions()...) == n
+	return exact && spanOf(u.fixedPositions()...) == n
 }
 
-// spanOf is how many positions entries of Positions fill.
+// spanOf is how many positions entries of fixedPositions fill.
 func spanOf(entries ...Value) int64 {
 	var n int64
 	for _, entry := range entries {
@@ -75,7 +117,7 @@ func spanOf(entries ...Value) int64 {
 	return n
 }
 
-// positionAt is the value at 1-based index among entries of Positions: the determined
+// positionAt is the value at 1-based index among entries of fixedPositions: the determined
 // value there, or one unknown value of the open entry; false past them.
 func positionAt(entries []Value, index int64) (Value, bool) {
 	for _, entry := range entries {
@@ -91,7 +133,7 @@ func positionAt(entries []Value, index int64) (Value, bool) {
 	return Value{}, false
 }
 
-// positionsBetween is the entries of Positions from position start through end, an
+// positionsBetween is the entries of fixedPositions from position start through end, an
 // open entry cut to the positions of it that lie within.
 func positionsBetween(entries []Value, start, end int64) []Value {
 	var between []Value
@@ -122,6 +164,11 @@ func undeterminedFeatureValue(reason string, count semantics.Range, sym *symbols
 	return Value{Kind: ValUndetermined, ref: &Undetermined{reason: reason, count: count, feature: sym}}
 }
 
+// unsetFeatureValue is the undetermined read of feature sym, which nothing gives a value to.
+func unsetFeatureValue(spelled string, count semantics.Range, sym *symbols.Symbol) Value {
+	return Value{Kind: ValUndetermined, ref: &Undetermined{reason: noValueReason(spelled), count: count, feature: sym, causes: []*symbols.Symbol{sym}}}
+}
+
 // chainThroughUndetermined reads parts from an undetermined feature read: unresolved
 // when its type declares no such member, else undetermined over all it may hold,
 // certainly holding what the chain reads from the values it certainly holds.
@@ -140,7 +187,7 @@ func (ec *EvalContext) chainThroughUndetermined(value Value, parts []ast.NameSeg
 		cur = next
 	}
 	var known []Value
-	for _, elem := range u.Known() {
+	for _, elem := range u.knownValues() {
 		val, err := ec.chainMemberValue(elem, parts, from)
 		if err != nil {
 			return Value{}, err
@@ -152,12 +199,12 @@ func (ec *EvalContext) chainThroughUndetermined(value Value, parts []ast.NameSeg
 		count = count.Plus(countOf(val))
 		known = append(known, contributed...)
 	}
-	return Value{Kind: ValUndetermined, ref: &Undetermined{reason: u.reason, count: count, known: known, feature: cur}}, nil
+	return Value{Kind: ValUndetermined, ref: &Undetermined{reason: u.reason, count: count, known: known, feature: cur, causes: u.causes}}, nil
 }
 
 // unknownCount is the count of the values u holds beyond those it certainly holds.
 func (u *Undetermined) unknownCount() semantics.Range {
-	count, held := u.Count(), int64(len(u.Known()))
+	count, held := u.Count(), int64(len(u.knownValues()))
 	if count.Lower.Known && !count.Lower.Infinite {
 		count.Lower.Value = max(0, count.Lower.Value-held)
 	}
@@ -212,7 +259,7 @@ func undeterminedResult(operands ...Value) Value {
 			count = optionalRange()
 		}
 	}
-	return NewUndeterminedValue(first.Undetermined().Reason(), count)
+	return Value{Kind: ValUndetermined, ref: &Undetermined{reason: first.Undetermined().Reason(), count: count, causes: unsetsAmong(operands...)}}
 }
 
 // undeterminedOne is an undetermined result of exactly one value, whatever the
@@ -225,7 +272,7 @@ func undeterminedOne(operands ...Value) Value {
 // first undetermined operand.
 func undeterminedOf(count semantics.Range, operands ...Value) Value {
 	first, _ := undeterminedIn(operands...)
-	return NewUndeterminedValue(first.Undetermined().Reason(), count)
+	return Value{Kind: ValUndetermined, ref: &Undetermined{reason: first.Undetermined().Reason(), count: count, causes: unsetsAmong(operands...)}}
 }
 
 // undeterminedElements is a sequence some element of which is undetermined: its
@@ -241,10 +288,11 @@ func undeterminedElements(elements []Value) Value {
 	}
 	return Value{Kind: ValUndetermined, ref: &Undetermined{
 		reason: first.Undetermined().Reason(), count: count, known: known, positions: fixedPrefixOf(elements...),
+		causes: unsetsAmong(elements...),
 	}}
 }
 
-// fixedPrefixOf lists the leading positions vals fix in sequence, as Positions holds
+// fixedPrefixOf lists the leading positions vals fix in sequence, as fixedPositions holds
 // them: every position of each value up to the first that fixes only some, then those.
 func fixedPrefixOf(vals ...Value) []Value {
 	var positions []Value
@@ -258,7 +306,7 @@ func fixedPrefixOf(vals ...Value) []Value {
 	return positions
 }
 
-// fixedPositionsOf lists the leading positions val fixes, as Positions holds them, and
+// fixedPositionsOf lists the leading positions val fixes, as fixedPositions holds them, and
 // whether they are every value it holds: all of a determined value, an open value of
 // exact count as one entry, else those an open value carries.
 func fixedPositionsOf(val Value) ([]Value, bool) {
@@ -266,15 +314,15 @@ func fixedPositionsOf(val Value) ([]Value, bool) {
 	if u == nil {
 		return elementsOf(val), true
 	}
-	if u.Positions() == nil && len(u.Known()) == 0 {
+	if u.fixedPositions() == nil && len(u.knownValues()) == 0 {
 		if _, exact := u.Count().Exactly(); exact {
 			return []Value{val}, true
 		}
 	}
-	return u.Positions(), u.positional()
+	return u.fixedPositions(), u.positional()
 }
 
-// sequenceOfPositions is the sequence of entries of Positions: determined where every
+// sequenceOfPositions is the sequence of entries of fixedPositions: determined where every
 // one is, else undetermined fixing the leading positions they do.
 func (ec *EvalContext) sequenceOfPositions(entries []Value, sources ...Value) (Value, error) {
 	if _, open := undeterminedIn(entries...); open {
@@ -287,19 +335,21 @@ func (ec *EvalContext) sequenceOfPositions(entries []Value, sources ...Value) (V
 // some elements or source may hold unknown ones it keeps: certainly kept, possibly
 // each of the open, and fromUnknown of the unknown.
 func undeterminedFiltered(source Value, kept, open []Value, fromUnknown semantics.Range) Value {
-	first, _ := undeterminedIn(append([]Value{source}, open...)...)
+	operands := append([]Value{source}, open...)
+	first, _ := undeterminedIn(operands...)
 	count := semantics.CountRange(int64(len(kept))).
 		Plus(semantics.Range{Lower: semantics.Bound{Known: true}, Upper: semantics.Bound{Value: int64(len(open)), Known: true}}).
 		Plus(fromUnknown)
 	return Value{Kind: ValUndetermined, ref: &Undetermined{
-		reason: first.Undetermined().Reason(), count: count, known: kept,
+		reason: first.Undetermined().Reason(), count: count, known: kept, causes: unsetsAmong(operands...),
 	}}
 }
 
 // undeterminedCollected is a mapping's result over source when an answer is open or
 // source holds unknown elements: the answers' counts plus those mapped from the unknown.
 func undeterminedCollected(source Value, answers []Value, fromUnknown semantics.Range) Value {
-	first, _ := undeterminedIn(append([]Value{source}, answers...)...)
+	operands := append([]Value{source}, answers...)
+	first, _ := undeterminedIn(operands...)
 	count := fromUnknown
 	var known []Value
 	for _, answer := range answers {
@@ -307,7 +357,7 @@ func undeterminedCollected(source Value, answers []Value, fromUnknown semantics.
 		known = append(known, knownElementsOf(answer)...)
 	}
 	return Value{Kind: ValUndetermined, ref: &Undetermined{
-		reason: first.Undetermined().Reason(), count: count, known: known,
+		reason: first.Undetermined().Reason(), count: count, known: known, causes: unsetsAmong(operands...),
 	}}
 }
 
@@ -485,7 +535,7 @@ func (ctx *Context) declaredCountRefusal(sym *symbols.Symbol, value *Value) stri
 // value, those an undetermined one carries.
 func knownElementsOf(val Value) []Value {
 	if u := val.Undetermined(); u != nil {
-		return u.Known()
+		return u.knownValues()
 	}
 	return elementsOf(val)
 }
@@ -516,9 +566,11 @@ func certainlyEmpty(val Value) bool {
 }
 
 // modelReads reports whether reading a feature of inst asserts only what the model
-// states: a model-level evaluation reading an object only the model stands behind.
+// states: an evaluation that is no performance — a model-level expression, or the
+// value a member binds on any object — reading an object only the model stands
+// behind. A running behavior reads what its objects hold.
 func (ec *EvalContext) modelReads(inst *Instance) bool {
-	return ec.modelLevel() && ec.ctx.readThrough(rootObject(inst))
+	return !ec.inBehaviorBody && !ec.hasPerformanceFrame() && ec.ctx.readThrough(rootObject(inst))
 }
 
 // memberFeatureValue reads the named feature value of inst: through the model,
@@ -545,14 +597,37 @@ func (ec *EvalContext) openFeatureRead(inst *Instance, fv *FeatureValue, open *o
 	if open != nil && open.Stopped {
 		return openCollectionValue(spelled, feature, open), true
 	}
+	// A feature of exactly no values holds none, whatever its value expression reads.
+	if n, exact := feature.Multiplicity.Exactly(); exact && n == 0 {
+		if typed, ok := ec.ctx.emptyOfSymbol(feature.Symbol); ok {
+			return typed, true
+		}
+		return sequenceOf(nil), true
+	}
 	if ec.ctx.holdsOnlyUnset(fv) {
-		return undeterminedFeatureValue(noValueReason(spelled), feature.Multiplicity, feature.Symbol), true
+		return unsetFeatureValue(spelled, feature.Multiplicity, feature.Symbol), true
+	}
+	// A required feature nothing gave a value to is as open as an unset attribute.
+	if lower := feature.Multiplicity.Lower; !fv.Written && fv.HeldValue().Kind == ValInvalid &&
+		lower.Known && !lower.Infinite && lower.Value > 0 {
+		return unsetFeatureValue(spelled, feature.Multiplicity, feature.Symbol), true
 	}
 	if !fv.Assumed && (fv.Materialized || fv.HeldValue().Kind != ValInvalid) {
 		return Value{}, false
 	}
 	if _, exact := feature.Multiplicity.Exactly(); exact {
 		return Value{}, false
+	}
+	// A library collection the model values with nothing holds nothing: a lower
+	// bound of 0 is met by none, a higher one by nothing.
+	if fewestOf(feature.Multiplicity) == 0 && ec.ctx.libraryDeclared(feature.Symbol) {
+		if feature.Scalar() {
+			return nullValue(), true
+		}
+		if typed, ok := ec.ctx.emptyOfSymbol(feature.Symbol); ok {
+			return typed, true
+		}
+		return sequenceOf(nil), true
 	}
 	return undeterminedFeatureValue(openCountReason(spelled, feature.Multiplicity), feature.Multiplicity, feature.Symbol), true
 }
@@ -565,8 +640,12 @@ func openCollectionValue(spelled string, feature *EffectiveFeature, open *openPo
 	if fewest := max(int64(len(open.Contributed)), open.AtLeast); fewest > fewestOf(count) {
 		count.Lower = semantics.Bound{Value: fewest, Known: true}
 	}
+	var positions []Value
+	if open.Fixed > 0 {
+		positions = open.Contributed[:open.Fixed]
+	}
 	return Value{Kind: ValUndetermined, ref: &Undetermined{
-		reason: openCountReason(spelled, mult), count: count, known: open.Contributed, feature: feature.Symbol,
+		reason: openCountReason(spelled, mult), count: count, known: open.Contributed, feature: feature.Symbol, positions: positions,
 	}}
 }
 

@@ -38,12 +38,12 @@ var (
 	// ErrUnresolvedReference is returned when a feature reference cannot be resolved.
 	ErrUnresolvedReference = errors.New("unresolved reference")
 
-	// ErrAmbiguousReference is returned when a qualified name names several elements.
-	ErrAmbiguousReference = errors.New("ambiguous reference")
+	// errAmbiguousReference is returned when a qualified name names several elements.
+	errAmbiguousReference = errors.New("ambiguous reference")
 
-	// ErrActionStepMultiplicity reports an action step the executor cannot perform
+	// errActionStepMultiplicity reports an action step the executor cannot perform
 	// with the declared multiplicity or its surrounding flow.
-	ErrActionStepMultiplicity = errors.New("unsupported action step multiplicity")
+	errActionStepMultiplicity = errors.New("unsupported action step multiplicity")
 
 	// ErrTypeMismatch is returned when an operation receives a value of unexpected type.
 	ErrTypeMismatch = errors.New("type mismatch")
@@ -55,32 +55,32 @@ var (
 	// ErrMultiplicityViolation is returned when a feature value access/assignment violates multiplicity bounds.
 	ErrMultiplicityViolation = errors.New("multiplicity violation")
 
-	// ErrInfiniteLowerBound is returned when a collection is filled to a lower bound of *,
+	// errInfiniteLowerBound is returned when a collection is filled to a lower bound of *,
 	// which requires no finite number of values; it is a multiplicity violation.
-	ErrInfiniteLowerBound = fmt.Errorf("%w: infinite lower bound", ErrMultiplicityViolation)
+	errInfiniteLowerBound = fmt.Errorf("%w: infinite lower bound", ErrMultiplicityViolation)
 
 	// ErrUniquenessViolation is returned when a value written to a unique feature repeats one of its values.
 	ErrUniquenessViolation = errors.New("uniqueness violation")
 
-	// ErrUninitializedFeatureValue is returned when accessing a feature value that has no value and no default.
-	ErrUninitializedFeatureValue = errors.New("uninitialized feature value")
+	// errUninitializedFeatureValue is returned when accessing a feature value that has no value and no default.
+	errUninitializedFeatureValue = errors.New("uninitialized feature value")
 
-	// ErrBindingConflict is returned when two binding ends hold unequal values.
-	ErrBindingConflict = errors.New("binding conflict")
+	// errBindingConflict is returned when two binding ends hold unequal values.
+	errBindingConflict = errors.New("binding conflict")
 
-	// ErrBindingCycle is returned when a binding component has no value.
-	ErrBindingCycle = errors.New("binding cycle")
+	// errBindingCycle is returned when a binding component has no value.
+	errBindingCycle = errors.New("binding cycle")
 
-	// ErrBindingEnd is returned when a binding endpoint cannot be resolved to a feature.
-	ErrBindingEnd = errors.New("binding end cannot be resolved")
+	// errBindingEnd is returned when a binding endpoint cannot be resolved to a feature.
+	errBindingEnd = errors.New("binding end cannot be resolved")
 
 	// ErrNotACalc is returned when a calc invocation targets a symbol that is
 	// not a calc definition or usage.
 	ErrNotACalc = errors.New("not a calc")
 
-	// ErrNotAFunction is returned when a value that is no function is called,
+	// errNotAFunction is returned when a value that is no function is called,
 	// or is bound where a calc-typed feature needs one.
-	ErrNotAFunction = errors.New("not a function")
+	errNotAFunction = errors.New("not a function")
 
 	// ErrNotAConstraint is returned when a symbol asked to be evaluated as a
 	// constraint declares something else. It is a usage error about the request,
@@ -101,96 +101,96 @@ var (
 	// reports the request, not the model.
 	ErrNotAnAnalysis = errors.New("not an analysis case")
 
-	// ErrNotAVerification is returned when a symbol asked for a verification
+	// errNotAVerification is returned when a symbol asked for a verification
 	// verdict is not a verification case definition or usage.
-	ErrNotAVerification = errors.New("not a verification case")
+	errNotAVerification = errors.New("not a verification case")
 
-	// ErrCalcArity is returned when a calc invocation passes more arguments than
+	// errCalcArity is returned when a calc invocation passes more arguments than
 	// the calc declares input parameters.
-	ErrCalcArity = errors.New("calc argument count mismatch")
+	errCalcArity = errors.New("calc argument count mismatch")
 
-	// ErrUnboundParameter is returned when a calc input parameter receives
+	// errUnboundParameter is returned when a calc input parameter receives
 	// neither an argument nor a declared default.
-	ErrUnboundParameter = errors.New("unbound parameter")
+	errUnboundParameter = errors.New("unbound parameter")
 
-	// ErrPerformerNotObject is returned when the operand of a `part.callee` performance
+	// errPerformerNotObject is returned when the operand of a `part.callee` performance
 	// denotes no single object for the callee to run as.
-	ErrPerformerNotObject = errors.New("performer is not an object")
+	errPerformerNotObject = errors.New("performer is not an object")
 
-	// ErrUnknownParameter is returned when a named argument does not name any
+	// errUnknownParameter is returned when a named argument does not name any
 	// input parameter of the invoked calc.
-	ErrUnknownParameter = errors.New("unknown parameter")
+	errUnknownParameter = errors.New("unknown parameter")
 
-	// ErrUnknownActionInput is returned when a supplied input names no parameter
+	// errUnknownActionInput is returned when a supplied input names no parameter
 	// or attribute of the action performed.
-	ErrUnknownActionInput = errors.New("unknown action input")
+	errUnknownActionInput = errors.New("unknown action input")
 
-	// ErrOutputActionInput is returned when a supplied input names a parameter
+	// errOutputActionInput is returned when a supplied input names a parameter
 	// the action only writes back (`out`), which a caller does not seed.
-	ErrOutputActionInput = errors.New("output action parameter given as input")
+	errOutputActionInput = errors.New("output action parameter given as input")
 
-	// ErrNoResultExpression is returned when a calc body declares no return
+	// errNoResultExpression is returned when a calc body declares no return
 	// expression, directly or by inheritance.
-	ErrNoResultExpression = errors.New("no result expression")
+	errNoResultExpression = errors.New("no result expression")
 
-	// ErrConflictingResultExpressions is returned when a calc or constraint owns or
+	// errConflictingResultExpressions is returned when a calc or constraint owns or
 	// inherits more than one result expression (KerML 8.3.4.8); no body is chosen.
-	ErrConflictingResultExpressions = errors.New("more than one result expression, owned or inherited")
+	errConflictingResultExpressions = errors.New("more than one result expression, owned or inherited")
 
-	// ErrUnsupportedOperator is returned when an operator has no runtime
+	// errUnsupportedOperator is returned when an operator has no runtime
 	// evaluation, so an expression naming it fails rather than yielding nothing.
-	ErrUnsupportedOperator = errors.New("unsupported operator")
+	errUnsupportedOperator = errors.New("unsupported operator")
 
-	// ErrUnresolvedType is returned when a type classification operand names no
+	// errUnresolvedType is returned when a type classification operand names no
 	// resolvable type.
-	ErrUnresolvedType = errors.New("unresolved type")
+	errUnresolvedType = errors.New("unresolved type")
 
-	// ErrUnboundedExtent is returned when `all T` names a type whose instances no
+	// errUnboundedExtent is returned when `all T` names a type whose instances no
 	// run enumerates: a data type that is not an enumeration (`all Integer`, `all Point`).
-	ErrUnboundedExtent = errors.New("unbounded extent")
+	errUnboundedExtent = errors.New("unbounded extent")
 
-	// ErrExtentUnavailable is returned when `all T` would have to count objects the run cannot
+	// errExtentUnavailable is returned when `all T` would have to count objects the run cannot
 	// denote (a namespace-level usage of several occurrences) or cannot make without recursing.
-	ErrExtentUnavailable = errors.New("extent unavailable")
+	errExtentUnavailable = errors.New("extent unavailable")
 
-	// ErrUndeterminedValueType is returned when a value classification has no
+	// errUndeterminedValueType is returned when a value classification has no
 	// direct runtime type to compare.
-	ErrUndeterminedValueType = errors.New("value type cannot be determined")
+	errUndeterminedValueType = errors.New("value type cannot be determined")
 
-	// ErrUndecidedClassification is returned when a cast reaches a value whose
+	// errUndecidedClassification is returned when a cast reaches a value whose
 	// classification by a type narrower than the value's own the value does not
 	// settle, so the cast fails rather than dropping a value that may be one.
-	ErrUndecidedClassification = errors.New("classification of a value cannot be decided")
+	errUndecidedClassification = errors.New("classification of a value cannot be decided")
 
-	// ErrCalcNoReturn is returned when a calc body runs to its end without
+	// errCalcNoReturn is returned when a calc body runs to its end without
 	// returning: it computed no result, which is not the same as a null one.
-	ErrCalcNoReturn = errors.New("calculation returned no value")
+	errCalcNoReturn = errors.New("calculation returned no value")
 
-	// ErrCalcSideEffect is returned when a calc body states an effect on the
+	// errCalcSideEffect is returned when a calc body states an effect on the
 	// world outside it — send, perform, accept, terminate. A calculation
 	// computes a value, so an effect is rejected rather than performed.
-	ErrCalcSideEffect = errors.New("side effect in a calculation body")
+	errCalcSideEffect = errors.New("side effect in a calculation body")
 
-	// ErrCalcExternalAssignment is returned when a calc body assigns to a name it
+	// errCalcExternalAssignment is returned when a calc body assigns to a name it
 	// does not declare itself, which would make the calculation impure.
-	ErrCalcExternalAssignment = errors.New("assignment outside the calculation body")
+	errCalcExternalAssignment = errors.New("assignment outside the calculation body")
 
-	// ErrStatementNotExecutable is returned when a body reaches a member the
+	// errStatementNotExecutable is returned when a body reaches a member the
 	// lowering marked as not executable in that kind of body (lower.Unsupported).
-	ErrStatementNotExecutable = errors.New("statement not executable")
+	errStatementNotExecutable = errors.New("statement not executable")
 
-	// ErrCalcUsageRecursion is returned when a calc or analysis usage's body reads
+	// errCalcUsageRecursion is returned when a calc or analysis usage's body reads
 	// the usage itself: bound once, it would run itself without end.
-	ErrCalcUsageRecursion = errors.New("a calc usage runs itself")
+	errCalcUsageRecursion = errors.New("a calc usage runs itself")
 
-	// ErrCaseReadWaits is returned when an analysis or verification case whose
+	// errCaseReadWaits is returned when an analysis or verification case whose
 	// outputs an expression reads waits on the clock or for a message: the read
 	// takes the case whole, and only a case performed as a step pauses the body.
-	ErrCaseReadWaits = errors.New("a case read as a feature waits")
+	errCaseReadWaits = errors.New("a case read as a feature waits")
 
-	// ErrReturnOutsideCalc is returned when a `return` is executed by a host that
+	// errReturnOutsideCalc is returned when a `return` is executed by a host that
 	// has no result to return, an action node's body.
-	ErrReturnOutsideCalc = errors.New("'return' outside a calculation body")
+	errReturnOutsideCalc = errors.New("'return' outside a calculation body")
 
 	// ErrAcceptDeadlock is returned when an action can no longer progress
 	// because every token it has left is parked at an accept, so no token can
@@ -202,26 +202,26 @@ var (
 	// ErrActionDeadlock is returned when action tokens cannot make progress.
 	ErrActionDeadlock = errors.New("action deadlock")
 
-	// ErrTerminateTarget is returned when a `terminate` names no ongoing performance
+	// errTerminateTarget is returned when a `terminate` names no ongoing performance
 	// of an action node in a flow enclosing it, and no occurrence either.
-	ErrTerminateTarget = errors.New("terminate names nothing to end")
+	errTerminateTarget = errors.New("terminate names nothing to end")
 
-	// ErrPerformanceEnded is returned when a `terminate` names a performance that
+	// errPerformanceEnded is returned when a `terminate` names a performance that
 	// has already ended, by completing or by an earlier terminate.
-	ErrPerformanceEnded = errors.New("performance already ended")
+	errPerformanceEnded = errors.New("performance already ended")
 
-	// ErrTerminateOccurrence is returned when a `terminate` names a value that is no
+	// errTerminateOccurrence is returned when a `terminate` names a value that is no
 	// occurrence, or an occurrence that is not ongoing; it wraps the lifetime error.
-	ErrTerminateOccurrence = errors.New("occurrence cannot be terminated")
+	errTerminateOccurrence = errors.New("occurrence cannot be terminated")
 
 	// ErrExecutorReleased is returned when a released executor is stepped.
 	ErrExecutorReleased = errors.New("executor released")
 
-	// ErrInvalidActionFlow is returned for a structurally invalid action graph.
-	ErrInvalidActionFlow = errors.New("invalid action flow")
+	// errInvalidActionFlow is returned for a structurally invalid action graph.
+	errInvalidActionFlow = errors.New("invalid action flow")
 
-	// ErrNoEnabledSuccession is returned when a decision can select no branch.
-	ErrNoEnabledSuccession = errors.New("no enabled succession")
+	// errNoEnabledSuccession is returned when a decision can select no branch.
+	errNoEnabledSuccession = errors.New("no enabled succession")
 
 	// ErrNegativeDuration is returned when a delay — an `accept after`, a time
 	// transition's or an advance of the clock — is negative, infinite, no number
@@ -233,13 +233,13 @@ var (
 	// remaining work waits on the clock for an instant it has not reached.
 	ErrNothingDue = errors.New("nothing due at the current instant")
 
-	// ErrTimeTriggerType is returned when a time trigger's argument is declared as
+	// errTimeTriggerType is returned when a time trigger's argument is declared as
 	// no value of the type the trigger takes — the judgement validation makes of it.
-	ErrTimeTriggerType = errors.New("time trigger argument of the wrong type")
+	errTimeTriggerType = errors.New("time trigger argument of the wrong type")
 
-	// ErrActionResultParameter is returned when a return parameter's owner is no
+	// errActionResultParameter is returned when a return parameter's owner is no
 	// function or expression; an inherited function result is an output.
-	ErrActionResultParameter = errors.New("action declares a return parameter")
+	errActionResultParameter = errors.New("action declares a return parameter")
 
 	// ErrCalcRecursionLimit is returned when calc invocation nests deeper than
 	// the run's calc depth budget, which an unbounded recursion would otherwise
@@ -254,77 +254,77 @@ var (
 	// event budget.
 	ErrStateEventLimitExceeded = errors.New("state event limit exceeded")
 
-	// ErrNoInitialState is returned when a state machine initializes with no
+	// errNoInitialState is returned when a state machine initializes with no
 	// entry into its states: it states no `entry; then <state>;`.
-	ErrNoInitialState = errors.New("no initial state found")
+	errNoInitialState = errors.New("no initial state found")
 
-	// ErrNoEntryTransitionHolds is returned when a body's guarded entry transitions
+	// errNoEntryTransitionHolds is returned when a body's guarded entry transitions
 	// (`entry; if c then s;`) all have false guards, so it has no state to start in.
-	ErrNoEntryTransitionHolds = errors.New("no entry transition holds")
+	errNoEntryTransitionHolds = errors.New("no entry transition holds")
 
-	// ErrHistoryWithoutEntry is returned when a transition reaches a history
+	// errHistoryWithoutEntry is returned when a transition reaches a history
 	// pseudostate that has nothing to restore and nothing to enter instead: its
 	// owner was never left, the history has no default transition, and the owner
 	// declares no entry transition of its own.
-	ErrHistoryWithoutEntry = errors.New("history has no configuration to restore and no entry to fall back on")
+	errHistoryWithoutEntry = errors.New("history has no configuration to restore and no entry to fall back on")
 
-	// ErrChoiceWithoutBranch is returned when a compound transition reaches a
+	// errChoiceWithoutBranch is returned when a compound transition reaches a
 	// choice pseudostate none of whose outgoing guards holds against the data as
 	// the segments into it left it.
-	ErrChoiceWithoutBranch = errors.New("choice has no enabled outgoing transition")
+	errChoiceWithoutBranch = errors.New("choice has no enabled outgoing transition")
 
-	// ErrStatePerformanceOccurrence is returned when an exhibited machine cannot
+	// errStatePerformanceOccurrence is returned when an exhibited machine cannot
 	// read or write the occurrence of its state usage.
-	ErrStatePerformanceOccurrence = errors.New("state performance occurrence unavailable")
+	errStatePerformanceOccurrence = errors.New("state performance occurrence unavailable")
 
-	// ErrActionPerformanceOccurrence is returned when a performed action cannot
+	// errActionPerformanceOccurrence is returned when a performed action cannot
 	// read or write the occurrence of its action usage.
-	ErrActionPerformanceOccurrence = errors.New("action performance occurrence unavailable")
+	errActionPerformanceOccurrence = errors.New("action performance occurrence unavailable")
 
 	// ErrDoStepLimitExceeded is returned when a state do behavior exceeds its
 	// action-step budget.
 	ErrDoStepLimitExceeded = errors.New("state do-step limit exceeded")
 
-	// ErrStateBehaviorWaits is returned when an entry or exit behavior, or a
+	// errStateBehaviorWaits is returned when an entry or exit behavior, or a
 	// transition effect, waits for the clock: those are performed whole at the
 	// instant they are triggered, and only a do behavior pauses on the clock.
-	ErrStateBehaviorWaits = errors.New("state behavior waits for the clock")
+	errStateBehaviorWaits = errors.New("state behavior waits for the clock")
 
-	// ErrActionArity is returned when an action invocation passes more
+	// errActionArity is returned when an action invocation passes more
 	// positional arguments than the action declares input parameters.
-	ErrActionArity = errors.New("action argument count mismatch")
+	errActionArity = errors.New("action argument count mismatch")
 
-	// ErrDuplicateArgument is returned when an action invocation binds one input
+	// errDuplicateArgument is returned when an action invocation binds one input
 	// parameter twice: by two named arguments, or by a positional and a named one.
-	ErrDuplicateArgument = errors.New("argument bound more than once")
+	errDuplicateArgument = errors.New("argument bound more than once")
 
-	// ErrOperationArity is returned when an operation invocation passes more
+	// errOperationArity is returned when an operation invocation passes more
 	// positional arguments than the operation declares input parameters.
-	ErrOperationArity = errors.New("operation argument count mismatch")
+	errOperationArity = errors.New("operation argument count mismatch")
 
 	// ErrMixedArguments is returned when an operation invocation gives positional and
 	// named arguments together: an argument list is one form or the other (KerML 8.2.5.8.3).
 	ErrMixedArguments = errors.New("positional and named arguments mixed")
 
-	// ErrNodeNotPerformed is returned when a pin of an action node is read before
+	// errNodeNotPerformed is returned when a pin of an action node is read before
 	// any performance of the node has started.
-	ErrNodeNotPerformed = errors.New("action node read before it is performed")
+	errNodeNotPerformed = errors.New("action node read before it is performed")
 
-	// ErrNodePin is returned when a pin read, flow, or binding names a feature the
+	// errNodePin is returned when a pin read, flow, or binding names a feature the
 	// action node does not declare, or the node's result where it has none.
-	ErrNodePin = errors.New("action node pin not declared")
+	errNodePin = errors.New("action node pin not declared")
 
-	// ErrAmbiguousMergeInput is returned when a token that no flow brought reaches a
+	// errAmbiguousMergeInput is returned when a token that no flow brought reaches a
 	// merge holding values plain flows left at more than one of its inputs.
-	ErrAmbiguousMergeInput = errors.New("merge input is ambiguous")
+	errAmbiguousMergeInput = errors.New("merge input is ambiguous")
 
-	// ErrFlowSource is returned when a flow's source completes with its pin holding
+	// errFlowSource is returned when a flow's source completes with its pin holding
 	// no value to carry: a streaming source that never wrote, a succession source that produced nothing.
-	ErrFlowSource = errors.New("flow source produced no value")
+	errFlowSource = errors.New("flow source produced no value")
 
-	// ErrStreamUnreceived is returned when a streaming flow carried a value after its
+	// errStreamUnreceived is returned when a streaming flow carried a value after its
 	// target's last performance ended, so no performance of the target ever received it.
-	ErrStreamUnreceived = errors.New("streamed value reached no performance of its target")
+	errStreamUnreceived = errors.New("streamed value reached no performance of its target")
 
 	// ErrStreamCycle is returned when streaming flows lead a value written to a pin back
 	// to that pin while the write is still being carried on.
@@ -343,55 +343,55 @@ var (
 	// condition to evaluate: reporting a verdict would claim a check that never ran.
 	ErrNoConditions = errors.New("no condition to evaluate")
 
-	// ErrConstraintExternalAssignment is returned when a constraint body's
+	// errConstraintExternalAssignment is returned when a constraint body's
 	// assignment targets a name the constraint's own performance holds no
 	// feature for — the implicit target is the performance (SysML v2 §7.17.9),
 	// and the name is a feature of the constrained object, not of it.
-	ErrConstraintExternalAssignment = errors.New("assignment outside the constraint performance")
+	errConstraintExternalAssignment = errors.New("assignment outside the constraint performance")
 
-	// ErrConstraintEffect is returned when a constraint body states an effect
+	// errConstraintEffect is returned when a constraint body states an effect
 	// outside its own performance — a chained or qualified write, a send, a
 	// performed action, a terminate — which a verdict does not perform.
-	ErrConstraintEffect = errors.New("effect outside the constraint performance")
+	errConstraintEffect = errors.New("effect outside the constraint performance")
 
-	// ErrOrderDependentPreview is returned when a guard's verdict varies by
+	// errOrderDependentPreview is returned when a guard's verdict varies by
 	// statement order inside a preview, where a scheduler choice cannot be made.
-	ErrOrderDependentPreview = errors.New("order-dependent guard in a preview")
+	errOrderDependentPreview = errors.New("order-dependent guard in a preview")
 
-	// ErrOrderDependentGuardEffect is returned when a swept guard constraint may
+	// errOrderDependentGuardEffect is returned when a swept guard constraint may
 	// write a feature outside its own performance.
-	ErrOrderDependentGuardEffect = errors.New("order-dependent guard may write outside its constraint performance")
+	errOrderDependentGuardEffect = errors.New("order-dependent guard may write outside its constraint performance")
 
-	// ErrUnboundSubject is returned when a condition reads a subject nothing
+	// errUnboundSubject is returned when a condition reads a subject nothing
 	// supplied: the check is about no object, so it reaches no verdict.
-	ErrUnboundSubject = errors.New("subject is unbound")
+	errUnboundSubject = errors.New("subject is unbound")
 
 	// ErrCyclicFeatureValue is returned when a feature value's default value depends, directly or
 	// through other feature values, on the one being computed.
 	ErrCyclicFeatureValue = errors.New("cyclic feature value dependency")
 
-	// ErrConnectorEnd is returned when a connector cannot be attached to the
+	// errConnectorEnd is returned when a connector cannot be attached to the
 	// features its ends name: an end naming nothing reachable from the object
 	// owning the connector, or one carrying no value. A connector whose ends
 	// cannot be attached relates nothing, so it is an error rather than an object
 	// with defaults at its ends.
-	ErrConnectorEnd = errors.New("connector end cannot be attached")
+	errConnectorEnd = errors.New("connector end cannot be attached")
 
-	// ErrNotAQuantity is returned when `x [y]` is not a quantity expression:
+	// errNotAQuantity is returned when `x [y]` is not a quantity expression:
 	// y names no measurement unit, or x is no magnitude.
-	ErrNotAQuantity = errors.New("not a quantity expression")
+	errNotAQuantity = errors.New("not a quantity expression")
 
 	// ErrIncommensurableUnits is returned when an operation combines quantities
 	// whose units measure different things; see semantics.ErrIncommensurableUnits.
 	ErrIncommensurableUnits = semantics.ErrIncommensurableUnits
 
-	// ErrUnitRoot is returned when the root of a quantity is taken whose unit
+	// errUnitRoot is returned when the root of a quantity is taken whose unit
 	// has none: `sqrt(9 [m])`, since no unit squares to a metre.
-	ErrUnitRoot = errors.New("unit has no root")
+	errUnitRoot = errors.New("unit has no root")
 
-	// ErrScalePoint is returned when an operation is asked of a point on a
+	// errScalePoint is returned when an operation is asked of a point on a
 	// measurement scale that has no meaning for a point (its multiple, the sum of two).
-	ErrScalePoint = errors.New("operation is not defined on a point of a measurement scale")
+	errScalePoint = errors.New("operation is not defined on a point of a measurement scale")
 
 	// ErrNotASatisfaction is returned when a satisfaction assertion is asked of
 	// an element that states none.
@@ -402,72 +402,72 @@ var (
 	// resolves to nothing.
 	ErrNoRequirement = errors.New("no requirement to satisfy")
 
-	// ErrUnresolvedClassifierBehavior is returned when a type exhibits or
+	// errUnresolvedClassifierBehavior is returned when a type exhibits or
 	// performs a behavior that names an element no element states a body for,
 	// so the objects of that type have nothing to run. An exhibit or perform
 	// declaration naming nothing is its own body and never fails here.
-	ErrUnresolvedClassifierBehavior = errors.New("classifier behavior names no body")
+	errUnresolvedClassifierBehavior = errors.New("classifier behavior names no body")
 
-	// ErrUnsupportedClassifierBehavior is returned when a type binds a behavior
+	// errUnsupportedClassifierBehavior is returned when a type binds a behavior
 	// the runtime does not execute on an object.
-	ErrUnsupportedClassifierBehavior = errors.New("unsupported classifier behavior")
+	errUnsupportedClassifierBehavior = errors.New("unsupported classifier behavior")
 
-	// ErrNoSuchBehavior is returned when a behavior asked of an object is none
+	// errNoSuchBehavior is returned when a behavior asked of an object is none
 	// the object's type owns, exhibits or performs.
-	ErrNoSuchBehavior = errors.New("object has no such behavior")
+	errNoSuchBehavior = errors.New("object has no such behavior")
 
-	// ErrNotABehavior is returned when a name invoked on an object resolves to an
+	// errNotABehavior is returned when a name invoked on an object resolves to an
 	// element that states no behavior to run.
-	ErrNotABehavior = errors.New("not a behavior")
+	errNotABehavior = errors.New("not a behavior")
 
-	// ErrNotASignal is returned when a message injected from outside the model
+	// errNotASignal is returned when a message injected from outside the model
 	// names an element that is no definition, so no accept could be typed by it.
-	ErrNotASignal = errors.New("not a signal definition")
+	errNotASignal = errors.New("not a signal definition")
 
-	// ErrSignalArgument is returned when a message injected from outside the
+	// errSignalArgument is returned when a message injected from outside the
 	// model carries an argument its signal definition has no feature for.
-	ErrSignalArgument = errors.New("signal argument")
+	errSignalArgument = errors.New("signal argument")
 
-	// ErrBehaviorBudget is returned when the behaviors of materialized objects
+	// errBehaviorBudget is returned when the behaviors of materialized objects
 	// never reach quiescence within the event budget.
-	ErrBehaviorBudget = errors.New("object behaviors exceeded their budget")
+	errBehaviorBudget = errors.New("object behaviors exceeded their budget")
 
-	// ErrNotACalcUsage is returned when an output feature is read from a symbol
+	// errNotACalcUsage is returned when an output feature is read from a symbol
 	// that is not a calc usage: only a usage carries an evaluation whose outputs
 	// are features.
-	ErrNotACalcUsage = errors.New("not a calc usage")
+	errNotACalcUsage = errors.New("not a calc usage")
 
-	// ErrUnknownOutput is returned when a name read from a calc usage is not one
+	// errUnknownOutput is returned when a name read from a calc usage is not one
 	// of the output features its calc declares.
-	ErrUnknownOutput = errors.New("unknown output")
+	errUnknownOutput = errors.New("unknown output")
 
-	// ErrOutputNotAssigned is returned when a declared output carries no value
+	// errOutputNotAssigned is returned when a declared output carries no value
 	// because the activation never assigned it. It is a kind of ErrNoValue.
-	ErrOutputNotAssigned = fmt.Errorf("%w: output never assigned", ErrNoValue)
+	errOutputNotAssigned = fmt.Errorf("%w: output never assigned", ErrNoValue)
 
-	// ErrConflictingOutput is returned when one activation would bind an output
+	// errConflictingOutput is returned when one activation would bind an output
 	// twice: by its declaration and by an assignment, or by two assignments.
-	ErrConflictingOutput = errors.New("output bound more than once")
+	errConflictingOutput = errors.New("output bound more than once")
 
-	// ErrCyclicOutput is returned when an output feature's binding depends,
+	// errCyclicOutput is returned when an output feature's binding depends,
 	// directly or through other outputs, on the output being computed.
-	ErrCyclicOutput = errors.New("cyclic output dependency")
+	errCyclicOutput = errors.New("cyclic output dependency")
 
-	// ErrAmbiguousResult is returned when a calc declaring several output
+	// errAmbiguousResult is returned when a calc declaring several output
 	// features is invoked as an expression. A function invocation has exactly
 	// one result (KerML 7.4.9), so a calc that designates none has no value to
 	// hand back and is read through a calc usage's output features instead.
-	ErrAmbiguousResult = errors.New("calculation has no single result")
+	errAmbiguousResult = errors.New("calculation has no single result")
 
 	// ErrIndexOutOfRange is returned when an index names no position of the
 	// sequence or string it indexes; indices are 1-based, so 0 is out of range
 	// as much as size+1 is, and each operation names what it indexed.
 	ErrIndexOutOfRange = errors.New("index out of range")
 
-	// ErrIntegerUnaddressable is returned when an Integer serves as a position,
+	// errIntegerUnaddressable is returned when an Integer serves as a position,
 	// count or bound of something held, and is beyond the 64-bit range any of
 	// those can take: Integers are unbounded, what they address is not.
-	ErrIntegerUnaddressable = semantics.ErrIntegerUnaddressable
+	errIntegerUnaddressable = semantics.ErrIntegerUnaddressable
 
 	// ErrBodyArity is returned when the body expression a collection operation
 	// is given declares a number of parameters the operation cannot call it
@@ -475,43 +475,43 @@ var (
 	// declaring two parameters has no second argument to receive.
 	ErrBodyArity = errors.New("body parameter count mismatch")
 
-	// ErrUnsupportedBodyDeclaration is returned when a body expression declares
+	// errUnsupportedBodyDeclaration is returned when a body expression declares
 	// features of its own: the evaluator binds its parameters, not its
 	// declarations, so applying it would read them as unresolved.
-	ErrUnsupportedBodyDeclaration = errors.New("unsupported declaration in a body expression")
+	errUnsupportedBodyDeclaration = errors.New("unsupported declaration in a body expression")
 
-	// ErrReceiverWithNamedArgs is returned when a receiver is written before a
+	// errReceiverWithNamedArgs is returned when a receiver is written before a
 	// call whose arguments are named, `x->f(a = 1)`. The receiver binds by
 	// position and the arguments by name, so which parameter the receiver binds
 	// to is unstated; it is reported rather than dropped.
-	ErrReceiverWithNamedArgs = errors.New("receiver combined with named arguments")
+	errReceiverWithNamedArgs = errors.New("receiver combined with named arguments")
 
 	// ErrVariationUnselected is returned when a variation is read without having
 	// been bound to one of its variants: it classifies its variants abstractly,
 	// so it stands for no one value until a variant is selected.
 	ErrVariationUnselected = errors.New("variation has no variant selected")
 
-	// ErrNotAVariant is returned when a variation is bound to something that is
+	// errNotAVariant is returned when a variation is bound to something that is
 	// not one of the variants it offers.
-	ErrNotAVariant = errors.New("not a variant of the variation")
+	errNotAVariant = errors.New("not a variant of the variation")
 
-	// ErrMultipleVariants is returned when a variation is bound to more than one
+	// errMultipleVariants is returned when a variation is bound to more than one
 	// variant, which selects no single configuration.
-	ErrMultipleVariants = errors.New("more than one variant selected")
+	errMultipleVariants = errors.New("more than one variant selected")
 
-	// ErrNotALiteral is returned when a name qualified by an enumeration
+	// errNotALiteral is returned when a name qualified by an enumeration
 	// definition names something the enumeration does not declare as a literal.
-	ErrNotALiteral = errors.New("not a literal of the enumeration")
+	errNotALiteral = errors.New("not a literal of the enumeration")
 
-	// ErrConflictingRedefinition is returned when one declaration values the
+	// errConflictingRedefinition is returned when one declaration values the
 	// same feature under two of its names: a redefinition renames one feature,
 	// so which of the two values it holds would be a silent pick.
-	ErrConflictingRedefinition = errors.New("one feature valued under two names")
+	errConflictingRedefinition = errors.New("one feature valued under two names")
 
-	// ErrValuedFeatureRestated is returned when a feature is both bound to a
+	// errValuedFeatureRestated is returned when a feature is both bound to a
 	// value and given a body restating features of it: the bound value supplies
 	// those features, so the restatement could only be silently dropped.
-	ErrValuedFeatureRestated = errors.New("feature both valued and restated in a body")
+	errValuedFeatureRestated = errors.New("feature both valued and restated in a body")
 
 	// ErrFeatureValueMaterialization marks an error as a feature value that could not be
 	// materialized, whatever kept it from materializing. Reading a feature value is what
@@ -524,31 +524,36 @@ var (
 	// the object has nothing to answer with and nowhere to hold the value.
 	ErrNoSuchFeature = errors.New("object has no such feature")
 
-	// ErrClockNotAssignable is returned when an assignment targets a Clock's
+	// errClockNotAssignable is returned when an assignment targets a Clock's
 	// currentTime: the run advances it, so no statement writes it.
-	ErrClockNotAssignable = errors.New("a clock's currentTime advances with the run and is not assigned")
+	errClockNotAssignable = errors.New("a clock's currentTime advances with the run and is not assigned")
 
-	// ErrReadOnlyFeature is returned when a behavior writes a feature declared
+	// errReadOnlyFeature is returned when a behavior writes a feature declared
 	// `constant` or `derived`, or redefining or subsetting one that is, once its
 	// featuring occurrence is initialized: a constant feature keeps its value over
 	// that occurrence's lifetime and a derived one has the values the model
 	// determines, so neither is written. The feature keeps the value it held.
-	ErrReadOnlyFeature = errors.New("feature is read-only")
+	errReadOnlyFeature = errors.New("feature is read-only")
 
-	// ErrNoSubject is returned when the feature a satisfaction assertion names
+	// errNoSubject is returned when the feature a satisfaction assertion names
 	// with `by` cannot supply a subject: it resolves to nothing, or no object of
 	// it can be created.
-	ErrNoSubject = errors.New("no subject to satisfy the requirement")
+	errNoSubject = errors.New("no subject to satisfy the requirement")
 
-	// ErrPerformerFeatureNotInScope is returned when a behavior body names a
+	// ErrNeedsObject is returned when a case a definition owns is run with no
+	// object of the definition to run on: the case is a feature of such an
+	// object, so with none instantiated its body has nothing to read.
+	ErrNeedsObject = errors.New("needs an object")
+
+	// errPerformerFeatureNotInScope is returned when a behavior body names a
 	// feature only the object performing it declares: the performing object is
 	// not a namespace the body's names resolve in, so the name has no referent.
-	ErrPerformerFeatureNotInScope = errors.New("name is not in scope of the behavior body")
+	errPerformerFeatureNotInScope = errors.New("name is not in scope of the behavior body")
 
-	// ErrThisNotAnObject is returned when `this` is read where no object owns
+	// errThisNotAnObject is returned when `this` is read where no object owns
 	// what is being evaluated: the context occurrence is the performance itself,
 	// whose features a name written in its body does not reach.
-	ErrThisNotAnObject = errors.New("this names no object here")
+	errThisNotAnObject = errors.New("this names no object here")
 )
 
 type budgetExceededError struct {
@@ -556,20 +561,20 @@ type budgetExceededError struct {
 	errs    []error
 }
 
-// UnassignedOutputError names the declared output a run could not read
+// unassignedOutputError names the declared output a run could not read
 // because the activation never assigned it, and the calc that declares it.
-type UnassignedOutputError struct {
+type unassignedOutputError struct {
 	Output string
 	Calc   string
 }
 
-// Error keeps the diagnostic text an ErrOutputNotAssigned carried.
-func (e *UnassignedOutputError) Error() string {
-	return fmt.Sprintf("%s: output %s of %s", ErrOutputNotAssigned, e.Output, e.Calc)
+// Error keeps the diagnostic text an errOutputNotAssigned carried.
+func (e *unassignedOutputError) Error() string {
+	return fmt.Sprintf("%s: output %s of %s", errOutputNotAssigned, e.Output, e.Calc)
 }
 
-// Unwrap reports the failure as an ErrOutputNotAssigned.
-func (e *UnassignedOutputError) Unwrap() error { return ErrOutputNotAssigned }
+// Unwrap reports the failure as an errOutputNotAssigned.
+func (e *unassignedOutputError) Unwrap() error { return errOutputNotAssigned }
 
 func (e *budgetExceededError) Error() string { return e.message }
 
@@ -580,6 +585,13 @@ func budgetExceeded(sentinel error, message string, causes ...error) error {
 	errs = append(errs, sentinel)
 	errs = append(errs, causes...)
 	return &budgetExceededError{message: message, errs: errs}
+}
+
+// IsUninitializedFeatureValue reports whether err is a read of a required
+// feature that holds no value and has no default, which a caller shows as
+// unset rather than as a failure.
+func IsUninitializedFeatureValue(err error) bool {
+	return errors.Is(err, errUninitializedFeatureValue)
 }
 
 // NoValueError reports a feature a condition names that carries no value,
@@ -599,41 +611,41 @@ func (e *NoValueError) Error() string {
 
 func (e *NoValueError) Unwrap() error { return ErrNoValue }
 
-// CyclicBindingError reports a namespace-level usage whose value reaches back to the usage
+// cyclicBindingError reports a namespace-level usage whose value reaches back to the usage
 // itself while it is being bound, naming that usage.
-type CyclicBindingError struct {
+type cyclicBindingError struct {
 	Usage  *symbols.Symbol
 	Stated string
 }
 
-func (e *CyclicBindingError) Error() string {
+func (e *cyclicBindingError) Error() string {
 	return fmt.Sprintf("%v: %s", ErrCyclicFeatureValue, e.Stated)
 }
 
-func (e *CyclicBindingError) Unwrap() error { return ErrCyclicFeatureValue }
+func (e *cyclicBindingError) Unwrap() error { return ErrCyclicFeatureValue }
 
-// UnboundSubjectError reports a check whose subject nothing supplied, naming
+// subjectUnboundError reports a check whose subject nothing supplied, naming
 // the subject and how a caller supplies one.
-type UnboundSubjectError struct {
+type subjectUnboundError struct {
 	Kind    string // "constraint", "requirement", "analysis", "verification" or "objective"
 	Element string // name of the element declaring the subject
 	Subject string // name of the subject parameter
 }
 
-func (e *UnboundSubjectError) Error() string {
+func (e *subjectUnboundError) Error() string {
 	switch e.Kind {
 	case "analysis", "verification":
 		return fmt.Sprintf("%s %s: %s %v: bind it (`subject %s = <element>`) or run it on an object",
-			e.Kind, e.Element, e.Subject, ErrUnboundSubject, e.Subject)
+			e.Kind, e.Element, e.Subject, errUnboundSubject, e.Subject)
 	case "objective":
 		return fmt.Sprintf("%s %s: %s %v: bind it (`subject %s = <element>`) or return a result from the case for it to default to",
-			e.Kind, e.Element, e.Subject, ErrUnboundSubject, e.Subject)
+			e.Kind, e.Element, e.Subject, errUnboundSubject, e.Subject)
 	}
 	return fmt.Sprintf("%s %s: %s %v: bind it (`subject %s = <element>`), check it on an object, or assert `satisfy %s by <element>`",
-		e.Kind, e.Element, e.Subject, ErrUnboundSubject, e.Subject, e.Element)
+		e.Kind, e.Element, e.Subject, errUnboundSubject, e.Subject, e.Element)
 }
 
-func (e *UnboundSubjectError) Unwrap() error { return ErrUnboundSubject }
+func (e *subjectUnboundError) Unwrap() error { return errUnboundSubject }
 
 // ViolationError reports a condition that evaluated to false, naming the
 // condition so a verdict says which one failed. It unwraps to ErrViolated,
@@ -656,6 +668,9 @@ func (e *ViolationError) Unwrap() error { return ErrViolated }
 // ErrFeatureValueMaterialization, so a caller tests either.
 type FeatureValueError struct {
 	Err error
+	// Instance holds the feature value that did not materialize, as the feature named Feature.
+	Instance *Instance
+	Feature  string
 }
 
 func (e *FeatureValueError) Error() string { return e.Err.Error() }
@@ -683,10 +698,10 @@ func (e *OperandTypeError) Error() string {
 
 func (e *OperandTypeError) Unwrap() error { return ErrTypeMismatch }
 
-// CalcFrameError reports an error raised inside a calc invocation, counting the
+// calcFrameError reports an error raised inside a calc invocation, counting the
 // calc frames it propagated through so a recursion reports a depth rather than
 // one wrapped line per frame.
-type CalcFrameError struct {
+type calcFrameError struct {
 	Kind   string // the notation keyword of the calc: `calc` or `analysis`
 	Calc   string // the calc the error surfaced from
 	Frames int    // calc frames the error propagated through
@@ -697,23 +712,23 @@ type CalcFrameError struct {
 	calcs map[string]bool
 }
 
-func (e *CalcFrameError) Error() string {
+func (e *calcFrameError) Error() string {
 	if e.Frames > 1 {
 		return fmt.Sprintf("%s %s: … %d frames: %v", e.Kind, e.Calc, e.Frames, e.Err)
 	}
 	return fmt.Sprintf("%s %s: %v", e.Kind, e.Calc, e.Err)
 }
 
-func (e *CalcFrameError) Unwrap() error { return e.Err }
+func (e *calcFrameError) Unwrap() error { return e.Err }
 
 // calcFrame adds one calc frame to err. A calc the chain already passed through
 // is counted rather than wrapped again, so a recursion reports a depth instead
 // of one line per frame, while a calc calling another still names both.
 func calcFrame(kind, calc string, err error) error {
-	var framed *CalcFrameError
+	var framed *calcFrameError
 	if errors.As(err, &framed) {
 		if framed.calcs[calc] {
-			return &CalcFrameError{
+			return &calcFrameError{
 				Kind:   kind,
 				Calc:   calc,
 				Frames: framed.Frames + 1,
@@ -726,9 +741,9 @@ func calcFrame(kind, calc string, err error) error {
 			calcs[name] = true
 		}
 		calcs[calc] = true
-		return &CalcFrameError{Kind: kind, Calc: calc, Frames: 1, Err: err, calcs: calcs}
+		return &calcFrameError{Kind: kind, Calc: calc, Frames: 1, Err: err, calcs: calcs}
 	}
-	return &CalcFrameError{Kind: kind, Calc: calc, Frames: 1, Err: err, calcs: map[string]bool{calc: true}}
+	return &calcFrameError{Kind: kind, Calc: calc, Frames: 1, Err: err, calcs: map[string]bool{calc: true}}
 }
 
 // calcDefaultError reports err raised evaluating calc's default for param as one
@@ -736,3 +751,19 @@ func calcFrame(kind, calc string, err error) error {
 func calcDefaultError(kind, calc, param string, err error) error {
 	return calcFrame(kind, calc, fmt.Errorf("default for parameter %q: %w", param, err))
 }
+
+// UnresolvedActionError reports a perform, include or action reference naming
+// no behavior the runtime can find. It is a kind of ErrUnresolvedReference.
+type UnresolvedActionError struct {
+	Name   string // the name as written
+	Detail string // why the name resolves to nothing, when there is more to say
+}
+
+func (e *UnresolvedActionError) Error() string {
+	if e.Detail != "" {
+		return fmt.Sprintf("unresolved action reference: %s (%s)", e.Name, e.Detail)
+	}
+	return "unresolved action reference: " + e.Name
+}
+
+func (e *UnresolvedActionError) Unwrap() error { return ErrUnresolvedReference }

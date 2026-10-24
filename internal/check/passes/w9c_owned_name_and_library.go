@@ -44,14 +44,14 @@ func (W9CShortNameDistinguishabilityPass) Run(ctx *Context, name string, root *a
 	})
 	var diags []diag.Diagnostic
 	for _, scope := range order {
-		diags = append(diags, w9cShortNameConflicts(byScope[scope], r)...)
+		diags = append(diags, w9cShortNameConflicts(byScope[scope], r, strictSeverity(ctx.Options.Conformance))...)
 	}
 	return diags
 }
 
 // w9cShortNameConflicts reports one diagnostic per member whose short name is
 // another member's name or short name, at the repeated identifier.
-func w9cShortNameConflicts(members []*symbols.Symbol, r *resolve.Resolver) []diag.Diagnostic {
+func w9cShortNameConflicts(members []*symbols.Symbol, r *resolve.Resolver, severity diag.Severity) []diag.Diagnostic {
 	uses := map[string][]*symbols.Symbol{}
 	for _, sym := range members {
 		for _, key := range w9cKeysOf(sym) {
@@ -72,7 +72,7 @@ func w9cShortNameConflicts(members []*symbols.Symbol, r *resolve.Resolver) []dia
 				continue
 			}
 			diags = append(diags, diag.Diagnostic{
-				Severity: diag.SeverityWarning,
+				Severity: severity,
 				Span:     key.span,
 				Message:  "Duplicate of other owned member name",
 				Code:     "name-conflict",

@@ -23,7 +23,7 @@ const (
 	ValInstance
 	ValSequence
 	ValSet
-	ValExpr                     // wraps unevaluated AST node for delayed evaluation (e.g., BodyExpr for select/collect)
+	valExpr                     // wraps unevaluated AST node for delayed evaluation (e.g., BodyExpr for select/collect)
 	ValQuantity                 // a magnitude and the measurement unit it is expressed in
 	ValVariant                  // the variant selected for a variation, and the object it materializes
 	ValEnumLiteral              // one literal of an enumeration definition, identified by itself
@@ -110,12 +110,12 @@ func FormatValue(v Value) string {
 		return v.CoordinateFrame().String()
 	case ValCoordinateTransformation:
 		return v.CoordinateTransformation().String()
-	case ValExpr:
+	case valExpr:
 		return "<expression>"
 	case ValFunction:
 		return v.FunctionName()
 	case ValMetaobject:
-		return v.MetaobjectText()
+		return v.metaobjectText()
 	case ValUndetermined:
 		return UndeterminedText
 	default:
@@ -157,7 +157,7 @@ func (k ValueKind) String() string {
 		return "sequence"
 	case ValSet:
 		return "set"
-	case ValExpr:
+	case valExpr:
 		return "expression"
 	case ValQuantity:
 		return "quantity"
@@ -200,7 +200,7 @@ type Value struct {
 	Const    semantics.Value // ValConst: reuse static evaluator
 	Instance int64           // ValInstance: instance ID; ValVariant: materialized object, 0 for none
 	// ref holds the kind-specific payload of the remaining kinds: a string
-	// (ValString), *Sequence, *Set, *exprValue (ValExpr), *Quantity, a complex128
+	// (ValString), *Sequence, *Set, *exprValue (valExpr), *Quantity, a complex128
 	// (ValComplex), *Array, *Vector, *VectorQuantity, *MeasurementRef, *TensorQuantity,
 	// *functionValue (ValFunction), *metaobjectValue (ValMetaobject), *Undetermined, or
 	// the *symbols.Symbol of a variant (ValVariant) or enumeration literal (ValEnumLiteral).
@@ -253,9 +253,9 @@ func (v Value) MetaobjectClass() *symbols.Symbol {
 	return nil
 }
 
-// MetaobjectText renders a metaobject as the element it denotes and the
+// metaobjectText renders a metaobject as the element it denotes and the
 // metaclass it is an instance of: `meta(Pkg::x : KerML::Feature)`.
-func (v Value) MetaobjectText() string {
+func (v Value) metaobjectText() string {
 	element, metaclass := v.MetaobjectElement(), v.MetaobjectClass()
 	if element == nil {
 		return "<unknown metaobject>"
@@ -313,10 +313,10 @@ type exprValue struct {
 	env  *EvalContext
 }
 
-// NewExprValue defers evaluation of an expression, closing over env: the
+// newExprValue defers evaluation of an expression, closing over env: the
 // bindings and scope in force where it was written.
-func NewExprValue(node ast.Node, env *EvalContext) Value {
-	return Value{Kind: ValExpr, ref: &exprValue{node: node, env: env}}
+func newExprValue(node ast.Node, env *EvalContext) Value {
+	return Value{Kind: valExpr, ref: &exprValue{node: node, env: env}}
 }
 
 // NewQuantityValue wraps a magnitude expressed in a measurement unit.
@@ -324,9 +324,9 @@ func NewQuantityValue(q *Quantity) Value {
 	return Value{Kind: ValQuantity, ref: q}
 }
 
-// NewVariantValue is the variant a variation was bound to, with the object it
+// newVariantValue is the variant a variation was bound to, with the object it
 // materialized (0 when it materializes none).
-func NewVariantValue(variant *symbols.Symbol, instance int64) Value {
+func newVariantValue(variant *symbols.Symbol, instance int64) Value {
 	return Value{Kind: ValVariant, ref: variant, Instance: instance}
 }
 
@@ -405,9 +405,9 @@ func (v Value) Set() *Set {
 	return set
 }
 
-// Expr is the deferred expression of a ValExpr; nil for every other kind.
-func (v Value) Expr() ast.Node {
-	if v.Kind != ValExpr {
+// expr is the deferred expression of a valExpr; nil for every other kind.
+func (v Value) expr() ast.Node {
+	if v.Kind != valExpr {
 		return nil
 	}
 	if closure, ok := v.ref.(*exprValue); ok {
@@ -416,12 +416,12 @@ func (v Value) Expr() ast.Node {
 	return nil
 }
 
-// exprEnv is the environment a ValExpr closes over, or in where it closes over
+// exprEnv is the environment a valExpr closes over, or in where it closes over
 // none. Tracing is the applying context's: a body applied later is recorded
 // as the evaluation reaching it is, not as its creation was.
 func (v Value) exprEnv(in *EvalContext) *EvalContext {
 	closure, ok := v.ref.(*exprValue)
-	if !ok || v.Kind != ValExpr || closure.env == nil {
+	if !ok || v.Kind != valExpr || closure.env == nil {
 		return in
 	}
 	if closure.env.trace == in.trace {
@@ -432,10 +432,10 @@ func (v Value) exprEnv(in *EvalContext) *EvalContext {
 	return &env
 }
 
-// exprScope is the scope a ValExpr closes over, or in where it closes over none.
+// exprScope is the scope a valExpr closes over, or in where it closes over none.
 func (v Value) exprScope(in *symbols.Scope) *symbols.Scope {
 	closure, ok := v.ref.(*exprValue)
-	if !ok || v.Kind != ValExpr || closure.env == nil {
+	if !ok || v.Kind != valExpr || closure.env == nil {
 		return in
 	}
 	return closure.env.scope
@@ -576,6 +576,8 @@ type Sequence struct {
 	elements    []Value
 	elementUnit *Unit
 	required    *requiredMembers
+	// shaped: the one-element shape one value is held in, charged when a feature holds it.
+	shaped bool
 }
 
 // NewSequence creates an empty Sequence.
@@ -583,15 +585,15 @@ func NewSequence() *Sequence {
 	return &Sequence{elements: make([]Value, 0)}
 }
 
-// NewEmptySequenceOf is the empty sequence of quantities measured in unit, which
+// newEmptySequenceOf is the empty sequence of quantities measured in unit, which
 // types the identity an aggregate of it yields.
-func NewEmptySequenceOf(unit Unit) Value {
+func newEmptySequenceOf(unit Unit) Value {
 	return NewSequenceValue(&Sequence{elements: make([]Value, 0), elementUnit: &unit})
 }
 
-// ElementUnit is the unit an empty sequence's elements are declared in; false for
+// emptyElementUnit is the unit an empty sequence's elements are declared in; false for
 // a sequence holding elements or read from no quantity-typed declaration.
-func (s *Sequence) ElementUnit() (Unit, bool) {
+func (s *Sequence) emptyElementUnit() (Unit, bool) {
 	if s == nil || s.elementUnit == nil || s.Size() != 0 {
 		return Unit{}, false
 	}
@@ -648,6 +650,8 @@ type Set struct {
 	order    []Value  // insertion order, the tie-break canonical order falls back to
 	sorted   []Value  // canonical order, built on the first read after an Add
 	ctx      *Context // judges membership; nil compares values with no context
+	// shaped: the one-element shape one value is held in, charged when a feature holds it.
+	shaped bool
 }
 
 // NewSet creates an empty Set whose membership needs no context.
@@ -764,4 +768,43 @@ func (ctx *Context) setOf(elements []Value) Value {
 		set.Add(elem)
 	}
 	return NewSetValue(set)
+}
+
+// MagnitudeValue is the number a value is as written, Integer or Real, a
+// quantity's magnitude included, and whether it is one.
+func MagnitudeValue(value Value) (semantics.Value, bool) {
+	n, _, ok := Magnitude(value)
+	return n, ok
+}
+
+// Magnitude is MagnitudeValue with the quantity's unit ("" for a bare number); a
+// one-element sequence is read as its element, so its unit is the element's.
+func Magnitude(value Value) (semantics.Value, string, bool) {
+	value = soleElement(value)
+	n, ok := magnitudeOf(value)
+	if !ok {
+		return semantics.Value{}, "", false
+	}
+	if q := value.Quantity(); q != nil {
+		return n, q.Unit.String(), true
+	}
+	return n, "", true
+}
+
+func magnitudeOf(value Value) (semantics.Value, bool) {
+	switch value.Kind {
+	case ValConst:
+		return value.Const, value.Const.IsNumeric()
+	case ValQuantity:
+		if q := value.Quantity(); q != nil && q.Num.IsNumeric() {
+			return q.Num, true
+		}
+	}
+	return semantics.Value{}, false
+}
+
+// Sole is the one value a one-element sequence or set holds, or v itself for
+// any other value: what a consumer taking one value reads from a held result.
+func (v Value) Sole() Value {
+	return soleElement(v)
 }

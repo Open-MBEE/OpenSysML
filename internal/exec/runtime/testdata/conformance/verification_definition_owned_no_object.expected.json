@@ -1,0 +1,7 @@
+{
+  "libraries": true,
+  "type": "verification",
+  "evaluate": "test::Definition::costTest",
+  "verdict": "inconclusive",
+  "verdictDetail": "needs an object of test::Definition: none is instantiated"
+}

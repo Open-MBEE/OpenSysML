@@ -22,8 +22,8 @@ func runRenderModeMisuse() string {
 	switch {
 	case len(renderRuns) == 0:
 		return "-render-run needs a value of the form <timeline|sequence>=<path>"
-	case modelChecks.jsonOut && renderRunWritesStdout():
-		return "-render-run cannot write to stdout with -json; name a file for the rendering"
+	case modelChecks.machine() && renderRunWritesStdout():
+		return "-render-run cannot write to stdout with -json or a -format document; name a file for the rendering"
 	case flagGiven("compare-results"):
 		return "-render-run cannot be combined with -compare-results"
 	case len(modelChecks.actions) == 0 && len(modelChecks.states) == 0 && !modelChecks.advance.given:
@@ -48,8 +48,8 @@ func runRenderModeMisuse() string {
 		return "-render-run cannot be combined with -query"
 	case outputPath != "":
 		return "-render-run names each output path; do not combine it with -output"
-	case renderPalette != "" || renderStyle != "" || renderPorts != "" || renderUnplaced != "":
-		return "-render-palette, -render-style, -render-ports and -render-unplaced apply to model renderings, not -render-run"
+	case renderPalette != "" || renderStyle != "" || renderPorts != "" || renderLines != "" || renderUnplaced != "" || renderCompartments != "":
+		return "-render-palette, -render-style, -render-ports, -render-lines, -render-unplaced and -render-compartments apply to model renderings, not -render-run"
 	}
 	return ""
 }
@@ -83,11 +83,11 @@ func runRenderTargetsFromFlags() ([]runRenderTarget, error) {
 				var found bool
 				form, found = runRenderFormFromPath(path)
 				if !found {
-					return nil, fmt.Errorf("-render-run path %q has no recognized form extension; use -render-form text, mermaid or plantuml", path)
+					return nil, fmt.Errorf("-render-run path %q has no recognized form extension; use -render-form text, mermaid, plantuml, svg or svg-animated", path)
 				}
 			}
 		} else if !slices.Contains(view.Forms(), form) {
-			return nil, fmt.Errorf("unknown rendering form %q; -render-form takes %s", renderForm, formList())
+			return nil, fmt.Errorf("unknown rendering form %q; -render-form takes %s", renderForm, view.FormNames(view.Forms()))
 		}
 		probe := &view.Rendering{Kind: runRenderViewKind(kind), Run: true}
 		if _, err := probe.WriteWith(form, view.Options{Links: view.Links{Template: renderLink}}); err != nil {
@@ -124,6 +124,8 @@ func runRenderFormFromPath(path string) (view.Form, bool) {
 		return view.FormText, true
 	case ".dot", ".gv":
 		return view.FormDot, true
+	case ".svg":
+		return view.FormSVG, true
 	default:
 		return "", false
 	}

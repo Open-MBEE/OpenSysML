@@ -171,6 +171,9 @@ func (r *Resolver) resolveTypeDecl(scope *symbols.Scope, decl ast.Node) bool {
 		} else {
 			r.resolveExpr(scope, d.Value)
 		}
+		if d.Terminates != nil {
+			r.resolveExpr(scope, d.Terminates.Target)
+		}
 		for _, end := range d.ConnectorEnds {
 			// ConnectorEnd has both Target and Reference fields
 			// Target: primary connector target (part being connected)
@@ -1806,7 +1809,7 @@ func (r *Resolver) walkMemberChain(scope *symbols.Scope, parentSym *symbols.Symb
 		if r.memberless(parentSym) {
 			msg = "no scope for member lookup in " + parentSym.Name
 		}
-		r.Diagnostics = append(r.Diagnostics, Diagnostic{Span: qn.Parts[0].Span, Message: msg})
+		r.Diagnostics = append(r.Diagnostics, Diagnostic{Span: qn.Parts[0].Span, Message: msg, Code: CodeUnresolved})
 		return nil, false
 	}
 	r.recordPart(qn, 0, cur)
@@ -1818,6 +1821,7 @@ func (r *Resolver) walkMemberChain(scope *symbols.Scope, parentSym *symbols.Symb
 			r.Diagnostics = append(r.Diagnostics, Diagnostic{
 				Span:    qn.Parts[i].Span,
 				Message: "no members in " + cur.Name,
+				Code:    CodeUnresolved,
 			})
 			return nil, false
 		}
@@ -1826,6 +1830,7 @@ func (r *Resolver) walkMemberChain(scope *symbols.Scope, parentSym *symbols.Symb
 			r.Diagnostics = append(r.Diagnostics, Diagnostic{
 				Span:    qn.Parts[i].Span,
 				Message: "unresolved member: " + qn.Parts[i].Text + " in " + cur.Name,
+				Code:    CodeUnresolved,
 			})
 			return nil, false
 		}

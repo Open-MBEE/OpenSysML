@@ -5,10 +5,10 @@ classes: {
   final: { shape: oval; width: 22; height: 22; style: { fill: black; stroke: black; double-border: true } }
   edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
 }
-n0: "«action»\nrun : Cycle" {
+n0: "«action»\nrun" {
   class: usage
   n1: "" { class: initial }
-  n2: "«action»\nwarm : Warm" { class: usage }
+  n2: "«action»\nwarm" { class: usage }
   n3: "" { class: final }
 }
 n0.n1 -> n0.n2: { class: edge }

@@ -20,11 +20,35 @@ type Point struct {
 
 // Geometry is where a node is drawn, from the DiagramLayout::Layout positioning
 // it in the rendered view; HasSize says whether Width and Height were given.
+// Hidden are the compartments the Layout's show… switches turn off for this
+// symbol, which its box neither lists nor counts as clipped.
 type Geometry struct {
 	X, Y          float64
 	Width, Height float64
-	HasSize       bool
-	Collapsed     bool
+	// Unplaced marks a Layout stating no x and y, one that only folds or hides
+	// and leaves the node for the form to lay out.
+	Unplaced  bool
+	HasSize   bool
+	Collapsed bool
+	Hidden    semantics.HiddenCompartments
+}
+
+// geometryFromLayout is the Geometry a resolved Layout gives.
+func geometryFromLayout(l *semantics.Layout) *Geometry {
+	return &Geometry{X: l.X, Y: l.Y, Width: l.Width, Height: l.Height, Unplaced: l.Unplaced, HasSize: l.HasSize, Collapsed: l.Collapsed, Hidden: l.Hidden}
+}
+
+// placed reports whether g positions its node; a nil or fold-only Geometry does not.
+func (g *Geometry) placed() bool {
+	return g != nil && !g.Unplaced
+}
+
+// centre is the middle of the geometry, its corner when it has no size.
+func (g *Geometry) centre() Point {
+	if !g.HasSize {
+		return Point{X: g.X, Y: g.Y}
+	}
+	return Point{X: g.X + g.Width/2, Y: g.Y + g.Height/2}
 }
 
 // Canvas is the drawing surface a view states with DiagramLayout::Canvas: its
@@ -193,8 +217,7 @@ func (r *Renderer) geometryOf(view, elem *symbols.Symbol, out *Rendering) *Geome
 	if site.Layout == nil {
 		return nil
 	}
-	l := site.Layout
-	return &Geometry{X: l.X, Y: l.Y, Width: l.Width, Height: l.Height, HasSize: l.HasSize, Collapsed: l.Collapsed}
+	return geometryFromLayout(site.Layout)
 }
 
 // memberGeometryOf is the Geometry positioning, in view, the member owner has
@@ -215,8 +238,29 @@ func (r *Renderer) memberGeometryOf(view, owner *symbols.Symbol, name string, ou
 	if site.Layout == nil {
 		return nil
 	}
-	l := site.Layout
-	return &Geometry{X: l.X, Y: l.Y, Width: l.Width, Height: l.Height, HasSize: l.HasSize, Collapsed: l.Collapsed}
+	return geometryFromLayout(site.Layout)
+}
+
+// memberDress gives node the Style of, and adds the Notes anchored to, the
+// member owner has under name in view, resolved as memberGeometryOf resolves
+// its Layout.
+func (r *Renderer) memberDress(view, owner *symbols.Symbol, name string, node *Node, out *Rendering) *Node {
+	if owner == nil {
+		return node
+	}
+	if site, ok := r.model.MemberStyleOf(view, owner, name); ok {
+		r.noteLayoutProblems(site, owner, out)
+		if s := site.Style; s != nil {
+			node.Style = &Style{Fill: s.Fill, Line: s.Line, Text: s.Text, Font: s.Font, FontSize: s.FontSize, Bold: s.Bold, Italic: s.Italic}
+		}
+	}
+	for _, site := range r.model.MemberNotesOf(view, owner, name) {
+		r.noteLayoutProblems(site, owner, out)
+		if n := site.Note; n != nil {
+			out.Notes = append(out.Notes, Note{Text: n.Text, Anchor: node.ID, X: n.X, Y: n.Y, Width: n.Width, Height: n.Height, HasSize: n.HasSize, Origin: site.Origin()})
+		}
+	}
+	return node
 }
 
 // routeOf is the waypoints the edge declared as elem follows in view, nil when
@@ -227,6 +271,24 @@ func (r *Renderer) routeOf(view, elem *symbols.Symbol, out *Rendering) []Point {
 	if !ok {
 		return nil
 	}
+	return r.routePoints(site, elem, out)
+}
+
+// specializationRouteOf is the waypoints the edge drawn from elem to general,
+// for the specialization, typing or subsetting elem states, follows in view:
+// those of a Route about elem naming general, nil when none gives any.
+func (r *Renderer) specializationRouteOf(view, elem, general *symbols.Symbol, out *Rendering) []Point {
+	out.drawn.noteSpecialization(elem, general)
+	site, ok := r.model.SpecializationRouteOf(view, elem, general)
+	if !ok {
+		return nil
+	}
+	return r.routePoints(site, elem, out)
+}
+
+// routePoints is the waypoints a Route site about elem binds, nil when it
+// reads none; its problems are noticed on out.
+func (r *Renderer) routePoints(site *semantics.LayoutSite, elem *symbols.Symbol, out *Rendering) []Point {
 	r.noteLayoutProblems(site, elem, out)
 	if site.Route == nil {
 		return nil

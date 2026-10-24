@@ -41,7 +41,7 @@ report:
   properties, the multi-valued ones included; what it loses is the `sysx:`
   properties, since the reader ignores predicates outside `sysml:` and
   `urn:sysmlv2:annotation:json:`. The measurement lives in
-  `internal/translate/interop/flexo`, an opt-in gate described in
+  `tools/referee/flexo`, an opt-in gate described in
   `.agents/skills/flexo-interop`, and its committed report records what changes
   as the remaining work lands.
 
@@ -243,13 +243,29 @@ whose source text is stale for some element — cannot imply the id, so the
 reader writes it as an `@IdentityMetadata::ElementId` annotation instead and
 the id survives a further hop through notation as a declared one. The reader
 recognises a normative id only on the subject whose `sysml:qualifiedName` is the
-library element's (its effective name, or the exact positional name the writer
-gives an effectively named member); a user element that happens to carry a
+library element's (its effective name, which is also the name the writer gives
+a member named by its naming feature); a user element that happens to carry a
 library UUID without `sysx:declaredId` keeps it as a declared id, as any other
 foreign id. An explicit `@IdentityMetadata::ElementId` stating a different id
 still wins over the normative id when a library element carries one; an
 annotation restating the norm's own id declares nothing, so the id stays
 normative and `sysx:declaredId` is not written.
+
+**OpenSysML's own libraries have fixed ids too.** The bundled extension
+libraries (`OpenSysML Libraries/`: `DocumentQueries`, `MOSA`, `OOSEM`, …) are
+not normative — no specification fixes ids for them — so this implementation
+fixes them the same way, deterministic and the same on every run: a library
+package's id is `uuid5(URL name space,
+"https://github.com/Open-MBEE/OpenSysML-Extensions-Library/" + package name)`,
+and every named element under it is `uuid5(package id, escaped qualified name)`,
+as a normative id is under the OMG specification URL. A reference into one (an
+`#consensusStandard` metadata usage, a `redefines caption`) therefore links by
+id — `elmt:<uuid>` in Turtle, `{"@id": …}` in the element form — with the element
+named by a library stub as below, instead of carrying the name as text. These
+are **extension** ids, not normative ones: hover says `(extension, OpenSysML)`,
+and they are not the ids the OMG pilot mints when it loads the same files as a
+library directory (it hashes any library under the SysML specification URL), so
+no specification makes two tools agree on them; only the derivation above is fixed.
 
 **A converted model names the library elements it references.** A normative
 id is a hash of a name, and cannot be turned back into one. So for each standard
@@ -265,9 +281,13 @@ output references (the `importedMembership` of `import ScalarValues::Real;`) is
 stated as a `sysml:OwningMembership` with its `sysml:memberElement`, marked the
 same way.
 
-So every `@id` an API JSON output references is an element of it. Such an
-element has no owner in the graph, and the document's root namespace does not
-take it (`LibraryReference`).
+Such an element has no owner in the graph, and the document's root namespace
+does not take it (`LibraryReference`). The graph form — Turtle — keeps these
+names. The API element form does not carry them: there an ownerless element is
+a root of the model (the OMG API JSON shape, whose writer never emits library
+elements), so a conformant reader would declare `datatype Real;` anew. A
+library element the element form references is a bare `{"@id": …}` of its
+normative id, which the reader resolves against the bundled library.
 
 Reading a graph back, such an element is a reference into the bundled library,
 not a declaration, and it is not written. A qualified name other than the one
@@ -375,6 +395,14 @@ triples come); a set of classes with no such member is refused, naming the subje
 - `sysml:declaredName`, `sysml:declaredShortName`, `sysml:qualifiedName` —
   on a requirement's `subject`, `assume constraint` and `require constraint`
   members as on any usage, so `subject <s> x : T;` comes back with its short name
+- `sysml:name` — on a member named by its naming feature rather than by a
+  declaration (KerML `Feature::effectiveName`): `part :>> engine;`,
+  `perform a;`, `exhibit s;`, `include uc;`, `frame c;`, `require r;`,
+  `assume r;`, a variant reference and a view's `render tree;` (SysML v2
+  `RenderingUsage::namingFeature`) carry the name they answer to as
+  `sysml:name` with no `sysml:declaredName`, and their `sysml:qualifiedName`
+  uses it (`Views::V::tree`), as the symbol table and the SysML v2 API name
+  them. A declared name is not restated as `sysml:name`
 - `sysml:elementId` — the id the element's own IRI ends in, which is what the
   SysML v2 API addresses it by. Every element carries one, including the
   memberships below and the expression nodes of
@@ -389,11 +417,26 @@ triples come); a set of classes with no such member is refused, naming the subje
 - `sysml:isUnique` `false` for `nonunique` (`Feature::isUnique`, true when
   absent), the one flag written false. The `sysml:isNonunique` earlier releases
   wrote, which the 20250201 metamodel no longer declares, still reads.
-- Feature flags, written only when true, so an absent flag reads as false:
-  `isAbstract`, `isVariation`, `isVariant`, `isReference`, `isComposite`, `isDerived`,
-  `isOrdered`, `isEnd`, `isConstant`, `isIndividual`, `isPortion`,
+- `sysml:isComposite`, stated `true` or `false` on every feature and usage
+  (`Feature::isComposite` is authored, not derived, so the OMG API JSON shape
+  always carries it). A KerML feature is composite by its `composite` or
+  `portion` prefix. A SysML usage is composite by what it is unless `ref`
+  (`Usage::isReference` is derived as its negation, SysML.xtext
+  `BasicUsagePrefix`): one of a compositional kind — not an attribute, a
+  reference usage, an event occurrence, a `perform`, `exhibit` or `include`, a
+  binding or succession written as a usage — with no direction, not an `end`,
+  featured by a type that is not an attribute (a usage declared directly in a
+  package, or a variant of a variation definition, has no featuring type), and
+  a port only within a port definition or usage. Reading back, a usage stated
+  non-composite where its kind is composite is written `ref`; an older graph
+  stating no `isComposite` reads as before.
+- Feature flags, written only when true in the graph, so an absent flag reads
+  as false: `isAbstract`, `isVariation`, `isVariant`, `isReference`,
+  `isDerived`, `isOrdered`, `isEnd`, `isConstant`, `isIndividual`, `isPortion`,
   `isConjugated`, `isAll`, `isAccept`, `isResult`, and `isEvent` for an `event`
   modifier on a usage whose metaclass is not itself `sysml:EventOccurrenceUsage`.
+  The [API element form](#the-api-element-form) states every non-derived
+  boolean of the metaclass, `true` or `false`, as the OMG API JSON shape does.
   `sysml:EnumerationDefinition` has no `abstract` or `variation` prefix, so
   neither flag adds a keyword to its declaration.
   A flag the two grammars spell differently is written back in the grammar of
@@ -573,6 +616,7 @@ The `sysx:` properties:
 | `sysx:projectId`, `sysx:branch`, `sysx:org` | The `@IdentityMetadata::ProjectRef` provenance of a scope root, see [Element identity](#element-identity). |
 | `sysx:isRedefinitionImplicit` | A metadata body's bare `name = …` owns a Redefinition of the metadata definition's feature of that name (SysML.xtext `MetadataBodyUsage`): the name is no declared name but the redefinition's target, flagged implicit so the graph writes the bare form back rather than `:>> name` or a declared name. A body name resolving to no feature of the metadata type keeps its `sysml:declaredName` and owns none. |
 | `sysx:isKindImplicit` | The declaration wrote no kind keyword (`in x : Real;`), which takes its kind from its owner. Without it the canonical keyword would come back written out, declaring what the author did not. A kind named in a comment in the head (`in /* attribute */ x : Real;`) is trivia, not a keyword the declaration wrote. |
+| `sysx:headClause` | On a Subsetting or ReferenceSubsetting of a target the head also relates under the other clause kind that materializes as the same class (`feature f subsets x specializes x;` owns two Subsettings of `x`): the keyword this element stands for, `specializes`, `subsets` or `references`, so the reader keeps the clauses apart — and in their written order — where the collapsed properties alone cannot tell them apart. Absent elsewhere. |
 | the behavioral properties | `sysx:guard`, `sysx:expression`, `sysx:payload`, … — the parts of a behavioral node the vocabulary has no predicate for, listed under [Behavior](#behavior). |
 
 A `return` parameter written without a kind keyword is a `ReferenceUsage`
@@ -722,7 +766,7 @@ sees the same relationships SysML.xtext produces.
 | `objective { verify r; }` | a `sysml:RequirementVerificationMembership` owning a `sysml:RequirementUsage` that references `r` (its `sysml:ReferenceSubsetting`), with `sysml:kind "requirement"` |
 | `{ in y : Real; y + x }` | a `sysml:ResultExpressionMembership` owning the result expression |
 | `filter <expr>;`, `import P::*[@T]` | a `sysml:ElementFilterMembership` carrying `sysml:condition` |
-| an expression's `referent`/`targetFeature` link | a `sysml:Membership` minted beside it (`<S>_referent`, `_preferent`, `_targetFeature`) restating the referent edge as `memberElement`/`owner`, the shape interchange readers navigate (KerML 1.0 § 8.3.4.8.5 `FeatureReferenceExpression::referent` is derived from that membership). A body expression the reference owns (`cars->select { in c : V; c == c }`) is its member through the `FeatureMembership` that owns it, as in the pilot's XMI, so no second membership is minted for it |
+| an expression's `referent`/`targetFeature` link | the `sysml:Membership` the expression owns to the feature it names (`<S>_referent`, `_preferent`, `_targetFeature`), listed under `sysml:ownedRelationship` and `sysml:ownedMembership` where the notation places it: before the result parameter of a `FeatureReferenceExpression` (KerML 1.1 § 8.2.5.8.3 `FeatureReferenceMember`), between the operand and the result of a `FeatureChainExpression` (`FeatureChainMember`); `referent` and `targetFeature` are derived from it (§ 8.3.4.8.5, § 8.3.4.8.4). A body expression the reference owns (`cars->select { in c : V; c == c }`) is its member through the `FeatureMembership` that owns it, as in the pilot's XMI, so no second membership is minted for it |
 | `f(1)`, `T(q = 1)`, `a + b`, `s.twice(2)`, `ts.q`, `ts[1]`, `ts->select { … }` | the `InvocationExpression`/`ConstructorExpression`/`OperatorExpression`/`FeatureChainExpression`/`IndexExpression`/`CollectExpression`/`SelectExpression`; per operand a `sysml:ParameterMembership` (`<S>_pin<i>_om`) owning a `sysml:Feature` with `direction "in"` (`<S>_pin<i>`) that owns a `sysml:FeatureValue` (`<S>_pa<i>_om`) whose `value` is the operand tree; a `sysml:ReturnParameterMembership` (`<S>_pout_om`) owning the `direction "out"` result `Feature` (`<S>_pout`); and for an invocation a `sysml:Membership` (`<S>_pfunction`) whose `memberElement` is the invoked function or constructed type — the pilot serializes `InstantiationExpression::instantiatedType` through that membership, not a `FeatureTyping` (KerML 1.0 § 8.3.4.8.8 `InvocationExpression`, § 8.3.4.6.4 `ParameterMembership`, § 8.3.4.7.8 `ReturnParameterMembership`, § 8.3.4.10.2 `FeatureValue`). `sysml:function`, `sysml:argument`, `sysml:parameter`, `sysml:input` and `sysml:result` are written beside as the derived properties they are ([Expressions](#expressions)) |
 | `view v : VD { expose a; expose P::*; render r; filter @T; view sub : VD; }`, `viewpoint vp : VPD { frame concern c; }` | `sysml:ViewUsage`/`ViewDefinition`/`ViewpointUsage`/`ViewpointDefinition`/`RenderingUsage`/`RenderingDefinition`, a `sysml:MembershipExpose` or `sysml:NamespaceExpose` per `expose`, a `sysml:ViewRenderingMembership` owning the `RenderingUsage` a `render` names (through a `ReferenceSubsetting` of it), a `sysml:ElementFilterMembership` per `filter`, a `sysml:FramedConcernMembership` owning the `ConcernUsage` a `frame` names, and a nested view as a `ViewUsage` member (SysML v2 1.0 § 8.3.26 Views and Viewpoints) |
 | the document itself, in the API element form | an unnamed `sysml:Namespace` (`<root>_ns`) owning each top-level element through an `OwningMembership` (`<root>_om`); see [The API element form](#the-api-element-form) |
@@ -959,7 +1003,7 @@ stores a posted array both ways: one JSON annotation literal holding the array,
 plus a typed triple per member — an IRI for a `{"@id": …}` member, a typed
 literal for a primitive. The mapping writes what that path writes, so a graph
 OpenSysML produces reads back through that service with its collections intact;
-the live measurement is in `internal/translate/interop/flexo/testdata/interop_expected.txt`.
+the live measurement is in `tools/referee/flexo/testdata/interop_expected.txt`.
 
 The JSON shape is the commit path's:
 
@@ -1118,6 +1162,15 @@ The rules the tree follows:
   `MetadataAccessExpression`, `Expression` for a body. `sysml:operator` names
   an operator expression. Legacy `sysml:argument` and `sysx:argumentIndex` are
   still accepted on import; new graphs use the standard parameter shape.
+- **A `MetadataAccessExpression` owns a `sysml:Membership`** whose
+  `sysml:memberElement` is the element whose metadata it reads (KerML.xtext
+  `MetadataAccessExpression: ownedRelationship += ElementReferenceMember '.'
+  'metadata'`); `sysml:referencedElement` restates it, as the metamodel derives
+  it from that membership (KerML
+  `validateMetadataAccessExpressionReferencedElement`). Reading back, the
+  membership's member is the element read, and a graph stating only
+  `referencedElement`, as earlier releases wrote, still reads; one whose two
+  disagree is refused.
 - **A literal's `sysml:value` is a typed literal** whose lexical form is the
   token the notation spells it with: `"2"^^xsd:integer`, `"1.5"^^xsd:decimal`,
   `"1.5E3"^^xsd:double` (an exponent is outside `xsd:decimal`'s lexical space),
@@ -1921,8 +1974,11 @@ prefix carrying a name, an `about` clause or a body (the grammar's
 first member with the name keeps the qualified name, as the language's own
 naming rule fixes it, and each later one is identified by its position among
 the owner's members — `Demo::Dup` then `Demo::@2` for two `part def Dup` at
-positions 0 and 2 — the same name a member declared unnamed takes. Both are
-`sysml:declaredName "Dup"`, each its own element with its own membership, and
+positions 0 and 2 — the same name a member declared unnamed takes. A member
+declared unnamed but named by its naming feature (`part :>> engine;`,
+`perform a;`) is `Demo::car::engine`, not `Demo::car::@0`, and a later member
+deriving a name already taken is positioned like a later duplicate. Both
+duplicates are `sysml:declaredName "Dup"`, each its own element with its own membership, and
 the name resolution pass still reports the duplicate as a warning; SysML has
 no reopening of a declaration within a namespace, so merge the declarations
 into one (or rename) rather than rely on the position. A member named `'@2'`
@@ -2030,6 +2086,11 @@ notation.
     "owningMembership": { "@id": "Vehicles__Wheel_om" },
     "declaredName": "Wheel",
     "sysx:hasBody": true,
+    "isAbstract": false,
+    "isSufficient": false,
+    "isImpliedIncluded": false,
+    "isIndividual": false,
+    "isVariation": false,
     "ownedMember": [
       { "@id": "Vehicles__Wheel__diameter" },
       { "@id": "Vehicles__Wheel__mass" }
@@ -2039,6 +2100,38 @@ notation.
   }
 ]
 ```
+
+**Booleans.** Every non-derived boolean attribute of the element's metaclass is
+stated, `true` or `false` (the OMG API JSON shape: the pilot implementation's
+writer serializes every non-derived structural feature whatever its value). The
+graph states a flag only when true (`isComposite` and a `LiteralBoolean`'s
+`value` aside), so the writer completes the absent ones with the value the graph
+implies — the metaclass default from the ontology table (`isUnique` true, every
+other flag false), or the flag another spelling of the graph carries:
+`isVariable` from `sysx:declaredPrefix "var"`, `isSufficient` from `sysml:isAll`.
+Derived booleans (`isReference`, `isLibraryElement`, `mayTimeVary`, …) are not
+completed; they are written as the graph states them — nor is a boolean whose
+redefinition in the metaclass is derived (`isVariable` on a usage, redefined by
+the derived `Usage::mayTimeVary`; the pilot implementation computes it there). The root element objects of
+the document (the root `Namespace`, or the unowned roots when it is transparent)
+carry `"sysx:statedDefaults": true`, the writer's provenance marker. Reading a
+document that carries it, a non-derived boolean at the value the graph implies
+is the writer's completion and states no triple, so the graph read back is the
+graph written, triple for triple; `isComposite` and a `LiteralBoolean`'s `value`
+are always read, as the graph always states them. A graph that itself states a
+boolean at the implied value (`sysml:isAbstract false` written by hand) keeps
+it: the element lists such members in `"sysx:explicitDefaults": [...]`, and the
+reader takes them as the statements they are. Both keys are reserved for these
+markers — a `sysx:statedDefaults` or `sysx:explicitDefaults` predicate in the
+graph is never written as a fact. A graph that is already an external writer's
+element form (one stating `isImpliedIncluded`, which this mapping never does)
+is written as it is: nothing is completed and no marker is set, so the document
+reads back through the external path exactly as before. A document without the marker
+reads as before: every stated boolean is a triple, and a document that omits its
+false flags (an older export, a compact form) reads as it always did. The marker
+is also what tells this mapping's documents from an external writer's element form,
+which states `Element::isImpliedIncluded` on its elements — a property this
+mapping's graph never states (see the toolkit's own JSON, below).
 
 How each part of the graph is spelled:
 
@@ -2064,7 +2157,8 @@ or `@type` is in a prefix other than the bare `sysml:` names and `sysx:`, an obj
 value is a reference `{"@id": …}` or a `{"@ref": <name>}` — sysml-toolkit's
 spelling of a target it could not resolve, which reads as the name literal the
 mapping writes for a name-valued reference — and an array holds no array and no
-`null`. A `null` value states no triple. An array on a `sysml:` property becomes
+`null`. A `null` value states no triple. A stated boolean that is only the
+writer's completion (below) states no triple either. An array on a `sysml:` property becomes
 the repeated triples and the collection annotation the Turtle path would have
 written, so the graph read from the JSON form is the graph the Turtle form parses
 to, triple for triple. An `@id` is resolved within the subject's project scope, or
@@ -2177,7 +2271,11 @@ any graph this mapping holds:
 - **Both forms decode identically.** `full-json` states every property of an
   element the compact form collapses onto its owner (`type` on a usage for
   the `FeatureTyping` element, `isImpliedIncluded`, the membership ends), so
-  the reader derives the collapsed spelling back: a `sysml:FeatureTyping`
+  the reader derives the collapsed spelling back. A document is read this
+  way when its elements state `isImpliedIncluded` and it carries no
+  `sysx:statedDefaults` marker: this mapping's graph never states
+  `Element::isImpliedIncluded` (the reader drops it from its own, marked
+  documents), so a graph that does is an external writer's element form. Then: a `sysml:FeatureTyping`
   stating nothing the collapsed `type` edge does not already say contributes
   its ends and is then elementless, an `isImpliedIncluded` element drops the
   stated defaults (`isEnd`, `isReference`, `mayTimeVary`, …) its owner's
@@ -2192,13 +2290,19 @@ any graph this mapping holds:
   full document uses for the same target (`unresolved:`-derived, recoverable
   from the reference's `x-sysmlv2-unresolved-reference` textual annotation)
   reads as the same name.
-- **A succession from a nameless member is written by position.** The
-  toolkit resolves the source end of `entry; then idle;` to the empty
+- **A succession from a nameless or derived member is written by position.**
+  The toolkit resolves the source end of `entry; then idle;` to the empty
   `ActionUsage` the `entry` membership owns, which no `first` clause could
   name; a source that is the member written before the succession — or the
   action a nameless `entry;`/`do;`/`exit;` membership owns — comes back as
   `then idle;` beside it (SysML v2 1.0 § 7.17.4), the way a source the
-  toolkit leaves unresolved already does.
+  toolkit leaves unresolved already does. An end the toolkit reaches only
+  through an implied `ReferenceSubsetting` (`isImplied`) was never written,
+  so `then done;` after a named action stays `then done;` rather than
+  `succession first a then done;`, and a `then` whose target the toolkit
+  likewise derived is attached to the declaration beside it (`then action
+  step2;`), while a written target beside its declaration stays `then idle;
+  state idle;`.
 - **Ends the notation alone cannot place are refused.** Where a member's two
   collapsed ends disagree, or an element names no owner it can sit under,
   `-convert sysml` fails rather than guesses a position.
@@ -2215,16 +2319,69 @@ model notation → `api-json` → notation → `api-json` and pins the verdict i
 are the Turtle gate's for every file but two, whose `.1` reals JSON respells as
 `0.1` (`graph-diff`).
 
+## Metaclass hierarchy graph
+
+A converted model states one `rdf:type` per element, its concrete metaclass
+(`sysml:PartUsage`), and nothing about what that metaclass specializes. The
+generalizations are a property of the metamodel, so they are published once,
+as an RDF vocabulary graph a store loads beside its models:
+
+```bash
+sysml -metaclass-graph                          # Turtle to stdout; no model is read
+sysml -metaclass-graph -o sysml-metaclasses.ttl
+```
+
+The graph is written from the metamodel table of
+`internal/translate/rdf/ontology` (`MetaclassGraph`), itself generated from the
+pinned pilot `SysML.ecore`, and is committed beside the table as
+`internal/translate/rdf/ontology/sysml-metaclasses.ttl`; `make metaclass-graph`
+regenerates it and `make metaclass-graph-check` fails when the committed file
+differs from what the table yields. For each metaclass it states:
+
+```turtle
+sysml:PartUsage
+    a rdfs:Class ;
+    rdfs:label "PartUsage" ;
+    rdfs:subClassOf sysml:ItemUsage .
+
+sysml:ControlNode
+    a rdfs:Class ;
+    rdfs:label "ControlNode" ;
+    rdfs:subClassOf sysml:ActionUsage ;
+    sysx:abstract true .
+```
+
+- The subject is the metaclass IRI `rdf:type` names on a converted element, so
+  the graph joins a model without translation.
+- One `rdfs:subClassOf` per general metaclass the pilot declares; the
+  transitive closure is left to the query (`rdfs:subClassOf*`), not materialized.
+- `sysx:abstract true` on the metaclasses the pilot's Ecore declares abstract
+  (eight of them, `ConnectorAsUsage` and `ControlNode` among them; KerML's
+  abstract types such as `Element` and `Feature` are not declared abstract
+  there and carry no mark).
+
+With the graph loaded, a store that holds one `rdf:type` per element answers a
+query for every usage, feature or element, which the type triple alone cannot:
+
+```sparql
+SELECT ?e WHERE { ?e rdf:type/rdfs:subClassOf* sysml:Feature }
+```
+
+finds every `PartUsage`, since `PartUsage ⊂ ItemUsage ⊂ OccurrenceUsage ⊂ Usage
+⊂ Feature`. Without it the same query matches only elements typed `sysml:Feature`
+exactly, which a converted model never contains.
+
 ## Where the code lives
 
 | Package | Role |
 |---------|------|
 | `internal/translate/rdf` | Triple/graph model, Turtle writer, Turtle parser |
+| `internal/translate/rdf/ontology` | The metamodel table generated from the pinned pilot `SysML.ecore`, and `MetaclassGraph` with its committed Turtle `sysml-metaclasses.ttl` |
 | `internal/translate/export` | `ToRDF` (AST → graph), `ToSysML` (graph → notation), `WriteAPIJSON`/`ReadAPIJSON` (graph ↔ the API element form) |
 | `internal/translate/convert` | The `Convert` entry point: format names, notation parsing, the SysML v1 migration |
 | `tests/corpus/roundtrip_test.go` | The per-file round-trip ratchets over every model under `examples/`, with their baselines in `testdata/corpus_roundtrip_expected.txt` (Turtle) and `testdata/api_json_roundtrip_expected.txt` (the API element form) ([rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md)) |
 | `internal/frontend/repl` | `%save` |
-| `cmd/sysml` | `-convert`, `-from`, `-o` |
+| `cmd/sysml` | `-convert`, `-from`, `-o`, `-metaclass-graph` |
 
 The RDF layer is hand-written against the Turtle grammar rather than pulled in
 as a dependency: the subset needed here is small, and the parser rejects what it

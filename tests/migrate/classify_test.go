@@ -154,7 +154,11 @@ func TestExternalScalarsFromToolLibraryReferences(t *testing.T) {
 	}
 }
 
-func TestAnonymousAssociationOwningEveryEndIsWritten(t *testing.T) {
+// Every anonymous association is a connection def named after its end types,
+// with one connection typed by it joining usages of the two types: the end a
+// class owns crosses the property it is written as, the end the association
+// owns carries its multiplicity as the cross multiplicity.
+func TestAnonymousAssociationIsAConnectionDef(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_b" name="B">
@@ -169,17 +173,23 @@ func TestAnonymousAssociationOwningEveryEndIsWritten(t *testing.T) {
     <packagedElement xmi:type="uml:Association" xmi:id="_as2" memberEnd="_ba _e3">
       <ownedEnd xmi:type="uml:Property" xmi:id="_e3" type="_b" association="_as2"/>
     </packagedElement>`, `<sysml:Block xmi:id="_s1" base_Class="_a"/><sysml:Block xmi:id="_s2" base_Class="_b"/>`)
-	wantLine(t, r.Notation, "connection def unnamed {")
-	wantLine(t, r.Notation, "end a : A[1..*];")
-	wantLine(t, r.Notation, "end b : B;")
-	if es := entriesFor(r, "_as1"); len(es) != 1 || es[0].Verdict != migrate.Approximated {
-		t.Errorf("_as1 entries = %+v", es)
+	wantClean(t, "anonymous_associations.sysml", r)
+	for _, line := range []string{
+		"connection def AToB {",
+		"end [1..*] ref a : A;",
+		"end b : B;",
+		"connection def AToB2 {",
+		"end a : A crosses b.a;",
+		"metadata MigrationMetadata::SynthesizedName about AToB, AToB2, 'a to b', 'a to b 2';",
+		"connection 'a to b' : AToB connect a to b;",
+		"connection 'a to b 2' : AToB2 connect a to b;",
+	} {
+		wantLine(t, r.Notation, line)
 	}
-	if es := entriesFor(r, "_as2"); len(es) != 1 || es[0].Verdict != migrate.Mapped || es[0].Target != "" {
-		t.Errorf("_as2 entries = %+v", es)
-	}
-	if strings.Count(string(r.Notation), "connection def") != 1 {
-		t.Errorf("expected one connection def:\n%s", r.Notation)
+	wantNote(t, r, "_as1", migrate.Approximated, "the anonymous Association is written as connection def AToB; its one usage is the connection a to b joining a and b")
+	wantNote(t, r, "_as2", migrate.Approximated, "the anonymous Association is written as connection def AToB2; its one usage is the connection a to b 2 joining a and b")
+	if strings.Count(string(r.Notation), "connection def") != 2 {
+		t.Errorf("expected two connection defs:\n%s", r.Notation)
 	}
 }
 
@@ -207,7 +217,7 @@ func TestEnumerationLiteralsAreReported(t *testing.T) {
     <packagedElement xmi:type="uml:Enumeration" xmi:id="_e" name="Color">
       <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_red" name="red"/>
     </packagedElement>`, "")
-	if es := entriesFor(r, "_red"); len(es) != 1 || es[0].Verdict != migrate.Mapped || es[0].Target != "Color::red" {
+	if es := entriesFor(r, "_red"); len(es) != 1 || es[0].Verdict != migrate.Mapped || es[0].Target != "Model::Color::red" {
 		t.Errorf("entries = %+v", es)
 	}
 }
@@ -287,7 +297,8 @@ func TestDanglingDependencyEndIsReported(t *testing.T) {
     <packagedElement xmi:type="uml:Class" xmi:id="_b" name="B"/>
     <packagedElement xmi:type="uml:Abstraction" xmi:id="_d" client="_a _gone" supplier="_b"/>`,
 		`<sysml:Block xmi:id="_s1" base_Class="_a"/><sysml:Block xmi:id="_s2" base_Class="_b"/><sysml:Trace xmi:id="_s3" base_Abstraction="_d"/>`)
-	wantLine(t, r.Notation, "dependency A to B;")
+	wantLine(t, r.Notation, "dependency 'A traces B' from A to B {")
+	wantLine(t, r.Notation, `stereotype = "Trace";`)
 	es := entriesFor(r, "_d")
 	if len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "_gone") {
 		t.Errorf("entries = %+v", es)
@@ -296,7 +307,8 @@ func TestDanglingDependencyEndIsReported(t *testing.T) {
 
 func TestBlockEncapsulationIsKeptAndReported(t *testing.T) {
 	r := migrateFixture(t)
-	wantLine(t, r.Notation, "/* «Block» tags with no v2 form: isEncapsulated = true */")
+	wantLine(t, r.Notation, `stereotype = "Block";`)
+	wantLine(t, r.Notation, `tags = "isEncapsulated = true";`)
 	es := entriesFor(r, "_blk_vehicle")
 	if len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "isEncapsulated") {
 		t.Errorf("entries = %+v", es)
@@ -335,8 +347,8 @@ func TestInstanceWithSeveralClassifiers(t *testing.T) {
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_both" name="both" classifier="_a _b"/>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_mixed" name="mixed" classifier="_a _act"/>`,
 		`<sysml:Block xmi:id="_s1" base_Class="_a"/><sysml:Block xmi:id="_s2" base_Class="_b"/>`)
-	wantLine(t, r.Notation, "individual part def both :> A, B;")
-	wantLine(t, r.Notation, "individual part def mixed :> A;")
+	wantLine(t, r.Notation, "part both : A, B;")
+	wantLine(t, r.Notation, "part mixed : A;")
 	if es := entriesFor(r, "_both"); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 		t.Errorf("both entries = %+v", es)
 	}
@@ -440,13 +452,14 @@ func TestCustomStereotypesWithStandardNamesAreNotConsumed(t *testing.T) {
 			custom("FlowProperty", "Property", "_fp")+custom("Satisfy", "Abstraction", "_d")+`<sysml:Block xmi:id="_s" base_Class="_lb"/>`)
 	wantNoLine(t, r.Notation, "requirement Req")
 	wantLine(t, r.Notation, "occurrence def Req {")
-	wantLine(t, r.Notation, "applied stereotype «Requirement»")
-	wantLine(t, r.Notation, "applied stereotype «Block»")
-	wantLine(t, r.Notation, "applied stereotype «ModelLibrary»")
-	wantLine(t, r.Notation, "applied stereotype «FlowProperty»")
+	wantLine(t, r.Notation, `stereotype = "Requirement";`)
+	wantLine(t, r.Notation, `stereotype = "Block";`)
+	wantLine(t, r.Notation, `stereotype = "ModelLibrary";`)
+	wantLine(t, r.Notation, `stereotype = "FlowProperty";`)
 	wantLine(t, r.Notation, "part def InLib;")
 	wantLine(t, r.Notation, "ref occurrence x : Req {")
-	wantLine(t, r.Notation, "dependency link from Thing to Req;")
+	wantLine(t, r.Notation, "dependency link from Thing to Req {")
+	wantLine(t, r.Notation, `stereotype = "Satisfy";`)
 	wantNoLine(t, r.Notation, "satisfy")
 	if es := entriesFor(r, "_r"); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 		t.Errorf("_r entries = %+v", es)
@@ -470,7 +483,8 @@ func TestRequirementTagsComeOnlyFromStandardStereotypes(t *testing.T) {
 			wantLine(t, r.Notation, "doc /* Shall. */")
 			wantNoLine(t, r.Notation, "X9> Req")
 			wantNoLine(t, r.Notation, "doc /* Custom text. */")
-			wantLine(t, r.Notation, "applied stereotype «Requirement»: Id = X9; Text = Custom text.")
+			wantLine(t, r.Notation, `stereotype = "Requirement";`)
+			wantLine(t, r.Notation, `tags = ("Id = X9", "Text = Custom text.");`)
 		})
 	}
 }
@@ -513,13 +527,13 @@ func TestPapyrusProfileClassifiesAndToolCustomizationsDoNot(t *testing.T) {
 	wantLine(t, r.Notation, "attribute def Rate;")
 	wantLine(t, r.Notation, "attribute throughput : Rate {")
 	wantLine(t, r.Notation, "requirement <R1> Req {")
-	wantLine(t, r.Notation, "applied stereotype «ValueProperty»")
-	wantLine(t, r.Notation, "applied stereotype «performanceRequirement»")
+	wantLine(t, r.Notation, `stereotype = "ValueProperty";`)
+	wantLine(t, r.Notation, `stereotype = "performanceRequirement";`)
 	wantLine(t, r.Notation, "occurrence def Plain {")
-	wantLine(t, r.Notation, "applied stereotype «Block»")
+	wantLine(t, r.Notation, `stereotype = "Block";`)
 	wantLine(t, r.Notation, "occurrence def Nested {")
 	wantLine(t, r.Notation, "occurrence def Lookalike {")
-	wantLine(t, r.Notation, "applied stereotype «Requirement»")
+	wantLine(t, r.Notation, `stereotype = "Requirement";`)
 	wantNoLine(t, r.Notation, "<X1>")
 	wantNoLine(t, r.Notation, "<X2>")
 	for id, kind := range map[string]string{"_b": "«Block» Class", "_r": "«Requirement» Class", "_p": "«ValueProperty» Property"} {
@@ -624,7 +638,7 @@ func TestSignalIsAnItemDef(t *testing.T) {
 // A v1 requirement is a requirement usage, as a tool's users draw one: a nested
 // requirement is a subrequirement, a satisfy, verify or refine joins it directly
 // with no usage written beside it, a property it types subsets it, and an
-// instance of it is no individual.
+// instance of it is a requirement usage subsetting it.
 func TestRequirementsAreUsages(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Package" xmi:id="_reqs" name="Reqs">
@@ -656,6 +670,7 @@ func TestRequirementsAreUsages(t *testing.T) {
 	wantLine(t, r.Notation, "requirement held :> Reqs::Mass;")
 	wantLine(t, r.Notation, "connection 'Drive refines Mass' connect Drive to Reqs::Mass;")
 	wantLine(t, r.Notation, "satisfy Reqs::Mass.'Chassis Mass';")
-	wantNote(t, r, "_i", migrate.Unmapped, "the instance's classifier Reqs::Mass is written as a requirement usage, which an individual cannot specialize")
+	wantLine(t, r.Notation, "requirement 'mass 1' :> Mass;")
+	wantNote(t, r, "_i", migrate.Mapped, "")
 	wantClean(t, "requirement-usages.sysml", r)
 }

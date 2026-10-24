@@ -1,0 +1,16 @@
+{
+  "libraries": true,
+  "type": "verification",
+  "evaluate": "test::Definition::costTest",
+  "subject": "test::dear",
+  "verdict": "fail",
+  "outputs": {
+    "verdict": {"type": "Sequence", "elements": [{
+        "type": "EnumLiteral",
+        "value": "VerdictKind::fail"
+      }]}
+  },
+  "verdicts": {
+    "costObjective": "satisfied"
+  }
+}
