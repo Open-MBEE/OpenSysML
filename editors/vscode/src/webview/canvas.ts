@@ -35,7 +35,7 @@ const CLASSIFIER_KINDS = new Set([
 
 /**
  * drawCanvas is the SVG of a layout: nodes in tree order under their owners, then
- * edges, then handles. An edge with an end under a collapsed owner is not drawn.
+ * edges, then handles.
  */
 export function drawCanvas(layout: CanvasLayout): SVGSVGElement {
   const svg = element("svg", {
@@ -170,10 +170,8 @@ function drawNode(parent: SVGElement, entry: PlacedNode, layout: CanvasLayout): 
   if (!entry.clipped) {
     parent.append(nodeGroup(entry, layout));
   }
-  if (!entry.collapsed) {
-    for (const child of entry.children) {
-      drawNode(parent, child, layout);
-    }
+  for (const child of entry.children) {
+    drawNode(parent, child, layout);
   }
 }
 
@@ -212,7 +210,7 @@ function nodeGroup(entry: PlacedNode, layout: CanvasLayout): SVGGElement {
   for (const port of entry.ports) {
     group.append(drawPort(box, port, entry));
   }
-  if (entry.collapsed && entry.children.length > 0) {
+  if (entry.collapsed) {
     const mark = element("text", { x: String(box.x + box.width - LABEL_PAD_X), y: String(box.y + LABEL_PAD_Y + LINE_HEIGHT * 0.8), class: "collapsed", "text-anchor": "end" });
     mark.textContent = "+";
     group.append(mark);
@@ -235,7 +233,7 @@ function pinGraphic(box: PlacedNode["box"], port: PlacedPort, entry: PlacedNode)
   const classes = ["port-shape"];
   if (entry.shape === "box") {
     classes.push(boxClass(entry.node.kind));
-    if (entry.children.length > 0 && !entry.collapsed) {
+    if (entry.children.length > 0) {
       classes.push("container");
     }
   } else {
@@ -312,7 +310,7 @@ function outlineOf(entry: PlacedNode): SVGElement {
     }
     case "box": {
       const classes = ["shape", boxClass(entry.node.kind)];
-      if (entry.children.length > 0 && !entry.collapsed) {
+      if (entry.children.length > 0) {
         classes.push("container");
       }
       const attrs: Record<string, string> = {

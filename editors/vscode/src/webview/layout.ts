@@ -56,11 +56,9 @@ export interface PlacedNode {
   shape: Shape;
   /** The model, or a gesture in progress, states where the node goes. */
   pinned: boolean;
-  /** The node is drawn without its children. */
+  /** The model folds the node: the rendering keeps only its boundary ports and pins beneath it. */
   collapsed: boolean;
   ports: PlacedPort[];
-  /** An owner is collapsed, so the node is not drawn, nor any edge at it. */
-  hidden: boolean;
   /** The owner's stated size has no room for the node, so it is not drawn, nor any edge at it. */
   clipped: boolean;
   /** The node is a port drawn as a pin on its owner's border; its box is the pin's square. */
@@ -81,7 +79,7 @@ export interface PlacedEdge {
   route: RenderPoint[];
   /** Where the label sits, on the polyline's midpoint. */
   label: RenderPoint;
-  /** An end is under a collapsed owner or clipped by a stated size, or the kind is hidden, so the edge is not drawn. */
+  /** An end is clipped by a stated size, or the kind is one the panel hides, so the edge is not drawn. */
   hidden: boolean;
   /** The route was found around the other boxes at layout time; the model states none, so a move does not write it. */
   rerouted: boolean;
@@ -136,7 +134,7 @@ export interface Overrides {
   routing?: Routing;
   /** Lay out from the auto layout alone, the model's Layout and Route placements ignored; a node the auto layout did not place keeps a grid slot. */
   unplaced?: boolean;
-  /** Edge kinds the panel hides: their edges are laid out but not drawn, routed around or counted in the extents, as an edge at a hidden node is. */
+  /** Edge kinds the panel hides: their edges are laid out but not drawn, routed around or counted in the extents. */
   hiddenKinds?: ReadonlySet<string>;
 }
 
@@ -199,7 +197,6 @@ export function layoutCanvas(
       shape: shapeOf(node.kind),
       pinned: false,
       collapsed: false,
-      hidden: false,
       clipped: false,
       children: [],
       ports: [],
@@ -251,7 +248,7 @@ export function layoutCanvas(
     extent.bottom = Math.max(extent.bottom, y);
   };
   for (const entry of placed.values()) {
-    if (entry.hidden || entry.clipped) {
+    if (entry.clipped) {
       continue;
     }
     const nodeBounds = nodeExtent(entry);
@@ -448,12 +445,9 @@ function placeAcross(
 ): number {
   const { stated, pinned } = geometry(entry);
   entry.pinned = pinned;
-  entry.collapsed = stated?.collapsed === true;
-  if (entry.collapsed) {
-    hide(entry.children);
-  }
+  entry.collapsed = (stated?.collapsed ?? entry.node.collapsed) === true;
   entry.box.x = stated?.x ?? slot;
-  const shown = interior(entry, stated, geometry);
+  const shown = interior(entry, geometry);
   const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
   spread(lanes(shown, columns, true), entry.box.x + CONTAINER_PAD, (child, x) =>
     placeAcross(child, x, geometry),
@@ -482,7 +476,7 @@ function placeDown(
 ): number {
   const { stated } = geometry(entry);
   entry.box.y = stated?.y ?? slot;
-  const shown = interior(entry, stated, geometry);
+  const shown = interior(entry, geometry);
   const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
   const header = symbolSize(entry.shape) ?? labelSize(entry.lines);
   spread(
@@ -506,31 +500,11 @@ function placeDown(
   return height;
 }
 
-// shownChildren is the children drawn inside a node: none when it is collapsed.
-function shownChildren(
-  entry: PlacedNode,
-  stated: LayoutGeometry | undefined,
-): PlacedNode[] {
-  return stated?.collapsed ? [] : entry.children;
-}
-
-// hide marks a collapsed node's subtree as not drawn.
-function hide(entries: PlacedNode[]): void {
-  for (const entry of entries) {
-    entry.hidden = true;
-    hide(entry.children);
-  }
-}
-
-// interior is the children laid out inside a node's box: the shown ones, less the
+// interior is the children laid out inside a node's box: all of them less the
 // ports pinned on its border, which placePorts puts there once the box is known.
-function interior(
-  entry: PlacedNode,
-  stated: LayoutGeometry | undefined,
-  geometry: Geometry,
-): PlacedNode[] {
+function interior(entry: PlacedNode, geometry: Geometry): PlacedNode[] {
   const inside: PlacedNode[] = [];
-  for (const child of shownChildren(entry, stated)) {
+  for (const child of entry.children) {
     if (pinsOn(child, geometry)) {
       child.snapped ??= { port: pinOf(child.node), side: "south", offset: 0 };
     } else {
@@ -595,7 +569,7 @@ function within(inner: Box, outer: Box): boolean {
 function clippingNotice(placed: ReadonlyMap<string, PlacedNode>): string[] {
   let clipped = 0;
   for (const entry of placed.values()) {
-    if (entry.clipped && !entry.hidden) {
+    if (entry.clipped) {
       clipped++;
     }
   }
@@ -1401,7 +1375,7 @@ function includePortExtent(layout: CanvasLayout): CanvasLayout {
   let bottom = layout.origin.y + layout.height;
   let hasPorts = false;
   for (const entry of layout.nodes.values()) {
-    if (entry.hidden || entry.ports.length === 0) {
+    if (entry.ports.length === 0) {
       continue;
     }
     hasPorts = true;
@@ -1524,9 +1498,9 @@ function folded(placed: ReadonlyMap<string, PlacedNode>, edge: RenderEdge): bool
   return undrawn(placed.get(edge.from)) || undrawn(placed.get(edge.to));
 }
 
-// undrawn reports a node the canvas leaves out: under a collapsed owner, or clipped by a stated size.
+// undrawn reports a node the canvas leaves out: one clipped by a stated size.
 function undrawn(entry: PlacedNode | undefined): boolean {
-  return entry?.hidden === true || entry?.clipped === true;
+  return entry?.clipped === true;
 }
 
 /** listedEdges is the rendering's edges at drawn nodes, those of a hidden kind included: what the canvas draws or its relation filter could, which the Relations list counts. */
@@ -1631,7 +1605,7 @@ function autoRoute(
 
 // avoidable is an edge the panel routes around the boxes: nothing states its route
 // (or the router overrides what does), the auto layout has none for it, and both
-// ends are drawn, distinct and not hidden.
+// ends are drawn and distinct.
 function avoidable(
   edge: RenderEdge,
   index: number,
@@ -1713,7 +1687,7 @@ function rerouteAroundBoxes(
   // border, and the drawn members under a clipped child, which has no box of its own.
   const drawnUnder = (entry: PlacedNode): PlacedNode[] =>
     entry.children.flatMap((child) =>
-      child.snapped || child.hidden ? [] : child.clipped ? drawnUnder(child) : [child],
+      child.snapped ? [] : child.clipped ? drawnUnder(child) : [child],
     );
   const visit = (entry: PlacedNode): void => {
     if (!undrawn(entry)) {
@@ -1897,7 +1871,7 @@ function routable(layout: CanvasLayout, edge: PlacedEdge): boolean {
 }
 
 // nodeUnder is the node drawn on top at a point: the innermost, latest-drawn box holding it,
-// passing over hidden nodes and the subtree of `except`, which a drag holds over the others.
+// passing over the subtree of `except`, which a drag holds over the others.
 export function nodeUnder(
   layout: CanvasLayout,
   at: RenderPoint,

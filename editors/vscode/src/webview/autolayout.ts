@@ -94,21 +94,6 @@ async function layOut(result: RenderResult, free: boolean): Promise<AutoLayout> 
     siblings.push(node);
     children.set(parent, siblings);
   }
-  // A node whose owner is collapsed is not in the graph, so no edge routes to it.
-  const inGraph = (id: string): boolean => {
-    let node = byId.get(id);
-    while (node) {
-      const parent = node.parent;
-      if (parent === undefined || parent === node.id || !byId.has(parent)) {
-        return true;
-      }
-      node = byId.get(parent);
-      if (node?.collapsed) {
-        return false;
-      }
-    }
-    return false;
-  };
   // A port with nothing under it that the model leaves unplaced is a pin on its owner's border, not a node inside it.
   const pinOnBorder = (node: RenderNode): boolean =>
     portKind(node.kind) &&
@@ -118,12 +103,12 @@ async function layOut(result: RenderResult, free: boolean): Promise<AutoLayout> 
     byId.has(node.parent) &&
     (free || node.x === undefined || node.y === undefined);
   const nested = (node: RenderNode): RenderNode[] =>
-    node.collapsed ? [] : (children.get(node.id) ?? []).filter((kid) => !pinOnBorder(kid));
+    (children.get(node.id) ?? []).filter((kid) => !pinOnBorder(kid));
   const options = spacingOptions(result.kind);
   const edges: ElkExtendedEdge[] = [];
   const portEndpoints: Array<{ nodeId: string; portId: string }> = [];
   (result.edges ?? []).forEach((edge, index) => {
-    if (edge.from === edge.to || !inGraph(edge.from) || !inGraph(edge.to)) {
+    if (edge.from === edge.to || !byId.has(edge.from) || !byId.has(edge.to)) {
       return;
     }
     const from = byId.get(edge.from)!;
@@ -424,8 +409,7 @@ function reconcile(
     .filter(
       (n) =>
         placed.has(n.id) &&
-        (n.x === undefined || n.y === undefined) &&
-        !n.collapsed,
+        (n.x === undefined || n.y === undefined),
     )
     .sort((a, b) => depth(b) - depth(a))) {
     const kids = (children.get(node.id) ?? []).filter((child) =>

@@ -321,10 +321,9 @@ func testStandaloneActionWritingAPerformerFeature(t *testing.T) {
 	}
 }
 
-// `this` in a body written on its own names the performance itself, so a write
-// through it lands on the performance — and is refused when the performed
-// action declares no such feature; the performer's like-named feature is not
-// reachable through it.
+// `this` in the body of an action definition run on its own, performed by no
+// object, names the performance itself, so a write through it lands on the
+// performance — and is refused when the action declares no such feature.
 func testStandaloneActionNamingThisOfAnUnownedPerformance(t *testing.T) {
 	src := `
 	package test {
@@ -335,12 +334,13 @@ func testStandaloneActionNamingThisOfAnUnownedPerformance(t *testing.T) {
 			}
 			first step;
 		}
-		part def Host {
-			attribute touched : Integer = 0;
-			perform action t : Touch;
-		}
 	}`
-	_, _, err := instantiateWithLibraries(t, src, "test::Host")
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	exec, err := ctx.CreateActionExecutor(oneSymbol(t, idx, "test::Touch"))
+	if err != nil {
+		t.Fatalf("create action executor: %v", err)
+	}
+	err = exec.RunToCompletion()
 	if err == nil {
 		t.Fatal("expected writing a feature the performance does not declare to fail")
 	}

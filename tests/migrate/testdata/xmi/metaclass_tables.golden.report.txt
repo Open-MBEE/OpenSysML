@@ -21,7 +21,7 @@ EnumerationLiteral	Plant::Structure::Mode::off	_lit_off	-> Model::Plant::Structu
 EnumerationLiteral	Plant::Structure::Mode::on	_lit_on	-> Model::Plant::Structure::Mode::on
 «Block» Class	Plant::Structure::Pump	_blk_pump	-> Model::Plant::Structure::Pump
 Comment	Plant::Structure::Pump::<Comment>	_cmt_pump
-StateMachine	Plant::Structure::Pump::Cycle	_sm_cycle	-> Model::Plant::Structure::Pump::Cycle	(acts on its owner Plant::Structure::Pump, which it takes as its parameter context, since its this is the def's own occurrence)
+StateMachine	Plant::Structure::Pump::Cycle	_sm_cycle	-> Model::Plant::Structure::Pump::Cycle	(acts on its owner Plant::Structure::Pump, which it takes as its parameter context, since its this names no feature of the owner)
 Region	Plant::Structure::Pump::Cycle::main	_rg_main	(the one region is written as the body of its owner)
 Pseudostate	Plant::Structure::Pump::Cycle::main::<Pseudostate>	_ps_init	(written as the entry of the region)
 Transition	Plant::Structure::Pump::Cycle::main::<Transition>	_tr_init
