@@ -1,4 +1,4 @@
-FoldedBehaviors::'flow' - action rendering (view def ActionFlowView)
+FoldedBehaviors::flows - action rendering (view def ActionFlowView)
 
 action def Flow
   action a (own flow) collapsed

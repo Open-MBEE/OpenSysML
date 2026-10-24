@@ -21,7 +21,7 @@ config:
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
 ---
-%% FoldedBehaviors::'flow' — action rendering (view def ActionFlowView)
+%% FoldedBehaviors::flows — action rendering (view def ActionFlowView)
 %% layout: n1 collapsed
 flowchart TD
   subgraph n0 ["`*«action def»* **Flow**`"]

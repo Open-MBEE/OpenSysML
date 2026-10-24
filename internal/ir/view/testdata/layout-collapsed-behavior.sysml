@@ -26,5 +26,5 @@ package FoldedBehaviors {
 
     // A collapsed Layout folds a state's and an action's body in the behaviour forms too.
     view states : StateTransitionView { expose Machine; }
-    view flow : ActionFlowView { expose Flow; }
+    view flows : ActionFlowView { expose Flow; }
 }
