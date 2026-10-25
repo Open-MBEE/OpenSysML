@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 347,
-        "digest": "sha256:24e54888685f9a3a283c115a936f971617ff688df8ac0bb0ff05da8be19cef63"
+        "files": 348,
+        "digest": "sha256:27363bc464b694e334df841b284c4624cc289609186f278fd05da2d23ed6ebd7"
       }
     ],
     "recorded": "2026-10-25"
   },
   "totals": {
-    "cases": 347,
-    "bothReject": 335,
+    "cases": 348,
+    "bothReject": 336,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 12,
     "bothAccept": 0
@@ -44,13 +44,14 @@
     "extensions/x06-history-member.sysml",
     "extensions/x09-expose-in-view-def-body.sysml",
     "extensions/x10-connector-in-sysml.sysml",
-    "extensions/x11-indexed-connector-end.sysml"
+    "extensions/x11-indexed-connector-end.sysml",
+    "extensions/x13-typed-by-in-sysml.sysml"
   ],
   "sources": [
     {
       "source": "extensions",
-      "cases": 12,
-      "bothReject": 12,
+      "cases": 13,
+      "bothReject": 13,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
@@ -208,6 +209,16 @@
       "pilotErrors": 2,
       "defaultBucket": "both-reject",
       "defaultErrors": 1
+    },
+    {
+      "path": "extensions/x13-typed-by-in-sysml.sysml",
+      "source": "extensions",
+      "rule": "'typed by' is the KerML spelling of a typing; a SysML usage spells it ':' or 'defined by' (KerML.xtext:600 TypedBy, SysML.xtext:392 TypedBy, :395 DefinedByKeyword).",
+      "mode": "strict",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2,
+      "defaultBucket": "pilot-only-rejects"
     },
     {
       "path": "grammar/g01-unclosed-package-body.sysml",
@@ -3397,8 +3408,8 @@
       }
     ],
     "totals": {
-      "cases": 347,
-      "bothReject": 335,
+      "cases": 348,
+      "bothReject": 336,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 12,
       "bothAccept": 0
