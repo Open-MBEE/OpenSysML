@@ -173,6 +173,16 @@ func sequenceOf(elements []Value) Value {
 	return NewSequenceValue(seq)
 }
 
+// appended is s with elem after its elements, sharing s's storage: s keeps its length
+// and gives up its spare capacity, so appending to s again copies rather than aliases.
+func (s *Sequence) appended(elem Value) *Sequence {
+	elements := s.Elements()
+	if s.required == nil {
+		s.elements = elements[:len(elements):len(elements)]
+	}
+	return &Sequence{elements: append(elements, elem), elementUnit: s.elementUnit}
+}
+
 // newSequence builds a sequence value from elements, charging them against the
 // run's element budget: elements are the memory a collection keeps, so every
 // operation that materializes one goes through here.

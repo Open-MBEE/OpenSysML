@@ -293,6 +293,11 @@ func (h *actionStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (st
 	return h.exec.performBlockFlow(h.around(), engine, block)
 }
 
+// beginLoop begins a loop a body statement reaches as a performance of the one around it.
+func (h *actionStmtHost) beginLoop(stmt lower.Loop) (*Instance, error) {
+	return h.exec.beginLoopPerformance(h.around(), stmt)
+}
+
 // performNode performs node, which a block of parent's body declares, as a subperformance
 // of parent with the block-locals entered around it in reach; a node owning a flow runs it
 // to completion here. A breakpoint on the node pauses the run before it performs.
@@ -316,6 +321,9 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 			parent, graph, node, locals, localCells, localHeld,
 		); err != nil {
 			return flowNext, err
+		}
+		if node.IsBodyParameter {
+			f.perf.occurrence = engine.loopBody()
 		}
 		if _, declared := graph.Multiplicities[node]; declared && f.perf.repeatedStep() {
 			e.recordRepetition(parent, node, f.perf)
@@ -468,6 +476,8 @@ func (e *performances) performBlockFlow(parent *actionFrame, engine *stmtEngine,
 		}
 		activation, endStep := e.ctx.beginStep()
 		f.perf.began = activation
+		// A block of a loop's body runs as the iteration's body occurrence, when the loop holds one.
+		f.perf.occurrence = engine.loopBody()
 		if err := e.seedDeclaredValues(f.perf, features, activation); err != nil {
 			endStep()
 			return flowNext, err
