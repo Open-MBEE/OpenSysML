@@ -142,7 +142,7 @@ go test -count=1 ./tests/corpus -run TestPilotCorpora
 
 The pilot's XMI serialization of the standard library is fetched the same way, from the release
 repository at the pin in `scripts/pilot-pin.sh`, into `build/pilot-library-xmi/`; the identity gate
-over it (`TestPilotLibraryXMI` in `internal/core/identity`) skips while it is absent and fails under
+over it (`TestPilotLibraryXMI` in `tests/identity`) skips while it is absent and fails under
 `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1`, which CI sets:
 
 ```bash

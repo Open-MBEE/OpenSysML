@@ -69,7 +69,7 @@ systematically from four sources, one subdirectory each:
    spells entry as `entry; then <state>`, concurrency as `state ... parallel`, and transitions as
    `first <src> then <tgt>`, and has no pseudostates or deferral at all. Adjudication: these are
    **intended OpenSysML extensions**, not accidents — each has dedicated parser tests
-   (`internal/core/parser/state_notation_test.go`) and runtime support. They are documented as
+   (`internal/syntax/parser/state_notation_test.go`) and runtime support. They are documented as
    extensions and, since strict mode was added, gated behind an opt-in
    [strict conformance mode](../guide/03-command-line.md#strict-conformance) a conformance-minded
    user can turn on; the default mode keeps accepting them on purpose.
@@ -432,7 +432,7 @@ because abstractness of a metaclass was not a fact the reduced library record ca
 The record format supplies it: the library is parsed on every load path and `Abstract` is a
 persisted fact family under the reflective equality coverage, so `symbols.IsAbstract` answers the
 same cold and warm. Persisting a fact emits no diagnostic on its own — the rule
-(`internal/core/passes/w8c_metadata_type.go`) reads that accessor instead of casting `Decl`, which
+(`internal/check/passes/w8c_metadata_type.go`) reads that accessor instead of casting `Decl`, which
 is what closed the row.
 
 ## Adjudications
@@ -446,7 +446,7 @@ each case to rejection.
   VisibilityIndicator` **mandatory**, unlike the optional `MemberPrefix` visibility beside it
   (`SysML.xtext:218`), so `import Q::*;` is not a well-formed import and the reference reports
   `mismatched input 'import'`. We do report it — as a *warning*
-  (`internal/core/passes/import_visibility.go`, code `import-visibility`), and warnings do not
+  (`internal/check/passes/grammar_violation.go`, code `import-visibility`), and warnings do not
   count as rejection here. Per the pinned grammar the severity should be an error in the default
   mode: either raise `SeverityWarning` to an error, or make it
   conformance-dependent as `nonstandard_notation.go` already does.
@@ -456,7 +456,7 @@ each case to rejection.
   pinned grammar's `Name` is the `ID` terminal, which excludes keywords, and `part def part;` is
   `no viable alternative at input 'part'`. We read a keyword in name position as the name the
   author meant and report that an unrestricted name (`'part'`) is required to spell it
-  (`internal/core/parser/namespace.go`, code `reserved-keyword-name`, KerML §7.2.4) — a recovery
+  (`internal/syntax/parser/namespace.go`, code `reserved-keyword-name`, KerML §7.2.4) — a recovery
   policy chosen so an editor keeps a usable tree, documented in
   [conformance-audit.md](../reference/grammar/conformance-audit.md). Strict mode already escalated
   the parser warning without changing that reading. The user explicitly approved applying the
@@ -471,7 +471,7 @@ each case to rejection.
 - **`grammar/k02-sysml-keyword-in-kerml.kerml` — recoverable language error by approved policy.**
   `part def` exists in no KerML production; the KerML validator reports `no viable
   alternative at input 'def'`. We parse `.kerml` with the same grammar as `.sysml` and filter
-  afterwards: `internal/core/passes/nonstandard_notation.go` reports SysML-only notation in a
+  afterwards: `internal/check/passes/nonstandard_notation.go` reports SysML-only notation in a
   KerML file while preserving the parsed declaration. Strict mode already reported
   `sysml-notation` as an error. The user explicitly approved the same error severity in default
   mode for this language-keyword recovery, so both modes now reject it with the same code, span,

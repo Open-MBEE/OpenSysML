@@ -1518,7 +1518,7 @@ bodies, so its result is `Anything` and no argument is a unit).
 
 **Not filed.** Drafted here for a maintainer to authorise; nothing has been
 posted upstream. The rules are implemented on our side by
-`internal/check/passes/control_node.go` and refereed against the specification
+`internal/check/passes/behavior/control_node.go` and refereed against the specification
 text; the adjudication is in
 [pilot-differential.md](pilot-differential.md#control-node-successions-the-pilot-does-not-validate).
 
