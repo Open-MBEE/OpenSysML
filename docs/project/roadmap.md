@@ -1,22 +1,31 @@
 # OpenSysML — Roadmap
 
-Baseline: `v0.9.1` (`b9de3b070`, `Merge pull request #614 from Open-MBEE/release/0.9.1`,
-2026-09-30), verified locally with Go 1.25.0. Before it `v0.9.0` (`ee54ea03e`, `Merge pull
-request #570 from Open-MBEE/hotfix/release-sdist-glob`, 2026-09-24 — the release pull request #564
-and the hotfix that matched the Python source distribution by its version-led name), then `v0.8.1`
-(`e0ea34616`, 2026-09-16, a cherry-picked patch), `v0.8.0` (`238aed650`, 2026-09-13) and `v0.7.0`
-(`e0fbfea5b`, 2026-09-09). `v0.9.0` carried 267 pull requests merged after `v0.8.0` and `v0.9.1`
-139 more, so every item the previous refresh called *landed, unreleased* is now in a tag. The
-integration branch `develop` (`deca2b038`, #694) carries nine pull requests past `v0.9.1` and
-nothing else is counted ahead of it: #754 (the fold-back of `main`, the tag and the Windows
-release fixes merged to `main` after it), #639 (pseudostates and deferred events as standard
-metadata), #694 (the `defer` state-body extension removed), #746 (a converted model names the
-standard-library elements it references), #749 (`Convert` takes the id form), #750 (a connector
-end naming a definition's feature by qualified name refused), #751 (the parser's warnings over
-gRPC), #755 (the WebAssembly gate run single-threaded) and #756 (`MeasurementReferences::one` as
-the identity of the quantity arithmetic). Every status below is what `v0.9.1` carries unless the
-text names one of those; the pull requests open against `develop`, and the work being implemented
-that has no pull request yet, are named where they touch a roadmap item.
+Baseline: `v0.11.0` (`ddf4df000`, `Merge pull request #1435 from Open-MBEE/release/0.11.0`,
+2026-10-23), verified locally with Go 1.25.11. Before it `v0.10.1` (`1c45b6e17`, `Merge pull
+request #1185 from Open-MBEE/hotfix/0.10.1-wasm-budget`, 2026-10-15 — the hotfix pull request
+#1143, whose `CHANGELOG.md` section is dated 2026-10-14, and the WebAssembly size-budget hotfix
+that followed it to `main`), `v0.10.0` (`08ef39784`, `Merge pull request #1083 from
+Open-MBEE/hotfix/0.10.0-tag-build-version`, 2026-10-11 — the release pull request #1007 of
+2026-10-08 and the six hotfixes merged to `main` after it, #1013, #1024, #1031, #1064, #1065 and
+#1080, the last stamping the tag build's version), `v0.9.2` (`4226ad9a3`, `Merge pull request
+#931 from Open-MBEE/hotfix/circleci-crates-heredoc`, 2026-10-05 — the release pull request #924,
+assembled on `main` from 29 commits of which 8 are cherry-picks of `develop`'s fixes, and the
+hotfixes #930 and #931), then `v0.9.1` (`b9de3b070`, 2026-09-30), `v0.9.0` (`ee54ea03e`, 2026-09-24), `v0.8.1` (`e0ea34616`,
+2026-09-16), `v0.8.0` (`238aed650`, 2026-09-13) and `v0.7.0` (`e0fbfea5b`, 2026-09-09). Counting
+the `Merge pull request` commits each tag reaches and its predecessor does not, `v0.9.2` reaches 5
+merged after `v0.9.1` (its cherry-picked content is `CHANGELOG.md`'s 27 entries, not merges),
+`v0.10.0` 270 more, `v0.10.1` 20 more and `v0.11.0` 342 more, so every item the previous refresh
+called *landed, unreleased* is now in a tag. The
+integration branch `develop` (`76c98694c`, #1483, 2026-10-24) carries forty pull requests past
+`v0.11.0` (`git log --merges --first-parent v0.11.0..develop`) and nothing else is counted ahead
+of it: the tag's pin and fold-back (#1447, #1448), Markdown and AsciiDoc prose bodies in
+documents (#1451, #1453, #1454), workspace imports (#1441), running occurrences as members
+(#1464) and loop-body performances (#1481), the diagram panel's webview fixes (#1458, #1480) and
+its skill's expectations (#1483), the release announcement to Slack (#1463, #1482), the Maven
+Central publish wait (#1449), the `opensysml-mcp` npm alias (#1450), the race-suite shard split
+(#1440) and the fixes, records and tests the tracks name below. Every status below is what
+`v0.11.0` carries unless the text names one of those; the pull requests open against `develop`
+are named where they touch a roadmap item.
 Read `AGENTS.md` first; it governs everything below.
 
 > **Labels.** This is an engineering record. The RDF items keep the `D` numbers (`D1`, `D2`,
@@ -29,8 +38,9 @@ Read `AGENTS.md` first; it governs everything below.
 > closed by design record, and this section records how each was decided, `X` the expression forms it
 > parses but does not evaluate, `Q` the runtime query surface, `A` analysis and simulation
 > execution, `V` the validation census, `I` the language integrations, `B` the bindings from
-> modeled elements to external data and services, `M` the embedded target, and `P` the package
-> layering of the Go module. Each is stated in
+> modeled elements to external data and services, `M` the embedded target, `P` the package
+> layering of the Go module, and `T` the records the repository keeps — measurements, overlays
+> and corpora that are neither features nor gates. Each is stated in
 > full where it is introduced, and a reader who wants only the gap can ignore the label.
 >
 > **Status words.** *Landed* means in the tag named above, so a landed item is released; where a
@@ -41,18 +51,24 @@ Read `AGENTS.md` first; it governs everything below.
 > pull request yet. *Not started* means exactly that. A status is taken from the pull request
 > itself, never from a branch name or a commit message.
 
-`v0.9.1`'s release carries `sysml`, `sysml-lsp` and `sysml-grpc` for five platforms, the
-Homebrew bundles, the cosign-signed manifest, the SLSA provenance attestation over the manifest's
+`v0.11.0`'s release carries `sysml`, `sysml-lsp`, `sysml-grpc`, `sysml-mcp` and
+`sysml-jupyter-kernel` for five platforms (Linux and macOS on amd64 and arm64, Windows on amd64),
+the `opensysml-<platform>` bundles, the WebAssembly modules (`sysml-wasm.wasm` and its gzip, the
+production `sysml-prod.wasm.gz`, `wasm_exec.js`), the Python client's wheel and source
+distribution, the Jupyter kernel's wheels for the same five platforms and its source
+distribution, the cosign-signed manifest, the SLSA provenance attestation over the manifest's
 artifacts (`provenance.intoto.json` and its bundle, #606) and the Windows installer
-`opensysml-0.9.1-windows-amd64.msi` (R4), as `v0.9.0` carried the same set less the provenance.
-Since #338 the Python client is published from the core `v*` tag at the core version, so PyPI
-serves `opensysml` 0.9.0 and 0.9.1 beside the older client-tagged 0.3.1–0.5.0; and since #735
-and #739 the same tag publishes the Node and Rust clients, so npm serves `@openmbee/opensysml`
-0.9.1 and crates.io `opensysml` 0.9.1, each the package's first published version (R2).
-`CHANGELOG.md`'s **0.9.1** and **0.9.0** sections are the tags' content, and `changes/unreleased/`
-on `develop` holds the fragments of the nine pull requests merged after `v0.9.1` alone.
+`opensysml-0.11.0-windows-amd64.msi` (R4) — the GitHub release's asset list, read on
+2026-10-25. The same tag publishes the clients (R2): PyPI serves `opensysml` and
+`jupyter-opensysml-kernel` 0.11.0, npm `@openmbee/opensysml` 0.11.0 and crates.io `opensysml`
+0.11.0 (each registry's index, read 2026-10-25); Maven Central's `org.openmbee:opensysml` is the
+one registry this refresh could not read (its search API answered nothing and its repository
+rate-limited the query), so R2 carries that check forward. `CHANGELOG.md`'s **0.11.0**,
+**0.10.1**, **0.10.0** and **0.9.2** sections are the tags' content, and `changes/unreleased/` on
+`develop` holds the fragments of the forty pull requests merged after `v0.11.0` alone.
 Between releases `.github/workflows/nightly.yml` publishes the newest green `develop` as the
-prerelease `nightly` (#284), with the VS Code extension as a `.vsix` beside it (#371), so an item
+prerelease `nightly` (#284), with the VS Code extension as a `.vsix` beside it (#371, versioned as
+a development build of the release it leads to since #1290), so an item
 landed after the tag is unreleased but not unbuilt.
 Since `v0.7.0` the repository works git-flow: `develop` is the integration branch, `main`
 receives only `release/x.y.z` and `hotfix/` pull requests (#151), and the roadmap's baseline is
@@ -145,27 +161,27 @@ of the pilot corpora fails `tools/cmd/pilot-diff`, `tools/cmd/pilot-xpect` and t
 `TestPilotCorpora` gate with a provenance message naming the drift; that is the gate working, not
 a regression — re-fetch before re-recording anything.
 
-| Gate | Count at `develop` `687d6f501` (2026-10-12, Go 1.25.11), one day past `v0.10.0` (`08ef39784`, 2026-10-11); the `v0.9.1` figure — the previous baseline — in brackets where it moved |
+| Gate | Count at `develop` `76c98694c` (2026-10-24, Go 1.25.11), one day past `v0.11.0` (`ddf4df000`, 2026-10-23); the previous table's figure — `develop` `687d6f501`, 2026-10-12, one day past `v0.10.0` — in brackets where it moved |
 |---|---|
 | OMG training corpus | **100/100 clean** — asserted, not ratcheted: no file reports a semantic error |
-| OMG pilot corpora (ratchet) | 213 files; 16 report a diagnostic [9] — 3 of 58 KerML examples, 11 of 99 SysML examples, 2 of 56 validation files — each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
-| Stdlib parser conformance | 110/110 clean — 94 vendored OMG files and 16 non-normative OpenSysML extensions [107/107: 94 and 13] |
-| Execution conformance cases | 1569, all run and pass, none skipped [1224] |
+| OMG pilot corpora (ratchet) | 213 files; 16 report a diagnostic — 3 of 58 KerML examples, 11 of 99 SysML examples, 2 of 56 validation files — each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
+| Stdlib parser conformance | 110/110 clean — 94 vendored OMG files and 16 non-normative OpenSysML extensions |
+| Execution conformance cases | 1790, all run and pass, none skipped [1569] |
 | Known execution-conformance failures | **0** — `known_failures.txt` holds no case |
-| Cases admitting several outcomes | 146 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [92] |
-| Trace partial orders | 16 `.trace.order` files, each a set of `a < b` lines the recorded trace must satisfy [8] |
-| Golden execution traces | 810 `.trace.golden` files: 574 under the default schedule and 236 per-policy goldens (`<case>.declared`, `<case>.seed-<n>`) [554: 388 and 166] |
-| Runtime robustness cases | 1208 first-level subtests across the `TestRuntimeRobustness*` functions [794] |
-| gRPC conformance fixtures / robustness cases | 38 / 13 (`TestGRPCConformance`, first-level subtests across the `TestGRPCRobustness*` functions) [33 / 13] |
-| Golden AST fixtures | 259 (`TestGolden`: 231 SysML, 28 KerML) [227: 199 and 28] |
-| Negative parser subtests | 307 first-level subtests of `TestNegative` (463 across the `TestNegative*` functions, 521 across every `*Negative*` parser test) [277: 432 and 490] |
-| Rejection oracle | 313 self-authored invalid models: 300 both reject by default and 304 when we are asked strictly, 4 the pilot alone by default and none strictly, 9 ours alone [310: 297 and 301] (the control-node rules the pilot leaves unimplemented and a non-Boolean succession guard) |
-| Validation census | 164 of 217 named constraints reported (155 faithful, 9 approximate), 0 not implemented, 1 deliberate, 52 unknown [158 faithful and 6 approximate] |
-| PSSM referee (advisory) | 103 tests: 56 `pass`, 6 `fail`, 34 `not-expressible`, 7 `differs-by-design` [60, 12, 30 and 1] |
-| Top-level `Test` functions | 12,131 across the module, 1,840 of them in `internal/exec/runtime` and 455 in `internal/frontend/lsp` [10,698; 1,737 and 424] |
+| Cases admitting several outcomes | 164 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [146] |
+| Trace partial orders | 15 `.trace.order` files, each a set of `a < b` lines the recorded trace must satisfy [16: the order over `action_invoked_node_body_writes_output` left with the `0.10.1` back-merge, #1186] |
+| Golden execution traces | 897 `.trace.golden` files: 627 under the default schedule and 270 per-policy goldens (`<case>.declared`, `<case>.seed-<n>`) [810: 574 and 236] |
+| Runtime robustness cases | 1440 first-level subtests across the `TestRuntimeRobustness*` functions [1208] |
+| gRPC conformance fixtures / robustness cases | 79 / 66 (`TestGRPCConformance`, first-level subtests across the `TestGRPCRobustness*` functions) [38 / 13] |
+| Golden AST fixtures | 286 (`TestGolden`: 252 SysML, 34 KerML) [259: 231 and 28] |
+| Negative parser subtests | 352 first-level subtests of `TestNegative` (515 across the `TestNegative*` functions, 580 across every `*Negative*` parser test) [307: 463 and 521] |
+| Rejection oracle | 348 self-authored invalid models: 331 both reject by default and 336 when we are asked strictly, none the pilot alone, 12 ours alone [313: 300 and 304, 4 and 9] (the control-node rules the pilot leaves unimplemented, a non-Boolean succession guard and the extensions strict mode refuses) |
+| Validation census | 164 of 217 named constraints reported (157 faithful, 7 approximate), 0 not implemented, 4 deliberate, 0 known failure, 49 unknown [155 faithful and 9 approximate, 1 deliberate, 52 unknown] |
+| PSSM referee (advisory) | 103 tests: 56 `pass`, 6 `fail`, 34 `not-expressible`, 7 `differs-by-design` |
+| Top-level `Test` functions | 13,595 across the module, 2,013 of them in `internal/exec/runtime` and `internal/exec/sweep` and 497 in `internal/frontend/lsp` [12,131; 1,840 in the runtime package alone and 455] |
 | fUML referee (advisory) | 55 activities: 23 `pass`, 0 `fail`, 28 `not-expressible`, 4 `differs-by-design` |
-| RDF corpus round trip | 365 models: 358 stable, 7 whitespace-only, none graph-diff or refused [358: 351 stable] |
-| API element form corpus round trip | 365 models: 356 stable, 7 whitespace-only, 2 graph-diff (a `.1` real respelled `0.1`), none refused [358: 349 stable] |
+| RDF corpus round trip | 876 models: 830 stable, 7 whitespace-only, 1 unwritable, 38 refused at the parser, none graph-diff [365: 358 stable, 7 whitespace-only, none refused] — the 511 specification examples joined the roots in #1302, and the refusals and the unwritable file are all theirs (`examples/spec-examples/`, 9 KerML and 30 SysML) |
+| API element form corpus round trip | 876 models: 830 stable, 7 whitespace-only, 1 unwritable, 38 refused, none graph-diff [365: 356 stable, 7 whitespace-only, 2 graph-diff] — the two graph-diff cases (a `.1` real respelled `0.1`) closed with the layered derived properties of #1232 |
 
 The pilot differential, the Xpect oracle, the scope oracle and the rejection oracle are the
 external conformance statement, and their figures are generated into `README.md` by `make
@@ -178,10 +194,14 @@ since #291 and #345 the site build counts them into the compliance map's test in
 (`scripts/mkdocs_suite_figures.py`), the committed pages name what is counted without a figure,
 and a branch adding a test rewrites no shared line.
 
-The fourteen commits between the `v0.10.0` tag and the `develop` head named above touch CI
-configuration, the release digest pins and the client packaging tests only — none of them is an
-input to a gate in the table, so every row reads the same at the tag. The PSSM movement since the
-previous baseline (three `fail` rows now `pass`, two are re-adjudicated `differs-by-design`) is
+The forty pull requests between the `v0.11.0` tag and the `develop` head named above move eight
+rows, and only upward: at the tag (`go run -C tools ./cmd/doc-counts -site-blocks` in a checkout of
+`ddf4df000`) the execution conformance cases are 1758, the golden AST fixtures 285 (251 SysML),
+the gRPC conformance fixtures 77, the runtime robustness cases 1397, the `Test` functions 13,440
+(2,000 runtime, 493 LSP) and the rejection oracle 344 cases with 332 both-reject strictly; every
+other row — the corpora, the census, the referees, the traces, the outcomes, both round trips —
+reads the same at the tag. The PSSM figures have not moved since the previous table; the
+movement before it (three `fail` rows now `pass`, two re-adjudicated `differs-by-design`) is
 recorded in [pssm-referee.md](pssm-referee.md).
 
 Statement coverage is no longer tabulated here. The previous baseline's table counted only each
@@ -193,20 +213,30 @@ the SonarCloud scan: it builds the `sysml`, `sysml-grpc` and `sysml-lsp` binarie
 and counts every suite the checks run (#142).
 
 The corpus gate needs the corpus (`./scripts/download-training-examples.sh`) and never
-re-baseline `internal/workspace/model/testdata/training_examples_expected.txt`: adjudicate each
+re-baseline `tests/corpus/testdata/training_examples_expected.txt`: adjudicate each
 drifted file and record the verdict in `docs/project/training-examples.md`.
 
 A tag cannot be cut over a corpus regression. Pull requests run one CI, the GitHub Actions
-workflow `.github/workflows/pr.yml`, which downloads the corpora (cached on the download scripts)
-and runs the suite with `OPENSYSML_REQUIRE_TRAINING_CORPUS=1`, `OPENSYSML_REQUIRE_PILOT_CORPORA=1`
-and `OPENSYSML_REQUIRE_SMT=1` before a merge, with the protobuf wire-compatibility check against
-the branch the pull request merges into (#108). `.circleci/config.yml` runs on `main` and on `v*`
-tags only, as four parallel jobs since #132 — `Go static checks`, `Go race tests`, `Go coverage
-profile` and `Go gates and binaries` — each downloading the corpora it needs and requiring them
-the same way; the client tests, the SonarCloud scan and every release workflow wait on all four.
-Its wire-compatibility baseline is the merge's own first parent (`HEAD^1`) on `main` and the
-previous release tag on a tag build, so the verdict cannot change with what merges afterwards
-(#132).
+workflow `.github/workflows/pr.yml`. Its `changes` job decides the tier — *quick* for a draft, *full*
+for a ready pull request or one labelled `ci:full` — and which of the client, editor and
+documentation jobs the diff touches; the Go suite runs sharded (`runtime`, `model export graph`
+and `rest migrate cli codegen` in the quick tier; `runtime`, `runtime-corpus`, `model`, `export`,
+`graph`, `codegen`, `rest`, `migrate` and `cli` in the full tier, #1440) with every corpus
+required — `OPENSYSML_REQUIRE_TRAINING_CORPUS`, `_PILOT_CORPORA`, `_SPEC_EXAMPLES`, `_PSSM_SUITE`,
+`_SYSML_V1TOV2`, `_FUML_SUITE`, `_PILOT_LIBRARY_XMI`, `_SMT`, `_WASM` and `_REFERENCE_FMUS` set to
+`1`, the LLM-benchmark and PDF toolchains required where their jobs run — beside the
+`static-and-integrity`, `wasm-gate`, `xpect-oracle`, `build` and `conformance-pkg` jobs on every
+Go change, the `race-coverage` and `pdf-toolchain` jobs in the full tier only, and the
+`build-and-test` aggregate every job reports to; the protobuf wire-compatibility check runs
+against the branch the pull request merges into (#108). `.circleci/config.yml` runs on `main`,
+on `develop` and on `v*` tags: `go-static`, `go-race-test` (sharded), `go-coverage` and its
+merge, `go-gates` and the SonarCloud `scan`, each downloading the corpora it needs and requiring
+them the same way, then the client, editor and plugin tests, the package builds and — on a tag
+or under the `release_rehearsal` parameter (#743, #1443) — the publish jobs for PyPI, npm, Maven
+Central, crates.io, the container image, the GitHub release, the Slack announcement (#1463) and
+the release digest pins. Its wire-compatibility baseline is the merge's own first parent
+(`HEAD^1`) on a branch and the previous release tag on a tag build, so the verdict cannot change
+with what merges afterwards (#132).
 
 ---
 
@@ -241,13 +271,20 @@ proof.
 
 All three ship from the core `v*` tag's `release` workflow (`publish-npm`, `publish-maven` and
 `publish-crates`, each in its own restricted context), and `v0.9.1` was the first tag to run
-them (#735, #738, #739): npm serves `@openmbee/opensysml` 0.9.1 and crates.io `opensysml` 0.9.1,
-each the package's only version. The Java client's Maven Central coordinates are
-`org.openmbee:opensysml` (`releasing.md`); the registry's search answered this refresh with a
-rate-limit refusal, so its 0.9.1 artifact is not confirmed here and is the one post-tag check of
-the item to re-read. The editor packages are locked to the core version (#745). What remains
-beside that check is publishing the Julia, MATLAB and (once it exists) R packages — the Julia
-General registry, File Exchange, CRAN — which is account-gated in the same way and goes with I3.
+them (#735, #738, #739), and every tag since has: npm serves `@openmbee/opensysml` 0.11.0 and
+crates.io `opensysml` 0.11.0 (each registry's index, read 2026-10-25), and PyPI `opensysml` and
+`jupyter-opensysml-kernel` 0.11.0 beside them. The Java client's Maven Central coordinates are
+`org.openmbee:opensysml` (`releasing.md`), its protobuf classes are generated at build time
+rather than committed since `v0.11.0` (`CHANGELOG.md` **0.11.0**), and the publish job now waits
+for Central to list the artifact before the release goes on (#1449, on `develop`); the registry's
+search answered this refresh with nothing and its repository with a rate-limit refusal, as it did
+the previous one, so the 0.11.0 artifact is the one post-tag check of the item still to re-read.
+The Node client installs from its lockfile between the version bump and the tag, when its five
+platform packages are pinned at a version npm has not published yet (#1442), and
+`sysml-mcp` is reachable as the npm alias `opensysml-mcp` (#1450, on `develop`). The editor
+packages are locked to the core version (#745). What remains beside the Maven check is
+publishing the Julia, MATLAB and (once it exists) R packages — the Julia General registry, File
+Exchange, CRAN — which is account-gated in the same way and goes with I3.
 
 ## R3 — Homebrew: install it on a real Mac
 
@@ -280,8 +317,10 @@ submits them for signing, and publishes the signed files as `*-signed*` release 
 the unsigned ones that the cosign-signed manifest keeps covering. What remains is a
 maintainer's application at <https://signpath.org/apply>, the SignPath project and policy
 setup, the `SIGNPATH_*` secret and variables in GitHub, and one manual approval per release;
-until then the workflow builds and stops. Procedure: `docs/project/releasing.md`, "Windows
-Authenticode signing".
+until then the workflow builds and stops — `v0.11.0`'s asset list (read 2026-10-25) carries no
+`*-signed*` file. The consumers are ready for the day it does: the installers prefer a release's
+signed build when it carries one and check its Authenticode signature (`CHANGELOG.md` **0.10.0**).
+Procedure: `docs/project/releasing.md`, "Windows Authenticode signing".
 
 Windows packaging is in place on the same workflow: a WiX v5 MSI (`packaging/msi`,
 `scripts/build-msi.sh`) installing the three executables to `Program Files\OpenSysML` on `PATH`,
@@ -303,13 +342,35 @@ Z3 package to depend on). Procedure: `docs/project/releasing.md`, "The Windows i
 ## R5 — the VS Code extension is not released
 
 `editors/vscode` builds as a PR CI artifact and, since #371, as a `.vsix` on the `nightly`
-prerelease; no `.vsix` is attached to a tagged release and there is no marketplace or Open VSX
-listing, so a user installs it from the nightly or by building it. Its version is locked to the
-core version since #745. The
-client works against the shipped `sysml-lsp` (`--stdio` is accepted and `shutdown`/`exit` are
-honoured). What remains is packaging and publishing: `vsce package` in the release workflow, a
-`.vsix` on the release, and (for the marketplace) a publisher account and a PAT in CI — the same
-class of account gate as R4.
+prerelease, which the downloads page links (#822) and which is versioned as a development build of
+the release it leads to (#1290, `v0.11.0`); no `.vsix` is attached to a tagged release (`v0.11.0`'s
+asset list, read 2026-10-25) and there is no marketplace or Open VSX listing, so a user installs it
+from the nightly or by building it. Its version is locked to the core version since #745. The client
+works against the shipped `sysml-lsp` (`--stdio` is accepted and `shutdown`/`exit` are honoured).
+What remains is packaging and publishing: `vsce package` in the release workflow, a `.vsix` on the
+release, and (for the marketplace) a publisher account and a PAT in CI — the same class of account
+gate as R4.
+
+## R6 — the release and nightly pipeline (landed)
+
+A tag is cut by the procedure in [releasing.md](releasing.md) (#54 and every release since) and
+built by CircleCI's tag workflow: the binaries, bundles and installers of every platform, the
+WebAssembly modules (#875, `v0.10.0`), the Python, npm, Maven Central and crates.io packages (#735,
+#738, #739), the Jupyter kernel wheels (#978), the container image (#1258, `v0.11.0`), the
+cosign-signed `SHA256SUMS.txt` and the SLSA provenance attestation over it (#606, `v0.9.1`), with
+the release's `sysml-grpc` and `sysml-jupyter-kernel` digests stamped into the clients so an
+installed client downloads the service it was released with (#951, `v0.10.0`; `CHANGELOG.md`
+**0.10.1**). The whole pipeline runs without publishing under the `release_rehearsal` parameter
+(#743, `v0.9.1`), and since #1443 (`v0.11.0`) the rehearsal tests under the tag it would make, so
+the stamped version is what the tag's binaries report. A tag's GitHub Actions side rebuilds the
+Windows executables for signing (R4) and validates the install action against the installed-release
+matrix when the action or the install scripts change (#1234, `v0.11.0`). Between tags,
+[nightly.md](nightly.md) describes the `nightly` prerelease (#284, `v0.9.0`): the newest green
+`develop`, with the `.vsix` (#371), the Python and Node client snapshots (#949, `v0.10.0`) and the
+JupyterLab wheel (#1016) beside the binaries, each versioned as a development build of the release
+it leads to (#1290). On `develop` past the tag: the release announces itself to Slack from the
+changelog section it shipped (#1463, #1482). Nothing in the pipeline is open; what the maintainer
+still does by hand is listed under R2–R5.
 
 ## Upstream follow-through
 
@@ -322,7 +383,9 @@ the `queryx/failing` Xpect fixtures, the unenforced control-node constraints, an
 dimension defects in the published `SI.sysml` and `USCustomaryUnits.sysml` — which #304 (in
 `v0.9.0`) put under the declared errata overlay, so the bundled library reads with
 the three that have one correction applied and the six that do not documented, the vendored bytes
-untouched. All are in [omg-issues.md](omg-issues.md), body and status; none needs code here until
+untouched. Filed since and fixed on the other side: the pilot's multiplicity-domain delegate
+(`SysML-v2-Pilot-Implementation#802`, confirmed and fixed upstream on 2026-10-02, not yet in a
+pilot release). All are in [omg-issues.md](omg-issues.md), body and status; none needs code here until
 an answer arrives.
 
 ---
@@ -340,7 +403,7 @@ Kernel Function Library's 279 declarations in 17 packages and against the domain
 findings L3–L6 have landed and L7 — the analysis libraries — is what remains, and it is a Track X
 item in library clothing.
 
-## L3 — evaluation does not reach standard-library-inherited features
+## L3 — evaluation does not reach standard-library-inherited features (landed, #830)
 
 A feature a user type inherits from the standard library has no value at run time. With `part def
 Box :> Item; part b : Box;`, both `b.isSolid` (declared `isSolid = isEmpty(voids)` in `Systems
@@ -356,7 +419,7 @@ differential harness still indexes the standard library as ordinary documents (`
 to reach them. [lossless-library-records.md](lossless-library-records.md) records
 what was measured.
 
-## L4 — every Kernel Function Library declaration dispatches by name
+## L4 — every Kernel Function Library declaration dispatches by name (landed, #821)
 
 At the previous baseline ~135 runtime names were registered explicitly (`runtime/builtin_names.go`,
 `library_functions.go`), operators and the core builtins were handled separately, and **12 of the
@@ -368,10 +431,14 @@ failing as `library function X is not implemented`. **Landed:**
 [PR #821](https://github.com/JPL-Devin/OpenSysML/pull/821) adds the gate and implementations for
 every KFL declaration; a call now either computes the library's stated result or is refused by
 name (`ToString(42)` is `"42"`, `max(1, 2)` is `2`, `max(1.0, 2.5)` is `2.5` at this baseline).
+`TestLibraryAndPrefixSweep` (#1244, `v0.11.0`) now reads every Systems and Domain library feature
+on an object and calls every Kernel Function Library function as a gate, and a declaration the
+runtime does not evaluate as a function (`'istype'`, `'hastype'`, `'@'`, `'as'`, `'meta'`,
+`'all'`, `'['`) is refused with the library's name (`CHANGELOG.md` **0.11.0**).
 The named-reducer forms (`->reduce '+'`) are the same mechanism read from a different position and
 are X5 below; which overload a name reaches is L6.
 
-## L5 — `QuantityCalculations`, unit canonicalization and domain failures
+## L5 — `QuantityCalculations`, unit canonicalization and domain failures (landed, #818)
 
 `QuantityCalculations` (28 declarations) had no runtime registration at the previous baseline, and
 a model that imported it lost `->sum()` over quantities (measured; the import brought a `sum`
@@ -539,7 +606,7 @@ drops what those items carry. Every surface says so (`convert.ExperimentalNotice
 it to stable is re-measuring the harness once those land, not a documentation change.
 
 Measured by the per-file ratchet at this baseline (`TestCorpusRoundTrip`,
-`internal/translate/export/testdata/corpus_roundtrip_expected.txt`), **all 358 models under
+`tests/corpus/testdata/corpus_roundtrip_expected.txt`, then under `internal/translate/export/testdata/`), **all 358 models under
 `examples/` convert** (the training corpus, the three pilot corpora and this repository's own
 demos): 351 round-trip `notation → RDF → notation → RDF` byte-identically and 7 differ only in
 whitespace, with no graph-diff, unwritable, unparseable or refused verdict left — each file is
@@ -600,7 +667,10 @@ in `.agents/skills/flexo-interop`; it brings up the published `openmbee/*` image
 Turtle to a branch graph, reads every element back through `flexo-mms-sysmlv2` and compares with
 what the service's own commit path stores for the same model. It measures the gap instead of
 asserting the fix, so every item below shows up as movement in
-`tools/referee/flexo/testdata/interop_expected.txt`. Keep it out of `go test ./...`.
+`tools/referee/flexo/testdata/interop_expected.txt`. Keep it out of `go test ./...`. Since
+`v0.11.0` the stack can also hold the library the converted models refer to: `sysml -stdlib
+-convert ttl|api-json` writes the bundled standard library as one model to stdout, a file or the
+Flexo MMS branch `-o` names (#1265).
 
 What the current recording measures, for the reference fixture: **76 of 76 elements
 listed and 702 of 863 properties delivered** on the graph-load side, against 33 of 33 and 158 of
@@ -733,7 +803,7 @@ golden graph has one. Two were written:
 The ratchets did not move: every model under `examples/` still round-trips, and the Flexo hop
 still delivers every `type`, `referent` and `targetFeature` of its fixture.
 
-## D8 — an optional second output profile: the Open-MBEE SysML v2 OWL ontology
+## D8 — an optional second output profile: the Open-MBEE SysML v2 OWL ontology (the metaclass graph landed, #1259)
 
 [`Open-MBEE/sysmlv2-rdf-ontology`](https://github.com/Open-MBEE/sysmlv2-rdf-ontology) renders the
 OMG metamodel (version 202407, from `SysML.ecore`) as OML and OWL: `SysML.owl`, 172 classes, 348
@@ -744,7 +814,13 @@ declares it, has 175 classes, 351 object properties and 64 datatype properties. 
 difference is the properties, each qualified by the metaclass that defines it
 (`sysml:Element_declaredName`, `sysml:Element_owner` with range `OwningMembership`), and a
 conformant instance graph therefore materializes the abstract syntax's relationship elements
-rather than collapsing them.
+rather than collapsing them. The vocabulary half is in the tree: `sysml -metaclass-graph`
+(#1259, `v0.11.0`) writes the metaclass hierarchy of the pinned pilot metamodel as an RDF
+vocabulary graph in Turtle — one `rdfs:Class` per metaclass, `rdfs:subClassOf` as the metamodel
+specializes — without reading a model, committed as
+`internal/translate/rdf/ontology/sysml-metaclasses.ttl` with a drift check, and the metamodel's
+property table is regenerated byte for byte from the pinned `SysML.ecore` (#1414). The
+instance-graph profile below is what remains.
 
 So this is a **second profile selected by a flag, not a superset**: the property IRIs differ, so
 one graph cannot satisfy both conventions, and Flexo's convention stays the default. The encoder
@@ -785,11 +861,15 @@ describe that pull request's content, which would have to be re-proposed against
 ontologies** under `ontology/sysmlv2/`, cut along
 the package hierarchy of the normative KerML/SysML XMI (`KerML/Root/Elements.ttl`,
 `KerML/Kernel/Expressions.ttl`, `SysML/Systems/Requirements.ttl`, …) with a `catalog.tsv` from
-term to declaring module and `owl:imports` computed from use. The generator
-(`cmd/ontology-modules`, `internal/translate/rdf/ontology/modules`) errors rather than dropping data —
-every source triple lands in exactly one module and the union is graph-isomorphic to upstream —
-and `make ontology-modules-check` in CI keeps the committed output equal to the pinned sources
-(`scripts/download-ontology-sources.sh`). It is additive to the term table and the Flexo export;
+term to declaring module and `owl:imports` computed from use. Its generator
+erred rather than dropping data — every source triple landed in exactly one module and the union
+was graph-isomorphic to upstream — and a CI check kept the committed output equal to the pinned
+sources. None of that is in this tree: there is no modules generator, no download script for the
+ontology sources and no such `make` target; what exists under `internal/translate/rdf/ontology` is
+the metamodel term table and its validation (`table.go`, `validate.go`, `make ontology-table` and
+`ontology-table-check`) and the metaclass hierarchy graph `sysml-metaclasses.ttl` (`hierarchy.go`,
+#1259). The modules remain a proposal to re-make from that pull request's content. They would be
+additive to the term table and the Flexo export;
 once merged, the profile can import the module a metaclass lives in rather than the monolith, and
 a consumer wanting only, say, the requirements vocabulary has a file to import.
 
@@ -990,7 +1070,7 @@ What landed:
 Extends D3's identity work; D11's `api-json` payloads are the first surface where a foreign
 reader compares our library ids to its own.
 
-## D13 — SysML v1 migration: units, the report on the wire, and lifting the notice
+## D13 — SysML v1 migration: units, the report on the wire, and lifting the notice (the `-migrate` verb and the report on the wire landed, #768)
 
 `-migrate` reads a SysML v1 model — OMG UML XMI 2.5.1 with the SysML profile, an Eclipse UML2
 `.uml` file, a `.mdzip` archive — and writes it as v2 notation or Turtle with an
@@ -1034,13 +1114,23 @@ its own pull request:
    the notice is removed from every surface at once (`convert.IsExperimental`, the Python warning,
    the Go `Conversion`).
 
-Items 1–4 are **not started** at `v0.9.1`; what the migration gained in `v0.9.0` and `v0.9.1`
-(every diagram as a view, the `-layout` augment, Cameo tables and documents, conforming SysML v2
-under `-strict`, standard deferred signals) widened the mapping rather than closing one of them.
-In progress beside them, with no pull request yet: the SysML v1 reading moves to its own verb,
-`-migrate`, leaving `-convert` to the format conversions. Open against `develop`: #763 (draft,
-an initial written into an orthogonal region as that region's entry); and, against the export
-rather than the migration, #761 (`first a then b` owning its connector ends).
+Item 2 **landed** with the verb: #768 (`v0.10.0`) moves the SysML v1 reading to `-migrate`,
+leaving `-convert` to the format conversions (which now refuse a v1 input by name), and gives the
+service a `Migrate` RPC whose `MigrateResponse` carries the element-by-element `MigrationReport`,
+the stored results and the migrated files beside the content and the experimental notice; the
+Python client's `migrate()` answers it, and the other clients read the field from the generated
+code. `-portable` makes the migration one self-contained file (`CHANGELOG.md` **0.10.0**). Items
+1, 3 and 4 are **not started** at `v0.11.0`: a `«Unit»` or `«QuantityKind»` is still a comment
+over `ScalarValues::Real` (`internal/translate/migrate` resolves no unit symbol onto `ISQ`/`SI`),
+the notation carries no identity, and the notice stands. What the migration gained from `v0.9.0`
+to `v0.11.0` — every diagram as a view, the `-layout` augment, Cameo tables and documents,
+conforming SysML v2 under `-strict`, standard deferred signals, the collapsed compartments of a
+Cameo symbol, owned rules as `constraint def`s asserted by a usage, operations in generic tables
+(`CHANGELOG.md` **0.10.0**–**0.11.0**) — widened the mapping rather than closing one of them.
+#763 (an initial written into an orthogonal region as that region's entry) and #761 (`first a
+then b` owning its connector ends, against the export) both landed on 2026-10-01 and shipped in
+`v0.9.2` (its `CHANGELOG.md` section names both; their `develop` merges are first reached by the
+`v0.10.0` tag, since `release/0.9.2` was assembled by cherry-pick).
 
 Independent of D1, D2 and D7, which concern the RDF form the migrated model may be written into,
 not the migration.
@@ -1411,7 +1501,7 @@ per-element behavior whose `for` result is wrong or too slow — the record's op
 starting point, as an explicitly non-standard extension the compliance mapping would have to flag,
 or a later specification revision re-adjudicates the record. No other item depends on this one.
 
-## E4 — streaming flows ("streaming pins")
+## E4 — streaming flows ("streaming pins") (landed, #465)
 
 **Landed.** A `flow` between two action parameters is a *streaming* flow, and only the
 `succession flow` spelling moves its value when the source completes. SysML v2 §7.16: "the input
@@ -1662,7 +1752,7 @@ with a spelling to implement.
 # Track X — expression forms the evaluator did not reach
 
 Expression evaluation is the most externally refereed part of the runtime: when
-`cmd/pilot-exec-diff` was re-run for the review (2026-09-02, at `1f136d27` — a snapshot of that
+`tools/cmd/pilot-exec-diff` (then `cmd/pilot-exec-diff`) was re-run for the review (2026-09-02, at `1f136d27` — a snapshot of that
 round, not the current baseline), 55 cases agreed with the pinned pilot, 1 agreed in kind only, 1
 disagreement and 2 errors of ours were adjudicated, and 35 cases the pilot cannot evaluate; 70 of
 the 71 grammar forms in `KerMLExpressions.xtext` have a corpus witness (only `%` lacks one).
@@ -1736,7 +1826,7 @@ custom scalar subtype keeps the values declared with it. `as`, `istype` and `has
 model-level evaluable, so a metadata body may bind `x = 1 as Integer`. What it leaves, by design:
 a target that neither a value's types nor its content settles is reported rather than the value
 being silently dropped. Five cast cases were added to the pilot execution referee
-(`cmd/pilot-exec-diff`) with the change.
+(`tools/cmd/pilot-exec-diff`) with the change.
 
 ## X4 — `*` as a value, and `.metadata` (landed)
 
@@ -1838,9 +1928,9 @@ mass rollup without changing what it answered; this changes the answer.)
 
 The two harness halves are **not started**: nothing has moved them since `v0.6.0`. Interpreted and compiled
 evaluation are held equal by one differential over the compiled subset; the pilot differential
-(`cmd/pilot-exec-diff`) still needs its normalization of numeric spellings and an adjudication
+(`tools/cmd/pilot-exec-diff`) still needs its normalization of numeric spellings and an adjudication
 file the harness reads to say why each remaining disagreement is ours or the pilot's — the
-adjudications live in prose in `pilot-execution-referee.md`, and what `cmd/pilot-exec-diff`
+adjudications live in prose in `pilot-execution-referee.md`, and what `tools/cmd/pilot-exec-diff`
 gained since `v0.6.0` is cases (#115's five casts, #235's stdin-fed engines), not the
 normalization; and the RDF expression trees have no round trip of their own — a tree is written,
 read and rewritten only as part of a whole model, `internal/translate/export` having gained #121's set
@@ -1969,6 +2059,25 @@ this baseline over `docrender/testdata/defaulted_queries.sysml` through `-run-qu
 `-render-document`. One adjacent rough edge, not a defaults defect: `-run-query "Q threshold=1"`
 types the bare `1` as an integer and is refused against a `String` parameter — quote it
 (`threshold="1"`).
+
+## Q5 — Markdown and AsciiDoc prose in documents (landed on `develop`, #1453, #1454)
+
+A document's prose was written as `Paragraph` parts with `Text` runs, one element per sentence
+the renderer should see. KerML's textual representation gives the notation a place for prose in
+another language, and `internal/ir/docplan/markup` now expands it: a `rep language "markdown"
+/* … */` directly inside a `Document` or `Section` expands in declaration order into paragraphs
+and lists, and one inside a `part : Paragraph` is that paragraph's content, the part keeping its
+name as `Ref` target and anchor — emphasis, strong, code spans, links, `[label](sysml:<target>)`
+references under the `Ref::target` resolution rules and `$…$` inline mathematics map onto the
+runs the document IR already has (#1453). The AsciiDoc form (#1454) does the same over
+Asciidoctor's structure — paragraphs, admonitions, bullet and numbered lists, tables of text
+cells under a header row, `[stem]` blocks and block images — parsed by the pinned Asciidoctor.js
+that `./scripts/download-doc-pdf-toolchain.sh` installs (`scripts/asciidoc/asciidoctor-json.js`),
+with the planner's tests running against recorded converter answers. The output side landed
+first: `-doc-form asciidoc` renders a compiled document as AsciiDoc (#1451). Open against
+`develop`: #1476 (inline `{expr}` values in a prose body) and #1477 (a whole document body —
+headings and sections — written as one representation). All three landed PRs are past
+`v0.11.0`, so the first tag to carry them is the next one.
 
 ---
 
@@ -2190,6 +2299,22 @@ nothing open; the population `all T` from X5 lets the same sweep run over every 
 type rather than one tree, and it should share Q2's carrier walk rather than add one — which is
 what #263 did, and #267 (Q2's query side) shares the walk.
 
+## A8 — FMI: an FMU as a calc, and a reference runner (landed, #663)
+
+`-convert` accepts `fmu` as an input format (#663, `v0.9.1`): the archive's `modelDescription.xml`
+(FMI 1.0, 2.0 or 3.0) is read and the FMU becomes a `calc def` whose parameters carry the model's
+variables, experiment times and outputs, annotated `ToolExecution` with `toolName = "fmi"`;
+evaluating it runs the FMU through the `tool:fmi` engine and an external runner — a
+one-request/one-reply JSON subprocess the site grants with `OPENSYSML_FMI_RUNNER`.
+`internal/translate/fmi` is the reader, [fmi.md](../reference/fmi.md) the reference, and `pip
+install opensysml[fmi]` installs the reference runner `opensysml-fmi-runner` over FMPy, for
+co-simulation and model-exchange FMUs alike. The gate is the Modelica Reference-FMUs:
+`./scripts/download-reference-fmus.sh` fetches them at their pin and `tests/fmi`
+(`TestReferenceFMUs`) runs each through the conversion and the runner; CI sets
+`OPENSYSML_REQUIRE_REFERENCE_FMUS=1`, so an absent corpus fails there rather than skips. The
+Python-only runner is one of the per-client conveniences the parity paragraph above judges per
+client rather than ports by default.
+
 ---
 
 # Track V — validation against the pilot's named constraints
@@ -2230,16 +2355,16 @@ has landed:
 - **Adjudicated as not a defect**: the inherited-name warning beside a typing error stays (#837);
   the pilot reports both.
 
-**What remains is the census's own tail**, and it is the whole of the track: the 52 rows marked
-*unknown* — a row is unknown when neither a pass nor a negative case can be pointed at for the
-pilot's name, which is a gap in evidence before it is a gap in checking. No row is marked *not
-implemented* any more. #748 (open) makes an implicit subsetting's conformance a checked rule.
-The order is the same as before: work the 52 down by writing the pilot-refereed
-negative case first and implementing the rule only where the case shows we accept what the pilot
-rejects; each change moves exactly its census row and `make docs-counts` regenerates the summary.
-The 6 *approximate* rows (a check under our own wording that covers the pilot's constraint
-without matching it) are honest as they stand and become faithful one at a time as their
-wording is aligned.
+**What remains is the census's own tail**, and it is the whole of the track: the 49 rows marked
+*unknown* (52 at the previous refresh; the triage record of #1303, `v0.11.0`, moved three) — a row
+is unknown when neither a pass nor a negative case can be pointed at for the pilot's name, which is
+a gap in evidence before it is a gap in checking. No row is marked *not implemented* any more. #748
+(landed 2026-10-01, shipped in `v0.9.2`) makes an implicit subsetting's conformance a checked rule.
+The order is the same as before: work the 49 down by writing the pilot-refereed negative case first
+and implementing the rule only where the case shows we accept what the pilot rejects; each change
+moves exactly its census row and `make docs-counts` regenerates the summary. The 6 *approximate*
+rows (a check under our own wording that covers the pilot's constraint without matching it) are
+honest as they stand and become faithful one at a time as their wording is aligned.
 
 ---
 
@@ -2257,13 +2382,13 @@ statement of how much of the Python client's surface each of the others carries.
 **Client parity (in progress).** The Python client grew past the others in `v0.9.0` and `v0.9.1`
 — the model-edit operations, the verification and coverage calls, the conversion and identity
 options — and bringing each other client to the same service surface is being worked one client
-at a time. Java's is **open** (#762); Node's, Rust's, Julia's and MATLAB's are **in progress**
-with no pull request yet. The Python-only conveniences built on the Go client (typed class
+at a time. Java's **landed** (#762, `v0.10.0`); Node's, Rust's, Julia's and MATLAB's remain **in
+progress** with no pull request. The Python-only conveniences built on the Go client (typed class
 generation, the FMI runner, the release-digest check) are judged per client rather than ported by
 default, and the Go API is the parity's reference rather than a target, since the Python service
 calls are built on it.
 
-## I1 — the wire contract, written down
+## I1 — the wire contract, written down (landed, #848)
 
 There was no page a hand-written client can be built from: which field names (proto3
 lowerCamelCase), which `Value` arm is which (`intValue` as a JSON *string* for 64-bit,
@@ -2278,7 +2403,7 @@ are on the page), the Connect code table, the
 illustrations marked untested, linked from the transports, clients and API pages. Everything else
 in the track reads from it.
 
-## I2 — shared conformance fixtures for handwritten clients
+## I2 — shared conformance fixtures for handwritten clients (landed; the Python runner open)
 
 One directory of request/response pairs — every `Value` arm, a diagnostic, a Connect error, a
 behavior call, a document query — that the existing clients and any new one replay, so "the
@@ -2288,7 +2413,7 @@ Java, Rust, Julia and MATLAB runners replay it and write the shared report forma
 The Python client is the one that does not replay it; its tests are its own. Bringing it under
 the same runner is the item's remainder, and an R package starts from it.
 
-## I3 — thin R, Julia and MATLAB packages
+## I3 — thin R, Julia and MATLAB packages (Julia and MATLAB landed, #591; R open)
 
 Each is a few hundred lines over the language's HTTP+JSON: connect, parse, evaluate, query, run a
 behavior, decode `Value` by the I1 rules (64-bit integers, quantities, enumerations, unset), and
@@ -2335,6 +2460,58 @@ from them (the `.expected.json` becomes the `response`) turns the wire suite int
 without writing a second corpus, and any implementation's report then reads as a fraction of the
 same cases the interpreter passes. Depends on I1 and I2; the generator is a session, and it is
 refereed by running the generated scenarios against `sysml-grpc` itself, which must pass them all.
+
+## I6 — `sysml-mcp`, a Model Context Protocol server for coding agents (landed, #1097)
+
+`cmd/sysml-mcp` (#1097, `v0.11.0`) gives an MCP host — OpenCode, Claude Code, Cursor, Codex,
+VS Code, Gemini, Devin — OpenSysML as tools over the project directory it is started in. The
+tool groups are the language server's workspace over the documents under the root (#1100), the
+one-shot service as one tool per RPC with the RPC's contract — `parse`, `symbol`, `evaluate`,
+`instantiate`, `execute_action`, `execute_state`, `evaluate_calc`, `verify_constraint` and the
+rest (#1098) — a persistent REPL session as typed tools with structured results, confined to the
+workspace root on every path (#1099, #1260, #1295), and the documentation catalog (#1103,
+#1263). One catalog names every tool, its group, the `sysml-grpc` RPC and `sysml` flag it stands
+for, and the `tool_catalog` tool answers it (#1140); the conformance suite drives the server as
+it drives the clients (#1269). It ships as a release binary for the five platforms, as the npm
+package `@openmbee/sysml-mcp` with its platform packages (#1273) and in the MCP registry
+(#1274); `-print-config <host>` writes the host's configuration block (`CHANGELOG.md`
+**0.11.0**). `-http ADDR` serves the Streamable HTTP transport for remote agents or several
+agents over one workspace (#1275), refused on a non-loopback address unless a bearer token is
+configured (`-token-file`, `-token`, `OPENSYSML_MCP_TOKEN`; #1373). On `develop`: the npm alias
+`opensysml-mcp` (#1450). Nothing is open in the item; the LLM benchmark (T5) measures what the
+tools buy an agent.
+
+## I7 — a Jupyter kernel (landed, #978)
+
+`cmd/sysml-jupyter-kernel` (#978, `v0.10.0`) is the REPL as a Jupyter kernel: `pip install
+jupyter-opensysml-kernel` installs the kernel spec and provisions the kernel binary from the release
+as the Python client provisions `sysml-grpc`, and from `v0.10.0` a release pins both digests
+(`CHANGELOG.md` **0.10.1**). The pip package carries `jupyterlab-opensysml`, a prebuilt JupyterLab 4
+/ Notebook 7 extension for SysML syntax highlighting (#1003); `%load` reads a notebook's code cells
+in order (`CHANGELOG.md` **0.10.0**); the kernel and the REPL read and write a SysML v2 API
+repository with the OMG pilot kernel's four commands (`%repo`, `%projects`, `%load
+--id|--name|--branch`, `%publish`; `CHANGELOG.md` **0.10.0**); the Windows build carries its version
+resource (#988); and the nightly publishes the JupyterLab wheel (#1016). The kernel's wheels for the
+five platforms and its source distribution are on every tag since (R6). Nothing is open in the item.
+
+## I8 — the WebAssembly builds: `sysml-engine`, `sysml-core`, `sysml-syntax`, `sysml-wasm` (landed, #772)
+
+Four commands under `cmd/` build for `js/wasm` and `wasip1`: `sysml-engine` (#772, `v0.10.0`)
+is the evaluation and execution JSON-RPC surface, rendering a view over it too (#888);
+`sysml-core` and `sysml-syntax` (#787) are the parsing, symbol and
+validation surfaces, and `sysml-wasm` (#870) combines them in one module with one
+standard-library snapshot, routing parsing and symbol facts to the core and evaluation to the
+engine. The Node client defaults to a worker thread over the module and the browser entry
+`@openmbee/opensysml/browser` connects to it inline or in a worker, with no service (#872,
+`v0.10.0`); the modules are release assets (#875) and the npm package carries them (#1189,
+`v0.11.0`), and the documentation homepage's stack diagram is drawn, instantiated and run
+through `connectWasm` over `sysml-wasm.wasm.gz` built from the tree (#1230). The gate is
+`tests/wasm`: both targets compile and vet the whole tree (`OPENSYSML_REQUIRE_WASM=1`), the
+gzipped sizes are bounded against gross growth (#970, #975; `sysml-core`'s budget #1278 and
+`sysml-syntax`'s #1283), the `-tags sysml_prod` build drops the optional features for the
+production module (`CHANGELOG.md` **0.10.0**), and the gate's own timeout fits a slow runner
+(#1334). `v0.10.1` was cut for the budget alone (#1185). What remains is in *Scaling to very
+large models* under *Proposed*: the module's size against a browser's patience.
 
 ---
 
@@ -2453,7 +2630,7 @@ notice in the rendering today rather than a drawing. Graphviz DOT and PlantUML b
 both lay out large graphs Mermaid cannot, and both are what the documentation and publishing
 pipelines this project is meant to feed already consume.
 
-## W1 — a `dot` form
+## W1 — a `dot` form (landed)
 
 **Landed** — see [view rendering forms](view-rendering-forms.md). A DOT writer over `Rendering`
 (`internal/ir/view/dot.go`): a rendering is a `digraph`, a node with children a `subgraph
@@ -2476,7 +2653,7 @@ node carries so an SVG rendered from the DOT links back to the declaration the w
 does. The node and edge attribute lists are each written by one method (`dotNodeAttributes`,
 `dotEdgeAttributes`), where the position and the route already join the label and style.
 
-## W2 — a `plantuml` form
+## W2 — a `plantuml` form (landed, #264)
 
 **Landed** — see [view rendering forms](view-rendering-forms.md#plantuml). A PlantUML writer over
 `Rendering` (`internal/ir/view/plantuml.go`), one grammar per kind: a tree is a class diagram
@@ -2501,7 +2678,7 @@ produces a history pseudostate (today drawn by stereotype), `state X : entry / �
 notes for notices, and `[[url]]` hyperlinks from the origin — to land with the DOT `URL=` once a
 writer has a stable URL for an `Origin`.
 
-## W3 — the forms where renderings surface
+## W3 — the forms where renderings surface (landed, #356)
 
 `dot`, `plantuml` and `d2` join `text`, `markdown` and `mermaid` everywhere a form is chosen:
 `-render-form`, `%render`, the `opensysml/render` request (the VS Code panel keeps Mermaid, which
@@ -2519,27 +2696,28 @@ surface has no view-render RPC — only `RenderDocument`, to Markdown — so
 the wire contract did not change; if one is added later it takes the form as a string the same
 way `-render-form` does.
 
-The PDF backend draws a DOT block through Graphviz (`OPENSYSML_DOT`, `-Tsvg`, honoring the
-writer's `// layout:` line) and a PlantUML block through the jar (`OPENSYSML_PLANTUML_JAR`) as it
-draws Mermaid through `mmdc`: optional tools located by environment variable, a block kept as
-source under a notice when its tool is absent, the tests skipping with the reason where the tool
-is missing and CI's `pdf-toolchain` job running them with the toolchain installed and reading
-the rendered PDFs back (#477). The VS Code panel's *export* picks among the forms the server
-advertises, so `dot` and `plantuml` are saved as `.dot` and `.puml` beside Mermaid. What
-[W1](#w1--a-dot-form) and [W2](#w2--a-plantuml-form) listed as writer changes — richer node
-shapes and compartments — landed with the view work rather than as items of their own: symbol
-kinds drawn as their notation and labels fitted to a stated box (#560, `v0.9.0`), containment
-kept off compartment rows (#589) and Cameo behaviour notation for action and state views in the
-DOT writer (#623), both `v0.9.1`, as [view-rendering-forms.md](view-rendering-forms.md) records
-row by row. Open against `develop`: #757, a part's typed ports drawn on the interconnection view
-with connectors ended at them. The `d2` form of [W4](#w4--a-d2-form) took the same route the day
-it landed: `-render-form d2` (`-render-all` writes `.d2`), `%render <name> d2 [palette]`,
-`"form": "d2"`, `-diagram-form d2` (` ```d2 ` fences, `<pre class="d2">`), the PDF backend
-drawing a block through the `d2` executable `OPENSYSML_D2` names and keeping the source under a
-notice without one, the toolchain script provisioning a pinned release, and the panel's export
-saving `.d2`. Nothing else is open in the track.
+The PDF backend draws a DOT block through Graphviz (`OPENSYSML_DOT`, `-Tsvg`, honoring the writer's
+`// layout:` line) and a PlantUML block through the jar (`OPENSYSML_PLANTUML_JAR`) as it draws
+Mermaid through `mmdc`: optional tools located by environment variable, a block kept as source under
+a notice when its tool is absent, the tests skipping with the reason where the tool is missing and
+CI's `pdf-toolchain` job running them with the toolchain installed and reading the rendered PDFs
+back (#477). The VS Code panel's *export* picks among the forms the server advertises, so `dot` and
+`plantuml` are saved as `.dot` and `.puml` beside Mermaid. What [W1](#w1--a-dot-form-landed) and
+[W2](#w2--a-plantuml-form-landed-264) listed as writer changes — richer node shapes and compartments
+— landed with the view work rather than as items of their own: symbol kinds drawn as their notation
+and labels fitted to a stated box (#560, `v0.9.0`), containment kept off compartment rows (#589) and
+Cameo behaviour notation for action and state views in the DOT writer (#623), both `v0.9.1`, as
+[view-rendering-forms.md](view-rendering-forms.md) records row by row. #757 (`v0.10.0`) draws a
+part's typed ports on the interconnection view with connectors ended at them. The `d2` form of
+[W4](#w4--a-d2-form-landed-887) took the same route the day it landed: `-render-form d2`
+(`-render-all` writes `.d2`), `%render <name> d2 [palette]`, `"form": "d2"`, `-diagram-form d2`
+(` ```d2 ` fences, `<pre class="d2">`), the PDF backend drawing a block through the `d2`
+executable
+`OPENSYSML_D2` names and keeping the source under a notice without one, the toolchain script
+provisioning a pinned release, and the panel's export saving `.d2`. Nothing else is open in the
+track.
 
-## W4 — a `d2` form
+## W4 — a `d2` form (landed, #887)
 
 **Landed** — see [view rendering forms](view-rendering-forms.md#d2). A D2 writer over
 `Rendering` (`internal/ir/view/d2.go`) for [D2](https://d2lang.com), the declarative diagram
@@ -2564,6 +2742,21 @@ located by environment variable.
 W1 landed first, being the smaller grammar and the one Graphviz-based pipelines want; W2 followed
 over the same node kinds and the sequence; W4 over the same again; W3 landed with each.
 Independent of every other track: nothing here touched the rendering model, only writers over it.
+
+## W5 — the VS Code diagram panel (landed; #1458, #1480 on `develop`)
+
+The panel (`editors/vscode/src/webview`, since #59) draws a view's rendering in the editor
+with its own layout and has grown by release: libavoid 0.4.5 bundled as WebAssembly routes the edges
+(`CHANGELOG.md` **0.10.0**), with orthogonal re-routing on drag (#883) and a drawn port on the
+part that owns it (#890, both `v0.10.0`); navigation between views and to the elements they show
+(#1318), *show related elements* for a selection (#1320), the neighbourhood's relations drawn
+when a related element is added (#1336), a routing pop-out (#1317), the add menu on drop (#1316),
+routing that follows a drag in flight (#1330) and automatic compartment folding with its notice
+(#1421; #1439 on `develop`), all `v0.11.0` unless marked. On `develop` past the tag: collapsed
+ports (#1458) and sized owner children (#1480), with the expectations the testing skill checks
+(#1483). The panel keeps Mermaid for what it can draw in-process and offers W1–W4's forms as
+*save as* (W3). The behavioural editing it does — moving, adding and connecting — is the
+*Proposed* item below; nothing else is open in the item.
 
 ---
 
@@ -2634,6 +2827,68 @@ what M2 needs.
 
 ---
 
+# Track T — the records the repository keeps
+
+Measurements, overlays and corpora that are neither features nor gates, kept as documents under
+`docs/project/` and regenerated by the tools under `tools/`. None is open; each is listed so a
+reader knows the record exists and what regenerates it.
+
+## T1 — release-gate performance records (landed, #1337)
+
+Every release is measured against the previous tag before it is cut: every benchmark on both
+revisions under `benchstat`, the startup and the memory of the stress profiles, with the candidate's
+head named. [performance-release-0.11.0-vs-0.10.1.md](performance-release-0.11.0-vs-0.10.1.md)
+(#1337, re-measured at the final cut in #1371, #1400 and #1445) is the current record,
+[performance-release-0.10.1-vs-0.10.0.md](performance-release-0.10.1-vs-0.10.0.md) the one before
+it, and the `0.10.0` against `0.9.2` record (#1015) is under [`docs/project/archive/`](archive/)
+with the older ones (#1221). The method is the previous record's, so the series is comparable, and
+each record names every movement with its cause.
+
+## T2 — the declared errata overlay (landed, #304)
+
+The published OMG corpora and the vendored standard library are never edited. Where a published file
+is wrong — the nine dimension defects in `SI.sysml` and `USCustomaryUnits.sysml`, the
+dimensional-analysis errata in the pilot's examples — [errata-overlay.md](errata-overlay.md) records
+the entry, `internal/workspace/libs/errata` applies the library corrections when the bundled library
+is read (#304, `v0.9.0`), `tools/oracle/errata` is the registry the referees read so the pilot
+re-runs over the corrected copy, and the `Flows::Message` repair the pilot applies for OMG issue
+SYSML21-681 (`CHANGELOG.md` **0.11.0**) is the newest entry. Each entry is filed upstream under
+*Upstream follow-through*.
+
+## T3 — the extension libraries (landed, #881)
+
+The sixteen non-normative libraries under `OpenSysML Libraries/` — `OOSEM` (#103), `MOSA`
+(#200, `v0.8.0`), `DiagramLayout`, `IdentityMetadata`, `MigrationMetadata`, `SysMLValidation`
+and the rest — are maintained upstream at Open-MBEE/OpenSysML-Extensions-Library and pinned
+here: [extension-libraries.md](extension-libraries.md) states the pin, the sync and the engine
+contract (#881, `v0.10.0`), a scheduled workflow runs the suite against the upstream head
+(#1299, `v0.11.0`), each is declared a non-standard library package (`CHANGELOG.md`
+**0.10.0**), and [oosem-library.md](oosem-library.md) and [mosa-library.md](mosa-library.md)
+audit the two methodology libraries against their sources. The pilot differential hands the
+reference the same libraries (`--extension-library`, `CHANGELOG.md` **0.10.0**), so a model
+using them is refereed rather than skipped.
+
+## T4 — the satellite-network stress test (landed, #299)
+
+[satellite-network-stress-test.md](satellite-network-stress-test.md) measures how many
+spacecraft, modeled down to components with budgets, requirements and a mode machine, `sysml`
+holds, at what cost in time and memory, and where each way of using it stops being practical;
+`tools/cmd/stress-model` generates the model at any size (#299, `v0.9.0`; the fleet mode #308,
+`v0.9.1`), `tests/stressmodel` drives the incremental tests from it, and T1's records reuse its
+profiles. The design it motivated is *Scaling to very large models* under *Proposed*.
+
+## T5 — the LLM authoring benchmark (landed, #1248)
+
+[llm-benchmark.md](llm-benchmark.md) asks how well a language model writes SysML v2 with
+OpenSysML as the compiler in the loop, and whether `sysml-mcp`'s tools (I6) improve it: fifty
+natural-language tasks with gold models under `tools/bench/llm/corpus/`, a
+generate–compile–repair loop with the diagnostics fed back verbatim, a scorer and a structural
+extraction, run by `go run -C tools ./cmd/llm-bench` (#1248, `v0.11.0`), with one results file
+per model run beside the page. Advisory only: CI runs the loop through the `replay` provider
+over recorded answers (#1300), and nothing in it gates.
+
+---
+
 # Proposed
 
 Five pieces of work proposed outside the tracks. The first two landed in `v0.9.0`; the third
@@ -2658,7 +2913,7 @@ for it and its tests skip where the engine is absent.
 **The pilot as an execution referee (landed, #319, #321, #334, #413).**
 [pilot-execution-referee.md](pilot-execution-referee.md)
 established that the pinned pilot evaluates model-level expressions and nothing else, so
-`cmd/pilot-exec-diff` can adjudicate the expression rows of `spec-compliance.md` and no external
+`tools/cmd/pilot-exec-diff` can adjudicate the expression rows of `spec-compliance.md` and no external
 implementation adjudicates actions or state machines. Widening that referee means finding one,
 not more harness work. For state machines the OMG PSSM suite is that referee (#230, advisory);
 for actions the fUML reference implementation is, in three changes modelled on the PSSM referee
@@ -2671,7 +2926,7 @@ classes and generalizations, object creation, structural-feature actions, signal
 `SendSignalAction`, `AcceptEventAction`, active classes with their classifier behavior and
 `StartObjectBehaviorAction` — and fixed the runtime and the SMT encoding it uncovered, where two
 `flow`s from one source pin were staged as one delivery (each `flow` declaration is its own
-transfer now, so a fork duplicating a token down two flows delivers two values). `cmd/fuml-referee`
+transfer now, so a fork duplicating a token down two flows delivers two values). `tools/cmd/fuml-referee`
 files 55 activities as 23 `pass` / 0 `fail` / 28 `not-expressible` / 4 `differs-by-design` (an
 action the reference fires once per object token), pinned in
 `docs/project/fuml-referee-baseline.json` and checked in CI by
@@ -2761,7 +3016,9 @@ independent of every track.
 
 # Track P — package layering (landed in 0.9.0 but P7)
 
-The module is one Go module of 72 packages under `internal/`, 49 of them under `internal/core/`.
+At the `v0.9.0` baseline this track measured, the module was one Go module of 72 packages under
+`internal/`, 49 of them under `internal/core/` (a directory P1 removed; the layers of the repository
+map in `AGENTS.md` are its packages' homes now).
 The import graph is acyclic, as Go requires, but it is not layered: the runtime imports the
 validation suite and the parser, the RDF exporter imports the runtime, the REPL imports the gRPC
 service, and test-only and referee packages sit beside the product packages with nothing telling
@@ -2820,18 +3077,22 @@ The edges that break the layering, each with the files that carry it:
 
 What is in `internal/` that is not product code, or is in the wrong place:
 
-- `internal/hygiene` and `internal/perfbench` have no non-test files; they exist to host
-  `TestNoProductionCodeImportsTesting` and the benchmarks.
+- `internal/hygiene` and `internal/perfbench` had no non-test files; they existed to host
+  `TestNoProductionCodeImportsTesting` and the benchmarks (now `tests/hygiene` and `tests/perf`).
 - `internal/baseline`, `internal/fixtures`, `internal/junit`, `internal/doccounts`,
-  `internal/stressmodel`, `internal/fuml`, `internal/pssm` and `internal/testutil` are reached
+  `internal/stressmodel`, `internal/fuml`, `internal/pssm` and `internal/testutil` were reached
   only from `cmd/pilot-*`, `cmd/pssm-referee`, `cmd/fuml-referee`, `cmd/stress-model`,
-  `cmd/doc-counts` and `cmd/validation-census`, never from `sysml`, `sysml-lsp` or `sysml-grpc`.
-- `internal/errata` is both: `core/libs/source.go` applies its overlay to the bundled standard
-  library (product), and the pilot tools read its registry (tooling). It can only move once the
-  overlay is split from the oracle bookkeeping.
+  `cmd/doc-counts` and `cmd/validation-census`, never from `sysml`, `sysml-lsp` or `sysml-grpc`
+  (the commands are under `tools/cmd/` now; the packages are `tools/oracle/baseline`,
+  `tests/fixtures`, `internal/frontend/report/junit`, `tools/census/doccounts`,
+  `tests/stressmodel`, `tools/referee/fuml`, `tools/referee/pssm` and `tests/testutil`).
+- `internal/errata` was both: `core/libs/source.go` applied its overlay to the bundled standard
+  library (product), and the pilot tools read its registry (tooling). It could only move once the
+  overlay was split from the oracle bookkeeping (it is: `internal/workspace/libs/errata` and
+  `tools/oracle/errata`).
 - `internal/xmi` (the XMI 2.5 reader of the UML test suites, for `fuml` and `pssm`) and
   `internal/translate/xmi` (the XMI reader of SysML v1 exports, for `migrate`) read the same format
-  into two element trees.
+  into two element trees (one reader now, `internal/translate/xmi`, which the referees import).
 - `internal/workspace/envvar` and `internal/workspace/project` are process configuration, not language
   core; `internal/doc/docpdf` is the PDF backend of the `core/docrender` pipeline and the only part of
   it outside `core/`.
@@ -2888,7 +3149,7 @@ each a copy, and where each lives now (P4):
 | `declMembers` | 4 | `lower`, `passes`, `runtime`, `semantics` | `ast.DeclMembers`; see below |
 | `lastSegment`, `qualifiedName` | 5 each | `export`, `queryexec`, `runtime`, `symbols`, `repl`; `export`, `migrate`, `queryplan`, `rename`, `solve` | `symbols.LastSegment`, `ast.QualifiedNameOf`; see below |
 | `sortedKeys` | 6 | across the module | `slices.Sorted(maps.Keys(m))` |
-| `moduleRoot`, `writeReports`, `classify` | 5, 4, 5 | `cmd/pilot-diff`, `pilot-reject`, `pilot-xpect`, `grammar-coverage`, `validation-census` | `tools/oracle/repo`, `tools/oracle/report` (P3) |
+| `moduleRoot`, `writeReports`, `classify` | 5, 4, 5 | `cmd/pilot-diff`, `pilot-reject`, `pilot-xpect`, `grammar-coverage`, `validation-census` (now under `tools/cmd/`) | `tools/oracle/repo`, `tools/oracle/report` (P3) |
 
 The name-sharing was wider than the copying. Of the `declMembers` four, three were the same
 function (a definition's or usage's `Members`) and are `ast.DeclMembers`; the runtime's also
@@ -3063,7 +3324,7 @@ tools into the nested module, because product tests import them and a test canno
 nested module without a cyclic requirement: `fixtures`, which also took the analysis-library
 census schema that the runtime's own test writes and `tools/census/doccounts` counts, and
 `stressmodel`, whose generator `internal/workspace/model`'s incremental test drives (only
-`cmd/stress-model` moved). They stayed under `internal/` at first; P4 moved them to `tests/`,
+`cmd/stress-model` moved, to `tools/cmd/stress-model`). They stayed under `internal/` at first; P4 moved them to `tests/`,
 which both the root module's tests and the tools module can import.
 `docpdf` is `internal/doc/docpdf`, beside `docrender`; `envvar` and `project` already sat beside
 `model`, and whether they fold into it is P4's question. Measured at `develop` `1e44c746c`
@@ -3118,7 +3379,7 @@ Where a fold moved a self-model unit, `examples/self-model/surfaces.sysml` names
 package, and the pilot differential baseline records the examples digest that follows.
 
 The test-support packages P3 could not take into the tools module moved to `tests/` (#427):
-`internal/fixtures` is `tests/fixtures` and `internal/stressmodel` is `tests/stressmodel`, both
+`internal/fixtures` became `tests/fixtures` and `internal/stressmodel` `tests/stressmodel`, both
 still in the root module, so `tests/model`, the census in `tools/census/doccounts` and
 `tools/cmd/stress-model` import them from there. `go list -deps` of `sysml`, `sysml-lsp` and
 `sysml-grpc` names neither before nor after, and the layering test pins that no production
@@ -3254,51 +3515,111 @@ requests the tracks cite; the two closed-work summaries at the top of the page l
 - **Release follow-through** — R2's three registries (#735, #738, #739), R4's wizard (#350), the
   rehearsal (#743) and the provenance attestation (#606).
 
+## What `v0.9.2`, `v0.10.0`, `v0.10.1` and `v0.11.0` released
+
+The same pattern for the four tags since, by track with the pull requests the tracks cite; the
+entry counts are `CHANGELOG.md`'s sections, which are the tags' content.
+
+- **`v0.9.2`** (2026-10-05; 27 entries) — a release branch assembled on `main` from `develop`'s
+  fixes: the export's `first a then b` owning its connector ends (#761, Track D), uniqueness and
+  constancy conformance of an implicit subsetting (#748, Track V), the migrator's orthogonal
+  initial (#763, D13), the `elementId` query (#747), the service's `Convert` id form, the
+  metamodel table at version 20250201, stamped Rust digests and the wheel's digest verification
+  (Release follow-through), and the Windows MSI hotfixes (#752, #753, #930, #931).
+- **`v0.10.0`** (2026-10-08 by the changelog, tagged 2026-10-11; 336 entries: 94 added, 74
+  changed, 154 fixed, 10 performance, 1 deprecated, 1 removed, 2 security) — **Track L**: L3
+  (#830), L4 (#821), L5 (#818). **Track D**: the `-migrate` verb with the `Migrate` RPC and its
+  report (#768, D13) and `-portable`. **Track I**: the Java client's parity (#762), the wire
+  contract (#848, I1), the Jupyter kernel (#978, #988, #1003; I7), the WebAssembly builds, the
+  browser client and their budgets (#772, #787, #870, #872, #875, #888, #970, #975; I8). **Track
+  W**: typed ports on the interconnection view (#757), the panel's orthogonal re-routing and
+  ports (#883, #890; W5). **Track T**: the pinned extension libraries (#881). **Release
+  follow-through**: the nightly client snapshots (#949), the stamped Node and Java digests
+  (#951), the nightly JupyterLab wheel (#1016), the install and packaging audit (#1070), the
+  Cameo plugin as OpenSysML MDK (#759) and the SysON packaging (#483). Beside the tracks,
+  `CHANGELOG.md` **0.10.0** carries unbounded `Integer`s, the agent skills under
+  `packaging/agent-skills/`, the `-tags sysml_prod` production build and the `GeneralView`
+  filters.
+- **`v0.10.1`** (2026-10-14 by the changelog, tagged 2026-10-15; 31 entries: 1 added, 4 changed,
+  26 fixed) — the hotfix release #1143: the migrator's layout for association and connector
+  ends, the `export` race shard's timeout, the client suites accepting a release that pins the
+  Jupyter kernel digests, the `0.10.1` against `0.10.0` performance record (T1); and the
+  WebAssembly size-budget hotfix #1185 the tag sits on (I8).
+- **`v0.11.0`** (2026-10-23; 336 entries: 77 added, 75 changed, 184 fixed) — **Track I**:
+  `sysml-mcp` (#1097, #1098, #1099, #1100, #1103, #1140, #1269, #1273, #1274, #1275, #1373; I6),
+  the WebAssembly package's site assets and the homepage on the module (#1189, #1230), the
+  `sysml-core` and `sysml-syntax` budgets and the gate's timeout (#1278, #1283, #1334). **Track
+  D**: the metaclass graph (#1259, D8), the standard library into Flexo (#1265, D3), the
+  specification examples as a round-trip oracle (#1302), the layered API JSON derived properties
+  (#1232). **Track L**: the library and prefix sweep gate (#1244). **Track W**: the panel's
+  navigation, related elements, neighbourhood relations, routing pop-out, drop menu, mid-drag
+  routing and automatic compartment folding (#1316, #1317, #1318, #1320, #1330, #1336, #1421;
+  W5). **Track V**: the census triage (#1303). **Track T**: the LLM benchmark (#1248, #1300),
+  the extension libraries' upstream workflow (#1299), the performance records (#1015, #1221,
+  #1337, #1371, #1400, #1445). **Release follow-through**: pull-request CI in two tiers
+  (`CHANGELOG.md` **0.11.0**), the container image (#1258), the install action's validation
+  (#1234), the rehearsal under the tag (#1443), the nightly `.vsix` version (#1290). Beside the
+  tracks: the project is named OpenSysML MDK, and the SonarCloud findings were worked off package
+  by package (#1339–#1346, #1428–#1434).
+
 ## What remains open
 
-The open items, by track, with the item that gates each where one does. Tracks F, S, E, L, Q, A
-and P (but P7) are closed.
+The open items, by track, with the item that gates each where one does. Tracks F, S, E, L, Q
+(but Q5's two pull requests), A, T and P (but P7) are closed.
 
 - **Track I** — the R package (I3, not started); the C client (I4, not started); the Python
   client under the shared conformance runner (I2's remainder); I5's `-address` mode and generated
-  kernel scenarios (not started); and client parity, Java open (#762) and the other four in
-  progress.
+  kernel scenarios (not started); and client parity for Node, Rust, Julia and MATLAB (Java's
+  landed, #762; the four have no pull request). Open against `develop` on I6: #1488 (the MCP
+  toolkit's UTF-16 column counting).
 - **Track X** — X8's two harness halves (not started) and X7's native layout for sets and
   tensors.
-- **Track D** — D8's ontology profile, D10's write-through, D13's four items (not started; #763
-  open, the `-migrate` verb in progress); #761 open against the export.
-- **Track V** — the census's 52 *unknown* rows; #748 open.
-- **Track W** — #757 open, nothing else.
-- **Tracks N, M, B** — as the tracks state them; nothing in them moved since `v0.8.0`.
+- **Track D** — D8's instance-graph profile (its metaclass graph landed, #1259), D10's
+  write-through, D13's items 1, 3 and 4 (units, re-migration identity, the measurement that
+  lifts the notice; the verb and the report landed, #768). Open against `develop`: #1485 (a
+  conjugated port's subsetting in the RDF form).
+- **Track V** — the census's 49 *unknown* rows (52 at the previous refresh; #1303).
+- **Track Q** — Q5's inline values (#1476) and whole-body headings and sections (#1477), open
+  against `develop`.
+- **Track W** — nothing open; W5's collapsed-port and sized-children fixes (#1458, #1480) are on
+  `develop` past the tag.
+- **Tracks N, M, B** — as the tracks state them; nothing in them moved since `v0.8.0` but the
+  codegen package's placement (`CHANGELOG.md` **0.11.0**).
 - **Release follow-through** — R2's Maven Central check and the Julia, MATLAB and R registries;
-  R3 and R5, account- and hardware-gated; #483 open against the SysON packaging.
+  R3 (a real Mac), R4 (the SignPath application), R5 (a marketplace publisher), each account- or
+  hardware-gated.
 - **Proposed** — the large-model design's fourth step (one definition with many occurrences, not
   started); behavioral editing's in-place rewriting (not started); naming activity and state
   nodes so a migrated view can expose them (the MTIP augment's follow-up).
+- **Open against `develop` outside the items** — the runtime's `satisfy … by` an expression
+  (#1466), bound-feature read marks (#1471), part usages read through part definitions (#1484),
+  implicit specializations' runtime objects (#1492), the REPL's member-name alias (#1493), and
+  the SonarCloud refactors and security findings (#1486, #1487, #1489, #1490, #1491, #1494–#1500).
 
 ## Cross-cutting order
 
-The previous order's step 1 is half done — the Julia and MATLAB packages landed — and its D2 and
-D1 step landed in #509, so the order opens with what Track I has left and the client work that
-is already moving.
+The previous order's step 1 moved — Java's parity landed and the Jupyter, WebAssembly and MCP
+surfaces (I6–I8) were added and closed beside it — and its step 3 lost D13's verb and report
+(#768) and D8's metaclass graph (#1259), so the order opens with what Track I has left.
 
-1. **Track I: client parity, then I3's R package, then I4's client** — parity first because it
-   is in flight in every client but Python and Go and an R package written now would start
-   behind it; then the R package, replaying `conformance/` as Julia and MATLAB do (the Python
-   client joining the shared runner on the way, I2's remainder); then the C client over
-   `libcurl`. The C *ABI* half of I4 is not here — it is step 6.
+1. **Track I: client parity, then I3's R package, then I4's client** — parity first because the
+   four clients behind Java have no pull request and an R package written now would start behind
+   them; then the R package, replaying `conformance/` as Julia and MATLAB do (the Python client
+   joining the shared runner on the way, I2's remainder); then the C client over `libcurl`. The
+   C *ABI* half of I4 is not here — it is step 6.
 2. **X8's harness halves, then X7's native layout** — normalization and adjudication in the
    pilot differential and a round trip over every RDF expression-tree form, so every later
    expression item is measured; the set and tensor native layouts when something needs them.
-3. **D13, then D8** — the migration's units, its report on the wire (a Track I wire change, so
-   after step 1's parity has settled the clients' surface) and stable re-migration identity,
-   then the measurement that lifts its notice; the ontology profile once D1 and D2's standard
-   vocabulary is what it profiles.
+3. **D13's items 1, 3 and 4, then D8's instance profile** — the migration's units (L5's symbol
+   table is in place), stable re-migration identity over the element identity annotations, then
+   the TMT re-measurement that lifts its notice; the instance-graph profile over the metaclass
+   graph once D1 and D2's standard vocabulary is what it profiles.
 4. **B1, then B2** — the binding vocabulary, then the provider contract in the runtime and Go
-   API. Neither depends on anything outstanding and both touch only the metadata library, one
-   pass and the runtime's dispatch, so they can run beside steps 1–3; B1 needs its design record
-   before code. **B3** follows the transport decision, **I5** goes with step 1 since it is built
-   from the same scenarios, and **B4**/**B5** come whenever a model needs them.
+   API. Neither depends on anything outstanding and both touch only the metadata library (now
+   maintained upstream, T3), one pass and the runtime's dispatch, so they can run beside steps
+   1–3; B1 needs its design record before code. **B3** follows the transport decision, **I5**
+   goes with step 1 since it is built from the same scenarios, and **B4**/**B5** come whenever a
+   model needs them.
 5. **M1, then M2 (with N2.6)** — the closed behavior IR, then the state and action C backend over
    static tables. Embedded behavior compilation depends on the closed IR; the native track's
    action and state phases start from the same IR rather than a second one. M3 and M5 prove it;
@@ -3307,41 +3628,44 @@ is already moving.
    after M1 fixes what an embedded entry point looks like, so a stable native/embedded calling
    contract exists to design against rather than three.
 
-Beside the order, whenever a session has room: Track V's 52 *unknown* rows, the large-model
-design's fourth step, behavioral editing's in-place rewriting, and the open pull requests above
-to review. The next release cuts from `develop`, which carries #694's removal of the `defer`
-state-body extension — a construct `v0.9.1` accepts and the next tag refuses — so by
-`CONTRIBUTING.md` § Versioning it bumps the minor segment; the decision is the release
-checklist's, recorded there.
+Beside the order, whenever a session has room: Track V's 49 *unknown* rows, Q5's two open pull
+requests, the large-model design's fourth step, behavioral editing's in-place rewriting, and the
+open pull requests above to review. The next release cuts from `develop`, which carries
+thirty-five fragments under `changes/unreleased/` past `v0.11.0` (13 added, 7 changed, 15
+fixed, none removed); which segment it bumps is the release checklist's decision, recorded there
+(`CONTRIBUTING.md` § Versioning).
 
 ## Track-local orders
 
-- **Release follow-through.** **R1** is done; **R2**'s three registries are live from the core
-  tag, with Maven Central's 0.9.1 artifact to confirm and the Julia, MATLAB and R registries to
-  come with I3; **R3** and **R5** as a real Mac, an Apple Developer and an OV/EV certificate, and
-  a marketplace publisher appear; **R4** is proven by every tag since `v0.7.0`. None gates the
-  others or anything below.
-- **Track L.** L3–L8 landed. Nothing remains in the track; its census moves with the runtime,
-  adjudicated per change.
+- **Release follow-through.** **R1** is done and **R6** landed; **R2**'s four registries are
+  live from the core tag, with Maven Central's 0.11.0 artifact to confirm and the Julia, MATLAB
+  and R registries to come with I3; **R3** and **R5** as a real Mac and a marketplace publisher
+  appear; **R4**'s Windows path builds on every tag and waits on the SignPath application, its
+  macOS half on an Apple Developer account. None gates the others or anything below.
+- **Track L.** L3–L8 landed and #1244 gates them. Nothing remains in the track; its census moves
+  with the runtime, adjudicated per change.
 - **Track N.** N2.1 (records and enums) first, since compiling an analysis case and the
   differential's record and constructor coverage both need it; decide N2.2 (the budget) before
   N2.4; N2.3 tracks L4 package by package; N2.6's actions and states are Track M's M1/M2.
-- **Track D.** The RDF ratchet is 351 of 358 stable with 7 whitespace-only and no refusal; the
-  API element-form ratchet is 349 of 358 with 2 graph-diff cases. **D1**, **D2**, **D7**,
-  **D9.1**, **D9.2**, **D11** and **D12** are done; **D8** and **D10** remain; **D13** in the
-  order it lists — step 3 above.
+- **Track D.** Both ratchets read 830 of 876 stable with 7 whitespace-only, 1 unwritable and 38
+  refused at the parser, every refusal a specification example, no graph-diff case. **D1**,
+  **D2**, **D7**, **D9.1**, **D9.2**, **D11** and **D12** are done, **D3** is measured and
+  **D13**'s verb and report and **D8**'s metaclass graph landed; **D8**'s instance profile,
+  **D10** and **D13**'s items 1, 3 and 4 remain, in the order they list — step 3 above.
 - **Track F, S, E.** Closed. `known_failures.txt` has no line; the region-order choice points
   are recorded; E3 and E5 are closed by record and no work follows them.
 - **Track X.** X2–X6, X7's values and X8's typing landed. What is left, in order: X8's harness
   halves so every later X item is measured, then X7's native layout — step 2 above.
-- **Track A, Q.** Closed: A7 and A4, Q2's query side and Q3 all landed in `v0.9.0`.
-- **Track V.** Work the census's 52 *unknown* rows, negative case first, each change moving its
-  row; #748 is open.
-- **Track I.** Client parity (#762 open; Node, Rust, Julia and MATLAB in progress), then the R
-  package, then the C client — step 1 above; I5 beside them.
+- **Track A, Q.** Closed: A7, A4 and A8 and Q2's query side, Q3 and Q5 all landed; Q5's #1476
+  and #1477 are the track's open pull requests.
+- **Track V.** Work the census's 49 *unknown* rows, negative case first, each change moving its
+  row.
+- **Track I.** Client parity (Node, Rust, Julia and MATLAB, no pull request), then the R
+  package, then the C client — step 1 above; I5 beside them. I6–I8 are closed.
 - **Track B.** B1, B2, then B3 — step 4 above; B4's file and HTTP providers whenever asked, its
   Flexo provider unblocked since D9.2 landed; B5 with Q1.
-- **Track W.** #757 (open). Nothing else is open in the track.
+- **Track W.** Nothing open; W5's fixes on `develop` ride the next tag.
+- **Track T.** Nothing open; each record is regenerated by its tool when its subject moves.
 - **Track P.** P7's implementation, last, when the graph the layering test guards is otherwise
   clean; its design record is #451.
 - **Track M.** Entirely given by the cross-cutting order above.

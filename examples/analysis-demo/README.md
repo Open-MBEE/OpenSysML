@@ -41,9 +41,9 @@ runs by name:
 ✓ package Selection
 ✓ package Timing
 ✓ Descent::scoutBudget
-  fuelUsed = 120.0
-  wetMass = 730.0
-  fuelLeft = 130.0
+  fuelUsed = [120.0]
+  wetMass = [730.0]
+  fuelLeft = [130.0]
   objective reserveHeld: satisfied
 ```
 
@@ -66,9 +66,9 @@ long leaves 10 kg, under the 20 kg reserve, and the run exits `1`:
 
 ```
 ✗ Descent::scoutBudget(burnTime = 80.0)
-  fuelUsed = 240.0
-  wetMass = 610.0
-  fuelLeft = 10.0
+  fuelUsed = [240.0]
+  wetMass = [610.0]
+  fuelLeft = [10.0]
   objective reserveHeld: not satisfied: fuelLeft >= reserve
 ```
 
@@ -87,9 +87,9 @@ object after the case:
   ID: 1
   Use %features Landers::hauler to inspect
 ✓ Descent::FuelBudget on object #1 of "Landers::hauler"
-  fuelUsed = 320.0
-  wetMass = 1980.0
-  fuelLeft = 580.0
+  fuelUsed = [320.0]
+  wetMass = [1980.0]
+  fuelLeft = [580.0]
   objective reserveHeld: satisfied
 ```
 
@@ -120,9 +120,11 @@ objective is evaluated after the `return`:
 [trace]       eval operator - -> 130.0
 [trace] leave action node: analysis Descent::scoutBudget
 [trace]   stmt return
-[trace] exit analysis Descent::scoutBudget -> 130.0
-[trace] output Descent::scoutBudget.fuelUsed = 120.0
-[trace] output Descent::scoutBudget.wetMass = 730.0
+[trace] exit analysis Descent::scoutBudget -> (130.0)
+…
+[trace] output Descent::scoutBudget.fuelUsed = (120.0)
+…
+[trace] output Descent::scoutBudget.wetMass = (730.0)
 …
 [trace] eval operator >= -> true
 ```
@@ -145,10 +147,30 @@ entry per output and objective.
       "subject": "Descent::scoutBudget(burnTime = 80.0)",
       "status": "fails",
       "values": [
-        { "name": "fuelUsed", "value": "240.0" },
-        { "name": "wetMass", "value": "610.0" },
-        { "name": "fuelLeft", "value": "10.0" },
-        { "name": "objective reserveHeld", "value": "not satisfied: fuelLeft >= reserve" }
+        {
+          "name": "fuelUsed",
+          "value": "[240.0]"
+        },
+        {
+          "name": "wetMass",
+          "value": "[610.0]"
+        },
+        {
+          "name": "fuelLeft",
+          "value": "[10.0]"
+        },
+        {
+          "name": "objective reserveHeld",
+          "value": "not satisfied: fuelLeft \u003e= reserve"
+        }
+      ],
+      "lines": [
+        "✗ Descent::scoutBudget(burnTime = 80.0)",
+        "  fuelUsed = [240.0]",
+        "  wetMass = [610.0]",
+        "  fuelLeft = [10.0]",
+        "  objective reserveHeld: not satisfied: fuelLeft \u003e= reserve",
+        "  standing: value (observed: 1 run under reverse)"
       ],
       …
     }
@@ -172,7 +194,7 @@ is under the 1.5 m/s limit:
 
 ```
 ✓ Descent::checkScout
-  result = VerdictKind::pass
+  result = [VerdictKind::pass]
   objective obj: satisfied
   ✓ Verification Descent::checkScout verdict: pass
 ```
@@ -187,7 +209,7 @@ both ways, and the exit status is `1`:
 
 ```
 ✗ Descent::TouchdownCheck on object #1 of "Landers::hauler"
-  result = VerdictKind::fail
+  result = [VerdictKind::fail]
   objective obj: not satisfied: lander.touchdownSpeed <= 1.5
   ✗ Verification Descent::TouchdownCheck verdict: fail
 ```
@@ -226,11 +248,11 @@ check of where the design stops holding:
 ```
 sweep Descent::scoutBudget — 4 run(s)
 burnTime | fuelUsed | wetMass | fuelLeft | verdict                    | time
----------+----------+---------+----------+----------------------------+--------
-20.0     | 60.0     | 790.0   | 190.0    | reserveHeld: satisfied     | 0.142ms
-40.0     | 120.0    | 730.0   | 130.0    | reserveHeld: satisfied     | 0.082ms
-60.0     | 180.0    | 670.0   | 70.0     | reserveHeld: satisfied     | 0.075ms
-80.0     | 240.0    | 610.0   | 10.0     | reserveHeld: not satisfied | 0.073ms
+---------+----------+---------+----------+----------------------------+---------
+20.0     | [60.0]   | [790.0] | [190.0]  | reserveHeld: satisfied     | 38.820ms
+40.0     | [120.0]  | [730.0] | [130.0]  | reserveHeld: satisfied     | 38.778ms
+60.0     | [180.0]  | [670.0] | [70.0]   | reserveHeld: satisfied     | 38.959ms
+80.0     | [240.0]  | [610.0] | [10.0]   | reserveHeld: not satisfied | 38.662ms
   standing: table (observed: 4 rows)
 ```
 
@@ -246,12 +268,12 @@ when sampling.
 
 ```
 samples Descent::scoutBudget — 4 run(s), seed 7
-burnTime          | fuelUsed           | wetMass           | fuelLeft           | verdict                    | time
-------------------+--------------------+-------------------+--------------------+----------------------------+--------
-21.90164941545121 | 65.70494824635364  | 784.2950517536464 | 184.29505175364636 | reserveHeld: satisfied     | 0.087ms
-78.07478446864098 | 234.22435340592295 | 615.775646594077  | 15.775646594077045 | reserveHeld: not satisfied | 0.073ms
-42.7187552135554  | 128.1562656406662  | 721.8437343593338 | 121.84373435933381 | reserveHeld: satisfied     | 0.069ms
-51.35890304495193 | 154.07670913485578 | 695.9232908651443 | 95.92329086514422  | reserveHeld: satisfied     | 0.067ms
+burnTime          | fuelUsed             | wetMass             | fuelLeft             | verdict                    | time
+------------------+----------------------+---------------------+----------------------+----------------------------+---------
+21.90164941545121 | [65.70494824635364]  | [784.2950517536464] | [184.29505175364636] | reserveHeld: satisfied     | 37.868ms
+78.07478446864098 | [234.22435340592295] | [615.775646594077]  | [15.775646594077045] | reserveHeld: not satisfied | 38.004ms
+42.7187552135554  | [128.1562656406662]  | [721.8437343593338] | [121.84373435933381] | reserveHeld: satisfied     | 37.928ms
+51.35890304495193 | [154.07670913485578] | [695.9232908651443] | [95.92329086514422]  | reserveHeld: satisfied     | 37.582ms
   standing: table (observed: 4 rows)
 ```
 
@@ -272,7 +294,7 @@ three candidates as its subject, minimizes, and scores mass on the pad:
 
 ```
 ✓ Selection::lightest
-  selectedAlternative = Landers::relay (object #5)
+  selectedAlternative = [Landers::relay (object #5)]
   objective tradeStudyObjective: satisfied
   evaluationFunction(Landers::scout (object #1)) = 850.0
   evaluationFunction(Landers::hauler (object #3)) = 2300.0
@@ -297,7 +319,7 @@ fuel costs, at a rate the caller supplies:
 
 ```
 ✓ Selection::mostValuable(fuelCost = 0.1)
-  selectedAlternative = Landers::hauler (object #3)
+  selectedAlternative = [Landers::hauler (object #3)]
   objective tradeStudyObjective: satisfied
   evaluationFunction(Landers::scout (object #1)) = 15.0
   evaluationFunction(Landers::hauler (object #3)) = 210.0 [selected]
@@ -314,11 +336,11 @@ and the table shows where the choice flips:
 
 ```
 sweep Selection::mostValuable — 3 run(s)
-fuelCost | selectedAlternative         | verdict                        | evaluations                                                   | time
----------+-----------------------------+--------------------------------+---------------------------------------------------------------+--------
-0.0      | Landers::hauler (object #3) | tradeStudyObjective: satisfied | …scout…) = 40.0; …hauler…) = 300.0 [selected]; …relay…) = 25.0   | 5.592ms
-0.25     | Landers::hauler (object #3) | tradeStudyObjective: satisfied | …scout…) = -22.5; …hauler…) = 75.0 [selected]; …relay…) = -20.0 | 0.261ms
-0.5      | Landers::relay (object #5)  | tradeStudyObjective: satisfied | …scout…) = -85.0; …hauler…) = -150.0; …relay…) = -65.0 [selected] | 0.254ms
+fuelCost | selectedAlternative           | verdict                        | evaluations                                                       | time
+---------+-------------------------------+--------------------------------+-------------------------------------------------------------------+---------
+0.0      | [Landers::hauler (object #3)] | tradeStudyObjective: satisfied | …scout…) = 40.0; …hauler…) = 300.0 [selected]; …relay…) = 25.0    | 39.926ms
+0.25     | [Landers::hauler (object #3)] | tradeStudyObjective: satisfied | …scout…) = -22.5; …hauler…) = 75.0 [selected]; …relay…) = -20.0   | 39.934ms
+0.5      | [Landers::relay (object #5)]  | tradeStudyObjective: satisfied | …scout…) = -85.0; …hauler…) = -150.0; …relay…) = -65.0 [selected] | 39.860ms
   standing: table (observed: 3 rows)
 ```
 
@@ -356,8 +378,8 @@ machine is running, start the action, and advance the clock:
   Action steps taken: 5
 ✓ Action completed
   Results:
-    armed = true
-    sawBraking = false
+    armed = [true]
+    sawBraking = [false] (order-dependent; 1 choice point — explore shows the set)
 ```
 
 Both timers came due at `t=5.0`. Which runs first is not fixed by the model —
@@ -379,8 +401,8 @@ goes first, and the watch sees the brake:
 
 ```
   Results:
-    armed = true
-    sawBraking = true
+    armed = [true]
+    sawBraking = [true] (order-dependent; 1 choice point — explore shows the set)
 ```
 
 **Enumerate every order.** `-schedule explore` runs each linearization of the
@@ -394,10 +416,10 @@ run reaching that outcome made:
 
 ```
 ✓ explored Timing::groundWatch: 2 outcomes
-outcome                          | linearizations | probability | witness
----------------------------------+----------------+-------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-armed = true; sawBraking = false | 1              | possible    | t=5.0: action GroundWatch first of state machine flightMode of object #1, action GroundWatch; t=5.0: action GroundWatch first of state machine flightMode of object #1, action GroundWatch
-armed = true; sawBraking = true  | 2              | possible    | t=5.0: state machine flightMode of object #1 first of state machine flightMode of object #1, action GroundWatch
+outcome                              | linearizations | probability | witness
+-------------------------------------+----------------+-------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+armed = [true]; sawBraking = [false] | 1              | possible    | t=5.0: action GroundWatch first of state machine flightMode of object #1, action GroundWatch; t=5.0: action GroundWatch first of state machine flightMode of object #1, action GroundWatch
+armed = [true]; sawBraking = [true]  | 2              | possible    | t=5.0: state machine flightMode of object #1 first of state machine flightMode of object #1, action GroundWatch
 complete (3 runs)
   standing: outcomes (proved over schedules: 3 linearizations, inputs as written)
 ```
@@ -422,13 +444,13 @@ its body waits on time — no `-advance` is needed:
 
 ```
 ✓ Timing::watchDescent
-  sawBraking = false
+  sawBraking = [false]
   standing: value (observed: 1 run under reverse)
 ✓ explored Timing::watchDescent: 2 outcomes
-outcome            | linearizations | probability | witness
--------------------+----------------+-------------+-----------------------------------------------------------------------------------------------------------------
-sawBraking = false | 1              | possible    | t=5.0: action watchDescent first of state machine flightMode of object #1, action watchDescent
-sawBraking = true  | 1              | possible    | t=5.0: state machine flightMode of object #1 first of state machine flightMode of object #1, action watchDescent
+outcome              | linearizations | probability | witness
+---------------------+----------------+-------------+-----------------------------------------------------------------------------------------------------------------
+sawBraking = [false] | 1              | possible    | t=5.0: action watchDescent first of state machine flightMode of object #1, action watchDescent
+sawBraking = [true]  | 1              | possible    | t=5.0: state machine flightMode of object #1 first of state machine flightMode of object #1, action watchDescent
 complete (2 runs)
   standing: outcomes (proved over schedules: 2 linearizations, inputs as written)
 ```
@@ -475,7 +497,7 @@ python examples/analysis-demo/lander_demo.py
 fuel left     130.0 kg after 120.0 kg burned
 reserve held  True
 80 s burn     10.0 kg left, reserve held False
-              ✗ objective reserveHeld fails (on Landers::scout ID: 1): condition evaluated to false: fuelLeft >= reserve
+              ✗ objective reserveHeld fails (on Landers::scout ID: 1): condition evaluated to false: fuelLeft >= reserve — observed by run
 the hauler    580.0 kg left, reserve held True
 
 == how far the budget stretches

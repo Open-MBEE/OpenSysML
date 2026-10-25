@@ -314,7 +314,7 @@ deferrable: empty
 differencesOf: empty
 dispatchScope: object (the receiver)
 done: undetermined <undetermined>
-enclosedPerformances: empty
+enclosedPerformances: collection of 3
 immediatePredecessors: empty
 immediateSuccessors: empty
 incomingTransferSort: undetermined <undetermined>
@@ -362,8 +362,8 @@ spaceTimeCoincidentOccurrences: collection of 1
 spaceTimeEnclosedOccurrences: undetermined <undetermined>
 spaceTimeEnclosedPoints: undetermined <undetermined>
 start: object of Probe::P1::st
-suboccurrences: empty
-subperformances: empty
+suboccurrences: collection of 3
+subperformances: collection of 3
 successors: undetermined <undetermined>
 superoccurrence: null
 surroundedByOccurrences: empty
@@ -406,7 +406,7 @@ performers: empty
 portionOf: collection of 1
 portionOfLife: object (the receiver)
 portions: undetermined <undetermined>
-predecessors: collection of 11
+predecessors: collection of 13
 runToCompletionScope: object (the receiver)
 sameLifeOccurrences: collection of 1
 self: object (the receiver)

@@ -122,6 +122,7 @@ func TestRunServesEveryRequestOverOneStream(t *testing.T) {
 	// Writes run concurrently with reads: net.Pipe is unbuffered, so the
 	// server's diagnostics notifications must be drained as they are sent.
 	const requests = 25
+	file := string(tempDocURI(t, "run.sysml"))
 	writeErr := make(chan error, 1)
 	go func() {
 		messages := []any{
@@ -133,7 +134,7 @@ func TestRunServesEveryRequestOverOneStream(t *testing.T) {
 			map[string]any{
 				"jsonrpc": "2.0", "method": "textDocument/didOpen",
 				"params": map[string]any{"textDocument": map[string]any{
-					"uri": "file:///tmp/run.sysml", "languageId": "sysml", "version": 1,
+					"uri": file, "languageId": "sysml", "version": 1,
 					"text": "package P {\n    part def Wheel { attribute pressure; }\n    part w : Wheel;\n}\n",
 				}},
 			},
@@ -142,7 +143,7 @@ func TestRunServesEveryRequestOverOneStream(t *testing.T) {
 			messages = append(messages, map[string]any{
 				"jsonrpc": "2.0", "id": id, "method": "textDocument/completion",
 				"params": map[string]any{
-					"textDocument": map[string]any{"uri": "file:///tmp/run.sysml"},
+					"textDocument": map[string]any{"uri": file},
 					"position":     map[string]any{"line": 2, "character": 18},
 				},
 			})

@@ -339,7 +339,7 @@ body's sites.
 
 ### Validation (a constraint-tier pass)
 
-`internal/check/passes/diagram_layout.go`, `DiagramLayoutPass`, source `constraint`:
+`internal/check/passes/diagram/layout.go`, `DiagramLayoutPass`, source `constraint`:
 
 | Code | Severity | When |
 |---|---|---|

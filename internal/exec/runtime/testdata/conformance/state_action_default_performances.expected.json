@@ -1,0 +1,26 @@
+{
+  "type": "instance",
+  "instantiate": "test::Rig",
+  "libraries": true,
+  "slots": {
+    "m.entered.entryAction": {"type": "Instance"},
+    "m.entered.doAction": {"type": "Instance"},
+    "m.entered.exitAction": {"type": "Instance"},
+    "m.entryCount": {"type": "Integer", "value": 1},
+    "m.doCount": {"type": "Integer", "value": 1},
+    "m.exitCount": {"type": "Integer", "value": 1},
+    "m.doIsEmpty": {"type": "Boolean", "value": false},
+    "m.entered.incomingTransitionTrigger": {"type": "Null"},
+    "m.entered.accepted": {"type": "Null"},
+    "m.triggerCount": {"type": "Integer", "value": 0},
+    "m.acceptedCount": {"type": "Integer", "value": 0},
+    "m.declared.run": {"type": "Instance"},
+    "m.declared.leave": {"type": "Instance"},
+    "m.declared.doAction": {"type": "Instance"},
+    "m.declared.exitAction": {"type": "Instance"},
+    "m.declaredDoCount": {"type": "Integer", "value": 1},
+    "m.declaredExitCount": {"type": "Integer", "value": 1},
+    "sheet.viewRendering": {"type": "Sequence", "elements": []},
+    "renderingCount": {"type": "Integer", "value": 0}
+  }
+}

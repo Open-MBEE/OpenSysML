@@ -299,7 +299,8 @@ func TestImplicitSubsettingsRenderRendering(t *testing.T) {
 }
 
 // A `ref step` is a reference, not a composite nested performance, so it must
-// not enter the owner's `subperformances`; a composite `step` does.
+// not enter the owner's `subperformances`; a composite `step` does. A behavior
+// still encloses every step it owns (KerML checkStepEnclosedPerformanceSpecialization).
 func TestImplicitSubsettingsRefStep(t *testing.T) {
 	m, root := buildModelWithStdlib(t, `package P {
 		action outer {
@@ -314,7 +315,8 @@ func TestImplicitSubsettingsRefStep(t *testing.T) {
 		t.Errorf("ImplicitSubsettings(inner) = %v, want [Performances::Performance::subperformances]", fqns(got))
 	}
 	borrowed := nestedSym(t, root, "P::outer::borrowed")
-	if got := m.ImplicitSubsettings(borrowed); len(got) != 0 {
-		t.Errorf("ImplicitSubsettings(borrowed) = %v, want none for a ref step", fqns(got))
+	got = m.ImplicitSubsettings(borrowed)
+	if len(got) != 1 || symbols.FQNOf(got[0]) != "Performances::Performance::enclosedPerformances" {
+		t.Errorf("ImplicitSubsettings(borrowed) = %v, want [Performances::Performance::enclosedPerformances] for a ref step", fqns(got))
 	}
 }

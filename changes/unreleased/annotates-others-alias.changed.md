@@ -1,0 +1,1 @@
+- The semantics package calls `symbols.AnnotatesOthers` directly instead of through a private alias of it; no behaviour changes.

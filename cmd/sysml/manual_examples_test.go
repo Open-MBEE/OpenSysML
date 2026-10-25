@@ -63,6 +63,35 @@ func TestManualProseExampleMatchesCommittedOutput(t *testing.T) {
 	}
 }
 
+// TestManualValuesExampleMatchesCommittedOutput renders the manual's inline
+// values example, whose prose reads attributes through `sysml:value:`
+// destinations, and compares it against the committed output.
+func TestManualValuesExampleMatchesCommittedOutput(t *testing.T) {
+	binary := buildCLI(t)
+	examples := filepath.Join("..", "..", "docs", "manual", "examples")
+	committed, err := os.ReadFile(filepath.Join(examples, "values.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(t.TempDir(), "values.md")
+	cmd := exec.Command(binary, filepath.Join(examples, "values.sysml"), "-render-document", "Values::ValuesReport", "-o", out)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("render: %v\n%s", err, output)
+	}
+	written, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(written) != string(committed) {
+		t.Errorf("rendered values example differs from docs/manual/examples/values.md:\n%s", written)
+	}
+	for _, want := range []string{"The Hubble telescope has a 2.4 m aperture", "flight phase (flying: true)", "optical, ultraviolet bands", "- Mount mass: 80 \\[kg\\]", "- Nominal aperture: 2.4"} {
+		if !strings.Contains(string(written), want) {
+			t.Errorf("rendered values example lacks %q", want)
+		}
+	}
+}
+
 // TestManualCookbookModelAnalysesCleanly parses and analyses the manual's
 // query-cookbook model, so every recipe the manual quotes keeps compiling.
 func TestManualCookbookModelAnalysesCleanly(t *testing.T) {

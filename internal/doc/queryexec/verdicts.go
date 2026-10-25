@@ -17,6 +17,7 @@ var verdictKinds = map[string]runtime.AssertionKind{
 	"constraint":   runtime.AssertionConstraint,
 	"requirement":  runtime.AssertionRequirement,
 	"satisfaction": runtime.AssertionSatisfaction,
+	"binding":      runtime.AssertionBinding,
 	"verification": AssertionVerification,
 }
 

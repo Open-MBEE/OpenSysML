@@ -52,7 +52,7 @@ func (m *Model) collectAbout(scope *symbols.Scope, g *docGather, seen map[*symbo
 			return true
 		}
 		seen[sym] = true
-		if sym.Kind == symbols.SymbolMetadataUsage && annotatesOthers(sym.Decl) {
+		if sym.Kind == symbols.SymbolMetadataUsage && symbols.AnnotatesOthers(sym.Decl) {
 			g.about = append(g.about, sym)
 		} else if sym.Recorded() && sym.Facts.Modifiers.Has(symbols.ModAnnotatesOthers) {
 			g.about = append(g.about, sym)

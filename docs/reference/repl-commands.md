@@ -440,42 +440,63 @@ sysml> package Demo {
 sysml> %render Demo::summary
 Demo::summary - tree rendering (the view states no rendering; a tree is the default)
 
-part def Demo::Vehicle
-  attribute mass : Real
-  part wheel : Wheel
-view Demo::summary::detail
-  part def Demo::Wheel
-    attribute diameter : Real
+part def Vehicle
+  attribute mass
+  part wheel
+    attribute diameter
+view detail
+  part def Wheel
+    attribute diameter
 
 relationships:
-  Demo::Vehicle *-- Demo::Wheel: wheel
+  Vehicle *-- Wheel: wheel
 
 sysml> %render Demo::summary mermaid
 ---
 config:
   fontFamily: "Helvetica, Arial, sans-serif"
   theme: base
-  …
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
 ---
 %% Demo::summary — tree rendering
 flowchart TD
   n0["`*«part def»*
 **Vehicle**`"]
     n1("`*«attribute»*
-**mass : Real**`")
+**mass**`")
   n0 --- n1
     n2("`*«part»*
-**wheel : Wheel**`")
+**wheel**`")
+      n3("`*«attribute»*
+**diameter**`")
+  n2 --- n3
   n0 --- n2
-  n3("`*«view»*
-**summary::detail**`")
-    n4["`*«part def»*
+  n4("`*«view»*
+**detail**`")
+    n5["`*«part def»*
 **Wheel**`"]
-      n5("`*«attribute»*
-**diameter : Real**`")
+      n6("`*«attribute»*
+**diameter**`")
+  n5 --- n6
   n4 --- n5
-  n3 --- n4
-  n0 ---|"◆ wheel"| n4
+  n0 ---|"◆ wheel"| n5
 ```
 
 A diagram node's label leads with the kind in guillemets and puts the element's name on the next
@@ -536,16 +557,18 @@ digraph "Demo::summary" {
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>];
-  "n1" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass : Real</b>>];
+  "n1" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
   "n0" -> "n1" [arrowhead=none];
-  "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>wheel : Wheel</b>>];
+  "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>wheel</b>>];
+  "n3" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>diameter</b>>];
+  "n2" -> "n3" [arrowhead=none];
   "n0" -> "n2" [arrowhead=none];
-  "n3" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>summary::detail</b>>];
-  "n4" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Wheel</b>>];
-  "n5" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>diameter : Real</b>>];
+  "n4" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>detail</b>>];
+  "n5" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Wheel</b>>];
+  "n6" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>diameter</b>>];
+  "n5" -> "n6" [arrowhead=none];
   "n4" -> "n5" [arrowhead=none];
-  "n3" -> "n4" [arrowhead=none];
-  "n0" -> "n4" [label="wheel", dir=back, arrowtail=diamond];
+  "n0" -> "n5" [headlabel="wheel", dir=back, arrowtail=diamond];
 }
 ```
 
@@ -559,7 +582,7 @@ kept legible on every fill:
 sysml> %render Demo::summary dot okabe-ito
 …
   "n0" [fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>];
-  "n1" [style="rounded,filled", fillcolor="#F9F4B3", color="#F0E442", penwidth=1, label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass : Real</b>>];
+  "n1" [style="rounded,filled", fillcolor="#F9F4B3", color="#F0E442", penwidth=1, label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
 …
 ```
 
@@ -631,7 +654,7 @@ hide stereotype
 hide circle
 hide empty members
 class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>
-class "<size:10>//«attribute»//</size>\n**mass : Real**" as n1 <<attribute>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**mass**" as n1 <<attribute>> <<usage>>
 n0 -- n1
 …
 @enduml
@@ -659,7 +682,7 @@ classes: {
   edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
 }
 n0: "«part def»\nVehicle" { class: definition }
-n1: "«attribute»\nmass : Real" { class: usage }
+n1: "«attribute»\nmass" { class: usage }
 n0 -- n1: { class: edge }
 …
 ```

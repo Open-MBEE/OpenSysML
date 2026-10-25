@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis/enginewire"
@@ -83,7 +84,7 @@ func (e externalEngine) Covers(model *Model, q Question) Coverage {
 	}
 	if len(e.entry.Subjects) > 0 {
 		family := subjectFamily(model, q.Subject)
-		if !containsString(e.entry.Subjects, family) {
+		if !slices.Contains(e.entry.Subjects, family) {
 			return refused(&SubjectError{Engine: e.Name(), Subject: q.Subject, Family: family, Subjects: e.entry.Subjects})
 		}
 	}

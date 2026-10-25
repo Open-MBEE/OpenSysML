@@ -70,14 +70,15 @@ func (ctx *Context) returnParameterValue(inst *Instance, sym *symbols.Symbol, fe
 
 // statesConditions reports whether sym is a definition or usage whose result is
 // the conjunction of the conditions it states: a requirement, viewpoint, concern
-// or a case's objective (SysML v2 §7.21, §7.22.2, Requirements.sysml `RequirementCheck::result`).
+// or a case's objective (SysML v2 §7.21, §7.22.2, Requirements.sysml `RequirementCheck::result`),
+// a satisfy usage among them (SysML v2 §7.21.4, §8.3.21.10 SatisfyRequirementUsage).
 func statesConditions(sym *symbols.Symbol) bool {
 	switch decl := sym.Decl.(type) {
 	case *ast.Definition:
 		return decl.Kind == ast.DefRequirement || decl.Kind == ast.DefViewpoint || decl.Kind == ast.DefConcern
 	case *ast.Usage:
 		return decl.Kind == ast.UsageRequirement || decl.Kind == ast.UsageViewpoint || decl.Kind == ast.UsageConcern ||
-			decl.Kind == ast.UsageObjective || (decl.Kind == ast.UsageSatisfy && !decl.IsVerifiedRequirement())
+			decl.Kind == ast.UsageObjective || satisfyAssertionUsage(sym)
 	}
 	return false
 }
@@ -95,6 +96,23 @@ func (ctx *Context) ownResultParameter(typ, sym *symbols.Symbol) string {
 		}
 	}
 	return ""
+}
+
+// implicitSatisfactionSubject is the object holding inst, the subject of a satisfy
+// usage declared without `by` (SysML v2 §7.21.4); nil for any other read.
+func implicitSatisfactionSubject(typ *symbols.Symbol, inst *Instance) *Instance {
+	if !satisfyAssertionUsage(typ) || satisfiedBy(typ) != nil {
+		return nil
+	}
+	owner, _ := inst.Owner()
+	return owner
+}
+
+// satisfyAssertionUsage reports a `satisfy` usage asserting a satisfaction, not an
+// objective's `verify r;`.
+func satisfyAssertionUsage(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.Kind == ast.UsageSatisfy && !usage.IsVerifiedRequirement()
 }
 
 // conditionSelf is the object a requirement usage's conditions read: the object owner
@@ -136,7 +154,7 @@ func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sy
 	if owner, _ := inst.Owner(); owner != nil {
 		bindingSelf = owner
 	}
-	bindings, err := ctx.memberBindings(typ, "requirement", typ.Name, members, bindingSelf, nil, frame{})
+	bindings, err := ctx.memberBindings(typ, "requirement", typ.Name, members, bindingSelf, implicitSatisfactionSubject(typ, inst), frame{})
 	if err != nil {
 		return ctx.conditionResultOf(err, sym, feat)
 	}

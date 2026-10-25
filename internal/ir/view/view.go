@@ -1078,15 +1078,6 @@ func referenceText(node ast.Node) string {
 	return sb.String()
 }
 
-// simpleName is the last segment of a qualified name, which is what a nested
-// node is labeled with.
-func simpleName(fqn string) string {
-	if i := strings.LastIndex(fqn, "::"); i >= 0 {
-		return fqn[i+2:]
-	}
-	return fqn
-}
-
 // notationName writes a reference read as joined qualified text (a `render`
 // target, an accepted signal, a `via` port) as the notation does.
 func notationName(fqn string) string {

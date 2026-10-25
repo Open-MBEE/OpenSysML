@@ -1605,7 +1605,7 @@ func (p *opaqueParser) primary() (translated, *refusal) {
 	case tokNumber:
 		return numberLiteral(tok.text, p.d)
 	case tokString:
-		lit := translated{expr: stringLiteral(tok.text), scalar: "String", atomic: true, lit: "string"}
+		lit := translated{expr: source.StringText(tok.text), scalar: "String", atomic: true, lit: "string"}
 		if p.d == dialectJava && p.peek(false).isPunct(".") {
 			return p.literalMethod(lit)
 		}
@@ -2064,9 +2064,6 @@ func numberLiteral(text string, d dialect) (translated, *refusal) {
 	}
 	return translated{expr: realLiteral(v), scalar: "Real", atomic: true, lit: "real"}, nil
 }
-
-// stringLiteral writes text as a v2 string literal.
-func stringLiteral(text string) string { return source.StringText(text) }
 
 // numbersAt refuses operands of op that are known not to be numbers.
 func numbersAt(op string, sides ...translated) *refusal {

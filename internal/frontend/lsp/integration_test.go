@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"go.lsp.dev/protocol"
-	"go.lsp.dev/uri"
 
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
@@ -29,9 +28,8 @@ func TestLSPEndToEnd(t *testing.T) {
 	}
 
 	// Open a document.
-	name := "e2e.sysml"
 	src := "package P { namespace N; }\nimport P::N;\n"
-	docURI := uri.File(name)
+	docURI := tempDocURI(t, "e2e.sysml")
 	if err := s.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
 			URI:        docURI,

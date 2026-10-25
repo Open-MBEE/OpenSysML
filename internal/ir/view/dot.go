@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 const (
@@ -234,17 +236,9 @@ func (w *dotWriter) frameHeader(r *Rendering) string {
 		break
 	}
 	if r.View != "" {
-		parts = append(parts, "[ "+dotEscape(displayText(lastName(r.View)))+" ]")
+		parts = append(parts, "[ "+dotEscape(displayText(symbols.LastSegment(r.View)))+" ]")
 	}
 	return strings.Join(parts, " ")
-}
-
-// lastName is the last segment of a qualified name, the name itself otherwise.
-func lastName(qualified string) string {
-	if i := strings.LastIndex(qualified, "::"); i >= 0 {
-		return qualified[i+2:]
-	}
-	return qualified
 }
 
 // dotBB is a pixel box as a Graphviz `bb`, lower-left then upper-right.
