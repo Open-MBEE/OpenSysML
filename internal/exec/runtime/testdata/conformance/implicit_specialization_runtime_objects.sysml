@@ -27,6 +27,9 @@ package test {
         attribute loopStartTimeEnclosedCount : Integer = loopy.loops#(1).start.timeEnclosedOccurrences->SequenceFunctions::size();
         exhibit state sm { entry action en { } then idle; state idle; }
         attribute entryActionIsEn : Boolean = sm.entryAction == sm.en;
+        attribute smSubactionCount : Integer = sm.subactions->SequenceFunctions::size();
+        attribute smSubperformanceCount : Integer = sm.subperformances->SequenceFunctions::size();
+        attribute smSubactionIsDoAction : Boolean = sm.subactions#(1) == sm.doAction;
     }
     part def Crate {
         item face : Rectangle;

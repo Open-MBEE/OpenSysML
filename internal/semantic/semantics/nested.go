@@ -82,6 +82,11 @@ func (m *Model) implicitSubsettingFQN(sym *symbols.Symbol, usage *ast.Usage, own
 	}
 	u := NestedUsage{Kind: kind, Composite: composite, Portion: portion}
 	if usage != nil {
+		if fqn := stateActionFQN(usage); fqn != "" && fqn != stateActionFQNs["do"] {
+			u.EntryExitAction = true
+		}
+	}
+	if usage != nil {
 		u.Performed = usage.IsPerformedAction()
 		u.Exhibited = usage.IsExhibitedState()
 		u.Included = usage.IsIncludedUseCase()
@@ -108,6 +113,10 @@ type NestedUsage struct {
 	// state` and `include use case` forms; RequirementConstraint is a
 	// `require` or `assume` constraint, which subsets nothing implicitly.
 	Performed, Exhibited, Included, RequirementConstraint bool
+	// EntryExitAction is a state's `entry` or `exit` action: a subperformance of the
+	// state but no subaction, since subactions are its middle (States.sysml
+	// `subactions :> middle`; the pilot's isActionOwnedComposite excludes it).
+	EntryExitAction bool
 }
 
 // NestedOwner is the declaration kind of the type a usage nests in: a usage's
@@ -176,6 +185,9 @@ func nestedRuleFQN(u NestedUsage, owner NestedOwner) (fqn string, step bool) {
 	case ast.UsageItem, ast.UsagePort, ast.UsageOccurrence, ast.UsageIndividual:
 		return occurrenceNestedFQN(owner, u.Composite, u.Portion, false)
 	case ast.UsageAction, ast.UsageTransition, ast.UsageFlow:
+		if u.EntryExitAction {
+			return "", true
+		}
 		return actionNestedFQN(owner, u.Composite, u.Portion)
 	case ast.UsageState:
 		return stateNestedFQN(owner, u.Composite, u.Portion)

@@ -15,6 +15,9 @@
     "k.loopySubperformanceCount": {"type": "Integer", "value": 1},
     "k.loopStartTimeEnclosedCount": {"type": "Integer", "value": 1},
     "k.entryActionIsEn": {"type": "Boolean", "value": true},
+    "k.smSubactionCount": {"type": "Integer", "value": 1},
+    "k.smSubperformanceCount": {"type": "Integer", "value": 3},
+    "k.smSubactionIsDoAction": {"type": "Boolean", "value": true},
     "crate.faceSubitemCount": {"type": "Integer", "value": 12},
     "crate.edgeSubitemCount": {"type": "Integer", "value": 2}
   }

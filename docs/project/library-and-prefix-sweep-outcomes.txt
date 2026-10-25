@@ -455,7 +455,7 @@ read	Probe::p1.st.sendSubactions	systems	Actions::Action::sendSubactions	empty
 read	Probe::p1.st.start	systemsFRAME	States::StateAction::start	object:Probe::S1
 read	Probe::p1.st.stateSequencing	systems	States::StateAction::stateSequencing	ERR_NOSUCHFEATURE object has no such feature: member stateSequencing not found in instance
 read	Probe::p1.st.stateTransitions	systems	States::StateAction::stateTransitions	empty
-read	Probe::p1.st.subactions	systems	States::StateAction::subactions	collection(3) [object:States::StateAction::entryAction#1, object:Actions::Action#2, object:Actions::Action#3]
+read	Probe::p1.st.subactions	systems	States::StateAction::subactions	collection(1) [object:Actions::Action#1]
 read	Probe::p1.st.substates	systems	States::StateAction::substates	empty
 read	Probe::p1.st.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	Probe::p1.st.transitions	systems	Actions::Action::transitions	empty
@@ -742,7 +742,7 @@ read	Probe::p1.es.sendSubactions	systems	Actions::Action::sendSubactions	empty
 read	Probe::p1.es.start	systemsFRAME	States::StateAction::start	object:Probe::S1
 read	Probe::p1.es.stateSequencing	systems	States::StateAction::stateSequencing	ERR_NOSUCHFEATURE object has no such feature: member stateSequencing not found in instance
 read	Probe::p1.es.stateTransitions	systems	States::StateAction::stateTransitions	empty
-read	Probe::p1.es.subactions	systems	States::StateAction::subactions	collection(3) [object:States::StateAction::entryAction#1, object:Actions::Action#2, object:Actions::Action#3]
+read	Probe::p1.es.subactions	systems	States::StateAction::subactions	collection(1) [object:Actions::Action#1]
 read	Probe::p1.es.substates	systems	States::StateAction::substates	empty
 read	Probe::p1.es.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	Probe::p1.es.transitions	systems	Actions::Action::transitions	empty
@@ -939,7 +939,7 @@ read	new Probe::S1().sendSubactions	systems	Actions::Action::sendSubactions	empt
 read	new Probe::S1().start	systemsFRAME	States::StateAction::start	object:Probe::S1
 read	new Probe::S1().stateSequencing	systems	States::StateAction::stateSequencing	ERR_NOSUCHFEATURE object has no such feature: member stateSequencing not found in instance
 read	new Probe::S1().stateTransitions	systems	States::StateAction::stateTransitions	empty
-read	new Probe::S1().subactions	systems	States::StateAction::subactions	collection(3) [object:States::StateAction::entryAction#1, object:Actions::Action#2, object:Actions::Action#3]
+read	new Probe::S1().subactions	systems	States::StateAction::subactions	collection(1) [object:Actions::Action#1]
 read	new Probe::S1().substates	systems	States::StateAction::substates	empty
 read	new Probe::S1().terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	new Probe::S1().transitions	systems	Actions::Action::transitions	empty
