@@ -15,7 +15,7 @@ func declaredNames(root *ast.RootNamespace) []string {
 	}
 	var out []string
 	for _, m := range root.Members {
-		if name := memberName(m); name != "" {
+		if name := nsmerge.MemberName(m); name != "" {
 			out = append(out, name)
 		}
 	}
@@ -32,7 +32,7 @@ func topLevelMembers(root *ast.RootNamespace) map[string]ast.Node {
 		return out
 	}
 	for _, m := range root.Members {
-		name := memberName(m)
+		name := nsmerge.MemberName(m)
 		if name == "" {
 			continue
 		}
@@ -42,6 +42,3 @@ func topLevelMembers(root *ast.RootNamespace) map[string]ast.Node {
 	}
 	return out
 }
-
-// memberName is the declared name of a member, "" for one without.
-func memberName(m ast.Node) string { return nsmerge.MemberName(m) }
