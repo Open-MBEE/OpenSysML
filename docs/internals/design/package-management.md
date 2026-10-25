@@ -1,13 +1,23 @@
 # Package management over git
 
-A proposal: nothing below §1 is implemented yet.
+Status: §1 is shipped; the OpenSysML part of Phase 1 (§4) is in progress; everything else is the
+design of **SysPI**, the SysML Package Installer — a separate Open-MBEE tool (`Open-MBEE/SysPI`,
+binary `syspi`) — and is not implemented in this repository.
+
+**Division of labour.** OpenSysML (`sysml`, `sysml-lsp`, the REPL, the kernel, the MCP server) is
+an analyser: it *reads* what a package manager installs and never fetches. The package manager —
+sysand today, SysPI next, others beside them as they appear — fetches, verifies, installs and locks.
+Adding a package manager to OpenSysML means one well-known install directory in
+`wellKnownLibraryDirs` plus whatever IRI scheme its usages carry, read-only; nothing in the loader,
+LSP or validator reaches the network.
 
 ## 0. Goals and non-goals
 
 Goals
 
-- A modeler adds a usage to `.project.json`, runs one command, and the project it names is
-  installed, locked and resolvable by `sysml`, `sysml-lsp`, the REPL, the kernel and the MCP server.
+- A modeler adds a usage to `.project.json`, runs one `syspi` command, and the project it names is
+  installed, locked and resolvable by `sysml`, `sysml-lsp`, the REPL, the kernel and the MCP server —
+  which need no flag and no network to find it.
 - Everything is the OMG format first: KerML 1.0 §10.3 `.project.json`, `.meta.json`, `.kpar`.
   No provider-specific file is required to consume a package.
 - Git is the storage and transport: a package is a git repository (or a path in one) whose tagged
@@ -19,12 +29,15 @@ Goals
   gate and search surface, never a consumer requirement.
 - Provider-agnostic: any `.project.json` usage IRI that another tool (sysand, a future OMG
   registry, a plain URL) answers must keep working; our index must be consumable by those tools.
+- OpenSysML stays a reader. Fetching, locking and publishing live in SysPI so that the analyser
+  carries no opinion about where packages come from; it reads sysand's and SysPI's installs alike.
 
 Non-goals (this phase)
 
 - A lax mode: a repository without `.project.json` at the tag is not a package and is an error,
   never a synthesized project.
-
+- A client inside OpenSysML: no `sysml -add/-install/-lock`, no auto-download from `-validate` or the
+  LSP, no lock or index code in this repository.
 - A hosted account/token service. The git host is the account system.
 - Replacing sysand for its users; interoperating with it is in scope, re-implementing its CLI is not.
 - Binary/engine packaging (that is `bring-your-own-engines.md`).
@@ -44,8 +57,9 @@ Non-goals (this phase)
 | Import-driven dependency search | `deps.go` | unresolved root namespace → project files → installed projects |
 | Fixtures | `tests/kpar/testdata/{omg,sysand}` | the 10 OMG release archives; one sysand-laid-out project with a dir and a `.kpar` dependency |
 
-What does not exist: anything that touches the network, writes `.project.json`, resolves a
-version range, records a lock, publishes, or lists what is available. The Extensions Library
+What does not exist here, by design: anything that touches the network, writes `.project.json`,
+resolves a version range, records a lock, publishes, or lists what is available — that is the
+package manager's job (§3.3). The Extensions Library
 repo has no `.project.json` and no release with a `.kpar` (the docs say releases attach one —
 there is no release yet), so our own libraries are not installable as a package today.
 
@@ -63,6 +77,10 @@ reading `.sysand/lib`, and be able to *emit* the static index layout so a sysand
 `--index https://.../our-index` and install our packages.
 
 ## 3. Proposed design
+
+§3.1 is the package contract every tool shares; §3.2 and §3.3 are SysPI's design and are recorded
+here because OpenSysML's reader is the consumer they must satisfy. Only the two OpenSysML items
+called out in §3.1 and §3.3 are built in this repository.
 
 ### 3.1 Package = a git repository at a tag (nothing else)
 
@@ -101,7 +119,7 @@ repo cannot state about itself, and to serve sysand clients. Nothing requires it
 
 - Source of truth stays the packages' own `.project.json` at their tags. The index repository
   (proposed `Open-MBEE/opensysml-index`) holds one record per release, *generated* from them by
-  `sysml -index add pkg:git/host/org/repo@1.2.0` (fetch, verify, record commit + checksums + usages).
+  `syspi index add pkg:git/host/org/repo@1.2.0` (fetch, verify, record commit + checksums + usages).
 - **Machine rendering:** `<publisher>/<name>/versions.json` in sysand's static-index layout plus a
   flat `index.json` — plain JSON, served as static files (e.g. GitHub Pages) or read raw from the repo. A sysand user
   points `--index` at it; a shell script can grep it.
@@ -131,42 +149,52 @@ package 'Open-MBEE/OpenSysML-Extensions-Library' {
   catalogue page; `-query`/MCP answer searches. Both renderings are produced from the same records by
   the same command, and CI fails if they disagree.
 - Writes to the index are PRs (human-gated) or a `publish` workflow in the package repo that opens the
-  PR on release; the gate runs `-index check` (validate + resolve the closure).
+  PR on release; the gate runs `syspi index check` (validate + resolve the closure).
 - Later option: the same model pushed to Flexo MMS through the existing SysML v2 API sync, so a live
   server-side index is the same model, not a second schema.
 
-### 3.3 Client, in `sysml` (no new binary)
+### 3.3 Client = SysPI, a separate tool (not `sysml`)
+
+The client is **SysPI** (SysML Package Installer; `Open-MBEE/SysPI`, binary `syspi`, Go, one static
+binary, no OpenSysML dependency). It sits beside sensmetry's `sysand` as a second, interoperable
+client; OpenSysML reads what either installs.
 
 | Command | Does |
 |---|---|
-| `sysml -project-init [-publisher P -name N]` | writes `.project.json` (+ `.meta.json`) |
-| `sysml -add <iri>[@constraint]` | appends a usage, resolves, installs, locks |
-| `sysml -install` / `-sync` | resolves `.project.json` + lock, installs missing/changed projects |
-| `sysml -lock` | resolves to exact versions/commits/checksums, writes the lock |
-| `sysml -bundle` (exists) / `-publish` | builds the `.kpar`, checks tag == version, uploads the asset, opens the index PR |
-| `sysml -index check|add|yank` | maintains an index checkout; `check` = validate + closure |
+| `syspi init [-publisher P -name N]` | writes `.project.json` (+ `.meta.json`) |
+| `syspi add <iri>[@constraint]` | appends a usage, resolves, installs, locks |
+| `syspi install` / `syspi sync` | resolves `.project.json` + lock, installs missing/changed projects |
+| `syspi lock` | resolves to exact versions/commits/checksums, writes the lock |
+| `syspi bundle <dir>` | builds the deterministic `.kpar`, checks tag == version in a tagged checkout |
+| `syspi index emit <dir>` (later `check|add|yank`) | writes the static JSON index; maintains an index checkout |
 
 - Resolution order per usage: lock entry → direct source (`pkg:git/...` or a git URL: tags via
-  `ls-remote`) → configured indexes (`-index`, `OPENSYSML_INDEX`; ours by default, sysand static indexes
-  readable as-is) for `pkg:sysand/...` and for search. Version constraints: exact today; add
-  caret/tilde/ranges with the semver comparator already in `interchange.go`.
-- Fetch and verify: `git` is the protocol (shell out — honours the user's credential helpers, no new
-  dependency); a host archive over HTTPS is tried first where the hostname is known to serve one, with
-  `git` as the fallback. Verify the tree against the recorded commit / kpar SHA-256
-  and the `.meta.json` checksums before anything is read (the archive reader already refuses on a
-  checksum mismatch).
+  `ls-remote`) → configured indexes (ours by default, sysand static indexes readable as-is) for
+  `pkg:sysand/...` and for search. Version constraints: exact, caret, tilde, comparison ranges (semver).
+- Fetch and verify: `git` is the protocol (shell out — honours the user's credential helpers); a host
+  archive over HTTPS is tried first where the hostname is known to serve one, with `git` as the
+  fallback. Verify the tree against the recorded commit / kpar SHA-256 and the `.meta.json` checksums
+  before anything is read.
 - Install layout: `lib/<publisher>-<name>_<version>/` (or `.kpar`) beside `.project.json` — a neutral
-  name, nothing tool-specific since the reader goes by `.project.json`. Phase 1 adds `lib` to
-  `wellKnownLibraryDirs` (today it lists only `.sysand/lib`) so both are read and a sysand-installed
-  project keeps working unchanged.
-- Lock: no OMG format exists. `.project.lock.json` beside `.project.json` (same JSON tooling as
-  `.meta.json`, one entry per usage: resolved IRI, version, source URL, commit, SHA-256); read
-  `sysand-lock.toml` as an input when present for interop, never write it.
-- Editors: unresolved root namespace → LSP code action "add usage pkg:git/…" backed by the index
-  search; `%project` in the REPL/kernel shows the closure.
+  name, nothing tool-specific since every reader goes by `.project.json`. SysPI also reads an existing
+  `.sysand/lib/` and never writes there.
+- Lock: no OMG format exists. `.project.lock.json` beside `.project.json` (one entry per usage:
+  canonical IRI, version, source URL, tag, commit, SHA-256; deterministic bytes); `sysand-lock.toml`
+  read as an input when present for interop, never written.
 - Trust: the index PR gate plus, later, sigstore attestation of the `.kpar` from the package repo's CI
-  identity — the `client/python/opensysml/signing.py` cosign-keyless pattern already used for our
-  release manifests, applied per package and verified on install.
+  identity, verified on install.
+
+**OpenSysML's side of the contract** (the only client-facing code in this repository):
+
+- `lib` joins `.sysand/lib` in `wellKnownLibraryDirs`, so a SysPI-installed and a sysand-installed
+  project are read the same way, with no flag.
+- `@<version>` in a usage IRI is an exact version constraint when the usage carries no
+  `versionConstraint` (today `resourceSegments` discards it and the latest installed release wins).
+- Nothing else: no fetch, no lock reading, no `.project.lock.json` — the installed tree under `lib/`
+  is the whole interface. A future package manager is added the same way: its install directory and,
+  if it has one, its IRI scheme, read-only.
+- Editors, later and read-only: unresolved root namespace → LSP code action offering the `syspi add`
+  command line backed by an index search; `%project` in the REPL/kernel shows the installed closure.
 
 ### 3.4 What is and is not OpenSysML-specific
 
@@ -176,31 +204,35 @@ package 'Open-MBEE/OpenSysML-Extensions-Library' {
 | `.kpar` asset | no (optional) | no |
 | Index entry | no | no (search/yank/trust only) |
 | `Index.sysml` definitions | no | no (read with the OMG stdlib if you want the model view) |
-| `.project.lock.json` | no | no (OpenSysML's own reproducibility record) |
+| `.project.lock.json` | no | no (SysPI's reproducibility record; OpenSysML never reads it) |
 
 ## 4. Phasing
 
 Phase 1 — installable packages from git remotes, no index
-1. Extensions Library: add `.project.json` (`publisher` Open-MBEE), tag `v1.0.0`; release job attaches
-   the `.kpar` built by the existing `scripts/build-kpar.py` (the docs already promise it).
-2. `sysml -project-init`, `-add`, `-install`, `-lock` for direct sources (`pkg:git/...`,
-   git URL, remote `.kpar`, local path/editable) with `.project.lock.json`; tag == version check;
-   "no .project.json" error.
-3. Version-range constraints in `satisfies`.
-Gate: install the Extensions Library, ode4hera Requirements Management and MBSE4U SYSMOD from their
-git repos (SYSMOD's repo already carries `.project.json`/`.meta.json` at root) into a fresh
-project and validate what `tests/kpar` validates today.
+1. Extensions Library (`Open-MBEE/OpenSysML-Extensions-Library`): root `.project.json` (`publisher`
+   Open-MBEE) and `.meta.json`, `build-kpar.py` deriving the archive from them, release job asserting
+   tag == version; the maintainer tags `v1.0.0`.
+2. OpenSysML (this repository): `lib` in `wellKnownLibraryDirs`; `@<version>` in a usage IRI as an
+   exact constraint; tests for both; read-side archive hardening (path traversal, symlink escape,
+   size bounds, `.meta.json` checksums).
+3. SysPI (`Open-MBEE/SysPI`): `syspi init/add/install/sync/lock/bundle` for direct sources
+   (`pkg:git/...`, git URL, remote `.kpar`, local path/editable) with `.project.lock.json`; tag ==
+   version check; "no .project.json" error; version-range constraints; `index emit` of the sysand
+   static layout.
+Gate: `syspi` installs the Extensions Library, ode4hera Requirements Management and MBSE4U SYSMOD
+from their git repos (SYSMOD's repo already carries `.project.json`/`.meta.json` at root) into a
+fresh project, and `sysml -validate` resolves every usage from `lib/` with no flag.
 
-Phase 2 — the index
-4. `opensysml-index` repo: `Index.sysml` definitions, records for our libraries, CI (`sysml -validate`,
-   closure check, generated `versions.json`/`index.json`, Pages).
-5. `sysml -index check|add|yank`; index-backed resolution and search; `-publish` opening the index PR.
-6. LSP "add usage" code action; `%project` in REPL/kernel.
+Phase 2 — the index (SysPI + index repo)
+4. `opensysml-index` repo: `Index.sysml` definitions, records for our libraries, CI
+   (`sysml -self-check-package Index index/`, closure check, generated `versions.json`/`index.json`, Pages).
+5. `syspi index check|add|yank`; index-backed resolution and search; `syspi publish` opening the index PR.
+6. OpenSysML, read-only: LSP "add usage" code action; `%project` in REPL/kernel.
 
 Phase 3 — ecosystem
 7. Mirror records for the public sysand.com packages (read-only, pointing at their sources) so one
    index answers both; measure parser/validator fallout over every package.
-8. Attestation (cosign keyless from package CI) verified on install.
+8. Attestation (cosign keyless from package CI) verified by `syspi` on install.
 9. Flexo-served index via the SysML v2 API sync.
 
 ## 5. Decisions
@@ -210,6 +242,10 @@ the index repo, stdlib-only); no lax mode.
 
 Settled: install dir `lib/` beside `.project.json` (`.sysand/lib` still read); lock `.project.lock.json`;
 fetch = `git`, with a host archive over HTTPS as an internal fast path.
+
+Settled: OpenSysML is not the client. The client is SysPI (`Open-MBEE/SysPI`, `syspi`), a separate
+tool beside sysand; OpenSysML reads what package managers install and adds support for further ones
+as they appear (install directory + IRI scheme, read-only), never a downloader, lock or index of its own.
 
 Open:
 1. Index repo name/location, and PR-gated only vs also CI-published from package releases.
