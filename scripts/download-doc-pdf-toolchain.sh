@@ -29,8 +29,8 @@ PANDOC_SHA256_ARM64="1c4d69f2a092bd47cb180e58a4aab7b9637101ced928252458c7d41a7f7
 WEASYPRINT_VERSION="69.0"
 MERMAID_CLI_VERSION="11.16.0"
 KATEX_VERSION="0.16.47"
-# Asciidoctor.js is pinned by scripts/asciidoc/package.json, which is installed
-# as it stands under build/doc-pdf/asciidoctor.
+# Asciidoctor.js is pinned by scripts/asciidoc/package.json and its lockfile,
+# which are installed as they stand under build/doc-pdf/asciidoctor.
 # Graphviz publishes x86_64 Debian packages per Ubuntu release; the tarball for
 # the host's release is unpacked (not installed) under build/doc-pdf/graphviz.
 GRAPHVIZ_VERSION="16.1.0"
@@ -128,14 +128,16 @@ asciidoctor="$dest/asciidoctor"
 asciidoctor_src="$repo_root/scripts/asciidoc"
 if [[ -x "$asciidoctor/asciidoctor-json.js" && -d "$asciidoctor/node_modules/@asciidoctor/core" ]] &&
 	cmp -s "$asciidoctor_src/package.json" "$asciidoctor/package.json" &&
+	cmp -s "$asciidoctor_src/package-lock.json" "$asciidoctor/package-lock.json" &&
 	cmp -s "$asciidoctor_src/asciidoctor-json.js" "$asciidoctor/asciidoctor-json.js"; then
 	echo "Asciidoctor.js already present at $asciidoctor"
 else
-	echo "Installing Asciidoctor.js (scripts/asciidoc/package.json) ..."
+	echo "Installing Asciidoctor.js (scripts/asciidoc/package-lock.json) ..."
 	mkdir -p "$asciidoctor"
-	cp "$asciidoctor_src/package.json" "$asciidoctor_src/asciidoctor-json.js" "$asciidoctor/"
+	cp "$asciidoctor_src/package.json" "$asciidoctor_src/package-lock.json" \
+		"$asciidoctor_src/asciidoctor-json.js" "$asciidoctor/"
 	chmod +x "$asciidoctor/asciidoctor-json.js"
-	(cd "$asciidoctor" && npm install --silent --no-fund --no-audit --ignore-scripts)
+	(cd "$asciidoctor" && npm ci --silent --no-fund --no-audit --ignore-scripts)
 	if ! printf 'ok\n' | "$asciidoctor/asciidoctor-json.js" | grep -q '"paragraph"'; then
 		echo "the installed Asciidoctor.js converter does not run" >&2
 		exit 1
