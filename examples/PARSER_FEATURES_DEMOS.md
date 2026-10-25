@@ -6,7 +6,7 @@ Demonstrations of the SysML v2 / KerML parser features that let every file of th
 
 Each demo file focuses on a specific category of features with working examples extracted from real stdlib usage patterns.
 
-**Parser Status:** 110/110 bundled library files parse cleanly (94 official SysML v2 standard library files plus the 16 libraries under `OpenSysML Libraries/`), gated by `internal/workspace/libs/stdlib_conformance_test.go`.
+**Parser Status:** every bundled library file — the official SysML v2 standard library plus the libraries under `OpenSysML Libraries/` — parses cleanly, gated by `internal/workspace/libs/stdlib_conformance_test.go`; the measured count lives in [the gate table of the roadmap](../docs/project/roadmap.md#where-the-repository-stands) (Stdlib parser conformance).
 
 ## Demo Files
 
@@ -271,7 +271,7 @@ go test ./examples -run '^TestParserFeaturesEdgeCases$' -v
 - Declarations (multiplicity, classifier/subclassifier, multiple typing, subset/disjoint)
 - Edge cases (keywords in expressions, identifier multiplicities, bind/require/step shortcuts)
 
-**Status:** 110/110 bundled library files parse cleanly (`go test -run TestStdlibConformance ./internal/workspace/libs`)
+**Status:** every bundled library file parses cleanly (`go test -run TestStdlibConformance ./internal/workspace/libs`); the count is kept in [the roadmap's gate table](../docs/project/roadmap.md#where-the-repository-stands).
 
 ## Real-World Usage
 
