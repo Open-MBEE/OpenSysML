@@ -5,11 +5,8 @@ import (
 	"testing"
 )
 
-// TestRuntimeRobustnessSubsettedPool covers a subsetting feature that states no value of its
-// own and so holds values of the feature it subsets (KerML 1.0 §7.3.4.4): where that feature
-// holds fewer values than the subsetter's lower bound asks, the read is a multiplicity
-// violation, not a feature filled with objects the subsetted feature does not hold; where that
-// feature is written, the subsetter holds values of what it then holds.
+// TestRuntimeRobustnessSubsettedPool covers a subsetting feature drawing its values from what it
+// subsets (KerML 1.0 §7.3.4.4): too few there is a multiplicity violation; a write there redraws it.
 func TestRuntimeRobustnessSubsettedPool(t *testing.T) {
 	t.Run("under-populated subsetted collection is a multiplicity violation", testSubsettedPoolTooSmall)
 	t.Run("a write to the subsetted collection redraws the subsetter", testSubsettedPoolRewritten)

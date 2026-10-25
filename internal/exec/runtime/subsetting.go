@@ -969,10 +969,8 @@ func (inst *Instance) materializeReferenced(ctx *Context, fv *FeatureValue, name
 	return true, nil
 }
 
-// materializeFromSubsetted holds, for a feature stating no value, values of the features it
-// subsets (KerML 1.0 §7.3.4.4): one each binding constraint shares with its other end, then
-// what the lower bound still needs, made up only where no subsetted feature holds values of
-// its own. It reports false where neither a subsetted feature nor a binding names any.
+// materializeFromSubsetted holds in a feature stating no value the values of what it subsets (KerML
+// 1.0 §7.3.4.4): its bindings' witnesses, then what the lower bound needs; false where none names any.
 func (inst *Instance) materializeFromSubsetted(ctx *Context, fv *FeatureValue, name string, composite *symbols.Symbol) (bool, error) {
 	mult := fv.Feature.Multiplicity
 	if ctx.model.semantics.IsConnectorObjectUsage(fv.Feature.Symbol) {
@@ -1031,10 +1029,8 @@ func (inst *Instance) materializeFromSubsetted(ctx *Context, fv *FeatureValue, n
 	return true, nil
 }
 
-// subsettedPool is the objects of fv's type every feature fv subsets on inst holds by its own
-// declaration (a value, a write or a binding, not a `default` its subsetters displace), read
-// first where needed; pooled is false where none does, the subsetted collections then holding
-// what their subsetters make.
+// subsettedPool is the objects of fv's type every subsetted feature holds by its own declaration (a
+// value, a write or a binding, not a `default`); pooled is false where none does and they hold what fv makes.
 func (ctx *Context) subsettedPool(inst *Instance, fv *FeatureValue, subsetted []string, composite *symbols.Symbol) (pool []Value, pooled bool, err error) {
 	for _, sub := range subsetted {
 		subFV, ok := inst.FeatureValues[sub]
@@ -1106,9 +1102,8 @@ func (ctx *Context) siblingSubsetterValues(inst *Instance, fv *FeatureValue, sub
 	return taken
 }
 
-// bindingWitnesses is, per binding constraining the named feature of inst, as many values its
-// other end holds as the binding links, drawn from pool where the subsetted features fix one
-// (KerML 1.0 §7.4.6).
+// bindingWitnesses draws, per binding constraining the named feature, as many of its other end's
+// values as the binding links, from pool where the subsetted features fix one (KerML 1.0 §7.4.6).
 func (ctx *Context) bindingWitnesses(inst *Instance, name string, pool []Value, pooled bool, taken map[int64]bool) ([]Value, map[int64]bool, error) {
 	fv := inst.FeatureValues[name]
 	var chosen []Value
