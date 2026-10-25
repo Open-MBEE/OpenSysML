@@ -120,13 +120,6 @@ var (
 	migrateFormat      string
 	bundleDir          string
 	unbundleFile       string
-	projectInit        bool
-	projectPublisher   string
-	projectName        string
-	addResource        string
-	installProject     bool
-	syncProject        bool
-	lockProject        bool
 	queryText          string
 	outputPath         string
 	fromFormat         string
@@ -549,10 +542,6 @@ func runCLI() int {
 		(docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlFlagsGiven()) {
 		fmt.Fprintln(os.Stderr, "sysml: -doc-form, -diagram-form, the document options and the stylesheet options apply to -render-document and -render-documents; name the document to render")
 		return 2
-	}
-
-	if projectCommandRequested() {
-		return runProjectCommand(args)
 	}
 
 	if flagGiven("bundle") || flagGiven("unbundle") {

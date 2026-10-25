@@ -179,8 +179,8 @@ func (d Discovery) archiveFiles(archive string) ([]string, error) {
 	if err != nil {
 		return []string{archive}, nil
 	}
-	installed, _ := installedProjects(d.libraryRoots(EnclosingProjects(archive), nil))
-	out := append(a.Files(), projectFiles(used([]*Interchange{a.Project}, installed, nil))...)
+	installed, _ := installedProjects(d.libraryRoots(EnclosingProjects(archive)))
+	out := append(a.Files(), projectFiles(used([]*Interchange{a.Project}, installed))...)
 	if len(out) == 0 {
 		return nil, fmt.Errorf("no .sysml or .kerml files in %s or the projects it uses", archive)
 	}
@@ -189,7 +189,8 @@ func (d Discovery) archiveFiles(archive string) ([]string, error) {
 
 // ModelFiles walks dir and returns every .sysml/.kerml file and .ipynb notebook
 // under it, sorted by path. Hidden directories are skipped, so a repository's .git or a build cache
-// under a dot-directory contributes nothing. Symlinked directories are walked —
+// under a dot-directory contributes nothing, as are the well-known library
+// directories of a project directory, whose contents its usages select. Symlinked directories are walked —
 // a project may keep a shared library as a link — each at most once, so a cycle
 // terminates.
 func ModelFiles(dir string) ([]string, error) {
@@ -220,6 +221,14 @@ func walk(dir string, visited map[string]bool, out *[]string) error {
 	if err != nil {
 		return err
 	}
+	// The library directories under a project hold what it uses, which the
+	// usages select; they are not the project's own files.
+	library := map[string]bool{}
+	if fileExists(filepath.Join(dir, ProjectFile)) {
+		for _, layout := range wellKnownLibraryDirs {
+			library[strings.SplitN(layout, string(filepath.Separator), 2)[0]] = true
+		}
+	}
 	for _, e := range entries {
 		path := filepath.Join(dir, e.Name())
 		info, err := os.Stat(path) // resolves a link to what it points at
@@ -232,7 +241,7 @@ func walk(dir string, visited map[string]bool, out *[]string) error {
 		}
 		switch {
 		case info.IsDir():
-			if strings.HasPrefix(e.Name(), ".") {
+			if strings.HasPrefix(e.Name(), ".") || library[e.Name()] {
 				continue
 			}
 			if err := walk(path, visited, out); err != nil {
@@ -262,4 +271,9 @@ func absKey(path string) string {
 // hasMeta reports whether path is written as a glob pattern.
 func hasMeta(path string) bool {
 	return strings.ContainsAny(path, "*?[")
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }

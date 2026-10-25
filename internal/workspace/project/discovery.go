@@ -19,12 +19,8 @@ const LibraryRootsEnvVar = "OPENSYSML_LIBRARY_ROOTS"
 // uses, relative to the project's directory: one entry per layout. The layout
 // is the only thing provider-specific here; what is installed there is read as
 // the project interchange format describes it.
-// LibraryDir is where the installer puts the projects a project uses,
-// relative to the project's directory.
-const LibraryDir = "lib"
-
 var wellKnownLibraryDirs = []string{
-	LibraryDir,                      // sysml -install
+	"lib",                           // a plain lib/ beside .project.json
 	filepath.Join(".sysand", "lib"), // sysand
 }
 
@@ -129,47 +125,20 @@ func (d Discovery) Around(paths []string) Projects {
 			out.Enclosing = append(out.Enclosing, project)
 		}
 	}
-	locked := lockedPaths(out.Enclosing)
-	installed, malformed := installedProjects(d.libraryRoots(ancestors, locked))
+	installed, malformed := installedProjects(d.libraryRoots(ancestors))
 	out.Malformed = malformed
 	if len(out.Enclosing) == 0 {
 		out.Used = installed
 		return out
 	}
-	out.Used = used(out.Enclosing, installed, locked)
+	out.Used = used(out.Enclosing, installed)
 	return out
-}
-
-// lockedPaths reads the lock of each enclosing project directory and maps
-// every usage identity it pins to the path its project is read from, so a
-// usage is matched to the project the installer put there; the first
-// project to pin a resource wins. A lock that cannot be read pins nothing.
-func lockedPaths(enclosing []*Interchange) map[string]string {
-	locked := map[string]string{}
-	for _, project := range enclosing {
-		if project.IsArchived() {
-			continue
-		}
-		lock, err := ReadLock(project.Dir)
-		if err != nil {
-			continue
-		}
-		for i := range lock.Entries {
-			e := &lock.Entries[i]
-			if _, dup := locked[e.Resource]; !dup {
-				locked[e.Resource] = lock.AbsPath(e)
-			}
-		}
-	}
-	return locked
 }
 
 // libraryRoots lists the roots installed projects are looked for under: the
 // configured roots (a directory or an archive), then the well-known library
-// directories under each project directory, then the paths the locks pin
-// (a local usage read in place lies outside every library directory); those
-// that exist, each once.
-func (d Discovery) libraryRoots(projectDirs []string, locked map[string]string) []string {
+// directories under each project directory; those that exist, each once.
+func (d Discovery) libraryRoots(projectDirs []string) []string {
 	var out []string
 	seen := map[string]bool{}
 	add := func(root string) {
@@ -189,9 +158,6 @@ func (d Discovery) libraryRoots(projectDirs []string, locked map[string]string) 
 		for _, layout := range wellKnownLibraryDirs {
 			add(filepath.Join(dir, layout))
 		}
-	}
-	for _, resource := range sortedKeys(locked) {
-		add(locked[resource])
 	}
 	return out
 }
@@ -284,7 +250,7 @@ func walkInstalled(dir string, visited map[string]bool, budget *int, found func(
 // used selects, among the installed projects, those the enclosing projects use,
 // directly or through the usages of the projects selected, each once and in the
 // order they were reached; an enclosing project is not among what it uses.
-func used(enclosing, installed []*Interchange, locked map[string]string) []*Interchange {
+func used(enclosing, installed []*Interchange) []*Interchange {
 	selected := map[string]bool{}
 	for _, project := range enclosing {
 		selected[absKey(project.Dir)] = true
@@ -295,10 +261,7 @@ func used(enclosing, installed []*Interchange, locked map[string]string) []*Inte
 		project := queue[0]
 		queue = queue[1:]
 		for _, u := range project.Usage {
-			pick := pickLocked(installed, u, locked)
-			if pick == nil {
-				pick = pickInstalled(installed, u)
-			}
+			pick := pickInstalled(installed, u)
 			if pick == nil || selected[absKey(pick.Dir)] {
 				continue
 			}
@@ -310,29 +273,13 @@ func used(enclosing, installed []*Interchange, locked map[string]string) []*Inte
 	return out
 }
 
-// pickLocked chooses the installed project the lock pins a usage to: the one
-// read from the path the lock records for the usage's resource. Nil when the
-// lock pins nothing for it or nothing is installed there, in which case the
-// usage is matched by name instead.
-func pickLocked(installed []*Interchange, u Usage, locked map[string]string) *Interchange {
-	path, ok := locked[Identity(u)]
-	if !ok {
-		return nil
-	}
-	key := resolvedKey(path)
-	for _, candidate := range installed {
-		if resolvedKey(candidate.Dir) == key {
-			return candidate
-		}
-	}
-	return nil
-}
-
 // pickInstalled chooses the installed project a usage names: of those its
-// resource names (the publisher and name as slugs), the one whose version
-// satisfies the constraint, else the latest. Nil when none does.
+// resource names, the one whose version the usage's constraint (its
+// versionConstraint, else the @version in its IRI) names exactly, else the
+// latest. Nil when none does.
 func pickInstalled(installed []*Interchange, u Usage) *Interchange {
 	var pick *Interchange
+	constraint := u.constraint()
 	for _, candidate := range installed {
 		if !candidate.Uses(u) {
 			continue
@@ -340,8 +287,8 @@ func pickInstalled(installed []*Interchange, u Usage) *Interchange {
 		switch {
 		case pick == nil:
 			pick = candidate
-		case pick.satisfies(u.VersionConstraint):
-		case candidate.satisfies(u.VersionConstraint), newerVersion(candidate.Version, pick.Version):
+		case pick.satisfies(constraint):
+		case candidate.satisfies(constraint), newerVersion(candidate.Version, pick.Version):
 			pick = candidate
 		}
 	}

@@ -50,13 +50,13 @@ func ReadInterchange(dir string) (*Interchange, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ParseInterchange(dir, file, content)
+	return parseInterchange(dir, file, content)
 }
 
-// ParseInterchange reads the InterchangeProject object of Table 12 from the
+// parseInterchange reads the InterchangeProject object of Table 12 from the
 // bytes of a .project.json, reported as file; the project's Dir is dir. The
 // name and version are mandatory, as is the resource of every usage.
-func ParseInterchange(dir, file string, content []byte) (*Interchange, error) {
+func parseInterchange(dir, file string, content []byte) (*Interchange, error) {
 	var raw struct {
 		Name        string  `json:"name"`
 		Publisher   string  `json:"publisher"`
@@ -220,15 +220,40 @@ func slug(name string) string {
 	return strings.TrimSuffix(b.String(), "-")
 }
 
-// satisfies reports whether the project's version matches the constraint
-// (see Constraint for the grammar); an empty or malformed constraint matches
-// nothing here, so the caller falls back to the latest version.
-func (p *Interchange) satisfies(constraint string) bool {
-	c, err := ParseConstraint(constraint)
-	if err != nil || c.Any() {
-		return false
+// constraint is the version a usage asks for: its versionConstraint, else
+// the version written after @ in its resource IRI (pkg:…/widgets@1.2.0), as
+// package URLs carry one; empty for any version.
+func (u Usage) constraint() string {
+	if c := strings.TrimSpace(u.VersionConstraint); c != "" {
+		return c
 	}
-	return c.Matches(p.Version)
+	return resourceVersion(u.Resource)
+}
+
+// resourceVersion is the version written after @ in the last path segment
+// of a resource IRI, before any query or fragment; empty when none is.
+func resourceVersion(resource string) string {
+	if i := strings.IndexAny(resource, "?#"); i >= 0 {
+		resource = resource[:i]
+	}
+	last := resource[strings.LastIndexByte(resource, '/')+1:]
+	if i := strings.LastIndexByte(last, '@'); i > 0 {
+		if decoded, err := url.PathUnescape(last[i+1:]); err == nil {
+			return decoded
+		}
+		return last[i+1:]
+	}
+	return ""
+}
+
+// satisfies reports whether the project's version is the one the constraint
+// names exactly; only an exact version (optionally written =, == or v first)
+// is understood, any other constraint is not decided here.
+func (p *Interchange) satisfies(constraint string) bool {
+	want := strings.TrimSpace(constraint)
+	want = strings.TrimPrefix(strings.TrimPrefix(want, "=="), "=")
+	want = strings.TrimPrefix(strings.TrimSpace(want), "v")
+	return want != "" && want == strings.TrimPrefix(p.Version, "v")
 }
 
 // newerVersion reports whether a is a later version than b, in semantic

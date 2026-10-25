@@ -32,9 +32,9 @@ const ArchiveExt = ".kpar"
 // MetaFile is the metadata file an archive carries beside its interchange file.
 const MetaFile = ".meta.json"
 
-// MaxArchiveSize bounds the archive read into memory, so a file misnamed .kpar
+// maxArchiveSize bounds the archive read into memory, so a file misnamed .kpar
 // cannot exhaust it.
-const MaxArchiveSize = 512 << 20
+const maxArchiveSize = 512 << 20
 
 // Meta is the content of an archive's .meta.json (KerML 1.0 §10.3, Table 13).
 type Meta struct {
@@ -111,8 +111,8 @@ func OpenArchive(path string) (*Archive, error) {
 	if err != nil {
 		return nil, &ArchiveError{Path: path, Err: err}
 	}
-	if info.Size() > MaxArchiveSize {
-		return nil, &ArchiveError{Path: path, Err: fmt.Errorf("archive is %d bytes; at most %d are read", info.Size(), MaxArchiveSize)}
+	if info.Size() > maxArchiveSize {
+		return nil, &ArchiveError{Path: path, Err: fmt.Errorf("archive is %d bytes; at most %d are read", info.Size(), maxArchiveSize)}
 	}
 	// #nosec G304 -- the archive is one the user named or found under a library root.
 	data, err := os.ReadFile(path)
@@ -142,15 +142,15 @@ func parseArchive(archivePath string, data []byte) (*Archive, error) {
 		if strings.HasSuffix(f.Name, "/") {
 			continue
 		}
-		name, err := NormalizeMemberPath(f.Name)
+		name, err := normalizeMemberPath(f.Name)
 		if err != nil {
 			return nil, err
 		}
 		if _, dup := a.members[name]; dup {
 			return nil, fmt.Errorf("member %q appears twice", name)
 		}
-		if f.UncompressedSize64 > MaxArchiveSize || total+f.UncompressedSize64 > MaxArchiveSize {
-			return nil, fmt.Errorf("members unpack to more than %d bytes", MaxArchiveSize)
+		if f.UncompressedSize64 > maxArchiveSize || total+f.UncompressedSize64 > maxArchiveSize {
+			return nil, fmt.Errorf("members unpack to more than %d bytes", maxArchiveSize)
 		}
 		total += f.UncompressedSize64
 		content, err := readMember(f)
@@ -178,10 +178,10 @@ func readMember(f *zip.File) ([]byte, error) {
 		return nil, err
 	}
 	defer rc.Close()
-	if f.UncompressedSize64 > MaxArchiveSize {
-		return nil, fmt.Errorf("declares %d bytes; at most %d are read", f.UncompressedSize64, MaxArchiveSize)
+	if f.UncompressedSize64 > maxArchiveSize {
+		return nil, fmt.Errorf("declares %d bytes; at most %d are read", f.UncompressedSize64, maxArchiveSize)
 	}
-	content, err := io.ReadAll(io.LimitReader(rc, int64(MaxArchiveSize)+1))
+	content, err := io.ReadAll(io.LimitReader(rc, int64(maxArchiveSize)+1))
 	if err != nil {
 		return nil, err
 	}
@@ -191,10 +191,10 @@ func readMember(f *zip.File) ([]byte, error) {
 	return content, nil
 }
 
-// NormalizeMemberPath checks a member path is relative, slash-separated and
+// normalizeMemberPath checks a member path is relative, slash-separated and
 // free of . and .. segments (§10.3, Table 13 note 2), so it can be a key and,
 // when materialized, stays under the directory written.
-func NormalizeMemberPath(name string) (string, error) {
+func normalizeMemberPath(name string) (string, error) {
 	switch {
 	case name == "":
 		return "", errors.New("a member has an empty path")
@@ -226,7 +226,7 @@ func (a *Archive) readProject() error {
 	if !ok {
 		return a.missingTopLevel(ProjectFile)
 	}
-	project, err := ParseInterchange(a.Path, a.Path+"/"+ProjectFile, content)
+	project, err := parseInterchange(a.Path, a.Path+"/"+ProjectFile, content)
 	if err != nil {
 		return err
 	}

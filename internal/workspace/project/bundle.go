@@ -43,26 +43,14 @@ func Bundle(dir string) ([]byte, *Interchange, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	members, err := BundleMembers(dir)
+	members, err := bundleMembers(dir)
 	if err != nil {
 		return nil, nil, err
 	}
-	data, err := ArchiveOf(dir, members)
-	if err != nil {
-		return nil, nil, err
-	}
-	return data, project, nil
-}
-
-// ArchiveOf writes the members as an archive, generating the .meta.json
-// they lack, and reads it back as a consumer would, so a .meta.json they
-// carry is checked against the files it describes; name is the tree's for
-// the diagnostics.
-func ArchiveOf(name string, members map[string][]byte) ([]byte, error) {
 	if _, ok := members[MetaFile]; !ok {
 		meta, err := generateMeta(members)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		members[MetaFile] = meta
 	}
@@ -78,28 +66,30 @@ func ArchiveOf(name string, members map[string][]byte) ([]byte, error) {
 		h.SetMode(0o644)
 		f, err := w.CreateHeader(h)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if _, err := f.Write(members[name]); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	if err := w.Close(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	if _, err := ParseArchive(name, buf.Bytes()); err != nil {
+	// The archive is read back as a consumer would, so a .meta.json the
+	// directory kept is checked against the files it describes.
+	if _, err := ParseArchive(dir, buf.Bytes()); err != nil {
 		var ae *ArchiveError
 		if errors.As(err, &ae) {
 			err = ae.Err
 		}
-		return nil, err
+		return nil, nil, err
 	}
-	return buf.Bytes(), nil
+	return buf.Bytes(), project, nil
 }
 
-// BundleMembers reads the files of dir that an archive of it holds, keyed by
+// bundleMembers reads the files of dir that an archive of it holds, keyed by
 // their slash-separated path under dir.
-func BundleMembers(dir string) (map[string][]byte, error) {
+func bundleMembers(dir string) (map[string][]byte, error) {
 	members := map[string][]byte{}
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -220,7 +210,7 @@ func Unbundle(a *Archive, dir string) error {
 		if err := confinedTo(dir, filepath.Dir(path)); err != nil {
 			return err
 		}
-		if err := WriteNew(path, content); err != nil {
+		if err := writeNew(path, content); err != nil {
 			return err
 		}
 	}
@@ -245,8 +235,8 @@ func confinedTo(dir, parent string) error {
 	return nil
 }
 
-// WriteNew creates path, refusing one that exists in any form, a link included.
-func WriteNew(path string, content []byte) error {
+// writeNew creates path, refusing one that exists in any form, a link included.
+func writeNew(path string, content []byte) error {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) // #nosec G304 -- a member path validated against the archive's directory.
 	if err != nil {
 		return err

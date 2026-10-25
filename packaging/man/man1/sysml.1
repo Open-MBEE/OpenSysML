@@ -336,35 +336,6 @@ Run every configuration this \-migration\-results file indexes \(em or those
 \-action names \(em with its recorded runs and duration mode, or the \-runs
 and \-draws given, seeded from \-seed, and table the tool's and OpenSysML's
 min, mean, p50, p90 and max of each observable with their relative difference
-.SS Managing a project's usages
-.TP
-.B \-project\-init
-Write a new project's .project.json and .meta.json in the directory named (the
-working directory by default), indexing the model files there; takes
-\-publisher and \-name
-.TP
-.BR \-publisher " \fIname\fP"
-With \-project\-init, the project's publisher
-.TP
-.BR \-name " \fIname\fP"
-With \-project\-init, the project's name (default: the directory's name)
-.TP
-.BR \-add " \fIiri\fP"
-Append a usage of this resource \(em
-pkg:git/<host>/<path>[@<constraint>][#<subpath>], a clone URL (normalized to
-that form), a .kpar URL or a local path \(em to the project's .project.json,
-then resolve, install and lock it
-.TP
-.B \-install
-Install the projects .project.json uses into lib/ at the versions
-\&.project.lock.json pins, resolving and pinning those it lacks
-.TP
-.B \-sync
-The same as \-install
-.TP
-.B \-lock
-Resolve every usage of the project afresh to the latest release its constraint
-admits, install and rewrite .project.lock.json
 .SS Compiling natively
 .TP
 .BR \-compile " \fIcalc\fP"
@@ -997,52 +968,6 @@ element may change without a compatibility path; see
 docs/reference/sysml\-v1\-migration.md \(sc Status
 .PP
 Every run that migrates a v1 model says so on stderr.
-.SH MANAGING A PROJECT'S USAGES
-.RS 2
-.nf
-# Write .project.json and .meta.json
-sysml \-project\-init \-publisher Acme \-name W
-# Use a git repository at a release tag
-sysml \-add pkg:git/github.com/acme/gears@^2.0.0
-# \&...by its clone URL, normalized
-sysml \-add https://h.example/acme/gears.git@2.1.0
-# \&...a published archive
-sysml \-add https://h.example/gears\-2.1.0.kpar
-# \&...a project beside this one, in place
-sysml \-add ../gears
-# Install what proj's lock says
-sysml \-install proj
-# Re\-resolve and rewrite the lock
-sysml \-lock
-.fi
-.RE
-.PP
-A project is a directory holding a .project.json (KerML 1.0 \(sc10.3);
-\-project\-init writes one, with the .meta.json indexing the model files
-beside it. \-add appends a usage, where pkg:git/<host>/<path> names a git
-repository on any host whose release tags are v<semver> or <semver> and whose
-tree holds .project.json at its root (or at #<subpath>); a clone URL
-(https://\&.../.git, ssh://\&..., git@host:path, file://\&...) is accepted and
-normalized to that form; a .kpar URL names a published archive, and a local
-path a project read in place. A version after @ becomes the usage's
-versionConstraint: exact, ^1.2.0 (same major), ~1.2.0 (same minor), >=1.2.0
-<2.0.0; the latest release it admits is taken.
-.PP
-A release is resolved with git on any host \(em git ls\-remote \-\-tags for
-the tag, git clone \-\-depth 1 \-\-branch <tag> for the tree, the commit
-recorded \(em with the host's tag archive over HTTPS as a fast path for the
-hosts that serve one (HTTPS_PROXY honoured, git the fallback). Its
-\&.project.json must say the tag's version, and its .meta.json checksums are
-generated or verified before anything is read. It is installed under
-lib/<publisher>\-<name>_<version>/ (a .kpar as is) beside .project.json, with
-the projects it uses in turn, and pinned in .project.lock.json: the pkg:git
-identity, version, remote URL, tag, commit and SHA\-256 digest, in a fixed
-order. \-install reproduces the lock exactly and refuses a release whose
-digest moved; \-lock re\-resolves. The loader matches a usage to the project
-the lock pins it to, and by publisher and name slugs when the lock has no
-entry; a sysand\-lock.toml beside the project hints the first resolution's
-versions and is never written. The OMG standard library's IRIs are never
-installed: the bundled library answers them.
 .SH NATIVE COMPILATION
 .RS 2
 .nf
@@ -1423,18 +1348,6 @@ Prompt history, when XDG_STATE_HOME is set and writable.
 .B ~/.sysml_history
 Prompt history otherwise. When neither can be written the history is kept for
 the session only.
-.TP
-.B \&.project.json
-The project's name, publisher, version and usages (KerML 1.0 \(sc10.3),
-written by \-project\-init and extended by \-add.
-.TP
-.B \&.project.lock.json
-The releases the usages resolved to, written by \-add, \-install and \-lock;
-read by \-install and by the loader to match a usage to its installed project.
-.TP
-.B lib/
-The installed projects, one directory or .kpar per release, beside
-\&.project.json.
 .SH REPORTING BUGS
 Report bugs at https://github.com/Open\-MBEE/OpenSysML/issues.
 .SH SEE ALSO
