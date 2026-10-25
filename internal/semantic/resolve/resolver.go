@@ -891,13 +891,7 @@ func spanOf(n ast.Node) source.Span {
 // qnText renders a qualified name for diagnostics (segments joined by "::",
 // "$::" prefix when global).
 func qnText(qn *ast.QualifiedName) string {
-	s := ""
-	for i, part := range qn.Parts {
-		if i > 0 {
-			s += "::"
-		}
-		s += part.Text
-	}
+	s := qn.Text()
 	if qn.Global {
 		s = "$::" + s
 	}

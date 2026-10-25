@@ -703,7 +703,7 @@ func (c *Compiler) typingOf(scope *symbols.Scope, u *ast.Usage, name string) (*s
 		}
 		resolved, ok := c.resolver.ResolveQualified(scope, qn)
 		if !ok {
-			return nil, fmt.Sprintf("%s: type %s does not resolve", name, qnText(qn))
+			return nil, fmt.Sprintf("%s: type %s does not resolve", name, qn.Text())
 		}
 		if typ != nil {
 			return nil, fmt.Sprintf("%s is typed more than once", name)
@@ -1212,7 +1212,7 @@ func (fc *funcCompiler) compileName(qn *ast.QualifiedName) (Expr, error) {
 					return v, nil
 				}
 				if fc.libraryFunction(sym) {
-					f, err := fc.functionValueOf(sym, "a read of "+qnText(qn))
+					f, err := fc.functionValueOf(sym, "a read of "+qn.Text())
 					if err != nil {
 						return nil, err
 					}
@@ -1222,13 +1222,13 @@ func (fc *funcCompiler) compileName(qn *ast.QualifiedName) (Expr, error) {
 		}
 	}
 	if sym, isFn := fc.functionValueName(qn); isFn {
-		f, err := fc.functionValueOf(sym, "a read of "+qnText(qn))
+		f, err := fc.functionValueOf(sym, "a read of "+qn.Text())
 		if err != nil {
 			return nil, err
 		}
 		return fc.fnRead(f), nil
 	}
-	return nil, fc.unsupported(fmt.Sprintf("reference to %s, which is not a parameter, body-local attribute or compiled library constant", qnText(qn)))
+	return nil, fc.unsupported(fmt.Sprintf("reference to %s, which is not a parameter, body-local attribute or compiled library constant", qn.Text()))
 }
 
 // readBinding is a read of name, bound to b.
@@ -1595,13 +1595,13 @@ func (fc *funcCompiler) compileCall(n *ast.InvocationExpr) (Expr, error) {
 			names[i] = fc.c.name(tied)
 		}
 		return nil, fc.unsupported(fmt.Sprintf("invocation of %s, which is ambiguous between %s",
-			qnText(n.Type), strings.Join(names, ", ")))
+			n.Type.Text(), strings.Join(names, ", ")))
 	}
 	sym := sel.Called()
 	if sym == nil {
 		// As the interpreter: a name that denotes nothing is not the library
 		// function of that name.
-		written := qnText(n.Type)
+		written := n.Type.Text()
 		if len(n.Type.Parts) == 1 && !n.Type.Global {
 			written = fc.c.resolver.UnresolvedName(fc.scope, written, n.Type)
 		}
@@ -1915,7 +1915,7 @@ func (fc *funcCompiler) bindArgs(n *ast.InvocationExpr, callee string, params []
 		for _, na := range n.NamedArgs {
 			i := paramIndex(names, na.Name)
 			if i < 0 {
-				return nil, nil, 0, fc.unsupported(fmt.Sprintf("%s has no parameter %s", callee, qnText(na.Name)))
+				return nil, nil, 0, fc.unsupported(fmt.Sprintf("%s has no parameter %s", callee, na.Name.Text()))
 			}
 			if bound[i] {
 				return nil, nil, 0, fc.unsupported(fmt.Sprintf("%s binds parameter %s twice", callee, names[i]))
@@ -1965,17 +1965,6 @@ func (c *Compiler) name(sym *symbols.Symbol) string {
 		}
 	}
 	return sym.Name
-}
-
-func qnText(qn *ast.QualifiedName) string {
-	if qn == nil {
-		return ""
-	}
-	parts := make([]string, len(qn.Parts))
-	for i, p := range qn.Parts {
-		parts[i] = p.Text
-	}
-	return strings.Join(parts, "::")
 }
 
 // unwrapped is members with each membership wrapper removed.
