@@ -35,8 +35,8 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   qualification argument consumes, and a fixed-step host interface proved under Zephyr on QEMU
   and as an F´ component
 - **[Package management over git](package-management.md)** — a proposal: a package is any
-  GitHub repository carrying `.project.json` at a tag (`pkg:github/<org>/<repo>@<version>`), fetched
-  over HTTPS or `git`, verified and locked in `.project.lock.json`, installed under `lib/`; an optional
+  git repository carrying `.project.json` at a tag (`pkg:git/<host>/<path>@<version>`), fetched
+  with `git`, verified and locked in `.project.lock.json`, installed under `lib/`; an optional
   index is derived from the packages and rendered twice from the same records — plain JSON in the
   static layout other tools read, and standard-library-only SysML whose constraints `sysml -validate`
   checks; what exists today, what sysand does, the client commands and a three-phase plan

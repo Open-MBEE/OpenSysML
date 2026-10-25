@@ -13,7 +13,7 @@ Goals
 - Git is the storage and transport: a package is a git repository (or a path in one) whose tagged
   commit *is* the project directory; the index is a git repository too.
 - Portable: any tool that reads the OMG format can consume a package with nothing OpenSysML-specific —
-  no extension library, no registration, no bespoke metadata file. Publishing = tagging a GitHub repo.
+  no extension library, no registration, no bespoke metadata file. Publishing = tagging a git repository.
 - The index is optional and derived. Its machine form is plain JSON; its SysML form uses the standard
   library only, and the invariants are checked by `sysml` itself — the "SysML-powered" part is our
   gate and search surface, never a consumer requirement.
@@ -25,7 +25,7 @@ Non-goals (this phase)
 - A lax mode: a repository without `.project.json` at the tag is not a package and is an error,
   never a synthesized project.
 
-- A hosted account/token service. GitHub (or any git host) is the account system.
+- A hosted account/token service. The git host is the account system.
 - Replacing sysand for its users; interoperating with it is in scope, re-implementing its CLI is not.
 - Binary/engine packaging (that is `bring-your-own-engines.md`).
 
@@ -64,7 +64,7 @@ reading `.sysand/lib`, and be able to *emit* the static index layout so a sysand
 
 ## 3. Proposed design
 
-### 3.1 Package = a GitHub repository at a tag (nothing else)
+### 3.1 Package = a git repository at a tag (nothing else)
 
 - A package root holds `.project.json` (KerML §10.3 Table 12; `publisher` as the optional extension
   field sysand also uses), the model files, `LICENSES/`, README. `.meta.json` is generated at build
@@ -72,18 +72,24 @@ reading `.sysand/lib`, and be able to *emit* the static index layout so a sysand
 - A release is an annotated tag `v<semver>` (bare `<semver>` accepted) whose tree is the project
   directory; `version` in `.project.json` must equal the tag or the install fails. A `.kpar` release
   asset is optional and derived; when present its SHA-256 is what the lock and index record.
-- Sub-directory packages (monorepo) are allowed: `pkg:github/<org>/<repo>@<version>#<path>` (purl subpath).
+- Sub-directory packages (monorepo) are allowed: `pkg:git/<host>/<path>@<version>#<subpath>` (purl subpath).
 - **No `.project.json` at the tag → error** ("not a project interchange: <repo>@<tag> has no .project.json").
   No lax mode, no synthesized project.
-- Identity: `pkg:github/<org>/<repo>[@<version>][#<subpath>]` — the existing purl type, no new vocabulary;
-  `pkg:gitlab/...` is the same code path. Matching against installed projects already works
-  (`resourceSegments` keeps the last two path segments → `org`/`repo` slugs), so a usage written this
-  way resolves today once the project is on disk. `pkg:sysand/<publisher>/<name>` and
+- Identity: `pkg:git/<host>/<path>[@<version>][#<subpath>]` — the git remote itself, no provider
+  vocabulary (`pkg:git/github.com/Open-MBEE/OpenSysML-Extensions-Library@1.0.0`); a plain clone URL
+  with `@<version>` (`https://host/path.git@1.0.0`, `ssh://git@host/path@1.0.0`) is accepted and
+  normalized to it. Any host that speaks git is a package host: GitHub, GitLab, Gitea, a bare server,
+  a local path. Matching against installed projects already works (`resourceSegments` keeps the last
+  two path segments → `org`/`repo` slugs), so a usage written this way resolves today once the
+  project is on disk. `pkg:sysand/<publisher>/<name>` and
   `https://www.omg.org/spec/...kpar` keep resolving as they do now.
-- Resolution needs **no index**: tags come from `git ls-remote --tags` (or the host API), the tree from
-  the host's archive-by-tag URL (`https://github.com/<org>/<repo>/archive/refs/tags/<tag>.tar.gz`) with
-  `git clone --depth 1 --branch <tag>` as the fallback for private/SSH remotes. Any tool can do the same
-  with no OpenSysML involvement — that is the portability contract.
+- Resolution needs **no index** and nothing but git: tags come from `git ls-remote --tags`
+  (`v<version>`, then `<version>`), the tree from `git clone --depth 1 --branch <tag>` (or
+  `git archive --remote` where the server allows it), and the commit id is what the lock records.
+  A host's archive-by-tag URL (GitHub `/archive/refs/tags/<tag>.tar.gz`, GitLab `/-/archive/<tag>/`)
+  is only an internal fast path keyed by hostname, falling back to git; it never appears in an
+  identity or in the lock. Any tool can do the same with no OpenSysML involvement — that is the
+  portability contract.
 
 ### 3.2 Index = optional, derived, two renderings of the same facts
 
@@ -92,9 +98,9 @@ repo cannot state about itself, and to serve sysand clients. Nothing requires it
 
 - Source of truth stays the packages' own `.project.json` at their tags. The index repository
   (proposed `Open-MBEE/opensysml-index`) holds one record per release, *generated* from them by
-  `sysml -index add pkg:github/org/repo@1.2.0` (fetch, verify, record commit + checksums + usages).
+  `sysml -index add pkg:git/host/org/repo@1.2.0` (fetch, verify, record commit + checksums + usages).
 - **Machine rendering:** `<publisher>/<name>/versions.json` in sysand's static-index layout plus a
-  flat `index.json` — plain JSON, served from GitHub Pages or read raw from the repo. A sysand user
+  flat `index.json` — plain JSON, served as static files (e.g. GitHub Pages) or read raw from the repo. A sysand user
   points `--index` at it; a shell script can grep it.
 - **Model rendering:** `index/<org>/<repo>.sysml`, standard library only — no extension library,
   no metadata definitions of ours to vendor:
@@ -103,7 +109,7 @@ repo cannot state about itself, and to serve sysand clients. Nothing requires it
 package 'Open-MBEE/OpenSysML-Extensions-Library' {
     private import ScalarValues::*;
     item 'v1.0.0' : Index::Release {
-        :>> iri = "pkg:github/Open-MBEE/OpenSysML-Extensions-Library";
+        :>> iri = "pkg:git/github.com/Open-MBEE/OpenSysML-Extensions-Library";
         :>> version = "1.0.0";  :>> tag = "v1.0.0";  :>> commit = "5134a14d…";
         :>> sha256 = "…";  :>> license = "Apache-2.0";
         :>> uses = ("https://www.omg.org/spec/KerML/20250201/Semantic-Library.kpar", …);
@@ -135,12 +141,13 @@ package 'Open-MBEE/OpenSysML-Extensions-Library' {
 | `sysml -bundle` (exists) / `-publish` | builds the `.kpar`, checks tag == version, uploads the asset, opens the index PR |
 | `sysml -index check|add|yank` | maintains an index checkout; `check` = validate + closure |
 
-- Resolution order per usage: lock entry → direct source (`pkg:github`/`pkg:gitlab`/git URL: tags via
+- Resolution order per usage: lock entry → direct source (`pkg:git/...` or a git URL: tags via
   `ls-remote`) → configured indexes (`-index`, `OPENSYSML_INDEX`; ours by default, sysand static indexes
   readable as-is) for `pkg:sysand/...` and for search. Version constraints: exact today; add
   caret/tilde/ranges with the semver comparator already in `interchange.go`.
-- Fetch and verify: archive-over-HTTPS first, `git` fallback (shell out — honours the user's
-  credential helpers, no new dependency). Verify the tree against the recorded commit / kpar SHA-256
+- Fetch and verify: `git` is the protocol (shell out — honours the user's credential helpers, no new
+  dependency); a host archive over HTTPS is tried first where the hostname is known to serve one, with
+  `git` as the fallback. Verify the tree against the recorded commit / kpar SHA-256
   and the `.meta.json` checksums before anything is read (the archive reader already refuses on a
   checksum mismatch).
 - Install layout: `lib/<publisher>-<name>_<version>/` (or `.kpar`) beside `.project.json` — a neutral
@@ -149,7 +156,7 @@ package 'Open-MBEE/OpenSysML-Extensions-Library' {
 - Lock: no OMG format exists. `.project.lock.json` beside `.project.json` (same JSON tooling as
   `.meta.json`, one entry per usage: resolved IRI, version, source URL, commit, SHA-256); read
   `sysand-lock.toml` as an input when present for interop, never write it.
-- Editors: unresolved root namespace → LSP code action "add usage pkg:github/…" backed by the index
+- Editors: unresolved root namespace → LSP code action "add usage pkg:git/…" backed by the index
   search; `%project` in the REPL/kernel shows the closure.
 - Trust: the index PR gate plus, later, sigstore attestation of the `.kpar` from the package repo's CI
   identity — the `client/python/opensysml/signing.py` cosign-keyless pattern already used for our
@@ -167,15 +174,15 @@ package 'Open-MBEE/OpenSysML-Extensions-Library' {
 
 ## 4. Phasing
 
-Phase 1 — installable packages from GitHub, no index
+Phase 1 — installable packages from git remotes, no index
 1. Extensions Library: add `.project.json` (`publisher` Open-MBEE), tag `v1.0.0`; release job attaches
    the `.kpar` built by the existing `scripts/build-kpar.py` (the docs already promise it).
-2. `sysml -project-init`, `-add`, `-install`, `-lock` for direct sources (`pkg:github`/`pkg:gitlab`,
+2. `sysml -project-init`, `-add`, `-install`, `-lock` for direct sources (`pkg:git/...`,
    git URL, remote `.kpar`, local path/editable) with `.project.lock.json`; tag == version check;
    "no .project.json" error.
 3. Version-range constraints in `satisfies`.
 Gate: install the Extensions Library, ode4hera Requirements Management and MBSE4U SYSMOD from their
-GitHub repos (SYSMOD's repo already carries `.project.json`/`.meta.json` at root) into a fresh
+git repos (SYSMOD's repo already carries `.project.json`/`.meta.json` at root) into a fresh
 project and validate what `tests/kpar` validates today.
 
 Phase 2 — the index
@@ -192,11 +199,11 @@ Phase 3 — ecosystem
 
 ## 5. Decisions
 
-Settled: `pkg:github/<org>/<repo>@<version>` identity; no extension library (index definitions live in
+Settled: `pkg:git/<host>/<path>@<version>` identity (git is the protocol, no provider list); no extension library (index definitions live in
 the index repo, stdlib-only); no lax mode.
 
 Settled: install dir `lib/` beside `.project.json` (`.sysand/lib` still read); lock `.project.lock.json`;
-fetch = host archive over HTTPS with `git` fallback.
+fetch = `git`, with a host archive over HTTPS as an internal fast path.
 
 Open:
 1. Index repo name/location, and PR-gated only vs also CI-published from package releases.
