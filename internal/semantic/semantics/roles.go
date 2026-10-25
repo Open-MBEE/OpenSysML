@@ -32,11 +32,30 @@ func (m *Model) ImplicitRoleRedefinitions(sym *symbols.Symbol) []*symbols.Symbol
 	if sym == nil || sym.OwnerScope == nil {
 		return nil
 	}
+	if isViewRendering(sym.Decl) || stateActionFQN(sym.Decl) != "" {
+		return m.libraryRoleRedefinitions(sym)
+	}
+	return m.caseRoleRedefinitions(sym)
+}
+
+// libraryRoleRedefinitions is the library feature a view's `render` member or a
+// state's `entry`/`do`/`exit` action redefines by its role. Unlike a case role, it
+// does not mask the library name: `sm.entryAction` resolves beside `entry action en`.
+func (m *Model) libraryRoleRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
 	if isViewRendering(sym.Decl) {
 		return m.libraryRoleRedefinition(sym, viewRenderingFQN)
 	}
 	if fqn := stateActionFQN(sym.Decl); fqn != "" {
 		return m.libraryRoleRedefinition(sym, fqn)
+	}
+	return nil
+}
+
+// caseRoleRedefinitions is the same-role features of the owner's generals that a
+// case's subject, objective, actor or stakeholder redefines by position.
+func (m *Model) caseRoleRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil || sym.OwnerScope == nil {
+		return nil
 	}
 	role := roleOf(sym)
 	if role == noCaseRole {
