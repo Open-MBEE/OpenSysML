@@ -410,8 +410,11 @@ anchor on the title, `[[mass_budget]]` or `[#mass_budget]`, is the
 section's name, and `<<mass_budget>>` or `sysml:ref[mass_budget]` resolves
 to it. An id spelt with characters a name cannot carry (`[[mass-budget]]`)
 is normalised by the slug rule to `mass_budget`, and an xref written as the
-id, `<<mass-budget>>`, still finds it. Without an anchor the name is the
-slug of the title; Asciidoctor's automatic `_title` ids are not used.
+id, `<<mass-budget>>` or `sysml:ref['mass-budget']`, still finds it. An id
+already taken as an earlier heading's name gets the `_2` suffix and does
+not take that name over, and a repeated id keeps naming its first heading.
+Without an anchor the name is the slug of the title; Asciidoctor's
+automatic `_title` ids are not used.
 
 Constructs no content block renders are refused with a typed planning
 error naming the construct and its body line, as for Markdown: a document

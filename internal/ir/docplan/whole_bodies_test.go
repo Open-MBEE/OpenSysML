@@ -268,3 +268,37 @@ func TestCompileWholeDocumentAmbiguousDocumentUsage(t *testing.T) {
 		t.Errorf("line %d, located %v", planning.Line, planning.Origin.Located())
 	}
 }
+
+// An allocated name is never shadowed by a later heading's explicit id, a
+// repeated id keeps naming its first heading, and a quoted name spells an id.
+func TestCompileWholeDocumentSectionAliases(t *testing.T) {
+	useRecordedAsciiDoc(t)
+	fixture := loadPlanningFixture(t, `
+	part def Report :> Document {
+		attribute redefines title = "Report";
+		rep language "markdown" /* # Overview */
+		`+asciiDocBody(t, "asciidoc_aliases.adoc")+`
+	}
+`)
+	plan := fixture.mustCompile(t, "Report")
+	want := strings.TrimLeft(`
+overview Overview
+overview_2 Appendix
+  paragraph
+power_budget Power budget
+power_budget_2 Reserve power
+`, "\n")
+	if got := outline(plan.Content(), 0); got != want {
+		t.Fatalf("outline:\n%s\nwant:\n%s", got, want)
+	}
+	var refs []string
+	for _, run := range plan.Content()[1].Children()[0].Runs() {
+		if run.Kind() == RunRef {
+			refs = append(refs, strings.Join(run.RefPath(), "/")+"="+run.Text())
+		}
+	}
+	want = "overview=Overview power_budget=Power budget power_budget=Power budget"
+	if got := strings.Join(refs, " "); got != want {
+		t.Errorf("references %q, want %q", got, want)
+	}
+}

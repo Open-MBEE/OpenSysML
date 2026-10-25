@@ -30,12 +30,17 @@ type markupOutline struct {
 	ids      map[string]string
 }
 
-// section is the section named by name, or by the explicit id name spells.
+// section is the section named by name, else the one whose explicit id name
+// spells; an allocated name is never shadowed by a later heading's id.
 func (o *markupOutline) section(name string) (markupSection, bool) {
-	if allocated, ok := o.ids[name]; ok {
-		name = allocated
+	if section, ok := o.sections[name]; ok {
+		return section, true
 	}
-	section, ok := o.sections[name]
+	allocated, ok := o.ids[name]
+	if !ok {
+		return markupSection{}, false
+	}
+	section, ok := o.sections[allocated]
 	return section, ok
 }
 
@@ -158,7 +163,7 @@ func (c *compiler) collectContentNames(owner *symbols.Symbol, used map[string]bo
 // scanBodies names the headings of every document and section body under
 // owner in declaration order: the explicit id, else a slug of the title (see
 // sectionName), each made unique within the document, with the named path
-// the section takes.
+// the section takes; a repeated explicit id keeps naming its first heading.
 func (c *compiler) scanBodies(owner *symbols.Symbol, path []string, outline *markupOutline, used map[string]bool) {
 	for _, member := range c.effectiveMembers(owner) {
 		if member.Kind == symbols.SymbolPartUsage && c.isContent(member) {
@@ -184,7 +189,7 @@ func (c *compiler) scanBodies(owner *symbols.Symbol, path []string, outline *mar
 			}
 			name := uniqueSectionName(sectionName(block.ID, block.Title), used)
 			used[name] = true
-			if block.ID != "" {
+			if _, taken := outline.ids[block.ID]; block.ID != "" && !taken {
 				outline.ids[block.ID] = name
 			}
 			outline.names[member] = append(outline.names[member], name)
@@ -342,11 +347,15 @@ func (c *compiler) nestMarkupSections(owner, rep *symbols.Symbol, parsed *parsed
 // document. A usage typed by more than one document is an ambiguous target.
 func (c *compiler) markupSectionRef(scope *symbols.Scope, destination string, value ast.Node, origin symbols.Origin) (markupSection, *symbols.Symbol, bool, error) {
 	name, ok := refQualifiedName(value)
-	if !ok || (len(name.Parts) == 1 && !name.Global) {
+	if !ok {
 		section, found := c.outlineOf(c.entry).section(destination)
 		return section, nil, found, nil
 	}
 	parts := name.Parts
+	if len(parts) == 1 && !name.Global {
+		section, found := c.outlineOf(c.entry).section(parts[0].Text)
+		return section, nil, found, nil
+	}
 	prefix := &ast.QualifiedName{Global: name.Global, Parts: parts[:len(parts)-1]}
 	resolved, ok := c.resolver.ResolveQualified(scope, prefix)
 	if !ok || resolved == nil {
