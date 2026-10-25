@@ -17,7 +17,7 @@ A SysML v2 and KerML 1.1 implementation delivering the integrated tooling experi
 ### Design Principles
 
 - **Performance:** sub-millisecond parsing, a single static binary, and no JVM or Eclipse runtime
-- **Completeness:** SysML v2 textual notation support (98 of 98 standard library files parse cleanly: 94 vendored OMG files and 4 OpenSysML extensions)
+- **Completeness:** SysML v2 textual notation support — every bundled standard-library file parses cleanly (the measured count is the *Stdlib parser conformance* row of [the roadmap's gate table](../project/roadmap.md#where-the-repository-stands))
 - **Executable models:** beyond validation, a runtime that instantiates, evaluates and simulates
 - **Incremental and lazy:** parse immediately and resolve semantics on demand, following the precedent set by gopls and rust-analyzer
 - **Immutable AST:** all semantic state resides in side tables keyed by node or symbol
@@ -53,10 +53,16 @@ packages that implement them, the invariants below are requirements the tool eva
 
 ```
 github.com/Open-MBEE/OpenSysML
-├── cmd/
+├── cmd/                    # The binaries (Makefile COMMANDS; WASM_COMMANDS adds the last four as WebAssembly builds)
+│   ├── sysml/              # Interactive REPL and command-line binary
 │   ├── sysml-lsp/          # LSP server binary
 │   ├── sysml-grpc/         # gRPC server binary
-│   └── sysml/              # Interactive REPL binary
+│   ├── sysml-jupyter-kernel/ # Jupyter kernel (frontend/jupyter)
+│   ├── sysml-mcp/          # Model Context Protocol server for coding agents (frontend/mcp)
+│   ├── sysml-engine/       # In-process engine over SysML text, JSON-RPC envelopes (frontend/engine)
+│   ├── sysml-syntax/       # Purely syntactic RPCs for WebAssembly builds (frontend/syntax)
+│   ├── sysml-core/         # Parsing, diagnostics and symbol facts without execution (frontend/core)
+│   └── sysml-wasm/         # The browser bundle published as @openmbee/opensysml-wasm
 ├── internal/               # One directory per layer; a package imports only the layers below it
 │   ├── syntax/
 │   │   ├── source/         # Source files, spans, line indexing
@@ -77,7 +83,7 @@ github.com/Open-MBEE/OpenSysML
 │   ├── ir/
 │   │   ├── lower/          # AST → execution IR (ActionGraph/StateGraph)
 │   │   ├── queryplan/      # Document-query definitions → immutable query plans
-│   │   ├── docplan/        # Document definitions → immutable document plans
+│   │   ├── docplan/        # Document definitions → immutable document plans; docplan/markup parses Markdown and AsciiDoc prose bodies
 │   │   └── view/           # View and viewpoint evaluation
 │   ├── check/
 │   │   ├── passes/         # Validation passes (syntax → constraints); kit, behavior, document, diagram, identity
@@ -109,13 +115,19 @@ github.com/Open-MBEE/OpenSysML
 │   │   └── envvar/         # Environment variables the binaries read
 │   └── frontend/
 │       ├── protoconv/      # Runtime values and instance graphs ↔ API protobuf messages
+│       ├── symbolfacts/    # Symbol facts (attributes, bounds, metadata) the services report
 │       ├── grpc/           # gRPC service implementation
 │       ├── lsp/            # LSP protocol implementation
 │       ├── repl/           # REPL loop implementation
-│       ├── stdiorpc/       # JSON-RPC over stdio
+│       ├── mcp/            # Model Context Protocol server
+│       ├── jupyter/        # Jupyter messaging protocol over ZeroMQ
+│       ├── engine/, syntax/, core/, combined/  # The engine, syntactic, core and combined RPC surfaces (WebAssembly-capable)
+│       ├── stdiorpc/       # JSON-RPC over stdio; jsonrpc/ speaks its JSON half over a pipe
+│       ├── report/         # JUnit and SARIF report writers
+│       ├── buildinfo/      # What a binary reports about its own build
 │       └── usage/          # Command-line usage and manual pages
-├── client/python/          # Python client bindings (opensysml)
-├── client/rust/            # Rust client (opensysml) and its conformance runner
+├── client/                 # Client libraries: python/, node/, java/, rust/, julia/, matlab/, jupyter-kernel/, and opensysml/ (the public Go API)
+├── editors/                # VS Code extension, JupyterLab extension, OpenSysML MDK for Cameo, SysON plugin
 ├── api/proto/              # Protobuf service definitions
 ├── tests/                  # Black-box suites, benchmarks, shared fixtures (tests/parser, tests/grpc, tests/testdata, …)
 ├── tools/                  # Nested module: referees, censuses and generators never linked by a shipped binary
