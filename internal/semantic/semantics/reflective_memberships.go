@@ -508,7 +508,7 @@ func (m *Model) membershipValue(sym *symbols.Symbol, feature string) (symbols.Fi
 	rel := sym.Implicit
 	switch feature {
 	case "memberName", "ownedMemberName":
-		return stringOrEmpty(simpleSymbolName(rel.Member)), true
+		return stringOrEmpty(SimpleSymbolName(rel.Member)), true
 	case "memberShortName", "ownedMemberShortName":
 		return stringOrEmpty(m.EffectiveShortNameOf(rel.Member)), true
 	case "visibility":
@@ -830,7 +830,7 @@ func (m *Model) aliasMembershipElements(sym *symbols.Symbol, feature string) ([]
 func (m *Model) aliasMembershipValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, bool) {
 	switch feature {
 	case "memberName":
-		return stringOrEmpty(simpleSymbolName(sym)), true
+		return stringOrEmpty(SimpleSymbolName(sym)), true
 	case "memberShortName":
 		return stringOrEmpty(sym.ShortName), true
 	case "visibility":

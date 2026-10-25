@@ -166,7 +166,7 @@ func (m *Model) compileCondition(scope *symbols.Scope, n ast.Node) *symbols.Filt
 	case *ast.LiteralString:
 		return &symbols.FilterPredicate{
 			Op:    symbols.FilterConst,
-			Value: symbols.FilterValue{Kind: symbols.FilterValueString, Str: unquote(e.Value)},
+			Value: symbols.FilterValue{Kind: symbols.FilterValueString, Str: source.StringValue(e.Value)},
 			Span:  spanOf(e),
 		}
 	case *ast.NullExpr:
@@ -462,7 +462,7 @@ func (m *Model) compileReference(scope *symbols.Scope, qn *ast.QualifiedName, sp
 			Op:         symbols.FilterFeature,
 			TypeFQN:    ownerFQN,
 			Type:       owner,
-			Feature:    simpleSymbolName(sym),
+			Feature:    SimpleSymbolName(sym),
 			ResultType: sym,
 			Span:       span,
 		}
@@ -560,7 +560,7 @@ func describeResultType(sym *symbols.Symbol) string {
 	if sym == nil {
 		return "an unsupported expression"
 	}
-	if name := simpleSymbolName(sym); name != "" {
+	if name := SimpleSymbolName(sym); name != "" {
 		return "a " + name + " result"
 	}
 	return "a non-Boolean result"
@@ -872,7 +872,7 @@ func isReflectiveMetaclassFQN(fqn string) bool {
 
 // candidateName names a candidate for a diagnostic message.
 func candidateName(cand *symbols.Symbol) string {
-	if name := simpleSymbolName(cand); name != "" {
+	if name := SimpleSymbolName(cand); name != "" {
 		return name
 	}
 	return "the candidate element"
@@ -944,7 +944,7 @@ func (m *Model) metaclassConformsTo(cand, typ *symbols.Symbol, typeFQN string) b
 	}
 	// The metaclass library is not loaded, so conformance can only be judged on
 	// the name the candidate's metaclass has.
-	return simpleName(typeFQN) == simpleSymbolName(meta)
+	return simpleName(typeFQN) == SimpleSymbolName(meta)
 }
 
 // MetaclassConforms reports whether a candidate's metaclass conforms to a type.
@@ -1533,19 +1533,13 @@ func simpleName(fqn string) string {
 	return fqn
 }
 
-// simpleSymbolName is a symbol's own name, without the qualification an indexed
+// SimpleSymbolName is a symbol's own name, without the qualification an indexed
 // symbol's name may carry.
-func simpleSymbolName(sym *symbols.Symbol) string {
+func SimpleSymbolName(sym *symbols.Symbol) string {
 	if sym == nil {
 		return ""
 	}
 	return simpleName(sym.Name)
-}
-
-// SimpleSymbolName is a symbol's own name, without the qualification an indexed
-// symbol's name may carry.
-func SimpleSymbolName(sym *symbols.Symbol) string {
-	return simpleSymbolName(sym)
 }
 
 // ownerSymbol returns the element a symbol is a member of.
@@ -1584,10 +1578,4 @@ func IsMetadataType(sym *symbols.Symbol) bool {
 		return false
 	}
 	return sym.Kind == symbols.SymbolMetadataDef || sym.Kind == symbols.SymbolMetaclass
-}
-
-// unquote reads the text a string literal spells, so a filter constant matches
-// the same string the runtime evaluates the literal to.
-func unquote(s string) string {
-	return source.StringValue(s)
 }
