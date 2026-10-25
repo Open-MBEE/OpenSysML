@@ -36,9 +36,10 @@ func resolveStdlibDoc(t *testing.T, name, src string) (*Model, *symbols.Scope, [
 
 // A case role redefines the library's role parameter (SysML v2 §7.22), and a
 // redefined feature is not inherited under its name, by the redefinition's owner
-// or by what specializes it (KerML §7.3.4.5, §8.3.3.1.10): `u.subj` is unresolved
-// beside `u.s`, as `b.x` is beside `attribute y :>> x`, while an unnamed
-// redefinition takes the redefined name, so the chain `u.obj` reads `objective { }`.
+// — a definition or a usage, whose type still offers the name — or by what
+// specializes it (KerML §7.3.4.5, §8.3.3.1.10): `u.subj` is unresolved beside
+// `u.s`, as `b.x` and `a.x` are beside `attribute y :>> x`, while an unnamed
+// redefinition takes the redefined name, so `a2.x` and the chain `u.obj` resolve.
 func TestRedefinedRoleNameIsNotInherited(t *testing.T) {
 	m, root, unresolved := resolveStdlibDoc(t, "roles.sysml", `package P {
 		part def A { attribute x : ScalarValues::Integer; }
@@ -50,6 +51,9 @@ func TestRedefinedRoleNameIsNotInherited(t *testing.T) {
 		use case named : Named;
 		requirement def RD { subject x; }
 		requirement r : RD;
+		part a : A { attribute y :>> x; }
+		part a2 : A { attribute :>> x = 1; }
+		use case u3 { subject s3 : ScalarValues::Integer; }
 		ref q1 = b.x;
 		ref q2 = b.y;
 		ref q3 = u.subj;
@@ -60,8 +64,13 @@ func TestRedefinedRoleNameIsNotInherited(t *testing.T) {
 		ref q8 = named.o;
 		ref q9 = r.subj;
 		ref q10 = r.x;
+		ref q11 = a.x;
+		ref q12 = a.y;
+		ref q13 = a2.x;
+		ref q14 = u3.subj;
+		ref q15 = u3.s3;
 	}`)
-	want := []string{"x", "subj", "subj", "obj", "subj"}
+	want := []string{"x", "subj", "subj", "obj", "subj", "x", "subj"}
 	if strings.Join(unresolved, ",") != strings.Join(want, ",") {
 		t.Fatalf("unresolved members = %v, want %v", unresolved, want)
 	}
