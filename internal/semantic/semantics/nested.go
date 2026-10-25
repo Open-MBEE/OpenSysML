@@ -48,11 +48,12 @@ func (m *Model) computeImplicitSubsettings(sym *symbols.Symbol) []*symbols.Symbo
 	portion := ast.PortionNone
 	composite := true
 	if ok {
-		if usage.IsVariant || usage.IsBodyParameter || IsParameter(sym) {
+		if usage.IsVariant {
 			return nil
 		}
 		portion = usage.Portion
-		composite = usageIsComposite(usage)
+		// A KerML feature is composite only when declared so; a SysML usage by its kind.
+		composite = m.EffectiveIsComposite(sym)
 	} else if _, isSubstate := sym.Decl.(*ast.SubstateMember); !isSubstate {
 		// Only usages carry these rules, plus the `state s;` of a state body,
 		// which is a composite StateUsage the parser records as a SubstateMember.
@@ -89,7 +90,7 @@ func (m *Model) implicitSubsettingFQN(sym *symbols.Symbol, usage *ast.Usage, own
 	}
 	fqn, step := nestedRuleFQN(u, o)
 	if step {
-		return m.stepNestedFQN(owner)
+		return m.stepNestedFQN(owner, composite)
 	}
 	return fqn
 }
@@ -179,9 +180,7 @@ func nestedRuleFQN(u NestedUsage, owner NestedOwner) (fqn string, step bool) {
 	case ast.UsageRequirement, ast.UsageSatisfy, ast.UsageConcern, ast.UsageViewpoint:
 		return requirementNestedFQN(owner, u.Composite, u.Portion)
 	case ast.UsageStep:
-		if u.Composite {
-			return "", true
-		}
+		return "", true
 	}
 	return "", false
 }
@@ -333,12 +332,20 @@ func occurrenceNestedFQN(owner NestedOwner, composite bool, portion ast.PortionK
 
 // stepNestedFQN is the KerML step fallback (KerML 1.1 §8.3.4.8), whose owner is
 // a KerML type judged by library conformance rather than by declaration kind.
-func (m *Model) stepNestedFQN(owner *symbols.Symbol) string {
+func (m *Model) stepNestedFQN(owner *symbols.Symbol, composite bool) string {
 	switch {
 	case m.conformsByName(owner, "Performances::Performance"):
-		return stepFallbackFQNs[0]
+		// Only a composite step is a subperformance; a parameter such as
+		// LoopAction::body is enclosed by the performance, not part of it.
+		if composite {
+			return stepFallbackFQNs[0]
+		}
+		return stepFallbackFQNs[2]
 	case m.conformsByName(owner, "Objects::Object"):
-		return stepFallbackFQNs[1]
+		if composite {
+			return stepFallbackFQNs[1]
+		}
+		return ""
 	case m.conformsByName(owner, "Occurrences::Occurrence"):
 		return stepFallbackFQNs[2]
 	}

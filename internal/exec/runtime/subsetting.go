@@ -541,15 +541,10 @@ func (ctx *Context) metadataSubsettingNames(sym, owner *symbols.Symbol) []string
 // model-declared usages contribute theirs.
 func (ctx *Context) implicitSubsettingNames(sym, owner *symbols.Symbol) []string {
 	var names []string
-	if ctx.libraryTier(sym) == symbols.TierNone {
-		for _, sub := range ctx.model.semantics.ImplicitSubsettings(sym) {
-			names = append(names, sub.Name)
-		}
+	for _, sub := range ctx.model.semantics.ImplicitSubsettings(sym) {
+		names = append(names, sub.Name)
 	}
 	for _, redefined := range ctx.redefinedFeatures(sym, owner) {
-		if ctx.libraryTier(redefined) != symbols.TierNone {
-			continue
-		}
 		for _, sub := range ctx.model.semantics.ImplicitSubsettings(redefined) {
 			names = append(names, sub.Name)
 		}

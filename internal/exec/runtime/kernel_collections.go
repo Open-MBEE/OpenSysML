@@ -4,6 +4,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"maps"
+	"slices"
 )
 
 // kernelCollectionRead answers a read of a Kernel collection the shape leaves out from the
@@ -150,6 +152,21 @@ func (ctx *Context) shapeSubsettersOf(inst *Instance, sym *symbols.Symbol) []*Ef
 			out = append(out, shape)
 		}
 	}
+	// A member the object holds outside its shape (a library parameter the run
+	// filled, such as a loop's `body`) contributes like any other subsetter.
+	for _, name := range slices.Sorted(maps.Keys(inst.FeatureValues)) {
+		fv := inst.FeatureValues[name]
+		if fv == nil || fv.Feature == nil || fv.Feature.Symbol == nil || seen[name] || fv.Feature.Symbol == sym {
+			continue
+		}
+		if slices.ContainsFunc(out, func(f *EffectiveFeature) bool { return f.Name == name }) {
+			continue
+		}
+		if !ctx.subsetsTransitively(fv.Feature.Symbol, inst.Type, sym) {
+			continue
+		}
+		out = append(out, fv.Feature)
+	}
 	return out
 }
 
@@ -162,9 +179,7 @@ func (ctx *Context) subsetsTransitively(feature, owner, target *symbols.Symbol) 
 		queue = queue[1:]
 		next := ctx.relatedFeatures(cur, owner, ast.RelSubsets)
 		next = append(next, ctx.redefinedFeatures(cur, owner)...)
-		if ctx.libraryTier(cur) == symbols.TierNone {
-			next = append(next, ctx.model.semantics.ImplicitSubsettings(cur)...)
-		}
+		next = append(next, ctx.model.semantics.ImplicitSubsettings(cur)...)
 		for _, sub := range next {
 			if sub == target {
 				return true
