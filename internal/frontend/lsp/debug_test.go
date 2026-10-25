@@ -133,7 +133,7 @@ func debugServer(t *testing.T, name, src string) (*Server, uri.URI, *debugRecord
 	rec := &debugRecorder{}
 	s.client = rec
 	s.notifier = rec
-	docURI := uri.File(name)
+	docURI := testDocURI(t, name)
 	if err := s.DidOpen(context.Background(), &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{URI: docURI, LanguageID: "sysml", Version: 1, Text: src},
 	}); err != nil {
@@ -358,7 +358,7 @@ func TestDebugProtocolShapes(t *testing.T) {
 // object, a session not live, a node not drawn or a signal not taken is refused
 // with a typed InvalidParams error.
 func TestDebugRefusesWhatItCannotRun(t *testing.T) {
-	s, docURI, _ := debugServer(t, "/w/m.sysml", debugMachine+`
+	s, docURI, _ := debugServer(t, "m.sysml", debugMachine+`
 package Other {
 	part def Widget;
 	view widgets : TreeView { expose Other::Widget; }
@@ -435,7 +435,7 @@ package Other {
 // A state machine session reports active states per region, fired transitions
 // and queued events in render IDs; signals, the clock and breakpoints drive it.
 func TestDebugStateMachineSession(t *testing.T) {
-	s, docURI, _ := debugServer(t, "/w/m.sysml", debugMachine)
+	s, docURI, _ := debugServer(t, "m.sysml", debugMachine)
 	r := render(t, s, docURI, "MachineViews::opsView")
 	id := ids(t, r)
 	edge := func(from, to string) string { return id[from] + "->" + id[to] }
@@ -577,7 +577,7 @@ package MachineViews {
 // An entry transition into a nested state is taken from the start marker of the
 // body it is written in — the machine's — not that of the state it lands in.
 func TestDebugEntryTransitionIntoANestedState(t *testing.T) {
-	s, docURI, _ := debugServer(t, "/w/m.sysml", debugDeep)
+	s, docURI, _ := debugServer(t, "m.sysml", debugDeep)
 	r := render(t, s, docURI, "MachineViews::deepView")
 	id := ids(t, r)
 	var machineStart string
@@ -601,7 +601,7 @@ func TestDebugEntryTransitionIntoANestedState(t *testing.T) {
 // A continue runs what is due now and holds the clock: an event due later
 // leaves the machine waiting, at the same instant, until an advance reaches it.
 func TestDebugContinueHoldsTheClock(t *testing.T) {
-	s, docURI, _ := debugServer(t, "/w/m.sysml", debugMachine)
+	s, docURI, _ := debugServer(t, "m.sysml", debugMachine)
 	id := ids(t, render(t, s, docURI, "MachineViews::opsView"))
 	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
@@ -670,7 +670,7 @@ package TransientViews {
 // An advance pauses at a breakpoint state as it becomes active, a state left
 // again at the same instant included, the clock held at that instant.
 func TestDebugAdvancePausesOnATransientState(t *testing.T) {
-	s, docURI, _ := debugServer(t, "/w/t.sysml", debugTransient)
+	s, docURI, _ := debugServer(t, "t.sysml", debugTransient)
 	id := ids(t, render(t, s, docURI, "TransientViews::descentView"))
 	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
@@ -759,7 +759,7 @@ package BViews {
 // does: the machine's own Go rather than the first Go declared in the document,
 // and a signal declared in its body; a qualified name still names what it says.
 func TestDebugSendResolvesSignalInTargetScope(t *testing.T) {
-	s, docURI, _ := debugServer(t, "/w/s.sysml", debugSameNamedSignals)
+	s, docURI, _ := debugServer(t, "s.sysml", debugSameNamedSignals)
 	id := ids(t, render(t, s, docURI, "BViews::machineView"))
 	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
@@ -792,7 +792,7 @@ func TestDebugSendResolvesSignalInTargetScope(t *testing.T) {
 // A breakpoint on a pseudostate pauses the run once the dispatch routed through
 // it completes, the pseudostate reported as where it paused.
 func TestDebugBreakpointOnAPseudostatePauses(t *testing.T) {
-	s, docURI, _ := debugServer(t, "/w/j.sysml", debugJunction)
+	s, docURI, _ := debugServer(t, "j.sysml", debugJunction)
 	id := ids(t, render(t, s, docURI, "RoutingViews::opsView"))
 	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
@@ -820,7 +820,7 @@ func TestDebugBreakpointOnAPseudostatePauses(t *testing.T) {
 // A breakpoint on the machine's `done` pauses the run standing on it, before the
 // machine completes; the next step completes it.
 func TestDebugBreakpointOnDonePausesBeforeCompletion(t *testing.T) {
-	s, docURI, _ := debugServer(t, "/w/h.sysml", `package Halting {
+	s, docURI, _ := debugServer(t, "h.sysml", `package Halting {
 	attribute def Halt;
 	state def Runner {
 		entry; then idle;
@@ -872,7 +872,7 @@ package HaltingViews {
 // A step that lands a token on an action breakpoint pauses there, as a continue
 // does; the step after moves it past the breakpoint.
 func TestDebugStepPausesAtAnActionBreakpoint(t *testing.T) {
-	s, docURI, _ := debugServer(t, "/w/f.sysml", debugFlow)
+	s, docURI, _ := debugServer(t, "f.sysml", debugFlow)
 	id := ids(t, render(t, s, docURI, "FlowViews::driveView"))
 	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "FlowViews::driveView", Target: "Flows::Drive",
@@ -904,7 +904,7 @@ func TestDebugStepPausesAtAnActionBreakpoint(t *testing.T) {
 // on its fork, returning the session and the rendering's IDs.
 func pausedAtSplit(t *testing.T) (*Server, string, map[string]string) {
 	t.Helper()
-	s, docURI, _ := debugServer(t, "/w/f.sysml", debugFlow)
+	s, docURI, _ := debugServer(t, "f.sysml", debugFlow)
 	id := ids(t, render(t, s, docURI, "FlowViews::driveView"))
 	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "FlowViews::driveView", Target: "Flows::Drive",
@@ -1004,7 +1004,7 @@ package ReusedViews {
 // A breakpoint on one drawing of a node a nested flow reuses stops the run at
 // that occurrence only, not at the same declaration another nested flow runs.
 func TestDebugBreakpointOnAReusedNodeStopsAtItsOccurrence(t *testing.T) {
-	s, docURI, _ := debugServer(t, "/w/r.sysml", debugReused)
+	s, docURI, _ := debugServer(t, "r.sysml", debugReused)
 	r := render(t, s, docURI, "ReusedViews::twiceView")
 	var a, b, lookInA, lookInB string
 	for _, n := range r.Nodes {
@@ -1052,7 +1052,7 @@ func TestDebugBreakpointOnAReusedNodeStopsAtItsOccurrence(t *testing.T) {
 // found on a breakpoint: a token still held at one already stopped at does not
 // stand in for the one the run has just reached.
 func TestDebugPausedAtIsTheBreakpointReachedNotTheFirstTokenOnOne(t *testing.T) {
-	s, docURI, _ := debugServer(t, "/w/f.sysml", debugFlow)
+	s, docURI, _ := debugServer(t, "f.sysml", debugFlow)
 	id := ids(t, render(t, s, docURI, "FlowViews::driveView"))
 	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "FlowViews::driveView", Target: "Flows::Drive",
@@ -1115,7 +1115,7 @@ package CountingViews {
 // already runs, so its timed effect happens once; an object exhibiting it twice
 // is ambiguous.
 func TestDebugStartAttachesToThePerformersMachine(t *testing.T) {
-	s, docURI, _ := debugServer(t, "/w/c.sysml", debugCounter)
+	s, docURI, _ := debugServer(t, "c.sysml", debugCounter)
 	id := ids(t, render(t, s, docURI, "CountingViews::opsView"))
 	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
@@ -1143,7 +1143,7 @@ func TestDebugStartAttachesToThePerformersMachine(t *testing.T) {
 // the last snapshot read from: each snapshot releases what the one before it
 // reported, so a long-lived session's record stays bounded while the counts go on.
 func TestDebugSessionReleasesTheHistoryItReports(t *testing.T) {
-	s, docURI, _ := debugServer(t, "/w/m.sysml", debugMachine)
+	s, docURI, _ := debugServer(t, "m.sysml", debugMachine)
 	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "MachineViews::opsView", Target: "Machines::Ops", Object: "Machines::Robot",
@@ -1165,7 +1165,7 @@ func TestDebugSessionReleasesTheHistoryItReports(t *testing.T) {
 		t.Errorf("after a request firing nothing taken %d, kept %d of %d; want none, none kept, %d counted", len(snap.Taken), len(machine.FiredTransitions()), machine.FiredCount(), fired+1)
 	}
 
-	s, docURI, _ = debugServer(t, "/w/f.sysml", debugFlow)
+	s, docURI, _ = debugServer(t, "f.sysml", debugFlow)
 	snap = mustDebug(t, s, MethodDebugStart, &debugStartParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "FlowViews::driveView", Target: "Flows::Drive",
 	})
@@ -1186,7 +1186,7 @@ func TestDebugSessionReleasesTheHistoryItReports(t *testing.T) {
 // A machine's queue shows every message pending in its context, a message no
 // state of the machine accepts now included: it is in flight all the same.
 func TestDebugMachineQueueShowsEveryPendingMessage(t *testing.T) {
-	s, docURI, _ := debugServer(t, "/w/m.sysml", debugMachine)
+	s, docURI, _ := debugServer(t, "m.sysml", debugMachine)
 	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "MachineViews::opsView", Target: "Machines::Ops", Object: "Machines::Robot",
@@ -1211,7 +1211,7 @@ func TestDebugMachineQueueShowsEveryPendingMessage(t *testing.T) {
 // An action session reports every token (forked, nested, parked on the clock or
 // a signal, held at a join) with the edges it took, in the rendering's IDs.
 func TestDebugActionSession(t *testing.T) {
-	s, docURI, _ := debugServer(t, "/w/f.sysml", debugFlow)
+	s, docURI, _ := debugServer(t, "f.sysml", debugFlow)
 	r := render(t, s, docURI, "FlowViews::driveView")
 	id := ids(t, r)
 	edge := func(from, to string) string { return id[from] + "->" + id[to] }
@@ -1320,7 +1320,7 @@ func TestDebugActionSession(t *testing.T) {
 // An action that fails at a step reports the failure; a run that exceeds its
 // budget does too, as a failure rather than a hang.
 func TestDebugActionFailure(t *testing.T) {
-	s, docURI, _ := debugServer(t, "/w/f.sysml", `package Flows {
+	s, docURI, _ := debugServer(t, "f.sysml", `package Flows {
 	private import ScalarValues::*;
 	action def Spin {
 		attribute n : Integer = 0;
@@ -1372,7 +1372,7 @@ package FlowViews {
 // An edit leaving the behavior, performer and view as they were moves the session
 // to the fresh IDs, announced by debugChanged; one to the behavior ends it.
 func TestDebugSessionFollowsEdits(t *testing.T) {
-	s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+	s, docURI, rec := debugServer(t, "m.sysml", debugMachine)
 	ctx := context.Background()
 	name := uriToName(docURI)
 	r := render(t, s, docURI, "MachineViews::opsView")
@@ -1441,7 +1441,7 @@ func TestDebugSessionFollowsEdits(t *testing.T) {
 // flight finishes at the documents it began with and the next one finds the
 // session already moved to the edited ones.
 func TestDebugEditWaitsForTheRequestInFlight(t *testing.T) {
-	s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+	s, docURI, rec := debugServer(t, "m.sysml", debugMachine)
 	name := uriToName(docURI)
 	session := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
@@ -1477,7 +1477,7 @@ func TestDebugEditWaitsForTheRequestInFlight(t *testing.T) {
 // Every snapshot of a session, answered or notified, takes the next revision, so
 // a client can tell the newer of two that arrive out of order.
 func TestDebugSnapshotsAreNumbered(t *testing.T) {
-	s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+	s, docURI, rec := debugServer(t, "m.sysml", debugMachine)
 	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "MachineViews::opsView", Target: "Machines::Ops", Object: "Machines::Robot",
@@ -1520,7 +1520,7 @@ func TestDebugSnapshotsAreNumbered(t *testing.T) {
 // a machine and for an action paused in a nested flow alike.
 func TestDebugPauseFollowsEdits(t *testing.T) {
 	t.Run("machine", func(t *testing.T) {
-		s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+		s, docURI, rec := debugServer(t, "m.sysml", debugMachine)
 		id := ids(t, render(t, s, docURI, "#state"))
 		snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
@@ -1559,7 +1559,7 @@ func TestDebugPauseFollowsEdits(t *testing.T) {
 		wantStrings(t, "active after resuming", snap.ActiveStates, []string{fresh["motion"], fresh["busy"], fresh["working"], fresh["clock"], fresh["waiting"]})
 	})
 	t.Run("action", func(t *testing.T) {
-		s, docURI, rec := debugServer(t, "/w/f.sysml", debugFlow)
+		s, docURI, rec := debugServer(t, "f.sysml", debugFlow)
 		id := ids(t, render(t, s, docURI, "#action"))
 		snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "#action", Target: "Flows::Drive",
@@ -1602,7 +1602,7 @@ func TestDebugPauseFollowsEdits(t *testing.T) {
 // session to the fresh IDs before it answers; one to the behavior — of the same
 // length, so every span stays put — refuses the start.
 func TestDebugStartSeesAnEditSinceItsReading(t *testing.T) {
-	s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+	s, docURI, rec := debugServer(t, "m.sysml", debugMachine)
 	ctx := context.Background()
 	name := uriToName(docURI)
 	params := &debugStartParams{
@@ -1692,7 +1692,7 @@ func TestDebugSessionEnds(t *testing.T) {
 	}
 
 	t.Run("performer edited", func(t *testing.T) {
-		s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+		s, docURI, rec := debugServer(t, "m.sysml", debugMachine)
 		session := start(t, s, docURI)
 		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugMachine, "exhibit state ops : Ops;", "exhibit state ops : Ops;\n\t\tattribute id : Integer;", 1)}}, 2)
 		if reason := lastEnd(t, rec, session).Reason; !strings.Contains(reason, "Machines::Robot was edited") {
@@ -1700,7 +1700,7 @@ func TestDebugSessionEnds(t *testing.T) {
 		}
 	})
 	t.Run("view removed", func(t *testing.T) {
-		s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+		s, docURI, rec := debugServer(t, "m.sysml", debugMachine)
 		session := start(t, s, docURI)
 		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugMachine, "view opsView : StateTransitionView { expose Machines::Ops; }", "", 1)}}, 2)
 		if reason := lastEnd(t, rec, session).Reason; !strings.Contains(reason, "MachineViews::opsView") {
@@ -1708,7 +1708,7 @@ func TestDebugSessionEnds(t *testing.T) {
 		}
 	})
 	t.Run("view rewritten but still drawing the target", func(t *testing.T) {
-		s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+		s, docURI, rec := debugServer(t, "m.sysml", debugMachine)
 		session := start(t, s, docURI)
 		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{{Text: strings.Replace(debugMachine, "{ expose Machines::Ops; }", "{ expose Machines::Ops; expose Machines::Robot; }", 1)}}, 2)
 		if reason := lastEnd(t, rec, session).Reason; !strings.Contains(reason, "MachineViews::opsView was edited") {
@@ -1716,7 +1716,7 @@ func TestDebugSessionEnds(t *testing.T) {
 		}
 	})
 	t.Run("pseudo-view outlives edits around the target", func(t *testing.T) {
-		s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+		s, docURI, rec := debugServer(t, "m.sysml", debugMachine)
 		snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "#state:Machines::Ops", Target: "Machines::Ops",
 		})
@@ -1731,7 +1731,7 @@ func TestDebugSessionEnds(t *testing.T) {
 		}
 	})
 	t.Run("document closed", func(t *testing.T) {
-		s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+		s, docURI, rec := debugServer(t, "m.sysml", debugMachine)
 		session := start(t, s, docURI)
 		if err := s.DidClose(ctx, &protocol.DidCloseTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}}); err != nil {
 			t.Fatal(err)
@@ -1762,7 +1762,7 @@ func TestDebugSessionEnds(t *testing.T) {
 		}
 	})
 	t.Run("server shut down", func(t *testing.T) {
-		s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+		s, docURI, rec := debugServer(t, "m.sysml", debugMachine)
 		first, second := start(t, s, docURI), start(t, s, docURI)
 		if err := s.Shutdown(ctx); err != nil {
 			t.Fatal(err)
@@ -1850,7 +1850,7 @@ func TestDebugSessionEndsWhenInheritedContentChanges(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			s, docURI, rec := debugServer(t, "/w/i.sysml", debugDerived)
+			s, docURI, rec := debugServer(t, "i.sysml", debugDerived)
 			snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: tc.view, Target: tc.target,
 			})
@@ -1865,7 +1865,7 @@ func TestDebugSessionEndsWhenInheritedContentChanges(t *testing.T) {
 	}
 
 	// An edit elsewhere in the definition's package leaves the session running.
-	s, docURI, rec := debugServer(t, "/w/i.sysml", debugDerived)
+	s, docURI, rec := debugServer(t, "i.sysml", debugDerived)
 	snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "InheritedViews::derivedView", Target: "Inherited::Sub::Derived",
 	})
@@ -1882,9 +1882,10 @@ func TestDebugTargetDeclaredInAnotherDocument(t *testing.T) {
 	ctx := context.Background()
 	split := strings.Index(debugMachine, "package MachineViews")
 	machines, views := debugMachine[:split], debugMachine[split:]
+	dir := t.TempDir()
 	open := func(t *testing.T, s *Server, name, src string) uri.URI {
 		t.Helper()
-		docURI := uri.File(name)
+		docURI := uri.File(filepath.Join(dir, name))
 		if err := s.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{URI: docURI, LanguageID: "sysml", Version: 1, Text: src},
 		}); err != nil {
@@ -1892,9 +1893,9 @@ func TestDebugTargetDeclaredInAnotherDocument(t *testing.T) {
 		}
 		return docURI
 	}
-	s, viewsURI, rec := debugServer(t, "/w/views.sysml", views)
-	machinesURI := open(t, s, "/w/machines.sysml", machines)
-	open(t, s, "/w/robots.sysml", "package Robots { part def Rover { exhibit state ops : Machines::Ops; } }\n")
+	s, viewsURI, rec := debugServer(t, "views.sysml", views)
+	machinesURI := open(t, s, "machines.sysml", machines)
+	open(t, s, "robots.sysml", "package Robots { part def Rover { exhibit state ops : Machines::Ops; } }\n")
 	r := render(t, s, viewsURI, "MachineViews::opsView")
 	id := ids(t, r)
 
@@ -1938,12 +1939,12 @@ func TestDebugTargetDeclaredInAnotherDocument(t *testing.T) {
 	}
 
 	// The same name declared by two documents names neither.
-	open(t, s, "/w/machines.sysml", machines)
-	open(t, s, "/w/spare.sysml", machines)
+	open(t, s, "machines.sysml", machines)
+	spareURI := open(t, s, "spare.sysml", machines)
 	_, err := s.DebugStart(&debugStartParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: viewsURI}, View: "MachineViews::opsView", Target: "Machines::Ops",
 	})
-	if !errors.Is(err, ErrDebugTarget) || !strings.Contains(err.Error(), "/w/machines.sysml, /w/spare.sysml") {
+	if !errors.Is(err, ErrDebugTarget) || !strings.Contains(err.Error(), machinesURI.Filename()+", "+spareURI.Filename()) {
 		t.Fatalf("start of an ambiguous target: err = %v, want %v naming both documents", err, ErrDebugTarget)
 	}
 	var wire *jsonrpc2.Error
@@ -2082,7 +2083,7 @@ func TestDebugSessionEndsWhenWhatItReadsChanges(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			s, docURI, rec := debugServer(t, "/w/d.sysml", debugReads)
+			s, docURI, rec := debugServer(t, "d.sysml", debugReads)
 			snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: tc.view, Target: tc.target, Object: tc.object,
 			})
@@ -2097,7 +2098,7 @@ func TestDebugSessionEndsWhenWhatItReadsChanges(t *testing.T) {
 	}
 
 	t.Run("signal a bare trigger names", func(t *testing.T) {
-		s, docURI, rec := debugServer(t, "/w/m.sysml", debugMachine)
+		s, docURI, rec := debugServer(t, "m.sysml", debugMachine)
 		snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "MachineViews::opsView", Target: "Machines::Ops",
 		})
@@ -2109,7 +2110,7 @@ func TestDebugSessionEndsWhenWhatItReadsChanges(t *testing.T) {
 	})
 
 	t.Run("value a send named", func(t *testing.T) {
-		s, docURI, rec := debugServer(t, "/w/d.sysml", debugReads)
+		s, docURI, rec := debugServer(t, "d.sysml", debugReads)
 		snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "DepViews::opsView", Target: "Deps::Ops",
 		})
@@ -2128,7 +2129,7 @@ func TestDebugSessionEndsWhenWhatItReadsChanges(t *testing.T) {
 			t.Errorf("step after the end: %v, want %v", err, ErrDebugSession)
 		}
 
-		s, docURI, rec = debugServer(t, "/w/d.sysml", debugReads)
+		s, docURI, rec = debugServer(t, "d.sysml", debugReads)
 		snap = mustDebug(t, s, MethodDebugStart, &debugStartParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "DepViews::opsView", Target: "Deps::Ops",
 		})
@@ -2155,7 +2156,7 @@ func TestDebugSessionEndsWhenWhatItReadsChanges(t *testing.T) {
 	}
 	for _, tc := range unread {
 		t.Run(tc.name, func(t *testing.T) {
-			s, docURI, rec := debugServer(t, "/w/d.sysml", debugReads)
+			s, docURI, rec := debugServer(t, "d.sysml", debugReads)
 			snap := mustDebug(t, s, MethodDebugStart, &debugStartParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "DepViews::opsView", Target: "Deps::Ops", Object: "Deps::Bots::Robot",
 			})
@@ -2175,7 +2176,7 @@ func TestDebugSessionEndsWhenWhatItReadsChanges(t *testing.T) {
 // Sessions run in runtimes of their own: two over one machine do not share
 // state, and rendering the view they draw on is unchanged by their running.
 func TestDebugSessionsAreIsolated(t *testing.T) {
-	s, docURI, _ := debugServer(t, "/w/m.sysml", debugMachine)
+	s, docURI, _ := debugServer(t, "m.sysml", debugMachine)
 	plain := render(t, s, docURI, "MachineViews::opsView")
 	params := &debugStartParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},

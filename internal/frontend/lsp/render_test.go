@@ -139,7 +139,7 @@ func (r *recorder) all() []string {
 func renderServer(t *testing.T, name, src string) (*Server, uri.URI) {
 	t.Helper()
 	s := initializedServer(t, map[string]any{CrossDocumentCapability: true})
-	docURI := uri.File(name)
+	docURI := testDocURI(t, name)
 	if err := s.DidOpen(context.Background(), &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
 			URI: docURI, LanguageID: "sysml", Version: 1, Text: src,
@@ -1173,7 +1173,7 @@ func TestDidChangeNotifiesRenderChangedAfterDiagnostics(t *testing.T) {
 	s.client = rec
 	s.notifier = rec
 	ctx := context.Background()
-	docURI := uri.File("kit.sysml")
+	docURI := tempDocURI(t, "kit.sysml")
 	if err := s.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
 			URI: docURI, LanguageID: "sysml", Version: 1, Text: "package Kit {\n\tpart def Widget;\n}\n",

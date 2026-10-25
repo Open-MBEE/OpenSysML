@@ -15,7 +15,7 @@ import (
 
 func TestDidOpenRegistersDocument(t *testing.T) {
 	s := NewServer(model.NewWorkspace())
-	u := uri.File("/tmp/a.sysml")
+	u := tempDocURI(t, "a.sysml")
 	err := s.DidOpen(context.Background(), &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
 			URI:     u,
@@ -69,7 +69,7 @@ func openDoc(t *testing.T, s *Server, u uri.URI, text string) {
 
 func TestDidChangeFullReplace(t *testing.T) {
 	s := NewServer(model.NewWorkspace())
-	u := uri.File("/tmp/a.sysml")
+	u := tempDocURI(t, "a.sysml")
 	openDoc(t, s, u, "package P;\n")
 	// A full-document replace omits "range" entirely.
 	sendDidChange(t, s, u, 2, []json.RawMessage{
@@ -82,7 +82,7 @@ func TestDidChangeFullReplace(t *testing.T) {
 
 func TestDidChangeIncremental(t *testing.T) {
 	s := NewServer(model.NewWorkspace())
-	u := uri.File("/tmp/a.sysml")
+	u := tempDocURI(t, "a.sysml")
 	openDoc(t, s, u, "package P;\n")
 	// Replace the single character 'P' (line 0, chars 8..9) with "Hello".
 	sendDidChange(t, s, u, 2, []json.RawMessage{
@@ -98,7 +98,7 @@ func TestDidChangeIncremental(t *testing.T) {
 // front instead of wiping the buffer.
 func TestDidChangeIncrementalInsertAtStart(t *testing.T) {
 	s := NewServer(model.NewWorkspace())
-	u := uri.File("/tmp/a.sysml")
+	u := tempDocURI(t, "a.sysml")
 	openDoc(t, s, u, "package P;\n")
 	sendDidChange(t, s, u, 2, []json.RawMessage{
 		json.RawMessage(`{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},"text":"X"}`),
@@ -112,7 +112,7 @@ func TestDidChangeIncrementalInsertAtStart(t *testing.T) {
 // start must apply all edits sequentially against the accumulating buffer.
 func TestDidChangeMultiChangeStartingAtOffsetZero(t *testing.T) {
 	s := NewServer(model.NewWorkspace())
-	u := uri.File("/tmp/a.sysml")
+	u := tempDocURI(t, "a.sysml")
 	openDoc(t, s, u, "abc\n")
 	sendDidChange(t, s, u, 2, []json.RawMessage{
 		json.RawMessage(`{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},"text":"X"}`),
@@ -127,7 +127,7 @@ func TestDidChangeMultiChangeStartingAtOffsetZero(t *testing.T) {
 // UTF-16 columns; the byte offset must skip the 4-byte emoji correctly.
 func TestDidChangeIncrementalAstral(t *testing.T) {
 	s := NewServer(model.NewWorkspace())
-	u := uri.File("/tmp/a.sysml")
+	u := tempDocURI(t, "a.sysml")
 	openDoc(t, s, u, "😀ab\n") // emoji = 2 UTF-16 units; 'a' at char 2, 'b' at char 3
 	// Replace 'a' (chars 2..3) with "Z".
 	sendDidChange(t, s, u, 2, []json.RawMessage{

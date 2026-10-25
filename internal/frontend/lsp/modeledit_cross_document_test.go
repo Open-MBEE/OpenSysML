@@ -21,7 +21,7 @@ const (
 func engineWorkspace(t *testing.T) (s *Server, viewsURI, partsURI uri.URI) {
 	t.Helper()
 	s, viewsURI = renderServer(t, "views.sysml", engineViews)
-	partsURI = uri.File("parts.sysml")
+	partsURI = tempDocURI(t, "parts.sysml")
 	openDoc(t, s, partsURI, engineParts)
 	return s, viewsURI, partsURI
 }
