@@ -24,6 +24,7 @@ func TestRuntimeRobustnessPartialBinding(t *testing.T) {
 	t.Run("whole_binding_of_unlike_types_is_a_typed_error", testWholeBindingOfUnlikeTypesIsATypedError)
 	t.Run("verdicts_over_empty_undetermined_and_linkless_ends", testPartialBindingVerdictEdges)
 	t.Run("unresolvable_end_is_an_undecided_verdict", testPartialBindingUnresolvableEndUndecided)
+	t.Run("end_reaching_no_object_outranks_the_other_ends_error", testPartialBindingEmptyEndOutranksError)
 }
 
 // rigScope parses a model around `part def Rig` and returns the scope of package
@@ -316,5 +317,42 @@ func testPartialBindingUnresolvableEndUndecided(t *testing.T) {
 	}
 	if report.Valid() || report.Status() != ValidationUndecided {
 		t.Errorf("report valid=%v status=%s, want an undecided report", report.Valid(), report.Status())
+	}
+}
+
+// testPartialBindingEmptyEndOutranksError pins that a binding with an end reaching no object
+// states nothing, whichever end the object cannot resolve and in either order.
+func testPartialBindingEmptyEndOutranksError(t *testing.T) {
+	for name, binding := range map[string]string{
+		"error_then_empty": "binding [1] bind [0..1] groups.item.deeper = [0..1] optional.item;",
+		"empty_then_error": "binding [1] bind [0..1] optional.item = [0..1] groups.item.deeper;",
+	} {
+		t.Run(name, func(t *testing.T) {
+			idx, _, ctx := buildRuntimeWithLibraries(t, "<partial-binding-empty-end-"+name+">", parseAndBuild(t, `package P {
+				private import ScalarValues::*;
+				part def G { attribute item : Integer = 1; }
+				part def Rig {
+					part groups : G [2];
+					part optional : G [0..1];
+					attribute z : Integer = 1;
+					assert constraint { z == 1 }
+					`+binding+`
+				}
+			}`))
+			inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Rig"))
+			if err != nil {
+				t.Fatalf("instantiate: %v", err)
+			}
+			report, err := ctx.ValidateObject(inst, nil)
+			if err != nil {
+				t.Fatalf("validate: %v", err)
+			}
+			if len(report.Verdicts) != 1 || report.Verdicts[0].Kind == AssertionBinding {
+				t.Fatalf("verdicts = %+v, want the constraint alone", report.Verdicts)
+			}
+			if !report.Valid() {
+				t.Errorf("report not valid: unread %v", report.Unread)
+			}
+		})
 	}
 }
