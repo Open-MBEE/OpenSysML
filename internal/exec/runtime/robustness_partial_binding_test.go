@@ -22,6 +22,7 @@ func TestRuntimeRobustnessPartialBinding(t *testing.T) {
 	t.Run("bound_collection_holds_its_own_declaration", testBoundCollectionHoldsItsOwnDeclaration)
 	t.Run("ends_sharing_no_value_are_a_violated_verdict", testEndsSharingNoValueAreAViolatedVerdict)
 	t.Run("whole_binding_of_unlike_types_is_a_typed_error", testWholeBindingOfUnlikeTypesIsATypedError)
+	t.Run("verdicts_over_empty_undetermined_and_linkless_ends", testPartialBindingVerdictEdges)
 }
 
 // rigScope parses a model around `part def Rig` and returns the scope of package
@@ -216,5 +217,48 @@ func testWholeBindingOfUnlikeTypesIsATypedError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "cannot write 3 (an Integer) to a feature typed by Node") {
 		t.Errorf("error %q does not name the unlike types", err)
+	}
+}
+
+// A stated link count is a count of shared values: two empty ends share none under
+// `binding [1]`; `binding [0]` and an end reaching no object state nothing about the object.
+func testPartialBindingVerdictEdges(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<partial-binding-verdict-edges>", parseAndBuild(t, `package P {
+		private import ScalarValues::*;
+		part def G { attribute item : Integer = 1; }
+		part def Rig {
+			attribute a : Integer [*];
+			attribute b : Integer [*];
+			binding [1] bind [0..1] a = [0..1] b;
+			attribute z : Integer = 1;
+			attribute w : Integer = 2;
+			binding [0] bind z = w;
+			part groups : G [2];
+			part optional : G [0..1];
+			binding [1] bind [0..*] groups.item = [0..*] optional.item;
+		}
+	}`))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Rig"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	report, err := ctx.ValidateObject(inst, nil)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	want := map[string]ValidationStatus{
+		"binding [1] bind [0..1] a = [0..1] b": ValidationViolated,
+	}
+	if len(report.Verdicts) != len(want) {
+		t.Fatalf("%d verdict(s), want %d: %+v", len(report.Verdicts), len(want), report.Verdicts)
+	}
+	for _, v := range report.Verdicts {
+		status, ok := want[v.Text]
+		if !ok || v.Kind != AssertionBinding || v.Status != status {
+			t.Errorf("verdict %q = %s %s (%v), want %s", v.Text, v.Kind, v.Status, v.Err, status)
+		}
+	}
+	if report.Valid() {
+		t.Error("an object violating a binding is reported valid")
 	}
 }

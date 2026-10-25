@@ -345,17 +345,21 @@ func (ctx *Context) resolveBindingSet(owner, targetInst *Instance, target *Featu
 // constrainingBinding reports whether binding constrains its ends on inst without determining
 // either: an end reaching several objects, or multiplicities linking fewer values than an end holds.
 func (ctx *Context) constrainingBinding(inst *Instance, binding lower.Binding) (bool, error) {
+	var endpoints [2]bindingEndpoint
 	for end := range binding.Ends {
 		endpoint, err := ctx.resolveBindingEndpoint(inst, binding, end)
 		if err != nil {
 			return false, err
 		}
+		// An end reaching no object links nothing on inst, so the binding states nothing about it.
+		if endpoint.expr == nil && len(endpoint.locations) == 0 {
+			return false, nil
+		}
+		endpoints[end] = endpoint
+	}
+	for _, endpoint := range endpoints {
 		if endpoint.expr != nil {
 			continue
-		}
-		// An end reaching no object links nothing on inst, so the binding states nothing about it.
-		if len(endpoint.locations) == 0 {
-			return false, nil
 		}
 		if endpoint.spread() {
 			return true, nil
@@ -375,9 +379,10 @@ func (ctx *Context) constrainingBinding(inst *Instance, binding lower.Binding) (
 }
 
 // CheckBindingOn checks a binding connector as the constraint it states about inst: its ends
-// identify the same things (KerML 1.0 §7.4.6, §8.3.4.5.2), so a binding declaring n links holds
-// when the ends hold equal values or share at least n of them — the identity of an object, the
-// equality of a data value.
+// identify the same things (KerML 1.0 §7.4.6, §8.3.4.5.2). A binding declaring n links holds
+// when the ends share at least n values — the identity of an object, the equality of a data
+// value; one declaring no link count holds when the ends are equal or share one. An end the
+// model leaves undetermined decides nothing.
 func (ctx *Context) CheckBindingOn(binding lower.Binding, inst *Instance) (CheckResult, error) {
 	defer ctx.beginRun()()
 	result := CheckResult{Subject: inst, SubjectRoot: inst}
@@ -394,13 +399,17 @@ func (ctx *Context) CheckBindingOn(binding lower.Binding, inst *Instance) (Check
 		if !found {
 			return result, fmt.Errorf("%w: %s holds no value", errBindingEnd, ctx.bindingEndpointText(binding, end))
 		}
+		if val.Kind == ValUndetermined {
+			return result, fmt.Errorf("%w: %s is undetermined", errBindingEnd, ctx.bindingEndpointText(binding, end))
+		}
 		values[end] = val
 	}
 	links := int64(1)
+	stated := false
 	if r, ok := ctx.model.semantics.RangeIn(binding.Scope, binding.Multiplicity); ok && r.Lower.Known && !r.Lower.Infinite {
-		links = r.Lower.Value
+		links, stated = r.Lower.Value, true
 	}
-	if links == 0 || ctx.equalValues(values[0], values[1]) {
+	if links == 0 || (!stated && ctx.equalValues(values[0], values[1])) {
 		result.Holds = true
 		return result, nil
 	}

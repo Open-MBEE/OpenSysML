@@ -431,7 +431,7 @@ func (ctx *Context) bindingVerdicts(obj *validatedObject, seen map[*ast.Usage]bo
 	var verdicts []ObjectVerdict
 	for _, typ := range obj.inst.types() {
 		for _, binding := range ctx.objectBindings(typ) {
-			if binding.Decl == nil || seen[binding.Decl] {
+			if binding.Decl == nil || seen[binding.Decl] || ctx.bindingLinksNothing(binding) {
 				continue
 			}
 			seen[binding.Decl] = true
