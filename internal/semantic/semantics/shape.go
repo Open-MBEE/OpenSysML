@@ -87,9 +87,8 @@ func (m *Model) shapeFeatures(typ *symbols.Symbol, keep func(*symbols.Symbol) bo
 	return out
 }
 
-// inheritedNamesake is f, or the feature typ inherits under f.Name when f's
-// declaration is one a redefinition removed while a namesake reached along
-// another path keeps the name (KerML 8.3.3.1.10 removeRedefinedFeatures).
+// inheritedNamesake is f, or the namesake typ still inherits under f.Name when
+// a redefinition removed f's declaration (KerML 8.3.3.1.10 removeRedefinedFeatures).
 func (m *Model) inheritedNamesake(typ *symbols.Symbol, f ShapeFeature, keep func(*symbols.Symbol) bool) ShapeFeature {
 	if !m.InheritanceMasked(typ, f.Symbol) {
 		return f

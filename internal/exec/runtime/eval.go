@@ -65,8 +65,7 @@ type EvalContext struct {
 	entered int64
 
 	// chain is the declaration each segment of the chain being evaluated names,
-	// so an object answers a segment by the feature it names rather than by its
-	// name alone (see chain_member_slot.go).
+	// which an object answers by feature rather than by name (chain_member_slot.go).
 	chain chainStatic
 }
 

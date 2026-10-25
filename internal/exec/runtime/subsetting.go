@@ -334,9 +334,8 @@ func (ctx *Context) redefinitionGroups(typ *symbols.Symbol) [][]string {
 	return groups
 }
 
-// slotHolds reports whether the feature typ holds under slot's name is feature
-// itself or one feature redefines or is redefined by, so a namesake inherited
-// along another path, which no redefinition relates to it, is another feature.
+// slotHolds reports whether slot's feature is feature itself or in its redefinition
+// chain; a namesake no redefinition relates to it is another feature.
 func (ctx *Context) slotHolds(slot *EffectiveFeature, feature, typ *symbols.Symbol) bool {
 	return slot.Symbol == feature ||
 		slices.Contains(ctx.redefinedFeatures(slot.Symbol, typ), feature) ||

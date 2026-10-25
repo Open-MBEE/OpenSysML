@@ -80,9 +80,8 @@ func (ec *EvalContext) chainTargetMember(target *lower.AssignTarget, feature str
 	return cur
 }
 
-// selfMemberSlot is the slot of the bound object holding the feature name
-// resolves to in the evaluation's scope, when the object holds it under another
-// name; name itself otherwise.
+// selfMemberSlot is the bound object's slot for the feature name resolves to
+// in the evaluation's scope; name itself when that feature has no slot.
 func (ec *EvalContext) selfMemberSlot(name string) string {
 	if sym, ok := ec.lookupName(name); ok && sym != nil {
 		if slot, held := ec.ctx.featureSlot(ec.self, sym); held {
@@ -92,9 +91,8 @@ func (ec *EvalContext) selfMemberSlot(name string) string {
 	return name
 }
 
-// featureSlot is the name inst holds feature's value under: the feature's own
-// slot, or that of a feature of inst's types redefining it, whose value a
-// redefined feature shares. False when inst holds no value for it.
+// featureSlot is the name inst holds feature's value under: its own slot, or a
+// redefiner's, whose value it shares (§7.3.4.5); false when inst holds none.
 func (ctx *Context) featureSlot(inst *Instance, feature *symbols.Symbol) (string, bool) {
 	if feature == nil || inst == nil {
 		return "", false
