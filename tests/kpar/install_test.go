@@ -142,6 +142,7 @@ func TestAddInstallLockThenValidate(t *testing.T) {
 		"v2.0.0": {"README.md": "no project here\n"},
 	})
 
+	iri := project.Identity(project.Usage{Resource: repo})
 	proj := filepath.Join(t.TempDir(), "rover")
 	if err := os.MkdirAll(proj, 0o750); err != nil {
 		t.Fatal(err)
@@ -159,7 +160,7 @@ func TestAddInstallLockThenValidate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`"resource": "` + repo + `"`, `"version": "1.2.0"`, `"tag": "v1.2.0"`, `"commit": "`, `"digest": "sha256:`, `"path": "lib/acme-gears_2.0.1.kpar"`, `"versionConstraint": "^1.0.0"`} {
+	for _, want := range []string{`"resource": "` + iri + `"`, `"source": "` + repo + `"`, `"version": "1.2.0"`, `"tag": "v1.2.0"`, `"commit": "`, `"digest": "sha256:`, `"path": "lib/acme-gears_2.0.1.kpar"`, `"versionConstraint": "^1.0.0"`} {
 		if !strings.Contains(string(lock), want) {
 			t.Errorf("lock lacks %s:\n%s", want, lock)
 		}
@@ -209,12 +210,13 @@ func TestAddInstallLockThenValidate(t *testing.T) {
 	}
 	before, _ := os.ReadFile(filepath.Join(adv, project.ProjectFile))
 	for _, c := range []struct{ name, iri, want string }{
-		{"mistagged version", repo + "@0.9.0", `verify: ` + repo + `@v0.9.0 is tagged v0.9.0 but its .project.json says version "0.8.0"`},
-		{"missing .project.json", repo + "@2.0.0", "not a project interchange: " + repo + "@v2.0.0 has no .project.json"},
+		{"mistagged version", repo + "@0.9.0", `verify: ` + iri + `@v0.9.0 is tagged v0.9.0 but its .project.json says version "0.8.0"`},
+		{"missing .project.json", repo + "@2.0.0", "not a project interchange: " + iri + "@v2.0.0 has no .project.json"},
 		{"checksum mismatch", srv.URL + "/bad.kpar", "verify: "},
 		{"path escape", srv.URL + "/escape.kpar", "path has a .. segment"},
-		{"unknown host type", "pkg:bitbucket/acme/widgets", `package URL type "bitbucket" is not a git host projects are installed from (github, gitlab)`},
-		{"constraint with no match", repo + "@^9.0.0", "resolve: no release tag of " + repo + ` satisfies "^9.0.0"`},
+		{"unknown purl type", "pkg:bitbucket/acme/widgets", `package URL type "bitbucket" is not git`},
+		{"host purl type", "pkg:github/acme/widgets", `package URL type "github" is not git, the one projects are installed from (pkg:git/<host>/<path>)`},
+		{"constraint with no match", repo + "@^9.0.0", "resolve: no release tag of " + iri + ` satisfies "^9.0.0"`},
 		{"standard library", "https://www.omg.org/spec/KerML/20250201/Kernel-Semantic-Library.kpar", "never installed"},
 	} {
 		out, err := run(t, bin, "-add", c.iri, adv)

@@ -73,12 +73,9 @@ type Fetcher struct {
 	Client *http.Client
 	// Git is the git executable; "" is git on PATH.
 	Git string
-	// HostURLs overrides the base URL (https://<host>) archives are fetched
-	// from, keyed by host.
+	// HostURLs overrides the base URL (https://<host>) a host's tag archives
+	// are fetched from, keyed by host.
 	HostURLs map[string]string
-	// GitURLs overrides the base URL (https://<host>) a host's repositories
-	// are cloned from, keyed by host.
-	GitURLs map[string]string
 	// MaxBytes bounds every download and extracted tree; 0 is project.MaxArchiveSize.
 	MaxBytes int64
 	// Timeout bounds every request and git command; 0 is five minutes.
@@ -150,12 +147,14 @@ func (f *Fetcher) baseURL(table map[string]string, host string) string {
 	return "https://" + host
 }
 
-// cloneURL is the URL a host origin's repository is cloned from.
-func (f *Fetcher) cloneURL(o *project.Origin) string {
-	if o.Kind == project.OriginGit {
-		return o.Repo
+// archiveHost is the host whose tag archive serves a git origin faster than
+// a clone: one in the table, keyed by host name; "" for any other. The
+// identity and the lock never see it: a failed archive falls back to git.
+func archiveHost(o *project.Origin) string {
+	if _, ok := hostArchives[o.Host]; ok {
+		return o.Host
 	}
-	return f.baseURL(f.GitURLs, o.Host) + "/" + o.Repo + ".git"
+	return ""
 }
 
 // Fetch resolves the version of the usage the constraint admits and fetches
@@ -170,7 +169,7 @@ func (f *Fetcher) Fetch(ctx context.Context, o *project.Origin, c project.Constr
 		rel, err = f.fetchLocal(o)
 	case project.OriginArchive:
 		rel, err = f.fetchArchive(ctx, o)
-	case project.OriginHost, project.OriginGit:
+	case project.OriginGit:
 		rel, err = f.fetchTagged(ctx, o, c)
 	default:
 		return nil, installErr(o.IRI, "resolve", fmt.Errorf("origin kind %s is not fetched", o.Kind))
@@ -189,35 +188,35 @@ func (f *Fetcher) Fetch(ctx context.Context, o *project.Origin, c project.Constr
 func (f *Fetcher) fetchLocal(o *project.Origin) (*Release, error) {
 	var p *project.Interchange
 	var err error
-	if project.IsArchive(o.Repo) {
+	if project.IsArchive(o.Path) {
 		var a *project.Archive
-		a, err = project.OpenArchive(o.Repo)
+		a, err = project.OpenArchive(o.Path)
 		if err == nil {
 			p = a.Project
 		}
 	} else {
-		p, err = project.ReadInterchange(o.Repo)
+		p, err = project.ReadInterchange(o.Path)
 		if errors.Is(err, os.ErrNotExist) {
-			err = fmt.Errorf("not a project interchange: %s has no %s", o.Repo, project.ProjectFile)
+			err = fmt.Errorf("not a project interchange: %s has no %s", o.Path, project.ProjectFile)
 		}
 	}
 	if err != nil {
 		return nil, installErr(o.IRI, "verify", err)
 	}
-	return &Release{Origin: o, SourceURL: o.Repo, Path: o.Repo, Project: p}, nil
+	return &Release{Origin: o, SourceURL: o.Path, Path: o.Path, Project: p}, nil
 }
 
 // fetchArchive downloads an archive and verifies it as the reader does.
 func (f *Fetcher) fetchArchive(ctx context.Context, o *project.Origin) (*Release, error) {
-	data, err := f.get(ctx, o.Repo)
+	data, err := f.get(ctx, o.Path)
 	if err != nil {
 		return nil, installErr(o.IRI, "fetch", err)
 	}
-	a, err := project.ParseArchive(o.Repo, data)
+	a, err := project.ParseArchive(o.Path, data)
 	if err != nil {
 		return nil, installErr(o.IRI, "verify", err)
 	}
-	return &Release{Origin: o, SourceURL: o.Repo, Digest: digest(data), Archive: data, Project: a.Project}, nil
+	return &Release{Origin: o, SourceURL: o.Path, Digest: digest(data), Archive: data, Project: a.Project}, nil
 }
 
 // get downloads a URL, bounded to MaxBytes.
@@ -301,7 +300,7 @@ type tagRef struct{ name, commit string }
 // tags lists the release tags of a repository (v<semver> or <semver>) with
 // the commit each names, keyed by canonical version.
 func (f *Fetcher) tags(ctx context.Context, o *project.Origin) (map[string]tagRef, error) {
-	out, err := f.git(ctx, "", "ls-remote", "--tags", "--", f.cloneURL(o))
+	out, err := f.git(ctx, "", "ls-remote", "--tags", "--", o.Remote)
 	if err != nil {
 		return nil, err
 	}
@@ -339,8 +338,8 @@ func (f *Fetcher) tags(ctx context.Context, o *project.Origin) (map[string]tagRe
 // clone of the tag.
 func (f *Fetcher) tree(ctx context.Context, o *project.Origin, tag string, rel *Release) (map[string][]byte, error) {
 	var archiveErr error
-	if host, ok := hostArchives[o.Host]; ok && o.Kind == project.OriginHost {
-		archiveURL := host.archiveURL(f.baseURL(f.HostURLs, o.Host), o.Repo, tag)
+	if name := archiveHost(o); name != "" {
+		archiveURL := hostArchives[name].archiveURL(f.baseURL(f.HostURLs, name), o.Path, tag)
 		data, err := f.get(ctx, archiveURL)
 		if err == nil {
 			members, err := extractTarGz(data, f.maxBytes())
@@ -362,7 +361,7 @@ func (f *Fetcher) tree(ctx context.Context, o *project.Origin, tag string, rel *
 		}
 		return nil, err
 	}
-	rel.SourceURL = f.cloneURL(o)
+	rel.SourceURL = o.Remote
 	return members, nil
 }
 
@@ -373,7 +372,7 @@ func (f *Fetcher) clone(ctx context.Context, o *project.Origin, tag string) (map
 		return nil, err
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
-	if _, err := f.git(ctx, "", "clone", "--quiet", "--depth", "1", "--branch", tag, "--", f.cloneURL(o), dir); err != nil {
+	if _, err := f.git(ctx, "", "clone", "--quiet", "--depth", "1", "--branch", tag, "--", o.Remote, dir); err != nil {
 		return nil, err
 	}
 	members, err := project.BundleMembers(dir)

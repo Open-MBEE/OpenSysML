@@ -33,11 +33,10 @@ type Lock struct {
 
 // LockEntry pins one usage to the release that satisfied it.
 type LockEntry struct {
-	// Resource is the usage's resource IRI as .project.json spells it.
+	// Resource is the usage's identity: the canonical pkg:git/<host>/<path>
+	// of a git repository, else the resource as .project.json spells it.
 	Resource string `json:"resource"`
-	// IRI is the resource read as an origin, its version taken out.
-	IRI string `json:"iri"`
-	// Kind is the origin kind: host, git, archive or local.
+	// Kind is the origin kind: git, archive or local.
 	Kind string `json:"kind"`
 	// Constraint is the versionConstraint the release satisfied.
 	Constraint string `json:"versionConstraint,omitempty"`
@@ -45,7 +44,8 @@ type LockEntry struct {
 	Publisher string `json:"publisher,omitempty"`
 	Name      string `json:"name"`
 	Version   string `json:"version"`
-	// Source is the URL (or path) the release was fetched from.
+	// Source is the remote URL (or path) the release was fetched from; for
+	// a git repository the clone URL, which -install reuses.
 	Source string `json:"source"`
 	// Tag and Commit name the release in its repository, when it has one.
 	Tag    string `json:"tag,omitempty"`

@@ -141,7 +141,7 @@ func (d Discovery) Around(paths []string) Projects {
 }
 
 // lockedPaths reads the lock of each enclosing project directory and maps
-// every usage resource it pins to the path its project is read from, so a
+// every usage identity it pins to the path its project is read from, so a
 // usage is matched to the project the installer put there; the first
 // project to pin a resource wins. A lock that cannot be read pins nothing.
 func lockedPaths(enclosing []*Interchange) map[string]string {
@@ -315,7 +315,7 @@ func used(enclosing, installed []*Interchange, locked map[string]string) []*Inte
 // lock pins nothing for it or nothing is installed there, in which case the
 // usage is matched by name instead.
 func pickLocked(installed []*Interchange, u Usage, locked map[string]string) *Interchange {
-	path, ok := locked[u.Resource]
+	path, ok := locked[Identity(u)]
 	if !ok {
 		return nil
 	}

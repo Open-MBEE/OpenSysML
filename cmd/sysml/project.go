@@ -56,7 +56,7 @@ func runProjectCommand(args []string) int {
 		return exitUnevaluable
 	}
 	if flagGiven("add") && addResource == "" {
-		fmt.Fprintln(os.Stderr, "sysml: -add names the resource to use: pkg:github/<org>/<repo>[@<constraint>], a git URL, a .kpar URL or a local path")
+		fmt.Fprintln(os.Stderr, "sysml: -add names the resource to use: pkg:git/<host>/<path>[@<constraint>], a clone URL, a .kpar URL or a local path")
 		return exitUnevaluable
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)

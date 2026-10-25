@@ -439,44 +439,52 @@ repository that carries `.project.json` at a release tag — nothing else is ask
 ```console
 $ sysml -project-init -publisher Acme -name Rover         # .project.json + .meta.json here
 wrote .project.json and .meta.json in . (Rover 0.1.0)
-$ sysml -add pkg:github/acme/widgets@^1.0.0               # append the usage, fetch, verify, install, lock
+$ sysml -add pkg:git/github.com/acme/widgets@^1.0.0       # append the usage, fetch, verify, install, lock
 Widgets 1.2.0: installed at lib/acme-widgets_1.2.0
 Gears 2.0.1: installed at lib/acme-gears_2.0.1.kpar
-added pkg:github/acme/widgets (Widgets 1.2.0) to .; 2 projects locked
+added pkg:git/github.com/acme/widgets (Widgets 1.2.0) to .; 2 projects locked
 $ sysml -install                                          # on a fresh clone: what the lock says, exactly
 $ sysml -lock                                             # re-resolve every usage to the latest release
 ```
 
-A usage's `resource` may be a purl, `pkg:github/<org>/<repo>` or `pkg:gitlab/<group>/<repo>`,
-optionally with `#<subpath>` when the project lies in a subdirectory of the repository; a
-git URL (`https://…/.git`, `git@host:path`, `ssh://…`); the URL of a published `.kpar`; or
-a local path to a project directory or archive, which is read in place, never copied. A
-release of a repository is a tag `v<semver>` or `<semver>` whose tree holds `.project.json`
-at the root (or at the subpath) saying that very version; a tag whose `.project.json` says
-another version is refused (`cannot install …: verify: …@v1.3.0 is tagged v1.3.0 but its
-.project.json says version "1.2.0"; the tag and the file must agree`), and a tree without one
-is refused outright (`not a project interchange: … has no .project.json`). The version after `@` in `-add`, or the `versionConstraint` in
-`.project.json`, selects the release: `1.2.0` exactly, `^1.2.0` any `1.x` from `1.2.0` on,
-`~1.2.0` any `1.2.x` from `1.2.0` on, `>=1.2.0 <2.0.0` a range (`>`, `<=` and `=` as well,
-several clauses separated by spaces or commas intersecting), and the latest release the
-constraint admits is taken, prereleases ordering below their release as semver has it.
+A usage's `resource` may be a git repository on any host, in its canonical form
+`pkg:git/<host>/<path>` (`pkg:git/github.com/acme/widgets`; `pkg:git//<path>` for a repository
+on this machine), optionally with `#<subpath>` when the project lies in a subdirectory of the
+repository; a clone URL (`https://…/.git`, `ssh://…`, `git@host:path`, `file://…`), which
+`-add` accepts and writes in the canonical form (a private host reached over SSH is served by
+git's own `url.<ssh base>.insteadOf <https base>` configuration, or by locking once from the
+clone URL, which the lock then reuses); the URL of a published `.kpar`; or a local path to a
+project directory or archive, which is read in place, never copied. A release of a repository
+is a tag `v<semver>` or `<semver>` whose tree holds `.project.json` at the root (or at the
+subpath) saying that very version; a tag whose `.project.json` says another version is
+refused (`cannot install …: verify: …@v1.3.0 is tagged v1.3.0 but its .project.json says
+version "1.2.0"; the tag and the file must agree`), and a tree without one is refused
+outright (`not a project interchange: … has no .project.json`). The version after `@` in
+`-add`, or the `versionConstraint` in `.project.json`, selects the release: `1.2.0` exactly,
+`^1.2.0` any `1.x` from `1.2.0` on, `~1.2.0` any `1.2.x` from `1.2.0` on, `>=1.2.0 <2.0.0` a
+range (`>`, `<=` and `=` as well, several clauses separated by spaces or commas
+intersecting), and the latest release the constraint admits is taken, prereleases ordering
+below their release as semver has it.
 
-A release is fetched as the host's archive of the tag over HTTPS first
-(`…/archive/refs/tags/<tag>.tar.gz` on GitHub, the equivalent on GitLab; `HTTPS_PROXY` is
-honoured and a redirect to another host is refused by name), and by `git clone --depth 1
---branch <tag>` through the `git` on the `PATH` otherwise — which is how a private or SSH
-remote is reached — with the tag resolved to its commit by `git ls-remote --tags`. Before
-anything is read the tree is bounded (no member outside the tree, no symbolic links, a size
-cap), its `.meta.json` is generated when absent and its checksums verified as for any
-archive, and it is installed under `lib/<publisher>-<name>_<version>/` (a `.kpar` as the
-file `lib/<publisher>-<name>_<version>.kpar`) beside the project's `.project.json`, as are
-the projects it uses in turn. The OMG standard library's IRIs are never installed: the
-bundled library answers them as before.
+A release is resolved with git alone, on any host: `git ls-remote --tags` lists the release
+tags and the commit each names, and `git clone --depth 1 --branch <tag>` through the `git` on
+the `PATH` fetches the tree — which is how a private or SSH remote is reached. For the hosts
+that publish a tag archive (`…/archive/refs/tags/<tag>.tar.gz` on GitHub, the equivalent on
+GitLab) that archive is fetched over HTTPS first as a fast path keyed by host name, with git
+as the fallback; `HTTPS_PROXY` is honoured and a redirect to another host is refused by name.
+The fast path is internal: identities and the lock speak only of the repository, its remote,
+tag and commit. Before anything is read the tree is bounded (no member outside the tree, no
+symbolic links, a size cap), its `.meta.json` is generated when absent and its checksums
+verified as for any archive, and it is installed under `lib/<publisher>-<name>_<version>/` (a
+`.kpar` as the file `lib/<publisher>-<name>_<version>.kpar`) beside the project's
+`.project.json`, as are the projects it uses in turn. The OMG standard library's IRIs are
+never installed: the bundled library answers them as before.
 
 `.project.lock.json` beside `.project.json` pins the result: one entry per usage in the
-transitive closure, with the resource, the IRI it parsed to, its kind, the constraint, the
-project's publisher, name and version, the source URL, the tag and commit, the SHA-256
-digest of the tree or archive, the path it is read from and the resources it uses in turn —
+transitive closure, with the resource in its canonical form, its kind, the constraint, the
+project's publisher, name and version, the remote URL it was fetched from, the tag and
+commit, the SHA-256 digest of the tree or archive, the path it is read from and the
+resources it uses in turn —
 keys sorted, entries sorted by resource, a trailing newline, so two runs write the same
 bytes. `-install` (or `-sync`) reproduces the lock exactly, refusing a release whose digest
 no longer matches its pin or whose pinned version the constraint no longer admits, and

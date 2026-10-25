@@ -53,9 +53,10 @@ func (in *Installer) Relock(ctx context.Context) (*project.Lock, error) {
 	return in.run(ctx, &project.Lock{Dir: in.Dir}, true)
 }
 
-// Add appends a usage to .project.json, then syncs so it is resolved,
-// installed and locked. A usage of the same resource is an error. This is
-// -add.
+// Add appends a usage to .project.json — the resource in its canonical
+// form, a version written after @ as its versionConstraint — then syncs so
+// it is resolved, installed and locked. A usage of the same identity is an
+// error. This is -add.
 func (in *Installer) Add(ctx context.Context, u project.Usage) (*project.Lock, error) {
 	o, err := project.ParseOrigin(u)
 	if err != nil {
@@ -64,12 +65,13 @@ func (in *Installer) Add(ctx context.Context, u project.Usage) (*project.Lock, e
 	if o.Kind == project.OriginStandard {
 		return nil, installErr(u.Resource, "resolve", errors.New("a standard library IRI is answered by the bundled library and is never installed"))
 	}
+	u = project.Usage{Resource: o.IRI, VersionConstraint: o.Constraint}
 	own, err := project.ReadInterchange(in.Dir)
 	if err != nil {
 		return nil, err
 	}
 	for _, have := range own.Usage {
-		if have.Resource == u.Resource {
+		if project.Identity(have) == o.IRI {
 			return nil, installErr(u.Resource, "resolve", fmt.Errorf("%s already uses it (versionConstraint %q); edit the constraint in %s instead", own.Name, have.VersionConstraint, project.ProjectFile))
 		}
 	}
@@ -151,27 +153,27 @@ func (in *Installer) resolve(ctx context.Context, own *project.Interchange, prio
 	for len(queue) > 0 {
 		u := queue[0]
 		queue = queue[1:]
-		if resolved[u.Resource] {
-			continue
-		}
-		resolved[u.Resource] = true
 		o, err := project.ParseOrigin(u)
 		if err != nil {
 			return nil, installErr(u.Resource, "resolve", err)
 		}
-		if o.Kind == project.OriginStandard {
+		if o.Kind == project.OriginStandard || resolved[o.IRI] {
 			continue
 		}
-		if o.Kind == project.OriginLocal && !filepath.IsAbs(o.Repo) {
-			o.Repo = filepath.Join(in.Dir, o.Repo)
+		resolved[o.IRI] = true
+		if o.Kind == project.OriginLocal && !filepath.IsAbs(o.Path) {
+			o.Path = filepath.Join(in.Dir, o.Path)
 		}
 		constraint, err := project.ParseConstraint(o.Constraint)
 		if err != nil {
 			return nil, installErr(u.Resource, "resolve", err)
 		}
-		pinned := prior.Entry(u.Resource)
+		pinned := prior.Entry(o.IRI)
 		if rewrite {
 			pinned = nil
+		}
+		if pinned != nil && o.Kind == project.OriginGit && pinned.Source != "" {
+			o.Remote = pinned.Source
 		}
 		want := constraint
 		switch {
@@ -180,8 +182,8 @@ func (in *Installer) resolve(ctx context.Context, own *project.Interchange, prio
 				return nil, installErr(u.Resource, "resolve", fmt.Errorf("the lock pins version %s, which no longer satisfies %q; run -lock to re-resolve", pinned.Version, constraint))
 			}
 			want, _ = project.ParseConstraint(pinned.Version)
-		case hints[u.Resource] != "" && (constraint.Any() || constraint.Matches(hints[u.Resource])):
-			want, _ = project.ParseConstraint(hints[u.Resource])
+		case hint(hints, u.Resource, o.IRI) != "" && (constraint.Any() || constraint.Matches(hint(hints, u.Resource, o.IRI))):
+			want, _ = project.ParseConstraint(hint(hints, u.Resource, o.IRI))
 		}
 		rel, err := in.fetcher().Fetch(ctx, o, want)
 		if err != nil {
@@ -191,7 +193,7 @@ func (in *Installer) resolve(ctx context.Context, own *project.Interchange, prio
 			return nil, installErr(u.Resource, "verify", fmt.Errorf("the lock records %s for version %s but the fetch is %s; the release changed under its tag, or the lock is stale (run -lock to re-resolve)", pinned.Digest, pinned.Version, rel.Digest))
 		}
 		entry := project.LockEntry{
-			Resource: u.Resource, IRI: o.IRI, Kind: o.Kind.String(), Constraint: o.Constraint,
+			Resource: o.IRI, Kind: o.Kind.String(), Constraint: o.Constraint,
 			Publisher: rel.Project.Publisher, Name: rel.Project.Name, Version: rel.Version,
 			Source: rel.SourceURL, Tag: rel.Tag, Commit: rel.Commit, Digest: rel.Digest,
 		}
@@ -206,7 +208,7 @@ func (in *Installer) resolve(ctx context.Context, own *project.Interchange, prio
 		}
 		for _, dep := range rel.Project.Usage {
 			if !project.IsStandardLibraryResource(dep.Resource) {
-				entry.Usage = append(entry.Usage, dep.Resource)
+				entry.Usage = append(entry.Usage, project.Identity(dep))
 				queue = append(queue, dep)
 			}
 		}
@@ -215,6 +217,17 @@ func (in *Installer) resolve(ctx context.Context, own *project.Interchange, prio
 	}
 	lock.Sort()
 	return lock, nil
+}
+
+// hint is the version sysand's lock pins for a usage, under the resource
+// as written or under its identity.
+func hint(hints project.SysandHints, keys ...string) string {
+	for _, k := range keys {
+		if v := hints[k]; v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // relPath is path relative to dir with forward slashes when it lies under

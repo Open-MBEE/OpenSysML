@@ -13,11 +13,9 @@ import (
 type OriginKind int
 
 const (
-	// OriginHost is a package URL naming a repository on a git host
-	// (pkg:github/<org>/<repo>, pkg:gitlab/<group>/<repo>), released as a tag.
-	OriginHost OriginKind = iota
-	// OriginGit is a git URL (https://…/.git, git@…, ssh://…), released as a tag.
-	OriginGit
+	// OriginGit is a git repository on any host, released as a tag; its
+	// identity is pkg:git/<host>/<path>[#<subpath>].
+	OriginGit OriginKind = iota
 	// OriginArchive is a URL of a project interchange archive.
 	OriginArchive
 	// OriginLocal is a path on this machine: a project directory or an
@@ -31,8 +29,6 @@ const (
 // String names the kind as the lock and the diagnostics spell it.
 func (k OriginKind) String() string {
 	switch k {
-	case OriginHost:
-		return "host"
 	case OriginGit:
 		return "git"
 	case OriginArchive:
@@ -45,32 +41,34 @@ func (k OriginKind) String() string {
 	return fmt.Sprintf("OriginKind(%d)", int(k))
 }
 
+// GitPurlType is the package URL type of a git repository: pkg:git/<host>/<path>.
+const GitPurlType = "git"
+
 // Origin is a usage's resource IRI read as the place to fetch its project
 // from and the version wanted of it.
 type Origin struct {
-	// IRI is the resource as written, less a version written after @.
+	// IRI is the resource's identity, less a version written after @: for a
+	// git repository the canonical pkg:git/<host>/<path>[#<subpath>], which
+	// a clone URL normalizes to; for anything else the resource as written.
 	IRI string
 	// Kind is how the project is fetched.
 	Kind OriginKind
-	// Host is the host type of a OriginHost (github, gitlab) and the host
-	// name of a OriginGit or OriginArchive.
+	// Host is the host name of a git repository or archive URL; empty for a
+	// repository on this machine (pkg:git//<path>, file://).
 	Host string
-	// Repo is the repository path on the host, as org/repo, for OriginHost
-	// and OriginGit; the URL for OriginArchive; the path for OriginLocal.
-	Repo string
+	// Path is the repository path on the host, less any .git, for a git
+	// repository; the URL for an archive; the path for a local project.
+	Path string
+	// Remote is the URL a git repository is cloned from: the clone URL as
+	// written, or https://<host>/<path>.git derived from the pkg:git form
+	// (file://<path> when the host is empty).
+	Remote string
 	// Subpath is the directory within the repository holding the project
-	// (a purl subpath, written after #), empty for the root.
+	// (written after #), empty for the root.
 	Subpath string
 	// Constraint is the version constraint: the version written after @ in
 	// the IRI, else the usage's versionConstraint; empty for any version.
 	Constraint string
-}
-
-// hostTypes maps the purl types of the git hosts a release is fetched from
-// to the host they live on. Any other purl type is refused by name.
-var hostTypes = map[string]string{
-	"github": "github.com",
-	"gitlab": "gitlab.com",
 }
 
 // ErrNotAnOrigin is the error a resource that names no fetchable origin wraps.
@@ -78,9 +76,9 @@ var ErrNotAnOrigin = errors.New("not a source a project can be installed from")
 
 // ParseOrigin reads a usage as the source to install its project from. A
 // version written after @ in the IRI and a versionConstraint that disagree
-// are an error, as are a purl type that is not a git host, a URL whose
-// scheme is not one of https, http, ssh or git, and a resource that is none
-// of these and no path either.
+// are an error, as are a package URL whose type is not git, a URL whose
+// scheme is not one of https, http, ssh, git or file, and a resource that
+// is none of these and no path either.
 func ParseOrigin(u Usage) (*Origin, error) {
 	resource := strings.TrimSpace(u.Resource)
 	if resource == "" {
@@ -99,7 +97,7 @@ func ParseOrigin(u Usage) (*Origin, error) {
 	case strings.HasPrefix(resource, "git@") && strings.Contains(resource, ":"):
 		src, err = parseSCP(resource)
 	default:
-		src = &Origin{IRI: resource, Kind: OriginLocal, Repo: filepath.Clean(resource)}
+		src = &Origin{IRI: resource, Kind: OriginLocal, Path: filepath.Clean(resource)}
 	}
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", resource, err)
@@ -119,7 +117,43 @@ func sameConstraint(a, b string) bool {
 	return exactVersion(a) != "" && exactVersion(a) == exactVersion(b)
 }
 
-// parsePurl reads a package URL: pkg:<type>/<namespace>/<name>[@<version>][?qualifiers][#<subpath>].
+// gitOrigin builds the origin of a git repository from its host, path
+// (less .git) and subpath, deriving the identity, and the remote when none
+// was written.
+func gitOrigin(host, repoPath, remote, subpath, version string) (*Origin, error) {
+	host = strings.ToLower(host)
+	repoPath = strings.TrimSuffix(strings.TrimRight(repoPath, "/"), ".git")
+	if host == "" {
+		repoPath = "/" + strings.TrimLeft(repoPath, "/")
+	} else {
+		repoPath = strings.TrimLeft(repoPath, "/")
+	}
+	if strings.Trim(repoPath, "/") == "" {
+		return nil, errors.New("the repository has no path")
+	}
+	sub, err := cleanSubpath(subpath)
+	if err != nil {
+		return nil, err
+	}
+	iri := "pkg:" + GitPurlType + "/" + host + "/" + repoPath
+	if host == "" {
+		iri = "pkg:" + GitPurlType + "/" + repoPath
+	}
+	if sub != "" {
+		iri += "#" + sub
+	}
+	if remote == "" {
+		if host == "" {
+			remote = "file://" + repoPath
+		} else {
+			remote = "https://" + host + "/" + repoPath + ".git"
+		}
+	}
+	return &Origin{IRI: iri, Kind: OriginGit, Host: host, Path: repoPath, Remote: remote, Subpath: sub, Constraint: version}, nil
+}
+
+// parsePurl reads a package URL, pkg:git/<host>/<path>[@<version>][?qualifiers][#<subpath>];
+// pkg:git//<path> is a repository on this machine. Any other type is refused.
 func parsePurl(resource string) (*Origin, error) {
 	rest := strings.TrimPrefix(resource, "pkg:")
 	rest = strings.TrimLeft(rest, "/")
@@ -140,32 +174,24 @@ func parsePurl(resource string) (*Origin, error) {
 			version = decoded
 		}
 	}
-	segments := strings.Split(rest, "/")
-	if len(segments) < 1 || segments[0] == "" {
+	typ, rest, _ := strings.Cut(rest, "/")
+	if typ == "" {
 		return nil, errors.New("the package URL names no type")
 	}
-	host, ok := hostTypes[strings.ToLower(segments[0])]
-	if !ok {
-		return nil, fmt.Errorf("package URL type %q is not a git host projects are installed from (%s): %w", segments[0], strings.Join(sortedKeys(hostTypes), ", "), ErrNotAnOrigin)
+	if !strings.EqualFold(typ, GitPurlType) {
+		return nil, fmt.Errorf("package URL type %q is not %s, the one projects are installed from (pkg:git/<host>/<path>): %w", typ, GitPurlType, ErrNotAnOrigin)
 	}
-	var parts []string
-	for _, seg := range segments[1:] {
-		if decoded, err := url.PathUnescape(seg); err == nil {
-			seg = decoded
-		}
-		if seg != "" {
-			parts = append(parts, seg)
-		}
+	host, repoPath, _ := strings.Cut(rest, "/")
+	if decoded, err := url.PathUnescape(repoPath); err == nil {
+		repoPath = decoded
 	}
-	if len(parts) < 2 {
-		return nil, fmt.Errorf("pkg:%s/<namespace>/<name> needs both a namespace and a name", segments[0])
+	if host != "" && !strings.Contains(repoPath, "/") {
+		return nil, errors.New("pkg:git/<host>/<path> needs a host and a path of at least two segments (an owner and a repository)")
 	}
-	sub, err := cleanSubpath(subpath)
-	if err != nil {
-		return nil, err
+	if host == "" {
+		repoPath = "/" + strings.TrimLeft(repoPath, "/")
 	}
-	iri := "pkg:" + strings.ToLower(segments[0]) + "/" + strings.Join(parts, "/")
-	return &Origin{IRI: iri, Kind: OriginHost, Host: host, Repo: strings.Join(parts, "/"), Subpath: sub, Constraint: version}, nil
+	return gitOrigin(host, repoPath, "", subpath, version)
 }
 
 // parseURL reads a URL as a git repository, when it ends in .git or its
@@ -186,21 +212,25 @@ func parseURL(resource string) (*Origin, error) {
 		version = base[i+1:]
 		p = path.Join(path.Dir(p), base[:i])
 	}
-	subpath, err := cleanSubpath(u.Fragment)
-	if err != nil {
-		return nil, err
-	}
 	bare := *u
 	bare.Path, bare.Fragment, bare.RawQuery, bare.RawPath = p, "", "", ""
 	switch scheme := strings.ToLower(u.Scheme); {
 	case scheme == "git" || scheme == "ssh" || scheme == "file" || strings.HasSuffix(strings.ToLower(p), ".git"):
-		return &Origin{IRI: bare.String(), Kind: OriginGit, Host: u.Host, Repo: bare.String(), Subpath: subpath, Constraint: version}, nil
+		host := u.Hostname()
+		if scheme == "file" {
+			host = ""
+			p = "/" + strings.TrimLeft(p, "/")
+			bare.Host = ""
+		} else if port := u.Port(); port != "" {
+			host += ":" + port
+		}
+		return gitOrigin(host, p, bare.String(), u.Fragment, version)
 	case (scheme == "https" || scheme == "http") && IsArchive(p):
-		if subpath != "" {
+		if u.Fragment != "" {
 			return nil, errors.New("an archive URL takes no #subpath; the archive is the project")
 		}
 		bare.RawQuery = u.RawQuery
-		return &Origin{IRI: bare.String(), Kind: OriginArchive, Host: u.Host, Repo: bare.String(), Constraint: version}, nil
+		return &Origin{IRI: bare.String(), Kind: OriginArchive, Host: u.Host, Path: bare.String(), Constraint: version}, nil
 	case scheme == "https" || scheme == "http":
 		return nil, fmt.Errorf("a URL is fetched as a git repository when it ends in .git or as an archive when it ends in %s: %w", ArchiveExt, ErrNotAnOrigin)
 	default:
@@ -208,7 +238,7 @@ func parseURL(resource string) (*Origin, error) {
 	}
 }
 
-// parseSCP reads git's scp-like form, git@host:org/repo.git[@version][#subpath].
+// parseSCP reads git's scp-like form, git@host:path[.git][@version][#subpath].
 func parseSCP(resource string) (*Origin, error) {
 	rest, subpath := resource, ""
 	if i := strings.IndexByte(rest, '#'); i >= 0 {
@@ -224,15 +254,10 @@ func parseSCP(resource string) (*Origin, error) {
 	if host == "" || repoPath == "" {
 		return nil, errors.New("git@<host>:<path> needs both a host and a path")
 	}
-	sub, err := cleanSubpath(subpath)
-	if err != nil {
-		return nil, err
-	}
-	iri := "git@" + host + ":" + repoPath
-	return &Origin{IRI: iri, Kind: OriginGit, Host: host, Repo: iri, Subpath: sub, Constraint: version}, nil
+	return gitOrigin(host, repoPath, "git@"+host+":"+repoPath, subpath, version)
 }
 
-// cleanSubpath checks a purl subpath: slash-separated, relative, no . or ..
+// cleanSubpath checks a subpath: slash-separated, relative, no . or ..
 // segments, so it names a directory inside the repository.
 func cleanSubpath(sub string) (string, error) {
 	if decoded, err := url.PathUnescape(sub); err == nil {
@@ -255,6 +280,15 @@ func IsStandardLibraryResource(resource string) bool {
 	lower := strings.ToLower(strings.TrimSpace(resource))
 	return (strings.HasPrefix(lower, "https://www.omg.org/spec/kerml/") || strings.HasPrefix(lower, "https://www.omg.org/spec/sysml/")) &&
 		strings.HasSuffix(lower, ArchiveExt)
+}
+
+// Identity is the resource IRI a usage is locked and matched under: the
+// canonical pkg:git form of a git repository, the resource itself otherwise.
+func Identity(u Usage) string {
+	if o, err := ParseOrigin(u); err == nil {
+		return o.IRI
+	}
+	return strings.TrimSpace(u.Resource)
 }
 
 // InstallName is the directory (or archive, with ArchiveExt) an installed

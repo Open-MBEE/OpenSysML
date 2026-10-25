@@ -376,8 +376,8 @@ func doc() usage.Doc {
 			Title: "Managing a project's usages",
 			Examples: []usage.Example{
 				usage.Ex("sysml -project-init -publisher Acme -name W", "Write .project.json and .meta.json"),
-				usage.Ex("sysml -add pkg:github/acme/gears@^2.0.0", "Use a GitHub project at a release tag"),
-				usage.Ex("sysml -add https://h.example/acme/gears.git@2.1.0", "...a git repository, by tag"),
+				usage.Ex("sysml -add pkg:git/github.com/acme/gears@^2.0.0", "Use a git repository at a release tag"),
+				usage.Ex("sysml -add https://h.example/acme/gears.git@2.1.0", "...by its clone URL, normalized"),
 				usage.Ex("sysml -add https://h.example/gears-2.1.0.kpar", "...a published archive"),
 				usage.Ex("sysml -add ../gears", "...a project beside this one, in place"),
 				usage.Ex("sysml -install proj", "Install what proj's lock says"),
@@ -386,23 +386,25 @@ func doc() usage.Doc {
 			Paragraphs: []string{
 				"A project is a directory holding a .project.json (KerML 1.0 §10.3); " +
 					"-project-init writes one, with the .meta.json indexing the model files " +
-					"beside it. -add appends a usage, where pkg:github/<org>/<repo> and " +
-					"pkg:gitlab/<group>/<repo> name a repository whose release tags are " +
-					"v<semver> or <semver> and whose tree holds .project.json at its root " +
-					"(or at #<subpath>); a git URL names any repository the same way, a " +
-					".kpar URL a published archive, and a local path a project read in " +
-					"place. A version after @ becomes the usage's versionConstraint: exact, " +
-					"^1.2.0 (same major), ~1.2.0 (same minor), >=1.2.0 <2.0.0; the latest " +
-					"release it admits is taken.",
-				"A release is fetched as the host's tag archive over HTTPS (HTTPS_PROXY " +
-					"honoured), else by a shallow git clone of the tag; its .project.json " +
-					"must say the tag's version, and its .meta.json checksums are generated " +
-					"or verified before anything is read. It is installed under " +
+					"beside it. -add appends a usage, where pkg:git/<host>/<path> names a git " +
+					"repository on any host whose release tags are v<semver> or <semver> and " +
+					"whose tree holds .project.json at its root (or at #<subpath>); a clone " +
+					"URL (https://…/.git, ssh://…, git@host:path, file://…) is accepted and " +
+					"normalized to that form; a .kpar URL names a published archive, and a " +
+					"local path a project read in place. A version after @ becomes the " +
+					"usage's versionConstraint: exact, ^1.2.0 (same major), ~1.2.0 (same " +
+					"minor), >=1.2.0 <2.0.0; the latest release it admits is taken.",
+				"A release is resolved with git on any host — git ls-remote --tags for the " +
+					"tag, git clone --depth 1 --branch <tag> for the tree, the commit recorded — " +
+					"with the host's tag archive over HTTPS as a fast path for the hosts that " +
+					"serve one (HTTPS_PROXY honoured, git the fallback). Its .project.json must " +
+					"say the tag's version, and its .meta.json checksums are generated or " +
+					"verified before anything is read. It is installed under " +
 					"lib/<publisher>-<name>_<version>/ (a .kpar as is) beside .project.json, " +
-					"with the projects it uses in turn, and pinned in .project.lock.json: " +
-					"resource, version, source, tag, commit and SHA-256 digest, in a fixed " +
-					"order. -install reproduces the lock exactly and refuses a release whose " +
-					"digest moved; -lock re-resolves. The loader matches a usage to the " +
+					"with the projects it uses in turn, and pinned in .project.lock.json: the " +
+					"pkg:git identity, version, remote URL, tag, commit and SHA-256 digest, in " +
+					"a fixed order. -install reproduces the lock exactly and refuses a release " +
+					"whose digest moved; -lock re-resolves. The loader matches a usage to the " +
 					"project the lock pins it to, and by publisher and name slugs when the " +
 					"lock has no entry; a sysand-lock.toml beside the project hints the " +
 					"first resolution's versions and is never written. The OMG standard " +
@@ -757,7 +759,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&projectInit, "project-init", false, "Write a new project's .project.json and .meta.json in the directory named (the working directory by default), indexing the model files there; takes -publisher and -name")
 	fs.StringVar(&projectPublisher, "publisher", "", "With -project-init, the project's publisher")
 	fs.StringVar(&projectName, "name", "", "With -project-init, the project's name (default: the directory's name)")
-	fs.StringVar(&addResource, "add", "", "Append a usage of this resource — pkg:github/<org>/<repo>[@<constraint>], pkg:gitlab/…, a git URL, a .kpar URL or a local path — to the project's .project.json, then resolve, install and lock it")
+	fs.StringVar(&addResource, "add", "", "Append a usage of this resource — pkg:git/<host>/<path>[@<constraint>][#<subpath>], a clone URL (normalized to that form), a .kpar URL or a local path — to the project's .project.json, then resolve, install and lock it")
 	fs.BoolVar(&installProject, "install", false, "Install the projects .project.json uses into lib/ at the versions .project.lock.json pins, resolving and pinning those it lacks")
 	fs.BoolVar(&syncProject, "sync", false, "The same as -install")
 	fs.BoolVar(&lockProject, "lock", false, "Resolve every usage of the project afresh to the latest release its constraint admits, install and rewrite .project.lock.json")
