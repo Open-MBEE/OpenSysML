@@ -9,7 +9,7 @@
     "loopySubperformanceCount": {"type": "Integer", "value": 1},
     "loopySuboccurrenceCount": {"type": "Integer", "value": 1},
     "loopyEnclosedCount": {"type": "Integer", "value": 1},
-    "loopyTimeEnclosedCount": {"type": "Integer", "value": 2},
+    "loopyTimeEnclosedCount": {"type": "Integer", "value": 4},
     "loopyLoopCount": {"type": "Integer", "value": 1},
     "loopy.loops": {"type": "Sequence", "elements": [{"type": "Instance"}]},
     "loopIsTheSubperformance": {"type": "Boolean", "value": true},
