@@ -93,6 +93,46 @@ func TestRuntimeRobustnessBehaviorOccurrenceAttributes(t *testing.T) {
 		}
 	})
 
+	t.Run("chained_read_names_the_performances_part", func(t *testing.T) {
+		ctx, inst, err := instantiateWithLibraries(t, `package test {
+			private import ScalarValues::Integer;
+			private import ScalarValues::Boolean;
+			part def Widget { attribute n : Integer = 1; }
+			part def Robot {
+				attribute seen : Integer;
+				attribute seenAgain : Integer;
+				attribute same : Boolean;
+				perform action go {
+					part fresh : Widget;
+					first start;
+					then assign seen := fresh.n;
+					then assign fresh.n := 5;
+					then assign seenAgain := fresh.n;
+					then assign same := fresh.n == fresh.n;
+					then done;
+				}
+			}
+		}`, "test::Robot")
+		if err != nil {
+			t.Fatalf("instantiate: %v", err)
+		}
+		if got := readInt(t, ctx, inst, "seen"); got != 1 {
+			t.Errorf("seen = %d, want 1", got)
+		}
+		if got := readInt(t, ctx, inst, "seenAgain"); got != 5 {
+			t.Errorf("seenAgain = %d, want 5: the chain reads the part the write landed on", got)
+		}
+		fresh := instanceAtPath(t, ctx, inst, "go.fresh")
+		if got := readInt(t, ctx, fresh, "n"); got != 5 {
+			t.Errorf("go.fresh.n = %d, want 5: the chain names the performance's own part", got)
+		}
+		for _, obj := range ctx.instances {
+			if obj.owner == nil && obj.ID != inst.ID {
+				t.Errorf("object #%d (%s) has no owner: the body's part was materialized outside the performance", obj.ID, SymbolText(obj.Type))
+			}
+		}
+	})
+
 	t.Run("valueless_feature_is_a_typed_error", func(t *testing.T) {
 		_, _, err := instantiateWithLibraries(t, `package test {
 			private import ScalarValues::Integer;

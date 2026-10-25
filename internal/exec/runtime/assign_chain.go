@@ -77,6 +77,10 @@ func (ec *EvalContext) chainRoot(base ast.Node) (Value, error) {
 	if sym, ok, err := ec.occurrenceOperand(base); err != nil {
 		return Value{}, err
 	} else if ok {
+		// A usage of the behavior performed is the part its performance holds.
+		if val, ok, err := ec.performanceFeatureOf(sym); ok {
+			return val, err
+		}
 		// A collection reads as its objects; the step after it writes on one of them.
 		if ec.ctx.namesObjects(sym) {
 			return ec.ctx.denotedValue(sym)
