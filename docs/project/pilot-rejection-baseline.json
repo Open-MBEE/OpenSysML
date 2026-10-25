@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 347,
-        "digest": "sha256:a1faea74f95a872ddbddbf4cdc181c262e42c7f49add9325b252addcc640770b"
+        "files": 348,
+        "digest": "sha256:5b0c61048712b17156fe8f72a93b97fd6318d5819bb56e833385184ec0114152"
       }
     ],
     "recorded": "2026-10-25"
   },
   "totals": {
-    "cases": 347,
-    "bothReject": 335,
+    "cases": 348,
+    "bothReject": 336,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 12,
     "bothAccept": 0
@@ -66,8 +66,8 @@
     },
     {
       "source": "semantic",
-      "cases": 186,
-      "bothReject": 174,
+      "cases": 187,
+      "bothReject": 175,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 12,
       "bothAccept": 0
@@ -2411,6 +2411,15 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/s19b-message-typed-by-item-def.sysml",
+      "source": "semantic",
+      "rule": "A message is a flow usage and must be typed by flow connection definitions, an item definition is not one (SysML 7.16 Flows and Messages, 8.4.12.2; pilot validateFlowUsageType).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
       "path": "semantic/s20-include-references-non-use-case.sysml",
       "source": "semantic",
       "rule": "An include use case usage must reference a use case usage (SysML 7.24 Use Cases; pilot validateIncludeUseCaseUsageReference).",
@@ -3399,8 +3408,8 @@
       }
     ],
     "totals": {
-      "cases": 347,
-      "bothReject": 335,
+      "cases": 348,
+      "bothReject": 336,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 12,
       "bothAccept": 0
