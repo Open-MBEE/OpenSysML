@@ -302,3 +302,73 @@ power_budget_2 Reserve power
 		t.Errorf("references %q, want %q", got, want)
 	}
 }
+
+// A nested heading is also a target by its named path, in this document and
+// qualified by a document definition from another.
+func TestCompileWholeDocumentNestedSectionPaths(t *testing.T) {
+	fixture := loadPlanningFixture(t, `
+	part def Report :> Document {
+		attribute redefines title = "Report";
+		rep language "markdown" /* See [](sysml:overview.mass_budget) and [](sysml:appendix.derivation).
+		 *
+		 * # Overview
+		 *
+		 * ## Mass budget
+		 */
+		part appendix : Section {
+			attribute redefines title = "Appendix";
+			rep language "markdown" /* ## Derivation */
+		}
+	}
+	part def Other :> Document {
+		attribute redefines title = "Other";
+		rep language "markdown" /* See [](sysml:Report::appendix.derivation) and [](sysml:Report::overview.mass_budget). */
+	}
+`)
+	plan := fixture.mustCompile(t, "Report")
+	want := "overview/mass_budget=Mass budget appendix/derivation=Derivation"
+	if got := strings.Join(sectionRefs(plan.Content()), " "); got != want {
+		t.Errorf("references %q, want %q", got, want)
+	}
+	plan = fixture.mustCompile(t, "Other")
+	want = "Observatory::Report:appendix/derivation=Derivation Observatory::Report:overview/mass_budget=Mass budget"
+	if got := strings.Join(sectionRefs(plan.Content()), " "); got != want {
+		t.Errorf("cross-document references %q, want %q", got, want)
+	}
+	_, err := loadPlanningFixture(t, `
+	part def Report :> Document {
+		attribute redefines title = "Report";
+		rep language "markdown" /* See [](sysml:overview.derivation).
+		 *
+		 * # Overview
+		 */
+		part appendix : Section {
+			attribute redefines title = "Appendix";
+			rep language "markdown" /* ## Derivation */
+		}
+	}
+`).compile(t, "Report")
+	if planning := bodyPlanningError(t, err); planning.Kind != ErrorUnknownRefTarget {
+		t.Errorf("a path under the wrong section: %v, want kind %s", err, ErrorUnknownRefTarget)
+	}
+}
+
+// sectionRefs lists every reference run under content as
+// [document:]path=text, in document order.
+func sectionRefs(content []Content) []string {
+	var refs []string
+	for _, node := range content {
+		for _, run := range node.Runs() {
+			if run.Kind() != RunRef {
+				continue
+			}
+			ref := strings.Join(run.RefPath(), "/") + "=" + run.Text()
+			if doc := run.RefDocument(); doc != "" {
+				ref = doc + ":" + ref
+			}
+			refs = append(refs, ref)
+		}
+		refs = append(refs, sectionRefs(node.Children())...)
+	}
+	return refs
+}

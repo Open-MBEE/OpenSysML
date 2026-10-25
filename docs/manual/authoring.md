@@ -340,6 +340,9 @@ document definition or a usage of it (`sysml:MassReport::mass_budget`) as
 for a named part; a usage typed by more than one document is the
 `ambiguous-ref-target` error, as for a part. The anchor is the section's
 path, `overview-mass_budget`.
+A nested heading is also a target by its named path — `sysml:overview.mass_budget`,
+or `sysml:appendix.derivation` for a heading in a body inside a `part : Section` —
+qualified the same way from another document (`sysml:MassReport::appendix.derivation`).
 
 Constructs that no content block renders are refused with a typed planning
 error naming the construct and its line within the body, rather than

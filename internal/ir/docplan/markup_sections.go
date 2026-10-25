@@ -44,6 +44,21 @@ func (o *markupOutline) section(name string) (markupSection, bool) {
 	return section, ok
 }
 
+// sectionAt is the section whose named path is path: its last segment a name
+// or explicit id, the ones before it the names of the sections above it.
+func (o *markupOutline) sectionAt(path []string) (markupSection, bool) {
+	section, ok := o.section(path[len(path)-1])
+	if !ok || len(section.path) != len(path) {
+		return markupSection{}, false
+	}
+	for i, name := range path[:len(path)-1] {
+		if section.path[i] != name {
+			return markupSection{}, false
+		}
+	}
+	return section, true
+}
+
 // parsedBody is a textual representation's body parsed once: its language,
 // text, offsets into the source and blocks, or the planning error instead.
 type parsedBody struct {
@@ -342,14 +357,30 @@ func (c *compiler) nestMarkupSections(owner, rep *symbols.Symbol, parsed *parsed
 }
 
 // markupSectionRef resolves a reference destination no model element answers
-// to as a markup-born section: a name or explicit id in this document, or a
-// name qualified by a document definition or document usage, in that
-// document. A usage typed by more than one document is an ambiguous target.
+// to as a markup-born section: a bare name or the named path of a nested
+// heading in this document, or either qualified by a document definition or
+// document usage, in that document.
 func (c *compiler) markupSectionRef(scope *symbols.Scope, destination string, value ast.Node, origin symbols.Origin) (markupSection, *symbols.Symbol, bool, error) {
 	name, ok := refQualifiedName(value)
 	if !ok {
-		section, found := c.outlineOf(c.entry).section(destination)
-		return section, nil, found, nil
+		qualifier, path := splitSectionPath(destination)
+		if len(path) == 1 {
+			section, found := c.outlineOf(c.entry).section(destination)
+			return section, nil, found, nil
+		}
+		doc := c.entry
+		if qualifier != nil {
+			resolved, err := c.documentNamed(scope, qualifier, origin)
+			if err != nil || resolved == nil {
+				return markupSection{}, nil, false, err
+			}
+			doc = resolved
+		}
+		section, found := c.outlineOf(doc).sectionAt(path)
+		if doc == c.entry {
+			doc = nil
+		}
+		return section, doc, found, nil
 	}
 	parts := name.Parts
 	if len(parts) == 1 && !name.Global {
@@ -357,14 +388,7 @@ func (c *compiler) markupSectionRef(scope *symbols.Scope, destination string, va
 		return section, nil, found, nil
 	}
 	prefix := &ast.QualifiedName{Global: name.Global, Parts: parts[:len(parts)-1]}
-	resolved, ok := c.resolver.ResolveQualified(scope, prefix)
-	if !ok || resolved == nil {
-		return markupSection{}, nil, false, nil
-	}
-	if canonical, ok := c.resolver.ResolveAliasTarget(resolved); ok {
-		resolved = canonical
-	}
-	doc, err := c.documentOf(resolved, origin)
+	doc, err := c.documentNamed(scope, prefix, origin)
 	if err != nil || doc == nil {
 		return markupSection{}, nil, false, err
 	}
@@ -373,6 +397,40 @@ func (c *compiler) markupSectionRef(scope *symbols.Scope, destination string, va
 		doc = nil
 	}
 	return section, doc, found, nil
+}
+
+// documentNamed is the document a qualified name stands for, or nil when the
+// name resolves to nothing or to no document.
+func (c *compiler) documentNamed(scope *symbols.Scope, name *ast.QualifiedName, origin symbols.Origin) (*symbols.Symbol, error) {
+	resolved, ok := c.resolver.ResolveQualified(scope, name)
+	if !ok || resolved == nil {
+		return nil, nil
+	}
+	if canonical, ok := c.resolver.ResolveAliasTarget(resolved); ok {
+		resolved = canonical
+	}
+	return c.documentOf(resolved, origin)
+}
+
+// splitSectionPath reads a dotted destination (`appendix.derivation`,
+// `Report::appendix.derivation`) as a section path, with the document
+// qualifier written ahead of its first segment when there is one.
+func splitSectionPath(destination string) (*ast.QualifiedName, []string) {
+	path := strings.Split(destination, ".")
+	if len(path) < 2 {
+		return nil, path
+	}
+	global := strings.HasPrefix(path[0], "::")
+	segments := strings.Split(strings.TrimPrefix(path[0], "::"), "::")
+	if len(segments) < 2 {
+		return nil, path
+	}
+	qualifier := &ast.QualifiedName{Global: global}
+	for _, text := range segments[:len(segments)-1] {
+		qualifier.Parts = append(qualifier.Parts, ast.NameSegment{Text: text})
+	}
+	path[0] = segments[len(segments)-1]
+	return qualifier, path
 }
 
 // documentOf is the document definition a symbol stands for: the definition
