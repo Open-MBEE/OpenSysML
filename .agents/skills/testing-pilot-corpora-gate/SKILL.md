@@ -149,10 +149,10 @@ same `pilot_clone`. The pin is `PILOT_TAG` **and** `PILOT_COMMIT`: the clone is 
 always indexes the standard library by parsing it. A hand-rolled harness (or `go run ./cmd/sysml
 -validate`, or the LSP) uses the persistent library index under `$XDG_CACHE_HOME/sysml-ls/libs`
 instead. That index is keyed by the library content, the set digest, the record format version and
-the **linker build ID of the binary** (`internal/workspace/libs/buildid.go`), so a binary built from
-different code never reads another build's records and `rm -rf ~/.cache/sysml-ls` is not needed
-between rebuilds; two binaries built from identical code (a worktree at the same commit, same flags)
-share records, which is correct. Before the key carried the build identity, a change to symbol
+the **build identity** (`internal/workspace/libs/buildid.go`: a clean checkout's revision, else the
+linker build ID of the binary), so a binary built from different code never reads another build's
+records and `rm -rf ~/.cache/sysml-ls` is not needed between rebuilds; builds of one clean checkout
+(a worktree at the same commit, a `make build` repeated) share records, which is correct. Before the key carried the build identity, a change to symbol
 classification left a stale cache in place (observed: a corpus file clean under the gate but
 reporting three `Must be a valid feature` errors through a warm pre-change cache). When reproducing
 or refuting a gate verdict outside the gate, still run under `XDG_CACHE_HOME=$(mktemp -d)` as well as

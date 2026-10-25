@@ -10,10 +10,8 @@ import (
 	"strconv"
 )
 
-// linkerBuildID reads the build ID the Go linker wrote into the executable at
-// path, the way `go tool buildid` does: from the Go note of an ELF file, or from
-// the marker at the start of the text of any other format. It is "" when the
-// executable carries none, as one linked with -buildid= does.
+// linkerBuildID reads the Go linker's build ID from the executable at path as `go tool
+// buildid` does (ELF Go note, else the marker at the start of the text); "" when absent.
 func linkerBuildID(path string) (string, error) {
 	f, err := os.Open(path) // #nosec G304 -- the running executable, named by os.Executable
 	if err != nil {
@@ -115,8 +113,7 @@ func elfGoBuildID(f *os.File) (string, error) {
 	return "", nil
 }
 
-// machoGoBuildID reads the marker from the start of __text when the file's
-// header pushed it past the first read.
+// machoGoBuildID reads the marker from __text when the header pushed it past the first read.
 func machoGoBuildID(f *os.File) (string, error) {
 	mf, err := macho.NewFile(f)
 	if err != nil {

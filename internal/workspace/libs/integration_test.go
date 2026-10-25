@@ -120,9 +120,8 @@ func TestCacheStaleContentReparsedNotServed(t *testing.T) {
 	}
 }
 
-// Two builds may disagree on a fact, as two resolvers patched differently do, so
-// a record one build wrote is served to that build only: the other misses it
-// and derives the fact from the source, with both reading one cache directory.
+// Two differently patched builds may disagree on a fact: a record one wrote is served
+// to that build only; the other misses it and derives the fact, in one cache directory.
 func TestRecordOfAnotherBuildIsNotServed(t *testing.T) {
 	libDir := t.TempDir()
 	content := []byte("package Lib { part def Engine; part def Motor; part e : Engine; }")

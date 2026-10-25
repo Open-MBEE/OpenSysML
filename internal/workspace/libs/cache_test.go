@@ -280,9 +280,8 @@ func TestCacheKeySameInputsSameKey(t *testing.T) {
 	}
 }
 
-// A record of another format version is never read: a newer binary's record
-// is unreachable by an older binary's key, and a record that does not decode
-// is a miss, never an error or a partial restore.
+// A newer binary's record is unreachable by an older binary's key, and a record
+// that does not decode is a miss, never an error or a partial restore.
 func TestCacheRefusesRecordsOfAnotherFormat(t *testing.T) {
 	c := &Cache{dir: t.TempDir()}
 	key := c.keyFor("a.kerml", []byte("alpha"), "set")

@@ -21,9 +21,7 @@ func TestBuildIDFromInfoUsesCleanRevision(t *testing.T) {
 	}
 }
 
-// A modified tree reuses one revision for every edit, so it must not identify a
-// build: that is the stale-hit case that made the differential oracle disagree
-// between machines (#491).
+// A modified tree reuses one revision for every edit, so it must not identify a build (#491).
 func TestBuildIDFromInfoRejectsModifiedTree(t *testing.T) {
 	info := &debug.BuildInfo{Settings: []debug.BuildSetting{
 		{Key: "vcs.revision", Value: "abc123"},
@@ -46,8 +44,7 @@ func TestBuildIDFromInfoFallsBackToModuleVersion(t *testing.T) {
 	}
 }
 
-// The fallback identity has to be usable in a file name and stable within one
-// process, or every Load would miss the record Persist just wrote.
+// The identity has to be file-name safe and stable within one process.
 func TestCurrentBuildIDIsStableAndFileNameSafe(t *testing.T) {
 	first, second := buildID(), buildID()
 	if first != second {
@@ -63,9 +60,8 @@ func TestCurrentBuildIDIsStableAndFileNameSafe(t *testing.T) {
 	}
 }
 
-// Since Go 1.24 a dirty tree's main module is stamped `<pseudo-version>+dirty`,
-// one version for every edit of that commit; accepting it in place of the
-// rejected revision let two differently patched builds share every record.
+// Go 1.24 stamps a dirty tree's main module `<pseudo-version>+dirty`, one value for
+// every edit of that commit; accepting it let differently patched builds share records.
 func TestBuildIDFromInfoRejectsDirtyModuleVersion(t *testing.T) {
 	info := &debug.BuildInfo{
 		Main: debug.Module{Version: "v0.11.1-0.20261025041301-76c98694c2da+dirty"},
@@ -83,8 +79,39 @@ func TestBuildIDFromInfoRejectsDirtyModuleVersion(t *testing.T) {
 	}
 }
 
-// The running test binary carries a linker build ID, and that is what the cache
-// key is derived from: the same value `go tool buildid` prints for it.
+// A clean checkout is identified by its revision, every other build by the linker's
+// build ID; a modified tree's metadata never identifies it.
+func TestBuildIdentityOrder(t *testing.T) {
+	clean := &debug.BuildInfo{Settings: []debug.BuildSetting{{Key: "vcs.revision", Value: "abc123"}, {Key: "vcs.modified", Value: "false"}}}
+	dirty := &debug.BuildInfo{
+		Main:     debug.Module{Version: "v0.11.1-0.20261025041301-76c98694c2da+dirty"},
+		Settings: []debug.BuildSetting{{Key: "vcs.revision", Value: "abc123"}, {Key: "vcs.modified", Value: "true"}},
+	}
+	released := &debug.BuildInfo{Main: debug.Module{Version: "v0.11.0"}}
+	cases := []struct {
+		name     string
+		info     *debug.BuildInfo
+		linkerID string
+		want     string
+	}{
+		{"clean checkout, stamped link", clean, "L1", "gabc123"},
+		{"clean checkout, no linker ID", clean, "", "gabc123"},
+		{"modified tree", dirty, "L1", "lL1"},
+		{"modified tree, no linker ID", dirty, "", ""},
+		{"module build", released, "L1", "lL1"},
+		{"module build, no linker ID", released, "", "mv0.11.0"},
+		{"nothing known", &debug.BuildInfo{}, "", ""},
+	}
+	for _, c := range cases {
+		got, ok := buildIdentity(c.info, c.linkerID)
+		if ok != (c.want != "") || got != c.want {
+			t.Errorf("%s: buildIdentity = %q, %v; want %q", c.name, got, ok, c.want)
+		}
+	}
+}
+
+// The running test binary carries a linker build ID equal to `go tool buildid`'s, and
+// the cache identity is that ID unless the binary records a clean checkout.
 func TestCurrentBuildIDIsTheLinkerBuildID(t *testing.T) {
 	exe, err := os.Executable()
 	if err != nil {
@@ -97,8 +124,14 @@ func TestCurrentBuildIDIsTheLinkerBuildID(t *testing.T) {
 	if id == "" {
 		t.Fatalf("no linker build ID in %s", exe)
 	}
-	if got := currentBuildID(); got != "l"+id {
-		t.Fatalf("currentBuildID() = %q, want the linker build ID %q", got, "l"+id)
+	want := "l" + id
+	if info, ok := debug.ReadBuildInfo(); ok {
+		if rev, ok := cleanRevision(info); ok {
+			want = "g" + rev
+		}
+	}
+	if got := currentBuildID(); got != want {
+		t.Fatalf("currentBuildID() = %q, want %q", got, want)
 	}
 	goTool, err := exec.LookPath("go")
 	if err != nil {
@@ -113,9 +146,8 @@ func TestCurrentBuildIDIsTheLinkerBuildID(t *testing.T) {
 	}
 }
 
-// Two binaries of the same code share a linker build ID; differently stamped
-// ones (as the Makefile's -X version flags stamp them) do not, however alike
-// their build metadata is.
+// Differently stamped links of the same code (as the Makefile's -X flags stamp them)
+// get distinct linker build IDs, however alike their build metadata is.
 func TestLinkerBuildIDTellsBuildsApart(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds a command twice")

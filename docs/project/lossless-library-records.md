@@ -63,8 +63,8 @@ one query's answer**. Concretely, the successor test must assert:
 2. **No-cache equality.** The same holds with `cache == nil`, so disabling persistence is not a way
    to see a different library.
 3. **Staleness is a miss.** A record produced by different code, a different file, or a different
-   sibling file is never restored. Build identity (`libs.buildID`, the executable's linker build
-   ID) and the set digest (`Loader.setDigest`) do this.
+   sibling file is never restored. Build identity (`libs.buildID`: a clean checkout's revision, else the executable's
+   linker build ID) and the set digest (`Loader.setDigest`) do this.
 
 ---
 
@@ -382,7 +382,7 @@ never a wrong answer.* Four independent components of the cache key enforce it, 
 |---|---|---|
 | `sha256(content)` | an edit to the file itself | the facts are derived from it |
 | `-s<setDigest>` | an edit to **any** file of the library set | a unit reduction follows a reference unit declared in a sibling file |
-| `-b<buildID>` | a change to the code that derived the facts | a fact is a function of our code, which no input covers; the identity is the linker's build ID of the running executable, derived from every compiled input, so a dirty tree, a worktree at the same commit or a patched resolver never reuses a record, while builds of identical code share them |
+| `-b<buildID>` | a change to the code that derived the facts | a fact is a function of our code, which no input covers; the identity is a clean checkout's revision, shared by its builds whatever the link stamped, else the linker's build ID of the running executable, which any compiled input changes, so a dirty tree or a patched resolver never reuses a record |
 | `-v<formatVersion>` | a change to the persisted shape | a decode of an old shape is not attempted |
 
 Two consequences worth stating explicitly, because they are what makes "stale is a miss" true rather

@@ -516,10 +516,11 @@ Two cheap surfaces that *do* prove the split:
 
 Record filenames under `$XDG_CACHE_HOME/sysml-ls/libs/` end in `-b<buildID>-v<N>.idx`: `formatVersion`
 (`internal/workspace/libs/record.go`) names the persisted shape, and the build ID is a hash of the
-**linker build ID of the binary** (`internal/workspace/libs/buildid.go`), which the Go toolchain
-derives from every compiled input. A binary built from different code — an abandoned iteration, a
-dirty tree, a worktree with one patch — therefore never reads another build's records, and there is
-no cache to clear between rebuilds; binaries built from identical code share records. Before the key
+**build identity** (`internal/workspace/libs/buildid.go`): a clean checkout's revision, else the
+linker build ID of the binary, which the Go toolchain derives from every compiled input. A binary
+built from different code — an abandoned iteration, a dirty tree, a worktree with one patch —
+therefore never reads another build's records, and there is no cache to clear between rebuilds;
+builds of one clean checkout share records. Before the key
 carried that identity, an abandoned iteration that classified `function` as `SymbolKerMLType` left
 records a later build of the same version reused — observed as `sysml -constraint C model.sysml` →
 `not a calc: invalid symbol` for `RealFunctions::sqrt`, while a fresh `XDG_CACHE_HOME` passed.
