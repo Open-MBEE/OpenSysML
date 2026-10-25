@@ -3,12 +3,15 @@
 
 from __future__ import annotations
 
+import argparse
 import contextlib
 import importlib.util
 import io
 import json
+import os
 import pathlib
 import sys
+import tempfile
 import threading
 import unittest
 import unittest.mock
@@ -50,6 +53,16 @@ def webhook_server(response_body: bytes):
         server.shutdown()
         thread.join()
         server.server_close()
+
+
+@contextlib.contextmanager
+def working_directory(path: pathlib.Path):
+    previous = os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(previous)
 
 
 def run_main(args: list[str]) -> None:
@@ -181,6 +194,82 @@ class MainTest(unittest.TestCase):
                             "https://example.test/release",
                         ]
                     )
+
+
+class SnippetPathTest(unittest.TestCase):
+    """--snippet reads only files under the directory the script is run from."""
+
+    DRY_RUN = ["--tag", "v1.2.3", "--release-name", "OpenSysML 1.2.3",
+               "--release-url", "https://example.test/release", "--dry-run"]
+
+    def setUp(self):
+        root = tempfile.TemporaryDirectory()
+        self.addCleanup(root.cleanup)
+        self.root = pathlib.Path(root.name).resolve()
+        self.cwd = self.root / "checkout"
+        self.cwd.mkdir()
+        self.outside = self.root / "elsewhere"
+        self.outside.mkdir()
+        self.secret = self.outside / "secret.txt"
+        self.secret.write_text("not for Slack\n", encoding="utf-8")
+
+    def dry_run(self, snippet_arg: str) -> dict:
+        stdout = io.StringIO()
+        with unittest.mock.patch.dict("os.environ", {}, clear=True):
+            with unittest.mock.patch(
+                "urllib.request.urlopen", side_effect=AssertionError("network used")
+            ):
+                with working_directory(self.cwd):
+                    with contextlib.redirect_stdout(stdout):
+                        run_main([*self.DRY_RUN, "--snippet", snippet_arg])
+        return json.loads(stdout.getvalue())
+
+    def assert_refused(self, snippet_arg: str):
+        stderr = io.StringIO()
+        with unittest.mock.patch.dict("os.environ", {}, clear=True):
+            with unittest.mock.patch(
+                "urllib.request.urlopen", side_effect=AssertionError("network used")
+            ):
+                with working_directory(self.cwd):
+                    with contextlib.redirect_stderr(stderr):
+                        with self.assertRaises(SystemExit) as raised:
+                            run_main([*self.DRY_RUN, "--snippet", snippet_arg])
+        self.assertNotEqual(raised.exception.code, 0)
+        self.assertIn(snippet_arg, stderr.getvalue())
+        self.assertIn("outside the working directory", stderr.getvalue())
+
+    def test_reads_a_snippet_under_the_working_directory(self):
+        (self.cwd / "notes").mkdir()
+        (self.cwd / "notes" / "snippet.txt").write_text(
+            "Get it: pip install opensysml\n", encoding="utf-8"
+        )
+        for snippet_arg in ("notes/snippet.txt", str(self.cwd / "notes" / "snippet.txt")):
+            with self.subTest(snippet_arg=snippet_arg):
+                payload = self.dry_run(snippet_arg)
+                self.assertTrue(
+                    payload["text"].endswith("\n\nGet it: pip install opensysml")
+                )
+
+    def test_refuses_a_snippet_outside_the_working_directory(self):
+        self.assert_refused(str(self.secret))
+
+    def test_refuses_a_traversal_out_of_the_working_directory(self):
+        self.assert_refused(os.path.join("..", "elsewhere", "secret.txt"))
+
+    def test_refuses_a_symlink_that_leaves_the_working_directory(self):
+        (self.cwd / "snippet.txt").symlink_to(self.secret)
+        self.assert_refused("snippet.txt")
+
+    def test_accepts_any_absolute_path_when_run_from_the_root(self):
+        with working_directory(pathlib.Path(os.sep)):
+            resolved = announce._snippet_path(argparse.ArgumentParser(), str(self.secret))
+        self.assertEqual(resolved, str(self.secret))
+
+    def test_refuses_a_sibling_directory_sharing_the_prefix(self):
+        sibling = pathlib.Path(str(self.cwd) + "malicious")
+        sibling.mkdir()
+        (sibling / "snippet.txt").write_text("prefix match\n", encoding="utf-8")
+        self.assert_refused(str(sibling / "snippet.txt"))
 
 
 if __name__ == "__main__":
