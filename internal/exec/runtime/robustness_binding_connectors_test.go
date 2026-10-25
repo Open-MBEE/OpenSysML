@@ -155,22 +155,22 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 				binding [1] bind [0..1] edges = [0..1] leftEdge;
 				binding [1] bind [0..1] edges = [0..1] rightEdge;
 			}
+			part sys : Sys;
 		}`))
-		inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Sys"))
-		if err != nil {
-			t.Fatalf("instantiate: %v", err)
+		pkg, ok := idx.DocumentRoot("<binding-multiple-collection-contributors>").LookupLocal("P")
+		if !ok {
+			t.Fatal("package P not found")
 		}
-		_, err = inst.GetFeatureValue(ctx, "edges")
-		if !errors.Is(err, errBindingEnd) {
-			t.Fatalf("GetFeatureValue(edges) = %v, want errBindingEnd", err)
-		}
-		if got, want := err.Error(), "binding end cannot be resolved: Sys.edges is bound by `binding [1] bind [0..1] edges = [0..1] leftEdge`, "+
-			"which makes some value of edges a value of leftEdge without saying which value of either; the model does not state what edges holds"; got != want {
-			t.Errorf("error = %q, want %q", got, want)
-		}
-		fv := inst.FeatureValues["edges"]
-		if fv.Materialized || fv.Written || fv.BindingDerived || fv.HeldValue().Kind != ValInvalid {
-			t.Errorf("unsupported binding left an assignment behind: %+v", *fv)
+		// Each binding identifies one value of edges with one of its other end without
+		// saying which, so edges holds what its own declaration states: nothing.
+		for expr, want := range map[string]string{"sys.edges": "[]", "sys.leftEdge": "1", "sys.rightEdge": "2"} {
+			val, err := evalIn(t, ctx, pkg.Scope, expr)
+			if err != nil {
+				t.Fatalf("%s: %v", expr, err)
+			}
+			if got := FormatValue(val); got != want {
+				t.Errorf("%s = %s, want %s, what its own declaration states", expr, got, want)
+			}
 		}
 	})
 
@@ -201,8 +201,14 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 		if err != nil {
 			t.Fatalf("instantiate two: %v", err)
 		}
-		if _, err := two.GetFeatureValue(ctx, "pick"); !errors.Is(err, errBindingEnd) {
-			t.Fatalf("two.pick = %v, want errBindingEnd", err)
+		pkg, ok := idx.DocumentRoot("<binding-partial-by-values-held>").LookupLocal("P")
+		if !ok {
+			t.Fatal("package P not found")
+		}
+		// The binding links one of the two values edges holds without saying which, so
+		// pick is read as its own declaration leaves it: without a value.
+		if _, err := evalIn(t, ctx, pkg.Scope, "two.pick"); !errors.Is(err, errUninitializedFeatureValue) {
+			t.Fatalf("two.pick = %v, want errUninitializedFeatureValue", err)
 		}
 		// An end valued on its own — written, as one valued by a default — keeps that value.
 		if err := two.SetFeatureValue(ctx, "pick", integerValue(8)); err != nil {

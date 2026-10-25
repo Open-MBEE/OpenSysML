@@ -2607,7 +2607,7 @@ HTTP/1.1 400 Bad Request
 A query over `DocumentQueries::Verdicts` answers **verdict rows**: the row's `element` is the
 ninth arm, **`verdict`**, a `DocumentVerdict` with `assertion` (the assertion checked, as an
 `elementId` `DocumentValue` — an anonymous `satisfy` keeps its `elementType` and has an empty
-`elementId`), `kind` (`constraint`, `requirement`, `satisfaction`, `verification`), `text`
+`elementId`), `kind` (`constraint`, `requirement`, `satisfaction`, `binding`, `verification`), `text`
 (the assertion as written), `path` (the object checked, from the bound element down —
 `Garage::car.wheels[2]`), `verdict` (`holds`, `violated`, `undecided`), and, where they apply,
 `condition` (the expression found false), `reason` (why a row is violated or undecided — an

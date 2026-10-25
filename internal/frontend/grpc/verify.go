@@ -23,6 +23,7 @@ const (
 	verdictConstraint  = "constraint"
 	verdictRequirement = "requirement"
 	verdictSatisfy     = "satisfy"
+	verdictBinding     = "binding"
 )
 
 // failureReason classifies a failure for the wire, so a client acts on the kind
