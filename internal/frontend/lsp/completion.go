@@ -128,7 +128,7 @@ func (c *completionItems) addSymbol(s *Server, sym *symbols.Symbol) {
 		return
 	}
 	item := protocol.CompletionItem{
-		Label:  leafName(sym.Name),
+		Label:  symbols.LastSegment(sym.Name),
 		Kind:   completionKind(sym.Kind),
 		Detail: completionDetail(sym),
 	}
@@ -227,15 +227,6 @@ func declaredTypeText(sym *symbols.Symbol) string {
 		}
 	}
 	return ""
-}
-
-// leafName returns the last segment of a name: a cached library symbol is named
-// by its qualified name, which is not what completing a member inserts.
-func leafName(name string) string {
-	if i := strings.LastIndex(name, "::"); i >= 0 {
-		return name[i+2:]
-	}
-	return name
 }
 
 // completionKind maps a symbol kind to the LSP completion kind, so client icons

@@ -479,8 +479,8 @@ func TestSameNameSplitsOutsideQuotes(t *testing.T) {
 		{"Group 1", "Group 1", true},
 		{"Group 1", "'Group 1'", true},
 	} {
-		if got := sameName(c.name, c.qualified); got != c.want {
-			t.Errorf("sameName(%q, %q) = %t, want %t", c.name, c.qualified, got, c.want)
+		if got := simresults.SameName(c.name, c.qualified); got != c.want {
+			t.Errorf("SameName(%q, %q) = %t, want %t", c.name, c.qualified, got, c.want)
 		}
 	}
 

@@ -75,6 +75,8 @@ func (v *verifyContext) objectVerdict(ov runtime.ObjectVerdict, plan analysis.Pl
 		kind = verdictRequirement
 	case runtime.AssertionSatisfaction:
 		kind = verdictSatisfy
+	case runtime.AssertionBinding:
+		kind = verdictBinding
 	}
 	out := v.verdict(kind, ov.Element, ov.Text, ov.Subject, ov.Status == runtime.ValidationHolds, ov.Err, plan)
 	out.InstancePath = strings.Join(ov.Path, ".")

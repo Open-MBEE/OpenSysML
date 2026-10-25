@@ -513,7 +513,7 @@ func TestApplyModelEditRefusesImpossibleMoves(t *testing.T) {
 		t.Errorf("clashing move = %+v, want member-name-taken", out)
 	}
 	s, docURI = renderServer(t, "vehicle.sysml", editModel)
-	fleetURI := uri.File("fleet.sysml")
+	fleetURI := tempDocURI(t, "fleet.sysml")
 	openDoc(t, s, fleetURI, "package Fleet {\n    part truck : Vehicle::Car;\n}\n")
 	out = applyModelEdit(t, s, docURI, 1, ModelEditOperation{Kind: EditMove, Target: "Vehicle::Car", Owner: "Vehicle::Tank"})
 	if len(out.Refused) != 1 || out.Refused[0].Failure != "referenced-elsewhere" {
@@ -553,7 +553,7 @@ const fleetModel = "package Fleet {\n    part truck : Vehicle::Car;\n    part va
 // the version the server holds for it.
 func TestApplyModelEditRenameRespellsAnotherDocument(t *testing.T) {
 	s, docURI := renderServer(t, "vehicle.sysml", editModel)
-	fleetURI := uri.File("fleet.sysml")
+	fleetURI := tempDocURI(t, "fleet.sysml")
 	openDoc(t, s, fleetURI, fleetModel)
 	op := ModelEditOperation{Kind: EditRename, Target: "Vehicle::Car", NewName: "Auto"}
 	out := applyModelEdit(t, s, docURI, 1, op)
@@ -581,7 +581,7 @@ func TestApplyModelEditRenameRespellsAnotherDocument(t *testing.T) {
 // without cascade it is refused, naming them by document.
 func TestApplyModelEditDeleteCascadesIntoAnotherDocument(t *testing.T) {
 	s, docURI := renderServer(t, "vehicle.sysml", editModel)
-	fleetURI := uri.File("fleet.sysml")
+	fleetURI := tempDocURI(t, "fleet.sysml")
 	openDoc(t, s, fleetURI, fleetModel)
 
 	out := applyModelEdit(t, s, docURI, 1, ModelEditOperation{Kind: EditDelete, Target: "Vehicle::Car"})
@@ -622,7 +622,7 @@ func TestApplyModelEditDeleteCascadesIntoAnotherDocument(t *testing.T) {
 // document read from disk, which no client versions, carries none.
 func TestApplyModelEditVersionsOtherDocumentsAsHeld(t *testing.T) {
 	s, docURI := renderServer(t, "vehicle.sysml", editModel)
-	fleetURI := uri.File("fleet.sysml")
+	fleetURI := tempDocURI(t, "fleet.sysml")
 	openDoc(t, s, fleetURI, fleetModel)
 	sendDidChange(t, s, fleetURI, 3, []json.RawMessage{json.RawMessage(`{"text":"package Fleet {\n    part van : Vehicle::Car;\n}\n"}`)})
 	depotName := uri.File("depot.sysml").Filename()

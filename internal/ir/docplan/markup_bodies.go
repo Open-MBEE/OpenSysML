@@ -153,6 +153,12 @@ func (c *compiler) markupRuns(owner, rep *symbols.Symbol, body string, runs []ma
 				return nil, err
 			}
 			planned = append(planned, ref)
+		case markup.RunValue:
+			value, err := c.markupValue(owner, rep, body, run, origin)
+			if err != nil {
+				return nil, err
+			}
+			planned = append(planned, value)
 		default:
 			planned = append(planned, Run{kind: RunSpan, text: run.Text, style: runStyle(run.Style), bound: true, origin: origin})
 		}

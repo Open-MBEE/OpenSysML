@@ -25,15 +25,10 @@ func TestShapeItemsUnsupportedExpressionsAreTypedErrors(t *testing.T) {
 		want error
 		text string
 	}{
-		{"box.tfe", errBindingEnd, "which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds"},
-		{"box.tfe.length", errBindingEnd, "binding [1] bind [0..1] tf.edges = [0..1] tfe"},
-		{"box.tflv", errBindingEnd, "binding [1] bind [0..1] tf.edges = [0..1] tfe"},
-		{"box.vertices", errBindingEnd, "subsetting feature tflv of vertices: binding end cannot be resolved: box.tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`"},
 		{"box.spaceBoundary", ErrNoSuchFeature, "box has no member spaceBoundary: Items::Item::shape redefines it"},
-		{"cyl.edges", errBindingEnd, "StructuredSurface.edges is bound by `binding [1] bind [0..*] cf.edges = [0..*] be`"},
-		{"cyl.faces.edges", errBindingEnd, "StructuredSurface.edges is bound by `binding [1] bind [0..*] cf.edges = [0..*] be`"},
-		{"cyl.be", errBindingEnd, "cyl.be is bound by `binding [1] bind [0..*] base.edges = [0..*] be`"},
-		{"cyl.ae", errBindingEnd, "cyl.ae is bound by `binding [1] bind [0..*] cf.edges = [0..*] ae`"},
+		// `tfe [2] :> edges` holds objects of the subsetted feature's type, StructuredCurve, which
+		// declares no length; Line, the type of the faces' edges, does.
+		{"box.tfe.length", ErrNoSuchFeature, "StructuredCurve has no member length"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.expr, func(t *testing.T) {
@@ -45,6 +40,22 @@ func TestShapeItemsUnsupportedExpressionsAreTypedErrors(t *testing.T) {
 				t.Errorf("%s error %q does not name %q", tc.expr, err, tc.text)
 			}
 		})
+	}
+
+	// `binding [1] bind [0..1] tf.edges = [0..1] tfe` identifies one value of each end
+	// without determining either, so a bound subsetter holds what its own declaration
+	// states, and the collections it subsets read through it (KerML 1.0 §7.4.6).
+	for expr, want := range map[string]int{
+		"box.tfe": 2, "box.tflv": 3, "box.vertices": 18, "box.edges": 24,
+		"cyl.edges": 2, "cyl.faces.edges": 2, "cyl.be": 2, "cyl.ae": 0,
+	} {
+		val, err := evalIn(t, ctx, pkg.Scope, expr)
+		if err != nil {
+			t.Fatalf("%s: %v", expr, err)
+		}
+		if got := len(elementsOf(val)); got != want {
+			t.Errorf("%s = %s, want %d objects", expr, FormatValue(val), want)
+		}
 	}
 
 	// A Kernel Semantic Library member the shape leaves out is a value, not a gap: a

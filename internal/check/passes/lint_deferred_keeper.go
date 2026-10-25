@@ -124,7 +124,7 @@ func (c *deferredKeeperLint) checkDoAction(scope *symbols.Scope, performed *ast.
 				Span:     node.Span(),
 				Message: fmt.Sprintf(
 					"accept of deferred signal %s is not marked #MigrationMetadata::DeferredKeeper, so it is an ordinary accept, not the keeping loop; re-migrate the model or mark it",
-					qnText(d.Type)),
+					d.Type.Text()),
 				Code:   CodeDeferredKeeperUnmarked,
 				Source: lintSource,
 			})

@@ -52,7 +52,7 @@ var nestedOwners = map[category]semantics.NestedOwner{
 	catActor:           {Usage: ast.UsagePart},
 	catMetadataDef:     {Def: ast.DefMetadata, IsDef: true},
 	catView:            {Usage: ast.UsageView},
-	catViewpoint:       {Def: ast.DefViewpoint, IsDef: true},
+	catViewpoint:       {Def: ast.DefView, IsDef: true},
 }
 
 // implicitlyUnique is the unique library feature a usage written as prefix+kw

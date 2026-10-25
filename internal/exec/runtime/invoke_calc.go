@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -1378,7 +1379,7 @@ func (ctx *Context) effectiveParameter(sym *symbols.Symbol, libInputs []*symbols
 	for _, link := range ctx.model.semantics.ParameterRedefinitionChain(sym) {
 		owner := link.OwnerScope.Owner()
 		param.Decl = param.Decl.redeclaring(ctx.calcMemberDeclFor(owner, link, param.Name))
-		if at := indexOfSymbol(libInputs, link); at >= 0 {
+		if at := slices.Index(libInputs, link); at >= 0 {
 			return param, at
 		}
 		if ctx.libraryDeclared(link) {
@@ -1433,15 +1434,6 @@ func (ctx *Context) ownedInputSymbols(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 	}
 	return inputs
-}
-
-func indexOfSymbol(syms []*symbols.Symbol, want *symbols.Symbol) int {
-	for i, sym := range syms {
-		if sym == want {
-			return i
-		}
-	}
-	return -1
 }
 
 // invokeLibraryPerformance binds args to the effective signature of a calc performing

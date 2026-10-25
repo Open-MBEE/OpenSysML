@@ -303,15 +303,18 @@ func TestRunQueryBindsAMeasurementReference(t *testing.T) {
 }
 
 // A measurement scale binds as the declaration it is, so a query traverses from
-// it; its placement binds as the transformation the library declares.
+// it; its placement binds under the name the scale declares it by, which
+// redefines the library's `transformation` and so removes that name (KerML 7.3.4.5).
 func TestRunQueryBindsACoordinateFrame(t *testing.T) {
 	s := docQuerySession(t)
 	wants(t, run(t, s, `%run-query NamedSubsystems root=SI::'°C_abs' pattern="unit"`),
 		"✓ Query Observatory::NamedSubsystems returned 1 row",
 		"Row 1: SI::'degree celsius (absolute temperature scale)'::unit")
-	wants(t, run(t, s, `%run-query NamedSubsystems root=SI::'°C_abs'.transformation pattern="origin"`),
+	wants(t, run(t, s, `%run-query NamedSubsystems root=SI::'°C_abs'.zeroDegreeCelsiusToKelvinShift pattern="origin"`),
 		"✓ Query Observatory::NamedSubsystems returned 1 row",
 		"Row 1: SI::'degree celsius (absolute temperature scale)'::zeroDegreeCelsiusToKelvinShift::origin")
+	wants(t, run(t, s, `%run-query NamedSubsystems root=SI::'°C_abs'.transformation pattern="origin"`),
+		"error:", "has no member transformation: SI::degree celsius (absolute temperature scale)::zeroDegreeCelsiusToKelvinShift redefines it")
 }
 
 // objectQueryModel declares queries over a car whose wheels the session can

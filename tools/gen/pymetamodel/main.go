@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -299,7 +300,7 @@ func (m *model) index() error {
 		if _, exists := m.classBy[name]; exists {
 			return fmt.Errorf("metaclass and enumeration share generated name %s", name)
 		}
-		if contains([]string{"METAMODEL_VERSION", "SOURCE_TAG", "SOURCE_COMMIT", "REGISTRY",
+		if slices.Contains([]string{"METAMODEL_VERSION", "SOURCE_TAG", "SOURCE_COMMIT", "REGISTRY",
 			"ENUMERATIONS", "RUNTIME_MEMBERS"}, name) {
 			return fmt.Errorf("enumeration %s collides with a generated module member", name)
 		}
@@ -347,11 +348,11 @@ func (m *model) validateDeclarations() error {
 		declared[property.Name] = append(names, property.DefiningClass)
 		snake, camel := toSnake(property.Name), property.Name
 		for _, name := range []string{snake, camel} {
-			if contains(runtimeMembers, name) {
+			if slices.Contains(runtimeMembers, name) {
 				return fmt.Errorf("property %s on %s collides with runtime member %s", property.Name, property.DefiningClass, name)
 			}
 			if m.classBy[name].Name != "" || m.enumBy[name].Name != "" ||
-				contains([]string{"Opt", "Many", "ClassVar", "Mapping", "MappingProxyType",
+				slices.Contains([]string{"Opt", "Many", "ClassVar", "Mapping", "MappingProxyType",
 					"builtins", "str", "bool", "int", "float"}, name) {
 				return fmt.Errorf("property %s on %s shadows generated class-body name %s", property.Name, property.DefiningClass, name)
 			}
@@ -497,7 +498,7 @@ func c3Candidate(sequences [][]string) string {
 
 func inTails(head string, sequences [][]string) bool {
 	for _, other := range sequences {
-		if contains(other[1:], head) {
+		if slices.Contains(other[1:], head) {
 			return true
 		}
 	}
@@ -608,13 +609,4 @@ func keywordSet(words string) map[string]bool {
 		out[word] = true
 	}
 	return out
-}
-
-func contains(values []string, value string) bool {
-	for _, candidate := range values {
-		if candidate == value {
-			return true
-		}
-	}
-	return false
 }

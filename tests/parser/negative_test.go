@@ -188,6 +188,12 @@ func TestNegative(t *testing.T) {
 		// `not` negates a satisfaction, and nothing else at member level.
 		{"not_without_satisfy", "package P { not r1 by p; }"},
 		{"not_satisfy_no_subject", "package P { not satisfy r1 by ; }"},
+		// A satisfaction subject is a feature reference or feature chain, not an
+		// expression (SysML.xtext SatisfactionReferenceExpression).
+		{"satisfy_by_index_expression", "package P { satisfy requirement sr : R1 by sub#(1); }"},
+		{"satisfy_by_tuple", "package P { satisfy requirement sr : R1 by (a, b); }"},
+		{"satisfy_by_arrow_call", "package P { satisfy r by parts->first(); }"},
+		{"satisfy_by_chained_index", "package P { satisfy r by self.items#(2); }"},
 		// A guarded succession needs a guard expression and a target after it.
 		{"guarded_succession_no_guard", "action def A { action a; action b; succession S first a if then b; }"},
 		{"guarded_succession_no_target", "action def A { action a; succession S first a if x == 0 then ; }"},

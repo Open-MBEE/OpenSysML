@@ -43,7 +43,7 @@ sysml> package Demo {
   ...>   part def Vehicle;
   ...>   ???
   ...> }
-3:3: error: expected a namespace member
+3:3: error[syntax]: expected a namespace member
   ???
   ^~
 sysml> %save my_model.sysml

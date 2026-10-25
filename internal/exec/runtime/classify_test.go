@@ -1024,9 +1024,9 @@ func TestBindingEndAcrossACollection(t *testing.T) {
 	}
 
 	// The union's own value determines none of the members' parts: a member keeps what it
-	// holds on its own, and is undetermined without a value of its own, in either order.
+	// holds on its own, nothing without a value of its own, in either order.
 	for _, order := range []string{"union_first", "member_first"} {
-		t.Run("members_undetermined_by_the_union_"+order, func(t *testing.T) {
+		t.Run("members_not_determined_by_the_union_"+order, func(t *testing.T) {
 			ctx, idx := libraryShapeContext(t, model(bound))
 			shelf := instantiateQualified(t, ctx, idx, "test::shelf")
 			groups := groupsOf(t, ctx, shelf)
@@ -1035,14 +1035,10 @@ func TestBindingEndAcrossACollection(t *testing.T) {
 					t.Fatalf("allShares = %s, want its own value", got)
 				}
 			}
-			_, err := groups[0].GetFeatureValue(ctx, "shares")
-			var undetermined *undeterminedBindingError
-			if !errors.As(err, &undetermined) {
-				t.Fatalf("groups.1.shares = %v, want undeterminedBindingError", err)
-			}
-			if want := "binding end cannot be resolved: Group.shares is bound by `bind [0..*] groups.shares = [0..*] allShares` " +
-				"through every object groups holds; the model does not determine which of the bound values Group.shares holds"; err.Error() != want {
-				t.Fatalf("error = %q\nwant    %q", err.Error(), want)
+			fv, err := groups[0].GetFeatureValue(ctx, "shares")
+			if err != nil || len(elementsOf(fv.HeldValue())) != 2 || fv.BindingDerived {
+				t.Fatalf("groups.1.shares = %s, %v (binding-derived %v); want the two values its own `[2]` states, none of the union's",
+					FormatValue(fv.HeldValue()), err, fv.BindingDerived)
 			}
 			if got := values(t, ctx, shelf, "allShares"); got != "[0.1, 0.2, 0.3, 0.4]" {
 				t.Fatalf("allShares = %s, want its own value", got)

@@ -1795,7 +1795,7 @@ func (s *stateRegion) takeRoutes(k *deferral, always []*sysmlv1.Element) (taker 
 				switch {
 				case l.port == nil && direct:
 					taken = append(taken, "from the object itself")
-				case l.port != nil && containsElement(ports, l.port):
+				case l.port != nil && slices.Contains(ports, l.port):
 					taken = append(taken, "via "+s.m.nameFor(l.port))
 				default:
 					kept = append(kept, l)
@@ -1812,16 +1812,6 @@ func (s *stateRegion) takeRoutes(k *deferral, always []*sysmlv1.Element) (taker 
 		return taker, ""
 	}
 	return taker, theTransition(taker) + " out of the state accepts the signal " + strings.Join(taken, " and ") + ", which in v1 takes precedence over deferring it, so no loop keeps it there"
-}
-
-// containsElement reports whether es holds e.
-func containsElement(es []*sysmlv1.Element, e *sysmlv1.Element) bool {
-	for _, x := range es {
-		if x == e {
-			return true
-		}
-	}
-	return false
 }
 
 // loopCount is how many accept loops the encoding writes in all.

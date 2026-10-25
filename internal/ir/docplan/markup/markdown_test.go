@@ -39,7 +39,8 @@ func TestForMatchesLanguageCaseInsensitively(t *testing.T) {
 // documents, and adjacent text of one style merges.
 func TestMarkdownInlineRuns(t *testing.T) {
 	body := "Plain *em* **strong** `co\\de` [lbl](https://x.io/a) <https://y.io> " +
-		"[ref](sysml:a.b) [](sysml:c) $m \\propto D^2$ \\*lit\\* &amp; end"
+		"[ref](sysml:a.b) [](sysml:c) [Mass:](sysml:value:a.mass) [](sysml:value:a.b) " +
+		"$m \\propto D^2$ \\*lit\\* &amp; end"
 	blocks := parse(t, body)
 	if len(blocks) != 1 || blocks[0].Kind != BlockParagraph {
 		t.Fatalf("got %+v, want one paragraph", blocks)
@@ -64,6 +65,10 @@ func TestMarkdownInlineRuns(t *testing.T) {
 		{Kind: RunRef, Text: "ref", Destination: "a.b"},
 		{Kind: RunText, Style: StylePlain, Text: " "},
 		{Kind: RunRef, Text: "", Destination: "c"},
+		{Kind: RunText, Style: StylePlain, Text: " "},
+		{Kind: RunValue, Text: "Mass:", Destination: "a.mass"},
+		{Kind: RunText, Style: StylePlain, Text: " "},
+		{Kind: RunValue, Text: "", Destination: "a.b"},
 		{Kind: RunText, Style: StylePlain, Text: " "},
 		{Kind: RunMath, Text: "m \\propto D^2"},
 		{Kind: RunText, Style: StylePlain, Text: " *lit* & end"},
