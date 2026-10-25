@@ -1477,8 +1477,6 @@ func conditionLabel(cond Condition) string {
 // ConditionText is the text a NoValueError names the expression n by.
 func ConditionText(n ast.Node) string { return conditionText(n) }
 
-// conditionText renders a condition compactly, so a violation names the
-// condition that failed rather than only the element that states it.
 // qualifiedNameText writes a qualified name as the notation does, each segment
 // quoted when it needs quoting.
 func qualifiedNameText(qn *ast.QualifiedName) string {
@@ -1494,6 +1492,8 @@ func qualifiedNameText(qn *ast.QualifiedName) string {
 	return source.QualifiedNameOf(names)
 }
 
+// conditionText renders a condition compactly, so a violation names the
+// condition that failed rather than only the element that states it.
 func conditionText(n ast.Node) string {
 	switch e := n.(type) {
 	case *ast.LiteralInteger:
