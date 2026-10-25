@@ -333,8 +333,8 @@ main.sysml  package Main { import Lib::*; part w : Widget; }
 
 ### What the diagram panel does and does not draw
 
-- A tree diagram lists connectors as member boxes, not as wires: `editors/vscode/src/webview/testdata/collapsed-ports.json` pins `FoldedPorts::tree` at 11 nodes and zero edges, three of the nodes `connect` members. Only the interconnection form draws them as edges ending on the ports' pins.
-- The panel's `RenderResult` carries no `Note` metadata, so a note (`metadata Note about … { text = …; x = …; y = …; }`) is not drawn in the webview; it appears in the CLI's text form (`notes:` section) only.
+- A tree diagram lists connectors as member boxes, not as wires: `editors/vscode/src/webview/testdata/collapsed-ports.json` pins `FoldedPorts::tree` at 11 nodes and zero edges, three of the nodes `connect` members. Only the interconnection form draws them as edges, and in that fixture's `FoldedPorts::wiring` the edges name the port nodes themselves (no `fromPort`/`toPort` on the edge), so they end on those boxes, not on pins of the owning parts.
+- The panel's `RenderResult` carries no `Note` metadata, so a note (`metadata Note about … { text = …; x = …; y = …; }`) is not drawn in the webview; it appears in the CLI's text form (`notes:` section) and in the Mermaid export (`note right of …`, see `layout-collapsed-state.mermaid.golden`).
 - A collapsed action's parameters and bindings are not rendered: for `internal/ir/view/testdata/layout-collapsed-behavior.sysml`, `FoldedBehaviors::flows` draws `a` collapsed, `b`, and the one `a → b` succession — its text golden `layout-collapsed-action.text.golden` has no `flowIn` node and no bind edge, so do not expect them in the panel.
 
 ## TextMate grammar changes (`editors/vscode/syntaxes/*.tmLanguage.json`, `tools/gengrammar`)
