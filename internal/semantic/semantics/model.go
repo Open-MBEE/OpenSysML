@@ -977,11 +977,12 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 	return nil
 }
 
-// FeatureTypeSetWithImplied is FeatureTypeSet with the types the implied
-// specializations of sym's kind contribute (KerML §8.3.3.3.4 deriveFeatureType
-// unions the types of every subsetted feature, implied ones included), so a
-// usage's types hold its kind's base definition beside what it declares.
+// FeatureTypeSetWithImplied is FeatureTypeSet plus the types the implied specializations of
+// sym's kind contribute (KerML §8.3.3.3.4 deriveFeatureType unions every subsetted feature's types).
 func (m *Model) FeatureTypeSetWithImplied(sym *symbols.Symbol) []*symbols.Symbol {
+	if isVariantReferenceSymbol(sym) {
+		return m.FeatureTypeSet(sym)
+	}
 	types := append([]*symbols.Symbol(nil), m.FeatureTypeSet(sym)...)
 	add := func(typ *symbols.Symbol) {
 		if typ != nil && !containsElement(types, typ) {
@@ -989,9 +990,8 @@ func (m *Model) FeatureTypeSetWithImplied(sym *symbols.Symbol) []*symbols.Symbol
 		}
 	}
 	bases := m.ImplicitGenerals(sym)
-	// A membership's own base (a case's subject, an actor) stands in for the
-	// kind's among the implied generals; the kind's base still types the usage,
-	// so the base feature of the symbol's kind joins (a subject is a part usage).
+	// A membership's own base (a case's subject) can stand in for the kind's among the implied
+	// generals, so the base feature of the symbol's kind joins too (a subject is a part usage).
 	if _, isUsage := sym.Decl.(*ast.Usage); (isUsage || sym.Kind == symbols.SymbolPartUsage) && !m.isKerMLDoc(sym) && m.resolver != nil && m.resolver.Index() != nil {
 		fqns := []string{}
 		if fqn, ok := m.FeatureBaseFQN(sym); ok {

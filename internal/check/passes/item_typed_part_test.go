@@ -2,10 +2,8 @@ package passes
 
 import "testing"
 
-// A part usage typed only by an item definition is valid: its derived
-// partDefinition holds Parts::Part through the implied Parts::parts subsetting
-// (SysML v2 §8.3.11.3 validatePartUsagePartDefinition over KerML §8.3.3.3.4
-// deriveFeatureType, §7.10), so no tier reports it.
+// A part typed only by an item definition is valid: the implied Parts::parts subsetting puts
+// Parts::Part in its derived partDefinition (SysML v2 §8.3.11.3, KerML §8.3.3.3.4, §7.10).
 func TestPartTypedOnlyByAnItemDefinitionIsClean(t *testing.T) {
 	cases := []struct {
 		name string
