@@ -38,7 +38,7 @@ func Languages() string {
 }
 
 // parsers are the supported markup languages.
-var parsers = []Parser{Markdown{}}
+var parsers = []Parser{Markdown{}, AsciiDoc{}}
 
 // Span is a half-open byte range within a body.
 type Span struct {
@@ -54,6 +54,12 @@ const (
 	BlockParagraph BlockKind = "paragraph"
 	// BlockList is a bullet or numbered list whose items are inline runs.
 	BlockList BlockKind = "list"
+	// BlockTable is a table of text cells under a header row.
+	BlockTable BlockKind = "table"
+	// BlockFormula is displayed mathematics: Source is LaTeX.
+	BlockFormula BlockKind = "formula"
+	// BlockImage is a figure read from a file: Location names it.
+	BlockImage BlockKind = "image"
 )
 
 // Block is one content block of a body.
@@ -65,7 +71,26 @@ type Block struct {
 	Items []Item
 	// Ordered is true for a numbered list.
 	Ordered bool
-	Span    Span
+	// Caption titles a table, formula or image.
+	Caption string
+	// ColumnLabels head a table's columns and ColumnWidths size them relative
+	// to one another (empty for automatic widths).
+	ColumnLabels []string
+	ColumnWidths []int
+	// Rows are a table's body rows, one text cell per column.
+	Rows []TableRow
+	// Source is a formula's LaTeX.
+	Source string
+	// Location and Alt are an image's file and alternative text.
+	Location string
+	Alt      string
+	Span     Span
+}
+
+// TableRow is one body row of a table: one plain-text cell per column.
+type TableRow struct {
+	Cells []string
+	Span  Span
 }
 
 // Item is one list item: a single paragraph of inline runs.
