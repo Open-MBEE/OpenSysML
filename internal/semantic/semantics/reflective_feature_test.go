@@ -817,14 +817,11 @@ func TestReflectivePartUsageIncludesImplicitPartDefinition(t *testing.T) {
 		}
 	}`
 	for _, fixture := range reflectiveFixtures(t, "part-usage-types.sysml", source.KindSysML, src) {
-		usage := nestedSym(t, fixture.root, "P::actual")
-		assertReflectiveElements(t, fixture.model, usage, "type", "P::ItemType", "Parts::Part")
-		assertReflectiveElements(t, fixture.model, usage, "partDefinition", "Parts::Part")
-		// A subject declared without a usage keyword is a reference usage
-		// (SysML.xtext `SubjectUsage returns ReferenceUsage`) subsetting
-		// Base::things, so no part definition is implied for it.
-		subject := nestedSym(t, fixture.root, "P::Case::subject")
-		assertReflectiveElements(t, fixture.model, subject, "type", "P::ItemType")
+		for _, path := range []string{"P::actual", "P::Case::subject"} {
+			usage := nestedSym(t, fixture.root, path)
+			assertReflectiveElements(t, fixture.model, usage, "type", "P::ItemType", "Parts::Part")
+			assertReflectiveElements(t, fixture.model, usage, "partDefinition", "Parts::Part")
+		}
 	}
 }
 

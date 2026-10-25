@@ -990,11 +990,23 @@ func (m *Model) FeatureTypeSetWithImplied(sym *symbols.Symbol) []*symbols.Symbol
 	}
 	bases := m.ImplicitGenerals(sym)
 	// A membership's own base (a case's subject, an actor) stands in for the
-	// kind's among the implied generals; the kind's base still types the usage.
-	if fqn, ok := m.FeatureBaseFQN(sym); ok && m.resolver != nil && m.resolver.Index() != nil {
-		for _, base := range m.resolver.Index().LookupQualified(fqn) {
-			if base != nil && base != sym && !containsElement(bases, base) {
-				bases = append(bases, base)
+	// kind's among the implied generals; the kind's base still types the usage,
+	// so the base feature of the symbol's kind joins (a subject is a part usage).
+	if _, isUsage := sym.Decl.(*ast.Usage); (isUsage || sym.Kind == symbols.SymbolPartUsage) && !m.isKerMLDoc(sym) && m.resolver != nil && m.resolver.Index() != nil {
+		fqns := []string{}
+		if fqn, ok := m.FeatureBaseFQN(sym); ok {
+			fqns = append(fqns, fqn)
+		}
+		for kind, fqn := range implicitUsageBases {
+			if fqn != lifeFQN && symbols.UsageSymbolKind(kind) == sym.Kind {
+				fqns = append(fqns, fqn)
+			}
+		}
+		for _, fqn := range fqns {
+			for _, base := range m.resolver.Index().LookupQualified(fqn) {
+				if base != nil && base != sym && !containsElement(bases, base) {
+					bases = append(bases, base)
+				}
 			}
 		}
 	}
