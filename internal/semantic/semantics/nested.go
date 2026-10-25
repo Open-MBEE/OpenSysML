@@ -113,9 +113,8 @@ type NestedUsage struct {
 	// state` and `include use case` forms; RequirementConstraint is a
 	// `require` or `assume` constraint, which subsets nothing implicitly.
 	Performed, Exhibited, Included, RequirementConstraint bool
-	// EntryExitAction is a state's `entry` or `exit` action: a subperformance of the
-	// state but no subaction, since subactions are its middle (States.sysml
-	// `subactions :> middle`; the pilot's isActionOwnedComposite excludes it).
+	// EntryExitAction is a state's `entry` or `exit` action: a subperformance of
+	// the state but no subaction, since `StateAction::subactions :> middle`.
 	EntryExitAction bool
 }
 
