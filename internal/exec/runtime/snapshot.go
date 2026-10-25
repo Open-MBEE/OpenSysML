@@ -810,6 +810,7 @@ func cloneNested(nested map[ast.Node][]nestedDelivery) map[ast.Node][]nestedDeli
 // values its states hold, its events, timers, change triggers and do actions.
 type stateCapture struct {
 	exec               *StateExecutor
+	occurrence         *Instance
 	state              ExecutionState
 	activeConfig       *stateConfiguration
 	nextEventID        int64
@@ -874,7 +875,7 @@ type doActionCapture struct {
 // behaviors is captured beside it (Snapshot.captureState).
 func (e *StateExecutor) capture() stateCapture {
 	c := stateCapture{
-		exec: e, state: e.state, activeConfig: cloneConfiguration(e.activeConfig),
+		exec: e, occurrence: e.occurrence, state: e.state, activeConfig: cloneConfiguration(e.activeConfig),
 		nextEventID:        e.nextEventID,
 		stateData:          captureMap(e.stateData),
 		stateAttrs:         make(map[*ast.StateNode]mapState[string, Value], len(e.stateAttrs)),
@@ -931,6 +932,7 @@ func (e *StateExecutor) capture() stateCapture {
 
 func (c stateCapture) restore() {
 	e := c.exec
+	e.occurrence = c.occurrence
 	e.state, e.activeConfig, e.nextEventID = c.state, cloneConfiguration(c.activeConfig), c.nextEventID
 	if e.eventQueue != nil {
 		e.eventQueue.events = slices.Clone(c.events)

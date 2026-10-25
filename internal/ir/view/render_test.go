@@ -443,15 +443,15 @@ func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 	}
 }
 
-// A typing the model cannot resolve (a conjugated feature chain names no element) is spelled as
+// A typing the model cannot resolve (a conjugated port typing names no element) is spelled as
 // written, headed by the name it ends in with the `~` kept, and resolves to no typing.
 func TestUnresolvedTypingIsSpelledAsWritten(t *testing.T) {
 	rendering := render(t, "typings-unresolved.sysml", "SpelledViews::rigView")
-	if node := nodeNamed(t, rendering, "mirrored"); node.Type != "~rail.'Frame *rail*'" {
-		t.Errorf("node mirrored: type %q, want %q", node.Type, "~rail.'Frame *rail*'")
+	if node := nodeNamed(t, rendering, "mirrored"); node.Type != "~Rail::'Frame *rail*'" {
+		t.Errorf("node mirrored: type %q, want %q", node.Type, "~Rail::'Frame *rail*'")
 	}
-	if text := rendering.textWith(fullNotation); !strings.Contains(text, "port mirrored : ~rail.'Frame *rail*'") {
-		t.Errorf("text lacks %q:\n%s", "port mirrored : ~rail.'Frame *rail*'", text)
+	if text := rendering.textWith(fullNotation); !strings.Contains(text, "port mirrored : ~Rail::'Frame *rail*'") {
+		t.Errorf("text lacks %q:\n%s", "port mirrored : ~Rail::'Frame *rail*'", text)
 	}
 	mermaid := rendering.MermaidWith(Options{Show: AllShown(), Ports: PortsFull})
 	if !strings.Contains(mermaid, "«port»<br>mirrored : ~'Frame *rail*'") {

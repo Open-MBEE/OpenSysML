@@ -4291,6 +4291,11 @@ func (p *Parser) parseRelationshipClauseTarget(kind ast.RelationshipKind) *ast.R
 	if target == nil && conjugated {
 		p.error(p.peek().Span, "expected a port definition name after '~'")
 	}
+	// A conjugated port typing names its port definition by qualified name
+	// only (SysML v2 8.2.2.12 ConjugatedQualifiedName); no feature chain follows '~'.
+	if chain, isChain := target.(*ast.FeatureChainExpr); conjugated && isChain {
+		p.error(chain.Span(), "'~' names a port definition by qualified name; a feature chain cannot be conjugated")
+	}
 	r := &ast.Relationship{Kind: kind, Target: target, Conjugated: conjugated && kind == ast.RelTyping}
 	r.NodeSpan = p.spanFrom(start)
 	return r

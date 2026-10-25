@@ -338,6 +338,35 @@ Around it:
   in `internal/workspace/libs`, with specialization edges but no parsed body, which is why the count comes
   from semantics (`passes/w10b_related_elements.go`, `semantics/connector.go`). A generic one-end
   concrete connection is still reported.
+- **A bare concrete `flow def X;` relates nothing, and inherited ends count.** `flow def Plain;`
+  is reported `Must have at least two related elements` by us and by the pinned pilot, and the
+  specification says so: a FlowDefinition is an Interaction, hence an Association, and KerML
+  `validateAssociationRelatedTypes` reads "If an Association is concrete (not abstract), then it
+  must have at least two relatedTypes" (`not isAbstract implies relatedType->size() >= 2`), where
+  `relatedType = associationEnd.type` and `associationEnd` `{redefines endFeature}`, so the count
+  runs over every end feature the definition owns *or inherits* (`endFeature = feature->select(isEnd)`,
+  `feature = featureMembership.ownedMemberFeature`, and `deriveTypeFeatureMembership` includes the
+  inherited memberships). A bare flow definition inherits no end: `checkFlowDefinitionSpecialization`
+  makes it specialize `Flows::MessageAction`, which declares none, and `Flows::Message` with its two
+  ends only once it is itself binary. SysML 7.16.2 states the outcome directly: "A non-abstract
+  flow definition is always binary, having exactly two end features. An abstract flow definition may
+  have less than two end features." The same derivation is why `flow def FromMessage :> Flows::Message;`
+  is clean here and in the pilot — its two ends are inherited — and why
+  `flow-def-end-not-usage`/`connection-def-end-not-usage` look at inherited ends too: `flowEnd : Usage
+  {redefines associationEnd}` and `connectionEnd : Usage {redefines associationEnd}` type *every*
+  association end, inherited ones included, as a Usage ("The end Features of a ConnectionDefinition
+  must be Usages"), so a flow or connection definition that inherits `Transfer::source`/`target` or
+  `BinaryLink::source`/`target` as KerML features is reported at the definition. The pinned pilot
+  has no usage check and accepts `flow def F :> Transfers::Transfer;`, while rejecting `connection
+  def C :> Links::BinaryLink;` for a different reason: its `connectionEnd` derivation keeps only
+  Usages, so the KerML ends leave it with no related element, whereas its `FlowDefinition`
+  derivation counts all ends; its later development line adds the usage check over all end
+  features. Validating the Systems Library's `Flows.sysml` as a standalone file reports the
+  published `abstract flow def Message :> MessageAction, Transfer` for exactly this reason — the
+  published text inherits KerML ends (the errata-overlay rows `Flows-46`, `Flows-99`, `Flows-103`
+  declare the correction the bundled copy carries) — and the finding disappears once those rows are
+  applied to the file (`passes/w10b_ends.go`, `passes/w10b_related_elements.go`,
+  `TestW10BFlowDefInheritedUsageEndsRelate`, `TestW10BEndsAreUsages`).
 - **Accessibility of a `satisfy`/`verify` target** is skipped only for a dotted feature-chain target
   (`verify vehicleSpecification.vehicleMassRequirement`) — the notation the message itself prescribes
   — while a `::`-qualified target of another type is reported as `Must be an accessible feature (use

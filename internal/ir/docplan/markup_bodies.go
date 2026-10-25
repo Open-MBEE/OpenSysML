@@ -120,6 +120,21 @@ func (c *compiler) compileMarkupBlocks(owner, rep *symbols.Symbol) ([]Content, e
 	}
 	blocks, err := language.Parse(body)
 	if err != nil {
+		var tool *markup.ToolError
+		if errors.As(err, &tool) {
+			kind := ErrorMarkupToolFailed
+			if tool.Missing {
+				kind = ErrorMarkupToolMissing
+			}
+			return nil, &Error{
+				Kind:      kind,
+				Document:  c.document,
+				Content:   symbols.FQNOf(owner),
+				Parameter: language.Language(),
+				Origin:    rep.Origin(),
+				Err:       tool,
+			}
+		}
 		var unsupported *markup.UnsupportedConstructError
 		if errors.As(err, &unsupported) {
 			return nil, &Error{
@@ -164,6 +179,23 @@ func (c *compiler) compileMarkupBlocks(owner, rep *symbols.Symbol) ([]Content, e
 				}
 				node.items = append(node.items, ListItem{runs: runs, origin: at(item.Span)})
 			}
+		case markup.BlockTable:
+			node.kind = ContentTable
+			node.caption = block.Caption
+			node.columnLabels = append([]string(nil), block.ColumnLabels...)
+			node.columnWidths = append([]int(nil), block.ColumnWidths...)
+			for _, row := range block.Rows {
+				node.rows = append(node.rows, TableRow{cells: append([]string(nil), row.Cells...), origin: at(row.Span)})
+			}
+		case markup.BlockFormula:
+			node.kind = ContentFormula
+			node.source = block.Source
+			node.caption = block.Caption
+		case markup.BlockImage:
+			node.kind = ContentImage
+			node.source = block.Location
+			node.alt = block.Alt
+			node.caption = block.Caption
 		}
 		content = append(content, node)
 	}

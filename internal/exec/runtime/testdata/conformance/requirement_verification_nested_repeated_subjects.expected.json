@@ -1,0 +1,13 @@
+{
+  "libraries": true,
+  "type": "requirement",
+  "evaluate": "test::tight",
+  "instantiate": "test::car",
+  "error": "b subject is unbound",
+  "verifications": [
+    {"case": "test::Bolt::torqueTest", "object": "front[1].bolt", "verdict": "pass", "verdicts": {"torqueObjective": "satisfied"}},
+    {"case": "test::Bolt::torqueTest", "object": "front[2].bolt", "verdict": "pass", "verdicts": {"torqueObjective": "satisfied"}},
+    {"case": "test::Bolt::torqueTest", "object": "rear[1].bolt", "verdict": "fail", "verdicts": {"torqueObjective": "satisfied"}},
+    {"case": "test::Bolt::torqueTest", "object": "rear[2].bolt", "verdict": "fail", "verdicts": {"torqueObjective": "satisfied"}}
+  ]
+}

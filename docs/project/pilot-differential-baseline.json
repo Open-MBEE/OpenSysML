@@ -61,8 +61,8 @@
         "name": "testdata",
         "dir": "tests/testdata",
         "origin": "ours",
-        "files": 39,
-        "digest": "sha256:02733496bdc99db118afa6e3c1fd8837a8e57587d54645ab3a388f008badb0fc"
+        "files": 40,
+        "digest": "sha256:951761d51e902bbcb3392d4a77da58c7f580c61b2fb97ac6c4ad705e08e0c446"
       },
       {
         "name": "examples",
@@ -89,14 +89,14 @@
     "recorded": "2026-10-24"
   },
   "totals": {
-    "files": 919,
+    "files": 920,
     "filesFullyAgreeing": 517,
-    "agreement": 1093,
+    "agreement": 1098,
     "severityMismatch": 11,
     "openSysMLOnly": 366,
-    "pilotOnly": 2445,
-    "openSysMLDiagnostics": 1470,
-    "pilotDiagnostics": 3549
+    "pilotOnly": 2448,
+    "openSysMLDiagnostics": 1475,
+    "pilotDiagnostics": 3557
   },
   "roots": [
     {
@@ -17107,14 +17107,14 @@
       "name": "testdata",
       "dir": "tests/testdata",
       "totals": {
-        "files": 39,
+        "files": 40,
         "filesFullyAgreeing": 25,
-        "agreement": 55,
+        "agreement": 60,
         "severityMismatch": 5,
         "openSysMLOnly": 13,
-        "pilotOnly": 33,
-        "openSysMLDiagnostics": 73,
-        "pilotDiagnostics": 93
+        "pilotOnly": 36,
+        "openSysMLDiagnostics": 78,
+        "pilotDiagnostics": 101
       },
       "files": [
         {
@@ -17369,6 +17369,51 @@
           ],
           "openSysMLOnly": [],
           "pilotOnly": []
+        },
+        {
+          "path": "passes/chain_typing.sysml",
+          "agreement": [
+            {
+              "line": 9,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 10,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 11,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 11,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 12,
+              "severity": "error",
+              "category": "kind-mismatch",
+              "count": 1
+            }
+          ],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
+          "pilotOnly": [
+            {
+              "line": 12,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 3
+            }
+          ]
         },
         {
           "path": "passes/constraints.sysml",
@@ -18744,6 +18789,11 @@
     },
     {
       "side": "opensysml",
+      "message": "Duplicate of inherited member name 'self' from DataValue, Part",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
       "message": "Duplicate of inherited member name 'start' from StateAction",
       "count": 1
     },
@@ -18839,6 +18889,11 @@
     },
     {
       "side": "pilot",
+      "message": "Duplicate of inherited member name 'done' from Action, Part",
+      "count": 1
+    },
+    {
+      "side": "pilot",
       "message": "Duplicate of inherited member name 'evaluator' from Runtime, evaluatorIsReference",
       "count": 1
     },
@@ -18894,6 +18949,16 @@
     },
     {
       "side": "pilot",
+      "message": "Duplicate of inherited member name 'self' from Action, Part",
+      "count": 1
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'self' from DataValue, Part",
+      "count": 1
+    },
+    {
+      "side": "pilot",
       "message": "Duplicate of inherited member name 'self' from Metaobject, View",
       "count": 1
     },
@@ -18905,6 +18970,11 @@
     {
       "side": "pilot",
       "message": "Duplicate of inherited member name 'start' from Action",
+      "count": 1
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'start' from Action, Part",
       "count": 1
     },
     {
@@ -25384,14 +25454,14 @@
       }
     ],
     "totals": {
-      "files": 919,
+      "files": 920,
       "filesFullyAgreeing": 518,
-      "agreement": 1093,
+      "agreement": 1098,
       "severityMismatch": 11,
       "openSysMLOnly": 365,
-      "pilotOnly": 2445,
-      "openSysMLDiagnostics": 1469,
-      "pilotDiagnostics": 3549
+      "pilotOnly": 2448,
+      "openSysMLDiagnostics": 1474,
+      "pilotDiagnostics": 3557
     },
     "findings": [
       {

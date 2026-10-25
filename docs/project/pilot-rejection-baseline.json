@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 345,
-        "digest": "sha256:be365e4b894c54c688b19de8552200050503daac25c3252ac2804ccb2f316f91"
+        "files": 347,
+        "digest": "sha256:a1faea74f95a872ddbddbf4cdc181c262e42c7f49add9325b252addcc640770b"
       }
     ],
-    "recorded": "2026-10-24"
+    "recorded": "2026-10-25"
   },
   "totals": {
-    "cases": 345,
-    "bothReject": 333,
+    "cases": 347,
+    "bothReject": 335,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 12,
     "bothAccept": 0
@@ -58,16 +58,16 @@
     },
     {
       "source": "grammar",
-      "cases": 112,
-      "bothReject": 112,
+      "cases": 113,
+      "bothReject": 113,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
     },
     {
       "source": "semantic",
-      "cases": 185,
-      "bothReject": 173,
+      "cases": 186,
+      "bothReject": 174,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 12,
       "bothAccept": 0
@@ -984,6 +984,15 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 2
+    },
+    {
+      "path": "grammar/g86-conjugated-feature-chain-typing.sysml",
+      "source": "grammar",
+      "rule": "a conjugated port typing is '~' followed by a qualified name; no feature chain follows '~' (SysML.xtext:972 ConjugatedPortTyping, :976 ConjugatedQualifiedName).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 3
     },
     {
       "path": "grammar/k01-specializes-without-target.kerml",
@@ -2321,6 +2330,15 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/s117-usage-typed-by-feature-chain.sysml",
+      "source": "semantic",
+      "rule": "a usage's types are Classifiers, nominally definitions, and a feature chain ends in a feature (SysML 8.3.6.4 Usage::definition redefines type as Classifier, 7.6.1; pilot validateUsageType, validateOccurrenceUsageType).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
+    },
+    {
       "path": "semantic/s12-case-two-subjects.sysml",
       "source": "semantic",
       "rule": "A case usage may have at most one subject (SysML 7.21 Cases; pilot validateCaseUsageOnlyOneSubject).",
@@ -3381,8 +3399,8 @@
       }
     ],
     "totals": {
-      "cases": 345,
-      "bothReject": 333,
+      "cases": 347,
+      "bothReject": 335,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 12,
       "bothAccept": 0

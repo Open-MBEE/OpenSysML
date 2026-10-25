@@ -6,6 +6,7 @@ enter: idle (entry action)
 stmt action body
   stmt send
 materialize: Ping #3
+materialize: Transfer #4
   eval literal 1 -> 1
 eval index -> 1 [s]
 exit: idle
