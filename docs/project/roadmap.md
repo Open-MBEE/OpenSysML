@@ -341,34 +341,35 @@ Z3 package to depend on). Procedure: `docs/project/releasing.md`, "The Windows i
 ## R5 — the VS Code extension is not released
 
 `editors/vscode` builds as a PR CI artifact and, since #371, as a `.vsix` on the `nightly`
-prerelease, which the downloads page links (#822) and which is versioned as a development build
-of the release it leads to (#1290, `v0.11.0`); no `.vsix` is attached to a tagged release
-(`v0.11.0`'s asset list, read 2026-10-25) and there is no marketplace or Open VSX listing, so a
-user installs it from the nightly or by building it. Its version is locked to the core version
-since #745. The client works against the shipped `sysml-lsp` (`--stdio` is accepted and `shutdown`/`exit` are
-honoured). What remains is packaging and publishing: `vsce package` in the release workflow, a
-`.vsix` on the release, and (for the marketplace) a publisher account and a PAT in CI — the same
-class of account gate as R4.
+prerelease, which the downloads page links (#822) and which is versioned as a development build of
+the release it leads to (#1290, `v0.11.0`); no `.vsix` is attached to a tagged release (`v0.11.0`'s
+asset list, read 2026-10-25) and there is no marketplace or Open VSX listing, so a user installs it
+from the nightly or by building it. Its version is locked to the core version since #745. The client
+works against the shipped `sysml-lsp` (`--stdio` is accepted and `shutdown`/`exit` are honoured).
+What remains is packaging and publishing: `vsce package` in the release workflow, a `.vsix` on the
+release, and (for the marketplace) a publisher account and a PAT in CI — the same class of account
+gate as R4.
 
 ## R6 — the release and nightly pipeline (landed)
 
 A tag is cut by the procedure in [releasing.md](releasing.md) (#54 and every release since) and
 built by CircleCI's tag workflow: the binaries, bundles and installers of every platform, the
-WebAssembly modules (#875, `v0.10.0`), the Python, npm, Maven Central and crates.io packages
-(#735, #738, #739), the Jupyter kernel wheels (#978), the container image (#1258, `v0.11.0`),
-the cosign-signed `SHA256SUMS.txt` and the SLSA provenance attestation over it (#606, `v0.9.1`),
-with the release's `sysml-grpc` and `sysml-jupyter-kernel` digests stamped into the clients so an
+WebAssembly modules (#875, `v0.10.0`), the Python, npm, Maven Central and crates.io packages (#735,
+#738, #739), the Jupyter kernel wheels (#978), the container image (#1258, `v0.11.0`), the
+cosign-signed `SHA256SUMS.txt` and the SLSA provenance attestation over it (#606, `v0.9.1`), with
+the release's `sysml-grpc` and `sysml-jupyter-kernel` digests stamped into the clients so an
 installed client downloads the service it was released with (#951, `v0.10.0`; `CHANGELOG.md`
 **0.10.1**). The whole pipeline runs without publishing under the `release_rehearsal` parameter
-(#743, `v0.9.1`), and since #1443 (`v0.11.0`) the rehearsal tests under the tag it would make,
-so the stamped version is what the tag's binaries report. A tag's GitHub Actions side rebuilds
-the Windows executables for signing (R4) and validates the install action against the
-installed-release matrix when the action or the install scripts change (#1234, `v0.11.0`). Between tags, [nightly.md](nightly.md) describes the `nightly` prerelease
-(#284, `v0.9.0`): the newest green `develop`, with the `.vsix` (#371), the Python and Node
-client snapshots (#949, `v0.10.0`) and the JupyterLab wheel (#1016) beside the binaries, each
-versioned as a development build of the release it leads to (#1290). On `develop` past the tag:
-the release announces itself to Slack from the changelog section it shipped (#1463, #1482).
-Nothing in the pipeline is open; what the maintainer still does by hand is listed under R2–R5.
+(#743, `v0.9.1`), and since #1443 (`v0.11.0`) the rehearsal tests under the tag it would make, so
+the stamped version is what the tag's binaries report. A tag's GitHub Actions side rebuilds the
+Windows executables for signing (R4) and validates the install action against the installed-release
+matrix when the action or the install scripts change (#1234, `v0.11.0`). Between tags,
+[nightly.md](nightly.md) describes the `nightly` prerelease (#284, `v0.9.0`): the newest green
+`develop`, with the `.vsix` (#371), the Python and Node client snapshots (#949, `v0.10.0`) and the
+JupyterLab wheel (#1016) beside the binaries, each versioned as a development build of the release
+it leads to (#1290). On `develop` past the tag: the release announces itself to Slack from the
+changelog section it shipped (#1463, #1482). Nothing in the pipeline is open; what the maintainer
+still does by hand is listed under R2–R5.
 
 ## Upstream follow-through
 
@@ -2295,18 +2296,19 @@ what #263 did, and #267 (Q2's query side) shares the walk.
 
 ## A8 — FMI: an FMU as a calc, and a reference runner (landed, #663)
 
-`-convert` accepts `fmu` as an input format (#663, `v0.9.1`): the archive's
-`modelDescription.xml` (FMI 1.0, 2.0 or 3.0) is read and the FMU becomes a `calc def` whose
-parameters carry the model's variables, experiment times and outputs, annotated `ToolExecution`
-with `toolName = "fmi"`; evaluating it runs the FMU through the `tool:fmi` engine and an
-external runner — a one-request/one-reply JSON subprocess the site grants with
-`OPENSYSML_FMI_RUNNER`. `internal/translate/fmi` is the reader, [fmi.md](../reference/fmi.md)
-the reference, and `pip install opensysml[fmi]` installs the reference runner
-`opensysml-fmi-runner` over FMPy, for co-simulation and model-exchange FMUs alike. The gate is the Modelica Reference-FMUs: `./scripts/download-reference-fmus.sh`
-fetches them at their pin and `tests/fmi` (`TestReferenceFMUs`) runs each through the
-conversion and the runner; CI sets `OPENSYSML_REQUIRE_REFERENCE_FMUS=1`, so an absent corpus
-fails there rather than skips. The Python-only runner is one of the per-client conveniences the
-parity paragraph above judges per client rather than ports by default.
+`-convert` accepts `fmu` as an input format (#663, `v0.9.1`): the archive's `modelDescription.xml`
+(FMI 1.0, 2.0 or 3.0) is read and the FMU becomes a `calc def` whose parameters carry the model's
+variables, experiment times and outputs, annotated `ToolExecution` with `toolName = "fmi"`;
+evaluating it runs the FMU through the `tool:fmi` engine and an external runner — a
+one-request/one-reply JSON subprocess the site grants with `OPENSYSML_FMI_RUNNER`.
+`internal/translate/fmi` is the reader, [fmi.md](../reference/fmi.md) the reference, and `pip
+install opensysml[fmi]` installs the reference runner `opensysml-fmi-runner` over FMPy, for
+co-simulation and model-exchange FMUs alike. The gate is the Modelica Reference-FMUs:
+`./scripts/download-reference-fmus.sh` fetches them at their pin and `tests/fmi`
+(`TestReferenceFMUs`) runs each through the conversion and the runner; CI sets
+`OPENSYSML_REQUIRE_REFERENCE_FMUS=1`, so an absent corpus fails there rather than skips. The
+Python-only runner is one of the per-client conveniences the parity paragraph above judges per
+client rather than ports by default.
 
 ---
 
@@ -2349,15 +2351,15 @@ has landed:
   the pilot reports both.
 
 **What remains is the census's own tail**, and it is the whole of the track: the 49 rows marked
-*unknown* (52 at the previous refresh; the triage record of #1303, `v0.11.0`, moved three) — a row is unknown when neither a pass nor a negative case can be pointed at for the
-pilot's name, which is a gap in evidence before it is a gap in checking. No row is marked *not
-implemented* any more. #748 (landed 2026-10-01, shipped in `v0.9.2`) makes an implicit subsetting's conformance a checked rule.
-The order is the same as before: work the 49 down by writing the pilot-refereed
-negative case first and implementing the rule only where the case shows we accept what the pilot
-rejects; each change moves exactly its census row and `make docs-counts` regenerates the summary.
-The 6 *approximate* rows (a check under our own wording that covers the pilot's constraint
-without matching it) are honest as they stand and become faithful one at a time as their
-wording is aligned.
+*unknown* (52 at the previous refresh; the triage record of #1303, `v0.11.0`, moved three) — a row
+is unknown when neither a pass nor a negative case can be pointed at for the pilot's name, which is
+a gap in evidence before it is a gap in checking. No row is marked *not implemented* any more. #748
+(landed 2026-10-01, shipped in `v0.9.2`) makes an implicit subsetting's conformance a checked rule.
+The order is the same as before: work the 49 down by writing the pilot-refereed negative case first
+and implementing the rule only where the case shows we accept what the pilot rejects; each change
+moves exactly its census row and `make docs-counts` regenerates the summary. The 6 *approximate*
+rows (a check under our own wording that covers the pilot's constraint without matching it) are
+honest as they stand and become faithful one at a time as their wording is aligned.
 
 ---
 
@@ -2477,15 +2479,15 @@ tools buy an agent.
 ## I7 — a Jupyter kernel (landed, #978)
 
 `cmd/sysml-jupyter-kernel` (#978, `v0.10.0`) is the REPL as a Jupyter kernel: `pip install
-jupyter-opensysml-kernel` installs the kernel spec and provisions the kernel binary from the
-release as the Python client provisions `sysml-grpc`, and from `v0.10.0` a release pins both
-digests (`CHANGELOG.md` **0.10.1**). The pip package carries `jupyterlab-opensysml`, a prebuilt
-JupyterLab 4 / Notebook 7 extension for SysML syntax highlighting (#1003); `%load` reads a
-notebook's code cells in order (`CHANGELOG.md` **0.10.0**); the kernel and the REPL read and
-write a SysML v2 API repository with the OMG pilot kernel's four commands (`%repo`,
-`%projects`, `%load --id|--name|--branch`, `%publish`; `CHANGELOG.md` **0.10.0**); the Windows build carries its version resource (#988); and the nightly
-publishes the JupyterLab wheel (#1016). The kernel's wheels for the five platforms and its
-source distribution are on every tag since (R6). Nothing is open in the item.
+jupyter-opensysml-kernel` installs the kernel spec and provisions the kernel binary from the release
+as the Python client provisions `sysml-grpc`, and from `v0.10.0` a release pins both digests
+(`CHANGELOG.md` **0.10.1**). The pip package carries `jupyterlab-opensysml`, a prebuilt JupyterLab 4
+/ Notebook 7 extension for SysML syntax highlighting (#1003); `%load` reads a notebook's code cells
+in order (`CHANGELOG.md` **0.10.0**); the kernel and the REPL read and write a SysML v2 API
+repository with the OMG pilot kernel's four commands (`%repo`, `%projects`, `%load
+--id|--name|--branch`, `%publish`; `CHANGELOG.md` **0.10.0**); the Windows build carries its version
+resource (#988); and the nightly publishes the JupyterLab wheel (#1016). The kernel's wheels for the
+five platforms and its source distribution are on every tag since (R6). Nothing is open in the item.
 
 ## I8 — the WebAssembly builds: `sysml-engine`, `sysml-core`, `sysml-syntax`, `sysml-wasm` (landed, #772)
 
@@ -2689,25 +2691,26 @@ surface has no view-render RPC — only `RenderDocument`, to Markdown — so
 the wire contract did not change; if one is added later it takes the form as a string the same
 way `-render-form` does.
 
-The PDF backend draws a DOT block through Graphviz (`OPENSYSML_DOT`, `-Tsvg`, honoring the
-writer's `// layout:` line) and a PlantUML block through the jar (`OPENSYSML_PLANTUML_JAR`) as it
-draws Mermaid through `mmdc`: optional tools located by environment variable, a block kept as
-source under a notice when its tool is absent, the tests skipping with the reason where the tool
-is missing and CI's `pdf-toolchain` job running them with the toolchain installed and reading
-the rendered PDFs back (#477). The VS Code panel's *export* picks among the forms the server
-advertises, so `dot` and `plantuml` are saved as `.dot` and `.puml` beside Mermaid. What
-[W1](#w1--a-dot-form-landed) and [W2](#w2--a-plantuml-form-landed-264) listed as writer changes — richer node
-shapes and compartments — landed with the view work rather than as items of their own: symbol
-kinds drawn as their notation and labels fitted to a stated box (#560, `v0.9.0`), containment
-kept off compartment rows (#589) and Cameo behaviour notation for action and state views in the
-DOT writer (#623), both `v0.9.1`, as [view-rendering-forms.md](view-rendering-forms.md) records
-row by row. #757 (`v0.10.0`) draws a part's typed ports on the interconnection view with
-connectors ended at them. The `d2` form of [W4](#w4--a-d2-form-landed-887) took the same route the day
-it landed: `-render-form d2` (`-render-all` writes `.d2`), `%render <name> d2 [palette]`,
-`"form": "d2"`, `-diagram-form d2` (` ```d2 ` fences, `<pre class="d2">`), the PDF backend
-drawing a block through the `d2` executable `OPENSYSML_D2` names and keeping the source under a
-notice without one, the toolchain script provisioning a pinned release, and the panel's export
-saving `.d2`. Nothing else is open in the track.
+The PDF backend draws a DOT block through Graphviz (`OPENSYSML_DOT`, `-Tsvg`, honoring the writer's
+`// layout:` line) and a PlantUML block through the jar (`OPENSYSML_PLANTUML_JAR`) as it draws
+Mermaid through `mmdc`: optional tools located by environment variable, a block kept as source under
+a notice when its tool is absent, the tests skipping with the reason where the tool is missing and
+CI's `pdf-toolchain` job running them with the toolchain installed and reading the rendered PDFs
+back (#477). The VS Code panel's *export* picks among the forms the server advertises, so `dot` and
+`plantuml` are saved as `.dot` and `.puml` beside Mermaid. What [W1](#w1--a-dot-form-landed) and
+[W2](#w2--a-plantuml-form-landed-264) listed as writer changes — richer node shapes and compartments
+— landed with the view work rather than as items of their own: symbol kinds drawn as their notation
+and labels fitted to a stated box (#560, `v0.9.0`), containment kept off compartment rows (#589) and
+Cameo behaviour notation for action and state views in the DOT writer (#623), both `v0.9.1`, as
+[view-rendering-forms.md](view-rendering-forms.md) records row by row. #757 (`v0.10.0`) draws a
+part's typed ports on the interconnection view with connectors ended at them. The `d2` form of
+[W4](#w4--a-d2-form-landed-887) took the same route the day it landed: `-render-form d2`
+(`-render-all` writes `.d2`), `%render <name> d2 [palette]`, `"form": "d2"`, `-diagram-form d2`
+(` ```d2 ` fences, `<pre class="d2">`), the PDF backend drawing a block through the `d2`
+executable
+`OPENSYSML_D2` names and keeping the source under a notice without one, the toolchain script
+provisioning a pinned release, and the panel's export saving `.d2`. Nothing else is open in the
+track.
 
 ## W4 — a `d2` form (landed, #887)
 
@@ -2828,23 +2831,24 @@ reader knows the record exists and what regenerates it.
 ## T1 — release-gate performance records (landed, #1337)
 
 Every release is measured against the previous tag before it is cut: every benchmark on both
-revisions under `benchstat`, the startup and the memory of the stress profiles, with the
-candidate's head named. [performance-release-0.11.0-vs-0.10.1.md](performance-release-0.11.0-vs-0.10.1.md)
+revisions under `benchstat`, the startup and the memory of the stress profiles, with the candidate's
+head named. [performance-release-0.11.0-vs-0.10.1.md](performance-release-0.11.0-vs-0.10.1.md)
 (#1337, re-measured at the final cut in #1371, #1400 and #1445) is the current record,
-[performance-release-0.10.1-vs-0.10.0.md](performance-release-0.10.1-vs-0.10.0.md) the one
-before it, and the `0.10.0` against `0.9.2` record (#1015) is under
-[`docs/project/archive/`](archive/) with the older ones (#1221). The method is the previous
-record's, so the series is comparable, and each record names every movement with its cause.
+[performance-release-0.10.1-vs-0.10.0.md](performance-release-0.10.1-vs-0.10.0.md) the one before
+it, and the `0.10.0` against `0.9.2` record (#1015) is under [`docs/project/archive/`](archive/)
+with the older ones (#1221). The method is the previous record's, so the series is comparable, and
+each record names every movement with its cause.
 
 ## T2 — the declared errata overlay (landed, #304)
 
-The published OMG corpora and the vendored standard library are never edited. Where a published
-file is wrong — the nine dimension defects in `SI.sysml` and `USCustomaryUnits.sysml`, the
-dimensional-analysis errata in the pilot's examples — [errata-overlay.md](errata-overlay.md)
-records the entry, `internal/workspace/libs/errata` applies the library corrections when the
-bundled library is read (#304, `v0.9.0`), `tools/oracle/errata` is the registry the referees
-read so the pilot re-runs over the corrected copy, and the `Flows::Message` repair the pilot
-applies for OMG issue SYSML21-681 (`CHANGELOG.md` **0.11.0**) is the newest entry. Each entry is filed upstream under *Upstream follow-through*.
+The published OMG corpora and the vendored standard library are never edited. Where a published file
+is wrong — the nine dimension defects in `SI.sysml` and `USCustomaryUnits.sysml`, the
+dimensional-analysis errata in the pilot's examples — [errata-overlay.md](errata-overlay.md) records
+the entry, `internal/workspace/libs/errata` applies the library corrections when the bundled library
+is read (#304, `v0.9.0`), `tools/oracle/errata` is the registry the referees read so the pilot
+re-runs over the corrected copy, and the `Flows::Message` repair the pilot applies for OMG issue
+SYSML21-681 (`CHANGELOG.md` **0.11.0**) is the newest entry. Each entry is filed upstream under
+*Upstream follow-through*.
 
 ## T3 — the extension libraries (landed, #881)
 
