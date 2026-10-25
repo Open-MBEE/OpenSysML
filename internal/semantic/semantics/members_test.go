@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -101,7 +102,7 @@ func TestHasMemberAgreesWithMembersOf(t *testing.T) {
 	for pass := 0; pass < 2; pass++ {
 		members := m.MembersOf(sub)
 		for _, c := range candidates {
-			if got, want := m.HasMember(sub, c), containsSymbol(members, c); got != want {
+			if got, want := m.HasMember(sub, c), slices.Contains(members, c); got != want {
 				t.Fatalf("pass %d: HasMember(Sub, %s) = %v, MembersOf says %v", pass, c.Name, got, want)
 			}
 		}

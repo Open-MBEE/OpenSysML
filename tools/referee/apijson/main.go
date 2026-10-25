@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -101,7 +102,7 @@ func run(opts options) error {
 	unkeyed := map[string]map[string]int{"ours": {}, "pilot": {}}
 	shared := make(map[string]map[string][]string)
 	for _, root := range roots() {
-		if len(opts.roots) > 0 && !contains(opts.roots, root.Name) {
+		if len(opts.roots) > 0 && !slices.Contains(opts.roots, root.Name) {
 			continue
 		}
 		files, err := diff.CollectFiles(opts.repo, root)
@@ -195,13 +196,4 @@ func run(opts options) error {
 		return baseline.Reproduces(committed, fresh)
 	}
 	return nil
-}
-
-func contains(list []string, item string) bool {
-	for _, candidate := range list {
-		if candidate == item {
-			return true
-		}
-	}
-	return false
 }

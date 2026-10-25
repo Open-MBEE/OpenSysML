@@ -934,18 +934,9 @@ func (c *chain) body(s *sysmlv1.DocGenStep) (*sysmlv1.Element, string) {
 }
 
 func (c *chain) note(s string) {
-	if s != "" && !contains(c.notes, s) {
+	if s != "" && !slices.Contains(c.notes, s) {
 		c.notes = append(c.notes, s)
 	}
-}
-
-func contains(ss []string, s string) bool {
-	for _, x := range ss {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }
 
 // roots sets the chain's elements to refs, named by qualified name once each;
@@ -973,7 +964,7 @@ func (c *chain) roots(refs []sysmlv1.ElementRef, role string) {
 			c.broken = role + " " + kindOf(ref.Element) + " " + qualifiedName(ref.Element) + ", which is not migrated"
 			continue
 		}
-		if !contains(names, name) {
+		if !slices.Contains(names, name) {
 			names = append(names, name)
 		}
 	}
@@ -1327,7 +1318,7 @@ func (c *chain) diagramOwners(depth int) (names []string, why string) {
 			if !c.m.written(owner) {
 				return nil, "the diagram '" + d.Name + "' is owned by the " + kindOf(owner) + " " + qualifiedName(owner) + ", which is not migrated"
 			}
-			if name := c.m.plainName(owner); !contains(names, name) {
+			if name := c.m.plainName(owner); !slices.Contains(names, name) {
 				names = append(names, name)
 			}
 		}
@@ -1407,7 +1398,7 @@ func (c *chain) collectDiagramShown(d *sysmlv1.Diagram, names []string) []string
 			unwritten++
 		default:
 			c.holders = appendElement(c.holders, ref.Element)
-			if !contains(names, name) {
+			if !slices.Contains(names, name) {
 				names = append(names, name)
 			}
 		}
@@ -1500,7 +1491,7 @@ func (c *chain) collectAssociated(s *sysmlv1.DocGenStep) {
 				c.holders = append(c.holders, t)
 				if name, why := c.m.namedRoot(sysmlv1.ElementRef{ID: t.ID, Element: t}, "type"); why != "" {
 					c.note(why + ", so it is left out")
-				} else if !contains(names, name) {
+				} else if !slices.Contains(names, name) {
 					names = append(names, name)
 				}
 			}
@@ -1701,7 +1692,7 @@ func (c *chain) filterDiagramTypes(s *sysmlv1.DocGenStep) {
 		}
 		c.diagrams = append(c.diagrams, d)
 	}
-	c.keepDiagrams(s, func(d *sysmlv1.Diagram) bool { return contains(types, d.Kind) })
+	c.keepDiagrams(s, func(d *sysmlv1.Diagram) bool { return slices.Contains(types, d.Kind) })
 	if len(c.diagrams) > 0 || c.vague != "" {
 		return
 	}
@@ -1732,7 +1723,7 @@ func (c *chain) diagramTypes(s *sysmlv1.DocGenStep) []string {
 		if e := c.m.model.Lookup(name); e != nil && e.Name != "" {
 			name = e.Name
 		}
-		if name != "" && !contains(types, name) {
+		if name != "" && !slices.Contains(types, name) {
 			types = append(types, name)
 		}
 	}
@@ -2212,7 +2203,7 @@ func (c *chain) collectTypes(s *sysmlv1.DocGenStep) {
 	if c.vague == "" && c.hazy == "" {
 		var types []*sysmlv1.Element
 		for _, h := range c.holders {
-			if t := c.m.model.Ref(h, "type"); t != nil && !containsElement(types, t) {
+			if t := c.m.model.Ref(h, "type"); t != nil && !slices.Contains(types, t) {
 				types = append(types, t)
 			}
 		}

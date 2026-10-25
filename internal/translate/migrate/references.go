@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
@@ -45,7 +46,7 @@ func (m *migration) resolveProse(runs []proseRun, inline bool) (out []docRun, no
 		}
 		run, note := m.resolveRef(r, inline)
 		out = append(out, run)
-		if note != "" && !contains(notes, note) {
+		if note != "" && !slices.Contains(notes, note) {
 			notes = append(notes, note)
 		}
 	}
@@ -361,7 +362,7 @@ func wordRefs(runs []docRun) ([]docRun, []string) {
 		runs[i] = docRun{text: name}
 		demoted = true
 		note := "the reference to " + refTarget(r.elem, r.diagram) + " runs into the word around it, so its name is written as text"
-		if !contains(notes, note) {
+		if !slices.Contains(notes, note) {
 			notes = append(notes, note)
 		}
 	}
@@ -407,7 +408,7 @@ func (m *migration) writeRuns(dp *docPlan, cp *contentPlan) {
 		if r.isRef() {
 			var note string
 			target, note = m.runTarget(dp, r)
-			if note != "" && !contains(cp.notes, note) {
+			if note != "" && !slices.Contains(cp.notes, note) {
 				cp.notes = append(cp.notes, note)
 			}
 			text = refName(r.elem, r.diagram)

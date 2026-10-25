@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -179,7 +180,7 @@ func oclIsA(kind, meta string) bool {
 	if is, known := umlIsA(kind, meta); known {
 		return is
 	}
-	return contains(oclSupertypes[kind], meta)
+	return slices.Contains(oclSupertypes[kind], meta)
 }
 
 // oclKnownKind tells whether name is a metaclass the lowering reasons about.
@@ -299,7 +300,7 @@ func (l *oclLowering) boolean(n *oclNode, op string) (string, error) {
 // oclLevel is how tightly a binary operator binds; not binds tighter than all.
 func oclLevel(op string) int {
 	for level, ops := range oclLevels {
-		if contains(ops, op) {
+		if slices.Contains(ops, op) {
 			return level
 		}
 	}
