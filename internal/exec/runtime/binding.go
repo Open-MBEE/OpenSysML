@@ -517,11 +517,6 @@ func (ctx *Context) partialBinding(owner, targetInst *Instance, target *FeatureV
 	return partial, nil
 }
 
-// heldOnItsOwn reports a feature value holding what its own declaration gave it, not a binding.
-func heldOnItsOwn(fv *FeatureValue) bool {
-	return fv.Materialized && !fv.BindingDerived && fv.HeldValue().Kind != ValInvalid
-}
-
 // endpointRequiresMoreThan reports whether the features an end reaches must hold
 // more than n values together, by their declared lower bounds.
 func endpointRequiresMoreThan(endpoint bindingEndpoint, n int64) bool {
