@@ -4,6 +4,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"slices"
 )
 
 // SetSourceText gives the model the notation its documents were written in,
@@ -88,7 +89,7 @@ func (m *Model) documentationSymbols(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	var docs []*symbols.Symbol
 	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if member.Kind == symbols.SymbolDocumentation && !containsSymbol(docs, member) {
+		if member.Kind == symbols.SymbolDocumentation && !slices.Contains(docs, member) {
 			docs = append(docs, member)
 		}
 		return true

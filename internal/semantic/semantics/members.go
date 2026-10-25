@@ -1,6 +1,9 @@
 package semantics
 
-import "github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"slices"
+)
 
 // MembersOf returns the members visible on sym: those declared directly in its
 // owned scope plus members inherited from what it specializes and what it
@@ -99,7 +102,7 @@ func (m *Model) HasMember(sym, member *symbols.Symbol) bool {
 		}
 	}
 	if cached, ok := m.members[memberKey{sym: sym, view: memberViewEffective}]; ok {
-		return containsSymbol(cached, member)
+		return slices.Contains(cached, member)
 	}
 	found := false
 	m.eachMember(sym, memberViewEffective, nil, func(s *symbols.Symbol) bool {
@@ -219,7 +222,7 @@ func (m *Model) LookupContributedMember(sym *symbols.Symbol, name string) (*symb
 func (m *Model) LookupContributedMembers(sym *symbols.Symbol, name string) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	m.eachContributedMember(sym, name, func(s *symbols.Symbol) bool {
-		if !containsSymbol(out, s) {
+		if !slices.Contains(out, s) {
 			out = append(out, s)
 		}
 		return true

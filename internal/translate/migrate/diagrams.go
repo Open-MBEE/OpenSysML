@@ -844,7 +844,7 @@ func (m *migration) planPrivateLayoutAliasHoles() {
 			if !m.privateLayoutMember(target) {
 				continue
 			}
-			if owner := target.Parent; containsElement(scopes, owner) {
+			if owner := target.Parent; slices.Contains(scopes, owner) {
 				m.privateAliasOwners[owner] = true
 			}
 		}
@@ -894,7 +894,7 @@ func (m *migration) planPrivateLayoutAliases() {
 				continue
 			}
 			owner := target.Parent
-			if !containsElement(scopeChain(v.host), owner) ||
+			if !slices.Contains(scopeChain(v.host), owner) ||
 				!m.privateLayoutNameShadowed(owner, target, v.host, hidden[m.nameFor(target)]) {
 				continue
 			}
@@ -1360,7 +1360,7 @@ func (p *layoutPlan) placements(rec *mtip.Diagram) []string {
 		var privateOwner *sysmlv1.Element
 		if m.privateLayoutMember(el) {
 			privateOwner = el.Parent
-			if !containsElement(scopeChain(v.host), privateOwner) {
+			if !slices.Contains(scopeChain(v.host), privateOwner) {
 				p.notePrivateUnexposed(el, privateOwner)
 				s.PlacementsUnexposed++
 				p.unexposed++

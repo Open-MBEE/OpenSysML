@@ -106,7 +106,7 @@ func (ctx *Context) namespaceModelIndex() *namespaceModelIndex {
 					} else {
 						class = merge(class.members[len(class.members)-1], u)
 					}
-					if !containsSymbol(class.members, u) {
+					if !slices.Contains(class.members, u) {
 						class.members = append(class.members, u)
 					}
 				}
@@ -147,16 +147,6 @@ func (ctx *Context) namespaceModelIndex() *namespaceModelIndex {
 	}
 	ctx.model.namespaceUsageIndex = out
 	return out
-}
-
-// containsSymbol reports whether syms holds sym.
-func containsSymbol(syms []*symbols.Symbol, sym *symbols.Symbol) bool {
-	for _, s := range syms {
-		if s == sym {
-			return true
-		}
-	}
-	return false
 }
 
 // namespaceEndUsage resolves a binding end written as a name to the usage it
@@ -655,7 +645,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 			return fail(fmt.Errorf("subsetting usage %s of %s: %w", SymbolText(sub), SymbolText(sym), err))
 		}
 		for _, inst := range objs {
-			if !containsInstance(contributed, inst.ID) {
+			if !slices.ContainsFunc(contributed, func(o *Instance) bool { return o.ID == inst.ID }) {
 				contributed = append(contributed, inst)
 				ids = append(ids, inst.ID)
 			}
@@ -844,14 +834,4 @@ func (ctx *Context) denotedSubsetObjects(sym *symbols.Symbol) ([]*Instance, erro
 		return ctx.liveInstances(heldObjects(val)), nil
 	}
 	return ctx.denotedObjects(sym)
-}
-
-// containsInstance reports whether objs holds the object id names.
-func containsInstance(objs []*Instance, id int64) bool {
-	for _, inst := range objs {
-		if inst.ID == id {
-			return true
-		}
-	}
-	return false
 }

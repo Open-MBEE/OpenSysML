@@ -2,6 +2,7 @@ package semantics
 
 import (
 	"reflect"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -305,7 +306,7 @@ func (m *Model) selectAmong(scope *symbols.Scope, named []*symbols.Symbol, args 
 		if !ok || target == nil {
 			continue
 		}
-		if !containsSymbol(sel.Candidates, target) {
+		if !slices.Contains(sel.Candidates, target) {
 			sel.Candidates = append(sel.Candidates, target)
 		}
 	}
@@ -384,7 +385,7 @@ func (m *Model) selectAmong(scope *symbols.Scope, named []*symbols.Symbol, args 
 		return sel
 	default:
 		decisive = indicesWithFit(fits, fitExact)
-		if len(decisive) == 0 && !containsFit(fits, fitOpen) {
+		if len(decisive) == 0 && !slices.Contains(fits, fitOpen) {
 			decisive = indicesWithFit(fits, fitWiden)
 		}
 		if len(decisive) == 0 {
@@ -511,10 +512,6 @@ func indicesWithFit(fits []bindFit, want bindFit) []int {
 		}
 	}
 	return out
-}
-
-func containsFit(fits []bindFit, want bindFit) bool {
-	return len(indicesWithFit(fits, want)) > 0
 }
 
 // invocationSignature is the input parameters a candidate is invoked with.
@@ -877,15 +874,6 @@ func (m *Model) parameterConforms(a, b signatureParameter) bool {
 		return true
 	}
 	return a.prim != PrimUnknown && PrimConforms(a.prim, b.prim)
-}
-
-func containsSymbol(syms []*symbols.Symbol, sym *symbols.Symbol) bool {
-	for _, s := range syms {
-		if s == sym {
-			return true
-		}
-	}
-	return false
 }
 
 func filterSymbols(syms []*symbols.Symbol, keep func(*symbols.Symbol) bool) []*symbols.Symbol {
