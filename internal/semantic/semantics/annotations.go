@@ -525,7 +525,7 @@ func (m *Model) typeDefaults(typ *symbols.Symbol) map[string][]symbols.FilterVal
 		if !ok {
 			continue
 		}
-		name := simpleSymbolName(member)
+		name := SimpleSymbolName(member)
 		if name == "" {
 			continue
 		}
@@ -828,7 +828,7 @@ func (m *Model) annotationValue(scope *symbols.Scope, value ast.Node) symbols.Fi
 	}
 	switch e := value.(type) {
 	case *ast.LiteralString:
-		return symbols.FilterValue{Kind: symbols.FilterValueString, Str: unquote(e.Value)}
+		return symbols.FilterValue{Kind: symbols.FilterValueString, Str: source.StringValue(e.Value)}
 	case *ast.FeatureReference:
 		if sym, ok := m.resolver.ResolveQualified(scope, e.Name); ok && sym != nil {
 			if fqn := m.fqnOf(sym); fqn != "" {
@@ -2104,14 +2104,14 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		}
 		return boolValue(len(m.ownedImplicitRelationships(sym, conjugationMetaclass)) > 0), true
 	case "name", "declaredName":
-		return stringOrEmpty(simpleSymbolName(sym)), true
+		return stringOrEmpty(SimpleSymbolName(sym)), true
 	case "shortName":
 		return stringOrEmpty(m.EffectiveShortNameOf(sym)), true
 	case "declaredShortName":
 		return stringOrEmpty(sym.ShortName), true
 	case "qualifiedName":
 		// Element::qualifiedName is null for an unnamed element (KerML 1.1 §8.3.2.1).
-		if simpleSymbolName(sym) == "" {
+		if SimpleSymbolName(sym) == "" {
 			return emptyValue(), true
 		}
 		return stringOrEmpty(m.fqnOf(sym)), true
