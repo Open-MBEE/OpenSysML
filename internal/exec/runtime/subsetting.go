@@ -283,9 +283,11 @@ func (ctx *Context) redefinitionGroups(typ *symbols.Symbol) [][]string {
 		return groups
 	}
 	features := ctx.FeaturesOf(typ)
-	declared := make(map[string]bool, len(features))
-	for _, feat := range features {
-		declared[feat.Name] = true
+	byName := make(map[string]*EffectiveFeature, len(features))
+	for i := range features {
+		if features[i].Symbol != nil {
+			byName[features[i].Name] = &features[i]
+		}
 	}
 	leader := map[string]string{}
 	var find func(string) string
@@ -303,11 +305,12 @@ func (ctx *Context) redefinitionGroups(typ *symbols.Symbol) [][]string {
 		if feat.Symbol == nil {
 			continue
 		}
-		for _, redefined := range ctx.redefinedNames(feat.Symbol, typ) {
-			if redefined == feat.Name || !declared[redefined] {
+		for _, redefined := range ctx.redefinedFeatures(feat.Symbol, typ) {
+			slot, held := byName[redefined.Name]
+			if !held || slot.Name == feat.Name || !ctx.slotHolds(slot, redefined, typ) {
 				continue
 			}
-			if a, b := find(feat.Name), find(redefined); a != b {
+			if a, b := find(feat.Name), find(slot.Name); a != b {
 				leader[b] = a
 			}
 		}
@@ -329,6 +332,15 @@ func (ctx *Context) redefinitionGroups(typ *symbols.Symbol) [][]string {
 	}
 	ctx.model.redefGroups[typ] = groups
 	return groups
+}
+
+// slotHolds reports whether the feature typ holds under slot's name is feature
+// itself or one feature redefines or is redefined by, so a namesake inherited
+// along another path, which no redefinition relates to it, is another feature.
+func (ctx *Context) slotHolds(slot *EffectiveFeature, feature, typ *symbols.Symbol) bool {
+	return slot.Symbol == feature ||
+		slices.Contains(ctx.redefinedFeatures(slot.Symbol, typ), feature) ||
+		slices.Contains(ctx.redefinedFeatures(feature, typ), slot.Symbol)
 }
 
 // redefinitionAliases returns the names under which typ's features read the

@@ -1,0 +1,25 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::reader",
+  "slots": {
+    "a21": {"type": "Real", "value": 2.0},
+    "b21": {"type": "Real", "value": 3.0},
+    "a21Count": {"type": "Integer", "value": 1},
+    "a21ViaA1": {"type": "Real", "value": 3.0},
+    "a21ViaA2": {"type": "Real", "value": 2.0},
+    "a21CastA1": {"type": "Real", "value": 3.0},
+    "a21CastA2": {"type": "Real", "value": 2.0},
+    "a12": {"type": "Real", "value": 2.0},
+    "b12": {"type": "Real", "value": 3.0},
+    "a12CastA1": {"type": "Real", "value": 3.0},
+    "a12CastA2": {"type": "Real", "value": 2.0},
+    "aUsage": {"type": "Real", "value": 2.0},
+    "bUsage": {"type": "Real", "value": 3.0},
+    "aUsageCastA1": {"type": "Real", "value": 3.0},
+    "aUsageCastA2": {"type": "Real", "value": 2.0},
+    "bDiamond": {"type": "Real", "value": 3.0},
+    "aDiamondCastD1": {"type": "Real", "value": 3.0},
+    "aDiamondCastD2": {"type": "Real", "value": 3.0}
+  }
+}

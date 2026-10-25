@@ -82,9 +82,23 @@ func (m *Model) shapeFeatures(typ *symbols.Symbol, keep func(*symbols.Symbol) bo
 	}
 	out := make([]ShapeFeature, 0, len(order))
 	for _, name := range order {
-		out = append(out, *byName[name])
+		out = append(out, m.inheritedNamesake(typ, *byName[name], keep))
 	}
 	return out
+}
+
+// inheritedNamesake is f, or the feature typ inherits under f.Name when f's
+// declaration is one a redefinition removed while a namesake reached along
+// another path keeps the name (KerML 8.3.3.1.10 removeRedefinedFeatures).
+func (m *Model) inheritedNamesake(typ *symbols.Symbol, f ShapeFeature, keep func(*symbols.Symbol) bool) ShapeFeature {
+	if !m.InheritanceMasked(typ, f.Symbol) {
+		return f
+	}
+	surviving, ok := m.LookupMember(typ, f.Name)
+	if !ok || surviving == nil || surviving == f.Symbol || !IsShapeFeature(surviving) || !keep(surviving) {
+		return f
+	}
+	return ShapeFeature{Name: f.Name, Symbol: surviving, Declared: surviving}
 }
 
 // ConstructibleFeatures returns the features a constructor's positional

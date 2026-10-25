@@ -63,6 +63,11 @@ type EvalContext struct {
 	// entered is the last activation allocated before the built-in being applied
 	// was entered: an occurrence begun since began during the call.
 	entered int64
+
+	// chainMembers are the declarations the segments of the chains being
+	// evaluated name, by segment, so an object answers each by the feature it
+	// names rather than by its name alone (see chain_member_slot.go).
+	chainMembers map[*ast.NameSegment]*symbols.Symbol
 }
 
 // newEvalContext creates an evaluation context with an empty frame stack. It
@@ -1526,6 +1531,7 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 		return Value{}, fmt.Errorf("empty member chain")
 	}
 	base, parts := ast.FeatureChainBase(n)
+	ec.noteChainMembers(base, parts)
 
 	// A state's activity, `fill.isActive`, is read from the active configuration
 	// of the machine holding the state, not from a feature value.
@@ -1658,8 +1664,12 @@ func (ec *EvalContext) chainMembersDeclared(base ast.Node, parts []ast.NameSegme
 	return nil
 }
 
-// chainBaseSymbol is the feature a chain's base names, when it names one.
+// chainBaseSymbol is the feature a chain's base names, when it names one, or
+// the type a cast base (`x as T`) classifies its values by.
 func (ec *EvalContext) chainBaseSymbol(base ast.Node) (*symbols.Symbol, bool) {
+	if cast, ok := base.(*ast.OperatorExpr); ok && cast.Operator == ast.OpAs && cast.TypeRef != nil {
+		return ec.resolveClassificationType(cast.TypeRef)
+	}
 	ref, ok := base.(*ast.FeatureReference)
 	if !ok || ref.Name == nil || ec.ctx.model.resolver == nil {
 		return nil, false
@@ -1782,6 +1792,11 @@ func (ec *EvalContext) chainObjectMember(value Value, parts []ast.NameSegment, f
 			return Value{}, err
 		}
 		return ec.chainMemberValue(now, rest, name)
+	}
+	// The segment reads the feature its name resolved to, which the object may
+	// hold under the name of a feature redefining it (KerML 1.0 §7.3.4.5).
+	if slot, ok := ec.ctx.featureSlot(inst, ec.chainMembers[&parts[0]]); ok {
+		name = slot
 	}
 	fvDecl, ok := inst.FeatureValues[name]
 	if !ok {
