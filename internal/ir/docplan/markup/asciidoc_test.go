@@ -51,7 +51,7 @@ func runSummary(runs []Run) []string {
 		switch run.Kind {
 		case RunText:
 			out[i] = string(run.Style) + ":" + run.Text
-		case RunLink, RunRef:
+		case RunLink, RunRef, RunValue:
 			out[i] = string(run.Kind) + ":" + run.Destination + ":" + run.Text
 		default:
 			out[i] = string(run.Kind) + ":" + run.Text
@@ -131,6 +131,30 @@ func TestAsciiDocFixtureBlocks(t *testing.T) {
 	}
 }
 
+// A `sysml:value` macro is a value run labelled by its second positional
+// attribute, placed where it occurs in the body.
+func TestAsciiDocValueRuns(t *testing.T) {
+	body := "see sysml:value[a.mass] and sysml:value[a.b, Mass:] end\n"
+	answer := `{"blocks":[{"kind":"paragraph","line":1,"runs":[{"kind":"text","style":"plain","text":"see "},{"kind":"value","target":"a.mass","text":""},{"kind":"text","style":"plain","text":" and "},{"kind":"value","target":"a.b","text":"Mass:"},{"kind":"text","style":"plain","text":" end"}]}]}`
+	blocks, err := decodeAsciiDoc(body, []byte(answer))
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(blocks) != 1 {
+		t.Fatalf("got %d blocks, want one paragraph", len(blocks))
+	}
+	want := []string{"plain:see ", "value:a.mass:", "plain: and ", "value:a.b:Mass:", "plain: end"}
+	if got := runSummary(blocks[0].Runs); !reflect.DeepEqual(got, want) {
+		t.Errorf("runs = %q, want %q", got, want)
+	}
+	for i, at := range []string{"a.mass", "a.b"} {
+		run := blocks[0].Runs[1+2*i]
+		if got := body[run.Span.Start:run.Span.Stop]; got != at {
+			t.Errorf("value run %d spans %q, want %q", i, got, at)
+		}
+	}
+}
+
 // Each construct no content block carries is refused by name, with the body
 // line it starts on.
 func TestAsciiDocRefusals(t *testing.T) {
@@ -151,7 +175,8 @@ func TestAsciiDocRefusals(t *testing.T) {
 		{"table footer", "|===\n|h\n\n|a\n|f\n|===\n", `{"blocks":[{"kind":"table","line":1,"cols":[],"header":[[{"runs":[]}]],"rows":[],"footer":[[{"runs":[]}]]}]}`, "table footer", 1},
 		{"styled cell", "|===\n|h\n\n|*a*\n|===\n", `{"blocks":[{"kind":"table","line":1,"cols":[],"header":[[{"runs":[]}]],"rows":[[{"runs":[{"kind":"text","style":"strong","text":"a"}]}]],"footer":[]}]}`, "strong text in a table cell", 1},
 		{"ref in cell", "|===\n|h\n\n|sysml:ref[x]\n|===\n", `{"blocks":[{"kind":"table","line":1,"cols":[],"header":[[{"runs":[]}]],"rows":[[{"runs":[{"kind":"ref","target":"x","text":""}]}]],"footer":[]}]}`, "sysml:ref macro in a table cell", 1},
-		{"value macro", "see sysml:value[a.mass]\n", `{"blocks":[{"kind":"paragraph","line":1,"runs":[{"kind":"text","style":"plain","text":"see "},{"kind":"value","target":"a.mass"}]}]}`, "sysml:value macro", 1},
+		{"value in cell", "|===\n|h\n\n|sysml:value[x]\n|===\n", `{"blocks":[{"kind":"table","line":1,"cols":[],"header":[[{"runs":[]}]],"rows":[[{"runs":[{"kind":"value","target":"x","text":""}]}]],"footer":[]}]}`, "sysml:value macro in a table cell", 1},
+		{"value without target", "sysml:value[]\n", `{"blocks":[{"kind":"paragraph","line":1,"runs":[{"kind":"value","target":"","text":""}]}]}`, "sysml:value macro without a target", 1},
 		{"inline image", "an image:x.png[] here\n", `{"blocks":[{"kind":"paragraph","line":1,"runs":[{"kind":"image","target":"x.png"}]}]}`, "inline image", 1},
 		{"footnote", "a\n\nb footnote:[n]\n", `{"blocks":[{"kind":"paragraph","line":1,"runs":[]},{"kind":"paragraph","line":3,"runs":[{"kind":"unsupported","construct":"footnote"}]}]}`, "footnote", 3},
 		{"nested quoted text", "*a _b_*\n", `{"blocks":[{"kind":"paragraph","line":1,"runs":[{"kind":"unsupported","construct":"nested quoted text"}]}]}`, "nested quoted text", 1},

@@ -562,8 +562,10 @@ JSON number past 2^53 is read through a float64 that may round its digits.
   ```
 
   `kind` is `constraint` (an asserted constraint or invariant the object
-  carries), `requirement` (a requirement usage it carries) or `satisfaction` (a
-  satisfaction assertion whose subject is an object in the tree). `assertion` is
+  carries), `requirement` (a requirement usage it carries), `satisfaction` (a
+  satisfaction assertion whose subject is an object in the tree) or `binding` (a
+  binding connector the object carries whose multiplicities link fewer values
+  than its ends hold, checked as the identity of some value of each end). `assertion` is
   the assertion as declared; `object` the path from the root to the object the
   verdict is about, one-based for a collection element and omitted for the root.
   `status` is `holds`, `violated` (the condition evaluated to false) or

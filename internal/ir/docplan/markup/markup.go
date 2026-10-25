@@ -119,6 +119,9 @@ const (
 	// RunRef is a model reference: Text labels Destination, the target's
 	// notation after the `sysml:` scheme; an empty Text asks for the default label.
 	RunRef RunKind = "ref"
+	// RunValue is a model value: Destination is the feature's notation after
+	// the `sysml:value:` scheme and Text the label the value follows, if any.
+	RunValue RunKind = "value"
 	// RunMath is inline mathematics: Text is LaTeX source.
 	RunMath RunKind = "math"
 )
@@ -145,6 +148,10 @@ type Run struct {
 // RefScheme is the URI scheme under which a link destination names a model
 // element rather than a URL.
 const RefScheme = "sysml:"
+
+// ValuePrefix follows RefScheme when a destination reads a feature's value
+// rather than referencing the element.
+const ValuePrefix = "value:"
 
 // UnsupportedConstructError reports a markup construct no content block
 // carries, with the line of the body it starts on (1-based).

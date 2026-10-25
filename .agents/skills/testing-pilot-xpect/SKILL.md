@@ -493,7 +493,9 @@ diff /tmp/cold.txt /tmp/warm.txt
 ```
 
 Check the entry count between the runs — a still-empty `sysml-ls/libs` means the warm run was cold
-again and the check proved nothing.
+again and the check proved nothing. A fresh directory is for the cold measurement only: the key
+carries the build identity (a clean checkout's revision, else the binary's linker build ID), so a
+rebuilt `bin/sysml` with different code never reads the records of the previous build, and a warm/cold difference is a code bug rather than a stale cache.
 
 ## Recording
 

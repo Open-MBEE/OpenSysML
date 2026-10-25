@@ -2391,12 +2391,7 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 		// operand names the subject of the satisfaction, never the usage itself,
 		// so it is always recorded as a subject relationship.
 		if p.acceptKeyword("by") {
-			if subjTarget := p.parseRelationshipTarget(); subjTarget != nil {
-				u.Relationships = append(u.Relationships, &ast.Relationship{
-					Kind:   ast.RelSubject,
-					Target: subjTarget,
-				})
-			}
+			p.parseSatisfactionSubject(u)
 		}
 
 		// A satisfy usage is a requirement usage (SysML v2 §7.20), so its body
@@ -3280,7 +3275,7 @@ func (p *Parser) parseBodyMember() ast.Node {
 		// A feature modifier can precede the kind keyword: `ref part a : V`,
 		// `composite item i`, `derived attribute c`. The declaration is parsed
 		// as usual and the modifiers already consumed are applied to it.
-		if p.isKindKeyword(p.peek()) || p.atKindPrefix() {
+		if p.isKindKeyword(p.peek()) || p.atUseCase() || p.atKindPrefix() {
 			// A keyword that only qualifies the kind after it is consumed first:
 			// `derived var feature x` declares a feature, not a `var`.
 			for p.atKindPrefix() && !p.isKindKeyword(p.peek()) {
@@ -3991,6 +3986,62 @@ func (p *Parser) parseRelationshipTarget() ast.Node {
 	}
 
 	return operand
+}
+
+// parseSatisfactionSubject parses the operand of `by`, a feature reference or chain
+// (SysML.xtext SatisfactionReferenceExpression); anything wider is one diagnostic.
+func (p *Parser) parseSatisfactionSubject(u *ast.Usage) {
+	// A reserved word names a feature only as a chain segment (`do.start`); alone
+	// before more tokens it opens an expression (`new Sub()`), not a reference.
+	keywordLed := p.at(lexer.Keyword) && !slices.Contains([]lexer.Kind{lexer.Dot, lexer.ColonColon, lexer.Semicolon, lexer.LBrace}, p.peekN(1).Kind)
+	if keywordLed || (!p.atNameOrKeyword() && !(p.at(lexer.Dollar) && p.peekN(1).Kind == lexer.ColonColon)) {
+		p.error(p.peek().Span, "expected a feature reference after 'by'")
+		p.skipSatisfactionOperand()
+		return
+	}
+	if subjTarget := p.parseRelationshipTarget(); subjTarget != nil {
+		u.Relationships = append(u.Relationships, &ast.Relationship{
+			Kind:   ast.RelSubject,
+			Target: subjTarget,
+		})
+	}
+	if p.at(lexer.Semicolon) || p.at(lexer.LBrace) || p.at(lexer.RBrace) || p.atEOF() {
+		return
+	}
+	if p.startsLaterLine() && !p.continuesExpression() {
+		// The next member's line: the usage lacks its ';', which its end reports.
+		return
+	}
+	p.error(p.peek().Span, "expected ';' or '{' after the satisfaction subject: 'by' takes a feature reference or feature chain, not an expression")
+	p.skipSatisfactionOperand()
+}
+
+// continuesExpression reports a token that extends an operand into an expression
+// (`+ b`, `#(1)`, `->first()`, `(a, b)`) rather than opening a member, whatever line it is on.
+func (p *Parser) continuesExpression() bool {
+	if _, ok := p.binaryOpFor(); ok {
+		return true
+	}
+	return p.at(lexer.Hash) || p.at(lexer.Arrow) || p.at(lexer.LParen) || p.at(lexer.LBracket) || p.at(lexer.Question)
+}
+
+// skipSatisfactionOperand skips the rest of a `by` operand up to the usage's ';' or
+// body; `to`/`then` cannot continue a satisfaction, so they are skipped too.
+func (p *Parser) skipSatisfactionOperand() {
+	for !p.atEOF() && !p.at(lexer.Semicolon) && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) {
+		p.advance()
+	}
+}
+
+// startsLaterLine reports whether the next token begins a later line than the last
+// token consumed.
+func (p *Parser) startsLaterLine() bool {
+	last, ok := p.lastToken()
+	if !ok {
+		return false
+	}
+	lines := p.src.Lines()
+	return lines.PosAt(p.peek().Span.Offset).Line > lines.PosAt(last.Span.End()).Line
 }
 
 // parsePreNameRelationships parses the specializations a declaration may state

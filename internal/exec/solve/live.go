@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -152,7 +153,7 @@ func liveText(t *Term) string {
 		return strings.Join(parts, " or ")
 	case OpEq:
 		if holder, value, ok := selectionOf(t); ok {
-			return shortName(holder) + " selects " + source.QualifiedNameText(lastSegment(value))
+			return shortName(holder) + " selects " + source.QualifiedNameText(symbols.LastSegment(value))
 		}
 	}
 	return writeTerm(t)
@@ -163,12 +164,5 @@ func shortName(v *Var) string {
 	if len(v.Steps) > 0 {
 		return pathName(v.Steps)
 	}
-	return source.QualifiedNameText(lastSegment(v.Name))
-}
-
-func lastSegment(name string) string {
-	if i := strings.LastIndex(name, "::"); i >= 0 {
-		return name[i+2:]
-	}
-	return name
+	return source.QualifiedNameText(symbols.LastSegment(v.Name))
 }

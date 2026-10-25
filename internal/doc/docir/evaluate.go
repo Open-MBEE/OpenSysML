@@ -339,10 +339,11 @@ func (e *evaluator) evaluateParagraph(node docplan.Content) (Content, error) {
 		origin: node.Origin(),
 	}
 	if planned := node.Runs(); len(planned) > 0 {
-		content.runs = make([]TextRun, len(planned))
-		for i, run := range planned {
-			content.runs[i] = evaluatedRun(run)
+		runs, err := e.evaluatedRuns(node, planned)
+		if err != nil {
+			return Content{}, err
 		}
+		content.runs = runs
 		return content, nil
 	}
 	if node.Query() == nil {
@@ -641,7 +642,11 @@ func (e *evaluator) groupRows(node docplan.Content, columns []queryexec.Column, 
 // cellText renders one projected cell as deterministic plain text: its
 // values joined by ", ".
 func (e *evaluator) cellText(cell queryexec.Cell) string {
-	values := cell.Values()
+	return e.valuesText(cell.Values())
+}
+
+// valuesText joins a cell's values as a list cell renders them.
+func (e *evaluator) valuesText(values []queryexec.Value) string {
 	parts := make([]string, len(values))
 	for i, value := range values {
 		parts[i] = e.valueText(value)
@@ -691,7 +696,7 @@ func styledKind(style docplan.RunStyle) RunKind {
 
 func (e *evaluator) evaluateList(node docplan.Content) (Content, error) {
 	if node.Query() == nil {
-		return staticList(node), nil
+		return e.staticList(node)
 	}
 	result, err := e.executeQuery(node)
 	if err != nil {
@@ -737,14 +742,13 @@ func (e *evaluator) evaluateList(node docplan.Content) (Content, error) {
 
 // staticList is a list whose items were planned from a markup body: each
 // item's runs are already known and select no element.
-func staticList(node docplan.Content) Content {
+func (e *evaluator) staticList(node docplan.Content) (Content, error) {
 	planned := node.Items()
 	items := make([]ListItem, 0, len(planned))
 	for _, item := range planned {
-		runs := item.Runs()
-		evaluated := make([]TextRun, len(runs))
-		for i, run := range runs {
-			evaluated[i] = evaluatedRun(run)
+		evaluated, err := e.evaluatedRuns(node, item.Runs())
+		if err != nil {
+			return Content{}, err
 		}
 		items = append(items, ListItem{runs: evaluated, origin: item.Origin()})
 	}
@@ -754,7 +758,59 @@ func staticList(node docplan.Content) Content {
 		style:  ListStyle(node.Style()),
 		items:  items,
 		origin: node.Origin(),
+	}, nil
+}
+
+// evaluatedRuns converts planned inline runs, reading each value run's feature.
+func (e *evaluator) evaluatedRuns(node docplan.Content, planned []docplan.Run) ([]TextRun, error) {
+	runs := make([]TextRun, len(planned))
+	for i, run := range planned {
+		if run.Kind() != docplan.RunValue {
+			runs[i] = evaluatedRun(run)
+			continue
+		}
+		evaluated, err := e.valueRun(node, run)
+		if err != nil {
+			return nil, err
+		}
+		runs[i] = evaluated
 	}
+	return runs, nil
+}
+
+// valueRun reads a value run's feature as a span column's cell would — the
+// object's current value when the session holds its root, else the declared
+// one — and renders it as plain text behind the run's label.
+func (e *evaluator) valueRun(node docplan.Content, run docplan.Run) (TextRun, error) {
+	row := queryexec.ElementValue(run.ValueRoot())
+	if object, held := e.context.HeldRoot(run.ValueRoot()); held {
+		row = object
+	}
+	values, err := queryexec.ReadFeature(e.context, row, run.ValuePath(), e.options)
+	if err != nil {
+		return TextRun{}, &Error{
+			Kind:     ErrorValueEvaluation,
+			Document: e.document,
+			Content:  node.Name(),
+			Actual:   run.ValueFeature(),
+			Origin:   run.Origin(),
+			Err:      err,
+		}
+	}
+	if len(values) == 0 {
+		return TextRun{}, &Error{
+			Kind:     ErrorEmptyValue,
+			Document: e.document,
+			Content:  node.Name(),
+			Actual:   run.ValueFeature(),
+			Origin:   run.Origin(),
+		}
+	}
+	text := e.valuesText(values)
+	if label := run.Text(); label != "" {
+		text = label + " " + text
+	}
+	return TextRun{kind: RunPlain, text: text, bound: run.Bound(), origin: run.Origin()}, nil
 }
 
 // evaluateDefinitions runs a definitions block's query once and turns each

@@ -125,7 +125,7 @@ number; the tool checks and carries this at every step:
 
 ```
 ✓ DeltaVBudget::RocketEquation(421 [SI::s], 9.80665 [SI::'m/s²'], 133000 [SI::kg], 28000 [SI::kg])
-  = 6432.955324716369 [SI::'m/s']
+  = [6432.955324716369 [SI::'m/s']]
   standing: value (observed: 1 run under reverse)
 ```
 
@@ -140,9 +140,9 @@ requirement. `saturnIBAscent` binds the subject, so it runs by name:
 
 ```
 ✓ DeltaVBudget::saturnIBAscent
-  stage1DeltaV = 3037.6966629706967 [SI::'m/s']
-  stage2DeltaV = 6432.955324716369 [SI::'m/s']
-  margin = 70.65198768706614 [SI::'m/s']
+  stage1DeltaV = [3037.6966629706967 [SI::'m/s']]
+  stage2DeltaV = [6432.955324716369 [SI::'m/s']]
+  margin = [70.65198768706614 [SI::'m/s']]
   objective reachesOrbit: satisfied
   standing: value (observed: 1 run under reverse)
 ```
@@ -158,9 +158,9 @@ and the exit status becomes `1`:
 
 ```
 ✗ DeltaVBudget::saturnIBAscent(required = 9800 ['m/s'])
-  stage1DeltaV = 3037.6966629706967 [SI::'m/s']
-  stage2DeltaV = 6432.955324716369 [SI::'m/s']
-  margin = -329.34801231293386 [SI::'m/s']
+  stage1DeltaV = [3037.6966629706967 [SI::'m/s']]
+  stage2DeltaV = [6432.955324716369 [SI::'m/s']]
+  margin = [-329.34801231293386 [SI::'m/s']]
   objective reachesOrbit: not satisfied: margin > 0 ['m/s']
   standing: value (observed: 1 run under reverse)
 ```
@@ -399,7 +399,7 @@ three with the action and completes it once all three have:
   Tokens: 3
 ✓ Action completed
   Final state: Completed
-  1 choice point; %trace on to see them
+  1 choice point (1 independent); %trace on to see them
   standing: value (observed: 1 run under reverse)
 ```
 
@@ -452,7 +452,7 @@ the spacecraft's, and `-advance` runs the one clock both parts share:
   Current state: transmitted | notRecharging
   Last event at: 241.0
   Remaining events: 0
-  592 choice points; %trace on to see them
+  592 choice points (591 independent); %trace on to see them
   Do behavior actions run: 808
   standing: value (observed: 1 run under reverse)
 ```
@@ -561,7 +561,7 @@ policies' ([a do behavior under `explore` and
 ```
 
 ```
-✗ State machine SpacecraftComms::SpacecraftVehicle::modes: divergent up to t=80.0 (14664 states, 35546 moves, depth 757)
+✗ State machine SpacecraftComms::SpacecraftVehicle::modes: divergent up to t=80.0 (14748 states, 35626 moves, depth 757)
   divergent: this.battery ends as 39 or 41
   divergent: this.data ends as 51200 or 52224 or 53248
   (…)
@@ -641,7 +641,7 @@ The model's mass-budget step runs as written:
 
 ```
 ✓ CalculationsPackage::calculateMassBudgetStep(2900000 [SI::kg], 2000000 [SI::kg], 130000 [SI::kg])
-  = 770000 [SI::kg]
+  = [770000 [SI::kg]]
   standing: value (observed: 1 run under reverse)
 ```
 

@@ -121,7 +121,7 @@ func (m *Model) DeclaredAnnotationFactsOf(sym *symbols.Symbol) []symbols.Annotat
 // clause states on the elements it names — its type and bound values — as an
 // interface record keeps it; nil for any other symbol.
 func (m *Model) AboutAnnotationFactsOf(sym *symbols.Symbol) *symbols.AnnotationFacts {
-	if sym == nil || sym.Kind != symbols.SymbolMetadataUsage || !annotatesOthers(sym.Decl) {
+	if sym == nil || sym.Kind != symbols.SymbolMetadataUsage || !symbols.AnnotatesOthers(sym.Decl) {
 		return nil
 	}
 	a, ok := m.metadataAnnotation(sym.OwnerScope, sym.Decl)
@@ -138,7 +138,7 @@ func (m *Model) AboutAnnotationFactsOf(sym *symbols.Symbol) *symbols.AnnotationF
 // AnnotatedElementsOf returns the elements a metadata usage annotates through
 // its `about` clause, resolved; nil for any other symbol.
 func (m *Model) AnnotatedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
-	if sym.Kind != symbols.SymbolMetadataUsage || !annotatesOthers(sym.Decl) {
+	if sym.Kind != symbols.SymbolMetadataUsage || !symbols.AnnotatesOthers(sym.Decl) {
 		return nil
 	}
 	targets := m.annotatedElements(sym.OwnerScope, sym.Decl)
@@ -405,7 +405,7 @@ func (m *Model) declaredAnnotations(sym *symbols.Symbol) []annotation {
 		// `part seatBelt {@Safety{isMandatory = true;}}`: a metadata usage written
 		// as a member annotates the element owning the body, unless it states
 		// what it annotates with an `about` clause.
-		if !isMetadataUsage(member) || annotatesOthers(member) {
+		if !isMetadataUsage(member) || symbols.AnnotatesOthers(member) {
 			continue
 		}
 		if a, ok := m.metadataAnnotation(memberScope(sym, scope), member); ok {
@@ -525,7 +525,7 @@ func (m *Model) typeDefaults(typ *symbols.Symbol) map[string][]symbols.FilterVal
 		if !ok {
 			continue
 		}
-		name := simpleSymbolName(member)
+		name := SimpleSymbolName(member)
 		if name == "" {
 			continue
 		}
@@ -675,7 +675,7 @@ func (m *Model) indexAboutUsage(sym *symbols.Symbol) {
 		m.indexRecordedAboutUsage(sym)
 		return
 	}
-	if !annotatesOthers(sym.Decl) {
+	if !symbols.AnnotatesOthers(sym.Decl) {
 		return
 	}
 	a, ok := m.metadataAnnotation(sym.OwnerScope, sym.Decl)
@@ -743,10 +743,6 @@ func (m *Model) annotatedElements(scope *symbols.Scope, decl ast.Node) []aboutTa
 	}
 	return out
 }
-
-// annotatesOthers reports whether a metadata usage states what it annotates
-// (`metadata m about p;`, `@M about p;`), rather than annotating the element owning it.
-func annotatesOthers(decl ast.Node) bool { return symbols.AnnotatesOthers(decl) }
 
 // annotationValues reads the feature values an annotation body binds, as in
 // `@Safety{isMandatory = true;}`. A binding whose value is not a constant or an
@@ -832,7 +828,7 @@ func (m *Model) annotationValue(scope *symbols.Scope, value ast.Node) symbols.Fi
 	}
 	switch e := value.(type) {
 	case *ast.LiteralString:
-		return symbols.FilterValue{Kind: symbols.FilterValueString, Str: unquote(e.Value)}
+		return symbols.FilterValue{Kind: symbols.FilterValueString, Str: source.StringValue(e.Value)}
 	case *ast.FeatureReference:
 		if sym, ok := m.resolver.ResolveQualified(scope, e.Name); ok && sym != nil {
 			if fqn := m.fqnOf(sym); fqn != "" {
@@ -2108,14 +2104,14 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		}
 		return boolValue(len(m.ownedImplicitRelationships(sym, conjugationMetaclass)) > 0), true
 	case "name", "declaredName":
-		return stringOrEmpty(simpleSymbolName(sym)), true
+		return stringOrEmpty(SimpleSymbolName(sym)), true
 	case "shortName":
 		return stringOrEmpty(m.EffectiveShortNameOf(sym)), true
 	case "declaredShortName":
 		return stringOrEmpty(sym.ShortName), true
 	case "qualifiedName":
 		// Element::qualifiedName is null for an unnamed element (KerML 1.1 §8.3.2.1).
-		if simpleSymbolName(sym) == "" {
+		if SimpleSymbolName(sym) == "" {
 			return emptyValue(), true
 		}
 		return stringOrEmpty(m.fqnOf(sym)), true

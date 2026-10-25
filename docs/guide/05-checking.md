@@ -531,7 +531,7 @@ sysml> package Demo {
   ...>     attribute wheels : ScalarValues::Integer[*] = (1, 2, 3, 4);
   ...>     attribute wheelCount = wheels->size();
   ...> }
-3:36: error: unresolved reference: size — did you mean SequenceFunctions::size or CollectionFunctions::size?
+3:36: error[unresolved]: unresolved reference: size — did you mean SequenceFunctions::size or CollectionFunctions::size?
     attribute wheelCount = wheels->size();
                                    ^~~~
 
@@ -626,7 +626,7 @@ sysml> %eval Rollup::total
 sysml> package Rollup {
   ...>     attribute names : String[0..*] = (navCam, spectrometer)->collect { in i : Instrument; i.mass };
   ...> }
-1:35: error: cannot bind a value of type MassValue to a feature typed by String
+1:35: error[binding-connector-type-conformance]: cannot bind a value of type MassValue to a feature typed by String
 	attribute names : String[0..*] = (navCam, spectrometer)->collect { in i : Instrument; i.mass };
                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 note: added to the existing package Rollup (its other members are kept)

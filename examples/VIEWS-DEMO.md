@@ -185,22 +185,20 @@ config:
   …
   flowchart:
     subGraphTitleMargin:
-      bottom: 48
+      bottom: 24
 ---
 %% LanderViews::descentFlow — action rendering (view def ActionFlowView)
 %% not represented: 2 fork/join name(s) (split, sync); Mermaid's fork bar draws no label
-%% not represented: 2 pin(s) not drawn (Lander::Descend.fuel, burn.propellant); a flowchart draws the pins an edge ends at
 flowchart TD
-  subgraph n0 ["`*«action def»*
-**Descend**`"]
+  subgraph n0 ["`*«action def»* **Descend**`"]
     direction TD
     n1@{ shape: f-circ, label: "" }
     n2("`*«action»*
 **deployParachute**`")
-    subgraph n3 ["`*«action»*
-**burn**
+    subgraph n3 ["`*«action»* **burn**
 own flow`"]
       direction TD
+      n3_anchor[" "]
       …
   end
   n4 --> n5
@@ -209,10 +207,11 @@ own flow`"]
   …
 ```
 
-The leading frontmatter carries the theme and reserves the height of a cluster
-title's second and third lines, which Mermaid would otherwise draw under the
-first child. The `%% not represented` lines name what the text form shows and
-the diagram cannot: the names of fork and join bars, and pins no edge ends at.
+The leading frontmatter carries the theme and, because `burn`'s title still
+spans two lines (its `own flow` note), reserves the height of a cluster title's
+second line, which Mermaid would otherwise draw under the first child. The
+`%% not represented` line names what the text form shows and the diagram
+cannot: the names of fork and join bars.
 
 ```
 %render LanderViews::partsTable markdown
@@ -243,11 +242,8 @@ reaches only what carries the `Safety` metadata:
 ```
 LanderViews::safetyView - tree rendering (the view states no rendering; a tree is the default)
 
-part def Lander::Thruster
-  attribute thrust : Real
-  item fuelIn : Fuel
-  port supply : FuelPort
-part def Lander::Parachute
+part def Thruster
+part def Parachute
 ```
 
 ## Rendering without the REPL

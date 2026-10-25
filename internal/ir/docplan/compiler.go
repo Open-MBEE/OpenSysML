@@ -532,7 +532,7 @@ func (c *compiler) validateRunColumns(member *symbols.Symbol, query *QueryRef, r
 		return nil
 	}
 	for _, name := range []string{run.column, run.styleColumn, run.targetColumn} {
-		if name != "" && !containsColumn(columns, name) {
+		if name != "" && !slices.Contains(columns, name) {
 			return &Error{
 				Kind:     ErrorUnknownRunColumn,
 				Document: c.document,
@@ -1086,7 +1086,7 @@ func (c *compiler) compileTable(member *symbols.Symbol) (Content, error) {
 	}
 	if groupStated {
 		if columns, known := staticColumns(query.program, query.entry); groupBy == "" ||
-			(known && !containsColumn(columns, groupBy)) {
+			(known && !slices.Contains(columns, groupBy)) {
 			return Content{}, &Error{
 				Kind:     ErrorUnknownGroupColumn,
 				Document: c.document,
@@ -1314,15 +1314,6 @@ func columnNames(value queryplan.Expression) []string {
 	return nil
 }
 
-func containsColumn(columns []string, name string) bool {
-	for _, column := range columns {
-		if column == name {
-			return true
-		}
-	}
-	return false
-}
-
 func (c *compiler) compileList(member *symbols.Symbol) (Content, error) {
 	style, stated, err := c.optionalText(member, "style")
 	if err != nil {
@@ -1379,7 +1370,7 @@ func (c *compiler) compileDefinitions(member *symbols.Symbol) (Content, error) {
 	}
 	if columns, known := staticColumns(query.program, query.entry); known {
 		for _, column := range []struct{ attribute, name string }{{"term", term}, {"description", description}} {
-			if !containsColumn(columns, column.name) {
+			if !slices.Contains(columns, column.name) {
 				return Content{}, &Error{
 					Kind:      ErrorUnknownDefinitionColumn,
 					Document:  c.document,

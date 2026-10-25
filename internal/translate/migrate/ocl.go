@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -189,7 +190,7 @@ func (p *oclParser) binary(level int) (*oclNode, string) {
 	}
 	for {
 		t := p.peek()
-		if !contains(oclLevels[level], t.kind) {
+		if !slices.Contains(oclLevels[level], t.kind) {
 			return left, ""
 		}
 		p.next()

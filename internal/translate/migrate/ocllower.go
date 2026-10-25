@@ -1,9 +1,11 @@
 package migrate
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -179,7 +181,7 @@ func oclIsA(kind, meta string) bool {
 	if is, known := umlIsA(kind, meta); known {
 		return is
 	}
-	return contains(oclSupertypes[kind], meta)
+	return slices.Contains(oclSupertypes[kind], meta)
 }
 
 // oclKnownKind tells whether name is a metaclass the lowering reasons about.
@@ -242,7 +244,7 @@ func (l *oclLowering) each(v oclValue, meta string, body func(e string) string) 
 func (l *oclLowering) lower(n *oclNode) (oclValue, error) {
 	switch n.kind {
 	case oclString:
-		return oclValue{text: stringLiteral(n.literal), kind: "String", single: true}, nil
+		return oclValue{text: source.StringText(n.literal), kind: "String", single: true}, nil
 	case oclInteger:
 		return oclValue{text: n.literal, kind: "Integer", single: true}, nil
 	case oclBoolean:
@@ -299,7 +301,7 @@ func (l *oclLowering) boolean(n *oclNode, op string) (string, error) {
 // oclLevel is how tightly a binary operator binds; not binds tighter than all.
 func oclLevel(op string) int {
 	for level, ops := range oclLevels {
-		if contains(ops, op) {
+		if slices.Contains(ops, op) {
 			return level
 		}
 	}
@@ -404,7 +406,7 @@ func (l *oclLowering) hasStereotype(n *oclNode, v oclValue) (oclValue, error) {
 		return oclValue{text: f.query(qlit(host.text)).text(l.prefix) + "->" + l.function("notEmpty") + "()", kind: "Boolean", single: true}, nil
 	}
 	if def := l.m.stereotypeNamed(v.tag); def != nil && l.m.written(def) {
-		return oclValue{text: l.prefix + "WhereMetadata(source = " + host.text + ", 'metadata' = (" + stringLiteral(l.m.plainName(def)) + "))->" + l.function("notEmpty") + "()", kind: "Boolean", single: true}, nil
+		return oclValue{text: l.prefix + "WhereMetadata(source = " + host.text + ", 'metadata' = (" + source.StringText(l.m.plainName(def)) + "))->" + l.function("notEmpty") + "()", kind: "Boolean", single: true}, nil
 	}
 	return oclValue{}, l.refuse(n, "tests for «"+v.tag+"»"+noV2Feature)
 }

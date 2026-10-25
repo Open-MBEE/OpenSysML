@@ -2,6 +2,7 @@ package specexamples
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -49,7 +50,7 @@ func (b Block) IsActionBody() bool {
 		if depth != 0 || len(fields) == 0 {
 			return false
 		}
-		return actionBodyKeywords[fields[0]] || fields[0] == "first" && !containsWord(fields, "then")
+		return actionBodyKeywords[fields[0]] || fields[0] == "first" && !slices.Contains(fields, "then")
 	}
 	for _, l := range b.Lines {
 		for _, r := range comments.strip(l) {
@@ -71,15 +72,6 @@ func (b Block) IsActionBody() bool {
 			}
 		}
 		stmt.WriteByte(' ')
-	}
-	return false
-}
-
-func containsWord(fields []string, word string) bool {
-	for _, f := range fields {
-		if f == word {
-			return true
-		}
 	}
 	return false
 }
