@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -259,5 +260,46 @@ func TestCachePruneRemovesStaleTempFiles(t *testing.T) {
 	}
 	if _, err := os.Stat(fresh); err != nil {
 		t.Errorf("Prune removed a temp file a store may still be writing: %v", err)
+	}
+}
+
+// The key is a pure function of its inputs — a record Persist wrote is found by
+// the Load of a later process with the same build, library and file.
+func TestCacheKeySameInputsSameKey(t *testing.T) {
+	c := &Cache{dir: t.TempDir()}
+	first := c.keyFor("a.kerml", []byte("alpha"), "set")
+	second := c.keyFor("a.kerml", []byte("alpha"), "set")
+	if first != second {
+		t.Fatalf("same inputs produced keys %q and %q", first, second)
+	}
+	if err := c.Store(first, sampleRecord("x")); err != nil {
+		t.Fatalf("store: %v", err)
+	}
+	if _, ok := (&Cache{dir: c.dir}).Load(second); !ok {
+		t.Fatal("a second Cache over the same directory missed the record")
+	}
+}
+
+// A newer binary's record is unreachable by an older binary's key, and a record
+// that does not decode is a miss, never an error or a partial restore.
+func TestCacheRefusesRecordsOfAnotherFormat(t *testing.T) {
+	c := &Cache{dir: t.TempDir()}
+	key := c.keyFor("a.kerml", []byte("alpha"), "set")
+	suffix := "-v" + strconv.Itoa(formatVersion)
+	if !strings.HasSuffix(key, suffix) {
+		t.Fatalf("key %q does not end in the format version %q", key, suffix)
+	}
+	newer := strings.TrimSuffix(key, suffix) + "-v" + strconv.Itoa(formatVersion+1)
+	if err := c.Store(newer, sampleRecord("x")); err != nil {
+		t.Fatalf("store: %v", err)
+	}
+	if _, ok := c.Load(key); ok {
+		t.Fatal("a record of a newer format produced a cache hit")
+	}
+	if err := os.WriteFile(c.path(key), []byte("not a gob stream"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := c.Load(key); ok {
+		t.Fatal("an undecodable record produced a cache hit")
 	}
 }

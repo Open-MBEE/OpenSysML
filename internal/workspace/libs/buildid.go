@@ -7,30 +7,35 @@ import (
 	"os"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
 
-// buildID identifies the code that produced a record. It is part of every cache
-// key, so a record built by different code is a miss rather than a stale hit. It
-// is hashed because it ends up in a file name.
+// buildID identifies the code that produced a record; it is in every cache key,
+// so a record of other code is a miss. Hashed because it ends up in a file name.
 var buildID = sync.OnceValue(func() string {
 	sum := sha256.Sum256([]byte(currentBuildID()))
 	return hex.EncodeToString(sum[:8])
 })
 
-// currentBuildID prefers an identity shared by every build of the same code — a
-// clean VCS revision or a released module version — and falls back to one that
-// changes with each build.
+// currentBuildID identifies the running build from its metadata and the build ID
+// the linker wrote into the executable; see buildIdentity for the order.
 func currentBuildID() string {
-	if info, ok := debug.ReadBuildInfo(); ok {
-		if id, ok := buildIDFromInfo(info); ok {
-			return id
-		}
+	info, hasInfo := debug.ReadBuildInfo()
+	if !hasInfo {
+		info = &debug.BuildInfo{}
 	}
-	// A dirty or unstamped build: the executable's own size and build time stand
-	// in, so a rebuild is always a distinct key.
-	if exe, err := os.Executable(); err == nil {
+	exe, exeErr := os.Executable()
+	var linkerID string
+	if exeErr == nil {
+		linkerID, _ = linkerBuildID(exe)
+	}
+	if id, ok := buildIdentity(info, linkerID); ok {
+		return id
+	}
+	// Unstamped and unreadable: the executable's own size and build time stand in.
+	if exeErr == nil {
 		if fi, err := os.Stat(exe); err == nil {
 			return "x" + strconv.FormatInt(fi.Size(), 10) + "-" + strconv.FormatInt(fi.ModTime().UnixNano(), 10)
 		}
@@ -43,25 +48,49 @@ func currentBuildID() string {
 	return "p" + hex.EncodeToString(b[:])
 }
 
-// buildIDFromInfo derives an identity from build metadata, reporting false when
-// the build is not identified by it: a modified working tree reuses one revision
-// for every edit, which is exactly the stale hit the identity exists to prevent.
+// buildIdentity is a clean checkout's revision, shared by its builds whatever the link
+// stamped; else the linker's build ID, which any compiled input or link flag changes.
+func buildIdentity(info *debug.BuildInfo, linkerID string) (string, bool) {
+	if rev, ok := cleanRevision(info); ok {
+		return "g" + rev, true
+	}
+	if linkerID != "" {
+		return "l" + linkerID, true
+	}
+	if v, ok := releasedVersion(info); ok {
+		return "m" + v, true
+	}
+	return "", false
+}
+
+// buildIDFromInfo identifies a build from its metadata alone.
 func buildIDFromInfo(info *debug.BuildInfo) (string, bool) {
+	return buildIdentity(info, "")
+}
+
+// cleanRevision is the VCS revision of an unmodified working tree. A modified
+// tree has none: its revision is shared by every edit of that commit.
+func cleanRevision(info *debug.BuildInfo) (string, bool) {
 	var revision string
-	var modified bool
 	for _, s := range info.Settings {
 		switch s.Key {
 		case "vcs.revision":
 			revision = s.Value
 		case "vcs.modified":
-			modified = s.Value == "true"
+			if s.Value == "true" {
+				return "", false
+			}
 		}
 	}
-	if revision != "" && !modified {
-		return "g" + revision, true
+	return revision, revision != ""
+}
+
+// releasedVersion is the main module's version when it names a release; a
+// `<pseudo-version>+dirty` stamp is shared by every edit of a commit and refused.
+func releasedVersion(info *debug.BuildInfo) (string, bool) {
+	v := info.Main.Version
+	if v == "" || v == "(devel)" || strings.HasSuffix(v, "+dirty") {
+		return "", false
 	}
-	if v := info.Main.Version; v != "" && v != "(devel)" {
-		return "m" + v, true
-	}
-	return "", false
+	return v, true
 }
