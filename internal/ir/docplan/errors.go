@@ -71,6 +71,8 @@ const (
 	ErrorUnsupportedMarkupConstruct ErrorKind = "unsupported-markup-construct"
 	ErrorMisplacedMarkupBody        ErrorKind = "misplaced-markup-body"
 	ErrorMarkupBodyNotParagraph     ErrorKind = "markup-body-not-paragraph"
+	ErrorMarkupToolMissing          ErrorKind = "markup-tool-missing"
+	ErrorMarkupToolFailed           ErrorKind = "markup-tool-failed"
 )
 
 // Error is a typed document-planning failure with its source location.
@@ -260,6 +262,8 @@ func (e *Error) message() string {
 		return fmt.Sprintf("document %s content %s carries a %s body, which only a document, section or paragraph may", e.Document, e.Content, e.Parameter)
 	case ErrorMarkupBodyNotParagraph:
 		return fmt.Sprintf("document %s paragraph %s carries a %s body that yields %s rather than exactly one paragraph", e.Document, e.Content, e.Parameter, e.Actual)
+	case ErrorMarkupToolMissing, ErrorMarkupToolFailed:
+		return fmt.Sprintf("document %s content %s carries a %s body that could not be parsed: %v", e.Document, e.Content, e.Parameter, e.Err)
 	default:
 		return fmt.Sprintf("document planning failed for %s", e.Document)
 	}
@@ -331,5 +335,7 @@ func ErrorKinds() []ErrorKind {
 		ErrorUnsupportedMarkupConstruct,
 		ErrorMisplacedMarkupBody,
 		ErrorMarkupBodyNotParagraph,
+		ErrorMarkupToolMissing,
+		ErrorMarkupToolFailed,
 	}
 }

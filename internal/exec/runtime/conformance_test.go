@@ -224,6 +224,10 @@ type ExpectedOutcome struct {
 	Verdict       string            `json:"verdict,omitempty"`
 	VerdictDetail string            `json:"verdictDetail,omitempty"`
 	Subcases      map[string]string `json:"subcases,omitempty"`
+	// Verifications are, for a requirement case, the runs of the verification cases
+	// verifying the requirement, reported about no object as `-requirement` reports
+	// them, in order; stated, all of them are checked.
+	Verifications []ExpectedVerificationRun `json:"verifications,omitempty"`
 
 	// Performers are the objects that each perform the case's behavior, for a
 	// case whose contract depends on which object performs it — two objects
@@ -1489,11 +1493,21 @@ func runRequirementConformance(t *testing.T, ctx *Context, idx *symbols.Index, p
 	// Find requirement definition/usage
 	rootScope := idx.DocumentRoot(path)
 	reqSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefRequirement, ast.UsageRequirement)
+	var root *Instance
+	if expected.Instantiate != "" {
+		var err error
+		if root, err = ctx.Instantiate(oneSymbol(t, idx, expected.Instantiate)); err != nil {
+			t.Fatalf("instantiate %s: %v", expected.Instantiate, err)
+		}
+	}
 
 	// Evaluate requirement using symbol's defining scope (where sibling features
 	// visible). A violated condition is a verdict, not a failure.
 	satisfied, err := ctx.EvaluateRequirement(reqSym, reqSym.OwnerScope)
-	if err != nil && !errors.Is(err, ErrViolated) {
+	switch {
+	case expected.Error != "":
+		requireError(t, "EvaluateRequirement", err, expected.Error)
+	case err != nil && !errors.Is(err, ErrViolated):
 		t.Fatalf("EvaluateRequirement failed: %v", err)
 	}
 
@@ -1502,6 +1516,10 @@ func runRequirementConformance(t *testing.T, ctx *Context, idx *symbols.Index, p
 		if satisfied != *expected.Satisfied {
 			t.Errorf("requirement satisfied = %v, want %v", satisfied, *expected.Satisfied)
 		}
+	}
+	if expected.Verifications != nil {
+		scopes := caseDocumentRoots(idx, path, expected)
+		checkVerificationRuns(t, ctx, root, "requirement", ctx.VerificationResultsOn(scopes, reqSym, nil), expected.Verifications)
 	}
 }
 

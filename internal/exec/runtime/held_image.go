@@ -72,6 +72,11 @@ type HeldImage struct {
 	clockRun  int              // index into runStates, -1 for none
 	behaviors []imagedBehavior // in the attachment order of the context imaged
 	messages  []Message
+	// What the run recorded of the held objects: shots, fired successions, transfers.
+	shots       map[int64]occurrenceShots
+	startValues map[int64]map[string]Value
+	fired       map[int64][]int64
+	transfers   []transferRecord
 }
 
 // imagedObject is one object by value: its identity, types, owner, lifetime,
@@ -357,6 +362,10 @@ func (t *imaging) object(inst *Instance) error {
 	for _, id := range obj.anonymous {
 		t.reach(id)
 	}
+	t.reachRecorded(inst)
+	if err := t.values(t.ctx.startValues[inst.ID]); err != nil {
+		return fmt.Errorf("object #%d start values: %w", inst.ID, err)
+	}
 	owed := make(map[*FeatureValue]*sharedDefault, len(inst.owed))
 	for _, o := range inst.owed {
 		owed[o.fv] = o.shared
@@ -432,7 +441,7 @@ func (t *imaging) carriesBus() bool {
 // message checks that a message carries, reaching the objects it names; one the
 // context does not hold is errImageRoot.
 func (t *imaging) message(msg Message) error {
-	for _, id := range []int64{msg.EventObject, msg.PortID} {
+	for _, id := range []int64{msg.EventObject, msg.PortID, msg.Transfer} {
 		if id == 0 {
 			continue
 		}
@@ -521,6 +530,54 @@ func (t *imaging) finish() {
 	for _, msg := range ctx.messages {
 		if (msg.Object == 0 && t.carriesBus()) || img.held[msg.Object] {
 			img.messages = append(img.messages, msg)
+		}
+	}
+	img.shots, img.fired = make(map[int64]occurrenceShots), make(map[int64][]int64)
+	for id, shots := range ctx.shots {
+		if img.held[id] {
+			img.shots[id] = shots
+		}
+	}
+	img.startValues = make(map[int64]map[string]Value)
+	for id, values := range ctx.startValues {
+		if img.held[id] {
+			img.startValues[id] = maps.Clone(values)
+		}
+	}
+	for id, predecessors := range ctx.fired {
+		if img.held[id] {
+			img.fired[id] = slices.Clone(predecessors)
+		}
+	}
+	for _, record := range ctx.transfers {
+		if img.held[record.id] {
+			img.transfers = append(img.transfers, record)
+		}
+	}
+}
+
+// reachRecorded reaches inst's shots, the performances fired successions join it
+// to, and the transfers it is an end of or is, with their ends and payload.
+func (t *imaging) reachRecorded(inst *Instance) {
+	ctx := t.ctx
+	shots := ctx.shots[inst.ID]
+	t.reach(shots.start)
+	t.reach(shots.end)
+	for _, id := range ctx.fired[inst.ID] {
+		t.reach(id)
+	}
+	for _, record := range ctx.transfers {
+		if record.id != inst.ID && !slices.Contains(record.sources, inst.ID) && !slices.Contains(record.targets, inst.ID) {
+			continue
+		}
+		t.reach(record.id)
+		for _, id := range append(append(nonzeroIDs(record.source, record.target), record.sources...), record.targets...) {
+			t.reach(id)
+		}
+		for _, elem := range elementsOf(record.payload) {
+			if elem.Kind == ValInstance {
+				t.reach(elem.Instance)
+			}
 		}
 	}
 }
@@ -788,6 +845,9 @@ func (m *materializing) run() error {
 		m.edges(obj)
 		m.records(obj)
 	}
+	if err := m.recordedOccurrences(); err != nil {
+		return err
+	}
 	// The objects made are lives of dst: what derived from the lives, imaged or dst's own, derives again.
 	dst.livesChanged()
 	dst.activations = max(dst.activations, img.activations)
@@ -1005,6 +1065,11 @@ func (m *materializing) message(msg Message) (Message, error) {
 		}
 		out.Serial = serial
 	}
+	if inst, ok := m.made[msg.Transfer]; ok {
+		out.Transfer = inst.ID
+	} else {
+		out.Transfer = 0
+	}
 	var err error
 	if out.Payload, err = m.values(msg.Payload); err != nil {
 		return Message{}, err
@@ -1017,4 +1082,75 @@ func (m *materializing) message(msg Message) (Message, error) {
 		out.Value = &v
 	}
 	return out, nil
+}
+
+// recordedOccurrences brings the image's shots, fired successions and transfers
+// to dst under the identities the objects were made with.
+func (m *materializing) recordedOccurrences() error {
+	made := func(id int64) int64 {
+		if inst, ok := m.made[id]; ok {
+			return inst.ID
+		}
+		return 0
+	}
+	madeAll := func(ids []int64) []int64 {
+		out := make([]int64, 0, len(ids))
+		for _, id := range ids {
+			if to := made(id); to != 0 {
+				out = append(out, to)
+			}
+		}
+		return out
+	}
+	for id, values := range m.img.startValues {
+		to := made(id)
+		if to == 0 {
+			continue
+		}
+		carried := make(map[string]Value, len(values))
+		for name, value := range values {
+			value, err := m.value(value)
+			if err != nil {
+				return fmt.Errorf("object #%d start value %s: %w", id, name, err)
+			}
+			carried[name] = value
+		}
+		m.dst.startValues[to] = carried
+	}
+	for id, shots := range m.img.shots {
+		if to := made(id); to != 0 {
+			m.dst.shots[to] = occurrenceShots{start: made(shots.start), end: made(shots.end)}
+		}
+	}
+	for id, predecessors := range m.img.fired {
+		if to := made(id); to != 0 {
+			m.dst.fired[to] = madeAll(predecessors)
+		}
+	}
+	for _, record := range m.img.transfers {
+		to := made(record.id)
+		if to == 0 || slices.ContainsFunc(m.dst.transfers, func(r transferRecord) bool { return r.id == to }) {
+			continue
+		}
+		payload := record.payload
+		if elems := elementsOf(payload); len(elems) > 0 {
+			mapped := make([]Value, 0, len(elems))
+			for _, elem := range elems {
+				if elem.Kind == ValInstance {
+					elem = Value{Kind: ValInstance, Instance: made(elem.Instance)}
+				}
+				mapped = append(mapped, elem)
+			}
+			if payload.Kind == ValInstance {
+				payload = mapped[0]
+			} else {
+				payload = sequenceOf(mapped)
+			}
+		}
+		m.dst.transfers = append(m.dst.transfers, transferRecord{
+			id: to, source: made(record.source), target: made(record.target), payload: payload,
+			sources: madeAll(record.sources), targets: madeAll(record.targets),
+		})
+	}
+	return nil
 }

@@ -163,14 +163,29 @@ function markers(): SVGDefsElement {
 }
 
 // drawNode appends a node's group to parent: its shape, its label, then its children
-// so they draw over it. The group is marked movable when a Layout can name the node,
-// and included when the panel rather than the view drew the node.
+// so they draw over it; a port pinned on its owner's border is drawn as that pin. The group
+// is marked movable when a Layout can name the node, and included when the panel rather
+// than the view drew the node. A node clipped by its owner's stated size is not drawn.
 function drawNode(parent: SVGElement, entry: PlacedNode, layout: CanvasLayout): void {
+  if (!entry.clipped) {
+    parent.append(nodeGroup(entry, layout));
+  }
+  for (const child of entry.children) {
+    drawNode(parent, child, layout);
+  }
+}
+
+// nodeGroup is a node's own drawing: its shape and label, or the pin it is drawn as.
+function nodeGroup(entry: PlacedNode, layout: CanvasLayout): SVGGElement {
   const group = element("g", {
     class: `opensysml-node${movable(layout, entry) ? " movable" : ""}${entry.node.included ? " included" : ""}`,
     "data-opensysml-id": entry.node.id,
     "data-kind": entry.node.kind,
   });
+  if (entry.snapped && entry.parent) {
+    group.append(...pinGraphic(entry.parent.box, entry.snapped, entry.parent));
+    return group;
+  }
   const { box } = entry;
   if (entry.lifeline !== undefined) {
     group.append(element("line", {
@@ -200,16 +215,19 @@ function drawNode(parent: SVGElement, entry: PlacedNode, layout: CanvasLayout): 
     mark.textContent = "+";
     group.append(mark);
   }
-  parent.append(group);
-  for (const child of entry.children) {
-    drawNode(parent, child, layout);
-  }
+  return group;
 }
 
 function drawPort(box: PlacedNode["box"], port: PlacedPort, entry: PlacedNode): SVGGElement {
+  const group = element("g", { class: "port", "data-port": port.port.id }) as SVGGElement;
+  group.append(...pinGraphic(box, port, entry));
+  return group;
+}
+
+// pinGraphic is a pin on entry's box: its name as a title, its square on the border and its label beside it.
+function pinGraphic(box: PlacedNode["box"], port: PlacedPort, entry: PlacedNode): SVGElement[] {
   const square = portBox(box, port);
   const label = portLabelPlacement(box, port);
-  const group = element("g", { class: "port", "data-port": port.port.id }) as SVGGElement;
   const title = element("title", {});
   title.textContent = port.port.type ? `${port.port.name} : ${port.port.type}` : port.port.name;
   const classes = ["port-shape"];
@@ -241,8 +259,7 @@ function drawPort(box: PlacedNode["box"], port: PlacedPort, entry: PlacedNode): 
     class: "port-label",
   });
   text.textContent = port.port.name;
-  group.append(title, rect, text);
-  return group;
+  return [title, rect, text];
 }
 
 // shape is the outline a node is drawn with: a box for an element, square-cornered

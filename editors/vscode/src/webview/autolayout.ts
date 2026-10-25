@@ -19,6 +19,7 @@ import {
   MARGIN,
   PLACEABLE_KINDS,
   PORT_SIZE,
+  portKind,
   shapeOf,
   snap,
   symbolSize,
@@ -31,7 +32,7 @@ export interface AutoLayout {
   nodes: Map<string, LayoutGeometry>;
   /** By edge index: ELK's orthogonal polyline in absolute canvas coordinates, source anchor first, target anchor last. */
   routes: Map<number, RenderPoint[]>;
-  /** ELK's port positions as sides and proportional offsets on their nodes. */
+  /** ELK's port positions as sides and proportional offsets on their nodes; a port node pinned on its owner's border by its own id. */
   ports: Map<string, { side: Side; offset: number }>;
 }
 
@@ -93,6 +94,16 @@ async function layOut(result: RenderResult, free: boolean): Promise<AutoLayout> 
     siblings.push(node);
     children.set(parent, siblings);
   }
+  // A port with nothing under it that the model leaves unplaced is a pin on its owner's border, not a node inside it.
+  const pinOnBorder = (node: RenderNode): boolean =>
+    portKind(node.kind) &&
+    (children.get(node.id) ?? []).length === 0 &&
+    node.parent !== undefined &&
+    node.parent !== node.id &&
+    byId.has(node.parent) &&
+    (free || node.x === undefined || node.y === undefined);
+  const nested = (node: RenderNode): RenderNode[] =>
+    (children.get(node.id) ?? []).filter((kid) => !pinOnBorder(kid));
   const options = spacingOptions(result.kind);
   const edges: ElkExtendedEdge[] = [];
   const portEndpoints: Array<{ nodeId: string; portId: string }> = [];
@@ -104,20 +115,20 @@ async function layOut(result: RenderResult, free: boolean): Promise<AutoLayout> 
     const to = byId.get(edge.to)!;
     const fromPort = from.ports?.some((port) => port.id === edge.fromPort)
       ? edge.fromPort
-      : undefined;
+      : pinOnBorder(from) ? from.id : undefined;
     const toPort = to.ports?.some((port) => port.id === edge.toPort)
       ? edge.toPort
-      : undefined;
+      : pinOnBorder(to) ? to.id : undefined;
     edges.push({
       id: `e${index}`,
       sources: [fromPort ?? edge.from],
       targets: [toPort ?? edge.to],
     });
     if (fromPort !== undefined) {
-      portEndpoints.push({ nodeId: from.id, portId: fromPort });
+      portEndpoints.push({ nodeId: fromPort === from.id ? from.parent! : from.id, portId: fromPort });
     }
     if (toPort !== undefined) {
-      portEndpoints.push({ nodeId: to.id, portId: toPort });
+      portEndpoints.push({ nodeId: toPort === to.id ? to.parent! : to.id, portId: toPort });
     }
   });
   const connectedPorts = new Map<string, Set<string>>();
@@ -140,10 +151,15 @@ async function layOut(result: RenderResult, free: boolean): Promise<AutoLayout> 
   const packed = new Map<string, ElkNode>();
   const names = simpleNames(result.nodes ?? []);
   const elkNode = (node: RenderNode, packing = false): ElkNode => {
-    const size =
+    const label =
       symbolSize(shapeOf(node.kind)) ??
       labelSize(labelLines(node, result.shown, names));
-    const kids = children.get(node.id) ?? [];
+    // A stated size is the box ELK lays the node's siblings out around; its label is the padding above its children.
+    const size =
+      !free && node.width !== undefined && node.height !== undefined
+        ? { width: node.width, height: node.height }
+        : label;
+    const kids = nested(node);
     const alone = packed.get(node.id);
     const order = (children.get(node.parent) ?? []).indexOf(node);
     const out: ElkNode = alone
@@ -152,7 +168,10 @@ async function layOut(result: RenderResult, free: boolean): Promise<AutoLayout> 
     // Interactive crossing minimization sorts siblings by the centers of their input
     // positions, so the seeds stand far enough apart that no node's size can reorder them.
     out.x = out.y = order * ORDER_STEP;
-    const ports = (node.ports ?? []).filter((port) =>
+    const pins = (children.get(node.id) ?? [])
+      .filter(pinOnBorder)
+      .map((pin) => ({ id: pin.id, name: pin.name }));
+    const ports = [...(node.ports ?? []), ...pins].filter((port) =>
       connectedPorts.get(node.id)?.has(port.id),
     );
     if (ports.length > 0) {
@@ -180,7 +199,7 @@ async function layOut(result: RenderResult, free: boolean): Promise<AutoLayout> 
               "elk.aspectRatio": `${PACK_ASPECT_RATIO}`,
             }
           : {}),
-        "elk.padding": `[top=${size.height},left=${CONTAINER_PAD},bottom=${CONTAINER_PAD},right=${CONTAINER_PAD}]`,
+        "elk.padding": `[top=${label.height},left=${CONTAINER_PAD},bottom=${CONTAINER_PAD},right=${CONTAINER_PAD}]`,
         "elk.nodeSize.constraints": "MINIMUM_SIZE",
         "elk.nodeSize.minimum": `(${size.width},${size.height})`,
       };
@@ -195,7 +214,7 @@ async function layOut(result: RenderResult, free: boolean): Promise<AutoLayout> 
     return out;
   };
   const packable = (node: RenderNode): boolean => {
-    const kids = children.get(node.id) ?? [];
+    const kids = nested(node);
     return kids.length > 0 && kids.every(unwired);
   };
   for (const node of nodes) {
@@ -336,7 +355,7 @@ function reconcile(
     const stack = [id];
     while (stack.length > 0) {
       for (const child of children.get(stack.pop()!) ?? []) {
-        if (placed.has(child.id) && !inside.has(child.id)) {
+        if (!inside.has(child.id)) {
           inside.add(child.id);
           stack.push(child.id);
         }
@@ -352,10 +371,11 @@ function reconcile(
     const dy = node.y! - geometry.y;
     const inside = subtree(node.id);
     for (const id of inside) {
-      if (id === node.id) {
+      // A pin on a border is not placed as a node; it follows its owner's box.
+      const moved = id === node.id ? undefined : placed.get(id);
+      if (moved === undefined) {
         continue;
       }
-      const moved = placed.get(id)!;
       moved.x += dx;
       moved.y += dy;
     }

@@ -397,7 +397,9 @@ error naming it. Environment variables override discovery:
 configuration for Mermaid CLI), `OPENSYSML_KATEX` and `OPENSYSML_KATEX_CSS`
 (the KaTeX stylesheet, when it is not installed beside the `katex` command),
 `OPENSYSML_DOT` (Graphviz), `OPENSYSML_PLANTUML_JAR` and `OPENSYSML_JAVA`
-(PlantUML) and `OPENSYSML_D2` (D2). The repository's `scripts/download-doc-pdf-toolchain.sh` fetches
+(PlantUML) and `OPENSYSML_D2` (D2). `OPENSYSML_ASCIIDOCTOR` names the
+Asciidoctor.js converter that [AsciiDoc prose bodies](authoring.md#asciidoc-prose)
+need in every output form, Markdown included. The repository's `scripts/download-doc-pdf-toolchain.sh` fetches
 a pinned WeasyPrint, pandoc, Mermaid CLI, KaTeX, Graphviz, PlantUML jar and D2 and
 prints the exports to use them; the jar still needs a Java runtime of your
 own.
