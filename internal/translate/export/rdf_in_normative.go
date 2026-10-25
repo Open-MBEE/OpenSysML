@@ -156,12 +156,8 @@ func (d *decoder) normativeImplied(el, parent *element) (bool, error) {
 // notation would otherwise pick one of the two statements.
 func (d *decoder) impliedRelationship(el, parent *element) (bool, error) {
 	r := d.impliedEnds(el, parent)
-	if conjugated := el.metaclass == mConjugatedPortTyping; len(r.stated) > 0 &&
-		conjugated != d.graph.BoolValue(rdf.IRI(parent.iri), rdf.OpenSysML+xConjugatedTyping) {
-		return false, &UnsupportedError{
-			What: r.what,
-			Note: fmt.Sprintf("it and sysx:conjugatedTyping on <%s> disagree about whether the type is written `~P`, and writing the collapsed form would pick one of the two", parent.iri),
-		}
+	if err := d.typingConjugationAgrees(r); err != nil {
+		return false, err
 	}
 	if len(r.actual) == 0 {
 		// An element with no ends cannot be checked against a literal target.
@@ -181,6 +177,26 @@ func (d *decoder) impliedRelationship(el, parent *element) (bool, error) {
 		}
 	}
 	return true, d.sourceEndsAgree(r)
+}
+
+// typingConjugationAgrees refuses a typing element whose metaclass and the
+// owner's sysx:conjugatedTyping disagree about whether the type is written
+// `~P`: a ConjugatedPortTyping under a plain typing, or a FeatureTyping under a
+// conjugated one. The flag qualifies the typing alone, so the other relationship
+// elements a conjugated-typed feature owns (its subsets, redefines, references)
+// are not measured against it.
+func (d *decoder) typingConjugationAgrees(r *impliedEnds) error {
+	if !slices.Contains(collapsedKindsOf[r.el.metaclass], ast.RelTyping) || len(r.stated) == 0 {
+		return nil
+	}
+	conjugated := r.el.metaclass == mConjugatedPortTyping
+	if conjugated == d.graph.BoolValue(rdf.IRI(r.parent.iri), rdf.OpenSysML+xConjugatedTyping) {
+		return nil
+	}
+	return &UnsupportedError{
+		What: r.what,
+		Note: fmt.Sprintf("it and sysx:conjugatedTyping on <%s> disagree about whether the type is written `~P`, and writing the collapsed form would pick one of the two", r.parent.iri),
+	}
 }
 
 // impliedEnds is what a candidate materialized relationship element
