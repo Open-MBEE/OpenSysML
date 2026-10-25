@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -9,9 +10,9 @@ import (
 // The connector's own multiplicity states how many links a binding declares, so
 // `binding [1]` identifies one value of each end: an end whose feature may — or
 // must — hold more is only partially bound, and so is the other end, which is
-// some unspecified value of it; reading either through the binding is the typed
-// errBindingEnd rather than a whole-binding count check. An end holding a value
-// of its own keeps it, the binding only relating it to the other end.
+// some unspecified value of it; neither is determined by the binding, so each
+// holds what its own declaration states rather than a whole-binding count check.
+// An end holding a value of its own keeps it, the binding only relating it to the other end.
 func TestConnectorMultiplicityBoundsLinks(t *testing.T) {
 	ctx, idx := libraryShapeContext(t, `package test {
 		part def Thing;
@@ -30,19 +31,18 @@ func TestConnectorMultiplicityBoundsLinks(t *testing.T) {
 		t.Fatal("test package not indexed")
 	}
 
-	for _, tc := range []struct{ expr, binding string }{
-		{"rig.ys", "binding [1] bind [0..*] a.xs = [0..*] ys"},
-		{"rig.a.xs", "binding [1] bind [0..*] a.xs = [0..*] ys"},
-		{"rig.many", "binding [1] bind [0..*] own = [0..*] many"},
-	} {
-		_, err := evalIn(t, ctx, pkg.Scope, tc.expr)
-		var undetermined *undeterminedBindingError
-		if !errors.As(err, &undetermined) {
-			t.Fatalf("%s = %v, want an undeterminedBindingError", tc.expr, err)
+	for expr, want := range map[string]int{"rig.ys": 2, "rig.a.xs": 1} {
+		val, err := evalIn(t, ctx, pkg.Scope, expr)
+		if err != nil {
+			t.Fatalf("%s = %v, want what its own declaration states", expr, err)
 		}
-		if !strings.Contains(err.Error(), tc.binding) {
-			t.Errorf("%s error %q does not name the binding", tc.expr, err.Error())
+		if got := len(elementsOf(val)); got != want {
+			t.Errorf("%s = %s, want %d object(s) of its own", expr, FormatValue(val), want)
 		}
+	}
+	// `many : Real [2]` states no value, so the binding to `own` leaves it undetermined.
+	if val, err := evalIn(t, ctx, pkg.Scope, "rig.many"); err != nil || val.Kind != ValUndetermined {
+		t.Errorf("rig.many = %s, %v; want undetermined", FormatValue(val), err)
 	}
 
 	val, err := evalIn(t, ctx, pkg.Scope, "rig.own")
@@ -141,14 +141,29 @@ func TestConnectorMultiplicityNamesFeature(t *testing.T) {
 		t.Fatal("test package not indexed")
 	}
 
-	// The diagnostic renders the bound's evaluated range, not the feature's name.
-	_, err := evalIn(t, ctx, pkg.Scope, "rig.b")
-	var undetermined *undeterminedBindingError
-	if !errors.As(err, &undetermined) {
-		t.Fatalf("rig.b = %v, want an undeterminedBindingError", err)
+	// `binding [links]` links one value of each end, so b holds its own two objects; the
+	// binding's verdict renders the bound's evaluated range, not the feature's name.
+	val, err := evalIn(t, ctx, pkg.Scope, "rig.b")
+	if err != nil || len(elementsOf(val)) != 2 {
+		t.Fatalf("rig.b = %s, %v; want its own two objects", FormatValue(val), err)
 	}
-	if !strings.Contains(err.Error(), "binding [1] bind [0..*] a = [0..*] b") {
-		t.Errorf("rig.b error %q does not name the binding", err.Error())
+	rig, err := evalIn(t, ctx, pkg.Scope, "rig")
+	if err != nil {
+		t.Fatalf("rig: %v", err)
+	}
+	id, _ := rig.Object()
+	inst, ok := ctx.Instance(id)
+	if !ok {
+		t.Fatalf("rig = %s, want an object", FormatValue(rig))
+	}
+	report, err := ctx.ValidateObject(inst, nil)
+	if err != nil {
+		t.Fatalf("validate rig: %v", err)
+	}
+	if !slices.ContainsFunc(report.Verdicts, func(v ObjectVerdict) bool {
+		return v.Kind == AssertionBinding && strings.Contains(v.Text, "binding [1] bind [0..*] a = [0..*] b")
+	}) {
+		t.Errorf("verdicts %+v do not name `binding [1] bind [0..*] a = [0..*] b`", report.Verdicts)
 	}
 
 	left, err := evalIn(t, ctx, pkg.Scope, "rig.c")

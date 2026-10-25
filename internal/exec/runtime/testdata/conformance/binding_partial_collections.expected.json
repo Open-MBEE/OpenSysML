@@ -1,0 +1,26 @@
+{
+  "type": "instance",
+  "instantiate": "test::mesh",
+  "slots": {
+    "left": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
+    "right": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
+    "corner": {"type": "Instance"},
+    "nodes": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}
+    ]}
+  },
+  "identical": [
+    ["left.1", "corner"],
+    ["right.1", "corner"]
+  ],
+  "distinct": [
+    ["left.2", "right.2"]
+  ],
+  "materialization": {},
+  "validation": {
+    "verdicts": [
+      {"kind": "binding", "assertion": "binding [1] bind [0..1] left = [0..1] right", "status": "holds"}
+    ],
+    "valid": true
+  }
+}
