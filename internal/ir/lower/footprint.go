@@ -415,8 +415,11 @@ type footprintBuilder struct {
 	declared          map[ast.Node]ast.Node
 	localDeclarations bool
 	footprint         Footprint
-	// expanding is the stack of usages whose bindings are being read, so a cyclic binding stops.
-	expanding []*ast.Usage
+	// expanding is the stack of usages whose bindings are being read, so a cyclic
+	// binding stops; its first entry sits in expandingRoot, so the common read of
+	// one binding allocates nothing.
+	expandingRoot *ast.Usage
+	expanding     []*ast.Usage
 	// sem answers what a feature redefines, explicitly or by position.
 	sem *semantics.Model
 }
@@ -562,15 +565,25 @@ func (b *footprintBuilder) semantics() *semantics.Model {
 
 // enter pushes usage onto the expanding stack, false when it is already there.
 func (b *footprintBuilder) enter(usage *ast.Usage) bool {
-	if slices.Contains(b.expanding, usage) {
+	if usage == b.expandingRoot || slices.Contains(b.expanding, usage) {
 		return false
 	}
-	b.expanding = append(b.expanding, usage)
+	if b.expandingRoot == nil {
+		b.expandingRoot = usage
+	} else {
+		b.expanding = append(b.expanding, usage)
+	}
 	return true
 }
 
 // leave pops the usage entered last.
-func (b *footprintBuilder) leave() { b.expanding = b.expanding[:len(b.expanding)-1] }
+func (b *footprintBuilder) leave() {
+	if n := len(b.expanding); n > 0 {
+		b.expanding = b.expanding[:n-1]
+		return
+	}
+	b.expandingRoot = nil
+}
 
 // redefinitions are the features sym redefines, explicitly or as a parameter at
 // the same position, by the semantic model when there is one.
