@@ -4,7 +4,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 
@@ -69,10 +69,10 @@ func loadResourceSet(suiteDir string, f xtFile, libs *libraryCache) resourceSet 
 	}
 	set.ws.Open(strings.TrimSuffix(f.Path, ".xt"), f.Content, 1)
 
-	sort.Strings(set.missing)
-	set.missing = dedupe(set.missing)
-	sort.Strings(set.libraryRoots)
-	set.libraryRoots = dedupe(set.libraryRoots)
+	slices.Sort(set.missing)
+	set.missing = slices.Compact(set.missing)
+	slices.Sort(set.libraryRoots)
+	set.libraryRoots = slices.Compact(set.libraryRoots)
 	return set
 }
 

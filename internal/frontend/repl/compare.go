@@ -2,7 +2,7 @@ package repl
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -147,7 +147,7 @@ func (s *Session) compareVerdict(cfg *simresults.ConfigurationResults, repeats [
 	}
 	lines := append(sweepTraces(table), header)
 	lines = append(lines, comparisonTable(cfg, table, opts.Observe)...)
-	for _, f := range dedupe(failures) {
+	for _, f := range slices.Compact(slices.Sorted(slices.Values(failures))) {
 		lines = append(lines, "error: "+f)
 	}
 	for _, n := range append(notes, cfg.Notes...) {
@@ -181,18 +181,4 @@ func orNone(s string) string {
 		return "no result location"
 	}
 	return s
-}
-
-// dedupe sorts messages and drops repeats.
-func dedupe(messages []string) []string {
-	seen := map[string]bool{}
-	var out []string
-	for _, m := range messages {
-		if !seen[m] {
-			seen[m] = true
-			out = append(out, m)
-		}
-	}
-	sort.Strings(out)
-	return out
 }
