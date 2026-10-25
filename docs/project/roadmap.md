@@ -7,12 +7,15 @@ request #1185 from Open-MBEE/hotfix/0.10.1-wasm-budget`, 2026-10-15 — the hotf
 that followed it to `main`), `v0.10.0` (`08ef39784`, `Merge pull request #1083 from
 Open-MBEE/hotfix/0.10.0-tag-build-version`, 2026-10-11 — the release pull request #1007 of
 2026-10-08 and the six hotfixes merged to `main` after it, #1013, #1024, #1031, #1064, #1065 and
-#1080, the last stamping the tag build's version), `v0.9.2` (`0a55514af`, #924, 2026-10-05), then
-`v0.9.1` (`b9de3b070`, 2026-09-30), `v0.9.0` (`ee54ea03e`, 2026-09-24), `v0.8.1` (`e0ea34616`,
+#1080, the last stamping the tag build's version), `v0.9.2` (`4226ad9a3`, `Merge pull request
+#931 from Open-MBEE/hotfix/circleci-crates-heredoc`, 2026-10-05 — the release pull request #924,
+assembled on `main` from 29 commits of which 8 are cherry-picks of `develop`'s fixes, and the
+hotfixes #930 and #931), then `v0.9.1` (`b9de3b070`, 2026-09-30), `v0.9.0` (`ee54ea03e`, 2026-09-24), `v0.8.1` (`e0ea34616`,
 2026-09-16), `v0.8.0` (`238aed650`, 2026-09-13) and `v0.7.0` (`e0fbfea5b`, 2026-09-09). Counting
-the `Merge pull request` commits each tag reaches and its predecessor does not, `v0.9.2` carried 5
-pull requests merged after `v0.9.1`, `v0.10.0` 270 more, `v0.10.1` 20 more and `v0.11.0` 342
-more, so every item the previous refresh called *landed, unreleased* is now in a tag. The
+the `Merge pull request` commits each tag reaches and its predecessor does not, `v0.9.2` reaches 5
+merged after `v0.9.1` (its cherry-picked content is `CHANGELOG.md`'s 27 entries, not merges),
+`v0.10.0` 270 more, `v0.10.1` 20 more and `v0.11.0` 342 more, so every item the previous refresh
+called *landed, unreleased* is now in a tag. The
 integration branch `develop` (`76c98694c`, #1483, 2026-10-24) carries forty pull requests past
 `v0.11.0` (`git log --merges --first-parent v0.11.0..develop`) and nothing else is counted ahead
 of it: the tag's pin and fold-back (#1447, #1448), Markdown and AsciiDoc prose bodies in
@@ -1119,8 +1122,9 @@ conforming SysML v2 under `-strict`, standard deferred signals, the collapsed co
 Cameo symbol, owned rules as `constraint def`s asserted by a usage, operations in generic tables
 (`CHANGELOG.md` **0.10.0**–**0.11.0**) — widened the mapping rather than closing one of them.
 #763 (an initial written into an orthogonal region as that region's entry) and #761 (`first a
-then b` owning its connector ends, against the export) both landed on 2026-10-01 and are in
-`v0.10.0`.
+then b` owning its connector ends, against the export) both landed on 2026-10-01 and shipped in
+`v0.9.2` (its `CHANGELOG.md` section names both; their `develop` merges are first reached by the
+`v0.10.0` tag, since `release/0.9.2` was assembled by cherry-pick).
 
 Independent of D1, D2 and D7, which concern the RDF form the migrated model may be written into,
 not the migration.
@@ -2344,11 +2348,11 @@ has landed:
 - **Adjudicated as not a defect**: the inherited-name warning beside a typing error stays (#837);
   the pilot reports both.
 
-**What remains is the census's own tail**, and it is the whole of the track: the 52 rows marked
-*unknown* — a row is unknown when neither a pass nor a negative case can be pointed at for the
+**What remains is the census's own tail**, and it is the whole of the track: the 49 rows marked
+*unknown* (52 at the previous refresh; the triage record of #1303, `v0.11.0`, moved three) — a row is unknown when neither a pass nor a negative case can be pointed at for the
 pilot's name, which is a gap in evidence before it is a gap in checking. No row is marked *not
-implemented* any more. #748 (landed 2026-10-01, `v0.10.0`) makes an implicit subsetting's conformance a checked rule.
-The order is the same as before: work the 52 down by writing the pilot-refereed
+implemented* any more. #748 (landed 2026-10-01, shipped in `v0.9.2`) makes an implicit subsetting's conformance a checked rule.
+The order is the same as before: work the 49 down by writing the pilot-refereed
 negative case first and implementing the rule only where the case shows we accept what the pilot
 rejects; each change moves exactly its census row and `make docs-counts` regenerates the summary.
 The 6 *approximate* rows (a check under our own wording that covers the pilot's constraint
@@ -3496,51 +3500,111 @@ requests the tracks cite; the two closed-work summaries at the top of the page l
 - **Release follow-through** — R2's three registries (#735, #738, #739), R4's wizard (#350), the
   rehearsal (#743) and the provenance attestation (#606).
 
+## What `v0.9.2`, `v0.10.0`, `v0.10.1` and `v0.11.0` released
+
+The same pattern for the four tags since, by track with the pull requests the tracks cite; the
+entry counts are `CHANGELOG.md`'s sections, which are the tags' content.
+
+- **`v0.9.2`** (2026-10-05; 27 entries) — a release branch assembled on `main` from `develop`'s
+  fixes: the export's `first a then b` owning its connector ends (#761, Track D), uniqueness and
+  constancy conformance of an implicit subsetting (#748, Track V), the migrator's orthogonal
+  initial (#763, D13), the `elementId` query (#747), the service's `Convert` id form, the
+  metamodel table at version 20250201, stamped Rust digests and the wheel's digest verification
+  (Release follow-through), and the Windows MSI hotfixes (#752, #753, #930, #931).
+- **`v0.10.0`** (2026-10-08 by the changelog, tagged 2026-10-11; 336 entries: 94 added, 74
+  changed, 154 fixed, 10 performance, 1 deprecated, 1 removed, 2 security) — **Track L**: L3
+  (#830), L4 (#821), L5 (#818). **Track D**: the `-migrate` verb with the `Migrate` RPC and its
+  report (#768, D13) and `-portable`. **Track I**: the Java client's parity (#762), the wire
+  contract (#848, I1), the Jupyter kernel (#978, #988, #1003; I7), the WebAssembly builds, the
+  browser client and their budgets (#772, #787, #870, #872, #875, #888, #970, #975; I8). **Track
+  W**: typed ports on the interconnection view (#757), the panel's orthogonal re-routing and
+  ports (#883, #890; W5). **Track T**: the pinned extension libraries (#881). **Release
+  follow-through**: the nightly client snapshots (#949), the stamped Node and Java digests
+  (#951), the nightly JupyterLab wheel (#1016), the install and packaging audit (#1070), the
+  Cameo plugin as OpenSysML MDK (#759) and the SysON packaging (#483). Beside the tracks,
+  `CHANGELOG.md` **0.10.0** carries unbounded `Integer`s, the agent skills under
+  `packaging/agent-skills/`, the `-tags sysml_prod` production build and the `GeneralView`
+  filters.
+- **`v0.10.1`** (2026-10-14 by the changelog, tagged 2026-10-15; 31 entries: 1 added, 4 changed,
+  26 fixed) — the hotfix release #1143: the migrator's layout for association and connector
+  ends, the `export` race shard's timeout, the client suites accepting a release that pins the
+  Jupyter kernel digests, the `0.10.1` against `0.10.0` performance record (T1); and the
+  WebAssembly size-budget hotfix #1185 the tag sits on (I8).
+- **`v0.11.0`** (2026-10-23; 336 entries: 77 added, 75 changed, 184 fixed) — **Track I**:
+  `sysml-mcp` (#1097, #1098, #1099, #1100, #1103, #1140, #1269, #1273, #1274, #1275, #1373; I6),
+  the WebAssembly package's site assets and the homepage on the module (#1189, #1230), the
+  `sysml-core` and `sysml-syntax` budgets and the gate's timeout (#1278, #1283, #1334). **Track
+  D**: the metaclass graph (#1259, D8), the standard library into Flexo (#1265, D3), the
+  specification examples as a round-trip oracle (#1302), the layered API JSON derived properties
+  (#1232). **Track L**: the library and prefix sweep gate (#1244). **Track W**: the panel's
+  navigation, related elements, neighbourhood relations, routing pop-out, drop menu, mid-drag
+  routing and automatic compartment folding (#1316, #1317, #1318, #1320, #1330, #1336, #1421;
+  W5). **Track V**: the census triage (#1303). **Track T**: the LLM benchmark (#1248, #1300),
+  the extension libraries' upstream workflow (#1299), the performance records (#1015, #1221,
+  #1337, #1371, #1400, #1445). **Release follow-through**: pull-request CI in two tiers
+  (`CHANGELOG.md` **0.11.0**), the container image (#1258), the install action's validation
+  (#1234), the rehearsal under the tag (#1443), the nightly `.vsix` version (#1290). Beside the
+  tracks: the project is named OpenSysML MDK, and the SonarCloud findings were worked off package
+  by package (#1339–#1346, #1428–#1434).
+
 ## What remains open
 
-The open items, by track, with the item that gates each where one does. Tracks F, S, E, L, Q, A
-and P (but P7) are closed.
+The open items, by track, with the item that gates each where one does. Tracks F, S, E, L, Q
+(but Q5's two pull requests), A, T and P (but P7) are closed.
 
 - **Track I** — the R package (I3, not started); the C client (I4, not started); the Python
   client under the shared conformance runner (I2's remainder); I5's `-address` mode and generated
-  kernel scenarios (not started); and client parity, Java open (#762) and the other four in
-  progress.
+  kernel scenarios (not started); and client parity for Node, Rust, Julia and MATLAB (Java's
+  landed, #762; the four have no pull request). Open against `develop` on I6: #1488 (the MCP
+  toolkit's UTF-16 column counting).
 - **Track X** — X8's two harness halves (not started) and X7's native layout for sets and
   tensors.
-- **Track D** — D8's ontology profile, D10's write-through, D13's four items (not started; #763
-  open, the `-migrate` verb in progress); #761 open against the export.
-- **Track V** — the census's 52 *unknown* rows; #748 open.
-- **Track W** — #757 open, nothing else.
-- **Tracks N, M, B** — as the tracks state them; nothing in them moved since `v0.8.0`.
+- **Track D** — D8's instance-graph profile (its metaclass graph landed, #1259), D10's
+  write-through, D13's items 1, 3 and 4 (units, re-migration identity, the measurement that
+  lifts the notice; the verb and the report landed, #768). Open against `develop`: #1485 (a
+  conjugated port's subsetting in the RDF form).
+- **Track V** — the census's 49 *unknown* rows (52 at the previous refresh; #1303).
+- **Track Q** — Q5's inline values (#1476) and whole-body headings and sections (#1477), open
+  against `develop`.
+- **Track W** — nothing open; W5's collapsed-port and sized-children fixes (#1458, #1480) are on
+  `develop` past the tag.
+- **Tracks N, M, B** — as the tracks state them; nothing in them moved since `v0.8.0` but the
+  codegen package's placement (`CHANGELOG.md` **0.11.0**).
 - **Release follow-through** — R2's Maven Central check and the Julia, MATLAB and R registries;
-  R3 and R5, account- and hardware-gated; #483 open against the SysON packaging.
+  R3 (a real Mac), R4 (the SignPath application), R5 (a marketplace publisher), each account- or
+  hardware-gated.
 - **Proposed** — the large-model design's fourth step (one definition with many occurrences, not
   started); behavioral editing's in-place rewriting (not started); naming activity and state
   nodes so a migrated view can expose them (the MTIP augment's follow-up).
+- **Open against `develop` outside the items** — the runtime's `satisfy … by` an expression
+  (#1466), bound-feature read marks (#1471), part usages read through part definitions (#1484),
+  implicit specializations' runtime objects (#1492), the REPL's member-name alias (#1493), and
+  the SonarCloud refactors and security findings (#1486, #1487, #1489, #1490, #1491, #1494–#1500).
 
 ## Cross-cutting order
 
-The previous order's step 1 is half done — the Julia and MATLAB packages landed — and its D2 and
-D1 step landed in #509, so the order opens with what Track I has left and the client work that
-is already moving.
+The previous order's step 1 moved — Java's parity landed and the Jupyter, WebAssembly and MCP
+surfaces (I6–I8) were added and closed beside it — and its step 3 lost D13's verb and report
+(#768) and D8's metaclass graph (#1259), so the order opens with what Track I has left.
 
-1. **Track I: client parity, then I3's R package, then I4's client** — parity first because it
-   is in flight in every client but Python and Go and an R package written now would start
-   behind it; then the R package, replaying `conformance/` as Julia and MATLAB do (the Python
-   client joining the shared runner on the way, I2's remainder); then the C client over
-   `libcurl`. The C *ABI* half of I4 is not here — it is step 6.
+1. **Track I: client parity, then I3's R package, then I4's client** — parity first because the
+   four clients behind Java have no pull request and an R package written now would start behind
+   them; then the R package, replaying `conformance/` as Julia and MATLAB do (the Python client
+   joining the shared runner on the way, I2's remainder); then the C client over `libcurl`. The
+   C *ABI* half of I4 is not here — it is step 6.
 2. **X8's harness halves, then X7's native layout** — normalization and adjudication in the
    pilot differential and a round trip over every RDF expression-tree form, so every later
    expression item is measured; the set and tensor native layouts when something needs them.
-3. **D13, then D8** — the migration's units, its report on the wire (a Track I wire change, so
-   after step 1's parity has settled the clients' surface) and stable re-migration identity,
-   then the measurement that lifts its notice; the ontology profile once D1 and D2's standard
-   vocabulary is what it profiles.
+3. **D13's items 1, 3 and 4, then D8's instance profile** — the migration's units (L5's symbol
+   table is in place), stable re-migration identity over the element identity annotations, then
+   the TMT re-measurement that lifts its notice; the instance-graph profile over the metaclass
+   graph once D1 and D2's standard vocabulary is what it profiles.
 4. **B1, then B2** — the binding vocabulary, then the provider contract in the runtime and Go
-   API. Neither depends on anything outstanding and both touch only the metadata library, one
-   pass and the runtime's dispatch, so they can run beside steps 1–3; B1 needs its design record
-   before code. **B3** follows the transport decision, **I5** goes with step 1 since it is built
-   from the same scenarios, and **B4**/**B5** come whenever a model needs them.
+   API. Neither depends on anything outstanding and both touch only the metadata library (now
+   maintained upstream, T3), one pass and the runtime's dispatch, so they can run beside steps
+   1–3; B1 needs its design record before code. **B3** follows the transport decision, **I5**
+   goes with step 1 since it is built from the same scenarios, and **B4**/**B5** come whenever a
+   model needs them.
 5. **M1, then M2 (with N2.6)** — the closed behavior IR, then the state and action C backend over
    static tables. Embedded behavior compilation depends on the closed IR; the native track's
    action and state phases start from the same IR rather than a second one. M3 and M5 prove it;
@@ -3549,41 +3613,44 @@ is already moving.
    after M1 fixes what an embedded entry point looks like, so a stable native/embedded calling
    contract exists to design against rather than three.
 
-Beside the order, whenever a session has room: Track V's 52 *unknown* rows, the large-model
-design's fourth step, behavioral editing's in-place rewriting, and the open pull requests above
-to review. The next release cuts from `develop`, which carries #694's removal of the `defer`
-state-body extension — a construct `v0.9.1` accepts and the next tag refuses — so by
-`CONTRIBUTING.md` § Versioning it bumps the minor segment; the decision is the release
-checklist's, recorded there.
+Beside the order, whenever a session has room: Track V's 49 *unknown* rows, Q5's two open pull
+requests, the large-model design's fourth step, behavioral editing's in-place rewriting, and the
+open pull requests above to review. The next release cuts from `develop`, which carries
+thirty-five fragments under `changes/unreleased/` past `v0.11.0` (13 added, 7 changed, 15
+fixed, none removed); which segment it bumps is the release checklist's decision, recorded there
+(`CONTRIBUTING.md` § Versioning).
 
 ## Track-local orders
 
-- **Release follow-through.** **R1** is done; **R2**'s three registries are live from the core
-  tag, with Maven Central's 0.9.1 artifact to confirm and the Julia, MATLAB and R registries to
-  come with I3; **R3** and **R5** as a real Mac, an Apple Developer and an OV/EV certificate, and
-  a marketplace publisher appear; **R4** is proven by every tag since `v0.7.0`. None gates the
-  others or anything below.
-- **Track L.** L3–L8 landed. Nothing remains in the track; its census moves with the runtime,
-  adjudicated per change.
+- **Release follow-through.** **R1** is done and **R6** landed; **R2**'s four registries are
+  live from the core tag, with Maven Central's 0.11.0 artifact to confirm and the Julia, MATLAB
+  and R registries to come with I3; **R3** and **R5** as a real Mac and a marketplace publisher
+  appear; **R4**'s Windows path builds on every tag and waits on the SignPath application, its
+  macOS half on an Apple Developer account. None gates the others or anything below.
+- **Track L.** L3–L8 landed and #1244 gates them. Nothing remains in the track; its census moves
+  with the runtime, adjudicated per change.
 - **Track N.** N2.1 (records and enums) first, since compiling an analysis case and the
   differential's record and constructor coverage both need it; decide N2.2 (the budget) before
   N2.4; N2.3 tracks L4 package by package; N2.6's actions and states are Track M's M1/M2.
-- **Track D.** The RDF ratchet is 351 of 358 stable with 7 whitespace-only and no refusal; the
-  API element-form ratchet is 349 of 358 with 2 graph-diff cases. **D1**, **D2**, **D7**,
-  **D9.1**, **D9.2**, **D11** and **D12** are done; **D8** and **D10** remain; **D13** in the
-  order it lists — step 3 above.
+- **Track D.** Both ratchets read 830 of 876 stable with 7 whitespace-only, 1 unwritable and 38
+  refused at the parser, every refusal a specification example, no graph-diff case. **D1**,
+  **D2**, **D7**, **D9.1**, **D9.2**, **D11** and **D12** are done, **D3** is measured and
+  **D13**'s verb and report and **D8**'s metaclass graph landed; **D8**'s instance profile,
+  **D10** and **D13**'s items 1, 3 and 4 remain, in the order they list — step 3 above.
 - **Track F, S, E.** Closed. `known_failures.txt` has no line; the region-order choice points
   are recorded; E3 and E5 are closed by record and no work follows them.
 - **Track X.** X2–X6, X7's values and X8's typing landed. What is left, in order: X8's harness
   halves so every later X item is measured, then X7's native layout — step 2 above.
-- **Track A, Q.** Closed: A7 and A4, Q2's query side and Q3 all landed in `v0.9.0`.
-- **Track V.** Work the census's 52 *unknown* rows, negative case first, each change moving its
-  row; #748 is open.
-- **Track I.** Client parity (#762 open; Node, Rust, Julia and MATLAB in progress), then the R
-  package, then the C client — step 1 above; I5 beside them.
+- **Track A, Q.** Closed: A7, A4 and A8 and Q2's query side, Q3 and Q5 all landed; Q5's #1476
+  and #1477 are the track's open pull requests.
+- **Track V.** Work the census's 49 *unknown* rows, negative case first, each change moving its
+  row.
+- **Track I.** Client parity (Node, Rust, Julia and MATLAB, no pull request), then the R
+  package, then the C client — step 1 above; I5 beside them. I6–I8 are closed.
 - **Track B.** B1, B2, then B3 — step 4 above; B4's file and HTTP providers whenever asked, its
   Flexo provider unblocked since D9.2 landed; B5 with Q1.
-- **Track W.** #757 (open). Nothing else is open in the track.
+- **Track W.** Nothing open; W5's fixes on `develop` ride the next tag.
+- **Track T.** Nothing open; each record is regenerated by its tool when its subject moves.
 - **Track P.** P7's implementation, last, when the graph the layering test guards is otherwise
   clean; its design record is #451.
 - **Track M.** Entirely given by the cross-cutting order above.
