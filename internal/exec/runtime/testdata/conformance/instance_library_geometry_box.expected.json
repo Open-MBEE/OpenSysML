@@ -39,7 +39,7 @@
     ]},
     "box.tfe": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
     "box.tflv": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}]},
-    "box.vertices": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}]},
+    "box.vertices": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}]},
     "box.isSolid": {"type": "Boolean", "value": true},
     "box.voids": {"type": "Sequence", "elements": []},
     "box.shape": {"type": "Sequence", "elements": []},
@@ -52,6 +52,8 @@
   "identical": [
     ["box.faces.1", "box.tf"],
     ["box.edges.1", "box.tf.e1"],
+    ["box.tfe.1", "box.tf.e1"],
+    ["box.tfe.2", "box.ff.e1"],
     ["box.edges.24", "box.srf.e4"]
   ],
   "distinct": [

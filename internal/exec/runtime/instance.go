@@ -1238,6 +1238,12 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	// optional one demands none: each, a connector included, holds only contributions —
 	// unless the declaration's body binds a feature of the one object it then holds.
 	if fv.Feature.HoldsOnlyContributions() && !ctx.bodyBindsAFeature(fv.Feature) && (symbols.IsAbstract(fv.Feature.Symbol) || ctx.model.semantics.IsConnectorObjectUsage(fv.Feature.Symbol) || ctx.CompositeTypeOf(fv.Feature) != nil) {
+		// A binding stating a link makes an optional subsetter hold a value its other end holds.
+		if composite := ctx.CompositeTypeOf(fv.Feature); composite != nil {
+			if held, err := inst.materializeFromSubsetted(ctx, fv, name, composite); err != nil || held {
+				return fv, err
+			}
+		}
 		return inst.holdContributions(ctx, fv, name)
 	}
 
@@ -1332,6 +1338,11 @@ func (inst *Instance) materializeComposite(ctx *Context, fv *FeatureValue, name 
 
 	if !mult.Upper.Known || !mult.Lower.Known {
 		return nil, fmt.Errorf("cannot materialize feature %q with unknown multiplicity", name)
+	}
+
+	// A required feature subsetting another holds that one's values (KerML 1.0 §7.3.4.4).
+	if held, err := inst.materializeFromSubsetted(ctx, fv, name, composite); err != nil || held {
+		return fv, err
 	}
 
 	if !mult.Upper.Infinite && mult.Upper.Value == 1 {

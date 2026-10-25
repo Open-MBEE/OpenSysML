@@ -148,6 +148,20 @@ const partialBindingMesh = `package P {
 	}
 }`
 
+// partialBindingDisjoint binds two collections that subset nothing: each holds the objects its
+// own declaration makes, so the bindings link values neither end holds.
+const partialBindingDisjoint = `package P {
+	private import ScalarValues::*;
+	item def Node;
+	part def Mesh {
+		item left : Node [2];
+		item right : Node [2];
+		attribute counts : Integer [2] = (1, 2);
+		binding [1] bind [0..1] left = [0..1] right;
+		binding [1] bind [0..1] left = [0..1] counts;
+	}
+}`
+
 func testBoundCollectionHoldsItsOwnDeclaration(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<partial-binding-own-declaration>", parseAndBuild(t, partialBindingMesh))
 	inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Mesh"))
@@ -170,7 +184,7 @@ func testBoundCollectionHoldsItsOwnDeclaration(t *testing.T) {
 }
 
 func testEndsSharingNoValueAreAViolatedVerdict(t *testing.T) {
-	idx, _, ctx := buildRuntime(t, "<partial-binding-verdict>", parseAndBuild(t, partialBindingMesh))
+	idx, _, ctx := buildRuntime(t, "<partial-binding-verdict>", parseAndBuild(t, partialBindingDisjoint))
 	inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Mesh"))
 	if err != nil {
 		t.Fatalf("instantiate: %v", err)
