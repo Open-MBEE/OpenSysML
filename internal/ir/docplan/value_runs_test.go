@@ -9,13 +9,13 @@ import (
 
 const valueRunsModel = `
 		part def Mount { attribute mass : Real = 80.0; attribute 'dry mass' : Real = 70.0; }
-		part def Telescope { part mount : Mount; attribute aperture : Real = 2.4; ref ratio : Real = 0.5; }
+		part def Telescope { part mount : Mount; attribute aperture : Real = 2.4; ref ratio : Real = 0.5; ref gain :> aperture = 1.2; }
 		part telescope : Telescope;
 		part def Report :> Document {
 			attribute redefines title = "Report";
 			rep language "markdown" /* Aperture [](sysml:value:telescope.aperture) and
 			 * [mount mass](sysml:value:telescope.mount.mass); nominal [](sysml:value:Telescope::aperture);
-			 * [](sysml:value:telescope.mount::mass), [](<sysml:value:telescope.mount.'dry mass'>), [](sysml:value:telescope.ratio).
+			 * [](sysml:value:telescope.mount::mass), [](<sysml:value:telescope.mount.'dry mass'>), [](sysml:value:telescope.ratio), [](sysml:value:telescope.gain).
 			 */
 		}
 	`
@@ -23,7 +23,8 @@ const valueRunsModel = `
 // A `sysml:value:` destination plans a value run reading the named feature
 // from the chain's root, or from the owner of a feature named outright, with
 // its label kept and its origin inside the body; a `::` member or a quoted
-// name in the chain is one path segment each, and a data-typed `ref` is read.
+// name in the chain is one path segment each, and a `ref` typed by data, itself
+// or through a feature it subsets, is read.
 func TestCompileMarkdownBodyValueRuns(t *testing.T) {
 	fixture := loadPlanningFixture(t, valueRunsModel)
 	plan := fixture.mustCompile(t, "Report")
@@ -33,12 +34,12 @@ func TestCompileMarkdownBodyValueRuns(t *testing.T) {
 			values = append(values, run)
 		}
 	}
-	if len(values) != 6 {
+	if len(values) != 7 {
 		paths := make([]string, len(values))
 		for i, run := range values {
 			paths[i] = run.ValuePath()
 		}
-		t.Fatalf("value runs = %d (%q), want 6", len(values), paths)
+		t.Fatalf("value runs = %d (%q), want 7", len(values), paths)
 	}
 	want := []struct{ text, root, path, feature string }{
 		{"", "Observatory::telescope", "aperture", "Observatory::Telescope::aperture"},
@@ -47,6 +48,7 @@ func TestCompileMarkdownBodyValueRuns(t *testing.T) {
 		{"", "Observatory::telescope", "mount.mass", "Observatory::Mount::mass"},
 		{"", "Observatory::telescope", "mount.'dry mass'", "Observatory::Mount::dry mass"},
 		{"", "Observatory::telescope", "ratio", "Observatory::Telescope::ratio"},
+		{"", "Observatory::telescope", "gain", "Observatory::Telescope::gain"},
 	}
 	full := "package Observatory {" + planningImports + valueRunsModel + "}"
 	for i, run := range values {

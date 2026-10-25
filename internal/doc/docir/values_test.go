@@ -23,6 +23,7 @@ const valueDocument = `
 		attribute phase : Phase = Phase::flight;
 		attribute bands : String[0..*] = ("optical", "ultraviolet");
 		attribute margin : Real;
+		ref gain :> aperture = 1.2;
 	}
 	part telescope : Telescope;
 	part def Report :> Document {
@@ -30,7 +31,7 @@ const valueDocument = `
 		rep language "markdown" /* Aperture [](sysml:value:telescope.aperture), named [](sysml:value:telescope.designation),
 		 * flying [](sysml:value:telescope.flying), in [](sysml:value:telescope.phase),
 		 * [Mount mass:](sysml:value:telescope.mount.mass), bands [](sysml:value:telescope.bands),
-		 * dry [](<sysml:value:telescope.mount.'dry mass'>), via [](sysml:value:telescope.mount::mass).
+		 * dry [](<sysml:value:telescope.mount.'dry mass'>), via [](sysml:value:telescope.mount::mass), gain [](sysml:value:telescope.gain).
 		 *
 		 * - [Nominal aperture](sysml:value:Telescope::aperture)
 		 */
@@ -67,7 +68,7 @@ func TestEvaluateValueRuns(t *testing.T) {
 		}
 		b.WriteString(run.Text())
 	}
-	want := "Aperture 2.4, named Hubble, flying true, in flight, Mount mass: 80 [kg], bands optical, ultraviolet, dry 70 [kg], via 80 [kg]."
+	want := "Aperture 2.4, named Hubble, flying true, in flight, Mount mass: 80 [kg], bands optical, ultraviolet, dry 70 [kg], via 80 [kg], gain 1.2."
 	if got := b.String(); got != want {
 		t.Errorf("paragraph = %q, want %q", got, want)
 	}

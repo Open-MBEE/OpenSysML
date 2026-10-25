@@ -51,8 +51,8 @@ func (c *compiler) markupValue(owner, rep *symbols.Symbol, body string, run mark
 
 // carriesValue reports whether sym is a feature whose value is a datum rather
 // than an occurrence: an attribute, calculation or enumeration usage, or a
-// reference usage typed by data types only. Parts, ports, references to them
-// and the like are elements, which `sysml:` references by name.
+// reference usage whose types are data types only. Parts, ports, references to
+// them and the like are elements, which `sysml:` references by name.
 func (c *compiler) carriesValue(sym *symbols.Symbol) bool {
 	switch sym.Kind {
 	case symbols.SymbolAttributeUsage, symbols.SymbolCalcUsage, symbols.SymbolEnumerationUsage:
@@ -65,30 +65,17 @@ func (c *compiler) carriesValue(sym *symbols.Symbol) bool {
 	return false
 }
 
-// referencesData reports whether a reference usage is typed by data types
-// only, itself or through the features it redefines (`:>> mass = 120.0;`).
+// referencesData reports whether a reference usage's types, derived as KerML
+// derives Feature::type from the features it subsets, redefines or references
+// (`:>> mass = 120.0;`, `ref gain :> aperture;`), are data types only.
 func (c *compiler) referencesData(sym *symbols.Symbol) bool {
-	typed := false
-	seen := map[*symbols.Symbol]bool{}
-	for pending := []*symbols.Symbol{sym}; len(pending) > 0; pending = pending[1:] {
-		feature := pending[0]
-		if feature == nil || seen[feature] {
-			continue
+	types := c.model.FeatureTypeSet(sym)
+	for _, typ := range types {
+		if !c.model.IsDataType(typ) {
+			return false
 		}
-		seen[feature] = true
-		switch feature.Kind {
-		case symbols.SymbolAttributeUsage, symbols.SymbolCalcUsage, symbols.SymbolEnumerationUsage:
-			return true
-		}
-		for _, typ := range c.model.DeclaredTypes(feature) {
-			if !c.model.IsDataType(typ) {
-				return false
-			}
-			typed = true
-		}
-		pending = append(pending, c.model.RedefinedFeatures(feature)...)
 	}
-	return typed
+	return len(types) > 0
 }
 
 // elementKindWords names an element's kind for a diagnostic: "a part usage".
