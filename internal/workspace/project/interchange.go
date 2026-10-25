@@ -220,14 +220,15 @@ func slug(name string) string {
 	return strings.TrimSuffix(b.String(), "-")
 }
 
-// satisfies reports whether the project's version is the one the constraint
-// names exactly; only an exact version (optionally written =, == or v first)
-// is understood, any other constraint is not decided here.
+// satisfies reports whether the project's version matches the constraint
+// (see Constraint for the grammar); an empty or malformed constraint matches
+// nothing here, so the caller falls back to the latest version.
 func (p *Interchange) satisfies(constraint string) bool {
-	want := strings.TrimSpace(constraint)
-	want = strings.TrimPrefix(strings.TrimPrefix(want, "=="), "=")
-	want = strings.TrimPrefix(strings.TrimSpace(want), "v")
-	return want != "" && want == strings.TrimPrefix(p.Version, "v")
+	c, err := ParseConstraint(constraint)
+	if err != nil || c.Any() {
+		return false
+	}
+	return c.Matches(p.Version)
 }
 
 // newerVersion reports whether a is a later version than b, in semantic
