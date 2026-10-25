@@ -7,9 +7,8 @@ import (
 	"go.lsp.dev/uri"
 )
 
-// tempDocURI is the URI of a document named name in a directory of the test's
-// own, so a test opening it under no folder has only that directory indexed,
-// never a shared one such as the system temp directory and what sits there.
+// tempDocURI names a document in a directory of the test's own, so opening it
+// under no folder indexes that directory and never a shared one such as /tmp.
 func tempDocURI(t testing.TB, name string) uri.URI {
 	t.Helper()
 	return uri.File(filepath.Join(t.TempDir(), name))

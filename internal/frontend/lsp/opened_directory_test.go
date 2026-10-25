@@ -46,9 +46,8 @@ func TestOpenedDocumentIndexesOnlyItsOwnDirectory(t *testing.T) {
 	}
 }
 
-// The test helpers that open a document through the server place it in a
-// directory of the test's own: a stray model file in the system temp directory
-// is never indexed, and no directory outside the test's root is.
+// Every helper that opens a document places it under the test's root: a stray
+// model file in the system temp directory is never indexed, nor any directory outside.
 func TestOpenHelpersStayUnderTheTestRoot(t *testing.T) {
 	stray := filepath.Join(os.TempDir(), "opensysml-lsp-stray-guard.sysml")
 	if err := os.WriteFile(stray, []byte("package OpenSysMLStrayGuard;\n"), 0o600); err != nil {
