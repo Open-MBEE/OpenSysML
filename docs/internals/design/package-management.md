@@ -81,7 +81,10 @@ reading `.sysand/lib`, and be able to *emit* the static index layout so a sysand
   normalized to it. Any host that speaks git is a package host: GitHub, GitLab, Gitea, a bare server,
   a local path. Matching against installed projects already works (`resourceSegments` keeps the last
   two path segments → `org`/`repo` slugs), so a usage written this way resolves today once the
-  project is on disk. `pkg:sysand/<publisher>/<name>` and
+  project is on disk — but `resourceSegments` discards the `@<version>` and `pickInstalled` honours
+  only `versionConstraint`, so today a versioned IRI alone selects the latest installed release;
+  Phase 1 makes `@<version>` an exact constraint when the usage carries none, and the lock entry
+  wins over either. `pkg:sysand/<publisher>/<name>` and
   `https://www.omg.org/spec/...kpar` keep resolving as they do now.
 - Resolution needs **no index** and nothing but git: tags come from `git ls-remote --tags`
   (`v<version>`, then `<version>`), the tree from `git clone --depth 1 --branch <tag>` (or
@@ -122,7 +125,9 @@ package 'Open-MBEE/OpenSysML-Extensions-Library' {
   any conformant SysML v2 parser reads the whole index with the OMG standard library alone. The
   constraints (semver well-formed and monotonic per package, `version == tag`, every `uses` IRI
   resolvable within the index or the OMG set, SPDX licence expression, checksum present) are what
-  `sysml -validate index/` evaluates in the index repo's CI; `DocumentQueries` views render the
+  `sysml -self-check-package Index index/` evaluates in the index repo's CI (bare `-validate` only
+  checks that the model analyses cleanly; `-self-check-package` applies the named package's
+  `constraint def`s to every classified element and fails on a false or erroring one); `DocumentQueries` views render the
   catalogue page; `-query`/MCP answer searches. Both renderings are produced from the same records by
   the same command, and CI fails if they disagree.
 - Writes to the index are PRs (human-gated) or a `publish` workflow in the package repo that opens the
@@ -151,8 +156,9 @@ package 'Open-MBEE/OpenSysML-Extensions-Library' {
   and the `.meta.json` checksums before anything is read (the archive reader already refuses on a
   checksum mismatch).
 - Install layout: `lib/<publisher>-<name>_<version>/` (or `.kpar`) beside `.project.json` — a neutral
-  name, nothing tool-specific since the reader goes by `.project.json`. `wellKnownLibraryDirs` reads
-  both `lib` and `.sysand/lib`, so a sysand-installed project keeps working unchanged.
+  name, nothing tool-specific since the reader goes by `.project.json`. Phase 1 adds `lib` to
+  `wellKnownLibraryDirs` (today it lists only `.sysand/lib`) so both are read and a sysand-installed
+  project keeps working unchanged.
 - Lock: no OMG format exists. `.project.lock.json` beside `.project.json` (same JSON tooling as
   `.meta.json`, one entry per usage: resolved IRI, version, source URL, commit, SHA-256); read
   `sysand-lock.toml` as an input when present for interop, never write it.
