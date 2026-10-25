@@ -23,6 +23,7 @@ func TestRuntimeRobustnessPartialBinding(t *testing.T) {
 	t.Run("ends_sharing_no_value_are_a_violated_verdict", testEndsSharingNoValueAreAViolatedVerdict)
 	t.Run("whole_binding_of_unlike_types_is_a_typed_error", testWholeBindingOfUnlikeTypesIsATypedError)
 	t.Run("verdicts_over_empty_undetermined_and_linkless_ends", testPartialBindingVerdictEdges)
+	t.Run("unresolvable_end_is_an_undecided_verdict", testPartialBindingUnresolvableEndUndecided)
 }
 
 // rigScope parses a model around `part def Rig` and returns the scope of package
@@ -268,5 +269,52 @@ func testPartialBindingVerdictEdges(t *testing.T) {
 	}
 	if report.Valid() {
 		t.Error("an object violating a binding is reported valid")
+	}
+}
+
+// testPartialBindingUnresolvableEndUndecided pins that a binding whose end the object cannot
+// resolve is listed undecided and keeps the object from validating, a holding constraint aside.
+func testPartialBindingUnresolvableEndUndecided(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<partial-binding-unresolvable-end>", parseAndBuild(t, `package P {
+		private import ScalarValues::*;
+		part def G { attribute item : Integer = 1; }
+		part def Rig {
+			attribute b : Integer [*];
+			part groups : G [2];
+			attribute z : Integer = 1;
+			assert constraint { z == 1 }
+			binding [1] bind [0..1] groups.item.deeper = [0..1] b;
+		}
+	}`))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Rig"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	report, err := ctx.ValidateObject(inst, nil)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	if len(report.Verdicts) != 2 {
+		t.Fatalf("%d verdict(s), want the constraint and the binding: %+v", len(report.Verdicts), report.Verdicts)
+	}
+	var binding *ObjectVerdict
+	for i := range report.Verdicts {
+		switch v := &report.Verdicts[i]; v.Kind {
+		case AssertionBinding:
+			binding = v
+		default:
+			if v.Status != ValidationHolds {
+				t.Errorf("%q = %s, want holds", v.Text, v.Status)
+			}
+		}
+	}
+	if binding == nil {
+		t.Fatalf("no binding verdict: %+v", report.Verdicts)
+	}
+	if binding.Status != ValidationUndecided || !errors.Is(binding.Err, errBindingEnd) {
+		t.Errorf("binding verdict = %s (%v), want undecided over an unresolvable end", binding.Status, binding.Err)
+	}
+	if report.Valid() || report.Status() != ValidationUndecided {
+		t.Errorf("report valid=%v status=%s, want an undecided report", report.Valid(), report.Status())
 	}
 }
