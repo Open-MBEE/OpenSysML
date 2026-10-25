@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -242,7 +243,7 @@ func (l *oclLowering) each(v oclValue, meta string, body func(e string) string) 
 func (l *oclLowering) lower(n *oclNode) (oclValue, error) {
 	switch n.kind {
 	case oclString:
-		return oclValue{text: stringLiteral(n.literal), kind: "String", single: true}, nil
+		return oclValue{text: source.StringText(n.literal), kind: "String", single: true}, nil
 	case oclInteger:
 		return oclValue{text: n.literal, kind: "Integer", single: true}, nil
 	case oclBoolean:
@@ -404,7 +405,7 @@ func (l *oclLowering) hasStereotype(n *oclNode, v oclValue) (oclValue, error) {
 		return oclValue{text: f.query(qlit(host.text)).text(l.prefix) + "->" + l.function("notEmpty") + "()", kind: "Boolean", single: true}, nil
 	}
 	if def := l.m.stereotypeNamed(v.tag); def != nil && l.m.written(def) {
-		return oclValue{text: l.prefix + "WhereMetadata(source = " + host.text + ", 'metadata' = (" + stringLiteral(l.m.plainName(def)) + "))->" + l.function("notEmpty") + "()", kind: "Boolean", single: true}, nil
+		return oclValue{text: l.prefix + "WhereMetadata(source = " + host.text + ", 'metadata' = (" + source.StringText(l.m.plainName(def)) + "))->" + l.function("notEmpty") + "()", kind: "Boolean", single: true}, nil
 	}
 	return oclValue{}, l.refuse(n, "tests for «"+v.tag+"»"+noV2Feature)
 }

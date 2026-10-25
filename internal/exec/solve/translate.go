@@ -814,7 +814,7 @@ func (t *translator) expr(node ast.Node, scope *symbols.Scope) (*Term, error) {
 		}
 		return RealTerm(rat), nil
 	case *ast.LiteralString:
-		return StringTerm(unquote(n.Value)), nil
+		return StringTerm(source.StringValue(n.Value)), nil
 	case *ast.FeatureReference, *ast.FeatureChainExpr:
 		return t.reference(node, scope)
 	case *ast.IndexExpr:
@@ -1388,12 +1388,6 @@ func dimensionText(dim semantics.Dimension) string {
 		return "a plain number"
 	}
 	return dim.String()
-}
-
-// unquote strips the quotes a string literal's raw text carries, as the
-// evaluator does.
-func unquote(text string) string {
-	return source.StringValue(text)
 }
 
 // describe names a node as the notation writes it, for a refusal.

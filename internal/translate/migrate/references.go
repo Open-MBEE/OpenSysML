@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -418,7 +419,7 @@ func (m *migration) writeRuns(dp *docPlan, cp *contentPlan) {
 			m.blockPart(dp.host, names.claim("ref"), "Ref", nil, func() {
 				m.w.line("ref redefines target = " + target + ";")
 				if r.named {
-					m.w.line("attribute redefines text = " + stringLiteral(text) + ";")
+					m.w.line("attribute redefines text = " + source.StringText(text) + ";")
 				}
 			})
 			continue
@@ -427,7 +428,7 @@ func (m *migration) writeRuns(dp *docPlan, cp *contentPlan) {
 			continue
 		}
 		m.blockPart(dp.host, names.claim("span"), "Span", nil, func() {
-			m.w.line("attribute redefines text = " + stringLiteral(text) + ";")
+			m.w.line("attribute redefines text = " + source.StringText(text) + ";")
 		})
 	}
 }

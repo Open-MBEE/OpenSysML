@@ -623,7 +623,7 @@ func (fc *funcCompiler) compileLambda(op SeqOp, b *ast.BodyExpr, paramTypes []Ty
 		if p.Type != nil {
 			sym, ok := fc.c.resolver.ResolveQualified(fc.scope, p.Type)
 			if !ok {
-				return Lambda{}, fc.unsupported(fmt.Sprintf("body parameter %s: type %s does not resolve", p.Name, qnText(p.Type)))
+				return Lambda{}, fc.unsupported(fmt.Sprintf("body parameter %s: type %s does not resolve", p.Name, p.Type.Text()))
 			}
 			if t, _, why := fc.valueType(sym); why != "" || t != paramTypes[i] && !(t == TypeReal && paramTypes[i] == TypeNum) {
 				return Lambda{}, fc.unsupported(fmt.Sprintf("body parameter %s typed other than %s", p.Name, paramTypes[i]))

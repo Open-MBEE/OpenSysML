@@ -383,7 +383,7 @@ func EditDistance(a, b string) int {
 			if ar[i-1] == br[j-1] {
 				cost = 0
 			}
-			cur[j] = min3(cur[j-1]+1, prev[j]+1, prev[j-1]+cost)
+			cur[j] = min(cur[j-1]+1, prev[j]+1, prev[j-1]+cost)
 			if i > 1 && j > 1 && ar[i-1] == br[j-2] && ar[i-2] == br[j-1] {
 				if t := prev2[j-2] + 1; t < cur[j] {
 					cur[j] = t
@@ -393,16 +393,6 @@ func EditDistance(a, b string) int {
 		prev2, prev, cur = prev, cur, prev2
 	}
 	return prev[len(br)]
-}
-
-func min3(a, b, c int) int {
-	if b < a {
-		a = b
-	}
-	if c < a {
-		a = c
-	}
-	return a
 }
 
 // OrList joins candidates as "a, b or c", for a message that offers a choice.
