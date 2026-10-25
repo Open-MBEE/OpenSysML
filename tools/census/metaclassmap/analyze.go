@@ -3,6 +3,7 @@ package metaclassmap
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -311,7 +312,7 @@ func differential(row grammar.Row, shape grammar.Shape, allShapes []grammar.Shap
 	}
 	result.Metaclass = symbols.FQNOf(meta)
 	for _, created := range shape.Creates {
-		if created == meta.Name || lastName(created) == meta.Name {
+		if created == meta.Name || symbols.LastSegment(created) == meta.Name {
 			result.Bucket = "agree"
 			return result
 		}
@@ -323,12 +324,14 @@ func differential(row grammar.Row, shape grammar.Shape, allShapes []grammar.Shap
 	var shared []string
 	for _, other := range allShapes {
 		if shapeKey(other.Grammar, other.Name) == shapeKey(shape.Grammar, shape.Name) ||
-			!containsString(other.Anchors, anchor) {
+			!slices.Contains(other.Anchors, anchor) {
 			continue
 		}
 		for _, created := range other.Creates {
-			if created == meta.Name || lastName(created) == meta.Name {
-				shared = appendUnique(shared, other.Name)
+			if created == meta.Name || symbols.LastSegment(created) == meta.Name {
+				if !slices.Contains(shared, other.Name) {
+					shared = append(shared, other.Name)
+				}
 				break
 			}
 		}
@@ -352,7 +355,7 @@ func createsConformToRelationship(reflection *reflectiveModel, creates []string)
 			candidates = reflection.index.LookupQualified(created)
 		}
 		if len(candidates) == 0 {
-			candidates = []*symbols.Symbol{reflection.sem.Metaclass(lastName(created))}
+			candidates = []*symbols.Symbol{reflection.sem.Metaclass(symbols.LastSegment(created))}
 		}
 		if len(candidates) == 0 || candidates[0] == nil {
 			return false
@@ -452,29 +455,4 @@ func declarationHeader(sym *symbols.Symbol, stripped string) (int, int, bool) {
 
 func isHeaderWhitespace(char byte) bool {
 	return char == ' ' || char == '\t' || char == '\r' || char == '\n'
-}
-
-func lastName(qualified string) string {
-	if at := strings.LastIndex(qualified, "::"); at >= 0 {
-		return qualified[at+2:]
-	}
-	return qualified
-}
-
-func containsString(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
-}
-
-func appendUnique(values []string, value string) []string {
-	for _, existing := range values {
-		if existing == value {
-			return values
-		}
-	}
-	return append(values, value)
 }

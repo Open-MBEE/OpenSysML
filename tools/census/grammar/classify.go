@@ -3,6 +3,7 @@ package grammar
 import (
 	"fmt"
 	"math/bits"
+	"slices"
 	"sort"
 )
 
@@ -513,7 +514,7 @@ type litTable struct {
 // newLitTable numbers the literals in sorted order, so bit positions and every
 // report derived from them are stable.
 func newLitTable(literals []string) (*litTable, error) {
-	order := dedupe(literals)
+	order := slices.Compact(slices.Sorted(slices.Values(literals)))
 	if len(order) > maskWords*64 {
 		return nil, fmt.Errorf("%d grammar literals exceed the %d this tool tracks: raise maskWords",
 			len(order), maskWords*64)
@@ -553,21 +554,5 @@ func (t *litTable) names(m mask) []string {
 			out = append(out, lit)
 		}
 	}
-	return out
-}
-
-func dedupe(in []string) []string {
-	if len(in) == 0 {
-		return nil
-	}
-	seen := map[string]bool{}
-	out := make([]string, 0, len(in))
-	for _, s := range in {
-		if !seen[s] {
-			seen[s] = true
-			out = append(out, s)
-		}
-	}
-	sort.Strings(out)
 	return out
 }

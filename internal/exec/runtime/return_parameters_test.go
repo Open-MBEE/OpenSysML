@@ -98,6 +98,31 @@ func violationErr(err error) bool {
 	return errors.As(err, &violation)
 }
 
+// TestSatisfyUsageResultAgreesWithItsCheck: a typed satisfy usage's `result` reads
+// what checking the satisfaction decides, the `by` object bound as its subject.
+func TestSatisfyUsageResultAgreesWithItsCheck(t *testing.T) {
+	for _, name := range []string{"satisfy_typed_declaration", "satisfy_typed_declaration_violated"} {
+		src, err := os.ReadFile(filepath.Join("testdata", "conformance", name+".sysml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, idx := libraryShapeContext(t, string(src))
+		root := idx.DocumentRoot("<test>")
+		assertions := ctx.SatisfyAssertionsIn(root)
+		if len(assertions) != 1 {
+			t.Fatalf("%s: found %d satisfaction assertions, want 1", name, len(assertions))
+		}
+		holds, err := ctx.EvaluateSatisfaction(assertions[0])
+		if err != nil && !violationErr(err) {
+			t.Fatalf("%s: EvaluateSatisfaction: %v", name, err)
+		}
+		read := mustEvalIn(t, ctx, root, "test::touchdown.result")
+		if read.Kind != ValConst || read.Const.Bool != holds {
+			t.Errorf("%s: test::touchdown.result = %s, want the satisfaction's %v", name, FormatValue(read), holds)
+		}
+	}
+}
+
 // TestReturnParameterReadsAgreeWithChecksOnNestedUsages: a requirement usage a definition
 // owns, its subject bound from the owning object's features, reads the check's `result`.
 func TestReturnParameterReadsAgreeWithChecksOnNestedUsages(t *testing.T) {

@@ -323,6 +323,11 @@ XDG_CACHE_HOME=$C ./bin/sysml -validate file.kerml > warm.out 2>&1; echo $?
 cmp cold.out warm.out    # cold and warm must be byte-identical
 ```
 
+- Records are keyed by the build identity (`internal/workspace/libs/buildid.go`: a clean checkout's
+  revision, else the binary's linker build ID) besides the library content and the format version,
+  so no `rm -rf ~/.cache/sysml-ls` is needed between rebuilds: a binary built from different code
+  misses every record and derives again, and builds of one clean checkout share them. Redirect or clear
+  the cache only to measure a cold start or to prove cold == warm.
 - A known reproducer class: implicit parameter redefinition against cached (Decl-less) library
   symbols, e.g. `package R { behavior b { step u : FeatureReferencingPerformances::FeatureWritePerformance { in onOccurrence { feature redefines startingAt; } } } }`
   in a `.kerml` file — cold-clean/warm-broken before cache format 21.

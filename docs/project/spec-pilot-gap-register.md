@@ -406,7 +406,7 @@ action def A {
 `validateControlNodeOwningType`; the eight succession constraints are `TODO`s (reading of the
 pinned source, recorded in [omg-issues.md](omg-issues.md#eight-control-node-succession-constraints-are-unimplemented-todos-pilot-2026-07)).
 
-**OpenSysML:** reports each (`internal/check/passes/control_node.go`); the nine ours-only
+**OpenSysML:** reports each (`internal/check/passes/behavior/control_node.go`); the nine ours-only
 negative-corpus cases (inventory C) are these.
 
 **Specification:** SysML §8.3.17.2–§8.3.17.6 `ControlNode`, `DecisionNode`, `ForkNode`,

@@ -1364,12 +1364,3 @@ func cloneValue(value Value) Value {
 }
 
 func keyName(class, name string) string { return class + "::" + name }
-
-func containsSymbol(symbolsList []*symbols.Symbol, candidate *symbols.Symbol) bool {
-	for _, sym := range symbolsList {
-		if sym == candidate {
-			return true
-		}
-	}
-	return false
-}

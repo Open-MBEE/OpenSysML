@@ -55,7 +55,7 @@ fragment MemberPrefix returns SysML::Membership :
 ```
 
 `import Q::*;` is therefore ill-formed and we report it as an error
-(`internal/check/passes/import_visibility.go`). `expose` stays exempt: the pinned grammar gives it an
+(`internal/check/passes/grammar_violation.go`). `expose` stays exempt: the pinned grammar gives it an
 implicit protected visibility (`ExposeVisibilityKind`, `SysML.xtext:2366-2372`).
 
 **Adjudicated divergence, kept.** The pilot emits two diagnostics for the bare form — one

@@ -9,7 +9,7 @@ func LocateLiteral(content string, line int, literal string) (int, bool) {
 	if line < 1 || literal == "" {
 		return 0, false
 	}
-	stripped := stripModelSource(content)
+	stripped := StripModelSource(content)
 	start := 0
 	for current := 1; current < line; current++ {
 		next := strings.IndexByte(stripped[start:], '\n')

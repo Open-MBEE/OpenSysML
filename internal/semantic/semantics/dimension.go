@@ -2,7 +2,6 @@ package semantics
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -54,7 +53,7 @@ func (d Dimension) String() string {
 		if out != "" {
 			out += "·"
 		}
-		out += leafName(factor.Unit.Name)
+		out += symbols.LastSegment(factor.Unit.Name)
 		if factor.Exponent != 1 {
 			out += fmt.Sprintf("^%g", factor.Exponent)
 		}
@@ -63,16 +62,6 @@ func (d Dimension) String() string {
 		return "1"
 	}
 	return out
-}
-
-// leafName is a symbol's declared name: a cached symbol carries it as the leaf of
-// its qualified name, so a diagnostic reads the same whether the library was
-// parsed or restored from the index cache.
-func leafName(name string) string {
-	if i := strings.LastIndex(name, "::"); i >= 0 {
-		return name[i+2:]
-	}
-	return name
 }
 
 // dimensionResult is a memoized dimension lookup, the negative outcome included.
@@ -329,7 +318,7 @@ func (m *Model) dimensionOfQuantityType(typ *symbols.Symbol) (Dimension, bool) {
 	if !ok {
 		return Dimension{}, false
 	}
-	return Dimension{Term: term, Unit: leafName(typ.Name), MaybePoint: true}, true
+	return Dimension{Term: term, Unit: symbols.LastSegment(typ.Name), MaybePoint: true}, true
 }
 
 // FixesMeasurementReference reports whether a quantity type states a measurement
@@ -349,7 +338,7 @@ func (m *Model) FixesMeasurementReference(sym *symbols.Symbol) bool {
 		return false
 	}
 	for _, child := range m.resolver.Index().LookupDirectChildrenNamed(sym.Name, memberMRef) {
-		if leafName(child.Name) == memberMRef {
+		if symbols.LastSegment(child.Name) == memberMRef {
 			return true
 		}
 	}

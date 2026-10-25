@@ -158,6 +158,9 @@ func (m *markdownMapper) inline(node gmast.Node, style Style) ([]Run, error) {
 		destination := string(n.Destination)
 		span := m.inlineSpan(n)
 		if target, ok := strings.CutPrefix(destination, RefScheme); ok {
+			if feature, isValue := strings.CutPrefix(target, ValuePrefix); isValue {
+				return []Run{{Kind: RunValue, Text: label, Destination: feature, Span: span}}, nil
+			}
 			return []Run{{Kind: RunRef, Text: label, Destination: target, Span: span}}, nil
 		}
 		return []Run{{Kind: RunLink, Text: label, Destination: destination, Span: span}}, nil

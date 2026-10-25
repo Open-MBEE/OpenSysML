@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -71,13 +72,13 @@ func (q *Query) FixValue(v *Var, value string, src PinSource) error {
 			File: v.File, Span: v.Span, Location: v.Location,
 		}
 	}
-	if !q.declares(v) {
+	if !slices.Contains(q.Vars, v) {
 		return refuse("the query does not read it")
 	}
 	if v.Sort.Kind != SortDatatype {
 		return refuse("the feature's values are " + v.Sort.Name + ", which no name of a value denotes")
 	}
-	if !contains(v.Sort.Values, value) {
+	if !slices.Contains(v.Sort.Values, value) {
 		return refuse("it is not one of the values of " + v.Sort.Name)
 	}
 	q.Assertions = append(q.Assertions, Assertion{
@@ -95,26 +96,6 @@ func (q *Query) FixValue(v *Var, value string, src PinSource) error {
 	})
 	q.Pinned = append(q.Pinned, PinnedValue{Var: v, Value: value, Source: src, Index: len(q.Assertions) - 1})
 	return nil
-}
-
-// declares reports whether the variable is one the query reads.
-func (q *Query) declares(v *Var) bool {
-	for _, declared := range q.Vars {
-		if declared == v {
-			return true
-		}
-	}
-	return false
-}
-
-// contains reports whether values holds name.
-func contains(values []string, name string) bool {
-	for _, value := range values {
-		if value == name {
-			return true
-		}
-	}
-	return false
 }
 
 // MaxConfigurationsFromEnv is the bound the environment asks enumeration to use,
@@ -193,7 +174,7 @@ func (s *Solver) Enumerate(ctx context.Context, q *Query, vars []*Var, limit int
 		return nil, fmt.Errorf("%s %s: no variable to enumerate", q.Kind, q.Element)
 	}
 	for _, v := range vars {
-		if !q.declares(v) {
+		if !slices.Contains(q.Vars, v) {
 			return nil, &NotDeclaredError{Kind: q.Kind, Element: q.Element, Variable: v.Name}
 		}
 	}

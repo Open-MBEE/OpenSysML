@@ -78,12 +78,14 @@ different times; the calculation's defaults read one feature at two of them.
 
 ```
 sysml> %eval scout.postSeparation.mass
+✓ scout.postSeparation.mass
   = 118.0
 sysml> %eval scout.postFlyby.mass
+✓ scout.postFlyby.mass
   = 96.0
 sysml> %calc massSpent
 ✓ massSpent()
-  = 22.0
+  = [22.0]
   standing: value (observed: 1 run under reverse)
 ```
 

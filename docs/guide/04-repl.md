@@ -358,15 +358,16 @@ no rendering is drawn as a tree:
 sysml> %render Demo::summary
 Demo::summary - tree rendering (the view states no rendering; a tree is the default)
 
-part def Demo::Vehicle
-  attribute mass : Real
-  part wheel : Wheel
-view Demo::summary::detail
-  part def Demo::Wheel
-    attribute diameter : Real
+part def Vehicle
+  attribute mass
+  part wheel
+    attribute diameter
+view detail
+  part def Wheel
+    attribute diameter
 
 relationships:
-  Demo::Vehicle *-- Demo::Wheel: wheel
+  Vehicle *-- Wheel: wheel
 ```
 
 The tree draws the lines a block definition diagram shows between its boxes, wherever both

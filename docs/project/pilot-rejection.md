@@ -45,11 +45,11 @@ mandatory header — `// Invalid: <rule> (<citation>).` — naming the one rule 
 where that rule comes from; the harness refuses a corpus file without it. Cases were derived
 systematically from four sources, one subdirectory each:
 
-1. **`grammar/` — grammar mutation** (112 cases: 20 original, 45 added along the *unreached* axis
+1. **`grammar/` — grammar mutation** (114 cases: 20 original, 45 added along the *unreached* axis
    described below, 13 from a second sweep, 7 body-position cases
    `g61`–`g67` from the constraint census described under `semantic/`, the two second-result-expression
    bodies `g69`/`k20`, the two name-before-keyword members `g70`/`k21`, the seventeen prefix and
-   body-context cases `g71`–`g81`, `k22`–`k27`, and the four owning-body members `g82`–`g85` —
+   body-context cases `g71`–`g81`, `k22`–`k27`, and the four owning-body members `g82`–`g85`, and the satisfaction subject written as an expression (`g87`, `satisfy requirement sr : R by sub#(1);`, which the pinned grammar's `SatisfactionReferenceExpression` admits only as a feature chain) —
    `frame` in a view and a view def body, `filter` in a rendering def body and `accept` in a view
    body, each a syntax error under the pinned grammar —: exclusive prefix alternatives written together
    (`abstract variation`, `composite portion`) or repeated (`composite composite`), a repeated direction (on an ordinary and on a
@@ -69,7 +69,7 @@ systematically from four sources, one subdirectory each:
    spells entry as `entry; then <state>`, concurrency as `state ... parallel`, and transitions as
    `first <src> then <tgt>`, and has no pseudostates or deferral at all. Adjudication: these are
    **intended OpenSysML extensions**, not accidents — each has dedicated parser tests
-   (`internal/core/parser/state_notation_test.go`) and runtime support. They are documented as
+   (`internal/syntax/parser/state_notation_test.go`) and runtime support. They are documented as
    extensions and, since strict mode was added, gated behind an opt-in
    [strict conformance mode](../guide/03-command-line.md#strict-conformance) a conformance-minded
    user can turn on; the default mode keeps accepting them on purpose.
@@ -118,7 +118,7 @@ systematically from four sources, one subdirectory each:
    pilot's grammar rejects before its validator would), and a constructed payload whose `new`
    names a package rather than a type (`send-constructor-non-type`).
 
-What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 348
+What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 349
 cases ourselves**, so the denominator measures our coverage of the rejection surface, not our
 conformance: it is a **sample, not a proof** — a clean bucket here does not mean OpenSysML rejects
 everything the reference rejects, and no official conformance suite exists to make that claim
@@ -166,14 +166,14 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-348 case(s): 336 both reject, 0 only the pilot rejects, 12 only we reject, 0 both accept
+349 case(s): 337 both reject, 0 only the pilot rejects, 12 only we reject, 0 both accept
   of which 5 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
 | Source | Cases | Both reject | Pilot only | Ours only | Both accept |
 | --- | --- | --- | --- | --- | --- |
 | extensions | 13 | 13 | 0 | 0 | 0 |
-| grammar | 113 | 113 | 0 | 0 | 0 |
+| grammar | 114 | 114 | 0 | 0 | 0 |
 | semantic | 187 | 175 | 0 | 12 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
@@ -295,7 +295,7 @@ when it was first written, six were closed by the validation work itself — `p0
 Read those five as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 348 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 349 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 
@@ -432,7 +432,7 @@ because abstractness of a metaclass was not a fact the reduced library record ca
 The record format supplies it: the library is parsed on every load path and `Abstract` is a
 persisted fact family under the reflective equality coverage, so `symbols.IsAbstract` answers the
 same cold and warm. Persisting a fact emits no diagnostic on its own — the rule
-(`internal/core/passes/w8c_metadata_type.go`) reads that accessor instead of casting `Decl`, which
+(`internal/check/passes/w8c_metadata_type.go`) reads that accessor instead of casting `Decl`, which
 is what closed the row.
 
 ## Adjudications
@@ -446,7 +446,7 @@ each case to rejection.
   VisibilityIndicator` **mandatory**, unlike the optional `MemberPrefix` visibility beside it
   (`SysML.xtext:218`), so `import Q::*;` is not a well-formed import and the reference reports
   `mismatched input 'import'`. We do report it — as a *warning*
-  (`internal/core/passes/import_visibility.go`, code `import-visibility`), and warnings do not
+  (`internal/check/passes/grammar_violation.go`, code `import-visibility`), and warnings do not
   count as rejection here. Per the pinned grammar the severity should be an error in the default
   mode: either raise `SeverityWarning` to an error, or make it
   conformance-dependent as `nonstandard_notation.go` already does.
@@ -456,7 +456,7 @@ each case to rejection.
   pinned grammar's `Name` is the `ID` terminal, which excludes keywords, and `part def part;` is
   `no viable alternative at input 'part'`. We read a keyword in name position as the name the
   author meant and report that an unrestricted name (`'part'`) is required to spell it
-  (`internal/core/parser/namespace.go`, code `reserved-keyword-name`, KerML §7.2.4) — a recovery
+  (`internal/syntax/parser/namespace.go`, code `reserved-keyword-name`, KerML §7.2.4) — a recovery
   policy chosen so an editor keeps a usable tree, documented in
   [conformance-audit.md](../reference/grammar/conformance-audit.md). Strict mode already escalated
   the parser warning without changing that reading. The user explicitly approved applying the
@@ -471,7 +471,7 @@ each case to rejection.
 - **`grammar/k02-sysml-keyword-in-kerml.kerml` — recoverable language error by approved policy.**
   `part def` exists in no KerML production; the KerML validator reports `no viable
   alternative at input 'def'`. We parse `.kerml` with the same grammar as `.sysml` and filter
-  afterwards: `internal/core/passes/nonstandard_notation.go` reports SysML-only notation in a
+  afterwards: `internal/check/passes/nonstandard_notation.go` reports SysML-only notation in a
   KerML file while preserving the parsed declaration. Strict mode already reported
   `sysml-notation` as an error. The user explicitly approved the same error severity in default
   mode for this language-keyword recovery, so both modes now reject it with the same code, span,
