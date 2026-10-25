@@ -15,7 +15,7 @@ import (
 // the marker at the start of the text of any other format. It is "" when the
 // executable carries none, as one linked with -buildid= does.
 func linkerBuildID(path string) (string, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) // #nosec G304 -- the running executable, named by os.Executable
 	if err != nil {
 		return "", err
 	}
