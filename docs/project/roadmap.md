@@ -1,22 +1,28 @@
 # OpenSysML — Roadmap
 
-Baseline: `v0.9.1` (`b9de3b070`, `Merge pull request #614 from Open-MBEE/release/0.9.1`,
-2026-09-30), verified locally with Go 1.25.0. Before it `v0.9.0` (`ee54ea03e`, `Merge pull
-request #570 from Open-MBEE/hotfix/release-sdist-glob`, 2026-09-24 — the release pull request #564
-and the hotfix that matched the Python source distribution by its version-led name), then `v0.8.1`
-(`e0ea34616`, 2026-09-16, a cherry-picked patch), `v0.8.0` (`238aed650`, 2026-09-13) and `v0.7.0`
-(`e0fbfea5b`, 2026-09-09). `v0.9.0` carried 267 pull requests merged after `v0.8.0` and `v0.9.1`
-139 more, so every item the previous refresh called *landed, unreleased* is now in a tag. The
-integration branch `develop` (`deca2b038`, #694) carries nine pull requests past `v0.9.1` and
-nothing else is counted ahead of it: #754 (the fold-back of `main`, the tag and the Windows
-release fixes merged to `main` after it), #639 (pseudostates and deferred events as standard
-metadata), #694 (the `defer` state-body extension removed), #746 (a converted model names the
-standard-library elements it references), #749 (`Convert` takes the id form), #750 (a connector
-end naming a definition's feature by qualified name refused), #751 (the parser's warnings over
-gRPC), #755 (the WebAssembly gate run single-threaded) and #756 (`MeasurementReferences::one` as
-the identity of the quantity arithmetic). Every status below is what `v0.9.1` carries unless the
-text names one of those; the pull requests open against `develop`, and the work being implemented
-that has no pull request yet, are named where they touch a roadmap item.
+Baseline: `v0.11.0` (`ddf4df000`, `Merge pull request #1435 from Open-MBEE/release/0.11.0`,
+2026-10-23), verified locally with Go 1.25.11. Before it `v0.10.1` (`1c45b6e17`, `Merge pull
+request #1185 from Open-MBEE/hotfix/0.10.1-wasm-budget`, 2026-10-15 — the hotfix pull request
+#1143, whose `CHANGELOG.md` section is dated 2026-10-14, and the WebAssembly size-budget hotfix
+that followed it to `main`), `v0.10.0` (`08ef39784`, `Merge pull request #1083 from
+Open-MBEE/hotfix/0.10.0-tag-build-version`, 2026-10-11 — the release pull request #1007 of
+2026-10-08 and the six hotfixes merged to `main` after it, #1013, #1024, #1031, #1064, #1065 and
+#1080, the last stamping the tag build's version), `v0.9.2` (`0a55514af`, #924, 2026-10-05), then
+`v0.9.1` (`b9de3b070`, 2026-09-30), `v0.9.0` (`ee54ea03e`, 2026-09-24), `v0.8.1` (`e0ea34616`,
+2026-09-16), `v0.8.0` (`238aed650`, 2026-09-13) and `v0.7.0` (`e0fbfea5b`, 2026-09-09). Counting
+the `Merge pull request` commits each tag reaches and its predecessor does not, `v0.9.2` carried 5
+pull requests merged after `v0.9.1`, `v0.10.0` 270 more, `v0.10.1` 20 more and `v0.11.0` 342
+more, so every item the previous refresh called *landed, unreleased* is now in a tag. The
+integration branch `develop` (`76c98694c`, #1483, 2026-10-24) carries forty pull requests past
+`v0.11.0` (`git log --merges --first-parent v0.11.0..develop`) and nothing else is counted ahead
+of it: the tag's pin and fold-back (#1447, #1448), Markdown and AsciiDoc prose bodies in
+documents (#1451, #1453, #1454), workspace imports (#1441), running occurrences as members
+(#1464) and loop-body performances (#1481), the diagram panel's webview fixes (#1458, #1480) and
+its skill's expectations (#1483), the release announcement to Slack (#1463, #1482), the Maven
+Central publish wait (#1449), the `opensysml-mcp` npm alias (#1450), the race-suite shard split
+(#1440) and the fixes, records and tests the tracks name below. Every status below is what
+`v0.11.0` carries unless the text names one of those; the pull requests open against `develop`
+are named where they touch a roadmap item.
 Read `AGENTS.md` first; it governs everything below.
 
 > **Labels.** This is an engineering record. The RDF items keep the `D` numbers (`D1`, `D2`,
@@ -41,18 +47,24 @@ Read `AGENTS.md` first; it governs everything below.
 > pull request yet. *Not started* means exactly that. A status is taken from the pull request
 > itself, never from a branch name or a commit message.
 
-`v0.9.1`'s release carries `sysml`, `sysml-lsp` and `sysml-grpc` for five platforms, the
-Homebrew bundles, the cosign-signed manifest, the SLSA provenance attestation over the manifest's
+`v0.11.0`'s release carries `sysml`, `sysml-lsp`, `sysml-grpc`, `sysml-mcp` and
+`sysml-jupyter-kernel` for five platforms (Linux and macOS on amd64 and arm64, Windows on amd64),
+the `opensysml-<platform>` bundles, the WebAssembly modules (`sysml-wasm.wasm` and its gzip, the
+production `sysml-prod.wasm.gz`, `wasm_exec.js`), the Python client's wheel and source
+distribution, the Jupyter kernel's wheels for the same five platforms and its source
+distribution, the cosign-signed manifest, the SLSA provenance attestation over the manifest's
 artifacts (`provenance.intoto.json` and its bundle, #606) and the Windows installer
-`opensysml-0.9.1-windows-amd64.msi` (R4), as `v0.9.0` carried the same set less the provenance.
-Since #338 the Python client is published from the core `v*` tag at the core version, so PyPI
-serves `opensysml` 0.9.0 and 0.9.1 beside the older client-tagged 0.3.1–0.5.0; and since #735
-and #739 the same tag publishes the Node and Rust clients, so npm serves `@openmbee/opensysml`
-0.9.1 and crates.io `opensysml` 0.9.1, each the package's first published version (R2).
-`CHANGELOG.md`'s **0.9.1** and **0.9.0** sections are the tags' content, and `changes/unreleased/`
-on `develop` holds the fragments of the nine pull requests merged after `v0.9.1` alone.
+`opensysml-0.11.0-windows-amd64.msi` (R4) — the GitHub release's asset list, read on
+2026-10-25. The same tag publishes the clients (R2): PyPI serves `opensysml` and
+`jupyter-opensysml-kernel` 0.11.0, npm `@openmbee/opensysml` 0.11.0 and crates.io `opensysml`
+0.11.0 (each registry's index, read 2026-10-25); Maven Central's `org.openmbee:opensysml` is the
+one registry this refresh could not read (its search API answered nothing and its repository
+rate-limited the query), so R2 carries that check forward. `CHANGELOG.md`'s **0.11.0**,
+**0.10.1**, **0.10.0** and **0.9.2** sections are the tags' content, and `changes/unreleased/` on
+`develop` holds the fragments of the forty pull requests merged after `v0.11.0` alone.
 Between releases `.github/workflows/nightly.yml` publishes the newest green `develop` as the
-prerelease `nightly` (#284), with the VS Code extension as a `.vsix` beside it (#371), so an item
+prerelease `nightly` (#284), with the VS Code extension as a `.vsix` beside it (#371, versioned as
+a development build of the release it leads to since #1290), so an item
 landed after the tag is unreleased but not unbuilt.
 Since `v0.7.0` the repository works git-flow: `develop` is the integration branch, `main`
 receives only `release/x.y.z` and `hotfix/` pull requests (#151), and the roadmap's baseline is
@@ -145,27 +157,27 @@ of the pilot corpora fails `tools/cmd/pilot-diff`, `tools/cmd/pilot-xpect` and t
 `TestPilotCorpora` gate with a provenance message naming the drift; that is the gate working, not
 a regression — re-fetch before re-recording anything.
 
-| Gate | Count at `develop` `687d6f501` (2026-10-12, Go 1.25.11), one day past `v0.10.0` (`08ef39784`, 2026-10-11); the `v0.9.1` figure — the previous baseline — in brackets where it moved |
+| Gate | Count at `develop` `76c98694c` (2026-10-24, Go 1.25.11), one day past `v0.11.0` (`ddf4df000`, 2026-10-23); the previous table's figure — `develop` `687d6f501`, 2026-10-12, one day past `v0.10.0` — in brackets where it moved |
 |---|---|
 | OMG training corpus | **100/100 clean** — asserted, not ratcheted: no file reports a semantic error |
-| OMG pilot corpora (ratchet) | 213 files; 16 report a diagnostic [9] — 3 of 58 KerML examples, 11 of 99 SysML examples, 2 of 56 validation files — each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
-| Stdlib parser conformance | 110/110 clean — 94 vendored OMG files and 16 non-normative OpenSysML extensions [107/107: 94 and 13] |
-| Execution conformance cases | 1569, all run and pass, none skipped [1224] |
+| OMG pilot corpora (ratchet) | 213 files; 16 report a diagnostic — 3 of 58 KerML examples, 11 of 99 SysML examples, 2 of 56 validation files — each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
+| Stdlib parser conformance | 110/110 clean — 94 vendored OMG files and 16 non-normative OpenSysML extensions |
+| Execution conformance cases | 1790, all run and pass, none skipped [1569] |
 | Known execution-conformance failures | **0** — `known_failures.txt` holds no case |
-| Cases admitting several outcomes | 146 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [92] |
-| Trace partial orders | 16 `.trace.order` files, each a set of `a < b` lines the recorded trace must satisfy [8] |
-| Golden execution traces | 810 `.trace.golden` files: 574 under the default schedule and 236 per-policy goldens (`<case>.declared`, `<case>.seed-<n>`) [554: 388 and 166] |
-| Runtime robustness cases | 1208 first-level subtests across the `TestRuntimeRobustness*` functions [794] |
-| gRPC conformance fixtures / robustness cases | 38 / 13 (`TestGRPCConformance`, first-level subtests across the `TestGRPCRobustness*` functions) [33 / 13] |
-| Golden AST fixtures | 259 (`TestGolden`: 231 SysML, 28 KerML) [227: 199 and 28] |
-| Negative parser subtests | 307 first-level subtests of `TestNegative` (463 across the `TestNegative*` functions, 521 across every `*Negative*` parser test) [277: 432 and 490] |
-| Rejection oracle | 313 self-authored invalid models: 300 both reject by default and 304 when we are asked strictly, 4 the pilot alone by default and none strictly, 9 ours alone [310: 297 and 301] (the control-node rules the pilot leaves unimplemented and a non-Boolean succession guard) |
-| Validation census | 164 of 217 named constraints reported (155 faithful, 9 approximate), 0 not implemented, 1 deliberate, 52 unknown [158 faithful and 6 approximate] |
-| PSSM referee (advisory) | 103 tests: 56 `pass`, 6 `fail`, 34 `not-expressible`, 7 `differs-by-design` [60, 12, 30 and 1] |
-| Top-level `Test` functions | 12,131 across the module, 1,840 of them in `internal/exec/runtime` and 455 in `internal/frontend/lsp` [10,698; 1,737 and 424] |
+| Cases admitting several outcomes | 164 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [146] |
+| Trace partial orders | 15 `.trace.order` files, each a set of `a < b` lines the recorded trace must satisfy [16: the order over `action_invoked_node_body_writes_output` left with the `0.10.1` back-merge, #1186] |
+| Golden execution traces | 897 `.trace.golden` files: 627 under the default schedule and 270 per-policy goldens (`<case>.declared`, `<case>.seed-<n>`) [810: 574 and 236] |
+| Runtime robustness cases | 1440 first-level subtests across the `TestRuntimeRobustness*` functions [1208] |
+| gRPC conformance fixtures / robustness cases | 79 / 66 (`TestGRPCConformance`, first-level subtests across the `TestGRPCRobustness*` functions) [38 / 13] |
+| Golden AST fixtures | 286 (`TestGolden`: 252 SysML, 34 KerML) [259: 231 and 28] |
+| Negative parser subtests | 352 first-level subtests of `TestNegative` (515 across the `TestNegative*` functions, 580 across every `*Negative*` parser test) [307: 463 and 521] |
+| Rejection oracle | 348 self-authored invalid models: 331 both reject by default and 336 when we are asked strictly, none the pilot alone, 12 ours alone [313: 300 and 304, 4 and 9] (the control-node rules the pilot leaves unimplemented, a non-Boolean succession guard and the extensions strict mode refuses) |
+| Validation census | 164 of 217 named constraints reported (157 faithful, 7 approximate), 0 not implemented, 4 deliberate, 0 known failure, 49 unknown [155 faithful and 9 approximate, 1 deliberate, 52 unknown] |
+| PSSM referee (advisory) | 103 tests: 56 `pass`, 6 `fail`, 34 `not-expressible`, 7 `differs-by-design` |
+| Top-level `Test` functions | 13,595 across the module, 2,013 of them in `internal/exec/runtime` and `internal/exec/sweep` and 497 in `internal/frontend/lsp` [12,131; 1,840 in the runtime package alone and 455] |
 | fUML referee (advisory) | 55 activities: 23 `pass`, 0 `fail`, 28 `not-expressible`, 4 `differs-by-design` |
-| RDF corpus round trip | 365 models: 358 stable, 7 whitespace-only, none graph-diff or refused [358: 351 stable] |
-| API element form corpus round trip | 365 models: 356 stable, 7 whitespace-only, 2 graph-diff (a `.1` real respelled `0.1`), none refused [358: 349 stable] |
+| RDF corpus round trip | 876 models: 830 stable, 7 whitespace-only, 1 unwritable, 38 refused at the parser, none graph-diff [365: 358 stable, 7 whitespace-only, none refused] — the 511 specification examples joined the roots in #1302, and the refusals and the unwritable file are all theirs (`examples/spec-examples/`, 9 KerML and 30 SysML) |
+| API element form corpus round trip | 876 models: 830 stable, 7 whitespace-only, 1 unwritable, 38 refused, none graph-diff [365: 356 stable, 7 whitespace-only, 2 graph-diff] — the two graph-diff cases (a `.1` real respelled `0.1`) closed with the layered derived properties of #1232 |
 
 The pilot differential, the Xpect oracle, the scope oracle and the rejection oracle are the
 external conformance statement, and their figures are generated into `README.md` by `make
@@ -178,10 +190,14 @@ since #291 and #345 the site build counts them into the compliance map's test in
 (`scripts/mkdocs_suite_figures.py`), the committed pages name what is counted without a figure,
 and a branch adding a test rewrites no shared line.
 
-The fourteen commits between the `v0.10.0` tag and the `develop` head named above touch CI
-configuration, the release digest pins and the client packaging tests only — none of them is an
-input to a gate in the table, so every row reads the same at the tag. The PSSM movement since the
-previous baseline (three `fail` rows now `pass`, two are re-adjudicated `differs-by-design`) is
+The forty pull requests between the `v0.11.0` tag and the `develop` head named above move eight
+rows, and only upward: at the tag (`go run -C tools ./cmd/doc-counts -site-blocks` in a checkout of
+`ddf4df000`) the execution conformance cases are 1758, the golden AST fixtures 285 (251 SysML),
+the gRPC conformance fixtures 77, the runtime robustness cases 1397, the `Test` functions 13,440
+(2,000 runtime, 493 LSP) and the rejection oracle 344 cases with 332 both-reject strictly; every
+other row — the corpora, the census, the referees, the traces, the outcomes, both round trips —
+reads the same at the tag. The PSSM figures have not moved since the previous table; the
+movement before it (three `fail` rows now `pass`, two re-adjudicated `differs-by-design`) is
 recorded in [pssm-referee.md](pssm-referee.md).
 
 Statement coverage is no longer tabulated here. The previous baseline's table counted only each
@@ -193,20 +209,30 @@ the SonarCloud scan: it builds the `sysml`, `sysml-grpc` and `sysml-lsp` binarie
 and counts every suite the checks run (#142).
 
 The corpus gate needs the corpus (`./scripts/download-training-examples.sh`) and never
-re-baseline `internal/workspace/model/testdata/training_examples_expected.txt`: adjudicate each
+re-baseline `tests/corpus/testdata/training_examples_expected.txt`: adjudicate each
 drifted file and record the verdict in `docs/project/training-examples.md`.
 
 A tag cannot be cut over a corpus regression. Pull requests run one CI, the GitHub Actions
-workflow `.github/workflows/pr.yml`, which downloads the corpora (cached on the download scripts)
-and runs the suite with `OPENSYSML_REQUIRE_TRAINING_CORPUS=1`, `OPENSYSML_REQUIRE_PILOT_CORPORA=1`
-and `OPENSYSML_REQUIRE_SMT=1` before a merge, with the protobuf wire-compatibility check against
-the branch the pull request merges into (#108). `.circleci/config.yml` runs on `main` and on `v*`
-tags only, as four parallel jobs since #132 — `Go static checks`, `Go race tests`, `Go coverage
-profile` and `Go gates and binaries` — each downloading the corpora it needs and requiring them
-the same way; the client tests, the SonarCloud scan and every release workflow wait on all four.
-Its wire-compatibility baseline is the merge's own first parent (`HEAD^1`) on `main` and the
-previous release tag on a tag build, so the verdict cannot change with what merges afterwards
-(#132).
+workflow `.github/workflows/pr.yml`. Its `changes` job decides the tier — *quick* for a draft, *full*
+for a ready pull request or one labelled `ci:full` — and which of the client, editor and
+documentation jobs the diff touches; the Go suite runs sharded (`runtime`, `model export graph`
+and `rest migrate cli codegen` in the quick tier; `runtime`, `runtime-corpus`, `model`, `export`,
+`graph`, `codegen`, `rest`, `migrate` and `cli` in the full tier, #1440) with every corpus
+required — `OPENSYSML_REQUIRE_TRAINING_CORPUS`, `_PILOT_CORPORA`, `_SPEC_EXAMPLES`, `_PSSM_SUITE`,
+`_SYSML_V1TOV2`, `_FUML_SUITE`, `_PILOT_LIBRARY_XMI`, `_SMT`, `_WASM` and `_REFERENCE_FMUS` set to
+`1`, the LLM-benchmark and PDF toolchains required where their jobs run — beside the
+`static-and-integrity`, `wasm-gate`, `xpect-oracle`, `build` and `conformance-pkg` jobs on every
+Go change, the `race-coverage` and `pdf-toolchain` jobs in the full tier only, and the
+`build-and-test` aggregate every job reports to; the protobuf wire-compatibility check runs
+against the branch the pull request merges into (#108). `.circleci/config.yml` runs on `main`,
+on `develop` and on `v*` tags: `go-static`, `go-race-test` (sharded), `go-coverage` and its
+merge, `go-gates` and the SonarCloud `scan`, each downloading the corpora it needs and requiring
+them the same way, then the client, editor and plugin tests, the package builds and — on a tag
+or under the `release_rehearsal` parameter (#743, #1443) — the publish jobs for PyPI, npm, Maven
+Central, crates.io, the container image, the GitHub release, the Slack announcement (#1463) and
+the release digest pins. Its wire-compatibility baseline is the merge's own first parent
+(`HEAD^1`) on a branch and the previous release tag on a tag build, so the verdict cannot change
+with what merges afterwards (#132).
 
 ---
 
