@@ -1331,3 +1331,25 @@ func TestRenderContinuationCaptionStaysWithItsTableWithInstalledEngines(t *testi
 		})
 	}
 }
+
+// TestRenderWholeBodyNumberingWithInstalledEngines numbers a report whose
+// outline is one Markdown body: the markup-born sections take the same
+// hierarchical numbers, title page and contents entries as the part-born one.
+func TestRenderWholeBodyNumberingWithInstalledEngines(t *testing.T) {
+	document := fixtureDocument(t, filepath.Join(docrenderTestdata, "whole_report.sysml"), "Whole::WholeReport")
+	for _, engine := range Engines() {
+		t.Run(engine, func(t *testing.T) {
+			_, text := renderInstalled(t, document, engine, Options{TitlePage: true, TOC: true, NumberSections: true})
+			for _, want := range []string{"1 Overview", "1.1 Mass budget", "1.2 Mass budget", "1.2.1 Margins", "2 Design", "3 Appendix", "3.1 Derivation"} {
+				if strings.Count(text, want) < 2 {
+					t.Errorf("PDF text does not carry %q in both the contents and the body:\n%s", want, text)
+				}
+			}
+			for _, want := range []string{"A part-born section after the body.", "Nested under the appendix; back to"} {
+				if !strings.Contains(text, want) {
+					t.Errorf("PDF text lacks %q:\n%s", want, text)
+				}
+			}
+		})
+	}
+}

@@ -156,11 +156,52 @@ func TestMarkdownLists(t *testing.T) {
 	}
 }
 
+// ATX and setext headings are heading blocks at their level, their text
+// flattened to a title and their span the heading's own lines.
+func TestMarkdownHeadings(t *testing.T) {
+	body := "Intro.\n\n# Top *one*\n\nText.\n\n## The `sysml` tool ##\n\nSetext\n======\n\nLower\n-----\n\n###### Six"
+	p, _ := For("markdown")
+	blocks, err := p.Parse(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	type heading struct {
+		level int
+		title string
+		span  string
+	}
+	var got []heading
+	for _, block := range blocks {
+		if block.Kind == BlockHeading {
+			got = append(got, heading{block.Level, block.Title, body[block.Span.Start:block.Span.Stop]})
+		}
+	}
+	want := []heading{
+		{1, "Top one", "# Top *one*"},
+		{2, "The sysml tool", "## The `sysml` tool ##"},
+		{1, "Setext", "Setext\n======"},
+		{2, "Lower", "Lower\n-----"},
+		{6, "Six", "###### Six"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("headings:\n got %+v\nwant %+v", got, want)
+	}
+	if len(blocks) != 7 || blocks[0].Kind != BlockParagraph || blocks[2].Kind != BlockParagraph {
+		t.Errorf("blocks around the headings: %+v", blocks)
+	}
+	for _, block := range got {
+		if block.title != strings.TrimSpace(block.title) {
+			t.Errorf("title %q is not trimmed", block.title)
+		}
+	}
+}
+
 // Every construct no content block carries is refused by name and body line.
 func TestMarkdownRefusedConstructs(t *testing.T) {
 	for body, want := range map[string]string{
-		"para\n\n# Title":                      "level 1 heading at body line 3",
-		"Title\n=====":                         "level 1 heading at body line 1",
+		"# [x](https://a.io)":                  "link in a heading at body line 1",
+		"## see [](sysml:x)":                   "reference in a heading at body line 1",
+		"Sum $a$\n---":                         "formula in a heading at body line 1",
 		"> quoted":                             "block quote at body line 1",
 		"    code":                             "code block at body line 1",
 		"```\ncode\n```":                       "fenced code block at body line 1",

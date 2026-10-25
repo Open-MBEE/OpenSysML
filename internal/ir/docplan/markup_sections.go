@@ -1,0 +1,392 @@
+package docplan
+
+import (
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+	"unicode"
+
+	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan/markup"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+)
+
+// markupSection is a section a heading of a markup body opens. It is no model
+// element: the planner labels it by a name unique within the document.
+type markupSection struct {
+	name  string
+	title string
+	path  []string
+}
+
+// markupOutline is what one document's markup bodies contribute: the name
+// each body's headings take, in order, and the sections by name.
+type markupOutline struct {
+	names    map[*symbols.Symbol][]string
+	sections map[string]markupSection
+}
+
+// parsedBody is a textual representation's body parsed once: its language,
+// text, offsets into the source and blocks, or the planning error instead.
+type parsedBody struct {
+	language markup.Parser
+	body     string
+	offsets  []int
+	blocks   []markup.Block
+	err      *Error
+}
+
+// at is the source origin of a span of the body.
+func (p *parsedBody) at(rep *symbols.Symbol, span markup.Span) symbols.Origin {
+	decl := rep.Decl.(*ast.TextualRepresentation)
+	start, stop := p.offsets[span.Start], p.offsets[span.Stop]
+	return symbols.OriginAt(rep.DocName, source.Span{Offset: decl.BodySpan.Offset + start, Len: stop - start})
+}
+
+// line is the 1-based body line a span starts on.
+func (p *parsedBody) line(span markup.Span) int {
+	return 1 + strings.Count(p.body[:span.Start], "\n")
+}
+
+// parseMarkupBody parses the body of a textual representation owned by a
+// document, section or paragraph, once per representation.
+func (c *compiler) parseMarkupBody(owner, rep *symbols.Symbol) *parsedBody {
+	if parsed, ok := c.parsed[rep]; ok {
+		return parsed
+	}
+	parsed := c.parseBody(owner, rep)
+	c.parsed[rep] = parsed
+	return parsed
+}
+
+func (c *compiler) parseBody(owner, rep *symbols.Symbol) *parsedBody {
+	fail := func(kind ErrorKind, err error) *parsedBody {
+		return &parsedBody{err: &Error{Kind: kind, Document: c.document, Content: symbols.FQNOf(owner), Origin: rep.Origin(), Err: err}}
+	}
+	decl, ok := rep.Decl.(*ast.TextualRepresentation)
+	if !ok {
+		return fail(ErrorInvalidContext, errors.New("textual representation symbol without its declaration"))
+	}
+	declared := source.StringValue(decl.Language)
+	language, ok := markup.For(declared)
+	if !ok {
+		return &parsedBody{err: &Error{
+			Kind:     ErrorUnsupportedMarkupLanguage,
+			Document: c.document,
+			Content:  symbols.FQNOf(owner),
+			Actual:   declared,
+			Expected: markup.Languages(),
+			Origin:   rep.Origin(),
+		}}
+	}
+	lookup := c.model.SourceText()
+	if lookup == nil {
+		return fail(ErrorInvalidContext, errors.New("the semantic model has no source text to read the body from"))
+	}
+	body, offsets := source.CommentBodyOffsets(lookup(rep.DocName, decl.BodySpan))
+	parsed := &parsedBody{language: language, body: body, offsets: offsets}
+	blocks, err := language.Parse(body)
+	if err == nil {
+		parsed.blocks = blocks
+		return parsed
+	}
+	var tool *markup.ToolError
+	if errors.As(err, &tool) {
+		kind := ErrorMarkupToolFailed
+		if tool.Missing {
+			kind = ErrorMarkupToolMissing
+		}
+		parsed.err = &Error{Kind: kind, Document: c.document, Content: symbols.FQNOf(owner), Parameter: language.Language(), Origin: rep.Origin(), Err: tool}
+		return parsed
+	}
+	var unsupported *markup.UnsupportedConstructError
+	if errors.As(err, &unsupported) {
+		parsed.err = &Error{
+			Kind:      ErrorUnsupportedMarkupConstruct,
+			Document:  c.document,
+			Content:   symbols.FQNOf(owner),
+			Parameter: language.Language(),
+			Actual:    unsupported.Construct,
+			Line:      unsupported.Line,
+			Origin:    parsed.at(rep, unsupported.Span),
+		}
+		return parsed
+	}
+	return fail(ErrorInvalidContext, err)
+}
+
+// outlineOf is the markup outline of a document definition, scanned once.
+func (c *compiler) outlineOf(doc *symbols.Symbol) *markupOutline {
+	if outline, ok := c.outlines[doc]; ok {
+		return outline
+	}
+	outline := &markupOutline{names: make(map[*symbols.Symbol][]string), sections: make(map[string]markupSection)}
+	c.outlines[doc] = outline
+	used := make(map[string]bool)
+	c.collectContentNames(doc, used)
+	c.scanBodies(doc, nil, outline, used)
+	return outline
+}
+
+// collectContentNames records the effective name of every content block of a
+// document, at every depth, so no derived section name shadows one.
+func (c *compiler) collectContentNames(owner *symbols.Symbol, used map[string]bool) {
+	for _, member := range c.effectiveMembers(owner) {
+		if member.Kind != symbols.SymbolPartUsage || !c.isContent(member) {
+			continue
+		}
+		if name := c.effectiveName(member); name != "" {
+			used[name] = true
+		}
+		c.collectContentNames(member, used)
+	}
+}
+
+// scanBodies names the headings of every document and section body under
+// owner in declaration order: the explicit id, else a slug of the title, each
+// made unique within the document, with the named path the section takes.
+func (c *compiler) scanBodies(owner *symbols.Symbol, path []string, outline *markupOutline, used map[string]bool) {
+	for _, member := range c.effectiveMembers(owner) {
+		if member.Kind == symbols.SymbolPartUsage && c.isContent(member) {
+			if c.model.Conforms(member, c.bases.section) {
+				c.scanBodies(member, append(path[:len(path):len(path)], c.effectiveName(member)), outline, used)
+			}
+			continue
+		}
+		if member.Kind != symbols.SymbolTextualRepresentation || c.index.Library(member) {
+			continue
+		}
+		parsed := c.parseMarkupBody(owner, member)
+		if parsed.err != nil {
+			continue
+		}
+		var open []struct {
+			level int
+			name  string
+		}
+		for _, block := range parsed.blocks {
+			if block.Kind != markup.BlockHeading {
+				continue
+			}
+			name := uniqueSectionName(sectionSlug(block.ID, block.Title), used)
+			used[name] = true
+			outline.names[member] = append(outline.names[member], name)
+			for len(open) > 0 && open[len(open)-1].level >= block.Level {
+				open = open[:len(open)-1]
+			}
+			full := append([]string(nil), path...)
+			for _, section := range open {
+				full = append(full, section.name)
+			}
+			full = append(full, name)
+			open = append(open, struct {
+				level int
+				name  string
+			}{block.Level, name})
+			outline.sections[name] = markupSection{name: name, title: block.Title, path: full}
+		}
+	}
+}
+
+// sectionSlug derives a section's name from its explicit id, else its title:
+// lower-cased, every run of characters that are neither letters nor digits
+// one underscore, and never starting with a digit, so the name is a SysML
+// name a `sysml:` destination can spell.
+func sectionSlug(id, title string) string {
+	text := id
+	if text == "" {
+		text = title
+	}
+	var b strings.Builder
+	pending := false
+	for _, r := range text {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			if pending && b.Len() > 0 {
+				b.WriteByte('_')
+			}
+			pending = false
+			b.WriteRune(unicode.ToLower(r))
+			continue
+		}
+		pending = true
+	}
+	slug := b.String()
+	if slug == "" {
+		return "section"
+	}
+	if first := slug[0]; first >= '0' && first <= '9' {
+		return "_" + slug
+	}
+	return slug
+}
+
+// uniqueSectionName suffixes a name taken earlier in the document with the
+// first free ordinal from 2: `overview`, `overview_2`, `overview_3`.
+func uniqueSectionName(name string, used map[string]bool) string {
+	if !used[name] {
+		return name
+	}
+	for ordinal := 2; ; ordinal++ {
+		candidate := name + "_" + strconv.Itoa(ordinal)
+		if !used[candidate] {
+			return candidate
+		}
+	}
+}
+
+// markupNode is one parsed block mapped onto content, a heading still to be
+// nested into the section it opens.
+type markupNode struct {
+	heading *markup.Block
+	content Content
+}
+
+// nestMarkupSections lays a body's blocks out as the document's content: each
+// heading opens a section at the depth its level maps to, below the owner;
+// the blocks after it are its children until a heading of its level or above.
+func (c *compiler) nestMarkupSections(owner, rep *symbols.Symbol, parsed *parsedBody, nodes []markupNode) ([]Content, error) {
+	base := len(c.stack) + 1
+	names := c.outlineOf(c.entry).names[rep]
+	type openSection struct {
+		depth int
+		node  *Content
+	}
+	var (
+		content []Content
+		open    []openSection
+		first   = 0
+		named   = 0
+	)
+	place := func(node Content) {
+		if len(open) == 0 {
+			content = append(content, node)
+			return
+		}
+		top := open[len(open)-1].node
+		top.children = append(top.children, node)
+	}
+	closeTo := func(depth int) {
+		for len(open) > 0 && open[len(open)-1].depth >= depth {
+			closing := open[len(open)-1]
+			open = open[:len(open)-1]
+			place(*closing.node)
+		}
+	}
+	for _, node := range nodes {
+		if node.heading == nil {
+			place(node.content)
+			continue
+		}
+		heading := node.heading
+		if first == 0 {
+			first = heading.Level
+		}
+		depth := base + heading.Level - first
+		previous := base - 1
+		if len(open) > 0 {
+			previous = open[len(open)-1].depth
+		}
+		if heading.Level < first || depth > previous+1 {
+			expected := fmt.Sprintf("a level between %d and %d", first, first+previous+1-base)
+			return nil, &Error{
+				Kind:      ErrorMarkupHeadingLevel,
+				Document:  c.document,
+				Content:   symbols.FQNOf(owner),
+				Parameter: parsed.language.Language(),
+				Actual:    fmt.Sprintf("level %d heading %q", heading.Level, heading.Title),
+				Expected:  expected,
+				Line:      parsed.line(heading.Span),
+				Origin:    parsed.at(rep, heading.Span),
+			}
+		}
+		closeTo(depth)
+		section := &Content{kind: ContentSection, title: heading.Title, origin: node.content.origin}
+		if named < len(names) {
+			section.name = names[named]
+		}
+		named++
+		open = append(open, openSection{depth: depth, node: section})
+	}
+	closeTo(base)
+	return content, nil
+}
+
+// markupSectionRef resolves a reference destination no model element answers
+// to as a markup-born section: a bare name in this document, or a name
+// qualified by a document definition or document usage, in that document.
+func (c *compiler) markupSectionRef(scope *symbols.Scope, destination string, value ast.Node) (markupSection, *symbols.Symbol, bool) {
+	name, ok := refQualifiedName(value)
+	if !ok {
+		section, found := c.outlineOf(c.entry).sections[sectionSlug(destination, "")]
+		return section, nil, found
+	}
+	parts := name.Parts
+	if len(parts) == 1 && !name.Global {
+		section, found := c.outlineOf(c.entry).sections[parts[0].Text]
+		return section, nil, found
+	}
+	prefix := &ast.QualifiedName{Global: name.Global, Parts: parts[:len(parts)-1]}
+	resolved, ok := c.resolver.ResolveQualified(scope, prefix)
+	if !ok || resolved == nil {
+		return markupSection{}, nil, false
+	}
+	if canonical, ok := c.resolver.ResolveAliasTarget(resolved); ok {
+		resolved = canonical
+	}
+	doc := c.documentOf(resolved)
+	if doc == nil {
+		return markupSection{}, nil, false
+	}
+	section, found := c.outlineOf(doc).sections[parts[len(parts)-1].Text]
+	if doc == c.entry {
+		doc = nil
+	}
+	return section, doc, found
+}
+
+// documentOf is the document definition a symbol stands for: the definition
+// itself, or the one definition typing a document usage.
+func (c *compiler) documentOf(sym *symbols.Symbol) *symbols.Symbol {
+	if sym.Kind == symbols.SymbolPartDef {
+		if c.model.Conforms(sym, c.bases.document) {
+			return sym
+		}
+		return nil
+	}
+	if _, usage := sym.Decl.(*ast.Usage); !usage {
+		return nil
+	}
+	if defs := c.documentTypesOf(sym); len(defs) == 1 {
+		return defs[0]
+	}
+	return nil
+}
+
+// refQualifiedName is the qualified name a target expression spells, if any.
+func refQualifiedName(value ast.Node) (*ast.QualifiedName, bool) {
+	if reference, ok := value.(*ast.FeatureReference); ok {
+		value = reference.Name
+	}
+	name, ok := value.(*ast.QualifiedName)
+	return name, ok && name != nil
+}
+
+// markupSectionTarget is the reference target of a run that names a
+// markup-born section, in this document or another.
+func (c *compiler) markupSectionTarget(run *Run) (refTarget, bool) {
+	doc := c.entry
+	if run.refNameDoc != nil {
+		doc = run.refNameDoc
+	}
+	section, ok := c.outlineOf(doc).sections[run.refName]
+	if !ok {
+		return refTarget{}, false
+	}
+	target := refTarget{path: section.path, label: section.title}
+	if run.refNameDoc != nil {
+		target.document = symbols.FQNOf(run.refNameDoc)
+	}
+	return target, true
+}
