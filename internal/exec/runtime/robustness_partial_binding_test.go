@@ -220,8 +220,9 @@ func testWholeBindingOfUnlikeTypesIsATypedError(t *testing.T) {
 	}
 }
 
-// A stated link count is a count of shared values: two empty ends share none under
-// `binding [1]`; `binding [0]` and an end reaching no object state nothing about the object.
+// A stated link count is a count of shared values, a repeated value counted as often as both
+// ends hold it: two empty ends share none under `binding [1]`, `(1, 1, 2)` and `(1, 1, 3)` share
+// two, `(1, 1, 2)` and `(1, 3, 4)` one; `binding [0]` and an end reaching no object state nothing.
 func testPartialBindingVerdictEdges(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<partial-binding-verdict-edges>", parseAndBuild(t, `package P {
 		private import ScalarValues::*;
@@ -233,6 +234,11 @@ func testPartialBindingVerdictEdges(t *testing.T) {
 			attribute z : Integer = 1;
 			attribute w : Integer = 2;
 			binding [0] bind z = w;
+			attribute twice : Integer [3] nonunique = (1, 1, 2);
+			attribute again : Integer [3] nonunique = (1, 1, 3);
+			binding [2] bind [0..*] twice = [0..*] again;
+			attribute once : Integer [3] nonunique = (1, 3, 4);
+			binding [2] bind [0..*] twice = [0..*] once;
 			part groups : G [2];
 			part optional : G [0..1];
 			binding [1] bind [0..*] groups.item = [0..*] optional.item;
@@ -247,7 +253,9 @@ func testPartialBindingVerdictEdges(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 	want := map[string]ValidationStatus{
-		"binding [1] bind [0..1] a = [0..1] b": ValidationViolated,
+		"binding [1] bind [0..1] a = [0..1] b":         ValidationViolated,
+		"binding [2] bind [0..*] twice = [0..*] again": ValidationHolds,
+		"binding [2] bind [0..*] twice = [0..*] once":  ValidationViolated,
 	}
 	if len(report.Verdicts) != len(want) {
 		t.Fatalf("%d verdict(s), want %d: %+v", len(report.Verdicts), len(want), report.Verdicts)

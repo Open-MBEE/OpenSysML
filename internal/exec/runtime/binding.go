@@ -378,11 +378,8 @@ func (ctx *Context) constrainingBinding(inst *Instance, binding lower.Binding) (
 	return false, nil
 }
 
-// CheckBindingOn checks a binding connector as the constraint it states about inst: its ends
-// identify the same things (KerML 1.0 §7.4.6, §8.3.4.5.2). A binding declaring n links holds
-// when the ends share at least n values — the identity of an object, the equality of a data
-// value; one declaring no link count holds when the ends are equal or share one. An end the
-// model leaves undetermined decides nothing.
+// CheckBindingOn checks a binding as the constraint it states about inst (KerML 1.0 §7.4.6, §8.3.4.5.2):
+// its ends share as many values as it declares links — equal or sharing one when it declares none.
 func (ctx *Context) CheckBindingOn(binding lower.Binding, inst *Instance) (CheckResult, error) {
 	defer ctx.beginRun()()
 	result := CheckResult{Subject: inst, SubjectRoot: inst}
@@ -427,17 +424,23 @@ func (ctx *Context) CheckBindingOn(binding lower.Binding, inst *Instance) (Check
 	}
 }
 
-// sharedValues counts the distinct values of a that b also holds.
+// sharedValues counts the values a and b hold in common, a repeated value as often as both hold it.
 func (ctx *Context) sharedValues(a, b Value) int64 {
 	var shared int64
 	others := elementsOf(b)
-	seen := make([]Value, 0, len(others))
+	used := make([]bool, len(others))
 	for _, elem := range elementsOf(a) {
-		if slices.ContainsFunc(seen, func(s Value) bool { return ctx.equalValues(s, elem) }) {
-			continue
+		at := slices.IndexFunc(others, func(o Value) bool { return ctx.equalValues(o, elem) })
+		for at >= 0 && used[at] {
+			next := slices.IndexFunc(others[at+1:], func(o Value) bool { return ctx.equalValues(o, elem) })
+			if next < 0 {
+				at = -1
+				break
+			}
+			at += 1 + next
 		}
-		seen = append(seen, elem)
-		if slices.ContainsFunc(others, func(o Value) bool { return ctx.equalValues(o, elem) }) {
+		if at >= 0 {
+			used[at] = true
 			shared++
 		}
 	}
