@@ -133,18 +133,18 @@ with units, and its objective is a requirement. Arguments in parentheses rebind 
 $ sysml -quiet -analysis DeltaVBudget::saturnIBAscent examples/runtime-showcase/delta-v-budget.sysml
 ✓ package DeltaVBudget
 ✓ DeltaVBudget::saturnIBAscent
-  stage1DeltaV = 3037.6966629706967 [SI::'m/s']
-  stage2DeltaV = 6432.955324716369 [SI::'m/s']
-  margin = 70.65198768706614 [SI::'m/s']
+  stage1DeltaV = [3037.6966629706967 [SI::'m/s']]
+  stage2DeltaV = [6432.955324716369 [SI::'m/s']]
+  margin = [70.65198768706614 [SI::'m/s']]
   objective reachesOrbit: satisfied
   standing: value (observed: 1 run under reverse)
 
 $ sysml -quiet -analysis "DeltaVBudget::saturnIBAscent(required = 9800 ['m/s'])" examples/runtime-showcase/delta-v-budget.sysml
 ✓ package DeltaVBudget
 ✗ DeltaVBudget::saturnIBAscent(required = 9800 ['m/s'])
-  stage1DeltaV = 3037.6966629706967 [SI::'m/s']
-  stage2DeltaV = 6432.955324716369 [SI::'m/s']
-  margin = -329.34801231293386 [SI::'m/s']
+  stage1DeltaV = [3037.6966629706967 [SI::'m/s']]
+  stage2DeltaV = [6432.955324716369 [SI::'m/s']]
+  margin = [-329.34801231293386 [SI::'m/s']]
   objective reachesOrbit: not satisfied: margin > 0 ['m/s']
   standing: value (observed: 1 run under reverse)
 ```
