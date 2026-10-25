@@ -347,6 +347,26 @@ honoured). What remains is packaging and publishing: `vsce package` in the relea
 `.vsix` on the release, and (for the marketplace) a publisher account and a PAT in CI — the same
 class of account gate as R4.
 
+## R6 — the release and nightly pipeline (landed)
+
+A tag is cut by the procedure in [releasing.md](releasing.md) (#54 and every release since) and
+built by CircleCI's tag workflow: the binaries, bundles and installers of every platform, the
+WebAssembly modules (#875, `v0.10.0`), the Python, npm, Maven Central and crates.io packages
+(#735, #738, #739), the Jupyter kernel wheels (#978), the container image (#1258, `v0.11.0`),
+the cosign-signed `SHA256SUMS.txt` and the SLSA provenance attestation over it (#606, `v0.9.1`),
+with the release's `sysml-grpc` and `sysml-jupyter-kernel` digests stamped into the clients so an
+installed client downloads the service it was released with (#951, `v0.10.0`; `CHANGELOG.md`
+**0.10.1**). The whole pipeline runs without publishing under the `release_rehearsal` parameter
+(#743, `v0.9.1`), and since #1443 (`v0.11.0`) the rehearsal tests under the tag it would make,
+so the stamped version is what the tag's binaries report. A tag's GitHub Actions side rebuilds
+the Windows executables for signing (R4) and validates the install action against the
+installed-release matrix when the action or the install scripts change (#1234, `v0.11.0`). Between tags, [nightly.md](nightly.md) describes the `nightly` prerelease
+(#284, `v0.9.0`): the newest green `develop`, with the `.vsix` (#371), the Python and Node
+client snapshots (#949, `v0.10.0`) and the JupyterLab wheel (#1016) beside the binaries, each
+versioned as a development build of the release it leads to (#1290). On `develop` past the tag:
+the release announces itself to Slack from the changelog section it shipped (#1463, #1482).
+Nothing in the pipeline is open; what the maintainer still does by hand is listed under R2–R5.
+
 ## Upstream follow-through
 
 Filed and waiting on the other side: the identity-annotation enhancement against SysML 2.0
@@ -2030,6 +2050,25 @@ this baseline over `docrender/testdata/defaulted_queries.sysml` through `-run-qu
 types the bare `1` as an integer and is refused against a `String` parameter — quote it
 (`threshold="1"`).
 
+## Q5 — Markdown and AsciiDoc prose in documents (landed on `develop`, #1453, #1454)
+
+A document's prose was written as `Paragraph` parts with `Text` runs, one element per sentence
+the renderer should see. KerML's textual representation gives the notation a place for prose in
+another language, and `internal/ir/docplan/markup` now expands it: a `rep language "markdown"
+/* … */` directly inside a `Document` or `Section` expands in declaration order into paragraphs
+and lists, and one inside a `part : Paragraph` is that paragraph's content, the part keeping its
+name as `Ref` target and anchor — emphasis, strong, code spans, links, `[label](sysml:<target>)`
+references under the `Ref::target` resolution rules and `$…$` inline mathematics map onto the
+runs the document IR already has (#1453). The AsciiDoc form (#1454) does the same over
+Asciidoctor's structure — paragraphs, admonitions, bullet and numbered lists, tables of text
+cells under a header row, `[stem]` blocks and block images — parsed by the pinned Asciidoctor.js
+that `./scripts/download-doc-pdf-toolchain.sh` installs (`scripts/asciidoc/asciidoctor-json.js`),
+with the planner's tests running against recorded converter answers. The output side landed
+first: `-doc-form asciidoc` renders a compiled document as AsciiDoc (#1451). Open against
+`develop`: #1476 (inline `{expr}` values in a prose body) and #1477 (a whole document body —
+headings and sections — written as one representation). All three landed PRs are past
+`v0.11.0`, so the first tag to carry them is the next one.
+
 ---
 
 # Track A — analysis and simulation execution
@@ -2250,6 +2289,21 @@ nothing open; the population `all T` from X5 lets the same sweep run over every 
 type rather than one tree, and it should share Q2's carrier walk rather than add one — which is
 what #263 did, and #267 (Q2's query side) shares the walk.
 
+## A8 — FMI: an FMU as a calc, and a reference runner (landed, #663)
+
+`-convert` accepts `fmu` as an input format (#663, `v0.9.1`): the archive's
+`modelDescription.xml` (FMI 1.0, 2.0 or 3.0) is read and the FMU becomes a `calc def` whose
+parameters carry the model's variables, experiment times and outputs, annotated `ToolExecution`
+with `toolName = "fmi"`; evaluating it runs the FMU through the `tool:fmi` engine and an
+external runner — a one-request/one-reply JSON subprocess the site grants with
+`OPENSYSML_FMI_RUNNER`. `internal/translate/fmi` is the reader, [fmi.md](../reference/fmi.md)
+the reference, and `pip install opensysml[fmi]` installs the reference runner
+`opensysml-fmi-runner` over FMPy, for co-simulation and model-exchange FMUs alike. The gate is the Modelica Reference-FMUs: `./scripts/download-reference-fmus.sh`
+fetches them at their pin and `tests/fmi` (`TestReferenceFMUs`) runs each through the
+conversion and the runner; CI sets `OPENSYSML_REQUIRE_REFERENCE_FMUS=1`, so an absent corpus
+fails there rather than skips. The Python-only runner is one of the per-client conveniences the
+parity paragraph above judges per client rather than ports by default.
+
 ---
 
 # Track V — validation against the pilot's named constraints
@@ -2395,6 +2449,58 @@ from them (the `.expected.json` becomes the `response`) turns the wire suite int
 without writing a second corpus, and any implementation's report then reads as a fraction of the
 same cases the interpreter passes. Depends on I1 and I2; the generator is a session, and it is
 refereed by running the generated scenarios against `sysml-grpc` itself, which must pass them all.
+
+## I6 — `sysml-mcp`, a Model Context Protocol server for coding agents (landed, #1097)
+
+`cmd/sysml-mcp` (#1097, `v0.11.0`) gives an MCP host — OpenCode, Claude Code, Cursor, Codex,
+VS Code, Gemini, Devin — OpenSysML as tools over the project directory it is started in. The
+tool groups are the language server's workspace over the documents under the root (#1100), the
+one-shot service as one tool per RPC with the RPC's contract — `parse`, `symbol`, `evaluate`,
+`instantiate`, `execute_action`, `execute_state`, `evaluate_calc`, `verify_constraint` and the
+rest (#1098) — a persistent REPL session as typed tools with structured results, confined to the
+workspace root on every path (#1099, #1260, #1295), and the documentation catalog (#1103,
+#1263). One catalog names every tool, its group, the `sysml-grpc` RPC and `sysml` flag it stands
+for, and the `tool_catalog` tool answers it (#1140); the conformance suite drives the server as
+it drives the clients (#1269). It ships as a release binary for the five platforms, as the npm
+package `@openmbee/sysml-mcp` with its platform packages (#1273) and in the MCP registry
+(#1274); `-print-config <host>` writes the host's configuration block (`CHANGELOG.md`
+**0.11.0**). `-http ADDR` serves the Streamable HTTP transport for remote agents or several
+agents over one workspace (#1275), refused on a non-loopback address unless a bearer token is
+configured (`-token-file`, `-token`, `OPENSYSML_MCP_TOKEN`; #1373). On `develop`: the npm alias
+`opensysml-mcp` (#1450). Nothing is open in the item; the LLM benchmark (T5) measures what the
+tools buy an agent.
+
+## I7 — a Jupyter kernel (landed, #978)
+
+`cmd/sysml-jupyter-kernel` (#978, `v0.10.0`) is the REPL as a Jupyter kernel: `pip install
+jupyter-opensysml-kernel` installs the kernel spec and provisions the kernel binary from the
+release as the Python client provisions `sysml-grpc`, and from `v0.10.0` a release pins both
+digests (`CHANGELOG.md` **0.10.1**). The pip package carries `jupyterlab-opensysml`, a prebuilt
+JupyterLab 4 / Notebook 7 extension for SysML syntax highlighting (#1003); `%load` reads a
+notebook's code cells in order (`CHANGELOG.md` **0.10.0**); the kernel and the REPL read and
+write a SysML v2 API repository with the OMG pilot kernel's four commands (`%repo`,
+`%projects`, `%load --id|--name|--branch`, `%publish`; `CHANGELOG.md` **0.10.0**); the Windows build carries its version resource (#988); and the nightly
+publishes the JupyterLab wheel (#1016). The kernel's wheels for the five platforms and its
+source distribution are on every tag since (R6). Nothing is open in the item.
+
+## I8 — the WebAssembly builds: `sysml-engine`, `sysml-core`, `sysml-syntax`, `sysml-wasm` (landed, #772)
+
+Four commands under `cmd/` build for `js/wasm` and `wasip1`: `sysml-engine` (#772, `v0.10.0`)
+is the evaluation and execution JSON-RPC surface, rendering a view over it too (#888);
+`sysml-core` and `sysml-syntax` (#787) are the parsing, symbol and
+validation surfaces, and `sysml-wasm` (#870) combines them in one module with one
+standard-library snapshot, routing parsing and symbol facts to the core and evaluation to the
+engine. The Node client defaults to a worker thread over the module and the browser entry
+`@openmbee/opensysml/browser` connects to it inline or in a worker, with no service (#872,
+`v0.10.0`); the modules are release assets (#875) and the npm package carries them (#1189,
+`v0.11.0`), and the documentation homepage's stack diagram is drawn, instantiated and run
+through `connectWasm` over `sysml-wasm.wasm.gz` built from the tree (#1230). The gate is
+`tests/wasm`: both targets compile and vet the whole tree (`OPENSYSML_REQUIRE_WASM=1`), the
+gzipped sizes are bounded against gross growth (#970, #975; `sysml-core`'s budget #1278 and
+`sysml-syntax`'s #1283), the `-tags sysml_prod` build drops the optional features for the
+production module (`CHANGELOG.md` **0.10.0**), and the gate's own timeout fits a slow runner
+(#1334). `v0.10.1` was cut for the budget alone (#1185). What remains is in *Scaling to very
+large models* under *Proposed*: the module's size against a browser's patience.
 
 ---
 
@@ -2625,6 +2731,21 @@ W1 landed first, being the smaller grammar and the one Graphviz-based pipelines 
 over the same node kinds and the sequence; W4 over the same again; W3 landed with each.
 Independent of every other track: nothing here touched the rendering model, only writers over it.
 
+## W5 — the VS Code diagram panel (landed; #1458, #1480 on `develop`)
+
+The panel (`editors/vscode/src/webview`, since #59) draws a view's rendering in the editor
+with its own layout and has grown by release: libavoid 0.4.5 bundled as WebAssembly routes the edges
+(`CHANGELOG.md` **0.10.0**), with orthogonal re-routing on drag (#883) and a drawn port on the
+part that owns it (#890, both `v0.10.0`); navigation between views and to the elements they show
+(#1318), *show related elements* for a selection (#1320), the neighbourhood's relations drawn
+when a related element is added (#1336), a routing pop-out (#1317), the add menu on drop (#1316),
+routing that follows a drag in flight (#1330) and automatic compartment folding with its notice
+(#1421; #1439 on `develop`), all `v0.11.0` unless marked. On `develop` past the tag: collapsed
+ports (#1458) and sized owner children (#1480), with the expectations the testing skill checks
+(#1483). The panel keeps Mermaid for what it can draw in-process and offers W1–W4's forms as
+*save as* (W3). The behavioural editing it does — moving, adding and connecting — is the
+*Proposed* item below; nothing else is open in the item.
+
 ---
 
 # Track M — an embedded, RTOS-compatible target
@@ -2691,6 +2812,67 @@ package of fixed-width numeric types and bounded collections the compiler recogn
 says what it is for and the checker can refuse a `Real` where the target has no FPU. Declared in
 the notation, checked by the existing passes, read by M2/M3. Last, because it depends on knowing
 what M2 needs.
+
+---
+
+# Track T — the records the repository keeps
+
+Measurements, overlays and corpora that are neither features nor gates, kept as documents under
+`docs/project/` and regenerated by the tools under `tools/`. None is open; each is listed so a
+reader knows the record exists and what regenerates it.
+
+## T1 — release-gate performance records (landed, #1337)
+
+Every release is measured against the previous tag before it is cut: every benchmark on both
+revisions under `benchstat`, the startup and the memory of the stress profiles, with the
+candidate's head named. [performance-release-0.11.0-vs-0.10.1.md](performance-release-0.11.0-vs-0.10.1.md)
+(#1337, re-measured at the final cut in #1371, #1400 and #1445) is the current record,
+[performance-release-0.10.1-vs-0.10.0.md](performance-release-0.10.1-vs-0.10.0.md) the one
+before it, and the `0.10.0` against `0.9.2` record (#1015) is under
+[`docs/project/archive/`](archive/) with the older ones (#1221). The method is the previous
+record's, so the series is comparable, and each record names every movement with its cause.
+
+## T2 — the declared errata overlay (landed, #304)
+
+The published OMG corpora and the vendored standard library are never edited. Where a published
+file is wrong — the nine dimension defects in `SI.sysml` and `USCustomaryUnits.sysml`, the
+dimensional-analysis errata in the pilot's examples — [errata-overlay.md](errata-overlay.md)
+records the entry, `internal/workspace/libs/errata` applies the library corrections when the
+bundled library is read (#304, `v0.9.0`), `tools/oracle/errata` is the registry the referees
+read so the pilot re-runs over the corrected copy, and the `Flows::Message` repair the pilot
+applies for OMG issue SYSML21-681 (`CHANGELOG.md` **0.11.0**) is the newest entry. Each entry is filed upstream under *Upstream follow-through*.
+
+## T3 — the extension libraries (landed, #881)
+
+The sixteen non-normative libraries under `OpenSysML Libraries/` — `OOSEM` (#103), `MOSA`
+(#200, `v0.8.0`), `DiagramLayout`, `IdentityMetadata`, `MigrationMetadata`, `SysMLValidation`
+and the rest — are maintained upstream at Open-MBEE/OpenSysML-Extensions-Library and pinned
+here: [extension-libraries.md](extension-libraries.md) states the pin, the sync and the engine
+contract (#881, `v0.10.0`), a scheduled workflow runs the suite against the upstream head
+(#1299, `v0.11.0`), each is declared a non-standard library package (`CHANGELOG.md`
+**0.10.0**), and [oosem-library.md](oosem-library.md) and [mosa-library.md](mosa-library.md)
+audit the two methodology libraries against their sources. The pilot differential hands the
+reference the same libraries (`--extension-library`, `CHANGELOG.md` **0.10.0**), so a model
+using them is refereed rather than skipped.
+
+## T4 — the satellite-network stress test (landed, #299)
+
+[satellite-network-stress-test.md](satellite-network-stress-test.md) measures how many
+spacecraft, modeled down to components with budgets, requirements and a mode machine, `sysml`
+holds, at what cost in time and memory, and where each way of using it stops being practical;
+`tools/cmd/stress-model` generates the model at any size (#299, `v0.9.0`; the fleet mode #308,
+`v0.9.1`), `tests/stressmodel` drives the incremental tests from it, and T1's records reuse its
+profiles. The design it motivated is *Scaling to very large models* under *Proposed*.
+
+## T5 — the LLM authoring benchmark (landed, #1248)
+
+[llm-benchmark.md](llm-benchmark.md) asks how well a language model writes SysML v2 with
+OpenSysML as the compiler in the loop, and whether `sysml-mcp`'s tools (I6) improve it: fifty
+natural-language tasks with gold models under `tools/bench/llm/corpus/`, a
+generate–compile–repair loop with the diagnostics fed back verbatim, a scorer and a structural
+extraction, run by `go run -C tools ./cmd/llm-bench` (#1248, `v0.11.0`), with one results file
+per model run beside the page. Advisory only: CI runs the loop through the `replay` provider
+over recorded answers (#1300), and nothing in it gates.
 
 ---
 
