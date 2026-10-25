@@ -245,7 +245,14 @@ func (ctx *Context) computeEffectiveTypes(featureSym *symbols.Symbol) []*symbols
 // conjoinedTypes returns the effective types that typ, the type the feature's objects
 // are made as, does not stand for: `Panel :> frames : Framed` holds both (§7.3.4.3).
 func (ctx *Context) conjoinedTypes(featureSym, typ *symbols.Symbol) []*symbols.Symbol {
-	return slices.DeleteFunc(slices.Clone(ctx.effectiveTypes(featureSym)), func(other *symbols.Symbol) bool {
+	types := slices.Clone(ctx.effectiveTypes(featureSym))
+	// The base its kind implies (`item` is an Item) classifies what the feature holds too.
+	for _, base := range ctx.model.semantics.ImplicitBases(featureSym) {
+		if !slices.Contains(types, base) {
+			types = append(types, base)
+		}
+	}
+	return slices.DeleteFunc(types, func(other *symbols.Symbol) bool {
 		return other == typ || ctx.model.semantics.Conforms(typ, other)
 	})
 }

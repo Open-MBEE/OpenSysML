@@ -52,8 +52,11 @@ func (m *Model) computeImplicitSubsettings(sym *symbols.Symbol) []*symbols.Symbo
 			return nil
 		}
 		portion = usage.Portion
-		// A KerML feature is composite only when declared so; a SysML usage by its kind.
-		composite = m.EffectiveIsComposite(sym)
+		// A SysML usage is composite by its kind; a KerML feature only when declared so.
+		composite = usageIsComposite(usage)
+		if !m.isSysMLUsage(sym) {
+			composite = usage.IsComposite
+		}
 	} else if _, isSubstate := sym.Decl.(*ast.SubstateMember); !isSubstate {
 		// Only usages carry these rules, plus the `state s;` of a state body,
 		// which is a composite StateUsage the parser records as a SubstateMember.
