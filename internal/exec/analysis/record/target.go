@@ -124,7 +124,7 @@ func existingIn(idx *symbols.Index, caseSym *symbols.Symbol, fqn, pkg string) (E
 	if len(idx.LookupQualified(pkg)) > 0 {
 		existing.Package = true
 	}
-	short := shortName(fqn)
+	short := ShortName(fqn)
 	if caseSym != nil {
 		short = caseSym.Name
 	}
@@ -320,9 +320,11 @@ func SpellingIn(idx *symbols.Index, contexts map[*runtime.Context]bool, fallback
 	}
 }
 
-// recorded finishes a record verdict: the run's own report, then what the
-// model gained, the count of rows skipped, or the failure that left it
-// untouched.
-
 // ShortName is the last segment of a qualified name.
-func ShortName(fqn string) string { return shortName(fqn) }
+func ShortName(fqn string) string {
+	segs, ok := source.QualifiedNameSegments(fqn)
+	if !ok || len(segs) == 0 {
+		return fqn
+	}
+	return segs[len(segs)-1]
+}

@@ -1,0 +1,1 @@
+- `record.ShortName` now holds the last-segment logic itself instead of forwarding to an unexported `shortName`; an orphaned doc comment in the same file was removed.
