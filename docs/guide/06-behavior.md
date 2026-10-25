@@ -507,15 +507,20 @@ sysml> %state Guard::Sentry
   Time: 0.0
   Events: 0
 
+Use %events to see queue, %current for state, %advance <time> to step
+
 sysml> %send Abort
 ✓ Sent Abort to state machine "Guard::Sentry"
   Accepted by state machine "Sentry" in state watching: transition watching -> stop fires on it
+
+Use %step or %advance <time> to dispatch it
 
 sysml> %advance 1
 ✓ Advanced to 1.0 (1 event(s) processed)
   Current state: <none>
   Last event at: 0.0
   Remaining events: 0
+  1 choice point; %trace on to see them
   Do behavior actions run: 1
 
 ✓ State machine terminated (a `terminate` ended its performance short of a final state; no state is active)
@@ -527,7 +532,7 @@ Last event at: 0.0
 Execution state: Terminated
 
 State data:
-  log = "watch;watching(exit);abort;"
+  log = "watch;watching(exit);abort;" (order-dependent; 1 choice point — explore shows the set)
 ```
 
 The do behavior's `watched;` never ran: its wait was abandoned with the machine. From the

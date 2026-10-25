@@ -141,6 +141,8 @@ type Model struct {
 	// behavingFeatures memoizes behavingParts and redefGroups redefinitionGroups, per type.
 	behavingFeatures map[*symbols.Symbol][]int
 	redefGroups      map[*symbols.Symbol][][]string
+	// slots memoizes featureSlot: the name a type holds each feature's value under.
+	slots map[featureOfType]string
 	// subsetters memoizes, per type, the features subsetting each named feature of it
 	// under any of its redefinition names; callers read the shared slice.
 	subsetters map[*symbols.Symbol]map[string][]EffectiveFeature
@@ -261,6 +263,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		behaving:            make(map[*symbols.Symbol]bool),
 		behavingFeatures:    make(map[*symbols.Symbol][]int),
 		redefGroups:         make(map[*symbols.Symbol][][]string),
+		slots:               make(map[featureOfType]string),
 		subsetters:          make(map[*symbols.Symbol]map[string][]EffectiveFeature),
 		subsetted:           make(map[featureOfType][]string),
 		declaredSubsetted:   make(map[featureOfType][]string),

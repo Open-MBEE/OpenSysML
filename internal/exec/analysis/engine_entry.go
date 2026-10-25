@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -198,7 +199,7 @@ func readEngineEntry(path, env string, kind EntryKind, data []byte) (EngineEntry
 	if err := json.Unmarshal(wire.Protocol, &entry.Protocol); err != nil || entry.Protocol < 1 {
 		return fault(fmt.Sprintf("protocol %s is not a positive integer", wire.Protocol), nil)
 	}
-	if !containsInt(ProtocolVersions, entry.Protocol) {
+	if !slices.Contains(ProtocolVersions, entry.Protocol) {
 		return fault(fmt.Sprintf("protocol %d is not served; this build serves %s", entry.Protocol, joinInts(ProtocolVersions)), nil)
 	}
 	if wire.Concurrent != nil {
@@ -231,7 +232,7 @@ func readEngineEntry(path, env string, kind EntryKind, data []byte) (EngineEntry
 		}
 	}
 	for _, b := range entry.Bounds {
-		if !containsString(BoundNames, b) {
+		if !slices.Contains(BoundNames, b) {
 			return fault(fmt.Sprintf("bounds names %q, not one of %s", b, strings.Join(BoundNames, ", ")), nil)
 		}
 	}
@@ -252,7 +253,7 @@ func readEngineEntry(path, env string, kind EntryKind, data []byte) (EngineEntry
 			if !ok {
 				return fault(fmt.Sprintf("model names %q, not sources, graphs:<v> or rdf", f), nil)
 			}
-			if !containsInt(GraphsVersions, v) {
+			if !slices.Contains(GraphsVersions, v) {
 				return fault(fmt.Sprintf("model form %s is not served; this build serves graphs:%s", f, joinInts(GraphsVersions)), nil)
 			}
 		}
@@ -452,24 +453,6 @@ func ParseClaim(text string) (Claim, bool) {
 		}
 	}
 	return 0, false
-}
-
-func containsInt(list []int, v int) bool {
-	for _, x := range list {
-		if x == v {
-			return true
-		}
-	}
-	return false
-}
-
-func containsString(list []string, v string) bool {
-	for _, x := range list {
-		if x == v {
-			return true
-		}
-	}
-	return false
 }
 
 func joinInts(list []int) string {

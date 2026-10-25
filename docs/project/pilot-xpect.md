@@ -339,7 +339,7 @@ element, so the resolved element's qualified name cannot contain the alias.
 
 All 41 were the single-declaration form `alias X for <target>;`, spread over targets in the same or an
 imported package (28), inherited members (9) and private members (4) — one defect in
-`internal/core/symbols`/`internal/core/resolve` plus an inheritance hop, not four.
+`internal/semantic/symbols`/`internal/semantic/resolve` plus an inheritance hop, not four.
 
 ### What it found — a member reached through a conjugated type was not a reference at all (2 of the 43)
 
@@ -462,7 +462,7 @@ features should have conforming types` on `rearWheel+1`, where `rearWheel : Whee
 reading that the pilot's argument-level check is a commented-out TODO; the warning in fact comes from
 the active binding-conformance rule run over the binding connectors the pilot synthesizes from each
 argument to the parameter it fills (KerML 1.1 §8.3.4.8.3). The type checker now judges the same
-implied bindings (`internal/core/passes/w9c_argument_bindings.go`): the argument's static result
+implied bindings (`internal/check/passes/w9c_argument_bindings.go`): the argument's static result
 types against the selected function's corresponding input parameter, under the same symmetric
 conformance test the explicit `bind` rule uses, silent whenever either side is unknown — an
 unresolved or ambiguous callee, an untyped argument, a collection-valued argument, a parameter typed
@@ -492,7 +492,7 @@ as the tolerances, so it reads **1** — the row where nothing of ours is there 
 ### The library diamond, as a warning
 
 The severity finding above is what the library-rule work addressed, and the four rules it adds live in
-`internal/core/passes` (`w9c_inherited_name_conflict.go`, `w9c_owned_name_and_library.go`,
+`internal/check/passes` (`w9c_inherited_name_conflict.go`, `w9c_owned_name_and_library.go`,
 `w9c_bound_feature_types.go`), registered in `analyze.go` and level-scoped: the distinguishability
 and library-package rules at `LevelNameResolution`, the diamond and bound-feature rules at
 `LevelType` (`w9c_rules_test.go:TestW9CPassesAreRegistered`).
@@ -714,13 +714,13 @@ Read literally, that fixes six things, and each one had to be reproduced to adju
 
 ### The surface
 
-`Workspace.VisibleNames` / `VisibleNamesAt` (`internal/core/model/scope_names.go`) is a read-only
+`Workspace.VisibleNames` / `VisibleNamesAt` (`internal/workspace/model/scope_names.go`) is a read-only
 enumeration over the same resolver the LSP and `resolve/unqualified.go` use — `Resolver.ResolveName`,
 `visibility.go`'s import and specialization rules, `semantics.MembersOf` — with no parallel scope walk
 in the harness, which is the only way the answer can be evidence about *our* behaviour rather than
 about the harness. It walks the anchor scope and its ancestors, their inherited and imported members,
 and the non-library index roots, emitting each path once, and returns `{Name, FQN, Kind, Depth}` so a
-caller can filter by metatype above it. `internal/core/model/scope_names_test.go` locks locals,
+caller can filter by metatype above it. `internal/workspace/model/scope_names_test.go` locks locals,
 private and protected members, imports, alias binding names, short-name membership imports,
 inheritance through typing, library gating, circular imports, redefinition anchors and determinism.
 
@@ -803,7 +803,7 @@ none — and distinguishable naming constrains a *Namespace's* own members, whic
 is not. So the repeat is not ill-formed and the first root is the answer:
 `Resolver.lookupGlobalTop` returns `syms[0]` instead of reporting `ambiguous`, and a qualified tail
 walked from one namespace no longer picks up the same-named other one's members
-(`notConflatedWith`, `internal/core/resolve/qualified.go`). That closes the four
+(`notConflatedWith`, `internal/semantic/resolve/qualified.go`). That closes the four
 `ambiguous reference: SamePackage::container (2 candidates)` `noErrors` rows and the
 `DependencySamePackageName` `scope` row, which was missing exactly the second root's paths.
 `TestNameResolutionPassResolvesARepeatedTopLevelNameToTheFirst` replaces the ambiguity test that
@@ -825,7 +825,7 @@ a segment that starts one byte before the located text fixes the anchor, not the
 **4. A recursive import's descent carries no implicit generals.** A membership named directly by an
 import keeps its implicit members; a name the recursive descent *finds* is entered through the
 import, and the path does not then traverse the general types the element has by its kind rather
-than by declaration (`Model.ImplicitGenerals`, `internal/core/semantics/implicit.go`, applied by
+than by declaration (`Model.ImplicitGenerals`, `internal/semantic/semantics/implicit.go`, applied by
 `declaredSources` in `scope_names.go`). That is what closes `Import_Recursive1`, `_4` and `_5`.
 
 **The open question — the pilot's expansion bound is not the one recorded earlier.** *(Settled in the scope-traversal work: the bound is neither a name count nor a step budget but a per-path traversal rule — see
@@ -898,7 +898,7 @@ the binary, so records written by an earlier build stayed "valid" across every m
 what later builds saw. Re-running the same commits with a fresh `XDG_CACHE_HOME` gives higher
 agreement in every oracle, identically cold and warm. The cache key now includes a build identity and
 a library is index-only on both load paths, so a hit and a miss expose the same state
-(`internal/core/libs`). Every figure in this document is a fresh-cache run on `main` with that work merged; the two columns above are kept as recorded history rather than corrected in place.
+(`internal/workspace/libs`). Every figure in this document is a fresh-cache run on `main` with that work merged; the two columns above are kept as recorded history rather than corrected in place.
 
 The handoff quoted the differential at `b86aeb18` as `311` fully agreeing with `142` only
 ours, against the `312`/`139` above: the same cache effect, and the difference is not averaged

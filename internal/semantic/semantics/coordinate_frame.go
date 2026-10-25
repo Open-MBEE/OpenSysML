@@ -153,7 +153,7 @@ func (m *Model) ComposedFrameConforms(f ComposedFrame, want *symbols.Symbol) Con
 	}
 	if fixed, ok := m.FixedDimensions(want); ok && f.HasDimensions && !slices.Equal(fixed, f.Dimensions) {
 		c.Found = fmt.Sprintf("a coordinate frame of dimensions %v, where %s fixes dimensions %v",
-			f.Dimensions, leafName(want.Name), fixed)
+			f.Dimensions, symbols.LastSegment(want.Name), fixed)
 		return c
 	}
 	if axis, ok := m.axisDimension(want); ok {
@@ -166,7 +166,7 @@ func (m *Model) ComposedFrameConforms(f ComposedFrame, want *symbols.Symbol) Con
 				which = "axes measure"
 			}
 			c.Found = fmt.Sprintf("a coordinate frame whose %s in dimension %s, where %s admits %s",
-				which, Dimension{Term: got}, leafName(want.Name), Dimension{Term: axis})
+				which, Dimension{Term: got}, symbols.LastSegment(want.Name), Dimension{Term: axis})
 			return c
 		}
 	}

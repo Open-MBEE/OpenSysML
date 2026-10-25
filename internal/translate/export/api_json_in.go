@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -91,7 +92,7 @@ func apiJSONGraphWithQualifiedNames(
 		if graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
 			continue
 		}
-		if qualifiedNameIndex := indexOfAPIJSONProperty(object.mappingPropertyOrder, "qualifiedName"); qualifiedNameIndex >= 0 {
+		if qualifiedNameIndex := slices.Index(object.mappingPropertyOrder, "qualifiedName"); qualifiedNameIndex >= 0 {
 			positioned := false
 			for i := qualifiedNameIndex + 1; i < len(object.mappingPropertyOrder); i++ {
 				predicate, ok := apiJSONQualifiedNameMemberPredicate(object.mappingPropertyOrder[i])

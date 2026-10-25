@@ -407,6 +407,7 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	if err := ctx.aliasRedefinedFeatureValuesOf(inst, inst.types(), nil, features); err != nil {
 		return nil, err
 	}
+	ctx.bindImplicitSatisfactionSubject(inst, owner)
 
 	// Register instance
 	ctx.registerInstance(inst)
@@ -1543,7 +1544,7 @@ func (ctx *Context) CompositeTypeOf(feat *EffectiveFeature) *symbols.Symbol {
 	if semantics.IsBehaviorParameter(feat.Symbol) && !ctx.model.semantics.IsDataType(feat.Type) {
 		return nil
 	}
-	if feat.Symbol != nil && (ctx.declaresFeatures(feat) || untypedOccurrenceUsage(feat) || satisfiedBy(feat.Symbol) != nil) {
+	if feat.Symbol != nil && (ctx.declaresFeatures(feat) || untypedOccurrenceUsage(feat) || satisfyAssertionUsage(feat.Symbol)) {
 		return feat.Symbol
 	}
 	return feat.Type
@@ -1551,7 +1552,7 @@ func (ctx *Context) CompositeTypeOf(feat *EffectiveFeature) *symbols.Symbol {
 
 // declaresFeatures reports whether a usage's body, or that of a feature it redefines or
 // directly subsets, declares features: a specializing feature inherits them (KerML 1.0 §7.3.4.5).
-// A satisfy usage's `by` binds its subject as a body member would, so it declares one too.
+// A satisfy usage binds its subject (`by`, or the owner without one) as a body member would.
 func (ctx *Context) declaresFeatures(feat *EffectiveFeature) bool {
 	if declaresFeatures(feat.Symbol) {
 		return true

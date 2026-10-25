@@ -47,15 +47,15 @@ def _slack_escape(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def _snippet_path(parser: argparse.ArgumentParser, path: str) -> str:
+def _snippet_path(path: str) -> str:
     """Canonicalize the --snippet path and refuse one that resolves (through `..`
     or a symlink) outside the directory the script was invoked from."""
     resolved = os.path.realpath(path)
-    base = os.path.realpath(os.getcwd())
-    # join(base, "") ends base with exactly one separator, also when base is the root.
-    if not resolved.startswith(os.path.join(base, "")):
-        parser.error(f"--snippet {path!r} resolves to {resolved}, "
-                     f"outside the working directory {base}")
+    # rstrip keeps the prefix a single separator when the working directory is the root.
+    base_dir = os.path.realpath(os.getcwd()).rstrip(os.sep)
+    if resolved != base_dir and not resolved.startswith(base_dir + os.sep):
+        raise ValueError(f"--snippet {path!r} resolves to {resolved}, "
+                         f"outside the working directory {base_dir or os.sep}")
     return resolved
 
 
@@ -107,7 +107,11 @@ def main(argv: list[str] | None = None) -> int:
 
     snippet = ""
     if args.snippet:
-        with open(_snippet_path(parser, args.snippet), encoding="utf-8") as handle:
+        try:
+            snippet_path = _snippet_path(args.snippet)
+        except ValueError as error:
+            parser.error(str(error))
+        with open(snippet_path, encoding="utf-8") as handle:
             snippet = handle.read()
 
     if args.release_name or args.release_url:

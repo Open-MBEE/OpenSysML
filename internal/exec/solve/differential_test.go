@@ -328,7 +328,7 @@ func (d *declaredValues) root(v *Var, fqn string) (runtime.Value, error) {
 		}
 		return val, nil
 	}
-	if val, err := d.held(simpleName(fqn)); err == nil {
+	if val, err := d.held(symbols.LastSegment(fqn)); err == nil {
 		return val, nil
 	}
 	if usage, declared := declaredUsage(v, fqn); declared && usage.Value != nil {
@@ -359,14 +359,6 @@ func declaredUsage(v *Var, fqn string) (*ast.Usage, bool) {
 	}
 	usage, ok := v.Symbol.Decl.(*ast.Usage)
 	return usage, ok
-}
-
-// simpleName is the name a feature answers to, unqualified.
-func simpleName(fqn string) string {
-	if at := strings.LastIndex(fqn, "::"); at >= 0 {
-		return fqn[at+2:]
-	}
-	return fqn
 }
 
 // held reads the value the object under check holds for a named feature.

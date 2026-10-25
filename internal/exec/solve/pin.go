@@ -973,10 +973,7 @@ func ChainPins(ctx *runtime.Context, q *Query, read Reader, self *runtime.Instan
 		if unset := unsetOutside(value.Undetermined(), v.Steps); unset != nil {
 			// A declared value open for a feature nothing gives a value to does not evaluate,
 			// as a failed read does; a chain whose own step holds nothing stays free.
-			spelled := v.Name
-			if i := strings.LastIndex(spelled, "::"); i >= 0 {
-				spelled = spelled[i+2:]
-			}
+			spelled := symbols.LastSegment(v.Name)
 			err := unsetRead(spelled, unset)
 			unfixed = append(unfixed, Unfixed{Feature: v.Symbol, Name: v.Name, Var: v.Name, Reason: err.Error(), Err: err})
 			continue

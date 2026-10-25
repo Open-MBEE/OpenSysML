@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 348,
-        "digest": "sha256:5b0c61048712b17156fe8f72a93b97fd6318d5819bb56e833385184ec0114152"
+        "files": 349,
+        "digest": "sha256:e26ae0af7d8f1513001d970d4878c418c02409f004d58ed419a9a5ca6e239147"
       }
     ],
     "recorded": "2026-10-25"
   },
   "totals": {
-    "cases": 348,
-    "bothReject": 336,
+    "cases": 349,
+    "bothReject": 337,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 12,
     "bothAccept": 0
@@ -58,8 +58,8 @@
     },
     {
       "source": "grammar",
-      "cases": 113,
-      "bothReject": 113,
+      "cases": 114,
+      "bothReject": 114,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
@@ -993,6 +993,15 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 3
+    },
+    {
+      "path": "grammar/g87-satisfy-by-expression.sysml",
+      "source": "grammar",
+      "rule": "A satisfaction subject is a feature reference or feature chain, not an expression (SysML.xtext:2139 SatisfactionReferenceExpression).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
     },
     {
       "path": "grammar/k01-specializes-without-target.kerml",
@@ -3408,8 +3417,8 @@
       }
     ],
     "totals": {
-      "cases": 348,
-      "bothReject": 336,
+      "cases": 349,
+      "bothReject": 337,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 12,
       "bothAccept": 0

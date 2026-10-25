@@ -957,7 +957,7 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		if len(objs) != 2000 {
 			t.Fatalf("denotedObjects(b) = %d objects, want 2000", len(objs))
 		}
-		if !containsInstance(objs, first.Instance) {
+		if !slices.ContainsFunc(objs, func(o *Instance) bool { return o.ID == first.Instance }) {
 			t.Fatalf("denotedObjects(b) misses object #%d (c#(1))", first.Instance)
 		}
 	})

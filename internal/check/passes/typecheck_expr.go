@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -591,12 +590,16 @@ func (ec *exprChecker) inferQualified(scope *symbols.Scope, qn *ast.QualifiedNam
 // rather than of the enclosing scope (SysML 7.6.6), which is how a calc usage's
 // `out` feature — inherited from the calc it is typed by — is reached.
 func (ec *exprChecker) inferFeatureChain(scope *symbols.Scope, e *ast.FeatureChainExpr) semantics.PrimType {
-	// A constructed or invoked head's arguments are checked where they are written.
+	// A head that is itself an expression — a constructor, an invocation, a cast,
+	// a collect — is checked where it is written; a named head resolves with the chain.
 	switch head := chainHead(e).(type) {
 	case *ast.ConstructorExpr:
 		ec.inferConstructor(scope, head)
 	case *ast.InvocationExpr:
 		ec.inferNodeInvocation(scope, head, nil)
+	case *ast.FeatureReference, *ast.QualifiedName, nil:
+	default:
+		ec.infer(scope, head)
 	}
 	sym, ok := ec.resolver.ResolveTarget(scope, e)
 	if !ok || sym == nil {
@@ -1780,7 +1783,7 @@ func redefinedNames(p parameter) []string {
 	var names []string
 	if p.usage == nil {
 		for _, ref := range p.sym.Facts.Redefines {
-			if name := lastSegment(ref.FQN); name != "" {
+			if name := symbols.LastSegment(ref.FQN); name != "" {
 				names = append(names, name)
 			}
 		}
@@ -1797,14 +1800,6 @@ func redefinedNames(p parameter) []string {
 		names = append(names, qn.Parts[len(qn.Parts)-1].Text)
 	}
 	return names
-}
-
-// lastSegment returns the simple name a fully-qualified name ends in.
-func lastSegment(fqn string) string {
-	if i := strings.LastIndex(fqn, "::"); i >= 0 {
-		return fqn[i+2:]
-	}
-	return fqn
 }
 
 // declaredParameters returns the parameters declared directly by a symbol's

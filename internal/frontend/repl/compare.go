@@ -79,9 +79,6 @@ func (o CompareOptions) selection(results *simresults.Results) (selected []bool,
 	return selected, refused
 }
 
-// sameName is whether name names the configuration qualified.
-func sameName(name, qualified string) bool { return simresults.SameName(name, qualified) }
-
 // compareVerdict compares one configuration: a refusal names what the runs
 // cannot be made without, else the table of both distributions — the runs'
 // alone, against a row saying so, when the tool stored no result. repeats

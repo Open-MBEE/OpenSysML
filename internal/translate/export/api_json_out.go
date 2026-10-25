@@ -608,7 +608,7 @@ func apiJSONNaturalPropertyOrderWithScratch(
 			if !ok || !graph.HasProperty(subject, predicate) {
 				continue
 			}
-			insertAt = indexOfAPIJSONProperty(order, element[i].key)
+			insertAt = slices.Index(order, element[i].key)
 			if insertAt < 0 {
 				continue
 			}
@@ -621,7 +621,7 @@ func apiJSONNaturalPropertyOrderWithScratch(
 				if !ok || !graph.HasProperty(subject, predicate) {
 					continue
 				}
-				insertAt = indexOfAPIJSONProperty(order, element[i].key) + 1
+				insertAt = slices.Index(order, element[i].key) + 1
 				positioned = true
 				break
 			}
@@ -708,11 +708,11 @@ func apiJSONGraphPropertyOrderWithFallback(order, fallback []string) []string {
 
 func apiJSONHasMisplacedSidecarProperty(graphOrder, naturalOrder, sidecarOnly []string) bool {
 	for _, property := range sidecarOnly {
-		graphPosition := indexOfAPIJSONProperty(graphOrder, property)
+		graphPosition := slices.Index(graphOrder, property)
 		if graphPosition < 0 {
 			continue
 		}
-		naturalPosition := indexOfAPIJSONProperty(naturalOrder, property)
+		naturalPosition := slices.Index(naturalOrder, property)
 		if naturalPosition < 0 {
 			return true
 		}
@@ -720,7 +720,7 @@ func apiJSONHasMisplacedSidecarProperty(graphOrder, naturalOrder, sidecarOnly []
 			if other == property {
 				continue
 			}
-			otherNaturalPosition := indexOfAPIJSONProperty(naturalOrder, other)
+			otherNaturalPosition := slices.Index(naturalOrder, other)
 			if otherNaturalPosition < 0 ||
 				(graphPosition < otherGraphPosition) != (naturalPosition < otherNaturalPosition) {
 				return true
@@ -728,15 +728,6 @@ func apiJSONHasMisplacedSidecarProperty(graphOrder, naturalOrder, sidecarOnly []
 		}
 	}
 	return false
-}
-
-func indexOfAPIJSONProperty(order []string, property string) int {
-	for i, key := range order {
-		if key == property {
-			return i
-		}
-	}
-	return -1
 }
 
 type apiJSONPropertyComparison struct {

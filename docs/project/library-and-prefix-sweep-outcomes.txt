@@ -10,7 +10,7 @@ read	Probe::p1.atq	model	Probe::P1::atq	object:Probe::At1
 read	Probe::p1.boundingShapes	systems	Items::Item::boundingShapes	empty
 read	Probe::p1.caq	model	Probe::P1::caq	object:Probe::Ca1
 read	Probe::p1.cargo	model	Probe::P1::cargo	object:Probe::I1
-read	Probe::p1.checkedConstraints	systems	Items::Item::checkedConstraints	collection(6) [object:Probe::P1::rq#1, object:Probe::P1::cq#2, object:Probe::Vp1#3, object:Probe::Con1#4, object:Probe::P1::sr#5, object:Probe::P1::ac#6]
+read	Probe::p1.checkedConstraints	systems	Items::Item::checkedConstraints	collection(7) [object:Probe::P1::rq#1, object:Probe::P1::cq#2, object:Probe::Vp1#3, object:Probe::Con1#4, object:Probe::P1::sr#5, object:Probe::P1::srOne#6, object:Probe::P1::ac#7]
 read	Probe::p1.cnq	model	Probe::P1::cnq	object:Probe::Cn1
 read	Probe::p1.conq	model	Probe::P1::conq	object:Probe::Con1
 read	Probe::p1.cq	model	Probe::P1::cq	object:Probe::P1::cq
@@ -46,6 +46,7 @@ read	Probe::p1.shape	systems	Items::Item::shape	empty
 read	Probe::p1.slice	model	Probe::P1::slice	object:Probe::P1::slice
 read	Probe::p1.snap	model	Probe::P1::snap	object:Probe::P1::snap
 read	Probe::p1.sr	model	Probe::P1::sr	object:Probe::P1::sr
+read	Probe::p1.srOne	model	Probe::P1::srOne	object:Probe::P1::srOne
 read	Probe::p1.st	model	Probe::P1::st	object:Probe::S1
 read	Probe::p1.start	systemsFRAME	Parts::Part::start	object:Probe::p1
 read	Probe::p1.sub	model	Probe::P1::sub	collection(2) [object:Probe::P2#1, object:Probe::P2#2]
@@ -153,7 +154,7 @@ read	Probe::u1.whileLoops	systems	Actions::Action::whileLoops	empty
 read	Probe::u1.who	model	Probe::U1::who	object:Probe::P2
 object	Probe::vw1	object:Probe::vw1
 read	Probe::vw1.boundingShapes	systems	Items::Item::boundingShapes	empty
-read	Probe::vw1.checkedConstraints	systems	Items::Item::checkedConstraints	empty
+read	Probe::vw1.checkedConstraints	systems	Items::Item::checkedConstraints	collection(1) [object:Views::View::viewpointConformance#1]
 read	Probe::vw1.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	Probe::vw1.envelopingShapes	systems	Items::Item::envelopingShapes	empty
 read	Probe::vw1.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
@@ -252,7 +253,7 @@ read	Probe::box.shape	systems	Items::Item::shape	empty
 read	Probe::box.slf	domain	ShapeItems::RectangularCuboid::slf	object:ShapeItems::RectangularCuboid::slf
 read	Probe::box.srf	domain	ShapeItems::RectangularCuboid::srf	object:ShapeItems::RectangularCuboid::srf
 read	Probe::box.start	systemsFRAME	Items::Item::start	object:Probe::box
-read	Probe::box.subitems	systems	Items::Item::subitems	empty
+read	Probe::box.subitems	systems	Items::Item::subitems	error subsetting feature vertices of subitems: subsetting feature tflv of vertices: binding end cannot be resolved: box.tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`, which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds
 read	Probe::box.subparts	systems	Items::Item::subparts	empty
 read	Probe::box.tf	domain	ShapeItems::RectangularCuboid::tf	object:ShapeItems::RectangularCuboid::tf
 read	Probe::box.tfe	domain	ShapeItems::CuboidOrTriangularPrism::tfe	collection(2) [object:ShapeItems::Rectangle::e4#1, object:ShapeItems::Rectangle::e4#2]
@@ -286,7 +287,7 @@ read	Probe::sph.semiAxis2	domain	ShapeItems::Sphere::semiAxis2	quantity 1.0 [m]
 read	Probe::sph.semiAxis3	domain	ShapeItems::Sphere::semiAxis3	quantity 1.0 [m]
 read	Probe::sph.shape	systems	Items::Item::shape	empty
 read	Probe::sph.start	systemsFRAME	Items::Item::start	object:Probe::sph
-read	Probe::sph.subitems	systems	Items::Item::subitems	empty
+read	Probe::sph.subitems	systems	Items::Item::subitems	collection(1) [object:ShapeItems::Ellipsoid::faces#1]
 read	Probe::sph.subparts	systems	Items::Item::subparts	empty
 read	Probe::sph.vertices	domain	ShapeItems::ConicSurface::vertices	empty
 read	Probe::sph.voids	systems	Items::Item::voids	empty
@@ -325,7 +326,7 @@ read	Probe::spat.shape	systems	Items::Item::shape	empty
 read	Probe::spat.start	systemsFRAME	Items::Item::start	object:Probe::spat
 read	Probe::spat.subSpatialItems	domain	SpatialItems::SpatialItem::subSpatialItems	undetermined <undetermined>
 read	Probe::spat.subSpatialParts	domain	SpatialItems::SpatialItem::subSpatialParts	undetermined <undetermined>
-read	Probe::spat.subitems	systems	Items::Item::subitems	collection(1) [object:SpatialItems::SpatialItem::componentParts#1]
+read	Probe::spat.subitems	systems	Items::Item::subitems	collection(2) [object:Objects::Point#1, object:SpatialItems::SpatialItem::componentParts#2]
 read	Probe::spat.subparts	systems	Items::Item::subparts	collection(1) [object:SpatialItems::SpatialItem::componentParts#1]
 read	Probe::spat.voids	systems	Items::Item::voids	empty
 object	Probe::sys	object:Probe::sys
@@ -455,7 +456,7 @@ read	Probe::p1.st.sendSubactions	systems	Actions::Action::sendSubactions	empty
 read	Probe::p1.st.start	systemsFRAME	States::StateAction::start	object:Probe::S1
 read	Probe::p1.st.stateSequencing	systems	States::StateAction::stateSequencing	ERR_NOSUCHFEATURE object has no such feature: member stateSequencing not found in instance
 read	Probe::p1.st.stateTransitions	systems	States::StateAction::stateTransitions	empty
-read	Probe::p1.st.subactions	systems	States::StateAction::subactions	empty
+read	Probe::p1.st.subactions	systems	States::StateAction::subactions	collection(1) [object:Actions::Action#1]
 read	Probe::p1.st.substates	systems	States::StateAction::substates	empty
 read	Probe::p1.st.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	Probe::p1.st.transitions	systems	Actions::Action::transitions	empty
@@ -541,7 +542,7 @@ read	Probe::p1.uq.whileLoops	systems	Actions::Action::whileLoops	empty
 read	Probe::p1.uq.who	model	Probe::U1::who	object:Probe::P2
 object	Probe::p1.vwq	object:Probe::Vw1
 read	Probe::p1.vwq.boundingShapes	systems	Items::Item::boundingShapes	empty
-read	Probe::p1.vwq.checkedConstraints	systems	Items::Item::checkedConstraints	empty
+read	Probe::p1.vwq.checkedConstraints	systems	Items::Item::checkedConstraints	collection(1) [object:Views::View::viewpointConformance#1]
 read	Probe::p1.vwq.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	Probe::p1.vwq.envelopingShapes	systems	Items::Item::envelopingShapes	empty
 read	Probe::p1.vwq.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
@@ -742,7 +743,7 @@ read	Probe::p1.es.sendSubactions	systems	Actions::Action::sendSubactions	empty
 read	Probe::p1.es.start	systemsFRAME	States::StateAction::start	object:Probe::S1
 read	Probe::p1.es.stateSequencing	systems	States::StateAction::stateSequencing	ERR_NOSUCHFEATURE object has no such feature: member stateSequencing not found in instance
 read	Probe::p1.es.stateTransitions	systems	States::StateAction::stateTransitions	empty
-read	Probe::p1.es.subactions	systems	States::StateAction::subactions	empty
+read	Probe::p1.es.subactions	systems	States::StateAction::subactions	collection(1) [object:Actions::Action#1]
 read	Probe::p1.es.substates	systems	States::StateAction::substates	empty
 read	Probe::p1.es.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	Probe::p1.es.transitions	systems	Actions::Action::transitions	empty
@@ -760,6 +761,19 @@ read	Probe::p1.sr.sh	model	Probe::R1::sh	object:Probe::P2
 read	Probe::p1.sr.stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
 read	Probe::p1.sr.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 read	Probe::p1.sr.who	model	Probe::R1::who	object:Probe::P2
+object	Probe::p1.srOne	object:Probe::P1::srOne
+read	Probe::p1.srOne.actors	systems	Requirements::RequirementCheck::actors	empty
+read	Probe::p1.srOne.assumptions	systems	Requirements::RequirementCheck::assumptions	empty
+read	Probe::p1.srOne.concerns	systems	Requirements::RequirementCheck::concerns	empty
+read	Probe::p1.srOne.constraints	systems	Requirements::RequirementCheck::constraints	empty
+read	Probe::p1.srOne.lim	model	Probe::R1::lim	constant 5.0
+read	Probe::p1.srOne.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
+read	Probe::p1.srOne.s	model	Probe::R1::s	object:Probe::p2
+read	Probe::p1.srOne.self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::P1::srOne
+read	Probe::p1.srOne.sh	model	Probe::R1::sh	object:Probe::P2
+read	Probe::p1.srOne.stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
+read	Probe::p1.srOne.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
+read	Probe::p1.srOne.who	model	Probe::R1::who	object:Probe::P2
 object	Probe::p1.ac	object:Probe::P1::ac
 read	Probe::p1.ac.self	systemsFRAME	Constraints::ConstraintCheck::self	object:Probe::P1::ac
 read	Probe::p1.ac.x	model	Probe::P1::ac::x	collection(1) [constant 1.0]
@@ -805,7 +819,7 @@ read	new Probe::P1().atq	model	Probe::P1::atq	object:Probe::At1
 read	new Probe::P1().boundingShapes	systems	Items::Item::boundingShapes	empty
 read	new Probe::P1().caq	model	Probe::P1::caq	object:Probe::Ca1
 read	new Probe::P1().cargo	model	Probe::P1::cargo	object:Probe::I1
-read	new Probe::P1().checkedConstraints	systems	Items::Item::checkedConstraints	collection(6) [object:Probe::P1::rq#1, object:Probe::P1::cq#2, object:Probe::Vp1#3, object:Probe::Con1#4, object:Probe::P1::sr#5, object:Probe::P1::ac#6]
+read	new Probe::P1().checkedConstraints	systems	Items::Item::checkedConstraints	collection(7) [object:Probe::P1::rq#1, object:Probe::P1::cq#2, object:Probe::Vp1#3, object:Probe::Con1#4, object:Probe::P1::sr#5, object:Probe::P1::srOne#6, object:Probe::P1::ac#7]
 read	new Probe::P1().cnq	model	Probe::P1::cnq	object:Probe::Cn1
 read	new Probe::P1().conq	model	Probe::P1::conq	object:Probe::Con1
 read	new Probe::P1().cq	model	Probe::P1::cq	object:Probe::P1::cq
@@ -841,6 +855,7 @@ read	new Probe::P1().shape	systems	Items::Item::shape	empty
 read	new Probe::P1().slice	model	Probe::P1::slice	object:Probe::P1::slice
 read	new Probe::P1().snap	model	Probe::P1::snap	object:Probe::P1::snap
 read	new Probe::P1().sr	model	Probe::P1::sr	object:Probe::P1::sr
+read	new Probe::P1().srOne	model	Probe::P1::srOne	object:Probe::P1::srOne
 read	new Probe::P1().st	model	Probe::P1::st	object:Probe::S1
 read	new Probe::P1().start	systemsFRAME	Parts::Part::start	object:Probe::P1
 read	new Probe::P1().sub	model	Probe::P1::sub	collection(2) [object:Probe::P2#1, object:Probe::P2#2]
@@ -939,7 +954,7 @@ read	new Probe::S1().sendSubactions	systems	Actions::Action::sendSubactions	empt
 read	new Probe::S1().start	systemsFRAME	States::StateAction::start	object:Probe::S1
 read	new Probe::S1().stateSequencing	systems	States::StateAction::stateSequencing	ERR_NOSUCHFEATURE object has no such feature: member stateSequencing not found in instance
 read	new Probe::S1().stateTransitions	systems	States::StateAction::stateTransitions	empty
-read	new Probe::S1().subactions	systems	States::StateAction::subactions	empty
+read	new Probe::S1().subactions	systems	States::StateAction::subactions	collection(1) [object:Actions::Action#1]
 read	new Probe::S1().substates	systems	States::StateAction::substates	empty
 read	new Probe::S1().terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	new Probe::S1().transitions	systems	Actions::Action::transitions	empty
@@ -1098,7 +1113,7 @@ read	new Probe::U1().whileLoops	systems	Actions::Action::whileLoops	empty
 read	new Probe::U1().who	model	Probe::U1::who	object:Probe::P2
 object	new Probe::Vw1()	object:Probe::Vw1
 read	new Probe::Vw1().boundingShapes	systems	Items::Item::boundingShapes	empty
-read	new Probe::Vw1().checkedConstraints	systems	Items::Item::checkedConstraints	empty
+read	new Probe::Vw1().checkedConstraints	systems	Items::Item::checkedConstraints	collection(1) [object:Views::View::viewpointConformance#1]
 read	new Probe::Vw1().done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	new Probe::Vw1().envelopingShapes	systems	Items::Item::envelopingShapes	empty
 read	new Probe::Vw1().exhibitedStates	systems	Parts::Part::exhibitedStates	empty

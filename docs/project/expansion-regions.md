@@ -295,7 +295,7 @@ declared multiplicity admits several values and whose input pin is fed by a flow
 multi-valued source into one performance per element, each with its own token and pins, joined
 when all complete; order them as `Performances.kerml` orders them — not at all — and record the
 interleaving under the scheduling policy; leave the streaming interaction to the
-[streaming-flows item](roadmap.md#e4--streaming-flows-streaming-pins). This is the design the
+[streaming-flows item](roadmap.md#e4--streaming-flows-streaming-pins-landed-465). This is the design the
 roadmap sketched *if a spelling exists*. It would be an extension: the specification admits the
 reading among others and mandates none, so a conformant model written for another tool could
 mean one performance receiving the whole collection, and a model relying on this reading would

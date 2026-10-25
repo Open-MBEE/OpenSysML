@@ -119,3 +119,56 @@ func TestCacheStaleContentReparsedNotServed(t *testing.T) {
 		t.Fatal("stale cache served: Evolving::First should be gone after content change")
 	}
 }
+
+// Two differently patched builds may disagree on a fact: a record one wrote is served
+// to that build only; the other misses it and derives the fact, in one cache directory.
+func TestRecordOfAnotherBuildIsNotServed(t *testing.T) {
+	libDir := t.TempDir()
+	content := []byte("package Lib { part def Engine; part def Motor; part e : Engine; }")
+	if err := os.WriteFile(filepath.Join(libDir, "lib.sysml"), content, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	cache, err := NewCache()
+	if err != nil {
+		t.Fatalf("NewCache: %v", err)
+	}
+	restore := buildID
+	t.Cleanup(func() { buildID = restore })
+	superOfE := func() string {
+		idx := loadWholeLibrary(t, libDir, cache.dir)
+		e := idx.LookupQualified("Lib::e")
+		if len(e) != 1 || e[0].Facts == nil || len(e[0].Facts.Supers) != 1 {
+			t.Fatalf("Lib::e = %+v, want one symbol with one supertype", e)
+		}
+		return e[0].Facts.Supers[0].FQN
+	}
+
+	buildID = func() string { return "build-a" }
+	if got := superOfE(); got != "Lib::Engine" {
+		t.Fatalf("cold load: e : %s, want Lib::Engine", got)
+	}
+	// Stand in for a build whose resolver answers differently: rewrite the fact
+	// its record holds, which is what a warm load of that build then answers.
+	key := cache.keyFor("lib.sysml", content, NewLoader(NewDirSource(libDir), nil).setDigest())
+	rec, ok := cache.Load(key)
+	if !ok {
+		t.Fatal("the cold load stored no record for lib.sysml")
+	}
+	for i := range rec.Facts {
+		if rec.Facts[i].FQN == "Lib::e" {
+			rec.Facts[i].Supers[0].FQN = "Lib::Motor"
+		}
+	}
+	if err := cache.Store(key, rec); err != nil {
+		t.Fatalf("store: %v", err)
+	}
+	if got := superOfE(); got != "Lib::Motor" {
+		t.Fatalf("warm load of the writing build: e : %s, want its record's Lib::Motor", got)
+	}
+
+	buildID = func() string { return "build-b" }
+	if got := superOfE(); got != "Lib::Engine" {
+		t.Fatalf("another build answered with the first build's record: e : %s", got)
+	}
+}

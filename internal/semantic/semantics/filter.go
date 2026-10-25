@@ -944,7 +944,7 @@ func (m *Model) metaclassConformsTo(cand, typ *symbols.Symbol, typeFQN string) b
 	}
 	// The metaclass library is not loaded, so conformance can only be judged on
 	// the name the candidate's metaclass has.
-	return simpleName(typeFQN) == SimpleSymbolName(meta)
+	return symbols.LastSegment(typeFQN) == SimpleSymbolName(meta)
 }
 
 // MetaclassConforms reports whether a candidate's metaclass conforms to a type.
@@ -1513,21 +1513,13 @@ func spanOf(n ast.Node) source.Span {
 	return n.Span()
 }
 
-// simpleName is the last segment of a qualified name.
-func simpleName(fqn string) string {
-	if i := strings.LastIndex(fqn, "::"); i >= 0 {
-		return fqn[i+2:]
-	}
-	return fqn
-}
-
 // SimpleSymbolName is a symbol's own name, without the qualification an indexed
 // symbol's name may carry.
 func SimpleSymbolName(sym *symbols.Symbol) string {
 	if sym == nil {
 		return ""
 	}
-	return simpleName(sym.Name)
+	return symbols.LastSegment(sym.Name)
 }
 
 // ownerSymbol returns the element a symbol is a member of.

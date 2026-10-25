@@ -190,7 +190,7 @@ func (c *w9cConflictChecker) ownMembers(sym *symbols.Symbol) map[string]*symbols
 	// The index carries a library type's nested names in both cache states;
 	// its scope exists only when the library was parsed.
 	for _, member := range c.idx.LookupDirectChildren(symbols.FQNOf(sym)) {
-		name := leafOf(member.Name)
+		name := symbols.LastSegment(member.Name)
 		if name == "" || member.Visibility == ast.VisibilityPrivate ||
 			c.idx.Library(member) != c.idx.Library(sym) {
 			continue
@@ -469,7 +469,7 @@ func (c *w9cConflictChecker) conflictingBases(cands []w9cCandidate) []string {
 		}
 		seen[cand.member] = true
 		library = library || c.idx.Library(cand.member)
-		names[leafOf(symbols.FQNOf(cand.declaredBy))] = true
+		names[symbols.LastSegment(symbols.FQNOf(cand.declaredBy))] = true
 	}
 	if !library {
 		return nil
@@ -569,13 +569,6 @@ func (c *w9cConflictChecker) report(span source.Span, name string, from []string
 		Code:     "name-conflict",
 		Source:   "name-resolution",
 	})
-}
-
-func leafOf(fqn string) string {
-	if i := strings.LastIndex(fqn, "::"); i >= 0 {
-		return fqn[i+2:]
-	}
-	return fqn
 }
 
 // typedByFeatureOnly reports whether sym is typed by at least one feature and

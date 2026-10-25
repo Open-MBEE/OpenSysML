@@ -21,7 +21,7 @@ const (
 func engineWorkspace(t *testing.T) (s *Server, viewsURI, partsURI uri.URI) {
 	t.Helper()
 	s, viewsURI = renderServer(t, "views.sysml", engineViews)
-	partsURI = uri.File("parts.sysml")
+	partsURI = tempDocURI(t, "parts.sysml")
 	openDoc(t, s, partsURI, engineParts)
 	return s, viewsURI, partsURI
 }
@@ -93,7 +93,7 @@ func TestRenderLocatesNodesInTheDocumentDeclaringThem(t *testing.T) {
 func TestRenderMarksWhatEachDocumentsNodesAdmit(t *testing.T) {
 	const views = "package EngineViews {\n\tprivate import Views::*;\n\tprivate import StandardViewDefinitions::*;\n\n\tpart def Mount;\n\tview engineView : InterconnectionView {\n\t\texpose Mount;\n\t\texpose Machinery::Engine;\n\t\texpose Parts::Part;\n\t}\n}\n"
 	s, viewsURI := renderServer(t, "views.sysml", views)
-	partsURI := uri.File("parts.sysml")
+	partsURI := tempDocURI(t, "parts.sysml")
 	openDoc(t, s, partsURI, engineParts)
 	drawn := render(t, s, viewsURI, "EngineViews::engineView")
 
@@ -137,7 +137,7 @@ func TestRenderMarksWhatEachDocumentsNodesAdmit(t *testing.T) {
 func TestRenderNamesOnlyTheRequestedDocumentsDeclarationsToAClientWithoutTheCapability(t *testing.T) {
 	const views = "package EngineViews {\n\tprivate import Views::*;\n\tprivate import StandardViewDefinitions::*;\n\n\tpart def Mount;\n\tview engineView : InterconnectionView {\n\t\texpose Mount;\n\t\texpose Machinery::Engine;\n\t}\n}\n"
 	s := initializedServer(t, nil)
-	viewsURI, partsURI := uri.File("views.sysml"), uri.File("parts.sysml")
+	viewsURI, partsURI := tempDocURI(t, "views.sysml"), tempDocURI(t, "parts.sysml")
 	openDoc(t, s, viewsURI, views)
 	openDoc(t, s, partsURI, engineParts)
 	drawn := render(t, s, viewsURI, "EngineViews::engineView")
@@ -296,7 +296,7 @@ func TestApplyModelEditPlacesInlineIntoTheDeclaringDocument(t *testing.T) {
 	const motor = "package Motors {\n\tstate def Motor {\n\t\tstate off;\n\t\tstate on;\n\t\ttransition first off then on;\n\t}\n}\n"
 	const fleet = "package Fleet {\n\tstate motor : Motors::Motor;\n}\n"
 	s, fleetURI := renderServer(t, "fleet.sysml", fleet)
-	motorURI := uri.File("motor.sysml")
+	motorURI := tempDocURI(t, "motor.sysml")
 	openDoc(t, s, motorURI, motor)
 	tellChanged(t, s, motorURI, motor, 2)
 
@@ -413,7 +413,7 @@ func TestApplyModelEditLayoutIntoDiskAndLibraryDocuments(t *testing.T) {
 func TestApplyModelEditLayoutRefusesWhenAnotherDocumentBecomesInvalid(t *testing.T) {
 	shadowed := strings.Replace(engineViews, "\tview engineView", "\tpart def DiagramLayout;\n\tview engineView", 1)
 	s, partsURI := renderServer(t, "parts.sysml", engineParts)
-	viewsURI := uri.File("views.sysml")
+	viewsURI := tempDocURI(t, "views.sysml")
 	openDoc(t, s, viewsURI, shadowed)
 
 	out := applyModelEdit(t, s, partsURI, 1,
