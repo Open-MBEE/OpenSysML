@@ -179,12 +179,8 @@ func (d *decoder) impliedRelationship(el, parent *element) (bool, error) {
 	return true, d.sourceEndsAgree(r)
 }
 
-// typingConjugationAgrees refuses a typing element whose metaclass and the
-// owner's sysx:conjugatedTyping disagree about whether the type is written
-// `~P`: a ConjugatedPortTyping under a plain typing, or a FeatureTyping under a
-// conjugated one. The flag qualifies the typing alone, so the other relationship
-// elements a conjugated-typed feature owns (its subsets, redefines, references)
-// are not measured against it.
+// typingConjugationAgrees refuses a typing element that disagrees with the owner's
+// sysx:conjugatedTyping about `~P`; the flag qualifies the typing alone, not its subsets.
 func (d *decoder) typingConjugationAgrees(r *impliedEnds) error {
 	if !slices.Contains(collapsedKindsOf[r.el.metaclass], ast.RelTyping) || len(r.stated) == 0 {
 		return nil

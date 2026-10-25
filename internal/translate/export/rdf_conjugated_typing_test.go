@@ -11,9 +11,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
-// conjugatedTypingSource types ports by `~Pd` beside the other relationships a
-// port can own in its declaration, so each of those is read back from a graph
-// whose owner carries sysx:conjugatedTyping.
+// conjugatedTypingSource declares `~Pd` ports with every other relationship a port
+// can own, so each is read back from an owner that carries sysx:conjugatedTyping.
 const conjugatedTypingSource = `package M {
     port def Pd;
     part def Base {
@@ -30,9 +29,8 @@ const conjugatedTypingSource = `package M {
 }
 `
 
-// conjugatedTypingGraphAlone is the fixture's graph without the source text the
-// decoder would otherwise write from, so the collapsed properties and the
-// materialized relationship elements have to carry the notation.
+// conjugatedTypingGraphAlone is the fixture's graph without the source text the decoder
+// would otherwise write from, so the structural triples have to carry the notation.
 func conjugatedTypingGraphAlone(t *testing.T) *rdf.Graph {
 	t.Helper()
 	return withoutSourceLayout(normativeGraph(t, conjugatedTypingSource))
@@ -86,9 +84,8 @@ func TestConjugatedPortOtherRelationshipsReadBackFromTheGraphAlone(t *testing.T)
 	}
 }
 
-// TestConjugatedTypingDisagreementStaysRefused keeps the refusal for the case
-// the check exists for: the typing element and the owner's sysx:conjugatedTyping
-// disagree, in either direction, about whether the type is written `~P`.
+// TestConjugatedTypingDisagreementStaysRefused keeps the refusal when the typing element
+// and the owner's sysx:conjugatedTyping disagree, in either direction, about `~P`.
 func TestConjugatedTypingDisagreementStaysRefused(t *testing.T) {
 	flag := rdf.OpenSysMLTerm(xConjugatedTyping)
 	cases := []struct {
