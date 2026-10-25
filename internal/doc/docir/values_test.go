@@ -14,7 +14,7 @@ const valueDocument = `
 	private import ISQ::*;
 	private import SI::*;
 	enum def Phase { design; flight; }
-	part def Mount { attribute mass :> ISQ::mass = 80 [kg]; }
+	part def Mount { attribute mass :> ISQ::mass = 80 [kg]; attribute 'dry mass' :> ISQ::mass = 70 [kg]; }
 	part def Telescope {
 		part mount : Mount;
 		attribute aperture : Real = 2.4;
@@ -29,7 +29,8 @@ const valueDocument = `
 		attribute redefines title = "Report";
 		rep language "markdown" /* Aperture [](sysml:value:telescope.aperture), named [](sysml:value:telescope.designation),
 		 * flying [](sysml:value:telescope.flying), in [](sysml:value:telescope.phase),
-		 * [Mount mass:](sysml:value:telescope.mount.mass), bands [](sysml:value:telescope.bands).
+		 * [Mount mass:](sysml:value:telescope.mount.mass), bands [](sysml:value:telescope.bands),
+		 * dry [](<sysml:value:telescope.mount.'dry mass'>), via [](sysml:value:telescope.mount::mass).
 		 *
 		 * - [Nominal aperture](sysml:value:Telescope::aperture)
 		 */
@@ -37,6 +38,15 @@ const valueDocument = `
 	part def Empty :> Document {
 		attribute redefines title = "Empty";
 		rep language "markdown" /* Margin [](sysml:value:telescope.margin). */
+	}
+	part def Car { attribute rating : Real; }
+	part def Fleet { part cars : Car[0..*]; }
+	part fleet : Fleet;
+	part car : Car;
+	part spare : Car;
+	part def FleetReport :> Document {
+		attribute redefines title = "Fleet";
+		rep language "markdown" /* Ratings [](sysml:value:fleet.cars.rating). */
 	}
 `
 
@@ -57,7 +67,7 @@ func TestEvaluateValueRuns(t *testing.T) {
 		}
 		b.WriteString(run.Text())
 	}
-	want := "Aperture 2.4, named Hubble, flying true, in flight, Mount mass: 80 [kg], bands optical, ultraviolet."
+	want := "Aperture 2.4, named Hubble, flying true, in flight, Mount mass: 80 [kg], bands optical, ultraviolet, dry 70 [kg], via 80 [kg]."
 	if got := b.String(); got != want {
 		t.Errorf("paragraph = %q, want %q", got, want)
 	}
@@ -110,5 +120,42 @@ func TestEvaluateValueRunHeldObject(t *testing.T) {
 	}
 	if got := document.Content()[0].Runs()[1].Text(); got != "6.5" {
 		t.Errorf("held aperture = %q, want 6.5", got)
+	}
+}
+
+// A chain through a feature holding several objects joins the values those
+// objects hold; one holding none for the member contributes nothing.
+func TestEvaluateValueRunHeldObjects(t *testing.T) {
+	fixture := loadEvaluationFixture(t, valueDocument)
+	ctx := runtime.NewContext(runtime.NewModel(fixture.model, fixture.resolver), runtime.DefaultMaxSteps)
+	instantiate := func(name string) *runtime.Instance {
+		inst, err := ctx.Instantiate(fixture.symbol(t, name))
+		if err != nil {
+			t.Fatalf("Instantiate %s: %v", name, err)
+		}
+		return inst
+	}
+	fleet, car, spare := instantiate("fleet"), instantiate("car"), instantiate("spare")
+	err := car.SetFeatureValue(ctx, "rating", runtime.Value{
+		Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 5},
+	})
+	if err != nil {
+		t.Fatalf("SetFeatureValue rating: %v", err)
+	}
+	cars := runtime.NewSequence()
+	cars.Append(runtime.Value{Kind: runtime.ValInstance, Instance: car.ID})
+	cars.Append(runtime.Value{Kind: runtime.ValInstance, Instance: spare.ID})
+	if err := fleet.SetFeatureValue(ctx, "cars", runtime.NewSequenceValue(cars)); err != nil {
+		t.Fatalf("SetFeatureValue cars: %v", err)
+	}
+	held := fixture.context()
+	held.Runtime = ctx
+	held.Roots = []queryexec.Root{{Label: "fleet", Object: fleet}}
+	document, err := Evaluate(fixture.plan(t, "FleetReport"), held, queryexec.Options{}, nil)
+	if err != nil {
+		t.Fatalf("evaluate over the session: %v", err)
+	}
+	if got := document.Content()[0].Runs()[1].Text(); got != "5" {
+		t.Errorf("ratings = %q, want the car's 5", got)
 	}
 }

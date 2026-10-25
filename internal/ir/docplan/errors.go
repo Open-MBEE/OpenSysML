@@ -235,7 +235,7 @@ func (e *Error) message() string {
 	case ErrorUnknownValueTarget:
 		return fmt.Sprintf("document %s value in %s names unknown target %s", e.Document, e.Content, e.Actual)
 	case ErrorInvalidValueTarget:
-		return fmt.Sprintf("document %s value in %s must name an attribute, calculation or enumeration usage by qualified name or feature chain, got %s", e.Document, e.Content, e.Actual)
+		return fmt.Sprintf("document %s value in %s must name a data-valued feature (an attribute, calculation, enumeration or data-typed reference usage) by qualified name or feature chain, got %s", e.Document, e.Content, e.Actual)
 	case ErrorUnknownGroupColumn:
 		return fmt.Sprintf("document %s table %s groups by %q, which its query does not project", e.Document, e.Content, e.Actual)
 	case ErrorInvalidColumnWidths:

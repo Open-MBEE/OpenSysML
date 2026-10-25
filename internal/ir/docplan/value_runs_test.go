@@ -8,20 +8,22 @@ import (
 )
 
 const valueRunsModel = `
-		part def Mount { attribute mass : Real = 80.0; }
-		part def Telescope { part mount : Mount; attribute aperture : Real = 2.4; }
+		part def Mount { attribute mass : Real = 80.0; attribute 'dry mass' : Real = 70.0; }
+		part def Telescope { part mount : Mount; attribute aperture : Real = 2.4; ref ratio : Real = 0.5; }
 		part telescope : Telescope;
 		part def Report :> Document {
 			attribute redefines title = "Report";
 			rep language "markdown" /* Aperture [](sysml:value:telescope.aperture) and
-			 * [mount mass](sysml:value:telescope.mount.mass); nominal [](sysml:value:Telescope::aperture).
+			 * [mount mass](sysml:value:telescope.mount.mass); nominal [](sysml:value:Telescope::aperture);
+			 * [](sysml:value:telescope.mount::mass), [](<sysml:value:telescope.mount.'dry mass'>), [](sysml:value:telescope.ratio).
 			 */
 		}
 	`
 
 // A `sysml:value:` destination plans a value run reading the named feature
 // from the chain's root, or from the owner of a feature named outright, with
-// its label kept and its origin inside the body.
+// its label kept and its origin inside the body; a `::` member or a quoted
+// name in the chain is one path segment each, and a data-typed `ref` is read.
 func TestCompileMarkdownBodyValueRuns(t *testing.T) {
 	fixture := loadPlanningFixture(t, valueRunsModel)
 	plan := fixture.mustCompile(t, "Report")
@@ -31,13 +33,20 @@ func TestCompileMarkdownBodyValueRuns(t *testing.T) {
 			values = append(values, run)
 		}
 	}
-	if len(values) != 3 {
-		t.Fatalf("value runs = %d, want 3", len(values))
+	if len(values) != 6 {
+		paths := make([]string, len(values))
+		for i, run := range values {
+			paths[i] = run.ValuePath()
+		}
+		t.Fatalf("value runs = %d (%q), want 6", len(values), paths)
 	}
 	want := []struct{ text, root, path, feature string }{
 		{"", "Observatory::telescope", "aperture", "Observatory::Telescope::aperture"},
 		{"mount mass", "Observatory::telescope", "mount.mass", "Observatory::Mount::mass"},
 		{"", "Observatory::Telescope", "aperture", "Observatory::Telescope::aperture"},
+		{"", "Observatory::telescope", "mount.mass", "Observatory::Mount::mass"},
+		{"", "Observatory::telescope", "mount.'dry mass'", "Observatory::Mount::dry mass"},
+		{"", "Observatory::telescope", "ratio", "Observatory::Telescope::ratio"},
 	}
 	full := "package Observatory {" + planningImports + valueRunsModel + "}"
 	for i, run := range values {
@@ -64,6 +73,8 @@ func TestCompileMarkdownBodyValueErrors(t *testing.T) {
 		{"part usage", "rep language \"markdown\" /* Mount [](sysml:value:telescope.mount). */", ErrorInvalidValueTarget, "got Observatory::Telescope::mount, a part usage (body line 1)"},
 		{"definition", "rep language \"markdown\" /* Type [](sysml:value:Telescope). */", ErrorInvalidValueTarget, "got Observatory::Telescope, a part definition (body line 1)"},
 		{"content block", "rep language \"markdown\" /* See [](sysml:value:details). */\n part details : Section { attribute redefines title = \"D\"; }", ErrorInvalidValueTarget, "Observatory::Report::details, a part usage"},
+		{"reference to a part", "rep language \"markdown\" /* Sel [](sysml:value:selected). */\n ref selected = telescope;", ErrorInvalidValueTarget, "got Observatory::Report::selected, a reference usage (body line 1)"},
+		{"reference typed by a part definition", "rep language \"markdown\" /* Sel [](sysml:value:chosen). */\n ref chosen : Telescope;", ErrorInvalidValueTarget, "got Observatory::Report::chosen, a reference usage (body line 1)"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

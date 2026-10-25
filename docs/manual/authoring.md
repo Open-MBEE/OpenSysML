@@ -251,16 +251,19 @@ instead of referencing the element: `[](sysml:value:telescope.mass)` renders
 `2290000 [kg]`, exactly as a `SpanColumn` cell projecting `mass` from
 `telescope` would — numbers with their unit, strings, booleans, enumeration
 literals, and a multi-valued feature joined with `, ` as a list cell is. The
-target is an attribute, calculation or enumeration usage named by qualified
-name or feature chain, resolved as a `sysml:` reference is; a feature chain
-reads from its root, a name from the feature's owner. Without a session the
+target is a data-valued feature — an attribute, calculation or enumeration
+usage, or a `ref` typed by data types only — named by qualified name or
+feature chain, resolved as a `sysml:` reference is; a feature chain reads
+from its root, a name from the feature's owner (a member written `a::b`
+reads `a`, then `b`). Without a session the
 declared value is read; over a session (`-run`, or a document rendered while
 the REPL holds objects) a target whose root the session holds reads the
 object's current value, as `Objects` rows do. A label precedes the value with
 one space — `[Mass:](sysml:value:telescope.mass)` renders `Mass: 2290000
 [kg]`; an empty label renders the value alone. A target that is a part,
-port, content block or definition is refused when the document is planned
-(`invalid-value-target`): `sysml:` without `value:` references those. A
+port, content block, definition or a `ref` to one of those is refused when
+the document is planned (`invalid-value-target`): `sysml:` without `value:`
+references those. A
 feature with no value fails the document's evaluation (`empty-value`) naming
 the feature, never a blank; give the feature a value or a redefinition.
 

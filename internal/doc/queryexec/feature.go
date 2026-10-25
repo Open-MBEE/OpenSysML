@@ -47,7 +47,9 @@ func ReadFeature(context Context, row Value, property string, options Options) (
 }
 
 // featurePathValues reads a property of a row, walking a member path through
-// the objects a session row holds, which a declared-model row walks itself.
+// the objects a session row holds, which a declared-model row walks itself. An
+// object lacking a member contributes nothing; the path is absent only when no
+// object reaches its last member.
 func (e *executor) featurePathValues(row Value, property string) ([]Value, bool, error) {
 	values, present, err := e.propertyValues(row, property)
 	if present || err != nil {
@@ -68,23 +70,23 @@ func (e *executor) featurePathValues(row Value, property string) ([]Value, bool,
 			if err != nil {
 				return nil, false, err
 			}
-			if !present {
-				return nil, false, nil
+			if present {
+				next = append(next, members...)
 			}
-			next = append(next, members...)
 		}
 		current = next
 	}
 	var out []Value
+	reached := false
 	for _, value := range current {
 		members, present, err := e.propertyValues(value, segments[len(segments)-1])
 		if err != nil {
 			return nil, false, err
 		}
-		if !present {
-			return nil, false, nil
+		if present {
+			reached = true
+			out = append(out, members...)
 		}
-		out = append(out, members...)
 	}
-	return out, true, nil
+	return out, reached, nil
 }
