@@ -154,7 +154,7 @@ read	Probe::u1.whileLoops	systems	Actions::Action::whileLoops	empty
 read	Probe::u1.who	model	Probe::U1::who	object:Probe::P2
 object	Probe::vw1	object:Probe::vw1
 read	Probe::vw1.boundingShapes	systems	Items::Item::boundingShapes	empty
-read	Probe::vw1.checkedConstraints	systems	Items::Item::checkedConstraints	empty
+read	Probe::vw1.checkedConstraints	systems	Items::Item::checkedConstraints	collection(1) [object:Views::View::viewpointConformance#1]
 read	Probe::vw1.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	Probe::vw1.envelopingShapes	systems	Items::Item::envelopingShapes	empty
 read	Probe::vw1.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
@@ -253,7 +253,7 @@ read	Probe::box.shape	systems	Items::Item::shape	empty
 read	Probe::box.slf	domain	ShapeItems::RectangularCuboid::slf	object:ShapeItems::RectangularCuboid::slf
 read	Probe::box.srf	domain	ShapeItems::RectangularCuboid::srf	object:ShapeItems::RectangularCuboid::srf
 read	Probe::box.start	systemsFRAME	Items::Item::start	object:Probe::box
-read	Probe::box.subitems	systems	Items::Item::subitems	empty
+read	Probe::box.subitems	systems	Items::Item::subitems	error subsetting feature vertices of subitems: subsetting feature tflv of vertices: binding end cannot be resolved: box.tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`, which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds
 read	Probe::box.subparts	systems	Items::Item::subparts	empty
 read	Probe::box.tf	domain	ShapeItems::RectangularCuboid::tf	object:ShapeItems::RectangularCuboid::tf
 read	Probe::box.tfe	domain	ShapeItems::CuboidOrTriangularPrism::tfe	error binding end cannot be resolved: box.tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`, which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds
@@ -287,7 +287,7 @@ read	Probe::sph.semiAxis2	domain	ShapeItems::Sphere::semiAxis2	quantity 1.0 [m]
 read	Probe::sph.semiAxis3	domain	ShapeItems::Sphere::semiAxis3	quantity 1.0 [m]
 read	Probe::sph.shape	systems	Items::Item::shape	empty
 read	Probe::sph.start	systemsFRAME	Items::Item::start	object:Probe::sph
-read	Probe::sph.subitems	systems	Items::Item::subitems	empty
+read	Probe::sph.subitems	systems	Items::Item::subitems	collection(1) [object:ShapeItems::Ellipsoid::faces#1]
 read	Probe::sph.subparts	systems	Items::Item::subparts	empty
 read	Probe::sph.vertices	domain	ShapeItems::ConicSurface::vertices	empty
 read	Probe::sph.voids	systems	Items::Item::voids	empty
@@ -326,7 +326,7 @@ read	Probe::spat.shape	systems	Items::Item::shape	empty
 read	Probe::spat.start	systemsFRAME	Items::Item::start	object:Probe::spat
 read	Probe::spat.subSpatialItems	domain	SpatialItems::SpatialItem::subSpatialItems	undetermined <undetermined>
 read	Probe::spat.subSpatialParts	domain	SpatialItems::SpatialItem::subSpatialParts	undetermined <undetermined>
-read	Probe::spat.subitems	systems	Items::Item::subitems	collection(1) [object:SpatialItems::SpatialItem::componentParts#1]
+read	Probe::spat.subitems	systems	Items::Item::subitems	collection(2) [object:Objects::Point#1, object:SpatialItems::SpatialItem::componentParts#2]
 read	Probe::spat.subparts	systems	Items::Item::subparts	collection(1) [object:SpatialItems::SpatialItem::componentParts#1]
 read	Probe::spat.voids	systems	Items::Item::voids	empty
 object	Probe::sys	object:Probe::sys
@@ -456,7 +456,7 @@ read	Probe::p1.st.sendSubactions	systems	Actions::Action::sendSubactions	empty
 read	Probe::p1.st.start	systemsFRAME	States::StateAction::start	object:Probe::S1
 read	Probe::p1.st.stateSequencing	systems	States::StateAction::stateSequencing	ERR_NOSUCHFEATURE object has no such feature: member stateSequencing not found in instance
 read	Probe::p1.st.stateTransitions	systems	States::StateAction::stateTransitions	empty
-read	Probe::p1.st.subactions	systems	States::StateAction::subactions	empty
+read	Probe::p1.st.subactions	systems	States::StateAction::subactions	collection(1) [object:Actions::Action#1]
 read	Probe::p1.st.substates	systems	States::StateAction::substates	empty
 read	Probe::p1.st.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	Probe::p1.st.transitions	systems	Actions::Action::transitions	empty
@@ -542,7 +542,7 @@ read	Probe::p1.uq.whileLoops	systems	Actions::Action::whileLoops	empty
 read	Probe::p1.uq.who	model	Probe::U1::who	object:Probe::P2
 object	Probe::p1.vwq	object:Probe::Vw1
 read	Probe::p1.vwq.boundingShapes	systems	Items::Item::boundingShapes	empty
-read	Probe::p1.vwq.checkedConstraints	systems	Items::Item::checkedConstraints	empty
+read	Probe::p1.vwq.checkedConstraints	systems	Items::Item::checkedConstraints	collection(1) [object:Views::View::viewpointConformance#1]
 read	Probe::p1.vwq.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	Probe::p1.vwq.envelopingShapes	systems	Items::Item::envelopingShapes	empty
 read	Probe::p1.vwq.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
@@ -743,7 +743,7 @@ read	Probe::p1.es.sendSubactions	systems	Actions::Action::sendSubactions	empty
 read	Probe::p1.es.start	systemsFRAME	States::StateAction::start	object:Probe::S1
 read	Probe::p1.es.stateSequencing	systems	States::StateAction::stateSequencing	ERR_NOSUCHFEATURE object has no such feature: member stateSequencing not found in instance
 read	Probe::p1.es.stateTransitions	systems	States::StateAction::stateTransitions	empty
-read	Probe::p1.es.subactions	systems	States::StateAction::subactions	empty
+read	Probe::p1.es.subactions	systems	States::StateAction::subactions	collection(1) [object:Actions::Action#1]
 read	Probe::p1.es.substates	systems	States::StateAction::substates	empty
 read	Probe::p1.es.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	Probe::p1.es.transitions	systems	Actions::Action::transitions	empty
@@ -954,7 +954,7 @@ read	new Probe::S1().sendSubactions	systems	Actions::Action::sendSubactions	empt
 read	new Probe::S1().start	systemsFRAME	States::StateAction::start	object:Probe::S1
 read	new Probe::S1().stateSequencing	systems	States::StateAction::stateSequencing	ERR_NOSUCHFEATURE object has no such feature: member stateSequencing not found in instance
 read	new Probe::S1().stateTransitions	systems	States::StateAction::stateTransitions	empty
-read	new Probe::S1().subactions	systems	States::StateAction::subactions	empty
+read	new Probe::S1().subactions	systems	States::StateAction::subactions	collection(1) [object:Actions::Action#1]
 read	new Probe::S1().substates	systems	States::StateAction::substates	empty
 read	new Probe::S1().terminateSubactions	systems	Actions::Action::terminateSubactions	empty
 read	new Probe::S1().transitions	systems	Actions::Action::transitions	empty
@@ -1113,7 +1113,7 @@ read	new Probe::U1().whileLoops	systems	Actions::Action::whileLoops	empty
 read	new Probe::U1().who	model	Probe::U1::who	object:Probe::P2
 object	new Probe::Vw1()	object:Probe::Vw1
 read	new Probe::Vw1().boundingShapes	systems	Items::Item::boundingShapes	empty
-read	new Probe::Vw1().checkedConstraints	systems	Items::Item::checkedConstraints	empty
+read	new Probe::Vw1().checkedConstraints	systems	Items::Item::checkedConstraints	collection(1) [object:Views::View::viewpointConformance#1]
 read	new Probe::Vw1().done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
 read	new Probe::Vw1().envelopingShapes	systems	Items::Item::envelopingShapes	empty
 read	new Probe::Vw1().exhibitedStates	systems	Parts::Part::exhibitedStates	empty

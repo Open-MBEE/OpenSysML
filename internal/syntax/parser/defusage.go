@@ -3275,7 +3275,7 @@ func (p *Parser) parseBodyMember() ast.Node {
 		// A feature modifier can precede the kind keyword: `ref part a : V`,
 		// `composite item i`, `derived attribute c`. The declaration is parsed
 		// as usual and the modifiers already consumed are applied to it.
-		if p.isKindKeyword(p.peek()) || p.atKindPrefix() {
+		if p.isKindKeyword(p.peek()) || p.atUseCase() || p.atKindPrefix() {
 			// A keyword that only qualifies the kind after it is consumed first:
 			// `derived var feature x` declares a feature, not a `var`.
 			for p.atKindPrefix() && !p.isKindKeyword(p.peek()) {

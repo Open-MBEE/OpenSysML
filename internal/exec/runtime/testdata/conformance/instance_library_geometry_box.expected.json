@@ -44,7 +44,7 @@
     "box.isSolid": {"type": "Boolean", "value": true},
     "box.voids": {"type": "Sequence", "elements": []},
     "box.shape": {"type": "Sequence", "elements": []},
-    "box.subitems": {"type": "Sequence", "elements": []},
+    "box.subitems": {"error": "subsetting feature vertices of subitems: subsetting feature tflv of vertices: binding end cannot be resolved: box.tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`, which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds"},
     "box.self": {"type": "Instance"},
     "box.timeSlices": {"type": "Undetermined", "value": "[3..*]"},
     "box.startShot": {"error": "box has no member startShot: Parts::Part::start redefines it"},
