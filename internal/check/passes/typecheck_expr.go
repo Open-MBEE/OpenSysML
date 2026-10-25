@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -1780,7 +1779,7 @@ func redefinedNames(p parameter) []string {
 	var names []string
 	if p.usage == nil {
 		for _, ref := range p.sym.Facts.Redefines {
-			if name := lastSegment(ref.FQN); name != "" {
+			if name := symbols.LastSegment(ref.FQN); name != "" {
 				names = append(names, name)
 			}
 		}
@@ -1797,14 +1796,6 @@ func redefinedNames(p parameter) []string {
 		names = append(names, qn.Parts[len(qn.Parts)-1].Text)
 	}
 	return names
-}
-
-// lastSegment returns the simple name a fully-qualified name ends in.
-func lastSegment(fqn string) string {
-	if i := strings.LastIndex(fqn, "::"); i >= 0 {
-		return fqn[i+2:]
-	}
-	return fqn
 }
 
 // declaredParameters returns the parameters declared directly by a symbol's

@@ -186,7 +186,7 @@ func (m *Model) LookupMember(sym *symbols.Symbol, name string) (*symbols.Symbol,
 	// If no scope (cached stdlib symbol), query index for direct children
 	if sym.Scope == nil {
 		for _, child := range m.resolver.Index().LookupDirectChildrenNamed(sym.Name, name) {
-			if leafName(child.Name) == name {
+			if symbols.LastSegment(child.Name) == name {
 				return child, true
 			}
 		}
@@ -252,7 +252,7 @@ func (m *Model) eachContributedMember(sym *symbols.Symbol, name string, yield fu
 		}
 		// A cached source with no scope is read from the index.
 		for _, child := range m.resolver.Index().LookupDirectChildrenNamed(sup.Name, name) {
-			if leafName(child.Name) == name && m.inheritedAlong(child, src.via) && !yield(child) {
+			if symbols.LastSegment(child.Name) == name && m.inheritedAlong(child, src.via) && !yield(child) {
 				return
 			}
 		}

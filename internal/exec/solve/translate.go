@@ -854,20 +854,12 @@ func baseUnitsText(unit semantics.UnitTerm) string {
 		if out != "" {
 			out += "·"
 		}
-		out += leafName(f.Unit.Name)
+		out += symbols.LastSegment(f.Unit.Name)
 		if f.Exponent != 1 {
 			out += fmt.Sprintf("^%g", f.Exponent)
 		}
 	}
 	return out
-}
-
-// leafName is the declared name at the end of a qualified one.
-func leafName(name string) string {
-	if i := strings.LastIndex(name, "::"); i >= 0 {
-		return name[i+2:]
-	}
-	return name
 }
 
 // quantity translates `magnitude [unit]`, scaling the magnitude to the base units

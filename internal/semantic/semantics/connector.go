@@ -260,7 +260,7 @@ func namedEnds(end *symbols.Symbol, general []*symbols.Symbol) []*symbols.Symbol
 // sym's name and then its owners' names; `$` pins the chain to the root.
 func qualifiedNameNames(qn *ast.QualifiedName, sym *symbols.Symbol) bool {
 	parts := qn.Parts
-	if len(parts) == 0 || leafName(sym.Name) != parts[len(parts)-1].Text {
+	if len(parts) == 0 || symbols.LastSegment(sym.Name) != parts[len(parts)-1].Text {
 		return false
 	}
 	scope := sym.OwnerScope
@@ -856,9 +856,9 @@ func (m *Model) connectorEndAttachments(sym *symbols.Symbol, ends []connectorEnd
 		// An end named by its own declaration names the attachment; one that
 		// only names what it attaches to takes the name of the end it redefines.
 		case i < len(owned) && owned[i] != nil && owned[i].Name != "":
-			att.Name, att.EndFeature = leafName(owned[i].Name), owned[i]
+			att.Name, att.EndFeature = symbols.LastSegment(owned[i].Name), owned[i]
 		case general != nil:
-			att.Name, att.EndFeature = leafName(general.Name), general
+			att.Name, att.EndFeature = symbols.LastSegment(general.Name), general
 		case len(ends) == 2:
 			att.Name = binaryConnectorEndNames[i]
 		}

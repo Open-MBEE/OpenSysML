@@ -376,7 +376,7 @@ func (r *Renderer) canvasOf(view *symbols.Symbol, out *Rendering) *Canvas {
 func (r *Renderer) noteLayoutProblems(site *semantics.LayoutSite, elem *symbols.Symbol, out *Rendering) {
 	for _, problem := range site.Problems {
 		notice := fmt.Sprintf("%s annotation of %s %s is not applied: %s",
-			simpleName(site.TypeFQN), declKind(elem), r.notationName(elem), problem.Message)
+			symbols.LastSegment(site.TypeFQN), declKind(elem), r.notationName(elem), problem.Message)
 		if !slices.Contains(out.Notices, notice) {
 			out.Notices = append(out.Notices, notice)
 		}

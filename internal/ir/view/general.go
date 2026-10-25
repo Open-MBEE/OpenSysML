@@ -110,7 +110,7 @@ func (r *Renderer) classifyFilter(p *symbols.FilterPredicate, selected map[Kind]
 		if p.Op == symbols.FilterMetaClassify {
 			op = "@@"
 		}
-		return op + simpleName(p.TypeFQN), true
+		return op + symbols.LastSegment(p.TypeFQN), true
 	case symbols.FilterOr:
 		parts := make([]string, 0, len(p.Operands))
 		for _, operand := range p.Operands {
@@ -142,7 +142,7 @@ func (r *Renderer) metaclassGraph(fqn string) (Kind, bool) {
 	}
 	names := map[string]bool{}
 	for _, sym := range append([]*symbols.Symbol{metas[0]}, r.model.AllSupertypes(metas[0])...) {
-		names[simpleName(r.fqn(sym))] = true
+		names[symbols.LastSegment(r.fqn(sym))] = true
 	}
 	has := func(set []string) bool { return slices.ContainsFunc(set, func(n string) bool { return names[n] }) }
 	switch {
@@ -476,7 +476,7 @@ func (g *generalGraph) featureEdges(sym *symbols.Symbol, from *Node) {
 		}
 		for _, typ := range g.r.model.DeclaredTypes(member) {
 			if to := g.drawn(typ); to != nil {
-				g.add(Edge{From: from.ID, To: to.ID, Kind: kind, ToLabel: simpleName(g.r.fqn(member)), Origin: symbolOrigin(member)})
+				g.add(Edge{From: from.ID, To: to.ID, Kind: kind, ToLabel: symbols.LastSegment(g.r.fqn(member)), Origin: symbolOrigin(member)})
 			}
 		}
 	}
