@@ -783,6 +783,11 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 		if val, ok := ec.openConditionInput(name); ok {
 			return val, nil
 		}
+		// Then the performance being run: a feature of the behavior performed is read
+		// from the performance's occurrence, which masks the performer's of that name.
+		if val, ok, err := ec.performanceFeatureValue(name, unset); ok {
+			return val, err
+		}
 		// Then the bound instance: a feature value holds the value this object actually
 		// carries, which overrides the declared default the scope would yield.
 		if ec.self != nil && ec.selfFeatureInScope(name) {
@@ -952,6 +957,10 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 	}
 	// A measurement unit declaration (`SI::m`) is the measurement reference it names.
 	if val, ok, err := ec.ctx.MeasurementUnitValue(currentSym); ok {
+		return val, err
+	}
+	// A qualified feature of the behavior performed (`SM::entryAction`) is the performance's.
+	if val, ok, err := ec.performanceFeatureOf(currentSym); ok {
 		return val, err
 	}
 	// A qualified feature of an enclosing type (`Rectangle::length` inside its
@@ -1489,24 +1498,57 @@ func (ec *EvalContext) selfFeatureInScope(name string) bool {
 // instance has such a feature value; an error means the feature value exists but could not be
 // materialized.
 func (ec *EvalContext) selfFeatureValue(name string) (Value, bool, error) {
+	return ec.featureValueOn(ec.self, name)
+}
+
+// performanceFeatureValue reads a name resolving to a feature of the behavior performed
+// from the performance's own occurrence, unless a frame holds the feature unset.
+func (ec *EvalContext) performanceFeatureValue(name string, unset *symbols.Symbol) (Value, bool, error) {
+	if ec.occurrence == nil || unset != nil || ec.scope == nil || ec.ctx.model.resolver == nil {
+		return Value{}, false, nil
+	}
+	if name == thisName || name == thatName {
+		return Value{}, false, nil
+	}
+	sym, ok := ec.lookupName(name)
+	if !ok {
+		return Value{}, false, nil
+	}
+	return ec.performanceFeatureOf(sym)
+}
+
+// performanceFeatureOf reads sym, a feature the performance's type holds, from the
+// performance's own occurrence: `entryAction` or `part fresh` in a body is the performance's.
+func (ec *EvalContext) performanceFeatureOf(sym *symbols.Symbol) (Value, bool, error) {
+	occurrence := ec.occurrence
+	if occurrence == nil || occurrence == ec.self || sym == nil || ec.ctx.model.semantics.IsSelf(sym) ||
+		!performerHoldsFeature(ec.ctx, occurrence, sym) {
+		return Value{}, false, nil
+	}
+	return ec.featureValueOn(occurrence, sym.Name)
+}
+
+// featureValueOn reads inst's named feature; ok reports whether inst holds it, and an
+// error a feature value that exists but could not be materialized.
+func (ec *EvalContext) featureValueOn(inst *Instance, name string) (Value, bool, error) {
 	// A clock's currentTime, under any of its names, is the run's shared clock.
-	if now, isClock, err := ec.ctx.clockMember(ec.self, name); isClock {
+	if now, isClock, err := ec.ctx.clockMember(inst, name); isClock {
 		return now, true, err
 	}
-	if _, ok := ec.self.FeatureValues[name]; !ok && !ec.ctx.derivesKernelCollection(ec.self, name) {
+	if _, ok := inst.FeatureValues[name]; !ok && !ec.ctx.derivesKernelCollection(inst, name) {
 		// A member the shape leaves out, which the default the holder governs over states.
-		if val, ok, err := ec.ctx.holderDefaultMember(ec.self, name); ok {
+		if val, ok, err := ec.ctx.holderDefaultMember(inst, name); ok {
 			return val, true, err
 		}
 		return Value{}, false, nil
 	}
-	fv, open, err := ec.memberFeatureValue(ec.self, name)
+	fv, open, err := ec.memberFeatureValue(inst, name)
 	if err != nil {
 		return Value{}, true, err
 	}
 	// Read on an object only the model stands behind, a feature whose count the
 	// model leaves open has no fixed sequence of values, as a chain reads it.
-	if value, ok := ec.openFeatureRead(ec.self, fv, open, "", name); ok {
+	if value, ok := ec.openFeatureRead(inst, fv, open, "", name); ok {
 		return value, true, nil
 	}
 	value, err := ec.ctx.readFeatureValue(fv, name)
@@ -1514,8 +1556,8 @@ func (ec *EvalContext) selfFeatureValue(name string) (Value, bool, error) {
 		return value, true, err
 	}
 	// An object the feature holds is read as what it denotes, as a chain reads it.
-	if inst, ok := ec.ctx.instances[value.Instance]; ok && value.Kind == ValInstance {
-		value, err = ec.ctx.objectValue(inst)
+	if held, ok := ec.ctx.instances[value.Instance]; ok && value.Kind == ValInstance {
+		value, err = ec.ctx.objectValue(held)
 	}
 	return value, true, err
 }
@@ -1590,6 +1632,14 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 	if sym, ok, err := ec.occurrenceOperand(base); err != nil {
 		return Value{}, err
 	} else if ok {
+		// A usage of the behavior performed is read from its performance, so `fresh.n`
+		// inside `go` reads the part the performance holds, as a bare `fresh` does.
+		if val, ok, err := ec.performanceFeatureOf(sym); ok {
+			if err != nil {
+				return Value{}, err
+			}
+			return ec.chainMemberValue(val, parts, sym.Name)
+		}
 		// A usage of an enclosing object is read from that object, so a sibling
 		// chain `e1.length` inside `e3` reads the containing rectangle's e1.
 		if val, ok, err := ec.outerFeatureValue(sym); ok {
