@@ -926,17 +926,7 @@ func (c *compiler) documentRootTarget(sym *symbols.Symbol, run *Run) (*symbols.S
 		}
 		return defs[0], nil
 	default:
-		names := make([]string, len(defs))
-		for i, def := range defs {
-			names[i] = symbols.FQNOf(def)
-		}
-		return nil, &Error{
-			Kind:     ErrorAmbiguousRefTarget,
-			Document: c.document,
-			Content:  symbols.FQNOf(sym),
-			Actual:   strings.Join(names, " and "),
-			Origin:   run.origin,
-		}
+		return nil, c.ambiguousDocument(sym, defs, run.origin)
 	}
 }
 
@@ -961,17 +951,23 @@ func (c *compiler) chainRootDocument(run *Run) (*symbols.Symbol, error) {
 	case 1:
 		return defs[0], nil
 	default:
-		names := make([]string, len(defs))
-		for i, def := range defs {
-			names[i] = symbols.FQNOf(def)
-		}
-		return nil, &Error{
-			Kind:     ErrorAmbiguousRefTarget,
-			Document: c.document,
-			Content:  symbols.FQNOf(root),
-			Actual:   strings.Join(names, " and "),
-			Origin:   run.origin,
-		}
+		return nil, c.ambiguousDocument(root, defs, run.origin)
+	}
+}
+
+// ambiguousDocument is the error for a usage typed by more than one document
+// definition where a reference needs exactly one.
+func (c *compiler) ambiguousDocument(usage *symbols.Symbol, defs []*symbols.Symbol, origin symbols.Origin) *Error {
+	names := make([]string, len(defs))
+	for i, def := range defs {
+		names[i] = symbols.FQNOf(def)
+	}
+	return &Error{
+		Kind:     ErrorAmbiguousRefTarget,
+		Document: c.document,
+		Content:  symbols.FQNOf(usage),
+		Actual:   strings.Join(names, " and "),
+		Origin:   origin,
 	}
 }
 

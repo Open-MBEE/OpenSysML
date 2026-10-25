@@ -202,3 +202,103 @@ paragraph
 		t.Errorf("references %q, want %q", got, want)
 	}
 }
+
+// An explicit anchor is the section's name as written when it is a basic
+// name, and the slug of the id otherwise; an xref spelt as the id, however
+// it is written, resolves to the section.
+func TestCompileWholeDocumentAsciiDocExplicitIDs(t *testing.T) {
+	useRecordedAsciiDoc(t)
+	fixture := loadPlanningFixture(t, `
+	part def Report :> Document {
+		attribute redefines title = "Report";
+		`+asciiDocBody(t, "asciidoc_anchors.adoc")+`
+	}
+`)
+	plan := fixture.mustCompile(t, "Report")
+	want := strings.TrimLeft(`
+MassBudget Mass budget
+  paragraph
+power_budget Power budget
+  paragraph
+`, "\n")
+	if got := outline(plan.Content(), 0); got != want {
+		t.Fatalf("outline:\n%s\nwant:\n%s", got, want)
+	}
+	var refs []string
+	for _, section := range plan.Content() {
+		for _, run := range section.Children()[0].Runs() {
+			if run.Kind() == RunRef {
+				refs = append(refs, strings.Join(run.RefPath(), "/")+"="+run.Text())
+			}
+		}
+	}
+	want = "power_budget=Power budget power_budget=Power budget MassBudget=Mass budget MassBudget=Mass budget"
+	if got := strings.Join(refs, " "); got != want {
+		t.Errorf("references %q, want %q", got, want)
+	}
+}
+
+// A heading qualified by a usage typed by more than one document is an
+// ambiguous target naming both documents, not an unknown one.
+func TestCompileWholeDocumentAmbiguousDocumentUsage(t *testing.T) {
+	fixture := loadPlanningFixture(t, `
+		ref both : First, Second;
+		part def First :> Document {
+			attribute redefines title = "First";
+			rep language "markdown" /* # Overview */
+		}
+		part def Second :> Document {
+			attribute redefines title = "Second";
+			rep language "markdown" /* # Overview */
+		}
+		part def Report :> Document {
+			attribute redefines title = "Report";
+			rep language "markdown" /* See [](sysml:both::overview). */
+		}
+	`)
+	_, err := fixture.compile(t, "Report")
+	planning := bodyPlanningError(t, err)
+	if planning.Kind != ErrorAmbiguousRefTarget {
+		t.Fatalf("error = %v, want kind %s", err, ErrorAmbiguousRefTarget)
+	}
+	if !strings.Contains(planning.Error(), "Observatory::First and Observatory::Second") {
+		t.Errorf("message = %q", planning.Error())
+	}
+	if planning.Line != 1 || !planning.Origin.Located() {
+		t.Errorf("line %d, located %v", planning.Line, planning.Origin.Located())
+	}
+}
+
+// An allocated name is never shadowed by a later heading's explicit id, a
+// repeated id keeps naming its first heading, and a quoted name spells an id.
+func TestCompileWholeDocumentSectionAliases(t *testing.T) {
+	useRecordedAsciiDoc(t)
+	fixture := loadPlanningFixture(t, `
+	part def Report :> Document {
+		attribute redefines title = "Report";
+		rep language "markdown" /* # Overview */
+		`+asciiDocBody(t, "asciidoc_aliases.adoc")+`
+	}
+`)
+	plan := fixture.mustCompile(t, "Report")
+	want := strings.TrimLeft(`
+overview Overview
+overview_2 Appendix
+  paragraph
+power_budget Power budget
+power_budget_2 Reserve power
+`, "\n")
+	if got := outline(plan.Content(), 0); got != want {
+		t.Fatalf("outline:\n%s\nwant:\n%s", got, want)
+	}
+	var refs []string
+	for _, run := range plan.Content()[1].Children()[0].Runs() {
+		if run.Kind() == RunRef {
+			refs = append(refs, strings.Join(run.RefPath(), "/")+"="+run.Text())
+		}
+	}
+	want = "overview=Overview power_budget=Power budget power_budget=Power budget"
+	if got := strings.Join(refs, " "); got != want {
+		t.Errorf("references %q, want %q", got, want)
+	}
+}

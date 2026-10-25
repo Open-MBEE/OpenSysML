@@ -185,7 +185,7 @@ func (c *compiler) markupRef(owner, rep *symbols.Symbol, body string, run markup
 	line := 1 + strings.Count(body[:run.Span.Start], "\n")
 	value, ok := parser.ParseOneExpression(rep.DocName, run.Destination)
 	if !ok {
-		if section, doc, found := c.markupSectionRef(rep.OwnerScope, run.Destination, nil); found {
+		if section, doc, found, _ := c.markupSectionRef(rep.OwnerScope, run.Destination, nil, origin); found {
 			return Run{kind: RunRef, text: run.Text, refName: section.name, refNameDoc: doc, bound: true, origin: origin}, nil
 		}
 		return Run{}, &Error{
@@ -200,8 +200,11 @@ func (c *compiler) markupRef(owner, rep *symbols.Symbol, body string, run markup
 	target, root, err := c.resolveTargetValue(owner, rep.OwnerScope, value, ErrorInvalidRefTarget, ErrorUnknownRefTarget, origin)
 	if err != nil {
 		var planning *Error
-		if errors.As(err, &planning) && planning.Kind == ErrorUnknownRefTarget {
-			if section, doc, found := c.markupSectionRef(rep.OwnerScope, run.Destination, value); found {
+		if errors.As(err, &planning) && (planning.Kind == ErrorUnknownRefTarget || planning.Kind == ErrorInvalidRefTarget) {
+			section, doc, found, sectionErr := c.markupSectionRef(rep.OwnerScope, run.Destination, value, origin)
+			if sectionErr != nil {
+				err = sectionErr
+			} else if found {
 				return Run{kind: RunRef, text: run.Text, refName: section.name, refNameDoc: doc, bound: true, origin: origin}, nil
 			}
 		}

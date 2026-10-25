@@ -321,20 +321,25 @@ tables of contents and title pages (`-doc-number-sections`, `-doc-toc`,
 Each such section is named, so it is a `Ref` target and an HTML anchor like
 a `part : Section`. The name is the explicit id when the markup gives one
 (AsciiDoc `[[id]]` or `[#id]` on the title; Markdown has no CommonMark
-spelling for one), else a slug of the title: lower-cased, every run of
-characters other than letters and digits replaced by one underscore,
-leading and trailing underscores dropped, an underscore prefixed to a
-leading digit (`Mass budget` → `mass_budget`, `3rd level, deep!` →
-`_3rd_level_deep`). Names are unique within the document: a derived or
-explicit name already taken by a content part or an earlier heading gets
-the first free suffix `_2`, `_3`, … in body order — the second `Mass budget`
-above would be `mass_budget_2`. The name is not a model element: a
-`sysml:` destination is resolved against the model first, and only an
-unknown name is looked up among the document's headings, so a model element
-of the same name in scope wins — give the heading an explicit id or refer
-to the element by a longer name. From another document, qualify the name by
-the document definition or a usage of it (`sysml:MassReport::mass_budget`)
-as for a named part; the anchor is the section's path, `overview-mass_budget`.
+spelling for one), kept as written when it is a basic name (`[[MassBudget]]`
+→ `MassBudget`) and otherwise slugged like a title; else a slug of the title:
+lower-cased, every run of characters other than letters and digits replaced
+by one underscore, leading and trailing underscores dropped, an underscore
+prefixed to a leading digit (`Mass budget` → `mass_budget`, `3rd level,
+deep!` → `_3rd_level_deep`, `[[mass-budget]]` → `mass_budget`). Names are
+unique within the document: a derived or explicit name already taken by a
+content part or an earlier heading gets the first free suffix `_2`, `_3`, …
+in body order — the second `Mass budget` above would be `mass_budget_2`.
+The name is not a model element: a `sysml:` destination is resolved against
+the model first, and only a name no element answers to is looked up among
+the document's headings — by name, or by an explicit id exactly as written
+(`sysml:mass-budget` finds `[[mass-budget]]`) — so a model element of the
+same name in scope wins; give the heading an explicit id or refer to the
+element by a longer name. From another document, qualify the name by the
+document definition or a usage of it (`sysml:MassReport::mass_budget`) as
+for a named part; a usage typed by more than one document is the
+`ambiguous-ref-target` error, as for a part. The anchor is the section's
+path, `overview-mass_budget`.
 
 Constructs that no content block renders are refused with a typed planning
 error naming the construct and its line within the body, rather than
@@ -427,8 +432,11 @@ title in a `part : Paragraph` body is refused — with one addition: an
 anchor on the title, `[[mass_budget]]` or `[#mass_budget]`, is the
 section's name, and `<<mass_budget>>` or `sysml:ref[mass_budget]` resolves
 to it. An id spelt with characters a name cannot carry (`[[mass-budget]]`)
-is normalised by the slug rule, and an xref written as the id still finds
-it. Without an anchor the name is the slug of the title; Asciidoctor's
+is normalised by the slug rule to `mass_budget`, and an xref written as the
+id, `<<mass-budget>>` or `sysml:ref['mass-budget']`, still finds it. An id
+already taken as an earlier heading's name gets the `_2` suffix and does
+not take that name over, and a repeated id keeps naming its first heading.
+Without an anchor the name is the slug of the title; Asciidoctor's
 automatic `_title` ids are not used.
 
 Constructs no content block renders are refused with a typed planning

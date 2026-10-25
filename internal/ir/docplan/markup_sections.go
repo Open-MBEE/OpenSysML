@@ -22,10 +22,26 @@ type markupSection struct {
 }
 
 // markupOutline is what one document's markup bodies contribute: the name
-// each body's headings take, in order, and the sections by name.
+// each body's headings take, in order, the sections by name, and the name
+// each explicit id was given, so a reference spelt as the id finds it.
 type markupOutline struct {
 	names    map[*symbols.Symbol][]string
 	sections map[string]markupSection
+	ids      map[string]string
+}
+
+// section is the section named by name, else the one whose explicit id name
+// spells; an allocated name is never shadowed by a later heading's id.
+func (o *markupOutline) section(name string) (markupSection, bool) {
+	if section, ok := o.sections[name]; ok {
+		return section, true
+	}
+	allocated, ok := o.ids[name]
+	if !ok {
+		return markupSection{}, false
+	}
+	section, ok := o.sections[allocated]
+	return section, ok
 }
 
 // parsedBody is a textual representation's body parsed once: its language,
@@ -122,7 +138,7 @@ func (c *compiler) outlineOf(doc *symbols.Symbol) *markupOutline {
 	if outline, ok := c.outlines[doc]; ok {
 		return outline
 	}
-	outline := &markupOutline{names: make(map[*symbols.Symbol][]string), sections: make(map[string]markupSection)}
+	outline := &markupOutline{names: make(map[*symbols.Symbol][]string), sections: make(map[string]markupSection), ids: make(map[string]string)}
 	c.outlines[doc] = outline
 	used := make(map[string]bool)
 	c.collectContentNames(doc, used)
@@ -145,8 +161,9 @@ func (c *compiler) collectContentNames(owner *symbols.Symbol, used map[string]bo
 }
 
 // scanBodies names the headings of every document and section body under
-// owner in declaration order: the explicit id, else a slug of the title, each
-// made unique within the document, with the named path the section takes.
+// owner in declaration order: the explicit id, else a slug of the title (see
+// sectionName), each made unique within the document, with the named path
+// the section takes; a repeated explicit id keeps naming its first heading.
 func (c *compiler) scanBodies(owner *symbols.Symbol, path []string, outline *markupOutline, used map[string]bool) {
 	for _, member := range c.effectiveMembers(owner) {
 		if member.Kind == symbols.SymbolPartUsage && c.isContent(member) {
@@ -170,8 +187,11 @@ func (c *compiler) scanBodies(owner *symbols.Symbol, path []string, outline *mar
 			if block.Kind != markup.BlockHeading {
 				continue
 			}
-			name := uniqueSectionName(sectionSlug(block.ID, block.Title), used)
+			name := uniqueSectionName(sectionName(block.ID, block.Title), used)
 			used[name] = true
+			if _, taken := outline.ids[block.ID]; block.ID != "" && !taken {
+				outline.ids[block.ID] = name
+			}
 			outline.names[member] = append(outline.names[member], name)
 			for len(open) > 0 && open[len(open)-1].level >= block.Level {
 				open = open[:len(open)-1]
@@ -190,15 +210,23 @@ func (c *compiler) scanBodies(owner *symbols.Symbol, path []string, outline *mar
 	}
 }
 
-// sectionSlug derives a section's name from its explicit id, else its title:
-// lower-cased, every run of characters that are neither letters nor digits
-// one underscore, and never starting with a digit, so the name is a SysML
-// name a `sysml:` destination can spell.
-func sectionSlug(id, title string) string {
-	text := id
-	if text == "" {
-		text = title
+// sectionName is a section's name before it is made unique: an explicit id
+// that is a basic name as written, else the slug of the id, else of the title.
+func sectionName(id, title string) string {
+	if source.IsIdentifier(id) {
+		return id
 	}
+	if id != "" {
+		return sectionSlug(id)
+	}
+	return sectionSlug(title)
+}
+
+// sectionSlug derives a section name from text: lower-cased, every run of
+// characters that are neither letters nor digits one underscore, and never
+// starting with a digit, so the name is a SysML name a `sysml:` destination
+// can spell.
+func sectionSlug(text string) string {
 	var b strings.Builder
 	pending := false
 	for _, r := range text {
@@ -314,54 +342,61 @@ func (c *compiler) nestMarkupSections(owner, rep *symbols.Symbol, parsed *parsed
 }
 
 // markupSectionRef resolves a reference destination no model element answers
-// to as a markup-born section: a bare name in this document, or a name
-// qualified by a document definition or document usage, in that document.
-func (c *compiler) markupSectionRef(scope *symbols.Scope, destination string, value ast.Node) (markupSection, *symbols.Symbol, bool) {
+// to as a markup-born section: a name or explicit id in this document, or a
+// name qualified by a document definition or document usage, in that
+// document. A usage typed by more than one document is an ambiguous target.
+func (c *compiler) markupSectionRef(scope *symbols.Scope, destination string, value ast.Node, origin symbols.Origin) (markupSection, *symbols.Symbol, bool, error) {
 	name, ok := refQualifiedName(value)
 	if !ok {
-		section, found := c.outlineOf(c.entry).sections[sectionSlug(destination, "")]
-		return section, nil, found
+		section, found := c.outlineOf(c.entry).section(destination)
+		return section, nil, found, nil
 	}
 	parts := name.Parts
 	if len(parts) == 1 && !name.Global {
-		section, found := c.outlineOf(c.entry).sections[parts[0].Text]
-		return section, nil, found
+		section, found := c.outlineOf(c.entry).section(parts[0].Text)
+		return section, nil, found, nil
 	}
 	prefix := &ast.QualifiedName{Global: name.Global, Parts: parts[:len(parts)-1]}
 	resolved, ok := c.resolver.ResolveQualified(scope, prefix)
 	if !ok || resolved == nil {
-		return markupSection{}, nil, false
+		return markupSection{}, nil, false, nil
 	}
 	if canonical, ok := c.resolver.ResolveAliasTarget(resolved); ok {
 		resolved = canonical
 	}
-	doc := c.documentOf(resolved)
-	if doc == nil {
-		return markupSection{}, nil, false
+	doc, err := c.documentOf(resolved, origin)
+	if err != nil || doc == nil {
+		return markupSection{}, nil, false, err
 	}
-	section, found := c.outlineOf(doc).sections[parts[len(parts)-1].Text]
+	section, found := c.outlineOf(doc).section(parts[len(parts)-1].Text)
 	if doc == c.entry {
 		doc = nil
 	}
-	return section, doc, found
+	return section, doc, found, nil
 }
 
 // documentOf is the document definition a symbol stands for: the definition
-// itself, or the one definition typing a document usage.
-func (c *compiler) documentOf(sym *symbols.Symbol) *symbols.Symbol {
+// itself, or the one definition typing a document usage; a usage typed by
+// more than one document definition is an ambiguous target.
+func (c *compiler) documentOf(sym *symbols.Symbol, origin symbols.Origin) (*symbols.Symbol, error) {
 	if sym.Kind == symbols.SymbolPartDef {
 		if c.model.Conforms(sym, c.bases.document) {
-			return sym
+			return sym, nil
 		}
-		return nil
+		return nil, nil
 	}
 	if _, usage := sym.Decl.(*ast.Usage); !usage {
-		return nil
+		return nil, nil
 	}
-	if defs := c.documentTypesOf(sym); len(defs) == 1 {
-		return defs[0]
+	defs := c.documentTypesOf(sym)
+	switch len(defs) {
+	case 0:
+		return nil, nil
+	case 1:
+		return defs[0], nil
+	default:
+		return nil, c.ambiguousDocument(sym, defs, origin)
 	}
-	return nil
 }
 
 // refQualifiedName is the qualified name a target expression spells, if any.
