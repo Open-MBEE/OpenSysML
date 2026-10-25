@@ -510,7 +510,7 @@ recorded implied generals in the snapshot).
 | ----- | ------ | ---------------- |
 | `examples/action-executor-demo.sysml` | 0.03 s / 70 MiB | 0.03 s / 73 MiB |
 | `examples/disposal-robot-demo/robot.sysml` | 0.06 s / 77 MiB | 0.05 s / 80 MiB |
-| Apollo 11 (28 files, `scripts/download-apollo11.sh`) | 0.35 s / 162 MiB | 0.35 s / 169 MiB |
+| Apollo 11 (28 files, `airbus/apollo-11-sysml-v2` at `6e9c93f`) | 0.35 s / 162 MiB | 0.35 s / 169 MiB |
 
 The two small examples sit on the session floor and move with it; every
 file of the Apollo 11 model validates with the same report on both

@@ -34,7 +34,7 @@ status, because no external referee executes behavior. What is externally checke
 what cannot be checked by anything is in
 [What Can't Be Claimed for Spec Compliance](#what-cant-be-claimed-for-spec-compliance).
 
-**Calculations (14/14 features):**
+**Calculations (16/16 features):**
 - Invocation with typed parameters
 - Result evaluation (both the body's trailing expression and a bound return parameter `return : T = <expr>;`)
 - Parameter binding (positional + named arguments)
@@ -72,7 +72,7 @@ what cannot be checked by anything is in
 - A required requirement's parameters bound by the reference's body (`require r { in w = unit; }`)
 - A violated condition names the condition that failed
 
-**Actions (19/19 features):**
+**Actions (21/21 features):**
 - Initial/final node token placement
 - Exact finite multiplicity on action-node usages, including unordered (concurrent-start) subactions, zero, loop and branch bodies, control-node adjacency, guarded successions into a written target end, feature reads, bindings and part-level performs; bounds beyond the 64-bit range are refused with their exact value (for example, `1180591620717411303424`)
 - Fork node (1→N parallelism)
@@ -3226,7 +3226,7 @@ the `@type` mapping and the comparison choices.
   falling back to the served `.sha256`, unless `$OPENSYSML_ALLOW_UNPINNED_DOWNLOAD` names that
   repository (or is `1`) and accepts same-origin trust. A opensysml release pins only service releases published before it, so a
   newer service needs a newer opensysml or that opt-in
-  (`scripts/pin_release_checksums.py`, client/python/tests/test_binary.py)
+  (`client/python/scripts/pin_release_checksums.py`, client/python/tests/test_binary.py)
 
 **Standard behavioral notation:**
 - a succession written at namespace level (`first part1::action1 then requirement1;`) is
@@ -3251,7 +3251,7 @@ the `@type` mapping and the comparison choices.
 **Go gRPC layer:**
 - `SymbolInfo.attributes` reports only defaults that fold to a model-level
   constant; one written as a feature reference or a call is reported absent
-  rather than guessed (`internal/frontend/grpc/attributes.go`)
+  rather than guessed (`internal/frontend/symbolfacts/attributes.go`)
 - `metadata["type"]`/`metadata["specializes"]` still report only the first edge, kept
   for compatibility; `specializations` is the complete list
 - runtime instances are request-local, so an id is resolvable only against the
