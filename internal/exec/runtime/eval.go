@@ -1527,6 +1527,12 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 	}
 	base, parts := ast.FeatureChainBase(n)
 
+	// A chain's members resolve in the namespace of the feature before them, where
+	// a redefined feature is not inherited under its name (KerML §7.3.4.5).
+	if err := ec.maskedChainMember(base, parts); err != nil {
+		return Value{}, err
+	}
+
 	// A state's activity, `fill.isActive`, is read from the active configuration
 	// of the machine holding the state, not from a feature value.
 	if val, ok, err := ec.stateActivity(n, base, parts); ok {
@@ -1669,14 +1675,68 @@ func (ec *EvalContext) chainBaseSymbol(base ast.Node) (*symbols.Symbol, bool) {
 }
 
 // declaredMember is what an object of sym holds under name: a feature of its
-// shape, or a member (calc usage, variant) the model reaches by name.
+// shape sym inherits under that name, or a member (calc usage, variant) the model
+// reaches by name. A feature a redefinition removed from sym's namespace is held
+// only under its redefiner's names (KerML §7.3.4.5).
 func (ctx *Context) declaredMember(sym *symbols.Symbol, name string) (*symbols.Symbol, bool) {
-	for _, feat := range ctx.FeaturesOf(sym) {
-		if feat.Name == name && feat.Symbol != nil {
-			return feat.Symbol, true
-		}
+	if feat, masked := ctx.shapeMember(sym, name); feat != nil && !masked {
+		return feat, true
 	}
 	return ctx.model.semantics.LookupMember(sym, name)
+}
+
+// shapeMember is the feature of sym's shape named name, and whether sym does not
+// inherit it under that name because a feature of sym redefines it; a redefiner
+// that takes the redefined name is the member the name reads (KerML §8.3.3.1.10).
+func (ctx *Context) shapeMember(sym *symbols.Symbol, name string) (feat *symbols.Symbol, masked bool) {
+	var hidden *symbols.Symbol
+	for _, f := range ctx.FeaturesOf(sym) {
+		if f.Name != name || f.Symbol == nil {
+			continue
+		}
+		if !ctx.model.semantics.InheritanceMasked(sym, f.Symbol) {
+			return f.Symbol, false
+		}
+		if redefiner := ctx.model.semantics.NamingRedefiner(sym, f.Symbol); redefiner != nil {
+			return redefiner, false
+		}
+		if hidden == nil {
+			hidden = f.Symbol
+		}
+	}
+	if hidden == nil {
+		return nil, false
+	}
+	// A namesake inherited along another path keeps the name (`B :> A1, A2` with
+	// `b :>> A1::a` still has `A2::a`), so the namespace decides.
+	if surviving, ok := ctx.model.semantics.LookupMember(sym, name); ok && surviving != nil {
+		return surviving, false
+	}
+	return hidden, true
+}
+
+// maskedChainMember is the error for a chain segment naming a feature the segment
+// before it does not inherit, a redefinition having removed it from that namespace
+// (KerML §7.3.4.5, §8.3.3.1.10), as the static read reports it; nil otherwise.
+func (ec *EvalContext) maskedChainMember(base ast.Node, parts []ast.NameSegment) error {
+	cur, ok := ec.chainBaseSymbol(base)
+	if !ok {
+		return nil
+	}
+	for _, part := range parts {
+		feat, masked := ec.ctx.shapeMember(cur, part.Text)
+		if feat == nil {
+			return nil
+		}
+		if masked {
+			if redefiner := ec.ctx.redefiningMember(cur, part.Text); redefiner != nil {
+				return fmt.Errorf("%w: %s has no member %s: %s redefines it", ErrUnresolvedReference, cur.Name, part.Text, ec.ctx.QualifiedName(redefiner))
+			}
+			return fmt.Errorf("%w: %s has no member %s: a redefinition removes it", ErrUnresolvedReference, cur.Name, part.Text)
+		}
+		cur = feat
+	}
+	return nil
 }
 
 // chainMemberValue reads the members named by parts from the object value names,
