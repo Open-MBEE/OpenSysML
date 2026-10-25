@@ -354,15 +354,6 @@ func qualifiedName(sym *symbols.Symbol) string {
 	return strings.Join(names, "::")
 }
 
-// shortName is the last qualified-name segment of a case's name.
-func shortName(fqn string) string {
-	segs, ok := source.QualifiedNameSegments(fqn)
-	if !ok || len(segs) == 0 {
-		return fqn
-	}
-	return segs[len(segs)-1]
-}
-
 // upperFirst capitalizes a name's leading letter.
 func upperFirst(name string) string {
 	if name == "" {
@@ -669,7 +660,7 @@ func Generate(req Request) (Result, error) {
 		stem = req.CaseName
 	}
 	if stem == "" {
-		stem = shortName(req.Case)
+		stem = ShortName(req.Case)
 	}
 	defName := upperFirst(stem) + "Run"
 	feats, err := buildFeatures(&req)
