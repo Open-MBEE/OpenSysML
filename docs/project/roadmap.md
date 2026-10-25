@@ -38,8 +38,9 @@ Read `AGENTS.md` first; it governs everything below.
 > closed by design record, and this section records how each was decided, `X` the expression forms it
 > parses but does not evaluate, `Q` the runtime query surface, `A` analysis and simulation
 > execution, `V` the validation census, `I` the language integrations, `B` the bindings from
-> modeled elements to external data and services, `M` the embedded target, and `P` the package
-> layering of the Go module. Each is stated in
+> modeled elements to external data and services, `M` the embedded target, `P` the package
+> layering of the Go module, and `T` the records the repository keeps — measurements, overlays
+> and corpora that are neither features nor gates. Each is stated in
 > full where it is introduced, and a reader who wants only the gap can ignore the label.
 >
 > **Status words.** *Landed* means in the tag named above, so a landed item is released; where a
