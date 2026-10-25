@@ -47,10 +47,22 @@ func Bundle(dir string) ([]byte, *Interchange, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	data, err := archiveMembers(dir, members)
+	if err != nil {
+		return nil, nil, err
+	}
+	return data, project, nil
+}
+
+// archiveMembers writes the members as an archive, generating the .meta.json
+// they lack, and reads it back as a consumer would, so a .meta.json they
+// carry is checked against the files it describes; name is the tree's for
+// the diagnostics.
+func archiveMembers(name string, members map[string][]byte) ([]byte, error) {
 	if _, ok := members[MetaFile]; !ok {
 		meta, err := generateMeta(members)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		members[MetaFile] = meta
 	}
@@ -66,25 +78,23 @@ func Bundle(dir string) ([]byte, *Interchange, error) {
 		h.SetMode(0o644)
 		f, err := w.CreateHeader(h)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		if _, err := f.Write(members[name]); err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
 	if err := w.Close(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	// The archive is read back as a consumer would, so a .meta.json the
-	// directory kept is checked against the files it describes.
-	if _, err := ParseArchive(dir, buf.Bytes()); err != nil {
+	if _, err := ParseArchive(name, buf.Bytes()); err != nil {
 		var ae *ArchiveError
 		if errors.As(err, &ae) {
 			err = ae.Err
 		}
-		return nil, nil, err
+		return nil, err
 	}
-	return buf.Bytes(), project, nil
+	return buf.Bytes(), nil
 }
 
 // bundleMembers reads the files of dir that an archive of it holds, keyed by
