@@ -187,7 +187,7 @@ func (m *Model) compileConstructor(scope *symbols.Scope, e *ast.ConstructorExpr)
 	}
 	_, typeFQN, ok := m.resolveType(scope, e.Type)
 	if !ok {
-		return unsupported(span, fmt.Sprintf("the constructed type %s does not resolve", qnText(e.Type)))
+		return unsupported(span, fmt.Sprintf("the constructed type %s does not resolve", e.Type.Text()))
 	}
 	for _, arg := range constructorArgs(e) {
 		if p := m.compileCondition(scope, arg); p.Op == symbols.FilterUnsupported {
@@ -267,7 +267,7 @@ func (m *Model) classificationPredicate(scope *symbols.Scope, e *ast.OperatorExp
 	}
 	typ, typeFQN, ok := m.resolveType(scope, e.TypeRef)
 	if !ok {
-		return unsupported(span, fmt.Sprintf("the metadata type %s does not resolve", qnText(e.TypeRef)))
+		return unsupported(span, fmt.Sprintf("the metadata type %s does not resolve", e.TypeRef.Text()))
 	}
 	return &symbols.FilterPredicate{Op: op, TypeFQN: typeFQN, Type: typ, Span: span}
 }
@@ -336,7 +336,7 @@ func (m *Model) compileFeatureChain(scope *symbols.Scope, e *ast.FeatureChainExp
 		}
 		typ, typeFQN, ok := m.resolveType(scope, operand.TargetType)
 		if !ok {
-			return unsupported(span, fmt.Sprintf("the metadata type %s does not resolve", qnText(operand.TargetType)))
+			return unsupported(span, fmt.Sprintf("the metadata type %s does not resolve", operand.TargetType.Text()))
 		}
 		return &symbols.FilterPredicate{
 			Op:         symbols.FilterFeature,
@@ -352,7 +352,7 @@ func (m *Model) compileFeatureChain(scope *symbols.Scope, e *ast.FeatureChainExp
 		if operand.Operator == ast.OpAs && operand.TypeRef != nil {
 			typ, typeFQN, ok := m.resolveType(scope, operand.TypeRef)
 			if !ok {
-				return unsupported(span, fmt.Sprintf("the metadata type %s does not resolve", qnText(operand.TypeRef)))
+				return unsupported(span, fmt.Sprintf("the metadata type %s does not resolve", operand.TypeRef.Text()))
 			}
 			return &symbols.FilterPredicate{
 				Op:         symbols.FilterFeature,
@@ -397,7 +397,7 @@ func (m *Model) compileChainRead(scope *symbols.Scope, e *ast.FeatureChainExpr, 
 	}
 	rootSym, ok := m.resolver.ResolveQualified(scope, root.Name)
 	if !ok || rootSym == nil {
-		return unresolvedReference(span, fmt.Sprintf("%s does not resolve", qnText(root.Name)))
+		return unresolvedReference(span, fmt.Sprintf("%s does not resolve", root.Name.Text()))
 	}
 	if reason, notEvaluable := m.referenceNotEvaluable(rootSym); notEvaluable {
 		return unsupported(span, reason)
@@ -411,7 +411,7 @@ func (m *Model) compileChainRead(scope *symbols.Scope, e *ast.FeatureChainExpr, 
 	}
 	hops := chainHops(e)
 	cur := rootSym
-	soFar := qnText(root.Name)
+	soFar := root.Name.Text()
 	for i, hop := range hops {
 		next, ok := m.LookupMember(cur, hop)
 		if !ok || next == nil {
@@ -451,12 +451,12 @@ func (m *Model) compileReference(scope *symbols.Scope, qn *ast.QualifiedName, sp
 	}
 	sym, ok := m.resolver.ResolveQualified(scope, qn)
 	if !ok || sym == nil {
-		return unresolvedReference(span, fmt.Sprintf("%s does not resolve", qnText(qn)))
+		return unresolvedReference(span, fmt.Sprintf("%s does not resolve", qn.Text()))
 	}
 	if owner := m.ownerOf(sym); owner != nil && IsMetadataType(owner) {
 		ownerFQN := m.fqnOf(owner)
 		if ownerFQN == "" {
-			return unsupported(span, fmt.Sprintf("the metadata type of %s has no qualified name", qnText(qn)))
+			return unsupported(span, fmt.Sprintf("the metadata type of %s has no qualified name", qn.Text()))
 		}
 		return &symbols.FilterPredicate{
 			Op:         symbols.FilterFeature,
@@ -472,7 +472,7 @@ func (m *Model) compileReference(scope *symbols.Scope, qn *ast.QualifiedName, sp
 	}
 	fqn := m.fqnOf(sym)
 	if fqn == "" {
-		return unsupported(span, fmt.Sprintf("%s has no qualified name to compare", qnText(qn)))
+		return unsupported(span, fmt.Sprintf("%s has no qualified name to compare", qn.Text()))
 	}
 	return &symbols.FilterPredicate{
 		Op:         symbols.FilterConst,
@@ -1511,18 +1511,6 @@ func spanOf(n ast.Node) source.Span {
 		return source.Span{}
 	}
 	return n.Span()
-}
-
-// qnText renders a qualified name as written.
-func qnText(qn *ast.QualifiedName) string {
-	if qn == nil {
-		return ""
-	}
-	parts := make([]string, 0, len(qn.Parts))
-	for _, seg := range qn.Parts {
-		parts = append(parts, seg.Text)
-	}
-	return strings.Join(parts, "::")
 }
 
 // simpleName is the last segment of a qualified name.

@@ -220,7 +220,7 @@ func (fc *funcCompiler) compileFuncArg(node ast.Node, where string) (funcValue, 
 	}
 	sym, ok := fc.c.resolver.ResolveQualified(fc.scope, qn)
 	if !ok {
-		return funcValue{}, fc.unsupported(fmt.Sprintf("%s: %s does not resolve", where, qnText(qn)))
+		return funcValue{}, fc.unsupported(fmt.Sprintf("%s: %s does not resolve", where, qn.Text()))
 	}
 	f, err := fc.functionValueOf(sym, where)
 	return referenced(f), err

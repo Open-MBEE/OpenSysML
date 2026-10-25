@@ -129,14 +129,14 @@ func isCalcUsage(sym *symbols.Symbol) bool {
 func (fc *funcCompiler) compileConstructor(n *ast.ConstructorExpr) (Expr, error) {
 	sym, ok := fc.c.resolver.ResolveQualified(fc.scope, n.Type)
 	if !ok {
-		return nil, fc.unsupported(fmt.Sprintf("new %s: the type does not resolve", qnText(n.Type)))
+		return nil, fc.unsupported(fmt.Sprintf("new %s: the type does not resolve", n.Type.Text()))
 	}
 	t, _, why := fc.valueType(sym)
 	if why == "" && !t.IsRec() {
 		why = fmt.Sprintf("%s is not a record type", fc.c.name(sym))
 	}
 	if why != "" {
-		return nil, fc.unsupported(fmt.Sprintf("new %s: %s", qnText(n.Type), why))
+		return nil, fc.unsupported(fmt.Sprintf("new %s: %s", n.Type.Text(), why))
 	}
 	r := t.Rec
 	what := "new " + sym.Name
@@ -169,7 +169,7 @@ func (fc *funcCompiler) compileConstructor(n *ast.ConstructorExpr) (Expr, error)
 	for _, a := range n.NamedArgs {
 		name, msg := fc.constructorLabel(sym, n.Type, a.Name, bound)
 		if _, twice := payload[name]; msg == "" && twice {
-			msg = qnText(a.Name) + " is bound twice"
+			msg = a.Name.Text() + " is bound twice"
 		}
 		if msg != "" {
 			return fail(lets, msg), nil
@@ -248,7 +248,7 @@ func wrapLets(lets []Let, x Expr) Expr {
 // constructorLabel is the feature of typ the named argument qn binds, or the
 // interpreter's message refusing it.
 func (fc *funcCompiler) constructorLabel(typ *symbols.Symbol, typeRef, qn *ast.QualifiedName, bound map[*symbols.Symbol]string) (string, string) {
-	label := qnText(qn)
+	label := qn.Text()
 	if label == "" {
 		return "", "an argument is named by nothing"
 	}
@@ -345,9 +345,9 @@ func (c *Compiler) selfCase(sym *symbols.Symbol, r *Record) *FnCase {
 func chainText(n ast.Node) string {
 	switch n := n.(type) {
 	case *ast.FeatureChainExpr:
-		return chainText(n.Operand) + "." + qnText(n.Member)
+		return chainText(n.Operand) + "." + n.Member.Text()
 	case *ast.FeatureReference:
-		return qnText(n.Name)
+		return n.Name.Text()
 	}
 	return "an expression"
 }
