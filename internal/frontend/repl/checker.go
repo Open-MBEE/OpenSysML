@@ -569,8 +569,6 @@ func verdictStatusOf(status analysis.CheckStatus) VerdictStatus {
 	return VerdictUnresolved
 }
 
-func witnessLine(w *analysis.Witness) string { return analysis.WitnessLine(w) }
-
 // CheckBounds returns the search bounds a check runs under: depth, states and
 // unroll, 0 for the engines' defaults, and the timeout, 0 for none.
 func (s *Session) CheckBounds() (depth, states, unroll int, timeout time.Duration) {
