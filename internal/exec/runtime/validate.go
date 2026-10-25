@@ -435,12 +435,16 @@ func (ctx *Context) bindingVerdicts(obj *validatedObject, seen map[*ast.Usage]bo
 				continue
 			}
 			seen[binding.Decl] = true
-			// An end the object cannot resolve is reported where the feature is read.
-			if constrains, err := ctx.constrainingBinding(obj.inst, binding); err != nil || !constrains {
+			sym := memberSymbol(binding.Scope, binding.Decl)
+			constrains, err := ctx.constrainingBinding(obj.inst, binding)
+			if err == nil && !constrains {
 				continue
 			}
-			result, err := ctx.CheckBindingOn(binding, obj.inst)
-			sym := memberSymbol(binding.Scope, binding.Decl)
+			var result CheckResult
+			// A binding whose end the object cannot resolve is undecided, not absent.
+			if err == nil {
+				result, err = ctx.CheckBindingOn(binding, obj.inst)
+			}
 			verdicts = append(verdicts, ctx.objectVerdict(AssertionBinding, sym, ctx.bindingText(binding), obj, result, err))
 		}
 	}

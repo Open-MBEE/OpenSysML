@@ -356,16 +356,21 @@ func (ctx *Context) resolveBindingSet(owner, targetInst *Instance, target *Featu
 // either: an end reaching several objects, or multiplicities linking fewer values than an end holds.
 func (ctx *Context) constrainingBinding(inst *Instance, binding lower.Binding) (bool, error) {
 	var endpoints [2]bindingEndpoint
+	var unresolved error
 	for end := range binding.Ends {
 		endpoint, err := ctx.resolveBindingEndpoint(inst, binding, end)
 		if err != nil {
-			return false, err
+			unresolved = errors.Join(unresolved, err)
+			continue
 		}
 		// An end reaching no object links nothing on inst, so the binding states nothing about it.
 		if endpoint.expr == nil && len(endpoint.locations) == 0 {
 			return false, nil
 		}
 		endpoints[end] = endpoint
+	}
+	if unresolved != nil {
+		return false, unresolved
 	}
 	for _, endpoint := range endpoints {
 		if endpoint.expr != nil {
