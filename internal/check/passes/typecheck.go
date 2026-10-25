@@ -392,13 +392,20 @@ func (tc *typeChecker) checkTypeTarget(scope *symbols.Scope, target ast.Node, re
 	if fr, ok := targetNode.(*ast.FeatureReference); ok {
 		targetNode = fr.Name
 	}
-	qn, isQN := targetNode.(*ast.QualifiedName)
-	if !isQN {
+	var sym *symbols.Symbol
+	var ok bool
+	if qn, isQN := targetNode.(*ast.QualifiedName); isQN {
+		sym, ok = tc.resolver.ResolveQualified(scope, qn)
+	} else {
 		tc.checkChainSegments(scope, targetNode)
 		tc.checkChainReferenceKind(scope, targetNode, relKind, decl)
-		return
+		if relKind != ast.RelTyping {
+			return
+		}
+		// A feature chain types a feature as a qualified name does (KerML 8.2.3
+		// OwnedFeatureTyping), so the feature it ends in meets the same kind rules.
+		sym, ok = tc.resolver.ResolveTarget(scope, targetNode)
 	}
-	sym, ok := tc.resolver.ResolveQualified(scope, qn)
 	if !ok || sym == nil {
 		return // unresolved: name-resolution tier owns this
 	}

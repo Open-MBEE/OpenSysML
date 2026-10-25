@@ -4361,10 +4361,10 @@
         "document": "sysml",
         "clause": "8.3.6.4"
       },
-      "checks": "A usage is typed by definitions (`A usage must be typed by definitions.`); the pilot reports this general constraint, not the kind-specific one, when a usage of no specific kind is typed by a feature; a transition's bare accept name is also treated as its payload type and rejected when it resolves to a usage",
+      "checks": "A usage is typed by definitions (`A usage must be typed by definitions.`); the pilot reports this general constraint, not the kind-specific one, when a usage of no specific kind is typed by a feature, by name or by a feature chain that ends in one; a transition's bare accept name is also treated as its payload type and rejected when it resolves to a usage",
       "implementation": "internal/check/passes/typecheck.go:compatibleTyping (messages in internal/check/passes/w10b_usage_typing.go:pilotTypingMessage); transition bare accepts in internal/check/passes/typecheck_trigger.go:checkTransitionAccept",
       "message": "—",
-      "negativeCase": "`semantic/s36-usage-typed-by-feature.sysml`, `semantic/s99-transition-accept-typed-by-usage.sysml`",
+      "negativeCase": "`semantic/s36-usage-typed-by-feature.sysml`, `semantic/s117-usage-typed-by-feature-chain.sysml`, `semantic/s99-transition-accept-typed-by-usage.sysml`",
       "codes": [
         "usage-typing"
       ],

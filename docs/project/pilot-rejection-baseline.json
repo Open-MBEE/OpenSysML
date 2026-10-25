@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 345,
-        "digest": "sha256:303f429a0a37cd2e60aaee59ff6f55ad1978748dd74afa4c7bb1683a3ef48e71"
+        "files": 347,
+        "digest": "sha256:24e54888685f9a3a283c115a936f971617ff688df8ac0bb0ff05da8be19cef63"
       }
     ],
-    "recorded": "2026-10-24"
+    "recorded": "2026-10-25"
   },
   "totals": {
-    "cases": 345,
-    "bothReject": 333,
+    "cases": 347,
+    "bothReject": 335,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 12,
     "bothAccept": 0
@@ -57,16 +57,16 @@
     },
     {
       "source": "grammar",
-      "cases": 113,
-      "bothReject": 113,
+      "cases": 114,
+      "bothReject": 114,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
     },
     {
       "source": "semantic",
-      "cases": 185,
-      "bothReject": 173,
+      "cases": 186,
+      "bothReject": 174,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 12,
       "bothAccept": 0
@@ -975,7 +975,16 @@
       "pilotErrors": 2
     },
     {
-      "path": "grammar/g86-satisfy-by-expression.sysml",
+      "path": "grammar/g86-conjugated-feature-chain-typing.sysml",
+      "source": "grammar",
+      "rule": "a conjugated port typing is '~' followed by a qualified name; no feature chain follows '~' (SysML.xtext:972 ConjugatedPortTyping, :976 ConjugatedQualifiedName).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 3
+    },
+    {
+      "path": "grammar/g87-satisfy-by-expression.sysml",
       "source": "grammar",
       "rule": "A satisfaction subject is a feature reference or feature chain, not an expression (SysML.xtext:2139 SatisfactionReferenceExpression).",
       "mode": "default",
@@ -2319,6 +2328,15 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/s117-usage-typed-by-feature-chain.sysml",
+      "source": "semantic",
+      "rule": "a usage's types are Classifiers, nominally definitions, and a feature chain ends in a feature (SysML 8.3.6.4 Usage::definition redefines type as Classifier, 7.6.1; pilot validateUsageType, validateOccurrenceUsageType).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2
+    },
+    {
       "path": "semantic/s12-case-two-subjects.sysml",
       "source": "semantic",
       "rule": "A case usage may have at most one subject (SysML 7.21 Cases; pilot validateCaseUsageOnlyOneSubject).",
@@ -3379,8 +3397,8 @@
       }
     ],
     "totals": {
-      "cases": 345,
-      "bothReject": 333,
+      "cases": 347,
+      "bothReject": 335,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 12,
       "bothAccept": 0
