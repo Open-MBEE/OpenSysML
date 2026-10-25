@@ -134,7 +134,8 @@ printf '%%load /tmp/client.sysml\n%%quit\n' | timeout 180 ./bin/sysml
 - **Pitfall:** `VAR=x printf ... | ./bin/sysml` sets the variable for `printf` only. `export` it, or
   the run silently uses the embedded stdlib and your library is absent (`symbol "Lib::X" not found`).
 - Cache files land in `$XDG_CACHE_HOME/sysml-ls/libs/*.idx` (~96 files for the stdlib); the key
-  includes the format version, so a bump makes old entries unreachable rather than stale.
+  includes the format version and the binary's linker build ID, so a bump or a rebuild from different
+  code makes old entries unreachable rather than stale — no cache clearing between builds.
 - Compare runs by grepping just the verdicts, which keeps a diff readable:
   `... | grep -o "unresolved reference: [A-Za-z:]*" | sort | uniq -c`
 - Two things are known to differ between a parsed and a restored library and are worth asserting
