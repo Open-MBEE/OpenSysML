@@ -8,9 +8,11 @@ import (
 // TestRuntimeRobustnessSubsettedPool covers a subsetting feature that states no value of its
 // own and so holds values of the feature it subsets (KerML 1.0 §7.3.4.4): where that feature
 // holds fewer values than the subsetter's lower bound asks, the read is a multiplicity
-// violation, not a feature filled with objects the subsetted feature does not hold.
+// violation, not a feature filled with objects the subsetted feature does not hold; where that
+// feature is written, the subsetter holds values of what it then holds.
 func TestRuntimeRobustnessSubsettedPool(t *testing.T) {
 	t.Run("under-populated subsetted collection is a multiplicity violation", testSubsettedPoolTooSmall)
+	t.Run("a write to the subsetted collection redraws the subsetter", testSubsettedPoolRewritten)
 }
 
 const subsettedPoolTooSmall = `package P {
@@ -35,5 +37,45 @@ func testSubsettedPoolTooSmall(t *testing.T) {
 	coll, err := inst.GetFeatureValue(ctx, "coll")
 	if err != nil || len(elementsOf(coll.HeldValue())) != 1 {
 		t.Errorf("coll = %v, %v; want the one object it declares", coll, err)
+	}
+}
+
+const subsettedPoolRewritten = `package P {
+	item def Node;
+	part def Holder {
+		item x : Node;
+		item y : Node;
+		item z : Node;
+		item coll : Node [0..*] = (x, y);
+		item pick : Node [1] :> coll;
+	}
+}`
+
+func testSubsettedPoolRewritten(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<subsetted-pool-rewritten>", parseAndBuild(t, subsettedPoolRewritten))
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Holder"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	object := func(name string) Value {
+		fv, err := inst.GetFeatureValue(ctx, name)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		return fv.HeldValue()
+	}
+	x, y, z := object("x"), object("y"), object("z")
+	if pick := object("pick"); !ctx.equalValues(pick, x) {
+		t.Fatalf("pick = %s, want x, the first value coll holds", FormatValue(pick))
+	}
+	if err := inst.SetFeatureValue(ctx, "coll", sequenceOf([]Value{z, y})); err != nil {
+		t.Fatalf("write coll: %v", err)
+	}
+	pick := object("pick")
+	if !ctx.equalValues(pick, z) {
+		t.Errorf("pick = %s after coll := (z, y), want z, the first value coll now holds", FormatValue(pick))
+	}
+	if ctx.equalValues(pick, x) {
+		t.Errorf("pick still holds x, which coll no longer holds")
 	}
 }
