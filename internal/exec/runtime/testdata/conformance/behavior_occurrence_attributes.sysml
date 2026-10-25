@@ -3,9 +3,12 @@
 // `exitAction`, a declared `en`, `subactions`, `subperformances` and
 // `enclosedPerformances` named in a state definition's body are the exhibited
 // machine's, and `subactions` in an action definition's body is the performed
-// action's. The counts hold in the live run and in a held-image copy of it.
+// action's: the machine's `subperformances` and `enclosedPerformances` counts
+// agree with the part's read of `modes.subperformances`. The counts hold in the
+// live run and in a held-image copy of it.
 package test {
 	private import ScalarValues::Integer;
+	private import ScalarValues::Boolean;
 	private import SequenceFunctions::size;
 
 	state def Modes {
@@ -28,5 +31,7 @@ package test {
 	part def Machine {
 		exhibit state modes : Modes;
 		perform action work : Work;
+		attribute subperformancesAgree : Boolean = modes.subperformanceCount == size(modes.subperformances);
+		attribute enclosedAgree : Boolean = modes.enclosedCount == size(modes.enclosedPerformances);
 	}
 }

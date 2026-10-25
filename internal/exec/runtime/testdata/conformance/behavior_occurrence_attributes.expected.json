@@ -8,8 +8,8 @@
     "modes.doCount": {"type": "Integer", "value": 1},
     "modes.exitCount": {"type": "Integer", "value": 1},
     "modes.subactionCount": {"type": "Integer", "value": 1},
-    "modes.subperformanceCount": {"type": "Integer", "value": 1},
-    "modes.enclosedCount": {"type": "Integer", "value": 1},
+    "subperformancesAgree": {"type": "Boolean", "value": true},
+    "enclosedAgree": {"type": "Boolean", "value": true},
     "work.subactionCount": {"type": "Integer", "value": 2}
   }
 }
