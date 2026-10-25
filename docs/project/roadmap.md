@@ -267,13 +267,20 @@ proof.
 
 All three ship from the core `v*` tag's `release` workflow (`publish-npm`, `publish-maven` and
 `publish-crates`, each in its own restricted context), and `v0.9.1` was the first tag to run
-them (#735, #738, #739): npm serves `@openmbee/opensysml` 0.9.1 and crates.io `opensysml` 0.9.1,
-each the package's only version. The Java client's Maven Central coordinates are
-`org.openmbee:opensysml` (`releasing.md`); the registry's search answered this refresh with a
-rate-limit refusal, so its 0.9.1 artifact is not confirmed here and is the one post-tag check of
-the item to re-read. The editor packages are locked to the core version (#745). What remains
-beside that check is publishing the Julia, MATLAB and (once it exists) R packages — the Julia
-General registry, File Exchange, CRAN — which is account-gated in the same way and goes with I3.
+them (#735, #738, #739), and every tag since has: npm serves `@openmbee/opensysml` 0.11.0 and
+crates.io `opensysml` 0.11.0 (each registry's index, read 2026-10-25), and PyPI `opensysml` and
+`jupyter-opensysml-kernel` 0.11.0 beside them. The Java client's Maven Central coordinates are
+`org.openmbee:opensysml` (`releasing.md`), its protobuf classes are generated at build time
+rather than committed since `v0.11.0` (`CHANGELOG.md` **0.11.0**), and the publish job now waits
+for Central to list the artifact before the release goes on (#1449, on `develop`); the registry's
+search answered this refresh with nothing and its repository with a rate-limit refusal, as it did
+the previous one, so the 0.11.0 artifact is the one post-tag check of the item still to re-read.
+The Node client installs from its lockfile between the version bump and the tag, when its five
+platform packages are pinned at a version npm has not published yet (#1442), and
+`sysml-mcp` is reachable as the npm alias `opensysml-mcp` (#1450, on `develop`). The editor
+packages are locked to the core version (#745). What remains beside the Maven check is
+publishing the Julia, MATLAB and (once it exists) R packages — the Julia General registry, File
+Exchange, CRAN — which is account-gated in the same way and goes with I3.
 
 ## R3 — Homebrew: install it on a real Mac
 
@@ -306,8 +313,10 @@ submits them for signing, and publishes the signed files as `*-signed*` release 
 the unsigned ones that the cosign-signed manifest keeps covering. What remains is a
 maintainer's application at <https://signpath.org/apply>, the SignPath project and policy
 setup, the `SIGNPATH_*` secret and variables in GitHub, and one manual approval per release;
-until then the workflow builds and stops. Procedure: `docs/project/releasing.md`, "Windows
-Authenticode signing".
+until then the workflow builds and stops — `v0.11.0`'s asset list (read 2026-10-25) carries no
+`*-signed*` file. The consumers are ready for the day it does: the installers prefer a release's
+signed build when it carries one and check its Authenticode signature (`CHANGELOG.md` **0.10.0**).
+Procedure: `docs/project/releasing.md`, "Windows Authenticode signing".
 
 Windows packaging is in place on the same workflow: a WiX v5 MSI (`packaging/msi`,
 `scripts/build-msi.sh`) installing the three executables to `Program Files\OpenSysML` on `PATH`,
@@ -329,10 +338,11 @@ Z3 package to depend on). Procedure: `docs/project/releasing.md`, "The Windows i
 ## R5 — the VS Code extension is not released
 
 `editors/vscode` builds as a PR CI artifact and, since #371, as a `.vsix` on the `nightly`
-prerelease; no `.vsix` is attached to a tagged release and there is no marketplace or Open VSX
-listing, so a user installs it from the nightly or by building it. Its version is locked to the
-core version since #745. The
-client works against the shipped `sysml-lsp` (`--stdio` is accepted and `shutdown`/`exit` are
+prerelease, which the downloads page links (#822) and which is versioned as a development build
+of the release it leads to (#1290, `v0.11.0`); no `.vsix` is attached to a tagged release
+(`v0.11.0`'s asset list, read 2026-10-25) and there is no marketplace or Open VSX listing, so a
+user installs it from the nightly or by building it. Its version is locked to the core version
+since #745. The client works against the shipped `sysml-lsp` (`--stdio` is accepted and `shutdown`/`exit` are
 honoured). What remains is packaging and publishing: `vsce package` in the release workflow, a
 `.vsix` on the release, and (for the marketplace) a publisher account and a PAT in CI — the same
 class of account gate as R4.
@@ -348,7 +358,9 @@ the `queryx/failing` Xpect fixtures, the unenforced control-node constraints, an
 dimension defects in the published `SI.sysml` and `USCustomaryUnits.sysml` — which #304 (in
 `v0.9.0`) put under the declared errata overlay, so the bundled library reads with
 the three that have one correction applied and the six that do not documented, the vendored bytes
-untouched. All are in [omg-issues.md](omg-issues.md), body and status; none needs code here until
+untouched. Filed since and fixed on the other side: the pilot's multiplicity-domain delegate
+(`SysML-v2-Pilot-Implementation#802`, confirmed and fixed upstream on 2026-10-02, not yet in a
+pilot release). All are in [omg-issues.md](omg-issues.md), body and status; none needs code here until
 an answer arrives.
 
 ---
@@ -366,7 +378,7 @@ Kernel Function Library's 279 declarations in 17 packages and against the domain
 findings L3–L6 have landed and L7 — the analysis libraries — is what remains, and it is a Track X
 item in library clothing.
 
-## L3 — evaluation does not reach standard-library-inherited features
+## L3 — evaluation does not reach standard-library-inherited features (landed, #830)
 
 A feature a user type inherits from the standard library has no value at run time. With `part def
 Box :> Item; part b : Box;`, both `b.isSolid` (declared `isSolid = isEmpty(voids)` in `Systems
@@ -382,7 +394,7 @@ differential harness still indexes the standard library as ordinary documents (`
 to reach them. [lossless-library-records.md](lossless-library-records.md) records
 what was measured.
 
-## L4 — every Kernel Function Library declaration dispatches by name
+## L4 — every Kernel Function Library declaration dispatches by name (landed, #821)
 
 At the previous baseline ~135 runtime names were registered explicitly (`runtime/builtin_names.go`,
 `library_functions.go`), operators and the core builtins were handled separately, and **12 of the
@@ -394,10 +406,14 @@ failing as `library function X is not implemented`. **Landed:**
 [PR #821](https://github.com/JPL-Devin/OpenSysML/pull/821) adds the gate and implementations for
 every KFL declaration; a call now either computes the library's stated result or is refused by
 name (`ToString(42)` is `"42"`, `max(1, 2)` is `2`, `max(1.0, 2.5)` is `2.5` at this baseline).
+`TestLibraryAndPrefixSweep` (#1244, `v0.11.0`) now reads every Systems and Domain library feature
+on an object and calls every Kernel Function Library function as a gate, and a declaration the
+runtime does not evaluate as a function (`'istype'`, `'hastype'`, `'@'`, `'as'`, `'meta'`,
+`'all'`, `'['`) is refused with the library's name (`CHANGELOG.md` **0.11.0**).
 The named-reducer forms (`->reduce '+'`) are the same mechanism read from a different position and
 are X5 below; which overload a name reaches is L6.
 
-## L5 — `QuantityCalculations`, unit canonicalization and domain failures
+## L5 — `QuantityCalculations`, unit canonicalization and domain failures (landed, #818)
 
 `QuantityCalculations` (28 declarations) had no runtime registration at the previous baseline, and
 a model that imported it lost `->sum()` over quantities (measured; the import brought a `sum`
@@ -626,7 +642,10 @@ in `.agents/skills/flexo-interop`; it brings up the published `openmbee/*` image
 Turtle to a branch graph, reads every element back through `flexo-mms-sysmlv2` and compares with
 what the service's own commit path stores for the same model. It measures the gap instead of
 asserting the fix, so every item below shows up as movement in
-`tools/referee/flexo/testdata/interop_expected.txt`. Keep it out of `go test ./...`.
+`tools/referee/flexo/testdata/interop_expected.txt`. Keep it out of `go test ./...`. Since
+`v0.11.0` the stack can also hold the library the converted models refer to: `sysml -stdlib
+-convert ttl|api-json` writes the bundled standard library as one model to stdout, a file or the
+Flexo MMS branch `-o` names (#1265).
 
 What the current recording measures, for the reference fixture: **76 of 76 elements
 listed and 702 of 863 properties delivered** on the graph-load side, against 33 of 33 and 158 of
@@ -759,7 +778,7 @@ golden graph has one. Two were written:
 The ratchets did not move: every model under `examples/` still round-trips, and the Flexo hop
 still delivers every `type`, `referent` and `targetFeature` of its fixture.
 
-## D8 — an optional second output profile: the Open-MBEE SysML v2 OWL ontology
+## D8 — an optional second output profile: the Open-MBEE SysML v2 OWL ontology (the metaclass graph landed, #1259)
 
 [`Open-MBEE/sysmlv2-rdf-ontology`](https://github.com/Open-MBEE/sysmlv2-rdf-ontology) renders the
 OMG metamodel (version 202407, from `SysML.ecore`) as OML and OWL: `SysML.owl`, 172 classes, 348
@@ -770,7 +789,13 @@ declares it, has 175 classes, 351 object properties and 64 datatype properties. 
 difference is the properties, each qualified by the metaclass that defines it
 (`sysml:Element_declaredName`, `sysml:Element_owner` with range `OwningMembership`), and a
 conformant instance graph therefore materializes the abstract syntax's relationship elements
-rather than collapsing them.
+rather than collapsing them. The vocabulary half is in the tree: `sysml -metaclass-graph`
+(#1259, `v0.11.0`) writes the metaclass hierarchy of the pinned pilot metamodel as an RDF
+vocabulary graph in Turtle — one `rdfs:Class` per metaclass, `rdfs:subClassOf` as the metamodel
+specializes — without reading a model, committed as
+`internal/translate/rdf/ontology/sysml-metaclasses.ttl` with a drift check, and the metamodel's
+property table is regenerated byte for byte from the pinned `SysML.ecore` (#1414). The
+instance-graph profile below is what remains.
 
 So this is a **second profile selected by a flag, not a superset**: the property IRIs differ, so
 one graph cannot satisfy both conventions, and Flexo's convention stays the default. The encoder
@@ -1016,7 +1041,7 @@ What landed:
 Extends D3's identity work; D11's `api-json` payloads are the first surface where a foreign
 reader compares our library ids to its own.
 
-## D13 — SysML v1 migration: units, the report on the wire, and lifting the notice
+## D13 — SysML v1 migration: units, the report on the wire, and lifting the notice (the `-migrate` verb and the report on the wire landed, #768)
 
 `-migrate` reads a SysML v1 model — OMG UML XMI 2.5.1 with the SysML profile, an Eclipse UML2
 `.uml` file, a `.mdzip` archive — and writes it as v2 notation or Turtle with an
@@ -1060,13 +1085,22 @@ its own pull request:
    the notice is removed from every surface at once (`convert.IsExperimental`, the Python warning,
    the Go `Conversion`).
 
-Items 1–4 are **not started** at `v0.9.1`; what the migration gained in `v0.9.0` and `v0.9.1`
-(every diagram as a view, the `-layout` augment, Cameo tables and documents, conforming SysML v2
-under `-strict`, standard deferred signals) widened the mapping rather than closing one of them.
-In progress beside them, with no pull request yet: the SysML v1 reading moves to its own verb,
-`-migrate`, leaving `-convert` to the format conversions. Open against `develop`: #763 (draft,
-an initial written into an orthogonal region as that region's entry); and, against the export
-rather than the migration, #761 (`first a then b` owning its connector ends).
+Item 2 **landed** with the verb: #768 (`v0.10.0`) moves the SysML v1 reading to `-migrate`,
+leaving `-convert` to the format conversions (which now refuse a v1 input by name), and gives the
+service a `Migrate` RPC whose `MigrateResponse` carries the element-by-element `MigrationReport`,
+the stored results and the migrated files beside the content and the experimental notice; the
+Python client's `migrate()` answers it, and the other clients read the field from the generated
+code. `-portable` makes the migration one self-contained file (`CHANGELOG.md` **0.10.0**). Items
+1, 3 and 4 are **not started** at `v0.11.0`: a `«Unit»` or `«QuantityKind»` is still a comment
+over `ScalarValues::Real` (`internal/translate/migrate` resolves no unit symbol onto `ISQ`/`SI`),
+the notation carries no identity, and the notice stands. What the migration gained from `v0.9.0`
+to `v0.11.0` — every diagram as a view, the `-layout` augment, Cameo tables and documents,
+conforming SysML v2 under `-strict`, standard deferred signals, the collapsed compartments of a
+Cameo symbol, owned rules as `constraint def`s asserted by a usage, operations in generic tables
+(`CHANGELOG.md` **0.10.0**–**0.11.0**) — widened the mapping rather than closing one of them.
+#763 (an initial written into an orthogonal region as that region's entry) and #761 (`first a
+then b` owning its connector ends, against the export) both landed on 2026-10-01 and are in
+`v0.10.0`.
 
 Independent of D1, D2 and D7, which concern the RDF form the migrated model may be written into,
 not the migration.
@@ -1437,7 +1471,7 @@ per-element behavior whose `for` result is wrong or too slow — the record's op
 starting point, as an explicitly non-standard extension the compliance mapping would have to flag,
 or a later specification revision re-adjudicates the record. No other item depends on this one.
 
-## E4 — streaming flows ("streaming pins")
+## E4 — streaming flows ("streaming pins") (landed, #465)
 
 **Landed.** A `flow` between two action parameters is a *streaming* flow, and only the
 `succession flow` spelling moves its value when the source completes. SysML v2 §7.16: "the input
@@ -2259,7 +2293,7 @@ has landed:
 **What remains is the census's own tail**, and it is the whole of the track: the 52 rows marked
 *unknown* — a row is unknown when neither a pass nor a negative case can be pointed at for the
 pilot's name, which is a gap in evidence before it is a gap in checking. No row is marked *not
-implemented* any more. #748 (open) makes an implicit subsetting's conformance a checked rule.
+implemented* any more. #748 (landed 2026-10-01, `v0.10.0`) makes an implicit subsetting's conformance a checked rule.
 The order is the same as before: work the 52 down by writing the pilot-refereed
 negative case first and implementing the rule only where the case shows we accept what the pilot
 rejects; each change moves exactly its census row and `make docs-counts` regenerates the summary.
@@ -2283,13 +2317,13 @@ statement of how much of the Python client's surface each of the others carries.
 **Client parity (in progress).** The Python client grew past the others in `v0.9.0` and `v0.9.1`
 — the model-edit operations, the verification and coverage calls, the conversion and identity
 options — and bringing each other client to the same service surface is being worked one client
-at a time. Java's is **open** (#762); Node's, Rust's, Julia's and MATLAB's are **in progress**
-with no pull request yet. The Python-only conveniences built on the Go client (typed class
+at a time. Java's **landed** (#762, `v0.10.0`); Node's, Rust's, Julia's and MATLAB's remain **in
+progress** with no pull request. The Python-only conveniences built on the Go client (typed class
 generation, the FMI runner, the release-digest check) are judged per client rather than ported by
 default, and the Go API is the parity's reference rather than a target, since the Python service
 calls are built on it.
 
-## I1 — the wire contract, written down
+## I1 — the wire contract, written down (landed, #848)
 
 There was no page a hand-written client can be built from: which field names (proto3
 lowerCamelCase), which `Value` arm is which (`intValue` as a JSON *string* for 64-bit,
@@ -2304,7 +2338,7 @@ are on the page), the Connect code table, the
 illustrations marked untested, linked from the transports, clients and API pages. Everything else
 in the track reads from it.
 
-## I2 — shared conformance fixtures for handwritten clients
+## I2 — shared conformance fixtures for handwritten clients (landed; the Python runner open)
 
 One directory of request/response pairs — every `Value` arm, a diagnostic, a Connect error, a
 behavior call, a document query — that the existing clients and any new one replay, so "the
@@ -2314,7 +2348,7 @@ Java, Rust, Julia and MATLAB runners replay it and write the shared report forma
 The Python client is the one that does not replay it; its tests are its own. Bringing it under
 the same runner is the item's remainder, and an R package starts from it.
 
-## I3 — thin R, Julia and MATLAB packages
+## I3 — thin R, Julia and MATLAB packages (Julia and MATLAB landed, #591; R open)
 
 Each is a few hundred lines over the language's HTTP+JSON: connect, parse, evaluate, query, run a
 behavior, decode `Value` by the I1 rules (64-bit integers, quantities, enumerations, unset), and
@@ -2479,7 +2513,7 @@ notice in the rendering today rather than a drawing. Graphviz DOT and PlantUML b
 both lay out large graphs Mermaid cannot, and both are what the documentation and publishing
 pipelines this project is meant to feed already consume.
 
-## W1 — a `dot` form
+## W1 — a `dot` form (landed)
 
 **Landed** — see [view rendering forms](view-rendering-forms.md). A DOT writer over `Rendering`
 (`internal/ir/view/dot.go`): a rendering is a `digraph`, a node with children a `subgraph
@@ -2502,7 +2536,7 @@ node carries so an SVG rendered from the DOT links back to the declaration the w
 does. The node and edge attribute lists are each written by one method (`dotNodeAttributes`,
 `dotEdgeAttributes`), where the position and the route already join the label and style.
 
-## W2 — a `plantuml` form
+## W2 — a `plantuml` form (landed, #264)
 
 **Landed** — see [view rendering forms](view-rendering-forms.md#plantuml). A PlantUML writer over
 `Rendering` (`internal/ir/view/plantuml.go`), one grammar per kind: a tree is a class diagram
@@ -2527,7 +2561,7 @@ produces a history pseudostate (today drawn by stereotype), `state X : entry / �
 notes for notices, and `[[url]]` hyperlinks from the origin — to land with the DOT `URL=` once a
 writer has a stable URL for an `Origin`.
 
-## W3 — the forms where renderings surface
+## W3 — the forms where renderings surface (landed, #356)
 
 `dot`, `plantuml` and `d2` join `text`, `markdown` and `mermaid` everywhere a form is chosen:
 `-render-form`, `%render`, the `opensysml/render` request (the VS Code panel keeps Mermaid, which
@@ -2552,20 +2586,20 @@ source under a notice when its tool is absent, the tests skipping with the reaso
 is missing and CI's `pdf-toolchain` job running them with the toolchain installed and reading
 the rendered PDFs back (#477). The VS Code panel's *export* picks among the forms the server
 advertises, so `dot` and `plantuml` are saved as `.dot` and `.puml` beside Mermaid. What
-[W1](#w1--a-dot-form) and [W2](#w2--a-plantuml-form) listed as writer changes — richer node
+[W1](#w1--a-dot-form-landed) and [W2](#w2--a-plantuml-form-landed-264) listed as writer changes — richer node
 shapes and compartments — landed with the view work rather than as items of their own: symbol
 kinds drawn as their notation and labels fitted to a stated box (#560, `v0.9.0`), containment
 kept off compartment rows (#589) and Cameo behaviour notation for action and state views in the
 DOT writer (#623), both `v0.9.1`, as [view-rendering-forms.md](view-rendering-forms.md) records
-row by row. Open against `develop`: #757, a part's typed ports drawn on the interconnection view
-with connectors ended at them. The `d2` form of [W4](#w4--a-d2-form) took the same route the day
+row by row. #757 (`v0.10.0`) draws a part's typed ports on the interconnection view with
+connectors ended at them. The `d2` form of [W4](#w4--a-d2-form-landed-887) took the same route the day
 it landed: `-render-form d2` (`-render-all` writes `.d2`), `%render <name> d2 [palette]`,
 `"form": "d2"`, `-diagram-form d2` (` ```d2 ` fences, `<pre class="d2">`), the PDF backend
 drawing a block through the `d2` executable `OPENSYSML_D2` names and keeping the source under a
 notice without one, the toolchain script provisioning a pinned release, and the panel's export
 saving `.d2`. Nothing else is open in the track.
 
-## W4 — a `d2` form
+## W4 — a `d2` form (landed, #887)
 
 **Landed** — see [view rendering forms](view-rendering-forms.md#d2). A D2 writer over
 `Rendering` (`internal/ir/view/d2.go`) for [D2](https://d2lang.com), the declarative diagram
