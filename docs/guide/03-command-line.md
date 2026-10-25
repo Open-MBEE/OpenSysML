@@ -359,11 +359,16 @@ Naming the project directory loads its own files and those of the projects its u
 select, directly or through their own usages, as the package manager's own file listing
 would (`sysml -validate "$(sysand sources)"` still works as before). Naming a file keeps
 the usual search for the root namespaces it imports, which now also looks in the file's
-project and in the projects that uses. An installed project is matched to a usage by its
-own `.project.json`, never by its directory name: the resource IRI's last two path segments
-are its publisher and name (compared as lower-case slugs, so `Requirements Management`
-answers to `…/ode4hera/requirements-management`), and of several installed versions the one
-a `versionConstraint` names exactly is taken, else the latest. The standard library's
+project and in the projects that uses. The well-known library directories are `lib`, which
+`sysml -install` fills, and `.sysand/lib`; both are read. An installed project is matched
+to a usage first through the project's `.project.lock.json`, when it has one: the lock
+records the path each usage's resource was installed at, and the project read from that
+path answers the usage. A usage the lock has no entry for — a hand-copied project, or a
+project without a lock — is matched by the installed project's own `.project.json`, never
+by its directory name: the resource IRI's last two path segments are its publisher and name
+(compared as lower-case slugs, so `Requirements Management` answers to
+`…/ode4hera/requirements-management`), and of several installed versions the one whose
+version satisfies the `versionConstraint` is taken, else the latest. The standard library's
 `https://www.omg.org/spec/KerML/…/*.kpar` usages are answered by the bundled library.
 Hidden directories other than the library directories stay out of the search, and the
 diagnostics of the files loaded this way are reported like those of any other file the
@@ -424,6 +429,61 @@ is kept (and its checksums verified), and one it lacks is generated with the ind
 checksum per file and a creation time of `SOURCE_DATE_EPOCH` when that is set. Hidden
 directories such as `.git` and `.sysand` stay out of the archive. `-unbundle` writes into a
 new or empty directory only, so an archive never overwrites a file.
+
+### Installing the projects a project uses
+
+`sysml` also writes the other side of §10.3: it fetches the projects a `.project.json`
+uses, verifies them and installs them beside it, pinned in a lock. The package is any
+repository that carries `.project.json` at a release tag — nothing else is asked of it.
+
+```console
+$ sysml -project-init -publisher Acme -name Rover         # .project.json + .meta.json here
+wrote .project.json and .meta.json in . (Rover 0.1.0)
+$ sysml -add pkg:github/acme/widgets@^1.0.0               # append the usage, fetch, verify, install, lock
+Widgets 1.2.0: installed at lib/acme-widgets_1.2.0
+Gears 2.0.1: installed at lib/acme-gears_2.0.1.kpar
+added pkg:github/acme/widgets (Widgets 1.2.0) to .; 2 projects locked
+$ sysml -install                                          # on a fresh clone: what the lock says, exactly
+$ sysml -lock                                             # re-resolve every usage to the latest release
+```
+
+A usage's `resource` may be a purl, `pkg:github/<org>/<repo>` or `pkg:gitlab/<group>/<repo>`,
+optionally with `#<subpath>` when the project lies in a subdirectory of the repository; a
+git URL (`https://…/.git`, `git@host:path`, `ssh://…`); the URL of a published `.kpar`; or
+a local path to a project directory or archive, which is read in place, never copied. A
+release of a repository is a tag `v<semver>` or `<semver>` whose tree holds `.project.json`
+at the root (or at the subpath) saying that very version; a tag whose `.project.json` says
+another version is refused (`cannot install …: verify: …@v1.3.0 is tagged v1.3.0 but its
+.project.json says version "1.2.0"; the tag and the file must agree`), and a tree without one
+is refused outright (`not a project interchange: … has no .project.json`). The version after `@` in `-add`, or the `versionConstraint` in
+`.project.json`, selects the release: `1.2.0` exactly, `^1.2.0` any `1.x` from `1.2.0` on,
+`~1.2.0` any `1.2.x` from `1.2.0` on, `>=1.2.0 <2.0.0` a range (`>`, `<=` and `=` as well,
+several clauses separated by spaces or commas intersecting), and the latest release the
+constraint admits is taken, prereleases ordering below their release as semver has it.
+
+A release is fetched as the host's archive of the tag over HTTPS first
+(`…/archive/refs/tags/<tag>.tar.gz` on GitHub, the equivalent on GitLab; `HTTPS_PROXY` is
+honoured and a redirect to another host is refused by name), and by `git clone --depth 1
+--branch <tag>` through the `git` on the `PATH` otherwise — which is how a private or SSH
+remote is reached — with the tag resolved to its commit by `git ls-remote --tags`. Before
+anything is read the tree is bounded (no member outside the tree, no symbolic links, a size
+cap), its `.meta.json` is generated when absent and its checksums verified as for any
+archive, and it is installed under `lib/<publisher>-<name>_<version>/` (a `.kpar` as the
+file `lib/<publisher>-<name>_<version>.kpar`) beside the project's `.project.json`, as are
+the projects it uses in turn. The OMG standard library's IRIs are never installed: the
+bundled library answers them as before.
+
+`.project.lock.json` beside `.project.json` pins the result: one entry per usage in the
+transitive closure, with the resource, the IRI it parsed to, its kind, the constraint, the
+project's publisher, name and version, the source URL, the tag and commit, the SHA-256
+digest of the tree or archive, the path it is read from and the resources it uses in turn —
+keys sorted, entries sorted by resource, a trailing newline, so two runs write the same
+bytes. `-install` (or `-sync`) reproduces the lock exactly, refusing a release whose digest
+no longer matches its pin or whose pinned version the constraint no longer admits, and
+resolves only the usages the lock lacks; `-lock` re-resolves everything. A `sysand-lock.toml`
+beside the project is read as a hint for the versions of a first resolution and is never
+written. The loader matches a usage to the project the lock pins it to, and otherwise by
+publisher and name as described above; it never reads the network.
 
 ## Running behavior
 

@@ -373,6 +373,42 @@ func doc() usage.Doc {
 				"Every run that migrates a v1 model says so on stderr.",
 			},
 		}, {
+			Title: "Managing a project's usages",
+			Examples: []usage.Example{
+				usage.Ex("sysml -project-init -publisher Acme -name Widgets", "Write .project.json and .meta.json here"),
+				usage.Ex("sysml -add pkg:github/acme/gears@^2.0.0", "Use a GitHub project at a release tag"),
+				usage.Ex("sysml -add https://git.example.org/acme/gears.git@2.1.0", "...a git repository, by tag"),
+				usage.Ex("sysml -add https://example.org/gears-2.1.0.kpar", "...an archive"),
+				usage.Ex("sysml -add ../gears", "...a project beside this one, read in place"),
+				usage.Ex("sysml -install proj", "Install what proj's .project.json and lock say"),
+				usage.Ex("sysml -lock", "Re-resolve every usage to the latest release and rewrite the lock"),
+			},
+			Paragraphs: []string{
+				"A project is a directory holding a .project.json (KerML 1.0 §10.3); " +
+					"-project-init writes one, with the .meta.json indexing the model files " +
+					"beside it. -add appends a usage, where pkg:github/<org>/<repo> and " +
+					"pkg:gitlab/<group>/<repo> name a repository whose release tags are " +
+					"v<semver> or <semver> and whose tree holds .project.json at its root " +
+					"(or at #<subpath>); a git URL names any repository the same way, a " +
+					".kpar URL a published archive, and a local path a project read in " +
+					"place. A version after @ becomes the usage's versionConstraint: exact, " +
+					"^1.2.0 (same major), ~1.2.0 (same minor), >=1.2.0 <2.0.0; the latest " +
+					"release it admits is taken.",
+				"A release is fetched as the host's tag archive over HTTPS (HTTPS_PROXY " +
+					"honoured), else by a shallow git clone of the tag; its .project.json " +
+					"must say the tag's version, and its .meta.json checksums are generated " +
+					"or verified before anything is read. It is installed under " +
+					"lib/<publisher>-<name>_<version>/ (a .kpar as is) beside .project.json, " +
+					"with the projects it uses in turn, and pinned in .project.lock.json: " +
+					"resource, version, source, tag, commit and SHA-256 digest, in a fixed " +
+					"order. -install reproduces the lock exactly and refuses a release whose " +
+					"digest moved; -lock re-resolves. The loader matches a usage to the " +
+					"project the lock pins it to, and by publisher and name slugs when the " +
+					"lock has no entry; a sysand-lock.toml beside the project hints the " +
+					"first resolution's versions and is never written. The OMG standard " +
+					"library's IRIs are never installed: the bundled library answers them.",
+			},
+		}, {
 			Title: "Native compilation",
 			Examples: []usage.Example{
 				usage.Ex("sysml model.sysml -compile Pkg::Fib -o fib", "Compile a calc def to a C executable"),
@@ -624,6 +660,9 @@ func doc() usage.Doc {
 			Items: []usage.Item{
 				usage.Entry("$XDG_STATE_HOME/sysml/history", "Prompt history, when XDG_STATE_HOME is set and writable."),
 				usage.Entry("~/.sysml_history", "Prompt history otherwise. When neither can be written the history is kept for the session only."),
+				usage.Entry(".project.json", "The project's name, publisher, version and usages (KerML 1.0 §10.3), written by -project-init and extended by -add."),
+				usage.Entry(".project.lock.json", "The releases the usages resolved to, written by -add, -install and -lock; read by -install and by the loader to match a usage to its installed project."),
+				usage.Entry("lib/", "The installed projects, one directory or .kpar per release, beside .project.json."),
 			},
 		}, {
 			Title:   "Reporting bugs",
@@ -715,6 +754,13 @@ func registerFlags(fs *flag.FlagSet) {
 
 	fs.StringVar(&bundleDir, "bundle", "", "Write this project directory as a project interchange archive (KerML 1.0 §10.3), to -o or to <name>-<version>.kpar; the archive is the same bytes on every run")
 	fs.StringVar(&unbundleFile, "unbundle", "", "Write this project interchange archive (.kpar) out as a project directory, to -o or to <name>-<version>, which must be new or empty")
+	fs.BoolVar(&projectInit, "project-init", false, "Write a new project's .project.json and .meta.json in the directory named (the working directory by default), indexing the model files there; takes -publisher and -name")
+	fs.StringVar(&projectPublisher, "publisher", "", "With -project-init, the project's publisher")
+	fs.StringVar(&projectName, "name", "", "With -project-init, the project's name (default: the directory's name)")
+	fs.StringVar(&addResource, "add", "", "Append a usage of this resource — pkg:github/<org>/<repo>[@<constraint>], pkg:gitlab/…, a git URL, a .kpar URL or a local path — to the project's .project.json, then resolve, install and lock it")
+	fs.BoolVar(&installProject, "install", false, "Install the projects .project.json uses into lib/ at the versions .project.lock.json pins, resolving and pinning those it lacks")
+	fs.BoolVar(&syncProject, "sync", false, "The same as -install")
+	fs.BoolVar(&lockProject, "lock", false, "Resolve every usage of the project afresh to the latest release its constraint admits, install and rewrite .project.lock.json")
 	fs.StringVar(&convertFormat, "convert", "", convertUsage())
 	fs.StringVar(&fromFormat, "from", "", fromUsage())
 	fs.Var(&dataImports, "import", "Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row per element, before -convert writes the model; an element column names the element and each other column a feature, as `mass [kg]` (repeatable)")
@@ -865,6 +911,17 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("image-base-url", "<url>"),
 			usage.Opt("portable", ""),
 			usage.Opt("compare-results", fileArg),
+		},
+	}, {
+		Title: "Managing a project's usages",
+		Options: []usage.Option{
+			usage.Opt("project-init", ""),
+			usage.Opt("publisher", nameArg),
+			usage.Opt("name", nameArg),
+			usage.Opt("add", "<iri>"),
+			usage.Opt("install", ""),
+			usage.Opt("sync", ""),
+			usage.Opt("lock", ""),
 		},
 	}, {
 		Title: "Compiling natively",
