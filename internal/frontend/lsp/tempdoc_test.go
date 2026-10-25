@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -19,7 +20,23 @@ func tempDocURI(t testing.TB, name string) uri.URI {
 func testDocURI(t testing.TB, name string) uri.URI {
 	t.Helper()
 	if filepath.IsAbs(name) {
-		return uri.File(name)
+		u := uri.File(name)
+		requireTestOwnedDir(t, u)
+		return u
 	}
 	return tempDocURI(t, name)
+}
+
+// requireTestOwnedDir fails a test about to open u in a directory it does not
+// own: the working directory, where a bare name lands, or the system temp directory.
+func requireTestOwnedDir(t testing.TB, u uri.URI) {
+	t.Helper()
+	dir := filepath.Dir(u.Filename())
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd: %v", err)
+	}
+	if dir == wd || dir == os.TempDir() {
+		t.Fatalf("document %s opens in shared directory %s; use tempDocURI", u, dir)
+	}
 }

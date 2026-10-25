@@ -60,6 +60,7 @@ func sendDidChange(t *testing.T, s *Server, u uri.URI, version int32, rawChanges
 
 func openDoc(t *testing.T, s *Server, u uri.URI, text string) {
 	t.Helper()
+	requireTestOwnedDir(t, u)
 	if err := s.DidOpen(context.Background(), &protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{URI: u, Version: 1, Text: text},
 	}); err != nil {
