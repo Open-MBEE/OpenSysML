@@ -63,6 +63,10 @@ type EvalContext struct {
 	// entered is the last activation allocated before the built-in being applied
 	// was entered: an occurrence begun since began during the call.
 	entered int64
+
+	// chain is the declaration each segment of the chain being evaluated names,
+	// which an object answers by feature rather than by name (chain_member_slot.go).
+	chain chainStatic
 }
 
 // newEvalContext creates an evaluation context with an empty frame stack. It
@@ -791,7 +795,9 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 		// Then the bound instance: a feature value holds the value this object actually
 		// carries, which overrides the declared default the scope would yield.
 		if ec.self != nil && ec.selfFeatureInScope(name) {
-			if val, ok, err := ec.selfFeatureValue(name); err != nil {
+			// The name reads the feature it resolves to where the expression was
+			// written, which the object may hold under a redefiner's name.
+			if val, ok, err := ec.selfFeatureValue(ec.selfMemberSlot(name)); err != nil {
 				return Value{}, err
 			} else if ok {
 				return val, nil
@@ -1568,6 +1574,7 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 		return Value{}, fmt.Errorf("empty member chain")
 	}
 	base, parts := ast.FeatureChainBase(n)
+	defer ec.noteChainMembers(base, parts)()
 
 	// A chain's members resolve in the namespace of the feature before them, where
 	// a redefined feature is not inherited under its name (KerML §7.3.4.5).
@@ -1714,8 +1721,12 @@ func (ec *EvalContext) chainMembersDeclared(base ast.Node, parts []ast.NameSegme
 	return nil
 }
 
-// chainBaseSymbol is the feature a chain's base names, when it names one.
+// chainBaseSymbol is the feature a chain's base names, when it names one, or
+// the type a cast base (`x as T`) classifies its values by.
 func (ec *EvalContext) chainBaseSymbol(base ast.Node) (*symbols.Symbol, bool) {
+	if cast, ok := base.(*ast.OperatorExpr); ok && cast.Operator == ast.OpAs && cast.TypeRef != nil {
+		return ec.resolveClassificationType(cast.TypeRef)
+	}
 	ref, ok := base.(*ast.FeatureReference)
 	if !ok || ref.Name == nil || ec.ctx.model.resolver == nil {
 		return nil, false
@@ -1892,6 +1903,11 @@ func (ec *EvalContext) chainObjectMember(value Value, parts []ast.NameSegment, f
 			return Value{}, err
 		}
 		return ec.chainMemberValue(now, rest, name)
+	}
+	// The segment reads the feature its name resolved to, which the object may
+	// hold under the name of a feature redefining it (KerML 1.0 §7.3.4.5).
+	if slot, ok := ec.ctx.featureSlot(inst, ec.chainMember(parts)); ok {
+		name = slot
 	}
 	fvDecl, ok := inst.FeatureValues[name]
 	if !ok {
