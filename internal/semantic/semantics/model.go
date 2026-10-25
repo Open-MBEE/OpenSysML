@@ -977,6 +977,45 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 	return nil
 }
 
+// FeatureTypeSetWithImplied is FeatureTypeSet with the types the implied
+// specializations of sym's kind contribute (KerML §8.3.3.3.4 deriveFeatureType
+// unions the types of every subsetted feature, implied ones included), so a
+// usage's types hold its kind's base definition beside what it declares.
+func (m *Model) FeatureTypeSetWithImplied(sym *symbols.Symbol) []*symbols.Symbol {
+	types := append([]*symbols.Symbol(nil), m.FeatureTypeSet(sym)...)
+	add := func(typ *symbols.Symbol) {
+		if typ != nil && !containsElement(types, typ) {
+			types = append(types, typ)
+		}
+	}
+	bases := m.ImplicitGenerals(sym)
+	// A membership's own base (a case's subject, an actor) stands in for the
+	// kind's among the implied generals; the kind's base still types the usage.
+	if fqn, ok := m.FeatureBaseFQN(sym); ok && m.resolver != nil && m.resolver.Index() != nil {
+		for _, base := range m.resolver.Index().LookupQualified(fqn) {
+			if base != nil && base != sym && !containsElement(bases, base) {
+				bases = append(bases, base)
+			}
+		}
+	}
+	for _, general := range bases {
+		if general == nil {
+			continue
+		}
+		if !general.IsFeature() {
+			add(general)
+			continue
+		}
+		for _, typ := range m.baseFeatureTypes(general, nil) {
+			add(typ)
+		}
+	}
+	if len(types) == 0 {
+		return nil
+	}
+	return m.mostSpecificTypes(types)
+}
+
 // mostSpecificTypes drops every type another one in the list specializes.
 func (m *Model) mostSpecificTypes(types []*symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol

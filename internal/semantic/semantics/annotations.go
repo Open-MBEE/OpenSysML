@@ -1754,30 +1754,7 @@ func (m *Model) reflectiveFeatureTypes(sym *symbols.Symbol) []*symbols.Symbol {
 			return []*symbols.Symbol{annot.typ}
 		}
 	}
-	types := append([]*symbols.Symbol(nil), m.FeatureTypeSet(sym)...)
-	if !m.reflectiveMetaclassConforms(sym, "PartUsage") || m.resolver == nil || m.resolver.Index() == nil {
-		return types
-	}
-	for _, base := range m.resolver.Index().LookupQualified("Parts::parts") {
-		if base == nil || !base.IsFeature() {
-			continue
-		}
-		for _, typ := range m.baseFeatureTypes(base, nil) {
-			typFQN := m.fqnOf(typ)
-			found := false
-			for _, existing := range types {
-				if existing == typ || m.fqnOf(existing) == typFQN {
-					found = true
-					break
-				}
-			}
-			if !found {
-				types = append(types, typ)
-			}
-		}
-		break
-	}
-	return m.mostSpecificTypes(types)
+	return m.FeatureTypeSetWithImplied(sym)
 }
 
 func (m *Model) conformingTypes(sym *symbols.Symbol, target string) []*symbols.Symbol {

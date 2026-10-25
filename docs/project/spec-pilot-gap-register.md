@@ -896,9 +896,10 @@ explicitly, in addition to any other item definitions."
 **Assessment:** both tools are right by clause, and the specification over the pilot's silence:
 the constraint is stated but is satisfied through the implied `Parts::parts` subsetting, so a
 report on an item-typed part was stricter than the specification, not stricter than the pilot.
-The `validation-constraints.md` row marks the constraint as following the specification's
-derivation; the check reads the same derivation and reports only a part usage whose derived
-`partDefinition` is empty.
+The `validation-constraints.md` row records the constraint as deliberately unreported, and the
+derivation itself is what the tree holds: `semantics.Model.FeatureTypeSetWithImplied` joins the
+implied generals' types to the declared ones, so reflective `type` and `partDefinition` state
+`Parts::Part` for every part usage.
 
 **Question for the authors:** none.
 

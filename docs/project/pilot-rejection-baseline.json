@@ -2932,7 +2932,7 @@
       "rule": "the kind of a variant usage must be consistent with the kind of its owning variation (SysML 7.6.7; checkUsageVariationDefinitionSpecialization, checkUsageVariationUsageSpecialization; pilot SysMLValidator checkActionUsage typing).",
       "mode": "default",
       "bucket": "both-reject",
-      "oursErrors": 6,
+      "oursErrors": 5,
       "pilotErrors": 5
     },
     {
