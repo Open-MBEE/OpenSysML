@@ -281,6 +281,9 @@ type PrefixMetadata struct {
 	HasBody bool
 	// Elements the usage annotates: `@Meta about a, b;` (SysML.xtext:145-147).
 	About []*QualifiedName
+	// TypedBy spans the `typed by` the typing was spelled with (KerML.xtext:1091);
+	// zero for `:` or `defined by`.
+	TypedBy source.Span
 }
 
 // Namespace is `namespace <id> { ... }`.

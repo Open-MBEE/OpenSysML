@@ -1,0 +1,41 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="TypedByUsage" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="P"))
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="A"))
+      (Membership visibility="default"
+        (Definition kind="metadata" abstract=false variation=false name="Tag"))
+      (Membership visibility="default"
+        (Usage kind="part" name="p" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=P typedBy=true
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="part" name="q" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=P
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="part" name="r" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=P
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=A typedBy=true
+            (*ast.QualifiedName))
+          (Relationship kind="typing" target=A
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="part" name="s" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=P typedBy=true
+            (*ast.QualifiedName))
+          (Relationship kind="typing" target=P
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="D"
+          (Membership visibility="default"
+            (PrefixMetadata type="Tag" name="m" typedBy=true))
+          (Membership visibility="default"
+            (PrefixMetadata type="Tag" name="n"))
+          (Membership visibility="default"
+            (PrefixMetadata type="Tag" name="o")))))))
