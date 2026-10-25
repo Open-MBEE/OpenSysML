@@ -148,7 +148,15 @@ func ImplicitSubsettingCandidates(u NestedUsage, owner NestedOwner) []string {
 	case fqn != "":
 		return []string{fqn}
 	case step && ownerInOccurrenceFamily(owner):
-		return slices.Clone(stepFallbackFQNs)
+		if u.Composite {
+			return slices.Clone(stepFallbackFQNs)
+		}
+		// An Object (item, part, port) encloses no non-composite step; a
+		// performance or occurrence encloses it.
+		if ownerInItemFamily(owner) || ownerInPortFamily(owner) {
+			return nil
+		}
+		return []string{stepFallbackFQNs[2]}
 	}
 	return nil
 }
