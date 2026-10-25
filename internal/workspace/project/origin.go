@@ -169,14 +169,14 @@ func parsePurl(resource string) (*Origin, error) {
 }
 
 // parseURL reads a URL as a git repository, when it ends in .git or its
-// scheme is git or ssh, else as an archive when it ends in .kpar; a version
-// written after @ in the last path segment selects the tag.
+// scheme is git, ssh or file, else as an archive when it ends in .kpar; a
+// version written after @ in the last path segment selects the tag.
 func parseURL(resource string) (*Origin, error) {
 	u, err := url.Parse(resource)
 	if err != nil {
 		return nil, err
 	}
-	if u.Host == "" {
+	if u.Host == "" && u.Scheme != "file" {
 		return nil, errors.New("the URL names no host")
 	}
 	version := ""
@@ -193,7 +193,7 @@ func parseURL(resource string) (*Origin, error) {
 	bare := *u
 	bare.Path, bare.Fragment, bare.RawQuery, bare.RawPath = p, "", "", ""
 	switch scheme := strings.ToLower(u.Scheme); {
-	case scheme == "git" || scheme == "ssh" || strings.HasSuffix(strings.ToLower(p), ".git"):
+	case scheme == "git" || scheme == "ssh" || scheme == "file" || strings.HasSuffix(strings.ToLower(p), ".git"):
 		return &Origin{IRI: bare.String(), Kind: OriginGit, Host: u.Host, Repo: bare.String(), Subpath: subpath, Constraint: version}, nil
 	case (scheme == "https" || scheme == "http") && IsArchive(p):
 		if subpath != "" {
@@ -204,7 +204,7 @@ func parseURL(resource string) (*Origin, error) {
 	case scheme == "https" || scheme == "http":
 		return nil, fmt.Errorf("a URL is fetched as a git repository when it ends in .git or as an archive when it ends in %s: %w", ArchiveExt, ErrNotAnOrigin)
 	default:
-		return nil, fmt.Errorf("URL scheme %q is not one projects are installed over (https, http, ssh, git): %w", u.Scheme, ErrNotAnOrigin)
+		return nil, fmt.Errorf("URL scheme %q is not one projects are installed over (https, http, ssh, git, file): %w", u.Scheme, ErrNotAnOrigin)
 	}
 }
 

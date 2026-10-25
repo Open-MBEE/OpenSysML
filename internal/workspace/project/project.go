@@ -179,8 +179,8 @@ func (d Discovery) archiveFiles(archive string) ([]string, error) {
 	if err != nil {
 		return []string{archive}, nil
 	}
-	installed, _ := installedProjects(d.libraryRoots(EnclosingProjects(archive)))
-	out := append(a.Files(), projectFiles(used([]*Interchange{a.Project}, installed))...)
+	installed, _ := installedProjects(d.libraryRoots(EnclosingProjects(archive), nil))
+	out := append(a.Files(), projectFiles(used([]*Interchange{a.Project}, installed, nil))...)
 	if len(out) == 0 {
 		return nil, fmt.Errorf("no .sysml or .kerml files in %s or the projects it uses", archive)
 	}
