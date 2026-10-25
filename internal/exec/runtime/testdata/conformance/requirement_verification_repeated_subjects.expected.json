@@ -1,0 +1,13 @@
+{
+  "libraries": true,
+  "type": "requirement",
+  "evaluate": "test::costReq",
+  "instantiate": "test::fleet",
+  "error": "product subject is unbound",
+  "verifications": [
+    {"case": "test::Definition::costTest", "object": "cheap[1]", "verdict": "pass", "verdicts": {"costObjective": "satisfied"}},
+    {"case": "test::Definition::costTest", "object": "cheap[2]", "verdict": "pass", "verdicts": {"costObjective": "satisfied"}},
+    {"case": "test::Definition::costTest", "object": "dear[1]", "verdict": "fail", "verdicts": {"costObjective": "satisfied"}},
+    {"case": "test::Definition::costTest", "object": "dear[2]", "verdict": "fail", "verdicts": {"costObjective": "satisfied"}}
+  ]
+}

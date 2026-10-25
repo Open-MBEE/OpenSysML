@@ -45,7 +45,7 @@
       (RelationshipMember visibility="default" kind="inverse" name="i" keyword="inverse" source="f" target="g" conjugated=false)
       (Membership visibility="default"
         (Usage kind="attribute" name="x1" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="feature"
-          (Relationship kind="typing" target=A
+          (Relationship kind="typing" target=A typedBy=true
             (*ast.QualifiedName))
           (Relationship kind="typing" target=B
             (*ast.QualifiedName))

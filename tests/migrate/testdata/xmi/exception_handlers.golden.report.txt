@@ -33,7 +33,7 @@ ActivityFinalNode	Imaging::Camera::Capture::<ActivityFinalNode>	_cp_final	-> fin
 ControlFlow	Imaging::Camera::Capture::<ControlFlow>	_cp_e2
 InitialNode	Imaging::Camera::Capture::<InitialNode>	_cp_init	-> start
 OpaqueAction	Imaging::Camera::Capture::expose	_cp_expose	-> 'expose'	(its body is empty, so it is written as an action that does nothing)
-Activity	Imaging::Camera::Inspect	_act_inspect	-> Model::Imaging::Camera::Inspect	(acts on its owner Imaging::Camera, which it takes as its parameter context, since its this is the def's own occurrence)
+Activity	Imaging::Camera::Inspect	_act_inspect	-> Model::Imaging::Camera::Inspect	(acts on its owner Imaging::Camera, which it takes as its parameter context, since its this names no feature of the owner)
 ActivityFinalNode	Imaging::Camera::Inspect::<ActivityFinalNode>	_eh_final	-> final
 ControlFlow	Imaging::Camera::Inspect::<ControlFlow>	_eh_e2	-> Model::Imaging::Camera::Inspect::'capture to store'
 ControlFlow	Imaging::Camera::Inspect::<ControlFlow>	_eh_e3	-> Model::Imaging::Camera::Inspect::'store to final'

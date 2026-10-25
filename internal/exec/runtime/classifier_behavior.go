@@ -439,6 +439,7 @@ func (ctx *Context) forgetAbandoned(abandoned map[int64]bool, gone []*Instance) 
 	ctx.forgetEdgesOf(gone)
 	ctx.forgetValuesNaming(abandoned)
 	ctx.forgetMessagesTo(abandoned)
+	ctx.forgetRecordsNaming(abandoned)
 }
 
 // forgetVariantsNaming unselects every variant whose object or selecting object
@@ -1605,11 +1606,10 @@ func (ctx *Context) actionBodyGraph(action *symbols.Symbol) (*symbols.Symbol, *l
 	sym := action
 	var fallback *lower.ActionGraph
 	for depth := 0; depth < maxBehaviorBindingDepth; depth++ {
-		graph, err := lower.ToActionGraphWith(sym.Decl, DeclScope(sym), ctx.Resolver())
+		graph, err := ctx.model.actionGraph(sym)
 		if err != nil {
 			return nil, nil, fmt.Errorf("lower action graph: %w", err)
 		}
-		lower.StartFlow(graph)
 		if depth == 0 {
 			fallback = graph
 		}

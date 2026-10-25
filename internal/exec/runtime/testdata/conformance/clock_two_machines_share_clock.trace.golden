@@ -20,6 +20,7 @@ exit: holding
 enter: pinged (entry action)
 stmt send
 materialize: Ping #5
+materialize: Transfer #6
 transition: holding -> pinged (event: time)
 run: exhibited state machine listening of #3
 exit: armed

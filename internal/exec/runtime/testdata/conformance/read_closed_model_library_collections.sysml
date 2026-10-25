@@ -4,7 +4,8 @@
 // §7.3.4: a lower bound of 0 is met by no value). The Systems and Kernel tiers
 // answer alike, abstract (`performedActions`, `subparts`) or not (`voids`,
 // `suboccurrences`, `predecessors`, `middleTimeSlice`). A usage the model itself
-// declares with an open multiplicity keeps the model-level rule: no definite count.
+// declares reads by the same rule: `loose[0..2]` valued with nothing is empty, and
+// `gear[1..*]` stays undetermined of its bounds, since nothing declared meets them.
 package test {
 	private import ScalarValues::*;
 	private import SequenceFunctions::size;

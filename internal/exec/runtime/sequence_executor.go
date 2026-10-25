@@ -333,7 +333,9 @@ func (ctx *Context) postTransfer(sym *symbols.Symbol, inst *Instance, t *lower.T
 	if err != nil {
 		return 0, err
 	}
-	ctx.postFrom(msg, from, sym)
+	if err := ctx.postFrom(msg, from, sym); err != nil {
+		return 0, err
+	}
 	if ctx.trace != nil {
 		ctx.trace.line(fmt.Sprintf("send %s from %s", t.Name, t.From.Text()))
 	}

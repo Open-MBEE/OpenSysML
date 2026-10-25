@@ -51,14 +51,16 @@ const undeterminedModel = `package test {
 	part def D { attribute mass : Real; attribute tag : String default = "d"; attribute w : Real = 2.0; }
 	part rack {
 		part slots[3] : D;
-		part gear[1..*] : D;
+		part gear[2..*] : D;
 		part loose[0..2] : D;
+		part sparse[1..2] : D;
+		part bare[1..*] : D;
 		part lone : D;
 		part many[10001..*] : D;
 		part fixed : D :> gear;
 	}
 	part shelf {
-		part items[1..*] : D;
+		part items[3..*] : D;
 		part plain : D :> items;
 		part tagged : D :> items { attribute :>> tag = "x"; }
 	}
@@ -81,8 +83,8 @@ const undeterminedModel = `package test {
 	attribute xs : Real[2..4];
 	attribute ss : String[2..*];
 	attribute bs : Boolean[2];
-	attribute os : Real[0..4];
-	attribute vast : Real[0..9223372036854775807];
+	attribute os : Real[1..4];
+	attribute vast : Real[1..9223372036854775807];
 	attribute big : Real[5000000];
 	attribute known : Real = 2.0;
 	calc twice { in x : Real[1]; return : Real = x * 2.0; }
@@ -232,7 +234,7 @@ func TestFixedPositionsOfOpenSequencesAnswer(t *testing.T) {
 		"excludingAt((10, u, 30), 2)#(2)": "30", "excludingAt((10, u, 30), 1, 2)#(1)": "30",
 		"includingAt((10, u, 30), 20, 2)#(2)": "20", "includingAt((10, u, 30), 20, 2)#(4)": "30",
 		"includingAt((10, 30), u, 2)#(3)": "30", "includingAt((10, 30), u, 2)#(2)": "<undetermined>",
-		"(10, u, 30)#(1) + (10, u, 30)#(3)": "40", "(10, u, 30)#(1) == 10": "true",
+		"(10, u, 30)#(1) + (10, u, 30)#(3)": "40", "(10, u, 30)#(1) == 10": "true", "last(rack.loose)": "null",
 		"(u, r)#(2) == r":  "<undetermined>",
 		"(10, xs, 30)#(1)": "10", "head((10, xs, 30))": "10", "(10, 20, xs)#(2)": "20", "subsequence((10, 20, xs), 1, 2)#(2)": "20",
 		"(rack.gear, 30)#(1) == 30": "<undetermined>",
@@ -245,7 +247,7 @@ func TestFixedPositionsOfOpenSequencesAnswer(t *testing.T) {
 	}
 	for src, count := range map[string]string{
 		"(10, u, 30)#(2)": "[1]", "(u, r)#(2)": "[1]", "tail((10, u, 30))": "[2]", "tail(xs)": "[1..3]", "head(xs)": "[1]",
-		"(10, xs, 30)#(2)": "[1]", "(10, xs, 30)#(4)": "[1]", "last((10, xs, 30))": "[1]", "last(rack.loose)": "[0..1]",
+		"(10, xs, 30)#(2)": "[1]", "(10, xs, 30)#(4)": "[1]", "last((10, xs, 30))": "[1]", "last(rack.sparse)": "[1]",
 		"(xs, 10)#(1)": "[1]", "head((xs, 10))": "[1]", "(rack.gear, 30)#(1)": "[1]",
 		"(1, big, 2)#(2)": "[1]", "(1, big, 2)#(5000001)": "[1]", "subsequence((1, big, 2), 3, 5000001)": "[4999999]",
 	} {
@@ -285,12 +287,12 @@ func TestMembershipDecidesFromKnownElements(t *testing.T) {
 // certainly empty: no index reaches into it, so that is out of range as `()#(1)` is.
 func TestUndeterminedIndexIntoEmptySequenceIsOutOfRange(t *testing.T) {
 	ctx, scope := undeterminedContext(t)
-	for _, src := range []string{"()#(u)", "SequenceFunctions::'#'((), u)", "()#(1)"} {
+	for _, src := range []string{"()#(u)", "SequenceFunctions::'#'((), u)", "()#(1)", "rack.loose#(u)"} {
 		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, ErrIndexOutOfRange) {
 			t.Errorf("%s: err = %v; want index out of range", src, err)
 		}
 	}
-	for _, src := range []string{"(1, 2)#(u)", "rack.loose#(u)", "rack.gear#(u)", "u#(u)"} {
+	for _, src := range []string{"(1, 2)#(u)", "rack.sparse#(u)", "rack.gear#(u)", "u#(u)"} {
 		val, err := evalIn(t, ctx, scope, src)
 		wantUndetermined(t, src, val, err, "[1]")
 	}
@@ -302,7 +304,7 @@ func TestInvocationsPropagateUndeterminedArguments(t *testing.T) {
 	ctx, scope := undeterminedContext(t)
 	for src, count := range map[string]string{
 		"twice(u)": "[1]", "doubled": "[1]", "twice(rack.lone.mass)": "[1]",
-		"RealFunctions::sum((1, u))": "[1]", "RealFunctions::sum(rack.loose.mass)": "[1]", "RealFunctions::max(u, 3)": "[1]",
+		"RealFunctions::sum((1, u))": "[1]", "RealFunctions::sum(rack.sparse.mass)": "[1]", "RealFunctions::max(u, 3)": "[1]",
 		"u->ControlFunctions::collect{in x; x + 1}":     "[1]",
 		"(1, u)->ControlFunctions::select{in x; x > 0}": "[1..2]",
 		"(1,2)->ControlFunctions::forAll{in x; x > u}":  "[1]",
@@ -336,27 +338,35 @@ func TestFixedCardinalitiesStayDefinite(t *testing.T) {
 	}
 }
 
-// An open multiplicity has no definite count at model level (size, isEmpty, notEmpty,
-// chains and indexing are undetermined), but what its bounds fix answers: `[1..*]` is not empty.
+// A multiplicity whose lower bound the model leaves unmet has no definite count at
+// model level (size, isEmpty, notEmpty, chains and indexing are undetermined), but what
+// its bounds fix answers: `[1..*]` is not empty. A lower bound of 0 is met by nothing
+// declared, so `loose[0..2]` holding nothing is the empty sequence, closed over the model.
 func TestOpenCardinalitiesAreUndetermined(t *testing.T) {
 	ctx, scope := undeterminedContext(t)
 	for src, count := range map[string]string{
-		"size(rack.gear)": "[1]", "size(rack.loose)": "[1]", "isEmpty(rack.loose)": "[1]", "notEmpty(rack.loose)": "[1]",
-		"size((rack.gear, rack.loose))": "[1]",
-		"rack.gear#(7)":                 "[1]", "rack.gear#(1)": "[1]", "rack.loose#(1)": "[1]",
-		"rack.gear.mass": "[1..*]", "size(rack.gear.tag)": "[1]",
+		"size(rack.gear)": "[1]", "size(rack.sparse)": "[1]", "size(rack.bare)": "[1]", "size(rack.loose ?? rack.bare)": "[1]",
+		"size((rack.gear, rack.loose))": "[1]", "size((rack.gear, rack.sparse))": "[1]",
+		"rack.gear#(7)": "[1]", "rack.gear#(1)": "[1]", "rack.sparse#(1)": "[1]", "rack.bare#(1)": "[1]",
+		"rack.gear.mass": "[2..*]", "size(rack.gear.tag)": "[1]", "rack.bare.mass": "[1..*]",
 		"rack.lone.mass": "[1]", "rack.lone.mass + 1.0": "[1]", "rack.slots.mass": "[3]", "RealFunctions::sum(rack.slots.mass)": "[1]",
 	} {
 		val, err := evalIn(t, ctx, scope, src)
 		wantUndetermined(t, src, val, err, count)
 	}
-	for src, want := range map[string]string{"notEmpty(rack.gear)": "true", "isEmpty(rack.gear)": "false"} {
+	for src, want := range map[string]string{
+		"notEmpty(rack.gear)": "true", "isEmpty(rack.gear)": "false", "notEmpty(rack.sparse)": "true", "isEmpty(rack.bare)": "false",
+		"size(rack.loose)": "0", "isEmpty(rack.loose)": "true", "notEmpty(rack.loose)": "false", "rack.loose": "[]", "rack.loose.mass": "[]", "notEmpty(rack.loose ?? rack.bare)": "true",
+	} {
 		val, err := evalIn(t, ctx, scope, src)
 		wantFormatted(t, src, val, err, want)
 	}
+	if _, err := evalIn(t, ctx, scope, "rack.loose#(1)"); !errors.Is(err, ErrIndexOutOfRange) {
+		t.Errorf("rack.loose#(1): err = %v; want index out of range", err)
+	}
 	for _, src := range []string{"size(rack.gear)", "rack.gear#(7)"} {
 		val, _ := evalIn(t, ctx, scope, src)
-		if u := val.Undetermined(); u != nil && !strings.Contains(u.Reason(), "[1..*]") {
+		if u := val.Undetermined(); u != nil && !strings.Contains(u.Reason(), "[2..*]") {
 			t.Errorf("%s: reason %q does not state the open multiplicity", src, u.Reason())
 		}
 	}
@@ -388,7 +398,7 @@ func TestOpenCollectionKnowsItsSubsetters(t *testing.T) {
 		wantFormatted(t, src, val, err, want)
 	}
 	val, err := evalIn(t, ctx, scope, "rack.gear")
-	wantUndetermined(t, "rack.gear", val, err, "[1..*]")
+	wantUndetermined(t, "rack.gear", val, err, "[2..*]")
 	if u := val.Undetermined(); u != nil && (len(u.knownValues()) != 1 || u.knownValues()[0].Kind != ValInstance) {
 		t.Errorf("rack.gear certainly holds %v, want the one object of fixed", u.knownValues())
 	}
@@ -413,13 +423,13 @@ func TestQuantifiersDecideFromKnownElements(t *testing.T) {
 		wantFormatted(t, src, val, err, want)
 	}
 	for src, count := range map[string]string{
-		"(1, u)->ControlFunctions::exists{in x; x == 2}":             "[1]",
-		"(1, u)->ControlFunctions::forAll{in x; x > 0}":              "[1]",
-		"ControlFunctions::anyTrue((false, b))":                      "[1]",
-		"ControlFunctions::allTrue((true, b))":                       "[1]",
-		"ControlFunctions::allTrue(b)":                               "[1]",
-		"rack.loose->ControlFunctions::forAll{in x; x.tag == \"d\"}": "[1]",
-		"rack.gear->ControlFunctions::forAll{in x; x.tag == \"d\"}":  "[1]",
+		"(1, u)->ControlFunctions::exists{in x; x == 2}":              "[1]",
+		"(1, u)->ControlFunctions::forAll{in x; x > 0}":               "[1]",
+		"ControlFunctions::anyTrue((false, b))":                       "[1]",
+		"ControlFunctions::allTrue((true, b))":                        "[1]",
+		"ControlFunctions::allTrue(b)":                                "[1]",
+		"rack.sparse->ControlFunctions::forAll{in x; x.tag == \"d\"}": "[1]",
+		"rack.gear->ControlFunctions::forAll{in x; x.tag == \"d\"}":   "[1]",
 	} {
 		val, err := evalIn(t, ctx, scope, src)
 		wantUndetermined(t, src, val, err, count)
@@ -437,24 +447,26 @@ func TestCollectionTransformsKeepKnownElements(t *testing.T) {
 		"notEmpty(rack.gear->ControlFunctions::select{in x; x == rack.fixed})":                                       "true",
 		"rack.gear->ControlFunctions::select{in x; x.tag == \"d\"}->ControlFunctions::exists{in x; x == rack.fixed}": "true",
 		"(1, 2)->ControlFunctions::select{in x; x > 0}":                                                              "[1, 2]",
+		"rack.loose->ControlFunctions::select{in x; x.tag == \"d\"}":                                                 "[]",
+		"rack.loose->ControlFunctions::collect{in x; x.mass}":                                                        "[]",
 	} {
 		val, err := evalIn(t, ctx, scope, src)
 		wantFormatted(t, src, val, err, want)
 	}
 	for src, count := range map[string]string{
-		"(1, u)->ControlFunctions::select{in x; x == 1}":                      "[1..2]",
-		"(1, u)->ControlFunctions::reject{in x; x == 1}":                      "[0..1]",
-		"(1, u)->ControlFunctions::collect{in x; x + 1}":                      "[2]",
-		"(1, u)->ControlFunctions::selectOne{in x; x == 1}":                   "[1]",
-		"(1, u)->ControlFunctions::selectOne{in x; x == 2}":                   "[0..1]",
-		"(1, 2)->ControlFunctions::select{in x; x > u}":                       "[0..2]",
-		"rack.gear->ControlFunctions::select{in x; x == rack.fixed}":          "[1..*]",
-		"rack.gear->ControlFunctions::reject{in x; x == rack.fixed}":          "[0..*]",
-		"rack.loose->ControlFunctions::select{in x; x.tag == \"d\"}":          "[0..2]",
-		"rack.loose->ControlFunctions::collect{in x; x.mass}":                 "[0..2]",
-		"rack.gear->ControlFunctions::select{in x; x.tag == \"e\"}":           "[0..*]",
-		"isEmpty(rack.loose->ControlFunctions::select{in x; x.tag == \"e\"})": "[1]",
-		"size((1, u)->ControlFunctions::select{in x; x == 1})":                "[1]",
+		"(1, u)->ControlFunctions::select{in x; x == 1}":                       "[1..2]",
+		"(1, u)->ControlFunctions::reject{in x; x == 1}":                       "[0..1]",
+		"(1, u)->ControlFunctions::collect{in x; x + 1}":                       "[2]",
+		"(1, u)->ControlFunctions::selectOne{in x; x == 1}":                    "[1]",
+		"(1, u)->ControlFunctions::selectOne{in x; x == 2}":                    "[0..1]",
+		"(1, 2)->ControlFunctions::select{in x; x > u}":                        "[0..2]",
+		"rack.gear->ControlFunctions::select{in x; x == rack.fixed}":           "[1..*]",
+		"rack.gear->ControlFunctions::reject{in x; x == rack.fixed}":           "[0..*]",
+		"rack.sparse->ControlFunctions::select{in x; x.tag == \"d\"}":          "[0..2]",
+		"rack.sparse->ControlFunctions::collect{in x; x.mass}":                 "[1..2]",
+		"rack.gear->ControlFunctions::select{in x; x.tag == \"e\"}":            "[0..*]",
+		"isEmpty(rack.sparse->ControlFunctions::select{in x; x.tag == \"e\"})": "[1]",
+		"size((1, u)->ControlFunctions::select{in x; x == 1})":                 "[1]",
 	} {
 		val, err := evalIn(t, ctx, scope, src)
 		wantUndetermined(t, src, val, err, count)
@@ -489,17 +501,17 @@ func TestFiltersDecideOverUnknownElements(t *testing.T) {
 		"size(xs->ControlFunctions::reject{in x; false}) == size(xs)":        "<undetermined>",
 		"size((1, u)->ControlFunctions::select{in x; true})":                 "2",
 		"size((1, u)->ControlFunctions::reject{in x; x == 1})":               "<undetermined>",
-		"rack.loose->ControlFunctions::select{in x; x.tag == \"d\"} == ()":   "<undetermined>",
+		"rack.sparse->ControlFunctions::select{in x; x.tag == \"d\"} == ()":  "<undetermined>",
 		"ControlFunctions::selectOne(rack.gear, {in x; true}) == rack.fixed": "<undetermined>",
 	} {
 		val, err := evalIn(t, ctx, scope, src)
 		wantFormatted(t, src, val, err, want)
 	}
 	for src, count := range map[string]string{
-		"rack.gear->ControlFunctions::select{in x; true}":    "[1..*]",
+		"rack.gear->ControlFunctions::select{in x; true}":    "[2..*]",
 		"xs->ControlFunctions::select{in x; true}":           "[2..4]",
 		"xs->ControlFunctions::reject{in x; false}":          "[2..4]",
-		"rack.loose->ControlFunctions::reject{in x; false}":  "[0..2]",
+		"rack.sparse->ControlFunctions::reject{in x; false}": "[1..2]",
 		"xs->ControlFunctions::select{in x; x > 1.0}":        "[0..4]",
 		"(1, u)->ControlFunctions::select{in x; x == 1}":     "[1..2]",
 		"rack.gear->ControlFunctions::selectOne{in x; true}": "[1]",
@@ -526,8 +538,8 @@ func TestCollectOverOpenCollectionKeepsFiniteCounts(t *testing.T) {
 		"(1, u)->ControlFunctions::collect{in x; x + 1}":                    "[2]",
 		"(1, u)->ControlFunctions::collect{in x; (x, x)}":                   "[4]",
 		"xs->ControlFunctions::collect{in x; x * 2.0}":                      "[2..4]",
-		"rack.loose->ControlFunctions::collect{in x; x.mass}":               "[0..2]",
-		"rack.gear->ControlFunctions::collect{in x; x.mass}":                "[1..*]",
+		"rack.sparse->ControlFunctions::collect{in x; x.mass}":              "[1..2]",
+		"rack.gear->ControlFunctions::collect{in x; x.mass}":                "[2..*]",
 		"(1, u)->ControlFunctions::collect{in x; if x > 0 ? (1, 1) else 1}": "[3..4]",
 		"(1, u)->ControlFunctions::collect{in x; xs}":                       "[4..8]",
 	} {
@@ -604,23 +616,23 @@ func TestOpenConditionalKeepsBranchCounts(t *testing.T) {
 func TestNullCoalescingKeepsOperandCounts(t *testing.T) {
 	ctx, scope := undeterminedContext(t)
 	for src, count := range map[string]string{
-		"u ?? 3":                                       "[1]",
-		"rack.loose ?? 3":                              "[1..2]",
-		"rack.loose ?? (1, 2)":                         "[1..2]",
-		"rack.loose ?? xs":                             "[1..4]",
-		"rack.loose ?? ()":                             "[0..2]",
-		"rack.loose ?? rack.gear":                      "[1..*]",
-		"rack.loose ?? 1 + 1":                          "[0..*]",
-		"size(rack.loose ?? 3)":                        "[1]",
-		"ControlFunctions::'??'(rack.loose, 3)":        "[1..2]",
-		"ControlFunctions::'??'(rack.loose, {(1, 2)})": "[1..2]",
-		"ControlFunctions::'??'(rack.loose, {xs})":     "[1..4]",
+		"u ?? 3":                                        "[1]",
+		"rack.sparse ?? 3":                              "[1..2]",
+		"rack.sparse ?? (1, 2)":                         "[1..2]",
+		"rack.sparse ?? xs":                             "[1..2]",
+		"rack.sparse ?? ()":                             "[1..2]",
+		"rack.sparse ?? rack.gear":                      "[1..2]",
+		"rack.sparse ?? 1 + 1":                          "[1..2]",
+		"size(rack.sparse ?? 3)":                        "[1]",
+		"ControlFunctions::'??'(rack.sparse, 3)":        "[1..2]",
+		"ControlFunctions::'??'(rack.sparse, {(1, 2)})": "[1..2]",
+		"ControlFunctions::'??'(rack.sparse, {xs})":     "[1..2]",
 	} {
 		val, err := evalIn(t, ctx, scope, src)
 		wantUndetermined(t, src, val, err, count)
 	}
 	for src, want := range map[string]string{
-		"size(u ?? 3)": "1", "notEmpty(rack.loose ?? 3)": "true", "notEmpty(rack.gear ?? ())": "true",
+		"size(u ?? 3)": "1", "notEmpty(rack.loose ?? 3)": "true", "rack.loose ?? 3": "3", "rack.loose ?? (1, 2)": "[1, 2]", "notEmpty(rack.gear ?? ())": "true",
 		"notEmpty(ControlFunctions::'??'(rack.loose, 3))": "true", "known ?? 3": "2.0",
 	} {
 		val, err := evalIn(t, ctx, scope, src)
@@ -637,11 +649,11 @@ func TestNullCoalescingKeepsOperandCounts(t *testing.T) {
 func TestQuantifiersDecideFromConstantTests(t *testing.T) {
 	ctx, scope := undeterminedContext(t)
 	for src, want := range map[string]string{
-		"rack.gear->ControlFunctions::exists{in x; true}":    "true",
-		"rack.gear->ControlFunctions::forAll{in x; false}":   "false",
-		"rack.many->ControlFunctions::exists{in x; true}":    "true",
-		"rack.many->ControlFunctions::forAll{in x; false}":   "false",
-		"rack.loose->ControlFunctions::exists{in x; false}":  "false",
+		"rack.gear->ControlFunctions::exists{in x; true}":   "true",
+		"rack.gear->ControlFunctions::forAll{in x; false}":  "false",
+		"rack.many->ControlFunctions::exists{in x; true}":   "true",
+		"rack.many->ControlFunctions::forAll{in x; false}":  "false",
+		"rack.loose->ControlFunctions::exists{in x; false}": "false", "rack.sparse->ControlFunctions::exists{in x; true}": "true", "rack.sparse->ControlFunctions::forAll{in x; false}": "false", "rack.loose->ControlFunctions::exists{in x; true}": "false", "rack.loose->ControlFunctions::forAll{in x; false}": "true",
 		"rack.loose->ControlFunctions::forAll{in x; true}":   "true",
 		"rack.many->ControlFunctions::forAll{in x; true}":    "true",
 		"xs->ControlFunctions::exists{in x; x == x or true}": "true",
@@ -650,8 +662,6 @@ func TestQuantifiersDecideFromConstantTests(t *testing.T) {
 		wantFormatted(t, src, val, err, want)
 	}
 	for src, count := range map[string]string{
-		"rack.loose->ControlFunctions::exists{in x; true}":        "[1]",
-		"rack.loose->ControlFunctions::forAll{in x; false}":       "[1]",
 		"rack.gear->ControlFunctions::forAll{in x; x.mass > 1.0}": "[1]",
 		"rack.gear->ControlFunctions::exists{in x; x.mass > 1.0}": "[1]",
 	} {
@@ -732,7 +742,7 @@ func TestDefiniteLibraryErrorsSurviveOpenOperands(t *testing.T) {
 	for src, count := range map[string]string{
 		"StringFunctions::Substring(s, 1, 2)": "[1]", "StringFunctions::Substring(\"abc\", u, 2)": "[1]",
 		"StringFunctions::Substring(\"abc\", 1, u)": "[1]", "includingAt(xs, 1.0, 1)": "[3..5]",
-		"includingAt(vast, 1.0, 9223372036854775807)": "[1..*]", "includingAt(vast, 1.0, 1)": "[1..*]",
+		"includingAt(vast, 1.0, 9223372036854775807)": "[2..*]", "includingAt(vast, 1.0, 1)": "[2..*]",
 		"includingAt(xs, 1.0, 5)": "[3..5]", "includingAt((1.0, 2.0), r, 3)": "[3]", "includingAt(xs, r, u)": "[3..5]",
 		"subsequence(xs, 1, 2)": "[0..*]", "subsequence(xs, 2)": "[0..*]", "subsequence(xs, 4)": "[0..*]",
 		"subsequence((1.0, 2.0), u, 2)": "[0..*]", "subsequence((1.0, 2.0), 1, u)": "[0..*]",
@@ -851,8 +861,8 @@ func TestInstantiatedObjectKeepsMaterializedMinimums(t *testing.T) {
 		t.Fatalf("instantiate rack: %v", err)
 	}
 	for src, want := range map[string]string{
-		"size(slots)": "3", "size(gear)": "1", "notEmpty(gear)": "true", "isEmpty(loose)": "true", "size(loose)": "0",
-		"size((gear, loose))": "1", "size(lone)": "1",
+		"size(slots)": "3", "size(gear)": "2", "notEmpty(gear)": "true", "isEmpty(loose)": "true", "size(loose)": "0",
+		"size((gear, loose))": "2", "size(lone)": "1",
 	} {
 		val, err := ctx.EvalWithScopeOn(parseExpr(t, src), scope, inst)
 		wantFormatted(t, src, val, err, want)
@@ -974,7 +984,7 @@ func TestTypedOpenOperandsKeepOperatorDomains(t *testing.T) {
 		"RealFunctions::'-'(s, 1)", "RealFunctions::'<'(s, \"a\")", "IntegerFunctions::'+'(s, 1)",
 		"if s ? 1 else 2", "if r ? 1 else 2", "(10, 20, 30)#(s)", "(10, 20, 30)#(b)",
 		"RealFunctions::sqrt(s)", "RealFunctions::max(b, 1.0)", "StringFunctions::Length(r)",
-		"twice(s)", "twice(rack.gear)",
+		"twice(s)", "twice(rack.bare)",
 	} {
 		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, ErrTypeMismatch) {
 			t.Errorf("%s: err = %v; want ErrTypeMismatch", src, err)
@@ -1022,9 +1032,9 @@ func TestChainThroughOpenCollectionKeepsKnownValues(t *testing.T) {
 		wantFormatted(t, src, val, err, want)
 	}
 	for src, count := range map[string]string{
-		"shelf.items.tag": "[2..*]", "shelf.items.mass": "[2..*]", "shelf.items.w": "[2..*]",
+		"shelf.items.tag": "[3..*]", "shelf.items.mass": "[3..*]", "shelf.items.w": "[3..*]",
 		"includes(shelf.items.tag, \"zz\")": "[1]", "size(shelf.items.tag)": "[1]", "shelf.items.w == 2.0": "[1]",
-		"rack.loose.tag": "[0..2]", "rack.gear.mass": "[1..*]",
+		"rack.sparse.tag": "[1..2]", "rack.gear.mass": "[2..*]",
 	} {
 		val, err := evalIn(t, ctx, scope, src)
 		wantUndetermined(t, src, val, err, count)
@@ -1091,7 +1101,7 @@ func TestSeveralOpenValuesAreNoScalar(t *testing.T) {
 		t.Errorf("xs + 1: err = %v; want the operand described as a sequence", err)
 	}
 	for src, count := range map[string]string{
-		"os + 1": "[0..1]", "-os": "[0..1]", "os > 1": "[0..1]", "(10, 20)#(os)": "[1]", "twice(os)": "[0..1]",
+		"os + 1": "[1]", "-os": "[1]", "os > 1": "[1]", "(10, 20)#(os)": "[1]", "twice(os)": "[1]",
 		"RealFunctions::abs(os)": "[1]", "xs == 1.0": "[1]", "xs != xs": "[1]", "xs === xs": "[1]", "xs ?? 3": "[2..4]",
 		"size(xs)": "[1]", "head(xs)": "[1]", "includes(xs, 1.0)": "[1]", "xs#(1)": "[1]",
 		"xs->ControlFunctions::forAll{in x; x > 1.0}": "[1]", "xs->ControlFunctions::collect{in x; x + 1.0}": "[2..4]",
@@ -1271,7 +1281,7 @@ func TestUndeterminedResultsKeepEveryUnsetCause(t *testing.T) {
 	input := oneSymbol(t, idx, "test::Inner::input")
 	other := oneSymbol(t, idx, "test::Inner::other")
 	for src, want := range map[string][]*symbols.Symbol{
-		"inner.dependent": {input}, "inner.reversed": {input}, "inner.both": {input, other}, "inner.countOnly": nil,
+		"inner.dependent": {input}, "inner.reversed": {input}, "inner.both": {input, other},
 	} {
 		val, err := evalIn(t, ctx, scope, src)
 		wantUndetermined(t, src, val, err, "[1]")
@@ -1279,4 +1289,6 @@ func TestUndeterminedResultsKeepEveryUnsetCause(t *testing.T) {
 			t.Errorf("%s open for %v, want %v", src, got, want)
 		}
 	}
+	val, err := evalIn(t, ctx, scope, "inner.countOnly")
+	wantFormatted(t, "inner.countOnly", val, err, "1")
 }

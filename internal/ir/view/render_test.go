@@ -142,6 +142,8 @@ func TestGoldenRenderings(t *testing.T) {
 		{"layout-collapsed-tree", "layout-collapsed.sysml", "FoldedViews::folded", KindTree},
 		{"layout-collapsed-interconnection", "layout-collapsed.sysml", "FoldedViews::links", KindInterconnection},
 		{"layout-no-parts", "layout-collapsed.sysml", "FoldedViews::noParts", KindTree},
+		{"layout-collapsed-state", "layout-collapsed-behavior.sysml", "FoldedBehaviors::states", KindState},
+		{"layout-collapsed-action", "layout-collapsed-behavior.sysml", "FoldedBehaviors::flows", KindAction},
 		{"table", "table.sysml", "TableViews::partsTable", KindTable},
 		{"grid-table", "table.sysml", "TableViews::fleetTable", KindTable},
 		{"sequence", "sequence.sysml", "SequenceViews::pubSubView", KindSequence},
@@ -168,7 +170,7 @@ func TestGoldenRenderings(t *testing.T) {
 			if rendering.Kind != tc.kind {
 				t.Errorf("kind = %q, want %q", rendering.Kind, tc.kind)
 			}
-			if tc.kind == KindCase || tc.kind == KindMixed {
+			if tc.kind == KindCase || tc.kind == KindMixed || tc.kind == KindState || tc.kind == KindAction {
 				assertRenderingEdgeEndpoints(t, rendering)
 			}
 			checkGolden(t, filepath.Join("testdata", tc.name+".text.golden"), rendering.Text())
@@ -441,15 +443,15 @@ func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 	}
 }
 
-// A typing the model cannot resolve (a conjugated feature chain names no element) is spelled as
+// A typing the model cannot resolve (a conjugated port typing names no element) is spelled as
 // written, headed by the name it ends in with the `~` kept, and resolves to no typing.
 func TestUnresolvedTypingIsSpelledAsWritten(t *testing.T) {
 	rendering := render(t, "typings-unresolved.sysml", "SpelledViews::rigView")
-	if node := nodeNamed(t, rendering, "mirrored"); node.Type != "~rail.'Frame *rail*'" {
-		t.Errorf("node mirrored: type %q, want %q", node.Type, "~rail.'Frame *rail*'")
+	if node := nodeNamed(t, rendering, "mirrored"); node.Type != "~Rail::'Frame *rail*'" {
+		t.Errorf("node mirrored: type %q, want %q", node.Type, "~Rail::'Frame *rail*'")
 	}
-	if text := rendering.textWith(fullNotation); !strings.Contains(text, "port mirrored : ~rail.'Frame *rail*'") {
-		t.Errorf("text lacks %q:\n%s", "port mirrored : ~rail.'Frame *rail*'", text)
+	if text := rendering.textWith(fullNotation); !strings.Contains(text, "port mirrored : ~Rail::'Frame *rail*'") {
+		t.Errorf("text lacks %q:\n%s", "port mirrored : ~Rail::'Frame *rail*'", text)
 	}
 	mermaid := rendering.MermaidWith(Options{Show: AllShown(), Ports: PortsFull})
 	if !strings.Contains(mermaid, "«port»<br>mirrored : ~'Frame *rail*'") {

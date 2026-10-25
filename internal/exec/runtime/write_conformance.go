@@ -541,10 +541,15 @@ func (ctx *Context) valueConforms(scope *symbols.Scope, value *Value, declared *
 		if !ok || inst == nil || inst.Type == nil {
 			return false, "", fmt.Errorf("%w: instance %d", errUndeterminedValueType, id)
 		}
+		conforms := ctx.instanceConforms(inst, declared)
 		if how == admitDeclared {
-			return ctx.canClassify(inst, declared), "", nil
+			conforms = ctx.canClassify(inst, declared)
 		}
-		return ctx.instanceConforms(inst, declared), "", nil
+		if conforms {
+			return true, "", nil
+		}
+		return false, fmt.Sprintf("cannot write %s, an object of %s, to a feature typed by %s",
+			FormatValue(*value), SymbolText(inst.Type), SymbolText(declared)), nil
 	}
 	// A scalar is what its representation and the declared type say (classifyValue); a
 	// verdict they leave open is the declaration's to make (KerML 1.0 §7.3.4.1).

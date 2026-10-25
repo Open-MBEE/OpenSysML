@@ -1,0 +1,10 @@
+{
+  "type": "instance",
+  "instantiate": "test::Counter",
+  "libraries": true,
+  "slots": {
+    "ran": {"type": "Integer", "value": 7},
+    "atEnd": {"type": "Integer", "value": 7},
+    "atStart": {"type": "Undetermined"}
+  }
+}

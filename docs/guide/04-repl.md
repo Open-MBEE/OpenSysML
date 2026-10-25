@@ -430,8 +430,9 @@ it ([the details](../project/view-rendering-forms.md#limiting-what-a-view-draws)
   `view overview { expose vehicle; attribute depth = 2; render asTreeDiagram; }`. An element at the
   bound keeps its ports and compartment rows and says `nested deeper than 2 levels; not shown`.
   `%render Fleet::overview depth=1` overrides it for one render.
-- A `DiagramLayout::Layout` with `collapsed = true` about an element folds its children away in
-  every form: `metadata Layout about vehicle::engine { collapsed = true; }`. A Layout that only
+- A `DiagramLayout::Layout` with `collapsed = true` about an element folds what it nests away in
+  every form, keeping the ports on its boundary and the connectors that end at them:
+  `metadata Layout about vehicle::engine { collapsed = true; }`. A Layout that only
   folds (or only hides compartments with its `show…` switches) needs no `x` and `y`; the form
   still lays the diagram out itself. Give it a position too and the diagram becomes a positioned
   one, in which nodes without a position are left undrawn.

@@ -712,23 +712,27 @@ func (e *StateExecutor) mirrorOccurrence(name string, value Value) (Value, error
 
 // mirrorOccurrenceWrite carries a write to one of the occurrence's declared
 // features, made by any performance holding the occurrence, into the machine's
-// data, which mirrors the occurrence; it reports whether fv was such a feature.
+// data under every name the data holds it by; it reports whether any changed.
 func (e *StateExecutor) mirrorOccurrenceWrite(fv *FeatureValue) bool {
 	if e.occurrence == nil || !fv.Materialized {
 		return false
 	}
+	mirrored := false
 	for _, attr := range e.graph.Attributes {
 		if attr.Shadowed || e.occurrence.FeatureValues[attr.Name] != fv {
 			continue
 		}
 		value := fv.HeldValue()
 		if held, ok := e.stateData[attr.Name]; ok && heldSame(held, value) && !e.endsLiveBinding(attr.Name, fv) {
-			return false
+			continue
+		}
+		if cell := e.stateCells.existingCell(attr.Name); cell != nil && e.ctx.derivingValue(&cell.fv) {
+			continue
 		}
 		e.ctx.writeBodyValue(e.stateCells, e.stateData, attr.Name, value)
-		return true
+		mirrored = true
 	}
-	return false
+	return mirrored
 }
 
 // endsLiveBinding reports whether a write to the occurrence's fv is an assignment
@@ -4905,6 +4909,18 @@ func (e *StateExecutor) deliverPendingSignal() (bool, error) {
 	if !ok {
 		return e.hasDueEvent(), nil
 	}
+	// A message the machine takes only to drop it is not accepted: its transfer stays open.
+	if reacts, err := e.reactsTo(msg); err != nil {
+		return false, err
+	} else if reacts {
+		accepting, err := e.materializeOccurrence()
+		if err != nil {
+			return false, err
+		}
+		if err := e.ctx.recordTransfer(msg, accepting, e.self); err != nil {
+			return false, err
+		}
+	}
 	e.enqueueSignal(msg)
 	return true, nil
 }
@@ -5315,7 +5331,7 @@ func (e *StateExecutor) transitionReached(trans *lower.Transition, msg Message) 
 // occurrenceViaPort is the performance occurrence when a via not written from `this`
 // names a port the state definition owns and the performer holds none by that name.
 func (e *StateExecutor) occurrenceViaPort(holder *Instance, port string, viaSelf bool) *Instance {
-	if viaSelf || holder != e.self || e.occurrence == nil || e.occurrence == e.self || strings.Contains(port, ".") {
+	if viaSelf || e.self == nil || holder != e.self || e.occurrence == nil || e.occurrence == e.self || strings.Contains(port, ".") {
 		return nil
 	}
 	if fv, ok := e.self.FeatureValues[port]; ok && isPortFeature(fv.Feature) {

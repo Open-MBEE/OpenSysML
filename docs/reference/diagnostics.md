@@ -342,7 +342,7 @@ Specification: SysML v2 §8.2.2.4 ImportPrefix
 
 **warning** · Syntax · KerML notation in a SysML file
 
-A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) that the SysML v2 grammar does not admit. Move the declaration to a `.kerml` file, or write the SysML form the message names. `-strict` promotes this finding to an error.
+A `.sysml` file uses a KerML production (`namespace`, `featured by`, `class` …) or a KerML spelling (`typed by` for a typing, which SysML spells `:` or `defined by`) that the SysML v2 grammar does not admit. Move the declaration to a `.kerml` file, or write the SysML form the message names. `-strict` promotes this finding to an error.
 
 Specification: the pinned SysML v2 Xtext grammar
 
@@ -2167,6 +2167,18 @@ A query definition (one typed by `DocumentQueries::Query` or a specialization of
 Emitted as `document-query-<rule>`, one code per rule: `document-query-invalid-context`, `document-query-library-unavailable`, `document-query-not-query-definition`, `document-query-missing-result-parameter`, `document-query-invalid-parameter`, `document-query-missing-result`, `document-query-conflicting-result`, `document-query-unsupported-result`, `document-query-unknown-invocation`, `document-query-ambiguous-invocation`, `document-query-positional-query-arguments`, `document-query-duplicate-argument`, `document-query-unknown-argument`, `document-query-missing-argument`, `document-query-argument-count`, `document-query-argument-type`, `document-query-argument-multiplicity`, `document-query-composition-cycle`, `document-query-unknown-parameter`, `document-query-unsupported-expression`, `document-query-unsupported-default`, `document-query-default-type`, `document-query-default-multiplicity`, `document-query-invalid-column`, `document-query-column-source`, `document-query-column-name`, `document-query-unknown-column-property`, `document-query-column-operator`, `document-query-column-type`, `document-query-duplicate-column`, `document-query-empty-projection`, `document-query-column-aggregate`, `document-query-collection-function`.
 
 Specification: OpenSysML DocumentQueries library
+
+### Workspace
+
+| Code | Severity | Summary |
+|------|----------|---------|
+| [`library-declared-twice`](#library-declared-twice) | warning | a library package declared by more than one document of the workspace |
+
+#### `library-declared-twice`
+
+**warning** · Workspace · a library package declared by more than one document of the workspace
+
+Two documents the workspace loads declare the same `library package`: two copies of the standard library under the workspace folder or the library path, a copy of a standard library file beside the bundled one, or a user library vendored twice. Every reference to the package resolves to one copy — the first the index registered, which the message names — and the other is unused, so edits to it change nothing; a filtered view or a metaclass lookup reading the duplicated declarations sees both. Reported once per pair of trees the copies lie in, on the first file of the unused copy; for copies on the library path, the locations are relative to `OPENSYSML_LIBRARY_PATH`, which the message names. Remove the unused copy, or point `OPENSYSML_LIBRARY_PATH` at one tree.
 
 ### Runtime
 

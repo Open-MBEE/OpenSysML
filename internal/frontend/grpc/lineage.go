@@ -221,7 +221,7 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 	}
 	l.shareConvertedDiagnostics(documents, stamps)
 	return &CachedModel{
-		Documents: documents, Index: detached.Index(), Library: l.library, Mode: mode,
+		Documents: documents, Index: detached.Index(), Library: l.library, Mode: mode, Findings: l.ws.WorkspaceFindings(),
 		analysis: &analysisSnapshot{workspace: l.ws, stamps: stamps, scoped: declaresIdentityScope(inputs)},
 	}, true
 }
