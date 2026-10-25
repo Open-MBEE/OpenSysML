@@ -999,19 +999,19 @@ Every run that migrates a v1 model says so on stderr.
 .SH MANAGING A PROJECT'S USAGES
 .RS 2
 .nf
-# Write .project.json and .meta.json here
-sysml \-project\-init \-publisher Acme \-name Widgets
+# Write .project.json and .meta.json
+sysml \-project\-init \-publisher Acme \-name W
 # Use a GitHub project at a release tag
 sysml \-add pkg:github/acme/gears@^2.0.0
 # \&...a git repository, by tag
-sysml \-add https://git.example.org/acme/gears.git@2.1.0
-# \&...an archive
-sysml \-add https://example.org/gears\-2.1.0.kpar
-# \&...a project beside this one, read in place
+sysml \-add https://h.example/acme/gears.git@2.1.0
+# \&...a published archive
+sysml \-add https://h.example/gears\-2.1.0.kpar
+# \&...a project beside this one, in place
 sysml \-add ../gears
-# Install what proj's .project.json and lock say
+# Install what proj's lock says
 sysml \-install proj
-# Re\-resolve every usage to the latest release and rewrite the lock
+# Re\-resolve and rewrite the lock
 sysml \-lock
 .fi
 .RE

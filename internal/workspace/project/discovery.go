@@ -19,6 +19,10 @@ const LibraryRootsEnvVar = "OPENSYSML_LIBRARY_ROOTS"
 // uses, relative to the project's directory: one entry per layout. The layout
 // is the only thing provider-specific here; what is installed there is read as
 // the project interchange format describes it.
+// LibraryDir is where the installer puts the projects a project uses,
+// relative to the project's directory.
+const LibraryDir = "lib"
+
 var wellKnownLibraryDirs = []string{
 	LibraryDir,                      // sysml -install
 	filepath.Join(".sysand", "lib"), // sysand

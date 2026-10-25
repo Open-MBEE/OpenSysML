@@ -92,7 +92,7 @@ func ReadLock(dir string) (*Lock, error) {
 		seen[e.Resource] = true
 	}
 	lock.Entries = raw.Projects
-	lock.sort()
+	lock.Sort()
 	return lock, nil
 }
 
@@ -118,7 +118,8 @@ func (l *Lock) AbsPath(e *LockEntry) string {
 	return filepath.Join(l.Dir, p)
 }
 
-func (l *Lock) sort() {
+// Sort orders the entries by resource and each entry's usages by name.
+func (l *Lock) Sort() {
 	sort.Slice(l.Entries, func(i, j int) bool { return l.Entries[i].Resource < l.Entries[j].Resource })
 	for i := range l.Entries {
 		sort.Strings(l.Entries[i].Usage)
@@ -128,7 +129,7 @@ func (l *Lock) sort() {
 // Marshal writes the lock as deterministic JSON: object keys sorted, entries
 // sorted by resource, two-space indent, a trailing newline.
 func (l *Lock) Marshal() ([]byte, error) {
-	l.sort()
+	l.Sort()
 	projects := make([]map[string]any, 0, len(l.Entries))
 	for _, e := range l.Entries {
 		raw, err := json.Marshal(e)
@@ -244,4 +245,30 @@ func tomlStrings(value string) []string {
 		}
 	}
 	return out
+}
+
+// AppendUsage adds a usage to the .project.json in dir, keeping the file's
+// other fields; the file is rewritten with sorted keys and a trailing
+// newline, as Init writes it.
+func AppendUsage(dir string, u Usage) error {
+	file := filepath.Join(dir, ProjectFile)
+	content, err := os.ReadFile(file) // #nosec G304 -- the project file being edited.
+	if err != nil {
+		return err
+	}
+	var raw map[string]any
+	if err := decodeObject(content, &raw); err != nil {
+		return fmt.Errorf("%s: %w", file, err)
+	}
+	usages, _ := raw["usage"].([]any)
+	entry := map[string]any{"resource": u.Resource}
+	if strings.TrimSpace(u.VersionConstraint) != "" {
+		entry["versionConstraint"] = u.VersionConstraint
+	}
+	raw["usage"] = append(usages, entry)
+	data, err := marshalSorted(raw)
+	if err != nil {
+		return err
+	}
+	return writeWhole(file, data)
 }

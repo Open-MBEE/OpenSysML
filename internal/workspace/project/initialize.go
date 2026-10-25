@@ -18,7 +18,7 @@ func Init(dir, publisher, name, version string) (*Interchange, error) {
 	if version == "" {
 		version = "0.1.0"
 	}
-	if _, err := canonicalVersion(version); err != nil {
+	if _, err := CanonicalVersion(version); err != nil {
 		return nil, fmt.Errorf("%s: %w", dir, err)
 	}
 	for _, file := range []string{ProjectFile, MetaFile} {
@@ -37,10 +37,10 @@ func Init(dir, publisher, name, version string) (*Interchange, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := writeNew(filepath.Join(dir, ProjectFile), content); err != nil {
+	if err := WriteNew(filepath.Join(dir, ProjectFile), content); err != nil {
 		return nil, err
 	}
-	members, err := bundleMembers(dir)
+	members, err := BundleMembers(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func Init(dir, publisher, name, version string) (*Interchange, error) {
 		_ = os.Remove(filepath.Join(dir, ProjectFile))
 		return nil, err
 	}
-	if err := writeNew(filepath.Join(dir, MetaFile), meta); err != nil {
+	if err := WriteNew(filepath.Join(dir, MetaFile), meta); err != nil {
 		return nil, err
 	}
 	return ReadInterchange(dir)
@@ -66,4 +66,9 @@ func marshalSorted(v any) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }

@@ -1,4 +1,4 @@
-package project
+package install
 
 import (
 	"archive/tar"
@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -132,7 +133,7 @@ func kpar(t *testing.T, files map[string]string) []byte {
 	t.Helper()
 	dir := t.TempDir()
 	writeTree(t, dir, files)
-	data, _, err := Bundle(dir)
+	data, _, err := project.Bundle(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +141,7 @@ func kpar(t *testing.T, files map[string]string) []byte {
 }
 
 func widgetsTree(version string) map[string]string {
-	return map[string]string{ProjectFile: projectJSON("Widgets", version), "Widgets.sysml": widgetsModel, ".github/ci.yml": "x", "README.md": "Widgets"}
+	return map[string]string{project.ProjectFile: projectJSON("Widgets", version), "Widgets.sysml": widgetsModel, ".github/ci.yml": "x", "README.md": "Widgets"}
 }
 
 func TestFetchTaggedGitRepo(t *testing.T) {
@@ -148,8 +149,8 @@ func TestFetchTaggedGitRepo(t *testing.T) {
 		widgetsTree("1.0.0"), widgetsTree("1.1.0"), widgetsTree("2.0.0-rc.1"), widgetsTree("9.9.9"))
 	commit := runGit(t, repo, "rev-list", "-n", "1", "v1.1.0")
 	f := &Fetcher{}
-	o := &Origin{IRI: "file://" + repo, Kind: OriginGit, Repo: repo}
-	c, _ := ParseConstraint("^1.0.0")
+	o := &project.Origin{IRI: "file://" + repo, Kind: project.OriginGit, Repo: repo}
+	c, _ := project.ParseConstraint("^1.0.0")
 	rel, err := f.Fetch(context.Background(), o, c)
 	if err != nil {
 		t.Fatal(err)
@@ -160,7 +161,7 @@ func TestFetchTaggedGitRepo(t *testing.T) {
 	if !strings.HasPrefix(rel.Digest, "sha256:") || !rel.Installable() {
 		t.Fatalf("digest %q, installable %v", rel.Digest, rel.Installable())
 	}
-	a, err := ParseArchive("mem", rel.Archive)
+	a, err := project.ParseArchive("mem", rel.Archive)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +200,7 @@ func TestFetchHostArchive(t *testing.T) {
 	}
 	for _, host := range []string{"github.com", "gitlab.com"} {
 		f := &Fetcher{HostURLs: map[string]string{host: srv.URL}, GitURLs: map[string]string{host: "file://" + gitBase}}
-		o, err := ParseOrigin(Usage{Resource: "pkg:" + strings.TrimSuffix(host, ".com") + "/acme/widgets", VersionConstraint: "1.0.0"})
+		o, err := project.ParseOrigin(project.Usage{Resource: "pkg:" + strings.TrimSuffix(host, ".com") + "/acme/widgets", VersionConstraint: "1.0.0"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -210,7 +211,7 @@ func TestFetchHostArchive(t *testing.T) {
 		if !strings.HasPrefix(rel.SourceURL, srv.URL) || rel.Tag != "v1.0.0" || rel.Commit == "" {
 			t.Fatalf("%s: release %+v", host, rel)
 		}
-		gitRel, err := f.Fetch(context.Background(), &Origin{IRI: "file://" + repo, Kind: OriginGit, Repo: repo}, mustConstraint(t, "1.0.0"))
+		gitRel, err := f.Fetch(context.Background(), &project.Origin{IRI: "file://" + repo, Kind: project.OriginGit, Repo: repo}, mustConstraint(t, "1.0.0"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -223,9 +224,9 @@ func TestFetchHostArchive(t *testing.T) {
 	}
 }
 
-func mustConstraint(t *testing.T, text string) Constraint {
+func mustConstraint(t *testing.T, text string) project.Constraint {
 	t.Helper()
-	c, err := ParseConstraint(text)
+	c, err := project.ParseConstraint(text)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +245,7 @@ func TestFetchFallsBackToCloneWhenArchiveFails(t *testing.T) {
 		t.Skip(err)
 	}
 	f := &Fetcher{HostURLs: map[string]string{"github.com": srv.URL}, GitURLs: map[string]string{"github.com": "file://" + gitBase}}
-	o, _ := ParseOrigin(Usage{Resource: "pkg:github/acme/widgets@1.0.0"})
+	o, _ := project.ParseOrigin(project.Usage{Resource: "pkg:github/acme/widgets@1.0.0"})
 	rel, err := f.Fetch(context.Background(), o, mustConstraint(t, o.Constraint))
 	if err != nil {
 		t.Fatal(err)
@@ -258,8 +259,8 @@ func TestFetchRemoteArchive(t *testing.T) {
 	data := kpar(t, widgetsTree("1.0.0"))
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(data) }))
 	defer srv.Close()
-	o, _ := ParseOrigin(Usage{Resource: srv.URL + "/widgets.kpar"})
-	rel, err := (&Fetcher{}).Fetch(context.Background(), o, Constraint{})
+	o, _ := project.ParseOrigin(project.Usage{Resource: srv.URL + "/widgets.kpar"})
+	rel, err := (&Fetcher{}).Fetch(context.Background(), o, project.Constraint{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,8 +272,8 @@ func TestFetchRemoteArchive(t *testing.T) {
 func TestFetchLocalInPlace(t *testing.T) {
 	dir := t.TempDir()
 	writeTree(t, dir, widgetsTree("1.0.0"))
-	o, _ := ParseOrigin(Usage{Resource: dir})
-	rel, err := (&Fetcher{}).Fetch(context.Background(), o, Constraint{})
+	o, _ := project.ParseOrigin(project.Usage{Resource: dir})
+	rel, err := (&Fetcher{}).Fetch(context.Background(), o, project.Constraint{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -283,8 +284,8 @@ func TestFetchLocalInPlace(t *testing.T) {
 	if err := os.WriteFile(archive, kpar(t, widgetsTree("1.0.0")), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	o, _ = ParseOrigin(Usage{Resource: archive})
-	if rel, err = (&Fetcher{}).Fetch(context.Background(), o, Constraint{}); err != nil || rel.Installable() || rel.Path != archive {
+	o, _ = project.ParseOrigin(project.Usage{Resource: archive})
+	if rel, err = (&Fetcher{}).Fetch(context.Background(), o, project.Constraint{}); err != nil || rel.Installable() || rel.Path != archive {
 		t.Fatalf("archive in place: %+v, %v", rel, err)
 	}
 }
@@ -304,7 +305,7 @@ func TestFetchRefuses(t *testing.T) {
 				_, _ = tw.Write([]byte("x"))
 			}))
 		case "/acme/big/archive/refs/tags/v1.0.0.tar.gz":
-			_, _ = w.Write(tarGz(t, "top", map[string]string{ProjectFile: projectJSON("Big", "1.0.0"), "big.sysml": strings.Repeat("x", 4096)}, nil))
+			_, _ = w.Write(tarGz(t, "top", map[string]string{project.ProjectFile: projectJSON("Big", "1.0.0"), "big.sysml": strings.Repeat("x", 4096)}, nil))
 		case "/acme/away/archive/refs/tags/v1.0.0.tar.gz":
 			http.Redirect(w, r, "http://elsewhere.invalid/x.tar.gz", http.StatusFound)
 		default:
@@ -324,11 +325,11 @@ func TestFetchRefuses(t *testing.T) {
 		}
 	}
 	f := &Fetcher{HostURLs: map[string]string{"github.com": srv.URL}, GitURLs: map[string]string{"github.com": "file://" + gitBase}, MaxBytes: 2048}
-	git := func(c string) (*Origin, Constraint) {
-		return &Origin{IRI: "file://" + repo, Kind: OriginGit, Repo: repo}, mustConstraint(t, c)
+	git := func(c string) (*project.Origin, project.Constraint) {
+		return &project.Origin{IRI: "file://" + repo, Kind: project.OriginGit, Repo: repo}, mustConstraint(t, c)
 	}
-	host := func(resource string) (*Origin, Constraint) {
-		o, err := ParseOrigin(Usage{Resource: resource})
+	host := func(resource string) (*project.Origin, project.Constraint) {
+		o, err := project.ParseOrigin(project.Usage{Resource: resource})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -336,20 +337,20 @@ func TestFetchRefuses(t *testing.T) {
 	}
 	cases := []struct {
 		name string
-		o    *Origin
-		c    Constraint
+		o    *project.Origin
+		c    project.Constraint
 		step string
 		msg  string
 	}{
 		{"mistagged", first(git("1.1.0")), second(git("1.1.0")), "verify", `tagged v1.1.0 but its .project.json says version "9.9.9"`},
 		{"missing project file", first(git("1.2.0")), second(git("1.2.0")), "verify", "not a project interchange: file://" + repo + "@v1.2.0 has no .project.json"},
 		{"no matching constraint", first(git(">=3.0.0")), second(git(">=3.0.0")), "resolve", `no release tag of file://` + repo + ` satisfies ">=3.0.0"; the tags name versions 1.0.0, 1.1.0, 1.2.0`},
-		{"checksum mismatch", first(host(srv.URL + "/bad.kpar")), Constraint{}, "verify", "checksum of \"Widgets.sysml\" does not match"},
+		{"checksum mismatch", first(host(srv.URL + "/bad.kpar")), project.Constraint{}, "verify", "checksum of \"Widgets.sysml\" does not match"},
 		{"path escape", first(host("pkg:github/acme/escape@1.0.0")), second(host("pkg:github/acme/escape@1.0.0")), "fetch", "path has a .. segment"},
 		{"size bound", first(host("pkg:github/acme/big@1.0.0")), second(host("pkg:github/acme/big@1.0.0")), "fetch", "more than 2048 bytes"},
 		{"redirect off host", first(host("pkg:github/acme/away@1.0.0")), second(host("pkg:github/acme/away@1.0.0")), "fetch", "redirect leaves the host"},
-		{"standard library", &Origin{IRI: "https://www.omg.org/spec/KerML/20250201/Kernel-Semantic-Library.kpar", Kind: OriginStandard}, Constraint{}, "resolve", "never installed"},
-		{"local without project", &Origin{IRI: t.TempDir(), Kind: OriginLocal, Repo: t.TempDir()}, Constraint{}, "verify", "not a project interchange"},
+		{"standard library", &project.Origin{IRI: "https://www.omg.org/spec/KerML/20250201/Kernel-Semantic-Library.kpar", Kind: project.OriginStandard}, project.Constraint{}, "resolve", "never installed"},
+		{"local without project", &project.Origin{IRI: t.TempDir(), Kind: project.OriginLocal, Repo: t.TempDir()}, project.Constraint{}, "verify", "not a project interchange"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -409,7 +410,7 @@ func TestExtractTarGzRefusesSiblingTopDirectories(t *testing.T) {
 	if _, err := extractTarGz(data, 1<<20); err == nil || !strings.Contains(err.Error(), "one directory") {
 		t.Fatalf("extractTarGz = %v", err)
 	}
-	symlinked := tarGz(t, "a", map[string]string{ProjectFile: "{}"}, func(tw *tar.Writer) {
+	symlinked := tarGz(t, "a", map[string]string{project.ProjectFile: "{}"}, func(tw *tar.Writer) {
 		_ = tw.WriteHeader(&tar.Header{Name: "a/link", Linkname: "/etc/passwd", Typeflag: tar.TypeSymlink})
 	})
 	members, err := extractTarGz(symlinked, 1<<20)

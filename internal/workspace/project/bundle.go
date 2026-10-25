@@ -43,22 +43,22 @@ func Bundle(dir string) ([]byte, *Interchange, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	members, err := bundleMembers(dir)
+	members, err := BundleMembers(dir)
 	if err != nil {
 		return nil, nil, err
 	}
-	data, err := archiveMembers(dir, members)
+	data, err := ArchiveOf(dir, members)
 	if err != nil {
 		return nil, nil, err
 	}
 	return data, project, nil
 }
 
-// archiveMembers writes the members as an archive, generating the .meta.json
+// ArchiveOf writes the members as an archive, generating the .meta.json
 // they lack, and reads it back as a consumer would, so a .meta.json they
 // carry is checked against the files it describes; name is the tree's for
 // the diagnostics.
-func archiveMembers(name string, members map[string][]byte) ([]byte, error) {
+func ArchiveOf(name string, members map[string][]byte) ([]byte, error) {
 	if _, ok := members[MetaFile]; !ok {
 		meta, err := generateMeta(members)
 		if err != nil {
@@ -97,9 +97,9 @@ func archiveMembers(name string, members map[string][]byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// bundleMembers reads the files of dir that an archive of it holds, keyed by
+// BundleMembers reads the files of dir that an archive of it holds, keyed by
 // their slash-separated path under dir.
-func bundleMembers(dir string) (map[string][]byte, error) {
+func BundleMembers(dir string) (map[string][]byte, error) {
 	members := map[string][]byte{}
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -220,7 +220,7 @@ func Unbundle(a *Archive, dir string) error {
 		if err := confinedTo(dir, filepath.Dir(path)); err != nil {
 			return err
 		}
-		if err := writeNew(path, content); err != nil {
+		if err := WriteNew(path, content); err != nil {
 			return err
 		}
 	}
@@ -245,8 +245,8 @@ func confinedTo(dir, parent string) error {
 	return nil
 }
 
-// writeNew creates path, refusing one that exists in any form, a link included.
-func writeNew(path string, content []byte) error {
+// WriteNew creates path, refusing one that exists in any form, a link included.
+func WriteNew(path string, content []byte) error {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) // #nosec G304 -- a member path validated against the archive's directory.
 	if err != nil {
 		return err

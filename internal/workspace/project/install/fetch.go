@@ -1,4 +1,4 @@
-package project
+package install
 
 import (
 	"archive/tar"
@@ -9,12 +9,15 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -76,7 +79,7 @@ type Fetcher struct {
 	// GitURLs overrides the base URL (https://<host>) a host's repositories
 	// are cloned from, keyed by host.
 	GitURLs map[string]string
-	// MaxBytes bounds every download and extracted tree; 0 is maxArchiveSize.
+	// MaxBytes bounds every download and extracted tree; 0 is project.MaxArchiveSize.
 	MaxBytes int64
 	// Timeout bounds every request and git command; 0 is five minutes.
 	Timeout time.Duration
@@ -84,7 +87,7 @@ type Fetcher struct {
 
 // Release is one resolved and verified version of a usage's project.
 type Release struct {
-	Origin *Origin
+	Origin *project.Origin
 	// Version is the project's version, as .project.json spells it.
 	Version string
 	// Tag and Commit name the release in its repository; empty for an
@@ -98,7 +101,7 @@ type Release struct {
 	// which is read in place at Path.
 	Archive []byte
 	Path    string
-	Project *Interchange
+	Project *project.Interchange
 }
 
 // Installable reports whether anything is copied for the release: a local
@@ -130,7 +133,7 @@ func (f *Fetcher) maxBytes() int64 {
 	if f.MaxBytes > 0 {
 		return f.MaxBytes
 	}
-	return maxArchiveSize
+	return project.MaxArchiveSize
 }
 
 func (f *Fetcher) timeout() time.Duration {
@@ -148,8 +151,8 @@ func (f *Fetcher) baseURL(table map[string]string, host string) string {
 }
 
 // cloneURL is the URL a host origin's repository is cloned from.
-func (f *Fetcher) cloneURL(o *Origin) string {
-	if o.Kind == OriginGit {
+func (f *Fetcher) cloneURL(o *project.Origin) string {
+	if o.Kind == project.OriginGit {
 		return o.Repo
 	}
 	return f.baseURL(f.GitURLs, o.Host) + "/" + o.Repo + ".git"
@@ -157,17 +160,17 @@ func (f *Fetcher) cloneURL(o *Origin) string {
 
 // Fetch resolves the version of the usage the constraint admits and fetches
 // and verifies its project. A local path is read in place.
-func (f *Fetcher) Fetch(ctx context.Context, o *Origin, c Constraint) (*Release, error) {
+func (f *Fetcher) Fetch(ctx context.Context, o *project.Origin, c project.Constraint) (*Release, error) {
 	var rel *Release
 	var err error
 	switch o.Kind {
-	case OriginStandard:
+	case project.OriginStandard:
 		return nil, installErr(o.IRI, "resolve", errors.New("a standard library IRI is answered by the bundled library and is never installed"))
-	case OriginLocal:
+	case project.OriginLocal:
 		rel, err = f.fetchLocal(o)
-	case OriginArchive:
+	case project.OriginArchive:
 		rel, err = f.fetchArchive(ctx, o)
-	case OriginHost, OriginGit:
+	case project.OriginHost, project.OriginGit:
 		rel, err = f.fetchTagged(ctx, o, c)
 	default:
 		return nil, installErr(o.IRI, "resolve", fmt.Errorf("origin kind %s is not fetched", o.Kind))
@@ -183,34 +186,34 @@ func (f *Fetcher) Fetch(ctx context.Context, o *Origin, c Constraint) (*Release,
 }
 
 // fetchLocal reads a project directory or archive on this machine in place.
-func (f *Fetcher) fetchLocal(o *Origin) (*Release, error) {
-	var project *Interchange
+func (f *Fetcher) fetchLocal(o *project.Origin) (*Release, error) {
+	var p *project.Interchange
 	var err error
-	if IsArchive(o.Repo) {
-		var a *Archive
-		a, err = OpenArchive(o.Repo)
+	if project.IsArchive(o.Repo) {
+		var a *project.Archive
+		a, err = project.OpenArchive(o.Repo)
 		if err == nil {
-			project = a.Project
+			p = a.Project
 		}
 	} else {
-		project, err = ReadInterchange(o.Repo)
+		p, err = project.ReadInterchange(o.Repo)
 		if errors.Is(err, os.ErrNotExist) {
-			err = fmt.Errorf("not a project interchange: %s has no %s", o.Repo, ProjectFile)
+			err = fmt.Errorf("not a project interchange: %s has no %s", o.Repo, project.ProjectFile)
 		}
 	}
 	if err != nil {
 		return nil, installErr(o.IRI, "verify", err)
 	}
-	return &Release{Origin: o, SourceURL: o.Repo, Path: o.Repo, Project: project}, nil
+	return &Release{Origin: o, SourceURL: o.Repo, Path: o.Repo, Project: p}, nil
 }
 
 // fetchArchive downloads an archive and verifies it as the reader does.
-func (f *Fetcher) fetchArchive(ctx context.Context, o *Origin) (*Release, error) {
+func (f *Fetcher) fetchArchive(ctx context.Context, o *project.Origin) (*Release, error) {
 	data, err := f.get(ctx, o.Repo)
 	if err != nil {
 		return nil, installErr(o.IRI, "fetch", err)
 	}
-	a, err := ParseArchive(o.Repo, data)
+	a, err := project.ParseArchive(o.Repo, data)
 	if err != nil {
 		return nil, installErr(o.IRI, "verify", err)
 	}
@@ -246,7 +249,7 @@ func (f *Fetcher) get(ctx context.Context, rawURL string) ([]byte, error) {
 
 // fetchTagged resolves the tags of a repository to the version the
 // constraint admits and fetches that tag's tree.
-func (f *Fetcher) fetchTagged(ctx context.Context, o *Origin, c Constraint) (*Release, error) {
+func (f *Fetcher) fetchTagged(ctx context.Context, o *project.Origin, c project.Constraint) (*Release, error) {
 	tags, err := f.tags(ctx, o)
 	if err != nil {
 		return nil, installErr(o.IRI, "resolve", err)
@@ -273,23 +276,23 @@ func (f *Fetcher) fetchTagged(ctx context.Context, o *Origin, c Constraint) (*Re
 	if o.Subpath != "" {
 		at += "#" + o.Subpath
 	}
-	content, ok := members[ProjectFile]
+	content, ok := members[project.ProjectFile]
 	if !ok {
-		return nil, installErr(o.IRI, "verify", fmt.Errorf("not a project interchange: %s has no %s", at, ProjectFile))
+		return nil, installErr(o.IRI, "verify", fmt.Errorf("not a project interchange: %s has no %s", at, project.ProjectFile))
 	}
-	project, err := parseInterchange(at, at+"/"+ProjectFile, content)
+	p, err := project.ParseInterchange(at, at+"/"+project.ProjectFile, content)
 	if err != nil {
 		return nil, installErr(o.IRI, "verify", err)
 	}
-	if got, _ := canonicalVersion(project.Version); got != version {
-		return nil, installErr(o.IRI, "verify", fmt.Errorf("%s is tagged %s but its %s says version %q; the tag and the file must agree", at, tag.name, ProjectFile, project.Version))
+	if got, _ := project.CanonicalVersion(p.Version); got != version {
+		return nil, installErr(o.IRI, "verify", fmt.Errorf("%s is tagged %s but its %s says version %q; the tag and the file must agree", at, tag.name, project.ProjectFile, p.Version))
 	}
 	rel.Digest = treeDigest(members)
-	rel.Archive, err = archiveMembers(at, members)
+	rel.Archive, err = project.ArchiveOf(at, members)
 	if err != nil {
 		return nil, installErr(o.IRI, "verify", err)
 	}
-	rel.Project = project
+	rel.Project = p
 	return rel, nil
 }
 
@@ -297,7 +300,7 @@ type tagRef struct{ name, commit string }
 
 // tags lists the release tags of a repository (v<semver> or <semver>) with
 // the commit each names, keyed by canonical version.
-func (f *Fetcher) tags(ctx context.Context, o *Origin) (map[string]tagRef, error) {
+func (f *Fetcher) tags(ctx context.Context, o *project.Origin) (map[string]tagRef, error) {
 	out, err := f.git(ctx, "", "ls-remote", "--tags", "--", f.cloneURL(o))
 	if err != nil {
 		return nil, err
@@ -314,7 +317,7 @@ func (f *Fetcher) tags(ctx context.Context, o *Origin) (map[string]tagRef, error
 			peeled[strings.TrimSuffix(name, "^{}")] = fields[0]
 			continue
 		}
-		version, err := canonicalVersion(name)
+		version, err := project.CanonicalVersion(name)
 		if err != nil || strings.TrimPrefix(name, "v") != version {
 			continue
 		}
@@ -334,9 +337,9 @@ func (f *Fetcher) tags(ctx context.Context, o *Origin) (map[string]tagRef, error
 // tree fetches the files of a tag: the host's archive over HTTPS when the
 // origin names a host in the table, else (or when that fails) a shallow
 // clone of the tag.
-func (f *Fetcher) tree(ctx context.Context, o *Origin, tag string, rel *Release) (map[string][]byte, error) {
+func (f *Fetcher) tree(ctx context.Context, o *project.Origin, tag string, rel *Release) (map[string][]byte, error) {
 	var archiveErr error
-	if host, ok := hostArchives[o.Host]; ok && o.Kind == OriginHost {
+	if host, ok := hostArchives[o.Host]; ok && o.Kind == project.OriginHost {
 		archiveURL := host.archiveURL(f.baseURL(f.HostURLs, o.Host), o.Repo, tag)
 		data, err := f.get(ctx, archiveURL)
 		if err == nil {
@@ -364,7 +367,7 @@ func (f *Fetcher) tree(ctx context.Context, o *Origin, tag string, rel *Release)
 }
 
 // clone makes a shallow clone of a tag and reads its files.
-func (f *Fetcher) clone(ctx context.Context, o *Origin, tag string) (map[string][]byte, error) {
+func (f *Fetcher) clone(ctx context.Context, o *project.Origin, tag string) (map[string][]byte, error) {
 	dir, err := os.MkdirTemp("", "sysml-install-*")
 	if err != nil {
 		return nil, err
@@ -373,7 +376,7 @@ func (f *Fetcher) clone(ctx context.Context, o *Origin, tag string) (map[string]
 	if _, err := f.git(ctx, "", "clone", "--quiet", "--depth", "1", "--branch", tag, "--", f.cloneURL(o), dir); err != nil {
 		return nil, err
 	}
-	members, err := bundleMembers(dir)
+	members, err := project.BundleMembers(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -445,7 +448,7 @@ func extractTarGz(data []byte, limit int64) (map[string][]byte, error) {
 		if hdr.Typeflag != tar.TypeReg || rest == "" {
 			continue
 		}
-		rel, err := normalizeMemberPath(rest)
+		rel, err := project.NormalizeMemberPath(rest)
 		if err != nil {
 			return nil, err
 		}
@@ -473,7 +476,7 @@ func keepMember(rel string) bool {
 		}
 	}
 	base := path.Base(rel)
-	return !strings.HasPrefix(base, ".") || base == ProjectFile || base == MetaFile
+	return !strings.HasPrefix(base, ".") || base == project.ProjectFile || base == project.MetaFile
 }
 
 // subtree is the members under a subpath, re-rooted at it.
@@ -493,7 +496,7 @@ func subtree(members map[string][]byte, sub string) map[string][]byte {
 // agree whatever the archive format.
 func treeDigest(members map[string][]byte) string {
 	h := sha256.New()
-	for _, name := range sortedKeys(members) {
+	for _, name := range slices.Sorted(maps.Keys(members)) {
 		fmt.Fprintf(h, "%s\x00%d\x00", name, len(members[name]))
 		h.Write(members[name])
 	}

@@ -242,7 +242,7 @@ func cleanSubpath(sub string) (string, error) {
 	if sub == "" {
 		return "", nil
 	}
-	if _, err := normalizeMemberPath(sub); err != nil {
+	if _, err := NormalizeMemberPath(sub); err != nil {
 		return "", fmt.Errorf("subpath: %w", err)
 	}
 	return sub, nil

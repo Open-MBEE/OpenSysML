@@ -375,13 +375,13 @@ func doc() usage.Doc {
 		}, {
 			Title: "Managing a project's usages",
 			Examples: []usage.Example{
-				usage.Ex("sysml -project-init -publisher Acme -name Widgets", "Write .project.json and .meta.json here"),
+				usage.Ex("sysml -project-init -publisher Acme -name W", "Write .project.json and .meta.json"),
 				usage.Ex("sysml -add pkg:github/acme/gears@^2.0.0", "Use a GitHub project at a release tag"),
-				usage.Ex("sysml -add https://git.example.org/acme/gears.git@2.1.0", "...a git repository, by tag"),
-				usage.Ex("sysml -add https://example.org/gears-2.1.0.kpar", "...an archive"),
-				usage.Ex("sysml -add ../gears", "...a project beside this one, read in place"),
-				usage.Ex("sysml -install proj", "Install what proj's .project.json and lock say"),
-				usage.Ex("sysml -lock", "Re-resolve every usage to the latest release and rewrite the lock"),
+				usage.Ex("sysml -add https://h.example/acme/gears.git@2.1.0", "...a git repository, by tag"),
+				usage.Ex("sysml -add https://h.example/gears-2.1.0.kpar", "...a published archive"),
+				usage.Ex("sysml -add ../gears", "...a project beside this one, in place"),
+				usage.Ex("sysml -install proj", "Install what proj's lock says"),
+				usage.Ex("sysml -lock", "Re-resolve and rewrite the lock"),
 			},
 			Paragraphs: []string{
 				"A project is a directory holding a .project.json (KerML 1.0 §10.3); " +

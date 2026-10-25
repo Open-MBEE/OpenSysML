@@ -50,13 +50,13 @@ func ReadInterchange(dir string) (*Interchange, error) {
 	if err != nil {
 		return nil, err
 	}
-	return parseInterchange(dir, file, content)
+	return ParseInterchange(dir, file, content)
 }
 
-// parseInterchange reads the InterchangeProject object of Table 12 from the
+// ParseInterchange reads the InterchangeProject object of Table 12 from the
 // bytes of a .project.json, reported as file; the project's Dir is dir. The
 // name and version are mandatory, as is the resource of every usage.
-func parseInterchange(dir, file string, content []byte) (*Interchange, error) {
+func ParseInterchange(dir, file string, content []byte) (*Interchange, error) {
 	var raw struct {
 		Name        string  `json:"name"`
 		Publisher   string  `json:"publisher"`

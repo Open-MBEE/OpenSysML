@@ -59,7 +59,7 @@ func parseClause(field string) (clause, error) {
 	if op == "" || op == "==" {
 		op = "="
 	}
-	version, err := canonicalVersion(rest)
+	version, err := CanonicalVersion(rest)
 	if err != nil {
 		return clause{}, err
 	}
@@ -84,9 +84,9 @@ func parseClause(field string) (clause, error) {
 	return cl, nil
 }
 
-// canonicalVersion checks a version is numeric major[.minor[.patch]] with an
+// CanonicalVersion checks a version is numeric major[.minor[.patch]] with an
 // optional pre-release and returns it with three numeric parts.
-func canonicalVersion(v string) (string, error) {
+func CanonicalVersion(v string) (string, error) {
 	v = strings.TrimPrefix(strings.TrimSpace(v), "v")
 	if v == "" {
 		return "", errors.New("a version is missing")
@@ -126,7 +126,7 @@ func (c Constraint) Exact() string {
 
 // Matches reports whether a version satisfies every clause.
 func (c Constraint) Matches(version string) bool {
-	v, err := canonicalVersion(version)
+	v, err := CanonicalVersion(version)
 	if err != nil {
 		return false
 	}
