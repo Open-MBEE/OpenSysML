@@ -42,6 +42,9 @@ const (
 	AssertionConstraint   AssertionKind = "constraint"
 	AssertionRequirement  AssertionKind = "requirement"
 	AssertionSatisfaction AssertionKind = "satisfaction"
+	// AssertionBinding is a binding connector linking fewer values than its ends hold,
+	// which identifies some value of one end with some value of the other.
+	AssertionBinding AssertionKind = "binding"
 )
 
 // ObjectVerdict is one assertion checked on one object of a validated tree.
@@ -418,7 +421,30 @@ func (ctx *Context) carriedVerdicts(obj *validatedObject) ([]ObjectVerdict, []*S
 		verdicts = append(verdicts, typeVerdicts...)
 		stated = append(stated, typeStated...)
 	}
+	verdicts = append(verdicts, ctx.bindingVerdicts(obj, seen)...)
 	return verdicts, stated
+}
+
+// bindingVerdicts checks every constraining binding the object's types carry: one the
+// runtime applies as an identity of its ends needs no verdict, one it cannot is checked.
+func (ctx *Context) bindingVerdicts(obj *validatedObject, seen map[*ast.Usage]bool) []ObjectVerdict {
+	var verdicts []ObjectVerdict
+	for _, typ := range obj.inst.types() {
+		for _, binding := range ctx.objectBindings(typ) {
+			if binding.Decl == nil || seen[binding.Decl] || ctx.bindingLinksNothing(binding) {
+				continue
+			}
+			seen[binding.Decl] = true
+			// An end the object cannot resolve is reported where the feature is read.
+			if constrains, err := ctx.constrainingBinding(obj.inst, binding); err != nil || !constrains {
+				continue
+			}
+			result, err := ctx.CheckBindingOn(binding, obj.inst)
+			sym := memberSymbol(binding.Scope, binding.Decl)
+			verdicts = append(verdicts, ctx.objectVerdict(AssertionBinding, sym, ctx.bindingText(binding), obj, result, err))
+		}
+	}
+	return verdicts
 }
 
 // Asserted is one assertion a type states about every object of it: an

@@ -59,9 +59,12 @@ func objectVerdict(v runtime.ObjectVerdict, label string) Verdict {
 		owner = label + "." + strings.Join(v.Path, ".")
 	}
 	subject := v.Text + " on " + owner
-	condition := "Assertion"
-	if v.Kind != runtime.AssertionConstraint {
-		condition = "Required condition"
+	condition := "Required condition"
+	switch v.Kind {
+	case runtime.AssertionConstraint:
+		condition = "Assertion"
+	case runtime.AssertionBinding:
+		condition = "Binding"
 	}
 	switch v.Status {
 	case runtime.ValidationHolds:
