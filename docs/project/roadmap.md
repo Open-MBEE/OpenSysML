@@ -606,7 +606,7 @@ drops what those items carry. Every surface says so (`convert.ExperimentalNotice
 it to stable is re-measuring the harness once those land, not a documentation change.
 
 Measured by the per-file ratchet at this baseline (`TestCorpusRoundTrip`,
-`internal/translate/export/testdata/corpus_roundtrip_expected.txt`), **all 358 models under
+`tests/corpus/testdata/corpus_roundtrip_expected.txt`, then under `internal/translate/export/testdata/`), **all 358 models under
 `examples/` convert** (the training corpus, the three pilot corpora and this repository's own
 demos): 351 round-trip `notation → RDF → notation → RDF` byte-identically and 7 differ only in
 whitespace, with no graph-diff, unwritable, unparseable or refused verdict left — each file is
@@ -861,11 +861,15 @@ describe that pull request's content, which would have to be re-proposed against
 ontologies** under `ontology/sysmlv2/`, cut along
 the package hierarchy of the normative KerML/SysML XMI (`KerML/Root/Elements.ttl`,
 `KerML/Kernel/Expressions.ttl`, `SysML/Systems/Requirements.ttl`, …) with a `catalog.tsv` from
-term to declaring module and `owl:imports` computed from use. The generator
-(`cmd/ontology-modules`, `internal/translate/rdf/ontology/modules`) errors rather than dropping data —
-every source triple lands in exactly one module and the union is graph-isomorphic to upstream —
-and `make ontology-modules-check` in CI keeps the committed output equal to the pinned sources
-(`scripts/download-ontology-sources.sh`). It is additive to the term table and the Flexo export;
+term to declaring module and `owl:imports` computed from use. Its generator
+erred rather than dropping data — every source triple landed in exactly one module and the union
+was graph-isomorphic to upstream — and a CI check kept the committed output equal to the pinned
+sources. None of that is in this tree: there is no modules generator, no download script for the
+ontology sources and no such `make` target; what exists under `internal/translate/rdf/ontology` is
+the metamodel term table and its validation (`table.go`, `validate.go`, `make ontology-table` and
+`ontology-table-check`) and the metaclass hierarchy graph `sysml-metaclasses.ttl` (`hierarchy.go`,
+#1259). The modules remain a proposal to re-make from that pull request's content. They would be
+additive to the term table and the Flexo export;
 once merged, the profile can import the module a metaclass lives in rather than the monolith, and
 a consumer wanting only, say, the requirements vocabulary has a file to import.
 
@@ -1748,7 +1752,7 @@ with a spelling to implement.
 # Track X — expression forms the evaluator did not reach
 
 Expression evaluation is the most externally refereed part of the runtime: when
-`cmd/pilot-exec-diff` was re-run for the review (2026-09-02, at `1f136d27` — a snapshot of that
+`tools/cmd/pilot-exec-diff` (then `cmd/pilot-exec-diff`) was re-run for the review (2026-09-02, at `1f136d27` — a snapshot of that
 round, not the current baseline), 55 cases agreed with the pinned pilot, 1 agreed in kind only, 1
 disagreement and 2 errors of ours were adjudicated, and 35 cases the pilot cannot evaluate; 70 of
 the 71 grammar forms in `KerMLExpressions.xtext` have a corpus witness (only `%` lacks one).
@@ -1822,7 +1826,7 @@ custom scalar subtype keeps the values declared with it. `as`, `istype` and `has
 model-level evaluable, so a metadata body may bind `x = 1 as Integer`. What it leaves, by design:
 a target that neither a value's types nor its content settles is reported rather than the value
 being silently dropped. Five cast cases were added to the pilot execution referee
-(`cmd/pilot-exec-diff`) with the change.
+(`tools/cmd/pilot-exec-diff`) with the change.
 
 ## X4 — `*` as a value, and `.metadata` (landed)
 
@@ -1924,9 +1928,9 @@ mass rollup without changing what it answered; this changes the answer.)
 
 The two harness halves are **not started**: nothing has moved them since `v0.6.0`. Interpreted and compiled
 evaluation are held equal by one differential over the compiled subset; the pilot differential
-(`cmd/pilot-exec-diff`) still needs its normalization of numeric spellings and an adjudication
+(`tools/cmd/pilot-exec-diff`) still needs its normalization of numeric spellings and an adjudication
 file the harness reads to say why each remaining disagreement is ours or the pilot's — the
-adjudications live in prose in `pilot-execution-referee.md`, and what `cmd/pilot-exec-diff`
+adjudications live in prose in `pilot-execution-referee.md`, and what `tools/cmd/pilot-exec-diff`
 gained since `v0.6.0` is cases (#115's five casts, #235's stdin-fed engines), not the
 normalization; and the RDF expression trees have no round trip of their own — a tree is written,
 read and rewritten only as part of a whole model, `internal/translate/export` having gained #121's set
@@ -2909,7 +2913,7 @@ for it and its tests skip where the engine is absent.
 **The pilot as an execution referee (landed, #319, #321, #334, #413).**
 [pilot-execution-referee.md](pilot-execution-referee.md)
 established that the pinned pilot evaluates model-level expressions and nothing else, so
-`cmd/pilot-exec-diff` can adjudicate the expression rows of `spec-compliance.md` and no external
+`tools/cmd/pilot-exec-diff` can adjudicate the expression rows of `spec-compliance.md` and no external
 implementation adjudicates actions or state machines. Widening that referee means finding one,
 not more harness work. For state machines the OMG PSSM suite is that referee (#230, advisory);
 for actions the fUML reference implementation is, in three changes modelled on the PSSM referee
@@ -2922,7 +2926,7 @@ classes and generalizations, object creation, structural-feature actions, signal
 `SendSignalAction`, `AcceptEventAction`, active classes with their classifier behavior and
 `StartObjectBehaviorAction` — and fixed the runtime and the SMT encoding it uncovered, where two
 `flow`s from one source pin were staged as one delivery (each `flow` declaration is its own
-transfer now, so a fork duplicating a token down two flows delivers two values). `cmd/fuml-referee`
+transfer now, so a fork duplicating a token down two flows delivers two values). `tools/cmd/fuml-referee`
 files 55 activities as 23 `pass` / 0 `fail` / 28 `not-expressible` / 4 `differs-by-design` (an
 action the reference fires once per object token), pinned in
 `docs/project/fuml-referee-baseline.json` and checked in CI by
@@ -3012,7 +3016,9 @@ independent of every track.
 
 # Track P — package layering (landed in 0.9.0 but P7)
 
-The module is one Go module of 72 packages under `internal/`, 49 of them under `internal/core/`.
+At the `v0.9.0` baseline this track measured, the module was one Go module of 72 packages under
+`internal/`, 49 of them under `internal/core/` (a directory P1 removed; the layers of the repository
+map in `AGENTS.md` are its packages' homes now).
 The import graph is acyclic, as Go requires, but it is not layered: the runtime imports the
 validation suite and the parser, the RDF exporter imports the runtime, the REPL imports the gRPC
 service, and test-only and referee packages sit beside the product packages with nothing telling
@@ -3071,18 +3077,22 @@ The edges that break the layering, each with the files that carry it:
 
 What is in `internal/` that is not product code, or is in the wrong place:
 
-- `internal/hygiene` and `internal/perfbench` have no non-test files; they exist to host
-  `TestNoProductionCodeImportsTesting` and the benchmarks.
+- `internal/hygiene` and `internal/perfbench` had no non-test files; they existed to host
+  `TestNoProductionCodeImportsTesting` and the benchmarks (now `tests/hygiene` and `tests/perf`).
 - `internal/baseline`, `internal/fixtures`, `internal/junit`, `internal/doccounts`,
-  `internal/stressmodel`, `internal/fuml`, `internal/pssm` and `internal/testutil` are reached
+  `internal/stressmodel`, `internal/fuml`, `internal/pssm` and `internal/testutil` were reached
   only from `cmd/pilot-*`, `cmd/pssm-referee`, `cmd/fuml-referee`, `cmd/stress-model`,
-  `cmd/doc-counts` and `cmd/validation-census`, never from `sysml`, `sysml-lsp` or `sysml-grpc`.
-- `internal/errata` is both: `core/libs/source.go` applies its overlay to the bundled standard
-  library (product), and the pilot tools read its registry (tooling). It can only move once the
-  overlay is split from the oracle bookkeeping.
+  `cmd/doc-counts` and `cmd/validation-census`, never from `sysml`, `sysml-lsp` or `sysml-grpc`
+  (the commands are under `tools/cmd/` now; the packages are `tools/oracle/baseline`,
+  `tests/fixtures`, `internal/frontend/report/junit`, `tools/census/doccounts`,
+  `tests/stressmodel`, `tools/referee/fuml`, `tools/referee/pssm` and `tests/testutil`).
+- `internal/errata` was both: `core/libs/source.go` applied its overlay to the bundled standard
+  library (product), and the pilot tools read its registry (tooling). It could only move once the
+  overlay was split from the oracle bookkeeping (it is: `internal/workspace/libs/errata` and
+  `tools/oracle/errata`).
 - `internal/xmi` (the XMI 2.5 reader of the UML test suites, for `fuml` and `pssm`) and
   `internal/translate/xmi` (the XMI reader of SysML v1 exports, for `migrate`) read the same format
-  into two element trees.
+  into two element trees (one reader now, `internal/translate/xmi`, which the referees import).
 - `internal/workspace/envvar` and `internal/workspace/project` are process configuration, not language
   core; `internal/doc/docpdf` is the PDF backend of the `core/docrender` pipeline and the only part of
   it outside `core/`.
@@ -3139,7 +3149,7 @@ each a copy, and where each lives now (P4):
 | `declMembers` | 4 | `lower`, `passes`, `runtime`, `semantics` | `ast.DeclMembers`; see below |
 | `lastSegment`, `qualifiedName` | 5 each | `export`, `queryexec`, `runtime`, `symbols`, `repl`; `export`, `migrate`, `queryplan`, `rename`, `solve` | `symbols.LastSegment`, `ast.QualifiedNameOf`; see below |
 | `sortedKeys` | 6 | across the module | `slices.Sorted(maps.Keys(m))` |
-| `moduleRoot`, `writeReports`, `classify` | 5, 4, 5 | `cmd/pilot-diff`, `pilot-reject`, `pilot-xpect`, `grammar-coverage`, `validation-census` | `tools/oracle/repo`, `tools/oracle/report` (P3) |
+| `moduleRoot`, `writeReports`, `classify` | 5, 4, 5 | `cmd/pilot-diff`, `pilot-reject`, `pilot-xpect`, `grammar-coverage`, `validation-census` (now under `tools/cmd/`) | `tools/oracle/repo`, `tools/oracle/report` (P3) |
 
 The name-sharing was wider than the copying. Of the `declMembers` four, three were the same
 function (a definition's or usage's `Members`) and are `ast.DeclMembers`; the runtime's also
@@ -3314,7 +3324,7 @@ tools into the nested module, because product tests import them and a test canno
 nested module without a cyclic requirement: `fixtures`, which also took the analysis-library
 census schema that the runtime's own test writes and `tools/census/doccounts` counts, and
 `stressmodel`, whose generator `internal/workspace/model`'s incremental test drives (only
-`cmd/stress-model` moved). They stayed under `internal/` at first; P4 moved them to `tests/`,
+`cmd/stress-model` moved, to `tools/cmd/stress-model`). They stayed under `internal/` at first; P4 moved them to `tests/`,
 which both the root module's tests and the tools module can import.
 `docpdf` is `internal/doc/docpdf`, beside `docrender`; `envvar` and `project` already sat beside
 `model`, and whether they fold into it is P4's question. Measured at `develop` `1e44c746c`
@@ -3369,7 +3379,7 @@ Where a fold moved a self-model unit, `examples/self-model/surfaces.sysml` names
 package, and the pilot differential baseline records the examples digest that follows.
 
 The test-support packages P3 could not take into the tools module moved to `tests/` (#427):
-`internal/fixtures` is `tests/fixtures` and `internal/stressmodel` is `tests/stressmodel`, both
+`internal/fixtures` became `tests/fixtures` and `internal/stressmodel` `tests/stressmodel`, both
 still in the root module, so `tests/model`, the census in `tools/census/doccounts` and
 `tools/cmd/stress-model` import them from there. `go list -deps` of `sysml`, `sysml-lsp` and
 `sysml-grpc` names neither before nor after, and the layering test pins that no production
