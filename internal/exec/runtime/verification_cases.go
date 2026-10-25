@@ -206,7 +206,8 @@ func (ctx *Context) verificationResultOn(sym *symbols.Symbol, self *Instance) Ve
 // caseCarriers are the objects a type-owned case runs on for a verdict about subject: subject when
 // of that type, else each object of the type under it (none when it holds none), or under every
 // root when subject is nil, where no carrier leaves the case to run on no object — a run that
-// reports the case needs one (ErrNeedsObject) rather than a body reading nothing.
+// reports the case needs one (ErrNeedsObject) rather than a body reading nothing. The case is a
+// feature of every object of the type, so objects a multiplicity repeats each get their run.
 func (ctx *Context) caseCarriers(sym *symbols.Symbol, subject *Instance) []*Instance {
 	owner := declaringType(sym)
 	if owner == nil {
@@ -218,7 +219,7 @@ func (ctx *Context) caseCarriers(sym *symbols.Symbol, subject *Instance) []*Inst
 	} else if ctx.modelConforms(subject.Type, owner) {
 		return []*Instance{subject}
 	}
-	carriers := ctx.carriersUnder(roots, owner)
+	carriers := ctx.objectsUnder(roots, owner)
 	if len(carriers) == 0 {
 		if subject != nil {
 			return nil

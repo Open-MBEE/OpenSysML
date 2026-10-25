@@ -588,6 +588,9 @@ func (ctx *Context) releaseDeferredBehavior(behavior *ObjectBehavior) error {
 		behavior.Action = started.Action
 		behavior.State = started.State
 		behavior.Err = started.Err
+		if err == nil {
+			ctx.recordFiredSuccessions(behavior)
+		}
 	}
 	behavior.deferred = nil
 	if err != nil {

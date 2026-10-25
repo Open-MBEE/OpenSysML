@@ -968,20 +968,38 @@ func (ctx *Context) heldObjectIDs() map[int64]bool {
 }
 
 // carriersUnder returns the objects reachable from roots whose type carries the
-// features owner declares, roots included, in identity order; a destroyed object is
-// passed over with what it holds. A declaration is
-// descended into once per path, so recursive composition is a finite search, and
-// one object stands for each declaration reached, so objects a multiplicity
-// repeated are one candidate however deep the named declaration sits in them.
+// features owner declares, roots included, one object standing for each declaration
+// reached, in identity order: the subject a check that names a declaration is about,
+// so objects a multiplicity repeated are one candidate however deep the named
+// declaration sits in them, while two declarations feeding one collection are two.
 func (ctx *Context) carriersUnder(roots []*Instance, owner *symbols.Symbol) []carrier {
-	return ctx.carriersWhere(roots, func(inst *Instance) bool { return ctx.modelConforms(inst.Type, owner) })
+	return sortedCarriers(oneCarrierPerOccurrence(ctx.reachCarriers(roots, ctx.objectOf(owner))))
 }
 
-// carriersWhere is carriersUnder with the carrying objects chosen by carries.
+// objectsUnder returns every object reachable from roots whose type carries the
+// features owner declares, roots included, in identity order: each one is an object a
+// feature owner declares is a feature of, the objects a multiplicity repeated each on their own.
+func (ctx *Context) objectsUnder(roots []*Instance, owner *symbols.Symbol) []carrier {
+	return ctx.carriersWhere(roots, ctx.objectOf(owner))
+}
+
+// objectOf chooses the objects whose type conforms to owner.
+func (ctx *Context) objectOf(owner *symbols.Symbol) func(*Instance) bool {
+	return func(inst *Instance) bool { return ctx.modelConforms(inst.Type, owner) }
+}
+
+// carriersWhere is objectsUnder with the carrying objects chosen by carries.
 func (ctx *Context) carriersWhere(roots []*Instance, carries func(*Instance) bool) []carrier {
+	return sortedCarriers(ctx.reachCarriers(roots, carries))
+}
+
+// reachCarriers walks the objects reachable from roots, roots included, and returns
+// each one carries chooses in the order reached, with the declaration it occurs as; a
+// destroyed object is passed over with what it holds. A declaration is descended into
+// once per path, so recursive composition is a finite search.
+func (ctx *Context) reachCarriers(roots []*Instance, carries func(*Instance) bool) []carrier {
 	var out []carrier
 	seen := make(map[int64]bool, len(roots))
-	declared := make(map[carrierOccurrence]bool)
 	path := make(map[*symbols.Symbol]bool)
 	var descend func(root, inst *Instance, through string, features []string)
 	descend = func(root, inst *Instance, through string, features []string) {
@@ -990,10 +1008,9 @@ func (ctx *Context) carriersWhere(roots []*Instance, carries func(*Instance) boo
 			return
 		}
 		seen[inst.ID] = true
-		occurrence := carrierOccurrence{through: through, decl: inst.Type}
-		if carries(inst) && !declared[occurrence] {
-			declared[occurrence] = true
-			out = append(out, carrier{instance: inst, root: root, features: features})
+		if carries(inst) {
+			occurrence := carrierOccurrence{through: through, decl: inst.Type}
+			out = append(out, carrier{instance: inst, root: root, features: features, occurrence: occurrence})
 		}
 		if inst.Type != nil {
 			if path[inst.Type] {
@@ -1010,8 +1027,26 @@ func (ctx *Context) carriersWhere(roots []*Instance, carries func(*Instance) boo
 	for _, root := range roots {
 		descend(root, root, ctx.rootPath(root), nil)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].instance.ID < out[j].instance.ID })
 	return out
+}
+
+// oneCarrierPerOccurrence keeps the first carrier reached of each declaration occurrence.
+func oneCarrierPerOccurrence(carriers []carrier) []carrier {
+	out := make([]carrier, 0, len(carriers))
+	declared := make(map[carrierOccurrence]bool, len(carriers))
+	for _, c := range carriers {
+		if !declared[c.occurrence] {
+			declared[c.occurrence] = true
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// sortedCarriers orders carriers by object identity.
+func sortedCarriers(carriers []carrier) []carrier {
+	sort.Slice(carriers, func(i, j int) bool { return carriers[i].instance.ID < carriers[j].instance.ID })
+	return carriers
 }
 
 // rootPath is the path a subject search starts a root at: the objects one usage denotes share
@@ -1026,16 +1061,18 @@ func (ctx *Context) rootPath(root *Instance) string {
 // carrier is an object a search reached: the object the search started from and
 // the features walked from it name a nested one, which has no name of its own.
 type carrier struct {
-	instance *Instance
-	root     *Instance
-	features []string
+	instance   *Instance
+	root       *Instance
+	features   []string
+	occurrence carrierOccurrence
 }
 
 // carrierOccurrence identifies the declaration an object occurs as: the features
 // walked through to reach it, each quoted so any name is one segment, and the
 // declaration it materializes. Objects a multiplicity repeated share both, while
 // ones a collection gathers from different declarations — the features
-// subsetting it — do not.
+// subsetting it — do not. A check about a declaration resolves one object per
+// occurrence; a sweep over the objects of a type visits every one.
 type carrierOccurrence struct {
 	through string
 	decl    *symbols.Symbol

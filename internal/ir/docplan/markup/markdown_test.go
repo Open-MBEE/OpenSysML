@@ -27,8 +27,11 @@ func TestForMatchesLanguageCaseInsensitively(t *testing.T) {
 			t.Errorf("For(%q) found no parser", language)
 		}
 	}
-	if _, ok := For("asciidoc"); ok {
-		t.Error("For(asciidoc) found a parser")
+	if _, ok := For("AsciiDoc"); !ok {
+		t.Error("For(AsciiDoc) found no parser")
+	}
+	if _, ok := For("rst"); ok {
+		t.Error("For(rst) found a parser")
 	}
 }
 

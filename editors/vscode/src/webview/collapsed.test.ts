@@ -13,7 +13,7 @@ const dom = new JSDOM("<!DOCTYPE html><body></body>");
 globalThis.document = dom.window.document;
 
 // The fixture is what the server renders for testdata/collapsed-ports.sysml, where
-// engine is collapsed: its two ports stay on its boundary and the connectors still
+// engine is collapsed: its two ports stay as pins on its border and the connectors still
 // end at them, while injector and injector's port are folded away. The server
 // pins it, so the panel is measured here against the rendering the CLI writes.
 const fixture = JSON.parse(
@@ -26,10 +26,14 @@ function named(layout: CanvasLayout, name: string): PlacedNode {
   return found;
 }
 
-function inside(inner: PlacedNode, outer: PlacedNode): boolean {
-  const a = inner.box;
+// onBorder is a pin drawn on outer's border: its square's centre lies on one of outer's edges.
+function onBorder(pin: PlacedNode, outer: PlacedNode): boolean {
+  const cx = pin.box.x + pin.box.width / 2;
+  const cy = pin.box.y + pin.box.height / 2;
   const b = outer.box;
-  return a.x >= b.x && a.y > b.y && a.x + a.width <= b.x + b.width && a.y + a.height <= b.y + b.height;
+  const alongX = cx >= b.x && cx <= b.x + b.width;
+  const alongY = cy >= b.y && cy <= b.y + b.height;
+  return (alongX && (cy === b.y || cy === b.y + b.height)) || (alongY && (cx === b.x || cx === b.x + b.width));
 }
 
 for (const view of ["tree", "wiring"] as const) {
@@ -52,7 +56,8 @@ for (const view of ["tree", "wiring"] as const) {
       ["port fuelIn", "port shaftOut"],
     );
     for (const port of engine.children) {
-      assert.ok(inside(port, engine), `${port.node.name} is drawn on engine`);
+      assert.ok(port.snapped, `${port.node.name} is a pin`);
+      assert.ok(onBorder(port, engine), `${port.node.name} is drawn on engine's border`);
     }
     for (const name of ["injector", "feed"]) {
       assert.equal([...layout.nodes.values()].some((entry) => entry.node.name === name), false);

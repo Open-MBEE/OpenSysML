@@ -260,9 +260,9 @@ func TestCompileMarkdownBodyErrors(t *testing.T) {
 	}{
 		{
 			name:     "unsupported_language",
-			body:     `rep language "asciidoc" /* = Title */`,
+			body:     `rep language "rst" /* Title\n===== */`,
 			kind:     ErrorUnsupportedMarkupLanguage,
-			contains: `in "asciidoc", which no document markup language matches (supported: markdown)`,
+			contains: `in "rst", which no document markup language matches (supported: markdown, asciidoc)`,
 		},
 		{
 			name:     "heading",

@@ -72,3 +72,20 @@ func TestW10BAllocationDefinitionsInheritTwoEnds(t *testing.T) {
 		}
 	}
 }
+
+// Inherited usage ends relate a flow definition's elements (KerML relatedType =
+// associationEnd.type over inherited ends); a bare concrete one has none.
+func TestW10BFlowDefInheritedUsageEndsRelate(t *testing.T) {
+	const src = `package P {
+		flow def FromMessage :> Flows::Message;
+		abstract flow def Abstract;
+		flow def Plain;
+	}`
+	diags := only(constraintDiags(t, src), "related-elements")
+	if len(diags) != 1 {
+		t.Fatalf("got %d related-elements diagnostics, want 1 (the bare definition): %v", len(diags), diags)
+	}
+	if got := src[diags[0].Span.Offset:min(diags[0].Span.Offset+len("flow def Plain"), len(src))]; got != "flow def Plain" {
+		t.Errorf("reported at %q, want the bare definition", got)
+	}
+}

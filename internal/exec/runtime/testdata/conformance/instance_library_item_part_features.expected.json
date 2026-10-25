@@ -14,9 +14,9 @@
     "cargo.isSolid": {"type": "Boolean", "value": true},
     "cargo.shape": {"type": "Sequence", "elements": []},
     "self": {"type": "Instance"},
-    "portions": {"type": "Sequence", "elements": [{"type": "Instance"}]},
-    "snapshots": {"type": "Undetermined", "value": "[1..*]"},
-    "start": {"type": "Undetermined", "value": "[1]"},
+    "portions": {"type": "Undetermined", "value": "[3..*]"},
+    "snapshots": {"type": "Undetermined", "value": "[2..*]"},
+    "start": {"type": "Instance"},
     "done": {"type": "Undetermined", "value": "[1]"},
     "cargo.self": {"type": "Instance"}
   }
