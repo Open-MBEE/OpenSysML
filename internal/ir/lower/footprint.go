@@ -416,8 +416,7 @@ type footprintBuilder struct {
 	localDeclarations bool
 	footprint         Footprint
 	// expanding is the stack of usages whose bindings are being read, so a cyclic
-	// binding stops; its first entry sits in expandingRoot, so the common read of
-	// one binding allocates nothing.
+	// binding stops; its first entry sits in expandingRoot and allocates nothing.
 	expandingRoot *ast.Usage
 	expanding     []*ast.Usage
 	// sem answers what a feature redefines, explicitly or by position.
