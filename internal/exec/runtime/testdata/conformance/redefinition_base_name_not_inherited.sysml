@@ -4,7 +4,8 @@
 // unresolved on the evaluator as it is for the static read, whether the
 // redefinition is written (`own :>> mass`) or a case role's (`subject s`
 // redefining `Cases::Case::subj`), while the redefining name and a name an
-// unnamed redefinition takes (`objective { … }` as `obj`) read the one value.
+// unnamed redefinition takes (`objective { … }` as `obj`) read the one value, and a
+// namesake inherited along another path (`A2::a` beside `b :>> A1::a`) keeps the name.
 package test {
     private import ScalarValues::*;
     private import SequenceFunctions::size;
@@ -13,6 +14,10 @@ package test {
     part def Sys :> Comp { attribute own :>> mass = 1.5; }
     part def Bus :> Sys { attribute dry :>> own = 4.0; }
     part bus : Bus { attribute :>> dry = 7.0; }
+    part def A1 { attribute a : Real default = 1.0; }
+    part def A2 { attribute a : Real default = 2.0; }
+    part def Both :> A1, A2 { attribute b :>> A1::a = 3.0; }
+    part both : Both;
 
     use case def U {
         subject s : Integer = 3;
@@ -29,6 +34,7 @@ package test {
         attribute busDry : Real = bus.dry;
         attribute busOwn : Real = bus.own;
         attribute busMass : Real = bus.mass;
+        attribute survivingNamesake : Boolean = both.a->size() == 1;
         attribute subjectName : Integer = u.s;
         attribute subjectRole : Integer = u.subj;
         attribute subjectCount : Integer = u.s->size();

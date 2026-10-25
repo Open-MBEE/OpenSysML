@@ -1689,6 +1689,7 @@ func (ctx *Context) declaredMember(sym *symbols.Symbol, name string) (*symbols.S
 // inherit it under that name because a feature of sym redefines it; a redefiner
 // that takes the redefined name is the member the name reads (KerML §8.3.3.1.10).
 func (ctx *Context) shapeMember(sym *symbols.Symbol, name string) (feat *symbols.Symbol, masked bool) {
+	var hidden *symbols.Symbol
 	for _, f := range ctx.FeaturesOf(sym) {
 		if f.Name != name || f.Symbol == nil {
 			continue
@@ -1699,9 +1700,19 @@ func (ctx *Context) shapeMember(sym *symbols.Symbol, name string) (feat *symbols
 		if redefiner := ctx.model.semantics.NamingRedefiner(sym, f.Symbol); redefiner != nil {
 			return redefiner, false
 		}
-		return f.Symbol, true
+		if hidden == nil {
+			hidden = f.Symbol
+		}
 	}
-	return nil, false
+	if hidden == nil {
+		return nil, false
+	}
+	// A namesake inherited along another path keeps the name (`B :> A1, A2` with
+	// `b :>> A1::a` still has `A2::a`), so the namespace decides.
+	if surviving, ok := ctx.model.semantics.LookupMember(sym, name); ok && surviving != nil {
+		return surviving, false
+	}
+	return hidden, true
 }
 
 // maskedChainMember is the error for a chain segment naming a feature the segment

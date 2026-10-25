@@ -6,6 +6,7 @@
     "busDry": {"type": "Real", "value": 7.0},
     "busOwn": {"error": "unresolved reference: bus has no member own: test::bus::dry redefines it"},
     "busMass": {"error": "unresolved reference: bus has no member mass: test::bus::dry redefines it"},
+    "survivingNamesake": {"type": "Boolean", "value": true},
     "subjectName": {"type": "Integer", "value": 3},
     "subjectRole": {"error": "unresolved reference: u has no member subj: test::U::s redefines it"},
     "subjectCount": {"type": "Integer", "value": 1},
