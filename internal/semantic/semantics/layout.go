@@ -887,7 +887,7 @@ func (m *Model) readString(site *LayoutSite, b MetadataBinding, into *string) bo
 	v := m.annotationValue(b.Scope, b.Value)
 	if v.Kind != symbols.FilterValueString {
 		site.Problems = append(site.Problems, LayoutProblem{Node: b.Value,
-			Message: fmt.Sprintf("%s of %s is not a constant string", b.Feature, simpleName(site.TypeFQN))})
+			Message: fmt.Sprintf("%s of %s is not a constant string", b.Feature, symbols.LastSegment(site.TypeFQN))})
 		return false
 	}
 	*into = v.Str
@@ -906,7 +906,7 @@ func (m *Model) readColor(site *LayoutSite, b MetadataBinding, into *string) boo
 	}
 	if !IsHexColor(s) {
 		site.Problems = append(site.Problems, LayoutProblem{Node: b.Value,
-			Message: fmt.Sprintf("%s of %s is %q, not a colour written #RRGGBB", b.Feature, simpleName(site.TypeFQN), s)})
+			Message: fmt.Sprintf("%s of %s is %q, not a colour written #RRGGBB", b.Feature, symbols.LastSegment(site.TypeFQN), s)})
 		return false
 	}
 	*into = strings.ToUpper(s)
@@ -943,7 +943,7 @@ func (m *Model) readRealValue(site *LayoutSite, scope *symbols.Scope, value ast.
 		*into = n.AsReal()
 	default:
 		site.Problems = append(site.Problems, LayoutProblem{Node: value,
-			Message: fmt.Sprintf("%s of %s is not a constant number", feature, simpleName(site.TypeFQN))})
+			Message: fmt.Sprintf("%s of %s is not a constant number", feature, symbols.LastSegment(site.TypeFQN))})
 		return false
 	}
 	return true
@@ -958,7 +958,7 @@ func (m *Model) readBool(site *LayoutSite, b MetadataBinding, into *bool) bool {
 	v := m.annotationValue(b.Scope, b.Value)
 	if v.Kind != symbols.FilterValueBool {
 		site.Problems = append(site.Problems, LayoutProblem{Node: b.Value,
-			Message: fmt.Sprintf("%s of %s is not a constant boolean", b.Feature, simpleName(site.TypeFQN))})
+			Message: fmt.Sprintf("%s of %s is not a constant boolean", b.Feature, symbols.LastSegment(site.TypeFQN))})
 		return false
 	}
 	*into = v.Bool
