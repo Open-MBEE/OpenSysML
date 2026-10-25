@@ -38,6 +38,14 @@ type Context struct {
 	created    []int64
 	// lives holds, per registered object, when it began and ended (lifetimes.go).
 	lives map[int64]life
+	// shots holds, per object, the start and end snapshots handed out for it (occurrence_shots.go).
+	shots map[int64]occurrenceShots
+	// startValues holds, per performance, the values it held when it began (occurrence_shots.go).
+	startValues map[int64]map[string]Value
+	// fired holds, per performance, the performances whose end let a succession start it (occurrence_successions.go).
+	fired map[int64][]int64
+	// transfers holds the Transfer performances the run completed, oldest first (occurrence_transfers.go).
+	transfers []transferRecord
 	// lifetimes stands for the lives as a `=` value reads them, to derive again when they change.
 	lifetimes FeatureValue
 
@@ -151,6 +159,9 @@ type Context struct {
 	// stateExecutors are the live state machines this context can notify of a
 	// completed feature write, in creation order.
 	stateExecutors []*StateExecutor
+	// actionExecutors are the live action runs over an occurrence, whose data
+	// mirrors a write landing on it; a run leaves when it ends or is released.
+	actionExecutors []*ActionExecutor
 
 	// featureWriteDepth coalesces nested stores into one completed write.
 	featureWriteDepth  int
@@ -264,6 +275,9 @@ type Context struct {
 	// deriving are the `=` values being derived, innermost last; every feature
 	// value read while one is records it as a dependent (see dependents.go).
 	deriving []derivation
+	// mirroringBodyCell counts the body-cell mirrors writing an occurrence feature, whose
+	// write the cell they mirror need not adopt.
+	mirroringBodyCell int
 	// tracing observes the derivations under way, innermost last, for the reads
 	// that decide whether each is one every occurrence of its shape shares.
 	tracing []derivationTrace
@@ -404,10 +418,13 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		panic("runtime: NewContext needs a Model")
 	}
 	ctx := &Context{
-		model:     model,
-		maxSteps:  maxSteps,
-		instances: make(map[int64]*Instance),
-		lives:     make(map[int64]life),
+		model:       model,
+		maxSteps:    maxSteps,
+		instances:   make(map[int64]*Instance),
+		lives:       make(map[int64]life),
+		shots:       make(map[int64]occurrenceShots),
+		startValues: make(map[int64]map[string]Value),
+		fired:       make(map[int64][]int64),
 
 		compileCalcs: calcCompileFromEnv(),
 

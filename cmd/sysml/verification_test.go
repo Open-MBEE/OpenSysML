@@ -354,3 +354,70 @@ func TestValidateAgreesWithConformanceFixtures(t *testing.T) {
 		})
 	}
 }
+
+// requirementFixture is the part of a requirement fixture the verification runs state.
+type requirementFixture struct {
+	Evaluate      string `json:"evaluate"`
+	Instantiate   string `json:"instantiate"`
+	Verifications []struct {
+		Case    string `json:"case"`
+		Verdict string `json:"verdict"`
+	} `json:"verifications"`
+}
+
+// TestRequirementAgreesWithConformanceFixtures holds -requirement over each fixture model
+// pinning the verification runs about no object to the runs it pins, one per object.
+func TestRequirementAgreesWithConformanceFixtures(t *testing.T) {
+	binary := buildCLI(t)
+	paths, err := filepath.Glob(filepath.Join(conformanceFixtureDir, "requirement_verification_*.expected.json"))
+	if err != nil || len(paths) == 0 {
+		t.Fatalf("no requirement_verification fixtures found: %v", err)
+	}
+	for _, path := range paths {
+		name := strings.TrimSuffix(filepath.Base(path), ".expected.json")
+		t.Run(name, func(t *testing.T) {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var fixture requirementFixture
+			if err := json.Unmarshal(data, &fixture); err != nil {
+				t.Fatalf("%s: %v", path, err)
+			}
+			got := checkPaths(t, binary, filepath.Join(conformanceFixtureDir, name+".sysml"),
+				"-instantiate", fixture.Instantiate, "-requirement", fixture.Evaluate, "-json")
+			var report struct {
+				Checks []struct {
+					Verifications []struct {
+						Case   string `json:"case"`
+						Kind   string `json:"kind"`
+						Object string `json:"object"`
+					} `json:"verifications"`
+				} `json:"checks"`
+			}
+			if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+				t.Fatalf("report: %v\n%s", err, got.output())
+			}
+			if len(report.Checks) == 0 {
+				t.Fatalf("the report states no check:\n%s", got.output())
+			}
+			runs := report.Checks[0].Verifications
+			if len(runs) != len(fixture.Verifications) {
+				t.Fatalf("%d verification run(s), fixture pins %d:\n%s", len(runs), len(fixture.Verifications), got.output())
+			}
+			objects := map[string]bool{}
+			for i, want := range fixture.Verifications {
+				if run := runs[i]; run.Case != want.Case || run.Kind != want.Verdict {
+					t.Errorf("verification %d: %s %s, fixture pins %s %s", i+1, run.Case, run.Kind, want.Case, want.Verdict)
+				}
+				if runs[i].Object == "" {
+					t.Errorf("verification %d names no object:\n%s", i+1, got.output())
+				}
+				objects[runs[i].Object] = true
+			}
+			if len(objects) != len(runs) {
+				t.Errorf("%d runs name %d objects, want each its own:\n%s", len(runs), len(objects), got.output())
+			}
+		})
+	}
+}

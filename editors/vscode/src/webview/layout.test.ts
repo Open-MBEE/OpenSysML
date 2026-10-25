@@ -28,6 +28,8 @@ import {
   byCodeUnit,
   insertedWaypoint,
   labelLines,
+  labelSize,
+  listedEdges,
   simpleName,
   simpleNames,
   layoutCanvas,
@@ -642,42 +644,44 @@ test("layoutCanvas hides the edges of a hidden kind, which then count for nothin
   assert.deepEqual(filtered.nodes.get("a")!.box, all.nodes.get("a")!.box);
 });
 
-test("layoutCanvas hides the children of a collapsed node", () => {
+// The server folds a collapsed node, so what it sends beneath one is the node's
+// boundary: its ports and pins. The panel draws each of them inside the node's
+// box and routes every edge at them, as the CLI does.
+test("layoutCanvas draws a collapsed node's port children as pins on its border and routes the edges at them", () => {
   const layout = layoutCanvas(
     rendering(
       [
         node("a", "a", { x: 10, y: 10, collapsed: true }),
-        node("b", "b", { parent: "a" }),
-        node("c", "c", { parent: "b" }),
-        node("d", "d", { x: 200, y: 5 }),
+        node("p1", "p1", { kind: "port", parent: "a" }),
+        node("p2", "p2", { kind: "port", parent: "a" }),
+        node("d", "d", { x: 300, y: 5 }),
       ],
       [
-        {
-          from: "b",
-          to: "c",
-          label: "",
-          kind: "connection",
-          route: [{ x: 900, y: 900 }],
-        },
-        { from: "c", to: "d", label: "", kind: "connection" },
+        { from: "d", to: "p1", label: "", kind: "connection" },
+        { from: "p2", to: "d", label: "", kind: "connection" },
         { from: "a", to: "d", label: "", kind: "connection" },
       ],
     ),
   );
   const a = layout.nodes.get("a")!;
-  assert.deepEqual(a.box, { x: 10, y: 10, width: 96, height: 52 });
   assert.equal(a.collapsed, true);
   assert.deepEqual(
-    ["b", "c"].map((id) => layout.nodes.get(id)!.hidden),
-    [true, true],
+    a.children.map((child) => child.node.id),
+    ["p1", "p2"],
   );
-  assert.equal(layout.nodes.get("d")!.hidden, false);
-  // An edge at a hidden node is hidden with it, its route not counted toward the canvas.
-  assert.deepEqual(
-    layout.edges.map((edge) => edge.hidden),
-    [true, true, false],
-  );
-  assert.equal(layout.height, 10 + 52 + MARGIN);
+  let bottom = a.box.y + a.box.height;
+  for (const id of ["p1", "p2"]) {
+    const port = layout.nodes.get(id)!;
+    assert.ok(port.snapped, `${id} is a pin`);
+    pinnedOn(port, a);
+    bottom = Math.max(bottom, port.box.y + port.box.height);
+  }
+  assert.equal(layout.edges.length, 3);
+  for (const edge of layout.edges) {
+    assert.ok(edge.points.length >= 2, `edge ${edge.edge.from} -> ${edge.edge.to} is routed`);
+    assert.equal(edge.hidden, false);
+  }
+  assert.equal(layout.height, bottom + MARGIN);
 });
 
 test("layoutCanvas honours the view's canvas size as a minimum", () => {
@@ -945,7 +949,7 @@ test("nodeUnder is the innermost drawn node holding the point, the later sibling
   assert.equal(nodeUnder(layout, { x: 500, y: 500 }), undefined);
 });
 
-test("nodeUnder passes over the dragged subtree and the children a collapsed node hides", () => {
+test("nodeUnder passes over the dragged subtree and reads the ports a collapsed node keeps", () => {
   const layout = layoutCanvas(
     rendering([
       node("a", "a", { x: 0, y: 0, width: 300, height: 200 }),
@@ -958,13 +962,14 @@ test("nodeUnder passes over the dragged subtree and the children a collapsed nod
         height: 200,
         collapsed: true,
       }),
-      node("f", "f", { parent: "c", x: 420, y: 50, width: 40, height: 20 }),
+      node("f", "f", { kind: "port", parent: "c", x: 420, y: 50, width: 40, height: 20 }),
     ]),
   );
   // The dragged node b is held over its own place: what is under the pointer is its owner.
   assert.equal(nodeUnder(layout, { x: 40, y: 85 }, "b")?.node.id, "a");
   assert.equal(nodeUnder(layout, { x: 40, y: 85 })?.node.id, "e");
-  assert.equal(nodeUnder(layout, { x: 430, y: 60 })?.node.id, "c");
+  assert.equal(nodeUnder(layout, { x: 430, y: 60 })?.node.id, "f");
+  assert.equal(nodeUnder(layout, { x: 550, y: 150 })?.node.id, "c");
 });
 
 test("nodeUnder reads the layout it is given, so a node placed aside no longer covers its old point", () => {
@@ -2180,7 +2185,7 @@ test("alignedPlacement ignores mixed-side port pairs", () => {
   assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
 });
 
-test("alignedPlacement ignores hidden edges and hidden other nodes", () => {
+test("alignedPlacement ignores hidden edges", () => {
   const bounds: Box = { x: 0, y: 0, width: 900, height: 400 };
   const makeLayout = (): CanvasLayout =>
     layoutWithPorts(
@@ -2204,20 +2209,6 @@ test("alignedPlacement ignores hidden edges and hidden other nodes", () => {
     hiddenEdgeAt,
   );
 
-  const hiddenNodeLayout = makeLayout();
-  hiddenNodeLayout.nodes.get("target")!.hidden = true;
-  const hiddenNodeMoving = hiddenNodeLayout.nodes.get("moving")!;
-  const hiddenNodeAt = { x: hiddenNodeMoving.box.x, y: hiddenNodeMoving.box.y };
-  assert.deepEqual(
-    alignedPlacement(
-      hiddenNodeMoving,
-      hiddenNodeAt,
-      hiddenNodeLayout,
-      bounds,
-      0,
-    ),
-    hiddenNodeAt,
-  );
 });
 
 test("alignedPlacement preserves jog-length libavoid routes across seeded short offsets", async () => {
@@ -3015,7 +3006,7 @@ test("landing stacked-drop repro starts with diagonal routes", async () => {
     const current = layoutCanvas(result, { nodes: settled, bounds }, auto);
     const moving = current.nodes.get(id)!;
     const others = [...current.nodes.values()].filter(
-      (entry) => entry.node.id !== id && !entry.hidden,
+      (entry) => entry.node.id !== id,
     );
     const at = freePlacement(
       moving,
@@ -3135,7 +3126,7 @@ test("freePlacement keeps a seeded four-node chain routable after drops", async 
     for (const id of ["a", "b", "c", "d"]) {
       const moving = current.nodes.get(id)!;
       const others = [...current.nodes.values()].filter(
-        (entry) => entry.node.id !== id && !entry.hidden,
+        (entry) => entry.node.id !== id,
       );
       const at = { x: randomInt(620), y: randomInt(320) };
       const placed = freePlacement(moving, at, others, inset, exitReach);
@@ -3607,20 +3598,18 @@ test("the router leaves the auto layout's routes, hidden edges and self-loops as
     assert.deepEqual(edge.points, auto.routes.get(0), routing);
   }
 
-  const collapsed = rendering(
+  const filtered = rendering(
     [
-      node("a", "a", { x: 10, y: 10, collapsed: true }),
-      node("b", "b", { parent: "a" }),
-      node("c", "c", { parent: "b" }),
+      node("a", "a", { x: 10, y: 10 }),
       node("d", "d", { x: 200, y: 5 }),
     ],
     [
-      { from: "b", to: "c", label: "", kind: "connection", route: [{ x: 900, y: 900 }] },
-      { from: "c", to: "d", label: "", kind: "connection" },
+      { from: "a", to: "d", label: "", kind: "flow", route: [{ x: 900, y: 900 }] },
+      { from: "d", to: "a", label: "", kind: "flow" },
       { from: "d", to: "d", label: "", kind: "connection", route: [{ x: 700, y: 700 }] },
     ],
   );
-  const hidden = layoutCanvas(collapsed, { routing: "router" });
+  const hidden = layoutCanvas(filtered, { routing: "router", hiddenKinds: new Set(["flow"]) });
   assert.deepEqual(hidden.edges.map((edge) => edge.hidden), [true, true, false]);
   assert.deepEqual(hidden.edges.map((edge) => edge.rerouted), [false, false, false]);
   // A self-loop's stated route is advisory too: the loop swings out to the right as an unrouted one does.
@@ -3691,3 +3680,189 @@ test("a container drag under the router writes only the model's stated routes, a
   assert.deepEqual(loop.edges[0].route, []);
   assert.deepEqual(movedNode(loop, "a", 100, 0)!.edges, [{ index: 0, route: [{ x: 250, y: 10 }, { x: 250, y: 30 }] }]);
 });
+
+// sizedOwner is a part `a` the model places in a 120×60 box, two ports under it, a part `b` with a port
+// `q`, and the connector `a.p1 → b.q` the interconnection kind draws.
+function sizedOwner(kind: "tree" | "interconnection"): RenderResult {
+  return rendering(
+    [
+      node("rig", "Rig", { kind: "part def" }),
+      node("a", "a", { parent: "rig", x: 10, y: 10, width: 120, height: 60 }),
+      node("p1", "p1", { kind: "port", type: "Fuel", parent: "a" }),
+      node("p2", "p2", { kind: "port", type: "Fuel", parent: "a" }),
+      node("b", "b", { parent: "rig" }),
+      node("q", "q", { kind: "port", type: "Fuel", parent: "b" }),
+    ],
+    kind === "interconnection" ? [{ from: "p1", to: "q", label: "", kind: "connection", fqn: "M::c" }] : [],
+    { kind },
+  );
+}
+
+// pinnedOn asserts a port node is drawn as a pin straddling its owner's border: its square
+// centred on the border, neither inside nor outside the box.
+function pinnedOn(port: PlacedNode, owner: PlacedNode): void {
+  assert.ok(port.snapped, `${port.node.id} should be pinned on ${owner.node.id}`);
+  assert.deepEqual([port.box.width, port.box.height], [PORT_SIZE, PORT_SIZE]);
+  const centre = { x: port.box.x + port.box.width / 2, y: port.box.y + port.box.height / 2 };
+  assert.ok(onBorder(centre, owner.box), `${port.node.id} at ${JSON.stringify(centre)} should lie on ${JSON.stringify(owner.box)}`);
+  assert.deepEqual(centre, portCenter(owner.box, port.snapped));
+}
+
+for (const kind of ["tree", "interconnection"] as const) {
+  test(`layoutCanvas keeps a stated box its size and pins its ports on its border (${kind})`, () => {
+    const layout = layoutCanvas(sizedOwner(kind));
+    const a = layout.nodes.get("a")!;
+    assert.deepEqual(a.box, { x: 10, y: 10, width: 120, height: 60 });
+    pinnedOn(layout.nodes.get("p1")!, a);
+    pinnedOn(layout.nodes.get("p2")!, a);
+    assert.notDeepEqual(layout.nodes.get("p1")!.box, layout.nodes.get("p2")!.box);
+    assert.deepEqual(layout.notices, []);
+  });
+}
+
+test("layoutCanvas pins the ports of an unsized owner the same way, its box fitted to its label alone", () => {
+  const layout = layoutCanvas(sizedOwner("interconnection"));
+  const b = layout.nodes.get("b")!;
+  const q = layout.nodes.get("q")!;
+  pinnedOn(q, b);
+  assert.deepEqual([b.box.width, b.box.height], [labelSize(b.lines).width, labelSize(b.lines).height]);
+  assert.equal(b.children.length, 1);
+});
+
+test("layoutCanvas anchors a connector at the faces of the pins it joins", () => {
+  const layout = layoutCanvas(sizedOwner("interconnection"));
+  const a = layout.nodes.get("a")!;
+  const b = layout.nodes.get("b")!;
+  const p1 = layout.nodes.get("p1")!;
+  const q = layout.nodes.get("q")!;
+  assert.equal(p1.snapped!.side, "east", "p1 faces b, to its right");
+  assert.equal(q.snapped!.side, "west", "q faces a, to its left");
+  const [edge] = layout.edges;
+  assert.equal(edge.hidden, false);
+  assert.deepEqual(edge.points[0], portFace(a.box, p1.snapped!));
+  assert.deepEqual(edge.points.at(-1), portFace(b.box, q.snapped!));
+  assert.deepEqual(nodeUnder(layout, portCenter(a.box, p1.snapped!))?.node.id, "p1");
+});
+
+test("layoutCanvas leaves undrawn an unplaced child a stated size has no room for, with a notice", () => {
+  const layout = layoutCanvas(
+    rendering(
+      [
+        node("a", "a", { x: 10, y: 10, width: 120, height: 60 }),
+        node("inner", "inner", { parent: "a" }),
+        node("deep", "deep", { parent: "inner" }),
+        node("c", "c", { x: 400, y: 10 }),
+      ],
+      [{ from: "inner", to: "c", label: "", kind: "connection", fqn: "M::e" }],
+    ),
+  );
+  const a = layout.nodes.get("a")!;
+  const inner = layout.nodes.get("inner")!;
+  assert.deepEqual(a.box, { x: 10, y: 10, width: 120, height: 60 });
+  assert.ok(inner.box.y + inner.box.height > a.box.y + a.box.height, "the child does not fit the box");
+  assert.equal(inner.clipped, true);
+  assert.equal(layout.nodes.get("deep")!.clipped, true);
+  assert.equal(layout.edges[0].hidden, true);
+  assert.deepEqual(listedEdges(layout), []);
+  assert.equal(nodeUnder(layout, { x: inner.box.x + 1, y: inner.box.y + inner.box.height - 1 }), undefined);
+  assert.equal(layout.height, 10 + 60 + MARGIN, "the canvas covers the drawn boxes alone");
+  assert.deepEqual(layout.notices, ["2 node(s) with no room in the stated size of the box above them, left undrawn"]);
+});
+
+test("layoutCanvas draws an unplaced child a stated size has room for", () => {
+  const layout = layoutCanvas(
+    rendering([
+      node("a", "a", { x: 10, y: 10, width: 300, height: 200 }),
+      node("inner", "inner", { parent: "a" }),
+    ]),
+  );
+  const a = layout.nodes.get("a")!;
+  const inner = layout.nodes.get("inner")!;
+  assert.equal(inner.clipped, false);
+  assert.ok(inner.box.x >= a.box.x && inner.box.x + inner.box.width <= a.box.x + a.box.width);
+  assert.ok(inner.box.y >= a.box.y && inner.box.y + inner.box.height <= a.box.y + a.box.height);
+  assert.deepEqual(layout.notices, []);
+});
+
+test("layoutCanvas keeps a port the model places in its stated box, and one with members drawn under it inside its owner", () => {
+  const layout = layoutCanvas(
+    rendering([
+      node("a", "a", { x: 10, y: 10, width: 120, height: 60 }),
+      node("placed", "placed", { kind: "port", parent: "a", x: 200, y: 200 }),
+      node("b", "b"),
+      node("nested", "nested", { kind: "port", parent: "b" }),
+      node("sub", "sub", { kind: "port", parent: "nested" }),
+    ]),
+  );
+  const placed = layout.nodes.get("placed")!;
+  assert.equal(placed.snapped, undefined);
+  assert.equal(placed.pinned, true);
+  assert.deepEqual([placed.box.x, placed.box.y], [200, 200]);
+  const b = layout.nodes.get("b")!;
+  const nested = layout.nodes.get("nested")!;
+  assert.equal(nested.snapped, undefined);
+  assert.ok(nested.box.x >= b.box.x && nested.box.x + nested.box.width <= b.box.x + b.box.width);
+  assert.ok(nested.box.y >= b.box.y && nested.box.y + nested.box.height <= b.box.y + b.box.height);
+  pinnedOn(layout.nodes.get("sub")!, nested);
+});
+
+test("layoutCanvas draws a placed member of a clipped child where the model puts it, with its edges", () => {
+  const layout = layoutCanvas(
+    rendering(
+      [
+        node("a", "a", { x: 10, y: 10, width: 120, height: 60 }),
+        node("inner", "inner", { parent: "a" }),
+        node("sensor", "sensor", { parent: "inner", x: 400, y: 100 }),
+        node("c", "c", { x: 400, y: 300 }),
+      ],
+      [{ from: "sensor", to: "c", label: "", kind: "connection", fqn: "M::sc" }],
+    ),
+  );
+  const inner = layout.nodes.get("inner")!;
+  const sensor = layout.nodes.get("sensor")!;
+  assert.equal(inner.clipped, true);
+  assert.equal(sensor.clipped, false);
+  assert.deepEqual([sensor.box.x, sensor.box.y], [400, 100]);
+  assert.equal(layout.edges[0].hidden, false);
+  assert.equal(nodeUnder(layout, { x: 401, y: 101 })?.node.id, "sensor");
+  assert.ok(layout.width >= 400 + sensor.box.width + MARGIN);
+  assert.deepEqual(layout.notices, ["1 node(s) with no room in the stated size of the box above them, left undrawn"]);
+});
+
+test("liftedEdges anchors a connector at a lifted owner's pin, and on a pin lifted off its border", () => {
+  const layout = layoutCanvas(sizedOwner("interconnection"));
+  const a = layout.nodes.get("a")!;
+  const p1 = layout.nodes.get("p1")!;
+  const [lifted] = liftedEdges(layout, "a", 100, 30);
+  const movedA = { ...a.box, x: a.box.x + 100, y: a.box.y + 30 };
+  assert.deepEqual(lifted.points[0], portFace(movedA, p1.snapped!));
+  const [pinLifted] = liftedEdges(layout, "p1", 50, 0);
+  const start = pinLifted.points[0];
+  assert.ok(start.x >= p1.box.x + 50 && start.x <= p1.box.x + 50 + PORT_SIZE, `anchored on the lifted pin, not at ${JSON.stringify(start)}`);
+});
+
+test("layoutCanvas routes around an owner a placed member of its clipped child lies beyond", () => {
+  const layout = layoutCanvas(
+    rendering(
+      [
+        node("a", "a", { x: 100, y: 80, width: 120, height: 60 }),
+        node("inner", "inner", { parent: "a" }),
+        node("sensor", "sensor", { parent: "inner", x: 400, y: 100, width: 40, height: 20 }),
+        node("far", "far", { x: -200, y: 100, width: 40, height: 20 }),
+      ],
+      [{ from: "sensor", to: "far", label: "", kind: "connection", fqn: "M::sf" }],
+    ),
+  );
+  const [edge] = layout.edges;
+  assert.equal(edge.rerouted, true);
+  const a = layout.nodes.get("a")!.box;
+  const crosses = edge.points.some((p, i) => i > 0 && intersectsSegment(edge.points[i - 1], p, a));
+  assert.equal(crosses, false, `route ${JSON.stringify(edge.points)} crosses a's box ${JSON.stringify(a)}`);
+});
+
+// intersectsSegment reports an axis-aligned segment passing through the inside of a box.
+function intersectsSegment(p: { x: number; y: number }, q: { x: number; y: number }, box: Box): boolean {
+  const [x1, x2] = [Math.min(p.x, q.x), Math.max(p.x, q.x)];
+  const [y1, y2] = [Math.min(p.y, q.y), Math.max(p.y, q.y)];
+  return x1 < box.x + box.width && x2 > box.x && y1 < box.y + box.height && y2 > box.y;
+}

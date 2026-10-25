@@ -272,7 +272,7 @@ func TestElementBudgetIsReleasedByOpenReads(t *testing.T) {
 	val, err := evalIn(t, ctx, scope, reads)
 	wantFormatted(t, reads, val, err, "true")
 	val, err = evalIn(t, ctx, scope, "rack.gear")
-	wantUndetermined(t, "rack.gear", val, err, "[1..*]")
+	wantUndetermined(t, "rack.gear", val, err, "[2..*]")
 	if u := val.Undetermined(); u != nil && len(u.knownValues()) != 1 {
 		t.Errorf("rack.gear certainly holds %v, want the one object of fixed", u.knownValues())
 	}

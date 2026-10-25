@@ -10,7 +10,7 @@ ControlFlow	Mission::Sub::Run::Inner::<ControlFlow>	_eb	(the edge carries no «P
 «Block» Class	Mission::Sub	_sub	-> Model::Mission::Sub
 ActivityFinalNode	Mission::Sub::Run::<ActivityFinalNode>	_rf	-> final
 InitialNode	Mission::Sub::Run::<InitialNode>	_ri	-> start
-Activity	Mission::Sub::Run::Inner	_inner	-> Model::Mission::Sub::Run::Inner	(acts on its owner Mission::Sub, which it takes as its parameter context, since its this is the def's own occurrence)
+Activity	Mission::Sub::Run::Inner	_inner	-> Model::Mission::Sub::Run::Inner	(acts on its owner Mission::Sub, which it takes as its parameter context, since its this names no feature of the owner)
 ActivityFinalNode	Mission::Sub::Run::Inner::<ActivityFinalNode>	_if	-> final
 «Probability» ControlFlow	Mission::Sub::Run::Inner::<ControlFlow>	_ea	(the probability reads the property pr of the object performing the action, so a run checks it lies in [0, 1] and the branches sum to 1 when the decision is reached)
 ControlFlow	Mission::Sub::Run::Inner::<ControlFlow>	_fa

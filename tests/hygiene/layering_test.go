@@ -76,6 +76,7 @@ var packageLayer = map[string]string{
 	"internal/check/passes/identity": "check",
 	"internal/check/passes/behavior": "check",
 	"internal/check/edit":            "check",
+	"internal/check/workspace":       "check",
 
 	"internal/exec/runtime":             "exec",
 	"internal/exec/sweep":               "exec",
