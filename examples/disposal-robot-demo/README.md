@@ -47,9 +47,9 @@ the robot's draw.
 
 ```
 ✓ RobotBehavior::Approach(120.0, 90.0)
-  = 150.0
+  = [150.0]
 ✓ RobotBehavior::energyForDrive(150.0, 0.42, 120.0)
-  = 11.904761904761907
+  = [11.904761904761907]
 ```
 
 **Run the call-out.** `DisposalRun` forks the survey and the retrieval, joins
@@ -142,35 +142,33 @@ config:
 ---
 %% RobotViews::interfaces — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["`*«part def»*
-**Platform**`"]
+  subgraph n0 ["`*«part def»* **Platform**`"]
     direction LR
     n1("`*«attribute»*
-**mass : Real**`")
+**mass**`")
     …
-    subgraph n3 ["`*«part»*
-**battery : Battery**`"]
+    subgraph n3 ["`*«part»* **battery**`"]
       direction LR
-      n3_anchor[" "]
       n3.0["outlet"]
+      …
     end
     …
   end
-  n3.0 ===|"drivePower"| n5.0
-  n6 ===|"imageryLink"| n8.0
-  n3_anchor -.->|"of Charge"| n5_anchor
-  n6 -.->|"of Frame"| n8_anchor
+  n3.0 === n11.0
+  n20.0 === n28.0
+  n6 -.-> n17
+  n22 -.-> n31
   …
 ```
 
 ```
-wrote rendered/RobotViews.interfaces.mmd (mermaid, 1819 bytes)
-wrote rendered/RobotViews.modes.mmd (mermaid, 1419 bytes)
-wrote rendered/RobotViews.run.mmd (mermaid, 2109 bytes)
+wrote rendered/RobotViews.interfaces.mmd (mermaid, 2848 bytes)
+wrote rendered/RobotViews.modes.mmd (mermaid, 1413 bytes)
+wrote rendered/RobotViews.run.mmd (mermaid, 1866 bytes)
 wrote rendered/RobotViews.partsTable.md (markdown, 842 bytes)
-wrote rendered/RobotViews.criticalParts.mmd (mermaid, 1783 bytes)
-wrote rendered/RobotViews.overview.mmd (mermaid, 1886 bytes)
-wrote rendered/RobotViews.overview.interfaceSubview.mmd (mermaid, 1835 bytes)
+wrote rendered/RobotViews.criticalParts.mmd (mermaid, 884 bytes)
+wrote rendered/RobotViews.overview.mmd (mermaid, 10443 bytes)
+wrote rendered/RobotViews.overview.interfaceSubview.mmd (mermaid, 2864 bytes)
 ```
 
 **Identify elements with an OSLC query.** `-query` takes
@@ -288,7 +286,7 @@ robot is approaching.
 ```
 
 ```
-✓ Advanced to 5.0 (1 event(s) processed)
+✓ Advanced to 5.0 (2 event(s) processed)
   Current state: rolling
 Current state: rolling
 State stack (active configuration):
@@ -325,23 +323,12 @@ Features:
   log = Instance(ID: 3)
     frames = 15
     passes = 1
-  modes = Instance(ID: 2)
+Behaviors:
+  modes: exhibited state machine, completed
     odometer = 21.0
     framesCaptured = 12
     faults = 0
-    idle = <unknown>
-    approach = Instance(ID: 4)
-      rolling = <unknown>
-      holding = <unknown>
-    handling = <unknown>
-    safing = <unknown>
-    idle_to_rolling = <unknown>
-    rolling_to_holding = <unknown>
-    rolling_to_safe = <unknown>
-    approach_to_handling = <unknown>
-  recordPass = Instance(ID: 5)
-    frames = <unset>
-    store = <unknown>
+  recordPass: action, not running
 ✓ modes.odometer (on RobotBehavior::controller ID: 1)
   = 21.0
 ✓ log.frames (on RobotBehavior::controller ID: 1)
@@ -493,7 +480,7 @@ view RobotViews::overview
 ```
 RobotViews::modes - state rendering (view def StateTransitionView)
 
-state def RobotBehavior::Modes
+state def Modes
   start
   state idle (initial)
   state approach
@@ -504,7 +491,7 @@ state def RobotBehavior::Modes
   final done
 
 transitions:
-  start of RobotBehavior::Modes -> idle
+  start of Modes -> idle
   idle -> rolling: after 5 [s]
   approach -> handling: after 20 [s]
   rolling -> holding: after 10 [s]
@@ -548,8 +535,8 @@ states        idle -> approach -> rolling -> holding -> handling -> done
 wrote         faults=0, framesCaptured=12, odometer=21.0
 
 == checking the call-out budget
-✓ satisfy runIsBudgeted by run12 holds (on RobotSolver::run12 ID: 1)
-✗ satisfy runIsBudgeted by run13 fails (on RobotSolver::run13 ID: 2): condition evaluated to false: …
+✓ satisfy runIsBudgeted by run12 holds (on RobotSolver::run12 ID: 1) — observed by run
+✗ satisfy runIsBudgeted by run13 fails (on RobotSolver::run13 ID: 2): condition evaluated to false: … — witnessed by run
 both hold     False
 heavy mockup  over the mass budget
 ```

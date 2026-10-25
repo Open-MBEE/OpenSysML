@@ -26,11 +26,11 @@ def main() -> None:
     print(f"battery       {robot.battery.charge} of {robot.battery.capacity} Wh")
 
     print("\n== planning the approach")
-    metres = model.calc("RobotBehavior::Approach", arguments=[120.0, 90.0]).value
+    metres = model.calc("RobotBehavior::Approach", arguments=[120.0, 90.0]).value[0]
     energy = model.calc(
         "RobotBehavior::energyForDrive",
         arguments=[metres, robot.mobility.speed, robot.mobility.drivePower],
-    ).value
+    ).value[0]
     print(f"{metres} m costs {energy:.1f} Wh of the {robot.battery.charge} Wh aboard")
 
     print("\n== running the call-out")

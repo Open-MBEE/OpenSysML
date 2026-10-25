@@ -4,13 +4,13 @@ Demonstrations of the SysML v2 / KerML parser features that let every file of th
 
 ## Overview
 
-These demos showcase parser improvements across multiple development sessions (Sessions 2-5). Each demo file focuses on a specific category of features with working examples extracted from real stdlib usage patterns.
+Each demo file focuses on a specific category of features with working examples extracted from real stdlib usage patterns.
 
-**Parser Status:** 96/96 bundled library files parse cleanly (94 official SysML v2 standard library files plus two OpenSysML extensions), gated by `internal/workspace/libs/stdlib_conformance_test.go`.
+**Parser Status:** 110/110 bundled library files parse cleanly (94 official SysML v2 standard library files plus the 16 libraries under `OpenSysML Libraries/`), gated by `internal/workspace/libs/stdlib_conformance_test.go`.
 
 ## Demo Files
 
-### Original Demos (Sessions 2-3)
+### Original Demos
 
 #### 1. Relationships Demo (`parser_features_demo_relationships.kerml`)
 
@@ -81,7 +81,7 @@ demo 6, `parser_features_demo_advanced_connectors.kerml`.
 - Alternative to `=` for value assignment
 - Clearer intent for default values
 
-### Advanced Demos (Sessions 4-5)
+### Advanced Demos
 
 #### 6. Advanced Connectors Demo (`parser_features_demo_advanced_connectors.kerml`)
 
@@ -258,38 +258,33 @@ go test ./examples -run '^TestParserFeaturesDeclarations$' -v
 go test ./examples -run '^TestParserFeaturesEdgeCases$' -v
 ```
 
-## Development Context
+## Feature Summary
 
-These features were implemented across five development sessions:
+### Original features
+- inverse of, unions, protected/readonly, nonunique, default keyword, binding syntax, constant modifier, succession first/then, chains relationship, connection connect keyword
 
-### Sessions 2-3 (Tasks 47-57)
-- **Coverage:** 76.8% → 81.1% (+4.3pp, +4 files)
-- **Features:** inverse of, unions, protected/readonly, nonunique, default keyword, binding syntax, constant modifier, succession first/then, chains relationship, connection connect keyword
+### Advanced features
+- Connector enhancements (end modifiers, references, single-end typing, transition usage)
+- Action semantics (assign, perform, while, if, namespace succession)
+- Advanced bodies (predicate/bool returns, shorthand params, constraint members)
+- Messages & events (message/event keywords, ref with body)
+- Declarations (multiplicity, classifier/subclassifier, multiple typing, subset/disjoint)
+- Edge cases (keywords in expressions, identifier multiplicities, bind/require/step shortcuts)
 
-### Sessions 4-5 (Tasks 58-94)
-- **Coverage:** 81.1% → 100.0% (+18.9pp, +18 files)
-- **Features:** 37 tasks implementing all remaining stdlib patterns
-  - Connector enhancements (end modifiers, references, single-end typing, transition usage)
-  - Action semantics (assign, perform, while, if, namespace succession)
-  - Advanced bodies (predicate/bool returns, shorthand params, constraint members)
-  - Messages & events (message/event keywords, ref with body)
-  - Declarations (multiplicity, classifier/subclassifier, multiple typing, subset/disjoint)
-  - Edge cases (keywords in expressions, identifier multiplicities, bind/require/step shortcuts)
-
-**Final Status:** 100.0% (96/96 bundled library files parse cleanly)
+**Status:** 110/110 bundled library files parse cleanly (`go test -run TestStdlibConformance ./internal/workspace/libs`)
 
 ## Real-World Usage
 
 These patterns appear throughout the official standard library:
 
-**Original features (Sessions 2-3):**
+**Original features:**
 - Base.kerml: chains relationship, visibility modifiers
 - Occurrences.kerml: inverse of, succession patterns
 - Interfaces.sysml: protected references, nonunique ports
 - ShapeItems.sysml: complex binding patterns, connection with connect
 - CausationConnections.sysml: named succession with first/then
 
-**Advanced features (Sessions 4-5):**
+**Advanced features:**
 - Actions.sysml: action semantics, namespace succession, transition usage
 - Flows.sysml: message/event keywords, ref with body
 - Base.kerml: multiplicity declarations, classifier keyword

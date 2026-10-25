@@ -52,6 +52,7 @@ exceed its own budget, so it cannot hold:
 ```
 
 ```
+✗ Requirement OverbookedBudget is unsatisfiable (z3, 9ms)
 ✗ Requirement OverbookedBudget is unsatisfiable: 3 conditions conflict (z3, 26ms)
   Every condition below is needed: dropping any one leaves the rest satisfiable.
   1. required condition: `rover.drivePower + rover.sciencePower <= 200` — requirement OverbookedBudget, at …:65:13

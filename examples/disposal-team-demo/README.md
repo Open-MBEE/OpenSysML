@@ -81,9 +81,6 @@ verifies the requirement reaches its verdict from the same comparison.
   standing: holds (observed: 1 run under reverse)
 ✓ satisfy payloadAsserted by loadedTruck holds (on TeamCases::loadedTruck ID: 6)
   standing: holds (observed: 1 run under reverse)
-✓ satisfy payloadHolds holds
-✓ Verification TeamCases::checkPayload verdict: pass
-  standing: holds (observed: 1 run under reverse)
 ```
 
 ## From the REPL
