@@ -6,6 +6,8 @@
     "a21": {"type": "Real", "value": 2.0},
     "b21": {"type": "Real", "value": 3.0},
     "a21Count": {"type": "Integer", "value": 1},
+    "twice21": {"type": "Real", "value": 6.0},
+    "half21": {"type": "Real", "value": 1.0},
     "a21ViaA1": {"type": "Real", "value": 3.0},
     "a21ViaA2": {"type": "Real", "value": 2.0},
     "a21CastA1": {"type": "Real", "value": 3.0},

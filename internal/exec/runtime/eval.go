@@ -64,10 +64,10 @@ type EvalContext struct {
 	// was entered: an occurrence begun since began during the call.
 	entered int64
 
-	// chainMembers are the declarations the segments of the chains being
-	// evaluated name, by segment, so an object answers each by the feature it
-	// names rather than by its name alone (see chain_member_slot.go).
-	chainMembers map[*ast.NameSegment]*symbols.Symbol
+	// chain is the declaration each segment of the chain being evaluated names,
+	// so an object answers a segment by the feature it names rather than by its
+	// name alone (see chain_member_slot.go).
+	chain chainStatic
 }
 
 // newEvalContext creates an evaluation context with an empty frame stack. It
@@ -791,7 +791,9 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 		// Then the bound instance: a feature value holds the value this object actually
 		// carries, which overrides the declared default the scope would yield.
 		if ec.self != nil && ec.selfFeatureInScope(name) {
-			if val, ok, err := ec.selfFeatureValue(name); err != nil {
+			// The name reads the feature it resolves to where the expression was
+			// written, which the object may hold under a redefiner's name.
+			if val, ok, err := ec.selfFeatureValue(ec.selfMemberSlot(name)); err != nil {
 				return Value{}, err
 			} else if ok {
 				return val, nil
@@ -1531,7 +1533,7 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 		return Value{}, fmt.Errorf("empty member chain")
 	}
 	base, parts := ast.FeatureChainBase(n)
-	ec.noteChainMembers(base, parts)
+	defer ec.noteChainMembers(base, parts)()
 
 	// A state's activity, `fill.isActive`, is read from the active configuration
 	// of the machine holding the state, not from a feature value.
@@ -1795,7 +1797,7 @@ func (ec *EvalContext) chainObjectMember(value Value, parts []ast.NameSegment, f
 	}
 	// The segment reads the feature its name resolved to, which the object may
 	// hold under the name of a feature redefining it (KerML 1.0 §7.3.4.5).
-	if slot, ok := ec.ctx.featureSlot(inst, ec.chainMembers[&parts[0]]); ok {
+	if slot, ok := ec.ctx.featureSlot(inst, ec.chainMember(parts)); ok {
 		name = slot
 	}
 	fvDecl, ok := inst.FeatureValues[name]

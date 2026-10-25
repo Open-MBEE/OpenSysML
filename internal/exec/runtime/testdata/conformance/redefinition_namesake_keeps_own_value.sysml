@@ -7,12 +7,13 @@
 // whichever order the generals are written in and whether a definition or a usage
 // owns the redefinition, while `b`, and `a` read as an A1, are 3.0. Where the two
 // paths inherit one feature (a diamond) every name reads the redefiner's value.
+// A value an A1 or A2 writes in terms of its own `a` reads that feature on the object.
 package test {
     private import ScalarValues::*;
     private import SequenceFunctions::size;
 
-    part def A1 { attribute a : Real default = 1.0; }
-    part def A2 { attribute a : Real default = 2.0; }
+    part def A1 { attribute a : Real default = 1.0; attribute twice : Real = a * 2.0; }
+    part def A2 { attribute a : Real default = 2.0; attribute half : Real = a / 2.0; }
     part def Both21 :> A2, A1 { attribute b :>> A1::a = 3.0; }
     part def Both12 :> A1, A2 { attribute b :>> A1::a = 3.0; }
     part bd21 : Both21;
@@ -29,6 +30,8 @@ package test {
         attribute a21 : Real = bd21.a;
         attribute b21 : Real = bd21.b;
         attribute a21Count : Integer = bd21.a->size();
+        attribute twice21 : Real = bd21.twice;
+        attribute half21 : Real = bd21.half;
         ref bd21AsA1 : A1 = bd21;
         ref bd21AsA2 : A2 = bd21;
         attribute a21ViaA1 : Real = bd21AsA1.a;
