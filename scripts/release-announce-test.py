@@ -262,8 +262,18 @@ class SnippetPathTest(unittest.TestCase):
 
     def test_accepts_any_absolute_path_when_run_from_the_root(self):
         with working_directory(pathlib.Path(os.sep)):
-            resolved = announce._snippet_path(argparse.ArgumentParser(), str(self.secret))
+            resolved = announce._snippet_path(str(self.secret))
         self.assertEqual(resolved, str(self.secret))
+
+    def test_accepts_the_working_directory_itself(self):
+        with working_directory(self.cwd):
+            self.assertEqual(announce._snippet_path("."), str(self.cwd))
+
+    def test_helper_raises_for_a_path_outside_the_working_directory(self):
+        with working_directory(self.cwd):
+            with self.assertRaises(ValueError) as raised:
+                announce._snippet_path(str(self.secret))
+        self.assertIn("outside the working directory", str(raised.exception))
 
     def test_refuses_a_sibling_directory_sharing_the_prefix(self):
         sibling = pathlib.Path(str(self.cwd) + "malicious")
