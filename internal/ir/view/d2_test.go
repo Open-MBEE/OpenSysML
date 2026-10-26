@@ -311,10 +311,8 @@ func TestD2SequenceDiagram(t *testing.T) {
 	checkD2Renders(t, empty)
 }
 
-// A GeneralView graph draws its relationships in the class-diagram notation:
-// specialization and typing a solid hollow triangle, composition, reference
-// and containment a diamond or circle at the owner, an import a dashed
-// dependency and a «satisfy» or «verify» a plain solid arrow.
+// A GeneralView graph draws its relationships with the notation table's D2
+// classes: triangles, diamonds and a circle at the owner, dashed imports.
 func TestD2GeneralGraphNotation(t *testing.T) {
 	definitions, err := render(t, "general.sysml", "GeneralViews::definitionView").D2()
 	if err != nil {
