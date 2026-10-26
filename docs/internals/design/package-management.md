@@ -82,8 +82,9 @@ A package manager and OpenSysML meet only on disk, at the consuming project's `.
   the Package-URL git type `pkg:git/<host>/<path>[@<version>][#<subpath>]` (purl is ECMA-427; a git
   remote is the identity, no provider vocabulary — `pkg:git/github.com/Open-MBEE/OpenSysML-Extensions-Library@1.0.0`)
   and a plain URL alike, with `https://www.omg.org/spec/...kpar` answered by the bundled standard
-  library. The IRI's fragment and query are not part of the match today (`resourceSegments` drops
-  them), so a purl `#<subpath>` resolves to whatever the package manager installed for that usage.
+  library. A purl `#<subpath>` fragment names a project directory within the repository the path
+  names (`pkg:git/host/acme/widgets#packages/gears`): the installed project matched is the fragment's
+  last segment under the repository's owner (`acme`/`gears`), read through its own installation alone.
 - **Versions.** `versionConstraint` is honoured as today (exact, else latest installed by semver
   order). `@<version>` in the IRI is an exact constraint when the usage carries no
   `versionConstraint` (before this, `resourceSegments` discarded it and the latest installed release
