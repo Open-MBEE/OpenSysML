@@ -56,7 +56,7 @@ func (s *Session) loadPathsReport(paths []string, opts loadOptions) (LoadReport,
 	if err != nil {
 		return LoadReport{}, err
 	}
-	read, err := s.readWithDependencies(files, opts, s.knownRoot)
+	read, err := s.readWithDependencies(files, opts)
 	if err != nil {
 		return LoadReport{}, err
 	}
@@ -204,14 +204,14 @@ type reading struct {
 }
 
 // readWithDependencies reads paths, then the model files beside and below them
-// that declare a root namespace they reference and neither they nor known —
-// the library's root packages, and whatever else the caller holds — declare.
-func (s *Session) readWithDependencies(paths []string, opts loadOptions, known func(name string) bool) (reading, error) {
+// that declare a root namespace they reference and neither they, the library
+// nor the rest of the buffer declares.
+func (s *Session) readWithDependencies(paths []string, opts loadOptions) (reading, error) {
 	read, err := s.readSources(paths, opts)
 	if err != nil {
 		return reading{}, err
 	}
-	deps := s.discovery().DependenciesOf(read.deps, known)
+	deps := s.discovery().DependenciesOf(read.deps, s.knownRootBesides(read.files))
 	if len(deps) == 0 {
 		return read, nil
 	}
@@ -226,11 +226,18 @@ func (s *Session) readWithDependencies(paths []string, opts loadOptions, known f
 	return read, nil
 }
 
-// knownRoot reports whether the library or the buffer declares the root
-// namespace name, so a loaded file's reference to it is not looked for in the
-// files beside it.
-func (s *Session) knownRoot(name string) bool {
-	return s.ws.IsLibraryRoot(name) || len(s.undeclaredRoots([]string{name}, nil)) == 0
+// knownRootBesides reports the root namespace names the library or the buffer
+// declares, what the files being read declared before left out: a reload
+// supersedes that, so a reference to such a name is looked for beside them.
+func (s *Session) knownRootBesides(files []SourceFile) func(name string) bool {
+	replacing := map[string]bool{}
+	for _, f := range files {
+		if key := f.key(); key != "" {
+			replacing[key] = true
+		}
+	}
+	declared := s.declaredRoots(replacing)
+	return func(name string) bool { return declared[name] || s.ws.IsLibraryRoot(name) }
 }
 
 // expandHomes expands a leading ~ in every path.

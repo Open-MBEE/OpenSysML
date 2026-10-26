@@ -406,3 +406,28 @@ func TestLoadingOneFilePullsInTheSiblingsItNamesByQualifiedName(t *testing.T) {
 		t.Errorf("MethodViews::ProjectView did not resolve: %v", err)
 	}
 }
+
+func TestReloadingAFileFindsTheRootItNoLongerDeclaresBesideIt(t *testing.T) {
+	dir := t.TempDir()
+	model := writeFile(t, filepath.Join(dir, "model.sysml"), "package Lib {\n    part def Old;\n}\n")
+
+	s := NewSession()
+	if _, err := s.LoadPathsReport([]string{model}); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, model, "package Main {\n    part x : Lib::Thing;\n}\n")
+	writeFile(t, filepath.Join(dir, "lib.sysml"), "package Lib {\n    part def Thing;\n}\n")
+	rep, err := s.LoadPathsReport([]string{model})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Errors {
+		t.Errorf("reload reported errors: %v", rep.Found)
+	}
+	if got := strings.Join(rep.Loaded, "\n"); !strings.Contains(got, "loaded 2 files:") || !strings.Contains(got, "lib.sysml") {
+		t.Errorf("loaded = %q, want model.sysml and lib.sysml", got)
+	}
+	if _, _, err := s.lookupSymbol("Lib::Thing"); err != nil {
+		t.Errorf("Lib::Thing did not resolve: %v", err)
+	}
+}

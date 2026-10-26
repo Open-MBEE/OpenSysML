@@ -92,7 +92,7 @@ func (s *Session) LoadFile(path string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	read, err := s.readWithDependencies(files, loadOptions{}, s.knownRoot)
+	read, err := s.readWithDependencies(files, loadOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	read, err := s.readWithDependencies(paths, loadOptions{}, s.knownRoot)
+	read, err := s.readWithDependencies(paths, loadOptions{})
 	if err != nil {
 		return nil, err
 	}
