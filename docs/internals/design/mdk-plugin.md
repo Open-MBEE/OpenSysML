@@ -767,7 +767,8 @@ user: right-click an element ▸ OpenSysML ▸ Export as SysML v2…
                   directory, lexically or through a link, is refused), the report as
                   <stem>.migration-report.txt; files it would replace are confirmed on the EDT
                   first, then everything is staged beside the destination and moved into place
-  4  the temporary .mdzip is removed; a dialog lists what was written and counts the diagnostics
+  4  the temporary .mdzip is removed; a dialog lists what was written and counts the diagnostics,
+                  whose spans name the saved file (the text is parsed under the destination's name)
 ```
 
 For a v1 project the geometry comes out of the migration as `DiagramLayout` metadata in each

@@ -118,7 +118,7 @@ public final class Engine implements AutoCloseable {
     try {
       current = connection();
       watcher = watcher(cancellation, current);
-      List<SourceDocument> documents = source.sources(current);
+      List<SourceDocument> documents = named(source.sources(current), destination);
       Model model = current.parseSources(documents);
       if (cancellation.requested()) return Optional.empty();
       List<Diagnostic> diagnostics = new ArrayList<>(source.exportDiagnostics());
@@ -132,6 +132,14 @@ public final class Engine implements AutoCloseable {
     } finally {
       stop(watcher);
     }
+  }
+
+  /** The first document under the destination's file name, so the diagnostics name the file the user saved. */
+  private static List<SourceDocument> named(List<SourceDocument> documents, Path destination) {
+    if (documents.isEmpty() || documents.get(0).content().isEmpty()) return documents;
+    List<SourceDocument> named = new ArrayList<>(documents);
+    named.set(0, SourceDocument.inline(destination.getFileName().toString(), documents.get(0).content().get()));
+    return List.copyOf(named);
   }
 
   private Thread watcher(Cancellation cancellation, Connection current) {

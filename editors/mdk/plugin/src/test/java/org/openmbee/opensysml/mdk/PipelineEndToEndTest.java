@@ -16,6 +16,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.openmbee.opensysml.ConnectionOptions;
+import org.openmbee.opensysml.Diagnostic;
 import org.openmbee.opensysml.mdk.annotations.AnnotationPlan;
 import org.openmbee.opensysml.mdk.annotations.AnnotationPlanner;
 import org.openmbee.opensysml.mdk.engine.Engine;
@@ -181,6 +182,9 @@ class PipelineEndToEndTest {
     assertEquals(List.of(), result.files());
     assertEquals(1, result.errorCount(), result.describe());
     assertTrue(result.diagnostics().stream().anyMatch(item -> item.message().contains("Start")), result.describe());
+    assertEquals(List.of("demo.sysml"), result.diagnostics().stream()
+        .filter(item -> item.severity() == Diagnostic.Severity.ERROR)
+        .map(item -> item.span().orElseThrow().file()).distinct().toList(), "diagnostics name the saved file");
   }
 
   @Test
