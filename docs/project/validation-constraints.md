@@ -123,7 +123,7 @@ the diagnostic it reports was recorded as that row's probe.
 
 ## Summary
 
-**Census:** 163 of 217 named constraints are reported by OpenSysML — 156 ✅ faithful and 7 ⚠️ approximate; 0 ❌ not implemented, 5 ⛔ deliberate, 0 🚧 known failure, 49 ❔ unknown.
+**Census:** 163 of 217 named constraints are reported by OpenSysML — 156 ✅ faithful and 7 ⚠️ approximate; 0 ❌ not implemented, 7 ⛔ deliberate, 0 🚧 known failure, 47 ❔ unknown.
 
 The figures on that line, the pin and digest quoted above, and every row of the census table are
 written from the manifest — by `go run -C tools ./cmd/validation-census` and by `make docs-counts`,
@@ -150,8 +150,8 @@ manifest's `extensions`, and the manifest's `errata` to be the declared registry
 
 ### Formal-document coverage
 
-The census above counts the constraints the pinned pilot *names*. The pinned formal documents
-state more: every metaclass clause of KerML 1.0 §8.3 and SysML 2.0 §8.3 ends in a *Constraints*
+The census above counts the constraints the pinned pilot *names*. The pinned specification texts
+state more: every metaclass clause of KerML 1.1 Beta 2 §8.3 and SysML v2.1 Beta 2 §8.3 ends in a *Constraints*
 subsection naming its `check*` (implied specializations), `derive*` (derived properties) and
 `validate*` (well-formedness) constraints. The manifest records each one the pilot does not name
 as a spec-sourced row, and this table is rendered from those rows and the pilot rows' `spec.name`
@@ -160,10 +160,10 @@ citations; it moves only when the manifest does.
 <!-- doc-counts:begin validation-spec-coverage -->
 | Document | check* | derive* | validate* | Stated | Pilot-named | Spec-sourced | Implemented | ❔ unknown |
 |---|---|---|---|---|---|---|---|---|
-| KerML 1.0 (`formal/26-03-01`) | 80 | 90 | 88 | 258 | 87 | 171 | 11 | 160 |
-| SysML 2.0 (`formal/26-03-02`) | 128 | 145 | 92 | 365 | 86 | 279 | 41 | 238 |
+| KerML 1.1 Beta 2 (`Release 2026-07`) | 80 | 90 | 88 | 258 | 87 | 171 | 11 | 160 |
+| SysML 2.1 Beta 2 (`Release 2026-07`) | 128 | 145 | 92 | 365 | 87 | 278 | 41 | 236 |
 
-**Formal coverage:** the pinned documents state 623 constraints in the Constraints subsections of their abstract-syntax clauses — 208 `check*`, 235 `derive*` and 180 `validate*`. 173 of them are named by a pilot validator and counted in the census above; 450 are recorded from the documents alone, outside the census, of which 52 are implemented and 398 remain ❔ unknown.
+**Formal coverage:** the pinned documents state 623 constraints in the Constraints subsections of their abstract-syntax clauses — 208 `check*`, 235 `derive*` and 180 `validate*`. 174 of them are named by a pilot validator and counted in the census above; 449 are recorded from the documents alone, outside the census, of which 52 are implemented and 396 remain ❔ unknown.
 <!-- doc-counts:end validation-spec-coverage -->
 
 *Stated* is what the documents' Constraints subsections name; *Pilot-named* the ones a pilot
@@ -220,13 +220,15 @@ against. Four names are misspelled in the pilot itself and are recorded as spell
 ### Spec identity
 
 Each manifest row names the metaclass the constraint is declared on and cites the clause of the
-pinned specification that heading sits in — KerML 1.0 `formal/26-03-01` or SysML 2.0
-`formal/26-03-02`, the published PDFs whose SHA-256 the manifest records. 143 of the 217 pilot
-names are the formal document's own constraint names and carry `spec.name`; the other 74 are
-names the pinned pilot kept from earlier drafts (the formal documents restate most of them as
-`check…Specialization` constraints), so their rows cite the metaclass's clause without a spec
-name. The pilot's name is the row's identity throughout, since that is what the jar, the probes
-and the negative corpus are keyed by.
+pinned specification that heading sits in — KerML 1.1 Beta 2 or SysML v2.1 Beta 2 (Release
+2026-07), the PDFs the pinned release ships, whose SHA-256 the manifest records. 175 of the 217
+pilot names carry `spec.name`, the Beta 2 text's own constraint name — the same name for 143 of
+them and a renamed one for the other 32 (`validateFeatureEndFeatureMultiplicity` is Beta 2's
+`validateFeatureEndMultiplicity`); the remaining 42 are pilot-only checks the Beta 2 text does
+not state (it restates most of the `validate…UsageType` family as `check…Specialization`
+implied specializations), so their rows cite the metaclass's clause without a spec name. The
+pilot's name is the row's identity throughout, since that is what the jar, the probes and the
+negative corpus are keyed by.
 
 ### Adding or changing a row
 
@@ -243,7 +245,7 @@ pass that implements no pilot-named constraint is listed under `extensions` with
 
 ### Spec-sourced rows
 
-A row with `"source": "spec"` is a constraint only the formal documents state: no pilot validator
+A row with `"source": "spec"` is a constraint only the specification texts state: no pilot validator
 names it, so it is outside the census table and counts, and it is tallied in
 [formal-document coverage](#formal-document-coverage) instead. Such a row is written by
 `go run -C tools ./cmd/formal-constraints -kerml <KerML.pdf> -sysml <SysML.pdf> -update`, which
@@ -393,9 +395,9 @@ table is generated from the manifest; the row order and every cell come from it.
 | `validateAssignmentActionUsageArguments` | SysML | An assignment action has two arguments (`An assignment must have two arguments.`). A no-op in the pinned pilot: `SysMLValidator.xtend` declares the constant (`INVALID_ASSIGNMENT_ACTION_USAGE_ARGUMENTS`, the string this census reads from the jar) but no `@Check` method issues it — `checkAssignmentActionUsage` reports only `validateAssignmentActionUsageReferent` and `validateAssignmentActionUsageReferentIsTimeVarying` — and `AssignmentNodeDeclaration` always parses both the `AssignmentTargetMember` and the `:=` `NodeParameterMember`. Tried `assign n := 1`, `assign q.pl := q.pl`, `assign n := n + 1`, `action a assign n := n`, and the one-argument spellings `assign n;`, `assign := 1;`, `assign n := ;`, `assign n := 1 := 2;`: never reported; the one-argument spellings are syntax errors in both tools (pilot `no viable alternative at input 'assign'`, OpenSysML `expected ':=' after assignment target` / `expected an expression`) | — | — | none | ❔ unknown — no case and no identifiable pass yet |
 | `validateAssignmentActionUsageReferent` | SysML | An assignment action has a referent (`An assignment must have a referent.`): the target names a feature, not a definition, a package or another namespace; an unresolved target is the name-resolution tier's error first, in both tools | internal/check/passes/w8d_assignment_referent.go:assignmentReferentChecker.check (over `symbols.SymbolKind.IsFeature`) | ``An assignment must have a referent. PD is declared `part def`, not a feature.`` — the pilot's sentence, followed by what the target is | `semantic/s43-assign-to-non-feature.sysml` | ✅ faithful |
 | `validateAssignmentActionUsageReferentIsTimeVarying` | SysML | The referent of an assignment action is time-varying | internal/check/passes/w8d_assignment_referent.go:AssignmentReferentPass.Run | — | `semantic/s05-assign-to-package-level-attribute.sysml` | ✅ faithful |
-| `validateAttributeDefinitionFeatures` | SysML | Owned features of an attribute definition are non-composite (`checkAttributeDefinition`, active). Unobservable in text: the pilot's `UsageAdapter.postProcess` sets `isComposite = false` on every usage whose expected featuring type is an attribute definition, and `feature`/`composite` are syntax errors in SysML. Tried, pilot silent: `attribute def A { part p : PD; }`, item/action/port/occurrence members, nested `part p { part q; }`, `end`/`in` parts, `perform`/`exhibit`/`include`, constraint/requirement/calc/state/connection/flow members, `variation part p { variant part a; }`, defaulted parts, a redefining `part :>> p` in a specializing attribute definition | — | — | none | ❔ unknown — no case and no identifiable pass yet |
+| `validateAttributeDefinitionFeatures` | SysML | Owned features of an attribute definition are non-composite (`checkAttributeDefinition`, active). Unobservable in text: the pilot's `UsageAdapter.postProcess` sets `isComposite = false` on every usage whose expected featuring type is an attribute definition, and `feature`/`composite` are syntax errors in SysML. Tried, pilot silent: `attribute def A { part p : PD; }`, item/action/port/occurrence members, nested `part p { part q; }`, `end`/`in` parts, `perform`/`exhibit`/`include`, constraint/requirement/calc/state/connection/flow members, `variation part p { variant part a; }`, defaulted parts, a redefining `part :>> p` in a specializing attribute definition | internal/semantic/semantics/annotations.go:Model.reflectiveFeatureFlags; internal/translate/export/composite.go:usageCompositeByDefault | unobservable in text; the reflective and exported `isComposite` are false for every feature of an attribute definition, so `attribute def R { part p : P; }` is silent in both validators | none | ⛔ deliberate — the textual notation makes the owned features of an attribute definition referential whether or not `ref` is written (SysML v2.1 Beta 2 7.7.2), so no textual model violates the rule; the model derives it: `reflectiveFeatureFlags` clears `isComposite` under an attribute owner and `usageCompositeByDefault` exports it false (TestReflectiveAttributeFeaturesAreReferentialAndNonComposite) |
 | `validateAttributeUsageEnumerationType` | SysML | An attribute typed by an enumeration definition has no other type | internal/check/passes/one_type.go:checkOneType | — | `semantic/s06-enum-attribute-two-types.sysml` | ✅ faithful |
-| `validateAttributeUsageFeatures` | SysML | Owned features of an attribute usage are non-composite (`checkAttributeUsage`, active). Unobservable in text for the same reason as `validateAttributeDefinitionFeatures`: `UsageAdapter.postProcess` clears `isComposite` when the expected featuring type is an attribute usage. Tried, pilot silent: `attribute a { part p : PD; }` in a part definition and at package level, item/action/port/occurrence members, nested parts, `end`/`in` parts, `ref attribute a { part p; }`, typed `attribute a : Real { part p; }`, a redefining `attribute :>> a { part :>> p; part r; }` | — | — | none | ❔ unknown — no case and no identifiable pass yet |
+| `validateAttributeUsageFeatures` | SysML | Owned features of an attribute usage are non-composite (`checkAttributeUsage`, active). Unobservable in text for the same reason as `validateAttributeDefinitionFeatures`: `UsageAdapter.postProcess` clears `isComposite` when the expected featuring type is an attribute usage. Tried, pilot silent: `attribute a { part p : PD; }` in a part definition and at package level, item/action/port/occurrence members, nested parts, `end`/`in` parts, `ref attribute a { part p; }`, typed `attribute a : Real { part p; }`, a redefining `attribute :>> a { part :>> p; part r; }` | internal/semantic/semantics/annotations.go:Model.reflectiveFeatureFlags; internal/translate/export/composite.go:usageCompositeByDefault | unobservable in text; the reflective and exported `isComposite` are false for every feature of an attribute usage, so `attribute r : R { part p : P; }` is silent in both validators | none | ⛔ deliberate — the textual notation makes the owned features of an attribute usage referential whether or not `ref` is written (SysML v2.1 Beta 2 7.7.2), so no textual model violates the rule; the model derives it: `reflectiveFeatureFlags` clears `isComposite` under an attribute owner and `usageCompositeByDefault` exports it false (TestReflectiveAttributeFeaturesAreReferentialAndNonComposite) |
 | `validateAttributeUsageIsReferential` | SysML | An attribute usage is referential (`checkAttributeUsage`, active). Unobservable in text: `AttributeUsageImpl` constructs with `isComposite = false`, `UsageAdapter.postProcess` clears it again for attribute featuring, and `composite attribute a;` is a syntax error. Tried, pilot silent: `attribute a;`, `ref r;`, bare `x;`, valued/typed attributes, `end`/`in` attributes, `variation attribute v { variant attribute w; }`, ordered nonunique and redefined attributes, `in`/`out` parameters | — | — | none | ❔ unknown — no case and no identifiable pass yet |
 | `validateAttributeUsageType` | SysML | An attribute is typed by attribute definitions | internal/check/passes/typecheck.go:compatibleTyping (messages in internal/check/passes/w10b_usage_typing.go:pilotTypingMessage) | — | `xpect/p15-attribute-typed-by-part-def.sysml` | ✅ faithful |
 | `validateCalculationUsageType` | SysML | A calculation is typed by one calculation definition | internal/check/passes/one_type.go:checkOneType | — | `semantic/s07-calc-typed-by-action-def.sysml` | ✅ faithful |
