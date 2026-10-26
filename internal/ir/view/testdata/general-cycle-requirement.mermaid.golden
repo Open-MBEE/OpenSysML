@@ -28,5 +28,5 @@ flowchart TD
 **primary**`")
   n1("`*«requirement»*
 **secondary**`")
-  n1 -.->|"derive"| n0
-  n0 -.->|"derive"| n1
+  n1 -.->|"«derive»"| n0
+  n0 -.->|"«derive»"| n1

@@ -11,4 +11,4 @@ variation part def EngineChoices
 
 relationships:
   engine -- transmission
-  engine ..> EngineChoices
+  engine --:|> EngineChoices

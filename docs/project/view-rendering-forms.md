@@ -35,16 +35,26 @@ how a picture is drawn, not what the model is, so a tree over a package of migra
 those views without the `metadata` and `render` nodes their annotations would add. Once a tree's
 nodes are built, `treeEdges` (`tree_edges.go`) draws the relationships between them that the
 general view's definition graph draws: a `specialization` from an element to each general it
-specializes, subsets or redefines; a `composition` or `reference` from an element to the definition
-typing each part, item, port, attribute, occurrence, enumeration or `ref` usage it owns, labelled
-with the usage's name and multiplicity; and the `typing` of a usage whose owner is not drawn. Both
-ends must be nodes of the same rendering, and so must the usage a composition stands for — one the
-depth bound leaves undrawn draws no edge — an element drawn twice draws from its first node, and no
-edge joins a node to one nested in it, since the nesting is that membership. A usage's `Style`
-dresses its composition edge as it does its node; its `Note` stays anchored to the node. A composition's
-origin is the usage it stands for, so a `Route` about the usage routes it and `DrawnIn` reports the
-usage drawn as an edge; a specialization's or typing's origin is the name its clause relates to,
-no member of its own, so it carries no route and a client lays it out itself. The
+specializes, subsets or redefines; the `typing` of each usage to its drawn definition; and the
+feature membership of each part, item, port, attribute, occurrence, enumeration or `ref` usage
+drawn under its owner, declared or inherited, as a `composition` (filled diamond at the owner) or a
+`reference` (hollow diamond) from the owner to the usage's node, with the usage's multiplicity at
+the usage's end — the glyphs of SysML v2 §8.2.3.6, the diamond read from the model's
+`Feature::isComposite` (`semantics.Model.UsageIsComposite`: a `ref`, an attribute, a port outside a
+port, an end, a directed or an enumeration usage is non-composite). The writers draw that edge in
+place of the containment line they draw to every other child, so a usage hangs off its owner by its
+membership glyph alone. A usage listed in a compartment row instead of drawn as a node (the
+compartment foldings, or a positioned tree's unplaced members) folds its membership and typing into
+one edge from its owner to each drawn definition, labelled with the usage's name and multiplicity
+at the definition's end — the property association a block definition diagram draws. Both
+ends of a relationship edge must be nodes of the same rendering — a usage the depth bound leaves
+undrawn draws no edge — an element drawn twice draws from its first node, and no specialization or
+typing joins a node to one nested in it. A usage's `Style` dresses its membership edge as it does
+its node; its `Note` stays anchored to the node. A membership edge's origin is the usage it stands
+for, so a `Route` about the usage routes it — the usage's node, which such a route places nowhere,
+folds into a row unless a Layout places it — and `DrawnIn` reports the usage drawn as an edge; a
+specialization's or typing's origin is the name its clause relates to, no member of its own, so it
+carries no route and a client lays it out itself. The
 `MigrationMetadata::SynthesizedName` and `MigrationMetadata::StandIn` markers a migration leaves
 in a body are left out the same way: they record what the migration did, not what the model
 holds. Every other metadata usage — a user's `metadata Approved about errorCBE { by = "review"; }`,
@@ -177,17 +187,21 @@ What each of the other graphs draws, as nodes from the exposed set and edges bet
 | Kind | Nodes | Edges (`EdgeKind`) |
 | --- | --- | --- |
 | `requirement` | requirement and concern definitions and usages, labelled with their short name as `id` and the first line of their documentation or text, and the drawn ends of the relationships below | `satisfy` (from the satisfying feature), `verify` (from each verification case whose objectives verify it: its own, and those it inherits and does not redefine or restate by name, as the runtime runs them), `derive` (a `#derivation` connection's `derivedRequirement` from its `originalRequirement`), `refine` (a `#refinement` dependency), `allocate`, `specialization`, `typing` |
-| `definition` | definitions and usages | `specialization` (subclassification, subsetting — a same-named subsetting to the inherited feature, as `DirectSupertypes` reads it — redefinition), `typing`, `composition` (a part, item or other composite feature to the drawn definitions typing it, named by the feature) and `reference` (a `ref` feature likewise) |
+| `definition` | definitions and usages | `specialization` (subclassification, subsetting — a same-named subsetting to the inherited feature, as `DirectSupertypes` reads it — redefinition), `typing` (a drawn usage to its definition), `composition` (a drawn owner to a composite usage drawn as a node, its multiplicity at the usage's end; or, for a usage of the owner's that is not drawn, the owner to the drawn definitions typing it, named by the usage) and `reference` (a usage the model derives as non-composite — `ref`, attribute, port outside a port, end, directed or enumeration usage — likewise) |
 | `package` | packages | `containment` (an owned package) and `import` (a membership or namespace import, recursive or not, to the package it names, or to the package owning the member it names, labelled `::<member>`; one edge per import declaration, linked to it) |
 
 A relationship end that does not resolve draws no edge and is listed as a notice, and a cycle (mutually recursive part
 definitions, requirements deriving each other, packages importing each other) is drawn once per
 edge: the graph is built from symbols, never by following edges. Node and edge order is the model's
-declaration order, so a rendering is deterministic. The writers draw `specialization` as UML's
-hollow triangle, `typing` dashed, `composition` with a filled diamond and `reference` with a hollow one (a Mermaid flowchart, which has
-no diamond head, leads the edge's label with `◆` or `◇` instead), each
-requirement relationship dashed and named by its keyword (`«satisfy»`, `«verify»`), as the
-interconnection already does for its requirement and allocation edges. The Cameo style frames
+declaration order, so a rendering is deterministic. The writers draw each relationship with the
+glyph of its §8.2.3 production — `specialization` and `subsetting` a solid hollow triangle,
+`typing` the same with two dots at its base, `redefinition` the same with a bar, `composition` a
+filled and `reference` a hollow diamond at the owner (a Mermaid flowchart, which has no diamond
+head, leads the edge's label with `◆` or `◇` instead), `containment` a circle-plus at the
+namespace, an import a dashed open arrow labelled `«import»`, and each requirement relationship a
+solid open arrow named by its keyword (`«satisfy»`, `«verify»`, `«allocate»`), as the
+interconnection already does for its requirement and allocation edges; a `derive` or `refine` is
+the dashed `binary-dependency`. The [notation table](#notation-table) lists every glyph per form. The Cameo style frames
 the three kinds `req`, `bdd` and `pkg`.
 
 ### The verdicts overlay
@@ -329,33 +343,6 @@ arguments (`accept setSpeed(value)`, `accept halt()` — the parentheses tell a 
 path does not carry that path across the drawing. A time or change event, and an accept of an
 event feature (`accept :> shutDown`), keep their written text.
 
-### Relationship glyphs
-
-The edges below stand for productions of the graphical notation (SysML v2 §8.2.3) whose ends
-the renderings draw as nodes of their own. Each is an `EdgeKind` the writers draw as the table
-says; where a grammar has no shape for the notation's glyph, the nearest one is written and the
-difference is stated. The edge's text is the keyword the notation sets on it. The OMG Pilot's
-PlantUML visualizer (`SysML2PlantUMLStyle.java`) is noted where it draws the metaclass
-differently from the specification's image, which is the oracle.
-
-| Production (§8.2.3) | `EdgeKind` | Drawn between | DOT | PlantUML | Mermaid | D2 | VS Code canvas |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `succession-flow` — dashed line, filled head, «succession flow» | `EdgeSuccessionFlow` | the ends of a `succession flow`, in action and interconnection renderings; the succession it also states is not drawn twice, except for the guard of a succession that gates it. The keyword stays on the edge when connector names are hidden | `style=dashed` with the default filled head | `-[dashed]->` | `-.->` | `successionflow` class: dashed, filled triangle | dashed, filled head. Pilot: `..>`, an open head |
-| `require-edge`, `assume-edge`, `assert-edge` — solid line, open head, «require» / «assume» / «assert» | `EdgeRequire`, `EdgeAssume`, `EdgeAssert` | the requirer, assumer or assertor and the constraint or requirement it declares (`require constraint c { … }`, `assert constraint c : C`) or names (`require r1;`, `assume c;`, `assert c;`), in the requirement and definition graphs and the mixed rendering, when both are drawn apart; a tree or mixed rendering nests the declared forms in their owner, as it nests every owned member. A `require constraint` or `assume constraint` member is a node of a definition graph when exposed | `arrowhead=vee` | `-->` | `-->` | `open` class: `arrow` head | `arrow-open`. Pilot: `-->` |
-| `frame-edge` — solid, open head, «frame» | `EdgeFrame` | the framer and the concern it declares or names, as above | `arrowhead=vee` | `-->` | `-->` | `open` | `arrow-open`. Pilot: no rule of its own, a feature membership's `*--` |
-| `event-edge` — solid, open head, «event» | `EdgeEvent` | the eventer and an `event occurrence` it owns, where both are nodes (a definition graph); one nested in its eventer's box (a tree, a mixed rendering) is shown by the nesting | `arrowhead=vee` | `-->` | `-->` | `open` | `arrow-open`. Pilot: `-->` |
-| `portion-relationship` — solid line, filled three-quarter circle at the occurrence | `EdgePortion` | the occurrence and a `timeslice` or `snapshot` it owns, where both are nodes | `dir=back, arrowtail=dot`: a filled circle | `#--`: a filled square | `---` with `◕` leading the text | `portion` class: a filled circle at the source | a three-quarter circle. Pilot: `*--` |
-| `reference-subsetting` — hollow triangle with four dots behind its base | `EdgeReferenceSubsetting` | a usage and the one it `::>` references, labelled `references`, as `subsets` and `redefines` are | `arrowhead=onormaldot`: the hollow triangle with one dot | `--|>` | `-->` | `specialization` class | a hollow triangle with the four dots. Pilot: `--|>` |
-| `unowned-membership` — solid line, hollow circle at the namespace | `EdgeUnownedMembership` | a package and a drawn package it holds by `alias`, the alias name at the member's end; the package graph only | `dir=back, arrowtail=odot` | `0--` | `---` with `○` leading the text | `membership` class: a hollow circle at the source | a hollow circle. Pilot: `+..`, dashed with a circle-plus |
-| `expose-r`, `toplevel-expose-r`, `recursive-expose-r` — dashed, open head, «expose», «expose»\*, «expose»\*\* | `EdgeExpose` | a view usage and an element it exposes, one edge per distinct exposure (two statements that say the same draw one edge, as imports do), when both are drawn apart (a tree or mixed rendering); the exposures a nested view's node holds as its children are shown by the nesting. The suffix is written as an import's: `expose ::*`, `expose ::**` | `arrowhead=vee, style=dashed` | `..>` | `-.->` | `dependency` class | `arrow-open`, dashed. Pilot: `..>` |
-
-The `owned-membership` circle-plus and the n-ary association and connection dots, the
-`flow-on-connection` item box and the sequence-diagram `message` and `sq-succession` glyphs
-remain undrawn as such: containment keeps its hollow circle, a connection with more than two
-ends is drawn as its pairs, a flow on a connection as a flow, and a sequence message as the
-grammar's own arrow. `testdata/notation-glyphs.sysml` exercises every edge of the table in
-each rendering kind (`glyphs-*.golden`).
-
 ## Case and mixed diagrams
 
 SysML's `CaseDefinition`/`CaseUsage` is the family root; `usecase` would mislabel analysis and
@@ -384,7 +371,7 @@ when both endpoints are present in the drawing. Mermaid and DOT keep state/actio
 the PlantUML component dialect writes them as explicit keyword-bearing circles or rectangles.
 
 The writers preserve the same semantics with each notation's native shapes: Mermaid uses stadium
-cases, boxes for actors and subjects, notes for objectives, dashed include/typing/reference arrows,
+cases, boxes for actors and subjects, notes for objectives, solid include/typing/perform/exhibit arrows,
 undirected association lines and dotted anchor lines; DOT uses ellipses, boxes and note-shaped
 objectives with the corresponding edge attributes; PlantUML uses `usecase`, `actor`, subject
 rectangles and notes. Graph kinds keep Mermaid as their machine form. Markdown, CSV and TSV are
@@ -617,14 +604,9 @@ digraph "VehicleViews::vehicleView" {
   too. The parameters are shown and hidden with the port symbols (`port-symbols`), not the
   parameter symbols a case's actors are. A mixed rendering draws constraints the same way
   (`mixedStructural`).
-- **Edges.** The `EdgeKind` styles parallel the Mermaid arrows so the two forms read alike:
-
-  | `EdgeKind` | Mermaid | DOT |
-  | --- | --- | --- |
-  | connection | `---` | `arrowhead=none, penwidth=3` |
-  | binding | `---` | `arrowhead=none` |
-  | transition, succession | `-->` | solid, default arrowhead |
-  | flow | `-.->` | `style=dashed` |
+- **Edges.** Every edge kind is drawn with the glyph of its SysML v2 §8.2.3 production, as the
+  [notation table](#notation-table) lists per form; the Mermaid and DOT forms agree on direction
+  and on dashing (`---` is `arrowhead=none`, `-.->` is `style=dashed`, `===` the heavy connection).
 
   An interconnection draws a `binding` between two features as an edge of its own kind, a plain
   undirected line beside the heavy connection (`==` in the text form, `--` in PlantUML), and
@@ -646,6 +628,63 @@ Three methods of the writer produce every attribute list — `graphAttributes`,
 `dotNodeAttributes` (with `dotClusterAttributes` and `dotAnchorAttributes` for a node drawn as a
 cluster) and `dotEdgeAttributes` — so what is said about a node or an edge changes without
 touching how the graph is walked.
+
+### Notation table
+
+Every relationship edge is drawn with the glyph of its production in the SysML v2 graphical
+notation (§8.2.3), the production's figure being the oracle. One row per production: the
+`EdgeKind` the view model gives it, then the glyph each form writes — the DOT edge attributes after
+the label, the PlantUML arrow, the Mermaid arrow, the D2 arrow and class, the SVG marker the VS Code
+canvas ends the edge in (`start` at the edge's source) — and whether the drawing is **conformant**,
+**approximate** (the medium cannot draw the glyph; the nearest it has, with what is missing) or
+**differs from pilot** (the spec and the Pilot's PlantUML visualizer disagree and the spec wins).
+`TestNotationTableMatchesTheWriters` (`internal/ir/view/notation_table_test.go`) and the canvas
+test read this table and hold the writers to it, so a glyph changes here and in the code together.
+
+| Production | `EdgeKind` | DOT | PlantUML | Mermaid | D2 | Canvas | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `connection` | `connection` | `arrowhead=none, penwidth=3` | `-[thickness=3]-` | `===` | `-- connection` | `none` | conformant | The Pilot's heavy undirected connector; `penwidth=3` is dropped under the cameo style. |
+| `binding-connection` | `binding` | `arrowhead=none` | `--` | `===` | `-- edge` | `none` | conformant | Labelled `=` where the binding has no name of its own, in every form. |
+| `flow` | `flow` | *(default)* | `-->` | `-->` | `-> edge` | `end arrow` | approximate | Solid with a filled head; PlantUML has no filled head, its open `-->` stands in (as the Pilot writes it). |
+| `aflow-succession` | `succession` | `style=dashed, arrowhead=vee` | `-[dashed]->` | `-.->` | `-> succession` | `end arrow-open` | differs from pilot | Dashed with an open head and the guard as its text; the Pilot draws a succession solid. Mermaid's `-.->` and D2's dashed arrow carry a filled head. |
+| `transition`, `st-succession` | `transition` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `end arrow-open` | approximate | Solid with an open head; Mermaid and D2 have only a filled head. |
+| `subclassification`, `specialization` | `specialization` | `arrowhead=empty` | `--\|>` | `-->` | `-> specialization` | `end triangle-hollow` | approximate | Solid hollow triangle; Mermaid has no triangle head and names the kind as the edge text instead. |
+| `subsetting` | `subsetting` | `arrowhead=empty` | `--\|>` | `-->` | `-> specialization` | `end triangle-hollow` | approximate | The same hollow triangle, no text; Mermaid writes `subsetting` as the edge text, having no triangle. |
+| `redefinition` | `redefinition` | `arrowhead=onormaltee` | `--\|\|>` | `-->` | `-> specialization` | `end triangle-bar` | approximate | Hollow triangle with a bar across the line: Graphviz sets the tee behind the triangle, D2 has no bar and draws the plain triangle, Mermaid writes `redefinition` as the edge text. |
+| `definition` | `typing` | `arrowhead=onormaldotdot` | `--:\|>` | `-->` | `-> specialization` | `end triangle-dots` | approximate | Solid hollow triangle at the definition with two dots at its base: Graphviz sets the dots in line behind the triangle, D2 has no dots and draws the plain triangle, Mermaid writes `typing` as the edge text. |
+| `composite-feature-membership` | `composition` | `dir=back, arrowtail=diamond` | `*--` | `---` | `<- composition` | `start diamond-filled` | approximate | Filled diamond at the owner; Mermaid has no diamond and leads the edge text with `◆`. A case or mixed diagram writes the DOT attributes as `arrowtail=diamond, dir=back`. |
+| `noncomposite-feature-membership` | `reference` | `dir=back, arrowtail=odiamond` | `o--` | `---` | `<- reference` | `start diamond-hollow` | approximate | Hollow diamond at the owner; Mermaid leads the edge text with `◇`. |
+| `owned-membership` | `containment` | `dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0` | `+--` | `---` | `<- containment` | `start circle-plus` | approximate | Circle-plus at the namespace: Graphviz has no such arrow, so a `+` tail label is set on its hollow circle; D2 puts a `+` arrowhead label beside its circle; Mermaid draws a plain line, a tree's nesting showing the ownership. |
+| `import`, `top-level-import`, `recursive-import` | `import` | `arrowhead=vee, style=dashed` | `..>` | `-.->` | `-> dependency` | `end arrow-open` | conformant | Dashed open arrow labelled `«import»`, `«import»*` for a namespace import, `«import»**` for a recursive one, the visibility inside the guillemets (`«private import»`). |
+| `binary-dependency` | `dependency`, `derive`, `refine` | `arrowhead=vee, style=dashed` | `..>` | `-.->` | `-> dependency` | `end arrow-open` | conformant | Dashed open arrow; a derivation or refinement carries `«derive»` or `«refine»` as its text. |
+| `satisfy-edge` | `satisfy` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `end arrow-open` | conformant | Solid open arrow labelled `«satisfy»`. |
+| `verify-relationship` | `verify` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `end arrow-open` | conformant | Solid open arrow labelled `«verify»`. |
+| `allocate-relationship` | `allocate` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `end arrow-open` | conformant | Solid open arrow labelled `«allocate»`. |
+| `include-use-case-relationship` | `include` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `end arrow-open` | conformant | Solid open arrow labelled `«include»`. |
+| `perform-edge` | `perform` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `end arrow-open` | conformant | Solid open arrow labelled `«perform»`, from the performing usage to the action. |
+| `exhibit-edge` | `exhibit` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `end arrow-open` | conformant | Solid open arrow labelled `«exhibit»`, from the exhibiting usage to the state. |
+| `association` (actor or subject line, connection definition) | `association` | `dir=none` | `--` | `---` | `-- edge` | `none` | conformant | Plain undirected line. |
+| objective anchor | `anchor` | `dir=none, style=dashed` | `..` | `-.-` | `-> edge` | `none` | conformant | Dashed line without a head, the note's anchor. |
+| `succession-flow` | `succession flow` | `style=dashed` | `-[dashed]->` | `-.->` | `-> successionflow` | `end arrow` | differs from pilot | Dashed with a filled head and `«succession flow»` as its text, between the ends of a `succession flow` in action and interconnection renderings; the succession it also states is not drawn twice, except for the guard of a succession that gates it, and the keyword stays when connector names are hidden. The Pilot writes `..>`, an open head. |
+| `require-edge`, `assume-edge`, `assert-edge` | `require`, `assume`, `assert` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `end arrow-open` | conformant | Solid open arrow labelled `«require»`, `«assume»` or `«assert»`, from the requirer, assumer or assertor to the constraint or requirement it declares (`require constraint c { … }`) or names (`require r1;`), in the requirement and definition graphs and the mixed rendering when both are drawn apart; a tree or mixed rendering nests the declared forms in their owner, as it nests every owned member. |
+| `frame-edge` | `frame` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `end arrow-open` | differs from pilot | Solid open arrow labelled `«frame»`, from the framer to the concern it declares or names, as above. The Pilot has no rule of its own and writes a feature membership's `*--`. |
+| `event-edge` | `event` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `end arrow-open` | conformant | Solid open arrow labelled `«event»`, from the eventer to an `event occurrence` it owns, in the definition graph and the tree, which draw the membership of each usage; one nested in its eventer's box in a mixed rendering is shown by the nesting. |
+| `portion-relationship` | `portion` | `dir=back, arrowtail=dot` | `#--` | `---` | `<- portion` | `start portion` | approximate | Solid line with a filled three-quarter circle at the occurrence, from the occurrence to a `timeslice` or `snapshot` it owns, in the definition graph and the tree: Graphviz and D2 draw a filled circle, PlantUML a filled square, Mermaid a plain line with `◕` leading the text; the canvas draws the three-quarter circle. The Pilot writes `*--`. |
+| `reference-subsetting` | `reference subsetting` | `arrowhead=onormaldot` | `--\|>` | `-->` | `-> specialization` | `end triangle-four-dots` | approximate | Hollow triangle with four dots behind its base, from a usage to the one it `::>` references, labelled `references` as `subsets` and `redefines` are: Graphviz sets one dot behind the triangle, PlantUML and D2 draw the plain triangle, Mermaid has none; the canvas draws the four dots. The Pilot writes `--\|>`. |
+| `unowned-membership` | `unowned membership` | `dir=back, arrowtail=odot` | `0--` | `---` | `<- membership` | `start circle-hollow` | differs from pilot | Solid line with a hollow circle at the namespace, from a package to a drawn package it holds by `alias`, the alias name at the member's end, in the package graph; Mermaid draws a plain line with `○` leading the text. The Pilot writes `+..`, dashed with a circle-plus. |
+| `expose-r`, `toplevel-expose-r`, `recursive-expose-r` | `expose` | `arrowhead=vee, style=dashed` | `..>` | `-.->` | `-> dependency` | `end arrow-open` | conformant | Dashed open arrow labelled `«expose»`, `«expose»*` or `«expose»**` as an import is, from a view usage to an element it exposes when both are drawn apart (a tree or mixed rendering), one edge per distinct exposure (two statements that say the same draw one edge, as imports do); the exposures a nested view's node holds as its children are shown by the nesting. |
+
+The Mermaid cells are the flowchart arrows; `mermaidEdgeLabel` adds the kind's name as the edge text
+where the arrow alone would not tell a specialization, subsetting, redefinition or typing apart. The
+canvas dashes a `succession`, `succession flow`, `import`, `derive`, `refine`, `dependency`, `expose` or
+`anchor` edge by its CSS class. Under the cameo style a tree's `containment` is Cameo's filled diamond instead.
+
+The n-ary association and connection dots, the `flow-on-connection` item box and the
+sequence-diagram `message` and `sq-succession` glyphs remain undrawn as such: a connection with
+more than two ends is drawn as its pairs, a flow on a connection as a flow, and a sequence message
+as the grammar's own arrow. `testdata/notation-glyphs.sysml` exercises the succession flow,
+require, assume, assert, frame, event, portion, reference subsetting, unowned membership and
+expose edges in each rendering kind that draws them (`glyphs-*.golden`).
 
 ### Edge routing
 
@@ -1262,14 +1301,16 @@ One shape per kind, chosen so each golden is drawn losslessly:
 | `requirement`, `definition`, `package` | Flat nodes, `definition`, `usage` or `package` by their keyword, joined in the class-diagram notation the PlantUML form uses (see below) |
 | `sequence` | One `sequence: "" { shape: sequence_diagram … }` container holding the lifelines in root order and the `->` messages in edge order, one for one with the Mermaid form |
 
-Edges follow the Pilot: `--` at `stroke-width: 3` for a connection, `--` for a binding, `->` with
-`stroke-dash: 3` for a flow, `->` for a transition or succession, labelled as the DOT form labels
-them. A GeneralView graph's relationships each take a class of the same name: `specialization` a
-hollow triangle head, `typing` the same dashed, `composition` and `reference` a filled and a hollow
-diamond at the owner, `containment` a circle at the owner — those three written owner `<-` owned,
+Edges follow §8.2.3 as the [notation table](#notation-table) lists them: `--` at `stroke-width: 3`
+for a connection, `--` for a binding, `->` for a flow or a transition, `->` with `stroke-dash: 3`
+for a succession, labelled as the DOT form labels them. A GeneralView graph's relationships take a
+class named for the glyph: `specialization` a hollow triangle head (a typing, subsetting and
+redefinition too — D2 has no dots or bar to add), `composition` and `reference` a filled and a hollow
+diamond at the owner, `containment` a circle at the owner carrying a `+` arrowhead label, D2 having
+no circle-plus — those three written owner `<-` owned,
 so the head at the owner is the only one, D2 drawing a source arrowhead only where the connection
-has one — and import, satisfy, verify, derive, refine
-and allocate one dashed `dependency` arrow, labelled. A case or mixed rendering has no D2 form. `TB`/`LR`/`BT`/`RL` become `direction: down`/`right`/`up`/`left` — D2 draws every direction,
+has one — and import, derive and refine one dashed `dependency` arrow, satisfy, verify, allocate
+and include a plain `edge` arrow, each labelled. A case or mixed rendering has no D2 form. `TB`/`LR`/`BT`/`RL` become `direction: down`/`right`/`up`/`left` — D2 draws every direction,
 where PlantUML does not. Every label is one double-quoted string with `\`, `"`, a newline and the
 `${` substitution escaped; every node is the rendering's identifier-safe ID, quoted where it holds
 a `.` (`"n1.0"`) so D2 does not read it as a path.

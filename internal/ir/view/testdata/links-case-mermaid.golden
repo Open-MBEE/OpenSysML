@@ -64,8 +64,8 @@ flowchart LR
   n0 -.- n3
   n5 --- n4
   n4 ---|"«subject»"| n6
-  n0 -.->|"«include»"| n4
-  n0 -.->|"«include»"| n7
+  n0 -->|"«include»"| n4
+  n0 -->|"«include»"| n7
   n7 ---|"«subject»"| n8
   n9 --- n7
   n0 ---|"«composition»"| n10

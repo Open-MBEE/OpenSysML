@@ -126,12 +126,13 @@ lines and expressions are skipped rather than run — the load report counts the
 or `--cells tag:<tag>` picks cells; a cell tagged `skip-load` is never loaded. See
 [Reusing another notebook](12-jupyter.md#reusing-another-notebook).
 
-A loaded file's imports are followed to its neighbors: when a file imports a root namespace that
-neither the loaded files nor the standard library declare, the `.sysml` and `.kerml` files beside
-and below it are searched for one declaring that name, and each is loaded too, its own imports
-followed the same way. `%load main.sysml` therefore brings in `parts/lib.sysml` when `main.sysml`
-imports `Lib::*` and only `parts/lib.sysml` declares `package Lib`, and leaves unrelated siblings
-alone; the same holds for a file named on the command line. Hidden directories are not searched.
+A loaded file's references are followed to its neighbors: when a file imports a root namespace, or
+names one as the first segment of a qualified name (`Views::ProjectView`), that neither the loaded
+files nor the standard library declare, the `.sysml` and `.kerml` files beside and below it are
+searched for one declaring that name, and each is loaded too, its own references followed the same
+way. `%load main.sysml` therefore brings in `parts/lib.sysml` when `main.sysml` imports `Lib::*`
+and only `parts/lib.sysml` declares `package Lib`, and leaves unrelated siblings alone; the same
+holds for a file named on the command line. Hidden directories are not searched.
 
 A file the parser cannot read is reported the same way as a typed declaration, with the
 diagnostic pointing at the offending line of the file. None of its contents enter the

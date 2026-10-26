@@ -45,20 +45,20 @@ hide empty members
 class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>> [[https://example.test/src/tree.sysml#L11]]
 class "<size:10>//«part»//</size>\n**engine**" as n1 <<part>> <<usage>> [[https://example.test/src/tree.sysml#L12]]
 class "<size:10>//«attribute»//</size>\n**power**" as n2 <<attribute>> <<usage>> [[https://example.test/src/tree.sysml#L5]]
-n1 -- n2
 class "<size:10>//«part»//</size>\n**cylinder**" as n3 <<part>> <<usage>> [[https://example.test/src/tree.sysml#L6]]
-n1 -- n3
-n0 -- n1
 class "<size:10>//«part»//</size>\n**wheels**" as n4 <<part>> <<usage>> [[https://example.test/src/tree.sysml#L13]]
-n0 -- n4
 class "**connect**" as n5 <<connect>> <<usage>> [[https://example.test/src/tree.sysml#L14]]
 n0 -- n5
 class "<size:10>//«view»//</size>\n**engineSubview**" as n6 <<view>> <<usage>> [[https://example.test/src/tree.sysml#L29]]
 class "<size:10>//«part def»//</size>\n**Engine**" as n7 <<part def>> [[https://example.test/src/tree.sysml#L4]]
 class "<size:10>//«attribute»//</size>\n**power**" as n8 <<attribute>> <<usage>> [[https://example.test/src/tree.sysml#L5]]
-n7 -- n8
 class "<size:10>//«part»//</size>\n**cylinder**" as n9 <<part>> <<usage>> [[https://example.test/src/tree.sysml#L6]]
-n7 -- n9
 n6 -- n7
-n0 *-- "engine" n7 : [[https://example.test/src/tree.sysml#L12]]
+n0 *-- n1 : [[https://example.test/src/tree.sysml#L12]]
+n0 *-- n4 : [[https://example.test/src/tree.sysml#L13]]
+n1 --:|> n7 : [[https://example.test/src/tree.sysml#L12]]
+n1 o-- n2 : [[https://example.test/src/tree.sysml#L5]]
+n1 *-- n3 : [[https://example.test/src/tree.sysml#L6]]
+n7 o-- n8 : [[https://example.test/src/tree.sysml#L5]]
+n7 *-- n9 : [[https://example.test/src/tree.sysml#L6]]
 @enduml

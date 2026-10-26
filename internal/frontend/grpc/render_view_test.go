@@ -210,13 +210,13 @@ func TestRenderViewRendersCaseAndMixed(t *testing.T) {
 		t.Errorf("mixed view kind = %q, want mixed", mixedView.Kind)
 	}
 	requireNodeKinds(mixedView, "part def", "port", "action def")
-	requireEdgeKinds(mixedView, "reference", "succession")
+	requireEdgeKinds(mixedView, "perform", "succession")
 	var telemetry, perform bool
 	for _, node := range mixedView.Nodes {
 		telemetry = telemetry || node.Kind == "port" && node.Name == "telemetry"
 	}
 	for _, edge := range mixedView.Edges {
-		perform = perform || edge.Kind == "reference" && edge.Label == "«perform»"
+		perform = perform || edge.Kind == "perform" && edge.Label == "«perform»"
 	}
 	if !telemetry {
 		t.Errorf("mixed view nodes do not include the Lander telemetry port: %+v", mixedView.Nodes)
@@ -225,11 +225,12 @@ func TestRenderViewRendersCaseAndMixed(t *testing.T) {
 		t.Errorf("mixed view has no perform reference edge: %+v", mixedView.Edges)
 	}
 
-	// An association end's name, drawn at the type's end, reaches the wire as
-	// the edge's label, the response placing no label; multiplicities are an
+	// An association end's name — a part's, listed in a compartment of its
+	// owner, on the owner's edge to the part's type — reaches the wire as the
+	// edge's label, the response placing no label; multiplicities are an
 	// optional element, off by default.
 	structure, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{
-		ModelHash: parsed.ModelHash, View: "RenderViewKinds::structure",
+		ModelHash: parsed.ModelHash, View: "RenderViewKinds::structure", Compartments: "most",
 	})
 	if err != nil {
 		t.Fatalf("RenderView structure: %v", err)

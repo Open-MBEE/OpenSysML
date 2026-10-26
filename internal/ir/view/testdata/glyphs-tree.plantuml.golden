@@ -45,10 +45,7 @@ hide empty members
 class "<size:10>//«part def»//</size>\n**Plant**" as n0 <<part def>>
 class "<size:10>//«part»//</size>\n**tank**" as n1 <<part>> <<usage>>
 class "<size:10>//«attribute»//</size>\n**level**" as n2 <<attribute>> <<usage>>
-n1 -- n2
-n0 -- n1
 class "<size:10>//«part»//</size>\n**pump**" as n3 <<part>> <<usage>>
-n0 -- n3
 class "<size:10>//«timeslice»//</size>\n**filling**" as n4 <<timeslice>> <<usage>>
 n0 -- n4
 class "<size:10>//«snapshot»//</size>\n**full**" as n5 <<snapshot>> <<usage>>
@@ -57,13 +54,19 @@ class "<size:10>//«occurrence»//</size>\n**startup**" as n6 <<occurrence>> <<u
 n0 -- n6
 class "<size:10>//«part»//</size>\n**spare**" as n7 <<part>> <<usage>>
 class "<size:10>//«attribute»//</size>\n**level**" as n8 <<attribute>> <<usage>>
-n7 -- n8
-n0 -- n7
 class "<size:10>//«view»//</size>\n**tankView**" as n9 <<view>> <<usage>>
 class "<size:10>//«part def»//</size>\n**Tank**" as n10 <<part def>>
 class "<size:10>//«attribute»//</size>\n**level**" as n11 <<attribute>> <<usage>>
-n10 -- n11
-n0 *-- "tank" n10
+n0 *-- n1
+n0 *-- n3
+n0 #-- n4
+n0 #-- n5
+n0 --> n6 : event
+n0 o-- n7
+n1 --:|> n10
+n1 o-- n2
 n7 --|> n1 : references
-n9 ..> n10 : expose
+n7 o-- n8
+n9 ..> n10 : «expose»
+n10 o-- n11
 @enduml

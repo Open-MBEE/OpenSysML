@@ -7,5 +7,5 @@ concern safety (“Nothing overflows.”)
 
 relationships:
   LevelReq -> safety: frame
-  levelReq ..|> LevelReq
+  levelReq --:|> LevelReq
   capacity -> levelReq: require

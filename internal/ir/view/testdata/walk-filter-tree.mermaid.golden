@@ -29,18 +29,18 @@ flowchart TD
 **chassis**`")
       n2("`*«part»*
 **axle**`")
-  n1 --- n2
-  n0 --- n1
     n3("`*«part»*
 **radio**`")
       n4("`*«port»*
 **rx**`")
-  n3 --- n4
-  n0 --- n3
     n5("`*«part»*
 **gps**`")
-  n0 --- n5
     n6("`**connect**`")
   n0 --- n6
     n7("`**connect**`")
   n0 --- n7
+  n0 ---|"◆"| n1
+  n0 ---|"◆"| n3
+  n0 ---|"◆"| n5
+  n1 ---|"◆"| n2
+  n3 ---|"◇"| n4

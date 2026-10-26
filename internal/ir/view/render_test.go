@@ -110,6 +110,7 @@ func TestGoldenRenderings(t *testing.T) {
 	}{
 		{"tree", "tree.sysml", "VehicleViews::vehicleView", KindTree},
 		{"tree-edges", "tree-edges.sysml", "FleetViews::structure", KindTree},
+		{"feature-membership", "feature-membership.sysml", "MembershipViews::structure", KindTree},
 		{"tree-trunk", "tree-trunk.sysml", "MicroscopeViews::structure", KindTree},
 		{"interconnection", "interconnection.sysml", "PlantViews::loopView", KindInterconnection},
 		{"interconnection-ports", "interconnection-ports.sysml", "ToasterViews::toasterView", KindInterconnection},
@@ -909,6 +910,7 @@ func TestMermaidSizeCountsEdges(t *testing.T) {
 			for _, root := range rendering.Roots {
 				drawn += containmentEdges(root)
 			}
+			drawn -= len(rendering.nestingEdges())
 		}
 		if drawn == 0 {
 			t.Errorf("%s draws no edge", tc.view)

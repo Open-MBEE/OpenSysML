@@ -430,7 +430,8 @@ func (r *Renderer) relationshipOwnerName(sym *symbols.Symbol) string {
 }
 
 // structuralEdges draws what a definition or usage node states of itself:
-// its specializations and typings, and its ownership by a drawn owner.
+// its specializations and typings, and its membership in a drawn owner, a
+// composition or reference from the owner with its multiplicity at its end.
 func (g *generalGraph) structuralEdges(sym *symbols.Symbol) {
 	from := g.drawn(sym)
 	for _, rel := range semantics.RelationshipsOf(sym) {
@@ -456,8 +457,9 @@ func (g *generalGraph) structuralEdges(sym *symbols.Symbol) {
 		return
 	}
 	if owner := g.drawn(sym.OwnerScope.Owner()); owner != nil && owner != from {
-		kind, label := membershipEdge(sym)
-		g.add(Edge{From: owner.ID, To: from.ID, Kind: kind, Label: label, Origin: symbolOrigin(sym)})
+		edge := Edge{From: owner.ID, To: from.ID, ToLabel: g.r.usageMultiplicity(sym), Origin: symbolOrigin(sym)}
+		g.r.membershipEdge(sym, &edge)
+		g.add(edge)
 	}
 }
 
@@ -475,28 +477,25 @@ func ownedUsage(sym *symbols.Symbol) bool {
 // label: the notation's require, assume, assert, frame, event and portion
 // glyphs for the memberships that have one, else the composition (filled
 // diamond) or reference (hollow diamond) of a feature membership.
-func membershipEdge(member *symbols.Symbol) (EdgeKind, string) {
+func memberRelationship(member *symbols.Symbol) (EdgeKind, string, bool) {
 	switch decl := member.Decl.(type) {
 	case *ast.RequireMember:
-		return EdgeRequire, EdgeRequire.String()
+		return EdgeRequire, EdgeRequire.String(), true
 	case *ast.AssumeMember:
-		return EdgeAssume, EdgeAssume.String()
+		return EdgeAssume, EdgeAssume.String(), true
 	case *ast.Usage:
 		switch {
 		case decl.PrefixKeyword == "assert":
-			return EdgeAssert, EdgeAssert.String()
+			return EdgeAssert, EdgeAssert.String(), true
 		case decl.Kind == ast.UsageFramedConcern:
-			return EdgeFrame, EdgeFrame.String()
+			return EdgeFrame, EdgeFrame.String(), true
 		case decl.IsEvent:
-			return EdgeEvent, EdgeEvent.String()
+			return EdgeEvent, EdgeEvent.String(), true
 		case decl.Portion != ast.PortionNone:
-			return EdgePortion, ""
+			return EdgePortion, "", true
 		}
 	}
-	if compositeUsage(member) {
-		return EdgeComposition, ""
-	}
-	return EdgeReference, ""
+	return 0, "", false
 }
 
 // statedEdges draws what a member of sym states of another drawn element by
@@ -559,10 +558,7 @@ func (g *generalGraph) featureEdges(sym *symbols.Symbol, from *Node) {
 		if _, usage := member.Decl.(*ast.Usage); !usage || g.drawn(member) != nil || !generalNodeKind(g.r, member) {
 			continue
 		}
-		kind := EdgeComposition
-		if !compositeUsage(member) {
-			kind = EdgeReference
-		}
+		kind := g.r.membershipKind(member)
 		for _, typ := range g.r.model.DeclaredTypes(member) {
 			if to := g.drawn(typ); to != nil {
 				g.add(Edge{From: from.ID, To: to.ID, Kind: kind, ToLabel: symbols.LastSegment(g.r.fqn(member)), Origin: symbolOrigin(member)})
@@ -576,26 +572,15 @@ func structuralEdgeKind(kind ast.RelationshipKind) (EdgeKind, string, bool) {
 	case ast.RelSpecializes:
 		return EdgeSpecialization, "", true
 	case ast.RelSubsets:
-		return EdgeSpecialization, "subsets", true
+		return EdgeSubsetting, "", true
 	case ast.RelRedefines:
-		return EdgeSpecialization, "redefines", true
+		return EdgeRedefinition, "", true
 	case ast.RelReferences:
 		return EdgeReferenceSubsetting, "references", true
 	case ast.RelTyping:
 		return EdgeTyping, "", true
 	}
 	return 0, "", false
-}
-
-// compositeUsage reports whether a usage is composite: one not declared `ref`
-// and not an attribute or reference usage, which are always referential.
-func compositeUsage(sym *symbols.Symbol) bool {
-	switch sym.Kind {
-	case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage, symbols.SymbolEnumerationUsage:
-		return false
-	}
-	usage, ok := sym.Decl.(*ast.Usage)
-	return ok && !usage.IsReference
 }
 
 // packageEdges draws a package's containment by a drawn package and its
@@ -647,29 +632,28 @@ func (g *generalGraph) packageEdges(pkg *symbols.Symbol) {
 	}
 }
 
-// importLabel is an import edge's label: what the import brings in.
+// importLabel is an import edge's text as §8.2.3 writes it: `«import»`, `*`
+// after it for a namespace import, `**` for a recursive one.
 func importLabel(imp *ast.Import) string {
-	label := "import"
+	label := "«import»"
 	if imp.Visibility == ast.VisibilityPrivate {
-		label = "private import"
+		label = "«private import»"
 	}
 	return label + importSuffix(imp)
 }
 
 // exposeLabel is an expose edge's label, suffixed as an import's is.
 func exposeLabel(imp *ast.Import) string {
-	return "expose" + importSuffix(imp)
+	return "«expose»" + importSuffix(imp)
 }
 
 // importSuffix is what an import or expose brings in beyond the named element.
 func importSuffix(imp *ast.Import) string {
 	switch {
-	case imp.Kind == ast.ImportNamespace && imp.IsRecursive:
-		return " ::*::**"
-	case imp.Kind == ast.ImportNamespace:
-		return " ::*"
 	case imp.IsRecursive:
-		return " ::**"
+		return "**"
+	case imp.Kind == ast.ImportNamespace:
+		return "*"
 	}
 	return ""
 }
@@ -763,7 +747,7 @@ func (g *generalGraph) relate(from, to *symbols.Symbol, kind EdgeKind, origin *s
 			return Edge{}, false
 		}
 	}
-	return Edge{From: g.node(from).ID, To: g.node(to).ID, Kind: kind, Label: kind.String(), Origin: symbolOrigin(origin)}, true
+	return Edge{From: g.node(from).ID, To: g.node(to).ID, Kind: kind, Label: "«" + kind.String() + "»", Origin: symbolOrigin(origin)}, true
 }
 
 // resolvedEnds resolves both ends of a relationship, reporting an end that

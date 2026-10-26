@@ -554,8 +554,9 @@ func (w *featureWalk) valueBindingEdges() {
 	}
 }
 
-// bindingKeyword labels a binding edge no name of its own labels.
-const bindingKeyword = "binding"
+// bindingKeyword labels a binding edge no name of its own labels: the `=` of
+// the graphical notation's binding connection.
+const bindingKeyword = "="
 
 // featureValue is the feature a usage's value names — a feature reference or
 // chain — nil for a usage with no value or one computed from an expression.

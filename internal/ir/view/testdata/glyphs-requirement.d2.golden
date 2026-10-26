@@ -2,7 +2,7 @@
 classes: {
   definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
-  typing: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
+  specialization: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
   open: { target-arrowhead: { shape: arrow }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
 }
 n0: "«requirement def»\nLevelReq" { class: definition }
@@ -10,5 +10,5 @@ n1: "«requirement»\nlevelReq" { class: usage }
 n2: "«requirement»\ncapacity" { class: usage }
 n3: "«concern»\nsafety\n“Nothing overflows.”" { class: usage }
 n0 -> n3: "frame" { class: open }
-n1 -> n0: { class: typing }
+n1 -> n0: { class: specialization }
 n2 -> n1: "require" { class: open }

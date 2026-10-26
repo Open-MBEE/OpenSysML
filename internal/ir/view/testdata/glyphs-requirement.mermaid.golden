@@ -33,5 +33,5 @@ flowchart TD
 **safety**
 “Nothing overflows.”`")
   n0 -->|"frame"| n3
-  n1 -.->|"typing"| n0
+  n1 -->|"typing"| n0
   n2 -->|"require"| n1

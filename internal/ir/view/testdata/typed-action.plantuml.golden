@@ -46,6 +46,6 @@ state "<size:10>//«action»//</size>\n**run**" as n0 <<action>> <<usage>> {
   state "<size:10>//«action»//</size>\n**warm**" as n2 <<action>> <<usage>>
   state "**final**" as n3 <<end>>
 }
-n1 --> n2
-n2 --> n3
+n1 -[dashed]-> n2
+n2 -[dashed]-> n3
 @enduml

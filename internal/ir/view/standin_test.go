@@ -183,7 +183,7 @@ func TestHalfRoutedJoinPlacesAnEndNothingElseDoes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DOTWith: %v", err)
 	}
-	if !strings.Contains(source, `"a" -> "c" [pos="e,20,-200 20,-100 20,-100 20,-190 20,-190"]`) {
+	if !strings.Contains(source, `"a" -> "c" [style=dashed, arrowhead=vee, pos="e,20,-200 20,-100 20,-100 20,-190 20,-190"]`) {
 		t.Errorf("a->c not drawn along its route:\n%s", source)
 	}
 }
@@ -234,7 +234,7 @@ func TestDOTKeepsUnnamedControlNodesOfTheSource(t *testing.T) {
 			t.Errorf("fork bar lacks %s: %q\n%s", attr, line, source)
 		}
 	}
-	for _, edge := range []string{`"n1" -> "n4" [`, `"n4" -> "n2" [`, `"n4" -> "n3";`} {
+	for _, edge := range []string{`"n1" -> "n4" [`, `"n4" -> "n2" [`, `"n4" -> "n3" [style=dashed, arrowhead=vee];`} {
 		if !strings.Contains(source, "\n  "+edge) {
 			t.Errorf("no edge %s through the fork:\n%s", edge, source)
 		}

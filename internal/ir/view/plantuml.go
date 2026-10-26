@@ -50,7 +50,7 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	r = r.showing(options.Show).settleUnplaced(options.Unplaced, options.Compartments, FormPlantUML)
 	w := &plantumlWriter{kind: r.Kind, borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},
 		labels: labelsOf(r.Roots, false, nil, r.Shown), ports: r.portView(options.Ports), links: options.Links,
-		writtenPorts: make(map[string]struct{})}
+		writtenPorts: make(map[string]struct{}), nesting: r.nestingEdges()}
 	for _, root := range r.Roots {
 		w.fills.collect(root)
 	}
@@ -131,6 +131,7 @@ type plantumlWriter struct {
 	ports        portView    // the ports drawn of each node, and how they are named
 	links        Links
 	writtenPorts map[string]struct{}
+	nesting      map[[2]string]bool // the tree's children whose membership is an edge of its own
 }
 
 // countGeometry counts the nodes a Geometry positions and the edges with a route.
@@ -224,8 +225,9 @@ const (
 )
 
 // writeClassDiagram writes a tree as a class diagram: every node a class, and
-// containment an edge from a node to each of its children, as the Mermaid and
-// DOT trees draw it. Empty compartments and the class circle are hidden.
+// containment an edge from a node to each child whose membership is not an
+// edge of its own, as the Mermaid and DOT trees draw it. Empty compartments
+// and the class circle are hidden.
 func (w *plantumlWriter) writeClassDiagram(r *Rendering) {
 	b := &w.b
 	b.WriteString("hide circle\nhide empty members\n")
@@ -247,7 +249,9 @@ func (w *plantumlWriter) writeClassNode(node *Node) {
 	fmt.Fprintf(&w.b, "class %s as %s%s\n", plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
 	for _, child := range node.Children {
 		w.writeClassNode(child)
-		fmt.Fprintf(&w.b, "%s -- %s\n", node.ID, child.ID)
+		if !w.nesting[[2]string{node.ID, child.ID}] {
+			fmt.Fprintf(&w.b, "%s -- %s\n", node.ID, child.ID)
+		}
 	}
 }
 
@@ -561,37 +565,33 @@ func plantumlStyleColor(style *Style) string {
 	return color
 }
 
-// plantumlArrow is how an edge of each kind is drawn: a connection as the
-// Pilot's heavy undirected connector, a binding a plain undirected line, a flow
-// dashed, a general graph's relationships in the class-diagram notation, every
-// other edge a plain arrow.
+// plantumlArrow is each edge kind's arrow, the §8.2.3 glyph as the Pilot's
+// visualizer writes it; the notation table in the docs lists them.
 func plantumlArrow(kind Kind, edge EdgeKind) string {
-	if caseNotation(kind) && (edge == EdgeTyping || edge == EdgeReference) {
-		return "..>"
-	}
 	switch edge {
 	case EdgeConnection:
 		return "-[thickness=3]-"
 	case EdgeBinding:
 		return "--"
-	case EdgeFlow:
+	case EdgeSuccession:
+		// An action is written in the state grammar, whose dashed arrow is this.
 		return "-[dashed]->"
-	case EdgeSpecialization:
+	case EdgeSpecialization, EdgeSubsetting:
 		return "--|>"
+	case EdgeRedefinition:
+		return "--||>"
 	case EdgeTyping:
-		return "..|>"
+		return "--:|>"
 	case EdgeComposition:
 		return "*--"
 	case EdgeReference:
 		return "o--"
 	case EdgeContainment:
 		return "+--"
-	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate, EdgeDependency:
+	case EdgeImport, EdgeDerive, EdgeRefine, EdgeDependency:
 		return "..>"
 	case EdgeAssociation:
 		return "--"
-	case EdgeInclude:
-		return "..>"
 	case EdgeAnchor:
 		return ".."
 	case EdgeSuccessionFlow:

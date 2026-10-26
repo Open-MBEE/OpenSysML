@@ -25,7 +25,7 @@ part def Tank
   attribute level
 
 relationships:
-  NotationGlyphs::levelReq ..> LevelReq
+  NotationGlyphs::levelReq --:|> LevelReq
   tankView ..> Tank: «expose»
   LevelReq -> NotationGlyphs::bounded: «require»
   LevelReq -> NotationGlyphs::tight: «assume»

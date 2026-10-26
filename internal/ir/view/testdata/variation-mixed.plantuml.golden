@@ -52,5 +52,5 @@ rectangle "<size:10>//«variation part def»//</size>\n**EngineChoices**" as n5 
   rectangle "<size:10>//«variant»//</size>\n**sixCylinder**" as n7 <<variant>> <<usage>>
 }
 n1 -[thickness=3]- n2
-n1 ..> n5
+n1 --:|> n5
 @enduml

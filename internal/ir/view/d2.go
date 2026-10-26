@@ -211,12 +211,11 @@ var d2Classes = []struct{ name, body string }{
 	{"history", "shape: oval; width: 26; height: 26; style: { " + d2Element + fontSizeClose},
 	{"edge", styleOpen + d2Arrow + solidStrokeClose},
 	{"connection", styleOpen + d2Arrow + "; stroke-width: 3 }"},
-	{"flow", styleOpen + d2Arrow + dashedStrokeClose},
+	{"succession", styleOpen + d2Arrow + dashedStrokeClose},
 	{"specialization", "target-arrowhead: { shape: triangle; style: { filled: false } }; style: { " + d2Arrow + solidStrokeClose},
-	{"typing", "target-arrowhead: { shape: triangle; style: { filled: false } }; style: { " + d2Arrow + dashedStrokeClose},
 	{"composition", "source-arrowhead: { shape: diamond; style: { filled: true } }; style: { " + d2Arrow + solidStrokeClose},
 	{"reference", "source-arrowhead: { shape: diamond; style: { filled: false } }; style: { " + d2Arrow + solidStrokeClose},
-	{"containment", "source-arrowhead: { shape: circle; style: { filled: false } }; style: { " + d2Arrow + solidStrokeClose},
+	{"containment", "source-arrowhead: { shape: circle; label: \"+\"; style: { filled: false } }; style: { " + d2Arrow + solidStrokeClose},
 	{"dependency", styleOpen + d2Arrow + dashedStrokeClose},
 	{"successionflow", "target-arrowhead: { shape: triangle; style: { filled: true } }; style: { " + d2Arrow + dashedStrokeClose},
 	{"open", "target-arrowhead: { shape: arrow }; style: { " + d2Arrow + solidStrokeClose},
@@ -239,7 +238,8 @@ func (w *d2Writer) writeClasses(b *strings.Builder) {
 }
 
 // writeTree writes a tree rendering: every node at the root scope, each
-// joined to its children by a containment line, then the edges.
+// joined to its children by a containment line unless an edge of the tree
+// joins the two, then the edges.
 func (w *d2Writer) writeTree(r *Rendering) {
 	if r.blank() {
 		w.writeEmpty(r)
@@ -255,10 +255,13 @@ func (w *d2Writer) writeTree(r *Rendering) {
 	for _, root := range r.Roots {
 		declare(root)
 	}
+	nesting := r.nestingEdges()
 	var contain func(node *Node)
 	contain = func(node *Node) {
 		for _, child := range node.Children {
-			w.writeArrow("", d2EdgeSpec{from: w.paths[node.ID], to: w.paths[child.ID], arrow: "--", class: "edge"})
+			if !nesting[[2]string{node.ID, child.ID}] {
+				w.writeArrow("", d2EdgeSpec{from: w.paths[node.ID], to: w.paths[child.ID], arrow: "--", class: "edge"})
+			}
 			contain(child)
 		}
 	}
@@ -505,10 +508,8 @@ func d2Color(color string) string {
 	return `"#` + strings.TrimPrefix(color, "#") + `"`
 }
 
-// writeEdge writes one edge as its kind's connector: a connection the
-// Pilot's heavy undirected line, a binding a plain one, a flow dashed, a
-// general graph's relationships in the class-diagram notation, every other
-// edge an arrow; in a sequence diagram every message is an arrow.
+// writeEdge writes one edge with its kind's arrow and class from the notation
+// table (docs/project/view-rendering-forms.md); a sequence message is an arrow.
 func (w *d2Writer) writeEdge(indent string, edge Edge) {
 	arrow, class := "->", "edge"
 	switch edge.Kind {
@@ -516,14 +517,14 @@ func (w *d2Writer) writeEdge(indent string, edge Edge) {
 		arrow, class = "--", "connection"
 	case EdgeBinding, EdgeAssociation:
 		arrow = "--"
-	case EdgeFlow:
-		class = "flow"
-	case EdgeSpecialization, EdgeTyping:
-		class = edge.Kind.String()
+	case EdgeSuccession:
+		class = "succession"
+	case EdgeSpecialization, EdgeTyping, EdgeSubsetting, EdgeRedefinition:
+		class = "specialization"
 	case EdgeComposition, EdgeReference, EdgeContainment:
 		// D2 draws a source arrowhead only where the connection has a head there.
 		arrow, class = "<-", edge.Kind.String()
-	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate, EdgeDependency, EdgeExpose:
+	case EdgeImport, EdgeDerive, EdgeRefine, EdgeDependency, EdgeExpose:
 		class = "dependency"
 	case EdgeSuccessionFlow:
 		class = "successionflow"

@@ -96,8 +96,8 @@ nested deeper than 3 levels; not shown`")
     end
   end
   n2.0 === n0.0
-  n8_anchor === n4_anchor
-  n18_anchor === n14_anchor
+  n8_anchor ===|"="| n4_anchor
+  n18_anchor ===|"="| n14_anchor
   classDef anchor fill:none,stroke:none
   class n14_anchor,n18_anchor,n4_anchor,n8_anchor anchor
   linkStyle 0 stroke-width:3px

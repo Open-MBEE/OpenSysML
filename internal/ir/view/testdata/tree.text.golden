@@ -12,4 +12,10 @@ view engineSubview
     part cylinder
 
 relationships:
-  Vehicle *-- Engine: engine
+  Vehicle *-- engine
+  Vehicle *-- wheels
+  engine --:|> Engine
+  engine o-- power
+  engine *-- cylinder
+  Engine o-- power
+  Engine *-- cylinder

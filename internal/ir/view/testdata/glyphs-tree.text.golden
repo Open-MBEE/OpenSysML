@@ -14,6 +14,15 @@ part def Tank
   attribute level
 
 relationships:
-  Plant *-- Tank: tank
+  Plant *-- tank
+  Plant *-- pump
+  Plant @-- filling
+  Plant @-- full
+  Plant -> startup: event
+  Plant o-- spare
+  tank --:|> Tank
+  tank o-- level
   spare --|> tank: references
-  tankView ..> Tank: expose
+  spare o-- level
+  tankView ..> Tank: «expose»
+  Tank o-- level

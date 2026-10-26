@@ -47,6 +47,6 @@ class "<size:10>//«requirement»//</size>\n**levelReq**" as n1 <<requirement>> 
 class "<size:10>//«requirement»//</size>\n**capacity**" as n2 <<requirement>> <<usage>>
 class "<size:10>//«concern»//</size>\n**safety**\n“Nothing overflows.”" as n3 <<concern>> <<usage>>
 n0 --> n3 : frame
-n1 ..|> n0
+n1 --:|> n0
 n2 --> n1 : require
 @enduml

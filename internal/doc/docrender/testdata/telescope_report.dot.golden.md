@@ -120,9 +120,9 @@ digraph {
     "n1" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>idle</b><br/>initial>];
     "n2" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>observing</b>>];
   }
-  "n3" -> "n1";
-  "n1" -> "n2";
-  "n2" -> "n1";
+  "n3" -> "n1" [arrowhead=vee];
+  "n1" -> "n2" [arrowhead=vee];
+  "n2" -> "n1" [arrowhead=vee];
 }
 ```
 

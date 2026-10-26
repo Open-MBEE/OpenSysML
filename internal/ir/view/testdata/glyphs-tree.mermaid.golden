@@ -29,11 +29,8 @@ flowchart TD
 **tank**`")
       n2("`*«attribute»*
 **level**`")
-  n1 --- n2
-  n0 --- n1
     n3("`*«part»*
 **pump**`")
-  n0 --- n3
     n4("`*«timeslice»*
 **filling**`")
   n0 --- n4
@@ -47,15 +44,21 @@ flowchart TD
 **spare**`")
       n8("`*«attribute»*
 **level**`")
-  n7 --- n8
-  n0 --- n7
   n9("`*«view»*
 **tankView**`")
   n10["`*«part def»*
 **Tank**`"]
     n11("`*«attribute»*
 **level**`")
-  n10 --- n11
-  n0 ---|"◆ tank"| n10
+  n0 ---|"◆"| n1
+  n0 ---|"◆"| n3
+  n0 ---|"◕"| n4
+  n0 ---|"◕"| n5
+  n0 -->|"event"| n6
+  n0 ---|"◇"| n7
+  n1 -->|"typing"| n10
+  n1 ---|"◇"| n2
   n7 -->|"references"| n1
-  n9 -.->|"expose"| n10
+  n7 ---|"◇"| n8
+  n9 -.->|"«expose»"| n10
+  n10 ---|"◇"| n11

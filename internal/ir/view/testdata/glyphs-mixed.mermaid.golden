@@ -70,7 +70,7 @@ flowchart TD
     n18("`*«attribute»*
 **level**`")
   end
-  n2 -.-> n0_anchor
+  n2 -->|"typing"| n0_anchor
   n4 -.->|"«expose»"| n17_anchor
   n0_anchor -->|"«require»"| n15
   n0_anchor -->|"«assume»"| n16

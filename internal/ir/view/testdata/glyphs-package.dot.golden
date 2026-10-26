@@ -9,7 +9,7 @@ digraph "NotationGlyphs::Diagrams::packageGlyphs" {
   "n0" [style="rounded,filled", label=<<font point-size="10"><i>«package»</i></font><br/><b>NotationGlyphs</b>>];
   "n1" [style="rounded,filled", label=<<font point-size="10"><i>«package»</i></font><br/><b>Lib</b>>];
   "n2" [style="rounded,filled", label=<<font point-size="10"><i>«package»</i></font><br/><b>Uses</b>>];
-  "n0" -> "n1" [dir=back, arrowtail=odot];
-  "n0" -> "n2" [dir=back, arrowtail=odot];
+  "n0" -> "n1" [dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0];
+  "n0" -> "n2" [dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0];
   "n2" -> "n1" [headlabel="L", dir=back, arrowtail=odot];
 }

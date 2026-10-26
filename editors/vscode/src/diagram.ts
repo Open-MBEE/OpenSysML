@@ -1573,7 +1573,8 @@ function html(
       #diagram .collapsed { fill: var(--vscode-foreground); opacity: 0.7; }
       #diagram .line { fill: none; stroke: var(--vscode-foreground); stroke-width: 1.25px; }
       #diagram .lifeline { stroke: var(--vscode-foreground); stroke-width: 1px; stroke-dasharray: 6 4; opacity: 0.6; }
-      #diagram .flow .line, #diagram .succession-flow .line, #diagram .expose .line, #diagram .typing .line { stroke-dasharray: 5 4; }
+      #diagram .succession .line, #diagram .import .line, #diagram .derive .line, #diagram .refine .line,
+      #diagram .dependency .line, #diagram .anchor .line, #diagram .succession-flow .line, #diagram .expose .line { stroke-dasharray: 5 4; }
       #diagram .arrow-fill { fill: var(--vscode-foreground); }
       #diagram .arrow-line { fill: none; stroke: var(--vscode-foreground); stroke-width: 1.25px; }
       #diagram .arrow-hollow { fill: var(--vscode-editor-background); stroke: var(--vscode-foreground); stroke-width: 1px; }

@@ -50,7 +50,7 @@ digraph "NotationGlyphs::Diagrams::mixedGlyphs" {
     "n17" [shape=point, style=invis, width=0, height=0, label=""];
     "n18" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>level</b>>];
   }
-  "n2" -> "n0" [style=dashed, arrowhead=open, lhead="cluster_n0"];
+  "n2" -> "n0" [arrowhead=onormaldotdot, lhead="cluster_n0"];
   "n4" -> "n17" [label="«expose»", arrowhead=vee, style=dashed, lhead="cluster_n17"];
   "n0" -> "n15" [label="«require»", arrowhead=vee, ltail="cluster_n0"];
   "n0" -> "n16" [label="«assume»", arrowhead=vee, ltail="cluster_n0"];

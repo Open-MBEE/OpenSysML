@@ -531,13 +531,13 @@ func (w *mixedWalk) referenceEdges() {
 	}
 
 	for _, sym := range w.order {
-		specialLabel := ""
+		specialLabel, specialKind := "", EdgeReference
 		if usage := caseUsage(sym); usage != nil {
 			switch {
 			case usage.IsPerformedAction():
-				specialLabel = "«perform»"
+				specialLabel, specialKind = "«perform»", EdgePerform
 			case usage.IsExhibitedState():
-				specialLabel = "«exhibit»"
+				specialLabel, specialKind = "«exhibit»", EdgeExhibit
 			}
 		}
 		if sym.Kind.IsFeature() && specialLabel == "" {
@@ -552,7 +552,7 @@ func (w *mixedWalk) referenceEdges() {
 				continue
 			}
 			if target := w.r.model.RelationshipTarget(sym, rel); target != nil {
-				add(sym, target, EdgeSpecialization, "«specializes»", sym, nil)
+				add(sym, target, EdgeSpecialization, "", sym, nil)
 			}
 		}
 		if kind, ref, ok := statedReference(sym); ok && sym.Owner() != nil {
@@ -567,14 +567,14 @@ func (w *mixedWalk) referenceEdges() {
 				}
 				// A view exposing a namespace it is nested in is shown by the nesting.
 				if target, resolved := w.r.resolver.ImportTarget(sym.Scope, imp); resolved && target != nil && !ownedWithin(sym, target) {
-					add(sym, target, EdgeExpose, "«"+exposeLabel(imp)+"»", sym, imp.Imported)
+					add(sym, target, EdgeExpose, exposeLabel(imp), sym, imp.Imported)
 				}
 			}
 		}
 		if specialLabel != "" {
 			target := w.r.model.ReferencedFeature(sym)
 			if target != nil {
-				add(sym, target, EdgeReference, specialLabel, sym, referenceTargetNode(sym))
+				add(sym, target, specialKind, specialLabel, sym, referenceTargetNode(sym))
 				continue
 			}
 			for _, rel := range viewRelationshipsOf(sym) {
@@ -582,7 +582,7 @@ func (w *mixedWalk) referenceEdges() {
 					continue
 				}
 				if target := w.r.model.RelationshipTarget(sym, rel); target != nil {
-					add(sym, target, EdgeReference, specialLabel, sym, rel.Target)
+					add(sym, target, specialKind, specialLabel, sym, rel.Target)
 					break
 				}
 			}
