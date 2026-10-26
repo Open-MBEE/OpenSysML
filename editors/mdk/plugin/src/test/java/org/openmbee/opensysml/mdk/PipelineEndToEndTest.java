@@ -146,13 +146,13 @@ class PipelineEndToEndTest {
     }
     Path destination = directory.resolve("exported").resolve("Requirements.sysml");
 
-    Optional<ModelExport.Result> cancelled = engine.export(new V1MdzipSource(mdzip), destination, () -> true);
+    Optional<ModelExport.Result> cancelled = engine.export(new V1MdzipSource(mdzip), destination, existing -> true, () -> true);
     assertTrue(cancelled.isEmpty());
     assertFalse(Files.exists(destination));
 
     ModelExport.Result result;
     try (V1MdzipSource source = new V1MdzipSource(mdzip, true)) {
-      result = engine.export(source, destination, () -> false).orElseThrow();
+      result = engine.export(source, destination, existing -> true, () -> false).orElseThrow();
     }
     String text = Files.readString(destination);
     assertTrue(text.contains("@DiagramLayout::Canvas"), text);
@@ -175,7 +175,7 @@ class PipelineEndToEndTest {
   void v2TextualExportWritesTheTextVerbatim() throws Exception {
     String text = Files.readString(Path.of("src/test/resources/fixtures/demo.sysml"));
     Path destination = Files.createTempDirectory("opensysml-mdk-test").resolve("demo.sysml");
-    ModelExport.Result result = engine.export(new V2TextualSource(text), destination, () -> false).orElseThrow();
+    ModelExport.Result result = engine.export(new V2TextualSource(text), destination, existing -> true, () -> false).orElseThrow();
     assertEquals(text, Files.readString(destination));
     assertEquals(Optional.empty(), result.report());
     assertEquals(List.of(), result.files());

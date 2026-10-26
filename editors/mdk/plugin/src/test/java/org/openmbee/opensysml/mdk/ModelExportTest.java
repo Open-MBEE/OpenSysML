@@ -1,16 +1,21 @@
 package org.openmbee.opensysml.mdk;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.openmbee.opensysml.Diagnostic;
 import org.openmbee.opensysml.SourceDocument;
@@ -26,7 +31,7 @@ class ModelExportTest {
     Map<String, byte[]> files = Map.of("images/logo.png", new byte[] {1, 2, 3});
 
     ModelExport.Result result = ModelExport.write(
-        destination, MODEL, files, Optional.of("migrated 3 element(s)\n"), List.of());
+        destination, MODEL, files, Optional.of("migrated 3 element(s)\n"), List.of(), existing -> true).orElseThrow();
 
     assertEquals("package P;\n", Files.readString(destination));
     assertEquals(List.of(directory.resolve("out/images/logo.png")), result.files());
@@ -41,7 +46,7 @@ class ModelExportTest {
   @Test
   void textOnlyExportWritesNoReport(@TempDir Path directory) throws Exception {
     Path destination = directory.resolve("v2.sysml");
-    ModelExport.Result result = ModelExport.write(destination, MODEL, Map.of(), Optional.empty(), List.of());
+    ModelExport.Result result = ModelExport.write(destination, MODEL, Map.of(), Optional.empty(), List.of(), existing -> true).orElseThrow();
     assertEquals(Optional.empty(), result.report());
     assertEquals(List.of(), result.files());
     assertEquals(List.of("v2.sysml"), Files.list(directory).map(path -> path.getFileName().toString()).toList());
@@ -51,7 +56,7 @@ class ModelExportTest {
   void furtherDocumentsLandBesideTheFirstByName(@TempDir Path directory) throws Exception {
     List<SourceDocument> documents = List.of(
         SourceDocument.inline("model.sysml", "package A;\n"), SourceDocument.inline("lib/B.sysml", "package B;\n"));
-    ModelExport.Result result = ModelExport.write(directory.resolve("A.sysml"), documents, Map.of(), Optional.empty(), List.of());
+    ModelExport.Result result = ModelExport.write(directory.resolve("A.sysml"), documents, Map.of(), Optional.empty(), List.of(), existing -> true).orElseThrow();
     assertEquals(List.of(directory.resolve("lib/B.sysml")), result.files());
     assertEquals("package B;\n", Files.readString(directory.resolve("lib/B.sysml")));
   }
@@ -61,7 +66,7 @@ class ModelExportTest {
     Path destination = directory.resolve("out").resolve("model.sysml");
     for (String escape : List.of("../outside.png", "/etc/passwd", "")) {
       IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
-          () -> ModelExport.write(destination, MODEL, Map.of(escape, new byte[0]), Optional.empty(), List.of()), escape);
+          () -> ModelExport.write(destination, MODEL, Map.of(escape, new byte[0]), Optional.empty(), List.of(), existing -> true), escape);
       assertTrue(refused.getMessage().contains("leaves the destination directory"), refused.getMessage());
     }
     assertFalse(Files.exists(directory.resolve("outside.png")));
@@ -73,7 +78,7 @@ class ModelExportTest {
         new Diagnostic(Diagnostic.Severity.INFO, "migrated 1 element(s)", "migration-report", Optional.empty()),
         new Diagnostic(Diagnostic.Severity.WARNING, "approximated X", "approximate", Optional.empty()),
         new Diagnostic(Diagnostic.Severity.ERROR, "unresolved Y", "nameres", Optional.empty()));
-    ModelExport.Result result = ModelExport.write(directory.resolve("m.sysml"), MODEL, Map.of(), Optional.empty(), diagnostics);
+    ModelExport.Result result = ModelExport.write(directory.resolve("m.sysml"), MODEL, Map.of(), Optional.empty(), diagnostics, existing -> true).orElseThrow();
     assertEquals(1, result.errorCount());
     String text = result.describe();
     assertTrue(text.contains("1 error(s), 1 warning(s)"), text);
@@ -88,5 +93,61 @@ class ModelExportTest {
     assertEquals("Mission", ModelExport.stem(Path.of("Mission.sysml")));
     assertEquals("Lib", ModelExport.stem(Path.of("x/Lib.KerML")));
     assertEquals("notes.txt", ModelExport.stem(Path.of("notes.txt")));
+  }
+
+  @Test
+  void asksBeforeReplacingExistingFilesAndWritesNothingWhenDeclined(@TempDir Path directory) throws Exception {
+    Path destination = directory.resolve("Mission.sysml");
+    Path image = directory.resolve("images/logo.png");
+    Files.createDirectories(image.getParent());
+    Files.write(image, new byte[] {9});
+    Files.writeString(destination, "old\n");
+    List<List<Path>> asked = new ArrayList<>();
+
+    Optional<ModelExport.Result> declined = ModelExport.write(
+        destination, MODEL, Map.of("images/logo.png", new byte[] {1}), Optional.of("report\n"), List.of(),
+        existing -> {
+          asked.add(existing);
+          return false;
+        });
+
+    assertEquals(Optional.empty(), declined);
+    assertEquals(List.of(List.of(destination, image)), asked);
+    assertEquals("old\n", Files.readString(destination));
+    assertArrayEquals(new byte[] {9}, Files.readAllBytes(image));
+    assertFalse(Files.exists(directory.resolve("Mission.migration-report.txt")));
+    assertEquals(List.of("Mission.sysml", "images"), Files.list(directory).map(path -> path.getFileName().toString()).sorted().toList());
+
+    ModelExport.write(destination, MODEL, Map.of("images/logo.png", new byte[] {1}), Optional.empty(), List.of(), existing -> true);
+    assertEquals("package P;\n", Files.readString(destination));
+    assertArrayEquals(new byte[] {1}, Files.readAllBytes(image));
+  }
+
+  @Test
+  void failedExportLeavesThePreviousFilesInPlace(@TempDir Path directory) throws Exception {
+    Path destination = directory.resolve("Mission.sysml");
+    Files.writeString(destination, "old\n");
+    Files.writeString(directory.resolve("images"), "a file where the export needs a directory\n");
+
+    assertThrows(UncheckedIOException.class, () -> ModelExport.write(
+        destination, MODEL, Map.of("images/logo.png", new byte[] {1}), Optional.empty(), List.of(), existing -> true));
+
+    assertEquals("old\n", Files.readString(destination));
+    assertEquals(List.of("Mission.sysml", "images"), Files.list(directory).map(path -> path.getFileName().toString()).sorted().toList());
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void refusesFilesThatLeaveTheDestinationDirectoryThroughALink(@TempDir Path directory) throws Exception {
+    Path outside = Files.createDirectories(directory.resolve("outside"));
+    Path out = Files.createDirectories(directory.resolve("out"));
+    Files.createSymbolicLink(out.resolve("images"), outside);
+
+    IllegalArgumentException refused = assertThrows(IllegalArgumentException.class, () -> ModelExport.write(
+        out.resolve("model.sysml"), MODEL, Map.of("images/logo.png", new byte[] {1}), Optional.empty(), List.of(), existing -> true));
+
+    assertTrue(refused.getMessage().contains("through a link"), refused.getMessage());
+    assertEquals(List.of(), Files.list(outside).toList());
+    assertFalse(Files.exists(out.resolve("model.sysml")));
   }
 }

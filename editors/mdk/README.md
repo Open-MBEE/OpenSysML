@@ -58,7 +58,10 @@ export and migration the operations use; every diagram comes out as a `view` usa
 `DiagramLayout` metadata (`@Canvas`, `Layout about …`, `Route about …`) from the project's own
 diagram symbols, and the action offers to lay the views out from an MTIP (HUDS XML) export of the
 project instead. The migration report lands beside the file as `<name>.migration-report.txt`,
-with any image files the views embed under their relative paths. A v2 project's text is written
+with any image files the views embed under their relative paths; files the export would replace
+beside the model (another export's images or report) are listed for confirmation first, and the
+export is staged and moved into place, so a failure leaves the previous files as they were. A
+v2 project's text is written
 as `SysMLTextualNotationService.exportTextual` returns it — no report, and no geometry, which the
 vendor keeps outside the text (`docs/internals/design/mdk-mtip.md` §6). The completion dialog
 counts the service's diagnostics on the written text: a v1 model that migrates but does not parse

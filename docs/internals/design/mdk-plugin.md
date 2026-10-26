@@ -764,7 +764,9 @@ user: right-click an element ▸ OpenSysML ▸ Export as SysML v2…
        parse:     ParseSources(documents) — diagnostics only, nothing runs
        write:     ModelExport.write — the text at the destination, further documents and the
                   migration's image files beside it by relative path (a path that leaves the
-                  directory is refused), the report as <stem>.migration-report.txt
+                  directory, lexically or through a link, is refused), the report as
+                  <stem>.migration-report.txt; files it would replace are confirmed on the EDT
+                  first, then everything is staged beside the destination and moved into place
   4  the temporary .mdzip is removed; a dialog lists what was written and counts the diagnostics
 ```
 

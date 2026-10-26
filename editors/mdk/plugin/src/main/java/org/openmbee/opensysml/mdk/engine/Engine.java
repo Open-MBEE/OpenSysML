@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.openmbee.opensysml.Connection;
 import org.openmbee.opensysml.ConnectionOptions;
@@ -99,14 +100,17 @@ public final class Engine implements AutoCloseable {
   /**
    * Exports the model text of {@code source} to {@code destination} — a v1 archive is migrated,
    * a v2 project's text is written as the tool exported it — with its files and migration report
-   * beside it, and parses the text so the result carries the service's diagnostics on it.
+   * beside it, and parses the text so the result carries the service's diagnostics on it. Files
+   * the export would replace are put to {@code replaceExisting} before anything is written.
    *
-   * @return the export, or empty when cancelled
+   * @return the export, or empty when cancelled or {@code replaceExisting} declined
    * @throws RuntimeException when the service or the file system fails; the caller reports it
    */
-  public Optional<ModelExport.Result> export(ModelSource source, Path destination, Cancellation cancellation) {
+  public Optional<ModelExport.Result> export(
+      ModelSource source, Path destination, Predicate<List<Path>> replaceExisting, Cancellation cancellation) {
     Objects.requireNonNull(source);
     Objects.requireNonNull(destination);
+    Objects.requireNonNull(replaceExisting);
     Objects.requireNonNull(cancellation);
     if (cancellation.requested()) return Optional.empty();
     Thread watcher = null;
@@ -119,7 +123,8 @@ public final class Engine implements AutoCloseable {
       if (cancellation.requested()) return Optional.empty();
       List<Diagnostic> diagnostics = new ArrayList<>(source.exportDiagnostics());
       diagnostics.addAll(model.parseDiagnostics());
-      return Optional.of(ModelExport.write(destination, documents, source.files(), source.reportText(), diagnostics));
+      return ModelExport.write(
+          destination, documents, source.files(), source.reportText(), diagnostics, replaceExisting);
     } catch (RuntimeException exception) {
       if (cancellation.requested()) return Optional.empty();
       if (current != null && isUnavailable(exception)) dropConnection(current);

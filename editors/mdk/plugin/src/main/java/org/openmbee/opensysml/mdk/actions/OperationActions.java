@@ -16,13 +16,16 @@ import com.nomagic.ui.ProgressStatusRunner;
 import com.nomagic.utils.PriorityProvider;
 import java.awt.event.ActionEvent;
 import java.io.File;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import org.openmbee.opensysml.Diagnostic;
 import org.openmbee.opensysml.Value;
@@ -159,7 +162,7 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
           status -> export(exported, destination, status), TITLE, true, 0);
     }
 
-    /** The `.sysml` file to write, confirmed when it exists; empty when the user backs out. */
+    /** The `.sysml` file to write (the extension is added to any other name), confirmed when it exists; empty when the user backs out. */
     private Optional<Path> chooseDestination() {
       JFileChooser chooser = new JFileChooser();
       chooser.setDialogTitle(TITLE);
@@ -170,8 +173,9 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
           return Optional.empty();
         }
         Path destination = chooser.getSelectedFile().toPath();
-        if (!destination.getFileName().toString().contains(".")) {
-          destination = destination.resolveSibling(destination.getFileName() + ".sysml");
+        String name = destination.getFileName().toString();
+        if (!name.toLowerCase(Locale.ROOT).endsWith(".sysml") && !name.toLowerCase(Locale.ROOT).endsWith(".kerml")) {
+          destination = destination.resolveSibling(name + ".sysml");
         }
         if (!Files.exists(destination)) return Optional.of(destination);
         int overwrite = JOptionPane.showConfirmDialog(
@@ -209,12 +213,39 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
       return stem + ".sysml";
     }
 
-    /** Runs off the EDT under the progress dialog; only the final dialog hops back onto it. */
+    /**
+     * Asks, on the EDT, before the export replaces files beside the model other than the
+     * destination the save dialog already confirmed; images and reports of another export live there.
+     */
+    private boolean confirmReplacing(Path destination, List<Path> existing) {
+      List<Path> others = existing.stream()
+          .filter(path -> !path.equals(destination.toAbsolutePath().normalize()))
+          .toList();
+      if (others.isEmpty()) return true;
+      StringBuilder message = new StringBuilder("The export replaces these existing files:\n");
+      others.stream().limit(20).forEach(path -> message.append("  ").append(path).append('\n'));
+      if (others.size() > 20) message.append("  … and ").append(others.size() - 20).append(" more\n");
+      message.append("Replace them?");
+      boolean[] answer = new boolean[1];
+      try {
+        SwingUtilities.invokeAndWait(() -> answer[0] = JOptionPane.showConfirmDialog(
+            Application.getInstance().getMainFrame(), message.toString(), TITLE,
+            JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION);
+      } catch (InterruptedException interrupted) {
+        Thread.currentThread().interrupt();
+        return false;
+      } catch (InvocationTargetException failure) {
+        throw new IllegalStateException(failure.getCause());
+      }
+      return answer[0];
+    }
+
+    /** Runs off the EDT under the progress dialog; only the dialogs hop back onto it. */
     private void export(ModelSource source, Path destination, ProgressStatus status) {
       status.setDescription("Exporting " + selection.subject().qualifiedName() + " to " + destination.getFileName());
       Optional<ModelExport.Result> result;
       try {
-        result = engine.get().export(source, destination, status::isCancel);
+        result = engine.get().export(source, destination, existing -> confirmReplacing(destination, existing), status::isCancel);
       } catch (RuntimeException failure) {
         try {
           source.close();
