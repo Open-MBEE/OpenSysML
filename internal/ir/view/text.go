@@ -274,9 +274,18 @@ func pinLine(port Port, ports portView) string {
 // labelled by its name, since the ends name the pins already.
 func textEdgeLabel(edge Edge, ports portView) string {
 	if ports.action && (edge.FromPort != "" || edge.ToPort != "") {
-		return edge.Name
+		return pinnedEdgeLabel(edge)
 	}
 	return edge.text()
+}
+
+// pinnedEdgeLabel is the label of an action edge whose pins name its ends: its
+// own name, led by the keyword a succession flow is told from a flow by.
+func pinnedEdgeLabel(edge Edge) string {
+	if edge.Kind == EdgeSuccessionFlow {
+		return successionFlowLabel(edge.Name)
+	}
+	return edge.Name
 }
 
 // writeTableText writes a tabular rendering as aligned columns, padding each
@@ -494,6 +503,18 @@ func edgeArrow(kind Kind, edge EdgeKind) string {
 		return "..>"
 	case EdgeAnchor:
 		return ".."
+	case EdgeSuccessionFlow:
+		return "~>"
+	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent:
+		return "->"
+	case EdgePortion:
+		return "@--"
+	case EdgeReferenceSubsetting:
+		return "--|>"
+	case EdgeUnownedMembership:
+		return "0--"
+	case EdgeExpose:
+		return "..>"
 	}
 	return "->"
 }

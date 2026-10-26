@@ -155,6 +155,10 @@ func (n *narrowing) edge(edge *Edge) {
 	edge.To, edge.ToPort = n.end(edge.To, edge.ToPort)
 	if !n.shown.Has(ElementEdgeLabels) && connectorEdge(edge.Kind) && n.kind != KindSequence {
 		edge.Label, edge.Name = "", ""
+		if edge.Kind == EdgeSuccessionFlow {
+			// The keyword is the glyph's, not the connector's optional name.
+			edge.Label = successionFlowKeyword
+		}
 	}
 	if !n.shown.Has(ElementMultiplicities) {
 		labels := []*string{&edge.FromLabel, &edge.ToLabel}
@@ -194,7 +198,7 @@ func (n *narrowing) note(note *Note) {
 // an optional label: a connection, interface, flow, binding or allocation.
 func connectorEdge(kind EdgeKind) bool {
 	switch kind {
-	case EdgeConnection, EdgeFlow, EdgeBinding, EdgeAllocate:
+	case EdgeConnection, EdgeFlow, EdgeSuccessionFlow, EdgeBinding, EdgeAllocate:
 		return true
 	}
 	return false

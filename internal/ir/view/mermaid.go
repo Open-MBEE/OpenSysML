@@ -1954,6 +1954,10 @@ func mermaidArrow(kind Kind, edge EdgeKind) string {
 		return "-.-"
 	case EdgeInclude:
 		return "-.->"
+	case EdgeSuccessionFlow, EdgeExpose:
+		return "-.->"
+	case EdgePortion, EdgeUnownedMembership:
+		return "---"
 	}
 	return "-->"
 }
@@ -1966,6 +1970,13 @@ func mermaidArrow(kind Kind, edge EdgeKind) string {
 // specialization.
 func mermaidEdgeLabel(kind Kind, edge Edge) string {
 	label := edge.text()
+	// A flowchart has no three-quarter circle or circle end: the glyph leads the text.
+	switch edge.Kind {
+	case EdgePortion:
+		return strings.TrimSpace("◕ " + label)
+	case EdgeUnownedMembership:
+		return strings.TrimSpace("○ " + label)
+	}
 	if caseNotation(kind) {
 		if label != "" {
 			return label
