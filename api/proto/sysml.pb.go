@@ -180,14 +180,23 @@ func (EditFailure) EnumDescriptor() ([]byte, []int) {
 	return file_sysml_proto_rawDescGZIP(), []int{1}
 }
 
-// PrimitiveOperator is the standard's PrimitiveConstraint.operator.
+// PrimitiveOperator is the standard's PrimitiveConstraint.operator, the seven
+// literals of API & Services §7.1.4.
 type PrimitiveOperator int32
 
 const (
-	PrimitiveOperator_PRIMITIVE_OPERATOR_UNSPECIFIED PrimitiveOperator = 0 // unset; fails the call
-	PrimitiveOperator_PRIMITIVE_OPERATOR_EQUAL       PrimitiveOperator = 1 // "="
-	PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER     PrimitiveOperator = 2 // ">"
-	PrimitiveOperator_PRIMITIVE_OPERATOR_LESS        PrimitiveOperator = 3 // "<"
+	PrimitiveOperator_PRIMITIVE_OPERATOR_UNSPECIFIED   PrimitiveOperator = 0 // unset; fails the call
+	PrimitiveOperator_PRIMITIVE_OPERATOR_EQUAL         PrimitiveOperator = 1 // "="
+	PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER       PrimitiveOperator = 2 // ">"
+	PrimitiveOperator_PRIMITIVE_OPERATOR_LESS          PrimitiveOperator = 3 // "<"
+	PrimitiveOperator_PRIMITIVE_OPERATOR_LESS_EQUAL    PrimitiveOperator = 4 // "<="
+	PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER_EQUAL PrimitiveOperator = 5 // ">="
+	// "in": the property's value is one of the listed values.
+	PrimitiveOperator_PRIMITIVE_OPERATOR_IN PrimitiveOperator = 6
+	// "instanceOf": the element's metaclass (`property` must be "@type")
+	// conforms to one of the listed metaclasses, so a PartUsage is an instance
+	// of Usage, Feature and Element.
+	PrimitiveOperator_PRIMITIVE_OPERATOR_INSTANCE_OF PrimitiveOperator = 7
 )
 
 // Enum value maps for PrimitiveOperator.
@@ -197,12 +206,20 @@ var (
 		1: "PRIMITIVE_OPERATOR_EQUAL",
 		2: "PRIMITIVE_OPERATOR_GREATER",
 		3: "PRIMITIVE_OPERATOR_LESS",
+		4: "PRIMITIVE_OPERATOR_LESS_EQUAL",
+		5: "PRIMITIVE_OPERATOR_GREATER_EQUAL",
+		6: "PRIMITIVE_OPERATOR_IN",
+		7: "PRIMITIVE_OPERATOR_INSTANCE_OF",
 	}
 	PrimitiveOperator_value = map[string]int32{
-		"PRIMITIVE_OPERATOR_UNSPECIFIED": 0,
-		"PRIMITIVE_OPERATOR_EQUAL":       1,
-		"PRIMITIVE_OPERATOR_GREATER":     2,
-		"PRIMITIVE_OPERATOR_LESS":        3,
+		"PRIMITIVE_OPERATOR_UNSPECIFIED":   0,
+		"PRIMITIVE_OPERATOR_EQUAL":         1,
+		"PRIMITIVE_OPERATOR_GREATER":       2,
+		"PRIMITIVE_OPERATOR_LESS":          3,
+		"PRIMITIVE_OPERATOR_LESS_EQUAL":    4,
+		"PRIMITIVE_OPERATOR_GREATER_EQUAL": 5,
+		"PRIMITIVE_OPERATOR_IN":            6,
+		"PRIMITIVE_OPERATOR_INSTANCE_OF":   7,
 	}
 )
 
@@ -11188,8 +11205,8 @@ type PrimitiveConstraint struct {
 	Property string            `protobuf:"bytes,2,opt,name=property,proto3" json:"property,omitempty"`
 	Operator PrimitiveOperator `protobuf:"varint,3,opt,name=operator,proto3,enum=sysml.PrimitiveOperator" json:"operator,omitempty"`
 	// Values to compare against. The standard writes one value, and its clients
-	// also write a list for `@type`; with `=` the element matches any of them,
-	// while `>` and `<` require exactly one.
+	// also write a list for `@type`; with `=`, `in` and `instanceOf` the element
+	// matches any of them, while `<`, `<=`, `>` and `>=` require exactly one.
 	Value         []string `protobuf:"bytes,4,rep,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -18285,12 +18302,16 @@ const file_sysml_proto_rawDesc = "" +
 	"\x1eEDIT_FAILURE_DELETE_REFERENCED\x10\x0f\x12$\n" +
 	" EDIT_FAILURE_OWNER_INSIDE_TARGET\x10\x10\x12 \n" +
 	"\x1cEDIT_FAILURE_MOVE_REFERENCED\x10\x11\x12%\n" +
-	"!EDIT_FAILURE_REFERENCED_ELSEWHERE\x10\x12*\x92\x01\n" +
+	"!EDIT_FAILURE_REFERENCED_ELSEWHERE\x10\x12*\x9a\x02\n" +
 	"\x11PrimitiveOperator\x12\"\n" +
 	"\x1ePRIMITIVE_OPERATOR_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18PRIMITIVE_OPERATOR_EQUAL\x10\x01\x12\x1e\n" +
 	"\x1aPRIMITIVE_OPERATOR_GREATER\x10\x02\x12\x1b\n" +
-	"\x17PRIMITIVE_OPERATOR_LESS\x10\x03*n\n" +
+	"\x17PRIMITIVE_OPERATOR_LESS\x10\x03\x12!\n" +
+	"\x1dPRIMITIVE_OPERATOR_LESS_EQUAL\x10\x04\x12$\n" +
+	" PRIMITIVE_OPERATOR_GREATER_EQUAL\x10\x05\x12\x19\n" +
+	"\x15PRIMITIVE_OPERATOR_IN\x10\x06\x12\"\n" +
+	"\x1ePRIMITIVE_OPERATOR_INSTANCE_OF\x10\a*n\n" +
 	"\x11CompositeOperator\x12\"\n" +
 	"\x1eCOMPOSITE_OPERATOR_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16COMPOSITE_OPERATOR_AND\x10\x01\x12\x19\n" +

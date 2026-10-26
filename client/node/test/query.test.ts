@@ -3,6 +3,8 @@
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 import { QueryElement, connect } from "../src/node/index.js";
+import { buildQuery } from "../src/core/query.js";
+import { PrimitiveOperator } from "../src/generated/sysml_pb.js";
 import { useServiceBinary } from "./support/service.js";
 import { fakeConnection } from "./support/fake.js";
 

@@ -2882,8 +2882,8 @@ pub struct PrimitiveConstraint {
     #[prost(enumeration="PrimitiveOperator", tag="3")]
     pub operator: i32,
     /// Values to compare against. The standard writes one value, and its clients
-    /// also write a list for `@type`; with `=` the element matches any of them,
-    /// while `>` and `<` require exactly one.
+    /// also write a list for `@type`; with `=`, `in` and `instanceOf` the element
+    /// matches any of them, while `<`, `<=`, `>` and `>=` require exactly one.
     #[prost(string, repeated, tag="4")]
     pub value: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
@@ -4370,7 +4370,8 @@ impl EditFailure {
         }
     }
 }
-/// PrimitiveOperator is the standard's PrimitiveConstraint.operator.
+/// PrimitiveOperator is the standard's PrimitiveConstraint.operator, the seven
+/// literals of API & Services §7.1.4.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum PrimitiveOperator {
@@ -4382,6 +4383,16 @@ pub enum PrimitiveOperator {
     Greater = 2,
     /// "<"
     Less = 3,
+    /// "<="
+    LessEqual = 4,
+    /// ">="
+    GreaterEqual = 5,
+    /// "in": the property's value is one of the listed values.
+    In = 6,
+    /// "instanceOf": the element's metaclass (`property` must be "@type")
+    /// conforms to one of the listed metaclasses, so a PartUsage is an instance
+    /// of Usage, Feature and Element.
+    InstanceOf = 7,
 }
 impl PrimitiveOperator {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -4394,6 +4405,10 @@ impl PrimitiveOperator {
             Self::Equal => "PRIMITIVE_OPERATOR_EQUAL",
             Self::Greater => "PRIMITIVE_OPERATOR_GREATER",
             Self::Less => "PRIMITIVE_OPERATOR_LESS",
+            Self::LessEqual => "PRIMITIVE_OPERATOR_LESS_EQUAL",
+            Self::GreaterEqual => "PRIMITIVE_OPERATOR_GREATER_EQUAL",
+            Self::In => "PRIMITIVE_OPERATOR_IN",
+            Self::InstanceOf => "PRIMITIVE_OPERATOR_INSTANCE_OF",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -4403,6 +4418,10 @@ impl PrimitiveOperator {
             "PRIMITIVE_OPERATOR_EQUAL" => Some(Self::Equal),
             "PRIMITIVE_OPERATOR_GREATER" => Some(Self::Greater),
             "PRIMITIVE_OPERATOR_LESS" => Some(Self::Less),
+            "PRIMITIVE_OPERATOR_LESS_EQUAL" => Some(Self::LessEqual),
+            "PRIMITIVE_OPERATOR_GREATER_EQUAL" => Some(Self::GreaterEqual),
+            "PRIMITIVE_OPERATOR_IN" => Some(Self::In),
+            "PRIMITIVE_OPERATOR_INSTANCE_OF" => Some(Self::InstanceOf),
             _ => None,
         }
     }

@@ -1,0 +1,14 @@
+{
+  "rpc": "Query",
+  "query": {
+    "scope": ["Fleet"],
+    "select": ["name"],
+    "where": {"composite": {"operator": "COMPOSITE_OPERATOR_AND", "constraint": [
+      {"primitive": {"property": "@type", "operator": "PRIMITIVE_OPERATOR_INSTANCE_OF", "value": ["Usage"]}},
+      {"primitive": {"property": "@type", "operator": "PRIMITIVE_OPERATOR_IN", "value": ["PartUsage", "AttributeUsage"]}},
+      {"primitive": {"property": "multiplicityLower", "operator": "PRIMITIVE_OPERATOR_GREATER_EQUAL", "value": ["2"]}},
+      {"primitive": {"property": "multiplicityUpper", "operator": "PRIMITIVE_OPERATOR_LESS_EQUAL", "value": ["2"], "inverse": true}}
+    ]}}
+  },
+  "expected_element_ids": ["Fleet::Truck::wheels"]
+}

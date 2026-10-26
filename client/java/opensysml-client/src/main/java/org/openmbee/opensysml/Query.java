@@ -35,7 +35,7 @@ public record Query(List<String> scope, List<String> select, Optional<Condition>
    * @return the unconstrained query
    */
   public static Query all() {
-    return new Query(List.of(), List.of(), Optional.empty());
+    return new Query(List.of(), List.of(), Optional.empty(), List.of());
   }
 
   /**

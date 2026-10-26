@@ -5,8 +5,9 @@ import java.util.Objects;
 
 /**
  * A {@link Query} filter: one comparison of a property, or several conditions combined. Build one
- * with {@link #equalTo}, {@link #greater}, {@link #less}, {@link #all} or {@link #any}, and negate it
- * with {@link #negated()}.
+ * with {@link #equalTo}, {@link #in}, {@link #instanceOf}, {@link #greater}, {@link
+ * #greaterOrEqual}, {@link #less}, {@link #lessOrEqual}, {@link #all} or {@link #any}, and negate
+ * it with {@link #negated()}.
  */
 public sealed interface Condition {
 
@@ -80,8 +81,8 @@ public sealed interface Condition {
    *
    * @param property the property compared
    * @param operator how it is compared
-   * @param values what it is compared against: any of them for {@link Operator#EQUAL}, the one
-   *     value for the others
+   * @param values what it is compared against: any of them for {@link Operator#EQUAL}, {@link
+   *     Operator#IN} and {@link Operator#INSTANCE_OF}, the one value for the others
    * @param inverse whether the comparison's verdict is negated
    */
   record Comparison(String property, Operator operator, List<String> values, boolean inverse)
@@ -94,7 +95,15 @@ public sealed interface Condition {
       /** The property is greater than the value. */
       GREATER,
       /** The property is less than the value. */
-      LESS
+      LESS,
+      /** The property is at least the value. */
+      GREATER_OR_EQUAL,
+      /** The property is at most the value. */
+      LESS_OR_EQUAL,
+      /** The property is a member of the values. */
+      IN,
+      /** The element's metaclass conforms to one of the named metaclasses. */
+      INSTANCE_OF
     }
 
     /**

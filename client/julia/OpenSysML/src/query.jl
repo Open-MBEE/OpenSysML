@@ -45,6 +45,30 @@ function _query_values(value)
     return String[_query_value(v) for v in values]
 end
 
+# The compared values in the shape the operator compares against: the ordered
+# comparisons one value, `in` a list of them, `instanceOf` metaclass names.
+function _operand(operator, property, value)
+    islist = value isa AbstractVector || value isa Tuple
+    if operator in (">", "<", ">=", "<=")
+        islist && length(value) != 1 &&
+            throw(QueryError("$(operator) on $(repr(property)) compares against one value, not a list of $(length(value))"))
+        value === nothing && throw(QueryError("$(operator) on $(repr(property)) has no value to compare against"))
+        return _query_values(value)
+    elseif operator == "in"
+        islist || throw(QueryError("in on $(repr(property)) compares against a list of values, not $(repr(value))"))
+        isempty(value) && throw(QueryError("in on $(repr(property)) has no values to be a member of"))
+        return String[_query_value(v) for v in value]
+    elseif operator == "instanceOf"
+        names = islist ? value : (value,)
+        for metaclass in names
+            metaclass isa AbstractString && !isempty(metaclass) ||
+                throw(QueryError("instanceOf on $(repr(property)) compares against a metaclass name, not $(repr(metaclass))"))
+        end
+        return String[String(m) for m in names]
+    end
+    return _query_values(value)
+end
+
 function _constraint(payload)
     payload isa AbstractDict ||
         throw(QueryError("a constraint is an object, not $(typeof(payload))"))
@@ -58,16 +82,20 @@ function _constraint(payload)
         operator = get(payload, "operator", nothing)
         operators = Dict("=" => "PRIMITIVE_OPERATOR_EQUAL",
                          ">" => "PRIMITIVE_OPERATOR_GREATER",
-                         "<" => "PRIMITIVE_OPERATOR_LESS")
+                         "<" => "PRIMITIVE_OPERATOR_LESS",
+                         ">=" => "PRIMITIVE_OPERATOR_GREATER_EQUAL",
+                         "<=" => "PRIMITIVE_OPERATOR_LESS_EQUAL",
+                         "in" => "PRIMITIVE_OPERATOR_IN",
+                         "instanceOf" => "PRIMITIVE_OPERATOR_INSTANCE_OF")
         haskey(operators, operator) ||
-            throw(QueryError("unknown primitive operator $(repr(operator)); expected one of <, =, >"))
+            throw(QueryError("unknown primitive operator $(repr(operator)); expected one of <, <=, =, >, >=, in, instanceOf"))
         property = get(payload, "property", nothing)
         property isa AbstractString && !isempty(property) ||
             throw(QueryError("a primitive constraint names one property, not $(repr(property))"))
         return Dict{String,Any}("primitive" => Dict(
             "inverse" => Bool(get(payload, "inverse", false)),
             "property" => String(property), "operator" => operators[operator],
-            "value" => _query_values(get(payload, "value", nothing))))
+            "value" => _operand(operator, property, get(payload, "value", nothing))))
     elseif declared == "CompositeConstraint"
         _reject_unknown(payload, ("@type", "@id", "constraint", "operator"),
                         "CompositeConstraint")

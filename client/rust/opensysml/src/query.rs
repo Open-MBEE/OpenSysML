@@ -26,6 +26,14 @@ pub enum PrimitiveOperator {
     Greater,
     /// `<`: the property is less than the value.
     Less,
+    /// `>=`: the property is at least the value.
+    GreaterOrEqual,
+    /// `<=`: the property is at most the value.
+    LessOrEqual,
+    /// `in`: the property is a member of the values.
+    In,
+    /// `instanceOf`: the element's metaclass (`@type`) conforms to one of the named metaclasses.
+    InstanceOf,
 }
 
 impl PrimitiveOperator {
@@ -34,6 +42,10 @@ impl PrimitiveOperator {
             "=" => Some(Self::Equal),
             ">" => Some(Self::Greater),
             "<" => Some(Self::Less),
+            ">=" => Some(Self::GreaterOrEqual),
+            "<=" => Some(Self::LessOrEqual),
+            "in" => Some(Self::In),
+            "instanceOf" => Some(Self::InstanceOf),
             _ => None,
         }
     }
@@ -42,8 +54,12 @@ impl PrimitiveOperator {
             Ok(wire::PrimitiveOperator::Equal) => Ok(Self::Equal),
             Ok(wire::PrimitiveOperator::Greater) => Ok(Self::Greater),
             Ok(wire::PrimitiveOperator::Less) => Ok(Self::Less),
+            Ok(wire::PrimitiveOperator::GreaterEqual) => Ok(Self::GreaterOrEqual),
+            Ok(wire::PrimitiveOperator::LessEqual) => Ok(Self::LessOrEqual),
+            Ok(wire::PrimitiveOperator::In) => Ok(Self::In),
+            Ok(wire::PrimitiveOperator::InstanceOf) => Ok(Self::InstanceOf),
             _ => Err(Error::Query(format!(
-                "a primitive constraint compares by =, > or <, not operator {code}"
+                "a primitive constraint compares by =, <, <=, >, >=, in or instanceOf, not operator {code}"
             ))),
         }
     }
@@ -52,7 +68,29 @@ impl PrimitiveOperator {
             Self::Equal => wire::PrimitiveOperator::Equal,
             Self::Greater => wire::PrimitiveOperator::Greater,
             Self::Less => wire::PrimitiveOperator::Less,
+            Self::GreaterOrEqual => wire::PrimitiveOperator::GreaterEqual,
+            Self::LessOrEqual => wire::PrimitiveOperator::LessEqual,
+            Self::In => wire::PrimitiveOperator::In,
+            Self::InstanceOf => wire::PrimitiveOperator::InstanceOf,
         }
+    }
+    fn text(self) -> &'static str {
+        match self {
+            Self::Equal => "=",
+            Self::Greater => ">",
+            Self::Less => "<",
+            Self::GreaterOrEqual => ">=",
+            Self::LessOrEqual => "<=",
+            Self::In => "in",
+            Self::InstanceOf => "instanceOf",
+        }
+    }
+    /// Whether the operator compares against exactly one value.
+    fn is_ordered(self) -> bool {
+        matches!(
+            self,
+            Self::Greater | Self::Less | Self::GreaterOrEqual | Self::LessOrEqual
+        )
     }
 }
 
@@ -138,6 +176,43 @@ impl Constraint {
     pub fn less(property: impl Into<String>, value: impl Into<String>) -> Self {
         Self::compare(property, PrimitiveOperator::Less, vec![value.into()])
     }
+    /// `property >= value`.
+    pub fn greater_or_equal(property: impl Into<String>, value: impl Into<String>) -> Self {
+        Self::compare(
+            property,
+            PrimitiveOperator::GreaterOrEqual,
+            vec![value.into()],
+        )
+    }
+    /// `property <= value`.
+    pub fn less_or_equal(property: impl Into<String>, value: impl Into<String>) -> Self {
+        Self::compare(property, PrimitiveOperator::LessOrEqual, vec![value.into()])
+    }
+    /// `property in values`: the property is a member of `values`.
+    pub fn member_of<I, S>(property: impl Into<String>, values: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        Self::compare(
+            property,
+            PrimitiveOperator::In,
+            values.into_iter().map(Into::into).collect(),
+        )
+    }
+    /// `@type instanceOf metaclasses`: the element's metaclass conforms to any of them
+    /// ("Usage", "Feature", "Element", …).
+    pub fn instance_of<I, S>(metaclasses: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        Self::compare(
+            "@type",
+            PrimitiveOperator::InstanceOf,
+            metaclasses.into_iter().map(Into::into).collect(),
+        )
+    }
     fn compare(
         property: impl Into<String>,
         operator: PrimitiveOperator,
@@ -198,6 +273,7 @@ impl Constraint {
                                 .to_owned(),
                         ));
                     }
+                    check_operand(*operator, property, values)?;
                     Kind::Primitive(wire::PrimitiveConstraint {
                         inverse: *inverse,
                         property: property.clone(),
@@ -267,7 +343,7 @@ impl Constraint {
             .and_then(PrimitiveOperator::parse)
             .ok_or_else(|| {
                 Error::Query(format!(
-                    "unknown primitive operator {}; expected one of <, =, >",
+                    "unknown primitive operator {}; expected one of <, <=, =, >, >=, in, instanceOf",
                     shown(object.get("operator"))
                 ))
             })?;
@@ -291,9 +367,22 @@ impl Constraint {
         };
         let values = match object.get("value") {
             None | Some(Json::Null) => Vec::new(),
+            Some(Json::Array(values)) if operator.is_ordered() && values.len() != 1 => {
+                return Err(Error::Query(format!(
+                    "{} on {property:?} compares against one value, not a list of {}",
+                    operator.text(),
+                    values.len()
+                )))
+            }
             Some(Json::Array(values)) => values.iter().map(compared).collect::<Result<_, _>>()?,
+            Some(value) if operator == PrimitiveOperator::In => {
+                return Err(Error::Query(format!(
+                    "in on {property:?} compares against a list of values, not {value}"
+                )))
+            }
             Some(value) => vec![compared(value)?],
         };
+        check_operand(operator, &property, &values)?;
         Ok(Self::Primitive {
             inverse,
             property,

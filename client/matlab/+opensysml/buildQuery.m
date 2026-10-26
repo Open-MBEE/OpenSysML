@@ -98,24 +98,56 @@ function out = primitive(payload)
     rejectUnknown(payload, {'@type','type','@id','id','inverse','property','operator','value'}, ...
         'PrimitiveConstraint');
     operator = payloadGet(payload, 'operator', '');
+    if ~ischar(operator) && ~isStringValue(operator), operator = ''; end
+    operator = char(operator);
     switch operator
         case '=', wireOperator = 'PRIMITIVE_OPERATOR_EQUAL';
         case '>', wireOperator = 'PRIMITIVE_OPERATOR_GREATER';
         case '<', wireOperator = 'PRIMITIVE_OPERATOR_LESS';
+        case '>=', wireOperator = 'PRIMITIVE_OPERATOR_GREATER_EQUAL';
+        case '<=', wireOperator = 'PRIMITIVE_OPERATOR_LESS_EQUAL';
+        case 'in', wireOperator = 'PRIMITIVE_OPERATOR_IN';
+        case 'instanceOf', wireOperator = 'PRIMITIVE_OPERATOR_INSTANCE_OF';
         otherwise
-            queryError(sprintf(['unknown primitive operator %s; expected one of =, >, <'], ...
-                valueText(operator)));
+            queryError(sprintf(['unknown primitive operator %s; expected one of ' ...
+                '<, <=, =, >, >=, in, instanceOf'], valueText(operator)));
     end
     name = payloadGet(payload, 'property', '');
     if ~ischar(name) || isempty(name)
         queryError(sprintf('a primitive constraint names one property, not %s', valueText(name)));
     end
-    values = payloadGet(payload, 'value', []);
+    raw = payloadGet(payload, 'value', []);
+    isList = iscell(raw) || ((isnumeric(raw) || islogical(raw)) && ~isscalar(raw) && ~isempty(raw));
+    values = raw;
     if iscell(values), values = values(:)';
     elseif isempty(values), values = {};
     elseif (isnumeric(values) || islogical(values)) && ~isscalar(values)
         values = num2cell(values(:)');
     else, values = {values};
+    end
+    % The ordered comparisons take one value, in a list of them and instanceOf
+    % metaclass names: another shape is refused here, not sent to be refused.
+    if any(strcmp(operator, {'<', '<=', '>', '>='}))
+        if isList && numel(values) ~= 1
+            queryError(sprintf('%s on ''%s'' compares against one value, not a list of %d', ...
+                operator, name, numel(values)));
+        elseif isempty(values)
+            queryError(sprintf('%s on ''%s'' has no value to compare against', operator, name));
+        end
+    elseif strcmp(operator, 'in')
+        if ~isList
+            queryError(sprintf('in on ''%s'' compares against a list of values, not %s', ...
+                name, valueText(raw)));
+        elseif isempty(values)
+            queryError(sprintf('in on ''%s'' has no values to be a member of', name));
+        end
+    elseif strcmp(operator, 'instanceOf')
+        for i = 1:numel(values)
+            if ~ischar(values{i}) && ~(isStringValue(values{i}) && isscalar(values{i})) || isempty(char(values{i}))
+                queryError(sprintf('instanceOf on ''%s'' compares against a metaclass name, not %s', ...
+                    name, valueText(values{i})));
+            end
+        end
     end
     out = struct('inverse', logical(payloadGet(payload, 'inverse', false)), ...
         'property', name, 'operator', wireOperator, ...

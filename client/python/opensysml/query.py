@@ -33,7 +33,13 @@ _PRIMITIVE_OPERATORS = {
     "=": sysml_pb2.PRIMITIVE_OPERATOR_EQUAL,
     ">": sysml_pb2.PRIMITIVE_OPERATOR_GREATER,
     "<": sysml_pb2.PRIMITIVE_OPERATOR_LESS,
+    ">=": sysml_pb2.PRIMITIVE_OPERATOR_GREATER_EQUAL,
+    "<=": sysml_pb2.PRIMITIVE_OPERATOR_LESS_EQUAL,
+    "in": sysml_pb2.PRIMITIVE_OPERATOR_IN,
+    "instanceOf": sysml_pb2.PRIMITIVE_OPERATOR_INSTANCE_OF,
 }
+# The operators that compare against exactly one value.
+_ORDERED_OPERATORS = frozenset({">", "<", ">=", "<="})
 _COMPOSITE_OPERATORS = {
     "and": sysml_pb2.COMPOSITE_OPERATOR_AND,
     "or": sysml_pb2.COMPOSITE_OPERATOR_OR,
@@ -184,8 +190,44 @@ def _primitive(payload):
         inverse=bool(payload.get("inverse", False)),
         property=name,
         operator=_PRIMITIVE_OPERATORS[operator],
-        value=_values(payload.get("value")),
+        value=_operand(operator, name, payload.get("value")),
     )
+
+
+def _operand(operator, name, value):
+    """The compared values, in the shape the operator compares against.
+
+    The ordered comparisons take one value, ``in`` a list of them and
+    ``instanceOf`` metaclass names, so a value of another shape is refused here
+    rather than sent for the service to refuse.
+    """
+    if operator in _ORDERED_OPERATORS:
+        if isinstance(value, (list, tuple)) and len(value) != 1:
+            raise QueryError(
+                f"{operator} on {name!r} compares against one value, not a list of "
+                f"{len(value)}"
+            )
+        if value is None:
+            raise QueryError(f"{operator} on {name!r} has no value to compare against")
+        return _values(value)
+    if operator == "in":
+        if not isinstance(value, (list, tuple)):
+            raise QueryError(
+                f"in on {name!r} compares against a list of values, not {value!r}"
+            )
+        if not value:
+            raise QueryError(f"in on {name!r} has no values to be a member of")
+        return [_value(v) for v in value]
+    if operator == "instanceOf":
+        names = list(value) if isinstance(value, (list, tuple)) else [value]
+        for metaclass in names:
+            if not isinstance(metaclass, str) or not metaclass:
+                raise QueryError(
+                    f"instanceOf on {name!r} compares against a metaclass name, "
+                    f"not {metaclass!r}"
+                )
+        return names
+    return _values(value)
 
 
 def _composite(payload):

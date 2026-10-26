@@ -30,7 +30,14 @@ const PRIMITIVE_OPERATORS = new Map<string, PrimitiveOperator>([
   ["=", PrimitiveOperator.EQUAL],
   [">", PrimitiveOperator.GREATER],
   ["<", PrimitiveOperator.LESS],
+  [">=", PrimitiveOperator.GREATER_EQUAL],
+  ["<=", PrimitiveOperator.LESS_EQUAL],
+  ["in", PrimitiveOperator.IN],
+  ["instanceOf", PrimitiveOperator.INSTANCE_OF],
 ]);
+
+/** The operators that compare against exactly one value. */
+const ORDERED_OPERATORS = new Set([">", "<", ">=", "<="]);
 
 const COMPOSITE_OPERATORS = new Map<string, CompositeOperator>([
   ["and", CompositeOperator.AND],
@@ -198,7 +205,7 @@ function primitive(payload: Record<string, unknown>) {
   rejectUnknown(payload, [TYPE_KEY, "@id", "inverse", "property", "operator", "value"], TYPE_PRIMITIVE_CONSTRAINT);
   const operator = payload.operator;
   const mapped = typeof operator === "string" ? PRIMITIVE_OPERATORS.get(operator) : undefined;
-  if (mapped === undefined) {
+  if (typeof operator !== "string" || mapped === undefined) {
     throw new QueryError(
       `unknown primitive operator ${JSON.stringify(operator)}; expected one of ` +
         [...PRIMITIVE_OPERATORS.keys()].sort(byCodeUnit).join(", "),
@@ -212,8 +219,46 @@ function primitive(payload: Record<string, unknown>) {
     inverse: payload.inverse === true,
     property: name,
     operator: mapped,
-    value: values(payload.value),
+    value: operand(operator, name, payload.value),
   };
+}
+
+/**
+ * The compared values, in the shape the operator compares against: the ordered
+ * comparisons take one value, `in` a list of them and `instanceOf` metaclass
+ * names, so another shape is refused here rather than sent to be refused.
+ */
+function operand(operator: string, name: string, value: unknown): string[] {
+  if (ORDERED_OPERATORS.has(operator)) {
+    if (Array.isArray(value) && value.length !== 1) {
+      throw new QueryError(`${operator} on ${JSON.stringify(name)} compares against one value, not a list of ${value.length}`);
+    }
+    if (value === undefined || value === null) {
+      throw new QueryError(`${operator} on ${JSON.stringify(name)} has no value to compare against`);
+    }
+    return values(value);
+  }
+  if (operator === "in") {
+    if (!Array.isArray(value)) {
+      throw new QueryError(`in on ${JSON.stringify(name)} compares against a list of values, not ${JSON.stringify(value)}`);
+    }
+    if (value.length === 0) {
+      throw new QueryError(`in on ${JSON.stringify(name)} has no values to be a member of`);
+    }
+    return value.map(compared);
+  }
+  if (operator === "instanceOf") {
+    const names = Array.isArray(value) ? value : [value];
+    for (const metaclass of names) {
+      if (typeof metaclass !== "string" || metaclass === "") {
+        throw new QueryError(
+          `instanceOf on ${JSON.stringify(name)} compares against a metaclass name, not ${JSON.stringify(metaclass)}`,
+        );
+      }
+    }
+    return names as string[];
+  }
+  return values(value);
 }
 
 function composite(payload: Record<string, unknown>) {

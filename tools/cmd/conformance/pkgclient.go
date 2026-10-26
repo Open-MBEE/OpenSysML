@@ -1922,6 +1922,17 @@ func conditionFromProto(constraint *pb.Constraint) (*opensysml.Condition, bool) 
 			condition = opensysml.Greater(primitive.GetProperty(), firstValue(primitive.GetValue()))
 		case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_LESS:
 			condition = opensysml.Less(primitive.GetProperty(), firstValue(primitive.GetValue()))
+		case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER_EQUAL:
+			condition = opensysml.GreaterOrEqual(primitive.GetProperty(), firstValue(primitive.GetValue()))
+		case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_LESS_EQUAL:
+			condition = opensysml.LessOrEqual(primitive.GetProperty(), firstValue(primitive.GetValue()))
+		case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_IN:
+			condition = opensysml.In(primitive.GetProperty(), primitive.GetValue()...)
+		case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_INSTANCE_OF:
+			if primitive.GetProperty() != "@type" {
+				return nil, false
+			}
+			condition = opensysml.InstanceOf(primitive.GetValue()...)
 		default:
 			return nil, false
 		}

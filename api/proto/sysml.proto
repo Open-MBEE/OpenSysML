@@ -2331,17 +2331,26 @@ message PrimitiveConstraint {
   string property = 2;
   PrimitiveOperator operator = 3;
   // Values to compare against. The standard writes one value, and its clients
-  // also write a list for `@type`; with `=` the element matches any of them,
-  // while `>` and `<` require exactly one.
+  // also write a list for `@type`; with `=`, `in` and `instanceOf` the element
+  // matches any of them, while `<`, `<=`, `>` and `>=` require exactly one.
   repeated string value = 4;
 }
 
-// PrimitiveOperator is the standard's PrimitiveConstraint.operator.
+// PrimitiveOperator is the standard's PrimitiveConstraint.operator, the seven
+// literals of API & Services §7.1.4.
 enum PrimitiveOperator {
-  PRIMITIVE_OPERATOR_UNSPECIFIED = 0;  // unset; fails the call
-  PRIMITIVE_OPERATOR_EQUAL = 1;        // "="
-  PRIMITIVE_OPERATOR_GREATER = 2;      // ">"
-  PRIMITIVE_OPERATOR_LESS = 3;         // "<"
+  PRIMITIVE_OPERATOR_UNSPECIFIED = 0;    // unset; fails the call
+  PRIMITIVE_OPERATOR_EQUAL = 1;          // "="
+  PRIMITIVE_OPERATOR_GREATER = 2;        // ">"
+  PRIMITIVE_OPERATOR_LESS = 3;           // "<"
+  PRIMITIVE_OPERATOR_LESS_EQUAL = 4;     // "<="
+  PRIMITIVE_OPERATOR_GREATER_EQUAL = 5;  // ">="
+  // "in": the property's value is one of the listed values.
+  PRIMITIVE_OPERATOR_IN = 6;
+  // "instanceOf": the element's metaclass (`property` must be "@type")
+  // conforms to one of the listed metaclasses, so a PartUsage is an instance
+  // of Usage, Feature and Element.
+  PRIMITIVE_OPERATOR_INSTANCE_OF = 7;
 }
 
 // CompositeConstraint combines constraints. An empty constraint list fails the
