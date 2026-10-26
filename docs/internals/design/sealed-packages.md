@@ -43,7 +43,7 @@ Non-goals
 | Ahead-of-time compilation of a calc to C or Go; differential test against the interpreter | `internal/translate/codegen`; `sysml -compile`; [native compilation](../../project/native-compilation.md) | the "ship the implementation, not the model" route of §4.5 |
 | FMU reading: `modelDescription.xml` plus `binaries/<platform>/` from the `.fmu` zip; the `tool:fmi` engine | `internal/exec/fmi`; `tests/fmi` | the industry precedent for a black-box behaviour shipped as interface + binary |
 | External engines as processes or WebAssembly modules under a manifest | [bring your own engine](bring-your-own-engines.md) | the host a compiled sealed library plugs into; the remote route of §4.6 |
-| Package manager | SysPI (`Open-MBEE/SysPI`), beside sysand | installs the ciphertext as-is; never holds a key |
+| Package manager | sysand, or any other tool that installs project-interchange packages | installs the ciphertext as-is; never holds a key |
 
 ## 2. What the formats give and do not give
 
@@ -113,7 +113,7 @@ Why not the alternatives:
 
 | Adversary | Protected by | Not protected |
 |---|---|---|
-| Git host, index, mirror, CDN, package manager, backup, lost laptop | the envelope: the project is ciphertext everywhere it is stored or moved; SysPI and sysand never hold a key | — |
+| Git host, index, mirror, CDN, package manager, backup, lost laptop | the envelope: the project is ciphertext everywhere it is stored or moved; no package manager ever holds a key | — |
 | A recipient who was given the key | nothing — they are the intended reader (§2.3) | the model text, once loaded |
 | A recipient whose access should end | per-recipient encryption: the next release is encrypted to a list without them; earlier releases stay readable to them | what they already have |
 | Anyone with the publisher's *public* key | the signature: encryption to a public key proves nothing about who wrote the package, so a sealed package is signed as well (§4.2) | — |
@@ -135,9 +135,9 @@ A sealed project archive is a ZIP, extension `.skpar`, with exactly these top-le
 
 What the split buys:
 
-- Resolution, locking, index records and dependency closure read `.project.json` alone, so SysPI,
-  sysand's static index layout and `.project.lock.json` all work on a sealed package unchanged
-  and keyless. The usage list is visible; the model is not. A publisher who considers even the
+- Resolution, locking, index records and dependency closure read `.project.json` alone, so any
+  package manager, sysand's static index layout and its lock file all work on a sealed package
+  unchanged and keyless. The usage list is visible; the model is not. A publisher who considers even the
   usage list sensitive publishes a wrapper project whose `.project.json` names only the sealed one.
 - The outer `.meta.json` checksum lets the installer verify the download before anyone decrypts
   anything, with the reader that already refuses on a checksum mismatch.
@@ -296,8 +296,8 @@ Phase 1 — sealed archives
 2. Discovery and loading of `.skpar` under library roots and `lib/`; deferred decryption; the
    sealed bit and the refusals of §4.4 on every re-emitting surface, each with a test that the
    surface refuses and that `-unseal` lifts it; the cache skips sealed documents.
-3. SysPI: install a `.skpar` as-is (it is a file under `lib/`, verified by the outer checksum);
-   `.project.lock.json` records its SHA-256 like any archive's.
+3. The package manager: install a `.skpar` as-is (it is a file under its install directory,
+   verified by the outer checksum); its lock records the SHA-256 like any archive's.
 Gate: a fixture package sealed to two recipients and signed; loaded by one recipient through the
 CLI, the LSP, the REPL and the gRPC service; refused for a third identity, for a stripped
 signature and for a tampered envelope, each with the named error; `go test ./tests/kpar` passes
