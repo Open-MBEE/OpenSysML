@@ -286,9 +286,8 @@ func assertedCondition(group []runtime.Condition, negated, requirement bool) (ru
 	return runtime.Condition{Group: append(assumed, denied), Negated: !negated, Required: true}, true
 }
 
-// unboundConstraintResult is why an asserted constraint's result binds no value —
-// it declares no condition, or only assumptions a denial has nothing to deny — and
-// empty for one whose result its body binds.
+// unboundConstraintResult is why an asserted constraint's result binds no value (no
+// condition, or only assumptions a denial has nothing to deny); empty when it binds.
 func unboundConstraintResult(conds []runtime.Condition, negated bool) string {
 	if len(conds) == 0 {
 		return "the constraint declares no condition"
@@ -463,10 +462,8 @@ func TranslateWith(ctx *runtime.Context, subject Subject, conds []runtime.Condit
 	return t.query(), nil
 }
 
-// requirementSubject reports a subject the Requirement rule judges: a requirement,
-// satisfaction or objective over no required condition holds vacuously, its result
-// being `allTrue(assumptions()) implies allTrue(constraints())` (SysML v2 §9.2.14),
-// where a constraint's result is bound only by its body (KerML 1.1 §7.4.8.2).
+// requirementSubject reports a subject the Requirement rule judges (SysML v2 §9.2.14):
+// over no required condition it holds vacuously, where a constraint binds no result.
 func requirementSubject(subject Subject) bool {
 	switch subject.Kind {
 	case "requirement", "satisfaction", "objective":
@@ -607,8 +604,7 @@ func (t *translator) translate(conds []runtime.Condition) error {
 	var required []*Term
 	var labels []string
 	// Assumptions are the antecedent of a requirement's claim, never asserted alone:
-	// over no required condition it holds vacuously, denied or violated included,
-	// so they are not read; a malformed condition is refused first.
+	// over no required condition it holds vacuously, even when denied or violated.
 	vacuous := requirementSubject(t.subject) && !requiresAny(conds) && !conflicting(conds)
 	// The evaluator stops at the first required condition that does not hold,
 	// so a later condition is evaluated only where every earlier one held.

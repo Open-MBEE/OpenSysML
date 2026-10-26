@@ -103,10 +103,8 @@ func TestAssumedConflictingConstraintStillRefuses(t *testing.T) {
 	}
 }
 
-// TestDeniedVacuousRequirementIgnoresItsAssumptions: a requirement over no required
-// condition holds vacuously whatever its assumptions read, so a denial of it is
-// false and a violation of that denial true, a false or untranslatable assumption
-// notwithstanding — as the evaluator, which does not read them, reports it.
+// TestDeniedVacuousRequirementIgnoresItsAssumptions: a requirement requiring nothing
+// holds whatever its assumptions read, so its denial is false and that denial's violation true.
 func TestDeniedVacuousRequirementIgnoresItsAssumptions(t *testing.T) {
 	ctx, idx := fixture(t, "<test>", `
 		package test {

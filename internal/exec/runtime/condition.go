@@ -723,10 +723,8 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 	return true, nil
 }
 
-// noResultValue is the error for a check whose result nothing binds: a constraint
-// is a BooleanEvaluation whose `result : Boolean[1]` only its body expression binds
-// (KerML 1.1 §7.4.8.2, SysML v2.1 §7.20.2), so without one it has no value, not a
-// verdict. cause says why, after any `return` the body declares but never binds.
+// noResultValue is the error for a constraint whose result nothing binds (KerML 1.1
+// §7.4.8.2): no value, not a verdict, with the unbound-return hint or else cause.
 func (check conditionCheck) noResultValue(cause string) error {
 	if hint := unboundResultHint([]*symbols.Symbol{check.sym}); hint != "" {
 		return fmt.Errorf("%s %s: %w%s", check.kind, check.name(), ErrNoValue, hint)

@@ -6,11 +6,8 @@ import (
 	"testing"
 )
 
-// TestRuntimeRobustnessConditionLessCheck: a constraint is a BooleanEvaluation whose
-// result only its body expression binds (KerML 1.1 §7.4.8.2, SysML v2.1 §7.20.2), so
-// one declaring no condition has no value, with the cause as the detail; a
-// requirement over no required constraint holds vacuously, assumed subrequirements
-// included — a satisfied check with nothing required, not a condition-less constraint.
+// TestRuntimeRobustnessConditionLessCheck: a constraint declaring no condition binds
+// no result (KerML 1.1 §7.4.8.2); a requirement requiring nothing holds vacuously.
 func TestRuntimeRobustnessConditionLessCheck(t *testing.T) {
 	t.Run("a constraint definition declaring no condition has no value", func(t *testing.T) {
 		ctx, pkg := conditionFixture(t, `package test {
