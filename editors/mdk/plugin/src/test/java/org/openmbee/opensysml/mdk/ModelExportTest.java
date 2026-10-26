@@ -146,8 +146,41 @@ class ModelExportTest {
     IllegalArgumentException refused = assertThrows(IllegalArgumentException.class, () -> ModelExport.write(
         out.resolve("model.sysml"), MODEL, Map.of("images/logo.png", new byte[] {1}), Optional.empty(), List.of(), existing -> true));
 
-    assertTrue(refused.getMessage().contains("through a link"), refused.getMessage());
+    assertTrue(refused.getMessage().contains("symbolic link"), refused.getMessage());
     assertEquals(List.of(), Files.list(outside).toList());
     assertFalse(Files.exists(out.resolve("model.sysml")));
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void refusesALinkedDestinationAndLeavesTheLinkAndItsTarget(@TempDir Path directory) throws Exception {
+    Path revision = Files.createDirectories(directory.resolve("revisions")).resolve("v1.sysml");
+    Files.writeString(revision, "old\n");
+    Path current = Files.createSymbolicLink(directory.resolve("current.sysml"), revision);
+    Path dangling = Files.createSymbolicLink(directory.resolve("gone.sysml"), directory.resolve("missing.sysml"));
+
+    for (Path destination : List.of(current, dangling)) {
+      IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+          () -> ModelExport.write(destination, MODEL, Map.of(), Optional.empty(), List.of(), existing -> true));
+      assertTrue(refused.getMessage().contains("export to its target instead"), refused.getMessage());
+      assertTrue(Files.isSymbolicLink(destination));
+    }
+    assertEquals("old\n", Files.readString(revision));
+    assertFalse(Files.exists(directory.resolve("missing.sysml")));
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void refusesALinkBelowAnExistingDirectoryOnTheWay(@TempDir Path directory) throws Exception {
+    Path out = Files.createDirectories(directory.resolve("out"));
+    Files.createDirectories(out.resolve("images"));
+    Files.createSymbolicLink(out.resolve("images/icons"), Files.createDirectories(out.resolve("elsewhere")));
+
+    IllegalArgumentException refused = assertThrows(IllegalArgumentException.class, () -> ModelExport.write(
+        out.resolve("model.sysml"), MODEL, Map.of("images/icons/a.png", new byte[] {1}), Optional.empty(), List.of(),
+        existing -> true));
+
+    assertTrue(refused.getMessage().contains("symbolic link"), refused.getMessage());
+    assertEquals(List.of(), Files.list(out.resolve("elsewhere")).toList());
   }
 }

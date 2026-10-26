@@ -79,17 +79,18 @@ public final class ModelExport {
    *
    * @return the export, or empty when {@code replaceExisting} declined
    * @throws IllegalArgumentException when a document name or file path leaves the destination's
-   *     directory (through {@code ..}, an absolute path or a symbolic link), or two outputs share a path
+   *     directory (through {@code ..} or an absolute path), goes through a symbolic link, or two outputs share a path
    */
   public static Optional<Result> write(
       Path destination, List<SourceDocument> documents, Map<String, byte[]> files,
       Optional<String> report, List<Diagnostic> diagnostics, Predicate<List<Path>> replaceExisting) {
     if (documents.isEmpty()) throw new IllegalArgumentException("nothing to export: the source produced no document");
-    Path model = destination.toAbsolutePath().normalize();
-    Path directory = model.getParent();
+    Path chosen = destination.toAbsolutePath().normalize();
+    Path directory = chosen.getParent();
     if (directory == null) throw new IllegalArgumentException(destination + " has no parent directory");
     try {
       Files.createDirectories(directory);
+      Path model = inside(directory, chosen.getFileName().toString());
       Map<Path, byte[]> planned = new LinkedHashMap<>();
       planned.put(model, content(documents.get(0)).getBytes(StandardCharsets.UTF_8));
       List<Path> written = new ArrayList<>();
@@ -172,17 +173,24 @@ public final class ModelExport {
   }
 
   /**
-   * {@code relative} under {@code directory}, refused when it leaves the directory lexically or
-   * through a symbolic link on the way (the nearest existing ancestor must resolve inside it).
+   * {@code relative} under {@code directory}, refused when it leaves the directory lexically, when
+   * any component below the directory is a symbolic link (a move would replace the link, not its
+   * target), or when the nearest existing ancestor resolves outside the directory.
    */
   private static Path inside(Path directory, String relative) throws IOException {
     Path target = directory.resolve(relative).normalize();
     if (relative.isBlank() || target.equals(directory) || !target.startsWith(directory)) {
       throw new IllegalArgumentException("exported path leaves the destination directory: " + relative);
     }
+    for (Path step = target; !step.equals(directory); step = step.getParent()) {
+      if (Files.isSymbolicLink(step)) {
+        throw new IllegalArgumentException(
+            "exported path goes through a symbolic link, " + step + ": export to its target instead");
+      }
+    }
     Path existing = target;
     while (!Files.exists(existing, LinkOption.NOFOLLOW_LINKS)) existing = existing.getParent();
-    if (Files.isSymbolicLink(existing) || !existing.toRealPath().startsWith(directory.toRealPath())) {
+    if (!existing.toRealPath().startsWith(directory.toRealPath())) {
       throw new IllegalArgumentException("exported path leaves the destination directory through a link: " + relative);
     }
     return target;
