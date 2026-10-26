@@ -101,7 +101,7 @@ func bundleMembers(dir string) (map[string][]byte, error) {
 		}
 		hidden := rel != "." && strings.HasPrefix(d.Name(), ".")
 		if d.IsDir() {
-			if hidden {
+			if hidden || IsLibraryDir(filepath.Dir(path), d.Name()) {
 				return filepath.SkipDir
 			}
 			return nil
