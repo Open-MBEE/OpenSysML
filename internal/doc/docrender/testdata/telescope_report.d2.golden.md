@@ -91,11 +91,11 @@ n0: "«part»\nimagingChain" {
   class: usage
   n1: "«part»\ncamera" {
     class: usage
-    "n1.0": "output" { class: pin }
+    "n1.0": "^output" { class: pin }
   }
   n2: "«part»\nrecorder" {
     class: usage
-    "n2.0": "input" { class: pin }
+    "n2.0": "^input" { class: pin }
   }
 }
 n0.n1."n1.0" -- n0.n2."n2.0": { class: connection }

@@ -9,9 +9,9 @@ package MixedExamples
     port inlet
   part def Plant
     part pump
-      port outlet
+      port ^outlet
     part tank
-      port inlet
+      port ^inlet
   connection def Connection
     part a
     part b

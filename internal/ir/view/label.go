@@ -223,10 +223,20 @@ func (l labeller) head(node *Node) string {
 	case name == "":
 		return l.typeText(node)
 	case typ == "":
-		return l.text(l.name(node))
+		return l.text(usagePrefix(node.Inherited) + l.name(node))
 	default:
-		return l.text(l.name(node) + " : " + source.ReferenceEndNames(typ))
+		return l.text(usagePrefix(node.Inherited) + l.name(node) + " : " + source.ReferenceEndNames(typ))
 	}
+}
+
+// usagePrefix is the notation's prefix before a shown usage name: `^` for a
+// usage the owner it is drawn under does not declare (SysML v2 §8.2.3.6
+// `el-prefix`), nothing for one the owner declares.
+func usagePrefix(inherited bool) string {
+	if inherited {
+		return "^"
+	}
+	return ""
 }
 
 // typeText is a node's type as its label writes it, `: Type`, by the name it ends in.

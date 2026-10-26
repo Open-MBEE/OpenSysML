@@ -28,9 +28,9 @@ flowchart TD
     n1("`*«part»*
 **engine**`")
       n2("`*«attribute»*
-**power**`")
+**^power**`")
       n3("`*«part»*
-**cylinder**`")
+**^cylinder**`")
     n4("`*«part»*
 **wheels**`")
     n5("`**connect**`")

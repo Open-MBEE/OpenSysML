@@ -110,11 +110,11 @@ flowchart LR
     direction LR
     subgraph n1 ["`*«part»* **camera**`"]
       direction LR
-      n1.0["output"]
+      n1.0["^output"]
     end
     subgraph n2 ["`*«part»* **recorder**`"]
       direction LR
-      n2.0["input"]
+      n2.0["^input"]
     end
   end
   n1.0 === n2.0

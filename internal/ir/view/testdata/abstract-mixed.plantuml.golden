@@ -51,8 +51,8 @@ rectangle "<size:10>//«abstract part»//</size>\n**vehicleFamily**" as n2 <<abs
 }
 rectangle "<size:10>//«variation part def»//</size>\n**Models**" as n6 <<variation part def>> {
   rectangle "<size:10>//«variant»//</size>\n**sedan**" as n7 <<variant>> <<usage>> {
-    rectangle "<size:10>//«abstract part»//</size>\n**engine**" as n8 <<abstract part>> <<usage>>
-    rectangle "<size:10>//«part»//</size>\n**chassis**" as n9 <<part>> <<usage>>
+    rectangle "<size:10>//«abstract part»//</size>\n**^engine**" as n8 <<abstract part>> <<usage>>
+    rectangle "<size:10>//«part»//</size>\n**^chassis**" as n9 <<part>> <<usage>>
   }
 }
 n4 -[thickness=3]- n5

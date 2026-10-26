@@ -46,10 +46,10 @@ func TestDOTCameoActionNotation(t *testing.T) {
 	// Pins: ports at the action's border, named outside in small type, and
 	// never a note-shaped node of their own.
 	for port, want := range map[string][]string{
-		`"n3.0"`: {`xlabel="mask"`, `fontsize=8`, `pos="90,406!"`, `width=0.16666666666666666`},
-		`"n3.1"`: {`xlabel="guide"`, `pos="180,406!"`},
-		`"n3.2"`: {`xlabel="image"`, `pos="180,334!"`},
-		`"n4.0"`: {`xlabel="image"`, `pos="180,286!"`},
+		`"n3.0"`: {`xlabel="^mask"`, `fontsize=8`, `pos="90,406!"`, `width=0.16666666666666666`},
+		`"n3.1"`: {`xlabel="^guide"`, `pos="180,406!"`},
+		`"n3.2"`: {`xlabel="^image"`, `pos="180,334!"`},
+		`"n4.0"`: {`xlabel="^image"`, `pos="180,286!"`},
 		`"n1.0"`: {`xlabel="result"`, `pos="60,494!"`},
 	} {
 		line := dotLine(source, port)

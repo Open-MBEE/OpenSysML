@@ -387,9 +387,11 @@ type Node struct {
 	// Typings are the qualified names of the elements Type resolves to, in its
 	// order; a member of one is drawn as the type's own. Empty when none resolves.
 	Typings []string
-	// FromType marks a member the node has from its type rather than declares itself; it
-	// is drawn under the node as the type's own, so a folding that hides it hides nothing of the node's.
-	FromType bool
+	// Inherited marks a usage the node's owner does not declare — one it has through
+	// typing, subclassification or subsetting — drawn under the owner as the type's own:
+	// the notation prefixes its name with `^`, and a folding that hides it hides nothing
+	// of the owner's. A redefining usage the owner declares is its own, not inherited.
+	Inherited bool
 	// Detail is what else the rendering says about the node, such as a state's
 	// "initial" or "already shown". It is empty when there is nothing to add.
 	Detail string
@@ -413,9 +415,9 @@ type Node struct {
 	// Origin is where the element was declared, the zero Origin for one with no
 	// locatable declaration.
 	Origin Origin
-	// Inherited is where the declarations a drawn behavior took content from besides
+	// InheritedFrom is where the declarations a drawn behavior took content from besides
 	// its own were written (what it specializes or is typed by); only a root has them.
-	Inherited []Origin
+	InheritedFrom []Origin
 	// Geometry is where the element is drawn, from the Layout annotation that
 	// positions it in this view; nil leaves the placement to the writer.
 	Geometry *Geometry
@@ -459,6 +461,9 @@ type Port struct {
 	// Exposed marks a pin the view exposes in its own right, drawn whatever
 	// the display shows of the other pins.
 	Exposed bool `json:",omitempty"`
+	// Inherited marks a port the node's owner has from its type rather than declares:
+	// the notation prefixes its name with `^`.
+	Inherited bool `json:",omitempty"`
 }
 
 // PortDirection is which way a port's values flow.
@@ -488,9 +493,15 @@ func (d PortDirection) String() string {
 	return "in"
 }
 
+// displayName is the name a port is drawn by: its Name after the notation's `^`
+// when the node's owner has the port from its type rather than declares it.
+func (p Port) displayName() string {
+	return usagePrefix(p.Inherited && p.Name != "") + p.Name
+}
+
 // label is the text a port is drawn with: its name, and its type where it has one.
 func (p Port) label() string {
-	name := p.Name
+	name := p.displayName()
 	if p.NameSynthesized {
 		name = ""
 	}

@@ -109,7 +109,7 @@ func (r *Renderer) renderState(view *symbols.Symbol, elem *symbols.Symbol, ids *
 func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering,
 	record func(*symbols.Symbol, *Node)) *Node {
 	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), NameSynthesized: r.model.NameSynthesized(machine),
-		Type: r.headType(machine), Origin: symbolOrigin(machine), Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.geometryOf(view, machine, out)}
+		Type: r.headType(machine), Origin: symbolOrigin(machine), InheritedFrom: inheritedOrigins(graph.Inherited()), Geometry: r.geometryOf(view, machine, out)}
 	r.dress(view, machine, root, out)
 	if record != nil {
 		record(machine, root)
@@ -713,7 +713,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 	root := subject.frame
 	if root == nil {
 		root = &Node{ID: ids.take(), Kind: kind, Name: name, NameSynthesized: r.declaredNameSynthesized(subject.elem, decl), Type: subject.typ,
-			Origin: nodeOrigin(doc, decl), Inherited: inheritedOrigins(graph.Inherited())}
+			Origin: nodeOrigin(doc, decl), InheritedFrom: inheritedOrigins(graph.Inherited())}
 		root.Ports = r.inheritedPorts(subject.elem, decl, root.ID, actionPorts(root.ID, graph.Parameters, doc))
 		root.Geometry = r.declaredGeometryOf(subject.view, subject.elem, decl, out)
 		r.declaredDress(subject.view, subject.elem, decl, root, out)
@@ -1016,7 +1016,7 @@ func (r *Renderer) inheritedPorts(elem *symbols.Symbol, node ast.Node, id string
 		if slices.ContainsFunc(ports, func(port Port) bool { return port.Name == name }) {
 			continue
 		}
-		ports = append(ports, Port{ID: portID(id, len(ports)), Parameter: true, Name: name,
+		ports = append(ports, Port{ID: portID(id, len(ports)), Parameter: true, Name: name, Inherited: true,
 			Direction: portDirection(lower.Feature{Direction: usage.Direction, IsResult: usage.IsResult}), Origin: member.Origin()})
 	}
 	return ports

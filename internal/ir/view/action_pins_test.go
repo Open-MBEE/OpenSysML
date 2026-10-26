@@ -233,7 +233,7 @@ func TestDOTActionFramePins(t *testing.T) {
 func TestTextActionFramePins(t *testing.T) {
 	rendering := renderActionPins(t, "Pins::ToastBread")
 	text := rendering.textWith(fullNotation)
-	for _, want := range []string{"action def Pins::ToastBread\n  in bread\n  out toast\n", "  action heat : Heat\n    in b\n    out t\n",
+	for _, want := range []string{"action def Pins::ToastBread\n  in bread\n  out toast\n", "  action heat : Heat\n    in b\n    out ^t\n",
 		"  Pins::ToastBread.bread == heat.b\n", "  pack.boxed == Pins::ToastBread.toast\n", "  heat.t => pack.t\n"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text lacks %q:\n%s", want, text)

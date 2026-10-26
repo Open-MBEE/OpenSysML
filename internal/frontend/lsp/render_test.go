@@ -1501,7 +1501,7 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	}
 	minimalResult := render(t, "")
 	minimal := minimalResult.Artifact
-	for _, want := range []string{`port "out1" as `, `port "in1" as `} {
+	for _, want := range []string{`port "^out1" as `, `port "^in1" as `} {
 		if !strings.Contains(minimal, want) {
 			t.Errorf("the default lacks %q:\n%s", want, minimal)
 		}
@@ -1515,6 +1515,9 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	if len(minimalPorts) != 2 || minimalPorts["out1"].ID == "" || minimalPorts["in1"].ID == "" {
 		t.Errorf("default node ports = %+v, want only connected out1 and in1 pins", minimalPorts)
 	}
+	if !minimalPorts["out1"].Inherited || !minimalPorts["in1"].Inherited {
+		t.Errorf("default node ports = %+v, want the pins the parts have from their definitions marked inherited", minimalPorts)
+	}
 	if len(minimalResult.Edges) != 1 || minimalResult.Edges[0].FromPort != minimalPorts["out1"].ID ||
 		minimalResult.Edges[0].ToPort != minimalPorts["in1"].ID {
 		t.Errorf("default edges = %+v, want endpoints at out1 and in1", minimalResult.Edges)
@@ -1527,7 +1530,7 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	}
 	fullResult := render(t, "full")
 	full := fullResult.Artifact
-	for _, want := range []string{`port "out1 : Signal" as `, `port "in1 : <U+007E>Signal" as `, `port "spare : Signal" as `} {
+	for _, want := range []string{`port "^out1 : Signal" as `, `port "^in1 : <U+007E>Signal" as `, `port "^spare : Signal" as `} {
 		if !strings.Contains(full, want) {
 			t.Errorf("ports=full lacks %q:\n%s", want, full)
 		}
@@ -1774,7 +1777,7 @@ func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *RenderRes
 	for _, node := range lspResult.Nodes {
 		converted := engine.JRenderNode{
 			ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
-			Type: node.Type, Detail: node.Detail, Parent: node.Parent,
+			Type: node.Type, Detail: node.Detail, Parent: node.Parent, Inherited: node.Inherited,
 		}
 		if node.X != nil && node.Y != nil {
 			converted.Geometry = &engine.JRenderGeometry{X: *node.X, Y: *node.Y, Collapsed: node.Collapsed}
@@ -1790,7 +1793,7 @@ func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *RenderRes
 		}
 		for _, port := range node.Ports {
 			converted.Ports = append(converted.Ports, engine.JRenderPort{
-				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction,
+				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction, Inherited: port.Inherited,
 			})
 		}
 		nodes = append(nodes, converted)

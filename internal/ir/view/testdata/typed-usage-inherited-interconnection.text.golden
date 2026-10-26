@@ -1,33 +1,33 @@
 TypedUsageViews::rocketLinks - interconnection rendering (render asInterconnectionDiagram)
 
 part rocket
-  port telemetry
-  attribute mass
-  part stage1
-    port status
+  port ^telemetry
+  attribute ^mass
+  part ^stage1
+    port ^status
+    attribute ^propellantMass
+    part ^engines
+      attribute ^thrust
+      attribute ^mass
+      part ^subcomponents (nested deeper than 3 levels; not shown)
+    part ^subcomponents
+      attribute ^mass
+      part ^subcomponents (nested deeper than 3 levels; not shown)
+    attribute ^mass
+  part ^stage2
     attribute propellantMass
-    part engines
-      attribute thrust
-      attribute mass
-      part subcomponents (nested deeper than 3 levels; not shown)
-    part subcomponents
-      attribute mass
-      part subcomponents (nested deeper than 3 levels; not shown)
-    attribute mass
-  part stage2
-    attribute propellantMass
-    part engines
-      attribute thrust
-      attribute mass
-      part subcomponents (nested deeper than 3 levels; not shown)
-    part subcomponents
-      attribute mass
-      part subcomponents (nested deeper than 3 levels; not shown)
-    attribute mass
-  part subcomponents
-    attribute mass
-    part subcomponents
-      attribute mass
+    part ^engines
+      attribute ^thrust
+      attribute ^mass
+      part ^subcomponents (nested deeper than 3 levels; not shown)
+    part ^subcomponents
+      attribute ^mass
+      part ^subcomponents (nested deeper than 3 levels; not shown)
+    attribute ^mass
+  part ^subcomponents
+    attribute ^mass
+    part ^subcomponents
+      attribute ^mass
 
 connections:
   stage1.status -- rocket.telemetry

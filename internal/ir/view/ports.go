@@ -140,7 +140,7 @@ func (v portView) pinLabel(port Port) string {
 	if !v.minimal || port.NameSynthesized {
 		return port.label()
 	}
-	return port.Name
+	return port.displayName()
 }
 
 // undrawnPins names the pins of an action rendering a form leaves undrawn, as

@@ -30,6 +30,7 @@ import {
   labelLines,
   labelSize,
   listedEdges,
+  portName,
   simpleName,
   simpleNames,
   layoutCanvas,
@@ -779,6 +780,12 @@ test("simpleNames keeps the qualifier that tells nodes of one name apart", () =>
   );
   assert.deepEqual(labelLines(nodes[0], [], names), ["Plant::pump"]);
   assert.deepEqual(labelLines(nodes[2], [], names), ["tank"]);
+  assert.deepEqual(
+    labelLines(node("e", "Plant::pump.mass", { inherited: true, type: "Real" }), ["typings", "keywords"], names),
+    ["«part»", "^pump.mass : Real"],
+  );
+  assert.equal(portName({ id: "p", name: "aPort", inherited: true }), "^aPort");
+  assert.equal(portName({ id: "p", name: "aPort" }), "aPort");
   assert.deepEqual(labelLines(nodes[0], ["qualifiers"], names), [
     "Plant::pump",
   ]);

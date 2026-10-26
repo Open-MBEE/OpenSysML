@@ -257,6 +257,23 @@ else by the activity its type performs (`do action : Initialize` reads `Initiali
 what its anonymous body does — the message it sends or the one assignment it makes — and the
 keyword alone when none of that names it.
 
+A usage drawn or listed under an owner that does not declare it — one the owner has through
+typing, subclassification or subsetting — is marked inherited (`Node.Inherited`, set by the tree
+and interconnection walks, the case walk's inherited actors and subjects, and the action pins a
+node takes from its type; `Port.Inherited` for a pinned port), and every form writes the
+notation's `^` before its name (SysML v2.1 §8.2.3.6, `usage-name-with-alias` and `el-prefix`):
+`^mass` in a node head, a compartment row and the text form, `^aPort : APort` for a typed one, a
+pin's `^aPort` label, and the end label of a folded membership edge. A redefinition the owner
+declares is its own and reads bare (`attribute :>> mass` under `part d : APart` lists `mass`,
+beside `^aPort`), as does every member of a definition under the definition itself. The
+`usagePrefix` in `label.go` is the one place the glyph comes from. The data form and the JSON the
+LSP, the engine and the gRPC `RenderView` answer carry the mark as a field beside the bare name
+(`Inherited` on `NodeData` and `Port`, `inherited` on `RenderNode` and `RenderPort`) rather than
+in `name`, because the canvas and the clients key on names — the canvas's `labelHead` and
+`portName` add the `^` when they draw. The derived-feature prefix `/` of the same production is a
+different fact (the `derived` keyword, which the compartment row keeps as a prefix word) and is not
+drawn as a glyph.
+
 The name and type a node carries (`Node.Name`, `Node.Type`, the JSON's `name` and `type`) stay
 as the walk spells them — a root's name qualified, a nested member's simple, a type as the
 declaration references it — and the text form prints them so. The graphical forms head a node

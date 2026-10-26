@@ -47,9 +47,9 @@ flowchart TD
     subgraph n7 ["`*«variant»* **sedan**`"]
       direction TD
       n8("`*«abstract part»*
-**engine**`")
+**^engine**`")
       n9("`*«part»*
-**chassis**`")
+**^chassis**`")
     end
   end
   n4 === n5

@@ -32,14 +32,14 @@ flowchart LR
     subgraph n1 ["`*«part»* **pump : Pump**`"]
       direction LR
       n1_anchor[" "]
-      n1.0["outlet"]
+      n1.0["^outlet"]
       note0@{ shape: notch-rect, label: "always" }
       note2@{ shape: notch-rect, label: "check pressure" }
     end
     subgraph n2 ["`*«part»* **tank : Tank**`"]
       direction LR
       n2_anchor[" "]
-      n2.0["inlet"]
+      n2.0["^inlet"]
       note1@{ shape: notch-rect, label: "anchored" }
     end
   end

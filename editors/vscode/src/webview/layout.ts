@@ -707,7 +707,7 @@ export function portLabelPlacement(
 ): PortLabelPlacement {
   const center = portCenter(box, port);
   const square = portBox(box, port);
-  const size = glyphSize(port.port.name);
+  const size = glyphSize(portName(port.port));
   let x: number;
   let y: number;
   let anchor: "start" | "end" = "start";
@@ -1412,10 +1412,15 @@ function labelHead(
   if (node.name === "") {
     return node.kind;
   }
-  const name = qualified
+  const name = (node.inherited ? "^" : "") + (qualified
     ? node.name
-    : (names?.get(node.id) ?? simpleName(node.name));
+    : (names?.get(node.id) ?? simpleName(node.name)));
   return node.type === "" || !typed ? name : `${name} : ${node.type}`;
+}
+
+/** portName is the name a pin is drawn by: `^` before an inherited port's name, as the notation marks it. */
+export function portName(port: RenderPort): string {
+  return (port.inherited ? "^" : "") + port.name;
 }
 
 // labelSize is the box a label needs, its head in bold glyphs.

@@ -292,7 +292,10 @@ test("drawCanvas draws the port group, square, label, title, and includes them i
       y: 30,
       width: 100,
       height: 60,
-      ports: [{ id: "service.api", name: "api", type: "Api", direction: "out" }],
+      ports: [
+        { id: "service.api", name: "api", type: "Api", direction: "out" },
+        { id: "service.log", name: "log", type: "Log", direction: "out", inherited: true },
+      ],
     })],
     edges: [],
   };
@@ -303,6 +306,9 @@ test("drawCanvas draws the port group, square, label, title, and includes them i
   const group = svg.querySelector<SVGGElement>('g[data-opensysml-id="api"] > g.port[data-port="service.api"]')!;
   assert.deepEqual([...group.children].map((child) => child.tagName.toLowerCase()), ["title", "rect", "text"]);
   assert.equal(group.querySelector("title")?.textContent, "api : Api");
+  const inherited = svg.querySelector<SVGGElement>('g[data-opensysml-id="api"] > g.port[data-port="service.log"]')!;
+  assert.equal(inherited.querySelector("title")?.textContent, "^log : Log");
+  assert.equal(inherited.querySelector("text.port-label")?.textContent, "^log");
   const square = portBox(entry.box, placed);
   const center = portCenter(entry.box, placed);
   const rect = group.querySelector("rect.port-shape")!;

@@ -28,10 +28,10 @@ flowchart TD
 **Hub**
 ports
 input : DataPort
-input.clock : ClockPort
+^input.clock : ClockPort
 output : DataPort
 output.sync : ClockPort
-output.clock : ClockPort`"]
+^output.clock : ClockPort`"]
     n1("`*«attribute»*
 **channels**`")
     n12("`*«part»*

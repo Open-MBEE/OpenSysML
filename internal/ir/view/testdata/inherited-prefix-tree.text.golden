@@ -1,0 +1,41 @@
+InheritedPrefixViews::rigTree - tree rendering (render asTreeDiagram)
+
+part def Rig
+  part a
+    port ^aPort
+    attribute ^mass
+    part ^engine
+  part b
+    attribute ^mass
+    part ^cooler
+    port ^aPort
+    part ^engine
+  part c
+    port ^aPort
+    attribute ^mass
+    part ^engine
+  part d
+    attribute mass
+    port ^aPort
+    part ^engine
+  connect
+
+relationships:
+  Rig *-- a
+  Rig *-- b
+  Rig *-- c
+  Rig *-- d
+  a o-- aPort
+  a o-- mass
+  a *-- engine
+  b o-- mass
+  b *-- cooler
+  b o-- aPort
+  b *-- engine
+  c --|> a
+  c o-- aPort
+  c o-- mass
+  c *-- engine
+  d o-- mass
+  d o-- aPort
+  d *-- engine
