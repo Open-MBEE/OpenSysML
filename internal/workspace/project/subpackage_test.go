@@ -81,6 +81,21 @@ func TestInstalledProjectFilesStopAtAProjectNestedInIt(t *testing.T) {
 	if got := (Discovery{}).NewWorkspaceIndex(proj).Declaring([]string{"Gears"}, nil); !reflect.DeepEqual(got["Gears"], []string{gearsFile}) {
 		t.Errorf("workspace index declares Gears in %v, want %v", got["Gears"], gearsFile)
 	}
+	// A file inside the installed parent, or an index rooted there, reads
+	// the parent as an installed project too: its nested copy stays out.
+	if got, want := Dependencies([]string{widgetsFile}, nil), []string{gearsFile}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Dependencies of the installed project's file = %v, want %v", got, want)
+	}
+	if got := (Discovery{}).NewWorkspaceIndex(widgets).Declaring([]string{"Gears"}, nil); !reflect.DeepEqual(got["Gears"], []string{gearsFile}) {
+		t.Errorf("workspace index rooted in the installed project declares Gears in %v, want %v", got["Gears"], gearsFile)
+	}
+	// A developer's own tree with a nested project is walked whole.
+	own := writeProject(t, filepath.Join(t.TempDir(), "mono"), `{"name": "mono", "version": "0.1.0"}`)
+	main := writeModel(t, filepath.Join(own, "Main.sysml"), "package Main {\n    private import Local::*;\n}\n")
+	local := writeModel(t, filepath.Join(writeProject(t, filepath.Join(own, "packages", "local"), `{"name": "local", "version": "0.1.0"}`), "Local.sysml"), "package Local;\n")
+	if got := Dependencies([]string{main}, nil); !reflect.DeepEqual(got, []string{local}) {
+		t.Errorf("Dependencies in a developer's tree = %v, want the nested project's %v", got, local)
+	}
 
 	// Without its own installation the nested project is not read at all:
 	// the import it would answer stays unresolved rather than being answered
@@ -93,5 +108,26 @@ func TestInstalledProjectFilesStopAtAProjectNestedInIt(t *testing.T) {
 	}
 	if got := Dependencies([]string{app}, nil); !reflect.DeepEqual(got, []string{widgetsFile}) {
 		t.Errorf("Dependencies without the sub-package installed = %v, want Widgets alone", got)
+	}
+}
+
+// Bundling a project leaves the trees of the projects nested in it out: each
+// is a project of its own, bundled on its own.
+func TestBundleLeavesNestedProjectsOut(t *testing.T) {
+	dir := writeProject(t, filepath.Join(t.TempDir(), "widgets"), `{"name": "widgets", "publisher": "acme", "version": "1.0.0"}`)
+	writeModel(t, filepath.Join(dir, "Widgets.sysml"), "package Widgets;\n")
+	writeModel(t, filepath.Join(writeProject(t, filepath.Join(dir, "packages", "gears"), `{"name": "gears", "version": "1.0.0"}`), "Gears.sysml"), "package Gears;\n")
+	writeModel(t, filepath.Join(dir, "packages", "sprockets", "Sprockets.sysml"), "package Sprockets;\n")
+	data, _, err := Bundle(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := ParseArchive("widgets.kpar", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{".meta.json", ".project.json", "Widgets.sysml", "packages/sprockets/Sprockets.sysml"}
+	if got := a.Names(); !reflect.DeepEqual(got, want) {
+		t.Errorf("members = %q, want %q", got, want)
 	}
 }

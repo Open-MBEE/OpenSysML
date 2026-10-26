@@ -374,7 +374,9 @@ A fragment on a repository IRI names a project directory within the tagged tree
 sub-package's own installation — `gears` under `acme` — not by the repository's project. Such a
 sub-package also lies inside its parent's installed tree, and a directory below an installed
 project that holds a `.project.json` of its own is a project of its own: the parent's files stop
-at it, so the two installations load `Gears.sysml` once.
+at it — when the project is named, when a file in it is named, in the editor's workspace and in
+`-bundle`, which leaves the nested tree out of the parent's archive — so the two installations load
+`Gears.sysml` once.
 
 Another provider that installs projects elsewhere needs only its directory named. Each of
 the following adds a directory to look for installed projects under, besides the well-known

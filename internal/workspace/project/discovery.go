@@ -68,6 +68,9 @@ type Projects struct {
 	// Malformed holds the archives found under the roots that could not be
 	// read as project interchange files, each reported under its path.
 	Malformed []*ArchiveError
+	// installed keys, by absKey, every project installed under the roots,
+	// the enclosing projects among them included.
+	installed map[string]bool
 }
 
 // Dirs lists the directories of the enclosing and the used projects, in that order.
@@ -126,6 +129,10 @@ func (d Discovery) Around(paths []string) Projects {
 	}
 	installed, malformed := installedProjects(d.libraryRoots(ancestors))
 	out.Malformed = malformed
+	out.installed = make(map[string]bool, len(installed))
+	for _, project := range installed {
+		out.installed[absKey(project.Dir)] = true
+	}
 	if len(out.Enclosing) == 0 {
 		out.Used = installed
 		return out

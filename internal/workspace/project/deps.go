@@ -260,8 +260,10 @@ const maxDependencyDirs = 2000
 // the model files under those directories and under the projects enclosing
 // them — a project's own directory is where its imports are meant to be found,
 // wherever in it the named files lie — then those of the installed projects
-// the enclosing ones use, each of which stops at a project nested in it, read
-// through its own installation. Archives among either are listed apart.
+// the enclosing ones use. A walk through an installed project, used or
+// enclosing a source, stops at a project nested in it, which is read through
+// its own installation; a developer's own tree is walked whole. Archives among
+// either are listed apart.
 func (d Discovery) searchSpace(dirs []string) (files, archives []string) {
 	around := d.Around(dirs)
 	budget := maxDependencyDirs
@@ -273,11 +275,19 @@ func (d Discovery) searchSpace(dirs []string) (files, archives []string) {
 		}
 		walkTolerant(dir, visited, &budget, IsModelFile, skip, &files)
 	}
+	// nestedIn is what a walk under dir does not enter: nested projects when
+	// the project holding dir is an installed one, nothing otherwise.
+	nestedIn := func(dir string) func(dir string) bool {
+		if enclosing := EnclosingProjects(dir); len(enclosing) > 0 && around.installed[absKey(enclosing[0])] {
+			return IsProjectDir
+		}
+		return nil
+	}
 	for _, dir := range dirs {
-		walk(dir, nil)
+		walk(dir, nestedIn(dir))
 	}
 	for _, project := range around.Enclosing {
-		walk(project.Dir, nil)
+		walk(project.Dir, nestedIn(project.Dir))
 	}
 	for _, project := range around.Used {
 		walk(project.Dir, IsProjectDir)
