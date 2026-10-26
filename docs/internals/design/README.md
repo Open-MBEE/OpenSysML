@@ -39,7 +39,8 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   with `git`, verified and locked in `.project.lock.json`, installed under `lib/`; an optional
   index is derived from the packages and rendered twice from the same records — plain JSON in the
   static layout other tools read, and standard-library-only SysML whose constraints `sysml -validate`
-  checks; what exists today, what sysand does, the client commands and a three-phase plan
+  checks; what exists today, what sysand does, the SysPI client (`syspi`, a separate project —
+  OpenSysML stays the read side) and a three-phase plan
 - **[Scheduling policies, choice points and exploration](scheduling.md)** — how a run
   resolves what the library leaves unordered, reports each such choice without changing the
   run, takes another linearization under `declared` or `seed:<n>`, and enumerates every one
