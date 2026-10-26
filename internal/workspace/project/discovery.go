@@ -2,6 +2,7 @@ package project
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -86,7 +87,19 @@ type Projects struct {
 	// installed keys, by absKey, every project installed under the roots,
 	// the enclosing projects among them included.
 	installed map[string]bool
+
+	// Unlinked describes the usages that name no installed project and that
+	// several unclaimed ones could answer, one per usage; see used.
+	Unlinked []Warning
 }
+
+// Warning is what a load fell short of about the project or archive at Path.
+type Warning struct {
+	Path    string
+	Message string
+}
+
+func (w Warning) String() string { return w.Path + ": " + w.Message }
 
 // Dirs lists the directories of the enclosing and the used projects, in that order.
 func (p Projects) Dirs() []string {
@@ -152,7 +165,7 @@ func (d Discovery) Around(paths []string) Projects {
 		out.Used = installed
 		return out
 	}
-	out.Used = used(out.Enclosing, installed)
+	out.Used, out.Unlinked = used(out.Enclosing, installed)
 	return out
 }
 
@@ -268,36 +281,134 @@ func walkInstalled(dir string, visited map[string]bool, budget *int, found func(
 	}
 }
 
-// used selects, among the installed projects, those the enclosing projects use,
-// directly or through the usages of the projects selected, each once and in the
-// order they were reached; an enclosing project is not among what it uses.
-func used(enclosing, installed []*Interchange) []*Interchange {
+// used selects the installed projects the enclosing ones use, directly or in turn, each once:
+// by name (Uses) first, else by elimination among the unclaimed (pickUnclaimed), or as learnt.
+func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []Warning) {
 	selected := map[string]bool{}
+	claimed := map[string]bool{}
+	learnt := map[string]string{}
 	for _, project := range enclosing {
 		selected[absKey(project.Dir)] = true
+		claimed[project.identity()] = true
 	}
-	var out []*Interchange
-	queue := append([]*Interchange(nil), enclosing...)
-	for len(queue) > 0 {
-		project := queue[0]
-		queue = queue[1:]
-		for _, u := range project.Usage {
-			pick := pickInstalled(installed, u)
-			if pick == nil || selected[absKey(pick.Dir)] {
+	var queue []*Interchange
+	link := func(pick *Interchange) {
+		claimed[pick.identity()] = true
+		if selected[absKey(pick.Dir)] {
+			return
+		}
+		selected[absKey(pick.Dir)] = true
+		out = append(out, pick)
+		queue = append(queue, pick)
+	}
+	type pending struct {
+		from *Interchange
+		u    Usage
+	}
+	var unmatched []pending
+	queue = append(queue, enclosing...)
+	for {
+		for len(queue) > 0 {
+			project := queue[0]
+			queue = queue[1:]
+			for _, u := range project.Usage {
+				if pick := pickInstalled(installed, u); pick != nil {
+					link(pick)
+				} else if !u.standardLibrary() {
+					unmatched = append(unmatched, pending{project, u})
+				}
+			}
+		}
+		if len(unmatched) == 0 {
+			break
+		}
+		var rest []pending
+		for _, p := range unmatched {
+			if id, ok := learnt[p.u.key()]; ok {
+				if pick := pickVersion(installed, id, p.u.constraint()); pick != nil {
+					link(pick)
+				}
 				continue
 			}
-			selected[absKey(pick.Dir)] = true
-			out = append(out, pick)
-			queue = append(queue, pick)
+			pick, candidates := pickUnclaimed(installed, claimed, p.u)
+			switch {
+			case pick != nil:
+				learnt[p.u.key()] = pick.identity()
+				link(pick)
+			case len(candidates) > 1:
+				rest = append(rest, p)
+			}
 		}
+		if len(queue) == 0 {
+			for _, p := range rest {
+				_, candidates := pickUnclaimed(installed, claimed, p.u)
+				unlinked = append(unlinked, ambiguousUsage(p.from, p.u, candidates))
+			}
+			break
+		}
+		unmatched = rest
 	}
-	return out
+	return out, unlinked
 }
 
-// pickInstalled chooses the installed project a usage names: of those its
-// resource names, the one whose version the usage's constraint (its
-// versionConstraint, else the @version in its IRI) names exactly, else the
-// latest. Nil when none does.
+// pickVersion is the highest installed version of the project identity names that
+// satisfies constraint (any, when empty); nil when none does.
+func pickVersion(installed []*Interchange, identity, constraint string) *Interchange {
+	var pick *Interchange
+	for _, candidate := range installed {
+		if candidate.identity() != identity || (constraint != "" && !candidate.satisfies(constraint)) {
+			continue
+		}
+		if pick == nil || newerVersion(candidate.Version, pick.Version) {
+			pick = candidate
+		}
+	}
+	return pick
+}
+
+// pickUnclaimed links a usage by elimination: the highest unclaimed version satisfying its
+// constraint when the candidates are all one project; several projects are returned unpicked.
+func pickUnclaimed(installed []*Interchange, claimed map[string]bool, u Usage) (*Interchange, []*Interchange) {
+	constraint := u.constraint()
+	var candidates []*Interchange
+	var pick *Interchange
+	one := true
+	for _, candidate := range installed {
+		if claimed[candidate.identity()] || (constraint != "" && !candidate.satisfies(constraint)) {
+			continue
+		}
+		candidates = append(candidates, candidate)
+		switch {
+		case pick == nil:
+			pick = candidate
+		case pick.identity() != candidate.identity():
+			one = false
+		case newerVersion(candidate.Version, pick.Version):
+			pick = candidate
+		}
+	}
+	if !one {
+		return nil, candidates
+	}
+	return pick, candidates
+}
+
+// ambiguousUsage describes a usage of from that several unclaimed installed
+// projects could answer, naming each, and how the resource selects one.
+func ambiguousUsage(from *Interchange, u Usage, candidates []*Interchange) Warning {
+	names := make([]string, 0, len(candidates))
+	for _, c := range candidates {
+		names = append(names, fmt.Sprintf("%s %s (%s)", c.identity(), c.Version, c.Dir))
+	}
+	return Warning{
+		Path: filepath.Join(from.Dir, ProjectFile),
+		Message: fmt.Sprintf("usage %s names no installed project by publisher and name, and %d unclaimed ones could answer it: %s; end the resource with the project's publisher and name (…/%s) to select one",
+			u.Resource, len(candidates), strings.Join(names, ", "), candidates[0].identity()),
+	}
+}
+
+// pickInstalled chooses, of the installed projects a usage's resource names, the one
+// its constraint (versionConstraint, else the IRI's @version) names exactly, else the latest.
 func pickInstalled(installed []*Interchange, u Usage) *Interchange {
 	var pick *Interchange
 	constraint := u.constraint()
