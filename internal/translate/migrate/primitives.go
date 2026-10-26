@@ -445,7 +445,7 @@ var primitives = []primitive{
 	alfC("excludingOne", argSeqEl, nil, Unmapped, excludingOneNote),
 	alfC("excludeAt", argSeqAt, []string{seqExcludingAt}, Approximated, removeIndexNote),
 	alfC("replacing", argRepl, nil, Unmapped, replacingNote),
-	alfC("replacingAt", argReplAt, []string{replacingAtExpr}, Approximated, "v2 fails on an index outside 1..Size(seq), which v1 requires"),
+	alfC("replacingAt", argReplAt, []string{replacingAtExpr}, Approximated, replacingAtNote),
 	alfC("replacingOne", argRepl, nil, Unmapped, replacingOneNote),
 	alfC("subsequence", []string{"*seq", "lower", "upper"}, []string{subsequenceExpr}, Approximated, subsequenceNote),
 	alfC("toOrderedSet", argSeq, nil, Unmapped, orderedSetNote),
