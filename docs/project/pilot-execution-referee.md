@@ -221,10 +221,11 @@ Run it with `go run -C tools ./cmd/pilot-exec-diff` after `./scripts/download-pi
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `tools/referee/diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run -C tools ./cmd/pilot-exec-diff`
-prints the current ones. State of the 500 committed cases, the original 32, the 62 the
+prints the current ones. State of the 504 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
-the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
+the 5 the empty-aggregate and subsetting round and the 4 the `excludingAt` body round added to
+`w6d_expr_depth.cases`, the 12 of
 `tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
 the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases`, the 23 of
 `enumeration_classification.cases`, the 24 of `metadata_access.cases`, the 13 of
@@ -454,15 +455,18 @@ operand holds: `u / 0` and `u % 0` are the `division by zero` error here and
 The last twelve probe the positions a library function checks before it reads its open
 operand. A determined position that names no place in any value the operand may hold fails
 the function: `Substring(s, 0, 2)`, `includingAt(xs, 1.0, 0)`, `subsequence(xs, 0, 1)` and
-`excludingAt(xs, 0)` are the index error here, as are `includingAt(xs, 1.0, 6)`,
-`subsequence(xs, 2, 5)` and `excludingAt(xs, 5)`, positions past the most `xs : Real[2..4]`
-admits. The pilot leaves the four zero-index forms unevaluated (`pilot-unevaluated`, the
-`InvocationExpression` or the unevaluated `AttributeUsage xs`) and throws
-`IndexOutOfBoundsException` for the three past-the-end forms (`both-error`) — by indexing into
-the one unevaluated usage element, so `subsequence(xs, 1, 2)` throws too (`pilot-error`,
-`toIndex = 2` over a one-element list) where it is `<undetermined>` here, as are
-`Substring(s, 1, 2)` and `includingAt(xs, 1.0, 1)` (`pilot-unevaluated`) and
-`excludingAt(xs, 1)` (`pilot-silent`), positions every value of the operand admits.
+`excludingAt(xs, 0)` are the index error here, as are `includingAt(xs, 1.0, 6)` and
+`subsequence(xs, 2, 5)`, positions past the most `xs : Real[2..4]` admits. The pilot leaves
+the four zero-index forms unevaluated (`pilot-unevaluated`, the `InvocationExpression` or the
+unevaluated `AttributeUsage xs`) and throws `IndexOutOfBoundsException` for the two
+past-the-end forms (`both-error`) — by indexing into the one unevaluated usage element, so
+`subsequence(xs, 1, 2)` throws too (`pilot-error`, `toIndex = 2` over a one-element list)
+where it is `<undetermined>` here, as are `Substring(s, 1, 2)` and `includingAt(xs, 1.0, 1)`
+(`pilot-unevaluated`) and `excludingAt(xs, 1)` (`pilot-silent`), positions every value of the
+operand admits. `excludingAt(xs, 5)` is `<undetermined>` here too: its body,
+`(seq->subsequence(1, startIndex - 1), seq->subsequence(endIndex + 1))`, reads `seq#(4)` at
+most, which a four-element value has, and collects nothing past the end; the pilot throws the
+same exception for it (`pilot-error`).
 `Substring(s, 3, 2)` selects nothing whatever `s` holds and is `""` (`pilot-unevaluated`).
 
 The next four probe the domain a scalar numeric function's parameter puts on a determined

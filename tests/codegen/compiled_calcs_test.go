@@ -148,6 +148,8 @@ var compiledCases = []compiledCase{
 	{"Seq::IncAt", []string{"(1,2)", "1"}}, {"Seq::IncAt", []string{"(1,2)", "3"}}, {"Seq::IncAt", []string{"(1,2)", "4"}}, {"Seq::IncAt", []string{"null", "1"}}, {"Seq::IncAt", []string{"null", "2"}},
 	{"Seq::Sub3", []string{"(1,2,3)", "1", "2"}}, {"Seq::Sub3", []string{"(1,2,3)", "2", "1"}}, {"Seq::Sub3", []string{"(1,2,3)", "0", "2"}}, {"Seq::Sub3", []string{"(1,2,3)", "1", "4"}}, {"Seq::Sub3", []string{"null", "1", "1"}},
 	{"Seq::ExAt", []string{"(1,2,3)", "1", "2"}}, {"Seq::ExAt", []string{"(1,2,3)", "0", "2"}}, {"Seq::ExAt", []string{"null", "1", "1"}}, {"Seq::ExAt", []string{"4", "1", "1"}},
+	{"Seq::ExAt", []string{"(1,2,3)", "4", "4"}}, {"Seq::ExAt", []string{"(1,2,3)", "5", "5"}}, {"Seq::ExAt", []string{"(1,2,3)", "2", "9"}},
+	{"Seq::ExAt", []string{"(1,2,3)", "3", "2"}}, {"Seq::ExAt", []string{"(1,2,3)", "3", "1"}}, {"Seq::ExAt", []string{"(1,2,3)", "1", "0"}}, {"Seq::ExAt", []string{"null", "2", "2"}},
 	{"Seq::ForR", []string{"(1,2,3)"}}, {"Seq::ForR", []string{"null"}}, {"Seq::ForR", []string{"4"}},
 	{"Seq::Churn", []string{"0"}}, {"Seq::Churn", []string{"7"}},
 	{"Seq::ChurnFor", []string{"0"}}, {"Seq::ChurnFor", []string{"9"}},

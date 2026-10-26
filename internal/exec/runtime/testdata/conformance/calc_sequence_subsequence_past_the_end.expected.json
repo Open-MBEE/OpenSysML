@@ -1,0 +1,5 @@
+{
+  "libraries": true,
+  "type": "calc",
+  "error": "index out of range: SequenceFunctions::subsequence end index 5 is outside 1..3"
+}
