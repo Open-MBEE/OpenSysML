@@ -53,7 +53,7 @@ Namespace.
 
 owner <> null or
 Kernel Modeling Language v1.0                                                   102
-` + "\f" + `103                                                   Kernel Modeling Language v1.0
+` + "\f" + `103                                                   Kernel Modeling Language v1.1, Beta 2
 
     oclIsKindOf(Namespace)
 
