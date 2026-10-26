@@ -27,24 +27,24 @@ flowchart TD
 **vehicleFamily**`")
     n1("`*«part»*
 **engine**`")
-  n0 --- n1
     n2("`*«variation part»*
 **transmission**`")
       n3("`*«variant»*
 **manual**`")
-  n2 --- n3
       n4("`*«variant part»*
 **automatic**`")
-  n2 --- n4
-  n0 --- n2
     n5("`**connect**`")
   n0 --- n5
   n6["`*«variation part def»*
 **EngineChoices**`"]
     n7("`*«variant»*
 **fourCylinder**`")
-  n6 --- n7
     n8("`*«variant»*
 **sixCylinder**`")
-  n6 --- n8
-  n0 ---|"◆ engine"| n6
+  n0 ---|"◆"| n1
+  n0 ---|"◆"| n2
+  n1 -.->|"typing"| n6
+  n2 ---|"◇"| n3
+  n2 ---|"◆"| n4
+  n6 ---|"◇"| n7
+  n6 ---|"◇"| n8

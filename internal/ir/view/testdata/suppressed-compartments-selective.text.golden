@@ -6,3 +6,12 @@ part def Imaging at (10, 10) size 240×220
   part mount
   port data
   constraint focus
+
+relationships:
+  Imaging o-- resolution
+  Imaging o-- exposure
+  Imaging *-- 
+  Imaging *-- 
+  Imaging o-- mount
+  Imaging o-- data
+  Imaging *-- 

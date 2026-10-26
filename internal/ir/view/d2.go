@@ -235,7 +235,8 @@ func (w *d2Writer) writeClasses(b *strings.Builder) {
 }
 
 // writeTree writes a tree rendering: every node at the root scope, each
-// joined to its children by a containment line, then the edges.
+// joined to its children by a containment line unless an edge of the tree
+// joins the two, then the edges.
 func (w *d2Writer) writeTree(r *Rendering) {
 	if r.blank() {
 		w.writeEmpty(r)
@@ -251,10 +252,13 @@ func (w *d2Writer) writeTree(r *Rendering) {
 	for _, root := range r.Roots {
 		declare(root)
 	}
+	nesting := r.nestingEdges()
 	var contain func(node *Node)
 	contain = func(node *Node) {
 		for _, child := range node.Children {
-			w.writeArrow("", d2EdgeSpec{from: w.paths[node.ID], to: w.paths[child.ID], arrow: "--", class: "edge"})
+			if !nesting[[2]string{node.ID, child.ID}] {
+				w.writeArrow("", d2EdgeSpec{from: w.paths[node.ID], to: w.paths[child.ID], arrow: "--", class: "edge"})
+			}
 			contain(child)
 		}
 	}

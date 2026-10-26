@@ -109,6 +109,7 @@ func TestD2DrawsEveryNodeAndEdge(t *testing.T) {
 				for _, root := range rendering.Roots {
 					count(root)
 				}
+				containment -= len(rendering.nestingEdges())
 			}
 			if want := len(rendering.Edges) + containment; arrows != want {
 				t.Errorf("D2 draws %d connections, the rendering has %d edges:\n%s", arrows, want, d2)
@@ -129,8 +130,8 @@ func d2Declarations(d2 string) map[string]bool {
 }
 
 // The tree draws containment as the Mermaid and DOT trees do: every node at
-// the root scope, a line from each node to its children, definitions square
-// and usages rounded.
+// the root scope, a membership edge from a node to each structural usage under
+// it and a line to every other child, definitions square and usages rounded.
 func TestD2TreeIsFlat(t *testing.T) {
 	d2, err := render(t, "tree.sysml", "VehicleViews::vehicleView").D2With(fullNotation)
 	if err != nil {
@@ -139,7 +140,8 @@ func TestD2TreeIsFlat(t *testing.T) {
 	for _, want := range []string{
 		"\nn0: \"«part def»\\nVehicles::Vehicle\" { class: definition }\n",
 		"\nn1: \"«part»\\nengine : Engine\" { class: usage }\n",
-		"\nn0 -- n1: { class: edge }\n",
+		"\nn0 <- n1: { class: composition }\n",
+		"\nn0 -- n5: { class: edge }\n",
 		"\n  definition: { style: { fill: white; stroke: \"#181818\"; stroke-width: 1; font-color: black; font-size: 14 } }\n",
 		"\n  usage: { style: { fill: white; stroke: \"#181818\"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }\n",
 	} {
@@ -155,8 +157,10 @@ func TestD2TreeIsFlat(t *testing.T) {
 			t.Errorf("tree D2 declares a node inside a container: %q", line)
 		}
 	}
-	if strings.Contains(d2, "->") {
-		t.Errorf("tree D2 draws an arrow:\n%s", d2)
+	for _, line := range strings.Split(d2, "\n") {
+		if strings.Contains(line, "class: edge") && !strings.Contains(line, " -- ") {
+			t.Errorf("tree D2 draws containment as an arrow: %q", line)
+		}
 	}
 }
 

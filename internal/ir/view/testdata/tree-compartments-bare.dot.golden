@@ -1,7 +1,7 @@
 // view: AmplifierViews::bare
 // kind: tree
 // stated: render bareTree
-// not represented: 11 node(s) without a position, left undrawn
+// not represented: 11 node(s) without a position, left undrawn, and 8 edge(s) at them
 // layout: neato -n
 digraph "AmplifierViews::bare" {
   graph [fontname="Helvetica", layout=neato, inputscale=72, dpi=72];

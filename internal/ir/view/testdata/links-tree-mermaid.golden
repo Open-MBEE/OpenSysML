@@ -29,14 +29,10 @@ flowchart TD
 **engine**`")
       n2("`*«attribute»*
 **power**`")
-  n1 --- n2
       n3("`*«part»*
 **cylinder**`")
-  n1 --- n3
-  n0 --- n1
     n4("`*«part»*
 **wheels**`")
-  n0 --- n4
     n5("`**connect**`")
   n0 --- n5
   n6("`*«view»*
@@ -45,12 +41,16 @@ flowchart TD
 **Engine**`"]
       n8("`*«attribute»*
 **power**`")
-  n7 --- n8
       n9("`*«part»*
 **cylinder**`")
-  n7 --- n9
   n6 --- n7
-  n0 ---|"◆ engine"| n7
+  n0 ---|"◆"| n1
+  n0 ---|"◆"| n4
+  n1 -.->|"typing"| n7
+  n1 ---|"◇"| n2
+  n1 ---|"◆"| n3
+  n7 ---|"◇"| n8
+  n7 ---|"◆"| n9
   click n0 href "https://example.test/src/tree.sysml#L11"
   click n1 href "https://example.test/src/tree.sysml#L12"
   click n2 href "https://example.test/src/tree.sysml#L5"

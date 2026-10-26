@@ -18,5 +18,16 @@ variation part def Models
   attribute mass
 
 relationships:
+  Vehicle o-- mass
   vehicleFamily ..|> Vehicle
+  vehicleFamily o-- fuel
+  vehicleFamily *-- engine
+  vehicleFamily *-- chassis
+  vehicleFamily o-- mass
   Models --|> Vehicle
+  Models o-- sedan
+  Models o-- mass
+  sedan o-- mass
+  sedan o-- fuel
+  sedan *-- engine
+  sedan *-- chassis

@@ -8,20 +8,20 @@ digraph "VehicleViews::vehicleView" {
   "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>, URL="https://example.test/src/tree.sysml#L11", tooltip="Vehicles::Vehicle"];
   "n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>engine</b>>, URL="https://example.test/src/tree.sysml#L12", tooltip="Vehicles::Vehicle::engine"];
   "n2" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>power</b>>, URL="https://example.test/src/tree.sysml#L5", tooltip="Vehicles::Engine::power"];
-  "n1" -> "n2" [arrowhead=none];
   "n3" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>cylinder</b>>, URL="https://example.test/src/tree.sysml#L6", tooltip="Vehicles::Engine::cylinder"];
-  "n1" -> "n3" [arrowhead=none];
-  "n0" -> "n1" [arrowhead=none];
   "n4" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>wheels</b>>, URL="https://example.test/src/tree.sysml#L13", tooltip="Vehicles::Vehicle::wheels"];
-  "n0" -> "n4" [arrowhead=none];
   "n5" [style="rounded,filled", label=<<b>connect</b>>, URL="https://example.test/src/tree.sysml#L14", tooltip="tree.sysml:14:3"];
   "n0" -> "n5" [arrowhead=none];
   "n6" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>engineSubview</b>>, URL="https://example.test/src/tree.sysml#L29", tooltip="VehicleViews::vehicleView::engineSubview"];
   "n7" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Engine</b>>, URL="https://example.test/src/tree.sysml#L4", tooltip="Vehicles::Engine"];
   "n8" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>power</b>>, URL="https://example.test/src/tree.sysml#L5", tooltip="Vehicles::Engine::power"];
-  "n7" -> "n8" [arrowhead=none];
   "n9" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>cylinder</b>>, URL="https://example.test/src/tree.sysml#L6", tooltip="Vehicles::Engine::cylinder"];
-  "n7" -> "n9" [arrowhead=none];
   "n6" -> "n7" [arrowhead=none];
-  "n0" -> "n7" [headlabel="engine", dir=back, arrowtail=diamond, URL="https://example.test/src/tree.sysml#L12", tooltip="Vehicles::Vehicle::engine"];
+  "n0" -> "n1" [dir=back, arrowtail=diamond, URL="https://example.test/src/tree.sysml#L12", tooltip="Vehicles::Vehicle::engine"];
+  "n0" -> "n4" [dir=back, arrowtail=diamond, URL="https://example.test/src/tree.sysml#L13", tooltip="Vehicles::Vehicle::wheels"];
+  "n1" -> "n7" [arrowhead=empty, style=dashed, URL="https://example.test/src/tree.sysml#L12", tooltip="tree.sysml:12:17"];
+  "n1" -> "n2" [dir=back, arrowtail=odiamond, URL="https://example.test/src/tree.sysml#L5", tooltip="Vehicles::Engine::power"];
+  "n1" -> "n3" [dir=back, arrowtail=diamond, URL="https://example.test/src/tree.sysml#L6", tooltip="Vehicles::Engine::cylinder"];
+  "n7" -> "n8" [dir=back, arrowtail=odiamond, URL="https://example.test/src/tree.sysml#L5", tooltip="Vehicles::Engine::power"];
+  "n7" -> "n9" [dir=back, arrowtail=diamond, URL="https://example.test/src/tree.sysml#L6", tooltip="Vehicles::Engine::cylinder"];
 }

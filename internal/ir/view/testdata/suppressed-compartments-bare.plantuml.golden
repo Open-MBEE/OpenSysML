@@ -1,6 +1,6 @@
 @startuml
 ' CameraViews::bare — tree rendering (render bareTree)
-' not represented: 9 node(s) without a position, left undrawn
+' not represented: 9 node(s) without a position, left undrawn, and 7 edge(s) at them
 ' not represented: 1 positioned node(s) and 0 route(s) kept as comments; PlantUML pins no position, the dot form does
 <style>
 root {

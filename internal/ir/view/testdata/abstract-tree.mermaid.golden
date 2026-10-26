@@ -27,44 +27,44 @@ flowchart TD
 **Vehicle**`"]
     n1("`*«attribute»*
 **mass**`")
-  n0 --- n1
   n2("`*«abstract part»*
 **vehicleFamily**`")
     n3("`*«abstract port»*
 **fuel**`")
-  n2 --- n3
     n4("`*«abstract part»*
 **engine**`")
-  n2 --- n4
     n5("`*«part»*
 **chassis**`")
-  n2 --- n5
     n6("`**connect**`")
   n2 --- n6
     n7("`*«attribute»*
 **mass**`")
-  n2 --- n7
   n8["`*«variation part def»*
 **Models**`"]
     n9("`*«variant»*
 **sedan**`")
       n10("`*«attribute»*
 **mass**`")
-  n9 --- n10
       n11("`*«abstract port»*
 **fuel**`")
-  n9 --- n11
       n12("`*«abstract part»*
 **engine**`")
-  n9 --- n12
       n13("`*«part»*
 **chassis**`")
-  n9 --- n13
       n14("`**connect**`")
   n9 --- n14
-  n8 --- n9
     n15("`*«attribute»*
 **mass**`")
-  n8 --- n15
+  n0 ---|"◇"| n1
   n2 -.->|"typing"| n0
+  n2 ---|"◇"| n3
+  n2 ---|"◆"| n4
+  n2 ---|"◆"| n5
+  n2 ---|"◇"| n7
   n8 -->|"specialization"| n0
+  n8 ---|"◇"| n9
+  n8 ---|"◇"| n15
+  n9 ---|"◇"| n10
+  n9 ---|"◇"| n11
+  n9 ---|"◆"| n12
+  n9 ---|"◆"| n13

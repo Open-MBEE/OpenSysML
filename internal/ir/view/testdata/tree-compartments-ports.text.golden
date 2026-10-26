@@ -14,7 +14,10 @@ part def Hub
 part def Buffer
 
 relationships:
-  Hub *-- Buffer: buffer
+  Hub o-- channels
+  Hub *-- buffer
+  Hub *-- slot
+  buffer ..|> Buffer
 
 not represented:
   - 5 member(s) drawn as compartment rows of their owner

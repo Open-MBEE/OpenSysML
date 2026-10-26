@@ -16,9 +16,15 @@ part def ObjectiveLens at (660, 300) size 160×70
 part def Stigmator at (860, 300) size 160×70
 
 relationships:
-  ScanningElectronMicroscope *-- ImagingParameters: imagingParameters via (550, 100) (550, 200) (110, 200) (110, 300)
-  ScanningElectronMicroscope *-- FocusSettings: focusSettings via (550, 100) (550, 200) (310, 200) (310, 300)
-  ScanningElectronMicroscope *-- ElectronDetector: backscatteredElectronDetector via (550, 100) (550, 200) (480, 200) (480, 300)
-  ScanningElectronMicroscope *-- ElectronDetector: secondaryElectronDetector via (550, 100) (550, 200) (560, 200) (560, 300)
-  ScanningElectronMicroscope *-- ObjectiveLens: objectiveLens via (550, 100) (550, 200) (740, 200) (740, 300)
-  ScanningElectronMicroscope *-- Stigmator: stigmator via (550, 100) (550, 200) (940, 200) (940, 300)
+  ScanningElectronMicroscope *-- imagingParameters via (550, 100) (550, 200) (110, 200) (110, 300)
+  ScanningElectronMicroscope *-- focusSettings via (550, 100) (550, 200) (310, 200) (310, 300)
+  ScanningElectronMicroscope *-- backscatteredElectronDetector via (550, 100) (550, 200) (480, 200) (480, 300)
+  ScanningElectronMicroscope *-- secondaryElectronDetector via (550, 100) (550, 200) (560, 200) (560, 300)
+  ScanningElectronMicroscope *-- objectiveLens via (550, 100) (550, 200) (740, 200) (740, 300)
+  ScanningElectronMicroscope *-- stigmator via (550, 100) (550, 200) (940, 200) (940, 300)
+  imagingParameters ..|> ImagingParameters
+  focusSettings ..|> FocusSettings
+  backscatteredElectronDetector ..|> ElectronDetector
+  secondaryElectronDetector ..|> ElectronDetector
+  objectiveLens ..|> ObjectiveLens
+  stigmator ..|> Stigmator

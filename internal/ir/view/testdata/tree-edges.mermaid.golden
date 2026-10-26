@@ -29,68 +29,49 @@ flowchart TD
 **chassis**`")
       n2("`*«attribute»*
 **mass**`")
-  n1 --- n2
-  n0 --- n1
     n3("`*«part»*
 **wheels**`")
-  n0 --- n3
     n4("`*«part»*
 **driver**`")
-  n0 --- n4
     n5("`*«attribute»*
 **total**`")
-  n0 --- n5
     n6["`*«part def»*
 **Cabin**`"]
   n0 --- n6
     n7("`*«part»*
 **cabin**`")
-  n0 --- n7
     n8("`*«part»*
 **radio**`")
-  n0 --- n8
     n9("`*«part»*
 **trailer**`")
-  n0 --- n9
   n10["`*«part def»*
 **SportsCar**`"]
     n11("`*«part»*
 **chassis**`")
       n12("`*«attribute»*
 **mass**`")
-  n11 --- n12
-  n10 --- n11
     n13("`*«part»*
 **spare**`")
-  n10 --- n13
     n14("`*«part»*
 **wheels**`")
-  n10 --- n14
     n15("`*«part»*
 **driver**`")
-  n10 --- n15
     n16("`*«attribute»*
 **total**`")
-  n10 --- n16
     n17("`*«part»*
 **cabin**`")
-  n10 --- n17
     n18("`*«part»*
 **radio**`")
-  n10 --- n18
     n19("`*«part»*
 **trailer**`")
-  n10 --- n19
   n20["`*«part def»*
 **Chassis**`"]
     n21("`*«attribute»*
 **mass**`")
-  n20 --- n21
   n22["`*«part def»*
 **LightChassis**`"]
     n23("`*«attribute»*
 **mass**`")
-  n22 --- n23
   n24["`*«part def»*
 **Wheel**`"]
   n25["`*«part def»*
@@ -104,35 +85,55 @@ flowchart TD
       n29("`*«attribute»*
 **mass**`")
   n28 --- n29
-  n27 --- n28
     n30("`*«part»*
 **wheels**`")
-  n27 --- n30
     n31("`*«part»*
 **driver**`")
-  n27 --- n31
     n32("`*«attribute»*
 **total**`")
-  n27 --- n32
     n33("`*«part»*
 **cabin**`")
-  n27 --- n33
     n34("`*«part»*
 **radio**`")
-  n27 --- n34
     n35("`*«part»*
 **trailer**`")
-  n27 --- n35
-  n0 ---|"◆ chassis"| n20
-  n0 ---|"◆ wheels"| n24
-  n0 ---|"◇ driver"| n25
-  n0 ---|"◇ total"| n26
+  n0 ---|"◆"| n1
+  n0 ---|"◆"| n3
+  n0 ---|"◇"| n4
+  n0 ---|"◇"| n5
+  n0 ---|"◆"| n7
+  n0 ---|"◆"| n8
+  n0 ---|"◆"| n9
+  n1 -.->|"typing"| n20
+  n1 ---|"◇"| n2
+  n3 -.->|"typing"| n24
+  n4 -.->|"typing"| n25
+  n5 -.->|"typing"| n26
+  n7 -.->|"typing"| n6
   n10 -->|"specialization"| n0
-  n10 ---|"◆ chassis"| n22
-  n10 ---|"◆ spare"| n24
+  n10 ---|"◆"| n11
+  n10 ---|"◆"| n13
+  n10 ---|"◆"| n14
+  n10 ---|"◇"| n15
+  n10 ---|"◇"| n16
+  n10 ---|"◆"| n17
+  n10 ---|"◆"| n18
+  n10 ---|"◆"| n19
   n11 -->|"redefines"| n1
+  n11 -.->|"typing"| n22
+  n11 ---|"◇"| n12
+  n13 -.->|"typing"| n24
   n13 -->|"subsets"| n3
-  n20 ---|"◇ mass"| n26
+  n20 ---|"◇"| n21
+  n21 -.->|"typing"| n26
   n22 -->|"specialization"| n20
+  n22 ---|"◇"| n23
   n23 -->|"redefines"| n21
   n27 -.->|"typing"| n0
+  n27 ---|"◆"| n28
+  n27 ---|"◆"| n30
+  n27 ---|"◇"| n31
+  n27 ---|"◇"| n32
+  n27 ---|"◆"| n33
+  n27 ---|"◆"| n34
+  n27 ---|"◆"| n35

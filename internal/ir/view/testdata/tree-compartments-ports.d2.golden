@@ -4,7 +4,9 @@ classes: {
   definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
   edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  typing: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
   composition: { source-arrowhead: { shape: diamond; style: { filled: true } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  reference: { source-arrowhead: { shape: diamond; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
 }
 n0: "«part def»\nHub\nports\ninput : DataPort\ninput.clock : ClockPort\noutput : DataPort\noutput.sync : ClockPort\noutput.clock : ClockPort" { class: definition }
 n1: "«attribute»\nchannels" { class: usage }
@@ -12,8 +14,8 @@ n12: "«part»\nbuffer" { class: usage }
 n13: "«part»\nslot" { class: usage }
 n14: "«part def»\nPin" { class: definition }
 n15: "«part def»\nBuffer" { class: definition }
-n0 -- n1: { class: edge }
-n0 -- n12: { class: edge }
-n0 -- n13: { class: edge }
 n13 -- n14: { class: edge }
-n0 <- n15: { class: composition; target-arrowhead: { label: "buffer" } }
+n0 <- n1: { class: reference }
+n0 <- n12: { class: composition }
+n0 <- n13: { class: composition }
+n12 -> n15: { class: typing }
