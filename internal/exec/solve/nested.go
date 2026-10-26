@@ -47,9 +47,8 @@ type heldGroup struct {
 	conds   []runtime.Condition
 	bound   []map[*symbols.Symbol][]*symbols.Symbol
 	frames  []frame
-	// assumed are the features on path walked as one object that only the
-	// default multiplicity governs, as validation walks their one representative
-	// object: reported only with a group the query states.
+	// assumed are the features on path walked as one object that only the default
+	// multiplicity governs, reported only with a group the query states.
 	assumed []AssumedOne
 }
 

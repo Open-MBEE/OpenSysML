@@ -290,9 +290,8 @@ func uncoveredLines(q *solve.Query) []string {
 	return lines
 }
 
-// assumedOneLines names the features the query reads as one value or object
-// while only the default multiplicity governs them, so a verdict is read as
-// being about the case where each holds one.
+// assumedOneLines names the features the query reads as one value or object while
+// only the default multiplicity governs them: the verdict is about that case.
 func assumedOneLines(q *solve.Query) []string {
 	lines := make([]string, 0, len(q.AssumedOne))
 	for _, a := range q.AssumedOne {

@@ -571,10 +571,8 @@ func newTranslator(ctx *runtime.Context, subject Subject) *translator {
 	}
 }
 
-// mergeAssumed appends the assumptions of more to those of have, one both name
-// reported once as have names it. Held objects are told apart by path (byPath:
-// `left.spare` and `right.spare` are two objects of one feature); a value read
-// through a feature is covered by any object walked under it.
+// mergeAssumed appends the assumptions of more not already in have, matched by
+// feature and, when byPath, by path (`left.spare` and `right.spare` are two objects).
 func mergeAssumed(have, more []AssumedOne, byPath bool) []AssumedOne {
 	out := append([]AssumedOne(nil), have...)
 	for _, a := range more {
