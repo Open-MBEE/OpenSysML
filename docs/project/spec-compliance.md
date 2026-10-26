@@ -6,7 +6,7 @@
 
 **Constraint names:** a backticked `validate…` name is a constraint of the validation census, spelled as [`constraint-manifest.json`](constraint-manifest.json) names it (its raw pilot identifier or the formal document's name, where the manifest records one, resolve to the same row), and a rule row citing one bare claims the census row's status as its own. Where a row describes a different rule, or one sub-case, that happens to share the name, the citation is followed by `(census faithful)` stating the census row's status, and the row's own status stands apart. A constraint the specification names and the pilot does not is written `spec:validate…` and must be stated by the bundled `SysMLValidation` library. `go run -C tools ./cmd/validation-census -check` (under `make docs-counts`) refuses a cited name that resolves to none of these and a bare citation whose row status differs from the census.
 
-**Clause numbers:** a `§` reference reads the specification editions the pilot pin ships (`scripts/pilot-pin.sh`, release 2026-08): SysML v2.1 Beta 2 and KerML 1.1 Beta 2 (the `build/spec-docs/` texts `scripts/download-spec-examples.sh` renders). A row that deliberately reads an older edition names it (`KerML 1.0, formal/2026-03-01`). Re-point the numbers when the pin moves to a release whose documents changed.
+**Clause numbers:** a `§` reference reads the specification editions the pilot pin ships (`scripts/pilot-pin.sh`, release 2026-09): SysML v2.1 Beta 2 and KerML 1.1 Beta 2 (the `build/spec-docs/` texts `scripts/download-spec-examples.sh` renders). A row that deliberately reads an older edition names it (`KerML 1.0, formal/2026-03-01`). Re-point the numbers when the pin moves to a release whose documents changed.
 
 ---
 
@@ -2607,7 +2607,7 @@ still gate the constraint-tier accessibility diagnostic.
 ### Control-Node Successions (SysML v2 §7.17.3 Control Nodes, §8.3.17 `ControlNode`, `DecisionNode`, `ForkNode`, `JoinNode`, `MergeNode`)
 
 The nine validation constraints on the successions of a control node, refereed against the
-specification text: the pinned pilot (`2026-08`) implements only `validateControlNodeOwningType`,
+specification text: the pinned pilot (`2026-09`) implements only `validateControlNodeOwningType`,
 and is silent on the other eight (adjudicated as pilot gaps in
 [pilot-differential.md](pilot-differential.md), drafted for upstream in
 [omg-issues.md](omg-issues.md)). A succession is any `Succession` the action declares or
