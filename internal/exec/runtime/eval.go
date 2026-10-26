@@ -2651,7 +2651,7 @@ func (ec *EvalContext) evalArithmetic(n *ast.OperatorExpr) (Value, error) {
 // `'+'` and `'-'` declare `y` [0..1] (KerML 8.4.4.9.6) everywhere but in
 // StringFunctions, so an omitted or empty second operand makes them the unary sign.
 func (ctx *Context) arithmeticValues(op ast.OperatorKind, left, right Value, span source.Span) (Value, error) {
-	if (op == ast.OpAdd || op == ast.OpSub) && argumentOmitted(right) && left.Kind != ValString {
+	if (op == ast.OpAdd || op == ast.OpSub) && isEmptyValue(right) && left.Kind != ValString {
 		return ctx.unaryValue(signOperator(op), left)
 	}
 	// An operand the model leaves open leaves the result open, unless the
