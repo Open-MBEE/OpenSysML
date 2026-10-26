@@ -198,11 +198,11 @@ func isSatisfyUsage(sym *symbols.Symbol) bool {
 	return ok && usage.Kind == ast.UsageSatisfy
 }
 
-// requiredCondition is cond evaluated for its own truth, the body's nested
-// conditions included, as the assumptions side of the implication needs it.
+// requiredCondition is cond evaluated for its own truth, the body's nested conditions included, as
+// the assumptions side of the implication needs it; a subrequirement's truth is its own check already.
 func requiredCondition(cond Condition) Condition {
 	cond.Required = true
-	if len(cond.Group) > 0 {
+	if len(cond.Group) > 0 && cond.Subrequirement == nil {
 		group := make([]Condition, len(cond.Group))
 		for i, nested := range cond.Group {
 			group[i] = requiredCondition(nested)

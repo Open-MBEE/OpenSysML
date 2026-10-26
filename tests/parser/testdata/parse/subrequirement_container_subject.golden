@@ -1,0 +1,34 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Veh"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="mass" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="requirement" abstract=false variation=false name="R"
+          (SubjectMember name="v" type="Veh")
+          (Usage kind="requirement" name="light" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (RequireMember
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator="<"
+                  (FeatureChainExpr member="mass"
+                    (FeatureReference name="v"))
+                  (LiteralReal value="10.0")))))))
+      (Membership visibility="default"
+        (Usage kind="part" name="veh" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Veh
+            (*ast.QualifiedName))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="redefines" target=mass
+                (*ast.QualifiedName))
+              (LiteralReal value="20.0")))))
+      (Membership visibility="default"
+        (Usage kind="requirement" name="r" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=R
+            (*ast.QualifiedName))
+          (SubjectMember name="v" type=""))))))
