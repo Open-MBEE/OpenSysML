@@ -395,3 +395,50 @@ func TestInstalledProjectsFollowLinksOnceSoACycleTerminates(t *testing.T) {
 		t.Errorf("installedProjects of a root that is a project = %v, want the root itself", projectDirs(got))
 	}
 }
+
+func TestPickInstalledHonoursTheVersionInTheResourceIRI(t *testing.T) {
+	v1 := &Interchange{Dir: "v1", Publisher: "acme", Name: "gears", Version: "1.0.0"}
+	v2 := &Interchange{Dir: "v2", Publisher: "acme", Name: "gears", Version: "2.0.0"}
+	installed := []*Interchange{v1, v2}
+	for _, resource := range []string{"pkg:r/acme/gears@1.0.0", "pkg:r/acme/gears@v1.0.0", "pkg:r/acme/gears@1.0.0/", "pkg:r/acme/gears@1.0.0#sub", "pkg:r/acme/gears@1.0.0?q=1", "pkg:r/acme/gears@1.0.0%2Bbuild"} {
+		if got := pickInstalled(installed, Usage{Resource: resource}); resource != "pkg:r/acme/gears@1.0.0%2Bbuild" && got != v1 {
+			t.Errorf("%s picked %v, want 1.0.0", resource, got)
+		} else if resource == "pkg:r/acme/gears@1.0.0%2Bbuild" && got != v2 {
+			t.Errorf("%s names 1.0.0+build, which nothing satisfies; picked %v, want the latest", resource, got)
+		}
+	}
+	if got := pickInstalled(installed, Usage{Resource: "pkg:r/acme/gears@1.0.0", VersionConstraint: "2.0.0"}); got != v2 {
+		t.Errorf("versionConstraint must win over the IRI's version; picked %v", got)
+	}
+	if got := pickInstalled(installed, Usage{Resource: "pkg:r/acme/gears@3.0.0"}); got != v2 {
+		t.Errorf("an IRI version nothing satisfies falls back to the latest; picked %v", got)
+	}
+	if got := resourceVersion("git@example.org:acme/gears"); got != "" {
+		t.Errorf("a user@host is no version, got %q", got)
+	}
+}
+
+// A plain lib/ beside .project.json is a well-known library directory, read
+// like .sysand/lib; the IRI's @version selects among the versions there.
+func TestAroundReadsLibBesideTheProjectFile(t *testing.T) {
+	root := t.TempDir()
+	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "demo", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:registry/acme/gears@1.0.0"}]}`)
+	writeModel(t, filepath.Join(proj, "main.sysml"), "package Demo {\n    private import Gears::*;\n    part g : Thing;\n}\n")
+	gears1 := writeProject(t, filepath.Join(proj, "lib", "acme-gears_1.0.0"), `{"name": "Gears", "publisher": "acme", "version": "1.0.0"}`)
+	writeModel(t, filepath.Join(gears1, "Gears.kerml"), "package Gears {\n    class Thing;\n}\n")
+	gears2 := writeProject(t, filepath.Join(proj, "lib", "acme-gears_2.0.0"), `{"name": "Gears", "publisher": "acme", "version": "2.0.0"}`)
+	writeModel(t, filepath.Join(gears2, "Gears.kerml"), "package Gears {\n    class Thing;\n    class Newer;\n}\n")
+
+	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+	if got := projectDirs(found.Used); len(got) != 1 || got[0] != gears1 {
+		t.Fatalf("used %v, want lib/acme-gears_1.0.0 alone", got)
+	}
+	if err := os.WriteFile(filepath.Join(proj, ProjectFile), []byte(`{"name": "demo", "publisher": "example", "version": "0.1.0", "usage": [{"resource": "pkg:registry/acme/gears"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	found = Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+	if got := projectDirs(found.Used); len(got) != 1 || got[0] != gears2 {
+		t.Fatalf("used %v, want the latest, lib/acme-gears_2.0.0", got)
+	}
+}

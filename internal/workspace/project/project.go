@@ -189,7 +189,8 @@ func (d Discovery) archiveFiles(archive string) ([]string, error) {
 
 // ModelFiles walks dir and returns every .sysml/.kerml file and .ipynb notebook
 // under it, sorted by path. Hidden directories are skipped, so a repository's .git or a build cache
-// under a dot-directory contributes nothing. Symlinked directories are walked —
+// under a dot-directory contributes nothing, as are the well-known library
+// directories of a project directory, whose contents its usages select. Symlinked directories are walked —
 // a project may keep a shared library as a link — each at most once, so a cycle
 // terminates.
 func ModelFiles(dir string) ([]string, error) {
@@ -232,7 +233,7 @@ func walk(dir string, visited map[string]bool, out *[]string) error {
 		}
 		switch {
 		case info.IsDir():
-			if strings.HasPrefix(e.Name(), ".") {
+			if strings.HasPrefix(e.Name(), ".") || IsLibraryDir(dir, e.Name()) {
 				continue
 			}
 			if err := walk(path, visited, out); err != nil {

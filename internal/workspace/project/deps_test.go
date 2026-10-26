@@ -99,6 +99,22 @@ func TestDependenciesIgnoreStdinAndUnreadableFiles(t *testing.T) {
 	}
 }
 
+// A file in a project reaches what lies under the project's lib/ only through
+// the usages: the version the usage selects, not every installed one.
+func TestDependenciesReadTheLibraryDirectoryThroughTheUsages(t *testing.T) {
+	proj := writeProject(t, filepath.Join(t.TempDir(), "proj"), `{"name": "demo", "publisher": "example", "version": "0.1.0", "usage": [{"resource": "pkg:registry/acme/gears@1.0.0"}]}`)
+	main := writeModel(t, filepath.Join(proj, "main.sysml"), "package Main {\n    private import Gears::*;\n    part g : Thing;\n}\n")
+	gears1 := writeProject(t, filepath.Join(proj, "lib", "acme-gears_1.0.0"), `{"name": "Gears", "publisher": "acme", "version": "1.0.0"}`)
+	gears1File := writeModel(t, filepath.Join(gears1, "Gears.kerml"), "package Gears {\n    class Thing;\n}\n")
+	gears2 := writeProject(t, filepath.Join(proj, "lib", "acme-gears_2.0.0"), `{"name": "Gears", "publisher": "acme", "version": "2.0.0"}`)
+	writeModel(t, filepath.Join(gears2, "Gears.kerml"), "package Gears {\n    class Thing;\n    class Newer;\n}\n")
+
+	got := Dependencies([]string{main}, nil)
+	if want := []string{gears1File}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Dependencies = %v, want %v", got, want)
+	}
+}
+
 // A qualified name whose first segment no loaded file declares is followed as
 // an import is: the file declaring that root loads, and so do the roots it
 // references in turn. The decoy declaring the same member under another root

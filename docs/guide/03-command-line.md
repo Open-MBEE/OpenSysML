@@ -363,7 +363,13 @@ project and in the projects that uses. An installed project is matched to a usag
 own `.project.json`, never by its directory name: the resource IRI's last two path segments
 are its publisher and name (compared as lower-case slugs, so `Requirements Management`
 answers to `…/ode4hera/requirements-management`), and of several installed versions the one
-a `versionConstraint` names exactly is taken, else the latest. The standard library's
+a `versionConstraint` names exactly is taken — or, when the usage carries none, the one a
+version written after `@` in its IRI names (`pkg:registry/acme/gears@1.0.0`) — else the
+latest. OpenSysML reads what any package manager that follows KerML 10.3 project interchange
+installs (sysand today) under `lib/` or `.sysand/lib` beside `.project.json`; it does not fetch. Those library directories
+hold the installed projects, not the project's own files: a walk of the project directory
+(`sysml <dir>`, `-bundle`, the editor's workspace scan) passes over them and loads what lies
+there only through the usages that select it. The standard library's
 `https://www.omg.org/spec/KerML/…/*.kpar` usages are answered by the bundled library.
 Hidden directories other than the library directories stay out of the search, and the
 diagnostics of the files loaded this way are reported like those of any other file the

@@ -220,6 +220,34 @@ func slug(name string) string {
 	return strings.TrimSuffix(b.String(), "-")
 }
 
+// constraint is the version a usage asks for: its versionConstraint, else
+// the version written after @ in its resource IRI (pkg:…/widgets@1.2.0), as
+// package URLs carry one; empty for any version.
+func (u Usage) constraint() string {
+	if c := strings.TrimSpace(u.VersionConstraint); c != "" {
+		return c
+	}
+	return resourceVersion(u.Resource)
+}
+
+// resourceVersion is the version written after @ in the last path segment
+// of a resource IRI, before any query or fragment and after a trailing slash;
+// empty when none is.
+func resourceVersion(resource string) string {
+	if i := strings.IndexAny(resource, "?#"); i >= 0 {
+		resource = resource[:i]
+	}
+	resource = strings.TrimRight(resource, "/")
+	last := resource[strings.LastIndexByte(resource, '/')+1:]
+	if i := strings.LastIndexByte(last, '@'); i > 0 {
+		if decoded, err := url.PathUnescape(last[i+1:]); err == nil {
+			return decoded
+		}
+		return last[i+1:]
+	}
+	return ""
+}
+
 // satisfies reports whether the project's version is the one the constraint
 // names exactly; only an exact version (optionally written =, == or v first)
 // is understood, any other constraint is not decided here.
