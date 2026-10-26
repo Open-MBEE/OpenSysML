@@ -772,6 +772,50 @@ package Bare {
 	}
 }
 
+// A placed node under an unplaced one is hoisted and drawn, so its own
+// unplaced members fold into its labelled edges, not into those of the node
+// above the unplaced one, in DOT and in a form that omits the unplaced itself.
+func TestTreePlacedNodeUnderAnUnplacedOneKeepsItsMembersEdges(t *testing.T) {
+	rendering := renderSource(t, "Views::bdd", `package Model {
+	part def Optics;
+	part def Car {
+		part assembly {
+			part lens {
+				part optics : Optics;
+			}
+		}
+	}
+}
+package Views {
+	private import DiagramLayout::*;
+	view bdd {
+		expose Model::Car;
+		expose Model::Optics;
+		metadata Layout about Model::Car { x = 10; y = 10; width = 200; height = 33; }
+		metadata Layout about Model::Car::assembly::lens { x = 10; y = 100; width = 200; height = 33; }
+		metadata Layout about Model::Optics { x = 10; y = 200; width = 200; height = 33; }
+	}
+}`)
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	if want := `"n2" -> "n4" [headlabel="optics", dir=back, arrowtail=diamond]`; !strings.Contains(dot, want) {
+		t.Errorf("DOT lacks %q, the lens's edge to the optics' definition:\n%s", want, dot)
+	}
+	if strings.Contains(dot, `"n0" -> "n4"`) {
+		t.Errorf("DOT draws the optics from Car, which does not own them:\n%s", dot)
+	}
+	mermaid := rendering.MermaidWith(fullNotation)
+	found := false
+	for _, line := range strings.Split(mermaid, "\n") {
+		found = found || strings.HasPrefix(line, "  n2 ") && strings.Contains(line, "optics") && strings.HasSuffix(line, " n4")
+	}
+	if !found {
+		t.Errorf("Mermaid lacks the lens's labelled edge to the optics' definition:\n%s", mermaid)
+	}
+}
+
 // A Route about a usage, with no Layout anywhere, positions the drawing as it
 // did when it steered the owner's edge to the definition: the usage folds
 // into a row of its owner, and DOT pins the labelled edge along the route.

@@ -539,22 +539,31 @@ func (p *placement) anyPlaced(node *Node) bool {
 // foldOmitted folds the membership and typing edges of the unplaced members
 // of a placed node, which a form leaves undrawn, into the owner's labelled
 // edge to each drawn type — the relationship is shown so or not at all —
-// before the edges at the undrawn nodes are dropped.
+// before the edges at the undrawn nodes are dropped. An unplaced node folds
+// under its nearest placed ancestor; a placed node under an unplaced one,
+// which the form hoists, is drawn and keeps its own members' edges to fold.
 func (p *placement) foldOmitted(roots []*Node, edges []Edge, nesting map[[2]string]bool) []Edge {
 	f := &folder{placement: p, mode: CompartmentsPositioned, owners: map[string]string{}, rows: map[string]*Node{}, nesting: nesting}
-	var walk func(node *Node)
-	walk = func(node *Node) {
+	var walk func(node *Node, owner string)
+	walk = func(node *Node, owner string) {
 		for _, child := range node.Children {
 			switch {
 			case p.placed[child.ID]:
-				walk(child)
-			case p.placed[node.ID]:
-				f.record(child, node.ID)
+				walk(child, child.ID)
+			default:
+				if owner != "" {
+					f.owners[child.ID], f.rows[child.ID] = owner, child
+				}
+				walk(child, owner)
 			}
 		}
 	}
 	for _, root := range roots {
-		walk(root)
+		if p.placed[root.ID] {
+			walk(root, root.ID)
+		} else {
+			walk(root, "")
+		}
 	}
 	if len(f.rows) == 0 {
 		return edges
