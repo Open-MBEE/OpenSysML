@@ -36,9 +36,10 @@ movement() {
 }
 
 # newest_tag <repo>: the highest release tag by version order, from the remote.
-# Upstream also publishes point releases (2025-09.1), which sort after their base.
+# Upstream also publishes point releases (2025-09.1), which sort after their base;
+# a repository with no release tag answers nothing rather than ending the run.
 newest_tag() {
-	git ls-remote --tags --refs "$1" | sed 's|.*refs/tags/||' | grep -E '^[0-9]{4}-[0-9]{2}(\.[0-9]+)?$' | sort -V | tail -n 1
+	git ls-remote --tags --refs "$1" | sed 's|.*refs/tags/||' | grep -E '^[0-9]{4}-[0-9]{2}(\.[0-9]+)?$' | sort -V | tail -n 1 || true
 }
 
 # tag_commit <repo> <tag>: the commit a tag resolves to on the remote. An
