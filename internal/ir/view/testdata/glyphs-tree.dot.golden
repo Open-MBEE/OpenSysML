@@ -10,11 +10,8 @@ digraph "NotationGlyphs::Diagrams::treeGlyphs" {
   "n2" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>level</b>>];
   "n3" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>pump</b>>];
   "n4" [style="rounded,filled", label=<<font point-size="10"><i>«timeslice»</i></font><br/><b>filling</b>>];
-  "n0" -> "n4" [arrowhead=none];
   "n5" [style="rounded,filled", label=<<font point-size="10"><i>«snapshot»</i></font><br/><b>full</b>>];
-  "n0" -> "n5" [arrowhead=none];
   "n6" [style="rounded,filled", label=<<font point-size="10"><i>«occurrence»</i></font><br/><b>startup</b>>];
-  "n0" -> "n6" [arrowhead=none];
   "n7" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>spare</b>>];
   "n8" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>level</b>>];
   "n9" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>tankView</b>>];

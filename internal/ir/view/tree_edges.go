@@ -318,7 +318,7 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 		}
 		edge := Edge{From: node.ID, To: child.ID, ToLabel: g.r.usageMultiplicity(member),
 			Origin: symbolOrigin(member), Style: g.r.styleOf(site.view, member, g.out)}
-		g.r.membershipEdge(member, &edge)
+		g.r.memberEdge(member, &edge)
 		if member.Owner() == sym {
 			edge.Route = g.r.routeOf(site.view, member, g.out)
 		}
@@ -349,16 +349,21 @@ func (g *treeGraph) exposeEdges(node *Node, view *symbols.Symbol) {
 	}
 }
 
-// membershipEdge reports an edge kind drawn for a feature membership.
+// membershipEdge reports an edge kind drawn for a feature membership: the
+// diamonds, and the glyphs an owned member's membership takes instead.
 func membershipEdge(kind EdgeKind) bool {
-	return kind == EdgeComposition || kind == EdgeReference
+	switch kind {
+	case EdgeComposition, EdgeReference, EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgePortion:
+		return true
+	}
+	return false
 }
 
-// membershipEdge sets the kind an owned member's edge is drawn with: the glyph
+// memberEdge sets the kind an owned member's edge is drawn with: the glyph
 // of a membership the notation draws as its own relationship — a required,
 // assumed or asserted constraint, a framed concern, an event occurrence, a
 // portion — else the feature membership's diamond.
-func (r *Renderer) membershipEdge(member *symbols.Symbol, edge *Edge) {
+func (r *Renderer) memberEdge(member *symbols.Symbol, edge *Edge) {
 	if kind, label, ok := memberRelationship(member); ok {
 		edge.Kind, edge.Label = kind, label
 		return

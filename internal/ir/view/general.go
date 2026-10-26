@@ -458,7 +458,7 @@ func (g *generalGraph) structuralEdges(sym *symbols.Symbol) {
 	}
 	if owner := g.drawn(sym.OwnerScope.Owner()); owner != nil && owner != from {
 		edge := Edge{From: owner.ID, To: from.ID, ToLabel: g.r.usageMultiplicity(sym), Origin: symbolOrigin(sym)}
-		g.r.membershipEdge(sym, &edge)
+		g.r.memberEdge(sym, &edge)
 		g.add(edge)
 	}
 }
