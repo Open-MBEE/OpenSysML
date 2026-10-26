@@ -116,6 +116,81 @@ package OpenSysMLSurfaces {
         attribute :>> jobsSetting = "-jobs";
         attribute :>> engineListing = "-engines";
         attribute exitStatusIsContract : Boolean = true;
+        attribute reportSetting : String = "-format";
+        attribute reportFormats : String = "text, json, sarif, junit";
+        attribute reportPackages : String = "internal/frontend/report";
+    }
+
+    // Coding agents reach the toolchain over the Model Context Protocol: one
+    // server over a workspace root, its tools in three groups — the language
+    // server's, the one-shot service's and named REPL sessions — over stdio
+    // or Streamable HTTP behind a bearer token.
+    #Surface part def McpServer :> Interface {
+        attribute :>> goPackage = "internal/frontend/mcp";
+        attribute :>> entrypoint = "cmd/sysml-mcp";
+        attribute :>> protocol = "mcp-stdio, mcp-http";
+        attribute toolCatalog : String = "internal/frontend/mcp/catalog";
+        attribute toolGroups : String = "lsp, runtime, session";
+        attribute groupSelector : String = "-tools";
+        attribute httpSetting : String = "-http";
+        attribute httpPath : String = "/mcp";
+        attribute tokenEnv : String = "OPENSYSML_MCP_TOKEN";
+        attribute conformanceTarget : String = "conformance-mcp";
+        attribute registryManifest : String = "packaging/mcp/server.json";
+    }
+
+    // A notebook kernel over the REPL: the Jupyter wire protocol on ZeroMQ
+    // sockets, each answer shown in its own MIME form beside plain text.
+    #Surface part def JupyterKernel :> Interface {
+        attribute :>> goPackage = "internal/frontend/jupyter";
+        attribute :>> entrypoint = "cmd/sysml-jupyter-kernel";
+        attribute :>> protocol = "jupyter-zmq";
+        attribute kernelName : String = "sysml";
+        attribute displayName : String = "SysML v2 (OpenSysML)";
+        attribute connectionSetting : String = "-connection-file";
+        attribute installSetting : String = "-install";
+        attribute mimeTypes : String = "text/plain, text/markdown, text/html, text/vnd.mermaid, text/vnd.graphviz, image/svg+xml, text/csv, text/tab-separated-values, application/json";
+        attribute wrapsRepl : Boolean = true;
+        port repl : RequestPort;
+    }
+
+    // The commands a WebAssembly host runs: protojson bodies in JSON-RPC 2.0
+    // frames on stdio, or a call on a JavaScript global, each serving the slice
+    // of the service's RPCs named in serves without the networking packages.
+    abstract part def JsonCommand :> Interface {
+        attribute :>> protocol = "json-rpc";
+        attribute jsonTransport : String = "internal/frontend/jsonrpc";
+        attribute serves : String;
+        attribute released : Boolean default = false;
+        attribute buildsForWasm : Boolean = true;
+    }
+
+    // Stateless and without a standard library: syntax alone.
+    #Surface part def SyntaxCommand :> JsonCommand {
+        attribute :>> goPackage = "internal/frontend/syntax";
+        attribute :>> entrypoint = "cmd/sysml-syntax";
+        attribute :>> serves = "Parse, Format, Tokens";
+        attribute stateless : Boolean = true;
+    }
+
+    #Surface part def EngineCommand :> JsonCommand {
+        attribute :>> goPackage = "internal/frontend/engine";
+        attribute :>> entrypoint = "cmd/sysml-engine";
+        attribute :>> serves = "ParseSources, Evaluate, Instantiate, ExecuteAction, ExecuteState, RenderView";
+    }
+
+    #Surface part def CoreCommand :> JsonCommand {
+        attribute :>> goPackage = "internal/frontend/core";
+        attribute :>> entrypoint = "cmd/sysml-core";
+        attribute :>> serves = "ParseSources, ParseFile, GetDiagnostics, GetSymbol";
+    }
+
+    // Not a released command, but a release ships its browser build as an asset.
+    #Surface part def CombinedCommand :> JsonCommand {
+        attribute :>> goPackage = "internal/frontend/combined";
+        attribute :>> entrypoint = "cmd/sysml-wasm";
+        attribute :>> serves = "ParseSources, ParseFile, GetDiagnostics, GetSymbol, Evaluate, Instantiate, ExecuteAction, ExecuteState, RenderView, GetServerInfo";
+        attribute releaseAsset : String = "sysml-wasm.wasm";
     }
 
     // A client library: hand-written idiomatic code over stubs generated from
@@ -172,8 +247,8 @@ package OpenSysMLSurfaces {
     }
 
     // In the same process by default, over the wire on request: the Go client
-    // wraps the generated Go stubs rather than being generated itself, and the
-    // three commands build for WebAssembly as well as natively.
+    // wraps the generated Go stubs rather than being generated itself, and
+    // every command builds for WebAssembly as well as natively.
     part def GoClient :> Client {
         attribute :>> goPackage = "client/opensysml";
         attribute :>> implementationLanguage = "go";
@@ -182,9 +257,18 @@ package OpenSysMLSurfaces {
         attribute buildsForWasm : Boolean = true;
     }
 
+    // The language client, the diagram panel it draws in a webview, the
+    // landing page, and the TextMate grammars a generator writes from the
+    // keyword lists — the same run writes the JupyterLab syntax table.
     part def VsCodeExtension :> CodeUnit {
         attribute :>> goPackage = "editors/vscode";
         attribute speaksTo : String = "sysml-lsp";
+        attribute languages : String = "sysml, kerml";
+        attribute commands : String = "opensysml.restartServer, opensysml.openDiagram, opensysml.exportDiagram, opensysml.diagram.popOut, opensysml.renderDocument, opensysml.runElement";
+        attribute diagramPanel : String = "editors/vscode/src/webview";
+        attribute landingPage : String = "editors/vscode/src/landing";
+        attribute grammarGenerator : String = "editors/vscode/tools/gengrammar";
+        attribute grammarTarget : String = "vscode-grammar";
         port languageClient : RequestPort;
     }
 
@@ -203,6 +287,28 @@ package OpenSysMLSurfaces {
 
     part def SysonIntegration :> ToolIntegration {
         attribute :>> goPackage = "editors/syson";
+    }
+
+    // The kernel as a pip package: the binary and the JupyterLab extension
+    // in one wheel, registered as a kernelspec; no service is involved.
+    part def JupyterKernelPackage :> CodeUnit {
+        attribute :>> goPackage = "client/jupyter-kernel";
+        attribute implementationLanguage : String = "python";
+        attribute packageName : String = "jupyter-opensysml-kernel";
+        attribute installTarget : String = "jupyter-kernel-install";
+        attribute testTarget : String = "jupyter-kernel-test";
+        port kernel : RequestPort;
+    }
+
+    // Highlighting for the notebook: a CodeMirror language over the syntax
+    // table the grammar generator writes, built into the kernel package.
+    part def JupyterLabExtension :> CodeUnit {
+        attribute :>> goPackage = "editors/jupyterlab";
+        attribute packageName : String = "jupyterlab-opensysml";
+        attribute syntaxTable : String = "editors/jupyterlab/src/syntax.json";
+        attribute buildTarget : String = "jupyterlab-build";
+        attribute testTarget : String = "jupyterlab-test";
+        port notebook : RequestPort;
     }
 
     // --- What an editor reaches ------------------------------------------
@@ -332,8 +438,30 @@ package OpenSysMLSurfaces {
         attribute immutablePlans : Boolean = true;
         attribute contentKinds : String = "section, paragraph, table, list, definitions, formula, diagram, image";
         attribute runKinds : String = "span, link, ref";
+        attribute markupLanguages : String = "markdown, asciidoc";
         in item rows : QueryRows;
+        in item prose : ProseBlocks;
         out item plan : DocumentPlan;
+    }
+
+    // A prose body written in a markup language is parsed into the planner's
+    // blocks; Markdown here, AsciiDoc by Asciidoctor.js outside the process.
+    abstract part def MarkupParser :> CodeUnit {
+        attribute :>> goPackage = "internal/ir/docplan/markup";
+        attribute markupLanguage : String;
+        attribute needsExternalTool : Boolean default = false;
+        out item blocks : ProseBlocks;
+    }
+
+    part def MarkdownParser :> MarkupParser {
+        attribute :>> markupLanguage = "markdown";
+    }
+
+    part def AsciiDocParser :> MarkupParser {
+        attribute :>> markupLanguage = "asciidoc";
+        attribute :>> needsExternalTool = true;
+        attribute toolEnv : String = "OPENSYSML_ASCIIDOCTOR";
+        attribute converterScript : String = "scripts/asciidoc/asciidoctor-json.js";
     }
 
     // Evaluating a plan gives one tree, carrying provenance on every node and
@@ -433,6 +561,8 @@ package OpenSysMLSurfaces {
         part queries : QueryCompiler;
         part rows : QueryExecutor;
         part plans : DocumentPlanner;
+        part markdownProse : MarkdownParser;
+        part asciidocProse : AsciiDocParser;
         part ir : DocumentIR;
         part markdown : MarkdownBackend;
         part html : HtmlBackend;
@@ -444,6 +574,8 @@ package OpenSysMLSurfaces {
         flow of SourceSpan from provenance.origins to views.origins;
         flow of SourceSpan from provenance.origins to ir.origins;
         flow of QueryRows from rows.rows to plans.rows;
+        flow of ProseBlocks from markdownProse.blocks to plans.prose;
+        flow of ProseBlocks from asciidocProse.blocks to plans.prose;
         flow of DocumentPlan from plans.plan to ir.plan;
         flow of DocumentTree from ir.tree to markdown.tree;
         flow of DocumentTree from ir.tree to html.tree;
@@ -592,7 +724,18 @@ package OpenSysMLSurfaces {
         attribute :>> reference = "the running service";
         attribute :>> baseline = "conformance";
         attribute :>> gating = true;
-        attribute protocols : String = "grpc, connect, connect-json";
+        attribute protocols : String = "grpc, connect, connect-json, pkg, pkg-connect, mcp";
+    }
+
+    // The FMI engine must drive the Modelica Reference-FMUs through the
+    // runner; the gate skips until the script has fetched them, and CI
+    // requires them.
+    #Oracle part def ReferenceFmuGate :> ConformanceOracle {
+        attribute :>> goPackage = "tests/fmi";
+        attribute :>> reference = "Modelica Reference-FMUs";
+        attribute :>> baseline = "scripts/download-reference-fmus.sh";
+        attribute :>> gating = true;
+        attribute requireEnv : String = "OPENSYSML_REQUIRE_REFERENCE_FMUS";
     }
 
     // What the oracles lean on: a pinned reference, an errata overlay for the
@@ -622,7 +765,11 @@ package OpenSysMLSurfaces {
 
     // --- The whole tool ---------------------------------------------------
 
+    // Every command the Makefile builds, and the ones it releases.
     part def Toolchain {
+        attribute releasedCommandCount : Integer = 5;
+        attribute wasmCommandCount : Integer = 9;
+
         part pipeline : AnalysisPipeline;
         part documents : DocumentPipeline;
         part editing : EditorPipeline;
@@ -632,6 +779,12 @@ package OpenSysMLSurfaces {
         part service : ModelService;
         part stdio : StdioService;
         part cli : CommandLine;
+        part mcp : McpServer;
+        part jupyter : JupyterKernel;
+        part syntaxCommand : SyntaxCommand;
+        part engineCommand : EngineCommand;
+        part coreCommand : CoreCommand;
+        part wasm : CombinedCommand;
 
         part goClient : GoClient;
         part python : PythonClient;
@@ -643,6 +796,8 @@ package OpenSysMLSurfaces {
         part vscode : VsCodeExtension;
         part mdk : OpenSysMLMDK;
         part syson : SysonIntegration;
+        part kernelPackage : JupyterKernelPackage;
+        part jupyterlab : JupyterLabExtension;
 
         part exporter : Exporter;
         part migrator : Migrator;
@@ -661,12 +816,19 @@ package OpenSysMLSurfaces {
         part stdlib : StdlibConformanceGate;
         part snapshotGate : StdlibSnapshotGate;
         part suite : ConformanceSuite;
+        part fmuGate : ReferenceFmuGate;
         part conformance : ConformanceInfrastructure;
 
         connection replDrives : ArtifactChannel connect repl.pipeline to pipeline.textIn;
         connection lspDrives : ArtifactChannel connect lsp.pipeline to pipeline.textIn;
         connection serviceDrives : ArtifactChannel connect service.pipeline to pipeline.textIn;
         connection cliDrives : ArtifactChannel connect cli.pipeline to pipeline.textIn;
+        connection mcpDrives : ArtifactChannel connect mcp.pipeline to pipeline.textIn;
+        connection jupyterWrapsRepl : ArtifactChannel connect jupyter.repl to repl.pipeline;
+        connection syntaxDrives : ArtifactChannel connect syntaxCommand.pipeline to pipeline.textIn;
+        connection engineDrives : ArtifactChannel connect engineCommand.pipeline to pipeline.textIn;
+        connection coreDrives : ArtifactChannel connect coreCommand.pipeline to pipeline.textIn;
+        connection wasmDrives : ArtifactChannel connect wasm.pipeline to pipeline.textIn;
 
         connection replAsks : RequestChannel connect repl.questions to pipeline.questionsIn;
         connection serviceAsks : RequestChannel connect service.questions to pipeline.questionsIn;
@@ -682,6 +844,8 @@ package OpenSysMLSurfaces {
         connection editorSpeaksLsp : ArtifactChannel connect vscode.languageClient to lsp.pipeline;
         connection mdkUsesJava : ArtifactChannel connect mdk.serviceClient to java.service;
         connection sysonUsesJava : ArtifactChannel connect syson.serviceClient to java.service;
+        connection packageShipsKernel : ArtifactChannel connect kernelPackage.kernel to jupyter.pipeline;
+        connection labExtensionShipsIn : ArtifactChannel connect jupyterlab.notebook to kernelPackage.kernel;
 
         connection documentsRead : ArtifactChannel connect pipeline.textIn to documents.modelIn;
         connection findingsToEditors : DiagnosticChannel connect pipeline.diagnosticsOut to editing.findingsIn;

@@ -75,6 +75,7 @@ const (
 	ErrorMarkupBodyNotParagraph     ErrorKind = "markup-body-not-paragraph"
 	ErrorMarkupToolMissing          ErrorKind = "markup-tool-missing"
 	ErrorMarkupToolFailed           ErrorKind = "markup-tool-failed"
+	ErrorMarkupHeadingLevel         ErrorKind = "markup-heading-level"
 )
 
 // Error is a typed document-planning failure with its source location.
@@ -270,6 +271,8 @@ func (e *Error) message() string {
 		return fmt.Sprintf("document %s paragraph %s carries a %s body that yields %s rather than exactly one paragraph", e.Document, e.Content, e.Parameter, e.Actual)
 	case ErrorMarkupToolMissing, ErrorMarkupToolFailed:
 		return fmt.Sprintf("document %s content %s carries a %s body that could not be parsed: %v", e.Document, e.Content, e.Parameter, e.Err)
+	case ErrorMarkupHeadingLevel:
+		return fmt.Sprintf("document %s content %s carries a %s body whose %s is out of sequence: expected %s", e.Document, e.Content, e.Parameter, e.Actual, e.Expected)
 	default:
 		return fmt.Sprintf("document planning failed for %s", e.Document)
 	}
@@ -345,5 +348,6 @@ func ErrorKinds() []ErrorKind {
 		ErrorMarkupBodyNotParagraph,
 		ErrorMarkupToolMissing,
 		ErrorMarkupToolFailed,
+		ErrorMarkupHeadingLevel,
 	}
 }

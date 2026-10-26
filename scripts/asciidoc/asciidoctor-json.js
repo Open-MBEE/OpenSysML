@@ -176,6 +176,7 @@ function lineOf(node) {
 
 function block(node) {
   const base = { kind: node.getContext(), line: lineOf(node) };
+  if (node.getContext() === 'section') return section(node, base);
   if (node.hasTitle && node.hasTitle()) {
     const title = plainText(node.getTitle());
     base.title = title === null ? '' : title;
@@ -212,6 +213,17 @@ function block(node) {
     default:
       return base;
   }
+}
+
+// section carries its level, its title as runs, the id an anchor gave it (the
+// automatic ids are off) and its blocks, subsections among them.
+function section(node, base) {
+  return Object.assign(base, {
+    level: node.getLevel(),
+    id: node.getId() || '',
+    runs: runsOf(node.getTitle(), 'plain'),
+    blocks: node.getBlocks().map(block),
+  });
 }
 
 // listStart reads an ordered list's `start` attribute: 1 when absent or not a
@@ -276,7 +288,7 @@ function main() {
         safe: 'secure',
         sourcemap: true,
         extension_registry: registry,
-        attributes: { stem: 'latexmath', 'skip-front-matter': '' },
+        attributes: { stem: 'latexmath', 'skip-front-matter': '', 'sectids!': '' },
       });
     } catch (err) {
       process.stderr.write(String(err && err.message ? err.message : err) + '\n');

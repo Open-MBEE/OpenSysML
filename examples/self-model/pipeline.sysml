@@ -23,6 +23,7 @@ package OpenSysMLArtifacts {
     item def InstanceGraph;
     item def RdfGraph;
     item def QueryRows;
+    item def ProseBlocks;
     item def DocumentPlan;
     item def DocumentTree;
     item def AnalysisQuestion;
