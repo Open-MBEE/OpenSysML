@@ -475,3 +475,41 @@ func TestReloadingAFileFindsTheRootItNoLongerDeclaresBesideIt(t *testing.T) {
 		t.Errorf("Lib::Thing did not resolve: %v", err)
 	}
 }
+
+func TestAnImportNoFileAnswersDoesNotKeepTheQualifiedNamesWaiting(t *testing.T) {
+	dir := t.TempDir()
+	main := writeFile(t, filepath.Join(dir, "main.sysml"), "package Main {\n    private import Missing::*;\n    part p : Available::Part;\n}\n")
+	writeFile(t, filepath.Join(dir, "available.sysml"), "package Available {\n    part def Part;\n}\n")
+
+	s := NewSession()
+	rep, err := s.LoadPathsReport([]string{main})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(rep.Loaded, "\n"); !strings.Contains(got, "loaded 2 files:") || !strings.Contains(got, "available.sysml") {
+		t.Errorf("loaded = %q, want main and available", got)
+	}
+	found := strings.Join(rep.Found, "\n")
+	if !strings.Contains(found, "unresolved reference: Missing") || strings.Contains(found, "Available") {
+		t.Errorf("want Missing alone unresolved:\n%s", found)
+	}
+	if _, _, err := s.lookupSymbol("Available::Part"); err != nil {
+		t.Errorf("Available::Part did not resolve: %v", err)
+	}
+}
+
+func TestLoadFilesSummarySummarizesThePulledFilesToo(t *testing.T) {
+	dir := t.TempDir()
+	main := writeFile(t, filepath.Join(dir, "main.sysml"), "package Main {\n    private import Lib::*;\n    part w : Widget;\n}\n")
+	writeFile(t, filepath.Join(dir, "lib.sysml"), "package Lib {\n    part def Widget;\n}\n")
+
+	s := NewSession()
+	out, err := s.LoadFilesSummary([]string{main})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.Join(out, "\n")
+	if !strings.Contains(got, "package Main") || !strings.Contains(got, "package Lib") {
+		t.Errorf("summary = %q, want Main and the pulled Lib summarized", got)
+	}
+}

@@ -139,11 +139,14 @@ func (s *Session) resolveReferences(res Result, parses []parsed, search *rootSea
 		}
 	}
 	unresolved := func(name string) bool { return referenceBegins(subjects, name) }
-	wanted := s.undeclaredRoots(imported, unresolved)
-	if len(wanted) == 0 {
-		wanted = s.undeclaredRoots(referenced, unresolved)
+	ws := s.loadDeclaring(s.undeclaredRoots(imported, unresolved), search)
+	if !ws.loaded {
+		// An import no file answers must not keep the qualified names waiting.
+		more := s.loadDeclaring(s.undeclaredRoots(referenced, unresolved), search)
+		more.notices = append(ws.notices, more.notices...)
+		ws = more
 	}
-	return s.loadDeclaring(wanted, search)
+	return ws
 }
 
 // pullReferences carries on from what loading ws did for the text parsed to

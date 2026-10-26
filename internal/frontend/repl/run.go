@@ -145,6 +145,13 @@ func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 		}
 		lines = append(lines, renderSummary(own.ownMembers())...)
 	}
+	// The files loaded for the roots the named ones left unresolved are
+	// summarized as the named ones are.
+	for _, path := range res.pulled {
+		own := res.within(s.fileSpan(fileKeyOf(path)))
+		lines = append(lines, renderSyntax(own, s.verbosity)...)
+		lines = append(lines, renderSummary(own.ownMembers())...)
+	}
 	return append(lines, archives...), nil
 }
 

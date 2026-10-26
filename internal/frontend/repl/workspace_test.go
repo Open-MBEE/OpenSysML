@@ -472,3 +472,20 @@ func TestSaveOutOfReachCarriesTheLoadedFilesOwnDependencies(t *testing.T) {
 		t.Errorf("Lib::a from the save = %q, %v", ev.Text, err)
 	}
 }
+
+func TestEvalFollowsTheImportsOfTheFileItLoadedOnDemand(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "lib.sysml"), "package Lib {\n    private import Util::*;\n    attribute a = base * 3;\n}\n")
+	writeFile(t, filepath.Join(dir, "util.sysml"), "package Util {\n    attribute base = 2;\n}\n")
+	s := NewSession()
+	if err := s.SetWorkspaceRoot(dir); err != nil {
+		t.Fatal(err)
+	}
+	ev, err := s.Evaluate("Lib::a")
+	if err != nil || ev.Text != "6" {
+		t.Fatalf("Lib::a = %q, %v", ev.Text, err)
+	}
+	if got := strings.Join(ev.Lines, "\n"); !strings.Contains(got, "which declares Lib") || !strings.Contains(got, "which declares Util") {
+		t.Errorf("lines = %q, want lib.sysml and util.sysml loaded", got)
+	}
+}
