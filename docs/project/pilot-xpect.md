@@ -185,13 +185,13 @@ Every difference from the published numbers is accounted for, and none of it is 
 ```
 429 .xt file(s), 0 unparsed, 0 missing declared resource(s)
 1264 assertion(s) declaring 1326 expectation(s)
-agree 1293 (of which wording-only 248) | disagree 33 | unlocated 0 | not adjudicated 0
+agree 1296 (of which wording-only 248) | disagree 30 | unlocated 0 | not adjudicated 0
 ```
 
 | Kind | Expectations | Agree | of which wording-only | Disagree | Not adjudicated | `same-location` | `same-line` | `severity-differs` | `elsewhere` | nothing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `errors` | 512 | 493 | 248 | 19 | 0 | 10 | 7 | 0 | 2 | 0 |
-| `noErrors` | 276 | 262 | — | 14 | 0 | — | — | — | — | — |
+| `noErrors` | 276 | 265 | — | 11 | 0 | — | — | — | — | — |
 | `linkedName` | 194 | 194 | — | 0 | 0 | — | — | — | — | — |
 | `warnings` | 113 | 113 | — | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `scope` | 230 | 230 | — | 0 | 0 | — | — | — | — | — |
@@ -202,7 +202,7 @@ Per suite:
 | Suite | Files | Expectations | Agree | Disagree | Not adjudicated |
 |---|---:|---:|---:|---:|---:|
 | `kerml` | 303 | 968 | 948 | 20 | 0 |
-| `sysml` | 126 | 358 | 345 | 13 | 0 |
+| `sysml` | 126 | 358 | 348 | 10 | 0 |
 
 **Read the `errors` row carefully: 248 of its 492 agreements are wording-only, so more than half of
 that column is us stating the pilot's rule in our own words rather than a rule written against its
@@ -227,7 +227,7 @@ run` column is that run's own measurement:
 | Kind | First run | Now | What moved |
 |---|---|---|---|
 | `linkedName` | 151 / 194 | **194 / 194** | alias-introduced names resolve to the aliased element, and the `~ B::f` conjugation form parses |
-| `noErrors` | 231 / 275 | **262 / 276** | 6 `ParsingTests_*` files, 4 inherited-name-conflict files and 2 others no longer draw an error, the visibility reconciliation's protected/shadowed path reconciliation cleared 11 more, the anchor-and-residue work closed the 6 protected-import rows the specialization-visibility restoration had made unsatisfiable by modelling `noErrors` as Xpect's residue rather than as file-wide silence, the parser productions cleared `ParsingTests_Indexing` and `SemanticMetadata_valid`, the connector-end and import work closed two more rows, and the redefinition-type warning closed the two `Import3` rows; eight rows then opened where a rule of ours reaches a declared-clean file the pilot has no check for — the five specialization cycles, then the three files the part-definition rule reaches — each adjudicated below |
+| `noErrors` | 231 / 275 | **265 / 276** | 6 `ParsingTests_*` files, 4 inherited-name-conflict files and 2 others no longer draw an error, the visibility reconciliation's protected/shadowed path reconciliation cleared 11 more, the anchor-and-residue work closed the 6 protected-import rows the specialization-visibility restoration had made unsatisfiable by modelling `noErrors` as Xpect's residue rather than as file-wide silence, the parser productions cleared `ParsingTests_Indexing` and `SemanticMetadata_valid`, the connector-end and import work closed two more rows, and the redefinition-type warning closed the two `Import3` rows; eight rows then opened where a rule of ours reaches a declared-clean file the pilot has no check for — the five specialization cycles, then the three files the part-definition rule reaches — each adjudicated below, and withdrawing the part-definition rule (its derived `partDefinition` is never empty) cleared the `IndividualTest`, `ItemTest` and `validation/valid/PartUsage` rows, 262 → 265 |
 | `warnings` | 0 / 113 | **113 / 113** | the duplicate-member-name warnings, the earlier rules written against the declared wording, the library rules, the warnings residue, the usage-typing rules, Step 3's binary-interface end typing, and the binding each operator or invocation argument implies |
 | `errors` | 0 / 510 | **493 / 512** | 245 rows are ours word-for-word; the other 248 are wording-only, admitted centrally after the rule and element were checked, not by adopting the pilot's phrasing |
 | `scope` | 73 / 230 | **230 / 230** | the library-member resolver work resolves implicit and inherited members through the library (`library-names` 125 → 27), the visibility reconciliation reconciles the protected and shadowed paths, the re-entry bound bounds re-entry to one per name, the anchor-and-residue work fixes the quoted anchor and stops a recursive import's descent carrying implicit generals, and the scope-traversal work bounds derived `self`/`that` paths and anchors a scope assertion on the reference its text names |
@@ -370,7 +370,7 @@ only external, per-reference verdict on our name resolution that exists at the p
 also the narrowest: it says which element a written reference reaches, never which names *were*
 visible. That second question is the 230 `scope` assertions below.
 
-## noErrors — 262 of 276 agree
+## noErrors — 265 of 276 agree
 
 14 disagreements: we report an error where the pilot's implementers declared the file clean. Grouped
 by our first diagnostic:
@@ -381,7 +381,7 @@ by our first diagnostic:
 | **Specialization cycle** — `x participates in a specialization cycle` | 5 | **Adjudicated divergence, not a defect of ours.** All five fixtures declare a real cycle: `part p1 :> p2; part p2 :> p3; part p3 :> p1;` and `part p4 :> p4;` (`simpletests/PartTest.sysml.xt`:67-71), `part def A :> C` with `part def C :> A, B` (`Redefinition_OwningType_Cyclic_Gen.sysml.xt`:28-34), `classifier a specializes b` / `classifier b specializes a` (`SimpleImportTests_CircleInheritanceInCircleImport.kerml.xt`:29,37), and the two nested-member cycles below. The pilot has no such check at all — the finding F4/K5 settled in [pilot-differential.md](pilot-differential.md#specialization-cycles-f4) — so closing them would mean deleting a correct rule. |
 | **Collect-value binding** — `cannot bind a value of type Boolean to a feature typed by V` | 2 | **Ours, one-sided by design.** `ParsingTests_FeatureChains.kerml.xt`:35 and `expression/PathExpressions.sysml.xt`:39 declare their files clean and bind a *collect* to a feature of the element type: `feature v_4 : V = (v1, v2).{in v : V; v.n == 4};` (lines 52–53) and `part vehicle4cyl: Vehicle = (vehicle_1, vehicle_1a).{in ref v:Vehicle; v.cylinders == 4};` (lines 50–52). `.{ … }` is the pilot grammar's `CollectExpression`, not the `.?{ … }` select, so each value is the sequence of the body's `Boolean` results, and the feature value's implied binding does not conform (`validateBindingConnectorTypeConformance`). The pinned validator accepts both files; the adjudication of the round that types these values is in [pilot-differential.md](pilot-differential.md#collection-body-element-typing-round). |
 | **Arithmetic operand** — `operator '-' requires a numeric operand, found String` | 1 | **Ours, one-sided by design.** `ParsingTests_Expressions.kerml.xt`:40; the file's `x` is the `String` that `ToString` returns, so its `-x` and `xx + 1` have no value. Read in full below. |
-| **Part typed only by an item definition** — `A part must be typed by at least one part definition.` | 3 | **Pilot gap for two rows, open reading for the third.** SysML v2 §8.3.11 (`validatePartUsagePartDefinition`, `partDefinition->notEmpty()`: at least one of the item definitions typing a part usage must be a part definition) is the rule; the pinned pilot declares the message constant but its `checkPartUsage` is commented out, so its fixtures declaring these files clean reflect the missing check, as [pilot-rejection.md](pilot-rejection.md) records. `simpletests/IndividualTest.sysml.xt`:41 has `item def I { part i : I; }` and `simpletests/ItemTest.sysml.xt`:38 has `abstract item def B { public abstract part a: A; }` with `A` an item definition — both parts are typed by an item definition alone, so these two are spec-over-pilot divergences in the same shape as the specialization-cycle family. `validation/valid/PartUsage.sysml.xt`:41 is different: `part f :> i;` under `item i : I;` declares no type of its own, and its authors' comment reads it as `// also typed by part def Part`, through the implied `Parts::parts` subsetting every part usage gets. `semantics.Model.FeatureTypeSet` counts the types a feature inherits through explicit subsetting — so it sees `I` through `i` — and deliberately excludes the implied bases, so this row is **arguably ours, not the pilot's**: whether an implied subsetting's type satisfies `partDefinition->notEmpty()` is an open reading, left open here rather than recorded as a pilot gap. The rule and its tests are unchanged; the record of it is in [spec-compliance.md](spec-compliance.md). |
+| **Part typed only by an item definition** — `A part must be typed by at least one part definition.` | 0 (was 3) | **Closed: the specification sides with the pilot's silence.** SysML v2 §8.3.11.3 `validatePartUsagePartDefinition` reads `partDefinition->notEmpty()` over the derived `partDefinition`, a filter of KerML `Feature::type` (§8.3.3.3.4), which unions the types of every subsetted feature, the implied `Parts::parts` subsetting of `checkPartUsageSpecialization` included; validation constraints presume the semantic constraints hold (§8.3.1), so every part usage is typed by `Parts::Part` (§7.10) and the constraint cannot fail on `item def I { part i : I; }` (`simpletests/IndividualTest.sysml.xt`:41), `abstract item def B { public abstract part a: A; }` (`simpletests/ItemTest.sysml.xt`:38) or `part f :> i;` under `item i : I;` (`validation/valid/PartUsage.sysml.xt`:41, whose authors' comment `// also typed by part def Part` states the same derivation). The rule was withdrawn; the derivation it rests on is `semantics.Model.FeatureTypeSetWithImplied`, which reflective `type` and `partDefinition` read, and the record is in [spec-pilot-gap-register.md](spec-pilot-gap-register.md) §19 and [spec-compliance.md](spec-compliance.md). |
 
 The two **conformance** rows this table carried, `SimpleImportTestsFromOtherFile_Import3{,_FT}`
 (`try (typed by a1) redefines b (typed by A): types do not conform`), closed when the
@@ -432,9 +432,10 @@ By suite: 5 KerML, 9 SysML. In every one of the 14 the declared expectation is *
 one is a place where we reject something the reference accepts — the same class of finding as the
 "only ours" column in [pilot-differential.md](pilot-differential.md), but here backed by a declared
 intent rather than an observed verdict. **3 of the 14 are ours (the two collect-value bindings and
-the arithmetic operand); 7 are adjudicated divergences where the pilot has no check (the five
-specialization cycles and the two parts typed by an item definition alone); 3 are the `QPE-*` pilot
-limitation; and 1, `PartUsage.sysml.xt`:41, is the open reading above.** The kind's history is worth keeping in view, because it
+the arithmetic operand); 5 are adjudicated divergences where the pilot has no check (the five
+specialization cycles); 3 are the `QPE-*` pilot limitation; the two parts typed by an item
+definition alone and `PartUsage.sysml.xt`:41 closed when the part-definition rule was withdrawn
+(see the row above).** The kind's history is worth keeping in view, because it
 moved in both directions: 244 → 243 (four parse rows closed, six visibility rows
 opened), then 243 → 254, then 254 → 248 when the specialization-visibility restoration restored the protected-import rejections, and
 248 → 263 once the anchor-and-residue work modelled `noErrors` as Xpect's residue and closed those six
