@@ -227,7 +227,7 @@ const (
 	replacingOneNote  = "the v2 library has no function replacing the first occurrence of an element in a sequence"
 	orderedSetNote    = "the v2 library has no function removing the repeated elements of a sequence"
 	indexNote         = "v2 fails on an index outside 1..Size(seq)" + noResultOnFailure
-	removeIndexNote   = "v2 fails on an index outside 1..Size(seq), where v1 gives seq unchanged"
+	removeIndexNote   = "v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged (one past the end is seq unchanged in both)"
 	insertIndexNote   = "v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged"
 	subsequenceNote   = "the bounds are clamped to 1..Size(seq) as in v1; v2 fails on a lower bound above Size(seq), which v1 leaves undefined"
 	subsequenceExpr   = "SequenceFunctions::subsequence($1, IntegerFunctions::max($2, 1), IntegerFunctions::min($3, SequenceFunctions::size($1)))"
@@ -239,7 +239,8 @@ const (
 	inPlaceNote       = "the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1"
 	addAllNote        = "the library document declares addAll with the in parameters seq1, seq2 and an unused index, and one result: seq1 with seq2 appended"
 	inPlaceIndexNote  = removeIndexNote + "; " + inPlaceNote
-	replaceIndexNote  = "v2 fails on an index outside 1..Size(seq), which v1 requires; " + inPlaceNote
+	replacingAtNote   = "v2 appends at Size(seq)+1 and fails on an index outside 1..Size(seq)+1, where v1 requires one within 1..Size(seq)"
+	replaceIndexNote  = replacingAtNote + "; " + inPlaceNote
 	inPlaceInsertNote = insertIndexNote + "; " + inPlaceNote
 )
 
@@ -414,7 +415,7 @@ var primitives = []primitive{
 	alfNo("SequenceFunctions", "ExcludingOne", argSeqEl, excludingOneNote),
 	alfP("SequenceFunctions", "ExcludeAt", argSeqAt, seqExcludingAt, Approximated, removeIndexNote),
 	alfNo("SequenceFunctions", "Replacing", argRepl, replacingNote),
-	alfP("SequenceFunctions", "ReplacingAt", argReplAt, replacingAtExpr, Approximated, "v2 fails on an index outside 1..Size(seq), which v1 requires"),
+	alfP("SequenceFunctions", "ReplacingAt", argReplAt, replacingAtExpr, Approximated, replacingAtNote),
 	alfNo("SequenceFunctions", "ReplacingOne", argRepl, replacingOneNote),
 	alfP("SequenceFunctions", "Subsequence", []string{"*seq", "lower", "upper"}, subsequenceExpr, Approximated, subsequenceNote),
 	alfNo("SequenceFunctions", "ToOrderedSet", argSeq, orderedSetNote),
@@ -444,7 +445,7 @@ var primitives = []primitive{
 	alfC("excludingOne", argSeqEl, nil, Unmapped, excludingOneNote),
 	alfC("excludeAt", argSeqAt, []string{seqExcludingAt}, Approximated, removeIndexNote),
 	alfC("replacing", argRepl, nil, Unmapped, replacingNote),
-	alfC("replacingAt", argReplAt, []string{replacingAtExpr}, Approximated, "v2 fails on an index outside 1..Size(seq), which v1 requires"),
+	alfC("replacingAt", argReplAt, []string{replacingAtExpr}, Approximated, replacingAtNote),
 	alfC("replacingOne", argRepl, nil, Unmapped, replacingOneNote),
 	alfC("subsequence", []string{"*seq", "lower", "upper"}, []string{subsequenceExpr}, Approximated, subsequenceNote),
 	alfC("toOrderedSet", argSeq, nil, Unmapped, orderedSetNote),
