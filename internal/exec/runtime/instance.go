@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
@@ -451,6 +452,9 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 	} else if subsetted {
 		return nil, fmt.Errorf("usage %s: %w: denotes %d occurrences, not one", SymbolText(sym), ErrMultiplicityViolation, len(objs))
 	}
+	if ctx.model.semantics.IsConnectorObjectUsage(sym) {
+		return ctx.namespaceConnectorOccurrence(sym)
+	}
 	// The occurrence is recorded before its behaviors start, so a behavior that
 	// reaches the usage it belongs to reads this object rather than a second one.
 	mark := len(ctx.created)
@@ -464,6 +468,24 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 		ctx.beganWithRun(inst)
 	}
 	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
+		return nil, err
+	}
+	return inst, nil
+}
+
+// namespaceConnectorOccurrence materializes the one connector a namespace-level connection,
+// interface or allocation usage denotes, its ends attached to the features the `connect`
+// clause names, read in the usage's own namespace as a nested connector's are read in its owner.
+func (ctx *Context) namespaceConnectorOccurrence(sym *symbols.Symbol) (*Instance, error) {
+	var inst *Instance
+	err := ctx.materializeConnectorAs(nil, sym, sym, 0, func(conn *Instance) {
+		inst = conn
+		ctx.occurrences[sym] = []int64{conn.ID}
+		if owner := sym.Owner(); owner == nil || owner.Kind == symbols.SymbolPackage {
+			ctx.beganWithRun(conn)
+		}
+	})
+	if err != nil {
 		return nil, err
 	}
 	return inst, nil
@@ -485,6 +507,15 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 	count, err := ctx.lowerBoundCount(ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)), 0, SymbolText(sym))
 	if err != nil {
 		return nil, err
+	}
+	// A connector of several objects has no set of ends to attach, as a nested one has not.
+	if count > 0 && ctx.model.semantics.IsConnectorObjectUsage(sym) {
+		return nil, &connectorEndError{
+			Connector: SymbolText(sym),
+			End:       sym.Name,
+			Location:  ctx.symbolLocation(sym),
+			Err:       errors.New("a connector of more than one object has no set of ends to attach"),
+		}
 	}
 	made, lazy := count, ctx.holdsLazily(sym, count)
 	if lazy {
@@ -711,7 +742,8 @@ func objectUsageKind(kind ast.UsageKind) bool {
 	case ast.UsagePart, ast.UsageItem, ast.UsageOccurrence, ast.UsageIndividual,
 		ast.UsageCase, ast.UsageUseCase, ast.UsageSatisfy,
 		ast.UsageView, ast.UsageViewpoint, ast.UsageConcern, ast.UsageFramedConcern,
-		ast.UsageRendering, ast.UsageViewRendering:
+		ast.UsageRendering, ast.UsageViewRendering,
+		ast.UsageConnection, ast.UsageInterface, ast.UsageAllocation:
 		return true
 	}
 	return false

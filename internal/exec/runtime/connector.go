@@ -181,10 +181,10 @@ func (ctx *Context) attachConnectorEnd(owner *Instance, connSym *symbols.Symbol,
 	if end.Attachment == nil {
 		return Value{}, ctx.connectorEndError(connSym, end, errors.New("names no feature"))
 	}
-	if owner == nil {
+	scope := connSym.OwnerScope
+	if owner == nil && (scope == nil || !namespaceScope(scope)) {
 		return Value{}, ctx.connectorEndError(connSym, end, errors.New("no object owns the connector"))
 	}
-	scope := connSym.OwnerScope
 	if scope == nil {
 		scope = owner.Type.OwnerScope
 	}

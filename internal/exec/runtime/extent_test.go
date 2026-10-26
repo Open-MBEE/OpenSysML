@@ -300,3 +300,64 @@ func TestExtentRootsAreTheSymbolsTheCallerResolvesIn(t *testing.T) {
 		}
 	}
 }
+
+// TestNamespaceConnectorUsageDenotesOneObject requires a namespace-level connection,
+// interface or allocation usage to denote one connector for the run, its ends attached to
+// the features the `connect` clause names (SysML v2.1 Beta 2 §8.4.9.2: a ConnectionUsage is
+// a PartUsage), reached by `all T` before any read of the usage, while a usage stating
+// `[0..*]` denotes none, as a package-level part does.
+func TestNamespaceConnectorUsageDenotesOneObject(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ScalarValues::*;
+			private import SequenceFunctions::*;
+			connection def Link { end a; end b; }
+			port def Pt;
+			interface def Ifc { end port x : Pt; end port y : Pt; }
+			allocation def Aloc { end part x; end part y; }
+			part sys {
+				part x; part y;
+				port px : Pt; port py : Pt;
+				connection inner : Link connect x to y;
+			}
+			connection outer : Link connect sys.x to sys.y;
+			connection none : Link[0..*] connect sys.x to sys.y;
+			interface wire : Ifc connect sys.px to sys.py;
+			allocation alloc : Aloc allocate sys.x to sys.y;
+		}
+	`))
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok || pkg.Scope == nil {
+		t.Fatal("test package not indexed")
+	}
+	eval := func(expr string) Value {
+		val, err := evalIn(t, ctx, pkg.Scope, expr)
+		if err != nil {
+			t.Fatalf("%s: %v", expr, err)
+		}
+		return val
+	}
+	for expr, want := range map[string]int{"all Link": 2, "all Ifc": 1, "all Aloc": 1, "none": 0} {
+		if got := len(elementsOf(eval(expr))); got != want {
+			t.Errorf("size(%s) = %d, want %d", expr, got, want)
+		}
+	}
+	outer := eval("outer")
+	if outer.Kind != ValInstance {
+		t.Fatalf("outer = %s, want one object", outer.Kind)
+	}
+	if again := eval("outer"); again.Instance != outer.Instance {
+		t.Errorf("outer read twice denotes objects %d and %d, want the same one", outer.Instance, again.Instance)
+	}
+	if ids := ctx.occurrences[lookupOne(t, idx, "test::outer")]; len(ids) != 1 || ids[0] != outer.Instance {
+		t.Errorf("occurrences[outer] = %v, want [%d]", ids, outer.Instance)
+	}
+	for _, expr := range []string{"outer.a === sys.x", "outer.b === sys.y", "wire.x === sys.px", "alloc.y === sys.y", "outer != sys.inner"} {
+		if val := eval(expr); val.Kind != ValConst || !val.Const.Bool {
+			t.Errorf("%s = %v, want true", expr, val)
+		}
+	}
+	if ends := ctx.instances[outer.Instance].Ends; len(ends) != 2 {
+		t.Errorf("outer holds %d ends, want 2", len(ends))
+	}
+}
