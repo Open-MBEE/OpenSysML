@@ -1,0 +1,45 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% MembershipViews::structure — tree rendering
+flowchart TD
+  n0["`*«part def»*
+**APart**`"]
+    n1("`*«port»*
+**aPort**`")
+  n2["`*«port def»*
+**APort**`"]
+  n3("`*«part»*
+**part1**`")
+    n4("`*«port»*
+**aPort**`")
+  n5("`*«part»*
+**part2**`")
+    n6("`*«port»*
+**aPort**`")
+  n0 ---|"◇"| n1
+  n1 -->|"typing"| n2
+  n3 -->|"typing"| n0
+  n3 ---|"◇"| n4
+  n5 -->|"typing"| n0
+  n5 ---|"◇"| n6

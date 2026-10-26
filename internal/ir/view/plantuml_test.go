@@ -21,6 +21,7 @@ var plantumlGoldenCases = []struct {
 }{
 	{"tree", "tree.sysml", "VehicleViews::vehicleView", KindTree},
 	{"tree-edges", "tree-edges.sysml", "FleetViews::structure", KindTree},
+	{"feature-membership", "feature-membership.sysml", "MembershipViews::structure", KindTree},
 	{"interconnection", "interconnection.sysml", "PlantViews::loopView", KindInterconnection},
 	{"interconnection-ports", "interconnection-ports.sysml", "ToasterViews::toasterView", KindInterconnection},
 	{"interconnection-constraints", "interconnection-constraints.sysml", "ParametricViews::amplifierView", KindInterconnection},
@@ -131,6 +132,7 @@ func TestPlantUMLDrawsEveryNodeAndEdge(t *testing.T) {
 				for _, root := range rendering.Roots {
 					count(root)
 				}
+				containment -= len(rendering.nestingEdges())
 			}
 			if want := len(rendering.Edges) + containment; arrows != want {
 				t.Errorf("PlantUML draws %d arrows, the rendering has %d edges:\n%s", arrows, want, puml)
@@ -168,8 +170,9 @@ func TestMixedPlantUMLNoticesUnnestedCaseAndActorChildren(t *testing.T) {
 	}
 }
 
-// The tree draws containment as the Mermaid tree does: an edge from a node to
-// each child, every node a class, and hides the circle and empty compartments.
+// The tree draws containment as the Mermaid tree does: a membership edge from
+// a node to each structural usage under it and a containment edge to every
+// other child, every node a class, and hides the circle and empty compartments.
 func TestPlantUMLTreeIsAClassDiagram(t *testing.T) {
 	puml, err := render(t, "tree.sysml", "VehicleViews::vehicleView").PlantUMLWith(fullNotation)
 	if err != nil {
@@ -179,7 +182,7 @@ func TestPlantUMLTreeIsAClassDiagram(t *testing.T) {
 		"\nhide circle\nhide empty members\n",
 		"class \"<size:10>//«part def»//</size>\\n**Vehicles::Vehicle**\" as n0 <<part def>>\n",
 		"class \"<size:10>//«part»//</size>\\n**engine : Engine**\" as n1 <<part>> <<usage>>\n",
-		"\nn0 -- n1\n",
+		"\nn0 *-- n1\n",
 		"class \"**connect**\" as n5 <<connect>> <<usage>>\nn0 -- n5\n",
 	} {
 		if !strings.Contains(puml, want) {

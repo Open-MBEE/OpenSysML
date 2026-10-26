@@ -141,15 +141,16 @@ func (l labeller) compartments(node *Node) []Compartment {
 }
 
 // referenceRow reports whether sym lists as a reference row, the `ref part`
-// a tool's references compartment holds: a structural usage that refers to
-// its value rather than owning it. An attribute, referential by definition,
-// is an attribute row.
-func referenceRow(sym *symbols.Symbol) bool {
+// a tool's references compartment holds: a structural usage the model derives
+// as non-composite, one that refers to its value rather than owning it. An
+// attribute or enumeration usage, referential by definition, is a row of its
+// own kind.
+func (r *Renderer) referenceRow(sym *symbols.Symbol) bool {
 	switch sym.Kind {
 	case symbols.SymbolAttributeUsage, symbols.SymbolEnumerationUsage:
 		return false
 	}
-	return structuralUsage(sym) && !compositeUsage(sym)
+	return structuralUsage(sym) && !r.model.UsageIsComposite(sym)
 }
 
 // hiddenRow reports whether node's Layout hides the compartment row would

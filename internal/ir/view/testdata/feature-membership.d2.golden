@@ -1,0 +1,20 @@
+# MembershipViews::structure — tree rendering
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  specialization: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  reference: { source-arrowhead: { shape: diamond; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+}
+n0: "«part def»\nAPart" { class: definition }
+n1: "«port»\naPort" { class: usage }
+n2: "«port def»\nAPort" { class: definition }
+n3: "«part»\npart1" { class: usage }
+n4: "«port»\naPort" { class: usage }
+n5: "«part»\npart2" { class: usage }
+n6: "«port»\naPort" { class: usage }
+n0 <- n1: { class: reference }
+n1 -> n2: { class: specialization }
+n3 -> n0: { class: specialization }
+n3 <- n4: { class: reference }
+n5 -> n0: { class: specialization }
+n5 <- n6: { class: reference }

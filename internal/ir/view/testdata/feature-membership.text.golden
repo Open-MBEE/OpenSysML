@@ -1,0 +1,17 @@
+MembershipViews::structure - tree rendering (the view states no rendering; a tree is the default)
+
+part def APart
+  port aPort
+port def APort
+part part1
+  port aPort
+part part2
+  port aPort
+
+relationships:
+  APart o-- aPort
+  aPort --:|> APort
+  part1 --:|> APart
+  part1 o-- aPort
+  part2 --:|> APart
+  part2 o-- aPort

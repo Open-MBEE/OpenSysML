@@ -225,11 +225,12 @@ func TestRenderViewRendersCaseAndMixed(t *testing.T) {
 		t.Errorf("mixed view has no perform reference edge: %+v", mixedView.Edges)
 	}
 
-	// An association end's name, drawn at the type's end, reaches the wire as
-	// the edge's label, the response placing no label; multiplicities are an
+	// An association end's name — a part's, listed in a compartment of its
+	// owner, on the owner's edge to the part's type — reaches the wire as the
+	// edge's label, the response placing no label; multiplicities are an
 	// optional element, off by default.
 	structure, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{
-		ModelHash: parsed.ModelHash, View: "RenderViewKinds::structure",
+		ModelHash: parsed.ModelHash, View: "RenderViewKinds::structure", Compartments: "most",
 	})
 	if err != nil {
 		t.Fatalf("RenderView structure: %v", err)

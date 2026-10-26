@@ -47,10 +47,8 @@ item defs
 Slot`"]
     n5("`*«part»*
 **housing**`")
-  n0 --- n5
     n6("`*«part»*
 **shield**`")
-  n0 --- n6
   n12["`*«part def»*
 **Housing**`"]
   n13["`*«enum def»*
@@ -58,5 +56,7 @@ Slot`"]
 enumerations
 low
 high`"]
-  n0 ---|"◆ housing"| n12
-  n0 ---|"◆ shield"| n12
+  n0 ---|"◆"| n5
+  n0 ---|"◆"| n6
+  n5 -->|"typing"| n12
+  n6 -->|"typing"| n12

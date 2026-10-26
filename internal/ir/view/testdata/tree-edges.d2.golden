@@ -43,44 +43,45 @@ n32: "«attribute»\ntotal" { class: usage }
 n33: "«part»\ncabin" { class: usage }
 n34: "«part»\nradio" { class: usage }
 n35: "«part»\ntrailer" { class: usage }
-n0 -- n1: { class: edge }
-n1 -- n2: { class: edge }
-n0 -- n3: { class: edge }
-n0 -- n4: { class: edge }
-n0 -- n5: { class: edge }
 n0 -- n6: { class: edge }
-n0 -- n7: { class: edge }
-n0 -- n8: { class: edge }
-n0 -- n9: { class: edge }
-n10 -- n11: { class: edge }
-n11 -- n12: { class: edge }
-n10 -- n13: { class: edge }
-n10 -- n14: { class: edge }
-n10 -- n15: { class: edge }
-n10 -- n16: { class: edge }
-n10 -- n17: { class: edge }
-n10 -- n18: { class: edge }
-n10 -- n19: { class: edge }
-n20 -- n21: { class: edge }
-n22 -- n23: { class: edge }
-n27 -- n28: { class: edge }
 n28 -- n29: { class: edge }
-n27 -- n30: { class: edge }
-n27 -- n31: { class: edge }
-n27 -- n32: { class: edge }
-n27 -- n33: { class: edge }
-n27 -- n34: { class: edge }
-n27 -- n35: { class: edge }
-n0 <- n20: { class: composition; target-arrowhead: { label: "chassis" } }
-n0 <- n24: { class: composition; target-arrowhead: { label: "wheels" } }
-n0 <- n25: { class: reference; target-arrowhead: { label: "driver" } }
-n0 <- n26: { class: reference; target-arrowhead: { label: "total" } }
+n0 <- n1: { class: composition }
+n0 <- n3: { class: composition }
+n0 <- n4: { class: reference }
+n0 <- n5: { class: reference }
+n0 <- n7: { class: composition }
+n0 <- n8: { class: composition }
+n0 <- n9: { class: composition }
+n1 -> n20: { class: specialization }
+n1 <- n2: { class: reference }
+n3 -> n24: { class: specialization }
+n4 -> n25: { class: specialization }
+n5 -> n26: { class: specialization }
+n7 -> n6: { class: specialization }
 n10 -> n0: { class: specialization }
-n10 <- n22: { class: composition; target-arrowhead: { label: "chassis" } }
-n10 <- n24: { class: composition; target-arrowhead: { label: "spare" } }
+n10 <- n11: { class: composition }
+n10 <- n13: { class: composition }
+n10 <- n14: { class: composition }
+n10 <- n15: { class: reference }
+n10 <- n16: { class: reference }
+n10 <- n17: { class: composition }
+n10 <- n18: { class: composition }
+n10 <- n19: { class: composition }
 n11 -> n1: { class: specialization }
+n11 -> n22: { class: specialization }
+n11 <- n12: { class: reference }
+n13 -> n24: { class: specialization }
 n13 -> n3: { class: specialization }
-n20 <- n26: { class: reference; target-arrowhead: { label: "mass" } }
+n20 <- n21: { class: reference }
+n21 -> n26: { class: specialization }
 n22 -> n20: { class: specialization }
+n22 <- n23: { class: reference }
 n23 -> n21: { class: specialization }
 n27 -> n0: { class: specialization }
+n27 <- n28: { class: composition }
+n27 <- n30: { class: composition }
+n27 <- n31: { class: reference }
+n27 <- n32: { class: reference }
+n27 <- n33: { class: composition }
+n27 <- n34: { class: composition }
+n27 <- n35: { class: composition }

@@ -23,6 +23,7 @@ func TestGoldenDOT(t *testing.T) {
 	}{
 		{"tree", "tree.sysml", "VehicleViews::vehicleView", KindTree, false},
 		{"tree-edges", "tree-edges.sysml", "FleetViews::structure", KindTree, false},
+		{"feature-membership", "feature-membership.sysml", "MembershipViews::structure", KindTree, false},
 		{"tree-trunk", "tree-trunk.sysml", "MicroscopeViews::structure", KindTree, true},
 		{"walk-filter-tree", "walk-filter.sysml", "FilteredWalk::structure", KindTree, false},
 		{"depth-tree-1", "depth-tree.sysml", "DepthViews::depth1", KindTree, false},

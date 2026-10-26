@@ -425,7 +425,8 @@ func (r *Renderer) relationshipOwnerName(sym *symbols.Symbol) string {
 }
 
 // structuralEdges draws what a definition or usage node states of itself:
-// its specializations and typings, and its ownership by a drawn owner.
+// its specializations and typings, and its membership in a drawn owner, a
+// composition or reference from the owner with its multiplicity at its end.
 func (g *generalGraph) structuralEdges(sym *symbols.Symbol) {
 	from := g.drawn(sym)
 	for _, rel := range semantics.RelationshipsOf(sym) {
@@ -450,11 +451,7 @@ func (g *generalGraph) structuralEdges(sym *symbols.Symbol) {
 		return
 	}
 	if owner := g.drawn(sym.OwnerScope.Owner()); owner != nil && owner != from {
-		kind := EdgeComposition
-		if !compositeUsage(sym) {
-			kind = EdgeReference
-		}
-		g.add(Edge{From: owner.ID, To: from.ID, Kind: kind, Origin: symbolOrigin(sym)})
+		g.add(Edge{From: owner.ID, To: from.ID, Kind: g.r.membershipKind(sym), ToLabel: g.r.usageMultiplicity(sym), Origin: symbolOrigin(sym)})
 	}
 }
 
@@ -470,10 +467,7 @@ func (g *generalGraph) featureEdges(sym *symbols.Symbol, from *Node) {
 		if _, usage := member.Decl.(*ast.Usage); !usage || g.drawn(member) != nil || !generalNodeKind(g.r, member) {
 			continue
 		}
-		kind := EdgeComposition
-		if !compositeUsage(member) {
-			kind = EdgeReference
-		}
+		kind := g.r.membershipKind(member)
 		for _, typ := range g.r.model.DeclaredTypes(member) {
 			if to := g.drawn(typ); to != nil {
 				g.add(Edge{From: from.ID, To: to.ID, Kind: kind, ToLabel: symbols.LastSegment(g.r.fqn(member)), Origin: symbolOrigin(member)})
@@ -494,17 +488,6 @@ func structuralEdgeKind(kind ast.RelationshipKind) (EdgeKind, string, bool) {
 		return EdgeTyping, "", true
 	}
 	return 0, "", false
-}
-
-// compositeUsage reports whether a usage is composite: one not declared `ref`
-// and not an attribute or reference usage, which are always referential.
-func compositeUsage(sym *symbols.Symbol) bool {
-	switch sym.Kind {
-	case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage, symbols.SymbolEnumerationUsage:
-		return false
-	}
-	usage, ok := sym.Decl.(*ast.Usage)
-	return ok && !usage.IsReference
 }
 
 // packageEdges draws a package's containment by a drawn package and its

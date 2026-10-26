@@ -35,16 +35,26 @@ how a picture is drawn, not what the model is, so a tree over a package of migra
 those views without the `metadata` and `render` nodes their annotations would add. Once a tree's
 nodes are built, `treeEdges` (`tree_edges.go`) draws the relationships between them that the
 general view's definition graph draws: a `specialization` from an element to each general it
-specializes, subsets or redefines; a `composition` or `reference` from an element to the definition
-typing each part, item, port, attribute, occurrence, enumeration or `ref` usage it owns, labelled
-with the usage's name and multiplicity; and the `typing` of a usage whose owner is not drawn. Both
-ends must be nodes of the same rendering, and so must the usage a composition stands for — one the
-depth bound leaves undrawn draws no edge — an element drawn twice draws from its first node, and no
-edge joins a node to one nested in it, since the nesting is that membership. A usage's `Style`
-dresses its composition edge as it does its node; its `Note` stays anchored to the node. A composition's
-origin is the usage it stands for, so a `Route` about the usage routes it and `DrawnIn` reports the
-usage drawn as an edge; a specialization's or typing's origin is the name its clause relates to,
-no member of its own, so it carries no route and a client lays it out itself. The
+specializes, subsets or redefines; the `typing` of each usage to its drawn definition; and the
+feature membership of each part, item, port, attribute, occurrence, enumeration or `ref` usage
+drawn under its owner, declared or inherited, as a `composition` (filled diamond at the owner) or a
+`reference` (hollow diamond) from the owner to the usage's node, with the usage's multiplicity at
+the usage's end — the glyphs of SysML v2 §8.2.3.6, the diamond read from the model's
+`Feature::isComposite` (`semantics.Model.UsageIsComposite`: a `ref`, an attribute, a port outside a
+port, an end, a directed or an enumeration usage is non-composite). The writers draw that edge in
+place of the containment line they draw to every other child, so a usage hangs off its owner by its
+membership glyph alone. A usage listed in a compartment row instead of drawn as a node (the
+compartment foldings, or a positioned tree's unplaced members) folds its membership and typing into
+one edge from its owner to each drawn definition, labelled with the usage's name and multiplicity
+at the definition's end — the property association a block definition diagram draws. Both
+ends of a relationship edge must be nodes of the same rendering — a usage the depth bound leaves
+undrawn draws no edge — an element drawn twice draws from its first node, and no specialization or
+typing joins a node to one nested in it. A usage's `Style` dresses its membership edge as it does
+its node; its `Note` stays anchored to the node. A membership edge's origin is the usage it stands
+for, so a `Route` about the usage routes it — the usage's node, which such a route places nowhere,
+folds into a row unless a Layout places it — and `DrawnIn` reports the usage drawn as an edge; a
+specialization's or typing's origin is the name its clause relates to, no member of its own, so it
+carries no route and a client lays it out itself. The
 `MigrationMetadata::SynthesizedName` and `MigrationMetadata::StandIn` markers a migration leaves
 in a body are left out the same way: they record what the migration did, not what the model
 holds. Every other metadata usage — a user's `metadata Approved about errorCBE { by = "review"; }`,
@@ -177,7 +187,7 @@ What each of the other graphs draws, as nodes from the exposed set and edges bet
 | Kind | Nodes | Edges (`EdgeKind`) |
 | --- | --- | --- |
 | `requirement` | requirement and concern definitions and usages, labelled with their short name as `id` and the first line of their documentation or text, and the drawn ends of the relationships below | `satisfy` (from the satisfying feature), `verify` (from each verification case whose objectives verify it: its own, and those it inherits and does not redefine or restate by name, as the runtime runs them), `derive` (a `#derivation` connection's `derivedRequirement` from its `originalRequirement`), `refine` (a `#refinement` dependency), `allocate`, `specialization`, `typing` |
-| `definition` | definitions and usages | `specialization` (subclassification, subsetting — a same-named subsetting to the inherited feature, as `DirectSupertypes` reads it — redefinition), `typing`, `composition` (a part, item or other composite feature to the drawn definitions typing it, named by the feature) and `reference` (a `ref` feature likewise) |
+| `definition` | definitions and usages | `specialization` (subclassification, subsetting — a same-named subsetting to the inherited feature, as `DirectSupertypes` reads it — redefinition), `typing` (a drawn usage to its definition), `composition` (a drawn owner to a composite usage drawn as a node, its multiplicity at the usage's end; or, for a usage of the owner's that is not drawn, the owner to the drawn definitions typing it, named by the usage) and `reference` (a usage the model derives as non-composite — `ref`, attribute, port outside a port, end, directed or enumeration usage — likewise) |
 | `package` | packages | `containment` (an owned package) and `import` (a membership or namespace import, recursive or not, to the package it names, or to the package owning the member it names, labelled `::<member>`; one edge per import declaration, linked to it) |
 
 A relationship end that does not resolve draws no edge and is listed as a notice, and a cycle (mutually recursive part

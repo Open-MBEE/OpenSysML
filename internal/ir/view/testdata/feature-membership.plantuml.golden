@@ -1,0 +1,58 @@
+@startuml
+' MembershipViews::structure — tree rendering
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "<size:10>//«part def»//</size>\n**APart**" as n0 <<part def>>
+class "<size:10>//«port»//</size>\n**aPort**" as n1 <<port>> <<usage>>
+class "<size:10>//«port def»//</size>\n**APort**" as n2 <<port def>>
+class "<size:10>//«part»//</size>\n**part1**" as n3 <<part>> <<usage>>
+class "<size:10>//«port»//</size>\n**aPort**" as n4 <<port>> <<usage>>
+class "<size:10>//«part»//</size>\n**part2**" as n5 <<part>> <<usage>>
+class "<size:10>//«port»//</size>\n**aPort**" as n6 <<port>> <<usage>>
+n0 o-- n1
+n1 --:|> n2
+n3 --:|> n0
+n3 o-- n4
+n5 --:|> n0
+n5 o-- n6
+@enduml

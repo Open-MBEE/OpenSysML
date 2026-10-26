@@ -8,14 +8,15 @@ import (
 	"testing"
 )
 
-// An association end's name — a composite part's on the composition to its
-// type — is the name of the edge's end at the type, not the edge's own text,
-// and every form sets it at that end where its grammar has such a place: DOT
-// as `headlabel`, PlantUML in quotes before the end's alias, D2 as the target
-// arrowhead's label. A flowchart and the text form have none and fold it into
-// the edge's text.
+// An association end's name — a composite part's on the composition from its
+// owner to its type, drawn when the part is listed in a compartment — is the
+// name of the edge's end at the type, not the edge's own text, and every form
+// sets it at that end where its grammar has such a place: DOT as `headlabel`,
+// PlantUML in quotes before the end's alias, D2 as the target arrowhead's
+// label. A flowchart and the text form have none and fold it into the edge's
+// text.
 func TestEndNamesAreSetAtTheirEnd(t *testing.T) {
-	rendering := render(t, "tree-edges.sysml", "FleetViews::structure")
+	rendering := foldCompartments(render(t, "tree-edges.sysml", "FleetViews::structure").showing(AllShown()), CompartmentsMost)
 	var wheels *Edge
 	for i, edge := range rendering.Edges {
 		if edge.Kind != EdgeComposition && edge.Kind != EdgeReference {
@@ -82,7 +83,7 @@ func TestRoutedEndNamesSitAtTheirEndClearOfEachOther(t *testing.T) {
 		t.Fatalf("the routed view is not drawn by neato -n2:\n%s", dot)
 	}
 	edges := map[string]Edge{}
-	for _, edge := range rendering.Edges {
+	for _, edge := range foldCompartments(rendering.showing(nil), CompartmentsPositioned).Edges {
 		if edge.Kind == EdgeComposition {
 			edges[edge.ToLabel] = edge
 		}
@@ -295,8 +296,8 @@ func TestEndNamesAreMeasuredAtTheirStyledSize(t *testing.T) {
 func TestEndNamesSurviveTheNotationDefaults(t *testing.T) {
 	rendering := render(t, "tree-edges.sysml", "FleetViews::structure")
 	for name, options := range map[string]Options{
-		"default":     {},
-		"edge-labels": {Show: Shown{ElementEdgeLabels: true}},
+		"default":     {Compartments: CompartmentsMost},
+		"edge-labels": {Compartments: CompartmentsMost, Show: Shown{ElementEdgeLabels: true}},
 	} {
 		dot, err := rendering.DOTWith(options)
 		if err != nil {

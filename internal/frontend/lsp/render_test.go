@@ -419,7 +419,8 @@ func TestRenderTreeCarriesRelationshipEdges(t *testing.T) {
 		}
 	}
 	want := []edge{
-		{"Kit::Widget", "Kit::Cog", "composition", "cogs[2]", "Kit::Widget::cogs"},
+		{"Kit::Widget", "cogs", "composition", "[2]", "Kit::Widget::cogs"},
+		{"cogs", "Kit::Cog", "typing", "", ""},
 		{"Kit::Gear", "Kit::Cog", "specialization", "", ""},
 	}
 	if !reflect.DeepEqual(got, want) {

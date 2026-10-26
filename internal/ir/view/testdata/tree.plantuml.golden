@@ -45,20 +45,20 @@ hide empty members
 class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>
 class "<size:10>//«part»//</size>\n**engine**" as n1 <<part>> <<usage>>
 class "<size:10>//«attribute»//</size>\n**power**" as n2 <<attribute>> <<usage>>
-n1 -- n2
 class "<size:10>//«part»//</size>\n**cylinder**" as n3 <<part>> <<usage>>
-n1 -- n3
-n0 -- n1
 class "<size:10>//«part»//</size>\n**wheels**" as n4 <<part>> <<usage>>
-n0 -- n4
 class "**connect**" as n5 <<connect>> <<usage>>
 n0 -- n5
 class "<size:10>//«view»//</size>\n**engineSubview**" as n6 <<view>> <<usage>>
 class "<size:10>//«part def»//</size>\n**Engine**" as n7 <<part def>>
 class "<size:10>//«attribute»//</size>\n**power**" as n8 <<attribute>> <<usage>>
-n7 -- n8
 class "<size:10>//«part»//</size>\n**cylinder**" as n9 <<part>> <<usage>>
-n7 -- n9
 n6 -- n7
-n0 *-- "engine" n7
+n0 *-- n1
+n0 *-- n4
+n1 --:|> n7
+n1 o-- n2
+n1 *-- n3
+n7 o-- n8
+n7 *-- n9
 @enduml
