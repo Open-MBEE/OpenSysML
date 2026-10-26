@@ -1,0 +1,19 @@
+{
+  "type": "instance",
+  "instantiate": "test::p",
+  "slots": {
+    "chosen": {"type": "Instance"}
+  },
+  "identical": [
+    ["child.picked.1", "child.c"],
+    ["child.picked.2", "child.a"],
+    ["chosen", "child.c"]
+  ],
+  "materialization": {},
+  "validation": {
+    "verdicts": [
+      {"kind": "binding", "assertion": "binding [1] bind [0..1] child.picked = [0..1] chosen", "status": "holds"}
+    ],
+    "valid": true
+  }
+}

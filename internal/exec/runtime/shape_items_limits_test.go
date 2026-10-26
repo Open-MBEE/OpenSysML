@@ -26,9 +26,6 @@ func TestShapeItemsUnsupportedExpressionsAreTypedErrors(t *testing.T) {
 		text string
 	}{
 		{"box.spaceBoundary", ErrNoSuchFeature, "box has no member spaceBoundary: Items::Item::shape redefines it"},
-		// `tfe [2] :> edges` holds objects of the subsetted feature's type, StructuredCurve, which
-		// declares no length; Line, the type of the faces' edges, does.
-		{"box.tfe.length", ErrNoSuchFeature, "StructuredCurve has no member length"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.expr, func(t *testing.T) {
@@ -42,11 +39,11 @@ func TestShapeItemsUnsupportedExpressionsAreTypedErrors(t *testing.T) {
 		})
 	}
 
-	// `binding [1] bind [0..1] tf.edges = [0..1] tfe` identifies one value of each end
-	// without determining either, so a bound subsetter holds what its own declaration
-	// states, and the collections it subsets read through it (KerML 1.0 §7.4.6).
+	// `tfe [2] :> edges` holds two of the 24 edges (KerML 1.0 §7.3.4.4), the ones
+	// `binding [1] bind [0..1] tf.edges = [0..1] tfe` and its ff counterpart identify
+	// (§7.4.6); `vertices` then holds the faces' 24 vertices and nothing made up.
 	for expr, want := range map[string]int{
-		"box.tfe": 2, "box.tflv": 3, "box.vertices": 18, "box.edges": 24,
+		"box.tfe": 2, "box.tflv": 3, "box.vertices": 24, "box.edges": 24,
 		"cyl.edges": 2, "cyl.faces.edges": 2, "cyl.be": 2, "cyl.ae": 0,
 	} {
 		val, err := evalIn(t, ctx, pkg.Scope, expr)

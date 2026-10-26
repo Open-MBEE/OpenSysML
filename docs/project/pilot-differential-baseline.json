@@ -83,10 +83,10 @@
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
         "files": 16,
-        "digest": "sha256:c399daea865e29d2c056db2746eb3aad94ab26e591cf7669ffcb060583dfee0b"
+        "digest": "sha256:82e35230165a3d95d831330f21c3290cca8b9519f5b494d341e0a866a0e373a5"
       }
     ],
-    "recorded": "2026-10-24"
+    "recorded": "2026-10-25"
   },
   "totals": {
     "files": 920,

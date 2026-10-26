@@ -3,25 +3,30 @@
 ## Overview
 
 **Corpus:** every `.sysml` and `.kerml` under `examples/` — the committed models, the OMG training
-corpus (`./scripts/download-training-examples.sh` → `examples/sysml-v2-training`) and the three
+corpus (`./scripts/download-training-examples.sh` → `examples/sysml-v2-training`), the three
 OMG pilot corpora (`./scripts/download-pilot-corpora.sh` → `examples/pilot-corpora/*`), all at the
-pin in `scripts/pilot-pin.sh`.
+pin in `scripts/pilot-pin.sh`, and the textual examples of the two specifications
+(`./scripts/download-spec-examples.sh` → `examples/spec-examples/*`, see
+[spec-examples.md](spec-examples.md)).
 
 | Root | Files |
 |---|---|
-| `committed` (everything under `examples/` outside the downloaded roots) | 47 |
+| `committed` (everything under `examples/` outside the downloaded roots) | 52 |
 | `sysml-v2-training` | 100 |
 | `pilot-corpora/kerml-examples` | 58 |
 | `pilot-corpora/sysml-examples` | 99 |
 | `pilot-corpora/sysml-validation` | 56 |
+| `spec-examples/kerml` | 170 |
+| `spec-examples/sysml` | 341 |
+| **total** | **876** |
 
 **Gate:** `TestCorpusRoundTrip` in `tests/corpus/roundtrip_test.go` converts each file
 notation → Turtle (hop 1) → notation → Turtle (hop 2) and records one verdict per file in
 `tests/corpus/testdata/corpus_roundtrip_expected.txt`, so a file whose verdict moves in
 either direction, or that appears or disappears, fails the test
 **Regenerate:** `go test ./tests/corpus -run TestCorpusRoundTrip -update-corpus-roundtrip`
-**Required in CI:** `OPENSYSML_REQUIRE_TRAINING_CORPUS=1` and `OPENSYSML_REQUIRE_PILOT_CORPORA=1`
-in both `.circleci/config.yml` and `.github/workflows/pr.yml`, under which an absent or empty
+**Required in CI:** `OPENSYSML_REQUIRE_TRAINING_CORPUS=1`, `OPENSYSML_REQUIRE_PILOT_CORPORA=1` and
+`OPENSYSML_REQUIRE_SPEC_EXAMPLES=1` in both `.circleci/config.yml` and `.github/workflows/pr.yml`, under which an absent or empty
 downloaded root fails instead of skipping. Both configurations also run the gate on its own so
 its summary line is legible in the log and a skip cannot pass.
 
@@ -59,19 +64,27 @@ Recorded against the corpus above, reproduced byte-identically on a second run:
 
 | Verdict | Files |
 |---|---|
-| `stable` | 353 |
+| `stable` | 831 |
 | `whitespace-only` | 7 |
 | `graph-diff` | 0 |
 | `unwritable` | 0 |
 | `unparseable` | 0 |
-| `refused` | 0 |
-| **total** | **360** |
+| `refused:syntax` | 38 |
+| **total** | **876** |
 
-So every one of the 360 files converts to Turtle: 353 come back byte-identical, and seven differ
-only in normalized source-text whitespace. The decoder writes each file back from the
-`sysx:sourceText` it carries (see [What the gate does not
-do](#what-the-gate-does-not-do)). The per-file ratchet records the seven whitespace-only results
-separately; no file was graph-different, unwritable, unparseable, or refused.
+The 38 `refused:syntax` files are specification examples (29 SysML, 9 KerML) that do not parse on
+their own — a fragment the text prints without the lines that would complete it — so hop 1 stops
+at the parser, which is the only refusal left. Every one of the other 838 files converts to
+Turtle and comes back: 831 byte-identical, and seven differing only in normalized source-text
+whitespace. The decoder writes each file back from the `sysx:sourceText` it carries (see [What
+the gate does not do](#what-the-gate-does-not-do)). The per-file ratchet records the seven
+whitespace-only results separately; no file is graph-different, unwritable or unparseable.
+
+The last `unwritable` file was SysML 8.4.12.1 example 3, `port p2 : ~Pd subsets
+Parts::Part::ownedPorts;`: the decoder measured every relationship element the port owns against
+its `sysx:conjugatedTyping` flag, so the explicit `Subsetting` was refused as a disagreement about
+whether the type is written `~Pd`. The flag qualifies the typing alone; only a `FeatureTyping` or
+`ConjugatedPortTyping` that contradicts it is refused now.
 
 The last 40 refusals were one family: a synonym, portion, event or assertion keyword on a
 declaration with no name of its own (`feature :>> x;`, `event m.start;`, `snapshot :>> start { … }`,
@@ -158,20 +171,19 @@ to, under the same `sysx:sourceText` normalisation.
 
 | Verdict | Files |
 |---|---|
-| `stable` | 351 |
+| `stable` | 831 |
 | `whitespace-only` | 7 |
-| `graph-diff` | 2 |
+| `refused:syntax` | 38 |
 | every other verdict | 0 |
-| **total** | **360** |
+| **total** | **876** |
 
-The two forms are one graph, so a file's two verdicts should agree, and they do for every file
-but two: `Vehicle Example/Annex_A_VehicleViews.sysml` and `Vehicle Example/SysML v2 Spec Annex A
-SimpleVehicleModel.sysml` spell a real as `.1` and `.6`, which Turtle carries as written and JSON
-cannot spell, so the element form carries `0.1` and `0.6`, the notation written back does too,
-and hop 2's `sysx:sourceText` differs from hop 1's. The value is the same; the spelling is not,
-and the verdict records that honestly rather than reading the literal back to its old lexical
-form. A file whose element-form verdict is worse than its Turtle verdict for any other reason is a
-defect in `export/api_json_out.go` or `export/api_json_in.go`, to be fixed at its root.
+The two forms are one graph, so a file's two verdicts should agree, and they do for every file.
+`Vehicle Example/Annex_A_VehicleViews.sysml` and `Vehicle Example/SysML v2 Spec Annex A
+SimpleVehicleModel.sysml` once differed: they spell a real as `.1` and `.6`, which Turtle carries
+as written and JSON cannot spell, so the element form carried `0.1` and `0.6` and hop 2's
+`sysx:sourceText` differed from hop 1's; both files are `stable` now. A file whose element-form
+verdict is worse than its Turtle verdict is a defect in `export/api_json_out.go` or
+`export/api_json_in.go`, to be fixed at its root.
 
 ## What the gate does not do
 
