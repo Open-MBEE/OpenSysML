@@ -373,11 +373,18 @@ impl Constraint {
                     values.len()
                 )))
             }
+            Some(Json::Array(values)) if operator == PrimitiveOperator::InstanceOf => values
+                .iter()
+                .map(metaclass_name)
+                .collect::<Result<_, _>>()?,
             Some(Json::Array(values)) => values.iter().map(compared).collect::<Result<_, _>>()?,
             Some(value) if operator == PrimitiveOperator::In => {
                 return Err(Error::Query(format!(
                     "in on {property:?} compares against a list of values, not {value}"
                 )))
+            }
+            Some(value) if operator == PrimitiveOperator::InstanceOf => {
+                vec![metaclass_name(value)?]
             }
             Some(value) => vec![compared(value)?],
         };
@@ -734,6 +741,16 @@ fn compared(value: &Json) -> Result<String, Error> {
     }
 }
 
+fn metaclass_name(value: &Json) -> Result<String, Error> {
+    match value {
+        Json::String(name) if !name.is_empty() => Ok(name.clone()),
+        other => Err(Error::Query(format!(
+            "instanceOf compares against a metaclass name, not {}",
+            json_kind(other)
+        ))),
+    }
+}
+
 fn shown(value: Option<&Json>) -> String {
     value.map_or_else(|| "none".to_owned(), Json::to_string)
 }
@@ -930,6 +947,14 @@ mod tests {
             ),
             (
                 json!({"where": {"operator": "instanceOf", "property": "@type", "value": ["Usage", ""]}}),
+                "metaclass name",
+            ),
+            (
+                json!({"where": {"operator": "instanceOf", "property": "@type", "value": 7}}),
+                "metaclass name",
+            ),
+            (
+                json!({"where": {"operator": "instanceOf", "property": "@type", "value": ["Usage", 7]}}),
                 "metaclass name",
             ),
             (
