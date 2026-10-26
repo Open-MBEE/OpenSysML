@@ -231,11 +231,13 @@ func (u Usage) constraint() string {
 }
 
 // resourceVersion is the version written after @ in the last path segment
-// of a resource IRI, before any query or fragment; empty when none is.
+// of a resource IRI, before any query or fragment and after a trailing slash;
+// empty when none is.
 func resourceVersion(resource string) string {
 	if i := strings.IndexAny(resource, "?#"); i >= 0 {
 		resource = resource[:i]
 	}
+	resource = strings.TrimRight(resource, "/")
 	last := resource[strings.LastIndexByte(resource, '/')+1:]
 	if i := strings.LastIndexByte(last, '@'); i > 0 {
 		if decoded, err := url.PathUnescape(last[i+1:]); err == nil {

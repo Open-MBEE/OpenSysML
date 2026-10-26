@@ -366,7 +366,10 @@ answers to `…/ode4hera/requirements-management`), and of several installed ver
 a `versionConstraint` names exactly is taken — or, when the usage carries none, the one a
 version written after `@` in its IRI names (`pkg:registry/acme/gears@1.0.0`) — else the
 latest. OpenSysML reads what any package manager installs — sysand today, SysPI next — under
-`lib/` or `.sysand/lib` beside `.project.json`; it does not fetch. The standard library's
+`lib/` or `.sysand/lib` beside `.project.json`; it does not fetch. Those library directories
+hold the installed projects, not the project's own files: a walk of the project directory
+(`sysml <dir>`, `-bundle`, the editor's workspace scan) passes over them and loads what lies
+there only through the usages that select it. The standard library's
 `https://www.omg.org/spec/KerML/…/*.kpar` usages are answered by the bundled library.
 Hidden directories other than the library directories stay out of the search, and the
 diagnostics of the files loaded this way are reported like those of any other file the

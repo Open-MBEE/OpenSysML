@@ -221,14 +221,6 @@ func walk(dir string, visited map[string]bool, out *[]string) error {
 	if err != nil {
 		return err
 	}
-	// The library directories under a project hold what it uses, which the
-	// usages select; they are not the project's own files.
-	library := map[string]bool{}
-	if fileExists(filepath.Join(dir, ProjectFile)) {
-		for _, layout := range wellKnownLibraryDirs {
-			library[strings.SplitN(layout, string(filepath.Separator), 2)[0]] = true
-		}
-	}
 	for _, e := range entries {
 		path := filepath.Join(dir, e.Name())
 		info, err := os.Stat(path) // resolves a link to what it points at
@@ -241,7 +233,7 @@ func walk(dir string, visited map[string]bool, out *[]string) error {
 		}
 		switch {
 		case info.IsDir():
-			if strings.HasPrefix(e.Name(), ".") || library[e.Name()] {
+			if strings.HasPrefix(e.Name(), ".") || IsLibraryDir(dir, e.Name()) {
 				continue
 			}
 			if err := walk(path, visited, out); err != nil {
@@ -271,9 +263,4 @@ func absKey(path string) string {
 // hasMeta reports whether path is written as a glob pattern.
 func hasMeta(path string) bool {
 	return strings.ContainsAny(path, "*?[")
-}
-
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
 }
