@@ -13,7 +13,7 @@ variation part def EngineChoices
 relationships:
   vehicleFamily *-- engine
   vehicleFamily *-- transmission
-  engine ..|> EngineChoices
+  engine --:|> EngineChoices
   transmission o-- manual
   transmission *-- automatic
   EngineChoices o-- fourCylinder

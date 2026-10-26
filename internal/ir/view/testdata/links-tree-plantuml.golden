@@ -56,7 +56,7 @@ class "<size:10>//«part»//</size>\n**cylinder**" as n9 <<part>> <<usage>> [[ht
 n6 -- n7
 n0 *-- n1 : [[https://example.test/src/tree.sysml#L12]]
 n0 *-- n4 : [[https://example.test/src/tree.sysml#L13]]
-n1 ..|> n7 : [[https://example.test/src/tree.sysml#L12]]
+n1 --:|> n7 : [[https://example.test/src/tree.sysml#L12]]
 n1 o-- n2 : [[https://example.test/src/tree.sysml#L5]]
 n1 *-- n3 : [[https://example.test/src/tree.sysml#L6]]
 n7 o-- n8 : [[https://example.test/src/tree.sysml#L5]]

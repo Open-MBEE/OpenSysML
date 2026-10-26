@@ -18,7 +18,7 @@ digraph "VariationViews::familyTree" {
   "n8" [style="rounded,filled", label=<<font point-size="10"><i>«variant»</i></font><br/><b>sixCylinder</b>>];
   "n0" -> "n1" [dir=back, arrowtail=diamond];
   "n0" -> "n2" [dir=back, arrowtail=diamond];
-  "n1" -> "n6" [arrowhead=empty, style=dashed];
+  "n1" -> "n6" [arrowhead=onormaldotdot];
   "n2" -> "n3" [dir=back, arrowtail=odiamond];
   "n2" -> "n4" [dir=back, arrowtail=diamond];
   "n6" -> "n7" [dir=back, arrowtail=odiamond];

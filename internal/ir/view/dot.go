@@ -27,11 +27,14 @@ const (
 //
 //	EdgeKind        Mermaid  DOT
 //	EdgeConnection  ---      arrowhead=none
-//	EdgeTransition  -->      solid, default arrowhead
-//	EdgeSuccession  -->      solid, default arrowhead
-//	EdgeFlow        -.->     style=dashed
+//	EdgeTransition  -->      solid, arrowhead=vee
+//	EdgeSuccession  -.->     style=dashed, arrowhead=vee
+//	EdgeFlow        -->      solid, default (filled) arrowhead
 //	EdgeBinding     ---      arrowhead=none
 //	(containment)   ---      arrowhead=none
+//
+// The full table, one row per SysML v2 §8.2.3 production, is the notation
+// table of docs/project/view-rendering-forms.md, which a test holds this to.
 //
 // DiagramLayout geometry is written as Graphviz reads it (pinned `pos`, `bb`,
 // `pos` splines, pinned canvas corners); docs/project/view-rendering-forms.md#geometry
@@ -522,6 +525,7 @@ const (
 	dotFillBlack     = "fillcolor=black"
 	dotFillWhite     = "fillcolor=white"
 	dotArrowheadNone = "arrowhead=none"
+	dotArrowheadVee  = "arrowhead=vee"
 	dotStyleFilled   = "style=filled"
 	dotStyleDashed   = "style=dashed"
 	dotFixedSize     = "fixedsize=true"
@@ -2082,35 +2086,37 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 		if !w.skin.cameo {
 			attrs = append(attrs, "penwidth=3")
 		}
-	case EdgeFlow:
-		attrs = append(attrs, dotStyleDashed)
+	case EdgeTransition:
+		attrs = append(attrs, dotArrowheadVee)
+	case EdgeSuccession:
+		attrs = append(attrs, dotStyleDashed, dotArrowheadVee)
 	case EdgeBinding:
 		attrs = append(attrs, dotArrowheadNone)
-	case EdgeSpecialization:
+	case EdgeSpecialization, EdgeSubsetting:
 		attrs = append(attrs, "arrowhead=empty")
+	case EdgeRedefinition:
+		// Graphviz has no bar across a hollow triangle; a tee behind one is nearest.
+		attrs = append(attrs, "arrowhead=onormaltee")
+	case EdgeTyping:
+		// Graphviz sets the two dots behind the triangle, not beside its base.
+		attrs = append(attrs, "arrowhead=onormaldotdot")
 	case EdgeComposition:
 		if caseNotation(w.kind) {
 			attrs = append(attrs, arrowTailDiamond, dotDirBack)
 		} else {
 			attrs = append(attrs, dotDirBack, arrowTailDiamond)
 		}
-	case EdgeTyping, EdgeReference:
-		switch {
-		case caseNotation(w.kind):
-			attrs = append(attrs, dotStyleDashed, "arrowhead=open")
-		case edge.Kind == EdgeTyping:
-			attrs = append(attrs, "arrowhead=empty", dotStyleDashed)
-		default:
-			attrs = append(attrs, dotDirBack, "arrowtail=odiamond")
-		}
+	case EdgeReference:
+		attrs = append(attrs, dotDirBack, "arrowtail=odiamond")
 	case EdgeContainment:
-		attrs = append(attrs, dotDirBack, "arrowtail=odot")
-	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate, EdgeDependency:
-		attrs = append(attrs, "arrowhead=vee", dotStyleDashed)
+		// Graphviz has no circle-plus; a `+` tail label set on the hollow circle is nearest.
+		attrs = append(attrs, dotDirBack, "arrowtail=odot", `taillabel="+"`, "labeldistance=0.4", "labelangle=0")
+	case EdgeImport, EdgeDerive, EdgeRefine, EdgeDependency:
+		attrs = append(attrs, dotArrowheadVee, dotStyleDashed)
+	case EdgeSatisfy, EdgeVerify, EdgeAllocate, EdgeInclude, EdgePerform, EdgeExhibit:
+		attrs = append(attrs, dotArrowheadVee)
 	case EdgeAssociation:
 		attrs = append(attrs, dirNone)
-	case EdgeInclude:
-		attrs = append(attrs, dotStyleDashed)
 	case EdgeAnchor:
 		attrs = append(attrs, dirNone, dotStyleDashed)
 	}
@@ -2300,6 +2306,9 @@ func (w *dotWriter) edgeTexts(edge Edge) (from, label, to string) {
 	label = edge.Label
 	if w.action && (edge.FromPort != "" || edge.ToPort != "") {
 		label = edge.Name
+		if label == "" && edge.Kind == EdgeBinding {
+			label = bindingKeyword
+		}
 	}
 	if !w.skin.cameo {
 		return edge.FromLabel, label, edge.ToLabel

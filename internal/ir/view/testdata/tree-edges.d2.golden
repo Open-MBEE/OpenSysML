@@ -4,7 +4,6 @@ classes: {
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
   edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
   specialization: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
-  typing: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
   composition: { source-arrowhead: { shape: diamond; style: { filled: true } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
   reference: { source-arrowhead: { shape: diamond; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
 }
@@ -53,12 +52,12 @@ n0 <- n5: { class: reference }
 n0 <- n7: { class: composition }
 n0 <- n8: { class: composition }
 n0 <- n9: { class: composition }
-n1 -> n20: { class: typing }
+n1 -> n20: { class: specialization }
 n1 <- n2: { class: reference }
-n3 -> n24: { class: typing }
-n4 -> n25: { class: typing }
-n5 -> n26: { class: typing }
-n7 -> n6: { class: typing }
+n3 -> n24: { class: specialization }
+n4 -> n25: { class: specialization }
+n5 -> n26: { class: specialization }
+n7 -> n6: { class: specialization }
 n10 -> n0: { class: specialization }
 n10 <- n11: { class: composition }
 n10 <- n13: { class: composition }
@@ -68,17 +67,17 @@ n10 <- n16: { class: reference }
 n10 <- n17: { class: composition }
 n10 <- n18: { class: composition }
 n10 <- n19: { class: composition }
-n11 -> n1: "redefines" { class: specialization }
-n11 -> n22: { class: typing }
+n11 -> n1: { class: specialization }
+n11 -> n22: { class: specialization }
 n11 <- n12: { class: reference }
-n13 -> n24: { class: typing }
-n13 -> n3: "subsets" { class: specialization }
+n13 -> n24: { class: specialization }
+n13 -> n3: { class: specialization }
 n20 <- n21: { class: reference }
-n21 -> n26: { class: typing }
+n21 -> n26: { class: specialization }
 n22 -> n20: { class: specialization }
 n22 <- n23: { class: reference }
-n23 -> n21: "redefines" { class: specialization }
-n27 -> n0: { class: typing }
+n23 -> n21: { class: specialization }
+n27 -> n0: { class: specialization }
 n27 <- n28: { class: composition }
 n27 <- n30: { class: composition }
 n27 <- n31: { class: reference }

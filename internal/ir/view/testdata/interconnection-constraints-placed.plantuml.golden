@@ -67,9 +67,9 @@ rectangle "<size:10>//«constraint»//</size>\n**mix**" as n5 <<constraint>> <<u
   port "b" as n5.1
   port "total" as n5.2
 }
-n0 -- n4.0
-n1 -- n4.1
-n4.2 -- n5.0
-n2 -- n5.1
-n5.2 -- n3
+n0 -- n4.0 : =
+n1 -- n4.1 : =
+n4.2 -- n5.0 : =
+n2 -- n5.1 : =
+n5.2 -- n3 : =
 @enduml

@@ -15,5 +15,5 @@ digraph "AmplifierViews::positioned" {
   "n13" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«enum def»</i></font><br/><b>Band</b></td></tr><hr/><tr><td><font point-size="10">enumerations</font></td></tr><tr><td align="left">low<br/>high</td></tr></table>>, margin=0, pos="550,-60!", pin=true, width=1.3888888888888888, height=1.3888888888888888, fixedsize=true];
   "n0" -> "n5" [dir=back, arrowtail=diamond];
   "n0" -> "n12" [headlabel="shield", dir=back, arrowtail=diamond];
-  "n5" -> "n12" [arrowhead=empty, style=dashed];
+  "n5" -> "n12" [arrowhead=onormaldotdot];
 }

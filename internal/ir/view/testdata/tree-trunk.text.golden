@@ -22,9 +22,9 @@ relationships:
   ScanningElectronMicroscope *-- secondaryElectronDetector via (550, 100) (550, 200) (560, 200) (560, 300)
   ScanningElectronMicroscope *-- objectiveLens via (550, 100) (550, 200) (740, 200) (740, 300)
   ScanningElectronMicroscope *-- stigmator via (550, 100) (550, 200) (940, 200) (940, 300)
-  imagingParameters ..|> ImagingParameters
-  focusSettings ..|> FocusSettings
-  backscatteredElectronDetector ..|> ElectronDetector
-  secondaryElectronDetector ..|> ElectronDetector
-  objectiveLens ..|> ObjectiveLens
-  stigmator ..|> Stigmator
+  imagingParameters --:|> ImagingParameters
+  focusSettings --:|> FocusSettings
+  backscatteredElectronDetector --:|> ElectronDetector
+  secondaryElectronDetector --:|> ElectronDetector
+  objectiveLens --:|> ObjectiveLens
+  stigmator --:|> Stigmator

@@ -58,5 +58,5 @@ low
 high`"]
   n0 ---|"◆"| n5
   n0 ---|"◆"| n6
-  n5 -.->|"typing"| n12
-  n6 -.->|"typing"| n12
+  n5 -->|"typing"| n12
+  n6 -->|"typing"| n12

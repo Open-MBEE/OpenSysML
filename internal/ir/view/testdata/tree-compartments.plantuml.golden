@@ -56,6 +56,6 @@ class "<size:10>//«part def»//</size>\n**Housing**" as n12 <<part def>>
 class "<size:10>//«enum def»//</size>\n**Band**\nenumerations\nlow\nhigh" as n13 <<enum def>>
 n0 *-- n5
 n0 *-- n6
-n5 ..|> n12
-n6 ..|> n12
+n5 --:|> n12
+n6 --:|> n12
 @enduml

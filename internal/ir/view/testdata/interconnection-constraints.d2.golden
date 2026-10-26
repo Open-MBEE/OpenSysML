@@ -24,8 +24,8 @@ n0: "«part def»\nAmplifier" {
     "n6.2": "total" { class: pin }
   }
 }
-n0.n1 -- n0.n5."n5.0": { class: edge }
-n0.n2 -- n0.n5."n5.1": { class: edge }
-n0.n5."n5.2" -- n0.n6."n6.0": { class: edge }
-n0.n3 -- n0.n6."n6.1": { class: edge }
-n0.n6."n6.2" -- n0.n4: { class: edge }
+n0.n1 -- n0.n5."n5.0": "=" { class: edge }
+n0.n2 -- n0.n5."n5.1": "=" { class: edge }
+n0.n5."n5.2" -- n0.n6."n6.0": "=" { class: edge }
+n0.n3 -- n0.n6."n6.1": "=" { class: edge }
+n0.n6."n6.2" -- n0.n4: "=" { class: edge }

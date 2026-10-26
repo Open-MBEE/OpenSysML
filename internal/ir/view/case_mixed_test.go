@@ -220,12 +220,16 @@ func TestMixedViewContainsSharedKindsAndReferenceEdges(t *testing.T) {
 		kinds[edge.Kind] = true
 		labels[edge.Label] = true
 	}
-	for _, kind := range []EdgeKind{EdgeConnection, EdgeTyping, EdgeSpecialization, EdgeReference, EdgeAssociation, EdgeAnchor} {
+	for _, kind := range []EdgeKind{EdgeConnection, EdgeTyping, EdgeSpecialization, EdgePerform, EdgeExhibit, EdgeAssociation, EdgeAnchor} {
 		if !kinds[kind] {
 			t.Errorf("mixed rendering has no %s edge", kind)
 		}
 	}
-	for _, label := range []string{"«perform»", "«exhibit»", "«specializes»"} {
+	// A specialization carries no text of its own; Mermaid, with no triangle head, names it.
+	if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, "«specializes»") || labels["«specializes»"] {
+		t.Errorf("specialization labels = %v in the model, Mermaid names it:\n%s", labels["«specializes»"], mermaid)
+	}
+	for _, label := range []string{"«perform»", "«exhibit»"} {
 		if !labels[label] {
 			t.Errorf("mixed rendering has no %s edge label", label)
 		}
@@ -244,7 +248,7 @@ func TestMixedViewContainsSharedKindsAndReferenceEdges(t *testing.T) {
 		}
 		found := false
 		for _, edge := range rendering.Edges {
-			if edge.Kind == EdgeReference && edge.From == nodes[0].ID && edge.Label == usage.label {
+			if (edge.Kind == EdgePerform || edge.Kind == EdgeExhibit) && edge.From == nodes[0].ID && edge.Label == usage.label {
 				found = true
 			}
 			if edge.Kind == EdgeTyping && edge.From == nodes[0].ID {
@@ -343,10 +347,10 @@ func TestMixedInheritedRoleOccurrencesKeepTypingEdges(t *testing.T) {
 	}
 
 	text := rendering.Text()
-	if count := strings.Count(text, "  driver ..> "); count != len(drivers) {
+	if count := strings.Count(text, "  driver --:|> "); count != len(drivers) {
 		t.Errorf("text has %d driver typing lines, want %d:\n%s", count, len(drivers), text)
 	}
-	if count := strings.Count(text, "  vehicle ..> "); count != len(vehicles) {
+	if count := strings.Count(text, "  vehicle --:|> "); count != len(vehicles) {
 		t.Errorf("text has %d subject typing lines, want %d:\n%s", count, len(vehicles), text)
 	}
 
@@ -355,7 +359,7 @@ func TestMixedInheritedRoleOccurrencesKeepTypingEdges(t *testing.T) {
 		t.Errorf("Mermaid declares %d edges, want %d:\n%s", got, len(rendering.Edges), mermaid)
 	}
 	for _, edge := range rendering.Edges {
-		if edge.Kind == EdgeTyping && !strings.Contains(mermaid, edge.From+" -.-> "+edge.To) {
+		if edge.Kind == EdgeTyping && !strings.Contains(mermaid, edge.From+" -->|\"typing\"| "+edge.To) {
 			t.Errorf("Mermaid omits typing edge %s -> %s:\n%s", edge.From, edge.To, mermaid)
 		}
 	}
@@ -372,7 +376,7 @@ func TestMixedInheritedRoleOccurrencesKeepTypingEdges(t *testing.T) {
 		found := false
 		for _, line := range strings.Split(dot, "\n") {
 			if strings.HasPrefix(strings.TrimSpace(line), dotQuote(edge.From)+" -> "+dotQuote(edge.To)+" [") &&
-				strings.Contains(line, "style=dashed") && strings.Contains(line, "arrowhead=open") {
+				strings.Contains(line, "arrowhead=onormaldotdot") && !strings.Contains(line, "style=dashed") {
 				found = true
 				break
 			}
@@ -389,7 +393,7 @@ func TestMixedInheritedRoleOccurrencesKeepTypingEdges(t *testing.T) {
 	checkPlantUMLSyntax(t, plantuml)
 	checkPlantUMLRenders(t, plantuml)
 	for _, edge := range rendering.Edges {
-		if edge.Kind == EdgeTyping && !strings.Contains(plantuml, edge.From+" ..> "+edge.To) {
+		if edge.Kind == EdgeTyping && !strings.Contains(plantuml, edge.From+" --:|> "+edge.To) {
 			t.Errorf("PlantUML omits typing edge %s -> %s:\n%s", edge.From, edge.To, plantuml)
 		}
 	}
@@ -516,7 +520,7 @@ func TestMixedInheritedReferencesFollowQualifiedCases(t *testing.T) {
 		}
 		gotReferences := map[string]map[string]int{}
 		for _, edge := range edges {
-			if edge.Kind != EdgeReference {
+			if edge.Kind != EdgePerform && edge.Kind != EdgeExhibit {
 				continue
 			}
 			sourcePart := ""
@@ -580,7 +584,7 @@ func TestMixedInheritedReferencesFollowQualifiedCases(t *testing.T) {
 	text := textWithQualifiers(t, rendering)
 	wantTextEdges := map[string]int{}
 	for _, edge := range rendering.Edges {
-		if edge.Kind != EdgeReference {
+		if edge.Kind != EdgePerform && edge.Kind != EdgeExhibit {
 			continue
 		}
 		source, target := "", ""
@@ -598,7 +602,7 @@ func TestMixedInheritedReferencesFollowQualifiedCases(t *testing.T) {
 				}
 			}
 		}
-		wantTextEdges["  "+source+" ..> "+target+": "+edge.Label]++
+		wantTextEdges["  "+source+" -> "+target+": "+edge.Label]++
 	}
 	gotTextEdges := map[string]int{}
 	for _, line := range strings.Split(text, "\n") {
@@ -617,7 +621,7 @@ func TestMixedInheritedReferencesFollowQualifiedCases(t *testing.T) {
 		t.Errorf("Mermaid declares %d edges, want %d:\n%s", got, len(rendering.Edges), mermaid)
 	}
 	for _, edge := range rendering.Edges {
-		if edge.Kind == EdgeReference && !strings.Contains(mermaid, edge.From+" -.->|\""+mermaidText(edge.Label)+"\"| "+edge.To) {
+		if (edge.Kind == EdgePerform || edge.Kind == EdgeExhibit) && !strings.Contains(mermaid, edge.From+" -->|\""+mermaidText(edge.Label)+"\"| "+edge.To) {
 			t.Errorf("Mermaid omits reference edge %s -> %s:\n%s", edge.From, edge.To, mermaid)
 		}
 	}
@@ -628,13 +632,13 @@ func TestMixedInheritedReferencesFollowQualifiedCases(t *testing.T) {
 	}
 	checkDOTSyntax(t, dot)
 	for _, edge := range rendering.Edges {
-		if edge.Kind != EdgeReference {
+		if edge.Kind != EdgePerform && edge.Kind != EdgeExhibit {
 			continue
 		}
 		found := false
 		for _, line := range strings.Split(dot, "\n") {
 			if strings.HasPrefix(strings.TrimSpace(line), dotQuote(edge.From)+" -> "+dotQuote(edge.To)+" [") &&
-				strings.Contains(line, "style=dashed") && strings.Contains(line, "arrowhead=open") {
+				strings.Contains(line, "arrowhead=vee") && !strings.Contains(line, "style=dashed") {
 				found = true
 				break
 			}
@@ -651,7 +655,7 @@ func TestMixedInheritedReferencesFollowQualifiedCases(t *testing.T) {
 	checkPlantUMLSyntax(t, plantuml)
 	checkPlantUMLRenders(t, plantuml)
 	for _, edge := range rendering.Edges {
-		if edge.Kind == EdgeReference && !strings.Contains(plantuml, edge.From+" ..> "+edge.To) {
+		if (edge.Kind == EdgePerform || edge.Kind == EdgeExhibit) && !strings.Contains(plantuml, edge.From+" --> "+edge.To) {
 			t.Errorf("PlantUML omits reference edge %s -> %s:\n%s", edge.From, edge.To, plantuml)
 		}
 	}

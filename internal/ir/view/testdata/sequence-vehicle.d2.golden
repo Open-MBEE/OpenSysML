@@ -2,12 +2,12 @@
 # not represented: the flows in perform action startVehicle are its action flow, not interaction messages; they are not shown
 classes: {
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
-  flow: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
+  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
 }
 sequence: "" {
   shape: sequence_diagram
   n0: "«part»\ndriver" { class: usage }
   n1: "«part»\nvehicle" { class: usage }
-  n0 -> n1: "of ignitionCmd : IgnitionCmd" { class: flow }
-  n1 -> n0: "of es : EngineStatus" { class: flow }
+  n0 -> n1: "of ignitionCmd : IgnitionCmd" { class: edge }
+  n1 -> n0: "of es : EngineStatus" { class: edge }
 }

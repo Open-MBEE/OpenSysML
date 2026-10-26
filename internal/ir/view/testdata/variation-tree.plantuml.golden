@@ -54,7 +54,7 @@ class "<size:10>//«variant»//</size>\n**fourCylinder**" as n7 <<variant>> <<us
 class "<size:10>//«variant»//</size>\n**sixCylinder**" as n8 <<variant>> <<usage>>
 n0 *-- n1
 n0 *-- n2
-n1 ..|> n6
+n1 --:|> n6
 n2 o-- n3
 n2 *-- n4
 n6 o-- n7

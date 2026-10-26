@@ -13,9 +13,9 @@ digraph "MembershipViews::structure" {
   "n5" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>part2</b>>];
   "n6" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>aPort</b>>];
   "n0" -> "n1" [dir=back, arrowtail=odiamond];
-  "n1" -> "n2" [arrowhead=empty, style=dashed];
-  "n3" -> "n0" [arrowhead=empty, style=dashed];
+  "n1" -> "n2" [arrowhead=onormaldotdot];
+  "n3" -> "n0" [arrowhead=onormaldotdot];
   "n3" -> "n4" [dir=back, arrowtail=odiamond];
-  "n5" -> "n0" [arrowhead=empty, style=dashed];
+  "n5" -> "n0" [arrowhead=onormaldotdot];
   "n5" -> "n6" [dir=back, arrowtail=odiamond];
 }

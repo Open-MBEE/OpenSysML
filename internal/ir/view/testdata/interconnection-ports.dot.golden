@@ -16,5 +16,5 @@ digraph "ToasterViews::toasterView" {
     "n3" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>chassis</b>>];
   }
   "n2":"n2.0" -> "n1":"n1.0" [arrowhead=none, penwidth=3];
-  "n2":"n2.0" -> "n1":"n1.0" [style=dashed];
+  "n2":"n2.0" -> "n1":"n1.0";
 }

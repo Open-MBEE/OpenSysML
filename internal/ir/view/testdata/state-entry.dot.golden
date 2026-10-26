@@ -49,14 +49,14 @@ digraph "MachineViews::thermostat" {
       }
     }
   }
-  "n12" -> "n1" [label="[cold]"];
-  "n12" -> "n2" [label="[not cold]", lhead="cluster_n2"];
-  "n13" -> "n3" [label="[wet]"];
-  "n13" -> "n4";
-  "n14" -> "n8" [label="[dark]"];
-  "n14" -> "n9" [label="[not dark]"];
-  "n15" -> "n10";
-  "n1" -> "n2" [lhead="cluster_n2"];
-  "n2" -> "n5" [ltail="cluster_n2", lhead="cluster_n5"];
-  "n10" -> "n11";
+  "n12" -> "n1" [label="[cold]", arrowhead=vee];
+  "n12" -> "n2" [label="[not cold]", arrowhead=vee, lhead="cluster_n2"];
+  "n13" -> "n3" [label="[wet]", arrowhead=vee];
+  "n13" -> "n4" [arrowhead=vee];
+  "n14" -> "n8" [label="[dark]", arrowhead=vee];
+  "n14" -> "n9" [label="[not dark]", arrowhead=vee];
+  "n15" -> "n10" [arrowhead=vee];
+  "n1" -> "n2" [arrowhead=vee, lhead="cluster_n2"];
+  "n2" -> "n5" [arrowhead=vee, ltail="cluster_n2", lhead="cluster_n5"];
+  "n10" -> "n11" [arrowhead=vee];
 }

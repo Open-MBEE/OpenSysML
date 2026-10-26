@@ -148,6 +148,18 @@ package OpenSysMLViews {
         render asElementTable;
     }
 
+    view surfaceTable {
+        doc /* Every surface over the pipeline, with its command and protocol. */
+        expose OpenSysMLSurfaces::Toolchain;
+        render asElementTable;
+    }
+
+    view markupParsers {
+        doc /* The markup languages a prose body may be written in, and which leave the process. */
+        expose OpenSysMLSurfaces::DocumentPipeline;
+        render asElementTable;
+    }
+
     view identityPath {
         doc /* How an element's repository id reaches RDF and comes back. */
         expose OpenSysMLIdentity::IdentityPath;

@@ -46,4 +46,4 @@ output.clock : ClockPort`"]
   n0 ---|"◇"| n1
   n0 ---|"◆"| n12
   n0 ---|"◆"| n13
-  n12 -.->|"typing"| n15
+  n12 -->|"typing"| n15

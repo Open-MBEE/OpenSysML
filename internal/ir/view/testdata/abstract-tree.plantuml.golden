@@ -61,7 +61,7 @@ class "**connect**" as n14 <<connect>> <<usage>>
 n9 -- n14
 class "<size:10>//«attribute»//</size>\n**mass**" as n15 <<attribute>> <<usage>>
 n0 o-- n1
-n2 ..|> n0
+n2 --:|> n0
 n2 o-- n3
 n2 *-- n4
 n2 *-- n5

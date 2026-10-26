@@ -494,9 +494,6 @@ func edgeSectionName(kind Kind) string {
 
 // edgeArrow is how an edge of each kind is drawn in text.
 func edgeArrow(kind Kind, edge EdgeKind) string {
-	if caseNotation(kind) && (edge == EdgeTyping || edge == EdgeReference) {
-		return "..>"
-	}
 	switch edge {
 	case EdgeConnection:
 		return "--"
@@ -504,22 +501,22 @@ func edgeArrow(kind Kind, edge EdgeKind) string {
 		return "=="
 	case EdgeFlow:
 		return "=>"
-	case EdgeSpecialization:
+	case EdgeSpecialization, EdgeSubsetting:
 		return "--|>"
+	case EdgeRedefinition:
+		return "--||>"
 	case EdgeTyping:
-		return "..|>"
+		return "--:|>"
 	case EdgeComposition:
 		return "*--"
 	case EdgeReference:
 		return "o--"
 	case EdgeContainment:
 		return "+--"
-	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate, EdgeDependency:
+	case EdgeImport, EdgeDerive, EdgeRefine, EdgeDependency:
 		return "..>"
 	case EdgeAssociation:
 		return "--"
-	case EdgeInclude:
-		return "..>"
 	case EdgeAnchor:
 		return ".."
 	}

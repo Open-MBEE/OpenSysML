@@ -25,7 +25,7 @@ digraph "AbstractViews::familyTree" {
   "n9" -> "n14" [arrowhead=none];
   "n15" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
   "n0" -> "n1" [dir=back, arrowtail=odiamond];
-  "n2" -> "n0" [arrowhead=empty, style=dashed];
+  "n2" -> "n0" [arrowhead=onormaldotdot];
   "n2" -> "n3" [dir=back, arrowtail=odiamond];
   "n2" -> "n4" [dir=back, arrowtail=diamond];
   "n2" -> "n5" [dir=back, arrowtail=diamond];

@@ -17,7 +17,7 @@ relationships:
   Hub o-- channels
   Hub *-- buffer
   Hub *-- slot
-  buffer ..|> Buffer
+  buffer --:|> Buffer
 
 not represented:
   - 5 member(s) drawn as compartment rows of their owner

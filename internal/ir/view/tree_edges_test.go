@@ -68,16 +68,16 @@ func TestTreeDrawsTheRelationshipsBetweenItsNodes(t *testing.T) {
 		"Fleet::SportsCar composition cabin",
 		"Fleet::SportsCar composition radio",
 		"Fleet::SportsCar composition trailer",
-		"chassis specialization chassis: redefines",
+		"chassis redefinition chassis",
 		"chassis typing Fleet::LightChassis",
 		"chassis reference mass",
 		"spare typing Fleet::Wheel",
-		"spare specialization wheels: subsets",
+		"spare subsetting wheels",
 		"Fleet::Chassis reference mass",
 		"mass typing Fleet::Mass",
 		"Fleet::LightChassis specialization Fleet::Chassis",
 		"Fleet::LightChassis reference mass",
-		"mass specialization mass: redefines",
+		"mass redefinition mass",
 		"Fleet::fleetCar typing Fleet::Vehicle",
 		"Fleet::fleetCar composition chassis",
 		"Fleet::fleetCar composition wheels: [4]",
@@ -169,8 +169,8 @@ func TestTreeEdgeOriginsLocateTheRelationship(t *testing.T) {
 		"Fleet::Vehicle reference driver: [0..1]":           "ref part driver[0..1] : Driver;",
 		"wheels typing Fleet::Wheel":                        "Wheel",
 		"Fleet::SportsCar specialization Fleet::Vehicle":    "Vehicle",
-		"chassis specialization chassis: redefines":         "chassis",
-		"spare specialization wheels: subsets":              "wheels",
+		"chassis redefinition chassis":                      "chassis",
+		"spare subsetting wheels":                           "wheels",
 		"Fleet::LightChassis specialization Fleet::Chassis": "Chassis",
 		"Fleet::fleetCar typing Fleet::Vehicle":             "Vehicle",
 	} {
@@ -208,9 +208,9 @@ func TestTreeTextListsRelationships(t *testing.T) {
 		"\nrelationships:\n",
 		"  Fleet::Vehicle *-- wheels: [4]\n",
 		"  Fleet::Vehicle o-- driver: [0..1]\n",
-		"  wheels ..|> Fleet::Wheel\n",
+		"  wheels --:|> Fleet::Wheel\n",
 		"  Fleet::SportsCar --|> Fleet::Vehicle\n",
-		"  Fleet::fleetCar ..|> Fleet::Vehicle\n",
+		"  Fleet::fleetCar --:|> Fleet::Vehicle\n",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text lacks %q:\n%s", want, text)
@@ -669,7 +669,7 @@ func TestTreeMembershipEndsAtTheUsageDrawnAndAtTheDefinitionListed(t *testing.T)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	for _, want := range []string{`"n0" -> "n1" [dir=back, arrowtail=odiamond];`, `"n1" -> "n2" [arrowhead=empty, style=dashed];`} {
+	for _, want := range []string{`"n0" -> "n1" [dir=back, arrowtail=odiamond];`, `"n1" -> "n2" [arrowhead=onormaldotdot];`} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
 		}

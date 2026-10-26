@@ -19,7 +19,7 @@ digraph "VehicleViews::vehicleView" {
   "n6" -> "n7" [arrowhead=none];
   "n0" -> "n1" [dir=back, arrowtail=diamond, URL="https://example.test/src/tree.sysml#L12", tooltip="Vehicles::Vehicle::engine"];
   "n0" -> "n4" [dir=back, arrowtail=diamond, URL="https://example.test/src/tree.sysml#L13", tooltip="Vehicles::Vehicle::wheels"];
-  "n1" -> "n7" [arrowhead=empty, style=dashed, URL="https://example.test/src/tree.sysml#L12", tooltip="tree.sysml:12:17"];
+  "n1" -> "n7" [arrowhead=onormaldotdot, URL="https://example.test/src/tree.sysml#L12", tooltip="tree.sysml:12:17"];
   "n1" -> "n2" [dir=back, arrowtail=odiamond, URL="https://example.test/src/tree.sysml#L5", tooltip="Vehicles::Engine::power"];
   "n1" -> "n3" [dir=back, arrowtail=diamond, URL="https://example.test/src/tree.sysml#L6", tooltip="Vehicles::Engine::cylinder"];
   "n7" -> "n8" [dir=back, arrowtail=odiamond, URL="https://example.test/src/tree.sysml#L5", tooltip="Vehicles::Engine::power"];

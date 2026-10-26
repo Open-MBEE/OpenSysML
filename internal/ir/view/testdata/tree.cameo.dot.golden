@@ -28,7 +28,7 @@ digraph "VehicleViews::vehicleView" {
   }
   "n0" -> "n1" [dir=back, arrowtail=diamond];
   "n0" -> "n4" [dir=back, arrowtail=diamond];
-  "n1" -> "n7" [arrowhead=empty, style=dashed];
+  "n1" -> "n7" [arrowhead=onormaldotdot];
   "n1" -> "n2" [dir=back, arrowtail=odiamond];
   "n1" -> "n3" [dir=back, arrowtail=diamond];
   "n7" -> "n8" [dir=back, arrowtail=odiamond];

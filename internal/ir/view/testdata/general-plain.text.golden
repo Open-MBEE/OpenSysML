@@ -35,21 +35,21 @@ relationships:
   Vehicle o-- mass
   Vehicle *-- chassis
   Vehicle o-- driver
-  mass ..|> Real
-  chassis ..|> Chassis
-  driver ..|> Driver
+  mass --:|> Real
+  chassis --:|> Chassis
+  driver --:|> Driver
   LightChassis --|> Chassis
-  vehicle ..|> Vehicle
+  vehicle --:|> Vehicle
   vehicle o-- mass
   vehicle *-- chassis
   vehicle o-- driver
-  mass --|> mass: redefines
-  heavyVehicle ..|> Vehicle
+  mass --||> mass
+  heavyVehicle --:|> Vehicle
   heavyVehicle o-- mass
   heavyVehicle *-- chassis
   heavyVehicle o-- driver
-  mass --|> mass: redefines
-  brake ..|> Brake
+  mass --||> mass
+  brake --:|> Brake
   Boolean --|> ScalarValue
   Complex --|> Number
   Integer --|> Rational

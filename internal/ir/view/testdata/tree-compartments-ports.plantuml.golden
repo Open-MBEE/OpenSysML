@@ -53,5 +53,5 @@ class "<size:10>//«part def»//</size>\n**Buffer**" as n15 <<part def>>
 n0 o-- n1
 n0 *-- n12
 n0 *-- n13
-n12 ..|> n15
+n12 --:|> n15
 @enduml

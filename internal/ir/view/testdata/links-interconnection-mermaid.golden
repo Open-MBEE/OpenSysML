@@ -44,7 +44,7 @@ flowchart LR
     end
   end
   n1.0 === n3.0
-  n2 -.-> n4
+  n2 --> n4
   linkStyle 0 stroke-width:3px
   click n2 href "https://example.test/src/interconnection.sysml#L6"
   click n4 href "https://example.test/src/interconnection.sysml#L11"

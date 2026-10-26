@@ -38,8 +38,8 @@ flowchart TD
     n6("`*«port»*
 **aPort**`")
   n0 ---|"◇"| n1
-  n1 -.->|"typing"| n2
-  n3 -.->|"typing"| n0
+  n1 -->|"typing"| n2
+  n3 -->|"typing"| n0
   n3 ---|"◇"| n4
-  n5 -.->|"typing"| n0
+  n5 -->|"typing"| n0
   n5 ---|"◇"| n6

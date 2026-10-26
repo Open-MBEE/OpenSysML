@@ -10,8 +10,8 @@ part part2
 
 relationships:
   APart o-- aPort
-  aPort ..|> APort
-  part1 ..|> APart
+  aPort --:|> APort
+  part1 --:|> APart
   part1 o-- aPort
-  part2 ..|> APart
+  part2 --:|> APart
   part2 o-- aPort

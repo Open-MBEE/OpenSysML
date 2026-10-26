@@ -45,12 +45,12 @@ relationships:
   Vehicle *-- cabin
   Vehicle *-- radio
   Vehicle *-- trailer
-  chassis ..|> Chassis
+  chassis --:|> Chassis
   chassis o-- mass
-  wheels ..|> Wheel
-  driver ..|> Driver
-  total ..|> Mass
-  cabin ..|> Cabin
+  wheels --:|> Wheel
+  driver --:|> Driver
+  total --:|> Mass
+  cabin --:|> Cabin
   SportsCar --|> Vehicle
   SportsCar *-- chassis
   SportsCar *-- spare
@@ -60,17 +60,17 @@ relationships:
   SportsCar *-- cabin
   SportsCar *-- radio
   SportsCar *-- trailer
-  chassis --|> chassis: redefines
-  chassis ..|> LightChassis
+  chassis --||> chassis
+  chassis --:|> LightChassis
   chassis o-- mass
-  spare ..|> Wheel
-  spare --|> wheels: subsets
+  spare --:|> Wheel
+  spare --|> wheels
   Chassis o-- mass
-  mass ..|> Mass
+  mass --:|> Mass
   LightChassis --|> Chassis
   LightChassis o-- mass
-  mass --|> mass: redefines
-  fleetCar ..|> Vehicle
+  mass --||> mass
+  fleetCar --:|> Vehicle
   fleetCar *-- chassis
   fleetCar *-- wheels
   fleetCar o-- driver

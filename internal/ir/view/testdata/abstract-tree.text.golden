@@ -19,7 +19,7 @@ variation part def Models
 
 relationships:
   Vehicle o-- mass
-  vehicleFamily ..|> Vehicle
+  vehicleFamily --:|> Vehicle
   vehicleFamily o-- fuel
   vehicleFamily *-- engine
   vehicleFamily *-- chassis

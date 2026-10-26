@@ -50,9 +50,9 @@ class "<size:10>//«port»//</size>\n**aPort**" as n4 <<port>> <<usage>>
 class "<size:10>//«part»//</size>\n**part2**" as n5 <<part>> <<usage>>
 class "<size:10>//«port»//</size>\n**aPort**" as n6 <<port>> <<usage>>
 n0 o-- n1
-n1 ..|> n2
-n3 ..|> n0
+n1 --:|> n2
+n3 --:|> n0
 n3 o-- n4
-n5 ..|> n0
+n5 --:|> n0
 n5 o-- n6
 @enduml

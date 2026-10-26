@@ -15,7 +15,7 @@ export const HIDE_RELATIONS_SETTING = "opensysml.diagram.hideRelations";
 export const RELATION_KINDS = [
   "connection", "transition", "succession", "flow", "binding", "specialization", "typing", "composition",
   "reference", "containment", "import", "satisfy", "verify", "derive", "refine", "allocate", "association",
-  "include", "anchor",
+  "include", "anchor", "dependency", "subsetting", "redefinition", "perform", "exhibit",
 ] as const;
 
 /** hiddenRelationsOf reads the hideRelations setting: the kinds it lists, each once, in order; anything else hides none. */

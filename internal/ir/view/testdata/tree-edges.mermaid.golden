@@ -104,12 +104,12 @@ flowchart TD
   n0 ---|"◆"| n7
   n0 ---|"◆"| n8
   n0 ---|"◆"| n9
-  n1 -.->|"typing"| n20
+  n1 -->|"typing"| n20
   n1 ---|"◇"| n2
-  n3 -.->|"typing"| n24
-  n4 -.->|"typing"| n25
-  n5 -.->|"typing"| n26
-  n7 -.->|"typing"| n6
+  n3 -->|"typing"| n24
+  n4 -->|"typing"| n25
+  n5 -->|"typing"| n26
+  n7 -->|"typing"| n6
   n10 -->|"specialization"| n0
   n10 ---|"◆"| n11
   n10 ---|"◆"| n13
@@ -119,17 +119,17 @@ flowchart TD
   n10 ---|"◆"| n17
   n10 ---|"◆"| n18
   n10 ---|"◆"| n19
-  n11 -->|"redefines"| n1
-  n11 -.->|"typing"| n22
+  n11 -->|"redefinition"| n1
+  n11 -->|"typing"| n22
   n11 ---|"◇"| n12
-  n13 -.->|"typing"| n24
-  n13 -->|"subsets"| n3
+  n13 -->|"typing"| n24
+  n13 -->|"subsetting"| n3
   n20 ---|"◇"| n21
-  n21 -.->|"typing"| n26
+  n21 -->|"typing"| n26
   n22 -->|"specialization"| n20
   n22 ---|"◇"| n23
-  n23 -->|"redefines"| n21
-  n27 -.->|"typing"| n0
+  n23 -->|"redefinition"| n21
+  n27 -->|"typing"| n0
   n27 ---|"◆"| n28
   n27 ---|"◆"| n30
   n27 ---|"◇"| n31

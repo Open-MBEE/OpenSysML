@@ -87,21 +87,21 @@ flowchart TD
   n0 ---|"◇"| n1
   n0 ---|"◆"| n2
   n0 ---|"◇"| n3
-  n1 -.->|"typing"| n27
-  n2 -.->|"typing"| n4
-  n3 -.->|"typing"| n6
+  n1 -->|"typing"| n27
+  n2 -->|"typing"| n4
+  n3 -->|"typing"| n6
   n5 -->|"specialization"| n4
-  n8 -.->|"typing"| n0
+  n8 -->|"typing"| n0
   n8 ---|"◇"| n9
   n8 ---|"◆"| n10
   n8 ---|"◇"| n11
-  n9 -->|"redefines"| n1
-  n12 -.->|"typing"| n0
+  n9 -->|"redefinition"| n1
+  n12 -->|"typing"| n0
   n12 ---|"◇"| n13
   n12 ---|"◆"| n14
   n12 ---|"◇"| n15
-  n13 -->|"redefines"| n1
-  n16 -.->|"typing"| n7
+  n13 -->|"redefinition"| n1
+  n16 -->|"typing"| n7
   n19 -->|"specialization"| n28
   n20 -->|"specialization"| n23
   n21 -->|"specialization"| n26

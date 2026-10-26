@@ -24,5 +24,5 @@ digraph "AmplifierViews::positioned" {
   }
   "n0" -> "n5" [dir=back, arrowtail=diamond];
   "n0" -> "n12" [headlabel="shield", dir=back, arrowtail=diamond];
-  "n5" -> "n12" [arrowhead=empty, style=dashed];
+  "n5" -> "n12" [arrowhead=onormaldotdot];
 }
