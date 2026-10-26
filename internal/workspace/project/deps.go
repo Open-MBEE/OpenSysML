@@ -347,7 +347,7 @@ func walkTolerant(dir string, visited map[string]bool, budget *int, accept func(
 		}
 		switch {
 		case info.IsDir():
-			if !strings.HasPrefix(e.Name(), ".") {
+			if !strings.HasPrefix(e.Name(), ".") && !IsLibraryDir(dir, e.Name()) {
 				walkTolerant(path, visited, budget, accept, out)
 			}
 		case accept(path):

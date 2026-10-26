@@ -154,3 +154,34 @@ func TestUnbundleReproducesTheDirectoryAndRefusesToOverwrite(t *testing.T) {
 		t.Error("bundling the unbundled directory gives different bytes")
 	}
 }
+
+// A project's lib/ holds what it uses, not its own files: the archive leaves it
+// out, so two installed versions declaring one namespace do not stop -bundle.
+func TestBundleLeavesTheLibraryDirectoryOut(t *testing.T) {
+	dir := probeDir(t)
+	for _, version := range []string{"1.0.0", "2.0.0"} {
+		gears := filepath.Join(dir, "lib", "acme-gears_"+version)
+		if err := os.MkdirAll(gears, 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(gears, ProjectFile), []byte(`{"name": "Gears", "publisher": "acme", "version": "`+version+`"}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(gears, "Gears.kerml"), []byte("package Gears {\n    class Thing;\n}\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	data, _, err := Bundle(dir)
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+	a, err := ParseArchive("probe.kpar", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name := range a.members {
+		if strings.HasPrefix(name, "lib/") {
+			t.Errorf("archive holds %s; the installed projects are not the project's files", name)
+		}
+	}
+}

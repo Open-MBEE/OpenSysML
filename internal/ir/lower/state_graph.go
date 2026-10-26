@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -87,6 +88,7 @@ type StateGraph struct {
 	// resolver is the name-resolution tier's behind endpoints, nil for none, by
 	// which the Probability metadata of a behavior's body is read.
 	resolver *resolve.Resolver
+	sem      *semantics.Model
 
 	// States in the machine (flat list, includes nested)
 	States []*ast.StateNode

@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 )
 
 // ProjectFile is the file every OMG project interchange directory holds beside
@@ -164,6 +166,31 @@ func (p *Interchange) Uses(u Usage) bool {
 	return slug(segments[len(segments)-2]) == slug(p.Publisher) && slug(last) == slug(p.Name)
 }
 
+// identity is the project as a usage's resource spells it: its publisher and
+// name as slugs, publisher/name, or the name alone for a project with none.
+func (p *Interchange) identity() string {
+	if p.Publisher == "" {
+		return slug(p.Name)
+	}
+	return slug(p.Publisher) + "/" + slug(p.Name)
+}
+
+// standardLibrary reports whether the usage names a package of the standard
+// library, under the IRIs the OMG publishes it at: the bundled library answers it.
+func (u Usage) standardLibrary() bool {
+	return strings.HasPrefix(u.Resource, identity.KerML.Prefix()) || strings.HasPrefix(u.Resource, identity.SysML.Prefix())
+}
+
+// key is the resource as a path of slugs, without version, query or fragment:
+// what two usages of one repository at two versions share.
+func (u Usage) key() string {
+	segments := resourceSegments(u.Resource)
+	for i, seg := range segments {
+		segments[i] = slug(seg)
+	}
+	return strings.Join(segments, "/")
+}
+
 // resourceSegments splits a resource IRI into the path segments that name the
 // project, without its scheme, query, fragment, package-URL version or
 // archive extension.
@@ -218,6 +245,32 @@ func slug(name string) string {
 		}
 	}
 	return strings.TrimSuffix(b.String(), "-")
+}
+
+// constraint is the version a usage asks for: its versionConstraint, else the one
+// written after @ in its resource IRI (pkg:…/widgets@1.2.0); empty for any version.
+func (u Usage) constraint() string {
+	if c := strings.TrimSpace(u.VersionConstraint); c != "" {
+		return c
+	}
+	return resourceVersion(u.Resource)
+}
+
+// resourceVersion is the version written after @ in the last path segment of a
+// resource IRI (before any query or fragment, after a trailing slash); empty when none is.
+func resourceVersion(resource string) string {
+	if i := strings.IndexAny(resource, "?#"); i >= 0 {
+		resource = resource[:i]
+	}
+	resource = strings.TrimRight(resource, "/")
+	last := resource[strings.LastIndexByte(resource, '/')+1:]
+	if i := strings.LastIndexByte(last, '@'); i > 0 {
+		if decoded, err := url.PathUnescape(last[i+1:]); err == nil {
+			return decoded
+		}
+		return last[i+1:]
+	}
+	return ""
 }
 
 // satisfies reports whether the project's version is the one the constraint

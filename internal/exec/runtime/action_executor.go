@@ -299,7 +299,7 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 		}
 		if i, ok := declared[name]; ok {
 			if features[i].Value == nil && features[i].Node == ast.Node(usage) {
-				features[i].Value, features[i].Scope = e.ctx.model.semantics.ParameterDefault(member)
+				features[i].Value, features[i].Scope, features[i].Binding = e.inheritedValue(member)
 			}
 			features[i].Optional = e.ctx.admitsNoValue(member)
 			continue
@@ -335,13 +335,28 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 // inheritedAttribute is the attribute a performance holds for an inherited member,
 // valued by the default of the member or of what it redefines.
 func (e *ActionExecutor) inheritedAttribute(member *symbols.Symbol, usage *ast.Usage, name string, shadowed bool) lower.Attribute {
-	value, scope := e.ctx.model.semantics.ParameterDefault(member)
+	value, scope, binding := e.inheritedValue(member)
 	return lower.Attribute{
 		Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: lower.TypeText(usage),
 		Value: value, Node: usage, Scope: scope, Optional: e.ctx.admitsNoValue(member),
-		Binding: value != nil && !usage.ValueIsInitial && !usage.ValueIsDefault,
-		Symbol:  member, Shadowed: shadowed,
+		Binding: binding, Symbol: member, Shadowed: shadowed,
 	}
+}
+
+// inheritedValue is the value member takes from the nearest declaration along its
+// redefinitions, the scope it resolves in, and whether that declaration binds it
+// live (`= x + 1`) rather than once (`:=`, `default`): a redefining feature valued
+// by nothing of its own is bound as the one it redefines is.
+func (e *ActionExecutor) inheritedValue(member *symbols.Symbol) (ast.Node, *symbols.Scope, bool) {
+	for _, p := range e.ctx.model.semantics.ParameterRedefinitionChain(member) {
+		usage, ok := p.Decl.(*ast.Usage)
+		if !ok || usage.Value == nil {
+			continue
+		}
+		return usage.Value, p.OwnerScope, !usage.ValueIsInitial && !usage.ValueIsDefault
+	}
+	value, scope := e.ctx.model.semantics.ParameterDefault(member)
+	return value, scope, false
 }
 
 // holdVisible marks the feature attr declares and every feature it redefines as held.

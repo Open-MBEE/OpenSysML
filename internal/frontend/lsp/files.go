@@ -301,7 +301,7 @@ func walkFolder(folder string, budget int) (paths, unlisted []string) {
 			return nil
 		}
 		if d.IsDir() {
-			if path != folder && skipDir(d.Name()) {
+			if path != folder && (skipDir(d.Name()) || project.IsLibraryDir(filepath.Dir(path), d.Name())) {
 				return fs.SkipDir
 			}
 			if budget == 0 {

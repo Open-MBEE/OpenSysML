@@ -250,14 +250,14 @@ nor double-counted as two independent disagreements.
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | `examples/sysml-v2-training` | 100 | 99 | 1 | 0 | 0 | 0 | 1 | 0 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 88 | 261 | 0 | 0 | 0 | 261 | 0 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 91 | 257 | 0 | 0 | 0 | 257 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 54 | 11 | 0 | 0 | 0 | 11 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 16 | 0 | 0 | 0 | 16 | 0 |
-| `examples/spec-examples` | 511 | 150 | 1094 | 3395 | 1038 | 6 | 50 | 2351 |
+| `examples/spec-examples` | 511 | 151 | 1091 | 3395 | 1038 | 6 | 47 | 2351 |
 | `tests/testdata` | 40 | 25 | 78 | 101 | 60 | 5 | 13 | 36 |
 | `examples` | 52 | 45 | 8 | 63 | 0 | 0 | 8 | 63 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **920** | **517** | **1475** | **3559** | **1098** | **11** | **366** | **2450** |
+| **Total** | **920** | **521** | **1468** | **3559** | **1098** | **11** | **359** | **2450** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -302,11 +302,11 @@ the pilot flags as non-conforming bound features and we as `binding-connector-ty
 errors — the pair sits in severity-only rather than either side changing what it detects.
 
 Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-examples` 227
-`unmapped`, 26 `unresolved-reference`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `pilot-validation` 8 `unmapped`,
+`unmapped`, 26 `unresolved-reference`, 2 `units`, 1 `kind-mismatch`, 1 `multiplicity`; `pilot-validation` 8 `unmapped`,
 3 `unresolved-reference`; `kerml-examples` 13 `unmapped`, 3 `unresolved-reference`; `testdata` 10 `unmapped`,
 1 `unresolved-reference`, 2 `multiplicity`; `examples` 5
 `unmapped`, 1 `kind-mismatch`, 2 `multiplicity`; `probes` 6 `unmapped`; `spec-examples` 7 `syntax`,
-38 `unresolved-reference`, 3 `kind-mismatch`, 2 `unmapped`. Only-pilot: `testdata` 14 `kind-mismatch`, 17 `unmapped`,
+38 `unresolved-reference`, 2 `unmapped`. Only-pilot: `testdata` 14 `kind-mismatch`, 17 `unmapped`,
 3 `syntax`, 2 `unresolved-reference`; `examples` 23 `unmapped`, 40 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
 586 `kind-mismatch`, 196 `syntax`, 156 `unresolved-reference`, 50 `multiplicity`, 4 `units`.
 
@@ -858,7 +858,7 @@ so the expression has no value. It is **ours, one-sided by design**: the operand
 unchanged, and the round only lets it see a parameter it could not type before. Recorded in the
 pilot-corpora ratchet (`Expressions.kerml` 0 → 2) and here; the Xpect harness moves one row, the
 file's `noErrors` (1268 agree / 57 disagree → 1267 / 58), recorded in
-[pilot-xpect.md](pilot-xpect.md#noerrors--262-of-276-agree).
+[pilot-xpect.md](pilot-xpect.md#noerrors--265-of-276-agree).
 
 | Count | Before | Now |
 |---|---:|---:|
@@ -1202,13 +1202,13 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **517 / 366 / 1475** |
+| overall: fully agreeing / only ours / our diagnostics | **521 / 359 / 1468** |
 | only pilot | **2450** |
 | pilot diagnostics | **3559** |
 | severity-only | **11** |
 | unmapped, our side | **288** |
 | kerml-examples: only ours | **16** |
-| pilot-examples: only ours | **261** |
+| pilot-examples: only ours | **257** |
 | examples: only pilot | **63** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
@@ -1671,7 +1671,7 @@ Eight files, one diagnostic each, and the only class where the verdict splits.
 
 | Corpus | Ours | Pilot | Verdict |
 |---|---|---|---|
-| `Simple Tests/ItemTest.sysml:11`, `IndividualTest.sysml:12` | `part cannot be typed by itemDef (kind mismatch)` | clean; its own counterpart message is `An occurrence, item or part must be typed by occurrence definitions` | **Ours**: the reference admits any occurrence definition for a part usage, we demand a part definition. Reproduced by `i1` |
+| `Simple Tests/ItemTest.sysml:11`, `IndividualTest.sysml:12` | `part cannot be typed by itemDef (kind mismatch)`, later `A part must be typed by at least one part definition.` | clean; its own counterpart message is `An occurrence, item or part must be typed by occurrence definitions` | **Closed, specification over both readings**: the kind-table report was ours (the reference admits any occurrence definition for a part usage), and the `validatePartUsagePartDefinition` report that replaced it was stricter than the specification — `partDefinition` is derived over KerML `Feature::type`, which takes in the implied `Parts::parts` subsetting of `checkPartUsageSpecialization`, so every part usage is typed by `Parts::Part` (SysML v2 §7.10, §8.3.1, §8.3.11.3; KerML §8.3.3.3.4). Both files are clean on both sides, as are `Geometry Examples/SimpleQuadcopter.sysml:14,114` (`part motorShape : SpatialItem`) and the specification's own example `sysml/7.6.5/1.sysml` (`part cylinders : Cylinder`), which the withdrawn rule also drew. Reproduced by `i1` |
 | `Simple Tests/UseCaseTest.sysml:35` | `case cannot be typed by useCaseDef (kind mismatch)` | clean | **Ours**: a use case definition is a case definition. Reproduced by `i2` |
 | `03-Function-based Behavior/3e-Function-based Behavior-item.sysml:43` | `cannot bind a value of type VehicleAssembly to a feature typed by AssembledVehicle` | clean | **Ours**: reproduced by `i5`; the value's type specializes the feature's through the corpus's definitions |
 | `03-Function-based Behavior/3c-…-structure mod-1.sysml:42` | `type must be a definition, found calcUsage` on `OccurrenceFunctions::destroy` | *not* clean on the reproducer (`An action must be typed by action definitions`) | **Ours, unreproduced**: in the corpus the reference accepts the library `destroy`; our resolution of it yields a calc usage. Needs a library-faithful fixture |

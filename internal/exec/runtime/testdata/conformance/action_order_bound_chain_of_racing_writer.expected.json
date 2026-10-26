@@ -1,0 +1,24 @@
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{
+			"outputs": {
+				"v": {"type": "Integer", "value": 4},
+				"x": {"type": "Integer", "value": 1},
+				"y": {"type": "Integer", "value": 2},
+				"z": {"type": "Integer", "value": 4}
+			}
+		},
+		{
+			"outputs": {
+				"v": {"type": "Integer", "value": 6},
+				"x": {"type": "Integer", "value": 2},
+				"y": {"type": "Integer", "value": 3},
+				"z": {"type": "Integer", "value": 6}
+			}
+		}
+	],
+	"admissible": "A feature valued by an expression stands on what its expression reads",
+	"orderDependent": {"v": 2, "x": 2, "y": 2, "z": 2}
+}

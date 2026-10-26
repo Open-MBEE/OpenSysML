@@ -977,6 +977,57 @@ func (m *Model) FeatureTypeSet(sym *symbols.Symbol) []*symbols.Symbol {
 	return nil
 }
 
+// FeatureTypeSetWithImplied is FeatureTypeSet plus the types the implied specializations of
+// sym's kind contribute (KerML §8.3.3.3.4 deriveFeatureType unions every subsetted feature's types).
+func (m *Model) FeatureTypeSetWithImplied(sym *symbols.Symbol) []*symbols.Symbol {
+	if isVariantReferenceSymbol(sym) {
+		return m.FeatureTypeSet(sym)
+	}
+	types := append([]*symbols.Symbol(nil), m.FeatureTypeSet(sym)...)
+	add := func(typ *symbols.Symbol) {
+		if typ != nil && !containsElement(types, typ) {
+			types = append(types, typ)
+		}
+	}
+	bases := m.ImplicitGenerals(sym)
+	// A membership's own base (a case's subject) can stand in for the kind's among the implied
+	// generals, so the base feature of the symbol's kind joins too (a subject is a part usage).
+	if _, isUsage := sym.Decl.(*ast.Usage); (isUsage || sym.Kind == symbols.SymbolPartUsage) && !m.isKerMLDoc(sym) && m.resolver != nil && m.resolver.Index() != nil {
+		fqns := []string{}
+		if fqn, ok := m.FeatureBaseFQN(sym); ok {
+			fqns = append(fqns, fqn)
+		}
+		for kind, fqn := range implicitUsageBases {
+			if fqn != lifeFQN && symbols.UsageSymbolKind(kind) == sym.Kind {
+				fqns = append(fqns, fqn)
+			}
+		}
+		for _, fqn := range fqns {
+			for _, base := range m.resolver.Index().LookupQualified(fqn) {
+				if base != nil && base != sym && !containsElement(bases, base) {
+					bases = append(bases, base)
+				}
+			}
+		}
+	}
+	for _, general := range bases {
+		if general == nil {
+			continue
+		}
+		if !general.IsFeature() {
+			add(general)
+			continue
+		}
+		for _, typ := range m.baseFeatureTypes(general, nil) {
+			add(typ)
+		}
+	}
+	if len(types) == 0 {
+		return nil
+	}
+	return m.mostSpecificTypes(types)
+}
+
 // mostSpecificTypes drops every type another one in the list specializes.
 func (m *Model) mostSpecificTypes(types []*symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
