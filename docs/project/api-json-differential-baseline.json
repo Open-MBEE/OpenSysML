@@ -89,7 +89,7 @@
         "digest": "sha256:82e35230165a3d95d831330f21c3290cca8b9519f5b494d341e0a866a0e373a5"
       }
     ],
-    "recorded": "2026-10-25"
+    "recorded": "2026-10-26"
   },
   "exporter": "org.omg.sysml.util.traversal.facade.impl.JsonElementProcessingFacade with setIsIncludeDerived(true), each input resource's root elements visited through org.omg.sysml.util.traversal.Traversal, toJsonTree(true) (the path of SysMLInteractive.export, the %export magic), via scripts/pilot-json-exporter/ExportJSON.java",
   "normalizations": [
@@ -122,13 +122,13 @@
     "properties": {
       "presentEqual": 1114349,
       "presentDifferent": 27129,
-      "oursMissing": 1067380,
+      "oursMissing": 1067383,
       "pilotMissing": 67792,
-      "absentBoth": 1960340,
+      "absentBoth": 1960337,
       "indeterminate": 26061
     },
     "rows": 11730,
-    "unkeyedReferences": 111113,
+    "unkeyedReferences": 111116,
     "extensionProperties": 159079,
     "duplicateElements": {
       "ours": 527,
@@ -197,9 +197,9 @@
       "properties": {
         "presentEqual": 330426,
         "presentDifferent": 7635,
-        "oursMissing": 314323,
+        "oursMissing": 314326,
         "pilotMissing": 19458,
-        "absentBoth": 581795,
+        "absentBoth": 581792,
         "indeterminate": 6812
       },
       "duplicateElements": {
@@ -33252,9 +33252,9 @@
     "FeatureChainExpression.featuringType": [
       0,
       0,
-      284,
+      287,
       0,
-      230,
+      227,
       0
     ],
     "FeatureChainExpression.function": [
