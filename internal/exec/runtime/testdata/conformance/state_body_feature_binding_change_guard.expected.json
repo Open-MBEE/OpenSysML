@@ -1,5 +1,6 @@
 {
   "type": "state",
+  "schedule": "declared",
   "finalState": "done",
   "stateVisits": ["waiting", "done"],
   "outputs": {

@@ -23,16 +23,16 @@
         "digest": "sha256:1f56aeaf27ab6143cf4c994dced485fb15a061f66a2759a0b8ef2af32358db6c"
       }
     ],
-    "recorded": "2026-10-20"
+    "recorded": "2026-10-26"
   },
   "totals": {
     "files": 429,
     "filesUnparsed": 0,
     "assertions": 1264,
     "rows": 1326,
-    "agree": 1293,
+    "agree": 1296,
     "wordingOnly": 248,
-    "disagree": 33,
+    "disagree": 30,
     "unlocated": 0,
     "notAdjudicated": 0,
     "missingResources": 0,
@@ -59,9 +59,9 @@
       "assertions": 276,
       "blockAssertions": 0,
       "rows": 276,
-      "agree": 262,
+      "agree": 265,
       "wordingOnly": 0,
-      "disagree": 14,
+      "disagree": 11,
       "unlocated": 0,
       "notAdjudicated": 0,
       "sameLocation": 0,
@@ -4610,9 +4610,9 @@
         "filesUnparsed": 0,
         "assertions": 310,
         "rows": 358,
-        "agree": 345,
+        "agree": 348,
         "wordingOnly": 5,
-        "disagree": 13,
+        "disagree": 10,
         "unlocated": 0,
         "notAdjudicated": 0,
         "missingResources": 0,
@@ -4639,9 +4639,9 @@
           "assertions": 76,
           "blockAssertions": 0,
           "rows": 76,
-          "agree": 67,
+          "agree": 70,
           "wordingOnly": 0,
-          "disagree": 9,
+          "disagree": 6,
           "unlocated": 0,
           "notAdjudicated": 0,
           "sameLocation": 0,
@@ -4900,16 +4900,7 @@
           "path": "src/org/omg/sysml/xpect/tests/simpletests/IndividualTest.sysml.xt",
           "setupClass": "org.omg.sysml.xpect.tests.simpletests.SysMLTests",
           "expectations": 1,
-          "agree": 0,
-          "rows": [
-            {
-              "kind": "noErrors",
-              "line": 29,
-              "verdict": "disagree",
-              "declared": "no error the file does not declare",
-              "ours": "1 error(s), first: line 41: A part must be typed by at least one part definition."
-            }
-          ]
+          "agree": 1
         },
         {
           "path": "src/org/omg/sysml/xpect/tests/simpletests/InterfaceTest.sysml.xt",
@@ -4921,16 +4912,7 @@
           "path": "src/org/omg/sysml/xpect/tests/simpletests/ItemTest.sysml.xt",
           "setupClass": "org.omg.sysml.xpect.tests.simpletests.SysMLTests",
           "expectations": 1,
-          "agree": 0,
-          "rows": [
-            {
-              "kind": "noErrors",
-              "line": 27,
-              "verdict": "disagree",
-              "declared": "no error the file does not declare",
-              "ours": "1 error(s), first: line 38: A part must be typed by at least one part definition."
-            }
-          ]
+          "agree": 1
         },
         {
           "path": "src/org/omg/sysml/xpect/tests/simpletests/MetadataTest.sysml.xt",
@@ -5518,16 +5500,7 @@
           "path": "src/org/omg/sysml/xpect/tests/validation/valid/PartUsage.sysml.xt",
           "setupClass": "org.omg.sysml.xpect.tests.validation.valid.SysMLTests",
           "expectations": 1,
-          "agree": 0,
-          "rows": [
-            {
-              "kind": "noErrors",
-              "line": 34,
-              "verdict": "disagree",
-              "declared": "no error the file does not declare",
-              "ours": "1 error(s), first: line 41: A part must be typed by at least one part definition."
-            }
-          ]
+          "agree": 1
         },
         {
           "path": "src/org/omg/sysml/xpect/tests/validation/valid/PortUsage.sysml.xt",
@@ -5777,9 +5750,9 @@
       "filesUnparsed": 0,
       "assertions": 1264,
       "rows": 1326,
-      "agree": 1293,
+      "agree": 1296,
       "wordingOnly": 248,
-      "disagree": 33,
+      "disagree": 30,
       "unlocated": 0,
       "notAdjudicated": 0,
       "missingResources": 0,
@@ -5806,9 +5779,9 @@
         "assertions": 276,
         "blockAssertions": 0,
         "rows": 276,
-        "agree": 262,
+        "agree": 265,
         "wordingOnly": 0,
-        "disagree": 14,
+        "disagree": 11,
         "unlocated": 0,
         "notAdjudicated": 0,
         "sameLocation": 0,

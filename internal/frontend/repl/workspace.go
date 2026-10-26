@@ -217,9 +217,7 @@ func (s *Session) loadWorkspaceFor(names []string) workspaceLoad {
 	}
 	// What the buffer declares is known too, so a loaded file's import of a
 	// typed package does not pull in a sibling declaring the same name.
-	read, err := s.readWithDependencies(paths, loadOptions{}, func(name string) bool {
-		return s.ws.IsLibraryRoot(name) || len(s.undeclaredRoots([]string{name}, nil)) == 0
-	})
+	read, err := s.readWithDependencies(paths, loadOptions{}, s.knownRoot)
 	if err != nil {
 		out.notices = append(out.notices, errPrefix+err.Error())
 		return out
