@@ -20,12 +20,13 @@ type Source struct {
 }
 
 // Dependencies returns the model files, beside or below the named ones, that
-// declare a root namespace an import of the named files begins with and none of
-// them declares, then the files those imports lead to in turn. known reports
-// the names another source declares — the standard library's root packages —
-// so an import of one is not searched for. A named file that cannot be read or
-// is standard input contributes nothing; the loader reports the former. The
-// result is ordered as it was found and holds no file already named.
+// declare a root namespace the named files reference — by an import or by a
+// qualified name — and none of them declares, then the files those references
+// lead to in turn. known reports the names another source declares — the
+// standard library's root packages — so a reference to one is not searched
+// for. A named file that cannot be read or is standard input contributes
+// nothing; the loader reports the former. The result is ordered as it was
+// found and holds no file already named.
 func Dependencies(files []string, known func(name string) bool) []string {
 	return Discovery{}.Dependencies(files, known)
 }
@@ -114,20 +115,22 @@ func prune(wanted, declared map[string]bool, known func(string) bool) {
 	}
 }
 
-// fileSummary is what a model file declares at its root and which imports it
-// cannot satisfy itself; only root names are visible to imports in other files.
+// fileSummary is what a model file declares at its root and which root
+// namespaces it references without declaring them — the first segment of an
+// import or a qualified name that no enclosing namespace declares; only root
+// names are visible to another file's references.
 type fileSummary struct {
-	path        string
-	roots       []string // names declared at the root namespace
-	importRoots []string // first segment of every import no enclosing namespace declares
+	path       string
+	roots      []string // names declared at the root namespace
+	referenced []string // root names the file expects to find outside itself
 }
 
-// contribute records the file's root names as declared and its import roots as wanted.
+// contribute records the file's root names as declared and the roots it references as wanted.
 func (f *fileSummary) contribute(declared, wanted map[string]bool) {
 	for _, name := range f.roots {
 		declared[name] = true
 	}
-	for _, name := range f.importRoots {
+	for _, name := range f.referenced {
 		if !declared[name] {
 			wanted[name] = true
 		}
@@ -147,10 +150,7 @@ func summarize(path string) (*fileSummary, bool) {
 // summarizeContent parses model text read from path into its summary.
 func summarizeContent(path string, content []byte) *fileSummary {
 	root := parser.New(source.New(path, content)).ParseFile()
-	f := &fileSummary{path: path}
-	f.roots = declaredNames(root.Members)
-	f.collect(root.Members, nil)
-	return f
+	return &fileSummary{path: path, roots: declaredNames(root.Members), referenced: ReferencedRoots(root)}
 }
 
 // declaredNames lists the names the members of one namespace declare.
@@ -162,32 +162,6 @@ func declaredNames(members []ast.Node) []string {
 		}
 	}
 	return out
-}
-
-// collect records the import roots at every depth that no enclosing namespace
-// (outermost first, members' own scope last) declares; a $:: import names the
-// global namespace, so no enclosing one satisfies it.
-func (f *fileSummary) collect(members []ast.Node, enclosing []map[string]bool) {
-	scope := map[string]bool{}
-	for _, name := range declaredNames(members) {
-		scope[name] = true
-	}
-	enclosing = append(enclosing, scope)
-	for _, m := range members {
-		decl := unwrapMember(m)
-		if imp, ok := decl.(*ast.Import); ok {
-			if imp.Imported != nil && len(imp.Imported.Parts) > 0 {
-				if name := imp.Imported.Parts[0].Text; imp.Imported.Global || !visible(name, enclosing) {
-					f.importRoots = append(f.importRoots, name)
-				}
-			}
-			f.collect(imp.Body, enclosing)
-			continue
-		}
-		if inner := membersOf(decl); len(inner) > 0 {
-			f.collect(inner, enclosing)
-		}
-	}
 }
 
 // visible reports whether one of the enclosing namespaces declares name.
