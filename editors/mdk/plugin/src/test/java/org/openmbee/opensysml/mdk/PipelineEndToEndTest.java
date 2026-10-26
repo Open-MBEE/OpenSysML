@@ -8,6 +8,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -15,11 +16,13 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.openmbee.opensysml.ConnectionOptions;
+import org.openmbee.opensysml.Diagnostic;
 import org.openmbee.opensysml.mdk.annotations.AnnotationPlan;
 import org.openmbee.opensysml.mdk.annotations.AnnotationPlanner;
 import org.openmbee.opensysml.mdk.engine.Engine;
 import org.openmbee.opensysml.mdk.engine.Operation;
 import org.openmbee.opensysml.mdk.engine.RunRequest;
+import org.openmbee.opensysml.mdk.export.ModelExport;
 import org.openmbee.opensysml.mdk.identity.IdentityIndex;
 import org.openmbee.opensysml.mdk.model.ModelPath;
 import org.openmbee.opensysml.mdk.model.SimpleElement;
@@ -122,6 +125,66 @@ class PipelineEndToEndTest {
 
     RunResult missing = run(Operation.VERIFY, source, "Demo::Nope");
     assertEquals(Status.ERROR, missing.status(), missing.toString());
+  }
+
+  /**
+   * The export of a v1 project: the archive's own symbol stream gives every diagram its view
+   * geometry, the migration report lands beside the text, and the temporary export is removed.
+   */
+  @Test
+  void v1MdzipExportWritesDiagramLayoutFromTheProjectStreams() throws Exception {
+    Path directory = Files.createTempDirectory("opensysml-mdk-test");
+    Path exportDirectory = Files.createDirectory(directory.resolve("export"));
+    Path mdzip = exportDirectory.resolve("requirements.mdzip");
+    Path fixtures = ServiceBinary.repository().resolve("tests/migrate/testdata/xmi");
+    try (OutputStream output = Files.newOutputStream(mdzip); ZipOutputStream zip = new ZipOutputStream(output)) {
+      zip.putNextEntry(new ZipEntry("com.nomagic.magicdraw.uml_model.model"));
+      zip.write(Files.readAllBytes(fixtures.resolve("requirement_diagram.xmi")));
+      zip.closeEntry();
+      zip.putNextEntry(new ZipEntry("BINARY-requirement_diagram"));
+      zip.write(Files.readAllBytes(fixtures.resolve("requirement_diagram.stream.xml")));
+      zip.closeEntry();
+    }
+    Path destination = directory.resolve("exported").resolve("Requirements.sysml");
+
+    Optional<ModelExport.Result> cancelled = engine.export(new V1MdzipSource(mdzip), destination, existing -> true, () -> true);
+    assertTrue(cancelled.isEmpty());
+    assertFalse(Files.exists(destination));
+
+    ModelExport.Result result;
+    try (V1MdzipSource source = new V1MdzipSource(mdzip, true)) {
+      result = engine.export(source, destination, existing -> true, () -> false).orElseThrow();
+    }
+    String text = Files.readString(destination);
+    assertTrue(text.contains("@DiagramLayout::Canvas"), text);
+    assertTrue(text.contains("metadata DiagramLayout::Layout about"), text);
+    assertEquals(0, result.errorCount(), result.describe());
+    assertTrue(result.diagnostics().stream().anyMatch(item -> "migration-report".equals(item.code())), result.describe());
+    Path report = result.report().orElseThrow();
+    assertEquals(destination.resolveSibling("Requirements.migration-report.txt"), report);
+    assertTrue(Files.readString(report).contains("migrated"), report.toString());
+    assertFalse(Files.exists(mdzip), "temporary export is deleted with the source");
+    assertFalse(Files.exists(exportDirectory));
+  }
+
+  /**
+   * The export of a v2 project writes the tool's text as it is, with no report and no files, and
+   * carries the service's parse diagnostics on it (the fixture's {@code accept Start} resolves
+   * to nothing).
+   */
+  @Test
+  void v2TextualExportWritesTheTextVerbatim() throws Exception {
+    String text = Files.readString(Path.of("src/test/resources/fixtures/demo.sysml"));
+    Path destination = Files.createTempDirectory("opensysml-mdk-test").resolve("demo.sysml");
+    ModelExport.Result result = engine.export(new V2TextualSource(text), destination, existing -> true, () -> false).orElseThrow();
+    assertEquals(text, Files.readString(destination));
+    assertEquals(Optional.empty(), result.report());
+    assertEquals(List.of(), result.files());
+    assertEquals(1, result.errorCount(), result.describe());
+    assertTrue(result.diagnostics().stream().anyMatch(item -> item.message().contains("Start")), result.describe());
+    assertEquals(List.of("demo.sysml"), result.diagnostics().stream()
+        .filter(item -> item.severity() == Diagnostic.Severity.ERROR)
+        .map(item -> item.span().orElseThrow().file()).distinct().toList(), "diagnostics name the saved file");
   }
 
   @Test

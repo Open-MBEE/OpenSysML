@@ -43,6 +43,9 @@ The protocols and what the service serves on a single port are described in
   queries, with `call` as the escape hatch for anything not wrapped.
 - **In MATLAB or GNU Octave: `+opensysml`.** The same thin client for the environments a
   modeler already runs; Octave 7+ is the tested path.
+- **In an Apache Airflow DAG: the [Airflow provider](airflow-provider.md).** Not a client of its
+  own but the Python one at work in a scheduler: model assets, analysis and verification
+  operators, requirement sensors and gates, and a DAG generated from an `action def`.
 
 The Go, Java, Julia and MATLAB clients each reach every RPC the service has — the Julia
 and MATLAB ones through `call`/`callRaw` under the wrapped functions, so nothing on the wire is

@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import org.openmbee.opensysml.Connection;
@@ -16,24 +17,45 @@ import org.openmbee.opensysml.MigrationOptions;
 import org.openmbee.opensysml.SourceDocument;
 import org.openmbee.opensysml.mdk.model.ModelPath;
 
-/** A SysML v1 project archive, migrated to SysML v2 text by the service's Migrate call. */
+/**
+ * A SysML v1 project archive, migrated to SysML v2 text by the service's Migrate call. The
+ * migration lays every diagram out as a view from the archive's own symbol streams; an MTIP
+ * export of the same project ({@link #withLayout}) augments that geometry.
+ */
 public final class V1MdzipSource implements ModelSource {
   private final Path mdzip;
   private final boolean temporary;
+  private final Optional<Path> layout;
   private List<Diagnostic> diagnostics = List.of();
   private List<String> rootPackages = List.of();
+  private Map<String, byte[]> files = Map.of();
+  private Optional<String> reportText = Optional.empty();
 
   public V1MdzipSource(Path mdzip) {
     this(mdzip, false);
   }
 
   public V1MdzipSource(Path mdzip, boolean temporary) {
+    this(mdzip, temporary, Optional.empty());
+  }
+
+  private V1MdzipSource(Path mdzip, boolean temporary, Optional<Path> layout) {
     this.mdzip = Objects.requireNonNull(mdzip);
     this.temporary = temporary;
+    this.layout = Objects.requireNonNull(layout);
+  }
+
+  /** The same archive, migrated with the MTIP (HUDS XML) export {@code layout} as the layout augment. */
+  public V1MdzipSource withLayout(Path layout) {
+    return new V1MdzipSource(mdzip, temporary, Optional.of(layout));
   }
 
   public Path mdzip() {
     return mdzip;
+  }
+
+  public Optional<Path> layout() {
+    return layout;
   }
 
   @Override
@@ -43,7 +65,9 @@ public final class V1MdzipSource implements ModelSource {
 
   @Override
   public List<SourceDocument> sources(Connection connection) {
-    Migration migration = connection.migrateFile(mdzip, "sysml", MigrationOptions.defaults().withReport(true));
+    MigrationOptions options = MigrationOptions.defaults().withReport(true);
+    if (layout.isPresent()) options = options.withLayoutFile(layout.get());
+    Migration migration = connection.migrateFile(mdzip, "sysml", options);
     List<Diagnostic> collected = new ArrayList<>();
     if (!migration.experimentalNotice().isBlank()) {
       collected.add(new Diagnostic(Diagnostic.Severity.WARNING, migration.experimentalNotice(), "experimental-migration", Optional.empty()));
@@ -56,7 +80,19 @@ public final class V1MdzipSource implements ModelSource {
         .filter(entry -> "Model".equals(entry.kind()) && !entry.target().isBlank())
         .map(MigrationEntry::target)
         .toList();
+    files = migration.files();
+    reportText = migration.report().text().isBlank() ? Optional.empty() : Optional.of(migration.report().text());
     return List.of(SourceDocument.inline("model.sysml", migration.content()));
+  }
+
+  @Override
+  public Map<String, byte[]> files() {
+    return files;
+  }
+
+  @Override
+  public Optional<String> reportText() {
+    return reportText;
   }
 
   /** The packages the migration wrote the project's root Models as, in report order. */
