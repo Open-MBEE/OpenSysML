@@ -34,14 +34,13 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   scheduling choice and every unbounded resource, the artifacts and traceability a tool
   qualification argument consumes, and a fixed-step host interface proved under Zephyr on QEMU
   and as an F´ component
-- **[Package management over git](package-management.md)** — the package contract and the split
-  between reader and client: a package is any git repository carrying `.project.json` at a tag
-  (`pkg:git/<host>/<path>@<version>`); OpenSysML only reads what a package manager installs (sysand's
-  `.sysand/lib`, SysPI's `lib/`, further tools as they appear) and honours `@<version>` in a usage
-  IRI, never fetching; fetching, `.project.lock.json`, publishing and the optional derived index —
-  plain JSON in the static layout other tools read, and standard-library-only SysML whose constraints
-  `sysml -self-check-package Index` checks — belong to SysPI, the SysML Package Installer, a separate
-  Open-MBEE tool; what exists today, what sysand does, and a three-phase plan
+- **[Reading installed packages](package-management.md)** — what OpenSysML reads and why it is
+  only a reader: a project any package manager installs (`.project.json` at a git tag, usage IRIs
+  such as the ECMA-427 `pkg:git/<host>/<path>@<version>` or `pkg:sysand/...`) is found under the
+  well-known install directories (`.sysand/lib`, a plain `lib/`, further tools' as they appear) with
+  `@<version>` honoured as an exact constraint; fetching, lock files and package indexes belong to
+  the package manager and never to this repository; what exists today, what sysand does, and how a
+  further package manager is added read-only
 - **[Scheduling policies, choice points and exploration](scheduling.md)** — how a run
   resolves what the library leaves unordered, reports each such choice without changing the
   run, takes another linearization under `declared` or `seed:<n>`, and enumerates every one
