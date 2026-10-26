@@ -50,6 +50,20 @@ returns, so there is no source-ID mapping; ambiguous candidates are retained rat
 discarded. The report's summary line is surfaced as a diagnostic of the run. V2 textual export is used only
 when both the textual service and a v2 selection are available.
 
+## Export as SysML v2
+
+*OpenSysML ▸ Export as SysML v2…* on a selected element writes the whole project as SysML v2
+text to a `.sysml` file of the user's choosing. A v1 project goes through the same `.mdzip`
+export and migration the operations use; every diagram comes out as a `view` usage laid out by
+`DiagramLayout` metadata (`@Canvas`, `Layout about …`, `Route about …`) from the project's own
+diagram symbols, and the action offers to lay the views out from an MTIP (HUDS XML) export of the
+project instead. The migration report lands beside the file as `<name>.migration-report.txt`,
+with any image files the views embed under their relative paths. A v2 project's text is written
+as `SysMLTextualNotationService.exportTextual` returns it — no report, and no geometry, which the
+vendor keeps outside the text (`docs/internals/design/mdk-mtip.md` §6). The completion dialog
+counts the service's diagnostics on the written text: a v1 model that migrates but does not parse
+clean is a migration finding, and the report says what was approximated.
+
 ## Results window and annotations
 
 Each project has one OpenSysML results window. It displays operation metadata, outcomes,

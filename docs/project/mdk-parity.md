@@ -34,6 +34,8 @@ operations (JSON export/import, reference tree), and a headless command line.
 | Branches, tags and project mounts in MMS | create/switch MMS branches and tags, keep mounted modules in sync | nothing | **Not yet** | 4 |
 | Sync-status indicators | stereotype-driven markers for elements pending sync | nothing | **Not yet** | 4 |
 | Validation suite with fix actions | `ValidationSuite`/`ValidationRule` windows, each violation with fix actions | tiered validation in the engine (`internal/check`) with workspace edits for fixes; the plugin shows run diagnostics in its results window and as annotations, but exposes neither a standalone *Validate* nor fixes | **Partial** | 3 |
+| Export the project as SysML v2 text, diagrams included | — (MDK exports MMS JSON, not SysML v2; on 2026x the vendor's *File ▸ Export To ▸ SysML v2 Textual Notation* writes a v2 project's text, without diagram geometry, and its v1→v2 transformation does not migrate diagrams) | *Export as SysML v2…* on the context menu: a v1 project is migrated with every diagram laid out as a view — `DiagramLayout` metadata from the project's own diagram symbols, or from an MTIP export when one is chosen — and the migration report written beside the file; a v2 project's text is written as the tool exports it, so far without geometry (`docs/internals/design/mdk-mtip.md` §6) | **Implemented** (v1); **Partial** (v2 geometry) | 6 |
+| MTIP: HUDS XML export and import | — (OpenMBEE's separate MTIP plugin, [Open-MBEE/mtip-cameo](https://github.com/Open-MBEE/mtip-cameo), exports and imports whole or partial models as HUDS XML, between Cameo and other tools) | the migrator reads the diagram layer of a HUDS export as a layout augment (`-layout`, `MigrationOptions.withLayoutFile`, the export action's MTIP prompt); nothing writes HUDS and nothing imports it into Cameo — port, bridge or own writer is the open decision in `docs/internals/design/mdk-mtip.md` | **Partial** | 6 |
 | Element JSON export and import | *Export to MMS JSON* / *Import from JSON* on a selection | `Convert` between notation, XMI, RDF and the SysML v2 API JSON in the service; not reachable from Cameo | **Partial** | 5 |
 | Reference tree | a browser of outgoing references from an element | nothing in the plugin; the engine's query layer resolves references | **Partial** | 5 |
 | Headless command line | `AutomatedViewGeneration`, `AutomatedCommitter` (Cameo command-line plugin classes) | the service and `sysml` CLI run headless, outside Cameo; no `ProjectCommandLine` entry point in the plugin | **Partial** | 5 |
@@ -65,6 +67,14 @@ operations (JSON export/import, reference tree), and a headless command line.
 5. **Element operations and the command line.** JSON export/import of a selection through
    `Convert`, a reference tree over the engine's query layer, and `ProjectCommandLine` entry
    points for unattended document generation and publishing. Each is small once rows 1–3 exist.
+6. **Diagram geometry for v2 projects, and MTIP.** The export action gives a v1 project its
+   views' geometry for free, from the `.mdzip`'s own symbol streams; a v2 project's textual
+   export carries none, and whether the OpenAPI exposes a v2 diagram's symbols is unverified.
+   MTIP's HUDS export and import are a transfer format of their own, with a reader for the
+   diagram layer already in the migrator. Both are designed in
+   [mdk-mtip.md](../internals/design/mdk-mtip.md), which leaves open whether the plugin ports
+   MTIP, bridges to an installed copy, or writes HUDS itself; the identity each needs (the
+   `xmi:id` the migration report keeps against the v2 name) is the one row 4 needs as well.
 
 ## What will not be ported
 

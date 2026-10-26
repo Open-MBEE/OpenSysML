@@ -14,11 +14,14 @@ import org.openmbee.opensysml.ConnectionOptions;
 import org.openmbee.opensysml.Diagnostic;
 import org.openmbee.opensysml.Model;
 import org.openmbee.opensysml.ServiceException;
+import org.openmbee.opensysml.SourceDocument;
 import org.openmbee.opensysml.StatusCode;
 import org.openmbee.opensysml.Symbol;
 import org.openmbee.opensysml.mdk.bin.HostBinary;
+import org.openmbee.opensysml.mdk.export.ModelExport;
 import org.openmbee.opensysml.mdk.results.ResultsMapper;
 import org.openmbee.opensysml.mdk.results.RunResult;
+import org.openmbee.opensysml.mdk.source.ModelSource;
 
 /** Runs one operation at a time over a lazily opened, reused connection to sysml-grpc. */
 public final class Engine implements AutoCloseable {
@@ -76,10 +79,7 @@ public final class Engine implements AutoCloseable {
     Connection current = null;
     try {
       current = connection();
-      Connection runConnection = current;
-      watcher = new Thread(() -> watch(cancellation, runConnection), "opensysml-cancel-watcher");
-      watcher.setDaemon(true);
-      watcher.start();
+      watcher = watcher(cancellation, current);
       Model model = current.parseSources(request.source().sources(current));
       List<Diagnostic> setup = new ArrayList<>(request.source().exportDiagnostics());
       setup.addAll(model.parseDiagnostics());
@@ -92,14 +92,57 @@ public final class Engine implements AutoCloseable {
       if (current != null && isUnavailable(exception)) dropConnection(current);
       return RunResult.error(request, exception, elapsed(started));
     } finally {
-      if (watcher != null) {
-        watcher.interrupt();
-        try {
-          watcher.join();
-        } catch (InterruptedException interrupted) {
-          Thread.currentThread().interrupt();
-        }
-      }
+      stop(watcher);
+    }
+  }
+
+  /**
+   * Exports the model text of {@code source} to {@code destination} — a v1 archive is migrated,
+   * a v2 project's text is written as the tool exported it — with its files and migration report
+   * beside it, and parses the text so the result carries the service's diagnostics on it.
+   *
+   * @return the export, or empty when cancelled
+   * @throws RuntimeException when the service or the file system fails; the caller reports it
+   */
+  public Optional<ModelExport.Result> export(ModelSource source, Path destination, Cancellation cancellation) {
+    Objects.requireNonNull(source);
+    Objects.requireNonNull(destination);
+    Objects.requireNonNull(cancellation);
+    if (cancellation.requested()) return Optional.empty();
+    Thread watcher = null;
+    Connection current = null;
+    try {
+      current = connection();
+      watcher = watcher(cancellation, current);
+      List<SourceDocument> documents = source.sources(current);
+      Model model = current.parseSources(documents);
+      if (cancellation.requested()) return Optional.empty();
+      List<Diagnostic> diagnostics = new ArrayList<>(source.exportDiagnostics());
+      diagnostics.addAll(model.parseDiagnostics());
+      return Optional.of(ModelExport.write(destination, documents, source.files(), source.reportText(), diagnostics));
+    } catch (RuntimeException exception) {
+      if (cancellation.requested()) return Optional.empty();
+      if (current != null && isUnavailable(exception)) dropConnection(current);
+      throw exception;
+    } finally {
+      stop(watcher);
+    }
+  }
+
+  private Thread watcher(Cancellation cancellation, Connection current) {
+    Thread watcher = new Thread(() -> watch(cancellation, current), "opensysml-cancel-watcher");
+    watcher.setDaemon(true);
+    watcher.start();
+    return watcher;
+  }
+
+  private static void stop(Thread watcher) {
+    if (watcher == null) return;
+    watcher.interrupt();
+    try {
+      watcher.join();
+    } catch (InterruptedException interrupted) {
+      Thread.currentThread().interrupt();
     }
   }
 
