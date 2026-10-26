@@ -719,6 +719,15 @@ func definitionSymbolKind(k ast.DefinitionKind) SymbolKind {
 	}
 }
 
+// UsageSymbolKind is the SymbolKind a usage of the given kind is indexed under,
+// SymbolUnknown for a kind no usage symbol carries.
+func UsageSymbolKind(kind ast.UsageKind) SymbolKind {
+	if k, ok := usageSymbolKinds[kind]; ok {
+		return k
+	}
+	return SymbolUnknown
+}
+
 // usageSymbolKinds maps each ast.UsageKind to its SymbolKind.
 var usageSymbolKinds = map[ast.UsageKind]SymbolKind{
 	ast.UsagePart:        SymbolPartUsage,

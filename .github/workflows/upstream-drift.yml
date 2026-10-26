@@ -1,0 +1,45 @@
+name: Upstream drift
+
+# Advisory: has anything the pin in scripts/pilot-pin.sh points at moved? The
+# check reads the pilot and release repositories' tags, compares the
+# specification PDFs of the newest release with the pinned one, and reads the
+# OMG specification pages for versions it has not seen. It is scheduled rather
+# than a required check: a failure here means a deliberate re-pin is due, not
+# that a pull request is wrong. It never pushes, never re-pins and never opens
+# issues; the step summary carries the report. Like oracle-reproduction.yml it
+# carries no repository guard, since a fork's pin goes stale the same way.
+on:
+  schedule:
+    # 05:11 UTC on Mondays, off the hour to avoid the scheduler's busiest minute.
+    - cron: '11 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    name: Pilot and specification movement against the pin
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Compare upstream with scripts/pilot-pin.sh
+        id: drift
+        run: |
+          set -o pipefail
+          status=0
+          scripts/check-upstream-drift.sh | tee drift.txt || status=$?
+          {
+            if [ "$status" -eq 0 ]; then
+              echo "### Upstream is where the pin says"
+            else
+              echo "### Upstream moved: re-pin deliberately"
+            fi
+            echo '```'
+            cat drift.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"

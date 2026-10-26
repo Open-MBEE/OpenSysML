@@ -1,5 +1,6 @@
 {
   "type": "instance",
+  "schedule": "declared",
   "instantiate": "test::Box",
   "objects": [
     {
