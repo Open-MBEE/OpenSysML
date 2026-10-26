@@ -235,9 +235,9 @@ the 4 of `body_local_conformance.cases`, the 10 of `exact_rationals.cases` and t
 `unbounded_arithmetic.cases`:
 
 ```
-agree: 228 · kind-only: 1 · order-only: 0 · disagree: 37 · differs-by-design: 5
-pilot-unevaluated: 157 · pilot-silent: 24 · pilot-error: 4 · ours-error: 10 · ours-undetermined: 17
-both-error: 17 · nondeterministic: 0
+agree: 229 · kind-only: 1 · order-only: 0 · disagree: 38 · differs-by-design: 5
+pilot-unevaluated: 157 · pilot-silent: 24 · pilot-error: 7 · ours-error: 10 · ours-undetermined: 17
+both-error: 16 · nondeterministic: 0
 ```
 
 The ten `exact_rationals.cases` are the binary64 probes of
