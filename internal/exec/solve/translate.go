@@ -607,8 +607,9 @@ func (t *translator) translate(conds []runtime.Condition) error {
 	var required []*Term
 	var labels []string
 	// Assumptions are the antecedent of a requirement's claim, never asserted alone:
-	// over no required condition it holds vacuously, a malformed condition refused first.
-	vacuous := !t.subject.Negated && requirementSubject(t.subject) && !requiresAny(conds) && !conflicting(conds)
+	// over no required condition it holds vacuously, denied or violated included,
+	// so they are not read; a malformed condition is refused first.
+	vacuous := requirementSubject(t.subject) && !requiresAny(conds) && !conflicting(conds)
 	// The evaluator stops at the first required condition that does not hold,
 	// so a later condition is evaluated only where every earlier one held.
 	var before []*Term
@@ -682,13 +683,12 @@ func (t *translator) violated(required []*Term, labels []string) error {
 	if len(required) == 0 && !requirementSubject(t.subject) {
 		return t.subject.noResultValue("the constraint declares no required condition to violate")
 	}
-	claim := required
-	claimLabels := labels
 	if len(required) == 0 {
 		// A claim over no required condition holds vacuously, so nothing violates it.
-		claim = []*Term{BoolTerm(true)}
-		claimLabels = []string{"true"}
+		required, labels = []*Term{BoolTerm(true)}, []string{"true"}
 	}
+	claim := required
+	claimLabels := labels
 	if t.subject.Negated {
 		claim = []*Term{Not(And(required...))}
 		claimLabels = []string{"not (" + strings.Join(labels, " and ") + ")"}

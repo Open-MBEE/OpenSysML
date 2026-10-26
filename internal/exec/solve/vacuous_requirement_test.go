@@ -102,3 +102,48 @@ func TestAssumedConflictingConstraintStillRefuses(t *testing.T) {
 		}
 	}
 }
+
+// TestDeniedVacuousRequirementIgnoresItsAssumptions: a requirement over no required
+// condition holds vacuously whatever its assumptions read, so a denial of it is
+// false and a violation of that denial true, a false or untranslatable assumption
+// notwithstanding — as the evaluator, which does not read them, reports it.
+func TestDeniedVacuousRequirementIgnoresItsAssumptions(t *testing.T) {
+	ctx, idx := fixture(t, "<test>", `
+		package test {
+			public import SI::*;
+			part def Rig {
+				attribute speed : ISQSpaceTime::SpeedValue;
+				assert not requirement deniedFalse { assume constraint { false } }
+				assert not requirement deniedOpaque { assume constraint { speed <= 5.4 [kg] } }
+			}
+		}
+	`)
+	for _, name := range []string{"deniedFalse", "deniedOpaque"} {
+		sym := symbolNamed(t, idx, "test::Rig::"+name)
+		denial, err := Requirement(ctx, sym, sym.OwnerScope)
+		if err != nil {
+			t.Fatalf("%s: translate the denial: %v", name, err)
+		}
+		if len(denial.Assertions) != 1 || writeTerm(denial.Assertions[0].Term) != "(not true)" {
+			t.Errorf("%s: the denial of a vacuous claim is not false:\n%s", name, Script(denial))
+		}
+		violation, err := RequirementViolation(ctx, sym, sym.OwnerScope, nil)
+		if err != nil {
+			t.Fatalf("%s: translate the violation: %v", name, err)
+		}
+		if len(violation.Assertions) != 1 || writeTerm(violation.Assertions[0].Term) != "true" || violation.Assertions[0].From.Condition != "not (not (true))" {
+			t.Errorf("%s: the violation of a denied vacuous claim is not true:\n%s", name, Script(violation))
+		}
+		x, err := NewTranslator(ctx, subjectOf(sym, "requirement", false))
+		if err != nil {
+			t.Fatalf("%s: translator: %v", name, err)
+		}
+		expr, err := x.Conditions(ctx.ConditionsOf(sym, sym.OwnerScope))
+		if err != nil {
+			t.Fatalf("%s: conditions: %v", name, err)
+		}
+		if writeTerm(expr.Term) != "(not true)" || len(expr.Defined) != 0 {
+			t.Errorf("%s: the denied vacuous claim as an expression is %s, defined under %d conditions, want (not true) under none", name, writeTerm(expr.Term), len(expr.Defined))
+		}
+	}
+}

@@ -127,6 +127,11 @@ func (x *Translator) Conditions(conds []runtime.Condition) (*Expression, error) 
 	}
 	var required []*Term
 	expr := &Expression{}
+	// A requirement over no required condition holds vacuously, so its assumptions
+	// are not read, as the evaluator does not read them.
+	if requirementSubject(t.subject) && !requiresAny(conds) {
+		conds = nil
+	}
 	for _, cond := range conds {
 		one, err := x.Condition(cond)
 		if err != nil {
