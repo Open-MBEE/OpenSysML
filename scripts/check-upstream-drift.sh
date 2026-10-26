@@ -36,13 +36,16 @@ movement() {
 }
 
 # newest_tag <repo>: the highest release tag by version order, from the remote.
+# Upstream also publishes point releases (2025-09.1), which sort after their base.
 newest_tag() {
-	git ls-remote --tags --refs "$1" | sed 's|.*refs/tags/||' | grep -E '^[0-9]{4}-[0-9]{2}$' | sort -V | tail -n 1
+	git ls-remote --tags --refs "$1" | sed 's|.*refs/tags/||' | grep -E '^[0-9]{4}-[0-9]{2}(\.[0-9]+)?$' | sort -V | tail -n 1
 }
 
-# tag_commit <repo> <tag>: the commit a tag resolves to on the remote.
+# tag_commit <repo> <tag>: the commit a tag resolves to on the remote. An
+# annotated tag lists its tag object first; the peeled "^{}" row is the commit.
 tag_commit() {
-	git ls-remote "$1" "refs/tags/$2^{}" "refs/tags/$2" | awk 'NR==1 {print $1}'
+	git ls-remote "$1" "refs/tags/$2^{}" "refs/tags/$2" |
+		awk -v t="refs/tags/$2" '{c[$2]=$1} END {print ((t "^{}") in c) ? c[t "^{}"] : c[t]}'
 }
 
 # check_repo <name> <repo> <pinned commit>: reports the pinned tag's state and
@@ -71,25 +74,33 @@ check_repo() {
 
 # spec_docs_changed <release tag>: compares the blob ids of the specification
 # PDFs between the pinned release commit and the given tag, cloning nothing but
-# the trees.
+# the trees. Returns 0 when every PDF is unchanged, 1 when one changed, 2 when a
+# document could not be read at either revision (never reported as unchanged).
 spec_docs_changed() {
-	local tag=$1 dir pinned_id tag_id changed=0
+	local tag=$1 dir pinned_id tag_id verdict=0
 	dir="$(mktemp -d)"
 	trap 'rm -rf "$dir"' RETURN
 	git init -q "$dir"
 	git -C "$dir" remote add origin "$PILOT_RELEASE_REPO"
-	git -C "$dir" fetch -q --filter=tree:0 --depth 1 origin "refs/tags/$tag:refs/tags/$tag" "$PILOT_RELEASE_COMMIT"
+	if ! git -C "$dir" fetch -q --filter=tree:0 --depth 1 origin "refs/tags/$tag:refs/tags/$tag" "$PILOT_RELEASE_COMMIT"; then
+		report "  could not fetch $tag and $PILOT_RELEASE_COMMIT from $PILOT_RELEASE_REPO"
+		return 2
+	fi
 	for doc in "${SPEC_DOCS[@]}"; do
-		pinned_id="$(git -C "$dir" rev-parse -q --verify "$PILOT_RELEASE_COMMIT:$doc" 2>/dev/null || true)"
-		tag_id="$(git -C "$dir" rev-parse -q --verify "refs/tags/$tag:$doc" 2>/dev/null || true)"
-		if [[ "$pinned_id" == "$tag_id" ]]; then
+		if ! pinned_id="$(git -C "$dir" rev-parse -q --verify "$PILOT_RELEASE_COMMIT:$doc" 2>/dev/null)"; then
+			report "  $doc: unreadable at the pinned release commit"
+			verdict=2
+		elif ! tag_id="$(git -C "$dir" rev-parse -q --verify "refs/tags/$tag:$doc" 2>/dev/null)"; then
+			report "  $doc: $pinned_id -> absent in $tag"
+			[[ $verdict -eq 0 ]] && verdict=1
+		elif [[ "$pinned_id" == "$tag_id" ]]; then
 			report "  $doc: unchanged"
 		else
-			report "  $doc: ${pinned_id:-absent} -> ${tag_id:-absent}"
-			changed=1
+			report "  $doc: $pinned_id -> $tag_id"
+			[[ $verdict -eq 0 ]] && verdict=1
 		fi
 	done
-	return $changed
+	return $verdict
 }
 
 # omg_versions <page url> <language>: the version entries the OMG page links.
@@ -117,11 +128,12 @@ check_repo 'release repository' "$PILOT_RELEASE_REPO" "$PILOT_RELEASE_COMMIT"
 newest_release="$NEWEST_TAG"
 if [[ -n "$newest_release" && "$newest_release" != "$PILOT_TAG" ]]; then
 	report "Specification documents, $PILOT_TAG -> $newest_release:"
-	if spec_docs_changed "$newest_release"; then
-		report "  the specification PDFs are unchanged: a re-pin moves the pilot, not the clause numbers"
-	else
-		movement "the specification PDFs changed between $PILOT_TAG and $newest_release: a re-pin must re-read the clause numbers docs/project/spec-compliance.md cites"
-	fi
+	spec_docs_changed "$newest_release" && verdict=0 || verdict=$?
+	case $verdict in
+	0) report "  the specification PDFs are unchanged: a re-pin moves the pilot, not the clause numbers" ;;
+	1) movement "the specification PDFs changed between $PILOT_TAG and $newest_release: a re-pin must re-read the clause numbers docs/project/spec-compliance.md cites" ;;
+	*) movement "the specification PDFs of $PILOT_TAG and $newest_release could not be compared; read them by hand before re-pinning" ;;
+	esac
 fi
 check_omg SysML "$OMG_SYSML_PAGE" "$OMG_SYSML_KNOWN"
 check_omg KerML "$OMG_KERML_PAGE" "$OMG_KERML_KNOWN"
