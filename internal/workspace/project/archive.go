@@ -50,13 +50,56 @@ type Meta struct {
 	IncludesDerived *bool `json:"includesDerived,omitempty"`
 	IncludesImplied *bool `json:"includesImplied,omitempty"`
 	// Checksum maps member paths to the checksums recorded for them.
-	Checksum map[string][]Checksum `json:"checksum,omitempty"`
+	Checksum map[string]Checksums `json:"checksum,omitempty"`
 }
 
 // Checksum is one recorded digest of a member file.
 type Checksum struct {
 	Value     string `json:"value"`
 	Algorithm string `json:"algorithm"`
+}
+
+// Unrecorded reports a checksum that records no digest, by the algorithm NONE
+// (sysand's placeholder for a member it did not digest) or an empty value.
+func (c Checksum) Unrecorded() bool {
+	return strings.EqualFold(c.Algorithm, "NONE") || c.Value == ""
+}
+
+// Checksums are the checksums recorded for one member: one object per path in
+// the normative schema (KerML-Model-Interchange.json), a list in Table 13's text.
+type Checksums []Checksum
+
+// UnmarshalJSON reads one checksum object or a non-empty list of them.
+func (c *Checksums) UnmarshalJSON(data []byte) error {
+	data = bytes.TrimSpace(data)
+	switch {
+	case bytes.HasPrefix(data, []byte("[")):
+		var list []Checksum
+		if err := json.Unmarshal(data, &list); err != nil {
+			return err
+		}
+		if len(list) == 0 {
+			return errors.New("is an empty list")
+		}
+		*c = list
+	case bytes.HasPrefix(data, []byte("{")):
+		var one Checksum
+		if err := json.Unmarshal(data, &one); err != nil {
+			return err
+		}
+		*c = Checksums{one}
+	default:
+		return errors.New("is neither a checksum object nor a list of them")
+	}
+	return nil
+}
+
+// MarshalJSON writes one checksum as the schema's object, several as a list.
+func (c Checksums) MarshalJSON() ([]byte, error) {
+	if len(c) == 1 {
+		return json.Marshal(c[0])
+	}
+	return json.Marshal([]Checksum(c))
 }
 
 // Archive is a project interchange file read into memory: its project
@@ -278,10 +321,13 @@ func (a *Archive) readMeta() error {
 }
 
 // verify checks one recorded checksum. An algorithm the schema allows but
-// this build cannot compute is noted rather than refused.
+// this build cannot compute is noted; an unrecorded checksum verifies nothing.
 func (a *Archive) verify(member string, content []byte, sum Checksum) error {
-	if sum.Value == "" || sum.Algorithm == "" {
-		return fmt.Errorf("checksum of %q lacks a value or an algorithm", member)
+	if sum.Algorithm == "" {
+		return fmt.Errorf("checksum of %q lacks an algorithm", member)
+	}
+	if strings.EqualFold(sum.Algorithm, "NONE") {
+		return nil
 	}
 	h, known := newHash(sum.Algorithm)
 	if !known {
@@ -289,6 +335,9 @@ func (a *Archive) verify(member string, content []byte, sum Checksum) error {
 			return fmt.Errorf("checksum of %q uses %q, which is not an algorithm the interchange schema allows", member, sum.Algorithm)
 		}
 		a.Notes = append(a.Notes, fmt.Sprintf("the %s checksum of %s was not verified: this build does not compute %s", sum.Algorithm, member, sum.Algorithm))
+		return nil
+	}
+	if sum.Unrecorded() {
 		return nil
 	}
 	h.Write(content)
@@ -337,8 +386,8 @@ func schemaAlgorithm(algorithm string) bool {
 }
 
 // ParseMeta reads the metadata of Table 13 from the bytes of a .meta.json. A
-// checksum may be recorded as one object or, as the table's text has it, as a
-// list of them.
+// checksum may be recorded as one object, as the schema has it, or as a list
+// of them, as the table's text has it.
 func ParseMeta(content []byte) (Meta, error) {
 	var raw struct {
 		Index           map[string]string          `json:"index"`
@@ -370,23 +419,12 @@ func ParseMeta(content []byte) (Meta, error) {
 		IncludesImplied: raw.IncludesImplied,
 	}
 	if len(raw.Checksum) > 0 {
-		meta.Checksum = make(map[string][]Checksum, len(raw.Checksum))
+		meta.Checksum = make(map[string]Checksums, len(raw.Checksum))
 	}
 	for member, value := range raw.Checksum {
-		var sums []Checksum
-		if bytes.HasPrefix(bytes.TrimSpace(value), []byte("[")) {
-			if err := json.Unmarshal(value, &sums); err != nil {
-				return Meta{}, fmt.Errorf("checksum of %q: %w", member, err)
-			}
-		} else {
-			var one Checksum
-			if err := json.Unmarshal(value, &one); err != nil {
-				return Meta{}, fmt.Errorf("checksum of %q: %w", member, err)
-			}
-			sums = []Checksum{one}
-		}
-		if len(sums) == 0 {
-			return Meta{}, fmt.Errorf("checksum of %q is an empty list", member)
+		var sums Checksums
+		if err := json.Unmarshal(value, &sums); err != nil {
+			return Meta{}, fmt.Errorf("checksum of %q %w", member, err)
 		}
 		meta.Checksum[member] = sums
 	}
