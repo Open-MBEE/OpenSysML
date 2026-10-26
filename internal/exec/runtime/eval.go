@@ -2648,7 +2648,12 @@ func (ec *EvalContext) evalArithmetic(n *ast.OperatorExpr) (Value, error) {
 
 // arithmeticValues applies a binary arithmetic operator to two evaluated
 // operands; the operator notation and the library's `'+'` forms both use it.
+// `'+'` and `'-'` declare `y` [0..1] (KerML 8.4.4.9.6) everywhere but in
+// StringFunctions, so an omitted or empty second operand makes them the unary sign.
 func (ctx *Context) arithmeticValues(op ast.OperatorKind, left, right Value, span source.Span) (Value, error) {
+	if (op == ast.OpAdd || op == ast.OpSub) && argumentOmitted(right) && left.Kind != ValString {
+		return ctx.unaryValue(signOperator(op), left)
+	}
 	// An operand the model leaves open leaves the result open, unless the
 	// determined operand or the open one's declared type alone makes the operation fail.
 	if _, open := undeterminedIn(left, right); open {
@@ -3234,25 +3239,35 @@ func (ec *EvalContext) evalUnary(n *ast.OperatorExpr) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	if isVectorKind(operand) {
-		switch n.Operator {
-		case ast.OpPos:
-			return operand, nil
-		case ast.OpNeg:
-			return vectorSubtract("VectorFunctions::'-'", ec.ctx, []Value{operand, nullValue()})
-		}
-	}
 	return ec.ctx.unaryValue(n.Operator, operand)
 }
 
+// signOperator is the unary sign a binary `+` or `-` becomes with its second
+// operand omitted.
+func signOperator(op ast.OperatorKind) ast.OperatorKind {
+	if op == ast.OpSub {
+		return ast.OpNeg
+	}
+	return ast.OpPos
+}
+
 // unaryValue applies `not`, `-` or `+` to an evaluated operand; the operator
-// notation and the library's `'not'` forms both use it.
+// notation and the library's `'not'`, `'+'` and `'-'` forms all use it.
 func (ctx *Context) unaryValue(op ast.OperatorKind, operand Value) (Value, error) {
 	if operand.Kind == ValUndetermined {
 		if err := ctx.openUnaryOperand(op, operand); err != nil {
 			return Value{}, err
 		}
 		return undeterminedResult(operand), nil
+	}
+	// The sign of a vector is VectorFunctions' `'+'`/`'-'` with `w` omitted.
+	if isVectorKind(operand) {
+		switch op {
+		case ast.OpPos:
+			return operand, nil
+		case ast.OpNeg:
+			return vectorSubtract("VectorFunctions::'-'", ctx, []Value{operand, nullValue()})
+		}
 	}
 	switch op {
 	case ast.OpNot:

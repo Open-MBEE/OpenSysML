@@ -164,7 +164,8 @@ func singleOperands(ctx *Context, name string, domain operandDomain, args []Valu
 }
 
 // arithmeticForm is `'+'`, `'-'`, `'*'`, `'/'`, `'%'`, `'**'` and `'^'` as
-// functions; `'+'(x)` and `'-'(x)` are the unary sign operators.
+// functions; `'+'(x)` and `'-'(x)` are the unary sign operators, as the
+// operator notation with an empty second operand is, by the same evaluation.
 func arithmeticForm(op ast.OperatorKind, domain operandDomain) libraryApply {
 	return func(name string, ctx *Context, args []Value) (Value, error) {
 		if len(args) == 2 && argumentOmitted(args[1]) {
@@ -174,15 +175,11 @@ func arithmeticForm(op ast.OperatorKind, domain operandDomain) libraryApply {
 		if err != nil {
 			return Value{}, err
 		}
-		if len(args) == 1 {
-			unary := ast.OpPos
-			if op == ast.OpSub {
-				unary = ast.OpNeg
-			}
-			val, err := ctx.unaryValue(unary, args[0])
-			return operatorResult(name, val, err)
+		y := nullValue()
+		if len(args) == 2 {
+			y = args[1]
 		}
-		val, err := ctx.arithmeticValues(op, args[0], args[1], source.Span{})
+		val, err := ctx.arithmeticValues(op, args[0], y, source.Span{})
 		return operatorResult(name, val, err)
 	}
 }
