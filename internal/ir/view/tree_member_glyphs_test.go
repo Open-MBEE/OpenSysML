@@ -47,3 +47,32 @@ package Views {
 		t.Errorf("DOT draws a containment line beside a portion or event glyph:\n%s", dot)
 	}
 }
+
+// A typed portion or event occurrence listed in a compartment row folds its
+// glyph away with its typing: the row's `name : Type` stands for it, and no
+// edge from the owner depicts the type as the portion or the event.
+func TestFoldedPortionAndEventRowsDrawNoGlyphToTheType(t *testing.T) {
+	rendering := renderSource(t, "Views::folded", `package Model {
+	occurrence def Phase;
+	occurrence def Flight {
+		snapshot landing : Phase;
+		event occurrence takeoff : Phase;
+	}
+}
+package Views {
+	view folded { expose Model::Flight; expose Model::Phase; }
+}`)
+	want := []string{
+		"Model::Flight portion landing",
+		"Model::Flight event takeoff: event",
+		"landing typing Model::Phase",
+		"takeoff typing Model::Phase",
+	}
+	if got := treeEdgeLines(rendering); !reflect.DeepEqual(got, want) {
+		t.Errorf("edges =\n  %s\nwant\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
+	}
+	folded := foldCompartments(rendering.showing(AllShown()), CompartmentsMost)
+	if got := treeEdgeLines(folded); len(got) != 0 {
+		t.Errorf("folded edges = %q, want none: the rows `landing : Phase` and `takeoff : Phase` stand for the folded members", got)
+	}
+}
