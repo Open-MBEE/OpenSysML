@@ -274,7 +274,7 @@ func (t *translator) selectedTerms() ([]*Term, error) {
 			if t.model.IsVariationFeature(step) {
 				continue
 			}
-			if err := t.holdsOne(holder.Decl, step, written, true); err != nil {
+			if err := t.holdsOne(holder.Decl, step, written, "object", true); err != nil {
 				return nil, err
 			}
 		}

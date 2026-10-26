@@ -236,7 +236,7 @@ func (t *translator) variableOf(
 		if !featureDecl(step) || t.model.IsVariationFeature(step) {
 			continue
 		}
-		if err := t.holdsOne(node, step, written, step != target); err != nil {
+		if err := t.holdsOne(node, step, written, "value", step != target); err != nil {
 			return nil, err
 		}
 	}
@@ -262,22 +262,19 @@ func (t *translator) variableOf(
 	return VarTerm(v), nil
 }
 
-// holdsOne checks that a feature read as one value (one object, when it is a
-// step read through) is held to one, by the multiplicity the model computes for
-// it: declared, inherited by redefinition, or the default (KerML 1.1 §7.4.12
-// `0..*`; SysML v2 §7.6.3 `[1..1]` for an eligible usage). A stated or implicit
+// holdsOne checks that a feature read as one (what names what is read: a value,
+// an object) is held to one, by the multiplicity the model computes for it:
+// declared, inherited by redefinition, or the default (KerML 1.1 §7.4.12 `0..*`;
+// SysML v2 §7.6.3 `[1..1]` for an eligible usage). A stated or implicit
 // multiplicity admitting several refuses; one the default `0..*` alone governs is
-// read under the assumption that it holds one, reported rather than asserted.
-func (t *translator) holdsOne(node ast.Node, step *symbols.Symbol, written string, object bool) error {
+// read under the assumption that it holds one, reported rather than asserted;
+// object marks a step read through, which holds objects.
+func (t *translator) holdsOne(node ast.Node, step *symbols.Symbol, written, what string, object bool) error {
 	r := t.model.GoverningMultiplicityOf(step)
 	if singleValued(r) {
 		return nil
 	}
 	if _, stated := t.model.StatedMultiplicityOf(step); stated {
-		what := "value"
-		if object {
-			what = "object"
-		}
 		return t.refuse(node, written, "it may hold more than one "+what)
 	}
 	t.assumeOne(AssumedOne{Feature: step, Name: t.fqn(step), Multiplicity: r, Object: object})
