@@ -363,17 +363,18 @@ project and in the projects that uses. An installed project is matched to a usag
 own `.project.json`, never by its directory name: the resource IRI's last two path segments
 are its publisher and name (compared as lower-case slugs, so `Requirements Management`
 answers to `…/ode4hera/requirements-management`), and of several installed versions the one
-a `versionConstraint` names exactly is taken, else the latest. A fragment on a repository IRI
-names a project directory within the tagged tree (`pkg:git/git.example.org/acme/widgets#packages/gears`):
-that usage is answered by the sub-package's own installation — `gears` under `acme` — not by
-the repository's project. Such a sub-package also lies inside its parent's installed tree, and
-a directory below an installed project that holds a `.project.json` of its own is a project of
-its own: the parent's files stop at it, so the two installations load `Gears.sysml` once. The
-standard library's `https://www.omg.org/spec/KerML/…/*.kpar` usages are answered by the bundled
-library.
+a `versionConstraint` names exactly is taken, else the latest. The standard library's
+`https://www.omg.org/spec/KerML/…/*.kpar` usages are answered by the bundled library.
 Hidden directories other than the library directories stay out of the search, and the
 diagnostics of the files loaded this way are reported like those of any other file the
 search finds.
+
+A fragment on a repository IRI names a project directory within the tagged tree
+(`pkg:git/git.example.org/acme/widgets#packages/gears`): that usage is answered by the
+sub-package's own installation — `gears` under `acme` — not by the repository's project. Such a
+sub-package also lies inside its parent's installed tree, and a directory below an installed
+project that holds a `.project.json` of its own is a project of its own: the parent's files stop
+at it, so the two installations load `Gears.sysml` once.
 
 Another provider that installs projects elsewhere needs only its directory named. Each of
 the following adds a directory to look for installed projects under, besides the well-known
