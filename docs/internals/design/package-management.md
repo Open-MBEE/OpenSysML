@@ -101,9 +101,11 @@ called out in §3.1 and §3.3 are built in this repository.
   two path segments → `org`/`repo` slugs), so a usage written this way resolves today once the
   project is on disk — but `resourceSegments` discards the `@<version>` and `pickInstalled` honours
   only `versionConstraint`, so today a versioned IRI alone selects the latest installed release;
-  Phase 1 makes `@<version>` an exact constraint when the usage carries none, and the lock entry
-  wins over either. `pkg:sysand/<publisher>/<name>` and
-  `https://www.omg.org/spec/...kpar` keep resolving as they do now.
+  Phase 1 makes `@<version>` an exact constraint when the usage carries none. A lock entry wins
+  over either, but only inside SysPI, at install time: it decides which version lands under `lib/`;
+  OpenSysML never reads the lock and matches the usage against whatever is installed (§3.3).
+  `pkg:sysand/<publisher>/<name>` and `https://www.omg.org/spec/...kpar` keep resolving as they
+  do now.
 - Resolution needs **no index** and nothing but git: tags come from `git ls-remote --tags`
   (`v<version>`, then `<version>`), the tree from `git clone --depth 1 --branch <tag>` (or
   `git archive --remote` where the server allows it), and the commit id is what the lock records.
