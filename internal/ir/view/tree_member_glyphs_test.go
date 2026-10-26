@@ -2,6 +2,7 @@ package view
 
 import (
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -49,8 +50,7 @@ package Views {
 }
 
 // A typed portion or event occurrence listed in a compartment row folds its
-// glyph away with its typing: the row's `name : Type` stands for it, and no
-// edge from the owner depicts the type as the portion or the event.
+// glyph and typing into the row's `name : Type`; none depicts the type as it.
 func TestFoldedPortionAndEventRowsDrawNoGlyphToTheType(t *testing.T) {
 	rendering := renderSource(t, "Views::folded", `package Model {
 	occurrence def Phase;
@@ -74,5 +74,43 @@ package Views {
 	folded := foldCompartments(rendering.showing(AllShown()), CompartmentsMost)
 	if got := treeEdgeLines(folded); len(got) != 0 {
 		t.Errorf("folded edges = %q, want none: the rows `landing : Phase` and `takeoff : Phase` stand for the folded members", got)
+	}
+}
+
+// The positioned folding lists a typed portion or event under a placed owner
+// with its type, having folded its typing edge, though typings are not shown.
+func TestPositionedPortionRowKeepsItsType(t *testing.T) {
+	rendering := renderSource(t, "Views::placed", `package Model {
+	occurrence def Phase;
+	occurrence def Flight {
+		snapshot landing : Phase;
+		event occurrence takeoff : Phase;
+	}
+}
+package Views {
+	private import DiagramLayout::*;
+	view placed {
+		expose Model::Flight;
+		expose Model::Phase;
+		metadata Layout about Model::Flight { x = 10; y = 10; width = 200; height = 60; }
+		metadata Layout about Model::Phase { x = 10; y = 120; width = 200; height = 33; }
+	}
+}`)
+	if rendering.Shown.Has(ElementTypings) {
+		t.Fatal("typings are shown by default; the test wants them left to the edges")
+	}
+	folded := foldCompartments(rendering, CompartmentsPositioned)
+	var rows []string
+	for _, compartment := range folded.Roots[0].Compartments {
+		for _, row := range compartment.Rows {
+			rows = append(rows, row.Name+" : "+row.Type)
+		}
+	}
+	sort.Strings(rows)
+	if want := []string{"landing : Phase", "takeoff : Phase"}; !reflect.DeepEqual(rows, want) {
+		t.Errorf("rows = %q, want %q", rows, want)
+	}
+	if got := treeEdgeLines(folded); len(got) != 0 {
+		t.Errorf("folded edges = %q, want none", got)
 	}
 }

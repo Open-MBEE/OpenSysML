@@ -416,7 +416,8 @@ func (f *folder) foldMemberships(edges []Edge) (folded []Edge, moved int) {
 		}
 		if edge.Kind != EdgeComposition && edge.Kind != EdgeReference {
 			// A portion or event glyph names the usage, not its type: the
-			// row's `name : Type` stands for the folded member.
+			// row reads `name : Type` for the folded member instead.
+			typeRow(row)
 			for _, j := range typings[edge.To] {
 				consumed[j] = true
 			}
