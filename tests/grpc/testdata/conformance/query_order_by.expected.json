@@ -1,0 +1,36 @@
+{
+  "rpc": "Query",
+  "query": {
+    "scope": [
+      "Fleet"
+    ],
+    "select": [
+      "name"
+    ],
+    "where": {
+      "primitive": {
+        "property": "@type",
+        "operator": "PRIMITIVE_OPERATOR_INSTANCE_OF",
+        "value": [
+          "Usage",
+          "Definition"
+        ]
+      }
+    },
+    "orderBy": [
+      "multiplicityUpper",
+      "@type",
+      "name"
+    ]
+  },
+  "expected_element_ids": [
+    "Fleet::Vehicle::mass",
+    "Fleet::Bike",
+    "Fleet::Truck",
+    "Fleet::Vehicle",
+    "Fleet::Wheel",
+    "Fleet::Truck::axles",
+    "Fleet::Bike::wheels",
+    "Fleet::Truck::wheels"
+  ]
+}

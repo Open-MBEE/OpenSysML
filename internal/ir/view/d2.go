@@ -217,6 +217,10 @@ var d2Classes = []struct{ name, body string }{
 	{"reference", "source-arrowhead: { shape: diamond; style: { filled: false } }; style: { " + d2Arrow + solidStrokeClose},
 	{"containment", "source-arrowhead: { shape: circle; label: \"+\"; style: { filled: false } }; style: { " + d2Arrow + solidStrokeClose},
 	{"dependency", styleOpen + d2Arrow + dashedStrokeClose},
+	{"successionflow", "target-arrowhead: { shape: triangle; style: { filled: true } }; style: { " + d2Arrow + dashedStrokeClose},
+	{"open", "target-arrowhead: { shape: arrow }; style: { " + d2Arrow + solidStrokeClose},
+	{"portion", "source-arrowhead: { shape: circle; style: { filled: true } }; style: { " + d2Arrow + solidStrokeClose},
+	{"membership", "source-arrowhead: { shape: circle; style: { filled: false } }; style: { " + d2Arrow + solidStrokeClose},
 }
 
 // writeClasses declares the classes the body uses, so the file stands alone.
@@ -234,7 +238,8 @@ func (w *d2Writer) writeClasses(b *strings.Builder) {
 }
 
 // writeTree writes a tree rendering: every node at the root scope, each
-// joined to its children by a containment line, then the edges.
+// joined to its children by a containment line unless an edge of the tree
+// joins the two, then the edges.
 func (w *d2Writer) writeTree(r *Rendering) {
 	if r.blank() {
 		w.writeEmpty(r)
@@ -250,10 +255,13 @@ func (w *d2Writer) writeTree(r *Rendering) {
 	for _, root := range r.Roots {
 		declare(root)
 	}
+	nesting := r.nestingEdges()
 	var contain func(node *Node)
 	contain = func(node *Node) {
 		for _, child := range node.Children {
-			w.writeArrow("", d2EdgeSpec{from: w.paths[node.ID], to: w.paths[child.ID], arrow: "--", class: "edge"})
+			if !nesting[[2]string{node.ID, child.ID}] {
+				w.writeArrow("", d2EdgeSpec{from: w.paths[node.ID], to: w.paths[child.ID], arrow: "--", class: "edge"})
+			}
 			contain(child)
 		}
 	}
@@ -516,8 +524,19 @@ func (w *d2Writer) writeEdge(indent string, edge Edge) {
 	case EdgeComposition, EdgeReference, EdgeContainment:
 		// D2 draws a source arrowhead only where the connection has a head there.
 		arrow, class = "<-", edge.Kind.String()
-	case EdgeImport, EdgeDerive, EdgeRefine, EdgeDependency:
+	case EdgeImport, EdgeDerive, EdgeRefine, EdgeDependency, EdgeExpose:
 		class = "dependency"
+	case EdgeSuccessionFlow:
+		class = "successionflow"
+	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent:
+		class = "open"
+	case EdgePortion:
+		// A filled circle stands at the occurrence end: D2 has no three-quarter circle.
+		arrow, class = "<-", "portion"
+	case EdgeReferenceSubsetting:
+		class = "specialization"
+	case EdgeUnownedMembership:
+		arrow, class = "<-", "membership"
 	}
 	w.writeArrow(indent, d2EdgeSpec{from: w.end(edge.From, edge.FromPort), to: w.end(edge.To, edge.ToPort), arrow: arrow, label: edge.Label, class: class, style: edge.Style, origin: edge.Origin}, d2EndLabels(edge)...)
 }

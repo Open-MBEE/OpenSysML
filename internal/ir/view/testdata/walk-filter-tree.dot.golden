@@ -9,16 +9,16 @@ digraph "FilteredWalk::structure" {
   "n0" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>rover</b>>];
   "n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>chassis</b>>];
   "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>axle</b>>];
-  "n1" -> "n2" [arrowhead=none];
-  "n0" -> "n1" [arrowhead=none];
   "n3" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>radio</b>>];
   "n4" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>rx</b>>];
-  "n3" -> "n4" [arrowhead=none];
-  "n0" -> "n3" [arrowhead=none];
   "n5" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>gps</b>>];
-  "n0" -> "n5" [arrowhead=none];
   "n6" [style="rounded,filled", label=<<b>connect</b>>];
   "n0" -> "n6" [arrowhead=none];
   "n7" [style="rounded,filled", label=<<b>connect</b>>];
   "n0" -> "n7" [arrowhead=none];
+  "n0" -> "n1" [dir=back, arrowtail=diamond];
+  "n0" -> "n3" [dir=back, arrowtail=diamond];
+  "n0" -> "n5" [dir=back, arrowtail=diamond];
+  "n1" -> "n2" [dir=back, arrowtail=diamond];
+  "n3" -> "n4" [dir=back, arrowtail=odiamond];
 }

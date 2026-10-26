@@ -22,9 +22,25 @@ type placement struct {
 // node nothing positions takes its place beside the placed nodes its edges reach.
 func placeRendering(r *Rendering) *placement {
 	p := &placement{placed: map[string]bool{}, extent: map[string]bool{}, derived: map[string]bool{}, pictures: len(r.Pictures)}
+	// A Route about a usage steers the edge its owner draws to the usage's
+	// definitions once the usage folds into a row: it places those ends, not
+	// the usage's node, which a Layout alone places.
+	nesting := r.nestingEdges()
+	typed := map[string][]string{}
+	for _, edge := range r.Edges {
+		if edge.Kind == EdgeTyping {
+			typed[edge.From] = append(typed[edge.From], edge.To)
+		}
+	}
 	routed := map[string]bool{}
 	for _, edge := range r.Edges {
-		if len(edge.Route) > 1 {
+		switch {
+		case len(edge.Route) <= 1:
+		case nesting[[2]string{edge.From, edge.To}]:
+			for _, to := range typed[edge.To] {
+				routed[edge.From], routed[to] = true, true
+			}
+		default:
 			routed[edge.From], routed[edge.To] = true, true
 		}
 	}
@@ -131,7 +147,7 @@ func (p *placement) omit(r *Rendering) *Rendering {
 	out := *r
 	var hoisted []*Node
 	out.Roots = append(p.keep(r.Roots, &hoisted), hoisted...)
-	kept, dropped := p.keptEdges(r.Edges)
+	kept, dropped := p.keptEdges(p.foldOmitted(r.Roots, r.Edges, r.nestingEdges()))
 	out.Edges = kept
 	out.Notices = append(append([]string(nil), r.Notices...), p.omitNotice(dropped))
 	return &out
@@ -150,7 +166,7 @@ func foldCompartments(r *Rendering, mode Compartments) *Rendering {
 	if !mode.automatic() && !p.partial() {
 		return r
 	}
-	f := &folder{placement: p, mode: mode, owners: map[string]string{}}
+	f := &folder{placement: p, mode: mode, owners: map[string]string{}, rows: map[string]*Node{}, nesting: r.nestingEdges()}
 	out := *r
 	out.Roots = cloneNodes(r.Roots)
 	f.foldNodes(out.Roots)
@@ -158,9 +174,9 @@ func foldCompartments(r *Rendering, mode Compartments) *Rendering {
 		return r
 	}
 	notice := f.notice()
+	var moved, dropped int
+	out.Edges, moved, dropped = f.foldEdges(r.Edges)
 	if mode.automatic() {
-		var moved, dropped int
-		out.Edges, moved, dropped = f.reanchorEdges(r.Edges)
 		if moved > 0 {
 			notice += fmt.Sprintf(", and %d edge(s) at them moved to their owner", moved)
 		}
@@ -172,14 +188,7 @@ func foldCompartments(r *Rendering, mode Compartments) *Rendering {
 			notice += fmt.Sprintf(", and %d note(s) at them moved to their owner", moved)
 		}
 	} else {
-		out.Edges = make([]Edge, 0, len(r.Edges))
-		for _, edge := range r.Edges {
-			if f.folded(edge.From) || f.folded(edge.To) {
-				continue
-			}
-			out.Edges = append(out.Edges, edge)
-		}
-		if dropped := len(r.Edges) - len(out.Edges); dropped > 0 {
+		if dropped > 0 {
 			notice += fmt.Sprintf(", and %d edge(s) at them", dropped)
 		}
 		out.Notes = make([]Note, 0, len(r.Notes))
@@ -202,7 +211,9 @@ func foldCompartments(r *Rendering, mode Compartments) *Rendering {
 type folder struct {
 	*placement
 	mode                  Compartments
-	owners                map[string]string // folded node ID -> the ID of the node whose row it is
+	owners                map[string]string  // folded node ID -> the ID of the node whose row it is
+	rows                  map[string]*Node   // folded node ID -> the node, a row or one left undrawn under a row
+	nesting               map[[2]string]bool // the membership edges drawn from a node to one nested in it
 	drawn, hidden, nested int
 }
 
@@ -288,6 +299,7 @@ func (f *folder) owns(node *Node) bool {
 
 func (f *folder) record(node *Node, owner string) {
 	f.owners[node.ID] = owner
+	f.rows[node.ID] = node
 	for _, child := range node.Children {
 		f.record(child, owner)
 	}
@@ -370,9 +382,75 @@ func typeRow(row *Node) {
 	}
 }
 
-// reanchorEdges moves every edge end at a folded member to the member's owner,
-// dropping the edges that then join an owner to itself and the duplicates.
-func (f *folder) reanchorEdges(edges []Edge) (kept []Edge, moved, dropped int) {
+// foldMemberships folds a folded member's membership edge and its typing
+// edges into one edge from the member's owner to each drawn type, the
+// composition or reference labelled with the member's name and multiplicity —
+// the property association a block definition diagram draws for a member
+// listed in a compartment — in the membership edge's place. A member nested
+// in another folded one folds to the owner under an automatic folding, as its
+// other edges move there, counted in moved; under the positioned folding its
+// nesting folds away, the nesting of an undrawn node, and its other edges are
+// dropped with the rest at one. A nesting with no drawn type folds away, as
+// does one drawn with a glyph of its own (a portion, an event), whose row
+// names the member's type.
+func (f *folder) foldMemberships(edges []Edge) (folded []Edge, moved int) {
+	typings := map[string][]int{}
+	for i, edge := range edges {
+		if edge.Kind == EdgeTyping && f.folded(edge.From) {
+			typings[edge.From] = append(typings[edge.From], i)
+		}
+	}
+	folded = make([]Edge, 0, len(edges))
+	consumed := map[int]bool{}
+	for i, edge := range edges {
+		if consumed[i] {
+			continue
+		}
+		row, ok := f.rows[edge.To]
+		if !ok || !f.nesting[[2]string{edge.From, edge.To}] {
+			folded = append(folded, edge)
+			continue
+		}
+		if f.folded(edge.From) && !f.mode.automatic() {
+			continue
+		}
+		if edge.Kind != EdgeComposition && edge.Kind != EdgeReference {
+			// A portion or event glyph names the usage, not its type: the
+			// row reads `name : Type` for the folded member instead.
+			typeRow(row)
+			for _, j := range typings[edge.To] {
+				consumed[j] = true
+			}
+			continue
+		}
+		for _, j := range typings[edge.To] {
+			consumed[j] = true
+			moved += boolToInt(f.folded(edge.From))
+			route := edge.Route
+			if f.folded(edge.From) {
+				route = nil
+			}
+			folded = append(folded, Edge{From: f.owners[edge.To], To: edges[j].To, Kind: edge.Kind, ToLabel: shown(row) + edge.ToLabel,
+				Origin: edge.Origin, Route: route, Style: edge.Style})
+		}
+	}
+	return folded, moved
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// foldEdges is the edges of the folded tree: the memberships folded
+// (foldMemberships), then under the automatic foldings every other edge end
+// at a folded member moved to the member's owner, dropping the edges that
+// then join an owner to itself and the duplicates, and under the positioned
+// folding every other edge at one dropped.
+func (f *folder) foldEdges(edges []Edge) (kept []Edge, moved, dropped int) {
+	edges, moved = f.foldMemberships(edges)
 	kept = make([]Edge, 0, len(edges))
 	seen := map[string]bool{}
 	for _, edge := range edges {
@@ -380,6 +458,10 @@ func (f *folder) reanchorEdges(edges []Edge) (kept []Edge, moved, dropped int) {
 		toOwner, toRow := f.owners[edge.To]
 		if !fromRow && !toRow {
 			kept = append(kept, edge)
+			continue
+		}
+		if !f.mode.automatic() {
+			dropped++
 			continue
 		}
 		if fromRow {
@@ -463,6 +545,42 @@ func (p *placement) anyPlaced(node *Node) bool {
 		}
 	}
 	return false
+}
+
+// foldOmitted folds the membership and typing edges of the unplaced members
+// of a placed node, which a form leaves undrawn, into the owner's labelled
+// edge to each drawn type — the relationship is shown so or not at all —
+// before the edges at the undrawn nodes are dropped. An unplaced node folds
+// under its nearest placed ancestor; a placed node under an unplaced one,
+// which the form hoists, is drawn and keeps its own members' edges to fold.
+func (p *placement) foldOmitted(roots []*Node, edges []Edge, nesting map[[2]string]bool) []Edge {
+	f := &folder{placement: p, mode: CompartmentsPositioned, owners: map[string]string{}, rows: map[string]*Node{}, nesting: nesting}
+	var walk func(node *Node, owner string)
+	walk = func(node *Node, owner string) {
+		for _, child := range node.Children {
+			switch {
+			case p.placed[child.ID]:
+				walk(child, child.ID)
+			default:
+				if owner != "" {
+					f.owners[child.ID], f.rows[child.ID] = owner, child
+				}
+				walk(child, owner)
+			}
+		}
+	}
+	for _, root := range roots {
+		if p.placed[root.ID] {
+			walk(root, root.ID)
+		} else {
+			walk(root, "")
+		}
+	}
+	if len(f.rows) == 0 {
+		return edges
+	}
+	folded, _ := f.foldMemberships(edges)
+	return folded
 }
 
 // keptEdges is edges without those at an unplaced node, and how many those were.

@@ -257,6 +257,31 @@ const (
 	EdgePerform
 	// EdgeExhibit is an exhibiting usage to the state it exhibits, in a case or mixed diagram.
 	EdgeExhibit
+	// EdgeSuccessionFlow is a succession flow: a flow whose target also follows
+	// its source, drawn dashed with a filled head and the text «succession flow».
+	EdgeSuccessionFlow
+	// EdgeRequire is a requirement constraint membership, from the requirer to
+	// the required constraint or requirement.
+	EdgeRequire
+	// EdgeAssume is an assumed constraint membership, from the assumer to the
+	// assumed constraint.
+	EdgeAssume
+	// EdgeAssert is an asserted constraint, from the assertor to the constraint.
+	EdgeAssert
+	// EdgeFrame is a framed concern, from the framer to the concern.
+	EdgeFrame
+	// EdgeEvent is an event occurrence, from the eventer to the occurrence.
+	EdgeEvent
+	// EdgePortion is a timeslice or snapshot, from the occurrence to its portion.
+	EdgePortion
+	// EdgeReferenceSubsetting is a reference subsetting (`::>`), from the
+	// referencing usage to the referenced one.
+	EdgeReferenceSubsetting
+	// EdgeUnownedMembership is a namespace's membership of an element it does
+	// not own — an alias — from the namespace.
+	EdgeUnownedMembership
+	// EdgeExpose is a view's exposure of an element, from the view.
+	EdgeExpose
 )
 
 // String names an edge kind the way the notation speaks of it.
@@ -310,6 +335,26 @@ func (k EdgeKind) String() string {
 		return "perform"
 	case EdgeExhibit:
 		return "exhibit"
+	case EdgeSuccessionFlow:
+		return "succession flow"
+	case EdgeRequire:
+		return "require"
+	case EdgeAssume:
+		return "assume"
+	case EdgeAssert:
+		return "assert"
+	case EdgeFrame:
+		return "frame"
+	case EdgeEvent:
+		return "event"
+	case EdgePortion:
+		return "portion"
+	case EdgeReferenceSubsetting:
+		return "reference subsetting"
+	case EdgeUnownedMembership:
+		return "unowned membership"
+	case EdgeExpose:
+		return "expose"
 	}
 	return "edge"
 }

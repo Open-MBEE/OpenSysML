@@ -39,6 +39,9 @@ public final class Capabilities {
   /** The {@code Query} RPC evaluates a SysML v2 API and Services Query. */
   public static final String QUERY = "query";
 
+  /** {@code Query.orderBy} sorts the matched elements; a service without it would ignore it. */
+  public static final String QUERY_ORDER_BY = "query_order_by";
+
   /** The {@code Query} RPC evaluates OSLC Query text. */
   public static final String OSLC_QUERY = "oslc_query";
 

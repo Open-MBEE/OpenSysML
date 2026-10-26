@@ -14,7 +14,7 @@ in this directory, so adding a case is a data-only change.
 
 | Field | Applies to | Meaning |
 |---|---|---|
-| `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `RunRuns`, `SelfCheck`, `RecordRun` or `RenderView` |
+| `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `RunRuns`, `SelfCheck`, `RecordRun`, `RenderView` or `Query` |
 | `view`, `compartments` | RenderView | the view or `#<kind>:<name>` pseudo-view to render and the compartment folding (`positioned`, `most` or `ports`; empty is `positioned`) |
 | `expected_node_names`, `expected_compartments`, `expected_edge_labels` | RenderView | the nodes drawn in order, the compartment each row is drawn in by the row's name, and the edge labels in order; `expected_error` a refusal instead |
 | `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `ImportData` or `CompareResults` |
@@ -55,6 +55,8 @@ empty else blocks are not authorable.
 | `expected_verdict` | CheckBehavior | `holds`, `fails` or `undecided` |
 | `expected_violations` | CheckBehavior | the violations witnessed, in order: `kind`, `property`, `depth` |
 | `expected_divergences` | CheckBehavior | feature → the final values it ends as, in order |
+| `query` | Query | the standard's `Query` as protojson writes it (`scope`, `select`, `where`, `orderBy`) |
+| `expected_element_ids`, `expected_query_error` | Query | the ids the answer reports, in order; or text the refusal's status message must contain |
 | `instantiate` | RunDocumentQuery | FQNs `Instantiate` creates objects of first, in order, so the query can bind and enumerate them |
 | `query_id` | RunDocumentQuery | FQN of the document query to run |
 | `bindings` | RunDocumentQuery | list of `{parameter, values}`, each value a document value bound to the parameter |

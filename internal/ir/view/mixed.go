@@ -417,6 +417,16 @@ func (w *mixedWalk) nodesFor(sym *symbols.Symbol) []*Node {
 	return nil
 }
 
+// ownedWithin reports whether sym is declared in namespace, at any depth.
+func ownedWithin(sym, namespace *symbols.Symbol) bool {
+	for owner := sym.Owner(); owner != nil; owner = owner.Owner() {
+		if owner == namespace {
+			return true
+		}
+	}
+	return false
+}
+
 func referenceTargetNode(sym *symbols.Symbol) ast.Node {
 	if usage := caseUsage(sym); usage != nil {
 		if reference := usage.ReferenceSubsetting(); reference != nil {
@@ -543,6 +553,22 @@ func (w *mixedWalk) referenceEdges() {
 			}
 			if target := w.r.model.RelationshipTarget(sym, rel); target != nil {
 				add(sym, target, EdgeSpecialization, "", sym, nil)
+			}
+		}
+		if kind, ref, ok := statedReference(sym); ok && sym.Owner() != nil {
+			if target, resolved := w.r.resolveEnd(sym.OwnerScope, ref); resolved {
+				add(sym.Owner(), target, kind, "«"+kind.String()+"»", sym, ref)
+			}
+		}
+		if semantics.IsView(sym) && sym.Scope != nil {
+			for _, imp := range sym.Scope.Imports() {
+				if imp == nil || !imp.IsExpose || imp.Imported == nil {
+					continue
+				}
+				// A view exposing a namespace it is nested in is shown by the nesting.
+				if target, resolved := w.r.resolver.ImportTarget(sym.Scope, imp); resolved && target != nil && !ownedWithin(sym, target) {
+					add(sym, target, EdgeExpose, exposeLabel(imp), sym, imp.Imported)
+				}
 			}
 		}
 		if specialLabel != "" {

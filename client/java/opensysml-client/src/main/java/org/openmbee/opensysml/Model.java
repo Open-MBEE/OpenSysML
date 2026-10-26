@@ -1237,11 +1237,15 @@ public final class Model {
    * @return the elements selected, each with the properties asked for
    * @throws ServiceException if the service does not hold this model, or the query names an unknown
    *     scope or property, or leaves a comparison's operator unset
-   * @throws CapabilityException if the service does not advertise {@code query}
+   * @throws CapabilityException if the service does not advertise {@code query}, or
+   *     {@code query_order_by} when the query has an {@code orderBy}
    */
   public List<QueryElement> query(Query query) {
     Objects.requireNonNull(query, "query");
     connection.capabilities().require(Capabilities.QUERY);
+    if (!query.orderBy().isEmpty()) {
+      connection.capabilities().require(Capabilities.QUERY_ORDER_BY);
+    }
     return selected(QueryRequest.newBuilder().setModelHash(hash).setQuery(Protos.proto(query)));
   }
 

@@ -34,3 +34,22 @@ part def Vehicle
     part subcomponents
       attribute mass
   connect
+
+relationships:
+  Vehicle o-- mass
+  Vehicle o-- telemetry
+  Vehicle *-- stage1
+  Vehicle *-- stage2
+  Vehicle *-- subcomponents
+  stage1 o-- propellantMass
+  stage1 o-- status
+  stage1 *-- engines
+  stage1 *-- subcomponents
+  stage1 o-- mass
+  stage2 o-- propellantMass
+  stage2 o-- status
+  stage2 *-- engines
+  stage2 *-- subcomponents
+  stage2 o-- mass
+  subcomponents o-- mass
+  subcomponents *-- subcomponents

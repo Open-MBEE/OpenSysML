@@ -56,7 +56,7 @@ func TestRunTradeStudyTrainingExample(t *testing.T) {
 		"sysml: analysis run failed: analysis Trade Study Analysis Example::engineTradeStudy",
 		"objective tradeStudyObjective: undecided",
 		"evaluationFunction(Trade Study Analysis Example::engine4cyl (object #1)): error:",
-		"no result expression: calc Trade Study Analysis Example::engineTradeStudy::evaluationFunction::powerRollup has no return expression")
+		"no value: calc Trade Study Analysis Example::engineTradeStudy::evaluationFunction::powerRollup has no return expression")
 }
 
 // TestRunTradeStudyPilotSimpleTest runs the pilot's TradeStudyTest, whose
@@ -70,7 +70,7 @@ func TestRunTradeStudyPilotSimpleTest(t *testing.T) {
 	wantReport(t, got, 2,
 		"sysml: analysis run failed: analysis TradeStudyTest::engineTradeStudy",
 		"objective tradeStudyObjective: undecided",
-		"evaluationFunction(TradeStudyTest::engine1 (object #1)): error: no result expression: calc TradeStudyTest::engineTradeStudy::evaluationFunction has no return expression")
+		"evaluationFunction(TradeStudyTest::engine1 (object #1)): error: no value: calc TradeStudyTest::engineTradeStudy::evaluationFunction has no return expression")
 }
 
 // TestRunTradeStudyPilotTradeOff runs the pilot validation model whose subject
@@ -86,5 +86,5 @@ func TestRunTradeStudyPilotTradeOff(t *testing.T) {
 		"sysml: analysis run failed: analysis 10b-Trade-off Among Alternative Configurations::Analysis::engineTradeStudy",
 		"objective tradeStudyObjective: undecided",
 		"evaluationFunction(4cylEngine (Instance ID: 1)): error:",
-		"no result expression: calc 10b-Trade-off Among Alternative Configurations::Analysis::engineTradeStudy::evaluationFunction::powerRollup has no return expression")
+		"no value: calc 10b-Trade-off Among Alternative Configurations::Analysis::engineTradeStudy::evaluationFunction::powerRollup has no return expression")
 }

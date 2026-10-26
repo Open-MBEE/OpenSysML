@@ -56,6 +56,7 @@ from opensysml.capabilities import (
     CAPABILITY_SELF_CHECK,
     CAPABILITY_STATE_TRACE,
     CAPABILITY_QUERY,
+    CAPABILITY_QUERY_ORDER_BY,
     CAPABILITY_RENDER_DOCUMENT,
     CAPABILITY_RENDER_DOCUMENT_HTML,
     CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
@@ -1792,7 +1793,8 @@ class Connection:
             )
         return result_of(response)
 
-    def query(self, model_hash, payload=None, scope=None, select=None, where=None):
+    def query(self, model_hash, payload=None, scope=None, select=None, where=None,
+              order_by=None):
         """Run a SysML v2 API & Services Query over a loaded model.
 
         The query is the standard's JSON object, so a cookbook payload works
@@ -1804,27 +1806,29 @@ class Connection:
             scope (list, optional): Elements to consider; empty is the whole model
             select (list, optional): Properties to report; empty reports every one
             where (dict, optional): Constraint to filter by
+            order_by (list, optional): Properties to sort by, in order of
+                precedence, each ascending; empty keeps declaration order
 
         Returns:
-            list[QueryElement]: The elements selected, in declaration order
+            list[QueryElement]: The elements selected, in ``order_by`` order,
+            or declaration order without one
 
         Raises:
             QueryError: If the query is not one the standard's model describes
-            MissingCapabilityError: If the service cannot query
+            MissingCapabilityError: If the service cannot query, or cannot sort
+                and the query has an ``orderBy``
             InvalidRequestError: If a property or scope is unknown to the service
             ModelNotFoundError: If the model is no longer cached
         """
-        require(
-            self.server_info(),
-            CAPABILITY_QUERY,
-            upgrade_remedy(CAPABILITY_QUERY),
-        )
-        request = sysml_pb2.QueryRequest(
-            model_hash=model_hash,
-            query=build_query(payload, scope=scope, select=select, where=where),
-        )
+        query = build_query(payload, scope=scope, select=select, where=where,
+                            order_by=order_by)
+        needed = (CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY) if query.order_by \
+            else (CAPABILITY_QUERY,)
+        for capability in needed:
+            require(self.server_info(), capability, upgrade_remedy(capability))
+        request = sysml_pb2.QueryRequest(model_hash=model_hash, query=query)
         with translate_rpc_errors(
-            unimplemented=self._capability_refusal((CAPABILITY_QUERY,))
+            unimplemented=self._capability_refusal(needed)
         ):
             response = self._stub.Query(request)
         return elements_of(response)

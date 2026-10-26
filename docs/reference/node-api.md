@@ -246,7 +246,8 @@ Beside the model reads above, the client covers every RPC the service offers:
   when asked, `byVerdict(verdict)`), `results` and the image `files`, which
   `save(migration, path)` writes beside the notation; a v2 `fromFormat` is refused
   with a pointer at `convert`;
-- **`model.query`** (OSLC or structured), **`model.runDocumentQuery`** with
+- **`model.query`** (OSLC or structured, with `scope`, `select`, `where` — all seven
+  `PrimitiveConstraint` operators — and `orderBy`), **`model.runDocumentQuery`** with
   `ElementRef`/`ObjectRef` bindings, **`model.renderDocument`** to Markdown or
   HTML, and **`model.renderView`** for typed view data with minimal or full ports
   and the optional notation elements to `show` (its `shown` lists those drawn);

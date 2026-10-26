@@ -72,6 +72,9 @@ For signature verification with cosign, see the [install guide](guide/01-install
 ## Package managers
 
 - **Python:** [`opensysml` on PyPI](https://pypi.org/project/opensysml/) — `pip install opensysml`.
+- **Apache Airflow:** [`airflow-provider-opensysml`](https://github.com/Open-MBEE/airflow-provider-opensysml)
+  — `pip install airflow-provider-opensysml`, released on the provider's own tags
+  ([Airflow provider](reference/airflow-provider.md)).
 - **Node:** [`@openmbee/opensysml` on npm](https://www.npmjs.com/package/@openmbee/opensysml) —
   `npm install @openmbee/opensysml`; its per-platform packages carry `sysml-grpc`.
 - **Rust:** [`opensysml` on crates.io](https://crates.io/crates/opensysml) —

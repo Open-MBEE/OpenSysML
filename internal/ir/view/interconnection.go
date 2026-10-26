@@ -483,6 +483,9 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol, within *Node) {
 	r, out := w.r, w.out
 	label := r.connectorLabel(connector)
 	ends, kind := r.connectorEnds(connector)
+	if kind == EdgeSuccessionFlow {
+		label = successionFlowLabel(label)
+	}
 	if len(ends) < 2 {
 		out.Notices = append(out.Notices, fmt.Sprintf("%s %s joins fewer than two features; no edge is drawn",
 			declKind(connector), r.notationName(connector)))
@@ -599,8 +602,12 @@ func (r *Renderer) connectorEnds(connector *symbols.Symbol) ([]connectorEnd, Edg
 	}
 	if isFlowUsage(connector) {
 		usage, _ := connector.Decl.(*ast.Usage)
+		kind := EdgeFlow
+		if usage != nil && usage.IsSuccessionFlow() {
+			kind = EdgeSuccessionFlow
+		}
 		if usage == nil || usage.FlowEnds == nil {
-			return nil, EdgeFlow
+			return nil, kind
 		}
 		var out []connectorEnd
 		for _, end := range []ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
@@ -610,7 +617,7 @@ func (r *Renderer) connectorEnds(connector *symbols.Symbol) ([]connectorEnd, Edg
 			feature := ast.EndTarget(end)
 			out = append(out, connectorEnd{attachment: feature, path: lower.FeaturePath(feature)})
 		}
-		return out, EdgeFlow
+		return out, kind
 	}
 	var out []connectorEnd
 	for _, att := range r.model.ConnectorEndAttachments(connector) {

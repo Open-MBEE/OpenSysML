@@ -119,7 +119,8 @@ suite runs as it does on the tag: the protobuf schema is compared against the
 previous release rather than the branch's first parent, the binaries are built
 with the tag as their version, and the hygiene test that requires every
 released version to have its digests pinned exempts the release being built
-(a local tag with no `CIRCLE_TAG` reads as a release that is already out).
+(a local tag with no `CIRCLE_TAG` on a commit past the tagged one reads as a
+release that is already out).
 
 Trigger it from the CircleCI UI with *Trigger pipeline*: choose the release
 branch for both the config and the checkout source, then add the boolean
@@ -544,7 +545,9 @@ one alongside it).
    missing pull request means the job failed — read its log; the token is the
    usual cause, see [Pinned release digests](#pinned-release-digests) — and
    until the pin lands, `tests/hygiene` fails the next release branch rather
-   than this one.
+   than this one. `main` sits on the tagged commit, which cannot hold its own
+   pin, so the test exempts it there; the pin reaches `main` with the next
+   release.
 
 6. **Let the Homebrew tap pick the release up.** The tap repository
    `Open-MBEE/homebrew-tap` updates itself: a scheduled workflow there resolves
@@ -1843,8 +1846,12 @@ next core patch release.
 
 Every release tag also lists [`sysml-mcp`](../reference/sysml-mcp.md) in the official
 [MCP Registry](https://registry.modelcontextprotocol.io) as `org.opensysml/sysml-mcp`, so hosts
-and galleries that read the registry (the GitHub MCP Registry, VS Code's *Browse MCP Servers*,
-third-party directories) find it. The registry holds metadata only: `packaging/mcp/server.json`
+and directories that read the registry find it. The [GitHub MCP Registry](https://github.com/mcp),
+which VS Code's *Browse MCP Servers* and Copilot read, is a curated selection of the official one:
+GitHub onboards a server by hand, on a request in the onboarding thread
+[github/github-mcp-server#1257](https://github.com/github/github-mcp-server/discussions/1257),
+and syncs its later versions from the official registry afterwards, so onboarding is asked for
+once, not per release. The registry holds metadata only: `packaging/mcp/server.json`
 names the npm package `@openmbee/sysml-mcp`, whose `package.json` declares
 `"mcpName": "org.opensysml/sysml-mcp"` and which `npx -y @openmbee/sysml-mcp` runs. The
 workflow `.github/workflows/mcp-registry.yml` runs on the tag, and

@@ -1,0 +1,16 @@
+// view: NotationGlyphs::Diagrams::requirementGlyphs
+// kind: requirement
+// stated: view def GeneralView, filter @RequirementDefinition or @RequirementUsage
+// layout: dot
+digraph "NotationGlyphs::Diagrams::requirementGlyphs" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<font point-size="10"><i>«requirement def»</i></font><br/><b>LevelReq</b>>];
+  "n1" [style="rounded,filled", label=<<font point-size="10"><i>«requirement»</i></font><br/><b>levelReq</b>>];
+  "n2" [style="rounded,filled", label=<<font point-size="10"><i>«requirement»</i></font><br/><b>capacity</b>>];
+  "n3" [style="rounded,filled", label=<<font point-size="10"><i>«concern»</i></font><br/><b>safety</b><br/>“Nothing overflows.”>];
+  "n0" -> "n3" [label="frame", arrowhead=vee];
+  "n1" -> "n0" [arrowhead=onormaldotdot];
+  "n2" -> "n1" [label="require", arrowhead=vee];
+}

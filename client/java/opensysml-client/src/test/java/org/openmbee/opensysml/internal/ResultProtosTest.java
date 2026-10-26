@@ -436,6 +436,38 @@ class ResultProtosTest {
   }
 
   @Test
+  void aQueryWritesEveryStandardOperatorAndItsOrdering() {
+    Query query =
+        Query.all()
+            .orderBy(List.of("@type", "name"))
+            .where(
+                Condition.any(
+                    List.of(
+                        Condition.greaterOrEqual("multiplicityLower", "4"),
+                        Condition.lessOrEqual("multiplicityUpper", "2"),
+                        Condition.in("@type", List.of("PartUsage", "AttributeUsage")),
+                        Condition.instanceOf(List.of("Usage", "Definition")))));
+    org.openmbee.opensysml.proto.Query wire = Protos.proto(query);
+    assertEquals(List.of("@type", "name"), wire.getOrderByList());
+    var any = wire.getWhere().getComposite();
+    assertEquals(
+        PrimitiveOperator.PRIMITIVE_OPERATOR_GREATER_EQUAL,
+        any.getConstraint(0).getPrimitive().getOperator());
+    assertEquals(
+        PrimitiveOperator.PRIMITIVE_OPERATOR_LESS_EQUAL,
+        any.getConstraint(1).getPrimitive().getOperator());
+    assertEquals(PrimitiveOperator.PRIMITIVE_OPERATOR_IN, any.getConstraint(2).getPrimitive().getOperator());
+    assertEquals(
+        List.of("PartUsage", "AttributeUsage"), any.getConstraint(2).getPrimitive().getValueList());
+    var instanceOf = any.getConstraint(3).getPrimitive();
+    assertEquals(PrimitiveOperator.PRIMITIVE_OPERATOR_INSTANCE_OF, instanceOf.getOperator());
+    assertEquals("@type", instanceOf.getProperty());
+    assertEquals(List.of("Usage", "Definition"), instanceOf.getValueList());
+    assertEquals(List.of(), Protos.proto(Query.all()).getOrderByList());
+    assertEquals(query, query.withScope(List.of()));
+  }
+
+  @Test
   void queryElementsKeepTheirIdsTypesAndSelectedProperties() {
     List<QueryElement> elements =
         Protos.queryElements(

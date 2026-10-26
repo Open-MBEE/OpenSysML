@@ -8,3 +8,11 @@ part vehicle
   part tank at (240, 40)
     port 'out'
   connect
+
+relationships:
+  vehicle *-- wheel
+  vehicle *-- engine
+  vehicle *-- tank
+  wheel *-- hub
+  engine o-- fuelIn
+  tank o-- 'out'

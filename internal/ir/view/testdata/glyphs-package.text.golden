@@ -1,0 +1,10 @@
+NotationGlyphs::Diagrams::packageGlyphs - package rendering (view def GeneralView, filter @Package)
+
+package NotationGlyphs
+package Lib
+package Uses
+
+relationships:
+  NotationGlyphs +-- Lib
+  NotationGlyphs +-- Uses
+  Uses 0-- Lib: L

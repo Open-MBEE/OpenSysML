@@ -1,0 +1,27 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::probe",
+  "outputs": {
+    "opPlusNull": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+    "fnPlusNull": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]},
+    "opMinusNull": {"type": "Sequence", "elements": [{"type": "Integer", "value": -3}]},
+    "fnMinusNull": {"type": "Sequence", "elements": [{"type": "Integer", "value": -3}]},
+    "opMinusEmpty": {"type": "Sequence", "elements": [{"type": "Integer", "value": -3}]},
+    "fnMinusEmpty": {"type": "Sequence", "elements": [{"type": "Integer", "value": -3}]},
+    "opMinusFeature": {"type": "Sequence", "elements": [{"type": "Integer", "value": -5}]},
+    "opNaturalPlus": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
+    "opRationalMinus": {"type": "Sequence", "elements": [{"type": "Rational", "value": "-0.75"}]},
+    "opRealMinus": {"type": "Sequence", "elements": [{"type": "Real", "value": -1.5}]},
+    "opRealPlusFn": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.5}]}
+  },
+  "reads": {
+    "test::nullPlus": {"error": "type mismatch: operator '+' is not defined for null and an Integer"},
+    "test::fnNullPlus": {"error": "multiplicity violation: function NumericalFunctions::'+' parameter \"x\" holds 0 values, exactly 1 required"},
+    "test::timesNull": {"error": "type mismatch: operator '*' is not defined for an Integer and null"},
+    "test::divNull": {"error": "type mismatch: operator '/' is not defined for an Integer and null"},
+    "test::modNull": {"error": "type mismatch: operator '%' is not defined for an Integer and null"},
+    "test::powNull": {"error": "type mismatch: operator '**' is not defined for an Integer and null"},
+    "test::lessNull": {"error": "type mismatch: operator '<' is not defined for an Integer and null; DataFunctions::'<' takes one DataValue per operand"}
+  }
+}

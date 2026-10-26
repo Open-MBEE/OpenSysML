@@ -300,9 +300,11 @@ func TestCompiledCalcErrorParity(t *testing.T) {
 	if tooMany.err == nil {
 		t.Fatal("Neg(1, 2) succeeded")
 	}
-	tooFew := wantSameOutcome(t, "Add", intArg(1))
+	// `in b : Integer` admits no value, and `+` with `y` omitted is the unary sign.
+	wantOutcomeInt(t, "Add(1)", wantSameOutcome(t, "Add", intArg(1)), 1)
+	tooFew := wantSameOutcome(t, "Mul", intArg(1))
 	if tooFew.err == nil {
-		t.Fatal("Add(1) succeeded")
+		t.Fatal("Mul(1) succeeded")
 	}
 }
 

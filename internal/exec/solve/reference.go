@@ -231,11 +231,12 @@ func (t *translator) variableOf(
 	}
 	// Every step a chain reads through must hold one value, since a variable
 	// stands for one: `a.pressure` reads a pressure per `a` when `a` holds many.
+	// A variation point stands for its one selection whatever it redefines.
 	for _, step := range chain {
-		if !featureDecl(step) {
+		if !featureDecl(step) || t.model.IsVariationFeature(step) {
 			continue
 		}
-		if !singleValued(t.model.EffectiveMultiplicityOf(step)) {
+		if stated, ok := t.model.StatedMultiplicityOf(step); ok && !singleValued(stated) {
 			return nil, t.refuse(node, written, "it may hold more than one value")
 		}
 	}

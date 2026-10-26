@@ -76,6 +76,10 @@ const CapabilityVerificationArguments = "verification_arguments"
 // SysML v2 API & Services Query over a parsed model.
 const CapabilityQuery = "query"
 
+// CapabilityQueryOrderBy names the capability of Query's order_by field, which
+// sorts the matched elements; a service without it would ignore the field.
+const CapabilityQueryOrderBy = "query_order_by"
+
 // CapabilityDocumentQuery names the capability of the RunDocumentQuery RPC,
 // which runs a named document query and answers with typed rows.
 const CapabilityDocumentQuery = "document_query"
@@ -360,6 +364,7 @@ var capabilities = []string{
 	CapabilityTransitionAuthoring,
 	CapabilityVerificationQuestions,
 	CapabilityVerificationArguments,
+	CapabilityQueryOrderBy,
 	CapabilityVerificationObjectiveAuthoring,
 	CapabilityRuns,
 	CapabilitySelfCheck,

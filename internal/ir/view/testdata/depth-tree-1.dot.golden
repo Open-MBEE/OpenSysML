@@ -9,11 +9,11 @@ digraph "DepthViews::depth1" {
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   "n0" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>vehicle</b>>];
   "n1" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
-  "n0" -> "n1" [arrowhead=none];
   "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>wheel</b><br/>nested deeper than 1 level; not shown>];
-  "n0" -> "n2" [arrowhead=none];
   "n3" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>engine</b><br/>nested deeper than 1 level; not shown>];
   "n4" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>fuelIn</b>>];
-  "n3" -> "n4" [arrowhead=none];
-  "n0" -> "n3" [arrowhead=none];
+  "n0" -> "n1" [dir=back, arrowtail=odiamond];
+  "n0" -> "n2" [dir=back, arrowtail=diamond];
+  "n0" -> "n3" [dir=back, arrowtail=diamond];
+  "n3" -> "n4" [dir=back, arrowtail=odiamond];
 }

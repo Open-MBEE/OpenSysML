@@ -672,7 +672,7 @@ about, met at the point of use:
 ```
 
 ```
-sysml: calc invocation failed: calc CalculationsPackage::calculateDeltaV: evaluating the returned expression: no result expression: calc CoSMAQuantitiesAndUnitsPackage::naturalLogarithm has no return expression: the result parameter binds no value; write the result as the trailing expression of the body, or bind it with `return : DataValue = <expr>;`
+sysml: calc invocation failed: calc CalculationsPackage::calculateDeltaV: evaluating the returned expression: no value: calc CoSMAQuantitiesAndUnitsPackage::naturalLogarithm has no return expression: the result parameter binds no value; write the result as the trailing expression of the body, or bind it with `return : DataValue = <expr>;`
   standing: not covered (…)
 ```
 

@@ -49,29 +49,20 @@ func (d Discovery) Dependencies(files []string, known func(name string) bool) []
 	return d.DependenciesOf(sources, known)
 }
 
-// DependenciesOf is Dependencies over sources already read, so a notebook's
-// cells, or a file converted from another notation, are searched from as the
+// DependenciesOf is Dependencies over sources already read, searched from the
+// directories their paths lie in — an archive member's, the archive — for the
 // model text they load as. Standard input contributes nothing.
 func (d Discovery) DependenciesOf(sources []Source, known func(name string) bool) []string {
 	loaded := map[string]bool{}
 	declared := map[string]bool{}
 	wanted := map[string]bool{}
-	var dirs []string
-	seenDir := map[string]bool{}
+	paths := make([]string, 0, len(sources))
 	for _, src := range sources {
 		if IsStdin(src.Path) {
 			continue
 		}
+		paths = append(paths, src.Path)
 		loaded[absKey(src.Path)] = true
-		// An archive member's siblings are the archive's other members.
-		dir := filepath.Dir(src.Path)
-		if archive, _, ok := SplitMemberPath(src.Path); ok {
-			dir = archive
-		}
-		if key := absKey(dir); !seenDir[key] {
-			seenDir[key] = true
-			dirs = append(dirs, dir)
-		}
 		summarizeContent(src.Path, src.Content).contribute(declared, wanted)
 	}
 	prune(wanted, declared, known)
@@ -79,7 +70,7 @@ func (d Discovery) DependenciesOf(sources []Source, known func(name string) bool
 		return nil
 	}
 
-	files, archives := d.searchSpace(dirs)
+	files, archives := d.searchSpace(d.searchDirs(paths))
 	byRoot := rootIndex(files, archives, loaded, d.Guard)
 	var out []string
 	for len(wanted) > 0 {
@@ -102,6 +93,61 @@ func (d Discovery) DependenciesOf(sources []Source, known func(name string) bool
 		prune(wanted, declared, known)
 	}
 	return out
+}
+
+// Declaring returns, for each name, the model files beside and below paths
+// and in the projects around them that declare it at their root namespace,
+// sorted by path and leaving out paths themselves and the files exclude
+// admits — those a session already holds. A name no file declares is absent
+// from the result; a file the guard refuses declares nothing.
+func (d Discovery) Declaring(paths []string, names []string, exclude func(path string) bool) map[string][]string {
+	if len(names) == 0 {
+		return nil
+	}
+	loaded := make(map[string]bool, len(paths))
+	for _, path := range paths {
+		loaded[absKey(path)] = true
+	}
+	files, archives := d.searchSpace(d.searchDirs(paths))
+	byRoot := rootIndex(files, archives, loaded, d.Guard)
+	found := map[string][]string{}
+	for _, name := range names {
+		if _, done := found[name]; done {
+			continue
+		}
+		for _, dep := range byRoot[name] {
+			if exclude == nil || !exclude(dep.path) {
+				found[name] = append(found[name], dep.path)
+			}
+		}
+		sort.Strings(found[name])
+		if len(found[name]) == 0 {
+			delete(found, name)
+		}
+	}
+	return found
+}
+
+// searchDirs is the directories the files at paths lie in — an archive
+// member's, the archive — from which searchSpace reaches the project each
+// belongs to and the projects it uses. Standard input lies nowhere.
+func (d Discovery) searchDirs(paths []string) []string {
+	var dirs []string
+	seen := map[string]bool{}
+	for _, path := range paths {
+		if IsStdin(path) {
+			continue
+		}
+		dir := filepath.Dir(path)
+		if archive, _, ok := SplitMemberPath(path); ok {
+			dir = archive
+		}
+		if key := absKey(dir); !seen[key] {
+			seen[key] = true
+			dirs = append(dirs, dir)
+		}
+	}
+	return dirs
 }
 
 // prune drops from wanted every name a loaded file or another source declares.

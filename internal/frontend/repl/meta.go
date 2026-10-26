@@ -1373,12 +1373,14 @@ func (s *Session) evalWithoutDeclarations(ctx *runtime.Context, expr string) (ev
 const noDeclarationsLoaded = "no declarations loaded (literals work, but feature references need declarations)"
 
 // declarationsWouldAnswer reports whether err is a failure declarations would
-// answer — a name, a unit or a value nothing declares — rather than the answer
-// of the expression itself.
+// answer — a name, a unit or a feature's value nothing declares — rather than
+// the answer of the expression itself. A result the expression's own body never
+// binds is also no value, but one no declaration would supply.
 func declarationsWouldAnswer(err error) bool {
+	var noValue *runtime.NoValueError
 	return errors.Is(err, runtime.ErrUnresolvedReference) ||
 		errors.Is(err, semantics.ErrNotAUnit) ||
-		errors.Is(err, runtime.ErrNoValue)
+		errors.As(err, &noValue)
 }
 
 // evalError reports an evaluation failure, giving one that carries the span of

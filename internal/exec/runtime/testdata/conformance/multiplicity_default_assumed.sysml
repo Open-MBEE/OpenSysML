@@ -1,6 +1,7 @@
-// A feature that declares no multiplicity holds exactly one value, so a default
-// of one value is held and one of several is reported — as it is for a feature
-// that writes that bound out as `[1]`.
+// An attribute or part usage owned by a definition, with no owned subsetting or
+// redefinition and no declared multiplicity, has the implicit [1..1] (SysML v2
+// §7.6.3), so a default of one value is held and one of several is reported — as
+// it is for a feature that writes that bound out as `[1]`.
 package test {
 	private import ScalarValues::Real;
 
