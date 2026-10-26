@@ -804,10 +804,10 @@ func (ctx *Context) checkDefault(inst *Instance, fv *FeatureValue, name string, 
 	return ctx.checkAdmits(fv.Feature, what, val, how)
 }
 
-// checkAdmits reports a value the feature does not admit, by count, by type
-// or by uniqueness, naming the value as what spells it.
+// checkAdmits reports a value the feature does not admit, by count where a
+// multiplicity is stated for it, by type or by uniqueness, naming the value as what spells it.
 func (ctx *Context) checkAdmits(feat *EffectiveFeature, what func() string, val *Value, how admission) error {
-	if msg := feat.Multiplicity.HeldViolation(heldCountOf(val)); msg != "" {
+	if msg := feat.Multiplicity.HeldViolation(heldCountOf(val)); msg != "" && !feat.MultiplicityDefaulted {
 		return fmt.Errorf("%s: %w: %s", what(), ErrMultiplicityViolation, msg)
 	}
 	if err := ctx.checkWriteType(feat.DeclScope(), what, feat.Type, val, how); err != nil {

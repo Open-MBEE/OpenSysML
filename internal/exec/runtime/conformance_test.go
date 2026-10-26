@@ -291,7 +291,7 @@ type ObjectRun struct {
 }
 
 // TestExecutionConformance runs all behavioral execution conformance tests.
-// Each case consists of <name>.sysml and <name>.expected.json.
+// Each case consists of <name>.sysml (or <name>.kerml) and <name>.expected.json.
 // Cases listed in known_failures.txt are skipped with SKIP log.
 func TestExecutionConformance(t *testing.T) {
 	conformanceDir := filepath.Join("testdata", "conformance")
@@ -420,8 +420,8 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 }
 
 func runConformanceCaseWithOwned(t *testing.T, conformanceDir, caseName string, policy SchedulePolicy, forceOwned bool) {
-	// Load .sysml file
-	sysmlPath := filepath.Join(conformanceDir, caseName+".sysml")
+	// Load the model, .sysml or .kerml
+	sysmlPath := fixtures.ModelPath(conformanceDir, caseName)
 	sysmlData, err := os.ReadFile(sysmlPath)
 	if err != nil {
 		t.Fatalf("failed to read %s: %v", sysmlPath, err)
@@ -596,7 +596,7 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 	if len(expected.Outcomes) == 0 {
 		if len(exploration.BudgetsHit) > 0 {
 			t.Errorf("exploration %s under %s; raise the budget in %s with \"exploreBudget\": {\"runs\": N, \"depth\": D}",
-				exploration.Status(), policy, filepath.Base(strings.TrimSuffix(path, ".sysml"))+".expected.json")
+				exploration.Status(), policy, filepath.Base(strings.TrimSuffix(path, filepath.Ext(path)))+".expected.json")
 		}
 		return
 	}
@@ -668,7 +668,7 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 	}
 	if len(exploration.BudgetsHit) > 0 {
 		t.Errorf("exploration %s under %s; raise the budget in %s with \"exploreBudget\": {\"runs\": N, \"depth\": D}",
-			exploration.Status(), policy, filepath.Base(strings.TrimSuffix(path, ".sysml"))+".expected.json")
+			exploration.Status(), policy, filepath.Base(strings.TrimSuffix(path, filepath.Ext(path)))+".expected.json")
 	}
 }
 
