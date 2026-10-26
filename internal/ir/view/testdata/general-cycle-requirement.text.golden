@@ -4,8 +4,8 @@ requirement primary
 requirement secondary
 
 relationships:
-  secondary ..> primary: derive
-  primary ..> secondary: derive
+  secondary ..> primary: «derive»
+  primary ..> secondary: «derive»
 
 not represented:
   - 2 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements

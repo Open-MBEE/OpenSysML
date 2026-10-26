@@ -400,7 +400,9 @@ func TestPickInstalledHonoursTheVersionInTheResourceIRI(t *testing.T) {
 	v1 := &Interchange{Dir: "v1", Publisher: "acme", Name: "gears", Version: "1.0.0"}
 	v2 := &Interchange{Dir: "v2", Publisher: "acme", Name: "gears", Version: "2.0.0"}
 	installed := []*Interchange{v1, v2}
-	for _, resource := range []string{"pkg:r/acme/gears@1.0.0", "pkg:r/acme/gears@v1.0.0", "pkg:r/acme/gears@1.0.0/", "pkg:r/acme/gears@1.0.0#sub", "pkg:r/acme/gears@1.0.0?q=1", "pkg:r/acme/gears@1.0.0%2Bbuild"} {
+	// A fragment names a sub-package ("@1.0.0#sub" would select a project named
+	// sub); see TestUsesMatchesASubpathUsageToTheProjectTheFragmentNames.
+	for _, resource := range []string{"pkg:r/acme/gears@1.0.0", "pkg:r/acme/gears@v1.0.0", "pkg:r/acme/gears@1.0.0/", "pkg:r/acme/gears@1.0.0?q=1", "pkg:r/acme/gears@1.0.0%2Bbuild"} {
 		if got := pickInstalled(installed, Usage{Resource: resource}); resource != "pkg:r/acme/gears@1.0.0%2Bbuild" && got != v1 {
 			t.Errorf("%s picked %v, want 1.0.0", resource, got)
 		} else if resource == "pkg:r/acme/gears@1.0.0%2Bbuild" && got != v2 {

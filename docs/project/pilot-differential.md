@@ -255,9 +255,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 16 | 0 | 0 | 0 | 16 | 0 |
 | `examples/spec-examples` | 511 | 151 | 1091 | 3395 | 1038 | 6 | 47 | 2351 |
 | `tests/testdata` | 40 | 25 | 78 | 101 | 60 | 5 | 13 | 36 |
-| `examples` | 52 | 45 | 8 | 61 | 0 | 0 | 8 | 61 |
+| `examples` | 52 | 45 | 8 | 63 | 0 | 0 | 8 | 63 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **920** | **521** | **1468** | **3557** | **1098** | **11** | **359** | **2448** |
+| **Total** | **920** | **521** | **1468** | **3559** | **1098** | **11** | **359** | **2450** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -307,7 +307,7 @@ Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-exam
 1 `unresolved-reference`, 2 `multiplicity`; `examples` 5
 `unmapped`, 1 `kind-mismatch`, 2 `multiplicity`; `probes` 6 `unmapped`; `spec-examples` 7 `syntax`,
 38 `unresolved-reference`, 2 `unmapped`. Only-pilot: `testdata` 14 `kind-mismatch`, 17 `unmapped`,
-3 `syntax`, 2 `unresolved-reference`; `examples` 23 `unmapped`, 38 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
+3 `syntax`, 2 `unresolved-reference`; `examples` 23 `unmapped`, 40 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
 586 `kind-mismatch`, 196 `syntax`, 156 `unresolved-reference`, 50 `multiplicity`, 4 `units`.
 
 The `spec-examples` figures are dominated by fragments: the specification's examples leave
@@ -977,8 +977,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **2448** |
-| pilot diagnostics | 123 | **3557** |
+| only pilot | 82 | **2450** |
+| pilot diagnostics | 123 | **3559** |
 | severity-only | 9 | **11** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -1203,13 +1203,13 @@ page's history.
 | Count | Now |
 |---|---:|
 | overall: fully agreeing / only ours / our diagnostics | **521 / 359 / 1468** |
-| only pilot | **2448** |
-| pilot diagnostics | **3557** |
+| only pilot | **2450** |
+| pilot diagnostics | **3559** |
 | severity-only | **11** |
 | unmapped, our side | **288** |
 | kerml-examples: only ours | **16** |
 | pilot-examples: only ours | **257** |
-| examples: only pilot | **61** |
+| examples: only pilot | **63** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
 only-pilot, with 56 of 58 files fully agreeing (439 / 6 and 10 / 58 when the root was added, and

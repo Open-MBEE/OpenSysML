@@ -31,8 +31,8 @@ part rocket
 
 connections:
   stage1.status -- rocket.telemetry
-  subcomponents == engines
-  subcomponents == engines
+  subcomponents == engines: =
+  subcomponents == engines: =
 
 not represented:
   - 4 elements nested deeper than 3 levels not shown

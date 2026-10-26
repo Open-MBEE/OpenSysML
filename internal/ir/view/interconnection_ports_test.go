@@ -123,7 +123,7 @@ func TestTypedPartsPinTheirDefinitionsPorts(t *testing.T) {
 			t.Errorf("DOT lacks the edge at the ports %q:\n%s", want, dot)
 		}
 	}
-	for _, want := range []string{"n2.0 -[thickness=3]- n1.0 : durationInterface", "n2.0 -[dashed]-> n1.0 : of Real", "port \"durationIn\" as n1.0"} {
+	for _, want := range []string{"n2.0 -[thickness=3]- n1.0 : durationInterface", "n2.0 --> n1.0 : of Real", "port \"durationIn\" as n1.0"} {
 		if !strings.Contains(plantuml, want) {
 			t.Errorf("PlantUML lacks %q:\n%s", want, plantuml)
 		}
@@ -182,7 +182,7 @@ func TestTheFullDisplayTypesThePins(t *testing.T) {
 			t.Errorf("DOT lacks the edge at the ports %q:\n%s", want, dot)
 		}
 	}
-	for _, want := range []string{"n2.0 -[thickness=3]- n1.0 : durationInterface", "n2.0 -[dashed]-> n1.0 : of Real",
+	for _, want := range []string{"n2.0 -[thickness=3]- n1.0 : durationInterface", "n2.0 --> n1.0 : of Real",
 		"port \"durationIn : <U+007E>DurationPort\" as n1.0"} {
 		if !strings.Contains(plantuml, want) {
 			t.Errorf("PlantUML lacks %q:\n%s", want, plantuml)

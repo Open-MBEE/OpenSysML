@@ -182,6 +182,27 @@ func TestSplitMemberPath(t *testing.T) {
 	}
 }
 
+// An archived project's members under a directory holding a project
+// interchange file of its own belong to that nested project, not to the
+// archive's: they are left out as a directory's are.
+func TestArchiveFilesStopAtAProjectNestedInIt(t *testing.T) {
+	a, err := ParseArchive("lib/widgets.kpar", zipOf(t,
+		[2]string{".project.json", `{"name": "Widgets", "version": "1.0.0"}`},
+		[2]string{".meta.json", `{"index": {"Widgets": "Widgets.sysml"}, "created": "2026-01-01T00:00:00Z", "checksum": {}}`},
+		[2]string{"Widgets.sysml", "package Widgets;\n"},
+		[2]string{"packages/gears/.project.json", `{"name": "Gears", "version": "1.0.0"}`},
+		[2]string{"packages/gears/Gears.sysml", "package Gears;\n"},
+		[2]string{"packages/sprockets/Sprockets.sysml", "package Sprockets;\n"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := a.Files()
+	want := []string{"lib/widgets.kpar/Widgets.sysml", "lib/widgets.kpar/packages/sprockets/Sprockets.sysml"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("Files() = %q, want %q", got, want)
+	}
+}
+
 func TestParseMetaReadsBothChecksumShapes(t *testing.T) {
 	const object = `{"index": {}, "created": "2026-01-01T00:00:00Z", "checksum": {"A.sysml": {"value": "00", "algorithm": "SHA256"}}}`
 	const list = `{"index": {}, "created": "2026-01-01T00:00:00Z", "checksum": {"A.sysml": [{"value": "00", "algorithm": "SHA256"}, {"value": "11", "algorithm": "MD5"}]}}`

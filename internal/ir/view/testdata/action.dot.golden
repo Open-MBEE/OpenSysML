@@ -28,17 +28,17 @@ digraph "FlowViews::driveView" {
     "n10" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>park</b>>];
     "n11" [label=<<font point-size="10"><i>«decision»</i></font><br/><b>check</b>>];
   }
-  "n4" -> "n5";
-  "n1" -> "n7";
-  "n2" -> "n8";
-  "n2" -> "n3" [style=dashed, lhead="cluster_n3"];
-  "n3" -> "n8" [ltail="cluster_n3"];
-  "n6" -> "n8";
-  "n7" -> "n2";
-  "n7" -> "n3" [lhead="cluster_n3"];
-  "n7" -> "n6";
-  "n8" -> "n11";
-  "n10" -> "n9";
-  "n11" -> "n9" [label="[speed > 0]"];
-  "n11" -> "n10";
+  "n4" -> "n5" [style=dashed, arrowhead=vee];
+  "n1" -> "n7" [style=dashed, arrowhead=vee];
+  "n2" -> "n8" [style=dashed, arrowhead=vee];
+  "n2" -> "n3" [lhead="cluster_n3"];
+  "n3" -> "n8" [style=dashed, arrowhead=vee, ltail="cluster_n3"];
+  "n6" -> "n8" [style=dashed, arrowhead=vee];
+  "n7" -> "n2" [style=dashed, arrowhead=vee];
+  "n7" -> "n3" [style=dashed, arrowhead=vee, lhead="cluster_n3"];
+  "n7" -> "n6" [style=dashed, arrowhead=vee];
+  "n8" -> "n11" [style=dashed, arrowhead=vee];
+  "n10" -> "n9" [style=dashed, arrowhead=vee];
+  "n11" -> "n9" [label="[speed > 0]", style=dashed, arrowhead=vee];
+  "n11" -> "n10" [style=dashed, arrowhead=vee];
 }

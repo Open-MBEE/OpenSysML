@@ -487,9 +487,9 @@ func structuralEdgeKind(kind ast.RelationshipKind) (EdgeKind, string, bool) {
 	case ast.RelSpecializes:
 		return EdgeSpecialization, "", true
 	case ast.RelSubsets:
-		return EdgeSpecialization, "subsets", true
+		return EdgeSubsetting, "", true
 	case ast.RelRedefines:
-		return EdgeSpecialization, "redefines", true
+		return EdgeRedefinition, "", true
 	case ast.RelTyping:
 		return EdgeTyping, "", true
 	}
@@ -541,19 +541,18 @@ func (g *generalGraph) packageEdges(pkg *symbols.Symbol) {
 	}
 }
 
-// importLabel is an import edge's label: what the import brings in.
+// importLabel is an import edge's text as §8.2.3 writes it: `«import»`, `*`
+// after it for a namespace import, `**` for a recursive one.
 func importLabel(imp *ast.Import) string {
-	label := "import"
+	label := "«import»"
 	if imp.Visibility == ast.VisibilityPrivate {
-		label = "private import"
+		label = "«private import»"
 	}
 	switch {
-	case imp.Kind == ast.ImportNamespace && imp.IsRecursive:
-		label += " ::*::**"
-	case imp.Kind == ast.ImportNamespace:
-		label += " ::*"
 	case imp.IsRecursive:
-		label += " ::**"
+		label += "**"
+	case imp.Kind == ast.ImportNamespace:
+		label += "*"
 	}
 	return label
 }
@@ -647,7 +646,7 @@ func (g *generalGraph) relate(from, to *symbols.Symbol, kind EdgeKind, origin *s
 			return Edge{}, false
 		}
 	}
-	return Edge{From: g.node(from).ID, To: g.node(to).ID, Kind: kind, Label: kind.String(), Origin: symbolOrigin(origin)}, true
+	return Edge{From: g.node(from).ID, To: g.node(to).ID, Kind: kind, Label: "«" + kind.String() + "»", Origin: symbolOrigin(origin)}, true
 }
 
 // resolvedEnds resolves both ends of a relationship, reporting an end that

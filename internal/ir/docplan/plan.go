@@ -73,6 +73,8 @@ type Run struct {
 	target      string
 	refSym      *symbols.Symbol
 	refRoot     *symbols.Symbol
+	refName     string
+	refNameDoc  *symbols.Symbol
 	ref         []string
 	refDocument string
 	refElement  string

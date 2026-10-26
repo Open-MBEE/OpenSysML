@@ -3,7 +3,7 @@ classes: {
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
   initial: { shape: oval; width: 18; height: 18; style: { fill: black; stroke: black } }
   final: { shape: oval; width: 22; height: 22; style: { fill: black; stroke: black; double-border: true } }
-  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  succession: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
 }
 n0: "«action»\nrun" {
   class: usage
@@ -11,5 +11,5 @@ n0: "«action»\nrun" {
   n2: "«action»\nwarm" { class: usage }
   n3: "" { class: final }
 }
-n0.n1 -> n0.n2: { class: edge }
-n0.n2 -> n0.n3: { class: edge }
+n0.n1 -> n0.n2: { class: succession }
+n0.n2 -> n0.n3: { class: succession }

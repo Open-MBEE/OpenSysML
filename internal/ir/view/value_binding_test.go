@@ -112,7 +112,7 @@ func TestFeatureValuesAreBindingEdges(t *testing.T) {
 		t.Fatalf("binding edges = %+v, want observed = analysed.x alone", edges)
 	}
 	e := edges[0]
-	if e.From != analysis.ID || e.FromPort != observed.ID || e.To != x.ID || e.ToPort != "" || e.Label != "binding" {
+	if e.From != analysis.ID || e.FromPort != observed.ID || e.To != x.ID || e.ToPort != "" || e.Label != "=" {
 		t.Errorf("edge = %+v, want a binding from pin %s of %s to %s", e, observed.ID, analysis.ID, x.ID)
 	}
 	if len(e.Route) != 2 || e.Route[0].X != 105 || e.Route[1].Y != 98 {
@@ -125,7 +125,7 @@ func TestFeatureValuesAreBindingEdges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := `"` + observed.ID + `" -> "` + x.ID + `" [label="binding", arrowhead=none, pos="105,-82 105,-82 105,-98 105,-98"`; !strings.Contains(dot, want) {
+	if want := `"` + observed.ID + `" -> "` + x.ID + `" [label="=", arrowhead=none, pos="105,-82 105,-82 105,-98 105,-98"`; !strings.Contains(dot, want) {
 		t.Errorf("DOT lacks the routed binding %q:\n%s", want, dot)
 	}
 }

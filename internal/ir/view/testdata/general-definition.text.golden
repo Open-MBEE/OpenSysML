@@ -17,15 +17,15 @@ part def Engine
 
 relationships:
   LightChassis --|> Chassis
-  vehicle ..|> Vehicle
-  heavyVehicle ..|> Vehicle
-  brake ..|> Brake
+  vehicle --:|> Vehicle
+  heavyVehicle --:|> Vehicle
+  brake --:|> Brake
   Vehicle o-- Vehicle::mass
-  chassis ..|> Chassis
+  chassis --:|> Chassis
   Vehicle *-- chassis
-  driver ..|> Driver
+  driver --:|> Driver
   Vehicle o-- driver
-  vehicle::mass --|> Vehicle::mass: redefines
+  vehicle::mass --||> Vehicle::mass
   vehicle o-- vehicle::mass
-  heavyVehicle::mass --|> Vehicle::mass: redefines
+  heavyVehicle::mass --||> Vehicle::mass
   heavyVehicle o-- heavyVehicle::mass
