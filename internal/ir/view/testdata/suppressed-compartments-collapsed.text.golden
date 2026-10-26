@@ -1,12 +1,3 @@
 CameraViews::collapsed - tree rendering (render asTreeDiagram)
 
 part def Imaging at (10, 10) size 200×33
-
-relationships:
-  Imaging o-- 
-  Imaging o-- 
-  Imaging *-- 
-  Imaging *-- 
-  Imaging o-- 
-  Imaging o-- 
-  Imaging *-- 

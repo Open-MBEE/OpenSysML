@@ -73,9 +73,10 @@ func (r *Rendering) textWith(options Options) string {
 	for _, root := range r.Roots {
 		writeNodeText(&b, root, 0, labels, names, ports, r.Shown)
 	}
-	if len(r.Edges) > 0 {
+	edges := hiddenEdges(r)
+	if len(edges) > 0 {
 		fmt.Fprintf(&b, "\n%s:\n", edgeSectionName(r.Kind))
-		for _, edge := range r.Edges {
+		for _, edge := range edges {
 			b.WriteString(edgeText(r.Kind, edge, labels, ports) + "\n")
 		}
 	}
@@ -259,6 +260,40 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 			labels[child.ID] = "start of " + labels[node.ID]
 		}
 	}
+}
+
+// hiddenEdges is the rendering's edges without those at the children a
+// node's Layout hides, which the text lists nowhere: a hidden member's
+// membership and typing fold into its owner's labelled edge to each drawn
+// type, as the compartment foldings draw them, and every other edge at a
+// hidden member, or at a node under one, is left out.
+func hiddenEdges(r *Rendering) []Edge {
+	f := &folder{mode: CompartmentsPositioned, owners: map[string]string{}, rows: map[string]*Node{}, nesting: r.nestingEdges()}
+	var hide func(node *Node, owner string)
+	hide = func(node *Node, owner string) {
+		f.record(node, owner)
+		for _, child := range node.Children {
+			hide(child, owner)
+		}
+	}
+	var walk func(node *Node)
+	walk = func(node *Node) {
+		for _, child := range node.Children {
+			if hiddenRow(node, child) {
+				hide(child, node.ID)
+				continue
+			}
+			walk(child)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root)
+	}
+	if len(f.rows) == 0 {
+		return r.Edges
+	}
+	edges, _, _ := f.foldEdges(r.Edges)
+	return edges
 }
 
 // pinLine is a part port's `port <label>` or an action pin's direction and name.

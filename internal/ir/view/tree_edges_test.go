@@ -683,3 +683,66 @@ func TestTreeMembershipEndsAtTheUsageDrawnAndAtTheDefinitionListed(t *testing.T)
 		t.Errorf("folded edges = %q, want %q: the listed port's membership and typing fold into the owner's edge to the definition", got, want)
 	}
 }
+
+// The text form lists no edge at a member a Layout hides: the hidden member's
+// membership and typing fold into its owner's edge to the drawn definition,
+// labelled with the member, as the compartment foldings draw them.
+func TestTreeTextFoldsTheEdgesAtHiddenMembers(t *testing.T) {
+	rendering := renderSource(t, "Views::collapsed", `package Model {
+	part def Lens;
+	part def Imaging {
+		part lens : Lens;
+		ref part spare : Lens;
+		port data;
+	}
+}
+package Views {
+	private import DiagramLayout::*;
+	view collapsed {
+		expose Model::Imaging;
+		expose Model::Lens;
+		metadata Layout about Model::Imaging { x = 10; y = 10; width = 200; height = 33; showParts = false; showReferences = false; showPorts = false; }
+		metadata Layout about Model::Lens { x = 10; y = 100; width = 200; height = 33; }
+	}
+}`)
+	text := rendering.Text()
+	for _, want := range []string{"  Imaging *-- Lens: lens\n", "  Imaging o-- Lens: spare\n"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("text lacks %q:\n%s", want, text)
+		}
+	}
+	for _, line := range strings.Split(text, "\n") {
+		if strings.HasSuffix(line, "-- ") || strings.Contains(line, "data") {
+			t.Errorf("text lists an edge at a hidden member: %q\n%s", line, text)
+		}
+	}
+}
+
+// A Route about a usage, with no Layout anywhere, positions the drawing as it
+// did when it steered the owner's edge to the definition: the usage folds
+// into a row of its owner, and DOT pins the labelled edge along the route.
+func TestTreeRouteAboutAUsagePositionsTheDrawing(t *testing.T) {
+	rendering := renderSource(t, "Views::bdd", `package Model {
+	part def Wheel;
+	part def Car { part wheels : Wheel; }
+}
+package Views {
+	view bdd {
+		expose Model::Car;
+		expose Model::Wheel;
+		metadata DiagramLayout::Route about Model::Car::wheels { points = (10, 20, 200, 20); }
+	}
+}`)
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	for _, want := range []string{"// layout: neato -n2\n", `"n0" -> "n2" [headlabel="wheels", dir=back, arrowtail=diamond, pos="s,10,-20 20,-20 20,-20 200,-20 200,-20"`} {
+		if !strings.Contains(dot, want) {
+			t.Errorf("DOT lacks %q:\n%s", want, dot)
+		}
+	}
+	if strings.Contains(dot, `"n0" -> "n1"`) {
+		t.Errorf("DOT draws the routed membership to the wheels' node instead of folding it:\n%s", dot)
+	}
+}

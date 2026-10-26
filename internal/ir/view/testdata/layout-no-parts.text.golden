@@ -2,14 +2,3 @@ FoldedViews::noParts - tree rendering (render asTreeDiagram)
 
 part vehicle at (0, 0)
   connect
-
-relationships:
-  vehicle *-- 
-  vehicle *-- 
-  vehicle *-- 
-   *-- 
-   o-- 
-   *-- 
-   *-- 
-   o-- 
-   o-- 

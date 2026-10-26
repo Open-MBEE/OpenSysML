@@ -22,12 +22,25 @@ type placement struct {
 // node nothing positions takes its place beside the placed nodes its edges reach.
 func placeRendering(r *Rendering) *placement {
 	p := &placement{placed: map[string]bool{}, extent: map[string]bool{}, derived: map[string]bool{}, pictures: len(r.Pictures)}
-	// A Route about a usage steers its membership edge, which places no node:
-	// the usage's node folds into a row of its owner's unless a Layout places it.
+	// A Route about a usage steers the edge its owner draws to the usage's
+	// definitions once the usage folds into a row: it places those ends, not
+	// the usage's node, which a Layout alone places.
 	nesting := r.nestingEdges()
+	typed := map[string][]string{}
+	for _, edge := range r.Edges {
+		if edge.Kind == EdgeTyping {
+			typed[edge.From] = append(typed[edge.From], edge.To)
+		}
+	}
 	routed := map[string]bool{}
 	for _, edge := range r.Edges {
-		if len(edge.Route) > 1 && !nesting[[2]string{edge.From, edge.To}] {
+		switch {
+		case len(edge.Route) <= 1:
+		case nesting[[2]string{edge.From, edge.To}]:
+			for _, to := range typed[edge.To] {
+				routed[edge.From], routed[to] = true, true
+			}
+		default:
 			routed[edge.From], routed[edge.To] = true, true
 		}
 	}
