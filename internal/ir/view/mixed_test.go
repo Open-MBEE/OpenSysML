@@ -54,11 +54,8 @@ func membershipEdgeTo(t *testing.T, rendering *Rendering, owner, member *Node) E
 	return found[0]
 }
 
-// A mixed rendering draws the membership of every member nested in its
-// owner's node with the glyph the notation gives that membership: the diamond
-// of a feature membership, filled or hollow by the model's isComposite, the
-// circle-plus of an owned membership for a member that is no feature, and the
-// keyword glyph of a membership drawn as a relationship of its own.
+// Every member nested in its owner's node hangs off one membership edge with the glyph the
+// notation gives it: the filled or hollow diamond, the circle-plus, or its own keyword glyph.
 func TestMixedNestedMembershipEdgesTakeTheMembershipGlyph(t *testing.T) {
 	rendering, node := mixedFixture(t, "mixed-memberships.sysml", "MixedMemberships::memberships")
 	for _, tc := range []struct {
@@ -106,9 +103,8 @@ func TestMixedNestedMembershipEdgesTakeTheMembershipGlyph(t *testing.T) {
 	}
 }
 
-// The body of a behavior and the roles of a case are drawn in their own
-// notation: a state inside its state def, an action node inside its action
-// def, an actor beside its case, each hangs off no membership edge.
+// A behavior's body and a case's roles are drawn in their own notation: a state inside its
+// state def, an action node inside its action def, an actor beside its case get no membership edge.
 func TestMixedLeavesBehaviorBodiesAndCaseRolesToTheirNotation(t *testing.T) {
 	rendering, node := mixedFixture(t, "mixed.sysml", "MixedExamples::mixedDiagram")
 	for _, member := range []string{"MixedExamples::Modes::ready", "MixedExamples::Operate::step", "MixedExamples::Inspection::operator", "MixedExamples::Inspection::plant"} {
@@ -137,10 +133,8 @@ func TestMixedLeavesBehaviorBodiesAndCaseRolesToTheirNotation(t *testing.T) {
 	}
 }
 
-// The forms draw each nested membership once. The text form lists it; PlantUML
-// draws the glyph from the container to the member inside it; DOT and Mermaid,
-// which could only run such an edge from an invisible anchor inside the
-// container, leave it to the nesting.
+// Each form draws a nested membership once: text lists it, PlantUML draws it from the container,
+// DOT and Mermaid (which could only run it from an invisible anchor) leave it to the nesting.
 func TestMixedNestedMembershipEdgesPerForm(t *testing.T) {
 	rendering, node := mixedFixture(t, "mixed-memberships.sysml", "MixedMemberships::memberships")
 	pump, impeller, seal := node("MixedMemberships::Pump"), node("MixedMemberships::Pump::impeller"), node("MixedMemberships::Pump::Seal")
@@ -197,10 +191,8 @@ func TestMixedMembershipEdgeOrderIsDeterministic(t *testing.T) {
 	}
 }
 
-// A Route about a nested usage steers its membership edge, and a positioned
-// drawing that leaves the usage's node unplaced folds the membership and the
-// usage's typing into the owner's labelled edge to the definition, routed as
-// the usage was — as a positioned tree folds them.
+// A Route about a nested usage steers its membership edge; a positioned drawing leaving the
+// usage unplaced folds membership and typing into the owner's routed edge to the definition.
 func TestMixedPositionedNestedMembershipFolds(t *testing.T) {
 	rendering, node := mixedFixture(t, "mixed-memberships.sysml", "MixedMemberships::membershipsLayout")
 	pump, impeller, impellerDef := node("MixedMemberships::Pump"), node("MixedMemberships::Pump::impeller"), node("MixedMemberships::Impeller")
@@ -219,5 +211,96 @@ func TestMixedPositionedNestedMembershipFolds(t *testing.T) {
 	}
 	if !strings.Contains(dot, dotQuote(pump.ID)+" -> "+dotQuote(impellerDef.ID)) || !strings.Contains(dot, `headlabel="impeller"`) {
 		t.Errorf("DOT does not fold the unplaced impeller into Pump's labelled edge to Impeller:\n%s", dot)
+	}
+}
+
+// mixedNodeNamed is the first node of rendering named name, locally or qualified.
+func mixedNodeNamed(t *testing.T, rendering *Rendering, name string) *Node {
+	t.Helper()
+	var found *Node
+	var visit func(nodes []*Node)
+	visit = func(nodes []*Node) {
+		for _, node := range nodes {
+			if found == nil && (node.Name == name || symbols.LastSegment(strings.Trim(node.Name, "'")) == name) {
+				found = node
+			}
+			visit(node.Children)
+		}
+	}
+	visit(rendering.Roots)
+	if found == nil {
+		t.Fatalf("no node named %s", name)
+	}
+	return found
+}
+
+// A state nested in a state of a state def is as much the behavior's body as the outer state:
+// the state notation draws it, and no membership edge reaches into the body at any depth.
+func TestMixedBehaviorBodyGetsNoMembershipEdgeAtAnyDepth(t *testing.T) {
+	rendering := renderSource(t, "Probe::nested", `package Probe {
+	private import OpenSysMLRenderings::*;
+	state def Modes {
+		state operating {
+			state running;
+		}
+	}
+	view nested {
+		expose Probe;
+		render asMixedDiagram;
+	}
+}`)
+	for _, name := range []string{"operating", "running"} {
+		id := mixedNodeNamed(t, rendering, name).ID
+		for _, edge := range rendering.Edges {
+			if edge.To == id && membershipEdge(edge.Kind) {
+				t.Errorf("%s hangs off a %s membership edge: %+v", name, edge.Kind, edge)
+			}
+		}
+	}
+	if edge := membershipEdgeTo(t, rendering, mixedNodeNamed(t, rendering, "Probe"), mixedNodeNamed(t, rendering, "Modes")); edge.Kind != EdgeContainment {
+		t.Errorf("Probe → Modes drawn as %s, want containment", edge.Kind)
+	}
+}
+
+// A relationship stated about a nested member — `require inner;` beside `constraint inner` — is
+// its own edge: DOT and Mermaid leave only the membership to the nesting and keep drawing it.
+func TestMixedStatedRelationshipOutlivesTheNestedMembership(t *testing.T) {
+	rendering := renderSource(t, "Probe::stated", `package Probe {
+	private import OpenSysMLRenderings::*;
+	constraint def Limit;
+	requirement def Safety {
+		constraint inner : Limit;
+		require inner;
+	}
+	view stated {
+		expose Probe;
+		render asMixedDiagram;
+	}
+}`)
+	safety, inner := mixedNodeNamed(t, rendering, "Safety"), mixedNodeNamed(t, rendering, "inner")
+	var kinds []EdgeKind
+	for _, edge := range rendering.Edges {
+		if edge.From == safety.ID && edge.To == inner.ID {
+			kinds = append(kinds, edge.Kind)
+		}
+	}
+	if len(kinds) != 2 || kinds[0] != EdgeComposition || kinds[1] != EdgeRequire {
+		t.Fatalf("Safety → inner edges = %v, want the composition then the stated require", kinds)
+	}
+	text := rendering.Text()
+	if !strings.Contains(text, "Safety *-- ") || !strings.Contains(text, "«require»") {
+		t.Errorf("text lists not both the membership and the stated require:\n%s", text)
+	}
+	dot, err := rendering.Write(FormDot)
+	if err != nil {
+		t.Fatalf("write dot: %v", err)
+	}
+	edge := dotQuote(safety.ID) + " -> " + dotQuote(inner.ID)
+	if strings.Count(dot, edge) != 1 || !strings.Contains(dot, edge+" [label=\"«require»\"") || strings.Contains(dot, "arrowtail=diamond") {
+		t.Errorf("DOT draws not exactly the stated require from Safety to inner:\n%s", dot)
+	}
+	mermaid := rendering.Mermaid()
+	if !strings.Contains(mermaid, "«require»") || strings.Contains(mermaid, "◆") {
+		t.Errorf("Mermaid draws not exactly the stated require from Safety to inner:\n%s", mermaid)
 	}
 }

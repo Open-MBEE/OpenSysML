@@ -477,17 +477,8 @@ func (w *mixedWalk) qualifyingReferenceCase(from, to *symbols.Symbol, reference 
 	return nil
 }
 
-// membershipEdges draws the membership of every member whose node is nested
-// directly in the node of the owner declaring it (or of a view exposing it),
-// from the owner's node to the member's, with the glyph memberEdge gives the
-// membership — so a part, a nested package and a required constraint hang
-// off their owner by one glyph each, and no membership is drawn twice. The
-// edges follow the nodes' order, an owner's edges before its members' own. A
-// behavior's body is left to the state or action notation it is drawn in, a
-// case's roles to the case notation that draws them, and a parameter symbol —
-// a subject, actor or stakeholder — is a parameter of its owner, not a member
-// drawn apart from it. A member's Route steers its membership edge, as in a
-// tree; its Style dresses it.
+// membershipEdges draws one edge, with memberEdge's glyph, from an owner's node to each
+// member nested in it; behavior bodies, case roles and parameters keep their own notation.
 func (w *mixedWalk) membershipEdges() {
 	drawn := map[*Node]*symbols.Symbol{}
 	for _, sym := range w.order {
@@ -495,12 +486,12 @@ func (w *mixedWalk) membershipEdges() {
 			drawn[node] = sym
 		}
 	}
-	var walk func(node *Node)
-	walk = func(node *Node) {
-		owner := drawn[node]
+	var walk func(node *Node, inBehavior bool)
+	walk = func(node *Node, inBehavior bool) {
+		owner, inBehavior := drawn[node], inBehavior || w.behaviors[node]
 		for _, child := range node.Children {
 			member := drawn[child]
-			if owner != nil && member != nil && !w.behaviors[node] && !caseNodeKind(node.Kind) &&
+			if owner != nil && member != nil && !inBehavior && !caseNodeKind(node.Kind) &&
 				declaredUnder(owner, member) && !parameterSymbol(node, child) {
 				edge := Edge{From: node.ID, To: child.ID, Origin: symbolOrigin(member),
 					Route: w.r.routeOf(w.view, member, w.out), Style: w.r.styleOf(w.view, member, w.out)}
@@ -508,11 +499,11 @@ func (w *mixedWalk) membershipEdges() {
 				w.out.Edges = append(w.out.Edges, edge)
 				w.memberEdged[member] = true
 			}
-			walk(child)
+			walk(child, inBehavior)
 		}
 	}
 	for _, root := range w.out.Roots {
-		walk(root)
+		walk(root, false)
 	}
 }
 
@@ -638,10 +629,8 @@ func (w *mixedWalk) referenceEdges() {
 	}
 }
 
-// relationshipRoute is the route of an edge decl states to target: a Route
-// about decl, unless decl's membership edge took it, when the typing or
-// specialization it states is steered by a Route about decl naming target, as
-// a tree steers them.
+// relationshipRoute is the route of an edge decl states to target: a Route about decl, or,
+// once decl's membership edge took that, a Route about decl naming target, as in a tree.
 func (w *mixedWalk) relationshipRoute(kind EdgeKind, decl, target *symbols.Symbol) []Point {
 	if w.memberEdged[decl] && (kind == EdgeTyping || kind == EdgeSpecialization) {
 		return w.r.specializationRouteOf(w.view, decl, target, w.out)

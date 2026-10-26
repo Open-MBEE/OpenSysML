@@ -818,18 +818,15 @@ func (r *Rendering) writeTreeNode(w *mermaidFlowWriter, node *Node, depth int, l
 	}
 }
 
-// nestedInSubgraphs indexes the membership edges from a subgraph to a node
-// nested directly in it, which the nesting draws and the flowchart leaves
-// out: a flowchart has no edge from a subgraph's border to a node inside it,
-// only one from a blank anchor node. A tree draws no subgraph.
+// nestedInSubgraphs indexes the memberships a subgraph's nesting draws: a flowchart has no
+// edge from a subgraph's border to a node inside it, only one from a blank anchor node.
 func (r *Rendering) nestedInSubgraphs(used map[string]map[string]bool) map[int]bool {
 	if r.Kind == KindTree {
 		return nil
 	}
-	nesting, tree := r.nestingEdges(), r.nodeTree()
-	nested := map[int]bool{}
+	tree, nested := r.nodeTree(), map[int]bool{}
 	for i, edge := range r.Edges {
-		if owner := tree.nodes[edge.From]; nesting[[2]string{edge.From, edge.To}] && owner != nil && r.flowchartSubgraph(owner, used) {
+		if owner := tree.nodes[edge.From]; nestedMembership(edge, tree) && owner != nil && r.flowchartSubgraph(owner, used) {
 			nested[i] = true
 		}
 	}

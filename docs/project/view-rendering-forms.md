@@ -388,8 +388,10 @@ The edges come in the nodes' order, an owner's before its members' own. Each is 
 draws from the container's border; DOT and Mermaid write nothing for it, since Graphviz cannot clip
 an edge at a cluster holding its other end and a flowchart has no edge from a subgraph's border,
 both running it from an invisible anchor inside the container instead — the nesting is the drawing
-of the membership there, as it was. A member a view exposes apart from its owner is a separate node
-in every form, and the edge is drawn to it. A `Route` about a nested usage steers its membership
+of the membership there, as it was. Only the member's own membership is left out (`nestedMembership`:
+declared where the member's node was); a relationship stated about a nested member, such as
+`require inner;` beside `constraint inner`, keeps its edge in every form. A member a view exposes
+apart from its owner is a separate node in every form, and the edge is drawn to it. A `Route` about a nested usage steers its membership
 edge, as in a tree, and the usage's typing or specialization takes a `Route` about the usage naming
 the definition; a positioned drawing that leaves the usage's node unplaced folds the membership and
 typing into the owner's labelled edge to the definition, as the positioned tree does.

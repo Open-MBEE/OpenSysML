@@ -121,6 +121,16 @@ func (r *Rendering) nestingEdges() map[[2]string]bool {
 	return nesting
 }
 
+// nestedMembership reports whether edge is the own membership of the node nested directly in
+// edge.From — declared where the node was, so the nesting draws it — not a relationship stated about it.
+func nestedMembership(edge Edge, tree nodeTree) bool {
+	child := tree.nodes[edge.To]
+	if !membershipEdge(edge.Kind) || child == nil || tree.parents[edge.To] != edge.From {
+		return false
+	}
+	return !edge.Origin.Located() || (edge.Origin.Doc == child.Origin.Doc && edge.Origin.Span == child.Origin.Span)
+}
+
 // declaredUnder reports whether a node drawn in the node of parent draws sym
 // as a declaration: parent is sym's owner, or a view exposing it.
 func declaredUnder(parent, sym *symbols.Symbol) bool {
@@ -348,9 +358,7 @@ func (g *treeGraph) exposeEdges(node *Node, view *symbols.Symbol) {
 	}
 }
 
-// membershipEdge reports an edge kind drawn for the membership of a member
-// in its owner: the feature membership's diamonds, the owned membership's
-// circle-plus, and the glyphs an owned member's membership takes instead.
+// membershipEdge reports an edge kind drawn for the membership of a member in its owner.
 func membershipEdge(kind EdgeKind) bool {
 	switch kind {
 	case EdgeComposition, EdgeReference, EdgeContainment, EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgePortion:
@@ -359,18 +367,8 @@ func membershipEdge(kind EdgeKind) bool {
 	return false
 }
 
-// memberEdge sets the kind, text and end label of the edge drawn from an
-// owner's node to the node of a member it owns, the one rule for the glyph a
-// membership is drawn with, as SysML v2 §8.2.3 gives it: a membership the
-// notation draws as a relationship of its own — a required, assumed or
-// asserted constraint, a framed concern, an event occurrence, a portion —
-// takes that glyph and its keyword; every other usage's feature membership is
-// the diamond, filled for a composite usage and hollow for a referential one,
-// with the usage's multiplicity at the usage's end; and the membership of a
-// member that is no feature — a nested package, definition or other namespace
-// member — is the owned membership's circle-plus. A tree applies it to the
-// structural usages it nests; a mixed rendering to every member nested in its
-// owner's node.
+// memberEdge is the one rule for the glyph of an owner → member edge (SysML v2 §8.2.3): the
+// named relationship's own glyph, else the feature membership's diamond, else the circle-plus.
 func (r *Renderer) memberEdge(member *symbols.Symbol, edge *Edge) {
 	if kind, label, ok := memberRelationship(member); ok {
 		edge.Kind, edge.Label = kind, label
