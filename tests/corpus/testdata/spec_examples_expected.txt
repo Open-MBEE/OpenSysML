@@ -281,7 +281,6 @@
 4	sysml/7.6.3/2.sysml
 2	sysml/7.6.3/4.sysml
 3	sysml/7.6.3/5.sysml
-3	sysml/7.6.5/1.sysml
 4	sysml/7.6.6/1.sysml
 3	sysml/7.6.7/1.sysml
 2	sysml/7.6.7/2.sysml

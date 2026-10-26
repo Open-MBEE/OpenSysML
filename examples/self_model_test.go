@@ -1388,6 +1388,9 @@ func TestSelfModelDocumentRenders(t *testing.T) {
 		"| geometry | false |",
 		"| differential | pilot validator | docs/project/pilot-differential-baseline.json |",
 		"| snapshotGate | the bundled library files | internal/workspace/libs/stdlib.snapshot |",
+		"| mcp | cmd/sysml-mcp | mcp-stdio, mcp-http |",
+		"| wasm | cmd/sysml-wasm | json-rpc |",
+		"| asciidocProse | asciidoc | true |",
 		"OpenSysMLViews::pipelineStructure",
 		"OpenSysMLViews::libraryLoadFlow",
 		"[snapshotCurrent]",
@@ -1413,7 +1416,7 @@ func TestSelfModelDocumentRenders(t *testing.T) {
 // repositoryPathPattern matches the attributes whose values are paths in this
 // repository, singly or as a comma-separated list.
 var repositoryPathPattern = regexp.MustCompile(
-	`(goPackage|generatedStubs|schemaFile|generatedGo|connectAdapter|stdioTransport|consumers|designRecord|snapshotFile) = "([^"]+)"`)
+	`(goPackage|generatedStubs|schemaFile|generatedGo|connectAdapter|stdioTransport|consumers|designRecord|snapshotFile|toolCatalog|registryManifest|jsonTransport|reportPackages|diagramPanel|landingPage|grammarGenerator|syntaxTable|converterScript) = "([^"]+)"`)
 
 // makeTargetPattern matches the definition of one target in the Makefile.
 var makeTargetPattern = regexp.MustCompile(`(?m)^([a-z-]+):`)

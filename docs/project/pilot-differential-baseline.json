@@ -69,7 +69,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 52,
-        "digest": "sha256:451596b19bfcca198268d5b8ef8f3d307cedb69ebfa73521d1798d8f6d4b8c4f"
+        "digest": "sha256:4bfef63a8c33cb24cd81264c286f8577176f8ba9dc8af38af201194ac997bfac"
       },
       {
         "name": "probes",
@@ -86,17 +86,17 @@
         "digest": "sha256:82e35230165a3d95d831330f21c3290cca8b9519f5b494d341e0a866a0e373a5"
       }
     ],
-    "recorded": "2026-10-25"
+    "recorded": "2026-10-26"
   },
   "totals": {
     "files": 920,
-    "filesFullyAgreeing": 517,
+    "filesFullyAgreeing": 521,
     "agreement": 1098,
     "severityMismatch": 11,
-    "openSysMLOnly": 366,
-    "pilotOnly": 2448,
-    "openSysMLDiagnostics": 1475,
-    "pilotDiagnostics": 3557
+    "openSysMLOnly": 359,
+    "pilotOnly": 2450,
+    "openSysMLDiagnostics": 1468,
+    "pilotDiagnostics": 3559
   },
   "roots": [
     {
@@ -134,12 +134,12 @@
       "dir": "examples/pilot-corpora/sysml-examples",
       "totals": {
         "files": 99,
-        "filesFullyAgreeing": 88,
+        "filesFullyAgreeing": 91,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 261,
+        "openSysMLOnly": 257,
         "pilotOnly": 0,
-        "openSysMLDiagnostics": 261,
+        "openSysMLDiagnostics": 257,
         "pilotDiagnostics": 0
       },
       "files": [
@@ -200,26 +200,6 @@
           "pilotOnly": []
         },
         {
-          "path": "Geometry Examples/SimpleQuadcopter.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 14,
-              "severity": "error",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 114,
-              "severity": "error",
-              "category": "kind-mismatch",
-              "count": 1
-            }
-          ],
-          "pilotOnly": []
-        },
-        {
           "path": "Geometry Examples/VehicleGeometryAndCoordinateFrames.sysml",
           "agreement": [],
           "severityMismatch": [],
@@ -228,34 +208,6 @@
               "line": 38,
               "severity": "warning",
               "category": "units",
-              "count": 1
-            }
-          ],
-          "pilotOnly": []
-        },
-        {
-          "path": "Simple Tests/IndividualTest.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 12,
-              "severity": "error",
-              "category": "kind-mismatch",
-              "count": 1
-            }
-          ],
-          "pilotOnly": []
-        },
-        {
-          "path": "Simple Tests/ItemTest.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 11,
-              "severity": "error",
-              "category": "kind-mismatch",
               "count": 1
             }
           ],
@@ -522,12 +474,12 @@
       ],
       "errataTotals": {
         "files": 99,
-        "filesFullyAgreeing": 89,
+        "filesFullyAgreeing": 92,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 260,
+        "openSysMLOnly": 256,
         "pilotOnly": 0,
-        "openSysMLDiagnostics": 260,
+        "openSysMLDiagnostics": 256,
         "pilotDiagnostics": 0
       }
     },
@@ -722,12 +674,12 @@
       "dir": "examples/spec-examples",
       "totals": {
         "files": 511,
-        "filesFullyAgreeing": 150,
+        "filesFullyAgreeing": 151,
         "agreement": 1038,
         "severityMismatch": 6,
-        "openSysMLOnly": 50,
+        "openSysMLOnly": 47,
         "pilotOnly": 2351,
-        "openSysMLDiagnostics": 1094,
+        "openSysMLDiagnostics": 1091,
         "pilotDiagnostics": 3395
       },
       "files": [
@@ -11911,32 +11863,6 @@
           ]
         },
         {
-          "path": "sysml/7.6.5/1.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 7,
-              "severity": "error",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 14,
-              "severity": "error",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 17,
-              "severity": "error",
-              "category": "kind-mismatch",
-              "count": 1
-            }
-          ],
-          "pilotOnly": []
-        },
-        {
           "path": "sysml/7.6.6/1.sysml",
           "agreement": [
             {
@@ -17882,9 +17808,9 @@
         "agreement": 0,
         "severityMismatch": 0,
         "openSysMLOnly": 8,
-        "pilotOnly": 61,
+        "pilotOnly": 63,
         "openSysMLDiagnostics": 8,
-        "pilotDiagnostics": 61
+        "pilotDiagnostics": 63
       },
       "files": [
         {
@@ -18025,67 +17951,37 @@
           "openSysMLOnly": [],
           "pilotOnly": [
             {
-              "line": 150,
+              "line": 187,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 156,
+              "line": 193,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 171,
+              "line": 208,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 185,
+              "line": 222,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 191,
+              "line": 228,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 202,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 209,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 219,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 225,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 230,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 240,
+              "line": 239,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18097,13 +17993,19 @@
               "count": 1
             },
             {
-              "line": 260,
+              "line": 256,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 266,
+              "line": 262,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 267,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18115,7 +18017,7 @@
               "count": 1
             },
             {
-              "line": 287,
+              "line": 283,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18133,73 +18035,109 @@
               "count": 1
             },
             {
-              "line": 309,
+              "line": 314,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 323,
+              "line": 324,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 333,
+              "line": 334,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 347,
+              "line": 340,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 353,
+              "line": 346,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 359,
+              "line": 360,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 397,
+              "line": 366,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 403,
+              "line": 381,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 413,
+              "line": 395,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 426,
+              "line": 401,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 426,
+              "line": 407,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 414,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 452,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 458,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 468,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 481,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 481,
               "severity": "warning",
               "category": "unmapped",
               "count": 17
             },
             {
-              "line": 432,
+              "line": 487,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -25455,13 +25393,13 @@
     ],
     "totals": {
       "files": 920,
-      "filesFullyAgreeing": 518,
+      "filesFullyAgreeing": 522,
       "agreement": 1098,
       "severityMismatch": 11,
-      "openSysMLOnly": 365,
-      "pilotOnly": 2448,
-      "openSysMLDiagnostics": 1474,
-      "pilotDiagnostics": 3557
+      "openSysMLOnly": 358,
+      "pilotOnly": 2450,
+      "openSysMLDiagnostics": 1467,
+      "pilotDiagnostics": 3559
     },
     "findings": [
       {

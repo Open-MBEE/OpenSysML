@@ -97,11 +97,11 @@ flowchart TD
   n0 ---|"◆ chassis"| n4
   n0 ---|"◇ driver"| n6
   n5 -->|"specialization"| n4
-  n8 -.->|"typing"| n0
-  n9 -->|"redefines"| n1
-  n12 -.->|"typing"| n0
-  n13 -->|"redefines"| n1
-  n16 -.->|"typing"| n7
+  n8 -->|"typing"| n0
+  n9 -->|"redefinition"| n1
+  n12 -->|"typing"| n0
+  n13 -->|"redefinition"| n1
+  n16 -->|"typing"| n7
   n19 -->|"specialization"| n28
   n20 -->|"specialization"| n23
   n21 -->|"specialization"| n26

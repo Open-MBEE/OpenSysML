@@ -71,6 +71,6 @@ n9 -- n14
 n8 -- n9
 class "<size:10>//«attribute»//</size>\n**mass**" as n15 <<attribute>> <<usage>>
 n8 -- n15
-n2 ..|> n0
+n2 --:|> n0
 n8 --|> n0
 @enduml

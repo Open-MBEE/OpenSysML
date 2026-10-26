@@ -67,7 +67,9 @@ import hint landed, re-recorded 2026-10-01: `1293 agree (of which 248 wording-on
 0 unlocated, 0 not adjudicated`, per-suite kerml 948/20 and sysml 345/13, `noErrors` `262 / 276`;
 the three new `noErrors` rows are `IndividualTest`, `ItemTest` and `validation/valid/PartUsage`
 (`A part must be typed by at least one part definition.`), and 16 kerml wording-only `errors` rows changed only
-their recorded `ours` text (the hint). `pilot-xpect -check` now also runs in `pr.yml`
+their recorded `ours` text (the hint). `pilot-xpect -check` now also runs in `pr.yml`. When the part-definition rule was withdrawn
+(its derived `partDefinition` is never empty), re-recorded 2026-10-25: `1296 agree (of which 248
+wording-only), 30 disagree`, per-suite kerml 948/20 and sysml 348/10, `noErrors` `265 / 276`
 (`xpect-oracle`), so a verdict movement fails the pull request rather than the next nightly run.
 Read the live totals from the baseline rather than this paragraph; it is an anchor, not the check.
 
@@ -423,8 +425,8 @@ census in `w5c_census_test.go` is live two ways: perturb one pinned triple (e.g.
 ## Regression neighbour
 
 `go run -C tools ./cmd/pilot-diff` (~1m12s) must still print the headline the *committed* baseline holds —
-at the `2026-08` pin that is `920 file(s), 517 fully agreeing; 1098 agreed diagnostic(s), 366
-only ours, 2448 only the pilot's`. Read the number out of
+at the `2026-08` pin that is `920 file(s), 521 fully agreeing; 1098 agreed diagnostic(s), 359
+only ours, 2450 only the pilot's`. Read the number out of
 `docs/project/pilot-differential-baseline.json` rather than trusting this line, since a landing fix
 round moves it. When the baseline is itself stale (it was at `19a3ce03`, holding 273 / 281 / 317), a
 failing `cmp` against it is *not* evidence of an Xpect regression — compare the summary line, and see

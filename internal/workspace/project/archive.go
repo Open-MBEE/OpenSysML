@@ -466,13 +466,36 @@ func (a *Archive) Read(member string) ([]byte, error) {
 // Files lists the model files of the archive as the paths they load under:
 // the archive's path with the member's path appended.
 func (a *Archive) Files() []string {
+	nested := a.nestedProjects()
 	var out []string
 	for _, name := range a.names {
-		if IsModelFile(name) {
+		if IsModelFile(name) && !underAny(name, nested) {
 			out = append(out, MemberPath(a.Path, name))
 		}
 	}
 	return out
+}
+
+// nestedProjects lists the directories within the archive, with their trailing
+// slash, that hold a project interchange file of their own.
+func (a *Archive) nestedProjects() []string {
+	var out []string
+	for _, name := range a.names {
+		if dir, base := path.Split(name); dir != "" && base == ProjectFile {
+			out = append(out, dir)
+		}
+	}
+	return out
+}
+
+// underAny reports whether the member name lies under one of the directories.
+func underAny(name string, dirs []string) bool {
+	for _, dir := range dirs {
+		if strings.HasPrefix(name, dir) {
+			return true
+		}
+	}
+	return false
 }
 
 // MemberPath is the path a member of an archive is named by: the archive's
@@ -553,13 +576,15 @@ func sortedKeys[V any](m map[string]V) []string {
 	return keys
 }
 
-// ArchiveWarnings reports what the archives a load touched fell short of: an
+// Warnings reports what the projects and archives a load touched fell short
+// of: a usage left unlinked between several unclaimed installed projects, an
 // archive under a library root that is not a project interchange file, and a
 // checksum of a loaded archive that could not be verified.
-func (d Discovery) ArchiveWarnings(paths []string) []string {
-	var out []string
-	for _, ae := range d.Around(paths).Malformed {
-		out = append(out, fmt.Sprintf("%s: not a project interchange archive: %v", ae.Path, ae.Err))
+func (d Discovery) Warnings(paths []string) []Warning {
+	around := d.Around(paths)
+	out := append([]Warning(nil), around.Unlinked...)
+	for _, ae := range around.Malformed {
+		out = append(out, Warning{Path: ae.Path, Message: fmt.Sprintf("not a project interchange archive: %v", ae.Err)})
 	}
 	seen := map[string]bool{}
 	for _, p := range paths {
@@ -576,7 +601,7 @@ func (d Discovery) ArchiveWarnings(paths []string) []string {
 		seen[archive] = true
 		if a, err := openCached(archive); err == nil {
 			for _, note := range a.Notes {
-				out = append(out, archive+": "+note)
+				out = append(out, Warning{Path: archive, Message: note})
 			}
 		}
 	}

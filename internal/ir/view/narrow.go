@@ -153,8 +153,11 @@ func (n *narrowing) narrow(node *Node) {
 func (n *narrowing) edge(edge *Edge) {
 	edge.From, edge.FromPort = n.end(edge.From, edge.FromPort)
 	edge.To, edge.ToPort = n.end(edge.To, edge.ToPort)
-	if !n.shown.Has(ElementEdgeLabels) && connectorEdge(edge.Kind) && n.kind != KindSequence {
+	if !n.shown.Has(ElementEdgeLabels) && connectorEdge(edge.Kind) && n.kind != KindSequence && !generalViewGraph(n.kind) {
 		edge.Label, edge.Name = "", ""
+		if edge.Kind == EdgeBinding {
+			edge.Label = bindingKeyword
+		}
 	}
 	if !n.shown.Has(ElementMultiplicities) {
 		labels := []*string{&edge.FromLabel, &edge.ToLabel}
@@ -188,6 +191,16 @@ func (n *narrowing) note(note *Note) {
 			*anchor = to
 		}
 	}
+}
+
+// generalViewGraph reports whether a rendering is a GeneralView graph, whose edges
+// are relationships labelled by keyword (`«allocate»`), not connectors by name.
+func generalViewGraph(kind Kind) bool {
+	switch kind {
+	case KindTree, KindRequirement, KindDefinition, KindPackage:
+		return true
+	}
+	return false
 }
 
 // connectorEdge reports whether an edge stands for a connector whose name is

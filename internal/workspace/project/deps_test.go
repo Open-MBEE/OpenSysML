@@ -98,3 +98,67 @@ func TestDependenciesIgnoreStdinAndUnreadableFiles(t *testing.T) {
 		t.Errorf("Dependencies = %v; want none", got)
 	}
 }
+
+// A file in a project reaches what lies under the project's lib/ only through
+// the usages: the version the usage selects, not every installed one.
+func TestDependenciesReadTheLibraryDirectoryThroughTheUsages(t *testing.T) {
+	proj := writeProject(t, filepath.Join(t.TempDir(), "proj"), `{"name": "demo", "publisher": "example", "version": "0.1.0", "usage": [{"resource": "pkg:registry/acme/gears@1.0.0"}]}`)
+	main := writeModel(t, filepath.Join(proj, "main.sysml"), "package Main {\n    private import Gears::*;\n    part g : Thing;\n}\n")
+	gears1 := writeProject(t, filepath.Join(proj, "lib", "acme-gears_1.0.0"), `{"name": "Gears", "publisher": "acme", "version": "1.0.0"}`)
+	gears1File := writeModel(t, filepath.Join(gears1, "Gears.kerml"), "package Gears {\n    class Thing;\n}\n")
+	gears2 := writeProject(t, filepath.Join(proj, "lib", "acme-gears_2.0.0"), `{"name": "Gears", "publisher": "acme", "version": "2.0.0"}`)
+	writeModel(t, filepath.Join(gears2, "Gears.kerml"), "package Gears {\n    class Thing;\n    class Newer;\n}\n")
+
+	got := Dependencies([]string{main}, nil)
+	if want := []string{gears1File}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Dependencies = %v, want %v", got, want)
+	}
+}
+
+// A qualified name whose first segment no loaded file declares is followed as
+// an import is: the file declaring that root loads, and so do the roots it
+// references in turn. The decoy declaring the same member under another root
+// is left alone.
+func TestDependenciesFollowQualifiedNamesAsTheyFollowImports(t *testing.T) {
+	dir := t.TempDir()
+	main := writeModel(t, filepath.Join(dir, "main.sysml"), "package Main {\n    private import Lib::*;\n    part w : Widget;\n}\n")
+	lib := writeModel(t, filepath.Join(dir, "lib.sysml"), "package Lib {\n    part def Widget {\n        attribute kind : Kinds::Kind;\n    }\n}\n")
+	kinds := writeModel(t, filepath.Join(dir, "kinds.sysml"), "package Kinds {\n    attribute def Kind { attribute weight : Units::Weight; }\n}\n")
+	units := writeModel(t, filepath.Join(dir, "units.kerml"), "package Units {\n    datatype Weight;\n}\n")
+	writeModel(t, filepath.Join(dir, "other.sysml"), "package Other {\n    attribute def Kind;\n}\n")
+
+	got := Dependencies([]string{main}, nil)
+	if want := []string{lib, kinds, units}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Dependencies = %v, want %v", got, want)
+	}
+}
+
+// Two library packages that import each other, one of them naming the other's
+// members only by qualified name, both load from a file that imports one of
+// them: the qualified names lead to the second as an import would have.
+func TestDependenciesFollowAQualifiedNameIntoAMutuallyImportingLibrary(t *testing.T) {
+	dir := t.TempDir()
+	main := writeModel(t, filepath.Join(dir, "main.sysml"), "package Main {\n    private import Method::*;\n    part p : Project;\n}\n")
+	method := writeModel(t, filepath.Join(dir, "lib", "Method.sysml"), "library package Method {\n    part def Project {\n        view cover : MethodViews::ProjectView { expose this; }\n    }\n}\n")
+	views := writeModel(t, filepath.Join(dir, "lib", "MethodViews.sysml"), "library package MethodViews {\n    private import Method::*;\n    view def ProjectView;\n}\n")
+
+	got := Dependencies([]string{main}, nil)
+	if want := []string{method, views}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Dependencies = %v, want %v", got, want)
+	}
+}
+
+// A qualified name an enclosing namespace declares the root of, a feature
+// chain and a name the library declares are not looked for.
+func TestDependenciesLeaveQualifiedNamesTheFileOrLibraryAnswers(t *testing.T) {
+	dir := t.TempDir()
+	main := writeModel(t, filepath.Join(dir, "main.sysml"), "package Main {\n    package Local { part def A; }\n    part a : Local::A;\n    part b : ScalarValues::Real;\n    part c = a.x;\n}\n")
+	writeModel(t, filepath.Join(dir, "local.sysml"), "package Local {\n    part def B;\n}\n")
+	writeModel(t, filepath.Join(dir, "scalars.sysml"), "package ScalarValues {\n    part def Fake;\n}\n")
+	writeModel(t, filepath.Join(dir, "a.sysml"), "package a {\n    part def X;\n}\n")
+
+	known := func(name string) bool { return name == "ScalarValues" }
+	if got := Dependencies([]string{main}, known); len(got) != 0 {
+		t.Errorf("Dependencies = %v, want none", got)
+	}
+}

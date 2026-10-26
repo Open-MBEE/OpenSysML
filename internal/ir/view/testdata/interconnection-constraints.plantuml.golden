@@ -56,9 +56,9 @@ rectangle "<size:10>//«part def»//</size>\n**Amplifier**" as n0 <<part def>> {
     port "total" as n6.2
   }
 }
-n1 -- n5.0
-n2 -- n5.1
-n5.2 -- n6.0
-n3 -- n6.1
-n6.2 -- n4
+n1 -- n5.0 : =
+n2 -- n5.1 : =
+n5.2 -- n6.0 : =
+n3 -- n6.1 : =
+n6.2 -- n4 : =
 @enduml

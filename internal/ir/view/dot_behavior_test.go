@@ -66,7 +66,7 @@ func TestDOTCameoActionNotation(t *testing.T) {
 		t.Errorf("%d note-shaped nodes, want the one comment:\n%s", n, source)
 	}
 	// Object flows end at the pins, not at the actions.
-	for _, flow := range []string{`"n1.0" -> "n3.0" [style=dashed`, `"n2.0" -> "n3.1" [style=dashed`, `"n3.2" -> "n4.0" [style=dashed`} {
+	for _, flow := range []string{`"n1.0" -> "n3.0" [`, `"n2.0" -> "n3.1" [`, `"n3.2" -> "n4.0" [`} {
 		if !strings.Contains(source, flow) {
 			t.Errorf("flow %s not drawn pin to pin:\n%s", flow, source)
 		}
@@ -190,7 +190,7 @@ func TestDOTCameoStateNotation(t *testing.T) {
 			}
 		}
 	}
-	for _, edge := range []string{`"n18" -> "n1" [pos="e,47,300 47,355`, `"n19" -> "n4" [pos="e,567,280 567,325`, `"n2" -> "n16" [label="Resume"`, `"n16" -> "n4" [pos="e,660,280`, `"n1" -> "n17" [label="Recall"`, `"n17" -> "n5" [pos="e,780,200`} {
+	for _, edge := range []string{`"n18" -> "n1" [arrowhead=vee, pos="e,47,300 47,355`, `"n19" -> "n4" [arrowhead=vee, pos="e,567,280 567,325`, `"n2" -> "n16" [label="Resume"`, `"n16" -> "n4" [arrowhead=vee, pos="e,660,280`, `"n1" -> "n17" [label="Recall"`, `"n17" -> "n5" [arrowhead=vee, pos="e,780,200`} {
 		if !strings.Contains(source, edge) {
 			t.Errorf("transition %s not drawn:\n%s", edge, source)
 		}

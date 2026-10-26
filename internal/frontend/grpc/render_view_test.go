@@ -210,13 +210,13 @@ func TestRenderViewRendersCaseAndMixed(t *testing.T) {
 		t.Errorf("mixed view kind = %q, want mixed", mixedView.Kind)
 	}
 	requireNodeKinds(mixedView, "part def", "port", "action def")
-	requireEdgeKinds(mixedView, "reference", "succession")
+	requireEdgeKinds(mixedView, "perform", "succession")
 	var telemetry, perform bool
 	for _, node := range mixedView.Nodes {
 		telemetry = telemetry || node.Kind == "port" && node.Name == "telemetry"
 	}
 	for _, edge := range mixedView.Edges {
-		perform = perform || edge.Kind == "reference" && edge.Label == "«perform»"
+		perform = perform || edge.Kind == "perform" && edge.Label == "«perform»"
 	}
 	if !telemetry {
 		t.Errorf("mixed view nodes do not include the Lander telemetry port: %+v", mixedView.Nodes)

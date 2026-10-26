@@ -66,5 +66,5 @@ flowchart TD
     n15("`*«attribute»*
 **mass**`")
   n8 --- n15
-  n2 -.->|"typing"| n0
+  n2 -->|"typing"| n0
   n8 -->|"specialization"| n0

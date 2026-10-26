@@ -357,7 +357,7 @@ func TestMonteCarloParametricViewExposesTheAnalysis(t *testing.T) {
 		t.Fatalf("edges = %+v, want the one binding", rendering.Edges)
 	}
 	edge := rendering.Edges[0]
-	if edge.From != analysis.ID || edge.FromPort != observed.ID || edge.To != settleTime.ID || edge.ToPort != "" || edge.Kind != view.EdgeBinding || edge.Label != "binding" {
+	if edge.From != analysis.ID || edge.FromPort != observed.ID || edge.To != settleTime.ID || edge.ToPort != "" || edge.Kind != view.EdgeBinding || edge.Label != "=" {
 		t.Errorf("edge = %+v, want a binding from pin %s of %s to %s", edge, observed.ID, analysis.ID, settleTime.ID)
 	}
 	if !reflect.DeepEqual(edge.Route, []view.Point{{X: 105, Y: 82}, {X: 105, Y: 98}}) {

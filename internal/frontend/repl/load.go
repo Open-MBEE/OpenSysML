@@ -13,9 +13,10 @@ import (
 // LoadPaths loads model files into the session. Each path names a file, a
 // directory to walk for .sysml/.kerml files, a glob pattern, or standard input
 // as a lone "-", whose contents are reported as <stdin>. A root namespace the
-// files import but none of them or the library declares is looked for in the
-// model files beside and below them, and each file declaring it is loaded too,
-// its own imports followed the same way. Every file is
+// files reference — by an import or a qualified name — but none of them or the
+// library declares is looked for in the model files beside and below them, and
+// each file declaring it is loaded too, its own references followed the same
+// way. Every file is
 // accepted before the buffer is analyzed, so the order files are loaded in does
 // not affect name resolution: a file may reference a declaration another file
 // loaded after it makes. Diagnostics name the file they belong to and count
@@ -55,13 +56,13 @@ func (s *Session) loadPathsReport(paths []string, opts loadOptions) (LoadReport,
 	if err != nil {
 		return LoadReport{}, err
 	}
-	read, err := s.readWithDependencies(files, opts, s.ws.IsLibraryRoot)
+	read, err := s.readWithDependencies(files, opts)
 	if err != nil {
 		return LoadReport{}, err
 	}
 	srcs := read.files
 	loaded := append(loadedFiles(srcs), read.notes...)
-	archives := warningLines(s.discovery().ArchiveWarnings(files), s.verbosity)
+	archives := s.discoveryWarnings(files)
 	if len(srcs) == 0 {
 		return LoadReport{Loaded: loaded, Found: archives, Errors: s.hasAnalysisErrors()}, nil
 	}
@@ -100,6 +101,25 @@ func conversionWarnings(files []SourceFile, verbosity Verbosity) []string {
 	return warningLines(warnings, verbosity)
 }
 
+// LoadWarnings reports what the projects and archives a load of paths touched fell
+// short of as warnings located at their file (code project.load), less and counting the suppressed.
+func (s *Session) LoadWarnings(paths []string) ([]Diagnostic, int) {
+	defer s.enter()()
+	return s.loadWarnings(expandHomes(paths))
+}
+
+func (s *Session) loadWarnings(paths []string) (out []Diagnostic, suppressed int) {
+	for _, w := range s.discovery().Warnings(paths) {
+		d := Diagnostic{Severity: "warning", Message: w.Message, File: w.Path, Pass: "project", Code: "project.load"}
+		if s.suppress != nil && s.suppress(d.File, d.Code, d.Message) {
+			suppressed++
+			continue
+		}
+		out = append(out, d)
+	}
+	return out, suppressed
+}
+
 // warningLines renders warnings as the lines a load reports, none when quiet.
 func warningLines(warnings []string, verbosity Verbosity) []string {
 	if verbosity <= VerbosityQuiet {
@@ -110,6 +130,17 @@ func warningLines(warnings []string, verbosity Verbosity) []string {
 		lines = append(lines, "warning: "+warning)
 	}
 	return lines
+}
+
+// discoveryWarnings renders what the projects and archives a load of paths
+// touched fell short of as the warning lines a load reports, none when quiet.
+func (s *Session) discoveryWarnings(paths []string) []string {
+	var out []string
+	diags, _ := s.loadWarnings(paths)
+	for _, d := range diags {
+		out = append(out, d.File+": "+d.Message)
+	}
+	return warningLines(out, s.verbosity)
 }
 
 // ExpandPaths turns the paths a caller was given — files, directories to walk
@@ -173,14 +204,14 @@ type reading struct {
 }
 
 // readWithDependencies reads paths, then the model files beside and below them
-// that declare a root namespace they import and neither they nor known — the
-// library's root packages, and whatever else the caller holds — declare.
-func (s *Session) readWithDependencies(paths []string, opts loadOptions, known func(name string) bool) (reading, error) {
+// that declare a root namespace they reference and neither they, the library
+// nor the rest of the buffer declares.
+func (s *Session) readWithDependencies(paths []string, opts loadOptions) (reading, error) {
 	read, err := s.readSources(paths, opts)
 	if err != nil {
 		return reading{}, err
 	}
-	deps := s.discovery().DependenciesOf(read.deps, known)
+	deps := s.discovery().DependenciesOf(read.deps, s.knownRootBesides(read.files))
 	if len(deps) == 0 {
 		return read, nil
 	}
@@ -193,6 +224,26 @@ func (s *Session) readWithDependencies(paths []string, opts loadOptions, known f
 	}
 	read.files = append(read.files, more.files...)
 	return read, nil
+}
+
+// knownRootBesides reports the root namespace names the library or the buffer
+// declares, what the files being read declared before left out — the cells of
+// a notebook read whole too: a reload supersedes that, so a reference to such
+// a name is looked for beside them.
+func (s *Session) knownRootBesides(files []SourceFile) func(name string) bool {
+	replacing, whole := map[string]bool{}, map[string]bool{}
+	for _, f := range files {
+		if key := f.key(); key != "" {
+			replacing[key] = true
+		}
+		if f.Whole {
+			whole[fileKeyOf(f.Of)] = true
+		}
+	}
+	declared := s.declaredRoots(func(sn snippet) bool {
+		return sn.key != "" && replacing[sn.key] || sn.of != "" && whole[sn.of]
+	})
+	return func(name string) bool { return declared[name] || s.ws.IsLibraryRoot(name) }
 }
 
 // expandHomes expands a leading ~ in every path.

@@ -88,7 +88,8 @@ func Bundle(dir string) ([]byte, *Interchange, error) {
 }
 
 // bundleMembers reads the files of dir that an archive of it holds, keyed by
-// their slash-separated path under dir.
+// their slash-separated path under dir: hidden entries other than the project
+// and metadata files, and the trees of nested projects, are left out.
 func bundleMembers(dir string) (map[string][]byte, error) {
 	members := map[string][]byte{}
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
@@ -101,7 +102,9 @@ func bundleMembers(dir string) (map[string][]byte, error) {
 		}
 		hidden := rel != "." && strings.HasPrefix(d.Name(), ".")
 		if d.IsDir() {
-			if hidden {
+			// A project nested in the directory is a project of its own,
+			// bundled on its own.
+			if hidden || IsLibraryDir(filepath.Dir(path), d.Name()) || (rel != "." && IsProjectDir(path)) {
 				return filepath.SkipDir
 			}
 			return nil

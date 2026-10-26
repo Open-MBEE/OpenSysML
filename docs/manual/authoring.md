@@ -252,6 +252,27 @@ feature chain (`sysml:telescope.mount`) or any element through its metadata
 written in. An empty label — `[](sysml:breakdown)` — takes the target's
 title, caption or name as a `Ref` without `text` does.
 
+A `sysml:value:` destination reads a feature's **value** into the prose
+instead of referencing the element: `[](sysml:value:telescope.mass)` renders
+`2290000 [kg]`, exactly as a `SpanColumn` cell projecting `mass` from
+`telescope` would — numbers with their unit, strings, booleans, enumeration
+literals, and a multi-valued feature joined with `, ` as a list cell is. The
+target is a data-valued feature — an attribute, calculation or enumeration
+usage, or a `ref` typed by data types only — named by qualified name or
+feature chain, resolved as a `sysml:` reference is; a feature chain reads
+from its root, a name from the feature's owner (a member written `a::b`
+reads `a`, then `b`). Without a session the
+declared value is read; over a session (`-run`, or a document rendered while
+the REPL holds objects) a target whose root the session holds reads the
+object's current value, as `Objects` rows do. A label precedes the value with
+one space — `[Mass:](sysml:value:telescope.mass)` renders `Mass: 2290000
+[kg]`; an empty label renders the value alone. A target that is a part,
+port, content block, definition or a `ref` to one of those is refused when
+the document is planned (`invalid-value-target`): `sysml:` without `value:`
+references those. A
+feature with no value fails the document's evaluation (`empty-value`) naming
+the feature, never a blank; give the feature a value or a redefinition.
+
 ### Headings open sections
 
 A heading in a body owned by a `Document` or `Section` opens a `Section`
@@ -319,27 +340,9 @@ document definition or a usage of it (`sysml:MassReport::mass_budget`) as
 for a named part; a usage typed by more than one document is the
 `ambiguous-ref-target` error, as for a part. The anchor is the section's
 path, `overview-mass_budget`.
-
-A `sysml:value:` destination reads a feature's **value** into the prose
-instead of referencing the element: `[](sysml:value:telescope.mass)` renders
-`2290000 [kg]`, exactly as a `SpanColumn` cell projecting `mass` from
-`telescope` would — numbers with their unit, strings, booleans, enumeration
-literals, and a multi-valued feature joined with `, ` as a list cell is. The
-target is a data-valued feature — an attribute, calculation or enumeration
-usage, or a `ref` typed by data types only — named by qualified name or
-feature chain, resolved as a `sysml:` reference is; a feature chain reads
-from its root, a name from the feature's owner (a member written `a::b`
-reads `a`, then `b`). Without a session the
-declared value is read; over a session (`-run`, or a document rendered while
-the REPL holds objects) a target whose root the session holds reads the
-object's current value, as `Objects` rows do. A label precedes the value with
-one space — `[Mass:](sysml:value:telescope.mass)` renders `Mass: 2290000
-[kg]`; an empty label renders the value alone. A target that is a part,
-port, content block, definition or a `ref` to one of those is refused when
-the document is planned (`invalid-value-target`): `sysml:` without `value:`
-references those. A
-feature with no value fails the document's evaluation (`empty-value`) naming
-the feature, never a blank; give the feature a value or a redefinition.
+A nested heading is also a target by its named path — `sysml:overview.mass_budget`,
+or `sysml:appendix.derivation` for a heading in a body inside a `part : Section` —
+qualified the same way from another document (`sysml:MassReport::appendix.derivation`).
 
 Constructs that no content block renders are refused with a typed planning
 error naming the construct and its line within the body, rather than

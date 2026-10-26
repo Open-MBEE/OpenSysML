@@ -869,18 +869,37 @@ part def P { part a; part b; ref r ::> a ::> b; }
 item def I; part p : I;
 ```
 
-**Pilot / OpenSysML:** accepted (both).
+**Pilot / OpenSysML:** accepted (both). OpenSysML reported `part-usage-part-definition` here
+between the check's introduction (`validatePartUsagePartDefinition`, issue #647) and its
+re-alignment with the derivation below; the pilot's own derived properties on this model are
+`type = {I, Parts::Part}`, `itemDefinition = {I, Parts::Part}`, `partDefinition = {Parts::Part}`
+(its `%export` with `isImpliedIncluded = false`), so the constraint holds on its metamodel too.
 
 **Specification:** SysML §8.3.11.3 `PartUsage`, `validatePartUsagePartDefinition`: "At least one
-of the itemDefinitions of a PartUsage must be a PartDefinition." But `checkPartUsageSpecialization`
-requires every `PartUsage` to specialize `Parts::parts`, whose type is `Parts::Part`, and KerML
-§8.3.3.3.4 `deriveFeatureType` makes a feature's `type` "the union of the types of its typings and
-the types of the Features it subsets", so `partDefinition` is never empty. §7.10's note says as
-much: "every part usage is always directly or indirectly defined by at least one part definition,
-implicitly if not explicitly."
+of the itemDefinitions of a PartUsage must be a PartDefinition" (`partDefinition->notEmpty()`),
+with `derivePartUsagePartDefinition` `partDefinition = itemDefinition->selectByKind(PartDefinition)`,
+§8.3.10.3 `deriveItemUsageItemDefinition` `itemDefinition = occurrenceDefinition->selectByKind(Structure)`,
+and `occurrenceDefinition` redefining `definition` redefining `Feature::type` (§8.3.1: a derived
+property that redefines a derived property inherits its derivation). KerML §8.3.3.3.4
+`deriveFeatureType` makes a feature's `type` the union over `closure(typingFeatures())` of the
+typings' types, and `typingFeatures()` is every subsetted feature, implied ones included; SysML
+§8.3.11.3 `checkPartUsageSpecialization` requires every `PartUsage` to specialize `Parts::parts`
+(typed `Parts::Part`, §9.2.4), which §8.4.7.2 and the §8.4.3 table satisfy by an implied
+`Subsetting`, and KerML §8.4.2 suppresses that implied specialization only when an owned one has
+the same or a narrower general — a `FeatureTyping` by an item definition does not. §8.3.1 states
+that validation constraints "are written presuming that all semantic constraints are satisfied",
+so `type` contains `Parts::Part`, `partDefinition` is never empty, and the constraint cannot fail
+for a part usage typed only by an item definition. §7.10's note says as much: "every part usage
+is always directly or indirectly defined by at least one part definition, implicitly if not
+explicitly, in addition to any other item definitions."
 
-**Assessment:** pilot-following justified by clause; the `validation-constraints.md` row that
-marks the constraint "unobservable" is right for the reason above, and can cite it.
+**Assessment:** both tools are right by clause, and the specification over the pilot's silence:
+the constraint is stated but is satisfied through the implied `Parts::parts` subsetting, so a
+report on an item-typed part was stricter than the specification, not stricter than the pilot.
+The `validation-constraints.md` row records the constraint as deliberately unreported, and the
+derivation itself is what the tree holds: `semantics.Model.FeatureTypeSetWithImplied` joins the
+implied generals' types to the declared ones, so reflective `type` and `partDefinition` state
+`Parts::Part` for every part usage.
 
 **Question for the authors:** none.
 

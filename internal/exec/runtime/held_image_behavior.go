@@ -82,6 +82,7 @@ type imagedBodyCell struct {
 	name        string
 	value       ast.Node
 	scope       *symbols.Scope
+	place       lower.Place
 	masked      string
 	written     bool
 	frozen      bool
@@ -780,7 +781,7 @@ func imageBodyCells(cells *bodyCells, values map[string]Value) []imagedBodyCell 
 		}
 		image = append(image, imagedBodyCell{
 			name: name, value: cell.binding.value, scope: cell.binding.scope,
-			masked:  cell.binding.masked,
+			place: cell.binding.place, masked: cell.binding.masked,
 			written: cell.fv.Written, frozen: cell.binding.frozen,
 			visible: cloneBodyBindingVisibility(cell.binding.visible), limitFrames: cell.binding.limitFrames,
 		})
@@ -821,6 +822,7 @@ func restoreStateBodyCells(
 			return ctx.checkBodyDeclaration(scope, owner, state.name, value)
 		}
 		cell := ctx.registerBodyBinding(cells, state.name, attr.Value, scope, check, nil)
+		cell.binding.place = state.place
 		cell.binding.visible = cloneBodyBindingVisibility(state.visible)
 		cell.binding.limitFrames = state.limitFrames
 		restoreBodyCellValue(cells, state, cell)
@@ -889,6 +891,7 @@ func (m *materializing) frameCells(
 			return defaultContext(scope)
 		}
 		cell := m.dst.registerBodyBindingInContext(cells, state.name, state.value, state.scope, check, context, onDerived)
+		cell.binding.place = state.place
 		cell.binding.visible = cloneBodyBindingVisibility(state.visible)
 		cell.binding.masked = state.masked
 		cell.binding.limitFrames = state.limitFrames

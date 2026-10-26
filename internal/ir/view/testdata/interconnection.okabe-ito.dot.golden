@@ -36,5 +36,5 @@ digraph "PlantViews::loopView" {
     }
   }
   "n1.0" -> "n3.0" [arrowhead=none, penwidth=3];
-  "n2" -> "n4" [style=dashed];
+  "n2" -> "n4";
 }

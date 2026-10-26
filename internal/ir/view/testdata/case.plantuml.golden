@@ -66,8 +66,8 @@ n2 -- n0
 n0 .. n3
 n5 -- n4
 n4 -- n6 : <U+00AB>subject<U+00BB>
-n0 ..> n4 : <U+00AB>include<U+00BB>
-n0 ..> n7 : <U+00AB>include<U+00BB>
+n0 --> n4 : <U+00AB>include<U+00BB>
+n0 --> n7 : <U+00AB>include<U+00BB>
 n7 -- n8 : <U+00AB>subject<U+00BB>
 n9 -- n7
 n0 *-- n10
