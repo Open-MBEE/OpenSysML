@@ -393,10 +393,8 @@ func (ctx *Context) featureMultiplicity(sym, owner *symbols.Symbol) semantics.Ra
 	return mult
 }
 
-// featureRange is featureMultiplicity reporting whether a declaration, inheritance or the
-// parameter rule states the range, and whether it is defaulted: none of those nor the
-// implicit [1..1] (SysML v2 §7.6.3, end features) states it, so the usual default 0..*
-// judges no count against it.
+// featureRange is featureMultiplicity reporting whether a declaration, inheritance or the parameter
+// rule states the range, and whether it is defaulted: neither those nor the implicit [1..1] state it.
 func (ctx *Context) featureRange(sym, owner *symbols.Symbol) (mult semantics.Range, stated, defaulted bool) {
 	if semantics.IsParameter(sym) {
 		return ctx.model.semantics.EffectiveParameterRange(sym), true, false

@@ -5,11 +5,8 @@ import (
 	"testing"
 )
 
-// A behavior writing the features it declares judges their count by the feature's
-// effective multiplicity alone: a feature stating none and inheriting none holds what is
-// written under the default 0..* (KerML 1.1 §7.4.12), a stated bound or the implicit
-// [1..1] of a usage (SysML v2 §7.6.3) refuses a count outside it, as a write from
-// outside the behavior does.
+// A behavior writing a feature it declares judges the count by the feature's effective multiplicity:
+// none under the default 0..* (KerML 1.1 §7.4.12), a stated bound or the implicit [1..1] (SysML v2 §7.6.3) as written.
 func TestRuntimeRobustnessWriteDefaultMultiplicity(t *testing.T) {
 	t.Run("defaulted_subset_holds_many", testWriteDefaultedSubsetHoldsMany)
 	t.Run("implicit_one_refuses_two", testWriteImplicitOneRefusesTwo)

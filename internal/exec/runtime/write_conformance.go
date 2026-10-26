@@ -62,9 +62,8 @@ func (ctx *Context) writeTargetIn(scope *symbols.Scope, name string) (*writeTarg
 	return target, target != nil
 }
 
-// writeTargetOf is what the feature sym, written as name, declares of its values, its
-// count judged as an object's feature judges a write (effectiveFeature, checkAdmits): a
-// defaulted feature holds one representative value and has no count judged against it.
+// writeTargetOf is what the feature sym, written as name, declares of its values, the count
+// judged as checkAdmits judges an object's feature: none against a defaulted feature's.
 func (ctx *Context) writeTargetOf(sym *symbols.Symbol, name string) *writeTarget {
 	mult, stated, defaulted := ctx.featureRange(sym, ctx.findOwnerType(sym))
 	target := ctx.newWriteTarget(sym, name, mult)
