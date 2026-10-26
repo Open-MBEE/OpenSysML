@@ -10,6 +10,7 @@ import (
 )
 
 const (
+	repoRoot          = "../.."
 	sharedDigestTable = "../../client/release-digests.json"
 	changelog         = "../../CHANGELOG.md"
 	changelogArchive  = "../../docs/project/archive/CHANGELOG-0.0-0.8.md"
@@ -89,7 +90,7 @@ func TestSharedDigestTablePinsEveryRecordedRelease(t *testing.T) {
 		if _, listed := unpinnableReleases[tag]; listed {
 			continue
 		}
-		if tag == own && !ownPinDue(tag) {
+		if tag == own && !ownPinDue(repoRoot, tag, os.Getenv("CIRCLE_TAG")) {
 			continue
 		}
 		t.Errorf("the changelog records %s as released, but client/release-digests.json does not pin it;\n"+
@@ -149,38 +150,67 @@ func ownReleaseTag(t *testing.T) string {
 	return tag
 }
 
-// ownPinDue reports whether the release the tree declares must already be
-// pinned, as far as this checkout can tell: its tag has been pushed, and the
-// checkout is not the tagged commit itself. The tag's own release pipeline
-// runs with the tag checked out but cannot have pinned it, the digests being
-// built in that very run; neither can main at the release commit, which the
-// pin pull request lands on develop after.
-func ownPinDue(tag string) bool {
-	if os.Getenv("CIRCLE_TAG") == tag {
+// ownPinDue reports whether the tree's own release must be pinned: its tag is in
+// the checkout and HEAD has moved past the tagged commit; the tag pipeline is exempt.
+func ownPinDue(repo, tag, circleTag string) bool {
+	if circleTag == tag || !tagExists(repo, tag) {
 		return false
 	}
-	if !tagExists(tag) {
-		return false
-	}
-	head := gitRevParse("HEAD")
-	return head == "" || head != gitRevParse(tag+"^{commit}")
+	head := gitRevParse(repo, "HEAD")
+	return head == "" || head != gitRevParse(repo, tag+"^{commit}")
 }
 
-// tagExists reports whether the release tag is in this checkout.
-func tagExists(tag string) bool {
+// tagExists reports whether the release tag is in the checkout.
+func tagExists(repo, tag string) bool {
 	cmd := exec.Command("git", "tag", "--list", tag)
-	cmd.Dir = "../.."
+	cmd.Dir = repo
 	out, err := cmd.Output()
 	return err == nil && strings.TrimSpace(string(out)) == tag
 }
 
 // gitRevParse is the commit a revision names, or "" when git cannot tell.
-func gitRevParse(rev string) string {
+func gitRevParse(repo, rev string) string {
 	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", rev)
-	cmd.Dir = "../.."
+	cmd.Dir = repo
 	out, err := cmd.Output()
 	if err != nil {
 		return ""
 	}
 	return strings.TrimSpace(string(out))
+}
+
+// TestOwnPinDueFollowsTheTag walks a release through a scratch repository: the
+// pin is due only once the tag exists and the checkout has moved past it.
+func TestOwnPinDueFollowsTheTag(t *testing.T) {
+	repo := t.TempDir()
+	git := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", append([]string{
+			"-c", "user.name=hygiene", "-c", "user.email=hygiene@example.invalid", "-c", "commit.gpgsign=false",
+		}, args...)...)
+		cmd.Dir = repo
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
+		}
+	}
+	const tag = "v1.2.3"
+	expect := func(state string, want bool) {
+		t.Helper()
+		if got := ownPinDue(repo, tag, ""); got != want {
+			t.Errorf("%s: ownPinDue = %v, want %v", state, got, want)
+		}
+		if ownPinDue(repo, tag, tag) {
+			t.Errorf("%s: the tag's own pipeline (CIRCLE_TAG=%s) must stay exempt", state, tag)
+		}
+	}
+
+	git("init", "--quiet")
+	git("commit", "--quiet", "--allow-empty", "-m", "release")
+	expect("release branch, tag not yet pushed", false)
+	git("tag", tag)
+	expect("the tagged commit (main after the release)", false)
+	git("commit", "--quiet", "--allow-empty", "-m", "next")
+	expect("a commit past the tag (develop, a hotfix branch)", true)
+	git("checkout", "--quiet", "--detach", tag)
+	expect("detached at the tag, as CI checks a release out", false)
 }
