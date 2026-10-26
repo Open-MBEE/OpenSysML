@@ -21,9 +21,15 @@ function answer = query(model, varargin)
         built = opensysml.buildQuery(varargin{1}, varargin{2:end});
     end
     request = struct('modelHash', model.hash, 'query', built);
-    model.connection.require('query');
+    needed = {'query'};
+    if isfield(built, 'orderBy') && ~isempty(built.orderBy)
+        needed{end + 1} = 'query_order_by';
+    end
+    for i = 1:numel(needed)
+        model.connection.require(needed{i});
+    end
     raw = opensysml.internal.checkError(opensysml.call(model.connection, ...
-        'Query', request, {'query'}), 'Query');
+        'Query', request, needed), 'Query');
     answer = queryElements(raw);
 end
 

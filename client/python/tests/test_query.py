@@ -15,7 +15,11 @@ from concurrent import futures
 import grpc
 import pytest
 
-from opensysml.capabilities import CAPABILITY_QUERY, MissingCapabilityError
+from opensysml.capabilities import (
+    CAPABILITY_QUERY,
+    CAPABILITY_QUERY_ORDER_BY,
+    MissingCapabilityError,
+)
 from opensysml.connection import Connection
 from opensysml.errors import InvalidRequestError, ModelNotFoundError
 from opensysml.query import QueryElement, QueryError, build_query
@@ -273,6 +277,19 @@ def test_query_requires_the_capability(fake_service):
             model.query(COOKBOOK_QUERY)
     assert excinfo.value.capability == CAPABILITY_QUERY
     assert service.requests == [], "the request was sent to a service that cannot serve it"
+
+
+def test_sorted_query_requires_its_own_capability(fake_service):
+    """A service that would ignore orderBy is not sent a sorted query; unsorted ones still go."""
+    port, service = fake_service(capabilities=(CAPABILITY_QUERY,))
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content(MODEL)
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            model.query(select=["name"], order_by=["name"])
+        assert excinfo.value.capability == CAPABILITY_QUERY_ORDER_BY
+        assert service.requests == [], "the request was sent to a service that would ignore it"
+        model.query(select=["name"])
+    assert len(service.requests) == 1
 
 
 def test_model_query_sends_its_own_hash(fake_service):

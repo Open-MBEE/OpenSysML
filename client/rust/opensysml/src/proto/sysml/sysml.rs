@@ -2768,6 +2768,8 @@ pub struct ServerInfoResponse {
     ///                   and answers with typed rows.
     ///    "render_document" - the RenderDocument RPC renders a named document to
     ///                   Markdown.
+    ///    "query_order_by" - Query.order_by sorts the matched elements; a service
+    ///                   without it would ignore the field, so a client checks.
     ///    "render_document_html" - RenderDocumentRequest.form takes "html".
     ///    "render_document_asciidoc" - RenderDocumentRequest.form takes "asciidoc"
     ///                   and the response carries the document in `asciidoc`.

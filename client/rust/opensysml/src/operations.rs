@@ -9,7 +9,8 @@ use crate::capabilities::{
     CAPABILITY_EXPORT_GRAPHS, CAPABILITY_FUNCTION_VALUES, CAPABILITY_IMPORT_DATA,
     CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS,
     CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY,
-    CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER, CAPABILITY_QUERY, CAPABILITY_RATIONAL_VALUES,
+    CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER, CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY,
+    CAPABILITY_RATIONAL_VALUES,
     CAPABILITY_RECORD_RUN, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
     CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_RUNS, CAPABILITY_SCHEDULE,
     CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SELF_CHECK, CAPABILITY_SET_VALUES,
@@ -411,7 +412,12 @@ impl Connection {
     /// Run a SysML v2 API & Services query over a loaded model.
     pub fn query(&self, model_hash: &str, query: &Query) -> Result<Vec<QueryElement>, Error> {
         let query = query.to_wire()?;
-        self.require_all(&[CAPABILITY_QUERY])?;
+        let needed: &[&str] = if query.order_by.is_empty() {
+            &[CAPABILITY_QUERY]
+        } else {
+            &[CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY]
+        };
+        self.require_all(needed)?;
         let response = self.gated_rpc(
             "Query",
             wire::QueryRequest {
@@ -419,7 +425,7 @@ impl Connection {
                 query: Some(query),
                 ..Default::default()
             },
-            &[CAPABILITY_QUERY],
+            needed,
         )?;
         Ok(elements_of(response))
     }

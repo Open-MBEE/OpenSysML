@@ -17,6 +17,8 @@ pub const CAPABILITY_VERIFICATION_QUESTIONS: &str = "verification_questions";
 pub const CAPABILITY_VERIFICATION_ARGUMENTS: &str = "verification_arguments";
 /// The `Query` RPC.
 pub const CAPABILITY_QUERY: &str = "query";
+/// `order_by` on `Query`; a service without it would ignore the field.
+pub const CAPABILITY_QUERY_ORDER_BY: &str = "query_order_by";
 /// OSLC Query 3.0 parameter text on the `Query` RPC.
 pub const CAPABILITY_OSLC_QUERY: &str = "oslc_query";
 /// The `RunDocumentQuery` RPC.

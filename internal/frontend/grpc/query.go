@@ -86,6 +86,11 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 			return nil, err
 		}
 	}
+	if len(req.GetQuery().GetOrderBy()) > 0 {
+		if err := s.requireCapability(CapabilityQueryOrderBy); err != nil {
+			return nil, err
+		}
+	}
 	cached, ok := s.cache.Get(req.ModelHash)
 	if !ok {
 		return nil, statusErrorf(connect.CodeNotFound, "model not found: %s", req.ModelHash)

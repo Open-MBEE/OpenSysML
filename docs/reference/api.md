@@ -1016,7 +1016,9 @@ can filter a model OpenSysML parsed. The standard's schema is authoritative:
 `PrimitiveConstraint`, `CompositeConstraint`.
 
 **Implementation:** `internal/frontend/grpc/query.go` (`Service.Query`), reported from
-`GetServerInfo` as the `query` capability. Python: `model.query(...)`
+`GetServerInfo` as the `query` capability, with `orderBy` under `query_order_by` (a service
+without it would ignore the field, so every client checks before sending a sorted query).
+Python: `model.query(...)`
 (`client/python/opensysml/query.py`). The JSON a hand-written client sends and
 receives for this call is shown, captured, on
 [the wire contract](wire-contract.md#query).

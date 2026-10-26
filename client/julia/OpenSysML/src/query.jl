@@ -154,9 +154,11 @@ build_query(payload; scope=nothing, select=nothing, var"where"=nothing, order_by
 
 """Run a typed standard query and return its elements."""
 function query(model::Model; payload=nothing, scope=nothing, select=nothing, var"where"=nothing, order_by=nothing)
-    require_capability(model.connection, CAPABILITY_QUERY)
     request_query = build_query(; payload=payload, scope=scope, select=select, var"where"=var"where", order_by=order_by)
-    answer = _translate(; capabilities=(CAPABILITY_QUERY,), connection=model.connection) do
+    needed = isempty(get(request_query, "orderBy", ())) ? (CAPABILITY_QUERY,) :
+             (CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY)
+    foreach(capability -> require_capability(model.connection, capability), needed)
+    answer = _translate(; capabilities=needed, connection=model.connection) do
         call(model.connection, "Query", Dict{String,Any}("modelHash" => model.hash,
                                                           "query" => request_query))
     end

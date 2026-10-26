@@ -479,7 +479,8 @@ and `verifyConstraint` returns it.
 `Connection.open` calls `GetServerInfo` once and keeps what it reported.
 Negotiation is on the advertised **names** — the constants on `Capabilities`, such
 as `EVALUATE_SUBJECT`, `FEATURE_VALUES`, `STRICT_CONFORMANCE`, `INLINE_LANGUAGE`,
-`PARSE_SOURCES`, `DOCUMENT_QUERY`, `RENDER_DOCUMENT`, `RENDER_DOCUMENT_HTML` —
+`PARSE_SOURCES`, `QUERY`, `QUERY_ORDER_BY`, `DOCUMENT_QUERY`, `RENDER_DOCUMENT`,
+`RENDER_DOCUMENT_HTML` —
 never on the version string:
 
 ```java
