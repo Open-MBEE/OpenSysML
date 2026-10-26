@@ -227,16 +227,22 @@ func (s *Session) readWithDependencies(paths []string, opts loadOptions) (readin
 }
 
 // knownRootBesides reports the root namespace names the library or the buffer
-// declares, what the files being read declared before left out: a reload
-// supersedes that, so a reference to such a name is looked for beside them.
+// declares, what the files being read declared before left out — the cells of
+// a notebook read whole too: a reload supersedes that, so a reference to such
+// a name is looked for beside them.
 func (s *Session) knownRootBesides(files []SourceFile) func(name string) bool {
-	replacing := map[string]bool{}
+	replacing, whole := map[string]bool{}, map[string]bool{}
 	for _, f := range files {
 		if key := f.key(); key != "" {
 			replacing[key] = true
 		}
+		if f.Whole {
+			whole[fileKeyOf(f.Of)] = true
+		}
 	}
-	declared := s.declaredRoots(replacing)
+	declared := s.declaredRoots(func(sn snippet) bool {
+		return sn.key != "" && replacing[sn.key] || sn.of != "" && whole[sn.of]
+	})
 	return func(name string) bool { return declared[name] || s.ws.IsLibraryRoot(name) }
 }
 
