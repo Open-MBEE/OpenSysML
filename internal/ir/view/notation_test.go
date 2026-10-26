@@ -301,8 +301,10 @@ func TestHiddenEdgeLabelsTakeTheNameAtPinsWithThem(t *testing.T) {
 	rendering := render(t, "gated-flow.sysml", "GatedViews::passView")
 	named := func(r *Rendering) (names []string) {
 		for _, edge := range r.Edges {
-			if (edge.Kind == EdgeFlow || edge.Kind == EdgeSuccessionFlow) && (edge.Name != "" || edge.Label != "") {
-				names = append(names, edge.Name+"/"+edge.Label)
+			// A succession flow's keyword is the glyph's, not a name the labels show.
+			label := strings.TrimSpace(strings.TrimPrefix(edge.Label, successionFlowKeyword))
+			if (edge.Kind == EdgeFlow || edge.Kind == EdgeSuccessionFlow) && (edge.Name != "" || label != "") {
+				names = append(names, edge.Name+"/"+label)
 			}
 		}
 		return names
