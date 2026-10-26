@@ -188,8 +188,8 @@ function test_surface_offline()
     end
     ordered = opensysml.buildQuery(struct('type', 'Query', 'orderBy', {{'@type', 'name'}}));
     assert_equal(ordered.orderBy, {'@type', 'name'}, 'orderBy from a payload');
-    assert_equal(opensysml.buildQuery([], 'orderBy', {'@type', 'name'}).orderBy, ...
-        {'@type', 'name'}, 'orderBy from a keyword');
+    keyed = opensysml.buildQuery([], 'orderBy', {'@type', 'name'});
+    assert_equal(keyed.orderBy, {'@type', 'name'}, 'orderBy from a keyword');
     assert_equal(isequal(opensysml.buildQuery(ordered), ordered), true, 'ordered query is idempotent');
     refusedShapes = {
         struct('property', 'multiplicityLower', 'operator', '<=', 'value', {{1, 2}});
