@@ -232,7 +232,7 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 			if err := t.translate(group.conds); err != nil {
 				return nil, err
 			}
-			walked = mergeAssumed(walked, group.assumed)
+			walked = mergeAssumed(walked, group.assumed, true)
 		}
 		if len(t.asserts) == 0 {
 			return nil, fmt.Errorf("%s %s: every assertion about its objects %w, so every selection of its variants is permitted", subject.Kind, subject.Name, ErrNoConditions)
@@ -242,7 +242,7 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 		}
 		q := t.query()
 		q.Uncovered = uncovered
-		q.AssumedOne = mergeAssumed(walked, t.assumedOne)
+		q.AssumedOne = mergeAssumed(walked, t.assumedOne, false)
 		return q, nil
 	}
 	q, err := translate(pins)
@@ -571,14 +571,16 @@ func newTranslator(ctx *runtime.Context, subject Subject) *translator {
 	}
 }
 
-// mergeAssumed appends the assumptions of more to those of have, a feature both
-// name reported once, as have names it.
-func mergeAssumed(have, more []AssumedOne) []AssumedOne {
+// mergeAssumed appends the assumptions of more to those of have, one both name
+// reported once as have names it. Held objects are told apart by path (byPath:
+// `left.spare` and `right.spare` are two objects of one feature); a value read
+// through a feature is covered by any object walked under it.
+func mergeAssumed(have, more []AssumedOne, byPath bool) []AssumedOne {
 	out := append([]AssumedOne(nil), have...)
 	for _, a := range more {
 		seen := false
 		for _, h := range have {
-			if h.Feature == a.Feature {
+			if h.Feature == a.Feature && (!byPath || h.Name == a.Name) {
 				seen = true
 				break
 			}

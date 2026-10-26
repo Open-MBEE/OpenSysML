@@ -162,3 +162,36 @@ func TestHeldObjectAssumptionFollowsTheTranslatedGroups(t *testing.T) {
 		t.Errorf("AssumedOne = %+v, want none: nothing of spare is in the query", q.AssumedOne)
 	}
 }
+
+// Two holders of one type hold two objects of the same defaulted part, each
+// walked under its own assumption, named by path.
+func TestHeldObjectAssumptionIsPerPath(t *testing.T) {
+	ctx, idx := fixture(t, "<test>", `
+		package test {
+			private import ScalarValues::Real;
+			part def Tank {
+				attribute level : Real;
+				assert constraint { level > 0.0 }
+			}
+			part def Bay {
+				part main : Tank;
+				part spare : Tank :> main;
+			}
+			part def Craft {
+				part left : Bay;
+				part right : Bay;
+			}
+		}`)
+	craft := symbolNamed(t, idx, "test::Craft")
+	q, err := AssertedOn(ctx, craft, craft.OwnerScope, nil, nil)
+	if err != nil {
+		t.Fatalf("translate Craft: %v", err)
+	}
+	var names []string
+	for _, a := range q.AssumedOne {
+		names = append(names, a.Name)
+	}
+	if strings.Join(names, " ") != "left.spare right.spare" {
+		t.Errorf("AssumedOne names = %v, want left.spare and right.spare", names)
+	}
+}
