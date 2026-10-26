@@ -36,8 +36,10 @@ var (
 // to the releases CHANGELOG.md records: each is pinned for all five service
 // assets, so a checkout, and the package of a later release asked for it,
 // install it on a pin rather than on the signed manifest. The release the
-// tree itself is cutting is the one exception, until it is tagged: its digests
-// exist only once its tag has built.
+// tree itself is cutting is the one exception, until it is tagged and the tree
+// has moved past the tagged commit: its digests exist only once its tag has
+// built, and they are pinned on develop afterwards, so the tagged commit
+// itself (main, after a release) can never hold them.
 //
 // CHANGELOG.md and the archive its older releases moved to, not git, are the
 // list of releases: a shallow clone has no tags, and the heading is written on
@@ -87,7 +89,7 @@ func TestSharedDigestTablePinsEveryRecordedRelease(t *testing.T) {
 		if _, listed := unpinnableReleases[tag]; listed {
 			continue
 		}
-		if tag == own && !tagExists(tag) {
+		if tag == own && !ownPinDue(tag) {
 			continue
 		}
 		t.Errorf("the changelog records %s as released, but client/release-digests.json does not pin it;\n"+
@@ -147,15 +149,38 @@ func ownReleaseTag(t *testing.T) string {
 	return tag
 }
 
-// tagExists reports whether the release tag has been pushed, as far as this
-// checkout can tell. The tag's own release pipeline runs with the tag checked
-// out but cannot have pinned it: the digests are being built in that very run.
-func tagExists(tag string) bool {
+// ownPinDue reports whether the release the tree declares must already be
+// pinned, as far as this checkout can tell: its tag has been pushed, and the
+// checkout is not the tagged commit itself. The tag's own release pipeline
+// runs with the tag checked out but cannot have pinned it, the digests being
+// built in that very run; neither can main at the release commit, which the
+// pin pull request lands on develop after.
+func ownPinDue(tag string) bool {
 	if os.Getenv("CIRCLE_TAG") == tag {
 		return false
 	}
+	if !tagExists(tag) {
+		return false
+	}
+	head := gitRevParse("HEAD")
+	return head == "" || head != gitRevParse(tag+"^{commit}")
+}
+
+// tagExists reports whether the release tag is in this checkout.
+func tagExists(tag string) bool {
 	cmd := exec.Command("git", "tag", "--list", tag)
 	cmd.Dir = "../.."
 	out, err := cmd.Output()
 	return err == nil && strings.TrimSpace(string(out)) == tag
+}
+
+// gitRevParse is the commit a revision names, or "" when git cannot tell.
+func gitRevParse(rev string) string {
+	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", rev)
+	cmd.Dir = "../.."
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
