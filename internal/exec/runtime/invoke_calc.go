@@ -314,6 +314,7 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	// A calc computes nothing unless it returns or binds an output; a case also
 	// computes through its steps, or answers with its verdicts alone, and a
 	// library function the runtime implements natively computes through that.
+	// One that computes nothing leaves its result parameter without a value.
 	performs := shape.isCase() && (len(shape.Nodes) > 0 || ctx.analysisChecks(sym))
 	_, native := ctx.libraryFunctionFor(sym)
 	computes := lower.Returns(shape.Body) || len(shape.BodyOutputs) > 0 || shape.ResultExpr != nil || shape.hasInitialOutput() || performs || native
@@ -321,9 +322,9 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	case computes || shape.Tool != nil:
 	case len(shape.Outputs) > 0 && shape.resultOutput() == nil:
 		shape.Uncomputed = fmt.Errorf("%w: %s binds none of its outputs (%s)",
-			errNoResultExpression, label, shape.outputNames())
+			ErrNoValue, label, shape.outputNames())
 	default:
-		shape.Uncomputed = fmt.Errorf("%w: %s has no return expression%s", errNoResultExpression, label, unboundResultHint(chain))
+		shape.Uncomputed = fmt.Errorf("%w: %s has no return expression%s", ErrNoValue, label, unboundResultHint(chain))
 	}
 
 	ctx.model.calcShapes[sym] = shape
@@ -1106,7 +1107,7 @@ func (shape *calcShape) designatedToolOutput(outputs map[string]Value) (calcOutp
 
 	switch len(valued) {
 	case 0:
-		return calcOutput{}, fmt.Errorf("%w: %s ended without a return", errCalcNoReturn, shape.Label)
+		return calcOutput{}, fmt.Errorf("%w: %s ended without a return", ErrNoValue, shape.Label)
 	case 1:
 		return valued[0], nil
 	default:

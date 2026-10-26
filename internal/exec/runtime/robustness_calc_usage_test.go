@@ -204,7 +204,7 @@ func testCalcOutputNeverAssignedByTheBody(t *testing.T) {
 	if !errors.Is(err, errOutputNotAssigned) {
 		t.Errorf("expected errOutputNotAssigned, got: %v", err)
 	}
-	if errors.Is(err, errNoResultExpression) {
+	if strings.Contains(err.Error(), "no return expression") {
 		t.Errorf("expected no result-expression blame, got: %v", err)
 	}
 }
