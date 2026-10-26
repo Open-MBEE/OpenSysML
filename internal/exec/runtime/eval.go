@@ -2646,10 +2646,8 @@ func (ec *EvalContext) evalArithmetic(n *ast.OperatorExpr) (Value, error) {
 	return ec.ctx.arithmeticValues(n.Operator, left, right, n.Span())
 }
 
-// arithmeticValues applies a binary arithmetic operator to two evaluated
-// operands; the operator notation and the library's `'+'` forms both use it.
-// `'+'` and `'-'` declare `y` [0..1] (KerML 8.4.4.9.6) everywhere but in
-// StringFunctions, so an omitted or empty second operand makes them the unary sign.
+// arithmeticValues applies a binary arithmetic operator to two evaluated operands, for
+// the operator notation and the library's forms alike; an empty `y` of `+`/`-` is the sign.
 func (ctx *Context) arithmeticValues(op ast.OperatorKind, left, right Value, span source.Span) (Value, error) {
 	if (op == ast.OpAdd || op == ast.OpSub) && isEmptyValue(right) && left.Kind != ValString {
 		return ctx.unaryValue(signOperator(op), left)

@@ -7,9 +7,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-// TestRuntimeRobustnessOperatorEmptyOperand covers a binary operator given an
-// empty operand: `+` and `-` admit an empty second one as the library's `y`
-// [0..1] does (KerML 1.1 §8.4.4.9.6), every other operand is [1] and refused.
+// TestRuntimeRobustnessOperatorEmptyOperand covers a binary operator given an empty
+// operand: `+`/`-` admit an empty second one (`y` [0..1], KerML 8.4.4.9.6), no other does.
 func TestRuntimeRobustnessOperatorEmptyOperand(t *testing.T) {
 	t.Run("empty_second_operand_is_the_unary_sign", testEmptySecondOperandIsTheUnarySign)
 	t.Run("empty_required_operand_is_refused", testEmptyRequiredOperandIsRefused)

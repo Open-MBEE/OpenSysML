@@ -95,7 +95,7 @@ var compiledCases = []compiledCase{
 	{"Seq::AddS2", []string{"(1,2)"}}, {"Seq::AddS2", []string{"null"}}, {"Seq::AddS2", []string{"(3)"}},
 	{"Seq::SubS2", []string{"(1,2)"}}, {"Seq::SubS2", []string{"null"}}, {"Seq::SubS2", []string{"(3)"}},
 	{"Seq::SubR2", []string{"null"}}, {"Seq::SubR2", []string{"(0.5)"}},
-	{"Seq::AddNull", []string{"4"}}, {"Seq::SubNull", []string{"1.5"}},
+	{"Seq::AddNull", []string{"4"}}, {"Seq::AddNulls", []string{"4"}}, {"Seq::SubNull", []string{"1.5"}},
 	{"Seq::MulS2", []string{"null"}}, {"Seq::MulS2", []string{"(3)"}},
 	{"Seq::AddR", []string{"(1.5)"}}, {"Seq::AddR", []string{"null"}},
 	{"Seq::LtS", []string{"(1)"}}, {"Seq::LtS", []string{"(1,2)"}}, {"Seq::LtS", []string{"null"}}, {"Seq::LtS", []string{"0"}},

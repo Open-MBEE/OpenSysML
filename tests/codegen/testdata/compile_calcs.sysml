@@ -315,6 +315,7 @@ package Compiled {
 		calc def SubS2 { in x : Integer[0..*]; return : Integer = 3 - x; }
 		calc def SubR2 { in x : Real[0..*]; return : Real = 1 - x; }
 		calc def AddNull { in x : Integer; return : Integer = x + null; }
+		calc def AddNulls { in x : Integer; return : Integer = x + (null, null); }
 		calc def SubNull { in x : Real; return : Real = x - null; }
 		calc def MulS2 { in x : Integer[0..*]; return : Integer = 2 * x; }
 		calc def AddR { in x : Real[0..*]; return : Real = x + 1.0; }

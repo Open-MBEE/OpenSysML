@@ -1434,17 +1434,12 @@ func (fc *funcCompiler) hoistedOperands(n *ast.OperatorExpr) (Expr, Expr, func(E
 	return l, r, wrap, nil
 }
 
-// signOrArithmetic is op over the scalar l and the operand r. `'+'` and `'-'`
-// declare `y` [0..1] (KerML 8.4.4.9.6) everywhere but in StringFunctions, so a
-// collection r decides at run time between the unary sign of l and the
-// operation over the one value r holds, as the interpreter's arithmeticValues does.
+// signOrArithmetic is op over the scalar l and the operand r; an empty r of `+`
+// or `-` is the unary sign of l, as in the interpreter's arithmeticValues.
 func (fc *funcCompiler) signOrArithmetic(op ast.OperatorKind, l, r Expr) (Expr, error) {
 	sign := (op == ast.OpAdd || op == ast.OpSub) && l.Type() != TypeString
 	if sign && r.Type() == TypeNull {
-		// The steps r spends are spent; its value is not consulted.
-		k, _ := leading(r)
-		signed, err := fc.signOf(signOperator(op), l)
-		return restep(k, signed), err
+		r = fc.retype(r, l.Type().Seq())
 	}
 	if !sign || !r.Type().Many() {
 		one, err := fc.scalarOperand(r, l, op, false)
@@ -1456,7 +1451,9 @@ func (fc *funcCompiler) signOrArithmetic(op ast.OperatorKind, l, r Expr) (Expr, 
 	// r is consulted twice, for its emptiness and for its one value, so it is
 	// evaluated once: its leading steps spent first, an impure r held in a temporary.
 	k, r := leading(r)
-	r, lets := fc.hoist(r, nil)
+	var lets []Let
+	l, lets = fc.hoist(l, lets)
+	r, lets = fc.hoist(r, lets)
 	one, err := fc.scalarOperand(r, l, op, false)
 	if err != nil {
 		return nil, err
