@@ -406,3 +406,47 @@ func TestLoadingOneFilePullsInTheSiblingsItNamesByQualifiedName(t *testing.T) {
 		t.Errorf("MethodViews::ProjectView did not resolve: %v", err)
 	}
 }
+
+// A qualified name an import already answers is not searched for: with
+// Lib::Inner reached through Lib::*, Inner::Thing leaves an unrelated sibling
+// declaring a root Inner alone, as the search is for what resolution left
+// unresolved rather than for every root a file names.
+func TestLoadingOneFileLeavesAloneTheSiblingsItsImportsAnswerFor(t *testing.T) {
+	dir := t.TempDir()
+	main := writeFile(t, filepath.Join(dir, "main.sysml"), "package Main {\n    private import Lib::*;\n    part t : Inner::Thing;\n}\n")
+	writeFile(t, filepath.Join(dir, "lib.sysml"), "package Lib {\n    package Inner {\n        part def Thing;\n    }\n}\n")
+	writeFile(t, filepath.Join(dir, "inner.sysml"), "package Inner {\n    part broken : Nowhere;\n}\n")
+
+	s := NewSession()
+	rep, err := s.LoadPathsReport([]string{main})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Errors {
+		t.Errorf("load reported errors: %v", rep.Found)
+	}
+	if got := strings.Join(rep.Loaded, "\n"); !strings.Contains(got, "loaded 2 files:") || !strings.Contains(got, "lib.sysml") || strings.Contains(got, "inner.sysml") {
+		t.Errorf("loaded = %q, want main and lib only", got)
+	}
+}
+
+// The files loaded for a reference are read for their own references in turn:
+// a qualified name leads to a file whose import leads to a third.
+func TestLoadingOneFileFollowsTheReferencesOfTheFilesItPulledIn(t *testing.T) {
+	dir := t.TempDir()
+	main := writeFile(t, filepath.Join(dir, "main.sysml"), "package Main {\n    part p : Method::Project;\n}\n")
+	writeFile(t, filepath.Join(dir, "lib", "Method.sysml"), "library package Method {\n    private import Gearbox::*;\n    part def Project :> Thing;\n}\n")
+	writeFile(t, filepath.Join(dir, "lib", "Gearbox.sysml"), "library package Gearbox {\n    part def Thing;\n}\n")
+
+	s := NewSession()
+	rep, err := s.LoadPathsReport([]string{main})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Errors {
+		t.Errorf("load reported errors: %v", rep.Found)
+	}
+	if got := strings.Join(rep.Loaded, "\n"); !strings.Contains(got, "loaded 3 files:") || !strings.Contains(got, "Gearbox.sysml") {
+		t.Errorf("loaded = %q, want main, Method and Gearbox", got)
+	}
+}

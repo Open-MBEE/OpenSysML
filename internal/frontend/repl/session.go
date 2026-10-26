@@ -1134,28 +1134,24 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	whole = s.rebuildOver(drops)
 	notices := append(dropNotices(drops), whole...)
 	res = s.submissionResult(declared, offset, own, notices)
-	if !load {
-		// A root namespace the typed text leaves unresolved may be declared by
-		// a file under the workspace, which joins this submission as %load would.
-		if ws := s.resolveFromWorkspace(res, parses); ws.loaded || len(ws.notices) > 0 {
-			if ws.loaded {
-				s.recordDrops = append(s.recordDrops, ws.drops...)
-				s.idxVersion, s.names = 0, nil
-				more := s.rebuildOver(ws.drops)
-				whole = append(whole, more...)
-				notices = append(append(notices, dropNotices(ws.drops)...), more...)
-				// A loaded file may have replaced an earlier snippet, moving the
-				// submission's text within the buffer.
-				own = s.ownSpans()
-				offset = s.genOffset(s.joined())
-				if at, ok := firstText(own); ok {
-					offset = at
-				}
-				declared = append(declared, ws.declared...)
+	// A root namespace the submission leaves unresolved may be declared by a
+	// file beside a loaded one or under the workspace; it joins the submission.
+	search := s.searchFor(load, files)
+	if ws, more := s.pullReferences(s.resolveReferences(res, parses, search), parses, search); ws.loaded || len(ws.notices) > 0 {
+		if ws.loaded {
+			whole = append(whole, more...)
+			// A loaded file may have replaced an earlier snippet, moving the
+			// submission's text within the buffer.
+			own = s.ownSpans()
+			offset = s.genOffset(s.joined())
+			if at, ok := firstText(own); ok {
+				offset = at
 			}
-			notices = append(notices, ws.notices...)
-			res = s.submissionResult(declared, offset, own, notices)
+			declared = append(declared, ws.declared...)
 		}
+		notices = append(notices, ws.notices...)
+		res = s.submissionResult(declared, offset, own, notices)
+		res.pulled = ws.files
 	}
 	res.Blocked = s.blockedBy(res, load)
 	// A rejected submission was reported against the buffer it was typed into;

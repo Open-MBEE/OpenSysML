@@ -148,13 +148,24 @@ func (ix *WorkspaceIndex) update(path string, read func(path string) []rootDecla
 // namespaces the text expects to find outside itself — each once, in the
 // order first written.
 func ReferencedRoots(root *ast.RootNamespace) []string {
+	return rootsReferenced(root, false)
+}
+
+// ImportedRoots is ReferencedRoots over the imports alone: the root namespaces
+// the text's imports expect to find outside itself. An import is resolved
+// before the names it makes visible, so these are looked for first.
+func ImportedRoots(root *ast.RootNamespace) []string {
+	return rootsReferenced(root, true)
+}
+
+func rootsReferenced(root *ast.RootNamespace, importsOnly bool) []string {
 	if root == nil {
 		return nil
 	}
 	var out []string
 	seen := map[string]bool{}
-	referencedRoots(root.Members, nil, func(name string) {
-		if !seen[name] {
+	referencedRoots(root.Members, nil, func(name string, imported bool) {
+		if (imported || !importsOnly) && !seen[name] {
 			seen[name] = true
 			out = append(out, name)
 		}
@@ -164,8 +175,8 @@ func ReferencedRoots(root *ast.RootNamespace) []string {
 
 // referencedRoots walks members as collect does, reporting the first segments
 // of imports and of qualified names at every depth that enclosing — the
-// namespaces around them, outermost first — does not declare.
-func referencedRoots(members []ast.Node, enclosing []map[string]bool, report func(name string)) {
+// namespaces around them, outermost first — does not declare, and which it is.
+func referencedRoots(members []ast.Node, enclosing []map[string]bool, report func(name string, imported bool)) {
 	scope := map[string]bool{}
 	for _, name := range declaredNames(members) {
 		scope[name] = true
@@ -176,7 +187,7 @@ func referencedRoots(members []ast.Node, enclosing []map[string]bool, report fun
 		if imp, ok := decl.(*ast.Import); ok {
 			if imp.Imported != nil && len(imp.Imported.Parts) > 0 {
 				if name := imp.Imported.Parts[0].Text; imp.Imported.Global || !visible(name, enclosing) {
-					report(name)
+					report(name, true)
 				}
 			}
 			// The filter expression names what it filters by from outside too.
@@ -197,7 +208,7 @@ func referencedRoots(members []ast.Node, enclosing []map[string]bool, report fun
 // qualifiedRoots reports the first segment of every qualified name in node's
 // own text — a type, value or expression naming something outside it — that
 // enclosing does not declare, not descending into the members excluded.
-func qualifiedRoots(node ast.Node, members []ast.Node, enclosing []map[string]bool, report func(name string)) {
+func qualifiedRoots(node ast.Node, members []ast.Node, enclosing []map[string]bool, report func(name string, imported bool)) {
 	excluded := make(map[ast.Node]bool, len(members))
 	for _, n := range members {
 		excluded[n] = true
@@ -208,7 +219,7 @@ func qualifiedRoots(node ast.Node, members []ast.Node, enclosing []map[string]bo
 		}
 		if qn, ok := n.(*ast.QualifiedName); ok && len(qn.Parts) > 1 && !qn.Parts[1].Chained {
 			if name := qn.Parts[0].Text; qn.Global || !visible(name, enclosing) {
-				report(name)
+				report(name, false)
 			}
 		}
 		return true

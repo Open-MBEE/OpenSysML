@@ -256,7 +256,7 @@ func TestTheLoadedFilesOwnImportsAreFollowed(t *testing.T) {
 	if got := unresolved(res); len(got) != 0 {
 		t.Errorf("diagnostics = %v", got)
 	}
-	if got := strings.Join(res.Notices, "\n"); !strings.Contains(got, "note: loaded "+filepath.Join("util", "util.sysml")+", which the loaded files import") {
+	if got := strings.Join(res.Notices, "\n"); !strings.Contains(got, "note: loaded "+filepath.Join("util", "util.sysml")+", which declares Util") {
 		t.Errorf("notices = %q", got)
 	}
 	if ev, err := s.Evaluate("Lib::a"); err != nil || ev.Text != "3" {
