@@ -171,7 +171,7 @@ func (ctx *Context) appendMemberConditions(out []Condition, sym *symbols.Symbol,
 	var stepScope *symbols.Scope
 	var stepNode ast.Node
 	for _, member := range members {
-		if owner := ctx.namedConstraintOf(member); owner != nil && owner != sym && owner.Name != "" {
+		if owner := ctx.conditionOwnerOf(member); owner != nil && owner != sym && owner.Name != "" {
 			if effective == nil {
 				effective = ctx.effectiveMembers(sym)
 			}
@@ -224,6 +224,31 @@ func (ctx *Context) namedConstraintOf(member scopedMember) *symbols.Symbol {
 		return nil
 	}
 	return body.Owner()
+}
+
+// conditionOwnerOf returns the usage a member states its conditions through: the
+// constraint usage of a require/assume member, or a subrequirement; nil otherwise.
+func (ctx *Context) conditionOwnerOf(member scopedMember) *symbols.Symbol {
+	if owner := ctx.namedConstraintOf(member); owner != nil {
+		return owner
+	}
+	return ctx.subrequirementOf(member.node, member.scope)
+}
+
+// subrequirementOf returns the subrequirement a requirement body member declares
+// (SysML v2 §7.21.2: a composite requirement usage nested in a requirement
+// definition or usage); nil for any other member. An abstract one, like the
+// library's `subrequirements` itself, is a classification of checks, not one of them.
+func (ctx *Context) subrequirementOf(node ast.Node, scope *symbols.Scope) *symbols.Symbol {
+	usage, ok := node.(*ast.Usage)
+	if !ok || usage.IsAbstract {
+		return nil
+	}
+	sym := memberSymbol(scope, node)
+	if sym == nil || !ctx.model.semantics.IsSubrequirement(sym) {
+		return nil
+	}
+	return sym
 }
 
 // effectiveMembers is the set of members sym has: MembersOf as a set.
@@ -307,11 +332,36 @@ func (ctx *Context) appendConditions(out []Condition, node ast.Node, scope *symb
 		out = ctx.appendRequirementConditions(out, m, m.Expression, m.Body, scope, false, seen)
 	case *ast.Membership:
 		out = ctx.appendConditions(out, m.Member, scope, required, negated, seen)
+	case *ast.Usage:
+		if sub := ctx.subrequirementOf(m, scope); sub != nil {
+			out = ctx.appendSubrequirementConditions(out, sub, scope, required, seen)
+		}
 	default:
 		// A member stating neither a condition nor a step — an expression, a
 		// declaration — states nothing here; the body's steps were collected by
 		// the caller that knew the body.
 	}
+	return out
+}
+
+// appendSubrequirementConditions appends what the subrequirement sub states, its
+// whole chain, as one required constraint of its container (Requirements.sysml:
+// `subrequirements :> requirementChecks, constraints`), its parameters masking
+// the container's as a named constraint's do.
+func (ctx *Context) appendSubrequirementConditions(out []Condition, sub *symbols.Symbol, scope *symbols.Scope,
+	required bool, seen map[*symbols.Symbol]bool) []Condition {
+	if seen[sub] {
+		return append(out, Condition{Scope: scope, Required: required, Circular: sub})
+	}
+	if seen == nil {
+		seen = map[*symbols.Symbol]bool{}
+	}
+	seen[sub] = true
+	defer delete(seen, sub)
+	start := len(out)
+	out = ctx.appendMemberConditions(out, sub, ctx.chainMembers(sub, scope), true, seen)
+	setAssumed(out[start:], !required)
+	setConstraint(out[start:], sub)
 	return out
 }
 
@@ -1396,6 +1446,16 @@ func (ctx *Context) constraintScope(features map[string]scopedExpr, bindings fra
 		out[name] = feat
 	}
 	inner := &conditionEnv{features: out, bindings: unmasked(bindings, own)}
+	if names, value, ok := ctx.subrequirementSubject(constraint, own, bindings); ok {
+		vars := make(map[string]Value, len(inner.bindings.vars)+len(names))
+		for name, v := range inner.bindings.vars {
+			vars[name] = v
+		}
+		for _, name := range names {
+			vars[name] = value
+		}
+		inner.bindings = inner.bindings.withVars(vars)
+	}
 	for name, feat := range own {
 		feat.env = inner
 		if isArgument(feat.decl) {
@@ -1404,6 +1464,31 @@ func (ctx *Context) constraintScope(features map[string]scopedExpr, bindings fra
 		out[name] = feat
 	}
 	return out, inner.bindings
+}
+
+// subrequirementSubject is the subject a subrequirement declaring none takes from
+// its container (SysML v2 §7.21.2): the value the container's bindings hold under
+// its subject names, to bind under the subrequirement's. ok is false for any other
+// usage, for one binding its subject itself, and when the container's is unbound.
+func (ctx *Context) subrequirementSubject(sub *symbols.Symbol, own map[string]scopedExpr, bindings frame) (names []string, value Value, ok bool) {
+	if !ctx.model.semantics.IsSubrequirement(sub) {
+		return nil, Value{}, false
+	}
+	names = ctx.subjectParameterNames(sub)
+	if len(names) == 0 {
+		return nil, Value{}, false
+	}
+	for _, name := range names {
+		if feat, declared := own[name]; declared && feat.expr != nil {
+			return nil, Value{}, false
+		}
+	}
+	for _, name := range ctx.subjectParameterNames(declaringType(sub)) {
+		if value, ok := bindings.lookup(name); ok {
+			return names, value, true
+		}
+	}
+	return nil, Value{}, false
 }
 
 // isArgument reports whether a parameter value was written on a usage rather

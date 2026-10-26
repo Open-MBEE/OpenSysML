@@ -31,25 +31,39 @@ func (m *Model) ImplicitSubsettings(sym *symbols.Symbol) []*symbols.Symbol {
 // library feature, the first whose rule the usage kind and its owner's kind
 // match, resolved to a symbol when the library declares it.
 func (m *Model) computeImplicitSubsettings(sym *symbols.Symbol) []*symbols.Symbol {
-	if sym.OwnerScope == nil {
+	fqn := m.nestedSubsettingFQN(sym)
+	if fqn == "" {
 		return nil
+	}
+	if target := m.symbolByFQN(fqn); target != nil && target != sym {
+		return []*symbols.Symbol{target}
+	}
+	return nil
+}
+
+// nestedSubsettingFQN is the qualified name of the library feature the rules
+// say sym implicitly subsets, "" when they name none; the rules read the
+// declarations alone, so the answer stands whether or not the library is loaded.
+func (m *Model) nestedSubsettingFQN(sym *symbols.Symbol) string {
+	if sym == nil || sym.OwnerScope == nil {
+		return ""
 	}
 	owner := sym.OwnerScope.Owner()
 	if owner == nil {
-		return nil
+		return ""
 	}
 	switch owner.Decl.(type) {
 	case *ast.Definition, *ast.Usage, *ast.SubstateMember, *ast.TransitionMember,
 		*ast.AssumeMember, *ast.RequireMember:
 	default:
-		return nil
+		return ""
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
 	portion := ast.PortionNone
 	composite := true
 	if ok {
 		if usage.IsVariant {
-			return nil
+			return ""
 		}
 		portion = usage.Portion
 		// A SysML usage is composite by its kind; a KerML feature only when declared so.
@@ -60,16 +74,9 @@ func (m *Model) computeImplicitSubsettings(sym *symbols.Symbol) []*symbols.Symbo
 	} else if _, isSubstate := sym.Decl.(*ast.SubstateMember); !isSubstate {
 		// Only usages carry these rules, plus the `state s;` of a state body,
 		// which is a composite StateUsage the parser records as a SubstateMember.
-		return nil
+		return ""
 	}
-	fqn := m.implicitSubsettingFQN(sym, usage, owner, composite, portion)
-	if fqn == "" {
-		return nil
-	}
-	if target := m.symbolByFQN(fqn); target != nil && target != sym {
-		return []*symbols.Symbol{target}
-	}
-	return nil
+	return m.implicitSubsettingFQN(sym, usage, owner, composite, portion)
 }
 
 // implicitSubsettingFQN selects the qualified name of the owner feature usage
@@ -330,9 +337,20 @@ func constraintNestedFQN(owner NestedOwner, composite bool, portion ast.PortionK
 // continues as the constraint rules when no requirement owns it.
 func requirementNestedFQN(owner NestedOwner, composite bool, portion ast.PortionKind) (string, bool) {
 	if composite && ownerInRequirementFamily(owner) {
-		return "Requirements::RequirementCheck::subrequirements", false
+		return subrequirementsFQN, false
 	}
 	return constraintNestedFQN(owner, composite, portion)
+}
+
+// subrequirementsFQN is the feature a subrequirement implicitly subsets, which
+// `:> requirementChecks, constraints` makes a required constraint of its container.
+const subrequirementsFQN = "Requirements::RequirementCheck::subrequirements"
+
+// IsSubrequirement reports whether sym is a subrequirement (SysML v2 §7.21.2): a
+// composite requirement usage nested in a requirement definition or usage, so one
+// of the container's required constraints by `RequirementCheck::subrequirements`.
+func (m *Model) IsSubrequirement(sym *symbols.Symbol) bool {
+	return m.nestedSubsettingFQN(sym) == subrequirementsFQN
 }
 
 // occurrenceNestedFQN is the occurrence fallback every chain ends in: an
