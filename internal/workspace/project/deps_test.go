@@ -98,3 +98,51 @@ func TestDependenciesIgnoreStdinAndUnreadableFiles(t *testing.T) {
 		t.Errorf("Dependencies = %v; want none", got)
 	}
 }
+
+// A qualified name whose first segment no loaded file declares is followed as
+// an import is: the file declaring that root loads, and so do the roots it
+// references in turn. The decoy declaring the same member under another root
+// is left alone.
+func TestDependenciesFollowQualifiedNamesAsTheyFollowImports(t *testing.T) {
+	dir := t.TempDir()
+	main := writeModel(t, filepath.Join(dir, "main.sysml"), "package Main {\n    private import Lib::*;\n    part w : Widget;\n}\n")
+	lib := writeModel(t, filepath.Join(dir, "lib.sysml"), "package Lib {\n    part def Widget {\n        attribute kind : Kinds::Kind;\n    }\n}\n")
+	kinds := writeModel(t, filepath.Join(dir, "kinds.sysml"), "package Kinds {\n    attribute def Kind { attribute weight : Units::Weight; }\n}\n")
+	units := writeModel(t, filepath.Join(dir, "units.kerml"), "package Units {\n    datatype Weight;\n}\n")
+	writeModel(t, filepath.Join(dir, "other.sysml"), "package Other {\n    attribute def Kind;\n}\n")
+
+	got := Dependencies([]string{main}, nil)
+	if want := []string{lib, kinds, units}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Dependencies = %v, want %v", got, want)
+	}
+}
+
+// Two library packages that import each other, one of them naming the other's
+// members only by qualified name, both load from a file that imports one of
+// them: the qualified names lead to the second as an import would have.
+func TestDependenciesFollowAQualifiedNameIntoAMutuallyImportingLibrary(t *testing.T) {
+	dir := t.TempDir()
+	main := writeModel(t, filepath.Join(dir, "main.sysml"), "package Main {\n    private import Method::*;\n    part p : Project;\n}\n")
+	method := writeModel(t, filepath.Join(dir, "lib", "Method.sysml"), "library package Method {\n    part def Project {\n        view cover : MethodViews::ProjectView { expose this; }\n    }\n}\n")
+	views := writeModel(t, filepath.Join(dir, "lib", "MethodViews.sysml"), "library package MethodViews {\n    private import Method::*;\n    view def ProjectView;\n}\n")
+
+	got := Dependencies([]string{main}, nil)
+	if want := []string{method, views}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Dependencies = %v, want %v", got, want)
+	}
+}
+
+// A qualified name an enclosing namespace declares the root of, a feature
+// chain and a name the library declares are not looked for.
+func TestDependenciesLeaveQualifiedNamesTheFileOrLibraryAnswers(t *testing.T) {
+	dir := t.TempDir()
+	main := writeModel(t, filepath.Join(dir, "main.sysml"), "package Main {\n    package Local { part def A; }\n    part a : Local::A;\n    part b : ScalarValues::Real;\n    part c = a.x;\n}\n")
+	writeModel(t, filepath.Join(dir, "local.sysml"), "package Local {\n    part def B;\n}\n")
+	writeModel(t, filepath.Join(dir, "scalars.sysml"), "package ScalarValues {\n    part def Fake;\n}\n")
+	writeModel(t, filepath.Join(dir, "a.sysml"), "package a {\n    part def X;\n}\n")
+
+	known := func(name string) bool { return name == "ScalarValues" }
+	if got := Dependencies([]string{main}, known); len(got) != 0 {
+		t.Errorf("Dependencies = %v, want none", got)
+	}
+}

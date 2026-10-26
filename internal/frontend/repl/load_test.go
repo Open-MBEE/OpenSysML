@@ -380,3 +380,29 @@ func TestLoadFilePullsInTheSiblingsItImports(t *testing.T) {
 		t.Error("broken.sysml was loaded, want only main and lib")
 	}
 }
+
+// A loaded file's qualified names are followed to its neighbours as its
+// imports are: a library package naming another's view definition only by
+// qualified name brings that package's file in, so the reference resolves.
+func TestLoadingOneFilePullsInTheSiblingsItNamesByQualifiedName(t *testing.T) {
+	dir := t.TempDir()
+	main := writeFile(t, filepath.Join(dir, "main.sysml"), "package Main {\n    private import Method::*;\n    part p : Project;\n}\n")
+	writeFile(t, filepath.Join(dir, "lib", "Method.sysml"), "library package Method {\n    part def Project {\n        view cover : MethodViews::ProjectView { expose this; }\n    }\n}\n")
+	writeFile(t, filepath.Join(dir, "lib", "MethodViews.sysml"), "library package MethodViews {\n    private import Method::*;\n    view def ProjectView;\n}\n")
+	writeFile(t, filepath.Join(dir, "lib", "Other.sysml"), "package Other {\n    view def ProjectView;\n}\n")
+
+	s := NewSession()
+	rep, err := s.LoadPathsReport([]string{main})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Errors {
+		t.Errorf("load reported errors: %v", rep.Found)
+	}
+	if got := strings.Join(rep.Loaded, "\n"); !strings.Contains(got, "loaded 3 files:") || !strings.Contains(got, "MethodViews.sysml") || strings.Contains(got, "Other.sysml") {
+		t.Errorf("loaded = %q, want main, Method and MethodViews only", got)
+	}
+	if _, _, err := s.lookupSymbol("MethodViews::ProjectView"); err != nil {
+		t.Errorf("MethodViews::ProjectView did not resolve: %v", err)
+	}
+}

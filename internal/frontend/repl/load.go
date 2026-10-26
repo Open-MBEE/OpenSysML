@@ -13,9 +13,10 @@ import (
 // LoadPaths loads model files into the session. Each path names a file, a
 // directory to walk for .sysml/.kerml files, a glob pattern, or standard input
 // as a lone "-", whose contents are reported as <stdin>. A root namespace the
-// files import but none of them or the library declares is looked for in the
-// model files beside and below them, and each file declaring it is loaded too,
-// its own imports followed the same way. Every file is
+// files reference — by an import or a qualified name — but none of them or the
+// library declares is looked for in the model files beside and below them, and
+// each file declaring it is loaded too, its own references followed the same
+// way. Every file is
 // accepted before the buffer is analyzed, so the order files are loaded in does
 // not affect name resolution: a file may reference a declaration another file
 // loaded after it makes. Diagnostics name the file they belong to and count
@@ -55,7 +56,7 @@ func (s *Session) loadPathsReport(paths []string, opts loadOptions) (LoadReport,
 	if err != nil {
 		return LoadReport{}, err
 	}
-	read, err := s.readWithDependencies(files, opts, s.ws.IsLibraryRoot)
+	read, err := s.readWithDependencies(files, opts, s.knownRoot)
 	if err != nil {
 		return LoadReport{}, err
 	}
@@ -173,8 +174,8 @@ type reading struct {
 }
 
 // readWithDependencies reads paths, then the model files beside and below them
-// that declare a root namespace they import and neither they nor known — the
-// library's root packages, and whatever else the caller holds — declare.
+// that declare a root namespace they reference and neither they nor known —
+// the library's root packages, and whatever else the caller holds — declare.
 func (s *Session) readWithDependencies(paths []string, opts loadOptions, known func(name string) bool) (reading, error) {
 	read, err := s.readSources(paths, opts)
 	if err != nil {
@@ -193,6 +194,13 @@ func (s *Session) readWithDependencies(paths []string, opts loadOptions, known f
 	}
 	read.files = append(read.files, more.files...)
 	return read, nil
+}
+
+// knownRoot reports whether the library or the buffer declares the root
+// namespace name, so a loaded file's reference to it is not looked for in the
+// files beside it.
+func (s *Session) knownRoot(name string) bool {
+	return s.ws.IsLibraryRoot(name) || len(s.undeclaredRoots([]string{name}, nil)) == 0
 }
 
 // expandHomes expands a leading ~ in every path.
