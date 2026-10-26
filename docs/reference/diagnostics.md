@@ -1034,7 +1034,6 @@ Specification: SysML v2 validatePortUsageIsReference
 | [`only-one-subject`](#only-one-subject) | error | a requirement or case with more than one subject |
 | [`only-one-view-rendering`](#only-one-view-rendering) | error | a view with more than one rendering |
 | [`parallel-state-transition`](#parallel-state-transition) | error | a transition or succession between the direct substates of a parallel state |
-| [`part-usage-part-definition`](#part-usage-part-definition) | error | a part usage typed by no part definition |
 | [`port-conjugation`](#port-conjugation) | warning | an interface joining two ports whose directed features are not conjugate |
 | [`portion-owner`](#portion-owner) | error | a portion (snapshot or timeslice) owned by a non-occurrence |
 | [`redefinition-direction-conformance`](#redefinition-direction-conformance) | error | a redefining feature whose direction does not fit the redefined one |
@@ -1661,14 +1660,6 @@ Specification: SysML v2 validateViewDefinitionOnlyOneViewRendering and validateV
 The direct substates of a `parallel` state run concurrently, so no transition or succession orders them. Drop the transition, or nest the ordered states in one region (a non-parallel substate).
 
 Specification: SysML v2 validateStateDefinitionParallelSubactions and validateStateUsageParallelSubactions
-
-#### `part-usage-part-definition`
-
-**error** · Constraints · a part usage typed by no part definition
-
-A part is typed by at least one part definition, directly or through what it subsets; an item definition alone does not make a part. Type the part by a part definition.
-
-Specification: SysML v2 validatePartUsagePartDefinition
 
 #### `port-conjugation`
 
