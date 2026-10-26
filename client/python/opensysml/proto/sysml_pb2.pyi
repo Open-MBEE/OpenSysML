@@ -43,6 +43,10 @@ class PrimitiveOperator(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     PRIMITIVE_OPERATOR_EQUAL: _ClassVar[PrimitiveOperator]
     PRIMITIVE_OPERATOR_GREATER: _ClassVar[PrimitiveOperator]
     PRIMITIVE_OPERATOR_LESS: _ClassVar[PrimitiveOperator]
+    PRIMITIVE_OPERATOR_LESS_EQUAL: _ClassVar[PrimitiveOperator]
+    PRIMITIVE_OPERATOR_GREATER_EQUAL: _ClassVar[PrimitiveOperator]
+    PRIMITIVE_OPERATOR_IN: _ClassVar[PrimitiveOperator]
+    PRIMITIVE_OPERATOR_INSTANCE_OF: _ClassVar[PrimitiveOperator]
 
 class CompositeOperator(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -77,6 +81,10 @@ PRIMITIVE_OPERATOR_UNSPECIFIED: PrimitiveOperator
 PRIMITIVE_OPERATOR_EQUAL: PrimitiveOperator
 PRIMITIVE_OPERATOR_GREATER: PrimitiveOperator
 PRIMITIVE_OPERATOR_LESS: PrimitiveOperator
+PRIMITIVE_OPERATOR_LESS_EQUAL: PrimitiveOperator
+PRIMITIVE_OPERATOR_GREATER_EQUAL: PrimitiveOperator
+PRIMITIVE_OPERATOR_IN: PrimitiveOperator
+PRIMITIVE_OPERATOR_INSTANCE_OF: PrimitiveOperator
 COMPOSITE_OPERATOR_UNSPECIFIED: CompositeOperator
 COMPOSITE_OPERATOR_AND: CompositeOperator
 COMPOSITE_OPERATOR_OR: CompositeOperator
@@ -1870,14 +1878,16 @@ class QueryResponse(_message.Message):
     def __init__(self, elements: _Optional[_Iterable[_Union[QueryResultElement, _Mapping]]] = ...) -> None: ...
 
 class Query(_message.Message):
-    __slots__ = ("scope", "select", "where")
+    __slots__ = ("scope", "select", "where", "order_by")
     SCOPE_FIELD_NUMBER: _ClassVar[int]
     SELECT_FIELD_NUMBER: _ClassVar[int]
     WHERE_FIELD_NUMBER: _ClassVar[int]
+    ORDER_BY_FIELD_NUMBER: _ClassVar[int]
     scope: _containers.RepeatedScalarFieldContainer[str]
     select: _containers.RepeatedScalarFieldContainer[str]
     where: Constraint
-    def __init__(self, scope: _Optional[_Iterable[str]] = ..., select: _Optional[_Iterable[str]] = ..., where: _Optional[_Union[Constraint, _Mapping]] = ...) -> None: ...
+    order_by: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, scope: _Optional[_Iterable[str]] = ..., select: _Optional[_Iterable[str]] = ..., where: _Optional[_Union[Constraint, _Mapping]] = ..., order_by: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class Constraint(_message.Message):
     __slots__ = ("primitive", "composite")

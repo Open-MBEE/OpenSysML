@@ -180,14 +180,23 @@ func (EditFailure) EnumDescriptor() ([]byte, []int) {
 	return file_sysml_proto_rawDescGZIP(), []int{1}
 }
 
-// PrimitiveOperator is the standard's PrimitiveConstraint.operator.
+// PrimitiveOperator is the standard's PrimitiveConstraint.operator, the seven
+// literals of API & Services §7.1.4.
 type PrimitiveOperator int32
 
 const (
-	PrimitiveOperator_PRIMITIVE_OPERATOR_UNSPECIFIED PrimitiveOperator = 0 // unset; fails the call
-	PrimitiveOperator_PRIMITIVE_OPERATOR_EQUAL       PrimitiveOperator = 1 // "="
-	PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER     PrimitiveOperator = 2 // ">"
-	PrimitiveOperator_PRIMITIVE_OPERATOR_LESS        PrimitiveOperator = 3 // "<"
+	PrimitiveOperator_PRIMITIVE_OPERATOR_UNSPECIFIED   PrimitiveOperator = 0 // unset; fails the call
+	PrimitiveOperator_PRIMITIVE_OPERATOR_EQUAL         PrimitiveOperator = 1 // "="
+	PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER       PrimitiveOperator = 2 // ">"
+	PrimitiveOperator_PRIMITIVE_OPERATOR_LESS          PrimitiveOperator = 3 // "<"
+	PrimitiveOperator_PRIMITIVE_OPERATOR_LESS_EQUAL    PrimitiveOperator = 4 // "<="
+	PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER_EQUAL PrimitiveOperator = 5 // ">="
+	// "in": the property's value is one of the listed values.
+	PrimitiveOperator_PRIMITIVE_OPERATOR_IN PrimitiveOperator = 6
+	// "instanceOf": the element's metaclass (`property` must be "@type")
+	// conforms to one of the listed metaclasses, so a PartUsage is an instance
+	// of Usage, Feature and Element.
+	PrimitiveOperator_PRIMITIVE_OPERATOR_INSTANCE_OF PrimitiveOperator = 7
 )
 
 // Enum value maps for PrimitiveOperator.
@@ -197,12 +206,20 @@ var (
 		1: "PRIMITIVE_OPERATOR_EQUAL",
 		2: "PRIMITIVE_OPERATOR_GREATER",
 		3: "PRIMITIVE_OPERATOR_LESS",
+		4: "PRIMITIVE_OPERATOR_LESS_EQUAL",
+		5: "PRIMITIVE_OPERATOR_GREATER_EQUAL",
+		6: "PRIMITIVE_OPERATOR_IN",
+		7: "PRIMITIVE_OPERATOR_INSTANCE_OF",
 	}
 	PrimitiveOperator_value = map[string]int32{
-		"PRIMITIVE_OPERATOR_UNSPECIFIED": 0,
-		"PRIMITIVE_OPERATOR_EQUAL":       1,
-		"PRIMITIVE_OPERATOR_GREATER":     2,
-		"PRIMITIVE_OPERATOR_LESS":        3,
+		"PRIMITIVE_OPERATOR_UNSPECIFIED":   0,
+		"PRIMITIVE_OPERATOR_EQUAL":         1,
+		"PRIMITIVE_OPERATOR_GREATER":       2,
+		"PRIMITIVE_OPERATOR_LESS":          3,
+		"PRIMITIVE_OPERATOR_LESS_EQUAL":    4,
+		"PRIMITIVE_OPERATOR_GREATER_EQUAL": 5,
+		"PRIMITIVE_OPERATOR_IN":            6,
+		"PRIMITIVE_OPERATOR_INSTANCE_OF":   7,
 	}
 )
 
@@ -10824,6 +10841,8 @@ type ServerInfoResponse struct {
 	//	               and answers with typed rows.
 	//	"render_document" - the RenderDocument RPC renders a named document to
 	//	               Markdown.
+	//	"query_order_by" - Query.order_by sorts the matched elements; a service
+	//	               without it would ignore the field, so a client checks.
 	//	"render_document_html" - RenderDocumentRequest.form takes "html".
 	//	"render_document_asciidoc" - RenderDocumentRequest.form takes "asciidoc"
 	//	               and the response carries the document in `asciidoc`.
@@ -11038,7 +11057,11 @@ type Query struct {
 	// Properties to report for each matched element. Empty reports all of them.
 	Select []string `protobuf:"bytes,2,rep,name=select,proto3" json:"select,omitempty"`
 	// Filter every considered element must satisfy. Unset matches all of them.
-	Where         *Constraint `protobuf:"bytes,3,opt,name=where,proto3" json:"where,omitempty"`
+	Where *Constraint `protobuf:"bytes,3,opt,name=where,proto3" json:"where,omitempty"`
+	// Properties the matched elements are sorted by, in order of precedence,
+	// each ascending; elements equal under every one keep declaration order.
+	// Corresponds to the standard's `orderBy`. An unknown one fails the call.
+	OrderBy       []string `protobuf:"bytes,4,rep,name=order_by,json=orderBy,proto3" json:"order_by,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -11090,6 +11113,13 @@ func (x *Query) GetSelect() []string {
 func (x *Query) GetWhere() *Constraint {
 	if x != nil {
 		return x.Where
+	}
+	return nil
+}
+
+func (x *Query) GetOrderBy() []string {
+	if x != nil {
+		return x.OrderBy
 	}
 	return nil
 }
@@ -11188,8 +11218,8 @@ type PrimitiveConstraint struct {
 	Property string            `protobuf:"bytes,2,opt,name=property,proto3" json:"property,omitempty"`
 	Operator PrimitiveOperator `protobuf:"varint,3,opt,name=operator,proto3,enum=sysml.PrimitiveOperator" json:"operator,omitempty"`
 	// Values to compare against. The standard writes one value, and its clients
-	// also write a list for `@type`; with `=` the element matches any of them,
-	// while `>` and `<` require exactly one.
+	// also write a list for `@type`; with `=`, `in` and `instanceOf` the element
+	// matches any of them, while `<`, `<=`, `>` and `>=` require exactly one.
 	Value         []string `protobuf:"bytes,4,rep,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -11253,8 +11283,9 @@ func (x *PrimitiveConstraint) GetValue() []string {
 	return nil
 }
 
-// CompositeConstraint combines constraints. An empty constraint list fails the
-// call: it has no defensible verdict.
+// CompositeConstraint combines constraints. The standard combines at least two
+// (`constraint : Constraint [2..*]`): an empty list has no defensible verdict,
+// and a one-member list is that member, so either fails the call.
 type CompositeConstraint struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Operator      CompositeOperator      `protobuf:"varint,1,opt,name=operator,proto3,enum=sysml.CompositeOperator" json:"operator,omitempty"`
@@ -17724,11 +17755,12 @@ const file_sysml_proto_rawDesc = "" +
 	"\n" +
 	"oslc_query\x18\x03 \x01(\tR\toslcQuery\"F\n" +
 	"\rQueryResponse\x125\n" +
-	"\belements\x18\x01 \x03(\v2\x19.sysml.QueryResultElementR\belements\"^\n" +
+	"\belements\x18\x01 \x03(\v2\x19.sysml.QueryResultElementR\belements\"y\n" +
 	"\x05Query\x12\x14\n" +
 	"\x05scope\x18\x01 \x03(\tR\x05scope\x12\x16\n" +
 	"\x06select\x18\x02 \x03(\tR\x06select\x12'\n" +
-	"\x05where\x18\x03 \x01(\v2\x11.sysml.ConstraintR\x05where\"\x92\x01\n" +
+	"\x05where\x18\x03 \x01(\v2\x11.sysml.ConstraintR\x05where\x12\x19\n" +
+	"\border_by\x18\x04 \x03(\tR\aorderBy\"\x92\x01\n" +
 	"\n" +
 	"Constraint\x12:\n" +
 	"\tprimitive\x18\x01 \x01(\v2\x1a.sysml.PrimitiveConstraintH\x00R\tprimitive\x12:\n" +
@@ -18285,12 +18317,16 @@ const file_sysml_proto_rawDesc = "" +
 	"\x1eEDIT_FAILURE_DELETE_REFERENCED\x10\x0f\x12$\n" +
 	" EDIT_FAILURE_OWNER_INSIDE_TARGET\x10\x10\x12 \n" +
 	"\x1cEDIT_FAILURE_MOVE_REFERENCED\x10\x11\x12%\n" +
-	"!EDIT_FAILURE_REFERENCED_ELSEWHERE\x10\x12*\x92\x01\n" +
+	"!EDIT_FAILURE_REFERENCED_ELSEWHERE\x10\x12*\x9a\x02\n" +
 	"\x11PrimitiveOperator\x12\"\n" +
 	"\x1ePRIMITIVE_OPERATOR_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18PRIMITIVE_OPERATOR_EQUAL\x10\x01\x12\x1e\n" +
 	"\x1aPRIMITIVE_OPERATOR_GREATER\x10\x02\x12\x1b\n" +
-	"\x17PRIMITIVE_OPERATOR_LESS\x10\x03*n\n" +
+	"\x17PRIMITIVE_OPERATOR_LESS\x10\x03\x12!\n" +
+	"\x1dPRIMITIVE_OPERATOR_LESS_EQUAL\x10\x04\x12$\n" +
+	" PRIMITIVE_OPERATOR_GREATER_EQUAL\x10\x05\x12\x19\n" +
+	"\x15PRIMITIVE_OPERATOR_IN\x10\x06\x12\"\n" +
+	"\x1ePRIMITIVE_OPERATOR_INSTANCE_OF\x10\a*n\n" +
 	"\x11CompositeOperator\x12\"\n" +
 	"\x1eCOMPOSITE_OPERATOR_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16COMPOSITE_OPERATOR_AND\x10\x01\x12\x19\n" +

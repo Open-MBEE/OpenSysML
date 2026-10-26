@@ -33,7 +33,13 @@ _PRIMITIVE_OPERATORS = {
     "=": sysml_pb2.PRIMITIVE_OPERATOR_EQUAL,
     ">": sysml_pb2.PRIMITIVE_OPERATOR_GREATER,
     "<": sysml_pb2.PRIMITIVE_OPERATOR_LESS,
+    ">=": sysml_pb2.PRIMITIVE_OPERATOR_GREATER_EQUAL,
+    "<=": sysml_pb2.PRIMITIVE_OPERATOR_LESS_EQUAL,
+    "in": sysml_pb2.PRIMITIVE_OPERATOR_IN,
+    "instanceOf": sysml_pb2.PRIMITIVE_OPERATOR_INSTANCE_OF,
 }
+# The operators that compare against exactly one value.
+_ORDERED_OPERATORS = frozenset({">", "<", ">=", "<="})
 _COMPOSITE_OPERATORS = {
     "and": sysml_pb2.COMPOSITE_OPERATOR_AND,
     "or": sysml_pb2.COMPOSITE_OPERATOR_OR,
@@ -71,7 +77,7 @@ class QueryElement:
         return f"{self.id} ({self.type})"
 
 
-def build_query(payload=None, scope=None, select=None, where=None):
+def build_query(payload=None, scope=None, select=None, where=None, order_by=None):
     """Translate a query, given as the standard's JSON or as keywords, to protobuf.
 
     Args:
@@ -81,6 +87,9 @@ def build_query(payload=None, scope=None, select=None, where=None):
             element reference (``{"@id": ...}``). Empty means the whole model.
         select (list, optional): Properties to report. Empty reports every one.
         where (dict, optional): Constraint to filter by. Absent selects the scope.
+        order_by (list, optional): Properties to sort the matched elements by, in
+            order of precedence, each ascending; the standard's ``orderBy``.
+            Empty keeps declaration order.
 
     Returns:
         sysml_pb2.Query: The query, ready to send.
@@ -89,28 +98,32 @@ def build_query(payload=None, scope=None, select=None, where=None):
         QueryError: If the payload is not a query the standard describes.
     """
     if payload is not None:
-        if scope is not None or select is not None or where is not None:
+        if scope is not None or select is not None or where is not None or order_by is not None:
             raise QueryError(
-                "pass a query payload or scope/select/where keywords, not both"
+                "pass a query payload or scope/select/where/order_by keywords, not both"
             )
         if not isinstance(payload, Mapping):
             raise QueryError(f"a query is an object, not {type(payload).__name__}")
         declared = payload.get(_TYPE_KEY, TYPE_QUERY)
         if declared != TYPE_QUERY:
             raise QueryError(f"expected a {TYPE_QUERY!r} payload, got {declared!r}")
-        unknown = set(payload) - {_TYPE_KEY, "@id", "owningProject", "scope", "select", "where"}
+        unknown = set(payload) - {
+            _TYPE_KEY, "@id", "owningProject", "scope", "select", "where", "orderBy",
+        }
         if unknown:
             raise QueryError(
                 f"a query has no {', '.join(sorted(unknown))}; the standard's query "
-                f"is scope, select and where"
+                f"is scope, select, where and orderBy"
             )
-        scope, select, where = (
+        scope, select, where, order_by = (
             payload.get("scope"), payload.get("select"), payload.get("where"),
+            payload.get("orderBy"),
         )
 
     query = sysml_pb2.Query(
         scope=[_scope_id(entry) for entry in _sequence("scope", scope)],
         select=[_property_name(entry) for entry in _sequence("select", select)],
+        order_by=[_property_name(entry) for entry in _sequence("orderBy", order_by)],
     )
     if where is not None:
         query.where.CopyFrom(_constraint(where))
@@ -184,8 +197,44 @@ def _primitive(payload):
         inverse=bool(payload.get("inverse", False)),
         property=name,
         operator=_PRIMITIVE_OPERATORS[operator],
-        value=_values(payload.get("value")),
+        value=_operand(operator, name, payload.get("value")),
     )
+
+
+def _operand(operator, name, value):
+    """The compared values, in the shape the operator compares against.
+
+    The ordered comparisons take one value, ``in`` a list of them and
+    ``instanceOf`` metaclass names, so a value of another shape is refused here
+    rather than sent for the service to refuse.
+    """
+    if operator in _ORDERED_OPERATORS:
+        if isinstance(value, (list, tuple)) and len(value) != 1:
+            raise QueryError(
+                f"{operator} on {name!r} compares against one value, not a list of "
+                f"{len(value)}"
+            )
+        if value is None:
+            raise QueryError(f"{operator} on {name!r} has no value to compare against")
+        return _values(value)
+    if operator == "in":
+        if not isinstance(value, (list, tuple)):
+            raise QueryError(
+                f"in on {name!r} compares against a list of values, not {value!r}"
+            )
+        if not value:
+            raise QueryError(f"in on {name!r} has no values to be a member of")
+        return [_value(v) for v in value]
+    if operator == "instanceOf":
+        names = list(value) if isinstance(value, (list, tuple)) else [value]
+        for metaclass in names:
+            if not isinstance(metaclass, str) or not metaclass:
+                raise QueryError(
+                    f"instanceOf on {name!r} compares against a metaclass name, "
+                    f"not {metaclass!r}"
+                )
+        return names
+    return _values(value)
 
 
 def _composite(payload):
@@ -202,6 +251,11 @@ def _composite(payload):
         raise QueryError(
             f"a composite constraint combines a non-empty list of constraints, "
             f"not {nested!r}"
+        )
+    if len(nested) == 1:
+        raise QueryError(
+            "a composite constraint combines at least two constraints, got one; "
+            "write the constraint on its own"
         )
     return sysml_pb2.CompositeConstraint(
         operator=_COMPOSITE_OPERATORS[operator],

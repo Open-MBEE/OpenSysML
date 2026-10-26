@@ -952,6 +952,15 @@ func (m *Model) MetaclassConforms(cand *symbols.Symbol, typeFQN string) bool {
 	return m.metaclassConforms(cand, typeFQN)
 }
 
+// InstanceOf reports whether a candidate's metaclass conforms to a metaclass
+// Metaclass answered, so a PartUsage is an instance of Usage, Feature and Element.
+func (m *Model) InstanceOf(cand, metaclass *symbols.Symbol) bool {
+	if m == nil || metaclass == nil {
+		return false
+	}
+	return m.metaclassConformsTo(cand, metaclass, metaclass.Name)
+}
+
 // annotationConforms reports whether an annotation's metadata type conforms to
 // the type a condition names: the element the name resolved to, through its
 // specialization closure, so an alias selects the same type and a namesake
