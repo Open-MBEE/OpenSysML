@@ -736,7 +736,7 @@ func (g *diffGate) check(t *testing.T, ctx *runtime.Context, el diffElement) dif
 		case errors.As(err, &refusal):
 			g.summary.refused(refusal.Construct + ": " + refusal.Reason)
 			return diffNotTranslated
-		case errors.Is(err, ErrNotTranslatable), errors.Is(err, ErrNoConditions), errors.Is(err, runtime.ErrNoRequirement):
+		case errors.Is(err, ErrNotTranslatable), errors.Is(err, runtime.ErrNoValue), errors.Is(err, runtime.ErrNoRequirement):
 			g.summary.refused(err.Error())
 			return diffNotTranslated
 		}

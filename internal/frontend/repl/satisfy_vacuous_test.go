@@ -44,7 +44,7 @@ func TestSatisfyVacuousViewpointHolds(t *testing.T) {
 		"  Required condition evaluated to false: requirement prose states no required constraint, so it holds vacuously",
 		"  standing: violated (witnessed: 1 run under reverse)",
 	)
-	if strings.Contains(out, "could not be evaluated") || strings.Contains(out, "no condition to evaluate") {
+	if strings.Contains(out, "could not be evaluated") || strings.Contains(out, "no value") {
 		t.Errorf("a vacuous requirement was reported unevaluable:\n%s", out)
 	}
 	wants(t, run(t, s, "%requirement Reading::prose"),

@@ -12,10 +12,6 @@ import (
 // a partial script would answer sat or unsat about conditions it does not hold.
 var ErrNotTranslatable = errors.New("not translatable for solving")
 
-// ErrNoConditions is returned for an element that states no condition to
-// translate, as evaluating it reports the same.
-var ErrNoConditions = errors.New("states no condition")
-
 // ErrNothingAsserted is returned for a part or definition that asserts nothing
 // about its objects — no asserted constraint, requirement or satisfaction, owned
 // or inherited — so there is no conjunction to configure or solve.
