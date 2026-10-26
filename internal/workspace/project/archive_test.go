@@ -3,6 +3,7 @@ package project
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -199,5 +200,97 @@ func TestArchiveFilesStopAtAProjectNestedInIt(t *testing.T) {
 	want := []string{"lib/widgets.kpar/Widgets.sysml", "lib/widgets.kpar/packages/sprockets/Sprockets.sysml"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("Files() = %q, want %q", got, want)
+	}
+}
+
+func TestParseMetaReadsBothChecksumShapes(t *testing.T) {
+	const object = `{"index": {}, "created": "2026-01-01T00:00:00Z", "checksum": {"A.sysml": {"value": "00", "algorithm": "SHA256"}}}`
+	const list = `{"index": {}, "created": "2026-01-01T00:00:00Z", "checksum": {"A.sysml": [{"value": "00", "algorithm": "SHA256"}, {"value": "11", "algorithm": "MD5"}]}}`
+	meta, err := ParseMeta([]byte(object))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := meta.Checksum["A.sysml"]; len(got) != 1 || got[0] != (Checksum{Value: "00", Algorithm: "SHA256"}) {
+		t.Errorf("object shape read as %+v", got)
+	}
+	meta, err = ParseMeta([]byte(list))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := meta.Checksum["A.sysml"]; len(got) != 2 || got[1].Algorithm != "MD5" {
+		t.Errorf("list shape read as %+v", got)
+	}
+	// Meta itself is the JSON type, so a plain Unmarshal accepts both shapes too.
+	var direct Meta
+	if err := json.Unmarshal([]byte(object), &direct); err != nil {
+		t.Errorf("json.Unmarshal of the object shape: %v", err)
+	}
+	if err := json.Unmarshal([]byte(list), &direct); err != nil {
+		t.Errorf("json.Unmarshal of the list shape: %v", err)
+	}
+	for _, bad := range []struct{ name, meta, want string }{
+		{"empty list", `{"index": {}, "created": "2026-01-01T00:00:00Z", "checksum": {"A.sysml": []}}`, `checksum of "A.sysml" is an empty list`},
+		{"a string", `{"index": {}, "created": "2026-01-01T00:00:00Z", "checksum": {"A.sysml": "00"}}`, `checksum of "A.sysml" is neither`},
+		{"null", `{"index": {}, "created": "2026-01-01T00:00:00Z", "checksum": {"A.sysml": null}}`, `checksum of "A.sysml" is neither`},
+	} {
+		if _, err := ParseMeta([]byte(bad.meta)); err == nil || !strings.Contains(err.Error(), bad.want) {
+			t.Errorf("%s: err = %v, want %q", bad.name, err, bad.want)
+		}
+	}
+}
+
+func TestChecksumsMarshalAsTheSchemaObject(t *testing.T) {
+	meta := Meta{Index: map[string]string{}, Created: "2026-01-01T00:00:00Z", Checksum: map[string]Checksums{
+		"A.sysml": {{Value: "00", Algorithm: "SHA256"}},
+		"B.sysml": {{Value: "00", Algorithm: "SHA256"}, {Value: "11", Algorithm: "MD5"}},
+	}}
+	data, err := json.Marshal(meta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = `{"index":{},"created":"2026-01-01T00:00:00Z","checksum":{"A.sysml":{"value":"00","algorithm":"SHA256"},"B.sysml":[{"value":"00","algorithm":"SHA256"},{"value":"11","algorithm":"MD5"}]}}`
+	if string(data) != want {
+		t.Errorf("marshalled as\n%s\nwant\n%s", data, want)
+	}
+	var back Meta
+	if err := json.Unmarshal(data, &back); err != nil {
+		t.Fatal(err)
+	}
+	if len(back.Checksum["A.sysml"]) != 1 || len(back.Checksum["B.sysml"]) != 2 {
+		t.Errorf("round trip read %+v", back.Checksum)
+	}
+}
+
+func TestParseArchiveSkipsAnUnrecordedChecksum(t *testing.T) {
+	for _, tc := range []struct{ name, sum string }{
+		{"algorithm NONE", `{"value": "", "algorithm": "NONE"}`},
+		{"algorithm none in lower case", `{"value": "", "algorithm": "none"}`},
+		{"NONE with a value", `{"value": "00", "algorithm": "NONE"}`},
+		{"an empty value", `{"value": "", "algorithm": "SHA256"}`},
+		{"unrecorded beside a verified one", `[{"value": "", "algorithm": "NONE"}, {"value": "4044ca78bfbbcdd72b63cd877ad948c20b758dd30cbb4a0bf8c9e0af30c98bda", "algorithm": "SHA256"}]`},
+	} {
+		meta := `{"index": {"Probe": "Probe.sysml"}, "created": "2026-01-01T00:00:00Z", "checksum": {"Probe.sysml": ` + tc.sum + `}}`
+		a, err := ParseArchive("probe.kpar", zipOf(t, [2]string{"Probe.sysml", probeModel}, [2]string{".project.json", probeProject}, [2]string{".meta.json", meta}))
+		if err != nil {
+			t.Errorf("%s: %v", tc.name, err)
+			continue
+		}
+		if len(a.Notes) != 0 {
+			t.Errorf("%s: notes = %q, want none: an unrecorded checksum is not a finding", tc.name, a.Notes)
+		}
+		if sums := a.Meta.Checksum["Probe.sysml"]; len(sums) == 0 || !sums[0].Unrecorded() {
+			t.Errorf("%s: checksums kept as %+v", tc.name, sums)
+		}
+	}
+	for _, tc := range []struct{ name, sum, want string }{
+		{"no algorithm", `{"value": "", "algorithm": ""}`, "lacks an algorithm"},
+		{"an empty value of an algorithm outside the schema", `{"value": "", "algorithm": "CRC32"}`, "not an algorithm the interchange schema allows"},
+		{"a wrong value beside an unrecorded one", `[{"value": "", "algorithm": "NONE"}, {"value": "00", "algorithm": "SHA256"}]`, "does not match"},
+	} {
+		meta := `{"index": {"Probe": "Probe.sysml"}, "created": "2026-01-01T00:00:00Z", "checksum": {"Probe.sysml": ` + tc.sum + `}}`
+		_, err := ParseArchive("probe.kpar", zipOf(t, [2]string{"Probe.sysml", probeModel}, [2]string{".project.json", probeProject}, [2]string{".meta.json", meta}))
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: err = %v, want %q", tc.name, err, tc.want)
+		}
 	}
 }

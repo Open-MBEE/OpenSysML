@@ -1,0 +1,21 @@
+{
+  "type": "instance",
+  "instantiate": "test::pool",
+  "slots": {
+    "coll": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}]},
+    "late": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
+    "picked": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}]}
+  },
+  "identical": [
+    ["picked.1", "c"],
+    ["picked.2", "d"],
+    ["picked.3", "a"]
+  ],
+  "materialization": {},
+  "validation": {
+    "verdicts": [
+      {"kind": "binding", "assertion": "binding [2] bind [0..2] picked = [0..2] late", "status": "holds"}
+    ],
+    "valid": true
+  }
+}

@@ -129,7 +129,7 @@ func bundleMembers(dir string) (map[string][]byte, error) {
 // the index of the top-level namespaces each model file declares, a SHA256
 // checksum of every member, and the metamodel of the files' notation.
 func generateMeta(members map[string][]byte) ([]byte, error) {
-	meta := Meta{Index: map[string]string{}, Checksum: map[string][]Checksum{}, Metamodel: MetamodelKerML}
+	meta := Meta{Index: map[string]string{}, Checksum: map[string]Checksums{}, Metamodel: MetamodelKerML}
 	for name, content := range members {
 		if strings.HasSuffix(name, ".sysml") {
 			meta.Metamodel = MetamodelSysML
@@ -144,7 +144,7 @@ func generateMeta(members map[string][]byte) ([]byte, error) {
 			}
 		}
 		sum := sha256.Sum256(content)
-		meta.Checksum[name] = []Checksum{{Value: hex.EncodeToString(sum[:]), Algorithm: "SHA256"}}
+		meta.Checksum[name] = Checksums{{Value: hex.EncodeToString(sum[:]), Algorithm: "SHA256"}}
 	}
 	meta.Created = createdTime().UTC().Format(time.RFC3339)
 	return marshalMeta(meta)
@@ -163,25 +163,7 @@ func createdTime() time.Time {
 // marshalMeta writes the metadata as the schema spells it, a checksum
 // recorded once as one object.
 func marshalMeta(meta Meta) ([]byte, error) {
-	out := struct {
-		Index           map[string]string `json:"index"`
-		Created         string            `json:"created"`
-		Metamodel       string            `json:"metamodel,omitempty"`
-		IncludesDerived *bool             `json:"includesDerived,omitempty"`
-		IncludesImplied *bool             `json:"includesImplied,omitempty"`
-		Checksum        map[string]any    `json:"checksum,omitempty"`
-	}{Index: meta.Index, Created: meta.Created, Metamodel: meta.Metamodel, IncludesDerived: meta.IncludesDerived, IncludesImplied: meta.IncludesImplied}
-	if len(meta.Checksum) > 0 {
-		out.Checksum = map[string]any{}
-		for name, sums := range meta.Checksum {
-			if len(sums) == 1 {
-				out.Checksum[name] = sums[0]
-			} else {
-				out.Checksum[name] = sums
-			}
-		}
-	}
-	data, err := json.MarshalIndent(out, "", "  ")
+	data, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
 		return nil, err
 	}
