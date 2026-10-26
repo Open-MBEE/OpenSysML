@@ -106,6 +106,8 @@ function _constraint(payload)
         nested = get(payload, "constraint", nothing)
         (nested isa AbstractVector || nested isa Tuple) && !isempty(nested) ||
             throw(QueryError("a composite constraint combines a non-empty list of constraints, not $(repr(nested))"))
+        length(nested) == 1 &&
+            throw(QueryError("a composite constraint combines at least two constraints, got one; write the constraint on its own"))
         return Dict{String,Any}("composite" => Dict(
             "operator" => operators[operator],
             "constraint" => Any[_constraint(entry) for entry in nested]))

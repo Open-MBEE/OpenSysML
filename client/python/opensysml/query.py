@@ -252,6 +252,11 @@ def _composite(payload):
             f"a composite constraint combines a non-empty list of constraints, "
             f"not {nested!r}"
         )
+    if len(nested) == 1:
+        raise QueryError(
+            "a composite constraint combines at least two constraints, got one; "
+            "write the constraint on its own"
+        )
     return sysml_pb2.CompositeConstraint(
         operator=_COMPOSITE_OPERATORS[operator],
         constraint=[_constraint(entry) for entry in nested],

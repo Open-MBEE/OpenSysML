@@ -571,7 +571,8 @@ func (e *queryEval) resolveMetaclasses(constraint *pb.Constraint) error {
 	return nil
 }
 
-// validateComposite checks a combination has an operator, something to combine,
+// validateComposite checks a combination has an operator, at least two
+// constraints to combine (the standard's `constraint : Constraint [2..*]`),
 // and no malformed constraint anywhere beneath it, decisive or not.
 func validateComposite(c *pb.CompositeConstraint) error {
 	if c == nil {
@@ -580,6 +581,10 @@ func validateComposite(c *pb.CompositeConstraint) error {
 	if len(c.Constraint) == 0 {
 		return queryErrorf(QueryErrMalformedConstraint,
 			"CompositeConstraint has no constraints to combine")
+	}
+	if len(c.Constraint) == 1 {
+		return queryErrorf(QueryErrMalformedConstraint,
+			"CompositeConstraint combines at least two constraints, got one; write the constraint on its own")
 	}
 	switch c.Operator {
 	case pb.CompositeOperator_COMPOSITE_OPERATOR_AND, pb.CompositeOperator_COMPOSITE_OPERATOR_OR:

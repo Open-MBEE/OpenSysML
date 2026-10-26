@@ -173,6 +173,10 @@ function out = composite(payload)
         queryError(sprintf(['a composite constraint combines a non-empty list of constraints, ' ...
             'not %s'], valueText(nested)));
     end
+    if numel(nested) == 1
+        queryError(['a composite constraint combines at least two constraints, got one; ' ...
+            'write the constraint on its own']);
+    end
     constraints = cellfun(@constraint, nested(:)', 'UniformOutput', false);
     out = struct('operator', wireOperator, 'constraint', {constraints});
 end

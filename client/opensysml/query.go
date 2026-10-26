@@ -60,14 +60,45 @@ func Less(property, value string) *Condition {
 	}
 }
 
-// All matches an element every condition matches. An empty list fails the call:
-// it has no defensible verdict.
+// GreaterOrEqual matches an element whose property is at least the value.
+func GreaterOrEqual(property, value string) *Condition {
+	return &Condition{
+		property: property,
+		operator: pb.PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER_EQUAL,
+		values:   []string{value},
+	}
+}
+
+// LessOrEqual matches an element whose property is at most the value.
+func LessOrEqual(property, value string) *Condition {
+	return &Condition{
+		property: property,
+		operator: pb.PrimitiveOperator_PRIMITIVE_OPERATOR_LESS_EQUAL,
+		values:   []string{value},
+	}
+}
+
+// In matches an element whose property is a member of the values given, the
+// standard's `in` operator. An empty list fails the call.
+func In(property string, values ...string) *Condition {
+	return &Condition{property: property, operator: pb.PrimitiveOperator_PRIMITIVE_OPERATOR_IN, values: values}
+}
+
+// InstanceOf matches an element whose metaclass conforms to any of the named
+// metaclasses ("Usage", "Feature", "Element", …), the standard's `instanceOf`
+// operator on "@type". A name the library declares no metaclass for fails the call.
+func InstanceOf(metaclasses ...string) *Condition {
+	return &Condition{property: "@type", operator: pb.PrimitiveOperator_PRIMITIVE_OPERATOR_INSTANCE_OF, values: metaclasses}
+}
+
+// All matches an element every condition matches. Fewer than two conditions
+// fail the call: the standard combines at least two.
 func All(conditions ...*Condition) *Condition {
 	return &Condition{composite: pb.CompositeOperator_COMPOSITE_OPERATOR_AND, operands: conditions}
 }
 
-// Any matches an element at least one condition matches. An empty list fails
-// the call.
+// Any matches an element at least one condition matches. Fewer than two
+// conditions fail the call.
 func Any(conditions ...*Condition) *Condition {
 	return &Condition{composite: pb.CompositeOperator_COMPOSITE_OPERATOR_OR, operands: conditions}
 }

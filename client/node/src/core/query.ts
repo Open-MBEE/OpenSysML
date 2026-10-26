@@ -281,6 +281,9 @@ function composite(payload: Record<string, unknown>) {
       `a composite constraint combines a non-empty list of constraints, not ${JSON.stringify(nested)}`,
     );
   }
+  if (nested.length === 1) {
+    throw new QueryError("a composite constraint combines at least two constraints, got one; write the constraint on its own");
+  }
   return {
     operator: mapped,
     constraint: nested.map(constraint),

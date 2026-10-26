@@ -285,10 +285,9 @@ impl Constraint {
                     operator,
                     constraints,
                 } => {
-                    if constraints.is_empty() {
+                    if constraints.len() < 2 {
                         return Err(Error::Query(
-                            "a composite constraint combines a non-empty list of constraints"
-                                .to_owned(),
+                            "a composite constraint combines at least two constraints".to_owned(),
                         ));
                     }
                     Kind::Composite(wire::CompositeConstraint {
@@ -408,6 +407,13 @@ impl Constraint {
                 ))
             })?;
         let constraints = match object.get("constraint") {
+            Some(Json::Array(nested)) if nested.len() == 1 => {
+                return Err(Error::Query(
+                    "a composite constraint combines at least two constraints, got one; \
+                     write the constraint on its own"
+                        .to_owned(),
+                ))
+            }
             Some(Json::Array(nested)) if !nested.is_empty() => nested
                 .iter()
                 .map(Constraint::from_json)

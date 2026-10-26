@@ -1,0 +1,9 @@
+{
+  "rpc": "Query",
+  "query": {
+    "where": {"composite": {"operator": "COMPOSITE_OPERATOR_AND", "constraint": [
+      {"primitive": {"property": "name", "operator": "PRIMITIVE_OPERATOR_EQUAL", "value": ["wheels"]}}
+    ]}}
+  },
+  "expected_query_error": "CompositeConstraint combines at least two constraints, got one"
+}

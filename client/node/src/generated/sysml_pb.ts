@@ -6430,8 +6430,9 @@ export const PrimitiveConstraintSchema: GenMessage<PrimitiveConstraint> = /*@__P
   messageDesc(file_sysml, 116);
 
 /**
- * CompositeConstraint combines constraints. An empty constraint list fails the
- * call: it has no defensible verdict.
+ * CompositeConstraint combines constraints. The standard combines at least two
+ * (`constraint : Constraint [2..*]`): an empty list has no defensible verdict,
+ * and a one-member list is that member, so either fails the call.
  *
  * @generated from message sysml.CompositeConstraint
  */

@@ -2892,8 +2892,9 @@ pub struct PrimitiveConstraint {
     #[prost(string, repeated, tag="4")]
     pub value: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
-/// CompositeConstraint combines constraints. An empty constraint list fails the
-/// call: it has no defensible verdict.
+/// CompositeConstraint combines constraints. The standard combines at least two
+/// (`constraint : Constraint \[2..*\]`): an empty list has no defensible verdict,
+/// and a one-member list is that member, so either fails the call.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CompositeConstraint {
     #[prost(enumeration="CompositeOperator", tag="1")]
