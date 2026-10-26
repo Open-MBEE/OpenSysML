@@ -1045,11 +1045,13 @@ func builtinSequenceSubsequence(ec *EvalContext, args []Value) (Value, error) {
 	return ec.sequenceFrom(elementsOf(args[0])[start-1:end], args[0])
 }
 
-// builtinSequenceExcludingAt is SequenceFunctions::excludingAt, the sequence
-// without the elements from startIndex to endIndex
-// (`(seq->subsequence(1, startIndex - 1), seq->subsequence(endIndex + 1))`).
+// builtinSequenceExcludingAt is SequenceFunctions::excludingAt, the library
+// body `(seq->subsequence(1, startIndex - 1), seq->subsequence(endIndex + 1))`
+// taken literally: the positions before startIndex, then those after endIndex.
 // endIndex defaults to startIndex, as the library declares, so one argument
-// removes one element.
+// removes one element. A start past size + 1 makes the first subsequence reach
+// `seq#(size + 1)`, an index error; an end past the end or below the start
+// leaves the second subsequence empty or overlapping the first, never an error.
 func builtinSequenceExcludingAt(ec *EvalContext, args []Value) (Value, error) {
 	const op = "SequenceFunctions::excludingAt"
 	if err := checkArity(op, args, 3); err != nil {
@@ -1067,16 +1069,12 @@ func builtinSequenceExcludingAt(ec *EvalContext, args []Value) (Value, error) {
 		}
 	}
 	if startFixed {
-		if err := indexWithin(op, "start index", start, 1, count, 0); err != nil {
+		if err := indexWithin(op, "start index", start, 1, count, 1); err != nil {
 			return Value{}, err
 		}
 	}
 	if endFixed {
-		first := int64(1)
-		if startFixed {
-			first = start
-		}
-		if err := indexWithin(op, "end index", end, first, count, 0); err != nil {
+		if err := indexWithin(op, "end index", end, 1, openRange(), 0); err != nil {
 			return Value{}, err
 		}
 	}
@@ -1086,9 +1084,12 @@ func builtinSequenceExcludingAt(ec *EvalContext, args []Value) (Value, error) {
 			return val, nil
 		}
 	}
+	span := spanOf(elements...)
 	kept := make([]Value, 0, len(elements))
 	kept = append(kept, positionsBetween(elements, 1, start-1)...)
-	kept = append(kept, positionsBetween(elements, end+1, spanOf(elements...))...)
+	if end < span {
+		kept = append(kept, positionsBetween(elements, end+1, span)...)
+	}
 	return ec.sequenceOfPositions(kept, args[0])
 }
 

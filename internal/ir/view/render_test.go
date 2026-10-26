@@ -122,6 +122,7 @@ func TestGoldenRenderings(t *testing.T) {
 		{"action", "action.sysml", "FlowViews::driveView", KindAction},
 		{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
 		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},
+		{"mixed-memberships", "mixed-memberships.sysml", "MixedMemberships::memberships", KindMixed},
 		{"typed-action", "typed-behavior.sysml", "TypedViews::cycleView", KindAction},
 		{"typed-state", "typed-behavior.sysml", "TypedViews::boilerView", KindState},
 		{"filters", "filters.sysml", "FilteredViews::safetyView", KindTree},
@@ -914,6 +915,9 @@ func TestMermaidSizeCountsEdges(t *testing.T) {
 				drawn += containmentEdges(root)
 			}
 			drawn -= len(rendering.nestingEdges())
+		} else {
+			// A membership shown by a subgraph's nesting is no flowchart edge.
+			drawn -= len(rendering.nestedInSubgraphs(rendering.usedPorts(rendering.portView(PortsMinimal))))
 		}
 		if drawn == 0 {
 			t.Errorf("%s draws no edge", tc.view)

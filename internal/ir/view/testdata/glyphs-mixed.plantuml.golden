@@ -72,6 +72,10 @@ rectangle "<size:10>//«view»//</size>\n**tankView**" as n4 <<view>> <<usage>>
 rectangle "<size:10>//«part def»//</size>\n**Tank**" as n17 <<part def>> {
   rectangle "<size:10>//«attribute»//</size>\n**level**" as n18 <<attribute>> <<usage>>
 }
+n0 --> n1 : frame
+n3 --> n5 : require
+n3 --> n14 : assert
+n17 o-- n18
 n2 --:|> n0
 n4 ..> n17 : <U+00AB>expose<U+00BB>
 n0 --> n15 : <U+00AB>require<U+00BB>

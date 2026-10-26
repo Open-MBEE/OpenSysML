@@ -196,8 +196,8 @@ func TestRuntimeRobustnessConstraintBodySteps(t *testing.T) {
 		ctx, idx := contextForSource(t, src)
 		silent := lookupOne(t, idx, "test::Silent")
 		_, err := ctx.EvaluateConstraint(silent, silent.OwnerScope)
-		if !errors.Is(err, ErrNoConditions) {
-			t.Fatalf("err = %v, want ErrNoConditions", err)
+		if !errors.Is(err, ErrNoValue) {
+			t.Fatalf("err = %v, want ErrNoValue", err)
 		}
 		if !strings.Contains(err.Error(), "no result expression") {
 			t.Errorf("err = %v, want it to say the body states no result expression", err)

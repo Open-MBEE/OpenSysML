@@ -44,6 +44,25 @@ relationships:
   Inspection .. objective n12
   start of mode -> ready
   pump.outlet -- tank.inlet
+  MixedExamples +-- FluidPort
+  MixedExamples +-- BaseUnit
+  MixedExamples +-- Pump
+  Pump o-- outlet
+  MixedExamples +-- Tank
+  Tank o-- inlet
+  MixedExamples +-- Plant
+  Plant *-- pump
+  Plant *-- tank
+  MixedExamples +-- Connection
+  Connection o-- a
+  Connection o-- b
+  MixedExamples +-- Ready
+  MixedExamples +-- Modes
+  MixedExamples +-- Operate
+  MixedExamples +-- Inspection
+  MixedExamples +-- Person
+  MixedExamples *-- mixedDiagram
+  MixedExamples *-- mixedLayout
   ready --:|> Ready
   plant --:|> Plant
   operator --:|> Person

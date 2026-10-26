@@ -41,6 +41,7 @@ func TestGoldenDOT(t *testing.T) {
 		{"action", "action.sysml", "FlowViews::driveView", KindAction, false},
 		{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase, false},
 		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed, false},
+		{"mixed-memberships", "mixed-memberships.sysml", "MixedMemberships::memberships", KindMixed, false},
 		{"filters", "filters.sysml", "FilteredViews::safetyView", KindTree, false},
 		{"variation-tree", "variation.sysml", "VariationViews::familyTree", KindTree, false},
 		{"variation-interconnection", "variation.sysml", "VariationViews::familyLinks", KindInterconnection, false},

@@ -171,8 +171,8 @@ func TestConstraintWithoutConditionsIsNotAVerdict(t *testing.T) {
 	}
 
 	satisfied, err := ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), nil)
-	if !errors.Is(err, ErrNoConditions) {
-		t.Fatalf("err = %v, want ErrNoConditions", err)
+	if !errors.Is(err, ErrNoValue) || !strings.Contains(err.Error(), "declares no condition") {
+		t.Fatalf("err = %v, want ErrNoValue naming the missing condition", err)
 	}
 	if satisfied {
 		t.Error("an unevaluated constraint reported as satisfied")

@@ -121,6 +121,16 @@ func (r *Rendering) nestingEdges() map[[2]string]bool {
 	return nesting
 }
 
+// nestedMembership reports whether edge is the own membership of the node nested directly in
+// edge.From — declared where the node was, so the nesting draws it — not a relationship stated about it.
+func nestedMembership(edge Edge, tree nodeTree) bool {
+	child := tree.nodes[edge.To]
+	if !membershipEdge(edge.Kind) || child == nil || tree.parents[edge.To] != edge.From {
+		return false
+	}
+	return !edge.Origin.Located() || (edge.Origin.Doc == child.Origin.Doc && edge.Origin.Span == child.Origin.Span)
+}
+
 // declaredUnder reports whether a node drawn in the node of parent draws sym
 // as a declaration: parent is sym's owner, or a view exposing it.
 func declaredUnder(parent, sym *symbols.Symbol) bool {
@@ -316,8 +326,7 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 		if !structuralUsage(member) {
 			continue
 		}
-		edge := Edge{From: node.ID, To: child.ID, ToLabel: g.r.usageMultiplicity(member),
-			Origin: symbolOrigin(member), Style: g.r.styleOf(site.view, member, g.out)}
+		edge := Edge{From: node.ID, To: child.ID, Origin: symbolOrigin(member), Style: g.r.styleOf(site.view, member, g.out)}
 		g.r.memberEdge(member, &edge)
 		if member.Owner() == sym {
 			edge.Route = g.r.routeOf(site.view, member, g.out)
@@ -349,26 +358,27 @@ func (g *treeGraph) exposeEdges(node *Node, view *symbols.Symbol) {
 	}
 }
 
-// membershipEdge reports an edge kind drawn for a feature membership: the
-// diamonds, and the glyphs an owned member's membership takes instead.
+// membershipEdge reports an edge kind drawn for the membership of a member in its owner.
 func membershipEdge(kind EdgeKind) bool {
 	switch kind {
-	case EdgeComposition, EdgeReference, EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgePortion:
+	case EdgeComposition, EdgeReference, EdgeContainment, EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgePortion:
 		return true
 	}
 	return false
 }
 
-// memberEdge sets the kind an owned member's edge is drawn with: the glyph
-// of a membership the notation draws as its own relationship — a required,
-// assumed or asserted constraint, a framed concern, an event occurrence, a
-// portion — else the feature membership's diamond.
+// memberEdge is the one rule for the glyph of an owner → member edge (SysML v2 §8.2.3): the
+// named relationship's own glyph, else the feature membership's diamond, else the circle-plus.
 func (r *Renderer) memberEdge(member *symbols.Symbol, edge *Edge) {
 	if kind, label, ok := memberRelationship(member); ok {
 		edge.Kind, edge.Label = kind, label
 		return
 	}
-	edge.Kind = r.membershipKind(member)
+	if !member.Kind.IsFeature() {
+		edge.Kind = EdgeContainment
+		return
+	}
+	edge.Kind, edge.ToLabel = r.membershipKind(member), r.usageMultiplicity(member)
 }
 
 // membershipKind is the edge a usage's feature membership is drawn as: a

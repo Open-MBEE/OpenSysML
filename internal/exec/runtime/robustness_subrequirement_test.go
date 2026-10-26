@@ -102,8 +102,8 @@ func testSubrequirementNamingItsContainer(t *testing.T) {
 		if got.err == nil {
 			t.Fatalf("expected an error, got satisfied = %v", got.satisfied)
 		}
-		if !errors.Is(got.err, ErrNoConditions) {
-			t.Errorf("expected ErrNoConditions, got: %v", got.err)
+		if !errors.Is(got.err, ErrNoValue) {
+			t.Errorf("expected ErrNoValue, got: %v", got.err)
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("evaluating a requirement whose subrequirement names it did not return")

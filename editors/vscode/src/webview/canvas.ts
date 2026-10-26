@@ -5,11 +5,14 @@
 import type { RenderPoint } from "../protocol";
 import {
   CanvasLayout,
+  EDGE_LABEL_RISE,
+  edgeExtent,
   FONT_SIZE,
   labelLineClass,
   liftedEdges,
   MARGIN,
   movable,
+  nodeExtent,
   PlacedEdge,
   PlacedNode,
   portBox,
@@ -83,8 +86,9 @@ export function liftNode(svg: SVGSVGElement, layout: CanvasLayout, id: string, d
       group.setAttribute("transform", `translate(${dx} ${dy})`);
       group.classList.add("lifted");
       group.parentElement?.append(group);
-      right = Math.max(right, current.box.x + current.box.width + dx + MARGIN);
-      bottom = Math.max(bottom, current.box.y + current.box.height + dy + MARGIN);
+      const extent = nodeExtent(current);
+      right = Math.max(right, extent.x + extent.width + dx + MARGIN);
+      bottom = Math.max(bottom, extent.y + extent.height + dy + MARGIN);
     }
     for (const child of current.children) {
       lift(child);
@@ -100,10 +104,9 @@ export function liftNode(svg: SVGSVGElement, layout: CanvasLayout, id: string, d
       handles.classList.add("lifted");
       svg.querySelector(`g.edge-handles[data-edge="${edge.index}"]`)?.replaceWith(handles);
     }
-    for (const point of edge.points) {
-      right = Math.max(right, point.x + MARGIN);
-      bottom = Math.max(bottom, point.y + MARGIN);
-    }
+    const extent = edgeExtent(edge);
+    right = Math.max(right, extent.x + extent.width + MARGIN);
+    bottom = Math.max(bottom, extent.y + extent.height + MARGIN);
   }
   const width = right - layout.origin.x;
   const height = bottom - layout.origin.y;
@@ -445,7 +448,7 @@ function drawEdge(edge: PlacedEdge): SVGGElement {
   group.append(element("polyline", attrs));
   if (edge.edge.label !== "") {
     const text = element("text", {
-      x: String(edge.label.x), y: String(edge.label.y - 6), "text-anchor": "middle", class: "edge-label",
+      x: String(edge.label.x), y: String(edge.label.y - EDGE_LABEL_RISE), "text-anchor": "middle", class: "edge-label",
     });
     text.textContent = edge.edge.label;
     group.append(text);

@@ -96,8 +96,8 @@ func TestOwnedConstraintValueIsNotACondition(t *testing.T) {
 		if err := RequireConstraint(sym); err != nil {
 			t.Fatalf("%s: %v", sym.Name, err)
 		}
-		if _, err := ctx.EvaluateConstraintOn(sym, sym.OwnerScope, nil); !errors.Is(err, ErrNoConditions) {
-			t.Errorf("%s: err = %v, want ErrNoConditions", sym.Name, err)
+		if _, err := ctx.EvaluateConstraintOn(sym, sym.OwnerScope, nil); !errors.Is(err, ErrNoValue) {
+			t.Errorf("%s: err = %v, want ErrNoValue", sym.Name, err)
 		}
 	}
 	for _, name := range []string{"Base", "Sub", "base", "sub"} {

@@ -76,7 +76,7 @@ func (e *Encoding) Deadlock() *Property {
 // a feature the action does not carry is refused. An empty set is refused as no condition.
 func (e *Encoding) Conditions(ctx *runtime.Context, syms []*symbols.Symbol, scope *symbols.Scope) (*Property, error) {
 	if len(syms) == 0 {
-		return nil, fmt.Errorf("%w: no condition named", runtime.ErrNoConditions)
+		return nil, fmt.Errorf("%w: no constraint or requirement named", runtime.ErrNotAConstraint)
 	}
 	p := &Property{Violated: make([]*solve.Term, e.Moves+1), Undefined: make([]*solve.Term, e.Moves+1)}
 	for i := range p.Violated {
@@ -124,7 +124,7 @@ func (e *Encoding) Assume(ctx *runtime.Context, sym *symbols.Symbol, scope *symb
 // encoding's features, telling a requirement from a constraint.
 func (e *Encoding) condition(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope) (PropertyKind, *solve.Expression, error) {
 	if sym == nil {
-		return 0, nil, fmt.Errorf("%w: no condition named", runtime.ErrNoConditions)
+		return 0, nil, fmt.Errorf("%w: no constraint or requirement named", runtime.ErrNotAConstraint)
 	}
 	kind := PropertyConstraint
 	if err := runtime.RequireConstraint(sym); err != nil {

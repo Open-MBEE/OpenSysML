@@ -95,8 +95,8 @@ func testRequirementsRequiringEachOther(t *testing.T) {
 	`)
 	first := requirementNamed(t, pkg, "alpha")
 	holds, err := ctx.EvaluateRequirementOn(first, first.OwnerScope, nil)
-	if holds || !errors.Is(err, ErrNoConditions) {
-		t.Fatalf("alpha: holds = %v, err = %v, want ErrNoConditions", holds, err)
+	if holds || !errors.Is(err, ErrNoValue) {
+		t.Fatalf("alpha: holds = %v, err = %v, want ErrNoValue", holds, err)
 	}
 	if !strings.Contains(err.Error(), "require alpha names the requirement being checked") {
 		t.Errorf("the error does not name the cycle: %v", err)
@@ -106,8 +106,8 @@ func testRequirementsRequiringEachOther(t *testing.T) {
 	if len(assertions) != 1 {
 		t.Fatalf("found %d satisfaction assertions, want 1", len(assertions))
 	}
-	if satisfied, err := ctx.EvaluateSatisfaction(assertions[0]); satisfied || !errors.Is(err, ErrNoConditions) {
-		t.Fatalf("satisfy alpha: satisfied = %v, err = %v, want ErrNoConditions", satisfied, err)
+	if satisfied, err := ctx.EvaluateSatisfaction(assertions[0]); satisfied || !errors.Is(err, ErrNoValue) {
+		t.Fatalf("satisfy alpha: satisfied = %v, err = %v, want ErrNoValue", satisfied, err)
 	}
 }
 
@@ -121,8 +121,8 @@ func testConstraintWithoutConditionsStaysUndecided(t *testing.T) {
 	`)
 	for _, name := range []string{"empty", "Empty"} {
 		sym := requirementNamed(t, pkg, name)
-		if holds, err := ctx.EvaluateConstraintOn(sym, sym.OwnerScope, nil); holds || !errors.Is(err, ErrNoConditions) {
-			t.Errorf("%s: holds = %v, err = %v, want ErrNoConditions", name, holds, err)
+		if holds, err := ctx.EvaluateConstraintOn(sym, sym.OwnerScope, nil); holds || !errors.Is(err, ErrNoValue) || !strings.Contains(err.Error(), "the constraint declares no condition") {
+			t.Errorf("%s: holds = %v, err = %v, want ErrNoValue naming the missing condition", name, holds, err)
 		}
 	}
 }

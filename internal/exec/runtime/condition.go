@@ -662,7 +662,7 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 			check.kind, check.name(), check.what, conflictText(conflict), errConflictingResultExpressions)
 	}
 	// A requirement over no required constraint is true whatever its assumptions
-	// read, so they are not evaluated; a constraint stating nothing has no verdict.
+	// read, so they are not evaluated; a constraint stating nothing binds no result.
 	if check.isRequirementCheck() && !requiresAny(conds) {
 		if check.negated {
 			return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: vacuousClaim(check.claimed())}
@@ -670,7 +670,7 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 		return true, nil
 	}
 	if len(conds) == 0 {
-		return false, fmt.Errorf("%s %s: %w", check.kind, check.name(), ErrNoConditions)
+		return false, check.noResultValue("the constraint declares no condition")
 	}
 	features := ctx.conditionFeatures(check.sym)
 	self := check.self
@@ -716,11 +716,20 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 		// A constraint's assumption is trusted rather than checked, so a negated
 		// constraint stating only assumptions denies nothing.
 		if !required {
-			return false, fmt.Errorf("%s %s: %w", check.kind, check.name(), ErrNoConditions)
+			return false, check.noResultValue("the constraint declares no required condition, only assumptions")
 		}
 		return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: negatedText(conds)}
 	}
 	return true, nil
+}
+
+// noResultValue is the error for a constraint whose result nothing binds (KerML 1.1
+// §7.4.8.2): no value, not a verdict, with the unbound-return hint or else cause.
+func (check conditionCheck) noResultValue(cause string) error {
+	if hint := unboundResultHint([]*symbols.Symbol{check.sym}); hint != "" {
+		return fmt.Errorf("%s %s: %w%s", check.kind, check.name(), ErrNoValue, hint)
+	}
+	return fmt.Errorf("%s %s: %w: %s", check.kind, check.name(), ErrNoValue, cause)
 }
 
 // circularCondition is the error for a condition that, reached in order, names
@@ -730,8 +739,7 @@ func (ctx *Context) circularCondition(check conditionCheck, cond Condition) erro
 	if cycle == nil {
 		return nil
 	}
-	return fmt.Errorf("%s %s: %w: require %s names the requirement being checked",
-		check.kind, check.name(), ErrNoConditions, cycle.Name)
+	return check.noResultValue(fmt.Sprintf("require %s names the requirement being checked", cycle.Name))
 }
 
 // requiresAny reports whether any of conds is required rather than assumed; a required
@@ -834,8 +842,7 @@ func (ctx *Context) evaluateStepsConditions(activation int64, check conditionChe
 		return false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
 	}
 	if len(cond.Group) == 0 {
-		return false, fmt.Errorf("%s %s: %s evaluation failed: %w: the body's steps leave it no result expression to evaluate",
-			check.kind, check.name(), check.what, ErrNoConditions)
+		return false, check.noResultValue("the body's steps leave it no result expression to evaluate")
 	}
 	for _, sub := range cond.Group {
 		if err := ctx.circularCondition(check, sub); err != nil {
@@ -1347,7 +1354,7 @@ func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features 
 		}
 		stepFrame = &left
 		if len(cond.Group) == 0 {
-			return false, fmt.Errorf("%w: the body's steps leave it no result expression to evaluate", ErrNoConditions)
+			return false, fmt.Errorf("%w: the body's steps leave it no result expression to evaluate", ErrNoValue)
 		}
 	}
 	holds := true
