@@ -22,9 +22,8 @@ package Fleet {
 }
 `
 
-// TestRequirementCountsSubrequirements: -requirement reports a requirement whose
-// subrequirement fails as failed, naming the failing condition, rather than as a
-// vacuous pass (SysML v2 §7.21.2: subrequirements are required constraints).
+// TestRequirementCountsSubrequirements: -requirement reports a requirement whose subrequirement fails as failed, naming the
+// failing condition, rather than as a vacuous pass (SysML v2 §7.21.2: subrequirements are required constraints).
 func TestRequirementCountsSubrequirements(t *testing.T) {
 	binary := buildCLI(t)
 

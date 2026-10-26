@@ -41,9 +41,8 @@ func (m *Model) computeImplicitSubsettings(sym *symbols.Symbol) []*symbols.Symbo
 	return nil
 }
 
-// nestedSubsettingFQN is the qualified name of the library feature the rules
-// say sym implicitly subsets, "" when they name none; the rules read the
-// declarations alone, so the answer stands whether or not the library is loaded.
+// nestedSubsettingFQN is the qualified name of the library feature the rules say sym implicitly
+// subsets, "" when they name none; read from the declarations alone, library loaded or not.
 func (m *Model) nestedSubsettingFQN(sym *symbols.Symbol) string {
 	if sym == nil || sym.OwnerScope == nil {
 		return ""
@@ -346,9 +345,8 @@ func requirementNestedFQN(owner NestedOwner, composite bool, portion ast.Portion
 // `:> requirementChecks, constraints` makes a required constraint of its container.
 const subrequirementsFQN = "Requirements::RequirementCheck::subrequirements"
 
-// IsSubrequirement reports whether sym is a subrequirement (SysML v2 §7.21.2): a
-// composite requirement usage nested in a requirement definition or usage, so one
-// of the container's required constraints by `RequirementCheck::subrequirements`.
+// IsSubrequirement reports whether sym is a subrequirement (SysML v2 §7.21.2): a composite requirement
+// usage nested in a requirement definition or usage, a required constraint of its container.
 func (m *Model) IsSubrequirement(sym *symbols.Symbol) bool {
 	return m.nestedSubsettingFQN(sym) == subrequirementsFQN
 }

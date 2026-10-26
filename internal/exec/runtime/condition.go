@@ -63,9 +63,8 @@ type Condition struct {
 	// are being collected: a reference back into the check, stating nothing evaluable.
 	Circular *symbols.Symbol
 
-	// Subrequirement is the requirement usage whose check Group states: its
-	// assumptions imply its required conditions (RequirementCheck::result) rather
-	// than all of them holding. Nil for a body's conjunction.
+	// Subrequirement is the requirement usage whose check Group states, its assumptions
+	// implying its required conditions (RequirementCheck::result); nil for a body's conjunction.
 	Subrequirement *symbols.Symbol
 }
 
@@ -240,10 +239,8 @@ func (ctx *Context) conditionOwnerOf(member scopedMember) *symbols.Symbol {
 	return ctx.subrequirementOf(member.node, member.scope)
 }
 
-// subrequirementOf returns the subrequirement a requirement body member declares
-// (SysML v2 §7.21.2: a composite requirement usage nested in a requirement
-// definition or usage); nil for any other member. An abstract one, like the
-// library's `subrequirements` itself, is a classification of checks, not one of them.
+// subrequirementOf returns the subrequirement a requirement body member declares (SysML v2
+// §7.21.2), nil for any other member; an abstract one, like the library's `subrequirements`, is none.
 func (ctx *Context) subrequirementOf(node ast.Node, scope *symbols.Scope) *symbols.Symbol {
 	usage, ok := node.(*ast.Usage)
 	if !ok || usage.IsAbstract {
@@ -349,11 +346,8 @@ func (ctx *Context) appendConditions(out []Condition, node ast.Node, scope *symb
 	return out
 }
 
-// appendSubrequirementConditions appends the subrequirement sub as one constraint
-// of its container (Requirements.sysml: `subrequirements :> requirementChecks,
-// constraints`): a group whose value is sub's own check over its whole chain, its
-// assumptions implying its required conditions, its parameters masking the
-// container's as a named constraint's do.
+// appendSubrequirementConditions appends sub as one constraint of its container (Requirements.sysml
+// `subrequirements :> requirementChecks, constraints`): a group valued by sub's own check over its chain.
 func (ctx *Context) appendSubrequirementConditions(out []Condition, sub *symbols.Symbol, scope *symbols.Scope,
 	required bool, seen map[*symbols.Symbol]bool) []Condition {
 	if seen[sub] {
@@ -421,9 +415,8 @@ func (ctx *Context) appendOwnedConditions(out []Condition, member ast.Node, body
 	return out
 }
 
-// setConstraint marks conds as stated by owner, enclosing any nested named
-// constraint already marked: the innermost usage's parameter values win. A
-// subrequirement's group is marked as a whole; its conditions read through it.
+// setConstraint marks conds as stated by owner, enclosing any nested named constraint already
+// marked (the innermost usage's parameter values win); a subrequirement's group is marked as a whole.
 func setConstraint(conds []Condition, owner *symbols.Symbol) {
 	for i := range conds {
 		conds[i].Constraints = append([]*symbols.Symbol{owner}, conds[i].Constraints...)
@@ -590,9 +583,8 @@ func (ctx *Context) referencingConstraintOf(member ast.Node, scope *symbols.Scop
 	return body.Owner()
 }
 
-// setAssumed turns conds, groups included, into assumptions when assumed is set;
-// the assumptions among them stay assumptions either way. What a subrequirement's
-// group states stays its own check.
+// setAssumed turns conds, groups included, into assumptions when assumed is set; the assumptions
+// among them stay assumptions either way, and what a subrequirement's group states stays its own check.
 func setAssumed(conds []Condition, assumed bool) {
 	for i := range conds {
 		conds[i].Required = conds[i].Required && !assumed
@@ -742,13 +734,12 @@ func (ctx *Context) circularCondition(check conditionCheck, cond Condition) erro
 		check.kind, check.name(), ErrNoConditions, cycle.Name)
 }
 
-// requiresAny reports whether any of conds is required rather than assumed; a
-// subrequirement requires what its own conditions require, so one stating no
-// required condition leaves its container as vacuous as it is.
+// requiresAny reports whether any of conds is required rather than assumed; a required
+// subrequirement requires what its own conditions require, an assumed one nothing.
 func requiresAny(conds []Condition) bool {
 	for _, cond := range conds {
 		if cond.Subrequirement != nil {
-			if requiresAny(cond.Group) {
+			if cond.Required && requiresAny(cond.Group) {
 				return true
 			}
 			continue
@@ -1405,9 +1396,8 @@ func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features 
 	return holds, nil
 }
 
-// subrequirementHoldsAt is a subrequirement's RequirementCheck::result within its
-// container's check: `allTrue(assumptions()) implies allTrue(constraints())` over
-// the conditions its group states, true over no required one.
+// subrequirementHoldsAt is a subrequirement's RequirementCheck::result within its container's
+// check: `allTrue(assumptions()) implies allTrue(constraints())` over its group, true over no required one.
 func (ctx *Context) subrequirementHoldsAt(activation int64, cond Condition, features map[string]scopedExpr, self *Instance, frames []frame, bindings frame, stepFrame *frame) (bool, error) {
 	for _, required := range []bool{false, true} {
 		for _, sub := range cond.Group {
@@ -1511,11 +1501,8 @@ func (ctx *Context) constraintScope(features map[string]scopedExpr, bindings fra
 	return out, inner.bindings
 }
 
-// subrequirementSubject is the subject a subrequirement declaring none of its own
-// takes from its container (SysML v2 §7.21.2): the value the container's bindings
-// hold under its subject names, to bind under the subrequirement's inherited
-// ones. ok is false for any other usage, for one owning a subject declaration
-// (bound or not), and when the container's is unbound.
+// subrequirementSubject is the container's subject value a subrequirement owning no subject declaration
+// binds under its inherited subject names (SysML v2 §7.21.2); ok is false otherwise or when it is unbound.
 func (ctx *Context) subrequirementSubject(sub *symbols.Symbol, bindings frame) (names []string, value Value, ok bool) {
 	if !ctx.model.semantics.IsSubrequirement(sub) {
 		return nil, Value{}, false

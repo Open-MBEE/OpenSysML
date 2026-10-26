@@ -9,18 +9,16 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// TestRuntimeRobustnessSubrequirement covers subrequirements — requirement usages
-// nested in a requirement definition or usage — whose container binds no subject
-// or which name their own container.
+// TestRuntimeRobustnessSubrequirement covers subrequirements — requirement usages nested in a requirement
+// definition or usage — whose container binds no subject or which name their own container.
 func TestRuntimeRobustnessSubrequirement(t *testing.T) {
 	t.Run("container_subject_unbound", testSubrequirementContainerSubjectUnbound)
 	t.Run("naming_its_container", testSubrequirementNamingItsContainer)
 	t.Run("owned_subject_unbound", testSubrequirementOwnedSubjectUnbound)
 }
 
-// testSubrequirementOwnedSubjectUnbound: a subrequirement owning a subject
-// declaration that nothing binds is not bound to its container's subject; the
-// check reports the unbound subject rather than judging the container's.
+// testSubrequirementOwnedSubjectUnbound: a subrequirement owning a subject declaration that nothing binds is not bound
+// to its container's subject; the check reports the unbound subject rather than judging the container's.
 func testSubrequirementOwnedSubjectUnbound(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `
 		package test {
@@ -48,9 +46,8 @@ func testSubrequirementOwnedSubjectUnbound(t *testing.T) {
 	}
 }
 
-// testSubrequirementContainerSubjectUnbound: a subrequirement reading the
-// container's subject, checked on a declaration that binds none, reports the
-// unbound subject rather than a vacuous pass.
+// testSubrequirementContainerSubjectUnbound: a subrequirement reading the container's subject, checked on
+// a declaration that binds none, reports the unbound subject rather than a vacuous pass.
 func testSubrequirementContainerSubjectUnbound(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `
 		package test {
@@ -76,9 +73,8 @@ func testSubrequirementContainerSubjectUnbound(t *testing.T) {
 	}
 }
 
-// testSubrequirementNamingItsContainer: a subrequirement whose `require` names
-// the requirement containing it is a cycle, reported as stating no condition
-// rather than expanded without end.
+// testSubrequirementNamingItsContainer: a subrequirement whose `require` names the requirement
+// containing it is a cycle, reported as stating no condition rather than expanded without end.
 func testSubrequirementNamingItsContainer(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `
 		package test {

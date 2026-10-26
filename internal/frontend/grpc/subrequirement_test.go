@@ -25,9 +25,8 @@ const subrequirementModel = `package Demo {
 }
 `
 
-// TestVerifyRequirementCountsSubrequirements: VerifyRequirement reports a
-// requirement whose subrequirement fails for the supplied subject as not holding,
-// naming the failing condition, and as holding when every subrequirement does.
+// TestVerifyRequirementCountsSubrequirements: VerifyRequirement reports a requirement whose subrequirement fails for the
+// supplied subject as not holding, naming the failing condition, and as holding when every subrequirement does.
 func TestVerifyRequirementCountsSubrequirements(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := mustVerifyModel(t, srv, subrequirementModel, "subrequirements")
