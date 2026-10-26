@@ -282,6 +282,7 @@ nav:
       - Language server: reference/lsp.md
       - MCP server: reference/sysml-mcp.md
       - Jupyter kernel: reference/jupyter-kernel.md
+      - Airflow provider: reference/airflow-provider.md
       - Diagnostics: reference/diagnostics.md
       - Client libraries: reference/clients.md
       - Go packages: reference/api.md
