@@ -1,6 +1,5 @@
-// The container's `result` (Requirements.sysml `RequirementCheck::result =
-// allTrue(assumptions()) implies allTrue(constraints())`) counts a subrequirement
-// among the constraints: rr.result is false for veh.mass = 20.0, rrOk.result true.
+// The container's `result` (Requirements.sysml `RequirementCheck::result = allTrue(assumptions()) implies allTrue(constraints())`)
+// counts a subrequirement among the constraints: rr.result is false for veh.mass = 20.0, rrOk.result true.
 package test {
 	private import ScalarValues::*;
 	part def Veh { attribute mass : Real; }

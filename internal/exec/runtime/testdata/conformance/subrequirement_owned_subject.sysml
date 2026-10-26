@@ -1,7 +1,5 @@
-// A subrequirement declaring a subject of its own, bound to nothing, is not
-// bound to the container's subject (SysML v2 §7.21.2 binds only a subrequirement
-// that declares none): the check reports its subject unbound instead of judging
-// feather by it.
+// A subrequirement declaring a subject of its own, bound to nothing, is not bound to the container's subject (SysML v2 §7.21.2 binds
+// only a subrequirement that declares none): the check reports its subject unbound instead of judging feather by it.
 package test {
 	private import ScalarValues::*;
 	part def Veh { attribute mass : Real; }

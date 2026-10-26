@@ -1,7 +1,5 @@
-// The container's `result` reads a subrequirement as one constraint whose value
-// is its own `assumptions implies constraints`: rFails.result is false because
-// R's own constraint fails whatever child assumes; rVacuous.result is true, its
-// only constraint being a subrequirement whose assumption is false.
+// The container's `result` reads a subrequirement as one constraint whose value is its own `assumptions implies constraints`: rFails.result is false because R's
+// own constraint fails whatever child assumes; rVacuous.result is true, its only constraint being a subrequirement whose assumption is false.
 package test {
 	private import ScalarValues::*;
 	part def Veh { attribute mass : Real; }
