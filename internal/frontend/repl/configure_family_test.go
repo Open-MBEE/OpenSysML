@@ -172,11 +172,13 @@ func TestConfigureStatesTheNestedAssertions(t *testing.T) {
 	rejects(t, plain, "Not in the query")
 }
 
+// A family whose only assertion holds vacuously constrains no variation point:
+// every selection is permitted, and %configure says so rather than listing them.
 func TestConfigureAFamilyWhoseAssertionsStateNoCondition(t *testing.T) {
 	requireSolver(t)
 	s := checkSession(t, assertedModel)
 	wants(t, run(t, s, "%configure Asserted::free all"),
-		"error: abstract part free: every assertion about its objects states no condition, so every selection of its variants is permitted")
+		"error: Abstract part free: no variation point is read. Use %check Asserted::free for satisfiability")
 }
 
 func TestConfigureBindsEachSatisfactionToItsOwnSubject(t *testing.T) {

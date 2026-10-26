@@ -328,12 +328,9 @@ var (
 	ErrViolated = errors.New("evaluated to false")
 
 	// ErrNoValue is returned when a feature carries no value: no feature value or
-	// default, an output never assigned, or a calc result its body never bound.
+	// default, an output never assigned, or a calc or constraint result its body
+	// never bound — a constraint declaring no condition included.
 	ErrNoValue = errors.New("no value")
-
-	// ErrNoConditions is returned when a constraint or requirement carries no
-	// condition to evaluate: reporting a verdict would claim a check that never ran.
-	ErrNoConditions = errors.New("no condition to evaluate")
 
 	// errConstraintExternalAssignment is returned when a constraint body's
 	// assignment targets a name the constraint's own performance holds no

@@ -122,8 +122,8 @@ func (x *Translator) Condition(cond runtime.Condition) (*Expression, error) {
 // later one need be defined only while those before it hold.
 func (x *Translator) Conditions(conds []runtime.Condition) (*Expression, error) {
 	t := x.t
-	if len(conds) == 0 && !vacuousSubject(t.subject) {
-		return nil, fmt.Errorf("%s %s: %w", t.subject.Kind, t.subject.Name, ErrNoConditions)
+	if len(conds) == 0 && !requirementSubject(t.subject) {
+		return nil, t.subject.noResultValue("the constraint declares no condition")
 	}
 	var required []*Term
 	expr := &Expression{}
@@ -145,7 +145,11 @@ func (x *Translator) Conditions(conds []runtime.Condition) (*Expression, error) 
 	}
 	if t.subject.Negated {
 		if len(required) == 0 {
-			return nil, fmt.Errorf("%s %s: %w to deny", t.subject.Kind, t.subject.Name, ErrNoConditions)
+			if !requirementSubject(t.subject) {
+				return nil, t.subject.noResultValue("the constraint declares no required condition to deny")
+			}
+			// A requirement over no required condition holds vacuously, so its denial is false.
+			required = []*Term{BoolTerm(true)}
 		}
 		expr.Term = Not(And(required...))
 		return expr, nil

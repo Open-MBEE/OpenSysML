@@ -63,7 +63,7 @@ func TestHoldsReadsThePerformance(t *testing.T) {
 	if ok, err := holds(small); ok || !errors.As(err, &violation) || violation.Condition != "x < 10" {
 		t.Fatalf("small after raise: %v, %v; want a violation of x < 10", ok, err)
 	}
-	if _, err := exec.Holds(nil, nil); !errors.Is(err, ErrNoConditions) {
-		t.Fatalf("no condition: %v, want ErrNoConditions", err)
+	if _, err := exec.Holds(nil, nil); !errors.Is(err, ErrNotAConstraint) {
+		t.Fatalf("no condition: %v, want ErrNotAConstraint", err)
 	}
 }

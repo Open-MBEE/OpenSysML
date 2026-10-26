@@ -507,7 +507,7 @@ func TestSubstituteSharesUnchangedTerms(t *testing.T) {
 // TestTranslatorConditionsJudgeTheSetAsTheEvaluatorDoes: the conditions of a
 // requirement translate to the conjunction of the required ones, an assumed one
 // only adding its side conditions; a negated declaration denies that conjunction,
-// and one with nothing required refuses.
+// and a negated constraint with nothing required binds no result to deny.
 func TestTranslatorConditionsJudgeTheSetAsTheEvaluatorDoes(t *testing.T) {
 	ctx, idx := fixture(t, "<test>", `
 		package test {
@@ -545,8 +545,8 @@ func TestTranslatorConditionsJudgeTheSetAsTheEvaluatorDoes(t *testing.T) {
 	if got := writeTerm(unsafe.Term); got != "(not (> |test::P::a| 10))" {
 		t.Errorf("not unsafe judges %s", got)
 	}
-	if _, err := translate("vacuous"); !errors.Is(err, ErrNoConditions) {
-		t.Errorf("not vacuous: %v, want ErrNoConditions", err)
+	if _, err := translate("vacuous"); !errors.Is(err, runtime.ErrNoValue) {
+		t.Errorf("not vacuous: %v, want ErrNoValue", err)
 	}
 }
 

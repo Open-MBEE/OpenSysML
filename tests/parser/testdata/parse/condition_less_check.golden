@@ -1,0 +1,25 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="constraint" abstract=false variation=false name="Empty"))
+      (Membership visibility="default"
+        (Usage kind="constraint" name="empty" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Empty
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="constraint" name="cneg" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="assert" negated=true
+          (ConstraintMember assert=false negated=false keyword="assume"
+            (ConstraintMember assert=true negated=false
+              (LiteralBool value=false)))))
+      (Membership visibility="default"
+        (Definition kind="requirement" abstract=false variation=false name="Bare"))
+      (Membership visibility="default"
+        (Usage kind="requirement" name="bare" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Bare
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="requirement" name="outer" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Usage kind="requirement" name="r0" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+          (AssumeMember
+            (FeatureReference name="r0")))))))

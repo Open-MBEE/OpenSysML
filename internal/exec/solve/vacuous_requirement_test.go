@@ -2,6 +2,7 @@ package solve
 
 import (
 	"errors"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"strings"
 	"testing"
 )
@@ -36,8 +37,8 @@ func vacuousRequirementFixture(t *testing.T) (*Query, *Query, *Query, error) {
 		return nil, nil, nil, err
 	}
 	cn := symbolNamed(t, idx, "test::Rig::cn")
-	if _, err := ConstraintViolation(ctx, cn, cn.OwnerScope, nil); !errors.Is(err, ErrNoConditions) {
-		t.Fatalf("a constraint assuming but requiring nothing: %v, want ErrNoConditions", err)
+	if _, err := ConstraintViolation(ctx, cn, cn.OwnerScope, nil); !errors.Is(err, runtime.ErrNoValue) {
+		t.Fatalf("a constraint assuming but requiring nothing: %v, want ErrNoValue", err)
 	}
 	return plain, violation, proseViolation, nil
 }
