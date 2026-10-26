@@ -403,6 +403,8 @@ func (c *compiler) declaredTypes(sym *symbols.Symbol) []*symbols.Symbol {
 	return types
 }
 
+// parameterMultiplicity is the multiplicity of a query parameter: as its lineage
+// states it, else exactly one — a query parameter stating none binds one value.
 func (c *compiler) parameterMultiplicity(sym *symbols.Symbol) Multiplicity {
 	rng := semantics.AssumedRange()
 	for _, candidate := range c.parameterLineage(sym) {

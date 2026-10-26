@@ -1268,7 +1268,7 @@ func builtinControlSelectOne(ec *EvalContext, args []Value) (Value, error) {
 	if selected.Kind == ValUndetermined {
 		count := optionalRange()
 		if certainlyNonEmpty(selected) {
-			count = semantics.AssumedRange()
+			count = semantics.CountRange(1)
 		}
 		return undeterminedOf(count, selected), nil
 	}
