@@ -46,14 +46,16 @@ the client's error rather than a verdict.
 ## Where it meets OpenSysML
 
 - **Verdicts are the service's.** The provider adds no evaluation of its own: what a task reports
-  is what `sysml -analysis`, `sysml -verify` and `sysml -satisfy` report for the same model, so a
-  requirement that holds in the REPL holds in the DAG.
+  is what `sysml -analysis`, `sysml -constraint`, `sysml -requirement` and `sysml -satisfy` report
+  for the same model, so a requirement that holds in the REPL holds in the DAG.
 - **The DAG is the model's graph.** `SysMLActionDag` consumes the same `graphs:1` form the
   [external engines](external-engines.md) receive, so the pipeline the document renders
   (`-render-document`) and the pipeline Airflow runs are one `action def`.
-- **A run's facts reach the model through `in` parameters.** `VerifyRequirement` takes no
-  bindings, so a requirement over values a run produces is stated with `in` parameters and asked
-  through a verification case, with `named_arguments` templated from `dag_run.conf`.
+- **A run's facts reach the model through `in` parameters.** A requirement over values a run
+  produces declares them as `in` parameters; the provider binds them through a case
+  (`kind="case"`, with `arguments` or `named_arguments` templated from `dag_run.conf`), the same
+  bindings `sysml -requirement "Pkg::R(limit = 5)"` and `Model.verify_requirement` accept on the
+  requirement itself.
 
 The provider repository carries two worked examples: a verification DAG over the lander model of
 [`examples/analysis-demo`](https://github.com/Open-MBEE/OpenSysML/tree/develop/examples/analysis-demo),
