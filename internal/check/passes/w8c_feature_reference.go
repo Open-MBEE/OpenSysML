@@ -83,8 +83,8 @@ type refSite struct {
 	rejectStatePath          bool
 	allowStateDefinitionPath bool
 	invocationArgumentValue  bool
-	// anonBody is the body of an unnamed action — a loop or branch — the site
-	// stands in, which features the body's members though no symbol names it.
+	// anonBody is the body of an unnamed action (a loop or branch body, an
+	// Actions::Action) the site stands in, which features its members unnamed.
 	anonBody *symbols.Scope
 }
 
@@ -372,11 +372,8 @@ func inStateBody(site refSite) bool {
 	return site.sym != nil && (site.sym.Kind == symbols.SymbolStateDef || site.sym.Kind == symbols.SymbolStateUsage)
 }
 
-// checkActionEnd checks a stated end of a succession in a behavior body as the
-// connector end it is: the feature it names first — the root of a dotted path —
-// must be featured within the action the succession belongs to (KerML 1.1
-// 8.3.4.5.3 checkConnectorTypeFeaturing). An expression in a nested body may
-// read its enclosing types' features; a succession's ends may not reach them.
+// checkActionEnd checks a succession end as the connector end it is: its first
+// feature must be featured within the succession's action (KerML 8.3.4.5.3).
 func (c *featureReferenceChecker) checkActionEnd(site refSite, scope *symbols.Scope, ref ast.Node) {
 	if ref == nil || !site.inBody || inStateBody(site) || (site.sym == nil && site.anonBody == nil) {
 		return
@@ -691,9 +688,8 @@ func siteForBody(site refSite, parent, body *symbols.Scope) refSite {
 	return site
 }
 
-// siteForActionBody is siteForBody for a loop or branch body: an action of its
-// own, which features its members; unnamed, it is remembered as the site's
-// anonBody for the connector ends written in it.
+// siteForActionBody is siteForBody for a loop or branch body, an action of its
+// own; unnamed, it is the site's anonBody for the connector ends written in it.
 func siteForActionBody(site refSite, parent, body *symbols.Scope) refSite {
 	if body == parent {
 		return site
@@ -792,15 +788,21 @@ func w8cOwnedByImplicitNode(target *symbols.Symbol) bool {
 	return owner != nil && owner.Name == "" && isUsageKind(owner.Kind)
 }
 
-// endFeaturedWithin reports whether a connector end's feature is featured
-// within the action the site stands in: the named action, or an unnamed loop
-// or branch body, which features what it declares and what the library
-// features in every action (start, done).
+// endFeaturedWithin reports whether a connector end's feature is featured within
+// the site's action: the named one, or an unnamed body and the Action it is.
 func (c *featureReferenceChecker) endFeaturedWithin(site refSite, target *symbols.Symbol) bool {
-	if site.anonBody != nil {
-		return target.OwnerScope == site.anonBody || c.cc.libraryDeclared(target)
+	if site.anonBody == nil {
+		return c.cc.featuredWithin(target, site.sym)
 	}
-	return c.cc.featuredWithin(target, site.sym)
+	if target.OwnerScope == site.anonBody {
+		return true
+	}
+	for _, action := range c.cc.resolver.Index().LookupQualified("Actions::Action") {
+		if c.cc.featuredWithin(target, action) {
+			return true
+		}
+	}
+	return false
 }
 
 // checkBindingEnds checks that each end of a binding names a feature, resolved

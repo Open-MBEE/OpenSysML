@@ -50,6 +50,11 @@ func TestW8CSuccessionEndsReachOnlyTheirActionsFeatures(t *testing.T) {
 		if true { first a then b; }
 	}
 }`, []string{"5:19", "5:26"}},
+		"while body relates a feature of another library action": {`package P {
+	action def A {
+		while true { first start then Actions::AcceptAction::payload; }
+	}
+}`, []string{"3:33"}},
 		"succession usage in a loop body": {`package P {
 	action def A {
 		action a;
