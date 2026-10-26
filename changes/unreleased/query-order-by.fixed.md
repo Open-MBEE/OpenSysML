@@ -1,0 +1,1 @@
+- `Query.orderBy` sorts the matched elements by the listed properties in order of precedence, ascending and stable with declaration order as the final tie-break, on the RPC, the MCP `query` tool and every client; an unknown property is refused as `select` and `where` refuse one.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -134,22 +135,82 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 	if err != nil {
 		return nil, queryStatus(err)
 	}
+	if err := validateOrderBy(req.Query.OrderBy); err != nil {
+		return nil, queryStatus(err)
+	}
 	candidates, err := eval.candidates(cached, req.Query.Scope)
 	if err != nil {
 		return nil, queryStatus(err)
 	}
 
-	elements := make([]*pb.QueryResultElement, 0, len(candidates))
+	rows := make([]orderedRow, 0, len(candidates))
 	for _, sym := range candidates {
 		if !eval.matches(sym, req.Query.Where) {
 			continue
 		}
-		elements = append(elements, eval.project(sym, projection))
+		rows = append(rows, orderedRow{
+			element: eval.project(sym, projection),
+			keys:    eval.orderKeys(sym, req.Query.OrderBy),
+		})
 	}
 	if eval.elementIDErr != nil {
 		return nil, elementIDStatus(eval.elementIDErr)
 	}
+	sortRows(rows, req.Query.OrderBy)
+	elements := make([]*pb.QueryResultElement, 0, len(rows))
+	for _, row := range rows {
+		elements = append(elements, row.element)
+	}
 	return &pb.QueryResponse{Elements: elements}, nil
+}
+
+// orderedRow is a matched element with its values of the query's orderBy
+// properties, read once so sorting never re-reads the model.
+type orderedRow struct {
+	element *pb.QueryResultElement
+	keys    []corequery.OrderValue
+}
+
+// validateOrderBy checks every sort property is queryable, as select and where
+// are checked: an unknown one is a fault in the query, not an unsorted answer.
+func validateOrderBy(orderBy []string) error {
+	for _, name := range orderBy {
+		if !corequery.IsProperty(name) {
+			return unknownProperty(name)
+		}
+	}
+	return nil
+}
+
+// orderKeys reads an element's values of the sort properties, in orderBy order.
+func (e *queryEval) orderKeys(sym *symbols.Symbol, orderBy []string) []corequery.OrderValue {
+	if len(orderBy) == 0 {
+		return nil
+	}
+	keys := make([]corequery.OrderValue, len(orderBy))
+	for i, name := range orderBy {
+		if values, ok := e.reader.Values(sym, name); ok && len(values) != 0 {
+			keys[i] = corequery.OrderValue{Text: values[0], Present: true}
+		}
+	}
+	return keys
+}
+
+// sortRows orders matched elements by the orderBy properties in order of
+// precedence, each ascending under corequery.CompareOrderValues; the sort is
+// stable, so elements equal under every property keep declaration order.
+func sortRows(rows []orderedRow, orderBy []string) {
+	if len(orderBy) == 0 {
+		return
+	}
+	sort.SliceStable(rows, func(i, j int) bool {
+		for k, name := range orderBy {
+			if order := corequery.CompareOrderValues(name, rows[i].keys[k], rows[j].keys[k]); order != 0 {
+				return order < 0
+			}
+		}
+		return false
+	})
 }
 
 // elementIDStatus reports a query that read elementId of a model no conversion

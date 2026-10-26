@@ -2851,6 +2851,11 @@ pub struct Query {
     /// Filter every considered element must satisfy. Unset matches all of them.
     #[prost(message, optional, tag="3")]
     pub r#where: ::core::option::Option<Constraint>,
+    /// Properties the matched elements are sorted by, in order of precedence,
+    /// each ascending; elements equal under every one keep declaration order.
+    /// Corresponds to the standard's `orderBy`. An unknown one fails the call.
+    #[prost(string, repeated, tag="4")]
+    pub order_by: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// Constraint is the standard's Constraint, whose `@type` discriminates between
 /// its two forms. On the wire the form is the oneof arm, not a type tag.

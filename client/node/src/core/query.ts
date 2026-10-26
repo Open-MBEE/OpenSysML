@@ -88,6 +88,8 @@ export interface QueryForm {
   scope?: readonly ScopeEntry[];
   select?: readonly string[];
   where?: ConstraintPayload;
+  /** Properties to sort by, in order of precedence, each ascending; the standard's `orderBy`. */
+  orderBy?: readonly string[];
   /** An OSLC query text, evaluated instead of the structured query. */
   oslc?: string;
   /** A query already decoded for the wire; passes through as written. */
@@ -101,10 +103,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /** Translate a query, given as the standard's JSON or as keywords, to protobuf. */
 export function buildQuery(options: { payload?: QueryPayload } & QueryForm = {}): Query {
   const { payload } = options;
-  let { scope, select, where } = options;
+  let { scope, select, where, orderBy } = options;
   if (payload !== undefined) {
-    if (scope !== undefined || select !== undefined || where !== undefined) {
-      throw new QueryError("pass a query payload or scope/select/where keywords, not both");
+    if (scope !== undefined || select !== undefined || where !== undefined || orderBy !== undefined) {
+      throw new QueryError("pass a query payload or scope/select/where/orderBy keywords, not both");
     }
     if (!isRecord(payload)) {
       throw new QueryError("a query is an object, not a " + typeof payload);
@@ -114,22 +116,24 @@ export function buildQuery(options: { payload?: QueryPayload } & QueryForm = {})
       throw new QueryError(`expected a ${JSON.stringify(TYPE_QUERY)} payload, got ${JSON.stringify(declared)}`);
     }
     const unknown = Object.keys(payload).filter(
-      (key) => ![TYPE_KEY, "@id", "owningProject", "scope", "select", "where"].includes(key),
+      (key) => ![TYPE_KEY, "@id", "owningProject", "scope", "select", "where", "orderBy"].includes(key),
     );
     if (unknown.length > 0) {
       unknown.sort(byCodeUnit);
       throw new QueryError(
-        `a query has no ${unknown.join(", ")}; the standard's query is scope, select and where`,
+        `a query has no ${unknown.join(", ")}; the standard's query is scope, select, where and orderBy`,
       );
     }
     scope = payload.scope as QueryForm["scope"];
     select = payload.select as QueryForm["select"];
     where = payload.where as QueryForm["where"];
+    orderBy = payload.orderBy as QueryForm["orderBy"];
   }
 
   const query = create(QuerySchema, {
     scope: sequence("scope", scope).map(scopeId),
     select: sequence("select", select).map(propertyName),
+    orderBy: sequence("orderBy", orderBy).map(propertyName),
   });
   if (where !== undefined) {
     query.where = constraint(where);

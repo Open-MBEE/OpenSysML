@@ -495,15 +495,32 @@ end
     @test query["where"]["primitive"]["operator"] == "PRIMITIVE_OPERATOR_EQUAL"
     @test_throws QueryError build_query(scope=["Demo::Vehicle"], select=["name"],
         var"where"=Dict("property" => "name", "operator" => "!=", "value" => "car"))
+    for (operator, value, wire, values) in [
+            ("<=", 2, "PRIMITIVE_OPERATOR_LESS_EQUAL", ["2"]),
+            (">=", 4, "PRIMITIVE_OPERATOR_GREATER_EQUAL", ["4"]),
+            ("<", "*", "PRIMITIVE_OPERATOR_LESS", ["*"]),
+            ("<", ["3"], "PRIMITIVE_OPERATOR_LESS", ["3"]),
+            (">", 1.5, "PRIMITIVE_OPERATOR_GREATER", ["1.5"]),
+            ("in", ["PartUsage", "AttributeUsage"], "PRIMITIVE_OPERATOR_IN", ["PartUsage", "AttributeUsage"]),
+            ("instanceOf", "Usage", "PRIMITIVE_OPERATOR_INSTANCE_OF", ["Usage"]),
+            ("instanceOf", ["Usage", "Definition"], "PRIMITIVE_OPERATOR_INSTANCE_OF", ["Usage", "Definition"])]
+        property = operator in ("in", "instanceOf") ? "@type" : "multiplicityLower"
+        primitive = build_query(var"where"=Dict("operator" => operator, "property" => property, "value" => value))["where"]["primitive"]
+        @test primitive["operator"] == wire
+        @test primitive["value"] == values
+    end
+    @test build_query(Dict("@type" => "Query", "orderBy" => ["@type", "name"]))["orderBy"] == ["@type", "name"]
+    @test build_query(order_by=["@type", "name"])["orderBy"] == ["@type", "name"]
+    @test build_query(scope=["Demo"])["orderBy"] == String[]
 
     cases = [
         (() -> build_query(; payload=Dict("@type" => "Query"), scope=["Demo::Vehicle"]),
-         "pass a query payload or scope/select/where keywords, not both"),
+         "pass a query payload or scope/select/where/order_by keywords, not both"),
         (() -> build_query(["not a mapping"]), "a query is an object, not Vector{String}"),
         (() -> build_query(Dict("@type" => "Other")),
          "expected a 'Query' payload, got \"Other\""),
         (() -> build_query(Dict("@type" => "Query", "unexpected" => true)),
-         "a query has no unexpected; the standard's query is scope, select and where"),
+         "a query has no unexpected; the standard's query is scope, select, where and orderBy"),
         (() -> build_query(scope=1), "scope is a list, not Int64"),
         (() -> build_query(scope=[1]),
          "a scope entry is an element's qualified name or a {'@id': ...} reference, not 1"),
@@ -514,7 +531,21 @@ end
         (() -> build_query(var"where"=Dict("@type" => "PrimitiveConstraint", "extra" => true)),
          "a PrimitiveConstraint has no extra"),
         (() -> build_query(var"where"=Dict("operator" => "!=", "property" => "x")),
-         "unknown primitive operator \"!=\"; expected one of <, =, >"),
+         "unknown primitive operator \"!=\"; expected one of <, <=, =, >, >=, in, instanceOf"),
+        (() -> build_query(var"where"=Dict("operator" => "<=", "property" => "multiplicityLower", "value" => [1, 2])),
+         "<= on \"multiplicityLower\" compares against one value, not a list of 2"),
+        (() -> build_query(var"where"=Dict("operator" => ">=", "property" => "multiplicityLower")),
+         ">= on \"multiplicityLower\" has no value to compare against"),
+        (() -> build_query(var"where"=Dict("operator" => "in", "property" => "@type", "value" => "PartUsage")),
+         "in on \"@type\" compares against a list of values, not \"PartUsage\""),
+        (() -> build_query(var"where"=Dict("operator" => "in", "property" => "@type", "value" => [])),
+         "in on \"@type\" has no values to be a member of"),
+        (() -> build_query(var"where"=Dict("operator" => "instanceOf", "property" => "@type", "value" => 7)),
+         "instanceOf on \"@type\" compares against a metaclass name, not 7"),
+        (() -> build_query(var"where"=Dict("operator" => "and", "constraint" => [Dict("operator" => "=", "property" => "name", "value" => "x")])),
+         "a composite constraint combines at least two constraints, got one; write the constraint on its own"),
+        (() -> build_query(order_by=7), "orderBy is a list, not Int64"),
+        (() -> build_query(order_by=[42]), "a selected property is a name, not 42"),
         (() -> build_query(var"where"=Dict("operator" => "=", "property" => "")),
          "a primitive constraint names one property, not \"\""),
         (() -> build_query(var"where"=Dict("operator" => "=", "property" => "x", "value" => Dict("x" => 1))),

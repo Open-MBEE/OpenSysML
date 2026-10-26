@@ -158,6 +158,74 @@ def test_inverse_and_ordered_operators_translate():
     assert list(primitive.value) == ["1"]
 
 
+@pytest.mark.parametrize("operator, enum, value, wire", [
+    ("<=", sysml_pb2.PRIMITIVE_OPERATOR_LESS_EQUAL, 2, ["2"]),
+    (">=", sysml_pb2.PRIMITIVE_OPERATOR_GREATER_EQUAL, 4, ["4"]),
+    ("<", sysml_pb2.PRIMITIVE_OPERATOR_LESS, "*", ["*"]),
+    ("<", sysml_pb2.PRIMITIVE_OPERATOR_LESS, ["3"], ["3"]),
+    (">", sysml_pb2.PRIMITIVE_OPERATOR_GREATER, 1.5, ["1.5"]),
+    ("in", sysml_pb2.PRIMITIVE_OPERATOR_IN, ["PartUsage", "AttributeUsage"],
+     ["PartUsage", "AttributeUsage"]),
+    ("instanceOf", sysml_pb2.PRIMITIVE_OPERATOR_INSTANCE_OF, "Usage", ["Usage"]),
+    ("instanceOf", sysml_pb2.PRIMITIVE_OPERATOR_INSTANCE_OF, ["Usage", "Definition"],
+     ["Usage", "Definition"]),
+])
+def test_every_standard_operator_translates(operator, enum, value, wire):
+    """All seven operator literals of the standard reach the wire as their enum."""
+    prop = "@type" if operator in ("in", "instanceOf") else "multiplicityLower"
+    query = build_query(where={"operator": operator, "property": prop, "value": value})
+    primitive = query.where.primitive
+    assert primitive.operator == enum
+    assert list(primitive.value) == wire
+
+
+@pytest.mark.parametrize("where, message", [
+    ({"operator": "<=", "property": "multiplicityLower", "value": [1, 2]},
+     "<= on 'multiplicityLower' compares against one value, not a list of 2"),
+    ({"operator": ">=", "property": "multiplicityLower"},
+     ">= on 'multiplicityLower' has no value"),
+    ({"operator": "<", "property": "multiplicityLower", "value": []},
+     "compares against one value, not a list of 0"),
+    ({"operator": "in", "property": "@type", "value": "PartUsage"},
+     "in on '@type' compares against a list of values"),
+    ({"operator": "in", "property": "@type", "value": []},
+     "in on '@type' has no values"),
+    ({"operator": "instanceOf", "property": "@type", "value": 7},
+     "instanceOf on '@type' compares against a metaclass name, not 7"),
+    ({"operator": "instanceOf", "property": "@type", "value": ["Usage", ""]},
+     "compares against a metaclass name, not ''"),
+    ({"operator": "=<", "property": "multiplicityLower", "value": 1},
+     "unknown primitive operator '=<'; expected one of <, <=, =, >, >=, in, instanceOf"),
+])
+def test_an_operand_of_the_wrong_shape_is_refused(where, message):
+    """Each operator's operand shape is checked here, not sent to be refused."""
+    with pytest.raises(QueryError, match=message):
+        build_query(where=where)
+
+
+def test_order_by_translates_from_payload_and_keyword():
+    """``orderBy`` reaches the wire in order, from the payload or the keyword."""
+    query = build_query({"@type": "Query", "orderBy": ["@type", "name"]})
+    assert list(query.orderBy) == ["@type", "name"]
+    assert build_query(order_by=["@type", "name"]) == query
+    assert list(build_query({"scope": ["Demo"]}).orderBy) == []
+    # One name on its own is the one-member list, as scope and select take one.
+    assert list(build_query({"orderBy": "name"}).orderBy) == ["name"]
+
+
+@pytest.mark.parametrize("payload, message", [
+    ({"orderBy": 7}, "orderBy is a list"),
+    ({"orderBy": [42]}, "a selected property is a name"),
+    ({"where": {"@type": "CompositeConstraint", "operator": "and", "constraint": [
+        {"operator": "=", "property": "name", "value": "x"}]}},
+     "combines at least two constraints, got one"),
+])
+def test_order_by_and_composite_shapes_are_refused(payload, message):
+    """A malformed ``orderBy`` or a one-member composite is a caller error."""
+    with pytest.raises(QueryError, match=message):
+        build_query(payload)
+
+
 def test_a_query_without_a_constraint_selects_its_scope():
     """An absent ``where`` filters nothing, and is absent on the wire."""
     query = build_query({"scope": ["Demo"]})
@@ -352,6 +420,38 @@ class TestQueryAgainstRealService:
             "satisfiedRequirement": "Demo::r",
             "satisfyingFeature": "Demo::t",
         }
+
+    def test_the_new_operators_evaluate(self, real_service):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(MODEL)
+            at_least_four = model.query(where={
+                "operator": ">=", "property": "multiplicityLower", "value": 4})
+            usages = model.query(where={
+                "operator": "in", "property": "@type", "value": ["PartUsage", "AttributeUsage"]})
+            features = model.query(where={
+                "operator": "instanceOf", "property": "@type", "value": "Feature"})
+            none = model.query(where={
+                "operator": "<=", "property": "multiplicityUpper", "value": 3})
+        assert [e.id for e in at_least_four] == ["Demo::vehicle::wheels"]
+        assert [e.id for e in usages] == [
+            "Demo::Vehicle::mass", "Demo::vehicle", "Demo::vehicle::wheels"]
+        assert [e.id for e in features] == [e.id for e in usages]
+        assert none == []
+
+    def test_order_by_sorts_the_answer(self, real_service):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(MODEL)
+            by_name = model.query(select=["name"], order_by=["name"])
+            by_type_then_name = model.query({
+                "@type": "Query", "select": ["name"], "orderBy": ["@type", "name"]})
+            with pytest.raises(InvalidRequestError, match="unknown query property"):
+                model.query(order_by=["colour"])
+        assert [e.id for e in by_name] == [
+            "Demo", "Demo::Vehicle", "Demo::Wheel", "Demo::Vehicle::mass",
+            "Demo::vehicle", "Demo::vehicle::wheels"]
+        assert [e.type for e in by_type_then_name] == [
+            "AttributeUsage", "Package", "PartDefinition", "PartDefinition",
+            "PartUsage", "PartUsage"]
 
     def test_a_query_matching_nothing_answers_with_nothing(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:

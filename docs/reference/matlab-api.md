@@ -214,7 +214,7 @@ raises `opensysml:diagnostics:migration`.
 ## Query and document APIs
 
 `model.query('oslc.where=...')` preserves the OSLC text-query interface. The structured SysML v2
-API query is built from `scope`, `select`, and `where`:
+API query is built from `scope`, `select`, `where` and `orderBy`:
 
 ```matlab
 q = opensysml.buildQuery([], ...
@@ -225,10 +225,12 @@ q = opensysml.buildQuery([], ...
 elements = model.query(q);
 ```
 
-`scope` accepts qualified names or id-reference records. `select` contains property names.
-Constraints may be `PrimitiveConstraint` (`=`, `>`, `<`) or a non-empty
-`CompositeConstraint` (`and`, `or`) containing constraints. `buildQuery` validates unknown
-fields and malformed operators before sending. Query results are cells of element records with
+`scope` accepts qualified names or id-reference records. `select` and `orderBy` contain
+property names; `orderBy` sorts the answer by each in turn, ascending. Constraints may be
+`PrimitiveConstraint` (`=`, `<`, `<=`, `>`, `>=`, `in` with a list value, `instanceOf` on
+`@type` with metaclass names) or a `CompositeConstraint` (`and`, `or`) containing at least two
+constraints. `buildQuery` validates unknown fields, malformed operators and operand shapes
+before sending. Query results are cells of element records with
 `id`, `type`, and a `containers.Map` of properties.
 
 `model.runDocumentQuery(queryId, 'bindings', bindings)` sends named parameter bindings and

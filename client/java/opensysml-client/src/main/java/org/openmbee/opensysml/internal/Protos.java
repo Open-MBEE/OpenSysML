@@ -872,7 +872,8 @@ public final class Protos {
     org.openmbee.opensysml.proto.Query.Builder builder =
         org.openmbee.opensysml.proto.Query.newBuilder()
             .addAllScope(query.scope())
-            .addAllSelect(query.select());
+            .addAllSelect(query.select())
+            .addAllOrderBy(query.orderBy());
     query.where().ifPresent(where -> builder.setWhere(proto(where)));
     return builder.build();
   }

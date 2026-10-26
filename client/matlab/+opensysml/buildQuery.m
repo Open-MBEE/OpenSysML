@@ -1,10 +1,10 @@
 function query = buildQuery(payload, varargin)
 %BUILDQUERY Build the standard SysML v2 API query representation.
 
-    options = struct('scope', [], 'select', [], 'where', []);
+    options = struct('scope', [], 'select', [], 'where', [], 'orderBy', []);
     if nargin >= 1 && ~isempty(payload)
         if ~isempty(varargin)
-            queryError('pass a query payload or scope/select/where keywords, not both');
+            queryError('pass a query payload or scope/select/where/orderBy keywords, not both');
         end
         if ~isstruct(payload) && ~isa(payload, 'containers.Map')
             queryError(sprintf('a query is an object, not %s', class(payload)));
@@ -14,15 +14,16 @@ function query = buildQuery(payload, varargin)
             queryError(sprintf('expected a ''Query'' payload, got %s', valueText(declared)));
         end
         keys = payloadKeys(payload);
-        known = {'@type','type','@id','id','owningProject','scope','select','where'};
+        known = {'@type','type','@id','id','owningProject','scope','select','where','orderBy'};
         unknown = setdiff(keys, known);
         if ~isempty(unknown)
             queryError(sprintf(['a query has no %s; the standard''s query is ' ...
-                'scope, select and where'], strjoin(sort(unknown), ', ')));
+                'scope, select, where and orderBy'], strjoin(sort(unknown), ', ')));
         end
         options.scope = payloadGet(payload, 'scope', []);
         options.select = payloadGet(payload, 'select', []);
         options.where = payloadGet(payload, 'where', []);
+        options.orderBy = payloadGet(payload, 'orderBy', []);
     else
         if mod(numel(varargin), 2) ~= 0
             queryError('query options must be name-value pairs');
@@ -41,6 +42,7 @@ function query = buildQuery(payload, varargin)
     if ~isempty(options.where)
         query.where = constraint(options.where);
     end
+    query.orderBy = cellfun(@propertyName, sequence('orderBy', options.orderBy), 'UniformOutput', false);
 end
 
 function id = scopeId(entry)

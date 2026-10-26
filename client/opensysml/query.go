@@ -17,10 +17,15 @@ type Query struct {
 	Select []string
 	// Where is the filter every considered element must satisfy, nil for none.
 	Where *Condition
+	// OrderBy names the properties the selected elements are sorted by, in
+	// order of precedence, each ascending; elements equal under every one keep
+	// declaration order. Empty keeps declaration order throughout.
+	OrderBy []string
 }
 
 // Condition is a query filter: one comparison, or several combined. Build one
-// with Equals, Greater, Less, All or Any, and negate it with Not.
+// with Equals, In, InstanceOf, Greater, GreaterOrEqual, Less, LessOrEqual, All
+// or Any, and negate it with Not.
 type Condition struct {
 	inverse   bool
 	property  string
@@ -110,9 +115,10 @@ func (c *client) Query(ctx context.Context, model *Model, query Query) ([]QueryE
 	return c.selectElements(ctx, &pb.QueryRequest{
 		ModelHash: hash,
 		Query: &pb.Query{
-			Scope:  append([]string(nil), query.Scope...),
-			Select: append([]string(nil), query.Select...),
-			Where:  conditionToProto(query.Where),
+			Scope:   append([]string(nil), query.Scope...),
+			Select:  append([]string(nil), query.Select...),
+			Where:   conditionToProto(query.Where),
+			OrderBy: append([]string(nil), query.OrderBy...),
 		},
 	})
 }

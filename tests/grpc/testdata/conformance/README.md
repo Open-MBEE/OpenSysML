@@ -55,6 +55,8 @@ empty else blocks are not authorable.
 | `expected_verdict` | CheckBehavior | `holds`, `fails` or `undecided` |
 | `expected_violations` | CheckBehavior | the violations witnessed, in order: `kind`, `property`, `depth` |
 | `expected_divergences` | CheckBehavior | feature → the final values it ends as, in order |
+| `query` | Query | the standard's `Query` as protojson writes it (`scope`, `select`, `where`, `orderBy`) |
+| `expected_element_ids`, `expected_query_error` | Query | the ids the answer reports, in order; or text the refusal's status message must contain |
 | `instantiate` | RunDocumentQuery | FQNs `Instantiate` creates objects of first, in order, so the query can bind and enumerate them |
 | `query_id` | RunDocumentQuery | FQN of the document query to run |
 | `bindings` | RunDocumentQuery | list of `{parameter, values}`, each value a document value bound to the parameter |

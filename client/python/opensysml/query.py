@@ -77,7 +77,7 @@ class QueryElement:
         return f"{self.id} ({self.type})"
 
 
-def build_query(payload=None, scope=None, select=None, where=None):
+def build_query(payload=None, scope=None, select=None, where=None, order_by=None):
     """Translate a query, given as the standard's JSON or as keywords, to protobuf.
 
     Args:
@@ -87,6 +87,9 @@ def build_query(payload=None, scope=None, select=None, where=None):
             element reference (``{"@id": ...}``). Empty means the whole model.
         select (list, optional): Properties to report. Empty reports every one.
         where (dict, optional): Constraint to filter by. Absent selects the scope.
+        order_by (list, optional): Properties to sort the matched elements by, in
+            order of precedence, each ascending; the standard's ``orderBy``.
+            Empty keeps declaration order.
 
     Returns:
         sysml_pb2.Query: The query, ready to send.
@@ -95,28 +98,32 @@ def build_query(payload=None, scope=None, select=None, where=None):
         QueryError: If the payload is not a query the standard describes.
     """
     if payload is not None:
-        if scope is not None or select is not None or where is not None:
+        if scope is not None or select is not None or where is not None or order_by is not None:
             raise QueryError(
-                "pass a query payload or scope/select/where keywords, not both"
+                "pass a query payload or scope/select/where/order_by keywords, not both"
             )
         if not isinstance(payload, Mapping):
             raise QueryError(f"a query is an object, not {type(payload).__name__}")
         declared = payload.get(_TYPE_KEY, TYPE_QUERY)
         if declared != TYPE_QUERY:
             raise QueryError(f"expected a {TYPE_QUERY!r} payload, got {declared!r}")
-        unknown = set(payload) - {_TYPE_KEY, "@id", "owningProject", "scope", "select", "where"}
+        unknown = set(payload) - {
+            _TYPE_KEY, "@id", "owningProject", "scope", "select", "where", "orderBy",
+        }
         if unknown:
             raise QueryError(
                 f"a query has no {', '.join(sorted(unknown))}; the standard's query "
-                f"is scope, select and where"
+                f"is scope, select, where and orderBy"
             )
-        scope, select, where = (
+        scope, select, where, order_by = (
             payload.get("scope"), payload.get("select"), payload.get("where"),
+            payload.get("orderBy"),
         )
 
     query = sysml_pb2.Query(
         scope=[_scope_id(entry) for entry in _sequence("scope", scope)],
         select=[_property_name(entry) for entry in _sequence("select", select)],
+        orderBy=[_property_name(entry) for entry in _sequence("orderBy", order_by)],
     )
     if where is not None:
         query.where.CopyFrom(_constraint(where))

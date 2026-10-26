@@ -1792,7 +1792,8 @@ class Connection:
             )
         return result_of(response)
 
-    def query(self, model_hash, payload=None, scope=None, select=None, where=None):
+    def query(self, model_hash, payload=None, scope=None, select=None, where=None,
+              order_by=None):
         """Run a SysML v2 API & Services Query over a loaded model.
 
         The query is the standard's JSON object, so a cookbook payload works
@@ -1804,9 +1805,12 @@ class Connection:
             scope (list, optional): Elements to consider; empty is the whole model
             select (list, optional): Properties to report; empty reports every one
             where (dict, optional): Constraint to filter by
+            order_by (list, optional): Properties to sort by, in order of
+                precedence, each ascending; empty keeps declaration order
 
         Returns:
-            list[QueryElement]: The elements selected, in declaration order
+            list[QueryElement]: The elements selected, in ``order_by`` order,
+            or declaration order without one
 
         Raises:
             QueryError: If the query is not one the standard's model describes
@@ -1821,7 +1825,8 @@ class Connection:
         )
         request = sysml_pb2.QueryRequest(
             model_hash=model_hash,
-            query=build_query(payload, scope=scope, select=select, where=where),
+            query=build_query(payload, scope=scope, select=select, where=where,
+                              order_by=order_by),
         )
         with translate_rpc_errors(
             unimplemented=self._capability_refusal((CAPABILITY_QUERY,))

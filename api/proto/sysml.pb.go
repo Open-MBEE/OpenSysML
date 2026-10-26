@@ -11055,7 +11055,11 @@ type Query struct {
 	// Properties to report for each matched element. Empty reports all of them.
 	Select []string `protobuf:"bytes,2,rep,name=select,proto3" json:"select,omitempty"`
 	// Filter every considered element must satisfy. Unset matches all of them.
-	Where         *Constraint `protobuf:"bytes,3,opt,name=where,proto3" json:"where,omitempty"`
+	Where *Constraint `protobuf:"bytes,3,opt,name=where,proto3" json:"where,omitempty"`
+	// Properties the matched elements are sorted by, in order of precedence,
+	// each ascending; elements equal under every one keep declaration order.
+	// Corresponds to the standard's `orderBy`. An unknown one fails the call.
+	OrderBy       []string `protobuf:"bytes,4,rep,name=orderBy,proto3" json:"orderBy,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -11107,6 +11111,13 @@ func (x *Query) GetSelect() []string {
 func (x *Query) GetWhere() *Constraint {
 	if x != nil {
 		return x.Where
+	}
+	return nil
+}
+
+func (x *Query) GetOrderBy() []string {
+	if x != nil {
+		return x.OrderBy
 	}
 	return nil
 }
@@ -17741,11 +17752,12 @@ const file_sysml_proto_rawDesc = "" +
 	"\n" +
 	"oslc_query\x18\x03 \x01(\tR\toslcQuery\"F\n" +
 	"\rQueryResponse\x125\n" +
-	"\belements\x18\x01 \x03(\v2\x19.sysml.QueryResultElementR\belements\"^\n" +
+	"\belements\x18\x01 \x03(\v2\x19.sysml.QueryResultElementR\belements\"x\n" +
 	"\x05Query\x12\x14\n" +
 	"\x05scope\x18\x01 \x03(\tR\x05scope\x12\x16\n" +
 	"\x06select\x18\x02 \x03(\tR\x06select\x12'\n" +
-	"\x05where\x18\x03 \x01(\v2\x11.sysml.ConstraintR\x05where\"\x92\x01\n" +
+	"\x05where\x18\x03 \x01(\v2\x11.sysml.ConstraintR\x05where\x12\x18\n" +
+	"\aorderBy\x18\x04 \x03(\tR\aorderBy\"\x92\x01\n" +
 	"\n" +
 	"Constraint\x12:\n" +
 	"\tprimitive\x18\x01 \x01(\v2\x1a.sysml.PrimitiveConstraintH\x00R\tprimitive\x12:\n" +

@@ -1898,7 +1898,7 @@ func boundsToProto(bounds []opensysml.Bound) []*pb.Bound {
 // queryFromProto reads a scenario's query into the public builders. It reports
 // false for a query the builders cannot state, such as one naming no operator.
 func queryFromProto(query *pb.Query) (opensysml.Query, bool) {
-	out := opensysml.Query{Scope: query.GetScope(), Select: query.GetSelect()}
+	out := opensysml.Query{Scope: query.GetScope(), Select: query.GetSelect(), OrderBy: query.GetOrderBy()}
 	if query.GetWhere() == nil {
 		return out, true
 	}

@@ -129,3 +129,79 @@ test("an empty oslc still sends the structured query", async () => {
   assert.equal(onlyOslc.query, undefined);
   await again.close();
 });
+
+// The seven operator literals of API & Services §7.1.4 reach the wire as their enums.
+test("every standard operator translates", () => {
+  const cases: [string, string, unknown, PrimitiveOperator, string[]][] = [
+    ["<=", "multiplicityLower", 2, PrimitiveOperator.LESS_EQUAL, ["2"]],
+    [">=", "multiplicityLower", 4, PrimitiveOperator.GREATER_EQUAL, ["4"]],
+    ["<", "multiplicityUpper", "*", PrimitiveOperator.LESS, ["*"]],
+    ["<", "multiplicityUpper", ["3"], PrimitiveOperator.LESS, ["3"]],
+    [">", "multiplicityUpper", 1.5, PrimitiveOperator.GREATER, ["1.5"]],
+    ["in", "@type", ["PartUsage", "AttributeUsage"], PrimitiveOperator.IN, ["PartUsage", "AttributeUsage"]],
+    ["instanceOf", "@type", "Usage", PrimitiveOperator.INSTANCE_OF, ["Usage"]],
+    ["instanceOf", "@type", ["Usage", "Definition"], PrimitiveOperator.INSTANCE_OF, ["Usage", "Definition"]],
+  ];
+  for (const [operator, property, value, wire, values] of cases) {
+    const query = buildQuery({ where: { operator, property, value } });
+    assert.equal(query.where?.constraint.case, "primitive");
+    const primitive = query.where?.constraint.value as { operator: PrimitiveOperator; value: string[] };
+    assert.equal(primitive.operator, wire, operator);
+    assert.deepEqual(primitive.value, values, operator);
+  }
+});
+
+// Each operator's operand shape is checked here, not sent to be refused.
+test("an operand of the wrong shape is refused", () => {
+  const cases: [Record<string, unknown>, RegExp][] = [
+    [{ operator: "<=", property: "multiplicityLower", value: [1, 2] }, /<= on "multiplicityLower" compares against one value, not a list of 2/],
+    [{ operator: ">=", property: "multiplicityLower" }, />= on "multiplicityLower" has no value/],
+    [{ operator: "<", property: "multiplicityLower", value: [] }, /compares against one value, not a list of 0/],
+    [{ operator: "in", property: "@type", value: "PartUsage" }, /in on "@type" compares against a list of values/],
+    [{ operator: "in", property: "@type", value: [] }, /in on "@type" has no values/],
+    [{ operator: "instanceOf", property: "@type", value: 7 }, /instanceOf on "@type" compares against a metaclass name, not 7/],
+    [{ operator: "instanceOf", property: "@type", value: ["Usage", ""] }, /compares against a metaclass name, not ""/],
+    [{ operator: "=<", property: "multiplicityLower", value: 1 }, /unknown primitive operator "=<"; expected one of <, <=, =, >, >=, in, instanceOf/],
+    [{ "@type": "CompositeConstraint", operator: "and", constraint: [{ operator: "=", property: "name", value: "x" }] }, /combines at least two constraints, got one/],
+  ];
+  for (const [where, message] of cases) {
+    assert.throws(() => buildQuery({ where }), message);
+  }
+});
+
+test("orderBy translates from the payload and the keyword", () => {
+  const query = buildQuery({ payload: { "@type": "Query", orderBy: ["@type", "name"] } });
+  assert.deepEqual(query.orderBy, ["@type", "name"]);
+  assert.deepEqual(buildQuery({ orderBy: ["@type", "name"] }).orderBy, ["@type", "name"]);
+  assert.deepEqual(buildQuery({ payload: { scope: ["Demo"] } }).orderBy, []);
+  assert.throws(() => buildQuery({ payload: { orderBy: 7 } }), /orderBy is a list/);
+  assert.throws(() => buildQuery({ payload: { orderBy: [42] } }), /a selected property is a name/);
+  assert.throws(() => buildQuery({ payload: { orderBy: ["name"] }, orderBy: ["name"] }), /not both/);
+});
+
+test("the new operators evaluate", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(MODEL);
+  const atLeastFour = await model.query({ where: { operator: ">=", property: "multiplicityLower", value: 4 } });
+  assert.deepEqual(atLeastFour.map((e) => e.id), ["Demo::vehicle::wheels"]);
+  const usages = await model.query({ where: { operator: "in", property: "@type", value: ["PartUsage", "AttributeUsage"] } });
+  assert.deepEqual(usages.map((e) => e.id), ["Demo::Vehicle::mass", "Demo::vehicle", "Demo::vehicle::wheels"]);
+  const features = await model.query({ where: { operator: "instanceOf", property: "@type", value: "Feature" } });
+  assert.deepEqual(features.map((e) => e.id), usages.map((e) => e.id));
+  const none = await model.query({ where: { operator: "<=", property: "multiplicityUpper", value: 3 } });
+  assert.deepEqual(none, []);
+});
+
+test("orderBy sorts the answer", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(MODEL);
+  const byName = await model.query({ select: ["name"], orderBy: ["name"] });
+  assert.deepEqual(byName.map((e) => e.id), [
+    "Demo", "Demo::Vehicle", "Demo::Wheel", "Demo::Vehicle::mass", "Demo::vehicle", "Demo::vehicle::wheels",
+  ]);
+  const byTypeThenName = await model.query({ payload: { "@type": "Query", select: ["name"], orderBy: ["@type", "name"] } });
+  assert.deepEqual(byTypeThenName.map((e) => e.type), [
+    "AttributeUsage", "Package", "PartDefinition", "PartDefinition", "PartUsage", "PartUsage",
+  ]);
+  await assert.rejects(model.query({ orderBy: ["colour"] }), /unknown query property/);
+});

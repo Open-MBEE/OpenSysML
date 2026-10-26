@@ -171,6 +171,39 @@ function test_surface_offline()
         'opensysml:argument', 'invalid structured query');
     assert_error(@() opensysml.buildQuery(struct('type', 'Element')), ...
         'opensysml:argument', 'invalid query type');
+    operatorCases = {
+        '<=', 'multiplicityLower', 2, 'PRIMITIVE_OPERATOR_LESS_EQUAL', {'2.0'};
+        '>=', 'multiplicityLower', int64(4), 'PRIMITIVE_OPERATOR_GREATER_EQUAL', {'4'};
+        '<', 'multiplicityUpper', '*', 'PRIMITIVE_OPERATOR_LESS', {'*'};
+        'in', '@type', {'PartUsage', 'AttributeUsage'}, 'PRIMITIVE_OPERATOR_IN', {'PartUsage', 'AttributeUsage'};
+        'instanceOf', '@type', 'Usage', 'PRIMITIVE_OPERATOR_INSTANCE_OF', {'Usage'};
+        'instanceOf', '@type', {'Usage', 'Definition'}, 'PRIMITIVE_OPERATOR_INSTANCE_OF', {'Usage', 'Definition'}};
+    for i = 1:size(operatorCases, 1)
+        built = opensysml.buildQuery([], 'where', struct('property', operatorCases{i, 2}, ...
+            'operator', operatorCases{i, 1}, 'value', {operatorCases{i, 3}}));
+        assert_equal(built.where.primitive.operator, operatorCases{i, 4}, ...
+            ['operator ' operatorCases{i, 1}]);
+        assert_equal(built.where.primitive.value, operatorCases{i, 5}, ...
+            ['operand of ' operatorCases{i, 1}]);
+    end
+    ordered = opensysml.buildQuery(struct('type', 'Query', 'orderBy', {{'@type', 'name'}}));
+    assert_equal(ordered.orderBy, {'@type', 'name'}, 'orderBy from a payload');
+    assert_equal(opensysml.buildQuery([], 'orderBy', {'@type', 'name'}).orderBy, ...
+        {'@type', 'name'}, 'orderBy from a keyword');
+    assert_equal(isequal(opensysml.buildQuery(ordered), ordered), true, 'ordered query is idempotent');
+    refusedShapes = {
+        struct('property', 'multiplicityLower', 'operator', '<=', 'value', {{1, 2}});
+        struct('property', 'multiplicityLower', 'operator', '>=');
+        struct('property', '@type', 'operator', 'in', 'value', 'PartUsage');
+        struct('property', '@type', 'operator', 'in', 'value', {{}});
+        struct('property', '@type', 'operator', 'instanceOf', 'value', 7);
+        struct('type', 'CompositeConstraint', 'operator', 'and', 'constraint', ...
+            {{struct('property', 'name', 'operator', '=', 'value', 'x')}})};
+    for i = 1:numel(refusedShapes)
+        assert_error(@() opensysml.buildQuery([], 'where', refusedShapes{i}), ...
+            'opensysml:argument', sprintf('malformed operand shape %d', i));
+    end
+    assert_error(@() opensysml.buildQuery([], 'orderBy', 7), 'opensysml:argument', 'orderBy shape');
 
     documentObject = struct('instanceId', '17', 'path', '#17', ...
         'element', struct('elementId', 'Demo::part', 'elementType', 'PartUsage'));
