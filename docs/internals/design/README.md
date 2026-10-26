@@ -18,6 +18,12 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   plugin mechanics, UI contribution points, export routes, Simulation Toolkit positioning and
   SysML v2 status answered from public documentation with every unverified claim marked, a
   migration benchmark over twenty public v1 models, a phased plan and the risks
+- **[MTIP and diagram geometry in the OpenSysML MDK for Cameo](mdk-mtip.md)** — where OpenMBEE's
+  MTIP plugin (HUDS XML export and import) fits the plugin's parity plan with OpenMBEE MDK: what the
+  migrator already reads from a HUDS export (the diagram layer, as a layout augment), what the
+  *Export as SysML v2* action writes for v1 and v2 projects, and the open decisions — port MTIP,
+  bridge to an installed copy or write HUDS ourselves; HUDS as augment or as model input; how a
+  v2 project's diagram geometry is read at all
 - **[Bring your own engine](bring-your-own-engines.md)** — a proposal: a manifest and a
   protocol under which a user's own engine, scheduling policy, sampler or tool registers with
   the analysis framework as a process, a WebAssembly module or Go over the public package; every
