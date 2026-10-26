@@ -15,7 +15,7 @@ import (
 // ViolationError, and a runtime failure of the evaluation as its own error.
 func (e *ActionExecutor) Holds(sym *symbols.Symbol, scope *symbols.Scope) (bool, error) {
 	if sym == nil {
-		return false, fmt.Errorf("%w: no condition named", ErrNoConditions)
+		return false, fmt.Errorf("%w: no constraint or requirement named", ErrNotAConstraint)
 	}
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	return e.ctx.everyStatementOrder(func() (bool, error) {

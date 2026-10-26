@@ -10,7 +10,7 @@ import (
 // TestAssertedDeniedVacuousSatisfactionIsFalse: a part asserting `not satisfy` of a
 // requirement that states no condition denies a claim that is true, so the query
 // about its objects asserts false; a part asserting only the plain satisfaction
-// states nothing that constrains them.
+// states nothing that constrains them, so its query asserts nothing.
 func TestAssertedDeniedVacuousSatisfactionIsFalse(t *testing.T) {
 	ctx, idx := fixture(t, "<test>", `
 		package test {
@@ -40,14 +40,18 @@ func TestAssertedDeniedVacuousSatisfactionIsFalse(t *testing.T) {
 		t.Fatalf("the denial of a vacuous satisfaction is not false:\n%s", Script(q))
 	}
 	affirmed := symbolNamed(t, idx, "test::affirmed")
-	if _, err := Asserted(ctx, affirmed, affirmed.OwnerScope); !errors.Is(err, ErrNoConditions) {
-		t.Fatalf("translate affirmed: %v, want ErrNoConditions", err)
+	q, err = Asserted(ctx, affirmed, affirmed.OwnerScope)
+	if err != nil {
+		t.Fatalf("translate affirmed: %v", err)
 	}
-	// A negated constraint stating nothing has no claim to deny, and a satisfaction
+	if len(q.Assertions) != 0 {
+		t.Fatalf("a vacuous satisfaction asserts something:\n%s", Script(q))
+	}
+	// A negated constraint stating nothing binds no result to deny, and a satisfaction
 	// naming no requirement is refused, so neither becomes a contradiction.
 	empty := symbolNamed(t, idx, "test::emptyConstraint")
-	if _, err := Asserted(ctx, empty, empty.OwnerScope); !errors.Is(err, ErrNoConditions) {
-		t.Fatalf("translate emptyConstraint: %v, want ErrNoConditions", err)
+	if _, err := Asserted(ctx, empty, empty.OwnerScope); !errors.Is(err, runtime.ErrNoValue) {
+		t.Fatalf("translate emptyConstraint: %v, want ErrNoValue", err)
 	}
 	missing := symbolNamed(t, idx, "test::missing")
 	if _, err := Asserted(ctx, missing, missing.OwnerScope); !errors.Is(err, runtime.ErrNoRequirement) {
