@@ -294,8 +294,9 @@ func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []W
 		queue = append(queue, pick)
 	}
 	type pending struct {
-		from *Interchange
-		u    Usage
+		from       *Interchange
+		u          Usage
+		candidates []*Interchange // the unclaimed projects that deferred it, last pass
 	}
 	var unmatched []pending
 	queue = append(queue, enclosing...)
@@ -307,7 +308,7 @@ func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []W
 				if pick := pickInstalled(installed, u); pick != nil {
 					link(pick)
 				} else if !u.standardLibrary() {
-					unmatched = append(unmatched, pending{project, u})
+					unmatched = append(unmatched, pending{from: project, u: u})
 				}
 			}
 		}
@@ -328,13 +329,14 @@ func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []W
 				learnt[p.u.key()] = pick.identity()
 				link(pick)
 			case len(candidates) > 1:
+				p.candidates = candidates
 				rest = append(rest, p)
 			}
 		}
 		if len(queue) == 0 {
+			// Nothing linked this pass, so what deferred each usage still stands.
 			for _, p := range rest {
-				_, candidates := pickUnclaimed(installed, claimed, p.u)
-				unlinked = append(unlinked, ambiguousUsage(p.from, p.u, candidates))
+				unlinked = append(unlinked, ambiguousUsage(p.from, p.u, p.candidates))
 			}
 			break
 		}

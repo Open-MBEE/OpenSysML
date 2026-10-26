@@ -548,3 +548,24 @@ func TestUsedLinksEachVersionOfARepositoryOnceItsProjectIsLearnt(t *testing.T) {
 		})
 	}
 }
+
+// An unconstrained usage several unclaimed versions could answer is deferred;
+// when later usages then claim every candidate, it selects nothing and says
+// nothing rather than failing on an emptied candidate list.
+func TestUsedSurvivesADeferredUsageWhoseCandidatesAreAllClaimedLater(t *testing.T) {
+	root := t.TempDir()
+	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:git/example.org/acme/either-repo"},
+  {"resource": "pkg:git/example.org/acme/gears-repo@1.0.0"},
+  {"resource": "pkg:git/example.org/acme/widgets-repo@2.0.0"}]}`)
+	gears := writeProject(t, filepath.Join(proj, "lib", "acme-gears_1.0.0"), `{"name": "Gears", "publisher": "acme", "version": "1.0.0"}`)
+	widgets := writeProject(t, filepath.Join(proj, "lib", "acme-widgets_2.0.0"), `{"name": "Widgets", "publisher": "acme", "version": "2.0.0"}`)
+
+	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+	if want := []string{gears, widgets}; !reflect.DeepEqual(projectDirs(found.Used), want) {
+		t.Fatalf("Used = %v, want %v", projectDirs(found.Used), want)
+	}
+	if len(found.Unlinked) != 0 {
+		t.Fatalf("Unlinked = %q, want nothing: both candidates went to the usages that name them", found.Unlinked)
+	}
+}
