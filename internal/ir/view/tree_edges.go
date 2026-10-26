@@ -280,6 +280,9 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 				Route: g.r.specializationRouteOf(site.view, sym, target, g.out)}, nil)
 		}
 	}
+	if semantics.IsView(sym) {
+		g.exposeEdges(node, sym)
+	}
 	for _, child := range node.Children {
 		member := g.out.sites[child].sym
 		if !structuralUsage(member) || member.Owner() != sym {
@@ -297,6 +300,29 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 			g.add(Edge{From: node.ID, To: to.ID, Kind: kind, ToLabel: g.r.usageLabel(member), Origin: symbolOrigin(member),
 				Route: g.r.routeOf(site.view, member, g.out), Style: g.r.styleOf(site.view, member, g.out)}, member)
 		}
+	}
+}
+
+// exposeEdges draws a view's exposures of drawn elements, one edge per expose
+// statement, labelled as the notation writes it; an exposed element nested in
+// the view's node is shown by the nesting.
+func (g *treeGraph) exposeEdges(node *Node, view *symbols.Symbol) {
+	if view.Scope == nil {
+		return
+	}
+	for _, imp := range view.Scope.Imports() {
+		if imp == nil || !imp.IsExpose || imp.Imported == nil {
+			continue
+		}
+		target, ok := g.r.resolver.ImportTarget(view.Scope, imp)
+		if !ok || target == nil {
+			continue
+		}
+		to := g.node(target)
+		if to == nil || to == node || g.nested(node, to) {
+			continue
+		}
+		g.add(Edge{From: node.ID, To: to.ID, Kind: EdgeExpose, Label: exposeLabel(imp), Origin: nodeOrigin(view.DocName, imp)}, nil)
 	}
 }
 
