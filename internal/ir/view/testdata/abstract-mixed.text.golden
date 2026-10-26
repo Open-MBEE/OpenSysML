@@ -15,5 +15,10 @@ variation part def Models
 relationships:
   engine -- chassis
   engine -- chassis
+  Vehicle o-- AbstractViews::Vehicle::mass
+  vehicleFamily o-- fuel
+  vehicleFamily *-- engine
+  vehicleFamily *-- chassis
+  Models o-- sedan
   vehicleFamily --:|> Vehicle
   Models --|> Vehicle

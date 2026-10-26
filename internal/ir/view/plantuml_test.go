@@ -32,6 +32,7 @@ var plantumlGoldenCases = []struct {
 	{"action", "action.sysml", "FlowViews::driveView", KindAction},
 	{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
 	{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},
+	{"mixed-memberships", "mixed-memberships.sysml", "MixedMemberships::memberships", KindMixed},
 	{"typed-action", "typed-behavior.sysml", "TypedViews::cycleView", KindAction},
 	{"typed-state", "typed-behavior.sysml", "TypedViews::boilerView", KindState},
 	{"filters", "filters.sysml", "FilteredViews::safetyView", KindTree},
