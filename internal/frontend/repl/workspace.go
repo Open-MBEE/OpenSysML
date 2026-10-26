@@ -152,6 +152,16 @@ func (s *Session) resolveReferences(res Result, parses []parsed, search *rootSea
 // same way, round after round, until a round loads nothing. It reports what
 // the rounds did together, and what rebuilding did to the session.
 func (s *Session) pullReferences(ws workspaceLoad, parses []parsed, search *rootSearch) (all workspaceLoad, whole []string) {
+	// A root two files declare is noticed by every round that wants it; once is enough.
+	noticed := map[string]bool{}
+	notice := func(notices []string) {
+		for _, n := range notices {
+			if !noticed[n] {
+				noticed[n] = true
+				all.notices = append(all.notices, n)
+			}
+		}
+	}
 	for ws.loaded {
 		all.loaded = true
 		all.files = append(all.files, ws.files...)
@@ -161,11 +171,12 @@ func (s *Session) pullReferences(ws workspaceLoad, parses []parsed, search *root
 		s.idxVersion, s.names = 0, nil
 		more := s.rebuildOver(ws.drops)
 		whole = append(whole, more...)
-		all.notices = append(append(append(all.notices, dropNotices(ws.drops)...), more...), ws.notices...)
+		all.notices = append(append(all.notices, dropNotices(ws.drops)...), more...)
+		notice(ws.notices)
 		parses = append(parses, ws.parses...)
 		ws = s.resolveReferences(s.generationResult(), parses, search)
 	}
-	all.notices = append(all.notices, ws.notices...)
+	notice(ws.notices)
 	return all, whole
 }
 
