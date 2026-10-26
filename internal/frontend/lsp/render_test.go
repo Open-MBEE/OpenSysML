@@ -1708,10 +1708,18 @@ func TestRenderMixedCarriesConnectorPortData(t *testing.T) {
 			if display.name == "" && portNames["spare"] != "" {
 				t.Errorf("minimal mixed ports include unconnected spare pin: %v", portNames)
 			}
-			if len(out.Edges) != 1 {
-				t.Fatalf("mixed edges = %+v, want one connector", out.Edges)
+			// The connector, beside the membership edge the mixed rendering
+			// draws from Plant to each of its parts.
+			var connectors []RenderEdge
+			for _, edge := range out.Edges {
+				if edge.Kind == "connection" {
+					connectors = append(connectors, edge)
+				}
 			}
-			edge := out.Edges[0]
+			if len(connectors) != 1 || len(out.Edges) != 3 {
+				t.Fatalf("mixed edges = %+v, want one connector and two part memberships", out.Edges)
+			}
+			edge := connectors[0]
 			if edge.FromPort == "" || portsByNode[edge.From][edge.FromPort] != "out1" ||
 				edge.ToPort == "" || portsByNode[edge.To][edge.ToPort] != "in1" {
 				t.Errorf("mixed edge ports do not resolve in endpoint node arrays: edge=%+v ports=%v", edge, portsByNode)
