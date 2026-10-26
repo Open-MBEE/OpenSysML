@@ -204,7 +204,7 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 	// What the objects its parts hold assert is part of what validating an
 	// object of sym checks, so the query states it too, each condition read
 	// from the object stating it.
-	groups, refused, err := heldGroups(ctx, sym, effectiveFeatures(ctx, sym))
+	groups, refused, assumed, err := heldGroups(ctx, sym, effectiveFeatures(ctx, sym))
 	if err != nil {
 		return nil, err
 	}
@@ -240,6 +240,7 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 		}
 		q := t.query()
 		q.Uncovered = uncovered
+		q.AssumedOne = mergeAssumed(assumed, t.assumedOne)
 		return q, nil
 	}
 	q, err := translate(pins)
@@ -495,6 +496,9 @@ type translator struct {
 	equations   []Assertion
 	derived     []DerivedValue
 	unreadables []UnreadableRead
+	// assumedOne records the features read as one value that only the default
+	// multiplicity governs.
+	assumedOne []AssumedOne
 
 	// guarded remembers the divisors already asserted non-zero, by their term, so
 	// a divisor read twice is guarded once.
@@ -563,6 +567,25 @@ func newTranslator(ctx *runtime.Context, subject Subject) *translator {
 		guarded:   map[string]bool{},
 		baseUnits: map[string]string{},
 	}
+}
+
+// mergeAssumed joins the held features walked as one object with the features
+// the conditions read as one, a feature both name reported once, by its path.
+func mergeAssumed(walked, read []AssumedOne) []AssumedOne {
+	out := append([]AssumedOne(nil), walked...)
+	for _, a := range read {
+		seen := false
+		for _, w := range walked {
+			if w.Feature == a.Feature {
+				seen = true
+				break
+			}
+		}
+		if !seen {
+			out = append(out, a)
+		}
+	}
+	return out
 }
 
 // effectiveFeatures maps the name a condition may use to the feature it reads,
@@ -714,6 +737,7 @@ func (t *translator) query() *Query {
 	q.Unread = t.unread
 	q.Derived = t.derived
 	q.Unreadable = t.unreadables
+	q.AssumedOne = t.assumedOne
 	for _, obj := range t.objectives {
 		if obj.Unit == "" {
 			obj.Unit = t.baseUnits[obj.Dimension]

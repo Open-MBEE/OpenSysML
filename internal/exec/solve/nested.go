@@ -57,18 +57,22 @@ type heldCollector struct {
 	ctx     *runtime.Context
 	groups  []heldGroup
 	refused []Refused
+	// assumed are the held features walked as one object that only the default
+	// multiplicity governs, as validation walks their one representative object.
+	assumed []AssumedOne
 	onPath  map[*symbols.Symbol]bool
 }
 
-// heldGroups collects the conditions the objects held below sym carry, and the
-// held features whose conditions are refused before translation; levels0 maps
-// the names sym's own conditions read.
-func heldGroups(ctx *runtime.Context, sym *symbols.Symbol, levels0 map[string]*symbols.Symbol) ([]heldGroup, []Refused, error) {
+// heldGroups collects the conditions the objects held below sym carry, the held
+// features whose conditions are refused before translation, and those walked
+// under the assumption that they hold one object; levels0 maps the names sym's
+// own conditions read.
+func heldGroups(ctx *runtime.Context, sym *symbols.Symbol, levels0 map[string]*symbols.Symbol) ([]heldGroup, []Refused, []AssumedOne, error) {
 	c := &heldCollector{ctx: ctx, onPath: map[*symbols.Symbol]bool{sym: true}}
 	if err := c.collect(sym, nil, []map[string]*symbols.Symbol{levels0}, nil, 0); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return c.groups, c.refused, nil
+	return c.groups, c.refused, c.assumed, nil
 }
 
 func (c *heldCollector) collect(
@@ -142,11 +146,16 @@ func (c *heldCollector) collect(
 			c.refused = append(c.refused, Refused{Feature: feature, Path: pathName(fpath), Reason: reason})
 			continue
 		}
+		if held.Feature.MultiplicityDefaulted {
+			c.assumed = append(c.assumed, AssumedOne{Feature: feature, Name: pathName(fpath),
+				Multiplicity: c.ctx.Semantics().DefaultMultiplicityOf(feature), Object: true})
+		}
 		if len(group.conds) > 0 {
 			c.groups = append(c.groups, group)
 		}
 		c.groups = append(c.groups, sub.groups...)
 		c.refused = append(c.refused, sub.refused...)
+		c.assumed = append(c.assumed, sub.assumed...)
 	}
 	return nil
 }
@@ -201,6 +210,8 @@ func (c *heldCollector) states(sym *symbols.Symbol) bool {
 // does not descend: the type recurs on the path, or the depth is spent, so what
 // lies below is either stated above already or beyond what validation reaches.
 func (c *heldCollector) unreachable(held runtime.HeldFeature, depth int) (reason string, cut bool) {
+	// A feature the default `0..*` governs is walked as validation walks it, through
+	// its one representative object, and the query reports that assumption (collect).
 	r := held.Feature.Multiplicity
 	switch {
 	case !singleValued(r):
@@ -263,8 +274,8 @@ func (t *translator) selectedTerms() ([]*Term, error) {
 			if t.model.IsVariationFeature(step) {
 				continue
 			}
-			if stated, ok := t.model.StatedMultiplicityOf(step); ok && !singleValued(stated) {
-				return nil, t.refuse(holder.Decl, written, "it may hold more than one object")
+			if err := t.holdsOne(holder.Decl, step, written, true); err != nil {
+				return nil, err
 			}
 		}
 		sort, _, err := t.sortOf(holder.Decl, holder.OwnerScope, holder, written)
