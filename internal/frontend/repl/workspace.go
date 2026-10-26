@@ -155,12 +155,12 @@ func (s *Session) undeclaredRoots(roots []string, confirm func(name string) bool
 	return out
 }
 
-// declaredRoots is the set of root names the buffer declares, the snippets of
-// the files keyed in except left out.
-func (s *Session) declaredRoots(except map[string]bool) map[string]bool {
+// declaredRoots is the set of root names the buffer declares, the snippets
+// except admits left out.
+func (s *Session) declaredRoots(except func(sn snippet) bool) map[string]bool {
 	declared := map[string]bool{}
 	for _, sn := range s.snippets {
-		if sn.key != "" && except[sn.key] {
+		if except != nil && except(sn) {
 			continue
 		}
 		for _, name := range sn.names {
