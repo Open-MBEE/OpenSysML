@@ -43,6 +43,7 @@ func TestRuntimeRobustnessExcludingAt(t *testing.T) {
 			{"xs->excludingAt(4)", []int64{1, 2, 3}},
 			{"xs->excludingAt(4, 9)", []int64{1, 2, 3}},
 			{"xs->excludingAt(2, 9)", []int64{1}},
+			{"xs->excludingAt(2, 9223372036854775807)", []int64{1}},
 			{"xs->excludingAt(3, 2)", []int64{1, 2, 3}},
 			{"xs->excludingAt(3, 1)", []int64{1, 2, 2, 3}},
 			{"()->excludingAt(1)", nil},

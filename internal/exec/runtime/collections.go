@@ -1084,9 +1084,12 @@ func builtinSequenceExcludingAt(ec *EvalContext, args []Value) (Value, error) {
 			return val, nil
 		}
 	}
+	span := spanOf(elements...)
 	kept := make([]Value, 0, len(elements))
 	kept = append(kept, positionsBetween(elements, 1, start-1)...)
-	kept = append(kept, positionsBetween(elements, end+1, spanOf(elements...))...)
+	if end < span {
+		kept = append(kept, positionsBetween(elements, end+1, span)...)
+	}
 	return ec.sequenceOfPositions(kept, args[0])
 }
 
