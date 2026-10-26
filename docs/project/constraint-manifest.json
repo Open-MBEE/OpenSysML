@@ -13795,24 +13795,6 @@
       "heading": "`zeroDegreeFahrenheitInKelvin = 229835/900 [K]` divides by a temperature",
       "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/USCustomaryUnits.sysml",
       "line": 255
-    },
-    {
-      "id": "Flows-46",
-      "heading": "`Flows::Message` inherits `Transfer::source` and `Transfer::target`, KerML features, as its flow ends",
-      "path": "internal/workspace/libs/stdlib/Systems Library/Flows.sysml",
-      "line": 46
-    },
-    {
-      "id": "Flows-99",
-      "heading": "`Flows::messages` is a flow usage whose ends are `Transfer::source` and `Transfer::target`",
-      "path": "internal/workspace/libs/stdlib/Systems Library/Flows.sysml",
-      "line": 99
-    },
-    {
-      "id": "Flows-103",
-      "heading": "`Flows::messages` owns no ends redefining `Message::source` and `Message::target`",
-      "path": "internal/workspace/libs/stdlib/Systems Library/Flows.sysml",
-      "line": 103
     }
   ],
   "specIssues": [

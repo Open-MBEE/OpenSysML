@@ -699,7 +699,7 @@ Specification: SysML v2.1 Beta 2 §8.3.16.2 (flowEnd : Usage redefines associati
 
 **error** · Typing · a flow definition with more than two ends
 
-A flow connection definition relates a source and a target: it can have at most two ends. Drop the extra ends, or declare a connection definition for an n-ary relationship.
+A flow definition relates a source and a target: it can have at most two ends. Drop the extra ends, or declare a connection definition for an n-ary relationship.
 
 Specification: SysML v2 validateFlowDefinitionConnectionEnds
 

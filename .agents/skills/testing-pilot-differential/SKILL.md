@@ -27,8 +27,8 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
   inputs keep its warning at `delta-v-budget.sysml:93`), then the unbounded-literal typing round
   (`passes/literal_infinity.sysml`: `*` bound to a Boolean, a String, a part and an enumeration is
   our `binding-connector-type-conformance` error where the pilot warns, four severity-only pairs, and
-  its `Integer[2] = *` count error is one only-ours row): `920 file(s), 517 fully agreeing; 1098 agreed,
-  366 only ours, 2448 only the pilot's`, JSON totals `openSysMLDiagnostics 1475 / pilotDiagnostics 3557 /
+  its `Integer[2] = *` count error is one only-ours row): `920 file(s), 514 fully agreeing; 1098 agreed,
+  366 only ours, 2459 only the pilot's`, JSON totals `openSysMLDiagnostics 1475 / pilotDiagnostics 3568 /
   severityMismatch 11`; the two only-ours rows the multiplicity rule added are the expected `action-step-multiplicity-not-fixed`
   warnings on `training/18. Action Performance/Action Performance Example.sysml:10` and
   `pilot-examples/Camera Example/Camera.sysml:4`. ~2 min wall, byte-identical across runs *and* after a from-scratch rebuild of
@@ -152,8 +152,8 @@ warning (the `[1]` `RocketEquation` inputs still produce the warning at
 `action-step-multiplicity-not-fixed` warnings on `takePhoto[*]` in the training corpus and
 `takePicture[*]` in `Camera Example/Camera.sysml`, and the view concern framing round retired the
 six view-body `frame` `syntax` rows on `examples`, and the unbounded-literal typing round added
-`passes/literal_infinity.sysml` (four severity-only pairs, one only-ours count error); a live run gives `920 file(s), 517 fully
-agreeing; 1098 agreed, 366 only ours, 2448 only the pilot's`, byte-identical to the committed baseline, and
+`passes/literal_infinity.sysml` (four severity-only pairs, one only-ours count error); a live run gives `920 file(s), 514 fully
+agreeing; 1098 agreed, 366 only ours, 2459 only the pilot's`, byte-identical to the committed baseline, and
 `docs/project/pilot-differential.md`'s "Results" table matches. The prior rebaseline, when the
 Legend of the Red Dragon example left for its own repository, gave
 <!-- doc-count:historical -->`920 file(s), 517 fully agreeing; 1098 agreed, 366 only ours, 2448 only the pilot's`.

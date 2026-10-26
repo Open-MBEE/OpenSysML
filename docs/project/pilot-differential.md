@@ -307,7 +307,7 @@ Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-exam
 1 `unresolved-reference`, 2 `multiplicity`; `examples` 5
 `unmapped`, 1 `kind-mismatch`, 2 `multiplicity`; `probes` 6 `unmapped`; `spec-examples` 7 `syntax`,
 38 `unresolved-reference`, 3 `kind-mismatch`, 2 `unmapped`. Only-pilot: `testdata` 14 `kind-mismatch`, 17 `unmapped`,
-3 `syntax`, 2 `unresolved-reference`; `examples` 23 `unmapped`, 38 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
+3 `syntax`, 2 `unresolved-reference`; `pilot-examples` 10 `kind-mismatch`; `examples` 24 `unmapped`, 38 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
 586 `kind-mismatch`, 196 `syntax`, 156 `unresolved-reference`, 50 `multiplicity`, 4 `units`.
 
 The `spec-examples` figures are dominated by fragments: the specification's examples leave
@@ -1246,7 +1246,7 @@ page's history.
 | unmapped, our side | **288** |
 | kerml-examples: only ours | **16** |
 | pilot-examples: only ours | **261** |
-| examples: only pilot | **61** |
+| examples: only pilot | **62** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
 only-pilot, with 56 of 58 files fully agreeing (439 / 6 and 10 / 58 when the root was added, and

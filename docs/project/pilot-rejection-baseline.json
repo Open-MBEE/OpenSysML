@@ -28,7 +28,7 @@
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
         "files": 349,
-        "digest": "sha256:bb55b90731a2d1c736f068e6af170a954c440983ad4f20574b41c1c84a47e399"
+        "digest": "sha256:070219a432a6b326c1e418623b21d9ee35b7731e340489566922e39564263384"
       }
     ],
     "recorded": "2026-10-26"
@@ -1354,7 +1354,7 @@
     {
       "path": "semantic/connection-def-end-not-usage.sysml",
       "source": "semantic",
-      "rule": "a connection definition end must be a usage, inherited ends included (SysML v2.1 Beta 2 8.3.13.3 connectionEnd : Usage redefines associationEnd; the pilot checks it as validateConnectionDefinitionEndsAreUsages since release 2026-09, so both reject).",
+      "rule": "a connection definition end must be a usage, inherited ends included (SysML v2.1 Beta 2 8.3.13.3 connectionEnd : Usage redefines associationEnd; pilot validateConnectionDefinitionEndsAreUsages since release 2026-09, so both reject).",
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 1,
@@ -1363,7 +1363,7 @@
     {
       "path": "semantic/flow-def-end-not-usage.sysml",
       "source": "semantic",
-      "rule": "a flow definition end must be a usage, inherited ends included (SysML v2.1 Beta 2 8.3.16.2 flowEnd : Usage redefines associationEnd; the pilot checks it as validateFlowDefinitionEndsAreUsages since release 2026-09, so both reject).",
+      "rule": "a flow definition end must be a usage, inherited ends included (SysML v2.1 Beta 2 8.3.16.2 flowEnd : Usage redefines associationEnd; pilot validateFlowDefinitionEndsAreUsages since release 2026-09, so both reject).",
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 1,
@@ -2398,7 +2398,7 @@
     {
       "path": "semantic/s18-flow-def-three-ends.sysml",
       "source": "semantic",
-      "rule": "A flow connection definition can have at most two ends (SysML 7.13 Connections; pilot validateFlowDefinitionConnectionEnds).",
+      "rule": "A flow definition can have at most two ends (SysML 7.13 Connections; pilot validateFlowDefinitionConnectionEnds).",
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 1,
@@ -2407,7 +2407,7 @@
     {
       "path": "semantic/s19-flow-typed-by-connection-def.sysml",
       "source": "semantic",
-      "rule": "A flow connection must be typed by flow connection definitions (SysML 7.13 Connections; pilot validateFlowUsageType).",
+      "rule": "A flow usage must be typed by flow definitions (SysML 7.13 Connections; pilot validateFlowUsageType).",
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 1,
@@ -2416,7 +2416,7 @@
     {
       "path": "semantic/s19b-message-typed-by-item-def.sysml",
       "source": "semantic",
-      "rule": "A message is a flow usage and must be typed by flow connection definitions, an item definition is not one (SysML 7.16 Flows and Messages, 8.4.12.2; pilot validateFlowUsageType).",
+      "rule": "A message is a flow usage and must be typed by flow definitions, an item definition is not one (SysML 7.16 Flows and Messages, 8.4.12.2; pilot validateFlowUsageType).",
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 1,

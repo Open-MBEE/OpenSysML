@@ -128,7 +128,7 @@ Two further honest limits of the mapping:
 
 ## Corpus and census reconciliation
 
-`./scripts/download-pilot-xpect.sh` fetches **303 KerML + 126 SysML = 429** `.xt` files, exactly the
+`./scripts/download-pilot-xpect.sh` fetches **304 KerML + 128 SysML = 432** `.xt` files, exactly the
 expected count. **0 files are unparsed** and **0 declared resources are missing**, so no assertion is
 silently dropped.
 
@@ -177,7 +177,9 @@ Every difference from the published numbers is accounted for, and none of it is 
   flow-end usage rules, both word-for-word); `FlowConnectionUsage_Invalid.sysml.xt` is renamed
   `FlowUsage_Invalid.sysml.xt` with its four `errors` rows reworded to the SysML v2.1 names
   (`A flow definition can have at most two ends.`, `A flow usage must be typed by flow
-  definitions.`), which we still spell with `flow connection`: four `same-location` rows.
+  definitions.`); `flow-def-too-many-ends` and `flow-usage-not-flow-def` adopt the same names
+  (`FlowConnectionDefinition` and `FlowConnectionUsage` are `FlowDefinition` and `FlowUsage` in
+  SysML v2.1), so the four rows agree word-for-word as before.
 - **Release `2026-08` (+1).** The only `.xt` change between the `2026-07` and `2026-08` tags adds
   one `errors` assertion, `validation/AssociationTest_CrossFeatures_invalid.kerml.xt`:66
   (`At most one cross subsetting is allowed` at `a.y`), which agrees word-for-word.
@@ -193,12 +195,12 @@ Every difference from the published numbers is accounted for, and none of it is 
 ```
 432 .xt file(s), 0 unparsed, 0 missing declared resource(s)
 1267 assertion(s) declaring 1329 expectation(s)
-agree 1292 (of which wording-only 248) | disagree 37 | unlocated 0 | not adjudicated 0
+agree 1296 (of which wording-only 248) | disagree 33 | unlocated 0 | not adjudicated 0
 ```
 
 | Kind | Expectations | Agree | of which wording-only | Disagree | Not adjudicated | `same-location` | `same-line` | `severity-differs` | `elsewhere` | nothing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `errors` | 514 | 491 | 248 | 23 | 0 | 14 | 7 | 0 | 2 | 0 |
+| `errors` | 514 | 495 | 248 | 19 | 0 | 10 | 7 | 0 | 2 | 0 |
 | `noErrors` | 277 | 263 | — | 14 | 0 | — | — | — | — | — |
 | `linkedName` | 194 | 194 | — | 0 | 0 | — | — | — | — | — |
 | `warnings` | 113 | 113 | — | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -210,7 +212,7 @@ Per suite:
 | Suite | Files | Expectations | Agree | Disagree | Not adjudicated |
 |---|---:|---:|---:|---:|---:|
 | `kerml` | 304 | 969 | 949 | 20 | 0 |
-| `sysml` | 128 | 360 | 343 | 17 | 0 |
+| `sysml` | 128 | 360 | 347 | 13 | 0 |
 
 **Read the `errors` row carefully: 248 of its 492 agreements are wording-only, so more than half of
 that column is us stating the pilot's rule in our own words rather than a rule written against its
@@ -237,7 +239,7 @@ run` column is that run's own measurement:
 | `linkedName` | 151 / 194 | **194 / 194** | alias-introduced names resolve to the aliased element, and the `~ B::f` conjugation form parses |
 | `noErrors` | 231 / 275 | **263 / 277** | 6 `ParsingTests_*` files, 4 inherited-name-conflict files and 2 others no longer draw an error, the visibility reconciliation's protected/shadowed path reconciliation cleared 11 more, the anchor-and-residue work closed the 6 protected-import rows the specialization-visibility restoration had made unsatisfiable by modelling `noErrors` as Xpect's residue rather than as file-wide silence, the parser productions cleared `ParsingTests_Indexing` and `SemanticMetadata_valid`, the connector-end and import work closed two more rows, and the redefinition-type warning closed the two `Import3` rows; eight rows then opened where a rule of ours reaches a declared-clean file the pilot has no check for — the five specialization cycles, then the three files the part-definition rule reaches — each adjudicated below |
 | `warnings` | 0 / 113 | **113 / 113** | the duplicate-member-name warnings, the earlier rules written against the declared wording, the library rules, the warnings residue, the usage-typing rules, Step 3's binary-interface end typing, and the binding each operator or invocation argument implies |
-| `errors` | 0 / 510 | **491 / 514** | 243 rows are ours word-for-word; the other 248 are wording-only, admitted centrally after the rule and element were checked, not by adopting the pilot's phrasing |
+| `errors` | 0 / 510 | **495 / 514** | 247 rows are ours word-for-word; the other 248 are wording-only, admitted centrally after the rule and element were checked, not by adopting the pilot's phrasing |
 | `scope` | 73 / 230 | **230 / 230** | the library-member resolver work resolves implicit and inherited members through the library (`library-names` 125 → 27), the visibility reconciliation reconciles the protected and shadowed paths, the re-entry bound bounds re-entry to one per name, the anchor-and-residue work fixes the quoted anchor and stops a recursive import's descent carrying implicit generals, and the scope-traversal work bounds derived `self`/`that` paths and anchors a scope assertion on the reference its text names |
 
 **These tables and the baseline are a fresh-cache run after the transition-guard and KerML
@@ -576,7 +578,7 @@ redefinition removed was silent too.
 
 ---
 
-## errors — 493 of 512, of which 248 wording-only
+## errors — 495 of 514, of which 248 wording-only
 
 Agreement here is 245 rows word-for-word plus 248 wording-only: the same rule about the same element
 at the same offset and severity, in our phrasing. Almost all of the wording-only rows are one family,
