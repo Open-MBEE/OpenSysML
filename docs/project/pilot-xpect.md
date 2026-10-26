@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Reference:** the OMG pilot implementation's own Xpect test suites, [`org.omg.kerml.xpect.tests`](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/2026-08/org.omg.kerml.xpect.tests) and [`org.omg.sysml.xpect.tests`](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/2026-08/org.omg.sysml.xpect.tests), at release `2026-08`, commit `692170b71867353b8f90341e61556f49a5beb0e5` — the same pin as the corpora and the reference validators (`scripts/pilot-pin.sh`)
+**Reference:** the OMG pilot implementation's own Xpect test suites, [`org.omg.kerml.xpect.tests`](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/2026-09/org.omg.kerml.xpect.tests) and [`org.omg.sysml.xpect.tests`](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/2026-09/org.omg.sysml.xpect.tests), at release `2026-09`, commit `38665073bbf02849bd309b106eba79cbb3a1ee1d` — the same pin as the corpora and the reference validators (`scripts/pilot-pin.sh`)
 **Provision:** `./scripts/download-pilot-xpect.sh` (the shared downloader of `scripts/pilot-pin.sh`, restricted to `*.xt`: the clone is refused unless the tag resolves to the pinned commit, each suite is stamped with the pin it was fetched at, and a suite stamped otherwise or not at all is re-fetched; writes `build/pilot-xpect-corpus/{kerml,sysml}`, gitignored, not vendored — under `build/` rather than `examples/` because the `.kerml`/`.sysml` models the suites ship are inputs to this harness, and everything that walks `examples/` would otherwise adopt them)
 **Run:** `go run -C tools ./cmd/pilot-xpect` (writes `build/pilot-xpect/pilot-xpect.txt` and `build/pilot-xpect/pilot-xpect.json`)
 **Baseline:** the last committed run is [pilot-xpect-baseline.json](pilot-xpect-baseline.json), which carries every non-agreeing row, so a later run can be diffed against it; `-update` re-records it and `-check` fails unless a fresh run reproduces it
@@ -132,7 +132,7 @@ Two further honest limits of the mapping:
 expected count. **0 files are unparsed** and **0 declared resources are missing**, so no assertion is
 silently dropped.
 
-The reader recovers **1264 assertions**, declaring **1326 individual expectations** (a single
+The reader recovers **1267 assertions**, declaring **1329 individual expectations** (a single
 `errors`/`warnings` note may list several diagnostics; each is one adjudicated row). Reconciled
 against the published per-kind census:
 
@@ -170,6 +170,14 @@ Every difference from the published numbers is accounted for, and none of it is 
   inside `/* ... */` comments and two are disabled by their authors as `// (TBD) XPECT noErrors`.
   These open no `//` or `//*` note, so the harness does not run them; all ten are listed by file and
   line in the report's *XPECT-shaped text outside a note* section rather than being dropped.
+- **Release `2026-09` (+3 assertions, +3 files).** `validation/MultiplicityAlias_valid.kerml.xt`
+  (one `noErrors` row: an alias member without a name, `alias for Base::exactlyOne;`, which
+  `AliasMember` admits and we now parse), `validation/ConnectionUsage_End_Invalid.sysml.xt` and
+  `validation/FlowUsage_End_Invalid.sysml.xt` (one `errors` row each, the connection-end and
+  flow-end usage rules, both word-for-word); `FlowConnectionUsage_Invalid.sysml.xt` is renamed
+  `FlowUsage_Invalid.sysml.xt` with its four `errors` rows reworded to the SysML v2.1 names
+  (`A flow definition can have at most two ends.`, `A flow usage must be typed by flow
+  definitions.`), which we still spell with `flow connection`: four `same-location` rows.
 - **Release `2026-08` (+1).** The only `.xt` change between the `2026-07` and `2026-08` tags adds
   one `errors` assertion, `validation/AssociationTest_CrossFeatures_invalid.kerml.xt`:66
   (`At most one cross subsetting is allowed` at `a.y`), which agrees word-for-word.
@@ -183,15 +191,15 @@ Every difference from the published numbers is accounted for, and none of it is 
 ## Totals
 
 ```
-429 .xt file(s), 0 unparsed, 0 missing declared resource(s)
-1264 assertion(s) declaring 1326 expectation(s)
-agree 1293 (of which wording-only 248) | disagree 33 | unlocated 0 | not adjudicated 0
+432 .xt file(s), 0 unparsed, 0 missing declared resource(s)
+1267 assertion(s) declaring 1329 expectation(s)
+agree 1292 (of which wording-only 248) | disagree 37 | unlocated 0 | not adjudicated 0
 ```
 
 | Kind | Expectations | Agree | of which wording-only | Disagree | Not adjudicated | `same-location` | `same-line` | `severity-differs` | `elsewhere` | nothing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `errors` | 512 | 493 | 248 | 19 | 0 | 10 | 7 | 0 | 2 | 0 |
-| `noErrors` | 276 | 262 | — | 14 | 0 | — | — | — | — | — |
+| `errors` | 514 | 491 | 248 | 23 | 0 | 14 | 7 | 0 | 2 | 0 |
+| `noErrors` | 277 | 263 | — | 14 | 0 | — | — | — | — | — |
 | `linkedName` | 194 | 194 | — | 0 | 0 | — | — | — | — | — |
 | `warnings` | 113 | 113 | — | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `scope` | 230 | 230 | — | 0 | 0 | — | — | — | — | — |
@@ -201,8 +209,8 @@ Per suite:
 
 | Suite | Files | Expectations | Agree | Disagree | Not adjudicated |
 |---|---:|---:|---:|---:|---:|
-| `kerml` | 303 | 968 | 948 | 20 | 0 |
-| `sysml` | 126 | 358 | 345 | 13 | 0 |
+| `kerml` | 304 | 969 | 949 | 20 | 0 |
+| `sysml` | 128 | 360 | 343 | 17 | 0 |
 
 **Read the `errors` row carefully: 248 of its 492 agreements are wording-only, so more than half of
 that column is us stating the pilot's rule in our own words rather than a rule written against its
@@ -227,9 +235,9 @@ run` column is that run's own measurement:
 | Kind | First run | Now | What moved |
 |---|---|---|---|
 | `linkedName` | 151 / 194 | **194 / 194** | alias-introduced names resolve to the aliased element, and the `~ B::f` conjugation form parses |
-| `noErrors` | 231 / 275 | **262 / 276** | 6 `ParsingTests_*` files, 4 inherited-name-conflict files and 2 others no longer draw an error, the visibility reconciliation's protected/shadowed path reconciliation cleared 11 more, the anchor-and-residue work closed the 6 protected-import rows the specialization-visibility restoration had made unsatisfiable by modelling `noErrors` as Xpect's residue rather than as file-wide silence, the parser productions cleared `ParsingTests_Indexing` and `SemanticMetadata_valid`, the connector-end and import work closed two more rows, and the redefinition-type warning closed the two `Import3` rows; eight rows then opened where a rule of ours reaches a declared-clean file the pilot has no check for — the five specialization cycles, then the three files the part-definition rule reaches — each adjudicated below |
+| `noErrors` | 231 / 275 | **263 / 277** | 6 `ParsingTests_*` files, 4 inherited-name-conflict files and 2 others no longer draw an error, the visibility reconciliation's protected/shadowed path reconciliation cleared 11 more, the anchor-and-residue work closed the 6 protected-import rows the specialization-visibility restoration had made unsatisfiable by modelling `noErrors` as Xpect's residue rather than as file-wide silence, the parser productions cleared `ParsingTests_Indexing` and `SemanticMetadata_valid`, the connector-end and import work closed two more rows, and the redefinition-type warning closed the two `Import3` rows; eight rows then opened where a rule of ours reaches a declared-clean file the pilot has no check for — the five specialization cycles, then the three files the part-definition rule reaches — each adjudicated below |
 | `warnings` | 0 / 113 | **113 / 113** | the duplicate-member-name warnings, the earlier rules written against the declared wording, the library rules, the warnings residue, the usage-typing rules, Step 3's binary-interface end typing, and the binding each operator or invocation argument implies |
-| `errors` | 0 / 510 | **493 / 512** | 245 rows are ours word-for-word; the other 248 are wording-only, admitted centrally after the rule and element were checked, not by adopting the pilot's phrasing |
+| `errors` | 0 / 510 | **491 / 514** | 243 rows are ours word-for-word; the other 248 are wording-only, admitted centrally after the rule and element were checked, not by adopting the pilot's phrasing |
 | `scope` | 73 / 230 | **230 / 230** | the library-member resolver work resolves implicit and inherited members through the library (`library-names` 125 → 27), the visibility reconciliation reconciles the protected and shadowed paths, the re-entry bound bounds re-entry to one per name, the anchor-and-residue work fixes the quoted anchor and stops a recursive import's descent carrying implicit generals, and the scope-traversal work bounds derived `self`/`that` paths and anchors a scope assertion on the reference its text names |
 
 **These tables and the baseline are a fresh-cache run after the transition-guard and KerML
@@ -370,7 +378,7 @@ only external, per-reference verdict on our name resolution that exists at the p
 also the narrowest: it says which element a written reference reaches, never which names *were*
 visible. That second question is the 230 `scope` assertions below.
 
-## noErrors — 262 of 276 agree
+## noErrors — 263 of 277 agree
 
 14 disagreements: we report an error where the pilot's implementers declared the file clean. Grouped
 by our first diagnostic:

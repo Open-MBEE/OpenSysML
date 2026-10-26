@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Grammars:** `KerML.xtext`, `KerMLExpressions.xtext` and `SysML.xtext` from the SysML v2 Pilot Implementation at pilot tag `2026-08`
+**Grammars:** `KerML.xtext`, `KerMLExpressions.xtext` and `SysML.xtext` from the SysML v2 Pilot Implementation at pilot tag `2026-09`
 **Provision:** `./scripts/download-pilot-grammars.sh`
 **Run:** `go run -C tools ./cmd/grammar-metaclass-map` (writes `build/grammar-metaclass-map/`)
 **Baseline:** [grammar-metaclass-map-baseline.json](grammar-metaclass-map-baseline.json), the compact production totals and findings
@@ -47,10 +47,10 @@ baseline. The current figures are in [the baseline JSON](grammar-metaclass-map-b
 
 | Grammar | Agree | Disagree | Undecided |
 |---|---:|---:|---:|
-| `KerML.xtext` | 26 | 2 | 148 |
+| `KerML.xtext` | 27 | 2 | 147 |
 | `KerMLExpressions.xtext` | 0 | 0 | 108 |
-| `SysML.xtext` | 35 | 7 | 401 |
-| **Total** | **61** | **9** | **657** |
+| `SysML.xtext` | 36 | 7 | 400 |
+| **Total** | **63** | **9** | **655** |
 
 Undecided reasons: `no-input` 244, `no-element` 229, `no-element-at-anchor` 79,
 `no-anchor` 62, `anchor-shared` 35, `no-reflective-metaclass` 2,

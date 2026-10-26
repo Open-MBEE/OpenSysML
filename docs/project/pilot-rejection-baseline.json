@@ -28,7 +28,7 @@
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
         "files": 349,
-        "digest": "sha256:e26ae0af7d8f1513001d970d4878c418c02409f004d58ed419a9a5ca6e239147"
+        "digest": "sha256:bb55b90731a2d1c736f068e6af170a954c440983ad4f20574b41c1c84a47e399"
       }
     ],
     "recorded": "2026-10-26"
@@ -1354,7 +1354,7 @@
     {
       "path": "semantic/connection-def-end-not-usage.sysml",
       "source": "semantic",
-      "rule": "a connection definition end must be a usage, inherited ends included (SysML v2.1 Beta 2 8.3.13.3 connectionEnd : Usage redefines associationEnd; the pilot's master branch adds the check as ST6RI-974, after the 2026-08 pin, so this case lands in ours-only-rejects).",
+      "rule": "a connection definition end must be a usage, inherited ends included (SysML v2.1 Beta 2 8.3.13.3 connectionEnd : Usage redefines associationEnd; the pilot checks it as validateConnectionDefinitionEndsAreUsages since release 2026-09, so both reject).",
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 1,
@@ -1363,7 +1363,7 @@
     {
       "path": "semantic/flow-def-end-not-usage.sysml",
       "source": "semantic",
-      "rule": "a flow definition end must be a usage, inherited ends included (SysML v2.1 Beta 2 8.3.16.2 flowEnd : Usage redefines associationEnd; the pilot's master branch adds the check as ST6RI-974, after the 2026-08 pin, so this case lands in ours-only-rejects).",
+      "rule": "a flow definition end must be a usage, inherited ends included (SysML v2.1 Beta 2 8.3.16.2 flowEnd : Usage redefines associationEnd; the pilot checks it as validateFlowDefinitionEndsAreUsages since release 2026-09, so both reject).",
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 1,

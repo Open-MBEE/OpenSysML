@@ -21,7 +21,7 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
 - The pin `tools/referee/diff` reports comes from `build/pilot-sysml-validator/pilot-pin.txt`
   (written by the new script), not from the DeciSym `pom.xml`.
 - `-validator /nonexistent` now says `run ./scripts/download-pilot-sysml-validator.sh`.
-- Measured at the `2026-08` pin after the view concern framing round retired the six view-body
+- Measured at the `2026-09` pin after the view concern framing round retired the six view-body
   `frame` `syntax` rows (bare parameters already at their effective range `[0..*]`, so the
   adjudicated `Behaviors.kerml:14` multiplicity warning is gone while the `[1]` `RocketEquation`
   inputs keep its warning at `delta-v-budget.sysml:93`), then the unbounded-literal typing round
@@ -183,11 +183,11 @@ diff is *not* by itself evidence of a regression — see "Isolating one change's
 - Provisioning checks for `download-pilot-sysml-validator.sh` that distinguish working from
   broken (all observed at `86514a44`):
   - no args → `SysML validator already compiled at .../classes/ValidateSysML.class` + `Built ...
-    (pilot 2026-08, 0.62.0)`, `.class` mtime unchanged; `--force` → `Compiling ...`, mtime
+    (pilot 2026-09, 0.63.0)`, `.class` mtime unchanged; `--force` → `Compiling ...`, mtime
     advances; `--bogus` → exit 1 `error: unknown option: --bogus (only --force is supported)`.
   - `rm -rf build/pilot-sysml-validator` and re-run → recreated in seconds, and the launcher is
-    **byte-identical** with `pilot-pin.txt` = `sysml.release.tag=2026-08`
-    / `sysml.artifact.version=0.62.0` and no `__PILOT_ARTIFACT_VERSION__` placeholder left.
+    **byte-identical** with `pilot-pin.txt` = `sysml.release.tag=2026-09`
+    / `sysml.artifact.version=0.63.0` and no `__PILOT_ARTIFACT_VERSION__` placeholder left.
   - the script always runs `download-pilot-validator.sh` first (no args → its `already built`
     fast path, ~1 s), so a re-pin that keeps the artifact version but changes the tag, commit,
     repository or wrapper commit still rebuilds the jar before anything compiles against it.
@@ -410,7 +410,7 @@ Provisioning script checks that actually distinguish working from broken:
   the launcher's.
 - `--force` → prints `Compiling ...` and the `.class` mtime advances.
 - `grep jupyter-sysml-kernel build/pilot-kerml-validator/validate-kerml` must show the pinned
-  `PILOT_ARTIFACT_VERSION` from `scripts/pilot-pin.sh` (`0.62.0`) and no leftover
+  `PILOT_ARTIFACT_VERSION` from `scripts/pilot-pin.sh` (`0.63.0`) and no leftover
   `__PILOT_ARTIFACT_VERSION__` placeholder.
 - `PILOT_ARTIFACT_VERSION=9.9.9-bogus ./scripts/download-pilot-kerml-validator.sh` → exit 1 with
   `error: pilot shaded jar not found at .../jupyter-sysml-kernel-9.9.9-bogus-all.jar`, and the
@@ -629,7 +629,7 @@ Provisioning script (`scripts/download-pilot-validator.sh`):
   `PILOT_TAG=9999-99 PILOT_ARTIFACT_VERSION=9.9.9 ./scripts/download-pilot-validator.sh`: it
   prints `Stale build at ...`, clones (fast), prints `Downloading the pilot 9999-99 (9.9.9)
   release ...` and Maven's `download-maven-plugin` fails with `Download failed with code 404`.
-  Exit 1, and the `2026-08` validator is still there (`.pilot-pin` unchanged). The tag and version
+  Exit 1, and the `2026-09` validator is still there (`.pilot-pin` unchanged). The tag and version
   reach Maven as `-Dsysml.release.tag` / `-Dsysml.artifact.version`, overriding the wrapper's
   `pom.xml` defaults, so a wrapper commit pinned to an older release still builds against ours.
   The script aborts *before* Maven only if the wrapper's `pom.xml` stopped declaring those two

@@ -921,8 +921,8 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for full contribution guidelines.
 
 ## References
 
-- **OMG SysML v2.1 Beta 1 Spec:** [https://www.omg.org/spec/SysML/2.0](https://www.omg.org/spec/SysML/2.0) (2026-08 release)
-- **Pilot Implementation:** [SysML-v2-Pilot-Implementation 2026-08](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/releases/tag/2026-08)
+- **OMG SysML v2.1 Beta 1 Spec:** [https://www.omg.org/spec/SysML/2.0](https://www.omg.org/spec/SysML/2.0) (2026-09 release)
+- **Pilot Implementation:** [SysML-v2-Pilot-Implementation 2026-09](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/releases/tag/2026-09)
 - **Pilot Xtext Grammar:** `SysML.xtext` + `KerMLExpressions` (OMG reference implementation)
 - **Metamodel:** OMG SysML v2 metamodel (semantic foundation)
 - **Precedents:** gopls (Go LSP), rust-analyzer (Rust LSP), IPython/Jupyter (REPL design)

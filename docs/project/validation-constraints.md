@@ -1,7 +1,7 @@
 # Validation-Constraint Census
 
-**Pilot:** [SysML v2 Pilot Implementation](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation) release `2026-08`, commit `692170b71867353b8f90341e61556f49a5beb0e5`, artifact `jupyter-sysml-kernel 0.62.0` — the pin in `scripts/pilot-pin.sh`
-**Jar:** `jupyter-sysml-kernel-0.62.0-all.jar` (`sha256:b1ad9d64b1f0c75730facf25a5e2856bc9df2bb4bd39476df2fdf5ae68cd9350`), provisioned by `./scripts/download-pilot-validator.sh`
+**Pilot:** [SysML v2 Pilot Implementation](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation) release `2026-09`, commit `38665073bbf02849bd309b106eba79cbb3a1ee1d`, artifact `jupyter-sysml-kernel 0.63.0` — the pin in `scripts/pilot-pin.sh`
+**Jar:** `jupyter-sysml-kernel-0.63.0-all.jar` (`sha256:0de2fb9fdc19da3c00194bbb7e394a793e579a1e02f171279544e83e4a1fb376`), provisioned by `./scripts/download-pilot-validator.sh`
 **Run:** `go run -C tools ./cmd/validation-census` (restates the **Pilot**, **Jar** and **Census** lines and the census table from the manifest); `go run -C tools ./cmd/validation-census -check` (the gate); `go run -C tools ./cmd/validation-census -update` (re-extracts the names from the jar, keeping every recorded row); `go run -C tools ./cmd/formal-constraints -kerml <KerML.pdf> -sysml <SysML.pdf> -update` (re-extracts the formal documents' constraints from the pinned PDFs, keeping every recorded row; `-check` verifies, `-list` prints the extraction)
 **Manifest:** [constraint-manifest.json](constraint-manifest.json) — the single record every row below is rendered from: the constraint names read from the pinned jar, with the pin, the jar digest and the extraction method, and for each name its metaclass, the clause of the pinned specification, the implementing location, the diagnostic code its probes observe, its negative case, its census status and, for every status but ✅, a one-line rationale; alongside them the `check*`, `derive*` and `validate*` constraints the pinned formal documents state and no pilot validator names, as spec-sourced rows outside the census (see [Spec-sourced rows](#spec-sourced-rows)), the constraint-tier passes no pilot name covers, the declared errata and the OMG issues the census bears on
 **Evidence:** `tools/census/validation/testdata/probes/` — one minimal violating model per implemented row, run by `go test -C tools ./census/validation`
@@ -123,7 +123,7 @@ the diagnostic it reports was recorded as that row's probe.
 
 ## Summary
 
-**Census:** 164 of 217 named constraints are reported by OpenSysML — 157 ✅ faithful and 7 ⚠️ approximate; 0 ❌ not implemented, 4 ⛔ deliberate, 0 🚧 known failure, 49 ❔ unknown.
+**Census:** 166 of 219 named constraints are reported by OpenSysML — 159 ✅ faithful and 7 ⚠️ approximate; 0 ❌ not implemented, 4 ⛔ deliberate, 0 🚧 known failure, 49 ❔ unknown.
 
 The figures on that line, the pin and digest quoted above, and every row of the census table are
 written from the manifest — by `go run -C tools ./cmd/validation-census` and by `make docs-counts`,
@@ -212,7 +212,7 @@ strings carry one trailing underscore for most SysML constraints (`validateActio
 and one KerML constant is misspelled `invalidateMetadataFeatureBody`, so the manifest records
 the normalized name (the `in` prefix and one trailing underscore dropped) and, where they differ,
 the raw compiled string. A name found in both classes has source `both`. The result is the same
-217 names, with the same sources, as the hand-extracted list this census was commissioned
+219 names, with the same sources, as the hand-extracted list this census was commissioned
 against. Four names are misspelled in the pilot itself and are recorded as spelled:
 `validateNamespaceDistinguishablity`, `validateEndFeatureMembershpIsEnd`,
 `validateViewDefinitionOnlyOnvViewRendering`, `validateStateSubactionMembershioOwningType`.
@@ -221,8 +221,8 @@ against. Four names are misspelled in the pilot itself and are recorded as spell
 
 Each manifest row names the metaclass the constraint is declared on and cites the clause of the
 pinned specification that heading sits in — KerML 1.0 `formal/26-03-01` or SysML 2.0
-`formal/26-03-02`, the published PDFs whose SHA-256 the manifest records. 143 of the 217 pilot
-names are the formal document's own constraint names and carry `spec.name`; the other 74 are
+`formal/26-03-02`, the published PDFs whose SHA-256 the manifest records. 143 of the 219 pilot
+names are the formal document's own constraint names and carry `spec.name`; the other 76 are
 names the pinned pilot kept from earlier drafts (the formal documents restate most of them as
 `check…Specialization` constraints), so their rows cite the metaclass's clause without a spec
 name. The pilot's name is the row's identity throughout, since that is what the jar, the probes

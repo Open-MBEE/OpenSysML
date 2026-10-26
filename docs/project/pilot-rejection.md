@@ -26,8 +26,8 @@ the pass that implements it and its census status.
 
 ## Pinned reference
 
-The same pin as the differential: OMG SysML v2 Pilot Implementation `2026-08`
-(`jupyter-sysml-kernel 0.62.0`, see `scripts/pilot-pin.sh`). Two validators referee:
+The same pin as the differential: OMG SysML v2 Pilot Implementation `2026-09`
+(`jupyter-sysml-kernel 0.63.0`, see `scripts/pilot-pin.sh`). Two validators referee:
 
 - `build/pilot-sysml-validator/validate-sysml-batch` for `.sysml` cases
   (`./scripts/download-pilot-sysml-validator.sh`)
@@ -166,7 +166,7 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-349 case(s): 337 both reject, 0 only the pilot rejects, 12 only we reject, 0 both accept
+349 case(s): 339 both reject, 0 only the pilot rejects, 10 only we reject, 0 both accept
   of which 5 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
@@ -174,18 +174,18 @@ Under the default `-conformance auto`:
 | --- | --- | --- | --- | --- | --- |
 | extensions | 13 | 13 | 0 | 0 | 0 |
 | grammar | 114 | 114 | 0 | 0 | 0 |
-| semantic | 187 | 175 | 0 | 12 | 0 |
+| semantic | 187 | 177 | 0 | 10 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
-Eight of the twelve ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
+Eight of the ten ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
 the pinned pilot does not implement; `s81` is a non-Boolean guard on an action body's
 guarded succession, which the pinned pilot's `validateTransitionFeatureMembershipGuardExpression`
 leaves silent once the standard library types the guard (see the gap table below); and
 `connection-def-end-not-usage` and `flow-def-end-not-usage` are a connection and a flow definition
 inheriting KerML end features from `Links::BinaryLink` and `Transfers::Transfer`, against SysML v2.1
-Beta 2 §8.3.13.3 `connectionEnd : Usage` and §8.3.16.2 `flowEnd : Usage` — a check the pilot's master
-branch adds (ST6RI-974) after the 2026-08 pin, which accepts both (it warns on the flow case's
-inherited `payload` name only); and `variation-usage-objective-not-variant` is an objective owned by a
+Beta 2 §8.3.13.3 `connectionEnd : Usage` and §8.3.16.2 `flowEnd : Usage` — a check the pilot added as
+`validateConnectionDefinitionEndsAreUsages` / `validateFlowDefinitionEndsAreUsages` (ST6RI-974)
+in release `2026-09`, so both cases are both-reject since that pin; and `variation-usage-objective-not-variant` is an objective owned by a
 variation case usage, which SysML v2.1 Beta 2 §8.3.6.4 `validateUsageVariationOwnedFeatureMembership`
 (`isVariation implies ownedFeatureMembership->isEmpty()`) rejects and the pinned `SysMLValidator.checkUsage`
 exempts by its own `TODO` (see [gap register §27](spec-pilot-gap-register.md#27-variation-parameters-and-stakeholder-specialization)). None is a

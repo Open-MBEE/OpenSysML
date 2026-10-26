@@ -3,7 +3,7 @@
 ## Overview
 
 **Corpora:** the three pinned OMG pilot corpora, fetched by `./scripts/download-pilot-corpora.sh`
-at release `2026-08`, commit `692170b71867353b8f90341e61556f49a5beb0e5` (`scripts/pilot-pin.sh`)
+at release `2026-09`, commit `38665073bbf02849bd309b106eba79cbb3a1ee1d` (`scripts/pilot-pin.sh`)
 
 | Root | Directory | Files |
 |---|---|---|
