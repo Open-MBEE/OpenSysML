@@ -190,7 +190,7 @@ The pinned pilot's verdict on the probe (`validate-sysml-batch`): clean.
 
 ## Results (pilot `2026-08`, 924 files)
 
-**Scorecard:** 930 files; 91870 elements matched (18396 ours-only, 37363 pilot-only, 0 of them implied); properties: 1114347 present-equal, 27130 present-different, 1067384 ours-missing, 67792 pilot-missing, 1960337 absent-both, 26061 indeterminate.
+**Scorecard:** 930 files; 91870 elements matched (18396 ours-only, 37363 pilot-only, 0 of them implied); properties: 1114349 present-equal, 27129 present-different, 1067383 ours-missing, 67792 pilot-missing, 1960337 absent-both, 26061 indeterminate.
 
 The pilot's export failed on 56 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples and 4 test fixtures; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 56 failed files out and converted 26 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11730 (metaclass, property) rows carry a comparison; 111008 references compared through the unkeyed sentinel, 158907 of our `sysx:` annotations were left out, and 285/347 elements (ours/pilot) were dropped for ambiguous keys, 16850/31316 for having none.
 

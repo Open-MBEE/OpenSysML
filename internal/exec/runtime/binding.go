@@ -168,6 +168,16 @@ func (ctx *Context) bindingsForFeature(typeSym *symbols.Symbol, name string) []l
 
 // bindingLinksNothing reports a binding with an end or connector multiplicity of [0],
 // which links no value and so constrains neither feature (KerML 1.0 §7.4.9.2).
+// bindingLinks is how many links the binding states it makes, its own lower bound; one, and
+// not stated, where it gives none.
+func (ctx *Context) bindingLinks(binding lower.Binding) (links int64, stated bool) {
+	links = 1
+	if r, ok := ctx.model.semantics.RangeIn(binding.Scope, binding.Multiplicity); ok && r.Lower.Known && !r.Lower.Infinite {
+		links, stated = r.Lower.Value, true
+	}
+	return links, stated
+}
+
 func (ctx *Context) bindingLinksNothing(binding lower.Binding) bool {
 	if r, ok := ctx.model.semantics.RangeIn(binding.Scope, binding.Multiplicity); ok && r.Upper.Known && !r.Upper.Infinite && r.Upper.Value == 0 {
 		return true
@@ -406,11 +416,7 @@ func (ctx *Context) CheckBindingOn(binding lower.Binding, inst *Instance) (Check
 		}
 		values[end] = val
 	}
-	links := int64(1)
-	stated := false
-	if r, ok := ctx.model.semantics.RangeIn(binding.Scope, binding.Multiplicity); ok && r.Lower.Known && !r.Lower.Infinite {
-		links, stated = r.Lower.Value, true
-	}
+	links, stated := ctx.bindingLinks(binding)
 	if links == 0 || (!stated && ctx.equalValues(values[0], values[1])) {
 		result.Holds = true
 		return result, nil

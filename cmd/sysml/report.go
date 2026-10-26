@@ -721,6 +721,18 @@ func (r *reporter) warn(message string) {
 	}
 }
 
+// loadWarnings records what the load itself fell short of as warnings located at
+// their file, printed unless quiet or the load summary already did.
+func (r *reporter) loadWarnings(diags []repl.Diagnostic, printed bool) {
+	r.diags(diags)
+	if r.machine || printed {
+		return
+	}
+	for _, d := range diags {
+		fmt.Fprintf(r.err, "warning: %s: %s\n", d.File, d.Message)
+	}
+}
+
 // clean reports whether the run has found nothing wrong with the model so far.
 func (r *reporter) clean() bool {
 	return r.findings == 0 && len(r.report.Errors) == 0

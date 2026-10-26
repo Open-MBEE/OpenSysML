@@ -368,6 +368,9 @@ type Context struct {
 	// readingSubsetted holds the optional features whose subsetted collections are
 	// being read ahead of them, so two subsetting each other do not recurse.
 	readingSubsetted map[featureValueRef]bool
+	// drawingSubsetters holds the features drawing their values from what they subset
+	// (materializeFromSubsetted), so a read of the subsetted feature meanwhile skips them.
+	drawingSubsetters map[featureValueRef]bool
 
 	// resolvingNamespaceClasses holds the namespace binding classes being resolved, so
 	// a member read while one is under way resolves as usual rather than recursing.
@@ -456,6 +459,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		bindingOwners:           make(map[featureValueRef]*ast.Usage),
 		collectingSubsets:       make(map[featureValueRef]bool),
 		readingSubsetted:        make(map[featureValueRef]bool),
+		drawingSubsetters:       make(map[featureValueRef]bool),
 		successionOrderNotes:    make(map[successionOrderNoteKey]bool),
 
 		resolvingNamespaceClasses: make(map[*namespaceClass]bool),
