@@ -24,11 +24,8 @@ var wellKnownLibraryDirs = []string{
 	filepath.Join(".sysand", "lib"), // sysand
 }
 
-// IsLibraryDir reports whether name, a directory under dir, is where a package
-// manager installs what the project in dir uses: the first segment of a
-// well-known library directory under a directory holding .project.json. What
-// lies there is the installed projects' files, which the usages select, not
-// the project's own.
+// IsLibraryDir reports whether name, under dir, starts a well-known library
+// layout of the project in dir (one holding .project.json): installed, not own, files.
 func IsLibraryDir(dir, name string) bool {
 	if _, err := os.Stat(filepath.Join(dir, ProjectFile)); err != nil {
 		return false
