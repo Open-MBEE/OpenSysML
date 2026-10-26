@@ -78,10 +78,8 @@ func (d Discovery) DependenciesOf(sources []Source, known func(name string) bool
 		return nil
 	}
 
-	// A project's own directory and the projects it uses are where its
-	// imports are meant to be found, wherever in it the named files lie.
-	dirs = append(dirs, d.Around(dirs).Dirs()...)
-	byRoot := rootIndex(dirs, loaded, d.Guard)
+	files, archives := d.searchSpace(dirs)
+	byRoot := rootIndex(files, archives, loaded, d.Guard)
 	var out []string
 	for len(wanted) > 0 {
 		names := make([]string, 0, len(wanted))
@@ -258,20 +256,38 @@ func membersOf(node ast.Node) []ast.Node {
 // file's directory was not chosen as a project, and may be a home directory.
 const maxDependencyDirs = 2000
 
-// rootIndex maps each root-declared name to the unloaded model files under dirs
-// declaring it, sorted by path; the walk is ModelFiles' but tolerant and bounded.
-func rootIndex(dirs []string, loaded map[string]bool, guard func(path string) error) map[string][]*fileSummary {
-	var candidates []string
-	var archives []string
+// searchSpace lists what the dependency search reads for sources under dirs:
+// the model files under those directories and under the projects enclosing
+// them — a project's own directory is where its imports are meant to be found,
+// wherever in it the named files lie — then those of the installed projects
+// the enclosing ones use, each of which stops at a project nested in it, read
+// through its own installation. Archives among either are listed apart.
+func (d Discovery) searchSpace(dirs []string) (files, archives []string) {
+	around := d.Around(dirs)
 	budget := maxDependencyDirs
 	visited := map[string]bool{}
-	for _, dir := range dirs {
+	walk := func(dir string, skip func(dir string) bool) {
 		if IsArchiveFile(dir) {
 			archives = append(archives, dir)
-			continue
+			return
 		}
-		walkTolerant(dir, visited, &budget, IsModelFile, &candidates)
+		walkTolerant(dir, visited, &budget, IsModelFile, skip, &files)
 	}
+	for _, dir := range dirs {
+		walk(dir, nil)
+	}
+	for _, project := range around.Enclosing {
+		walk(project.Dir, nil)
+	}
+	for _, project := range around.Used {
+		walk(project.Dir, IsProjectDir)
+	}
+	return files, archives
+}
+
+// rootIndex maps each root-declared name to the unloaded model files among
+// candidates and the members of the archives declaring it, sorted by path.
+func rootIndex(candidates, archives []string, loaded map[string]bool, guard func(path string) error) map[string][]*fileSummary {
 	sort.Strings(candidates)
 	byRoot := map[string][]*fileSummary{}
 	seen := map[string]bool{}
@@ -327,8 +343,9 @@ func summarizeArchive(path string) []*fileSummary {
 
 // walkTolerant appends the files under dir that accept admits to out as walk
 // does, but passes over whatever cannot be read and stops once budget
-// directories are visited.
-func walkTolerant(dir string, visited map[string]bool, budget *int, accept func(string) bool, out *[]string) {
+// directories are visited; a directory below dir that skip admits is not
+// entered.
+func walkTolerant(dir string, visited map[string]bool, budget *int, accept func(string) bool, skip func(string) bool, out *[]string) {
 	resolved, err := filepath.EvalSymlinks(dir)
 	if err != nil || visited[resolved] || *budget == 0 {
 		return
@@ -347,8 +364,8 @@ func walkTolerant(dir string, visited map[string]bool, budget *int, accept func(
 		}
 		switch {
 		case info.IsDir():
-			if !strings.HasPrefix(e.Name(), ".") {
-				walkTolerant(path, visited, budget, accept, out)
+			if !strings.HasPrefix(e.Name(), ".") && (skip == nil || !skip(path)) {
+				walkTolerant(path, visited, budget, accept, skip, out)
 			}
 		case accept(path):
 			*out = append(*out, path)

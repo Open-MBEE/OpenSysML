@@ -428,13 +428,36 @@ func (a *Archive) Read(member string) ([]byte, error) {
 // Files lists the model files of the archive as the paths they load under:
 // the archive's path with the member's path appended.
 func (a *Archive) Files() []string {
+	nested := a.nestedProjects()
 	var out []string
 	for _, name := range a.names {
-		if IsModelFile(name) {
+		if IsModelFile(name) && !underAny(name, nested) {
 			out = append(out, MemberPath(a.Path, name))
 		}
 	}
 	return out
+}
+
+// nestedProjects lists the directories within the archive, with their trailing
+// slash, that hold a project interchange file of their own.
+func (a *Archive) nestedProjects() []string {
+	var out []string
+	for _, name := range a.names {
+		if dir, base := path.Split(name); dir != "" && base == ProjectFile {
+			out = append(out, dir)
+		}
+	}
+	return out
+}
+
+// underAny reports whether the member name lies under one of the directories.
+func underAny(name string, dirs []string) bool {
+	for _, dir := range dirs {
+		if strings.HasPrefix(name, dir) {
+			return true
+		}
+	}
+	return false
 }
 
 // MemberPath is the path a member of an archive is named by: the archive's
