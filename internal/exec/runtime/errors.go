@@ -311,8 +311,8 @@ var (
 	errAmbiguousMergeInput = errors.New("merge input is ambiguous")
 
 	// errFlowSource is returned when a flow's source completes with its pin holding
-	// no value to carry: a streaming source that never wrote, a succession source that produced nothing.
-	errFlowSource = errors.New("flow source produced no value")
+	// no value to carry (a source that never wrote). It is a kind of ErrNoValue.
+	errFlowSource = fmt.Errorf("%w: flow source produced no value", ErrNoValue)
 
 	// errStreamUnreceived is returned when a streaming flow carried a value after its
 	// target's last performance ended, so no performance of the target ever received it.
