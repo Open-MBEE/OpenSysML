@@ -52,11 +52,11 @@ func TestTreeDrawsTheRelationshipsBetweenItsNodes(t *testing.T) {
 		"Fleet::SportsCar specialization Fleet::Vehicle",
 		"Fleet::SportsCar composition Fleet::LightChassis: chassis",
 		"Fleet::SportsCar composition Fleet::Wheel: spare",
-		"chassis specialization chassis: redefines",
-		"spare specialization wheels: subsets",
+		"chassis redefinition chassis",
+		"spare subsetting wheels",
 		"Fleet::Chassis reference Fleet::Mass: mass",
 		"Fleet::LightChassis specialization Fleet::Chassis",
-		"mass specialization mass: redefines",
+		"mass redefinition mass",
 		"Fleet::fleetCar typing Fleet::Vehicle",
 	}
 	if got := treeEdgeLines(rendering); !reflect.DeepEqual(got, want) {
@@ -139,8 +139,8 @@ func TestTreeEdgeOriginsLocateTheRelationship(t *testing.T) {
 		"Fleet::Vehicle composition Fleet::Wheel: wheels[4]":   "part wheels[4] : Wheel;",
 		"Fleet::Vehicle reference Fleet::Driver: driver[0..1]": "ref part driver[0..1] : Driver;",
 		"Fleet::SportsCar specialization Fleet::Vehicle":       "Vehicle",
-		"chassis specialization chassis: redefines":            "chassis",
-		"spare specialization wheels: subsets":                 "wheels",
+		"chassis redefinition chassis":                         "chassis",
+		"spare subsetting wheels":                              "wheels",
 		"Fleet::LightChassis specialization Fleet::Chassis":    "Chassis",
 		"Fleet::fleetCar typing Fleet::Vehicle":                "Vehicle",
 	} {
@@ -170,7 +170,7 @@ func TestTreeTextListsRelationships(t *testing.T) {
 		"  Fleet::Vehicle *-- Fleet::Wheel: wheels[4]\n",
 		"  Fleet::Vehicle o-- Fleet::Driver: driver[0..1]\n",
 		"  Fleet::SportsCar --|> Fleet::Vehicle\n",
-		"  Fleet::fleetCar ..|> Fleet::Vehicle\n",
+		"  Fleet::fleetCar --:|> Fleet::Vehicle\n",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text lacks %q:\n%s", want, text)

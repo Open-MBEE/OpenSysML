@@ -31,8 +31,8 @@ digraph "CaseExamples::caseDiagram" {
   "n0" -> "n3" [dir=none, style=dashed, URL="https://example.test/src/case.sysml#L30", tooltip="case.sysml:30:3"];
   "n5" -> "n4" [dir=none, URL="https://example.test/src/case.sysml#L18", tooltip="CaseExamples::'Add Fuel'::fueler"];
   "n4" -> "n6" [label="«subject»", dir=none, URL="https://example.test/src/case.sysml#L17", tooltip="CaseExamples::'Add Fuel'::vehicle"];
-  "n0" -> "n4" [label="«include»", style=dashed, URL="https://example.test/src/case.sysml#L34", tooltip="CaseExamples::'Provide Transportation'::addFuel"];
-  "n0" -> "n7" [label="«include»", style=dashed, URL="https://example.test/src/case.sysml#L39", tooltip="CaseExamples::'Provide Transportation'::'enter vehicle'"];
+  "n0" -> "n4" [label="«include»", arrowhead=vee, URL="https://example.test/src/case.sysml#L34", tooltip="CaseExamples::'Provide Transportation'::addFuel"];
+  "n0" -> "n7" [label="«include»", arrowhead=vee, URL="https://example.test/src/case.sysml#L39", tooltip="CaseExamples::'Provide Transportation'::'enter vehicle'"];
   "n7" -> "n8" [label="«subject»", dir=none, URL="https://example.test/src/case.sysml#L40", tooltip="CaseExamples::'Provide Transportation'::'enter vehicle'::vehicle"];
   "n9" -> "n7" [dir=none, URL="https://example.test/src/case.sysml#L41", tooltip="CaseExamples::'Provide Transportation'::'enter vehicle'::driver"];
   "n0" -> "n10" [arrowtail=diamond, dir=back, URL="https://example.test/src/case.sysml#L44", tooltip="CaseExamples::'Provide Transportation'::'Drive Vehicle'"];

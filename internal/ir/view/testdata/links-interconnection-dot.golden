@@ -44,5 +44,5 @@ digraph "PlantViews::loopView" {
     }
   }
   "n1.0" -> "n3.0" [arrowhead=none, penwidth=3, URL="https://example.test/src/interconnection.sysml#L19", tooltip="Plant::Loop::supply"];
-  "n2" -> "n4" [style=dashed, URL="https://example.test/src/interconnection.sysml#L20", tooltip="interconnection.sysml:20:3"];
+  "n2" -> "n4" [URL="https://example.test/src/interconnection.sysml#L20", tooltip="interconnection.sysml:20:3"];
 }

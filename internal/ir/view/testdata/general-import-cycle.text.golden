@@ -4,5 +4,5 @@ package Loops
 package Cycles
 
 relationships:
-  Loops ..> Cycles: private import ::*
-  Cycles ..> Loops: private import ::*
+  Loops ..> Cycles: «private import»*
+  Cycles ..> Loops: «private import»*

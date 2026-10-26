@@ -574,7 +574,7 @@ evaluator-derived properties to the export — both are the in-flight overlap of
 | 124 | `deriveOwningMembershipOwnedMemberShortName` | OwningMembership | kerml 8.3.2.4.8 | `ownedMemberShortName` | no | 0/72 `OwningMembership` elements | API-JSON derived-property differential (in progress); #1232 |
 | 125 | `deriveOwningNamespace` | Element | kerml 8.3.2.1.2 | `owningNamespace` | partial | no `Element` element in the model; present on ActionDefinition, ActionUsage, AllocationDefinition, AllocationUsage | API-JSON derived-property differential (in progress); #1232 |
 | 126 | `derivePackageFilterCondition` | Package | kerml 8.3.4.13.4 | `filterCondition` | no | 0/2 `Package` elements | API-JSON derived-property differential (in progress); #1232 |
-| 127 | `derivePartUsagePartDefinition` | PartUsage | sysml 8.3.11.3 | `partDefinition` | no | 0/4 `PartUsage` elements | API-JSON derived-property differential (in progress); #1232 |
+| 127 | `derivePartUsagePartDefinition` | PartUsage | sysml 8.3.11.3 | `partDefinition` | no | 0/4 `PartUsage` elements; derived reflectively (`Model.definitionTypedFeatures`, over `FeatureTypeSetWithImplied`): `part p : I;` has `partDefinition` = [Parts::Part], as the pilot's export states | API-JSON derived-property differential (in progress); #1232 (merged) |
 | 128 | `derivePortDefinitionConjugatedPortDefinition` | PortDefinition | sysml 8.3.12.5 | `conjugatedPortDefinition` | yes | 1/1 `PortDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
 | 129 | `deriveRelationshipRelatedElement` | Relationship | kerml 8.3.2.1.3 | `relatedElement` | partial | no `Relationship` element in the model; present on FeatureTyping, PortConjugation, ReferenceSubsetting | API-JSON derived-property differential (in progress); #1232 |
 | 130 | `deriveRenderingDefinitionRendering` | RenderingDefinition | sysml 8.3.26.5 | `rendering` | no | 0/1 `RenderingDefinition` elements | API-JSON derived-property differential (in progress); #1232 |
@@ -843,9 +843,13 @@ Neither item is a rule this record changes; both are recorded so the difference 
 
 - `validatePartUsagePartDefinition` (Beta 2 §8.3.11.3, `partDefinition->notEmpty()`): on
   `package P { item def I; part p : I; }` and on `item def ID; part def P { part p : ID; }`
-  this implementation reports `part-usage-part-definition` and the pinned pilot reports nothing.
-  The rule is stated by Beta 2, so the report is specification-backed and stricter than the
-  pilot, not stricter than the specification.
+  this implementation reported `part-usage-part-definition` and the pinned pilot reports nothing.
+  Re-read against the derivation, the report was stricter than the specification, not only than
+  the pilot: `partDefinition` filters KerML `Feature::type` (§8.3.3.3.4), which takes in the
+  implied `Parts::parts` subsetting of `checkPartUsageSpecialization`, and validation constraints
+  presume the semantic constraints hold (§8.3.1), so every part usage is typed by `Parts::Part`
+  (§7.10). The rule was withdrawn; the census row is deliberate and the derivation is reflective
+  `partDefinition` (`semantics.Model.FeatureTypeSetWithImplied`).
 - `[3..1]` (`validateMultiplicityRangeBounds.violating.kerml`): this implementation reports
   `multiplicity-range` (lower bound exceeds upper bound), the pilot reports nothing. Beta 2
   names no constraint for a lower bound above the upper bound; the report rests on the

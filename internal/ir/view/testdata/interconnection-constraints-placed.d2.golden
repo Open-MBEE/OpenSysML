@@ -33,8 +33,8 @@ n5: "«constraint»\nmix" {
   "n5.1": "b" { class: pin }
   "n5.2": "total" { class: pin }
 }
-n0 -- n4."n4.0": { class: edge }
-n1 -- n4."n4.1": { class: edge }
-n4."n4.2" -- n5."n5.0": { class: edge }
-n2 -- n5."n5.1": { class: edge }
-n5."n5.2" -- n3: { class: edge }
+n0 -- n4."n4.0": "=" { class: edge }
+n1 -- n4."n4.1": "=" { class: edge }
+n4."n4.2" -- n5."n5.0": "=" { class: edge }
+n2 -- n5."n5.1": "=" { class: edge }
+n5."n5.2" -- n3: "=" { class: edge }

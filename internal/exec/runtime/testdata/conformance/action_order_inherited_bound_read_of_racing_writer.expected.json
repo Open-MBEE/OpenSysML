@@ -1,0 +1,23 @@
+{
+	"type": "action",
+	"evaluate": "test::race",
+	"trace": true,
+	"outcomes": [
+		{
+			"outputs": {
+				"x": {"type": "Integer", "value": 1},
+				"y": {"type": "Integer", "value": 2},
+				"z": {"type": "Integer", "value": 2}
+			}
+		},
+		{
+			"outputs": {
+				"x": {"type": "Integer", "value": 2},
+				"y": {"type": "Integer", "value": 3},
+				"z": {"type": "Integer", "value": 3}
+			}
+		}
+	],
+	"admissible": "A feature valued by an expression stands on what its expression reads",
+	"orderDependent": {"x": 2, "y": 2, "z": 2}
+}

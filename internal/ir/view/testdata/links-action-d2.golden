@@ -8,7 +8,7 @@ classes: {
   bar: { shape: rectangle; width: 80; height: 8; style: { fill: black; stroke: black } }
   choice: { shape: diamond; style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
   edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
-  flow: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
+  succession: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
 }
 n0: "«action def»\nDrive" {
   class: definition
@@ -28,16 +28,16 @@ n0: "«action def»\nDrive" {
   n10: "«action»\npark" { class: usage; link: "https://example.test/src/action.sysml#L36" }
   n11: "«decision»\ncheck" { class: choice; link: "https://example.test/src/action.sysml#L46" }
 }
-n0.n3.n4 -> n0.n3.n5: { class: edge; link: "https://example.test/src/action.sysml#L24" }
-n0.n1 -> n0.n7: { class: edge; link: "https://example.test/src/action.sysml#L38" }
-n0.n2 -> n0.n8: { class: edge; link: "https://example.test/src/action.sysml#L41" }
-n0.n2 -> n0.n3: { class: flow; link: "https://example.test/src/action.sysml#L52" }
-n0.n3 -> n0.n8: { class: edge; link: "https://example.test/src/action.sysml#L42" }
-n0.n6 -> n0.n8: { class: edge; link: "https://example.test/src/action.sysml#L44" }
-n0.n7 -> n0.n2: { class: edge; link: "https://example.test/src/action.sysml#L39" }
-n0.n7 -> n0.n3: { class: edge; link: "https://example.test/src/action.sysml#L40" }
-n0.n7 -> n0.n6: { class: edge; link: "https://example.test/src/action.sysml#L43" }
-n0.n8 -> n0.n11: { class: edge; link: "https://example.test/src/action.sysml#L47" }
-n0.n10 -> n0.n9: { class: edge; link: "https://example.test/src/action.sysml#L50" }
-n0.n11 -> n0.n9: "[speed > 0]" { class: edge; link: "https://example.test/src/action.sysml#L48" }
-n0.n11 -> n0.n10: { class: edge; link: "https://example.test/src/action.sysml#L49" }
+n0.n3.n4 -> n0.n3.n5: { class: succession; link: "https://example.test/src/action.sysml#L24" }
+n0.n1 -> n0.n7: { class: succession; link: "https://example.test/src/action.sysml#L38" }
+n0.n2 -> n0.n8: { class: succession; link: "https://example.test/src/action.sysml#L41" }
+n0.n2 -> n0.n3: { class: edge; link: "https://example.test/src/action.sysml#L52" }
+n0.n3 -> n0.n8: { class: succession; link: "https://example.test/src/action.sysml#L42" }
+n0.n6 -> n0.n8: { class: succession; link: "https://example.test/src/action.sysml#L44" }
+n0.n7 -> n0.n2: { class: succession; link: "https://example.test/src/action.sysml#L39" }
+n0.n7 -> n0.n3: { class: succession; link: "https://example.test/src/action.sysml#L40" }
+n0.n7 -> n0.n6: { class: succession; link: "https://example.test/src/action.sysml#L43" }
+n0.n8 -> n0.n11: { class: succession; link: "https://example.test/src/action.sysml#L47" }
+n0.n10 -> n0.n9: { class: succession; link: "https://example.test/src/action.sysml#L50" }
+n0.n11 -> n0.n9: "[speed > 0]" { class: succession; link: "https://example.test/src/action.sysml#L48" }
+n0.n11 -> n0.n10: { class: succession; link: "https://example.test/src/action.sysml#L49" }

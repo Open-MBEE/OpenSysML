@@ -138,7 +138,7 @@ func TestGraphFormsDrawOnePlacement(t *testing.T) {
 		if !strings.Contains(stripped, tc.comment+"not represented: 5 node(s) without a position, drawn among the placed ones; the "+string(tc.form)+" form lays every node out itself\n") {
 			t.Errorf("%s under strip does not account for the unplaced nodes:\n%s", tc.form, stripped)
 		}
-		if strings.Count(stripped, " --- ")+strings.Count(stripped, " === ")+strings.Count(stripped, "-[thickness=3]-")+strings.Count(stripped, " -.-> ")+strings.Count(stripped, "-[dashed]->") != 3 {
+		if strings.Count(stripped, " --- ")+strings.Count(stripped, " === ")+strings.Count(stripped, "-[thickness=3]-")+strings.Count(stripped, " -.-> ")+strings.Count(stripped, " --> ") != 3 {
 			t.Errorf("%s under strip does not draw every edge:\n%s", tc.form, stripped)
 		}
 	}

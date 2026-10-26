@@ -1,38 +1,38 @@
 {
-  "pilot": "2026-09",
+  "pilot": "2026-08",
   "corpus": "build/pilot-xpect-corpus",
   "library": "the suite's own /library* copies, loaded per fixture as its XPECT_SETUP declares them",
   "provenance": {
-    "pilotTag": "2026-09",
-    "pilotCommit": "38665073bbf02849bd309b106eba79cbb3a1ee1d",
-    "pilotArtifact": "0.63.0",
-    "errataRegistry": "sha256:d5782936c5c92f29f24a077477b148fc5d178f83f174b143d1bb95c3693ab1b9",
+    "pilotTag": "2026-08",
+    "pilotCommit": "692170b71867353b8f90341e61556f49a5beb0e5",
+    "pilotArtifact": "0.62.0",
+    "errataRegistry": "sha256:e92505147b15ab8e68a09f19632639383570f0cbe0fdc6f50fb76e03b8e04579",
     "inputs": [
       {
         "name": "kerml",
         "dir": "build/pilot-xpect-corpus/kerml",
         "origin": "pinned",
-        "files": 304,
-        "digest": "sha256:b5b60fa2d46203986e97b9bd1a29120ca1e632397ffdd92c8644dbb6c8c9bd5b"
+        "files": 303,
+        "digest": "sha256:3cd6aa34b1295f5ef708d143e90117222582f37b72b6784661dfd37b7700137b"
       },
       {
         "name": "sysml",
         "dir": "build/pilot-xpect-corpus/sysml",
         "origin": "pinned",
-        "files": 128,
-        "digest": "sha256:2ab96c36445009f83900a27716327e68876de7165a45ace4e8440ca07abac0de"
+        "files": 126,
+        "digest": "sha256:1f56aeaf27ab6143cf4c994dced485fb15a061f66a2759a0b8ef2af32358db6c"
       }
     ],
     "recorded": "2026-10-26"
   },
   "totals": {
-    "files": 432,
+    "files": 429,
     "filesUnparsed": 0,
-    "assertions": 1267,
-    "rows": 1329,
+    "assertions": 1264,
+    "rows": 1326,
     "agree": 1296,
     "wordingOnly": 248,
-    "disagree": 33,
+    "disagree": 30,
     "unlocated": 0,
     "notAdjudicated": 0,
     "missingResources": 0,
@@ -41,10 +41,10 @@
   "kinds": [
     {
       "kind": "errors",
-      "assertions": 490,
+      "assertions": 488,
       "blockAssertions": 27,
-      "rows": 514,
-      "agree": 495,
+      "rows": 512,
+      "agree": 493,
       "wordingOnly": 248,
       "disagree": 19,
       "unlocated": 0,
@@ -56,12 +56,12 @@
     },
     {
       "kind": "noErrors",
-      "assertions": 277,
+      "assertions": 276,
       "blockAssertions": 0,
-      "rows": 277,
-      "agree": 263,
+      "rows": 276,
+      "agree": 265,
       "wordingOnly": 0,
-      "disagree": 14,
+      "disagree": 11,
       "unlocated": 0,
       "notAdjudicated": 0,
       "sameLocation": 0,
@@ -135,11 +135,11 @@
       "name": "kerml",
       "dir": "build/pilot-xpect-corpus/kerml",
       "totals": {
-        "files": 304,
+        "files": 303,
         "filesUnparsed": 0,
-        "assertions": 955,
-        "rows": 969,
-        "agree": 949,
+        "assertions": 954,
+        "rows": 968,
+        "agree": 948,
         "wordingOnly": 243,
         "disagree": 20,
         "unlocated": 0,
@@ -165,10 +165,10 @@
         },
         {
           "kind": "noErrors",
-          "assertions": 201,
+          "assertions": 200,
           "blockAssertions": 0,
-          "rows": 201,
-          "agree": 196,
+          "rows": 200,
+          "agree": 195,
           "wordingOnly": 0,
           "disagree": 5,
           "unlocated": 0,
@@ -2583,12 +2583,6 @@
           ]
         },
         {
-          "path": "src/org/omg/kerml/xpect/tests/validation/MultiplicityAlias_valid.kerml.xt",
-          "setupClass": "org.omg.kerml.xpect.tests.validation.KerMLValidationTest",
-          "expectations": 1,
-          "agree": 1
-        },
-        {
           "path": "src/org/omg/kerml/xpect/tests/validation/MultiplicityRange_invalid.kerml.xt",
           "setupClass": "org.omg.kerml.xpect.tests.validation.KerMLValidationTest",
           "expectations": 5,
@@ -4612,13 +4606,13 @@
       "name": "sysml",
       "dir": "build/pilot-xpect-corpus/sysml",
       "totals": {
-        "files": 128,
+        "files": 126,
         "filesUnparsed": 0,
-        "assertions": 312,
-        "rows": 360,
-        "agree": 347,
+        "assertions": 310,
+        "rows": 358,
+        "agree": 348,
         "wordingOnly": 5,
-        "disagree": 13,
+        "disagree": 10,
         "unlocated": 0,
         "notAdjudicated": 0,
         "missingResources": 0,
@@ -4627,10 +4621,10 @@
       "kinds": [
         {
           "kind": "errors",
-          "assertions": 176,
+          "assertions": 174,
           "blockAssertions": 10,
-          "rows": 186,
-          "agree": 182,
+          "rows": 184,
+          "agree": 180,
           "wordingOnly": 5,
           "disagree": 4,
           "unlocated": 0,
@@ -4645,9 +4639,9 @@
           "assertions": 76,
           "blockAssertions": 0,
           "rows": 76,
-          "agree": 67,
+          "agree": 70,
           "wordingOnly": 0,
-          "disagree": 9,
+          "disagree": 6,
           "unlocated": 0,
           "notAdjudicated": 0,
           "sameLocation": 0,
@@ -4906,16 +4900,7 @@
           "path": "src/org/omg/sysml/xpect/tests/simpletests/IndividualTest.sysml.xt",
           "setupClass": "org.omg.sysml.xpect.tests.simpletests.SysMLTests",
           "expectations": 1,
-          "agree": 0,
-          "rows": [
-            {
-              "kind": "noErrors",
-              "line": 29,
-              "verdict": "disagree",
-              "declared": "no error the file does not declare",
-              "ours": "1 error(s), first: line 41: A part must be typed by at least one part definition."
-            }
-          ]
+          "agree": 1
         },
         {
           "path": "src/org/omg/sysml/xpect/tests/simpletests/InterfaceTest.sysml.xt",
@@ -4927,16 +4912,7 @@
           "path": "src/org/omg/sysml/xpect/tests/simpletests/ItemTest.sysml.xt",
           "setupClass": "org.omg.sysml.xpect.tests.simpletests.SysMLTests",
           "expectations": 1,
-          "agree": 0,
-          "rows": [
-            {
-              "kind": "noErrors",
-              "line": 27,
-              "verdict": "disagree",
-              "declared": "no error the file does not declare",
-              "ours": "1 error(s), first: line 38: A part must be typed by at least one part definition."
-            }
-          ]
+          "agree": 1
         },
         {
           "path": "src/org/omg/sysml/xpect/tests/simpletests/MetadataTest.sysml.xt",
@@ -5137,12 +5113,6 @@
           "agree": 19
         },
         {
-          "path": "src/org/omg/sysml/xpect/tests/validation/invalid/ConnectionUsage_End_Invalid.sysml.xt",
-          "setupClass": "org.omg.sysml.xpect.tests.validation.invalid.SysMLTests",
-          "expectations": 1,
-          "agree": 1
-        },
-        {
           "path": "src/org/omg/sysml/xpect/tests/validation/invalid/ConnectionUsage_Invalid.sysml.xt",
           "setupClass": "org.omg.sysml.xpect.tests.validation.invalid.SysMLTests",
           "expectations": 2,
@@ -5185,13 +5155,7 @@
           "agree": 2
         },
         {
-          "path": "src/org/omg/sysml/xpect/tests/validation/invalid/FlowUsage_End_Invalid.sysml.xt",
-          "setupClass": "org.omg.sysml.xpect.tests.validation.invalid.SysMLTests",
-          "expectations": 1,
-          "agree": 1
-        },
-        {
-          "path": "src/org/omg/sysml/xpect/tests/validation/invalid/FlowUsage_Invalid.sysml.xt",
+          "path": "src/org/omg/sysml/xpect/tests/validation/invalid/FlowConnectionUsage_Invalid.sysml.xt",
           "setupClass": "org.omg.sysml.xpect.tests.validation.invalid.SysMLTests",
           "expectations": 10,
           "agree": 10
@@ -5536,16 +5500,7 @@
           "path": "src/org/omg/sysml/xpect/tests/validation/valid/PartUsage.sysml.xt",
           "setupClass": "org.omg.sysml.xpect.tests.validation.valid.SysMLTests",
           "expectations": 1,
-          "agree": 0,
-          "rows": [
-            {
-              "kind": "noErrors",
-              "line": 34,
-              "verdict": "disagree",
-              "declared": "no error the file does not declare",
-              "ours": "1 error(s), first: line 41: A part must be typed by at least one part definition."
-            }
-          ]
+          "agree": 1
         },
         {
           "path": "src/org/omg/sysml/xpect/tests/validation/valid/PortUsage.sysml.xt",
@@ -5656,8 +5611,8 @@
     "sysml/src/org/omg/sysml/xpect/tests/validation/invalid/RequirementUsage_Invalid.sysml.xt: line 66: `XPECT errors` opens no `//` or `//*` note, so this harness does not run it: /* XPECT errors ---"
   ],
   "errata": {
-    "registryEntries": 13,
-    "corrections": 6,
+    "registryEntries": 16,
+    "corrections": 9,
     "documentedWithoutCorrection": 7,
     "correctionsApplied": 0,
     "entries": [
@@ -5764,16 +5719,40 @@
         "citation": "SysML v2 §9.8.9.1",
         "corrected": true,
         "derivation": "the unit postfix binds to PrimaryExpression (KerMLExpressions.xtext:308), below MultiplicativeExpression, so `[K]` qualifies 900 alone and the value is Θ^-1 where ThermodynamicTemperatureValue is Θ; the evident intent, 0 °F as a temperature in kelvin, is `(229835/900) [K]`."
+      },
+      {
+        "id": "Flows-46",
+        "path": "internal/workspace/libs/stdlib/Systems Library/Flows.sysml",
+        "line": 46,
+        "citation": "SysML v2.1 Beta 2 §8.3.16.2",
+        "corrected": true,
+        "derivation": "§8.3.16.2 types `flowEnd : Usage [0..*] {redefines associationEnd}`, so every end feature of a flow definition, inherited ones included, is a Usage. Published, `Message` owns no ends and inherits `Transfer::source` and `Transfer::target`, KerML features, so the library's own base flow definition violates the clause, and with it every `flow def` that specializes `Message` without ends of its own. The repair is the one OMG issue SYSML21-681 and the pilot's ST6RI-974 apply: `Message` gets owned occurrence usage ends redefining `Transfer::source`/`target`, `messages` becomes an action usage (a flow definition is an action definition, so `Message` types it still) and owns ends redefining `Message::source`/`target` and `transfers::source`/`target`."
+      },
+      {
+        "id": "Flows-99",
+        "path": "internal/workspace/libs/stdlib/Systems Library/Flows.sysml",
+        "line": 99,
+        "citation": "SysML v2.1 Beta 2 §8.3.16.2",
+        "corrected": true,
+        "derivation": "§8.3.16.2 types `flowEnd : Usage [0..*] {redefines associationEnd}`, so every end feature of a flow definition, inherited ones included, is a Usage. Published, `Message` owns no ends and inherits `Transfer::source` and `Transfer::target`, KerML features, so the library's own base flow definition violates the clause, and with it every `flow def` that specializes `Message` without ends of its own. The repair is the one OMG issue SYSML21-681 and the pilot's ST6RI-974 apply: `Message` gets owned occurrence usage ends redefining `Transfer::source`/`target`, `messages` becomes an action usage (a flow definition is an action definition, so `Message` types it still) and owns ends redefining `Message::source`/`target` and `transfers::source`/`target`."
+      },
+      {
+        "id": "Flows-103",
+        "path": "internal/workspace/libs/stdlib/Systems Library/Flows.sysml",
+        "line": 103,
+        "citation": "SysML v2.1 Beta 2 §8.3.16.2",
+        "corrected": true,
+        "derivation": "§8.3.16.2 types `flowEnd : Usage [0..*] {redefines associationEnd}`, so every end feature of a flow definition, inherited ones included, is a Usage. Published, `Message` owns no ends and inherits `Transfer::source` and `Transfer::target`, KerML features, so the library's own base flow definition violates the clause, and with it every `flow def` that specializes `Message` without ends of its own. The repair is the one OMG issue SYSML21-681 and the pilot's ST6RI-974 apply: `Message` gets owned occurrence usage ends redefining `Transfer::source`/`target`, `messages` becomes an action usage (a flow definition is an action definition, so `Message` types it still) and owns ends redefining `Message::source`/`target` and `transfers::source`/`target`."
       }
     ],
     "totals": {
-      "files": 432,
+      "files": 429,
       "filesUnparsed": 0,
-      "assertions": 1267,
-      "rows": 1329,
+      "assertions": 1264,
+      "rows": 1326,
       "agree": 1296,
       "wordingOnly": 248,
-      "disagree": 33,
+      "disagree": 30,
       "unlocated": 0,
       "notAdjudicated": 0,
       "missingResources": 0,
@@ -5782,10 +5761,10 @@
     "kinds": [
       {
         "kind": "errors",
-        "assertions": 490,
+        "assertions": 488,
         "blockAssertions": 27,
-        "rows": 514,
-        "agree": 495,
+        "rows": 512,
+        "agree": 493,
         "wordingOnly": 248,
         "disagree": 19,
         "unlocated": 0,
@@ -5797,12 +5776,12 @@
       },
       {
         "kind": "noErrors",
-        "assertions": 277,
+        "assertions": 276,
         "blockAssertions": 0,
-        "rows": 277,
-        "agree": 263,
+        "rows": 276,
+        "agree": 265,
         "wordingOnly": 0,
-        "disagree": 14,
+        "disagree": 11,
         "unlocated": 0,
         "notAdjudicated": 0,
         "sameLocation": 0,

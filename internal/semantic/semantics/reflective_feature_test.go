@@ -825,6 +825,22 @@ func TestReflectivePartUsageIncludesImplicitPartDefinition(t *testing.T) {
 	}
 }
 
+func TestReflectiveVariantReferenceTakesNoKindBaseType(t *testing.T) {
+	const src = `package P {
+		action def AD;
+		action a : AD;
+		variation action va : AD { variant a; }
+	}`
+	for _, fixture := range reflectiveFixtures(t, "variant-reference-types.sysml", source.KindSysML, src) {
+		variant := nestedSym(t, fixture.root, "P::va::a")
+		if variant.Recorded() {
+			// The recorder stores Parts::Part among a variant reference's types itself.
+			continue
+		}
+		assertReflectiveElements(t, fixture.model, variant, "type", "P::AD")
+	}
+}
+
 func TestReflectiveMetadataFeatureHasOneMetaclassType(t *testing.T) {
 	const src = `package P {
 		private import AnalysisRecords::*;

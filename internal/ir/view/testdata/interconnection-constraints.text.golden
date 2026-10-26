@@ -15,8 +15,8 @@ part def Amplifier
     port total
 
 connections:
-  signal == amplify.input
-  gain == amplify.gain
-  amplify.output == mix.a
-  noise == mix.b
-  mix.total == output
+  signal == amplify.input: =
+  gain == amplify.gain: =
+  amplify.output == mix.a: =
+  noise == mix.b: =
+  mix.total == output: =

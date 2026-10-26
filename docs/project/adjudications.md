@@ -193,7 +193,7 @@ reasoner; we apply the direct pairwise test as an advisory check.
 **Adjudicated divergence, kept as a warning.** `redefinition-type-mismatch` reports a redefinition
 typed by two unrelated types, because it is almost always a slip, but as a warning, so no model the
 specification admits is rejected. The two `Import3` `noErrors` rows in
-[pilot-xpect.md](pilot-xpect.md#noerrors--263-of-277-agree) closed with that severity; calling them
+[pilot-xpect.md](pilot-xpect.md#noerrors--265-of-276-agree) closed with that severity; calling them
 wording-only would have been false — the pilot emits nothing there. (The same check once caught the
 non-conforming individual redefinition in `Individuals Examples/AnalysisIndividualExample.sysml`,
 fixed upstream at `2026-07`.)
@@ -363,9 +363,9 @@ Around it:
   derivation counts all ends; its later development line adds the usage check over all end
   features. Validating the Systems Library's `Flows.sysml` as a standalone file reports the
   published `abstract flow def Message :> MessageAction, Transfer` for exactly this reason — the
-  published text at `2026-08` inherited KerML ends (the errata-overlay rows `Flows-46`, `Flows-99`,
-  `Flows-103` declared the correction until the `2026-09` library published it) — and the finding
-  disappears once the repair is applied to the file (`passes/w10b_ends.go`, `passes/w10b_related_elements.go`,
+  published text inherits KerML ends (the errata-overlay rows `Flows-46`, `Flows-99`, `Flows-103`
+  declare the correction the bundled copy carries) — and the finding disappears once those rows are
+  applied to the file (`passes/w10b_ends.go`, `passes/w10b_related_elements.go`,
   `TestW10BFlowDefInheritedUsageEndsRelate`, `TestW10BEndsAreUsages`).
 - **Accessibility of a `satisfy`/`verify` target** is skipped only for a dotted feature-chain target
   (`verify vehicleSpecification.vehicleMassRequirement`) — the notation the message itself prescribes

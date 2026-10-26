@@ -4,7 +4,6 @@ classes: {
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
   edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
   specialization: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
-  typing: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
 }
 n0: "«abstract part def»\nVehicle" { class: definition }
 n1: "«attribute»\nmass" { class: usage }
@@ -35,5 +34,5 @@ n9 -- n12: { class: edge }
 n9 -- n13: { class: edge }
 n9 -- n14: { class: edge }
 n8 -- n15: { class: edge }
-n2 -> n0: { class: typing }
+n2 -> n0: { class: specialization }
 n8 -> n0: { class: specialization }

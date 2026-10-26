@@ -83,7 +83,7 @@ func errorLines(lines []string, _ []NamedValue, err error) ([]string, bool, erro
 }
 
 // LoadFile submits path and the files beside and below it that declare a root
-// namespace it imports as one submission, returning the lines `%load` prints.
+// namespace it references as one submission, returning the lines `%load` prints.
 // A lone "-" reads standard input; the error is a file it could not read or
 // one named as the transcript is.
 func (s *Session) LoadFile(path string) ([]string, error) {
@@ -92,7 +92,7 @@ func (s *Session) LoadFile(path string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	read, err := s.readWithDependencies(files, loadOptions{}, s.ws.IsLibraryRoot)
+	read, err := s.readWithDependencies(files, loadOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -114,21 +114,21 @@ func (s *Session) LoadFileSummary(path string) ([]string, error) {
 // LoadFilesSummary is LoadFileSummary over every path as one submission, each
 // file a document of its own, indexed together and each summarized on its own;
 // a read failure is a *ReadError and a file named as the transcript is a
-// *ReservedNameError. Files beside and below the paths that declare an imported
-// root namespace load too.
+// *ReservedNameError. Files beside and below the paths that declare a root
+// namespace they reference load too.
 func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 	defer s.enter()()
 	paths, err := s.expandArchives(expandHomes(paths))
 	if err != nil {
 		return nil, err
 	}
-	read, err := s.readWithDependencies(paths, loadOptions{}, s.ws.IsLibraryRoot)
+	read, err := s.readWithDependencies(paths, loadOptions{})
 	if err != nil {
 		return nil, err
 	}
 	files := read.files
 	lines := read.notes
-	archives := warningLines(s.discovery().ArchiveWarnings(paths), s.verbosity)
+	archives := s.discoveryWarnings(paths)
 	if len(files) == 0 {
 		return append(lines, archives...), nil
 	}

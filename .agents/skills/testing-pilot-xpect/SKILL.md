@@ -67,7 +67,9 @@ import hint landed, re-recorded 2026-10-01: `1293 agree (of which 248 wording-on
 0 unlocated, 0 not adjudicated`, per-suite kerml 948/20 and sysml 345/13, `noErrors` `262 / 276`;
 the three new `noErrors` rows are `IndividualTest`, `ItemTest` and `validation/valid/PartUsage`
 (`A part must be typed by at least one part definition.`), and 16 kerml wording-only `errors` rows changed only
-their recorded `ours` text (the hint). `pilot-xpect -check` now also runs in `pr.yml`
+their recorded `ours` text (the hint). `pilot-xpect -check` now also runs in `pr.yml`. When the part-definition rule was withdrawn
+(its derived `partDefinition` is never empty), re-recorded 2026-10-25: `1296 agree (of which 248
+wording-only), 30 disagree`, per-suite kerml 948/20 and sysml 348/10, `noErrors` `265 / 276`
 (`xpect-oracle`), so a verdict movement fails the pull request rather than the next nightly run.
 Read the live totals from the baseline rather than this paragraph; it is an anchor, not the check.
 
@@ -125,14 +127,14 @@ for j in 1 3 16 0; do cmp /tmp/xj$j/pilot-xpect.json docs/project/pilot-xpect-ba
 - Move, do not delete: `mv build/pilot-xpect-corpus /tmp/xpect-corpus-backup`. After a fresh
   download, `diff -r /tmp/xpect-corpus-backup build/pilot-xpect-corpus` must be empty apart from
   the `.pilot-pin` stamps if the backup predates them.
-- Idempotence: second run prints `Already present at ... (pin 2026-09 38665073…)` twice, exit 0.
+- Idempotence: second run prints `Already present at ... (pin 2026-08 692170b7…)` twice, exit 0.
   Prove it by `stat -c '%n %Y'` on the two suite dirs before/after, not by the message.
 - Bogus pin: `PILOT_TAG=9999-99 ./scripts/download-pilot-xpect.sh` → git `fatal: Remote branch
   9999-99 not found` then `error: could not clone …`, **exit 1**, and `build/pilot-xpect-corpus`
   is left as it was (everything is staged in a `mktemp -d` and only `mv`d in at the end). Check for
   a half-populated corpus with `find … -name '*.xt' | wc -l` (0 from absent, 429 from present).
 - Moved tag: `PILOT_COMMIT=0000000000000000000000000000000000000000 ./scripts/download-pilot-xpect.sh`
-  → `error: <repo> tag 2026-09 resolves to 38665073…, scripts/pilot-pin.sh pins 0000…`, exit 1,
+  → `error: <repo> tag 2026-08 resolves to 692170b7…, scripts/pilot-pin.sh pins 0000…`, exit 1,
   nothing provisioned.
 - Nothing vendored: `git status --porcelain` clean after every step.
 
@@ -423,8 +425,8 @@ census in `w5c_census_test.go` is live two ways: perturb one pinned triple (e.g.
 ## Regression neighbour
 
 `go run -C tools ./cmd/pilot-diff` (~1m12s) must still print the headline the *committed* baseline holds —
-at the `2026-09` pin that is `920 file(s), 514 fully agreeing; 1098 agreed diagnostic(s), 366
-only ours, 2459 only the pilot's`. Read the number out of
+at the `2026-08` pin that is `920 file(s), 521 fully agreeing; 1098 agreed diagnostic(s), 359
+only ours, 2450 only the pilot's`. Read the number out of
 `docs/project/pilot-differential-baseline.json` rather than trusting this line, since a landing fix
 round moves it. When the baseline is itself stale (it was at `19a3ce03`, holding 273 / 281 / 317), a
 failing `cmp` against it is *not* evidence of an Xpect regression — compare the summary line, and see

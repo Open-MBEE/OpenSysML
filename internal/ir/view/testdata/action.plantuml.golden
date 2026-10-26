@@ -55,17 +55,17 @@ state "<size:10>//«action def»//</size>\n**Drive**" as n0 <<action def>> {
   state "<size:10>//«action»//</size>\n**park**" as n10 <<action>> <<usage>>
   state "<size:10>//«decision»//</size>\n**check**" as n11 <<choice>>
 }
-n4 --> n5
-n1 --> n7
-n2 --> n8
-n2 -[dashed]-> n3
-n3 --> n8
-n6 --> n8
-n7 --> n2
-n7 --> n3
-n7 --> n6
-n8 --> n11
-n10 --> n9
-n11 --> n9 : [speed <U+003E> 0]
-n11 --> n10
+n4 -[dashed]-> n5
+n1 -[dashed]-> n7
+n2 -[dashed]-> n8
+n2 --> n3
+n3 -[dashed]-> n8
+n6 -[dashed]-> n8
+n7 -[dashed]-> n2
+n7 -[dashed]-> n3
+n7 -[dashed]-> n6
+n8 -[dashed]-> n11
+n10 -[dashed]-> n9
+n11 -[dashed]-> n9 : [speed <U+003E> 0]
+n11 -[dashed]-> n10
 @enduml

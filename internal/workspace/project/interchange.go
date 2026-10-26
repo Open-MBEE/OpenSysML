@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 )
 
 // ProjectFile is the file every OMG project interchange directory holds beside
@@ -96,7 +98,9 @@ func (p *Interchange) IsArchived() bool { return IsArchive(p.Dir) }
 
 // Files lists the model files the project contributes, sorted: the model
 // members of an archive, or the loadable files under a directory, at most
-// maxDependencyDirs directories deep.
+// maxDependencyDirs directories deep. A directory below it that holds a project
+// interchange file of its own is a project of its own, read through its own
+// installation, and contributes nothing here; nor do its members in an archive.
 func (p *Interchange) Files() []string {
 	if p.IsArchived() {
 		a, err := openCached(p.Dir)
@@ -107,7 +111,7 @@ func (p *Interchange) Files() []string {
 	}
 	var files []string
 	budget := maxDependencyDirs
-	walkTolerant(p.Dir, map[string]bool{}, &budget, IsLoadable, &files)
+	walkTolerant(p.Dir, map[string]bool{}, &budget, IsLoadable, IsProjectDir, &files)
 	sort.Strings(files)
 	return files
 }
@@ -164,11 +168,43 @@ func (p *Interchange) Uses(u Usage) bool {
 	return slug(segments[len(segments)-2]) == slug(p.Publisher) && slug(last) == slug(p.Name)
 }
 
+// identity is the project as a usage's resource spells it: its publisher and
+// name as slugs, publisher/name, or the name alone for a project with none.
+func (p *Interchange) identity() string {
+	if p.Publisher == "" {
+		return slug(p.Name)
+	}
+	return slug(p.Publisher) + "/" + slug(p.Name)
+}
+
+// standardLibrary reports whether the usage names a package of the standard
+// library, under the IRIs the OMG publishes it at: the bundled library answers it.
+func (u Usage) standardLibrary() bool {
+	return strings.HasPrefix(u.Resource, identity.KerML.Prefix()) || strings.HasPrefix(u.Resource, identity.SysML.Prefix())
+}
+
+// key is the resource as a path of slugs, without version, query or fragment:
+// what two usages of one repository at two versions share.
+func (u Usage) key() string {
+	segments := resourceSegments(u.Resource)
+	for i, seg := range segments {
+		segments[i] = slug(seg)
+	}
+	return strings.Join(segments, "/")
+}
+
 // resourceSegments splits a resource IRI into the path segments that name the
-// project, without its scheme, query, fragment, package-URL version or
-// archive extension.
+// project, without its scheme, query, package-URL version or archive
+// extension. A fragment names a project directory within the repository the
+// path names (pkg:git/host/acme/widgets#packages/gears): that project is named
+// by the fragment's last segment, under the repository's owner. An archive
+// holds no directory a fragment could name, so one on its IRI is passed over.
 func resourceSegments(resource string) []string {
-	if i := strings.IndexAny(resource, "?#"); i >= 0 {
+	fragment := ""
+	if i := strings.IndexByte(resource, '#'); i >= 0 {
+		resource, fragment = resource[:i], resource[i+1:]
+	}
+	if i := strings.IndexByte(resource, '?'); i >= 0 {
 		resource = resource[:i]
 	}
 	if i := strings.Index(resource, "://"); i >= 0 {
@@ -176,28 +212,35 @@ func resourceSegments(resource string) []string {
 	} else if i := strings.IndexByte(resource, ':'); i >= 0 {
 		resource = resource[i+1:]
 	}
-	resource = strings.Trim(resource, "/")
-	if resource == "" {
-		return nil
+	out := pathSegments(resource)
+	if n := len(out); n > 0 {
+		last := out[n-1]
+		if i := strings.IndexByte(last, '@'); i > 0 {
+			last = last[:i]
+		}
+		archive := strings.EqualFold(path.Ext(last), ArchiveExt)
+		if archive {
+			last = last[:len(last)-len(ArchiveExt)]
+		}
+		if sub := pathSegments(fragment); len(sub) > 0 && !archive {
+			last = sub[len(sub)-1]
+		}
+		out[n-1] = last
 	}
+	return out
+}
+
+// pathSegments splits a slash-separated path into its non-empty segments,
+// each percent-decoded where it decodes.
+func pathSegments(p string) []string {
 	var out []string
-	for _, seg := range strings.Split(resource, "/") {
+	for _, seg := range strings.Split(strings.Trim(p, "/"), "/") {
 		if decoded, err := url.PathUnescape(seg); err == nil {
 			seg = decoded
 		}
 		if seg != "" {
 			out = append(out, seg)
 		}
-	}
-	if n := len(out); n > 0 {
-		last := out[n-1]
-		if i := strings.IndexByte(last, '@'); i > 0 {
-			last = last[:i]
-		}
-		if strings.EqualFold(path.Ext(last), ArchiveExt) {
-			last = last[:len(last)-len(ArchiveExt)]
-		}
-		out[n-1] = last
 	}
 	return out
 }
@@ -218,6 +261,32 @@ func slug(name string) string {
 		}
 	}
 	return strings.TrimSuffix(b.String(), "-")
+}
+
+// constraint is the version a usage asks for: its versionConstraint, else the one
+// written after @ in its resource IRI (pkg:…/widgets@1.2.0); empty for any version.
+func (u Usage) constraint() string {
+	if c := strings.TrimSpace(u.VersionConstraint); c != "" {
+		return c
+	}
+	return resourceVersion(u.Resource)
+}
+
+// resourceVersion is the version written after @ in the last path segment of a
+// resource IRI (before any query or fragment, after a trailing slash); empty when none is.
+func resourceVersion(resource string) string {
+	if i := strings.IndexAny(resource, "?#"); i >= 0 {
+		resource = resource[:i]
+	}
+	resource = strings.TrimRight(resource, "/")
+	last := resource[strings.LastIndexByte(resource, '/')+1:]
+	if i := strings.LastIndexByte(last, '@'); i > 0 {
+		if decoded, err := url.PathUnescape(last[i+1:]); err == nil {
+			return decoded
+		}
+		return last[i+1:]
+	}
+	return ""
 }
 
 // satisfies reports whether the project's version is the one the constraint

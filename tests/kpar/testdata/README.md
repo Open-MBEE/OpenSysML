@@ -34,3 +34,12 @@ sysand init --publisher probe
 sysand add pkg:sysand/ode4hera/requirements-management
 sysand build .sysand/lib/mbse4u-sysmod_5.1.4   # writes sysmod-5.1.4.kpar
 ```
+
+## `mbse4u/`
+
+- `sysmod-5.1.5.meta.json` — the `.meta.json` of
+  [MBSE4U/sysmod-sysmlv2](https://github.com/MBSE4U/sysmod-sysmlv2) at tag
+  `5.1.5` (Apache-2.0), unchanged. sysand wrote it: one checksum object per
+  path, as the normative `Meta` schema has it, and `"algorithm": "NONE"` with an
+  empty value for every model file, recording no digest. The tests read it as
+  metadata and as the `.meta.json` of an archive whose members it names.

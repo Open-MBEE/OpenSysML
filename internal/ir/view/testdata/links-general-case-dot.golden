@@ -21,10 +21,10 @@ digraph "UseCaseViews::useCaseView" {
   "n2" -> "n0" [dir=none, URL="https://example.test/src/general-case.sysml#L15", tooltip="VehicleUseCases::'Provide Transportation'::driver"];
   "n3" -> "n0" [dir=none, URL="https://example.test/src/general-case.sysml#L16", tooltip="VehicleUseCases::'Provide Transportation'::passengers"];
   "n0" -> "n4" [dir=none, style=dashed, URL="https://example.test/src/general-case.sysml#L17", tooltip="general-case.sysml:17:3"];
-  "n0" -> "n5" [label="«include»", style=dashed, URL="https://example.test/src/general-case.sysml#L20", tooltip="VehicleUseCases::'Provide Transportation'::addFuel"];
+  "n0" -> "n5" [label="«include»", arrowhead=vee, URL="https://example.test/src/general-case.sysml#L20", tooltip="VehicleUseCases::'Provide Transportation'::addFuel"];
   "n5" -> "n6" [label="«subject»", dir=none, URL="https://example.test/src/general-case.sysml#L21", tooltip="VehicleUseCases::'Provide Transportation'::addFuel::vehicle"];
   "n7" -> "n5" [dir=none, URL="https://example.test/src/general-case.sysml#L22", tooltip="VehicleUseCases::'Provide Transportation'::addFuel::fueler"];
-  "n0" -> "n8" [label="«include»", style=dashed, URL="https://example.test/src/general-case.sysml#L24", tooltip="VehicleUseCases::'Provide Transportation'::'enter vehicle'"];
+  "n0" -> "n8" [label="«include»", arrowhead=vee, URL="https://example.test/src/general-case.sysml#L24", tooltip="VehicleUseCases::'Provide Transportation'::'enter vehicle'"];
   "n8" -> "n9" [label="«subject»", dir=none, URL="https://example.test/src/general-case.sysml#L25", tooltip="VehicleUseCases::'Provide Transportation'::'enter vehicle'::vehicle"];
   "n10" -> "n8" [dir=none, URL="https://example.test/src/general-case.sysml#L26", tooltip="VehicleUseCases::'Provide Transportation'::'enter vehicle'::driver"];
 }

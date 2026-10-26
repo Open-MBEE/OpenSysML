@@ -18,5 +18,5 @@ variation part def Models
   attribute mass
 
 relationships:
-  vehicleFamily ..|> Vehicle
+  vehicleFamily --:|> Vehicle
   Models --|> Vehicle

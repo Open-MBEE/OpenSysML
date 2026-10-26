@@ -298,10 +298,10 @@ digraph "Nested::view" {
   }
   "n5" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Other</b>>];
   "n4" -> "n1" [arrowhead=none, penwidth=3, lhead="cluster_n1"];
-  "n1" -> "n5" [label="out", style=dashed, ltail="cluster_n1"];
+  "n1" -> "n5" [label="out", ltail="cluster_n1"];
   "n2" -> "n3" [arrowhead=none, penwidth=3];
-  "n0" -> "n1" [lhead="cluster_n1"];
-  "n2" -> "n0";
+  "n0" -> "n1" [arrowhead=vee, lhead="cluster_n1"];
+  "n2" -> "n0" [arrowhead=vee];
 }
 `
 	if dot != want {
@@ -359,31 +359,33 @@ func TestDOTDirections(t *testing.T) {
 func TestDOTEdgeKinds(t *testing.T) {
 	styles := map[EdgeKind]string{
 		EdgeConnection:     `"a" -> "b" [label="k", arrowhead=none, penwidth=3];`,
-		EdgeTransition:     `"a" -> "b" [label="k"];`,
-		EdgeSuccession:     `"a" -> "b" [label="k"];`,
-		EdgeFlow:           `"a" -> "b" [label="k", style=dashed];`,
+		EdgeTransition:     `"a" -> "b" [label="k", arrowhead=vee];`,
+		EdgeSuccession:     `"a" -> "b" [label="k", style=dashed, arrowhead=vee];`,
+		EdgeFlow:           `"a" -> "b" [label="k"];`,
 		EdgeBinding:        `"a" -> "b" [label="k", arrowhead=none];`,
 		EdgeSpecialization: `"a" -> "b" [label="k", arrowhead=empty];`,
-		EdgeTyping:         `"a" -> "b" [label="k", arrowhead=empty, style=dashed];`,
+		EdgeTyping:         `"a" -> "b" [label="k", arrowhead=onormaldotdot];`,
 		EdgeComposition:    `"a" -> "b" [label="k", dir=back, arrowtail=diamond];`,
 		EdgeReference:      `"a" -> "b" [label="k", dir=back, arrowtail=odiamond];`,
-		EdgeContainment:    `"a" -> "b" [label="k", dir=back, arrowtail=odot];`,
+		EdgeContainment:    `"a" -> "b" [label="k", dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0];`,
 		EdgeImport:         `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
-		EdgeSatisfy:        `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
-		EdgeVerify:         `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
+		EdgeSatisfy:        `"a" -> "b" [label="k", arrowhead=vee];`,
+		EdgeVerify:         `"a" -> "b" [label="k", arrowhead=vee];`,
 		EdgeDerive:         `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
 		EdgeRefine:         `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
-		EdgeAllocate:       `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
+		EdgeAllocate:       `"a" -> "b" [label="k", arrowhead=vee];`,
 		EdgeAssociation:    `"a" -> "b" [label="k", dir=none];`,
-		EdgeInclude:        `"a" -> "b" [label="k", style=dashed];`,
+		EdgeInclude:        `"a" -> "b" [label="k", arrowhead=vee];`,
 		EdgeAnchor:         `"a" -> "b" [label="k", dir=none, style=dashed];`,
 		EdgeDependency:     `"a" -> "b" [label="k", arrowhead=vee, style=dashed];`,
+		EdgeSubsetting:     `"a" -> "b" [label="k", arrowhead=empty];`,
+		EdgeRedefinition:   `"a" -> "b" [label="k", arrowhead=onormaltee];`,
+		EdgePerform:        `"a" -> "b" [label="k", arrowhead=vee];`,
+		EdgeExhibit:        `"a" -> "b" [label="k", arrowhead=vee];`,
 	}
-	// A case or mixed diagram draws composition, typing and reference in its own notation.
+	// A case or mixed diagram draws composition in its own notation.
 	caseStyles := map[EdgeKind]string{
 		EdgeComposition: `"a" -> "b" [label="k", arrowtail=diamond, dir=back];`,
-		EdgeTyping:      `"a" -> "b" [label="k", style=dashed, arrowhead=open];`,
-		EdgeReference:   `"a" -> "b" [label="k", style=dashed, arrowhead=open];`,
 	}
 	for _, rk := range []Kind{KindAction, KindCase, KindMixed} {
 		for kind := EdgeConnection; kind.String() != "edge"; kind++ {
@@ -422,7 +424,7 @@ func TestDOTEdgeKinds(t *testing.T) {
 	// An edge with no label has no label attribute, and none at all when plain.
 	plain := &Rendering{View: "V", Kind: KindAction,
 		Roots: []*Node{{ID: "a", Kind: "action", Name: "a"}, {ID: "b", Kind: "action", Name: "b"}},
-		Edges: []Edge{{From: "a", To: "b", Kind: EdgeSuccession}}}
+		Edges: []Edge{{From: "a", To: "b", Kind: EdgeFlow}}}
 	dot, err := plain.DOTWith(fullNotation)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
@@ -452,10 +454,10 @@ func TestDOTStateShapesAndLabels(t *testing.T) {
 		`subgraph "cluster_n6" {`,
 		`label=<<font point-size="10"><i>«region»</i></font><br/><b>lights</b>>;`,
 		`style=dashed;`,
-		`"n12" -> "n1" [label="[cold]"];`,
-		`"n12" -> "n2" [label="[not cold]", lhead="cluster_n2"];`,
-		`"n2" -> "n5" [ltail="cluster_n2", lhead="cluster_n5"];`,
-		`[label="[not dark]"]`,
+		`"n12" -> "n1" [label="[cold]", arrowhead=vee];`,
+		`"n12" -> "n2" [label="[not cold]", arrowhead=vee, lhead="cluster_n2"];`,
+		`"n2" -> "n5" [arrowhead=vee, ltail="cluster_n2", lhead="cluster_n5"];`,
+		`[label="[not dark]", arrowhead=vee]`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
@@ -626,9 +628,9 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 		`[style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>on</b>>, margin=0, fillcolor="#EBEBD7", pos="40,-120!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];`,
 		`"n3" [shape=point, fillcolor=black, label="", pos="37.5,21.8!", pin=true];`,
 		`bb="-8,-148,88,31.6";`,
-		`"n3" -> "n1";`,
-		`"n1" -> "n2" [label="off_on", color="#FF0000", pos="e,50,-90 50,-10 50,-10 50,-80 50,-80", lp="77.5,-89"];`,
-		`"n2" -> "n1" [pos="e,30,-10 30,-90 30,-90 30,-20 30,-20"];`,
+		`"n3" -> "n1" [arrowhead=vee];`,
+		`"n1" -> "n2" [label="off_on", arrowhead=vee, color="#FF0000", pos="e,50,-90 50,-10 50,-10 50,-80 50,-80", lp="77.5,-89"];`,
+		`"n2" -> "n1" [arrowhead=vee, pos="e,30,-10 30,-90 30,-90 30,-20 30,-20"];`,
 	} {
 		if !strings.Contains(machine, want) {
 			t.Errorf("machine DOT lacks %q:\n%s", want, machine)
@@ -703,7 +705,7 @@ digraph "Pinned::view" {
     "n4" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>p</b>>, pos="337,71.5!", pin=true, width=0.75, height=0.5138888888888888];
   }
   "n1" -> "n2" [arrowhead=none, penwidth=3, pos="92,252 92,252 120,252 120,252"];
-  "n2" -> "n3" [style=dashed, lhead="cluster_n3"];
+  "n2" -> "n3" [lhead="cluster_n3"];
 }
 `
 	if dot != want {
@@ -716,7 +718,7 @@ digraph "Pinned::view" {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, dot)
-	if !strings.Contains(dot, "// layout: neato -n2\n") || !strings.Contains(dot, `"n2" -> "n3" [style=dashed, pos="e,300,80 174,252 174,252 294,88 294,88", lhead="cluster_n3"];`) || strings.Contains(dot, "not represented") {
+	if !strings.Contains(dot, "// layout: neato -n2\n") || !strings.Contains(dot, `"n2" -> "n3" [pos="e,300,80 174,252 174,252 294,88 294,88", lhead="cluster_n3"];`) || strings.Contains(dot, "not represented") {
 		t.Errorf("fully routed DOT:\n%s", dot)
 	}
 	// Leaving a node unpositioned leaves it undrawn, the rest pinned as before.
@@ -881,9 +883,9 @@ digraph "Routed::view" {
     "n3" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>send</b>>, margin=0, pos="160,106!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];
     "n4" [shape=doublecircle, label=<<font point-size="10"><i>«final»</i></font><br/><b>done</b>>, pos="150,11.5!", pin=true, width=0.9583333333333334, height=0.9583333333333334];
   }
-  "n1" -> "n2" [pos="e,160,234 160,273 160,273 160,244 160,244"];
-  "n2" -> "n3" [pos="e,160,126 160,197 160,197 160,136 160,136"];
-  "n3" -> "n4" [pos="e,150,46 150,86 150,86 150,56 150,56"];
+  "n1" -> "n2" [style=dashed, arrowhead=vee, pos="e,160,234 160,273 160,273 160,244 160,244"];
+  "n2" -> "n3" [style=dashed, arrowhead=vee, pos="e,160,126 160,197 160,197 160,136 160,136"];
+  "n3" -> "n4" [style=dashed, arrowhead=vee, pos="e,150,46 150,86 150,86 150,56 150,56"];
 }
 `
 	if dot != want {
@@ -919,7 +921,7 @@ digraph "Routed::view" {
 	checkDOTSyntax(t, dot)
 	if !strings.Contains(dot, "// not represented: route of n3->n4 is one waypoint, (150, 240); a line needs two\n// canvas: unit=px w=250 h=326\n// layout: neato -n2\n") ||
 		!strings.Contains(dot, `"n4" [shape=doublecircle, label=<<font point-size="10"><i>«final»</i></font><br/><b>done</b>>, pos="160,31.5!", pin=true, width=0.9583333333333334, height=0.9583333333333334];`) ||
-		!strings.Contains(dot, `"n3" -> "n4";`) || strings.Contains(dot, "without a position") {
+		!strings.Contains(dot, `"n3" -> "n4" [style=dashed, arrowhead=vee];`) || strings.Contains(dot, "without a position") {
 		t.Errorf("one-waypoint DOT:\n%s", dot)
 	}
 	rendering.Edges = rendering.Edges[:2]
@@ -941,7 +943,7 @@ digraph "Routed::view" {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, dot)
-	if !strings.Contains(dot, "// layout: neato -n2\n") || strings.Contains(dot, "bb=") || strings.Contains(dot, `"n0"`) || !strings.Contains(dot, `"n1" -> "n2" [pos=`) {
+	if !strings.Contains(dot, "// layout: neato -n2\n") || strings.Contains(dot, "bb=") || strings.Contains(dot, `"n0"`) || !strings.Contains(dot, `"n1" -> "n2" [style=dashed, arrowhead=vee, pos=`) {
 		t.Errorf("tree DOT:\n%s", dot)
 	}
 }
@@ -1012,7 +1014,7 @@ func TestDOTSettlesUnplacedNodes(t *testing.T) {
 		`"g1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>g1</b>>, pos="35,-271.5!", pin=true, width=0.75, height=0.5138888888888888];`,
 		`"g2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>g2</b>>, pos="113,-271.5!", pin=true, width=0.75, height=0.5138888888888888];`,
 		`"placed" -> "loose" [arrowhead=none, penwidth=3];`,
-		`"loose" -> "g1" [style=dashed];`,
+		`"loose" -> "g1";`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("strip DOT lacks %q:\n%s", want, dot)
@@ -1429,7 +1431,7 @@ func TestDOTKeepsStatedPseudostatePositions(t *testing.T) {
 		"// layout: neato -n2\n",
 		`"i" [shape=circle, fillcolor=black, label="", pos="68,252!", pin=true, width=0.2222222222222222, height=0.2222222222222222, fixedsize=true];`,
 		`"f" [shape=doublecircle, fillcolor=black, label="", pos="210,190!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];`,
-		`"i" -> "s" [pos="e,68,200 68,244 68,244 68,210 68,210"];`,
+		`"i" -> "s" [arrowhead=vee, pos="e,68,200 68,244 68,244 68,210 68,210"];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)

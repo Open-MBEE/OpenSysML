@@ -395,3 +395,158 @@ func TestInstalledProjectsFollowLinksOnceSoACycleTerminates(t *testing.T) {
 		t.Errorf("installedProjects of a root that is a project = %v, want the root itself", projectDirs(got))
 	}
 }
+
+func TestPickInstalledHonoursTheVersionInTheResourceIRI(t *testing.T) {
+	v1 := &Interchange{Dir: "v1", Publisher: "acme", Name: "gears", Version: "1.0.0"}
+	v2 := &Interchange{Dir: "v2", Publisher: "acme", Name: "gears", Version: "2.0.0"}
+	installed := []*Interchange{v1, v2}
+	// A fragment names a sub-package ("@1.0.0#sub" would select a project named
+	// sub); see TestUsesMatchesASubpathUsageToTheProjectTheFragmentNames.
+	for _, resource := range []string{"pkg:r/acme/gears@1.0.0", "pkg:r/acme/gears@v1.0.0", "pkg:r/acme/gears@1.0.0/", "pkg:r/acme/gears@1.0.0?q=1", "pkg:r/acme/gears@1.0.0%2Bbuild"} {
+		if got := pickInstalled(installed, Usage{Resource: resource}); resource != "pkg:r/acme/gears@1.0.0%2Bbuild" && got != v1 {
+			t.Errorf("%s picked %v, want 1.0.0", resource, got)
+		} else if resource == "pkg:r/acme/gears@1.0.0%2Bbuild" && got != v2 {
+			t.Errorf("%s names 1.0.0+build, which nothing satisfies; picked %v, want the latest", resource, got)
+		}
+	}
+	if got := pickInstalled(installed, Usage{Resource: "pkg:r/acme/gears@1.0.0", VersionConstraint: "2.0.0"}); got != v2 {
+		t.Errorf("versionConstraint must win over the IRI's version; picked %v", got)
+	}
+	if got := pickInstalled(installed, Usage{Resource: "pkg:r/acme/gears@3.0.0"}); got != v2 {
+		t.Errorf("an IRI version nothing satisfies falls back to the latest; picked %v", got)
+	}
+	if got := resourceVersion("git@example.org:acme/gears"); got != "" {
+		t.Errorf("a user@host is no version, got %q", got)
+	}
+}
+
+// A plain lib/ beside .project.json is a well-known library directory, read
+// like .sysand/lib; the IRI's @version selects among the versions there.
+func TestAroundReadsLibBesideTheProjectFile(t *testing.T) {
+	root := t.TempDir()
+	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "demo", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:registry/acme/gears@1.0.0"}]}`)
+	writeModel(t, filepath.Join(proj, "main.sysml"), "package Demo {\n    private import Gears::*;\n    part g : Thing;\n}\n")
+	gears1 := writeProject(t, filepath.Join(proj, "lib", "acme-gears_1.0.0"), `{"name": "Gears", "publisher": "acme", "version": "1.0.0"}`)
+	writeModel(t, filepath.Join(gears1, "Gears.kerml"), "package Gears {\n    class Thing;\n}\n")
+	gears2 := writeProject(t, filepath.Join(proj, "lib", "acme-gears_2.0.0"), `{"name": "Gears", "publisher": "acme", "version": "2.0.0"}`)
+	writeModel(t, filepath.Join(gears2, "Gears.kerml"), "package Gears {\n    class Thing;\n    class Newer;\n}\n")
+
+	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+	if got := projectDirs(found.Used); len(got) != 1 || got[0] != gears1 {
+		t.Fatalf("used %v, want lib/acme-gears_1.0.0 alone", got)
+	}
+	if err := os.WriteFile(filepath.Join(proj, ProjectFile), []byte(`{"name": "demo", "publisher": "example", "version": "0.1.0", "usage": [{"resource": "pkg:registry/acme/gears"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	found = Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+	if got := projectDirs(found.Used); len(got) != 1 || got[0] != gears2 {
+		t.Fatalf("used %v, want the latest, lib/acme-gears_2.0.0", got)
+	}
+}
+
+// A usage that names no installed project by publisher and name — a
+// version-control IRI spells a repository's path — is linked by elimination to
+// the one unclaimed project satisfying it, at its highest version.
+func TestUsedLinksAnUnmatchedUsageToTheOneUnclaimedProject(t *testing.T) {
+	root := t.TempDir()
+	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:registry/acme/gears@1.0.0"},
+  {"resource": "pkg:git/github.com/MBSE4U/sysmod-sysmlv2"}]}`)
+	gears1 := writeProject(t, filepath.Join(proj, "lib", "acme-gears_1.0.0"), `{"name": "Gears", "publisher": "acme", "version": "1.0.0"}`)
+	gears2 := writeProject(t, filepath.Join(proj, "lib", "acme-gears_2.0.0"), `{"name": "Gears", "publisher": "acme", "version": "2.0.0"}`)
+	writeProject(t, filepath.Join(proj, "lib", "mbse4u-sysmod_5.0.0"), `{"name": "sysmod", "publisher": "mbse4u", "version": "5.0.0"}`)
+	sysmod515 := writeProject(t, filepath.Join(proj, "lib", "mbse4u-sysmod_5.1.5"), `{"name": "sysmod", "publisher": "mbse4u", "version": "5.1.5", "usage": [{"resource": "pkg:registry/acme/gears@2.0.0"}]}`)
+
+	// Gears, both versions, is claimed by the first usage, so the second has
+	// sysmod alone left, at its highest version; the usages of the project
+	// linked by elimination are followed in turn.
+	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+	if want := []string{gears1, sysmod515, gears2}; !reflect.DeepEqual(projectDirs(found.Used), want) || len(found.Unlinked) != 0 {
+		t.Fatalf("Used = %v, Unlinked = %v, want %v and nothing unlinked", projectDirs(found.Used), found.Unlinked, want)
+	}
+}
+
+func TestUsedLinksByEliminationWithinTheUsageConstraint(t *testing.T) {
+	root := t.TempDir()
+	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:git/github.com/MBSE4U/sysmod-sysmlv2@5.0.0"}]}`)
+	sysmod500 := writeProject(t, filepath.Join(proj, "lib", "mbse4u-sysmod_5.0.0"), `{"name": "sysmod", "publisher": "mbse4u", "version": "5.0.0"}`)
+	writeProject(t, filepath.Join(proj, "lib", "mbse4u-sysmod_5.1.5"), `{"name": "sysmod", "publisher": "mbse4u", "version": "5.1.5"}`)
+	writeProject(t, filepath.Join(proj, "lib", "acme-widgets_1.0.0"), `{"name": "Widgets", "publisher": "acme", "version": "1.0.0"}`)
+
+	// Only 5.0.0 satisfies @5.0.0, so Widgets does not make the usage ambiguous.
+	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+	if got := projectDirs(found.Used); !reflect.DeepEqual(got, []string{sysmod500}) || len(found.Unlinked) != 0 {
+		t.Fatalf("Used = %v, Unlinked = %v, want sysmod 5.0.0 alone", got, found.Unlinked)
+	}
+
+	// A constraint nothing satisfies links nothing and says nothing.
+	writeProject(t, proj, `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:git/github.com/MBSE4U/sysmod-sysmlv2@6.0.0"}]}`)
+	found = Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+	if len(found.Used) != 0 || len(found.Unlinked) != 0 {
+		t.Fatalf("Used = %v, Unlinked = %v, want nothing", projectDirs(found.Used), found.Unlinked)
+	}
+}
+
+func TestUsedLeavesAUsageSeveralUnclaimedProjectsCouldAnswerUnlinked(t *testing.T) {
+	root := t.TempDir()
+	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:git/github.com/MBSE4U/sysmod-sysmlv2"}]}`)
+	sysmod := writeProject(t, filepath.Join(proj, "lib", "mbse4u-sysmod_5.1.5"), `{"name": "sysmod", "publisher": "mbse4u", "version": "5.1.5"}`)
+	widgets := writeProject(t, filepath.Join(proj, "lib", "acme-widgets_1.0.0"), `{"name": "Widgets", "publisher": "acme", "version": "1.0.0"}`)
+
+	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+	if len(found.Used) != 0 {
+		t.Fatalf("Used = %v, want nothing: the usage is ambiguous", projectDirs(found.Used))
+	}
+	want := Warning{
+		Path:    filepath.Join(proj, ProjectFile),
+		Message: fmt.Sprintf("usage pkg:git/github.com/MBSE4U/sysmod-sysmlv2 names no installed project by publisher and name, and 2 unclaimed ones could answer it: acme/widgets 1.0.0 (%s), mbse4u/sysmod 5.1.5 (%s); end the resource with the project's publisher and name (…/acme/widgets) to select one", widgets, sysmod),
+	}
+	if !reflect.DeepEqual(found.Unlinked, []Warning{want}) {
+		t.Fatalf("Unlinked = %q, want %q", found.Unlinked, want)
+	}
+}
+
+// The standard library's usages are the bundled library's to answer: one left
+// unmatched does not take the one unrelated project installed.
+func TestUsedLeavesTheStandardLibrarysUsagesToTheBundledLibrary(t *testing.T) {
+	root := t.TempDir()
+	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "https://www.omg.org/spec/KerML/20250201/Data-Type-Library.kpar", "versionConstraint": "1.0.0"},
+  {"resource": "https://www.omg.org/spec/SysML/20250201/Systems-Library.kpar"}]}`)
+	writeProject(t, filepath.Join(proj, "lib", "acme-widgets_1.0.0"), `{"name": "Widgets", "publisher": "acme", "version": "1.0.0"}`)
+
+	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+	if len(found.Used) != 0 || len(found.Unlinked) != 0 {
+		t.Fatalf("Used = %v, Unlinked = %v, want nothing", projectDirs(found.Used), found.Unlinked)
+	}
+}
+
+// Two usages of one repository at two versions: the project the first is
+// linked to by elimination answers the second at its own version, whichever
+// is written first.
+func TestUsedLinksEachVersionOfARepositoryOnceItsProjectIsLearnt(t *testing.T) {
+	for _, order := range [][2]string{{"1.0.0", "2.0.0"}, {"2.0.0", "1.0.0"}} {
+		t.Run(order[0]+" first", func(t *testing.T) {
+			root := t.TempDir()
+			proj := writeProject(t, filepath.Join(root, "proj"), fmt.Sprintf(`{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:git/example.org/acme/gears-repo@%s"},
+  {"resource": "pkg:git/example.org/acme/gears-repo@%s"}]}`, order[0], order[1]))
+			gears1 := writeProject(t, filepath.Join(proj, "lib", "acme-gears_1.0.0"), `{"name": "Gears", "publisher": "acme", "version": "1.0.0"}`)
+			gears2 := writeProject(t, filepath.Join(proj, "lib", "acme-gears_2.0.0"), `{"name": "Gears", "publisher": "acme", "version": "2.0.0"}`)
+			writeProject(t, filepath.Join(proj, "lib", "acme-widgets_3.0.0"), `{"name": "Widgets", "publisher": "acme", "version": "3.0.0"}`)
+
+			found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+			want := []string{gears1, gears2}
+			if order[0] == "2.0.0" {
+				want = []string{gears2, gears1}
+			}
+			if !reflect.DeepEqual(projectDirs(found.Used), want) || len(found.Unlinked) != 0 {
+				t.Fatalf("Used = %v, Unlinked = %v, want %v and nothing unlinked", projectDirs(found.Used), found.Unlinked, want)
+			}
+		})
+	}
+}

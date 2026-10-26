@@ -3126,17 +3126,14 @@
         "clause": "8.3.11.3",
         "name": "validatePartUsagePartDefinition"
       },
-      "checks": "A part is typed by at least one part definition (`A part must be typed by at least one part definition.`; constant declared in `SysMLValidator`, `checkPartUsage` commented out, so the pilot never reports it and the pass follows the specification rather than a pilot-observed diagnostic)",
-      "implementation": "internal/check/passes/part_usage_definition.go:PartUsageDefinitionPass.Run",
-      "message": "—",
+      "checks": "At least one of the itemDefinitions of a PartUsage is a PartDefinition (`partDefinition->notEmpty()`; the pilot declares the message constant `A part must be typed by at least one part definition.` but its `checkPartUsage` is commented out). Unobservable in text: `partDefinition` filters `itemDefinition`, which filters `occurrenceDefinition`, `definition` and so KerML `Feature::type` (SysML 8.3.1, redefined derivations), and `deriveFeatureType` (KerML 8.3.3.3.4) unions the types of every subsetted feature, the implied `Parts::parts` subsetting of `checkPartUsageSpecialization` included, so every part usage is typed by `Parts::Part` whether or not it declares a part definition (SysML 7.10). Tried, both tools silent: `part p : I;` with `I` an item definition, a part owned by an item definition and typed by it, `part f :> i;` under `item i : I;`, `part p : F;` with `F` a flow definition",
+      "implementation": "internal/semantic/semantics/model.go:Model.FeatureTypeSetWithImplied; internal/semantic/semantics/annotations.go:Model.definitionTypedFeatures (`partDefinition`)",
+      "message": "unobservable in text; reflective `type` of `part p : I;` is `[I, Parts::Part]` and its `partDefinition` is `[Parts::Part]`, as the pilot's own JSON export derives them",
       "negativeCase": "none",
-      "codes": [
-        "part-usage-part-definition"
-      ],
-      "passes": [
-        "constraint"
-      ],
-      "status": "faithful"
+      "codes": [],
+      "passes": [],
+      "status": "deliberate",
+      "rationale": "the constraint is written presuming the semantic constraints hold (SysML 8.3.1), and `checkPartUsageSpecialization` gives every part usage the implied `Parts::parts` subsetting, whose type `Parts::Part` is in its derived `partDefinition`; no textual model violates the rule, so a report on a part typed only by an item definition would be stricter than the specification — the model holds the derivation instead, and reflective `partDefinition` states it"
     },
     {
       "name": "validatePartUsageType",
@@ -11345,13 +11342,12 @@
       },
       "checks": "The partDefinitions of an PartUsage are those itemDefinitions that are PartDefinitions.",
       "ocl": "itemDefinition->selectByKind(PartDefinition)",
-      "implementation": "—",
-      "message": "—",
+      "implementation": "internal/semantic/semantics/annotations.go:Model.definitionTypedFeatures (`partDefinition`); internal/semantic/semantics/model.go:Model.FeatureTypeSetWithImplied",
+      "message": "observed through reflection: `part p : I;` with `I` an item definition has `partDefinition` = [Parts::Part], the part definition reached through the implied `Parts::parts` subsetting; `part r : PD;` has [PD]",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
+      "status": "faithful"
     },
     {
       "name": "derivePortDefinitionConjugatedPortDefinition",
