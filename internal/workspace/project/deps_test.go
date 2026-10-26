@@ -162,3 +162,23 @@ func TestDependenciesLeaveQualifiedNamesTheFileOrLibraryAnswers(t *testing.T) {
 		t.Errorf("Dependencies = %v, want none", got)
 	}
 }
+
+// Declaring answers names with the files beside, below and around the named
+// ones declaring them at the root, each once and sorted, leaving out the files
+// excluded and the names no file declares.
+func TestDeclaringFindsTheFilesAroundTheNamedOnes(t *testing.T) {
+	dir := t.TempDir()
+	main := writeModel(t, filepath.Join(dir, "main.sysml"), "package Main;\n")
+	a := writeModel(t, filepath.Join(dir, "lib", "a.sysml"), "package A;\n")
+	a2 := writeModel(t, filepath.Join(dir, "other", "a2.sysml"), "package A;\n")
+	writeModel(t, filepath.Join(dir, "lib", "b.sysml"), "package B;\n")
+	writeModel(t, filepath.Join(dir, ".hidden", "c.sysml"), "package C;\n")
+
+	got := Discovery{}.Declaring([]string{main}, []string{"A", "B", "C", "Main", "A"}, func(path string) bool {
+		return filepath.Base(path) == "b.sysml"
+	})
+	want := map[string][]string{"A": {a, a2}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Declaring = %v, want %v", got, want)
+	}
+}

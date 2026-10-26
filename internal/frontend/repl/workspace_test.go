@@ -256,7 +256,7 @@ func TestTheLoadedFilesOwnImportsAreFollowed(t *testing.T) {
 	if got := unresolved(res); len(got) != 0 {
 		t.Errorf("diagnostics = %v", got)
 	}
-	if got := strings.Join(res.Notices, "\n"); !strings.Contains(got, "note: loaded "+filepath.Join("util", "util.sysml")+", which the loaded files import") {
+	if got := strings.Join(res.Notices, "\n"); !strings.Contains(got, "note: loaded "+filepath.Join("util", "util.sysml")+", which declares Util") {
 		t.Errorf("notices = %q", got)
 	}
 	if ev, err := s.Evaluate("Lib::a"); err != nil || ev.Text != "3" {
@@ -470,5 +470,22 @@ func TestSaveOutOfReachCarriesTheLoadedFilesOwnDependencies(t *testing.T) {
 	}
 	if ev, err := fresh.Evaluate("Lib::a"); err != nil || ev.Text != "3" {
 		t.Errorf("Lib::a from the save = %q, %v", ev.Text, err)
+	}
+}
+
+func TestEvalFollowsTheImportsOfTheFileItLoadedOnDemand(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "lib.sysml"), "package Lib {\n    private import Util::*;\n    attribute a = base * 3;\n}\n")
+	writeFile(t, filepath.Join(dir, "util.sysml"), "package Util {\n    attribute base = 2;\n}\n")
+	s := NewSession()
+	if err := s.SetWorkspaceRoot(dir); err != nil {
+		t.Fatal(err)
+	}
+	ev, err := s.Evaluate("Lib::a")
+	if err != nil || ev.Text != "6" {
+		t.Fatalf("Lib::a = %q, %v", ev.Text, err)
+	}
+	if got := strings.Join(ev.Lines, "\n"); !strings.Contains(got, "which declares Lib") || !strings.Contains(got, "which declares Util") {
+		t.Errorf("lines = %q, want lib.sysml and util.sysml loaded", got)
 	}
 }
