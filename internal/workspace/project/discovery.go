@@ -273,10 +273,14 @@ func walkInstalled(dir string, visited map[string]bool, budget *int, found func(
 // a claimed project's other versions count as claimed — those that satisfy its
 // constraint, when they are all one project, the highest version of it. A usage
 // several unclaimed projects could answer is left unlinked and described, since
-// a version-control IRI spells a repository's path, not the project's name.
+// a version-control IRI spells a repository's path, not the project's name; a
+// later usage of the same repository takes the project so learnt, at its own
+// version. The standard library's usages, which the bundled library answers,
+// are not linked to anything installed.
 func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []string) {
 	selected := map[string]bool{}
 	claimed := map[string]bool{}
+	learnt := map[string]string{}
 	for _, project := range enclosing {
 		selected[absKey(project.Dir)] = true
 		claimed[project.identity()] = true
@@ -304,7 +308,7 @@ func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []s
 			for _, u := range project.Usage {
 				if pick := pickInstalled(installed, u); pick != nil {
 					link(pick)
-				} else {
+				} else if !u.standardLibrary() {
 					unmatched = append(unmatched, pending{project, u})
 				}
 			}
@@ -314,9 +318,16 @@ func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []s
 		}
 		var rest []pending
 		for _, p := range unmatched {
+			if id, ok := learnt[p.u.key()]; ok {
+				if pick := pickVersion(installed, id, p.u.constraint()); pick != nil {
+					link(pick)
+				}
+				continue
+			}
 			pick, candidates := pickUnclaimed(installed, claimed, p.u)
 			switch {
 			case pick != nil:
+				learnt[p.u.key()] = pick.identity()
 				link(pick)
 			case len(candidates) > 1:
 				rest = append(rest, p)
@@ -332,6 +343,22 @@ func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []s
 		unmatched = rest
 	}
 	return out, unlinked
+}
+
+// pickVersion chooses, among the installed copies of the project identity
+// names, the highest version satisfying constraint (any, when it is empty); nil
+// when none does.
+func pickVersion(installed []*Interchange, identity, constraint string) *Interchange {
+	var pick *Interchange
+	for _, candidate := range installed {
+		if candidate.identity() != identity || (constraint != "" && !candidate.satisfies(constraint)) {
+			continue
+		}
+		if pick == nil || newerVersion(candidate.Version, pick.Version) {
+			pick = candidate
+		}
+	}
+	return pick
 }
 
 // pickUnclaimed chooses the installed project a usage is linked to by

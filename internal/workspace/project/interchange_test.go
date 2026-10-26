@@ -504,3 +504,44 @@ func TestUsedLeavesAUsageSeveralUnclaimedProjectsCouldAnswerUnlinked(t *testing.
 		t.Fatalf("Unlinked = %q, want %q", found.Unlinked, want)
 	}
 }
+
+// The standard library's usages are the bundled library's to answer: one left
+// unmatched does not take the one unrelated project installed.
+func TestUsedLeavesTheStandardLibrarysUsagesToTheBundledLibrary(t *testing.T) {
+	root := t.TempDir()
+	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "https://www.omg.org/spec/KerML/20250201/Data-Type-Library.kpar", "versionConstraint": "1.0.0"},
+  {"resource": "https://www.omg.org/spec/SysML/20250201/Systems-Library.kpar"}]}`)
+	writeProject(t, filepath.Join(proj, "lib", "acme-widgets_1.0.0"), `{"name": "Widgets", "publisher": "acme", "version": "1.0.0"}`)
+
+	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+	if len(found.Used) != 0 || len(found.Unlinked) != 0 {
+		t.Fatalf("Used = %v, Unlinked = %v, want nothing", projectDirs(found.Used), found.Unlinked)
+	}
+}
+
+// Two usages of one repository at two versions: the project the first is
+// linked to by elimination answers the second at its own version, whichever
+// is written first.
+func TestUsedLinksEachVersionOfARepositoryOnceItsProjectIsLearnt(t *testing.T) {
+	for _, order := range [][2]string{{"1.0.0", "2.0.0"}, {"2.0.0", "1.0.0"}} {
+		t.Run(order[0]+" first", func(t *testing.T) {
+			root := t.TempDir()
+			proj := writeProject(t, filepath.Join(root, "proj"), fmt.Sprintf(`{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:git/example.org/acme/gears-repo@%s"},
+  {"resource": "pkg:git/example.org/acme/gears-repo@%s"}]}`, order[0], order[1]))
+			gears1 := writeProject(t, filepath.Join(proj, "lib", "acme-gears_1.0.0"), `{"name": "Gears", "publisher": "acme", "version": "1.0.0"}`)
+			gears2 := writeProject(t, filepath.Join(proj, "lib", "acme-gears_2.0.0"), `{"name": "Gears", "publisher": "acme", "version": "2.0.0"}`)
+			writeProject(t, filepath.Join(proj, "lib", "acme-widgets_3.0.0"), `{"name": "Widgets", "publisher": "acme", "version": "3.0.0"}`)
+
+			found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+			want := []string{gears1, gears2}
+			if order[0] == "2.0.0" {
+				want = []string{gears2, gears1}
+			}
+			if !reflect.DeepEqual(projectDirs(found.Used), want) || len(found.Unlinked) != 0 {
+				t.Fatalf("Used = %v, Unlinked = %v, want %v and nothing unlinked", projectDirs(found.Used), found.Unlinked, want)
+			}
+		})
+	}
+}

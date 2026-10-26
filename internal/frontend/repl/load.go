@@ -101,10 +101,10 @@ func conversionWarnings(files []SourceFile, verbosity Verbosity) []string {
 }
 
 // LoadWarnings reports what the projects and archives a load of paths touched
-// fell short of (project.Discovery.Warnings), one "warning:" line each, none
-// when quiet; a load's summary carries the same lines after its findings.
+// fell short of (project.Discovery.Warnings), one message each; a load's
+// summary prints the same as warning lines after its findings.
 func (s *Session) LoadWarnings(paths []string) []string {
-	return warningLines(s.discovery().Warnings(expandHomes(paths)), s.verbosity)
+	return s.discovery().Warnings(expandHomes(paths))
 }
 
 // warningLines renders warnings as the lines a load reports, none when quiet.

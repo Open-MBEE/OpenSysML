@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 )
 
 // ProjectFile is the file every OMG project interchange directory holds beside
@@ -171,6 +173,22 @@ func (p *Interchange) identity() string {
 		return slug(p.Name)
 	}
 	return slug(p.Publisher) + "/" + slug(p.Name)
+}
+
+// standardLibrary reports whether the usage names a package of the standard
+// library, under the IRIs the OMG publishes it at: the bundled library answers it.
+func (u Usage) standardLibrary() bool {
+	return strings.HasPrefix(u.Resource, identity.KerML.Prefix()) || strings.HasPrefix(u.Resource, identity.SysML.Prefix())
+}
+
+// key is the resource as a path of slugs, without version, query or fragment:
+// what two usages of one repository at two versions share.
+func (u Usage) key() string {
+	segments := resourceSegments(u.Resource)
+	for i, seg := range segments {
+		segments[i] = slug(seg)
+	}
+	return strings.Join(segments, "/")
 }
 
 // resourceSegments splits a resource IRI into the path segments that name the

@@ -163,3 +163,42 @@ func TestAUsageSeveralUnclaimedProjectsCouldAnswerIsReported(t *testing.T) {
 		t.Errorf("-validate wrote:\n%s\nwant %q", out, want)
 	}
 }
+
+// A model that analyses cleanly beside an ambiguous usage still carries the
+// warning: -warnings-as-errors ends the run on it, and -json reports it as data.
+func TestAnAmbiguousUsageIsAWarningTheExitPolicyJudges(t *testing.T) {
+	proj := vcsProject(t, "pkg:git/github.com/MBSE4U/sysmod-sysmlv2")
+	widgets := filepath.Join(proj, "lib", "acme-widgets_1.0.0")
+	if err := os.MkdirAll(widgets, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(widgets, project.ProjectFile), []byte(`{"name": "Widgets", "publisher": "acme", "version": "1.0.0"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(proj, "consumer", "Consumer.sysml"), []byte("package Consumer;\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	bin := sysmlBinary(t)
+	want := filepath.Join(proj, project.ProjectFile) + ": usage pkg:git/github.com/MBSE4U/sysmod-sysmlv2 names no installed project by publisher and name"
+	out, err := run(t, bin, "-validate", proj)
+	if err != nil {
+		t.Fatalf("-validate: %v\n%s", err, out)
+	}
+	if strings.Count(out, want) != 1 {
+		t.Errorf("-validate wrote the warning %d times, want once:\n%s", strings.Count(out, want), out)
+	}
+	out, err = run(t, bin, "-warnings-as-errors", "-validate", proj)
+	if err == nil {
+		t.Fatalf("-warnings-as-errors -validate passed:\n%s", out)
+	}
+	if !strings.Contains(out, "warning: "+want) || !strings.Contains(out, "has warnings, which -warnings-as-errors judges errors") {
+		t.Errorf("-warnings-as-errors -validate wrote:\n%s", out)
+	}
+	out, err = run(t, bin, "-json", "-validate", proj)
+	if err != nil {
+		t.Fatalf("-json -validate: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, `"severity": "warning"`) || !strings.Contains(out, `"code": "project.load"`) {
+		t.Errorf("-json -validate reports no project.load warning:\n%s", out)
+	}
+}

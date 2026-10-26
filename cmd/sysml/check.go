@@ -697,10 +697,12 @@ func runChecks(files []string, exprs []string, c checks) int {
 		rep.suppress(sess.Suppressed(), c.baseline)
 	}
 	// What the load itself fell short of — a usage linked to no installed project
-	// — is printed with the errors it explains, where the summary's copy is not.
+	// — is a warning like analysis's, printed with the errors it explains where
+	// the summary that carries it is not.
+	notes := sess.LoadWarnings(paths)
 	if sess.HasErrors() {
 		rep.diags(sess.LocatedDiagnostics())
-		rep.problem(sess.LoadWarnings(paths))
+		rep.loadWarnings(notes, false)
 		rep.problem(sess.DiagnosticLines())
 		if c.baseline != "" && !reportedErrors(sess.LocatedDiagnostics()) {
 			// A known error is still one: analysis stopped at it, so the tiers
@@ -713,8 +715,9 @@ func runChecks(files []string, exprs []string, c checks) int {
 	}
 	// -warnings-as-errors judges a warning as an error does: the report keeps
 	// its severity, and the run ends on it as it would on an error.
-	if c.warningsAsErrors && reportedWarnings(sess.LocatedDiagnostics()) {
+	if c.warningsAsErrors && (reportedWarnings(sess.LocatedDiagnostics()) || len(notes) > 0) {
 		rep.diags(sess.LocatedDiagnostics())
+		rep.loadWarnings(notes, false)
 		rep.problem(sess.DiagnosticLines())
 		rep.failed(fmt.Sprintf("%s has warnings, which -warnings-as-errors judges errors; no check was made", namedModels(files)))
 		return rep.finish()
@@ -727,6 +730,7 @@ func runChecks(files []string, exprs []string, c checks) int {
 	// What analysis found is reported as data whatever was checked, so a caller
 	// parsing the report reads the warnings the printed load output carries.
 	rep.diags(sess.LocatedDiagnostics())
+	rep.loadWarnings(notes, true)
 
 	// A rule package nothing declares refuses the run before anything is
 	// evaluated or reported, as a name mistyped checks nothing.

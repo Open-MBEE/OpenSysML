@@ -721,6 +721,23 @@ func (r *reporter) warn(message string) {
 	}
 }
 
+// loadWarnings records what the load itself fell short of — a usage linked to
+// no installed project, an archive that is not one — as warnings, which the
+// exit policy judges like analysis's; printed unless the load summary already did.
+func (r *reporter) loadWarnings(messages []string, printed bool) {
+	for _, message := range messages {
+		r.report.Diagnostics = append(r.report.Diagnostics, diagnostic{
+			Severity: "warning",
+			Message:  message,
+			Pass:     "project",
+			Code:     "project.load",
+		})
+		if !r.machine && !printed {
+			fmt.Fprintln(r.err, "warning: "+message)
+		}
+	}
+}
+
 // clean reports whether the run has found nothing wrong with the model so far.
 func (r *reporter) clean() bool {
 	return r.findings == 0 && len(r.report.Errors) == 0

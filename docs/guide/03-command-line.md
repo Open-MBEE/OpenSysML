@@ -370,8 +370,10 @@ IRI does (`pkg:git/github.com/MBSE4U/sysmod-sysmlv2` for the project `mbse4u/sys
 linked by elimination once every usage has had its say: of the installed projects no usage
 claims (another version of a claimed project counts as claimed), those satisfying its
 constraint, when they are all one project, at the highest such version. When several
-projects are left it, the usage selects nothing and a warning names each candidate and the
-publisher/name the resource should end with. OpenSysML reads what any package manager that follows KerML 10.3 project interchange
+projects are left it, the usage selects nothing and a warning — one `-warnings-as-errors`
+judges as any other — names each candidate and the publisher/name the resource should end
+with; a later usage of the same repository takes the project so learnt, at its own version.
+The standard library's usages are never linked to anything installed. OpenSysML reads what any package manager that follows KerML 10.3 project interchange
 installs (sysand today) under `lib/` or `.sysand/lib` beside `.project.json`; it does not fetch. Those library directories
 hold the installed projects, not the project's own files: a walk of the project directory
 (`sysml <dir>`, `-bundle`, the editor's workspace scan) passes over them and loads what lies
