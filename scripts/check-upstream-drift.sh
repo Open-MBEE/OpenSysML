@@ -20,9 +20,8 @@ SPEC_DOCS=(
 	'doc/3-Systems_Modeling_API_and_Services.pdf'
 )
 
-# The OMG specification pages, and the version entries they listed when this
-# baseline was recorded. A new entry (a formal 2.1, a KerML 1.1 beta) is reported;
-# extend the lists once it has been read.
+# The OMG specification pages and the version entries they listed when recorded; a new
+# entry (a formal 2.1, a KerML 1.1 beta) is reported — extend the lists once it is read.
 OMG_SYSML_PAGE="${OMG_SYSML_PAGE:-https://www.omg.org/spec/SysML/}"
 OMG_KERML_PAGE="${OMG_KERML_PAGE:-https://www.omg.org/spec/KerML/}"
 OMG_SYSML_KNOWN='1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 2.0 2.0/Beta4'
@@ -82,10 +81,8 @@ check_repo() {
 	NEWEST_TAG="$newest"
 }
 
-# spec_docs_changed <release tag>: compares the blob ids of the specification
-# PDFs between the pinned release commit and the given tag, cloning nothing but
-# the trees. Returns 0 when every PDF is unchanged, 1 when one changed, 2 when a
-# document could not be read at either revision (never reported as unchanged).
+# spec_docs_changed <release tag>: compares the specification PDFs' blob ids between the
+# pinned release commit and the tag (trees only): 0 unchanged, 1 changed, 2 unreadable.
 spec_docs_changed() {
 	local tag=$1 dir pinned_id tag_id verdict=0
 	dir="$(mktemp -d)"
