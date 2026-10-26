@@ -1,0 +1,19 @@
+NotationGlyphs::Diagrams::treeGlyphs - tree rendering (the view states no rendering; a tree is the default)
+
+part def Plant
+  part tank
+    attribute level
+  part pump
+  timeslice filling
+  snapshot full
+  occurrence startup
+  part spare
+    attribute level
+view tankView
+part def Tank
+  attribute level
+
+relationships:
+  Plant *-- Tank: tank
+  spare --|> tank: references
+  tankView ..> Tank: expose

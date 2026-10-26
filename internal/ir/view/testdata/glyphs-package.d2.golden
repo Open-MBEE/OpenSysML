@@ -1,0 +1,12 @@
+# NotationGlyphs::Diagrams::packageGlyphs — package rendering (view def GeneralView, filter @Package)
+classes: {
+  package: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; stroke-width: 2 } }
+  containment: { source-arrowhead: { shape: circle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  membership: { source-arrowhead: { shape: circle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+}
+n0: "«package»\nNotationGlyphs" { class: package }
+n1: "«package»\nLib" { class: package }
+n2: "«package»\nUses" { class: package }
+n0 <- n1: { class: containment }
+n0 <- n2: { class: containment }
+n2 <- n1: { class: membership; target-arrowhead: { label: "L" } }

@@ -1,0 +1,15 @@
+// view: NotationGlyphs::Diagrams::packageGlyphs
+// kind: package
+// stated: view def GeneralView, filter @Package
+// layout: dot
+digraph "NotationGlyphs::Diagrams::packageGlyphs" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [style="rounded,filled", label=<<font point-size="10"><i>«package»</i></font><br/><b>NotationGlyphs</b>>];
+  "n1" [style="rounded,filled", label=<<font point-size="10"><i>«package»</i></font><br/><b>Lib</b>>];
+  "n2" [style="rounded,filled", label=<<font point-size="10"><i>«package»</i></font><br/><b>Uses</b>>];
+  "n0" -> "n1" [dir=back, arrowtail=odot];
+  "n0" -> "n2" [dir=back, arrowtail=odot];
+  "n2" -> "n1" [headlabel="L", dir=back, arrowtail=odot];
+}

@@ -1,0 +1,33 @@
+# NotationGlyphs::Diagrams::treeGlyphs — tree rendering
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  specialization: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  composition: { source-arrowhead: { shape: diamond; style: { filled: true } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  dependency: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
+}
+n0: "«part def»\nPlant" { class: definition }
+n1: "«part»\ntank" { class: usage }
+n2: "«attribute»\nlevel" { class: usage }
+n3: "«part»\npump" { class: usage }
+n4: "«timeslice»\nfilling" { class: usage }
+n5: "«snapshot»\nfull" { class: usage }
+n6: "«occurrence»\nstartup" { class: usage }
+n7: "«part»\nspare" { class: usage }
+n8: "«attribute»\nlevel" { class: usage }
+n9: "«view»\ntankView" { class: usage }
+n10: "«part def»\nTank" { class: definition }
+n11: "«attribute»\nlevel" { class: usage }
+n0 -- n1: { class: edge }
+n1 -- n2: { class: edge }
+n0 -- n3: { class: edge }
+n0 -- n4: { class: edge }
+n0 -- n5: { class: edge }
+n0 -- n6: { class: edge }
+n0 -- n7: { class: edge }
+n7 -- n8: { class: edge }
+n10 -- n11: { class: edge }
+n0 <- n10: { class: composition; target-arrowhead: { label: "tank" } }
+n7 -> n1: "references" { class: specialization }
+n9 -> n10: "expose" { class: dependency }

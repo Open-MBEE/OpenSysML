@@ -1,0 +1,11 @@
+NotationGlyphs::Diagrams::requirementGlyphs - requirement rendering (view def GeneralView, filter @RequirementDefinition or @RequirementUsage)
+
+requirement def LevelReq
+requirement levelReq
+requirement capacity
+concern safety (“Nothing overflows.”)
+
+relationships:
+  LevelReq -> safety: frame
+  levelReq ..|> LevelReq
+  capacity -> levelReq: require

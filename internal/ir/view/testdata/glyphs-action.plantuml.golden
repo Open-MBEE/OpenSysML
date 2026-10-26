@@ -1,0 +1,49 @@
+@startuml
+' NotationGlyphs::Diagrams::fillGlyphs — action rendering (view def ActionFlowView)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide empty description
+state "<size:10>//«action def»//</size>\n**Fill**" as n0 <<action def>> {
+  state "<size:10>//«action»//</size>\n**open**" as n1 <<action>> <<usage>>
+  state "<size:10>//«action»//</size>\n**pour**" as n2 <<action>> <<usage>>
+}
+n1 -[dashed]-> n2 : «succession flow»
+@enduml

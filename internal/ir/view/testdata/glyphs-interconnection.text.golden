@@ -1,0 +1,10 @@
+NotationGlyphs::Diagrams::lineGlyphs - interconnection rendering (render asInterconnectionDiagram)
+
+part line
+  part a
+    attribute level
+  part b
+    attribute level
+
+connections:
+  level ~> level: «succession flow»

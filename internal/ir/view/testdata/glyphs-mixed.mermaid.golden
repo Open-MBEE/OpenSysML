@@ -1,0 +1,79 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% NotationGlyphs::Diagrams::mixedGlyphs — mixed rendering (render asMixedDiagram)
+%% not represented: 4 pin(s) not drawn (bounded.x, tight.x, NotationGlyphs::bounded.x, NotationGlyphs::tight.x); a flowchart draws the pins an edge ends at
+flowchart TD
+  subgraph n0 ["`*«requirement def»* **LevelReq**`"]
+    direction TD
+    n0_anchor[" "]
+    n1("`*«frame»*
+**safety**`")
+  end
+  n2("`*«requirement»*
+**NotationGlyphs::levelReq**`")
+  subgraph n3 ["`*«requirement»* **capacity**`"]
+    direction TD
+    n3_anchor[" "]
+    subgraph n5 ["`*«require constraint»* **capacity::levelReq**`"]
+      direction TD
+      subgraph n6 ["`*«subject»* **plant**`"]
+        direction TD
+        n7("`*«part»*
+**tank**`")
+        n8("`*«part»*
+**pump**`")
+        n9("`*«part»*
+**spare**`")
+      end
+      n10("`*«require constraint»*
+**keepLevel**`")
+      n11("`*«assume constraint»*
+**lowLevel**`")
+      n12("`*«require constraint»*
+**bounded**`")
+      n13("`*«assume constraint»*
+**tight**`")
+    end
+    n14("`*«assert constraint»*
+**asserted**`")
+  end
+  n15("`*«constraint»*
+**NotationGlyphs::bounded**`")
+  n16("`*«constraint»*
+**NotationGlyphs::tight**`")
+  n4("`*«view»*
+**tankView**`")
+  subgraph n17 ["`*«part def»* **Tank**`"]
+    direction TD
+    n17_anchor[" "]
+    n18("`*«attribute»*
+**level**`")
+  end
+  n2 -.-> n0_anchor
+  n4 -.->|"«expose»"| n17_anchor
+  n0_anchor -->|"«require»"| n15
+  n0_anchor -->|"«assume»"| n16
+  n3_anchor -->|"«require»"| n2
+  classDef anchor fill:none,stroke:none
+  class n0_anchor,n17_anchor,n3_anchor anchor

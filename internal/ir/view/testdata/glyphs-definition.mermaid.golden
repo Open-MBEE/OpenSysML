@@ -1,0 +1,62 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% NotationGlyphs::Diagrams::definitionGlyphs — definition rendering (view def GeneralView, filter @Definition or @Usage)
+flowchart TD
+  n0["`*«part def»*
+**Plant**`"]
+  n1("`*«part»*
+**tank**`")
+  n2("`*«part»*
+**spare**`")
+  n3("`*«timeslice»*
+**filling**`")
+  n4("`*«snapshot»*
+**full**`")
+  n5("`*«occurrence»*
+**startup**`")
+  n6["`*«requirement def»*
+**LevelReq**`"]
+  n7("`*«require constraint»*
+**keepLevel**`")
+  n8("`*«assume constraint»*
+**lowLevel**`")
+  n9("`*«constraint»*
+**bounded**`")
+  n10("`*«constraint»*
+**tight**`")
+  n11("`*«requirement»*
+**capacity**`")
+  n12("`*«assert constraint»*
+**asserted**`")
+  n0 ---|"◆"| n1
+  n2 -->|"references"| n1
+  n0 ---|"◇"| n2
+  n0 ---|"◕"| n3
+  n0 ---|"◕"| n4
+  n0 -->|"event"| n5
+  n6 -->|"require"| n9
+  n6 -->|"assume"| n10
+  n6 -->|"require"| n7
+  n6 -->|"assume"| n8
+  n11 -->|"assert"| n12
