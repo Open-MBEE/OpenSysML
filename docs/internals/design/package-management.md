@@ -1,4 +1,4 @@
-# Package management over git
+# Package management over git, svn and hg
 
 Status: §1 is shipped; the OpenSysML part of Phase 1 (§4) is in progress; everything else is the
 design of **SysPI**, the SysML Package Installer — a separate Open-MBEE tool (`Open-MBEE/SysPI`,
@@ -20,10 +20,11 @@ Goals
   which need no flag and no network to find it.
 - Everything is the OMG format first: KerML 1.0 §10.3 `.project.json`, `.meta.json`, `.kpar`.
   No provider-specific file is required to consume a package.
-- Git is the storage and transport: a package is a git repository (or a path in one) whose tagged
-  commit *is* the project directory; the index is a git repository too.
+- The version-control system is the storage and transport: a package is a git, Subversion or
+  Mercurial repository (or a path in one) whose tagged tree *is* the project directory; the index is
+  a git repository too.
 - Portable: any tool that reads the OMG format can consume a package with nothing OpenSysML-specific —
-  no extension library, no registration, no bespoke metadata file. Publishing = tagging a git repository.
+  no extension library, no registration, no bespoke metadata file. Publishing = tagging a repository.
 - The index is optional and derived. Its machine form is plain JSON; its SysML form uses the standard
   library only, and the invariants are checked by `sysml` itself — the "SysML-powered" part is our
   gate and search surface, never a consumer requirement.
@@ -38,7 +39,7 @@ Non-goals (this phase)
   never a synthesized project.
 - A client inside OpenSysML: no `sysml -add/-install/-lock`, no auto-download from `-validate` or the
   LSP, no lock or index code in this repository.
-- A hosted account/token service. The git host is the account system.
+- A hosted account/token service. The repository host is the account system.
 - Replacing sysand for its users; interoperating with it is in scope, re-implementing its CLI is not.
 - Binary/engine packaging (that is `bring-your-own-engines.md`).
 
@@ -82,22 +83,24 @@ reading `.sysand/lib`, and be able to *emit* the static index layout so a sysand
 here because OpenSysML's reader is the consumer they must satisfy. Only the two OpenSysML items
 called out in §3.1 and §3.3 are built in this repository.
 
-### 3.1 Package = a git repository at a tag (nothing else)
+### 3.1 Package = a repository at a tag (nothing else)
 
 - A package root holds `.project.json` (KerML §10.3 Table 12; `publisher` as the optional extension
   field sysand also uses), the model files, `LICENSES/`, README. `.meta.json` is generated at build
   (`sysml -bundle` does it) — committed or not, the installer regenerates and verifies.
-- A release is an annotated tag `v<semver>` (bare `<semver>` accepted) whose tree is the project
-  directory; `version` in `.project.json` must equal the tag or the install fails. A `.kpar` release
+- A release is a tag `v<semver>` (bare `<semver>` accepted) whose tree is the project directory
+  (git/hg: an annotated tag; svn: a copied directory under `tags/`, by the usual convention); `version` in `.project.json` must equal the tag or the install fails. A `.kpar` release
   asset is optional and derived; when present its SHA-256 is what the lock and index record.
-- Sub-directory packages (monorepo) are allowed: `pkg:git/<host>/<path>@<version>#<subpath>` (purl subpath).
+- Sub-directory packages (monorepo) are allowed: `pkg:<vcs>/<host>/<path>@<version>#<subpath>` (purl subpath).
 - **No `.project.json` at the tag → error** ("not a project interchange: <repo>@<tag> has no .project.json").
   No lax mode, no synthesized project.
-- Identity: `pkg:git/<host>/<path>[@<version>][#<subpath>]` — the git remote itself, no provider
-  vocabulary (`pkg:git/github.com/Open-MBEE/OpenSysML-Extensions-Library@1.0.0`); a plain clone URL
-  with `@<version>` (`https://host/path.git@1.0.0`, `ssh://git@host/path@1.0.0`) is accepted and
-  normalized to it. Any host that speaks git is a package host: GitHub, GitLab, Gitea, a bare server,
-  a local path. Matching against installed projects already works (`resourceSegments` keeps the last
+- Identity: `pkg:<vcs>/<host>/<path>[@<version>][#<subpath>]` with `<vcs>` one of `git`, `svn`,
+  `hg` — the repository itself, no provider vocabulary
+  (`pkg:git/github.com/Open-MBEE/OpenSysML-Extensions-Library@1.0.0`); a plain clone URL with
+  `@<version>` (`https://host/path.git@1.0.0`, `ssh://git@host/path@1.0.0`) is accepted and
+  normalized to it. Any host that speaks one of the three is a package host: GitHub, GitLab, Gitea,
+  a bare server, an svn or hg server, a local path. `pkg:github/...`-style provider types are
+  refused, and so is `pkg:cvs/...` (per-file tags, no tree revision: not supportable). Matching against installed projects already works (`resourceSegments` keeps the last
   two path segments → `org`/`repo` slugs), so a usage written this way resolves today once the
   project is on disk — but `resourceSegments` discards the `@<version>` and `pickInstalled` honours
   only `versionConstraint`, so today a versioned IRI alone selects the latest installed release;
@@ -106,12 +109,14 @@ called out in §3.1 and §3.3 are built in this repository.
   OpenSysML never reads the lock and matches the usage against whatever is installed (§3.3).
   `pkg:sysand/<publisher>/<name>` and `https://www.omg.org/spec/...kpar` keep resolving as they
   do now.
-- Resolution needs **no index** and nothing but git: tags come from `git ls-remote --tags`
-  (`v<version>`, then `<version>`), the tree from `git clone --depth 1 --branch <tag>` (or
-  `git archive --remote` where the server allows it), and the commit id is what the lock records.
-  A host's archive-by-tag URL (GitHub `/archive/refs/tags/<tag>.tar.gz`, GitLab `/-/archive/<tag>/`)
-  is only an internal fast path keyed by hostname, falling back to git; it never appears in an
-  identity or in the lock. Any tool can do the same with no OpenSysML involvement — that is the
+- Resolution needs **no index** and nothing but the user's VCS executable: tags come from
+  `git ls-remote --tags` / `hg identify -r <tag>` / `svn ls <url>/tags` (`v<version>`, then
+  `<version>`), the tree from `git clone --depth 1 --branch <tag>` (or `git archive --remote`
+  where the server allows it) / `hg clone -r <tag>` + `hg archive` / `svn export <url>/tags/<tag>`,
+  and the revision (commit sha, changeset id, svn last-changed revision) is what the lock records
+  next to one VCS-independent tree digest. A host's archive-by-tag URL (GitHub
+  `/archive/refs/tags/<tag>.tar.gz`, GitLab `/-/archive/<tag>/`) is only an internal fast path keyed
+  by hostname, falling back to the VCS; it never appears in an identity or in the lock. Any tool can do the same with no OpenSysML involvement — that is the
   portability contract.
 
 ### 3.2 Index = optional, derived, two renderings of the same facts
@@ -121,7 +126,7 @@ repo cannot state about itself, and to serve sysand clients. Nothing requires it
 
 - Source of truth stays the packages' own `.project.json` at their tags. The index repository
   (proposed `Open-MBEE/opensysml-index`) holds one record per release, *generated* from them by
-  `syspi index add pkg:git/host/org/repo@1.2.0` (fetch, verify, record commit + checksums + usages).
+  `syspi index add pkg:git/host/org/repo@1.2.0` (fetch, verify, record revision + checksums + usages).
 - **Machine rendering:** `<publisher>/<name>/versions.json` in sysand's static-index layout plus a
   flat `index.json` — plain JSON, served as static files (e.g. GitHub Pages) or read raw from the repo. A sysand user
   points `--index` at it; a shell script can grep it.
@@ -133,7 +138,7 @@ package 'Open-MBEE/OpenSysML-Extensions-Library' {
     private import ScalarValues::*;
     item 'v1.0.0' : Index::Release {
         :>> iri = "pkg:git/github.com/Open-MBEE/OpenSysML-Extensions-Library";
-        :>> version = "1.0.0";  :>> tag = "v1.0.0";  :>> commit = "5134a14d…";
+        :>> version = "1.0.0";  :>> tag = "v1.0.0";  :>> vcs = "git";  :>> revision = "5134a14d…";
         :>> sha256 = "…";  :>> license = "Apache-2.0";
         :>> uses = ("https://www.omg.org/spec/KerML/20250201/Semantic-Library.kpar", …);
     }
@@ -166,22 +171,26 @@ client; OpenSysML reads what either installs.
 | `syspi init [-publisher P -name N]` | writes `.project.json` (+ `.meta.json`) |
 | `syspi add <iri>[@constraint]` | appends a usage, resolves, installs, locks |
 | `syspi install` / `syspi sync` | resolves `.project.json` + lock, installs missing/changed projects |
-| `syspi lock` | resolves to exact versions/commits/checksums, writes the lock |
+| `syspi lock` | resolves to exact versions/revisions/checksums, writes the lock |
 | `syspi bundle <dir>` | builds the deterministic `.kpar`, checks tag == version in a tagged checkout |
 | `syspi index emit <dir>` (later `check|add|yank`) | writes the static JSON index; maintains an index checkout |
 
-- Resolution order per usage: lock entry → direct source (`pkg:git/...` or a git URL: tags via
-  `ls-remote`) → configured indexes (ours by default, sysand static indexes readable as-is) for
+- Resolution order per usage: lock entry → direct source (`pkg:git/...`, `pkg:svn/...`,
+  `pkg:hg/...` or a clone URL: tags listed from the repository) → configured indexes (ours by default, sysand static indexes readable as-is) for
   `pkg:sysand/...` and for search. Version constraints: exact, caret, tilde, comparison ranges (semver).
-- Fetch and verify: `git` is the protocol (shell out — honours the user's credential helpers); a host
-  archive over HTTPS is tried first where the hostname is known to serve one, with `git` as the
-  fallback. Verify the tree against the recorded commit / kpar SHA-256 and the `.meta.json` checksums
-  before anything is read.
+- Fetch and verify: the VCS is the protocol — shell out to the user's `git`, `svn` or `hg` (honours
+  their credential helpers, SSH config and auth caches, no new dependency) behind one source interface
+  per VCS; a host archive over HTTPS is tried first where the hostname is known to serve one, with the
+  VCS as the fallback. Verify the tree against the recorded tree digest / kpar SHA-256 (the revision
+  alone is not content-addressed for svn) and the `.meta.json` checksums before anything is read.
+  This check is SysPI's alone: OpenSysML's directory reader parses `.project.json` only, so a
+  tampered `lib/` directory is caught by `syspi sync` re-verifying against the lock, not by the reader.
 - Install layout: `lib/<publisher>-<name>_<version>/` (or `.kpar`) beside `.project.json` — a neutral
   name, nothing tool-specific since every reader goes by `.project.json`. SysPI also reads an existing
   `.sysand/lib/` and never writes there.
 - Lock: no OMG format exists. `.project.lock.json` beside `.project.json` (one entry per usage:
-  canonical IRI, version, source URL, tag, commit, SHA-256; deterministic bytes); `sysand-lock.toml`
+  canonical IRI, version, source URL, tag, `vcs`, `revision`, `.kpar`/tree SHA-256 — the same
+  release served from git, svn or hg locks to the same `sha256`; deterministic bytes); `sysand-lock.toml`
   read as an input when present for interop, never written.
 - Trust: the index PR gate plus, later, sigstore attestation of the `.kpar` from the package repo's CI
   identity, verified on install.
@@ -210,7 +219,7 @@ client; OpenSysML reads what either installs.
 
 ## 4. Phasing
 
-Phase 1 — installable packages from git remotes, no index
+Phase 1 — installable packages from git, svn and hg remotes, no index
 1. Extensions Library (`Open-MBEE/OpenSysML-Extensions-Library`): root `.project.json` (`publisher`
    Open-MBEE) and `.meta.json`, `build-kpar.py` deriving the archive from them, release job asserting
    tag == version; the maintainer tags `v1.0.0`.
@@ -218,11 +227,12 @@ Phase 1 — installable packages from git remotes, no index
    exact constraint; tests for both; read-side archive hardening (path traversal, symlink escape,
    size bounds, `.meta.json` checksums).
 3. SysPI (`Open-MBEE/SysPI`): `syspi init/add/install/sync/lock/bundle` for direct sources
-   (`pkg:git/...`, git URL, remote `.kpar`, local path/editable) with `.project.lock.json`; tag ==
+   (`pkg:git/...`, `pkg:svn/...`, `pkg:hg/...`, clone URL, remote `.kpar`, local path/editable)
+   with `.project.lock.json`; tag ==
    version check; "no .project.json" error; version-range constraints; `index emit` of the sysand
    static layout.
 Gate: `syspi` installs the Extensions Library, ode4hera Requirements Management and MBSE4U SYSMOD
-from their git repos (SYSMOD's repo already carries `.project.json`/`.meta.json` at root) into a
+from their repositories (SYSMOD's repo already carries `.project.json`/`.meta.json` at root) into a
 fresh project, and `sysml -validate` resolves every usage from `lib/` with no flag.
 
 Phase 2 — the index (SysPI + index repo)
@@ -239,11 +249,13 @@ Phase 3 — ecosystem
 
 ## 5. Decisions
 
-Settled: `pkg:git/<host>/<path>@<version>` identity (git is the protocol, no provider list); no extension library (index definitions live in
+Settled: `pkg:<vcs>/<host>/<path>@<version>` identity with `git`, `svn` and `hg` all in Phase 1 (the
+VCS is the protocol, no provider list; `cvs` refused); no extension library (index definitions live in
 the index repo, stdlib-only); no lax mode.
 
 Settled: install dir `lib/` beside `.project.json` (`.sysand/lib` still read); lock `.project.lock.json`;
-fetch = `git`, with a host archive over HTTPS as an internal fast path.
+fetch = the user's `git`/`svn`/`hg` executable behind one source interface, with a host archive over
+HTTPS as an internal fast path; lock entries carry `vcs` + `revision` + a VCS-independent tree digest.
 
 Settled: OpenSysML is not the client. The client is SysPI (`Open-MBEE/SysPI`, `syspi`), a separate
 tool beside sysand; OpenSysML reads what package managers install and adds support for further ones
