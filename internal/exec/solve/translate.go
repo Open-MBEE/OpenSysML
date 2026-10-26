@@ -204,7 +204,7 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 	// What the objects its parts hold assert is part of what validating an
 	// object of sym checks, so the query states it too, each condition read
 	// from the object stating it.
-	groups, refused, assumed, err := heldGroups(ctx, sym, effectiveFeatures(ctx, sym))
+	groups, refused, err := heldGroups(ctx, sym, effectiveFeatures(ctx, sym))
 	if err != nil {
 		return nil, err
 	}
@@ -218,6 +218,7 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 			return nil, err
 		}
 		uncovered := append([]Refused(nil), refused...)
+		var walked []AssumedOne
 		for _, group := range groups {
 			reason, err := t.refusalOf(group)
 			if err != nil {
@@ -231,6 +232,7 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 			if err := t.translate(group.conds); err != nil {
 				return nil, err
 			}
+			walked = mergeAssumed(walked, group.assumed)
 		}
 		if len(t.asserts) == 0 {
 			return nil, fmt.Errorf("%s %s: every assertion about its objects %w, so every selection of its variants is permitted", subject.Kind, subject.Name, ErrNoConditions)
@@ -240,7 +242,7 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 		}
 		q := t.query()
 		q.Uncovered = uncovered
-		q.AssumedOne = mergeAssumed(assumed, t.assumedOne)
+		q.AssumedOne = mergeAssumed(walked, t.assumedOne)
 		return q, nil
 	}
 	q, err := translate(pins)
@@ -569,14 +571,14 @@ func newTranslator(ctx *runtime.Context, subject Subject) *translator {
 	}
 }
 
-// mergeAssumed joins the held features walked as one object with the features
-// the conditions read as one, a feature both name reported once, by its path.
-func mergeAssumed(walked, read []AssumedOne) []AssumedOne {
-	out := append([]AssumedOne(nil), walked...)
-	for _, a := range read {
+// mergeAssumed appends the assumptions of more to those of have, a feature both
+// name reported once, as have names it.
+func mergeAssumed(have, more []AssumedOne) []AssumedOne {
+	out := append([]AssumedOne(nil), have...)
+	for _, a := range more {
 		seen := false
-		for _, w := range walked {
-			if w.Feature == a.Feature {
+		for _, h := range have {
+			if h.Feature == a.Feature {
 				seen = true
 				break
 			}

@@ -115,3 +115,50 @@ func TestUnstatedParameterIsAssumedOnce(t *testing.T) {
 		t.Fatalf("AssumedOne = %+v, want test::C::a alone (b has the implicit [1..1])", q.AssumedOne)
 	}
 }
+
+// craftModel holds a part only the default multiplicity governs (`spare`, with
+// an owned subsetting), whose type asserts the condition given.
+func craftModel(tankCondition string) string {
+	return `
+		package test {
+			private import ScalarValues::Real;
+			part def Tank {
+				attribute level : Real;
+				assert constraint { ` + tankCondition + ` }
+			}
+			part def Craft {
+				attribute pressure : Real;
+				assert constraint { pressure > 0.0 }
+				part main : Tank;
+				part spare : Tank :> main;
+			}
+		}`
+}
+
+// The one-object assumption about a held part is reported only with a group the
+// query states: a part whose assertions the translation leaves out, as
+// Uncovered says, assumes nothing.
+func TestHeldObjectAssumptionFollowsTheTranslatedGroups(t *testing.T) {
+	ctx, idx := fixture(t, "<test>", craftModel("level > 0.0"))
+	craft := symbolNamed(t, idx, "test::Craft")
+	q, err := AssertedOn(ctx, craft, craft.OwnerScope, nil, nil)
+	if err != nil {
+		t.Fatalf("translate Craft: %v", err)
+	}
+	if len(q.AssumedOne) != 1 || q.AssumedOne[0].Name != "spare" || !q.AssumedOne[0].Object {
+		t.Fatalf("AssumedOne = %+v, want spare as one object", q.AssumedOne)
+	}
+
+	ctx, idx = fixture(t, "<test>", craftModel("level ** 2.0 > 0.0"))
+	craft = symbolNamed(t, idx, "test::Craft")
+	q, err = AssertedOn(ctx, craft, craft.OwnerScope, nil, nil)
+	if err != nil {
+		t.Fatalf("translate Craft: %v", err)
+	}
+	if len(q.Uncovered) == 0 {
+		t.Fatalf("the power expression under spare was translated; Uncovered = %+v", q.Uncovered)
+	}
+	if len(q.AssumedOne) != 0 {
+		t.Errorf("AssumedOne = %+v, want none: nothing of spare is in the query", q.AssumedOne)
+	}
+}
