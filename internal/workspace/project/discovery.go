@@ -20,7 +20,22 @@ const LibraryRootsEnvVar = "OPENSYSML_LIBRARY_ROOTS"
 // is the only thing provider-specific here; what is installed there is read as
 // the project interchange format describes it.
 var wellKnownLibraryDirs = []string{
+	"lib",                           // a plain lib/ beside .project.json
 	filepath.Join(".sysand", "lib"), // sysand
+}
+
+// IsLibraryDir reports whether name, under dir, starts a well-known library
+// layout of the project in dir (one holding .project.json): installed, not own, files.
+func IsLibraryDir(dir, name string) bool {
+	if _, err := os.Stat(filepath.Join(dir, ProjectFile)); err != nil {
+		return false
+	}
+	for _, layout := range wellKnownLibraryDirs {
+		if strings.SplitN(layout, string(filepath.Separator), 2)[0] == name {
+			return true
+		}
+	}
+	return false
 }
 
 // maxLibraryDirs bounds the directories walked under one library root looking
@@ -280,10 +295,12 @@ func used(enclosing, installed []*Interchange) []*Interchange {
 }
 
 // pickInstalled chooses the installed project a usage names: of those its
-// resource names, the one whose version the constraint names exactly, else the
+// resource names, the one whose version the usage's constraint (its
+// versionConstraint, else the @version in its IRI) names exactly, else the
 // latest. Nil when none does.
 func pickInstalled(installed []*Interchange, u Usage) *Interchange {
 	var pick *Interchange
+	constraint := u.constraint()
 	for _, candidate := range installed {
 		if !candidate.Uses(u) {
 			continue
@@ -291,8 +308,8 @@ func pickInstalled(installed []*Interchange, u Usage) *Interchange {
 		switch {
 		case pick == nil:
 			pick = candidate
-		case pick.satisfies(u.VersionConstraint):
-		case candidate.satisfies(u.VersionConstraint), newerVersion(candidate.Version, pick.Version):
+		case pick.satisfies(constraint):
+		case candidate.satisfies(constraint), newerVersion(candidate.Version, pick.Version):
 			pick = candidate
 		}
 	}

@@ -104,7 +104,7 @@ func bundleMembers(dir string) (map[string][]byte, error) {
 		if d.IsDir() {
 			// A project nested in the directory is a project of its own,
 			// bundled on its own.
-			if hidden || (rel != "." && IsProjectDir(path)) {
+			if hidden || IsLibraryDir(filepath.Dir(path), d.Name()) || (rel != "." && IsProjectDir(path)) {
 				return filepath.SkipDir
 			}
 			return nil
