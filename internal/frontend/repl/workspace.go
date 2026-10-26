@@ -140,12 +140,7 @@ func (s *Session) loadWorkspaceForText(text string) (notices []string, loaded bo
 // buffer nor the library declares at the root and that confirm admits, when
 // it is given.
 func (s *Session) undeclaredRoots(roots []string, confirm func(name string) bool) []string {
-	declared := map[string]bool{}
-	for _, sn := range s.snippets {
-		for _, name := range sn.names {
-			declared[name] = true
-		}
-	}
+	declared := s.declaredRoots(nil)
 	var out []string
 	seen := map[string]bool{}
 	for _, name := range roots {
@@ -158,6 +153,21 @@ func (s *Session) undeclaredRoots(roots []string, confirm func(name string) bool
 		}
 	}
 	return out
+}
+
+// declaredRoots is the set of root names the buffer declares, the snippets of
+// the files keyed in except left out.
+func (s *Session) declaredRoots(except map[string]bool) map[string]bool {
+	declared := map[string]bool{}
+	for _, sn := range s.snippets {
+		if sn.key != "" && except[sn.key] {
+			continue
+		}
+		for _, name := range sn.names {
+			declared[name] = true
+		}
+	}
+	return declared
 }
 
 // referenceBegins reports whether one of the unresolved references begins with
@@ -217,7 +227,7 @@ func (s *Session) loadWorkspaceFor(names []string) workspaceLoad {
 	}
 	// What the buffer declares is known too, so a loaded file's import of a
 	// typed package does not pull in a sibling declaring the same name.
-	read, err := s.readWithDependencies(paths, loadOptions{}, s.knownRoot)
+	read, err := s.readWithDependencies(paths, loadOptions{})
 	if err != nil {
 		out.notices = append(out.notices, errPrefix+err.Error())
 		return out
