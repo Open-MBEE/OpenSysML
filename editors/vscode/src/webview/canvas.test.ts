@@ -70,9 +70,13 @@ test("liftNode floats the dragged subtree over a canvas that stays put, drawn la
   assert.deepEqual(groups.map((group) => group.classList.contains("lifted")), [false, false, true, true]);
   assert.equal(svg.querySelector('g[data-opensysml-id="a"] > rect')!.getAttribute("x"), "10");
   assert.equal(svg.querySelector('g[data-opensysml-id="c"] > rect')!.getAttribute("x"), before);
-  // Lifted within the canvas, the canvas keeps its size and origin.
-  assert.deepEqual([svg.getAttribute("width"), svg.getAttribute("height")], [String(layout.width), String(layout.height)]);
-  assert.equal(svg.getAttribute("viewBox"), `${layout.origin.x} ${layout.origin.y} ${layout.width} ${layout.height}`);
+  // Lifted within the canvas, the canvas keeps its origin and height; it widens only as far
+  // as the label of the redrawn edge, riding the edge's midpoint right, reaches past it.
+  const label = svg.querySelector("g.opensysml-edge.lifted text.edge-label")!;
+  const width = Math.max(layout.width, Number(label.getAttribute("x")) + glyphSize(label.textContent ?? "").width / 2 + MARGIN - layout.origin.x);
+  assert.ok(width > layout.width);
+  assert.deepEqual([svg.getAttribute("width"), svg.getAttribute("height")], [String(width), String(layout.height)]);
+  assert.equal(svg.getAttribute("viewBox"), `${layout.origin.x} ${layout.origin.y} ${width} ${layout.height}`);
   // The edge from the lifted valve to the pump is redrawn to follow it, with its handles.
   assert.deepEqual([...svg.querySelectorAll<SVGGElement>("g.lifted")].map((group) => group.classList[0]), [
     "opensysml-node", "opensysml-node", "opensysml-edge", "edge-handles",
@@ -373,7 +377,7 @@ test("drawCanvas preserves the portless SVG output", () => {
   const svg = drawCanvas(layoutCanvas(result));
   assert.equal(
     createHash("sha256").update(svg.outerHTML).digest("hex"),
-    "14464e966eed0316973b050700e38acaf046ff35d97ebb3761b363bd3871a58d",
+    "43c3b5225634001e08b36d080f8687204fe684ed2057923b0ef65ffda16bfcaa",
   );
 });
 
