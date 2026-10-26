@@ -144,8 +144,10 @@ test("every standard operator translates", () => {
   ];
   for (const [operator, property, value, wire, values] of cases) {
     const query = buildQuery({ where: { operator, property, value } });
-    assert.equal(query.where?.constraint.case, "primitive");
-    const primitive = query.where?.constraint.value as { operator: PrimitiveOperator; value: string[] };
+    const where = query.where;
+    assert.ok(where);
+    assert.equal(where.constraint.case, "primitive");
+    const primitive = where.constraint.value as { operator: PrimitiveOperator; value: string[] };
     assert.equal(primitive.operator, wire, operator);
     assert.deepEqual(primitive.value, values, operator);
   }
