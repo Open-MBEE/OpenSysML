@@ -136,9 +136,9 @@ public final class Engine implements AutoCloseable {
 
   /** The first document under the destination's file name, so the diagnostics name the file the user saved. */
   private static List<SourceDocument> named(List<SourceDocument> documents, Path destination) {
-    if (documents.isEmpty() || documents.get(0).content().isEmpty()) return documents;
+    if (documents.isEmpty()) return documents;
     List<SourceDocument> named = new ArrayList<>(documents);
-    named.set(0, SourceDocument.inline(destination.getFileName().toString(), documents.get(0).content().get()));
+    named.set(0, documents.get(0).withName(destination.getFileName().toString()));
     return List.copyOf(named);
   }
 
