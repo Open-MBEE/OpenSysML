@@ -1586,6 +1586,7 @@
       {
         "from": "n42",
         "to": "n35",
+        "label": "=",
         "kind": "binding",
         "origin": {
           "file": "mass-rollup.sysml",
@@ -1598,6 +1599,7 @@
       {
         "from": "n86",
         "to": "n79",
+        "label": "=",
         "kind": "binding",
         "origin": {
           "file": "mass-rollup.sysml",
@@ -1610,6 +1612,7 @@
       {
         "from": "n99",
         "to": "n93",
+        "label": "=",
         "kind": "binding",
         "origin": {
           "file": "mass-rollup.sysml",
@@ -1622,6 +1625,7 @@
       {
         "from": "n106",
         "to": "n99",
+        "label": "=",
         "kind": "binding",
         "origin": {
           "file": "mass-rollup.sysml",
