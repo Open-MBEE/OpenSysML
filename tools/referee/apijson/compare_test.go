@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 	"github.com/Open-MBEE/OpenSysML/tools/referee/diff"
 )
 
@@ -310,5 +311,90 @@ func TestCollidingDocumentsAreConvertedAlone(t *testing.T) {
 	}
 	if skipped.Skipped != 2 || skipped.Colliding != 0 {
 		t.Fatalf("skipping the pilot's failed files: skipped %d, colliding %d", skipped.Skipped, skipped.Colliding)
+	}
+}
+
+func TestDeclaredNondeterminismScoresTheWholeRow(t *testing.T) {
+	expression := func(featuringType any) *element {
+		props := map[string]any{"operator": ".", "isAbstract": false}
+		if featuringType != nil {
+			props["featuringType"] = featuringType
+		}
+		return &element{Key: "P::a/FeatureChainExpression[0]", Type: "FeatureChainExpression", File: "p.sysml", Props: props}
+	}
+	for _, tc := range []struct {
+		name  string
+		ours  *element
+		pilot *element
+	}{
+		{"pilot states a featuringType ours lacks", expression(nil), expression([]any{ref{unkeyed}})},
+		{"both state none", expression(nil), expression([]any{})},
+		{"the two state different ones", expression([]any{ref{"P::a"}}), expression([]any{ref{"P::b"}})},
+	} {
+		c := newComparison()
+		c.compareRoot("probe", []*element{tc.ours}, []*element{tc.pilot})
+		row, ok := rowFor(c.scorecard(), "FeatureChainExpression", "featuringType")
+		if !ok {
+			t.Fatalf("%s: no (FeatureChainExpression, featuringType) row", tc.name)
+		}
+		if row.PilotNondeterministic != 1 || row.Buckets.Differing() != 0 || row.AbsentBoth != 0 || row.PresentEqual != 0 || row.Indeterminate != 0 {
+			t.Errorf("%s: want the one comparison scored pilot-nondeterministic only, got %+v", tc.name, row.Buckets)
+		}
+		if len(c.exampleList(c.scorecard())) != 0 {
+			t.Errorf("%s: a pilot-nondeterministic comparison is not an example of a difference", tc.name)
+		}
+		if other, _ := rowFor(c.scorecard(), "FeatureChainExpression", "operator"); other.PresentEqual != 1 || other.PilotNondeterministic != 0 {
+			t.Errorf("%s: an undeclared property of the same metaclass is still scored, got %+v", tc.name, other.Buckets)
+		}
+	}
+	c := newComparison()
+	pilot := expression([]any{ref{unkeyed}})
+	pilot.Type = "FeatureReferenceExpression"
+	ours := expression(nil)
+	ours.Type = pilot.Type
+	c.compareRoot("probe", []*element{ours}, []*element{pilot})
+	if row, _ := rowFor(c.scorecard(), pilot.Type, "featuringType"); row.OursMissing != 1 || row.PilotNondeterministic != 0 {
+		t.Errorf("the declaration names one metaclass; %s.featuringType is still scored, got %+v", pilot.Type, row.Buckets)
+	}
+}
+
+func TestDeclaredNondeterminismIsEvidencedAndRecorded(t *testing.T) {
+	root, err := repo.Choose("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(committedBaseline)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recorded Report
+	if err := json.Unmarshal(content, &recorded); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(recorded.PilotNondeterministic, pilotNondeterminism) {
+		t.Errorf("the baseline declares %+v, the comparison %+v; re-record the baseline", recorded.PilotNondeterministic, pilotNondeterminism)
+	}
+	declared := 0
+	for _, n := range pilotNondeterminism {
+		if n.Evidence == "" {
+			t.Errorf("(%s, %s) is declared without evidence", n.Metaclass, n.Property)
+		}
+		counts, ok := recorded.Scorecard[n.Metaclass+"."+n.Property]
+		if !ok {
+			t.Errorf("(%s, %s) is declared but the baseline has no such row", n.Metaclass, n.Property)
+			continue
+		}
+		declared += counts[6]
+		if counts[6] == 0 || counts != [7]int{0, 0, 0, 0, 0, 0, counts[6]} {
+			t.Errorf("(%s, %s) is declared, want every comparison in the pilot-nondeterministic column, got %v", n.Metaclass, n.Property, counts)
+		}
+	}
+	if recorded.Totals.Properties.PilotNondeterministic != declared {
+		t.Errorf("the baseline scores %d comparisons pilot-nondeterministic, the declared rows hold %d", recorded.Totals.Properties.PilotNondeterministic, declared)
+	}
+	for key, counts := range recorded.Scorecard {
+		if counts[6] != 0 && !isPilotNondeterministic(strings.SplitN(key, ".", 2)[0], strings.SplitN(key, ".", 2)[1]) {
+			t.Errorf("%s has %d pilot-nondeterministic comparisons without a declaration", key, counts[6])
+		}
 	}
 }

@@ -150,15 +150,18 @@ every report (`normalizations`):
 Each property of each matched pair lands in one bucket: **present-equal**, **present-different**,
 **ours-missing** (the pilot states a value, we state nothing), **pilot-missing** (the reverse), or
 *absent-both* (neither states anything — agreement, but not evidence that either side derives the
-property, so it is kept apart from the four the scorecard ranks). The row is named by the pilot's
-metaclass when the two sides disagree on the metaclass (`typeMismatch`).
+property, so it is kept apart from the four the scorecard ranks). A property declared
+*pilot-nondeterministic* (below) lands in a seventh column whatever the two sides state. The row is
+named by the pilot's metaclass when the two sides disagree on the metaclass (`typeMismatch`).
 
 ## Detectors
 
 - **Determinism.** The report is sorted throughout (roots in order, elements by key, properties by
   name, rows by differing count then name); two runs over one checkout write byte-identical reports
   but for the recording date, which is what `-check` verifies in the oracle-reproduction workflow
-  and what `TestReportIsDeterministic` pins without Java.
+  and what `TestReportIsDeterministic` pins without Java. The pilot's own output is not
+  deterministic across JVMs for every property; a property shown to move is declared
+  pilot-nondeterministic (below) rather than re-recorded, so `-check` holds on any JVM.
 - **Disagreement.** `TestDisagreementDetectorIsLive` compares the committed pilot export of
   `tools/referee/apijson/testdata/probe.sysml` with itself (no row differs), then with a scratch copy
   in which one derived collection of `Derived Probe::Vehicle` is emptied (`ownedUsage` → exactly one
@@ -188,9 +191,44 @@ metaclass when the two sides disagree on the metaclass (`typeMismatch`).
 
 The pinned pilot's verdict on the probe (`validate-sysml-batch`): clean.
 
+## Declared pilot nondeterminism
+
+The oracle is one process per root over sorted files, and two runs of it on one machine write the
+same elements and values. Across JVMs they do not, for one property: `FeatureChainExpression.featuringType`.
+At pin `2026-08` (`0.62.0`) the export under OpenJDK 21 (the workflow's `setup-java`) and under
+OpenJDK 25 of the same checkout differ on exactly nine values, the three `FeatureChainExpression`s
+valuing the event occurrences of `ServerSequenceModelOutside::PubSubSequenceOutside` in
+`examples/pilot-corpora/sysml-examples/Interaction Sequencing Examples/ServerSequenceModelOutside.sysml`
+(`then event occurrence :>> publish_target_event = publish_message.done;` and its two siblings), each
+written again by `ServerSequenceOutsideRealization-2.sysml` and `-3.sysml`, which import it; the
+copies collapse to three matched elements. Under one JVM each has no `featuringType`; under the other
+each has one reference, to the enclosing `SuccessionAsUsage`'s `defaultFeaturingType`, an element the
+pilot neither exports nor keys (the one `unkeyed` reference in the row). Nothing else moves: no other
+element, property or key differs between the two exports, and a run from a differently named checkout
+matches the first. The pilot derives an expression's `featuringType` from its adapter's implicit
+featuring types, which are filled while the owner is transformed (`FeatureAdapter.addImplicitFeaturingTypesIfNecessary`,
+`FeatureUtil.insertImplicitTypeFeaturings` in `org.omg.sysml.logic`), so the value depends on
+transformation order, not on the model. The metamodel (KerML 1.1 Beta 2 8.3.3.3.4, `featuringType :
+Type [0..*] {ordered}`, `deriveFeatureFeaturingType`) derives it from the `typeFeaturing`s and the
+first chaining feature, which this expression has neither of, so the stable answer — none — is the one
+this repository's writer states; the other is not a different fact but a different run.
+
+A single comparison cannot tell the two answers apart (each is a legitimate shape), so the referee
+carries a **declared list** (`pilotNondeterminism` in `tools/referee/apijson/nondeterminism.go`, written
+into the report and the baseline as `pilotNondeterministic` with the evidence). Every comparison of a
+declared `(metaclass, property)` row is scored **pilot-nondeterministic**, the seventh column, and in
+no other bucket: the row is reproducible on every JVM and the instability stays visible in the
+scorecard and the headline rather than being dropped or tolerated. An undeclared property is scored
+exactly as before, the same metaclass's other properties included. The declaration is kept honest by
+`TestDeclaredNondeterminismScoresTheWholeRow` (the column takes every comparison of the declared row,
+nothing else, and never an example) and `TestDeclaredNondeterminismIsEvidencedAndRecorded` (the
+baseline's list is the comparison's, every declared row has evidence and sits wholly in the seventh
+column, and no undeclared row is in it). An entry is removed when a pin stops reproducing the
+disagreement, which `-check` then shows as that row moving out of the column.
+
 ## Results (pilot `2026-08`, 924 files)
 
-**Scorecard:** 931 files; 92658 elements matched (18486 ours-only, 37657 pilot-only, 0 of them implied); properties: 1124108 present-equal, 27394 present-different, 1076508 ours-missing, 68425 pilot-missing, 1978076 absent-both, 26434 indeterminate.
+**Scorecard:** 931 files; 92658 elements matched (18486 ours-only, 37657 pilot-only, 0 of them implied); properties: 1124108 present-equal, 27394 present-different, 1076221 ours-missing, 68425 pilot-missing, 1977849 absent-both, 26434 indeterminate, 514 pilot-nondeterministic.
 
 The pilot's export failed on 56 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples and 4 test fixtures; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 56 failed files out and converted 28 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11730 (metaclass, property) rows carry a comparison; 111108 references compared through the unkeyed sentinel, 159065 of our `sysx:` annotations were left out, and 287/347 elements (ours/pilot) were dropped for ambiguous keys, 16850/31317 for having none.
 
@@ -206,7 +244,7 @@ The pilot's export failed on 56 files (`pilotFailed`: its own export throws on a
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 555 | 1 | 454 | 41 |
 | `docs/manual/examples` | 11 | 7191 | 920 | 2108 | 88704 | 2005 | 89511 | 4812 |
 
-The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's five counts.
+The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's seven counts.
 
 ### Where the two sides state different values
 

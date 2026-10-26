@@ -14,6 +14,9 @@ const (
 	bucketPilotMissing     = "pilot-missing"
 	bucketAbsentBoth       = "absent-both"
 	bucketIndeterminate    = "indeterminate"
+	// bucketPilotNondeterministic scores every comparison of a property the pinned
+	// pilot exports differently from one JVM to the next; see nondeterminism.go.
+	bucketPilotNondeterministic = "pilot-nondeterministic"
 )
 
 // Buckets counts the property comparisons of one scope by outcome. AbsentBoth
@@ -28,6 +31,9 @@ type Buckets struct {
 	PilotMissing     int `json:"pilotMissing"`
 	AbsentBoth       int `json:"absentBoth"`
 	Indeterminate    int `json:"indeterminate"`
+	// PilotNondeterministic counts the comparisons of a declared property whose
+	// pilot value is not reproducible, so neither side's value is scored.
+	PilotNondeterministic int `json:"pilotNondeterministic"`
 }
 
 func (b *Buckets) add(bucket string) {
@@ -44,6 +50,8 @@ func (b *Buckets) add(bucket string) {
 		b.AbsentBoth++
 	case bucketIndeterminate:
 		b.Indeterminate++
+	case bucketPilotNondeterministic:
+		b.PilotNondeterministic++
 	}
 }
 
@@ -54,6 +62,7 @@ func (b *Buckets) addAll(other Buckets) {
 	b.PilotMissing += other.PilotMissing
 	b.AbsentBoth += other.AbsentBoth
 	b.Indeterminate += other.Indeterminate
+	b.PilotNondeterministic += other.PilotNondeterministic
 }
 
 // Differing is the number of comparisons that found the two sides apart.
@@ -165,6 +174,9 @@ func (c *comparison) compareRoot(root string, ours, pilot []*element) (ElementTo
 				continue
 			}
 			bucket := bucketOf(property, o.Props[property], p.Props[property])
+			if isPilotNondeterministic(p.Type, property) {
+				bucket = bucketPilotNondeterministic
+			}
 			buckets.add(bucket)
 			c.record(root, p, property, bucket, o.Props[property], p.Props[property])
 		}
@@ -295,7 +307,7 @@ func (c *comparison) record(root string, p *element, property, bucket string, ou
 	if mentionsUnkeyed(ours) || mentionsUnkeyed(pilot) {
 		c.unkeyedReferences++
 	}
-	if bucket == bucketPresentEqual || bucket == bucketAbsentBoth || bucket == bucketIndeterminate {
+	if bucket == bucketPresentEqual || bucket == bucketAbsentBoth || bucket == bucketIndeterminate || bucket == bucketPilotNondeterministic {
 		return
 	}
 	// The first example per row in root, file and key order is deterministic
