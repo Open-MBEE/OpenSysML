@@ -158,7 +158,28 @@ function markers(): SVGDefsElement {
     markerWidth: "14", markerHeight: "8", orient: "auto",
   });
   diamondHollow.append(element("path", { d: "M 0.5 4 L 7 0.5 L 13.5 4 L 7 7.5 z", class: "arrow-hollow" }));
-  defs.append(filled, open, triangle, diamondFilled, diamondHollow);
+  // A reference subsetting's hollow triangle, with the notation's four dots behind its base.
+  const triangleDots = element("marker", {
+    id: "triangle-dots", viewBox: "0 0 20 12", refX: "19", refY: "6",
+    markerWidth: "20", markerHeight: "12", orient: "auto-start-reverse",
+  });
+  triangleDots.append(element("path", { d: "M 8.5 0.5 L 19.5 6 L 8.5 11.5 z", class: "arrow-hollow" }));
+  for (const [cx, cy] of [[2, 4], [6, 4], [2, 8], [6, 8]]) {
+    triangleDots.append(element("circle", { cx: String(cx), cy: String(cy), r: "1.2", class: "arrow-fill" }));
+  }
+  // A portion's three-quarter circle at the occurrence end, its missing quarter
+  // facing along the line, and a membership's hollow circle at the namespace end.
+  const portion = element("marker", {
+    id: "portion", viewBox: "0 0 12 12", refX: "6", refY: "6",
+    markerWidth: "12", markerHeight: "12", orient: "auto",
+  });
+  portion.append(element("path", { d: "M 6 6 L 10 2 A 5.66 5.66 0 1 0 10 10 z", class: "arrow-fill" }));
+  const circleHollow = element("marker", {
+    id: "circle-hollow", viewBox: "0 0 12 12", refX: "0", refY: "6",
+    markerWidth: "12", markerHeight: "12", orient: "auto",
+  });
+  circleHollow.append(element("circle", { cx: "6", cy: "6", r: "5", class: "arrow-hollow" }));
+  defs.append(filled, open, triangle, diamondFilled, diamondHollow, triangleDots, portion, circleHollow);
   return defs;
 }
 
@@ -343,13 +364,29 @@ function boxClass(kind: string): "package" | "definition" | "region" | "usage" {
 // drawEdge is an edge's polyline with the arrowhead its kind takes and its label
 // at the midpoint. A specialization or typing points its hollow triangle at the
 // general end; a composition or reference wears its diamond at the owner end,
-// where the edge starts, and no arrowhead at the part it leads to.
+// where the edge starts, and no arrowhead at the part it leads to. A kind of
+// more than one word is classed with hyphens (`succession-flow`).
 function drawEdge(edge: PlacedEdge): SVGGElement {
-  const group = element("g", { class: `opensysml-edge ${edge.edge.kind}`, "data-edge": String(edge.index) });
+  const group = element("g", { class: `opensysml-edge ${edge.edge.kind.replace(/ /g, "-")}`, "data-edge": String(edge.index) });
   const attrs: Record<string, string> = { points: polyline(edge.points), class: "line" };
   switch (edge.edge.kind) {
     case "flow":
+    case "require":
+    case "assume":
+    case "assert":
+    case "frame":
+    case "event":
+    case "expose":
       attrs["marker-end"] = "url(#arrow-open)";
+      break;
+    case "reference subsetting":
+      attrs["marker-end"] = "url(#triangle-dots)";
+      break;
+    case "portion":
+      attrs["marker-start"] = "url(#portion)";
+      break;
+    case "unowned membership":
+      attrs["marker-start"] = "url(#circle-hollow)";
       break;
     case "connection":
       break;

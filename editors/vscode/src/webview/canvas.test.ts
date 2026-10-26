@@ -187,7 +187,7 @@ test("drawCanvas marks a tree's relationship edges the way the graphical notatio
   };
   const svg = drawCanvas(layoutCanvas(tree));
   const defs = [...svg.querySelectorAll("defs marker")].map((marker) => marker.id);
-  assert.deepEqual(defs, ["arrow", "arrow-open", "triangle-hollow", "diamond-filled", "diamond-hollow"]);
+  assert.deepEqual(defs, ["arrow", "arrow-open", "triangle-hollow", "diamond-filled", "diamond-hollow", "triangle-dots", "portion", "circle-hollow"]);
   assert.equal(svg.querySelector("#triangle-hollow path")?.getAttribute("class"), "arrow-hollow");
   assert.equal(svg.querySelector("#diamond-filled path")?.getAttribute("class"), "arrow-fill");
   const lines = [...svg.querySelectorAll<SVGPolylineElement>("g.opensysml-edge polyline")];
@@ -328,6 +328,43 @@ test("drawCanvas preserves the portless SVG output", () => {
   const svg = drawCanvas(layoutCanvas(result));
   assert.equal(
     createHash("sha256").update(svg.outerHTML).digest("hex"),
-    "83e9891b39565506610ab53d65fc7a583f5ab415504eae3b857f59235745b3a2",
+    "856dca6fc8de576d3ae851f97a5f442781200b47a95ad30bc49e056090e4467b",
   );
+});
+
+test("drawCanvas marks the notation's remaining relationship glyphs", () => {
+  const graph: RenderResult = {
+    ...result,
+    kind: "definition",
+    nodes: [node("p", "Plant"), node("t", "tank"), node("s", "spare"), node("f", "filling"), node("e", "startup"), node("c", "keepLevel"), node("u", "Uses"), node("l", "Lib"), node("v", "tankView"), node("k", "Tank"), node("a", "open"), node("b", "pour")],
+    edges: [
+      { from: "s", to: "t", label: "references", kind: "reference subsetting" },
+      { from: "p", to: "f", label: "", kind: "portion" },
+      { from: "p", to: "e", label: "event", kind: "event" },
+      { from: "p", to: "c", label: "require", kind: "require" },
+      { from: "u", to: "l", label: "L", kind: "unowned membership" },
+      { from: "v", to: "k", label: "expose", kind: "expose" },
+      { from: "a", to: "b", label: "«succession flow»", kind: "succession flow" },
+    ],
+  };
+  const svg = drawCanvas(layoutCanvas(graph));
+  const defs = [...svg.querySelectorAll("defs marker")].map((marker) => marker.id);
+  assert.deepEqual(defs, ["arrow", "arrow-open", "triangle-hollow", "diamond-filled", "diamond-hollow", "triangle-dots", "portion", "circle-hollow"]);
+  assert.equal(svg.querySelectorAll("#triangle-dots circle").length, 4);
+  assert.equal(svg.querySelector("#portion path")?.getAttribute("class"), "arrow-fill");
+  assert.equal(svg.querySelector("#circle-hollow circle")?.getAttribute("class"), "arrow-hollow");
+  const lines = [...svg.querySelectorAll<SVGPolylineElement>("g.opensysml-edge polyline")];
+  assert.deepEqual(lines.map((line) => [line.getAttribute("marker-start"), line.getAttribute("marker-end")]), [
+    [null, "url(#triangle-dots)"],
+    ["url(#portion)", null],
+    [null, "url(#arrow-open)"],
+    [null, "url(#arrow-open)"],
+    ["url(#circle-hollow)", null],
+    [null, "url(#arrow-open)"],
+    [null, "url(#arrow)"],
+  ]);
+  // A kind of more than one word is classed with hyphens, so a style sheet can address it.
+  const classes = [...svg.querySelectorAll<SVGGElement>("g.opensysml-edge")].map((group) => group.getAttribute("class"));
+  assert.deepEqual(classes.slice(0, 2), ["opensysml-edge reference-subsetting", "opensysml-edge portion"]);
+  assert.equal(classes[6], "opensysml-edge succession-flow");
 });
