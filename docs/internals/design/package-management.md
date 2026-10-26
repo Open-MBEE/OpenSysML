@@ -177,13 +177,6 @@ client; OpenSysML reads what either installs.
   archive over HTTPS is tried first where the hostname is known to serve one, with `git` as the
   fallback. Verify the tree against the recorded commit / kpar SHA-256 and the `.meta.json` checksums
   before anything is read.
-- Credentials follow the backend, never SysPI's own store: the git path inherits SSH config and
-  credential helpers by construction; the archive fast path and remote `.kpar` URLs obtain
-  credentials for the host through `git credential fill` (the same helpers, keychain, `GITHUB_TOKEN`
-  or `.netrc` the user already has for `git`) and send them as that host expects (bearer /
-  `PRIVATE-TOKEN` / basic); a 401/403/404 on the fast path falls back to `git` for the same host
-  rather than failing. Tokens never land in the lock, the index, a log, or a config file SysPI
-  writes; a private host with no credentials fails with the host and the `git credential` hint.
 - Install layout: `lib/<publisher>-<name>_<version>/` (or `.kpar`) beside `.project.json` — a neutral
   name, nothing tool-specific since every reader goes by `.project.json`. SysPI also reads an existing
   `.sysand/lib/` and never writes there.
