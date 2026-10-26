@@ -201,7 +201,7 @@ func (c *heldCollector) states(sym *symbols.Symbol) bool {
 // does not descend: the type recurs on the path, or the depth is spent, so what
 // lies below is either stated above already or beyond what validation reaches.
 func (c *heldCollector) unreachable(held runtime.HeldFeature, depth int) (reason string, cut bool) {
-	r := c.ctx.Semantics().EffectiveMultiplicityOf(held.Feature.Symbol)
+	r := held.Feature.Multiplicity
 	switch {
 	case !singleValued(r):
 		return "it may hold more than one object", false
@@ -260,7 +260,10 @@ func (t *translator) selectedTerms() ([]*Term, error) {
 		holder := s.holder[len(s.holder)-1]
 		written := "variation `" + pathName(s.holder) + "`"
 		for _, step := range s.holder {
-			if !singleValued(t.model.EffectiveMultiplicityOf(step)) {
+			if t.model.IsVariationFeature(step) {
+				continue
+			}
+			if stated, ok := t.model.StatedMultiplicityOf(step); ok && !singleValued(stated) {
 				return nil, t.refuse(holder.Decl, written, "it may hold more than one object")
 			}
 		}

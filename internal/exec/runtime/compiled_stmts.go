@@ -294,7 +294,7 @@ func bodyStmt(stmts compiledStmt) compiledExpr {
 			return scalar{}, err
 		}
 		if !returned {
-			return scalar{}, fmt.Errorf("%w: compiled body ended without a return", errNoResultExpression)
+			return scalar{}, fmt.Errorf("%w: compiled body ended without a return", ErrNoValue)
 		}
 		return v, nil
 	}

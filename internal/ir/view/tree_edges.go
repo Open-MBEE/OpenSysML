@@ -25,19 +25,19 @@ func (r *Rendering) noteTreeSite(node *Node, view, sym *symbols.Symbol) {
 
 // treeGraph draws the relationship edges of a tree between the nodes it has,
 // as the graphical notation's general view draws them: a specialization,
-// subsetting or redefinition from an element to its general one; the
-// composition (filled diamond) or reference (hollow diamond) from an element
-// to the definition typing a structural usage it owns, labelled with that
-// usage's name and multiplicity; and the typing of a usage drawn with no
-// drawn owner. An edge is drawn only between two drawn nodes, never from a
-// node to one nested in it, since the nesting already shows that membership.
+// subsetting or redefinition from an element to its general one; the typing
+// of a usage to its definition; and the feature membership of each structural
+// usage drawn under its owner, a composition (filled diamond at the owner) or
+// a reference (hollow diamond) from the owner to the usage, which the writers
+// draw in place of the containment line. A relationship edge is drawn only
+// between two drawn nodes, never from a node to one nested in it.
 type treeGraph struct {
 	r      *Renderer
 	out    *Rendering
 	nodes  map[symbols.ElementKey]*Node // the first node drawn for each element
 	parent map[string]string            // node ID -> the ID of the node it is nested in
 	edges  map[treeEdgeKey]bool
-	lined  map[linedEdge]bool // property edges an association line stands for
+	lined  map[linedEdge]bool // typing edges an association line stands for
 }
 
 // treeEdgeKey identifies an edge a tree draws once: a relationship between
@@ -93,6 +93,32 @@ func (r *Renderer) treeEdges(out *Rendering) map[symbols.ElementKey]*Node {
 	}
 	out.sites = nil
 	return g.nodes
+}
+
+// nestingEdges are the edges of a tree from a node to one nested directly in
+// it — the feature memberships treeEdges draws — keyed by the two node IDs.
+// A writer draws the membership glyph where the pair would get a containment
+// line, and the containment line between every other node and its child.
+func (r *Rendering) nestingEdges() map[[2]string]bool {
+	parents := map[string]string{}
+	var index func(nodes []*Node, parent string)
+	index = func(nodes []*Node, parent string) {
+		for _, node := range nodes {
+			parents[node.ID] = parent
+			index(node.Children, node.ID)
+		}
+	}
+	index(r.Roots, "")
+	nesting := map[[2]string]bool{}
+	for _, edge := range r.Edges {
+		if !membershipEdge(edge.Kind) {
+			continue
+		}
+		if parent, ok := parents[edge.To]; ok && parent != "" && parent == edge.From {
+			nesting[[2]string{edge.From, edge.To}] = true
+		}
+	}
+	return nesting
 }
 
 // declaredUnder reports whether a node drawn in the node of parent draws sym
@@ -154,8 +180,9 @@ func (g *treeGraph) drawAssociation(node *Node, site treeSite, line association)
 	}
 }
 
-// associationEndLabel is the label at end i of the line; an end crossing a drawn
-// property takes that property's edge over, a composition when it is composite.
+// associationEndLabel is the label at end i of the line; an end crossing a
+// property stands for that property's typing by the end's type, a
+// composition when the property is composite.
 func (g *treeGraph) associationEndLabel(edge *Edge, site treeSite, line association, i int) string {
 	end := line.ends[i]
 	p := line.crossed[i]
@@ -167,7 +194,7 @@ func (g *treeGraph) associationEndLabel(edge *Edge, site treeSite, line associat
 	}
 	g.lined[linedEdge{symbols.KeyOf(p), symbols.KeyOf(line.types[i])}] = true
 	label := g.r.usageLabel(p)
-	if compositeUsage(p) && edge.Kind != EdgeComposition {
+	if g.r.model.UsageIsComposite(p) && edge.Kind != EdgeComposition {
 		from, to := g.node(p.Owner()).ID, g.node(line.types[i]).ID
 		if from != edge.From {
 			// The def's route runs from its first end's type to its second's.
@@ -184,7 +211,7 @@ func (g *treeGraph) associationEndLabel(edge *Edge, site treeSite, line associat
 	return label
 }
 
-// linedEdge is the edge from a property to one of its types that an
+// linedEdge is the typing of a property by one of its types that an
 // association line stands for; the property's other types keep their edges.
 type linedEdge struct {
 	property, typ symbols.ElementKey
@@ -201,9 +228,10 @@ type association struct {
 
 // associationLine is the line the connection def of node is drawn as: between
 // the nodes of its two ends' types, each one drawn definition the def is not
-// nested in. An end crossing a part or reference property the tree draws as
-// an edge from its owner takes that edge over: the association is one line,
-// a composition when the property is composite. A def with other ends, with
+// nested in. An end crossing a part or reference property of a drawn owner
+// stands for that property's typing by the end's type: the association is
+// one line, a composition when the property is composite, and the property's
+// node, when drawn, keeps its membership edge alone. A def with other ends, with
 // inherited ends, with a specialization or other relationship a box would
 // draw, with a member a box would show (a qualifier of an end included), or
 // with an end type the tree does not draw stays a box.
@@ -253,26 +281,26 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 	return line, true
 }
 
-// edgesOf draws what the element of node states of itself and of the usages
-// it declares that are drawn beneath it; a member the depth bound hides is not
-// drawn as an edge either, and one the element has from its type is the type's
-// to draw. Its typing is drawn from the node itself only when its owner is not
-// drawn: a drawn owner's composition edge, or the nesting, stands for it. A
-// usage's Style dresses the edge standing for it as it does the usage's node;
-// its Notes stay anchored to the node, where the usage is named.
+// edgesOf draws what the element of node states of itself — its
+// specializations and its typings, each to a drawn node, but a typing an
+// association line stands for — and the membership of each structural usage
+// drawn beneath it, declared or inherited, as the composition or reference
+// from node to the usage's node; a member the depth bound hides is drawn as no
+// edge. A usage's Style dresses its membership edge as it does its node, a
+// Route about the usage steers the edge from the owner declaring it, and its
+// Notes stay anchored to the node, where the usage is named.
 func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 	sym := site.sym
-	ownerDrawn := g.node(sym.Owner()) != nil && structuralUsage(sym)
 	for _, rel := range semantics.RelationshipsOf(sym) {
 		if rel == nil || rel.Target == nil {
 			continue
 		}
 		kind, label, ok := structuralEdgeKind(rel.Kind)
-		if !ok || kind == EdgeTyping && ownerDrawn {
+		if !ok {
 			continue
 		}
 		target, resolved := g.r.generalizationTarget(sym, rel)
-		if !resolved {
+		if !resolved || kind == EdgeTyping && g.lined[linedEdge{symbols.KeyOf(sym), symbols.KeyOf(target)}] {
 			continue
 		}
 		if to := g.node(target); to != nil && to != node && !g.nested(node, to) {
@@ -280,24 +308,78 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 				Route: g.r.specializationRouteOf(site.view, sym, target, g.out)}, nil)
 		}
 	}
+	if semantics.IsView(sym) {
+		g.exposeEdges(node, sym)
+	}
 	for _, child := range node.Children {
 		member := g.out.sites[child].sym
-		if !structuralUsage(member) || member.Owner() != sym {
+		if !structuralUsage(member) {
 			continue
 		}
-		kind := EdgeComposition
-		if !compositeUsage(member) {
-			kind = EdgeReference
+		edge := Edge{From: node.ID, To: child.ID, ToLabel: g.r.usageMultiplicity(member),
+			Origin: symbolOrigin(member), Style: g.r.styleOf(site.view, member, g.out)}
+		g.r.memberEdge(member, &edge)
+		if member.Owner() == sym {
+			edge.Route = g.r.routeOf(site.view, member, g.out)
 		}
-		for _, typ := range g.r.model.DeclaredTypes(member) {
-			to := g.node(typ)
-			if to == nil || to == node || g.nested(node, to) || g.lined[linedEdge{symbols.KeyOf(member), symbols.KeyOf(typ)}] {
-				continue
-			}
-			g.add(Edge{From: node.ID, To: to.ID, Kind: kind, ToLabel: g.r.usageLabel(member), Origin: symbolOrigin(member),
-				Route: g.r.routeOf(site.view, member, g.out), Style: g.r.styleOf(site.view, member, g.out)}, member)
-		}
+		g.add(edge, member)
 	}
+}
+
+// exposeEdges draws a view's exposures of drawn elements, one edge per expose
+// statement, labelled as the notation writes it; an exposed element nested in
+// the view's node is shown by the nesting.
+func (g *treeGraph) exposeEdges(node *Node, view *symbols.Symbol) {
+	if view.Scope == nil {
+		return
+	}
+	for _, imp := range view.Scope.Imports() {
+		if imp == nil || !imp.IsExpose || imp.Imported == nil {
+			continue
+		}
+		target, ok := g.r.resolver.ImportTarget(view.Scope, imp)
+		if !ok || target == nil {
+			continue
+		}
+		to := g.node(target)
+		if to == nil || to == node || g.nested(node, to) {
+			continue
+		}
+		g.add(Edge{From: node.ID, To: to.ID, Kind: EdgeExpose, Label: exposeLabel(imp), Origin: nodeOrigin(view.DocName, imp)}, nil)
+	}
+}
+
+// membershipEdge reports an edge kind drawn for a feature membership: the
+// diamonds, and the glyphs an owned member's membership takes instead.
+func membershipEdge(kind EdgeKind) bool {
+	switch kind {
+	case EdgeComposition, EdgeReference, EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgePortion:
+		return true
+	}
+	return false
+}
+
+// memberEdge sets the kind an owned member's edge is drawn with: the glyph
+// of a membership the notation draws as its own relationship — a required,
+// assumed or asserted constraint, a framed concern, an event occurrence, a
+// portion — else the feature membership's diamond.
+func (r *Renderer) memberEdge(member *symbols.Symbol, edge *Edge) {
+	if kind, label, ok := memberRelationship(member); ok {
+		edge.Kind, edge.Label = kind, label
+		return
+	}
+	edge.Kind = r.membershipKind(member)
+}
+
+// membershipKind is the edge a usage's feature membership is drawn as: a
+// composition for a composite usage, a reference for a referential one — a
+// `ref`, an attribute, a port outside a port, an end, a directed or an
+// enumeration usage — as the model derives Feature::isComposite.
+func (r *Renderer) membershipKind(usage *symbols.Symbol) EdgeKind {
+	if r.model.UsageIsComposite(usage) {
+		return EdgeComposition
+	}
+	return EdgeReference
 }
 
 // endHasContent reports whether an end declares more than its cross feature,
@@ -365,16 +447,23 @@ func structuralUsage(sym *symbols.Symbol) bool {
 }
 
 // usageLabel is a usage's name and multiplicity as the notation writes them,
-// `wheels[4]`: the label of the edge standing for the usage's membership. A
-// name a migration made up is left out, as the node drawing the usage leaves it.
+// `wheels[4]`: the label at the type's end of the edge standing for a usage
+// drawn as no node of its own. A name a migration made up is left out, as the
+// node drawing the usage leaves it.
 func (r *Renderer) usageLabel(sym *symbols.Symbol) string {
 	label := ""
 	if !r.model.NameSynthesized(sym) {
 		label = nameText(sym.Name)
 	}
+	return label + r.usageMultiplicity(sym)
+}
+
+// usageMultiplicity is a usage's multiplicity as written, `[4]`, the label at
+// the usage's end of its membership edge; "" for a usage declaring none.
+func (r *Renderer) usageMultiplicity(sym *symbols.Symbol) string {
 	usage, ok := sym.Decl.(*ast.Usage)
 	if !ok {
-		return label
+		return ""
 	}
 	mult := usage.Multiplicity
 	if mult == nil && usage.CrossFeature != nil {
@@ -383,9 +472,9 @@ func (r *Renderer) usageLabel(sym *symbols.Symbol) string {
 		mult = usage.CrossFeature.Multiplicity
 	}
 	if mult == nil {
-		return label
+		return ""
 	}
-	return label + r.multiplicityText(sym.DocName, mult)
+	return r.multiplicityText(sym.DocName, mult)
 }
 
 // multiplicityText spells a multiplicity as written, `[4]` or `[0..*]`, from

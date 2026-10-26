@@ -150,7 +150,7 @@ func (w *dotWriter) settleEdges(r *Rendering, unplaced Unplaced) []Edge {
 		w.stripUnplaced(r.Roots, edges)
 		w.notices = append(w.notices, fmt.Sprintf("%d node(s) without a position, drawn in a strip below the picture(s)", w.placement.unplaced()))
 	}
-	edges = w.drawnEdges(edges)
+	edges = w.drawnEdges(w.rowEdges(r, edges))
 	for _, edge := range edges {
 		if w.clipped(edge.From, edge.To) || w.clipped(edge.To, edge.From) {
 			w.compound = true
@@ -256,7 +256,7 @@ func (w *dotWriter) dotBB(box nodeBox) string {
 // the minimal display, the pins of the edges left drawn.
 func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	skin := skinOf(options.Style)
-	w := &dotWriter{kind: r.Kind, tree: r.Kind == KindTree, action: r.Kind == KindAction, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
+	w := &dotWriter{kind: r.Kind, tree: r.Kind == KindTree, nesting: r.nestingEdges(), action: r.Kind == KindAction, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
 		placement: placeRendering(r), drawn: map[string]bool{}, boxes: map[string]nodeBox{}, spread: map[string]boundarySide{}, pins: map[string]nodeBox{}, ported: map[string]*Node{}, omitted: map[string]bool{},
 		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, skin: skin, pictures: r.Pictures, pictureRefusals: r.pictureRefusals(), links: options.Links}
 	w.notices = append(w.notices, refusedPictureNotices(w.pictures, w.pictureRefusals)...)
@@ -270,7 +270,7 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	edges := r.Edges
 	if w.placement.partial() && options.Unplaced != UnplacedStrip {
 		w.omitUnplaced(r.Roots)
-		edges, _ = w.placement.keptEdges(r.Edges)
+		edges, _ = w.placement.keptEdges(w.placement.foldOmitted(r.Roots, r.Edges, w.nesting))
 	}
 	w.ports = r.portViewOver(options.Ports, edges)
 	w.lines = options.Lines
@@ -359,7 +359,7 @@ func (w *dotWriter) settleUnplaced(roots []*Node, edges []Edge, unplaced Unplace
 		w.notices = append(w.notices, fmt.Sprintf("%d node(s) without a position, drawn in a strip below the drawing", count))
 		return edges
 	}
-	kept, dropped := w.placement.keptEdges(edges)
+	kept, dropped := w.placement.keptEdges(w.placement.foldOmitted(roots, edges, w.nesting))
 	w.notices = append(w.notices, w.placement.omitNotice(dropped))
 	return kept
 }
@@ -481,6 +481,7 @@ type dotWriter struct {
 	b               strings.Builder
 	kind            Kind
 	tree            bool                    // containment as edges, not clusters
+	nesting         map[[2]string]bool      // the tree's children whose membership is an edge of its own
 	action          bool                    // the pins name what a flow carries
 	sources         map[string]bool         // port IDs an edge leaves from
 	clusters        map[string]bool         // node IDs drawn as clusters
@@ -1118,8 +1119,9 @@ func (w *dotWriter) drawOrder(nodes []*Node) []*Node {
 }
 
 // writeNode writes one node: a cluster holding its children, a plain node
-// otherwise. A tree writes the node and an edge to each child instead. An
-// omitted node writes nothing but the nodes under it, in its place.
+// otherwise. A tree writes the node and a containment edge to each child
+// instead, except a child whose membership the tree draws as an edge of its
+// own. An omitted node writes nothing but the nodes under it, in its place.
 func (w *dotWriter) writeNode(node *Node, depth int) {
 	indent := strings.Repeat("  ", depth)
 	if w.omitted[node.ID] {
@@ -1133,7 +1135,7 @@ func (w *dotWriter) writeNode(node *Node, depth int) {
 		w.writePins(node, indent)
 		for _, child := range w.drawOrder(node.Children) {
 			w.writeNode(child, depth)
-			if !w.omitted[child.ID] && !w.compartmentRow(node, child) {
+			if !w.omitted[child.ID] && !w.compartmentRow(node, child) && !w.nesting[[2]string{node.ID, child.ID}] {
 				w.writeEdge(Edge{From: node.ID, To: child.ID}, w.skin.containmentAttributes())
 			}
 		}
@@ -1149,6 +1151,35 @@ func (w *dotWriter) writeNode(node *Node, depth int) {
 		w.writeNode(child, depth+1)
 	}
 	fmt.Fprintf(&w.b, "%s}\n", indent)
+}
+
+// rowEdges folds the membership and typing edges of the children a tree draws
+// as compartment rows by their geometry into their owner's labelled edge to
+// each drawn type, as foldCompartments does for the rows it makes; every other
+// edge at such a row is drawn as it is.
+func (w *dotWriter) rowEdges(r *Rendering, edges []Edge) []Edge {
+	if !w.tree {
+		return edges
+	}
+	f := &folder{mode: CompartmentsPositioned, owners: map[string]string{}, rows: map[string]*Node{}, nesting: r.nestingEdges()}
+	var walk func(node *Node)
+	walk = func(node *Node) {
+		for _, child := range node.Children {
+			if w.compartmentRow(node, child) {
+				f.record(child, node.ID)
+				continue
+			}
+			walk(child)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root)
+	}
+	if len(f.rows) == 0 {
+		return edges
+	}
+	folded, _ := f.foldMemberships(edges)
+	return folded
 }
 
 // compartmentRow reports whether child is drawn inside parent's box, a
@@ -2088,6 +2119,20 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 		attrs = append(attrs, dirNone)
 	case EdgeAnchor:
 		attrs = append(attrs, dirNone, dotStyleDashed)
+	case EdgeSuccessionFlow:
+		attrs = append(attrs, dotStyleDashed)
+	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent:
+		attrs = append(attrs, "arrowhead=vee")
+	case EdgePortion:
+		// Graphviz has no three-quarter circle: a filled circle stands at the occurrence end.
+		attrs = append(attrs, dotDirBack, "arrowtail=dot")
+	case EdgeReferenceSubsetting:
+		// The hollow triangle, with one dot behind its base for the notation's four.
+		attrs = append(attrs, "arrowhead=onormaldot")
+	case EdgeUnownedMembership:
+		attrs = append(attrs, dotDirBack, "arrowtail=odot")
+	case EdgeExpose:
+		attrs = append(attrs, "arrowhead=vee", dotStyleDashed)
 	}
 	attrs = append(attrs, dotStyleAttributes(edge.Style, false)...)
 	if len(edge.Route) > 1 {
@@ -2274,7 +2319,7 @@ func (b nodeBox) overlap(o nodeBox) float64 {
 func (w *dotWriter) edgeTexts(edge Edge) (from, label, to string) {
 	label = edge.Label
 	if w.action && (edge.FromPort != "" || edge.ToPort != "") {
-		label = edge.Name
+		label = pinnedEdgeLabel(edge)
 		if label == "" && edge.Kind == EdgeBinding {
 			label = bindingKeyword
 		}

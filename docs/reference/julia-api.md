@@ -167,8 +167,10 @@ stable parameter order.
 
 ## Queries, documents, and conversion
 
-`build_query(; scope, select, where)` constructs an OSLC query;
-`query(model, payload; scope, select, where)` runs it. Document APIs are
+`build_query(; scope, select, where, order_by)` constructs a standard query
+(all seven `PrimitiveConstraint` operators; `order_by` sorts the answer by each
+named property in turn, ascending); `query(model, payload; scope, select, where,
+order_by)` runs it. Document APIs are
 `build_document_bindings`, `run_document_query(model, query; bindings,
 options)`, `render_document(model, query; bindings, format)`, and
 `render_view(model, name; ports="minimal", show=String[], depth=0)`, returning

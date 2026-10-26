@@ -61,7 +61,7 @@ func (ctx *Context) writeTargetIn(scope *symbols.Scope, name string) (*writeTarg
 			mult, stated = ctx.statedMultiplicity(sym)
 			countJudged = stated
 			if !stated {
-				mult = semantics.AssumedRange()
+				mult = representativeRange()
 			}
 		}
 		target = ctx.newWriteTarget(sym, name, mult)

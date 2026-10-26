@@ -18,17 +18,17 @@
   "specifications": {
     "kerml": {
       "name": "KerML",
-      "version": "1.0",
-      "document": "formal/26-03-01",
-      "url": "https://www.omg.org/spec/KerML/1.0/PDF",
-      "sha256": "3bcc96f989bfa9d05cd28e026df3351b795fe8d494187b87bff3db7d96373697"
+      "version": "1.1 Beta 2",
+      "document": "Release 2026-07",
+      "url": "https://github.com/Systems-Modeling/SysML-v2-Release/blob/fb97b754f29588b8e9c7a35f370880cd15eb29e7/doc/1-Kernel_Modeling_Language.pdf",
+      "sha256": "e8b7f33d9dac1a3fdd4eaa64b052608a989b92c580de91fdadb7038d33df99af"
     },
     "sysml": {
       "name": "SysML",
-      "version": "2.0",
-      "document": "formal/26-03-02",
-      "url": "https://www.omg.org/spec/SysML/2.0/Language/PDF",
-      "sha256": "46e6c0476a6f1f34f367d57e039d56659bff75e41d2e4b3d37ca4cadea84a83a"
+      "version": "2.1 Beta 2",
+      "document": "Release 2026-07",
+      "url": "https://github.com/Systems-Modeling/SysML-v2-Release/blob/fb97b754f29588b8e9c7a35f370880cd15eb29e7/doc/2a-OMG_Systems_Modeling_Language.pdf",
+      "sha256": "d73a916885f564300bd1bd0cc7b7d6ca37c32e1553909399d7b1445153a210d5"
     }
   },
   "formalExtraction": {
@@ -257,7 +257,7 @@
       "spec": {
         "document": "sysml",
         "clause": "8.3.17.5",
-        "name": "validateAssignmentActionUsage"
+        "name": "validateAssignmentActionUsageReferentIsTimeVarying"
       },
       "checks": "The referent of an assignment action is time-varying",
       "implementation": "internal/check/passes/w8d_assignment_referent.go:AssignmentReferentPass.Run",
@@ -367,13 +367,13 @@
         "name": "validateAttributeDefinitionFeatures"
       },
       "checks": "Owned features of an attribute definition are non-composite (`checkAttributeDefinition`, active). Unobservable in text: the pilot's `UsageAdapter.postProcess` sets `isComposite = false` on every usage whose expected featuring type is an attribute definition, and `feature`/`composite` are syntax errors in SysML. Tried, pilot silent: `attribute def A { part p : PD; }`, item/action/port/occurrence members, nested `part p { part q; }`, `end`/`in` parts, `perform`/`exhibit`/`include`, constraint/requirement/calc/state/connection/flow members, `variation part p { variant part a; }`, defaulted parts, a redefining `part :>> p` in a specializing attribute definition",
-      "implementation": "—",
-      "message": "—",
+      "implementation": "internal/semantic/semantics/annotations.go:Model.reflectiveFeatureFlags; internal/translate/export/composite.go:usageCompositeByDefault",
+      "message": "unobservable in text; the reflective and exported `isComposite` are false for every feature of an attribute definition, so `attribute def R { part p : P; }` is silent in both validators",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "unknown",
-      "rationale": "no case and no identifiable pass yet"
+      "status": "deliberate",
+      "rationale": "the textual notation makes the owned features of an attribute definition referential whether or not `ref` is written (SysML v2.1 Beta 2 7.7.2), so no textual model violates the rule; the model derives it: `reflectiveFeatureFlags` clears `isComposite` under an attribute owner and `usageCompositeByDefault` exports it false (TestReflectiveAttributeFeaturesAreReferentialAndNonComposite)"
     },
     {
       "name": "validateAttributeUsageEnumerationType",
@@ -408,13 +408,13 @@
         "name": "validateAttributeUsageFeatures"
       },
       "checks": "Owned features of an attribute usage are non-composite (`checkAttributeUsage`, active). Unobservable in text for the same reason as `validateAttributeDefinitionFeatures`: `UsageAdapter.postProcess` clears `isComposite` when the expected featuring type is an attribute usage. Tried, pilot silent: `attribute a { part p : PD; }` in a part definition and at package level, item/action/port/occurrence members, nested parts, `end`/`in` parts, `ref attribute a { part p; }`, typed `attribute a : Real { part p; }`, a redefining `attribute :>> a { part :>> p; part r; }`",
-      "implementation": "—",
-      "message": "—",
+      "implementation": "internal/semantic/semantics/annotations.go:Model.reflectiveFeatureFlags; internal/translate/export/composite.go:usageCompositeByDefault",
+      "message": "unobservable in text; the reflective and exported `isComposite` are false for every feature of an attribute usage, so `attribute r : R { part p : P; }` is silent in both validators",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "unknown",
-      "rationale": "no case and no identifiable pass yet"
+      "status": "deliberate",
+      "rationale": "the textual notation makes the owned features of an attribute usage referential whether or not `ref` is written (SysML v2.1 Beta 2 7.7.2), so no textual model violates the rule; the model derives it: `reflectiveFeatureFlags` clears `isComposite` under an attribute owner and `usageCompositeByDefault` exports it false (TestReflectiveAttributeFeaturesAreReferentialAndNonComposite)"
     },
     {
       "name": "validateAttributeUsageIsReferential",
@@ -3693,7 +3693,8 @@
       "metaclass": "SendActionUsage",
       "spec": {
         "document": "sysml",
-        "clause": "8.3.17.15"
+        "clause": "8.3.17.15",
+        "name": "validateSendActionUsagePayloadArgument"
       },
       "checks": "A send action used as a state entry/do/exit subaction or transition effect has a payload argument (`A send action must have a payload.`; the pilot grammar already demands the payload there, while `send to x` inside an action body is accepted by both tools)",
       "implementation": "internal/check/passes/send_action.go:SendActionPass.Run",
@@ -4997,7 +4998,7 @@
         "name": "checkAssignmentActionUsageAccessedFeatureRedefinition"
       },
       "checks": "The first ownedFeature of the first ownedFeature of the first parameter of an AssignmentActionUsage must redefine AssignmentAction::target::startingAt::accessedFeature.",
-      "ocl": "let targetParameter : Feature = inputParameter(1) in\ntargetParameter <> null and\ntargetParameter.ownedFeature->notEmpty() and\ntargetParameter->first().ownedFeature->notEmpty() and\ntargetParameter->first().ownedFeature->first().\n    redefines('AssigmentAction::target::startingAt::accessedFeature')",
+      "ocl": "let targetParameter : Feature = inputParameter(1) in\ntargetParameter <> null and\ntargetParameter.ownedFeature->notEmpty() and\ntargetParameter.ownedFeature->first().ownedFeature->notEmpty() and\ntargetParameter.ownedFeature->first().ownedFeature->first().\n    redefinesFromLibrary('AssigmentAction::target::startingAt::accessedFeature')",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -5017,7 +5018,7 @@
         "name": "checkAssignmentActionUsageReferentRedefinition"
       },
       "checks": "The first ownedFeature of the first ownedFeature of the first parameter of an AssignmentActionUsage must redefine the referent of the AssignmentActionUsage.",
-      "ocl": "let targetParameter : Feature = inputParameter(1) in\ntargetParameter <> null and\ntargetParameter.ownedFeature->notEmpty() and\ntargetParameter->first().ownedFeature->notEmpty() and\ntargetParameter->first().ownedFeature->first().redefines(referent)",
+      "ocl": "let targetParameter : Feature = inputParameter(1) in\ntargetParameter <> null and\ntargetParameter.ownedFeature->notEmpty() and\ntargetParameter.ownedFeature->first().ownedFeature->notEmpty() and\ntargetParameter.ownedFeature->first().ownedFeature->first().redefines(referent)",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -5057,7 +5058,7 @@
         "name": "checkAssignmentActionUsageStartingAtRedefinition"
       },
       "checks": "The first ownedFeature of the first parameter of an AssignmentActionUsage must redefine AssignmentAction::target::startingAt.",
-      "ocl": "let targetParameter : Feature = inputParameter(1) in\ntargetParameter <> null and\ntargetParameter.ownedFeature->notEmpty() and\ntargetParameter.ownedFeature->first().\n    redefines('AssignmentAction::target::startingAt')",
+      "ocl": "let targetParameter : Feature = inputParameter(1) in\ntargetParameter <> null and\ntargetParameter.ownedFeature->notEmpty() and\ntargetParameter.ownedFeature->first().\n    redefinesFromLibrary('AssignmentAction::target::startingAt')",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -5448,7 +5449,7 @@
         "name": "checkConnectionDefinitionBinarySpecialization"
       },
       "checks": "A binary ConnectionDefinition must directly or indirectly specialize the ConnectionDefinition Connections::BinaryConnection from the Systems Model Library.",
-      "ocl": "ownedEndFeature->size() = 2 implies\n    specializesFromLibrary('Connections::BinaryConnections')",
+      "ocl": "ownedEndFeature->size() = 2 implies\n    specializesFromLibrary('Connections::BinaryConnection')",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -5663,8 +5664,8 @@
         "clause": "8.3.20.4",
         "name": "checkConstraintUsageRequirementConstraintSpecialization"
       },
-      "checks": "A ConstraintUsage whose owningFeatureMembership is a RequirementConstraintMembership must directly or indirectly specialize on the ConstraintUsages assumptions or constraints from the ConstraintDefinition Requirements::RequirementCheck in the Systems Model Library, depending on whether the kind of the RequirementConstraintMembership is assumption or requirement, respectively.",
-      "ocl": "owningFeatureMembership <> null and\nowningFeatureMembership.oclIsKindOf(RequirementConstraintMembership) implies\n    if owningFeatureMembership.oclAsType(RequirementConstraintMembership).kind =\n         RequirementConstraintKind::assumption then\n         specializesFromLibrary('Requirements::RequirementCheck::assumptions')\n    else\n         specializesFromLibrary('Requirements::RequirementCheck::constraints')\n    endif",
+      "checks": "A composite ConstraintUsage whose owningFeatureMembership is a RequirementConstraintMembership must directly or indirectly specialize on the ConstraintUsages assumptions or constraints from the ConstraintDefinition Requirements::RequirementCheck in the Systems Model Library, depending on whether the kind of the RequirementConstraintMembership is assumption or requirement, respectively.",
+      "ocl": "isComposite and\nowningFeatureMembership <> null and\nowningFeatureMembership.oclIsKindOf(RequirementConstraintMembership) implies\n    if owningFeatureMembership.oclAsType(RequirementConstraintMembership).kind =\n         RequirementConstraintKind::assumption then\n         specializesFromLibrary('Requirements::RequirementCheck::assumptions')\n    else\n         specializesFromLibrary('Requirements::RequirementCheck::constraints')\n    endif",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -5724,7 +5725,7 @@
         "name": "checkConstructorExpressionResultFeatureRedefinition"
       },
       "checks": "Each ownedFeature of the result of a ConstructionExpression must redefine exactly one public feature of the instantiatedType of the ConstructorExpression.",
-      "ocl": "let features : OrderedSet(Feature) = instantiatedType.feature->\n    select(owningMembership.visibility = VisibilityKind::public) in\n\nresult.ownedFeature->forAll(f |\n    f.ownedRedefinition.redefinedFeature->\n        intersection(features)->size() = 1)",
+      "ocl": "let features : OrderedSet(Feature) = instantiatedType.feature->\n    select(owningMembership.visibility = VisibilityKind::public) in\nresult.ownedFeature->forAll(f |\n    f.ownedRedefinition.redefinedFeature->\n        intersection(features)->size() = 1)",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -5823,7 +5824,7 @@
         "name": "checkDecisionNodeOutgoingSuccessionSpecialization"
       },
       "checks": "All outgoing Successions from a DecisionNode must subset the inherited outgoingHBLink feature of the DecisionNode.",
-      "ocl": "sourceConnector->selectByKind(Succession)->\n    forAll(subsetsChain(self,\n        resolveGlobal('ControlPerformances::MergePerformance::outgoingHBLink')))",
+      "ocl": "sourceConnector->selectByKind(Succession)->\n    forAll(subsetsChain(self,\n        resolveGlobal('ControlPerformances::DecisionPerformance::outgoingHBLink')))",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -5903,7 +5904,7 @@
         "name": "checkExpressionResultBindingConnector"
       },
       "checks": "If an Expression has an Expression owned via a ResultExpressionMembership, then the owning Expression must also own a BindingConnector between its result parameter and the result parameter of the result Expression.",
-      "ocl": "ownedMembership.selectByKind(ResultExpressionMembership)->\n    forAll(mem | ownedFeature.selectByKind(BindingConnector)->\n        exists(binding |\n            binding.relatedFeature->includes(result) and\n            binding.relatedFeature->includes(mem.ownedResultExpression.result)))",
+      "ocl": "ownedMembership.selectByKind(ResultExpressionMembership)->\n    forAll(mem | ownedFeature.selectByKind(BindingConnector)->\n\n           exists(binding |\n               binding.relatedFeature->includes(result) and\n               binding.relatedFeature->includes(mem.ownedResultExpression.result)))",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -5983,7 +5984,7 @@
         "name": "checkFeatureChainExpressionSourceTargetRedefinition"
       },
       "checks": "The first ownedFeature of the first owned input parameter of a FeatureChainExpression must redefine its targetFeature.",
-      "ocl": "let sourceParameter : Feature = sourceTargetFeature() in\nsourceTargetFeature <> null and\nsourceTargetFeature.redefines(targetFeature)",
+      "ocl": "let sourceTargetFeature : Feature = sourceTargetFeature() in\nsourceTargetFeature <> null and\nsourceTargetFeature.redefines(targetFeature)",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -6003,7 +6004,7 @@
         "name": "checkFeatureChainExpressionTargetRedefinition"
       },
       "checks": "The first ownedFeature of the first owned input parameter of a FeatureChainExpression must redefine the Feature ControlFunctions::'.'::source::target from the Kernel Functions Library.",
-      "ocl": "let sourceParameter : Feature = sourceTargetFeature() in\nsourceTargetFeature <> null and\nsourceTargetFeature.redefinesFromLibrary('ControlFunctions::\\'.\\'::source::target')",
+      "ocl": "let sourceTargetFeature : Feature = sourceTargetFeature() in\nsourceTargetFeature <> null and\nsourceTargetFeature.redefinesFromLibrary('ControlFunctions::\\'.\\'::source::target')",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -6063,7 +6064,7 @@
         "name": "checkFeatureEndRedefinition"
       },
       "checks": "If a Feature has isEnd = true and an owningType that is not empty, then, for each direct supertype of its owningType, it must redefine the endFeature at the same position, if any.",
-      "ocl": "isEnd and owningType <> null implies\n    let i : Integer =\n        owningType.ownedEndFeature->indexOf(self) in\n    owningType.ownedSpecialization.general->\n        forAll(supertype |\n             supertype.endFeature->size() >= i implies\n                redefines(supertype.endFeature->at(i))",
+      "ocl": "isEnd and owningType <> null implies\n    let i : Integer =\n        owningType.ownedEndFeature->indexOf(self) in\n    owningType.ownedSpecialization.general->\n\n           forAll(supertype |\n                supertype.endFeature->size() >= i implies\n                   redefines(supertype.endFeature->at(i))",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -6123,7 +6124,7 @@
         "name": "checkFeatureFlowFeatureRedefinition"
       },
       "checks": "If a Feature is the first ownedFeature of a first or second FlowEnd, then it must directly or indirectly specialize either Transfers::Transfer::source::sourceOutput or Transfers::Transfer::target::targetInput, respectively, from the Kernel Semantic Library.",
-      "ocl": "owningType <> null and\nowningType.oclIsKindOf(FlowEnd) and\nowningType.ownedFeature->at(1) = self implies\n    let flowType : Type = owningType.owningType in\n    flowType <> null implies\n        let i : Integer =\n            flowType.ownedFeature.indexOf(owningType) in\n        (i = 1 implies\n            redefinesFromLibrary('Transfers::Transfer::source::sourceOutput')) and\n        (i = 2 implies\n            redefinesFromLibrary('Transfers::Transfer::source::targetInput'))",
+      "ocl": "owningType <> null and\nowningType.oclIsKindOf(FlowEnd) and\nowningType.ownedFeature->at(1) = self implies\n    let flowType : Type = owningType.owningType in\n    flowType <> null implies\n        let i : Integer =\n            flowType.ownedFeature.indexOf(owningType) in\n        (i = 1 implies\n            redefinesFromLibrary('Transfers::Transfer::source::sourceOutput')) and\n        (i = 2 implies\n            redefinesFromLibrary('Transfers::Transfer::target::targetInput'))",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -6143,7 +6144,7 @@
         "name": "checkFeatureObjectSpecialization"
       },
       "checks": "If a Feature has an ownedTyping relationship to a Structure, then it must directly or indirectly specialize Objects::objects from the Kernel Semantics Library.",
-      "ocl": "ownedTyping.type->exists(selectByKind(Structure)) implies\n    specializesFromLibary('Objects::objects')",
+      "ocl": "ownedTyping.type->exists(selectByKind(Structure)) implies\n    specializesFromLibrary('Objects::objects')",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -6183,7 +6184,7 @@
         "name": "checkFeatureOwnedCrossFeatureRedefinitionSpecialization"
       },
       "checks": "If this Feature is the ownedCrossFeature of an end Feature, then, for any end Feature that is redefined by the owning end Feature of this Feature, this Feature must subset the crossFeature of the redefined end Feature, if this exists.",
-      "ocl": "isOwnedCrossFeature() implies\n    ownedSubsetting.subsettedFeature->includesAll(\n\n           owner.oclAsType(Feature).ownedRedefinition.redefinedFeature->\n               select(crossFeature <> null).crossFeature)",
+      "ocl": "isOwnedCrossFeature() implies\n    ownedSubsetting.subsettedFeature->includesAll(\n        owner.oclAsType(Feature).ownedRedefinition.redefinedFeature->\n            select(crossFeature <> null).crossFeature)",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -6243,7 +6244,7 @@
         "name": "checkFeatureParameterRedefinition"
       },
       "checks": "If a Feature is a parameter of an owningType that is a Behavior or Step, but not • A result parameter • A parameter of an InvocationExpression, with at least one non-implied ownedRedefinition then, for each direct supertype of its owningType that is also a Behavior or Step, it must redefine the parameter at the same position, if any.",
-      "ocl": "owningType <> null and\nnot owningFeatureMembership.\n    oclIsKindOf(ReturnParameterMembership) and\n(owningType.oclIsKindOf(Behavior) or\n owningType.oclIsKindOf(Step) and\n    (owningType.oclIsKindOf(InvocationExpression) implies\n      not ownedRedefinition->exists(not isImplied))\nimplies\n    let i : Integer =\n        owningType.ownedFeature->select(direction <> null)->\n            reject(owningFeatureMembership.\n                oclIsKindOf(ReturnParameterMembership))->\n            indexOf(self) in\n    owningType.ownedSpecialization.general->\n        forAll(supertype |\n            let ownedParameters : Sequence(Feature) =\n                supertype.ownedFeature->select(direction <> null)->\n                      reject(owningFeatureMembership.\n                          oclIsKindOf(ReturnParameterMembership)) in\n\n               ownedParameters->size() >= i implies\n                   redefines(ownedParameters->at(i))",
+      "ocl": "owningType <> null and\n(owningType.oclIsKindOf(Behavior) or\n owningType.oclIsKindOf(Step) and\n    (owningType.oclIsKindOf(InvocationExpression) implies\n        not ownedRedefinition->exists(not isImplied)))\nimplies\n    let ownerParameters : Sequence(Feature) =\n        owningType.ownedFeature->select(direction <> null)->\n            reject(owningFeatureMembership.\n                oclIsKindOf(ReturnParameterMembership)) in\n    ownerParameters->includes(self) implies\n        let i : Integer = ownerParameters.indexof(self) in\n        owningType.ownedSpecialization.general->\n            forAll(supertype |\n\n                      supertype.oclIsKindOf(Behavior) or\n                          supertype.oclIsKindOf(Step)\n                      implies\n                          let ownedParameters : Sequence(Feature) =\n                              supertype.ownedFeature->select(direction <> null)->\n                                  reject(owningFeatureMembership.\n                                      oclIsKindOf(ReturnParameterMembership)) in\n                          ownedParameters->size() >= i implies\n                              redefines(ownedParameters->at(i)))",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -6363,7 +6364,7 @@
         "name": "checkFeatureSubobjectSpecialization"
       },
       "checks": "A composite Feature typed by a Structure, and whose ownedType is a Structure or another Feature typed by a Structure must directly or indirectly specialize Objects::Object::subobjects",
-      "ocl": "isComposite and\nownedTyping.type->includes(oclIsKindOf(Structure)) and\nowningType <> null and\n(owningType.oclIsKindOf(Structure) or\n owningType.type->includes(oclIsKindOf(Structure))) implies\n    specializesFromLibrary('Occurrence::Occurrence::suboccurrences')",
+      "ocl": "isComposite and\nownedTyping.type->includes(oclIsKindOf(Structure)) and\nowningType <> null and\n(owningType.oclIsKindOf(Structure) or\n\n owningType.type->includes(oclIsKindOf(Structure))) implies\n    specializesFromLibrary('Occurrence::Occurrence::suboccurrences')",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -6712,14 +6713,14 @@
       "rationale": "stated by the formal document; not yet assessed against the tree"
     },
     {
-      "name": "checkIncludeUseCaseSpecialization",
+      "name": "checkIncludeUseCaseUsageSpecialization",
       "source": "spec",
       "kind": "check",
       "metaclass": "IncludeUseCaseUsage",
       "spec": {
         "document": "sysml",
         "clause": "8.3.25.2",
-        "name": "checkIncludeUseCaseSpecialization"
+        "name": "checkIncludeUseCaseUsageSpecialization"
       },
       "checks": "A IncludeUseCaseUsage whose owningType is a UseCaseDefinition or UseCaseUsage must directly or indirectly specialize the UseCaseUsage UseCases::UseCase::includedUseCases from the Systems Model Library.",
       "ocl": "owningType <> null and\n(owningType.oclIsKindOf(UseCaseDefinition) or\n owningType.oclIsKindOf(UseCaseUsage) implies\n    specializesFromLibrary('UseCases::UseCase::includedUseCases')",
@@ -6741,8 +6742,8 @@
         "clause": "8.3.4.8.6",
         "name": "checkIndexExpressionResultSpecialization"
       },
-      "checks": "The result of an IndexExpression must specialize the result parameter of the first argument of the IndexExpression, unless that result already directly or indirectly specializes the DataType Collections::Array from the Kernel Data Type Library.",
-      "ocl": "arguments->notEmpty() and\nnot arguments->first().result.specializesFromLibrary('Collections::Array') implies\n    result.specializes(arguments->first().result)",
+      "checks": "The result of an IndexExpression must specialize the result parameter of the first argument of the IndexExpression, unless that result already directly or indirectly specializes the DataType Collections::Collection from the Kernel Data Type Library.",
+      "ocl": "arguments->notEmpty() and\nnot arguments->first().result.specializesFromLibrary('Collections::Collection') implies\n    result.specializes(arguments->first().result)",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -6977,7 +6978,7 @@
         "clause": "8.3.10.3",
         "name": "checkItemUsageSubitemSpecialization"
       },
-      "checks": "isComposite and owningType <> null and (owningType.oclIsKindOf(ItemDefinition) or owningType.oclIsKindOf(ItemUsage)) implies specializesFromLibrary('Items::Item::subitem')",
+      "checks": "A composite ItemUsage whose owningType is an ItemDefinition or ItemUsage must directly or indirectly specialize the Systems Model Library ItemUsage Items::Item::subitems.",
       "ocl": "isComposite and owningType <> null and\n(owningType.oclIsKindOf(ItemDefinition) or\n owningType.oclIsKindOf(ItemUsage)) implies\n    specializesFromLibrary('Items::Item::subitem')",
       "implementation": "—",
       "message": "—",
@@ -7295,8 +7296,8 @@
         "clause": "8.3.4.11.2",
         "name": "checkMultiplicityRangeExpressionTypeFeaturing"
       },
-      "checks": "The bounds of a MultiplicityRange must have the same featuringTypes as the MultiplicityRange.",
-      "ocl": "bound->forAll(b | b.featuringType = self.featuringType)",
+      "checks": "If the owningNamespace of a MultiplicityRange is a Feature, but not an owned cross Feature, then the bounds of the MultiplicityRange must have the same featuringTypes as the MultiplicityRange. If the owningNamespace is an owned cross Feature, then the bounds must have the same featuringTypes as the owning end Feature of the owningNamespace. (This allows a cross multiplicity to be evaluated in the same context as the multiplicity of the end Feature.)",
+      "ocl": "let boundsFeaturingType : OrderedSet(Type) =\n    if owningNamespace <> null and owningNamespace.oclIsKindOf(Feature) and\n         owningNamespace.oclAsType(Feature).isOwnedCrossFeature() then\n         owningNamespace.oclAsType(Feature).owningNamespace.oclAsType(Feature).featuringType\n    else\n\n        featuringType\n    endif in\nbound->forAll(b | b.featuringType = boundsFeaturingType)",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -7335,8 +7336,8 @@
         "clause": "8.3.3.1.9",
         "name": "checkMultiplicityTypeFeaturing"
       },
-      "checks": "If the owningType of a Multiplicity is a Feature, then the Multiplicity must have the same featuringTypes as that Feature. Otherwise, it must have no featuringTypes (meaning that it is implicitly featured by the base Classifier Anything).",
-      "ocl": "if owningType <> null and owningType.oclIsKindOf(Feature) then\n     featuringType =\n         owningType.oclAsType(Feature).featuringType\nelse\n     featuringType->isEmpty()\nendif",
+      "checks": "If the owningNamespace of a Multiplicity is a Feature, then the Multiplicity must have the same featuringTypes as that Feature. Otherwise, it must have no featuringTypes (meaning that it is implicitly featured by the base Classifier Anything).",
+      "ocl": "if owningNamespace <> null and owningNamespace.oclIsKindOf(Feature) then\n     featuringType =\n         owningNamespace.oclAsType(Feature).featuringType\nelse\n     featuringType->isEmpty()\nendif",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -7552,7 +7553,7 @@
         "clause": "8.3.11.3",
         "name": "checkPartUsageStakeholderSpecialization"
       },
-      "checks": "If a PartUsage is owned via a StakeholderMembership, then it must directly or indirectly specialize either Requirements::RequirementCheck::stakeholders.",
+      "checks": "If a PartUsage is owned via a StakeholderMembership, then it must directly or indirectly specialize Requirements::RequirementCheck::stakeholders.",
       "ocl": "owningFeatureMembership <> null and\nowningFeatureMembership.oclIsKindOf(StakeholderMembership) implies\n    specializesFromLibrary('Requirements::RequirementCheck::stakeholders')",
       "implementation": "—",
       "message": "—",
@@ -7573,7 +7574,7 @@
         "name": "checkPartUsageSubpartSpecialization"
       },
       "checks": "A composite PartUsage whose owningType is a ItemDefinition or ItemUsage must directly or indirectly specialize the PartUsage Items::Item::subparts from the Systems Model Library.",
-      "ocl": "isComposite and owningType <> null and\n(owningType.oclIsKindOf(ItemDefinition) or\n\n owningType.oclIsKindOf(ItemUsage)) implies\n    specializesFromLibrary('Items::Item::subparts')",
+      "ocl": "isComposite and owningType <> null and\n(owningType.oclIsKindOf(ItemDefinition) or\n owningType.oclIsKindOf(ItemUsage)) implies\n    specializesFromLibrary('Items::Item::subparts')",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -7691,7 +7692,7 @@
         "name": "checkPortUsageSubportSpecialization"
       },
       "checks": "A composite PortUsage with an owningType that is a PortDefinition or PortUsage must directly or indirectly specialize the PortUsage Ports::Port::subports from the Systems Model Library.",
-      "ocl": "isComposite and owningType <> null and\n(owningType.oclIsKindOf(PortDefinition) or\n\n owningType.oclIsKindOf(PortUsage)) implies\n    specializesFromLibrary('Ports::Port::subports')",
+      "ocl": "isComposite and owningType <> null and\n(owningType.oclIsKindOf(PortDefinition) or\n owningType.oclIsKindOf(PortUsage)) implies\n    specializesFromLibrary('Ports::Port::subports')",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -7827,7 +7828,7 @@
         "name": "checkRequirementUsageObjectiveRedefinition"
       },
       "checks": "A RequirementUsage whose owningFeatureMembership is a ObjectiveMembership must redefine the objectiveRequirement of each CaseDefinition or CaseUsage that is specialized by the owningType of the RequirementUsage.",
-      "ocl": "owningfeatureMembership <> null and\nowningfeatureMembership.oclIsKindOf(ObjectiveMembership) implies\n    owningType.ownedSpecialization.general->forAll(gen |\n        (gen.oclIsKindOf(CaseDefinition) implies\n            redefines(gen.oclAsType(CaseDefinition).objectiveRequirement)) and\n        (gen.oclIsKindOf(CaseUsage) implies\n            redefines(gen.oclAsType(CaseUsage).objectiveRequirement))",
+      "ocl": "owningfeatureMembership <> null and\nowningfeatureMembership.oclIsKindOf(ObjectiveMembership) implies\n    owningType.ownedSpecialization.general->forAll(gen |\n        (gen.oclIsKindOf(CaseDefinition) implies\n            redefines(gen.oclAsType(CaseDefinition).objectiveRequirement)) and\n        (gen.oclIsKindOf(Feature) and\n         gen.oclAsType(Feature).featureTarget.oclIsKindOf(CaseUsage) implies\n            redefines(gen.oclAsType(Feature).featureTarget.\n                        oclAsType(CaseUsage).objectiveRequirement))",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -7886,8 +7887,8 @@
         "clause": "8.3.21.9",
         "name": "checkRequirementUsageSubrequirementSpecialization"
       },
-      "checks": "A composite RequirementUsage whose owningType is a RequirementDefinition or RequirementUsage must directly or indirectly specialize the RequirementUsage Requirements::RequirementCheck::subrequirements from the Systems Model Library.",
-      "ocl": "isComposite and owningType <> null and\n    (owningType.oclIsKindOf(RequirementDefinition) or\n     owningType.oclIsKindOf(RequirementUsage)) implies\n    specializesFromLibrary('Requirements::RequirementCheck::subrequirements')",
+      "checks": "A composite RequirementUsage whose owningType is a RequirementDefinition or RequirementUsage but is not owned via a RequirementConstraintMembership must directly or indirectly specialize the RequirementUsage Requirements::RequirementCheck::subrequirements from the Systems Model Library.",
+      "ocl": "isComposite and owningType <> null and\n    (owningType.oclIsKindOf(RequirementDefinition) or\n     owningType.oclIsKindOf(RequirementUsage)) and\n    not owningFeatureMembership.oclIsKindOf(RequirementConstraintMembership) implies\n    specializesFromLibrary('Requirements::RequirementCheck::subrequirements')",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -7927,7 +7928,7 @@
         "name": "checkSatisfyRequirementUsageSpecialization"
       },
       "checks": "If a SatisfyRequirementUsage is negated, then it must directly or indirectly specialize the RequirementUsage Requirements::notSatisfiedRequirementChecks. Otherwise, it must directly or indirectly specialize the RequirementUsage Requirements::satisfiedRequirementChecks.",
-      "ocl": "if isNegated then\n     specializesFromLibrary('Requirements::notSatisfiedRequirementChecks')\nelse\n\n    specializesFromLibrary('Requirements::satisfiedRequirementChecks')\nendif",
+      "ocl": "if isNegated then\n     specializesFromLibrary('Requirements::notSatisfiedRequirementChecks')\nelse\n     specializesFromLibrary('Requirements::satisfiedRequirementChecks')\nendif",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -7987,7 +7988,7 @@
         "name": "checkSendActionUsageSubactionSpecialization"
       },
       "checks": "A composite SendActionUsage that is a subaction must directly or indirectly specialize the ActionUsage Actions::Action::sendSubactions from the Systems Model Library.",
-      "ocl": "isSubactionUsage() implies\n    specializesFromLibrary('Actions::Action::acceptSubactions')",
+      "ocl": "isSubactionUsage() implies\n    specializesFromLibrary('Actions::Action::sendSubactions')",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -8166,7 +8167,7 @@
         "name": "checkStepSubperformanceSpecialization"
       },
       "checks": "AStep whose owningType is a Behavior or another Step, and which is composite, must directly or indirectly specialize the Step Performances::Performance::subperformance.",
-      "ocl": "owningType <> null and\n    (owningType.oclIsKindOf(Behavior) or\n     owningType.oclIsKindOf(Step)) and\n\n     self.isComposite implies\n     specializesFromLibrary('Performances::Performance::subperformance')",
+      "ocl": "owningType <> null and\n    (owningType.oclIsKindOf(Behavior) or\n     owningType.oclIsKindOf(Step)) and\n    self.isComposite implies\n    specializesFromLibrary('Performances::Performance::subperformance')",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -8724,8 +8725,8 @@
         "clause": "8.3.26.8",
         "name": "checkViewpointDefinitionSpecialization"
       },
-      "checks": "A ViewpointDefinition must directly or indirectly specialize the base ViewpointDefinition Views::Viewpoint from the Systems Model Library.",
-      "ocl": "specializesFromLibrary('Views::Viewpoint')",
+      "checks": "A ViewpointDefinition must directly or indirectly specialize the base ViewpointDefinition Views::ViewpointCheck from the Systems Model Library.",
+      "ocl": "specializesFromLibrary('Views::ViewpointCheck')",
       "implementation": "internal/semantic/semantics/implicit.go:Model.computeImplicitBases",
       "message": "observed at model level: `new P::VP() istype Views::ViewpointCheck` is true",
       "negativeCase": "none",
@@ -8743,8 +8744,8 @@
         "clause": "8.3.26.9",
         "name": "checkViewpointUsageSpecialization"
       },
-      "checks": "A ViewpointUsage must directly or indirectly specialize the base ViewpointUsage Views::viewpoints from the Systems Model Library.",
-      "ocl": "specializesFromLibrary('Views::viewpoints')",
+      "checks": "A ViewpointUsage must directly or indirectly specialize the base ViewpointUsage Views::viewpointChecks from the Systems Model Library.",
+      "ocl": "specializesFromLibrary('Views::viewpointChecks')",
       "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures",
       "message": "observed at model level: `P::u_viewpoint istype Views::viewpointChecks` is true; the usage directly specializes `Views::viewpointChecks` as an implied subsetting beside its typing by the kind's base definition (internal/workspace/model/base_feature_conformance_test.go:TestUsageSubsetsTheBaseUsageOfItsKind)",
       "negativeCase": "none",
@@ -8763,7 +8764,7 @@
         "name": "checkViewpointUsageViewpointSatisfactionSpecialization"
       },
       "checks": "A composite ViewpointUsage whose owningType is a ViewDefinition or ViewUsage must directly or indirectly specialize the ViewpointUsage Views::View::viewpointSatisfactions from the Systems Model Library.",
-      "ocl": "isComposite and owningType <> null and\n(owningType.oclIsKindOf(ViewDefinition) or\n\n owningType.oclIsKindOf(ViewUsage)) implies\n    specializesFromLibrary('Views::View::viewpointSatisfactions')",
+      "ocl": "isComposite and owningType <> null and\n(owningType.oclIsKindOf(ViewDefinition) or\n owningType.oclIsKindOf(ViewUsage)) implies\n    specializesFromLibrary('Views::View::viewpointSatisfactions')",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -9082,8 +9083,8 @@
         "clause": "8.3.17.5",
         "name": "deriveAssignmentActionUsageReferent"
       },
-      "checks": "The referent of an AssignmentActionUsage is the first Feature that is the memberElement of a ownedMembership that is not a FeatureMembership.",
-      "ocl": "referent =\n    let unownedFeatures : Sequence(Feature) = ownedMembership->\n        reject(oclIsKindOf(FeatureMembership)).memberElement->\n        selectByKind(Feature) in\n    if unownedFeatures->isEmpty() then null\n    else unownedFeatures->first().oclAsType(Feature)\n    endif",
+      "checks": "The referent of an AssignmentActionUsage is the first Feature that is not a MetadataFeature and is the memberElement of a ownedMembership that is not a FeatureMembership.",
+      "ocl": "referent =\n    let unownedFeatures : Sequence(Feature) = ownedMembership->\n        reject(oclIsKindOf(FeatureMembership)).memberElement->\n        select(oclIsKindOf(Feature) and\n               not oclIsKindOf(MetadataFeature)) in\n\n      if unownedFeatures->isEmpty() then null\n      else unownedFeatures->first().oclAsType(Feature)\n      endif",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -9723,7 +9724,7 @@
         "name": "deriveDefinitionOwnedFlow"
       },
       "checks": "The ownedFlows of a Definition are all its ownedUsages that are FlowUsages.",
-      "ocl": "ownedFlow = ownedUsage->selectByKind(FlowConnectionUsage)",
+      "ocl": "ownedFlow = ownedUsage->selectByKind(FlowUsage)",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -9782,8 +9783,8 @@
         "clause": "8.3.6.2",
         "name": "deriveDefinitionOwnedMetadata"
       },
-      "checks": "The ownedMetadata of a Definition are all its ownedUsages that are MetadataUsages.",
-      "ocl": "ownedMetadata = ownedUsage->selectByKind(MetadataUsage)",
+      "checks": "The ownedMetadata of a Definition are all its ownedMembers that are MetadataUsages.",
+      "ocl": "ownedMetadata = ownedMember->selectByKind(MetadataUsage)",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -10231,6 +10232,26 @@
       "rationale": "stated by the formal document; not yet assessed against the tree"
     },
     {
+      "name": "deriveElementOwningNamespace",
+      "source": "spec",
+      "kind": "derive",
+      "metaclass": "Element",
+      "spec": {
+        "document": "kerml",
+        "clause": "8.3.2.1.2",
+        "name": "deriveElementOwningNamespace"
+      },
+      "checks": "The owningNamespace of an Element is the membershipOwningNamespace of its owningMembership (if any).",
+      "ocl": "owningNamespace =\n    if owningMembership = null then null\n    else owningMembership.membershipOwningNamespace\n    endif",
+      "implementation": "—",
+      "message": "—",
+      "negativeCase": "none",
+      "codes": [],
+      "passes": [],
+      "status": "unknown",
+      "rationale": "stated by the formal document; not yet assessed against the tree"
+    },
+    {
       "name": "deriveElementQualifiedName",
       "source": "spec",
       "kind": "derive",
@@ -10441,7 +10462,7 @@
         "name": "deriveFeatureFeaturingType"
       },
       "checks": "The featuringTypes of a Feature include the featuringTypes of all the typeFeaturings of the Feature. If the Feature has chainingFeatures, then its featuringTypes also include the featuringTypes of the first chainingFeature.",
-      "ocl": "featuringType =\n    let featuringTypes : OrderedSet(Type) =\n\n           featuring.type->asOrderedSet() in\n      if chainingFeature->isEmpty() then featuringTypes\n      else\n           featuringTypes->\n               union(chainingFeature->first().featuringType)->\n               asOrderedSet()\n      endif",
+      "ocl": "featuringType =\n    let featuringTypes : OrderedSet(Type) =\n         typeFeaturing.type->asOrderedSet() in\n    if chainingFeature->isEmpty() then featuringTypes\n    else\n         featuringTypes->\n             union(chainingFeature->first().featuringType)->\n             asOrderedSet()\n    endif",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -11011,14 +11032,14 @@
       "rationale": "stated by the formal document; not yet assessed against the tree"
     },
     {
-      "name": "deriveMetadataAccessExpressionReferencdElement",
+      "name": "deriveMetadataAccessExpressionReferencedElement",
       "source": "spec",
       "kind": "derive",
       "metaclass": "MetadataAccessExpression",
       "spec": {
         "document": "kerml",
         "clause": "8.3.4.8.15",
-        "name": "deriveMetadataAccessExpressionReferencdElement"
+        "name": "deriveMetadataAccessExpressionReferencedElement"
       },
       "checks": "The referencedElement of a MetadataAccessExpression is the memberElement of its first ownedMembership that is not a FeatureMembership.",
       "ocl": "referencedElement =\n    let elements : Sequence(Element) = ownedMembership->\n        reject(oclIsKindOf(FeatureMembership)).memberElement in\n    if elements->isEmpty() then null\n    else elements->first()\n    endif",
@@ -11282,26 +11303,6 @@
       },
       "checks": "The ownedMemberShortName of an OwningMembership is the shortName of its ownedMemberElement.",
       "ocl": "ownedMemberShortName = ownedMemberElement.shortName",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
-    },
-    {
-      "name": "deriveOwningNamespace",
-      "source": "spec",
-      "kind": "derive",
-      "metaclass": "Element",
-      "spec": {
-        "document": "kerml",
-        "clause": "8.3.2.1.2",
-        "name": "deriveOwningNamespace"
-      },
-      "checks": "The owningNamespace of an Element is the membershipOwningNamspace of its owningMembership (if any).",
-      "ocl": "owningNamespace =\n    if owningMembership = null then null\n    else owningMembership.membershipOwningNamespace\n    endif",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -11600,7 +11601,7 @@
         "name": "deriveRequirementUsageAssumedConstraint"
       },
       "checks": "The assumedConstraints of a RequirementUsage are the ownedConstraints of the RequirementConstraintMemberships of the RequirementDefinition with kind = assumption.",
-      "ocl": "assumedConstraint = ownedFeatureMembership->\n    selectByKind(RequirementConstraintMembership)->\n\n      select(kind = RequirementConstraintKind::assumption).\n      ownedConstraint",
+      "ocl": "assumedConstraint = ownedFeatureMembership->\n    selectByKind(RequirementConstraintMembership)->\n    select(kind = RequirementConstraintKind::assumption).\n    ownedConstraint",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -11720,7 +11721,7 @@
         "name": "deriveSatisfyRequirementUsageSatisfyingFeature"
       },
       "checks": "The satisfyingFeature of a SatisfyRequirementUsage is the Feature to which the subjectParameter is bound.",
-      "ocl": "satisfyingFeature =\n    let bindings: BindingConnector = ownedMember->\n        selectByKind(BindingConnector)->\n        select(b | b.relatedElement->includes(subjectParameter)) in\n    if bindings->isEmpty() or\n       bindings->first().relatedElement->exits(r | r <> subjectParameter)\n    then null\n    else bindings->first().relatedElement->any(r | r <> subjectParameter)\n    endif",
+      "ocl": "satisfyingFeature =\n    let bindings: BindingConnector = ownedMember->\n        selectByKind(BindingConnector)->\n        select(b | b.relatedElement->includes(subjectParameter)) in\n    if bindings->isEmpty() or\n       not bindings->first().relatedElement->exits(r | r <> subjectParameter)\n    then null\n    else bindings->first().relatedElement->any(r | r <> subjectParameter)\n    endif",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -12179,8 +12180,8 @@
         "clause": "8.3.3.1.10",
         "name": "deriveTypeFeatureMembership"
       },
-      "checks": "The featureMemberships of a Type is the union of the ownedFeatureMemberships and those inheritedMemberships that are FeatureMemberships.",
-      "ocl": "featureMembership = ownedFeatureMembership->union(\n    inheritedMembership->selectByKind(FeatureMembership))",
+      "checks": "The featureMemberships of a Type is the union of the ownedFeatureMemberships and those inheritedMemberships that are FeatureMemberships owned by a direct or indirect supertype of this Type.",
+      "ocl": "featureMembership = ownedFeatureMembership->\n    union(inheritedMembership->\n        selectByKind(FeatureMembership)->\n        select(mem | self.specializes(mem.owningType)))",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -12780,7 +12781,7 @@
         "name": "deriveUsageNestedFlow"
       },
       "checks": "The ownedFlows of a Usage are all its ownedUsages that are FlowConnectionUsages.",
-      "ocl": "nestedFlow = nestedUsage->selectByKind(FlowConnectionUsage)",
+      "ocl": "nestedFlow = nestedUsage->selectByKind(FlowUsage)",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -12839,8 +12840,8 @@
         "clause": "8.3.6.4",
         "name": "deriveUsageNestedMetadata"
       },
-      "checks": "The ownedMetadata of a Usage are all its ownedUsages that are MetadataUsages.",
-      "ocl": "nestedMetadata = nestedUsage->selectByKind(MetadataUsage)",
+      "checks": "The ownedMetadata of a Usage are all its ownedMembers that are MetadataUsages.",
+      "ocl": "nestedMetadata = ownedMember->selectByKind(MetadataUsage)",
       "implementation": "—",
       "message": "—",
       "negativeCase": "none",
@@ -13559,13 +13560,13 @@
       },
       "checks": "A ControlNode must be composite.",
       "ocl": "isComposite",
-      "implementation": "—",
-      "message": "—",
+      "implementation": "internal/syntax/parser/behavior.go:Parser.parseActionMember",
+      "message": "unobservable in text: the grammar gives a control node no `ref` prefix, so `ref fork f;` is a syntax error in both parsers and a declared control node is composite",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
+      "status": "deliberate",
+      "rationale": "the grammar admits no `ref` on a control node, so no textual model violates the rule; satisfied by construction from the notation: a control-node keyword opens a node only in the unprefixed position, so every declared control node is composite"
     },
     {
       "name": "validateExposeVisibility",
@@ -13629,26 +13630,6 @@
         "constraint"
       ],
       "status": "faithful"
-    },
-    {
-      "name": "validateSendActionParameters",
-      "source": "spec",
-      "kind": "validate",
-      "metaclass": "SendActionUsage",
-      "spec": {
-        "document": "sysml",
-        "clause": "8.3.17.15",
-        "name": "validateSendActionParameters"
-      },
-      "checks": "A SendActionUsage must have at least three owned input parameters, corresponding to its payload, sender and receiver, respectively (whether or not they have FeatureValues).",
-      "ocl": "inputParameters()->size() >= 3",
-      "implementation": "—",
-      "message": "—",
-      "negativeCase": "none",
-      "codes": [],
-      "passes": [],
-      "status": "unknown",
-      "rationale": "stated by the formal document; not yet assessed against the tree"
     }
   ],
   "extensions": [

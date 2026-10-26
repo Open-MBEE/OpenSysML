@@ -1,0 +1,1 @@
+- A `CompositeConstraint` with a single member is refused as malformed, as the standard's `constraint : Constraint [2..*]` requires, by the service and by every client translator.

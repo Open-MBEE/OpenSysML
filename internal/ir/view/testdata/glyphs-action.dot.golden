@@ -1,0 +1,18 @@
+// view: NotationGlyphs::Diagrams::fillGlyphs
+// kind: action
+// stated: view def ActionFlowView
+// layout: dot
+digraph "NotationGlyphs::Diagrams::fillGlyphs" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_n0" {
+    label=<<font point-size="10"><i>«action def»</i></font><br/><b>Fill</b>>;
+    color=black;
+    penwidth=0.5;
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    "n1" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>open</b>>];
+    "n2" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>pour</b>>];
+  }
+  "n1" -> "n2" [label="«succession flow»", style=dashed];
+}

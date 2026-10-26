@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -33,31 +34,58 @@ func treeEdgeLines(rendering *Rendering) []string {
 	return lines
 }
 
-// A tree draws the relationships between the elements it has nodes for: a
-// composition from an element to the definition typing each part it owns,
-// labelled with the part's name and multiplicity, a reference for a `ref` or an
-// attribute, a specialization, redefinition or subsetting to its general, and
-// the typing of a usage whose owner is not drawn. A typing a drawn owner's
-// composition stands for is not drawn twice, nor is a composition to a
-// definition nested in its owner, nor an edge to an element the tree does not
-// draw or a type that does not resolve.
+// A tree draws the relationships between the elements it has nodes for: the
+// membership of each structural usage drawn under its owner, declared or
+// inherited — a composition from the owner to a part's node, a reference to a
+// `ref` part's or an attribute's, the multiplicity at the usage's end — each
+// usage's typing to its drawn definition, and a specialization, redefinition
+// or subsetting to its general. A definition nested in its owner draws no
+// edge from it, nor is an edge drawn to an element the tree does not draw or
+// a type that does not resolve.
 func TestTreeDrawsTheRelationshipsBetweenItsNodes(t *testing.T) {
 	rendering := render(t, "tree-edges.sysml", "FleetViews::structure")
 	assertRenderingEdgeEndpoints(t, rendering)
 	want := []string{
-		"Fleet::Vehicle composition Fleet::Chassis: chassis",
-		"Fleet::Vehicle composition Fleet::Wheel: wheels[4]",
-		"Fleet::Vehicle reference Fleet::Driver: driver[0..1]",
-		"Fleet::Vehicle reference Fleet::Mass: total",
+		"Fleet::Vehicle composition chassis",
+		"Fleet::Vehicle composition wheels: [4]",
+		"Fleet::Vehicle reference driver: [0..1]",
+		"Fleet::Vehicle reference total",
+		"Fleet::Vehicle composition cabin",
+		"Fleet::Vehicle composition radio",
+		"Fleet::Vehicle composition trailer",
+		"chassis typing Fleet::Chassis",
+		"chassis reference mass",
+		"wheels typing Fleet::Wheel",
+		"driver typing Fleet::Driver",
+		"total typing Fleet::Mass",
+		"cabin typing Cabin",
 		"Fleet::SportsCar specialization Fleet::Vehicle",
-		"Fleet::SportsCar composition Fleet::LightChassis: chassis",
-		"Fleet::SportsCar composition Fleet::Wheel: spare",
+		"Fleet::SportsCar composition chassis",
+		"Fleet::SportsCar composition spare",
+		"Fleet::SportsCar composition wheels: [4]",
+		"Fleet::SportsCar reference driver: [0..1]",
+		"Fleet::SportsCar reference total",
+		"Fleet::SportsCar composition cabin",
+		"Fleet::SportsCar composition radio",
+		"Fleet::SportsCar composition trailer",
 		"chassis redefinition chassis",
+		"chassis typing Fleet::LightChassis",
+		"chassis reference mass",
+		"spare typing Fleet::Wheel",
 		"spare subsetting wheels",
-		"Fleet::Chassis reference Fleet::Mass: mass",
+		"Fleet::Chassis reference mass",
+		"mass typing Fleet::Mass",
 		"Fleet::LightChassis specialization Fleet::Chassis",
+		"Fleet::LightChassis reference mass",
 		"mass redefinition mass",
 		"Fleet::fleetCar typing Fleet::Vehicle",
+		"Fleet::fleetCar composition chassis",
+		"Fleet::fleetCar composition wheels: [4]",
+		"Fleet::fleetCar reference driver: [0..1]",
+		"Fleet::fleetCar reference total",
+		"Fleet::fleetCar composition cabin",
+		"Fleet::fleetCar composition radio",
+		"Fleet::fleetCar composition trailer",
 	}
 	if got := treeEdgeLines(rendering); !reflect.DeepEqual(got, want) {
 		t.Errorf("edges =\n  %s\nwant\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
@@ -85,9 +113,10 @@ package Views {
 	}
 }
 
-// A composition edge stands for the usage it is labelled with, so the Route
-// about that usage steers it and a layout check sees the usage drawn as an edge;
-// a specialization has no member of its own and is left to the client to route.
+// A membership edge stands for the usage it leads to, so the Route about that
+// usage steers it and a layout check sees the usage drawn as an edge; the
+// usage's typing, like a specialization, has no member of its own and is left
+// to the client to route.
 func TestTreeCompositionEdgeIsRoutedByTheUsagesRoute(t *testing.T) {
 	r, idx := loadFixture(t, "tree-edges.sysml")
 	view := lookup(t, idx, "FleetViews::routed")
@@ -98,14 +127,14 @@ func TestTreeCompositionEdgeIsRoutedByTheUsagesRoute(t *testing.T) {
 	var routed []string
 	for _, edge := range rendering.Edges {
 		if len(edge.Route) > 0 {
-			routed = append(routed, edge.ToLabel)
+			routed = append(routed, edge.Kind.String()+" "+edge.ToLabel)
 			if want := []Point{{100, 200}, {300, 200}}; !reflect.DeepEqual(edge.Route, want) {
 				t.Errorf("route of %s = %v, want %v", edge.ToLabel, edge.Route, want)
 			}
 		}
 	}
-	if !reflect.DeepEqual(routed, []string{"wheels[4]"}) {
-		t.Errorf("routed edges = %v, want the wheels composition alone", routed)
+	if !reflect.DeepEqual(routed, []string{"composition [4]"}) {
+		t.Errorf("routed edges = %v, want the wheels membership alone", routed)
 	}
 	drawn, err := r.DrawnIn(view)
 	if err != nil {
@@ -119,7 +148,7 @@ func TestTreeCompositionEdgeIsRoutedByTheUsagesRoute(t *testing.T) {
 	}
 }
 
-// A composition edge originates at the usage it stands for; a specialization,
+// A membership edge originates at the usage it stands for; a specialization,
 // redefinition or typing edge at the name its clause relates the element to,
 // which no symbol declares, so a client navigates to the clause and offers no
 // route handles.
@@ -136,13 +165,14 @@ func TestTreeEdgeOriginsLocateTheRelationship(t *testing.T) {
 		got[lines[i]] = sf.Text(edge.Origin.Span)
 	}
 	for line, want := range map[string]string{
-		"Fleet::Vehicle composition Fleet::Wheel: wheels[4]":   "part wheels[4] : Wheel;",
-		"Fleet::Vehicle reference Fleet::Driver: driver[0..1]": "ref part driver[0..1] : Driver;",
-		"Fleet::SportsCar specialization Fleet::Vehicle":       "Vehicle",
-		"chassis redefinition chassis":                         "chassis",
-		"spare subsetting wheels":                              "wheels",
-		"Fleet::LightChassis specialization Fleet::Chassis":    "Chassis",
-		"Fleet::fleetCar typing Fleet::Vehicle":                "Vehicle",
+		"Fleet::Vehicle composition wheels: [4]":            "part wheels[4] : Wheel;",
+		"Fleet::Vehicle reference driver: [0..1]":           "ref part driver[0..1] : Driver;",
+		"wheels typing Fleet::Wheel":                        "Wheel",
+		"Fleet::SportsCar specialization Fleet::Vehicle":    "Vehicle",
+		"chassis redefinition chassis":                      "chassis",
+		"spare subsetting wheels":                           "wheels",
+		"Fleet::LightChassis specialization Fleet::Chassis": "Chassis",
+		"Fleet::fleetCar typing Fleet::Vehicle":             "Vehicle",
 	} {
 		if text, ok := got[line]; !ok {
 			t.Errorf("no edge %q among %v", line, lines)
@@ -156,7 +186,16 @@ func TestTreeEdgeOriginsLocateTheRelationship(t *testing.T) {
 // node's Layout and each edge's Route read in the view that shows it.
 func TestTreeEdgesReachNestedViews(t *testing.T) {
 	rendering := render(t, "tree.sysml", "VehicleViews::vehicleView")
-	if got, want := treeEdgeLines(rendering), []string{"Vehicles::Vehicle composition Vehicles::Engine: engine"}; !reflect.DeepEqual(got, want) {
+	want := []string{
+		"Vehicles::Vehicle composition engine",
+		"Vehicles::Vehicle composition wheels: [4]",
+		"engine typing Vehicles::Engine",
+		"engine reference power",
+		"engine composition cylinder: [4]",
+		"Vehicles::Engine reference power",
+		"Vehicles::Engine composition cylinder: [4]",
+	}
+	if got := treeEdgeLines(rendering); !reflect.DeepEqual(got, want) {
 		t.Errorf("edges = %v, want %v", got, want)
 	}
 }
@@ -167,8 +206,9 @@ func TestTreeTextListsRelationships(t *testing.T) {
 	text := render(t, "tree-edges.sysml", "FleetViews::structure").textWith(fullNotation)
 	for _, want := range []string{
 		"\nrelationships:\n",
-		"  Fleet::Vehicle *-- Fleet::Wheel: wheels[4]\n",
-		"  Fleet::Vehicle o-- Fleet::Driver: driver[0..1]\n",
+		"  Fleet::Vehicle *-- wheels: [4]\n",
+		"  Fleet::Vehicle o-- driver: [0..1]\n",
+		"  wheels --:|> Fleet::Wheel\n",
 		"  Fleet::SportsCar --|> Fleet::Vehicle\n",
 		"  Fleet::fleetCar --:|> Fleet::Vehicle\n",
 	} {
@@ -178,9 +218,9 @@ func TestTreeTextListsRelationships(t *testing.T) {
 	}
 }
 
-// A usage's Style colours the composition edge standing for it as it does
-// the usage's node; its Note stays anchored to the node alone, not repeated
-// on the edge.
+// A usage's Style colours the membership edge standing for it as it does the
+// usage's node, not its typing edge; its Note stays anchored to the node
+// alone, not repeated on the edge.
 func TestTreeCompositionEdgeWearsTheUsagesStyle(t *testing.T) {
 	rendering := renderSource(t, "Views::styled", `package Model {
 	part def Wheel;
@@ -195,8 +235,11 @@ package Views {
 		metadata Note about Model::Car::wheels { text = "four of them"; x = 10; y = 20; }
 	}
 }`)
-	if len(rendering.Edges) != 1 || rendering.Edges[0].Style == nil || rendering.Edges[0].Style.Line != "#FF0000" {
-		t.Fatalf("edges = %+v, want one composition styled with the wheels' line", rendering.Edges)
+	if len(rendering.Edges) != 2 || rendering.Edges[0].Kind != EdgeComposition || rendering.Edges[0].Style == nil || rendering.Edges[0].Style.Line != "#FF0000" {
+		t.Fatalf("edges = %+v, want the wheels' composition styled with their line, then their typing", rendering.Edges)
+	}
+	if rendering.Edges[1].Kind != EdgeTyping || rendering.Edges[1].Style != nil {
+		t.Errorf("typing edge = %+v, want it undressed", rendering.Edges[1])
 	}
 	wheels := rendering.Roots[0].Children[0]
 	if wheels.Style == nil || wheels.Style.Line != "#FF0000" {
@@ -230,14 +273,17 @@ package Views {
 	}
 	var labels []string
 	for _, edge := range rendering.Edges {
-		labels = append(labels, edge.ToLabel)
+		if edge.ToLabel != "" {
+			labels = append(labels, edge.ToLabel)
+		}
 	}
-	if want := []string{"wheels[axles]", "seats[0..rows]"}; !reflect.DeepEqual(labels, want) {
+	if want := []string{"[axles]", "[0..rows]"}; !reflect.DeepEqual(labels, want) {
 		t.Errorf("labels = %q, want %q", labels, want)
 	}
 }
 
-// Two anonymous usages of one type are two memberships, each drawn.
+// Two anonymous usages of one type are two memberships, each drawn with its
+// own typing.
 func TestTreeDrawsEachAnonymousUsage(t *testing.T) {
 	rendering := renderSource(t, "Views::pair", `package Model {
 	part def B;
@@ -246,8 +292,9 @@ func TestTreeDrawsEachAnonymousUsage(t *testing.T) {
 package Views {
 	view pair { expose Model::A; expose Model::B; }
 }`)
-	if got := treeEdgeLines(rendering); !reflect.DeepEqual(got, []string{"Model::A composition Model::B", "Model::A composition Model::B"}) {
-		t.Errorf("edges = %q, want both anonymous compositions", got)
+	want := []string{"Model::A composition ", "Model::A composition ", " typing Model::B", " typing Model::B"}
+	if got := treeEdgeLines(rendering); !reflect.DeepEqual(got, want) {
+		t.Errorf("edges = %q, want both anonymous memberships and typings", got)
 	}
 }
 
@@ -262,8 +309,9 @@ func TestTreeDepthBoundHidesTheEdgesOfUndrawnMembers(t *testing.T) {
 package Views {
 	view doors { expose Model::Car; expose Model::Door; }
 }`
-	if got := treeEdgeLines(renderSource(t, "Views::doors", model)); !reflect.DeepEqual(got, []string{"body composition Model::Door: door"}) {
-		t.Errorf("edges = %q, want the door drawn from the body it is nested in", got)
+	want := []string{"Model::Car composition body", "body composition door", "door typing Model::Door"}
+	if got := treeEdgeLines(renderSource(t, "Views::doors", model)); !reflect.DeepEqual(got, want) {
+		t.Errorf("edges = %q, want the door's membership in the body and its typing", got)
 	}
 	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(model)})
 	r.treeDepthBound = 1
@@ -271,8 +319,8 @@ package Views {
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
-	if got := treeEdgeLines(rendering); len(got) != 0 {
-		t.Errorf("edges = %q, want none: the door is not shown", got)
+	if got := treeEdgeLines(rendering); !reflect.DeepEqual(got, []string{"Model::Car composition body"}) {
+		t.Errorf("edges = %q, want the body's membership alone: the door is not shown", got)
 	}
 }
 
@@ -342,11 +390,29 @@ func TestTreeDrawsAConnectionDefAsALineBetweenItsEndTypes(t *testing.T) {
 		"Fleet::Wheel association Fleet::Car: wheels[4] WheelToCar car",
 		"Fleet::Truck composition Fleet::Hitch: truck HitchToTruck hitch",
 		"Fleet::Car association Fleet::Trailer: tower Tows trailer[0..1]",
-		"Fleet::Pairing reference Fleet::Car: a",
-		"Fleet::Pairing reference Fleet::Trailer: b",
-		"Fleet::Ferries reference Fleet::Car: car",
-		"Fleet::Keyed reference Fleet::Car: a",
-		"Fleet::Keyed reference Fleet::Trailer: b",
+		"Fleet::Car reference wheels: [4]",
+		"wheels reference car",
+		"Fleet::Wheel reference car",
+		"car reference wheels: [4]",
+		"Fleet::Truck composition hitch",
+		"Fleet::Pairing reference a",
+		"Fleet::Pairing reference b",
+		"Fleet::Pairing reference tag",
+		"a typing Fleet::Car",
+		"a reference wheels: [4]",
+		"b typing Fleet::Trailer",
+		"Fleet::Ferries reference boat",
+		"Fleet::Ferries reference car",
+		"car typing Fleet::Car",
+		"car reference wheels: [4]",
+		"Fleet::Keyed reference a",
+		"Fleet::Keyed reference b",
+		"a typing Fleet::Car",
+		"a reference key",
+		"a reference wheels: [4]",
+		"b typing Fleet::Trailer",
+		"Fleet::Towing reference tower",
+		"Fleet::Towing reference trailer: [0..1]",
 	}
 	got := treeEdgeLines(rendering)
 	if !reflect.DeepEqual(got, want) {
@@ -391,10 +457,10 @@ package Views {
 	}
 }
 
-// An end crossing a composite part the tree already draws as a composition
-// from its owner takes that edge over: the association is one line, keeping
-// the composition's diamond and the part's name, wearing the def's Style and
-// following its Route, with the def's Notes anchored to it.
+// An end crossing a composite part stands for the part's typing by the end's
+// type: the association is one line with the composition's diamond and the
+// part's name, wearing the def's Style and following its Route, with the
+// def's Notes anchored to it; the part's node keeps its membership edge alone.
 func TestTreeAssociationCrossingACompositePartIsItsCompositionEdge(t *testing.T) {
 	rendering := renderSource(t, "Diagrams::bdd", `package Model {
 	part def Wheel;
@@ -418,7 +484,7 @@ package Diagrams {
 		render Views::asTreeDiagram;
 	}
 }`)
-	if got, want := treeEdgeLines(rendering), []string{"Model::Car composition Model::Wheel: car WheelToCar wheels[4]"}; !reflect.DeepEqual(got, want) {
+	if got, want := treeEdgeLines(rendering), []string{"Model::Car composition Model::Wheel: car WheelToCar wheels[4]", "Model::Car composition wheels: [4]"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("edges = %q, want %q", got, want)
 	}
 	edge := rendering.Edges[0]
@@ -493,7 +559,7 @@ package Diagrams {
 		render Views::asTreeDiagram;
 	}
 }`)
-	if got, want := treeEdgeLines(rendering), []string{"Model::Car composition Model::Wheel: car CarToWheel wheels[4]"}; !reflect.DeepEqual(got, want) {
+	if got, want := treeEdgeLines(rendering), []string{"Model::Car composition Model::Wheel: car CarToWheel wheels[4]", "Model::Car composition wheels: [4]"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("edges = %q, want %q", got, want)
 	}
 	if want := []Point{{10, 20}, {30, 40}}; !reflect.DeepEqual(rendering.Edges[0].Route, want) {
@@ -501,8 +567,9 @@ package Diagrams {
 	}
 }
 
-// An association line stands only for the edge from the crossed part to the
-// end's type; a part typed by more definitions keeps its edges to the others.
+// An association line stands only for the crossed part's typing by the end's
+// type; a part typed by more definitions keeps its typing edges to the others,
+// and its membership edge.
 func TestTreeAssociationCrossingAMultiplyTypedPartKeepsItsOtherEdges(t *testing.T) {
 	rendering := renderSource(t, "Diagrams::bdd", `package Model {
 	part def Wheel;
@@ -526,9 +593,255 @@ package Diagrams {
 }`)
 	want := []string{
 		"Model::Car composition Model::Wheel: car WheelToCar hybrid",
-		"Model::Car composition Model::Electric: hybrid",
+		"Model::Car composition hybrid",
+		"hybrid typing Model::Electric",
 	}
 	if got := treeEdgeLines(rendering); !reflect.DeepEqual(got, want) {
 		t.Errorf("edges =\n  %s\nwant\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
+	}
+}
+
+// The membership edge from an owner to a usage drawn under it takes its
+// diamond from the model's Feature::isComposite: filled for a composite part,
+// hollow for a `ref` part, a port nested in a part definition, an end feature,
+// an enumeration usage and a usage subsetting another by `references`.
+func TestTreeMembershipDiamondFollowsTheModel(t *testing.T) {
+	rendering := renderSource(t, "Views::members", `package Model {
+	part def Wheel;
+	port def Plug;
+	enum def Colour { red; }
+	part def Car {
+		part wheels[4] : Wheel;
+		ref part spare : Wheel;
+		port plug : Plug;
+		enum paint : Colour;
+		part link references wheels;
+	}
+	part def Hook;
+	connection def Pairing {
+		end a : Hook;
+		end b : Hook;
+		attribute tag : ScalarValues::String;
+	}
+}
+package Views {
+	view members { expose Model::Car; expose Model::Pairing; }
+}`)
+	want := []string{
+		"Model::Car composition wheels: [4]",
+		"Model::Car reference spare",
+		"Model::Car reference plug",
+		"Model::Car reference paint",
+		"Model::Car reference link",
+		"link reference subsetting wheels: references",
+		"Model::Pairing reference a",
+		"Model::Pairing reference b",
+		"Model::Pairing reference tag",
+	}
+	if got := treeEdgeLines(rendering); !reflect.DeepEqual(got, want) {
+		t.Errorf("edges =\n  %s\nwant\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
+	}
+}
+
+// A usage drawn as a node is joined to its owner by its membership and to its
+// definition by its typing; the same usage listed in a compartment row of its
+// owner folds the two into the owner's edge to the definition, labelled with
+// the usage's name and multiplicity, its diamond read the same way. This is
+// the model of the report on the port-membership endpoint and compositeness.
+func TestTreeMembershipEndsAtTheUsageDrawnAndAtTheDefinitionListed(t *testing.T) {
+	r, idx := loadFixture(t, "feature-membership.sysml")
+	exposed := []*symbols.Symbol{lookup(t, idx, "A::APart"), lookup(t, idx, "A::APort"), lookup(t, idx, "A::part1"), lookup(t, idx, "A::part2")}
+	rendering, err := r.RenderExposed(exposed, KindTree, "")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	want := []string{
+		"A::APart reference aPort",
+		"aPort typing A::APort",
+		"A::part1 typing A::APart",
+		"A::part1 reference aPort",
+		"A::part2 typing A::APart",
+		"A::part2 reference aPort",
+	}
+	if got := treeEdgeLines(rendering); !reflect.DeepEqual(got, want) {
+		t.Errorf("edges =\n  %s\nwant\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
+	}
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	for _, want := range []string{`"n0" -> "n1" [dir=back, arrowtail=odiamond];`, `"n1" -> "n2" [arrowhead=onormaldotdot];`} {
+		if !strings.Contains(dot, want) {
+			t.Errorf("DOT lacks %q:\n%s", want, dot)
+		}
+	}
+	if strings.Contains(dot, `"n0" -> "n2"`) || strings.Contains(dot, "arrowhead=none") {
+		t.Errorf("DOT draws the owner's edge to the port definition, or a bare containment line, beside the port's node:\n%s", dot)
+	}
+	folded := foldCompartments(rendering.showing(AllShown()), CompartmentsMost)
+	want = []string{"A::APart reference A::APort: aPort", "A::part1 typing A::APart", "A::part2 typing A::APart"}
+	if got := treeEdgeLines(folded); !reflect.DeepEqual(got, want) {
+		t.Errorf("folded edges = %q, want %q: the listed port's membership and typing fold into the owner's edge to the definition", got, want)
+	}
+}
+
+// The text form lists no edge at a member a Layout hides: the hidden member's
+// membership and typing fold into its owner's edge to the drawn definition,
+// labelled with the member, as the compartment foldings draw them.
+func TestTreeTextFoldsTheEdgesAtHiddenMembers(t *testing.T) {
+	rendering := renderSource(t, "Views::collapsed", `package Model {
+	part def Lens;
+	part def Imaging {
+		part lens : Lens;
+		ref part spare : Lens;
+		port data;
+	}
+}
+package Views {
+	private import DiagramLayout::*;
+	view collapsed {
+		expose Model::Imaging;
+		expose Model::Lens;
+		metadata Layout about Model::Imaging { x = 10; y = 10; width = 200; height = 33; showParts = false; showReferences = false; showPorts = false; }
+		metadata Layout about Model::Lens { x = 10; y = 100; width = 200; height = 33; }
+	}
+}`)
+	text := rendering.Text()
+	for _, want := range []string{"  Imaging *-- Lens: lens\n", "  Imaging o-- Lens: spare\n"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("text lacks %q:\n%s", want, text)
+		}
+	}
+	for _, line := range strings.Split(text, "\n") {
+		if strings.HasSuffix(line, "-- ") || strings.Contains(line, "data") {
+			t.Errorf("text lists an edge at a hidden member: %q\n%s", line, text)
+		}
+	}
+}
+
+// A member hidden with the nodes under it folds its own membership alone: a
+// typed node under a hidden member draws no edge from the member's owner,
+// which does not own it.
+func TestTreeTextDrawsNoEdgeForTheNodesUnderAHiddenMember(t *testing.T) {
+	rendering := renderSource(t, "Views::collapsed", `package Model {
+	part def Lens;
+	part def Assembly { part lens : Lens; }
+	part def Imaging { part assembly : Assembly; }
+}
+package Views {
+	private import DiagramLayout::*;
+	view collapsed {
+		expose Model::Imaging;
+		expose Model::Lens;
+		metadata Layout about Model::Imaging { x = 10; y = 10; width = 200; height = 33; showParts = false; }
+		metadata Layout about Model::Lens { x = 10; y = 100; width = 200; height = 33; }
+	}
+}`)
+	if text := rendering.Text(); strings.Contains(text, "relationships") {
+		t.Errorf("text lists an edge for the hidden assembly's lens, which Imaging does not own:\n%s", text)
+	}
+}
+
+// A tree showing no compartments leaves an unplaced member undrawn; its
+// membership and typing still fold into the owner's labelled edge to the
+// definition, the one way the relationship is shown, and a Route about the
+// member pins that edge.
+func TestTreeWithoutCompartmentsKeepsTheEdgeOfAnUndrawnMember(t *testing.T) {
+	rendering := renderSource(t, "Bare::bdd", `package Model {
+	part def Wheel;
+	part def Car { part wheels : Wheel; }
+}
+package Bare {
+	rendering bareTree :> Views::asTreeDiagram {
+		attribute showCompartments : ScalarValues::Boolean default = false;
+	}
+	view bdd {
+		expose Model::Car;
+		expose Model::Wheel;
+		metadata DiagramLayout::Route about Model::Car::wheels { points = (10, 20, 200, 20); }
+		render bareTree;
+	}
+}`)
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	for _, want := range []string{"// layout: neato -n2\n", `"n0" -> "n2" [headlabel="wheels", dir=back, arrowtail=diamond, pos="s,10,-20 20,-20 20,-20 200,-20 200,-20"`, "// not represented: 1 node(s) without a position, left undrawn\n"} {
+		if !strings.Contains(dot, want) {
+			t.Errorf("DOT lacks %q:\n%s", want, dot)
+		}
+	}
+}
+
+// A placed node under an unplaced one is hoisted and drawn, so its own
+// unplaced members fold into its labelled edges, not into those of the node
+// above the unplaced one, in DOT and in a form that omits the unplaced itself.
+func TestTreePlacedNodeUnderAnUnplacedOneKeepsItsMembersEdges(t *testing.T) {
+	rendering := renderSource(t, "Views::bdd", `package Model {
+	part def Optics;
+	part def Car {
+		part assembly {
+			part lens {
+				part optics : Optics;
+			}
+		}
+	}
+}
+package Views {
+	private import DiagramLayout::*;
+	view bdd {
+		expose Model::Car;
+		expose Model::Optics;
+		metadata Layout about Model::Car { x = 10; y = 10; width = 200; height = 33; }
+		metadata Layout about Model::Car::assembly::lens { x = 10; y = 100; width = 200; height = 33; }
+		metadata Layout about Model::Optics { x = 10; y = 200; width = 200; height = 33; }
+	}
+}`)
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	if want := `"n2" -> "n4" [headlabel="optics", dir=back, arrowtail=diamond]`; !strings.Contains(dot, want) {
+		t.Errorf("DOT lacks %q, the lens's edge to the optics' definition:\n%s", want, dot)
+	}
+	if strings.Contains(dot, `"n0" -> "n4"`) {
+		t.Errorf("DOT draws the optics from Car, which does not own them:\n%s", dot)
+	}
+	mermaid := rendering.MermaidWith(fullNotation)
+	found := false
+	for _, line := range strings.Split(mermaid, "\n") {
+		found = found || strings.HasPrefix(line, "  n2 ") && strings.Contains(line, "optics") && strings.HasSuffix(line, " n4")
+	}
+	if !found {
+		t.Errorf("Mermaid lacks the lens's labelled edge to the optics' definition:\n%s", mermaid)
+	}
+}
+
+// A Route about a usage, with no Layout anywhere, positions the drawing as it
+// did when it steered the owner's edge to the definition: the usage folds
+// into a row of its owner, and DOT pins the labelled edge along the route.
+func TestTreeRouteAboutAUsagePositionsTheDrawing(t *testing.T) {
+	rendering := renderSource(t, "Views::bdd", `package Model {
+	part def Wheel;
+	part def Car { part wheels : Wheel; }
+}
+package Views {
+	view bdd {
+		expose Model::Car;
+		expose Model::Wheel;
+		metadata DiagramLayout::Route about Model::Car::wheels { points = (10, 20, 200, 20); }
+	}
+}`)
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	for _, want := range []string{"// layout: neato -n2\n", `"n0" -> "n2" [headlabel="wheels", dir=back, arrowtail=diamond, pos="s,10,-20 20,-20 20,-20 200,-20 200,-20"`} {
+		if !strings.Contains(dot, want) {
+			t.Errorf("DOT lacks %q:\n%s", want, dot)
+		}
+	}
+	if strings.Contains(dot, `"n0" -> "n1"`) {
+		t.Errorf("DOT draws the routed membership to the wheels' node instead of folding it:\n%s", dot)
 	}
 }

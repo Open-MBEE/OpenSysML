@@ -1843,8 +1843,12 @@ next core patch release.
 
 Every release tag also lists [`sysml-mcp`](../reference/sysml-mcp.md) in the official
 [MCP Registry](https://registry.modelcontextprotocol.io) as `org.opensysml/sysml-mcp`, so hosts
-and galleries that read the registry (the GitHub MCP Registry, VS Code's *Browse MCP Servers*,
-third-party directories) find it. The registry holds metadata only: `packaging/mcp/server.json`
+and directories that read the registry find it. The [GitHub MCP Registry](https://github.com/mcp),
+which VS Code's *Browse MCP Servers* and Copilot read, is a curated selection of the official one:
+GitHub onboards a server by hand, on a request in the onboarding thread
+[github/github-mcp-server#1257](https://github.com/github/github-mcp-server/discussions/1257),
+and syncs its later versions from the official registry afterwards, so onboarding is asked for
+once, not per release. The registry holds metadata only: `packaging/mcp/server.json`
 names the npm package `@openmbee/sysml-mcp`, whose `package.json` declares
 `"mcpName": "org.opensysml/sysml-mcp"` and which `npx -y @openmbee/sysml-mcp` runs. The
 workflow `.github/workflows/mcp-registry.yml` runs on the tag, and

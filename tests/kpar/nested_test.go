@@ -103,14 +103,30 @@ func TestTwoInstalledProjectsOpeningOnePackageAreStillReported(t *testing.T) {
 		".sysand/lib/acme-sprockets_1.0.0/" + project.ProjectFile: `{"name": "sprockets", "publisher": "acme", "version": "1.0.0"}`,
 		".sysand/lib/acme-sprockets_1.0.0/Sprockets.sysml":        "package Gears {\n    part def Gear;\n}\n",
 	})
-	for _, input := range []string{proj, filepath.Join(proj, "App.sysml")} {
-		s := repl.NewSession()
-		report, err := s.LoadPathsReport([]string{input})
-		if err != nil {
-			t.Fatal(err)
+	// The directory names every installed file, so both openings load and
+	// the reopening is reported; the file alone has the two declarers found
+	// beside it, reported once as the choice they are, neither loaded.
+	s := repl.NewSession()
+	report, err := s.LoadPathsReport([]string{proj})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reopened(report) {
+		t.Errorf("%s: Gears opened by two installed projects was not reported:\n%s", proj, strings.Join(append(append(report.Loaded, report.Found...), report.Declared...), "\n"))
+	}
+	app := filepath.Join(proj, "App.sysml")
+	s = repl.NewSession()
+	if report, err = s.LoadPathsReport([]string{app}); err != nil {
+		t.Fatal(err)
+	}
+	lines := append(append(report.Loaded, report.Found...), report.Declared...)
+	var notes int
+	for _, line := range lines {
+		if strings.Contains(line, "Gears is declared by more than one file") && strings.Contains(line, "acme-gears_1.0.0") && strings.Contains(line, "acme-sprockets_1.0.0") {
+			notes++
 		}
-		if !reopened(report) {
-			t.Errorf("%s: Gears opened by two installed projects was not reported:\n%s", input, strings.Join(append(append(report.Loaded, report.Found...), report.Declared...), "\n"))
-		}
+	}
+	if notes != 1 || reopened(report) || containsSubstring(report.Loaded, "Gears.sysml") || containsSubstring(report.Loaded, "Sprockets.sysml") {
+		t.Errorf("%s: want Gears reported once as declared by both installed projects and neither loaded:\n%s", app, strings.Join(lines, "\n"))
 	}
 }

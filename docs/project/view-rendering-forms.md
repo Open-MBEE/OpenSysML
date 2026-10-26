@@ -35,16 +35,26 @@ how a picture is drawn, not what the model is, so a tree over a package of migra
 those views without the `metadata` and `render` nodes their annotations would add. Once a tree's
 nodes are built, `treeEdges` (`tree_edges.go`) draws the relationships between them that the
 general view's definition graph draws: a `specialization` from an element to each general it
-specializes, subsets or redefines; a `composition` or `reference` from an element to the definition
-typing each part, item, port, attribute, occurrence, enumeration or `ref` usage it owns, labelled
-with the usage's name and multiplicity; and the `typing` of a usage whose owner is not drawn. Both
-ends must be nodes of the same rendering, and so must the usage a composition stands for — one the
-depth bound leaves undrawn draws no edge — an element drawn twice draws from its first node, and no
-edge joins a node to one nested in it, since the nesting is that membership. A usage's `Style`
-dresses its composition edge as it does its node; its `Note` stays anchored to the node. A composition's
-origin is the usage it stands for, so a `Route` about the usage routes it and `DrawnIn` reports the
-usage drawn as an edge; a specialization's or typing's origin is the name its clause relates to,
-no member of its own, so it carries no route and a client lays it out itself. The
+specializes, subsets or redefines; the `typing` of each usage to its drawn definition; and the
+feature membership of each part, item, port, attribute, occurrence, enumeration or `ref` usage
+drawn under its owner, declared or inherited, as a `composition` (filled diamond at the owner) or a
+`reference` (hollow diamond) from the owner to the usage's node, with the usage's multiplicity at
+the usage's end — the glyphs of SysML v2 §8.2.3.6, the diamond read from the model's
+`Feature::isComposite` (`semantics.Model.UsageIsComposite`: a `ref`, an attribute, a port outside a
+port, an end, a directed or an enumeration usage is non-composite). The writers draw that edge in
+place of the containment line they draw to every other child, so a usage hangs off its owner by its
+membership glyph alone. A usage listed in a compartment row instead of drawn as a node (the
+compartment foldings, or a positioned tree's unplaced members) folds its membership and typing into
+one edge from its owner to each drawn definition, labelled with the usage's name and multiplicity
+at the definition's end — the property association a block definition diagram draws. Both
+ends of a relationship edge must be nodes of the same rendering — a usage the depth bound leaves
+undrawn draws no edge — an element drawn twice draws from its first node, and no specialization or
+typing joins a node to one nested in it. A usage's `Style` dresses its membership edge as it does
+its node; its `Note` stays anchored to the node. A membership edge's origin is the usage it stands
+for, so a `Route` about the usage routes it — the usage's node, which such a route places nowhere,
+folds into a row unless a Layout places it — and `DrawnIn` reports the usage drawn as an edge; a
+specialization's or typing's origin is the name its clause relates to, no member of its own, so it
+carries no route and a client lays it out itself. The
 `MigrationMetadata::SynthesizedName` and `MigrationMetadata::StandIn` markers a migration leaves
 in a body are left out the same way: they record what the migration did, not what the model
 holds. Every other metadata usage — a user's `metadata Approved about errorCBE { by = "review"; }`,
@@ -177,7 +187,7 @@ What each of the other graphs draws, as nodes from the exposed set and edges bet
 | Kind | Nodes | Edges (`EdgeKind`) |
 | --- | --- | --- |
 | `requirement` | requirement and concern definitions and usages, labelled with their short name as `id` and the first line of their documentation or text, and the drawn ends of the relationships below | `satisfy` (from the satisfying feature), `verify` (from each verification case whose objectives verify it: its own, and those it inherits and does not redefine or restate by name, as the runtime runs them), `derive` (a `#derivation` connection's `derivedRequirement` from its `originalRequirement`), `refine` (a `#refinement` dependency), `allocate`, `specialization`, `typing` |
-| `definition` | definitions and usages | `specialization` (subclassification, subsetting — a same-named subsetting to the inherited feature, as `DirectSupertypes` reads it — redefinition), `typing`, `composition` (a part, item or other composite feature to the drawn definitions typing it, named by the feature) and `reference` (a `ref` feature likewise) |
+| `definition` | definitions and usages | `specialization` (subclassification, subsetting — a same-named subsetting to the inherited feature, as `DirectSupertypes` reads it — redefinition), `typing` (a drawn usage to its definition), `composition` (a drawn owner to a composite usage drawn as a node, its multiplicity at the usage's end; or, for a usage of the owner's that is not drawn, the owner to the drawn definitions typing it, named by the usage) and `reference` (a usage the model derives as non-composite — `ref`, attribute, port outside a port, end, directed or enumeration usage — likewise) |
 | `package` | packages | `containment` (an owned package) and `import` (a membership or namespace import, recursive or not, to the package it names, or to the package owning the member it names, labelled `::<member>`; one edge per import declaration, linked to it) |
 
 A relationship end that does not resolve draws no edge and is listed as a notice, and a cycle (mutually recursive part
@@ -655,11 +665,26 @@ test read this table and hold the writers to it, so a glyph changes here and in 
 | `exhibit-edge` | `exhibit` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `end arrow-open` | conformant | Solid open arrow labelled `«exhibit»`, from the exhibiting usage to the state. |
 | `association` (actor or subject line, connection definition) | `association` | `dir=none` | `--` | `---` | `-- edge` | `none` | conformant | Plain undirected line. |
 | objective anchor | `anchor` | `dir=none, style=dashed` | `..` | `-.-` | `-> edge` | `none` | conformant | Dashed line without a head, the note's anchor. |
+| `succession-flow` | `succession flow` | `style=dashed` | `-[dashed]->` | `-.->` | `-> successionflow` | `end arrow` | differs from pilot | Dashed with a filled head and `«succession flow»` as its text, between the ends of a `succession flow` in action and interconnection renderings; the succession it also states is not drawn twice, except for the guard of a succession that gates it, and the keyword stays when connector names are hidden. The Pilot writes `..>`, an open head. |
+| `require-edge`, `assume-edge`, `assert-edge` | `require`, `assume`, `assert` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `end arrow-open` | conformant | Solid open arrow labelled `«require»`, `«assume»` or `«assert»`, from the requirer, assumer or assertor to the constraint or requirement it declares (`require constraint c { … }`) or names (`require r1;`), in the requirement and definition graphs and the mixed rendering when both are drawn apart; a tree or mixed rendering nests the declared forms in their owner, as it nests every owned member. |
+| `frame-edge` | `frame` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `end arrow-open` | differs from pilot | Solid open arrow labelled `«frame»`, from the framer to the concern it declares or names, as above. The Pilot has no rule of its own and writes a feature membership's `*--`. |
+| `event-edge` | `event` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `end arrow-open` | conformant | Solid open arrow labelled `«event»`, from the eventer to an `event occurrence` it owns, in the definition graph and the tree, which draw the membership of each usage; one nested in its eventer's box in a mixed rendering is shown by the nesting. |
+| `portion-relationship` | `portion` | `dir=back, arrowtail=dot` | `#--` | `---` | `<- portion` | `start portion` | approximate | Solid line with a filled three-quarter circle at the occurrence, from the occurrence to a `timeslice` or `snapshot` it owns, in the definition graph and the tree: Graphviz and D2 draw a filled circle, PlantUML a filled square, Mermaid a plain line with `◕` leading the text; the canvas draws the three-quarter circle. The Pilot writes `*--`. |
+| `reference-subsetting` | `reference subsetting` | `arrowhead=onormaldot` | `--\|>` | `-->` | `-> specialization` | `end triangle-four-dots` | approximate | Hollow triangle with four dots behind its base, from a usage to the one it `::>` references, labelled `references` as `subsets` and `redefines` are: Graphviz sets one dot behind the triangle, PlantUML and D2 draw the plain triangle, Mermaid has none; the canvas draws the four dots. The Pilot writes `--\|>`. |
+| `unowned-membership` | `unowned membership` | `dir=back, arrowtail=odot` | `0--` | `---` | `<- membership` | `start circle-hollow` | differs from pilot | Solid line with a hollow circle at the namespace, from a package to a drawn package it holds by `alias`, the alias name at the member's end, in the package graph; Mermaid draws a plain line with `○` leading the text. The Pilot writes `+..`, dashed with a circle-plus. |
+| `expose-r`, `toplevel-expose-r`, `recursive-expose-r` | `expose` | `arrowhead=vee, style=dashed` | `..>` | `-.->` | `-> dependency` | `end arrow-open` | conformant | Dashed open arrow labelled `«expose»`, `«expose»*` or `«expose»**` as an import is, from a view usage to an element it exposes when both are drawn apart (a tree or mixed rendering), one edge per distinct exposure (two statements that say the same draw one edge, as imports do); the exposures a nested view's node holds as its children are shown by the nesting. |
 
 The Mermaid cells are the flowchart arrows; `mermaidEdgeLabel` adds the kind's name as the edge text
 where the arrow alone would not tell a specialization, subsetting, redefinition or typing apart. The
-canvas dashes a `succession`, `import`, `derive`, `refine`, `dependency` or `anchor` edge by its CSS
-class. Under the cameo style a tree's `containment` is Cameo's filled diamond instead.
+canvas dashes a `succession`, `succession flow`, `import`, `derive`, `refine`, `dependency`, `expose` or
+`anchor` edge by its CSS class. Under the cameo style a tree's `containment` is Cameo's filled diamond instead.
+
+The n-ary association and connection dots, the `flow-on-connection` item box and the
+sequence-diagram `message` and `sq-succession` glyphs remain undrawn as such: a connection with
+more than two ends is drawn as its pairs, a flow on a connection as a flow, and a sequence message
+as the grammar's own arrow. `testdata/notation-glyphs.sysml` exercises the succession flow,
+require, assume, assert, frame, event, portion, reference subsetting, unowned membership and
+expose edges in each rendering kind that draws them (`glyphs-*.golden`).
 
 ### Edge routing
 

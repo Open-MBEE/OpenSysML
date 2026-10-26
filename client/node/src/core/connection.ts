@@ -23,6 +23,7 @@ import {
   CAPABILITY_PERFORMER,
   CAPABILITY_STATE_TRACE,
   CAPABILITY_QUERY,
+  CAPABILITY_QUERY_ORDER_BY,
   CAPABILITY_RENDER_DOCUMENT,
   CAPABILITY_RENDER_DOCUMENT_HTML,
   CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
@@ -577,22 +578,25 @@ export class Connection {
     modelHash: string,
     options: { payload?: QueryPayload } & QueryForm = {},
   ): Promise<QueryElement[]> {
-    requireCapability(
-      this.info,
-      CAPABILITY_QUERY,
-      upgradeRemedy(CAPABILITY_QUERY),
-    );
+    const query = queryField(options);
+    const needed =
+      query.query !== undefined && query.query.orderBy.length > 0
+        ? [CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY]
+        : [CAPABILITY_QUERY];
+    for (const capability of needed) {
+      requireCapability(this.info, capability, upgradeRemedy(capability));
+    }
     const response = await callRpc(
       this.rpc.query(
         create(QueryRequestSchema, {
           modelHash,
           oslcQuery: options.oslc ?? "",
-          ...queryField(options),
+          ...query,
         }),
         this.callOptions(),
       ),
       "model",
-      capabilityRefusal(this.info, [CAPABILITY_QUERY]),
+      capabilityRefusal(this.info, needed),
     );
     return elementsOf(response);
   }

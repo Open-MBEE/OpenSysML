@@ -62,6 +62,7 @@ var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityEngines:                        "list_engines",
 	sysmlgrpc.CapabilityEnginesExternal:                "list_engines",
 	sysmlgrpc.CapabilityQuery:                          "query",
+	sysmlgrpc.CapabilityQueryOrderBy:                   "query",
 	sysmlgrpc.CapabilityOSLCQuery:                      "query",
 	sysmlgrpc.CapabilityDocumentQuery:                  "run_document_query",
 	sysmlgrpc.CapabilityRenderDocument:                 "render_model_document",

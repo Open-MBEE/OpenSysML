@@ -1016,7 +1016,9 @@ can filter a model OpenSysML parsed. The standard's schema is authoritative:
 `PrimitiveConstraint`, `CompositeConstraint`.
 
 **Implementation:** `internal/frontend/grpc/query.go` (`Service.Query`), reported from
-`GetServerInfo` as the `query` capability. Python: `model.query(...)`
+`GetServerInfo` as the `query` capability, with `orderBy` under `query_order_by` (a service
+without it would ignore the field, so every client checks before sending a sorted query).
+Python: `model.query(...)`
 (`client/python/opensysml/query.py`). The JSON a hand-written client sends and
 receives for this call is shown, captured, on
 [the wire contract](wire-contract.md#query).
@@ -1027,11 +1029,12 @@ receives for this call is shown, captured, on
 Query          scope[]    elements to consider; empty is the whole loaded model
                select[]   properties to report; empty reports every one
                where      one Constraint; absent selects the whole scope
+               orderBy[]  properties to sort by, in order of precedence; empty keeps declaration order
 
 Constraint     PrimitiveConstraint | CompositeConstraint      (a protobuf oneof)
 
-PrimitiveConstraint   property, operator (= > <), value[], inverse
-CompositeConstraint   operator (and | or), constraint[]        (nests arbitrarily)
+PrimitiveConstraint   property, operator (instanceOf = < <= > >= in), value[], inverse
+CompositeConstraint   operator (and | or), constraint[2..*]    (nests arbitrarily)
 ```
 
 The RPC takes the same shape, with the standard's JSON names preserved, so
@@ -1149,25 +1152,53 @@ Where the standard is vague, these are the choices this implementation makes:
 - `=` compares the property's value as text, and matches if it equals **any** of
   the listed values. The standard writes one value and its clients write a list
   for `@type`; one value is the degenerate case of the same rule.
-- `>` and `<` compare numbers, and require exactly one operand and an ordered
-  property (the `multiplicity*` pair). A non-ordered property, more than one
-  operand, or an operand that is not a number is an `INVALID_ARGUMENT` error, not
-  a false verdict. `*` parses as infinity, so `multiplicityUpper > 1` holds for
-  an unbounded feature.
+- `>`, `>=`, `<` and `<=` compare numbers, and require exactly one operand and an
+  ordered property (the `multiplicity*` pair). A non-ordered property, more than
+  one operand, or an operand that is not a number is an `INVALID_ARGUMENT` error,
+  not a false verdict. `*` parses as infinity, so `multiplicityUpper > 1` holds
+  for an unbounded feature, and the inclusive forms hold at the bound itself
+  (`multiplicityLower <= 2` selects `attribute x : Real [2..*]`).
+- `in` is membership of the property's value in the listed values — the same
+  verdict `=` gives a list, under the operator the standard spells it with. An
+  empty list is malformed.
+- `instanceOf` applies to `@type` only, and asks the metamodel rather than the
+  text: the element's metaclass must **conform to** one of the listed metaclasses
+  through the library's reflective metaclass hierarchy
+  (`semantics.Model.InstanceOf`), so a `PartUsage` is an instance of `Usage`,
+  `Feature` and `Element`, while `@type = Usage` matches nothing (no element's
+  metaclass is the abstract `Usage`). A metaclass the library does not declare,
+  or `instanceOf` on any other property, is an `INVALID_ARGUMENT` error.
+- A `CompositeConstraint` combines **at least two** constraints, as the standard's
+  `constraint : Constraint [2..*]` says; an empty or one-member list is malformed
+  (write the one constraint on its own).
 - An element that *has no value* for the property fails the comparison; this is a
   fact about the element, not a fault in the query.
 - `inverse` negates the verdict of its own constraint, so a constraint and its
   inverse partition the scope.
 - `and`/`or` combine nested verdicts, short-circuiting once one is decisive.
 - The whole `where` tree is judged **before** any element is read, so a fault in
-  it — an unknown property, a missing operator, an empty composite, `>` on an
-  unordered property — is reported whatever the scope holds, including a model
-  that declares nothing (`TestQueryFaultIsReportedWithNoElementsToConsider`), and
-  wherever it sits, including under an already-decisive sibling.
+  it — an unknown property, a missing operator, an empty or one-member composite,
+  `>` on an unordered property, `instanceOf` of an undeclared metaclass — is
+  reported whatever the scope holds, including a model that declares nothing
+  (`TestQueryFaultIsReportedWithNoElementsToConsider`), and wherever it sits,
+  including under an already-decisive sibling.
 - `scope` considers each named element **and everything nested inside it**, in
   declaration order, parents first; a name the model does not have is an error.
   An empty scope enumerates the parsed document (not the standard library, which
   is reachable by naming a library element as a scope).
+- `orderBy` sorts the matched elements by the listed properties in order of
+  precedence, each **ascending**: the first property orders, each later one
+  breaks the ties of those before it, and declaration order breaks the last
+  ones (the sort is stable). An unknown property is an `INVALID_ARGUMENT`
+  error, as it is in `select` and `where`, even when nothing would be sorted.
+  Comparison per property (`corequery.CompareOrderValues`): an element without
+  the property precedes every element with it; two values of an ordered property
+  (`multiplicityLower`, `multiplicityUpper`) compare as numbers with `*` the
+  greatest, so `1 < 9 < 10 < *`; two values of any other property compare
+  byte-wise as text, which puts `false` before `true` and capitals before
+  lower-case names. Every property has one value type, so present-versus-absent
+  is the only mixed comparison. Sorting by a property `select` leaves out does
+  not add it to the answer. The same comparison orders OSLC `oslc.orderBy`.
 
 ### Not supported — by design of the standard
 
@@ -1180,8 +1211,9 @@ one:
   Containment is expressible only as a `scope`; specialization is not expressible
   at all, even though `semantics.Model` can answer it.
 - No `owningProject` / `@id` on the query resource (single-model service, no
-  project or commit store), no derived or computed properties, and no ordering or
-  paging of results — elements come back in declaration order.
+  project or commit store), no derived or computed properties, and no paging of
+  results — elements come back in `orderBy` order, or declaration order without
+  one.
 
 ---
 

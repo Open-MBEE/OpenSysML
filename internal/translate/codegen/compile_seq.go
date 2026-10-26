@@ -90,7 +90,11 @@ func (fc *funcCompiler) retype(v Expr, t Type) Expr {
 	case NullLit:
 		return NullLit{T: t}
 	case SeqLit:
-		return SeqLit{Elems: v.Elems, T: t}
+		elems := make([]Expr, len(v.Elems))
+		for i, el := range v.Elems {
+			elems[i] = fc.retype(el, t)
+		}
+		return SeqLit{Elems: elems, T: t}
 	}
 	return v
 }

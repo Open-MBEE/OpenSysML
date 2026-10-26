@@ -760,6 +760,15 @@ func (t *translator) condition(cond runtime.Condition) (*Term, error) {
 	if cond.Circular != nil {
 		return nil, t.refuse(nil, "require "+cond.Circular.Name, "it names the requirement being translated")
 	}
+	if cond.Subrequirement != nil {
+		// A subrequirement is its own check, its assumptions implying its required
+		// conditions (SysML v2 §7.21.2), as the evaluator reads it; true over none.
+		claim, ok := assertedCondition(cond.Group, cond.Negated, true)
+		if !ok {
+			return BoolTerm(true), nil
+		}
+		return t.condition(claim)
+	}
 	if cond.Negated {
 		t.branched++
 		defer func() { t.branched-- }()

@@ -23,7 +23,7 @@ config:
 ---
 %% FoldedViews::folded — tree rendering (render asTreeDiagram)
 %% not represented: 3 node(s) without a position, drawn as compartment rows of the node above them
-%% not represented: 2 node(s) without a position, left undrawn
+%% not represented: 2 node(s) without a position, left undrawn, and 3 edge(s) at them
 %% layout: n1 x=0 y=40
 %% layout: n3 x=120 y=40 collapsed
 %% layout: n5 x=240 y=40

@@ -8,19 +8,19 @@ digraph "VariationViews::familyTree" {
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   "n0" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>vehicleFamily</b>>];
   "n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>engine</b>>];
-  "n0" -> "n1" [arrowhead=none];
   "n2" [style="rounded,filled", label=<<font point-size="10"><i>«variation part»</i></font><br/><b>transmission</b>>];
   "n3" [style="rounded,filled", label=<<font point-size="10"><i>«variant»</i></font><br/><b>manual</b>>];
-  "n2" -> "n3" [arrowhead=none];
   "n4" [style="rounded,filled", label=<<font point-size="10"><i>«variant part»</i></font><br/><b>automatic</b>>];
-  "n2" -> "n4" [arrowhead=none];
-  "n0" -> "n2" [arrowhead=none];
   "n5" [style="rounded,filled", label=<<b>connect</b>>];
   "n0" -> "n5" [arrowhead=none];
   "n6" [label=<<font point-size="10"><i>«variation part def»</i></font><br/><b>EngineChoices</b>>];
   "n7" [style="rounded,filled", label=<<font point-size="10"><i>«variant»</i></font><br/><b>fourCylinder</b>>];
-  "n6" -> "n7" [arrowhead=none];
   "n8" [style="rounded,filled", label=<<font point-size="10"><i>«variant»</i></font><br/><b>sixCylinder</b>>];
-  "n6" -> "n8" [arrowhead=none];
-  "n0" -> "n6" [headlabel="engine", dir=back, arrowtail=diamond];
+  "n0" -> "n1" [dir=back, arrowtail=diamond];
+  "n0" -> "n2" [dir=back, arrowtail=diamond];
+  "n1" -> "n6" [arrowhead=onormaldotdot];
+  "n2" -> "n3" [dir=back, arrowtail=odiamond];
+  "n2" -> "n4" [dir=back, arrowtail=diamond];
+  "n6" -> "n7" [dir=back, arrowtail=odiamond];
+  "n6" -> "n8" [dir=back, arrowtail=odiamond];
 }

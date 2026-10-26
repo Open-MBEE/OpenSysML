@@ -305,7 +305,7 @@ class Model:
         """
         return Editor(self._hash, self.connection)
 
-    def query(self, payload=None, scope=None, select=None, where=None):
+    def query(self, payload=None, scope=None, select=None, where=None, order_by=None):
         """Run a SysML v2 API & Services Query over this model.
 
         Takes the standard's ``Query`` JSON, so a payload written for the
@@ -319,9 +319,12 @@ class Model:
                 empty considers the whole loaded model
             select (list, optional): Properties to report; empty reports every one
             where (dict, optional): Constraint to filter by
+            order_by (list, optional): Properties to sort by, in order of
+                precedence, each ascending; empty keeps declaration order
 
         Returns:
-            list[QueryElement]: The elements selected, in declaration order
+            list[QueryElement]: The elements selected, in ``order_by`` order,
+            or declaration order without one
 
         Raises:
             QueryError: If the query is not one the standard's model describes
@@ -336,7 +339,7 @@ class Model:
             [Demo::vehicle (PartUsage)]
         """
         return self.connection.query(
-            self._hash, payload, scope=scope, select=select, where=where,
+            self._hash, payload, scope=scope, select=select, where=where, order_by=order_by,
         )
 
     def run_document_query(self, query_id, bindings=None):

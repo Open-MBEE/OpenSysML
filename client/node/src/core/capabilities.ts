@@ -56,6 +56,8 @@ export const CAPABILITY_VERIFICATION_QUESTIONS = "verification_questions";
 export const CAPABILITY_VERIFICATION_ARGUMENTS = "verification_arguments";
 /** The `Query` RPC. */
 export const CAPABILITY_QUERY = "query";
+/** `orderBy` on `Query`; a service without it would ignore the field. */
+export const CAPABILITY_QUERY_ORDER_BY = "query_order_by";
 /** The `RunDocumentQuery` RPC. */
 export const CAPABILITY_DOCUMENT_QUERY = "document_query";
 /** The `RenderDocument` RPC. */

@@ -127,22 +127,39 @@ func (m *Model) GoverningMultiplicitySource(sym *symbols.Symbol) (*symbols.Symbo
 }
 
 // governingMultiplicity is the multiplicity a feature declares, or inherits from a feature it
-// redefines by clause or position, read through an alias; not ok where it declares and inherits none.
+// redefines by clause or position, read through an alias — the implicit [1..1] of a redefined
+// feature included (SysML v2 §7.6.3); not ok where it declares and inherits none.
 func (m *Model) governingMultiplicity(sym *symbols.Symbol) (Range, bool) {
-	source, ok := m.GoverningMultiplicitySource(sym)
-	if !ok {
-		return Range{}, false
+	if source, ok := m.GoverningMultiplicitySource(sym); ok {
+		return m.MultiplicityOf(source)
 	}
-	return m.MultiplicityOf(source)
+	for _, redefined := range m.AllRedefinedFeatures(m.aliasTarget(sym)) {
+		if m.ImplicitlyDeclaresOne(redefined) {
+			return AssumedRange(), true
+		}
+	}
+	return Range{}, false
+}
+
+// StatedMultiplicityOf is the multiplicity stated for a feature: declared, inherited by
+// redefinition, or the implicit [1..1]; not ok for one the usual default 0..* alone governs.
+func (m *Model) StatedMultiplicityOf(sym *symbols.Symbol) (Range, bool) {
+	if r, ok := m.governingMultiplicity(sym); ok {
+		return r, true
+	}
+	if m.ImplicitlyDeclaresOne(sym) {
+		return AssumedRange(), true
+	}
+	return Range{}, false
 }
 
 // GoverningMultiplicityOf returns the multiplicity governing a feature: the one
-// it declares or inherits by redefinition, or the assumed 1..1 where it has none.
+// it declares or inherits by redefinition, or its default where it has none.
 func (m *Model) GoverningMultiplicityOf(sym *symbols.Symbol) Range {
 	if r, ok := m.governingMultiplicity(sym); ok {
 		return r
 	}
-	return AssumedRange()
+	return m.DefaultMultiplicityOf(sym)
 }
 
 func knownRange(r Range, ok bool) (Range, bool) {
@@ -401,8 +418,8 @@ func (m *Model) valuesHeldByFeature(scope *symbols.Scope, node ast.Node) (Range,
 }
 
 // valuesGoverning is how many values a feature holds: the multiplicity governing it, through an
-// alias, declared or inherited by redefinition — one where it has none; not ok while a bound
-// it declares is not evaluable.
+// alias, declared or inherited by redefinition — one where it states none, the representative
+// value the runtime holds for the usual default 0..*; not ok while a bound it declares is not evaluable.
 func (m *Model) valuesGoverning(sym *symbols.Symbol) (Range, bool) {
 	if r, ok := m.governingMultiplicity(sym); ok {
 		return knownRange(r, true)

@@ -1,0 +1,6 @@
+{
+  "type": "requirement",
+  "evaluate": "test::spec",
+  "libraries": true,
+  "satisfied": true
+}

@@ -16,21 +16,21 @@ digraph "VehicleViews::vehicleView" {
     "n0" [label=<<font point-size="9">«part def»</font><br/><b>Vehicle</b>>];
     "n1" [label=<<font point-size="9">«part»</font><br/><b>engine</b>>];
     "n2" [label=<<font point-size="9">«attribute»</font><br/><b>power</b>>];
-  "n1" -> "n2" [arrowhead=none, dir=back, arrowtail=diamond];
     "n3" [label=<<font point-size="9">«part»</font><br/><b>cylinder</b>>];
-  "n1" -> "n3" [arrowhead=none, dir=back, arrowtail=diamond];
-  "n0" -> "n1" [arrowhead=none, dir=back, arrowtail=diamond];
     "n4" [label=<<font point-size="9">«part»</font><br/><b>wheels</b>>];
-  "n0" -> "n4" [arrowhead=none, dir=back, arrowtail=diamond];
     "n5" [label=<<b>connect</b>>];
   "n0" -> "n5" [arrowhead=none, dir=back, arrowtail=diamond];
     "n6" [label=<<font point-size="9">«view»</font><br/><b>engineSubview</b>>];
     "n7" [label=<<font point-size="9">«part def»</font><br/><b>Engine</b>>];
     "n8" [label=<<font point-size="9">«attribute»</font><br/><b>power</b>>];
-  "n7" -> "n8" [arrowhead=none, dir=back, arrowtail=diamond];
     "n9" [label=<<font point-size="9">«part»</font><br/><b>cylinder</b>>];
-  "n7" -> "n9" [arrowhead=none, dir=back, arrowtail=diamond];
   "n6" -> "n7" [arrowhead=none, dir=back, arrowtail=diamond];
   }
-  "n0" -> "n7" [headlabel="engine", dir=back, arrowtail=diamond];
+  "n0" -> "n1" [dir=back, arrowtail=diamond];
+  "n0" -> "n4" [dir=back, arrowtail=diamond];
+  "n1" -> "n7" [arrowhead=onormaldotdot];
+  "n1" -> "n2" [dir=back, arrowtail=odiamond];
+  "n1" -> "n3" [dir=back, arrowtail=diamond];
+  "n7" -> "n8" [dir=back, arrowtail=odiamond];
+  "n7" -> "n9" [dir=back, arrowtail=diamond];
 }
