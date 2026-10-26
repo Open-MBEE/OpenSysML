@@ -466,7 +466,8 @@ func (m *Model) ImplicitlyDeclaresOne(sym *symbols.Symbol) bool {
 }
 
 // endDefaultsToOne reports whether an end feature declaring no multiplicity is
-// held to [1..1]: in SysML always, in KerML when its owner has exactly two ends.
+// held to [1..1]: in SysML always, in KerML when it is one of exactly two ends of
+// an association or connector, which redefine BinaryLink's source and target.
 func (m *Model) endDefaultsToOne(sym *symbols.Symbol) bool {
 	if sym == nil || m == nil || !DeclaresEndFeature(sym) {
 		return false
@@ -477,7 +478,8 @@ func (m *Model) endDefaultsToOne(sym *symbols.Symbol) bool {
 	if sym.OwnerScope == nil {
 		return false
 	}
-	return len(m.EndFeatures(sym.OwnerScope.Owner())) == 2
+	owner := sym.OwnerScope.Owner()
+	return m.IsAssociationOrConnector(owner) && len(m.EndFeatures(owner)) == 2
 }
 
 // DeclaresEndFeature reports whether a feature is a connector end or carries the
