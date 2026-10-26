@@ -366,10 +366,9 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
 
   function exitReach(node: PlacedNode, port: PlacedPort): number {
     const sharing = layout.edges.filter(
-      ({ edge, hidden }) =>
-        !hidden &&
-        ((edge.from === node.node.id && edge.fromPort === port.port.id) ||
-          (edge.to === node.node.id && edge.toPort === port.port.id)),
+      ({ edge }) =>
+        (edge.from === node.node.id && edge.fromPort === port.port.id) ||
+        (edge.to === node.node.id && edge.toPort === port.port.id),
     ).length;
     return portExitReach(sharing);
   }
@@ -380,13 +379,11 @@ function mount(root: HTMLElement, scene: Scene, options: MountOptions): Mounted 
     let changed = false;
     const settled = new Map<string, PlacedNode>();
     for (const entry of layout.nodes.values()) {
-      if (!entry.hidden) {
-        settled.set(entry.node.id, entry);
-      }
+      settled.set(entry.node.id, entry);
     }
     for (const part of projects()) {
       const entry = layout.nodes.get(part.id);
-      if (!entry || entry.hidden) {
+      if (!entry) {
         continue;
       }
       const moved = placed.has(part.feature);

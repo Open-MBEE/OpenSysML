@@ -15,7 +15,7 @@ import (
 func TestRenderFiltersByAMetaclassDeclaredByTwoDocuments(t *testing.T) {
 	s := initializedServer(t, map[string]any{CrossDocumentCapability: true})
 	open := func(name, src string) uri.URI {
-		docURI := uri.File(name)
+		docURI := tempDocURI(t, name)
 		if err := s.DidOpen(context.Background(), &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{URI: docURI, LanguageID: "sysml", Version: 1, Text: src},
 		}); err != nil {
@@ -24,9 +24,9 @@ func TestRenderFiltersByAMetaclassDeclaredByTwoDocuments(t *testing.T) {
 		return docURI
 	}
 	const metaclassCopy = `package SysML { package Systems { metadata def PartUsage; } }`
-	open("/ws/lib_one.sysml", metaclassCopy)
-	open("/ws/lib_two.sysml", metaclassCopy)
-	docURI := open("/ws/interconnection.sysml", `
+	open("lib_one.sysml", metaclassCopy)
+	open("lib_two.sysml", metaclassCopy)
+	docURI := open("interconnection.sysml", `
 		package Model {
 			part abcd {
 				part a { port a; }

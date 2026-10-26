@@ -72,7 +72,7 @@ func (ctx *Context) endOccurrence(inst *Instance) (map[int64]bool, error) {
 // endLifeAt records inst's lifetime ending at the activation at, undone with a probe.
 func (ctx *Context) endLifeAt(inst *Instance, at int64) {
 	prior := ctx.lives[inst.ID]
-	ctx.lives[inst.ID] = life{reached: prior.reached, began: prior.began, ended: at}
+	ctx.lives[inst.ID] = life{reached: prior.reached, began: prior.began, ended: at, beganAt: prior.beganAt, endedAt: ctx.clock.Now()}
 	ctx.noteProbeUndo(func() { ctx.lives[inst.ID] = prior })
 	ctx.livesChanged()
 }
@@ -139,6 +139,7 @@ func (e *ActionExecutor) endTerminated() {
 	e.root.ended, e.root.live = true, 0
 	e.state = StateTerminated
 	e.ctx.endPerformanceLife(e.occurrence)
+	e.ctx.unregisterActionExecutor(e)
 }
 
 // endedByOccurrence settles the unwinding of a terminate of an occurrence at this

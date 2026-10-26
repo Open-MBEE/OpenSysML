@@ -532,6 +532,8 @@ type Rendering struct {
 	emptyReason string
 	// drawn collects the elements drawn while rendering, nil when no one asked.
 	drawn *Drawn
+	// folds are the behaviour roots whose collapsed nodes foldCollapsed folds once every edge is drawn.
+	folds []*Node
 	// narrowed marks a rendering showing() already narrowed to its Shown.
 	narrowed bool
 	// sites records, while a tree renders, what each of its nodes draws; nil
@@ -637,6 +639,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 		// Unreachable: KindOf refuses an unsupported kind.
 		return nil, &UnsupportedKindError{Kind: kind, View: r.notationName(view), Stated: stated}
 	}
+	foldCollapsed(out)
 	r.noteDepthCuts(view, out)
 	if out.Empty() && out.emptyReason == "" {
 		out.emptyReason = r.exposureReason(view, exposed, out)
@@ -685,6 +688,7 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 	default:
 		return nil, &UnsupportedKindError{Kind: kind, Stated: stated, Remedy: remedyFor(kind)}
 	}
+	foldCollapsed(out)
 	r.noteDepthCuts(nil, out)
 	if out.Empty() && out.emptyReason == "" {
 		out.emptyReason = exposedReason(exposed, out)
@@ -1072,15 +1076,6 @@ func referenceText(node ast.Node) string {
 		sb.WriteString(source.NameText(part.Text))
 	}
 	return sb.String()
-}
-
-// simpleName is the last segment of a qualified name, which is what a nested
-// node is labeled with.
-func simpleName(fqn string) string {
-	if i := strings.LastIndex(fqn, "::"); i >= 0 {
-		return fqn[i+2:]
-	}
-	return fqn
 }
 
 // notationName writes a reference read as joined qualified text (a `render`

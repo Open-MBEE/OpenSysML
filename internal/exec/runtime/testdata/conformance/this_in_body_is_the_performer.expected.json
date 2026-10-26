@@ -1,0 +1,25 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::rig",
+  "slots": {
+    "this": {"type": "Instance", "value": "test::rig"},
+    "act.mine": {"type": "Integer", "value": 7},
+    "act.me": {"type": "Instance", "value": "test::rig"},
+    "act.meSelf": {"type": "Instance", "value": "test::rig"},
+    "act.this": {"type": "Instance", "value": "test::rig"},
+    "tact.who": {"type": "Instance", "value": "test::rig"},
+    "tact.this": {"type": "Instance", "value": "test::rig"},
+    "tact.sub.w": {"type": "Instance", "value": "test::rig"},
+    "tact.sub.this": {"type": "Instance", "value": "test::rig"},
+    "sm.e.who": {"type": "Instance", "value": "test::rig"},
+    "sm.d.who": {"type": "Instance", "value": "test::rig"},
+    "sm.x.who": {"type": "Instance", "value": "test::rig"},
+    "sm.this": {"type": "Instance", "value": "test::rig"},
+    "kPlus": {"type": "Integer", "value": 8}
+  },
+  "constraints": {
+    "c": true
+  },
+  "identical": [["act.me", "act.this"], ["act.meSelf", "tact.who"], ["tact.sub.w", "sm.e.who"]]
+}

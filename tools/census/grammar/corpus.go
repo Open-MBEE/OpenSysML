@@ -123,7 +123,7 @@ func buildLiteralIndex(repo string, roots []corpusRoot, lits *litTable) (*litera
 			path := filepath.ToSlash(filepath.Join(root.Dir, rel))
 			stat.Files++
 			stat.Lines += idx.scanFile(fileIndex{root: root.Name, path: path, lines: map[string]int{}},
-				stripModelSource(string(data)), words, punct)
+				StripModelSource(string(data)), words, punct)
 		}
 		idx.roots = append(idx.roots, stat)
 	}
@@ -234,10 +234,10 @@ func collectModelFiles(repo string, root corpusRoot) ([]string, error) {
 	return files, nil
 }
 
-// stripModelSource blanks out notes, documentation comments, string values and
+// StripModelSource blanks out notes, documentation comments, string values and
 // quoted names, keeping line structure. Without this, prose inside a `doc`
 // comment would count as evidence for the keywords it happens to mention.
-func stripModelSource(src string) string {
+func StripModelSource(src string) string {
 	out := []byte(src)
 	blank := func(from, to int) {
 		for i := from; i < to && i < len(out); i++ {
@@ -274,10 +274,6 @@ func stripModelSource(src string) string {
 	}
 	return string(out)
 }
-
-// StripModelSource returns the source with comments and quoted text blanked
-// while preserving byte offsets and line structure.
-func StripModelSource(src string) string { return stripModelSource(src) }
 
 // quotedWidth returns how many bytes the quoted run at the start of s occupies,
 // or the rest of s when it is unterminated.

@@ -35,10 +35,10 @@ Status on `develop`: every class above but the last is fixed — the usage kinds
 
 Observations recorded but not treated as gaps:
 
-- **Model-level open count.** A library collection read on a package-level `part p1 : P1;` answers what the model declares, exactly as on `new P1()`: `voids`, `shape`, `envelopingShapes`, `boundingShapes`, `subactions`, `substates`, `subports`, `exhibitedStates`, `interfacingPorts` are empty, `performedActions` beside a `perform action act` is `[act]`, `suboccurrences` is the subsetters' objects, and `isSolid = isEmpty(voids)` is `true` — the Systems and Kernel tiers alike, abstract or not. The earlier rule (a `[0..*]` library collection at model level is `<undetermined>`) is withdrawn: the pilot evaluates such a read as the declaration node and cannot referee it, and KerML 1.0 §7.3.4.4 with §7.3.4 fixes the answer as the declared contributions, a lower bound of 0 met by none. `<undetermined>` remains for a usage whose own declared multiplicity is open, an unbound input, and a library collection whose lower bound of 1 or more nothing declared satisfies (spec-compliance: *A library collection a usage values with nothing holds what the model declares*).
+- **Model-level open count.** A library collection read on a package-level `part p1 : P1;` answers what the model declares, exactly as on `new P1()`: `voids`, `shape`, `envelopingShapes`, `boundingShapes`, `subactions`, `substates`, `subports`, `exhibitedStates`, `interfacingPorts` are empty, `performedActions` beside a `perform action act` is `[act]`, `suboccurrences` is the subsetters' objects, and `isSolid = isEmpty(voids)` is `true` — the Systems and Kernel tiers alike, abstract or not. The earlier rule (a `[0..*]` library collection at model level is `<undetermined>`) is withdrawn: the pilot evaluates such a read as the declaration node and cannot referee it, and KerML 1.0 §7.3.4.4 with §7.3.4 fixes the answer as the declared contributions, a lower bound of 0 met by none. A usage the model itself declares reads by the same rule: `opt : P2[0..1]` and `ref part others : P2[0..*]` are empty, as on `new P1()`, a usage subsetting an open collection (`part x : P2[0..*]; part y : P2 :> x;`) makes `x` the collection holding `y`, and a library collection of a nested usage reads what that usage declares — `p1.act.subactions` is the one `action nested : A2;` of `A1`, as `new P1().act.subactions` already was. `<undetermined>` remains for an unbound input (`attribute n : Integer`), a parameter of a behavior usage nothing has invoked whatever its multiplicity (`act.i`, `act.o`; SysML v2 §7.17.2, KerML 1.0 §7.4.7 — a part's `in action x : A1` is no such parameter and is empty), and a collection whose lower bound of 1 or more nothing declared satisfies (spec-compliance: *A collection a usage values with nothing holds what the model declares*).
 - **Package-level usages of non-object kinds.** `port pt : Pt;`, `action act : A1;`, `state`, `requirement`, `constraint`, `case`, `use case`, `view`, `connection`, `interface`, `allocation`, `flow` declared in a package evaluate to `<undetermined>` where `part`, `item`, `occurrence` and an `attribute def`-typed usage are objects; nested in a part they all materialize. Member reads through the undetermined usage stay `<undetermined>` of the member's multiplicity (never `ErrNoSuchFeature`).
 - **State sub-actions.** On a state object no performance has run, `doAction` and `exitAction` (`Action[0..1]`) are materialized `Actions::Action` objects while `entryAction` redefined by `entry;` is refused (previous table).
-- **Directed occurrence usages** (`in action x`, `in state x`, `in requirement x`, `in constraint x`, `in occurrence x`) are `<undetermined>` on the object (parameters), while `in part x`, `in item x`, `in port x` materialize an object. `in connection x` fails with "connector end cannot be attached".
+- **Directed occurrence usages** (`in action x`, `in state x`, `in requirement x`, `in constraint x`, `in occurrence x`) are empty on the object (a part's directed usage is no behavior parameter: nothing invokes a part, so a lower bound of 0 nothing values is met by none), while `in part x`, `in item x`, `in port x` materialize an object. `in connection x` fails with "connector end cannot be attached".
 - `ShapeItems::Box` edge and vertex bindings fail with "binding end cannot be resolved" — already pinned in `instance_library_geometry_box.expected.json`.
 - Bare function names (`size(xs)`, `xs->collect{…}`, `abs(-3)`, `sqrt(4.0)`) resolve only under an import of their package; the pilot refuses them the same way without the import, and every one answers correctly with it.
 - Qualified invocations whose argument is a type (`BaseFunctions::'istype'(1, Integer)`, `'all'(E)`, `'meta'(P1, SysML::PartDefinition)`, `'['(2.0, SI::m)`) are refused with a typed error where the operator form answers; the pilot refuses them too (`Must correspond to one input parameter`).
@@ -183,11 +183,11 @@ Probe model: one `part def P1` with nested usages of every kind, a port with ite
 | `Probe::p1` | `mass` | `Probe::P1::mass` (model) | collection(1) [3.0 [kg]] | answers | ok |
 | `Probe::p1` | `mq` | `Probe::P1::mq` (model) | quantity 2.0 [kg] | answers | ok |
 | `Probe::p1` | `n` | `Probe::P1::n` (model) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
-| `Probe::p1` | `opt` | `Probe::P1::opt` (model) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::p1` | `opt` | `Probe::P1::opt` (model) | empty | answers | ok |
 | `Probe::p1` | `oq` | `Probe::P1::oq` (model) | object:Probe::O1 | answers | ok |
 | `Probe::p1` | `other` | `Probe::P1::other` (model) | uninitialized feature value: other | typed error (`errUninitializedFeatureValue`) | gap: unbound reference read refused |
 | `Probe::p1` | `otherItem` | `Probe::P1::otherItem` (model) | uninitialized feature value: otherItem | typed error (`errUninitializedFeatureValue`) | gap: unbound reference read refused |
-| `Probe::p1` | `others` | `Probe::P1::others` (model) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::p1` | `others` | `Probe::P1::others` (model) | empty | answers | ok |
 | `Probe::p1` | `ownedActions` | `Parts::Part::ownedActions` (systems) | collection(3) [instance(5), instance(15), instance(22)] | answers | ok |
 | `Probe::p1` | `ownedPorts` | `Parts::Part::ownedPorts` (systems) | collection(1) [instance(16)] | answers | ok |
 | `Probe::p1` | `ownedStates` | `Parts::Part::ownedStates` (systems) | collection(1) [instance(22)] | answers | ok |
@@ -197,7 +197,7 @@ Probe model: one `part def P1` with nested usages of every kind, a port with ite
 | `Probe::p1` | `rdq` | `Probe::P1::rdq` (model) | no such feature: rdq | error (`ErrNoSuchFeature`) | gap: usage kind left out of the shape |
 | `Probe::p1` | `rq` | `Probe::P1::rq` (model) | object:Probe::R1 | answers | ok |
 | `Probe::p1` | `self` | `Parts::Part::self` (systemsFRAME) | no such feature: self | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
-| `Probe::p1` | `shape` | `Items::Item::shape` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::p1` | `shape` | `Items::Item::shape` (systems) | empty | answers | ok |
 | `Probe::p1` | `slice` | `Probe::P1::slice` (model) | object:Probe::P1::slice | answers | ok |
 | `Probe::p1` | `snap` | `Probe::P1::snap` (model) | object:Probe::P1::snap | answers | ok |
 | `Probe::p1` | `sr` | `Probe::P1::sr` (model) | no such feature: sr | error (`ErrNoSuchFeature`) | gap: usage kind left out of the shape |
@@ -223,7 +223,7 @@ Probe model: one `part def P1` with nested usages of every kind, a port with ite
 | `Probe::p2` | `ownedStates` | `Parts::Part::ownedStates` (systems) | empty | answers | ok |
 | `Probe::p2` | `performedActions` | `Parts::Part::performedActions` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
 | `Probe::p2` | `self` | `Parts::Part::self` (systemsFRAME) | no such feature: self | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
-| `Probe::p2` | `shape` | `Items::Item::shape` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::p2` | `shape` | `Items::Item::shape` (systems) | empty | answers | ok |
 | `Probe::p2` | `start` | `Parts::Part::start` (systemsFRAME) | no such feature: start | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
 | `Probe::p2` | `subitems` | `Items::Item::subitems` (systems) | empty | answers | ok |
 | `Probe::p2` | `subparts` | `Items::Item::subparts` (systems) | empty | answers | ok |
@@ -234,7 +234,7 @@ Probe model: one `part def P1` with nested usages of every kind, a port with ite
 | `Probe::i1` | `envelopingShapes` | `Items::Item::envelopingShapes` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
 | `Probe::i1` | `isSolid` | `Items::Item::isSolid` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
 | `Probe::i1` | `self` | `Items::Item::self` (systemsFRAME) | no such feature: self | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
-| `Probe::i1` | `shape` | `Items::Item::shape` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::i1` | `shape` | `Items::Item::shape` (systems) | empty | answers | ok |
 | `Probe::i1` | `start` | `Items::Item::start` (systemsFRAME) | no such feature: start | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
 | `Probe::i1` | `subitems` | `Items::Item::subitems` (systems) | empty | answers | ok |
 | `Probe::i1` | `subparts` | `Items::Item::subparts` (systems) | empty | answers | ok |
@@ -265,7 +265,7 @@ Probe model: one `part def P1` with nested usages of every kind, a port with ite
 | `Probe::box` | `outerSpaceDimension` | `ShapeItems::Polyhedron::outerSpaceDimension` (domain) | constant 3 | answers | ok |
 | `Probe::box` | `rf` | `ShapeItems::RectangularCuboid::rf` (domain) | object:ShapeItems::RectangularCuboid::rf | answers | ok |
 | `Probe::box` | `self` | `Items::Item::self` (systemsFRAME) | no such feature: self | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
-| `Probe::box` | `shape` | `Items::Item::shape` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::box` | `shape` | `Items::Item::shape` (systems) | empty | answers | ok |
 | `Probe::box` | `slf` | `ShapeItems::RectangularCuboid::slf` (domain) | object:ShapeItems::RectangularCuboid::slf | answers | ok |
 | `Probe::box` | `srf` | `ShapeItems::RectangularCuboid::srf` (domain) | object:ShapeItems::RectangularCuboid::srf | answers | ok |
 | `Probe::box` | `start` | `Items::Item::start` (systemsFRAME) | no such feature: start | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
@@ -300,7 +300,7 @@ Probe model: one `part def P1` with nested usages of every kind, a port with ite
 | `Probe::sph` | `semiAxis1` | `ShapeItems::Sphere::semiAxis1` (domain) | quantity 1.0 [m] | answers | ok |
 | `Probe::sph` | `semiAxis2` | `ShapeItems::Sphere::semiAxis2` (domain) | quantity 1.0 [m] | answers | ok |
 | `Probe::sph` | `semiAxis3` | `ShapeItems::Sphere::semiAxis3` (domain) | quantity 1.0 [m] | answers | ok |
-| `Probe::sph` | `shape` | `Items::Item::shape` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::sph` | `shape` | `Items::Item::shape` (systems) | empty | answers | ok |
 | `Probe::sph` | `start` | `Items::Item::start` (systemsFRAME) | no such feature: start | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
 | `Probe::sph` | `subitems` | `Items::Item::subitems` (systems) | empty | answers | ok |
 | `Probe::sph` | `subparts` | `Items::Item::subparts` (systems) | empty | answers | ok |
@@ -318,7 +318,7 @@ Probe model: one `part def P1` with nested usages of every kind, a port with ite
 | `Probe::clk` | `ownedStates` | `Parts::Part::ownedStates` (systems) | empty | answers | ok |
 | `Probe::clk` | `performedActions` | `Parts::Part::performedActions` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
 | `Probe::clk` | `self` | `Parts::Part::self` (systemsFRAME) | no such feature: self | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
-| `Probe::clk` | `shape` | `Items::Item::shape` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::clk` | `shape` | `Items::Item::shape` (systems) | empty | answers | ok |
 | `Probe::clk` | `start` | `Parts::Part::start` (systemsFRAME) | no such feature: start | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
 | `Probe::clk` | `subitems` | `Items::Item::subitems` (systems) | empty | answers | ok |
 | `Probe::clk` | `subparts` | `Items::Item::subparts` (systems) | empty | answers | ok |
@@ -335,7 +335,7 @@ Probe model: one `part def P1` with nested usages of every kind, a port with ite
 | `Probe::spat` | `originPoint` | `SpatialItems::SpatialItem::originPoint` (domain) | object:Objects::Point | answers | ok |
 | `Probe::spat` | `originPointConstraint` | `SpatialItems::SpatialItem::originPointConstraint` (domain) | uninitialized feature value: originPointConstraint | typed error (`errUninitializedFeatureValue`) | gap: unbound reference read refused |
 | `Probe::spat` | `self` | `Items::Item::self` (systemsFRAME) | no such feature: self | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
-| `Probe::spat` | `shape` | `Items::Item::shape` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::spat` | `shape` | `Items::Item::shape` (systems) | empty | answers | ok |
 | `Probe::spat` | `start` | `Items::Item::start` (systemsFRAME) | no such feature: start | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
 | `Probe::spat` | `subSpatialItems` | `SpatialItems::SpatialItem::subSpatialItems` (domain) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
 | `Probe::spat` | `subSpatialParts` | `SpatialItems::SpatialItem::subSpatialParts` (domain) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
@@ -353,7 +353,7 @@ Probe model: one `part def P1` with nested usages of every kind, a port with ite
 | `Probe::sys` | `ownedStates` | `Parts::Part::ownedStates` (systems) | empty | answers | ok |
 | `Probe::sys` | `performedActions` | `Parts::Part::performedActions` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
 | `Probe::sys` | `self` | `Parts::Part::self` (systemsFRAME) | no such feature: self | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
-| `Probe::sys` | `shape` | `Items::Item::shape` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::sys` | `shape` | `Items::Item::shape` (systems) | empty | answers | ok |
 | `Probe::sys` | `start` | `Parts::Part::start` (systemsFRAME) | no such feature: start | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
 | `Probe::sys` | `subitems` | `Items::Item::subitems` (systems) | empty | answers | ok |
 | `Probe::sys` | `subparts` | `Items::Item::subparts` (systems) | empty | answers | ok |
@@ -369,7 +369,7 @@ Probe model: one `part def P1` with nested usages of every kind, a port with ite
 | `Probe::dsub` | `ownedStates` | `Parts::Part::ownedStates` (systems) | empty | answers | ok |
 | `Probe::dsub` | `performedActions` | `Parts::Part::performedActions` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
 | `Probe::dsub` | `self` | `Parts::Part::self` (systemsFRAME) | no such feature: self | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
-| `Probe::dsub` | `shape` | `Items::Item::shape` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::dsub` | `shape` | `Items::Item::shape` (systems) | empty | answers | ok |
 | `Probe::dsub` | `start` | `Parts::Part::start` (systemsFRAME) | no such feature: start | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
 | `Probe::dsub` | `subitems` | `Items::Item::subitems` (systems) | empty | answers | ok |
 | `Probe::dsub` | `subparts` | `Items::Item::subparts` (systems) | empty | answers | ok |
@@ -387,7 +387,7 @@ Probe model: one `part def P1` with nested usages of every kind, a port with ite
 | `Probe::psi` | `ownedStates` | `Parts::Part::ownedStates` (systems) | empty | answers | ok |
 | `Probe::psi` | `performedActions` | `Parts::Part::performedActions` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
 | `Probe::psi` | `self` | `Parts::Part::self` (systemsFRAME) | no such feature: self | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
-| `Probe::psi` | `shape` | `Items::Item::shape` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::psi` | `shape` | `Items::Item::shape` (systems) | empty | answers | ok |
 | `Probe::psi` | `start` | `Parts::Part::start` (systemsFRAME) | no such feature: start | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
 | `Probe::psi` | `subitems` | `Items::Item::subitems` (systems) | empty | answers | ok |
 | `Probe::psi` | `subparts` | `Items::Item::subparts` (systems) | empty | answers | ok |
@@ -398,7 +398,7 @@ Probe model: one `part def P1` with nested usages of every kind, a port with ite
 | `Probe::p1.cargo` | `envelopingShapes` | `Items::Item::envelopingShapes` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
 | `Probe::p1.cargo` | `isSolid` | `Items::Item::isSolid` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
 | `Probe::p1.cargo` | `self` | `Items::Item::self` (systemsFRAME) | no such feature: self | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
-| `Probe::p1.cargo` | `shape` | `Items::Item::shape` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::p1.cargo` | `shape` | `Items::Item::shape` (systems) | empty | answers | ok |
 | `Probe::p1.cargo` | `start` | `Items::Item::start` (systemsFRAME) | no such feature: start | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
 | `Probe::p1.cargo` | `subitems` | `Items::Item::subitems` (systems) | empty | answers | ok |
 | `Probe::p1.cargo` | `subparts` | `Items::Item::subparts` (systems) | empty | answers | ok |
@@ -419,18 +419,18 @@ Probe model: one `part def P1` with nested usages of every kind, a port with ite
 | `Probe::p1.act` | `done` | `Actions::Action::done` (systemsFRAME) | no such feature: done | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
 | `Probe::p1.act` | `forLoops` | `Actions::Action::forLoops` (systems) | empty | answers | ok |
 | `Probe::p1.act` | `forks` | `Actions::Action::forks` (systems) | empty | answers | ok |
-| `Probe::p1.act` | `i` | `Probe::A1::i` (model) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::p1.act` | `i` | `Probe::A1::i` (model) | undetermined <undetermined> | `<undetermined>` | by design: unbound parameter |
 | `Probe::p1.act` | `ifSubactions` | `Actions::Action::ifSubactions` (systems) | empty | answers | ok |
 | `Probe::p1.act` | `incomingTransfers` | `Actions::Action::incomingTransfers` (systemsFRAME) | no such feature: incomingTransfers | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
 | `Probe::p1.act` | `joins` | `Actions::Action::joins` (systems) | empty | answers | ok |
 | `Probe::p1.act` | `loops` | `Actions::Action::loops` (systems) | empty | answers | ok |
 | `Probe::p1.act` | `merges` | `Actions::Action::merges` (systems) | empty | answers | ok |
 | `Probe::p1.act` | `nested` | `Probe::A1::nested` (model) | object:Probe::A2 | answers | ok |
-| `Probe::p1.act` | `o` | `Probe::A1::o` (model) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::p1.act` | `o` | `Probe::A1::o` (model) | undetermined <undetermined> | `<undetermined>` | by design: unbound parameter |
 | `Probe::p1.act` | `self` | `Actions::Action::self` (systemsFRAME) | no such feature: self | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
 | `Probe::p1.act` | `sendSubactions` | `Actions::Action::sendSubactions` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
 | `Probe::p1.act` | `start` | `Actions::Action::start` (systemsFRAME) | no such feature: start | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
-| `Probe::p1.act` | `subactions` | `Actions::Action::subactions` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::p1.act` | `subactions` | `Actions::Action::subactions` (systems) | collection(1) [object:Probe::A2#1] | answers | ok |
 | `Probe::p1.act` | `terminateSubactions` | `Actions::Action::terminateSubactions` (systems) | empty | answers | ok |
 | `Probe::p1.act` | `transitions` | `Actions::Action::transitions` (systems) | empty | answers | ok |
 | `Probe::p1.act` | `whileLoops` | `Actions::Action::whileLoops` (systems) | empty | answers | ok |
@@ -491,7 +491,7 @@ Probe model: one `part def P1` with nested usages of every kind, a port with ite
 | `Probe::p1.cnq` | `ownedStates` | `Parts::Part::ownedStates` (systems) | empty | answers | ok |
 | `Probe::p1.cnq` | `performedActions` | `Parts::Part::performedActions` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
 | `Probe::p1.cnq` | `self` | `Parts::Part::self` (systemsFRAME) | no such feature: self | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
-| `Probe::p1.cnq` | `shape` | `Items::Item::shape` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::p1.cnq` | `shape` | `Items::Item::shape` (systems) | empty | answers | ok |
 | `Probe::p1.cnq` | `source` | `Connections::BinaryConnection::source` (systems) | object:Probe::P2 | answers | ok |
 | `Probe::p1.cnq` | `start` | `Parts::Part::start` (systemsFRAME) | no such feature: start | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
 | `Probe::p1.cnq` | `subitems` | `Items::Item::subitems` (systems) | empty | answers | ok |
@@ -512,7 +512,7 @@ Probe model: one `part def P1` with nested usages of every kind, a port with ite
 | `Probe::p1.ifq` | `participant` | `Interfaces::BinaryInterface::participant` (systems) | uninitialized feature value: participant | typed error (`errUninitializedFeatureValue`) | gap: unbound reference read refused |
 | `Probe::p1.ifq` | `performedActions` | `Parts::Part::performedActions` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
 | `Probe::p1.ifq` | `self` | `Parts::Part::self` (systemsFRAME) | no such feature: self | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
-| `Probe::p1.ifq` | `shape` | `Items::Item::shape` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::p1.ifq` | `shape` | `Items::Item::shape` (systems) | empty | answers | ok |
 | `Probe::p1.ifq` | `source` | `Interfaces::BinaryInterface::source` (systems) | object:Probe::Pt | answers | ok |
 | `Probe::p1.ifq` | `start` | `Parts::Part::start` (systemsFRAME) | no such feature: start | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
 | `Probe::p1.ifq` | `subitems` | `Items::Item::subitems` (systems) | empty | answers | ok |
@@ -532,7 +532,7 @@ Probe model: one `part def P1` with nested usages of every kind, a port with ite
 | `Probe::p1.alq` | `ownedStates` | `Parts::Part::ownedStates` (systems) | empty | answers | ok |
 | `Probe::p1.alq` | `performedActions` | `Parts::Part::performedActions` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
 | `Probe::p1.alq` | `self` | `Parts::Part::self` (systemsFRAME) | no such feature: self | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
-| `Probe::p1.alq` | `shape` | `Items::Item::shape` (systems) | undetermined <undetermined> | `<undetermined>` | by design: model-level open count |
+| `Probe::p1.alq` | `shape` | `Items::Item::shape` (systems) | empty | answers | ok |
 | `Probe::p1.alq` | `source` | `Allocations::Allocation::source` (systems) | object:Probe::P2 | answers | ok |
 | `Probe::p1.alq` | `start` | `Parts::Part::start` (systemsFRAME) | no such feature: start | error (`ErrNoSuchFeature`) | owned by `fix/kernel-member-reads` (frame member) |
 | `Probe::p1.alq` | `subitems` | `Items::Item::subitems` (systems) | empty | answers | ok |

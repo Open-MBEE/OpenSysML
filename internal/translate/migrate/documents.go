@@ -934,18 +934,9 @@ func (c *chain) body(s *sysmlv1.DocGenStep) (*sysmlv1.Element, string) {
 }
 
 func (c *chain) note(s string) {
-	if s != "" && !contains(c.notes, s) {
+	if s != "" && !slices.Contains(c.notes, s) {
 		c.notes = append(c.notes, s)
 	}
-}
-
-func contains(ss []string, s string) bool {
-	for _, x := range ss {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }
 
 // roots sets the chain's elements to refs, named by qualified name once each;
@@ -973,7 +964,7 @@ func (c *chain) roots(refs []sysmlv1.ElementRef, role string) {
 			c.broken = role + " " + kindOf(ref.Element) + " " + qualifiedName(ref.Element) + ", which is not migrated"
 			continue
 		}
-		if !contains(names, name) {
+		if !slices.Contains(names, name) {
 			names = append(names, name)
 		}
 	}
@@ -1327,7 +1318,7 @@ func (c *chain) diagramOwners(depth int) (names []string, why string) {
 			if !c.m.written(owner) {
 				return nil, "the diagram '" + d.Name + "' is owned by the " + kindOf(owner) + " " + qualifiedName(owner) + ", which is not migrated"
 			}
-			if name := c.m.plainName(owner); !contains(names, name) {
+			if name := c.m.plainName(owner); !slices.Contains(names, name) {
 				names = append(names, name)
 			}
 		}
@@ -1407,7 +1398,7 @@ func (c *chain) collectDiagramShown(d *sysmlv1.Diagram, names []string) []string
 			unwritten++
 		default:
 			c.holders = appendElement(c.holders, ref.Element)
-			if !contains(names, name) {
+			if !slices.Contains(names, name) {
 				names = append(names, name)
 			}
 		}
@@ -1500,7 +1491,7 @@ func (c *chain) collectAssociated(s *sysmlv1.DocGenStep) {
 				c.holders = append(c.holders, t)
 				if name, why := c.m.namedRoot(sysmlv1.ElementRef{ID: t.ID, Element: t}, "type"); why != "" {
 					c.note(why + ", so it is left out")
-				} else if !contains(names, name) {
+				} else if !slices.Contains(names, name) {
 					names = append(names, name)
 				}
 			}
@@ -1701,7 +1692,7 @@ func (c *chain) filterDiagramTypes(s *sysmlv1.DocGenStep) {
 		}
 		c.diagrams = append(c.diagrams, d)
 	}
-	c.keepDiagrams(s, func(d *sysmlv1.Diagram) bool { return contains(types, d.Kind) })
+	c.keepDiagrams(s, func(d *sysmlv1.Diagram) bool { return slices.Contains(types, d.Kind) })
 	if len(c.diagrams) > 0 || c.vague != "" {
 		return
 	}
@@ -1732,7 +1723,7 @@ func (c *chain) diagramTypes(s *sysmlv1.DocGenStep) []string {
 		if e := c.m.model.Lookup(name); e != nil && e.Name != "" {
 			name = e.Name
 		}
-		if name != "" && !contains(types, name) {
+		if name != "" && !slices.Contains(types, name) {
 			types = append(types, name)
 		}
 	}
@@ -2212,7 +2203,7 @@ func (c *chain) collectTypes(s *sysmlv1.DocGenStep) {
 	if c.vague == "" && c.hazy == "" {
 		var types []*sysmlv1.Element
 		for _, h := range c.holders {
-			if t := c.m.model.Ref(h, "type"); t != nil && !containsElement(types, t) {
+			if t := c.m.model.Ref(h, "type"); t != nil && !slices.Contains(types, t) {
 				types = append(types, t)
 			}
 		}
@@ -2845,7 +2836,7 @@ func (m *migration) writeDocument(dp *docPlan) {
 	dp.target = target
 	m.inside(blockNames("Document", dp.root.names), func() {
 		m.w.block("part def "+writeName(dp.root.name)+" :> "+m.queryPrefix(dp.host)+"Document", func() {
-			m.w.line(titleRedefines + stringLiteral(dp.root.title) + ";")
+			m.w.line(titleRedefines + source.StringText(dp.root.title) + ";")
 			for _, a := range dp.anchors {
 				m.w.line("ref " + writeName(a.name) + " : " + m.memberRef(a.def, dp.host) + ";")
 			}
@@ -2954,7 +2945,7 @@ func (m *migration) writeSectionBody(dp *docPlan, sec *sectionPlan, path string)
 	}
 	for _, child := range sec.children {
 		m.blockPart(dp.host, child.name, "Section", child.names, func() {
-			m.w.line(titleRedefines + stringLiteral(child.title) + ";")
+			m.w.line(titleRedefines + source.StringText(child.title) + ";")
 			notes = append(notes, m.writeSectionBody(dp, child, path+"::"+writeName(child.name))...)
 		})
 	}
@@ -2972,7 +2963,7 @@ func (m *migration) writeBlock(dp *docPlan, cp *contentPlan, path string) []stri
 	case "Section":
 		var notes []string
 		m.blockPart(dp.host, cp.name, "Section", cp.section.names, func() {
-			m.w.line(titleRedefines + stringLiteral(cp.section.title) + ";")
+			m.w.line(titleRedefines + source.StringText(cp.section.title) + ";")
 			notes = m.writeSectionBody(dp, cp.section, cp.target)
 		})
 		return append(notes, cp.notes...)
@@ -2984,7 +2975,7 @@ func (m *migration) writeBlock(dp *docPlan, cp *contentPlan, path string) []stri
 			case len(cp.runs) > 0:
 				m.writeRuns(dp, cp)
 			default:
-				m.w.line("attribute redefines text = " + stringLiteral(cp.text) + ";")
+				m.w.line("attribute redefines text = " + source.StringText(cp.text) + ";")
 			}
 		})
 	case "Table":
@@ -2995,22 +2986,22 @@ func (m *migration) writeBlock(dp *docPlan, cp *contentPlan, path string) []stri
 		m.tablePart(dp.host, cp.name, cp.caption, rows, cp.widths, cp.labels)
 	case "List":
 		m.blockPart(dp.host, cp.name, "List", nil, func() {
-			m.w.line("attribute redefines style = " + stringLiteral(cp.style) + ";")
+			m.w.line("attribute redefines style = " + source.StringText(cp.style) + ";")
 			m.w.line("calc items : " + m.siblingRef(dp.host, cp.query) + ";")
 		})
 	case "Diagram":
 		m.blockPart(dp.host, cp.name, "Diagram", nil, func() {
-			m.w.line("attribute redefines caption = " + stringLiteral(cp.caption) + ";")
+			m.w.line("attribute redefines caption = " + source.StringText(cp.caption) + ";")
 			m.w.line("ref redefines source = " + m.diagramSource(dp, cp) + ";")
 		})
 	case "Image":
 		m.blockPart(dp.host, cp.name, "Image", nil, func() {
-			m.w.line("attribute redefines location = " + stringLiteral(cp.location) + ";")
+			m.w.line("attribute redefines location = " + source.StringText(cp.location) + ";")
 			if cp.caption != "" {
-				m.w.line("attribute redefines caption = " + stringLiteral(cp.caption) + ";")
+				m.w.line("attribute redefines caption = " + source.StringText(cp.caption) + ";")
 			}
 			if cp.alt != "" {
-				m.w.line("attribute redefines alt = " + stringLiteral(cp.alt) + ";")
+				m.w.line("attribute redefines alt = " + source.StringText(cp.alt) + ";")
 			}
 		})
 	}

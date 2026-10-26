@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -833,7 +834,7 @@ func (ctx *Context) invokeCalcShapeDirect(shape *calcShape, args calcArgs, calle
 		ec.trace.recordCalculationEnter(shape.Kind, shape.Name)
 	}
 
-	if err := ctx.bindCalcParameters(shape, ec, args, callerScope, locals, nil, occurrence); err != nil {
+	if err := ctx.bindCalcParameters(shape, ec, args, callerScope, locals, nil, occurrence, nil); err != nil {
 		if ec.trace != nil {
 			ec.trace.recordCalculationExitError(shape.Kind, shape.Name, err)
 		}
@@ -926,7 +927,8 @@ func (ctx *Context) leaveCalc() {
 // declared closest to the invoked calc, evaluated in the scope of the calc
 // declaring it. ec supplies the environment defaults are evaluated in; nested,
 // when non-null, is the environment reading a nested usage, which the bindings
-// the usage itself declares are written in and evaluate against.
+// the usage itself declares are written in and evaluate against. open names the
+// parameters a usage read as a feature leaves unsupplied, bound to no value.
 func (ctx *Context) bindCalcParameters(
 	shape *calcShape,
 	ec *EvalContext,
@@ -935,6 +937,7 @@ func (ctx *Context) bindCalcParameters(
 	bindings frame,
 	nested *EvalContext,
 	occurrence *calcOccurrence,
+	open map[string]bool,
 ) error {
 	positional := 0
 	for i := range shape.Params {
@@ -957,28 +960,41 @@ func (ctx *Context) bindCalcParameters(
 		if nested != nil && param.Owner == shape.Sym {
 			binder = nested
 		}
-		value, source, err := binder.evalIn(defaultScope).bindCalcParameter(shape, param, args, position, nested)
-		if err != nil {
-			return err
-		}
-		// The parameter holds the value bound to it, so that value answers to the
-		// parameter's effective multiplicity as a written one does to its declared one.
-		what := func() string {
-			return fmt.Sprintf("%s: %s for parameter %q", shape.Label, source, param.Name)
-		}
-		decl := param.Decl
-		// An actor states no direction, so the parameter chain does not reach what it
-		// redefines; its range is the one the shape folded along the redeclarations.
-		if decl.Target != nil && param.Sym != nil && !param.IsActor {
-			target := *decl.Target
-			target.mult = ctx.model.semantics.EffectiveParameterRange(param.Sym)
-			decl.Target = &target
-		}
-		if err := decl.check(ctx, &value, what); err != nil {
-			return err
-		}
-		if err := param.checkFunction(&value, what); err != nil {
-			return err
+		var value Value
+		var source string
+		if open[param.Name] && shape.opensRun(param, ctx.model.semantics) {
+			// A feature read passes no arguments: an input whose absence stops the run binds
+			// undetermined (a default reading it is open with it); an optional one binds empty.
+			var count semantics.Range
+			if param.Sym != nil {
+				count = ctx.effectiveFeature(param.Name, param.Sym, shape.Sym).Multiplicity
+			}
+			value, source = undeterminedFeatureValue(fmt.Sprintf("%s binds no value to %s", shape.Label, param.Name), count, param.Sym), "unsupplied"
+		} else {
+			var err error
+			value, source, err = binder.evalIn(defaultScope).bindCalcParameter(shape, param, args, position, nested)
+			if err != nil {
+				return err
+			}
+			// The parameter holds the value bound to it, so that value answers to the
+			// parameter's effective multiplicity as a written one does to its declared one.
+			what := func() string {
+				return fmt.Sprintf("%s: %s for parameter %q", shape.Label, source, param.Name)
+			}
+			decl := param.Decl
+			// An actor states no direction, so the parameter chain does not reach what it
+			// redefines; its range is the one the shape folded along the redeclarations.
+			if decl.Target != nil && param.Sym != nil && !param.IsActor {
+				target := *decl.Target
+				target.mult = ctx.model.semantics.EffectiveParameterRange(param.Sym)
+				decl.Target = &target
+			}
+			if err := decl.check(ctx, &value, what); err != nil {
+				return err
+			}
+			if err := param.checkFunction(&value, what); err != nil {
+				return err
+			}
 		}
 		bindings.bindParam(i, param.Name, value)
 		if occurrence != nil && occurrence.inst != nil {
@@ -1255,16 +1271,19 @@ func (ec *EvalContext) bindCalcParameter(
 		if param.optional(ec.ctx.model.semantics) {
 			return nullValue(), "omitted", nil
 		}
-		return Value{}, "", fmt.Errorf(
-			"%w: %s parameter %q has no argument and no default",
-			errUnboundParameter, shape.Label, param.Name,
-		)
+		return Value{}, "", shape.unboundParameter(param.Name)
 	}
 	value, err := ec.Eval(param.Default)
 	if err != nil {
 		return Value{}, "", calcDefaultError(shape.Kind, shape.Name, param.Name, err)
 	}
 	return value, "default", nil
+}
+
+// unboundParameter is the error of a parameter an invocation or a run neither
+// binds nor defaults: the request cannot proceed without it.
+func (shape *calcShape) unboundParameter(name string) error {
+	return fmt.Errorf("%w: %s parameter %q has no argument and no default", errUnboundParameter, shape.Label, name)
 }
 
 // calcScope returns the scope an inherited or own calc body member is written
@@ -1360,7 +1379,7 @@ func (ctx *Context) effectiveParameter(sym *symbols.Symbol, libInputs []*symbols
 	for _, link := range ctx.model.semantics.ParameterRedefinitionChain(sym) {
 		owner := link.OwnerScope.Owner()
 		param.Decl = param.Decl.redeclaring(ctx.calcMemberDeclFor(owner, link, param.Name))
-		if at := indexOfSymbol(libInputs, link); at >= 0 {
+		if at := slices.Index(libInputs, link); at >= 0 {
 			return param, at
 		}
 		if ctx.libraryDeclared(link) {
@@ -1417,15 +1436,6 @@ func (ctx *Context) ownedInputSymbols(sym *symbols.Symbol) []*symbols.Symbol {
 	return inputs
 }
 
-func indexOfSymbol(syms []*symbols.Symbol, want *symbols.Symbol) int {
-	for i, sym := range syms {
-		if sym == want {
-			return i
-		}
-	}
-	return -1
-}
-
 // invokeLibraryPerformance binds args to the effective signature of a calc performing
 // a library function as any calc binds its parameters — each default evaluated where
 // it is declared with the earlier parameters bound, each value checked against its
@@ -1471,7 +1481,7 @@ func (ctx *Context) applyLibraryPerformance(perf *libraryPerformance, args calcA
 		trace:      ctx.trace,
 		activation: activation,
 	}
-	if err := ctx.bindCalcParameters(sig, ec, args, callerScope, locals, nil, nil); err != nil {
+	if err := ctx.bindCalcParameters(sig, ec, args, callerScope, locals, nil, nil, nil); err != nil {
 		return Value{}, err
 	}
 

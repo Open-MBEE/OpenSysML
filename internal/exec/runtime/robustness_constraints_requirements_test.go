@@ -20,6 +20,8 @@ func TestRuntimeRobustnessConstraintsRequirements(t *testing.T) {
 	t.Run("requirement_features_valued_from_each_other", testRequirementFeaturesValuedFromEachOther)
 	t.Run("satisfy_unresolved_requirement", testSatisfyUnresolvedRequirement)
 	t.Run("satisfy_requirement_without_conditions", testSatisfyRequirementWithoutConditions)
+	t.Run("satisfy_typed_declaration_without_conditions", testSatisfyTypedDeclarationWithoutConditions)
+	t.Run("satisfy_implicit_subject_refused", testSatisfyImplicitSubjectRefused)
 	t.Run("satisfy_bounded_by_the_step_budget", testSatisfyBoundedByTheStepBudget)
 }
 
@@ -91,6 +93,39 @@ func testSatisfyRequirementWithoutConditions(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "states no required constraint, so it holds vacuously") {
 		t.Errorf("the violation does not say why the requirement holds: %v", err)
+	}
+}
+
+// testSatisfyTypedDeclarationWithoutConditions: a satisfaction typed by a requirement
+// definition that states no condition holds vacuously, as a satisfaction of a
+// requirement stating none does; it is not a missing requirement.
+func testSatisfyTypedDeclarationWithoutConditions(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `
+		package test {
+			requirement def Documented {
+				doc /* stated in prose only */
+			}
+			part lander;
+			part context {
+				satisfy requirement documented : Documented by lander;
+			}
+		}
+	`))
+	assertions := ctx.SatisfyAssertionsIn(idx.DocumentRoot("<test>"))
+	if len(assertions) != 1 {
+		t.Fatalf("found %d satisfaction assertions, want 1", len(assertions))
+	}
+
+	satisfied, err := ctx.EvaluateSatisfaction(assertions[0])
+	if errors.Is(err, ErrNoRequirement) {
+		t.Fatal("a satisfaction typed by a requirement definition has a requirement")
+	}
+	if err != nil || !satisfied {
+		t.Fatalf("satisfied = %v, err = %v, want a vacuous hold", satisfied, err)
+	}
+	result, err := ctx.CheckSatisfactionOn(assertions[0], nil)
+	if err != nil || !result.Holds || result.Vacuous == "" {
+		t.Fatalf("check: holds = %v, vacuous = %q, err = %v, want a vacuous hold", result.Holds, result.Vacuous, err)
 	}
 }
 
@@ -374,5 +409,38 @@ func testRequirementFeaturesValuedFromEachOther(t *testing.T) {
 	}
 	if !errors.Is(err, ErrCyclicFeatureValue) {
 		t.Errorf("expected ErrCyclicFeatureValue, got: %v", err)
+	}
+}
+
+// testSatisfyImplicitSubjectRefused: the owner of a satisfy usage stating no `by` is
+// its subject only as far as the subject's type and multiplicity admit it; a refused
+// owner leaves the subject unbound, and the result read reports the refusal the check does.
+func testSatisfyImplicitSubjectRefused(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `
+		package test {
+			part def Lander;
+			part def Rock;
+			requirement def Two { subject lander : Lander[2]; require constraint { true } }
+			requirement def Typed { subject lander : Lander; require constraint { true } }
+			part l : Lander { satisfy requirement check : Two; }
+			part rock : Rock { satisfy requirement check : Typed; }
+		}
+	`)
+	root := idx.DocumentRoot("<test>")
+	for _, tc := range []struct {
+		owner string
+		want  error
+	}{{"l", ErrMultiplicityViolation}, {"rock", ErrTypeMismatch}} {
+		if subject := mustEvalIn(t, ctx, root, "test::"+tc.owner+".check.lander"); FormatValue(subject) != "<undetermined>" {
+			t.Errorf("%s.check.lander = %s, want unbound", tc.owner, FormatValue(subject))
+		}
+		if _, err := evalIn(t, ctx, root, "test::"+tc.owner+".check.result"); !errors.Is(err, tc.want) {
+			t.Errorf("%s.check.result: err = %v, want %v", tc.owner, err, tc.want)
+		}
+	}
+	for _, a := range ctx.SatisfyAssertionsIn(root) {
+		if _, err := ctx.EvaluateSatisfaction(a); err == nil {
+			t.Errorf("%s: expected the subject refusal, got none", a.Text())
+		}
 	}
 }

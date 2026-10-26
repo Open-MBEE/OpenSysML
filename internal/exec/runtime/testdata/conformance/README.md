@@ -445,6 +445,18 @@ JSON number past 2^53 is read through a float64 that may round its digits.
 - `evaluate`: qualified name of the element to evaluate, for a case declaring
   more than one — a usage and the definition it is typed by. Omit to search the
   model for the first requirement (or constraint) it declares.
+- `instantiate`: qualified name of an object to materialize before evaluating,
+  for a case about the verification runs the objects it holds give.
+- `error`: text the evaluation must fail with, for a case whose contract is a
+  diagnostic — a requirement whose subject nothing binds. Set it instead of a
+  verdict.
+- `verifications`: the runs of the verification cases whose objective verifies
+  the requirement, as `-requirement` reports them about no object: those of
+  every document of the case, a case a type owns running once on each object
+  of that type the runtime holds — each object a multiplicity repeats on its
+  own. The runs are listed in report order and all are checked; each is
+  stated as a validation verdict's `verifications` entry is (below), `object`
+  being the path from the instantiated object.
 
 ### For Satisfaction Assertions (`EvaluateSatisfaction`)
 
@@ -550,8 +562,10 @@ JSON number past 2^53 is read through a float64 that may round its digits.
   ```
 
   `kind` is `constraint` (an asserted constraint or invariant the object
-  carries), `requirement` (a requirement usage it carries) or `satisfaction` (a
-  satisfaction assertion whose subject is an object in the tree). `assertion` is
+  carries), `requirement` (a requirement usage it carries), `satisfaction` (a
+  satisfaction assertion whose subject is an object in the tree) or `binding` (a
+  binding connector the object carries whose multiplicities link fewer values
+  than its ends hold, checked as the identity of some value of each end). `assertion` is
   the assertion as declared; `object` the path from the root to the object the
   verdict is about, one-based for a collection element and omitted for the root.
   `status` is `holds`, `violated` (the condition evaluated to false) or
@@ -563,6 +577,35 @@ JSON number past 2^53 is read through a float64 that may round its digits.
   report with either is not valid even when every verdict holds, and so is one
   with no verdict at all, which decided nothing. An unasserted named constraint
   is not swept.
+
+  A verdict about a requirement — a `requirement` or `satisfaction` one — may
+  also pin, in `verifications`, the runs of the verification cases whose
+  objective verifies that requirement, which `-validate` reports beside the
+  verdict: those of every document of the case, a case a type owns running once
+  on each object of that type the verdict's subject is or holds. The runs are
+  listed in report order and all are checked, so an empty list pins that there
+  is none; a verdict without the key leaves them unchecked.
+
+  ```json
+  {"kind": "satisfaction", "assertion": "satisfy costReq", "status": "violated",
+   "error": "evaluated to false",
+   "verifications": [
+     {"case": "DefinitionPkg::Definition::costTest", "verdict": "fail",
+      "verdicts": {"costObjective": "satisfied"}}
+   ]}
+  ```
+
+  `case` is the case's qualified name and `object` the path from the root to
+  the object it ran as a feature of, as for the verdict (omitted for the root,
+  or for a case no object performs). `verdict`, `verdictDetail`, `verdicts` and
+  `subcases` are as for a verification case: the kind the body produced, text
+  its error or inconclusive verdict must carry, the objective and assertion
+  verdicts of the same run (all of them, by name) and the verdict of each
+  subcase. A case whose subject nothing binds and no owner supplies is an
+  `error` verdict whose detail names the subject, and reports no objective
+  verdict. The satisfaction verdict and the body's verdict are independent
+  reads — the one evaluates the requirement's constraint about the object, the
+  other runs the case — so a fixture may pin them disagreeing.
 
 ## Diagnostics
 

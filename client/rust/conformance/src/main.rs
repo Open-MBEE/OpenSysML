@@ -831,6 +831,7 @@ impl Runner {
         let form = match request.form.as_str() {
             "" | "markdown" => DocumentForm::Markdown,
             "html" => DocumentForm::Html,
+            "asciidoc" => DocumentForm::AsciiDoc,
             other => return Answer::Unrepresentable(format!("document form {other:?}")),
         };
         match self
@@ -845,6 +846,10 @@ impl Runner {
                     },
                     DocumentForm::Html => wire::RenderDocumentResponse {
                         html: text,
+                        ..Default::default()
+                    },
+                    DocumentForm::AsciiDoc => wire::RenderDocumentResponse {
+                        asciidoc: text,
                         ..Default::default()
                     },
                 };

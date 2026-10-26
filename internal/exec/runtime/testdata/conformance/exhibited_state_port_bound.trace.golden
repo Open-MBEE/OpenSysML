@@ -14,13 +14,13 @@ step 1: token 1@p
 stmt send
 materialize: Ping #5
 materialize: CommandPort #6
+materialize: CommandPort #7
 step 2: token 1@done
 step 3: no active tokens
 run: exhibited state machine m of #1
 exit: idle
 stmt send
-materialize: Pong #7
-materialize: CommandPort #8
+materialize: Pong #8
 enter: replied
 transition: idle -> replied (event: accept Ping)
 run: exhibited state machine n of #1

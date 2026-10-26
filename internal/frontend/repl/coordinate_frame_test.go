@@ -53,7 +53,9 @@ func TestEvalCoordinateFrames(t *testing.T) {
 	wants(t, run(t, s, "%eval Frames::spatialCF.mRefs"), "= [m, m, m]")
 	wants(t, run(t, s, "%eval Frames::spatialCF.dimensions"), "= [3]")
 	wants(t, run(t, s, "%eval Frames::car.carDatum"), "= carDatum [mm, mm, mm]")
-	wants(t, run(t, s, "%eval Frames::car.coordinateFrame == Frames::car.carDatum"), "= true")
+	wants(t, run(t, s, "%eval Frames::car.carDatum.mRefs"), "= [mm, mm, mm]")
+	wants(t, run(t, s, "%eval Frames::car.coordinateFrame"),
+		"error:", "car has no member coordinateFrame: Frames::car::carDatum redefines it")
 	wants(t, run(t, s, "%eval Frames::spatialCF istype MeasurementReferences::VectorMeasurementReference"), "= true")
 	wants(t, run(t, s, "%eval Frames::p"), "= ⟨1.0, 2.0, 3.0⟩ [spatialCF]")
 	wants(t, run(t, s, "%eval Frames::p.mRef"), "= spatialCF [m, m, m]")
@@ -102,7 +104,9 @@ func TestEvalMeasurementScales(t *testing.T) {
 	wants(t, run(t, s, "%eval Time::UTC.unit"), "= s")
 	wants(t, run(t, s, "%eval 3 [Time::UTC]"), "= 3 [UTC]")
 	wants(t, run(t, s, "%eval Time::UTC istype MeasurementReferences::MeasurementScale"), "= true")
-	wants(t, run(t, s, "%eval SI::'°C_abs'.transformation.origin"), "= 273.15 [K]")
+	wants(t, run(t, s, "%eval SI::'°C_abs'.zeroDegreeCelsiusToKelvinShift.origin"), "= 273.15 [K]")
+	wants(t, run(t, s, "%eval SI::'°C_abs'.transformation.origin"),
+		"error:", "has no member transformation: SI::degree celsius (absolute temperature scale)::zeroDegreeCelsiusToKelvinShift redefines it")
 	wants(t, run(t, s, "%eval QuantityCalculations::ConvertQuantity(300.0 [K], SI::'°C_abs')"), "= 26.85", "['°C_abs']")
 	wants(t, run(t, s, "%eval QuantityCalculations::ConvertQuantity(26.85 [SI::'°C_abs'], SI::K)"), "= 300.0 [K]")
 	wants(t, run(t, s, "%eval QuantityCalculations::ConvertQuantity(3 [Time::UTC], SI::s)"),

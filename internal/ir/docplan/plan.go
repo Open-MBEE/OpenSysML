@@ -38,6 +38,8 @@ const (
 	RunSpan RunKind = "span"
 	RunLink RunKind = "link"
 	RunRef  RunKind = "ref"
+	// RunValue reads a feature's value into the prose, as a span column does.
+	RunValue RunKind = "value"
 )
 
 // RunStyle is the declared inline style of a span run.
@@ -75,8 +77,16 @@ type Run struct {
 	refDocument string
 	refElement  string
 	defaultText bool
+	valueRoot   *symbols.Symbol
+	valuePath   string
+	bound       bool
 	origin      symbols.Origin
 }
+
+// Bound reports whether the run's text already carries its spacing to the
+// neighbouring runs, as a run cut from a markup body does, so a backend joins
+// it without inserting a separator.
+func (r Run) Bound() bool { return r.bound }
 
 // Kind returns the classification of the run.
 func (r Run) Kind() RunKind { return r.kind }
@@ -104,6 +114,18 @@ func (r Run) RefDocument() string { return r.refDocument }
 // reference run targets when that is neither a content block nor a document,
 // or "" when it is one.
 func (r Run) RefElement() string { return r.refElement }
+
+// ValueRoot returns the element a value run reads from: the root of its
+// feature chain, else the owner of the named feature. A session holding an
+// object of it answers with that object's current value.
+func (r Run) ValueRoot() *symbols.Symbol { return r.valueRoot }
+
+// ValuePath returns the member path a value run reads below ValueRoot, as a
+// span column names the feature it projects.
+func (r Run) ValuePath() string { return r.valuePath }
+
+// ValueFeature returns the fully-qualified name of the feature a value run reads.
+func (r Run) ValueFeature() string { return symbols.FQNOf(r.refSym) }
 
 // TextDefaulted reports whether a reference run's text is its target's label,
 // the run stating none.
@@ -332,6 +354,8 @@ type Content struct {
 	term         string
 	description  string
 	runs         []Run
+	items        []ListItem
+	rows         []TableRow
 	columnRuns   []ColumnRun
 	query        *QueryRef
 	diagram      *DiagramRef
@@ -389,6 +413,50 @@ func (c Content) Description() string { return c.description }
 // Runs returns the planned inline runs of a paragraph in declaration order.
 func (c Content) Runs() []Run { return cloneRuns(c.runs) }
 
+// Items returns the static items of a list planned from a markup body; empty
+// for a list whose items a query yields.
+func (c Content) Items() []ListItem {
+	items := make([]ListItem, len(c.items))
+	for i, item := range c.items {
+		items[i] = ListItem{runs: cloneRuns(item.runs), origin: item.origin}
+	}
+	return items
+}
+
+// ListItem is one static list item: its inline runs and where they were written.
+type ListItem struct {
+	runs   []Run
+	origin symbols.Origin
+}
+
+// Rows returns the written-out rows of a static table, in order.
+func (c Content) Rows() []TableRow {
+	rows := make([]TableRow, len(c.rows))
+	for i, row := range c.rows {
+		rows[i] = TableRow{cells: append([]string(nil), row.cells...), origin: row.origin}
+	}
+	return rows
+}
+
+// TableRow is one written-out table row: one text cell per column and where
+// it was written.
+type TableRow struct {
+	cells  []string
+	origin symbols.Origin
+}
+
+// Cells returns the row's cell texts, one per column.
+func (r TableRow) Cells() []string { return append([]string(nil), r.cells...) }
+
+// Origin returns where the row was written.
+func (r TableRow) Origin() symbols.Origin { return r.origin }
+
+// Runs returns the item's inline runs.
+func (i ListItem) Runs() []Run { return cloneRuns(i.runs) }
+
+// Origin returns where the item was written.
+func (i ListItem) Origin() symbols.Origin { return i.origin }
+
 // ColumnRuns returns the planned column runs of a query-backed paragraph or
 // list in declaration order.
 func (c Content) ColumnRuns() []ColumnRun { return append([]ColumnRun(nil), c.columnRuns...) }
@@ -423,6 +491,8 @@ func cloneContent(content []Content) []Content {
 			term:         child.term,
 			description:  child.description,
 			runs:         cloneRuns(child.runs),
+			items:        child.Items(),
+			rows:         child.Rows(),
 			columnRuns:   append([]ColumnRun(nil), child.columnRuns...),
 			query:        child.query,
 			diagram:      child.diagram,

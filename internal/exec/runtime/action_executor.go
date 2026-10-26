@@ -224,7 +224,7 @@ func newActionExecutorOfGraph(
 			return nil, err
 		}
 		if found != nil {
-			graph, err = lower.ToActionInterface(held.Decl, DeclScope(held))
+			graph, err = ctx.model.actionInterface(held)
 			if err != nil {
 				return nil, fmt.Errorf("lower action interface: %w", err)
 			}
@@ -261,11 +261,15 @@ func newActionExecutorOn(
 		firedBreakpoints: make(map[breakpointVisit]bool),
 	}
 	exec.performances.thisOccurrence = exec.materializeOccurrence
-	exec.features = exec.performanceFeatures()
-	exec.root = exec.newRootFrame()
+	shape := exec.performanceShape()
+	exec.features = shape.attributes
+	exec.root = exec.newRootFrame(shape)
 	exec.through = ctx.performedPinBindings(performed, graph, self)
 	exec.owner = exec
 	exec.flow = exec
+	if occurrence != nil {
+		ctx.registerActionExecutor(exec)
+	}
 	exec.driven.exec = exec
 	ctx.clock.attach(exec)
 	ctx.run.notePerformer(exec)
@@ -1495,6 +1499,27 @@ func (e *ActionExecutor) streamInitialOutput(name string, value Value) error {
 
 // declaresAttribute reports whether the action declares an attribute of this
 // name, which its performance holds rather than the object performing it.
+// mirrorOccurrenceWrite carries a write to one of the occurrence's declared
+// features into the run's data, under every name the data holds it by.
+func (e *ActionExecutor) mirrorOccurrenceWrite(fv *FeatureValue) {
+	if e.occurrence == nil || e.root == nil {
+		return
+	}
+	for _, attr := range e.features {
+		if attr.Shadowed || e.occurrence.FeatureValues[attr.Name] != fv {
+			continue
+		}
+		key := e.root.key(attr.Name)
+		if _, held := e.root.data[key]; !held {
+			continue
+		}
+		if cell := e.root.cells.existingCell(key); cell != nil && e.ctx.derivingValue(&cell.fv) {
+			continue
+		}
+		e.ctx.writeBodyValue(e.root.cells, e.root.data, key, fv.HeldValue())
+	}
+}
+
 func (e *ActionExecutor) declaresAttribute(name string) bool {
 	for _, attr := range e.features {
 		if attr.Name == name {
@@ -1531,6 +1556,7 @@ func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
 	inst.explicit = true
 	e.occurrence = inst
 	e.performances.occurrence = inst
+	e.ctx.registerActionExecutor(e)
 	for _, attr := range e.features {
 		if attr.Shadowed {
 			continue // the performance's alone: the occurrence's slots are keyed by name
@@ -1718,6 +1744,7 @@ func (e *ActionExecutor) completeRoot() error {
 	}
 	e.state = StateCompleted
 	e.endRootPerformance()
+	e.ctx.unregisterActionExecutor(e)
 	return nil
 }
 
@@ -2940,6 +2967,11 @@ func (e *ActionExecutor) awaitSignal(token *Token, accept lower.Accept, usage *a
 	if tr := e.trace(); tr != nil {
 		tr.RecordAccept(TraceOrigin{At: e.ctx.clock.now, Object: e.self, Behavior: e.action},
 			msg.Serial, acceptedEventName(msg), msg.Payload)
+	}
+	if accepting, err := e.materializeOccurrence(); err != nil {
+		return nil, false, err
+	} else if err := e.ctx.recordTransfer(msg, accepting, e.self); err != nil {
+		return nil, false, err
 	}
 	if accept.ParamName == "" {
 		return nil, true, nil

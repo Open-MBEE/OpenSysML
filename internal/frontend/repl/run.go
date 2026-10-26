@@ -92,7 +92,7 @@ func (s *Session) LoadFile(path string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	read, err := s.readWithDependencies(files, loadOptions{})
+	read, err := s.readWithDependencies(files, loadOptions{}, s.ws.IsLibraryRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	read, err := s.readWithDependencies(paths, loadOptions{})
+	read, err := s.readWithDependencies(paths, loadOptions{}, s.ws.IsLibraryRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +159,7 @@ func (s *Session) DiagnosticLines() []string {
 func (s *Session) diagnosticLines() []string {
 	diags := s.diagnostics()
 	if len(diags) == 0 {
-		return nil
+		return s.libraryFindingLines()
 	}
 	var out []string
 	start := 0
@@ -178,6 +178,27 @@ func (s *Session) diagnosticLines() []string {
 		}
 		out = append(out, renderDiagnostics(own, sn.src, inFile(sn.origin), s.verbosity >= VerbosityDebug)...)
 		start = end + 1 // the newline joined() writes between snippets
+	}
+	return append(out, s.libraryFindingLines()...)
+}
+
+// libraryFindingLines renders the workspace findings on library documents — a
+// library tree the library path holds two copies of — which no submission's
+// text locates, under the library file each is reported in.
+func (s *Session) libraryFindingLines() []string {
+	if s.verbosity <= VerbosityQuiet {
+		return nil
+	}
+	var out []string
+	for _, f := range s.ws.WorkspaceFindings() {
+		if !f.Library {
+			continue
+		}
+		src := ""
+		if doc := s.ws.LibraryDocument(f.Document); doc != nil {
+			src = string(doc.Content)
+		}
+		out = append(out, renderDiagnostics([]diag.Diagnostic{f.Diagnostic}, src, inFile(f.Document), s.verbosity >= VerbosityDebug)...)
 	}
 	return out
 }
@@ -281,7 +302,34 @@ type Edit struct {
 // the line and column that file has it on.
 func (s *Session) LocatedDiagnostics() []Diagnostic {
 	defer s.enter()()
-	return locate(s.bufferParts(), s.diagnostics())
+	return append(locate(s.bufferParts(), s.diagnostics()), s.libraryFindings()...)
+}
+
+// libraryFindings places the workspace findings on library documents — which
+// no submission's text holds — in the library file each is reported in.
+func (s *Session) libraryFindings() []Diagnostic {
+	var out []Diagnostic
+	for _, f := range s.ws.WorkspaceFindings() {
+		if !f.Library {
+			continue
+		}
+		var content []byte
+		if doc := s.ws.LibraryDocument(f.Document); doc != nil {
+			content = doc.Content
+		}
+		p := source.New(docName, content).Lines().PosAt(f.Diagnostic.Span.Offset)
+		out = append(out, Diagnostic{
+			Severity:    f.Diagnostic.Severity.String(),
+			Message:     f.Diagnostic.Message,
+			File:        f.Document,
+			Line:        p.Line,
+			Column:      p.Col,
+			UTF16Column: utf16Column(content, f.Diagnostic.Span.Offset, p.Col),
+			Pass:        f.Diagnostic.Source,
+			Code:        f.Diagnostic.Code,
+		})
+	}
+	return out
 }
 
 // Locate places diags, a Result's diagnostics, in the submissions they are about

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -25,7 +26,7 @@ func sampleRecord(name string) *IndexRecord {
 func TestCacheStoreLoadRoundTrip(t *testing.T) {
 	c := &Cache{dir: t.TempDir()}
 	rec := sampleRecord("a.kerml")
-	key := c.keyFor([]byte("content-a"), "set")
+	key := c.keyFor("a.kerml", []byte("content-a"), "set")
 	if err := c.Store(key, rec); err != nil {
 		t.Fatalf("store: %v", err)
 	}
@@ -49,21 +50,21 @@ func TestCacheStoreLoadRoundTrip(t *testing.T) {
 
 func TestCacheLoadUnknownKeyMisses(t *testing.T) {
 	c := &Cache{dir: t.TempDir()}
-	if _, ok := c.Load(c.keyFor([]byte("never-stored"), "set")); ok {
+	if _, ok := c.Load(c.keyFor("a.kerml", []byte("never-stored"), "set")); ok {
 		t.Fatal("Load returned hit for unknown key")
 	}
 }
 
 func TestCacheKeyDependsOnContentSetAndVersion(t *testing.T) {
 	c := &Cache{dir: t.TempDir()}
-	k1 := c.keyFor([]byte("alpha"), "set")
-	k2 := c.keyFor([]byte("beta"), "set")
+	k1 := c.keyFor("a.kerml", []byte("alpha"), "set")
+	k2 := c.keyFor("a.kerml", []byte("beta"), "set")
 	if k1 == k2 {
 		t.Fatal("distinct content produced identical cache keys")
 	}
 	// A record persists facts derived from sibling files, so the same content in
 	// a different library set is a different record.
-	if k1 == c.keyFor([]byte("alpha"), "other-set") {
+	if k1 == c.keyFor("a.kerml", []byte("alpha"), "other-set") {
 		t.Fatal("distinct library sets produced identical cache keys")
 	}
 	// A record stored under content "alpha" must not be found by content
@@ -81,14 +82,14 @@ func TestCacheKeyDependsOnContentSetAndVersion(t *testing.T) {
 // with the answer that build gave.
 func TestCacheKeyDependsOnBuildID(t *testing.T) {
 	c := &Cache{dir: t.TempDir()}
-	key := c.keyFor([]byte("alpha"), "set")
+	key := c.keyFor("a.kerml", []byte("alpha"), "set")
 	if err := c.Store(key, sampleRecord("x")); err != nil {
 		t.Fatalf("store: %v", err)
 	}
 	restore := buildID
 	buildID = func() string { return "other-build" }
 	defer func() { buildID = restore }()
-	other := c.keyFor([]byte("alpha"), "set")
+	other := c.keyFor("a.kerml", []byte("alpha"), "set")
 	if other == key {
 		t.Fatal("distinct builds produced identical cache keys")
 	}
@@ -99,7 +100,7 @@ func TestCacheKeyDependsOnBuildID(t *testing.T) {
 
 func TestCachePruneRemovesOnlyIdleRecords(t *testing.T) {
 	c := &Cache{dir: t.TempDir()}
-	idle, live := c.keyFor([]byte("idle"), "set"), c.keyFor([]byte("live"), "set")
+	idle, live := c.keyFor("a.kerml", []byte("idle"), "set"), c.keyFor("a.kerml", []byte("live"), "set")
 	for _, key := range []string{idle, live} {
 		if err := c.Store(key, sampleRecord("x")); err != nil {
 			t.Fatalf("store: %v", err)
@@ -122,7 +123,7 @@ func TestCachePruneRemovesOnlyIdleRecords(t *testing.T) {
 // dates it, or pruning would evict the records of an unchanged library.
 func TestCacheLoadDatesTheRecord(t *testing.T) {
 	c := &Cache{dir: t.TempDir()}
-	key := c.keyFor([]byte("content"), "set")
+	key := c.keyFor("a.kerml", []byte("content"), "set")
 	if err := c.Store(key, sampleRecord("x")); err != nil {
 		t.Fatalf("store: %v", err)
 	}
@@ -149,7 +150,7 @@ func TestNewCacheCreatesDir(t *testing.T) {
 		t.Fatal("NewCache produced empty dir")
 	}
 	// Store/Load must work against the freshly created dir.
-	key := c.keyFor([]byte("z"), "set")
+	key := c.keyFor("a.kerml", []byte("z"), "set")
 	if err := c.Store(key, sampleRecord("z")); err != nil {
 		t.Fatalf("store into new cache dir: %v", err)
 	}
@@ -164,7 +165,7 @@ func TestCacheStoreIsAtomic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewCache: %v", err)
 	}
-	key := c.keyFor([]byte("some content"), "set")
+	key := c.keyFor("a.kerml", []byte("some content"), "set")
 	if err := c.Store(key, sampleRecord("P")); err != nil {
 		t.Fatalf("Store: %v", err)
 	}
@@ -190,7 +191,7 @@ func TestCacheStoreIsAtomic(t *testing.T) {
 func TestCacheStoreConcurrentWritersOfOneKey(t *testing.T) {
 	c := &Cache{dir: t.TempDir()}
 	rec := sampleRecord("crowded.kerml")
-	key := c.keyFor([]byte("content stored by everyone"), "set")
+	key := c.keyFor("a.kerml", []byte("content stored by everyone"), "set")
 
 	var wg sync.WaitGroup
 	errs := make([]error, 8)
@@ -259,5 +260,46 @@ func TestCachePruneRemovesStaleTempFiles(t *testing.T) {
 	}
 	if _, err := os.Stat(fresh); err != nil {
 		t.Errorf("Prune removed a temp file a store may still be writing: %v", err)
+	}
+}
+
+// The key is a pure function of its inputs — a record Persist wrote is found by
+// the Load of a later process with the same build, library and file.
+func TestCacheKeySameInputsSameKey(t *testing.T) {
+	c := &Cache{dir: t.TempDir()}
+	first := c.keyFor("a.kerml", []byte("alpha"), "set")
+	second := c.keyFor("a.kerml", []byte("alpha"), "set")
+	if first != second {
+		t.Fatalf("same inputs produced keys %q and %q", first, second)
+	}
+	if err := c.Store(first, sampleRecord("x")); err != nil {
+		t.Fatalf("store: %v", err)
+	}
+	if _, ok := (&Cache{dir: c.dir}).Load(second); !ok {
+		t.Fatal("a second Cache over the same directory missed the record")
+	}
+}
+
+// A newer binary's record is unreachable by an older binary's key, and a record
+// that does not decode is a miss, never an error or a partial restore.
+func TestCacheRefusesRecordsOfAnotherFormat(t *testing.T) {
+	c := &Cache{dir: t.TempDir()}
+	key := c.keyFor("a.kerml", []byte("alpha"), "set")
+	suffix := "-v" + strconv.Itoa(formatVersion)
+	if !strings.HasSuffix(key, suffix) {
+		t.Fatalf("key %q does not end in the format version %q", key, suffix)
+	}
+	newer := strings.TrimSuffix(key, suffix) + "-v" + strconv.Itoa(formatVersion+1)
+	if err := c.Store(newer, sampleRecord("x")); err != nil {
+		t.Fatalf("store: %v", err)
+	}
+	if _, ok := c.Load(key); ok {
+		t.Fatal("a record of a newer format produced a cache hit")
+	}
+	if err := os.WriteFile(c.path(key), []byte("not a gob stream"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := c.Load(key); ok {
+		t.Fatal("an undecodable record produced a cache hit")
 	}
 }

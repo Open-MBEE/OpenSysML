@@ -495,15 +495,15 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		if err != nil {
 			t.Fatalf("u: %v", err)
 		}
-		if FormatValue(got) == "5" {
-			t.Fatalf("u = %s, want undetermined: an unbound optional attribute still reads as before", FormatValue(got))
+		if FormatValue(got) != "[]" {
+			t.Fatalf("u = %s, want the empty sequence: an unbound optional attribute holds nothing", FormatValue(got))
 		}
 		undeclared, err := ctx.EvalDeclaredValue(lookupOne(t, idx, "test::u"))
 		if err != nil {
 			t.Fatalf("EvalDeclaredValue u: %v", err)
 		}
-		if FormatValue(undeclared) != "<undetermined>" {
-			t.Fatalf("EvalDeclaredValue u = %s, want undetermined, as before", FormatValue(undeclared))
+		if FormatValue(undeclared) != "[]" {
+			t.Fatalf("EvalDeclaredValue u = %s, want the empty sequence", FormatValue(undeclared))
 		}
 	})
 
@@ -957,7 +957,7 @@ func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
 		if len(objs) != 2000 {
 			t.Fatalf("denotedObjects(b) = %d objects, want 2000", len(objs))
 		}
-		if !containsInstance(objs, first.Instance) {
+		if !slices.ContainsFunc(objs, func(o *Instance) bool { return o.ID == first.Instance }) {
 			t.Fatalf("denotedObjects(b) misses object #%d (c#(1))", first.Instance)
 		}
 	})

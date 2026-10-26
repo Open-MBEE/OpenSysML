@@ -416,17 +416,18 @@ func TestRunServesLibraryDocumentsOverStream(t *testing.T) {
 	send(map[string]any{"jsonrpc": "2.0", "method": "initialized", "params": map[string]any{}})
 
 	src := "package P { attribute x : ScalarValues::Integer; }\n"
+	file := string(tempDocURI(t, "stream.sysml"))
 	send(map[string]any{
 		"jsonrpc": "2.0", "method": "textDocument/didOpen",
 		"params": map[string]any{"textDocument": map[string]any{
-			"uri": "file:///tmp/stream.sysml", "languageId": "sysml", "version": 1, "text": src,
+			"uri": file, "languageId": "sysml", "version": 1, "text": src,
 		}},
 	})
 	pos := offsetToPosition([]byte(src), strings.Index(src, "Integer"))
 	send(map[string]any{
 		"jsonrpc": "2.0", "id": 2, "method": "textDocument/definition",
 		"params": map[string]any{
-			"textDocument": map[string]any{"uri": "file:///tmp/stream.sysml"},
+			"textDocument": map[string]any{"uri": file},
 			"position":     map[string]any{"line": pos.Line, "character": pos.Character},
 		},
 	})
@@ -451,7 +452,7 @@ func TestRunServesLibraryDocumentsOverStream(t *testing.T) {
 		t.Errorf("%s returned %d bytes, want the bundled ScalarValues.kerml (%d bytes)", MethodStdlibContent, len(got), len(text))
 	}
 
-	send(map[string]any{"jsonrpc": "2.0", "id": 4, "method": MethodStdlibContent, "params": map[string]any{"uri": "file:///tmp/stream.sysml"}})
+	send(map[string]any{"jsonrpc": "2.0", "id": 4, "method": MethodStdlibContent, "params": map[string]any{"uri": file}})
 	res = await(4, nil)
 	if res["error"] == nil {
 		t.Errorf("%s on a file URI answered %v, want an error", MethodStdlibContent, res["result"])

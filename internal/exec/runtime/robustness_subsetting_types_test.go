@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-// TestRuntimeRobustnessSubsettingTypes: a member inherited through subsetting that the
-// model leaves without a value fails with a typed error, never missing-feature or a panic.
+// TestRuntimeRobustnessSubsettingTypes: a member inherited through subsetting is read as
+// its own declaration states it, never as a missing feature or a panic.
 func TestRuntimeRobustnessSubsettingTypes(t *testing.T) {
 	t.Run("inherited_member_bound_without_a_witness", testInheritedMemberBoundWithoutAWitness)
 	t.Run("member_outside_the_conjunction_is_still_missing", testMemberOutsideTheConjunctionIsStillMissing)
@@ -28,7 +28,8 @@ const subsettingTypesModel = `package test {
 }`
 
 // testInheritedMemberBoundWithoutAWitness: `trim`, inherited through Framed, is bound
-// to one of many spares without saying which; the read reports the undetermined binding.
+// to one of many spares without saying which; the binding determines nothing, so the
+// read answers the Strip its own `[1]` states, not a missing feature.
 func testInheritedMemberBoundWithoutAWitness(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, subsettingTypesModel))
 	holder := instantiateNamed(t, ctx, idx, "test::holder")
@@ -40,12 +41,9 @@ func testInheritedMemberBoundWithoutAWitness(t *testing.T) {
 	if !ok {
 		t.Fatalf("holder.front = %s, want an object", FormatValue(front.HeldValue()))
 	}
-	_, err = obj.GetFeatureValue(ctx, "trim")
-	if !errors.Is(err, errBindingEnd) {
-		t.Fatalf("front.trim error = %v, want the undetermined binding", err)
-	}
-	if !strings.Contains(err.Error(), "binding [1] bind [0..*] front.trim = [0..*] spares") || strings.Contains(err.Error(), "no such feature") {
-		t.Errorf("front.trim error %q, want it to name the binding and not a missing feature", err)
+	trim, err := obj.GetFeatureValue(ctx, "trim")
+	if err != nil || trim.HeldValue().Kind != ValInstance {
+		t.Fatalf("front.trim = %s, %v; want the one Strip its own declaration states", FormatValue(trim.HeldValue()), err)
 	}
 }
 

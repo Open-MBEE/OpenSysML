@@ -319,6 +319,7 @@ func (e *snapshotEncoder) writeFacts(f *LibraryFacts) {
 		}
 	}
 	e.w.Bool(f.Abstract)
+	e.w.Bool(f.LibraryPackage)
 	e.w.Bool(f.RelatedFeatures != nil)
 	e.refs(f.RelatedFeatures)
 	e.w.Bool(f.EndPaths != nil)
@@ -823,6 +824,7 @@ func (d *sectionReader) readFacts(f *LibraryFacts) {
 		f.Dimension = dim
 	}
 	f.Abstract = d.r.Bool()
+	f.LibraryPackage = d.r.Bool()
 	hasRelatedFeatures := d.r.Bool()
 	f.RelatedFeatures = d.refs()
 	if hasRelatedFeatures && f.RelatedFeatures == nil {

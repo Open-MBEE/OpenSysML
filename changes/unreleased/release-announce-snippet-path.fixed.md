@@ -1,0 +1,1 @@
+- `scripts/release-announce.py --snippet` now accepts only files under the directory the script is run from: the path is canonicalized first (`..` and symlinks resolved) and one that lands outside the working directory fails with an error naming it, instead of being read from anywhere on the machine.

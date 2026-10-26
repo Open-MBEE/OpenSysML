@@ -66,6 +66,7 @@ var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityDocumentQuery:                  "run_document_query",
 	sysmlgrpc.CapabilityRenderDocument:                 "render_model_document",
 	sysmlgrpc.CapabilityRenderDocumentHTML:             "render_model_document",
+	sysmlgrpc.CapabilityRenderDocumentAsciiDoc:         "render_model_document",
 	sysmlgrpc.CapabilityRenderView:                     "render_model_view",
 	sysmlgrpc.CapabilityExportGraphs:                   "export_graphs",
 	sysmlgrpc.CapabilityImportData:                     "import_data",

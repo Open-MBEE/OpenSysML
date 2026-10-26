@@ -160,13 +160,14 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 		return !slices.Contains(supers, base)
 	})
 	facts := symbols.LibraryFacts{
-		Supers:        w.refs(sym, supers, "supertype"),
-		ImpliedSupers: w.refs(sym, implied, "implied supertype"),
-		Unit:          unitFactsEntry(unitFactsOf(sym, m, w.idx)),
-		Dimension:     dimensionFactsEntry(dimensionFactsOf(sym, m, w.idx)),
-		Abstract:      symbols.IsAbstract(sym),
-		Redefines:     w.refs(sym, m.RedefinedFeatures(sym), "redefined feature"),
-		About:         w.refs(sym, m.AnnotatedElementsOf(sym), "annotated element"),
+		Supers:         w.refs(sym, supers, "supertype"),
+		ImpliedSupers:  w.refs(sym, implied, "implied supertype"),
+		Unit:           unitFactsEntry(unitFactsOf(sym, m, w.idx)),
+		Dimension:      dimensionFactsEntry(dimensionFactsOf(sym, m, w.idx)),
+		Abstract:       symbols.IsAbstract(sym),
+		LibraryPackage: symbols.IsLibraryPackage(sym),
+		Redefines:      w.refs(sym, m.RedefinedFeatures(sym), "redefined feature"),
+		About:          w.refs(sym, m.AnnotatedElementsOf(sym), "annotated element"),
 	}
 	if related, ok := m.ReflectiveElements(sym, "relatedFeature"); ok {
 		facts.RelatedFeatures = w.refs(sym, related, "related feature")

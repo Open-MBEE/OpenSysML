@@ -567,3 +567,26 @@ func TestCompletionDetailWritesTheAbstractKeyword(t *testing.T) {
 		}
 	}
 }
+
+// A redefined feature is not inherited under its name (KerML §7.3.4.5), so after
+// `u.` the subject is offered as the role the case declares, not as the library's
+// `subj`.
+func TestCompletionOnDotOmitsRedefinedRoleNames(t *testing.T) {
+	src := `package P {
+	use case def U {
+		subject s : ScalarValues::Integer;
+	}
+	use case u : U;
+	part reader {
+		u.
+	}
+}
+`
+	items := completionAt(t, src, "\t\tu.")
+	if _, ok := items["s"]; !ok {
+		t.Errorf("completion after 'u.' missing the declared subject 's'; got %v", labelsOf(items))
+	}
+	if _, ok := items["subj"]; ok {
+		t.Error("completion after 'u.' offered 'subj', which the subject 's' redefines")
+	}
+}

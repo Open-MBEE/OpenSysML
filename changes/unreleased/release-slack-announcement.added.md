@@ -1,0 +1,1 @@
+- Stable `v*` releases are announced in the maintainers' Slack channel after the GitHub release is published.

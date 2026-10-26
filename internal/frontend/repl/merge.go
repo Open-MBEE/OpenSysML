@@ -96,7 +96,7 @@ func (s *Session) reopenedNamespaces(key string, root *ast.RootNamespace) []drop
 	var opened []string
 	wanted := make(map[string]bool)
 	for _, m := range root.Members {
-		name := memberName(m)
+		name := nsmerge.MemberName(m)
 		if name == "" || wanted[name] {
 			continue
 		}

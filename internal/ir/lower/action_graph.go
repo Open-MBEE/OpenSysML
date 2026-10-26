@@ -458,6 +458,9 @@ type Loop struct {
 	Variable   string   // `for` only: the name each element is bound to
 	Collection ast.Node // `for` only: the collection iterated over
 	Body       Block
+	// BodyAction is the action usage the loop declares as its body (`loop action
+	// body { … }`), nil for a body of statements alone.
+	BodyAction *symbols.Symbol
 	Node       ast.Node // the loop itself, for diagnostics
 	// Scope is the scope the loop was declared in, which its collection resolves
 	// in; its condition resolves in Body.Scope, which the body declares into.
@@ -465,6 +468,24 @@ type Loop struct {
 }
 
 func (Loop) statement() { /* marker: closed Statement set */ }
+
+// loopBodyAction is the action usage a loop declares as its body (`loop action body
+// { … }`), resolved in the body's scope; nil for a body of statements alone.
+func loopBodyAction(m *ast.WhileLoopActionNode, bodyScope *symbols.Scope) *symbols.Symbol {
+	if bodyScope == nil {
+		return nil
+	}
+	for _, member := range m.Body {
+		usage, ok := unwrapMembership(member).(*ast.Usage)
+		if !ok || !usage.IsBodyParameter || usage.Ident.Name == "" {
+			continue
+		}
+		if sym, found := bodyScope.LookupLocal(usage.Ident.Name); found && sym != nil && sym.Decl == usage {
+			return sym
+		}
+	}
+	return nil
+}
 
 // If is a lowered conditional. The condition is evaluated in the enclosing
 // body, outside both branches. Else is nil when the conditional declared none.
@@ -2134,13 +2155,15 @@ func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Res
 		return lowerAssignment(m, scope)
 	case *ast.WhileLoopActionNode:
 		variable, _ := m.Variable.DeclaredName()
+		bodyScope := childScope(scope, m)
 		return Loop{
 			Kind:       m.Kind,
 			Condition:  m.Condition,
 			Until:      m.Until,
 			Variable:   variable,
 			Collection: m.Collection,
-			Body:       lowerBlock(m, m.Body, childScope(scope, m), resolver, ancestors),
+			Body:       lowerBlock(m, m.Body, bodyScope, resolver, ancestors),
+			BodyAction: loopBodyAction(m, bodyScope),
 			Node:       m,
 			Scope:      scope,
 		}

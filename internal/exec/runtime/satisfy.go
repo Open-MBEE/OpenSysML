@@ -12,7 +12,7 @@ import (
 )
 
 // SatisfyAssertion is one satisfaction assertion an element states:
-// `assert satisfy <requirement> by <subject>` (SysML v2 §8.3.17.15). The
+// `assert satisfy <requirement> by <subject>` (SysML v2 §8.4.17.3). The
 // assertion is a requirement usage of its own — it reference-subsets the
 // requirement it satisfies and binds that requirement's subject parameter to
 // the feature named by `by` — so it carries a verdict the requirement alone
@@ -233,7 +233,7 @@ func (ctx *Context) chainRoot(sym *symbols.Symbol, chain *ast.FeatureChainExpr) 
 	if chain.Member == nil {
 		return nil, nil
 	}
-	base, parts := chainBase(chain)
+	base, parts := ast.FeatureChainBase(chain)
 	path := make([]string, 0, len(parts))
 	for _, part := range parts {
 		path = append(path, part.Text)
@@ -359,7 +359,7 @@ func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Sym
 	subject := reached.instance
 
 	// Every subject the chain declares names the object `by` supplies, which is
-	// what satisfies the requirement (SysML v2 §8.3.17.15); the other values the
+	// what satisfies the requirement (SysML v2 §8.4.17.3); the other values the
 	// requirement binds by name are visible to its conditions here too, as they
 	// are when the requirement is evaluated directly.
 	members, bindings, err := ctx.satisfactionBindings(a, target, subject)
@@ -542,5 +542,35 @@ func symbolLabel(sym *symbols.Symbol) string {
 		return sym.Name
 	default:
 		return fmt.Sprintf("anonymous %T", sym.Decl)
+	}
+}
+
+// bindImplicitSatisfactionSubject holds, on the object of a satisfy usage stating no `by`,
+// the owning object as the requirement's subject (SysML v2 §7.21.4), as its result reads it.
+func (ctx *Context) bindImplicitSatisfactionSubject(inst, owner *Instance) {
+	if owner == nil || implicitSatisfactionSubject(inst.Type, inst) == nil {
+		return
+	}
+	for _, name := range ctx.subjectParameterNames(inst.Type) {
+		fv := inst.FeatureValues[name]
+		if fv == nil || fv.Value.Kind != ValInvalid || fv.Values.Kind != ValInvalid {
+			continue
+		}
+		// An owner the subject's type or multiplicity refuses is left unbound; the
+		// result read and the check report that refusal.
+		val := Value{Kind: ValInstance, Instance: owner.ID}
+		if ctx.checkDefault(inst, fv, name, &val, admitDeclared) != nil {
+			continue
+		}
+		held, err := ctx.holdDeclared(inst, fv, val)
+		if err != nil {
+			continue
+		}
+		if fv.Feature.Scalar() {
+			fv.Value = held
+		} else {
+			fv.Values = held
+		}
+		fv.Materialized = true
 	}
 }

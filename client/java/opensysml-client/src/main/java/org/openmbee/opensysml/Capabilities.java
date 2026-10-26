@@ -181,6 +181,9 @@ public final class Capabilities {
   /** The {@code RenderDocument} RPC also renders a named document to HTML. */
   public static final String RENDER_DOCUMENT_HTML = "render_document_html";
 
+  /** The {@code RenderDocument} RPC also renders a named document to AsciiDoc. */
+  public static final String RENDER_DOCUMENT_ASCIIDOC = "render_document_asciidoc";
+
   /** The service renders named and targeted pseudo-views as diagram data. */
   public static final String RENDER_VIEW = "render_view";
 

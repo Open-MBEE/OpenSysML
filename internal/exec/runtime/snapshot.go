@@ -85,6 +85,7 @@ type runCapture struct {
 	holdingDriven        bool
 	clockRun             *runState
 	stateExecutors       []*StateExecutor
+	actionExecutors      []*ActionExecutor
 }
 
 // traceCapture is a recorder's state at the mark. Records are only appended to, cut
@@ -450,6 +451,7 @@ func (ctx *Context) captureRun() runCapture {
 		holdingDriven:        ctx.holdingDriven,
 		clockRun:             ctx.clockRun.state,
 		stateExecutors:       slices.Clone(ctx.stateExecutors),
+		actionExecutors:      slices.Clone(ctx.actionExecutors),
 	}
 	return c
 }
@@ -474,6 +476,7 @@ func (c runCapture) restore(ctx *Context) {
 	ctx.holdingDriven = c.holdingDriven
 	ctx.clockRun.state = c.clockRun
 	ctx.stateExecutors = slices.Clone(c.stateExecutors)
+	ctx.actionExecutors = slices.Clone(c.actionExecutors)
 	ctx.workChanged()
 }
 
@@ -807,6 +810,7 @@ func cloneNested(nested map[ast.Node][]nestedDelivery) map[ast.Node][]nestedDeli
 // values its states hold, its events, timers, change triggers and do actions.
 type stateCapture struct {
 	exec               *StateExecutor
+	occurrence         *Instance
 	state              ExecutionState
 	activeConfig       *stateConfiguration
 	nextEventID        int64
@@ -871,7 +875,7 @@ type doActionCapture struct {
 // behaviors is captured beside it (Snapshot.captureState).
 func (e *StateExecutor) capture() stateCapture {
 	c := stateCapture{
-		exec: e, state: e.state, activeConfig: cloneConfiguration(e.activeConfig),
+		exec: e, occurrence: e.occurrence, state: e.state, activeConfig: cloneConfiguration(e.activeConfig),
 		nextEventID:        e.nextEventID,
 		stateData:          captureMap(e.stateData),
 		stateAttrs:         make(map[*ast.StateNode]mapState[string, Value], len(e.stateAttrs)),
@@ -928,6 +932,7 @@ func (e *StateExecutor) capture() stateCapture {
 
 func (c stateCapture) restore() {
 	e := c.exec
+	e.occurrence = c.occurrence
 	e.state, e.activeConfig, e.nextEventID = c.state, cloneConfiguration(c.activeConfig), c.nextEventID
 	if e.eventQueue != nil {
 		e.eventQueue.events = slices.Clone(c.events)

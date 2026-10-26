@@ -362,9 +362,7 @@ func (e *StateExecutor) initializeAttributes() error {
 	var endStep func()
 	evalDefaults := func() *EvalContext {
 		if ec == nil {
-			ec = NewEvalContextIn(e.ctx, e.graph.Scope, e.self)
-			ec.occurrence = e.occurrence
-			ec.thisOccurrence = e.materializeOccurrence
+			ec = e.newEvalContext(e.graph.Scope)
 			ec.pushFrame(e.dataFrame())
 			endStep = ec.beginStep()
 		}
@@ -518,8 +516,7 @@ func (e *StateExecutor) heldAttributes() map[*symbols.Symbol]string {
 func (e *StateExecutor) ensureStateCells() *bodyCells {
 	if e.stateCells == nil {
 		e.stateCells = newBodyCells(e.stateData, func(scope *symbols.Scope) *EvalContext {
-			ec := NewEvalContextIn(e.ctx, scope, e.self)
-			ec.thisOccurrence = e.materializeOccurrence
+			ec := e.newEvalContext(scope)
 			ec.pushFrame(e.dataFrame())
 			return ec
 		})
@@ -527,10 +524,18 @@ func (e *StateExecutor) ensureStateCells() *bodyCells {
 	return e.stateCells
 }
 
+// newEvalContext evaluates in scope as the machine's performance does: on the
+// performer, with the machine's own occurrence answering the features it holds.
+func (e *StateExecutor) newEvalContext(scope *symbols.Scope) *EvalContext {
+	ec := NewEvalContextIn(e.ctx, scope, e.self)
+	ec.occurrence = e.occurrence
+	ec.thisOccurrence = e.materializeOccurrence
+	return ec
+}
+
 // stateAttributeContext resolves an attribute in machine data and its state frames.
 func (e *StateExecutor) stateAttributeContext(state *ast.StateNode, scope *symbols.Scope) *EvalContext {
-	ec := NewEvalContextIn(e.ctx, scope, e.self)
-	ec.thisOccurrence = e.materializeOccurrence
+	ec := e.newEvalContext(scope)
 	ec.pushFrame(e.dataFrame())
 	for _, fr := range e.attrFramesFor(state) {
 		ec.pushFrame(fr)
@@ -582,9 +587,7 @@ func (e *StateExecutor) initializeStateAttributes() error {
 			if attr.Binding {
 				value, err = e.ctx.deriveBodyCell(cells, attr.Name, cells.existingCell(attr.Name))
 			} else {
-				ec := NewEvalContextIn(e.ctx, scope, e.self)
-				ec.occurrence = e.occurrence
-				ec.thisOccurrence = e.materializeOccurrence
+				ec := e.newEvalContext(scope)
 				ec.pushFrame(e.dataFrame())
 				end := ec.beginStep()
 				value, err = ec.Eval(attr.Value)
@@ -714,23 +717,27 @@ func (e *StateExecutor) mirrorOccurrence(name string, value Value) (Value, error
 
 // mirrorOccurrenceWrite carries a write to one of the occurrence's declared
 // features, made by any performance holding the occurrence, into the machine's
-// data, which mirrors the occurrence; it reports whether fv was such a feature.
+// data under every name the data holds it by; it reports whether any changed.
 func (e *StateExecutor) mirrorOccurrenceWrite(fv *FeatureValue) bool {
 	if e.occurrence == nil || !fv.Materialized {
 		return false
 	}
+	mirrored := false
 	for _, attr := range e.graph.Attributes {
 		if attr.Shadowed || e.occurrence.FeatureValues[attr.Name] != fv {
 			continue
 		}
 		value := fv.HeldValue()
 		if held, ok := e.stateData[attr.Name]; ok && heldSame(held, value) && !e.endsLiveBinding(attr.Name, fv) {
-			return false
+			continue
+		}
+		if cell := e.stateCells.existingCell(attr.Name); cell != nil && e.ctx.derivingValue(&cell.fv) {
+			continue
 		}
 		e.ctx.writeBodyValue(e.stateCells, e.stateData, attr.Name, value)
-		return true
+		mirrored = true
 	}
-	return false
+	return mirrored
 }
 
 // endsLiveBinding reports whether a write to the occurrence's fv is an assignment
@@ -818,9 +825,8 @@ func (e *StateExecutor) stepFiring(trans *lower.Transition) *firing {
 // evalStepWithin evaluates a step's expression over the machine's data read
 // within f, nil for a step no transition performance carries.
 func (e *StateExecutor) evalStepWithin(owner ast.Node, f *firing, node ast.Node, scope *symbols.Scope) (Value, error) {
-	ec := NewEvalContextIn(e.ctx, scope, e.self)
+	ec := e.newEvalContext(scope)
 	ec.inBehaviorBody = true
-	ec.thisOccurrence = e.materializeOccurrence
 	data := e.dataFrame()
 	data.firing = f
 	ec.pushFrame(data)
@@ -4907,6 +4913,18 @@ func (e *StateExecutor) deliverPendingSignal() (bool, error) {
 	if !ok {
 		return e.hasDueEvent(), nil
 	}
+	// A message the machine takes only to drop it is not accepted: its transfer stays open.
+	if reacts, err := e.reactsTo(msg); err != nil {
+		return false, err
+	} else if reacts {
+		accepting, err := e.materializeOccurrence()
+		if err != nil {
+			return false, err
+		}
+		if err := e.ctx.recordTransfer(msg, accepting, e.self); err != nil {
+			return false, err
+		}
+	}
 	e.enqueueSignal(msg)
 	return true, nil
 }
@@ -5317,7 +5335,7 @@ func (e *StateExecutor) transitionReached(trans *lower.Transition, msg Message) 
 // occurrenceViaPort is the performance occurrence when a via not written from `this`
 // names a port the state definition owns and the performer holds none by that name.
 func (e *StateExecutor) occurrenceViaPort(holder *Instance, port string, viaSelf bool) *Instance {
-	if viaSelf || holder != e.self || e.occurrence == nil || e.occurrence == e.self || strings.Contains(port, ".") {
+	if viaSelf || e.self == nil || holder != e.self || e.occurrence == nil || e.occurrence == e.self || strings.Contains(port, ".") {
 		return nil
 	}
 	if fv, ok := e.self.FeatureValues[port]; ok && isPortFeature(fv.Feature) {
@@ -5341,9 +5359,8 @@ func (e *StateExecutor) triggerSignalMatches(accept *ast.AcceptEvent, scope *sym
 // triggerEval evaluates what a trigger declared in scope names, over the
 // machine's data.
 func (e *StateExecutor) triggerEval(scope *symbols.Scope) *EvalContext {
-	ec := NewEvalContextIn(e.ctx, scope, e.self)
+	ec := e.newEvalContext(scope)
 	ec.inBehaviorBody = true
-	ec.thisOccurrence = e.materializeOccurrence
 	ec.pushFrame(e.dataFrame())
 	return ec
 }

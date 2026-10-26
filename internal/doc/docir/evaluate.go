@@ -175,7 +175,7 @@ func crossAnchors(plans []*docplan.Plan) map[string]map[string][]string {
 	var collect func(planned []docplan.Content)
 	collect = func(planned []docplan.Content) {
 		for _, node := range planned {
-			for _, run := range node.Runs() {
+			for _, run := range refRuns(node) {
 				if run.Kind() != docplan.RunRef || run.RefDocument() == "" || len(run.RefPath()) == 0 {
 					continue
 				}
@@ -204,6 +204,16 @@ type evaluator struct {
 	path       []string
 }
 
+// refRuns lists the runs of a node that may reference another node: its own
+// runs and those of its static list items.
+func refRuns(node docplan.Content) []docplan.Run {
+	runs := node.Runs()
+	for _, item := range node.Items() {
+		runs = append(runs, item.Runs()...)
+	}
+	return runs
+}
+
 // referencedAnchors collects the anchors of every content node a reference
 // run targets.
 func referencedAnchors(planned []docplan.Content) map[string]bool {
@@ -211,7 +221,7 @@ func referencedAnchors(planned []docplan.Content) map[string]bool {
 	var walk func(nodes []docplan.Content)
 	walk = func(nodes []docplan.Content) {
 		for _, node := range nodes {
-			for _, run := range node.Runs() {
+			for _, run := range refRuns(node) {
 				if run.Kind() == docplan.RunRef && run.RefDocument() == "" {
 					anchors[AnchorFor(run.RefPath())] = true
 				}
@@ -329,10 +339,11 @@ func (e *evaluator) evaluateParagraph(node docplan.Content) (Content, error) {
 		origin: node.Origin(),
 	}
 	if planned := node.Runs(); len(planned) > 0 {
-		content.runs = make([]TextRun, len(planned))
-		for i, run := range planned {
-			content.runs[i] = evaluatedRun(run)
+		runs, err := e.evaluatedRuns(node, planned)
+		if err != nil {
+			return Content{}, err
 		}
+		content.runs = runs
 		return content, nil
 	}
 	if node.Query() == nil {
@@ -534,6 +545,9 @@ func presentColumns(columns []queryexec.Column, widths []int, labels []string) [
 }
 
 func (e *evaluator) evaluateTable(node docplan.Content) (Content, error) {
+	if node.Query() == nil {
+		return staticTable(node), nil
+	}
 	result, err := e.executeQuery(node)
 	if err != nil {
 		return Content{}, err
@@ -557,6 +571,34 @@ func (e *evaluator) evaluateTable(node docplan.Content) (Content, error) {
 		content.groups = groups
 	}
 	return content, nil
+}
+
+// staticTable is a table whose header and rows were planned from a markup
+// body: its columns are headed and sized as written, and its rows select no
+// element.
+func staticTable(node docplan.Content) Content {
+	labels, widths := node.ColumnLabels(), node.ColumnWidths()
+	columns := make([]queryexec.Column, len(labels))
+	for i, label := range labels {
+		width := 0
+		if i < len(widths) {
+			width = widths[i]
+		}
+		columns[i] = queryexec.StaticColumn(label, width, node.Origin())
+	}
+	planned := node.Rows()
+	rows := make([]queryexec.Row, len(planned))
+	for i, row := range planned {
+		rows[i] = queryexec.StaticRow(row.Cells(), row.Origin())
+	}
+	return Content{
+		kind:    ContentTable,
+		name:    node.Name(),
+		caption: node.Caption(),
+		columns: columns,
+		rows:    rows,
+		origin:  node.Origin(),
+	}
 }
 
 // groupRows partitions a grouped table's rows by the group column's cell
@@ -600,7 +642,11 @@ func (e *evaluator) groupRows(node docplan.Content, columns []queryexec.Column, 
 // cellText renders one projected cell as deterministic plain text: its
 // values joined by ", ".
 func (e *evaluator) cellText(cell queryexec.Cell) string {
-	values := cell.Values()
+	return e.valuesText(cell.Values())
+}
+
+// valuesText joins a cell's values as a list cell renders them.
+func (e *evaluator) valuesText(values []queryexec.Value) string {
 	parts := make([]string, len(values))
 	for i, value := range values {
 		parts[i] = e.valueText(value)
@@ -612,7 +658,7 @@ func (e *evaluator) cellText(cell queryexec.Cell) string {
 func evaluatedRun(run docplan.Run) TextRun {
 	switch run.Kind() {
 	case docplan.RunLink:
-		return TextRun{kind: RunLink, text: run.Text(), target: run.Target(), origin: run.Origin()}
+		return TextRun{kind: RunLink, text: run.Text(), target: run.Target(), bound: run.Bound(), origin: run.Origin()}
 	case docplan.RunRef:
 		var anchor string
 		if path := run.RefPath(); len(path) > 0 {
@@ -625,10 +671,11 @@ func evaluatedRun(run docplan.Run) TextRun {
 			document:  run.RefDocument(),
 			element:   run.RefElement(),
 			defaulted: run.TextDefaulted(),
+			bound:     run.Bound(),
 			origin:    run.Origin(),
 		}
 	default:
-		return TextRun{kind: styledKind(run.Style()), text: run.Text(), origin: run.Origin()}
+		return TextRun{kind: styledKind(run.Style()), text: run.Text(), bound: run.Bound(), origin: run.Origin()}
 	}
 }
 
@@ -648,6 +695,9 @@ func styledKind(style docplan.RunStyle) RunKind {
 }
 
 func (e *evaluator) evaluateList(node docplan.Content) (Content, error) {
+	if node.Query() == nil {
+		return e.staticList(node)
+	}
 	result, err := e.executeQuery(node)
 	if err != nil {
 		return Content{}, err
@@ -688,6 +738,79 @@ func (e *evaluator) evaluateList(node docplan.Content) (Content, error) {
 		queryOrigin: result.Origin(),
 		origin:      node.Origin(),
 	}, nil
+}
+
+// staticList is a list whose items were planned from a markup body: each
+// item's runs are already known and select no element.
+func (e *evaluator) staticList(node docplan.Content) (Content, error) {
+	planned := node.Items()
+	items := make([]ListItem, 0, len(planned))
+	for _, item := range planned {
+		evaluated, err := e.evaluatedRuns(node, item.Runs())
+		if err != nil {
+			return Content{}, err
+		}
+		items = append(items, ListItem{runs: evaluated, origin: item.Origin()})
+	}
+	return Content{
+		kind:   ContentList,
+		name:   node.Name(),
+		style:  ListStyle(node.Style()),
+		items:  items,
+		origin: node.Origin(),
+	}, nil
+}
+
+// evaluatedRuns converts planned inline runs, reading each value run's feature.
+func (e *evaluator) evaluatedRuns(node docplan.Content, planned []docplan.Run) ([]TextRun, error) {
+	runs := make([]TextRun, len(planned))
+	for i, run := range planned {
+		if run.Kind() != docplan.RunValue {
+			runs[i] = evaluatedRun(run)
+			continue
+		}
+		evaluated, err := e.valueRun(node, run)
+		if err != nil {
+			return nil, err
+		}
+		runs[i] = evaluated
+	}
+	return runs, nil
+}
+
+// valueRun reads a value run's feature as a span column's cell would — the
+// object's current value when the session holds its root, else the declared
+// one — and renders it as plain text behind the run's label.
+func (e *evaluator) valueRun(node docplan.Content, run docplan.Run) (TextRun, error) {
+	row := queryexec.ElementValue(run.ValueRoot())
+	if object, held := e.context.HeldRoot(run.ValueRoot()); held {
+		row = object
+	}
+	values, err := queryexec.ReadFeature(e.context, row, run.ValuePath(), e.options)
+	if err != nil {
+		return TextRun{}, &Error{
+			Kind:     ErrorValueEvaluation,
+			Document: e.document,
+			Content:  node.Name(),
+			Actual:   run.ValueFeature(),
+			Origin:   run.Origin(),
+			Err:      err,
+		}
+	}
+	if len(values) == 0 {
+		return TextRun{}, &Error{
+			Kind:     ErrorEmptyValue,
+			Document: e.document,
+			Content:  node.Name(),
+			Actual:   run.ValueFeature(),
+			Origin:   run.Origin(),
+		}
+	}
+	text := e.valuesText(values)
+	if label := run.Text(); label != "" {
+		text = label + " " + text
+	}
+	return TextRun{kind: RunPlain, text: text, bound: run.Bound(), origin: run.Origin()}, nil
 }
 
 // evaluateDefinitions runs a definitions block's query once and turns each

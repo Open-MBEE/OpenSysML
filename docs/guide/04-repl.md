@@ -176,6 +176,48 @@ not the order the files were loaded in — so `P::A` resolves while `P::B` does 
 from one opening to the other does not resolve either. Entering a package at the prompt is
 unaffected: it still merges into the package already in the session.
 
+### Imports from files beside the prompt
+
+The prompt also follows the imports *you* type. The directory `sysml` was started in is the
+session's workspace root (`%workspace` shows it), and when a submission imports or qualifies a
+root namespace that neither the session nor the standard library declares, the `.sysml` and
+`.kerml` files under that directory are searched for one declaring the name, and the file is
+loaded as `%load <file>` would load it — in the same submission, so the import resolves at once:
+
+```
+$ ls
+lib.sysml
+$ sysml
+sysml> private import Lib::*;
+✓ import Lib::*
+✓ package Lib
+note: loaded lib.sysml, which declares Lib
+sysml> a
+✓ a
+  = 3
+```
+
+`%eval Lib::a` and `%calc Lib::Twice(3)` on a session that has not loaded `lib.sysml` load it
+the same way. The loaded file's own imports are followed to its neighbours as a `%load`'s are,
+and when the directory holds a `.project.json`, the projects it uses are searched too, through
+the same installed-project lookup the command line's project loading performs — never over the
+network. Hidden directories are not searched.
+
+A file loaded this way is a loaded file like any other: `%list` shows it, its diagnostics name it
+and its line, typing `package Lib { … }` at the prompt replaces it, and `%clear` drops it. One
+difference: `%save` leaves it out when the saved file will find it — beside or below the saved
+file, where a load of that file follows its imports — so a session saved into the workspace does
+not declare `Lib` twice; a save somewhere else, where the import could not be followed, writes the
+declarations the typed text imports along with it, so the saved file still loads on its own.
+
+Only a name the typed text leaves unresolved is looked for, and only a file that declares it at
+its root loads — nothing else under the directory does; `%load dir/` stays the way to load
+everything. When two files under the root declare the same root name, neither loads, and the
+submission reports both (`note: Lib is declared by more than one file under …: a.sysml,
+b/lib.sysml; load the one meant with %load`); load the one meant by name. A candidate file the parser
+cannot read loads with its diagnostics reported against the file, as `%load` reports them. A
+name no file declares is reported as `unresolved reference`, as before, and nothing loads.
+
 ### Known behaviour
 
 Two evaluation rules of the prompt predate per-file loading and are kept as they are; both are
@@ -316,15 +358,16 @@ no rendering is drawn as a tree:
 sysml> %render Demo::summary
 Demo::summary - tree rendering (the view states no rendering; a tree is the default)
 
-part def Demo::Vehicle
-  attribute mass : Real
-  part wheel : Wheel
-view Demo::summary::detail
-  part def Demo::Wheel
-    attribute diameter : Real
+part def Vehicle
+  attribute mass
+  part wheel
+    attribute diameter
+view detail
+  part def Wheel
+    attribute diameter
 
 relationships:
-  Demo::Vehicle *-- Demo::Wheel: wheel
+  Vehicle *-- Wheel: wheel
 ```
 
 The tree draws the lines a block definition diagram shows between its boxes, wherever both
@@ -388,8 +431,9 @@ it ([the details](../project/view-rendering-forms.md#limiting-what-a-view-draws)
   `view overview { expose vehicle; attribute depth = 2; render asTreeDiagram; }`. An element at the
   bound keeps its ports and compartment rows and says `nested deeper than 2 levels; not shown`.
   `%render Fleet::overview depth=1` overrides it for one render.
-- A `DiagramLayout::Layout` with `collapsed = true` about an element folds its children away in
-  every form: `metadata Layout about vehicle::engine { collapsed = true; }`. A Layout that only
+- A `DiagramLayout::Layout` with `collapsed = true` about an element folds what it nests away in
+  every form, keeping the ports on its boundary and the connectors that end at them:
+  `metadata Layout about vehicle::engine { collapsed = true; }`. A Layout that only
   folds (or only hides compartments with its `show…` switches) needs no `x` and `y`; the form
   still lays the diagram out itself. Give it a position too and the diagram becomes a positioned
   one, in which nodes without a position are left undrawn.

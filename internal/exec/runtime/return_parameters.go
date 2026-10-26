@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -69,14 +70,15 @@ func (ctx *Context) returnParameterValue(inst *Instance, sym *symbols.Symbol, fe
 
 // statesConditions reports whether sym is a definition or usage whose result is
 // the conjunction of the conditions it states: a requirement, viewpoint, concern
-// or a case's objective (SysML v2 §7.21, §7.22.2, Requirements.sysml `RequirementCheck::result`).
+// or a case's objective (SysML v2 §7.21, §7.22.2, Requirements.sysml `RequirementCheck::result`),
+// a satisfy usage among them (SysML v2 §7.21.4, §8.3.21.10 SatisfyRequirementUsage).
 func statesConditions(sym *symbols.Symbol) bool {
 	switch decl := sym.Decl.(type) {
 	case *ast.Definition:
 		return decl.Kind == ast.DefRequirement || decl.Kind == ast.DefViewpoint || decl.Kind == ast.DefConcern
 	case *ast.Usage:
 		return decl.Kind == ast.UsageRequirement || decl.Kind == ast.UsageViewpoint || decl.Kind == ast.UsageConcern ||
-			decl.Kind == ast.UsageObjective || (decl.Kind == ast.UsageSatisfy && !decl.IsVerifiedRequirement())
+			decl.Kind == ast.UsageObjective || satisfyAssertionUsage(sym)
 	}
 	return false
 }
@@ -94,6 +96,23 @@ func (ctx *Context) ownResultParameter(typ, sym *symbols.Symbol) string {
 		}
 	}
 	return ""
+}
+
+// implicitSatisfactionSubject is the object holding inst, the subject of a satisfy
+// usage declared without `by` (SysML v2 §7.21.4); nil for any other read.
+func implicitSatisfactionSubject(typ *symbols.Symbol, inst *Instance) *Instance {
+	if !satisfyAssertionUsage(typ) || satisfiedBy(typ) != nil {
+		return nil
+	}
+	owner, _ := inst.Owner()
+	return owner
+}
+
+// satisfyAssertionUsage reports a `satisfy` usage asserting a satisfaction, not an
+// objective's `verify r;`.
+func satisfyAssertionUsage(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.Kind == ast.UsageSatisfy && !usage.IsVerifiedRequirement()
 }
 
 // conditionSelf is the object a requirement usage's conditions read: the object owner
@@ -135,7 +154,7 @@ func (ctx *Context) conditionResultValue(typ *symbols.Symbol, inst *Instance, sy
 	if owner, _ := inst.Owner(); owner != nil {
 		bindingSelf = owner
 	}
-	bindings, err := ctx.memberBindings(typ, "requirement", typ.Name, members, bindingSelf, nil, frame{})
+	bindings, err := ctx.memberBindings(typ, "requirement", typ.Name, members, bindingSelf, implicitSatisfactionSubject(typ, inst), frame{})
 	if err != nil {
 		return ctx.conditionResultOf(err, sym, feat)
 	}
@@ -253,9 +272,9 @@ func impliesValue(assumptions, constraints Value) Value {
 }
 
 // unboundInput reports an evaluation that read an input nothing binds: an unbound
-// subject, an uninitialized feature, or a condition whose value is undetermined.
+// subject or parameter, an uninitialized feature, or a condition whose value is undetermined.
 func unboundInput(err error) bool {
-	return errors.Is(err, errUnboundSubject) || errors.Is(err, errUninitializedFeatureValue) ||
+	return errors.Is(err, errUnboundSubject) || errors.Is(err, errUnboundParameter) || errors.Is(err, errUninitializedFeatureValue) ||
 		errors.Is(err, ErrNoValue) || errors.Is(err, ErrNeedsObject)
 }
 
@@ -280,33 +299,95 @@ func (ctx *Context) verificationVerdictValue(typ *symbols.Symbol, inst *Instance
 	return undeterminedFeatureValue("the library declares no VerdictKind::"+string(verdict.Kind), feat.Multiplicity, sym), nil
 }
 
-// constraintUsageRead answers a read of a constraint usage declared on inst's type —
-// `constraint c { … }` or `assert constraint c { … }` — as the constraint evaluated on
-// inst, the predicate the object enacts; not ok for a usage stating no body of its
-// own (a typed or `::>` reference denotes its object), one bound to a value, a
-// variation, or a library collection of constraint objects.
-func (ec *EvalContext) constraintUsageRead(inst *Instance, name string) (Value, bool, error) {
+// enactedConstraint is the constraint usage declared on inst's type that name
+// denotes — `constraint c { … }` or `assert constraint c { … }` — the predicate the
+// object enacts; not ok for a usage stating no body of its own (a typed or `::>`
+// reference denotes its object), one bound to a value, a variation, or a library
+// collection of constraint objects.
+func (ec *EvalContext) enactedConstraint(inst *Instance, name string) (*symbols.Symbol, bool) {
 	fv, ok := inst.FeatureValues[name]
 	if !ok || fv.Feature == nil || fv.Feature.Symbol == nil || fv.Feature.Symbol.Kind != symbols.SymbolConstraintUsage {
-		return Value{}, false, nil
+		return nil, false
 	}
 	sym := fv.Feature.Symbol
 	if !semantics.StatesOwnCondition(sym) || !fv.Feature.Scalar() || fv.Feature.DefaultValue != nil ||
 		ec.ctx.libraryDeclared(sym) || ec.ctx.model.semantics.IsVariationFeature(sym) || fv.Materialized || fv.HeldValue().Kind != ValInvalid {
-		return Value{}, false, nil
+		return nil, false
 	}
+	return sym, true
+}
+
+// constraintUsageRead answers a read of the constraint usage sym the object inst
+// enacts as the constraint evaluated on inst: its verdict, undetermined where an
+// input of it is unbound.
+func (ec *EvalContext) constraintUsageRead(inst *Instance, sym *symbols.Symbol) (Value, error) {
 	result, err := ec.ctx.CheckConstraintOn(sym, sym.OwnerScope, inst)
 	if err != nil {
 		if unboundInput(err) {
-			return undeterminedFeatureValue(err.Error(), fv.Feature.Multiplicity, sym), true, nil
+			return undeterminedFeatureValue(err.Error(), inst.FeatureValues[sym.Name].Feature.Multiplicity, sym), nil
 		}
 		var violation *ViolationError
 		if errors.As(err, &violation) {
-			return boolValue(false), true, nil
+			return boolValue(false), nil
 		}
-		return Value{}, true, err
+		return Value{}, err
 	}
-	return boolValue(result.Holds), true, nil
+	return boolValue(result.Holds), nil
+}
+
+// constraintMemberValue reads a member of the constraint usage sym on inst — an `in`
+// parameter or a feature its body declares, features of the usage as of any other
+// (SysML v2 §7.20.2) — as the check evaluates it: the value it declares over inst,
+// else undetermined, an input nothing binds included. Not found for a name the
+// usage declares neither way.
+func (ec *EvalContext) constraintMemberValue(inst *Instance, sym *symbols.Symbol, name string) (Value, bool, error) {
+	features := ec.ctx.conditionFeatures(sym)
+	bound, declared := features[name]
+	if !declared {
+		return Value{}, false, nil
+	}
+	scope := bound.scope
+	if scope == nil {
+		scope = sym.OwnerScope
+	}
+	env := NewEvalContextIn(ec.ctx, scope, inst)
+	env.features = features
+	env.openInputs = true
+	if val, ok, err := env.valuedFeatureValue(name); ok {
+		if err != nil {
+			return Value{}, true, fmt.Errorf("constraint %s: %s: %w", sym.Name, name, err)
+		}
+		return val, true, nil
+	}
+	var count semantics.Range
+	if bound.held != nil {
+		count = ec.ctx.effectiveFeature(name, bound.held, sym).Multiplicity
+	}
+	return undeterminedFeatureValue(fmt.Sprintf("constraint %s binds no value to %s", sym.Name, name), count, bound.held), true, nil
+}
+
+// openConditionInput is the undetermined read, in a member read of a condition, of a
+// declared `in` it binds nothing to: a default reading it is open with it (KerML §7.3.2.2).
+func (ec *EvalContext) openConditionInput(name string) (Value, bool) {
+	bound, declared := ec.features[name]
+	if !ec.openInputs || !declared || bound.expr != nil || bound.held == nil || ec.resolving[name] {
+		return Value{}, false
+	}
+	held := bound.held
+	if !semantics.IsBehaviorParameter(held) || ec.ctx.model.semantics.DeclaredDirection(held) != ast.DirIn {
+		return Value{}, false
+	}
+	reason := fmt.Sprintf("%s binds no value to %s", ec.ctx.QualifiedName(held.Owner()), name)
+	return undeterminedFeatureValue(reason, ec.ctx.model.semantics.EffectiveParameterRange(held), held), true
+}
+
+// constraintMemberSegment is the member a chain through a constraint usage reads
+// next and the segments after it; "" when the chain ends at the usage or at its `result`.
+func constraintMemberSegment(rest []ast.NameSegment) (string, []ast.NameSegment) {
+	if len(rest) == 0 || rest[0].Text == "result" {
+		return "", nil
+	}
+	return rest[0].Text, rest[1:]
 }
 
 // constraintResultTail drops a trailing `result` segment of a chain through a

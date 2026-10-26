@@ -430,6 +430,10 @@ fn a_document_query_answers_typed_rows_and_a_document_renders() {
         .render_document("Observatory::MassReport", DocumentForm::Html)
         .unwrap();
     assert!(html.contains("<"), "{html}");
+    let asciidoc = model
+        .render_document("Observatory::MassReport", DocumentForm::AsciiDoc)
+        .unwrap();
+    assert!(asciidoc.starts_with("= "), "{asciidoc}");
 }
 
 #[test]

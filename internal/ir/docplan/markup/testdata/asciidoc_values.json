@@ -1,0 +1,1 @@
+{"blocks":[{"kind":"paragraph","line":1,"runs":[{"kind":"text","style":"plain","text":"Mirror mass "},{"kind":"value","target":"Optics::mirror.mass","text":""},{"kind":"text","style":"plain","text":" and "},{"kind":"value","target":"Optics::mount.mass","text":"mount mass:"},{"kind":"text","style":"plain","text":" end."}]}]}

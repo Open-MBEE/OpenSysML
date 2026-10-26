@@ -245,9 +245,43 @@ func (ctx *Context) computeEffectiveTypes(featureSym *symbols.Symbol) []*symbols
 // conjoinedTypes returns the effective types that typ, the type the feature's objects
 // are made as, does not stand for: `Panel :> frames : Framed` holds both (§7.3.4.3).
 func (ctx *Context) conjoinedTypes(featureSym, typ *symbols.Symbol) []*symbols.Symbol {
-	return slices.DeleteFunc(slices.Clone(ctx.effectiveTypes(featureSym)), func(other *symbols.Symbol) bool {
+	types := slices.Clone(ctx.effectiveTypes(featureSym))
+	for _, base := range ctx.implicitFeatureBases(featureSym) {
+		if !slices.Contains(types, base) {
+			types = append(types, base)
+		}
+	}
+	return slices.DeleteFunc(types, func(other *symbols.Symbol) bool {
 		return other == typ || ctx.model.semantics.Conforms(typ, other)
 	})
+}
+
+// implicitFeatureBases returns the bases the kinds of a feature and of the features it
+// specializes imply (KerML §7.3.4): `:>> vertices` redefining `item :>> vertices` holds Items.
+func (ctx *Context) implicitFeatureBases(featureSym *symbols.Symbol) []*symbols.Symbol {
+	sem := ctx.model.semantics
+	var out []*symbols.Symbol
+	seen := map[*symbols.Symbol]bool{}
+	var walk func(*symbols.Symbol)
+	walk = func(f *symbols.Symbol) {
+		if f == nil || seen[f] {
+			return
+		}
+		seen[f] = true
+		for _, base := range sem.ImplicitBases(f) {
+			if base != nil && !slices.Contains(out, base) {
+				out = append(out, base)
+			}
+		}
+		implicit := sem.ImplicitParameterRedefinitions(f)
+		for _, sup := range sem.DeclaredSupertypes(f) {
+			if sup.IsFeature() && !slices.Contains(implicit, sup) {
+				walk(sup)
+			}
+		}
+	}
+	walk(featureSym)
+	return out
 }
 
 // withConjoinedTypes classifies the object by every type its feature conjoins and adds

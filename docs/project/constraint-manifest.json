@@ -2084,10 +2084,10 @@
         "document": "sysml",
         "clause": "8.3.16.3"
       },
-      "checks": "A flow is typed by flow definitions",
+      "checks": "A flow is typed by flow definitions, in the `flow` and `message` spellings alike: a message declaration is an abstract flow usage (§8.4.12.2), so `message m : Note` with `Note` an item definition is reported as `flow f : Note` is; `message m of Note` names the payload type, not a typing, and is silent",
       "implementation": "internal/check/passes/typecheck.go:compatibleTyping (messages in internal/check/passes/w10b_usage_typing.go:pilotTypingMessage)",
       "message": "—",
-      "negativeCase": "`semantic/s19-flow-typed-by-connection-def.sysml`",
+      "negativeCase": "`semantic/s19-flow-typed-by-connection-def.sysml`, `semantic/s19b-message-typed-by-item-def.sysml`",
       "codes": [
         "usage-typing"
       ],
@@ -4361,10 +4361,10 @@
         "document": "sysml",
         "clause": "8.3.6.4"
       },
-      "checks": "A usage is typed by definitions (`A usage must be typed by definitions.`); the pilot reports this general constraint, not the kind-specific one, when a usage of no specific kind is typed by a feature; a transition's bare accept name is also treated as its payload type and rejected when it resolves to a usage",
+      "checks": "A usage is typed by definitions (`A usage must be typed by definitions.`); the pilot reports this general constraint, not the kind-specific one, when a usage of no specific kind is typed by a feature, by name or by a feature chain that ends in one; a transition's bare accept name is also treated as its payload type and rejected when it resolves to a usage",
       "implementation": "internal/check/passes/typecheck.go:compatibleTyping (messages in internal/check/passes/w10b_usage_typing.go:pilotTypingMessage); transition bare accepts in internal/check/passes/typecheck_trigger.go:checkTransitionAccept",
       "message": "—",
-      "negativeCase": "`semantic/s36-usage-typed-by-feature.sysml`, `semantic/s99-transition-accept-typed-by-usage.sysml`",
+      "negativeCase": "`semantic/s36-usage-typed-by-feature.sysml`, `semantic/s117-usage-typed-by-feature-chain.sysml`, `semantic/s99-transition-accept-typed-by-usage.sysml`",
       "codes": [
         "usage-typing"
       ],

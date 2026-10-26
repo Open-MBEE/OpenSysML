@@ -218,6 +218,43 @@ Notebooks load wherever model files do: `%load notebooks/` and `%load '*.ipynb'`
 beside `.sysml` files, `sysml wheels.ipynb` loads one on the command line, and a notebook's
 imports are followed to the files beside it as a loaded file's are.
 
+## Imports from files beside the notebook
+
+A model kept in files beside the notebook needs no `%load` to be imported. Jupyter starts a
+kernel in the notebook's directory, and the kernel takes that directory as the session's
+workspace root (`%workspace` shows it): when a cell imports or qualifies a root namespace that
+neither the session nor the standard library declares, the `.sysml` and `.kerml` files under
+the directory are searched for one declaring the name, and that file loads as `%load <file>`
+would, in the same cell, so the import resolves at once.
+
+With `lib.sysml` beside the notebook holding `package Lib { attribute a = 3; }`:
+
+```sysml
+private import Lib::*;
+a
+```
+
+```text
+✓ import Lib::*
+✓ package Lib
+note: loaded lib.sysml, which declares Lib
+✓ a
+  = 3
+```
+
+`%eval Lib::a` and `%calc` on a calc of `Lib` load the file the same way. The loaded file's own
+imports are followed to its neighbours as a `%load`'s are, and when the notebook's directory
+holds a `.project.json`, the projects it uses are searched too. The file is then a loaded file
+like any other — `%list` shows it, its diagnostics name it and its line, redeclaring the package
+in a cell replaces it, `%clear` drops it — except that `%save` leaves it out when the saved file will find it
+beside or below itself, and writes its declarations along when saving somewhere they would not be
+found. Only a name a cell leaves unresolved is looked for, and only the one file
+declaring it loads: when two files under the directory declare the same name neither does, the
+cell says which (`note: Lib is declared by more than one file under …; load the one meant with %load`),
+and `%load` of the one meant resolves it. See
+[Imports from files beside the prompt](04-repl.md#imports-from-files-beside-the-prompt) for the
+rule in full.
+
 ## Rich output
 
 Output that has a richer form than text is sent in that form beside the text, and the

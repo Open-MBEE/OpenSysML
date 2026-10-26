@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 const (
@@ -234,17 +236,9 @@ func (w *dotWriter) frameHeader(r *Rendering) string {
 		break
 	}
 	if r.View != "" {
-		parts = append(parts, "[ "+dotEscape(displayText(lastName(r.View)))+" ]")
+		parts = append(parts, "[ "+dotEscape(displayText(symbols.LastSegment(r.View)))+" ]")
 	}
 	return strings.Join(parts, " ")
-}
-
-// lastName is the last segment of a qualified name, the name itself otherwise.
-func lastName(qualified string) string {
-	if i := strings.LastIndex(qualified, "::"); i >= 0 {
-		return qualified[i+2:]
-	}
-	return qualified
 }
 
 // dotBB is a pixel box as a Graphviz `bb`, lower-left then upper-right.
@@ -960,6 +954,36 @@ func (w *dotWriter) engine() string {
 		return "neato -n2"
 	}
 	return "neato -n"
+}
+
+// graphvizEngines are the layout engines a `// layout:` header may name.
+var graphvizEngines = map[string]bool{
+	"dot": true, "neato": true, "fdp": true, "sfdp": true, "circo": true, "twopi": true, "osage": true, "patchwork": true,
+}
+
+// DOTLayout reads the `// layout:` header among the comment lines ahead of a
+// DOT graph: the Graphviz engine it names and the flags after it (`-n`,
+// `-n2`). A source without a header, or naming no engine, reports none.
+func DOTLayout(source string) (engine string, flags []string) {
+	for _, line := range strings.Split(source, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if !strings.HasPrefix(line, "//") {
+			return "", nil
+		}
+		spec, ok := strings.CutPrefix(line, "// layout:")
+		if !ok {
+			continue
+		}
+		fields := strings.Fields(spec)
+		if len(fields) == 0 || !graphvizEngines[fields[0]] {
+			return "", nil
+		}
+		return fields[0], fields[1:]
+	}
+	return "", nil
 }
 
 // collectClusters records every node under node that is drawn as a cluster

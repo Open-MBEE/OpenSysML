@@ -79,6 +79,11 @@ type VerificationResult struct {
 	Subcases []VerificationVerdict
 }
 
+// Verdicts lists the run's verdicts as a report prints them: the body's, then each subcase's.
+func (r VerificationResult) Verdicts() []VerificationVerdict {
+	return append([]VerificationVerdict{r.Verdict}, r.Subcases...)
+}
+
 // IsVerificationCaseSymbol reports whether sym declares a verification case
 // definition or usage.
 func IsVerificationCaseSymbol(sym *symbols.Symbol) bool {

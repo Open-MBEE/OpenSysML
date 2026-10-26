@@ -45,11 +45,11 @@ mandatory header — `// Invalid: <rule> (<citation>).` — naming the one rule 
 where that rule comes from; the harness refuses a corpus file without it. Cases were derived
 systematically from four sources, one subdirectory each:
 
-1. **`grammar/` — grammar mutation** (112 cases: 20 original, 45 added along the *unreached* axis
+1. **`grammar/` — grammar mutation** (114 cases: 20 original, 45 added along the *unreached* axis
    described below, 13 from a second sweep, 7 body-position cases
    `g61`–`g67` from the constraint census described under `semantic/`, the two second-result-expression
    bodies `g69`/`k20`, the two name-before-keyword members `g70`/`k21`, the seventeen prefix and
-   body-context cases `g71`–`g81`, `k22`–`k27`, and the four owning-body members `g82`–`g85` —
+   body-context cases `g71`–`g81`, `k22`–`k27`, and the four owning-body members `g82`–`g85`, and the satisfaction subject written as an expression (`g87`, `satisfy requirement sr : R by sub#(1);`, which the pinned grammar's `SatisfactionReferenceExpression` admits only as a feature chain) —
    `frame` in a view and a view def body, `filter` in a rendering def body and `accept` in a view
    body, each a syntax error under the pinned grammar —: exclusive prefix alternatives written together
    (`abstract variation`, `composite portion`) or repeated (`composite composite`), a repeated direction (on an ordinary and on a
@@ -62,14 +62,14 @@ systematically from four sources, one subdirectory each:
    multiplicity on a definition, `g07`/`g08` state members in a part def body), a token from a
    sibling production (`g15` a keyword as a name, `k02` a SysML keyword in KerML), and unterminated
    bodies and comments (`g01`, `g12`, `k05`).
-2. **`extensions/` — the notation we invented** (12 cases). Every state-machine construct our
+2. **`extensions/` — the notation we invented** (13 cases). Every state-machine construct our
    `examples/` tree uses that no pinned production admits: `initial`, `choice`, `junction`,
    `history`, `region`, the since-removed `defer` member, and the `transition <src> to <tgt>` shorthand, plus `require`
-   outside a requirement body (`x08`, since made a parse error), `expose` in a view def body (`x09`), which our grammar admits as an extension, KerML's `connector` declared in a `.sysml` file (`x10`), which the default mode keeps parsed as a `kerml-notation` warning and strict mode refuses, and a one-name `then <target>;` in a view body (`x12`), a succession member no non-action body admits. The pinned grammar
+   outside a requirement body (`x08`, since made a parse error), `expose` in a view def body (`x09`), which our grammar admits as an extension, KerML's `connector` declared in a `.sysml` file (`x10`) and a typing spelled `typed by` in one (`x13`), which the default mode keeps parsed as a `kerml-notation` warning and strict mode refuses, and a one-name `then <target>;` in a view body (`x12`), a succession member no non-action body admits. The pinned grammar
    spells entry as `entry; then <state>`, concurrency as `state ... parallel`, and transitions as
    `first <src> then <tgt>`, and has no pseudostates or deferral at all. Adjudication: these are
    **intended OpenSysML extensions**, not accidents — each has dedicated parser tests
-   (`internal/core/parser/state_notation_test.go`) and runtime support. They are documented as
+   (`internal/syntax/parser/state_notation_test.go`) and runtime support. They are documented as
    extensions and, since strict mode was added, gated behind an opt-in
    [strict conformance mode](../guide/03-command-line.md#strict-conformance) a conformance-minded
    user can turn on; the default mode keeps accepting them on purpose.
@@ -118,7 +118,7 @@ systematically from four sources, one subdirectory each:
    pilot's grammar rejects before its validator would), and a constructed payload whose `new`
    names a package rather than a type (`send-constructor-non-type`).
 
-What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 344
+What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 349
 cases ourselves**, so the denominator measures our coverage of the rejection surface, not our
 conformance: it is a **sample, not a proof** — a clean bucket here does not mean OpenSysML rejects
 everything the reference rejects, and no official conformance suite exists to make that claim
@@ -166,15 +166,15 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-344 case(s): 332 both reject, 0 only the pilot rejects, 12 only we reject, 0 both accept
-  of which 3 agree only because we were asked strictly (the default mode accepts them, by design)
+349 case(s): 337 both reject, 0 only the pilot rejects, 12 only we reject, 0 both accept
+  of which 5 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
 | Source | Cases | Both reject | Pilot only | Ours only | Both accept |
 | --- | --- | --- | --- | --- | --- |
-| extensions | 12 | 12 | 0 | 0 | 0 |
-| grammar | 112 | 112 | 0 | 0 | 0 |
-| semantic | 185 | 173 | 0 | 12 | 0 |
+| extensions | 13 | 13 | 0 | 0 | 0 |
+| grammar | 114 | 114 | 0 | 0 | 0 |
+| semantic | 187 | 175 | 0 | 12 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
 Eight of the twelve ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
@@ -250,7 +250,7 @@ only features that have none, so both validators reject each end under
 each a syntax error under the pinned grammar, as our parser now reports them) and `x12` (`then
 <target>;` in a view body, a succession member no non-action body admits) brought it to 328; `s108`
 (a usage subsetting a constant usage) to 329; and the two definition-end usage cases
-(`connection-def-end-not-usage`, `flow-def-end-not-usage`), both ours-only, to 331; the end-feature owner cases `k75`, `s110` and `s111` (a non-end feature redefining an inherited end from inside a KerML connector, a SysML connection definition and a connection usage — the owners KerML 1.1 §8.3.3.3.8 `validateRedefinitionEndConformance` names — `Redefining feature must be an end feature` at the redefinition on both sides) brought it to 334; the variant-kind case (`variant-kind-inconsistent-with-variation`, an action variant of a part variation definition and an action and an attribute variant of a part variation usage, which the variant's implied specialization of its variation types — SysML v2 §7.6.7, `checkUsageVariationDefinitionSpecialization`, `checkUsageVariationUsageSpecialization` — `An action must be typed by action definitions.` on both sides) brought it to 335; the subject-position cases `s112` and `s113` (a stakeholder declared before any subject in a concern definition, displacing the subject it inherits, and a stakeholder a framed concern declares ahead of the subject it inherits from its definition — SysML v2 §8.3.21.8 `validateRequirementDefinitionSubjectParameterPosition` and §8.3.21.9 `validateRequirementUsageSubjectParameterPosition`, both-reject) to 337; and the objective owned by a variation case usage (`variation-usage-objective-not-variant`, ours-only: SysML v2 §8.3.6.4 `validateUsageVariationOwnedFeatureMembership` rejects it and the pinned pilot exempts it by its own `TODO`) to 338; the constructor-argument case `s114` (`new A(x = 2)` and `new A(3)` under `attribute x : Integer = 1`, each argument a feature of the result redefining `x` with a value of its own — KerML 1.1 §8.3.4.10.2 `validateFeatureValueOverriding`, `Cannot override a binding feature value` at the argument values on both sides) brought it to 339; the standalone-subsetting case `k77` (`specialization subset fu :> A::a;` naming a feature of another struct — KerML 1.1 §8.3.3.3.10 `validateSubsettingFeaturingTypes`, `Must be an accessible feature (use dot notation for nesting)` at the subsetted name on both sides) brought it to 340; the direction-conformance cases `s115`, `s116` and `k76` (a usage-body `:>> durationS = 3.0` under `in durationS`, a step whose first parameter `out :>> output` redefines `in input` by position, and KerML `feature :>> x; feature :>> y;` under `in x; inout y;` — KerML 1.1 §8.3.3.3.8 `validateRedefinitionDirectionConformance`, `Redefining feature must have a compatible direction` on both sides) brought it to 343.
+(`connection-def-end-not-usage`, `flow-def-end-not-usage`), both ours-only, to 331; the end-feature owner cases `k75`, `s110` and `s111` (a non-end feature redefining an inherited end from inside a KerML connector, a SysML connection definition and a connection usage — the owners KerML 1.1 §8.3.3.3.8 `validateRedefinitionEndConformance` names — `Redefining feature must be an end feature` at the redefinition on both sides) brought it to 334; the variant-kind case (`variant-kind-inconsistent-with-variation`, an action variant of a part variation definition and an action and an attribute variant of a part variation usage, which the variant's implied specialization of its variation types — SysML v2 §7.6.7, `checkUsageVariationDefinitionSpecialization`, `checkUsageVariationUsageSpecialization` — `An action must be typed by action definitions.` on both sides) brought it to 335; the subject-position cases `s112` and `s113` (a stakeholder declared before any subject in a concern definition, displacing the subject it inherits, and a stakeholder a framed concern declares ahead of the subject it inherits from its definition — SysML v2 §8.3.21.8 `validateRequirementDefinitionSubjectParameterPosition` and §8.3.21.9 `validateRequirementUsageSubjectParameterPosition`, both-reject) to 337; and the objective owned by a variation case usage (`variation-usage-objective-not-variant`, ours-only: SysML v2 §8.3.6.4 `validateUsageVariationOwnedFeatureMembership` rejects it and the pinned pilot exempts it by its own `TODO`) to 338; the constructor-argument case `s114` (`new A(x = 2)` and `new A(3)` under `attribute x : Integer = 1`, each argument a feature of the result redefining `x` with a value of its own — KerML 1.1 §8.3.4.10.2 `validateFeatureValueOverriding`, `Cannot override a binding feature value` at the argument values on both sides) brought it to 339; the standalone-subsetting case `k77` (`specialization subset fu :> A::a;` naming a feature of another struct — KerML 1.1 §8.3.3.3.10 `validateSubsettingFeaturingTypes`, `Must be an accessible feature (use dot notation for nesting)` at the subsetted name on both sides) brought it to 340; the direction-conformance cases `s115`, `s116` and `k76` (a usage-body `:>> durationS = 3.0` under `in durationS`, a step whose first parameter `out :>> output` redefines `in input` by position, and KerML `feature :>> x; feature :>> y;` under `in x; inout y;` — KerML 1.1 §8.3.3.3.8 `validateRedefinitionDirectionConformance`, `Redefining feature must have a compatible direction` on both sides) brought it to 343; the owned-cross-feature case `k78` (a `member` binding connector written ahead of an end's cross feature is not the owned cross feature, so the mistyped feature after it still has to carry the end's type — KerML 1.1 §8.3.3.3.4 `Feature::ownedCrossFeature`, `validateFeatureCrossFeatureType` on both sides) brought it to 344; the feature-chain typing cases `s117` and `g86` (a `ref` and a `part` typed by `rig.wheel`, a chain that ends in a feature where a usage's types are Classifiers, nominally Definitions — SysML v2 §8.3.6.4 `Usage::definition`, `validateUsageType`/`validateOccurrenceUsageType`, `A usage must be typed by definitions.` / `An occurrence, item or part must be typed by occurrence definitions.` on both sides — and a conjugated port typing followed by a feature chain, `~hub.socket`, which the pinned grammar has no production for, `no viable alternative at input '.'`, and which our parser now reports) brought it to 346; the `typed by` spelling case `x13` (a typing written with KerML's `typed by` in a `.sysml` file — a `kerml-notation` warning by default, an error in strict mode, which is how it agrees with the pilot's parse error) brought it to 347; and the message-typing case `s19b` (`message note : Note from sender.emit to receiver.receive;` with `Note` an item definition — a message declaration is an abstract flow usage, SysML v2 §8.4.12.2, `validateFlowUsageType`, `A flow connection must be typed by flow connection definitions.` on both sides) brought it to 348.
 The KerML constraints in that
 source reopened 14 gaps — all of them semantic rules the pilot enforces and we did not; the
 named-argument validation that landed alongside closed one of them (`k33`), the constructor
@@ -278,24 +278,24 @@ rules closed eleven `xpect/` gaps (`p08`, `p17`, `p20`,
 `p21`, `p22`, `p25`, `p26`, `p27`, `p28`, `p32`, `p33`). No case in the corpus is
 accepted by both implementations.
 
-The four strict-only agreements are `x06`, `x09`, `x10` and `x11`: OpenSysML notation
-extensions that the default mode reports as `nonstandard-notation` warnings on purpose and strict
+The five strict-only agreements are `x06`, `x09`, `x10`, `x11` and `x13`: OpenSysML notation
+extensions that the default mode reports as `nonstandard-notation` or `kerml-notation` warnings on purpose and strict
 mode reports as errors. `x01` (the
 initial state marker), `x04` (`region r { … }`), `x05` (the `defer <event>;` state member),
 `x07` (`transition <src> to <tgt>`) and `x08` (`require` outside a requirement body) left that
 list when that notation was removed: each is now a parse error in either mode, so both
 implementations reject it by default. Judged in
-the default mode the same corpus gives 306 agreements and 4 gaps, which is what `-conformance
-default` prints. `-conformance strict` gives 310 and 0. Reserved keywords recovered as declared
+the default mode the same corpus gives 330 agreements and 5 gaps, which is what `-conformance
+default` prints. `-conformance strict` gives 335 and 0. Reserved keywords recovered as declared
 names and SysML declaration keywords recovered in KerML are now errors in either mode; the parser
 still preserves their trees for editors and later analysis. Of the 14 gaps this document carried
 when it was first written, six were closed by the validation work itself — `p01`, `p02`, `p03`,
-`p04`, `p05` and `p06` — and only the four `extensions/` cases belong to strict mode.
+`p04`, `p05` and `p06` — and only the five `extensions/` cases belong to strict mode.
 
-Read those four as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
+Read those five as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 344 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 349 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 
@@ -432,7 +432,7 @@ because abstractness of a metaclass was not a fact the reduced library record ca
 The record format supplies it: the library is parsed on every load path and `Abstract` is a
 persisted fact family under the reflective equality coverage, so `symbols.IsAbstract` answers the
 same cold and warm. Persisting a fact emits no diagnostic on its own — the rule
-(`internal/core/passes/w8c_metadata_type.go`) reads that accessor instead of casting `Decl`, which
+(`internal/check/passes/w8c_metadata_type.go`) reads that accessor instead of casting `Decl`, which
 is what closed the row.
 
 ## Adjudications
@@ -446,7 +446,7 @@ each case to rejection.
   VisibilityIndicator` **mandatory**, unlike the optional `MemberPrefix` visibility beside it
   (`SysML.xtext:218`), so `import Q::*;` is not a well-formed import and the reference reports
   `mismatched input 'import'`. We do report it — as a *warning*
-  (`internal/core/passes/import_visibility.go`, code `import-visibility`), and warnings do not
+  (`internal/check/passes/grammar_violation.go`, code `import-visibility`), and warnings do not
   count as rejection here. Per the pinned grammar the severity should be an error in the default
   mode: either raise `SeverityWarning` to an error, or make it
   conformance-dependent as `nonstandard_notation.go` already does.
@@ -456,7 +456,7 @@ each case to rejection.
   pinned grammar's `Name` is the `ID` terminal, which excludes keywords, and `part def part;` is
   `no viable alternative at input 'part'`. We read a keyword in name position as the name the
   author meant and report that an unrestricted name (`'part'`) is required to spell it
-  (`internal/core/parser/namespace.go`, code `reserved-keyword-name`, KerML §7.2.4) — a recovery
+  (`internal/syntax/parser/namespace.go`, code `reserved-keyword-name`, KerML §7.2.4) — a recovery
   policy chosen so an editor keeps a usable tree, documented in
   [conformance-audit.md](../reference/grammar/conformance-audit.md). Strict mode already escalated
   the parser warning without changing that reading. The user explicitly approved applying the
@@ -471,7 +471,7 @@ each case to rejection.
 - **`grammar/k02-sysml-keyword-in-kerml.kerml` — recoverable language error by approved policy.**
   `part def` exists in no KerML production; the KerML validator reports `no viable
   alternative at input 'def'`. We parse `.kerml` with the same grammar as `.sysml` and filter
-  afterwards: `internal/core/passes/nonstandard_notation.go` reports SysML-only notation in a
+  afterwards: `internal/check/passes/nonstandard_notation.go` reports SysML-only notation in a
   KerML file while preserving the parsed declaration. Strict mode already reported
   `sysml-notation` as an error. The user explicitly approved the same error severity in default
   mode for this language-keyword recovery, so both modes now reject it with the same code, span,
@@ -652,7 +652,7 @@ for the gaps, and names where in OpenSysML the rule would have to fire.
 | `validateExposeIsImportAll` | none: `ExposeImpl` constructs every expose with `isImportAll = true` | no violating model | — | — | — |
 | `validateExposeOwningNamespace` | `grammar/g67-expose-outside-view-body.sysml` | both-reject | mismatched input 'expose' expecting '}' / extraneous input '}' expecting EOF | expose is only allowed in a view usage body (SysML v2 8.3.26.2) | — |
 | `validateFlowDefinitionConnectionEnds` | `semantic/s18-flow-def-three-ends.sysml` | both-reject | A flow connection definition can have at most two ends. | A flow connection definition can have at most two ends. | — |
-| `validateFlowUsageType` | `semantic/s19-flow-typed-by-connection-def.sysml` | both-reject | A flow connection must be typed by flow connection definitions. | A flow connection must be typed by flow connection definitions. | — |
+| `validateFlowUsageType` | `semantic/s19-flow-typed-by-connection-def.sysml`, `semantic/s19b-message-typed-by-item-def.sysml` | both-reject | A flow connection must be typed by flow connection definitions. | A flow connection must be typed by flow connection definitions. | the `message` spelling is an abstract flow usage (SysML 8.4.12.2) and draws the same error from both; `message m of Note` names the payload type and is silent in both |
 | `validateForLoopActionUsageLoopVariable` | none: `ForLoopNode` always parses the loop variable | no violating model | — | — | — |
 | `validateForLoopActionUsageParameters` | none: `ForLoopNode` always parses both parameters | no violating model | — | — | — |
 | `validateFramedConcernMembershipConstraintKind` | none: `frame` fixes `kind = requirement` in the grammar | no violating model | — | — | — |

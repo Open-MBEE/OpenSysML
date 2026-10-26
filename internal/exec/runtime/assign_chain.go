@@ -26,6 +26,11 @@ func writeThroughChain(ec *EvalContext, chain *lower.AssignTarget, feature strin
 	if err != nil {
 		return err
 	}
+	// The target names the feature it resolves to, which the object may hold
+	// under the name of a feature redefining it (KerML 1.0 §7.3.4.5).
+	if slot, ok := ec.ctx.featureSlot(target, ec.chainTargetMember(chain, feature)); ok {
+		feature = slot
+	}
 	if ec.ctx.isClockTime(target, feature) {
 		return fmt.Errorf("%w: object #%d (%s)", errClockNotAssignable, target.ID, SymbolText(target.Type))
 	}
@@ -77,6 +82,10 @@ func (ec *EvalContext) chainRoot(base ast.Node) (Value, error) {
 	if sym, ok, err := ec.occurrenceOperand(base); err != nil {
 		return Value{}, err
 	} else if ok {
+		// A usage of the behavior performed is the part its performance holds.
+		if val, ok, err := ec.performanceFeatureOf(sym); ok {
+			return val, err
+		}
 		// A collection reads as its objects; the step after it writes on one of them.
 		if ec.ctx.namesObjects(sym) {
 			return ec.ctx.denotedValue(sym)

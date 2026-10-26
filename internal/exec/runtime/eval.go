@@ -37,6 +37,9 @@ type EvalContext struct {
 	// resolving holds the features whose own value is being evaluated, so a value
 	// written in terms of a same-named outer one does not resolve to itself.
 	resolving map[string]bool
+	// openInputs marks a member read of a condition, where a declared `in` nothing binds
+	// reads undetermined rather than falling back to the object's same-named feature.
+	openInputs bool
 
 	// calcRun is the calc evaluation whose output feature is being computed, so an
 	// output binding written in terms of the calc's other outputs reads them from
@@ -60,6 +63,10 @@ type EvalContext struct {
 	// entered is the last activation allocated before the built-in being applied
 	// was entered: an occurrence begun since began during the call.
 	entered int64
+
+	// chain is the declaration each segment of the chain being evaluated names,
+	// which an object answers by feature rather than by name (chain_member_slot.go).
+	chain chainStatic
 }
 
 // newEvalContext creates an evaluation context with an empty frame stack. It
@@ -103,6 +110,7 @@ func (ec *EvalContext) evalIn(scope *symbols.Scope) *EvalContext {
 		occurrence: ec.occurrence, thisOccurrence: ec.thisOccurrence,
 		features: ec.features, resolving: ec.resolving, calcRun: ec.calcRun,
 		activation: ec.activation, inBehaviorBody: ec.inBehaviorBody, valuing: ec.valuing,
+		openInputs: ec.openInputs,
 	}
 }
 
@@ -200,6 +208,7 @@ func (ec *EvalContext) over(scope *symbols.Scope, frames []frame) *EvalContext {
 		occurrence: ec.occurrence, thisOccurrence: ec.thisOccurrence,
 		features: ec.features, resolving: ec.resolving, calcRun: ec.calcRun,
 		activation: ec.activation, inBehaviorBody: ec.inBehaviorBody, valuing: ec.valuing,
+		openInputs: ec.openInputs,
 	}
 }
 
@@ -489,6 +498,9 @@ func (ctx *Context) EvalDeclaredValue(sym *symbols.Symbol) (Value, error) {
 				return val, err
 			}
 		}
+		if val, ok, err := ctx.emptyOptionalDeclaration(sym); ok || err != nil {
+			return val, err
+		}
 		// Read as a name of it is read: a feature nothing values is undetermined.
 		return newEvalContext(ctx, sym.OwnerScope).withoutValue(sym, ctx.QualifiedName(sym), nil)
 	}
@@ -770,10 +782,22 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 		if val, ok, err := ec.valuedFeatureValue(name); ok {
 			return val, err
 		}
+		// Then a declared input the condition binds nothing to, which is open rather
+		// than the object's same-named feature.
+		if val, ok := ec.openConditionInput(name); ok {
+			return val, nil
+		}
+		// Then the performance being run: a feature of the behavior performed is read
+		// from the performance's occurrence, which masks the performer's of that name.
+		if val, ok, err := ec.performanceFeatureValue(name, unset); ok {
+			return val, err
+		}
 		// Then the bound instance: a feature value holds the value this object actually
 		// carries, which overrides the declared default the scope would yield.
 		if ec.self != nil && ec.selfFeatureInScope(name) {
-			if val, ok, err := ec.selfFeatureValue(name); err != nil {
+			// The name reads the feature it resolves to where the expression was
+			// written, which the object may hold under a redefiner's name.
+			if val, ok, err := ec.selfFeatureValue(ec.selfMemberSlot(name)); err != nil {
 				return Value{}, err
 			} else if ok {
 				return val, nil
@@ -941,6 +965,10 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 	if val, ok, err := ec.ctx.MeasurementUnitValue(currentSym); ok {
 		return val, err
 	}
+	// A qualified feature of the behavior performed (`SM::entryAction`) is the performance's.
+	if val, ok, err := ec.performanceFeatureOf(currentSym); ok {
+		return val, err
+	}
 	// A qualified feature of an enclosing type (`Rectangle::length` inside its
 	// `e1`) reads the enclosing object's value of that feature.
 	if val, ok, err := ec.outerFeatureValue(currentSym); ok {
@@ -995,8 +1023,8 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 		if decl.BindingExpr != nil {
 			return ec.declaredValue(currentSym, decl.BindingExpr)
 		}
-		if val, ok := ec.emptyDeclaredFeature(currentSym); ok {
-			return val, nil
+		if val, ok, err := ec.ctx.emptyOptionalDeclaration(currentSym); ok || err != nil {
+			return val, err
 		}
 	}
 	return ec.resolvedWithoutValue(currentSym, qn)
@@ -1321,21 +1349,51 @@ func (ec *EvalContext) occurrenceReference(sym *symbols.Symbol) (Value, bool, er
 		// may have bound it to another usage's value, or a subsetting may
 		// have filled it — reads through the binding answer those.
 		ec.ctx.noteDeclarationRead(sym)
-		return ec.ctx.namespaceBoundValue(sym)
+		if val, bound, err := ec.ctx.namespaceBoundValue(sym); bound || err != nil {
+			return val, bound, err
+		}
+		return ec.ctx.emptyOptionalDeclaration(sym)
 	}
 	ec.ctx.noteDeclarationRead(sym)
 	val, err := ec.ctx.denotedValue(sym)
 	return val, true, err
 }
 
-// emptyDeclaredFeature reads a valueless feature declaration whose lower bound is
-// zero as the empty sequence an object holding nothing reads. At model level no
-// object holds it, so it stays undetermined. A variation is a choice, not an empty feature.
+// emptyDeclaredFeature reads a valueless feature of lower bound 0 on an object as the
+// empty sequence; at model level emptyOptionalDeclaration decides. A variation is a choice.
 func (ec *EvalContext) emptyDeclaredFeature(sym *symbols.Symbol) (Value, bool) {
 	if ec.modelLevel() || !ec.ctx.optionalValueless(sym) || ec.ctx.model.semantics.IsVariationFeature(sym) {
 		return Value{}, false
 	}
 	return sequenceOf(nil), true
+}
+
+// emptyOptionalDeclaration reads a namespace usage of lower bound 0 nothing binds as what
+// subsets it, else empty: the model declares it holds none. A behavior's parameter stays open.
+func (ctx *Context) emptyOptionalDeclaration(sym *symbols.Symbol) (Value, bool, error) {
+	if !ctx.optionalValueless(sym) || ctx.model.semantics.IsVariationFeature(sym) || semantics.IsBehaviorParameter(sym) {
+		return Value{}, false, nil
+	}
+	if objs, subsetted, err := ctx.namespacedSubsetObjects(sym); err != nil {
+		return Value{}, true, err
+	} else if subsetted {
+		elements := make([]Value, 0, len(objs))
+		for _, inst := range objs {
+			obj, err := ctx.objectValue(inst)
+			if err != nil {
+				return Value{}, true, err
+			}
+			elements = append(elements, obj)
+		}
+		if len(elements) == 1 {
+			return elements[0], true, nil
+		}
+		return sequenceOf(elements), true, nil
+	}
+	if typed, ok := ctx.emptyOfSymbol(sym); ok {
+		return typed, true, nil
+	}
+	return sequenceOf(nil), true, nil
 }
 
 // namesSelf reports whether the name resolves, where the expression was written,
@@ -1358,56 +1416,67 @@ func (ec *EvalContext) namesOccurrenceThis(name string) bool {
 	return ok && ec.ctx.model.resolver.IsOccurrenceThis(sym)
 }
 
-// thisValue is the object owning the performance being evaluated. A body no
-// object owns has none: `this` there is the performance itself.
+// thisValue is the context occurrence `this` denotes in the body being evaluated:
+// contextOccurrence of the run's occurrence or of the object evaluated on, as a member read answers.
 func (ec *EvalContext) thisValue() (Value, error) {
+	occurrence := ec.occurrence
+	if occurrence == nil && ec.thisOccurrence != nil {
+		materialized, err := ec.thisOccurrence()
+		if err != nil {
+			return Value{}, fmt.Errorf("%w: %v", errThisNotAnObject, err)
+		}
+		occurrence = materialized
+		ec.occurrence = materialized
+	}
+	switch {
+	case occurrence != nil && occurrence.owner != nil:
+		return Value{Kind: ValInstance, Instance: ec.ctx.contextOccurrence(occurrence).ID}, nil
+	case ec.self != nil:
+		return Value{Kind: ValInstance, Instance: ec.ctx.contextOccurrence(ec.self).ID}, nil
+	case occurrence != nil:
+		return Value{Kind: ValInstance, Instance: occurrence.ID}, nil
+	}
 	object := ec.ctx.model.resolver.ThisContext(ec.scope)
 	if object == nil {
 		return Value{}, fmt.Errorf("%w: this names the performance itself, which no object owns",
 			errThisNotAnObject)
 	}
-	// `this` inside a behavior definition denotes that definition's own
-	// occurrence — the performance instance the run was materialized as — not
-	// the performer itself, and a run outside any object still has one.
-	if isBehaviorDefKind(object.Kind) {
-		if ec.occurrence == nil && ec.thisOccurrence != nil {
-			occurrence, err := ec.thisOccurrence()
-			if err != nil {
-				return Value{}, fmt.Errorf("%w: %v", errThisNotAnObject, err)
-			}
-			ec.occurrence = occurrence
+	// A check about no object reads the type's declared defaults: `this`
+	// there is an exemplar of the type, made for the check.
+	if inst, checking, err := ec.ctx.exemplarOf(object); checking {
+		if err != nil {
+			return Value{}, fmt.Errorf("%w: no exemplar of %s: %v", errThisNotAnObject, SymbolText(object), err)
 		}
-		if ec.occurrence == nil {
-			return Value{}, fmt.Errorf("%w: no occurrence of %s materialized here",
-				errThisNotAnObject, SymbolText(object))
-		}
-		return Value{Kind: ValInstance, Instance: ec.occurrence.ID}, nil
+		return Value{Kind: ValInstance, Instance: inst.ID}, nil
 	}
-	if ec.self == nil {
-		// A check about no object reads the type's declared defaults: `this`
-		// there is an exemplar of the type, made for the check.
-		if inst, checking, err := ec.ctx.exemplarOf(object); checking {
-			if err != nil {
-				return Value{}, fmt.Errorf("%w: no exemplar of %s: %v", errThisNotAnObject, SymbolText(object), err)
-			}
-			return Value{Kind: ValInstance, Instance: inst.ID}, nil
-		}
-		return Value{}, fmt.Errorf("%w: no object of %s performs this body",
-			errThisNotAnObject, SymbolText(object))
+	return Value{}, fmt.Errorf("%w: no object of %s performs this body",
+		errThisNotAnObject, SymbolText(object))
+}
+
+// contextOccurrence is what `this` denotes on inst: through owned performances to the first holder
+// that is not one (Objects.kerml ownedPerformances::this, Performances.kerml subperformances::this).
+func (ctx *Context) contextOccurrence(inst *Instance) *Instance {
+	for inst.owner != nil && isPerformanceKind(inst.Type.Kind) {
+		inst = inst.owner
 	}
-	// A value declared in a nested usage — the redefined feature of an exhibited
-	// or performed occurrence — evaluates `this` against that occurrence's own
-	// object, where the name's context is the owner holding it: walk to it.
-	for inst := ec.self; inst != nil; inst = inst.owner {
-		if inst.Type == object || ec.ctx.modelConforms(inst.Type, object) {
-			return Value{Kind: ValInstance, Instance: inst.ID}, nil
-		}
+	return inst
+}
+
+// isPerformanceKind reports whether kind declares a performance: a behavior
+// definition or a behavior usage, whose instances are performances.
+func isPerformanceKind(kind symbols.SymbolKind) bool {
+	switch kind {
+	case symbols.SymbolActionUsage, symbols.SymbolStateUsage, symbols.SymbolCalcUsage,
+		symbols.SymbolCaseUsage, symbols.SymbolAnalysisCaseUsage,
+		symbols.SymbolVerificationCaseUsage, symbols.SymbolUseCaseUsage,
+		symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage:
+		return true
 	}
-	return Value{Kind: ValInstance, Instance: ec.self.ID}, nil
+	return isBehaviorDefKind(kind)
 }
 
 // isBehaviorDefKind reports whether kind is a behavior definition — an action,
-// state, calc or case def — whose `this` is the def's own occurrence.
+// state, calc or case def — a run of which has an occurrence of its own.
 func isBehaviorDefKind(kind symbols.SymbolKind) bool {
 	switch kind {
 	case symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolCalcDef,
@@ -1435,24 +1504,57 @@ func (ec *EvalContext) selfFeatureInScope(name string) bool {
 // instance has such a feature value; an error means the feature value exists but could not be
 // materialized.
 func (ec *EvalContext) selfFeatureValue(name string) (Value, bool, error) {
+	return ec.featureValueOn(ec.self, name)
+}
+
+// performanceFeatureValue reads a name resolving to a feature of the behavior performed
+// from the performance's own occurrence, unless a frame holds the feature unset.
+func (ec *EvalContext) performanceFeatureValue(name string, unset *symbols.Symbol) (Value, bool, error) {
+	if ec.occurrence == nil || unset != nil || ec.scope == nil || ec.ctx.model.resolver == nil {
+		return Value{}, false, nil
+	}
+	if name == thisName || name == thatName {
+		return Value{}, false, nil
+	}
+	sym, ok := ec.lookupName(name)
+	if !ok {
+		return Value{}, false, nil
+	}
+	return ec.performanceFeatureOf(sym)
+}
+
+// performanceFeatureOf reads sym, a feature the performance's type holds, from the
+// performance's own occurrence: `entryAction` or `part fresh` in a body is the performance's.
+func (ec *EvalContext) performanceFeatureOf(sym *symbols.Symbol) (Value, bool, error) {
+	occurrence := ec.occurrence
+	if occurrence == nil || occurrence == ec.self || sym == nil || ec.ctx.model.semantics.IsSelf(sym) ||
+		!performerHoldsFeature(ec.ctx, occurrence, sym) {
+		return Value{}, false, nil
+	}
+	return ec.featureValueOn(occurrence, sym.Name)
+}
+
+// featureValueOn reads inst's named feature; ok reports whether inst holds it, and an
+// error a feature value that exists but could not be materialized.
+func (ec *EvalContext) featureValueOn(inst *Instance, name string) (Value, bool, error) {
 	// A clock's currentTime, under any of its names, is the run's shared clock.
-	if now, isClock, err := ec.ctx.clockMember(ec.self, name); isClock {
+	if now, isClock, err := ec.ctx.clockMember(inst, name); isClock {
 		return now, true, err
 	}
-	if _, ok := ec.self.FeatureValues[name]; !ok && !ec.ctx.derivesKernelCollection(ec.self, name) {
+	if _, ok := inst.FeatureValues[name]; !ok && !ec.ctx.derivesKernelCollection(inst, name) {
 		// A member the shape leaves out, which the default the holder governs over states.
-		if val, ok, err := ec.ctx.holderDefaultMember(ec.self, name); ok {
+		if val, ok, err := ec.ctx.holderDefaultMember(inst, name); ok {
 			return val, true, err
 		}
 		return Value{}, false, nil
 	}
-	fv, open, err := ec.memberFeatureValue(ec.self, name)
+	fv, open, err := ec.memberFeatureValue(inst, name)
 	if err != nil {
 		return Value{}, true, err
 	}
 	// Read on an object only the model stands behind, a feature whose count the
 	// model leaves open has no fixed sequence of values, as a chain reads it.
-	if value, ok := ec.openFeatureRead(ec.self, fv, open, "", name); ok {
+	if value, ok := ec.openFeatureRead(inst, fv, open, "", name); ok {
 		return value, true, nil
 	}
 	value, err := ec.ctx.readFeatureValue(fv, name)
@@ -1460,8 +1562,8 @@ func (ec *EvalContext) selfFeatureValue(name string) (Value, bool, error) {
 		return value, true, err
 	}
 	// An object the feature holds is read as what it denotes, as a chain reads it.
-	if inst, ok := ec.ctx.instances[value.Instance]; ok && value.Kind == ValInstance {
-		value, err = ec.ctx.objectValue(inst)
+	if held, ok := ec.ctx.instances[value.Instance]; ok && value.Kind == ValInstance {
+		value, err = ec.ctx.objectValue(held)
 	}
 	return value, true, err
 }
@@ -1471,7 +1573,14 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 	if n.Member == nil || len(n.Member.Parts) == 0 {
 		return Value{}, fmt.Errorf("empty member chain")
 	}
-	base, parts := chainBase(n)
+	base, parts := ast.FeatureChainBase(n)
+	defer ec.noteChainMembers(base, parts)()
+
+	// A chain's members resolve in the namespace of the feature before them, where
+	// a redefined feature is not inherited under its name (KerML §7.3.4.5).
+	if err := ec.maskedChainMember(base, parts); err != nil {
+		return Value{}, err
+	}
 
 	// A state's activity, `fill.isActive`, is read from the active configuration
 	// of the machine holding the state, not from a feature value.
@@ -1505,6 +1614,18 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 		return ec.evalCalcUsageMembers(sym, parts)
 	}
 
+	// A constraint usage of the object being evaluated is the predicate it enacts,
+	// read through the object (`fits.limit` as `self.fits.limit`).
+	if name := simpleEndName(base); name != "" && ec.self != nil {
+		if _, enacted := ec.enactedConstraint(ec.self, name); enacted {
+			if names, err := ec.namesValue(name); err != nil {
+				return Value{}, err
+			} else if !names {
+				return ec.chainMemberValue(Value{Kind: ValInstance, Instance: ec.self.ID}, append([]ast.NameSegment{{Text: name}}, parts...), "")
+			}
+		}
+	}
+
 	// A variant named through the variation usage it belongs to is that variant,
 	// `engine.electric.power`, not a member of what the usage selects.
 	if sym, ok := ec.chainBaseSymbol(base); ok {
@@ -1518,6 +1639,14 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 	if sym, ok, err := ec.occurrenceOperand(base); err != nil {
 		return Value{}, err
 	} else if ok {
+		// A usage of the behavior performed is read from its performance, so `fresh.n`
+		// inside `go` reads the part the performance holds, as a bare `fresh` does.
+		if val, ok, err := ec.performanceFeatureOf(sym); ok {
+			if err != nil {
+				return Value{}, err
+			}
+			return ec.chainMemberValue(val, parts, sym.Name)
+		}
 		// A usage of an enclosing object is read from that object, so a sibling
 		// chain `e1.length` inside `e3` reads the containing rectangle's e1.
 		if val, ok, err := ec.outerFeatureValue(sym); ok {
@@ -1534,8 +1663,9 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 		return ec.chainMemberValue(val, parts, sym.Name)
 	}
 
-	// Evaluate the operand (left side of the chain)
-	operand, err := ec.Eval(n.Operand)
+	// One chain is one read from its first operand through every member in turn
+	// (KerML 1.0 §7.4.9.3), not a read off the value of a shorter chain.
+	operand, err := ec.Eval(base)
 	if err != nil {
 		var noValue *NoValueError
 		if errors.As(err, &noValue) {
@@ -1571,7 +1701,7 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 		}
 	}
 
-	return ec.chainMemberValue(operand, n.Member.Parts, "")
+	return ec.chainMemberValue(operand, parts, "")
 }
 
 // chainMembersDeclared reports the first chain member nothing declares, so
@@ -1591,8 +1721,12 @@ func (ec *EvalContext) chainMembersDeclared(base ast.Node, parts []ast.NameSegme
 	return nil
 }
 
-// chainBaseSymbol is the feature a chain's base names, when it names one.
+// chainBaseSymbol is the feature a chain's base names, when it names one, or
+// the type a cast base (`x as T`) classifies its values by.
 func (ec *EvalContext) chainBaseSymbol(base ast.Node) (*symbols.Symbol, bool) {
+	if cast, ok := base.(*ast.OperatorExpr); ok && cast.Operator == ast.OpAs && cast.TypeRef != nil {
+		return ec.resolveClassificationType(cast.TypeRef)
+	}
 	ref, ok := base.(*ast.FeatureReference)
 	if !ok || ref.Name == nil || ec.ctx.model.resolver == nil {
 		return nil, false
@@ -1602,28 +1736,68 @@ func (ec *EvalContext) chainBaseSymbol(base ast.Node) (*symbols.Symbol, bool) {
 }
 
 // declaredMember is what an object of sym holds under name: a feature of its
-// shape, or a member (calc usage, variant) the model reaches by name.
+// shape sym inherits under that name, or a member (calc usage, variant) the model
+// reaches by name. A feature a redefinition removed from sym's namespace is held
+// only under its redefiner's names (KerML §7.3.4.5).
 func (ctx *Context) declaredMember(sym *symbols.Symbol, name string) (*symbols.Symbol, bool) {
-	for _, feat := range ctx.FeaturesOf(sym) {
-		if feat.Name == name && feat.Symbol != nil {
-			return feat.Symbol, true
-		}
+	if feat, masked := ctx.shapeMember(sym, name); feat != nil && !masked {
+		return feat, true
 	}
 	return ctx.model.semantics.LookupMember(sym, name)
 }
 
-// chainBase flattens a nested feature chain: `lander.mass.mDry` is one chain of
-// members from `lander`, not a chain through the value of `lander.mass`.
-func chainBase(n *ast.FeatureChainExpr) (ast.Node, []ast.NameSegment) {
-	operand, parts := n.Operand, n.Member.Parts
-	for {
-		inner, ok := operand.(*ast.FeatureChainExpr)
-		if !ok || inner.Member == nil || len(inner.Member.Parts) == 0 {
-			return operand, parts
+// shapeMember is the feature of sym's shape named name, and whether sym does not
+// inherit it under that name because a feature of sym redefines it; a redefiner
+// that takes the redefined name is the member the name reads (KerML §8.3.3.1.10).
+func (ctx *Context) shapeMember(sym *symbols.Symbol, name string) (feat *symbols.Symbol, masked bool) {
+	var hidden *symbols.Symbol
+	for _, f := range ctx.FeaturesOf(sym) {
+		if f.Name != name || f.Symbol == nil {
+			continue
 		}
-		parts = append(append([]ast.NameSegment{}, inner.Member.Parts...), parts...)
-		operand = inner.Operand
+		if !ctx.model.semantics.InheritanceMasked(sym, f.Symbol) {
+			return f.Symbol, false
+		}
+		if redefiner := ctx.model.semantics.NamingRedefiner(sym, f.Symbol); redefiner != nil {
+			return redefiner, false
+		}
+		if hidden == nil {
+			hidden = f.Symbol
+		}
 	}
+	if hidden == nil {
+		return nil, false
+	}
+	// A namesake inherited along another path keeps the name (`B :> A1, A2` with
+	// `b :>> A1::a` still has `A2::a`), so the namespace decides.
+	if surviving, ok := ctx.model.semantics.LookupMember(sym, name); ok && surviving != nil {
+		return surviving, false
+	}
+	return hidden, true
+}
+
+// maskedChainMember is the error for a chain segment naming a feature the segment
+// before it does not inherit, a redefinition having removed it from that namespace
+// (KerML §7.3.4.5, §8.3.3.1.10), as the static read reports it; nil otherwise.
+func (ec *EvalContext) maskedChainMember(base ast.Node, parts []ast.NameSegment) error {
+	cur, ok := ec.chainBaseSymbol(base)
+	if !ok {
+		return nil
+	}
+	for _, part := range parts {
+		feat, masked := ec.ctx.shapeMember(cur, part.Text)
+		if feat == nil {
+			return nil
+		}
+		if masked {
+			if redefiner := ec.ctx.redefiningMember(cur, part.Text); redefiner != nil {
+				return fmt.Errorf("%w: %s has no member %s: %s redefines it", ErrUnresolvedReference, cur.Name, part.Text, ec.ctx.QualifiedName(redefiner))
+			}
+			return fmt.Errorf("%w: %s has no member %s: a redefinition removes it", ErrUnresolvedReference, cur.Name, part.Text)
+		}
+		cur = feat
+	}
+	return nil
 }
 
 // chainMemberValue reads the members named by parts from the object value names,
@@ -1730,6 +1904,11 @@ func (ec *EvalContext) chainObjectMember(value Value, parts []ast.NameSegment, f
 		}
 		return ec.chainMemberValue(now, rest, name)
 	}
+	// The segment reads the feature its name resolved to, which the object may
+	// hold under the name of a feature redefining it (KerML 1.0 §7.3.4.5).
+	if slot, ok := ec.ctx.featureSlot(inst, ec.chainMember(parts)); ok {
+		name = slot
+	}
 	fvDecl, ok := inst.FeatureValues[name]
 	if !ok {
 		return ec.chainUnheldMember(inst, name, rest, from)
@@ -1790,7 +1969,20 @@ func (ec *EvalContext) chainUnheldMember(inst *Instance, name string, rest []ast
 
 // chainFeatureValue continues a chain through the named feature value of inst.
 func (ec *EvalContext) chainFeatureValue(inst *Instance, name string, rest []ast.NameSegment, from string) (Value, error) {
-	if val, ok, err := ec.constraintUsageRead(inst, name); ok {
+	if sym, ok := ec.enactedConstraint(inst, name); ok {
+		// The constraint's own members read through it as any usage's do; the
+		// usage itself, or its `result`, is the predicate evaluated on the object.
+		if member, tail := constraintMemberSegment(rest); member != "" {
+			val, found, err := ec.constraintMemberValue(inst, sym, member)
+			if !found {
+				return Value{}, fmt.Errorf("%w: constraint %s has no member %s", ErrNoSuchFeature, name, member)
+			}
+			if err != nil {
+				return Value{}, err
+			}
+			return ec.chainMemberValue(val, tail, member)
+		}
+		val, err := ec.constraintUsageRead(inst, sym)
 		if err != nil {
 			return Value{}, err
 		}

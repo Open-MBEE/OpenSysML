@@ -205,6 +205,7 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 	if len(root.Children) == 0 {
 		root.Detail = detailWith(root.Detail, "declares no states")
 	}
+	out.folds = append(out.folds, root)
 	return root
 }
 
@@ -775,6 +776,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 	if subject.frame == nil && len(graph.Nodes) == 0 {
 		root.Detail = detailWith(root.Detail, "declares no nodes")
 	}
+	out.folds = append(out.folds, root)
 	return root, true
 }
 

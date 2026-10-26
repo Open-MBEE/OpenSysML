@@ -21,6 +21,10 @@ const (
 	ErrorBlankMath               ErrorKind = "blank-math"
 	ErrorUnknownDefinitionColumn ErrorKind = "unknown-definition-column"
 	ErrorMissingImageLocation    ErrorKind = "missing-image-location"
+	// ErrorValueEvaluation: a value run's feature could not be read.
+	ErrorValueEvaluation ErrorKind = "value-evaluation"
+	// ErrorEmptyValue: a value run's feature has no value to render.
+	ErrorEmptyValue ErrorKind = "empty-value"
 )
 
 // Error is a typed document-evaluation failure with its source location.
@@ -67,6 +71,10 @@ func (e *Error) Error() string {
 		)
 	case ErrorMissingImageLocation:
 		return fmt.Sprintf("document %s image %s states no location", e.Document, e.Content)
+	case ErrorValueEvaluation:
+		return fmt.Sprintf("document %s content %s value run reading %s: %v", e.Document, e.Content, e.Actual, e.Err)
+	case ErrorEmptyValue:
+		return fmt.Sprintf("document %s content %s value run reads %s, which has no value", e.Document, e.Content, e.Actual)
 	case ErrorUnknownDefinitionColumn:
 		return fmt.Sprintf("document %s definitions %s names column %q, which query %s did not project", e.Document, e.Content, e.Column, e.Query)
 	default:

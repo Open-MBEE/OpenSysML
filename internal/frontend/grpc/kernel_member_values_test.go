@@ -43,9 +43,10 @@ func TestSessionFeatureValueReadsKernelMembers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FeatureValue(snapshots) failed: %v", err)
 	}
-	if _, ok := snapshots.GetValue().GetKind().(*pb.Value_Undetermined); !ok || len(snapshots.GetValues()) != 0 {
-		kind, value := describeValue(snapshots.GetValue())
-		t.Errorf("snapshots: %s %v with %d values, want an undetermined value", kind, value, len(snapshots.GetValues()))
+	// An object that began and has not ended has its start snapshot and an end
+	// snapshot that has not happened: the collection is open, of two or more.
+	if u := snapshots.GetValue().GetUndetermined(); u == nil || u.GetCount().GetLower() != "2" || !strings.Contains(u.GetReason(), "has not ended") {
+		t.Errorf("snapshots = %v, want undetermined of [2..*] with the reason the object has not ended", snapshots)
 	}
 	predecessors, err := ss.FeatureValue(id, "predecessors")
 	if err != nil || predecessors.GetValue() != nil || len(predecessors.GetValues()) != 0 {

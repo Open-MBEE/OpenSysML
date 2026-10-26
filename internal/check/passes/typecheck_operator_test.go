@@ -134,6 +134,11 @@ func TestCastConformanceUnrelatedTypes(t *testing.T) {
 	castDiags(t, "", `feature bad = box.base as String;`, "16:16 cast argument is typed by A, unrelated to the target String")
 	castDiags(t, "", `feature bad = F() as String;`, "16:16 cast argument is typed by A, unrelated to the target String")
 	castDiags(t, "", `feature bad = (a as B) as C;`, "16:16 cast argument is typed by B, unrelated to the target C")
+	castDiags(t, "", `feature bad = (a as Box).base;`, "16:17 cast argument is typed by A, unrelated to the target Box")
+	castDiags(t, "", `feature bad = (a as Box).base.str;`, "16:17 cast argument is typed by A, unrelated to the target Box")
+	castDiags(t, "", `feature bad = (s as Box).base.?{in x; true};`, "16:17 cast argument is typed by String, unrelated to the target Box")
+	castDiags(t, "", `feature bad = Nothing((a as Box).base);`, "16:25 cast argument is typed by A, unrelated to the target Box")
+	castDiags(t, "", `feature ok = (box as Box2).base;`)
 	castDiags(t, "", `feature bad = (1 < 2) as Integer;`, "16:16 cast argument is typed by Boolean, unrelated to the target Integer")
 	castDiags(t, "", `feature bad = xs.?{in x; true} as C;`, "16:16 cast argument is typed by A, unrelated to the target C")
 	castDiags(t, "", `feature bad = a#(1) as C;`, "16:16 cast argument is typed by A, unrelated to the target C")
@@ -204,6 +209,7 @@ func TestCastConformanceRelatedTypes(t *testing.T) {
 func TestCastConformanceInSysML(t *testing.T) {
 	wantOperatorDiags(t, "a.sysml", codeCastConformance, `package P {
 	private import ScalarValues::*;
+	private import ControlFunctions::*;
 	private import ISQ::*;
 	private import Quantities::*;
 	part def PD { attribute a : A; }
@@ -216,12 +222,22 @@ func TestCastConformanceInSysML(t *testing.T) {
 	attribute castBad = q as LengthValue;
 	attribute unitOk = 10 [q as MeasurementReferences::MeasurementUnit];
 	attribute unitBad = 10 [(q as Integer) as MeasurementReferences::MeasurementUnit];
+	part v : Views::View;
+	attribute headOk = (v as SysML::PartUsage).exposedElement;
+	attribute headBad = (v as SysML::ViewUsage).exposedElement;
+	viewpoint def Vp {
+		subject theView;
+		require constraint c { (theView as SysML::ViewUsage).exposedElement->forAll { in e; true } }
+	}
 }`,
-		"10:23 cast argument is typed by A, unrelated to the target String",
-		"12:22 cast argument is typed by MassValue, unrelated to the target LengthValue",
-		"13:25 cast argument is typed by MassValue, unrelated to the target MeasurementUnit",
-		"14:26 cast argument is typed by Integer, unrelated to the target MeasurementUnit",
-		"14:27 cast argument is typed by MassValue, unrelated to the target Integer",
+		"11:23 cast argument is typed by A, unrelated to the target String",
+		"13:22 cast argument is typed by MassValue, unrelated to the target LengthValue",
+		"14:25 cast argument is typed by MassValue, unrelated to the target MeasurementUnit",
+		"15:26 cast argument is typed by Integer, unrelated to the target MeasurementUnit",
+		"15:27 cast argument is typed by MassValue, unrelated to the target Integer",
+		"17:22 cast argument is typed by View, unrelated to the target PartUsage",
+		"18:23 cast argument is typed by View, unrelated to the target ViewUsage",
+		"21:27 cast argument is typed by View, unrelated to the target ViewUsage",
 	)
 }
 
