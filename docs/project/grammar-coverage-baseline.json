@@ -5,7 +5,7 @@
       "name": "stdlib",
       "dir": "internal/workspace/libs/stdlib",
       "files": 110,
-      "lines": 31233
+      "lines": 31239
     },
     {
       "name": "training",
@@ -46,14 +46,14 @@
     {
       "name": "parser-fixtures",
       "dir": "tests/parser/testdata/parse",
-      "files": 286,
-      "lines": 6705
+      "files": 287,
+      "lines": 6716
     },
     {
       "name": "examples",
       "dir": "examples",
       "files": 52,
-      "lines": 9656
+      "lines": 9925
     }
   ],
   "totals": {
