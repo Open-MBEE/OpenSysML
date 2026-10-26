@@ -1,0 +1,6 @@
+{
+  "type": "requirement",
+  "evaluate": "test::r",
+  "libraries": true,
+  "error": "no value for feature s"
+}

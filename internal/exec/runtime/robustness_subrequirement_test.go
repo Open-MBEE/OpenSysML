@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +15,37 @@ import (
 func TestRuntimeRobustnessSubrequirement(t *testing.T) {
 	t.Run("container_subject_unbound", testSubrequirementContainerSubjectUnbound)
 	t.Run("naming_its_container", testSubrequirementNamingItsContainer)
+	t.Run("owned_subject_unbound", testSubrequirementOwnedSubjectUnbound)
+}
+
+// testSubrequirementOwnedSubjectUnbound: a subrequirement owning a subject
+// declaration that nothing binds is not bound to its container's subject; the
+// check reports the unbound subject rather than judging the container's.
+func testSubrequirementOwnedSubjectUnbound(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ScalarValues::*;
+			part def Veh { attribute mass : Real; }
+			requirement def R {
+				subject v : Veh;
+				requirement child { subject s : Veh; require constraint { s.mass < 10.0 } }
+			}
+			part feather : Veh { attribute :>> mass = 1.0; }
+			requirement r : R { subject v = feather; }
+		}
+	`))
+	rootScope := idx.DocumentRoot("<test>")
+	sym := findSymbolByName(rootScope, "r", ast.DefRequirement)
+	if sym == nil {
+		t.Fatal("r not found")
+	}
+	satisfied, err := ctx.EvaluateRequirement(sym, rootScope)
+	if err == nil {
+		t.Fatalf("expected an error, got satisfied = %v", satisfied)
+	}
+	if !errors.Is(err, ErrNoValue) || !strings.Contains(err.Error(), "feature s") {
+		t.Errorf("expected the unbound subject s, got: %v", err)
+	}
 }
 
 // testSubrequirementContainerSubjectUnbound: a subrequirement reading the
