@@ -103,13 +103,11 @@ func (r *Rendering) Data() Data {
 }
 
 // DataWith is the rendering in machine-consumable form with each node's ports
-// filtered for the display options ask, and the optional notation elements
-// they add shown.
+// filtered for the display options ask, the optional notation elements they
+// add shown, and the compartments folded as they ask — a positioned tree's
+// unplaced members into rows of the placed node above them.
 func (r *Rendering) DataWith(options Options) Data {
-	r = r.showing(options.Show)
-	if options.Compartments.automatic() {
-		r = foldCompartments(r, options.Compartments)
-	}
+	r = foldCompartments(r.showing(options.Show), options.Compartments)
 	ports := r.portView(options.Ports)
 	return r.data(&ports)
 }

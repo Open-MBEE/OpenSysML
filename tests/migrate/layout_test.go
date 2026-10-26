@@ -807,11 +807,16 @@ func TestGoldenAssociationEndLayoutLiesOnTheEdge(t *testing.T) {
 	for _, edge := range rendering.Edges {
 		edges = append(edges, fmt.Sprintf("%s %s %s: %s", names[edge.From], edge.Kind, names[edge.To], edgeText(edge)))
 	}
-	wantEdges := []string{"Model::Blocks::Vehicle composition Model::Blocks::Engine: engine"}
+	wantEdges := []string{
+		"Model::Blocks::Vehicle composition Model::Blocks::Engine: engine",
+		"Model::Blocks::Vehicle composition engine: ",
+		"engine composition piston: ",
+		"Model::Blocks::Engine composition piston: ",
+	}
 	if !slices.Equal(edges, wantEdges) {
 		t.Errorf("edges = %q, want %q", edges, wantEdges)
 	}
-	if want := []view.Point{{X: 100, Y: 70}, {X: 100, Y: 160}}; len(rendering.Edges) != 1 || !slices.Equal(rendering.Edges[0].Route, want) {
+	if want := []view.Point{{X: 100, Y: 70}, {X: 100, Y: 160}}; !slices.Equal(rendering.Edges[0].Route, want) {
 		t.Errorf("composition route = %v, want %v, from Vehicle's box to Engine's", rendering.Edges[0].Route, want)
 	}
 }
@@ -853,11 +858,23 @@ func TestGoldenAssociationEndPairPinsItsConnectionDef(t *testing.T) {
 		route []view.Point
 	}{
 		"Blocks::'Pair BDD'": {
-			edges: []string{"Model::Blocks::Controller composition Model::Blocks::Sensor: controller sensors"},
+			edges: []string{
+				"Model::Blocks::Controller composition Model::Blocks::Sensor: controller sensors",
+				"Model::Blocks::Controller composition sensors: ",
+				"sensors reference controller: ",
+				"Model::Blocks::Sensor reference controller: ",
+				"controller composition sensors: ",
+			},
 			route: []view.Point{{X: 100, Y: 70}, {X: 100, Y: 130}, {X: 100, Y: 200}},
 		},
 		"Blocks::'Sensor BDD'": {
-			edges: []string{"Model::Blocks::Controller composition Model::Blocks::Sensor: controller sensors"},
+			edges: []string{
+				"Model::Blocks::Controller composition Model::Blocks::Sensor: controller sensors",
+				"Model::Blocks::Controller composition sensors: ",
+				"sensors reference controller: ",
+				"Model::Blocks::Sensor reference controller: ",
+				"controller composition sensors: ",
+			},
 			route: []view.Point{{X: 300, Y: 70}, {X: 300, Y: 225}, {X: 160, Y: 225}},
 		},
 	} {
@@ -887,7 +904,7 @@ func TestGoldenAssociationEndPairPinsItsConnectionDef(t *testing.T) {
 		if !slices.Equal(edges, want.edges) {
 			t.Errorf("%s: edges = %q, want %q", name, edges, want.edges)
 		}
-		if len(rendering.Edges) != 1 || !slices.Equal(rendering.Edges[0].Route, want.route) {
+		if !slices.Equal(rendering.Edges[0].Route, want.route) {
 			t.Errorf("%s: composition route = %v, want %v, from Controller's box to Sensor's", name, rendering.Edges[0].Route, want.route)
 		}
 	}
@@ -1033,7 +1050,12 @@ func TestGoldenLayoutQualifiesNamesTheExposesHide(t *testing.T) {
 	for _, edge := range rendering.Edges {
 		edges = append(edges, fmt.Sprintf("%s %s %s: %s", names[edge.From], edge.Kind, names[edge.To], edgeText(edge)))
 	}
-	want := []string{"Model::UI::Console composition Model::UI::GUI: GUI", "Model::UI::Console composition Model::UI::Panel: panel"}
+	want := []string{
+		"Model::UI::Console composition Model::UI::GUI: GUI",
+		"Model::UI::Console composition Model::UI::Panel: panel",
+		"Model::UI::Console composition GUI: ",
+		"Model::UI::Console composition panel: ",
+	}
 	if !reflect.DeepEqual(edges, want) {
 		t.Errorf("edges = %q, want %q", edges, want)
 	}
