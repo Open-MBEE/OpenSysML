@@ -182,9 +182,9 @@ func TestDOTConnectionPenwidth(t *testing.T) {
 	}
 	checkDOTSyntax(t, dot)
 	want := `  "a" -> "b" [label="c", arrowhead=none, penwidth=3];
-  "a" -> "b" [style=dashed];
   "a" -> "b";
-  "a" -> "b";
+  "a" -> "b" [style=dashed, arrowhead=vee];
+  "a" -> "b" [arrowhead=vee];
 }
 `
 	if !strings.HasSuffix(dot, want) {

@@ -30,5 +30,5 @@ flowchart TD
 **warm**`")
     n3@{ shape: fr-circ, label: "" }
   end
-  n1 --> n2
-  n2 --> n3
+  n1 -.-> n2
+  n2 -.-> n3

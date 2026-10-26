@@ -17,9 +17,9 @@ relationships:
   driver -- 'Provide Transportation'
   passengers -- 'Provide Transportation'
   'Provide Transportation' .. objective n4
-  'Provide Transportation' ..> addFuel: «include»
+  'Provide Transportation' -> addFuel: «include»
   addFuel -- vehicle: «subject»
   fueler -- addFuel
-  'Provide Transportation' ..> 'enter vehicle': «include»
+  'Provide Transportation' -> 'enter vehicle': «include»
   'enter vehicle' -- vehicle: «subject»
   driver -- 'enter vehicle'

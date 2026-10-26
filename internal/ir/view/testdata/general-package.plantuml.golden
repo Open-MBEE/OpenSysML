@@ -48,8 +48,8 @@ class "<size:10>//«package»//</size>\n**VehicleRequirements**" as n2 <<package
 class "<size:10>//«package»//</size>\n**VehicleVerification**" as n3 <<package>>
 class "<size:10>//«package»//</size>\n**GeneralViews**" as n4 <<package>>
 n0 +-- n1
-n2 ..> n0 : private import ::*
-n3 ..> n0 : private import ::*
-n3 ..> n1 : private import ::*
-n3 ..> n2 : private import ::*
+n2 ..> n0 : «private import»*
+n3 ..> n0 : «private import»*
+n3 ..> n1 : «private import»*
+n3 ..> n2 : «private import»*
 @enduml

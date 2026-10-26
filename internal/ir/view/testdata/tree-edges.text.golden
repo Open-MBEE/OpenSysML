@@ -45,9 +45,9 @@ relationships:
   SportsCar --|> Vehicle
   SportsCar *-- LightChassis: chassis
   SportsCar *-- Wheel: spare
-  chassis --|> chassis: redefines
-  spare --|> wheels: subsets
+  chassis --||> chassis
+  spare --|> wheels
   Chassis o-- Mass: mass
   LightChassis --|> Chassis
-  mass --|> mass: redefines
-  fleetCar ..|> Vehicle
+  mass --||> mass
+  fleetCar --:|> Vehicle
