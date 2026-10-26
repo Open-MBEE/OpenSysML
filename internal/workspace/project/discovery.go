@@ -273,18 +273,8 @@ func walkInstalled(dir string, visited map[string]bool, budget *int, found func(
 	}
 }
 
-// used selects, among the installed projects, those the enclosing projects use,
-// directly or through the usages of the projects selected, each once and in the
-// order they were reached; an enclosing project is not among what it uses. A
-// usage is answered by the project its resource names (Uses), else, once every
-// usage had its say, by elimination: of the installed projects no usage claims —
-// a claimed project's other versions count as claimed — those that satisfy its
-// constraint, when they are all one project, the highest version of it. A usage
-// several unclaimed projects could answer is left unlinked and described, since
-// a version-control IRI spells a repository's path, not the project's name; a
-// later usage of the same repository takes the project so learnt, at its own
-// version. The standard library's usages, which the bundled library answers,
-// are not linked to anything installed.
+// used selects the installed projects the enclosing ones use, directly or in turn, each once:
+// by name (Uses) first, else by elimination among the unclaimed (pickUnclaimed), or as learnt.
 func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []Warning) {
 	selected := map[string]bool{}
 	claimed := map[string]bool{}
@@ -353,9 +343,8 @@ func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []W
 	return out, unlinked
 }
 
-// pickVersion chooses, among the installed copies of the project identity
-// names, the highest version satisfying constraint (any, when it is empty); nil
-// when none does.
+// pickVersion is the highest installed version of the project identity names that
+// satisfies constraint (any, when empty); nil when none does.
 func pickVersion(installed []*Interchange, identity, constraint string) *Interchange {
 	var pick *Interchange
 	for _, candidate := range installed {
@@ -369,11 +358,8 @@ func pickVersion(installed []*Interchange, identity, constraint string) *Interch
 	return pick
 }
 
-// pickUnclaimed chooses the installed project a usage is linked to by
-// elimination: of the unclaimed ones whose version satisfies the usage's
-// constraint (any version, when it has none), the highest version when they are
-// all one project. With several projects among them, none is picked and they
-// are returned instead; with none, nothing is.
+// pickUnclaimed links a usage by elimination: the highest unclaimed version satisfying its
+// constraint when the candidates are all one project; several projects are returned unpicked.
 func pickUnclaimed(installed []*Interchange, claimed map[string]bool, u Usage) (*Interchange, []*Interchange) {
 	constraint := u.constraint()
 	var candidates []*Interchange
@@ -413,10 +399,8 @@ func ambiguousUsage(from *Interchange, u Usage, candidates []*Interchange) Warni
 	}
 }
 
-// pickInstalled chooses the installed project a usage names: of those its
-// resource names, the one whose version the usage's constraint (its
-// versionConstraint, else the @version in its IRI) names exactly, else the
-// latest. Nil when none does.
+// pickInstalled chooses, of the installed projects a usage's resource names, the one
+// its constraint (versionConstraint, else the IRI's @version) names exactly, else the latest.
 func pickInstalled(installed []*Interchange, u Usage) *Interchange {
 	var pick *Interchange
 	constraint := u.constraint()

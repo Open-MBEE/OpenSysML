@@ -693,9 +693,8 @@ func runChecks(files []string, exprs []string, c checks) int {
 	// the run rather than a verdict being reported about a model nobody could read.
 	// One file's reference to another only resolves once every file is loaded, so
 	// the gate is about the whole model rather than about each file in turn.
-	// What the load itself fell short of — a usage linked to no installed project
-	// — is a warning like analysis's, the baseline knowing it too, printed with
-	// the errors it explains where the summary that carries it is not.
+
+	// The load's own warnings are judged, baselined and printed as analysis's are.
 	notes, knownNotes := sess.LoadWarnings(paths)
 	if c.baseline != "" {
 		rep.suppress(sess.Suppressed()+knownNotes, c.baseline)

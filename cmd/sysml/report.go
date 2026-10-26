@@ -721,10 +721,8 @@ func (r *reporter) warn(message string) {
 	}
 }
 
-// loadWarnings records what the load itself fell short of — a usage linked to
-// no installed project, an archive that is not one — as the warnings analysis
-// would report at the project or archive file; printed unless quiet or the load
-// summary already did.
+// loadWarnings records what the load itself fell short of as warnings located at
+// their file, printed unless quiet or the load summary already did.
 func (r *reporter) loadWarnings(diags []repl.Diagnostic, printed bool) {
 	r.diags(diags)
 	if r.machine || printed {

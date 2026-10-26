@@ -100,11 +100,8 @@ func conversionWarnings(files []SourceFile, verbosity Verbosity) []string {
 	return warningLines(warnings, verbosity)
 }
 
-// LoadWarnings reports what the projects and archives a load of paths touched
-// fell short of (project.Discovery.Warnings) as warning diagnostics located at
-// the project or archive file, pass "project", code "project.load", those the
-// predicate given to Suppress accepts left out and counted; a load's summary
-// prints the same as warning lines after its findings.
+// LoadWarnings reports what the projects and archives a load of paths touched fell
+// short of as warnings located at their file (code project.load), less and counting the suppressed.
 func (s *Session) LoadWarnings(paths []string) ([]Diagnostic, int) {
 	defer s.enter()()
 	return s.loadWarnings(expandHomes(paths))
