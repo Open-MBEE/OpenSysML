@@ -35,18 +35,16 @@ movement() {
 	report "MOVED: $*"
 }
 
-# newest_tag <repo>: the highest release tag by version order, from the remote.
-# Upstream also publishes point releases (2025-09.1), which sort after their base.
-# Fails when the remote cannot be listed; answers nothing when it has no release tag.
+# newest_tag <repo>: the highest YYYY-MM(.N) release tag on the remote (point releases
+# sort after their base); fails when the remote cannot be listed, empty when it has none.
 newest_tag() {
 	local tags
 	tags="$(git ls-remote --tags --refs "$1")" || return 1
 	awk -F'refs/tags/' 'NF > 1 {print $2}' <<<"$tags" | grep -E '^[0-9]{4}-[0-9]{2}(\.[0-9]+)?$' | sort -V | tail -n 1 || true
 }
 
-# tag_commit <repo> <tag>: the commit a tag resolves to on the remote. An
-# annotated tag lists its tag object first; the peeled "^{}" row is the commit.
-# Fails when the remote cannot be listed; answers nothing when the tag is gone.
+# tag_commit <repo> <tag>: the commit a tag resolves to (the peeled "^{}" row of an
+# annotated tag); fails when the remote cannot be listed, empty when the tag is gone.
 tag_commit() {
 	local rows
 	rows="$(git ls-remote "$1" "refs/tags/$2^{}" "refs/tags/$2")" || return 1
