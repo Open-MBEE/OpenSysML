@@ -36,17 +36,21 @@ movement() {
 }
 
 # newest_tag <repo>: the highest release tag by version order, from the remote.
-# Upstream also publishes point releases (2025-09.1), which sort after their base;
-# a repository with no release tag answers nothing rather than ending the run.
+# Upstream also publishes point releases (2025-09.1), which sort after their base.
+# Fails when the remote cannot be listed; answers nothing when it has no release tag.
 newest_tag() {
-	git ls-remote --tags --refs "$1" | sed 's|.*refs/tags/||' | grep -E '^[0-9]{4}-[0-9]{2}(\.[0-9]+)?$' | sort -V | tail -n 1 || true
+	local tags
+	tags="$(git ls-remote --tags --refs "$1")" || return 1
+	awk -F'refs/tags/' 'NF > 1 {print $2}' <<<"$tags" | grep -E '^[0-9]{4}-[0-9]{2}(\.[0-9]+)?$' | sort -V | tail -n 1 || true
 }
 
 # tag_commit <repo> <tag>: the commit a tag resolves to on the remote. An
 # annotated tag lists its tag object first; the peeled "^{}" row is the commit.
+# Fails when the remote cannot be listed; answers nothing when the tag is gone.
 tag_commit() {
-	git ls-remote "$1" "refs/tags/$2^{}" "refs/tags/$2" |
-		awk -v t="refs/tags/$2" '{c[$2]=$1} END {print ((t "^{}") in c) ? c[t "^{}"] : c[t]}'
+	local rows
+	rows="$(git ls-remote "$1" "refs/tags/$2^{}" "refs/tags/$2")" || return 1
+	awk -v t="refs/tags/$2" '{c[$2]=$1} END {print ((t "^{}") in c) ? c[t "^{}"] : c[t]}' <<<"$rows"
 }
 
 # check_repo <name> <repo> <pinned commit>: reports the pinned tag's state and
@@ -54,7 +58,11 @@ tag_commit() {
 NEWEST_TAG=
 check_repo() {
 	local name=$1 repo=$2 pinned_commit=$3 newest resolved
-	resolved="$(tag_commit "$repo" "$PILOT_TAG")"
+	NEWEST_TAG=""
+	if ! resolved="$(tag_commit "$repo" "$PILOT_TAG")"; then
+		movement "$name: tags could not be listed from $repo; nothing was checked there"
+		return
+	fi
 	if [[ -z "$resolved" ]]; then
 		movement "$name: the pinned tag $PILOT_TAG no longer exists at $repo"
 	elif [[ "$resolved" != "$pinned_commit" ]]; then
@@ -62,7 +70,10 @@ check_repo() {
 	else
 		report "$name: tag $PILOT_TAG still resolves to $pinned_commit"
 	fi
-	newest="$(newest_tag "$repo")"
+	if ! newest="$(newest_tag "$repo")"; then
+		movement "$name: release tags could not be listed from $repo"
+		return
+	fi
 	if [[ -z "$newest" ]]; then
 		movement "$name: no release tag found at $repo"
 	elif [[ "$newest" != "$PILOT_TAG" && "$(printf '%s\n%s\n' "$PILOT_TAG" "$newest" | sort -V | tail -n 1)" == "$newest" ]]; then
