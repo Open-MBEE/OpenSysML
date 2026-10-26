@@ -383,6 +383,15 @@ Hidden directories other than the library directories stay out of the search, an
 diagnostics of the files loaded this way are reported like those of any other file the
 search finds.
 
+A fragment on a repository IRI names a project directory within the tagged tree
+(`pkg:git/git.example.org/acme/widgets#packages/gears`): that usage is answered by the
+sub-package's own installation — `gears` under `acme` — not by the repository's project. Such a
+sub-package also lies inside its parent's installed tree, and a directory below an installed
+project that holds a `.project.json` of its own is a project of its own: the parent's files stop
+at it — when the project is named, when a file in it is named, in the editor's workspace and in
+`-bundle`, which leaves the nested tree out of the parent's archive — so the two installations load
+`Gears.sysml` once.
+
 Another provider that installs projects elsewhere needs only its directory named. Each of
 the following adds a directory to look for installed projects under, besides the well-known
 ones in the project; the directory may hold the projects at any depth:

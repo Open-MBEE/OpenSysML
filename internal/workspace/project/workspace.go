@@ -86,17 +86,7 @@ func (ix *WorkspaceIndex) Declaring(names []string, exclude func(path string) bo
 // refresh brings the entries up to date with the files under the root: new
 // and changed files are read, and files gone are dropped.
 func (ix *WorkspaceIndex) refresh() {
-	dirs := append([]string{ix.root}, ix.discovery.Around([]string{ix.root}).Dirs()...)
-	var files, archives []string
-	budget := maxDependencyDirs
-	visited := map[string]bool{}
-	for _, dir := range dirs {
-		if IsArchiveFile(dir) {
-			archives = append(archives, dir)
-			continue
-		}
-		walkTolerant(dir, visited, &budget, IsModelFile, &files)
-	}
+	files, archives := ix.discovery.searchSpace([]string{ix.root})
 	live := make(map[string]bool, len(files)+len(archives))
 	for _, path := range files {
 		live[path] = true

@@ -29,7 +29,7 @@ func TestWalkFolderPassesOverTheProjectLibraryDirectory(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	paths, _ := walkFolder(folder, -1)
+	paths, _ := walkFolder(folder, -1, nil)
 	var got []string
 	for _, p := range paths {
 		rel, _ := filepath.Rel(folder, p)
