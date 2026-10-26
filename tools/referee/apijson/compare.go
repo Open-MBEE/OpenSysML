@@ -304,10 +304,14 @@ func (c *comparison) record(root string, p *element, property, bucket string, ou
 		c.rows[id] = row
 	}
 	row.add(bucket)
+	// A declared row's values are not compared, so their references are not counted either.
+	if bucket == bucketPilotNondeterministic {
+		return
+	}
 	if mentionsUnkeyed(ours) || mentionsUnkeyed(pilot) {
 		c.unkeyedReferences++
 	}
-	if bucket == bucketPresentEqual || bucket == bucketAbsentBoth || bucket == bucketIndeterminate || bucket == bucketPilotNondeterministic {
+	if bucket == bucketPresentEqual || bucket == bucketAbsentBoth || bucket == bucketIndeterminate {
 		return
 	}
 	// The first example per row in root, file and key order is deterministic

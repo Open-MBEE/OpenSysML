@@ -343,6 +343,9 @@ func TestDeclaredNondeterminismScoresTheWholeRow(t *testing.T) {
 		if len(c.exampleList(c.scorecard())) != 0 {
 			t.Errorf("%s: a pilot-nondeterministic comparison is not an example of a difference", tc.name)
 		}
+		if c.unkeyedReferences != 0 {
+			t.Errorf("%s: a declared row's references are not compared, so none is counted unkeyed; got %d", tc.name, c.unkeyedReferences)
+		}
 		if other, _ := rowFor(c.scorecard(), "FeatureChainExpression", "operator"); other.PresentEqual != 1 || other.PilotNondeterministic != 0 {
 			t.Errorf("%s: an undeclared property of the same metaclass is still scored, got %+v", tc.name, other.Buckets)
 		}
