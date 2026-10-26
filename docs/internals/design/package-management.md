@@ -85,6 +85,13 @@ A package manager and OpenSysML meet only on disk, at the consuming project's `.
   library. A purl `#<subpath>` fragment names a project directory within the repository the path
   names (`pkg:git/host/acme/widgets#packages/gears`): the installed project matched is the fragment's
   last segment under the repository's owner (`acme`/`gears`), read through its own installation alone.
+  A repository path need not spell the project's publisher/name (`MBSE4U/sysmod-sysmlv2` installs
+  publisher `mbse4u`, name `sysmod`), so a usage that slug-matches nothing is linked by elimination:
+  among the installed projects under the consumer's library roots that no other usage claims, those
+  whose version satisfies the usage's constraint are its candidates; one publisher/name among them →
+  that project, highest satisfying version; several → the usage stays unresolved with a diagnostic
+  naming each candidate, resolved by spelling the project's publisher/name in the usage. Installed
+  projects no usage claims are not loaded.
 - **Versions.** `versionConstraint` is honoured as today (exact, else latest installed by semver
   order). `@<version>` in the IRI is an exact constraint when the usage carries no
   `versionConstraint` (before this, `resourceSegments` discarded it and the latest installed release
