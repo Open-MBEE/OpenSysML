@@ -34,10 +34,10 @@ flowchart TD
   n4["`*«package»*
 **GeneralViews**`"]
   n0 --- n1
-  n2 -.->|"private import ::*"| n0
-  n3 -.->|"private import ::*"| n0
-  n3 -.->|"private import ::*"| n1
-  n3 -.->|"private import ::*"| n2
+  n2 -.->|"«private import»*"| n0
+  n3 -.->|"«private import»*"| n0
+  n3 -.->|"«private import»*"| n1
+  n3 -.->|"«private import»*"| n2
   click n0 href "https://example.test/src/general.sysml#L1"
   click n1 href "https://example.test/src/general.sysml#L22"
   click n2 href "https://example.test/src/general.sysml#L27"

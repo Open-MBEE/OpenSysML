@@ -130,9 +130,9 @@ flowchart TD
   n10 -->|"specialization"| n0
   n10 ---|"◆ chassis"| n22
   n10 ---|"◆ spare"| n24
-  n11 -->|"redefines"| n1
-  n13 -->|"subsets"| n3
+  n11 -->|"redefinition"| n1
+  n13 -->|"subsetting"| n3
   n20 ---|"◇ mass"| n26
   n22 -->|"specialization"| n20
-  n23 -->|"redefines"| n21
-  n27 -.->|"typing"| n0
+  n23 -->|"redefinition"| n21
+  n27 -->|"typing"| n0

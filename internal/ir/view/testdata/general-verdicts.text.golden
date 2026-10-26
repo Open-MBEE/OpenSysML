@@ -18,20 +18,20 @@ verification stopTest
 
 relationships:
   EmergencyStopRequirement --|> StoppingRequirement
-  vehicleMass ..|> MassRequirement
-  chassisMass ..|> MassRequirement
-  emergencyStop ..|> EmergencyStopRequirement
-  chassisMass ..> vehicleMass: derive
-  LightChassis ..> chassisMass: refine
-  vehicle ..> vehicleMass: satisfy
-  heavyVehicle ..> vehicleMass: satisfy
-  vehicle ..> emergencyStop: satisfy
-  emergencyStop ..> brake
-  MassTest ..> vehicleMass: verify
-  lightMassTest ..> vehicleMass: verify
-  heavyMassTest ..> vehicleMass: verify
-  StopTest ..> emergencyStop: verify
-  stopTest ..> emergencyStop: verify
+  vehicleMass --:|> MassRequirement
+  chassisMass --:|> MassRequirement
+  emergencyStop --:|> EmergencyStopRequirement
+  chassisMass ..> vehicleMass: «derive»
+  LightChassis ..> chassisMass: «refine»
+  vehicle -> vehicleMass: «satisfy»
+  heavyVehicle -> vehicleMass: «satisfy»
+  vehicle -> emergencyStop: «satisfy»
+  emergencyStop -> brake
+  MassTest -> vehicleMass: «verify»
+  lightMassTest -> vehicleMass: «verify»
+  heavyMassTest -> vehicleMass: «verify»
+  StopTest -> emergencyStop: «verify»
+  stopTest -> emergencyStop: «verify»
 
 not represented:
   - 4 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements

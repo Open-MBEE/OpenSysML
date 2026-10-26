@@ -4,8 +4,8 @@
 classes: {
   definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
   specialization: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
-  typing: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
   dependency: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
 }
 n0: "«requirement def»\nMassRequirement\nid R1, “The total mass of the vehicle shall not exceed the stated...”" { class: definition }
@@ -24,17 +24,17 @@ n12: "«verification»\nheavyMassTest" { class: usage }
 n13: "«verification def»\nStopTest" { class: definition }
 n14: "«verification»\nstopTest" { class: usage }
 n2 -> n1: { class: specialization }
-n3 -> n0: { class: typing }
-n4 -> n0: { class: typing }
-n5 -> n2: { class: typing }
-n4 -> n3: "derive" { class: dependency }
-n6 -> n4: "refine" { class: dependency }
-n7 -> n3: "satisfy" { class: dependency }
-n8 -> n3: "satisfy" { class: dependency }
-n7 -> n5: "satisfy" { class: dependency }
-n5 -> n9: { class: dependency }
-n10 -> n3: "verify" { class: dependency }
-n11 -> n3: "verify" { class: dependency }
-n12 -> n3: "verify" { class: dependency }
-n13 -> n5: "verify" { class: dependency }
-n14 -> n5: "verify" { class: dependency }
+n3 -> n0: { class: specialization }
+n4 -> n0: { class: specialization }
+n5 -> n2: { class: specialization }
+n4 -> n3: "«derive»" { class: dependency }
+n6 -> n4: "«refine»" { class: dependency }
+n7 -> n3: "«satisfy»" { class: edge }
+n8 -> n3: "«satisfy»" { class: edge }
+n7 -> n5: "«satisfy»" { class: edge }
+n5 -> n9: { class: edge }
+n10 -> n3: "«verify»" { class: edge }
+n11 -> n3: "«verify»" { class: edge }
+n12 -> n3: "«verify»" { class: edge }
+n13 -> n5: "«verify»" { class: edge }
+n14 -> n5: "«verify»" { class: edge }

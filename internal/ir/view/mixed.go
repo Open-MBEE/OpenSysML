@@ -521,13 +521,13 @@ func (w *mixedWalk) referenceEdges() {
 	}
 
 	for _, sym := range w.order {
-		specialLabel := ""
+		specialLabel, specialKind := "", EdgeReference
 		if usage := caseUsage(sym); usage != nil {
 			switch {
 			case usage.IsPerformedAction():
-				specialLabel = "«perform»"
+				specialLabel, specialKind = "«perform»", EdgePerform
 			case usage.IsExhibitedState():
-				specialLabel = "«exhibit»"
+				specialLabel, specialKind = "«exhibit»", EdgeExhibit
 			}
 		}
 		if sym.Kind.IsFeature() && specialLabel == "" {
@@ -548,7 +548,7 @@ func (w *mixedWalk) referenceEdges() {
 		if specialLabel != "" {
 			target := w.r.model.ReferencedFeature(sym)
 			if target != nil {
-				add(sym, target, EdgeReference, specialLabel, sym, referenceTargetNode(sym))
+				add(sym, target, specialKind, specialLabel, sym, referenceTargetNode(sym))
 				continue
 			}
 			for _, rel := range viewRelationshipsOf(sym) {
@@ -556,7 +556,7 @@ func (w *mixedWalk) referenceEdges() {
 					continue
 				}
 				if target := w.r.model.RelationshipTarget(sym, rel); target != nil {
-					add(sym, target, EdgeReference, specialLabel, sym, rel.Target)
+					add(sym, target, specialKind, specialLabel, sym, rel.Target)
 					break
 				}
 			}

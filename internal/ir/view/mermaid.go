@@ -1938,22 +1938,15 @@ func (l labeller) mermaidLines(lines []string) string {
 
 // mermaidArrow is how an edge of each kind is drawn in a flowchart.
 func mermaidArrow(kind Kind, edge EdgeKind) string {
-	if caseNotation(kind) && edge == EdgeReference {
-		return "-.->"
-	}
 	switch edge {
 	case EdgeConnection, EdgeBinding:
 		return "==="
-	case EdgeFlow, EdgeTyping, EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate, EdgeDependency:
+	case EdgeSuccession, EdgeImport, EdgeDerive, EdgeRefine, EdgeDependency:
 		return "-.->"
-	case EdgeComposition, EdgeReference, EdgeContainment:
-		return "---"
-	case EdgeAssociation:
+	case EdgeComposition, EdgeReference, EdgeContainment, EdgeAssociation:
 		return "---"
 	case EdgeAnchor:
 		return "-.-"
-	case EdgeInclude:
-		return "-.->"
 	}
 	return "-->"
 }
@@ -1986,7 +1979,7 @@ func mermaidEdgeLabel(kind Kind, edge Edge) string {
 		return strings.TrimSpace("◆ " + label)
 	case edge.Kind == EdgeReference:
 		return strings.TrimSpace("◇ " + label)
-	case label == "" && (edge.Kind == EdgeSpecialization || edge.Kind == EdgeTyping):
+	case label == "" && (edge.Kind == EdgeSpecialization || edge.Kind == EdgeTyping || edge.Kind == EdgeSubsetting || edge.Kind == EdgeRedefinition):
 		return edge.Kind.String()
 	}
 	return label

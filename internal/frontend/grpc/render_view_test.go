@@ -216,7 +216,7 @@ func TestRenderViewRendersCaseAndMixed(t *testing.T) {
 		telemetry = telemetry || node.Kind == "port" && node.Name == "telemetry"
 	}
 	for _, edge := range mixedView.Edges {
-		perform = perform || edge.Kind == "reference" && edge.Label == "«perform»"
+		perform = perform || edge.Kind == "perform" && edge.Label == "«perform»"
 	}
 	if !telemetry {
 		t.Errorf("mixed view nodes do not include the Lander telemetry port: %+v", mixedView.Nodes)

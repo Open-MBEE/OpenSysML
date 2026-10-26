@@ -50,19 +50,19 @@ own flow`"]
     n11{"`*«decision»*
 **check**`"}
   end
-  n4 --> n5
-  n1 --> n7
-  n2 --> n8
-  n2 -.-> n3_anchor
-  n3_anchor --> n8
-  n6 --> n8
-  n7 --> n2
-  n7 --> n3_anchor
-  n7 --> n6
-  n8 --> n11
-  n10 --> n9
-  n11 -->|"[speed #gt; 0]"| n9
-  n11 --> n10
+  n4 -.-> n5
+  n1 -.-> n7
+  n2 -.-> n8
+  n2 --> n3_anchor
+  n3_anchor -.-> n8
+  n6 -.-> n8
+  n7 -.-> n2
+  n7 -.-> n3_anchor
+  n7 -.-> n6
+  n8 -.-> n11
+  n10 -.-> n9
+  n11 -.->|"[speed #gt; 0]"| n9
+  n11 -.-> n10
   classDef control fill:#181818,stroke:#181818
   class n7,n8 control
   classDef anchor fill:none,stroke:none

@@ -36,11 +36,11 @@ relationships:
   Vehicle *-- Chassis: chassis
   Vehicle o-- Driver: driver
   LightChassis --|> Chassis
-  vehicle ..|> Vehicle
-  mass --|> mass: redefines
-  heavyVehicle ..|> Vehicle
-  mass --|> mass: redefines
-  brake ..|> Brake
+  vehicle --:|> Vehicle
+  mass --||> mass
+  heavyVehicle --:|> Vehicle
+  mass --||> mass
+  brake --:|> Brake
   Boolean --|> ScalarValue
   Complex --|> Number
   Integer --|> Rational

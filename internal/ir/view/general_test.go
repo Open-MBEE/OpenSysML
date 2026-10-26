@@ -126,7 +126,7 @@ func TestGeneralViewUnresolvedRelationshipEnds(t *testing.T) {
 		t.Fatalf("kind = %q, want %q", rendering.Kind, KindRequirement)
 	}
 	text := rendering.textWith(fullNotation)
-	for _, want := range []string{"requirement def Model::Limit", "requirement Model::limit : Limit", "Model::limit ..|> Model::Limit"} {
+	for _, want := range []string{"requirement def Model::Limit", "requirement Model::limit : Limit", "Model::limit --:|> Model::Limit"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("rendering lacks %q:\n%s", want, text)
 		}
@@ -242,7 +242,7 @@ func TestGeneralViewInheritedObjectiveVerifies(t *testing.T) {
 		expose Model::*;
 	}
 }`))
-	for _, want := range []string{"Model::Check ..> Model::r: verify", "Model::check ..> Model::r: verify", "Model::recheck ..> Model::s: verify"} {
+	for _, want := range []string{"Model::Check -> Model::r: «verify»", "Model::check -> Model::r: «verify»", "Model::recheck -> Model::s: «verify»"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("rendering lacks %q:\n%s", want, text)
 		}
@@ -268,7 +268,7 @@ func TestGeneralViewInheritedSubsetting(t *testing.T) {
 		expose Model::**;
 	}
 }`))
-	if want := "Model::Derived::p --|> Model::Base::p: subsets"; !strings.Contains(text, want) {
+	if want := "Model::Derived::p --|> Model::Base::p\n"; !strings.Contains(text, want) {
 		t.Errorf("rendering lacks %q:\n%s", want, text)
 	}
 }
@@ -292,7 +292,7 @@ func TestGeneralViewMemberImportsStayDistinct(t *testing.T) {
 	}
 }`)
 	text := textWithQualifiers(t, rendering)
-	for _, want := range []string{"Model::P ..> Model::Q: import ::A", "Model::P ..> Model::Q: import ::B"} {
+	for _, want := range []string{"Model::P ..> Model::Q: «import» ::A", "Model::P ..> Model::Q: «import» ::B"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("rendering lacks %q:\n%s", want, text)
 		}

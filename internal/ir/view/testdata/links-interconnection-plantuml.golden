@@ -54,5 +54,5 @@ rectangle "<size:10>//«part def»//</size>\n**Loop**" as n0 <<part def>> [[http
   }
 }
 n1.0 -[thickness=3]- n3.0 : [[https://example.test/src/interconnection.sysml#L19]]
-n2 -[dashed]-> n4 : [[https://example.test/src/interconnection.sysml#L20]]
+n2 --> n4 : [[https://example.test/src/interconnection.sysml#L20]]
 @enduml

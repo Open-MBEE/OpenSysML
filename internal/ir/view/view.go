@@ -216,16 +216,15 @@ const (
 	EdgeFlow
 	// EdgeBinding is a binding equating two features.
 	EdgeBinding
-	// EdgeSpecialization is a specialization, subsetting or redefinition, from
-	// the specific element to the general one.
+	// EdgeSpecialization is a specialization (or subclassification), from the
+	// specific element to the general one.
 	EdgeSpecialization
 	// EdgeTyping is a feature typing, from a usage to its definition.
 	EdgeTyping
 	// EdgeComposition is a composite usage, from its owner to it; in a case
 	// diagram, a case contained in another.
 	EdgeComposition
-	// EdgeReference is a referential usage, from its owner to it; in a case or
-	// mixed diagram, a performing or exhibiting usage to its target.
+	// EdgeReference is a referential usage, from its owner to it.
 	EdgeReference
 	// EdgeContainment is a package owning another, from the owner.
 	EdgeContainment
@@ -250,6 +249,14 @@ const (
 	EdgeAnchor
 	// EdgeDependency is a dependency of no particular kind, from the client.
 	EdgeDependency
+	// EdgeSubsetting is a subsetting, from the subsetting feature to the subsetted one.
+	EdgeSubsetting
+	// EdgeRedefinition is a redefinition, from the redefining feature to the redefined one.
+	EdgeRedefinition
+	// EdgePerform is a performing usage to the action it performs, in a case or mixed diagram.
+	EdgePerform
+	// EdgeExhibit is an exhibiting usage to the state it exhibits, in a case or mixed diagram.
+	EdgeExhibit
 )
 
 // String names an edge kind the way the notation speaks of it.
@@ -295,6 +302,14 @@ func (k EdgeKind) String() string {
 		return "anchor"
 	case EdgeDependency:
 		return "dependency"
+	case EdgeSubsetting:
+		return "subsetting"
+	case EdgeRedefinition:
+		return "redefinition"
+	case EdgePerform:
+		return "perform"
+	case EdgeExhibit:
+		return "exhibit"
 	}
 	return "edge"
 }

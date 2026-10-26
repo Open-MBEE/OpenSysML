@@ -44,15 +44,15 @@ relationships:
   Inspection .. objective n12
   start of mode -> ready
   pump.outlet -- tank.inlet
-  ready ..> Ready
-  plant ..> Plant
-  operator ..> Person
-  run ..> Operate: «perform»
-  mode ..> Modes: «exhibit»
+  ready --:|> Ready
+  plant --:|> Plant
+  operator --:|> Person
+  run -> Operate: «perform»
+  mode -> Modes: «exhibit»
   Pump --|> BaseUnit: «specializes»
-  outlet ..> FluidPort
+  outlet --:|> FluidPort
   Tank --|> BaseUnit: «specializes»
-  inlet ..> FluidPort
+  inlet --:|> FluidPort
   Plant --|> BaseUnit: «specializes»
-  pump ..> Pump
-  tank ..> Tank
+  pump --:|> Pump
+  tank --:|> Tank

@@ -182,9 +182,9 @@ func TestPortedAndPinlessEdgesMixUnderTheMinimalDisplay(t *testing.T) {
 		"DOT": {`"` + outlet.ID + `" -> "` + inlet.ID + `" [label="supply"`,
 			`"` + waterOut.ID + `" -> "` + waterIn.ID + `" [label="of Water"`,
 			`label=<<font point-size="10"><i>«part»</i></font><br/><b>sensor : Pump</b>>;`},
-		"PlantUML": {outlet.ID + " -[thickness=3]- " + inlet.ID + " : supply\n", waterOut.ID + " -[dashed]-> " + waterIn.ID + " : of Water\n",
+		"PlantUML": {outlet.ID + " -[thickness=3]- " + inlet.ID + " : supply\n", waterOut.ID + " --> " + waterIn.ID + " : of Water\n",
 			"  rectangle \"<size:10>//«part»//</size>\\n**sensor : Pump**\" as " + sensor.ID + " <<part>> <<usage>> {\n"},
-		"Mermaid": {"  " + outlet.ID + " ===|\"supply\"| " + inlet.ID + "\n", "  " + waterOut.ID + " -.->|\"of Water\"| " + waterIn.ID + "\n",
+		"Mermaid": {"  " + outlet.ID + " ===|\"supply\"| " + inlet.ID + "\n", "  " + waterOut.ID + " -->|\"of Water\"| " + waterIn.ID + "\n",
 			"**sensor : Pump**"},
 	} {
 		form := map[string]string{"DOT": dot, "PlantUML": plantuml, "Mermaid": mermaid}[label]

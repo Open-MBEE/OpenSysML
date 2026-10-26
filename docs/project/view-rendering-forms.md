@@ -183,11 +183,15 @@ What each of the other graphs draws, as nodes from the exposed set and edges bet
 A relationship end that does not resolve draws no edge and is listed as a notice, and a cycle (mutually recursive part
 definitions, requirements deriving each other, packages importing each other) is drawn once per
 edge: the graph is built from symbols, never by following edges. Node and edge order is the model's
-declaration order, so a rendering is deterministic. The writers draw `specialization` as UML's
-hollow triangle, `typing` dashed, `composition` with a filled diamond and `reference` with a hollow one (a Mermaid flowchart, which has
-no diamond head, leads the edge's label with `◆` or `◇` instead), each
-requirement relationship dashed and named by its keyword (`«satisfy»`, `«verify»`), as the
-interconnection already does for its requirement and allocation edges. The Cameo style frames
+declaration order, so a rendering is deterministic. The writers draw each relationship with the
+glyph of its §8.2.3 production — `specialization` and `subsetting` a solid hollow triangle,
+`typing` the same with two dots at its base, `redefinition` the same with a bar, `composition` a
+filled and `reference` a hollow diamond at the owner (a Mermaid flowchart, which has no diamond
+head, leads the edge's label with `◆` or `◇` instead), `containment` a circle-plus at the
+namespace, an import a dashed open arrow labelled `«import»`, and each requirement relationship a
+solid open arrow named by its keyword (`«satisfy»`, `«verify»`, `«allocate»`), as the
+interconnection already does for its requirement and allocation edges; a `derive` or `refine` is
+the dashed `binary-dependency`. The [notation table](#notation-table) lists every glyph per form. The Cameo style frames
 the three kinds `req`, `bdd` and `pkg`.
 
 ### The verdicts overlay
@@ -357,7 +361,7 @@ when both endpoints are present in the drawing. Mermaid and DOT keep state/actio
 the PlantUML component dialect writes them as explicit keyword-bearing circles or rectangles.
 
 The writers preserve the same semantics with each notation's native shapes: Mermaid uses stadium
-cases, boxes for actors and subjects, notes for objectives, dashed include/typing/reference arrows,
+cases, boxes for actors and subjects, notes for objectives, solid include/typing/perform/exhibit arrows,
 undirected association lines and dotted anchor lines; DOT uses ellipses, boxes and note-shaped
 objectives with the corresponding edge attributes; PlantUML uses `usecase`, `actor`, subject
 rectangles and notes. Graph kinds keep Mermaid as their machine form. Markdown, CSV and TSV are
@@ -590,14 +594,9 @@ digraph "VehicleViews::vehicleView" {
   too. The parameters are shown and hidden with the port symbols (`port-symbols`), not the
   parameter symbols a case's actors are. A mixed rendering draws constraints the same way
   (`mixedStructural`).
-- **Edges.** The `EdgeKind` styles parallel the Mermaid arrows so the two forms read alike:
-
-  | `EdgeKind` | Mermaid | DOT |
-  | --- | --- | --- |
-  | connection | `---` | `arrowhead=none, penwidth=3` |
-  | binding | `---` | `arrowhead=none` |
-  | transition, succession | `-->` | solid, default arrowhead |
-  | flow | `-.->` | `style=dashed` |
+- **Edges.** Every edge kind is drawn with the glyph of its SysML v2 §8.2.3 production, as the
+  [notation table](#notation-table) lists per form; the Mermaid and DOT forms agree on direction
+  and on dashing (`---` is `arrowhead=none`, `-.->` is `style=dashed`, `===` the heavy connection).
 
   An interconnection draws a `binding` between two features as an edge of its own kind, a plain
   undirected line beside the heavy connection (`==` in the text form, `--` in PlantUML), and
@@ -619,6 +618,48 @@ Three methods of the writer produce every attribute list — `graphAttributes`,
 `dotNodeAttributes` (with `dotClusterAttributes` and `dotAnchorAttributes` for a node drawn as a
 cluster) and `dotEdgeAttributes` — so what is said about a node or an edge changes without
 touching how the graph is walked.
+
+### Notation table
+
+Every relationship edge is drawn with the glyph of its production in the SysML v2 graphical
+notation (§8.2.3), the production's figure being the oracle. One row per production: the
+`EdgeKind` the view model gives it, then the glyph each form writes — the DOT edge attributes after
+the label, the PlantUML arrow, the Mermaid arrow, the D2 arrow and class, the SVG marker the VS Code
+canvas ends the edge in (`start` at the edge's source) — and whether the drawing is **conformant**,
+**approximate** (the medium cannot draw the glyph; the nearest it has, with what is missing) or
+**differs from pilot** (the spec and the Pilot's PlantUML visualizer disagree and the spec wins).
+`TestNotationTableMatchesTheWriters` (`internal/ir/view/notation_table_test.go`) and the canvas
+test read this table and hold the writers to it, so a glyph changes here and in the code together.
+
+| Production | `EdgeKind` | DOT | PlantUML | Mermaid | D2 | Canvas | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `connection` | `connection` | `arrowhead=none, penwidth=3` | `-[thickness=3]-` | `===` | `-- connection` | `none` | conformant | The Pilot's heavy undirected connector; `penwidth=3` is dropped under the cameo style. |
+| `binding-connection` | `binding` | `arrowhead=none` | `--` | `===` | `-- edge` | `none` | conformant | Labelled `=` where the binding has no name of its own, in every form. |
+| `flow` | `flow` | *(default)* | `-->` | `-->` | `-> edge` | `end arrow` | approximate | Solid with a filled head; PlantUML has no filled head, its open `-->` stands in (as the Pilot writes it). |
+| `aflow-succession` | `succession` | `style=dashed, arrowhead=vee` | `-[dashed]->` | `-.->` | `-> succession` | `end arrow-open` | differs from pilot | Dashed with an open head and the guard as its text; the Pilot draws a succession solid. Mermaid's `-.->` and D2's dashed arrow carry a filled head. |
+| `transition`, `st-succession` | `transition` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `end arrow-open` | approximate | Solid with an open head; Mermaid and D2 have only a filled head. |
+| `subclassification`, `specialization` | `specialization` | `arrowhead=empty` | `--\|>` | `-->` | `-> specialization` | `end triangle-hollow` | approximate | Solid hollow triangle; Mermaid has no triangle head and names the kind as the edge text instead. |
+| `subsetting` | `subsetting` | `arrowhead=empty` | `--\|>` | `-->` | `-> specialization` | `end triangle-hollow` | approximate | The same hollow triangle, no text; Mermaid writes `subsetting` as the edge text, having no triangle. |
+| `redefinition` | `redefinition` | `arrowhead=onormaltee` | `--\|\|>` | `-->` | `-> specialization` | `end triangle-bar` | approximate | Hollow triangle with a bar across the line: Graphviz sets the tee behind the triangle, D2 has no bar and draws the plain triangle, Mermaid writes `redefinition` as the edge text. |
+| `definition` | `typing` | `arrowhead=onormaldotdot` | `--:\|>` | `-->` | `-> specialization` | `end triangle-dots` | approximate | Solid hollow triangle at the definition with two dots at its base: Graphviz sets the dots in line behind the triangle, D2 has no dots and draws the plain triangle, Mermaid writes `typing` as the edge text. |
+| `composite-feature-membership` | `composition` | `dir=back, arrowtail=diamond` | `*--` | `---` | `<- composition` | `start diamond-filled` | approximate | Filled diamond at the owner; Mermaid has no diamond and leads the edge text with `◆`. A case or mixed diagram writes the DOT attributes as `arrowtail=diamond, dir=back`. |
+| `noncomposite-feature-membership` | `reference` | `dir=back, arrowtail=odiamond` | `o--` | `---` | `<- reference` | `start diamond-hollow` | approximate | Hollow diamond at the owner; Mermaid leads the edge text with `◇`. |
+| `owned-membership` | `containment` | `dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0` | `+--` | `---` | `<- containment` | `start circle-plus` | approximate | Circle-plus at the namespace: Graphviz has no such arrow, so a `+` tail label is set on its hollow circle; D2 puts a `+` arrowhead label beside its circle; Mermaid draws a plain line, a tree's nesting showing the ownership. |
+| `import`, `top-level-import`, `recursive-import` | `import` | `arrowhead=vee, style=dashed` | `..>` | `-.->` | `-> dependency` | `end arrow-open` | conformant | Dashed open arrow labelled `«import»`, `«import»*` for a namespace import, `«import»**` for a recursive one, the visibility inside the guillemets (`«private import»`). |
+| `binary-dependency` | `dependency`, `derive`, `refine` | `arrowhead=vee, style=dashed` | `..>` | `-.->` | `-> dependency` | `end arrow-open` | conformant | Dashed open arrow; a derivation or refinement carries `«derive»` or `«refine»` as its text. |
+| `satisfy-edge` | `satisfy` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `end arrow-open` | conformant | Solid open arrow labelled `«satisfy»`. |
+| `verify-relationship` | `verify` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `end arrow-open` | conformant | Solid open arrow labelled `«verify»`. |
+| `allocate-relationship` | `allocate` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `end arrow-open` | conformant | Solid open arrow labelled `«allocate»`. |
+| `include-use-case-relationship` | `include` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `end arrow-open` | conformant | Solid open arrow labelled `«include»`. |
+| `perform-edge` | `perform` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `end arrow-open` | conformant | Solid open arrow labelled `«perform»`, from the performing usage to the action. |
+| `exhibit-edge` | `exhibit` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `end arrow-open` | conformant | Solid open arrow labelled `«exhibit»`, from the exhibiting usage to the state. |
+| `association` (actor or subject line, connection definition) | `association` | `dir=none` | `--` | `---` | `-- edge` | `none` | conformant | Plain undirected line. |
+| objective anchor | `anchor` | `dir=none, style=dashed` | `..` | `-.-` | `-> edge` | `none` | conformant | Dashed line without a head, the note's anchor. |
+
+The Mermaid cells are the flowchart arrows; `mermaidEdgeLabel` adds the kind's name as the edge text
+where the arrow alone would not tell a specialization, subsetting, redefinition or typing apart. The
+canvas dashes a `succession`, `import`, `derive`, `refine`, `dependency` or `anchor` edge by its CSS
+class. Under the cameo style a tree's `containment` is Cameo's filled diamond instead.
 
 ### Edge routing
 
@@ -1235,14 +1276,16 @@ One shape per kind, chosen so each golden is drawn losslessly:
 | `requirement`, `definition`, `package` | Flat nodes, `definition`, `usage` or `package` by their keyword, joined in the class-diagram notation the PlantUML form uses (see below) |
 | `sequence` | One `sequence: "" { shape: sequence_diagram … }` container holding the lifelines in root order and the `->` messages in edge order, one for one with the Mermaid form |
 
-Edges follow the Pilot: `--` at `stroke-width: 3` for a connection, `--` for a binding, `->` with
-`stroke-dash: 3` for a flow, `->` for a transition or succession, labelled as the DOT form labels
-them. A GeneralView graph's relationships each take a class of the same name: `specialization` a
-hollow triangle head, `typing` the same dashed, `composition` and `reference` a filled and a hollow
-diamond at the owner, `containment` a circle at the owner — those three written owner `<-` owned,
+Edges follow §8.2.3 as the [notation table](#notation-table) lists them: `--` at `stroke-width: 3`
+for a connection, `--` for a binding, `->` for a flow or a transition, `->` with `stroke-dash: 3`
+for a succession, labelled as the DOT form labels them. A GeneralView graph's relationships take a
+class named for the glyph: `specialization` a hollow triangle head (a typing, subsetting and
+redefinition too — D2 has no dots or bar to add), `composition` and `reference` a filled and a hollow
+diamond at the owner, `containment` a circle at the owner carrying a `+` arrowhead label, D2 having
+no circle-plus — those three written owner `<-` owned,
 so the head at the owner is the only one, D2 drawing a source arrowhead only where the connection
-has one — and import, satisfy, verify, derive, refine
-and allocate one dashed `dependency` arrow, labelled. A case or mixed rendering has no D2 form. `TB`/`LR`/`BT`/`RL` become `direction: down`/`right`/`up`/`left` — D2 draws every direction,
+has one — and import, derive and refine one dashed `dependency` arrow, satisfy, verify, allocate
+and include a plain `edge` arrow, each labelled. A case or mixed rendering has no D2 form. `TB`/`LR`/`BT`/`RL` become `direction: down`/`right`/`up`/`left` — D2 draws every direction,
 where PlantUML does not. Every label is one double-quoted string with `\`, `"`, a newline and the
 `${` substitution escaped; every node is the rendering's identifier-safe ID, quoted where it holds
 a `.` (`"n1.0"`) so D2 does not read it as a path.

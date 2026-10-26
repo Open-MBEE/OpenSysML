@@ -34,7 +34,7 @@ flowchart TD
   n4["`*«package»*
 **GeneralViews**`"]
   n0 --- n1
-  n2 -.->|"private import ::*"| n0
-  n3 -.->|"private import ::*"| n0
-  n3 -.->|"private import ::*"| n1
-  n3 -.->|"private import ::*"| n2
+  n2 -.->|"«private import»*"| n0
+  n3 -.->|"«private import»*"| n0
+  n3 -.->|"«private import»*"| n1
+  n3 -.->|"«private import»*"| n2

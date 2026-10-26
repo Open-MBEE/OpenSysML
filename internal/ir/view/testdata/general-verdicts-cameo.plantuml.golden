@@ -60,18 +60,18 @@ class "<size:10>//«verification»//</size>\n**heavyMassTest**" as n12 <<verific
 class "<size:10>//«verification def»//</size>\n**StopTest**" as n13 <<verification def>>
 class "<size:10>//«verification»//</size>\n**stopTest**" as n14 <<verification>> <<usage>>
 n2 --|> n1
-n3 ..|> n0
-n4 ..|> n0
-n5 ..|> n2
-n4 ..> n3 : derive
-n6 ..> n4 : refine
-n7 ..> n3 : satisfy
-n8 ..> n3 : satisfy
-n7 ..> n5 : satisfy
-n5 ..> n9
-n10 ..> n3 : verify
-n11 ..> n3 : verify
-n12 ..> n3 : verify
-n13 ..> n5 : verify
-n14 ..> n5 : verify
+n3 --:|> n0
+n4 --:|> n0
+n5 --:|> n2
+n4 ..> n3 : «derive»
+n6 ..> n4 : «refine»
+n7 --> n3 : «satisfy»
+n8 --> n3 : «satisfy»
+n7 --> n5 : «satisfy»
+n5 --> n9
+n10 --> n3 : «verify»
+n11 --> n3 : «verify»
+n12 --> n3 : «verify»
+n13 --> n5 : «verify»
+n14 --> n5 : «verify»
 @enduml

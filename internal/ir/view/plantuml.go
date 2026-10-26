@@ -561,37 +561,36 @@ func plantumlStyleColor(style *Style) string {
 	return color
 }
 
-// plantumlArrow is how an edge of each kind is drawn: a connection as the
-// Pilot's heavy undirected connector, a binding a plain undirected line, a flow
-// dashed, a general graph's relationships in the class-diagram notation, every
-// other edge a plain arrow.
+// plantumlArrow is how an edge of each kind is drawn, after the §8.2.3 glyphs
+// as the Pilot's visualizer writes them: a connection as the heavy undirected
+// connector, a binding a plain undirected line, a succession dashed, a general
+// graph's relationships in the class-diagram notation, every other edge a plain
+// arrow (PlantUML's open head standing in for a flow's filled one).
 func plantumlArrow(kind Kind, edge EdgeKind) string {
-	if caseNotation(kind) && (edge == EdgeTyping || edge == EdgeReference) {
-		return "..>"
-	}
 	switch edge {
 	case EdgeConnection:
 		return "-[thickness=3]-"
 	case EdgeBinding:
 		return "--"
-	case EdgeFlow:
+	case EdgeSuccession:
+		// An action is written in the state grammar, whose dashed arrow is this.
 		return "-[dashed]->"
-	case EdgeSpecialization:
+	case EdgeSpecialization, EdgeSubsetting:
 		return "--|>"
+	case EdgeRedefinition:
+		return "--||>"
 	case EdgeTyping:
-		return "..|>"
+		return "--:|>"
 	case EdgeComposition:
 		return "*--"
 	case EdgeReference:
 		return "o--"
 	case EdgeContainment:
 		return "+--"
-	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate, EdgeDependency:
+	case EdgeImport, EdgeDerive, EdgeRefine, EdgeDependency:
 		return "..>"
 	case EdgeAssociation:
 		return "--"
-	case EdgeInclude:
-		return "..>"
 	case EdgeAnchor:
 		return ".."
 	}

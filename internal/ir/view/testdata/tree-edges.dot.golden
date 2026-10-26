@@ -76,10 +76,10 @@ digraph "FleetViews::structure" {
   "n10" -> "n0" [arrowhead=empty];
   "n10" -> "n22" [headlabel="chassis", dir=back, arrowtail=diamond];
   "n10" -> "n24" [headlabel="spare", dir=back, arrowtail=diamond];
-  "n11" -> "n1" [label="redefines", arrowhead=empty];
-  "n13" -> "n3" [label="subsets", arrowhead=empty];
+  "n11" -> "n1" [arrowhead=onormaltee];
+  "n13" -> "n3" [arrowhead=empty];
   "n20" -> "n26" [headlabel="mass", dir=back, arrowtail=odiamond];
   "n22" -> "n20" [arrowhead=empty];
-  "n23" -> "n21" [label="redefines", arrowhead=empty];
-  "n27" -> "n0" [arrowhead=empty, style=dashed];
+  "n23" -> "n21" [arrowhead=onormaltee];
+  "n27" -> "n0" [arrowhead=onormaldotdot];
 }

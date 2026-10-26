@@ -44,5 +44,5 @@ flowchart LR
     end
   end
   n1.0 === n3.0
-  n2 -.-> n4
+  n2 --> n4
   linkStyle 0 stroke-width:3px

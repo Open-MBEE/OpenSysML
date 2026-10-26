@@ -15,5 +15,5 @@ variation part def Models
 relationships:
   engine -- chassis
   engine -- chassis
-  vehicleFamily ..> Vehicle
+  vehicleFamily --:|> Vehicle
   Models --|> Vehicle: «specializes»
