@@ -34,6 +34,12 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   scheduling choice and every unbounded resource, the artifacts and traceability a tool
   qualification argument consumes, and a fixed-step host interface proved under Zephyr on QEMU
   and as an F´ component
+- **[Package management over git](package-management.md)** — a proposal: a package is any
+  git repository carrying `.project.json` at a tag (`pkg:git/<host>/<path>@<version>`), fetched
+  with `git`, verified and locked in `.project.lock.json`, installed under `lib/`; an optional
+  index is derived from the packages and rendered twice from the same records — plain JSON in the
+  static layout other tools read, and standard-library-only SysML whose constraints `sysml -validate`
+  checks; what exists today, what sysand does, the client commands and a three-phase plan
 - **[Scheduling policies, choice points and exploration](scheduling.md)** — how a run
   resolves what the library leaves unordered, reports each such choice without changing the
   run, takes another linearization under `declared` or `seed:<n>`, and enumerates every one
