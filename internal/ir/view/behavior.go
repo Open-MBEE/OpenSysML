@@ -811,6 +811,11 @@ func (r *Renderer) actionEdges(subject actionSubject, graph *lower.ActionGraph, 
 	name, doc := subject.name, subject.doc
 	for _, src := range graph.Nodes {
 		for _, edge := range graph.Edges[src] {
+			if edge.Carries && edge.Gate == nil {
+				// The succession a succession flow states is its own glyph; one a
+				// guarded succession gates keeps that succession's guard.
+				continue
+			}
 			to, ok := nodes[edge.Target]
 			if !ok {
 				out.Notices = append(out.Notices, fmt.Sprintf("succession from %s in %s leaves the action's own nodes; no edge is drawn",
@@ -835,9 +840,13 @@ func (r *Renderer) actionEdges(subject actionSubject, graph *lower.ActionGraph, 
 				continue
 			}
 			synthesized := r.declaredNameSynthesized(subject.elem, flow.Decl)
-			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: flowLabel(flow, synthesized), Name: edgeName(flow.Name, synthesized),
+			kind, label := EdgeFlow, flowLabel(flow, synthesized)
+			if flow.Kind == lower.FlowSuccession {
+				kind, label = EdgeSuccessionFlow, successionFlowLabel(label)
+			}
+			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: label, Name: edgeName(flow.Name, synthesized),
 				FromPort: portNamed(nodes[src], flow.SourcePin, PortOut), ToPort: portNamed(to, flow.TargetPin, PortIn),
-				Kind: EdgeFlow, Origin: nodeOrigin(docOf(graph, flow.Decl, doc), flow.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, flow.Decl, out),
+				Kind: kind, Origin: nodeOrigin(docOf(graph, flow.Decl, doc), flow.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, flow.Decl, out),
 				Style: r.declaredEdgeDress(subject.view, subject.elem, flow.Decl, nodes[src].ID, to.ID, out)})
 		}
 	}
@@ -956,6 +965,15 @@ func flowLabel(flow lower.ObjectFlow, synthesized bool) string {
 		label = strings.TrimPrefix(label+" to "+flow.TargetPin, " to ")
 	}
 	return edgeLabel(flow.Name, label, synthesized)
+}
+
+// successionFlowKeyword is the text the graphical notation sets on a succession
+// flow, which tells it from a flow where a form draws both alike.
+const successionFlowKeyword = "«succession flow»"
+
+// successionFlowLabel leads a succession flow's label with its keyword.
+func successionFlowLabel(label string) string {
+	return strings.TrimSpace(successionFlowKeyword + " " + label)
 }
 
 // edgeName is the name an edge was declared with, "" for one declared anonymous
