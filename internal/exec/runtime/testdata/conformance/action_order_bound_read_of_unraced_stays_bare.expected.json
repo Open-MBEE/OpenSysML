@@ -1,0 +1,22 @@
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{
+			"outputs": {
+				"p": {"type": "Integer", "value": 7},
+				"q": {"type": "Integer", "value": 8},
+				"x": {"type": "Integer", "value": 1}
+			}
+		},
+		{
+			"outputs": {
+				"p": {"type": "Integer", "value": 7},
+				"q": {"type": "Integer", "value": 8},
+				"x": {"type": "Integer", "value": 2}
+			}
+		}
+	],
+	"admissible": "A feature valued by an expression stands on what its expression reads",
+	"orderDependent": {"x": 2}
+}
