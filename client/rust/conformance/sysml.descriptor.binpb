@@ -1,5 +1,5 @@
 
-±ø
+²ø
 sysml.protosysml"¶
 Verdict
 kind (	Rkind
@@ -904,12 +904,12 @@ model_hash (	R	modelHash"
 
 oslc_query (	R	oslcQuery"F
 QueryResponse5
-elements (2.sysml.QueryResultElementRelements"x
+elements (2.sysml.QueryResultElementRelements"y
 Query
 scope (	Rscope
 select (	Rselect'
-where (2.sysml.ConstraintRwhere
-orderBy (	RorderBy"’
+where (2.sysml.ConstraintRwhere
+order_by (	RorderBy"’
 
 Constraint:
 	primitive (2.sysml.PrimitiveConstraintH R	primitive:
@@ -9356,7 +9356,7 @@ X
 
 rˆ
 è
-rŒÙ Properties the matched elements are sorted by, in order of precedence,
+rŒÙ Properties the matched elements are sorted by, in order of precedence,
  each ascending; elements equal under every one keep declaration order.
  Corresponds to the standard's `orderBy`. An unknown one fails the call.
 
@@ -9366,9 +9366,9 @@ X
 
 rŒ
 
-rŒ
+rŒ
 
-rŒ
+rŒ
 ¤
 s‘ –• Constraint is the standard's Constraint, whose `@type` discriminates between
  its two forms. On the wire the form is the oneof arm, not a type tag.

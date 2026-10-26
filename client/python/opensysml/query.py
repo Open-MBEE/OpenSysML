@@ -123,7 +123,7 @@ def build_query(payload=None, scope=None, select=None, where=None, order_by=None
     query = sysml_pb2.Query(
         scope=[_scope_id(entry) for entry in _sequence("scope", scope)],
         select=[_property_name(entry) for entry in _sequence("select", select)],
-        orderBy=[_property_name(entry) for entry in _sequence("orderBy", order_by)],
+        order_by=[_property_name(entry) for entry in _sequence("orderBy", order_by)],
     )
     if where is not None:
         query.where.CopyFrom(_constraint(where))

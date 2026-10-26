@@ -2314,7 +2314,7 @@ message Query {
   // Properties the matched elements are sorted by, in order of precedence,
   // each ascending; elements equal under every one keep declaration order.
   // Corresponds to the standard's `orderBy`. An unknown one fails the call.
-  repeated string orderBy = 4;
+  repeated string order_by = 4;
 }
 
 // Constraint is the standard's Constraint, whose `@type` discriminates between

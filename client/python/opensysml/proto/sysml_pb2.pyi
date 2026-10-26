@@ -1878,16 +1878,16 @@ class QueryResponse(_message.Message):
     def __init__(self, elements: _Optional[_Iterable[_Union[QueryResultElement, _Mapping]]] = ...) -> None: ...
 
 class Query(_message.Message):
-    __slots__ = ("scope", "select", "where", "orderBy")
+    __slots__ = ("scope", "select", "where", "order_by")
     SCOPE_FIELD_NUMBER: _ClassVar[int]
     SELECT_FIELD_NUMBER: _ClassVar[int]
     WHERE_FIELD_NUMBER: _ClassVar[int]
-    ORDERBY_FIELD_NUMBER: _ClassVar[int]
+    ORDER_BY_FIELD_NUMBER: _ClassVar[int]
     scope: _containers.RepeatedScalarFieldContainer[str]
     select: _containers.RepeatedScalarFieldContainer[str]
     where: Constraint
-    orderBy: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, scope: _Optional[_Iterable[str]] = ..., select: _Optional[_Iterable[str]] = ..., where: _Optional[_Union[Constraint, _Mapping]] = ..., orderBy: _Optional[_Iterable[str]] = ...) -> None: ...
+    order_by: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, scope: _Optional[_Iterable[str]] = ..., select: _Optional[_Iterable[str]] = ..., where: _Optional[_Union[Constraint, _Mapping]] = ..., order_by: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class Constraint(_message.Message):
     __slots__ = ("primitive", "composite")

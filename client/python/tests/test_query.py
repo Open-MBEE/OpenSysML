@@ -206,11 +206,11 @@ def test_an_operand_of_the_wrong_shape_is_refused(where, message):
 def test_order_by_translates_from_payload_and_keyword():
     """``orderBy`` reaches the wire in order, from the payload or the keyword."""
     query = build_query({"@type": "Query", "orderBy": ["@type", "name"]})
-    assert list(query.orderBy) == ["@type", "name"]
+    assert list(query.order_by) == ["@type", "name"]
     assert build_query(order_by=["@type", "name"]) == query
-    assert list(build_query({"scope": ["Demo"]}).orderBy) == []
+    assert list(build_query({"scope": ["Demo"]}).order_by) == []
     # One name on its own is the one-member list, as scope and select take one.
-    assert list(build_query({"orderBy": "name"}).orderBy) == ["name"]
+    assert list(build_query({"orderBy": "name"}).order_by) == ["name"]
 
 
 @pytest.mark.parametrize("payload, message", [
