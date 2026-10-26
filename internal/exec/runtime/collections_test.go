@@ -205,6 +205,13 @@ func TestCollectionResults(t *testing.T) {
 		{"xs->excludingAt(2)", []int64{1, 3}},
 		{"xs->excludingAt(1, 2)", []int64{3}},
 		{"xs->excludingAt(1, 3)", nil},
+		// The body `(seq->subsequence(1, startIndex - 1), seq->subsequence(endIndex + 1))`
+		// collects nothing past the end and overlaps for an inverted range.
+		{"xs->excludingAt(4)", []int64{1, 2, 3}},
+		{"xs->excludingAt(2, 9)", []int64{1}},
+		{"xs->excludingAt(3, 2)", []int64{1, 2, 3}},
+		{"xs->excludingAt(3, 1)", []int64{1, 2, 2, 3}},
+		{"()->excludingAt(1)", nil},
 		// includingAt inserts before the given position, shifting the tail right,
 		// so the result is longer by the values inserted and size+1 appends.
 		{"xs->includingAt(9, 1)", []int64{9, 1, 2, 3}},
@@ -336,10 +343,12 @@ func TestCollectionOperationErrors(t *testing.T) {
 		{"xs->includingAt(9, 0)", ErrIndexOutOfRange},
 		{"()->includingAt(9, 2)", ErrIndexOutOfRange},
 		{"xs->includingAt(9, 1.5)", ErrTypeMismatch},
-		{"xs->excludingAt(4)", ErrIndexOutOfRange},
-		{"xs->excludingAt(2, 1)", ErrIndexOutOfRange},
-		{"xs->excludingAt(2, 9)", ErrIndexOutOfRange},
-		{"()->excludingAt(1)", ErrIndexOutOfRange},
+		// excludingAt's first subsequence reaches `seq#(size + 1)` for a start
+		// past size + 1; an index 0 is no Positive.
+		{"xs->excludingAt(5)", ErrIndexOutOfRange},
+		{"xs->excludingAt(0)", ErrIndexOutOfRange},
+		{"xs->excludingAt(1, 0)", ErrIndexOutOfRange},
+		{"()->excludingAt(2)", ErrIndexOutOfRange},
 		{"xs->reduce {in a; a}", ErrBodyArity},
 		// minimize declares `ScalarValue[1..*]`, so it has no answer for an
 		// empty collection and says so rather than answering nothing.

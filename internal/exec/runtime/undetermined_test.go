@@ -718,8 +718,7 @@ func TestDefiniteLibraryErrorsSurviveOpenOperands(t *testing.T) {
 		"StringFunctions::Substring(\"abc\", 2, 4)",
 		"includingAt(xs, 1.0, 0)", "includingAt(xs, 1.0, 6)", "includingAt((1.0, 2.0), r, 4)",
 		"subsequence(xs, 0, 1)", "subsequence(xs, 0)", "subsequence(xs, 2, 5)",
-		"excludingAt(xs, 0)", "excludingAt(xs, 5)", "excludingAt(xs, 2, 5)", "excludingAt(xs, u, 5)",
-		"excludingAt(xs, 3, 2)", "excludingAt((1.0, 2.0), u, 3)",
+		"excludingAt(xs, 0)", "excludingAt(xs, 6)", "excludingAt(xs, 1, 0)", "excludingAt((1.0, 2.0), 4)",
 	} {
 		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, ErrIndexOutOfRange) {
 			t.Errorf("%s: err = %v, want ErrIndexOutOfRange", src, err)
@@ -746,8 +745,9 @@ func TestDefiniteLibraryErrorsSurviveOpenOperands(t *testing.T) {
 		"includingAt(xs, 1.0, 5)": "[3..5]", "includingAt((1.0, 2.0), r, 3)": "[3]", "includingAt(xs, r, u)": "[3..5]",
 		"subsequence(xs, 1, 2)": "[0..*]", "subsequence(xs, 2)": "[0..*]", "subsequence(xs, 4)": "[0..*]",
 		"subsequence((1.0, 2.0), u, 2)": "[0..*]", "subsequence((1.0, 2.0), 1, u)": "[0..*]",
-		"excludingAt(xs, 1)": "[0..*]", "excludingAt(xs, 2, 4)": "[0..*]",
-		"excludingAt((1.0, 2.0), u)": "[0..*]", "excludingAt(xs, u, 4)": "[0..*]",
+		"excludingAt(xs, 1)": "[0..*]", "excludingAt(xs, 2, 4)": "[0..*]", "excludingAt(xs, 5)": "[0..*]",
+		"excludingAt(xs, 2, 5)": "[0..*]", "excludingAt(xs, u, 5)": "[0..*]", "excludingAt(xs, 3, 2)": "[0..*]",
+		"excludingAt((1.0, 2.0), u)": "[0..*]", "excludingAt(xs, u, 4)": "[0..*]", "excludingAt((1.0, 2.0), u, 3)": "[0..*]",
 	} {
 		val, err := evalIn(t, ctx, scope, src)
 		wantUndetermined(t, src, val, err, count)

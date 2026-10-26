@@ -65,11 +65,11 @@ cases after it, so a disagreement among them buckets `differs-by-design` with th
 report. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (510 cases, all twenty-three default
+Reference values at the current implementation (514 cases, all twenty-three default
 fixtures):
-`agree 228 · kind-only 1 · order-only 0 · disagree 37 · differs-by-design 5 ·
-pilot-unevaluated 167 · pilot-silent 24 · pilot-error 4 · ours-error 10 · ours-undetermined 17 ·
-both-error 17 · nondeterministic 0`.
+`agree 229 · kind-only 1 · order-only 0 · disagree 38 · differs-by-design 5 ·
+pilot-unevaluated 167 · pilot-silent 24 · pilot-error 7 · ours-error 10 · ours-undetermined 17 ·
+both-error 16 · nondeterministic 0`.
 The 44 of `unbounded_arithmetic.cases` add 33 `pilot-unevaluated` (every arithmetic operator,
 comparison, `max`/`min`/`abs`/`ToString` and conditional over `*`, with our error or answer
 recorded beside them), 3 `pilot-silent` (`-*`, `+*`) and 8 `agree` (equality, `size`,
