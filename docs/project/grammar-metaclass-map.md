@@ -53,7 +53,7 @@ baseline. The current figures are in [the baseline JSON](grammar-metaclass-map-b
 | **Total** | **63** | **9** | **655** |
 
 Undecided reasons: `no-input` 244, `no-element` 229, `no-element-at-anchor` 79,
-`no-anchor` 62, `anchor-shared` 35, `no-reflective-metaclass` 2,
+`no-anchor` 62, `anchor-shared` 35, `no-reflective-metaclass` 0,
 `relationship-not-reified` 6, `unlocated` 0.
 Reflective type statuses are 123 Ecore, 1,137 KerML, 412 SysML and 0 missing.
 
