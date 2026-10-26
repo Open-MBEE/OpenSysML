@@ -10,8 +10,8 @@ name: Upstream drift
 # carries no repository guard, since a fork's pin goes stale the same way.
 on:
   schedule:
-    # 05:11 UTC daily, off the hour to avoid the scheduler's busiest minute.
-    - cron: '11 5 * * *'
+    # 05:11 UTC on Mondays, off the hour to avoid the scheduler's busiest minute.
+    - cron: '11 5 * * 1'
   workflow_dispatch:
 
 permissions:
