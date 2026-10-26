@@ -147,7 +147,7 @@ func (p *placement) omit(r *Rendering) *Rendering {
 	out := *r
 	var hoisted []*Node
 	out.Roots = append(p.keep(r.Roots, &hoisted), hoisted...)
-	kept, dropped := p.keptEdges(r.Edges)
+	kept, dropped := p.keptEdges(p.foldOmitted(r.Roots, r.Edges, r.nestingEdges()))
 	out.Edges = kept
 	out.Notices = append(append([]string(nil), r.Notices...), p.omitNotice(dropped))
 	return &out
@@ -386,9 +386,11 @@ func typeRow(row *Node) {
 // edges into one edge from the member's owner to each drawn type, the
 // composition or reference labelled with the member's name and multiplicity —
 // the property association a block definition diagram draws for a member
-// listed in a compartment — in the membership edge's place; moved counts the
-// members nested in another folded one, whose edge moves to the owner. The
-// nesting of a node left undrawn under a row, with no drawn type, folds away.
+// listed in a compartment — in the membership edge's place. A member nested
+// in another folded one folds to the owner under an automatic folding, as its
+// other edges move there, counted in moved; under the positioned folding its
+// nesting folds away, the nesting of an undrawn node, and its other edges are
+// dropped with the rest at one. A nesting with no drawn type folds away.
 func (f *folder) foldMemberships(edges []Edge) (folded []Edge, moved int) {
 	typings := map[string][]int{}
 	for i, edge := range edges {
@@ -405,6 +407,9 @@ func (f *folder) foldMemberships(edges []Edge) (folded []Edge, moved int) {
 		row, ok := f.rows[edge.To]
 		if !ok || !f.nesting[[2]string{edge.From, edge.To}] {
 			folded = append(folded, edge)
+			continue
+		}
+		if f.folded(edge.From) && !f.mode.automatic() {
 			continue
 		}
 		for _, j := range typings[edge.To] {
@@ -529,6 +534,33 @@ func (p *placement) anyPlaced(node *Node) bool {
 		}
 	}
 	return false
+}
+
+// foldOmitted folds the membership and typing edges of the unplaced members
+// of a placed node, which a form leaves undrawn, into the owner's labelled
+// edge to each drawn type — the relationship is shown so or not at all —
+// before the edges at the undrawn nodes are dropped.
+func (p *placement) foldOmitted(roots []*Node, edges []Edge, nesting map[[2]string]bool) []Edge {
+	f := &folder{placement: p, mode: CompartmentsPositioned, owners: map[string]string{}, rows: map[string]*Node{}, nesting: nesting}
+	var walk func(node *Node)
+	walk = func(node *Node) {
+		for _, child := range node.Children {
+			switch {
+			case p.placed[child.ID]:
+				walk(child)
+			case p.placed[node.ID]:
+				f.record(child, node.ID)
+			}
+		}
+	}
+	for _, root := range roots {
+		walk(root)
+	}
+	if len(f.rows) == 0 {
+		return edges
+	}
+	folded, _ := f.foldMemberships(edges)
+	return folded
 }
 
 // keptEdges is edges without those at an unplaced node, and how many those were.

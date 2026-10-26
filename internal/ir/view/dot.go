@@ -267,7 +267,7 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	edges := r.Edges
 	if w.placement.partial() && options.Unplaced != UnplacedStrip {
 		w.omitUnplaced(r.Roots)
-		edges, _ = w.placement.keptEdges(r.Edges)
+		edges, _ = w.placement.keptEdges(w.placement.foldOmitted(r.Roots, r.Edges, w.nesting))
 	}
 	w.ports = r.portViewOver(options.Ports, edges)
 	w.lines = options.Lines
@@ -356,7 +356,7 @@ func (w *dotWriter) settleUnplaced(roots []*Node, edges []Edge, unplaced Unplace
 		w.notices = append(w.notices, fmt.Sprintf("%d node(s) without a position, drawn in a strip below the drawing", count))
 		return edges
 	}
-	kept, dropped := w.placement.keptEdges(edges)
+	kept, dropped := w.placement.keptEdges(w.placement.foldOmitted(roots, edges, w.nesting))
 	w.notices = append(w.notices, w.placement.omitNotice(dropped))
 	return kept
 }

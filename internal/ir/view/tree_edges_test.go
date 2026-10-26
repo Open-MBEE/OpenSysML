@@ -718,6 +718,60 @@ package Views {
 	}
 }
 
+// A member hidden with the nodes under it folds its own membership alone: a
+// typed node under a hidden member draws no edge from the member's owner,
+// which does not own it.
+func TestTreeTextDrawsNoEdgeForTheNodesUnderAHiddenMember(t *testing.T) {
+	rendering := renderSource(t, "Views::collapsed", `package Model {
+	part def Lens;
+	part def Assembly { part lens : Lens; }
+	part def Imaging { part assembly : Assembly; }
+}
+package Views {
+	private import DiagramLayout::*;
+	view collapsed {
+		expose Model::Imaging;
+		expose Model::Lens;
+		metadata Layout about Model::Imaging { x = 10; y = 10; width = 200; height = 33; showParts = false; }
+		metadata Layout about Model::Lens { x = 10; y = 100; width = 200; height = 33; }
+	}
+}`)
+	if text := rendering.Text(); strings.Contains(text, "relationships") {
+		t.Errorf("text lists an edge for the hidden assembly's lens, which Imaging does not own:\n%s", text)
+	}
+}
+
+// A tree showing no compartments leaves an unplaced member undrawn; its
+// membership and typing still fold into the owner's labelled edge to the
+// definition, the one way the relationship is shown, and a Route about the
+// member pins that edge.
+func TestTreeWithoutCompartmentsKeepsTheEdgeOfAnUndrawnMember(t *testing.T) {
+	rendering := renderSource(t, "Bare::bdd", `package Model {
+	part def Wheel;
+	part def Car { part wheels : Wheel; }
+}
+package Bare {
+	rendering bareTree :> Views::asTreeDiagram {
+		attribute showCompartments : ScalarValues::Boolean default = false;
+	}
+	view bdd {
+		expose Model::Car;
+		expose Model::Wheel;
+		metadata DiagramLayout::Route about Model::Car::wheels { points = (10, 20, 200, 20); }
+		render bareTree;
+	}
+}`)
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	for _, want := range []string{"// layout: neato -n2\n", `"n0" -> "n2" [headlabel="wheels", dir=back, arrowtail=diamond, pos="s,10,-20 20,-20 20,-20 200,-20 200,-20"`, "// not represented: 1 node(s) without a position, left undrawn\n"} {
+		if !strings.Contains(dot, want) {
+			t.Errorf("DOT lacks %q:\n%s", want, dot)
+		}
+	}
+}
+
 // A Route about a usage, with no Layout anywhere, positions the drawing as it
 // did when it steered the owner's edge to the definition: the usage folds
 // into a row of its owner, and DOT pins the labelled edge along the route.

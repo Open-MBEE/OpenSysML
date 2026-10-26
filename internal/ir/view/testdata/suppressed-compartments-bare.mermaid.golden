@@ -22,7 +22,7 @@ config:
     edgeLabelBackground: "#FFFFFF"
 ---
 %% CameraViews::bare — tree rendering (render bareTree)
-%% not represented: 9 node(s) without a position, left undrawn, and 7 edge(s) at them
+%% not represented: 9 node(s) without a position, left undrawn
 %% layout: n0 x=10 y=10 w=240 h=260
 flowchart TD
   n0["`*«part def»*

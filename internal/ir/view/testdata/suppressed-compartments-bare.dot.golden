@@ -1,7 +1,7 @@
 // view: CameraViews::bare
 // kind: tree
 // stated: render bareTree
-// not represented: 9 node(s) without a position, left undrawn, and 7 edge(s) at them
+// not represented: 9 node(s) without a position, left undrawn
 // layout: neato -n
 digraph "CameraViews::bare" {
   graph [fontname="Helvetica", layout=neato, inputscale=72, dpi=72];

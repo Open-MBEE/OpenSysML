@@ -265,22 +265,15 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 // hiddenEdges is the rendering's edges without those at the children a
 // node's Layout hides, which the text lists nowhere: a hidden member's
 // membership and typing fold into its owner's labelled edge to each drawn
-// type, as the compartment foldings draw them, and every other edge at a
+// type, as the positioned folding draws them, and every other edge at a
 // hidden member, or at a node under one, is left out.
 func hiddenEdges(r *Rendering) []Edge {
 	f := &folder{mode: CompartmentsPositioned, owners: map[string]string{}, rows: map[string]*Node{}, nesting: r.nestingEdges()}
-	var hide func(node *Node, owner string)
-	hide = func(node *Node, owner string) {
-		f.record(node, owner)
-		for _, child := range node.Children {
-			hide(child, owner)
-		}
-	}
 	var walk func(node *Node)
 	walk = func(node *Node) {
 		for _, child := range node.Children {
 			if hiddenRow(node, child) {
-				hide(child, node.ID)
+				f.record(child, node.ID)
 				continue
 			}
 			walk(child)

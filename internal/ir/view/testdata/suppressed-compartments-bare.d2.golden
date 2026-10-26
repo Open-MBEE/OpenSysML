@@ -1,5 +1,5 @@
 # CameraViews::bare — tree rendering (render bareTree)
-# not represented: 9 node(s) without a position, left undrawn, and 7 edge(s) at them
+# not represented: 9 node(s) without a position, left undrawn
 # not represented: 1 positioned node(s) and 0 route(s) kept as comments; D2 pins no position, the dot form does
 classes: {
   definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
