@@ -1,38 +1,38 @@
 {
-  "pilot": "2026-08",
+  "pilot": "2026-09",
   "corpus": "build/pilot-xpect-corpus",
   "library": "the suite's own /library* copies, loaded per fixture as its XPECT_SETUP declares them",
   "provenance": {
-    "pilotTag": "2026-08",
-    "pilotCommit": "692170b71867353b8f90341e61556f49a5beb0e5",
-    "pilotArtifact": "0.62.0",
-    "errataRegistry": "sha256:e92505147b15ab8e68a09f19632639383570f0cbe0fdc6f50fb76e03b8e04579",
+    "pilotTag": "2026-09",
+    "pilotCommit": "38665073bbf02849bd309b106eba79cbb3a1ee1d",
+    "pilotArtifact": "0.63.0",
+    "errataRegistry": "sha256:d5782936c5c92f29f24a077477b148fc5d178f83f174b143d1bb95c3693ab1b9",
     "inputs": [
       {
         "name": "kerml",
         "dir": "build/pilot-xpect-corpus/kerml",
         "origin": "pinned",
-        "files": 303,
-        "digest": "sha256:3cd6aa34b1295f5ef708d143e90117222582f37b72b6784661dfd37b7700137b"
+        "files": 304,
+        "digest": "sha256:b5b60fa2d46203986e97b9bd1a29120ca1e632397ffdd92c8644dbb6c8c9bd5b"
       },
       {
         "name": "sysml",
         "dir": "build/pilot-xpect-corpus/sysml",
         "origin": "pinned",
-        "files": 126,
-        "digest": "sha256:1f56aeaf27ab6143cf4c994dced485fb15a061f66a2759a0b8ef2af32358db6c"
+        "files": 128,
+        "digest": "sha256:2ab96c36445009f83900a27716327e68876de7165a45ace4e8440ca07abac0de"
       }
     ],
-    "recorded": "2026-10-20"
+    "recorded": "2026-10-26"
   },
   "totals": {
-    "files": 429,
+    "files": 432,
     "filesUnparsed": 0,
-    "assertions": 1264,
-    "rows": 1326,
-    "agree": 1293,
+    "assertions": 1267,
+    "rows": 1329,
+    "agree": 1291,
     "wordingOnly": 248,
-    "disagree": 33,
+    "disagree": 38,
     "unlocated": 0,
     "notAdjudicated": 0,
     "missingResources": 0,
@@ -41,27 +41,27 @@
   "kinds": [
     {
       "kind": "errors",
-      "assertions": 488,
+      "assertions": 490,
       "blockAssertions": 27,
-      "rows": 512,
-      "agree": 493,
+      "rows": 514,
+      "agree": 491,
       "wordingOnly": 248,
-      "disagree": 19,
+      "disagree": 23,
       "unlocated": 0,
       "notAdjudicated": 0,
-      "sameLocation": 10,
+      "sameLocation": 14,
       "sameLine": 7,
       "severityDiffers": 0,
       "elsewhereInFile": 2
     },
     {
       "kind": "noErrors",
-      "assertions": 276,
+      "assertions": 277,
       "blockAssertions": 0,
-      "rows": 276,
+      "rows": 277,
       "agree": 262,
       "wordingOnly": 0,
-      "disagree": 14,
+      "disagree": 15,
       "unlocated": 0,
       "notAdjudicated": 0,
       "sameLocation": 0,
@@ -135,13 +135,13 @@
       "name": "kerml",
       "dir": "build/pilot-xpect-corpus/kerml",
       "totals": {
-        "files": 303,
+        "files": 304,
         "filesUnparsed": 0,
-        "assertions": 954,
-        "rows": 968,
+        "assertions": 955,
+        "rows": 969,
         "agree": 948,
         "wordingOnly": 243,
-        "disagree": 20,
+        "disagree": 21,
         "unlocated": 0,
         "notAdjudicated": 0,
         "missingResources": 0,
@@ -165,12 +165,12 @@
         },
         {
           "kind": "noErrors",
-          "assertions": 200,
+          "assertions": 201,
           "blockAssertions": 0,
-          "rows": 200,
+          "rows": 201,
           "agree": 195,
           "wordingOnly": 0,
-          "disagree": 5,
+          "disagree": 6,
           "unlocated": 0,
           "notAdjudicated": 0,
           "sameLocation": 0,
@@ -2583,6 +2583,21 @@
           ]
         },
         {
+          "path": "src/org/omg/kerml/xpect/tests/validation/MultiplicityAlias_valid.kerml.xt",
+          "setupClass": "org.omg.kerml.xpect.tests.validation.KerMLValidationTest",
+          "expectations": 1,
+          "agree": 0,
+          "rows": [
+            {
+              "kind": "noErrors",
+              "line": 29,
+              "verdict": "disagree",
+              "declared": "no error the file does not declare",
+              "ours": "4 error(s), first: line 42: \"for\" is a reserved keyword, not a name the ID terminal admits; write 'for' to use it as a name"
+            }
+          ]
+        },
+        {
           "path": "src/org/omg/kerml/xpect/tests/validation/MultiplicityRange_invalid.kerml.xt",
           "setupClass": "org.omg.kerml.xpect.tests.validation.KerMLValidationTest",
           "expectations": 5,
@@ -4606,13 +4621,13 @@
       "name": "sysml",
       "dir": "build/pilot-xpect-corpus/sysml",
       "totals": {
-        "files": 126,
+        "files": 128,
         "filesUnparsed": 0,
-        "assertions": 310,
-        "rows": 358,
-        "agree": 345,
+        "assertions": 312,
+        "rows": 360,
+        "agree": 343,
         "wordingOnly": 5,
-        "disagree": 13,
+        "disagree": 17,
         "unlocated": 0,
         "notAdjudicated": 0,
         "missingResources": 0,
@@ -4621,15 +4636,15 @@
       "kinds": [
         {
           "kind": "errors",
-          "assertions": 174,
+          "assertions": 176,
           "blockAssertions": 10,
-          "rows": 184,
-          "agree": 180,
+          "rows": 186,
+          "agree": 178,
           "wordingOnly": 5,
-          "disagree": 4,
+          "disagree": 8,
           "unlocated": 0,
           "notAdjudicated": 0,
-          "sameLocation": 2,
+          "sameLocation": 6,
           "sameLine": 1,
           "severityDiffers": 0,
           "elsewhereInFile": 1
@@ -5131,6 +5146,12 @@
           "agree": 19
         },
         {
+          "path": "src/org/omg/sysml/xpect/tests/validation/invalid/ConnectionUsage_End_Invalid.sysml.xt",
+          "setupClass": "org.omg.sysml.xpect.tests.validation.invalid.SysMLTests",
+          "expectations": 1,
+          "agree": 1
+        },
+        {
           "path": "src/org/omg/sysml/xpect/tests/validation/invalid/ConnectionUsage_Invalid.sysml.xt",
           "setupClass": "org.omg.sysml.xpect.tests.validation.invalid.SysMLTests",
           "expectations": 2,
@@ -5173,10 +5194,54 @@
           "agree": 2
         },
         {
-          "path": "src/org/omg/sysml/xpect/tests/validation/invalid/FlowConnectionUsage_Invalid.sysml.xt",
+          "path": "src/org/omg/sysml/xpect/tests/validation/invalid/FlowUsage_End_Invalid.sysml.xt",
+          "setupClass": "org.omg.sysml.xpect.tests.validation.invalid.SysMLTests",
+          "expectations": 1,
+          "agree": 1
+        },
+        {
+          "path": "src/org/omg/sysml/xpect/tests/validation/invalid/FlowUsage_Invalid.sysml.xt",
           "setupClass": "org.omg.sysml.xpect.tests.validation.invalid.SysMLTests",
           "expectations": 10,
-          "agree": 10
+          "agree": 6,
+          "rows": [
+            {
+              "kind": "errors",
+              "line": 52,
+              "at": "end c;",
+              "verdict": "disagree",
+              "tolerance": "same-location",
+              "declared": "error: \"A flow definition can have at most two ends.\"",
+              "ours": "line 53 offset 1643: A flow connection definition can have at most two ends."
+            },
+            {
+              "kind": "errors",
+              "line": 56,
+              "at": "flow def J :\u003e I;",
+              "verdict": "disagree",
+              "tolerance": "same-location",
+              "declared": "error: \"A flow definition can have at most two ends.\"",
+              "ours": "line 57 offset 1746: A flow connection definition can have at most two ends."
+            },
+            {
+              "kind": "errors",
+              "line": 66,
+              "at": "message :A from b to c;",
+              "verdict": "disagree",
+              "tolerance": "same-location",
+              "declared": "error: \"A flow usage must be typed by flow definitions.\"",
+              "ours": "line 72 offset 2292: A flow connection must be typed by flow connection definitions."
+            },
+            {
+              "kind": "errors",
+              "line": 73,
+              "at": "message :apart from b to c;",
+              "verdict": "disagree",
+              "tolerance": "same-location",
+              "declared": "error: \"A flow usage must be typed by flow definitions.\"",
+              "ours": "line 79 offset 2758: A flow connection must be typed by flow connection definitions."
+            }
+          ]
         },
         {
           "path": "src/org/omg/sysml/xpect/tests/validation/invalid/Import_Visibility_Invalid.sysml.xt",
@@ -5638,8 +5703,8 @@
     "sysml/src/org/omg/sysml/xpect/tests/validation/invalid/RequirementUsage_Invalid.sysml.xt: line 66: `XPECT errors` opens no `//` or `//*` note, so this harness does not run it: /* XPECT errors ---"
   ],
   "errata": {
-    "registryEntries": 16,
-    "corrections": 9,
+    "registryEntries": 13,
+    "corrections": 6,
     "documentedWithoutCorrection": 7,
     "correctionsApplied": 0,
     "entries": [
@@ -5746,40 +5811,16 @@
         "citation": "SysML v2 §9.8.9.1",
         "corrected": true,
         "derivation": "the unit postfix binds to PrimaryExpression (KerMLExpressions.xtext:308), below MultiplicativeExpression, so `[K]` qualifies 900 alone and the value is Θ^-1 where ThermodynamicTemperatureValue is Θ; the evident intent, 0 °F as a temperature in kelvin, is `(229835/900) [K]`."
-      },
-      {
-        "id": "Flows-46",
-        "path": "internal/workspace/libs/stdlib/Systems Library/Flows.sysml",
-        "line": 46,
-        "citation": "SysML v2.1 Beta 2 §8.3.16.2",
-        "corrected": true,
-        "derivation": "§8.3.16.2 types `flowEnd : Usage [0..*] {redefines associationEnd}`, so every end feature of a flow definition, inherited ones included, is a Usage. Published, `Message` owns no ends and inherits `Transfer::source` and `Transfer::target`, KerML features, so the library's own base flow definition violates the clause, and with it every `flow def` that specializes `Message` without ends of its own. The repair is the one OMG issue SYSML21-681 and the pilot's ST6RI-974 apply: `Message` gets owned occurrence usage ends redefining `Transfer::source`/`target`, `messages` becomes an action usage (a flow definition is an action definition, so `Message` types it still) and owns ends redefining `Message::source`/`target` and `transfers::source`/`target`."
-      },
-      {
-        "id": "Flows-99",
-        "path": "internal/workspace/libs/stdlib/Systems Library/Flows.sysml",
-        "line": 99,
-        "citation": "SysML v2.1 Beta 2 §8.3.16.2",
-        "corrected": true,
-        "derivation": "§8.3.16.2 types `flowEnd : Usage [0..*] {redefines associationEnd}`, so every end feature of a flow definition, inherited ones included, is a Usage. Published, `Message` owns no ends and inherits `Transfer::source` and `Transfer::target`, KerML features, so the library's own base flow definition violates the clause, and with it every `flow def` that specializes `Message` without ends of its own. The repair is the one OMG issue SYSML21-681 and the pilot's ST6RI-974 apply: `Message` gets owned occurrence usage ends redefining `Transfer::source`/`target`, `messages` becomes an action usage (a flow definition is an action definition, so `Message` types it still) and owns ends redefining `Message::source`/`target` and `transfers::source`/`target`."
-      },
-      {
-        "id": "Flows-103",
-        "path": "internal/workspace/libs/stdlib/Systems Library/Flows.sysml",
-        "line": 103,
-        "citation": "SysML v2.1 Beta 2 §8.3.16.2",
-        "corrected": true,
-        "derivation": "§8.3.16.2 types `flowEnd : Usage [0..*] {redefines associationEnd}`, so every end feature of a flow definition, inherited ones included, is a Usage. Published, `Message` owns no ends and inherits `Transfer::source` and `Transfer::target`, KerML features, so the library's own base flow definition violates the clause, and with it every `flow def` that specializes `Message` without ends of its own. The repair is the one OMG issue SYSML21-681 and the pilot's ST6RI-974 apply: `Message` gets owned occurrence usage ends redefining `Transfer::source`/`target`, `messages` becomes an action usage (a flow definition is an action definition, so `Message` types it still) and owns ends redefining `Message::source`/`target` and `transfers::source`/`target`."
       }
     ],
     "totals": {
-      "files": 429,
+      "files": 432,
       "filesUnparsed": 0,
-      "assertions": 1264,
-      "rows": 1326,
-      "agree": 1293,
+      "assertions": 1267,
+      "rows": 1329,
+      "agree": 1291,
       "wordingOnly": 248,
-      "disagree": 33,
+      "disagree": 38,
       "unlocated": 0,
       "notAdjudicated": 0,
       "missingResources": 0,
@@ -5788,27 +5829,27 @@
     "kinds": [
       {
         "kind": "errors",
-        "assertions": 488,
+        "assertions": 490,
         "blockAssertions": 27,
-        "rows": 512,
-        "agree": 493,
+        "rows": 514,
+        "agree": 491,
         "wordingOnly": 248,
-        "disagree": 19,
+        "disagree": 23,
         "unlocated": 0,
         "notAdjudicated": 0,
-        "sameLocation": 10,
+        "sameLocation": 14,
         "sameLine": 7,
         "severityDiffers": 0,
         "elsewhereInFile": 2
       },
       {
         "kind": "noErrors",
-        "assertions": 276,
+        "assertions": 277,
         "blockAssertions": 0,
-        "rows": 276,
+        "rows": 277,
         "agree": 262,
         "wordingOnly": 0,
-        "disagree": 14,
+        "disagree": 15,
         "unlocated": 0,
         "notAdjudicated": 0,
         "sameLocation": 0,

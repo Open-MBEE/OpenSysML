@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "pilotTag": "2026-08",
-  "pilotCommit": "692170b71867353b8f90341e61556f49a5beb0e5",
-  "pilotArtifact": "0.62.0",
+  "pilotTag": "2026-09",
+  "pilotCommit": "38665073bbf02849bd309b106eba79cbb3a1ee1d",
+  "pilotArtifact": "0.63.0",
   "jar": {
-    "name": "jupyter-sysml-kernel-0.62.0-all.jar",
-    "digest": "sha256:b1ad9d64b1f0c75730facf25a5e2856bc9df2bb4bd39476df2fdf5ae68cd9350"
+    "name": "jupyter-sysml-kernel-0.63.0-all.jar",
+    "digest": "sha256:0de2fb9fdc19da3c00194bbb7e394a793e579a1e02f171279544e83e4a1fb376"
   },
   "extraction": {
     "classes": [
@@ -14,7 +14,7 @@
     ],
     "method": "CONSTANT_String entries of each class's constant pool matching ^(in)?validate[A-Za-z]+_?$, normalized to the validate... name by dropping the in prefix and one trailing underscore; a name found in both classes has source \"both\""
   },
-  "recorded": "2026-09-12",
+  "recorded": "2026-10-26",
   "specifications": {
     "kerml": {
       "name": "KerML",
@@ -818,6 +818,28 @@
       "passes": [],
       "status": "unknown",
       "rationale": "no case and no identifiable pass yet"
+    },
+    {
+      "name": "validateConnectionDefinitionEndsAreUsages",
+      "raw": "validateConnectionDefinitionEndsAreUsages_",
+      "source": "sysml",
+      "kind": "validate",
+      "metaclass": "ConnectionDefinition",
+      "spec": {
+        "document": "sysml",
+        "clause": "8.3.13.3"
+      },
+      "checks": "A connection definition's ends, inherited ones included, are usages",
+      "implementation": "internal/check/passes/w10b_ends.go:W10BEndKindPass.Run",
+      "message": "—",
+      "negativeCase": "`semantic/connection-def-end-not-usage.sysml`",
+      "codes": [
+        "connection-def-end-not-usage"
+      ],
+      "passes": [
+        "type"
+      ],
+      "status": "faithful"
     },
     {
       "name": "validateConnectionUsageType",
@@ -1949,6 +1971,28 @@
       "negativeCase": "`semantic/s18-flow-def-three-ends.sysml`",
       "codes": [
         "flow-def-too-many-ends"
+      ],
+      "passes": [
+        "type"
+      ],
+      "status": "faithful"
+    },
+    {
+      "name": "validateFlowDefinitionEndsAreUsages",
+      "raw": "validateFlowDefinitionEndsAreUsages_",
+      "source": "sysml",
+      "kind": "validate",
+      "metaclass": "FlowDefinition",
+      "spec": {
+        "document": "sysml",
+        "clause": "8.3.16.2"
+      },
+      "checks": "A flow definition's ends, inherited ones included, are usages",
+      "implementation": "internal/check/passes/w10b_ends.go:W10BEndKindPass.Run",
+      "message": "—",
+      "negativeCase": "`semantic/flow-def-end-not-usage.sysml`",
+      "codes": [
+        "flow-def-end-not-usage"
       ],
       "passes": [
         "type"

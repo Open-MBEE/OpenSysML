@@ -1,5 +1,5 @@
 {
-  "pilotTag": "2026-08",
+  "pilotTag": "2026-09",
   "totals": {
     "productions": 727,
     "productionsByKind": {
@@ -23,9 +23,9 @@
     "enumLiteralsFound": 24,
     "enumLiteralsMissing": 0,
     "differential": {
-      "agree": 61,
+      "agree": 63,
       "disagree": 9,
-      "undecided": 657
+      "undecided": 655
     },
     "undecidedByReason": {
       "anchor-shared": 35,
@@ -33,7 +33,7 @@
       "no-element": 229,
       "no-element-at-anchor": 79,
       "no-input": 244,
-      "no-reflective-metaclass": 2,
+      "no-reflective-metaclass": 0,
       "relationship-not-reified": 6,
       "unlocated": 0
     }
@@ -64,9 +64,9 @@
         "enumLiteralsFound": 7,
         "enumLiteralsMissing": 0,
         "differential": {
-          "agree": 26,
+          "agree": 27,
           "disagree": 2,
-          "undecided": 148
+          "undecided": 147
         },
         "undecidedByReason": {
           "anchor-shared": 4,
@@ -74,7 +74,7 @@
           "no-element": 48,
           "no-element-at-anchor": 22,
           "no-input": 59,
-          "no-reflective-metaclass": 1,
+          "no-reflective-metaclass": 0,
           "relationship-not-reified": 2,
           "unlocated": 0
         }
@@ -146,9 +146,9 @@
         "enumLiteralsFound": 17,
         "enumLiteralsMissing": 0,
         "differential": {
-          "agree": 35,
+          "agree": 36,
           "disagree": 7,
-          "undecided": 401
+          "undecided": 400
         },
         "undecidedByReason": {
           "anchor-shared": 31,
@@ -156,7 +156,7 @@
           "no-element": 157,
           "no-element-at-anchor": 47,
           "no-input": 116,
-          "no-reflective-metaclass": 1,
+          "no-reflective-metaclass": 0,
           "relationship-not-reified": 4,
           "unlocated": 0
         }

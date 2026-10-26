@@ -2354,7 +2354,7 @@ implementations were run on the same file the diagnostics quoted below were byte
 apart from the path.
 
 <!-- doc-counts:begin validation-census-summary -->
-**Census:** 164 of 217 named constraints are reported by OpenSysML — 157 ✅ faithful and 7 ⚠️ approximate; 0 ❌ not implemented, 4 ⛔ deliberate, 0 🚧 known failure, 49 ❔ unknown. Each row, its implementation, diagnostic code and probe are recorded in [`constraint-manifest.json`](constraint-manifest.json) and rendered in [validation constraints](validation-constraints.md).
+**Census:** 166 of 219 named constraints are reported by OpenSysML — 159 ✅ faithful and 7 ⚠️ approximate; 0 ❌ not implemented, 4 ⛔ deliberate, 0 🚧 known failure, 49 ❔ unknown. Each row, its implementation, diagnostic code and probe are recorded in [`constraint-manifest.json`](constraint-manifest.json) and rendered in [validation constraints](validation-constraints.md).
 <!-- doc-counts:end validation-census-summary -->
 
 | Semantic Rule | Implementation | Test Case | Status |

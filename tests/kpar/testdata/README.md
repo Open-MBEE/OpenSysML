@@ -6,10 +6,10 @@ as a library in place of the bundled standard library.
 
 ## `omg/`
 
-The ten standard-library archives of the OMG SysML v2 release **2026-08**, taken
+The ten standard-library archives of the OMG SysML v2 release **2026-09**, taken
 unchanged from the `kpar/` directory of
 [Systems-Modeling/SysML-v2-Release](https://github.com/Systems-Modeling/SysML-v2-Release)
-at commit `fb97b754f29588b8e9c7a35f370880cd15eb29e7`. Their model files are the
+at commit `b7a6b77000c9136f8f24822fc9d2cb237c76267f`. Their model files are the
 same text as `internal/workspace/libs/stdlib` (the bundled copy of that release),
 which is what `TestOMGArchivesIndexTheBundledLibrary` relies on.
 
