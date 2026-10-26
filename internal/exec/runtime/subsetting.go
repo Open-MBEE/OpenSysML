@@ -651,6 +651,10 @@ func (ctx *Context) subsettingContributions(inst *Instance, name string) ([]Valu
 	var values []Value
 	var seen map[int64]bool
 	err := ctx.eachSubsetterOf(inst, name, func(feat *EffectiveFeature) error {
+		// A subsetter drawing its values from this feature adds none to it.
+		if ctx.drawingSubsetters[featureValueRef{instance: inst.ID, feature: feat.Name}] {
+			return nil
+		}
 		sub, err := inst.GetFeatureValue(ctx, feat.Name)
 		if err != nil {
 			return err
@@ -969,4 +973,236 @@ func (inst *Instance) materializeReferenced(ctx *Context, fv *FeatureValue, name
 	}
 	fv.Materialized = true
 	return true, nil
+}
+
+// materializeFromSubsetted holds in a feature stating no value the values of what it subsets (KerML
+// 1.0 §7.3.4.4): its bindings' witnesses, then what the lower bound needs; false where none names any.
+func (inst *Instance) materializeFromSubsetted(ctx *Context, fv *FeatureValue, name string, composite *symbols.Symbol) (bool, error) {
+	mult := fv.Feature.Multiplicity
+	if ctx.model.semantics.IsConnectorObjectUsage(fv.Feature.Symbol) {
+		return false, nil
+	}
+	subsetted := ctx.declaredSubsettedNamesOf(inst, fv.Feature.Symbol)
+	key := featureValueRef{instance: inst.ID, feature: name}
+	if len(subsetted) == 0 || ctx.drawingSubsetters[key] {
+		return false, nil
+	}
+	ctx.drawingSubsetters[key] = true
+	defer delete(ctx.drawingSubsetters, key)
+
+	pool, pooled, err := ctx.subsettedPool(inst, fv, subsetted, composite)
+	if err != nil {
+		return false, err
+	}
+	taken := ctx.siblingSubsetterValues(inst, fv, subsetted)
+	chosen, seen, err := ctx.bindingWitnesses(inst, name, pool, pooled, taken)
+	if err != nil {
+		return false, err
+	}
+	want := fewestOf(mult)
+	if mult.Upper.Known && !mult.Upper.Infinite && int64(len(chosen)) > mult.Upper.Value {
+		chosen = chosen[:mult.Upper.Value]
+	}
+	if pooled && want > 0 {
+		chosen, _ = pickFromPool(chosen, seen, pool, taken, want)
+	} else if len(chosen) == 0 {
+		return false, nil
+	}
+	mark := len(ctx.created)
+	if int64(len(chosen)) < want && !pooled {
+		if err := ctx.chargeElements(want - int64(len(chosen))); err != nil {
+			return false, err
+		}
+		made, err := ctx.materializeMembers(composite, int(want)-len(chosen), inst, name)
+		if err != nil {
+			ctx.abandonInstancesSince(mark)
+			return false, err
+		}
+		for _, child := range made {
+			chosen = append(chosen, Value{Kind: ValInstance, Instance: child.ID})
+		}
+		if _, err := inst.holdContributed(ctx, fv, name, chosen); err != nil {
+			ctx.abandonInstancesSince(mark)
+			return false, err
+		}
+		fv.Assumed = mult.AdmitsMore(int64(len(chosen)))
+		return true, ctx.startClassifierBehaviorsOf(made, mark)
+	}
+	if _, err := inst.holdContributed(ctx, fv, name, chosen); err != nil {
+		return false, err
+	}
+	fv.Assumed = mult.AdmitsMore(int64(len(chosen)))
+	return true, nil
+}
+
+// subsettedPool is the objects of fv's type every subsetted feature holds by its own declaration (a
+// value, a write or a binding, not a `default`); pooled is false where none does and they hold what fv makes.
+func (ctx *Context) subsettedPool(inst *Instance, fv *FeatureValue, subsetted []string, composite *symbols.Symbol) (pool []Value, pooled bool, err error) {
+	for _, sub := range subsetted {
+		subFV, ok := inst.FeatureValues[sub]
+		if !ok || !((ctx.valueBinds(subFV.Feature) && !subFV.Feature.defaultIsFallback()) || subFV.Written || subFV.BindingDerived) {
+			continue
+		}
+		subKey := featureValueRef{instance: inst.ID, feature: sub}
+		if !subFV.Materialized {
+			if ctx.collectingSubsets[subKey] || ctx.readingSubsetted[subKey] || ctx.drawingSubsetters[subKey] {
+				continue
+			}
+			if _, err := inst.GetFeatureValue(ctx, sub); err != nil {
+				return nil, false, fmt.Errorf("subsetted feature %s of %s: %w", sub, fv.Feature.Name, err)
+			}
+		}
+		held, err := ctx.HeldElements(subFV.HeldValue())
+		if err != nil {
+			return nil, false, fmt.Errorf("subsetted feature %s of %s: %w", sub, fv.Feature.Name, err)
+		}
+		// A write to the subsetted feature unmaterializes fv, to draw again from what it then holds.
+		ctx.listRead(subFV, fv)
+		if !pooled {
+			pool, _ = appendUniqueInstances(nil, held, nil)
+			pooled = true
+			continue
+		}
+		pool = instancesAlsoIn(pool, held)
+	}
+	// A subsetter with a body is its own type; its values are of the types it declares.
+	types := []*symbols.Symbol{composite}
+	if composite.IsFeature() {
+		types = ctx.directTypes(composite)
+	}
+	pool = slices.DeleteFunc(pool, func(v Value) bool {
+		obj := ctx.instances[v.Instance]
+		return obj == nil || slices.ContainsFunc(types, func(t *symbols.Symbol) bool { return !ctx.canClassify(obj, t) })
+	})
+	return pool, pooled, nil
+}
+
+// instancesAlsoIn keeps, in order, the objects of pool that els also holds.
+func instancesAlsoIn(pool, els []Value) []Value {
+	in := make(map[int64]bool, len(els))
+	for _, v := range els {
+		if v.Kind == ValInstance {
+			in[v.Instance] = true
+		}
+	}
+	return slices.DeleteFunc(slices.Clone(pool), func(v Value) bool { return v.Kind != ValInstance || !in[v.Instance] })
+}
+
+// siblingSubsetterValues is the objects the other features subsetting what fv subsets already
+// hold on inst: a value drawn for fv is one of them only where the subsetted feature has no other.
+func (ctx *Context) siblingSubsetterValues(inst *Instance, fv *FeatureValue, subsetted []string) map[int64]bool {
+	taken := map[int64]bool{}
+	for _, sub := range subsetted {
+		for _, feat := range ctx.subsettingFeaturesOf(inst, sub) {
+			sibling, ok := inst.FeatureValues[feat.Name]
+			if !ok || sibling == fv || !sibling.Materialized {
+				continue
+			}
+			for _, v := range elementsOf(sibling.HeldValue()) {
+				if v.Kind == ValInstance {
+					taken[v.Instance] = true
+				}
+			}
+		}
+	}
+	return taken
+}
+
+// bindingWitnesses draws, per binding constraining the named feature, as many of its other end's
+// values as the binding links, from pool where the subsetted features fix one (KerML 1.0 §7.4.6).
+func (ctx *Context) bindingWitnesses(inst *Instance, name string, pool []Value, pooled bool, taken map[int64]bool) ([]Value, map[int64]bool, error) {
+	fv := inst.FeatureValues[name]
+	var chosen []Value
+	var seen map[int64]bool
+	inPool := map[int64]bool{}
+	for _, v := range pool {
+		inPool[v.Instance] = true
+	}
+	// A binding of an owner naming the feature through its path constrains it as well.
+	for current, path := inst, name; current != nil; {
+		for _, binding := range ctx.bindingsOf(current, path) {
+			end := bindingEndForPath(binding, path)
+			if end < 0 {
+				continue
+			}
+			constrains, err := ctx.constrainingBinding(current, binding)
+			if err != nil {
+				return nil, nil, err
+			}
+			if !constrains {
+				continue
+			}
+			other, err := ctx.resolveBindingEndpoint(current, binding, 1-end)
+			if err != nil {
+				return nil, nil, err
+			}
+			// An end drawing its own values meanwhile has none to share yet; nor, for a binding an
+			// owner declares, one that will draw them from what it subsets when read.
+			if slices.ContainsFunc(other.locations, func(loc bindingLocation) bool {
+				return ctx.drawingSubsetters[featureValueRef{instance: loc.instance.ID, feature: loc.name}] ||
+					(current != inst && ctx.drawsFromSubsetted(loc))
+			}) {
+				continue
+			}
+			for _, loc := range other.locations {
+				if src, ok := loc.instance.FeatureValues[loc.name]; ok && src != fv {
+					ctx.listRead(src, fv)
+				}
+			}
+			// An end that cannot be read shares nothing here; validating the binding reports why.
+			val, found, err := ctx.bindingEndpointValue(other, current, true)
+			if err != nil || !found {
+				continue
+			}
+			candidates, err := ctx.HeldElements(val)
+			if err != nil {
+				continue
+			}
+			admits := func(v Value) bool {
+				return v.Kind == ValInstance && (!pooled || inPool[v.Instance]) && !seen[v.Instance]
+			}
+			links, _ := ctx.bindingLinks(binding)
+			for n := int64(0); n < links; n++ {
+				pick := slices.IndexFunc(candidates, func(v Value) bool { return admits(v) && !taken[v.Instance] })
+				if pick < 0 {
+					pick = slices.IndexFunc(candidates, admits)
+				}
+				if pick < 0 {
+					break
+				}
+				chosen, seen = appendUniqueInstances(chosen, candidates[pick:pick+1], seen)
+			}
+		}
+		owner, ownerFeature := current.Owner()
+		if owner == nil || ownerFeature == "" {
+			break
+		}
+		path = ownerFeature + "." + path
+		current = owner
+	}
+	return chosen, seen, nil
+}
+
+// drawsFromSubsetted reports a feature at loc that holds no value yet and states none of its
+// own, so that it draws its values from the features it subsets when read.
+func (ctx *Context) drawsFromSubsetted(loc bindingLocation) bool {
+	fv, ok := loc.instance.FeatureValues[loc.name]
+	return ok && !fv.Materialized && !fv.Written && !fv.BindingDerived && !ctx.valueBinds(fv.Feature) &&
+		len(ctx.declaredSubsettedNamesOf(loc.instance, fv.Feature.Symbol)) != 0
+}
+
+// pickFromPool fills chosen to want values from pool, those no sibling subsetter holds first.
+func pickFromPool(chosen []Value, seen map[int64]bool, pool []Value, taken map[int64]bool, want int64) ([]Value, map[int64]bool) {
+	for _, fresh := range []bool{true, false} {
+		for _, v := range pool {
+			if int64(len(chosen)) >= want {
+				return chosen, seen
+			}
+			if seen[v.Instance] || (fresh && taken[v.Instance]) {
+				continue
+			}
+			chosen, seen = appendUniqueInstances(chosen, []Value{v}, seen)
+		}
+	}
+	return chosen, seen
 }
