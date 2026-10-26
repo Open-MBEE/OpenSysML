@@ -11281,8 +11281,9 @@ func (x *PrimitiveConstraint) GetValue() []string {
 	return nil
 }
 
-// CompositeConstraint combines constraints. An empty constraint list fails the
-// call: it has no defensible verdict.
+// CompositeConstraint combines constraints. The standard combines at least two
+// (`constraint : Constraint [2..*]`): an empty list has no defensible verdict,
+// and a one-member list is that member, so either fails the call.
 type CompositeConstraint struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Operator      CompositeOperator      `protobuf:"varint,1,opt,name=operator,proto3,enum=sysml.CompositeOperator" json:"operator,omitempty"`
