@@ -7,7 +7,7 @@ import { JSDOM } from "jsdom";
 
 import type { RenderNode, RenderResult } from "../protocol";
 import { drawCanvas, liftNode } from "./canvas";
-import { FONT_SIZE, glyphSize, layoutCanvas, MARGIN, portBox, portCenter, portLabelPlacement, PORT_SIZE } from "./layout";
+import { edgeLabelBox, FONT_SIZE, glyphSize, layoutCanvas, MARGIN, portBox, portCenter, portLabelPlacement, PORT_SIZE } from "./layout";
 
 // The canvas is drawn with the page's document, as it is in the webview.
 const dom = new JSDOM("<!DOCTYPE html><body></body>");
@@ -458,4 +458,45 @@ test("drawCanvas ends every edge kind in the marker the notation table states", 
       if (marker !== null) assert.ok(markers.has(marker), `${kind} ends in a marker the defs declare`);
     }
   });
+});
+
+// Without libavoid the canvas draws an edge straight; a membership edge to a member drawn
+// inside its owner still runs from the owner's header line, inside the owner, with its
+// keyword off every header.
+test("layoutCanvas draws a membership edge from the owner's header line inside the owner when no router is loaded", () => {
+  const owner: RenderResult = {
+    ...result,
+    kind: "mixed",
+    nodes: [
+      node("pump", "Pump", { kind: "part def" }),
+      node("pressure", "pressure", { kind: "attribute", parent: "pump", type: "Pressure" }),
+      node("impeller", "impeller", { parent: "pump", type: "Impeller" }),
+      node("prime", "prime", { kind: "action", parent: "pump" }),
+    ],
+    edges: [
+      { from: "pump", to: "pressure", label: "require", kind: "require", fqn: "M::pressure" },
+      { from: "pump", to: "prime", label: "", kind: "composition", fqn: "M::prime" },
+    ],
+  };
+  const layout = layoutCanvas(owner);
+  const pump = layout.nodes.get("pump")!;
+  const headerLine = pump.box.y + glyphSize(pump.lines.join("\n")).height;
+  const inside = (box: { x: number; y: number; width: number; height: number }, { x, y }: { x: number; y: number }) =>
+    x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height;
+  for (const edge of layout.edges) {
+    assert.equal(edge.rerouted, false);
+    assert.equal(edge.points.length, 2, "drawn straight");
+    assert.ok(edge.points.every((point) => inside(pump.box, point)), `${edge.edge.to} edge stays inside Pump`);
+    assert.ok(edge.points[0].y >= headerLine, `${edge.edge.to} edge starts at or below Pump's header line, not on its outer border`);
+  }
+  const label = edgeLabelBox(layout.edges[0])!;
+  for (const entry of layout.nodes.values()) {
+    const header = entry.children.length === 0
+      ? entry.box
+      : { ...entry.box, height: glyphSize(entry.lines.join("\n")).height };
+    assert.ok(
+      !(label.x < header.x + header.width && header.x < label.x + label.width && label.y < header.y + header.height && header.y < label.y + label.height),
+      `the require label covers ${entry.node.name}`,
+    );
+  }
 });

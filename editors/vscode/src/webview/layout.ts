@@ -30,6 +30,7 @@ import {
   CLEARANCE,
   compactRoute,
   MIN_JOG,
+  type AvoidPort,
   type AvoidShape,
 } from "./avoid";
 
@@ -154,6 +155,8 @@ const LABEL_PAD_Y = 8;
 const MIN_WIDTH = 96;
 const MIN_HEIGHT = 40;
 export const CONTAINER_PAD = 16;
+/** LANE is the room between boxes an edge is routed between inside their owner: both boxes' routing clearance and half a GAP for the route. */
+export const LANE = 2 * CLEARANCE + GAP / 2;
 /** The canvas's margin around everything drawn. */
 export const MARGIN = 24;
 /** How far an arrowhead reaches to either side of its edge's end, at the line's stroke width. */
@@ -223,21 +226,23 @@ export function layoutCanvas(
     placePorts(result.edges ?? [], placed, auto);
     return coveringDrawn({ ...layout, routing });
   }
+  const owners = memberEdgeOwners(result.edges ?? [], placed);
   const geometry = (entry: PlacedNode): NodeGeometry => {
+    const headroom = owners.has(entry.node.id);
     const override = overrides.nodes?.get(entry.node.id);
     if (override) {
-      return { stated: override, pinned: true };
+      return { stated: override, pinned: true, headroom };
     }
     const { x, y, width, height, collapsed } = entry.node;
     if (x !== undefined && y !== undefined && overrides.unplaced !== true) {
-      return { stated: { x, y, width, height, collapsed }, pinned: true };
+      return { stated: { x, y, width, height, collapsed }, pinned: true, headroom };
     }
     // The auto layout's geometry is stated but not pinned: it is a guess, so
     // the node keeps a grid slot for a layout that runs without it.
     const laid = auto?.nodes.get(entry.node.id);
     return laid !== undefined
-      ? { stated: { ...laid, collapsed }, pinned: false }
-      : { pinned: false };
+      ? { stated: { ...laid, collapsed }, pinned: false, headroom }
+      : { pinned: false, headroom };
   };
   placeGrid(roots, { x: MARGIN, y: MARGIN }, geometry);
   placePorts(result.edges ?? [], placed, auto);
@@ -387,6 +392,8 @@ function headHeight(roots: PlacedNode[]): number {
 interface NodeGeometry {
   stated?: LayoutGeometry;
   pinned: boolean;
+  /** Edges run from the node's header line to its members, so they are spread a LANE apart and below the header. */
+  headroom?: boolean;
 }
 
 type Geometry = (entry: PlacedNode) => NodeGeometry;
@@ -432,6 +439,7 @@ function spread(
   lanes: PlacedNode[][],
   start: number,
   placeAt: (entry: PlacedNode, at: number) => number,
+  gap = GAP,
 ): void {
   let at = start;
   for (const lane of lanes) {
@@ -439,7 +447,7 @@ function spread(
     for (const entry of lane) {
       extent = Math.max(extent, placeAt(entry, at));
     }
-    at += extent + GAP;
+    at += extent + gap;
   }
 }
 
@@ -451,14 +459,17 @@ function placeAcross(
   slot: number,
   geometry: Geometry,
 ): number {
-  const { stated, pinned } = geometry(entry);
+  const { stated, pinned, headroom } = geometry(entry);
   entry.pinned = pinned;
   entry.collapsed = (stated?.collapsed ?? entry.node.collapsed) === true;
   entry.box.x = stated?.x ?? slot;
   const shown = interior(entry, geometry);
   const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
-  spread(lanes(shown, columns, true), entry.box.x + CONTAINER_PAD, (child, x) =>
-    placeAcross(child, x, geometry),
+  spread(
+    lanes(shown, columns, true),
+    entry.box.x + CONTAINER_PAD,
+    (child, x) => placeAcross(child, x, geometry),
+    headroom === true ? LANE : GAP,
   );
   if (stated?.width !== undefined && stated.height !== undefined) {
     entry.box.width = stated.width;
@@ -482,15 +493,16 @@ function placeDown(
   slot: number,
   geometry: Geometry,
 ): number {
-  const { stated } = geometry(entry);
+  const { stated, headroom } = geometry(entry);
   entry.box.y = stated?.y ?? slot;
   const shown = interior(entry, geometry);
   const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
   const header = symbolSize(entry.shape) ?? labelSize(entry.lines);
   spread(
     lanes(shown, columns, false),
-    entry.box.y + header.height,
+    entry.box.y + header.height + (headroom === true && shown.length > 0 ? LANE : 0),
     (child, y) => placeDown(child, y, geometry),
+    headroom === true ? LANE : GAP,
   );
   if (stated?.width !== undefined && stated.height !== undefined) {
     entry.box.height = stated.height;
@@ -571,6 +583,104 @@ function within(inner: Box, outer: Box): boolean {
     inner.x + inner.width <= outer.x + outer.width &&
     inner.y + inner.height <= outer.y + outer.height
   );
+}
+
+function intersection(a: Box, b: Box | undefined): Box {
+  if (!b) {
+    return a;
+  }
+  const x = Math.max(a.x, b.x);
+  const y = Math.max(a.y, b.y);
+  return {
+    x,
+    y,
+    width: Math.max(0, Math.min(a.x + a.width, b.x + b.width) - x),
+    height: Math.max(0, Math.min(a.y + a.height, b.y + b.height) - y),
+  };
+}
+
+// descends reports a node drawn under another, at any depth.
+function descends(entry: PlacedNode, of: PlacedNode): boolean {
+  for (let parent = entry.parent; parent; parent = parent.parent) {
+    if (parent === of) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// memberEdgeOwners is the nodes an edge joins to one of their own members: a mixed
+// rendering's owner → member membership edges meet the owner at its header line.
+function memberEdgeOwners(edges: RenderEdge[], placed: Map<string, PlacedNode>): Set<string> {
+  const owners = new Set<string>();
+  for (const edge of edges) {
+    const from = placed.get(edge.from);
+    const to = placed.get(edge.to);
+    if (from && to && from !== to) {
+      if (descends(to, from)) {
+        owners.add(from.node.id);
+      } else if (descends(from, to)) {
+        owners.add(to.node.id);
+      }
+    }
+  }
+  return owners;
+}
+
+// drawnUnder is the boxes drawn inside a node: its drawn children less the pins on its
+// border, and the drawn members under a clipped child, which has no box of its own.
+function drawnUnder(entry: PlacedNode): PlacedNode[] {
+  return entry.children.flatMap((child) =>
+    child.snapped ? [] : child.clipped ? drawnUnder(child) : [child],
+  );
+}
+
+/** headerBox is the strip a node's label takes at the top of its box: the whole box when nothing is drawn inside it. */
+export function headerBox(entry: PlacedNode): Box {
+  if (entry.collapsed || drawnUnder(entry).length === 0) {
+    return entry.box;
+  }
+  const { height } = symbolSize(entry.shape) ?? labelSize(entry.lines);
+  return { x: entry.box.x, y: entry.box.y, width: entry.box.width, height: Math.min(height, entry.box.height) };
+}
+
+// headerBoxes is every drawn node's header, which an edge's label is kept off.
+function headerBoxes(placed: Map<string, PlacedNode>): Box[] {
+  return [...placed.values()].filter((entry) => !undrawn(entry)).map(headerBox);
+}
+
+// encloses reports a container an edge's other end is drawn inside: the edge is routed
+// inside it, from its header line.
+function encloses(container: PlacedNode, entry: PlacedNode): boolean {
+  return (
+    descends(entry, container) &&
+    !undrawn(container) &&
+    drawnUnder(container).length > 0 &&
+    within(entry.box, container.box)
+  );
+}
+
+// scopeOf is the innermost box both ends of an edge are drawn inside — one of the ends
+// itself, when the other is its member, else a box both descend from. An end met at a
+// port on a box's border has no scope: the port is on the border, not inside it.
+function scopeOf(
+  source: PlacedNode,
+  target: PlacedNode,
+  sourcePort: string | undefined,
+  targetPort: string | undefined,
+): PlacedNode | undefined {
+  if (encloses(source, target)) {
+    return sourcePort === undefined ? source : undefined;
+  }
+  if (encloses(target, source)) {
+    return targetPort === undefined ? target : undefined;
+  }
+  for (let parent = source.parent; parent; parent = parent.parent) {
+    if (encloses(parent, source) && encloses(parent, target)) {
+      return parent;
+    }
+  }
+  return undefined;
 }
 
 // clippingNotice counts the nodes clipped from a stated box, worded like the renderer's row notice.
@@ -802,16 +912,70 @@ export function nodeExtent(
 
 /** edgeLabelBox is the box an edge's label is drawn in, centred over the edge's midpoint; none for an unlabelled edge. */
 export function edgeLabelBox(edge: PlacedEdge): Box | undefined {
-  if (edge.edge.label === "") {
-    return undefined;
-  }
-  const size = glyphSize(edge.edge.label);
+  return edge.edge.label === "" ? undefined : labelBoxAt(edge.label, glyphSize(edge.edge.label));
+}
+
+// labelBoxAt is the box a label of the given size takes when drawn at a point: centred on
+// it, its baseline EDGE_LABEL_RISE above it.
+function labelBoxAt(at: RenderPoint, size: { width: number; height: number }): Box {
   return {
-    x: edge.label.x - size.width / 2,
-    y: edge.label.y - EDGE_LABEL_RISE - FONT_SIZE,
+    x: at.x - size.width / 2,
+    y: at.y - EDGE_LABEL_RISE - FONT_SIZE,
     width: size.width,
     height: size.height,
   };
+}
+
+function overlaps(a: Box, b: Box): boolean {
+  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+}
+
+// labelPoint is where an edge's label sits: on the route, as near its middle as the label's
+// box clears every header. Along a segment the nearest clear spot is the middle itself or
+// where the box touches a header it would otherwise cover, so those are the candidates.
+function labelPoint(points: RenderPoint[], label: string, headers: Box[]): RenderPoint {
+  const middle = midpoint(points);
+  if (label === "" || headers.length === 0) {
+    return middle;
+  }
+  const size = glyphSize(label);
+  const clear = (at: RenderPoint): boolean => !headers.some((header) => overlaps(labelBoxAt(at, size), header));
+  if (clear(middle)) {
+    return middle;
+  }
+  let best: RenderPoint | undefined;
+  let nearest = Infinity;
+  const consider = (at: RenderPoint): void => {
+    const distance = Math.hypot(at.x - middle.x, at.y - middle.y);
+    if (distance < nearest && clear(at)) {
+      best = at;
+      nearest = distance;
+    }
+  };
+  for (let i = 1; i < points.length; i++) {
+    const [a, b] = [points[i - 1], points[i]];
+    const vertical = a.x === b.x;
+    if (!vertical && a.y !== b.y) {
+      consider({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+      continue;
+    }
+    const [low, high] = vertical ? [Math.min(a.y, b.y), Math.max(a.y, b.y)] : [Math.min(a.x, b.x), Math.max(a.x, b.x)];
+    const along = (value: number): RenderPoint => (vertical ? { x: a.x, y: value } : { x: value, y: a.y });
+    const candidates = [(low + high) / 2];
+    for (const header of headers) {
+      if (vertical) {
+        candidates.push(header.y + EDGE_LABEL_RISE + FONT_SIZE - size.height, header.y + header.height + EDGE_LABEL_RISE + FONT_SIZE);
+      } else {
+        candidates.push(header.x - size.width / 2, header.x + header.width + size.width / 2);
+      }
+    }
+    for (const value of candidates) {
+      if (value >= low && value <= high) {
+        consider(along(value));
+      }
+    }
+  }
+  return best ?? middle;
 }
 
 /** edgeExtent covers an edge's polyline, the arrowheads at its ends and its label. */
@@ -1551,14 +1715,17 @@ function routeEdge(
       index,
       points: routed,
       route: routed.slice(1, -1),
-      label: midpoint(routed),
+      label: labelPoint(routed, edge.label, headerBoxes(placed)),
       hidden,
       rerouted: false,
     };
   }
   const route = stated ?? [];
-  const from = source?.box ?? { x: 0, y: 0, width: 0, height: 0 };
-  const to = target?.box ?? { x: 0, y: 0, width: 0, height: 0 };
+  const fromPort = source?.ports.find((port) => port.port.id === edge.fromPort);
+  const toPort = target?.ports.find((port) => port.port.id === edge.toPort);
+  // An owner meets the edge to its member at its header line, not on its outer border.
+  const from = source ? (!fromPort && target && encloses(source, target) ? headerBox(source) : source.box) : EMPTY_BOX;
+  const to = target ? (!toPort && source && encloses(target, source) ? headerBox(target) : target.box) : EMPTY_BOX;
   let inner = route;
   if (route.length === 0 && edge.from === edge.to) {
     inner = [
@@ -1571,8 +1738,6 @@ function routeEdge(
   }
   const start = anchor(from, inner[0] ?? center(to));
   const end = anchor(to, inner.at(-1) ?? center(from));
-  const fromPort = source?.ports.find((port) => port.port.id === edge.fromPort);
-  const toPort = target?.ports.find((port) => port.port.id === edge.toPort);
   const startPoint = fromPort ? portFace(from, fromPort) : (pinFace(source) ?? start);
   const endPoint = toPort ? portFace(to, toPort) : (pinFace(target) ?? end);
   const points = [startPoint, ...inner, endPoint];
@@ -1581,11 +1746,13 @@ function routeEdge(
     index,
     points,
     route,
-    label: midpoint(points),
+    label: labelPoint(points, edge.label, headerBoxes(placed)),
     hidden,
     rerouted: false,
   };
 }
+
+const EMPTY_BOX: Box = { x: 0, y: 0, width: 0, height: 0 };
 
 // pinFace is where an edge meets a port node pinned on its owner's border: the pin's outer
 // face, while the pin sits there; a pin a gesture lifts off the border is met on its own box.
@@ -1701,12 +1868,6 @@ function rerouteAroundBoxes(
   // obstacles, so two edges in different passes are not nudged apart.
   const leaves = new Map<string, Box>();
   const containers = new Map<string, Box>();
-  // drawnUnder is the boxes drawn inside a node: its drawn children less the pins on its
-  // border, and the drawn members under a clipped child, which has no box of its own.
-  const drawnUnder = (entry: PlacedNode): PlacedNode[] =>
-    entry.children.flatMap((child) =>
-      child.snapped ? [] : child.clipped ? drawnUnder(child) : [child],
-    );
   const visit = (entry: PlacedNode): void => {
     if (!undrawn(entry)) {
       (drawnUnder(entry).length === 0 ? leaves : containers).set(entry.node.id, entry.box);
@@ -1725,9 +1886,17 @@ function rerouteAroundBoxes(
     const entry = placed.get(id)!;
     return entry.snapped && entry.parent ? { node: entry.parent.node.id, port: id } : { node: id };
   };
+  // An edge whose ends share a box — an owner and its member, two siblings — is routed
+  // inside that box: it bounds the route, and the owner end meets the edge at its header.
+  const scopes = new Map<number, PlacedNode>();
   const groups = new Map<string, number[]>();
   for (const index of indices) {
     const edge = edges[index].edge;
+    const [from, to] = [endOf(edge.from), endOf(edge.to)];
+    const scope = scopeOf(placed.get(from.node)!, placed.get(to.node)!, from.port ?? edge.fromPort, to.port ?? edge.toPort);
+    if (scope) {
+      scopes.set(index, scope);
+    }
     // The owners an end lies inside are crossed on the way out; one a placed end lies beyond stays an obstacle.
     const exempt = new Set<string>();
     for (const end of [edge.from, edge.to]) {
@@ -1738,13 +1907,14 @@ function rerouteAroundBoxes(
         }
       }
     }
-    const key = [...exempt].sort(byCodeUnit).join(" ");
+    const key = [...exempt].sort(byCodeUnit).join(" ") + (scope ? `\n${scope.node.id}` : "");
     const group = groups.get(key) ?? [];
     group.push(index);
     groups.set(key, group);
   }
-  for (const [key, group] of groups) {
-    const exempt = new Set(key === "" ? [] : key.split(" "));
+  const headers = headerBoxes(placed);
+  // routeGroup routes a group's edges in one libavoid pass and reports the ones it could not.
+  const routeGroup = (exempt: Set<string>, scope: PlacedNode | undefined, group: number[]): number[] => {
     // A node a blocked container fully contains needs no shape of its own — the
     // container covers it, and a shape inside another is no obstacle at all; one
     // sticking out of its container keeps its shape, since the container does not.
@@ -1766,51 +1936,102 @@ function rerouteAroundBoxes(
     };
     const shapes = new Map<string, AvoidShape>();
     for (const [id] of [...leaves, ...containers]) {
-      if (
-        !covered(placed.get(id)!) &&
-        (!containers.has(id) || !exempt.has(id))
-      ) {
-        shapes.set(id, avoidShape(placed.get(id)!));
+      const entry = placed.get(id)!;
+      if (covered(entry)) {
+        continue;
+      }
+      if (!containers.has(id) || !exempt.has(id)) {
+        shapes.set(id, avoidShape(entry));
+      } else {
+        // A container an edge leaves is crossed at its border, never through its header.
+        shapes.set(id, { box: headerBox(entry) });
       }
     }
+    // The scope's own edges meet it on its header line, each flush above its member.
+    const header = scope ? headerBox(scope) : undefined;
+    const headerPins = new Map<number, string>();
+    const headerPorts: AvoidPort[] = [];
     for (const index of group) {
       const edge = edges[index].edge;
-      for (const end of [endOf(edge.from).node, endOf(edge.to).node]) {
-        shapes.set(end, avoidShape(placed.get(end)!));
+      const ends = [endOf(edge.from).node, endOf(edge.to).node];
+      for (const end of ends) {
+        const entry = placed.get(end)!;
+        if (entry !== scope) {
+          shapes.set(end, avoidShape(entry));
+        }
       }
+      const member = header && ends.includes(scope!.node.id) ? placed.get(ends.find((end) => end !== scope!.node.id)!) : undefined;
+      if (header && member) {
+        const id = `${scope!.node.id}/${index}`;
+        headerPins.set(index, id);
+        headerPorts.push({
+          id,
+          side: "south",
+          offset: Math.max(0, Math.min(1, (center(member.box).x - header.x) / header.width)),
+          flush: true,
+        });
+      }
+    }
+    if (scope && header) {
+      shapes.set(scope.node.id, { box: header, ports: headerPorts });
     }
     const routes = avoidRoutes(
       shapes,
       group.map((index) => {
         const edge = edges[index].edge;
         const [from, to] = [endOf(edge.from), endOf(edge.to)];
+        const pin = headerPins.get(index);
         return {
           index,
           from: from.node,
           to: to.node,
-          fromPort: from.port ?? edge.fromPort,
-          toPort: to.port ?? edge.toPort,
+          fromPort: pin !== undefined && from.node === scope?.node.id ? pin : (from.port ?? edge.fromPort),
+          toPort: pin !== undefined && to.node === scope?.node.id ? pin : (to.port ?? edge.toPort),
         };
       }),
-      overrides.bounds,
+      scope ? intersection(scope.box, overrides.bounds) : overrides.bounds,
     );
     if (!routes) {
-      continue;
+      return group;
     }
+    const unrouted: number[] = [];
     for (const index of group) {
       const points = routes.get(index);
       if (!points) {
+        unrouted.push(index);
         continue;
       }
       const edge = edges[index];
+      const label = labelPoint(points, edge.edge.label, headers);
       edges[index] = {
         ...edge,
         points,
         route: points.slice(1, -1),
-        label: midpoint(points),
+        label,
         rerouted: true,
       };
+      // Later labels keep off this one as they keep off the headers.
+      if (edge.edge.label !== "") {
+        headers.push(labelBoxAt(label, glyphSize(edge.edge.label)));
+      }
     }
+    return unrouted;
+  };
+  // Scoped groups go first: an edge the engine finds no route for inside its scope — no
+  // room between a member and the border — is routed with the unscoped edges, around the boxes.
+  const exemptOf = (key: string): Set<string> => new Set(key === "" ? [] : key.split(" "));
+  const unscoped = new Map<string, number[]>();
+  const later = (exemptKey: string, indices: number[]): void => {
+    if (indices.length > 0) {
+      unscoped.set(exemptKey, [...(unscoped.get(exemptKey) ?? []), ...indices]);
+    }
+  };
+  for (const [key, group] of groups) {
+    const [exemptKey, scopeId] = key.split("\n");
+    later(exemptKey, scopeId === undefined ? group : routeGroup(exemptOf(exemptKey), scopes.get(group[0]), group));
+  }
+  for (const [exemptKey, group] of unscoped) {
+    routeGroup(exemptOf(exemptKey), undefined, group);
   }
 }
 
