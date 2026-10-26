@@ -122,13 +122,13 @@
     "properties": {
       "presentEqual": 1121587,
       "presentDifferent": 27497,
-      "oursMissing": 1074296,
+      "oursMissing": 1074299,
       "pilotMissing": 68257,
-      "absentBoth": 1973602,
+      "absentBoth": 1973599,
       "indeterminate": 26286
     },
     "rows": 11728,
-    "unkeyedReferences": 111955,
+    "unkeyedReferences": 111958,
     "extensionProperties": 159941,
     "duplicateElements": {
       "ours": 527,
@@ -197,9 +197,9 @@
       "properties": {
         "presentEqual": 327975,
         "presentDifferent": 7668,
-        "oursMissing": 312072,
+        "oursMissing": 312075,
         "pilotMissing": 19290,
-        "absentBoth": 577330,
+        "absentBoth": 577327,
         "indeterminate": 6664
       },
       "duplicateElements": {
@@ -33252,9 +33252,9 @@
     "FeatureChainExpression.featuringType": [
       0,
       0,
-      284,
+      287,
       0,
-      230,
+      227,
       0
     ],
     "FeatureChainExpression.function": [

@@ -123,7 +123,7 @@ the diagnostic it reports was recorded as that row's probe.
 
 ## Summary
 
-**Census:** 163 of 217 named constraints are reported by OpenSysML — 156 ✅ faithful and 7 ⚠️ approximate; 0 ❌ not implemented, 7 ⛔ deliberate, 0 🚧 known failure, 47 ❔ unknown.
+**Census:** 165 of 219 named constraints are reported by OpenSysML — 158 ✅ faithful and 7 ⚠️ approximate; 0 ❌ not implemented, 7 ⛔ deliberate, 0 🚧 known failure, 47 ❔ unknown.
 
 The figures on that line, the pin and digest quoted above, and every row of the census table are
 written from the manifest — by `go run -C tools ./cmd/validation-census` and by `make docs-counts`,
