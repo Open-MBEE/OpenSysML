@@ -101,7 +101,7 @@ digraph "MixedExamples::mixedDiagram" {
   "n11" -> "n9" [dir=none, URL="https://example.test/src/mixed.sysml#L44", tooltip="MixedExamples::Inspection::operator"];
   "n9" -> "n12" [dir=none, style=dashed, URL="https://example.test/src/mixed.sysml#L45", tooltip="mixed.sysml:45:3"];
   "n16" -> "n15" [arrowhead=vee, URL="https://example.test/src/mixed.sysml#L30", tooltip="mixed.sysml:30:10"];
-  "n26":"n26.0" -> "n27":"n27.0" [label="supply", arrowhead=none, penwidth=3, URL="https://example.test/src/mixed.sysml#L19", tooltip="MixedExamples::Plant::supply"];
+  "n26":"n26.0" -> "n27":"n27.0" [arrowhead=none, penwidth=3, URL="https://example.test/src/mixed.sysml#L19", tooltip="MixedExamples::Plant::supply"];
   "n3" -> "n1" [arrowhead=onormaldotdot, URL="https://example.test/src/mixed.sysml#L31", tooltip="MixedExamples::Modes::ready"];
   "n10" -> "n25" [arrowhead=onormaldotdot, URL="https://example.test/src/mixed.sysml#L43", tooltip="MixedExamples::Inspection::plant", lhead="cluster_n25"];
   "n11" -> "n31" [arrowhead=onormaldotdot, URL="https://example.test/src/mixed.sysml#L44", tooltip="MixedExamples::Inspection::operator"];

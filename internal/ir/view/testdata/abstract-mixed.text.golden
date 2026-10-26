@@ -13,7 +13,7 @@ variation part def Models
     part chassis
 
 relationships:
-  engine -- chassis: connect
-  engine -- chassis: connect
+  engine -- chassis
+  engine -- chassis
   vehicleFamily --:|> Vehicle
   Models --|> Vehicle

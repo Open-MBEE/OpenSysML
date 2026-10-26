@@ -113,19 +113,19 @@ initial`")
   n11 --- n9
   n9 -.- n12
   n16 --> n15
-  n26.0 ===|"supply"| n27.0
-  n3 --> n1
-  n10 --> n25_anchor
-  n11 --> n31
+  n26.0 === n27.0
+  n3 -->|"typing"| n1
+  n10 -->|"typing"| n25_anchor
+  n11 -->|"typing"| n31
   n13 -->|"«perform»"| n5_anchor
   n14_anchor -->|"«exhibit»"| n2_anchor
   n21_anchor -->|"«specializes»"| n20
-  n22 --> n19
+  n22 -->|"typing"| n19
   n23_anchor -->|"«specializes»"| n20
-  n24 --> n19
+  n24 -->|"typing"| n19
   n25_anchor -->|"«specializes»"| n20
-  n26_anchor --> n21_anchor
-  n27_anchor --> n23_anchor
+  n26_anchor -->|"typing"| n21_anchor
+  n27_anchor -->|"typing"| n23_anchor
   classDef anchor fill:none,stroke:none
   class n14_anchor,n21_anchor,n23_anchor,n25_anchor,n26_anchor,n27_anchor,n2_anchor,n5_anchor anchor
   linkStyle 7 stroke-width:3px

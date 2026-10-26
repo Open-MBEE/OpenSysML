@@ -1968,6 +1968,8 @@ func mermaidEdgeLabel(kind Kind, edge Edge) string {
 			return "«composition»"
 		case EdgeSpecialization:
 			return "«specializes»"
+		case EdgeTyping:
+			return "typing"
 		}
 		return ""
 	}

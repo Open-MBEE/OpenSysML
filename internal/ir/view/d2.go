@@ -500,12 +500,8 @@ func d2Color(color string) string {
 	return `"#` + strings.TrimPrefix(color, "#") + `"`
 }
 
-// writeEdge writes one edge as its kind's connector: a connection the
-// Pilot's heavy undirected line, a binding a plain one, a succession and a
-// dependency dashed, a general graph's relationships in the class-diagram
-// notation (D2 has no dots or bar for a typing or redefinition, nor a
-// circle-plus: a hollow triangle, and a `+` on the hollow circle), every other
-// edge an arrow; in a sequence diagram every message is an arrow.
+// writeEdge writes one edge with its kind's arrow and class from the notation
+// table (docs/project/view-rendering-forms.md); a sequence message is an arrow.
 func (w *d2Writer) writeEdge(indent string, edge Edge) {
 	arrow, class := "->", "edge"
 	switch edge.Kind {

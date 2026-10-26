@@ -85,7 +85,7 @@ digraph "MixedExamples::mixedDiagram" {
   "n11" -> "n9" [dir=none];
   "n9" -> "n12" [dir=none, style=dashed];
   "n16" -> "n15" [arrowhead=vee];
-  "n26":"n26.0" -> "n27":"n27.0" [label="supply", arrowhead=none, penwidth=3];
+  "n26":"n26.0" -> "n27":"n27.0" [arrowhead=none, penwidth=3];
   "n3" -> "n1" [arrowhead=onormaldotdot];
   "n10" -> "n25" [arrowhead=onormaldotdot, lhead="cluster_n25"];
   "n11" -> "n31" [arrowhead=onormaldotdot];

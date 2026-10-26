@@ -359,7 +359,7 @@ func TestMixedInheritedRoleOccurrencesKeepTypingEdges(t *testing.T) {
 		t.Errorf("Mermaid declares %d edges, want %d:\n%s", got, len(rendering.Edges), mermaid)
 	}
 	for _, edge := range rendering.Edges {
-		if edge.Kind == EdgeTyping && !strings.Contains(mermaid, edge.From+" --> "+edge.To) {
+		if edge.Kind == EdgeTyping && !strings.Contains(mermaid, edge.From+" -->|\"typing\"| "+edge.To) {
 			t.Errorf("Mermaid omits typing edge %s -> %s:\n%s", edge.From, edge.To, mermaid)
 		}
 	}

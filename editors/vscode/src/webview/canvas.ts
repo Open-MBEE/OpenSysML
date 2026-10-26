@@ -118,14 +118,8 @@ export function cssEscape(value: string): string {
   return value.replace(/["\\]/g, String.raw`\$&`);
 }
 
-// markers are the arrowheads edges end in, after the glyphs of SysML v2 §8.2.3:
-// a filled head for a flow, an open one for a transition, a succession and the
-// «satisfy»-style relationships, a hollow triangle at the general end of a
-// specialization or subsetting, one with two dots at the definition end of a
-// typing, one with a bar for a redefinition, a diamond at the owner end of a
-// composition (filled) or reference (hollow), a circle-plus at the namespace
-// end of a containment. A connection ends in none. The defs also hold Cameo's
-// pale-yellow gradient, which the cameo look fills shapes from.
+// markers are the SysML v2 §8.2.3 arrowheads drawEdge ends edges in (see the
+// docs' notation table); the defs also hold Cameo's pale-yellow fill gradient.
 function markers(): SVGDefsElement {
   const defs = element("defs", {});
   const gradient = element("linearGradient", { id: "cameo-fill", x1: "0", y1: "0", x2: "0", y2: "1" });

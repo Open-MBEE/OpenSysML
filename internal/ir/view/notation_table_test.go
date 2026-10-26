@@ -7,9 +7,8 @@ import (
 	"testing"
 )
 
-// notationTableRow is one row of the notation table in
-// docs/project/view-rendering-forms.md: a §8.2.3 production, the edge kinds
-// drawn with its glyph, and the glyph each form writes.
+// notationTableRow is one row of the docs' notation table: a §8.2.3 production,
+// the edge kinds drawn with its glyph, and the glyph each form writes.
 type notationTableRow struct {
 	production, dot, plantuml, mermaid, d2, canvas, status string
 	kinds                                                  []string

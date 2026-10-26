@@ -541,9 +541,8 @@ func (g *generalGraph) packageEdges(pkg *symbols.Symbol) {
 	}
 }
 
-// importLabel is an import edge's label as the graphical notation writes it:
-// `«import»` for a membership import, `«import»*` for a namespace import and
-// `«import»**` for a recursive one, the visibility inside the guillemets.
+// importLabel is an import edge's text as §8.2.3 writes it: `«import»`, `*`
+// after it for a namespace import, `**` for a recursive one.
 func importLabel(imp *ast.Import) string {
 	label := "«import»"
 	if imp.Visibility == ast.VisibilityPrivate {

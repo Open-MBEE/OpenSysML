@@ -153,7 +153,7 @@ func (n *narrowing) narrow(node *Node) {
 func (n *narrowing) edge(edge *Edge) {
 	edge.From, edge.FromPort = n.end(edge.From, edge.FromPort)
 	edge.To, edge.ToPort = n.end(edge.To, edge.ToPort)
-	if !n.shown.Has(ElementEdgeLabels) && connectorEdge(edge.Kind) && n.kind != KindSequence && !relationshipGraph(n.kind) {
+	if !n.shown.Has(ElementEdgeLabels) && connectorEdge(edge.Kind) && n.kind != KindSequence && !generalViewGraph(n.kind) {
 		edge.Label, edge.Name = "", ""
 		if edge.Kind == EdgeBinding {
 			edge.Label = bindingKeyword
@@ -193,12 +193,11 @@ func (n *narrowing) note(note *Note) {
 	}
 }
 
-// relationshipGraph reports whether a rendering's edges are relationships
-// labelled by their keyword (`«allocate»`, `«satisfy»`), which hiding the edge
-// labels — the optional names of connectors — leaves in place.
-func relationshipGraph(kind Kind) bool {
+// generalViewGraph reports whether a rendering is a GeneralView graph, whose edges
+// are relationships labelled by keyword (`«allocate»`), not connectors by name.
+func generalViewGraph(kind Kind) bool {
 	switch kind {
-	case KindTree, KindCase, KindMixed, KindRequirement, KindDefinition, KindPackage:
+	case KindTree, KindRequirement, KindDefinition, KindPackage:
 		return true
 	}
 	return false

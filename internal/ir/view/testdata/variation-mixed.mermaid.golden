@@ -44,8 +44,8 @@ flowchart TD
     n7("`*«variant»*
 **sixCylinder**`")
   end
-  n1 ===|"connect"| n2_anchor
-  n1 --> n5_anchor
+  n1 === n2_anchor
+  n1 -->|"typing"| n5_anchor
   classDef anchor fill:none,stroke:none
   class n2_anchor,n5_anchor anchor
   linkStyle 0 stroke-width:3px

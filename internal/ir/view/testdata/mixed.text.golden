@@ -43,7 +43,7 @@ relationships:
   operator -- Inspection
   Inspection .. objective n12
   start of mode -> ready
-  pump.outlet -- tank.inlet: supply
+  pump.outlet -- tank.inlet
   ready --:|> Ready
   plant --:|> Plant
   operator --:|> Person

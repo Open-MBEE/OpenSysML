@@ -561,11 +561,8 @@ func plantumlStyleColor(style *Style) string {
 	return color
 }
 
-// plantumlArrow is how an edge of each kind is drawn, after the §8.2.3 glyphs
-// as the Pilot's visualizer writes them: a connection as the heavy undirected
-// connector, a binding a plain undirected line, a succession dashed, a general
-// graph's relationships in the class-diagram notation, every other edge a plain
-// arrow (PlantUML's open head standing in for a flow's filled one).
+// plantumlArrow is each edge kind's arrow, the §8.2.3 glyph as the Pilot's
+// visualizer writes it; the notation table in the docs lists them.
 func plantumlArrow(kind Kind, edge EdgeKind) string {
 	switch edge {
 	case EdgeConnection:
