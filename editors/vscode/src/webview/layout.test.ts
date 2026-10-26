@@ -4106,3 +4106,34 @@ test("layoutCanvas keeps the requirement view's edge labels off its nodes", asyn
   assert.equal(layout.edges.length, 15);
   assertLabelsClearHeaders(layout);
 });
+
+test("layoutCanvas keeps a sized owner's members where they fit, lane or no lane", async () => {
+  await loadAvoid(WASM);
+  const sized = layoutCanvas(
+    rendering(
+      [
+        node("owner", "Owner", { kind: "part def", x: 24, y: 24, width: 160, height: 112 }),
+        node("member", "member", { parent: "owner" }),
+      ],
+      [membership("owner", "member", "composition")],
+      { kind: "mixed" },
+    ),
+  );
+  const member = sized.nodes.get("member")!;
+  assert.equal(member.clipped, false, "the member is still drawn inside the sized owner");
+  assert.equal(member.box.y, 24 + headerBox(sized.nodes.get("owner")!).height, "the member sits where it did without the edge");
+  assert.equal(sized.edges[0].hidden, false);
+  const points = sized.edges[0].points;
+  assert.ok(points.length >= 2 && points.every((point, i) => i === 0 || point.x === points[i - 1].x || point.y === points[i - 1].y));
+
+  const hidden = layoutCanvas(
+    rendering(
+      [node("owner", "Owner", { kind: "part def" }), node("member", "member", { parent: "owner" })],
+      [membership("owner", "member", "composition")],
+      { kind: "mixed" },
+    ),
+    { hiddenKinds: new Set(["composition"]) },
+  );
+  const owner = hidden.nodes.get("owner")!;
+  assert.equal(hidden.nodes.get("member")!.box.y, owner.box.y + headerBox(owner).height, "a hidden edge asks for no lane");
+});

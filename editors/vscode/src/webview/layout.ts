@@ -226,7 +226,7 @@ export function layoutCanvas(
     placePorts(result.edges ?? [], placed, auto);
     return coveringDrawn({ ...layout, routing });
   }
-  const owners = memberEdgeOwners(result.edges ?? [], placed);
+  const owners = memberEdgeOwners(result.edges ?? [], placed, overrides.hiddenKinds);
   const geometry = (entry: PlacedNode): NodeGeometry => {
     const headroom = owners.has(entry.node.id);
     const override = overrides.nodes?.get(entry.node.id);
@@ -392,7 +392,7 @@ function headHeight(roots: PlacedNode[]): number {
 interface NodeGeometry {
   stated?: LayoutGeometry;
   pinned: boolean;
-  /** Edges run from the node's header line to its members, so they are spread a LANE apart and below the header. */
+  /** Edges run from the node's header line to its members, so an unsized node spreads them a LANE apart and below the header. */
   headroom?: boolean;
 }
 
@@ -469,7 +469,7 @@ function placeAcross(
     lanes(shown, columns, true),
     entry.box.x + CONTAINER_PAD,
     (child, x) => placeAcross(child, x, geometry),
-    headroom === true ? LANE : GAP,
+    laned(stated, headroom) ? LANE : GAP,
   );
   if (stated?.width !== undefined && stated.height !== undefined) {
     entry.box.width = stated.width;
@@ -500,9 +500,9 @@ function placeDown(
   const header = symbolSize(entry.shape) ?? labelSize(entry.lines);
   spread(
     lanes(shown, columns, false),
-    entry.box.y + header.height + (headroom === true && shown.length > 0 ? LANE : 0),
+    entry.box.y + header.height + (laned(stated, headroom) && shown.length > 0 ? LANE : 0),
     (child, y) => placeDown(child, y, geometry),
-    headroom === true ? LANE : GAP,
+    laned(stated, headroom) ? LANE : GAP,
   );
   if (stated?.width !== undefined && stated.height !== undefined) {
     entry.box.height = stated.height;
@@ -518,6 +518,13 @@ function placeDown(
   }
   entry.box.height = height;
   return height;
+}
+
+// laned reports a node that spreads its members a LANE apart for the edges from its
+// header: one with such edges whose box is not sized by the model or a gesture, since a
+// sized box keeps its members where they fit; the router finds its own way inside it, or around.
+function laned(stated: LayoutGeometry | undefined, headroom: boolean | undefined): boolean {
+  return headroom === true && (stated?.width === undefined || stated?.height === undefined);
 }
 
 // interior is the children laid out inside a node's box: all of them less the
@@ -609,14 +616,18 @@ function descends(entry: PlacedNode, of: PlacedNode): boolean {
   return false;
 }
 
-// memberEdgeOwners is the nodes an edge joins to one of their own members: a mixed
+// memberEdgeOwners is the nodes a drawn edge joins to one of their own members: a mixed
 // rendering's owner → member membership edges meet the owner at its header line.
-function memberEdgeOwners(edges: RenderEdge[], placed: Map<string, PlacedNode>): Set<string> {
+function memberEdgeOwners(
+  edges: RenderEdge[],
+  placed: Map<string, PlacedNode>,
+  hiddenKinds: ReadonlySet<string> | undefined,
+): Set<string> {
   const owners = new Set<string>();
   for (const edge of edges) {
     const from = placed.get(edge.from);
     const to = placed.get(edge.to);
-    if (from && to && from !== to) {
+    if (from && to && from !== to && hiddenKinds?.has(edge.kind) !== true) {
       if (descends(to, from)) {
         owners.add(from.node.id);
       } else if (descends(from, to)) {
