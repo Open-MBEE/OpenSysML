@@ -1,4 +1,4 @@
-# Package management over git
+# Package management over version control
 
 A proposal: nothing below §1 is implemented yet.
 
@@ -10,10 +10,11 @@ Goals
   installed, locked and resolvable by `sysml`, `sysml-lsp`, the REPL, the kernel and the MCP server.
 - Everything is the OMG format first: KerML 1.0 §10.3 `.project.json`, `.meta.json`, `.kpar`.
   No provider-specific file is required to consume a package.
-- Git is the storage and transport: a package is a git repository (or a path in one) whose tagged
-  commit *is* the project directory; the index is a git repository too.
+- The version-control system is the storage and transport: a package is a git, Subversion or
+  Mercurial repository (or a path in one) whose tagged tree *is* the project directory; the index is
+  a git repository.
 - Portable: any tool that reads the OMG format can consume a package with nothing OpenSysML-specific —
-  no extension library, no registration, no bespoke metadata file. Publishing = tagging a git repository.
+  no extension library, no registration, no bespoke metadata file. Publishing = tagging a repository.
 - The index is optional and derived. Its machine form is plain JSON; its SysML form uses the standard
   library only, and the invariants are checked by `sysml` itself — the "SysML-powered" part is our
   gate and search surface, never a consumer requirement.
@@ -25,7 +26,7 @@ Non-goals (this phase)
 - A lax mode: a repository without `.project.json` at the tag is not a package and is an error,
   never a synthesized project.
 
-- A hosted account/token service. The git host is the account system.
+- A hosted account/token service. The repository host is the account system.
 - Replacing sysand for its users; interoperating with it is in scope, re-implementing its CLI is not.
 - Binary/engine packaging (that is `bring-your-own-engines.md`).
 
@@ -64,7 +65,7 @@ reading `.sysand/lib`, and be able to *emit* the static index layout so a sysand
 
 ## 3. Proposed design
 
-### 3.1 Package = a git repository at a tag (nothing else)
+### 3.1 Package = a repository at a tag (nothing else)
 
 - A package root holds `.project.json` (KerML §10.3 Table 12; `publisher` as the optional extension
   field sysand also uses), the model files, `LICENSES/`, README. `.meta.json` is generated at build
@@ -169,9 +170,12 @@ OpenSysML already stand in that relation.
   a host archive over HTTPS is tried first where the hostname is known to serve one, with the VCS as
   the fallback. Verify the tree against the recorded tree digest / kpar SHA-256 (the revision alone
   is not content-addressed for svn)
-  and the `.meta.json` checksums before anything is read (OpenSysML's archive reader already refuses
-  on a checksum mismatch, so a tampered install fails on both sides); path traversal, symlink escape
-  and size bounds are enforced on every archive and clone.
+  and the `.meta.json` checksums before anything is read. For a `.kpar` the check is on both sides:
+  OpenSysML's archive reader (`internal/workspace/project/archive.go`) refuses on a checksum
+  mismatch too. For an unpacked `lib/<…>/` directory it is SysPI's alone — OpenSysML's directory
+  reader (`ReadInterchange`) takes `.project.json` as it finds it and checks no `.meta.json` — so
+  `syspi sync` re-verifies installed directories against the lock's tree digest. Path traversal,
+  symlink escape and size bounds are enforced on every archive and clone.
 - Install layout: `lib/<publisher>-<name>_<version>/` (or `.kpar`) beside `.project.json` — a neutral
   name, nothing tool-specific since the reader goes by `.project.json`. Phase 1 adds `lib` to
   OpenSysML's `wellKnownLibraryDirs` (today it lists only `.sysand/lib`) so both are read and a
@@ -203,7 +207,7 @@ OpenSysML already stand in that relation.
 
 ## 4. Phasing
 
-Phase 1 — installable packages from git remotes, no index
+Phase 1 — installable packages from git, svn and hg remotes, no index
 1. Extensions Library: add `.project.json` (`publisher` Open-MBEE), tag `v1.0.0`; release job attaches
    the `.kpar` built by the existing `scripts/build-kpar.py` (the docs already promise it).
 2. OpenSysML (read side only): `lib/` in the well-known install dirs; `@<version>` in a usage IRI
