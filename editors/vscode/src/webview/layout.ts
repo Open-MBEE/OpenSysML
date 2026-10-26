@@ -532,7 +532,7 @@ export function portKind(kind: string): boolean {
 
 // pinOf is a port node as the pin it is drawn as.
 function pinOf(node: RenderNode): RenderPort {
-  return { id: node.id, name: node.name, type: node.type || undefined };
+  return { id: node.id, name: node.name, type: node.type || undefined, inherited: node.inherited };
 }
 
 // clip leaves undrawn the children a node's stated size has no room for, as the
