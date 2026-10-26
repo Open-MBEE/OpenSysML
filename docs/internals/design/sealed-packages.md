@@ -239,8 +239,9 @@ language libraries): the consumer gets an **interface** they can model against a
   and the entry point). The stub is what completion, hover, type checking and diagrams see; a
   consumer connects to and calls exactly what the stub declares.
 - **The implementation** is the output of `sysml -compile -lib` over the real model: the native
-  compilation record's Phase 7 — a library with the stable C ABI of its item N2.4 (typed
-  arguments in, a typed result or a typed failure out, the host's budget honoured) — or, for one
+  compilation record's embedding phase — a library behind its stable C API (`sysml_new`,
+  `sysml_set`, `sysml_step`, `sysml_get`, `sysml_free`: typed arguments in, a typed result or a
+  typed failure out, the host's budget honoured) — or, for one
   artifact on every platform, the same source compiled to WebAssembly (`GOOS=wasip1` for the Go
   backend, `wasi-sdk` for the C one) and run by the pure-Go WebAssembly host that
   [bring your own engine](bring-your-own-engines.md) specifies for strategies and engines. The
@@ -305,8 +306,8 @@ unchanged for plain archives; the `sysml_re` size gate unchanged.
 Phase 2 — compiled sealed libraries, as the compilation phases allow
 4. The interface-stub generator and the `SealedLibrary` metadata; the library member and its
    checksum in the archive.
-5. Dispatch from the interpreter into a `-compile -lib` artifact through the C ABI (native
-   compilation N2.4), then the WebAssembly form under the engine host.
+5. Dispatch from the interpreter into a `-compile -lib` artifact through the embedding C API
+   of the native compilation record, then the WebAssembly form under the engine host.
 6. The compiled/interpreted differential run over a sealed fixture: same values, same output,
    same typed failures.
 Gate: a calc library compiled, sealed, installed and called from a consumer model with the
@@ -334,5 +335,5 @@ Open:
 4. Whether the analysis cache stores sealed records encrypted rather than skipping them, once a
    sealed library large enough to need it exists.
 5. Whether the WebAssembly library form waits for the engine host or justifies it; the native
-   compilation record's N2.4 and the engine note's host are the two items a Phase 2 start would
-   pull forward.
+   compilation record's embedding phase and the engine note's host are the two items a Phase 2
+   start would pull forward.
