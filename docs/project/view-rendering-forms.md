@@ -665,11 +665,26 @@ test read this table and hold the writers to it, so a glyph changes here and in 
 | `exhibit-edge` | `exhibit` | `arrowhead=vee` | `-->` | `-->` | `-> edge` | `end arrow-open` | conformant | Solid open arrow labelled `«exhibit»`, from the exhibiting usage to the state. |
 | `association` (actor or subject line, connection definition) | `association` | `dir=none` | `--` | `---` | `-- edge` | `none` | conformant | Plain undirected line. |
 | objective anchor | `anchor` | `dir=none, style=dashed` | `..` | `-.-` | `-> edge` | `none` | conformant | Dashed line without a head, the note's anchor. |
+| `succession-flow` | `succession flow` | `style=dashed` | `-[dashed]->` | `-.->` | `-> successionflow` | `end arrow` | differs from pilot | Dashed with a filled head and `«succession flow»` as its text, between the ends of a `succession flow` in action and interconnection renderings; the succession it also states is not drawn twice, except for the guard of a succession that gates it, and the keyword stays when connector names are hidden. The Pilot writes `..>`, an open head. |
+| `require-edge`, `assume-edge`, `assert-edge` | `require`, `assume`, `assert` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `end arrow-open` | conformant | Solid open arrow labelled `«require»`, `«assume»` or `«assert»`, from the requirer, assumer or assertor to the constraint or requirement it declares (`require constraint c { … }`) or names (`require r1;`), in the requirement and definition graphs and the mixed rendering when both are drawn apart; a tree or mixed rendering nests the declared forms in their owner, as it nests every owned member. |
+| `frame-edge` | `frame` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `end arrow-open` | differs from pilot | Solid open arrow labelled `«frame»`, from the framer to the concern it declares or names, as above. The Pilot has no rule of its own and writes a feature membership's `*--`. |
+| `event-edge` | `event` | `arrowhead=vee` | `-->` | `-->` | `-> open` | `end arrow-open` | conformant | Solid open arrow labelled `«event»`, from the eventer to an `event occurrence` it owns, in the definition graph and the tree, which draw the membership of each usage; one nested in its eventer's box in a mixed rendering is shown by the nesting. |
+| `portion-relationship` | `portion` | `dir=back, arrowtail=dot` | `#--` | `---` | `<- portion` | `start portion` | approximate | Solid line with a filled three-quarter circle at the occurrence, from the occurrence to a `timeslice` or `snapshot` it owns, in the definition graph and the tree: Graphviz and D2 draw a filled circle, PlantUML a filled square, Mermaid a plain line with `◕` leading the text; the canvas draws the three-quarter circle. The Pilot writes `*--`. |
+| `reference-subsetting` | `reference subsetting` | `arrowhead=onormaldot` | `--\|>` | `-->` | `-> specialization` | `end triangle-four-dots` | approximate | Hollow triangle with four dots behind its base, from a usage to the one it `::>` references, labelled `references` as `subsets` and `redefines` are: Graphviz sets one dot behind the triangle, PlantUML and D2 draw the plain triangle, Mermaid has none; the canvas draws the four dots. The Pilot writes `--\|>`. |
+| `unowned-membership` | `unowned membership` | `dir=back, arrowtail=odot` | `0--` | `---` | `<- membership` | `start circle-hollow` | differs from pilot | Solid line with a hollow circle at the namespace, from a package to a drawn package it holds by `alias`, the alias name at the member's end, in the package graph; Mermaid draws a plain line with `○` leading the text. The Pilot writes `+..`, dashed with a circle-plus. |
+| `expose-r`, `toplevel-expose-r`, `recursive-expose-r` | `expose` | `arrowhead=vee, style=dashed` | `..>` | `-.->` | `-> dependency` | `end arrow-open` | conformant | Dashed open arrow labelled `«expose»`, `«expose»*` or `«expose»**` as an import is, from a view usage to an element it exposes when both are drawn apart (a tree or mixed rendering), one edge per distinct exposure (two statements that say the same draw one edge, as imports do); the exposures a nested view's node holds as its children are shown by the nesting. |
 
 The Mermaid cells are the flowchart arrows; `mermaidEdgeLabel` adds the kind's name as the edge text
 where the arrow alone would not tell a specialization, subsetting, redefinition or typing apart. The
-canvas dashes a `succession`, `import`, `derive`, `refine`, `dependency` or `anchor` edge by its CSS
-class. Under the cameo style a tree's `containment` is Cameo's filled diamond instead.
+canvas dashes a `succession`, `succession flow`, `import`, `derive`, `refine`, `dependency`, `expose` or
+`anchor` edge by its CSS class. Under the cameo style a tree's `containment` is Cameo's filled diamond instead.
+
+The n-ary association and connection dots, the `flow-on-connection` item box and the
+sequence-diagram `message` and `sq-succession` glyphs remain undrawn as such: a connection with
+more than two ends is drawn as its pairs, a flow on a connection as a flow, and a sequence message
+as the grammar's own arrow. `testdata/notation-glyphs.sysml` exercises the succession flow,
+require, assume, assert, frame, event, portion, reference subsetting, unowned membership and
+expose edges in each rendering kind that draws them (`glyphs-*.golden`).
 
 ### Edge routing
 

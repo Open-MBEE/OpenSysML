@@ -1,0 +1,69 @@
+@startuml
+' NotationGlyphs::Diagrams::definitionGlyphs — definition rendering (view def GeneralView, filter @Definition or @Usage)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "<size:10>//«part def»//</size>\n**Plant**" as n0 <<part def>>
+class "<size:10>//«part»//</size>\n**tank**" as n1 <<part>> <<usage>>
+class "<size:10>//«part»//</size>\n**spare**" as n2 <<part>> <<usage>>
+class "<size:10>//«timeslice»//</size>\n**filling**" as n3 <<timeslice>> <<usage>>
+class "<size:10>//«snapshot»//</size>\n**full**" as n4 <<snapshot>> <<usage>>
+class "<size:10>//«occurrence»//</size>\n**startup**" as n5 <<occurrence>> <<usage>>
+class "<size:10>//«requirement def»//</size>\n**LevelReq**" as n6 <<requirement def>>
+class "<size:10>//«require constraint»//</size>\n**keepLevel**" as n7 <<require constraint>> <<usage>>
+class "<size:10>//«assume constraint»//</size>\n**lowLevel**" as n8 <<assume constraint>> <<usage>>
+class "<size:10>//«constraint»//</size>\n**bounded**" as n9 <<constraint>> <<usage>>
+class "<size:10>//«constraint»//</size>\n**tight**" as n10 <<constraint>> <<usage>>
+class "<size:10>//«requirement»//</size>\n**capacity**" as n11 <<requirement>> <<usage>>
+class "<size:10>//«assert constraint»//</size>\n**asserted**" as n12 <<assert constraint>> <<usage>>
+n0 *-- n1
+n2 --|> n1 : references
+n0 o-- n2
+n0 #-- n3
+n0 #-- n4
+n0 --> n5 : event
+n6 --> n9 : require
+n6 --> n10 : assume
+n6 --> n7 : require
+n6 --> n8 : assume
+n11 --> n12 : assert
+@enduml

@@ -50,6 +50,13 @@ var plantumlGoldenCases = []struct {
 	{"general-requirement", "general.sysml", "GeneralViews::requirementView", KindRequirement},
 	{"general-definition", "general.sysml", "GeneralViews::definitionView", KindDefinition},
 	{"general-package", "general.sysml", "GeneralViews::packageView", KindPackage},
+	{"glyphs-requirement", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::requirementGlyphs", KindRequirement},
+	{"glyphs-definition", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::definitionGlyphs", KindDefinition},
+	{"glyphs-package", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::packageGlyphs", KindPackage},
+	{"glyphs-tree", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::treeGlyphs", KindTree},
+	{"glyphs-interconnection", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::lineGlyphs", KindInterconnection},
+	{"glyphs-action", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::fillGlyphs", KindAction},
+	{"glyphs-mixed", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::mixedGlyphs", KindMixed},
 }
 
 // TestGoldenPlantUML locks the PlantUML of every kind that has one, from the
@@ -612,7 +619,7 @@ var (
 	// plantumlArrowLine matches an arrow statement between two aliases, a
 	// port's being its node's dotted with its index, an end name quoted at
 	// its end.
-	plantumlArrowLine = regexp.MustCompile(`^\s*(\[\*\]|[\w.]+)( "[^"]*")? (-\[[a-z=0-9]+\]->?|-->|->|--\|>|--:\|>|--\|\|>|\.\.>|\*--|o--|\+--|--|\.\.) ("[^"]*" )?([\w.]+)( : .*)?$`)
+	plantumlArrowLine = regexp.MustCompile(`^\s*(\[\*\]|[\w.]+)( "[^"]*")? (-\[[a-z=0-9]+\]->?|-->|->|--\|>|--:\|>|--\|\|>|\.\.>|\*--|o--|\+--|#--|0--|--|\.\.) ("[^"]*" )?([\w.]+)( : .*)?$`)
 	// plantumlDeclarationLine matches an element declaration with its alias.
 	plantumlDeclarationLine = regexp.MustCompile(`^\s*(class|rectangle|state|participant|port|usecase|actor|note|circle|package) ".*" as ([\w.]+)( <<[^>]+>>)*( #[0-9A-F]{6}(;line:[0-9A-F]{6})?)?( \{)?$`)
 	// dotFillLine and plantumlFillLine pick the fill a node is given in each form.

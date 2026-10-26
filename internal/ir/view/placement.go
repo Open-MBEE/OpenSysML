@@ -390,7 +390,9 @@ func typeRow(row *Node) {
 // in another folded one folds to the owner under an automatic folding, as its
 // other edges move there, counted in moved; under the positioned folding its
 // nesting folds away, the nesting of an undrawn node, and its other edges are
-// dropped with the rest at one. A nesting with no drawn type folds away.
+// dropped with the rest at one. A nesting with no drawn type folds away, as
+// does one drawn with a glyph of its own (a portion, an event), whose row
+// names the member's type.
 func (f *folder) foldMemberships(edges []Edge) (folded []Edge, moved int) {
 	typings := map[string][]int{}
 	for i, edge := range edges {
@@ -410,6 +412,15 @@ func (f *folder) foldMemberships(edges []Edge) (folded []Edge, moved int) {
 			continue
 		}
 		if f.folded(edge.From) && !f.mode.automatic() {
+			continue
+		}
+		if edge.Kind != EdgeComposition && edge.Kind != EdgeReference {
+			// A portion or event glyph names the usage, not its type: the
+			// row reads `name : Type` for the folded member instead.
+			typeRow(row)
+			for _, j := range typings[edge.To] {
+				consumed[j] = true
+			}
 			continue
 		}
 		for _, j := range typings[edge.To] {

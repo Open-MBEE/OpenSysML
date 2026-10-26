@@ -594,6 +594,19 @@ func plantumlArrow(kind Kind, edge EdgeKind) string {
 		return "--"
 	case EdgeAnchor:
 		return ".."
+	case EdgeSuccessionFlow:
+		return "-[dashed]->"
+	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent:
+		return "-->"
+	case EdgePortion:
+		// PlantUML has no three-quarter circle: its filled square stands at the occurrence end.
+		return "#--"
+	case EdgeReferenceSubsetting:
+		return "--|>"
+	case EdgeUnownedMembership:
+		return "0--"
+	case EdgeExpose:
+		return "..>"
 	}
 	return "-->"
 }

@@ -1,0 +1,32 @@
+// view: NotationGlyphs::Diagrams::treeGlyphs
+// kind: tree
+// layout: dot
+digraph "NotationGlyphs::Diagrams::treeGlyphs" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Plant</b>>];
+  "n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>tank</b>>];
+  "n2" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>level</b>>];
+  "n3" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>pump</b>>];
+  "n4" [style="rounded,filled", label=<<font point-size="10"><i>«timeslice»</i></font><br/><b>filling</b>>];
+  "n5" [style="rounded,filled", label=<<font point-size="10"><i>«snapshot»</i></font><br/><b>full</b>>];
+  "n6" [style="rounded,filled", label=<<font point-size="10"><i>«occurrence»</i></font><br/><b>startup</b>>];
+  "n7" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>spare</b>>];
+  "n8" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>level</b>>];
+  "n9" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>tankView</b>>];
+  "n10" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Tank</b>>];
+  "n11" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>level</b>>];
+  "n0" -> "n1" [dir=back, arrowtail=diamond];
+  "n0" -> "n3" [dir=back, arrowtail=diamond];
+  "n0" -> "n4" [dir=back, arrowtail=dot];
+  "n0" -> "n5" [dir=back, arrowtail=dot];
+  "n0" -> "n6" [label="event", arrowhead=vee];
+  "n0" -> "n7" [dir=back, arrowtail=odiamond];
+  "n1" -> "n10" [arrowhead=onormaldotdot];
+  "n1" -> "n2" [dir=back, arrowtail=odiamond];
+  "n7" -> "n1" [label="references", arrowhead=onormaldot];
+  "n7" -> "n8" [dir=back, arrowtail=odiamond];
+  "n9" -> "n10" [label="«expose»", arrowhead=vee, style=dashed];
+  "n10" -> "n11" [dir=back, arrowtail=odiamond];
+}

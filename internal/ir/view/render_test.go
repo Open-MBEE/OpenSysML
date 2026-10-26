@@ -164,6 +164,13 @@ func TestGoldenRenderings(t *testing.T) {
 		{"general-empty", "general-robust.sysml", "RobustViews::noRequirements", KindRequirement},
 		{"general-case", "general-case.sysml", "UseCaseViews::useCaseView", KindCase},
 		{"general-case-definitions", "general-case.sysml", "UseCaseViews::caseDefinitionView", KindCase},
+		{"glyphs-requirement", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::requirementGlyphs", KindRequirement},
+		{"glyphs-definition", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::definitionGlyphs", KindDefinition},
+		{"glyphs-package", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::packageGlyphs", KindPackage},
+		{"glyphs-tree", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::treeGlyphs", KindTree},
+		{"glyphs-interconnection", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::lineGlyphs", KindInterconnection},
+		{"glyphs-action", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::fillGlyphs", KindAction},
+		{"glyphs-mixed", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::mixedGlyphs", KindMixed},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -939,8 +946,10 @@ func TestActionRenderingDrawsTheSuccessionGatingAFlow(t *testing.T) {
 			if text := sf.Text(edge.Origin.Span); !strings.HasPrefix(text, "first producer if go then f") {
 				t.Errorf("the gated succession is located at %q, want its own declaration", text)
 			}
-		case EdgeFlow:
+		case EdgeSuccessionFlow:
 			flows++
+		case EdgeFlow:
+			t.Errorf("the succession flow %s is drawn as a flow", edge.Label)
 		}
 	}
 	if gated != 1 || flows != 1 {

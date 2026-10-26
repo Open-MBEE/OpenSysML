@@ -633,6 +633,7 @@ package Views {
 		"Model::Car reference plug",
 		"Model::Car reference paint",
 		"Model::Car reference link",
+		"link reference subsetting wheels: references",
 		"Model::Pairing reference a",
 		"Model::Pairing reference b",
 		"Model::Pairing reference tag",

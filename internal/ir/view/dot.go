@@ -2119,6 +2119,20 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 		attrs = append(attrs, dirNone)
 	case EdgeAnchor:
 		attrs = append(attrs, dirNone, dotStyleDashed)
+	case EdgeSuccessionFlow:
+		attrs = append(attrs, dotStyleDashed)
+	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent:
+		attrs = append(attrs, "arrowhead=vee")
+	case EdgePortion:
+		// Graphviz has no three-quarter circle: a filled circle stands at the occurrence end.
+		attrs = append(attrs, dotDirBack, "arrowtail=dot")
+	case EdgeReferenceSubsetting:
+		// The hollow triangle, with one dot behind its base for the notation's four.
+		attrs = append(attrs, "arrowhead=onormaldot")
+	case EdgeUnownedMembership:
+		attrs = append(attrs, dotDirBack, "arrowtail=odot")
+	case EdgeExpose:
+		attrs = append(attrs, "arrowhead=vee", dotStyleDashed)
 	}
 	attrs = append(attrs, dotStyleAttributes(edge.Style, false)...)
 	if len(edge.Route) > 1 {
@@ -2305,7 +2319,7 @@ func (b nodeBox) overlap(o nodeBox) float64 {
 func (w *dotWriter) edgeTexts(edge Edge) (from, label, to string) {
 	label = edge.Label
 	if w.action && (edge.FromPort != "" || edge.ToPort != "") {
-		label = edge.Name
+		label = pinnedEdgeLabel(edge)
 		if label == "" && edge.Kind == EdgeBinding {
 			label = bindingKeyword
 		}

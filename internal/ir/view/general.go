@@ -261,6 +261,11 @@ func generalNodeKind(r *Renderer, sym *symbols.Symbol) bool {
 		return sym.Kind != symbols.SymbolMetadataDef
 	case *ast.Usage:
 		return sym.Kind != symbols.SymbolMetadataUsage
+	case *ast.RequireMember, *ast.AssumeMember:
+		// The constraint a `require constraint` or `assume constraint` member
+		// declares; one naming a constraint instead is drawn as the edge to it.
+		_, declares := ast.OwnedConstraintOf(sym.Decl)
+		return declares && sym.Kind == symbols.SymbolConstraintUsage
 	}
 	return false
 }
@@ -447,12 +452,98 @@ func (g *generalGraph) structuralEdges(sym *symbols.Symbol) {
 		}
 	}
 	g.featureEdges(sym, from)
-	if _, usage := sym.Decl.(*ast.Usage); !usage || sym.OwnerScope == nil {
+	g.statedEdges(sym, from)
+	if sym.OwnerScope == nil || !ownedUsage(sym) {
 		return
 	}
 	if owner := g.drawn(sym.OwnerScope.Owner()); owner != nil && owner != from {
-		g.add(Edge{From: owner.ID, To: from.ID, Kind: g.r.membershipKind(sym), ToLabel: g.r.usageMultiplicity(sym), Origin: symbolOrigin(sym)})
+		edge := Edge{From: owner.ID, To: from.ID, ToLabel: g.r.usageMultiplicity(sym), Origin: symbolOrigin(sym)}
+		g.r.memberEdge(sym, &edge)
+		g.add(edge)
 	}
+}
+
+// ownedUsage reports whether sym is a usage its owner draws a membership edge
+// to: one declared as such, or the constraint a require or assume member declares.
+func ownedUsage(sym *symbols.Symbol) bool {
+	switch sym.Decl.(type) {
+	case *ast.Usage, *ast.RequireMember, *ast.AssumeMember:
+		return true
+	}
+	return false
+}
+
+// membershipEdge is the edge a drawn owner draws to a member it owns, with its
+// label: the notation's require, assume, assert, frame, event and portion
+// glyphs for the memberships that have one, else the composition (filled
+// diamond) or reference (hollow diamond) of a feature membership.
+func memberRelationship(member *symbols.Symbol) (EdgeKind, string, bool) {
+	switch decl := member.Decl.(type) {
+	case *ast.RequireMember:
+		return EdgeRequire, EdgeRequire.String(), true
+	case *ast.AssumeMember:
+		return EdgeAssume, EdgeAssume.String(), true
+	case *ast.Usage:
+		switch {
+		case decl.PrefixKeyword == "assert":
+			return EdgeAssert, EdgeAssert.String(), true
+		case decl.Kind == ast.UsageFramedConcern:
+			return EdgeFrame, EdgeFrame.String(), true
+		case decl.IsEvent:
+			return EdgeEvent, EdgeEvent.String(), true
+		case decl.Portion != ast.PortionNone:
+			return EdgePortion, "", true
+		}
+	}
+	return 0, "", false
+}
+
+// statedEdges draws what a member of sym states of another drawn element by
+// naming it rather than declaring it: `require r1;`, `assume c;`, `assert c;`
+// and `frame concern;`, from sym to the named element.
+func (g *generalGraph) statedEdges(sym *symbols.Symbol, from *Node) {
+	if sym.Scope == nil {
+		return
+	}
+	for _, member := range append(slices.Clone(sym.Scope.Members()), sym.Scope.AnonymousMembers()...) {
+		kind, ref, ok := statedReference(member)
+		if !ok {
+			continue
+		}
+		target, resolved := g.r.resolveEnd(member.OwnerScope, ref)
+		if !resolved {
+			g.unresolved(kind.String()+" membership", sym, ref)
+			continue
+		}
+		if to := g.drawn(target); to != nil && to != from {
+			g.add(Edge{From: from.ID, To: to.ID, Kind: kind, Label: kind.String(), Origin: symbolOrigin(member)})
+		}
+	}
+}
+
+// statedReference is the element a require, assume, assert or frame member
+// names rather than declares, and the edge the membership draws to it.
+func statedReference(member *symbols.Symbol) (EdgeKind, ast.Node, bool) {
+	switch decl := member.Decl.(type) {
+	case *ast.RequireMember:
+		ref := ast.ConstraintReferenceOf(decl)
+		return EdgeRequire, ref, ref != nil
+	case *ast.AssumeMember:
+		ref := ast.ConstraintReferenceOf(decl)
+		return EdgeAssume, ref, ref != nil
+	case *ast.Usage:
+		rel := decl.ReferenceSubsetting()
+		if rel == nil || rel.Target == nil {
+			return 0, nil, false
+		}
+		switch {
+		case decl.PrefixKeyword == "assert":
+			return EdgeAssert, rel.Target, true
+		case decl.Kind == ast.UsageFramedConcern:
+			return EdgeFrame, rel.Target, true
+		}
+	}
+	return 0, nil, false
 }
 
 // structuralEdgeKind is the edge a declared relationship draws, and its label.
@@ -484,6 +575,8 @@ func structuralEdgeKind(kind ast.RelationshipKind) (EdgeKind, string, bool) {
 		return EdgeSubsetting, "", true
 	case ast.RelRedefines:
 		return EdgeRedefinition, "", true
+	case ast.RelReferences:
+		return EdgeReferenceSubsetting, "references", true
 	case ast.RelTyping:
 		return EdgeTyping, "", true
 	}
@@ -501,6 +594,21 @@ func (g *generalGraph) packageEdges(pkg *symbols.Symbol) {
 	}
 	if pkg.Scope == nil {
 		return
+	}
+	for _, member := range pkg.Scope.Members() {
+		if member.Kind != symbols.SymbolAlias {
+			continue
+		}
+		target, ok := g.r.resolver.ResolveAliasTarget(member)
+		if !ok || target == nil {
+			if alias, isAlias := member.Decl.(*ast.Alias); isAlias && alias.For != nil {
+				g.unresolved("alias", pkg, alias.For)
+			}
+			continue
+		}
+		if to := g.drawn(target); to != nil && to != node {
+			g.add(Edge{From: node.ID, To: to.ID, Kind: EdgeUnownedMembership, ToLabel: member.Name, Origin: symbolOrigin(member)})
+		}
 	}
 	for _, imp := range pkg.Scope.Imports() {
 		if imp == nil || imp.IsExpose || imp.Imported == nil {
@@ -531,13 +639,23 @@ func importLabel(imp *ast.Import) string {
 	if imp.Visibility == ast.VisibilityPrivate {
 		label = "«private import»"
 	}
+	return label + importSuffix(imp)
+}
+
+// exposeLabel is an expose edge's label, suffixed as an import's is.
+func exposeLabel(imp *ast.Import) string {
+	return "«expose»" + importSuffix(imp)
+}
+
+// importSuffix is what an import or expose brings in beyond the named element.
+func importSuffix(imp *ast.Import) string {
 	switch {
 	case imp.IsRecursive:
-		label += "**"
+		return "**"
 	case imp.Kind == ast.ImportNamespace:
-		label += "*"
+		return "*"
 	}
-	return label
+	return ""
 }
 
 // requirementRelationships finds, in declaration order across the model's own
