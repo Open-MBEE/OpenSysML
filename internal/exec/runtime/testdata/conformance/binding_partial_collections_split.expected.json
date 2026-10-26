@@ -6,14 +6,13 @@
     "right": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
     "counts": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}, {"type": "Integer", "value": 2}]}
   },
-  "distinct": [
+  "identical": [
     ["left.1", "right.1"]
   ],
   "materialization": {},
   "validation": {
     "verdicts": [
-      {"kind": "binding", "assertion": "binding [1] bind [0..1] left = [0..1] right", "status": "violated",
-       "error": "left and right share 0 value(s) where the binding links 1"},
+      {"kind": "binding", "assertion": "binding [1] bind [0..1] left = [0..1] right", "status": "holds"},
       {"kind": "binding", "assertion": "binding [1] bind [0..1] left = [0..1] counts", "status": "violated",
        "error": "left and counts share 0 value(s) where the binding links 1"}
     ],

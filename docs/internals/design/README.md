@@ -34,6 +34,20 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   scheduling choice and every unbounded resource, the artifacts and traceability a tool
   qualification argument consumes, and a fixed-step host interface proved under Zephyr on QEMU
   and as an F´ component
+- **[Reading installed packages](package-management.md)** — what OpenSysML reads and why it is
+  only a reader: a project any package manager installs (`.project.json` at a git tag, usage IRIs
+  such as the ECMA-427 `pkg:git/<host>/<path>@<version>` or `pkg:sysand/...`) is found under the
+  well-known install directories (`.sysand/lib`, a plain `lib/`, further tools' as they appear) with
+  `@<version>` honoured as an exact constraint; fetching, lock files and package indexes belong to
+  the package manager and never to this repository; what exists today, what sysand does, and how a
+  further package manager is added read-only
+- **[Sealed packages](sealed-packages.md)** — a proposal: a `.skpar` container holding a
+  conformant `.kpar` encrypted with age to per-recipient keys and signed, with `.project.json`
+  in the clear so resolution, locking and installation stay keyless; why the interchange format
+  and ZIP give no encryption, what a loaded model necessarily reveals, a sealed bit our own
+  re-emitting surfaces honour, and — where the content itself is the secret — an interface stub
+  over a compiled library (`-compile -lib`, native or WebAssembly) or a served one over the
+  engine protocol
 - **[Scheduling policies, choice points and exploration](scheduling.md)** — how a run
   resolves what the library leaves unordered, reports each such choice without changing the
   run, takes another linearization under `declared` or `seed:<n>`, and enumerates every one

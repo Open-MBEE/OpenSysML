@@ -188,7 +188,7 @@ metaclass when the two sides disagree on the metaclass (`typeMismatch`).
 
 The pinned pilot's verdict on the probe (`validate-sysml-batch`): clean.
 
-## Results (pilot `2026-08`, 931 files)
+## Results (pilot `2026-08`, 924 files)
 
 **Scorecard:** 931 files; 91913 elements matched (18396 ours-only, 37371 pilot-only, 0 of them implied); properties: 1114840 present-equal, 27135 present-different, 1067838 ours-missing, 67825 pilot-missing, 1961275 absent-both, 26091 indeterminate.
 
