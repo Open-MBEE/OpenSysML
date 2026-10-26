@@ -321,8 +321,7 @@ func (a *Archive) readMeta() error {
 }
 
 // verify checks one recorded checksum. An algorithm the schema allows but
-// this build cannot compute is noted rather than refused; a checksum that
-// records no digest (algorithm NONE, or an empty value) verifies nothing.
+// this build cannot compute is noted; an unrecorded checksum verifies nothing.
 func (a *Archive) verify(member string, content []byte, sum Checksum) error {
 	if sum.Algorithm == "" {
 		return fmt.Errorf("checksum of %q lacks an algorithm", member)
