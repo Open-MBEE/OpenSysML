@@ -40,6 +40,13 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   index is derived from the packages and rendered twice from the same records — plain JSON in the
   static layout other tools read, and standard-library-only SysML whose constraints `sysml -validate`
   checks; what exists today, what sysand does, the client commands and a three-phase plan
+- **[Sealed packages](sealed-packages.md)** — a proposal: a `.skpar` container holding a
+  conformant `.kpar` encrypted with age to per-recipient keys and signed, with `.project.json`
+  in the clear so resolution, locking and installation stay keyless; why the interchange format
+  and ZIP give no encryption, what a loaded model necessarily reveals, a sealed bit our own
+  re-emitting surfaces honour, and — where the content itself is the secret — an interface stub
+  over a compiled library (`-compile -lib`, native or WebAssembly) or a served one over the
+  engine protocol
 - **[Scheduling policies, choice points and exploration](scheduling.md)** — how a run
   resolves what the library leaves unordered, reports each such choice without changing the
   run, takes another linearization under `declared` or `seed:<n>`, and enumerates every one
