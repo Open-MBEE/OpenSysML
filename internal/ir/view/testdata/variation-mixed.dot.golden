@@ -29,6 +29,6 @@ digraph "VariationViews::familyMixed" {
     "n6" [style="rounded,filled", label=<<font point-size="10"><i>«variant»</i></font><br/><b>fourCylinder</b>>];
     "n7" [style="rounded,filled", label=<<font point-size="10"><i>«variant»</i></font><br/><b>sixCylinder</b>>];
   }
-  "n1" -> "n2" [arrowhead=none, penwidth=3, lhead="cluster_n2"];
+  "n1" -> "n2" [label="connect", arrowhead=none, penwidth=3, lhead="cluster_n2"];
   "n1" -> "n5" [arrowhead=onormaldotdot, lhead="cluster_n5"];
 }

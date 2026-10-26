@@ -542,7 +542,7 @@ func (w *mixedWalk) referenceEdges() {
 				continue
 			}
 			if target := w.r.model.RelationshipTarget(sym, rel); target != nil {
-				add(sym, target, EdgeSpecialization, "«specializes»", sym, nil)
+				add(sym, target, EdgeSpecialization, "", sym, nil)
 			}
 		}
 		if specialLabel != "" {

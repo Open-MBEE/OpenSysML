@@ -26,7 +26,7 @@ relationships:
   vehicle -> vehicleMass: «satisfy»
   heavyVehicle -> vehicleMass: «satisfy»
   vehicle -> emergencyStop: «satisfy»
-  emergencyStop -> brake
+  emergencyStop -> brake: «allocate»
   MassTest -> vehicleMass: «verify»
   lightMassTest -> vehicleMass: «verify»
   heavyMassTest -> vehicleMass: «verify»

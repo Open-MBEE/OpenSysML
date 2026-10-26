@@ -68,7 +68,7 @@ n6 ..> n4 : «refine»
 n7 --> n3 : «satisfy»
 n8 --> n3 : «satisfy»
 n7 --> n5 : «satisfy»
-n5 --> n9
+n5 --> n9 : «allocate»
 n10 --> n3 : «verify»
 n11 --> n3 : «verify»
 n12 --> n3 : «verify»

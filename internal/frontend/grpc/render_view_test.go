@@ -210,7 +210,7 @@ func TestRenderViewRendersCaseAndMixed(t *testing.T) {
 		t.Errorf("mixed view kind = %q, want mixed", mixedView.Kind)
 	}
 	requireNodeKinds(mixedView, "part def", "port", "action def")
-	requireEdgeKinds(mixedView, "reference", "succession")
+	requireEdgeKinds(mixedView, "perform", "succession")
 	var telemetry, perform bool
 	for _, node := range mixedView.Nodes {
 		telemetry = telemetry || node.Kind == "port" && node.Name == "telemetry"

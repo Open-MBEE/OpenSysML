@@ -10,5 +10,5 @@ variation part def EngineChoices
   variant sixCylinder
 
 relationships:
-  engine -- transmission
+  engine -- transmission: connect
   engine --:|> EngineChoices

@@ -31,7 +31,7 @@ n6 -> n4: "«refine»" { class: dependency; link: "https://example.test/src/gene
 n7 -> n3: "«satisfy»" { class: edge; link: "https://example.test/src/general.sysml#L56" }
 n8 -> n3: "«satisfy»" { class: edge; link: "https://example.test/src/general.sysml#L57" }
 n7 -> n5: "«satisfy»" { class: edge; link: "https://example.test/src/general.sysml#L58" }
-n5 -> n9: { class: edge; link: "https://example.test/src/general.sysml#L59" }
+n5 -> n9: "«allocate»" { class: edge; link: "https://example.test/src/general.sysml#L59" }
 n10 -> n3: "«verify»" { class: edge; link: "https://example.test/src/general.sysml#L70" }
 n11 -> n3: "«verify»" { class: edge; link: "https://example.test/src/general.sysml#L70" }
 n12 -> n3: "«verify»" { class: edge; link: "https://example.test/src/general.sysml#L70" }

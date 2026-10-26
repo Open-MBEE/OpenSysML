@@ -32,7 +32,7 @@ n6 -> n4: "«refine»" { class: dependency }
 n7 -> n3: "«satisfy»" { class: edge }
 n8 -> n3: "«satisfy»" { class: edge }
 n7 -> n5: "«satisfy»" { class: edge }
-n5 -> n9: { class: edge }
+n5 -> n9: "«allocate»" { class: edge }
 n10 -> n3: "«verify»" { class: edge }
 n11 -> n3: "«verify»" { class: edge }
 n12 -> n3: "«verify»" { class: edge }

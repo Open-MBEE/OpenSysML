@@ -81,6 +81,6 @@ digraph "TypedUsageViews::rocketLinks" {
     }
   }
   "n2.0" -> "n0.0" [arrowhead=none, penwidth=3];
-  "n8" -> "n4" [arrowhead=none, ltail="cluster_n8", lhead="cluster_n4"];
-  "n18" -> "n14" [arrowhead=none, ltail="cluster_n18", lhead="cluster_n14"];
+  "n8" -> "n4" [label="=", arrowhead=none, ltail="cluster_n8", lhead="cluster_n4"];
+  "n18" -> "n14" [label="=", arrowhead=none, ltail="cluster_n18", lhead="cluster_n14"];
 }

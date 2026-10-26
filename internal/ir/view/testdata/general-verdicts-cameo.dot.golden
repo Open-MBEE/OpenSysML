@@ -40,7 +40,7 @@ digraph "GeneralViews::requirementView" {
   "n7" -> "n3" [label="«satisfy»", arrowhead=vee];
   "n8" -> "n3" [label="«satisfy»", arrowhead=vee];
   "n7" -> "n5" [label="«satisfy»", arrowhead=vee];
-  "n5" -> "n9" [arrowhead=vee];
+  "n5" -> "n9" [label="«allocate»", arrowhead=vee];
   "n10" -> "n3" [label="«verify»", arrowhead=vee];
   "n11" -> "n3" [label="«verify»", arrowhead=vee];
   "n12" -> "n3" [label="«verify»", arrowhead=vee];

@@ -153,8 +153,11 @@ func (n *narrowing) narrow(node *Node) {
 func (n *narrowing) edge(edge *Edge) {
 	edge.From, edge.FromPort = n.end(edge.From, edge.FromPort)
 	edge.To, edge.ToPort = n.end(edge.To, edge.ToPort)
-	if !n.shown.Has(ElementEdgeLabels) && connectorEdge(edge.Kind) && n.kind != KindSequence {
+	if !n.shown.Has(ElementEdgeLabels) && connectorEdge(edge.Kind) && n.kind != KindSequence && !relationshipGraph(n.kind) {
 		edge.Label, edge.Name = "", ""
+		if edge.Kind == EdgeBinding {
+			edge.Label = bindingKeyword
+		}
 	}
 	if !n.shown.Has(ElementMultiplicities) {
 		labels := []*string{&edge.FromLabel, &edge.ToLabel}
@@ -188,6 +191,17 @@ func (n *narrowing) note(note *Note) {
 			*anchor = to
 		}
 	}
+}
+
+// relationshipGraph reports whether a rendering's edges are relationships
+// labelled by their keyword (`«allocate»`, `«satisfy»`), which hiding the edge
+// labels — the optional names of connectors — leaves in place.
+func relationshipGraph(kind Kind) bool {
+	switch kind {
+	case KindTree, KindCase, KindMixed, KindRequirement, KindDefinition, KindPackage:
+		return true
+	}
+	return false
 }
 
 // connectorEdge reports whether an edge stands for a connector whose name is

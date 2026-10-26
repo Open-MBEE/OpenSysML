@@ -225,7 +225,11 @@ func TestMixedViewContainsSharedKindsAndReferenceEdges(t *testing.T) {
 			t.Errorf("mixed rendering has no %s edge", kind)
 		}
 	}
-	for _, label := range []string{"«perform»", "«exhibit»", "«specializes»"} {
+	// A specialization carries no text of its own; Mermaid, with no triangle head, names it.
+	if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, "«specializes»") || labels["«specializes»"] {
+		t.Errorf("specialization labels = %v in the model, Mermaid names it:\n%s", labels["«specializes»"], mermaid)
+	}
+	for _, label := range []string{"«perform»", "«exhibit»"} {
 		if !labels[label] {
 			t.Errorf("mixed rendering has no %s edge label", label)
 		}

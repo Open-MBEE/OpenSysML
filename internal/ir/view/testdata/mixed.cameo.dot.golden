@@ -118,17 +118,17 @@ digraph "MixedExamples::mixedDiagram" {
   "n11" -> "n9" [dir=none];
   "n9" -> "n12" [dir=none, style=dashed];
   "n16" -> "n15" [arrowhead=vee];
-  "n26":"n26.0" -> "n27":"n27.0" [arrowhead=none];
+  "n26":"n26.0" -> "n27":"n27.0" [label="supply", arrowhead=none];
   "n3" -> "n1" [arrowhead=onormaldotdot];
   "n10" -> "n25" [arrowhead=onormaldotdot, lhead="cluster_n25"];
   "n11" -> "n31" [arrowhead=onormaldotdot];
   "n13" -> "n5" [label="«perform»", arrowhead=vee, lhead="cluster_n5"];
   "n14" -> "n2" [label="«exhibit»", arrowhead=vee, ltail="cluster_n14", lhead="cluster_n2"];
-  "n21" -> "n20" [label="«specializes»", arrowhead=empty, ltail="cluster_n21"];
+  "n21" -> "n20" [arrowhead=empty, ltail="cluster_n21"];
   "n22" -> "n19" [arrowhead=onormaldotdot];
-  "n23" -> "n20" [label="«specializes»", arrowhead=empty, ltail="cluster_n23"];
+  "n23" -> "n20" [arrowhead=empty, ltail="cluster_n23"];
   "n24" -> "n19" [arrowhead=onormaldotdot];
-  "n25" -> "n20" [label="«specializes»", arrowhead=empty, ltail="cluster_n25"];
+  "n25" -> "n20" [arrowhead=empty, ltail="cluster_n25"];
   "n26" -> "n21" [arrowhead=onormaldotdot, lhead="cluster_n21"];
   "n27" -> "n23" [arrowhead=onormaldotdot, lhead="cluster_n23"];
 }

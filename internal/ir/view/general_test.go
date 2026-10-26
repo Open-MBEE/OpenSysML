@@ -326,3 +326,18 @@ func TestVerdictOverlayRecoloursStyledRequirement(t *testing.T) {
 		t.Errorf("the declared Style changed: %+v", *declared)
 	}
 }
+
+// A requirement graph's allocation is labelled by its keyword, which hiding
+// the edge labels — the optional names of connectors — does not remove.
+func TestRequirementGraphKeepsTheAllocateKeywordWithoutEdgeLabels(t *testing.T) {
+	rendering := render(t, "general.sysml", "GeneralViews::requirementView")
+	for _, form := range []Form{FormText, FormDot, FormMermaid, FormPlantUML, FormD2} {
+		out, err := rendering.WriteWith(form, Options{})
+		if err != nil {
+			t.Fatalf("%s: %v", form, err)
+		}
+		if !strings.Contains(out, "«allocate»") && !strings.Contains(out, "<U+00AB>allocate<U+00BB>") {
+			t.Errorf("%s without edge labels loses the «allocate» keyword:\n%s", form, out)
+		}
+	}
+}
