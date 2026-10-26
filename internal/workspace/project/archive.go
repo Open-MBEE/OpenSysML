@@ -515,12 +515,14 @@ func sortedKeys[V any](m map[string]V) []string {
 	return keys
 }
 
-// ArchiveWarnings reports what the archives a load touched fell short of: an
+// Warnings reports what the projects and archives a load touched fell short
+// of: a usage left unlinked between several unclaimed installed projects, an
 // archive under a library root that is not a project interchange file, and a
 // checksum of a loaded archive that could not be verified.
-func (d Discovery) ArchiveWarnings(paths []string) []string {
-	var out []string
-	for _, ae := range d.Around(paths).Malformed {
+func (d Discovery) Warnings(paths []string) []string {
+	around := d.Around(paths)
+	out := append([]string(nil), around.Unlinked...)
+	for _, ae := range around.Malformed {
 		out = append(out, fmt.Sprintf("%s: not a project interchange archive: %v", ae.Path, ae.Err))
 	}
 	seen := map[string]bool{}

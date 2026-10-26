@@ -128,7 +128,7 @@ func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 	}
 	files := read.files
 	lines := read.notes
-	archives := warningLines(s.discovery().ArchiveWarnings(paths), s.verbosity)
+	archives := warningLines(s.discovery().Warnings(paths), s.verbosity)
 	if len(files) == 0 {
 		return append(lines, archives...), nil
 	}

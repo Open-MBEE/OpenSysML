@@ -365,7 +365,13 @@ are its publisher and name (compared as lower-case slugs, so `Requirements Manag
 answers to `…/ode4hera/requirements-management`), and of several installed versions the one
 a `versionConstraint` names exactly is taken — or, when the usage carries none, the one a
 version written after `@` in its IRI names (`pkg:registry/acme/gears@1.0.0`) — else the
-latest. OpenSysML reads what any package manager that follows KerML 10.3 project interchange
+latest. A usage whose IRI spells something else — a repository's path, as a version-control
+IRI does (`pkg:git/github.com/MBSE4U/sysmod-sysmlv2` for the project `mbse4u/sysmod`) — is
+linked by elimination once every usage has had its say: of the installed projects no usage
+claims (another version of a claimed project counts as claimed), those satisfying its
+constraint, when they are all one project, at the highest such version. When several
+projects are left it, the usage selects nothing and a warning names each candidate and the
+publisher/name the resource should end with. OpenSysML reads what any package manager that follows KerML 10.3 project interchange
 installs (sysand today) under `lib/` or `.sysand/lib` beside `.project.json`; it does not fetch. Those library directories
 hold the installed projects, not the project's own files: a walk of the project directory
 (`sysml <dir>`, `-bundle`, the editor's workspace scan) passes over them and loads what lies

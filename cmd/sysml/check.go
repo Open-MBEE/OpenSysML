@@ -696,8 +696,11 @@ func runChecks(files []string, exprs []string, c checks) int {
 	if c.baseline != "" {
 		rep.suppress(sess.Suppressed(), c.baseline)
 	}
+	// What the load itself fell short of — a usage linked to no installed project
+	// — is printed with the errors it explains, where the summary's copy is not.
 	if sess.HasErrors() {
 		rep.diags(sess.LocatedDiagnostics())
+		rep.problem(sess.LoadWarnings(paths))
 		rep.problem(sess.DiagnosticLines())
 		if c.baseline != "" && !reportedErrors(sess.LocatedDiagnostics()) {
 			// A known error is still one: analysis stopped at it, so the tiers

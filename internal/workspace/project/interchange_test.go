@@ -442,3 +442,65 @@ func TestAroundReadsLibBesideTheProjectFile(t *testing.T) {
 		t.Fatalf("used %v, want the latest, lib/acme-gears_2.0.0", got)
 	}
 }
+
+// A usage that names no installed project by publisher and name — a
+// version-control IRI spells a repository's path — is linked by elimination to
+// the one unclaimed project satisfying it, at its highest version.
+func TestUsedLinksAnUnmatchedUsageToTheOneUnclaimedProject(t *testing.T) {
+	root := t.TempDir()
+	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:registry/acme/gears@1.0.0"},
+  {"resource": "pkg:git/github.com/MBSE4U/sysmod-sysmlv2"}]}`)
+	gears1 := writeProject(t, filepath.Join(proj, "lib", "acme-gears_1.0.0"), `{"name": "Gears", "publisher": "acme", "version": "1.0.0"}`)
+	gears2 := writeProject(t, filepath.Join(proj, "lib", "acme-gears_2.0.0"), `{"name": "Gears", "publisher": "acme", "version": "2.0.0"}`)
+	writeProject(t, filepath.Join(proj, "lib", "mbse4u-sysmod_5.0.0"), `{"name": "sysmod", "publisher": "mbse4u", "version": "5.0.0"}`)
+	sysmod515 := writeProject(t, filepath.Join(proj, "lib", "mbse4u-sysmod_5.1.5"), `{"name": "sysmod", "publisher": "mbse4u", "version": "5.1.5", "usage": [{"resource": "pkg:registry/acme/gears@2.0.0"}]}`)
+
+	// Gears, both versions, is claimed by the first usage, so the second has
+	// sysmod alone left, at its highest version; the usages of the project
+	// linked by elimination are followed in turn.
+	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+	if want := []string{gears1, sysmod515, gears2}; !reflect.DeepEqual(projectDirs(found.Used), want) || len(found.Unlinked) != 0 {
+		t.Fatalf("Used = %v, Unlinked = %v, want %v and nothing unlinked", projectDirs(found.Used), found.Unlinked, want)
+	}
+}
+
+func TestUsedLinksByEliminationWithinTheUsageConstraint(t *testing.T) {
+	root := t.TempDir()
+	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:git/github.com/MBSE4U/sysmod-sysmlv2@5.0.0"}]}`)
+	sysmod500 := writeProject(t, filepath.Join(proj, "lib", "mbse4u-sysmod_5.0.0"), `{"name": "sysmod", "publisher": "mbse4u", "version": "5.0.0"}`)
+	writeProject(t, filepath.Join(proj, "lib", "mbse4u-sysmod_5.1.5"), `{"name": "sysmod", "publisher": "mbse4u", "version": "5.1.5"}`)
+	writeProject(t, filepath.Join(proj, "lib", "acme-widgets_1.0.0"), `{"name": "Widgets", "publisher": "acme", "version": "1.0.0"}`)
+
+	// Only 5.0.0 satisfies @5.0.0, so Widgets does not make the usage ambiguous.
+	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+	if got := projectDirs(found.Used); !reflect.DeepEqual(got, []string{sysmod500}) || len(found.Unlinked) != 0 {
+		t.Fatalf("Used = %v, Unlinked = %v, want sysmod 5.0.0 alone", got, found.Unlinked)
+	}
+
+	// A constraint nothing satisfies links nothing and says nothing.
+	writeProject(t, proj, `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:git/github.com/MBSE4U/sysmod-sysmlv2@6.0.0"}]}`)
+	found = Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+	if len(found.Used) != 0 || len(found.Unlinked) != 0 {
+		t.Fatalf("Used = %v, Unlinked = %v, want nothing", projectDirs(found.Used), found.Unlinked)
+	}
+}
+
+func TestUsedLeavesAUsageSeveralUnclaimedProjectsCouldAnswerUnlinked(t *testing.T) {
+	root := t.TempDir()
+	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:git/github.com/MBSE4U/sysmod-sysmlv2"}]}`)
+	sysmod := writeProject(t, filepath.Join(proj, "lib", "mbse4u-sysmod_5.1.5"), `{"name": "sysmod", "publisher": "mbse4u", "version": "5.1.5"}`)
+	widgets := writeProject(t, filepath.Join(proj, "lib", "acme-widgets_1.0.0"), `{"name": "Widgets", "publisher": "acme", "version": "1.0.0"}`)
+
+	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+	if len(found.Used) != 0 {
+		t.Fatalf("Used = %v, want nothing: the usage is ambiguous", projectDirs(found.Used))
+	}
+	want := fmt.Sprintf("%s: usage pkg:git/github.com/MBSE4U/sysmod-sysmlv2 names no installed project by publisher and name, and 2 unclaimed ones could answer it: acme/widgets 1.0.0 (%s), mbse4u/sysmod 5.1.5 (%s); end the resource with the project's publisher and name (…/acme/widgets) to select one", filepath.Join(proj, ProjectFile), widgets, sysmod)
+	if !reflect.DeepEqual(found.Unlinked, []string{want}) {
+		t.Fatalf("Unlinked = %q, want %q", found.Unlinked, want)
+	}
+}

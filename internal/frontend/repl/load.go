@@ -61,7 +61,7 @@ func (s *Session) loadPathsReport(paths []string, opts loadOptions) (LoadReport,
 	}
 	srcs := read.files
 	loaded := append(loadedFiles(srcs), read.notes...)
-	archives := warningLines(s.discovery().ArchiveWarnings(files), s.verbosity)
+	archives := warningLines(s.discovery().Warnings(files), s.verbosity)
 	if len(srcs) == 0 {
 		return LoadReport{Loaded: loaded, Found: archives, Errors: s.hasAnalysisErrors()}, nil
 	}
@@ -98,6 +98,13 @@ func conversionWarnings(files []SourceFile, verbosity Verbosity) []string {
 		warnings = append(warnings, file.Warnings...)
 	}
 	return warningLines(warnings, verbosity)
+}
+
+// LoadWarnings reports what the projects and archives a load of paths touched
+// fell short of (project.Discovery.Warnings), one "warning:" line each, none
+// when quiet; a load's summary carries the same lines after its findings.
+func (s *Session) LoadWarnings(paths []string) []string {
+	return warningLines(s.discovery().Warnings(expandHomes(paths)), s.verbosity)
 }
 
 // warningLines renders warnings as the lines a load reports, none when quiet.

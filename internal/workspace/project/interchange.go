@@ -164,6 +164,15 @@ func (p *Interchange) Uses(u Usage) bool {
 	return slug(segments[len(segments)-2]) == slug(p.Publisher) && slug(last) == slug(p.Name)
 }
 
+// identity is the project as a usage's resource spells it: its publisher and
+// name as slugs, publisher/name, or the name alone for a project with none.
+func (p *Interchange) identity() string {
+	if p.Publisher == "" {
+		return slug(p.Name)
+	}
+	return slug(p.Publisher) + "/" + slug(p.Name)
+}
+
 // resourceSegments splits a resource IRI into the path segments that name the
 // project, without its scheme, query, fragment, package-URL version or
 // archive extension.
