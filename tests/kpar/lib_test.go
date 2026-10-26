@@ -201,4 +201,47 @@ func TestAnAmbiguousUsageIsAWarningTheExitPolicyJudges(t *testing.T) {
 	if !strings.Contains(out, `"severity": "warning"`) || !strings.Contains(out, `"code": "project.load"`) {
 		t.Errorf("-json -validate reports no project.load warning:\n%s", out)
 	}
+	// Located at the project file, the warning is a finding of that file in
+	// JUnit, as analysis's warnings are, not an error of the run.
+	out, err = run(t, bin, "-format", "junit", "-validate", proj)
+	if err != nil {
+		t.Fatalf("-format junit -validate: %v\n%s", err, out)
+	}
+	if strings.Contains(out, "<error") || !strings.Contains(out, "project.load") {
+		t.Errorf("-format junit -validate wrote:\n%s", out)
+	}
+	// A baseline that records the warning knows it: -warnings-as-errors passes
+	// and the suppression is counted.
+	baseline := filepath.Join(t.TempDir(), "baseline.json")
+	if out, err = run(t, bin, "-json", "-o", baseline, "-validate", proj); err != nil {
+		t.Fatalf("-json -o: %v\n%s", err, out)
+	}
+	out, err = run(t, bin, "-baseline", baseline, "-warnings-as-errors", "-validate", proj)
+	if err != nil {
+		t.Fatalf("-baseline -warnings-as-errors -validate: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "1 known finding(s) suppressed by "+baseline) || strings.Contains(out, "warning: ") {
+		t.Errorf("-baseline -warnings-as-errors -validate wrote:\n%s", out)
+	}
+}
+
+// -quiet asks for errors alone: the warning that explains them is kept off the
+// text, while the run still ends on the errors.
+func TestQuietKeepsTheUsageWarningOffTheText(t *testing.T) {
+	proj := vcsProject(t, "pkg:git/github.com/MBSE4U/sysmod-sysmlv2")
+	widgets := filepath.Join(proj, "lib", "acme-widgets_1.0.0")
+	if err := os.MkdirAll(widgets, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(widgets, project.ProjectFile), []byte(`{"name": "Widgets", "publisher": "acme", "version": "1.0.0"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	bin := sysmlBinary(t)
+	out, err := run(t, bin, "-quiet", "-validate", proj)
+	if err == nil {
+		t.Fatalf("-quiet -validate passed:\n%s", out)
+	}
+	if strings.Contains(out, "warning: ") || !strings.Contains(out, "unresolved reference: SYSMOD") {
+		t.Errorf("-quiet -validate wrote:\n%s", out)
+	}
 }

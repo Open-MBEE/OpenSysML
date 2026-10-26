@@ -499,8 +499,11 @@ func TestUsedLeavesAUsageSeveralUnclaimedProjectsCouldAnswerUnlinked(t *testing.
 	if len(found.Used) != 0 {
 		t.Fatalf("Used = %v, want nothing: the usage is ambiguous", projectDirs(found.Used))
 	}
-	want := fmt.Sprintf("%s: usage pkg:git/github.com/MBSE4U/sysmod-sysmlv2 names no installed project by publisher and name, and 2 unclaimed ones could answer it: acme/widgets 1.0.0 (%s), mbse4u/sysmod 5.1.5 (%s); end the resource with the project's publisher and name (…/acme/widgets) to select one", filepath.Join(proj, ProjectFile), widgets, sysmod)
-	if !reflect.DeepEqual(found.Unlinked, []string{want}) {
+	want := Warning{
+		Path:    filepath.Join(proj, ProjectFile),
+		Message: fmt.Sprintf("usage pkg:git/github.com/MBSE4U/sysmod-sysmlv2 names no installed project by publisher and name, and 2 unclaimed ones could answer it: acme/widgets 1.0.0 (%s), mbse4u/sysmod 5.1.5 (%s); end the resource with the project's publisher and name (…/acme/widgets) to select one", widgets, sysmod),
+	}
+	if !reflect.DeepEqual(found.Unlinked, []Warning{want}) {
 		t.Fatalf("Unlinked = %q, want %q", found.Unlinked, want)
 	}
 }

@@ -722,19 +722,16 @@ func (r *reporter) warn(message string) {
 }
 
 // loadWarnings records what the load itself fell short of — a usage linked to
-// no installed project, an archive that is not one — as warnings, which the
-// exit policy judges like analysis's; printed unless the load summary already did.
-func (r *reporter) loadWarnings(messages []string, printed bool) {
-	for _, message := range messages {
-		r.report.Diagnostics = append(r.report.Diagnostics, diagnostic{
-			Severity: "warning",
-			Message:  message,
-			Pass:     "project",
-			Code:     "project.load",
-		})
-		if !r.machine && !printed {
-			fmt.Fprintln(r.err, "warning: "+message)
-		}
+// no installed project, an archive that is not one — as the warnings analysis
+// would report at the project or archive file; printed unless quiet or the load
+// summary already did.
+func (r *reporter) loadWarnings(diags []repl.Diagnostic, printed bool) {
+	r.diags(diags)
+	if r.machine || printed {
+		return
+	}
+	for _, d := range diags {
+		fmt.Fprintf(r.err, "warning: %s: %s\n", d.File, d.Message)
 	}
 }
 

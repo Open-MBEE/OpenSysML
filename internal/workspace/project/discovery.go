@@ -85,9 +85,17 @@ type Projects struct {
 	// read as project interchange files, each reported under its path.
 	Malformed []*ArchiveError
 	// Unlinked describes the usages that name no installed project and that
-	// several unclaimed ones could answer, one line each; see used.
-	Unlinked []string
+	// several unclaimed ones could answer, one per usage; see used.
+	Unlinked []Warning
 }
+
+// Warning is what a load fell short of about the project or archive at Path.
+type Warning struct {
+	Path    string
+	Message string
+}
+
+func (w Warning) String() string { return w.Path + ": " + w.Message }
 
 // Dirs lists the directories of the enclosing and the used projects, in that order.
 func (p Projects) Dirs() []string {
@@ -277,7 +285,7 @@ func walkInstalled(dir string, visited map[string]bool, budget *int, found func(
 // later usage of the same repository takes the project so learnt, at its own
 // version. The standard library's usages, which the bundled library answers,
 // are not linked to anything installed.
-func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []string) {
+func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []Warning) {
 	selected := map[string]bool{}
 	claimed := map[string]bool{}
 	learnt := map[string]string{}
@@ -393,13 +401,16 @@ func pickUnclaimed(installed []*Interchange, claimed map[string]bool, u Usage) (
 
 // ambiguousUsage describes a usage of from that several unclaimed installed
 // projects could answer, naming each, and how the resource selects one.
-func ambiguousUsage(from *Interchange, u Usage, candidates []*Interchange) string {
+func ambiguousUsage(from *Interchange, u Usage, candidates []*Interchange) Warning {
 	names := make([]string, 0, len(candidates))
 	for _, c := range candidates {
 		names = append(names, fmt.Sprintf("%s %s (%s)", c.identity(), c.Version, c.Dir))
 	}
-	return fmt.Sprintf("%s: usage %s names no installed project by publisher and name, and %d unclaimed ones could answer it: %s; end the resource with the project's publisher and name (…/%s) to select one",
-		filepath.Join(from.Dir, ProjectFile), u.Resource, len(candidates), strings.Join(names, ", "), candidates[0].identity())
+	return Warning{
+		Path: filepath.Join(from.Dir, ProjectFile),
+		Message: fmt.Sprintf("usage %s names no installed project by publisher and name, and %d unclaimed ones could answer it: %s; end the resource with the project's publisher and name (…/%s) to select one",
+			u.Resource, len(candidates), strings.Join(names, ", "), candidates[0].identity()),
+	}
 }
 
 // pickInstalled chooses the installed project a usage names: of those its

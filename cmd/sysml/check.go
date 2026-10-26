@@ -693,16 +693,16 @@ func runChecks(files []string, exprs []string, c checks) int {
 	// the run rather than a verdict being reported about a model nobody could read.
 	// One file's reference to another only resolves once every file is loaded, so
 	// the gate is about the whole model rather than about each file in turn.
-	if c.baseline != "" {
-		rep.suppress(sess.Suppressed(), c.baseline)
-	}
 	// What the load itself fell short of — a usage linked to no installed project
-	// — is a warning like analysis's, printed with the errors it explains where
-	// the summary that carries it is not.
-	notes := sess.LoadWarnings(paths)
+	// — is a warning like analysis's, the baseline knowing it too, printed with
+	// the errors it explains where the summary that carries it is not.
+	notes, knownNotes := sess.LoadWarnings(paths)
+	if c.baseline != "" {
+		rep.suppress(sess.Suppressed()+knownNotes, c.baseline)
+	}
 	if sess.HasErrors() {
 		rep.diags(sess.LocatedDiagnostics())
-		rep.loadWarnings(notes, false)
+		rep.loadWarnings(notes, quietMode)
 		rep.problem(sess.DiagnosticLines())
 		if c.baseline != "" && !reportedErrors(sess.LocatedDiagnostics()) {
 			// A known error is still one: analysis stopped at it, so the tiers
@@ -717,7 +717,7 @@ func runChecks(files []string, exprs []string, c checks) int {
 	// its severity, and the run ends on it as it would on an error.
 	if c.warningsAsErrors && (reportedWarnings(sess.LocatedDiagnostics()) || len(notes) > 0) {
 		rep.diags(sess.LocatedDiagnostics())
-		rep.loadWarnings(notes, false)
+		rep.loadWarnings(notes, quietMode)
 		rep.problem(sess.DiagnosticLines())
 		rep.failed(fmt.Sprintf("%s has warnings, which -warnings-as-errors judges errors; no check was made", namedModels(files)))
 		return rep.finish()
