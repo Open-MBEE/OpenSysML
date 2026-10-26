@@ -417,20 +417,20 @@ func TestUnboundResultParameterHint(t *testing.T) {
 	root := idx.DocumentRoot("<test>")
 
 	cases := []struct{ calc, want string }{
-		{"Named", "no result expression: calc test::Named has no return expression: result parameter h binds no value; " +
+		{"Named", "no value: calc test::Named has no return expression: result parameter h binds no value; " +
 			"write the result as the trailing expression `h`, or bind it with `return : Real = h;`"},
-		{"UntypedSibling", "no result expression: calc test::UntypedSibling has no return expression: result parameter h binds no value; " +
+		{"UntypedSibling", "no value: calc test::UntypedSibling has no return expression: result parameter h binds no value; " +
 			"write the result as the trailing expression `h`, or bind it with `return : <type> = h;`"},
-		{"Anonymous", "no result expression: calc test::Anonymous has no return expression: the result parameter binds no value; " +
+		{"Anonymous", "no value: calc test::Anonymous has no return expression: the result parameter binds no value; " +
 			"write the result as the trailing expression of the body, or bind it with `return : Real = <expr>;`"},
-		{"Fresh", "no result expression: calc test::Fresh has no return expression: result parameter selected binds no value; " +
+		{"Fresh", "no value: calc test::Fresh has no return expression: result parameter selected binds no value; " +
 			"write the result as the trailing expression of the body, or bind it with `return : <type> = <expr>;`"},
-		{"Plain", "no result expression: calc test::Plain has no return expression"},
-		{"Unrestricted", "no result expression: calc test::Unrestricted has no return expression: result parameter 'my result' binds no value; " +
+		{"Plain", "no value: calc test::Plain has no return expression"},
+		{"Unrestricted", "no value: calc test::Unrestricted has no return expression: result parameter 'my result' binds no value; " +
 			"write the result as the trailing expression `'my result'`, or bind it with `return : 'Wide Real' = 'my result';`"},
-		{"Keyword", "no result expression: calc test::Keyword has no return expression: result parameter 'action' binds no value; " +
+		{"Keyword", "no value: calc test::Keyword has no return expression: result parameter 'action' binds no value; " +
 			"write the result as the trailing expression `'action'`, or bind it with `return : $::ScalarValues::Real = 'action';`"},
-		{"Uninitialized", "no result expression: calc test::Uninitialized has no return expression: result parameter h binds no value; " +
+		{"Uninitialized", "no value: calc test::Uninitialized has no return expression: result parameter h binds no value; " +
 			"write the result as the trailing expression of the body, or bind it with `return : <type> = <expr>;`"},
 	}
 	for _, tc := range cases {
@@ -439,8 +439,8 @@ func TestUnboundResultParameterHint(t *testing.T) {
 		if err == nil {
 			t.Fatalf("InvokeCalc(%s) succeeded, want %q", tc.calc, tc.want)
 		}
-		if !errors.Is(err, errNoResultExpression) {
-			t.Errorf("InvokeCalc(%s) = %v, want errNoResultExpression", tc.calc, err)
+		if !errors.Is(err, ErrNoValue) {
+			t.Errorf("InvokeCalc(%s) = %v, want ErrNoValue", tc.calc, err)
 		}
 		if err.Error() != tc.want {
 			t.Errorf("InvokeCalc(%s) = %q, want %q", tc.calc, err, tc.want)
@@ -485,7 +485,7 @@ func TestUnevaluableResultIsNotReportedAsMissing(t *testing.T) {
 		if err == nil {
 			t.Fatalf("InvokeCalc(%s) succeeded, want the evaluator to report the expression", name)
 		}
-		if errors.Is(err, errNoResultExpression) {
+		if errors.Is(err, ErrNoValue) {
 			t.Fatalf("InvokeCalc(%s) = %v, want the unevaluable expression reported, not a missing result", name, err)
 		}
 	}

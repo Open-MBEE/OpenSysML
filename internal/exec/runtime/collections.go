@@ -530,7 +530,7 @@ func (ec *EvalContext) applyBody(val Value, args ...Value) (Value, error) {
 	}
 	ec = val.exprEnv(ec)
 	if body.Result == nil {
-		return Value{}, fmt.Errorf("%w: body expression states no result", errNoResultExpression)
+		return Value{}, fmt.Errorf("%w: body expression states no result", ErrNoValue)
 	}
 	for _, member := range body.Members {
 		decl := member

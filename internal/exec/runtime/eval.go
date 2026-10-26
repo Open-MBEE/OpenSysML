@@ -3356,7 +3356,7 @@ func (ec *EvalContext) evalCollectionNotation(
 		return Value{}, err
 	}
 	if bodyExpr == nil {
-		return Value{}, fmt.Errorf("%w: %s states no body", errNoResultExpression, notation)
+		return Value{}, fmt.Errorf("%w: %s states no body", ErrNoValue, notation)
 	}
 	body, err := ec.Eval(bodyExpr)
 	if err != nil {

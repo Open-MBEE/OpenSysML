@@ -116,8 +116,8 @@
         },
         {
           "declaration": "StateSpaceRepresentation::Integrate",
-          "error": "errNoResultExpression",
-          "message": "calc test::Euler: evaluating the returned expression: no result expression: calc test::Euler::getDerivative has no return expression: the result parameter binds no value; write the result as the trailing expression of the body, or bind it with `return : StateDerivative = \u003cexpr\u003e;`"
+          "error": "ErrNoValue",
+          "message": "calc test::Euler: evaluating the returned expression: no value: calc test::Euler::getDerivative has no return expression: the result parameter binds no value; write the result as the trailing expression of the body, or bind it with `return : StateDerivative = \u003cexpr\u003e;`"
         },
         {
           "declaration": "StateSpaceRepresentation::ContinuousStateSpaceDynamics::getDerivative",
@@ -131,8 +131,8 @@
         },
         {
           "declaration": "StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate",
-          "error": "errNoResultExpression",
-          "message": "calc StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState: evaluating the returned expression: no result expression: calc StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate has no return expression: result parameter result binds no value; write the result as the trailing expression of the body, or bind it with `return : StateSpace = \u003cexpr\u003e;`"
+          "error": "ErrNoValue",
+          "message": "calc StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState: evaluating the returned expression: no value: calc StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate has no return expression: result parameter result binds no value; write the result as the trailing expression of the body, or bind it with `return : StateSpace = \u003cexpr\u003e;`"
         },
         {
           "declaration": "StateSpaceRepresentation::DiscreteStateSpaceDynamics::getDifference",

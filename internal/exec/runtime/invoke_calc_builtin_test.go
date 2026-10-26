@@ -177,7 +177,7 @@ func TestInvokeCalcNeverAnswersAModelDeclarationWithABuiltin(t *testing.T) {
 	if _, ok := ctx.builtinFor(sym); ok {
 		t.Fatal("the model's NumericalFunctions::sum0 dispatched to the built-in")
 	}
-	if _, err := ctx.InvokeCalc(sym, []Value{constInt(0)}, nil); !errors.Is(err, errNoResultExpression) {
-		t.Errorf("InvokeCalc(model sum0) = %v, want %v", err, errNoResultExpression)
+	if _, err := ctx.InvokeCalc(sym, []Value{constInt(0)}, nil); !errors.Is(err, ErrNoValue) {
+		t.Errorf("InvokeCalc(model sum0) = %v, want %v", err, ErrNoValue)
 	}
 }
