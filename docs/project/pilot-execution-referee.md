@@ -221,7 +221,7 @@ Run it with `go run -C tools ./cmd/pilot-exec-diff` after `./scripts/download-pi
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `tools/referee/diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run -C tools ./cmd/pilot-exec-diff`
-prints the current ones. State of the 500 committed cases, the original 32, the 62 the
+prints the current ones. State of the 510 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
@@ -230,14 +230,22 @@ the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases`, the 23
 `enumeration_classification.cases`, the 24 of `metadata_access.cases`, the 13 of
 `extent_expressions.cases`, the 1 of `extent_count_mismatch.cases`, the 166 of
 `undetermined_operands.cases`, the 4 of `unknown_bounds.cases`, the 2 of `vast_bounds.cases` and
-the 4 of `body_local_conformance.cases`, the 10 of `exact_rationals.cases` and the 44 of
-`unbounded_arithmetic.cases`:
+the 4 of `body_local_conformance.cases`, the 10 of `exact_rationals.cases`, the 44 of
+`unbounded_arithmetic.cases` and the 10 of `empty_second_operand.cases`:
 
 ```
 agree: 228 · kind-only: 1 · order-only: 0 · disagree: 37 · differs-by-design: 5
-pilot-unevaluated: 157 · pilot-silent: 24 · pilot-error: 4 · ours-error: 10 · ours-undetermined: 17
+pilot-unevaluated: 167 · pilot-silent: 24 · pilot-error: 4 · ours-error: 10 · ours-undetermined: 17
 both-error: 17 · nondeterministic: 0
 ```
+
+The ten `empty_second_operand.cases` are binary `+`/`-` with an empty second operand, operator and
+function form side by side (`1 + null` and `'+'(1, null)`, `3 - null`, `3 - ()` and `'-'(3, null)`,
+`1.5 - null`), and the refusals beside them (`null + 1`, `'+'(null, 1)`, `2 * null`, `1 < null`). All
+ten are `pilot-unevaluated`: the pilot leaves the operator form as the unreduced `OperatorExpression`
+and the function form as the unreduced invocation, so it referees neither side; KerML 1.1 §8.4.4.9.6
+(the operator *is* the invocation) and the library's `y: [0..1]` / `x: [1]` decide, and our answers
+(`1`, `1`, `-3`, `-3`, `-3`, `-1.5`; the four refusals) are recorded beside the unevaluated expressions.
 
 The ten `exact_rationals.cases` are the binary64 probes of
 [exact-rational-evaluation.md](exact-rational-evaluation.md#the-pilot-differs-by-design), marked
