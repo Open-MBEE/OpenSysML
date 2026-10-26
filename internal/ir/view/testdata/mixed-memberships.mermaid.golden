@@ -1,0 +1,78 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% MixedMemberships::memberships — mixed rendering (render asMixedDiagram)
+flowchart TD
+  subgraph n0 ["`*«package»* **MixedMemberships**`"]
+    direction TD
+    subgraph n1 ["`*«package»* **Library**`"]
+      direction TD
+      n2["`*«attribute def»*
+**Pressure**`"]
+      n8["`*«port def»*
+**FluidPort**`"]
+    end
+    n9["`*«part def»*
+**Impeller**`"]
+    subgraph n10 ["`*«part def»* **Pump**`"]
+      direction TD
+      n18("`*«attribute»*
+**pressure**`")
+      n11("`*«port»*
+**outlet**`")
+      n12("`*«part»*
+**impeller**`")
+      n13("`*«part»*
+**spare**`")
+      n19("`*«action»*
+**prime**
+declares no nodes`")
+      n20("`*«state»*
+**armed**
+declares no states`")
+      n14["`*«part def»*
+**Seal**`"]
+    end
+    n3["`*«concern def»*
+**Containment**`"]
+    subgraph n4 ["`*«requirement def»* **Safety**`"]
+      direction TD
+      n15("`*«require constraint»*
+**minPressure**`")
+      n16("`*«assume constraint»*
+**primedPump**`")
+      n17("`*«assert constraint»*
+**sealed**`")
+      n5("`*«frame»*
+**contained**`")
+    end
+    n6("`*«view»*
+**memberships**`")
+    n7("`*«view»*
+**membershipsLayout**`")
+  end
+  n5 -->|"typing"| n3
+  n11 -->|"typing"| n8
+  n12 -->|"typing"| n9
+  n13 -->|"typing"| n9
+  n18 -->|"typing"| n2

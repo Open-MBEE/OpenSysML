@@ -151,6 +151,9 @@ func (w *dotWriter) settleEdges(r *Rendering, unplaced Unplaced) []Edge {
 		w.notices = append(w.notices, fmt.Sprintf("%d node(s) without a position, drawn in a strip below the picture(s)", w.placement.unplaced()))
 	}
 	edges = w.drawnEdges(w.rowEdges(r, edges))
+	if !w.tree {
+		edges = w.nestedIn(edges)
+	}
 	for _, edge := range edges {
 		if w.clipped(edge.From, edge.To) || w.clipped(edge.To, edge.From) {
 			w.compound = true
@@ -361,6 +364,21 @@ func (w *dotWriter) settleUnplaced(roots []*Node, edges []Edge, unplaced Unplace
 	}
 	kept, dropped := w.placement.keptEdges(w.placement.foldOmitted(roots, edges, w.nesting))
 	w.notices = append(w.notices, w.placement.omitNotice(dropped))
+	return kept
+}
+
+// nestedIn is edges without the membership edges from a cluster to a node
+// nested directly in it, which the nesting draws: Graphviz cannot clip an
+// edge at a cluster holding its other end, and would run it from the
+// cluster's invisible anchor instead of its border.
+func (w *dotWriter) nestedIn(edges []Edge) []Edge {
+	kept := make([]Edge, 0, len(edges))
+	for _, edge := range edges {
+		if w.nesting[[2]string{edge.From, edge.To}] && w.clusters[edge.From] {
+			continue
+		}
+		kept = append(kept, edge)
+	}
 	return kept
 }
 

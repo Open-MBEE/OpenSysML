@@ -316,8 +316,7 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 		if !structuralUsage(member) {
 			continue
 		}
-		edge := Edge{From: node.ID, To: child.ID, ToLabel: g.r.usageMultiplicity(member),
-			Origin: symbolOrigin(member), Style: g.r.styleOf(site.view, member, g.out)}
+		edge := Edge{From: node.ID, To: child.ID, Origin: symbolOrigin(member), Style: g.r.styleOf(site.view, member, g.out)}
 		g.r.memberEdge(member, &edge)
 		if member.Owner() == sym {
 			edge.Route = g.r.routeOf(site.view, member, g.out)
@@ -349,26 +348,39 @@ func (g *treeGraph) exposeEdges(node *Node, view *symbols.Symbol) {
 	}
 }
 
-// membershipEdge reports an edge kind drawn for a feature membership: the
-// diamonds, and the glyphs an owned member's membership takes instead.
+// membershipEdge reports an edge kind drawn for the membership of a member
+// in its owner: the feature membership's diamonds, the owned membership's
+// circle-plus, and the glyphs an owned member's membership takes instead.
 func membershipEdge(kind EdgeKind) bool {
 	switch kind {
-	case EdgeComposition, EdgeReference, EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgePortion:
+	case EdgeComposition, EdgeReference, EdgeContainment, EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent, EdgePortion:
 		return true
 	}
 	return false
 }
 
-// memberEdge sets the kind an owned member's edge is drawn with: the glyph
-// of a membership the notation draws as its own relationship — a required,
-// assumed or asserted constraint, a framed concern, an event occurrence, a
-// portion — else the feature membership's diamond.
+// memberEdge sets the kind, text and end label of the edge drawn from an
+// owner's node to the node of a member it owns, the one rule for the glyph a
+// membership is drawn with, as SysML v2 §8.2.3 gives it: a membership the
+// notation draws as a relationship of its own — a required, assumed or
+// asserted constraint, a framed concern, an event occurrence, a portion —
+// takes that glyph and its keyword; every other usage's feature membership is
+// the diamond, filled for a composite usage and hollow for a referential one,
+// with the usage's multiplicity at the usage's end; and the membership of a
+// member that is no feature — a nested package, definition or other namespace
+// member — is the owned membership's circle-plus. A tree applies it to the
+// structural usages it nests; a mixed rendering to every member nested in its
+// owner's node.
 func (r *Renderer) memberEdge(member *symbols.Symbol, edge *Edge) {
 	if kind, label, ok := memberRelationship(member); ok {
 		edge.Kind, edge.Label = kind, label
 		return
 	}
-	edge.Kind = r.membershipKind(member)
+	if !member.Kind.IsFeature() {
+		edge.Kind = EdgeContainment
+		return
+	}
+	edge.Kind, edge.ToLabel = r.membershipKind(member), r.usageMultiplicity(member)
 }
 
 // membershipKind is the edge a usage's feature membership is drawn as: a

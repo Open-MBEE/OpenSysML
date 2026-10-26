@@ -690,12 +690,12 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 	used := r.usedPorts(portDisplay)
 	portEnds := r.portEnds(used)
 	noteOwners := flowchart.flowchartNoteOwners(used)
-	w.clusterAnchors = flowchart.flowchartClusterAnchors(portEnds, used, noteOwners)
+	nesting, nested := r.nestingEdges(), r.nestedInSubgraphs(used)
+	w.clusterAnchors = flowchart.flowchartClusterAnchors(portEnds, used, noteOwners, nested)
 	if r.blank() && len(r.Pictures) == 0 && len(flowchart.Notes) == 0 {
 		fmt.Fprintf(b, "  empty[\"%s\"]\n", mermaidText(r.blankReason(FormMermaid)))
 	} else {
 		ctx := flowchartContext{kind: r.Kind, flow: flow, labels: labels, options: options, ports: portDisplay, used: used, noteOwners: noteOwners}
-		nesting := r.nestingEdges()
 		for _, root := range r.Roots {
 			if r.Kind == KindTree {
 				r.writeTreeNode(w, root, 1, labels, options, nesting)
@@ -706,7 +706,10 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 	}
 	flowchart.writeNotes(b, noteOwners, "", "  ")
 	r.writePictures(b)
-	for _, edge := range r.Edges {
+	for i, edge := range r.Edges {
+		if nested[i] {
+			continue
+		}
 		from, to := r.edgeEnds(edge, portEnds)
 		from = flowchartEndpoint(from, w.clusterAnchors)
 		to = flowchartEndpoint(to, w.clusterAnchors)
@@ -815,6 +818,24 @@ func (r *Rendering) writeTreeNode(w *mermaidFlowWriter, node *Node, depth int, l
 	}
 }
 
+// nestedInSubgraphs indexes the membership edges from a subgraph to a node
+// nested directly in it, which the nesting draws and the flowchart leaves
+// out: a flowchart has no edge from a subgraph's border to a node inside it,
+// only one from a blank anchor node. A tree draws no subgraph.
+func (r *Rendering) nestedInSubgraphs(used map[string]map[string]bool) map[int]bool {
+	if r.Kind == KindTree {
+		return nil
+	}
+	nesting, tree := r.nestingEdges(), r.nodeTree()
+	nested := map[int]bool{}
+	for i, edge := range r.Edges {
+		if owner := tree.nodes[edge.From]; nesting[[2]string{edge.From, edge.To}] && owner != nil && r.flowchartSubgraph(owner, used) {
+			nested[i] = true
+		}
+	}
+	return nested
+}
+
 func (r *Rendering) flowchartSubgraph(node *Node, used map[string]map[string]bool) bool {
 	return len(node.Children) > 0 || r.hasUsedPorts(node, used)
 }
@@ -869,7 +890,7 @@ func noteAnchor(note Note) string {
 
 // flowchartClusterAnchors names an invisible anchor node inside each subgraph
 // an edge or note attaches to, since Mermaid draws edges between nodes only.
-func (r *Rendering) flowchartClusterAnchors(portEnds map[string]string, used map[string]map[string]bool, noteOwners map[int]string) map[string]string {
+func (r *Rendering) flowchartClusterAnchors(portEnds map[string]string, used map[string]map[string]bool, noteOwners map[int]string, nested map[int]bool) map[string]string {
 	if r.Kind == KindTree {
 		return nil
 	}
@@ -886,7 +907,10 @@ func (r *Rendering) flowchartClusterAnchors(portEnds map[string]string, used map
 			needed[id] = true
 		}
 	}
-	for _, edge := range r.Edges {
+	for i, edge := range r.Edges {
+		if nested[i] {
+			continue
+		}
 		from, to := r.edgeEnds(edge, portEnds)
 		mark(from)
 		mark(to)

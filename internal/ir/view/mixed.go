@@ -11,7 +11,8 @@ func (r *Renderer) renderMixed(view *symbols.Symbol, exposed []*symbols.Symbol, 
 	w := &mixedWalk{r: r, view: view, ids: &nodeIDs{}, out: out,
 		nodes: map[*symbols.Symbol]*Node{}, seen: map[*symbols.Symbol]bool{},
 		cases:           &caseWalk{r: r, view: view, ids: nil, drawn: map[*symbols.Symbol]*Node{}, occurrences: map[*symbols.Symbol][]*Node{}, roleCase: map[*Node]*Node{}, out: out, deferIncludes: true},
-		structureOwners: map[*symbols.Symbol]bool{}, deferredMembers: map[*symbols.Symbol][]*symbols.Symbol{}}
+		structureOwners: map[*symbols.Symbol]bool{}, deferredMembers: map[*symbols.Symbol][]*symbols.Symbol{},
+		behaviors: map[*Node]bool{}, memberEdged: map[*symbols.Symbol]bool{}}
 	w.cases.ids = w.ids
 	for _, elem := range exposed {
 		w.render(elem, true, nil)
@@ -19,6 +20,7 @@ func (r *Renderer) renderMixed(view *symbols.Symbol, exposed []*symbols.Symbol, 
 	w.renderStructures()
 	w.cases.resolveIncludedCases()
 	w.rememberCaseNodes()
+	w.membershipEdges()
 	w.referenceEdges()
 }
 
@@ -36,6 +38,11 @@ type mixedWalk struct {
 	structureOwners map[*symbols.Symbol]bool
 	structureOrder  []*symbols.Symbol
 	deferredMembers map[*symbols.Symbol][]*symbols.Symbol
+	// behaviors are the nodes the state and action renderers built, whose
+	// children are a behavior's body, drawn in that diagram's own notation.
+	behaviors map[*Node]bool
+	// memberEdged marks each member whose membership membershipEdges drew.
+	memberEdged map[*symbols.Symbol]bool
 }
 
 // mixedStructure records a structure queued for the interconnection builder.
@@ -94,6 +101,7 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 	if stateLike(sym) {
 		if node := w.r.renderState(w.view, sym, w.ids, w.out, w.remember); node != nil {
 			w.remember(sym, node)
+			w.behaviors[node] = true
 			w.append(node, parent)
 		}
 		return
@@ -101,6 +109,7 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 	if sym.Kind == symbols.SymbolActionDef || sym.Kind == symbols.SymbolActionUsage {
 		if node, ok := w.r.renderAction(w.view, sym, w.ids, w.out, w.remember); ok {
 			w.remember(sym, node)
+			w.behaviors[node] = true
 			w.append(node, parent)
 		}
 		return
@@ -468,6 +477,45 @@ func (w *mixedWalk) qualifyingReferenceCase(from, to *symbols.Symbol, reference 
 	return nil
 }
 
+// membershipEdges draws the membership of every member whose node is nested
+// directly in the node of the owner declaring it (or of a view exposing it),
+// from the owner's node to the member's, with the glyph memberEdge gives the
+// membership — so a part, a nested package and a required constraint hang
+// off their owner by one glyph each, and no membership is drawn twice. The
+// edges follow the nodes' order, an owner's edges before its members' own. A
+// behavior's body is left to the state or action notation it is drawn in, a
+// case's roles to the case notation that draws them, and a parameter symbol —
+// a subject, actor or stakeholder — is a parameter of its owner, not a member
+// drawn apart from it. A member's Route steers its membership edge, as in a
+// tree; its Style dresses it.
+func (w *mixedWalk) membershipEdges() {
+	drawn := map[*Node]*symbols.Symbol{}
+	for _, sym := range w.order {
+		if node := w.nodes[sym]; node != nil && drawn[node] == nil {
+			drawn[node] = sym
+		}
+	}
+	var walk func(node *Node)
+	walk = func(node *Node) {
+		owner := drawn[node]
+		for _, child := range node.Children {
+			member := drawn[child]
+			if owner != nil && member != nil && !w.behaviors[node] && !caseNodeKind(node.Kind) &&
+				declaredUnder(owner, member) && !parameterSymbol(node, child) {
+				edge := Edge{From: node.ID, To: child.ID, Origin: symbolOrigin(member),
+					Route: w.r.routeOf(w.view, member, w.out), Style: w.r.styleOf(w.view, member, w.out)}
+				w.r.memberEdge(member, &edge)
+				w.out.Edges = append(w.out.Edges, edge)
+				w.memberEdged[member] = true
+			}
+			walk(child)
+		}
+	}
+	for _, root := range w.out.Roots {
+		walk(root)
+	}
+}
+
 // referenceEdges adds typing, specialization, perform and exhibit links between drawn nodes.
 func (w *mixedWalk) referenceEdges() {
 	seen := map[string]bool{}
@@ -520,7 +568,7 @@ func (w *mixedWalk) referenceEdges() {
 				}
 				seen[key] = true
 				w.out.Edges = append(w.out.Edges, Edge{From: source.ID, To: target.ID, Kind: kind,
-					Label: label, Origin: symbolOrigin(decl), Route: w.r.routeOf(w.view, decl, w.out),
+					Label: label, Origin: symbolOrigin(decl), Route: w.relationshipRoute(kind, decl, to),
 					Style: w.r.edgeDress(w.view, decl, source.ID, target.ID, w.out)})
 				emitted = true
 			}
@@ -588,4 +636,15 @@ func (w *mixedWalk) referenceEdges() {
 			}
 		}
 	}
+}
+
+// relationshipRoute is the route of an edge decl states to target: a Route
+// about decl, unless decl's membership edge took it, when the typing or
+// specialization it states is steered by a Route about decl naming target, as
+// a tree steers them.
+func (w *mixedWalk) relationshipRoute(kind EdgeKind, decl, target *symbols.Symbol) []Point {
+	if w.memberEdged[decl] && (kind == EdgeTyping || kind == EdgeSpecialization) {
+		return w.r.specializationRouteOf(w.view, decl, target, w.out)
+	}
+	return w.r.routeOf(w.view, decl, w.out)
 }
