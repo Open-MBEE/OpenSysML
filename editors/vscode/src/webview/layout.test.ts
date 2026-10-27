@@ -29,6 +29,8 @@ import {
   insertedWaypoint,
   labelLines,
   labelSize,
+  edgeLabelBox,
+  headerBox,
   listedEdges,
   simpleName,
   simpleNames,
@@ -41,6 +43,7 @@ import {
   nodeExtent,
   nodeUnder,
   overridesOf,
+  type PlacedEdge,
   type PlacedNode,
   type PlacedPort,
   portBox,
@@ -3866,3 +3869,271 @@ function intersectsSegment(p: { x: number; y: number }, q: { x: number; y: numbe
   const [y1, y2] = [Math.min(p.y, q.y), Math.max(p.y, q.y)];
   return x1 < box.x + box.width && x2 > box.x && y1 < box.y + box.height && y2 > box.y;
 }
+
+// The membership edges a mixed rendering carries run from an owner to a member drawn
+// inside it, and some edges join two siblings inside one box: both stay inside the box.
+
+function overlapping(a: Box, b: Box): boolean {
+  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+}
+
+function insideBox(point: RenderPoint, box: Box): boolean {
+  return point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height;
+}
+
+function onBorderOf(point: RenderPoint, box: Box): boolean {
+  const onX = point.x === box.x || point.x === box.x + box.width;
+  const onY = point.y === box.y || point.y === box.y + box.height;
+  return insideBox(point, box) && (onX || onY);
+}
+
+function describes(layout: CanvasLayout, edge: PlacedEdge): string {
+  const name = (id: string) => layout.nodes.get(id)?.node.name ?? id;
+  return `${name(edge.edge.from)} -> ${name(edge.edge.to)}${edge.edge.label ? ` (${edge.edge.label})` : ""}: ${edge.points.map((p) => `${p.x},${p.y}`).join(" ")}`;
+}
+
+// scopeOf is the box both ends of an edge are drawn inside: the owner of a membership
+// edge, the shared parent of two siblings; none for an edge between unrelated nodes.
+function scopeOf(layout: CanvasLayout, edge: PlacedEdge): PlacedNode | undefined {
+  const from = layout.nodes.get(edge.edge.from)!;
+  const to = layout.nodes.get(edge.edge.to)!;
+  if (from.snapped || to.snapped) {
+    return undefined; // a pin is on the border, not inside the box
+  }
+  const descends = (entry: PlacedNode, of: PlacedNode): boolean => {
+    for (let parent = entry.parent; parent; parent = parent.parent) {
+      if (parent === of) {
+        return true;
+      }
+    }
+    return false;
+  };
+  if (descends(to, from)) {
+    return from;
+  }
+  if (descends(from, to)) {
+    return to;
+  }
+  return from.parent !== undefined && from.parent === to.parent ? from.parent : undefined;
+}
+
+function assertLabelsClearHeaders(layout: CanvasLayout): void {
+  for (const edge of layout.edges) {
+    const label = edgeLabelBox(edge);
+    if (edge.hidden || !label) {
+      continue;
+    }
+    for (const entry of layout.nodes.values()) {
+      assert.ok(
+        !overlapping(label, headerBox(entry)),
+        `the label of ${describes(layout, edge)} covers ${entry.node.name}'s header`,
+      );
+    }
+  }
+}
+
+function assertScopedEdgesInside(layout: CanvasLayout): number {
+  let scoped = 0;
+  for (const edge of layout.edges) {
+    const scope = edge.hidden ? undefined : scopeOf(layout, edge);
+    if (!scope) {
+      continue;
+    }
+    scoped++;
+    for (const point of edge.points) {
+      assert.ok(insideBox(point, scope.box), `${describes(layout, edge)} leaves ${scope.node.name}`);
+    }
+  }
+  return scoped;
+}
+
+function assertOrthogonal(layout: CanvasLayout): void {
+  for (const edge of layout.edges) {
+    if (edge.hidden || !edge.rerouted) {
+      continue;
+    }
+    edge.points.forEach((point, i) => {
+      assert.ok(i === 0 || point.x === edge.points[i - 1].x || point.y === edge.points[i - 1].y, `${describes(layout, edge)} is orthogonal`);
+    });
+  }
+}
+
+// crossesInto reports an orthogonal segment running through a box's interior.
+function crossesInto(a: RenderPoint, b: RenderPoint, box: Box): boolean {
+  const left = Math.min(a.x, b.x);
+  const right = Math.max(a.x, b.x);
+  const top = Math.min(a.y, b.y);
+  const bottom = Math.max(a.y, b.y);
+  return left < box.x + box.width && right > box.x && top < box.y + box.height && bottom > box.y;
+}
+
+function pumpRendering(edges: RenderEdge[]): RenderResult {
+  return rendering(
+    [
+      node("pump", "Pump", { kind: "part def" }),
+      node("pressure", "pressure", { kind: "attribute", parent: "pump", type: "Pressure" }),
+      node("impeller", "impeller", { parent: "pump", type: "Impeller" }),
+      node("spare", "spare", { kind: "ref part", parent: "pump", type: "Impeller" }),
+      node("prime", "prime", { kind: "action", parent: "pump" }),
+      node("impellerDef", "Impeller", { kind: "part def" }),
+    ],
+    edges,
+    { kind: "mixed" },
+  );
+}
+
+function membership(from: string, to: string, kind: string, label = ""): RenderEdge {
+  return { from, to, label, kind, fqn: `M::${to}` };
+}
+
+test("layoutCanvas routes an owner → member edge inside the owner, from its header line to the member", async () => {
+  await loadAvoid(WASM);
+  const layout = layoutCanvas(
+    pumpRendering([
+      membership("pump", "pressure", "reference"),
+      membership("pump", "impeller", "composition"),
+      membership("pump", "spare", "reference"),
+      membership("pump", "prime", "composition"),
+      membership("impeller", "impellerDef", "typing"),
+    ]),
+  );
+  const pump = layout.nodes.get("pump")!;
+  const header = headerBox(pump);
+  for (const edge of layout.edges.slice(0, 4)) {
+    const member = layout.nodes.get(edge.edge.to)!;
+    assert.ok(edge.rerouted, `${describes(layout, edge)} is routed`);
+    for (const point of edge.points) {
+      assert.ok(insideBox(point, pump.box), `${describes(layout, edge)} leaves Pump`);
+    }
+    const start = edge.points[0];
+    assert.equal(start.y, header.y + header.height, `${describes(layout, edge)} starts on Pump's header line`);
+    assert.ok(start.x > pump.box.x && start.x < pump.box.x + pump.box.width);
+    assert.ok(onBorderOf(edge.points.at(-1)!, member.box), `${describes(layout, edge)} ends on ${member.node.name}'s border`);
+  }
+  const typing = layout.edges[4];
+  assert.ok(typing.points.some((point) => !insideBox(point, pump.box)), "the typing edge leaves Pump for the definition");
+});
+
+test("layoutCanvas keeps an edge between siblings inside their container", async () => {
+  await loadAvoid(WASM);
+  const layout = layoutCanvas(
+    pumpRendering([
+      membership("pump", "prime", "composition"),
+      membership("spare", "impeller", "reference"),
+      membership("pressure", "prime", "reference"),
+    ]),
+  );
+  assert.equal(assertScopedEdgesInside(layout), 3);
+});
+
+test("layoutCanvas places a membership edge's keyword where it covers no node's header", async () => {
+  await loadAvoid(WASM);
+  const layout = layoutCanvas(
+    pumpRendering([
+      membership("pump", "pressure", "require", "require"),
+      membership("pump", "impeller", "assume", "assume"),
+      membership("pump", "spare", "assert", "assert"),
+      membership("pump", "prime", "frame", "frame"),
+    ]),
+  );
+  assertLabelsClearHeaders(layout);
+  for (const edge of layout.edges) {
+    const label = edgeLabelBox(edge)!;
+    const onRoute = edge.points.some((a, i) => {
+      const b = edge.points[i + 1];
+      return b !== undefined && (a.x === b.x ? edge.label.x === a.x && edge.label.y >= Math.min(a.y, b.y) && edge.label.y <= Math.max(a.y, b.y)
+        : edge.label.y === a.y && edge.label.x >= Math.min(a.x, b.x) && edge.label.x <= Math.max(a.x, b.x));
+    });
+    assert.ok(onRoute, `the label of ${describes(layout, edge)} sits on its route`);
+    assert.ok(label.y >= 0);
+  }
+});
+
+// The server's mixed rendering of testdata/mixed-memberships.sysml: every member kind
+// nested under its owner, each with its membership edge.
+test("layoutCanvas routes the mixed rendering's memberships inside their owners, labels off the headers", async () => {
+  await loadAvoid(WASM);
+  const result = JSON.parse(readFileSync("src/webview/testdata/mixed-memberships.json", "utf8")) as RenderResult;
+  const layout = layoutCanvas(result);
+  assert.equal(layout.edges.length, 25);
+  assert.equal(assertScopedEdgesInside(layout), 19);
+  assertLabelsClearHeaders(layout);
+  assertOrthogonal(layout);
+  // The edge from outlet, a pin on Pump's east border, to Library's FluidPort has no room
+  // inside the package between Pump and its border, so the engine routes it around, as before.
+  const outlet = layout.edges.find((edge) => layout.nodes.get(edge.edge.from)?.node.name === "outlet")!;
+  assert.ok(outlet.rerouted && outlet.points.length > 2, describes(layout, outlet));
+});
+
+test("layoutCanvas leaves a container through its border below the header, never through the header", async () => {
+  await loadAvoid(WASM);
+  const layout = layoutCanvas(
+    rendering(
+      [
+        node("sys", "System", { kind: "part def", x: 24, y: 200 }),
+        node("a", "a", { parent: "sys" }),
+        node("b", "b", { parent: "sys" }),
+        node("ext", "External", { kind: "part def", x: 600, y: 24, width: 96, height: 52 }),
+      ],
+      [
+        membership("a", "ext", "typing"),
+        membership("sys", "a", "composition"),
+        membership("sys", "b", "composition"),
+      ],
+      { kind: "mixed" },
+    ),
+  );
+  const sys = layout.nodes.get("sys")!;
+  const header = headerBox(sys);
+  assert.ok(header.height < sys.box.height, "System has a header strip above its members");
+  const typing = layout.edges[0];
+  assert.ok(typing.rerouted);
+  for (let i = 1; i < typing.points.length; i++) {
+    assert.ok(
+      !crossesInto(typing.points[i - 1], typing.points[i], header),
+      `${describes(layout, typing)} crosses System's header`,
+    );
+  }
+  assert.ok(typing.points.some((point) => !insideBox(point, sys.box)), "the typing edge reaches External outside System");
+});
+
+// The server's rendering of GeneralViews::requirementView (examples/general-views-demo/vehicle.sysml):
+// fifteen edges between unnested nodes whose labels the router has to keep off the boxes.
+test("layoutCanvas keeps the requirement view's edge labels off its nodes", async () => {
+  await loadAvoid(WASM);
+  const result = JSON.parse(readFileSync("src/webview/testdata/requirement-view.json", "utf8")) as RenderResult;
+  const layout = layoutCanvas(result);
+  assert.equal(layout.edges.length, 15);
+  assertLabelsClearHeaders(layout);
+});
+
+test("layoutCanvas keeps a sized owner's members where they fit, lane or no lane", async () => {
+  await loadAvoid(WASM);
+  const sized = layoutCanvas(
+    rendering(
+      [
+        node("owner", "Owner", { kind: "part def", x: 24, y: 24, width: 160, height: 112 }),
+        node("member", "member", { parent: "owner" }),
+      ],
+      [membership("owner", "member", "composition")],
+      { kind: "mixed" },
+    ),
+  );
+  const member = sized.nodes.get("member")!;
+  assert.equal(member.clipped, false, "the member is still drawn inside the sized owner");
+  assert.equal(member.box.y, 24 + headerBox(sized.nodes.get("owner")!).height, "the member sits where it did without the edge");
+  assert.equal(sized.edges[0].hidden, false);
+  const points = sized.edges[0].points;
+  assert.ok(points.length >= 2 && points.every((point, i) => i === 0 || point.x === points[i - 1].x || point.y === points[i - 1].y));
+
+  const hidden = layoutCanvas(
+    rendering(
+      [node("owner", "Owner", { kind: "part def" }), node("member", "member", { parent: "owner" })],
+      [membership("owner", "member", "composition")],
+      { kind: "mixed" },
+    ),
+    { hiddenKinds: new Set(["composition"]) },
+  );
+  const owner = hidden.nodes.get("owner")!;
+  assert.equal(hidden.nodes.get("member")!.box.y, owner.box.y + headerBox(owner).height, "a hidden edge asks for no lane");
+});
