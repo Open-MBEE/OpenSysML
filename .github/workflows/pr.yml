@@ -1032,6 +1032,11 @@ jobs:
       - name: Build and test the plugin
         run: mvn -B -f editors/mdk/pom.xml verify -Dopensysml.requireService=true
 
+      - name: Audit the plugin's dependencies
+        run: |
+          scripts/download-sca-tools.sh osv-scanner
+          make audit-java JAVA_PROJECT_DIRS=editors/mdk
+
   docs:
     name: Documentation site
     needs: changes
@@ -1633,7 +1638,7 @@ jobs:
       - name: Audit the Java client's dependencies
         run: |
           scripts/download-sca-tools.sh osv-scanner
-          make audit-java
+          make audit-java JAVA_PROJECT_DIRS=client/java
 
       # opensysml.requireService turns "no binary, so skip" into a failure, and
       # `install` builds the sources and javadoc jars a release needs on every commit.
@@ -1689,6 +1694,11 @@ jobs:
 
       - name: Test and install the SysON backend
         run: mvn -B -f editors/syson/pom.xml install -Dopensysml.requireService=true
+
+      - name: Audit the backend's dependencies
+        run: |
+          scripts/download-sca-tools.sh osv-scanner
+          make audit-java JAVA_PROJECT_DIRS=editors/syson
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

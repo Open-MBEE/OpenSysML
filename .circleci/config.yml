@@ -1506,7 +1506,7 @@ jobs:
           name: Audit the Java client's dependencies
           command: |
             scripts/download-sca-tools.sh osv-scanner
-            make audit-java
+            make audit-java JAVA_PROJECT_DIRS=client/java
 
       # opensysml.requireService turns "no binary, so skip" into a failure: the
       # workspace carries one, so its absence is the bug, not a pass. `install`
@@ -1710,6 +1710,12 @@ jobs:
           name: Test and install the SysON backend
           command: mvn -B -f editors/syson/pom.xml install -Dopensysml.requireService=true
 
+      - run:
+          name: Audit the backend's dependencies
+          command: |
+            scripts/download-sca-tools.sh osv-scanner
+            make audit-java JAVA_PROJECT_DIRS=editors/syson
+
       - save_cache:
           key: maven-syson-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "editors/syson/pom.xml" }}-{{ checksum "editors/syson/backend/pom.xml" }}
           paths:
@@ -1750,6 +1756,12 @@ jobs:
       - run:
           name: Build and test the plugin
           command: mvn -B -f editors/mdk/pom.xml verify -Dopensysml.requireService=true
+
+      - run:
+          name: Audit the plugin's dependencies
+          command: |
+            scripts/download-sca-tools.sh osv-scanner
+            make audit-java JAVA_PROJECT_DIRS=editors/mdk
 
       - save_cache:
           key: maven-mdk-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "editors/mdk/pom.xml" }}-{{ checksum "editors/mdk/plugin/pom.xml" }}

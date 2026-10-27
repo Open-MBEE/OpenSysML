@@ -156,6 +156,17 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Set up Java
+        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v5.0.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      # The editors depend on the Java client at the tree's version, which only a local install provides before its release.
+      - name: Install the Java client the editors build against
+        run: mvn -B -q -f client/java/pom.xml -pl :opensysml -am install -DskipTests -Dmaven.javadoc.skip=true
+
       - name: Provision the audit tools
         run: scripts/download-sca-tools.sh
 

@@ -307,9 +307,11 @@ about it, and add a case to `scripts/ci-changed-areas-test.sh`, which the same j
 by the same `Changed areas` output as that job: `make vulncheck` (govulncheck over both Go
 modules, failing on a vulnerability the code reaches) in the Go static job, `make audit-npm`
 (`npm audit --omit=dev --audit-level=high` over every `package-lock.json`) in each Node job,
-`make audit-python` (`pip-audit --strict` over `client/python`, `client/jupyter-kernel` and
-`packaging/pypi-pysysml`) in the Python job, `make audit-rust` (`cargo audit`) in the Rust job
-and `make audit-java` (osv-scanner over the Maven trees) in the Java job. The tools come pinned
+`make audit-python` (`pip-audit --strict` over `client/python`, `client/jupyter-kernel`,
+`packaging/pypi-pysysml` and `docs-requirements.txt`) in the Python job, `make audit-rust`
+(`cargo audit`) in the Rust job and `make audit-java` (a CycloneDX SBOM of each Maven tree —
+`client/java`, `editors/syson`, `editors/mdk` — scanned by osv-scanner, test scope excluded) in
+the Java, SysON and MDK jobs. The tools come pinned
 and SHA-256 verified from `scripts/download-sca-tools.sh` (`make sca-tools`); `make audit` runs
 all five locally. A finding fails the job: fix it by bumping the dependency (a Dependabot pull
 request may already exist), never by lowering a level or ignoring an advisory. The same audits
@@ -323,8 +325,8 @@ in every lockfile directory.
 ### Dependabot pull requests
 
 [`.github/dependabot.yml`](.github/dependabot.yml) opens one grouped pull request a week per
-ecosystem and directory (Go modules, every npm lockfile, the Python packages, the Rust and Java
-clients, and the GitHub Actions the workflows pin), against `develop`, with minor and patch
+ecosystem and directory (both Go modules, every npm lockfile, the Python packages, the Rust
+client, the three Maven trees, and the GitHub Actions the workflows pin), against `develop`, with minor and patch
 updates in one group and a Conventional Commits title (`chore(deps): …`). Such a pull request is
 handled like any other: it opens ready for review, so the full tier runs on it with `Changed
 areas` scoping the jobs to the lockfile it touched, Devin Review and the dependency audits run on

@@ -72,7 +72,10 @@ updates:
         update-types: [minor, patch]
 
   - package-ecosystem: maven
-    directory: /client/java
+    directories:
+      - /client/java
+      - /editors/syson
+      - /editors/mdk
     schedule:
       interval: weekly
       day: monday

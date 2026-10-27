@@ -28,6 +28,7 @@ GOSEC_VERSION := v2.22.5
 # Dependency-audit tool versions: govulncheck runs through `go run`; the others come
 # from scripts/download-sca-tools.sh, pinned and SHA-256 verified there.
 GOVULNCHECK_VERSION := v1.9.0
+CYCLONEDX_MAVEN_VERSION := 2.9.1
 SCA_BIN := build/sca/bin
 PIP_AUDIT := build/sca/venv/bin/pip-audit
 # `npm audit` fails on production advisories at this severity and above, in every lockfile directory.
@@ -67,6 +68,8 @@ JUPYTERLAB_DIR := editors/jupyterlab
 MCP_NPM_DIR := packaging/npm/sysml-mcp
 NPM_LOCK_DIRS := $(NODE_DIR) $(MCP_NPM_DIR) $(VSCODE_DIR) $(JUPYTERLAB_DIR) editors/syson/frontend scripts/asciidoc
 PYTHON_PROJECT_DIRS := $(PYTHON_DIR) $(JUPYTER_KERNEL_DIR) packaging/pypi-pysysml
+PYTHON_REQUIREMENTS := docs-requirements.txt
+JAVA_PROJECT_DIRS := client/java editors/syson editors/mdk
 PYTHON ?= python3
 # api/proto/buf.gen.python.yaml starts the interpreter this names.
 export PYTHON
@@ -419,14 +422,16 @@ sca-tools: ## Provision the pinned cargo-audit, osv-scanner and pip-audit under 
 audit-npm: ## Fail on $(NPM_AUDIT_LEVEL)+ advisories against the production dependencies of every npm lockfile (NPM_LOCK_DIRS=dir... narrows)
 	@for dir in $(NPM_LOCK_DIRS); do echo "npm audit $$dir" && npm --prefix "$$dir" audit --omit=dev --audit-level=$(NPM_AUDIT_LEVEL) || exit 1; done
 
-audit-python: ## Fail on known vulnerabilities in the Python packages' dependencies (pip-audit --strict)
+audit-python: ## Fail on known vulnerabilities in the Python packages' dependencies and the pinned requirements files (pip-audit --strict)
 	@for dir in $(PYTHON_PROJECT_DIRS); do echo "pip-audit $$dir" && $(PIP_AUDIT) --strict --progress-spinner off "$$dir" || exit 1; done
+	@for file in $(PYTHON_REQUIREMENTS); do echo "pip-audit -r $$file" && $(PIP_AUDIT) --strict --progress-spinner off -r "$$file" || exit 1; done
 
 audit-rust: ## Fail on RustSec advisories against client/rust/Cargo.lock (cargo audit)
 	$(SCA_BIN)/cargo-audit audit --file client/rust/Cargo.lock
 
-audit-java: ## Fail on OSV advisories against the Java client's Maven dependencies (osv-scanner)
-	$(SCA_BIN)/osv-scanner scan source --recursive client/java
+audit-java: ## Fail on OSV advisories against the Maven trees' compile and runtime dependencies (JAVA_PROJECT_DIRS=dir... narrows)
+	@# A CycloneDX SBOM carries the versions Maven resolved, reactor modules included, which osv-scanner's own pom resolver cannot follow.
+	@for dir in $(JAVA_PROJECT_DIRS); do echo "osv-scanner $$dir" && mvn -B -q -f "$$dir/pom.xml" org.cyclonedx:cyclonedx-maven-plugin:$(CYCLONEDX_MAVEN_VERSION):makeAggregateBom -DoutputFormat=json -DoutputName=bom -DincludeTestScope=false && $(SCA_BIN)/osv-scanner scan source -L "$$dir/target/bom.json" || exit 1; done
 
 audit: vulncheck audit-npm audit-python audit-rust audit-java ## Run every dependency audit, as CI and the release procedure do
 	@echo "✓ Dependency audits passed"
