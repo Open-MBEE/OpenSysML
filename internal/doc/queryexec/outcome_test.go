@@ -22,6 +22,9 @@ calc def TwoKinds :> Query { Named(qualifiedName = "Observatory::Kinds::missing"
 calc def RootMiss :> Query { Named(qualifiedName = "Observatry") }
 calc def Partial :> Query { Named(qualifiedName = "Duplicates::a") }
 calc def Spread :> Query { Named(qualifiedName = "a") }
+package Targets { part t1; part t2; }
+package Choices { alias Pick for Targets::t1; alias Pick for Targets::t2; }
+calc def Aliased :> Query { Named(qualifiedName = "Observatory::Choices::Pick") }
 `)
 	outcome := func(query string) Outcome {
 		t.Helper()
@@ -79,6 +82,10 @@ calc def Spread :> Query { Named(qualifiedName = "a") }
 	if len(spread.Model.Findings) != 2 || spread.Model.Findings[0].Element != "Observatory::Duplicates" || spread.Model.Findings[1].Element != "Observatory::Kinds" ||
 		spread.Model.Findings[0].Observed != "Observatory::Duplicates::a (declared 2 times)" || spread.Model.Findings[1].Observed != "Observatory::Kinds::a (declared 2 times)" {
 		t.Errorf("Spread: findings = %+v, want one per owning namespace", spread.Model.Findings)
+	}
+	if aliased := outcome("Aliased"); len(aliased.Model.Findings) != 1 || aliased.Model.Findings[0].Element != "Observatory::Choices" ||
+		aliased.Model.Findings[0].Observed != "Observatory::Targets::t1, Observatory::Targets::t2" {
+		t.Errorf("Aliased: findings = %+v, want the namespace declaring both aliases, listing their targets", aliased.Model.Findings)
 	}
 	encoded, _ = json.Marshal(twice)
 	if !strings.Contains(string(encoded), `"outcome":"modelError"`) || !strings.Contains(string(encoded), `"pathFailures":[]`) {
