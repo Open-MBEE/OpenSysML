@@ -112,6 +112,12 @@ func (ctx *Context) materializeConnector(owner *Instance, connSym, base *symbols
 // message, and keep never sees it. Once kept, the older behaviors it woke answer;
 // one of them failing is reported as its own, with the connector kept.
 func (ctx *Context) materializeConnectorAs(owner *Instance, connSym, base *symbols.Symbol, id int64, keep func(*Instance)) error {
+	return ctx.materializeConnectorStarting(owner, connSym, base, id, true, keep)
+}
+
+// materializeConnectorStarting is materializeConnectorAs, its classifier behaviors started only
+// when start is set: a namespace path records what the usage denotes first, then starts them.
+func (ctx *Context) materializeConnectorStarting(owner *Instance, connSym, base *symbols.Symbol, id int64, start bool, keep func(*Instance)) error {
 	ends := ctx.model.semantics.ConnectorObjectEnds(connSym)
 	if len(ends) == 0 {
 		return fmt.Errorf("%w: %s declares no end to attach", errConnectorEnd, connectorName(connSym))
@@ -163,14 +169,65 @@ func (ctx *Context) materializeConnectorAs(owner *Instance, connSym, base *symbo
 	if len(unnamed) > 0 {
 		ctx.bindParticipants(inst, inst.Ends)
 	}
-	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
-		abandon()
-		return err
+	if start {
+		if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
+			abandon()
+			return err
+		}
 	}
 	endBoundary()
 	commit()
 	keep(inst)
 	return ctx.runAttachedBehaviors()
+}
+
+// connectorJournal opens a journal and a run boundary when sym is a connector usage, so what a
+// namespace path does for it — attach, record, start — is undone whole on failure as a nested
+// connector's is. commit makes it durable; drain, once the path's own guards are cleared, lets the
+// older behaviors it woke answer, a failure of theirs their own. For any other usage all are no-ops.
+func (ctx *Context) connectorJournal(sym *symbols.Symbol) (commit, rollback func(), drain func() error) {
+	if !ctx.model.semantics.IsConnectorObjectUsage(sym) {
+		return func() {}, func() {}, func() error { return nil }
+	}
+	endBoundary := ctx.beginRunBoundary()
+	commitJournal, rollbackJournal := ctx.beginJournal()
+	commit = func() {
+		endBoundary()
+		commitJournal()
+	}
+	rollback = func() {
+		endBoundary()
+		rollbackJournal()
+	}
+	return commit, rollback, ctx.runAttachedBehaviors
+}
+
+// checkBoundConnectorEnds checks that the objects a binding makes the connector usage connSym
+// denote attach as its own `connect` clause says; bound connectors attached differently conflict.
+func (ctx *Context) checkBoundConnectorEnds(connSym *symbols.Symbol, objs []*Instance) error {
+	if !ctx.model.semantics.IsConnectorObjectUsage(connSym) {
+		return nil
+	}
+	ends := ctx.model.semantics.ConnectorObjectEnds(connSym)
+	for _, inst := range objs {
+		if len(inst.Ends) != len(ends) {
+			return fmt.Errorf("%s attaches %d ends, the object bound to it holds %d", connectorName(connSym), len(ends), len(inst.Ends))
+		}
+		for i, end := range ends {
+			val, err := ctx.attachConnectorEnd(nil, connSym, end)
+			if err != nil {
+				return err
+			}
+			if !valueIdentical(val, inst.Ends[i].Value) {
+				name := end.Name
+				if name == "" {
+					name = fmt.Sprintf("#%d", i+1)
+				}
+				return fmt.Errorf("end %s of %s attaches to another feature than the object bound to it", name, connectorName(connSym))
+			}
+		}
+	}
+	return nil
 }
 
 // attachConnectorEnd evaluates what one end attaches to against the instance
@@ -181,10 +238,10 @@ func (ctx *Context) attachConnectorEnd(owner *Instance, connSym *symbols.Symbol,
 	if end.Attachment == nil {
 		return Value{}, ctx.connectorEndError(connSym, end, errors.New("names no feature"))
 	}
-	if owner == nil {
+	scope := connSym.OwnerScope
+	if owner == nil && (scope == nil || !namespaceScope(scope)) {
 		return Value{}, ctx.connectorEndError(connSym, end, errors.New("no object owns the connector"))
 	}
-	scope := connSym.OwnerScope
 	if scope == nil {
 		scope = owner.Type.OwnerScope
 	}
