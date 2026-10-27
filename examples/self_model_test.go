@@ -2,6 +2,7 @@ package examples
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -1708,4 +1709,81 @@ func packageScope(t *testing.T, idx *symbols.Index, document, name string) *symb
 	}
 	t.Fatalf("package %s is not declared in %s", name, document)
 	return nil
+}
+
+// The architecture document's prose is Markdown bodies that read their figures
+// from the model, so a paragraph retyped as a string literal, a body dropped,
+// or a value run that stopped resolving to the model's value fails here.
+func TestSelfModelDocumentProseReadsTheModel(t *testing.T) {
+	text := readModelFile(t, "document.sysml")
+	doc := text[strings.Index(text, "part def ArchitectureDocument"):]
+
+	var named []string
+	for _, m := range regexp.MustCompile(`part (\w+) : Paragraph`).FindAllStringSubmatch(doc, -1) {
+		named = append(named, m[1])
+	}
+	if got, want := strings.Join(named, ","), "reading"; got != want {
+		t.Errorf("named paragraphs %q, want only %q (prose is written as Markdown bodies)", got, want)
+	}
+	if n := strings.Count(doc, `:>> text = "`); n != 0 {
+		t.Errorf("%d string-literal paragraphs in the document, want none", n)
+	}
+	if n, want := strings.Count(doc, `rep language "markdown"`), 21; n != want {
+		t.Errorf("%d Markdown bodies in the document, want %d", n, want)
+	}
+	valueRuns := regexp.MustCompile(`\]\(sysml:value:([^)]+)\)`).FindAllStringSubmatch(doc, -1)
+	if n, want := len(valueRuns), 12; n != want {
+		t.Errorf("%d value runs in the document, want %d", n, want)
+	}
+
+	files := selfModelFiles(t)
+	ws := model.NewWorkspace()
+	for _, name := range files {
+		content, err := os.ReadFile(filepath.Join(selfModelDir, name))
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		ws.Open(name, content, 1)
+	}
+	markdown, err := modeldoc.RenderDocumentMarkdown(ws, "OpenSysMLDocument::ArchitectureDocument", docrender.MarkdownOptions{})
+	if err != nil {
+		t.Fatalf("render the architecture document: %v", err)
+	}
+	for _, literal := range []string{"sysml:value:", "](sysml:"} {
+		if strings.Contains(markdown, literal) {
+			t.Errorf("the rendered document still contains %q: a run was not expanded", literal)
+		}
+	}
+
+	escape := func(s string) string { return strings.ReplaceAll(s, "_", `\_`) }
+	pipeline := readModelFile(t, "pipeline.sysml")
+	surfaces := readModelFile(t, "surfaces.sysml")
+	tierCount, _ := declaredInteger(pipeline, "tierCount")
+	passCount, _ := declaredInteger(pipeline, "passCount")
+	released, _ := declaredInteger(surfaces, "releasedCommandCount")
+	wasm, _ := declaredInteger(surfaces, "wasmCommandCount")
+	toolGroups, _ := declaredString(surfaces, "toolGroups")
+	httpPath, _ := declaredString(surfaces, "httpPath")
+	tokenEnv, _ := declaredString(surfaces, "tokenEnv")
+	releaseAsset, _ := declaredString(surfaces, "releaseAsset")
+	toolEnv, _ := declaredString(surfaces, "toolEnv")
+	calcDepth := regexp.MustCompile(`\| calcDepth \| [^|]+ \| ([^|]+) \| ([0-9]+) \|`).FindStringSubmatch(markdown)
+	asciidoc := regexp.MustCompile(`\| asciidocProse \| (\w+) \| true \|`).FindStringSubmatch(markdown)
+	if calcDepth == nil || asciidoc == nil {
+		t.Fatalf("the budgets or markup table lost the row the prose reads from")
+	}
+	for _, want := range []string{
+		fmt.Sprintf("ladder of %d tiers", tierCount),
+		fmt.Sprintf("with %d registered passes", passCount),
+		fmt.Sprintf("bounded at %s by default and raised through %s", calcDepth[2], strings.TrimSpace(calcDepth[1])),
+		fmt.Sprintf("a release ships %d commands, and %d build for WebAssembly", released, wasm),
+		fmt.Sprintf("the tool groups %s", toolGroups),
+		fmt.Sprintf("Streamable HTTP at %s, guarded by the token in %s", httpPath, escape(tokenEnv)),
+		fmt.Sprintf("ships with a release as %s", releaseAsset),
+		fmt.Sprintf("a body in %s leaves the process for the converter named by %s", asciidoc[1], escape(toolEnv)),
+	} {
+		if !strings.Contains(markdown, want) {
+			t.Errorf("the rendered prose does not read %q from the model", want)
+		}
+	}
 }
