@@ -35,7 +35,7 @@ func (e *executor) evaluateNamed(expression queryplan.Expression) (sequence, err
 // denoted resolves name to the distinct elements it denotes, aliases followed
 // and deduplicated; dangling reports a candidate alias that denotes nothing.
 // denotation is a registration the name matched — a declaration or an alias — and
-// the element it denotes; several registrations of one element are one denotation.
+// the element it denotes; every registration is kept, elementsOf dedups the targets.
 type denotation struct {
 	registration *symbols.Symbol
 	element      *symbols.Symbol
@@ -48,17 +48,18 @@ func (e *executor) denoted(name string) (found []denotation, dangling bool) {
 			dangling = true
 			continue
 		}
-		if !slices.ContainsFunc(found, func(o denotation) bool { return symbols.SameElement(o.element, element) }) {
-			found = append(found, denotation{registration: candidate, element: element})
-		}
+		found = append(found, denotation{registration: candidate, element: element})
 	}
 	return found, dangling
 }
 
+// elementsOf is the distinct elements the registrations denote.
 func elementsOf(found []denotation) []*symbols.Symbol {
 	out := make([]*symbols.Symbol, 0, len(found))
 	for _, d := range found {
-		out = append(out, d.element)
+		if !slices.ContainsFunc(out, func(o *symbols.Symbol) bool { return symbols.SameElement(o, d.element) }) {
+			out = append(out, d.element)
+		}
 	}
 	return out
 }
@@ -67,16 +68,17 @@ func elementsOf(found []denotation) []*symbols.Symbol {
 // fully-qualified name, in name order.
 func (e *executor) ambiguousElement(expression queryplan.Expression, name string, candidates []denotation) error {
 	fqns := make([]string, 0, len(candidates))
-	// One finding per namespace declaring the duplicate names (an alias counts where it
-	// is declared, not where its target is), each listing the elements denoted there.
-	byOwner := map[string][]string{}
-	for _, candidate := range candidates {
-		fqn := symbols.FQNOf(candidate.element)
-		fqns = append(fqns, fqn)
-		owner := ownerOf(symbols.FQNOf(candidate.registration))
-		byOwner[owner] = append(byOwner[owner], fqn)
+	for _, element := range elementsOf(candidates) {
+		fqns = append(fqns, symbols.FQNOf(element))
 	}
 	sort.Strings(fqns)
+	// One finding per namespace declaring the duplicate names (an alias counts where it
+	// is declared, not where its target is), each listing every element denoted there.
+	byOwner := map[string][]string{}
+	for _, candidate := range candidates {
+		owner := ownerOf(symbols.FQNOf(candidate.registration))
+		byOwner[owner] = append(byOwner[owner], symbols.FQNOf(candidate.element))
+	}
 	for owner := range byOwner {
 		sort.Strings(byOwner[owner])
 	}
