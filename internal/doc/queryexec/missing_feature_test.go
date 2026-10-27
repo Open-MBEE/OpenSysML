@@ -53,6 +53,17 @@ calc def ToleratedHeavyOnes :> Query {
 		if msg := executionError.Error(); !strings.HasSuffix(msg, "of Observatory::root::b, which has no such feature: its features are mas, volume") {
 			t.Fatalf("%s: message = %q", query, msg)
 		}
+		outcome := executionError.Outcome
+		if outcome == nil || outcome.Kind() != "pathError" || len(outcome.Path.Failures) != 1 {
+			t.Fatalf("%s: outcome = %+v, want one path failure", query, outcome)
+		}
+		failure := outcome.Path.Failures[0]
+		if failure.Step.Label() != "Feature(mass)" || failure.Expected != "a feature named mass on the element" || failure.Frontier.At != "Observatory::root::b" || failure.Frontier.Nearest != "mas" {
+			t.Fatalf("%s: failure = %+v", query, failure)
+		}
+		if len(failure.Frontier.Features) != 2 || failure.Frontier.Features[0].Name != "mas" || failure.Frontier.Features[1].Name != "volume" {
+			t.Fatalf("%s: frontier features = %+v", query, failure.Frontier.Features)
+		}
 	}
 	tolerated, err := fixture.execute(t, "ToleratedMasses", bindings, Options{})
 	if err != nil {

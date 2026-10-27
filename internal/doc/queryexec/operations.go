@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -1213,31 +1214,47 @@ func (e *executor) missingFeature(expression queryplan.Expression, property stri
 		// A metadata path names an annotation the element may simply not carry.
 		return nil
 	}
+	features := e.features(sym)
+	names := make([]string, 0, len(features))
+	for _, f := range features {
+		names = append(names, f.Name)
+	}
 	return &Error{
 		Kind:       ErrorMissingFeature,
 		Query:      e.definition.Name(),
 		Operation:  expression.Operation(),
 		Property:   property,
 		Target:     symbols.FQNOf(sym),
-		Candidates: e.featureNames(sym),
+		Candidates: names,
 		Origin:     expression.Origin(),
+		Outcome: &Outcome{Path: &PathError{Failures: []Failure{{
+			Step:     Step{Kind: StepFeature, Argument: property},
+			Expected: "a feature named " + property + " on the element",
+			Frontier: Frontier{At: symbols.FQNOf(sym), Features: features, Nearest: first(suggest.Nearest(property, names))},
+		}}}},
 	}
 }
 
-// featureNames lists, in name order, the simple names of the features an element
-// has from the model's own declarations, inherited ones included; library ones are noise.
-func (e *executor) featureNames(sym *symbols.Symbol) []string {
-	var out []string
+// features lists, in name order, the features an element has from the model's own
+// declarations (inherited ones included; library ones are noise) with their declared type.
+func (e *executor) features(sym *symbols.Symbol) []FeatureRef {
+	out := []FeatureRef{}
 	for _, member := range e.context.Model.MembersOf(sym) {
 		if member == nil || !member.IsFeature() || e.context.Index.IsLibraryDocument(member.DocName) {
 			continue
 		}
-		if name := symbols.LastSegment(member.Name); name != "" {
-			out = append(out, name)
+		name := symbols.LastSegment(member.Name)
+		if name == "" {
+			continue
 		}
+		ref := FeatureRef{Name: name}
+		if types, ok := e.reader.Values(member, query.PropertyType); ok && len(types) > 0 {
+			ref.Type = types[0]
+		}
+		out = append(out, ref)
 	}
-	sort.Strings(out)
-	return slices.Compact(out)
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return slices.CompactFunc(out, func(a, b FeatureRef) bool { return a.Name == b.Name })
 }
 
 func (e *executor) unknownProperty(expression queryplan.Expression, property string) error {
