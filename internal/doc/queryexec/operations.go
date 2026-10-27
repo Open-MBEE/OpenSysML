@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -396,16 +397,24 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 		}
 		return sequence{}, e.operatorError(expression, operator)
 	}
+	tolerate, err := e.tolerateArgument(expression)
+	if err != nil {
+		return sequence{}, err
+	}
 	if len(source.values) == 0 {
 		return source, nil
 	}
 	result := filtered(source)
 	known := false
+	var missing error
 	columnIndex := projectedColumn(source, property)
 	for i := range source.values {
 		values, present, valueErr := e.featureValues(expression, source, i, property, columnIndex)
 		if valueErr != nil {
 			return sequence{}, valueErr
+		}
+		if !present && !tolerate && missing == nil {
+			missing = e.missingFeature(expression, property, source.values[i])
 		}
 		known = known || present
 		for _, actual := range values {
@@ -424,6 +433,9 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 	}
 	if !known {
 		return sequence{}, e.unknownProperty(expression, property)
+	}
+	if missing != nil {
+		return sequence{}, missing
 	}
 	return result, nil
 }
@@ -609,6 +621,10 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 	if total == 0 {
 		return sequence{}, e.invalidArgument(expression, "properties", "empty")
 	}
+	tolerate, err := e.tolerateArgument(expression)
+	if err != nil {
+		return sequence{}, err
+	}
 	seen := make(map[string]bool, total)
 	for _, property := range properties {
 		seen[property] = true
@@ -633,12 +649,16 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 		result.columns[len(properties)+i] = Column{name: column.name, origin: column.origin.Origin()}
 	}
 	tracker := newPropertyTracker()
+	missing := make([]error, len(properties))
 	for row, value := range source.values {
 		result.cells[row] = make([]Cell, total)
 		for column, property := range properties {
 			values, present, valueErr := e.propertyValues(value, property)
 			if valueErr != nil {
 				return sequence{}, e.unevaluable(expression, property, value, valueErr)
+			}
+			if !present && !tolerate && missing[column] == nil {
+				missing[column] = e.missingFeature(expression, property, value)
 			}
 			known[column] = known[column] || present
 			result.cells[row][column] = Cell{
@@ -661,6 +681,13 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 		for i, property := range properties {
 			if !known[i] {
 				return sequence{}, e.unknownProperty(expression, property)
+			}
+		}
+		// A property some rows carry and an element row lacks is a path error
+		// about that element, unless tolerated; one no row carries is unknown.
+		for _, err := range missing {
+			if err != nil {
+				return sequence{}, err
 			}
 		}
 		if property, missing := tracker.missing(); missing {
@@ -1167,6 +1194,50 @@ func (e *executor) operatorError(expression queryplan.Expression, operator strin
 		Actual:    operator,
 		Origin:    expression.Origin(),
 	}
+}
+
+// tolerateArgument reads Project's and WhereFeature's tolerate: by default an
+// element lacking the feature is a path error; true keeps the cell empty.
+func (e *executor) tolerateArgument(expression queryplan.Expression) (bool, error) {
+	if !hasArgument(expression, "tolerate") {
+		return false, nil
+	}
+	return e.booleanArgument(expression, "tolerate")
+}
+
+// missingFeature reports a feature the element row lacks, its own features as
+// the frontier; nil for a non-element row or a metamodel property every element answers.
+func (e *executor) missingFeature(expression queryplan.Expression, property string, row Value) error {
+	sym, isElement := row.Element()
+	if !isElement || sym == nil || isQueryableProperty(property) || strings.Contains(property, "::") {
+		// A metadata path names an annotation the element may simply not carry.
+		return nil
+	}
+	return &Error{
+		Kind:       ErrorMissingFeature,
+		Query:      e.definition.Name(),
+		Operation:  expression.Operation(),
+		Property:   property,
+		Target:     symbols.FQNOf(sym),
+		Candidates: e.featureNames(sym),
+		Origin:     expression.Origin(),
+	}
+}
+
+// featureNames lists, in name order, the simple names of the features an element
+// has from the model's own declarations, inherited ones included; library ones are noise.
+func (e *executor) featureNames(sym *symbols.Symbol) []string {
+	var out []string
+	for _, member := range e.context.Model.MembersOf(sym) {
+		if member == nil || !member.IsFeature() || e.context.Index.IsLibraryDocument(member.DocName) {
+			continue
+		}
+		if name := symbols.LastSegment(member.Name); name != "" {
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
+	return slices.Compact(out)
 }
 
 func (e *executor) unknownProperty(expression queryplan.Expression, property string) error {
