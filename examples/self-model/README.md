@@ -214,6 +214,43 @@ and to PDF, converters installed:
 
 That writes thirty-six pages with the views pre-rendered as vector diagrams.
 
+### The AsciiDoc note
+
+[asciidoc/markup.sysml](asciidoc/markup.sysml) declares a second, smaller document,
+`OpenSysMLAsciiDoc::MarkupNote`, whose prose is written as `rep language "asciidoc"` bodies: it
+reads its figures from the model with `sysml:value[…]`, cross-references its sections with
+`<<xref>>`, opens one of them with a `[[converter]] == The converter` heading, and tabulates the
+two markup parsers with the same `MarkupLanguages` query the architecture document uses. An
+AsciiDoc body is parsed by Asciidoctor.js outside the process, so the file sits in a directory
+of its own: every command above globs `examples/self-model/*.sysml` and keeps working with no
+converter installed. To render the note, install the converter and name both file sets:
+
+```bash
+./scripts/download-doc-pdf-toolchain.sh   # prints the variables to export
+export OPENSYSML_ASCIIDOCTOR=$PWD/build/doc-pdf/asciidoctor/asciidoctor-json.js
+./bin/sysml examples/self-model/*.sysml examples/self-model/asciidoc/*.sysml \
+    -render-document OpenSysMLAsciiDoc::MarkupNote
+```
+
+```
+# Prose in Two Markups
+
+The architecture document is written in Markdown; this note is written in *AsciiDoc*, the
+other of the markups a prose body may be written in — markdown, asciidoc — and it is
+rendered by the same planner, so [One planner, two parsers](#parsers) describes one planner
+fed by two parsers and [The converter](#converter) what AsciiDoc needs that Markdown does
+not.
+…
+```
+
+`-doc-form html` and `-doc-form asciidoc` render the same note as HTML and back to AsciiDoc.
+Without the converter the command fails to plan the document with an error naming
+`OPENSYSML_ASCIIDOCTOR` and the download script, and nothing is rendered as literal text. The
+note's test, `TestSelfModelAsciiDocNoteRendersInstalled` in
+[`../self_model_asciidoc_test.go`](../self_model_asciidoc_test.go), renders all three forms and
+pins every value run against the model; it skips with the same instruction when the converter is
+absent and runs in CI's PDF-toolchain job, where an absent converter is a failure.
+
 ## Keeping it honest
 
 The model describes this implementation, so it goes stale the way documentation does. Three
