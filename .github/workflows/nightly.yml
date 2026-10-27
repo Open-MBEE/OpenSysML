@@ -707,6 +707,12 @@ jobs:
             echo
             # GitHub caps a release body at 125,000 characters; a one-line summary stays far under it.
             python3 scripts/changelog.py summary | head -c 100000
+            # The support period from SECURITY.md and the verification page, as on a stable release;
+            # a green commit older than the release-notes subcommand is published without the footer.
+            if python3 scripts/changelog.py release-notes --help >/dev/null 2>&1; then
+              echo
+              python3 scripts/changelog.py release-notes
+            fi
           } > notes.md
           cat notes.md
 
