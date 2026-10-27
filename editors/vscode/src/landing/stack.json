@@ -1,5 +1,5 @@
 {
-  "hash": "ffa7651c440765f520364271bd1b5040e0993f0cada9389a570c3d4bdf8b516f",
+  "hash": "0d29c2a195b8f741dce92ae0aa43f8d2f10da5424de438a8efced36fbb5e467d",
   "render": {
     "kind": "interconnection",
     "stated": "no view declared; rendering OpenSysMLStack::stack directly",
@@ -375,7 +375,7 @@
           "startLine": 55,
           "startCol": 17,
           "endLine": 55,
-          "endCol": 56
+          "endCol": 60
         }
       },
       {
