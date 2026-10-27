@@ -391,8 +391,10 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 			return nil, true, err
 		}
 		mark := len(ctx.created)
+		commit, rollback := ctx.connectorJournal(earliest)
 		members, err := ctx.materializeMembers(earliest, int(count), nil, "")
 		if err != nil {
+			rollback()
 			ctx.abandonInstancesSince(mark)
 			release()
 			return nil, true, fmt.Errorf("usage %s: %w", SymbolText(earliest), err)
@@ -401,6 +403,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		for _, inst := range members {
 			obj, err := ctx.objectValue(inst)
 			if err != nil {
+				rollback()
 				ctx.abandonInstancesSince(mark)
 				release()
 				return nil, true, err
@@ -427,6 +430,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 				delete(ctx.occurrences, member)
 				ctx.unbindNamespace(member)
 			}
+			rollback()
 			ctx.abandonInstancesSince(mark)
 			release()
 			return nil, true, err
@@ -456,6 +460,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		if err := ctx.startClassifierBehaviorsOf(members, mark); err != nil {
 			return fail(err)
 		}
+		commit()
 		release()
 	} else {
 		val := vals[0].val
@@ -674,6 +679,11 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 			}
 		}
 		mark := len(ctx.created)
+		commit, rollback := ctx.connectorJournal(sym)
+		failWhole := func(err error) ([]*Instance, bool, error) {
+			rollback()
+			return fail(err)
+		}
 		var newObjs []*Instance
 		for _, sub := range optional {
 			if count == 0 {
@@ -689,7 +699,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 			if lazy {
 				if err := ctx.chargeElements(spare); err != nil {
 					ctx.abandonInstancesSince(mark)
-					return fail(err)
+					return failWhole(err)
 				}
 			}
 			var filled []int64
@@ -697,7 +707,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 				inst, err := ctx.materialize(sub, 0, nil, "")
 				if err != nil {
 					ctx.abandonInstancesSince(mark)
-					return fail(err)
+					return failWhole(err)
 				}
 				filled = append(filled, inst.ID)
 				newObjs = append(newObjs, inst)
@@ -712,7 +722,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 				seq, err := ctx.withRequired(nil, sym, nil, "", count)
 				if err != nil {
 					ctx.abandonInstancesSince(mark)
-					return fail(err)
+					return failWhole(err)
 				}
 				tail = seq.required
 				ctx.recordOccurrenceTail(sym, tail)
@@ -722,7 +732,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 		made, err := ctx.materializeMembers(sym, int(count), nil, "")
 		if err != nil {
 			ctx.abandonInstancesSince(mark)
-			return fail(err)
+			return failWhole(err)
 		}
 		newObjs = append(newObjs, made...)
 		for _, inst := range newObjs {
@@ -731,8 +741,9 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 		}
 		if err := ctx.startClassifierBehaviorsOf(newObjs, mark); err != nil {
 			ctx.abandonInstancesSince(mark)
-			return fail(err)
+			return failWhole(err)
 		}
+		commit()
 	}
 	var tailCount int64
 	if tail != nil {

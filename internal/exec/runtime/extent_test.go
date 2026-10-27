@@ -477,3 +477,75 @@ func TestNamespaceConnectorBehaviorReadsItsOwnUsage(t *testing.T) {
 		t.Errorf("size(all Link) = %d, want 3", got)
 	}
 }
+
+// TestNamespaceConnectorWhoseStartFailsLeavesNoTrace requires a package-level connector whose own
+// behavior writes to an older object before failing to be undone whole, as a nested one is.
+func TestNamespaceConnectorWhoseStartFailsLeavesNoTrace(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, `
+		package test {
+			item def Ping;
+			port def P;
+			part def Listener {
+				attribute heard : Integer = 0;
+				exhibit state listening {
+					entry; then waiting;
+					state waiting;
+					accept Ping then noted;
+					state noted { entry action note { assign heard := heard + 1; } }
+				}
+			}
+			part good : Listener;
+			part def A { port p : P; }
+			part a : A;
+			connection def Faulty {
+				exhibit state life {
+					entry; then poke;
+					state poke { entry action bump { assign good.heard := good.heard + 10; } }
+					transition first poke then ping;
+					state ping { entry send Ping() to good; }
+					transition first ping then fail;
+					state fail { entry action bad { assign good.nosuch := 1; } }
+				}
+			}
+			connection def Fine {
+				exhibit state life {
+					entry; then poke;
+					state poke { entry action bump { assign good.heard := good.heard + 10; } }
+					transition first poke then ping;
+					state ping { entry send Ping() to good; }
+				}
+			}
+			connection faulty : Faulty connect a.p to a.p;
+			connection fine : Fine connect a.p to a.p;
+			connection pair : Faulty[2] connect a.p to a.p;
+		}
+	`)
+	pkg := resolveSymbol(t, root, "test")
+	ctx := NewContext(typedModel(model, resolver), 10000)
+	good, err := ctx.occurrenceOf(resolveSymbol(t, pkg.Scope, "good"))
+	if err != nil {
+		t.Fatalf("occurrenceOf good: %v", err)
+	}
+	for _, name := range []string{"faulty", "pair"} {
+		if _, err := evalIn(t, ctx, pkg.Scope, name); !errors.Is(err, ErrNoSuchFeature) {
+			t.Fatalf("%s: got %v, want ErrNoSuchFeature from the connector's behavior", name, err)
+		}
+		if n := countInstancesOfType(ctx, "Faulty"); n != 0 {
+			t.Errorf("%d Faulty left behind after %s's start failed, want none", n, name)
+		}
+		assertCurrentState(t, machineOf(t, good, "listening").State, "waiting")
+		if got := featureInt(t, ctx, good, "heard"); got != 0 {
+			t.Errorf("heard = %d after %s's start failed, want 0: its write was undone", got, name)
+		}
+		if got := len(ctx.messages); got != 0 {
+			t.Errorf("%d message(s) left on the bus by %s", got, name)
+		}
+	}
+	if _, err := evalIn(t, ctx, pkg.Scope, "fine"); err != nil {
+		t.Fatalf("fine: %v", err)
+	}
+	assertCurrentState(t, machineOf(t, good, "listening").State, "noted")
+	if got := featureInt(t, ctx, good, "heard"); got != 11 {
+		t.Errorf("heard = %d once a connector's start succeeded, want 11: its write kept and its signal answered", got)
+	}
+}

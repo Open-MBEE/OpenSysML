@@ -454,8 +454,10 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 	// The occurrence is recorded before its behaviors start, so a behavior that
 	// reaches the usage it belongs to reads this object rather than a second one.
 	mark := len(ctx.created)
+	commit, rollback := ctx.connectorJournal(sym)
 	inst, err := ctx.materializeMember(sym, 0, nil, "")
 	if err != nil {
+		rollback()
 		ctx.abandonInstancesSince(mark)
 		return nil, err
 	}
@@ -464,8 +466,10 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 		ctx.beganWithRun(inst)
 	}
 	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
+		rollback()
 		return nil, err
 	}
+	commit()
 	return inst, nil
 }
 
@@ -498,8 +502,10 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 		return nil, err
 	}
 	mark := len(ctx.created)
+	commit, rollback := ctx.connectorJournal(sym)
 	members, err := ctx.materializeMembers(sym, int(made), nil, "")
 	if err != nil {
+		rollback()
 		ctx.abandonInstancesSince(mark)
 		release()
 		return nil, err
@@ -511,6 +517,7 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 	if lazy {
 		seq, err := ctx.withRequired(nil, sym, nil, "", count-made)
 		if err != nil {
+			rollback()
 			ctx.abandonInstancesSince(mark)
 			release()
 			return nil, err
@@ -519,9 +526,11 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 	}
 	ctx.occurrences[sym] = ids
 	if err := ctx.startClassifierBehaviorsOf(members, mark); err != nil {
+		rollback()
 		release()
 		return nil, err
 	}
+	commit()
 	return members, nil
 }
 
