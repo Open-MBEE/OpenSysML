@@ -404,12 +404,14 @@ func (t *imaging) object(inst *Instance) error {
 		}
 		obj.features = append(obj.features, f)
 	}
-	for fv, id := range inst.keptConnectors {
+	for fv, ids := range inst.keptConnectors {
 		if at, ok := index[fv]; ok {
-			obj.keptConn = append(obj.keptConn, keptConnector{feature: at, id: id})
+			for _, id := range ids {
+				obj.keptConn = append(obj.keptConn, keptConnector{feature: at, id: id})
+			}
 		}
 	}
-	slices.SortFunc(obj.keptConn, func(a, b keptConnector) int { return a.feature - b.feature })
+	slices.SortStableFunc(obj.keptConn, func(a, b keptConnector) int { return a.feature - b.feature })
 	t.img.objects = append(t.img.objects, obj)
 	for _, b := range inst.behaviors {
 		if err := t.behavior(b); err != nil {

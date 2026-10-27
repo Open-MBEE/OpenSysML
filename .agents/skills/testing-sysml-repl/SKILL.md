@@ -2896,10 +2896,10 @@ on `main`; the "old" shapes double as A/B canaries against the parent commit.
   naming a missing feature gives
   `<error: connector end cannot be attached: anonymous connector end "a.nope" at <repl>:8:17: member nope not found in instance>`
   — assert the `<repl>:line:col` is present, since that is exactly what the pre-fix path lacked.
-  A connector with multiplicity (`connection multi : Link[2] connect a.p to b.q;`) gives
-  `sys.multi end "multi" at <repl>:8:9: a connector of more than one object has no set of ends to
-  attach` — located too, so assert the `<repl>:line:col` on both. Follow either with `%eval 1 + 1` →
-  `= 2` to show the session survived.
+  A connector with multiplicity (`connection multi : Link[2] connect a.p to b.q;`) is two Links,
+  each with both ends attached (`%eval sys.multi#(2).a == sys.a.p` → `= true`, `size(sys.multi)` →
+  `= 2`), and `[0..*]` an empty `[]`; a `[2]` whose end names a missing feature is refused whole with
+  the same located error. Follow either with `%eval 1 + 1` → `= 2` to show the session survived.
 - **A connector naming itself at an end is `ErrCyclicSlot`, not a hang.** `connection link connect
   link to a.p;` and a mutual pair (`connection here connect there to a.p;` /
   `connection there connect here to a.p;`) both report a cycle.

@@ -915,12 +915,17 @@ func (a *adoption) commit() {
 				continue
 			}
 			// A connector reads the features the `connect` clause names, which are
-			// read again here — under the identity its object had, which names the
-			// same connector.
+			// read again here — under the identities its objects had, which name the
+			// same connectors.
 			if a.ctx.connectorFeatureValue(fv) {
 				if id, held := fv.Value.Object(); held {
 					plan.obj.keepConnector(fv, id)
 				}
+				a.ctx.walkValue(fv.Values, func(v Value) {
+					if id, held := v.Object(); held {
+						plan.obj.keepConnector(fv, id)
+					}
+				})
 				fv.Value, fv.Values, fv.Materialized, fv.intrinsic = Value{}, Value{}, false, false
 				continue
 			}

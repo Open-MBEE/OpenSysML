@@ -455,7 +455,7 @@ table records what each rendering feature writes:
 | Initial, final, junction, fork and join | `f-circ` for initial and junction nodes, `fr-circ` for final nodes, and `fork` for fork/join bars. Only fork/join bars use the `control` class. Named fork/join nodes are listed in a notice because the bar draws no label. |
 | Decision, merge, choice and history | Diamonds; empty and synthesized decision names use a blank diamond. Shallow/deep history use `(("H"))` and `(("H*"))`. |
 | State pseudostates and final transitions | Mermaid state stereotypes (`<<fork>>`, `<<join>>`, `<<choice>>`) and `[*]` for initial/final markers. A final in the same state body is implicit; cross-body final transitions retain the explicit final and receive a notice. |
-| Edges | `===` for connections/bindings, `-.->` for flows and typing/references, `-.->|"«include»"|` for includes, `---` for associations and tree containment, `-.-` for anchors, and `-->|"«specializes»"|` for specialization. Links to non-tree clusters use a hidden anchor inside the subgraph. Per-edge styles use `linkStyle` indices spanning containment, rendering edges and note anchors. |
+| Edges | `===` for connections/bindings, `-->` for flows, typing, transitions, satisfy/verify/allocate and `-->|"«include»"|` for includes (solid, as the notation draws them), `-.->` for successions, succession flows, imports, exposes and dependencies, `---` for memberships, associations and tree containment, `-.-` for anchors, and `-->|"«specializes»"|` for specialization. Links to non-tree clusters use a hidden anchor inside the subgraph. Per-edge styles use `linkStyle` indices spanning containment, rendering edges and note anchors. |
 | Markdown labels | Flowchart node labels use bold head lines, an italic keyword line and plain details. Container titles put the italic keyword and bold name on one line, then any further head lines and details. Unsafe punctuation, list-like starts, non-multiplicity `*` and non-intraword `_` use the plain escaped label instead. Leaf state, sequence and edge labels are unchanged. |
 | Theme variables | Common font, primary/secondary/tertiary, background, line/text and note variables are shared. Flowcharts add cluster and edge-label variables; state diagrams add state, composite and transition variables; sequences add actor, signal, label-box, activation and sequence-number variables. |
 | Styles and palettes | `classDef`/`class` fill applicable nodes by keyword family; palettes override Cameo fills. `Style` CSS covers Mermaid's supported node and edge fields; unsupported fields are listed in notices. Sequence palettes are accepted but cannot fill individual participants. Cluster anchors do not receive palette fills or count as model nodes. |
@@ -1291,7 +1291,7 @@ one `skinparam` the block cannot express. The translation of the same two source
 | note `BackGroundColor #FEFFDD`, 13 pt | `note { BackGroundColor #FEFFDD; FontSize 13 }` — no note is drawn today, the rule is there for one |
 | Pilot `skinparam wrapWidth 300` | `skinparam wrapWidth 300`, the one rule written as a `skinparam`; DOT could not wrap |
 | Pilot `hide circle` | `hide circle` on the class diagram (a tree), where the circle exists |
-| Pilot `-[thickness=3]-` connectors, `-->` flows and successions | `-[thickness=3]-` for `EdgeConnection`; `-->` for a transition or succession; `-[dashed]->` for a flow, as the Pilot's `VAction` dashes flows |
+| Pilot `-[thickness=3]-` connectors, `-->` flows and successions | `-[thickness=3]-` for `EdgeConnection`; `-->` for a transition and for a flow (solid with the notation's filled head, which PlantUML has not; the Pilot's `VAction` dashes flows, the notation does not); `-[dashed]->` for a succession, as the `aflow-succession` glyph dashes it |
 | initial and final pseudo-states | PlantUML's own `<<start>>`/`<<end>>` dots, filled black by `start, end, activityBar { BackGroundColor black }` (the `element` rule would otherwise leave them and the fork/join bars hollow) |
 
 So the three rules DOT could not honour — the 20-unit usage radius, shadows off and the 300 px
@@ -1361,7 +1361,7 @@ a `.` (`"n1.0"`) so D2 does not read it as a path.
 The look is the [DOT style](#style) restated as D2 classes: `definition` square and `usage` with
 `border-radius: 8`, both white with a `#181818` 1 px stroke and 14 pt black text; `package` and
 `region` containers (the region's `stroke-dash: 3` for an orthogonal region, as DOT dashes it);
-`pin` at 10 pt; `edge` 1 px, `connection` 3 px, `flow` dashed, all with 13 pt labels; the
+`pin` at 10 pt; `edge` 1 px, `connection` 3 px, `succession` dashed, all with 13 pt labels; the
 pseudostate classes above. A palette fills a node as `style: { fill: "#hex"; stroke: "#hex" }`
 after its class, the [palette rules](#palettes) shared with DOT unchanged — same family, same
 tint, same contrast lightening, same hex per node — and a container's fill is written the same
