@@ -153,6 +153,37 @@ package Diagrams {
 	}
 }
 
+// A parameter whose name the notation quotes is looked up by its name, so its
+// Layout places the pin and its Note reaches the rendering.
+func TestTreePlacesAndNotesQuotedParameterPins(t *testing.T) {
+	rendering := renderSource(t, "Diagrams::quoted", `package Model {
+	private import ScalarValues::*;
+	calc def Add {
+		in 'input value' : Integer;
+		return : Integer = 'input value';
+	}
+}
+package Diagrams {
+	private import Views::*;
+	view quoted {
+		expose Model::Add;
+		render asTreeDiagram;
+		metadata DiagramLayout::Layout about Model::Add { x = 0; y = 0; width = 200; height = 100; }
+		metadata DiagramLayout::Layout about Model::Add::'input value' { x = 0; y = 40; }
+		metadata DiagramLayout::Note about Model::Add::'input value' { text = "quoted"; x = 300; y = 40; }
+	}
+}`)
+	root := rendering.Roots[0]
+	wantEqual(t, "pins", pinTexts(root), []string{"in 'input value'", "out result"})
+	if g := root.Ports[0].Geometry; g == nil || g.X != 0 || g.Y != 40 {
+		t.Errorf("quoted pin geometry = %+v, want (0, 40)", g)
+	}
+	if len(rendering.Notes) != 1 || rendering.Notes[0].Text != "quoted" || rendering.Notes[0].Anchor != root.ID {
+		t.Errorf("notes = %+v, want \"quoted\" anchored to %s", rendering.Notes, root.ID)
+	}
+	wantNoNotices(t, rendering)
+}
+
 // A view collapsing a calc, or walking no deeper than it, keeps its parameter pins.
 func TestTreeKeepsParameterPinsWhenFolded(t *testing.T) {
 	rendering := renderSource(t, "Diagrams::folded", `package Model {

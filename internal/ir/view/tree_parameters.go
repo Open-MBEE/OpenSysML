@@ -28,7 +28,7 @@ func treeParameter(owner, member *symbols.Symbol) bool {
 // parameter does not reach another's; a note is anchored to the node the pin
 // sits on, as a note at a pin a display leaves out is.
 func (r *Renderer) pinParameter(view *symbols.Symbol, node *Node, owner, member *symbols.Symbol, out *Rendering) {
-	name := localName(member)
+	name := member.Name
 	port := Port{ID: portID(node.ID, len(node.Ports)), Name: r.parameterName(member), NameSynthesized: r.model.NameSynthesized(member),
 		Type: r.headType(member), Direction: pinDirection(member), Parameter: true, Origin: symbolOrigin(member), Inherited: member.Owner() != owner}
 	if name == "" {
