@@ -3,6 +3,7 @@ package solve
 import (
 	"sort"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -287,10 +288,37 @@ type Query struct {
 	// each guarded so that no model reaches the read; nil when it reads none.
 	Unreadable []UnreadableRead
 
+	// AssumedOne are the features the query reads as one value or one object
+	// although their multiplicity, the usual default `0..*` (KerML 1.1 §7.4.12),
+	// admits any count: the assumption is reported, never asserted; nil when every
+	// feature read is held to one by a declared, inherited or implicit multiplicity.
+	AssumedOne []AssumedOne
+
 	// Objectives are the objectives to optimize, in the order the analysis case
 	// declares them, which is the order they are optimized in; nil for a query
 	// that only asks about satisfiability.
 	Objectives []Objective
+}
+
+// AssumedOne is a feature a query reads as holding one value or one object
+// while nothing holds it to one: it declares and inherits no multiplicity, so
+// the default `0..*` governs it (KerML 1.1 §7.4.12; SysML v2 §7.6.3 gives the
+// implicit `[1..1]` to an eligible usage only). A verdict is about the case
+// where it holds one, which is also the only case the evaluator answers about.
+type AssumedOne struct {
+	// Feature is the feature declaration read.
+	Feature *symbols.Symbol
+
+	// Name names the feature as the report quotes it: its qualified name, or
+	// its path from the element for an object-holding feature walked.
+	Name string
+
+	// Multiplicity is the multiplicity the model computes for it.
+	Multiplicity semantics.Range
+
+	// Object marks an object-holding feature walked as one object, as opposed to
+	// a feature read as one value.
+	Object bool
 }
 
 // Optimizes reports whether the query asks for an optimum rather than only for

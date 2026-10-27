@@ -218,6 +218,7 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 			return nil, err
 		}
 		uncovered := append([]Refused(nil), refused...)
+		var walked []AssumedOne
 		for _, group := range groups {
 			reason, err := t.refusalOf(group)
 			if err != nil {
@@ -231,12 +232,14 @@ func AssertedOn(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope,
 			if err := t.translate(group.conds); err != nil {
 				return nil, err
 			}
+			walked = mergeAssumed(walked, group.assumed, true)
 		}
 		if err := t.fix(pins); err != nil {
 			return nil, err
 		}
 		q := t.query()
 		q.Uncovered = uncovered
+		q.AssumedOne = mergeAssumed(walked, t.assumedOne, false)
 		return q, nil
 	}
 	q, err := translate(pins)
@@ -509,6 +512,9 @@ type translator struct {
 	equations   []Assertion
 	derived     []DerivedValue
 	unreadables []UnreadableRead
+	// assumedOne records the features read as one value that only the default
+	// multiplicity governs.
+	assumedOne []AssumedOne
 
 	// guarded remembers the divisors already asserted non-zero, by their term, so
 	// a divisor read twice is guarded once.
@@ -577,6 +583,25 @@ func newTranslator(ctx *runtime.Context, subject Subject) *translator {
 		guarded:   map[string]bool{},
 		baseUnits: map[string]string{},
 	}
+}
+
+// mergeAssumed appends the assumptions of more not already in have, matched by
+// feature and, when byPath, by path (`left.spare` and `right.spare` are two objects).
+func mergeAssumed(have, more []AssumedOne, byPath bool) []AssumedOne {
+	out := append([]AssumedOne(nil), have...)
+	for _, a := range more {
+		seen := false
+		for _, h := range have {
+			if h.Feature == a.Feature && (!byPath || h.Name == a.Name) {
+				seen = true
+				break
+			}
+		}
+		if !seen {
+			out = append(out, a)
+		}
+	}
+	return out
 }
 
 // effectiveFeatures maps the name a condition may use to the feature it reads,
@@ -731,6 +756,7 @@ func (t *translator) query() *Query {
 	q.Unread = t.unread
 	q.Derived = t.derived
 	q.Unreadable = t.unreadables
+	q.AssumedOne = t.assumedOne
 	for _, obj := range t.objectives {
 		if obj.Unit == "" {
 			obj.Unit = t.baseUnits[obj.Dimension]

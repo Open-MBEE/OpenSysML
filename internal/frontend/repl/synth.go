@@ -290,6 +290,20 @@ func uncoveredLines(q *solve.Query) []string {
 	return lines
 }
 
+// assumedOneLines names the features the query reads as one value or object while
+// only the default multiplicity governs them: the verdict is about that case.
+func assumedOneLines(q *solve.Query) []string {
+	lines := make([]string, 0, len(q.AssumedOne))
+	for _, a := range q.AssumedOne {
+		what := "value"
+		if a.Object {
+			what = "object"
+		}
+		lines = append(lines, fmt.Sprintf("  Assuming %s holds one %s: it declares no multiplicity, so the default %s governs it", notationName(a.Name), what, a.Multiplicity.Text()))
+	}
+	return lines
+}
+
 // unreadLines says which fixed values no condition reads, so a value asked for
 // and not used is reported rather than quietly dropped.
 func unreadLines(q *solve.Query) []string {
