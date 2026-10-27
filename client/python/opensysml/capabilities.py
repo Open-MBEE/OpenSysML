@@ -47,6 +47,10 @@ CAPABILITY_VERIFICATION = "verification"
 CAPABILITY_VERIFICATION_QUESTIONS = "verification_questions"
 CAPABILITY_VERIFICATION_ARGUMENTS = "verification_arguments"
 
+#: Every ``Verdict`` carries ``notes``: what a solver's answer assumes and what
+#: it leaves uncovered. A service without it answers with none.
+CAPABILITY_VERDICT_NOTES = "verdict_notes"
+
 #: The ``Query`` RPC, which evaluates a SysML v2 API & Services ``Query`` over a
 #: loaded model. Without it the service refuses queries with ``UNIMPLEMENTED``.
 CAPABILITY_QUERY = "query"

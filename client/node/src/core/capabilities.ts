@@ -54,6 +54,8 @@ export const CAPABILITY_VERIFICATION = "verification";
 export const CAPABILITY_VERIFICATION_QUESTIONS = "verification_questions";
 /** `arguments` and `named_arguments` on VerifyConstraint and VerifyRequirement. */
 export const CAPABILITY_VERIFICATION_ARGUMENTS = "verification_arguments";
+/** `notes` on every Verdict; a service without it answers with none. */
+export const CAPABILITY_VERDICT_NOTES = "verdict_notes";
 /** The `Query` RPC. */
 export const CAPABILITY_QUERY = "query";
 /** `orderBy` on `Query`; a service without it would ignore the field. */

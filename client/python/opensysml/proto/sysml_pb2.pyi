@@ -90,7 +90,7 @@ COMPOSITE_OPERATOR_AND: CompositeOperator
 COMPOSITE_OPERATOR_OR: CompositeOperator
 
 class Verdict(_message.Message):
-    __slots__ = ("kind", "element_id", "element", "holds", "condition", "instance_id", "instance_type_id", "error", "failure_reason", "requirement_id", "engine", "strength", "bounds", "instance_path", "question", "status", "witness")
+    __slots__ = ("kind", "element_id", "element", "holds", "condition", "instance_id", "instance_type_id", "error", "failure_reason", "requirement_id", "engine", "strength", "bounds", "instance_path", "question", "status", "witness", "notes")
     KIND_FIELD_NUMBER: _ClassVar[int]
     ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
     ELEMENT_FIELD_NUMBER: _ClassVar[int]
@@ -108,6 +108,7 @@ class Verdict(_message.Message):
     QUESTION_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     WITNESS_FIELD_NUMBER: _ClassVar[int]
+    NOTES_FIELD_NUMBER: _ClassVar[int]
     kind: str
     element_id: str
     element: str
@@ -125,7 +126,18 @@ class Verdict(_message.Message):
     question: str
     status: str
     witness: _containers.RepeatedCompositeFieldContainer[WitnessAssignment]
-    def __init__(self, kind: _Optional[str] = ..., element_id: _Optional[str] = ..., element: _Optional[str] = ..., holds: _Optional[bool] = ..., condition: _Optional[str] = ..., instance_id: _Optional[int] = ..., instance_type_id: _Optional[str] = ..., error: _Optional[str] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., requirement_id: _Optional[str] = ..., engine: _Optional[str] = ..., strength: _Optional[str] = ..., bounds: _Optional[_Iterable[_Union[Bound, _Mapping]]] = ..., instance_path: _Optional[str] = ..., question: _Optional[str] = ..., status: _Optional[str] = ..., witness: _Optional[_Iterable[_Union[WitnessAssignment, _Mapping]]] = ...) -> None: ...
+    notes: _containers.RepeatedCompositeFieldContainer[VerdictNote]
+    def __init__(self, kind: _Optional[str] = ..., element_id: _Optional[str] = ..., element: _Optional[str] = ..., holds: _Optional[bool] = ..., condition: _Optional[str] = ..., instance_id: _Optional[int] = ..., instance_type_id: _Optional[str] = ..., error: _Optional[str] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., requirement_id: _Optional[str] = ..., engine: _Optional[str] = ..., strength: _Optional[str] = ..., bounds: _Optional[_Iterable[_Union[Bound, _Mapping]]] = ..., instance_path: _Optional[str] = ..., question: _Optional[str] = ..., status: _Optional[str] = ..., witness: _Optional[_Iterable[_Union[WitnessAssignment, _Mapping]]] = ..., notes: _Optional[_Iterable[_Union[VerdictNote, _Mapping]]] = ...) -> None: ...
+
+class VerdictNote(_message.Message):
+    __slots__ = ("kind", "subject", "text")
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    SUBJECT_FIELD_NUMBER: _ClassVar[int]
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    kind: str
+    subject: str
+    text: str
+    def __init__(self, kind: _Optional[str] = ..., subject: _Optional[str] = ..., text: _Optional[str] = ...) -> None: ...
 
 class WitnessAssignment(_message.Message):
     __slots__ = ("feature", "value", "unit", "exact")

@@ -217,6 +217,25 @@ message Verdict {
   // satisfiable one: the query's free variables, in query order. Never set
   // for an undecided answer. Reported as the "verification_questions" capability.
   repeated WitnessAssignment witness = 17;
+  // What the answer rests on, as the REPL's solver reports print it: the
+  // features the question reads as one value or object while only the default
+  // `0..*` multiplicity governs them, and the object-holding features whose own
+  // assertions it does not state. In report order; never set by an evaluation.
+  // Reported as the "verdict_notes" capability.
+  repeated VerdictNote notes = 18;
+}
+
+// VerdictNote is one assumption or omission behind a Verdict, worded once for
+// every surface.
+message VerdictNote {
+  // "assumed_one" (a feature read as holding one value or object while only the
+  // default `0..*` governs it) or "uncovered" (an object-holding feature whose
+  // own assertions the question does not state).
+  string kind = 1;
+  // The feature the note is about, as the report names it.
+  string subject = 2;
+  // The note as a sentence.
+  string text = 3;
 }
 
 // WitnessAssignment is one free variable's value in a witnessed assignment:

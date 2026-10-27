@@ -206,7 +206,12 @@ Analysis bound = model.runAnalysis("Trade::perOffset",
 `Calculation`, `Analysis` and every `Verdict` carry the `Standing` of the answer:
 which `engine` answered (`run`, `explore`, `solve`, `sweep`), the `strength` of
 its answer (`observed`, `witnessed`, `bounded`, `proved`, or `not covered`) and
-the `bounds` it ran under, each `reached` or not. `model.withEngine("solve")` (or
+the `bounds` it ran under, each `reached` or not. A `Verdict` also lists the `notes`
+a solver's answer rests on, each a `VerdictNote` of kind `KIND_ASSUMED_ONE` (a feature
+read as one value or object while only the default `0..*` multiplicity governs it) or
+`KIND_UNCOVERED` (an object-holding feature whose own assertions the question does not
+state), with the feature as `subject` and the note's `text`; a service without the
+`verdict_notes` capability answers with none. `model.withEngine("solve")` (or
 `Standing.ENGINE_AUTO`/`ENGINE_ALL`) binds every question the model is asked to an
 engine, and `connection.listEngines()` names what is available; both need the
 `engines` capability. A run whose objective stops on an error throws an `AnalysisException`

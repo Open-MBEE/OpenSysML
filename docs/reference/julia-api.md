@@ -147,7 +147,9 @@ explore_state(model, "Demo::machine"; events=String[], engine=nothing)
 ```
 
 Engine, question, and schedule options are checked against their respective
-service capabilities before the RPC. `execute_action` and `execute_state` take
+service capabilities before the RPC. A `Verdict` lists in `notes` what a solver's
+answer rests on, each a `VerdictNote` (`kind` `"assumed_one"` or `"uncovered"`,
+`subject`, `text`), empty from a service without `verdict_notes`. `execute_action` and `execute_state` take
 the run options of the `sysml` command: `advance` (simulated seconds to run
 for), `seed` (the model's own draws), `draws` (`"random"`, `"min"`, `"max"` or
 `"average"`) and `clock_step`; a negative or unknown one is an `ArgumentError`
