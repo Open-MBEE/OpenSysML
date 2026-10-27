@@ -51,6 +51,8 @@ The three classes of the SysML v2 textual export (`v2.V2Exporter`, `v2.V2Element
 `PathSelector` probes for it before any of them is loaded, and the test checks them against the
 2026x Refresh1 index instead. `scripts/refresh-openapi-index.sh <release>...` regenerates the
 index files from `https://jdocs.nomagic.com/<release>/allclasses-index.html`.
+The gate is class-level: a member that 2026x added to a class 2024x also has is caught only by
+`scripts/compile-against-cameo.sh` on a licensed 2024x installation, so run that before a release.
 
 2022x Refresh2 and earlier run on JDK 11 and cannot load the jar; see
 `docs/internals/design/mdk-plugin.md` §1.1 for what supporting them would take.

@@ -63,7 +63,10 @@ OpenAPI classes that the 2024x Javadoc (`https://jdocs.nomagic.com/2024x/`) also
 `OpenApiFloorTest` in the plugin module enforces it: `jdeps` over the compiled plugin, every
 `com.nomagic.*` / `com.dassault_systemes.*` class it links against checked against
 `editors/mdk/compat/openapi-classes-2024x.txt`, the public class index of that release
-(`editors/mdk/scripts/refresh-openapi-index.sh` regenerates the file). The SysML v2 path (§8)
+(`editors/mdk/scripts/refresh-openapi-index.sh` regenerates the file). The index names classes,
+not members, so a method 2026x added to a class 2024x also has passes the gate; only
+`compile-against-cameo.sh` against a licensed 2024x installation (§10.3) catches that, and the
+release procedure should run it. The SysML v2 path (§8)
 uses classes that exist only in 2026x and is absent on 2024x by design (§10.1): its three
 classes (`v2.V2Exporter`, `v2.V2Elements`, `selection.V2Selections`) are exempt from the floor,
 checked against the 2026x Refresh1 index instead, and reached only after `PathSelector` has
