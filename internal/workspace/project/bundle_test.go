@@ -8,8 +8,9 @@ import (
 	"testing"
 )
 
-// probeDir writes a project directory: manifest, a model in a subdirectory, a
-// README, and a hidden directory an archive must not carry.
+// probeDir writes a project directory without a .meta.json: manifest, models
+// in subdirectories, and a README, a hidden directory and an editor backup an
+// archive of it does not carry.
 func probeDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -21,6 +22,7 @@ func probeDir(t *testing.T) string {
 		".sysand/lib/x.sysml":  "package X;\n",
 		"model/Gears.kerml":    "package Gears { classifier Gear; }\n",
 		"model/sub/deep.sysml": "package Deep;\n",
+		"model/Probe.sysml~":   "package Probe { part def Old; }\n",
 	}
 	for name, content := range files {
 		path := filepath.Join(dir, filepath.FromSlash(name))
@@ -54,9 +56,9 @@ func TestBundleIsDeterministicAndGeneratesMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{".meta.json", ".project.json", "README.md", "model/Gears.kerml", "model/Probe.sysml", "model/sub/deep.sysml"}
+	want := []string{".meta.json", ".project.json", "model/Gears.kerml", "model/Probe.sysml", "model/sub/deep.sysml"}
 	if got := a.Names(); strings.Join(got, ",") != strings.Join(want, ",") {
-		t.Errorf("members = %q, want %q (sorted, hidden directories left out)", got, want)
+		t.Errorf("members = %q, want %q (sorted; the model files alone, without a .meta.json to record more)", got, want)
 	}
 	if a.Meta.Created != "1980-01-01T00:00:00Z" || a.Meta.Metamodel != MetamodelSysML {
 		t.Errorf("meta = %+v, want the archive epoch and the SysML metamodel", a.Meta)
@@ -64,7 +66,7 @@ func TestBundleIsDeterministicAndGeneratesMetadata(t *testing.T) {
 	if a.Meta.Index["Probe"] != "model/Probe.sysml" || a.Meta.Index["Gears"] != "model/Gears.kerml" || a.Meta.Index["Deep"] != "model/sub/deep.sysml" {
 		t.Errorf("index = %v", a.Meta.Index)
 	}
-	for _, member := range []string{".project.json", "README.md", "model/Probe.sysml"} {
+	for _, member := range []string{".project.json", "model/Gears.kerml", "model/Probe.sysml"} {
 		if sums := a.Meta.Checksum[member]; len(sums) != 1 || sums[0].Algorithm != "SHA256" {
 			t.Errorf("checksum[%s] = %v, want one SHA256", member, sums)
 		}
@@ -97,6 +99,41 @@ func TestBundleKeepsAndVerifiesAnExistingMetadataFile(t *testing.T) {
 	}
 	if _, _, err := Bundle(dir); err == nil || !strings.Contains(err.Error(), "does not match") {
 		t.Errorf("Bundle with a stale checksum: %v, want a checksum failure", err)
+	}
+}
+
+// A .meta.json decides the members: the files it records, whatever else the
+// directory holds; one it records that is missing names itself in the error.
+func TestBundleArchivesTheFilesTheMetadataRecords(t *testing.T) {
+	dir := probeDir(t)
+	meta := `{"index": {"Probe": "model/Probe.sysml"}, "created": "2026-01-01T00:00:00Z",
+	"checksum": {"model/Probe.sysml": {"value": "4044ca78bfbbcdd72b63cd877ad948c20b758dd30cbb4a0bf8c9e0af30c98bda", "algorithm": "SHA256"}, "README.md": {"value": "", "algorithm": "NONE"}}}`
+	if err := os.WriteFile(filepath.Join(dir, MetaFile), []byte(meta), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	data, _, err := Bundle(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := ParseArchive("probe.kpar", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{".meta.json", ".project.json", "README.md", "model/Probe.sysml"}
+	if got := a.Names(); strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("members = %q, want the recorded files %q: Gears.kerml and deep.sysml are not recorded", got, want)
+	}
+	if err := os.Remove(filepath.Join(dir, "README.md")); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Bundle(dir); err == nil || err.Error() != ".meta.json records README.md, which is not in the directory" {
+		t.Errorf("Bundle with a recorded file missing: %v, want the error naming README.md", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, MetaFile), []byte(strings.Replace(meta, `"README.md"`, `"../README.md"`, 1)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Bundle(dir); err == nil || !strings.Contains(err.Error(), `records "../README.md"`) {
+		t.Errorf("Bundle with a recorded path outside the directory: %v", err)
 	}
 }
 
@@ -143,7 +180,7 @@ func TestUnbundleReproducesTheDirectoryAndRefusesToOverwrite(t *testing.T) {
 	if err := Unbundle(a, out); err == nil || !strings.Contains(err.Error(), "not empty") {
 		t.Errorf("Unbundle into a directory with files: %v", err)
 	}
-	if err := Unbundle(a, filepath.Join(out, "README.md")); err == nil {
+	if err := Unbundle(a, filepath.Join(out, "model", "Probe.sysml")); err == nil {
 		t.Error("Unbundle onto a file succeeded")
 	}
 	again, _, err := Bundle(out)
