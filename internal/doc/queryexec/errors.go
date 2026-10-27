@@ -131,8 +131,8 @@ func declaredAs(fqns []string) string {
 func (e *Error) unknownElementMessage() string {
 	msg := fmt.Sprintf("query %s names no element %s", e.Query, e.Actual)
 	switch {
-	case e.Path != nil:
-		return msg + ": the alias denotes no element"
+	case len(e.Path) > 0:
+		return fmt.Sprintf("%s: the alias %s denotes no element", msg, e.Path[0])
 	case e.Target != "":
 		msg += fmt.Sprintf(": %s has no member %s", e.Target, e.Expected)
 	case e.Expected != "":

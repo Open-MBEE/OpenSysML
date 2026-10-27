@@ -90,9 +90,15 @@ func (e *executor) unknownElement(expression queryplan.Expression, name string, 
 	segments := strings.Split(name, "::")
 	for i := len(segments) - 1; i >= 1; i-- {
 		prefix := strings.Join(segments[:i], "::")
-		owners, _ := e.denoted(prefix)
+		owners, dangling := e.denoted(prefix)
 		switch len(owners) {
 		case 0:
+			if dangling {
+				// The path passes through an alias that denotes nothing: that alias is
+				// the frontier, not a member its namespace lacks.
+				err.Path = []string{prefix}
+				return err
+			}
 			continue
 		case 1:
 			err.Target = symbols.FQNOf(owners[0])
