@@ -104,9 +104,8 @@ func bundleMembers(dir string) (map[string][]byte, error) {
 	return recordedMembers(dir, meta)
 }
 
-// recordedMembers reads the files the directory's .meta.json content records,
-// with the two manifests. A recorded file that is not in the directory, not a
-// regular file, or reached through a link leading outside is an error naming it.
+// recordedMembers reads the files the directory's .meta.json content records, with the two manifests;
+// a recorded file missing, not regular, or reached through a link leading outside is an error naming it.
 func recordedMembers(dir string, content []byte) (map[string][]byte, error) {
 	meta, err := ParseMeta(content)
 	if err != nil {
@@ -148,9 +147,8 @@ func recordedMembers(dir string, content []byte) (map[string][]byte, error) {
 	return members, nil
 }
 
-// modelMembers reads the project file and the model files of a directory
-// without a .meta.json — what §10.3 says an archive holds — leaving out hidden
-// entries, library directories and the trees of nested projects.
+// modelMembers reads the project file and model files of a directory without a .meta.json (what §10.3
+// says an archive holds), leaving out hidden entries, library directories and nested projects' trees.
 func modelMembers(dir string) (map[string][]byte, error) {
 	members := map[string][]byte{}
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {

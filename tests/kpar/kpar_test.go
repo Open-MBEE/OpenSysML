@@ -329,10 +329,8 @@ func run(t *testing.T, bin string, args ...string) (string, error) {
 	return string(output), err
 }
 
-// -bundle writes the same bytes on every run, -unbundle writes back the files
-// the archive records — those the directory's .meta.json names, not every
-// file the directory holds — and the two refuse to overwrite or to run with
-// a model.
+// -bundle writes the same bytes on every run, -unbundle writes back the files the archive records
+// (those the .meta.json names, not every file), and the two refuse to overwrite or to run with a model.
 func TestBundleIsDeterministicAndUnbundleReproducesTheRecordedFiles(t *testing.T) {
 	bin := sysmlBinary(t)
 	src := filepath.Join(sysandProject(t), ".sysand", "lib", "ode4hera-requirements-management_2.0.1")
@@ -410,9 +408,8 @@ func TestBundleIsDeterministicAndUnbundleReproducesTheRecordedFiles(t *testing.T
 	}
 }
 
-// compareRecorded fails unless got holds exactly the files the .meta.json of
-// want records, with the two manifests, byte for byte; what want holds
-// unrecorded (its README, its LICENSES) is not the archive's to carry.
+// compareRecorded fails unless got holds exactly the files want's .meta.json records, with the
+// two manifests, byte for byte; what want holds unrecorded (README, LICENSES) is not the archive's.
 func compareRecorded(t *testing.T, want, got string) {
 	t.Helper()
 	content, err := os.ReadFile(filepath.Join(want, project.MetaFile))

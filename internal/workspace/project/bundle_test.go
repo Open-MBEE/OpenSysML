@@ -8,9 +8,8 @@ import (
 	"testing"
 )
 
-// probeDir writes a project directory without a .meta.json: manifest, models
-// in subdirectories, and a README, a hidden directory and an editor backup an
-// archive of it does not carry.
+// probeDir writes a project directory without a .meta.json: manifest, models in subdirectories,
+// and a README, a hidden directory and an editor backup an archive of it does not carry.
 func probeDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()

@@ -13,10 +13,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
-// recordedProject writes a project laid out as a repository is: the
-// .meta.json records the two units and the LICENSE, and the tree also holds
-// what a repository accumulates and no archive carries — a README, a build
-// script with its __pycache__, an editor backup and version-control metadata.
+// recordedProject writes a repository-shaped project: the .meta.json records the two units and LICENSE,
+// and the tree also holds a README, a script with its __pycache__, an editor backup and VCS metadata.
 func recordedProject(t *testing.T) string {
 	t.Helper()
 	dir := filepath.Join(t.TempDir(), "widgets")
@@ -76,9 +74,8 @@ func recordChecksums(t *testing.T, dir string) {
 	}
 }
 
-// A directory with a .meta.json bundles into the two manifests and exactly the
-// files the metadata records, whatever else the tree holds; each member's
-// bytes are the file's.
+// A directory with a .meta.json bundles into the two manifests and exactly the files
+// the metadata records, whatever else the tree holds, each member's bytes the file's.
 func TestBundleArchivesTheFilesTheMetadataRecordsAlone(t *testing.T) {
 	dir := recordedProject(t)
 	recordChecksums(t, dir)
@@ -123,9 +120,8 @@ func TestBundleRefusesATreeMissingARecordedFile(t *testing.T) {
 	}
 }
 
-// Without a .meta.json the archive holds what KerML 10.3 says it holds: the
-// project file and the model files, with a .meta.json written from them;
-// the README, scripts, caches, backups and version-control metadata stay out.
+// Without a .meta.json the archive holds what KerML 10.3 says: the project file and the model
+// files, with a .meta.json written from them; README, scripts, caches, backups and VCS data stay out.
 func TestBundleWithoutMetadataArchivesTheModelFiles(t *testing.T) {
 	dir := recordedProject(t)
 	if err := os.Remove(filepath.Join(dir, project.MetaFile)); err != nil {
