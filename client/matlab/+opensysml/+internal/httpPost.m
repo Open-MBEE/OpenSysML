@@ -50,9 +50,23 @@ function [status, contentType, bodyText] = post_curl(url, requestJsonText, timeo
     if isempty(regexp(url, '^https?://[A-Za-z0-9._~%:\[\]\-]+(/[A-Za-z0-9._~%\-/]*)?$', 'once'))
         error('opensysml:transport', 'refusing to send to an address with shell metacharacters: %s', url);
     end
+    % The token goes to curl through a file only this user can read, never
+    % through the command line, which every local user can list.
     authorization = '';
     if ~isempty(token)
-        authorization = sprintf('-H "Authorization: Bearer %s" ', token);
+        headerFile = [tempname '.hdr'];
+        if any(headerFile == '''') || any(headerFile == sprintf('\n'))
+            error('opensysml:transport', 'refusing a header file path that breaks quoting: %s', headerFile);
+        end
+        fclose(fopen(headerFile, 'w'));
+        if ~ispc()
+            system(sprintf('chmod 600 ''%s''', headerFile));
+        end
+        fid = fopen(headerFile, 'w');
+        fwrite(fid, sprintf('Authorization: Bearer %s', token));
+        fclose(fid);
+        headerCleanup = onCleanup(@() delete(headerFile)); %#ok<NASGU>
+        authorization = sprintf('-H @''%s'' ', headerFile);
     end
     % curl writes status and content type after the marker, on lines of their own.
     marker = sprintf('\n__OPENSYSML_STATUS__\n');
