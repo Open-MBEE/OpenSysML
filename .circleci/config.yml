@@ -2820,13 +2820,13 @@ jobs:
             import zipfile
 
             tag, manifest_path, wheel_path = sys.argv[1:]
+            # The five binaries by exact name: the manifest also lists their sidecars and SBOMs.
+            assets = {f"sysml-grpc-{p}" for p in ("darwin-amd64", "darwin-arm64", "linux-amd64", "linux-arm64", "windows-amd64.exe")}
             listed = {}
             with open(manifest_path, encoding="utf-8") as manifest:
                 for line in manifest:
                     fields = line.split()
-                    if len(fields) != 2 or not fields[1].startswith("sysml-grpc-"):
-                        continue
-                    if not fields[1].endswith(".sha256"):
+                    if len(fields) == 2 and fields[1] in assets:
                         listed[fields[1]] = fields[0]
             with zipfile.ZipFile(wheel_path) as wheel:
                 with wheel.open("opensysml/release-digests.json") as member:
@@ -2853,13 +2853,12 @@ jobs:
             tag, manifest_path, *wheel_paths = sys.argv[1:]
             if len(wheel_paths) != 5:
                 raise SystemExit(f"Error: expected five kernel wheels, got {wheel_paths}; nothing was signed.")
+            assets = {f"sysml-jupyter-kernel-{p}" for p in ("darwin-amd64", "darwin-arm64", "linux-amd64", "linux-arm64", "windows-amd64.exe")}
             listed = {}
             with open(manifest_path, encoding="utf-8") as manifest:
                 for line in manifest:
                     fields = line.split()
-                    if len(fields) != 2 or not fields[1].startswith("sysml-jupyter-kernel-"):
-                        continue
-                    if not fields[1].endswith(".sha256"):
+                    if len(fields) == 2 and fields[1] in assets:
                         listed[fields[1]] = fields[0]
             for wheel_path in wheel_paths:
                 with zipfile.ZipFile(wheel_path) as wheel:
