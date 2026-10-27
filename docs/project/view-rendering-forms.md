@@ -43,7 +43,18 @@ the usage's end — the glyphs of SysML v2 §8.2.3.6, the diamond read from the 
 `Feature::isComposite` (`semantics.Model.UsageIsComposite`: a `ref`, an attribute, a port outside a
 port, an end, a directed or an enumeration usage is non-composite). The writers draw that edge in
 place of the containment line they draw to every other child, so a usage hangs off its owner by its
-membership glyph alone. A usage listed in a compartment row instead of drawn as a node (the
+membership glyph alone. The directed parameters of a calculation, action or constraint definition
+or usage — `in`, `out`, `inout` and `return` — are no member nodes of a tree: `treeParameter`
+(`tree_parameters.go`) pins each on its owner's node as a `Port` with `Parameter` set and the
+direction `pinDirection` reads, where §8.2.3.17, §8.2.3.19 and §8.2.3.20 set a calc's, action's and
+constraint's parameters (`param-l*`, `param-r*`, `param-b*`). A `return` declaring no name is the
+`result` pin, named by the `Function::result` it redefines (§7.19.2); a usage typed by a definition
+pins each parameter once, its own redefining ones as declared and the definition's others as
+inherited (`^y`). The text form lists the pins under their node direction first (`in x : Integer`,
+the type under `typings`), DOT and D2 draw them as pins, and Mermaid's flowchart and PlantUML's
+class diagram, which have no pin on a tree node, list them in a `parameters` compartment
+(`labeller.parameterLines`). The pins are the tree's model structure and stay whatever
+`parameter-symbols` says, as its members do. A usage listed in a compartment row instead of drawn as a node (the
 compartment foldings, or a positioned tree's unplaced members) folds its membership and typing into
 one edge from its owner to each drawn definition, labelled with the usage's name and multiplicity
 at the definition's end — the property association a block definition diagram draws. Both
@@ -451,7 +462,7 @@ table records what each rendering feature writes:
 | Feature | Mermaid syntax and behavior |
 | --- | --- |
 | Definitions, regions, package kinds | Square flowchart nodes, `n0["…"]`; cases use stadium nodes, actors and subjects use keyword-bearing rectangles, and objectives use note nodes. Other non-symbol leaves are rounded `n0("…")` nodes. Cameo follows the DOT skin's rounded rule. |
-| Tree containment | Plain shaped nodes joined by `---`; tree nodes are never subgraphs and have no synthetic anchors. |
+| Tree containment | Plain shaped nodes joined by `---`; tree nodes are never subgraphs and have no synthetic anchors. A calc's, action's or constraint's parameter pins are lines of the node's label under a `parameters` heading (`in x : Integer`). |
 | Initial, final, junction, fork and join | `f-circ` for initial and junction nodes, `fr-circ` for final nodes, and `fork` for fork/join bars. Only fork/join bars use the `control` class. Named fork/join nodes are listed in a notice because the bar draws no label. |
 | Decision, merge, choice and history | Diamonds; empty and synthesized decision names use a blank diamond. Shallow/deep history use `(("H"))` and `(("H*"))`. |
 | State pseudostates and final transitions | Mermaid state stereotypes (`<<fork>>`, `<<join>>`, `<<choice>>`) and `[*]` for initial/final markers. A final in the same state body is implicit; cross-body final transitions retain the explicit final and receive a notice. |
@@ -1205,7 +1216,8 @@ pseudostate shape only when nothing else is attached.
   Mermaid and DOT trees draw containment — a tree of edges, no nested containers — so the three
   forms show the same picture and a tree has no blocks. The Pilot's `comp def`/`comp usage`
   element kinds exist only in the PlantUML fork and are not emitted; every element is a standard
-  `class`.
+  `class`, a calc's, action's or constraint's parameter pins listed in its label under a
+  `parameters` heading, as the Mermaid tree lists them.
 - **`interconnection`** — nested `rectangle` blocks: a node with children is `rectangle "…" as
   n<i> <<kind>> {` … `}`, indented two spaces a level, a leaf a one-line `rectangle`. A port is a
   nested rectangle inside its owner, not a `portin`/`portout`: the released jar's port grammar
@@ -1395,8 +1407,8 @@ attribute a rendering in the model chooses it by:
 
 | Element | Attribute | What it draws | Optional by |
 | --- | --- | --- | --- |
-| `parameter-symbols` | `showParameterSymbols` | A case's `actor`, `subject` and `stakeholder` parameters as squares on the node's boundary (an action's parameter pins are its node form's, always drawn). Without them a connection that ended at a parameter ends at the node that declares it: one line per connection, one node per actor. A tree lists a case's parameters as members, which stay. | §7.26.5; §8.2.3 `distinguished-parameter`, `distinguished-parameter-link` |
-| `port-symbols` | `showPortSymbols` | A part's ports, and a constraint's parameters, as pins on its boundary. Without them a connection that ended at a port ends at the part, a binding that ended at a parameter at the constraint; a port drawn as a nested member of a tree is model structure and stays. Default. | §7.26.5; §8.2.3 `port-node` |
+| `parameter-symbols` | `showParameterSymbols` | A case's `actor`, `subject` and `stakeholder` parameters as squares on the node's boundary (an action's parameter pins are its node form's, always drawn). Without them a connection that ended at a parameter ends at the node that declares it: one line per connection, one node per actor. A tree lists a case's parameters as members and a calc's, action's or constraint's as pins of their owner, all of which stay. | §7.26.5; §8.2.3 `distinguished-parameter`, `distinguished-parameter-link` |
+| `port-symbols` | `showPortSymbols` | A part's ports, and a constraint's parameters, as pins on its boundary. Without them a connection that ended at a port ends at the part, a binding that ended at a parameter at the constraint; a port drawn as a nested member of a tree is model structure and stays, as are a tree's parameter pins. Default. | §7.26.5; §8.2.3 `port-node` |
 | `compartments` | `showCompartments` | The lists of nested features inside a node. Default. | §7.26.5; §8.2.3 `compartment` |
 | `edge-labels` | `showEdgeLabels` | The names of connections, flows, bindings and allocations along their lines. Without them no label box is left. A sequence diagram's message lines keep their labels: the label is the message. | §8.2.3 `edge-label` |
 | `keywords` | `showKeywords` | The `«keyword»` over each name (`«part def»`, `«part»`, `«enum def»`, …), as the notation's examples, the pilot and SysON draw every node. Default. | §8.2.3 `keyword-list` |

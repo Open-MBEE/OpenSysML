@@ -355,10 +355,10 @@ func (w *d2Writer) writeNode(node *Node, scope, indent string) {
 }
 
 // pins are the ports drawn inside a node: an interconnection's under the
-// ports display, an action's the ones an edge ends at.
+// ports display, a tree's parameter pins, an action's the ones an edge ends at.
 func (w *d2Writer) pins(node *Node) []Port {
 	switch {
-	case w.ports.interconnection:
+	case w.ports.interconnection, w.ports.tree:
 		return w.ports.of(node)
 	case w.ports.action:
 		var pins []Port
@@ -374,9 +374,12 @@ func (w *d2Writer) pins(node *Node) []Port {
 
 // pinLabel is a pin's label: on an interconnection the port's stereotype over
 // `name : Type` under the full display and the name alone under the minimal,
-// on an action the pin's name.
+// on a tree the parameter's direction, name and type, on an action the pin's name.
 func (w *d2Writer) pinLabel(port Port) string {
-	if !w.ports.interconnection {
+	switch {
+	case w.ports.tree:
+		return parameterPinLine(port)
+	case !w.ports.interconnection:
 		return port.displayName()
 	}
 	label := w.ports.pinLabel(port)

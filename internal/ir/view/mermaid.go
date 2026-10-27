@@ -46,6 +46,7 @@ func (r *Rendering) MermaidWith(options Options) string {
 	direction := options.Direction
 	var b strings.Builder
 	labels := labelsOf(r.Roots, false, nil, r.Shown)
+	labels.pinLines = r.Kind == KindTree
 	labels.skin = skinOf(options.Style)
 	ports := r.portView(options.Ports)
 	used := r.usedPorts(ports)

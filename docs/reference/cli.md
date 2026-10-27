@@ -859,6 +859,13 @@ state grammar has no pin, so it names the edge's pins in the edge's label (`n0 -
 and lists every pin in its node's `parameters` compartment; `d2` draws the pins an edge ends at as
 nodes nested in their owner, and lists the rest in the `parameters` compartment.
 
+A tree rendering draws the directed parameters of a calculation, action or constraint definition or
+usage — `in`, `out`, `inout` and `return` — as parameter pins of their owner's node rather than as
+nested members, a `return` declaring no name as the `result` output: `text` lists them under the
+node direction first (`in x : Integer` with `typings` shown), `dot` and `d2` draw them as pins, and
+`mermaid` and `plantuml` list them in a `parameters` compartment of the node's label. A usage typed
+by a definition shows each parameter once, the definition's as inherited (`^y`).
+
 Every `subgraph` of a Mermaid flowchart opens on a `direction` statement restating the
 flowchart's, because Mermaid lays out a subgraph that states none without regard to the
 flowchart's; a tree draws containment as edges, not subgraphs, so it carries none.

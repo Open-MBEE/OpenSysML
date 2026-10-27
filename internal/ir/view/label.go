@@ -17,6 +17,9 @@ type labeller struct {
 	simple  map[*Node]string // a node's distinguishing suffix, when names are drawn simple
 	skin    dotSkin          // the DOT skin labels are composed and measured for
 	shown   Shown            // the optional notation elements the labels carry
+	// pinLines lists a node's parameter pins as label lines, for a form that
+	// draws no pin on a tree node.
+	pinLines bool
 	// listedPin reports a parameter pin the form lists in the node's `parameters`
 	// compartment instead of drawing it; nil lists none.
 	listedPin func(node *Node, port Port) bool
@@ -370,9 +373,10 @@ func (l labeller) titleLines(node *Node) []string {
 }
 
 // lists reports whether the node's parameter pin is listed in its `parameters`
-// compartment: a compartment the rendering shows, holding a pin listedPin names.
+// compartment: every pin where pinLines asks, else a pin listedPin names when
+// the rendering shows compartments.
 func (l labeller) lists(node *Node, port Port) bool {
-	return l.shown.Has(ElementCompartments) && l.listedPin != nil && l.listedPin(node, port)
+	return l.pinLines || l.shown.Has(ElementCompartments) && l.listedPin != nil && l.listedPin(node, port)
 }
 
 // parameterLines are the node's listed parameter pins as the notation's
@@ -388,12 +392,6 @@ func (l labeller) parameterLines(node *Node) []string {
 		return nil
 	}
 	return append([]string{"parameters"}, lines...)
-}
-
-// parameterPinLine is a parameter pin as a compartment line: direction, name
-// and, when typings are shown, type.
-func parameterPinLine(port Port) string {
-	return strings.TrimSpace(port.Direction.String() + " " + port.label())
 }
 
 // cameoStateDetails splits a state's detail into Cameo's compartment lines, one

@@ -52,6 +52,7 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 		labels: labelsOf(r.Roots, false, nil, r.Shown), ports: r.portView(options.Ports), links: options.Links,
 		writtenPorts: make(map[string]struct{}), nesting: r.nestingEdges()}
 	w.labels.listedPin = r.listedPin(func(node *Node, port Port) bool { return r.Kind == KindMixed && drawsPort(w.ports.of(node), port) })
+	w.labels.pinLines = r.Kind == KindTree
 	for _, root := range r.Roots {
 		w.fills.collect(root)
 	}
