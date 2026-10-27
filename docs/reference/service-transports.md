@@ -180,7 +180,7 @@ only), `-token <value>`, or `OPENSYSML_GRPC_TOKEN` in the environment — and ev
 protocol must then carry it: `Authorization: Bearer <token>` on Connect, gRPC-Web and
 Connect-HTTP, the `authorization` metadata on grpc-go, compared in constant time. A call without
 it is answered `unauthenticated` (HTTP 401 with `WWW-Authenticate: Bearer realm="sysml-grpc"`;
-the grpc-go trailer carries the same), and the [wire contract](wire-contract.md#error-model)
+the grpc-go trailer carries the same), and the [wire contract](wire-contract.md#connect-errors-the-code-table)
 says what each client raises. `GET /health` is answered without a token so that liveness
 probes need no secret; it says the version, nothing about any model. Starting non-loopback
 without a token fails at once naming the three ways to supply one and the one way to decline:
