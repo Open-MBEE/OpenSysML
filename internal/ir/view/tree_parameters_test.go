@@ -114,6 +114,33 @@ func TestTreePinsActionAndConstraintParameters(t *testing.T) {
 	}
 }
 
+// A note about a parameter is anchored to the node its pin sits on.
+func TestTreeAnchorsParameterNotesToTheOwner(t *testing.T) {
+	rendering := renderSource(t, "Diagrams::noted", `package Model {
+	private import ScalarValues::*;
+	calc def Add {
+		in x : Integer;
+		return : Integer = x;
+	}
+}
+package Diagrams {
+	private import Views::*;
+	view noted {
+		expose Model::Add;
+		render asTreeDiagram;
+		metadata DiagramLayout::Note about Model::Add::x { text = "the addend"; x = 200; y = 40; }
+	}
+}`)
+	root := rendering.Roots[0]
+	wantEqual(t, "pins", pinTexts(root), []string{"in x", "out result"})
+	if len(rendering.Notes) != 1 || rendering.Notes[0].Text != "the addend" || rendering.Notes[0].Anchor != root.ID {
+		t.Errorf("notes = %+v, want one note \"the addend\" anchored to %s", rendering.Notes, root.ID)
+	}
+	if !strings.Contains(rendering.Text(), "the addend") {
+		t.Errorf("text form lacks the note:\n%s", rendering.Text())
+	}
+}
+
 // A view collapsing a calc, or walking no deeper than it, keeps its parameter pins.
 func TestTreeKeepsParameterPinsWhenFolded(t *testing.T) {
 	rendering := renderSource(t, "Diagrams::folded", `package Model {
