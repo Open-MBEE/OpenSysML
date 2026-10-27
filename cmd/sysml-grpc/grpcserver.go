@@ -99,7 +99,7 @@ func unaryAccessInterceptor(door access) grpc.UnaryServerInterceptor {
 		start := time.Now()
 		authenticated, refusal := door.admit(authorizationOf(ctx))
 		if refusal != guard.Accepted {
-			logRefusal(transportGRPC, peerOf(ctx), info.FullMethod, refusal)
+			logRefusal(transportGRPC, peerOf(ctx), info.FullMethod, refusal, time.Since(start))
 			_ = grpc.SetTrailer(ctx, challengeTrailer(refusal))
 			return nil, status.Error(codes.Unauthenticated, refusal.Message())
 		}
@@ -122,7 +122,7 @@ func streamAccessInterceptor(door access) grpc.StreamServerInterceptor {
 		ctx := ss.Context()
 		authenticated, refusal := door.admit(authorizationOf(ctx))
 		if refusal != guard.Accepted {
-			logRefusal(transportGRPC, peerOf(ctx), info.FullMethod, refusal)
+			logRefusal(transportGRPC, peerOf(ctx), info.FullMethod, refusal, time.Since(start))
 			ss.SetTrailer(challengeTrailer(refusal))
 			return status.Error(codes.Unauthenticated, refusal.Message())
 		}
@@ -156,6 +156,10 @@ func challengeTrailer(refusal guard.Refusal) metadata.MD {
 func grpcCodeOf(err error) string {
 	if err == nil {
 		return "ok"
+	}
+	var ce *connect.Error
+	if errors.As(err, &ce) {
+		return ce.Code().String()
 	}
 	return connect.Code(status.Code(err)).String()
 }

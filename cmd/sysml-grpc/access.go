@@ -53,12 +53,13 @@ func logCall(protocol, peer, method, code string, dur time.Duration, authenticat
 
 // logRefusal records a call turned away at the door and who knocked; what
 // they presented is never written.
-func logRefusal(protocol, peer, method string, refusal guard.Refusal) {
+func logRefusal(protocol, peer, method string, refusal guard.Refusal, dur time.Duration) {
 	slog.Warn("call refused: "+refusal.String(),
 		"peer", peer,
 		"method", method,
 		"protocol", protocol,
 		"code", connect.CodeUnauthenticated.String(),
+		"duration_ms", dur.Milliseconds(),
 		"authenticated", false,
 	)
 }
@@ -89,7 +90,7 @@ func (i connectAccess) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 		peer, procedure, protocol := req.Peer().Addr, req.Spec().Procedure, req.Peer().Protocol
 		authenticated, refusal := i.admit(req.Header().Get("Authorization"))
 		if refusal != guard.Accepted {
-			logRefusal(protocol, peer, procedure, refusal)
+			logRefusal(protocol, peer, procedure, refusal, time.Since(start))
 			return nil, unauthenticated(refusal)
 		}
 		res, err := next(ctx, req)
@@ -111,7 +112,7 @@ func (i connectAccess) WrapStreamingHandler(next connect.StreamingHandlerFunc) c
 		peer, procedure, protocol := conn.Peer().Addr, conn.Spec().Procedure, conn.Peer().Protocol
 		authenticated, refusal := i.admit(conn.RequestHeader().Get("Authorization"))
 		if refusal != guard.Accepted {
-			logRefusal(protocol, peer, procedure, refusal)
+			logRefusal(protocol, peer, procedure, refusal, time.Since(start))
 			return unauthenticated(refusal)
 		}
 		err := next(ctx, conn)
