@@ -1,0 +1,92 @@
+{
+  "checksum": {
+    "LICENSE": {
+      "algorithm": "SHA256",
+      "value": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    "libraries/AnalysisRecords.sysml": {
+      "algorithm": "SHA256",
+      "value": "ffdd07b031da3d1eba483a915aca2b773d7d1044895fc5e0788f1c97ec21e297"
+    },
+    "libraries/DiagramLayout.sysml": {
+      "algorithm": "SHA256",
+      "value": "8d55d0b0e3da5d7474eedfeaa035f4af774a7e4ba71a7a78b2f2d94fa07244e0"
+    },
+    "libraries/DocumentQueries.sysml": {
+      "algorithm": "SHA256",
+      "value": "aa60929736008efde216af31a14482817abc221a67e53c337173f53b59d63322"
+    },
+    "libraries/IdentityMetadata.sysml": {
+      "algorithm": "SHA256",
+      "value": "3463931816369ca9bc1f0bf8bc96eb2bece9e6ced8f8b3ff48a4fc964a9a2aab"
+    },
+    "libraries/MOSA.sysml": {
+      "algorithm": "SHA256",
+      "value": "e07bdb6c8c6f856cb5236132e8295913342db06cc7806865f545a86e8f44dfae"
+    },
+    "libraries/MigrationMetadata.sysml": {
+      "algorithm": "SHA256",
+      "value": "4bafea415e043bb14c8dd1858753e1bc318808ff8c8294523cdc12ebea0e319c"
+    },
+    "libraries/OOSEM.sysml": {
+      "algorithm": "SHA256",
+      "value": "7845c981b51ff99b9204a26493d5a07396f9007a2cf51c6ca7583125bfd31abf"
+    },
+    "libraries/OpenSysMLMathFunctions.kerml": {
+      "algorithm": "SHA256",
+      "value": "8230dfbdd7376430ab819f29e50f4333933535db750b8ddda6d9252a7981d0be"
+    },
+    "libraries/OpenSysMLRenderings.sysml": {
+      "algorithm": "SHA256",
+      "value": "1dc65b8af7d997047557b3297b8ac1b7e095ef992084e108f35e220a67518825"
+    },
+    "libraries/RandomFunctions.kerml": {
+      "algorithm": "SHA256",
+      "value": "50793e1e940b377777a931d102f86770b02576b019e6bfb7b8c33384cd78fbc7"
+    },
+    "libraries/Simulation.sysml": {
+      "algorithm": "SHA256",
+      "value": "2d755bca5e71702953e342ac75e567380cd8210600a895b6c5f741230e0aa951"
+    },
+    "libraries/StateActivity.kerml": {
+      "algorithm": "SHA256",
+      "value": "84b7e3d4f4ea1a9efbb1d1d343c42f7afb32cc1cc580b68e7ec9bed16c328460"
+    },
+    "libraries/StateMachines.sysml": {
+      "algorithm": "SHA256",
+      "value": "5421ef73696d9ee1d115323cf80a7c2f712a2f1d9e4aebd866e5c2613a3e2e86"
+    },
+    "libraries/StateSpaceIntegration.sysml": {
+      "algorithm": "SHA256",
+      "value": "c324cef90d06cbfef168cb0b05a6bafbff2dd9e729b3e4fc49b16e49b0dfcb50"
+    },
+    "libraries/Stochastic.sysml": {
+      "algorithm": "SHA256",
+      "value": "ed8b80b41f51012b2030be960afc1c97698370ff5263c5d28dc4063d37a46e88"
+    },
+    "libraries/SysMLValidation.sysml": {
+      "algorithm": "SHA256",
+      "value": "9e00f049209584092dc8bcb398b736c08e6a39b1db667a8a744de3df72a543bf"
+    }
+  },
+  "created": "2026-10-25T17:57:00Z",
+  "index": {
+    "AnalysisRecords": "libraries/AnalysisRecords.sysml",
+    "DiagramLayout": "libraries/DiagramLayout.sysml",
+    "DocumentQueries": "libraries/DocumentQueries.sysml",
+    "IdentityMetadata": "libraries/IdentityMetadata.sysml",
+    "MOSA": "libraries/MOSA.sysml",
+    "MigrationMetadata": "libraries/MigrationMetadata.sysml",
+    "OOSEM": "libraries/OOSEM.sysml",
+    "OpenSysMLMathFunctions": "libraries/OpenSysMLMathFunctions.kerml",
+    "OpenSysMLRenderings": "libraries/OpenSysMLRenderings.sysml",
+    "RandomFunctions": "libraries/RandomFunctions.kerml",
+    "Simulation": "libraries/Simulation.sysml",
+    "StateActivity": "libraries/StateActivity.kerml",
+    "StateMachines": "libraries/StateMachines.sysml",
+    "StateSpaceIntegration": "libraries/StateSpaceIntegration.sysml",
+    "Stochastic": "libraries/Stochastic.sysml",
+    "SysMLValidation": "libraries/SysMLValidation.sysml"
+  },
+  "metamodel": "https://www.omg.org/spec/SysML/20250201"
+}

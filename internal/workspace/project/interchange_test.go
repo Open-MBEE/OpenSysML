@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -460,10 +461,17 @@ func TestUsedLinksAnUnmatchedUsageToTheOneUnclaimedProject(t *testing.T) {
 
 	// Gears, both versions, is claimed by the first usage, so the second has
 	// sysmod alone left, at its highest version; the usages of the project
-	// linked by elimination are followed in turn.
+	// linked by elimination are followed in turn, and the link is said.
 	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
-	if want := []string{gears1, sysmod515, gears2}; !reflect.DeepEqual(projectDirs(found.Used), want) || len(found.Unlinked) != 0 {
-		t.Fatalf("Used = %v, Unlinked = %v, want %v and nothing unlinked", projectDirs(found.Used), found.Unlinked, want)
+	if want := []string{gears1, sysmod515, gears2}; !reflect.DeepEqual(projectDirs(found.Used), want) {
+		t.Fatalf("Used = %v, want %v", projectDirs(found.Used), want)
+	}
+	want := Warning{
+		Path:    filepath.Join(proj, ProjectFile),
+		Message: fmt.Sprintf("usage pkg:git/github.com/MBSE4U/sysmod-sysmlv2 names no installed project by publisher and name; linked by elimination to mbse4u/sysmod 5.1.5 (%s), the one unclaimed installed project that satisfies it; end the resource with the project's publisher and name (…/mbse4u/sysmod) to name it", sysmod515),
+	}
+	if !reflect.DeepEqual(found.Linking, []Warning{want}) {
+		t.Fatalf("Linking = %q, want %q", found.Linking, want)
 	}
 }
 
@@ -477,16 +485,19 @@ func TestUsedLinksByEliminationWithinTheUsageConstraint(t *testing.T) {
 
 	// Only 5.0.0 satisfies @5.0.0, so Widgets does not make the usage ambiguous.
 	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
-	if got := projectDirs(found.Used); !reflect.DeepEqual(got, []string{sysmod500}) || len(found.Unlinked) != 0 {
-		t.Fatalf("Used = %v, Unlinked = %v, want sysmod 5.0.0 alone", got, found.Unlinked)
+	if got := projectDirs(found.Used); !reflect.DeepEqual(got, []string{sysmod500}) {
+		t.Fatalf("Used = %v, want sysmod 5.0.0 alone", got)
+	}
+	if len(found.Linking) != 1 || !strings.Contains(found.Linking[0].Message, "linked by elimination to mbse4u/sysmod 5.0.0 ("+sysmod500+")") {
+		t.Fatalf("Linking = %q, want the elimination link to 5.0.0 said once", found.Linking)
 	}
 
 	// A constraint nothing satisfies links nothing and says nothing.
 	writeProject(t, proj, `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
   {"resource": "pkg:git/github.com/MBSE4U/sysmod-sysmlv2@6.0.0"}]}`)
 	found = Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
-	if len(found.Used) != 0 || len(found.Unlinked) != 0 {
-		t.Fatalf("Used = %v, Unlinked = %v, want nothing", projectDirs(found.Used), found.Unlinked)
+	if len(found.Used) != 0 || len(found.Linking) != 0 {
+		t.Fatalf("Used = %v, Linking = %v, want nothing", projectDirs(found.Used), found.Linking)
 	}
 }
 
@@ -505,8 +516,30 @@ func TestUsedLeavesAUsageSeveralUnclaimedProjectsCouldAnswerUnlinked(t *testing.
 		Path:    filepath.Join(proj, ProjectFile),
 		Message: fmt.Sprintf("usage pkg:git/github.com/MBSE4U/sysmod-sysmlv2 names no installed project by publisher and name, and 2 unclaimed ones could answer it: acme/widgets 1.0.0 (%s), mbse4u/sysmod 5.1.5 (%s); end the resource with the project's publisher and name (…/acme/widgets) to select one", widgets, sysmod),
 	}
-	if !reflect.DeepEqual(found.Unlinked, []Warning{want}) {
-		t.Fatalf("Unlinked = %q, want %q", found.Unlinked, want)
+	if !reflect.DeepEqual(found.Linking, []Warning{want}) {
+		t.Fatalf("Linking = %q, want %q", found.Linking, want)
+	}
+}
+
+// An installed project loaded alongside its consumer still answers the usage by elimination,
+// said once, with its own usages followed; loaded alone it is not offered to itself.
+func TestAroundSaysTheEliminationLinkWhenTheLinkedProjectIsLoaded(t *testing.T) {
+	root := t.TempDir()
+	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:git/github.com/MBSE4U/sysmod-sysmlv2"}]}`)
+	sysmod := writeProject(t, filepath.Join(proj, "lib", "mbse4u-sysmod_5.1.5"), `{"name": "sysmod", "publisher": "mbse4u", "version": "5.1.5", "usage": [{"resource": "pkg:registry/acme/gears"}, {"resource": "pkg:git/example.org/other/thing-repo"}]}`)
+	gears := writeProject(t, filepath.Join(proj, "lib", "acme-gears_1.0.0"), `{"name": "Gears", "publisher": "acme", "version": "1.0.0"}`)
+
+	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml"), filepath.Join(sysmod, "SYSMOD.sysml")})
+	if got := projectDirs(found.Used); !reflect.DeepEqual(got, []string{gears}) {
+		t.Fatalf("Used = %v, want Gears, followed from sysmod's usage", got)
+	}
+	if len(found.Linking) != 1 || !strings.Contains(found.Linking[0].Message, "linked by elimination to mbse4u/sysmod 5.1.5 ("+sysmod+")") {
+		t.Fatalf("Linking = %q, want the consumer's elimination link said once", found.Linking)
+	}
+	found = Discovery{}.Around([]string{filepath.Join(sysmod, "SYSMOD.sysml")})
+	if got := projectDirs(found.Used); !reflect.DeepEqual(got, []string{gears}) || len(found.Linking) != 0 {
+		t.Fatalf("Used = %v, Linking = %q, want Gears alone and nothing said: sysmod does not answer its own usage", got, found.Linking)
 	}
 }
 
@@ -520,8 +553,8 @@ func TestUsedLeavesTheStandardLibrarysUsagesToTheBundledLibrary(t *testing.T) {
 	writeProject(t, filepath.Join(proj, "lib", "acme-widgets_1.0.0"), `{"name": "Widgets", "publisher": "acme", "version": "1.0.0"}`)
 
 	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
-	if len(found.Used) != 0 || len(found.Unlinked) != 0 {
-		t.Fatalf("Used = %v, Unlinked = %v, want nothing", projectDirs(found.Used), found.Unlinked)
+	if len(found.Used) != 0 || len(found.Linking) != 0 {
+		t.Fatalf("Used = %v, Linking = %v, want nothing", projectDirs(found.Used), found.Linking)
 	}
 }
 
@@ -544,8 +577,13 @@ func TestUsedLinksEachVersionOfARepositoryOnceItsProjectIsLearnt(t *testing.T) {
 			if order[0] == "2.0.0" {
 				want = []string{gears2, gears1}
 			}
-			if !reflect.DeepEqual(projectDirs(found.Used), want) || len(found.Unlinked) != 0 {
-				t.Fatalf("Used = %v, Unlinked = %v, want %v and nothing unlinked", projectDirs(found.Used), found.Unlinked, want)
+			if !reflect.DeepEqual(projectDirs(found.Used), want) {
+				t.Fatalf("Used = %v, want %v", projectDirs(found.Used), want)
+			}
+			// The repository's project is learnt from the first link: the
+			// elimination is said once, the second version takes it silently.
+			if len(found.Linking) != 1 || !strings.Contains(found.Linking[0].Message, "linked by elimination to acme/gears "+order[0]) {
+				t.Fatalf("Linking = %q, want the elimination link to %s said once", found.Linking, order[0])
 			}
 		})
 	}

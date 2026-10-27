@@ -267,7 +267,12 @@ func normalizeMemberPath(name string) (string, error) {
 func (a *Archive) readProject() error {
 	content, ok := a.members[ProjectFile]
 	if !ok {
-		return a.missingTopLevel(ProjectFile)
+		if folder := a.folder(); folder != "" {
+			a.reroot(folder)
+			content = a.members[ProjectFile]
+		} else {
+			return a.missingTopLevel(ProjectFile)
+		}
 	}
 	project, err := parseInterchange(a.Path, a.Path+"/"+ProjectFile, content)
 	if err != nil {
@@ -275,6 +280,42 @@ func (a *Archive) readProject() error {
 	}
 	a.Project = project
 	return nil
+}
+
+// folder is the one directory every member lies under when it holds both manifests
+// at its root (an archive of the project's folder, as the OMG releases are), else "".
+func (a *Archive) folder() string {
+	if len(a.names) == 0 {
+		return ""
+	}
+	folder, _, ok := strings.Cut(a.names[0], "/")
+	if !ok {
+		return ""
+	}
+	for _, name := range a.names {
+		if !strings.HasPrefix(name, folder+"/") {
+			return ""
+		}
+	}
+	if _, ok := a.members[folder+"/"+ProjectFile]; !ok {
+		return ""
+	}
+	if _, ok := a.members[folder+"/"+MetaFile]; !ok {
+		return ""
+	}
+	return folder
+}
+
+// reroot reads the archive as the project in folder, noting the layout.
+func (a *Archive) reroot(folder string) {
+	members := make(map[string][]byte, len(a.members))
+	for i, name := range a.names {
+		name = strings.TrimPrefix(name, folder+"/")
+		members[name] = a.members[a.names[i]]
+		a.names[i] = name
+	}
+	a.members = members
+	a.Notes = append(a.Notes, fmt.Sprintf("the archive holds the folder %s/ with the project inside it rather than the project at its top level; read as the project in that folder", folder))
 }
 
 // missingTopLevel reports a required file absent from the top level, naming a
@@ -288,8 +329,8 @@ func (a *Archive) missingTopLevel(file string) error {
 	return fmt.Errorf("no %s at the top level of the archive", file)
 }
 
-// readMeta reads and checks .meta.json: its index and checksums must name
-// members, and every checksum this build can compute must match.
+// readMeta reads and checks .meta.json: its checksums must name members and every
+// one this build can compute must match; an index entry naming no member is noted.
 func (a *Archive) readMeta() error {
 	content, ok := a.members[MetaFile]
 	if !ok {
@@ -299,10 +340,12 @@ func (a *Archive) readMeta() error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", MetaFile, err)
 	}
+	// The index is the project's word, not the reader's: the roots a member
+	// declares come from parsing it, so an entry naming no member is noted.
 	for _, name := range sortedKeys(meta.Index) {
 		member := meta.Index[name]
 		if _, ok := a.members[member]; !ok {
-			return fmt.Errorf("%s: index entry %q names %q, which is not a member of the archive", MetaFile, name, member)
+			a.Notes = append(a.Notes, fmt.Sprintf("%s: index entry %q names %q, which is not a member of the archive; the members' own declarations are read instead", MetaFile, name, member))
 		}
 	}
 	for _, member := range sortedKeys(meta.Checksum) {
@@ -582,7 +625,7 @@ func sortedKeys[V any](m map[string]V) []string {
 // checksum of a loaded archive that could not be verified.
 func (d Discovery) Warnings(paths []string) []Warning {
 	around := d.Around(paths)
-	out := append([]Warning(nil), around.Unlinked...)
+	out := append([]Warning(nil), around.Linking...)
 	for _, ae := range around.Malformed {
 		out = append(out, Warning{Path: ae.Path, Message: fmt.Sprintf("not a project interchange archive: %v", ae.Err)})
 	}
