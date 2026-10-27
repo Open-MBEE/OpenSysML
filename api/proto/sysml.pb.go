@@ -14258,11 +14258,8 @@ func (x *RunDocumentQueryResponse) GetRows() []*DocumentQueryRow {
 	return nil
 }
 
-// QueryOutcome is the record behind a document query that could not be run,
-// attached to the failed call as an error detail: a `pathError` (the query is
-// wrong about this model) or a `modelError` (the model violates a constraint
-// the query relied on), located at the step it arose in. The same record the
-// CLI's -json report writes as checks[].outcome.
+// QueryOutcome is the record behind a document query that could not be run, an error
+// detail of the failed call: a pathError or modelError at its step, as -json's checks[].outcome.
 type QueryOutcome struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Kind          string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`                                     // "pathError" or "modelError"

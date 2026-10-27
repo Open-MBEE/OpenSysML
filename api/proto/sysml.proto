@@ -2899,11 +2899,8 @@ message RunDocumentQueryResponse {
   repeated DocumentQueryRow rows = 2;
 }
 
-// QueryOutcome is the record behind a document query that could not be run,
-// attached to the failed call as an error detail: a `pathError` (the query is
-// wrong about this model) or a `modelError` (the model violates a constraint
-// the query relied on), located at the step it arose in. The same record the
-// CLI's -json report writes as checks[].outcome.
+// QueryOutcome is the record behind a document query that could not be run, an error
+// detail of the failed call: a pathError or modelError at its step, as -json's checks[].outcome.
 message QueryOutcome {
   string kind = 1;    // "pathError" or "modelError"
   string step = 2;    // the step the outcome is reported at, as "Named(Observatory::x)"
