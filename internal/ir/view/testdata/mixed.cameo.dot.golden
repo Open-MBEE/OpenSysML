@@ -104,7 +104,7 @@ digraph "MixedExamples::mixedDiagram" {
         penwidth=1;
         "n14" [shape=point, style=invis, width=0, height=0, label=""];
         "n16" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label=""];
-        "n15" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<b>ready</b>>];
+        "n15" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<b>^ready</b>>];
       }
       "n31" [label=<<font point-size="9">«part def»</font><br/><b>Person</b>>];
       "n17" [label=<<font point-size="9">«view»</font><br/><b>mixedDiagram</b>>];

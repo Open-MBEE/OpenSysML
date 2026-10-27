@@ -96,7 +96,7 @@ declares no nodes`")
       n14_anchor[" "]
       n16@{ shape: f-circ, label: "" }
       n15("`*«state»*
-**ready**
+**^ready**
 initial`")
     end
     n31["`*«part def»*

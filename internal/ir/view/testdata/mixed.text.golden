@@ -30,7 +30,7 @@ package MixedExamples
   perform action run (declares no nodes)
   exhibit state mode
     start
-    state ready (initial)
+    state ^ready (initial)
   part def Person
   view mixedDiagram
   view mixedLayout

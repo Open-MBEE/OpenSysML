@@ -218,3 +218,44 @@ func TestActionPinsFromTheTypeAreInherited(t *testing.T) {
 		t.Errorf("heat's pins = %v, want its own in b unmarked", got)
 	}
 }
+
+// A state or action node a behaviour has from what it specializes is inherited
+// and reads after `^`; the nodes the behaviour declares itself stay bare.
+func TestBehaviourNodesFromASupertypeAreInherited(t *testing.T) {
+	states, _, _ := renderModel(t, []string{"base.sysml", "derived.sysml"}, []string{inheritedBase, inheritedDerived}, "Derived::specialStates", "Derived::Special")
+	special := nodeAt(states.Roots, "Derived::Special")
+	if special == nil {
+		t.Fatalf("Special is not drawn; roots: %v", nodeNames(states.Roots))
+	}
+	for name, want := range map[string]bool{"idle": true, "halted": true, "extra": false} {
+		node := nodeAt(special.Children, name)
+		if node == nil || node.Inherited != want {
+			t.Errorf("Special.%s = %+v, want Inherited %v", name, node, want)
+		}
+	}
+	if text := states.textWith(Options{Show: AllShown()}); !strings.Contains(text, "  state ^idle (initial)\n") || !strings.Contains(text, "  state ^halted\n") || !strings.Contains(text, "  state extra\n") {
+		t.Errorf("state text does not prefix the inherited states alone:\n%s", text)
+	}
+	flow, _, _ := renderModel(t, []string{"flows.sysml"}, []string{inheritedFlow}, "Flows::specialFlow", "Flows::SpecialFlow")
+	root := nodeAt(flow.Roots, "Flows::SpecialFlow")
+	if root == nil {
+		t.Fatalf("SpecialFlow is not drawn; roots: %v", nodeNames(flow.Roots))
+	}
+	for _, name := range []string{"a", "b"} {
+		if node := nodeAt(root.Children, name); node == nil || !node.Inherited {
+			t.Errorf("SpecialFlow.%s = %+v, want inherited from Flow", name, node)
+		}
+	}
+	var inherited []string
+	for _, node := range flow.Data().Nodes {
+		if node.Inherited {
+			inherited = append(inherited, node.Name)
+		}
+	}
+	if got := strings.Join(inherited, ","); got != "a,b" {
+		t.Errorf("inherited action nodes in the data = %q, want a,b", got)
+	}
+	if text := flow.textWith(Options{Show: AllShown()}); !strings.Contains(text, "  action ^a\n") {
+		t.Errorf("action text lacks ^a:\n%s", text)
+	}
+}

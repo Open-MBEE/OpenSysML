@@ -183,8 +183,8 @@ hide stereotype
 left to right direction
 hide empty description
 state "<size:10>//«state»//</size>\n**operatingStates**" as n0 <<state>> <<usage>> {
-  state "<size:10>//«state»//</size>\n**idle**\ninitial" as n1 <<state>> <<usage>>
-  state "<size:10>//«state»//</size>\n**observing**" as n2 <<state>> <<usage>>
+  state "<size:10>//«state»//</size>\n**^idle**\ninitial" as n1 <<state>> <<usage>>
+  state "<size:10>//«state»//</size>\n**^observing**" as n2 <<state>> <<usage>>
   [*] --> n1
 }
 n1 --> n2

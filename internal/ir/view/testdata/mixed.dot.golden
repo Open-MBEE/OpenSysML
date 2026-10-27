@@ -72,7 +72,7 @@ digraph "MixedExamples::mixedDiagram" {
       penwidth=0.5;
       "n14" [shape=point, style=invis, width=0, height=0, label=""];
       "n16" [shape=point, fillcolor=black, label=""];
-      "n15" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>ready</b><br/>initial>];
+      "n15" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>^ready</b><br/>initial>];
     }
     "n31" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Person</b>>];
     "n17" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>mixedDiagram</b>>];

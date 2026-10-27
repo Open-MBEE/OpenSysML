@@ -88,7 +88,7 @@ digraph "MixedExamples::mixedDiagram" {
       tooltip="MixedExamples::Inspection::mode";
       "n14" [shape=point, style=invis, width=0, height=0, label=""];
       "n16" [shape=point, fillcolor=black, label=""];
-      "n15" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>ready</b><br/>initial>, URL="https://example.test/src/mixed.sysml#L31", tooltip="MixedExamples::Modes::ready"];
+      "n15" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>^ready</b><br/>initial>, URL="https://example.test/src/mixed.sysml#L31", tooltip="MixedExamples::Modes::ready"];
     }
     "n31" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Person</b>>, URL="https://example.test/src/mixed.sysml#L52", tooltip="MixedExamples::Person"];
     "n17" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>mixedDiagram</b>>, URL="https://example.test/src/mixed.sysml#L54", tooltip="MixedExamples::mixedDiagram"];

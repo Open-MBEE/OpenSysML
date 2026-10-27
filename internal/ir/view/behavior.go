@@ -117,8 +117,10 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 	nodes := map[ast.Node]*Node{}
 	regions := map[*ast.StateRegion]*Node{}
 	place := func(node *Node, owner, decl ast.Node, name string) *Node {
-		node.Geometry = r.nodeGeometryOf(view, machine, r.bodySymbol(machine, graph, owner), decl, name, out)
+		body := r.bodySymbol(machine, graph, owner)
+		node.Geometry = r.nodeGeometryOf(view, machine, body, decl, name, out)
 		node.NameSynthesized = node.NameSynthesized || r.declaredNameSynthesized(machine, decl)
+		node.Inherited = inheritedMember(r.declaredSymbol(machine, decl), body)
 		return r.declaredDress(view, machine, decl, node, out)
 	}
 
@@ -741,6 +743,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: nameText(behaviorNodeName(node)),
 			NameSynthesized: languageNamed(node) || r.declaredNameSynthesized(subject.elem, node), StandIn: r.declaredStandIn(subject.elem, node),
 			Type: nodeType(node), Origin: nodeOrigin(nodeDoc, node)}
+		child.Inherited = inheritedMember(r.declaredSymbol(subject.elem, node), owner)
 		if languageNamed(node) {
 			child.Geometry = r.memberGeometryOf(subject.view, owner, behaviorNodeName(node), out)
 			r.memberDress(subject.view, owner, behaviorNodeName(node), child, out)
@@ -1328,4 +1331,11 @@ func declScope(sym *symbols.Symbol) *symbols.Scope {
 		return sym.Scope
 	}
 	return sym.OwnerScope
+}
+
+// inheritedMember reports whether sym, drawn under owner, is a member owner has
+// from what it specializes or is typed by rather than declares: its declaring
+// namespace is another element. A node lowered from no declaration is owner's own.
+func inheritedMember(sym, owner *symbols.Symbol) bool {
+	return sym != nil && owner != nil && sym.Owner() != nil && sym.Owner() != owner
 }

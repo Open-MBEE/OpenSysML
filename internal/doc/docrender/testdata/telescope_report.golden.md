@@ -158,8 +158,8 @@ config:
 stateDiagram-v2
   direction LR
   state "«state» operatingStates" as n0 {
-    state "«state»<br>idle<br>initial" as n1
-    state "«state»<br>observing" as n2
+    state "«state»<br>^idle<br>initial" as n1
+    state "«state»<br>^observing" as n2
     [*] --> n1
   }
   n1 --> n2
