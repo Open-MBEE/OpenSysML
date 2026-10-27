@@ -56,6 +56,12 @@ func (e *executor) ambiguousElement(expression queryplan.Expression, name string
 	}
 	sort.Strings(fqns)
 	step := Step{Kind: StepNamed, Argument: name}
+	// The finding names the namespace that owns two members of one name: it, not
+	// the name, violates the constraint (lean/QVTS/Ops.lean, Model.named).
+	owner := name
+	if i := strings.LastIndex(name, "::"); i >= 0 {
+		owner = name[:i]
+	}
 	return &Error{
 		Kind:       ErrorAmbiguousElement,
 		Query:      e.definition.Name(),
@@ -65,7 +71,7 @@ func (e *executor) ambiguousElement(expression queryplan.Expression, name string
 		Origin:     expression.Origin(),
 		Outcome: &Outcome{Model: &ModelError{Findings: []Finding{{
 			Step:       step,
-			Element:    name,
+			Element:    owner,
 			Constraint: ConstraintAmbiguousName,
 			Observed:   declaredAs(fqns),
 		}}}},

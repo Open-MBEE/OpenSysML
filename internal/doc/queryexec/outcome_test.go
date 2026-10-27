@@ -67,7 +67,7 @@ calc def RootMiss :> Query { Named(qualifiedName = "Observatry") }
 		t.Fatalf("Twice: outcome = %+v, want one finding", twice)
 	}
 	finding := twice.Model.Findings[0]
-	if finding.Constraint != ConstraintAmbiguousName || finding.Element != "Observatory::Duplicates::a" || finding.Observed != "Observatory::Duplicates::a (declared 2 times)" {
+	if finding.Constraint != ConstraintAmbiguousName || finding.Element != "Observatory::Duplicates" || finding.Observed != "Observatory::Duplicates::a (declared 2 times)" {
 		t.Errorf("Twice: finding = %+v", finding)
 	}
 	encoded, _ = json.Marshal(twice)

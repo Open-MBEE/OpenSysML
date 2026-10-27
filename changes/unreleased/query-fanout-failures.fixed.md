@@ -1,1 +1,2 @@
 - `Project`/`WhereFeature` on a feature several element rows lack report every such element in the QVTS record (one path failure each) and name the others in the message, instead of stopping at the first.
+- The `ambiguousName` finding of `Named` names the namespace that owns the duplicated members, as the QVTS reference semantics do, not the duplicated name.

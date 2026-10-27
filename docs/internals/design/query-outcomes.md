@@ -25,7 +25,7 @@ to `∅` is the ambiguity QVTS exists to remove.
 
 | Step | Value | Path error | Model error |
 |:--|:--|:--|:--|
-| `Named` | the element | `unknown-element`: the longest prefix that resolves, the segment it lacks, the nearest spellings; an alias that denotes nothing | `ambiguous-element`: the elements, by qualified name |
+| `Named` | the element | `unknown-element`: the longest prefix that resolves, the segment it lacks, the nearest spellings; an alias that denotes nothing | `ambiguous-element`: the elements, by qualified name; the finding names the owning namespace |
 | `WhereType`, `WhereMetadata` | the selected rows | `unknown-classification` | — |
 | `RelatedElements` | the neighbours, possibly none | `unknown-relationship` | — |
 | `Project`, `WhereFeature` on a feature the element lacks | an empty cell, with `tolerate = true` | `missing-feature`: the element (`Target`), the feature (`Property`), the features it does have (`Candidates`); `unknown-property` when no row carries it | — |
