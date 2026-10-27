@@ -166,8 +166,32 @@ Three prerequisites, in the order you will run into them:
 The allowed set drives the preflight response, and the response exposes gRPC-Web's trailer
 headers (`Grpc-Status`, `Grpc-Message`, `Grpc-Status-Details-Bin`); a gRPC-Web client whose
 trailers are not exposed fails in a way that looks like a server bug. CORS is a browser-side
-control, not authentication: a non-browser client is unaffected by the list, and this
-service still has no authentication of any kind.
+control, not authentication: a non-browser client is unaffected by the list; the token below
+is what authenticates. The preflight allows the `Authorization` request header and exposes
+`WWW-Authenticate`.
+
+<a id="authentication"></a>
+**Bind address and authentication.** The service binds loopback unless `-host` says otherwise:
+`-port 50051` alone, `-host ""` and `-host localhost` all serve `localhost:50051`, reachable only
+from the same machine, and the health server binds the same host. An address other machines
+reach (`-host 0.0.0.0`, `-host ::`, a hostname or address of the machine) is served only with
+a bearer token — `-token-file <path>` (one line; the file should be readable by the service user
+only), `-token <value>`, or `OPENSYSML_GRPC_TOKEN` in the environment — and every call on every
+protocol must then carry it: `Authorization: Bearer <token>` on Connect, gRPC-Web and
+Connect-HTTP, the `authorization` metadata on grpc-go, compared in constant time. A call without
+it is answered `unauthenticated` (HTTP 401 with `WWW-Authenticate: Bearer realm="sysml-grpc"`;
+the grpc-go trailer carries the same), and the [wire contract](wire-contract.md#error-model)
+says what each client raises. `GET /health` is answered without a token so that liveness
+probes need no secret; it says the version, nothing about any model. Starting non-loopback
+without a token fails at once naming the three ways to supply one and the one way to decline:
+`-allow-unauthenticated` serves every caller that can reach the port, which is only
+appropriate behind a proxy that authenticates on a network that is trusted, and is never
+implied by any other flag. A token on a cleartext port is visible to the network it crosses,
+so pair it with TLS or a TLS-terminating proxy; the service says so at startup. Every call is
+logged on one line at `INFO` with the peer address, method, protocol, status code, duration and
+whether it was authenticated; a refused call is logged at `WARN` with the peer. The token
+itself is never logged. The private child a client starts for itself (`-port 0
+-exit-with-parent`) is unaffected: it binds loopback and needs no token.
 
 **TLS.** `-tls-cert` and `-tls-key` (both or neither) serve everything above over HTTPS on the
 same port, negotiating `h2` and `http/1.1`, minimum TLS 1.2. A browser on an `https://` page
@@ -226,11 +250,11 @@ The stdio transport this project does support is a different protocol for a diff
 agent's host, which starts the process itself — the one situation where a child process is the
 right shape. Its `runtime` tool group is this service's RPC surface, one tool per RPC with the
 RPC's request and response, so an agent gets the same contract the clients on this page do. Its
-`-http` flag serves the same protocol over a port to many agents, with the TLS and origin
-stance this page takes — loopback unless the address says otherwise, TLS from a certificate and
-key pair, an origin allow-list that is not authentication — and one difference the Model Context
-Protocol asks for: an address other machines reach is served only with a bearer token
-(`-token-file`), which every request must carry; loopback alone is served without one.
+`-http` flag serves the same protocol over a port to many agents, with the stance this page
+takes — loopback unless the address says otherwise, an address other machines reach served only
+with a bearer token (`-token-file`, `-token`, `OPENSYSML_MCP_TOKEN` there), TLS from a
+certificate and key pair, an origin allow-list that is not authentication; the two commands
+share one implementation of the token and of the loopback rule.
 
 ## Every protocol is tested, not merely served
 

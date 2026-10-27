@@ -1,0 +1,2 @@
+- `sysml-grpc` flags `-host`, `-token-file`, `-token`, `-allow-unauthenticated` and the `OPENSYSML_GRPC_TOKEN` variable, with the same meanings they have on `sysml-mcp`; the bearer-token and loopback rules the two commands share live in one package, `internal/frontend/guard`.
+- The Python (`token=`, `AuthenticationError`), Node and browser (`token`), Java (`ConnectionOptions.token`) and Rust (`Connection::external_with_token`) clients send a bearer token on every call, defaulting to `$OPENSYSML_GRPC_TOKEN`; each is tested against a token-protected service.

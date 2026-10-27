@@ -47,7 +47,13 @@ use opensysml::Connection;
 let connection = Connection::connect()?;                 // $OPENSYSML_SERVICE, else private
 let private = Connection::private()?;                    // a child of this process
 let external = Connection::external("localhost", 50051)?; // a service someone else runs
+let guarded = Connection::external_with_token("host", 50051, token)?; // one requiring a bearer token
 ```
+
+A service other machines reach requires a bearer token; `external_with_token`
+sends it as `Authorization: Bearer` on every call, and the other constructors
+send `$OPENSYSML_GRPC_TOKEN` when it is set. A wrong or missing token is
+`Error::Service` with `Status::Unauthenticated`.
 
 | method | what it does |
 | --- | --- |

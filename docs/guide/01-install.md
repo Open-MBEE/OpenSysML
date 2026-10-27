@@ -391,7 +391,8 @@ calls `sysml -convert` needs one image. It is built on
 and nothing else — no shell and no package manager.
 
 ```bash
-docker run --rm -p 50051:50051 -p 8081:8081 openmbee/opensysml:latest
+docker run --rm -p 50051:50051 -p 8081:8081 \
+  -e OPENSYSML_GRPC_TOKEN="$(openssl rand -base64 32)" openmbee/opensysml:latest
 curl -fsS http://localhost:8081/health
 # {"service":"sysml-grpc","status":"ok","version":"v0.11.0"}
 ```
@@ -399,14 +400,35 @@ curl -fsS http://localhost:8081/health
 Port 50051 serves gRPC, Connect and gRPC-Web (see
 [Service transports](../reference/service-transports.md)); port 8081 answers
 `GET /health`, which is also served on 50051, so a deployment that probes the
-main port can pass `-health-port 0` and expose one port. The arguments after
-the image name replace the defaults (`-port 50051 -health-port 8081`):
+main port can pass `-health-port 0` and expose one port. The image binds every
+interface of the container (`-host 0.0.0.0`, which is what makes `-p` work),
+and an address other machines reach is served only with a bearer token: give
+one as `OPENSYSML_GRPC_TOKEN`, or mount a file and name it with `-token-file`,
+and every client call carries it as `Authorization: Bearer` (each client's
+token option or `$OPENSYSML_GRPC_TOKEN` on its side). Without one the
+container exits at once, saying so. `GET /health` needs no token. The
+arguments after the image name replace the defaults
+(`-host 0.0.0.0 -port 50051 -health-port 8081`):
 
 ```bash
-docker run --rm -p 9000:9000 openmbee/opensysml:latest -port 9000 -health-port 0
+docker run --rm -p 9000:9000 -v "$PWD/grpc.token:/run/secrets/grpc.token:ro" \
+  openmbee/opensysml:latest -host 0.0.0.0 -port 9000 -health-port 0 \
+  -token-file /run/secrets/grpc.token
+```
+
+A deployment behind a proxy that authenticates callers itself, on a network
+that is trusted, can decline the token explicitly; nothing implies it:
+
+```bash
+docker run --rm -p 50051:50051 openmbee/opensysml:latest \
+  -host 0.0.0.0 -port 50051 -health-port 8081 -allow-unauthenticated
 ```
 
 The knobs a deployment sets, as arguments or environment:
+
+- `-host`, `-token-file`, `-token`, `OPENSYSML_GRPC_TOKEN` and
+  `-allow-unauthenticated`, above. `-tls-cert` and `-tls-key` serve the port
+  over TLS, which a token crossing a network should have.
 
 - `-cors-allowed-origins <origin,…>` names the exact browser origins a Connect
   or gRPC-Web client may call from; native clients need no entry.

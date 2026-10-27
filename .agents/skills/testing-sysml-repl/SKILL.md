@@ -1707,10 +1707,12 @@ And prove "never listened" with `ss -ltn`, since an exit code alone does not. Tw
 real time:
 
 - `-port 0` makes the *resolved* port observable only in the log line
-  `msg="gRPC server listening" addr=[::]:<port>`. The `-health-port 0` line logs the literal
-  `addr=:0`, so a naive `grep -o 'addr=[^ ]*' | head -1` grabs the health line and you dial port 0
-  ("Connection refused"). Always filter on `gRPC server listening` first, and take the port with
-  `${ADDR##*:}` — `cut -d: -f3` yields `]` for `[::]:41325`.
+  `msg="Connect server listening" addr=127.0.0.1:<port>` (`gRPC server listening` under
+  `-transport grpc`; loopback, since the service binds `localhost` unless `-host` says otherwise,
+  and `-host 0.0.0.0` needs `-token`/`-token-file`/`OPENSYSML_GRPC_TOKEN` or
+  `-allow-unauthenticated`). The `-health-port 0` line logs the literal `addr=localhost:0`, so a
+  naive `grep -o 'addr=[^ ]*' | head -1` grabs the health line and you dial port 0 ("Connection
+  refused"). Always filter on `server listening` first, and take the port with `${ADDR##*:}`.
 - Expected values at 0cf94e80 for `tests/grpc/testdata/conformance/instantiate_derived_slot.sysml`:
   `mass` → `materialized=True kind=real_value 1500.0`, `doubled` → `real_value 3000.0`; a missing
   model path raises `opensysml.errors.ModelFileNotFoundError` ("file not found: open …") and the
