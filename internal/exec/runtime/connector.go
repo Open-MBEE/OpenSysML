@@ -183,24 +183,23 @@ func (ctx *Context) materializeConnectorStarting(owner *Instance, connSym, base 
 
 // connectorJournal opens a journal and a run boundary when sym is a connector usage, so what a
 // namespace path does for it — attach, record, start — is undone whole on failure as a nested
-// connector's is; commit then lets the older behaviors it woke answer, a failure of theirs their
-// own, the connector kept. For any other usage both are no-ops.
-func (ctx *Context) connectorJournal(sym *symbols.Symbol) (commit func() error, rollback func()) {
+// connector's is. commit makes it durable; drain, once the path's own guards are cleared, lets the
+// older behaviors it woke answer, a failure of theirs their own. For any other usage all are no-ops.
+func (ctx *Context) connectorJournal(sym *symbols.Symbol) (commit, rollback func(), drain func() error) {
 	if !ctx.model.semantics.IsConnectorObjectUsage(sym) {
-		return func() error { return nil }, func() {}
+		return func() {}, func() {}, func() error { return nil }
 	}
 	endBoundary := ctx.beginRunBoundary()
 	commitJournal, rollbackJournal := ctx.beginJournal()
-	commit = func() error {
+	commit = func() {
 		endBoundary()
 		commitJournal()
-		return ctx.runAttachedBehaviors()
 	}
 	rollback = func() {
 		endBoundary()
 		rollbackJournal()
 	}
-	return commit, rollback
+	return commit, rollback, ctx.runAttachedBehaviors
 }
 
 // checkBoundConnectorEnds checks that the objects a binding makes the connector usage connSym

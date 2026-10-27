@@ -233,6 +233,7 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 	}
 	ctx.resolvingNamespaceClasses[class] = true
 	defer delete(ctx.resolvingNamespaceClasses, class)
+	drain := func() error { return nil }
 
 	type held struct {
 		val  Value
@@ -391,7 +392,8 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 			return nil, true, err
 		}
 		mark := len(ctx.created)
-		commit, rollback := ctx.connectorJournal(earliest)
+		var commit, rollback func()
+		commit, rollback, drain = ctx.connectorJournal(earliest)
 		members, err := ctx.materializeMembers(earliest, int(count), nil, "")
 		if err != nil {
 			rollback()
@@ -460,10 +462,8 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		if err := ctx.startClassifierBehaviorsOf(members, mark); err != nil {
 			return fail(err)
 		}
+		commit()
 		release()
-		if err := commit(); err != nil {
-			return nil, true, err
-		}
 	} else {
 		val := vals[0].val
 		text := SymbolText(class.members[0])
@@ -504,6 +504,12 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 			}
 			ctx.bindNamespace(member, v)
 		}
+	}
+	// The class is resolved and recorded: the older behaviors a connector it made woke may
+	// answer now, and read its members.
+	delete(ctx.resolvingNamespaceClasses, class)
+	if err := drain(); err != nil {
+		return nil, true, err
 	}
 	if val, ok := ctx.namespaceBindings[want]; ok {
 		return ctx.liveInstances(boundPrefixObjects(val)), true, nil
@@ -667,6 +673,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 
 	mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym))
 	abstract := symbols.IsAbstract(sym)
+	commit, rollback, drain := func() {}, func() {}, func() error { return nil }
 	if !abstract {
 		count, err := ctx.lowerBoundCount(mult, len(contributed), fmt.Sprintf("usage %s", SymbolText(sym)))
 		if err != nil {
@@ -681,7 +688,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 			}
 		}
 		mark := len(ctx.created)
-		commit, rollback := ctx.connectorJournal(sym)
+		commit, rollback, drain = ctx.connectorJournal(sym)
 		failWhole := func(err error) ([]*Instance, bool, error) {
 			rollback()
 			return fail(err)
@@ -745,20 +752,24 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 			ctx.abandonInstancesSince(mark)
 			return failWhole(err)
 		}
-		if err := commit(); err != nil {
-			release()
-			return nil, true, err
-		}
 	}
 	var tailCount int64
 	if tail != nil {
 		tailCount = tail.count
 	}
 	if msg := mult.CountViolation(int64(len(contributed)) + tailCount); msg != "" {
+		rollback()
 		return fail(fmt.Errorf("usage %s: %w: %s", SymbolText(sym), ErrMultiplicityViolation, msg))
 	}
 	ctx.occurrences[sym] = ids
+	commit()
 	release()
+	// Recorded and no longer collecting: the older behaviors a connector it made woke may
+	// answer now, and read the usage.
+	delete(ctx.namespaceCollecting, sym)
+	if err := drain(); err != nil {
+		return nil, true, err
+	}
 	return contributed, true, nil
 }
 

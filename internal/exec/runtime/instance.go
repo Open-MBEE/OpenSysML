@@ -454,7 +454,7 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 	// The occurrence is recorded before its behaviors start, so a behavior that
 	// reaches the usage it belongs to reads this object rather than a second one.
 	mark := len(ctx.created)
-	commit, rollback := ctx.connectorJournal(sym)
+	commit, rollback, drain := ctx.connectorJournal(sym)
 	inst, err := ctx.materializeMember(sym, 0, nil, "")
 	if err != nil {
 		rollback()
@@ -469,7 +469,8 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 		rollback()
 		return nil, err
 	}
-	if err := commit(); err != nil {
+	commit()
+	if err := drain(); err != nil {
 		return nil, err
 	}
 	return inst, nil
@@ -504,7 +505,7 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 		return nil, err
 	}
 	mark := len(ctx.created)
-	commit, rollback := ctx.connectorJournal(sym)
+	commit, rollback, drain := ctx.connectorJournal(sym)
 	members, err := ctx.materializeMembers(sym, int(made), nil, "")
 	if err != nil {
 		rollback()
@@ -532,7 +533,8 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 		release()
 		return nil, err
 	}
-	if err := commit(); err != nil {
+	commit()
+	if err := drain(); err != nil {
 		return nil, err
 	}
 	return members, nil

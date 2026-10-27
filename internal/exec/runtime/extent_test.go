@@ -620,3 +620,68 @@ func TestNamespaceConnectorAnsweredByAFailingBehaviorIsKept(t *testing.T) {
 		t.Errorf("pokes = %d after reading again, want 1: the kept connector is not rerun", got)
 	}
 }
+
+// TestNamespaceSubsettedConnectorIsReadableByTheBehaviorsItWakes requires the older behaviors a
+// connector filling a subsetted usage woke to answer only once the usage is recorded, so reading it is no cycle.
+func TestNamespaceSubsettedConnectorIsReadableByTheBehaviorsItWakes(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ScalarValues::*;
+			private import SequenceFunctions::*;
+			item def Ping;
+			port def P;
+			part def Listener {
+				attribute seen : Integer = 0;
+				exhibit state listening {
+					entry; then waiting;
+					state waiting;
+					accept Ping then noted;
+					state noted { entry action note { assign seen := size(links); } }
+				}
+			}
+			part good : Listener;
+			part def A { port p : P; }
+			part a : A;
+			connection def Link {
+				end a; end b;
+				attribute loud : Boolean = true;
+				exhibit state life {
+					entry; then check;
+					state check;
+					transition first check if loud then ping;
+					state ping { entry send Ping() to good; }
+				}
+			}
+			connection links : Link[2] connect a.p to a.p;
+			connection c : Link :> links connect a.p to a.p { attribute :>> loud = false; }
+		}
+	`))
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok || pkg.Scope == nil {
+		t.Fatal("test package not indexed")
+	}
+	good, err := ctx.occurrenceOf(lookupOne(t, idx, "test::good"))
+	if err != nil {
+		t.Fatalf("occurrenceOf good: %v", err)
+	}
+	links, err := evalIn(t, ctx, pkg.Scope, "links")
+	if err != nil {
+		t.Fatalf("links: %v", err)
+	}
+	if got := len(elementsOf(links)); got != 2 {
+		t.Fatalf("links denotes %d objects, want 2: c and the fill", got)
+	}
+	assertCurrentState(t, machineOf(t, good, "listening").State, "noted")
+	if got := featureInt(t, ctx, good, "seen"); got != 2 {
+		t.Errorf("seen = %d, want 2: the listener read links once it was recorded", got)
+	}
+	if again, err := evalIn(t, ctx, pkg.Scope, "links"); err != nil || len(elementsOf(again)) != 2 || !valueIdentical(again, links) {
+		t.Errorf("links read again = %v, %v; want the same two objects", again, err)
+	}
+	for i, obj := range elementsOf(links) {
+		id, _ := obj.Object()
+		if inst, live := ctx.Instance(id); !live || len(inst.Ends) != 2 {
+			t.Errorf("links#%d: live %v with %d end(s), want a live connector with 2", i+1, live, len(inst.Ends))
+		}
+	}
+}
