@@ -499,10 +499,10 @@ checked after the result is bound is not a form the runtime offers, and none is 
 | `AnalysisTooling` | 0 | 0 | 0 | 0 |
 | `SampledFunctions` | 5 | 5 | 0 | 0 |
 | `TradeStudies` | 7 | 6 | 1 | 0 |
-| `StateSpaceRepresentation` | 17 | 6 | 11 | 0 |
+| `StateSpaceRepresentation` | 17 | 10 | 7 | 0 |
 | `VectorFunctions` | 39 | 30 | 9 | 0 |
 | `OccurrenceFunctions` | 8 | 6 | 2 | 0 |
-| **Total** | **76** | **53** | **23** | **0** |
+| **Total** | **76** | **57** | **19** | **0** |
 
 **Refused, by name** (the typed error the runtime answered with):
 
@@ -510,14 +510,10 @@ checked after the result is bound is not a form the runtime offers, and none is 
 - `StateSpaceRepresentation::StateSpaceEventDef` — `errUnknownOutput`: unknown output: test::run produced no output "output"
 - `StateSpaceRepresentation::ZeroCrossingEventDef` — `errUnknownOutput`: unknown output: test::run produced no output "output"
 - `StateSpaceRepresentation::StateSpaceDynamics` — `errUnknownOutput`: unknown output: test::plant produced no output "output"
-- `StateSpaceRepresentation::StateSpaceDynamics::getNextState` — `errNotAFunction`: not a function: plant.getNextState is undetermined, not a function
-- `StateSpaceRepresentation::StateSpaceDynamics::getOutput` — `errNotAFunction`: not a function: plant.getOutput is undetermined, not a function
 - `StateSpaceRepresentation::Integrate` — `ErrNoValue`: calc test::Euler: evaluating the returned expression: no value: calc test::Euler::getDerivative has no return expression: the result parameter binds no value; write the result as the trailing expression of the body, or bind it with `return : StateDerivative = <expr>;`
-- `StateSpaceRepresentation::ContinuousStateSpaceDynamics::getDerivative` — `errNotAFunction`: not a function: damper.getDerivative is undetermined, not a function
-- `StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState` — `errNotAFunction`: not a function: damper.getNextState is undetermined, not a function
+- `StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState` — `ErrNoValue`: calc StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState: evaluating the returned expression: no value: calc StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate has no return expression: result parameter result binds no value; write the result as the trailing expression of the body, or bind it with `return : StateSpace = <expr>;`
 - `StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate` — `ErrNoValue`: calc StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState: evaluating the returned expression: no value: calc StateSpaceRepresentation::ContinuousStateSpaceDynamics::getNextState::integrate has no return expression: result parameter result binds no value; write the result as the trailing expression of the body, or bind it with `return : StateSpace = <expr>;`
-- `StateSpaceRepresentation::DiscreteStateSpaceDynamics::getDifference` — `errNotAFunction`: not a function: spring.getDifference is undetermined, not a function
-- `StateSpaceRepresentation::DiscreteStateSpaceDynamics::getNextState` — `errNotAFunction`: not a function: spring.getNextState is undetermined, not a function
+- `StateSpaceRepresentation::DiscreteStateSpaceDynamics::getNextState` — `ErrNoValue`: calc StateSpaceRepresentation::DiscreteStateSpaceDynamics::getNextState: eval declaration diff: no value: calc StateSpaceRepresentation::DiscreteStateSpaceDynamics::getDifference has no return expression: the result parameter binds no value; write the result as the trailing expression of the body, or bind it with `return : StateSpace = <expr>;`
 - `VectorFunctions::+::commutivity` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::+::commutivity: constraint commutivity: require condition evaluation failed: no value: condition is undetermined: u has no value in the model
 - `VectorFunctions::-::difference` — `ErrTypeMismatch`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::-::difference: constraint difference: require condition evaluation failed: type mismatch: operator '+' is not defined for a vector and an undetermined VectorValue
 - `VectorFunctions::scalarVectorMult::scaling` — `ErrNoValue`: calc test::Probe: evaluating the returned expression: constraint VectorFunctions::scalarVectorMult::scaling: constraint scaling: require condition evaluation failed: no value: condition is undetermined: w has no value in the model
