@@ -571,3 +571,40 @@ func TestUsedSurvivesADeferredUsageWhoseCandidatesAreAllClaimedLater(t *testing.
 		t.Fatalf("Unlinked = %q, want nothing: both candidates went to the usages that name them", found.Unlinked)
 	}
 }
+
+// A usage that names a project is matched by name alone: with that project
+// missing, the one unrelated installed project is not taken in its place.
+func TestUsedLeavesAMissingNamedUsageUnresolved(t *testing.T) {
+	for _, resource := range []string{"pkg:registry/acme/gears", "pkg:sysand/acme/gears@1.0.0", "pkg:npm/acme/gears"} {
+		t.Run(resource, func(t *testing.T) {
+			root := t.TempDir()
+			proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [{"resource": "`+resource+`"}]}`)
+			writeProject(t, filepath.Join(proj, "lib", "acme-widgets_1.0.0"), `{"name": "Widgets", "publisher": "acme", "version": "1.0.0"}`)
+
+			found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+			if len(found.Used) != 0 || len(found.Unlinked) != 0 {
+				t.Fatalf("Used = %v, Unlinked = %v, want nothing: the usage names a project, not a location", projectDirs(found.Used), found.Unlinked)
+			}
+		})
+	}
+}
+
+func TestSpellsLocation(t *testing.T) {
+	for resource, want := range map[string]bool{
+		"pkg:git/github.com/MBSE4U/sysmod-sysmlv2@5.1.5": true,
+		"pkg:svn/example.org/repo/trunk":                 true,
+		"pkg:hg/example.org/repo":                        true,
+		"https://example.org/acme/gears.git":             true,
+		"ssh://git@example.org/acme/gears.git@1.0.0":     true,
+		"git@example.org:acme/gears.git":                 true,
+		"file:///srv/projects/gears":                     true,
+		"pkg:registry/acme/gears":                        false,
+		"pkg:sysand/acme/gears@1.0.0":                    false,
+		"pkg:github/acme/gears":                          false,
+		"acme/gears":                                     false,
+	} {
+		if got := (Usage{Resource: resource}).spellsLocation(); got != want {
+			t.Errorf("spellsLocation(%s) = %v, want %v", resource, got, want)
+		}
+	}
+}

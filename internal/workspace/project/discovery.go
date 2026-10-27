@@ -281,8 +281,8 @@ func walkInstalled(dir string, visited map[string]bool, budget *int, found func(
 	}
 }
 
-// used selects the installed projects the enclosing ones use, directly or in turn, each once:
-// by name (Uses) first, else by elimination among the unclaimed (pickUnclaimed), or as learnt.
+// used selects the installed projects the enclosing ones use, directly or in turn, each once: by
+// name (Uses) first, else — a resource spelling a location — by elimination (pickUnclaimed) or as learnt.
 func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []Warning) {
 	selected := map[string]bool{}
 	claimed := map[string]bool{}
@@ -315,7 +315,7 @@ func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []W
 			for _, u := range project.Usage {
 				if pick := pickInstalled(installed, u); pick != nil {
 					link(pick)
-				} else if !u.standardLibrary() {
+				} else if u.spellsLocation() && !u.standardLibrary() {
 					unmatched = append(unmatched, pending{from: project, u: u})
 				}
 			}
