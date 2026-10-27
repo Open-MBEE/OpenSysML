@@ -1,12 +1,26 @@
 CalcViews::calcFlows - action rendering (render asInterconnectionDiagram, view def ActionFlowView)
 
 calc add (declares no nodes)
+  in x
+  in y
+  out result
 calc def Add (declares no nodes)
+  in x
+  in y
+  out r
 calc total (declares no nodes)
+  in x
+  in y
+  out ^r
 calc def Stepwise
+  in load
+  out result
   action measure
+    out reading
   action scale
+    in raw
+    out scaled
 
 flow:
   measure -> scale
-  measure => scale
+  measure.reading => scale.raw

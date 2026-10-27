@@ -1,5 +1,6 @@
 @startuml
 ' NotationGlyphs::Diagrams::fillGlyphs — action rendering (view def ActionFlowView)
+' not represented: 2 pin(s) not drawn (open.water, pour.water); PlantUML's state grammar has no pin, so the edges name them
 <style>
 root {
   BackGroundColor white

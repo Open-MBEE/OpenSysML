@@ -601,7 +601,7 @@ A word `show=<elements>`, on `%render` and `%viz` alike, names the notation elem
 rendering draws besides the ones its view's rendering shows, comma-separated: `parameter-symbols`,
 `port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`,
 or `all` (`%render Lab::useCases dot show=parameter-symbols,edge-labels`); port symbols and
-compartments are drawn without it. It is accepted once, in any order with the other words, with or
+compartments are drawn without it, as are an action's or calculation's parameter pins. It is accepted once, in any order with the other words, with or
 without a form before it (`%render Lab::useCases show=edge-labels` draws the text form), and a
 name none of the elements has is refused with the names there are
 ([the elements](../project/view-rendering-forms.md#optional-notation-elements)).

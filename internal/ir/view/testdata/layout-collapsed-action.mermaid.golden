@@ -22,6 +22,7 @@ config:
     edgeLabelBackground: "#FFFFFF"
 ---
 %% FoldedBehaviors::flows — action rendering (view def ActionFlowView)
+%% not represented: 1 pin(s) not drawn (FoldedBehaviors::Flow.flowIn); a flowchart draws the pins an edge ends at
 %% layout: n1 collapsed
 flowchart TD
   subgraph n0 ["`*«action def»* **Flow**`"]

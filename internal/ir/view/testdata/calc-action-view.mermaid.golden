@@ -22,6 +22,7 @@ config:
     edgeLabelBackground: "#FFFFFF"
 ---
 %% CalcViews::calcFlows — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
+%% not represented: 12 pin(s) not drawn (Calcs::add.x, Calcs::add.y, Calcs::add.result, Calcs::Add.x, Calcs::Add.y, Calcs::Add.r, Calcs::Totaliser::total.x, Calcs::Totaliser::total.y, Calcs::Totaliser::total.r, Calcs::Stepwise.load, Calcs::Stepwise.result, scale.scaled); a flowchart draws the pins an edge ends at
 flowchart TD
   n0("`*«calc»*
 **add**
@@ -34,10 +35,18 @@ declares no nodes`"]
 declares no nodes`")
   subgraph n3 ["`*«calc def»* **Stepwise**`"]
     direction TD
-    n4("`*«action»*
-**measure**`")
-    n5("`*«action»*
-**scale**`")
+    subgraph n4 ["`*«action»* **measure**`"]
+      direction TD
+      n4_anchor[" "]
+      n4_p0["reading"]
+    end
+    subgraph n5 ["`*«action»* **scale**`"]
+      direction TD
+      n5_anchor[" "]
+      n5_p0["raw"]
+    end
   end
-  n4 -.-> n5
-  n4 --> n5
+  n4_anchor -.-> n5_anchor
+  n4_p0 --> n5_p0
+  classDef anchor fill:none,stroke:none
+  class n4_anchor,n5_anchor anchor

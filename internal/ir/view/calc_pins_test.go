@@ -108,7 +108,7 @@ func TestMixedRenderingKeepsNestedCalcsUnderTheirOwner(t *testing.T) {
 			t.Errorf("parameter %s drawn as a nested calc beside its pin:\n%s", parameter, text)
 		}
 	}
-	if plain := rendering.Text(); !strings.Contains(plain, "calc def Outer (declares no nodes)\n  calc inner (declares no nodes)\n") {
+	if plain := rendering.Text(); !strings.Contains(plain, "calc def Outer (declares no nodes)\n  out ^result\n  calc inner (declares no nodes)\n    out r\n") {
 		t.Errorf("default text does not name the nested calc under its owner:\n%s", plain)
 	}
 }
