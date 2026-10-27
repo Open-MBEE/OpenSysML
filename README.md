@@ -428,7 +428,7 @@ github.com/Open-MBEE/OpenSysML
 
 ## Technology
 
-- **Language:** Go 1.25 or later (goroutines for concurrency, a single static binary, and an established record in language servers)
+- **Language:** Go 1.26 or later (goroutines for concurrency, a single static binary, and an established record in language servers)
 - **Parser:** hand-written recursive descent (no framework overhead, full error recovery, sub-millisecond parses)
 - **Grammar source:** OMG pilot Xtext grammars (`SysML.xtext` and `KerMLExpressions`)
 - **Spec compliance:** [OMG SysML v2.1 Beta 1 / KerML 1.1](https://www.omg.org/spec/SysML/2.0) (2026-09 release)
