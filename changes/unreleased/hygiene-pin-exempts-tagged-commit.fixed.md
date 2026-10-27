@@ -1,0 +1,1 @@
+- The hygiene test that holds `client/release-digests.json` to every release the changelog records no longer fails a checkout of the tagged release commit itself — `main` after a release — whose pin can only land on `develop` afterwards; a commit past the tag without the pin still fails as before.
