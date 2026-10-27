@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
@@ -150,6 +151,9 @@ type checkResult struct {
 	Values []namedValue `json:"values"`
 	// Lines is the verdict as the prompt prints it.
 	Lines []string `json:"lines"`
+	// Outcome is the QVTS record behind a document query that could not be run:
+	// `pathError` or `modelError` with its step and frontier; absent otherwise.
+	Outcome *queryexec.Outcome `json:"outcome,omitempty"`
 	// Verifications are the verdicts the bodies of the verification cases
 	// verifying the requirement produced, reported beside its own.
 	Verifications []verificationVerdict `json:"verifications,omitempty"`
@@ -847,6 +851,7 @@ func (r *reporter) finish() int {
 			Status:        v.Status.String(),
 			Values:        namedValues(v.Values),
 			Lines:         v.Lines,
+			Outcome:       v.Outcome,
 			Verifications: verificationVerdicts(v.Verifications),
 			Evaluations:   caseEvaluations(v.Evaluations),
 			Rows:          checkRows(v.Rows),

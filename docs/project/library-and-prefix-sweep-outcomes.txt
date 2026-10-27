@@ -1697,7 +1697,7 @@ prefix	in	state S1	in state x : S1;	Probe::d.x => empty
 prefix	in	requirement R1	in requirement x : R1;	Probe::d.x => empty
 prefix	in	constraint C1	in constraint x : C1;	Probe::d.x => empty
 prefix	in	occurrence O1	in occurrence x : O1;	Probe::d.x => empty
-prefix	in	connection Cn1	in connection x : Cn1 connect sub1 to sub2;	Probe::d.x => error connector end cannot be attached: d.x end "x" at <test>:#560: a connector of more than one object has no set of ends to attach
+prefix	in	connection Cn1	in connection x : Cn1 connect sub1 to sub2;	Probe::d.x => empty
 prefix	out	attribute Integer	out attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	out	attribute At1	out attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	out	enum E1	out enum x : E1;	Probe::d.x => undetermined <undetermined>
@@ -1710,7 +1710,7 @@ prefix	out	state S1	out state x : S1;	Probe::d.x => empty
 prefix	out	requirement R1	out requirement x : R1;	Probe::d.x => empty
 prefix	out	constraint C1	out constraint x : C1;	Probe::d.x => empty
 prefix	out	occurrence O1	out occurrence x : O1;	Probe::d.x => empty
-prefix	out	connection Cn1	out connection x : Cn1 connect sub1 to sub2;	Probe::d.x => error connector end cannot be attached: d.x end "x" at <test>:#560: a connector of more than one object has no set of ends to attach
+prefix	out	connection Cn1	out connection x : Cn1 connect sub1 to sub2;	Probe::d.x => empty
 prefix	inout	attribute Integer	inout attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	inout	attribute At1	inout attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	inout	enum E1	inout enum x : E1;	Probe::d.x => undetermined <undetermined>
@@ -1723,7 +1723,7 @@ prefix	inout	state S1	inout state x : S1;	Probe::d.x => empty
 prefix	inout	requirement R1	inout requirement x : R1;	Probe::d.x => empty
 prefix	inout	constraint C1	inout constraint x : C1;	Probe::d.x => empty
 prefix	inout	occurrence O1	inout occurrence x : O1;	Probe::d.x => empty
-prefix	inout	connection Cn1	inout connection x : Cn1 connect sub1 to sub2;	Probe::d.x => error connector end cannot be attached: d.x end "x" at <test>:#560: a connector of more than one object has no set of ends to attach
+prefix	inout	connection Cn1	inout connection x : Cn1 connect sub1 to sub2;	Probe::d.x => empty
 prefix	ref (unbound)	attribute Integer	ref attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	ref (unbound)	attribute At1	ref attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	ref (unbound)	enum E1	ref enum x : E1;	Probe::d.x => undetermined <undetermined>
@@ -1876,7 +1876,7 @@ prefix	[2..4]	state S1	state x : S1[2..4];	Probe::d.x => undetermined <undetermi
 prefix	[2..4]	requirement R1	requirement x : R1[2..4];	Probe::d.x => undetermined <undetermined>
 prefix	[2..4]	constraint C1	constraint x : C1[2..4];	Probe::d.x => undetermined <undetermined>
 prefix	[2..4]	occurrence O1	occurrence x : O1[2..4];	Probe::d.x => undetermined <undetermined>
-prefix	[2..4]	connection Cn1	connection x : Cn1[2..4] connect sub1 to sub2;	Probe::d.x => error connector end cannot be attached: d.x end "x" at <test>:#560: a connector of more than one object has no set of ends to attach
+prefix	[2..4]	connection Cn1	connection x : Cn1[2..4] connect sub1 to sub2;	Probe::d.x => undetermined <undetermined>
 prefix	[*] = (3,1,3) (unique default)	attribute Integer	attribute x : Integer[*] = (3, 1, 3);	Probe::d.x => error feature value d.x: uniqueness violation: 3 (an Integer) is written at positions 1 and 3 of a unique feature
 prefix	[*] ordered nonunique = (3,1,3)	attribute Integer	attribute x : Integer[*] ordered nonunique = (3, 1, 3);	Probe::d.x => collection(3) [constant 3, constant 1, constant 3]
 prefix	[*] ordered = (3,1,3)	attribute Integer	attribute x : Integer[*] ordered = (3, 1, 3);	Probe::d.x => error feature value d.x: uniqueness violation: 3 (an Integer) is written at positions 1 and 3 of a unique feature
@@ -1934,7 +1934,7 @@ prefix	:> subsetting	state S1	state x : S1[0..*]; state y : S1 :> x;	Probe::d.x 
 prefix	:> subsetting	requirement R1	requirement x : R1[0..*]; requirement y : R1 :> x;	Probe::d.x => collection(1) [object:Probe::R1#1] ;; Probe::d.y => object:Probe::R1
 prefix	:> subsetting	constraint C1	constraint x : C1[0..*]; constraint y : C1 :> x;	Probe::d.x => collection(1) [object:Probe::C1#1] ;; Probe::d.y => object:Probe::C1
 prefix	:> subsetting	occurrence O1	occurrence x : O1[0..*]; occurrence y : O1 :> x;	Probe::d.x => collection(1) [object:Probe::O1#1] ;; Probe::d.y => object:Probe::O1
-prefix	:> subsetting	connection Cn1	connection x : Cn1[0..*] connect sub1 to sub2; connection y : Cn1 connect sub1 to sub2 :> x;	Probe::d.x => error connector end cannot be attached: d.x end "x" at <test>:#560: a connector of more than one object has no set of ends to attach ;; Probe::d.y => object:Probe::Cn1
+prefix	:> subsetting	connection Cn1	connection x : Cn1[0..*] connect sub1 to sub2; connection y : Cn1 connect sub1 to sub2 :> x;	Probe::d.x => empty ;; Probe::d.y => object:Probe::Cn1
 prefix	::> reference subsetting	attribute Integer	attribute x : Integer; ref attribute y ::> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined> ;; Probe::d.y == Probe::d.x => undetermined <undetermined>
 prefix	::> reference subsetting	attribute At1	attribute x : At1; ref attribute y ::> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined> ;; Probe::d.y == Probe::d.x => undetermined <undetermined>
 prefix	::> reference subsetting	enum E1	enum x : E1; ref enum y ::> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined> ;; Probe::d.y == Probe::d.x => undetermined <undetermined>

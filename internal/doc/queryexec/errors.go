@@ -1,6 +1,7 @@
 package queryexec
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -28,8 +29,11 @@ const (
 	ErrorUnknownElement        ErrorKind = "unknown-element"
 	// ErrorAmbiguousElement: Named was given a name several elements carry — a
 	// finding about the model, where ErrorUnknownElement is one about the query.
-	ErrorAmbiguousElement      ErrorKind = "ambiguous-element"
-	ErrorUnknownRelationship   ErrorKind = "unknown-relationship"
+	ErrorAmbiguousElement    ErrorKind = "ambiguous-element"
+	ErrorUnknownRelationship ErrorKind = "unknown-relationship"
+	// ErrorMissingFeature: Project or WhereFeature read a feature an element row
+	// lacks — a path error about that element; ErrorUnknownProperty: no row had it.
+	ErrorMissingFeature        ErrorKind = "missing-feature"
 	ErrorUnevaluableFeature    ErrorKind = "unevaluable-feature"
 	ErrorUnknownInvocation     ErrorKind = "unknown-invocation"
 	ErrorInvocationCycle       ErrorKind = "invocation-cycle"
@@ -91,19 +95,22 @@ type Error struct {
 	Expected  string
 	Actual    string
 	Origin    symbols.Origin
-	// Candidates are what the model offers where the query asked for something it
-	// lacks: the spellings nearest an unresolved name, or the elements an
-	// ambiguous name denotes.
+	// Candidates are what the model offers in place of what the query asked for:
+	// the spellings nearest an unresolved name, or the elements an ambiguous name denotes.
 	Candidates []string
+	// Outcome is the QVTS record behind a path or model error (outcome.go); nil for
+	// the failures that are neither, the flat fields above being its rendering.
+	Outcome *Outcome
 	// Cause is the evaluator's reason an unevaluable feature could not be read.
 	Cause error
 }
 
 func (e *Error) Unwrap() error { return e.Cause }
 
-// declaredAs lists the qualified names an ambiguous name denotes, a name
-// several elements are declared under once with its count, so two members
-// named alike read as `Duplicates::a (declared 2 times)`.
+func asError(err error, target **Error) bool { return errors.As(err, target) }
+
+// declaredAs lists the qualified names an ambiguous name denotes, a repeated
+// one once with its count: `Duplicates::a (declared 2 times)`.
 func declaredAs(fqns []string) string {
 	var out []string
 	for i, fqn := range fqns {
@@ -124,10 +131,8 @@ func declaredAs(fqns []string) string {
 	return strings.Join(out, ", ")
 }
 
-// unknownElementMessage says where the name stopped resolving — the namespace
-// that did resolve (Target) has no member of the next segment (Expected) — and
-// what is spelled nearest, so the reader can tell a typo from a model that lacks
-// the element; an alias that denotes nothing says so.
+// unknownElementMessage says where the name stopped resolving (Target has no
+// member Expected) and what is spelled nearest; an alias denoting nothing says so.
 func (e *Error) unknownElementMessage() string {
 	msg := fmt.Sprintf("query %s names no element %s", e.Query, e.Actual)
 	switch {
@@ -139,6 +144,32 @@ func (e *Error) unknownElementMessage() string {
 		msg += fmt.Sprintf(": nothing is named %s", e.Expected)
 	}
 	return suggest.With(msg, e.Expected, e.Candidates)
+}
+
+// missingFeatureMessage names the element lacking the feature and the features
+// it does have, so the reader sees where the path left the model.
+func (e *Error) missingFeatureMessage() string {
+	msg := fmt.Sprintf("query %s reads feature %s of %s, which has no such feature", e.Query, e.Property, e.Target)
+	if e.Actual != "" {
+		msg = fmt.Sprintf("query %s reads feature %s of %s, but the path stops at %s", e.Query, e.Property, e.Target, e.Actual)
+	}
+	if len(e.Candidates) == 0 {
+		return msg
+	}
+	msg += ": its features are " + strings.Join(e.Candidates, ", ")
+	if len(e.Candidates) <= 3 {
+		return msg
+	}
+	return suggest.With(msg, e.missingSegment(), e.Candidates)
+}
+
+// missingSegment is the segment the record says names nothing: the failed step's
+// argument, so a path that repeats a name cannot misdirect the suggestion.
+func (e *Error) missingSegment() string {
+	if e.Outcome != nil && e.Outcome.Path != nil && len(e.Outcome.Path.Failures) == 1 {
+		return e.Outcome.Path.Failures[0].Step.Argument
+	}
+	return e.Property
 }
 
 // column names the projected column an error arose in, when it did in one.
@@ -186,6 +217,8 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("query %s references unknown property %s", e.Query, e.Property)
 	case ErrorUnknownClassification:
 		return fmt.Sprintf("query %s references unknown classification %s", e.Query, e.Actual)
+	case ErrorMissingFeature:
+		return e.missingFeatureMessage()
 	case ErrorUnknownElement:
 		return e.unknownElementMessage()
 	case ErrorAmbiguousElement:
