@@ -282,9 +282,8 @@ func (a *Archive) readProject() error {
 	return nil
 }
 
-// folder is the one directory every member lies under when it holds both
-// manifests at its root, as an archive made of a folder's parent does and the
-// OMG library releases are; "" when the archive is not laid out that way.
+// folder is the one directory every member lies under when it holds both manifests
+// at its root (an archive of the project's folder, as the OMG releases are), else "".
 func (a *Archive) folder() string {
 	if len(a.names) == 0 {
 		return ""
@@ -330,9 +329,8 @@ func (a *Archive) missingTopLevel(file string) error {
 	return fmt.Errorf("no %s at the top level of the archive", file)
 }
 
-// readMeta reads and checks .meta.json: its checksums must name members and
-// every one this build can compute must match; an index entry naming no
-// member is noted.
+// readMeta reads and checks .meta.json: its checksums must name members and every
+// one this build can compute must match; an index entry naming no member is noted.
 func (a *Archive) readMeta() error {
 	content, ok := a.members[MetaFile]
 	if !ok {

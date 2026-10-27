@@ -88,9 +88,8 @@ type Projects struct {
 	// the enclosing projects among them included.
 	installed map[string]bool
 
-	// Linking describes the usages that name no installed project by publisher
-	// and name: one linked by elimination, one several unclaimed projects could
-	// answer; one warning per usage, see used.
+	// Linking describes the usages that name no installed project by publisher and name —
+	// linked by elimination, or answerable by several unclaimed projects — one warning per usage.
 	Linking []Warning
 }
 
@@ -282,13 +281,8 @@ func walkInstalled(dir string, visited map[string]bool, budget *int, found func(
 	}
 }
 
-// used selects the installed projects the enclosing ones use, directly or in turn, each once:
-// by name (Uses) first, else by elimination among the unclaimed (pickUnclaimed), or as learnt.
-//
-// An enclosing project that is itself installed under the roots (installedKey
-// holds its absKey) was reached through a usage — the files of a project linked
-// before the load are enclosing after it — so it may still answer a usage by
-// elimination, and the link is said after the load as before it.
+// used selects the installed projects the enclosing ones use, directly or in turn, each once: by name (Uses), else
+// by elimination (pickUnclaimed) or as learnt; an enclosing project installed under the roots (installedKey) may answer one.
 func used(enclosing, installed []*Interchange, installedKey map[string]bool) (out []*Interchange, linking []Warning) {
 	selected := map[string]bool{}
 	claimed := map[string]bool{}
@@ -375,9 +369,8 @@ func pickVersion(installed []*Interchange, identity, constraint string) *Interch
 	return pick
 }
 
-// pickUnclaimed links a usage of from by elimination: the highest unclaimed version
-// satisfying its constraint when the candidates are all one project, never from itself;
-// several projects are returned unpicked.
+// pickUnclaimed links a usage of from by elimination: the highest unclaimed version satisfying its
+// constraint when the candidates are all one project (never from itself); several are returned unpicked.
 func pickUnclaimed(installed []*Interchange, claimed map[string]bool, from *Interchange, u Usage) (*Interchange, []*Interchange) {
 	constraint := u.constraint()
 	var candidates []*Interchange

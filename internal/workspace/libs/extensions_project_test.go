@@ -52,10 +52,8 @@ func vendoredExtensionUnits(t *testing.T) map[string][]byte {
 	return units
 }
 
-// The vendored extension units are the published project's files: each is
-// recorded in the upstream .meta.json with its SHA-256, and each recorded unit
-// is vendored. The manifests come from the pin, so a unit edited here or
-// upstream fails this gate until the pin and the sync agree again.
+// Each vendored unit is recorded in the upstream .meta.json with its SHA-256 and each recorded
+// unit is vendored: the manifests come from the pin, so an edit on either side fails this gate.
 func TestVendoredExtensionUnitsMatchTheirRecordedChecksums(t *testing.T) {
 	meta := extensionsMeta(t)
 	units := vendoredExtensionUnits(t)
@@ -86,9 +84,8 @@ func TestVendoredExtensionUnitsMatchTheirRecordedChecksums(t *testing.T) {
 	}
 }
 
-// The upstream index maps each root namespace to the unit declaring it: every
-// vendored unit declares exactly the roots the index names for it, and no root
-// is indexed to a unit that is not vendored.
+// Every vendored unit declares exactly the root namespaces the upstream index
+// names for it, and no root is indexed to a unit that is not vendored.
 func TestVendoredExtensionUnitsDeclareTheIndexedRoots(t *testing.T) {
 	meta := extensionsMeta(t)
 	units := vendoredExtensionUnits(t)

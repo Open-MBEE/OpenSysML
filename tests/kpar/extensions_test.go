@@ -24,10 +24,8 @@ var (
 	vendoredManifests = filepath.Join("..", "..", "internal", "workspace", "libs", "extensions-project")
 )
 
-// extensionsProject is the Extensions Library as its tagged tree holds it:
-// the vendored units under libraries/, with the manifests and the LICENSE the
-// pin carries, so the .meta.json checksums verify. Name replaces the project's
-// name when not empty.
+// extensionsProject is the Extensions Library as its tagged tree holds it: the vendored units
+// under libraries/ with the pinned manifests and LICENSE; name, when given, replaces the project's.
 func extensionsProject(t *testing.T, name string) map[string][]byte {
 	t.Helper()
 	files := map[string][]byte{}
@@ -77,9 +75,8 @@ func unitsOf(files map[string][]byte) []string {
 	return units
 }
 
-// zipFiles archives files under prefix ("" for the top level), as -bundle and
-// a release job do when prefix is empty, and as an archive of the project's
-// folder does otherwise.
+// zipFiles archives files at the top level (prefix "") as a release does, or
+// under a folder as an archive of the project's folder does.
 func zipFiles(t *testing.T, files map[string][]byte, prefix string) []byte {
 	t.Helper()
 	var buf bytes.Buffer
@@ -104,10 +101,8 @@ func zipFiles(t *testing.T, files map[string][]byte, prefix string) []byte {
 	return buf.Bytes()
 }
 
-// extensionsConsumer writes a project using the Extensions Library by its
-// repository IRI, with the library installed under lib/ as the tree or the
-// archive given, beside an installed project no usage claims: the library is
-// found by its name, not as the only candidate left.
+// extensionsConsumer writes a project using the Extensions Library by its repository IRI, installed
+// under lib/ as the tree or archive given, beside an unclaimed project so the name decides the link.
 func extensionsConsumer(t *testing.T, tree map[string][]byte, archive []byte) string {
 	t.Helper()
 	proj := filepath.Join(t.TempDir(), "proj")
@@ -150,10 +145,8 @@ func loadedFromInstall(t *testing.T, report repl.LoadReport, install string, uni
 	}
 }
 
-// The library installed under lib/ from the repository IRI's usage loads its
-// sixteen packages from the install, linked by publisher and name — an
-// elimination or ambiguity would be a warning — as a directory and as the
-// archive of the same tree, whose checksums verify.
+// The install answering the repository IRI's usage loads its sixteen packages, linked by publisher
+// and name (elimination or ambiguity would warn), as a directory and as the archive of the same tree.
 func TestExtensionsLibraryInstallIsLinkedByNameAndLoadsItsPackages(t *testing.T) {
 	tree := extensionsProject(t, "")
 	units := unitsOf(tree)
@@ -210,9 +203,8 @@ func TestExtensionsLibraryArchiveWithAChangedUnitIsRefused(t *testing.T) {
 	}
 }
 
-// A project whose name does not slug to the repository's last path segment is
-// not matched by name; it is linked by elimination when it is the one
-// candidate, and the load says so for the exit policy to judge.
+// A project whose name does not slug to the repository's last path segment is linked
+// by elimination when it is the one candidate, and the load says so for the exit policy.
 func TestExtensionsLibraryUnderAnotherNameIsLinkedByEliminationWithAWarning(t *testing.T) {
 	tree := extensionsProject(t, "OpenSysML Extension Libraries")
 	proj := extensionsConsumer(t, tree, nil)
@@ -238,11 +230,8 @@ func TestExtensionsLibraryUnderAnotherNameIsLinkedByEliminationWithAWarning(t *t
 	}
 }
 
-// An archive of the project's folder rather than of its contents, as the OMG
-// library releases are laid out, is read as the project inside the folder;
-// an index entry naming no member — the OMG Requirement Derivation release
-// indexes RequirementsDerivation.sysml for RequirementDerivation.sysml — is
-// noted, and the unit is found by what it declares.
+// An archive of the project's folder (the OMG releases' layout) is read as the project inside it, and
+// an index entry naming no member (the OMG Requirement Derivation release has one) is noted, not fatal.
 func TestArchiveOfTheProjectsFolderWithAMisnamedIndexEntryLoadsWithNotes(t *testing.T) {
 	tree := extensionsProject(t, "")
 	var meta map[string]any

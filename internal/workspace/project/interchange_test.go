@@ -521,10 +521,8 @@ func TestUsedLeavesAUsageSeveralUnclaimedProjectsCouldAnswerUnlinked(t *testing.
 	}
 }
 
-// After the load the files of the project linked by elimination are enclosing
-// too: it is still the usage's answer, its own usages are still followed, and
-// the link is still said. Loaded on its own, an installed project answers its
-// own usages without being offered to itself.
+// An installed project loaded alongside its consumer still answers the usage by elimination,
+// said once, with its own usages followed; loaded alone it is not offered to itself.
 func TestAroundSaysTheEliminationLinkWhenTheLinkedProjectIsLoaded(t *testing.T) {
 	root := t.TempDir()
 	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
