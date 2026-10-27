@@ -424,6 +424,10 @@ jobs:
           no_output_timeout: 30m
 
       - run:
+          name: Check Go dependencies for known vulnerabilities
+          command: make vulncheck
+
+      - run:
           name: Check grpc-go stays out of production code
           command: ./scripts/check-grpc-imports.sh
 
@@ -1217,6 +1221,12 @@ jobs:
             pip install --only-binary :all: jupyter_client==8.10.0 build==1.6.1
             make jupyter-kernel-install
 
+      - run:
+          name: Audit the Python packages' dependencies
+          command: |
+            scripts/download-sca-tools.sh pip-audit
+            make audit-python
+
       # The integration tests connect to a service on the standard port with
       # auto_start=False, which is the explicit opt-in to one the client does not
       # manage; without it they skip, exercising nothing, so one runs here for
@@ -1327,6 +1337,12 @@ jobs:
       - run:
           name: Run Rust clippy
           command: cd client/rust && cargo clippy --all-targets -- -D warnings
+
+      - run:
+          name: Audit the Rust client's dependencies
+          command: |
+            scripts/download-sca-tools.sh cargo-audit
+            make audit-rust
 
       - run:
           name: Run Rust tests
@@ -1486,6 +1502,12 @@ jobs:
           paths:
             - ~/.m2/repository
 
+      - run:
+          name: Audit the Java client's dependencies
+          command: |
+            scripts/download-sca-tools.sh osv-scanner
+            make audit-java
+
       # opensysml.requireService turns "no binary, so skip" into a failure: the
       # workspace carries one, so its absence is the bug, not a pass. `install`
       # rather than `test`, so the sources and javadoc jars a release needs are
@@ -1555,6 +1577,12 @@ jobs:
             cd client/node
             npm install --ignore-scripts --no-audit --no-fund
             git diff --exit-code package-lock.json
+
+      # Every npm lockfile, the editors' included: this job runs on tags too, where
+      # editors-node-test does not, and the audit needs only the lockfiles.
+      - run:
+          name: Audit every npm lockfile's dependencies
+          command: make audit-npm
 
       - run:
           name: Build the package

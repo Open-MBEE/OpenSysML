@@ -1,0 +1,100 @@
+# Weekly dependency updates, one grouped pull request per ecosystem and directory,
+# against develop. The pull requests run the same CI as any other and a maintainer
+# merges them (CONTRIBUTING.md § Dependabot pull requests). Dependabot alerts and
+# security updates are repository settings, not configured here.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directories:
+      - /
+      - /tools
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: develop
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      go-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directories:
+      - /client/node
+      - /packaging/npm/sysml-mcp
+      - /editors/vscode
+      - /editors/jupyterlab
+      - /editors/syson/frontend
+      - /scripts/asciidoc
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: develop
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      npm-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: pip
+    directories:
+      - /client/python
+      - /client/jupyter-kernel
+      - /packaging/pypi-pysysml
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: develop
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      pip-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: cargo
+    directory: /client/rust
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: develop
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      cargo-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: maven
+    directory: /client/java
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: develop
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      maven-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: develop
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      actions-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]

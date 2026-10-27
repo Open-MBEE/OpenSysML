@@ -54,9 +54,19 @@ gofmt -l .            # must print nothing
 go build ./...
 go vet ./...
 make lint             # staticcheck + gosec, as CircleCI runs
+make sca-tools audit  # govulncheck, npm audit, pip-audit, cargo audit, osv-scanner, as CircleCI runs
 go test -race -count=1 ./...
 go test -run TestStdlibConformance ./internal/workspace/libs
 ```
+
+`make audit` must report no finding: every advisory it prints is fixed by moving the
+dependency before the tag, since the same audits run in the release workflow's jobs and fail
+it. A finding no release of the dependency fixes yet is looked up in the
+[CISA Known Exploited Vulnerabilities catalogue](https://www.cisa.gov/known-exploited-vulnerabilities-catalog):
+a listed vulnerability blocks the release until the dependency is replaced or the code stops
+using it; for an unlisted one, record the advisory, the catalogue check and why the release
+proceeds in the release pull request, and open an issue to track the fix. The audit level and
+the ignore list are not changed to make a release pass.
 
 Run the Python client the way CircleCI's `python-test` job does, since a release
 gates on the same suite:
@@ -156,10 +166,19 @@ Day-to-day work merges into `develop`; `main` carries releases only (see
 [CONTRIBUTING.md § Branches](../../CONTRIBUTING.md#branches)). A release is a
 branch that moves the integration state onto `main`:
 
-1. Cut `release/x.y.z` from `develop`:
+1. Audit the dependencies of `develop` before cutting the branch, so the release branch
+   starts without a known vulnerability, and treat each finding as
+   [Before tagging](#before-tagging) describes (fix, or check the CISA KEV catalogue and
+   record the decision in the release pull request):
 
    ```bash
    git checkout develop && git pull
+   make sca-tools audit
+   ```
+
+   Then cut `release/x.y.z`:
+
+   ```bash
    git checkout -b release/0.0.5
    ```
 
@@ -274,8 +293,14 @@ The tag is the version: CircleCI passes `CIRCLE_TAG` to the build as
 `VERSION`, so `sysml --version` reports it. Rehearse first — see
 [Rehearsing the release](#rehearsing-the-release).
 
+Audit the dependencies once more on the commit being tagged — advisories published since
+the branch was cut count — and tag only when `make audit` is clean or every remaining
+finding has its CISA KEV check recorded in the release pull request, as
+[Before tagging](#before-tagging) describes:
+
 ```bash
 git checkout main && git pull
+make sca-tools audit
 git tag -a v0.0.5 -m "v0.0.5"
 git push origin v0.0.5
 ```

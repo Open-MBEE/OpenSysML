@@ -22,7 +22,7 @@ changed=$(git diff --name-only "$(git merge-base "$base" "$head")" "$head")
 # The editors' grammar generator and its committed outputs (the VS Code
 # grammars and the JupyterLab syntax table) are here too: the test that holds
 # them together is a Go test, run by the Go suite.
-service_pattern='^(api/proto/|cmd/|internal/|tools/|client/opensysml/|client/release-digests\.json$|conformance/|tests/|scripts/|examples/|editors/vscode/tools/|editors/vscode/syntaxes/|editors/jupyterlab/src/syntax\.json$|Makefile$|go\.mod$|go\.sum$|install\.sh$|install\.ps1$|action\.yml$|\.github/workflows/|\.circleci/)'
+service_pattern='^(api/proto/|cmd/|internal/|tools/|client/opensysml/|client/release-digests\.json$|conformance/|tests/|scripts/|examples/|editors/vscode/tools/|editors/vscode/syntaxes/|editors/jupyterlab/src/syntax\.json$|Makefile$|go\.mod$|go\.sum$|install\.sh$|install\.ps1$|action\.yml$|\.github/workflows/|\.github/dependabot\.yml$|\.circleci/)'
 docs_pattern='^(docs/|overrides/|packaging/man/|mkdocs\.yml$|README\.md$|CHANGELOG\.md$|CONTRIBUTING\.md$|AGENTS\.md$|.*\.md$)'
 node_pattern='^client/node/'
 python_pattern='^client/python/'

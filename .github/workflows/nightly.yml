@@ -126,6 +126,59 @@ jobs:
           echo "Publishing $sha as $night and $TAG (previously ${published:-unpublished})."
           echo "publish=true" >> "$GITHUB_OUTPUT"
 
+  audit:
+    name: Audit the dependencies
+    # Independent of the snapshot: an advisory published against an unchanged develop
+    # fails this job the next night whether or not anything new was built.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Check out develop
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ env.BRANCH }}
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '22'
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+
+      - name: Provision the audit tools
+        run: scripts/download-sca-tools.sh
+
+      # Each audit runs even when an earlier one failed, so one night reports every tree.
+      - name: Check Go dependencies for known vulnerabilities
+        run: make vulncheck
+
+      - name: Audit every npm lockfile's dependencies
+        if: ${{ !cancelled() }}
+        run: make audit-npm
+
+      - name: Audit the Python packages' dependencies
+        if: ${{ !cancelled() }}
+        run: make audit-python
+
+      - name: Audit the Rust client's dependencies
+        if: ${{ !cancelled() }}
+        run: make audit-rust
+
+      - name: Audit the Java client's dependencies
+        if: ${{ !cancelled() }}
+        run: make audit-java
+
   publish:
     name: Build and publish the snapshot
     needs: select

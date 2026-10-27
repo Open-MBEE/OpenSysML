@@ -97,6 +97,7 @@ case_ install-script-windows docs,go,java,julia,jupyterlab,matlab,mdk,node,pytho
 case_ action docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode action.yml
 case_ conformance docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode conformance/scenarios/01-server-info.json
 case_ workflow docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/pr.yml
+case_ dependabot docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/dependabot.yml
 # The Go hygiene suite caps every tracked fixture and test file, so these run it too.
 case_ client-fixture go,python client/python/tests/testdata/large.json
 case_ client-golden go,node client/node/test/render.golden.json
