@@ -407,15 +407,17 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 	}
 	result := filtered(source)
 	known := false
-	var missing error
+	var missing []*Error
 	columnIndex := projectedColumn(source, property)
 	for i := range source.values {
 		values, present, valueErr := e.featureValues(expression, source, i, property, columnIndex)
 		if valueErr != nil {
 			return sequence{}, valueErr
 		}
-		if !present && !tolerate && missing == nil {
-			missing = e.missingFeature(expression, property, source.values[i])
+		if !present && !tolerate {
+			if m := e.missingFeature(expression, property, source.values[i]); m != nil {
+				missing = append(missing, m)
+			}
 		}
 		known = known || present
 		for _, actual := range values {
@@ -435,8 +437,8 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 	if !known {
 		return sequence{}, e.unknownProperty(expression, property)
 	}
-	if missing != nil {
-		return sequence{}, missing
+	if err := joinMissing(missing); err != nil {
+		return sequence{}, err
 	}
 	return result, nil
 }
@@ -650,7 +652,7 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 		result.columns[len(properties)+i] = Column{name: column.name, origin: column.origin.Origin()}
 	}
 	tracker := newPropertyTracker()
-	missing := make([]error, len(properties))
+	missing := make([][]*Error, len(properties))
 	for row, value := range source.values {
 		result.cells[row] = make([]Cell, total)
 		for column, property := range properties {
@@ -658,8 +660,10 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 			if valueErr != nil {
 				return sequence{}, e.unevaluable(expression, property, value, valueErr)
 			}
-			if !present && !tolerate && missing[column] == nil {
-				missing[column] = e.missingFeature(expression, property, value)
+			if !present && !tolerate {
+				if m := e.missingFeature(expression, property, value); m != nil {
+					missing[column] = append(missing[column], m)
+				}
 			}
 			known[column] = known[column] || present
 			result.cells[row][column] = Cell{
@@ -686,8 +690,8 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 		}
 		// A property some rows carry and an element row lacks is a path error
 		// about that element, unless tolerated; one no row carries is unknown.
-		for _, err := range missing {
-			if err != nil {
+		for _, column := range missing {
+			if err := joinMissing(column); err != nil {
 				return sequence{}, err
 			}
 		}
@@ -1208,7 +1212,7 @@ func (e *executor) tolerateArgument(expression queryplan.Expression) (bool, erro
 
 // missingFeature reports a feature the element row lacks, its own features as
 // the frontier; nil for a non-element row or a metamodel property every element answers.
-func (e *executor) missingFeature(expression queryplan.Expression, property string, row Value) error {
+func (e *executor) missingFeature(expression queryplan.Expression, property string, row Value) *Error {
 	sym, isElement := row.Element()
 	if !isElement || sym == nil || isQueryableProperty(property) || strings.Contains(property, "::") {
 		// A metadata path names an annotation the element may simply not carry.
@@ -1241,6 +1245,22 @@ func (e *executor) missingFeature(expression queryplan.Expression, property stri
 			Frontier: Frontier{At: symbols.FQNOf(reached), Features: features, Nearest: first(suggest.Nearest(segment, names))},
 		}}}},
 	}
+}
+
+// joinMissing is the fan-out of a missing feature: one error whose record carries
+// every element's failure, the message naming the first element and counting the rest.
+func joinMissing(errs []*Error) error {
+	if len(errs) == 0 {
+		return nil
+	}
+	head := *errs[0]
+	failures := append([]Failure{}, head.Outcome.Path.Failures...)
+	for _, other := range errs[1:] {
+		failures = append(failures, other.Outcome.Path.Failures...)
+		head.Also = append(head.Also, other.Target)
+	}
+	head.Outcome = &Outcome{Path: &PathError{Failures: failures}}
+	return &head
 }
 
 // features lists, in name order, the features an element has from the model's own

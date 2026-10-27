@@ -17,6 +17,9 @@ type labeller struct {
 	simple  map[*Node]string // a node's distinguishing suffix, when names are drawn simple
 	skin    dotSkin          // the DOT skin labels are composed and measured for
 	shown   Shown            // the optional notation elements the labels carry
+	// pinLines lists a node's parameter pins as label lines, for a form that
+	// draws no pin on a tree node.
+	pinLines bool
 }
 
 // labelsOf finds the namespace the named roots share — the longest run of
@@ -349,6 +352,7 @@ func (l labeller) lines(node *Node) []string {
 	}
 	lines = append(lines, l.headLines(node)...)
 	lines = append(lines, l.details(node)...)
+	lines = append(lines, l.parameterLines(node)...)
 	return append(lines, l.compartmentLines(node)...)
 }
 
@@ -361,7 +365,22 @@ func (l labeller) titleLines(node *Node) []string {
 	}
 	lines = append(lines, head...)
 	lines = append(lines, l.details(node)...)
+	lines = append(lines, l.parameterLines(node)...)
 	return append(lines, l.compartmentLines(node)...)
+}
+
+// parameterLines are a node's parameter pins as the notation's `parameters`
+// compartment, `in x : Integer` a line under the heading, where pinLines asks
+// for them; nothing for a node with no pin.
+func (l labeller) parameterLines(node *Node) []string {
+	if !l.pinLines || len(node.Ports) == 0 {
+		return nil
+	}
+	lines := []string{"parameters"}
+	for _, port := range node.Ports {
+		lines = append(lines, parameterPinLine(port))
+	}
+	return lines
 }
 
 // cameoStateDetails splits a state's detail into Cameo's compartment lines, one

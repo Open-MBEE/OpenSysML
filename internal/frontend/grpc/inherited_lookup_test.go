@@ -36,8 +36,7 @@ package Demo {
 func TestExecuteAction_InheritedActionBySubtypesQualifiedName(t *testing.T) {
 	srv := mustNewService(t, 10)
 	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: inheritedBehaviorModel},
-		ContentHash: "test-execute-action-inherited",
+		Source: &pb.ParseFileRequest_Content{Content: inheritedBehaviorModel},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)
@@ -83,8 +82,7 @@ func TestExecuteAction_InheritedActionBySubtypesQualifiedName(t *testing.T) {
 func TestExecuteState_InheritedMachineBySubtypesQualifiedName(t *testing.T) {
 	srv := mustNewService(t, 10)
 	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: inheritedBehaviorModel},
-		ContentHash: "test-execute-state-inherited",
+		Source: &pb.ParseFileRequest_Content{Content: inheritedBehaviorModel},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)

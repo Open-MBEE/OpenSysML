@@ -149,7 +149,7 @@ func DecodeElementID(id string) (string, bool) {
 			hi := strings.IndexByte(lowerHex, id[i+1])
 			lo := strings.IndexByte(lowerHex, id[i+2])
 			if hi >= 0 && lo >= 0 {
-				b.WriteByte(byte(hi<<4 | lo))
+				b.WriteByte(byte(hi<<4 | lo)) // #nosec G115 -- two nibbles
 				i += 2
 				continue
 			}

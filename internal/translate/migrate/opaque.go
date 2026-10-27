@@ -629,7 +629,7 @@ func unescape(s string) (rune, int, *refusal) {
 			return 0, 0, &refusal{kind: refusedSyntax, token: `\x` + hex, why: "a hexadecimal escape needs two hex digits"}
 		}
 		v, _ := strconv.ParseUint(hex, 16, 32)
-		r, n = rune(v), 3
+		r, n = rune(v), 3 // #nosec G115 -- two hex digits
 	case 'u':
 		var err *refusal
 		if r, n, err = unicodeEscape(s); err != nil {
