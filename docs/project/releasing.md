@@ -333,11 +333,17 @@ so that `dist/` holds:
   by `build-jupyter-kernel-package` from the `sysml-jupyter-kernel` binaries and their
   digests (see
   [Releasing jupyter-opensysml-kernel to PyPI](#releasing-jupyter-opensysml-kernel-to-pypi));
+- the npm tarballs `openmbee-opensysml-<x.y.z>.tgz`, `openmbee-sysml-mcp-<x.y.z>.tgz`
+  and `openmbee-opensysml-mcp-<x.y.z>.tgz`, packed by `build-npm-package` from the
+  tree stamped with the `sysml-grpc` digests, the same bytes `publish-npm` publishes
+  (see [Releasing @openmbee/opensysml to npm](#releasing-openmbeeopensysml-to-npm));
 - one SPDX 2.3 JSON software bill of materials per archive, wheel, sdist, `sysml-grpc`
-  and `sysml-jupyter-kernel` binary, named `<asset>.spdx.json` after the asset it
-  describes (see [The software bills of materials](#the-software-bills-of-materials));
+  and `sysml-jupyter-kernel` binary, WebAssembly module and npm tarball, named
+  `<asset>.spdx.json` after the asset it describes (see
+  [The software bills of materials](#the-software-bills-of-materials));
 - `SHA256SUMS.txt` over every archive, every wheel and sdist, every `sysml-grpc` and
-  `sysml-jupyter-kernel` binary, all three WebAssembly assets and every SBOM,
+  `sysml-jupyter-kernel` binary, all three WebAssembly assets, the three npm tarballs
+  and every SBOM,
   with its cosign signature `SHA256SUMS.txt.bundle` (see
   [The signed checksum manifest](#the-signed-checksum-manifest));
 - `provenance.intoto.json`, the SLSA provenance statement naming every artifact
@@ -361,7 +367,8 @@ windows/amd64.
 The two jobs share one workspace: `build-release-binaries` persists the whole
 `dist/` tree, the binaries' `.sha256` sidecars included, and `build-release`
 persists only what it added to it — the manifest, its signature and provenance
-bundles, the SBOMs, the WebAssembly sidecars and the Python distributions. Workspace layers are additive, and a path persisted by two
+bundles, the SBOMs, the WebAssembly sidecars and the Python distributions;
+`build-npm-package` persists `dist/npm`, the tarballs it packed. Workspace layers are additive, and a path persisted by two
 upstream jobs fails the attach in every job downstream of both, which is every
 publish job.
 
@@ -756,14 +763,51 @@ cosign verify-blob SHA256SUMS.txt --bundle SHA256SUMS.txt.bundle \
 sha256sum -c SHA256SUMS.txt --ignore-missing
 ```
 
-The WebAssembly assets have no SBOM: Go's build information is not readable from
-a `wasm` file, so neither syft nor `go version -m` can say what they were built
-from, and the script would refuse an empty document. The container image carries
-its own SBOM and provenance, attached by `docker buildx` (see
-[Releasing the container image to Docker Hub](#releasing-the-container-image-to-docker-hub)).
-The npm packages are packed by `publish-npm` after the manifest is signed, and
-the MSI is built by the GitHub Actions workflow with the Z3 solver it bundles, so
-neither has an SBOM under this signature yet.
+Three classes of asset need another route to the same document, and get it:
+
+- **The WebAssembly modules** (`sysml-wasm.wasm`, `sysml-prod.wasm.gz`). Go embeds
+  the same module information in a wasm module as in any executable, but neither
+  `debug/buildinfo` (so `go version -m`) nor syft reads this file format — `go
+  version -m sysml-wasm.wasm` answers `unrecognized file format`, and syft writes
+  a document naming nothing. The script therefore reads the module list between
+  the markers Go's linker brackets it with and the toolchain string the runtime
+  carries (refusing a module that holds none, or more than one), and writes the
+  SPDX document itself with the same packages syft would record: the main module
+  and every dependency at its built version, and the toolchain as `stdlib`. The
+  same `go version -m`-style check applies to it. `wasm_exec.js` is the
+  toolchain's own file and has no SBOM of its own; the module's `stdlib` package
+  names its version.
+- **The npm tarballs.** `build-npm-package` packs them before the manifest is
+  written (see [What the job does, in order](#what-the-job-does-in-order-1)), so
+  both the tarballs and their SBOMs are lines of `SHA256SUMS.txt`. Each SBOM
+  describes the packed manifest — `package/package.json` as `npm pack` wrote it,
+  at the exact version packed, with the tarball's own digest — and resolves its
+  dependencies through the lockfile: syft catalogues `client/node/package-lock.json`
+  for `@openmbee/opensysml` and `packaging/npm/sysml-mcp/package-lock.json` for
+  `@openmbee/sysml-mcp` and for `@openmbee/opensysml-mcp`, the runner under its
+  other name, whose generated tree has no lockfile of its own and pins the same
+  five platform packages. Development dependencies are not catalogued; peer
+  dependencies are the installer's choice and are not listed. The script refuses a
+  tarball whose file name is not the one npm gives its manifest, a declared
+  dependency the lockfile does not resolve, or an exact pin resolved to another
+  version.
+- **The Windows installer.** The MSI is built on a Windows runner by
+  `release-windows.yml`, outside this manifest, and bundles the Z3 solver, which
+  syft cannot see inside an MSI. Its SBOM is **derived from the installer's
+  inputs**, not read from the installer: the workflow's `build` job writes it
+  from the four Go executables it built (syft over the staging directory, checked
+  with `go version -m` as above) plus a declared `z3` package from
+  `packaging/msi/z3.pin` — the exact version, the release zip's URL and the
+  SHA-256 the pin verifies, and the five files the installer takes from the zip
+  with their own SHA-256 digests — and the `msi` job lists it beside the
+  installer in `SHA256SUMS-windows-msi.txt`, under the installer's name
+  (`opensysml-<x.y.z>-windows-amd64.msi.spdx.json`). The signed installer gets
+  the same document under its name, listed in `SHA256SUMS-windows-signed.txt`;
+  SignPath changes the executables' signatures, not their build information. See
+  [The Windows installer](#the-windows-installer).
+
+The container image carries its own SBOM and provenance, attached by `docker
+buildx` (see [Releasing the container image to Docker Hub](#releasing-the-container-image-to-docker-hub)).
 
 The Python and Node clients keep reading the signed manifest, not the
 provenance; nothing in them changes.
@@ -927,6 +971,23 @@ from different executable bytes) must not be described by a manifest that did
 not hash it. The unsigned MSI has its own `SHA256SUMS-windows-msi.txt`; for the
 signed one the verifiable statement is its Authenticode signature. Nothing the
 clients download or pin changes.
+
+**The installer's SBOM is derived from its inputs.** syft cannot catalogue an
+MSI, so `scripts/release-sbom.py --msi-inputs` writes
+`opensysml-<x.y.z>-windows-amd64.msi.spdx.json` in the workflow's Linux `build`
+job, from what the MSI is then built from: the four executables that job built
+(their Go module information, checked with `go version -m`) and the Z3 release
+`packaging/msi/z3.pin` names, declared as a `z3` package with the pinned version,
+the zip's URL and SHA-256 (the job downloads the zip and refuses a digest other
+than the pin's, as `build-msi.sh` does) and the five files the installer takes
+from it, each with its digest. The `msi` job downloads that document as a
+workflow artifact, requires it to be named after the MSI it just built, and
+lists both in `SHA256SUMS-windows-msi.txt`; `publish-signed` does the same with
+the `-signed.msi.spdx.json` copy and `SHA256SUMS-windows-signed.txt`. The signed
+executables carry the same module information, so the two documents differ only
+in name and namespace. The syft the job installs is the release the CircleCI
+`build-release` job pins, at the same digest (`tests/hygiene` holds the two
+files to one pin).
 
 **SignPath and the MSI.** Add a second artifact configuration to the SignPath
 project: a single `.msi` file, Authenticode-signed, and put its slug in the
@@ -1632,6 +1693,19 @@ Everything below is already in place; it is recorded so it can be re-created.
 
 ### What the job does, in order
 
+`build-npm-package` runs beside `build-python-package`, after
+`build-release-binaries` and before `build-release`: it checks the tag against
+`client/node/package.json`, stamps the five `sysml-grpc-*` digests of `dist/grpc`
+into `client/node/release-digests.json` exactly as step 2 below does, builds the
+client from its lockfile (`npm install --ignore-scripts`, the lockfile unchanged),
+packs it into `dist/npm/` and opens the tarball to assert its table pins all five
+service assets for the tag, then packs `@openmbee/sysml-mcp` and, through the
+generator (`npm run platform-packages -- --mcp ../../dist/mcp`), its alias
+`@openmbee/opensysml-mcp`, and persists `dist/npm`. `build-release` writes an
+SBOM per tarball and lists tarballs and SBOMs in the manifest it signs, and
+`publish-github-release` uploads the tarballs with the other assets. Nothing is
+packed again afterwards.
+
 `publish-npm` runs after `publish-github-release`, beside `publish-pypi`:
 
 1. Resolves the version: fails if the tag is not `v<version>` matching
@@ -1655,23 +1729,26 @@ Everything below is already in place; it is recorded so it can be re-created.
    platform packages from `dist/mcp` and the WASM package from `dist/wasm`,
    checking every asset against its `.sha256` sidecar, and generates
    `@openmbee/opensysml-mcp` from `packaging/npm/sysml-mcp` beside them.
-7. Packs the client into `dist/npm/` with `npm pack` and opens the tarball:
-   its `release-digests.json` must pin all five service assets for the tag,
-   with the digests of the binaries in `dist/grpc`, or the job fails. Then
-   packs `@openmbee/sysml-mcp` beside it: the tarball must be the tag's
-   version with no dependencies and its five platform packages pinned at it,
-   and `scripts/npm-mcp-test.sh` installs that tarball with the linux-x64
-   platform package from step 6 into a throwaway project and speaks
-   `initialize` and `tools/list` to the installed command, then does the same
-   with the generated `@openmbee/opensysml-mcp` through both of its commands,
-   or the job fails. Then packs `@openmbee/opensysml-mcp`: the tarball must be
-   the tag's version, pin the runner's five platform packages at it, declare
-   `sysml-mcp` and `opensysml-mcp` and no `mcpName`.
+7. Takes the three tarballs from `dist/npm/`, where `build-npm-package` packed
+   them before the manifest was written, and checks each against the signed
+   `SHA256SUMS.txt` with `sha256sum --check --strict`. The client's tarball was
+   opened there: its `release-digests.json` must pin all five service assets
+   for the tag, with the digests of the binaries in `dist/grpc`, or that job
+   fails. Here `@openmbee/sysml-mcp`'s tarball must be the tag's version with
+   no dependencies and its five platform packages pinned at it, and
+   `scripts/npm-mcp-test.sh` packs the same tree with the linux-x64 platform
+   package from step 6 into a throwaway project and speaks `initialize` and
+   `tools/list` to the installed command, then does the same with the
+   generated `@openmbee/opensysml-mcp` through both of its commands, or the job
+   fails. Then `@openmbee/opensysml-mcp`'s tarball must be the tag's version,
+   pin the runner's five platform packages at it, declare `sysml-mcp` and
+   `opensysml-mcp` and no `mcpName`.
 8. Authenticates to npm and runs `npm whoami`, so an expired token fails before
    the first publish.
 9. Publishes the WASM and ten platform packages, then the client,
    `@openmbee/sysml-mcp` and last `@openmbee/opensysml-mcp` — the tarballs
-   verified in step 7, not fresh packs — on the resolved dist-tag.
+   verified in step 7, the bytes the signed manifest lists, not fresh packs —
+   on the resolved dist-tag.
 
 ### If a publish goes wrong
 
