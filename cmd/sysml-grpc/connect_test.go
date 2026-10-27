@@ -25,6 +25,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/api/proto/protoconnect"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
@@ -45,7 +46,7 @@ func connectServer(t *testing.T) string {
 	}
 	t.Cleanup(svc.Close)
 
-	srv := httptest.NewServer(h2c.NewHandler(connectHandler(svc, "test", nil), &http2.Server{}))
+	srv := httptest.NewServer(h2c.NewHandler(connectHandler(svc, "test", nil, guard.Token{}), &http2.Server{}))
 	t.Cleanup(srv.Close)
 	return srv.URL
 }
@@ -236,7 +237,7 @@ func TestServeConnectTLS(t *testing.T) {
 	t.Cleanup(cancel)
 	served := make(chan error, 1)
 	go func() {
-		served <- serveConnect(ctx, lis, svc, "test", nil, certFile, keyFile)
+		served <- serveConnect(ctx, lis, svc, "test", nil, guard.Token{}, certFile, keyFile)
 	}()
 
 	address := lis.Addr().String()

@@ -10,27 +10,47 @@ const grpcCommand = "sysml-grpc"
 
 // options is what the command line resolves to.
 type options struct {
-	port           int
-	healthPort     int
-	cacheSize      int
-	logLevel       string
-	showVersion    bool
-	showMan        bool
-	reportAddress  bool
-	exitWithParent bool
-	transport      string
-	corsOrigins    string
-	tlsCert        string
-	tlsKey         string
-	serveExternal  string
+	host                 string
+	port                 int
+	healthPort           int
+	tokenFile            string
+	token                string
+	allowUnauthenticated bool
+	cacheSize            int
+	logLevel             string
+	showVersion          bool
+	showMan              bool
+	reportAddress        bool
+	exitWithParent       bool
+	transport            string
+	corsOrigins          string
+	tlsCert              string
+	tlsKey               string
+	serveExternal        string
 }
 
 // registerFlags declares the command's flags on fs, so a run, the help and the
 // man page all read one declaration of each.
 func registerFlags(fs *flag.FlagSet) *options {
 	var o options
+	fs.StringVar(&o.host, "host", "",
+		"Host to bind, for the health listener too; empty binds loopback, so only this "+
+			"machine reaches the service. An address other machines reach (0.0.0.0, a "+
+			"host name) is served only with a bearer token (-token-file, -token or "+tokenEnv+") "+
+			"or -allow-unauthenticated")
 	fs.IntVar(&o.port, "port", 50051, "gRPC server port")
 	fs.IntVar(&o.healthPort, "health-port", 8081, "Health check HTTP port")
+	fs.StringVar(&o.tokenFile, "token-file", "",
+		"File holding the bearer token every call must carry as Authorization: Bearer TOKEN "+
+			"(one trailing line break is dropped); with it the token stays out of the process list")
+	fs.StringVar(&o.token, "token", "",
+		"The bearer token itself, for a shell whose command line is private; -token-file keeps "+
+			"it out of the process list, and "+tokenEnv+" is read when neither flag names one")
+	fs.BoolVar(&o.allowUnauthenticated, "allow-unauthenticated", false,
+		"Serve an address other machines reach with no token at all: every host that can "+
+			"open the port may parse, run and edit models here, and the log shows peers but "+
+			"never who they are. Only for a trusted network behind a proxy that authenticates "+
+			"for this service; never implied")
 	fs.IntVar(&o.cacheSize, "cache-size", 100, "Maximum number of cached parsed files")
 	fs.StringVar(&o.logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
 	fs.BoolVar(&o.showVersion, "version", false, "Show version and exit")
@@ -84,16 +104,35 @@ func doc() usage.Doc {
 		Sections: []usage.Section{{
 			Title: "Serving",
 			Examples: []usage.Example{
-				usage.Ex(grpcCommand, "Serve gRPC, gRPC-Web and Connect on port 50051"),
+				usage.Ex(grpcCommand, "Serve gRPC, gRPC-Web and Connect on localhost:50051"),
 				usage.Ex("sysml-grpc -port 0 -report-address", "Let the kernel choose the port and report it"),
 				usage.Ex("sysml-grpc -transport grpc -port 50051", "Serve grpc-go only"),
 				usage.Ex("sysml-grpc -transport stdio", "Speak the protocol over a pipe (a prototype)"),
-				usage.Ex("sysml-grpc -tls-cert server.crt -tls-key server.key", "Serve over TLS"),
+				usage.Ex("sysml-grpc -host 0.0.0.0 -token-file grpc.token", "Serve other machines, each call carrying the token"),
+				usage.Ex("sysml-grpc -host 0.0.0.0 -token-file grpc.token -tls-cert server.crt -tls-key server.key", "The same over TLS"),
+				usage.Ex("sysml-grpc -host 0.0.0.0 -allow-unauthenticated", "Serve other machines open, behind a proxy that authenticates"),
 			},
 			Paragraphs: []string{
 				"Under -transport connect the health endpoint is served as /health on " +
 					"the main port, and -health-port 0 disables the separate " +
 					"listener, which is deprecated.",
+				"The service binds loopback unless -host names another address, and " +
+					"an address other machines reach is served only with a bearer " +
+					"token (-token-file, -token or " + tokenEnv + "), which every call " +
+					"carries as Authorization: Bearer TOKEN on gRPC, gRPC-Web and " +
+					"Connect alike and is compared in constant time; a call without " +
+					"it is refused with the unauthenticated status and a " +
+					"WWW-Authenticate challenge. The token travels in clear unless " +
+					"-tls-cert and -tls-key are given or a TLS proxy fronts the " +
+					"service. -allow-unauthenticated serves such an address with no " +
+					"token, for a trusted network whose proxy authenticates; it is " +
+					"never implied. /health answers without a token, so probes need " +
+					"none, and -transport stdio binds nothing, so none of this " +
+					"applies to it.",
+				"Every call is logged at the info level with the peer address, " +
+					"method, protocol, status code, duration and whether it was " +
+					"authenticated; a refused call is logged at the warning level " +
+					"with the peer. The token itself is never logged.",
 				"A browser client needs its origin allowed: pass the exact origins " +
 					"to -cors-allowed-origins, separated by commas.",
 			},
