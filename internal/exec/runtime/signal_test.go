@@ -1680,10 +1680,8 @@ func TestAddressedSendToQualifiedNameSkipsSameNamedFeature(t *testing.T) {
 	}
 }
 
-// A path through a package-level action or state usage reaches the ports and objects
-// its performance holds, as a path through a part does: `a.device.inPort` addresses the
-// port of the device of the one performance `a` denotes, while a bare `a` stays a
-// receiver addressed by name.
+// A path through a package-level action or state usage reaches what its one performance
+// holds, as a path through a part does; a bare `a` stays a receiver addressed by name.
 func TestAddressedSendReachesAPortUnderAPackageLevelPerformance(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
 		item def Ping;
@@ -1710,6 +1708,29 @@ func TestAddressedSendReachesAPortUnderAPackageLevelPerformance(t *testing.T) {
 		if !msg.reaches("", "inPort", val.Instance) {
 			t.Errorf("%+v does not reach inPort of a.device (object %d)", msg, val.Instance)
 		}
+	}
+}
+
+// A path through an optional package-level performance nothing binds (`action a : A[0..1];`)
+// is unroutable: the usage denotes no object, and a send makes none up.
+func TestAddressedSendThroughAnOptionalPerformanceMakesNoObject(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
+		item def Ping;
+		port def Pt;
+		action def A { port inPort : Pt; }
+		action a : A[0..1];
+		action listen { first start; done; succession first start then done; }
+	}`))
+	send := lower.Send{Target: "a.inPort", TargetPath: true, Scope: DeclScope(oneSymbol(t, idx, "test::listen"))}
+	err := ctx.post(nil, nil, Message{SignalType: "Ping"}, send, nil, nil, nil)
+	if !errors.Is(err, errUnroutableSend) {
+		t.Fatalf("post to a.inPort: %v, want errUnroutableSend", err)
+	}
+	if n := countInstancesOfType(ctx, "A"); n != 0 {
+		t.Errorf("%d A made up for an optional usage by a send, want none", n)
+	}
+	if len(ctx.PendingMessages()) != 0 {
+		t.Errorf("an unroutable send posted %+v", ctx.PendingMessages())
 	}
 }
 
