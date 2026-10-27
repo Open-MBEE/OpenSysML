@@ -259,7 +259,7 @@ function buildWasmPackage(args) {
       "The combined `sysml-wasm` WebAssembly module and its matching Go runtime. " +
       `Install this package alongside [\`${args.pkg.name}\`](https://www.npmjs.com/package/${args.pkg.name}); ` +
       "Node's `connectWasm()` discovers it automatically when no module is supplied.\n\n" +
-      "`sysml-prod.wasm.gz` is the browser build of the `sysml` REPL (`-tags sysml_prod`), " +
+      "`sysml-prod.wasm.gz` is the browser build of the `sysml` REPL (`-tags sysml_re`), " +
       "gzip-compressed; a page inflates it with `DecompressionStream` and runs it under `wasm_exec.js` " +
       "with an emulated file system and stdin, the way the OpenSysML site's REPL page does.\n\n" +
       `SHA-256 of \`sysml-wasm.wasm\`: \`${digests["sysml-wasm.wasm"]}\`\n\n` +
