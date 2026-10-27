@@ -627,7 +627,8 @@ func (ctx *Context) toolOutput(scope *symbols.Scope, tool string, out ToolOutput
 		return &ToolError{Tool: tool, Kind: ToolMalformed,
 			Detail: out.Variable + ": " + fmt.Sprintf(format, args...)}
 	}
-	mult, _ := ctx.statedMultiplicity(out.Declared)
+	target := ctx.writeTargetOf(out.Declared, out.Parameter)
+	mult := target.mult
 	var value Value
 	if answered.Items != nil {
 		if mult.AtMostOne() {
@@ -676,7 +677,6 @@ func (ctx *Context) toolOutput(scope *symbols.Scope, tool string, out ToolOutput
 			return Value{}, err
 		}
 	}
-	target := ctx.newWriteTarget(out.Declared, out.Parameter, mult)
 	if err := ctx.checkWrite(ctx.protocolScope(scope), out.Parameter, target, &value); err != nil {
 		return Value{}, malformed("%v", err)
 	}

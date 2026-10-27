@@ -18,7 +18,8 @@ type writeTarget struct {
 	mult        semantics.Range
 	unique      bool               // holds no two equal values (KerML isUnique, the default)
 	holdsSet    bool               // values form a set, which drops repeats itself
-	countJudged bool               // Count is judged against mult (a parameter's effective range or a stated multiplicity), never an unstated non-parameter range.
+	stated      bool               // a declaration, inheritance or the parameter rule states mult; a body-local declaration judges its initializer's count only then
+	countJudged bool               // a write's count is judged against mult: stated or the implicit [1..1], never the representative range of a defaulted one
 	feature     *symbols.Symbol    // the feature written
 	readOnly    semantics.ReadOnly // why no behavior may write feature, if none may
 }
@@ -52,26 +53,22 @@ func (ctx *Context) writeTargetIn(scope *symbols.Scope, name string) (*writeTarg
 	}
 	var target *writeTarget
 	if sym, ok := ctx.lookupName(scope, name); ok && sym != nil && semantics.IsShapeFeature(sym) {
-		var mult semantics.Range
-		countJudged := true
-		if semantics.IsParameter(sym) {
-			mult = ctx.model.semantics.EffectiveParameterRange(sym)
-		} else {
-			var stated bool
-			mult, stated = ctx.statedMultiplicity(sym)
-			countJudged = stated
-			if !stated {
-				mult = representativeRange()
-			}
-		}
-		target = ctx.newWriteTarget(sym, name, mult)
-		target.countJudged = countJudged
+		target = ctx.writeTargetOf(sym, name)
 	}
 	if ctx.model.writeTargets == nil {
 		ctx.model.writeTargets = make(map[writeTargetKey]*writeTarget)
 	}
 	ctx.model.writeTargets[key] = target
 	return target, target != nil
+}
+
+// writeTargetOf is what the feature sym, written as name, declares of its values, the count
+// judged as checkAdmits judges an object's feature: none against a defaulted feature's.
+func (ctx *Context) writeTargetOf(sym *symbols.Symbol, name string) *writeTarget {
+	mult, stated, defaulted := ctx.featureRange(sym, ctx.findOwnerType(sym))
+	target := ctx.newWriteTarget(sym, name, mult)
+	target.stated, target.countJudged = stated, !defaulted
+	return target
 }
 
 // newWriteTarget is what the feature sym, written as name, declares of its values.
@@ -143,26 +140,26 @@ func (ctx *Context) checkWrite(scope *symbols.Scope, what string, target *writeT
 	if target == nil {
 		return nil
 	}
-	return ctx.checkTarget(scope, what, target, value, admitWritten, true)
+	return ctx.checkTarget(scope, what, target, value, admitWritten)
 }
 
-// checkTarget reports a value the target does not admit: by count when countJudged,
-// then by type under the given admission, then by uniqueness.
-func (ctx *Context) checkTarget(scope *symbols.Scope, what string, target *writeTarget, value *Value, how admission, countJudged bool) error {
-	return ctx.checkTargetAs(scope, func() string { return what }, target, value, how, countJudged)
+// checkTarget reports a value the target does not admit: by count when the target's
+// multiplicity judges one, then by type under the given admission, then by uniqueness.
+func (ctx *Context) checkTarget(scope *symbols.Scope, what string, target *writeTarget, value *Value, how admission) error {
+	return ctx.checkTargetAs(scope, func() string { return what }, target, value, how)
 }
 
 // checkTargetAs is checkTarget naming the write only when it is refused, so a
 // conformant write on a hot path does not pay for its description.
-func (ctx *Context) checkTargetAs(scope *symbols.Scope, what func() string, target *writeTarget, value *Value, how admission, countJudged bool) error {
-	return ctx.checkTargetHeld(scope, what, target, value, how, countJudged, true)
+func (ctx *Context) checkTargetAs(scope *symbols.Scope, what func() string, target *writeTarget, value *Value, how admission) error {
+	return ctx.checkTargetHeld(scope, what, target, value, how, true)
 }
 
 // checkTargetHeld is checkTargetAs, holding a conformant value in the target's shape
 // (shapeForTarget) when shaped, and as computed otherwise — a calculation body's features
 // are held as computed until calculation results take the shape rule too.
-func (ctx *Context) checkTargetHeld(scope *symbols.Scope, what func() string, target *writeTarget, value *Value, how admission, countJudged, shaped bool) error {
-	if countJudged {
+func (ctx *Context) checkTargetHeld(scope *symbols.Scope, what func() string, target *writeTarget, value *Value, how admission, shaped bool) error {
+	if target.countJudged {
 		if msg := ctx.writeCountRefusal(target, value); msg != "" {
 			return fmt.Errorf("%s: %w: %s", what(), ErrMultiplicityViolation, msg)
 		}
@@ -176,7 +173,7 @@ func (ctx *Context) checkTargetHeld(scope *symbols.Scope, what func() string, ta
 	if msg := ctx.uniquenessRefusal(target.unique, target.holdsSet, value); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what(), ErrUniquenessViolation, msg)
 	}
-	if !countJudged {
+	if !target.countJudged {
 		// A multiplicity left unstated judges no count, but a usage the implicit [1..1]
 		// governs (SysML v2 §7.6.3) still holds one held value as that value.
 		if ctx.model.semantics.ImplicitMultiplicityApplies(target.feature) {
@@ -296,7 +293,7 @@ func (ctx *Context) checkNamedWriteHeld(scope *symbols.Scope, where func() strin
 		return nil
 	}
 	what := func() string { return fmt.Sprintf("%s: assignment to %s", where(), name) }
-	return ctx.checkTargetHeld(scope, what, target, value, admitWritten, true, shaped)
+	return ctx.checkTargetHeld(scope, what, target, value, admitWritten, shaped)
 }
 
 // checkBodyDeclaration checks the initial value a body-local declaration binds against
@@ -324,8 +321,9 @@ func (ctx *Context) checkBodyDeclarationHeld(scope *symbols.Scope, where func() 
 	}
 	declared := *target
 	declared.unique = target.unique && multiValued(target.mult)
+	declared.countJudged = target.stated
 	what := func() string { return fmt.Sprintf("%s: declaration of %s", where(), name) }
-	return ctx.checkTargetHeld(scope, what, &declared, value, admitDeclared, target.countJudged, shaped)
+	return ctx.checkTargetHeld(scope, what, &declared, value, admitDeclared, shaped)
 }
 
 // storeBodyValue writes a value into the behavior's own data once it conforms
@@ -824,10 +822,10 @@ func (ctx *Context) featuredChainTarget(s lower.Assign) (*symbols.Symbol, bool) 
 }
 
 // shapeDeclared holds a value bound to the feature name declares in scope in the shape
-// its multiplicity gives it (shapeForTarget), where that multiplicity judges the count.
+// its multiplicity gives it (shapeForTarget), where a stated multiplicity judges the count.
 func (ctx *Context) shapeDeclared(scope *symbols.Scope, name string, value *Value) error {
 	target, ok := ctx.writeTargetIn(scope, name)
-	if !ok || !target.countJudged {
+	if !ok || !target.stated {
 		return nil
 	}
 	return ctx.shapeForTarget(target, value)

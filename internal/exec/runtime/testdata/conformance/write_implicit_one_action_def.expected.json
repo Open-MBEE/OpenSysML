@@ -1,0 +1,6 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::A",
+	"error": "action A: assignment to z: multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1"
+}
