@@ -5,11 +5,9 @@ import (
 	"testing"
 )
 
-// TestRuntimeRobustnessExtentNamespaceConnections covers the failure modes of a
-// namespace-level connection usage read as an object: an end naming nothing reachable, on one
-// connector, on a `[2]` collection or on a connector a `bind` joins to another, connectors bound
-// together but attached differently, and an extent reaching any of them must return the typed
-// error, leaving no connector behind, never panic.
+// TestRuntimeRobustnessExtentNamespaceConnections: a namespace-level connection with an unreachable
+// end (alone, in a `[2]`, under a `bind`), bound connectors attached differently, and an extent
+// reaching them return the typed error, leave no connector behind, never panic.
 func TestRuntimeRobustnessExtentNamespaceConnections(t *testing.T) {
 	t.Run("an end naming an unresolvable feature is refused", func(t *testing.T) {
 		src := `package test {

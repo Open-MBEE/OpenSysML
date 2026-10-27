@@ -173,9 +173,8 @@ func (ctx *Context) materializeConnectorAs(owner *Instance, connSym, base *symbo
 	return ctx.runAttachedBehaviors()
 }
 
-// checkBoundConnectorEnds checks that the objects a binding makes the namespace-level
-// connector usage connSym denote attach as its own `connect` clause says: `bind c = d`
-// over connectors naming different features is a conflict, not a link whose ends c misstates.
+// checkBoundConnectorEnds checks that the objects a binding makes the connector usage connSym
+// denote attach as its own `connect` clause says; bound connectors attached differently conflict.
 func (ctx *Context) checkBoundConnectorEnds(connSym *symbols.Symbol, objs []*Instance) error {
 	if !ctx.model.semantics.IsConnectorObjectUsage(connSym) {
 		return nil
