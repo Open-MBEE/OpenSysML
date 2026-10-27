@@ -796,9 +796,12 @@ func TestMavenPublishStepOutlivesThePluginWait(t *testing.T) {
 }
 
 // TestSharedTableIsPinnedAfterTheRelease holds the release workflow to the
-// pull request that brings the committed table up to date: opened against
-// develop once the GitHub release exists, stamping the shared table (so every
-// client copy is synced) from the manifest the release signed.
+// pull requests that bring the committed table up to date: one against develop
+// and one against main, opened once the GitHub release exists, each stamping
+// the shared table (so every client copy is synced) from the manifest the
+// release signed. main's head is the tagged commit, which cannot hold its own
+// pin, so without its pull request main's build-test stays red until the next
+// release.
 func TestSharedTableIsPinnedAfterTheRelease(t *testing.T) {
 	config := loadCircleConfig(t)
 	job, ok := config.Jobs["pin-release-digests"]
@@ -819,18 +822,21 @@ func TestSharedTableIsPinnedAfterTheRelease(t *testing.T) {
 	if strings.Contains(steps[stamp].Command, "--table") {
 		t.Error("the stamp names a package-local table; the shared table, and every copy synced from it, is the target")
 	}
-	for _, want := range []string{"origin/develop", "scripts/sync-release-digests.py --check"} {
+	for _, want := range []string{"git fetch --no-tags origin develop main", "stamp develop", "stamp main", "scripts/sync-release-digests.py --check"} {
 		if !strings.Contains(steps[stamp].Command, want) {
 			t.Errorf("the stamp step does not use %q", want)
 		}
 	}
 	if stepIndex(steps, "chore/pin-") < 0 {
-		t.Error("pin-release-digests does not name its branch chore/pin-<tag>")
+		t.Error("pin-release-digests does not name its develop branch chore/pin-<tag>")
 	}
-	open := stepIndex(steps, "push --force", "refs/heads/", "/pulls", `"base": "develop"`)
+	if stepIndex(steps, "hotfix/pin-") < 0 {
+		t.Error("pin-release-digests does not name its main branch hotfix/pin-<tag>; only hotfix/ branches target main")
+	}
+	open := stepIndex(steps, "push --force", "refs/heads/", "/pulls", `"base": base`)
 	switch {
 	case open < 0:
-		t.Error("pin-release-digests does not push the branch and open a pull request against develop")
+		t.Error("pin-release-digests does not push the branches and open a pull request against each base")
 	case open < stamp:
 		t.Errorf("the pull request (step %d) is opened before the stamp (step %d)", open, stamp)
 	}
