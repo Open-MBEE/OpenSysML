@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -1234,5 +1235,132 @@ func TestEveryConnectorKindAttachesItsEnds(t *testing.T) {
 		if got := fvInstance(t, ctx, conn, "target"); got.ID != peer.ID {
 			t.Errorf("%s.target is object %d, want b.q (%d)", name, got.ID, peer.ID)
 		}
+	}
+}
+
+const connectorSubsetterSrc = `
+	package test {
+		port def P;
+		part def A { port p : P; }
+		part def B { port q : P; }
+		connection def Link { end source : P; end target : P; }
+		part def Sys {
+			part a : A;
+			part b : B;
+			connection links : Link[2] connect a.p to b.q;
+			connection opt : Link[0..1] :> links connect a.p to b.q;
+		}
+	}
+`
+
+// A required connector collection fills an optional usage subsetting it before it
+// makes connectors of its own, whichever of the two is read first, as a part
+// collection fills an optional part subsetting it.
+func TestConnector_CollectionFillsOptionalSubsetterEitherOrder(t *testing.T) {
+	for _, order := range [][]string{{"links", "opt"}, {"opt", "links"}} {
+		inst, ctx := instantiatePart(t, "Sys", connectorSubsetterSrc)
+		held := map[string][]Value{}
+		for _, name := range order {
+			fv, err := inst.GetFeatureValue(ctx, name)
+			if err != nil {
+				t.Fatalf("%v: %s: %v", order, name, err)
+			}
+			held[name], err = ctx.HeldElements(fv.HeldValue())
+			if err != nil {
+				t.Fatalf("%v: %s: %v", order, name, err)
+			}
+		}
+		if len(held["links"]) != 2 || len(held["opt"]) != 1 {
+			t.Fatalf("%v: links = %v, first = %v; want two connectors, one of them first's", order, held["links"], held["opt"])
+		}
+		if held["links"][0] != held["opt"][0] && held["links"][1] != held["opt"][0] {
+			t.Errorf("%v: opt = %v is no member of links %v", order, held["opt"], held["links"])
+		}
+		conn, ok := ctx.Instance(held["opt"][0].Instance)
+		if !ok || len(conn.Ends) != 2 || conn.Ends[0].Value != portOf(t, ctx, inst, "a", "p") {
+			t.Errorf("%v: opt = %v, want a connector attached to a.p and b.q", order, held["opt"])
+		}
+	}
+}
+
+// Connectors the subsetters contribute beyond the collection's upper bound are a
+// multiplicity violation of the collection, which holds nothing, not a collection
+// of more than it declares.
+func TestConnector_CollectionRefusesExcessSubsetters(t *testing.T) {
+	inst, ctx := instantiatePart(t, "Sys", `
+		package test {
+			port def P;
+			part def A { port p : P; }
+			part def B { port q : P; }
+			connection def Link { end source : P; end target : P; }
+			part def Sys {
+				part a : A;
+				part b : B;
+				connection links : Link[2] connect a.p to b.q;
+				connection one : Link :> links connect a.p to b.q;
+				connection two : Link :> links connect a.p to b.q;
+				connection three : Link :> links connect a.p to b.q;
+			}
+		}
+	`)
+	fv, err := inst.GetFeatureValue(ctx, "links")
+	if err == nil {
+		t.Fatalf("links = %v, want a multiplicity violation for three subsetters of a [2]", fv.HeldValue())
+	}
+	if !strings.Contains(err.Error(), "multiplicity") {
+		t.Errorf("links: %v, want a multiplicity violation", err)
+	}
+	if fv := inst.FeatureValues["links"]; fv.Materialized {
+		t.Errorf("links = %v is held after the refusal", fv.HeldValue())
+	}
+}
+
+// A carried connector collection with a subsetter gives every connector its
+// identity back: the subsetter's to the subsetter's, the collection's own to its own.
+func TestConnector_CarriedCollectionKeepsEveryIdentity(t *testing.T) {
+	src := `package test {
+		port def P;
+		part def A { port p : P; }
+		part def B { port q : P; }
+		connection def Link { end source : P; end target : P; }
+		part def Sys {
+			part a : A;
+			part b : B;
+			connection parent : Link[2] connect a.p to b.q;
+			connection child : Link :> parent connect a.p to b.q;
+		}
+	}`
+	prev := contextOver(t, src)
+	obj, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "test::Sys"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	ids := func(ctx *Context, name string) []int64 {
+		fv, err := obj.GetFeatureValue(ctx, name)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		held, err := ctx.HeldElements(fv.HeldValue())
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		var out []int64
+		for _, v := range held {
+			out = append(out, v.Instance)
+		}
+		return out
+	}
+	parentBefore, childBefore := ids(prev, "parent"), ids(prev, "child")
+	shapes := prev.ShapesOf(obj)
+
+	ctx := contextOver(t, src+"\npart def Widget;")
+	if _, err := ctx.Adopt(prev, shapes, obj); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	if got := ids(ctx, "parent"); !slices.Equal(got, parentBefore) {
+		t.Errorf("after the carry-over parent = %v, want its connectors back as %v", got, parentBefore)
+	}
+	if got := ids(ctx, "child"); !slices.Equal(got, childBefore) {
+		t.Errorf("after the carry-over child = %v, want %v back", got, childBefore)
 	}
 }

@@ -518,14 +518,6 @@ func (ctx *Context) sourceLocation(file string, span source.Span) string {
 	return fmt.Sprintf("%s:%d:%d", file, pos.Line, pos.Col)
 }
 
-// symbolLocation renders where a symbol was declared, empty for none.
-func (ctx *Context) symbolLocation(sym *symbols.Symbol) string {
-	if sym == nil {
-		return ""
-	}
-	return ctx.sourceLocation(sym.DocName, sym.DeclSpan)
-}
-
 // SetTrace attaches a trace recorder to this context, so that every expression
 // and calc evaluated through it is recorded. Pass nil to stop tracing.
 func (ctx *Context) SetTrace(tr *TraceRecorder) {

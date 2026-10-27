@@ -61,9 +61,9 @@ func (ctx *Context) materializeConnectorFeatureValue(owner *Instance, fv *Featur
 }
 
 // materializeConnectorCollection fills a connector usage of collection multiplicity as a composite
-// collection is filled: the connectors of the usages subsetting it are members, and as many of its
-// own as make up its lower bound (KerML 1.1 §7.4.12), each attached as a scalar one is and taking
-// back the identity kept for its position; held whole before any starts, abandoned whole on failure.
+// collection is filled: the connectors of the usages subsetting it are members, optional subsetters
+// are filled before it makes connectors of its own for the rest of its lower bound (KerML 1.1
+// §7.4.12), each attached as a scalar one is; held whole before any starts, abandoned whole on failure.
 func (ctx *Context) materializeConnectorCollection(owner *Instance, fv *FeatureValue, name string, kept []int64, keep func()) error {
 	mult := fv.Feature.Multiplicity
 	release := ctx.elementScope()
@@ -84,20 +84,31 @@ func (ctx *Context) materializeConnectorCollection(owner *Instance, fv *FeatureV
 	mark := len(ctx.created)
 	commit, rollback := ctx.beginJournal()
 	endBoundary := ctx.beginRunBoundary()
+	undoFills := func() {}
 	fail := func(err error) error {
 		fv.Values, fv.Materialized = Value{}, false
+		undoFills()
 		endBoundary()
 		rollback()
 		release()
 		return err
 	}
-	base := ctx.connectorBaseOf(fv.Feature)
-	conns := make([]*Instance, 0, count)
 	elements := append(make([]Value, 0, int64(len(contributed))+count), contributed...)
-	for i := int64(0); i < count; i++ {
+	filled, undo, err := ctx.fillOptionalConnectorSubsetters(owner, name, int(count))
+	undoFills = undo
+	if err != nil {
+		return fail(err)
+	}
+	conns := append(make([]*Instance, 0, count), filled...)
+	for _, conn := range filled {
+		elements = append(elements, Value{Kind: ValInstance, Instance: conn.ID})
+	}
+	own := ownKeptIdentities(kept, elements)
+	base := ctx.connectorBaseOf(fv.Feature)
+	for i := 0; i < int(count)-len(filled); i++ {
 		var id int64
-		if int(i) < len(kept) {
-			id = kept[i]
+		if i < len(own) {
+			id = own[i]
 		}
 		var conn *Instance
 		if err := ctx.materializeConnectorStarting(owner, fv.Feature.Symbol, base, id, false, func(c *Instance) { conn = c }); err != nil {
@@ -106,10 +117,14 @@ func (ctx *Context) materializeConnectorCollection(owner *Instance, fv *FeatureV
 		conns = append(conns, conn)
 		elements = append(elements, Value{Kind: ValInstance, Instance: conn.ID})
 	}
+	val := sequenceOf(elements)
+	if err := ctx.checkDefault(owner, fv, name, &val, admitDeclared); err != nil {
+		return fail(err)
+	}
 	keep()
 	fv.Values = ctx.collectionOf(fv.Feature, elements)
 	fv.Materialized = true
-	fv.Assumed = count > 0 && mult.AdmitsMore(int64(len(contributed))+count)
+	fv.Assumed = count > 0 && mult.AdmitsMore(int64(len(elements)))
 	fv.intrinsic = ctx.subsettersDeclared(owner, name)
 	if err := ctx.startClassifierBehaviorsOf(conns, mark); err != nil {
 		return fail(err)
@@ -117,6 +132,105 @@ func (ctx *Context) materializeConnectorCollection(owner *Instance, fv *FeatureV
 	endBoundary()
 	commit()
 	return ctx.runAttachedBehaviors()
+}
+
+// ownKeptIdentities is the identities a carried connector collection kept that none of the
+// connectors it already holds took back: the subsetters' took theirs, these are its own, in order.
+func ownKeptIdentities(kept []int64, held []Value) []int64 {
+	own := make([]int64, 0, len(kept))
+	for _, id := range kept {
+		taken := false
+		for _, v := range held {
+			if held, ok := v.Object(); ok && held == id {
+				taken = true
+				break
+			}
+		}
+		if !taken {
+			own = append(own, id)
+		}
+	}
+	return own
+}
+
+// connectorFillsFromSubsetted reports whether an optional connector usage holds connectors
+// the collection it subsets makes up for its lower bound, as an optional part does.
+func (ctx *Context) connectorFillsFromSubsetted(feat *EffectiveFeature) bool {
+	lower := feat.Multiplicity.Lower
+	return lower.Known && !lower.Infinite && lower.Value == 0 && ctx.model.semantics.IsConnectorObjectUsage(feat.Symbol)
+}
+
+// fillOptionalConnectorSubsetters gives the optional connector usages subsetting the collection
+// `name` up to n of the connectors it is short of, each attached by the subsetter's own clause and
+// taking back the identity the subsetter kept; undo puts the subsetters' values back.
+func (ctx *Context) fillOptionalConnectorSubsetters(owner *Instance, name string, n int) (made []*Instance, undo func(), err error) {
+	type filled struct {
+		fv     *FeatureValue
+		before FeatureValue
+		held   []Value
+	}
+	var fills []filled
+	undo = func() {
+		for _, fill := range fills {
+			*fill.fv = fill.before
+		}
+	}
+	for _, feat := range ctx.subsettingFeaturesOf(owner, name) {
+		if n == 0 {
+			break
+		}
+		if !ctx.connectorFillsFromSubsetted(&feat) {
+			continue
+		}
+		fv, ok := owner.FeatureValues[feat.Name]
+		if !ok {
+			continue
+		}
+		spare := n
+		if upper := feat.Multiplicity.Upper; upper.Known && !upper.Infinite {
+			if spare = int(upper.Value - ElementCount(fv.HeldValue())); spare > n {
+				spare = n
+			}
+		}
+		if spare <= 0 {
+			continue
+		}
+		held, err := ctx.HeldElements(fv.HeldValue())
+		if err != nil {
+			return made, undo, err
+		}
+		kept, hadKept := owner.keptConnectors[fv]
+		base := ctx.connectorBaseOf(&feat)
+		for i := 0; i < spare; i++ {
+			var id int64
+			if i < len(kept) {
+				id = kept[i]
+			}
+			var conn *Instance
+			if err := ctx.materializeConnectorStarting(owner, feat.Symbol, base, id, false, func(c *Instance) { conn = c }); err != nil {
+				return made, undo, err
+			}
+			made = append(made, conn)
+			held = append(held, Value{Kind: ValInstance, Instance: conn.ID})
+		}
+		if hadKept {
+			ctx.noteProbeUndo(func() { owner.keptConnectors[fv] = kept })
+			delete(owner.keptConnectors, fv)
+		}
+		fills = append(fills, filled{fv: fv, before: *fv, held: held})
+		n -= spare
+	}
+	for _, fill := range fills {
+		ctx.noteProbeWrite(fill.fv)
+		if fill.fv.Feature.Scalar() {
+			fill.fv.Value = fill.held[0]
+		} else {
+			fill.fv.Values = ctx.collectionOf(fill.fv.Feature, fill.held)
+		}
+		fill.fv.Materialized, fill.fv.intrinsic = true, false
+		ctx.invalidateDependents(fill.fv)
+	}
+	return made, undo, nil
 }
 
 // connectorBaseOf returns the type an object of a connector usage is
