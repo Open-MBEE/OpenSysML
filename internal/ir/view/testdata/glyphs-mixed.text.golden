@@ -25,6 +25,10 @@ part def Tank
   attribute level
 
 relationships:
+  LevelReq -> safety: frame
+  capacity -> capacity::levelReq: require
+  capacity -> asserted: assert
+  Tank o-- level
   NotationGlyphs::levelReq --:|> LevelReq
   tankView ..> Tank: «expose»
   LevelReq -> NotationGlyphs::bounded: «require»

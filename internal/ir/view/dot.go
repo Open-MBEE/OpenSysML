@@ -151,6 +151,9 @@ func (w *dotWriter) settleEdges(r *Rendering, unplaced Unplaced) []Edge {
 		w.notices = append(w.notices, fmt.Sprintf("%d node(s) without a position, drawn in a strip below the picture(s)", w.placement.unplaced()))
 	}
 	edges = w.drawnEdges(w.rowEdges(r, edges))
+	if !w.tree {
+		edges = w.nestedIn(edges)
+	}
 	for _, edge := range edges {
 		if w.clipped(edge.From, edge.To) || w.clipped(edge.To, edge.From) {
 			w.compound = true
@@ -256,7 +259,7 @@ func (w *dotWriter) dotBB(box nodeBox) string {
 // the minimal display, the pins of the edges left drawn.
 func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	skin := skinOf(options.Style)
-	w := &dotWriter{kind: r.Kind, tree: r.Kind == KindTree, nesting: r.nestingEdges(), action: r.Kind == KindAction, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
+	w := &dotWriter{kind: r.Kind, tree: r.Kind == KindTree, nesting: r.nestingEdges(), nodes: r.nodeTree(), action: r.Kind == KindAction, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
 		placement: placeRendering(r), drawn: map[string]bool{}, boxes: map[string]nodeBox{}, spread: map[string]boundarySide{}, pins: map[string]nodeBox{}, ported: map[string]*Node{}, omitted: map[string]bool{},
 		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, skin: skin, pictures: r.Pictures, pictureRefusals: r.pictureRefusals(), links: options.Links}
 	w.notices = append(w.notices, refusedPictureNotices(w.pictures, w.pictureRefusals)...)
@@ -361,6 +364,19 @@ func (w *dotWriter) settleUnplaced(roots []*Node, edges []Edge, unplaced Unplace
 	}
 	kept, dropped := w.placement.keptEdges(w.placement.foldOmitted(roots, edges, w.nesting))
 	w.notices = append(w.notices, w.placement.omitNotice(dropped))
+	return kept
+}
+
+// nestedIn drops the memberships a cluster's nesting draws: Graphviz cannot clip an edge at
+// a cluster holding its other end, and would run it from the cluster's invisible anchor.
+func (w *dotWriter) nestedIn(edges []Edge) []Edge {
+	kept := make([]Edge, 0, len(edges))
+	for _, edge := range edges {
+		if w.clusters[edge.From] && nestedMembership(edge, w.nodes) {
+			continue
+		}
+		kept = append(kept, edge)
+	}
 	return kept
 }
 
@@ -482,6 +498,7 @@ type dotWriter struct {
 	kind            Kind
 	tree            bool                    // containment as edges, not clusters
 	nesting         map[[2]string]bool      // the tree's children whose membership is an edge of its own
+	nodes           nodeTree                // every node by ID with its parent, for the memberships a cluster draws
 	action          bool                    // the pins name what a flow carries
 	sources         map[string]bool         // port IDs an edge leaves from
 	clusters        map[string]bool         // node IDs drawn as clusters

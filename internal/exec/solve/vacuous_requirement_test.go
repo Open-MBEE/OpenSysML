@@ -2,6 +2,7 @@ package solve
 
 import (
 	"errors"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"strings"
 	"testing"
 )
@@ -36,8 +37,8 @@ func vacuousRequirementFixture(t *testing.T) (*Query, *Query, *Query, error) {
 		return nil, nil, nil, err
 	}
 	cn := symbolNamed(t, idx, "test::Rig::cn")
-	if _, err := ConstraintViolation(ctx, cn, cn.OwnerScope, nil); !errors.Is(err, ErrNoConditions) {
-		t.Fatalf("a constraint assuming but requiring nothing: %v, want ErrNoConditions", err)
+	if _, err := ConstraintViolation(ctx, cn, cn.OwnerScope, nil); !errors.Is(err, runtime.ErrNoValue) {
+		t.Fatalf("a constraint assuming but requiring nothing: %v, want ErrNoValue", err)
 	}
 	return plain, violation, proseViolation, nil
 }
@@ -98,6 +99,49 @@ func TestAssumedConflictingConstraintStillRefuses(t *testing.T) {
 		_, err := translate()
 		if !errors.Is(err, ErrNotTranslatable) || !strings.Contains(err.Error(), "conflicting result expression") {
 			t.Errorf("%s: %v, want a refusal for the conflicting result expression", name, err)
+		}
+	}
+}
+
+// TestDeniedVacuousRequirementIgnoresItsAssumptions: a requirement requiring nothing
+// holds whatever its assumptions read, so its denial is false and that denial's violation true.
+func TestDeniedVacuousRequirementIgnoresItsAssumptions(t *testing.T) {
+	ctx, idx := fixture(t, "<test>", `
+		package test {
+			public import SI::*;
+			part def Rig {
+				attribute speed : ISQSpaceTime::SpeedValue;
+				assert not requirement deniedFalse { assume constraint { false } }
+				assert not requirement deniedOpaque { assume constraint { speed <= 5.4 [kg] } }
+			}
+		}
+	`)
+	for _, name := range []string{"deniedFalse", "deniedOpaque"} {
+		sym := symbolNamed(t, idx, "test::Rig::"+name)
+		denial, err := Requirement(ctx, sym, sym.OwnerScope)
+		if err != nil {
+			t.Fatalf("%s: translate the denial: %v", name, err)
+		}
+		if len(denial.Assertions) != 1 || writeTerm(denial.Assertions[0].Term) != "(not true)" {
+			t.Errorf("%s: the denial of a vacuous claim is not false:\n%s", name, Script(denial))
+		}
+		violation, err := RequirementViolation(ctx, sym, sym.OwnerScope, nil)
+		if err != nil {
+			t.Fatalf("%s: translate the violation: %v", name, err)
+		}
+		if len(violation.Assertions) != 1 || writeTerm(violation.Assertions[0].Term) != "true" || violation.Assertions[0].From.Condition != "not (not (true))" {
+			t.Errorf("%s: the violation of a denied vacuous claim is not true:\n%s", name, Script(violation))
+		}
+		x, err := NewTranslator(ctx, subjectOf(sym, "requirement", false))
+		if err != nil {
+			t.Fatalf("%s: translator: %v", name, err)
+		}
+		expr, err := x.Conditions(ctx.ConditionsOf(sym, sym.OwnerScope))
+		if err != nil {
+			t.Fatalf("%s: conditions: %v", name, err)
+		}
+		if writeTerm(expr.Term) != "(not true)" || len(expr.Defined) != 0 {
+			t.Errorf("%s: the denied vacuous claim as an expression is %s, defined under %d conditions, want (not true) under none", name, writeTerm(expr.Term), len(expr.Defined))
 		}
 	}
 }

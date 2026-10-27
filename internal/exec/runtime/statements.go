@@ -1068,7 +1068,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 // here, a failing condition ending the run as a ViolationError.
 func (e *stmtEngine) assert(s lower.Assert) error {
 	if s.Sym == nil {
-		return fmt.Errorf("%w: %s: the assertion is not declared where it was written", ErrNoConditions, e.host.describe())
+		return fmt.Errorf("%w: %s: the assertion is not declared where it was written", ErrNotAConstraint, e.host.describe())
 	}
 	ec := e.evalIn(s.Scope)
 	check := conditionCheck{
