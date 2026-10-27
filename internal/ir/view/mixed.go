@@ -130,9 +130,15 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 	}
 }
 
-// traversedMembers lists the members mixedWalk.render visits under sym: none
-// of a state's, whose body its own notation draws; of an action's or calc's
-// the calc usages alone, which the action graph draws no node for.
+// nestedCalc reports whether a member is a calc usage nested in a behavior's
+// body as a step of its own, not a directed or result parameter drawn as a pin.
+func nestedCalc(member *symbols.Symbol) bool {
+	usage, ok := member.Decl.(*ast.Usage)
+	return ok && member.Kind == symbols.SymbolCalcUsage && usage.Direction == ast.DirNone && !usage.IsResult
+}
+
+// traversedMembers lists the members mixedWalk.render visits under sym: of a
+// behavior, the nested calcs alone, which its action graph draws no node for.
 func (w *mixedWalk) traversedMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil || stateLike(sym) {
 		return nil
@@ -140,7 +146,7 @@ func (w *mixedWalk) traversedMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	if behaviorKind(sym.Kind) {
 		var calcs []*symbols.Symbol
 		for _, member := range w.r.containedMembers(sym) {
-			if member.Kind == symbols.SymbolCalcUsage {
+			if nestedCalc(member) {
 				calcs = append(calcs, member)
 			}
 		}

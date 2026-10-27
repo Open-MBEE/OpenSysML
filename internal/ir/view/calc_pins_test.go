@@ -73,32 +73,40 @@ func TestCalcResultPinIsNamedInEveryForm(t *testing.T) {
 	}
 }
 
-// A mixed rendering draws a calculation as the action node it is, and beneath
-// it the calc usages its body holds, which the action graph draws no node for —
-// a nested calc is not lost when its owner stops being a tree node.
+// A mixed rendering draws the calc usages a behavior's body holds beneath its
+// action node, once each, and a directed calc usage as the parameter pin it is.
 func TestMixedRenderingKeepsNestedCalcsUnderTheirOwner(t *testing.T) {
 	const model = `package Nested {
   private import ScalarValues::*;
   part def Wheel;
   calc def Outer { calc inner { return r : Integer = 1; } }
   action def Act { calc scale { in x : Integer; return y : Integer = x; } action step; }
+  action def Param { in calc f { in x : Integer; return : Integer; } }
+  calc def Shaped { in calc g { return : Integer; } return : Integer; }
 }
 `
 	r, idx := loadSources(t, []string{"nested-calc.sysml"}, [][]byte{[]byte(model)})
-	exposed := []*symbols.Symbol{lookup(t, idx, "Nested::Outer"), lookup(t, idx, "Nested::Act"), lookup(t, idx, "Nested::Wheel")}
+	exposed := []*symbols.Symbol{lookup(t, idx, "Nested::Outer"), lookup(t, idx, "Nested::Act"),
+		lookup(t, idx, "Nested::Param"), lookup(t, idx, "Nested::Shaped"), lookup(t, idx, "Nested::Wheel")}
 	rendering, err := r.RenderExposed(exposed, KindMixed, "#mixed")
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
 	wantNoNotices(t, rendering)
 	text := rendering.textWith(fullNotation)
-	for _, want := range []string{"calc def Nested::Outer (declares no nodes)\n  out ^result\n  calc Nested::Outer::inner (declares no nodes)\n    out r\n", "action def Nested::Act\n  action 'step'\n  calc Nested::Act::scale (declares no nodes)\n    in x\n    out y\n", "part def Nested::Wheel\n"} {
+	for _, want := range []string{"calc def Nested::Outer (declares no nodes)\n  out ^result\n  calc Nested::Outer::inner (declares no nodes)\n    out r\n", "action def Nested::Act\n  action 'step'\n  calc Nested::Act::scale (declares no nodes)\n    in x\n    out y\n", "part def Nested::Wheel\n",
+		"action def Nested::Param (declares no nodes)\n  in f\ncalc def", "calc def Nested::Shaped (declares no nodes)\n  in g\n  out result\npart def"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("mixed text lacks %q:\n%s", want, text)
 		}
 	}
 	if n := strings.Count(text, "calc Nested::Outer::inner"); n != 1 {
 		t.Errorf("calc inner drawn %d times, want once:\n%s", n, text)
+	}
+	for _, parameter := range []string{"calc Nested::Param::f", "calc Nested::Shaped::g"} {
+		if strings.Contains(text, parameter) {
+			t.Errorf("parameter %s drawn as a nested calc beside its pin:\n%s", parameter, text)
+		}
 	}
 	if plain := rendering.Text(); !strings.Contains(plain, "calc def Outer (declares no nodes)\n  calc inner (declares no nodes)\n") {
 		t.Errorf("default text does not name the nested calc under its owner:\n%s", plain)
