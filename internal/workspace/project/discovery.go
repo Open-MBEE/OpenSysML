@@ -166,31 +166,7 @@ func (d Discovery) Around(paths []string) Projects {
 		out.Used = installed
 		return out
 	}
-	// An enclosing project installed under another's library roots was reached
-	// through a usage: it is linked again as installed, so what the link took
-	// is said after the load as before it, and stays loaded either way.
-	var consumers, reached []*Interchange
-	for _, p := range out.Enclosing {
-		if out.installed[absKey(p.Dir)] {
-			reached = append(reached, p)
-		} else {
-			consumers = append(consumers, p)
-		}
-	}
-	if len(consumers) == 0 {
-		out.Used, out.Linking = used(out.Enclosing, installed)
-		return out
-	}
-	out.Used, out.Linking = used(consumers, installed)
-	linked := make(map[string]bool, len(out.Used))
-	for _, p := range out.Used {
-		linked[absKey(p.Dir)] = true
-	}
-	for _, p := range reached {
-		if !linked[absKey(p.Dir)] {
-			out.Used = append(out.Used, p)
-		}
-	}
+	out.Used, out.Linking = used(out.Enclosing, installed, out.installed)
 	return out
 }
 
@@ -308,13 +284,20 @@ func walkInstalled(dir string, visited map[string]bool, budget *int, found func(
 
 // used selects the installed projects the enclosing ones use, directly or in turn, each once:
 // by name (Uses) first, else by elimination among the unclaimed (pickUnclaimed), or as learnt.
-func used(enclosing, installed []*Interchange) (out []*Interchange, linking []Warning) {
+//
+// An enclosing project that is itself installed under the roots (installedKey
+// holds its absKey) was reached through a usage — the files of a project linked
+// before the load are enclosing after it — so it may still answer a usage by
+// elimination, and the link is said after the load as before it.
+func used(enclosing, installed []*Interchange, installedKey map[string]bool) (out []*Interchange, linking []Warning) {
 	selected := map[string]bool{}
 	claimed := map[string]bool{}
 	learnt := map[string]string{}
 	for _, project := range enclosing {
 		selected[absKey(project.Dir)] = true
-		claimed[project.identity()] = true
+		if !installedKey[absKey(project.Dir)] {
+			claimed[project.identity()] = true
+		}
 	}
 	var queue []*Interchange
 	link := func(pick *Interchange) {
@@ -355,7 +338,7 @@ func used(enclosing, installed []*Interchange) (out []*Interchange, linking []Wa
 				}
 				continue
 			}
-			pick, candidates := pickUnclaimed(installed, claimed, p.u)
+			pick, candidates := pickUnclaimed(installed, claimed, p.from, p.u)
 			switch {
 			case pick != nil:
 				learnt[p.u.key()] = pick.identity()
@@ -367,7 +350,7 @@ func used(enclosing, installed []*Interchange) (out []*Interchange, linking []Wa
 		}
 		if len(queue) == 0 {
 			for _, p := range rest {
-				_, candidates := pickUnclaimed(installed, claimed, p.u)
+				_, candidates := pickUnclaimed(installed, claimed, p.from, p.u)
 				linking = append(linking, ambiguousUsage(p.from, p.u, candidates))
 			}
 			break
@@ -392,15 +375,16 @@ func pickVersion(installed []*Interchange, identity, constraint string) *Interch
 	return pick
 }
 
-// pickUnclaimed links a usage by elimination: the highest unclaimed version satisfying its
-// constraint when the candidates are all one project; several projects are returned unpicked.
-func pickUnclaimed(installed []*Interchange, claimed map[string]bool, u Usage) (*Interchange, []*Interchange) {
+// pickUnclaimed links a usage of from by elimination: the highest unclaimed version
+// satisfying its constraint when the candidates are all one project, never from itself;
+// several projects are returned unpicked.
+func pickUnclaimed(installed []*Interchange, claimed map[string]bool, from *Interchange, u Usage) (*Interchange, []*Interchange) {
 	constraint := u.constraint()
 	var candidates []*Interchange
 	var pick *Interchange
 	one := true
 	for _, candidate := range installed {
-		if claimed[candidate.identity()] || (constraint != "" && !candidate.satisfies(constraint)) {
+		if claimed[candidate.identity()] || candidate.identity() == from.identity() || (constraint != "" && !candidate.satisfies(constraint)) {
 			continue
 		}
 		candidates = append(candidates, candidate)

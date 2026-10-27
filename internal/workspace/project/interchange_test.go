@@ -521,6 +521,30 @@ func TestUsedLeavesAUsageSeveralUnclaimedProjectsCouldAnswerUnlinked(t *testing.
 	}
 }
 
+// After the load the files of the project linked by elimination are enclosing
+// too: it is still the usage's answer, its own usages are still followed, and
+// the link is still said. Loaded on its own, an installed project answers its
+// own usages without being offered to itself.
+func TestAroundSaysTheEliminationLinkWhenTheLinkedProjectIsLoaded(t *testing.T) {
+	root := t.TempDir()
+	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:git/github.com/MBSE4U/sysmod-sysmlv2"}]}`)
+	sysmod := writeProject(t, filepath.Join(proj, "lib", "mbse4u-sysmod_5.1.5"), `{"name": "sysmod", "publisher": "mbse4u", "version": "5.1.5", "usage": [{"resource": "pkg:registry/acme/gears"}, {"resource": "pkg:git/example.org/other/thing-repo"}]}`)
+	gears := writeProject(t, filepath.Join(proj, "lib", "acme-gears_1.0.0"), `{"name": "Gears", "publisher": "acme", "version": "1.0.0"}`)
+
+	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml"), filepath.Join(sysmod, "SYSMOD.sysml")})
+	if got := projectDirs(found.Used); !reflect.DeepEqual(got, []string{gears}) {
+		t.Fatalf("Used = %v, want Gears, followed from sysmod's usage", got)
+	}
+	if len(found.Linking) != 1 || !strings.Contains(found.Linking[0].Message, "linked by elimination to mbse4u/sysmod 5.1.5 ("+sysmod+")") {
+		t.Fatalf("Linking = %q, want the consumer's elimination link said once", found.Linking)
+	}
+	found = Discovery{}.Around([]string{filepath.Join(sysmod, "SYSMOD.sysml")})
+	if got := projectDirs(found.Used); !reflect.DeepEqual(got, []string{gears}) || len(found.Linking) != 0 {
+		t.Fatalf("Used = %v, Linking = %q, want Gears alone and nothing said: sysmod does not answer its own usage", got, found.Linking)
+	}
+}
+
 // The standard library's usages are the bundled library's to answer: one left
 // unmatched does not take the one unrelated project installed.
 func TestUsedLeavesTheStandardLibrarysUsagesToTheBundledLibrary(t *testing.T) {

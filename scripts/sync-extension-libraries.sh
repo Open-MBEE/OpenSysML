@@ -128,7 +128,7 @@ unexpected=()
 
 # compare SRC DST OWNED...: the files under SRC against those under DST,
 # recording each path added, changed, removed or unexpected. DST owns the OWNED
-# files; any other file there that is not upstream is unexpected.
+# files; any other entry there that is not upstream is unexpected.
 compare() {
 	local src="$1" dst="$2" file name owned
 	shift 2
@@ -142,8 +142,13 @@ compare() {
 		fi
 	done
 	for file in "$dst"/* "$dst"/.[!.]*; do
-		[[ -f "$file" ]] || continue
+		[[ -e "$file" ]] || continue
 		name="$(basename "$file")"
+		# A directory or anything else that is not a file is never upstream's.
+		if [[ ! -f "$file" ]]; then
+			unexpected+=("$dst/$name")
+			continue
+		fi
 		[[ -f "$src/$name" ]] && continue
 		for owned in "$@"; do
 			[[ "$name" == "$owned" ]] && continue 2
