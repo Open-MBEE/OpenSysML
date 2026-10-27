@@ -460,8 +460,10 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 		if err := ctx.startClassifierBehaviorsOf(members, mark); err != nil {
 			return fail(err)
 		}
-		commit()
 		release()
+		if err := commit(); err != nil {
+			return nil, true, err
+		}
 	} else {
 		val := vals[0].val
 		text := SymbolText(class.members[0])
@@ -743,7 +745,10 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 			ctx.abandonInstancesSince(mark)
 			return failWhole(err)
 		}
-		commit()
+		if err := commit(); err != nil {
+			release()
+			return nil, true, err
+		}
 	}
 	var tailCount int64
 	if tail != nil {

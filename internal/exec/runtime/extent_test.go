@@ -549,3 +549,74 @@ func TestNamespaceConnectorWhoseStartFailsLeavesNoTrace(t *testing.T) {
 		t.Errorf("heard = %d once a connector's start succeeded, want 11: its write kept and its signal answered", got)
 	}
 }
+
+// TestNamespaceConnectorAnsweredByAFailingBehaviorIsKept requires a package-level connector created
+// whole to be kept when an older object's behavior fails answering it, the failure reported as its own.
+func TestNamespaceConnectorAnsweredByAFailingBehaviorIsKept(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, `
+		package test {
+			item def Ping;
+			port def P;
+			part def Listener {
+				attribute heard : Integer = 0;
+				exhibit state listening {
+					entry; then waiting;
+					state waiting;
+					accept Ping then noted;
+					state noted { entry action note { assign heard := heard + nosuch; } }
+				}
+			}
+			part good : Listener;
+			part def A { port p : P; }
+			part a : A;
+			connection def Fine {
+				attribute pokes : Integer = 0;
+				exhibit state life {
+					entry; then poke;
+					state poke { entry action bump { assign good.heard := good.heard + 10; assign pokes := pokes + 1; } }
+					transition first poke then ping;
+					state ping { entry send Ping() to good; }
+				}
+			}
+			connection fine : Fine connect a.p to a.p;
+		}
+	`)
+	pkg := resolveSymbol(t, root, "test")
+	ctx := NewContext(typedModel(model, resolver), 10000)
+	good, err := ctx.occurrenceOf(resolveSymbol(t, pkg.Scope, "good"))
+	if err != nil {
+		t.Fatalf("occurrenceOf good: %v", err)
+	}
+	sym := resolveSymbol(t, pkg.Scope, "fine")
+	if _, err := evalIn(t, ctx, pkg.Scope, "fine"); !errors.Is(err, ErrUnresolvedReference) {
+		t.Fatalf("expected the listener's behavior to fail on its unresolved reference, got: %v", err)
+	}
+	ids := ctx.occurrences[sym]
+	if len(ids) != 1 {
+		t.Fatalf("occurrences[fine] = %v, want the kept connector", ids)
+	}
+	fine, live := ctx.Instance(ids[0])
+	if !live || len(fine.Ends) != 2 {
+		t.Fatalf("the connector the listener failed answering is not held whole: live %v, %d end(s)", live, len(fine.Ends))
+	}
+	assertCurrentState(t, machineOf(t, fine, "life").State, "ping")
+	if got := featureInt(t, ctx, good, "heard"); got != 10 {
+		t.Errorf("heard = %d, want 10: the kept connector's write stays with the connector", got)
+	}
+	if got := featureInt(t, ctx, fine, "pokes"); got != 1 {
+		t.Errorf("pokes = %d, want 1: the connector's own write is kept", got)
+	}
+	if got := len(ctx.messages); got != 0 {
+		t.Errorf("%d message(s) left on the bus: the listener took the signal before failing", got)
+	}
+	again, err := evalIn(t, ctx, pkg.Scope, "fine")
+	if err != nil {
+		t.Fatalf("reading the kept connector again: %v", err)
+	}
+	if again.Kind != ValInstance || again.Instance != fine.ID {
+		t.Errorf("reading again denotes %v, want connector %d: the kept one", again, fine.ID)
+	}
+	if got := featureInt(t, ctx, fine, "pokes"); got != 1 {
+		t.Errorf("pokes = %d after reading again, want 1: the kept connector is not rerun", got)
+	}
+}

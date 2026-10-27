@@ -469,7 +469,9 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 		rollback()
 		return nil, err
 	}
-	commit()
+	if err := commit(); err != nil {
+		return nil, err
+	}
 	return inst, nil
 }
 
@@ -530,7 +532,9 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 		release()
 		return nil, err
 	}
-	commit()
+	if err := commit(); err != nil {
+		return nil, err
+	}
 	return members, nil
 }
 
