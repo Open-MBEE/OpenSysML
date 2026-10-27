@@ -361,3 +361,62 @@ func TestNamespaceConnectorUsageDenotesOneObject(t *testing.T) {
 		t.Errorf("outer holds %d ends, want 2", len(ends))
 	}
 }
+
+// TestNamespaceConnectorUsagesBoundAndCounted requires the other namespace paths that make a
+// connector usage's objects to attach its ends as a bare read does: two package-level
+// connections a `bind` joins share one connector with its ends, and a `[2]` connection denotes
+// two connectors, each attached, all counted by `all Link`.
+func TestNamespaceConnectorUsagesBoundAndCounted(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ScalarValues::*;
+			private import SequenceFunctions::*;
+			connection def Link { end a; end b; }
+			part sys { part x; part y; }
+			connection c : Link connect sys.x to sys.y;
+			connection d : Link connect sys.x to sys.y;
+			bind c = d;
+			connection pair : Link[2] connect sys.x to sys.y;
+		}
+	`))
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok || pkg.Scope == nil {
+		t.Fatal("test package not indexed")
+	}
+	eval := func(expr string) Value {
+		val, err := evalIn(t, ctx, pkg.Scope, expr)
+		if err != nil {
+			t.Fatalf("%s: %v", expr, err)
+		}
+		return val
+	}
+	c := eval("c")
+	if c.Kind != ValInstance {
+		t.Fatalf("c = %s, want one object", c.Kind)
+	}
+	if ends := ctx.instances[c.Instance].Ends; len(ends) != 2 {
+		t.Fatalf("c bound before it was read holds %d ends, want 2", len(ends))
+	}
+	for _, expr := range []string{"c === d", "c.a === sys.x", "d.b === sys.y"} {
+		if val := eval(expr); val.Kind != ValConst || !val.Const.Bool {
+			t.Errorf("%s = %v, want true", expr, val)
+		}
+	}
+	pair := elementsOf(eval("pair"))
+	if len(pair) != 2 {
+		t.Fatalf("pair denotes %d objects, want 2", len(pair))
+	}
+	for i, obj := range pair {
+		id, ok := obj.Object()
+		if !ok {
+			t.Fatalf("pair#%d = %v, want an object", i+1, obj)
+		}
+		ends := ctx.instances[id].Ends
+		if len(ends) != 2 || !valueIdentical(ends[0].Value, eval("sys.x")) || !valueIdentical(ends[1].Value, eval("sys.y")) {
+			t.Errorf("pair#%d holds ends %v, want sys.x and sys.y", i+1, ends)
+		}
+	}
+	if got := len(elementsOf(eval("all Link"))); got != 3 {
+		t.Errorf("size(all Link) = %d, want 3 (the shared c/d and the two of pair)", got)
+	}
+}

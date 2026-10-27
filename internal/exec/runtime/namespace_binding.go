@@ -442,6 +442,9 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 				if err := ctx.classifyHeld(member, val); err != nil {
 					return fail(err)
 				}
+				if err := ctx.checkBoundConnectorEnds(member, members); err != nil {
+					return fail(fmt.Errorf("%w: `%s`: %v", errBindingConflict, text, err))
+				}
 			}
 			v, err := newEvalContext(ctx, member.OwnerScope).conformDeclared(member, val)
 			if err != nil {
@@ -482,6 +485,9 @@ func (ctx *Context) resolveNamespaceClass(class *namespaceClass, want *symbols.S
 			ec := newEvalContext(ctx, member.OwnerScope)
 			v, err := ec.conformDeclared(member, val)
 			if err != nil {
+				return fail(fmt.Errorf("%w: `%s`: %v", errBindingConflict, text, err))
+			}
+			if err := ctx.checkBoundConnectorEnds(member, ctx.liveInstances(boundPrefixObjects(v))); err != nil {
 				return fail(fmt.Errorf("%w: `%s`: %v", errBindingConflict, text, err))
 			}
 			ctx.occurrences[member] = boundPrefixObjects(v)

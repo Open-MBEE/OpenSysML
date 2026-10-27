@@ -173,6 +173,35 @@ func (ctx *Context) materializeConnectorAs(owner *Instance, connSym, base *symbo
 	return ctx.runAttachedBehaviors()
 }
 
+// checkBoundConnectorEnds checks that the objects a binding makes the namespace-level
+// connector usage connSym denote attach as its own `connect` clause says: `bind c = d`
+// over connectors naming different features is a conflict, not a link whose ends c misstates.
+func (ctx *Context) checkBoundConnectorEnds(connSym *symbols.Symbol, objs []*Instance) error {
+	if !ctx.model.semantics.IsConnectorObjectUsage(connSym) {
+		return nil
+	}
+	ends := ctx.model.semantics.ConnectorObjectEnds(connSym)
+	for _, inst := range objs {
+		if len(inst.Ends) != len(ends) {
+			return fmt.Errorf("%s attaches %d ends, the object bound to it holds %d", connectorName(connSym), len(ends), len(inst.Ends))
+		}
+		for i, end := range ends {
+			val, err := ctx.attachConnectorEnd(nil, connSym, end)
+			if err != nil {
+				return err
+			}
+			if !valueIdentical(val, inst.Ends[i].Value) {
+				name := end.Name
+				if name == "" {
+					name = fmt.Sprintf("#%d", i+1)
+				}
+				return fmt.Errorf("end %s of %s attaches to another feature than the object bound to it", name, connectorName(connSym))
+			}
+		}
+	}
+	return nil
+}
+
 // attachConnectorEnd evaluates what one end attaches to against the instance
 // owning the connector, so the end holds the connected feature of that very
 // object. An end naming nothing reachable is reported with its location: a

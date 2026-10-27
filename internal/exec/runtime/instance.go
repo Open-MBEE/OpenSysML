@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 
@@ -507,15 +506,6 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 	count, err := ctx.lowerBoundCount(ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)), 0, SymbolText(sym))
 	if err != nil {
 		return nil, err
-	}
-	// A connector of several objects has no set of ends to attach, as a nested one has not.
-	if count > 0 && ctx.model.semantics.IsConnectorObjectUsage(sym) {
-		return nil, &connectorEndError{
-			Connector: SymbolText(sym),
-			End:       sym.Name,
-			Location:  ctx.symbolLocation(sym),
-			Err:       errors.New("a connector of more than one object has no set of ends to attach"),
-		}
 	}
 	made, lazy := count, ctx.holdsLazily(sym, count)
 	if lazy {
@@ -1497,8 +1487,17 @@ func (ctx *Context) lowerBoundCount(mult semantics.Range, held int, what string)
 // is filled with; the caller abandons what a failed one leaves behind.
 func (ctx *Context) materializeMembers(sym *symbols.Symbol, count int, owner *Instance, feature string) ([]*Instance, error) {
 	members := make([]*Instance, 0, count)
+	// A namespace-level connector usage denotes connectors with their ends attached,
+	// whichever namespace path (a collection, a binding class, a subsetting) makes them.
+	connector := owner == nil && ctx.model.semantics.IsConnectorObjectUsage(sym)
 	for i := 0; i < count; i++ {
-		inst, err := ctx.materialize(sym, 0, owner, feature)
+		var inst *Instance
+		var err error
+		if connector {
+			err = ctx.materializeConnectorAs(nil, sym, sym, 0, func(conn *Instance) { inst = conn })
+		} else {
+			inst, err = ctx.materialize(sym, 0, owner, feature)
+		}
 		if err != nil {
 			return nil, err
 		}
