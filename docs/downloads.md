@@ -68,9 +68,12 @@ After downloading release assets into the same directory, verify their checksums
 sha256sum -c --ignore-missing SHA256SUMS.txt
 ```
 
-This checks the SBOMs too: each `<asset>.spdx.json` is a line of the manifest, so the
-signature over `SHA256SUMS.txt` vouches for it. For signature verification with cosign, see
-the [install guide](guide/01-install.md).
+To check the manifest's signature, the provenance statement, a package or the container image,
+see [Security § Verifying a release](guide/security.md#verifying-a-release). That checks the
+SBOMs too: each `<asset>.spdx.json` is a line of the manifest, so the signature over
+`SHA256SUMS.txt` vouches for it.
+
+For signature verification with cosign, see the [install guide](guide/01-install.md).
 
 ## Package managers
 
