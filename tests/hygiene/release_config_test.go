@@ -1021,6 +1021,14 @@ func TestReleaseSBOMsAreSignedWithTheManifest(t *testing.T) {
 	if lists >= 0 && tarballs > lists {
 		t.Error("the npm tarballs are listed after the SBOMs; the manifest lists assets before their SBOMs")
 	}
+	// The SBOM of a binary shares its name prefix, so the wheel-pin checks must
+	// read the manifest by exact binary name rather than by prefix.
+	for _, check := range []string{"opensysml/release-digests.json", "jupyter_opensysml_kernel/release-digests.json"} {
+		index := stepIndex(releaseSteps, check, "nothing was signed")
+		if index < 0 || !containsAll(releaseSteps[index].Command, "fields[1] in assets", `"windows-amd64.exe")}`) {
+			t.Errorf("the %s check does not select the five binaries by exact name from the manifest", check)
+		}
+	}
 
 	github, ok := config.Jobs["publish-github-release"]
 	if !ok {
