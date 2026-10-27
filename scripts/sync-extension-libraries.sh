@@ -2,9 +2,11 @@
 # Sync the vendored extension libraries from Open-MBEE/OpenSysML-Extensions-Library.
 #
 # Upstream set: libraries/*.sysml, libraries/*.kerml and engine-contract.json,
-# written flat into internal/workspace/libs/stdlib/OpenSysML Libraries/. That
-# directory owns README.md only; any other file that is not upstream is an
-# error, so hand edits there fail loudly instead of silently surviving a sync.
+# written flat into internal/workspace/libs/stdlib/OpenSysML Libraries/, and
+# the project's manifests (.project.json, .meta.json) with its LICENSE, written
+# into internal/workspace/libs/extensions-project/. Each directory owns
+# README.md only; any other file that is not upstream is an error, so hand
+# edits there fail loudly instead of silently surviving a sync.
 #
 #   scripts/sync-extension-libraries.sh            vendor EXTENSIONS_COMMIT
 #   scripts/sync-extension-libraries.sh --ref REF  vendor a branch or tag
@@ -17,6 +19,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 vendored="$repo_root/internal/workspace/libs/stdlib/OpenSysML Libraries"
+vendored_project="$repo_root/internal/workspace/libs/extensions-project"
 
 check=0
 ref=""
@@ -48,18 +51,18 @@ fi
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-upstream="$work/upstream"
-mkdir -p "$upstream"
+upstream="$work/upstream/libraries"
+upstream_project="$work/upstream/project"
+mkdir -p "$upstream" "$upstream_project"
+# The manifests and the file they record beside the units.
+project_files=(.project.json .meta.json LICENSE)
 
 if [[ -n "$source_dir" ]]; then
 	if [[ ! -d "$source_dir/libraries" ]]; then
 		echo "error: $source_dir has no libraries/ directory" >&2
 		exit 1
 	fi
-	cp "$source_dir"/libraries/*.sysml "$source_dir"/libraries/*.kerml "$upstream/" 2>/dev/null || true
-	if [[ -f "$source_dir/engine-contract.json" ]]; then
-		cp "$source_dir/engine-contract.json" "$upstream/"
-	fi
+	tree="$source_dir"
 	resolved="local tree $source_dir"
 else
 	fetch_ref="$EXTENSIONS_COMMIT"
@@ -81,12 +84,18 @@ else
 	while IFS= read -r path; do
 		mkdir -p "$work/tree/$(dirname "$path")"
 		git -C "$work/git" show "FETCH_HEAD:$path" >"$work/tree/$path"
-	done < <(git -C "$work/git" ls-tree -r --name-only FETCH_HEAD -- libraries engine-contract.json)
-	cp "$work/tree"/libraries/*.sysml "$work/tree"/libraries/*.kerml "$upstream/" 2>/dev/null || true
-	if [[ -f "$work/tree/engine-contract.json" ]]; then
-		cp "$work/tree/engine-contract.json" "$upstream/"
-	fi
+	done < <(git -C "$work/git" ls-tree -r --name-only FETCH_HEAD -- libraries engine-contract.json "${project_files[@]}")
+	tree="$work/tree"
 fi
+cp "$tree"/libraries/*.sysml "$tree"/libraries/*.kerml "$upstream/" 2>/dev/null || true
+if [[ -f "$tree/engine-contract.json" ]]; then
+	cp "$tree/engine-contract.json" "$upstream/"
+fi
+for name in "${project_files[@]}"; do
+	if [[ -f "$tree/$name" ]]; then
+		cp "$tree/$name" "$upstream_project/"
+	fi
+done
 
 # An upstream holding no libraries at all is refused: it would empty the
 # vendored directory, which is how a sync of a ref that does not carry them
@@ -103,39 +112,54 @@ if [[ ! -f "$upstream/engine-contract.json" ]]; then
 	exit 1
 fi
 
+# Without the manifests the sync would delete the vendored project as drift,
+# and the vendored units would no longer be provably the published project.
+for name in "${project_files[@]}"; do
+	if [[ ! -f "$upstream_project/$name" ]]; then
+		echo "error: upstream holds no $name; refusing to sync a tree that is not a project interchange" >&2
+		exit 1
+	fi
+done
+
 added=()
 removed=()
 changed=()
 unexpected=()
 
-for file in "$upstream"/*; do
-	name="$(basename "$file")"
-	if [[ ! -f "$vendored/$name" ]]; then
-		added+=("$name")
-	elif ! cmp -s "$file" "$vendored/$name"; then
-		changed+=("$name")
-	fi
-done
-for file in "$vendored"/*.sysml "$vendored"/*.kerml "$vendored/engine-contract.json"; do
-	[[ -e "$file" ]] || continue
-	name="$(basename "$file")"
-	[[ -f "$upstream/$name" ]] || removed+=("$name")
-done
-# Anything else in the vendored directory that is neither upstream nor the
-# OpenSysML-owned README.md is unexpected.
-for file in "$vendored"/*; do
-	name="$(basename "$file")"
-	[[ "$name" == "README.md" ]] && continue
-	[[ -f "$upstream/$name" ]] && continue
-	case "$name" in
-		*.sysml | *.kerml | engine-contract.json) ;; # already in removed[]
-		*) unexpected+=("$name") ;;
-	esac
-done
+# compare SRC DST OWNED...: the files under SRC against those under DST,
+# recording each path added, changed, removed or unexpected. DST owns the OWNED
+# files; any other file there that is not upstream is unexpected.
+compare() {
+	local src="$1" dst="$2" file name owned
+	shift 2
+	for file in "$src"/* "$src"/.[!.]*; do
+		[[ -f "$file" ]] || continue
+		name="$(basename "$file")"
+		if [[ ! -f "$dst/$name" ]]; then
+			added+=("$dst/$name")
+		elif ! cmp -s "$file" "$dst/$name"; then
+			changed+=("$dst/$name")
+		fi
+	done
+	for file in "$dst"/* "$dst"/.[!.]*; do
+		[[ -f "$file" ]] || continue
+		name="$(basename "$file")"
+		[[ -f "$src/$name" ]] && continue
+		for owned in "$@"; do
+			[[ "$name" == "$owned" ]] && continue 2
+		done
+		case "$name" in
+			*.sysml | *.kerml | engine-contract.json | .project.json | .meta.json | LICENSE) removed+=("$dst/$name") ;;
+			*) unexpected+=("$dst/$name") ;;
+		esac
+	done
+}
+compare "$upstream" "$vendored" README.md
+compare "$upstream_project" "$vendored_project" README.md
 
 if [[ "${#unexpected[@]}" -gt 0 ]]; then
-	printf 'error: unexpected file(s) in %s: %s\n' "$vendored" "${unexpected[*]}" >&2
-	echo "       that directory is written by this script; remove them or move them upstream" >&2
+	printf 'error: unexpected file(s): %s\n' "${unexpected[*]#"$repo_root"/}" >&2
+	echo "       those directories are written by this script; remove the files or move them upstream" >&2
 	exit 1
 fi
 
@@ -145,9 +169,9 @@ if [[ "$drift" -eq 0 ]]; then
 	exit 0
 fi
 
-for name in "${added[@]}"; do echo "  added    $name"; done
-for name in "${changed[@]}"; do echo "  changed  $name"; done
-for name in "${removed[@]}"; do echo "  removed  $name"; done
+for name in "${added[@]}"; do echo "  added    ${name#"$repo_root"/}"; done
+for name in "${changed[@]}"; do echo "  changed  ${name#"$repo_root"/}"; done
+for name in "${removed[@]}"; do echo "  removed  ${name#"$repo_root"/}"; done
 
 if [[ "$check" -eq 1 ]]; then
 	echo "error: the vendored extension libraries differ from $resolved" >&2
@@ -156,6 +180,14 @@ if [[ "$check" -eq 1 ]]; then
 	exit 1
 fi
 
-for name in "${removed[@]}"; do rm -f "$vendored/$name"; done
-for name in "${added[@]}" "${changed[@]}"; do cp "$upstream/$name" "$vendored/$name"; done
+# source_of DST/name: the staged upstream copy of a vendored path.
+source_of() {
+	case "$1" in
+		"$vendored_project"/*) echo "$upstream_project/$(basename "$1")" ;;
+		*) echo "$upstream/$(basename "$1")" ;;
+	esac
+}
+mkdir -p "$vendored_project"
+for name in "${removed[@]}"; do rm -f "$name"; done
+for name in "${added[@]}" "${changed[@]}"; do cp "$(source_of "$name")" "$name"; done
 echo "Synced extension libraries to $resolved"

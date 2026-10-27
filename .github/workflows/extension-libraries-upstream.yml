@@ -84,7 +84,7 @@ jobs:
           {
             echo "### Synced upstream \`$REF\` at \`$sha\`"
             echo '```'
-            git status --porcelain -- "internal/workspace/libs/stdlib/OpenSysML Libraries/"
+            git status --porcelain -- "internal/workspace/libs/stdlib/OpenSysML Libraries/" internal/workspace/libs/extensions-project/
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 

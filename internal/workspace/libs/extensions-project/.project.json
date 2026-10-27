@@ -1,0 +1,19 @@
+{
+  "name": "OpenSysML Extensions Library",
+  "publisher": "Open-MBEE",
+  "description": "Community non-normative SysML v2 and KerML extension libraries: diagram layout, identity and migration metadata, MOSA and OOSEM vocabularies, document queries, renderings, simulation, state machines, stochastic and state-space extensions, math and random functions, and validation constraints.",
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "website": "https://github.com/Open-MBEE/OpenSysML-Extensions-Library",
+  "usage": [
+    {"resource": "https://www.omg.org/spec/KerML/20250201/Data-Type-Library.kpar"},
+    {"resource": "https://www.omg.org/spec/KerML/20250201/Function-Library.kpar"},
+    {"resource": "https://www.omg.org/spec/KerML/20250201/Semantic-Library.kpar"},
+    {"resource": "https://www.omg.org/spec/SysML/20250201/Analysis-Domain-Library.kpar"},
+    {"resource": "https://www.omg.org/spec/SysML/20250201/Cause-and-Effect-Domain-Library.kpar"},
+    {"resource": "https://www.omg.org/spec/SysML/20250201/Metadata-Domain-Library.kpar"},
+    {"resource": "https://www.omg.org/spec/SysML/20250201/Quantities-and-Units-Domain-Library.kpar"},
+    {"resource": "https://www.omg.org/spec/SysML/20250201/Requirement-Derivation-Domain-Library.kpar"},
+    {"resource": "https://www.omg.org/spec/SysML/20250201/Systems-Library.kpar"}
+  ]
+}
