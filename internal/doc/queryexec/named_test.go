@@ -16,9 +16,12 @@ package Vehicle {
 		part def Pad;
 	}
 	alias Wheels for Config;
+	alias Rim for Config::Wheel;
 }
 package Other {
 	package Config;
+	alias Rim for Vehicle::Config::Wheel;
+	private import Vehicle::'Spare Parts'::*;
 }
 package Aliases {
 	alias Broken for Missing;
@@ -91,9 +94,11 @@ func TestExecuteNamedRejectsUnknownNames(t *testing.T) {
 		"Vehicle::Missing": "names no element Vehicle::Missing: Observatory::Vehicle has no member Missing",
 		"Vehicle::Confg":   "names no element Vehicle::Confg: Observatory::Vehicle has no member Confg — did you mean Config?",
 		"Nowhere::Config":  "names no element Nowhere::Config: nothing is named Nowhere",
-		"Aliases::Broken":  "names no element Aliases::Broken: the alias denotes no element",
-		"Aliases::Loop1":   "names no element Aliases::Loop1: the alias denotes no element",
-		"Aliases::Loop2":   "names no element Aliases::Loop2: the alias denotes no element",
+		// Other privately imports Pad, so Pad is not offered for a typo under Other.
+		"Other::Pda":      "names no element Other::Pda: Observatory::Other has no member Pda",
+		"Aliases::Broken": "names no element Aliases::Broken: the alias denotes no element",
+		"Aliases::Loop1":  "names no element Aliases::Loop1: the alias denotes no element",
+		"Aliases::Loop2":  "names no element Aliases::Loop2: the alias denotes no element",
 	}
 	for name, want := range cases {
 		_, err := fixture.execute(t, "ByName", Bindings{"qualifiedName": {StringValue(name)}}, Options{})
@@ -104,6 +109,21 @@ func TestExecuteNamedRejectsUnknownNames(t *testing.T) {
 		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("Named(%q) message = %v, want it to contain %q", name, err, want)
 		}
+		if name == "Other::Pda" && strings.Contains(err.Error(), "did you mean") {
+			t.Fatalf("Named(%q) offered a privately imported name: %v", name, err)
+		}
+	}
+}
+
+// Two aliases of one element denote one element, not two.
+func TestExecuteNamedResolvesAliasesToTheirElement(t *testing.T) {
+	fixture := loadExecutionFixture(t, namedBody)
+	result, err := fixture.execute(t, "ByName", Bindings{"qualifiedName": {StringValue("Rim")}}, Options{})
+	if err != nil {
+		t.Fatalf("Named(Rim): %v", err)
+	}
+	if got := strings.Join(rowNames(result), ","); got != "Observatory::Vehicle::Config::Wheel" {
+		t.Fatalf("Named(Rim) rows = %v", got)
 	}
 }
 
@@ -136,7 +156,17 @@ calc def ByName :> Query {
 `)
 	_, err = twice.execute(t, "ByName", Bindings{"qualifiedName": {StringValue("Twice::a")}}, Options{})
 	ambiguous = executionError(t, err, ErrorAmbiguousElement)
+	if len(ambiguous.Candidates) != 2 {
+		t.Fatalf("Named(Twice::a) candidates = %v", ambiguous.Candidates)
+	}
 	if want := "names 2 elements Twice::a: Observatory::Twice::a (declared 2 times)"; !strings.Contains(err.Error(), want) {
 		t.Fatalf("Named(Twice::a) message = %v, want it to contain %q", err, want)
+	}
+	// A path through an ambiguous prefix is reported as that ambiguity, not as a
+	// member the prefix lacks.
+	_, err = twice.execute(t, "ByName", Bindings{"qualifiedName": {StringValue("Twice::a::missing")}}, Options{})
+	ambiguous = executionError(t, err, ErrorAmbiguousElement)
+	if ambiguous.Actual != "Twice::a" {
+		t.Fatalf("Named(Twice::a::missing) error = %v", ambiguous)
 	}
 }
