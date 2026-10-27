@@ -73,7 +73,10 @@ after v0.10.1). Naming such a tool explicitly on an older release fails instead.
 publishes beside it (see [the signed checksum manifest](../project/releasing.md#the-signed-checksum-manifest)); it needs
 [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) on `PATH`. Without it
 the script still verifies every download against the manifest; the signature additionally
-proves the manifest itself came from the project's CI.
+proves the manifest itself came from the project's CI. The same manifest lists an SPDX
+software bill of materials per asset, `<asset>.spdx.json`, so once the signature is verified
+`sha256sum -c SHA256SUMS.txt --ignore-missing` also vouches for a downloaded SBOM (see
+[the software bills of materials](../project/releasing.md#the-software-bills-of-materials)).
 
 The scripts are [`install.sh`](https://github.com/Open-MBEE/OpenSysML/blob/main/install.sh)
 and [`install.ps1`](https://github.com/Open-MBEE/OpenSysML/blob/main/install.ps1) at the root

@@ -569,8 +569,8 @@ func TestReleaseJobsPersistDisjointWorkspaceLayers(t *testing.T) {
 	requireAll(t, "build-release-binaries persists", upstream, "dist")
 
 	// Everything build-release writes into dist: the manifest and what signs
-	// it, the wasm sidecars, and the Python distributions it copies in. The
-	// binaries' sidecars are written beside them by build-release-binaries.
+	// it, the SBOMs, the wasm sidecars, and the Python distributions it copies
+	// in. The binaries' sidecars are written beside them by build-release-binaries.
 	own := func(path string) bool {
 		if !strings.HasPrefix(path, "dist/") {
 			return false
@@ -578,6 +578,7 @@ func TestReleaseJobsPersistDisjointWorkspaceLayers(t *testing.T) {
 		switch {
 		case strings.Contains(path, "SHA256SUMS.txt"),
 			strings.Contains(path, "provenance.intoto.json"),
+			path == "dist/sbom",
 			strings.HasSuffix(path, ".sha256"),
 			strings.HasSuffix(path, ".whl"),
 			strings.HasPrefix(path, "dist/opensysml-[0-9]"),
@@ -594,6 +595,7 @@ func TestReleaseJobsPersistDisjointWorkspaceLayers(t *testing.T) {
 	}
 	requireAll(t, "build-release persists", persisted,
 		"dist/SHA256SUMS.txt",
+		"dist/sbom",
 		"dist/SHA256SUMS.txt.bundle",
 		"dist/provenance.intoto.json.bundle",
 		"dist/wasm/*.sha256",
@@ -911,5 +913,70 @@ func TestNpmRunnerIsPublishedWithTheClient(t *testing.T) {
 		case alias < runner:
 			t.Error("@openmbee/opensysml-mcp is published before @openmbee/sysml-mcp, the runner it is the other name of")
 		}
+	}
+}
+
+// TestReleaseSBOMsAreSignedWithTheManifest holds build-release to writing an
+// SPDX SBOM per asset before the checksum manifest, with a pinned syft, and to
+// listing the SBOMs in that manifest, so the cosign signature and the
+// provenance statement cover them; publish-github-release must then upload them.
+func TestReleaseSBOMsAreSignedWithTheManifest(t *testing.T) {
+	config := loadCircleConfig(t)
+	release, ok := config.Jobs["build-release"]
+	if !ok {
+		t.Fatal("no build-release job")
+	}
+	releaseSteps := runSteps(t, release.Steps)
+
+	install := stepIndex(releaseSteps, "anchore/syft/releases/download/v", "sha256sum --check --strict", "install -m 0755 /tmp/syft")
+	manifest := stepIndex(releaseSteps, "> SHA256SUMS.txt")
+	sign := stepIndex(releaseSteps, "cosign sign-blob SHA256SUMS.txt")
+	attest := stepIndex(releaseSteps, "cosign verify-blob-attestation", ".spdx.json")
+	if install < 0 {
+		t.Fatal("build-release does not install a pinned, checksummed syft")
+	}
+	if manifest < 0 || sign < 0 {
+		t.Fatal("build-release does not write and sign SHA256SUMS.txt")
+	}
+	if install > manifest {
+		t.Error("syft is installed after the manifest step that needs it")
+	}
+	if attest < 0 || attest < sign {
+		t.Error("build-release does not verify the provenance against an SBOM")
+	}
+
+	command := releaseSteps[manifest].Command
+	writes := strings.Index(command, "release-sbom.py --version \"${CIRCLE_TAG}\" --out sbom")
+	manifestWrite := strings.Index(command, "> SHA256SUMS.txt")
+	lists := strings.Index(command, "cd sbom && sha256sum ./*.spdx.json | sed 's|\\./||' >> ../SHA256SUMS.txt")
+	switch {
+	case writes < 0:
+		t.Error("the manifest step does not write the SBOMs with scripts/release-sbom.py")
+	case writes > manifestWrite:
+		t.Error("the SBOMs are written after the manifest they must be listed in")
+	case lists < 0:
+		t.Error("the manifest step does not list the SBOMs in SHA256SUMS.txt")
+	}
+	if !strings.Contains(command, "find grpc jupyter -type f ! -name '*.sha256' -exec") {
+		t.Error("the raw service and kernel binaries get no SBOM")
+	}
+
+	github, ok := config.Jobs["publish-github-release"]
+	if !ok {
+		t.Fatal("no publish-github-release job")
+	}
+	githubSteps := runSteps(t, github.Steps)
+	move := stepIndex(githubSteps, "mv dist/sbom/* dist/release/")
+	upload := stepIndex(githubSteps, "ghr ")
+	if move < 0 || upload < 0 || move > upload {
+		t.Error("publish-github-release does not move the SBOMs into dist/release before ghr uploads it")
+	}
+
+	static, ok := config.Jobs["go-static"]
+	if !ok {
+		t.Fatal("no go-static job")
+	}
+	if stepIndex(runSteps(t, static.Steps), "python3 scripts/release-sbom-test.py") < 0 {
+		t.Error("go-static does not run scripts/release-sbom-test.py")
 	}
 }
