@@ -100,6 +100,13 @@ is the cell's output:
 Vehicles::sedan.mass + 100.0
 ```
 
+The output is the line the prompt prints, `= 1900.0` here. A calculation's result, or any
+feature whose multiplicity lets it hold several values, prints in square brackets — `add(2, 2)`
+answers `= [4]` where `2 + 2` answers `= 4` — the display notation for a sequence, not KerML
+syntax, that [What a result line shows](04-repl.md#what-a-result-line-shows) explains along
+with the `return : Integer[1]` spelling that prints one value bare. The kernel prints the same
+text the prompt does.
+
 ```sysml
 %instantiate Vehicles::sedan
 %features Vehicles::sedan

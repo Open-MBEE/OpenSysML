@@ -217,7 +217,7 @@ func tripleHash(triple Triple, seed maphash.Seed) uint64 {
 	var hash maphash.Hash
 	hash.SetSeed(seed)
 	write := func(term Term) {
-		_ = hash.WriteByte(byte(term.Kind))
+		_ = hash.WriteByte(byte(term.Kind)) // #nosec G115 -- a small enumeration
 		_, _ = hash.WriteString(term.Value)
 		_ = hash.WriteByte(0)
 		_, _ = hash.WriteString(term.Datatype)

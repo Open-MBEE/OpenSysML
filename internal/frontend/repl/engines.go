@@ -289,8 +289,7 @@ func solveReports(name string, queries []*solve.Query, plan analysis.Plan, err e
 	reports := make([]SolveReport, 0, len(queries))
 	for i, q := range queries {
 		r := report(name, q, plan.Result.Values[i])
-		r.Lines = append(r.Lines, uncoveredLines(q)...)
-		r.Lines = append(r.Lines, assumedOneLines(q)...)
+		r.Lines = append(r.Lines, noteLines(q)...)
 		r.Plan = &plan
 		reports = append(reports, r)
 	}

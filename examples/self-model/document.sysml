@@ -33,6 +33,7 @@ package OpenSysMLDocument {
         in root : Element;
         Project(
             source = WhereFeature(
+                tolerate = true,
                 source = WhereType(
                     source = OwnedElements(source = DefinitionOf(root = root)),
                     type = "PartUsage"
@@ -63,6 +64,7 @@ package OpenSysMLDocument {
         in root : Element;
         Project(
             source = WhereFeature(
+                tolerate = true,
                 source = WhereType(
                     source = OwnedElements(source = DefinitionOf(root = root)),
                     type = "PartUsage"
@@ -81,6 +83,7 @@ package OpenSysMLDocument {
         in root : Element;
         Project(
             source = WhereFeature(
+                tolerate = true,
                 source = WhereType(
                     source = OwnedElements(source = DefinitionOf(root = root)),
                     type = "PartUsage"
@@ -111,6 +114,7 @@ package OpenSysMLDocument {
         in root : Element;
         Project(
             source = WhereFeature(
+                tolerate = true,
                 source = WhereType(
                     source = OwnedElements(source = DefinitionOf(root = root)),
                     type = "PartUsage"
@@ -129,6 +133,7 @@ package OpenSysMLDocument {
         in root : Element;
         Project(
             source = WhereFeature(
+                tolerate = true,
                 source = WhereType(
                     source = OwnedElements(source = DefinitionOf(root = root)),
                     type = "PartUsage"
@@ -146,6 +151,7 @@ package OpenSysMLDocument {
         in root : Element;
         Project(
             source = WhereFeature(
+                tolerate = true,
                 source = WhereType(
                     source = OwnedElements(source = DefinitionOf(root = root)),
                     type = "PartUsage"
@@ -163,9 +169,12 @@ package OpenSysMLDocument {
     part def ArchitectureDocument :> Document {
         attribute redefines title = "OpenSysML Architecture";
 
-        part summary : Paragraph {
-            :>> text = "OpenSysML analyses SysML v2 and KerML in one pass from text to a runnable graph. This document is generated from a model of that architecture rather than written alongside it: every diagram and table below is rendered from the same model the toolchain analyses, so a stage that moves in the code moves here too.";
-        }
+        rep language "markdown" /* OpenSysML analyses SysML v2 and KerML in one pass from text to a
+         * runnable graph. This document is generated from a model of that
+         * architecture rather than written alongside it: every diagram and table
+         * below is rendered from the same model the toolchain analyses, so a
+         * stage that moves in the code moves here too.
+         */
 
         part reading : Paragraph {
             rep language "markdown" /* The model lives in
@@ -177,9 +186,10 @@ package OpenSysMLDocument {
         part pipeline : Section {
             attribute redefines title = "The analysis pipeline";
 
-            part intro : Paragraph {
-                :>> text = "Text becomes tokens, a tree, a symbol index, resolved names, types, diagnostics and finally an execution graph. Each stage owns one artifact and hands it on; nothing downstream reaches back.";
-            }
+            rep language "markdown" /* Text becomes tokens, a tree, a symbol index, resolved names,
+             * types, diagnostics and finally an execution graph. Each stage owns
+             * one artifact and hands it on; nothing downstream reaches back.
+             */
 
             part structure : Diagram {
                 attribute redefines caption = "The stages and the artifacts that travel between them";
@@ -194,13 +204,20 @@ package OpenSysMLDocument {
                 }
             }
 
-            part immutable : Paragraph {
-                :>> text = "The tree is immutable once parsed and carries syntax only. Everything derived from it lives in a side table keyed by node or symbol, which is why resolution can be lazy and memoized without a stale tree to invalidate.";
-            }
+            rep language "markdown" /* The tree is immutable once parsed and carries syntax only.
+             * Everything derived from it lives in a side table keyed by node or
+             * symbol, which is why resolution can be lazy and memoized without a
+             * stale tree to invalidate.
+             */
 
-            part libraryLoading : Paragraph {
-                :>> text = "The bundled standard library is loaded once per process from an embedded snapshot of its frozen index, written at go generate time and checked against the digest of the bundled files, the snapshot format and a checksum before it is trusted. A snapshot that fails any of those checks is ignored and the files are parsed as before, so the library files remain the source of truth and the snapshot is only a faster way to arrive at the same index.";
-            }
+            rep language "markdown" /* The bundled standard library is loaded once per process from an
+             * embedded snapshot of its frozen index, written at go generate time
+             * and checked against the digest of the bundled files, the snapshot
+             * format and a checksum before it is trusted. A snapshot that fails
+             * any of those checks is ignored and the files are parsed as before,
+             * so the library files remain the source of truth and the snapshot
+             * is only a faster way to arrive at the same index.
+             */
 
             part libraryLoad : Diagram {
                 attribute redefines caption = "Loading the library: the snapshot when it matches the files, the files otherwise";
@@ -212,9 +229,15 @@ package OpenSysMLDocument {
         part checking : Section {
             attribute redefines title = "Validation and execution";
 
-            part tiers : Paragraph {
-                :>> text = "Validation is a ladder: syntax, name resolution, type, then constraint. A blocking finding skips the document-scoped passes of the tiers above it, while a pass that names its subject still runs for the elements not downstream of the failure, so one broken declaration does not silence the rest of the document.";
-            }
+            rep language "markdown" /* Validation is a ladder of [](sysml:value:passRegistry.tierCount)
+             * tiers: syntax, name resolution, type, then constraint, with
+             * [](sysml:value:passRegistry.passCount) registered passes between them
+             * ([the table below](sysml:passes) lists every one). A blocking finding
+             * skips the document-scoped passes of the tiers above it, while a pass
+             * that names its subject still runs for the elements not downstream of
+             * the failure, so one broken declaration does not silence the rest of
+             * the document.
+             */
 
             part tierStates : Diagram {
                 attribute redefines caption = "The tier ladder, and where it halts";
@@ -229,9 +252,15 @@ package OpenSysMLDocument {
                 }
             }
 
-            part executing : Paragraph {
-                :>> text = "What runs is the lowered graph, never the syntax tree: actions execute in succession order, as tokens over the lowered graph, and states as run-to-completion event dispatch. Each kind of work has its own budget, so a model that cannot finish reports which budget it exhausted rather than hanging the tool.";
-            }
+            rep language "markdown" /* What runs is the lowered graph, never the syntax tree: actions
+             * execute in succession order, as tokens over the lowered graph, and
+             * states as run-to-completion event dispatch. Each kind of work has
+             * its own budget — nested calculation, for one, is bounded at
+             * [](sysml:value:runtime.calcDepth.defaultBound) by default and raised
+             * through [](sysml:value:runtime.calcDepth.envVar) — so a model that
+             * cannot finish reports which budget it exhausted rather than hanging
+             * the tool.
+             */
 
             part budgets : Table {
                 attribute redefines caption = "The runtime budgets, their defaults, and the error each reports when exhausted";
@@ -241,14 +270,25 @@ package OpenSysMLDocument {
             }
 
             part exhaustion : Diagram {
-                attribute redefines caption = "Seven budgets, seven ways a run ends early";
+                attribute redefines caption = "Eight budgets, eight ways a run ends early";
                 attribute redefines direction = "TB";
                 ref redefines source = OpenSysMLViews::budgetExhaustion;
             }
 
-            part instantiating : Paragraph {
-                :>> text = "Beneath the executors sits the instance layer. A type's schema — its effective features, with redefinitions kept and connector ends appended — is built once per model from the semantic shape and shared by every object of the type. Making an object claims an identity and a feature value per schema entry, folding only constant defaults; everything else waits for its first read, when the case the feature is in decides how its value is made: a bound feature reads its far end, a selected variation binds its variant, a stated value is evaluated, a connector holds its connected ends, a composite makes its objects. Whatever a feature comes to hold passes multiplicity, type and uniqueness first, and a derived value lists itself on every value it read, so a later write to one of them sends it back to be derived again.";
-            }
+            rep language "markdown" /* Beneath the executors sits the instance layer. A type's schema —
+             * its effective features, with redefinitions kept and connector ends
+             * appended — is built once per model from the semantic shape and
+             * shared by every object of the type. Making an object claims an
+             * identity and a feature value per schema entry, folding only
+             * constant defaults; everything else waits for its first read, when
+             * the case the feature is in decides how its value is made: a bound
+             * feature reads its far end, a selected variation binds its variant,
+             * a stated value is evaluated, a connector holds its connected ends,
+             * a composite makes its objects. Whatever a feature comes to hold
+             * passes multiplicity, type and uniqueness first, and a derived
+             * value lists itself on every value it read, so a later write to one
+             * of them sends it back to be derived again.
+             */
 
             part instanceLayer : Diagram {
                 attribute redefines caption = "The instance layer: schema once per type, objects on demand, values on first read";
@@ -267,9 +307,17 @@ package OpenSysMLDocument {
                 ref redefines source = OpenSysMLViews::actionExecution;
             }
 
-            part calculating : Paragraph {
-                :>> text = "A calc whose body is scalar — an expression, or local declarations, returns and conditionals over scalars, calling other such calcs by position or by name and the library's scalar functions — is compiled on its first invocation into closures over an unboxed frame, kept in a side table on the context like every other derived fact. The evaluator remains the reference: the compiled tier must reproduce its values, errors and step charges exactly, a traced run or an invocation it cannot take goes to the evaluator whole, and an environment variable switches the tier off for bisecting.";
-            }
+            rep language "markdown" /* A calc whose body is scalar — an expression, or local
+             * declarations, returns and conditionals over scalars, calling other
+             * such calcs by position or by name and the library's scalar
+             * functions — is compiled on its first invocation into closures over
+             * an unboxed frame, kept in a side table on the context like every
+             * other derived fact. The evaluator remains the reference: the
+             * compiled tier must reproduce its values, errors and step charges
+             * exactly, a traced run or an invocation it cannot take goes to the
+             * evaluator whole, and an environment variable switches the tier off
+             * for bisecting.
+             */
 
             part calculation : Diagram {
                 attribute redefines caption = "Invoking a calc: compiled when it may be, on the evaluator otherwise";
@@ -287,9 +335,16 @@ package OpenSysMLDocument {
         part asking : Section {
             attribute redefines title = "The analysis framework";
 
-            part intro : Paragraph {
-                :>> text = "Every question a surface asks of a model — evaluate this, what can that behavior do, does this condition hold, is that set of conditions satisfiable, sweep this domain — goes through one contract. An engine declares the kinds it answers, the bounds it takes and the strongest evidence it can ever produce; it is asked whether it covers a question before any work is done, and a refusal is a typed reason, never a result. The registry is held by its owner rather than in a global, and dispatch records every engine consulted in the plan it returns.";
-            }
+            rep language "markdown" /* Every question a surface asks of a model — evaluate this, what can
+             * that behavior do, does this condition hold, is that set of
+             * conditions satisfiable, sweep this domain — goes through one
+             * contract. An engine declares the kinds it answers, the bounds it
+             * takes and the strongest evidence it can ever produce; it is asked
+             * whether it covers a question before any work is done, and a
+             * refusal is a typed reason, never a result. The registry is held by
+             * its owner rather than in a global, and dispatch records every
+             * engine consulted in the plan it returns.
+             */
 
             part structure : Diagram {
                 attribute redefines caption = "The framework: questions, engines, registry, dispatch, budget and workers";
@@ -304,9 +359,14 @@ package OpenSysMLDocument {
                 }
             }
 
-            part dispatching : Paragraph {
-                :>> text = "A selection says which engines a question reaches. Auto, the default, puts it to the strongest covering engine and moves on to the next when the answer is not covered; a name puts it to exactly one engine, whose refusal is then the answer; all puts it to every covering engine in name order and composes what they answered, a witness standing over the universal claim it refutes and the disagreement recorded. A run that faults stops the plan.";
-            }
+            rep language "markdown" /* A selection says which engines a question reaches. Auto, the
+             * default, puts it to the strongest covering engine and moves on to
+             * the next when the answer is not covered; a name puts it to exactly
+             * one engine, whose refusal is then the answer; all puts it to every
+             * covering engine in name order and composes what they answered, a
+             * witness standing over the universal claim it refutes and the
+             * disagreement recorded. A run that faults stops the plan.
+             */
 
             part dispatch : Diagram {
                 attribute redefines caption = "Answering one question: selection, coverage, the run, and what the plan records";
@@ -314,9 +374,15 @@ package OpenSysMLDocument {
                 ref redefines source = OpenSysMLViews::questionFlow;
             }
 
-            part evidence : Paragraph {
-                :>> text = "An answer carries a claim and the strength of the evidence for it, on one scale: not covered, observed, witnessed, bounded, proved. A greater strength is never weaker evidence, an existential claim — a violation, a sensitivity, a satisfying assignment — has witnessed as its one strength, and an engine claiming more than its declared authority is a fault. The run and sweep engines observe; explore and solve prove when nothing cut them short and observe otherwise.";
-            }
+            rep language "markdown" /* An answer carries a claim and the strength of the evidence for it,
+             * on one scale: not covered, observed, witnessed, bounded, proved. A
+             * greater strength is never weaker evidence, an existential claim —
+             * a violation, a sensitivity, a satisfying assignment — has
+             * witnessed as its one strength, and an engine claiming more than
+             * its declared authority is a fault. The run and sweep engines
+             * observe; explore and solve prove when nothing cut them short and
+             * observe otherwise.
+             */
 
             part ladder : Diagram {
                 attribute redefines caption = "The evidence scale as a ladder";
@@ -324,9 +390,17 @@ package OpenSysMLDocument {
                 ref redefines source = OpenSysMLViews::evidenceLadder;
             }
 
-            part isolating : Paragraph {
-                :>> text = "Runs go concurrently, up to the jobs setting, each on a worker of its own. A worker holds model-derived state — resolver, semantic model and the runtime's memo tables — built on first use over the shared frozen index, and every run on it gets a fresh context of its own; the runtime's memo tables are not safe to share, so a worker is never lent between jobs. The exploration works a queue of schedule prefixes in plan order and sorts what it found, so the outcomes are the same at any job count. A snapshot captures a run's state between two steps and no part of the model it runs over.";
-            }
+            rep language "markdown" /* Runs go concurrently, up to the jobs setting, each on a worker of
+             * its own. A worker holds model-derived state — resolver, semantic
+             * model and the runtime's memo tables — built on first use over the
+             * shared frozen index, and every run on it gets a fresh context of
+             * its own; the runtime's memo tables are not safe to share, so a
+             * worker is never lent between jobs. The exploration works a queue
+             * of schedule prefixes in plan order and sorts what it found, so the
+             * outcomes are the same at any job count. A snapshot captures a
+             * run's state between two steps and no part of the model it runs
+             * over.
+             */
 
             part exploring : Diagram {
                 attribute redefines caption = "Exploring a behavior's outcomes over a fleet of workers";
@@ -350,9 +424,20 @@ package OpenSysMLDocument {
         part surfaces : Section {
             attribute redefines title = "Surfaces over one pipeline";
 
-            part intro : Paragraph {
-                :>> text = "The REPL, the language server, the gRPC service, the stdio service, the command line, the MCP server for coding agents, the Jupyter kernel and the JSON-RPC commands a WebAssembly host runs are surfaces over one analysis pipeline. The service speaks gRPC and Connect from one protobuf schema; the Go, Python, Node, Rust and Java clients are hand-written over stubs generated from that schema, the Julia and MATLAB clients speak Connect-JSON over HTTP by the published wire contract, and the Cameo plugin and SysON integration reach the service through the Java client — so a rule fixed in the engine is fixed everywhere at once.";
-            }
+            rep language "markdown" /* The REPL, the language server, the gRPC service, the stdio
+             * service, the command line, the MCP server for coding agents, the
+             * Jupyter kernel and the JSON-RPC commands a WebAssembly host runs
+             * are surfaces over one analysis pipeline: a release ships
+             * [](sysml:value:OpenSysMLSurfaces::opensysml.releasedCommandCount)
+             * commands, and [](sysml:value:OpenSysMLSurfaces::opensysml.wasmCommandCount)
+             * build for WebAssembly as well as natively. The service speaks gRPC
+             * and Connect from one protobuf schema; the Go, Python, Node, Rust
+             * and Java clients are hand-written over stubs generated from that
+             * schema, the Julia and MATLAB clients speak Connect-JSON over HTTP
+             * by the published wire contract, and the Cameo plugin and SysON
+             * integration reach the service through the Java client — so a rule
+             * fixed in the engine is fixed everywhere at once.
+             */
 
             part toolchain : Diagram {
                 attribute redefines caption = "The whole toolchain";
@@ -367,13 +452,23 @@ package OpenSysMLDocument {
                 }
             }
 
-            part agents : Paragraph {
-                :>> text = "The MCP server serves the language server's tools, the one-shot service's and named REPL sessions to a coding agent over stdio or Streamable HTTP; the Jupyter kernel wraps the REPL and shows each answer in its own MIME form; the JSON commands build for WebAssembly and answer the service's RPCs over JSON-RPC frames without the networking packages, and one of them, sysml-wasm, ships with a release.";
-            }
+            rep language "markdown" /* The MCP server serves the language server's tools, the one-shot
+             * service's and named REPL sessions — the tool groups
+             * [](sysml:value:OpenSysMLSurfaces::opensysml.mcp.toolGroups) — to a coding
+             * agent over stdio or Streamable HTTP at
+             * [](sysml:value:OpenSysMLSurfaces::opensysml.mcp.httpPath), guarded by the
+             * token in [](sysml:value:OpenSysMLSurfaces::opensysml.mcp.tokenEnv); the Jupyter kernel wraps the REPL and shows each
+             * answer in its own MIME form; the JSON commands build for
+             * WebAssembly and answer the service's RPCs over JSON-RPC frames
+             * without the networking packages, and one of them, sysml-wasm,
+             * ships with a release as
+             * [](sysml:value:OpenSysMLSurfaces::opensysml.wasm.releaseAsset).
+             */
 
-            part editing : Paragraph {
-                :>> text = "An editor reaches more than diagnostics: semantic tokens, quick fixes carrying their edits, suggestions for a name that did not resolve, and span-based edits whose result is re-parsed and re-analysed before it is accepted.";
-            }
+            rep language "markdown" /* An editor reaches more than diagnostics: semantic tokens, quick
+             * fixes carrying their edits, suggestions for a name that did not
+             * resolve, and span-based edits whose result is re-parsed and re-analysed before it is accepted.
+             */
 
             part editor : Diagram {
                 attribute redefines caption = "The editor pipeline";
@@ -385,9 +480,17 @@ package OpenSysMLDocument {
         part documents : Section {
             attribute redefines title = "Documents and views";
 
-            part intro : Paragraph {
-                :>> text = "A document is written in the notation: its queries compile to an immutable plan, the plan evaluates to a backend-agnostic tree carrying provenance on every node, and the output form is chosen last, so Markdown and PDF cannot disagree about the content. This document is one of them.";
-            }
+            rep language "markdown" /* A document is written in the notation: its queries compile to an
+             * immutable plan, the plan evaluates to a backend-agnostic tree
+             * carrying provenance on every node, and the output form is chosen
+             * last, so Markdown and PDF cannot disagree about the content. This
+             * document is one of them. [The kinds table](sysml:kinds) lists what a
+             * view may ask to be drawn, and [the prose table](sysml:prose) the
+             * markup a body may be written in; a body in
+             * [](sysml:value:documentPipeline.asciidocProse.markupLanguage) leaves the
+             * process for the converter named by
+             * [](sysml:value:documentPipeline.asciidocProse.toolEnv).
+             */
 
             part path : Diagram {
                 attribute redefines caption = "From a query in the model to a rendered artifact";
@@ -442,9 +545,13 @@ package OpenSysMLDocument {
         part identity : Section {
             attribute redefines title = "Element identity";
 
-            part intro : Paragraph {
-                :>> text = "An element's repository identity is an annotation, not a field on the tree: an explicit id when one is declared, otherwise one derived from the qualified name. The constraint tier checks the whole generated id space for collisions, and the RDF writer and reader carry the distinction between a declared and a derived id across a round trip.";
-            }
+            rep language "markdown" /* An element's repository identity is an annotation, not a field on
+             * the tree: an explicit id when one is declared, otherwise one
+             * derived from the qualified name. The constraint tier checks the
+             * whole generated id space for collisions, and the RDF writer and
+             * reader carry the distinction between a declared and a derived id
+             * across a round trip.
+             */
 
             part path : Diagram {
                 attribute redefines caption = "The identity path, from the library to RDF and back";
@@ -458,9 +565,13 @@ package OpenSysMLDocument {
                 ref redefines source = OpenSysMLViews::identityRoundTrip;
             }
 
-            part sync : Paragraph {
-                :>> text = "Repository synchronisation diffs a local model against its repository graph keyed by effective id, so a rename is an update rather than a delete and a create. Ids are minted and deletes confirmed only on request, and a conflict is reported in the exit status rather than resolved. The one phase of the identity design not built is the notation extension submitted to OMG.";
-            }
+            rep language "markdown" /* Repository synchronisation diffs a local model against its
+             * repository graph keyed by effective id, so a rename is an update
+             * rather than a delete and a create. Ids are minted and deletes
+             * confirmed only on request, and a conflict is reported in the exit
+             * status rather than resolved. The one phase of the identity design
+             * not built is the notation extension submitted to OMG.
+             */
 
             part syncing : Diagram {
                 attribute redefines caption = "Diffing a local model against its repository";
@@ -472,9 +583,10 @@ package OpenSysMLDocument {
         part quality : Section {
             attribute redefines title = "Invariants and oracles";
 
-            part intro : Paragraph {
-                :>> text = "The architecture rules are requirements over the modelled parts, and the test suites that verify them are named in the model, so each rule points at the run that would catch its violation.";
-            }
+            rep language "markdown" /* The architecture rules are requirements over the modelled parts,
+             * and the test suites that verify them are named in the model, so
+             * each rule points at the run that would catch its violation.
+             */
 
             part invariants : Diagram {
                 attribute redefines caption = "The architecture invariants and the parts they constrain";

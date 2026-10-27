@@ -30,7 +30,10 @@ func (s *Session) RunDocumentQuery(invocation string) Verdict {
 	name := fields[0]
 	lines, values, err := s.runDocumentQuery(name, fields[1:])
 	if err != nil {
-		return s.withTrace(unresolvedVerdict(name, err.Error()))
+		verdict := unresolvedVerdict(name, err.Error())
+		verdict.Lines = append(verdict.Lines, queryexec.OutcomeLines(err)...)
+		verdict.Outcome = queryOutcome(err)
+		return s.withTrace(verdict)
 	}
 	return s.withTrace(Verdict{Subject: name, Status: VerdictHolds, Lines: lines, Values: values})
 }
@@ -44,9 +47,18 @@ func (s *Session) doRunQuery(invocation string) ([]string, bool, error) {
 	}
 	lines, _, err := s.runDocumentQuery(fields[0], fields[1:])
 	if err != nil {
-		return []string{errPrefix + err.Error()}, false, nil
+		return append([]string{errPrefix + err.Error()}, queryexec.OutcomeLines(err)...), false, nil
 	}
 	return lines, false, nil
+}
+
+// queryOutcome is the QVTS record behind a failed query, nil when it carries none.
+func queryOutcome(err error) *queryexec.Outcome {
+	var typed *queryexec.Error
+	if errors.As(err, &typed) {
+		return typed.Outcome
+	}
+	return nil
 }
 
 // splitQueryArgs splits a %run-query invocation on whitespace, keeping quoted

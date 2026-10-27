@@ -1790,26 +1790,33 @@ func (idx *Index) shortNamedScan(name string) bool {
 	return shortRegistered(name)
 }
 
-// LookupUnique returns the element name denotes: the one registered under it
-// as a fully-qualified name, or the only one whose fully-qualified name ends
-// in `::name`. Nil when nothing, or more than one element, answers.
-func (idx *Index) LookupUnique(name string) *Symbol {
+// LookupUniqueCandidates returns the distinct elements LookupUnique chooses among —
+// registered under name exactly, else under every FQN ending in it — none or several telling why it failed.
+func (idx *Index) LookupUniqueCandidates(name string) []*Symbol {
 	if matches := idx.LookupQualified(name); len(matches) == 1 {
-		return matches[0]
+		return matches
 	}
-	var match *Symbol
+	var out []*Symbol
 	for _, fqn := range idx.FQNs() {
 		if fqn != name && !strings.HasSuffix(fqn, "::"+name) {
 			continue
 		}
 		for _, candidate := range idx.LookupQualified(fqn) {
-			if match != nil && !SameElement(match, candidate) {
-				return nil
+			if !slices.ContainsFunc(out, func(o *Symbol) bool { return SameElement(o, candidate) }) {
+				out = append(out, candidate)
 			}
-			match = candidate
 		}
 	}
-	return match
+	return out
+}
+
+// LookupUnique resolves a name that is either fully qualified or unique over
+// the model by its last segments; nil when it names nothing or several elements.
+func (idx *Index) LookupUnique(name string) *Symbol {
+	if candidates := idx.LookupUniqueCandidates(name); len(candidates) == 1 {
+		return candidates[0]
+	}
+	return nil
 }
 
 // FQNsEndingIn returns up to limit registered fully-qualified names whose last

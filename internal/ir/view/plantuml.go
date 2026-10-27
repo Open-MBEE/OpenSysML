@@ -51,6 +51,7 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	w := &plantumlWriter{kind: r.Kind, borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},
 		labels: labelsOf(r.Roots, false, nil, r.Shown), ports: r.portView(options.Ports), links: options.Links,
 		writtenPorts: make(map[string]struct{}), nesting: r.nestingEdges()}
+	w.labels.pinLines = r.Kind == KindTree
 	for _, root := range r.Roots {
 		w.fills.collect(root)
 	}
@@ -705,6 +706,9 @@ func (w *plantumlWriter) plantumlLabel(node *Node) string {
 	}
 	parts = append(parts, "**"+plantumlText(w.labels.head(node))+"**")
 	for _, line := range w.labels.details(node) {
+		parts = append(parts, plantumlText(line))
+	}
+	for _, line := range w.labels.parameterLines(node) {
 		parts = append(parts, plantumlText(line))
 	}
 	for _, line := range w.labels.compartmentLines(node) {

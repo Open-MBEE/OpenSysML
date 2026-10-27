@@ -83,6 +83,9 @@ func (v *verifyContext) symbolicVerdict(ctx context.Context, question string, su
 		verdict.Error = terr.Error()
 		return verdict, nil
 	}
+	if v.service.capabilities.has(CapabilityVerdictNotes) {
+		verdict.Notes = verdictNotes(queries)
+	}
 	plan, err := v.askSolvers(ctx, question, queries)
 	v.service.standingOf(plan).stamp(verdict)
 	if err != nil {
@@ -406,4 +409,16 @@ func (v *verifyContext) witnessValue(value solve.ModelValue) (runtime.Value, boo
 		}
 	}
 	return runtime.Value{}, false
+}
+
+// verdictNotes carries the queries' notes — what the answer assumes and what
+// it leaves uncovered — in the order the REPL prints them.
+func verdictNotes(queries []*solve.Query) []*pb.VerdictNote {
+	var notes []*pb.VerdictNote
+	for _, q := range queries {
+		for _, n := range q.Notes() {
+			notes = append(notes, &pb.VerdictNote{Kind: n.Kind, Subject: n.Subject, Text: n.Text})
+		}
+	}
+	return notes
 }

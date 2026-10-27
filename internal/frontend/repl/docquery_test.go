@@ -317,6 +317,30 @@ func TestRunQueryBindsACoordinateFrame(t *testing.T) {
 		"error:", "has no member transformation: SI::degree celsius (absolute temperature scale)::zeroDegreeCelsiusToKelvinShift redefines it")
 }
 
+// A query that could not be run prints the QVTS record under its error line:
+// the step, what it expected, and the frontier the model offers there.
+func TestRunQueryPrintsTheOutcomeRecord(t *testing.T) {
+	s := NewSession()
+	if res := s.Submit(`package Observatory {
+	private import DocumentQueries::*;
+	part telescope;
+	calc def Misspelled :> Query { Named(qualifiedName = "Observatory::telescop") }
+}`); len(errorDiagnostics(res.Diagnostics)) > 0 {
+		t.Fatalf("model did not analyse cleanly: %v", res.Diagnostics)
+	}
+	wants(t, run(t, s, "%run-query Misspelled"),
+		"error: query Observatory::Misspelled names no element Observatory::telescop",
+		"  path error at Named(Observatory::telescop): expected exactly one element with that qualified name",
+		"    at Observatory; members: [", "nearest: telescope")
+	verdict := s.RunDocumentQuery("Misspelled")
+	if verdict.Outcome == nil || verdict.Outcome.Kind() != "pathError" || verdict.Outcome.Step().Label() != "Named(Observatory::telescop)" {
+		t.Fatalf("verdict outcome = %+v, want the path error at Named", verdict.Outcome)
+	}
+	if len(verdict.Lines) < 3 || !strings.HasPrefix(verdict.Lines[1], "  path error at Named(") {
+		t.Fatalf("verdict lines = %q, want the record under the error line", verdict.Lines)
+	}
+}
+
 // objectQueryModel declares queries over a car whose wheels the session can
 // instantiate: one over what an object owns, one over the objects a session
 // holds, and one that only model elements answer.

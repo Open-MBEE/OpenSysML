@@ -1,0 +1,49 @@
+@startuml
+' ParameterCalcViews::definitions — tree rendering (render asTreeDiagram)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "<size:10>//«calc def»//</size>\n**Add**\nparameters\nin x\nin y\nout result" as n0 <<calc def>>
+class "<size:10>//«calc def»//</size>\n**Scale**\nparameters\nin x\nin factor\ninout count\nout doubled\nout r" as n1 <<calc def>>
+class "<size:10>//«action def»//</size>\n**Heat**\nparameters\nin bread\nout toast" as n2 <<action def>>
+class "<size:10>//«constraint def»//</size>\n**Between**\nparameters\nin low\nin value" as n3 <<constraint def>>
+@enduml

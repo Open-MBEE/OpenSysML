@@ -20,11 +20,12 @@ GO_BUILD := CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)"
 GO_INSTALL := CGO_ENABLED=0 go install -ldflags "$(LDFLAGS)"
 
 # Static-analysis tool versions, pinned so CI and local runs agree
-STATICCHECK_VERSION := 2025.1.1
+STATICCHECK_VERSION := 2026.2.2
 # Unbounded, staticcheck's heap on this module peaks near 4 GiB, which the 4 GiB CI
 # executor kills it for; the soft limit holds the peak near 2 GiB for ~10% more GC time.
 STATICCHECK_ENV := GOMEMLIMIT=2GiB
-GOSEC_VERSION := v2.22.5
+GOSEC_VERSION := v2.30.0
+GOSEC_EXCLUDE := -exclude=G602,G703
 BUF_VERSION := v1.57.2
 GO_WINRES_VERSION := v0.3.3
 
@@ -187,7 +188,7 @@ build-release-wasm: ## Build release bin/wasm/release/{sysml-wasm.wasm,sysml-pro
 	@echo "Building release WebAssembly assets..."
 	@mkdir -p $(WASM_DIR)/release
 	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -o $(WASM_DIR)/release/sysml-wasm.wasm ./cmd/sysml-wasm
-	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -tags sysml_prod -o $(WASM_DIR)/release/sysml-prod.wasm ./cmd/sysml
+	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -tags sysml_re -o $(WASM_DIR)/release/sysml-prod.wasm ./cmd/sysml
 	gzip -9nf $(WASM_DIR)/release/sysml-prod.wasm
 	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/release/wasm_exec.js
 	@echo "✓ Built $(WASM_DIR)/release/sysml-wasm.wasm, sysml-prod.wasm.gz and wasm_exec.js ($(VERSION))"
@@ -395,9 +396,12 @@ lint: ## Run static analysis (staticcheck + gosec), as CI does
 	$(STATICCHECK_ENV) go run -C $(TOOLS_DIR) honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
 	@echo "Running gosec..."
 	@# Generated protobuf code is excluded: its unsafe.Pointer use (G103) comes
-	@# from protoc-gen-go and is not ours to change.
-	module_go_version=$$(go list -m -f '{{.GoVersion}}') && GOSECGOVERSION=$$module_go_version go run github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) -quiet -exclude-generated ./...
-	module_go_version=$$(go list -C $(TOOLS_DIR) -m -f '{{.GoVersion}}') && GOSECGOVERSION=$$module_go_version go run -C $(TOOLS_DIR) github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) -quiet -exclude-generated ./...
+	@# from protoc-gen-go and is not ours to change. G703 (path taint) flags every
+	@# file a user names on the command line or in a project, which is what these
+	@# binaries open; G602's index analysis does not follow the length checks that
+	@# precede each flagged index. Neither was part of the gate before gosec 2.30.
+	module_go_version=$$(go list -m -f '{{.GoVersion}}') && GOSECGOVERSION=$$module_go_version go run github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) -quiet -exclude-generated $(GOSEC_EXCLUDE) ./...
+	module_go_version=$$(go list -C $(TOOLS_DIR) -m -f '{{.GoVersion}}') && GOSECGOVERSION=$$module_go_version go run -C $(TOOLS_DIR) github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) -quiet -exclude-generated $(GOSEC_EXCLUDE) ./...
 	@echo "✓ Lint passed"
 
 test-short: ## Run Go tests without race detection
@@ -572,6 +576,7 @@ scripts-coverage: ## Run the repository scripts and their tests under coverage a
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_census-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_suite_figures-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_install_scripts-test.py
+	$(SCRIPTS_COVERAGE) scripts/mkdocs_security-test.py
 	$(SCRIPTS_COVERAGE) scripts/dedupe-coverage-test.py
 	$(SCRIPTS_COVERAGE) scripts/go-test-stream-test.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-links.py

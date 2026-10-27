@@ -56,8 +56,7 @@ package Test {
 }
 `
 	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "test-execute-action-choices",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)
@@ -130,8 +129,7 @@ package Test {
 }
 `
 	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "test-execute-action-choices-on-failure",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)
@@ -225,8 +223,7 @@ package Test {
 }
 `
 	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "test-execute-state-choices",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)
@@ -274,8 +271,7 @@ package Test {
 }
 `
 	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "test-execute-state-region-order",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)
@@ -349,8 +345,7 @@ package Test {
 }
 `
 	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "test-execute-action-unevaluable-guard",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)
@@ -434,8 +429,7 @@ package Test {
 }
 `
 	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "test-execute-action-order-dependent-follows-data",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)

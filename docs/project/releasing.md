@@ -233,15 +233,23 @@ branch that moves the integration state onto `main`:
 4. Tag `main` as [Tagging](#tagging) describes.
 
 5. Merge the `chore/pin-vx.y.z` pull request the tag's pipeline opens against
-   `develop` (see [Pinned release digests](#pinned-release-digests)). Its
-   lockfiles do not yet name the platform packages the tag just published —
-   `npm install --package-lock-only` in `client/node` could not lock them before
-   they existed, so every install skips them as unresolvable optional
-   dependencies instead of installing the release's binary — so run that on
-   the pin branch (and in `packaging/npm/sysml-mcp`, whose lockfile pins the
-   runner's platform packages the same way) and commit both lockfiles first. Then merge
+   `develop`, and the `hotfix/pin-vx.y.z` one it opens against `main` (see
+   [Pinned release digests](#pinned-release-digests)); without the latter,
+   `main`'s next `build-test` run — and so its SonarCloud scan — fails the
+   hygiene suite until the next release. The `main` one needs a commit
+   before it is green: `main`'s lockfiles do not yet name the platform
+   packages the tag just published — `npm install --package-lock-only` in
+   `client/node` could not lock them before they existed, so every install
+   skips them as unresolvable optional dependencies instead of installing the
+   release's binary, and the pull request's Node job fails on the lockfile
+   that `npm install` then rewrites — so run that on the `hotfix/pin-vx.y.z`
+   branch (and in `packaging/npm/sysml-mcp`, whose lockfile pins the runner's
+   platform packages the same way) once the packages answer on npm, and
+   commit both lockfiles. The `develop` one is cut from a tree that still
+   declares the previous version, so there is nothing to lock there. Then merge
    `main` back into `develop` — a plain merge, no rebase — so the folded
-   changelog, and any hotfix that landed on `main` in the meantime, flow down.
+   changelog, the pin and the lockfiles, and any hotfix that landed on `main`
+   in the meantime, flow down.
    When the release was a `hotfix/` branch, `develop`'s lockfile still locks
    the platform packages of the previous release: run the same
    `npm install --package-lock-only` on the back-merge branch so they lock the
@@ -271,6 +279,25 @@ git checkout main && git pull
 git tag -a v0.0.5 -m "v0.0.5"
 git push origin v0.0.5
 ```
+
+Then write the release notes, before CircleCI publishes the assets, so that
+`ghr -replace` finds a published release to add them to (it does not see a
+draft, see [What CircleCI publishes](#what-circleci-publishes)):
+
+```bash
+python3 scripts/changelog.py release-notes 0.0.5 > notes.md
+gh release create v0.0.5 --title v0.0.5 --notes-file notes.md --verify-tag
+```
+
+`release-notes` renders the version's `CHANGELOG.md` section — one line per
+entry with a link to the full text at the tag when the section is longer than
+GitHub's 125,000-character release body holds, as 0.11.0's is — and ends it
+with the support period as `SECURITY.md` states it (the text between its
+`support-statement` markers, so the two never disagree) and a link to
+[Verifying a release](../guide/security.md#verifying-a-release) on the site;
+the nightly workflow appends the same footer to its notes. Add the
+platform caveats of steps 7–9 under [After the release](#after-the-release)
+above the footer, by hand.
 
 The tag belongs on `Open-MBEE/OpenSysML`, the repository the releases live on
 and where development happens: every release from v0.0.1 on is tagged on its
@@ -314,7 +341,7 @@ so that `dist/` holds:
   registers the kernelspec, and its platform wheels bundle it;
 - `wasm/sysml-wasm.wasm`, `wasm/sysml-prod.wasm.gz` and `wasm/wasm_exec.js`, the
   combined WebAssembly module, the gzip-compressed browser build of the `sysml` REPL
-  (`-tags sysml_prod`, what the site's REPL page runs) and the matching Go runtime,
+  (`-tags sysml_re`, what the site's REPL page runs) and the matching Go runtime,
   each with a `.sha256` sidecar;
 - the Python client's distribution, `opensysml-<x.y.z>-py3-none-any.whl` and
   `opensysml-<x.y.z>.tar.gz`, built by `build-python-package` from those
@@ -540,14 +567,14 @@ one alongside it).
 5. **Verify the pin pull request landed.** `pin-release-digests`, the last job
    of the tag's workflow, stamps the release into `client/release-digests.json`
    from the manifest, syncs every client copy, and opens
-   `chore/pin-vx.y.z` against `develop`. Merge it (step 5 of
-   [The release branch](#the-release-branch) does so before the back-merge). A
-   missing pull request means the job failed — read its log; the token is the
+   `chore/pin-vx.y.z` against `develop` and `hotfix/pin-vx.y.z` against `main`.
+   Merge both (step 5 of [The release branch](#the-release-branch) does so
+   before the back-merge). A missing pull request means the job failed — read its log; the token is the
    usual cause, see [Pinned release digests](#pinned-release-digests) — and
    until the pin lands, `tests/hygiene` fails the next release branch rather
    than this one. `main` sits on the tagged commit, which cannot hold its own
-   pin, so the test exempts it there; the pin reaches `main` with the next
-   release.
+   pin, so the test exempts that commit; the `hotfix/pin-vx.y.z` pull request
+   is what lets every later commit on `main` pass it.
 
 6. **Let the Homebrew tap pick the release up.** The tap repository
    `Open-MBEE/homebrew-tap` updates itself: a scheduled workflow there resolves
@@ -927,17 +954,22 @@ assert the table they load pins the tag `$OPENSYSML_EXPECT_PINNED_RELEASE`
 names, which only those two jobs set, after stamping.
 
 The committed table is brought up to date by the release itself. After
-`publish-github-release`, the `pin-release-digests` job checks out `develop`,
-runs `pin_release_checksums.py --from-manifest dist/SHA256SUMS.txt` against the
-default table — the shared `client/release-digests.json`, so every client copy
-is synced in the same stamp — confirms `sync-release-digests.py --check`, and
-opens `chore/pin-vX.Y.Z` against `develop`. A client *built from the next
+`publish-github-release`, the `pin-release-digests` job checks out `develop`
+and then `main`, on each runs `pin_release_checksums.py --from-manifest
+dist/SHA256SUMS.txt` against the default table — the shared
+`client/release-digests.json`, so every client copy is synced in the same
+stamp — confirms `sync-release-digests.py --check`, and opens
+`chore/pin-vX.Y.Z` against `develop` and `hotfix/pin-vX.Y.Z` against `main`
+(only `hotfix/` branches target `main`). A client *built from the next
 revision* — a checkout, or a package of a later release asked for this one —
-then pins it too rather than reaching for the signed manifest. The job is
-idempotent: when `develop` already pins the tag it ends with nothing to open,
-the branch is rebuilt from `develop` on every run (a run repeated after a
-failure replaces the earlier branch), and an open pull request for the branch
-is reused rather than duplicated. A pin already on `develop` that disagrees with
+then pins it too rather than reaching for the signed manifest; and `main`,
+whose head is the tagged commit and so cannot carry its own pin, pins it from
+the hotfix on, which keeps its `build-test` runs — the only ones that scan
+`main` with SonarCloud — green between releases. The job is idempotent: when a
+base already pins the tag it ends with nothing to open against it, each branch
+is rebuilt from its base on every run (a run repeated after a failure replaces
+the earlier branch), and an open pull request for a branch is reused rather
+than duplicated. A pin already on `develop` that disagrees with
 the manifest fails the job, as the script refuses to replace a pin.
 
 The job pushes and opens the pull request with the token

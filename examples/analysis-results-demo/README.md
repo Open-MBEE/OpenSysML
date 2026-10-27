@@ -76,7 +76,9 @@ part scoutRun : FuelBudgetRun {
 Two limitations shape the record. The annotation's attribute values are
 not projectable — `Project(properties = ("runAt"))` reports
 `unknown property` — so `command` is also carried as a plain attribute on
-`DemoRun` for the provenance table to show; the `@AnalysisRecords::RecordedRun`
+`DemoRun` for the provenance table to show (a run `-record-run` writes has no
+such attribute, so the table's `Project` says `tolerate = true` to leave its
+cell empty rather than fail); the `@AnalysisRecords::RecordedRun`
 metadata still answers `WhereMetadata` filters and keeps the provenance
 machine-readable. And the library's untyped `'subject'` ref cannot drive the
 `liveFuelLeft` formula, so `FuelBudgetRun` keeps a typed `lander` ref and each

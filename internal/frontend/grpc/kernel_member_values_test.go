@@ -20,8 +20,7 @@ const kernelMemberModel = `package Probe {
 func TestSessionFeatureValueReadsKernelMembers(t *testing.T) {
 	srv := mustNewService(t, 10)
 	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: kernelMemberModel},
-		ContentHash: "kernel-member-values",
+		Source: &pb.ParseFileRequest_Content{Content: kernelMemberModel},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)

@@ -1082,3 +1082,33 @@ end
     @test error isa ArgumentError
     @test occursin("vector of pairs", sprint(showerror, error))
 end
+
+@testset "verdict notes" begin
+    assumed = Dict("kind" => "assumed_one", "subject" => "Tanks::Tank::level",
+        "text" => "Assuming Tanks::Tank::level holds one value: it declares no multiplicity, so the default [0..*] governs it")
+    uncovered = Dict("kind" => "uncovered", "subject" => "gear",
+        "text" => "Not in the query: what gear asserts about its own objects, as it may hold more than one object; instantiate and validate an object to check it")
+    notes = Ref(Any[])
+    server, requests, address = recording_service(
+        ["verification", "verification_questions", "verdict_notes"];
+        handler=(method, body) -> Dict("verdict" => Dict("kind" => "constraint",
+            "elementId" => "Tanks::nonNegative", "question" => "holds",
+            "status" => "violated", "notes" => notes[])))
+    conn = external(address)
+    try
+        model = Model(conn, "hash", Diagnostic[])
+        notes[] = Any[assumed]
+        verdict = verify_constraint(model, "Tanks::nonNegative"; question="holds")
+        @test verdict.notes == [VerdictNote("assumed_one", "Tanks::Tank::level", assumed["text"])]
+        @test requests[end].body["question"] == "holds"
+        notes[] = Any[uncovered]
+        verdict = verify_constraint(model, "Tanks::nonNegative"; question="holds")
+        @test length(verdict.notes) == 1
+        @test verdict.notes[1].kind == "uncovered" && verdict.notes[1].subject == "gear"
+        notes[] = Any[]
+        @test isempty(verify_constraint(model, "Tanks::nonNegative"; question="holds").notes)
+    finally
+        close(conn)
+        close(server)
+    end
+end

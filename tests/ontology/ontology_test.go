@@ -18,7 +18,7 @@ func TestTableShape(t *testing.T) {
 	properties := ontology.Properties()
 	classes := ontology.Classes()
 	enumerations := ontology.Enumerations()
-	// The counts SysML.ecore 20250201 (pilot 2026-08) declares; a metamodel bump is expected to move them.
+	// The counts SysML.ecore 20250201 (pilot 2026-09) declares; a metamodel bump is expected to move them.
 	object, datatype := 0, 0
 	for _, p := range properties {
 		if p.Kind == ontology.ObjectProperty {

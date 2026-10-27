@@ -36,7 +36,7 @@ succession rules, the feature-value overriding rule, the enumeration-variation r
 the metadata typing, annotated-element and body rules, the trigger-argument typing rules, the owning-body member rules, the cross-subsetting rules, the variant port rule, the association arity, binary-link end
 count and multiplicity-bound typing rules, the result-expression ownership rules, and the annotation-ownership, binding-arity, feature-chain conformance,
 conjugated typing and end-feature rules, the end-multiplicity, return-owner and single-conjugator rules, the keyword-first relationship end kinds, the prefix and body-context cases, the redefinition name-resolution cases, the transition accept usage-typing rule, the connector-end accessibility of a qualified definition feature, the Feature-typed targets of a subsetting or redefinition in a SysML source, and the objective owned by a variation usage), with a fresh library cache:
-`349 case(s): 337 both reject, 0 only the pilot rejects, 12 only we reject, 0 both accept`,
+`349 case(s): 339 both reject, 0 only the pilot rejects, 10 only we reject, 0 both accept`,
 byte-identical to the committed baseline. Any `both accept` case is a bug in the corpus (the case
 is not actually invalid under the loaded standard library) — fix the case, never ignore it. A
 candidate the pilot accepts because it does not enforce the named constraint is not a case either:

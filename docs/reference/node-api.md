@@ -131,7 +131,9 @@ the third a field the answer did not carry. `SysMLVerdict`
 (`holds` / `fails` / `undecided`) and `FeatureValue` (`single` / `many` / `error`)
 are unions of the same shape; every verdict arm carries a `standing` (`engine`, `strength`,
 `bounds`, plus `reported` and `reached` — the bounds the engine stopped at),
-empty from a service without the `engines` capability; `CalcResult`,
+empty from a service without the `engines` capability, and the `notes` a solver's answer
+rests on (`VerdictNote`: `kind` `assumed_one` or `uncovered`, `subject`, `text`), empty from
+one without `verdict_notes`; `CalcResult`,
 `AnalysisResult`, `Validation` and `SweepTable` read the same fields through
 `engine`, `strength` and `bounds` getters. Integers are `bigint`,
 because the service's `int64` does not fit a `number` and an exact comparison would

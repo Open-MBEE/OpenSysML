@@ -334,6 +334,22 @@ pub struct WitnessAssignment {
     pub exact: String,
 }
 
+/// One assumption or omission behind a verdict, worded as every surface reports it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct VerdictNote {
+    /// [`NOTE_ASSUMED_ONE`] or [`NOTE_UNCOVERED`].
+    pub kind: String,
+    /// The feature the note is about, as the report names it.
+    pub subject: String,
+    /// The note as a sentence.
+    pub text: String,
+}
+
+/// A feature read as holding one value or object while only the default `0..*` governs it.
+pub const NOTE_ASSUMED_ONE: &str = "assumed_one";
+/// An object-holding feature whose own assertions the question does not state.
+pub const NOTE_UNCOVERED: &str = "uncovered";
+
 /// One verification's answer.
 #[derive(Clone, Debug)]
 pub struct Verdict {
@@ -363,6 +379,8 @@ pub struct Verdict {
     pub status: String,
     /// The free features' values witnessing a violated or satisfiable answer.
     pub witness: Vec<WitnessAssignment>,
+    /// What the answer rests on, in report order; empty from a service without `verdict_notes`.
+    pub notes: Vec<VerdictNote>,
     /// Who answered, how strongly, within what bounds.
     pub standing: Standing,
     /// What the bodies of the cases verifying this verdict's requirement answered.
@@ -394,6 +412,15 @@ impl Verdict {
                 })
             })
             .collect::<Result<_, Error>>()?;
+        let notes = pb
+            .notes
+            .iter()
+            .map(|n| VerdictNote {
+                kind: n.kind.clone(),
+                subject: n.subject.clone(),
+                text: n.text.clone(),
+            })
+            .collect();
         Ok(Self {
             kind: pb.kind.clone(),
             element_id: pb.element_id.clone(),
@@ -412,6 +439,7 @@ impl Verdict {
             question: pb.question.clone(),
             status: pb.status.clone(),
             witness,
+            notes,
             standing: Standing::of(&pb.engine, &pb.strength, &pb.bounds),
             verifications,
             diagnostics: diagnostics.to_vec(),
@@ -2634,5 +2662,51 @@ mod tests {
             wire::VerificationVerdict::from(VerificationVerdict::from(verification.clone())),
             verification
         );
+    }
+
+    fn verdict_with_notes(notes: Vec<wire::VerdictNote>) -> Verdict {
+        let pb = wire::Verdict {
+            kind: "constraint".to_owned(),
+            element_id: "Tanks::nonNegative".to_owned(),
+            question: "holds".to_owned(),
+            status: "violated".to_owned(),
+            notes,
+            ..Default::default()
+        };
+        Verdict::from_wire(pb, Arc::from(Vec::new()), &[], Vec::new()).expect("a verdict")
+    }
+
+    #[test]
+    fn a_verdict_carries_the_one_value_assumption() {
+        let verdict = verdict_with_notes(vec![wire::VerdictNote {
+            kind: "assumed_one".to_owned(),
+            subject: "Tanks::Tank::level".to_owned(),
+            text: "Assuming Tanks::Tank::level holds one value: it declares no multiplicity, so the default [0..*] governs it".to_owned(),
+        }]);
+        assert_eq!(
+            verdict.notes,
+            vec![VerdictNote {
+                kind: NOTE_ASSUMED_ONE.to_owned(),
+                subject: "Tanks::Tank::level".to_owned(),
+                text: "Assuming Tanks::Tank::level holds one value: it declares no multiplicity, so the default [0..*] governs it".to_owned(),
+            }]
+        );
+    }
+
+    #[test]
+    fn a_verdict_carries_what_the_question_leaves_uncovered() {
+        let verdict = verdict_with_notes(vec![wire::VerdictNote {
+            kind: "uncovered".to_owned(),
+            subject: "gear".to_owned(),
+            text: "Not in the query: what gear asserts about its own objects, as it may hold more than one object; instantiate and validate an object to check it".to_owned(),
+        }]);
+        assert_eq!(verdict.notes.len(), 1);
+        assert_eq!(verdict.notes[0].kind, NOTE_UNCOVERED);
+        assert_eq!(verdict.notes[0].subject, "gear");
+    }
+
+    #[test]
+    fn a_verdict_without_notes_carries_none() {
+        assert!(verdict_with_notes(Vec::new()).notes.is_empty());
     }
 }
