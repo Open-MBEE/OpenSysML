@@ -135,6 +135,20 @@ func TestBundleArchivesTheFilesTheMetadataRecords(t *testing.T) {
 	if _, _, err := Bundle(dir); err == nil || !strings.Contains(err.Error(), `records "../README.md"`) {
 		t.Errorf("Bundle with a recorded path outside the directory: %v", err)
 	}
+	// A recorded path through a linked directory leading outside is refused too.
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "README.md"), []byte("elsewhere\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(dir, "docs")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, MetaFile), []byte(strings.Replace(meta, `"README.md"`, `"docs/README.md"`, 1)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Bundle(dir); err == nil || !strings.Contains(err.Error(), "records docs/README.md, which") || !strings.Contains(err.Error(), "resolves outside") {
+		t.Errorf("Bundle with a recorded path through a link leading outside: %v", err)
+	}
 }
 
 func TestBundleRefusesADirectoryThatIsNotAProject(t *testing.T) {

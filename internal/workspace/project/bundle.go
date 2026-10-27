@@ -105,8 +105,8 @@ func bundleMembers(dir string) (map[string][]byte, error) {
 }
 
 // recordedMembers reads the files the directory's .meta.json content records,
-// with the two manifests. A recorded file that is not in the directory, or
-// not a regular file, is an error naming it.
+// with the two manifests. A recorded file that is not in the directory, not a
+// regular file, or reached through a link leading outside is an error naming it.
 func recordedMembers(dir string, content []byte) (map[string][]byte, error) {
 	meta, err := ParseMeta(content)
 	if err != nil {
@@ -136,7 +136,10 @@ func recordedMembers(dir string, content []byte) (map[string][]byte, error) {
 		if !info.Mode().IsRegular() {
 			return nil, fmt.Errorf("%s records %s, which is not a regular file", MetaFile, member)
 		}
-		content, err := os.ReadFile(path) // #nosec G304 -- a file the manifest of the directory being archived records.
+		if err := confinedTo(dir, filepath.Dir(path)); err != nil {
+			return nil, fmt.Errorf("%s records %s, which %w", MetaFile, member, err)
+		}
+		content, err := os.ReadFile(path) // #nosec G304 -- a file the manifest of the directory being archived records, confined to it.
 		if err != nil {
 			return nil, err
 		}
