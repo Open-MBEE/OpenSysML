@@ -96,7 +96,7 @@ func run(opts options) error {
 		return err
 	}
 	record.Recorded = baseline.Today()
-	report := &Report{Provenance: record, Exporter: exporterDescription, Normalizations: normalizations}
+	report := &Report{Provenance: record, Exporter: exporterDescription, Normalizations: normalizations, PilotNondeterministic: pilotNondeterminism}
 	result := newComparison()
 	logs := make(map[string]string)
 	unkeyed := map[string]map[string]int{"ours": {}, "pilot": {}}
