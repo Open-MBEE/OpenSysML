@@ -65,6 +65,21 @@ func TestVerifyQuestionsCarryTheOneValueAssumption(t *testing.T) {
 	}
 }
 
+// A service that withholds verdict_notes leaves the field empty, as every
+// response-population capability does, while still answering the question.
+func TestVerdictNotesAreWithheldWithTheCapability(t *testing.T) {
+	requireSolver(t)
+	srv := mustNewServiceWithout(t, CapabilityVerdictNotes)
+	hash := mustKerMLModel(t, srv)
+	resp := verifyQuestion(t, srv, hash, "Tanks::Tank::nonNegative", "holds", "", "")
+	if resp.Verdict.Status != statusViolated {
+		t.Fatalf("status = %q, want violated: %q", resp.Verdict.Status, resp.Verdict.Error)
+	}
+	if len(resp.Verdict.Notes) != 0 {
+		t.Errorf("a service without %s carries notes %v, want none", CapabilityVerdictNotes, resp.Verdict.Notes)
+	}
+}
+
 // The notes are the query's, in the order the REPL prints them: what the query
 // leaves uncovered first, then what it assumes holds one, each worded once.
 func TestVerdictNotesFollowTheQueryOrder(t *testing.T) {

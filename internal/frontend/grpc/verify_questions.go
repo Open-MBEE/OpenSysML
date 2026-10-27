@@ -83,7 +83,9 @@ func (v *verifyContext) symbolicVerdict(ctx context.Context, question string, su
 		verdict.Error = terr.Error()
 		return verdict, nil
 	}
-	verdict.Notes = verdictNotes(queries)
+	if v.service.capabilities.has(CapabilityVerdictNotes) {
+		verdict.Notes = verdictNotes(queries)
+	}
 	plan, err := v.askSolvers(ctx, question, queries)
 	v.service.standingOf(plan).stamp(verdict)
 	if err != nil {
