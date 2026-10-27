@@ -192,7 +192,8 @@ jobs:
 
   publish:
     name: Build and publish the snapshot
-    needs: select
+    # A failed audit skips the night's publication: a snapshot never ships a known vulnerability.
+    needs: [select, audit]
     if: needs.select.outputs.publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60

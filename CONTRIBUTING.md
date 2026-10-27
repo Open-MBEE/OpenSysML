@@ -316,7 +316,8 @@ and SHA-256 verified from `scripts/download-sca-tools.sh` (`make sca-tools`); `m
 all five locally. A finding fails the job: fix it by bumping the dependency (a Dependabot pull
 request may already exist), never by lowering a level or ignoring an advisory. The same audits
 run every night over `develop` ([nightly snapshots](docs/project/nightly.md)), so an advisory
-published against an unchanged tree is seen within a day, and before a release
+published against an unchanged tree is seen within a day and no snapshot is published over a
+failed audit, and before a release
 ([releasing](docs/project/releasing.md#before-tagging)). The npm level is `moderate`, the
 lowest `npm audit` ranks a real advisory at; `low` is not used because npm reports it for
 advisories without a fix.

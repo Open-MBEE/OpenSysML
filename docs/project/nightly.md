@@ -215,7 +215,8 @@ own that needs no snapshot: `make vulncheck`, `make audit-npm`, `make audit-pyth
 CI runs on the paths it changes (see
 [CONTRIBUTING.md § CI/CD](../../CONTRIBUTING.md#cicd)). An advisory published against an
 unchanged `develop` therefore fails the next night's run, and each audit runs even when an
-earlier one failed, so one night reports every tree.
+earlier one failed, so one night reports every tree. The publish job needs the audit job, so a
+night whose audit fails publishes nothing: no snapshot ships a known vulnerability.
 
 [`.github/workflows/nightly.yml`](../../.github/workflows/nightly.yml)
 runs at 03:23 UTC and on demand (`workflow_dispatch`, with a `force` input that publishes

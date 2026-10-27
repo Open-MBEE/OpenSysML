@@ -98,6 +98,11 @@ case_ action docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vsc
 case_ conformance docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode conformance/scenarios/01-server-info.json
 case_ workflow docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/pr.yml
 case_ dependabot docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/dependabot.yml
+# The npm runner is tested and its lockfile audited in the Go static job, so its package is a service path.
+case_ mcp-lockfile docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode packaging/npm/sysml-mcp/package-lock.json
+quick_case_ mcp-lockfile go packaging/npm/sysml-mcp/package-lock.json
+# The pysysml stub is audited in the Python job.
+case_ pysysml python packaging/pypi-pysysml/pyproject.toml
 # The Go hygiene suite caps every tracked fixture and test file, so these run it too.
 case_ client-fixture go,python client/python/tests/testdata/large.json
 case_ client-golden go,node client/node/test/render.golden.json
