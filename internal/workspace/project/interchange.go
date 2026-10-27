@@ -301,15 +301,12 @@ func resourceVersion(resource string) string {
 	return ""
 }
 
-// satisfies reports whether the project's version is the one the constraint
-// names exactly; only an exact version (optionally written =, == or v first)
-// is understood, any other constraint is not decided here.
-func (p *Interchange) satisfies(constraint string) bool {
-	want := strings.TrimSpace(constraint)
-	want = strings.TrimPrefix(strings.TrimPrefix(want, "=="), "=")
-	want = strings.TrimPrefix(strings.TrimSpace(want), "v")
-	return want != "" && want == strings.TrimPrefix(p.Version, "v")
-}
+// versionRange is the usage's constraint parsed; an error wrapping errBadConstraint
+// when it does not follow the grammar.
+func (u Usage) versionRange() (versionRange, error) { return parseVersionRange(u.constraint()) }
+
+// satisfies reports whether the project's version lies in the range.
+func (p *Interchange) satisfies(r versionRange) bool { return r.matches(p.Version) }
 
 // newerVersion reports whether a is a later version than b, in semantic
 // versioning's order: the dot-separated numeric core first, then a release

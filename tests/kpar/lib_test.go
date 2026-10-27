@@ -245,3 +245,57 @@ func TestQuietKeepsTheUsageWarningOffTheText(t *testing.T) {
 		t.Errorf("-quiet -validate wrote:\n%s", out)
 	}
 }
+
+// rangeProject is a consumer whose one usage carries constraint over a
+// pkg:hg resource, with acme/widgets 1.1.0 installed under lib/.
+func rangeProject(t *testing.T, constraint string) string {
+	t.Helper()
+	proj := filepath.Join(t.TempDir(), "proj")
+	files := map[string]string{
+		project.ProjectFile:                             `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [{"resource": "pkg:hg/hg.example.org/models/hg-widgets", "versionConstraint": "` + constraint + `"}]}`,
+		"consumer/Consumer.sysml":                       "package Consumer {\n    private import Widgets::*;\n    part w : Widget;\n}\n",
+		"lib/acme-widgets_1.1.0/" + project.ProjectFile: `{"name": "Widgets", "publisher": "acme", "version": "1.1.0"}`,
+		"lib/acme-widgets_1.1.0/Widgets.sysml":          "package Widgets {\n    part def Widget;\n}\n",
+	}
+	for name, content := range files {
+		p := filepath.Join(proj, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(p), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return proj
+}
+
+// A range versionConstraint (^1.0.0, >=1.0.0, ~1.1.0, 1.1.x, >=1.0.0 <2.0.0)
+// links the installed 1.1.0 as an exact 1.1.0 does, in the REPL and -validate.
+func TestARangeConstraintLinksTheInstalledVersionItAdmits(t *testing.T) {
+	bin := sysmlBinary(t)
+	for _, constraint := range []string{"^1.0.0", ">=1.0.0", "~1.1.0", "1.1.x", ">=1.0.0 <2.0.0", "1.1.0", "=1.1.0", ""} {
+		t.Run(constraint, func(t *testing.T) {
+			proj := rangeProject(t, constraint)
+			s := repl.NewSession()
+			report, err := s.LoadPathsReport([]string{proj})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if report.Errors {
+				t.Fatalf("errors:\n%s", strings.Join(report.Found, "\n"))
+			}
+			if !containsSubstring(report.Loaded, filepath.Join("lib", "acme-widgets_1.1.0", "Widgets.sysml")) {
+				t.Errorf("loaded %q, want lib/acme-widgets_1.1.0/Widgets.sysml", report.Loaded)
+			}
+			if out, err := run(t, bin, "-validate", proj); err != nil {
+				t.Fatalf("-validate: %v\n%s", err, out)
+			}
+		})
+	}
+	// A constraint outside the grammar is a project.load warning, not "any": -warnings-as-errors fails.
+	proj := rangeProject(t, "latest")
+	out, err := run(t, bin, "-validate", "-warnings-as-errors", proj)
+	if err == nil || !strings.Contains(out, "malformed version constraint") || !strings.Contains(out, "unresolved reference: Widgets") {
+		t.Fatalf("-validate -warnings-as-errors under \"latest\": err %v\n%s", err, out)
+	}
+}

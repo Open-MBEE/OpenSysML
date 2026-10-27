@@ -304,6 +304,7 @@ func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []W
 	type pending struct {
 		from       *Interchange
 		u          Usage
+		r          versionRange
 		candidates []*Interchange // the unclaimed projects that deferred it, last pass
 	}
 	var unmatched []pending
@@ -313,10 +314,18 @@ func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []W
 			project := queue[0]
 			queue = queue[1:]
 			for _, u := range project.Usage {
-				if pick := pickInstalled(installed, u); pick != nil {
+				r, err := u.versionRange()
+				if err != nil {
+					unlinked = append(unlinked, malformedConstraint(project, u, err))
+					continue
+				}
+				switch pick, named := pickInstalled(installed, u, r); {
+				case pick != nil:
 					link(pick)
-				} else if u.spellsLocation() && !u.standardLibrary() {
-					unmatched = append(unmatched, pending{from: project, u: u})
+				case named != nil:
+					unlinked = append(unlinked, unsatisfiedUsage(project, u, named))
+				case u.spellsLocation() && !u.standardLibrary():
+					unmatched = append(unmatched, pending{from: project, u: u, r: r})
 				}
 			}
 		}
@@ -326,12 +335,14 @@ func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []W
 		var rest []pending
 		for _, p := range unmatched {
 			if id, ok := learnt[p.u.key()]; ok {
-				if pick := pickVersion(installed, id, p.u.constraint()); pick != nil {
+				if pick, versions := pickVersion(installed, id, p.r); pick != nil {
 					link(pick)
+				} else {
+					unlinked = append(unlinked, unsatisfiedUsage(p.from, p.u, versions))
 				}
 				continue
 			}
-			pick, candidates := pickUnclaimed(installed, claimed, p.u)
+			pick, candidates := pickUnclaimed(installed, claimed, p.u, p.r)
 			switch {
 			case pick != nil:
 				learnt[p.u.key()] = pick.identity()
@@ -354,29 +365,30 @@ func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []W
 }
 
 // pickVersion is the highest installed version of the project identity names that
-// satisfies constraint (any, when empty); nil when none does.
-func pickVersion(installed []*Interchange, identity, constraint string) *Interchange {
+// lies in r, nil when none does, with every installed version of that project.
+func pickVersion(installed []*Interchange, identity string, r versionRange) (*Interchange, []*Interchange) {
 	var pick *Interchange
+	var versions []*Interchange
 	for _, candidate := range installed {
-		if candidate.identity() != identity || (constraint != "" && !candidate.satisfies(constraint)) {
+		if candidate.identity() != identity {
 			continue
 		}
-		if pick == nil || newerVersion(candidate.Version, pick.Version) {
+		versions = append(versions, candidate)
+		if candidate.satisfies(r) && (pick == nil || newerVersion(candidate.Version, pick.Version)) {
 			pick = candidate
 		}
 	}
-	return pick
+	return pick, versions
 }
 
 // pickUnclaimed links a usage by elimination: the highest unclaimed version satisfying its
 // constraint when the candidates are all one project; several projects are returned unpicked.
-func pickUnclaimed(installed []*Interchange, claimed map[string]bool, u Usage) (*Interchange, []*Interchange) {
-	constraint := u.constraint()
+func pickUnclaimed(installed []*Interchange, claimed map[string]bool, u Usage, r versionRange) (*Interchange, []*Interchange) {
 	var candidates []*Interchange
 	var pick *Interchange
 	one := true
 	for _, candidate := range installed {
-		if claimed[candidate.identity()] || (constraint != "" && !candidate.satisfies(constraint)) {
+		if claimed[candidate.identity()] || !candidate.satisfies(r) {
 			continue
 		}
 		candidates = append(candidates, candidate)
@@ -409,24 +421,44 @@ func ambiguousUsage(from *Interchange, u Usage, candidates []*Interchange) Warni
 	}
 }
 
-// pickInstalled chooses, of the installed projects a usage's resource names, the one
-// its constraint (versionConstraint, else the IRI's @version) names exactly, else the latest.
-func pickInstalled(installed []*Interchange, u Usage) *Interchange {
-	var pick *Interchange
-	constraint := u.constraint()
+// pickInstalled chooses, of the installed projects a usage's resource names (Uses), the
+// highest version in r; nil with the projects named when none of them lies in r.
+func pickInstalled(installed []*Interchange, u Usage, r versionRange) (pick *Interchange, named []*Interchange) {
 	for _, candidate := range installed {
 		if !candidate.Uses(u) {
 			continue
 		}
-		switch {
-		case pick == nil:
-			pick = candidate
-		case pick.satisfies(constraint):
-		case candidate.satisfies(constraint), newerVersion(candidate.Version, pick.Version):
+		named = append(named, candidate)
+		if candidate.satisfies(r) && (pick == nil || newerVersion(candidate.Version, pick.Version)) {
 			pick = candidate
 		}
 	}
-	return pick
+	if pick != nil {
+		return pick, nil
+	}
+	return nil, named
+}
+
+// unsatisfiedUsage describes a usage whose project is installed at versions
+// none of which its constraint admits.
+func unsatisfiedUsage(from *Interchange, u Usage, installed []*Interchange) Warning {
+	versions := make([]string, 0, len(installed))
+	for _, p := range installed {
+		versions = append(versions, p.Version+" ("+p.Dir+")")
+	}
+	return Warning{
+		Path: filepath.Join(from.Dir, ProjectFile),
+		Message: fmt.Sprintf("usage %s asks for version %q of %s, which none of the installed versions satisfies: %s",
+			u.Resource, u.constraint(), installed[0].identity(), strings.Join(versions, ", ")),
+	}
+}
+
+// malformedConstraint describes a usage whose constraint the grammar does not read.
+func malformedConstraint(from *Interchange, u Usage, err error) Warning {
+	return Warning{
+		Path:    filepath.Join(from.Dir, ProjectFile),
+		Message: fmt.Sprintf("usage %s: %v (an npm-style semver range is expected: 1.2.3, ^1.2, ~1.2.3, >=1.0.0 <2.0.0, 1.x, 1.0.0 - 2.0.0, a || b)", u.Resource, err),
+	}
 }
 
 // projectFiles lists the loadable files of each project — model files and

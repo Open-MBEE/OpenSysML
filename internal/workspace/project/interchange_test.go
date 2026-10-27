@@ -1,10 +1,12 @@
 package project
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -118,24 +120,37 @@ func TestUsesMatchesTheResourceByPublisherAndNameSlug(t *testing.T) {
 	}
 }
 
-func TestPickInstalledPrefersTheConstrainedVersionThenTheLatest(t *testing.T) {
+// pick is pickInstalled over a usage whose constraint must parse.
+func pick(t *testing.T, installed []*Interchange, u Usage) (*Interchange, []*Interchange) {
+	t.Helper()
+	r, err := u.versionRange()
+	if err != nil {
+		t.Fatalf("%q: %v", u.constraint(), err)
+	}
+	return pickInstalled(installed, u, r)
+}
+
+func TestPickInstalledTakesTheHighestVersionInTheRange(t *testing.T) {
 	v1 := &Interchange{Dir: "v1", Publisher: "acme", Name: "gears", Version: "1.0.0"}
 	v2 := &Interchange{Dir: "v2", Publisher: "acme", Name: "gears", Version: "2.0.0"}
 	v10 := &Interchange{Dir: "v10", Publisher: "acme", Name: "gears", Version: "10.0.0"}
 	other := &Interchange{Dir: "other", Publisher: "acme", Name: "other", Version: "99.0.0"}
 	installed := []*Interchange{v1, v10, v2, other}
 
-	if got := pickInstalled(installed, Usage{Resource: "pkg:r/acme/gears"}); got != v10 {
-		t.Errorf("unconstrained pick = %v, want the latest (10.0.0)", got)
+	for constraint, want := range map[string]*Interchange{"": v10, "=2.0.0": v2, "^1.0.0": v1, "~2.0": v2, ">=2.0.0 <11.0.0": v10, "1.x": v1, "1.0.0 - 2.0.0": v2, "1.0.0 || 2.0.0": v2, "*": v10} {
+		if got, _ := pick(t, installed, Usage{Resource: "pkg:r/acme/gears", VersionConstraint: constraint}); got != want {
+			t.Errorf("pick under %q = %v, want %v", constraint, got, want)
+		}
 	}
-	if got := pickInstalled(installed, Usage{Resource: "pkg:r/acme/gears", VersionConstraint: "=2.0.0"}); got != v2 {
-		t.Errorf("constrained pick = %v, want 2.0.0", got)
+	got, named := pick(t, installed, Usage{Resource: "pkg:r/acme/gears", VersionConstraint: "^3.0.0"})
+	if got != nil || len(named) != 3 {
+		t.Errorf("pick under a range nothing satisfies = %v with %d named, want nil with the three versions named (no fallback to the latest)", got, len(named))
 	}
-	if got := pickInstalled(installed, Usage{Resource: "pkg:r/acme/gears", VersionConstraint: "^3.0.0"}); got != v10 {
-		t.Errorf("pick under an undecidable constraint = %v, want the latest", got)
+	if got, named := pick(t, installed, Usage{Resource: "pkg:r/acme/missing"}); got != nil || named != nil {
+		t.Errorf("pick of an uninstalled project = %v, %v, want nil, nil", got, named)
 	}
-	if got := pickInstalled(installed, Usage{Resource: "pkg:r/acme/missing"}); got != nil {
-		t.Errorf("pick of an uninstalled project = %v, want nil", got)
+	if _, err := (Usage{Resource: "pkg:r/acme/gears", VersionConstraint: "latest"}).versionRange(); !errors.Is(err, errBadConstraint) {
+		t.Errorf("a constraint outside the grammar must not parse, got %v", err)
 	}
 }
 
@@ -402,18 +417,17 @@ func TestPickInstalledHonoursTheVersionInTheResourceIRI(t *testing.T) {
 	installed := []*Interchange{v1, v2}
 	// A fragment names a sub-package ("@1.0.0#sub" would select a project named
 	// sub); see TestUsesMatchesASubpathUsageToTheProjectTheFragmentNames.
+	// Build metadata (+build) is outside semver precedence, so 1.0.0+build is 1.0.0.
 	for _, resource := range []string{"pkg:r/acme/gears@1.0.0", "pkg:r/acme/gears@v1.0.0", "pkg:r/acme/gears@1.0.0/", "pkg:r/acme/gears@1.0.0?q=1", "pkg:r/acme/gears@1.0.0%2Bbuild"} {
-		if got := pickInstalled(installed, Usage{Resource: resource}); resource != "pkg:r/acme/gears@1.0.0%2Bbuild" && got != v1 {
+		if got, _ := pick(t, installed, Usage{Resource: resource}); got != v1 {
 			t.Errorf("%s picked %v, want 1.0.0", resource, got)
-		} else if resource == "pkg:r/acme/gears@1.0.0%2Bbuild" && got != v2 {
-			t.Errorf("%s names 1.0.0+build, which nothing satisfies; picked %v, want the latest", resource, got)
 		}
 	}
-	if got := pickInstalled(installed, Usage{Resource: "pkg:r/acme/gears@1.0.0", VersionConstraint: "2.0.0"}); got != v2 {
+	if got, _ := pick(t, installed, Usage{Resource: "pkg:r/acme/gears@1.0.0", VersionConstraint: "2.0.0"}); got != v2 {
 		t.Errorf("versionConstraint must win over the IRI's version; picked %v", got)
 	}
-	if got := pickInstalled(installed, Usage{Resource: "pkg:r/acme/gears@3.0.0"}); got != v2 {
-		t.Errorf("an IRI version nothing satisfies falls back to the latest; picked %v", got)
+	if got, named := pick(t, installed, Usage{Resource: "pkg:r/acme/gears@3.0.0"}); got != nil || len(named) != 2 {
+		t.Errorf("an IRI version nothing satisfies selects nothing and names the installed versions; got %v, %v", got, named)
 	}
 	if got := resourceVersion("git@example.org:acme/gears"); got != "" {
 		t.Errorf("a user@host is no version, got %q", got)
@@ -605,6 +619,58 @@ func TestSpellsLocation(t *testing.T) {
 	} {
 		if got := (Usage{Resource: resource}).spellsLocation(); got != want {
 			t.Errorf("spellsLocation(%s) = %v, want %v", resource, got, want)
+		}
+	}
+}
+
+// A versionConstraint is an npm-style semver range on both paths: the project a
+// usage names (slug match) and the one it reaches by elimination.
+func TestUsedHonoursARangeConstraintOnBothPaths(t *testing.T) {
+	cases := map[string]string{"^1.0.0": "1.1.0", ">=1.0.0": "2.0.0", "~1.1.0": "1.1.0", "1.1.x": "1.1.0", ">=1.0.0 <2.0.0": "1.1.0", "1.0.0 - 1.1.0": "1.1.0", "1.0.0 || 2.0.0": "2.0.0", "=1.1.0": "1.1.0", "v2.0.0": "2.0.0", "<1.0.0": "1.0.0-rc.1", ">=1.0.0-rc.1 <1.0.0": "1.0.0-rc.1", "": "2.0.0"}
+	for _, path := range []string{"pkg:sysand/acme/widgets", "pkg:hg/hg.example.org/models/hg-widgets"} {
+		for constraint, want := range cases {
+			t.Run(path+" "+constraint, func(t *testing.T) {
+				root := t.TempDir()
+				proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "`+path+`", "versionConstraint": "`+constraint+`"}]}`)
+				var dirs []string
+				for _, v := range []string{"1.0.0-rc.1", "1.0.0", "1.1.0", "2.0.0"} {
+					dirs = append(dirs, writeProject(t, filepath.Join(proj, "lib", "acme-widgets_"+v), `{"name": "Widgets", "publisher": "acme", "version": "`+v+`"}`))
+				}
+				found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+				if got := projectDirs(found.Used); len(got) != 1 || !strings.HasSuffix(got[0], "acme-widgets_"+want) || len(found.Unlinked) != 0 {
+					t.Fatalf("Used = %v, Unlinked = %v, want acme-widgets_%s alone (of %d installed)", got, found.Unlinked, want, len(dirs))
+				}
+			})
+		}
+	}
+}
+
+// A constraint no installed version satisfies, or one outside the grammar, is
+// a warning at the consumer's .project.json and links nothing — never "any".
+func TestUsedReportsAnUnsatisfiedOrMalformedConstraint(t *testing.T) {
+	for _, path := range []string{"pkg:sysand/acme/widgets", "pkg:hg/hg.example.org/models/hg-widgets"} {
+		for constraint, want := range map[string]string{"^3.0.0": "none of the installed versions satisfies: 1.1.0 (", "latest": "malformed version constraint", "1.x.3": "malformed version constraint"} {
+			t.Run(path+" "+constraint, func(t *testing.T) {
+				root := t.TempDir()
+				proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "`+path+`", "versionConstraint": "`+constraint+`"}]}`)
+				writeProject(t, filepath.Join(proj, "lib", "acme-widgets_1.1.0"), `{"name": "Widgets", "publisher": "acme", "version": "1.1.0"}`)
+				found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+				if len(found.Used) != 0 {
+					t.Fatalf("Used = %v, want nothing", projectDirs(found.Used))
+				}
+				if constraint == "^3.0.0" && strings.HasPrefix(path, "pkg:hg/") {
+					// By elimination nothing in range is a candidate: unresolved, as for any usage nothing answers.
+					if len(found.Unlinked) != 0 {
+						t.Fatalf("Unlinked = %v, want nothing", found.Unlinked)
+					}
+					return
+				}
+				if len(found.Unlinked) != 1 || found.Unlinked[0].Path != filepath.Join(proj, ProjectFile) || !strings.Contains(found.Unlinked[0].Message, want) {
+					t.Fatalf("Unlinked = %v, want one at %s containing %q", found.Unlinked, ProjectFile, want)
+				}
+			})
 		}
 	}
 }
