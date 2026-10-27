@@ -20,6 +20,8 @@ calc def Dangling :> Query { Named(qualifiedName = "Observatory::Broken::x") }
 package Kinds { part a; part def a; }
 calc def TwoKinds :> Query { Named(qualifiedName = "Observatory::Kinds::missing") }
 calc def RootMiss :> Query { Named(qualifiedName = "Observatry") }
+calc def Partial :> Query { Named(qualifiedName = "Duplicates::a") }
+calc def Spread :> Query { Named(qualifiedName = "a") }
 `)
 	outcome := func(query string) Outcome {
 		t.Helper()
@@ -69,6 +71,14 @@ calc def RootMiss :> Query { Named(qualifiedName = "Observatry") }
 	finding := twice.Model.Findings[0]
 	if finding.Constraint != ConstraintAmbiguousName || finding.Element != "Observatory::Duplicates" || finding.Observed != "Observatory::Duplicates::a (declared 2 times)" {
 		t.Errorf("Twice: finding = %+v", finding)
+	}
+	if partial := outcome("Partial"); len(partial.Model.Findings) != 1 || partial.Model.Findings[0].Element != "Observatory::Duplicates" {
+		t.Errorf("Partial: findings = %+v, want the owner of the resolved candidates, not a slice of the partial name", partial.Model.Findings)
+	}
+	spread := outcome("Spread")
+	if len(spread.Model.Findings) != 2 || spread.Model.Findings[0].Element != "Observatory::Duplicates" || spread.Model.Findings[1].Element != "Observatory::Kinds" ||
+		spread.Model.Findings[0].Observed != "Observatory::Duplicates::a (declared 2 times)" || spread.Model.Findings[1].Observed != "Observatory::Kinds::a (declared 2 times)" {
+		t.Errorf("Spread: findings = %+v, want one per owning namespace", spread.Model.Findings)
 	}
 	encoded, _ = json.Marshal(twice)
 	if !strings.Contains(string(encoded), `"outcome":"modelError"`) || !strings.Contains(string(encoded), `"pathFailures":[]`) {

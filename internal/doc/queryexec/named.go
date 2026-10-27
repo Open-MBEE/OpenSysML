@@ -56,11 +56,21 @@ func (e *executor) ambiguousElement(expression queryplan.Expression, name string
 	}
 	sort.Strings(fqns)
 	step := Step{Kind: StepNamed, Argument: name}
-	// The finding names the namespace that owns two members of one name: it, not
-	// the name, violates the constraint (lean/QVTS/Ops.lean, Model.named).
-	owner := name
-	if i := strings.LastIndex(name, "::"); i >= 0 {
-		owner = name[:i]
+	// One finding per namespace that owns a candidate: the owner of two members of one
+	// name violates the constraint (lean/QVTS/Ops.lean, Model.named); duplicates spread
+	// over several namespaces are one finding each, none of them invented from the name.
+	byOwner := map[string][]string{}
+	for _, fqn := range fqns {
+		byOwner[ownerOf(fqn)] = append(byOwner[ownerOf(fqn)], fqn)
+	}
+	owners := make([]string, 0, len(byOwner))
+	for owner := range byOwner {
+		owners = append(owners, owner)
+	}
+	sort.Strings(owners)
+	findings := make([]Finding, 0, len(owners))
+	for _, owner := range owners {
+		findings = append(findings, Finding{Step: step, Element: owner, Constraint: ConstraintAmbiguousName, Observed: declaredAs(byOwner[owner])})
 	}
 	return &Error{
 		Kind:       ErrorAmbiguousElement,
@@ -69,13 +79,16 @@ func (e *executor) ambiguousElement(expression queryplan.Expression, name string
 		Actual:     name,
 		Candidates: fqns,
 		Origin:     expression.Origin(),
-		Outcome: &Outcome{Model: &ModelError{Findings: []Finding{{
-			Step:       step,
-			Element:    owner,
-			Constraint: ConstraintAmbiguousName,
-			Observed:   declaredAs(fqns),
-		}}}},
+		Outcome:    &Outcome{Model: &ModelError{Findings: findings}},
 	}
+}
+
+// ownerOf is the namespace a qualified name is declared in; a root name owns itself.
+func ownerOf(fqn string) string {
+	if i := strings.LastIndex(fqn, "::"); i >= 0 {
+		return fqn[:i]
+	}
+	return fqn
 }
 
 // unknownElement reports a name no element carries with its frontier: the longest
