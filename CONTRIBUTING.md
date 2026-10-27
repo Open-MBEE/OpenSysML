@@ -295,6 +295,12 @@ and solver gates, the PDF toolchain, the coverage merge and the fan-out from a s
 to every client wait for the full tier. Draft until the quick tier is green, then mark ready;
 the full tier is what a pull request has to pass to merge.
 
+**The merge queue**, when the `develop` ruleset has one, runs the full tier once more on the
+commit it builds for each queued pull request (`refs/heads/gh-readonly-queue/develop/...`,
+the `merge_group` event): the diff is the merge group's own, `base_sha..head_sha`, the run is
+never a draft, and `Build and test` reporting on that commit is what lets the entry merge. A
+queue commit therefore gets at least the checks a ready pull request with the same diff gets.
+
 The first job, `Changed areas`, decides the tier from the pull request's draft flag and labels,
 then runs `scripts/ci-changed-areas.sh` over its files and the rest of the jobs are gated on
 what it reports: a change confined to one client runs that client's job alone, while a change
