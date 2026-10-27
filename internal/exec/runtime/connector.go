@@ -32,28 +32,206 @@ type ConnectorEnd struct {
 // holds its ends there.
 const participantEndName = "participant"
 
-// materializeConnectorFeatureValue fills a feature value that holds a connector usage: the object it
-// denotes, with its ends attached to the features the `connect` clause names,
-// resolved against the instance that owns the connector.
+// materializeConnectorFeatureValue fills a feature value that holds a connector usage: the
+// objects it denotes, each with its ends attached to the features the `connect` clause names,
+// resolved against the instance that owns the connector — one for a scalar usage, as many as
+// the lower bound of its multiplicity for a collection (none for `[0..*]`).
 func (ctx *Context) materializeConnectorFeatureValue(owner *Instance, fv *FeatureValue, name string) error {
-	if !fv.Feature.Scalar() {
-		return &connectorEndError{
-			Connector: fmt.Sprintf("%s.%s", owner.Type.Name, name),
-			End:       name,
-			Location:  ctx.symbolLocation(fv.Feature.Symbol),
-			Err:       errors.New("a connector of more than one object has no set of ends to attach"),
+	kept := owner.keptConnectors[fv]
+	keep := func() {
+		if len(kept) == 0 {
+			return
 		}
+		// A probe discards the objects, so the identities are kept for the ones materialized after it.
+		ctx.noteProbeUndo(func() { owner.keptConnectors[fv] = kept })
+		delete(owner.keptConnectors, fv)
 	}
-	kept, held := owner.keptConnectors[fv]
-	return ctx.materializeConnectorAs(owner, fv.Feature.Symbol, ctx.connectorBaseOf(fv.Feature), kept, func(conn *Instance) {
-		if held {
-			// A probe discards the object, so the identity is kept for the one materialized after it.
-			ctx.noteProbeUndo(func() { owner.keepConnector(fv, kept) })
-			delete(owner.keptConnectors, fv)
-		}
+	if !fv.Feature.Scalar() {
+		return ctx.materializeConnectorCollection(owner, fv, name, kept, keep)
+	}
+	var id int64
+	if len(kept) > 0 {
+		id = kept[0]
+	}
+	return ctx.materializeConnectorAs(owner, fv.Feature.Symbol, ctx.connectorBaseOf(fv.Feature), id, func(conn *Instance) {
+		keep()
 		fv.Value = Value{Kind: ValInstance, Instance: conn.ID}
 		fv.Materialized = true
 	})
+}
+
+// materializeConnectorCollection fills a connector usage of collection multiplicity as a composite
+// collection is filled: the connectors of the usages subsetting it are members, optional subsetters
+// are filled before it makes connectors of its own for the rest of its lower bound (KerML 1.1
+// §7.4.12), each attached as a scalar one is; held whole before any starts, abandoned whole on failure.
+func (ctx *Context) materializeConnectorCollection(owner *Instance, fv *FeatureValue, name string, kept []int64, keep func()) error {
+	mult := fv.Feature.Multiplicity
+	release := ctx.elementScope()
+	contributed, err := ctx.subsettingContributions(owner, name)
+	if err != nil {
+		release()
+		return err
+	}
+	count, err := ctx.lowerBoundCount(mult, len(contributed), fmt.Sprintf("connector %q", name))
+	if err != nil {
+		release()
+		return err
+	}
+	if err := ctx.chargeElements(count); err != nil {
+		release()
+		return err
+	}
+	mark := len(ctx.created)
+	commit, rollback := ctx.beginJournal()
+	endBoundary := ctx.beginRunBoundary()
+	undoFills := func() {}
+	fail := func(err error) error {
+		fv.Values, fv.Materialized = Value{}, false
+		undoFills()
+		endBoundary()
+		rollback()
+		release()
+		return err
+	}
+	elements := append(make([]Value, 0, int64(len(contributed))+count), contributed...)
+	filled, undo, err := ctx.fillOptionalConnectorSubsetters(owner, name, int(count))
+	undoFills = undo
+	if err != nil {
+		return fail(err)
+	}
+	conns := append(make([]*Instance, 0, count), filled...)
+	for _, conn := range filled {
+		elements = append(elements, Value{Kind: ValInstance, Instance: conn.ID})
+	}
+	own := ownKeptIdentities(kept, elements)
+	base := ctx.connectorBaseOf(fv.Feature)
+	for i := 0; i < int(count)-len(filled); i++ {
+		var id int64
+		if i < len(own) {
+			id = own[i]
+		}
+		var conn *Instance
+		if err := ctx.materializeConnectorStarting(owner, fv.Feature.Symbol, base, id, false, func(c *Instance) { conn = c }); err != nil {
+			return fail(err)
+		}
+		conns = append(conns, conn)
+		elements = append(elements, Value{Kind: ValInstance, Instance: conn.ID})
+	}
+	val := sequenceOf(elements)
+	if err := ctx.checkDefault(owner, fv, name, &val, admitDeclared); err != nil {
+		return fail(err)
+	}
+	keep()
+	fv.Values = ctx.collectionOf(fv.Feature, elements)
+	fv.Materialized = true
+	fv.Assumed = count > 0 && mult.AdmitsMore(int64(len(elements)))
+	fv.intrinsic = ctx.subsettersDeclared(owner, name)
+	if err := ctx.startClassifierBehaviorsOf(conns, mark); err != nil {
+		return fail(err)
+	}
+	endBoundary()
+	commit()
+	return ctx.runAttachedBehaviors()
+}
+
+// ownKeptIdentities is the identities a carried connector collection kept that none of the
+// connectors it already holds took back: the subsetters' took theirs, these are its own, in order.
+func ownKeptIdentities(kept []int64, held []Value) []int64 {
+	own := make([]int64, 0, len(kept))
+	for _, id := range kept {
+		taken := false
+		for _, v := range held {
+			if held, ok := v.Object(); ok && held == id {
+				taken = true
+				break
+			}
+		}
+		if !taken {
+			own = append(own, id)
+		}
+	}
+	return own
+}
+
+// connectorFillsFromSubsetted reports whether an optional connector usage holds connectors
+// the collection it subsets makes up for its lower bound, as an optional part does.
+func (ctx *Context) connectorFillsFromSubsetted(feat *EffectiveFeature) bool {
+	lower := feat.Multiplicity.Lower
+	return lower.Known && !lower.Infinite && lower.Value == 0 && ctx.model.semantics.IsConnectorObjectUsage(feat.Symbol)
+}
+
+// fillOptionalConnectorSubsetters gives the optional connector usages subsetting the collection
+// `name` that state no value of their own and were not written up to n of the connectors it is short
+// of, each attached by the subsetter's own clause and taking back the identity the subsetter kept;
+// undo puts the subsetters' values back.
+func (ctx *Context) fillOptionalConnectorSubsetters(owner *Instance, name string, n int) (made []*Instance, undo func(), err error) {
+	type filled struct {
+		fv     *FeatureValue
+		before FeatureValue
+		held   []Value
+	}
+	var fills []filled
+	undo = func() {
+		for _, fill := range fills {
+			*fill.fv = fill.before
+		}
+	}
+	for _, feat := range ctx.subsettingFeaturesOf(owner, name) {
+		if n == 0 {
+			break
+		}
+		if !ctx.connectorFillsFromSubsetted(&feat) {
+			continue
+		}
+		fv, ok := owner.FeatureValues[feat.Name]
+		if !ok || fv.Written || fv.BindingDerived || ctx.valueBinds(&feat) {
+			continue
+		}
+		spare := n
+		if upper := feat.Multiplicity.Upper; upper.Known && !upper.Infinite {
+			if spare = int(upper.Value - ElementCount(fv.HeldValue())); spare > n {
+				spare = n
+			}
+		}
+		if spare <= 0 {
+			continue
+		}
+		held, err := ctx.HeldElements(fv.HeldValue())
+		if err != nil {
+			return made, undo, err
+		}
+		kept, hadKept := owner.keptConnectors[fv]
+		base := ctx.connectorBaseOf(&feat)
+		for i := 0; i < spare; i++ {
+			var id int64
+			if i < len(kept) {
+				id = kept[i]
+			}
+			var conn *Instance
+			if err := ctx.materializeConnectorStarting(owner, feat.Symbol, base, id, false, func(c *Instance) { conn = c }); err != nil {
+				return made, undo, err
+			}
+			made = append(made, conn)
+			held = append(held, Value{Kind: ValInstance, Instance: conn.ID})
+		}
+		if hadKept {
+			ctx.noteProbeUndo(func() { owner.keptConnectors[fv] = kept })
+			delete(owner.keptConnectors, fv)
+		}
+		fills = append(fills, filled{fv: fv, before: *fv, held: held})
+		n -= spare
+	}
+	for _, fill := range fills {
+		ctx.noteProbeWrite(fill.fv)
+		if fill.fv.Feature.Scalar() {
+			fill.fv.Value = fill.held[0]
+		} else {
+			fill.fv.Values = ctx.collectionOf(fill.fv.Feature, fill.held)
+		}
+		fill.fv.Materialized, fill.fv.intrinsic = true, false
+		ctx.invalidateDependents(fill.fv)
+	}
+	return made, undo, nil
 }
 
 // connectorBaseOf returns the type an object of a connector usage is
@@ -410,8 +588,8 @@ func (inst *Instance) KeptConnectorIDs() []int64 {
 	for _, kept := range inst.keptAnonymous {
 		ids = append(ids, kept.id)
 	}
-	for _, id := range inst.keptConnectors {
-		ids = append(ids, id)
+	for _, kept := range inst.keptConnectors {
+		ids = append(ids, kept...)
 	}
 	slices.Sort(ids)
 	return ids
@@ -430,7 +608,7 @@ func (inst *Instance) RestoreConnector(ctx *Context, id int64) (*Instance, error
 		}
 	}
 	for name, fv := range inst.FeatureValues {
-		if inst.keptConnectors[fv] != id {
+		if !slices.Contains(inst.keptConnectors[fv], id) {
 			continue
 		}
 		_, err := inst.GetFeatureValue(ctx, name)
