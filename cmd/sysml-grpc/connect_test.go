@@ -26,8 +26,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/api/proto/protoconnect"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -46,7 +44,11 @@ func connectServer(t *testing.T) string {
 	}
 	t.Cleanup(svc.Close)
 
-	srv := httptest.NewServer(h2c.NewHandler(connectHandler(svc, "test", nil, guard.Token{}), &http2.Server{}))
+	srv := httptest.NewUnstartedServer(connectHandler(svc, "test", nil, guard.Token{}))
+	srv.Config.Protocols = new(http.Protocols)
+	srv.Config.Protocols.SetHTTP1(true)
+	srv.Config.Protocols.SetUnencryptedHTTP2(true)
+	srv.Start()
 	t.Cleanup(srv.Close)
 	return srv.URL
 }
@@ -54,12 +56,9 @@ func connectServer(t *testing.T) string {
 // h2cClient dials cleartext HTTP/2, which the gRPC and full Connect protocols
 // need and which Go's default transport will not do.
 func h2cClient() *http.Client {
-	return &http.Client{Transport: &http2.Transport{
-		AllowHTTP: true,
-		DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
-			return (&net.Dialer{}).DialContext(ctx, network, addr)
-		},
-	}}
+	protocols := new(http.Protocols)
+	protocols.SetUnencryptedHTTP2(true)
+	return &http.Client{Transport: &http.Transport{Protocols: protocols}}
 }
 
 // TestConnectServesEveryProtocol establishes the claim the evaluation rests on:
@@ -154,7 +153,7 @@ func TestConnectAnswersAPlainPOST(t *testing.T) {
 func TestConnectServesGRPCClientsUnchanged(t *testing.T) {
 	url := strings.TrimPrefix(connectServer(t), "http://")
 
-	conn, err := grpc.Dial(url, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(url, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
@@ -263,7 +262,7 @@ func TestServeConnectTLS(t *testing.T) {
 		t.Errorf("TLS JSON client used HTTP/%d, want HTTP/1.1", response.ProtoMajor)
 	}
 
-	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
 		MinVersion: tls.VersionTLS12,
 		ServerName: "127.0.0.1",
 		RootCAs:    roots,

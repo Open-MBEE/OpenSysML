@@ -73,8 +73,7 @@ func vectorQuantityValue(components ...*pb.Quantity) *pb.Value {
 func mustStructuredModel(t *testing.T, srv *Service) (string, *symbols.Index, *semantics.Model) {
 	t.Helper()
 	resp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: structuredWireModel},
-		ContentHash: "structured-wire",
+		Source: &pb.ParseFileRequest_Content{Content: structuredWireModel},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)

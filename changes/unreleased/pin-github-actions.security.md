@@ -1,0 +1,1 @@
+- **Every third-party GitHub Action the workflows use is pinned to a commit SHA.** The 98 `uses:` references that floated on a mutable tag (`actions/checkout@v4`, `actions/setup-go@v5`, `actions/upload-artifact@v4`, …) now name the full commit that tag resolves to, with its release as a trailing comment, so a re-pointed tag can no longer change what a build runs.

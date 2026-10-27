@@ -18,8 +18,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/api/proto/protoconnect"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 )
 
 // Transports this binary can serve.
@@ -67,7 +65,9 @@ func serveConnect(ctx context.Context, lis net.Listener, svc *sysmlgrpc.Service,
 			NextProtos: []string{"h2", "http/1.1"},
 		}
 	} else {
-		srv.Handler = h2c.NewHandler(handler, &http2.Server{})
+		srv.Protocols = new(http.Protocols)
+		srv.Protocols.SetHTTP1(true)
+		srv.Protocols.SetUnencryptedHTTP2(true)
 	}
 
 	errs := make(chan error, 1)

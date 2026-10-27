@@ -17,8 +17,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -51,7 +49,11 @@ func guardedServer(t *testing.T) (string, *bytes.Buffer) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(h2c.NewHandler(connectHandler(svc, "test", nil, token), &http2.Server{}))
+	srv := httptest.NewUnstartedServer(connectHandler(svc, "test", nil, token))
+	srv.Config.Protocols = new(http.Protocols)
+	srv.Config.Protocols.SetHTTP1(true)
+	srv.Config.Protocols.SetUnencryptedHTTP2(true)
+	srv.Start()
 	t.Cleanup(srv.Close)
 	return srv.URL, &logs
 }

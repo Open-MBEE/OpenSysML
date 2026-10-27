@@ -20,8 +20,7 @@ package Test {
 `
 
 	parseReq := &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "test-eval-1",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	}
 
 	parseResp, err := srv.ParseFile(context.Background(), parseReq)
@@ -66,8 +65,7 @@ func TestEvaluate_ParseError(t *testing.T) {
 	content := `package Test {}`
 
 	parseReq := &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "test-eval-parse-error",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	}
 
 	parseResp, err := srv.ParseFile(context.Background(), parseReq)
@@ -109,8 +107,7 @@ package Test {
 `
 
 	parseReq := &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "test-instantiate-1",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	}
 
 	parseResp, err := srv.ParseFile(context.Background(), parseReq)
@@ -155,8 +152,7 @@ func TestInstantiate_SymbolNotFound(t *testing.T) {
 	content := `package Test {}`
 
 	parseReq := &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "test-instantiate-notfound",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	}
 
 	parseResp, err := srv.ParseFile(context.Background(), parseReq)
@@ -194,8 +190,7 @@ package Test {
 `
 
 	parseReq := &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "test-execute-action-1",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	}
 
 	parseResp, err := srv.ParseFile(context.Background(), parseReq)
@@ -236,8 +231,7 @@ package Test {
 }
 `
 	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "test-execute-action-no-start",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)
@@ -278,8 +272,7 @@ package Test {
 `
 
 	parseReq := &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "test-execute-action-inputs",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	}
 
 	parseResp, err := srv.ParseFile(context.Background(), parseReq)
@@ -348,8 +341,7 @@ package Test {
 `
 
 	parseReq := &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "test-execute-state-1",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	}
 
 	parseResp, err := srv.ParseFile(context.Background(), parseReq)
@@ -407,8 +399,7 @@ package Test {
 }
 `
 	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "test-execute-action-timed",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)
@@ -449,8 +440,7 @@ package Test {
 `
 	run := func(t *testing.T, srv *Service) *pb.ExecuteStateResponse {
 		parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-			Source:      &pb.ParseFileRequest_Content{Content: content},
-			ContentHash: "test-execute-state-final-time",
+			Source: &pb.ParseFileRequest_Content{Content: content},
 		})
 		if err != nil {
 			t.Fatalf("ParseFile failed: %v", err)

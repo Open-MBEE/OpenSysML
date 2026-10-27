@@ -33,8 +33,7 @@ package 'My Pkg' {
 func parseQuotedNamesModel(t *testing.T, srv *Service, hash string) string {
 	t.Helper()
 	resp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: quotedNamesModel},
-		ContentHash: hash,
+		Source: &pb.ParseFileRequest_Content{Content: quotedNamesModel},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)
