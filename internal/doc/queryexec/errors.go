@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -25,6 +26,9 @@ const (
 	ErrorUnknownProperty       ErrorKind = "unknown-property"
 	ErrorUnknownClassification ErrorKind = "unknown-classification"
 	ErrorUnknownElement        ErrorKind = "unknown-element"
+	// ErrorAmbiguousElement: Named was given a name several elements carry — a
+	// finding about the model, where ErrorUnknownElement is one about the query.
+	ErrorAmbiguousElement      ErrorKind = "ambiguous-element"
 	ErrorUnknownRelationship   ErrorKind = "unknown-relationship"
 	ErrorUnevaluableFeature    ErrorKind = "unevaluable-feature"
 	ErrorUnknownInvocation     ErrorKind = "unknown-invocation"
@@ -87,11 +91,55 @@ type Error struct {
 	Expected  string
 	Actual    string
 	Origin    symbols.Origin
+	// Candidates are what the model offers where the query asked for something it
+	// lacks: the spellings nearest an unresolved name, or the elements an
+	// ambiguous name denotes.
+	Candidates []string
 	// Cause is the evaluator's reason an unevaluable feature could not be read.
 	Cause error
 }
 
 func (e *Error) Unwrap() error { return e.Cause }
+
+// declaredAs lists the qualified names an ambiguous name denotes, a name
+// several elements are declared under once with its count, so two members
+// named alike read as `Duplicates::a (declared 2 times)`.
+func declaredAs(fqns []string) string {
+	var out []string
+	for i, fqn := range fqns {
+		if i > 0 && fqn == fqns[i-1] {
+			continue
+		}
+		n := 0
+		for _, other := range fqns {
+			if other == fqn {
+				n++
+			}
+		}
+		if n > 1 {
+			fqn = fmt.Sprintf("%s (declared %d times)", fqn, n)
+		}
+		out = append(out, fqn)
+	}
+	return strings.Join(out, ", ")
+}
+
+// unknownElementMessage says where the name stopped resolving — the namespace
+// that did resolve (Target) has no member of the next segment (Expected) — and
+// what is spelled nearest, so the reader can tell a typo from a model that lacks
+// the element; an alias that denotes nothing says so.
+func (e *Error) unknownElementMessage() string {
+	msg := fmt.Sprintf("query %s names no element %s", e.Query, e.Actual)
+	switch {
+	case e.Path != nil:
+		return msg + ": the alias denotes no element"
+	case e.Target != "":
+		msg += fmt.Sprintf(": %s has no member %s", e.Target, e.Expected)
+	case e.Expected != "":
+		msg += fmt.Sprintf(": nothing is named %s", e.Expected)
+	}
+	return suggest.With(msg, e.Expected, e.Candidates)
+}
 
 // column names the projected column an error arose in, when it did in one.
 func (e *Error) column() string {
@@ -139,7 +187,9 @@ func (e *Error) Error() string {
 	case ErrorUnknownClassification:
 		return fmt.Sprintf("query %s references unknown classification %s", e.Query, e.Actual)
 	case ErrorUnknownElement:
-		return fmt.Sprintf("query %s names no single element %s", e.Query, e.Actual)
+		return e.unknownElementMessage()
+	case ErrorAmbiguousElement:
+		return fmt.Sprintf("query %s names %d elements %s: %s", e.Query, len(e.Candidates), e.Actual, declaredAs(e.Candidates))
 	case ErrorUnknownRelationship:
 		return fmt.Sprintf("query %s%s does not support relationship kind %q", e.Query, e.column(), e.Actual)
 	case ErrorUnevaluableFeature:

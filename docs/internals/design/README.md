@@ -5,6 +5,9 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
 
 - **[The action executor](action-executor.md)** — how a token moves through a lowered
   `ActionGraph`
+- **[Query outcomes](query-outcomes.md)** — how a document query's failures are told apart:
+  a value (possibly empty), a path error that says where the path stopped resolving and what the
+  model offers there, or a model error about the element; where the engine stands step by step
 - **[The analysis framework](analysis-framework.md)** — one engine contract that the
   interpreter, `explore`, the sweep, the SMT solver, the model checkers and external tools
   register against, one scale for the strength of an answer (proved, bounded, witnessed,

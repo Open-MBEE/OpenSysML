@@ -82,18 +82,61 @@ func TestExecuteNamedResolvesQualifiedNamesInOrder(t *testing.T) {
 	}
 }
 
-// A name that resolves to nothing, to several elements, or to an alias that
-// denotes no element (dangling or cyclic) is an unknown-element error, never a row.
-func TestExecuteNamedRejectsUnknownAndAmbiguousNames(t *testing.T) {
+// A name no element carries is an unknown-element error that says where the
+// path stopped resolving and what is spelled nearest; an alias that denotes no
+// element (dangling or cyclic) says so; never a row.
+func TestExecuteNamedRejectsUnknownNames(t *testing.T) {
 	fixture := loadExecutionFixture(t, namedBody)
-	for _, name := range []string{"Vehicle::Missing", "Config", "Aliases::Broken", "Aliases::Loop1", "Aliases::Loop2"} {
+	cases := map[string]string{
+		"Vehicle::Missing": "names no element Vehicle::Missing: Observatory::Vehicle has no member Missing",
+		"Vehicle::Confg":   "names no element Vehicle::Confg: Observatory::Vehicle has no member Confg — did you mean Config?",
+		"Nowhere::Config":  "names no element Nowhere::Config: nothing is named Nowhere",
+		"Aliases::Broken":  "names no element Aliases::Broken: the alias denotes no element",
+		"Aliases::Loop1":   "names no element Aliases::Loop1: the alias denotes no element",
+		"Aliases::Loop2":   "names no element Aliases::Loop2: the alias denotes no element",
+	}
+	for name, want := range cases {
 		_, err := fixture.execute(t, "ByName", Bindings{"qualifiedName": {StringValue(name)}}, Options{})
 		unknown := executionError(t, err, ErrorUnknownElement)
 		if unknown.Actual != name || unknown.Operation != "named" {
 			t.Fatalf("Named(%q) error = %v", name, unknown)
 		}
-		if !strings.Contains(err.Error(), "names no single element "+name) {
-			t.Fatalf("Named(%q) message = %v", name, err)
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("Named(%q) message = %v, want it to contain %q", name, err, want)
 		}
+	}
+}
+
+// A name several elements carry is an ambiguous-element error listing them: a
+// finding about the model, not an empty result and not an unknown name.
+func TestExecuteNamedRejectsAmbiguousNames(t *testing.T) {
+	fixture := loadExecutionFixture(t, namedBody)
+	_, err := fixture.execute(t, "ByName", Bindings{"qualifiedName": {StringValue("Config")}}, Options{})
+	ambiguous := executionError(t, err, ErrorAmbiguousElement)
+	if ambiguous.Actual != "Config" || ambiguous.Operation != "named" {
+		t.Fatalf("Named(Config) error = %v", ambiguous)
+	}
+	if got := strings.Join(ambiguous.Candidates, ","); got != "Observatory::Other::Config,Observatory::Vehicle::Config" {
+		t.Fatalf("Named(Config) candidates = %v", ambiguous.Candidates)
+	}
+	if want := "names 2 elements Config: Observatory::Other::Config, Observatory::Vehicle::Config"; !strings.Contains(err.Error(), want) {
+		t.Fatalf("Named(Config) message = %v, want it to contain %q", err, want)
+	}
+	// Two members declared under one name are that name once, with its count.
+	twice := loadExecutionFixture(t, `
+package Twice {
+	part def P;
+	part a : P;
+	part a : P;
+}
+calc def ByName :> Query {
+	in qualifiedName : String[1..*] ordered;
+	Named(qualifiedName = qualifiedName)
+}
+`)
+	_, err = twice.execute(t, "ByName", Bindings{"qualifiedName": {StringValue("Twice::a")}}, Options{})
+	ambiguous = executionError(t, err, ErrorAmbiguousElement)
+	if want := "names 2 elements Twice::a: Observatory::Twice::a (declared 2 times)"; !strings.Contains(err.Error(), want) {
+		t.Fatalf("Named(Twice::a) message = %v, want it to contain %q", err, want)
 	}
 }
