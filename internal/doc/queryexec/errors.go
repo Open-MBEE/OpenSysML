@@ -150,12 +150,8 @@ func (e *Error) unknownElementMessage() string {
 // it does have, so the reader sees where the path left the model.
 func (e *Error) missingFeatureMessage() string {
 	msg := fmt.Sprintf("query %s reads feature %s of %s, which has no such feature", e.Query, e.Property, e.Target)
-	segment := e.Property
 	if e.Actual != "" {
 		msg = fmt.Sprintf("query %s reads feature %s of %s, but the path stops at %s", e.Query, e.Property, e.Target, e.Actual)
-		if segments, ok := parseMemberPath(e.Property); ok {
-			_, segment = e.memberPathSegmentAt(segments)
-		}
 	}
 	if len(e.Candidates) == 0 {
 		return msg
@@ -164,19 +160,16 @@ func (e *Error) missingFeatureMessage() string {
 	if len(e.Candidates) <= 3 {
 		return msg
 	}
-	return suggest.With(msg, segment, e.Candidates)
+	return suggest.With(msg, e.missingSegment(), e.Candidates)
 }
 
-// memberPathSegmentAt names the segment a nested missing-feature error stopped
-// at: the one right after the member Actual names, the last when Actual is deepest.
-func (e *Error) memberPathSegmentAt(segments []string) (int, string) {
-	last := symbols.LastSegment(e.Actual)
-	for i, segment := range segments[:len(segments)-1] {
-		if segment == last {
-			return i + 1, segments[i+1]
-		}
+// missingSegment is the segment the record says names nothing: the failed step's
+// argument, so a path that repeats a name cannot misdirect the suggestion.
+func (e *Error) missingSegment() string {
+	if e.Outcome != nil && e.Outcome.Path != nil && len(e.Outcome.Path.Failures) == 1 {
+		return e.Outcome.Path.Failures[0].Step.Argument
 	}
-	return len(segments) - 1, segments[len(segments)-1]
+	return e.Property
 }
 
 // column names the projected column an error arose in, when it did in one.
