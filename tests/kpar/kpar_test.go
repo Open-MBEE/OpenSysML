@@ -329,9 +329,9 @@ func run(t *testing.T, bin string, args ...string) (string, error) {
 	return string(output), err
 }
 
-// -bundle writes the same bytes on every run, -unbundle writes the directory
-// back, and the two refuse to overwrite or to run with a model.
-func TestBundleIsDeterministicAndUnbundleReproducesTheDirectory(t *testing.T) {
+// -bundle writes the same bytes on every run, -unbundle writes back the files the archive records
+// (those the .meta.json names, not every file), and the two refuse to overwrite or to run with a model.
+func TestBundleIsDeterministicAndUnbundleReproducesTheRecordedFiles(t *testing.T) {
 	bin := sysmlBinary(t)
 	src := filepath.Join(sysandProject(t), ".sysand", "lib", "ode4hera-requirements-management_2.0.1")
 	work := t.TempDir()
@@ -360,7 +360,7 @@ func TestBundleIsDeterministicAndUnbundleReproducesTheDirectory(t *testing.T) {
 	if output, err := run(t, bin, "-unbundle", first, "-o", dir); err == nil {
 		t.Errorf("-unbundle into a directory that holds files succeeded:\n%s", output)
 	}
-	compareTrees(t, src, dir)
+	compareRecorded(t, src, dir)
 
 	third := filepath.Join(work, "c"+project.ArchiveExt)
 	if output, err := run(t, bin, "-bundle", dir, "-o", third); err != nil {
@@ -370,7 +370,9 @@ func TestBundleIsDeterministicAndUnbundleReproducesTheDirectory(t *testing.T) {
 		t.Errorf("re-bundling the unbundled directory gives different bytes")
 	}
 
-	// An archive another tool wrote round-trips too, and the result validates.
+	// An archive another tool wrote round-trips too, and the result validates;
+	// the README and license it carried unrecorded are not members of the
+	// re-bundled archive, since its .meta.json records the three units alone.
 	sysmod := filepath.Join(filepath.Dir(src), "mbse4u-sysmod_5.1.4"+project.ArchiveExt)
 	unpacked := filepath.Join(work, "sysmod")
 	if output, err := run(t, bin, "-unbundle", sysmod, "-o", unpacked); err != nil {
@@ -383,8 +385,8 @@ func TestBundleIsDeterministicAndUnbundleReproducesTheDirectory(t *testing.T) {
 	if output, err := run(t, bin, "-validate", repacked); err != nil {
 		t.Errorf("-validate of the re-bundled archive: %v\n%s", err, output)
 	}
-	if a, err := project.OpenArchive(repacked); err != nil || len(a.Names()) != 7 {
-		t.Errorf("re-bundled sysmod: %d members, err %v; want the 7 of the original", len(a.Names()), err)
+	if a, err := project.OpenArchive(repacked); err != nil || len(a.Names()) != 5 {
+		t.Errorf("re-bundled sysmod: %d members, err %v; want the two manifests and the three recorded units", len(a.Names()), err)
 	}
 	if output, err := run(t, bin, "-bundle", src, "-unbundle", first); err == nil || !strings.Contains(output, "one per run") {
 		t.Errorf("-bundle with -unbundle: err %v\n%s", err, output)
@@ -406,40 +408,47 @@ func TestBundleIsDeterministicAndUnbundleReproducesTheDirectory(t *testing.T) {
 	}
 }
 
-// compareTrees fails unless the two directories hold the same files with the
-// same bytes.
-func compareTrees(t *testing.T, want, got string) {
+// compareRecorded fails unless got holds exactly the files want's .meta.json records, with the
+// two manifests, byte for byte; what want holds unrecorded (README, LICENSES) is not the archive's.
+func compareRecorded(t *testing.T, want, got string) {
 	t.Helper()
-	list := func(root string) map[string][]byte {
-		files := map[string][]byte{}
-		err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-			if err != nil || info.IsDir() {
-				return err
-			}
-			data, err := os.ReadFile(path)
-			if err != nil {
-				return err
-			}
-			rel, _ := filepath.Rel(root, path)
-			files[filepath.ToSlash(rel)] = data
-			return nil
-		})
+	content, err := os.ReadFile(filepath.Join(want, project.MetaFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	meta, err := project.ParseMeta(content)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorded := map[string]bool{project.ProjectFile: true, project.MetaFile: true}
+	for name := range meta.Checksum {
+		recorded[name] = true
+	}
+	for _, name := range meta.Index {
+		recorded[name] = true
+	}
+	for name := range recorded {
+		w, err := os.ReadFile(filepath.Join(want, filepath.FromSlash(name)))
 		if err != nil {
 			t.Fatal(err)
 		}
-		return files
-	}
-	w, g := list(want), list(got)
-	for name, data := range w {
-		if other, ok := g[name]; !ok {
-			t.Errorf("%s missing from the unbundled directory", name)
-		} else if !bytes.Equal(data, other) {
+		g, err := os.ReadFile(filepath.Join(got, filepath.FromSlash(name)))
+		if err != nil {
+			t.Errorf("%s missing from the unbundled directory: %v", name, err)
+		} else if !bytes.Equal(w, g) {
 			t.Errorf("%s differs after the round trip", name)
 		}
 	}
-	for name := range g {
-		if _, ok := w[name]; !ok {
-			t.Errorf("%s appeared in the unbundled directory", name)
+	err = filepath.Walk(got, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return err
 		}
+		if rel, _ := filepath.Rel(got, path); !recorded[filepath.ToSlash(rel)] {
+			t.Errorf("%s appeared in the unbundled directory; the archive records no such file", rel)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

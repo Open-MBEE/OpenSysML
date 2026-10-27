@@ -446,11 +446,21 @@ wrote widgets (Widgets 1.0.0, 4 files)
 
 Without `-o` the archive is named `<name>-<version>.kpar` after the project, and the
 directory `<name>-<version>`. The archive's members are sorted and carry a fixed timestamp,
-so bundling the same directory twice gives the same bytes; a `.meta.json` the directory has
-is kept (and its checksums verified), and one it lacks is generated with the index, a SHA256
-checksum per file and a creation time of `SOURCE_DATE_EPOCH` when that is set. Hidden
-directories such as `.git` and `.sysand` stay out of the archive. `-unbundle` writes into a
-new or empty directory only, so an archive never overwrites a file.
+so bundling the same directory twice gives the same bytes. Which files are members is the
+project's `.meta.json`'s to say: a directory that has one is archived as the two manifests
+plus exactly the files the metadata records — every `checksum` key and every `index` target,
+at their recorded paths — so a repository's README, scripts, caches and version-control
+metadata stay out unless recorded, and a recorded file missing from the tree is an error
+naming it (`.meta.json records LICENSE, which is not in the directory`). The kept `.meta.json`
+is verified on the way: a recorded checksum that no longer matches refuses the bundle. A
+directory without a `.meta.json` is archived as KerML 10.3 describes a project archive — its
+`.project.json` and its model files (`.sysml`, `.kerml`), outside hidden entries, library
+directories (`lib/`, `.sysand/lib`) and nested projects — and the `.meta.json` is generated
+with the index, a SHA256 checksum per member and a creation time of `SOURCE_DATE_EPOCH` when
+that is set; to carry a license or any other file, record it in a `.meta.json` of your own.
+An archive another tool wrote re-bundles from its unbundled directory to the files its
+`.meta.json` records. `-unbundle` writes into a new or empty directory only, so an archive
+never overwrites a file.
 
 ## Running behavior
 
