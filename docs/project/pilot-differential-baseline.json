@@ -68,8 +68,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 52,
-        "digest": "sha256:ba2e49098c36879a3a944f37a56cdb39f0dde31f3c75dd8817ce333d6ba226c1"
+        "files": 53,
+        "digest": "sha256:bdb2697affc4ba131d52ed104b24d0aa0419e7cc261942d584472876b0d249b8"
       },
       {
         "name": "probes",
@@ -89,14 +89,14 @@
     "recorded": "2026-10-27"
   },
   "totals": {
-    "files": 920,
+    "files": 921,
     "filesFullyAgreeing": 518,
     "agreement": 1098,
     "severityMismatch": 11,
-    "openSysMLOnly": 359,
-    "pilotOnly": 2461,
-    "openSysMLDiagnostics": 1468,
-    "pilotDiagnostics": 3570
+    "openSysMLOnly": 360,
+    "pilotOnly": 2462,
+    "openSysMLDiagnostics": 1469,
+    "pilotDiagnostics": 3571
   },
   "roots": [
     {
@@ -17881,14 +17881,14 @@
       "name": "examples",
       "dir": "examples",
       "totals": {
-        "files": 52,
+        "files": 53,
         "filesFullyAgreeing": 45,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 8,
-        "pilotOnly": 64,
-        "openSysMLDiagnostics": 8,
-        "pilotDiagnostics": 64
+        "openSysMLOnly": 9,
+        "pilotOnly": 65,
+        "openSysMLDiagnostics": 9,
+        "pilotDiagnostics": 65
       },
       "files": [
         {
@@ -18023,37 +18023,46 @@
           "pilotOnly": []
         },
         {
+          "path": "self-model/asciidoc/markup.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [
+            {
+              "line": 16,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            }
+          ],
+          "pilotOnly": [
+            {
+              "line": 40,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            }
+          ]
+        },
+        {
           "path": "self-model/document.sysml",
           "agreement": [],
           "severityMismatch": [],
           "openSysMLOnly": [],
           "pilotOnly": [
             {
-              "line": 193,
+              "line": 197,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 199,
+              "line": 203,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 214,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 228,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 234,
+              "line": 225,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18065,13 +18074,7 @@
               "count": 1
             },
             {
-              "line": 252,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 262,
+              "line": 251,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18083,55 +18086,37 @@
               "count": 1
             },
             {
-              "line": 273,
+              "line": 275,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 283,
+              "line": 296,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 289,
+              "line": 302,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 303,
+              "line": 307,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 309,
+              "line": 325,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 320,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 330,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 340,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 346,
+              "line": 331,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18143,37 +18128,31 @@
               "count": 1
             },
             {
-              "line": 366,
+              "line": 358,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 372,
+              "line": 374,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 387,
+              "line": 390,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 401,
+              "line": 408,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 407,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 413,
+              "line": 414,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18185,37 +18164,79 @@
               "count": 1
             },
             {
-              "line": 458,
+              "line": 445,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 464,
+              "line": 451,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 474,
+              "line": 476,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 487,
+              "line": 498,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 487,
+              "line": 504,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 510,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 517,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 559,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 565,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 579,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 593,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 593,
               "severity": "warning",
               "category": "unmapped",
               "count": 18
             },
             {
-              "line": 493,
+              "line": 599,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -25451,14 +25472,14 @@
       }
     ],
     "totals": {
-      "files": 920,
+      "files": 921,
       "filesFullyAgreeing": 519,
       "agreement": 1098,
       "severityMismatch": 11,
-      "openSysMLOnly": 358,
-      "pilotOnly": 2461,
-      "openSysMLDiagnostics": 1467,
-      "pilotDiagnostics": 3570
+      "openSysMLOnly": 359,
+      "pilotOnly": 2462,
+      "openSysMLDiagnostics": 1468,
+      "pilotDiagnostics": 3571
     },
     "findings": [
       {
