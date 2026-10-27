@@ -1790,10 +1790,8 @@ func (idx *Index) shortNamedScan(name string) bool {
 	return shortRegistered(name)
 }
 
-// LookupUniqueCandidates returns the distinct elements LookupUnique chooses
-// among: those registered under name exactly, else under every FQN whose last
-// segments are name. A caller that reports why a name did not resolve tells
-// none (nothing is so named) from several (the name is ambiguous) by its length.
+// LookupUniqueCandidates returns the distinct elements LookupUnique chooses among —
+// registered under name exactly, else under every FQN ending in it — none or several telling why it failed.
 func (idx *Index) LookupUniqueCandidates(name string) []*Symbol {
 	if matches := idx.LookupQualified(name); len(matches) == 1 {
 		return matches

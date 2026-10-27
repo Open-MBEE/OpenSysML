@@ -1,6 +1,7 @@
 package queryexec
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -91,19 +92,22 @@ type Error struct {
 	Expected  string
 	Actual    string
 	Origin    symbols.Origin
-	// Candidates are what the model offers where the query asked for something it
-	// lacks: the spellings nearest an unresolved name, or the elements an
-	// ambiguous name denotes.
+	// Candidates are what the model offers in place of what the query asked for:
+	// the spellings nearest an unresolved name, or the elements an ambiguous name denotes.
 	Candidates []string
+	// Outcome is the QVTS record behind a path or model error (outcome.go); nil for
+	// the failures that are neither, the flat fields above being its rendering.
+	Outcome *Outcome
 	// Cause is the evaluator's reason an unevaluable feature could not be read.
 	Cause error
 }
 
 func (e *Error) Unwrap() error { return e.Cause }
 
-// declaredAs lists the qualified names an ambiguous name denotes, a name
-// several elements are declared under once with its count, so two members
-// named alike read as `Duplicates::a (declared 2 times)`.
+func asError(err error, target **Error) bool { return errors.As(err, target) }
+
+// declaredAs lists the qualified names an ambiguous name denotes, a repeated
+// one once with its count: `Duplicates::a (declared 2 times)`.
 func declaredAs(fqns []string) string {
 	var out []string
 	for i, fqn := range fqns {
@@ -124,10 +128,8 @@ func declaredAs(fqns []string) string {
 	return strings.Join(out, ", ")
 }
 
-// unknownElementMessage says where the name stopped resolving — the namespace
-// that did resolve (Target) has no member of the next segment (Expected) — and
-// what is spelled nearest, so the reader can tell a typo from a model that lacks
-// the element; an alias that denotes nothing says so.
+// unknownElementMessage says where the name stopped resolving (Target has no
+// member Expected) and what is spelled nearest; an alias denoting nothing says so.
 func (e *Error) unknownElementMessage() string {
 	msg := fmt.Sprintf("query %s names no element %s", e.Query, e.Actual)
 	switch {

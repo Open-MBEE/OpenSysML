@@ -33,5 +33,14 @@ to `∅` is the ambiguity QVTS exists to remove.
 
 `Error` carries the frontier in `Target` (the namespace that resolved), `Expected` (the segment it
 lacks) and `Candidates` (the nearest spellings, or the elements an ambiguous name denotes), so a
-surface can render it as more than a line of text — the REPL, the gRPC service and the SPARQL
-differential in `qvts/sparql` all read the same record.
+surface can render it as more than a line of text. Behind those flat fields `Error.Outcome` is the
+QVTS record itself (`internal/doc/queryexec/outcome.go`), field for field with
+`lean/QVTS/Outcome.lean`: a `PathError` is a list of `Failure{Step, Expected, Frontier}`, a
+`ModelError` a list of `Finding{Step, Element, Constraint, Observed}` plus the path failures of the
+same fan-out; `Frontier` carries `At`, `Members (name, metaclass)`, `Features (name, type)`, `Kinds`
+and `Nearest`. `Named` fills it today. The surfaces that show it: `-run-query` prints it under the
+error line and `-json` writes it as `checks[].outcome` in the shape `qvts/sparql/expected/*.json`
+records (`outcome`, `step`, `failures` | `findings` + `pathFailures`); `%run-query` prints the same
+lines; the gRPC service attaches it to the failed call as a `QueryOutcome` error detail. The
+`qvts` differential can therefore compare native, SPARQL and Lean outcomes on one record; its runner
+does not read the native form yet.
