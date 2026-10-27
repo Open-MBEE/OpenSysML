@@ -58,9 +58,10 @@ function [status, contentType, bodyText] = post_curl(url, requestJsonText, timeo
         if any(headerFile == '''') || any(headerFile == sprintf('\n'))
             error('opensysml:transport', 'refusing a header file path that breaks quoting: %s', headerFile);
         end
-        fclose(fopen(headerFile, 'w'));
-        if ~ispc()
-            system(sprintf('chmod 600 ''%s''', headerFile));
+        % Created private from the first instant (umask 077), never widened
+        % later; on Windows the user's temporary directory is private itself.
+        if ~ispc() && system(sprintf('umask 077 && : > ''%s''', headerFile)) ~= 0
+            error('opensysml:transport', 'could not create a private header file: %s', headerFile);
         end
         fid = fopen(headerFile, 'w');
         fwrite(fid, sprintf('Authorization: Bearer %s', token));
