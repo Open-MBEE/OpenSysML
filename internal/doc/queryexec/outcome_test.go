@@ -17,6 +17,9 @@ alias Broken for Nowhere;
 calc def Misspelled :> Query { Named(qualifiedName = "Observatory::telescop") }
 calc def Twice :> Query { Named(qualifiedName = "Observatory::Duplicates::a") }
 calc def Dangling :> Query { Named(qualifiedName = "Observatory::Broken::x") }
+package Kinds { part a; part def a; }
+calc def TwoKinds :> Query { Named(qualifiedName = "Observatory::Kinds::missing") }
+calc def RootMiss :> Query { Named(qualifiedName = "Observatry") }
 `)
 	outcome := func(query string) Outcome {
 		t.Helper()
@@ -70,6 +73,20 @@ calc def Dangling :> Query { Named(qualifiedName = "Observatory::Broken::x") }
 	encoded, _ = json.Marshal(twice)
 	if !strings.Contains(string(encoded), `"outcome":"modelError"`) || !strings.Contains(string(encoded), `"pathFailures":[]`) {
 		t.Errorf("Twice JSON = %s", encoded)
+	}
+
+	twoKinds := outcome("TwoKinds")
+	var pairs []string
+	for _, m := range twoKinds.Path.Failures[0].Frontier.Members {
+		pairs = append(pairs, m.Name+":"+m.Metaclass)
+	}
+	if got := strings.Join(pairs, ","); got != "a:PartDefinition,a:PartUsage" {
+		t.Errorf("TwoKinds: members = %s, want both declarations of a with their metaclasses", got)
+	}
+
+	root := outcome("RootMiss")
+	if f := root.Path.Failures[0]; f.Frontier.At != "" || f.Frontier.Nearest != "Observatory" || len(f.Frontier.Members) == 0 {
+		t.Errorf("RootMiss: frontier = %+v, want no At, the root namespaces as members, nearest Observatory", f.Frontier)
 	}
 
 	dangling := outcome("Dangling")

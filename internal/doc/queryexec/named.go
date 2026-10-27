@@ -148,24 +148,32 @@ func (e *executor) memberNames(fqn string) []string {
 	return names
 }
 
-// members lists the members memberNames does, each with its metaclass; nil
-// for the root, whose frontier is the whole model.
+// members lists the members memberNames does as distinct (name, metaclass) pairs,
+// so two declarations of one name show both metaclasses; for "" the root namespaces.
 func (e *executor) members(fqn string) []Member {
-	if fqn == "" {
-		return nil
-	}
 	out := []Member{}
 	for _, registered := range e.context.Index.FQNs() {
-		rest, ok := strings.CutPrefix(registered, fqn+"::")
-		if !ok || strings.Contains(rest, "::") {
+		rest := registered
+		if fqn != "" {
+			var ok bool
+			if rest, ok = strings.CutPrefix(registered, fqn+"::"); !ok {
+				continue
+			}
+		}
+		if strings.Contains(rest, "::") {
 			continue
 		}
-		if targets := e.context.Index.LookupQualified(registered); len(targets) > 0 {
-			out = append(out, Member{Name: rest, Metaclass: e.metaclassOf(targets[0])})
+		for _, target := range e.context.Index.LookupQualified(registered) {
+			out = append(out, Member{Name: rest, Metaclass: e.metaclassOf(target)})
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	return slices.CompactFunc(out, func(a, b Member) bool { return a.Name == b.Name })
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Name != out[j].Name {
+			return out[i].Name < out[j].Name
+		}
+		return out[i].Metaclass < out[j].Metaclass
+	})
+	return slices.Compact(out)
 }
 
 // metaclassOf is the simple name of the element's metaclass, `PartUsage`.
