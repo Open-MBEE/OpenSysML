@@ -984,6 +984,25 @@ func TestLookupUniqueTellsQuotedSegmentsApart(t *testing.T) {
 	}
 }
 
+// A name holding `::` is read at the boundaries of each registered key, past an
+// exact key another element collides on and along the key's own namespaces.
+func TestLookupUniqueReadsQuotedSegmentsAlongRegisteredRoutes(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "routes.sysml", `package P { package x { part def y; } }
+package Outer { package P { part def 'x::y'; } }`)
+	idx.ExpandWildcardImports()
+
+	if got := idx.LookupUnique("P::'x::y'"); got == nil || FQNOf(got) != "Outer::P::x::y" || got.Name != "x::y" {
+		t.Errorf("LookupUnique(P::'x::y') = %v, want Outer::P's member named x::y", got)
+	}
+	if got := idx.LookupUnique("P::x::y"); got == nil || got.Name != "y" || FQNOf(got) != "P::x::y" {
+		t.Errorf("LookupUnique(P::x::y) = %v, want the nested y", got)
+	}
+	if got := idx.LookupUnique("Outer::P::'x::y'::z"); got != nil {
+		t.Errorf("LookupUnique(Outer::P::'x::y'::z) = %s, want nil", FQNOf(got))
+	}
+}
+
 // LookupUnique answers a fully-qualified name, or a name exactly one element's
 // fully-qualified name ends in; two elements ending in it name nothing.
 func TestLookupUniqueBySuffix(t *testing.T) {
