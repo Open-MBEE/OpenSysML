@@ -64,7 +64,8 @@ calc def Vehicles :> Query {
 	in root : Element[1];
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
-		properties = ("name", "liftoffMass", "engineCount", "topMass")
+		properties = ("name", "liftoffMass", "engineCount", "topMass"),
+		tolerate = true
 	)
 }
 `

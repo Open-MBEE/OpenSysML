@@ -69,7 +69,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 52,
-        "digest": "sha256:cd33a6f84a9998e255f6dc8d1b2cb374dce50e930e015f67f990303c8157558a"
+        "digest": "sha256:ba2e49098c36879a3a944f37a56cdb39f0dde31f3c75dd8817ce333d6ba226c1"
       },
       {
         "name": "probes",
@@ -83,10 +83,10 @@
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
         "files": 16,
-        "digest": "sha256:82e35230165a3d95d831330f21c3290cca8b9519f5b494d341e0a866a0e373a5"
+        "digest": "sha256:ac6a1e3b3376227415fa16aec5bf1918312a69cad0d8d63b6adcda799a44c9b3"
       }
     ],
-    "recorded": "2026-10-26"
+    "recorded": "2026-10-27"
   },
   "totals": {
     "files": 920,
@@ -17898,7 +17898,7 @@
           "openSysMLOnly": [],
           "pilotOnly": [
             {
-              "line": 542,
+              "line": 543,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18029,25 +18029,19 @@
           "openSysMLOnly": [],
           "pilotOnly": [
             {
-              "line": 187,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
               "line": 193,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 208,
+              "line": 199,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 222,
+              "line": 214,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18059,19 +18053,19 @@
               "count": 1
             },
             {
-              "line": 239,
+              "line": 234,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 246,
+              "line": 245,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 256,
+              "line": 252,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18083,13 +18077,13 @@
               "count": 1
             },
             {
-              "line": 267,
+              "line": 268,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 277,
+              "line": 273,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18101,7 +18095,7 @@
               "count": 1
             },
             {
-              "line": 297,
+              "line": 289,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18113,19 +18107,19 @@
               "count": 1
             },
             {
-              "line": 314,
+              "line": 309,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 324,
+              "line": 320,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 334,
+              "line": 330,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18143,7 +18137,7 @@
               "count": 1
             },
             {
-              "line": 360,
+              "line": 352,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18155,13 +18149,13 @@
               "count": 1
             },
             {
-              "line": 381,
+              "line": 372,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 395,
+              "line": 387,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18179,13 +18173,13 @@
               "count": 1
             },
             {
-              "line": 414,
+              "line": 413,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 452,
+              "line": 420,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18197,25 +18191,31 @@
               "count": 1
             },
             {
-              "line": 468,
+              "line": 464,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 481,
+              "line": 474,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 481,
+              "line": 487,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 487,
               "severity": "warning",
               "category": "unmapped",
               "count": 18
             },
             {
-              "line": 487,
+              "line": 493,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
