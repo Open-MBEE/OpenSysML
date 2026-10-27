@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -476,6 +477,42 @@ func TestRunDocumentQueryRequiresCapability(t *testing.T) {
 	})
 	if connect.CodeOf(err) != connect.CodeUnimplemented {
 		t.Errorf("code = %v, want Unimplemented", connect.CodeOf(err))
+	}
+}
+
+// A query that names no element fails the call with the QVTS record as a
+// QueryOutcome detail, so a client reads the frontier and not just the message.
+func TestRunDocumentQueryAttachesTheOutcomeDetail(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParse(t, srv, `package Observatory {
+	private import DocumentQueries::*;
+	part telescope;
+	calc def Misspelled :> Query { Named(qualifiedName = "Observatory::telescop") }
+}`)
+	_, err := srv.RunDocumentQuery(context.Background(), &pb.RunDocumentQueryRequest{ModelHash: hash, QueryId: "Observatory::Misspelled"})
+	var connErr *connect.Error
+	if !errors.As(err, &connErr) || connErr.Code() != connect.CodeFailedPrecondition {
+		t.Fatalf("error = %v, want FailedPrecondition", err)
+	}
+	var outcome *pb.QueryOutcome
+	for _, detail := range connErr.Details() {
+		msg, valueErr := detail.Value()
+		if valueErr != nil {
+			t.Fatal(valueErr)
+		}
+		if typed, ok := msg.(*pb.QueryOutcome); ok {
+			outcome = typed
+		}
+	}
+	if outcome == nil {
+		t.Fatalf("no QueryOutcome detail on %v", err)
+	}
+	if outcome.Kind != "pathError" || outcome.Step != "Named(Observatory::telescop)" || len(outcome.Failures) != 1 {
+		t.Fatalf("outcome = %v", outcome)
+	}
+	frontier := outcome.Failures[0].Frontier
+	if frontier.At != "Observatory" || frontier.Nearest != "telescope" || len(frontier.Members) == 0 {
+		t.Errorf("frontier = %v, want Observatory with its members and nearest telescope", frontier)
 	}
 }
 

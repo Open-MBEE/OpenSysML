@@ -2433,6 +2433,72 @@ class RunDocumentQueryResponse(_message.Message):
     rows: _containers.RepeatedCompositeFieldContainer[DocumentQueryRow]
     def __init__(self, columns: _Optional[_Iterable[_Union[DocumentQueryColumn, _Mapping]]] = ..., rows: _Optional[_Iterable[_Union[DocumentQueryRow, _Mapping]]] = ...) -> None: ...
 
+class QueryOutcome(_message.Message):
+    __slots__ = ("kind", "step", "failures", "findings", "path_failures")
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    STEP_FIELD_NUMBER: _ClassVar[int]
+    FAILURES_FIELD_NUMBER: _ClassVar[int]
+    FINDINGS_FIELD_NUMBER: _ClassVar[int]
+    PATH_FAILURES_FIELD_NUMBER: _ClassVar[int]
+    kind: str
+    step: str
+    failures: _containers.RepeatedCompositeFieldContainer[QueryFailure]
+    findings: _containers.RepeatedCompositeFieldContainer[QueryFinding]
+    path_failures: _containers.RepeatedCompositeFieldContainer[QueryFailure]
+    def __init__(self, kind: _Optional[str] = ..., step: _Optional[str] = ..., failures: _Optional[_Iterable[_Union[QueryFailure, _Mapping]]] = ..., findings: _Optional[_Iterable[_Union[QueryFinding, _Mapping]]] = ..., path_failures: _Optional[_Iterable[_Union[QueryFailure, _Mapping]]] = ...) -> None: ...
+
+class QueryFailure(_message.Message):
+    __slots__ = ("step", "expected", "frontier")
+    STEP_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_FIELD_NUMBER: _ClassVar[int]
+    FRONTIER_FIELD_NUMBER: _ClassVar[int]
+    step: str
+    expected: str
+    frontier: QueryFrontier
+    def __init__(self, step: _Optional[str] = ..., expected: _Optional[str] = ..., frontier: _Optional[_Union[QueryFrontier, _Mapping]] = ...) -> None: ...
+
+class QueryFrontier(_message.Message):
+    __slots__ = ("at", "members", "features", "kinds", "nearest")
+    AT_FIELD_NUMBER: _ClassVar[int]
+    MEMBERS_FIELD_NUMBER: _ClassVar[int]
+    FEATURES_FIELD_NUMBER: _ClassVar[int]
+    KINDS_FIELD_NUMBER: _ClassVar[int]
+    NEAREST_FIELD_NUMBER: _ClassVar[int]
+    at: str
+    members: _containers.RepeatedCompositeFieldContainer[QueryFrontierMember]
+    features: _containers.RepeatedCompositeFieldContainer[QueryFrontierFeature]
+    kinds: _containers.RepeatedScalarFieldContainer[str]
+    nearest: str
+    def __init__(self, at: _Optional[str] = ..., members: _Optional[_Iterable[_Union[QueryFrontierMember, _Mapping]]] = ..., features: _Optional[_Iterable[_Union[QueryFrontierFeature, _Mapping]]] = ..., kinds: _Optional[_Iterable[str]] = ..., nearest: _Optional[str] = ...) -> None: ...
+
+class QueryFrontierMember(_message.Message):
+    __slots__ = ("name", "metaclass")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    METACLASS_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    metaclass: str
+    def __init__(self, name: _Optional[str] = ..., metaclass: _Optional[str] = ...) -> None: ...
+
+class QueryFrontierFeature(_message.Message):
+    __slots__ = ("name", "type")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    type: str
+    def __init__(self, name: _Optional[str] = ..., type: _Optional[str] = ...) -> None: ...
+
+class QueryFinding(_message.Message):
+    __slots__ = ("step", "element", "constraint", "observed")
+    STEP_FIELD_NUMBER: _ClassVar[int]
+    ELEMENT_FIELD_NUMBER: _ClassVar[int]
+    CONSTRAINT_FIELD_NUMBER: _ClassVar[int]
+    OBSERVED_FIELD_NUMBER: _ClassVar[int]
+    step: str
+    element: str
+    constraint: str
+    observed: str
+    def __init__(self, step: _Optional[str] = ..., element: _Optional[str] = ..., constraint: _Optional[str] = ..., observed: _Optional[str] = ...) -> None: ...
+
 class RenderDocumentRequest(_message.Message):
     __slots__ = ("model_hash", "document_id", "form")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]

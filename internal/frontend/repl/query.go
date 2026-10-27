@@ -3,6 +3,7 @@ package repl
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
@@ -65,6 +66,9 @@ type Verdict struct {
 	// order, and Exploration how it ended; only an explored run has them.
 	Outcomes    []VerdictOutcome
 	Exploration *VerdictExploration
+	// Outcome is the QVTS record behind a document query that could not be run
+	// (queryexec.Outcome); nil for every other verdict.
+	Outcome *queryexec.Outcome
 	// Plan is how the engines answered: the selection made, each engine put to
 	// the question and what it answered, and the composed result whose standing
 	// the last line reports. Nil for a verdict decided before any engine was asked.

@@ -2880,6 +2880,56 @@ message RunDocumentQueryResponse {
   repeated DocumentQueryRow rows = 2;
 }
 
+// QueryOutcome is the record behind a document query that could not be run,
+// attached to the failed call as an error detail: a `pathError` (the query is
+// wrong about this model) or a `modelError` (the model violates a constraint
+// the query relied on), located at the step it arose in. The same record the
+// CLI's -json report writes as checks[].outcome.
+message QueryOutcome {
+  string kind = 1;    // "pathError" or "modelError"
+  string step = 2;    // the step the outcome is reported at, as "Named(Observatory::x)"
+  repeated QueryFailure failures = 3;        // a pathError's failures, one per failing element
+  repeated QueryFinding findings = 4;        // a modelError's findings
+  repeated QueryFailure path_failures = 5;   // a modelError's path failures from the same fan-out
+}
+
+// QueryFailure is one failure of one step on one element: what the step
+// expected, and what the model holds where the path stopped resolving.
+message QueryFailure {
+  string step = 1;
+  string expected = 2;
+  QueryFrontier frontier = 3;
+}
+
+// QueryFrontier is what the model holds where the path stopped: the last
+// element that resolved and what it offers in place of what was asked.
+message QueryFrontier {
+  string at = 1;                               // empty when nothing on the path resolved
+  repeated QueryFrontierMember members = 2;    // its members, when a name was expected
+  repeated QueryFrontierFeature features = 3;  // its features, when a feature was expected
+  repeated string kinds = 4;                   // the relationship kinds there are, when a kind was expected
+  string nearest = 5;                          // the closest spelling, when a name was expected
+}
+
+message QueryFrontierMember {
+  string name = 1;
+  string metaclass = 2;
+}
+
+message QueryFrontierFeature {
+  string name = 1;
+  string type = 2;  // empty for an untyped feature
+}
+
+// QueryFinding is one finding about an element at a step: a constraint the
+// model violates (ambiguousName, multiplicity, typing, unit) and what was observed.
+message QueryFinding {
+  string step = 1;
+  string element = 2;
+  string constraint = 3;
+  string observed = 4;
+}
+
 // RenderDocumentRequest renders a named document — a part def specializing
 // DocumentQueries::Document — to Markdown or HTML. A document binds its
 // queries' parameters in the model, so the request carries none.

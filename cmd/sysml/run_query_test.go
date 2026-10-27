@@ -195,6 +195,53 @@ func TestRunQueryDerivedValues(t *testing.T) {
 		"liftoffMass = 4570000 [kg]")
 }
 
+// TestRunQueryJSONOutcome checks that a query that could not be run reports the
+// QVTS record behind its error as checks[].outcome, in the shape qvts records.
+func TestRunQueryJSONOutcome(t *testing.T) {
+	binary := buildCLI(t)
+	model := `package Observatory {
+	private import DocumentQueries::*;
+	part telescope;
+	calc def Misspelled :> Query { Named(qualifiedName = "Observatory::telescop") }
+}`
+	got := check(t, binary, model, "-run-query", "Misspelled", "-json")
+	var report struct {
+		Checks []struct {
+			Status  string   `json:"status"`
+			Lines   []string `json:"lines"`
+			Outcome struct {
+				Outcome  string `json:"outcome"`
+				Step     string `json:"step"`
+				Failures []struct {
+					Expected string `json:"expected"`
+					Frontier struct {
+						At      string     `json:"at"`
+						Members [][]string `json:"members"`
+						Nearest string     `json:"nearest"`
+					} `json:"frontier"`
+				} `json:"failures"`
+			} `json:"outcome"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.stdout)
+	}
+	if len(report.Checks) != 1 || report.Checks[0].Status != "unresolved" {
+		t.Fatalf("checks = %+v, want one unresolved", report.Checks)
+	}
+	outcome := report.Checks[0].Outcome
+	if outcome.Outcome != "pathError" || outcome.Step != "Named(Observatory::telescop)" || len(outcome.Failures) != 1 {
+		t.Fatalf("outcome = %+v", outcome)
+	}
+	frontier := outcome.Failures[0].Frontier
+	if frontier.At != "Observatory" || frontier.Nearest != "telescope" || len(frontier.Members) == 0 || len(frontier.Members[0]) != 2 {
+		t.Errorf("frontier = %+v, want Observatory, its members as [name, metaclass] pairs, nearest telescope", frontier)
+	}
+	if lines := report.Checks[0].Lines; len(lines) < 2 || !strings.HasPrefix(lines[1], "  path error at Named(") {
+		t.Errorf("lines = %q, want the record under the error line", lines)
+	}
+}
+
 // TestRunQueryJSON checks that a query's verdict is reported as data a build
 // step reads: its row count and projected columns as named values.
 func TestRunQueryJSON(t *testing.T) {
