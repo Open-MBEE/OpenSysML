@@ -232,19 +232,19 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 **Scorecard:** 932 files; 92390 elements matched (18479 ours-only, 37732 pilot-only, 0 of them implied); properties: 1120468 present-equal, 27446 present-different, 1072941 ours-missing, 68184 pilot-missing, 1971011 absent-both, 26127 indeterminate, 514 pilot-nondeterministic.
 
-The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 28 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11728 (metaclass, property) rows carry a comparison; 111949 references compared through the unkeyed sentinel, 159941 of our `sysx:` annotations were left out, and 287/347 elements (ours/pilot) were dropped for ambiguous keys, 17040/32159 for having none.
+The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 28 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11728 (metaclass, property) rows carry a comparison; 111663 references compared through the unkeyed sentinel, 159847 of our `sysx:` annotations were left out, and 287/347 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 7391 | 1150 | 2775 | 90295 | 1842 | 86649 | 5126 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 26536 | 6150 | 9580 | 327975 | 7668 | 312072 | 19290 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 9377 | 1882 | 3222 | 114006 | 3162 | 108845 | 6811 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 6399 | 1166 | 1842 | 73725 | 2504 | 63927 | 5784 |
-| `examples/spec-examples` | 511 | 7074 | 990 | 2656 | 76404 | 1567 | 74074 | 5295 |
+| `examples/sysml-v2-training` | 100 | 7391 | 1150 | 2775 | 90295 | 1842 | 86610 | 5126 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 26536 | 6150 | 9580 | 327975 | 7668 | 311994 | 19290 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 9377 | 1882 | 3222 | 114006 | 3162 | 108820 | 6811 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6399 | 1166 | 1842 | 73725 | 2504 | 63918 | 5784 |
+| `examples/spec-examples` | 511 | 7074 | 990 | 2656 | 76404 | 1567 | 74068 | 5295 |
 | `tests/testdata` | 40 | 1460 | 175 | 511 | 16445 | 428 | 15857 | 1042 |
-| `examples` | 52 | 26974 | 6046 | 15072 | 333478 | 8320 | 322907 | 20056 |
+| `examples` | 53 | 26909 | 6046 | 15038 | 332359 | 8269 | 321731 | 19983 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 555 | 1 | 454 | 41 |
-| `docs/manual/examples` | 11 | 7191 | 920 | 2108 | 88704 | 2005 | 89511 | 4812 |
+| `docs/manual/examples` | 11 | 7191 | 920 | 2108 | 88704 | 2005 | 89489 | 4812 |
 
 The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's seven counts.
 
