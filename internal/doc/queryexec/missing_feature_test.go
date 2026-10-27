@@ -116,3 +116,30 @@ calc def Runs :> Query {
 		t.Fatalf("frontier features = %+v", failure.Frontier.Features)
 	}
 }
+
+// TestExecuteMissingFeatureSuggestsTheNearestFeatures: the suggestion after the
+// feature list ranks by edit distance from the missing segment, not list order.
+func TestExecuteMissingFeatureSuggestsTheNearestFeatures(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+part root {
+	part a { attribute runs = 3; }
+	part b { attribute count = 1; attribute runa = 2; attribute runb = 2; attribute runz = 2; }
+}
+calc def Runs :> Query {
+	in source : Element;
+	Project(source = OwnedElements(source = source), properties = ("runs"))
+}
+`)
+	bindings := Bindings{"source": {ElementValue(fixture.symbol(t, "root"))}}
+	_, err := fixture.execute(t, "Runs", bindings, Options{})
+	var executionError *Error
+	if !errors.As(err, &executionError) || executionError.Kind != ErrorMissingFeature {
+		t.Fatalf("error = %v, want missing-feature", err)
+	}
+	if msg := executionError.Error(); !strings.HasSuffix(msg, "its features are count, runa, runb, runz — did you mean runa, runb or runz?") {
+		t.Fatalf("message = %q, want the nearest features offered", msg)
+	}
+	if nearest := executionError.Outcome.Path.Failures[0].Frontier.Nearest; nearest != "runa" {
+		t.Fatalf("nearest = %q, want runa", nearest)
+	}
+}

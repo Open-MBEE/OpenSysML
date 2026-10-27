@@ -160,7 +160,8 @@ func (e *Error) missingFeatureMessage() string {
 	if len(e.Candidates) <= 3 {
 		return msg
 	}
-	return suggest.With(msg, e.missingSegment(), e.Candidates)
+	segment := e.missingSegment()
+	return suggest.With(msg, segment, suggest.Nearest(segment, e.Candidates))
 }
 
 // missingSegment is the segment the record says names nothing: the failed step's

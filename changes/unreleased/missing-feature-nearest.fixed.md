@@ -1,0 +1,1 @@
+- The `missing-feature` error's "did you mean" offers the features nearest to the missing segment by edit distance; it listed the first three alphabetically, so an element with four or more features could be told to try a name unlike the one the query spelt.
