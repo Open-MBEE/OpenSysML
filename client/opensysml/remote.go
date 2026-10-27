@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"os"
 	"strings"
 
 	"connectrpc.com/connect"
@@ -17,6 +18,18 @@ type DialOption func(*dialOptions)
 type dialOptions struct {
 	httpClient *http.Client
 	json       bool
+	token      string
+}
+
+// TokenEnv is the environment variable Dial reads a bearer token from when
+// WithToken names none; the Python, Node, Java and Rust clients read the same.
+const TokenEnv = "OPENSYSML_GRPC_TOKEN"
+
+// WithToken sends the bearer token a sysml-grpc serving an address other
+// machines reach requires, as Authorization: Bearer TOKEN on every call.
+// Without it Dial uses $OPENSYSML_GRPC_TOKEN when that is set.
+func WithToken(token string) DialOption {
+	return func(o *dialOptions) { o.token = token }
 }
 
 // WithHTTPClient names the HTTP client the connection uses, for callers with
@@ -59,9 +72,37 @@ func Dial(address string, opts ...DialOption) (Client, error) {
 	if config.json {
 		connectOpts = append(connectOpts, connect.WithProtoJSON())
 	}
+	if config.token == "" {
+		config.token = os.Getenv(TokenEnv)
+	}
+	if config.token != "" {
+		connectOpts = append(connectOpts, connect.WithInterceptors(bearer(config.token)))
+	}
 	return &client{caller: &remote{
 		rpc: protoconnect.NewSysMLServiceClient(config.httpClient, address, connectOpts...),
 	}}, nil
+}
+
+// bearer carries the token on every request a connection sends.
+type bearer string
+
+func (b bearer) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+		req.Header().Set("Authorization", "Bearer "+string(b))
+		return next(ctx, req)
+	}
+}
+
+func (b bearer) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
+		conn := next(ctx, spec)
+		conn.RequestHeader().Set("Authorization", "Bearer "+string(b))
+		return conn
+	}
+}
+
+func (b bearer) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return next
 }
 
 // remote answers through a Connect client. Errors cross as StatusError with

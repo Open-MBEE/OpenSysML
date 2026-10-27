@@ -1,5 +1,8 @@
 function conn = external(address, varargin)
 %EXTERNAL Connect to a service somebody else runs; close does not stop it.
+%   A service on an address other machines reach requires a bearer token, sent
+%   as Authorization: Bearer on every call: the 'token' option, or
+%   $OPENSYSML_GRPC_TOKEN when none is given.
 
     conn = opensysml.Connection();
     a = strtrim(char(address));
@@ -17,10 +20,15 @@ function conn = external(address, varargin)
                 conn.expectedVersion = char(varargin{i+1});
             case 'capabilities'
                 conn.expectedCapabilities = asCellstr(varargin{i+1});
+            case 'token'
+                conn.token = char(varargin{i+1});
             otherwise
                 opensysml.internal.raise('opensysml:argument', ...
                     sprintf('unknown external option: %s', char(varargin{i})));
         end
+    end
+    if isempty(conn.token)
+        conn.token = getenv('OPENSYSML_GRPC_TOKEN');
     end
     if ~isempty(conn.expectedVersion) || ~isempty(conn.expectedCapabilities)
         try

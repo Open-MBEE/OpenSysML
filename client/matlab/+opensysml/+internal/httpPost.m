@@ -1,19 +1,28 @@
-function [status, contentType, bodyText] = httpPost(url, requestJsonText, timeoutSec)
+function [status, contentType, bodyText] = httpPost(url, requestJsonText, timeoutSec, token)
 %POST one Connect-JSON call and return the raw answer pieces.
 %   MATLAB uses matlab.net.http; where that is absent (GNU Octave) curl answers instead.
+%   A non-empty token is sent as Authorization: Bearer TOKEN.
 
+    if nargin < 4, token = ''; end
+    token = char(token);
+    if ~isempty(token) && isempty(regexp(token, '^[A-Za-z0-9._~+/-]+=*$', 'once'))
+        opensysml.internal.raise('opensysml:transport', ...
+            'the bearer token is not RFC 6750 token syntax (letters, digits, -._~+/ and trailing =)');
+    end
     if exist('matlab.net.http.RequestMessage', 'class')
-        [status, contentType, bodyText] = post_matlab(url, requestJsonText, timeoutSec);
+        [status, contentType, bodyText] = post_matlab(url, requestJsonText, timeoutSec, token);
     else
-        [status, contentType, bodyText] = post_curl(url, requestJsonText, timeoutSec);
+        [status, contentType, bodyText] = post_curl(url, requestJsonText, timeoutSec, token);
     end
 end
 
-function [status, contentType, bodyText] = post_matlab(url, requestJsonText, timeoutSec)
+function [status, contentType, bodyText] = post_matlab(url, requestJsonText, timeoutSec, token)
     import matlab.net.http.*
-    req = RequestMessage('POST', ...
-        HeaderField('Content-Type', 'application/json'), ...
-        MessageBody(requestJsonText));
+    headers = HeaderField('Content-Type', 'application/json');
+    if ~isempty(token)
+        headers = [headers HeaderField('Authorization', ['Bearer ' token])];
+    end
+    req = RequestMessage('POST', headers, MessageBody(requestJsonText));
     try
         resp = req.send(url, HTTPOptions('ConvertResponse', false, 'ConnectTimeout', timeoutSec, ...
                                         'ResponseTimeout', timeoutSec));
@@ -37,9 +46,13 @@ function [status, contentType, bodyText] = post_matlab(url, requestJsonText, tim
     bodyText = char(resp.Body.Data);
 end
 
-function [status, contentType, bodyText] = post_curl(url, requestJsonText, timeoutSec)
+function [status, contentType, bodyText] = post_curl(url, requestJsonText, timeoutSec, token)
     if isempty(regexp(url, '^https?://[A-Za-z0-9._~%:\[\]\-]+(/[A-Za-z0-9._~%\-/]*)?$', 'once'))
         error('opensysml:transport', 'refusing to send to an address with shell metacharacters: %s', url);
+    end
+    authorization = '';
+    if ~isempty(token)
+        authorization = sprintf('-H "Authorization: Bearer %s" ', token);
     end
     % curl writes status and content type after the marker, on lines of their own.
     marker = sprintf('\n__OPENSYSML_STATUS__\n');
@@ -52,9 +65,9 @@ function [status, contentType, bodyText] = post_curl(url, requestJsonText, timeo
     fclose(fid);
     cleanup = onCleanup(@() delete(bodyFile));
     timeoutSec = max(double(timeoutSec), 0.001);
-    cmd = sprintf(['curl -sS --max-time %.3f -X POST -H "Content-Type: application/json" ' ...
+    cmd = sprintf(['curl -sS --max-time %.3f -X POST -H "Content-Type: application/json" %s' ...
                    '--data-binary @''%s'' -w "%s%%{http_code}\n%%{content_type}" ''%s'''], ...
-                  timeoutSec, bodyFile, marker, url);
+                  timeoutSec, authorization, bodyFile, marker, url);
     [rc, out] = system(cmd);
     if rc ~= 0
         idx = strfind(out, marker);
