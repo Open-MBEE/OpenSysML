@@ -30,8 +30,7 @@ func TestGRPCToolCalcHonoursACancelledRequest(t *testing.T) {
 		t.Fatalf("read model: %v", err)
 	}
 	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: string(modelData)},
-		ContentHash: "toolcalc-cancel",
+		Source: &pb.ParseFileRequest_Content{Content: string(modelData)},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)
