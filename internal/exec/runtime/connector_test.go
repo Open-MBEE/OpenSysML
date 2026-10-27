@@ -1364,3 +1364,26 @@ func TestConnector_CarriedCollectionKeepsEveryIdentity(t *testing.T) {
 		t.Errorf("after the carry-over child = %v, want %v back", got, childBefore)
 	}
 }
+
+// An optional connector usage whose value was written holds what was written: the
+// collection it subsets makes up its lower bound with connectors of its own.
+func TestConnector_CollectionLeavesAWrittenOptionalSubsetter(t *testing.T) {
+	inst, ctx := instantiatePart(t, "Sys", connectorSubsetterSrc)
+	if err := inst.SetFeatureValue(ctx, "opt", emptySequence()); err != nil {
+		t.Fatalf("SetFeatureValue opt: %v", err)
+	}
+	links, err := inst.GetFeatureValue(ctx, "links")
+	if err != nil {
+		t.Fatalf("links: %v", err)
+	}
+	if got := links.Values.Sequence().Elements(); len(got) != 2 {
+		t.Errorf("links = %v, want two connectors of its own", got)
+	}
+	opt, err := inst.GetFeatureValue(ctx, "opt")
+	if err != nil {
+		t.Fatalf("opt: %v", err)
+	}
+	if got, err := ctx.HeldElements(opt.HeldValue()); err != nil || len(got) != 0 {
+		t.Errorf("opt = %v, %v; want the written empty value kept", got, err)
+	}
+}

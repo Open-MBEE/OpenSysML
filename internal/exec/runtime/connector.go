@@ -161,8 +161,9 @@ func (ctx *Context) connectorFillsFromSubsetted(feat *EffectiveFeature) bool {
 }
 
 // fillOptionalConnectorSubsetters gives the optional connector usages subsetting the collection
-// `name` up to n of the connectors it is short of, each attached by the subsetter's own clause and
-// taking back the identity the subsetter kept; undo puts the subsetters' values back.
+// `name` that state no value of their own and were not written up to n of the connectors it is short
+// of, each attached by the subsetter's own clause and taking back the identity the subsetter kept;
+// undo puts the subsetters' values back.
 func (ctx *Context) fillOptionalConnectorSubsetters(owner *Instance, name string, n int) (made []*Instance, undo func(), err error) {
 	type filled struct {
 		fv     *FeatureValue
@@ -183,7 +184,7 @@ func (ctx *Context) fillOptionalConnectorSubsetters(owner *Instance, name string
 			continue
 		}
 		fv, ok := owner.FeatureValues[feat.Name]
-		if !ok {
+		if !ok || fv.Written || fv.BindingDerived || ctx.valueBinds(&feat) {
 			continue
 		}
 		spare := n
