@@ -51,7 +51,7 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	w := &plantumlWriter{kind: r.Kind, borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},
 		labels: labelsOf(r.Roots, false, nil, r.Shown), ports: r.portView(options.Ports), links: options.Links,
 		writtenPorts: make(map[string]struct{}), nesting: r.nestingEdges()}
-	w.labels.listedPin = r.unconnectedPin(nil)
+	w.labels.listedPin = r.listedPin(func(node *Node, port Port) bool { return r.Kind == KindMixed && drawsPort(w.ports.of(node), port) })
 	for _, root := range r.Roots {
 		w.fills.collect(root)
 	}
@@ -76,7 +76,7 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 		notices = append(notices, w.mixedContainmentNotices(r.Roots)...)
 	}
 	if r.Kind == KindAction {
-		if pins := r.undrawnPins(func(_ *Node, port Port) bool { return port.Parameter }); len(pins) > 0 {
+		if pins := r.undrawnPins(w.labels.lists); len(pins) > 0 {
 			notices = append(notices, fmt.Sprintf("%d pin(s) not drawn (%s); PlantUML's state grammar has no pin, so the edges name them",
 				len(pins), strings.Join(pins, ", ")))
 		}

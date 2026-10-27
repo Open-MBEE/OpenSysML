@@ -112,3 +112,26 @@ func TestMixedRenderingKeepsNestedCalcsUnderTheirOwner(t *testing.T) {
 		t.Errorf("default text does not name the nested calc under its owner:\n%s", plain)
 	}
 }
+
+// A rendering showing no compartments lists no parameters compartment either:
+// the pins a form does not draw go back to the not-drawn notice.
+func TestHiddenCompartmentsListNoParameters(t *testing.T) {
+	rendering := renderSource(t, "Bare::flow", `package Model {
+	private import ScalarValues::*;
+	calc add { in x : Integer; in y : Integer; return : Integer; x + y }
+}
+package Bare {
+	private import StandardViewDefinitions::*;
+	rendering bare :> Views::asInterconnectionDiagram {
+		attribute showCompartments : ScalarValues::Boolean default = false;
+	}
+	view flow : ActionFlowView { expose Model::add; render bare; }
+}`)
+	mermaid := rendering.Mermaid()
+	if strings.Contains(mermaid, "parameters") {
+		t.Errorf("Mermaid lists a parameters compartment the rendering hides:\n%s", mermaid)
+	}
+	if !strings.Contains(mermaid, "pin(s) not drawn") || !strings.Contains(mermaid, "add.result") {
+		t.Errorf("Mermaid does not notice the pins it neither draws nor lists:\n%s", mermaid)
+	}
+}

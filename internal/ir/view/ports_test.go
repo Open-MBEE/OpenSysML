@@ -326,6 +326,9 @@ func TestMixedActionPinsKeepTheirFormBehavior(t *testing.T) {
 	if open < 0 || closeAt < 0 || !strings.Contains(plantUMLMinimal[start+open+1:start+open+1+closeAt], "port \"request\" as "+request.ID) {
 		t.Errorf("minimal PlantUML does not write request inside Check's container:\n%s", plantUMLMinimal)
 	}
+	if strings.Contains(plantUMLMinimal, "parameters") {
+		t.Errorf("minimal PlantUML lists the action pin it writes as a port:\n%s", plantUMLMinimal)
+	}
 	if !strings.Contains(textMinimal, "in request") {
 		t.Errorf("minimal text does not use the action pin direction:\n%s", textMinimal)
 	}
