@@ -17,8 +17,7 @@ func instantiate(t *testing.T, content, hash, symbolID string) *pb.InstantiateRe
 	srv := mustNewService(t, 10)
 
 	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: hash,
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)

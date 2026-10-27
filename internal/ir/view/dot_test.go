@@ -56,6 +56,8 @@ func TestGoldenDOT(t *testing.T) {
 		{"glyphs-definition", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::definitionGlyphs", KindDefinition, false},
 		{"glyphs-package", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::packageGlyphs", KindPackage, false},
 		{"glyphs-tree", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::treeGlyphs", KindTree, false},
+		{"calc-parameters", "calc-parameters.sysml", "ParameterCalcViews::calculations", KindTree, false},
+		{"calc-parameter-definitions", "calc-parameters.sysml", "ParameterCalcViews::definitions", KindTree, false},
 		{"glyphs-interconnection", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::lineGlyphs", KindInterconnection, false},
 		{"glyphs-action", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::fillGlyphs", KindAction, false},
 		{"glyphs-mixed", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::mixedGlyphs", KindMixed, false},

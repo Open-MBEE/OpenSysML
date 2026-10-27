@@ -20,6 +20,14 @@ calc def Dangling :> Query { Named(qualifiedName = "Observatory::Broken::x") }
 package Kinds { part a; part def a; }
 calc def TwoKinds :> Query { Named(qualifiedName = "Observatory::Kinds::missing") }
 calc def RootMiss :> Query { Named(qualifiedName = "Observatry") }
+calc def Partial :> Query { Named(qualifiedName = "Duplicates::a") }
+calc def Spread :> Query { Named(qualifiedName = "a") }
+package Targets { part t1; part t2; }
+package Choices { alias Pick for Targets::t1; alias Pick for Targets::t2; }
+calc def Aliased :> Query { Named(qualifiedName = "Observatory::Choices::Pick") }
+package A { alias Pick for Targets::t1; }
+package B { alias Pick for Targets::t1; alias Pick for Targets::t2; }
+calc def Shared :> Query { Named(qualifiedName = "Pick") }
 `)
 	outcome := func(query string) Outcome {
 		t.Helper()
@@ -67,8 +75,28 @@ calc def RootMiss :> Query { Named(qualifiedName = "Observatry") }
 		t.Fatalf("Twice: outcome = %+v, want one finding", twice)
 	}
 	finding := twice.Model.Findings[0]
-	if finding.Constraint != ConstraintAmbiguousName || finding.Element != "Observatory::Duplicates::a" || finding.Observed != "Observatory::Duplicates::a (declared 2 times)" {
+	if finding.Constraint != ConstraintAmbiguousName || finding.Element != "Observatory::Duplicates" || finding.Observed != "Observatory::Duplicates::a (declared 2 times)" {
 		t.Errorf("Twice: finding = %+v", finding)
+	}
+	if partial := outcome("Partial"); len(partial.Model.Findings) != 1 || partial.Model.Findings[0].Element != "Observatory::Duplicates" {
+		t.Errorf("Partial: findings = %+v, want the owner of the resolved candidates, not a slice of the partial name", partial.Model.Findings)
+	}
+	spread := outcome("Spread")
+	if len(spread.Model.Findings) != 2 || spread.Model.Findings[0].Element != "Observatory::Duplicates" || spread.Model.Findings[1].Element != "Observatory::Kinds" ||
+		spread.Model.Findings[0].Observed != "Observatory::Duplicates::a (declared 2 times)" || spread.Model.Findings[1].Observed != "Observatory::Kinds::a (declared 2 times)" {
+		t.Errorf("Spread: findings = %+v, want one per owning namespace", spread.Model.Findings)
+	}
+	if aliased := outcome("Aliased"); len(aliased.Model.Findings) != 1 || aliased.Model.Findings[0].Element != "Observatory::Choices" ||
+		aliased.Model.Findings[0].Observed != "Observatory::Targets::t1, Observatory::Targets::t2" {
+		t.Errorf("Aliased: findings = %+v, want the namespace declaring both aliases, listing their targets", aliased.Model.Findings)
+	}
+	shared := outcome("Shared")
+	var owners []string
+	for _, f := range shared.Model.Findings {
+		owners = append(owners, f.Element+"="+f.Observed)
+	}
+	if got := strings.Join(owners, ";"); !strings.Contains(got, "Observatory::A=Observatory::Targets::t1;") || !strings.Contains(got, "Observatory::B=Observatory::Targets::t1, Observatory::Targets::t2") {
+		t.Errorf("Shared: findings = %s, want B's two aliases both listed", got)
 	}
 	encoded, _ = json.Marshal(twice)
 	if !strings.Contains(string(encoded), `"outcome":"modelError"`) || !strings.Contains(string(encoded), `"pathFailures":[]`) {

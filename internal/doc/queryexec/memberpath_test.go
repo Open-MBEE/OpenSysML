@@ -251,7 +251,8 @@ calc def Runs :> Query {
 	in root : Element;
 	Project(
 		source = Descendants(source = root, maxDepth = 1),
-		properties = ("name", "stat.runs")
+		properties = ("name", "stat.runs"),
+		tolerate = true
 	)
 }`)
 	result := memberPathRows(t, fixture, "Runs")

@@ -68,8 +68,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 52,
-        "digest": "sha256:cd33a6f84a9998e255f6dc8d1b2cb374dce50e930e015f67f990303c8157558a"
+        "files": 53,
+        "digest": "sha256:bdb2697affc4ba131d52ed104b24d0aa0419e7cc261942d584472876b0d249b8"
       },
       {
         "name": "probes",
@@ -83,20 +83,20 @@
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
         "files": 16,
-        "digest": "sha256:82e35230165a3d95d831330f21c3290cca8b9519f5b494d341e0a866a0e373a5"
+        "digest": "sha256:ac6a1e3b3376227415fa16aec5bf1918312a69cad0d8d63b6adcda799a44c9b3"
       }
     ],
-    "recorded": "2026-10-26"
+    "recorded": "2026-10-27"
   },
   "totals": {
-    "files": 920,
+    "files": 921,
     "filesFullyAgreeing": 518,
     "agreement": 1098,
     "severityMismatch": 11,
-    "openSysMLOnly": 359,
-    "pilotOnly": 2461,
-    "openSysMLDiagnostics": 1468,
-    "pilotDiagnostics": 3570
+    "openSysMLOnly": 360,
+    "pilotOnly": 2462,
+    "openSysMLDiagnostics": 1469,
+    "pilotDiagnostics": 3571
   },
   "roots": [
     {
@@ -17881,14 +17881,14 @@
       "name": "examples",
       "dir": "examples",
       "totals": {
-        "files": 52,
+        "files": 53,
         "filesFullyAgreeing": 45,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 8,
-        "pilotOnly": 64,
-        "openSysMLDiagnostics": 8,
-        "pilotDiagnostics": 64
+        "openSysMLOnly": 9,
+        "pilotOnly": 65,
+        "openSysMLDiagnostics": 9,
+        "pilotDiagnostics": 65
       },
       "files": [
         {
@@ -17898,7 +17898,7 @@
           "openSysMLOnly": [],
           "pilotOnly": [
             {
-              "line": 542,
+              "line": 543,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18023,157 +18023,130 @@
           "pilotOnly": []
         },
         {
+          "path": "self-model/asciidoc/markup.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [
+            {
+              "line": 16,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            }
+          ],
+          "pilotOnly": [
+            {
+              "line": 40,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            }
+          ]
+        },
+        {
           "path": "self-model/document.sysml",
           "agreement": [],
           "severityMismatch": [],
           "openSysMLOnly": [],
           "pilotOnly": [
             {
-              "line": 187,
+              "line": 197,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 193,
+              "line": 203,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 208,
+              "line": 225,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 222,
+              "line": 245,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 228,
+              "line": 251,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 239,
+              "line": 268,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 246,
+              "line": 275,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 256,
+              "line": 296,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 262,
+              "line": 302,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 267,
+              "line": 307,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 277,
+              "line": 325,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 283,
+              "line": 331,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 297,
+              "line": 352,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 303,
+              "line": 358,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 314,
+              "line": 374,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 324,
+              "line": 390,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 334,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 340,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 346,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 360,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 366,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 381,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 395,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 401,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 407,
+              "line": 408,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18185,37 +18158,85 @@
               "count": 1
             },
             {
-              "line": 452,
+              "line": 420,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 458,
+              "line": 445,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 468,
+              "line": 451,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 481,
+              "line": 476,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 481,
+              "line": 498,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 504,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 510,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 517,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 559,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 565,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 579,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 593,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 593,
               "severity": "warning",
               "category": "unmapped",
               "count": 18
             },
             {
-              "line": 487,
+              "line": 599,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -25451,14 +25472,14 @@
       }
     ],
     "totals": {
-      "files": 920,
+      "files": 921,
       "filesFullyAgreeing": 519,
       "agreement": 1098,
       "severityMismatch": 11,
-      "openSysMLOnly": 358,
-      "pilotOnly": 2461,
-      "openSysMLDiagnostics": 1467,
-      "pilotDiagnostics": 3570
+      "openSysMLOnly": 359,
+      "pilotOnly": 2462,
+      "openSysMLDiagnostics": 1468,
+      "pilotDiagnostics": 3571
     },
     "findings": [
       {

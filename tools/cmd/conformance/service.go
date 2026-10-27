@@ -234,7 +234,7 @@ func startServiceWithCapabilities(ctx context.Context, binary, logPath string, c
 		close(svc.exited)
 	}()
 	target := fmt.Sprintf("localhost:%d", port)
-	conn, err := grpc.Dial(target, grpc.WithTransportCredentials(insecure.NewCredentials())) //nolint:staticcheck // grpc.NewClient postdates the pinned grpc version
+	conn, err := grpc.NewClient(target, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		svc.stop()
 		return nil, err

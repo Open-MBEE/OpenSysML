@@ -29,8 +29,11 @@ const (
 	ErrorUnknownElement        ErrorKind = "unknown-element"
 	// ErrorAmbiguousElement: Named was given a name several elements carry — a
 	// finding about the model, where ErrorUnknownElement is one about the query.
-	ErrorAmbiguousElement      ErrorKind = "ambiguous-element"
-	ErrorUnknownRelationship   ErrorKind = "unknown-relationship"
+	ErrorAmbiguousElement    ErrorKind = "ambiguous-element"
+	ErrorUnknownRelationship ErrorKind = "unknown-relationship"
+	// ErrorMissingFeature: Project or WhereFeature read a feature an element row
+	// lacks — a path error about that element; ErrorUnknownProperty: no row had it.
+	ErrorMissingFeature        ErrorKind = "missing-feature"
 	ErrorUnevaluableFeature    ErrorKind = "unevaluable-feature"
 	ErrorUnknownInvocation     ErrorKind = "unknown-invocation"
 	ErrorInvocationCycle       ErrorKind = "invocation-cycle"
@@ -98,6 +101,8 @@ type Error struct {
 	// Outcome is the QVTS record behind a path or model error (outcome.go); nil for
 	// the failures that are neither, the flat fields above being its rendering.
 	Outcome *Outcome
+	// Also names the other elements the same fan-out failed on (missing-feature).
+	Also []string
 	// Cause is the evaluator's reason an unevaluable feature could not be read.
 	Cause error
 }
@@ -141,6 +146,34 @@ func (e *Error) unknownElementMessage() string {
 		msg += fmt.Sprintf(": nothing is named %s", e.Expected)
 	}
 	return suggest.With(msg, e.Expected, e.Candidates)
+}
+
+// missingFeatureMessage names the element lacking the feature and the features
+// it does have, so the reader sees where the path left the model.
+func (e *Error) missingFeatureMessage() string {
+	msg := fmt.Sprintf("query %s reads feature %s of %s, which has no such feature", e.Query, e.Property, e.Target)
+	if e.Actual != "" {
+		msg = fmt.Sprintf("query %s reads feature %s of %s, but the path stops at %s", e.Query, e.Property, e.Target, e.Actual)
+	}
+	if len(e.Candidates) > 0 {
+		msg += ": its features are " + strings.Join(e.Candidates, ", ")
+		if len(e.Candidates) > 3 {
+			msg = suggest.With(msg, e.missingSegment(), e.Candidates)
+		}
+	}
+	if len(e.Also) > 0 {
+		msg += fmt.Sprintf(" (also absent on %s)", strings.Join(e.Also, ", "))
+	}
+	return msg
+}
+
+// missingSegment is the segment the record says names nothing: the failed step's
+// argument, so a path that repeats a name cannot misdirect the suggestion.
+func (e *Error) missingSegment() string {
+	if e.Outcome != nil && e.Outcome.Path != nil && len(e.Outcome.Path.Failures) > 0 {
+		return e.Outcome.Path.Failures[0].Step.Argument
+	}
+	return e.Property
 }
 
 // column names the projected column an error arose in, when it did in one.
@@ -188,6 +221,8 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("query %s references unknown property %s", e.Query, e.Property)
 	case ErrorUnknownClassification:
 		return fmt.Sprintf("query %s references unknown classification %s", e.Query, e.Actual)
+	case ErrorMissingFeature:
+		return e.missingFeatureMessage()
 	case ErrorUnknownElement:
 		return e.unknownElementMessage()
 	case ErrorAmbiguousElement:
