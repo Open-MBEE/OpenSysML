@@ -233,7 +233,10 @@ branch that moves the integration state onto `main`:
 4. Tag `main` as [Tagging](#tagging) describes.
 
 5. Merge the `chore/pin-vx.y.z` pull request the tag's pipeline opens against
-   `develop` (see [Pinned release digests](#pinned-release-digests)). Its
+   `develop`, and the `hotfix/pin-vx.y.z` one it opens against `main` (see
+   [Pinned release digests](#pinned-release-digests)); without the latter,
+   `main`'s next `build-test` run — and so its SonarCloud scan — fails the
+   hygiene suite until the next release. The `develop` one's
    lockfiles do not yet name the platform packages the tag just published —
    `npm install --package-lock-only` in `client/node` could not lock them before
    they existed, so every install skips them as unresolvable optional
@@ -540,14 +543,14 @@ one alongside it).
 5. **Verify the pin pull request landed.** `pin-release-digests`, the last job
    of the tag's workflow, stamps the release into `client/release-digests.json`
    from the manifest, syncs every client copy, and opens
-   `chore/pin-vx.y.z` against `develop`. Merge it (step 5 of
-   [The release branch](#the-release-branch) does so before the back-merge). A
-   missing pull request means the job failed — read its log; the token is the
+   `chore/pin-vx.y.z` against `develop` and `hotfix/pin-vx.y.z` against `main`.
+   Merge both (step 5 of [The release branch](#the-release-branch) does so
+   before the back-merge). A missing pull request means the job failed — read its log; the token is the
    usual cause, see [Pinned release digests](#pinned-release-digests) — and
    until the pin lands, `tests/hygiene` fails the next release branch rather
    than this one. `main` sits on the tagged commit, which cannot hold its own
-   pin, so the test exempts it there; the pin reaches `main` with the next
-   release.
+   pin, so the test exempts that commit; the `hotfix/pin-vx.y.z` pull request
+   is what lets every later commit on `main` pass it.
 
 6. **Let the Homebrew tap pick the release up.** The tap repository
    `Open-MBEE/homebrew-tap` updates itself: a scheduled workflow there resolves
@@ -927,17 +930,22 @@ assert the table they load pins the tag `$OPENSYSML_EXPECT_PINNED_RELEASE`
 names, which only those two jobs set, after stamping.
 
 The committed table is brought up to date by the release itself. After
-`publish-github-release`, the `pin-release-digests` job checks out `develop`,
-runs `pin_release_checksums.py --from-manifest dist/SHA256SUMS.txt` against the
-default table — the shared `client/release-digests.json`, so every client copy
-is synced in the same stamp — confirms `sync-release-digests.py --check`, and
-opens `chore/pin-vX.Y.Z` against `develop`. A client *built from the next
+`publish-github-release`, the `pin-release-digests` job checks out `develop`
+and then `main`, on each runs `pin_release_checksums.py --from-manifest
+dist/SHA256SUMS.txt` against the default table — the shared
+`client/release-digests.json`, so every client copy is synced in the same
+stamp — confirms `sync-release-digests.py --check`, and opens
+`chore/pin-vX.Y.Z` against `develop` and `hotfix/pin-vX.Y.Z` against `main`
+(only `hotfix/` branches target `main`). A client *built from the next
 revision* — a checkout, or a package of a later release asked for this one —
-then pins it too rather than reaching for the signed manifest. The job is
-idempotent: when `develop` already pins the tag it ends with nothing to open,
-the branch is rebuilt from `develop` on every run (a run repeated after a
-failure replaces the earlier branch), and an open pull request for the branch
-is reused rather than duplicated. A pin already on `develop` that disagrees with
+then pins it too rather than reaching for the signed manifest; and `main`,
+whose head is the tagged commit and so cannot carry its own pin, pins it from
+the hotfix on, which keeps its `build-test` runs — the only ones that scan
+`main` with SonarCloud — green between releases. The job is idempotent: when a
+base already pins the tag it ends with nothing to open against it, each branch
+is rebuilt from its base on every run (a run repeated after a failure replaces
+the earlier branch), and an open pull request for a branch is reused rather
+than duplicated. A pin already on `develop` that disagrees with
 the manifest fails the job, as the script refuses to replace a pin.
 
 The job pushes and opens the pull request with the token
