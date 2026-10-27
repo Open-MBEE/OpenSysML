@@ -1,8 +1,8 @@
-# OpenSysML MDK for Cameo: a Cameo Systems Modeler plugin with OpenSysML as the execution engine
+# Magic MDK: a Cameo Systems Modeler plugin with OpenSysML as the execution engine
 
 **Date:** 2026-09-20
 **Status:** Discovery and design, then built — `editors/mdk/` is the plugin (first proposed as
-`editors/cameo/`, renamed when it took the OpenSysML MDK name, now OpenSysML MDK for Cameo; §1.2)
+`editors/cameo/`, renamed when it took the OpenSysML MDK name, now Magic MDK; §1.2)
 **Scope:** the `editors/mdk/` plugin; the Java client (`client/java/opensysml-client`);
 `Migrate` (`internal/translate/xmi`, `internal/translate/migrate`); the results a
 Cameo user sees on their own elements
@@ -41,6 +41,8 @@ The two lines differ in the JDK they ship:
 | 2026x Refresh1 | Eclipse Temurin (AdoptOpenJDK) **21.0.10+7**, HotSpot, all OSs | [Java version support, 2026x Refresh1](https://docs.nomagic.com/IL/latest/java-version-support-304005280.html) |
 | 2026x | Temurin 21.0.8+9 HotSpot, all OSs | [Java version support, 2026x](https://docs.nomagic.com/IL/2026x/java-version-support-272740412.html) |
 | 2024x Refresh3 | Temurin **17.0.14** HotSpot | [Java version support for 2024x Refresh3](https://docs.nomagic.com/spaces/IL2024xR3/pages/249579845/Java+version+support+for+2024x+Refresh3) |
+| 2024x | OpenJDK **17.0.8+7** | [Java version support for 2024x](https://docs.nomagic.com/display/IL2024x/Java+version+support+for+2024x) |
+| 2022x Refresh2 and earlier | OpenJDK 11 | [Java version support for 2022x Refresh2](https://docs.nomagic.com/display/IL2022xR2/Java+version+support+for+2022x+Refresh2) |
 
 **Pin:** the plugin targets **Cameo Systems Modeler 2026x Refresh1** with its bundled
 **Eclipse Temurin 21.0.10+7 HotSpot** — the latest publicly documented release. Every OpenAPI
@@ -55,11 +57,22 @@ JDK 21 host adds nothing the client needs and removes nothing it uses. The plugi
 with `--release 17`, so the one jar loads on the pinned JDK 21 and on the JDK 17 of the minimum
 release below. It must not use JDK 21 language or library features until the minimum moves.
 
-**Minimum supported: 2024x Refresh3** (Temurin 17.0.14), the last release of the previous line.
-The v1 path (§2–§6) uses only OpenAPI classes that the 2024x Refresh3 Javadoc
-(`https://jdocs.nomagic.com/2024xRefresh3/`) also lists — each such class is named where it
-matters — so the same jar runs there; the SysML v2 path (§8) uses classes that exist only in
-2026x and is absent on 2024x Refresh3 by design (§10.1).
+**Minimum supported: 2024x** (OpenJDK 17.0.8), the first release of the previous line, so the
+whole 2024x line (2024x through 2024x Refresh3) runs the same jar. The v1 path (§2–§6) uses only
+OpenAPI classes that the 2024x Javadoc (`https://jdocs.nomagic.com/2024x/`) also lists, and
+`OpenApiFloorTest` in the plugin module enforces it: `jdeps` over the compiled plugin, every
+`com.nomagic.*` / `com.dassault_systemes.*` class it links against checked against
+`editors/mdk/compat/openapi-classes-2024x.txt`, the public class index of that release
+(`editors/mdk/scripts/refresh-openapi-index.sh` regenerates the file). The SysML v2 path (§8)
+uses classes that exist only in 2026x and is absent on 2024x by design (§10.1): its three
+classes (`v2.V2Exporter`, `v2.V2Elements`, `selection.V2Selections`) are exempt from the floor,
+checked against the 2026x Refresh1 index instead, and reached only after `PathSelector` has
+probed for the textual service, so the 2024x class loader never resolves them.
+
+**Not supported: 2022x Refresh2 and earlier.** Those releases run on OpenJDK 11, and both the
+plugin and the OpenSysML Java client are compiled with `--release 17` (records, sealed types,
+pattern matching throughout the client); the OpenAPI they use is otherwise present back to 2021x.
+Supporting that line means retargeting the Java client to `--release 11`, not a plugin change.
 
 ## 2. Plugin mechanics
 
@@ -165,7 +178,15 @@ sigstore-signed but not Apple-notarized.
 
 Plugins are distributed as a zip whose internal layout mirrors the tool's installation directory
 (`plugins/<id>/plugin.xml`, `plugins/<id>/*.jar`) plus a resource-manager descriptor at
-`data/resourcemanager/MDR_Plugin_<id>_<n>_descriptor.xml`; the Resource/Plugin Manager
+`data/resourcemanager/MDR_Plugin_<name>_<n>_descriptor.xml` — a `resourceDescriptor` whose
+numeric `id` (`91120` here) names the file and whose `installation` lists every installed file
+([Resource manager descriptor file, 2024x Refresh2](https://docs.nomagic.com/display/DEVG2024xR2/Resource+manager+descriptor+file));
+`editors/mdk/tools`' `ResourceDescriptorWriter` renders it over the staged layout at
+`prepare-package`, packing `major.minor.patch` into the integer `internal` version the manager
+orders installs by. Its `mdVersionMin` is left at the `19.0` the vendor's and third parties'
+2026x-era descriptors use: the internal version string of the 2024x line is not documented
+publicly, so the 2024x floor is enforced by `OpenApiFloorTest` and stated in `description`
+rather than declared to the Resource Manager (open, §13). The Resource/Plugin Manager
 (Help ▸ Resource/Plugin Manager) installs it from a local file, a network share or a web server,
 and "supports zip archives only"
 ([How to distribute resources, 2024x Refresh1](https://docs.nomagic.com/display/DEVG2024xR1/How+to+distribute+resources);
@@ -180,8 +201,8 @@ Resource…) that assembles the same zip. The `editors/mdk/` build produces this
 
 Every class in this section is in the 2026x Refresh1 Javadoc. `ActionsProvider`,
 `ActionsConfiguratorsManager`, `BrowserContextAMConfigurator`, `DiagramContextAMConfigurator`,
-`ProjectWindow` and `RunnableWithProgress` are also listed in the 2024x Refresh3 index
-(`https://jdocs.nomagic.com/2024xRefresh3/allclasses-index.html`), which is what the minimum
+`ProjectWindow` and `RunnableWithProgress` are also listed in the 2024x index
+(`https://jdocs.nomagic.com/2024x/allclasses-index.html`), which is what the minimum
 release of §1.1 rests on.
 
 **Context menus.** Actions live in `ActionsManager`s configured by *configurators* registered
@@ -516,7 +537,7 @@ elements (§5–§6). OpenSysML's own migration keeps that map. The vendor route
 opt-in ("Run the SysML v2 project instead") for users who have already transformed, and its
 coverage is compared with §9 in the first licensed run (§10.3).
 
-**On the minimum release, 2024x Refresh3**, no SysML v2 project type or `.sysml` import was
+**On the minimum release line, 2024x through 2024x Refresh3**, no SysML v2 project type or `.sysml` import was
 found: its version news
 ([2024x Refresh3 Version News](https://docs.nomagic.com/spaces/CSM2024xR3/pages/239796953/2024x+Refresh3+Version+News))
 announces none, and its Javadoc index lists no `com.dassault_systemes.modeler.magic.sysml.textual`
@@ -626,9 +647,9 @@ editors/mdk/
   README.md                       build, licence-free CI, model paths, distribution, the DocGen bridge
   pom.xml                         Maven reactor; Java 17; pins the OpenSysML client version
   plugin/                         the plugin — compiles with --release 17 against the 2026x Refresh1
-                                  OpenAPI, using only classes also present in 2024x Refresh3 (§1.1)
-    src/main/java/org/openmbee/opensysml/mdk/
-      OpenSysMLPlugin.java            Plugin: isSupported / init / close; the docGen facade (§14)
+                                  OpenAPI, using only classes also present in 2024x (§1.1)
+    src/main/java/org/openmbee/mdk/magic/
+      MagicMdkPlugin.java            Plugin: isSupported / init / close; the docGen facade (§14)
       actions/                        OperationActions configurator, one MDAction per Operation,
                                       CalcArguments, the DocGen stereotype installer action
       annotations/                    AnnotationPlanner / Annotations: results → validation annotations
@@ -663,8 +684,9 @@ examples are Ant/Gradle. Two source sets need OpenAPI jars on the compile classp
   installation is copied into the artifact.
 - **CI:** §10.3.
 
-The `distZip` task lays out `plugins/org.openmbee.opensysml/{plugin.xml,*.jar,bin/*}` and
-`data/resourcemanager/MDR_Plugin_org_openmbee_opensysml_<n>_descriptor.xml` and zips it; the
+The `dist` module lays out `plugins/org.openmbee.mdk.magic/{plugin.xml,*.jar,lib/*,bin/*}`,
+`plugins/org.openmbee.mdk/extensions/*.jar` and
+`data/resourcemanager/MDR_Plugin_Magic_MDK_91120_descriptor.xml` and zips it; the
 nightly attaches it beside the `.vsix` with the same `<version>-nightly-<date>-<commit>` scheme.
 
 ### 10.3 Compiling without a licence
@@ -794,7 +816,7 @@ The implementation under `editors/mdk/` follows §10 with these deviations:
   `dist`) so it builds with the same toolchain as `client/java`; the client is consumed as an
   installed artifact rather than an included build. `CAMEO_HOME` (a shell script, not a Gradle
   property) compiles the plugin against a licensed installation.
-- **One module for both paths.** `plugin-v2` is folded into `plugin` (`org.openmbee.opensysml.mdk.v2`)
+- **One module for both paths.** `plugin-v2` is folded into `plugin` (`org.openmbee.mdk.magic.v2`)
   because the SysML v2 classes it needs (`SysMLTextualNotationService`, KerML `Element`,
   `Namespace`) are stubbed like the rest of the OpenAPI, so nothing forces a second source set.
   At runtime the v2 path is taken only when the textual service class loads and the selection
@@ -823,7 +845,7 @@ The implementation under `editors/mdk/` follows §10 with these deviations:
 - **Distribution.** `mvn -f editors/mdk/pom.xml -Dopensysml.version=vX.Y.Z package` downloads
   the five `sysml-grpc` release assets, verifies each against the digest table the client jar
   ships, generates `plugin.xml` listing every runtime jar, and zips
-  `plugins/org.openmbee.opensysml.mdk/` with `data/resourcemanager/`.
+  `plugins/org.openmbee.mdk.magic/` with `data/resourcemanager/`.
 
 ## 12. Unknowns and risks
 
@@ -856,11 +878,11 @@ Each item says what is known, what is not, and what would settle it.
 6. **Units.** Not migrated; a model whose constraints depend on unit conversion is wrong, not
    just approximate, until `internal/translate/migrate` handles «Unit»/«QuantityKind».
 7. **Two JDKs, two API surfaces.** The pinned 2026x Refresh1 runs the plugin on JDK 21, the
-   minimum 2024x Refresh3 on JDK 17; `--release 17` covers both and the Java client's JDK 17
-   baseline runs unchanged on 21 (§1.1). The `plugin-v2` module's vendor types exist only on
-   the 2026x line, so it must be loaded reflectively or shipped as a second plugin with
-   `requires-plugin` on the SysML v2 Plugin. Dropping the minimum release later removes the
-   split.
+   minimum 2024x on JDK 17; `--release 17` covers both and the Java client's JDK 17
+   baseline runs unchanged on 21 (§1.1). The v2 classes' vendor types exist only on the 2026x
+   line, so they are reached only behind `PathSelector`'s probe and exempted from the floor
+   gate, which checks them against the 2026x Refresh1 index instead. Raising the minimum
+   release to 2026x later removes the split.
 8. **Licence terms for CI** (§10.3): unverified whether an unattended seat is permitted.
 9. **Simulation Toolkit conformance claims** (§7.1): PSSM and PSCS conformance are not claimed
    on any page found; the positioning table says "SCXML-based state machines" and no more. If a
@@ -882,8 +904,11 @@ Each item says what is known, what is not, and what would settle it.
 - `BaseElement.getID()` being the persisted `xmi:id` (§5) — verified only through the fixtures'
   IDs, not from the Javadoc page.
 - The Simulation Toolkit's PSSM and PSCS conformance (§7.1).
-- That the minimum release, 2024x Refresh3, has no SysML v2 project type or textual import
-  (§8) — not found in its version news or Javadoc index, which is absence of evidence only.
+- That the minimum release line, 2024x through 2024x Refresh3, has no SysML v2 project type or
+  textual import (§8) — not found in its version news or Javadoc indexes, which is absence of
+  evidence only.
+- The internal version string the Resource Manager compares `mdVersionMin` against on the 2024x
+  and 2026x lines (§2.5); until it is read off an installation, the descriptor declares `19.0`.
 - Whether `SysMLTextualNotationService.exportTextual` emits element identity beyond names (§8).
 - Windows pipe semantics of the child under Cameo's launcher and abnormal shutdown (§12.1).
 - Whether the vendor's licence permits an unattended CI seat (§10.3).
@@ -893,7 +918,7 @@ Each item says what is known, what is not, and what would settle it.
 ## 14. The MDK DocGen bridge
 
 OpenMBEE's MDK ([Open-MBEE/mdk](https://github.com/Open-MBEE/mdk)) is the plugin a large share
-of Cameo users already run for MMS synchronisation and DocGen documents. OpenSysML MDK for Cameo is
+of Cameo users already run for MMS synchronisation and DocGen documents. Magic MDK is
 positioned as its successor ([`docs/project/mdk-parity.md`](../../project/mdk-parity.md)
 tracks the gap), and the first concrete step is to let an MDK document run OpenSysML.
 
@@ -919,8 +944,8 @@ bridge therefore stays small and calls back:
 mdk-bridge (MDK's extension classloader)        plugin (its own classloader)
   <Operation>Query.visit(…)
     PluginLocator: PluginUtils.getPlugins()
-      → descriptor id org.openmbee.opensysml.mdk
-      → Method docGen(BaseElement, String, String) ─►  OpenSysMLPlugin.docGen
+      → descriptor id org.openmbee.mdk.magic
+      → Method docGen(BaseElement, String, String) ─►  MagicMdkPlugin.docGen
                                                         DocGenBridge: SelectionResolver → Engine.run
                                                         RunResult → Map<String,Object> (JDK types only)
     BridgeResult.parse(map) ◄───────────────────────────┘
@@ -946,9 +971,9 @@ MDK resolves the extension class from the applied stereotype's *name*, so the mo
 stereotype per operation, each specialising `«JavaExtension»`. Shipping them as a profile
 as a module would pin a profile `.mdzip` into the distribution; instead the plugin creates them
 in the project on demand (*OpenSysML ▸ Add MDK DocGen extension stereotypes* on the model root):
-a `Profile` named `OpenSysML MDK DocGen` under the primary model, applied to it with
+a `Profile` named `Magic MDK DocGen` under the primary model, applied to it with
 `StereotypesHelper.applyProfile` so its stereotypes are applicable, with stereotypes
-`org.openmbee.opensysml.mdk.docgen.{Instantiate,ExecuteAction,ExecuteState,Verify,EvaluateCalc,RunAnalysis}`,
+`org.openmbee.mdk.magic.docgen.{Instantiate,ExecuteAction,ExecuteState,Verify,EvaluateCalc,RunAnalysis}`,
 each extending `Activity` and `CallBehaviorAction` with a generalization to `«JavaExtension»`;
 `EvaluateCalc` adds a `String` tag `arguments`. The action is idempotent and runs inside one
 `SessionManager` session so it is a single undo step.

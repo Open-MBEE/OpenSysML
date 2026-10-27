@@ -3,11 +3,11 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>org.openmbee</groupId>
-    <artifactId>opensysml-mdk-parent</artifactId>
+    <artifactId>magic-mdk-parent</artifactId>
     <version>0.11.0</version>
   </parent>
-  <artifactId>opensysml-mdk-plugin</artifactId>
-  <name>OpenSysML MDK for Cameo</name>
+  <artifactId>magic-mdk-plugin</artifactId>
+  <name>Magic MDK</name>
   <dependencies>
     <dependency>
       <groupId>org.openmbee</groupId>
@@ -16,7 +16,7 @@
     </dependency>
     <dependency>
       <groupId>org.openmbee</groupId>
-      <artifactId>opensysml-mdk-openapi-stubs</artifactId>
+      <artifactId>magic-mdk-openapi-stubs</artifactId>
       <version>${project.version}</version>
       <scope>provided</scope>
     </dependency>
@@ -27,7 +27,7 @@
     </dependency>
   </dependencies>
   <build>
-    <finalName>opensysml-mdk-${project.version}</finalName>
+    <finalName>magic-mdk-${project.version}</finalName>
     <resources>
       <resource>
         <directory>src/main/resources</directory>

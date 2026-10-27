@@ -3236,7 +3236,7 @@
         "role": {
           "featureName": "role",
           "value": {
-            "stringValue": "VS Code, Cameo MDK, SysON"
+            "stringValue": "VS Code, Magic MDK, SysON MDK"
           },
           "materialized": true
         },

@@ -127,7 +127,7 @@ github.com/Open-MBEE/OpenSysML
 │       ├── buildinfo/      # What a binary reports about its own build
 │       └── usage/          # Command-line usage and manual pages
 ├── client/                 # Client libraries: python/, node/, java/, rust/, julia/, matlab/, jupyter-kernel/, and opensysml/ (the public Go API)
-├── editors/                # VS Code extension, JupyterLab extension, OpenSysML MDK for Cameo, SysON plugin
+├── editors/                # VS Code extension, JupyterLab extension, Magic MDK, SysON MDK
 ├── api/proto/              # Protobuf service definitions
 ├── tests/                  # Black-box suites, benchmarks, shared fixtures (tests/parser, tests/grpc, tests/testdata, …)
 ├── tools/                  # Nested module: referees, censuses and generators never linked by a shipped binary
