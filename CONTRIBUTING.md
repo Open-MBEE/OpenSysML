@@ -304,9 +304,8 @@ turns every area on, so a new directory is over-tested rather than untested — 
 about it, and add a case to `scripts/ci-changed-areas-test.sh`, which the same job runs.
 
 Every third-party action a workflow or composite action `uses:` is pinned to a full commit SHA
-with the release it resolves to as a trailing comment (`actions/checkout@<sha> # v5.1.0`), one
-pin per action across the repository; a new step takes the same form, and the comment is what
-lets the pin be moved by version.
+with the release that commit is as a trailing comment (`actions/checkout@<sha> # v4.4.0`); a new
+step takes the same form, and the comment is what lets the pin be moved by version.
 
 ### CircleCI
 
