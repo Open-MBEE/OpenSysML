@@ -236,15 +236,20 @@ branch that moves the integration state onto `main`:
    `develop`, and the `hotfix/pin-vx.y.z` one it opens against `main` (see
    [Pinned release digests](#pinned-release-digests)); without the latter,
    `main`'s next `build-test` run — and so its SonarCloud scan — fails the
-   hygiene suite until the next release. The `develop` one's
-   lockfiles do not yet name the platform packages the tag just published —
-   `npm install --package-lock-only` in `client/node` could not lock them before
-   they existed, so every install skips them as unresolvable optional
-   dependencies instead of installing the release's binary — so run that on
-   the pin branch (and in `packaging/npm/sysml-mcp`, whose lockfile pins the
-   runner's platform packages the same way) and commit both lockfiles first. Then merge
+   hygiene suite until the next release. The `main` one needs a commit
+   before it is green: `main`'s lockfiles do not yet name the platform
+   packages the tag just published — `npm install --package-lock-only` in
+   `client/node` could not lock them before they existed, so every install
+   skips them as unresolvable optional dependencies instead of installing the
+   release's binary, and the pull request's Node job fails on the lockfile
+   that `npm install` then rewrites — so run that on the `hotfix/pin-vx.y.z`
+   branch (and in `packaging/npm/sysml-mcp`, whose lockfile pins the runner's
+   platform packages the same way) once the packages answer on npm, and
+   commit both lockfiles. The `develop` one is cut from a tree that still
+   declares the previous version, so there is nothing to lock there. Then merge
    `main` back into `develop` — a plain merge, no rebase — so the folded
-   changelog, and any hotfix that landed on `main` in the meantime, flow down.
+   changelog, the pin and the lockfiles, and any hotfix that landed on `main`
+   in the meantime, flow down.
    When the release was a `hotfix/` branch, `develop`'s lockfile still locks
    the platform packages of the previous release: run the same
    `npm install --package-lock-only` on the back-merge branch so they lock the

@@ -4137,15 +4137,23 @@ jobs:
                       "develop": "a checkout and the packages of later releases install it on a pin",
                       "main": "main, whose head is the tagged commit, pins its own release and its build-test runs stay green until the next release",
                   }[base]
+                  body = (
+                      f"Pins the five `sysml-grpc` assets of {tag} in `client/release-digests.json` and every "
+                      f"client copy, from the release's `SHA256SUMS.txt`, so {why}. "
+                      "Opened by the tag's release pipeline; see docs/project/releasing.md § Pinned release digests."
+                  )
+                  if base == "main":
+                      body += (
+                          "\n\nBefore merging, lock the platform packages the tag published: "
+                          "`npm install --package-lock-only --ignore-scripts` in `client/node` and `packaging/npm/sysml-mcp` "
+                          "once they answer on npm, and commit both lockfiles; the Node job fails on the unlocked tree. "
+                          "See docs/project/releasing.md § The release branch, step 5."
+                      )
                   status, created = call("POST", f"{api}/pulls", {
                       "title": f"chore(release): pin {tag} in the shared digest table",
                       "head": branch,
                       "base": base,
-                      "body": (
-                          f"Pins the five `sysml-grpc` assets of {tag} in `client/release-digests.json` and every "
-                          f"client copy, from the release's `SHA256SUMS.txt`, so {why}. "
-                          "Opened by the tag's release pipeline; see docs/project/releasing.md § Pinned release digests."
-                      ),
+                      "body": body,
                   })
                   if status != 201:
                       print(f"Error: could not open the pull request (HTTP {status}): {created.get('message')}")
