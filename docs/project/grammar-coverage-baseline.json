@@ -46,8 +46,8 @@
     {
       "name": "parser-fixtures",
       "dir": "tests/parser/testdata/parse",
-      "files": 288,
-      "lines": 6729
+      "files": 290,
+      "lines": 6751
     },
     {
       "name": "examples",
