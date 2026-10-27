@@ -1,0 +1,73 @@
+@startuml
+' ParameterCalcViews::definitions — tree rendering (render asTreeDiagram)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "<size:10>//«calc def»//</size>\n**Add**" as n0 <<calc def>>
+class "<size:10>//«attribute»//</size>\n**x**" as n1 <<attribute>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**y**" as n2 <<attribute>> <<usage>>
+class "**attribute**" as n3 <<attribute>> <<usage>>
+class "<size:10>//«calc def»//</size>\n**Scale**" as n4 <<calc def>>
+class "<size:10>//«attribute»//</size>\n**x**" as n5 <<attribute>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**factor**" as n6 <<attribute>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**count**" as n7 <<attribute>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**doubled**" as n8 <<attribute>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**r**" as n9 <<attribute>> <<usage>>
+class "<size:10>//«action def»//</size>\n**Heat**" as n10 <<action def>>
+class "<size:10>//«attribute»//</size>\n**bread**" as n11 <<attribute>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**toast**" as n12 <<attribute>> <<usage>>
+class "<size:10>//«constraint def»//</size>\n**Between**" as n13 <<constraint def>>
+class "<size:10>//«attribute»//</size>\n**low**" as n14 <<attribute>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**value**" as n15 <<attribute>> <<usage>>
+n0 o-- n1
+n0 o-- n2
+n0 o-- n3
+n4 o-- n5
+n4 o-- n6
+n4 o-- n7
+n4 o-- n8
+n4 o-- n9
+n10 o-- n11
+n10 o-- n12
+n13 o-- n14
+n13 o-- n15
+@enduml

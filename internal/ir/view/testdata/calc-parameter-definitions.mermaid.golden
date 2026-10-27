@@ -1,0 +1,68 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% ParameterCalcViews::definitions — tree rendering (render asTreeDiagram)
+flowchart TD
+  n0["`*«calc def»*
+**Add**`"]
+    n1("`*«attribute»*
+**x**`")
+    n2("`*«attribute»*
+**y**`")
+    n3("`**attribute**`")
+  n4["`*«calc def»*
+**Scale**`"]
+    n5("`*«attribute»*
+**x**`")
+    n6("`*«attribute»*
+**factor**`")
+    n7("`*«attribute»*
+**count**`")
+    n8("`*«attribute»*
+**doubled**`")
+    n9("`*«attribute»*
+**r**`")
+  n10["`*«action def»*
+**Heat**`"]
+    n11("`*«attribute»*
+**bread**`")
+    n12("`*«attribute»*
+**toast**`")
+  n13["`*«constraint def»*
+**Between**`"]
+    n14("`*«attribute»*
+**low**`")
+    n15("`*«attribute»*
+**value**`")
+  n0 ---|"◇"| n1
+  n0 ---|"◇"| n2
+  n0 ---|"◇"| n3
+  n4 ---|"◇"| n5
+  n4 ---|"◇"| n6
+  n4 ---|"◇"| n7
+  n4 ---|"◇"| n8
+  n4 ---|"◇"| n9
+  n10 ---|"◇"| n11
+  n10 ---|"◇"| n12
+  n13 ---|"◇"| n14
+  n13 ---|"◇"| n15

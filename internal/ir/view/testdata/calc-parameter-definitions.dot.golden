@@ -1,0 +1,37 @@
+// view: ParameterCalcViews::definitions
+// kind: tree
+// stated: render asTreeDiagram
+// layout: dot
+digraph "ParameterCalcViews::definitions" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<font point-size="10"><i>«calc def»</i></font><br/><b>Add</b>>];
+  "n1" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>x</b>>];
+  "n2" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>y</b>>];
+  "n3" [style="rounded,filled", label=<<b>attribute</b>>];
+  "n4" [label=<<font point-size="10"><i>«calc def»</i></font><br/><b>Scale</b>>];
+  "n5" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>x</b>>];
+  "n6" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>factor</b>>];
+  "n7" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>count</b>>];
+  "n8" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>doubled</b>>];
+  "n9" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>r</b>>];
+  "n10" [label=<<font point-size="10"><i>«action def»</i></font><br/><b>Heat</b>>];
+  "n11" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>bread</b>>];
+  "n12" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>toast</b>>];
+  "n13" [label=<<font point-size="10"><i>«constraint def»</i></font><br/><b>Between</b>>];
+  "n14" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>low</b>>];
+  "n15" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>value</b>>];
+  "n0" -> "n1" [dir=back, arrowtail=odiamond];
+  "n0" -> "n2" [dir=back, arrowtail=odiamond];
+  "n0" -> "n3" [dir=back, arrowtail=odiamond];
+  "n4" -> "n5" [dir=back, arrowtail=odiamond];
+  "n4" -> "n6" [dir=back, arrowtail=odiamond];
+  "n4" -> "n7" [dir=back, arrowtail=odiamond];
+  "n4" -> "n8" [dir=back, arrowtail=odiamond];
+  "n4" -> "n9" [dir=back, arrowtail=odiamond];
+  "n10" -> "n11" [dir=back, arrowtail=odiamond];
+  "n10" -> "n12" [dir=back, arrowtail=odiamond];
+  "n13" -> "n14" [dir=back, arrowtail=odiamond];
+  "n13" -> "n15" [dir=back, arrowtail=odiamond];
+}
