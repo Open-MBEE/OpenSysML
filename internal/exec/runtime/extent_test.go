@@ -429,3 +429,51 @@ func TestNamespaceConnectorUsagesBoundAndCounted(t *testing.T) {
 		}
 	}
 }
+
+// TestNamespaceConnectorBehaviorReadsItsOwnUsage requires a package-level connector to be what
+// its usage denotes before its classifier behaviors start, so one of them reading the usage reaches it.
+func TestNamespaceConnectorBehaviorReadsItsOwnUsage(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ScalarValues::*;
+			private import SequenceFunctions::*;
+			connection def Link {
+				end a; end b;
+				attribute seen : Integer = 0;
+				exhibit state sm {
+					entry; then s1;
+					state s1 { entry assign seen := size(c) + size(pair); }
+				}
+			}
+			part sys { part x; part y; }
+			connection c : Link connect sys.x to sys.y;
+			connection pair : Link[2] connect sys.x to sys.y;
+		}
+	`))
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok || pkg.Scope == nil {
+		t.Fatal("test package not indexed")
+	}
+	eval := func(expr string) Value {
+		val, err := evalIn(t, ctx, pkg.Scope, expr)
+		if err != nil {
+			t.Fatalf("%s: %v", expr, err)
+		}
+		return val
+	}
+	c := eval("c")
+	if c.Kind != ValInstance {
+		t.Fatalf("c = %s, want one object", c.Kind)
+	}
+	if ids := ctx.occurrences[lookupOne(t, idx, "test::c")]; len(ids) != 1 || ids[0] != c.Instance {
+		t.Errorf("occurrences[c] = %v, want [%d]", ids, c.Instance)
+	}
+	for expr, want := range map[string]int64{"c.seen": 3, "pair#(1).seen": 3, "pair#(2).seen": 3} {
+		if val := eval(expr); val.Kind != ValConst || val.Const.Int != want {
+			t.Errorf("%s = %v, want %d: the behavior read the usages as the objects made", expr, val, want)
+		}
+	}
+	if got := len(elementsOf(eval("all Link"))); got != 3 {
+		t.Errorf("size(all Link) = %d, want 3", got)
+	}
+}

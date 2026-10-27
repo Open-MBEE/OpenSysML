@@ -1476,12 +1476,13 @@ func (ctx *Context) materializeMembers(sym *symbols.Symbol, count int, owner *In
 	return members, nil
 }
 
-// materializeMember makes one object of sym under identity id (0 for the next), held by owner
-// in feature; a namespace-level connector usage's object is made with its ends attached.
+// materializeMember makes one object of sym under identity id (0 for the next), held by owner in
+// feature, its behaviors left for the caller to start once it is recorded; a namespace-level
+// connector usage's object is made with its ends attached.
 func (ctx *Context) materializeMember(sym *symbols.Symbol, id int64, owner *Instance, feature string) (*Instance, error) {
 	if owner == nil && ctx.model.semantics.IsConnectorObjectUsage(sym) {
 		var inst *Instance
-		err := ctx.materializeConnectorAs(nil, sym, sym, id, func(conn *Instance) { inst = conn })
+		err := ctx.materializeConnectorStarting(nil, sym, sym, id, false, func(conn *Instance) { inst = conn })
 		return inst, err
 	}
 	return ctx.materialize(sym, id, owner, feature)

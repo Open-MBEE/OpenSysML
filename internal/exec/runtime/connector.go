@@ -112,6 +112,12 @@ func (ctx *Context) materializeConnector(owner *Instance, connSym, base *symbols
 // message, and keep never sees it. Once kept, the older behaviors it woke answer;
 // one of them failing is reported as its own, with the connector kept.
 func (ctx *Context) materializeConnectorAs(owner *Instance, connSym, base *symbols.Symbol, id int64, keep func(*Instance)) error {
+	return ctx.materializeConnectorStarting(owner, connSym, base, id, true, keep)
+}
+
+// materializeConnectorStarting is materializeConnectorAs, its classifier behaviors started only
+// when start is set: a namespace path records what the usage denotes first, then starts them.
+func (ctx *Context) materializeConnectorStarting(owner *Instance, connSym, base *symbols.Symbol, id int64, start bool, keep func(*Instance)) error {
 	ends := ctx.model.semantics.ConnectorObjectEnds(connSym)
 	if len(ends) == 0 {
 		return fmt.Errorf("%w: %s declares no end to attach", errConnectorEnd, connectorName(connSym))
@@ -163,9 +169,11 @@ func (ctx *Context) materializeConnectorAs(owner *Instance, connSym, base *symbo
 	if len(unnamed) > 0 {
 		ctx.bindParticipants(inst, inst.Ends)
 	}
-	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
-		abandon()
-		return err
+	if start {
+		if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
+			abandon()
+			return err
+		}
 	}
 	endBoundary()
 	commit()
