@@ -109,9 +109,9 @@ func TestOMGArchivesIndexTheBundledLibrary(t *testing.T) {
 		}
 	}
 	for doc, want := range map[string]symbols.LibraryTier{
-		"Kernel_Semantic_Library-1.1.0-dev.20260801.kpar/Base.kerml":          symbols.TierKernelSemantic,
-		"SysML_Systems_Library-2.1.0-dev.20260801.kpar/Items.sysml":           symbols.TierSystems,
-		"SysML_Quantities_and_Units_Library-2.1.0-dev.20260801.kpar/SI.sysml": symbols.TierDomain,
+		"Kernel_Semantic_Library-1.1.0-dev.20260901.kpar/Base.kerml":          symbols.TierKernelSemantic,
+		"SysML_Systems_Library-2.1.0-dev.20260901.kpar/Items.sysml":           symbols.TierSystems,
+		"SysML_Quantities_and_Units_Library-2.1.0-dev.20260901.kpar/SI.sysml": symbols.TierDomain,
 	} {
 		if got := fromArchives.DocumentLibraryTier(filepath.FromSlash(doc)); got != want {
 			t.Errorf("%s: tier %v, want %v", doc, got, want)

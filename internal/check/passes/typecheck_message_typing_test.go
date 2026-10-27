@@ -30,7 +30,7 @@ func TestMessageTypedByItemDefRejected(t *testing.T) {
 			t.Fatalf("%s: expected one type diagnostic, got %v", decl, diags)
 		}
 		if diags[0].Code != "usage-typing" ||
-			diags[0].Message != "A flow connection must be typed by flow connection definitions." {
+			diags[0].Message != "A flow usage must be typed by flow definitions." {
 			t.Errorf("%s: got %s %q", decl, diags[0].Code, diags[0].Message)
 		}
 	}
