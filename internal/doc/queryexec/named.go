@@ -147,9 +147,8 @@ func (e *executor) memberNames(fqn string) []string {
 	return slices.Compact(names)
 }
 
-// members lists the owned members of fqn as distinct (name, metaclass) pairs, so two
-// declarations of one name show both metaclasses; for "" the root namespaces.
-// An alias is a Membership of its element (KerML 8.2.3.5.2), not a member of its own.
+// members lists fqn's owned members as distinct (name, metaclass) pairs (for "" the root namespaces);
+// an alias is a Membership of its element (KerML 8.2.3.5.2), not an owned member, so it is skipped.
 func (e *executor) members(fqn string) []Member {
 	out := []Member{}
 	e.eachDeclared(fqn, func(name string, target *symbols.Symbol) {
