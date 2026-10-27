@@ -87,7 +87,7 @@ class RunVerdictSummaryTest {
         ResultParts result = ResultParts.satisfaction(new Satisfaction(List.of(new Verdict(Verdict.KIND_CONSTRAINT,
                 Optional.of(element.getQualifiedName()), "massPositive", true, Optional.empty(), Optional.empty(),
                 Optional.empty(), Optional.empty(), FailureReason.UNSPECIFIED, Optional.empty(), Optional.empty(),
-                Optional.empty(), Optional.empty(), List.of(), STANDING)), List.of(), List.of(), List.of()), project);
+                Optional.empty(), Optional.empty(), List.of(), List.of(), STANDING)), List.of(), List.of(), List.of()), project);
 
         assertThat(result.verdicts()).singleElement().extracting("siriusId").isEqualTo("sid");
     }
@@ -96,6 +96,6 @@ class RunVerdictSummaryTest {
         return new Verdict(Verdict.KIND_REQUIREMENT, Optional.of("Req"), "Req", holds, Optional.empty(),
                 Optional.empty(), Optional.empty(), undecided ? Optional.of("unknown") : Optional.empty(),
                 FailureReason.EVALUATION, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
-                List.of(), STANDING);
+                List.of(), List.of(), STANDING);
     }
 }

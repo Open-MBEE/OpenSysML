@@ -77,6 +77,7 @@ verdict.question
 verdict.status
 verdict.strength
 verdict.witness
+verdict.notes
 verdict.error
 ```
 
@@ -84,7 +85,13 @@ Statuses include `holds`, `violated`, `undecided`, `satisfiable` and
 `unsatisfiable`. An undecided result explains why the service could not
 conclude; it is never presented as proof. Solving requires the
 `verification_questions` capability, and an unsupported service raises
-`MissingCapabilityError`.
+`MissingCapabilityError`. `verdict.notes` lists what a solver's answer rests
+on, in the order the REPL prints them: a `VerdictNote` of kind `assumed_one`
+for a feature the question reads as one value or object while only the default
+`0..*` multiplicity governs it, or `uncovered` for an object-holding feature
+whose own assertions the question does not state, each naming its `subject`
+and carrying its `text`. An evaluation carries none, and so does a service
+without the `verdict_notes` capability.
 
 `verify_satisfaction` evaluates assertions in one request. Each verdict's
 `instance_id` identifies its subject among `verdict.instances`. If a

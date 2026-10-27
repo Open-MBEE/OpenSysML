@@ -14,6 +14,7 @@ classdef Verdict
         question = ''
         status = ''
         witness = {}
+        notes = {}
         error = ''
         standing
         engine = ''
@@ -43,6 +44,7 @@ classdef Verdict
             obj.status = textField(raw, 'status', '');
             obj.error = textField(raw, 'error', '');
             obj.witness = witnessList(fieldOr(raw, 'witness', {}), instances);
+            obj.notes = noteList(fieldOr(raw, 'notes', {}));
             obj.standing = standingOf(raw);
             obj.engine = obj.standing.engine;
             obj.strength = obj.standing.strength;
@@ -187,4 +189,15 @@ end
 
 function text = valueString(value)
     if ischar(value), text = value; else, text = sprintf('%d', int64(value)); end
+end
+
+function notes = noteList(raw)
+    raw = toCells(raw);
+    notes = cell(1, numel(raw));
+    for i = 1:numel(raw)
+        entry = raw{i};
+        notes{i} = struct('kind', textField(entry, 'kind', ''), ...
+            'subject', textField(entry, 'subject', ''), ...
+            'text', textField(entry, 'text', ''));
+    end
 end

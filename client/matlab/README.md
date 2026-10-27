@@ -136,7 +136,8 @@ Options are MATLAB name-value pairs such as `inputs`, `events`,
 `engine`, and `question`, as supported by each call.
 
 - `Verdict` records a verification or execution outcome and provides
-  `explain`, `raiseForError`, and logical conversion.
+  `explain`, `raiseForError`, and logical conversion; its `notes` list what a
+  solver's answer rests on (`kind` `assumed_one` or `uncovered`, `subject`, `text`).
 - `Validation` groups instance verdicts, diagnostics, verification
   records, summary and `valid`, `violated`, `undecided`, and `explain`.
   Its `instances` property is an ordered cell array in service order.
