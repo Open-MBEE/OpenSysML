@@ -125,7 +125,8 @@ func (n *narrowing) narrow(node *Node) {
 	for _, port := range node.Ports {
 		pinShown := n.shown.Has(ElementPortSymbols)
 		if port.Parameter {
-			pinShown = n.shown.Has(ElementParameterSymbols)
+			// A tree's parameter pins are model structure, listed as its members are.
+			pinShown = n.shown.Has(ElementParameterSymbols) || n.kind == KindTree
 		}
 		if !pinShown {
 			n.redirect[port.ID] = node.ID
