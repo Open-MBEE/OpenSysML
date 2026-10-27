@@ -281,5 +281,66 @@ class FragmentTest(unittest.TestCase):
             changelog.parse_fragment(p)
 
 
+class ReleaseNotesTest(unittest.TestCase):
+    def setUp(self):
+        d = pathlib.Path(tempfile.mkdtemp())
+        self.saved = (changelog.CHANGELOG, changelog.SECURITY, changelog.MKDOCS)
+        changelog.CHANGELOG = d / "CHANGELOG.md"
+        changelog.SECURITY = d / "SECURITY.md"
+        changelog.MKDOCS = d / "mkdocs.yml"
+        changelog.CHANGELOG.write_text(TWO_RELEASES, encoding="utf-8")
+        changelog.SECURITY.write_text(
+            "# Security policy\n\n## Supported versions\n\n<!-- support-statement:begin -->\n"
+            "Each line is supported\nuntil the next.\n<!-- support-statement:end -->\n\n## Scope\n",
+            encoding="utf-8",
+        )
+        changelog.MKDOCS.write_text(
+            "site_name: t\nsite_url: https://docs.example.org/\nrepo_url: https://github.com/Acme/Tool\n",
+            encoding="utf-8",
+        )
+
+    def tearDown(self):
+        changelog.CHANGELOG, changelog.SECURITY, changelog.MKDOCS = self.saved
+
+    def test_support_statement_is_one_line_from_the_markers(self):
+        self.assertEqual(changelog.support_statement(), "Each line is supported until the next.")
+
+    def test_missing_markers_fail(self):
+        changelog.SECURITY.write_text("# Security policy\n", encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            changelog.support_statement()
+
+    def test_footer_alone(self):
+        out = changelog.release_notes(None)
+        self.assertEqual(
+            out,
+            "**Supported versions.** Each line is supported until the next. How to report a"
+            " vulnerability, and what to expect, is in"
+            " [SECURITY.md](https://github.com/Acme/Tool/security/policy).\n\n"
+            "**Verify your download.** Check `SHA256SUMS.txt` and its cosign signature before running"
+            " anything: [https://docs.example.org/guide/security/#verifying-a-release]"
+            "(https://docs.example.org/guide/security/#verifying-a-release).\n",
+        )
+
+    def test_a_version_prepends_its_section_only(self):
+        out = changelog.release_notes("v0.4.3")
+        self.assertTrue(out.startswith("### Added\n\n- Released thing.\n\n### Fixed\n\n- Shared line.\n\n**Supported"))
+        self.assertNotIn("Older released thing", out)
+        self.assertNotIn("Old added entry", out)
+
+    def test_an_unknown_version_fails(self):
+        with self.assertRaises(SystemExit):
+            changelog.release_notes("9.9.9")
+        with self.assertRaises(SystemExit):
+            changelog.release_notes("not-a-version")
+
+    def test_main_prints_the_notes(self):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            self.assertEqual(changelog.main(["release-notes", "0.4.2"]), 0)
+        self.assertTrue(buf.getvalue().startswith("### Added\n\n- Older released thing.\n"))
+        self.assertIn("**Verify your download.**", buf.getvalue())
+
+
 if __name__ == "__main__":
     sys.exit(unittest.main())

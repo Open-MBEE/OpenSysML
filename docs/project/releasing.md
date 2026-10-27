@@ -280,6 +280,23 @@ git tag -a v0.0.5 -m "v0.0.5"
 git push origin v0.0.5
 ```
 
+Then write the release notes, before CircleCI publishes the assets, so that
+`ghr -replace` finds a published release to add them to (it does not see a
+draft, see [What CircleCI publishes](#what-circleci-publishes)):
+
+```bash
+python3 scripts/changelog.py release-notes 0.0.5 > notes.md
+gh release create v0.0.5 --title v0.0.5 --notes-file notes.md --verify-tag
+```
+
+`release-notes` renders the version's `CHANGELOG.md` section and ends it with
+the support period as `SECURITY.md` states it (the text between its
+`support-statement` markers, so the two never disagree) and a link to
+[Verifying a release](../guide/security.md#verifying-a-release) on the site;
+the nightly workflow appends the same footer to its notes. Add the
+platform caveats of steps 7–9 under [After the release](#after-the-release)
+above the footer, by hand.
+
 The tag belongs on `Open-MBEE/OpenSysML`, the repository the releases live on
 and where development happens: every release from v0.0.1 on is tagged on its
 `main`. The clients resolve releases from that repository

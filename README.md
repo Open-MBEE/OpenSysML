@@ -530,6 +530,17 @@ its branch URL (`http(s)://…/projects/{p}/branches/{b}` or `flexo://{p}/{b}`) 
 The OMG pilot corpora and reference tools used by the test suite are fetched by developer
 scripts under `scripts/`, which are not part of the shipped binaries.
 
+## Security
+
+Report a vulnerability privately through
+[GitHub's report form](https://github.com/Open-MBEE/OpenSysML/security/advisories/new); the
+response deadlines, the disclosure process, the supported versions and the scope are in
+[SECURITY.md](SECURITY.md), which the documentation site publishes as its
+[Security page](https://runtime.opensysml.org/guide/security/) together with how to verify a
+downloaded release (checksum manifest, cosign signature, provenance, packages and the container
+image) and how to harden a served instance. The site also serves
+[`/.well-known/security.txt`](https://runtime.opensysml.org/.well-known/security.txt) (RFC 9116).
+
 ## Building
 
 ```bash

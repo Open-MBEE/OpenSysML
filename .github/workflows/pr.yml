@@ -1119,6 +1119,10 @@ jobs:
       - name: Check the install-script publishing hook
         run: python3 scripts/mkdocs_install_scripts-test.py
 
+      # The Security page embeds SECURITY.md and security.txt is written when the site is built.
+      - name: Check the security publishing hook
+        run: python3 scripts/mkdocs_security-test.py
+
       # --strict: a link or anchor a moved page left behind fails here rather than
       # publishing a 404 from main.
       - name: Build documentation site
