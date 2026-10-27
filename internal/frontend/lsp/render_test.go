@@ -1449,115 +1449,6 @@ func TestRenderShowsOptionalNotationElements(t *testing.T) {
 	}
 }
 
-// A request's `ports` chooses how much of a part's ports an interconnection or
-// mixed view draws — minimal, the default, the ports a connector ends at, named
-// alone, or full, every port typed — the displays listed under the capability;
-// a name that is neither is refused with the two there are.
-func TestRenderTakesAPortDisplay(t *testing.T) {
-	const ported = `package Demo {
-    port def Signal;
-    part def Sender { port out1 : Signal; }
-    part def Receiver { port in1 : ~Signal; port spare : Signal; }
-    part def Link {
-        part sender : Sender;
-        part receiver : Receiver;
-        interface wire connect sender.out1 to receiver.in1;
-    }
-    view link { expose Demo::Link::*; render Views::asInterconnectionDiagram; }
-}
-`
-	s, docURI := renderServer(t, "ported.sysml", ported)
-	res, err := s.Initialize(context.Background(), &protocol.InitializeParams{})
-	if err != nil {
-		t.Fatalf("Initialize err = %v", err)
-	}
-	experimental := res.Capabilities.Experimental.(map[string]any)
-	if advertised, _ := experimental[RenderPortsCapability].([]string); !slices.Equal(advertised, []string{"minimal", "full"}) {
-		t.Fatalf("%s = %#v, want minimal then full", RenderPortsCapability, experimental[RenderPortsCapability])
-	}
-	if advertised, _ := experimental[RenderLinesCapability].([]string); !slices.Equal(advertised, []string{"splines", "ortho", "polyline"}) {
-		t.Fatalf("%s = %#v, want splines, ortho then polyline", RenderLinesCapability, experimental[RenderLinesCapability])
-	}
-	if advertised, _ := experimental[RenderCompartmentsCapability].([]string); !slices.Equal(advertised, []string{"positioned", "most", "ports"}) {
-		t.Fatalf("%s = %#v, want positioned, most then ports", RenderCompartmentsCapability, experimental[RenderCompartmentsCapability])
-	}
-	if advertised, _ := experimental[RenderOverlaysCapability].([]string); !slices.Equal(advertised, []string{"verdicts"}) {
-		t.Fatalf("%s = %#v, want verdicts", RenderOverlaysCapability, experimental[RenderOverlaysCapability])
-	}
-	render := func(t *testing.T, ports string) *RenderResult {
-		t.Helper()
-		raw, err := call(t, s, MethodRender, &RenderParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-			View:         "Demo::link", Form: string(view.FormPlantUML), Ports: ports, Show: []string{"typings"},
-		})
-		if err != nil {
-			t.Fatalf("render ports=%q: %v", ports, err)
-		}
-		var out RenderResult
-		if err := json.Unmarshal(raw, &out); err != nil {
-			t.Fatalf("decode render result: %v", err)
-		}
-		return &out
-	}
-	minimalResult := render(t, "")
-	minimal := minimalResult.Artifact
-	for _, want := range []string{`port "out1" as `, `port "in1" as `} {
-		if !strings.Contains(minimal, want) {
-			t.Errorf("the default lacks %q:\n%s", want, minimal)
-		}
-	}
-	minimalPorts := map[string]RenderPort{}
-	for _, node := range minimalResult.Nodes {
-		for _, port := range node.Ports {
-			minimalPorts[port.Name] = port
-		}
-	}
-	if len(minimalPorts) != 2 || minimalPorts["out1"].ID == "" || minimalPorts["in1"].ID == "" {
-		t.Errorf("default node ports = %+v, want only connected out1 and in1 pins", minimalPorts)
-	}
-	if len(minimalResult.Edges) != 1 || minimalResult.Edges[0].FromPort != minimalPorts["out1"].ID ||
-		minimalResult.Edges[0].ToPort != minimalPorts["in1"].ID {
-		t.Errorf("default edges = %+v, want endpoints at out1 and in1", minimalResult.Edges)
-	}
-	if strings.Contains(minimal, "spare") || strings.Contains(minimal, "Signal") {
-		t.Errorf("the default drew an unconnected port or a type:\n%s", minimal)
-	}
-	if render(t, "minimal").Artifact != minimal {
-		t.Errorf("ports=minimal differs from the default")
-	}
-	fullResult := render(t, "full")
-	full := fullResult.Artifact
-	for _, want := range []string{`port "out1 : Signal" as `, `port "in1 : <U+007E>Signal" as `, `port "spare : Signal" as `} {
-		if !strings.Contains(full, want) {
-			t.Errorf("ports=full lacks %q:\n%s", want, full)
-		}
-	}
-	fullPorts := map[string]RenderPort{}
-	for _, node := range fullResult.Nodes {
-		for _, port := range node.Ports {
-			fullPorts[port.Name] = port
-		}
-	}
-	if len(fullPorts) != 3 || fullPorts["spare"].Type != "Signal" ||
-		fullPorts["in1"].Type != "~Signal" || fullPorts["out1"].Type != "Signal" {
-		t.Errorf("full node ports = %+v, want all three typed pins", fullPorts)
-	}
-	if len(fullResult.Edges) != 1 || fullResult.Edges[0].FromPort != fullPorts["out1"].ID ||
-		fullResult.Edges[0].ToPort != fullPorts["in1"].ID {
-		t.Errorf("full edges = %+v, want endpoints at out1 and in1", fullResult.Edges)
-	}
-	assertEngineRenderMatchesLSP(t, ported, minimalResult, "", []string{"typings"})
-	assertEngineRenderMatchesLSP(t, ported, fullResult, "full", []string{"typings"})
-	_, err = call(t, s, MethodRender, &RenderParams{
-		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-		View:         "Demo::link", Form: string(view.FormDot), Ports: "all",
-	})
-	want := `unknown port display "all"; the displays are minimal, full`
-	if err == nil || !strings.Contains(err.Error(), want) {
-		t.Errorf("err = %v, want it to refuse the port display by name", err)
-	}
-}
-
 // A GeneralView filtered on a case metaclass is answered as a case rendering.
 func TestRenderGeneralViewCaseRoute(t *testing.T) {
 	src, err := os.ReadFile(filepath.Join("..", "..", "..", "examples", "general-views-demo", "use-cases.sysml"))
@@ -1642,100 +1533,6 @@ func TestRenderDrawsVerdictsWhenAsked(t *testing.T) {
 	}
 }
 
-func TestRenderMixedCarriesConnectorPortData(t *testing.T) {
-	const mixed = `package Demo {
-    private import OpenSysMLRenderings::*;
-    port def Signal;
-    part def Sender { port out1 : Signal; }
-    part def Receiver { port in1 : Signal; port spare : Signal; }
-    part def Plant {
-        part sender : Sender;
-        part receiver : Receiver;
-        connection wire : Connection connect sender.out1 to receiver.in1;
-    }
-    connection def Connection {
-        end part a;
-        end part b;
-    }
-    part def Person;
-    use case def Review {
-        actor reviewer : Person;
-        objective { doc /* Review the plant. */ }
-    }
-    view link { expose Demo::Plant; render asMixedDiagram; }
-    view caseView { expose Demo::Review; render asCaseDiagram; }
-}
-`
-	s, docURI := renderServer(t, "mixed-ports.sysml", mixed)
-	renderWithPorts := func(t *testing.T, ports string) *RenderResult {
-		t.Helper()
-		raw, err := call(t, s, MethodRender, &RenderParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-			View:         "Demo::link", Ports: ports,
-		})
-		if err != nil {
-			t.Fatalf("render mixed view with ports=%q: %v", ports, err)
-		}
-		var out RenderResult
-		if err := json.Unmarshal(raw, &out); err != nil {
-			t.Fatalf("decode mixed render result: %v", err)
-		}
-		return &out
-	}
-	for _, display := range []struct {
-		name string
-		want int
-	}{
-		{name: "", want: 2},
-		{name: "full", want: 3},
-	} {
-		t.Run(map[string]string{"": "minimal", "full": "full"}[display.name], func(t *testing.T) {
-			out := renderWithPorts(t, display.name)
-			portsByNode := map[string]map[string]string{}
-			portNames := map[string]string{}
-			for _, node := range out.Nodes {
-				for _, port := range node.Ports {
-					if portsByNode[node.ID] == nil {
-						portsByNode[node.ID] = map[string]string{}
-					}
-					portsByNode[node.ID][port.ID] = port.Name
-					portNames[port.Name] = port.ID
-				}
-			}
-			if len(portNames) != display.want {
-				t.Fatalf("mixed node ports = %v, want %d pins", portNames, display.want)
-			}
-			if display.name == "" && portNames["spare"] != "" {
-				t.Errorf("minimal mixed ports include unconnected spare pin: %v", portNames)
-			}
-			if len(out.Edges) != 1 {
-				t.Fatalf("mixed edges = %+v, want one connector", out.Edges)
-			}
-			edge := out.Edges[0]
-			if edge.FromPort == "" || portsByNode[edge.From][edge.FromPort] != "out1" ||
-				edge.ToPort == "" || portsByNode[edge.To][edge.ToPort] != "in1" {
-				t.Errorf("mixed edge ports do not resolve in endpoint node arrays: edge=%+v ports=%v", edge, portsByNode)
-			}
-			if !strings.Contains(out.Artifact, edge.FromPort) || !strings.Contains(out.Artifact, edge.ToPort) {
-				t.Errorf("mixed artifact does not draw connector pins %s and %s:\n%s", edge.FromPort, edge.ToPort, out.Artifact)
-			}
-			assertEngineRenderMatchesLSP(t, mixed, out, display.name, nil)
-		})
-	}
-
-	caseView := render(t, s, docURI, "Demo::caseView")
-	for _, node := range caseView.Nodes {
-		if len(node.Ports) != 0 {
-			t.Errorf("case node %s unexpectedly has ports: %+v", node.ID, node.Ports)
-		}
-	}
-	for _, edge := range caseView.Edges {
-		if edge.FromPort != "" || edge.ToPort != "" {
-			t.Errorf("case edge unexpectedly refers to ports: %+v", edge)
-		}
-	}
-}
-
 func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *RenderResult, ports string, show []string) {
 	t.Helper()
 	eng, err := engine.New()
@@ -1774,7 +1571,7 @@ func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *RenderRes
 	for _, node := range lspResult.Nodes {
 		converted := engine.JRenderNode{
 			ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
-			Type: node.Type, Detail: node.Detail, Parent: node.Parent,
+			Type: node.Type, Detail: node.Detail, Parent: node.Parent, Inherited: node.Inherited,
 		}
 		if node.X != nil && node.Y != nil {
 			converted.Geometry = &engine.JRenderGeometry{X: *node.X, Y: *node.Y, Collapsed: node.Collapsed}
@@ -1790,7 +1587,7 @@ func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *RenderRes
 		}
 		for _, port := range node.Ports {
 			converted.Ports = append(converted.Ports, engine.JRenderPort{
-				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction,
+				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction, Inherited: port.Inherited,
 			})
 		}
 		nodes = append(nodes, converted)

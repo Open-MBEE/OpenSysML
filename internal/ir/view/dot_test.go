@@ -30,6 +30,9 @@ func TestGoldenDOT(t *testing.T) {
 		{"depth-tree-2", "depth-tree.sysml", "DepthViews::depth2", KindTree, false},
 		{"depth-interconnection", "depth-interconnection.sysml", "DepthLinks::links", KindInterconnection, false},
 		{"typed-usage-inherited-interconnection", "typed-usage-inherited.sysml", "TypedUsageViews::rocketLinks", KindInterconnection, false},
+		{"inherited-prefix-part-tree", "inherited-prefix.sysml", "InheritedPrefixViews::part1Tree", KindTree, false},
+		{"inherited-prefix-tree", "inherited-prefix.sysml", "InheritedPrefixViews::rigTree", KindTree, false},
+		{"inherited-prefix-interconnection", "inherited-prefix.sysml", "InheritedPrefixViews::rigLinks", KindInterconnection, false},
 		{"interconnection", "interconnection.sysml", "PlantViews::loopView", KindInterconnection, false},
 		{"interconnection-ports", "interconnection-ports.sysml", "ToasterViews::toasterView", KindInterconnection, false},
 		{"interconnection-constraints", "interconnection-constraints.sysml", "ParametricViews::amplifierView", KindInterconnection, false},
@@ -38,6 +41,7 @@ func TestGoldenDOT(t *testing.T) {
 		{"action", "action.sysml", "FlowViews::driveView", KindAction, false},
 		{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase, false},
 		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed, false},
+		{"mixed-memberships", "mixed-memberships.sysml", "MixedMemberships::memberships", KindMixed, false},
 		{"filters", "filters.sysml", "FilteredViews::safetyView", KindTree, false},
 		{"variation-tree", "variation.sysml", "VariationViews::familyTree", KindTree, false},
 		{"variation-interconnection", "variation.sysml", "VariationViews::familyLinks", KindInterconnection, false},
@@ -589,8 +593,8 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 		`"n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>tank : Tank</b>>, margin=0, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];`,
 		// The ports the parts have from their definitions sit on the borders where
 		// the route meets them, named alone, and the route runs pin to pin.
-		`"n1.0" [shape=box, label="", xlabel="outlet", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="402,730!", pin=true];`,
-		`"n2.0" [shape=box, label="", xlabel="inlet", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="494,730!", pin=true];`,
+		`"n1.0" [shape=box, label="", xlabel="^outlet", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="402,730!", pin=true];`,
+		`"n2.0" [shape=box, label="", xlabel="^inlet", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="494,730!", pin=true];`,
 		// Headless, so no `e,` point; the label sits up and right of the first leg.
 		`"n1.0" -> "n2.0" [label="supply", arrowhead=none, penwidth=3, color="#0000FF", pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730", lp="443.5,723.5"];`,
 	} {
@@ -615,7 +619,7 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 		"  graph [fontname=\"Helvetica\", layout=neato, inputscale=72, dpi=72];\n",
 		`"n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>pump<br/>: Pump</b>>, margin=0, fillcolor="#FFFFDC", pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
 		`"n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>tank : Tank</b>>, pos="259,-45!", pin=true, width=1.6388888888888888, height=0.5138888888888888];`,
-		`"n1.0" [shape=box, label="", xlabel="outlet", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="60,-14!", pin=true];`,
+		`"n1.0" [shape=box, label="", xlabel="^outlet", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="60,-14!", pin=true];`,
 		`"n1.0" -> "n2.0" [label="supply", arrowhead=none, penwidth=3, pos="66,-15.5 66,-15.5 200,-45 200,-45", lp="136.5,-14"];`,
 	} {
 		if !strings.Contains(plain, want) {

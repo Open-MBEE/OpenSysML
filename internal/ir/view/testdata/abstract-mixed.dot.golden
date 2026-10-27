@@ -33,12 +33,13 @@ digraph "AbstractViews::familyMixed" {
       color=black;
       penwidth=0.5;
       "n7" [shape=point, style=invis, width=0, height=0, label=""];
-      "n8" [style="rounded,filled", label=<<font point-size="10"><i>«abstract part»</i></font><br/><b>engine</b>>];
-      "n9" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>chassis</b>>];
+      "n8" [style="rounded,filled", label=<<font point-size="10"><i>«abstract part»</i></font><br/><b>^engine</b>>];
+      "n9" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>^chassis</b>>];
     }
   }
   "n4" -> "n5" [arrowhead=none, penwidth=3];
   "n8" -> "n9" [arrowhead=none, penwidth=3];
+  "n1" -> "n0" [dir=back, arrowtail=odiamond, ltail="cluster_n1"];
   "n2" -> "n1" [arrowhead=onormaldotdot, ltail="cluster_n2", lhead="cluster_n1"];
   "n6" -> "n1" [arrowhead=empty, ltail="cluster_n6", lhead="cluster_n1"];
 }

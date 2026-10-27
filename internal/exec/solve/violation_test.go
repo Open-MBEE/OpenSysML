@@ -3,6 +3,7 @@ package solve
 import (
 	"context"
 	"errors"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"strings"
 	"testing"
 )
@@ -180,8 +181,8 @@ func TestViolationComputedDivisorRefuses(t *testing.T) {
 	}
 }
 
-// TestViolationWithoutClaimRefuses: an element stating only assumptions claims
-// nothing, so there is no claim to violate.
+// TestViolationWithoutClaimRefuses: a constraint stating only assumptions claims
+// nothing, so its result binds no value to violate.
 func TestViolationWithoutClaimRefuses(t *testing.T) {
 	ctx, idx := fixture(t, "<test>", `
 		package test {
@@ -193,8 +194,8 @@ func TestViolationWithoutClaimRefuses(t *testing.T) {
 		}
 	`)
 	sym := symbolNamed(t, idx, "test::Rig::cn")
-	if _, err := ConstraintViolation(ctx, sym, sym.OwnerScope, nil); !errors.Is(err, ErrNoConditions) {
-		t.Fatalf("translate: %v, want ErrNoConditions", err)
+	if _, err := ConstraintViolation(ctx, sym, sym.OwnerScope, nil); !errors.Is(err, runtime.ErrNoValue) {
+		t.Fatalf("translate: %v, want ErrNoValue", err)
 	}
 }
 

@@ -215,6 +215,7 @@ type RenderNode struct {
 	Kind            string          `json:"kind"`
 	Name            string          `json:"name"`
 	NameSynthesized bool            `json:"nameSynthesized,omitempty"`
+	Inherited       bool            `json:"inherited,omitempty"`
 	Type            string          `json:"type"`
 	Detail          string          `json:"detail"`
 	Parent          string          `json:"parent,omitempty"`
@@ -251,6 +252,7 @@ type RenderPort struct {
 	Name      string `json:"name"`
 	Type      string `json:"type,omitempty"`
 	Direction string `json:"direction,omitempty"`
+	Inherited bool   `json:"inherited,omitempty"`
 }
 
 // RenderEdge is one edge of a rendering, located at the connector, transition,
@@ -563,6 +565,7 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 			Kind:            node.Kind,
 			Name:            node.Name,
 			NameSynthesized: node.NameSynthesized,
+			Inherited:       node.Inherited,
 			Type:            node.Type,
 			Detail:          node.Detail,
 			Parent:          node.Parent,
@@ -575,7 +578,7 @@ func (s *Server) renderNodes(out *RenderResult, snapshot *model.Snapshot, nodes 
 		}
 		for _, port := range node.Ports {
 			n.Ports = append(n.Ports, RenderPort{
-				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(),
+				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(), Inherited: port.Inherited,
 			})
 		}
 		if node.Style != nil {

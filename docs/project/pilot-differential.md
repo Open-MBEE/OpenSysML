@@ -3058,7 +3058,11 @@ describe this repository:
   Java, provisions the pinned validators and corpora and runs all three oracles with `-check`
   daily and on demand. Its failure distinguishes a moved provenance — the pinned reference or an
   input changed underneath the baseline, so investigate the provisioning — from moved counts with
-  matching provenance, which is an implementation movement to adjudicate and then re-record.
+  matching provenance, which is an implementation movement to adjudicate and then re-record —
+  unless two exports of the pinned reference itself disagree on the moved row, as the pilot's
+  api-json export does across JVMs for `FeatureChainExpression.featuringType`: such a row is
+  declared pilot-nondeterministic in `pilot-apijson-diff` and scored in its own column (see
+  `api-json-differential.md`), never chased by re-recording.
 
 The Java-free guard cannot see a movement in the reference's own behaviour, and the scheduled run
 is not a required check, because both the corpora and the validator are unvendored network

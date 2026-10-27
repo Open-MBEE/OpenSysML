@@ -51,10 +51,10 @@ package "<size:10>//«package»//</size>\n**MixedExamples**" as n0 <<package>> {
   }
   rectangle "<size:10>//«part def»//</size>\n**Plant**" as n25 <<part def>> {
     rectangle "<size:10>//«part»//</size>\n**pump**" as n26 <<part>> <<usage>> {
-      port "outlet" as n26.0
+      port "^outlet" as n26.0
     }
     rectangle "<size:10>//«part»//</size>\n**tank**" as n27 <<part>> <<usage>> {
-      port "inlet" as n27.0
+      port "^inlet" as n27.0
     }
   }
   rectangle "<size:10>//«connection def»//</size>\n**Connection**" as n28 <<connection def>> {
@@ -78,7 +78,7 @@ package "<size:10>//«package»//</size>\n**MixedExamples**" as n0 <<package>> {
   rectangle "<size:10>//«perform action»//</size>\n**run**\ndeclares no nodes" as n13 <<perform action>> <<usage>>
   rectangle "<size:10>//«exhibit state»//</size>\n**mode**" as n14 <<exhibit state>> <<usage>> {
     circle "**start**" as n16 <<start>> <<usage>>
-    rectangle "<size:10>//«state»//</size>\n**ready**\ninitial" as n15 <<state>> <<usage>>
+    rectangle "<size:10>//«state»//</size>\n**^ready**\ninitial" as n15 <<state>> <<usage>>
   }
   rectangle "<size:10>//«part def»//</size>\n**Person**" as n31 <<part def>>
   rectangle "<size:10>//«view»//</size>\n**mixedDiagram**" as n17 <<view>> <<usage>>
@@ -92,6 +92,25 @@ n11 -- n9
 n9 .. n12
 n16 --> n15
 n26.0 -[thickness=3]- n27.0
+n0 +-- n19
+n0 +-- n20
+n0 +-- n21
+n21 o-- n22
+n0 +-- n23
+n23 o-- n24
+n0 +-- n25
+n25 *-- n26
+n25 *-- n27
+n0 +-- n28
+n28 o-- n29
+n28 o-- n30
+n0 +-- n1
+n0 +-- n2
+n0 +-- n5
+n0 +-- n9
+n0 +-- n31
+n0 *-- n17
+n0 *-- n18
 n3 --:|> n1
 n10 --:|> n25
 n11 --:|> n31

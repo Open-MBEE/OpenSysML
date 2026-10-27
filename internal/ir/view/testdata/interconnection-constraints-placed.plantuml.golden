@@ -58,14 +58,14 @@ rectangle "<size:10>//«attribute»//</size>\n**gain**" as n1 <<attribute>> <<us
 rectangle "<size:10>//«attribute»//</size>\n**noise**" as n2 <<attribute>> <<usage>>
 rectangle "<size:10>//«attribute»//</size>\n**output**" as n3 <<attribute>> <<usage>>
 rectangle "<size:10>//«constraint»//</size>\n**amplify**" as n4 <<constraint>> <<usage>> {
-  port "input" as n4.0
-  port "gain" as n4.1
-  port "output" as n4.2
+  port "^input" as n4.0
+  port "^gain" as n4.1
+  port "^output" as n4.2
 }
 rectangle "<size:10>//«constraint»//</size>\n**mix**" as n5 <<constraint>> <<usage>> {
-  port "a" as n5.0
-  port "b" as n5.1
-  port "total" as n5.2
+  port "^a" as n5.0
+  port "^b" as n5.1
+  port "^total" as n5.2
 }
 n0 -- n4.0 : =
 n1 -- n4.1 : =

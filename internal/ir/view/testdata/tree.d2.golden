@@ -9,8 +9,8 @@ classes: {
 }
 n0: "«part def»\nVehicle" { class: definition }
 n1: "«part»\nengine" { class: usage }
-n2: "«attribute»\npower" { class: usage }
-n3: "«part»\ncylinder" { class: usage }
+n2: "«attribute»\n^power" { class: usage }
+n3: "«part»\n^cylinder" { class: usage }
 n4: "«part»\nwheels" { class: usage }
 n5: "connect" { class: usage }
 n6: "«view»\nengineSubview" { class: usage }

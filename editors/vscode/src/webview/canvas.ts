@@ -5,16 +5,20 @@
 import type { RenderPoint } from "../protocol";
 import {
   CanvasLayout,
+  EDGE_LABEL_RISE,
+  edgeExtent,
   FONT_SIZE,
   labelLineClass,
   liftedEdges,
   MARGIN,
   movable,
+  nodeExtent,
   PlacedEdge,
   PlacedNode,
   portBox,
   portLabelPlacement,
   PORT_SIZE,
+  portName,
   steerable,
   type PlacedPort,
 } from "./layout";
@@ -82,8 +86,9 @@ export function liftNode(svg: SVGSVGElement, layout: CanvasLayout, id: string, d
       group.setAttribute("transform", `translate(${dx} ${dy})`);
       group.classList.add("lifted");
       group.parentElement?.append(group);
-      right = Math.max(right, current.box.x + current.box.width + dx + MARGIN);
-      bottom = Math.max(bottom, current.box.y + current.box.height + dy + MARGIN);
+      const extent = nodeExtent(current);
+      right = Math.max(right, extent.x + extent.width + dx + MARGIN);
+      bottom = Math.max(bottom, extent.y + extent.height + dy + MARGIN);
     }
     for (const child of current.children) {
       lift(child);
@@ -99,10 +104,9 @@ export function liftNode(svg: SVGSVGElement, layout: CanvasLayout, id: string, d
       handles.classList.add("lifted");
       svg.querySelector(`g.edge-handles[data-edge="${edge.index}"]`)?.replaceWith(handles);
     }
-    for (const point of edge.points) {
-      right = Math.max(right, point.x + MARGIN);
-      bottom = Math.max(bottom, point.y + MARGIN);
-    }
+    const extent = edgeExtent(edge);
+    right = Math.max(right, extent.x + extent.width + MARGIN);
+    bottom = Math.max(bottom, extent.y + extent.height + MARGIN);
   }
   const width = right - layout.origin.x;
   const height = bottom - layout.origin.y;
@@ -273,7 +277,7 @@ function pinGraphic(box: PlacedNode["box"], port: PlacedPort, entry: PlacedNode)
   const square = portBox(box, port);
   const label = portLabelPlacement(box, port);
   const title = element("title", {});
-  title.textContent = port.port.type ? `${port.port.name} : ${port.port.type}` : port.port.name;
+  title.textContent = port.port.type ? `${portName(port.port)} : ${port.port.type}` : portName(port.port);
   const classes = ["port-shape"];
   if (entry.shape === "box") {
     classes.push(boxClass(entry.node.kind));
@@ -302,7 +306,7 @@ function pinGraphic(box: PlacedNode["box"], port: PlacedPort, entry: PlacedNode)
     "text-anchor": label.anchor,
     class: "port-label",
   });
-  text.textContent = port.port.name;
+  text.textContent = portName(port.port);
   return [title, rect, text];
 }
 
@@ -444,7 +448,7 @@ function drawEdge(edge: PlacedEdge): SVGGElement {
   group.append(element("polyline", attrs));
   if (edge.edge.label !== "") {
     const text = element("text", {
-      x: String(edge.label.x), y: String(edge.label.y - 6), "text-anchor": "middle", class: "edge-label",
+      x: String(edge.label.x), y: String(edge.label.y - EDGE_LABEL_RISE), "text-anchor": "middle", class: "edge-label",
     });
     text.textContent = edge.edge.label;
     group.append(text);

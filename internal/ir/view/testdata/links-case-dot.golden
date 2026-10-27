@@ -12,8 +12,8 @@ digraph "CaseExamples::caseDiagram" {
   "n2" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>driver</b>>, URL="https://example.test/src/case.sysml#L29", tooltip="CaseExamples::'Provide Transportation'::driver"];
   "n3" [shape=note, label=<<b>objective</b><br/>Transport the vehicle and its passengers safely.>, URL="https://example.test/src/case.sysml#L30", tooltip="case.sysml:30:3"];
   "n4" [shape=ellipse, label=<<font point-size="10"><i>«use case»</i></font><br/><b>addFuel</b>>, URL="https://example.test/src/case.sysml#L25", tooltip="CaseExamples::addFuel"];
-  "n5" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>fueler</b>>, URL="https://example.test/src/case.sysml#L18", tooltip="CaseExamples::'Add Fuel'::fueler"];
-  "n6" [shape=box, label=<<font point-size="10"><i>«subject»</i></font><br/><b>vehicle</b>>, URL="https://example.test/src/case.sysml#L17", tooltip="CaseExamples::'Add Fuel'::vehicle"];
+  "n5" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>^fueler</b>>, URL="https://example.test/src/case.sysml#L18", tooltip="CaseExamples::'Add Fuel'::fueler"];
+  "n6" [shape=box, label=<<font point-size="10"><i>«subject»</i></font><br/><b>^vehicle</b>>, URL="https://example.test/src/case.sysml#L17", tooltip="CaseExamples::'Add Fuel'::vehicle"];
   "n7" [shape=ellipse, label=<<font point-size="10"><i>«include use case»</i></font><br/><b>&#39;enter vehicle&#39;</b>>, URL="https://example.test/src/case.sysml#L39", tooltip="CaseExamples::'Provide Transportation'::'enter vehicle'"];
   "n8" [shape=box, label=<<font point-size="10"><i>«subject»</i></font><br/><b>vehicle</b>>, URL="https://example.test/src/case.sysml#L40", tooltip="CaseExamples::'Provide Transportation'::'enter vehicle'::vehicle"];
   "n9" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>driver</b>>, URL="https://example.test/src/case.sysml#L41", tooltip="CaseExamples::'Provide Transportation'::'enter vehicle'::driver"];

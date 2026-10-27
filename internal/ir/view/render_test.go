@@ -122,6 +122,7 @@ func TestGoldenRenderings(t *testing.T) {
 		{"action", "action.sysml", "FlowViews::driveView", KindAction},
 		{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
 		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},
+		{"mixed-memberships", "mixed-memberships.sysml", "MixedMemberships::memberships", KindMixed},
 		{"typed-action", "typed-behavior.sysml", "TypedViews::cycleView", KindAction},
 		{"typed-state", "typed-behavior.sysml", "TypedViews::boilerView", KindState},
 		{"filters", "filters.sysml", "FilteredViews::safetyView", KindTree},
@@ -140,6 +141,9 @@ func TestGoldenRenderings(t *testing.T) {
 		{"depth-interconnection", "depth-interconnection.sysml", "DepthLinks::links", KindInterconnection},
 		{"typed-usage-inherited-interconnection", "typed-usage-inherited.sysml", "TypedUsageViews::rocketLinks", KindInterconnection},
 		{"typed-usage-inherited-tree", "typed-usage-inherited.sysml", "TypedUsageViews::vehicleTree", KindTree},
+		{"inherited-prefix-part-tree", "inherited-prefix.sysml", "InheritedPrefixViews::part1Tree", KindTree},
+		{"inherited-prefix-tree", "inherited-prefix.sysml", "InheritedPrefixViews::rigTree", KindTree},
+		{"inherited-prefix-interconnection", "inherited-prefix.sysml", "InheritedPrefixViews::rigLinks", KindInterconnection},
 		{"layout-collapsed-tree", "layout-collapsed.sysml", "FoldedViews::folded", KindTree},
 		{"layout-collapsed-interconnection", "layout-collapsed.sysml", "FoldedViews::links", KindInterconnection},
 		{"layout-no-parts", "layout-collapsed.sysml", "FoldedViews::noParts", KindTree},
@@ -911,6 +915,9 @@ func TestMermaidSizeCountsEdges(t *testing.T) {
 				drawn += containmentEdges(root)
 			}
 			drawn -= len(rendering.nestingEdges())
+		} else {
+			// A membership shown by a subgraph's nesting is no flowchart edge.
+			drawn -= len(rendering.nestedInSubgraphs(rendering.usedPorts(rendering.portView(PortsMinimal))))
 		}
 		if drawn == 0 {
 			t.Errorf("%s draws no edge", tc.view)

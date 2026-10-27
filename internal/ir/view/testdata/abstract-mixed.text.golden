@@ -9,11 +9,16 @@ abstract part vehicleFamily
   part chassis
 variation part def Models
   variant sedan
-    abstract part engine
-    part chassis
+    abstract part ^engine
+    part ^chassis
 
 relationships:
   engine -- chassis
   engine -- chassis
+  Vehicle o-- AbstractViews::Vehicle::mass
+  vehicleFamily o-- fuel
+  vehicleFamily *-- engine
+  vehicleFamily *-- chassis
+  Models o-- sedan
   vehicleFamily --:|> Vehicle
   Models --|> Vehicle

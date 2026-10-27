@@ -199,7 +199,7 @@ func endLabel(labels map[string]string, node, port string) string {
 func rowLine(row *Node) string {
 	line := row.Kind
 	if name := shown(row); name != "" {
-		line += " " + name
+		line += " " + usagePrefix(row.Inherited) + name
 	} else if row.Text != "" {
 		line += " " + row.Text
 	}
@@ -220,7 +220,7 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 	labels[node.ID] = nodeLabel(node, name)
 	line := strings.Repeat("  ", depth) + node.Kind
 	if name != "" {
-		line += " " + name
+		line += " " + usagePrefix(node.Inherited) + name
 	}
 	if node.Type != "" {
 		line += " : " + node.Type
@@ -294,7 +294,7 @@ func pinLine(port Port, ports portView) string {
 	if ports.interconnectionPort(port) {
 		return "port " + ports.pinLabel(port)
 	}
-	return strings.TrimSpace(port.Direction.String() + " " + port.Name)
+	return strings.TrimSpace(port.Direction.String() + " " + port.displayName())
 }
 
 // textEdgeLabel is the text after an edge's ends: its texts folded into one,

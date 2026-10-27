@@ -32,11 +32,11 @@ flowchart TD
   n3("`*«part»*
 **part1**`")
     n4("`*«port»*
-**aPort**`")
+**^aPort**`")
   n5("`*«part»*
 **part2**`")
     n6("`*«port»*
-**aPort**`")
+**^aPort**`")
   n0 ---|"◇"| n1
   n1 -->|"typing"| n2
   n3 -->|"typing"| n0

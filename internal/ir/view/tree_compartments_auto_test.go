@@ -83,14 +83,14 @@ func TestTreeCompartmentsFoldKeepsNodes(t *testing.T) {
 	if got := keptNames(most.Roots[0]); got != "slot" {
 		t.Errorf("most keeps %q as nodes, want the part owning a definition", got)
 	}
-	if got := compartmentText(most.Roots[0]); got != "attributes: channels : Natural; parts: buffer : Buffer; ports: input : DataPort, input.clock : ClockPort, output : DataPort, output.sync : ClockPort, output.clock : ClockPort" {
+	if got := compartmentText(most.Roots[0]); got != "attributes: channels : Natural; parts: buffer : Buffer; ports: input : DataPort, ^input.clock : ClockPort, output : DataPort, output.sync : ClockPort, ^output.clock : ClockPort" {
 		t.Errorf("most Hub compartments = %q", got)
 	}
 	ports := foldCompartments(hub, CompartmentsPorts)
 	if got := keptNames(ports.Roots[0]); got != "channels,buffer,slot" {
 		t.Errorf("ports keeps %q as nodes, want every non-port member", got)
 	}
-	if got := compartmentText(ports.Roots[0]); got != "ports: input : DataPort, input.clock : ClockPort, output : DataPort, output.sync : ClockPort, output.clock : ClockPort" {
+	if got := compartmentText(ports.Roots[0]); got != "ports: input : DataPort, ^input.clock : ClockPort, output : DataPort, output.sync : ClockPort, ^output.clock : ClockPort" {
 		t.Errorf("ports Hub compartments = %q", got)
 	}
 	want := "5 member(s) drawn as compartment rows of their owner"
@@ -214,7 +214,7 @@ func keptNames(node *Node) string {
 func TestTreeCompartmentsMostCountsDeclaredMembers(t *testing.T) {
 	rendering := render(t, "tree-compartments.sysml", "AmplifierViews::positioned")
 	heatsink := treeNodeNamed(rendering.Roots, "heatsink")
-	if heatsink == nil || len(heatsink.Children) != 1 || heatsink.Children[0].Name != "fins" || heatsink.Children[0].FromType {
+	if heatsink == nil || len(heatsink.Children) != 1 || heatsink.Children[0].Name != "fins" || heatsink.Children[0].Inherited {
 		t.Fatalf("heatsink = %+v, want one child fins declared by heatsink itself", heatsink)
 	}
 	folded := foldCompartments(rendering, CompartmentsMost)
@@ -228,7 +228,7 @@ func TestTreeCompartmentsMostCountsDeclaredMembers(t *testing.T) {
 
 	controllers := render(t, "tree-compartments-most.sysml", "CompartmentDemoViews::controllers")
 	sensor := treeNodeNamed(controllers.Roots, "sensor")
-	if sensor == nil || len(sensor.Children) != 2 || !sensor.Children[0].FromType || !sensor.Children[1].FromType {
+	if sensor == nil || len(sensor.Children) != 2 || !sensor.Children[0].Inherited || !sensor.Children[1].Inherited {
 		t.Fatalf("sensor = %+v, want two children it has from Sensor", sensor)
 	}
 }

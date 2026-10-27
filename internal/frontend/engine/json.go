@@ -376,6 +376,7 @@ type JRenderNode struct {
 	Origin          *JSpan           `json:"origin,omitempty"`
 	Geometry        *JRenderGeometry `json:"geometry,omitempty"`
 	Style           *JRenderStyle    `json:"style,omitempty"`
+	Inherited       bool             `json:"inherited,omitempty"`
 }
 
 type JRenderPort struct {
@@ -383,6 +384,7 @@ type JRenderPort struct {
 	Name      string `json:"name,omitempty"`
 	Type      string `json:"type,omitempty"`
 	Direction string `json:"direction,omitempty"`
+	Inherited bool   `json:"inherited,omitempty"`
 }
 
 type JRenderGeometry struct {

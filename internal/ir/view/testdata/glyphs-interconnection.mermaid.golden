@@ -25,15 +25,15 @@ config:
 flowchart LR
   subgraph n0 ["`*«part»* **line**`"]
     direction LR
-    subgraph n1 ["`*«part»* **a**`"]
+    subgraph n1 ["`*«part»* **^a**`"]
       direction LR
       n2("`*«attribute»*
-**level**`")
+**^level**`")
     end
-    subgraph n3 ["`*«part»* **b**`"]
+    subgraph n3 ["`*«part»* **^b**`"]
       direction LR
       n4("`*«attribute»*
-**level**`")
+**^level**`")
     end
   end
   n2 -.->|"«succession flow»"| n4

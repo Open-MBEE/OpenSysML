@@ -374,11 +374,14 @@ func sysmlExcludingAt[T sysmlElem](s sysmlSeq[T], from, to sysmlInt, hasEnd bool
 		end = sysmlPos(to, "SequenceFunctions::excludingAt")
 	}
 	n := int64(len(s.data))
-	if start < 1 || start > n {
-		sysmlFailf("index out of range: SequenceFunctions::excludingAt start index %d is outside 1..%d", start, n)
+	if start < 1 || start > n+1 {
+		sysmlFailf("index out of range: SequenceFunctions::excludingAt start index %d is outside 1..%d", start, n+1)
 	}
-	if end < start || end > n {
-		sysmlFailf("index out of range: SequenceFunctions::excludingAt end index %d is outside %d..%d", end, start, n)
+	if end < 1 {
+		sysmlFailf("index out of range: SequenceFunctions::excludingAt end index %d is outside 1..*", end)
+	}
+	if end > n {
+		end = n
 	}
 	return sysmlConcat(sysmlSeq[T]{sysmlMany, s.data[:start-1]}, sysmlSeq[T]{sysmlMany, s.data[end:]})
 }

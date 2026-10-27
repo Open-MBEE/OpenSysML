@@ -32,6 +32,7 @@ var plantumlGoldenCases = []struct {
 	{"action", "action.sysml", "FlowViews::driveView", KindAction},
 	{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
 	{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},
+	{"mixed-memberships", "mixed-memberships.sysml", "MixedMemberships::memberships", KindMixed},
 	{"typed-action", "typed-behavior.sysml", "TypedViews::cycleView", KindAction},
 	{"typed-state", "typed-behavior.sysml", "TypedViews::boilerView", KindState},
 	{"filters", "filters.sysml", "FilteredViews::safetyView", KindTree},
@@ -207,7 +208,7 @@ func TestPlantUMLInterconnectionNestsRectangles(t *testing.T) {
 		t.Fatalf("PlantUML: %v", err)
 	}
 	for _, want := range []string{
-		"rectangle \"<size:10>//«part def»//</size>\\n**Loop**\" as n0 <<part def>> {\n  rectangle \"<size:10>//«part»//</size>\\n**pump : Pump**\" as n1 <<part>> <<usage>> {\n    port \"outlet\" as n1.0\n    rectangle \"<size:10>//«item»//</size>\\n**waterOut : Water**\" as n2 <<item>> <<usage>>\n  }\n",
+		"rectangle \"<size:10>//«part def»//</size>\\n**Loop**\" as n0 <<part def>> {\n  rectangle \"<size:10>//«part»//</size>\\n**pump : Pump**\" as n1 <<part>> <<usage>> {\n    port \"^outlet\" as n1.0\n    rectangle \"<size:10>//«item»//</size>\\n**^waterOut : Water**\" as n2 <<item>> <<usage>>\n  }\n",
 		"\n}\nn1.0 -[thickness=3]- n3.0 : supply\nn2 --> n4 : of Water\n@enduml\n",
 	} {
 		if !strings.Contains(puml, want) {

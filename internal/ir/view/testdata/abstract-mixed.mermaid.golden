@@ -47,13 +47,14 @@ flowchart TD
     subgraph n7 ["`*«variant»* **sedan**`"]
       direction TD
       n8("`*«abstract part»*
-**engine**`")
+**^engine**`")
       n9("`*«part»*
-**chassis**`")
+**^chassis**`")
     end
   end
   n4 === n5
   n8 === n9
+  n1_anchor --- n0
   n2_anchor -->|"typing"| n1_anchor
   n6_anchor -->|"«specializes»"| n1_anchor
   classDef anchor fill:none,stroke:none

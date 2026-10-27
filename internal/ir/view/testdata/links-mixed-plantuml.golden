@@ -51,10 +51,10 @@ package "<size:10>//«package»//</size>\n**MixedExamples**" as n0 <<package>> [
   }
   rectangle "<size:10>//«part def»//</size>\n**Plant**" as n25 <<part def>> [[https://example.test/src/mixed.sysml#L16]] {
     rectangle "<size:10>//«part»//</size>\n**pump**" as n26 <<part>> <<usage>> [[https://example.test/src/mixed.sysml#L17]] {
-      port "outlet" as n26.0
+      port "^outlet" as n26.0
     }
     rectangle "<size:10>//«part»//</size>\n**tank**" as n27 <<part>> <<usage>> [[https://example.test/src/mixed.sysml#L18]] {
-      port "inlet" as n27.0
+      port "^inlet" as n27.0
     }
   }
   rectangle "<size:10>//«connection def»//</size>\n**Connection**" as n28 <<connection def>> [[https://example.test/src/mixed.sysml#L22]] {
@@ -81,7 +81,7 @@ package "<size:10>//«package»//</size>\n**MixedExamples**" as n0 <<package>> [
   rectangle "<size:10>//«perform action»//</size>\n**run**\ndeclares no nodes" as n13 <<perform action>> <<usage>> [[https://example.test/src/mixed.sysml#L48]]
   rectangle "<size:10>//«exhibit state»//</size>\n**mode**" as n14 <<exhibit state>> <<usage>> [[https://example.test/src/mixed.sysml#L49]] {
     circle "**start**" as n16 <<start>> <<usage>>
-    rectangle "<size:10>//«state»//</size>\n**ready**\ninitial" as n15 <<state>> <<usage>> [[https://example.test/src/mixed.sysml#L31]]
+    rectangle "<size:10>//«state»//</size>\n**^ready**\ninitial" as n15 <<state>> <<usage>> [[https://example.test/src/mixed.sysml#L31]]
   }
   rectangle "<size:10>//«part def»//</size>\n**Person**" as n31 <<part def>> [[https://example.test/src/mixed.sysml#L52]]
   rectangle "<size:10>//«view»//</size>\n**mixedDiagram**" as n17 <<view>> <<usage>> [[https://example.test/src/mixed.sysml#L54]]
@@ -95,6 +95,25 @@ n11 -- n9 : [[https://example.test/src/mixed.sysml#L44]]
 n9 .. n12 : [[https://example.test/src/mixed.sysml#L45]]
 n16 --> n15 : [[https://example.test/src/mixed.sysml#L30]]
 n26.0 -[thickness=3]- n27.0 : [[https://example.test/src/mixed.sysml#L19]]
+n0 +-- n19 : [[https://example.test/src/mixed.sysml#L5]]
+n0 +-- n20 : [[https://example.test/src/mixed.sysml#L6]]
+n0 +-- n21 : [[https://example.test/src/mixed.sysml#L8]]
+n21 o-- n22 : [[https://example.test/src/mixed.sysml#L9]]
+n0 +-- n23 : [[https://example.test/src/mixed.sysml#L12]]
+n23 o-- n24 : [[https://example.test/src/mixed.sysml#L13]]
+n0 +-- n25 : [[https://example.test/src/mixed.sysml#L16]]
+n25 *-- n26 : [[https://example.test/src/mixed.sysml#L17]]
+n25 *-- n27 : [[https://example.test/src/mixed.sysml#L18]]
+n0 +-- n28 : [[https://example.test/src/mixed.sysml#L22]]
+n28 o-- n29 : [[https://example.test/src/mixed.sysml#L23]]
+n28 o-- n30 : [[https://example.test/src/mixed.sysml#L24]]
+n0 +-- n1 : [[https://example.test/src/mixed.sysml#L27]]
+n0 +-- n2 : [[https://example.test/src/mixed.sysml#L29]]
+n0 +-- n5 : [[https://example.test/src/mixed.sysml#L34]]
+n0 +-- n9 : [[https://example.test/src/mixed.sysml#L42]]
+n0 +-- n31 : [[https://example.test/src/mixed.sysml#L52]]
+n0 *-- n17 : [[https://example.test/src/mixed.sysml#L54]]
+n0 *-- n18 : [[https://example.test/src/mixed.sysml#L59]]
 n3 --:|> n1 : [[https://example.test/src/mixed.sysml#L31]]
 n10 --:|> n25 : [[https://example.test/src/mixed.sysml#L43]]
 n11 --:|> n31 : [[https://example.test/src/mixed.sysml#L44]]

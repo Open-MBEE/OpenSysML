@@ -236,8 +236,8 @@ func (t *translator) variableOf(
 		if !featureDecl(step) || t.model.IsVariationFeature(step) {
 			continue
 		}
-		if stated, ok := t.model.StatedMultiplicityOf(step); ok && !singleValued(stated) {
-			return nil, t.refuse(node, written, "it may hold more than one value")
+		if err := t.holdsOne(node, step, written, "value", step != target); err != nil {
+			return nil, err
 		}
 	}
 	sort, dimension, err := t.sortOf(node, scope, target, written)
@@ -260,6 +260,31 @@ func (t *translator) variableOf(
 		}
 	}
 	return VarTerm(v), nil
+}
+
+// holdsOne refuses a read of a feature whose stated or implicit multiplicity admits
+// several (what names what is read), and records one the default 0..* alone governs as assumed one.
+func (t *translator) holdsOne(node ast.Node, step *symbols.Symbol, written, what string, object bool) error {
+	r := t.model.GoverningMultiplicityOf(step)
+	if singleValued(r) {
+		return nil
+	}
+	if _, stated := t.model.StatedMultiplicityOf(step); stated {
+		return t.refuse(node, written, "it may hold more than one "+what)
+	}
+	t.assumeOne(AssumedOne{Feature: step, Name: t.fqn(step), Multiplicity: r, Object: object})
+	return nil
+}
+
+// assumeOne records a feature read under the assumption that it holds one, once
+// per feature however often and through whatever chain it is read.
+func (t *translator) assumeOne(a AssumedOne) {
+	for _, have := range t.assumedOne {
+		if have.Feature == a.Feature {
+			return
+		}
+	}
+	t.assumedOne = append(t.assumedOne, a)
 }
 
 // singleValued reports whether a multiplicity admits exactly one value, which is

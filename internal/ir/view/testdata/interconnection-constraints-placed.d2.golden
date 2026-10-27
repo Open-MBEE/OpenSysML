@@ -23,15 +23,15 @@ n2: "«attribute»\nnoise" { class: usage }
 n3: "«attribute»\noutput" { class: usage }
 n4: "«constraint»\namplify" {
   class: usage
-  "n4.0": "input" { class: pin }
-  "n4.1": "gain" { class: pin }
-  "n4.2": "output" { class: pin }
+  "n4.0": "^input" { class: pin }
+  "n4.1": "^gain" { class: pin }
+  "n4.2": "^output" { class: pin }
 }
 n5: "«constraint»\nmix" {
   class: usage
-  "n5.0": "a" { class: pin }
-  "n5.1": "b" { class: pin }
-  "n5.2": "total" { class: pin }
+  "n5.0": "^a" { class: pin }
+  "n5.1": "^b" { class: pin }
+  "n5.2": "^total" { class: pin }
 }
 n0 -- n4."n4.0": "=" { class: edge }
 n1 -- n4."n4.1": "=" { class: edge }

@@ -30,8 +30,8 @@ digraph "PlantViews::loopView" {
         color="#99795C";
         penwidth=1;
         "n1" [shape=point, style=invis, width=0, height=0, label=""];
-        "n1.0" [shape=box, label="", xlabel="outlet", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, fillcolor="#FFFFFF", color="#424242"];
-        "n2" [label=<<font point-size="9">«item»</font><br/><b>waterOut</b>>];
+        "n1.0" [shape=box, label="", xlabel="^outlet", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, fillcolor="#FFFFFF", color="#424242"];
+        "n2" [label=<<font point-size="9">«item»</font><br/><b>^waterOut</b>>];
       }
       subgraph "cluster_n3" {
         label=<<font point-size="9">«part»</font><br/><b>tank</b>>;
@@ -41,8 +41,8 @@ digraph "PlantViews::loopView" {
         color="#99795C";
         penwidth=1;
         "n3" [shape=point, style=invis, width=0, height=0, label=""];
-        "n3.0" [shape=box, label="", xlabel="inlet", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, fillcolor="#FFFFFF", color="#424242"];
-        "n4" [label=<<font point-size="9">«item»</font><br/><b>waterIn</b>>];
+        "n3.0" [shape=box, label="", xlabel="^inlet", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, fillcolor="#FFFFFF", color="#424242"];
+        "n4" [label=<<font point-size="9">«item»</font><br/><b>^waterIn</b>>];
       }
       subgraph "cluster_n5" {
         label=<<font point-size="9">«part»</font><br/><b>sensor</b>>;
@@ -52,7 +52,7 @@ digraph "PlantViews::loopView" {
         color="#99795C";
         penwidth=1;
         "n5" [shape=point, style=invis, width=0, height=0, label=""];
-        "n6" [label=<<font point-size="9">«item»</font><br/><b>waterOut</b>>];
+        "n6" [label=<<font point-size="9">«item»</font><br/><b>^waterOut</b>>];
       }
     }
   }

@@ -264,7 +264,7 @@ func declaresMember(scope *symbols.Scope, name string) bool {
 // the run's error.
 func (ctx *Context) assertAtEvent(ev *lower.SequenceEvent, a lower.Assert, obj *Instance) error {
 	if a.Sym == nil {
-		return fmt.Errorf("%w: %s: the assertion is not declared where it was written", ErrNoConditions, ev.Text())
+		return fmt.Errorf("%w: %s: the assertion is not declared where it was written", ErrNotAConstraint, ev.Text())
 	}
 	check := conditionCheck{sym: a.Sym, kind: "constraint", what: "assertion", self: obj, negated: a.Node.IsNegated}
 	if _, err := ctx.evaluateConditions(check, ctx.conditionsOf(a.Sym, ctx.chainMembers(a.Sym, a.Scope))); err != nil {

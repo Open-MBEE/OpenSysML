@@ -7,7 +7,7 @@ import { JSDOM } from "jsdom";
 
 import type { RenderNode, RenderResult } from "../protocol";
 import { drawCanvas, liftNode } from "./canvas";
-import { layoutCanvas, MARGIN, portBox, portCenter, portLabelPlacement, PORT_SIZE } from "./layout";
+import { edgeLabelBox, FONT_SIZE, glyphSize, layoutCanvas, MARGIN, portBox, portCenter, portLabelPlacement, PORT_SIZE } from "./layout";
 
 // The canvas is drawn with the page's document, as it is in the webview.
 const dom = new JSDOM("<!DOCTYPE html><body></body>");
@@ -70,9 +70,13 @@ test("liftNode floats the dragged subtree over a canvas that stays put, drawn la
   assert.deepEqual(groups.map((group) => group.classList.contains("lifted")), [false, false, true, true]);
   assert.equal(svg.querySelector('g[data-opensysml-id="a"] > rect')!.getAttribute("x"), "10");
   assert.equal(svg.querySelector('g[data-opensysml-id="c"] > rect')!.getAttribute("x"), before);
-  // Lifted within the canvas, the canvas keeps its size and origin.
-  assert.deepEqual([svg.getAttribute("width"), svg.getAttribute("height")], [String(layout.width), String(layout.height)]);
-  assert.equal(svg.getAttribute("viewBox"), `${layout.origin.x} ${layout.origin.y} ${layout.width} ${layout.height}`);
+  // Lifted within the canvas, the canvas keeps its origin and height; it widens only as far
+  // as the label of the redrawn edge, riding the edge's midpoint right, reaches past it.
+  const label = svg.querySelector("g.opensysml-edge.lifted text.edge-label")!;
+  const width = Math.max(layout.width, Number(label.getAttribute("x")) + glyphSize(label.textContent ?? "").width / 2 + MARGIN - layout.origin.x);
+  assert.ok(width > layout.width);
+  assert.deepEqual([svg.getAttribute("width"), svg.getAttribute("height")], [String(width), String(layout.height)]);
+  assert.equal(svg.getAttribute("viewBox"), `${layout.origin.x} ${layout.origin.y} ${width} ${layout.height}`);
   // The edge from the lifted valve to the pump is redrawn to follow it, with its handles.
   assert.deepEqual([...svg.querySelectorAll<SVGGElement>("g.lifted")].map((group) => group.classList[0]), [
     "opensysml-node", "opensysml-node", "opensysml-edge", "edge-handles",
@@ -150,6 +154,50 @@ test("drawCanvas opens the view on geometry the model puts left of or above the 
   assert.deepEqual([svg.getAttribute("width"), svg.getAttribute("height")], [String(layout.width), String(layout.height)]);
   const rect = svg.querySelector('g[data-opensysml-id="a"] > rect')!;
   assert.deepEqual([rect.getAttribute("x"), rect.getAttribute("y")], ["-120", "40"]);
+});
+
+// labelled is a and b, placed where stated, joined by one edge routed through the points and labelled.
+function labelled(a: Partial<RenderNode>, b: Partial<RenderNode>, label: string, route: { x: number; y: number }[]): RenderResult {
+  return {
+    ...result,
+    nodes: [node("a", "a", { kind: "requirement", width: 120, height: 60, ...a }), node("b", "b", { kind: "requirement", width: 120, height: 60, ...b })],
+    edges: [{ from: "a", to: "b", label, kind: "derive", route }],
+  };
+}
+
+// drawnLabel is where the canvas put an edge's label: the text's anchor and baseline, with the width the layout allows it.
+function drawnLabel(svg: SVGSVGElement): { x: number; baseline: number; width: number } {
+  const text = svg.querySelector("text.edge-label")!;
+  return { x: Number(text.getAttribute("x")), baseline: Number(text.getAttribute("y")), width: glyphSize(text.textContent ?? "").width };
+}
+
+test("drawCanvas opens the view on an edge label routed above the top row of nodes", () => {
+  // The router takes the edge over the top of the row; its label sits above the line, above every box.
+  const layout = layoutCanvas(labelled({ x: 24, y: 24 }, { x: 324, y: 24 }, "«derive»", [{ x: 84, y: 0 }, { x: 384, y: 0 }]));
+  const svg = drawCanvas(layout);
+  const label = drawnLabel(svg);
+  assert.ok(label.baseline < 24, `the label at ${label.baseline} lies above the row`);
+  assert.ok(layout.origin.y <= label.baseline - FONT_SIZE, `the canvas top ${layout.origin.y} cuts the label above ${label.baseline}`);
+  assert.equal(svg.getAttribute("viewBox"), `${layout.origin.x} ${layout.origin.y} ${layout.width} ${layout.height}`);
+  assert.deepEqual([svg.getAttribute("width"), svg.getAttribute("height")], [String(layout.width), String(layout.height)]);
+});
+
+test("drawCanvas opens the view on an edge label wider than the segment it is centred on, left and right of the boxes", () => {
+  const label = "«a long allocation label»";
+  const right = layoutCanvas(labelled({ x: 24, y: 24 }, { x: 24, y: 224 }, label, [{ x: 168, y: 54 }, { x: 168, y: 254 }]));
+  const onRight = drawnLabel(drawCanvas(right));
+  assert.ok(right.origin.x + right.width >= onRight.x + onRight.width / 2, `the canvas right ${right.origin.x + right.width} cuts the label at ${onRight.x}`);
+  const left = layoutCanvas(labelled({ x: 48, y: 24 }, { x: 48, y: 224 }, label, [{ x: 0, y: 54 }, { x: 0, y: 254 }]));
+  const onLeft = drawnLabel(drawCanvas(left));
+  assert.ok(left.origin.x <= onLeft.x - onLeft.width / 2, `the canvas left ${left.origin.x} cuts the label at ${onLeft.x}`);
+});
+
+test("drawCanvas opens the view on the arrowhead of an edge ending on the canvas's edge", () => {
+  // The edge runs down x = 0 and ends there; its arrowhead is drawn to either side of the line.
+  const layout = layoutCanvas(labelled({ x: 0, y: 24 }, { x: 0, y: 224 }, "", [{ x: 0, y: 54 }, { x: 0, y: 254 }]));
+  const points = (drawCanvas(layout).querySelector("polyline")?.getAttribute("points") ?? "").split(" ");
+  assert.equal(points.at(-1)?.split(",")[0], "0");
+  assert.ok(layout.origin.x < 0, `the canvas left ${layout.origin.x} cuts the arrowhead on x = 0`);
 });
 
 test("drawCanvas draws edges with the arrowhead their kind takes and handles on a steerable route", () => {
@@ -292,7 +340,10 @@ test("drawCanvas draws the port group, square, label, title, and includes them i
       y: 30,
       width: 100,
       height: 60,
-      ports: [{ id: "service.api", name: "api", type: "Api", direction: "out" }],
+      ports: [
+        { id: "service.api", name: "api", type: "Api", direction: "out" },
+        { id: "service.log", name: "log", type: "Log", direction: "out", inherited: true },
+      ],
     })],
     edges: [],
   };
@@ -303,6 +354,9 @@ test("drawCanvas draws the port group, square, label, title, and includes them i
   const group = svg.querySelector<SVGGElement>('g[data-opensysml-id="api"] > g.port[data-port="service.api"]')!;
   assert.deepEqual([...group.children].map((child) => child.tagName.toLowerCase()), ["title", "rect", "text"]);
   assert.equal(group.querySelector("title")?.textContent, "api : Api");
+  const inherited = svg.querySelector<SVGGElement>('g[data-opensysml-id="api"] > g.port[data-port="service.log"]')!;
+  assert.equal(inherited.querySelector("title")?.textContent, "^log : Log");
+  assert.equal(inherited.querySelector("text.port-label")?.textContent, "^log");
   const square = portBox(entry.box, placed);
   const center = portCenter(entry.box, placed);
   const rect = group.querySelector("rect.port-shape")!;
@@ -329,7 +383,7 @@ test("drawCanvas preserves the portless SVG output", () => {
   const svg = drawCanvas(layoutCanvas(result));
   assert.equal(
     createHash("sha256").update(svg.outerHTML).digest("hex"),
-    "14464e966eed0316973b050700e38acaf046ff35d97ebb3761b363bd3871a58d",
+    "43c3b5225634001e08b36d080f8687204fe684ed2057923b0ef65ffda16bfcaa",
   );
 });
 
@@ -410,4 +464,45 @@ test("drawCanvas ends every edge kind in the marker the notation table states", 
       if (marker !== null) assert.ok(markers.has(marker), `${kind} ends in a marker the defs declare`);
     }
   });
+});
+
+// Without libavoid the canvas draws an edge straight; a membership edge to a member drawn
+// inside its owner still runs from the owner's header line, inside the owner, with its
+// keyword off every header.
+test("layoutCanvas draws a membership edge from the owner's header line inside the owner when no router is loaded", () => {
+  const owner: RenderResult = {
+    ...result,
+    kind: "mixed",
+    nodes: [
+      node("pump", "Pump", { kind: "part def" }),
+      node("pressure", "pressure", { kind: "attribute", parent: "pump", type: "Pressure" }),
+      node("impeller", "impeller", { parent: "pump", type: "Impeller" }),
+      node("prime", "prime", { kind: "action", parent: "pump" }),
+    ],
+    edges: [
+      { from: "pump", to: "pressure", label: "require", kind: "require", fqn: "M::pressure" },
+      { from: "pump", to: "prime", label: "", kind: "composition", fqn: "M::prime" },
+    ],
+  };
+  const layout = layoutCanvas(owner);
+  const pump = layout.nodes.get("pump")!;
+  const headerLine = pump.box.y + glyphSize(pump.lines.join("\n")).height;
+  const inside = (box: { x: number; y: number; width: number; height: number }, { x, y }: { x: number; y: number }) =>
+    x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height;
+  for (const edge of layout.edges) {
+    assert.equal(edge.rerouted, false);
+    assert.equal(edge.points.length, 2, "drawn straight");
+    assert.ok(edge.points.every((point) => inside(pump.box, point)), `${edge.edge.to} edge stays inside Pump`);
+    assert.ok(edge.points[0].y >= headerLine, `${edge.edge.to} edge starts at or below Pump's header line, not on its outer border`);
+  }
+  const label = edgeLabelBox(layout.edges[0])!;
+  for (const entry of layout.nodes.values()) {
+    const header = entry.children.length === 0
+      ? entry.box
+      : { ...entry.box, height: glyphSize(entry.lines.join("\n")).height };
+    assert.ok(
+      !(label.x < header.x + header.width && header.x < label.x + label.width && label.y < header.y + header.height && header.y < label.y + label.height),
+      `the require label covers ${entry.node.name}`,
+    );
+  }
 });

@@ -51,12 +51,17 @@ rectangle "<size:10>//«abstract part»//</size>\n**vehicleFamily**" as n2 <<abs
 }
 rectangle "<size:10>//«variation part def»//</size>\n**Models**" as n6 <<variation part def>> {
   rectangle "<size:10>//«variant»//</size>\n**sedan**" as n7 <<variant>> <<usage>> {
-    rectangle "<size:10>//«abstract part»//</size>\n**engine**" as n8 <<abstract part>> <<usage>>
-    rectangle "<size:10>//«part»//</size>\n**chassis**" as n9 <<part>> <<usage>>
+    rectangle "<size:10>//«abstract part»//</size>\n**^engine**" as n8 <<abstract part>> <<usage>>
+    rectangle "<size:10>//«part»//</size>\n**^chassis**" as n9 <<part>> <<usage>>
   }
 }
 n4 -[thickness=3]- n5
 n8 -[thickness=3]- n9
+n1 o-- n0
+n2 o-- n3
+n2 *-- n4
+n2 *-- n5
+n6 o-- n7
 n2 --:|> n1
 n6 --|> n1
 @enduml

@@ -213,6 +213,9 @@ class RenderPort:
     name: str
     type: str
     direction: str
+    #: The node's owner has the port from its type rather than declares it; the
+    #: notation draws ``^`` before ``name``.
+    inherited: bool = False
 
 
 @dataclass(frozen=True)
@@ -262,6 +265,10 @@ class RenderNode:
     origin: Optional[RenderSpan]
     geometry: Optional[RenderGeometry]
     style: Optional[RenderStyle]
+    #: The owner the node is drawn or listed under has the usage through typing,
+    #: subclassification or subsetting rather than declares it; the notation
+    #: draws ``^`` before ``name``.
+    inherited: bool = False
 
 
 @dataclass(frozen=True)
@@ -367,13 +374,14 @@ def render_view_result(response):
         RenderNode(
             node.id, node.kind, node.name, node.name_synthesized, node.type, node.detail,
             node.text, node.stand_in, node.parent, node.compartment,
-            tuple(RenderPort(port.id, port.name, port.type, port.direction) for port in node.ports),
+            tuple(RenderPort(port.id, port.name, port.type, port.direction, port.inherited) for port in node.ports),
             _render_span(node.origin if node.HasField("origin") else None),
             None if not node.HasField("geometry") else RenderGeometry(
                 node.geometry.x, node.geometry.y, node.geometry.width, node.geometry.height,
                 node.geometry.has_size, node.geometry.collapsed, node.geometry.unplaced,
             ),
             _render_style(node.style if node.HasField("style") else None),
+            inherited=node.inherited,
         )
         for node in response.nodes
     )

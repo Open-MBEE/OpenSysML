@@ -41,6 +41,11 @@ func TestRenderViewRendersInterconnectionAndPorts(t *testing.T) {
 		if node.Origin == nil || node.Origin.StartLine == 0 {
 			t.Errorf("node %q has no source origin: %+v", node.Name, node.Origin)
 		}
+		for _, port := range node.Ports {
+			if !port.Inherited || strings.HasPrefix(port.Name, "^") {
+				t.Errorf("port %+v of %q, want the pin the part has from its definition marked inherited under its bare name", port, node.Name)
+			}
+		}
 	}
 	if ports != 2 {
 		t.Errorf("minimal ports = %d, want the two connected ports", ports)
