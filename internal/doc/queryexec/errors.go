@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // ErrorKind classifies a document-query execution failure.
@@ -136,14 +137,14 @@ func (e *Error) unknownElementMessage() string {
 	case len(e.Path) > 0:
 		return fmt.Sprintf("%s: the alias %s denotes no element", msg, suggest.Notation(e.Path[0]))
 	case e.Target != "":
-		msg += fmt.Sprintf(": %s has no member %s", suggest.Notation(e.Target), suggest.Name(e.Expected))
+		msg += fmt.Sprintf(": %s has no member %s", suggest.Notation(e.Target), source.NameText(e.Expected))
 	case e.Expected != "":
-		msg += fmt.Sprintf(": nothing is named %s", suggest.Name(e.Expected))
+		msg += fmt.Sprintf(": nothing is named %s", source.NameText(e.Expected))
 	}
-	return suggest.With(msg, suggest.Name(e.Expected), spelled(e.Candidates, suggest.Name))
+	return suggest.With(msg, source.NameText(e.Expected), spelled(e.Candidates, source.NameText))
 }
 
-// spelled writes each registered name as it is typed back, by Name or Notation.
+// spelled writes each registered name as it is typed back, by NameText or Notation.
 func spelled(names []string, as func(string) string) []string {
 	out := make([]string, 0, len(names))
 	for _, name := range names {

@@ -959,6 +959,31 @@ func TestLookupUniqueReadsQuotedSegments(t *testing.T) {
 	}
 }
 
+// A quoted segment keeps its escapes, as the parser keeps them, and keeps its
+// boundary: `P::'x::y'` is the member named `x::y`, `P::x::y` the nested `y`.
+func TestLookupUniqueTellsQuotedSegmentsApart(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "quoted.sysml", `package P {
+	part def 'a\'b';
+	package x { part def y; }
+	part def 'x::y';
+}`)
+	idx.ExpandWildcardImports()
+
+	if got := idx.LookupUnique(`P::'a\'b'`); got == nil || got.Name != `a\'b` {
+		t.Errorf("LookupUnique(P::'a\\'b') = %v, want the escaped name", got)
+	}
+	if got := idx.LookupUnique("P::'x::y'"); got == nil || got.Name != "x::y" {
+		t.Errorf("LookupUnique(P::'x::y') = %v, want the member named x::y", got)
+	}
+	if got := idx.LookupUnique("P::x::y"); got == nil || got.Name != "y" || FQNOf(got) != "P::x::y" {
+		t.Errorf("LookupUnique(P::x::y) = %v, want the nested y", got)
+	}
+	if got := idx.LookupUnique("P::'x::z'"); got != nil {
+		t.Errorf("LookupUnique(P::'x::z') = %s, want nil", FQNOf(got))
+	}
+}
+
 // LookupUnique answers a fully-qualified name, or a name exactly one element's
 // fully-qualified name ends in; two elements ending in it name nothing.
 func TestLookupUniqueBySuffix(t *testing.T) {

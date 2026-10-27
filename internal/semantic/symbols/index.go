@@ -1793,7 +1793,14 @@ func (idx *Index) shortNamedScan(name string) bool {
 // LookupUniqueCandidates returns the distinct elements LookupUnique chooses among —
 // registered under name exactly, else under every FQN ending in it — none or several telling why it failed.
 func (idx *Index) LookupUniqueCandidates(name string) []*Symbol {
-	name = strings.Join(SegmentsOf(name), fqnSeparator)
+	segments := SegmentsOf(name)
+	return slices.DeleteFunc(idx.lookupUniqueCandidates(strings.Join(segments, fqnSeparator)), func(sym *Symbol) bool {
+		return !namesAgree(segments, sym)
+	})
+}
+
+// lookupUniqueCandidates is LookupUniqueCandidates over the registered form of name.
+func (idx *Index) lookupUniqueCandidates(name string) []*Symbol {
 	if matches := idx.LookupQualified(name); len(matches) == 1 {
 		return matches
 	}
@@ -2016,32 +2023,27 @@ func (idx *Index) lookupDirectChildrenNamed(key directChildrenKey, name string) 
 	return byName[name]
 }
 
-// SegmentsOf splits a qualified name as the notation spells it — at the `::`
-// outside quotes — each segment read as the name it spells, `'Spare Parts'` unquoted.
+// SegmentsOf reads a qualified name as the notation spells it into its names,
+// `'x::y'` one and `x::y` two, quotes dropped and escapes kept as the parser keeps them.
 func SegmentsOf(name string) []string {
-	var out []string
-	start, inQuote := 0, false
-	for i := 0; i < len(name); i++ {
-		switch c := name[i]; {
-		case inQuote && c == '\\':
-			i++
-		case c == '\'':
-			inQuote = !inQuote
-		case !inQuote && strings.HasPrefix(name[i:], fqnSeparator):
-			out = append(out, segmentName(name[start:i]))
-			start = i + len(fqnSeparator)
-			i++
-		}
+	if segments, ok := source.QualifiedNameSegments(name); ok {
+		return segments
 	}
-	return append(out, segmentName(name[start:]))
+	return strings.Split(name, fqnSeparator)
 }
 
-// segmentName reads one segment: a quoted one as the unrestricted name it spells.
-func segmentName(raw string) string {
-	if len(raw) >= 2 && raw[0] == '\'' && raw[len(raw)-1] == '\'' {
-		return source.StringValue(raw)
+// namesAgree reports whether sym is what segments name once a name holding `::`
+// is involved on either side, where the joined key alone cannot tell `'x::y'` from `x::y`.
+func namesAgree(segments []string, sym *Symbol) bool {
+	chain := NameChain(sym)
+	if !holdsSeparator(segments) && !holdsSeparator(chain) {
+		return true
 	}
-	return raw
+	return len(chain) >= len(segments) && slices.Equal(chain[len(chain)-len(segments):], segments)
+}
+
+func holdsSeparator(names []string) bool {
+	return slices.ContainsFunc(names, func(name string) bool { return strings.Contains(name, fqnSeparator) })
 }
 
 // LastSegment is the simple name a "::"-qualified name ends in, or name itself.

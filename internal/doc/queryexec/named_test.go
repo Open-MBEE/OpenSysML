@@ -143,6 +143,29 @@ func TestExecuteNamedReadsQuotedSegments(t *testing.T) {
 			t.Fatalf("Named(%s) = %v, want it to contain %q", name, err, want)
 		}
 	}
+	// Escapes are read as the parser reads them; a quoted `::` is one segment, so
+	// `P::'x::y'` is not the nested `y` and says so when no member is so named.
+	quoted := loadExecutionFixture(t, `
+package P { part def 'a\'b'; package x { part def y; } }
+calc def ByName :> Query {
+	in qualifiedName : String[1..*] ordered;
+	Named(qualifiedName = qualifiedName)
+}
+`)
+	for name, want := range map[string]string{`P::'a\'b'`: `Observatory::P::a\'b`, "P::x::y": "Observatory::P::x::y"} {
+		result, err := quoted.execute(t, "ByName", Bindings{"qualifiedName": {StringValue(name)}}, Options{})
+		if err != nil {
+			t.Fatalf("Named(%s): %v", name, err)
+		}
+		if got := strings.Join(rowNames(result), ","); got != want {
+			t.Fatalf("Named(%s) rows = %v, want %s", name, got, want)
+		}
+	}
+	_, err := quoted.execute(t, "ByName", Bindings{"qualifiedName": {StringValue("P::'x::y'")}}, Options{})
+	unknown := executionError(t, err, ErrorUnknownElement)
+	if want := "names no element P::'x::y': Observatory::P has no member 'x::y'"; unknown.Actual != "P::'x::y'" || !strings.Contains(err.Error(), want) {
+		t.Fatalf("Named(P::'x::y') = %v, want it to contain %q", err, want)
+	}
 }
 
 // Two aliases of one element denote one element, not two.
