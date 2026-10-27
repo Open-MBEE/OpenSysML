@@ -20,10 +20,11 @@ func (e *executor) evaluateNamed(expression queryplan.Expression) (sequence, err
 	}
 	var result sequence
 	for _, name := range names {
-		elements, dangling := e.denoted(name)
+		found, dangling := e.denoted(name)
+		elements := elementsOf(found)
 		switch {
 		case len(elements) > 1:
-			return sequence{}, e.ambiguousElement(expression, name, elements)
+			return sequence{}, e.ambiguousElement(expression, name, found)
 		case len(elements) == 0:
 			return sequence{}, e.unknownElement(expression, name, dangling)
 		}
@@ -34,29 +35,64 @@ func (e *executor) evaluateNamed(expression queryplan.Expression) (sequence, err
 
 // denoted resolves name to the distinct elements it denotes, aliases followed
 // and deduplicated; dangling reports a candidate alias that denotes nothing.
-func (e *executor) denoted(name string) (elements []*symbols.Symbol, dangling bool) {
+// denotation is a registration the name matched — a declaration or an alias — and
+// the element it denotes; every registration is kept, elementsOf dedups the targets.
+type denotation struct {
+	registration *symbols.Symbol
+	element      *symbols.Symbol
+}
+
+func (e *executor) denoted(name string) (found []denotation, dangling bool) {
 	for _, candidate := range e.context.Index.LookupUniqueCandidates(name) {
 		element, ok := e.context.Resolver.ResolveAliasTarget(candidate)
 		if !ok || element == nil {
 			dangling = true
 			continue
 		}
-		if !slices.ContainsFunc(elements, func(o *symbols.Symbol) bool { return symbols.SameElement(o, element) }) {
-			elements = append(elements, element)
+		found = append(found, denotation{registration: candidate, element: element})
+	}
+	return found, dangling
+}
+
+// elementsOf is the distinct elements the registrations denote.
+func elementsOf(found []denotation) []*symbols.Symbol {
+	out := make([]*symbols.Symbol, 0, len(found))
+	for _, d := range found {
+		if !slices.ContainsFunc(out, func(o *symbols.Symbol) bool { return symbols.SameElement(o, d.element) }) {
+			out = append(out, d.element)
 		}
 	}
-	return elements, dangling
+	return out
 }
 
 // ambiguousElement reports a name several elements carry, each by its
 // fully-qualified name, in name order.
-func (e *executor) ambiguousElement(expression queryplan.Expression, name string, candidates []*symbols.Symbol) error {
+func (e *executor) ambiguousElement(expression queryplan.Expression, name string, candidates []denotation) error {
 	fqns := make([]string, 0, len(candidates))
-	for _, candidate := range candidates {
-		fqns = append(fqns, symbols.FQNOf(candidate))
+	for _, element := range elementsOf(candidates) {
+		fqns = append(fqns, symbols.FQNOf(element))
 	}
 	sort.Strings(fqns)
+	// One finding per namespace declaring the duplicate names (an alias counts where it
+	// is declared, not where its target is), each listing every element denoted there.
+	byOwner := map[string][]string{}
+	for _, candidate := range candidates {
+		owner := ownerOf(symbols.FQNOf(candidate.registration))
+		byOwner[owner] = append(byOwner[owner], symbols.FQNOf(candidate.element))
+	}
+	for owner := range byOwner {
+		sort.Strings(byOwner[owner])
+	}
 	step := Step{Kind: StepNamed, Argument: name}
+	owners := make([]string, 0, len(byOwner))
+	for owner := range byOwner {
+		owners = append(owners, owner)
+	}
+	sort.Strings(owners)
+	findings := make([]Finding, 0, len(owners))
+	for _, owner := range owners {
+		findings = append(findings, Finding{Step: step, Element: owner, Constraint: ConstraintAmbiguousName, Observed: declaredAs(byOwner[owner])})
+	}
 	return &Error{
 		Kind:       ErrorAmbiguousElement,
 		Query:      e.definition.Name(),
@@ -64,13 +100,16 @@ func (e *executor) ambiguousElement(expression queryplan.Expression, name string
 		Actual:     name,
 		Candidates: fqns,
 		Origin:     expression.Origin(),
-		Outcome: &Outcome{Model: &ModelError{Findings: []Finding{{
-			Step:       step,
-			Element:    name,
-			Constraint: ConstraintAmbiguousName,
-			Observed:   declaredAs(fqns),
-		}}}},
+		Outcome:    &Outcome{Model: &ModelError{Findings: findings}},
 	}
+}
+
+// ownerOf is the namespace a qualified name is declared in; a root name owns itself.
+func ownerOf(fqn string) string {
+	if i := strings.LastIndex(fqn, "::"); i >= 0 {
+		return fqn[:i]
+	}
+	return fqn
 }
 
 // unknownElement reports a name no element carries with its frontier: the longest
@@ -99,7 +138,8 @@ func (e *executor) unknownElement(expression queryplan.Expression, name string, 
 	segments := symbols.SegmentsOf(name)
 	for i := len(segments) - 1; i >= 1; i-- {
 		prefix := source.QualifiedNameOf(segments[:i])
-		owners, dangling := e.denoted(prefix)
+		found, dangling := e.denoted(prefix)
+		owners := elementsOf(found)
 		switch len(owners) {
 		case 0:
 			if dangling {
@@ -120,7 +160,7 @@ func (e *executor) unknownElement(expression queryplan.Expression, name string, 
 		default:
 			// The first segment that does not resolve is one several elements carry:
 			// the frontier is that ambiguity, a finding about the model.
-			return e.ambiguousElement(expression, prefix, owners)
+			return e.ambiguousElement(expression, prefix, found)
 		}
 	}
 	err.Expected = segments[0]

@@ -7,10 +7,18 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 const examplesDir = "../../../examples"
+
+// markupToolMissingCode is the document-plan error for a prose body whose
+// converter is not installed; toolchainRequiredEnv turns the skip into a failure.
+const (
+	markupToolMissingCode = "document-plan-" + string(docplan.ErrorMarkupToolMissing)
+	toolchainRequiredEnv  = "OPENSYSML_REQUIRE_PDF_TOOLCHAIN"
+)
 
 // Every example the repository ships must analyse cleanly, so the CLI's
 // -validate exit status stays meaningful for the files the docs point at.
@@ -34,12 +42,22 @@ func TestExamplesAnalyseCleanly(t *testing.T) {
 			}
 
 			var errs []string
+			toolMissing := true
 			for _, d := range ws.Diagnostics(rel) {
 				if d.Severity == diag.SeverityError {
 					errs = append(errs, d.Message)
+					toolMissing = toolMissing && d.Code == markupToolMissingCode
 				}
 			}
 
+			if len(errs) > 0 && toolMissing {
+				// The example's prose needs an external converter: the PDF
+				// toolchain job installs it and requires the example to analyse.
+				if required := os.Getenv(toolchainRequiredEnv); required != "" {
+					t.Fatalf("%s=%s but %s", toolchainRequiredEnv, required, strings.Join(errs, "; "))
+				}
+				t.Skipf("%s", strings.Join(errs, "; "))
+			}
 			if len(errs) > 0 {
 				t.Errorf("%d error(s): %s", len(errs), strings.Join(errs, "; "))
 			}
@@ -75,7 +93,9 @@ func TestViewsDemoResolvesCaseRenderingsWithSelfModelLoaded(t *testing.T) {
 }
 
 // siblings returns the files analysed together with one example: the other
-// models in its directory, or the file alone when it sits at the top level.
+// models in its directory and in the example directories enclosing it (a
+// nested directory layers onto the model above it), or the file alone when it
+// sits at the top level.
 func siblings(t *testing.T, rel string) []string {
 	t.Helper()
 
@@ -86,7 +106,8 @@ func siblings(t *testing.T, rel string) []string {
 
 	var group []string
 	for _, candidate := range exampleFiles(t) {
-		if filepath.ToSlash(filepath.Dir(candidate)) == dir {
+		candidateDir := filepath.ToSlash(filepath.Dir(candidate))
+		if candidateDir != "." && (candidateDir == dir || strings.HasPrefix(dir, candidateDir+"/")) {
 			group = append(group, candidate)
 		}
 	}

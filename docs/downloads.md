@@ -67,6 +67,9 @@ After downloading release assets into the same directory, verify their checksums
 sha256sum -c --ignore-missing SHA256SUMS.txt
 ```
 
+To check the manifest's signature, the provenance statement, a package or the container image,
+see [Security § Verifying a release](guide/security.md#verifying-a-release).
+
 For signature verification with cosign, see the [install guide](guide/01-install.md).
 
 ## Package managers

@@ -395,7 +395,7 @@ func TestCompilePositionalSurplusArgumentsAreTyped(t *testing.T) {
 	fixture := loadQueryFixture(t, computedFixture+`
 calc def Bad :> Query {
 	in root : Element;
-	Project(Descendants(source = root, maxDepth = 1), ("name"), null, null)
+	Project(Descendants(source = root, maxDepth = 1), ("name"), null, false, null)
 }
 `)
 	_, err := Compile(fixture.index, fixture.model, fixture.resolver, fixture.symbol(t, "Bad"))
