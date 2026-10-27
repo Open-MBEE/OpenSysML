@@ -1333,9 +1333,8 @@ func declScope(sym *symbols.Symbol) *symbols.Scope {
 	return sym.OwnerScope
 }
 
-// inheritedMember reports whether sym, drawn under owner, is a member owner has
-// from what it specializes or is typed by rather than declares: its declaring
-// namespace is another element. A node lowered from no declaration is owner's own.
+// inheritedMember reports whether sym, drawn under owner, is declared by another element
+// (inherited through specialization or typing); a node lowered from no declaration is owner's own.
 func inheritedMember(sym, owner *symbols.Symbol) bool {
 	return sym != nil && owner != nil && sym.Owner() != nil && sym.Owner() != owner
 }
