@@ -551,9 +551,8 @@ func TestUsedLinksEachVersionOfARepositoryOnceItsProjectIsLearnt(t *testing.T) {
 	}
 }
 
-// An unconstrained usage several unclaimed versions could answer is deferred;
-// when later usages then claim every candidate, it selects nothing and says
-// nothing rather than failing on an emptied candidate list.
+// A deferred usage whose candidates later usages all claim selects nothing and
+// says nothing, rather than failing on an emptied candidate list.
 func TestUsedSurvivesADeferredUsageWhoseCandidatesAreAllClaimedLater(t *testing.T) {
 	root := t.TempDir()
 	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
