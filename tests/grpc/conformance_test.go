@@ -353,8 +353,7 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 	ctx := context.Background()
 
 	parseResp, err := srv.ParseFile(ctx, &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: string(modelData)},
-		ContentHash: caseName,
+		Source: &pb.ParseFileRequest_Content{Content: string(modelData)},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)

@@ -80,9 +80,11 @@ tool; it does not count against the report.
 | Earlier releases | No: update to the latest release |
 | `nightly` prereleases | Fixed on `develop` as soon as they merge; no advisory covers a nightly |
 
+<!-- support-statement:begin -->
 Until 1.0.0, each release line is supported only until the next release. From 1.0.0 the previous
 minor release line is also supported for 90 days after its successor ships, so that a fix can
 be taken without a feature update.
+<!-- support-statement:end -->
 
 ## What counts as a vulnerability
 
@@ -112,11 +114,11 @@ release pipeline's identity) as `SHA256SUMS.txt.bundle`, and a SLSA provenance s
 the same way as `provenance.intoto.json.bundle`. Windows builds are Authenticode signed through
 SignPath Foundation once the project's application is approved. How to verify each of these,
 and the exact signer identity to pin, is in
-[docs/project/releasing.md § The signed checksum manifest](docs/project/releasing.md#the-signed-checksum-manifest)
-and [§ The release provenance](docs/project/releasing.md#the-release-provenance); the
-installer's `--verify-signature` flag does the manifest check for you (see
-[docs/guide/01-install.md](docs/guide/01-install.md)). A release asset that does not verify is
-a vulnerability report in itself: send it through the channel above.
+[docs/guide/security.md § Verifying a release](docs/guide/security.md#verifying-a-release)
+(the same page as this policy on the documentation site); the installer's `--verify-signature`
+flag does the manifest check for you (see [docs/guide/01-install.md](docs/guide/01-install.md)).
+A release asset that does not verify is a vulnerability report in itself: send it through the
+channel above.
 
 ## Dependencies and static analysis
 

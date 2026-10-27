@@ -53,5 +53,8 @@
   "jupyterlab": {
     "extension": true,
     "outputDir": "../../client/jupyter-kernel/labextension"
+  },
+  "overrides": {
+    "sanitize-html": "^2.18.1"
   }
 }

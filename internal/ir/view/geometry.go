@@ -254,13 +254,20 @@ func (r *Renderer) memberDress(view, owner *symbols.Symbol, name string, node *N
 			node.Style = &Style{Fill: s.Fill, Line: s.Line, Text: s.Text, Font: s.Font, FontSize: s.FontSize, Bold: s.Bold, Italic: s.Italic}
 		}
 	}
+	r.memberNotesOf(view, owner, name, node.ID, out)
+	return node
+}
+
+// memberNotesOf adds to out the Notes about the member owner has under name in
+// view, anchored to anchor: those naming it as owner's, and the declaring
+// owner's — not one naming it as another inheriting owner's.
+func (r *Renderer) memberNotesOf(view, owner *symbols.Symbol, name, anchor string, out *Rendering) {
 	for _, site := range r.model.MemberNotesOf(view, owner, name) {
 		r.noteLayoutProblems(site, owner, out)
 		if n := site.Note; n != nil {
-			out.Notes = append(out.Notes, Note{Text: n.Text, Anchor: node.ID, X: n.X, Y: n.Y, Width: n.Width, Height: n.Height, HasSize: n.HasSize, Origin: site.Origin()})
+			out.Notes = append(out.Notes, Note{Text: n.Text, Anchor: anchor, X: n.X, Y: n.Y, Width: n.Width, Height: n.Height, HasSize: n.HasSize, Origin: site.Origin()})
 		}
 	}
-	return node
 }
 
 // routeOf is the waypoints the edge declared as elem follows in view, nil when

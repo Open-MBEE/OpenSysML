@@ -502,9 +502,11 @@ $ sysml -state MyModel::Monitor -advance 15 checks.sysml
 
 A calculation's result and an action's parameters print in brackets because a feature holds a
 number of values bounded by its multiplicity (KerML 8.4.4.12.1), which these surfaces report as a
-sequence: `[80.0]` is the one-element sequence a result of multiplicity `1` holds, and a result of
-multiplicity `0..*` prints every element the same way. `-e` on a plain attribute still prints the
-scalar it holds. Up to 0.10.x these surfaces unwrapped a one-element result to its scalar.
+sequence: `[80.0]` is the one-element sequence a result that states no multiplicity holds, and a
+result of multiplicity `0..*` prints every element the same way. `-e` on a plain attribute still
+prints the scalar it holds. Up to 0.10.x these surfaces unwrapped a one-element result to its
+scalar. Why a bare `return` holds a sequence, and the `return : Real[1]` spelling that prints one
+value bare, are explained in [What a result line shows](04-repl.md#what-a-result-line-shows).
 
 An analysis case is a calculation performed as an action, so `-analysis` runs it the way
 `-calc` invokes a calc and `-requirement` checks a requirement: it names the case, optionally

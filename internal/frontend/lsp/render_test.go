@@ -1129,8 +1129,13 @@ package KitViews {
 		t.Errorf("cog geometry = %q, want the view-local Layout", got)
 	}
 	gear := nodeBy("gear")
-	if got := fmt.Sprintf("%s %s %s %s %s", gear["x"], gear["y"], gear["width"], gear["height"], gear["collapsed"]); got != "5 6   " {
-		t.Errorf("gear geometry = %q, want the inline Layout with no size and no collapsed field", got)
+	if got := fmt.Sprintf("%s %s", gear["x"], gear["y"]); got != "5 6" {
+		t.Errorf("gear position = %q, want the inline Layout's x and y", got)
+	}
+	for _, field := range []string{"width", "height", "collapsed"} {
+		if raw, ok := gear[field]; ok {
+			t.Errorf("gear %s = %s, want the field absent: the inline Layout gives no size and no collapsed", field, raw)
+		}
 	}
 	for _, n := range out.Nodes {
 		if name := string(n["name"]); name == `"cog"` || name == `"gear"` {
