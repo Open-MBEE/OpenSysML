@@ -15,7 +15,7 @@ executors:
       # The -node variant of the same image: the WebAssembly gate runs the wasm
       # binaries under Node, and an absent runtime would make it skip.
       # It carries Node LTS, 24 or later, which the gate needs.
-      - image: cimg/go:1.25-node
+      - image: cimg/go:1.27-node
     resource_class: medium
 
   python-executor:
@@ -964,7 +964,7 @@ jobs:
   # SonarCloud analysis. The `SonarCloud` context supplies SONAR_TOKEN.
   scan:
     docker:
-      - image: cimg/go:1.25
+      - image: cimg/go:1.27
     # The Go sensor holds a whole directory's parse in memory; internal/exec/runtime
     # (168 files) overflows the default heap. The 8 GB container, the largest
     # class in the plan, carries: 4.8 GB analysis heap + Node capped at 1 GB
@@ -1186,7 +1186,7 @@ jobs:
 
       # make scripts-coverage runs the test-suite figures test, which renders the figures with go run.
       - go/install:
-          version: "1.25.0"
+          version: "1.27.3"
 
       - run:
           name: Verify Go version
@@ -1309,7 +1309,7 @@ jobs:
             cargo --version
 
       - go/install:
-          version: "1.25.0"
+          version: "1.27.3"
 
       - run:
           name: Verify Go version
@@ -1382,7 +1382,7 @@ jobs:
             make --version | head -1
 
       - go/install:
-          version: "1.25.0"
+          version: "1.27.3"
 
       - run:
           name: Build sysml-grpc
@@ -1414,7 +1414,7 @@ jobs:
       - checkout
 
       - go/install:
-          version: "1.25.0"
+          version: "1.27.3"
 
       - run:
           name: Install GNU Octave
