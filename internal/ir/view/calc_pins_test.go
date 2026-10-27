@@ -72,3 +72,35 @@ func TestCalcResultPinIsNamedInEveryForm(t *testing.T) {
 		t.Errorf("Mermaid lacks the calc node:\n%s", mermaid)
 	}
 }
+
+// A mixed rendering draws a calculation as the action node it is, and beneath
+// it the calc usages its body holds, which the action graph draws no node for —
+// a nested calc is not lost when its owner stops being a tree node.
+func TestMixedRenderingKeepsNestedCalcsUnderTheirOwner(t *testing.T) {
+	const model = `package Nested {
+  private import ScalarValues::*;
+  part def Wheel;
+  calc def Outer { calc inner { return r : Integer = 1; } }
+  action def Act { calc scale { in x : Integer; return y : Integer = x; } action step; }
+}
+`
+	r, idx := loadSources(t, []string{"nested-calc.sysml"}, [][]byte{[]byte(model)})
+	exposed := []*symbols.Symbol{lookup(t, idx, "Nested::Outer"), lookup(t, idx, "Nested::Act"), lookup(t, idx, "Nested::Wheel")}
+	rendering, err := r.RenderExposed(exposed, KindMixed, "#mixed")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	wantNoNotices(t, rendering)
+	text := rendering.textWith(fullNotation)
+	for _, want := range []string{"calc def Nested::Outer (declares no nodes)\n  out ^result\n  calc Nested::Outer::inner (declares no nodes)\n    out r\n", "action def Nested::Act\n  action 'step'\n  calc Nested::Act::scale (declares no nodes)\n    in x\n    out y\n", "part def Nested::Wheel\n"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("mixed text lacks %q:\n%s", want, text)
+		}
+	}
+	if n := strings.Count(text, "calc Nested::Outer::inner"); n != 1 {
+		t.Errorf("calc inner drawn %d times, want once:\n%s", n, text)
+	}
+	if plain := rendering.Text(); !strings.Contains(plain, "calc def Outer (declares no nodes)\n  calc inner (declares no nodes)\n") {
+		t.Errorf("default text does not name the nested calc under its owner:\n%s", plain)
+	}
+}

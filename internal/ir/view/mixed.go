@@ -111,6 +111,9 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 			w.remember(sym, node)
 			w.behaviors[node] = true
 			w.append(node, parent)
+			for _, member := range w.traversedMembers(sym) {
+				w.render(member, false, node)
+			}
 		}
 		return
 	}
@@ -127,10 +130,21 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 	}
 }
 
-// traversedMembers lists the members mixedWalk.render visits under sym.
+// traversedMembers lists the members mixedWalk.render visits under sym: none
+// of a state's, whose body its own notation draws; of an action's or calc's
+// the calc usages alone, which the action graph draws no node for.
 func (w *mixedWalk) traversedMembers(sym *symbols.Symbol) []*symbols.Symbol {
-	if sym == nil || stateLike(sym) || behaviorKind(sym.Kind) {
+	if sym == nil || stateLike(sym) {
 		return nil
+	}
+	if behaviorKind(sym.Kind) {
+		var calcs []*symbols.Symbol
+		for _, member := range w.r.containedMembers(sym) {
+			if member.Kind == symbols.SymbolCalcUsage {
+				calcs = append(calcs, member)
+			}
+		}
+		return calcs
 	}
 	members := w.r.containedMembers(sym)
 	if !caseFamily(sym) {
