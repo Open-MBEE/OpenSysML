@@ -257,7 +257,7 @@ The Node and browser client adapter is documented in
 [WebAssembly, without a service](../../client/node/README.md#webassembly-without-a-service).
 Stable and nightly releases include the module and matching runtime; the npm
 package is `@openmbee/opensysml-wasm`. The same assets and package carry
-`sysml-prod.wasm.gz`, the gzip-compressed [`sysml_prod`](#building) browser build of the
+`sysml-prod.wasm.gz`, the gzip-compressed [`sysml_re`](#building) browser build of the
 `sysml` REPL (about 13 MB; 54 MB inflated). It is not a JSON-RPC module: a page inflates
 it with `DecompressionStream` and runs it under `wasm_exec.js` with an emulated file
 system and stdin, as the site's REPL page does.
