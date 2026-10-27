@@ -96,9 +96,13 @@ func TestExecuteNamedRejectsUnknownNames(t *testing.T) {
 		"Nowhere::Config":  "names no element Nowhere::Config: nothing is named Nowhere",
 		// Other privately imports Pad, so Pad is not offered for a typo under Other.
 		"Other::Pda":      "names no element Other::Pda: Observatory::Other has no member Pda",
-		"Aliases::Broken": "names no element Aliases::Broken: the alias denotes no element",
-		"Aliases::Loop1":  "names no element Aliases::Loop1: the alias denotes no element",
-		"Aliases::Loop2":  "names no element Aliases::Loop2: the alias denotes no element",
+		"Aliases::Broken": "names no element Aliases::Broken: the alias Aliases::Broken denotes no element",
+		"Aliases::Loop1":  "names no element Aliases::Loop1: the alias Aliases::Loop1 denotes no element",
+		"Aliases::Loop2":  "names no element Aliases::Loop2: the alias Aliases::Loop2 denotes no element",
+		// A path through a dangling or cyclic alias stops at the alias, not at a
+		// member its namespace lacks.
+		"Aliases::Broken::foo": "names no element Aliases::Broken::foo: the alias Aliases::Broken denotes no element",
+		"Aliases::Loop1::foo":  "names no element Aliases::Loop1::foo: the alias Aliases::Loop1 denotes no element",
 	}
 	for name, want := range cases {
 		_, err := fixture.execute(t, "ByName", Bindings{"qualifiedName": {StringValue(name)}}, Options{})
