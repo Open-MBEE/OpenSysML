@@ -27,6 +27,8 @@ export interface RenderPort {
   name: string;
   type: string;
   direction: string;
+  /** The node's owner has the port from its type rather than declares it; the notation draws `^` before `name`. */
+  inherited: boolean;
 }
 
 export interface RenderGeometry {
@@ -64,6 +66,8 @@ export interface RenderNode {
   detail: string;
   text: string;
   standIn: boolean;
+  /** The owner the node is drawn or listed under has the usage through typing, subclassification or subsetting rather than declares it; the notation draws `^` before `name`. */
+  inherited: boolean;
   parent: string;
   /** The compartment of the parent this node is a row of ("attributes", "parts", ...); empty for a box. */
   compartment: string;
@@ -167,7 +171,7 @@ function styleOf(style: PbRenderStyle | undefined): RenderStyle | undefined {
 }
 
 function portOf(port: PbRenderPort): RenderPort {
-  return { id: port.id, name: port.name, type: port.type, direction: port.direction };
+  return { id: port.id, name: port.name, type: port.type, direction: port.direction, inherited: port.inherited };
 }
 
 function pointOf(point: PbRenderPoint): RenderPoint {
@@ -187,6 +191,7 @@ function nodeOf(node: PbRenderNode): RenderNode {
     detail: node.detail,
     text: node.text,
     standIn: node.standIn,
+    inherited: node.inherited,
     compartment: node.compartment,
     parent: node.parent,
     ports: node.ports.map(portOf),

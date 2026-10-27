@@ -44,7 +44,7 @@ hide circle
 hide empty members
 class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>
 class "<size:10>//«part»//</size>\n**chassis**" as n1 <<part>> <<usage>>
-class "<size:10>//«attribute»//</size>\n**mass**" as n2 <<attribute>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**^mass**" as n2 <<attribute>> <<usage>>
 class "<size:10>//«part»//</size>\n**wheels**" as n3 <<part>> <<usage>>
 class "<size:10>//«part»//</size>\n**driver**" as n4 <<part>> <<usage>>
 class "<size:10>//«attribute»//</size>\n**total**" as n5 <<attribute>> <<usage>>
@@ -55,14 +55,14 @@ class "<size:10>//«part»//</size>\n**radio**" as n8 <<part>> <<usage>>
 class "<size:10>//«part»//</size>\n**trailer**" as n9 <<part>> <<usage>>
 class "<size:10>//«part def»//</size>\n**SportsCar**" as n10 <<part def>>
 class "<size:10>//«part»//</size>\n**chassis**" as n11 <<part>> <<usage>>
-class "<size:10>//«attribute»//</size>\n**mass**" as n12 <<attribute>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**^mass**" as n12 <<attribute>> <<usage>>
 class "<size:10>//«part»//</size>\n**spare**" as n13 <<part>> <<usage>>
-class "<size:10>//«part»//</size>\n**wheels**" as n14 <<part>> <<usage>>
-class "<size:10>//«part»//</size>\n**driver**" as n15 <<part>> <<usage>>
-class "<size:10>//«attribute»//</size>\n**total**" as n16 <<attribute>> <<usage>>
-class "<size:10>//«part»//</size>\n**cabin**" as n17 <<part>> <<usage>>
-class "<size:10>//«part»//</size>\n**radio**" as n18 <<part>> <<usage>>
-class "<size:10>//«part»//</size>\n**trailer**" as n19 <<part>> <<usage>>
+class "<size:10>//«part»//</size>\n**^wheels**" as n14 <<part>> <<usage>>
+class "<size:10>//«part»//</size>\n**^driver**" as n15 <<part>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**^total**" as n16 <<attribute>> <<usage>>
+class "<size:10>//«part»//</size>\n**^cabin**" as n17 <<part>> <<usage>>
+class "<size:10>//«part»//</size>\n**^radio**" as n18 <<part>> <<usage>>
+class "<size:10>//«part»//</size>\n**^trailer**" as n19 <<part>> <<usage>>
 class "<size:10>//«part def»//</size>\n**Chassis**" as n20 <<part def>>
 class "<size:10>//«attribute»//</size>\n**mass**" as n21 <<attribute>> <<usage>>
 class "<size:10>//«part def»//</size>\n**LightChassis**" as n22 <<part def>>
@@ -71,15 +71,15 @@ class "<size:10>//«part def»//</size>\n**Wheel**" as n24 <<part def>>
 class "<size:10>//«part def»//</size>\n**Driver**" as n25 <<part def>>
 class "<size:10>//«attribute def»//</size>\n**Mass**" as n26 <<attribute def>>
 class "<size:10>//«part»//</size>\n**fleetCar**" as n27 <<part>> <<usage>>
-class "<size:10>//«part»//</size>\n**chassis**" as n28 <<part>> <<usage>>
-class "<size:10>//«attribute»//</size>\n**mass**" as n29 <<attribute>> <<usage>>
+class "<size:10>//«part»//</size>\n**^chassis**" as n28 <<part>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**^mass**" as n29 <<attribute>> <<usage>>
 n28 -- n29
-class "<size:10>//«part»//</size>\n**wheels**" as n30 <<part>> <<usage>>
-class "<size:10>//«part»//</size>\n**driver**" as n31 <<part>> <<usage>>
-class "<size:10>//«attribute»//</size>\n**total**" as n32 <<attribute>> <<usage>>
-class "<size:10>//«part»//</size>\n**cabin**" as n33 <<part>> <<usage>>
-class "<size:10>//«part»//</size>\n**radio**" as n34 <<part>> <<usage>>
-class "<size:10>//«part»//</size>\n**trailer**" as n35 <<part>> <<usage>>
+class "<size:10>//«part»//</size>\n**^wheels**" as n30 <<part>> <<usage>>
+class "<size:10>//«part»//</size>\n**^driver**" as n31 <<part>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**^total**" as n32 <<attribute>> <<usage>>
+class "<size:10>//«part»//</size>\n**^cabin**" as n33 <<part>> <<usage>>
+class "<size:10>//«part»//</size>\n**^radio**" as n34 <<part>> <<usage>>
+class "<size:10>//«part»//</size>\n**^trailer**" as n35 <<part>> <<usage>>
 n0 *-- n1
 n0 *-- n3
 n0 o-- n4

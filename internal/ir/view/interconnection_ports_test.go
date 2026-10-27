@@ -118,18 +118,18 @@ func TestTypedPartsPinTheirDefinitionsPorts(t *testing.T) {
 		}
 	}
 	for _, want := range []string{`"n2":"n2.0" -> "n1":"n1.0" [label="durationInterface"`, `"n2":"n2.0" -> "n1":"n1.0" [label="of Real"`,
-		`<td port="n1.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">durationIn</font></td>`} {
+		`<td port="n1.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^durationIn</font></td>`} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks the edge at the ports %q:\n%s", want, dot)
 		}
 	}
-	for _, want := range []string{"n2.0 -[thickness=3]- n1.0 : durationInterface", "n2.0 --> n1.0 : of Real", "port \"durationIn\" as n1.0"} {
+	for _, want := range []string{"n2.0 -[thickness=3]- n1.0 : durationInterface", "n2.0 --> n1.0 : of Real", "port \"^durationIn\" as n1.0"} {
 		if !strings.Contains(plantuml, want) {
 			t.Errorf("PlantUML lacks %q:\n%s", want, plantuml)
 		}
 	}
 	checkPlantUMLRenders(t, plantuml)
-	for _, want := range []string{"  part heating : HeatingSystem\n    port durationIn\n",
+	for _, want := range []string{"  part heating : HeatingSystem\n    port ^durationIn\n",
 		"  control.durationOut -- heating.durationIn: durationInterface\n", "  control.durationOut => heating.durationIn: of Real\n"} {
 		if !strings.Contains(forms["text"], want) {
 			t.Errorf("text lacks %q:\n%s", want, forms["text"])
@@ -183,13 +183,13 @@ func TestTheFullDisplayTypesThePins(t *testing.T) {
 		}
 	}
 	for _, want := range []string{"n2.0 -[thickness=3]- n1.0 : durationInterface", "n2.0 --> n1.0 : of Real",
-		"port \"durationIn : <U+007E>DurationPort\" as n1.0"} {
+		"port \"^durationIn : <U+007E>DurationPort\" as n1.0"} {
 		if !strings.Contains(plantuml, want) {
 			t.Errorf("PlantUML lacks %q:\n%s", want, plantuml)
 		}
 	}
 	checkPlantUMLRenders(t, plantuml)
-	for _, want := range []string{"  part heating : HeatingSystem\n    port durationIn : ~DurationPort\n",
+	for _, want := range []string{"  part heating : HeatingSystem\n    port ^durationIn : ~DurationPort\n",
 		"  control.durationOut -- heating.durationIn: durationInterface\n", "  control.durationOut => heating.durationIn: of Real\n"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text lacks %q:\n%s", want, text)
@@ -305,8 +305,8 @@ func TestACompositePartPinsItsPortsAndEndsItsBareEndsAtThem(t *testing.T) {
 	// The pins are nodes inside their parts' subgraphs and the edge runs between
 	// them, so it ends on no subgraph.
 	for _, want := range []string{
-		"subgraph " + sensor.ID + " [\"`*«part»* **sensor : Sensor**`\"]\n      direction LR\n      " + reading.ID + "[\"reading\"]\n",
-		"subgraph " + probe.ID + " [\"`*«part»* **probe : HeatingSystem**`\"]\n        direction LR\n        " + in.ID + "[\"durationIn\"]\n      end\n",
+		"subgraph " + sensor.ID + " [\"`*«part»* **sensor : Sensor**`\"]\n      direction LR\n      " + reading.ID + "[\"^reading\"]\n",
+		"subgraph " + probe.ID + " [\"`*«part»* **probe : HeatingSystem**`\"]\n        direction LR\n        " + in.ID + "[\"^durationIn\"]\n      end\n",
 		"  " + reading.ID + " ===|\"feed\"| " + in.ID + "\n",
 	} {
 		if !strings.Contains(mermaid, want) {

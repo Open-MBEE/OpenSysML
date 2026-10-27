@@ -50,8 +50,8 @@ note as n3
   [[https://example.test/src/case.sysml#L30 Transport the vehicle and its passengers safely.]]
 end note
 usecase "<size:10>//«use case»//</size>\n**addFuel**" as n4 <<use case>> <<usage>> [[https://example.test/src/case.sysml#L25]]
-actor "<size:10>//«actor»//</size>\n**fueler**" as n5 <<actor>> <<usage>> [[https://example.test/src/case.sysml#L18]]
-rectangle "<size:10>//«subject»//</size>\n**vehicle**" as n6 <<subject>> <<usage>> [[https://example.test/src/case.sysml#L17]]
+actor "<size:10>//«actor»//</size>\n**^fueler**" as n5 <<actor>> <<usage>> [[https://example.test/src/case.sysml#L18]]
+rectangle "<size:10>//«subject»//</size>\n**^vehicle**" as n6 <<subject>> <<usage>> [[https://example.test/src/case.sysml#L17]]
 usecase "<size:10>//«include use case»//</size>\n**'enter vehicle'**" as n7 <<include use case>> <<usage>> [[https://example.test/src/case.sysml#L39]]
 rectangle "<size:10>//«subject»//</size>\n**vehicle**" as n8 <<subject>> <<usage>> [[https://example.test/src/case.sysml#L40]]
 actor "<size:10>//«actor»//</size>\n**driver**" as n9 <<actor>> <<usage>> [[https://example.test/src/case.sysml#L41]]

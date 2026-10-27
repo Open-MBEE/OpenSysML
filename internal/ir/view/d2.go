@@ -376,7 +376,7 @@ func (w *d2Writer) pins(node *Node) []Port {
 // on an action the pin's name.
 func (w *d2Writer) pinLabel(port Port) string {
 	if !w.ports.interconnection {
-		return port.Name
+		return port.displayName()
 	}
 	label := w.ports.pinLabel(port)
 	if !w.ports.minimal {

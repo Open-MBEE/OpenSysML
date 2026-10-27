@@ -15,8 +15,8 @@ digraph "VehicleViews::vehicleView" {
     margin=8;
     "n0" [label=<<font point-size="9">«part def»</font><br/><b>Vehicle</b>>];
     "n1" [label=<<font point-size="9">«part»</font><br/><b>engine</b>>];
-    "n2" [label=<<font point-size="9">«attribute»</font><br/><b>power</b>>];
-    "n3" [label=<<font point-size="9">«part»</font><br/><b>cylinder</b>>];
+    "n2" [label=<<font point-size="9">«attribute»</font><br/><b>^power</b>>];
+    "n3" [label=<<font point-size="9">«part»</font><br/><b>^cylinder</b>>];
     "n4" [label=<<font point-size="9">«part»</font><br/><b>wheels</b>>];
     "n5" [label=<<b>connect</b>>];
   "n0" -> "n5" [arrowhead=none, dir=back, arrowtail=diamond];

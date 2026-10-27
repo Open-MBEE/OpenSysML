@@ -7,7 +7,7 @@ digraph "CompartmentDemoViews::hub" {
   graph [fontname="Helvetica"];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
-  "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«part def»</i></font><br/><b>Hub</b></td></tr><hr/><tr><td><font point-size="10">ports</font></td></tr><tr><td align="left">input : DataPort<br/>input.clock : ClockPort<br/>output : DataPort<br/>output.sync : ClockPort<br/>output.clock : ClockPort</td></tr></table>>];
+  "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«part def»</i></font><br/><b>Hub</b></td></tr><hr/><tr><td><font point-size="10">ports</font></td></tr><tr><td align="left">input : DataPort<br/>^input.clock : ClockPort<br/>output : DataPort<br/>output.sync : ClockPort<br/>^output.clock : ClockPort</td></tr></table>>];
   "n1" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>channels</b>>];
   "n12" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>buffer</b>>];
   "n13" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>slot</b>>];

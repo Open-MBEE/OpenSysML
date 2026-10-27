@@ -1544,7 +1544,7 @@ func mermaidPictureSource(picture Picture) (string, string, bool) {
 // under the full display, the name alone under the minimal.
 func mermaidPinLabel(ports portView, port Port) string {
 	if !ports.interconnectionPort(port) {
-		return mermaidText(port.Name)
+		return mermaidText(port.displayName())
 	}
 	label := mermaidText(ports.pinLabel(port))
 	if !ports.minimal {

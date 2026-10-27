@@ -10,17 +10,17 @@ n0: "«part def»\nLoop" {
   class: definition
   n1: "«part»\npump" {
     class: usage
-    "n1.0": "outlet" { class: pin }
-    n2: "«item»\nwaterOut" { class: usage; style: { fill: "#BBE1F6"; stroke: "#56B4E9" } }
+    "n1.0": "^outlet" { class: pin }
+    n2: "«item»\n^waterOut" { class: usage; style: { fill: "#BBE1F6"; stroke: "#56B4E9" } }
   }
   n3: "«part»\ntank" {
     class: usage
-    "n3.0": "inlet" { class: pin }
-    n4: "«item»\nwaterIn" { class: usage; style: { fill: "#BBE1F6"; stroke: "#56B4E9" } }
+    "n3.0": "^inlet" { class: pin }
+    n4: "«item»\n^waterIn" { class: usage; style: { fill: "#BBE1F6"; stroke: "#56B4E9" } }
   }
   n5: "«part»\nsensor" {
     class: usage
-    n6: "«item»\nwaterOut" { class: usage; style: { fill: "#BBE1F6"; stroke: "#56B4E9" } }
+    n6: "«item»\n^waterOut" { class: usage; style: { fill: "#BBE1F6"; stroke: "#56B4E9" } }
   }
 }
 n0.n1."n1.0" -- n0.n3."n3.0": { class: connection }

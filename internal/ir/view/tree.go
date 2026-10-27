@@ -179,7 +179,7 @@ func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, path expans
 			continue
 		}
 		child := r.treeNode(view, member, ids, path, depth+1, false, out)
-		child.FromType = member.Owner() != sym
+		child.Inherited = member.Owner() != sym
 		node.Children = append(node.Children, child)
 	}
 	if cut > 0 {

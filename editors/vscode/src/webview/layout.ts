@@ -559,7 +559,7 @@ export function portKind(kind: string): boolean {
 
 // pinOf is a port node as the pin it is drawn as.
 function pinOf(node: RenderNode): RenderPort {
-  return { id: node.id, name: node.name, type: node.type || undefined };
+  return { id: node.id, name: node.name, type: node.type || undefined, inherited: node.inherited };
 }
 
 // clip leaves undrawn the children a node's stated size has no room for, as the
@@ -836,7 +836,7 @@ export function portLabelPlacement(
 ): PortLabelPlacement {
   const center = portCenter(box, port);
   const square = portBox(box, port);
-  const size = glyphSize(port.port.name);
+  const size = glyphSize(portName(port.port));
   let x: number;
   let y: number;
   let anchor: "start" | "end" = "start";
@@ -1605,10 +1605,15 @@ function labelHead(
   if (node.name === "") {
     return node.kind;
   }
-  const name = qualified
+  const name = (node.inherited ? "^" : "") + (qualified
     ? node.name
-    : (names?.get(node.id) ?? simpleName(node.name));
+    : (names?.get(node.id) ?? simpleName(node.name)));
   return node.type === "" || !typed ? name : `${name} : ${node.type}`;
+}
+
+/** portName is the name a pin is drawn by: `^` before an inherited port's name, as the notation marks it. */
+export function portName(port: RenderPort): string {
+  return (port.inherited ? "^" : "") + port.name;
 }
 
 // labelSize is the box a label needs, its head in bold glyphs.

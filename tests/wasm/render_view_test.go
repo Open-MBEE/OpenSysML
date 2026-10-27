@@ -190,7 +190,7 @@ func assertRenderDataParity(t *testing.T, got engine.JRenderViewResponse, want v
 		item := engine.JRenderNode{
 			ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn, Parent: node.Parent,
-			Style: renderStyleJSON(node.Style),
+			Style: renderStyleJSON(node.Style), Inherited: node.Inherited,
 		}
 		if node.Geometry != nil {
 			item.Geometry = &engine.JRenderGeometry{
@@ -200,7 +200,7 @@ func assertRenderDataParity(t *testing.T, got engine.JRenderViewResponse, want v
 		}
 		for _, port := range node.Ports {
 			item.Ports = append(item.Ports, engine.JRenderPort{
-				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(),
+				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(), Inherited: port.Inherited,
 			})
 		}
 		nodes = append(nodes, item)

@@ -18,6 +18,7 @@ import {
   portBox,
   portLabelPlacement,
   PORT_SIZE,
+  portName,
   steerable,
   type PlacedPort,
 } from "./layout";
@@ -276,7 +277,7 @@ function pinGraphic(box: PlacedNode["box"], port: PlacedPort, entry: PlacedNode)
   const square = portBox(box, port);
   const label = portLabelPlacement(box, port);
   const title = element("title", {});
-  title.textContent = port.port.type ? `${port.port.name} : ${port.port.type}` : port.port.name;
+  title.textContent = port.port.type ? `${portName(port.port)} : ${port.port.type}` : portName(port.port);
   const classes = ["port-shape"];
   if (entry.shape === "box") {
     classes.push(boxClass(entry.node.kind));
@@ -305,7 +306,7 @@ function pinGraphic(box: PlacedNode["box"], port: PlacedPort, entry: PlacedNode)
     "text-anchor": label.anchor,
     class: "port-label",
   });
-  text.textContent = port.port.name;
+  text.textContent = portName(port.port);
   return [title, rect, text];
 }
 

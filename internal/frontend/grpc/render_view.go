@@ -113,11 +113,11 @@ func renderViewData(model *CachedModel, data view.Data) *pb.RenderViewResponse {
 		item := &pb.RenderNode{
 			Id: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn,
-			Parent: node.Parent, Compartment: node.Compartment, Origin: origins.span(node.Origin),
+			Parent: node.Parent, Compartment: node.Compartment, Origin: origins.span(node.Origin), Inherited: node.Inherited,
 		}
 		for _, port := range node.Ports {
 			item.Ports = append(item.Ports, &pb.RenderPort{
-				Id: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(),
+				Id: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(), Inherited: port.Inherited,
 			})
 		}
 		if node.Geometry != nil {

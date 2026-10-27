@@ -12,18 +12,18 @@ digraph "NotationGlyphs::Diagrams::lineGlyphs" {
     penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
     subgraph "cluster_n1" {
-      label=<<font point-size="10"><i>«part»</i></font><br/><b>a</b>>;
+      label=<<font point-size="10"><i>«part»</i></font><br/><b>^a</b>>;
       color=black;
       penwidth=0.5;
       "n1" [shape=point, style=invis, width=0, height=0, label=""];
-      "n2" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>level</b>>];
+      "n2" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>^level</b>>];
     }
     subgraph "cluster_n3" {
-      label=<<font point-size="10"><i>«part»</i></font><br/><b>b</b>>;
+      label=<<font point-size="10"><i>«part»</i></font><br/><b>^b</b>>;
       color=black;
       penwidth=0.5;
       "n3" [shape=point, style=invis, width=0, height=0, label=""];
-      "n4" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>level</b>>];
+      "n4" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>^level</b>>];
     }
   }
   "n2" -> "n4" [label="«succession flow»", style=dashed];

@@ -10,7 +10,7 @@ digraph "FilteredWalk::structure" {
   "n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>chassis</b>>];
   "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>axle</b>>];
   "n3" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>radio</b>>];
-  "n4" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>rx</b>>];
+  "n4" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>^rx</b>>];
   "n5" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>gps</b>>];
   "n6" [style="rounded,filled", label=<<b>connect</b>>];
   "n0" -> "n6" [arrowhead=none];

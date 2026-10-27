@@ -2,9 +2,9 @@ ToasterViews::toasterView - interconnection rendering (render asInterconnectionD
 
 part def Toaster
   part heating
-    port durationIn
+    port ^durationIn
   part control
-    port durationOut
+    port ^durationOut
   part chassis
 
 connections:

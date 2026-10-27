@@ -32,6 +32,7 @@ import {
   edgeLabelBox,
   headerBox,
   listedEdges,
+  portName,
   simpleName,
   simpleNames,
   layoutCanvas,
@@ -655,7 +656,7 @@ test("layoutCanvas draws a collapsed node's port children as pins on its border 
     rendering(
       [
         node("a", "a", { x: 10, y: 10, collapsed: true }),
-        node("p1", "p1", { kind: "port", parent: "a" }),
+        node("p1", "p1", { kind: "port", parent: "a", inherited: true }),
         node("p2", "p2", { kind: "port", parent: "a" }),
         node("d", "d", { x: 300, y: 5 }),
       ],
@@ -679,6 +680,8 @@ test("layoutCanvas draws a collapsed node's port children as pins on its border 
     pinnedOn(port, a);
     bottom = Math.max(bottom, port.box.y + port.box.height);
   }
+  // A pin made of a port node keeps the node's inherited mark, so it draws with the `^`.
+  assert.deepEqual(["p1", "p2"].map((id) => portName(layout.nodes.get(id)!.snapped!.port)), ["^p1", "p2"]);
   assert.equal(layout.edges.length, 3);
   for (const edge of layout.edges) {
     assert.ok(edge.points.length >= 2, `edge ${edge.edge.from} -> ${edge.edge.to} is routed`);
@@ -782,6 +785,12 @@ test("simpleNames keeps the qualifier that tells nodes of one name apart", () =>
   );
   assert.deepEqual(labelLines(nodes[0], [], names), ["Plant::pump"]);
   assert.deepEqual(labelLines(nodes[2], [], names), ["tank"]);
+  assert.deepEqual(
+    labelLines(node("e", "Plant::pump.mass", { inherited: true, type: "Real" }), ["typings", "keywords"], names),
+    ["«part»", "^pump.mass : Real"],
+  );
+  assert.equal(portName({ id: "p", name: "aPort", inherited: true }), "^aPort");
+  assert.equal(portName({ id: "p", name: "aPort" }), "aPort");
   assert.deepEqual(labelLines(nodes[0], ["qualifiers"], names), [
     "Plant::pump",
   ]);

@@ -47,8 +47,8 @@ rectangle "<size:10>//«subject»//</size>\n**vehicle**" as n1 <<subject>> <<usa
 actor "<size:10>//«actor»//</size>\n**driver**" as n2 <<actor>> <<usage>>
 note "**objective**\nTransport the vehicle and its passengers safely." as n3
 usecase "<size:10>//«use case»//</size>\n**addFuel**" as n4 <<use case>> <<usage>>
-actor "<size:10>//«actor»//</size>\n**fueler**" as n5 <<actor>> <<usage>>
-rectangle "<size:10>//«subject»//</size>\n**vehicle**" as n6 <<subject>> <<usage>>
+actor "<size:10>//«actor»//</size>\n**^fueler**" as n5 <<actor>> <<usage>>
+rectangle "<size:10>//«subject»//</size>\n**^vehicle**" as n6 <<subject>> <<usage>>
 usecase "<size:10>//«include use case»//</size>\n**'enter vehicle'**" as n7 <<include use case>> <<usage>>
 rectangle "<size:10>//«subject»//</size>\n**vehicle**" as n8 <<subject>> <<usage>>
 actor "<size:10>//«actor»//</size>\n**driver**" as n9 <<actor>> <<usage>>
