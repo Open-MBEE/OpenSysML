@@ -1,34 +1,29 @@
 # ParameterCalcViews::definitions — tree rendering (render asTreeDiagram)
 classes: {
   definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
-  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
-  reference: { source-arrowhead: { shape: diamond; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  pin: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 10 } }
 }
-n0: "«calc def»\nAdd" { class: definition }
-n1: "«attribute»\nx" { class: usage }
-n2: "«attribute»\ny" { class: usage }
-n3: "attribute" { class: usage }
-n4: "«calc def»\nScale" { class: definition }
-n5: "«attribute»\nx" { class: usage }
-n6: "«attribute»\nfactor" { class: usage }
-n7: "«attribute»\ncount" { class: usage }
-n8: "«attribute»\ndoubled" { class: usage }
-n9: "«attribute»\nr" { class: usage }
-n10: "«action def»\nHeat" { class: definition }
-n11: "«attribute»\nbread" { class: usage }
-n12: "«attribute»\ntoast" { class: usage }
-n13: "«constraint def»\nBetween" { class: definition }
-n14: "«attribute»\nlow" { class: usage }
-n15: "«attribute»\nvalue" { class: usage }
-n0 <- n1: { class: reference }
-n0 <- n2: { class: reference }
-n0 <- n3: { class: reference }
-n4 <- n5: { class: reference }
-n4 <- n6: { class: reference }
-n4 <- n7: { class: reference }
-n4 <- n8: { class: reference }
-n4 <- n9: { class: reference }
-n10 <- n11: { class: reference }
-n10 <- n12: { class: reference }
-n13 <- n14: { class: reference }
-n13 <- n15: { class: reference }
+n0: "«calc def»\nAdd" {
+  class: definition
+  "n0.0": "in x" { class: pin }
+  "n0.1": "in y" { class: pin }
+  "n0.2": "out result" { class: pin }
+}
+n1: "«calc def»\nScale" {
+  class: definition
+  "n1.0": "in x" { class: pin }
+  "n1.1": "in factor" { class: pin }
+  "n1.2": "inout count" { class: pin }
+  "n1.3": "out doubled" { class: pin }
+  "n1.4": "out r" { class: pin }
+}
+n2: "«action def»\nHeat" {
+  class: definition
+  "n2.0": "in bread" { class: pin }
+  "n2.1": "out toast" { class: pin }
+}
+n3: "«constraint def»\nBetween" {
+  class: definition
+  "n3.0": "in low" { class: pin }
+  "n3.1": "in value" { class: pin }
+}

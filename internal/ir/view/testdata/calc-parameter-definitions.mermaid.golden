@@ -24,45 +24,26 @@ config:
 %% ParameterCalcViews::definitions — tree rendering (render asTreeDiagram)
 flowchart TD
   n0["`*«calc def»*
-**Add**`"]
-    n1("`*«attribute»*
-**x**`")
-    n2("`*«attribute»*
-**y**`")
-    n3("`**attribute**`")
-  n4["`*«calc def»*
-**Scale**`"]
-    n5("`*«attribute»*
-**x**`")
-    n6("`*«attribute»*
-**factor**`")
-    n7("`*«attribute»*
-**count**`")
-    n8("`*«attribute»*
-**doubled**`")
-    n9("`*«attribute»*
-**r**`")
-  n10["`*«action def»*
-**Heat**`"]
-    n11("`*«attribute»*
-**bread**`")
-    n12("`*«attribute»*
-**toast**`")
-  n13["`*«constraint def»*
-**Between**`"]
-    n14("`*«attribute»*
-**low**`")
-    n15("`*«attribute»*
-**value**`")
-  n0 ---|"◇"| n1
-  n0 ---|"◇"| n2
-  n0 ---|"◇"| n3
-  n4 ---|"◇"| n5
-  n4 ---|"◇"| n6
-  n4 ---|"◇"| n7
-  n4 ---|"◇"| n8
-  n4 ---|"◇"| n9
-  n10 ---|"◇"| n11
-  n10 ---|"◇"| n12
-  n13 ---|"◇"| n14
-  n13 ---|"◇"| n15
+**Add**
+parameters
+in x
+in y
+out result`"]
+  n1["`*«calc def»*
+**Scale**
+parameters
+in x
+in factor
+inout count
+out doubled
+out r`"]
+  n2["`*«action def»*
+**Heat**
+parameters
+in bread
+out toast`"]
+  n3["`*«constraint def»*
+**Between**
+parameters
+in low
+in value`"]

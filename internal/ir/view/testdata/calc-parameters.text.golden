@@ -1,36 +1,25 @@
 ParameterCalcViews::calculations - tree rendering (render asTreeDiagram)
 
 calc add
-  attribute x
-  attribute y
-  attribute
+  in x
+  in y
+  out result
 part def Sensor
   attribute a
   attribute b
   attribute gain
   calc sum
-    attribute x
-    attribute ^y
-    attribute
+    in x
+    in ^y
+    out ^result
   calc scaled
-    attribute factor
-    attribute ^x
-    attribute ^count
-    attribute ^doubled
-    attribute ^r
+    in factor
+    in ^x
+    inout ^count
+    out ^doubled
+    out ^r
 
 relationships:
-  add o-- x
-  add o-- y
-  add o-- attribute n3
   Sensor o-- a
   Sensor o-- b
   Sensor o-- gain
-  sum o-- x
-  sum o-- y
-  sum o-- attribute n11
-  scaled o-- factor
-  scaled o-- x
-  scaled o-- count
-  scaled o-- doubled
-  scaled o-- r

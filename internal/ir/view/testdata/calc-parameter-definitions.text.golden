@@ -1,32 +1,18 @@
 ParameterCalcViews::definitions - tree rendering (render asTreeDiagram)
 
 calc def Add
-  attribute x
-  attribute y
-  attribute
+  in x
+  in y
+  out result
 calc def Scale
-  attribute x
-  attribute factor
-  attribute count
-  attribute doubled
-  attribute r
+  in x
+  in factor
+  inout count
+  out doubled
+  out r
 action def Heat
-  attribute bread
-  attribute toast
+  in bread
+  out toast
 constraint def Between
-  attribute low
-  attribute value
-
-relationships:
-  Add o-- x
-  Add o-- y
-  Add o-- attribute n3
-  Scale o-- x
-  Scale o-- factor
-  Scale o-- count
-  Scale o-- doubled
-  Scale o-- r
-  Heat o-- bread
-  Heat o-- toast
-  Between o-- low
-  Between o-- value
+  in low
+  in value

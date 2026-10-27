@@ -2,40 +2,36 @@
 classes: {
   definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  pin: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 10 } }
   edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
   reference: { source-arrowhead: { shape: diamond; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
 }
-n0: "«calc»\nadd" { class: usage }
-n1: "«attribute»\nx" { class: usage }
-n2: "«attribute»\ny" { class: usage }
-n3: "attribute" { class: usage }
-n4: "«part def»\nSensor" { class: definition }
-n5: "«attribute»\na" { class: usage }
-n6: "«attribute»\nb" { class: usage }
-n7: "«attribute»\ngain" { class: usage }
-n8: "«calc»\nsum" { class: usage }
-n9: "«attribute»\nx" { class: usage }
-n10: "«attribute»\n^y" { class: usage }
-n11: "attribute" { class: usage }
-n12: "«calc»\nscaled" { class: usage }
-n13: "«attribute»\nfactor" { class: usage }
-n14: "«attribute»\n^x" { class: usage }
-n15: "«attribute»\n^count" { class: usage }
-n16: "«attribute»\n^doubled" { class: usage }
-n17: "«attribute»\n^r" { class: usage }
-n4 -- n8: { class: edge }
-n4 -- n12: { class: edge }
-n0 <- n1: { class: reference }
-n0 <- n2: { class: reference }
-n0 <- n3: { class: reference }
-n4 <- n5: { class: reference }
-n4 <- n6: { class: reference }
-n4 <- n7: { class: reference }
-n8 <- n9: { class: reference }
-n8 <- n10: { class: reference }
-n8 <- n11: { class: reference }
-n12 <- n13: { class: reference }
-n12 <- n14: { class: reference }
-n12 <- n15: { class: reference }
-n12 <- n16: { class: reference }
-n12 <- n17: { class: reference }
+n0: "«calc»\nadd" {
+  class: usage
+  "n0.0": "in x" { class: pin }
+  "n0.1": "in y" { class: pin }
+  "n0.2": "out result" { class: pin }
+}
+n1: "«part def»\nSensor" { class: definition }
+n2: "«attribute»\na" { class: usage }
+n3: "«attribute»\nb" { class: usage }
+n4: "«attribute»\ngain" { class: usage }
+n5: "«calc»\nsum" {
+  class: usage
+  "n5.0": "in x" { class: pin }
+  "n5.1": "in ^y" { class: pin }
+  "n5.2": "out ^result" { class: pin }
+}
+n6: "«calc»\nscaled" {
+  class: usage
+  "n6.0": "in factor" { class: pin }
+  "n6.1": "in ^x" { class: pin }
+  "n6.2": "inout ^count" { class: pin }
+  "n6.3": "out ^doubled" { class: pin }
+  "n6.4": "out ^r" { class: pin }
+}
+n1 -- n5: { class: edge }
+n1 -- n6: { class: edge }
+n1 <- n2: { class: reference }
+n1 <- n3: { class: reference }
+n1 <- n4: { class: reference }
