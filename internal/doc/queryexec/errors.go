@@ -101,6 +101,8 @@ type Error struct {
 	// Outcome is the QVTS record behind a path or model error (outcome.go); nil for
 	// the failures that are neither, the flat fields above being its rendering.
 	Outcome *Outcome
+	// Also names the other elements the same fan-out failed on (missing-feature).
+	Also []string
 	// Cause is the evaluator's reason an unevaluable feature could not be read.
 	Cause error
 }
@@ -153,21 +155,23 @@ func (e *Error) missingFeatureMessage() string {
 	if e.Actual != "" {
 		msg = fmt.Sprintf("query %s reads feature %s of %s, but the path stops at %s", e.Query, e.Property, e.Target, e.Actual)
 	}
-	if len(e.Candidates) == 0 {
-		return msg
+	if len(e.Candidates) > 0 {
+		msg += ": its features are " + strings.Join(e.Candidates, ", ")
+		if len(e.Candidates) > 3 {
+			segment := e.missingSegment()
+			msg = suggest.With(msg, segment, suggest.Nearest(segment, e.Candidates))
+		}
 	}
-	msg += ": its features are " + strings.Join(e.Candidates, ", ")
-	if len(e.Candidates) <= 3 {
-		return msg
+	if len(e.Also) > 0 {
+		msg += fmt.Sprintf(" (also absent on %s)", strings.Join(e.Also, ", "))
 	}
-	segment := e.missingSegment()
-	return suggest.With(msg, segment, suggest.Nearest(segment, e.Candidates))
+	return msg
 }
 
 // missingSegment is the segment the record says names nothing: the failed step's
 // argument, so a path that repeats a name cannot misdirect the suggestion.
 func (e *Error) missingSegment() string {
-	if e.Outcome != nil && e.Outcome.Path != nil && len(e.Outcome.Path.Failures) == 1 {
+	if e.Outcome != nil && e.Outcome.Path != nil && len(e.Outcome.Path.Failures) > 0 {
 		return e.Outcome.Path.Failures[0].Step.Argument
 	}
 	return e.Property
