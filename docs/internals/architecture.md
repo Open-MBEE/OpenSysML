@@ -1,7 +1,7 @@
 # SysML v2 Execution Environment — Architecture
 
 **Module:** `github.com/Open-MBEE/OpenSysML`  
-**Language:** Go 1.23+
+**Language:** Go 1.26+
 
 ## Overview
 

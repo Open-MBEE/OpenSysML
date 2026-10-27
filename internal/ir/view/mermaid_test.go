@@ -928,12 +928,9 @@ func mermaidPicturesFixture(t *testing.T) *Rendering {
 	if err := os.Mkdir(images, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	var data bytes.Buffer
-	if err := png.Encode(&data, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
-		t.Fatal(err)
-	}
+	data := twoByTwoPNG(t)
 	for _, name := range []string{"bench.png", "logo.png"} {
-		if err := os.WriteFile(filepath.Join(images, name), data.Bytes(), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(images, name), data, 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -941,6 +938,17 @@ func mermaidPicturesFixture(t *testing.T) *Rendering {
 		rendering.Pictures[i].Dir = dir
 	}
 	return rendering
+}
+
+// twoByTwoPNG is a transparent 2×2 PNG as fixed bytes: the inline golden records them, and
+// png.Encode's output moves with the toolchain's compress/flate.
+func twoByTwoPNG(t *testing.T) []byte {
+	t.Helper()
+	data, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGJigAI4AxAAAP//AEgABdCvTH4AAAAASUVORK5CYII=")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
 }
 
 func configName(config string) string {

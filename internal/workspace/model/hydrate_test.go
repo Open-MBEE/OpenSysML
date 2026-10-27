@@ -70,7 +70,7 @@ func TestOpenAllReadsRecordsFromAWarmCache(t *testing.T) {
 	if !reflect.DeepEqual([][]string{messagesOf(got[0]), messagesOf(got[1])}, want) {
 		t.Fatalf("recorded diagnostics %v, loaded %v", got, want)
 	}
-	if want[1] == nil || len(want[1]) == 0 {
+	if len(want[1]) == 0 {
 		t.Fatal("user.sysml reports nothing: the fixture is vacuous")
 	}
 

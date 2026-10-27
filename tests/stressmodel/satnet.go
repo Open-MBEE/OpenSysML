@@ -657,7 +657,7 @@ func (g *generator) plane(n SatelliteNetwork, p, b int) {
 
 // blockName letters the spacecraft blocks A, B, C, ...
 func blockName(b int) string {
-	return string(rune('A' + b))
+	return string(rune('A' + b)) // #nosec G115 -- a block index of a model this file sizes
 }
 
 // crosslinkDataRate is the as-built data rate of the crosslink terminal of the
