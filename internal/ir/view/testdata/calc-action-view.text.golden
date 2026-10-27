@@ -1,0 +1,9 @@
+CalcViews::calcFlows - action rendering (render asInterconnectionDiagram, view def ActionFlowView)
+
+the rendering is empty: nothing the view exposes is shown by an action rendering
+
+not represented:
+  - calc Calcs::add is no action; an action rendering does not show it
+  - calc def Calcs::Add is no action; an action rendering does not show it
+  - calc Calcs::Totaliser::total is no action; an action rendering does not show it
+  - calc def Calcs::Stepwise is no action; an action rendering does not show it

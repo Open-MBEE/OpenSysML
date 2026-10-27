@@ -120,6 +120,7 @@ func TestGoldenRenderings(t *testing.T) {
 		{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
 		{"state-pseudostates", "cameo-behavior.sysml", "NotationViews::alignmentView", KindState},
 		{"action", "action.sysml", "FlowViews::driveView", KindAction},
+		{"calc-action-view", "calc-action-view.sysml", "CalcViews::calcFlows", KindAction},
 		{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
 		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},
 		{"mixed-memberships", "mixed-memberships.sysml", "MixedMemberships::memberships", KindMixed},

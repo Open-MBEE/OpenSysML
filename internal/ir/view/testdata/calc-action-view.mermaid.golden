@@ -1,0 +1,30 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% CalcViews::calcFlows — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
+%% not represented: calc Calcs::add is no action; an action rendering does not show it
+%% not represented: calc def Calcs::Add is no action; an action rendering does not show it
+%% not represented: calc Calcs::Totaliser::total is no action; an action rendering does not show it
+%% not represented: calc def Calcs::Stepwise is no action; an action rendering does not show it
+flowchart TD
+  empty["the rendering is empty: nothing the view exposes is shown by an action rendering"]
