@@ -1,0 +1,7 @@
+{
+	"type": "constraint",
+	"libraries": true,
+	"evaluate": "test::Derived::levelNonNegative",
+	"instantiate": "test::derived",
+	"satisfied": true
+}

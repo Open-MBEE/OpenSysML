@@ -3,8 +3,8 @@ classes: {
   definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
   pin: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 10 } }
+  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
   connection: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 3 } }
-  flow: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
 }
 n0: "«part def»\nToaster" {
   class: definition
@@ -19,4 +19,4 @@ n0: "«part def»\nToaster" {
   n3: "«part»\nchassis" { class: usage }
 }
 n0.n2."n2.0" -- n0.n1."n1.0": { class: connection }
-n0.n2."n2.0" -> n0.n1."n1.0": { class: flow }
+n0.n2."n2.0" -> n0.n1."n1.0": { class: edge }

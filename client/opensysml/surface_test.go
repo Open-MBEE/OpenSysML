@@ -530,6 +530,69 @@ func TestQuerySelectsWithATypedFilter(t *testing.T) {
 	}
 }
 
+func TestQueryInclusiveMembershipAndInstanceOfConditions(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, querySource)
+	ids := func(where *opensysml.Condition) []string {
+		t.Helper()
+		elements, err := client.Query(context.Background(), model, opensysml.Query{Scope: []string{"Demo"}, Where: where})
+		if err != nil {
+			t.Fatalf("Query: %v", err)
+		}
+		out := make([]string, 0, len(elements))
+		for _, element := range elements {
+			out = append(out, element.ID)
+		}
+		return out
+	}
+	if got := ids(opensysml.GreaterOrEqual("multiplicityLower", "4")); !slices.Equal(got, []string{"Demo::vehicle::wheels"}) {
+		t.Errorf("multiplicityLower >= 4 = %v", got)
+	}
+	if got := ids(opensysml.LessOrEqual("multiplicityUpper", "3")); len(got) != 0 {
+		t.Errorf("multiplicityUpper <= 3 = %v, want none", got)
+	}
+	usages := []string{"Demo::Vehicle::mass", "Demo::vehicle", "Demo::vehicle::wheels", "Demo::spare"}
+	if got := ids(opensysml.In("@type", "PartUsage", "AttributeUsage")); !slices.Equal(got, usages) {
+		t.Errorf("@type in [PartUsage, AttributeUsage] = %v, want %v", got, usages)
+	}
+	if got := ids(opensysml.InstanceOf("Feature")); !slices.Equal(got, usages) {
+		t.Errorf("instanceOf Feature = %v, want %v", got, usages)
+	}
+	if got := ids(opensysml.InstanceOf("Usage").Not()); !slices.Equal(got, []string{"Demo", "Demo::Vehicle", "Demo::Wheel"}) {
+		t.Errorf("not instanceOf Usage = %v", got)
+	}
+	if _, err := client.Query(context.Background(), model, opensysml.Query{Where: opensysml.InstanceOf("Gizmo")}); err == nil {
+		t.Error("instanceOf of an undeclared metaclass succeeded, want an error")
+	}
+	if _, err := client.Query(context.Background(), model, opensysml.Query{Where: opensysml.All(opensysml.Equals("name", "spare"))}); err == nil {
+		t.Error("a one-member All succeeded, want an error")
+	}
+}
+
+func TestQueryOrderBySortsTheAnswer(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, querySource)
+	elements, err := client.Query(context.Background(), model, opensysml.Query{
+		Select:  []string{"name"},
+		Where:   opensysml.InstanceOf("Usage"),
+		OrderBy: []string{"@type", "name"},
+	})
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	got := make([]string, 0, len(elements))
+	for _, element := range elements {
+		got = append(got, element.ID)
+	}
+	want := []string{"Demo::Vehicle::mass", "Demo::spare", "Demo::vehicle", "Demo::vehicle::wheels"}
+	if !slices.Equal(got, want) {
+		t.Errorf("orderBy @type, name = %v, want %v", got, want)
+	}
+	if _, err := client.Query(context.Background(), model, opensysml.Query{OrderBy: []string{"colour"}}); err == nil {
+		t.Error("orderBy of an unknown property succeeded, want an error")
+	}
+}
+
 func TestNotOfACompositeNegatesEveryOperand(t *testing.T) {
 	client := newClient(t)
 	model := parse(t, client, querySource)

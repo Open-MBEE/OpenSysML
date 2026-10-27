@@ -432,8 +432,8 @@ func TestGoldenControlNodeLayout(t *testing.T) {
 		`"n6" [shape=doublecircle, fillcolor=black, label="", pos="50,10!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];`,
 		`"n7" [shape=circle, fillcolor=black, label="", pos="100,260!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];`,
 		`"n8" [shape=doublecircle, fillcolor=black, label="", pos="150,10!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];`,
-		`"n7" -> "n1" [pos="e,100,220 100,250 100,250 100,230 100,230"];`,
-		`"n5" -> "n8" [label="[false]", pos="e,150,20 110,70 110,70 150,70 150,70 150,70 150,30 150,30", lp="118.5,45"];`,
+		`"n7" -> "n1" [style=dashed, arrowhead=vee, pos="e,100,220 100,250 100,250 100,230 100,230"];`,
+		`"n5" -> "n8" [label="[false]", style=dashed, arrowhead=vee, pos="e,150,20 110,70 110,70 150,70 150,70 150,70 150,30 150,30", lp="118.5,45"];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT of the activity view lacks %q:\n%s", want, dot)
@@ -453,17 +453,17 @@ func TestMigratedRoutesRenderPinned(t *testing.T) {
 	everything := view.Options{Show: view.AllShown()}
 	for view, wants := range map[string][]string{
 		"Structure::Vehicle::Drive::Driving": {
-			`"n4" -> "n1" [pos="e,60,180 60,210 60,210 60,190 60,190"];`,
-			`"n2" -> "n3" [label="finish", pos="e,60,20 60,60 60,60 60,30 60,30", lp="87.5,40"];`,
+			`"n4" -> "n1" [style=dashed, arrowhead=vee, pos="e,60,180 60,210 60,210 60,190 60,190"];`,
+			`"n2" -> "n3" [label="finish", style=dashed, arrowhead=vee, pos="e,60,20 60,60 60,60 60,30 60,30", lp="87.5,40"];`,
 			`"n1.0" [shape=box, label="", xlabel="result", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="116,160!", pin=true];`,
 			`"n2.0" [shape=box, label="", xlabel="value", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="116,80!", pin=true];`,
-			`"n1.0" -> "n2.0" [style=dashed, pos="e,110,80 110,160 110,160 140,160 140,160 140,160 140,80 140,80 140,80 120,80 120,80"];`,
+			`"n1.0" -> "n2.0" [pos="e,110,80 110,160 110,160 140,160 140,160 140,160 140,80 140,80 140,80 120,80 120,80"];`,
 		},
 		"Behavior::Modes::Modes": {
-			`"n1" -> "n2" [label="accept Go", pos="e,200,110 110,110 110,110 190,110 190,110", lp="155,122"];`,
-			`"n2" -> "n3" [label="accept Stop", pos="e,250,40 250,90 250,90 250,50 250,50", lp="203,65"];`,
-			`"n3" -> "n2" [label="accept Go", pos="e,280,90 280,40 280,40 320,40 320,40 320,40 320,90 320,90 320,90 290,90 290,90", lp="281,65"];`,
-			`"n3" -> "n2" [label="accept Resume", pos="e,280,90 280,40 280,40 320,40 320,40 320,40 320,90 320,90 320,90 290,90 290,90", lp="265.5,45.5"];`,
+			`"n1" -> "n2" [label="accept Go", arrowhead=vee, pos="e,200,110 110,110 110,110 190,110 190,110", lp="155,122"];`,
+			`"n2" -> "n3" [label="accept Stop", arrowhead=vee, pos="e,250,40 250,90 250,90 250,50 250,50", lp="203,65"];`,
+			`"n3" -> "n2" [label="accept Go", arrowhead=vee, pos="e,280,90 280,40 280,40 320,40 320,40 320,40 320,90 320,90 320,90 290,90 290,90", lp="281,65"];`,
+			`"n3" -> "n2" [label="accept Resume", arrowhead=vee, pos="e,280,90 280,40 280,40 320,40 320,40 320,40 320,90 320,90 320,90 290,90 290,90", lp="265.5,45.5"];`,
 		},
 		"Structure::Vehicle::'Vehicle Internals'": {
 			`[label="connection", arrowhead=none, penwidth=3, pos="200,100 200,100 120,100 120,100", lp="160,112"];`,
@@ -807,11 +807,16 @@ func TestGoldenAssociationEndLayoutLiesOnTheEdge(t *testing.T) {
 	for _, edge := range rendering.Edges {
 		edges = append(edges, fmt.Sprintf("%s %s %s: %s", names[edge.From], edge.Kind, names[edge.To], edgeText(edge)))
 	}
-	wantEdges := []string{"Model::Blocks::Vehicle composition Model::Blocks::Engine: engine"}
+	wantEdges := []string{
+		"Model::Blocks::Vehicle composition Model::Blocks::Engine: engine",
+		"Model::Blocks::Vehicle composition engine: ",
+		"engine composition piston: ",
+		"Model::Blocks::Engine composition piston: ",
+	}
 	if !slices.Equal(edges, wantEdges) {
 		t.Errorf("edges = %q, want %q", edges, wantEdges)
 	}
-	if want := []view.Point{{X: 100, Y: 70}, {X: 100, Y: 160}}; len(rendering.Edges) != 1 || !slices.Equal(rendering.Edges[0].Route, want) {
+	if want := []view.Point{{X: 100, Y: 70}, {X: 100, Y: 160}}; !slices.Equal(rendering.Edges[0].Route, want) {
 		t.Errorf("composition route = %v, want %v, from Vehicle's box to Engine's", rendering.Edges[0].Route, want)
 	}
 }
@@ -853,11 +858,23 @@ func TestGoldenAssociationEndPairPinsItsConnectionDef(t *testing.T) {
 		route []view.Point
 	}{
 		"Blocks::'Pair BDD'": {
-			edges: []string{"Model::Blocks::Controller composition Model::Blocks::Sensor: controller sensors"},
+			edges: []string{
+				"Model::Blocks::Controller composition Model::Blocks::Sensor: controller sensors",
+				"Model::Blocks::Controller composition sensors: ",
+				"sensors reference controller: ",
+				"Model::Blocks::Sensor reference controller: ",
+				"controller composition sensors: ",
+			},
 			route: []view.Point{{X: 100, Y: 70}, {X: 100, Y: 130}, {X: 100, Y: 200}},
 		},
 		"Blocks::'Sensor BDD'": {
-			edges: []string{"Model::Blocks::Controller composition Model::Blocks::Sensor: controller sensors"},
+			edges: []string{
+				"Model::Blocks::Controller composition Model::Blocks::Sensor: controller sensors",
+				"Model::Blocks::Controller composition sensors: ",
+				"sensors reference controller: ",
+				"Model::Blocks::Sensor reference controller: ",
+				"controller composition sensors: ",
+			},
 			route: []view.Point{{X: 300, Y: 70}, {X: 300, Y: 225}, {X: 160, Y: 225}},
 		},
 	} {
@@ -887,7 +904,7 @@ func TestGoldenAssociationEndPairPinsItsConnectionDef(t *testing.T) {
 		if !slices.Equal(edges, want.edges) {
 			t.Errorf("%s: edges = %q, want %q", name, edges, want.edges)
 		}
-		if len(rendering.Edges) != 1 || !slices.Equal(rendering.Edges[0].Route, want.route) {
+		if !slices.Equal(rendering.Edges[0].Route, want.route) {
 			t.Errorf("%s: composition route = %v, want %v, from Controller's box to Sensor's", name, rendering.Edges[0].Route, want.route)
 		}
 	}
@@ -1033,7 +1050,12 @@ func TestGoldenLayoutQualifiesNamesTheExposesHide(t *testing.T) {
 	for _, edge := range rendering.Edges {
 		edges = append(edges, fmt.Sprintf("%s %s %s: %s", names[edge.From], edge.Kind, names[edge.To], edgeText(edge)))
 	}
-	want := []string{"Model::UI::Console composition Model::UI::GUI: GUI", "Model::UI::Console composition Model::UI::Panel: panel"}
+	want := []string{
+		"Model::UI::Console composition Model::UI::GUI: GUI",
+		"Model::UI::Console composition Model::UI::Panel: panel",
+		"Model::UI::Console composition GUI: ",
+		"Model::UI::Console composition panel: ",
+	}
 	if !reflect.DeepEqual(edges, want) {
 		t.Errorf("edges = %q, want %q", edges, want)
 	}

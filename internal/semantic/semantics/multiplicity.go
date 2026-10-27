@@ -230,10 +230,9 @@ func UsageMultiplicityOf(sym *symbols.Symbol) *ast.Multiplicity {
 	return nil
 }
 
-// AssumedRange is the multiplicity of a feature that declares none: a feature
-// holds exactly one value unless it says otherwise. The assumed range is the
-// project's — KerML 1.0 §7.4.5 names "the usual default of 0..*" instead — and
-// it is the one notion of implicit multiplicity every layer holds a feature to.
+// AssumedRange is the implicit [1..1]: what SysML v2 §7.6.3 declares for an
+// eligible usage and an end feature that state no multiplicity. It is not the
+// default of a feature in general — that is DefaultMultiplicityOf.
 func AssumedRange() Range {
 	return Range{
 		Lower: Bound{Value: 1, Known: true},
@@ -241,8 +240,8 @@ func AssumedRange() Range {
 	}
 }
 
-// UnboundedRange is the multiplicity a parameter takes when nothing it
-// redefines or subsets bounds it: [0..*] (SysML v2 §7.6.3).
+// UnboundedRange is the usual default multiplicity of a feature that declares
+// and inherits none: [0..*] (KerML 1.1 §7.4.12, §7.4.5.2; SysML v2 §7.6.3).
 func UnboundedRange() Range {
 	return Range{
 		Lower: Bound{Value: 0, Known: true},
@@ -439,13 +438,63 @@ func (w *rangeWalk) targets(p *symbols.Symbol) []*symbols.Symbol {
 	return targets
 }
 
-// EffectiveMultiplicityOf returns the multiplicity governing a usage symbol: the
-// one it declares, or the assumed 1..1 when it declares none.
+// EffectiveMultiplicityOf returns the multiplicity governing a feature symbol: the
+// one it declares, or its default (DefaultMultiplicityOf) when it declares none.
 func (m *Model) EffectiveMultiplicityOf(sym *symbols.Symbol) Range {
 	if r, ok := m.MultiplicityOf(sym); ok {
 		return r
 	}
-	return AssumedRange()
+	return m.DefaultMultiplicityOf(sym)
+}
+
+// DefaultMultiplicityOf is the multiplicity of a feature that declares and inherits
+// none: the usual default [0..*] (KerML 1.1 §7.4.12, §7.4.5.2; SysML v2 §7.6.3), or
+// the implicit [1..1] of an eligible SysML usage (ImplicitMultiplicityApplies) and of
+// an end feature — every SysML end (SysML v2 §7.13.1), and a KerML end of a binary
+// association or connector, whose ends redefine the [1..1] ends of BinaryLink.
+func (m *Model) DefaultMultiplicityOf(sym *symbols.Symbol) Range {
+	if m.ImplicitlyDeclaresOne(sym) {
+		return AssumedRange()
+	}
+	return UnboundedRange()
+}
+
+// ImplicitlyDeclaresOne reports whether a feature declaring no multiplicity has the
+// implicit [1..1] declared for it: an eligible SysML usage or an end feature.
+func (m *Model) ImplicitlyDeclaresOne(sym *symbols.Symbol) bool {
+	return m.ImplicitMultiplicityApplies(sym) || m.endDefaultsToOne(sym)
+}
+
+// endDefaultsToOne reports whether an end feature declaring no multiplicity is
+// held to [1..1]: in SysML always, in KerML when it is one of exactly two ends of
+// an association or connector, which redefine BinaryLink's source and target.
+func (m *Model) endDefaultsToOne(sym *symbols.Symbol) bool {
+	if sym == nil || m == nil || !DeclaresEndFeature(sym) {
+		return false
+	}
+	if !m.isKerMLDoc(sym) {
+		return true
+	}
+	if sym.OwnerScope == nil {
+		return false
+	}
+	owner := sym.OwnerScope.Owner()
+	return m.IsAssociationOrConnector(owner) && len(m.EndFeatures(owner)) == 2
+}
+
+// DeclaresEndFeature reports whether a feature is a connector end or carries the
+// `end` modifier.
+func DeclaresEndFeature(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	switch d := sym.Decl.(type) {
+	case *ast.ConnectorEnd:
+		return true
+	case *ast.Usage:
+		return d.IsEnd
+	}
+	return false
 }
 
 // AtMostOne reports whether the range is known to admit no more than one value,

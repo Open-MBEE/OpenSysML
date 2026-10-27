@@ -43,6 +43,11 @@ const demoModel = `package Demo {
 	}
 	requirement massLimit : MassLimit { attribute :>> maxMass = 2000.0; }
 	requirement massTiny : MassLimit { attribute :>> maxMass = 10.0; }
+	requirement def MassGroup {
+		subject vehicle : Vehicle;
+		requirement tiny : MassLimit { attribute :>> maxMass = 10.0; }
+	}
+	requirement massGroup : MassGroup;
 
 	part sedan : Vehicle { attribute :>> mass = 1200.0; }
 
@@ -496,6 +501,13 @@ func TestVerificationToolsAnswerVerdicts(t *testing.T) {
 	_, out = h.ok("verify_requirement", map[string]any{"modelHash": hash, "symbolId": "Demo::massLimit", "subjectSymbolId": "Demo::sedan"}, &requirement)
 	if !requirement.GetVerdict().GetHolds() || !strings.Contains(out, "holds") {
 		t.Errorf("massLimit by sedan: %v\n%s", requirement.GetVerdict(), out)
+	}
+
+	// A subrequirement taking the container's subject fails for sedan, so the group fails.
+	var group pb.VerifyRequirementResponse
+	_, out = h.ok("verify_requirement", map[string]any{"modelHash": hash, "symbolId": "Demo::massGroup", "subjectSymbolId": "Demo::sedan"}, &group)
+	if group.GetVerdict().GetHolds() || !strings.Contains(out, "vehicle.mass <= maxMass") {
+		t.Errorf("massGroup by sedan: %v\n%s", group.GetVerdict(), out)
 	}
 
 	var satisfaction pb.VerifySatisfactionResponse

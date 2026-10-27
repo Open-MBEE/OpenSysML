@@ -296,12 +296,12 @@ func testAnalysisOutputsReadingEachOther(t *testing.T) {
 }
 
 // testAnalysisOutputNeverBound: a case binding none of its outputs computes
-// nothing, which is reported naming the outputs left unbound.
+// nothing, so its result has no value, reported naming the outputs left unbound.
 func testAnalysisOutputNeverBound(t *testing.T) {
 	ctx, _, sym := analysisRuntime(t, "test::deferred")
 	_, err := ctx.RunAnalysis(sym, AnalysisArgs{}, nil, nil)
-	if !errors.Is(err, errNoResultExpression) {
-		t.Fatalf("error = %v, want errNoResultExpression", err)
+	if !errors.Is(err, ErrNoValue) {
+		t.Fatalf("error = %v, want ErrNoValue", err)
 	}
 	if !strings.Contains(err.Error(), "d") {
 		t.Errorf("error %q does not name the output", err)

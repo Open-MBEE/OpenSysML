@@ -214,7 +214,7 @@ raises `opensysml:diagnostics:migration`.
 ## Query and document APIs
 
 `model.query('oslc.where=...')` preserves the OSLC text-query interface. The structured SysML v2
-API query is built from `scope`, `select`, and `where`:
+API query is built from `scope`, `select`, `where` and `orderBy`:
 
 ```matlab
 q = opensysml.buildQuery([], ...
@@ -225,10 +225,12 @@ q = opensysml.buildQuery([], ...
 elements = model.query(q);
 ```
 
-`scope` accepts qualified names or id-reference records. `select` contains property names.
-Constraints may be `PrimitiveConstraint` (`=`, `>`, `<`) or a non-empty
-`CompositeConstraint` (`and`, `or`) containing constraints. `buildQuery` validates unknown
-fields and malformed operators before sending. Query results are cells of element records with
+`scope` accepts qualified names or id-reference records. `select` and `orderBy` contain
+property names; `orderBy` sorts the answer by each in turn, ascending. Constraints may be
+`PrimitiveConstraint` (`=`, `<`, `<=`, `>`, `>=`, `in` with a list value, `instanceOf` on
+`@type` with metaclass names) or a `CompositeConstraint` (`and`, `or`) containing at least two
+constraints. `buildQuery` validates unknown fields, malformed operators and operand shapes
+before sending. Query results are cells of element records with
 `id`, `type`, and a `containers.Map` of properties.
 
 `model.runDocumentQuery(queryId, 'bindings', bindings)` sends named parameter bindings and
@@ -236,7 +238,8 @@ returns a `DocumentQueryResult` with `columns` and `rows`; both are cell collect
 `bindings` may be a scalar struct or `containers.Map`. Primitive values, `quantity` structs,
 `elementRef(id)`, and `objectRef(id, path)` are supported. `model.renderDocument(documentId,
 'form', 'markdown')` returns Markdown; `'html'` requests HTML and requires both
-`render_document` and `render_document_html`.
+`render_document` and `render_document_html`. `model.query(...)` requires `query`, and
+`query_order_by` too when the query has an `orderBy`.
 `model.renderView(viewName, 'ports', 'minimal')` returns a typed
 `opensysml.RenderedView` with ordered nodes, edges, ports, rows, notes and
 origins; geometry, style and canvas are empty when absent. Use `'full'` to

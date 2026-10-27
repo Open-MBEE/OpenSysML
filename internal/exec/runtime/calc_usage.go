@@ -401,8 +401,8 @@ func (shape *calcShape) designatedOutput() (calcOutput, error) {
 	switch len(valued) {
 	case 0:
 		// The calc computed nothing to hand back: a body that fell off its end,
-		// or outputs none of which states a value.
-		return calcOutput{}, fmt.Errorf("%w: %s ended without a return", errCalcNoReturn, shape.Label)
+		// or outputs none of which states a value, so the result has no value.
+		return calcOutput{}, fmt.Errorf("%w: %s ended without a return", ErrNoValue, shape.Label)
 	case 1:
 		return valued[0], nil
 	default:

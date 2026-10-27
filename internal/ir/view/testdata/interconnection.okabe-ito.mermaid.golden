@@ -44,7 +44,7 @@ flowchart LR
     end
   end
   n1.0 === n3.0
-  n2 -.-> n4
+  n2 --> n4
   classDef palette0 fill:#BBE1F6,stroke:#56B4E9
   class n2,n4,n6 palette0
   linkStyle 0 stroke-width:3px

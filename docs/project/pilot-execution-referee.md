@@ -221,23 +221,32 @@ Run it with `go run -C tools ./cmd/pilot-exec-diff` after `./scripts/download-pi
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `tools/referee/diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run -C tools ./cmd/pilot-exec-diff`
-prints the current ones. State of the 500 committed cases, the original 32, the 62 the
+prints the current ones. State of the 514 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
-the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
+the 5 the empty-aggregate and subsetting round and the 4 the `excludingAt` body round added to
+`w6d_expr_depth.cases`, the 12 of
 `tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
 the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases`, the 23 of
 `enumeration_classification.cases`, the 24 of `metadata_access.cases`, the 13 of
 `extent_expressions.cases`, the 1 of `extent_count_mismatch.cases`, the 166 of
 `undetermined_operands.cases`, the 4 of `unknown_bounds.cases`, the 2 of `vast_bounds.cases` and
-the 4 of `body_local_conformance.cases`, the 10 of `exact_rationals.cases` and the 44 of
-`unbounded_arithmetic.cases`:
+the 4 of `body_local_conformance.cases`, the 10 of `exact_rationals.cases`, the 44 of
+`unbounded_arithmetic.cases` and the 10 of `empty_second_operand.cases`:
 
 ```
-agree: 228 · kind-only: 1 · order-only: 0 · disagree: 37 · differs-by-design: 5
-pilot-unevaluated: 157 · pilot-silent: 24 · pilot-error: 4 · ours-error: 10 · ours-undetermined: 17
-both-error: 17 · nondeterministic: 0
+agree: 229 · kind-only: 1 · order-only: 0 · disagree: 38 · differs-by-design: 5
+pilot-unevaluated: 167 · pilot-silent: 24 · pilot-error: 7 · ours-error: 10 · ours-undetermined: 17
+both-error: 16 · nondeterministic: 0
 ```
+
+The ten `empty_second_operand.cases` are binary `+`/`-` with an empty second operand, operator and
+function form side by side (`1 + null` and `'+'(1, null)`, `3 - null`, `3 - ()` and `'-'(3, null)`,
+`1.5 - null`), and the refusals beside them (`null + 1`, `'+'(null, 1)`, `2 * null`, `1 < null`). All
+ten are `pilot-unevaluated`: the pilot leaves the operator form as the unreduced `OperatorExpression`
+and the function form as the unreduced invocation, so it referees neither side; KerML 1.1 §8.4.4.9.6
+(the operator *is* the invocation) and the library's `y: [0..1]` / `x: [1]` decide, and our answers
+(`1`, `1`, `-3`, `-3`, `-3`, `-1.5`; the four refusals) are recorded beside the unevaluated expressions.
 
 The ten `exact_rationals.cases` are the binary64 probes of
 [exact-rational-evaluation.md](exact-rational-evaluation.md#the-pilot-differs-by-design), marked
@@ -454,15 +463,18 @@ operand holds: `u / 0` and `u % 0` are the `division by zero` error here and
 The last twelve probe the positions a library function checks before it reads its open
 operand. A determined position that names no place in any value the operand may hold fails
 the function: `Substring(s, 0, 2)`, `includingAt(xs, 1.0, 0)`, `subsequence(xs, 0, 1)` and
-`excludingAt(xs, 0)` are the index error here, as are `includingAt(xs, 1.0, 6)`,
-`subsequence(xs, 2, 5)` and `excludingAt(xs, 5)`, positions past the most `xs : Real[2..4]`
-admits. The pilot leaves the four zero-index forms unevaluated (`pilot-unevaluated`, the
-`InvocationExpression` or the unevaluated `AttributeUsage xs`) and throws
-`IndexOutOfBoundsException` for the three past-the-end forms (`both-error`) — by indexing into
-the one unevaluated usage element, so `subsequence(xs, 1, 2)` throws too (`pilot-error`,
-`toIndex = 2` over a one-element list) where it is `<undetermined>` here, as are
-`Substring(s, 1, 2)` and `includingAt(xs, 1.0, 1)` (`pilot-unevaluated`) and
-`excludingAt(xs, 1)` (`pilot-silent`), positions every value of the operand admits.
+`excludingAt(xs, 0)` are the index error here, as are `includingAt(xs, 1.0, 6)` and
+`subsequence(xs, 2, 5)`, positions past the most `xs : Real[2..4]` admits. The pilot leaves
+the four zero-index forms unevaluated (`pilot-unevaluated`, the `InvocationExpression` or the
+unevaluated `AttributeUsage xs`) and throws `IndexOutOfBoundsException` for the two
+past-the-end forms (`both-error`) — by indexing into the one unevaluated usage element, so
+`subsequence(xs, 1, 2)` throws too (`pilot-error`, `toIndex = 2` over a one-element list)
+where it is `<undetermined>` here, as are `Substring(s, 1, 2)` and `includingAt(xs, 1.0, 1)`
+(`pilot-unevaluated`) and `excludingAt(xs, 1)` (`pilot-silent`), positions every value of the
+operand admits. `excludingAt(xs, 5)` is `<undetermined>` here too: its body,
+`(seq->subsequence(1, startIndex - 1), seq->subsequence(endIndex + 1))`, reads `seq#(4)` at
+most, which a four-element value has, and collects nothing past the end; the pilot throws the
+same exception for it (`pilot-error`).
 `Substring(s, 3, 2)` selects nothing whatever `s` holds and is `""` (`pilot-unevaluated`).
 
 The next four probe the domain a scalar numeric function's parameter puts on a determined
@@ -844,7 +856,7 @@ The five remaining `ours-error` cases are adjudicated divergences:
 | Case | Ours | Read |
 |---|---|---|
 | `body-local-level-refused`, `body-local-count-refused`, `body-local-repeat-refused` | `declaration of l: type mismatch: cannot write 2 (an Integer) to a feature typed by Level`, `declaration of xs: multiplicity violation: 3 value(s) bound to a feature with multiplicity upper bound 2`, `declaration of xs: uniqueness violation: 1 (an Integer) is written at positions 1 and 3 of a unique feature` | **Deliberately ours.** `attribute l : Level = n;`, `attribute xs : Integer[2] = (n, n + 1, n + 2);` and `attribute xs : Integer[*] = (n, n + 1, n);` are declarations local to a calc body, and the values of a feature are instances of its types (KerML 1.0 §7.3.4), within its multiplicity (§7.4.12) and, unless `nonunique`, without repeats (§7.3.4.2) — the rule a parameter, a `return` and a namespace-level declaration answer to, now applied to the body-local declaration when its initial value is bound (the feature-write and uniqueness rows of [spec-compliance.md](spec-compliance.md)). The pilot checks nothing when it binds a body-local value: it answers `2`, `3` and `3`, the unchecked initializers carried through `l + 0` and `size(xs)`, so it neither confirms nor refutes the refusal and only the accepted `body-local-level-accepted` (`BodyOnly(3)` = `3`) can `agree`, as it does. |
-| `w6d:held-undeclared-multi` | `multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1` | **Deliberately ours.** `attribute xs = (1.0, 2.0)` declares no multiplicity, so the assumed `1..1` makes the default a violation (KerML 1.0 §7.4.5, and the multiplicity row of [spec-compliance.md](spec-compliance.md)); the pilot returns both values. An adjudicated divergence, not a defect |
+| `w6d:held-undeclared-multi` | `multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1` | **Deliberately ours.** `attribute xs = (1.0, 2.0)` is owned by a part definition and declares no multiplicity, so the implicit `[1..1]` (SysML v2 §7.6.3, and the default-multiplicity row of [spec-compliance.md](spec-compliance.md)) makes the default a violation; the pilot returns both values. An adjudicated divergence, not a defect |
 | `intdiv` | `integer_quotient.sysml:6:42: error: cannot bind Rational value to a feature typed by Integer` | **Deliberately ours.** `calc def IntDiv { return : Integer = 7 / 2; }` binds a `Rational` — what `IntegerFunctions::'/'` returns, KerML 1.0 §9.4.11.1 — to an `Integer` result parameter, and a feature's values must be instances of its types (§8.3.3.3.4, §7.4.9; the feature-write conformance row of [spec-compliance.md](spec-compliance.md)). The pilot answers `3.5`, checking nothing against the parameter's type. Stricter than the reference, not a defect in either |
 
 The cases that were `ours-error` before that round, and what closed them:

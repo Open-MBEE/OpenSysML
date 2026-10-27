@@ -309,8 +309,9 @@ static sysml_seq_SFX sysml_subsequence_SFX(sysml_seq_SFX s, sysml_int start, sys
 
 static sysml_seq_SFX sysml_excluding_at_SFX(sysml_seq_SFX s, sysml_int start, sysml_int end, sysml_bool has_end) {
 	if (!has_end) end = start;
-	if (start < 1 || start > s.len) sysml_failf("index out of range: SequenceFunctions::excludingAt start index %lld is outside 1..%lld", (long long)start, (long long)s.len);
-	if (end < start || end > s.len) sysml_failf("index out of range: SequenceFunctions::excludingAt end index %lld is outside %lld..%lld", (long long)end, (long long)start, (long long)s.len);
+	if (start < 1 || start > s.len + 1) sysml_failf("index out of range: SequenceFunctions::excludingAt start index %lld is outside 1..%lld", (long long)start, (long long)(s.len + 1));
+	if (end < 1) sysml_failf("index out of range: SequenceFunctions::excludingAt end index %lld is outside 1..*", (long long)end);
+	if (end > s.len) end = s.len;
 	sysml_seq_SFX parts[2] = {{SYSML_MANY, start - 1, s.data}, {SYSML_MANY, s.len - end, s.data + end}};
 	return sysml_concat_SFX(2, parts);
 }

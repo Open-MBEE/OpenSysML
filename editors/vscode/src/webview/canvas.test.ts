@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
 
@@ -6,7 +7,7 @@ import { JSDOM } from "jsdom";
 
 import type { RenderNode, RenderResult } from "../protocol";
 import { drawCanvas, liftNode } from "./canvas";
-import { layoutCanvas, MARGIN, portBox, portCenter, portLabelPlacement, PORT_SIZE } from "./layout";
+import { FONT_SIZE, glyphSize, layoutCanvas, MARGIN, portBox, portCenter, portLabelPlacement, PORT_SIZE } from "./layout";
 
 // The canvas is drawn with the page's document, as it is in the webview.
 const dom = new JSDOM("<!DOCTYPE html><body></body>");
@@ -69,9 +70,13 @@ test("liftNode floats the dragged subtree over a canvas that stays put, drawn la
   assert.deepEqual(groups.map((group) => group.classList.contains("lifted")), [false, false, true, true]);
   assert.equal(svg.querySelector('g[data-opensysml-id="a"] > rect')!.getAttribute("x"), "10");
   assert.equal(svg.querySelector('g[data-opensysml-id="c"] > rect')!.getAttribute("x"), before);
-  // Lifted within the canvas, the canvas keeps its size and origin.
-  assert.deepEqual([svg.getAttribute("width"), svg.getAttribute("height")], [String(layout.width), String(layout.height)]);
-  assert.equal(svg.getAttribute("viewBox"), `${layout.origin.x} ${layout.origin.y} ${layout.width} ${layout.height}`);
+  // Lifted within the canvas, the canvas keeps its origin and height; it widens only as far
+  // as the label of the redrawn edge, riding the edge's midpoint right, reaches past it.
+  const label = svg.querySelector("g.opensysml-edge.lifted text.edge-label")!;
+  const width = Math.max(layout.width, Number(label.getAttribute("x")) + glyphSize(label.textContent ?? "").width / 2 + MARGIN - layout.origin.x);
+  assert.ok(width > layout.width);
+  assert.deepEqual([svg.getAttribute("width"), svg.getAttribute("height")], [String(width), String(layout.height)]);
+  assert.equal(svg.getAttribute("viewBox"), `${layout.origin.x} ${layout.origin.y} ${width} ${layout.height}`);
   // The edge from the lifted valve to the pump is redrawn to follow it, with its handles.
   assert.deepEqual([...svg.querySelectorAll<SVGGElement>("g.lifted")].map((group) => group.classList[0]), [
     "opensysml-node", "opensysml-node", "opensysml-edge", "edge-handles",
@@ -151,12 +156,56 @@ test("drawCanvas opens the view on geometry the model puts left of or above the 
   assert.deepEqual([rect.getAttribute("x"), rect.getAttribute("y")], ["-120", "40"]);
 });
 
+// labelled is a and b, placed where stated, joined by one edge routed through the points and labelled.
+function labelled(a: Partial<RenderNode>, b: Partial<RenderNode>, label: string, route: { x: number; y: number }[]): RenderResult {
+  return {
+    ...result,
+    nodes: [node("a", "a", { kind: "requirement", width: 120, height: 60, ...a }), node("b", "b", { kind: "requirement", width: 120, height: 60, ...b })],
+    edges: [{ from: "a", to: "b", label, kind: "derive", route }],
+  };
+}
+
+// drawnLabel is where the canvas put an edge's label: the text's anchor and baseline, with the width the layout allows it.
+function drawnLabel(svg: SVGSVGElement): { x: number; baseline: number; width: number } {
+  const text = svg.querySelector("text.edge-label")!;
+  return { x: Number(text.getAttribute("x")), baseline: Number(text.getAttribute("y")), width: glyphSize(text.textContent ?? "").width };
+}
+
+test("drawCanvas opens the view on an edge label routed above the top row of nodes", () => {
+  // The router takes the edge over the top of the row; its label sits above the line, above every box.
+  const layout = layoutCanvas(labelled({ x: 24, y: 24 }, { x: 324, y: 24 }, "«derive»", [{ x: 84, y: 0 }, { x: 384, y: 0 }]));
+  const svg = drawCanvas(layout);
+  const label = drawnLabel(svg);
+  assert.ok(label.baseline < 24, `the label at ${label.baseline} lies above the row`);
+  assert.ok(layout.origin.y <= label.baseline - FONT_SIZE, `the canvas top ${layout.origin.y} cuts the label above ${label.baseline}`);
+  assert.equal(svg.getAttribute("viewBox"), `${layout.origin.x} ${layout.origin.y} ${layout.width} ${layout.height}`);
+  assert.deepEqual([svg.getAttribute("width"), svg.getAttribute("height")], [String(layout.width), String(layout.height)]);
+});
+
+test("drawCanvas opens the view on an edge label wider than the segment it is centred on, left and right of the boxes", () => {
+  const label = "«a long allocation label»";
+  const right = layoutCanvas(labelled({ x: 24, y: 24 }, { x: 24, y: 224 }, label, [{ x: 168, y: 54 }, { x: 168, y: 254 }]));
+  const onRight = drawnLabel(drawCanvas(right));
+  assert.ok(right.origin.x + right.width >= onRight.x + onRight.width / 2, `the canvas right ${right.origin.x + right.width} cuts the label at ${onRight.x}`);
+  const left = layoutCanvas(labelled({ x: 48, y: 24 }, { x: 48, y: 224 }, label, [{ x: 0, y: 54 }, { x: 0, y: 254 }]));
+  const onLeft = drawnLabel(drawCanvas(left));
+  assert.ok(left.origin.x <= onLeft.x - onLeft.width / 2, `the canvas left ${left.origin.x} cuts the label at ${onLeft.x}`);
+});
+
+test("drawCanvas opens the view on the arrowhead of an edge ending on the canvas's edge", () => {
+  // The edge runs down x = 0 and ends there; its arrowhead is drawn to either side of the line.
+  const layout = layoutCanvas(labelled({ x: 0, y: 24 }, { x: 0, y: 224 }, "", [{ x: 0, y: 54 }, { x: 0, y: 254 }]));
+  const points = (drawCanvas(layout).querySelector("polyline")?.getAttribute("points") ?? "").split(" ");
+  assert.equal(points.at(-1)?.split(",")[0], "0");
+  assert.ok(layout.origin.x < 0, `the canvas left ${layout.origin.x} cuts the arrowhead on x = 0`);
+});
+
 test("drawCanvas draws edges with the arrowhead their kind takes and handles on a steerable route", () => {
   const svg = drawCanvas(layoutCanvas(result));
   const edges = [...svg.querySelectorAll<SVGGElement>("g.opensysml-edge")];
   assert.deepEqual(edges.map((edge) => edge.dataset.edge), ["0", "1"]);
-  assert.equal(edges[0].querySelector("polyline")?.getAttribute("marker-end"), "url(#arrow-open)");
-  assert.equal(edges[1].querySelector("polyline")?.getAttribute("marker-end"), "url(#arrow)");
+  assert.equal(edges[0].querySelector("polyline")?.getAttribute("marker-end"), "url(#arrow)");
+  assert.equal(edges[1].querySelector("polyline")?.getAttribute("marker-end"), "url(#arrow-open)");
   assert.equal(edges[0].querySelector("text")?.textContent, "supply");
   assert.equal(edges[1].querySelector("text"), null);
   // Only the declared connection gets handles: one waypoint and one per segment.
@@ -187,7 +236,7 @@ test("drawCanvas marks a tree's relationship edges the way the graphical notatio
   };
   const svg = drawCanvas(layoutCanvas(tree));
   const defs = [...svg.querySelectorAll("defs marker")].map((marker) => marker.id);
-  assert.deepEqual(defs, ["arrow", "arrow-open", "triangle-hollow", "diamond-filled", "diamond-hollow"]);
+  assert.deepEqual(defs, ["arrow", "arrow-open", "triangle-hollow", "triangle-dots", "triangle-bar", "diamond-filled", "diamond-hollow", "circle-plus", "triangle-four-dots", "portion", "circle-hollow"]);
   assert.equal(svg.querySelector("#triangle-hollow path")?.getAttribute("class"), "arrow-hollow");
   assert.equal(svg.querySelector("#diamond-filled path")?.getAttribute("class"), "arrow-fill");
   const lines = [...svg.querySelectorAll<SVGPolylineElement>("g.opensysml-edge polyline")];
@@ -195,7 +244,7 @@ test("drawCanvas marks a tree's relationship edges the way the graphical notatio
     [null, "url(#triangle-hollow)"],
     ["url(#diamond-filled)", null],
     ["url(#diamond-hollow)", null],
-    [null, "url(#triangle-hollow)"],
+    [null, "url(#triangle-dots)"],
   ]);
   assert.deepEqual([...svg.querySelectorAll<SVGGElement>("g.opensysml-edge")].map((group) => group.classList.contains("typing")), [false, false, false, true]);
   assert.deepEqual([...svg.querySelectorAll("g.opensysml-edge text")].map((text) => text.textContent), ["wheels[4]", "driver[0..1]"]);
@@ -328,6 +377,85 @@ test("drawCanvas preserves the portless SVG output", () => {
   const svg = drawCanvas(layoutCanvas(result));
   assert.equal(
     createHash("sha256").update(svg.outerHTML).digest("hex"),
-    "83e9891b39565506610ab53d65fc7a583f5ab415504eae3b857f59235745b3a2",
+    "43c3b5225634001e08b36d080f8687204fe684ed2057923b0ef65ffda16bfcaa",
   );
+});
+
+test("drawCanvas marks the notation's remaining relationship glyphs", () => {
+  const graph: RenderResult = {
+    ...result,
+    kind: "definition",
+    nodes: [node("p", "Plant"), node("t", "tank"), node("s", "spare"), node("f", "filling"), node("e", "startup"), node("c", "keepLevel"), node("u", "Uses"), node("l", "Lib"), node("v", "tankView"), node("k", "Tank"), node("a", "open"), node("b", "pour")],
+    edges: [
+      { from: "s", to: "t", label: "references", kind: "reference subsetting" },
+      { from: "p", to: "f", label: "", kind: "portion" },
+      { from: "p", to: "e", label: "event", kind: "event" },
+      { from: "p", to: "c", label: "require", kind: "require" },
+      { from: "u", to: "l", label: "L", kind: "unowned membership" },
+      { from: "v", to: "k", label: "expose", kind: "expose" },
+      { from: "a", to: "b", label: "«succession flow»", kind: "succession flow" },
+    ],
+  };
+  const svg = drawCanvas(layoutCanvas(graph));
+  const defs = [...svg.querySelectorAll("defs marker")].map((marker) => marker.id);
+  assert.deepEqual(defs, ["arrow", "arrow-open", "triangle-hollow", "triangle-dots", "triangle-bar", "diamond-filled", "diamond-hollow", "circle-plus", "triangle-four-dots", "portion", "circle-hollow"]);
+  assert.equal(svg.querySelectorAll("#triangle-four-dots circle").length, 4);
+  assert.equal(svg.querySelector("#portion path")?.getAttribute("class"), "arrow-fill");
+  assert.equal(svg.querySelector("#circle-hollow circle")?.getAttribute("class"), "arrow-hollow");
+  const lines = [...svg.querySelectorAll<SVGPolylineElement>("g.opensysml-edge polyline")];
+  assert.deepEqual(lines.map((line) => [line.getAttribute("marker-start"), line.getAttribute("marker-end")]), [
+    [null, "url(#triangle-four-dots)"],
+    ["url(#portion)", null],
+    [null, "url(#arrow-open)"],
+    [null, "url(#arrow-open)"],
+    ["url(#circle-hollow)", null],
+    [null, "url(#arrow-open)"],
+    [null, "url(#arrow)"],
+  ]);
+  // A kind of more than one word is classed with hyphens, so a style sheet can address it.
+  const classes = [...svg.querySelectorAll<SVGGElement>("g.opensysml-edge")].map((group) => group.getAttribute("class"));
+  assert.deepEqual(classes.slice(0, 2), ["opensysml-edge reference-subsetting", "opensysml-edge portion"]);
+  assert.equal(classes[6], "opensysml-edge succession-flow");
+});
+
+test("drawCanvas ends every edge kind in the marker the notation table states", () => {
+  // The table in docs/project/view-rendering-forms.md is the oracle the Go
+  // writers are held to; its canvas column names the marker (`end` or `start`)
+  // or `none`, and this reads the same rows so the two cannot drift.
+  const document = readFileSync("../../docs/project/view-rendering-forms.md", "utf8");
+  const section = document.split("\n### Notation table\n")[1]?.split("\n### ")[0] ?? "";
+  const rows = section.split("\n").filter((line) => line.startsWith("| `") || line.startsWith("| objective"));
+  assert.ok(rows.length > 0, "the notation table has rows");
+  const kinds: string[] = [];
+  const want: Record<string, [string | null, string | null]> = {};
+  for (const row of rows) {
+    const cells = row.replace(/\\\|/g, "\u0000").split("|").map((cell) => cell.trim().replace(/\u0000/g, "|"));
+    const canvas = cells[7].replace(/`/g, "");
+    for (const kind of [...cells[2].matchAll(/`([^`]*)`/g)].map((m) => m[1])) {
+      kinds.push(kind);
+      if (canvas === "none") {
+        want[kind] = [null, null];
+      } else {
+        const [position, marker] = canvas.split(" ");
+        want[kind] = position === "start" ? [`url(#${marker})`, null] : [null, `url(#${marker})`];
+      }
+    }
+  }
+  const graph: RenderResult = {
+    ...result,
+    kind: "tree",
+    nodes: [node("a", "A"), node("b", "B")],
+    edges: kinds.map((kind) => ({ from: "a", to: "b", label: "", kind })),
+  };
+  const svg = drawCanvas(layoutCanvas(graph));
+  const lines = [...svg.querySelectorAll<SVGPolylineElement>("g.opensysml-edge polyline")];
+  assert.equal(lines.length, kinds.length);
+  const markers = new Set([...svg.querySelectorAll("defs marker")].map((marker) => `url(#${marker.id})`));
+  kinds.forEach((kind, i) => {
+    const got: [string | null, string | null] = [lines[i].getAttribute("marker-start"), lines[i].getAttribute("marker-end")];
+    assert.deepEqual(got, want[kind], `${kind} edge markers`);
+    for (const marker of got) {
+      if (marker !== null) assert.ok(markers.has(marker), `${kind} ends in a marker the defs declare`);
+    }
+  });
 });

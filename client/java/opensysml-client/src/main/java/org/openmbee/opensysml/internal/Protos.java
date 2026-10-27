@@ -872,7 +872,8 @@ public final class Protos {
     org.openmbee.opensysml.proto.Query.Builder builder =
         org.openmbee.opensysml.proto.Query.newBuilder()
             .addAllScope(query.scope())
-            .addAllSelect(query.select());
+            .addAllSelect(query.select())
+            .addAllOrderBy(query.orderBy());
     query.where().ifPresent(where -> builder.setWhere(proto(where)));
     return builder.build();
   }
@@ -900,6 +901,10 @@ public final class Protos {
       case EQUAL -> PrimitiveOperator.PRIMITIVE_OPERATOR_EQUAL;
       case GREATER -> PrimitiveOperator.PRIMITIVE_OPERATOR_GREATER;
       case LESS -> PrimitiveOperator.PRIMITIVE_OPERATOR_LESS;
+      case GREATER_OR_EQUAL -> PrimitiveOperator.PRIMITIVE_OPERATOR_GREATER_EQUAL;
+      case LESS_OR_EQUAL -> PrimitiveOperator.PRIMITIVE_OPERATOR_LESS_EQUAL;
+      case IN -> PrimitiveOperator.PRIMITIVE_OPERATOR_IN;
+      case INSTANCE_OF -> PrimitiveOperator.PRIMITIVE_OPERATOR_INSTANCE_OF;
     };
   }
 

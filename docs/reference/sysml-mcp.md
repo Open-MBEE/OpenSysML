@@ -63,13 +63,17 @@ the build.
 ## Finding it in your host
 
 Each release is also listed in the official [MCP Registry](https://registry.modelcontextprotocol.io)
-as `org.opensysml/sysml-mcp`, pointing at the npm package `@openmbee/sysml-mcp`, so a host that
-browses the registry offers it without any of the above: the GitHub MCP Registry lists it, VS
-Code finds it under *MCP: Browse MCP Servers* (or the Extensions view's MCP Servers section),
-and third-party directories that mirror the registry carry the same entry. Installing from there
+as `org.opensysml/sysml-mcp`, pointing at the npm package `@openmbee/sysml-mcp`, so a host or
+directory that reads the registry offers it without any of the above. Installing from there
 configures `npx -y @openmbee/sysml-mcp`, which downloads the release binary for the platform
 and runs it; the `-root` argument the listing declares is the workspace folder, the current
 directory by default.
+
+The [GitHub MCP Registry](https://github.com/mcp), which VS Code's *MCP: Browse MCP Servers*
+(the Extensions view's MCP Servers section) and Copilot read, is a curated selection of the
+official registry, not a mirror: GitHub adds a server by hand on request and syncs its later
+versions from the official registry on its own. Until `org.opensysml/sysml-mcp` is onboarded
+there, VS Code is configured as below.
 
 ## Configuring a host
 

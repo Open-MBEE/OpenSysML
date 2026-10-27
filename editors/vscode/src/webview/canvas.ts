@@ -5,11 +5,14 @@
 import type { RenderPoint } from "../protocol";
 import {
   CanvasLayout,
+  EDGE_LABEL_RISE,
+  edgeExtent,
   FONT_SIZE,
   labelLineClass,
   liftedEdges,
   MARGIN,
   movable,
+  nodeExtent,
   PlacedEdge,
   PlacedNode,
   portBox,
@@ -82,8 +85,9 @@ export function liftNode(svg: SVGSVGElement, layout: CanvasLayout, id: string, d
       group.setAttribute("transform", `translate(${dx} ${dy})`);
       group.classList.add("lifted");
       group.parentElement?.append(group);
-      right = Math.max(right, current.box.x + current.box.width + dx + MARGIN);
-      bottom = Math.max(bottom, current.box.y + current.box.height + dy + MARGIN);
+      const extent = nodeExtent(current);
+      right = Math.max(right, extent.x + extent.width + dx + MARGIN);
+      bottom = Math.max(bottom, extent.y + extent.height + dy + MARGIN);
     }
     for (const child of current.children) {
       lift(child);
@@ -99,10 +103,9 @@ export function liftNode(svg: SVGSVGElement, layout: CanvasLayout, id: string, d
       handles.classList.add("lifted");
       svg.querySelector(`g.edge-handles[data-edge="${edge.index}"]`)?.replaceWith(handles);
     }
-    for (const point of edge.points) {
-      right = Math.max(right, point.x + MARGIN);
-      bottom = Math.max(bottom, point.y + MARGIN);
-    }
+    const extent = edgeExtent(edge);
+    right = Math.max(right, extent.x + extent.width + MARGIN);
+    bottom = Math.max(bottom, extent.y + extent.height + MARGIN);
   }
   const width = right - layout.origin.x;
   const height = bottom - layout.origin.y;
@@ -118,11 +121,8 @@ export function cssEscape(value: string): string {
   return value.replace(/["\\]/g, String.raw`\$&`);
 }
 
-// markers are the arrowheads edges end in: a filled head for a transition or a
-// succession, an open one for a flow, a hollow triangle at the general end of a
-// specialization or typing, a diamond at the owner end of a composition (filled)
-// or reference (hollow). A connection ends in none. The defs also hold Cameo's
-// pale-yellow gradient, which the cameo look fills shapes from.
+// markers are the SysML v2 §8.2.3 arrowheads drawEdge ends edges in (see the
+// docs' notation table); the defs also hold Cameo's pale-yellow fill gradient.
 function markers(): SVGDefsElement {
   const defs = element("defs", {});
   const gradient = element("linearGradient", { id: "cameo-fill", x1: "0", y1: "0", x2: "0", y2: "1" });
@@ -146,6 +146,24 @@ function markers(): SVGDefsElement {
     markerWidth: "12", markerHeight: "12", orient: "auto-start-reverse",
   });
   triangle.append(element("path", { d: "M 0.5 0.5 L 11.5 6 L 0.5 11.5 z", class: "arrow-hollow" }));
+  // The typing's dots sit at the triangle's base, the redefinition's bar across the line behind it.
+  const triangleDots = element("marker", {
+    id: "triangle-dots", viewBox: "0 0 18 12", refX: "17", refY: "6",
+    markerWidth: "18", markerHeight: "12", orient: "auto-start-reverse",
+  });
+  triangleDots.append(
+    element("path", { d: "M 6.5 0.5 L 17.5 6 L 6.5 11.5 z", class: "arrow-hollow" }),
+    element("circle", { cx: "3", cy: "3", r: "1.6", class: "arrow-fill" }),
+    element("circle", { cx: "3", cy: "9", r: "1.6", class: "arrow-fill" }),
+  );
+  const triangleBar = element("marker", {
+    id: "triangle-bar", viewBox: "0 0 16 12", refX: "15", refY: "6",
+    markerWidth: "16", markerHeight: "12", orient: "auto-start-reverse",
+  });
+  triangleBar.append(
+    element("path", { d: "M 4.5 0.5 L 15.5 6 L 4.5 11.5 z", class: "arrow-hollow" }),
+    element("path", { d: "M 1.5 1 L 1.5 11", class: "arrow-line" }),
+  );
   // A diamond sits at the edge's start, pointing along it: orient="auto" keeps
   // its x axis on the line's direction and refX="0" puts its near corner on the node.
   const diamondFilled = element("marker", {
@@ -158,7 +176,36 @@ function markers(): SVGDefsElement {
     markerWidth: "14", markerHeight: "8", orient: "auto",
   });
   diamondHollow.append(element("path", { d: "M 0.5 4 L 7 0.5 L 13.5 4 L 7 7.5 z", class: "arrow-hollow" }));
-  defs.append(filled, open, triangle, diamondFilled, diamondHollow);
+  const circlePlus = element("marker", {
+    id: "circle-plus", viewBox: "0 0 12 12", refX: "0", refY: "6",
+    markerWidth: "12", markerHeight: "12", orient: "auto",
+  });
+  circlePlus.append(
+    element("circle", { cx: "6", cy: "6", r: "5", class: "arrow-hollow" }),
+    element("path", { d: "M 1 6 L 11 6 M 6 1 L 6 11", class: "arrow-line" }),
+  );
+  // A reference subsetting's hollow triangle, with the notation's four dots behind its base.
+  const triangleFourDots = element("marker", {
+    id: "triangle-four-dots", viewBox: "0 0 20 12", refX: "19", refY: "6",
+    markerWidth: "20", markerHeight: "12", orient: "auto-start-reverse",
+  });
+  triangleFourDots.append(element("path", { d: "M 8.5 0.5 L 19.5 6 L 8.5 11.5 z", class: "arrow-hollow" }));
+  for (const [cx, cy] of [[2, 4], [6, 4], [2, 8], [6, 8]]) {
+    triangleFourDots.append(element("circle", { cx: String(cx), cy: String(cy), r: "1.2", class: "arrow-fill" }));
+  }
+  // A portion's three-quarter circle at the occurrence end, its missing quarter
+  // facing along the line, and a membership's hollow circle at the namespace end.
+  const portion = element("marker", {
+    id: "portion", viewBox: "0 0 12 12", refX: "6", refY: "6",
+    markerWidth: "12", markerHeight: "12", orient: "auto",
+  });
+  portion.append(element("path", { d: "M 6 6 L 10 2 A 5.66 5.66 0 1 0 10 10 z", class: "arrow-fill" }));
+  const circleHollow = element("marker", {
+    id: "circle-hollow", viewBox: "0 0 12 12", refX: "0", refY: "6",
+    markerWidth: "12", markerHeight: "12", orient: "auto",
+  });
+  circleHollow.append(element("circle", { cx: "6", cy: "6", r: "5", class: "arrow-hollow" }));
+  defs.append(filled, open, triangle, triangleDots, triangleBar, diamondFilled, diamondHollow, circlePlus, triangleFourDots, portion, circleHollow);
   return defs;
 }
 
@@ -343,19 +390,47 @@ function boxClass(kind: string): "package" | "definition" | "region" | "usage" {
 // drawEdge is an edge's polyline with the arrowhead its kind takes and its label
 // at the midpoint. A specialization or typing points its hollow triangle at the
 // general end; a composition or reference wears its diamond at the owner end,
-// where the edge starts, and no arrowhead at the part it leads to.
+// where the edge starts, and no arrowhead at the part it leads to. A kind of
+// more than one word is classed with hyphens (`succession-flow`).
 function drawEdge(edge: PlacedEdge): SVGGElement {
-  const group = element("g", { class: `opensysml-edge ${edge.edge.kind}`, "data-edge": String(edge.index) });
+  const group = element("g", { class: `opensysml-edge ${edge.edge.kind.replace(/ /g, "-")}`, "data-edge": String(edge.index) });
   const attrs: Record<string, string> = { points: polyline(edge.points), class: "line" };
   switch (edge.edge.kind) {
     case "flow":
+    case "succession flow":
+      attrs["marker-end"] = "url(#arrow)";
+      break;
+    case "require":
+    case "assume":
+    case "assert":
+    case "frame":
+    case "event":
+    case "expose":
       attrs["marker-end"] = "url(#arrow-open)";
       break;
+    case "reference subsetting":
+      attrs["marker-end"] = "url(#triangle-four-dots)";
+      break;
+    case "portion":
+      attrs["marker-start"] = "url(#portion)";
+      break;
+    case "unowned membership":
+      attrs["marker-start"] = "url(#circle-hollow)";
+      break;
     case "connection":
+    case "binding":
+    case "association":
+    case "anchor":
       break;
     case "specialization":
-    case "typing":
+    case "subsetting":
       attrs["marker-end"] = "url(#triangle-hollow)";
+      break;
+    case "typing":
+      attrs["marker-end"] = "url(#triangle-dots)";
+      break;
+    case "redefinition":
+      attrs["marker-end"] = "url(#triangle-bar)";
       break;
     case "composition":
       attrs["marker-start"] = "url(#diamond-filled)";
@@ -363,13 +438,16 @@ function drawEdge(edge: PlacedEdge): SVGGElement {
     case "reference":
       attrs["marker-start"] = "url(#diamond-hollow)";
       break;
+    case "containment":
+      attrs["marker-start"] = "url(#circle-plus)";
+      break;
     default:
-      attrs["marker-end"] = "url(#arrow)";
+      attrs["marker-end"] = "url(#arrow-open)";
   }
   group.append(element("polyline", attrs));
   if (edge.edge.label !== "") {
     const text = element("text", {
-      x: String(edge.label.x), y: String(edge.label.y - 6), "text-anchor": "middle", class: "edge-label",
+      x: String(edge.label.x), y: String(edge.label.y - EDGE_LABEL_RISE), "text-anchor": "middle", class: "edge-label",
     });
     text.textContent = edge.edge.label;
     group.append(text);

@@ -1,0 +1,84 @@
+@startuml
+' NotationGlyphs::Diagrams::mixedGlyphs — mixed rendering (render asMixedDiagram)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+rectangle "<size:10>//«requirement def»//</size>\n**LevelReq**" as n0 <<requirement def>> {
+  rectangle "<size:10>//«frame»//</size>\n**safety**" as n1 <<frame>> <<usage>>
+}
+rectangle "<size:10>//«requirement»//</size>\n**NotationGlyphs::levelReq**" as n2 <<requirement>> <<usage>>
+rectangle "<size:10>//«requirement»//</size>\n**capacity**" as n3 <<requirement>> <<usage>> {
+  rectangle "<size:10>//«require constraint»//</size>\n**capacity::levelReq**" as n5 <<require constraint>> <<usage>> {
+    rectangle "<size:10>//«subject»//</size>\n**plant**" as n6 <<subject>> <<usage>> {
+      rectangle "<size:10>//«part»//</size>\n**tank**" as n7 <<part>> <<usage>>
+      rectangle "<size:10>//«part»//</size>\n**pump**" as n8 <<part>> <<usage>>
+      rectangle "<size:10>//«part»//</size>\n**spare**" as n9 <<part>> <<usage>>
+    }
+    rectangle "<size:10>//«require constraint»//</size>\n**keepLevel**" as n10 <<require constraint>> <<usage>>
+    rectangle "<size:10>//«assume constraint»//</size>\n**lowLevel**" as n11 <<assume constraint>> <<usage>>
+    rectangle "<size:10>//«require constraint»//</size>\n**bounded**" as n12 <<require constraint>> <<usage>> {
+      port "x" as n12.0
+    }
+    rectangle "<size:10>//«assume constraint»//</size>\n**tight**" as n13 <<assume constraint>> <<usage>> {
+      port "x" as n13.0
+    }
+  }
+  rectangle "<size:10>//«assert constraint»//</size>\n**asserted**" as n14 <<assert constraint>> <<usage>>
+}
+rectangle "<size:10>//«constraint»//</size>\n**NotationGlyphs::bounded**" as n15 <<constraint>> <<usage>> {
+  port "x" as n15.0
+}
+rectangle "<size:10>//«constraint»//</size>\n**NotationGlyphs::tight**" as n16 <<constraint>> <<usage>> {
+  port "x" as n16.0
+}
+rectangle "<size:10>//«view»//</size>\n**tankView**" as n4 <<view>> <<usage>>
+rectangle "<size:10>//«part def»//</size>\n**Tank**" as n17 <<part def>> {
+  rectangle "<size:10>//«attribute»//</size>\n**level**" as n18 <<attribute>> <<usage>>
+}
+n0 --> n1 : frame
+n3 --> n5 : require
+n3 --> n14 : assert
+n17 o-- n18
+n2 --:|> n0
+n4 ..> n17 : <U+00AB>expose<U+00BB>
+n0 --> n15 : <U+00AB>require<U+00BB>
+n0 --> n16 : <U+00AB>assume<U+00BB>
+n3 --> n2 : <U+00AB>require<U+00BB>
+@enduml

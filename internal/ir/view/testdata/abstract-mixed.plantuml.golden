@@ -57,6 +57,11 @@ rectangle "<size:10>//«variation part def»//</size>\n**Models**" as n6 <<varia
 }
 n4 -[thickness=3]- n5
 n8 -[thickness=3]- n9
-n2 ..> n1
-n6 --|> n1 : <U+00AB>specializes<U+00BB>
+n1 o-- n0
+n2 o-- n3
+n2 *-- n4
+n2 *-- n5
+n6 o-- n7
+n2 --:|> n1
+n6 --|> n1
 @enduml

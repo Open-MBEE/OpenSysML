@@ -85,23 +85,42 @@ package "<size:10>//«package»//</size>\n**MixedExamples**" as n0 <<package>> {
   rectangle "<size:10>//«view»//</size>\n**mixedLayout**" as n18 <<view>> <<usage>>
 }
 n4 --> n3
-n6 --> n7
-n7 --> n8
+n6 -[dashed]-> n7
+n7 -[dashed]-> n8
 n9 -- n10 : <U+00AB>subject<U+00BB>
 n11 -- n9
 n9 .. n12
 n16 --> n15
 n26.0 -[thickness=3]- n27.0
-n3 ..> n1
-n10 ..> n25
-n11 ..> n31
-n13 ..> n5 : <U+00AB>perform<U+00BB>
-n14 ..> n2 : <U+00AB>exhibit<U+00BB>
-n21 --|> n20 : <U+00AB>specializes<U+00BB>
-n22 ..> n19
-n23 --|> n20 : <U+00AB>specializes<U+00BB>
-n24 ..> n19
-n25 --|> n20 : <U+00AB>specializes<U+00BB>
-n26 ..> n21
-n27 ..> n23
+n0 +-- n19
+n0 +-- n20
+n0 +-- n21
+n21 o-- n22
+n0 +-- n23
+n23 o-- n24
+n0 +-- n25
+n25 *-- n26
+n25 *-- n27
+n0 +-- n28
+n28 o-- n29
+n28 o-- n30
+n0 +-- n1
+n0 +-- n2
+n0 +-- n5
+n0 +-- n9
+n0 +-- n31
+n0 *-- n17
+n0 *-- n18
+n3 --:|> n1
+n10 --:|> n25
+n11 --:|> n31
+n13 --> n5 : <U+00AB>perform<U+00BB>
+n14 --> n2 : <U+00AB>exhibit<U+00BB>
+n21 --|> n20
+n22 --:|> n19
+n23 --|> n20
+n24 --:|> n19
+n25 --|> n20
+n26 --:|> n21
+n27 --:|> n23
 @enduml

@@ -6,5 +6,11 @@ part vehicle
   part engine (nested deeper than 1 level; not shown)
     port fuelIn
 
+relationships:
+  vehicle o-- mass
+  vehicle *-- wheel
+  vehicle *-- engine
+  engine o-- fuelIn
+
 not represented:
   - 3 elements nested deeper than 1 level not shown

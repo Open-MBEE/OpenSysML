@@ -27,11 +27,14 @@ const (
 //
 //	EdgeKind        Mermaid  DOT
 //	EdgeConnection  ---      arrowhead=none
-//	EdgeTransition  -->      solid, default arrowhead
-//	EdgeSuccession  -->      solid, default arrowhead
-//	EdgeFlow        -.->     style=dashed
+//	EdgeTransition  -->      solid, arrowhead=vee
+//	EdgeSuccession  -.->     style=dashed, arrowhead=vee
+//	EdgeFlow        -->      solid, default (filled) arrowhead
 //	EdgeBinding     ---      arrowhead=none
 //	(containment)   ---      arrowhead=none
+//
+// The full table, one row per SysML v2 §8.2.3 production, is the notation
+// table of docs/project/view-rendering-forms.md, which a test holds this to.
 //
 // DiagramLayout geometry is written as Graphviz reads it (pinned `pos`, `bb`,
 // `pos` splines, pinned canvas corners); docs/project/view-rendering-forms.md#geometry
@@ -147,7 +150,10 @@ func (w *dotWriter) settleEdges(r *Rendering, unplaced Unplaced) []Edge {
 		w.stripUnplaced(r.Roots, edges)
 		w.notices = append(w.notices, fmt.Sprintf("%d node(s) without a position, drawn in a strip below the picture(s)", w.placement.unplaced()))
 	}
-	edges = w.drawnEdges(edges)
+	edges = w.drawnEdges(w.rowEdges(r, edges))
+	if !w.tree {
+		edges = w.nestedIn(edges)
+	}
 	for _, edge := range edges {
 		if w.clipped(edge.From, edge.To) || w.clipped(edge.To, edge.From) {
 			w.compound = true
@@ -253,7 +259,7 @@ func (w *dotWriter) dotBB(box nodeBox) string {
 // the minimal display, the pins of the edges left drawn.
 func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	skin := skinOf(options.Style)
-	w := &dotWriter{kind: r.Kind, tree: r.Kind == KindTree, action: r.Kind == KindAction, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
+	w := &dotWriter{kind: r.Kind, tree: r.Kind == KindTree, nesting: r.nestingEdges(), nodes: r.nodeTree(), action: r.Kind == KindAction, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
 		placement: placeRendering(r), drawn: map[string]bool{}, boxes: map[string]nodeBox{}, spread: map[string]boundarySide{}, pins: map[string]nodeBox{}, ported: map[string]*Node{}, omitted: map[string]bool{},
 		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, skin: skin, pictures: r.Pictures, pictureRefusals: r.pictureRefusals(), links: options.Links}
 	w.notices = append(w.notices, refusedPictureNotices(w.pictures, w.pictureRefusals)...)
@@ -267,7 +273,7 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	edges := r.Edges
 	if w.placement.partial() && options.Unplaced != UnplacedStrip {
 		w.omitUnplaced(r.Roots)
-		edges, _ = w.placement.keptEdges(r.Edges)
+		edges, _ = w.placement.keptEdges(w.placement.foldOmitted(r.Roots, r.Edges, w.nesting))
 	}
 	w.ports = r.portViewOver(options.Ports, edges)
 	w.lines = options.Lines
@@ -356,8 +362,21 @@ func (w *dotWriter) settleUnplaced(roots []*Node, edges []Edge, unplaced Unplace
 		w.notices = append(w.notices, fmt.Sprintf("%d node(s) without a position, drawn in a strip below the drawing", count))
 		return edges
 	}
-	kept, dropped := w.placement.keptEdges(edges)
+	kept, dropped := w.placement.keptEdges(w.placement.foldOmitted(roots, edges, w.nesting))
 	w.notices = append(w.notices, w.placement.omitNotice(dropped))
+	return kept
+}
+
+// nestedIn drops the memberships a cluster's nesting draws: Graphviz cannot clip an edge at
+// a cluster holding its other end, and would run it from the cluster's invisible anchor.
+func (w *dotWriter) nestedIn(edges []Edge) []Edge {
+	kept := make([]Edge, 0, len(edges))
+	for _, edge := range edges {
+		if w.clusters[edge.From] && nestedMembership(edge, w.nodes) {
+			continue
+		}
+		kept = append(kept, edge)
+	}
 	return kept
 }
 
@@ -478,6 +497,8 @@ type dotWriter struct {
 	b               strings.Builder
 	kind            Kind
 	tree            bool                    // containment as edges, not clusters
+	nesting         map[[2]string]bool      // the tree's children whose membership is an edge of its own
+	nodes           nodeTree                // every node by ID with its parent, for the memberships a cluster draws
 	action          bool                    // the pins name what a flow carries
 	sources         map[string]bool         // port IDs an edge leaves from
 	clusters        map[string]bool         // node IDs drawn as clusters
@@ -521,6 +542,7 @@ const (
 	dotFillBlack     = "fillcolor=black"
 	dotFillWhite     = "fillcolor=white"
 	dotArrowheadNone = "arrowhead=none"
+	dotArrowheadVee  = "arrowhead=vee"
 	dotStyleFilled   = "style=filled"
 	dotStyleDashed   = "style=dashed"
 	dotFixedSize     = "fixedsize=true"
@@ -1114,8 +1136,9 @@ func (w *dotWriter) drawOrder(nodes []*Node) []*Node {
 }
 
 // writeNode writes one node: a cluster holding its children, a plain node
-// otherwise. A tree writes the node and an edge to each child instead. An
-// omitted node writes nothing but the nodes under it, in its place.
+// otherwise. A tree writes the node and a containment edge to each child
+// instead, except a child whose membership the tree draws as an edge of its
+// own. An omitted node writes nothing but the nodes under it, in its place.
 func (w *dotWriter) writeNode(node *Node, depth int) {
 	indent := strings.Repeat("  ", depth)
 	if w.omitted[node.ID] {
@@ -1129,7 +1152,7 @@ func (w *dotWriter) writeNode(node *Node, depth int) {
 		w.writePins(node, indent)
 		for _, child := range w.drawOrder(node.Children) {
 			w.writeNode(child, depth)
-			if !w.omitted[child.ID] && !w.compartmentRow(node, child) {
+			if !w.omitted[child.ID] && !w.compartmentRow(node, child) && !w.nesting[[2]string{node.ID, child.ID}] {
 				w.writeEdge(Edge{From: node.ID, To: child.ID}, w.skin.containmentAttributes())
 			}
 		}
@@ -1145,6 +1168,35 @@ func (w *dotWriter) writeNode(node *Node, depth int) {
 		w.writeNode(child, depth+1)
 	}
 	fmt.Fprintf(&w.b, "%s}\n", indent)
+}
+
+// rowEdges folds the membership and typing edges of the children a tree draws
+// as compartment rows by their geometry into their owner's labelled edge to
+// each drawn type, as foldCompartments does for the rows it makes; every other
+// edge at such a row is drawn as it is.
+func (w *dotWriter) rowEdges(r *Rendering, edges []Edge) []Edge {
+	if !w.tree {
+		return edges
+	}
+	f := &folder{mode: CompartmentsPositioned, owners: map[string]string{}, rows: map[string]*Node{}, nesting: r.nestingEdges()}
+	var walk func(node *Node)
+	walk = func(node *Node) {
+		for _, child := range node.Children {
+			if w.compartmentRow(node, child) {
+				f.record(child, node.ID)
+				continue
+			}
+			walk(child)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root)
+	}
+	if len(f.rows) == 0 {
+		return edges
+	}
+	folded, _ := f.foldMemberships(edges)
+	return folded
 }
 
 // compartmentRow reports whether child is drawn inside parent's box, a
@@ -2051,37 +2103,53 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 		if !w.skin.cameo {
 			attrs = append(attrs, "penwidth=3")
 		}
-	case EdgeFlow:
-		attrs = append(attrs, dotStyleDashed)
+	case EdgeTransition:
+		attrs = append(attrs, dotArrowheadVee)
+	case EdgeSuccession:
+		attrs = append(attrs, dotStyleDashed, dotArrowheadVee)
 	case EdgeBinding:
 		attrs = append(attrs, dotArrowheadNone)
-	case EdgeSpecialization:
+	case EdgeSpecialization, EdgeSubsetting:
 		attrs = append(attrs, "arrowhead=empty")
+	case EdgeRedefinition:
+		// Graphviz has no bar across a hollow triangle; a tee behind one is nearest.
+		attrs = append(attrs, "arrowhead=onormaltee")
+	case EdgeTyping:
+		// Graphviz sets the two dots behind the triangle, not beside its base.
+		attrs = append(attrs, "arrowhead=onormaldotdot")
 	case EdgeComposition:
 		if caseNotation(w.kind) {
 			attrs = append(attrs, arrowTailDiamond, dotDirBack)
 		} else {
 			attrs = append(attrs, dotDirBack, arrowTailDiamond)
 		}
-	case EdgeTyping, EdgeReference:
-		switch {
-		case caseNotation(w.kind):
-			attrs = append(attrs, dotStyleDashed, "arrowhead=open")
-		case edge.Kind == EdgeTyping:
-			attrs = append(attrs, "arrowhead=empty", dotStyleDashed)
-		default:
-			attrs = append(attrs, dotDirBack, "arrowtail=odiamond")
-		}
+	case EdgeReference:
+		attrs = append(attrs, dotDirBack, "arrowtail=odiamond")
 	case EdgeContainment:
-		attrs = append(attrs, dotDirBack, "arrowtail=odot")
-	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate, EdgeDependency:
-		attrs = append(attrs, "arrowhead=vee", dotStyleDashed)
+		// Graphviz has no circle-plus; a `+` tail label set on the hollow circle is nearest.
+		attrs = append(attrs, dotDirBack, "arrowtail=odot", `taillabel="+"`, "labeldistance=0.4", "labelangle=0")
+	case EdgeImport, EdgeDerive, EdgeRefine, EdgeDependency:
+		attrs = append(attrs, dotArrowheadVee, dotStyleDashed)
+	case EdgeSatisfy, EdgeVerify, EdgeAllocate, EdgeInclude, EdgePerform, EdgeExhibit:
+		attrs = append(attrs, dotArrowheadVee)
 	case EdgeAssociation:
 		attrs = append(attrs, dirNone)
-	case EdgeInclude:
-		attrs = append(attrs, dotStyleDashed)
 	case EdgeAnchor:
 		attrs = append(attrs, dirNone, dotStyleDashed)
+	case EdgeSuccessionFlow:
+		attrs = append(attrs, dotStyleDashed)
+	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent:
+		attrs = append(attrs, "arrowhead=vee")
+	case EdgePortion:
+		// Graphviz has no three-quarter circle: a filled circle stands at the occurrence end.
+		attrs = append(attrs, dotDirBack, "arrowtail=dot")
+	case EdgeReferenceSubsetting:
+		// The hollow triangle, with one dot behind its base for the notation's four.
+		attrs = append(attrs, "arrowhead=onormaldot")
+	case EdgeUnownedMembership:
+		attrs = append(attrs, dotDirBack, "arrowtail=odot")
+	case EdgeExpose:
+		attrs = append(attrs, "arrowhead=vee", dotStyleDashed)
 	}
 	attrs = append(attrs, dotStyleAttributes(edge.Style, false)...)
 	if len(edge.Route) > 1 {
@@ -2268,7 +2336,10 @@ func (b nodeBox) overlap(o nodeBox) float64 {
 func (w *dotWriter) edgeTexts(edge Edge) (from, label, to string) {
 	label = edge.Label
 	if w.action && (edge.FromPort != "" || edge.ToPort != "") {
-		label = edge.Name
+		label = pinnedEdgeLabel(edge)
+		if label == "" && edge.Kind == EdgeBinding {
+			label = bindingKeyword
+		}
 	}
 	if !w.skin.cameo {
 		return edge.FromLabel, label, edge.ToLabel

@@ -229,9 +229,11 @@ parts.get(0).id(); parts.get(0).type(); parts.get(0).properties();  // qualified
 List<QueryElement> same = model.queryOslc("oslc.where=rdf:type=\"PartUsage\"&oslc.select=sysml:name");
 ```
 
-`Condition` is sealed over `Comparison` (`equal`, `greater`, `less`, each
-`negated()`) and `Combination` (`all`, `any`), so the query is a value a caller can
-build and inspect. `queryOslc` needs the `oslc_query` capability; a scope naming
+`Condition` is sealed over `Comparison` (`equalTo`, `in`, `instanceOf`, `greater`,
+`greaterOrEqual`, `less`, `lessOrEqual`, each `negated()`) and `Combination` (`all`,
+`any`, of at least two conditions), so the query is a value a caller can build and
+inspect; `Query.orderBy(List.of("@type", "name"))` sorts the answer by each property
+in turn, ascending. `queryOslc` needs the `oslc_query` capability; a scope naming
 no element is refused as `INVALID_ARGUMENT`.
 
 ### Several documents, and conversion
@@ -477,7 +479,8 @@ and `verifyConstraint` returns it.
 `Connection.open` calls `GetServerInfo` once and keeps what it reported.
 Negotiation is on the advertised **names** — the constants on `Capabilities`, such
 as `EVALUATE_SUBJECT`, `FEATURE_VALUES`, `STRICT_CONFORMANCE`, `INLINE_LANGUAGE`,
-`PARSE_SOURCES`, `DOCUMENT_QUERY`, `RENDER_DOCUMENT`, `RENDER_DOCUMENT_HTML` —
+`PARSE_SOURCES`, `QUERY`, `QUERY_ORDER_BY`, `DOCUMENT_QUERY`, `RENDER_DOCUMENT`,
+`RENDER_DOCUMENT_HTML` —
 never on the version string:
 
 ```java

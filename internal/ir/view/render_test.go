@@ -110,6 +110,7 @@ func TestGoldenRenderings(t *testing.T) {
 	}{
 		{"tree", "tree.sysml", "VehicleViews::vehicleView", KindTree},
 		{"tree-edges", "tree-edges.sysml", "FleetViews::structure", KindTree},
+		{"feature-membership", "feature-membership.sysml", "MembershipViews::structure", KindTree},
 		{"tree-trunk", "tree-trunk.sysml", "MicroscopeViews::structure", KindTree},
 		{"interconnection", "interconnection.sysml", "PlantViews::loopView", KindInterconnection},
 		{"interconnection-ports", "interconnection-ports.sysml", "ToasterViews::toasterView", KindInterconnection},
@@ -121,6 +122,7 @@ func TestGoldenRenderings(t *testing.T) {
 		{"action", "action.sysml", "FlowViews::driveView", KindAction},
 		{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
 		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},
+		{"mixed-memberships", "mixed-memberships.sysml", "MixedMemberships::memberships", KindMixed},
 		{"typed-action", "typed-behavior.sysml", "TypedViews::cycleView", KindAction},
 		{"typed-state", "typed-behavior.sysml", "TypedViews::boilerView", KindState},
 		{"filters", "filters.sysml", "FilteredViews::safetyView", KindTree},
@@ -163,6 +165,13 @@ func TestGoldenRenderings(t *testing.T) {
 		{"general-empty", "general-robust.sysml", "RobustViews::noRequirements", KindRequirement},
 		{"general-case", "general-case.sysml", "UseCaseViews::useCaseView", KindCase},
 		{"general-case-definitions", "general-case.sysml", "UseCaseViews::caseDefinitionView", KindCase},
+		{"glyphs-requirement", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::requirementGlyphs", KindRequirement},
+		{"glyphs-definition", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::definitionGlyphs", KindDefinition},
+		{"glyphs-package", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::packageGlyphs", KindPackage},
+		{"glyphs-tree", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::treeGlyphs", KindTree},
+		{"glyphs-interconnection", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::lineGlyphs", KindInterconnection},
+		{"glyphs-action", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::fillGlyphs", KindAction},
+		{"glyphs-mixed", "notation-glyphs.sysml", "NotationGlyphs::Diagrams::mixedGlyphs", KindMixed},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -902,6 +911,10 @@ func TestMermaidSizeCountsEdges(t *testing.T) {
 			for _, root := range rendering.Roots {
 				drawn += containmentEdges(root)
 			}
+			drawn -= len(rendering.nestingEdges())
+		} else {
+			// A membership shown by a subgraph's nesting is no flowchart edge.
+			drawn -= len(rendering.nestedInSubgraphs(rendering.usedPorts(rendering.portView(PortsMinimal))))
 		}
 		if drawn == 0 {
 			t.Errorf("%s draws no edge", tc.view)
@@ -937,8 +950,10 @@ func TestActionRenderingDrawsTheSuccessionGatingAFlow(t *testing.T) {
 			if text := sf.Text(edge.Origin.Span); !strings.HasPrefix(text, "first producer if go then f") {
 				t.Errorf("the gated succession is located at %q, want its own declaration", text)
 			}
-		case EdgeFlow:
+		case EdgeSuccessionFlow:
 			flows++
+		case EdgeFlow:
+			t.Errorf("the succession flow %s is drawn as a flow", edge.Label)
 		}
 	}
 	if gated != 1 || flows != 1 {

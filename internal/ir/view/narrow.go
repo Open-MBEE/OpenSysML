@@ -153,8 +153,15 @@ func (n *narrowing) narrow(node *Node) {
 func (n *narrowing) edge(edge *Edge) {
 	edge.From, edge.FromPort = n.end(edge.From, edge.FromPort)
 	edge.To, edge.ToPort = n.end(edge.To, edge.ToPort)
-	if !n.shown.Has(ElementEdgeLabels) && connectorEdge(edge.Kind) && n.kind != KindSequence {
+	if !n.shown.Has(ElementEdgeLabels) && connectorEdge(edge.Kind) && n.kind != KindSequence && !generalViewGraph(n.kind) {
 		edge.Label, edge.Name = "", ""
+		if edge.Kind == EdgeSuccessionFlow {
+			// The keyword is the glyph's, not the connector's optional name.
+			edge.Label = successionFlowKeyword
+		}
+		if edge.Kind == EdgeBinding {
+			edge.Label = bindingKeyword
+		}
 	}
 	if !n.shown.Has(ElementMultiplicities) {
 		labels := []*string{&edge.FromLabel, &edge.ToLabel}
@@ -190,11 +197,21 @@ func (n *narrowing) note(note *Note) {
 	}
 }
 
+// generalViewGraph reports whether a rendering is a GeneralView graph, whose edges
+// are relationships labelled by keyword (`«allocate»`), not connectors by name.
+func generalViewGraph(kind Kind) bool {
+	switch kind {
+	case KindTree, KindRequirement, KindDefinition, KindPackage:
+		return true
+	}
+	return false
+}
+
 // connectorEdge reports whether an edge stands for a connector whose name is
 // an optional label: a connection, interface, flow, binding or allocation.
 func connectorEdge(kind EdgeKind) bool {
 	switch kind {
-	case EdgeConnection, EdgeFlow, EdgeBinding, EdgeAllocate:
+	case EdgeConnection, EdgeFlow, EdgeSuccessionFlow, EdgeBinding, EdgeAllocate:
 		return true
 	}
 	return false

@@ -154,8 +154,12 @@ const LABEL_PAD_Y = 8;
 const MIN_WIDTH = 96;
 const MIN_HEIGHT = 40;
 export const CONTAINER_PAD = 16;
-/** The canvas's margin around the outermost boxes. */
+/** The canvas's margin around everything drawn. */
 export const MARGIN = 24;
+/** How far an arrowhead reaches to either side of its edge's end, at the line's stroke width. */
+const MARKER_REACH = 10;
+/** How far above the edge's midpoint its label's baseline sits. */
+export const EDGE_LABEL_RISE = 6;
 const POINT_SIZE = 12;
 const SYMBOL_SIZE = 28;
 const BAR_WIDTH = 48;
@@ -217,7 +221,7 @@ export function layoutCanvas(
   if (result.kind === "sequence") {
     const layout = layoutSequence(result, roots, placed, overrides.hiddenKinds);
     placePorts(result.edges ?? [], placed, auto);
-    return includePortExtent({ ...layout, routing });
+    return coveringDrawn({ ...layout, routing });
   }
   const geometry = (entry: PlacedNode): NodeGeometry => {
     const override = overrides.nodes?.get(entry.node.id);
@@ -237,56 +241,60 @@ export function layoutCanvas(
   };
   placeGrid(roots, { x: MARGIN, y: MARGIN }, geometry);
   placePorts(result.edges ?? [], placed, auto);
-
-  // Every drawn box counts, since a placed child may lie beyond a sized owner,
-  // and a placed node may lie left of or above the origin.
-  const extent = { left: 0, top: 0, right: MARGIN, bottom: MARGIN };
-  const reach = (x: number, y: number): void => {
-    extent.left = Math.min(extent.left, x);
-    extent.top = Math.min(extent.top, y);
-    extent.right = Math.max(extent.right, x);
-    extent.bottom = Math.max(extent.bottom, y);
-  };
-  for (const entry of placed.values()) {
-    if (entry.clipped) {
-      continue;
-    }
-    const nodeBounds = nodeExtent(entry);
-    reach(nodeBounds.x, nodeBounds.y);
-    reach(nodeBounds.x + nodeBounds.width, nodeBounds.y + nodeBounds.height);
-  }
   const edges = (result.edges ?? []).map((edge, index) =>
     routeEdge(edge, index, placed, overrides.routes, auto, routing, overrides.hiddenKinds, overrides.unplaced === true),
   );
   rerouteAroundBoxes(edges, placed, roots, overrides, auto, routing);
-  for (const edge of edges) {
-    if (edge.hidden) {
-      continue;
-    }
-    for (const point of edge.points) {
-      reach(point.x, point.y);
-    }
-  }
-  const origin = {
-    x: extent.left < 0 ? extent.left - MARGIN : 0,
-    y: extent.top < 0 ? extent.top - MARGIN : 0,
-  };
   return coveringHeld(
-    {
+    coveringDrawn({
       roots,
       nodes: placed,
       edges,
-      origin,
-      width:
-        Math.max(extent.right + MARGIN, result.canvas?.width ?? 0) - origin.x,
-      height:
-        Math.max(extent.bottom + MARGIN, result.canvas?.height ?? 0) - origin.y,
+      origin: { x: 0, y: 0 },
+      width: Math.max(2 * MARGIN, result.canvas?.width ?? 0),
+      height: Math.max(2 * MARGIN, result.canvas?.height ?? 0),
       placeable: PLACEABLE_KINDS.has(result.kind),
       routing,
       notices: clippingNotice(placed),
-    },
+    }),
     overrides.held,
   );
+}
+
+// coveringDrawn is a layout's canvas grown to cover everything drawn, with the margin around it:
+// every node with its ports and labels, every edge with its arrowheads and label, wherever they lie.
+function coveringDrawn(layout: CanvasLayout): CanvasLayout {
+  let left = Infinity;
+  let top = Infinity;
+  let right = -Infinity;
+  let bottom = -Infinity;
+  const reach = (box: Box): void => {
+    left = Math.min(left, box.x);
+    top = Math.min(top, box.y);
+    right = Math.max(right, box.x + box.width);
+    bottom = Math.max(bottom, box.y + box.height);
+  };
+  for (const entry of layout.nodes.values()) {
+    if (!entry.clipped) {
+      reach(nodeExtent(entry));
+    }
+  }
+  for (const edge of layout.edges) {
+    if (!edge.hidden) {
+      reach(edgeExtent(edge));
+    }
+  }
+  const origin = {
+    x: left < layout.origin.x ? left - MARGIN : layout.origin.x,
+    y: top < layout.origin.y ? top - MARGIN : layout.origin.y,
+  };
+  return {
+    ...layout,
+    origin,
+    width: Math.max(right + MARGIN, layout.origin.x + layout.width) - origin.x,
+    height:
+      Math.max(bottom + MARGIN, layout.origin.y + layout.height) - origin.y,
+  };
 }
 
 // coveringHeld is a layout's canvas grown to cover the held layout's, so a preview that draws
@@ -786,6 +794,49 @@ export function nodeExtent(
   }
   if (node.snapped && node.parent) {
     const label = portLabelPlacement(node.parent.box, node.snapped).bounds;
+    reach(label.x, label.y);
+    reach(label.x + label.width, label.y + label.height);
+  }
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+/** edgeLabelBox is the box an edge's label is drawn in, centred over the edge's midpoint; none for an unlabelled edge. */
+export function edgeLabelBox(edge: PlacedEdge): Box | undefined {
+  if (edge.edge.label === "") {
+    return undefined;
+  }
+  const size = glyphSize(edge.edge.label);
+  return {
+    x: edge.label.x - size.width / 2,
+    y: edge.label.y - EDGE_LABEL_RISE - FONT_SIZE,
+    width: size.width,
+    height: size.height,
+  };
+}
+
+/** edgeExtent covers an edge's polyline, the arrowheads at its ends and its label. */
+export function edgeExtent(edge: PlacedEdge): Box {
+  let left = Infinity;
+  let top = Infinity;
+  let right = -Infinity;
+  let bottom = -Infinity;
+  const reach = (x: number, y: number): void => {
+    left = Math.min(left, x);
+    top = Math.min(top, y);
+    right = Math.max(right, x);
+    bottom = Math.max(bottom, y);
+  };
+  for (const point of edge.points) {
+    reach(point.x, point.y);
+  }
+  for (const end of [edge.points[0], edge.points.at(-1)]) {
+    if (end) {
+      reach(end.x - MARKER_REACH, end.y - MARKER_REACH);
+      reach(end.x + MARKER_REACH, end.y + MARKER_REACH);
+    }
+  }
+  const label = edgeLabelBox(edge);
+  if (label) {
     reach(label.x, label.y);
     reach(label.x + label.width, label.y + label.height);
   }
@@ -1366,39 +1417,6 @@ function defaultPortSide(
     return dx >= 0 ? "east" : "west";
   }
   return dy >= 0 ? "south" : "north";
-}
-
-function includePortExtent(layout: CanvasLayout): CanvasLayout {
-  let left = layout.origin.x;
-  let top = layout.origin.y;
-  let right = layout.origin.x + layout.width;
-  let bottom = layout.origin.y + layout.height;
-  let hasPorts = false;
-  for (const entry of layout.nodes.values()) {
-    if (entry.ports.length === 0) {
-      continue;
-    }
-    hasPorts = true;
-    const extent = nodeExtent(entry);
-    left = Math.min(left, extent.x);
-    top = Math.min(top, extent.y);
-    right = Math.max(right, extent.x + extent.width);
-    bottom = Math.max(bottom, extent.y + extent.height);
-  }
-  if (!hasPorts) {
-    return layout;
-  }
-  const origin = {
-    x: left < layout.origin.x ? left - MARGIN : layout.origin.x,
-    y: top < layout.origin.y ? top - MARGIN : layout.origin.y,
-  };
-  return {
-    ...layout,
-    origin,
-    width: Math.max(right + MARGIN, layout.origin.x + layout.width) - origin.x,
-    height:
-      Math.max(bottom + MARGIN, layout.origin.y + layout.height) - origin.y,
-  };
 }
 
 // labelHead is a label's first line: the kind of an unnamed node, else the name

@@ -615,7 +615,8 @@ func flowchartCluster(node *Node, ports portView) bool {
 
 // writeFlowchart writes the tree, interconnection, action and mixed renderings
 // as a Mermaid flowchart: a node with children is a subgraph, containment in a
-// tree is an edge, and every other edge is the one the rendering holds. An
+// tree is an edge where no membership edge joins the two nodes, and every
+// other edge is the one the rendering holds. An
 // interconnection or mixed rendering draws its selected ports as nodes inside
 // their parts.
 type mermaidFlowWriter struct {
@@ -689,14 +690,15 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 	used := r.usedPorts(portDisplay)
 	portEnds := r.portEnds(used)
 	noteOwners := flowchart.flowchartNoteOwners(used)
-	w.clusterAnchors = flowchart.flowchartClusterAnchors(portEnds, used, noteOwners)
+	nesting, nested := r.nestingEdges(), r.nestedInSubgraphs(used)
+	w.clusterAnchors = flowchart.flowchartClusterAnchors(portEnds, used, noteOwners, nested)
 	if r.blank() && len(r.Pictures) == 0 && len(flowchart.Notes) == 0 {
 		fmt.Fprintf(b, "  empty[\"%s\"]\n", mermaidText(r.blankReason(FormMermaid)))
 	} else {
 		ctx := flowchartContext{kind: r.Kind, flow: flow, labels: labels, options: options, ports: portDisplay, used: used, noteOwners: noteOwners}
 		for _, root := range r.Roots {
 			if r.Kind == KindTree {
-				r.writeTreeNode(w, root, 1, labels, options)
+				r.writeTreeNode(w, root, 1, labels, options, nesting)
 				continue
 			}
 			flowchart.writeFlowchartNode(w, root, 1, ctx)
@@ -704,7 +706,10 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 	}
 	flowchart.writeNotes(b, noteOwners, "", "  ")
 	r.writePictures(b)
-	for _, edge := range r.Edges {
+	for i, edge := range r.Edges {
+		if nested[i] {
+			continue
+		}
 		from, to := r.edgeEnds(edge, portEnds)
 		from = flowchartEndpoint(from, w.clusterAnchors)
 		to = flowchartEndpoint(to, w.clusterAnchors)
@@ -800,13 +805,32 @@ func (r *Rendering) flowchartNotesWithDrawnEdges() []Note {
 	return notes
 }
 
-func (r *Rendering) writeTreeNode(w *mermaidFlowWriter, node *Node, depth int, labels labeller, options Options) {
+// writeTreeNode writes a tree node and, after each child, the containment
+// line to it, unless the child's membership is an edge the tree draws itself.
+func (r *Rendering) writeTreeNode(w *mermaidFlowWriter, node *Node, depth int, labels labeller, options Options, nesting map[[2]string]bool) {
 	indent := strings.Repeat("  ", depth)
 	fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(KindTree, node, labels, options))
 	for _, child := range node.Children {
-		r.writeTreeNode(w, child, depth+1, labels, options)
-		w.edge(node.ID, "---", "", child.ID, nil, EdgeBinding)
+		r.writeTreeNode(w, child, depth+1, labels, options, nesting)
+		if !nesting[[2]string{node.ID, child.ID}] {
+			w.edge(node.ID, "---", "", child.ID, nil, EdgeBinding)
+		}
 	}
+}
+
+// nestedInSubgraphs indexes the memberships a subgraph's nesting draws: a flowchart has no
+// edge from a subgraph's border to a node inside it, only one from a blank anchor node.
+func (r *Rendering) nestedInSubgraphs(used map[string]map[string]bool) map[int]bool {
+	if r.Kind == KindTree {
+		return nil
+	}
+	tree, nested := r.nodeTree(), map[int]bool{}
+	for i, edge := range r.Edges {
+		if owner := tree.nodes[edge.From]; nestedMembership(edge, tree) && owner != nil && r.flowchartSubgraph(owner, used) {
+			nested[i] = true
+		}
+	}
+	return nested
 }
 
 func (r *Rendering) flowchartSubgraph(node *Node, used map[string]map[string]bool) bool {
@@ -863,7 +887,7 @@ func noteAnchor(note Note) string {
 
 // flowchartClusterAnchors names an invisible anchor node inside each subgraph
 // an edge or note attaches to, since Mermaid draws edges between nodes only.
-func (r *Rendering) flowchartClusterAnchors(portEnds map[string]string, used map[string]map[string]bool, noteOwners map[int]string) map[string]string {
+func (r *Rendering) flowchartClusterAnchors(portEnds map[string]string, used map[string]map[string]bool, noteOwners map[int]string, nested map[int]bool) map[string]string {
 	if r.Kind == KindTree {
 		return nil
 	}
@@ -880,7 +904,10 @@ func (r *Rendering) flowchartClusterAnchors(portEnds map[string]string, used map
 			needed[id] = true
 		}
 	}
-	for _, edge := range r.Edges {
+	for i, edge := range r.Edges {
+		if nested[i] {
+			continue
+		}
 		from, to := r.edgeEnds(edge, portEnds)
 		mark(from)
 		mark(to)
@@ -1938,22 +1965,19 @@ func (l labeller) mermaidLines(lines []string) string {
 
 // mermaidArrow is how an edge of each kind is drawn in a flowchart.
 func mermaidArrow(kind Kind, edge EdgeKind) string {
-	if caseNotation(kind) && edge == EdgeReference {
-		return "-.->"
-	}
 	switch edge {
 	case EdgeConnection, EdgeBinding:
 		return "==="
-	case EdgeFlow, EdgeTyping, EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate, EdgeDependency:
+	case EdgeSuccession, EdgeImport, EdgeDerive, EdgeRefine, EdgeDependency:
 		return "-.->"
-	case EdgeComposition, EdgeReference, EdgeContainment:
-		return "---"
-	case EdgeAssociation:
+	case EdgeComposition, EdgeReference, EdgeContainment, EdgeAssociation:
 		return "---"
 	case EdgeAnchor:
 		return "-.-"
-	case EdgeInclude:
+	case EdgeSuccessionFlow, EdgeExpose:
 		return "-.->"
+	case EdgePortion, EdgeUnownedMembership:
+		return "---"
 	}
 	return "-->"
 }
@@ -1966,6 +1990,13 @@ func mermaidArrow(kind Kind, edge EdgeKind) string {
 // specialization.
 func mermaidEdgeLabel(kind Kind, edge Edge) string {
 	label := edge.text()
+	// A flowchart has no three-quarter circle or circle end: the glyph leads the text.
+	switch edge.Kind {
+	case EdgePortion:
+		return strings.TrimSpace("◕ " + label)
+	case EdgeUnownedMembership:
+		return strings.TrimSpace("○ " + label)
+	}
 	if caseNotation(kind) {
 		if label != "" {
 			return label
@@ -1975,6 +2006,8 @@ func mermaidEdgeLabel(kind Kind, edge Edge) string {
 			return "«composition»"
 		case EdgeSpecialization:
 			return "«specializes»"
+		case EdgeTyping:
+			return "typing"
 		}
 		return ""
 	}
@@ -1986,7 +2019,7 @@ func mermaidEdgeLabel(kind Kind, edge Edge) string {
 		return strings.TrimSpace("◆ " + label)
 	case edge.Kind == EdgeReference:
 		return strings.TrimSpace("◇ " + label)
-	case label == "" && (edge.Kind == EdgeSpecialization || edge.Kind == EdgeTyping):
+	case label == "" && (edge.Kind == EdgeSpecialization || edge.Kind == EdgeTyping || edge.Kind == EdgeSubsetting || edge.Kind == EdgeRedefinition):
 		return edge.Kind.String()
 	}
 	return label

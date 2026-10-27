@@ -17,6 +17,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+
+	"github.com/Open-MBEE/OpenSysML/tests/fixtures"
 )
 
 // CheckExpected is a `.check.expected.json` beside a conformance case whose
@@ -75,7 +77,7 @@ func checkCorpus(t *testing.T) []checkCase {
 		if (expected.Type != "action" && expected.Type != "state") || (len(expected.Outcomes) == 0 && !hasCheckExpected(name)) {
 			continue
 		}
-		path := filepath.Join(dir, name+".sysml")
+		path := fixtures.ModelPath(dir, name)
 		text, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)

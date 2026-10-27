@@ -38,16 +38,43 @@ part fleetCar
   part trailer
 
 relationships:
-  Vehicle *-- Chassis: chassis
-  Vehicle *-- Wheel: wheels
-  Vehicle o-- Driver: driver
-  Vehicle o-- Mass: total
+  Vehicle *-- chassis
+  Vehicle *-- wheels
+  Vehicle o-- driver
+  Vehicle o-- total
+  Vehicle *-- cabin
+  Vehicle *-- radio
+  Vehicle *-- trailer
+  chassis --:|> Chassis
+  chassis o-- mass
+  wheels --:|> Wheel
+  driver --:|> Driver
+  total --:|> Mass
+  cabin --:|> Cabin
   SportsCar --|> Vehicle
-  SportsCar *-- LightChassis: chassis
-  SportsCar *-- Wheel: spare
-  chassis --|> chassis: redefines
-  spare --|> wheels: subsets
-  Chassis o-- Mass: mass
+  SportsCar *-- chassis
+  SportsCar *-- spare
+  SportsCar *-- wheels
+  SportsCar o-- driver
+  SportsCar o-- total
+  SportsCar *-- cabin
+  SportsCar *-- radio
+  SportsCar *-- trailer
+  chassis --||> chassis
+  chassis --:|> LightChassis
+  chassis o-- mass
+  spare --:|> Wheel
+  spare --|> wheels
+  Chassis o-- mass
+  mass --:|> Mass
   LightChassis --|> Chassis
-  mass --|> mass: redefines
-  fleetCar ..|> Vehicle
+  LightChassis o-- mass
+  mass --||> mass
+  fleetCar --:|> Vehicle
+  fleetCar *-- chassis
+  fleetCar *-- wheels
+  fleetCar o-- driver
+  fleetCar o-- total
+  fleetCar *-- cabin
+  fleetCar *-- radio
+  fleetCar *-- trailer

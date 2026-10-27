@@ -12,6 +12,7 @@ package OpenSysMLDocument {
     part runtime : OpenSysMLPipeline::Runtime;
     part analysisFramework : OpenSysMLPipeline::AnalysisFramework;
     part viewEngine : OpenSysMLSurfaces::ViewEngine;
+    part documentPipeline : OpenSysMLSurfaces::DocumentPipeline;
 
     // --- Queries the document runs over this model -----------------------
 
@@ -101,6 +102,42 @@ package OpenSysMLDocument {
                 type = "PartUsage"
             ),
             properties = ("kind", "supported")
+        )
+    }
+
+    // The surfaces over the pipeline: the toolchain's other parts carry no
+    // protocol and drop out here.
+    calc def SurfacesWithProtocols :> Query {
+        in root : Element;
+        Project(
+            source = WhereFeature(
+                source = WhereType(
+                    source = OwnedElements(source = DefinitionOf(root = root)),
+                    type = "PartUsage"
+                ),
+                'feature' = "protocol",
+                operator = "!=",
+                value = ""
+            ),
+            properties = ("name", "entrypoint", "protocol")
+        )
+    }
+
+    // The markup languages a prose body may be written in; the pipeline's
+    // other parts carry no markupLanguage and drop out here.
+    calc def MarkupLanguages :> Query {
+        in root : Element;
+        Project(
+            source = WhereFeature(
+                source = WhereType(
+                    source = OwnedElements(source = DefinitionOf(root = root)),
+                    type = "PartUsage"
+                ),
+                'feature' = "markupLanguage",
+                operator = "!=",
+                value = ""
+            ),
+            properties = ("name", "markupLanguage", "needsExternalTool")
         )
     }
 
@@ -314,13 +351,24 @@ package OpenSysMLDocument {
             attribute redefines title = "Surfaces over one pipeline";
 
             part intro : Paragraph {
-                :>> text = "The REPL, the language server, the gRPC service, the stdio service and the command line are five surfaces over one analysis pipeline. The service speaks gRPC and Connect from one protobuf schema; the Go, Python, Node, Rust and Java clients are hand-written over stubs generated from that schema, the Julia and MATLAB clients speak Connect-JSON over HTTP by the published wire contract, and the Cameo plugin and SysON integration reach the service through the Java client — so a rule fixed in the engine is fixed everywhere at once.";
+                :>> text = "The REPL, the language server, the gRPC service, the stdio service, the command line, the MCP server for coding agents, the Jupyter kernel and the JSON-RPC commands a WebAssembly host runs are surfaces over one analysis pipeline. The service speaks gRPC and Connect from one protobuf schema; the Go, Python, Node, Rust and Java clients are hand-written over stubs generated from that schema, the Julia and MATLAB clients speak Connect-JSON over HTTP by the published wire contract, and the Cameo plugin and SysON integration reach the service through the Java client — so a rule fixed in the engine is fixed everywhere at once.";
             }
 
             part toolchain : Diagram {
                 attribute redefines caption = "The whole toolchain";
                 attribute redefines direction = "LR";
                 ref redefines source = OpenSysMLViews::toolchainStructure;
+            }
+
+            part commands : Table {
+                attribute redefines caption = "Every surface, with the command that serves it and the protocol it speaks";
+                calc rows : SurfacesWithProtocols {
+                    in redefines root = OpenSysMLSurfaces::opensysml;
+                }
+            }
+
+            part agents : Paragraph {
+                :>> text = "The MCP server serves the language server's tools, the one-shot service's and named REPL sessions to a coding agent over stdio or Streamable HTTP; the Jupyter kernel wraps the REPL and shows each answer in its own MIME form; the JSON commands build for WebAssembly and answer the service's RPCs over JSON-RPC frames without the networking packages, and one of them, sysml-wasm, ships with a release.";
             }
 
             part editing : Paragraph {
@@ -359,6 +407,36 @@ package OpenSysMLDocument {
                     in redefines root = viewEngine;
                 }
             }
+
+            part prose : Table {
+                attribute redefines caption = "The markup languages a prose body may be written in, and which one leaves the process";
+                calc rows : MarkupLanguages {
+                    in redefines root = documentPipeline;
+                }
+            }
+
+            rep language "markdown" /* ### Prose as one body
+             *
+             * The prose of a document need not be one `part : Paragraph` per
+             * paragraph: a KerML textual representation in Markdown or AsciiDoc
+             * expands in place, and its headings open the sections, so a
+             * subsection such as this one is written as a heading.
+             *
+             * #### Headings become sections
+             *
+             * The first heading met in a body is one level below its owner;
+             * here the body sits in the *Documents and views* section, so its
+             * `###` headings are that section's subsections and `####` their
+             * children. A heading that skips a level is a planning error, as is
+             * one in a paragraph body.
+             *
+             * #### Names and references
+             *
+             * Each section takes its explicit AsciiDoc id or a slug of its
+             * title, unique within the document, so [](sysml:headings_become_sections)
+             * resolves and the HTML carries an anchor for it, and the
+             * [pipeline](sysml:pipeline) section is one reference away.
+             */
         }
 
         part identity : Section {

@@ -1,0 +1,52 @@
+@startuml
+' NotationGlyphs::Diagrams::lineGlyphs — interconnection rendering (render asInterconnectionDiagram)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+rectangle "<size:10>//«part»//</size>\n**line**" as n0 <<part>> <<usage>> {
+  rectangle "<size:10>//«part»//</size>\n**a**" as n1 <<part>> <<usage>> {
+    rectangle "<size:10>//«attribute»//</size>\n**level**" as n2 <<attribute>> <<usage>>
+  }
+  rectangle "<size:10>//«part»//</size>\n**b**" as n3 <<part>> <<usage>> {
+    rectangle "<size:10>//«attribute»//</size>\n**level**" as n4 <<attribute>> <<usage>>
+  }
+}
+n2 -[dashed]-> n4 : «succession flow»
+@enduml

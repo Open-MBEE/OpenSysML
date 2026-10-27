@@ -30,7 +30,8 @@ graph traversal or transitive-closure operator.
 A payload the standard does not describe raises `QueryError` before it is sent.
 A property the service does not provide raises `InvalidRequestError` naming
 available properties. A service without the `query` capability raises
-`MissingCapabilityError`.
+`MissingCapabilityError`, as does one without `query_order_by` when the query
+has an `orderBy`.
 
 ## Native document queries
 

@@ -54,5 +54,5 @@ rectangle "<size:10>//«part def»//</size>\n**Loop**" as n0 <<part def>> {
   }
 }
 n1.0 -[thickness=3]- n3.0
-n2 -[dashed]-> n4
+n2 --> n4
 @enduml

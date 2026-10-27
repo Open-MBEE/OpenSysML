@@ -40,7 +40,7 @@ func TestRuntimeRobustnessReferencedRequirementBinding(t *testing.T) {
 		{"a binding to an unresolved name", `require ladenLimit { in w = missing; }`, ErrUnresolvedReference, "missing"},
 		{"a body binding a parameter the requirement lacks", `require ladenLimit { in nope = unit; }`, ErrNoValue, "w"},
 		{"a reference without a body leaves the subject unbound", `require ladenLimit;`, ErrNoValue, "w"},
-		{"a requirement referencing itself", `require wagonSpec { in unit = unit; }`, ErrNoConditions, "no condition"},
+		{"a requirement referencing itself", `require wagonSpec { in unit = unit; }`, ErrNoValue, "names the requirement being checked"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

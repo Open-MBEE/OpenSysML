@@ -27,5 +27,5 @@ flowchart TD
 **Loops**`"]
   n1["`*«package»*
 **Cycles**`"]
-  n0 -.->|"private import ::*"| n1
-  n1 -.->|"private import ::*"| n0
+  n0 -.->|"«private import»*"| n1
+  n1 -.->|"«private import»*"| n0

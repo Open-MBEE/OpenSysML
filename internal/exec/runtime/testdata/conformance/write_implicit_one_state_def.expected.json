@@ -1,0 +1,6 @@
+{
+	"type": "state",
+	"libraries": true,
+	"evaluate": "test::S",
+	"error": "state machine S: assignment to z: multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1"
+}

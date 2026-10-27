@@ -15,11 +15,14 @@ type EffectiveFeature struct {
 	Symbol       *symbols.Symbol // the declaring feature symbol
 	OwnerType    *symbols.Symbol // type that declares this feature (may be supertype)
 	Type         *symbols.Symbol // resolved type (nil if untyped)
-	Multiplicity semantics.Range // declared or inherited (default 1..1)
-	DefaultValue ast.Node        // value-binding expression (nil if none)
-	DefaultDecl  *symbols.Symbol // feature the DefaultValue was written on (nil if none)
-	HoldsSet     bool            // values form a set: a Collection's unordered unique elements
-	Unique       bool            // holds no two equal values (KerML isUnique, the default)
+	Multiplicity semantics.Range // declared, inherited or implicit; else the representative one value
+	// MultiplicityDefaulted marks a feature that states and inherits no multiplicity, so the
+	// usual default 0..* governs it: Multiplicity is representativeRange and judges no count.
+	MultiplicityDefaulted bool
+	DefaultValue          ast.Node        // value-binding expression (nil if none)
+	DefaultDecl           *symbols.Symbol // feature the DefaultValue was written on (nil if none)
+	HoldsSet              bool            // values form a set: a Collection's unordered unique elements
+	Unique                bool            // holds no two equal values (KerML isUnique, the default)
 	// GovernedByChain marks a feature a valued nested chain from a more specific
 	// body reaches below, so its bound value does not govern, as with a
 	// redefining body.
@@ -123,17 +126,18 @@ func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Sy
 	if defaultVal == nil {
 		defaultVal, defaultDecl = ctx.roleRedefiningDefault(memberSym, typeSym)
 	}
-	mult := ctx.featureMultiplicity(memberSym, typeSym)
+	mult, _, defaulted := ctx.featureRange(memberSym, typeSym)
 	return EffectiveFeature{
-		Name:         name,
-		Symbol:       memberSym,
-		OwnerType:    ctx.findOwnerType(memberSym),
-		Type:         ctx.extractType(memberSym),
-		Multiplicity: mult,
-		DefaultValue: defaultVal,
-		DefaultDecl:  defaultDecl,
-		HoldsSet:     ctx.holdsSet(memberSym, typeSym, mult),
-		Unique:       ctx.model.semantics.IsUnique(memberSym),
+		Name:                  name,
+		Symbol:                memberSym,
+		OwnerType:             ctx.findOwnerType(memberSym),
+		Type:                  ctx.extractType(memberSym),
+		Multiplicity:          mult,
+		MultiplicityDefaulted: defaulted,
+		DefaultValue:          defaultVal,
+		DefaultDecl:           defaultDecl,
+		HoldsSet:              ctx.holdsSet(memberSym, typeSym, mult),
+		Unique:                ctx.model.semantics.IsUnique(memberSym),
 	}
 }
 
@@ -336,12 +340,21 @@ func (ctx *Context) declaredTypes(featureSym *symbols.Symbol) []*symbols.Symbol 
 	return types
 }
 
-// extractMultiplicity returns the multiplicity governing a feature. stated is
-// false when it declares none and the assumed 1..1 governs it instead.
+// representativeRange is the range the runtime holds a feature to that states and
+// inherits no multiplicity: one value, the representative of the usual default 0..*
+// (KerML 1.1 §7.4.12), against which no count is judged (MultiplicityDefaulted).
+func representativeRange() semantics.Range {
+	return semantics.AssumedRange()
+}
+
+// extractMultiplicity returns the multiplicity a feature declares, or the
+// representative range with stated false when it declares none.
 func (ctx *Context) extractMultiplicity(featureSym *symbols.Symbol) (r semantics.Range, stated bool) {
-	_, stated = ctx.model.semantics.MultiplicityOf(featureSym)
-	r = ctx.model.semantics.EffectiveMultiplicityOf(featureSym)
-	if stated && (!r.Lower.Known || !r.Upper.Known) && featureSym.OwnerScope != nil {
+	r, stated = ctx.model.semantics.MultiplicityOf(featureSym)
+	if !stated {
+		return representativeRange(), false
+	}
+	if (!r.Lower.Known || !r.Upper.Known) && featureSym.OwnerScope != nil {
 		// A bound naming a valued feature is model-level evaluable in the scope declaring it.
 		if scoped, ok := ctx.model.semantics.RangeIn(featureSym.OwnerScope, semantics.UsageMultiplicityOf(featureSym)); ok {
 			r = semantics.Range{Lower: knownBound(r.Lower, scoped.Lower), Upper: knownBound(r.Upper, scoped.Upper)}
@@ -374,19 +387,26 @@ func (ctx *Context) extractDefaultValue(featureSym *symbols.Symbol) ast.Node {
 
 // featureMultiplicity is the multiplicity a feature has on owner: a parameter's
 // effective range (§7.6.3), else as stated, else as inherited from what it
-// redefines or subsets, else the assumed 1..1.
+// redefines or subsets, else the representative range.
 func (ctx *Context) featureMultiplicity(sym, owner *symbols.Symbol) semantics.Range {
-	if semantics.IsParameter(sym) {
-		return ctx.model.semantics.EffectiveParameterRange(sym)
-	}
-	mult, stated := ctx.extractMultiplicity(sym)
-	if stated {
-		return mult
-	}
-	if unstated, _, ok := ctx.unstatedMultiplicity(sym, owner, map[*symbols.Symbol]bool{sym: true}, false); ok {
-		return unstated
-	}
+	mult, _, _ := ctx.featureRange(sym, owner)
 	return mult
+}
+
+// featureRange is featureMultiplicity reporting whether a declaration, inheritance or the parameter
+// rule states the range, and whether it is defaulted: neither those nor the implicit [1..1] state it.
+func (ctx *Context) featureRange(sym, owner *symbols.Symbol) (mult semantics.Range, stated, defaulted bool) {
+	if semantics.IsParameter(sym) {
+		return ctx.model.semantics.EffectiveParameterRange(sym), true, false
+	}
+	mult, stated = ctx.extractMultiplicity(sym)
+	if stated {
+		return mult, true, false
+	}
+	if unstated, unstatedStated, ok := ctx.unstatedMultiplicity(sym, owner, map[*symbols.Symbol]bool{sym: true}, false); ok {
+		mult, stated = unstated, unstatedStated
+	}
+	return mult, stated, !stated && !ctx.model.semantics.ImplicitlyDeclaresOne(sym)
 }
 
 // unstatedMultiplicity is the multiplicity of a feature declaring none: inherited from what it
@@ -446,6 +466,7 @@ func (ctx *Context) statedMultiplicity(sym *symbols.Symbol) (semantics.Range, bo
 func (ctx *Context) inheritedMultiplicity(sym, owner *symbols.Symbol, path map[*symbols.Symbol]bool, subsetting bool) (mult semantics.Range, found, stated bool) {
 	generals := append(ctx.relatedFeatures(sym, owner, ast.RelRedefines),
 		ctx.model.semantics.ImplicitParameterRedefinitions(sym)...)
+	generals = append(generals, ctx.model.semantics.ImplicitRoleRedefinitions(sym)...)
 	if subsetting {
 		for _, kind := range [...]ast.RelationshipKind{ast.RelSubsets, ast.RelReferences, ast.RelCrosses} {
 			generals = append(generals, ctx.relatedFeatures(sym, owner, kind)...)
@@ -456,7 +477,7 @@ func (ctx *Context) inheritedMultiplicity(sym, owner *symbols.Symbol, path map[*
 			continue
 		}
 		generalMult, generalStated := ctx.extractMultiplicity(general)
-		if !generalStated && subsetting && ctx.model.semantics.ImplicitMultiplicityApplies(general) {
+		if !generalStated && ctx.model.semantics.ImplicitlyDeclaresOne(general) {
 			generalMult, generalStated = semantics.AssumedRange(), true
 		} else if !generalStated {
 			path[general] = true
@@ -466,7 +487,7 @@ func (ctx *Context) inheritedMultiplicity(sym, owner *symbols.Symbol, path map[*
 			if ok {
 				generalMult = unstated
 			} else {
-				generalMult = semantics.AssumedRange()
+				generalMult = representativeRange()
 			}
 		}
 		stated = stated || generalStated

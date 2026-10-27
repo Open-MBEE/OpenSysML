@@ -32,15 +32,24 @@ abstract datatype ScalarValue
 datatype String
 
 relationships:
-  Vehicle o-- Real: mass
-  Vehicle *-- Chassis: chassis
-  Vehicle o-- Driver: driver
+  Vehicle o-- mass
+  Vehicle *-- chassis
+  Vehicle o-- driver
+  mass --:|> Real
+  chassis --:|> Chassis
+  driver --:|> Driver
   LightChassis --|> Chassis
-  vehicle ..|> Vehicle
-  mass --|> mass: redefines
-  heavyVehicle ..|> Vehicle
-  mass --|> mass: redefines
-  brake ..|> Brake
+  vehicle --:|> Vehicle
+  vehicle o-- mass
+  vehicle *-- chassis
+  vehicle o-- driver
+  mass --||> mass
+  heavyVehicle --:|> Vehicle
+  heavyVehicle o-- mass
+  heavyVehicle *-- chassis
+  heavyVehicle o-- driver
+  mass --||> mass
+  brake --:|> Brake
   Boolean --|> ScalarValue
   Complex --|> Number
   Integer --|> Rational

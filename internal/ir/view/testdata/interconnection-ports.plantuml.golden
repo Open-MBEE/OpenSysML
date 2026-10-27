@@ -50,5 +50,5 @@ rectangle "<size:10>//«part def»//</size>\n**Toaster**" as n0 <<part def>> {
   rectangle "<size:10>//«part»//</size>\n**chassis**" as n3 <<part>> <<usage>>
 }
 n2.0 -[thickness=3]- n1.0
-n2.0 -[dashed]-> n1.0
+n2.0 --> n1.0
 @enduml

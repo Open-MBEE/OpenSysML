@@ -253,7 +253,7 @@ func optionalRange() semantics.Range {
 // one value, or possibly none when such an operand may itself be empty.
 func undeterminedResult(operands ...Value) Value {
 	first, _ := undeterminedIn(operands...)
-	count := semantics.AssumedRange()
+	count := semantics.CountRange(1)
 	for _, v := range operands {
 		if u := v.Undetermined(); u != nil && !guaranteesOne(u.Count()) {
 			count = optionalRange()
@@ -265,7 +265,7 @@ func undeterminedResult(operands ...Value) Value {
 // undeterminedOne is an undetermined result of exactly one value, whatever the
 // operands' counts: the answer of a function that always answers, unknown here.
 func undeterminedOne(operands ...Value) Value {
-	return undeterminedOf(semantics.AssumedRange(), operands...)
+	return undeterminedOf(semantics.CountRange(1), operands...)
 }
 
 // undeterminedOf is an undetermined result carrying count, for the reason of the
@@ -371,7 +371,7 @@ func mayHoldUnknown(val Value) bool {
 // for any of them: undetermined, a member of the feature source reads where it reads one.
 func unknownElementOf(source Value) Value {
 	u := source.Undetermined()
-	return undeterminedFeatureValue(u.Reason(), semantics.AssumedRange(), u.feature)
+	return undeterminedFeatureValue(u.Reason(), semantics.CountRange(1), u.feature)
 }
 
 // unknownCountOf is the count of the values of val beyond those it certainly holds.

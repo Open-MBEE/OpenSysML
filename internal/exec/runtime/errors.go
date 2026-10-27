@@ -129,10 +129,6 @@ var (
 	// the action only writes back (`out`), which a caller does not seed.
 	errOutputActionInput = errors.New("output action parameter given as input")
 
-	// errNoResultExpression is returned when a calc body declares no return
-	// expression, directly or by inheritance.
-	errNoResultExpression = errors.New("no result expression")
-
 	// errConflictingResultExpressions is returned when a calc or constraint owns or
 	// inherits more than one result expression (KerML 8.3.4.8); no body is chosen.
 	errConflictingResultExpressions = errors.New("more than one result expression, owned or inherited")
@@ -161,10 +157,6 @@ var (
 	// classification by a type narrower than the value's own the value does not
 	// settle, so the cast fails rather than dropping a value that may be one.
 	errUndecidedClassification = errors.New("classification of a value cannot be decided")
-
-	// errCalcNoReturn is returned when a calc body runs to its end without
-	// returning: it computed no result, which is not the same as a null one.
-	errCalcNoReturn = errors.New("calculation returned no value")
 
 	// errCalcSideEffect is returned when a calc body states an effect on the
 	// world outside it — send, perform, accept, terminate. A calculation
@@ -319,8 +311,8 @@ var (
 	errAmbiguousMergeInput = errors.New("merge input is ambiguous")
 
 	// errFlowSource is returned when a flow's source completes with its pin holding
-	// no value to carry: a streaming source that never wrote, a succession source that produced nothing.
-	errFlowSource = errors.New("flow source produced no value")
+	// no value to carry (a source that never wrote). It is a kind of ErrNoValue.
+	errFlowSource = fmt.Errorf("%w: flow source produced no value", ErrNoValue)
 
 	// errStreamUnreceived is returned when a streaming flow carried a value after its
 	// target's last performance ended, so no performance of the target ever received it.
@@ -335,13 +327,9 @@ var (
 	// failure to evaluate, so callers can tell the two apart.
 	ErrViolated = errors.New("evaluated to false")
 
-	// ErrNoValue is returned when a feature a condition names carries no value:
-	// neither a feature value on the object being checked nor a declared default.
+	// ErrNoValue is returned when a feature carries no value: no feature value or
+	// default, an output never assigned, or a calc or constraint result nothing bound.
 	ErrNoValue = errors.New("no value")
-
-	// ErrNoConditions is returned when a constraint or requirement carries no
-	// condition to evaluate: reporting a verdict would claim a check that never ran.
-	ErrNoConditions = errors.New("no condition to evaluate")
 
 	// errConstraintExternalAssignment is returned when a constraint body's
 	// assignment targets a name the constraint's own performance holds no

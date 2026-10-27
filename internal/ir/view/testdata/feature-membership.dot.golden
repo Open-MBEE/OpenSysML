@@ -1,0 +1,21 @@
+// view: MembershipViews::structure
+// kind: tree
+// layout: dot
+digraph "MembershipViews::structure" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>APart</b>>];
+  "n1" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>aPort</b>>];
+  "n2" [label=<<font point-size="10"><i>«port def»</i></font><br/><b>APort</b>>];
+  "n3" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>part1</b>>];
+  "n4" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>aPort</b>>];
+  "n5" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>part2</b>>];
+  "n6" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>aPort</b>>];
+  "n0" -> "n1" [dir=back, arrowtail=odiamond];
+  "n1" -> "n2" [arrowhead=onormaldotdot];
+  "n3" -> "n0" [arrowhead=onormaldotdot];
+  "n3" -> "n4" [dir=back, arrowtail=odiamond];
+  "n5" -> "n0" [arrowhead=onormaldotdot];
+  "n5" -> "n6" [dir=back, arrowtail=odiamond];
+}

@@ -21,6 +21,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/tests/fixtures"
 	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // expectedValue is the fixture encoding of a pb.Value: the oneof field name
@@ -163,6 +164,13 @@ type conformanceCase struct {
 	Actions         []string          `json:"actions,omitempty"`
 	Observe         map[string]string `json:"observe,omitempty"`
 	ExpectedConfigs []expectedConfig  `json:"expected_configurations,omitempty"`
+
+	// Query is the standard's Query as protojson writes it; ExpectedElementIDs
+	// are the ids the answer reports, in order, and ExpectedQueryError text the
+	// refusal's status message must contain.
+	Query              map[string]any `json:"query,omitempty"`
+	ExpectedElementIDs []string       `json:"expected_element_ids,omitempty"`
+	ExpectedQueryError string         `json:"expected_query_error,omitempty"`
 
 	// ExpectedError, when set, requires the RPC to report an in-band error
 	// containing this substring (a status error, for RunDocumentQuery).
@@ -369,6 +377,8 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		runRunRunsCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "SelfCheck":
 		runSelfCheckCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "Query":
+		runQueryCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "RecordRun":
 		runRecordRunCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "ImportData":
@@ -1126,6 +1136,35 @@ func runRunRunsCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelH
 	}
 	if tc.Seed != nil && (resp.Seed == nil || *resp.Seed != *tc.Seed) {
 		t.Errorf("seed = %v, want %d", resp.Seed, *tc.Seed)
+	}
+}
+
+func runQueryCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+	encoded, err := json.Marshal(tc.Query)
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	query := &pb.Query{}
+	if err := protojson.Unmarshal(encoded, query); err != nil {
+		t.Fatalf("query is not a protojson Query: %v", err)
+	}
+	resp, err := srv.Query(ctx, &pb.QueryRequest{ModelHash: modelHash, Query: query})
+	if tc.ExpectedQueryError != "" {
+		if err == nil || !strings.Contains(err.Error(), tc.ExpectedQueryError) {
+			t.Fatalf("Query err = %v, want one containing %q", err, tc.ExpectedQueryError)
+		}
+		return
+	}
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	ids := make([]string, 0, len(resp.Elements))
+	for _, element := range resp.Elements {
+		ids = append(ids, element.Id)
+	}
+	if !slices.Equal(ids, tc.ExpectedElementIDs) {
+		t.Errorf("elements = %v, want %v", ids, tc.ExpectedElementIDs)
 	}
 }
 

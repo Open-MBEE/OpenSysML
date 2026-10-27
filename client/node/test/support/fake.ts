@@ -18,6 +18,7 @@ export const ALL_CAPABILITIES = [
   "convert",
   "migrate",
   "query",
+  "query_order_by",
   "document_query",
   "render_document",
   "render_document_html",

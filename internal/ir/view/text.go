@@ -73,9 +73,10 @@ func (r *Rendering) textWith(options Options) string {
 	for _, root := range r.Roots {
 		writeNodeText(&b, root, 0, labels, names, ports, r.Shown)
 	}
-	if len(r.Edges) > 0 {
+	edges := hiddenEdges(r)
+	if len(edges) > 0 {
 		fmt.Fprintf(&b, "\n%s:\n", edgeSectionName(r.Kind))
-		for _, edge := range r.Edges {
+		for _, edge := range edges {
 			b.WriteString(edgeText(r.Kind, edge, labels, ports) + "\n")
 		}
 	}
@@ -261,6 +262,33 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 	}
 }
 
+// hiddenEdges is the rendering's edges without those at the children a
+// node's Layout hides, which the text lists nowhere: a hidden member's
+// membership and typing fold into its owner's labelled edge to each drawn
+// type, as the positioned folding draws them, and every other edge at a
+// hidden member, or at a node under one, is left out.
+func hiddenEdges(r *Rendering) []Edge {
+	f := &folder{mode: CompartmentsPositioned, owners: map[string]string{}, rows: map[string]*Node{}, nesting: r.nestingEdges()}
+	var walk func(node *Node)
+	walk = func(node *Node) {
+		for _, child := range node.Children {
+			if hiddenRow(node, child) {
+				f.record(child, node.ID)
+				continue
+			}
+			walk(child)
+		}
+	}
+	for _, root := range r.Roots {
+		walk(root)
+	}
+	if len(f.rows) == 0 {
+		return r.Edges
+	}
+	edges, _, _ := f.foldEdges(r.Edges)
+	return edges
+}
+
 // pinLine is a part port's `port <label>` or an action pin's direction and name.
 func pinLine(port Port, ports portView) string {
 	if ports.interconnectionPort(port) {
@@ -274,9 +302,18 @@ func pinLine(port Port, ports portView) string {
 // labelled by its name, since the ends name the pins already.
 func textEdgeLabel(edge Edge, ports portView) string {
 	if ports.action && (edge.FromPort != "" || edge.ToPort != "") {
-		return edge.Name
+		return pinnedEdgeLabel(edge)
 	}
 	return edge.text()
+}
+
+// pinnedEdgeLabel is the label of an action edge whose pins name its ends: its
+// own name, led by the keyword a succession flow is told from a flow by.
+func pinnedEdgeLabel(edge Edge) string {
+	if edge.Kind == EdgeSuccessionFlow {
+		return successionFlowLabel(edge.Name)
+	}
+	return edge.Name
 }
 
 // writeTableText writes a tabular rendering as aligned columns, padding each
@@ -466,9 +503,6 @@ func edgeSectionName(kind Kind) string {
 
 // edgeArrow is how an edge of each kind is drawn in text.
 func edgeArrow(kind Kind, edge EdgeKind) string {
-	if caseNotation(kind) && (edge == EdgeTyping || edge == EdgeReference) {
-		return "..>"
-	}
 	switch edge {
 	case EdgeConnection:
 		return "--"
@@ -476,24 +510,36 @@ func edgeArrow(kind Kind, edge EdgeKind) string {
 		return "=="
 	case EdgeFlow:
 		return "=>"
-	case EdgeSpecialization:
+	case EdgeSpecialization, EdgeSubsetting:
 		return "--|>"
+	case EdgeRedefinition:
+		return "--||>"
 	case EdgeTyping:
-		return "..|>"
+		return "--:|>"
 	case EdgeComposition:
 		return "*--"
 	case EdgeReference:
 		return "o--"
 	case EdgeContainment:
 		return "+--"
-	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate, EdgeDependency:
+	case EdgeImport, EdgeDerive, EdgeRefine, EdgeDependency:
 		return "..>"
 	case EdgeAssociation:
 		return "--"
-	case EdgeInclude:
-		return "..>"
 	case EdgeAnchor:
 		return ".."
+	case EdgeSuccessionFlow:
+		return "~>"
+	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent:
+		return "->"
+	case EdgePortion:
+		return "@--"
+	case EdgeReferenceSubsetting:
+		return "--|>"
+	case EdgeUnownedMembership:
+		return "0--"
+	case EdgeExpose:
+		return "..>"
 	}
 	return "->"
 }

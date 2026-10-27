@@ -60,9 +60,46 @@ func (m *markdownMapper) block(node gmast.Node) (Block, error) {
 		return Block{Kind: BlockParagraph, Runs: runs, Span: m.blockSpan(n)}, nil
 	case *gmast.List:
 		return m.list(n)
+	case *gmast.Heading:
+		return m.heading(n)
 	default:
 		return Block{}, m.unsupported(node)
 	}
+}
+
+// heading maps an ATX or setext heading: its text, styles flattened, is the
+// section title; a link, reference or formula in it has no title form.
+func (m *markdownMapper) heading(heading *gmast.Heading) (Block, error) {
+	span := m.headingSpan(heading)
+	runs, err := m.runs(heading, StylePlain)
+	if err != nil {
+		return Block{}, err
+	}
+	title, err := headingTitle(runs)
+	if err != nil {
+		return Block{}, m.refuse(err.Error(), span)
+	}
+	return Block{Kind: BlockHeading, Level: heading.Level, Title: title, Span: span}, nil
+}
+
+// headingSpan covers a heading's whole lines: goldmark records its text only,
+// so the span widens to the line ends and, for a setext heading, its underline.
+func (m *markdownMapper) headingSpan(heading *gmast.Heading) Span {
+	span := m.blockSpan(heading)
+	span.Start = strings.LastIndexByte(m.body[:span.Start], '\n') + 1
+	if end := strings.IndexByte(m.body[span.Stop:], '\n'); end >= 0 {
+		span.Stop += end
+	} else {
+		span.Stop = len(m.body)
+	}
+	if !strings.HasPrefix(strings.TrimLeft(m.body[span.Start:span.Stop], " "), "#") && span.Stop < len(m.body) {
+		if end := strings.IndexByte(m.body[span.Stop+1:], '\n'); end >= 0 {
+			span.Stop += 1 + end
+		} else {
+			span.Stop = len(m.body)
+		}
+	}
+	return span
 }
 
 // list maps a list whose every item is one paragraph.

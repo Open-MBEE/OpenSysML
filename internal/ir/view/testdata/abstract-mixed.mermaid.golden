@@ -54,7 +54,8 @@ flowchart TD
   end
   n4 === n5
   n8 === n9
-  n2_anchor -.-> n1_anchor
+  n1_anchor --- n0
+  n2_anchor -->|"typing"| n1_anchor
   n6_anchor -->|"«specializes»"| n1_anchor
   classDef anchor fill:none,stroke:none
   class n1_anchor,n2_anchor,n6_anchor anchor

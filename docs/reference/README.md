@@ -9,6 +9,9 @@ reading order.
 - **[LSP extensions](lsp.md)** — the custom render requests `sysml-lsp` serves to a diagram client
 - **[Jupyter kernel](jupyter-kernel.md)** — `sysml-jupyter-kernel`, its kernelspec, what it reports
   and renders, and how the package installs it
+- **[Airflow provider](airflow-provider.md)** — `airflow-provider-opensysml`: model assets,
+  analysis and verification operators, requirement sensors and gates, and DAGs generated from an
+  `action def`, all over the `sysml-grpc` service
 - **[Diagnostics: lints](diagnostics.md)** — the codes of the advisory lints, what each reports and
   how each surface switches one off
 - **[Environment variables](environment.md)** — the resource limits for a single run, and paths

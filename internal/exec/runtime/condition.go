@@ -62,6 +62,10 @@ type Condition struct {
 	// Circular is the requirement a `require r` names while r's own conditions
 	// are being collected: a reference back into the check, stating nothing evaluable.
 	Circular *symbols.Symbol
+
+	// Subrequirement is the requirement usage whose check Group states, its assumptions
+	// implying its required conditions (RequirementCheck::result); nil for a body's conjunction.
+	Subrequirement *symbols.Symbol
 }
 
 // BodySteps is the statements one constraint body performs before its
@@ -171,7 +175,7 @@ func (ctx *Context) appendMemberConditions(out []Condition, sym *symbols.Symbol,
 	var stepScope *symbols.Scope
 	var stepNode ast.Node
 	for _, member := range members {
-		if owner := ctx.namedConstraintOf(member); owner != nil && owner != sym && owner.Name != "" {
+		if owner := ctx.conditionOwnerOf(member); owner != nil && owner != sym && owner.Name != "" {
 			if effective == nil {
 				effective = ctx.effectiveMembers(sym)
 			}
@@ -224,6 +228,29 @@ func (ctx *Context) namedConstraintOf(member scopedMember) *symbols.Symbol {
 		return nil
 	}
 	return body.Owner()
+}
+
+// conditionOwnerOf returns the usage a member states its conditions through: the
+// constraint usage of a require/assume member, or a subrequirement; nil otherwise.
+func (ctx *Context) conditionOwnerOf(member scopedMember) *symbols.Symbol {
+	if owner := ctx.namedConstraintOf(member); owner != nil {
+		return owner
+	}
+	return ctx.subrequirementOf(member.node, member.scope)
+}
+
+// subrequirementOf returns the subrequirement a requirement body member declares (SysML v2
+// §7.21.2), nil for any other member; an abstract one, like the library's `subrequirements`, is none.
+func (ctx *Context) subrequirementOf(node ast.Node, scope *symbols.Scope) *symbols.Symbol {
+	usage, ok := node.(*ast.Usage)
+	if !ok || usage.IsAbstract {
+		return nil
+	}
+	sym := memberSymbol(scope, node)
+	if sym == nil || !ctx.model.semantics.IsSubrequirement(sym) {
+		return nil
+	}
+	return sym
 }
 
 // effectiveMembers is the set of members sym has: MembersOf as a set.
@@ -307,12 +334,34 @@ func (ctx *Context) appendConditions(out []Condition, node ast.Node, scope *symb
 		out = ctx.appendRequirementConditions(out, m, m.Expression, m.Body, scope, false, seen)
 	case *ast.Membership:
 		out = ctx.appendConditions(out, m.Member, scope, required, negated, seen)
+	case *ast.Usage:
+		if sub := ctx.subrequirementOf(m, scope); sub != nil {
+			out = ctx.appendSubrequirementConditions(out, sub, scope, required, seen)
+		}
 	default:
 		// A member stating neither a condition nor a step — an expression, a
 		// declaration — states nothing here; the body's steps were collected by
 		// the caller that knew the body.
 	}
 	return out
+}
+
+// appendSubrequirementConditions appends sub as one constraint of its container (Requirements.sysml
+// `subrequirements :> requirementChecks, constraints`): a group valued by sub's own check over its chain.
+func (ctx *Context) appendSubrequirementConditions(out []Condition, sub *symbols.Symbol, scope *symbols.Scope,
+	required bool, seen map[*symbols.Symbol]bool) []Condition {
+	if seen[sub] {
+		return append(out, Condition{Scope: scope, Required: required, Circular: sub})
+	}
+	if seen == nil {
+		seen = map[*symbols.Symbol]bool{}
+	}
+	seen[sub] = true
+	defer delete(seen, sub)
+	start := len(out)
+	out = ctx.appendMemberConditions(out, sub, ctx.chainMembers(sub, scope), true, seen)
+	group := append([]Condition(nil), out[start:]...)
+	return append(out[:start], Condition{Group: group, Required: required, Subrequirement: sub, Constraints: []*symbols.Symbol{sub}})
 }
 
 // appendRequirementConditions appends what a require/assume member states: the
@@ -366,12 +415,14 @@ func (ctx *Context) appendOwnedConditions(out []Condition, member ast.Node, body
 	return out
 }
 
-// setConstraint marks conds as stated by owner, enclosing any nested named
-// constraint already marked: the innermost usage's parameter values win.
+// setConstraint marks conds as stated by owner, enclosing any nested named constraint already
+// marked (the innermost usage's parameter values win); a subrequirement's group is marked as a whole.
 func setConstraint(conds []Condition, owner *symbols.Symbol) {
 	for i := range conds {
 		conds[i].Constraints = append([]*symbols.Symbol{owner}, conds[i].Constraints...)
-		setConstraint(conds[i].Group, owner)
+		if conds[i].Subrequirement == nil {
+			setConstraint(conds[i].Group, owner)
+		}
 	}
 }
 
@@ -532,12 +583,14 @@ func (ctx *Context) referencingConstraintOf(member ast.Node, scope *symbols.Scop
 	return body.Owner()
 }
 
-// setAssumed turns conds, groups included, into assumptions when assumed is set;
-// the assumptions among them stay assumptions either way.
+// setAssumed turns conds, groups included, into assumptions when assumed is set; the assumptions
+// among them stay assumptions either way, and what a subrequirement's group states stays its own check.
 func setAssumed(conds []Condition, assumed bool) {
 	for i := range conds {
 		conds[i].Required = conds[i].Required && !assumed
-		setAssumed(conds[i].Group, assumed)
+		if conds[i].Subrequirement == nil {
+			setAssumed(conds[i].Group, assumed)
+		}
 	}
 }
 
@@ -609,7 +662,7 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 			check.kind, check.name(), check.what, conflictText(conflict), errConflictingResultExpressions)
 	}
 	// A requirement over no required constraint is true whatever its assumptions
-	// read, so they are not evaluated; a constraint stating nothing has no verdict.
+	// read, so they are not evaluated; a constraint stating nothing binds no result.
 	if check.isRequirementCheck() && !requiresAny(conds) {
 		if check.negated {
 			return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: vacuousClaim(check.claimed())}
@@ -617,7 +670,7 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 		return true, nil
 	}
 	if len(conds) == 0 {
-		return false, fmt.Errorf("%s %s: %w", check.kind, check.name(), ErrNoConditions)
+		return false, check.noResultValue("the constraint declares no condition")
 	}
 	features := ctx.conditionFeatures(check.sym)
 	self := check.self
@@ -663,11 +716,20 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 		// A constraint's assumption is trusted rather than checked, so a negated
 		// constraint stating only assumptions denies nothing.
 		if !required {
-			return false, fmt.Errorf("%s %s: %w", check.kind, check.name(), ErrNoConditions)
+			return false, check.noResultValue("the constraint declares no required condition, only assumptions")
 		}
 		return false, &ViolationError{Kind: check.kind, Element: check.name(), What: check.what, Condition: negatedText(conds)}
 	}
 	return true, nil
+}
+
+// noResultValue is the error for a constraint whose result nothing binds (KerML 1.1
+// §7.4.8.2): no value, not a verdict, with the unbound-return hint or else cause.
+func (check conditionCheck) noResultValue(cause string) error {
+	if hint := unboundResultHint([]*symbols.Symbol{check.sym}); hint != "" {
+		return fmt.Errorf("%s %s: %w%s", check.kind, check.name(), ErrNoValue, hint)
+	}
+	return fmt.Errorf("%s %s: %w: %s", check.kind, check.name(), ErrNoValue, cause)
 }
 
 // circularCondition is the error for a condition that, reached in order, names
@@ -677,13 +739,19 @@ func (ctx *Context) circularCondition(check conditionCheck, cond Condition) erro
 	if cycle == nil {
 		return nil
 	}
-	return fmt.Errorf("%s %s: %w: require %s names the requirement being checked",
-		check.kind, check.name(), ErrNoConditions, cycle.Name)
+	return check.noResultValue(fmt.Sprintf("require %s names the requirement being checked", cycle.Name))
 }
 
-// requiresAny reports whether any of conds is required rather than assumed.
+// requiresAny reports whether any of conds is required rather than assumed; a required
+// subrequirement requires what its own conditions require, an assumed one nothing.
 func requiresAny(conds []Condition) bool {
 	for _, cond := range conds {
+		if cond.Subrequirement != nil {
+			if cond.Required && requiresAny(cond.Group) {
+				return true
+			}
+			continue
+		}
 		if cond.Required {
 			return true
 		}
@@ -774,8 +842,7 @@ func (ctx *Context) evaluateStepsConditions(activation int64, check conditionChe
 		return false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
 	}
 	if len(cond.Group) == 0 {
-		return false, fmt.Errorf("%s %s: %s evaluation failed: %w: the body's steps leave it no result expression to evaluate",
-			check.kind, check.name(), check.what, ErrNoConditions)
+		return false, check.noResultValue("the body's steps leave it no result expression to evaluate")
 	}
 	for _, sub := range cond.Group {
 		if err := ctx.circularCondition(check, sub); err != nil {
@@ -1287,11 +1354,16 @@ func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features 
 		}
 		stepFrame = &left
 		if len(cond.Group) == 0 {
-			return false, fmt.Errorf("%w: the body's steps leave it no result expression to evaluate", ErrNoConditions)
+			return false, fmt.Errorf("%w: the body's steps leave it no result expression to evaluate", ErrNoValue)
 		}
 	}
 	holds := true
-	if cond.Group != nil {
+	if cond.Subrequirement != nil {
+		var err error
+		if holds, err = ctx.subrequirementHoldsAt(activation, cond, features, self, frames, bindings, stepFrame); err != nil {
+			return false, err
+		}
+	} else if cond.Group != nil {
 		for _, sub := range cond.Group {
 			subHolds, err := ctx.conditionHoldsAt(activation, sub, features, self, frames, bindings, stepFrame)
 			if err != nil {
@@ -1329,6 +1401,26 @@ func (ctx *Context) conditionHoldsAt(activation int64, cond Condition, features 
 		holds = !holds
 	}
 	return holds, nil
+}
+
+// subrequirementHoldsAt is a subrequirement's RequirementCheck::result within its container's
+// check: `allTrue(assumptions()) implies allTrue(constraints())` over its group, true over no required one.
+func (ctx *Context) subrequirementHoldsAt(activation int64, cond Condition, features map[string]scopedExpr, self *Instance, frames []frame, bindings frame, stepFrame *frame) (bool, error) {
+	for _, required := range []bool{false, true} {
+		for _, sub := range cond.Group {
+			if sub.Required != required {
+				continue
+			}
+			holds, err := ctx.conditionHoldsAt(activation, sub, features, self, frames, bindings, stepFrame)
+			if err != nil {
+				return false, err
+			}
+			if !holds {
+				return !required, nil
+			}
+		}
+	}
+	return true, nil
 }
 
 // negatedText renders what a negated element asserted and did not get: that not
@@ -1396,6 +1488,16 @@ func (ctx *Context) constraintScope(features map[string]scopedExpr, bindings fra
 		out[name] = feat
 	}
 	inner := &conditionEnv{features: out, bindings: unmasked(bindings, own)}
+	if names, value, ok := ctx.subrequirementSubject(constraint, bindings); ok {
+		vars := make(map[string]Value, len(inner.bindings.vars)+len(names))
+		for name, v := range inner.bindings.vars {
+			vars[name] = v
+		}
+		for _, name := range names {
+			vars[name] = value
+		}
+		inner.bindings = inner.bindings.withVars(vars)
+	}
 	for name, feat := range own {
 		feat.env = inner
 		if isArgument(feat.decl) {
@@ -1404,6 +1506,27 @@ func (ctx *Context) constraintScope(features map[string]scopedExpr, bindings fra
 		out[name] = feat
 	}
 	return out, inner.bindings
+}
+
+// subrequirementSubject is the container's subject value a subrequirement owning no subject declaration
+// binds under its inherited subject names (SysML v2 §7.21.2); ok is false otherwise or when it is unbound.
+func (ctx *Context) subrequirementSubject(sub *symbols.Symbol, bindings frame) (names []string, value Value, ok bool) {
+	if !ctx.model.semantics.IsSubrequirement(sub) {
+		return nil, Value{}, false
+	}
+	if owned, _ := ctx.model.semantics.SubjectsOf(sub); len(owned) > 0 {
+		return nil, Value{}, false
+	}
+	names = ctx.subjectParameterNames(sub)
+	if len(names) == 0 {
+		return nil, Value{}, false
+	}
+	for _, name := range ctx.subjectParameterNames(declaringType(sub)) {
+		if value, ok := bindings.lookup(name); ok {
+			return names, value, true
+		}
+	}
+	return nil, Value{}, false
 }
 
 // isArgument reports whether a parameter value was written on a usage rather
@@ -1464,9 +1587,15 @@ func conditionLabel(cond Condition) string {
 	if cond.Group != nil {
 		parts := make([]string, 0, len(cond.Group))
 		for _, sub := range cond.Group {
+			if cond.Subrequirement != nil && !sub.Required {
+				continue
+			}
 			parts = append(parts, conditionLabel(sub))
 		}
 		text = "{ " + strings.Join(parts, "; ") + " }"
+		if cond.Subrequirement != nil {
+			text = requirementKeyword(cond.Subrequirement) + " " + cond.Subrequirement.Name + " " + text
+		}
 	}
 	if cond.Negated {
 		text = "not " + text

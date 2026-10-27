@@ -1,0 +1,12 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::probe",
+  "outputs": {
+    "one": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}]}
+  },
+  "reads": {
+    "test::rrResult": {"type": "Boolean", "value": false},
+    "test::rrOkResult": {"type": "Boolean", "value": true}
+  }
+}

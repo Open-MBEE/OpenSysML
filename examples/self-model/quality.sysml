@@ -390,6 +390,9 @@ package OpenSysMLCodebase {
         part tools : Directory {
             attribute :>> path = "tools";
         }
+        part suites : Directory {
+            attribute :>> path = "tests";
+        }
     }
 
     part tree : SourceTree;
@@ -416,6 +419,13 @@ package OpenSysMLCodebase {
     allocate opensysml.lsp to tree.internals;
     allocate opensysml.service to tree.internals;
     allocate opensysml.stdio to tree.internals;
+    allocate opensysml.cli to tree.internals;
+    allocate opensysml.mcp to tree.internals;
+    allocate opensysml.jupyter to tree.internals;
+    allocate opensysml.syntaxCommand to tree.internals;
+    allocate opensysml.engineCommand to tree.internals;
+    allocate opensysml.coreCommand to tree.internals;
+    allocate opensysml.wasm to tree.internals;
     allocate opensysml.exporter to tree.internals;
     allocate opensysml.migrator to tree.internals;
     allocate opensysml.codegen to tree.internals;
@@ -423,6 +433,8 @@ package OpenSysMLCodebase {
     allocate opensysml.documents.markdown to tree.internals;
     allocate opensysml.documents.html to tree.internals;
     allocate opensysml.documents.pdf to tree.internals;
+    allocate opensysml.documents.markdownProse to tree.internals;
+    allocate opensysml.documents.asciidocProse to tree.internals;
     allocate opensysml.service.schema to tree.schema;
     allocate opensysml.goClient to tree.clientLibraries;
     allocate opensysml.python to tree.clientLibraries;
@@ -431,9 +443,11 @@ package OpenSysMLCodebase {
     allocate opensysml.java to tree.clientLibraries;
     allocate opensysml.julia to tree.clientLibraries;
     allocate opensysml.matlab to tree.clientLibraries;
+    allocate opensysml.kernelPackage to tree.clientLibraries;
     allocate opensysml.vscode to tree.editors;
     allocate opensysml.mdk to tree.editors;
     allocate opensysml.syson to tree.editors;
+    allocate opensysml.jupyterlab to tree.editors;
     allocate opensysml.rejection to tree.tools;
     allocate opensysml.differential to tree.tools;
     allocate opensysml.xpect to tree.tools;
@@ -445,4 +459,5 @@ package OpenSysMLCodebase {
     allocate opensysml.counts to tree.tools;
     allocate opensysml.snapshotGate to tree.tools;
     allocate opensysml.suite to tree.tools;
+    allocate opensysml.fmuGate to tree.suites;
 }

@@ -16,6 +16,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+
+	"github.com/Open-MBEE/OpenSysML/tests/fixtures"
 )
 
 // steppedRun drives one conformance case the way the trace harness does, one
@@ -186,7 +188,7 @@ func newSteppedRun(t *testing.T, conformanceDir, testName string, expected Expec
 	case "requirement", "satisfy":
 		// The conformance harness checks these cases' verdicts itself; the round
 		// trip compares what the checks leave behind.
-		sysmlPath := filepath.Join(conformanceDir, testName+".sysml")
+		sysmlPath := fixtures.ModelPath(conformanceDir, testName)
 		check := runRequirementConformance
 		if expected.Type == "satisfy" {
 			check = runSatisfyConformance

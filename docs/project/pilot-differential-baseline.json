@@ -69,7 +69,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 52,
-        "digest": "sha256:1218826543369a409b0c96a21c5563b70fc96ca28299f0e7c412bbf027ee263a"
+        "digest": "sha256:cd33a6f84a9998e255f6dc8d1b2cb374dce50e930e015f67f990303c8157558a"
       },
       {
         "name": "probes",
@@ -94,9 +94,9 @@
     "agreement": 1098,
     "severityMismatch": 11,
     "openSysMLOnly": 359,
-    "pilotOnly": 2448,
+    "pilotOnly": 2450,
     "openSysMLDiagnostics": 1468,
-    "pilotDiagnostics": 3557
+    "pilotDiagnostics": 3559
   },
   "roots": [
     {
@@ -17808,9 +17808,9 @@
         "agreement": 0,
         "severityMismatch": 0,
         "openSysMLOnly": 8,
-        "pilotOnly": 61,
+        "pilotOnly": 63,
         "openSysMLDiagnostics": 8,
-        "pilotDiagnostics": 61
+        "pilotDiagnostics": 63
       },
       "files": [
         {
@@ -17951,67 +17951,37 @@
           "openSysMLOnly": [],
           "pilotOnly": [
             {
-              "line": 150,
+              "line": 187,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 156,
+              "line": 193,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 171,
+              "line": 208,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 185,
+              "line": 222,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 191,
+              "line": 228,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 202,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 209,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 219,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 225,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 230,
-              "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 240,
+              "line": 239,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18023,13 +17993,19 @@
               "count": 1
             },
             {
-              "line": 260,
+              "line": 256,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 266,
+              "line": 262,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 267,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18041,7 +18017,7 @@
               "count": 1
             },
             {
-              "line": 287,
+              "line": 283,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -18059,73 +18035,109 @@
               "count": 1
             },
             {
-              "line": 309,
+              "line": 314,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 323,
+              "line": 324,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 333,
+              "line": 334,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 347,
+              "line": 340,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 353,
+              "line": 346,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 359,
+              "line": 360,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 374,
+              "line": 366,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 380,
+              "line": 381,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 390,
+              "line": 395,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 403,
+              "line": 401,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 403,
+              "line": 407,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 414,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 452,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 458,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 468,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 481,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 481,
               "severity": "warning",
               "category": "unmapped",
               "count": 17
             },
             {
-              "line": 409,
+              "line": 487,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
@@ -25385,9 +25397,9 @@
       "agreement": 1098,
       "severityMismatch": 11,
       "openSysMLOnly": 358,
-      "pilotOnly": 2448,
+      "pilotOnly": 2450,
       "openSysMLDiagnostics": 1467,
-      "pilotDiagnostics": 3557
+      "pilotDiagnostics": 3559
     },
     "findings": [
       {

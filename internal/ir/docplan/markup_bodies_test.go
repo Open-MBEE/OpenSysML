@@ -265,10 +265,22 @@ func TestCompileMarkdownBodyErrors(t *testing.T) {
 			contains: `in "rst", which no document markup language matches (supported: markdown, asciidoc)`,
 		},
 		{
-			name:     "heading",
-			body:     "rep language \"markdown\" /* Fine.\n *\n * # Heading\n */",
+			name:     "link_in_heading",
+			body:     "rep language \"markdown\" /* Fine.\n *\n * # See [x](https://a.io)\n */",
 			kind:     ErrorUnsupportedMarkupConstruct,
-			contains: "markdown body whose level 1 heading no content block renders (body line 3)",
+			contains: "markdown body whose link in a heading no content block renders (body line 3)",
+		},
+		{
+			name:     "heading_skips_a_level",
+			body:     "rep language \"markdown\" /* # One\n *\n * ### Three\n */",
+			kind:     ErrorMarkupHeadingLevel,
+			contains: `markdown body whose level 3 heading "Three" is out of sequence: expected a level between 1 and 2 (body line 3)`,
+		},
+		{
+			name:     "heading_above_the_base",
+			body:     "rep language \"markdown\" /* ## Two\n *\n * # One\n */",
+			kind:     ErrorMarkupHeadingLevel,
+			contains: `level 1 heading "One" is out of sequence: expected a level between 2 and 3 (body line 3)`,
 		},
 		{
 			name:     "image",

@@ -218,7 +218,22 @@
               "allocate",
               "association",
               "include",
-              "anchor"
+              "anchor",
+              "dependency",
+              "subsetting",
+              "redefinition",
+              "perform",
+              "exhibit",
+              "succession flow",
+              "require",
+              "assume",
+              "assert",
+              "frame",
+              "event",
+              "portion",
+              "reference subsetting",
+              "unowned membership",
+              "expose"
             ]
           },
           "markdownDescription": "Relationship kinds the diagram panel hides by default, by the kind names the rendering's edges carry (for example `typing`, `specialization`, `composition`). Each panel's **Relations** list shows the kinds present in its diagram and overrides this for that panel alone; nothing is written to the model, and exports are unaffected."

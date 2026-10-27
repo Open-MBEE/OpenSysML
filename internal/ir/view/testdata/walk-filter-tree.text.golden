@@ -8,3 +8,10 @@ part rover
   part gps
   connect
   connect
+
+relationships:
+  rover *-- chassis
+  rover *-- radio
+  rover *-- gps
+  chassis *-- axle
+  radio o-- rx

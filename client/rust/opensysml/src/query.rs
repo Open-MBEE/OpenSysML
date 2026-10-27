@@ -26,6 +26,14 @@ pub enum PrimitiveOperator {
     Greater,
     /// `<`: the property is less than the value.
     Less,
+    /// `>=`: the property is at least the value.
+    GreaterOrEqual,
+    /// `<=`: the property is at most the value.
+    LessOrEqual,
+    /// `in`: the property is a member of the values.
+    In,
+    /// `instanceOf`: the element's metaclass (`@type`) conforms to one of the named metaclasses.
+    InstanceOf,
 }
 
 impl PrimitiveOperator {
@@ -34,6 +42,10 @@ impl PrimitiveOperator {
             "=" => Some(Self::Equal),
             ">" => Some(Self::Greater),
             "<" => Some(Self::Less),
+            ">=" => Some(Self::GreaterOrEqual),
+            "<=" => Some(Self::LessOrEqual),
+            "in" => Some(Self::In),
+            "instanceOf" => Some(Self::InstanceOf),
             _ => None,
         }
     }
@@ -42,8 +54,12 @@ impl PrimitiveOperator {
             Ok(wire::PrimitiveOperator::Equal) => Ok(Self::Equal),
             Ok(wire::PrimitiveOperator::Greater) => Ok(Self::Greater),
             Ok(wire::PrimitiveOperator::Less) => Ok(Self::Less),
+            Ok(wire::PrimitiveOperator::GreaterEqual) => Ok(Self::GreaterOrEqual),
+            Ok(wire::PrimitiveOperator::LessEqual) => Ok(Self::LessOrEqual),
+            Ok(wire::PrimitiveOperator::In) => Ok(Self::In),
+            Ok(wire::PrimitiveOperator::InstanceOf) => Ok(Self::InstanceOf),
             _ => Err(Error::Query(format!(
-                "a primitive constraint compares by =, > or <, not operator {code}"
+                "a primitive constraint compares by =, <, <=, >, >=, in or instanceOf, not operator {code}"
             ))),
         }
     }
@@ -52,7 +68,29 @@ impl PrimitiveOperator {
             Self::Equal => wire::PrimitiveOperator::Equal,
             Self::Greater => wire::PrimitiveOperator::Greater,
             Self::Less => wire::PrimitiveOperator::Less,
+            Self::GreaterOrEqual => wire::PrimitiveOperator::GreaterEqual,
+            Self::LessOrEqual => wire::PrimitiveOperator::LessEqual,
+            Self::In => wire::PrimitiveOperator::In,
+            Self::InstanceOf => wire::PrimitiveOperator::InstanceOf,
         }
+    }
+    fn text(self) -> &'static str {
+        match self {
+            Self::Equal => "=",
+            Self::Greater => ">",
+            Self::Less => "<",
+            Self::GreaterOrEqual => ">=",
+            Self::LessOrEqual => "<=",
+            Self::In => "in",
+            Self::InstanceOf => "instanceOf",
+        }
+    }
+    /// Whether the operator compares against exactly one value.
+    fn is_ordered(self) -> bool {
+        matches!(
+            self,
+            Self::Greater | Self::Less | Self::GreaterOrEqual | Self::LessOrEqual
+        )
     }
 }
 
@@ -138,6 +176,43 @@ impl Constraint {
     pub fn less(property: impl Into<String>, value: impl Into<String>) -> Self {
         Self::compare(property, PrimitiveOperator::Less, vec![value.into()])
     }
+    /// `property >= value`.
+    pub fn greater_or_equal(property: impl Into<String>, value: impl Into<String>) -> Self {
+        Self::compare(
+            property,
+            PrimitiveOperator::GreaterOrEqual,
+            vec![value.into()],
+        )
+    }
+    /// `property <= value`.
+    pub fn less_or_equal(property: impl Into<String>, value: impl Into<String>) -> Self {
+        Self::compare(property, PrimitiveOperator::LessOrEqual, vec![value.into()])
+    }
+    /// `property in values`: the property is a member of `values`.
+    pub fn member_of<I, S>(property: impl Into<String>, values: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        Self::compare(
+            property,
+            PrimitiveOperator::In,
+            values.into_iter().map(Into::into).collect(),
+        )
+    }
+    /// `@type instanceOf metaclasses`: the element's metaclass conforms to any of them
+    /// ("Usage", "Feature", "Element", …).
+    pub fn instance_of<I, S>(metaclasses: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        Self::compare(
+            "@type",
+            PrimitiveOperator::InstanceOf,
+            metaclasses.into_iter().map(Into::into).collect(),
+        )
+    }
     fn compare(
         property: impl Into<String>,
         operator: PrimitiveOperator,
@@ -198,6 +273,7 @@ impl Constraint {
                                 .to_owned(),
                         ));
                     }
+                    check_operand(*operator, property, values)?;
                     Kind::Primitive(wire::PrimitiveConstraint {
                         inverse: *inverse,
                         property: property.clone(),
@@ -209,10 +285,9 @@ impl Constraint {
                     operator,
                     constraints,
                 } => {
-                    if constraints.is_empty() {
+                    if constraints.len() < 2 {
                         return Err(Error::Query(
-                            "a composite constraint combines a non-empty list of constraints"
-                                .to_owned(),
+                            "a composite constraint combines at least two constraints".to_owned(),
                         ));
                     }
                     Kind::Composite(wire::CompositeConstraint {
@@ -267,7 +342,7 @@ impl Constraint {
             .and_then(PrimitiveOperator::parse)
             .ok_or_else(|| {
                 Error::Query(format!(
-                    "unknown primitive operator {}; expected one of <, =, >",
+                    "unknown primitive operator {}; expected one of <, <=, =, >, >=, in, instanceOf",
                     shown(object.get("operator"))
                 ))
             })?;
@@ -291,9 +366,29 @@ impl Constraint {
         };
         let values = match object.get("value") {
             None | Some(Json::Null) => Vec::new(),
+            Some(Json::Array(values)) if operator.is_ordered() && values.len() != 1 => {
+                return Err(Error::Query(format!(
+                    "{} on {property:?} compares against one value, not a list of {}",
+                    operator.text(),
+                    values.len()
+                )))
+            }
+            Some(Json::Array(values)) if operator == PrimitiveOperator::InstanceOf => values
+                .iter()
+                .map(metaclass_name)
+                .collect::<Result<_, _>>()?,
             Some(Json::Array(values)) => values.iter().map(compared).collect::<Result<_, _>>()?,
+            Some(value) if operator == PrimitiveOperator::In => {
+                return Err(Error::Query(format!(
+                    "in on {property:?} compares against a list of values, not {value}"
+                )))
+            }
+            Some(value) if operator == PrimitiveOperator::InstanceOf => {
+                vec![metaclass_name(value)?]
+            }
             Some(value) => vec![compared(value)?],
         };
+        check_operand(operator, &property, &values)?;
         Ok(Self::Primitive {
             inverse,
             property,
@@ -319,6 +414,13 @@ impl Constraint {
                 ))
             })?;
         let constraints = match object.get("constraint") {
+            Some(Json::Array(nested)) if nested.len() == 1 => {
+                return Err(Error::Query(
+                    "a composite constraint combines at least two constraints, got one; \
+                     write the constraint on its own"
+                        .to_owned(),
+                ))
+            }
             Some(Json::Array(nested)) if !nested.is_empty() => nested
                 .iter()
                 .map(Constraint::from_json)
@@ -337,7 +439,8 @@ impl Constraint {
     }
 }
 
-/// A query over a loaded model: which elements, which properties, and which constraint they meet.
+/// A query over a loaded model: which elements, which properties, which constraint they
+/// meet, and which properties they are sorted by.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Query {
     /// Qualified names of the elements to consider; empty is the whole model.
@@ -346,6 +449,40 @@ pub struct Query {
     pub select: Vec<String>,
     /// Constraint the selected elements meet.
     pub filter: Option<Constraint>,
+    /// Properties the selected elements are sorted by, in order of precedence, each
+    /// ascending; empty keeps declaration order.
+    pub order_by: Vec<String>,
+}
+
+/// Checks a constraint's values have the shape its operator compares against: the ordered
+/// comparisons one value, `in` at least one, `instanceOf` non-empty metaclass names on `@type`.
+fn check_operand(
+    operator: PrimitiveOperator,
+    property: &str,
+    values: &[String],
+) -> Result<(), Error> {
+    match operator {
+        _ if operator.is_ordered() && values.len() != 1 => Err(Error::Query(format!(
+            "{} on {property:?} compares against one value, got {}",
+            operator.text(),
+            values.len()
+        ))),
+        PrimitiveOperator::In if values.is_empty() => Err(Error::Query(format!(
+            "in on {property:?} has no values to be a member of"
+        ))),
+        PrimitiveOperator::InstanceOf if property != "@type" => Err(Error::Query(format!(
+            "instanceOf applies to \"@type\", the element's metaclass, not to {property:?}"
+        ))),
+        PrimitiveOperator::InstanceOf
+            if values.iter().any(String::is_empty) || values.is_empty() =>
+        {
+            Err(Error::Query(
+                "instanceOf on \"@type\" compares against a metaclass name, not an empty one"
+                    .to_owned(),
+            ))
+        }
+        _ => Ok(()),
+    }
 }
 
 impl Query {
@@ -376,6 +513,15 @@ impl Query {
         self.filter = Some(constraint);
         self
     }
+    /// The same query sorted by `properties` too, after any it already sorts by.
+    pub fn order_by<I, S>(mut self, properties: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.order_by.extend(properties.into_iter().map(Into::into));
+        self
+    }
 
     /// Read the standard's JSON `Query` object, so a cookbook payload works verbatim.
     pub fn from_json(payload: &Json) -> Result<Self, Error> {
@@ -400,14 +546,14 @@ impl Query {
             .filter(|key| {
                 !matches!(
                     *key,
-                    TYPE_KEY | "@id" | "owningProject" | "scope" | "select" | "where"
+                    TYPE_KEY | "@id" | "owningProject" | "scope" | "select" | "where" | "orderBy"
                 )
             })
             .collect();
         if !unknown.is_empty() {
             unknown.sort_unstable();
             return Err(Error::Query(format!(
-                "a query has no {}; the standard's query is scope, select and where",
+                "a query has no {}; the standard's query is scope, select, where and orderBy",
                 unknown.join(", ")
             )));
         }
@@ -428,10 +574,20 @@ impl Query {
             None | Some(Json::Null) => None,
             Some(constraint) => Some(Constraint::from_json(constraint)?),
         };
+        let order_by = entries("orderBy", object.get("orderBy"))?
+            .into_iter()
+            .map(|entry| match entry {
+                Json::String(name) => Ok(name.clone()),
+                other => Err(Error::Query(format!(
+                    "a sort property is a name, not {other}"
+                ))),
+            })
+            .collect::<Result<_, _>>()?;
         Ok(Self {
             scope,
             select,
             filter,
+            order_by,
         })
     }
 
@@ -440,6 +596,7 @@ impl Query {
             scope: self.scope.clone(),
             select: self.select.clone(),
             r#where: self.filter.as_ref().map(Constraint::to_wire).transpose()?,
+            order_by: self.order_by.clone(),
         })
     }
 }
@@ -452,6 +609,7 @@ impl TryFrom<wire::Query> for Query {
             scope: query.scope,
             select: query.select,
             filter: query.r#where.map(Constraint::try_from).transpose()?,
+            order_by: query.order_by,
         })
     }
 }
@@ -583,6 +741,16 @@ fn compared(value: &Json) -> Result<String, Error> {
     }
 }
 
+fn metaclass_name(value: &Json) -> Result<String, Error> {
+    match value {
+        Json::String(name) if !name.is_empty() => Ok(name.clone()),
+        other => Err(Error::Query(format!(
+            "instanceOf compares against a metaclass name, not {}",
+            json_kind(other)
+        ))),
+    }
+}
+
 fn shown(value: Option<&Json>) -> String {
     value.map_or_else(|| "none".to_owned(), Json::to_string)
 }
@@ -684,5 +852,148 @@ mod tests {
             .filter(Constraint::equals("", "a"))
             .to_wire()
             .is_err());
+    }
+
+    #[test]
+    fn every_standard_operator_reads_and_writes() {
+        for (text, value, operator, values) in [
+            ("<=", json!(2), PrimitiveOperator::LessOrEqual, vec!["2"]),
+            (">=", json!(4), PrimitiveOperator::GreaterOrEqual, vec!["4"]),
+            ("<", json!("*"), PrimitiveOperator::Less, vec!["*"]),
+            ("<", json!(["3"]), PrimitiveOperator::Less, vec!["3"]),
+            (">", json!(1.5), PrimitiveOperator::Greater, vec!["1.5"]),
+            (
+                "in",
+                json!(["PartUsage", "AttributeUsage"]),
+                PrimitiveOperator::In,
+                vec!["PartUsage", "AttributeUsage"],
+            ),
+            (
+                "instanceOf",
+                json!("Usage"),
+                PrimitiveOperator::InstanceOf,
+                vec!["Usage"],
+            ),
+            (
+                "instanceOf",
+                json!(["Usage", "Definition"]),
+                PrimitiveOperator::InstanceOf,
+                vec!["Usage", "Definition"],
+            ),
+        ] {
+            let property = if matches!(
+                operator,
+                PrimitiveOperator::In | PrimitiveOperator::InstanceOf
+            ) {
+                "@type"
+            } else {
+                "multiplicityLower"
+            };
+            let query = Query::from_json(
+                &json!({"where": {"operator": text, "property": property, "value": value}}),
+            )
+            .unwrap();
+            let expected = Constraint::Primitive {
+                inverse: false,
+                property: property.to_owned(),
+                operator,
+                values: values.iter().map(|v| v.to_string()).collect(),
+            };
+            assert_eq!(query.filter, Some(expected.clone()), "{text}");
+            let wire = query.to_wire().unwrap();
+            let Some(wire::constraint::Constraint::Primitive(primitive)) =
+                wire.r#where.unwrap().constraint
+            else {
+                panic!("primitive expected");
+            };
+            assert_eq!(primitive.operator, operator.to_wire() as i32, "{text}");
+            assert_eq!(primitive.value, values, "{text}");
+            assert_eq!(
+                Constraint::try_from(wire::Constraint {
+                    constraint: Some(wire::constraint::Constraint::Primitive(primitive))
+                })
+                .unwrap(),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn operands_of_the_wrong_shape_are_refused() {
+        for (payload, needle) in [
+            (
+                json!({"where": {"operator": "<=", "property": "multiplicityLower", "value": [1, 2]}}),
+                "compares against one value, not a list of 2",
+            ),
+            (
+                json!({"where": {"operator": ">=", "property": "multiplicityLower"}}),
+                "compares against one value, got 0",
+            ),
+            (
+                json!({"where": {"operator": "<", "property": "multiplicityLower", "value": []}}),
+                "compares against one value, not a list of 0",
+            ),
+            (
+                json!({"where": {"operator": "in", "property": "@type", "value": "PartUsage"}}),
+                "compares against a list of values",
+            ),
+            (
+                json!({"where": {"operator": "in", "property": "@type", "value": []}}),
+                "has no values to be a member of",
+            ),
+            (
+                json!({"where": {"operator": "instanceOf", "property": "name", "value": "Usage"}}),
+                "instanceOf applies to \"@type\"",
+            ),
+            (
+                json!({"where": {"operator": "instanceOf", "property": "@type", "value": ["Usage", ""]}}),
+                "metaclass name",
+            ),
+            (
+                json!({"where": {"operator": "instanceOf", "property": "@type", "value": 7}}),
+                "metaclass name",
+            ),
+            (
+                json!({"where": {"operator": "instanceOf", "property": "@type", "value": ["Usage", 7]}}),
+                "metaclass name",
+            ),
+            (
+                json!({"where": {"operator": "=<", "property": "multiplicityLower", "value": 1}}),
+                "expected one of <, <=, =, >, >=, in, instanceOf",
+            ),
+            (
+                json!({"where": {"operator": "and", "constraint": [{"operator": "=", "property": "name", "value": "x"}]}}),
+                "at least two constraints, got one",
+            ),
+            (json!({"orderBy": 7}), "orderBy is a list"),
+            (json!({"orderBy": [42]}), "a sort property is a name"),
+        ] {
+            let error = Query::from_json(&payload).unwrap_err();
+            assert!(error.to_string().contains(needle), "{payload}: {error}");
+        }
+        assert!(Query::new()
+            .filter(Constraint::member_of("@type", Vec::<String>::new()))
+            .to_wire()
+            .is_err());
+        assert!(Query::new()
+            .filter(Constraint::less_or_equal("multiplicityLower", "1"))
+            .to_wire()
+            .is_ok());
+        assert!(Query::new()
+            .filter(Constraint::and([Constraint::equals("name", "x")]))
+            .to_wire()
+            .is_err());
+    }
+
+    #[test]
+    fn order_by_reads_and_writes() {
+        let query =
+            Query::from_json(&json!({"@type": "Query", "orderBy": ["@type", "name"]})).unwrap();
+        assert_eq!(query, Query::new().order_by(["@type", "name"]));
+        assert_eq!(query.to_wire().unwrap().order_by, ["@type", "name"]);
+        assert!(Query::from_json(&json!({"scope": ["Demo"]}))
+            .unwrap()
+            .order_by
+            .is_empty());
     }
 }

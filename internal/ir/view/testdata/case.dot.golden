@@ -31,8 +31,8 @@ digraph "CaseExamples::caseDiagram" {
   "n0" -> "n3" [dir=none, style=dashed];
   "n5" -> "n4" [dir=none];
   "n4" -> "n6" [label="«subject»", dir=none];
-  "n0" -> "n4" [label="«include»", style=dashed];
-  "n0" -> "n7" [label="«include»", style=dashed];
+  "n0" -> "n4" [label="«include»", arrowhead=vee];
+  "n0" -> "n7" [label="«include»", arrowhead=vee];
   "n7" -> "n8" [label="«subject»", dir=none];
   "n9" -> "n7" [dir=none];
   "n0" -> "n10" [arrowtail=diamond, dir=back];

@@ -8,20 +8,20 @@ digraph "VehicleViews::vehicleView" {
   "n0" [fillcolor="#8F6798", color="#440154", penwidth=1, label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>];
   "n1" [style="rounded,filled", fillcolor="#B499BB", color="#440154", penwidth=1, label=<<font point-size="10"><i>«part»</i></font><br/><b>engine</b>>];
   "n2" [style="rounded,filled", fillcolor="#ADC3D2", color="#31688E", penwidth=1, label=<<font point-size="10"><i>«attribute»</i></font><br/><b>power</b>>];
-  "n1" -> "n2" [arrowhead=none];
   "n3" [style="rounded,filled", fillcolor="#B499BB", color="#440154", penwidth=1, label=<<font point-size="10"><i>«part»</i></font><br/><b>cylinder</b>>];
-  "n1" -> "n3" [arrowhead=none];
-  "n0" -> "n1" [arrowhead=none];
   "n4" [style="rounded,filled", fillcolor="#B499BB", color="#440154", penwidth=1, label=<<font point-size="10"><i>«part»</i></font><br/><b>wheels</b>>];
-  "n0" -> "n4" [arrowhead=none];
   "n5" [style="rounded,filled", fillcolor="#AEE2C9", color="#35B779", penwidth=1, label=<<b>connect</b>>];
   "n0" -> "n5" [arrowhead=none];
   "n6" [style="rounded,filled", fillcolor="#FEF5A8", color="#FDE725", penwidth=1, label=<<font point-size="10"><i>«view»</i></font><br/><b>engineSubview</b>>];
   "n7" [fillcolor="#8F6798", color="#440154", penwidth=1, label=<<font point-size="10"><i>«part def»</i></font><br/><b>Engine</b>>];
   "n8" [style="rounded,filled", fillcolor="#ADC3D2", color="#31688E", penwidth=1, label=<<font point-size="10"><i>«attribute»</i></font><br/><b>power</b>>];
-  "n7" -> "n8" [arrowhead=none];
   "n9" [style="rounded,filled", fillcolor="#B499BB", color="#440154", penwidth=1, label=<<font point-size="10"><i>«part»</i></font><br/><b>cylinder</b>>];
-  "n7" -> "n9" [arrowhead=none];
   "n6" -> "n7" [arrowhead=none];
-  "n0" -> "n7" [headlabel="engine", dir=back, arrowtail=diamond];
+  "n0" -> "n1" [dir=back, arrowtail=diamond];
+  "n0" -> "n4" [dir=back, arrowtail=diamond];
+  "n1" -> "n7" [arrowhead=onormaldotdot];
+  "n1" -> "n2" [dir=back, arrowtail=odiamond];
+  "n1" -> "n3" [dir=back, arrowtail=diamond];
+  "n7" -> "n8" [dir=back, arrowtail=odiamond];
+  "n7" -> "n9" [dir=back, arrowtail=diamond];
 }

@@ -221,7 +221,7 @@ func TestDOTActionFramePins(t *testing.T) {
 			t.Errorf("frame pin %s: %q, want a pin square labelled %s", port, line, label)
 		}
 	}
-	for _, want := range []string{`"n0.0" -> "n1":"n1.0" [arrowhead=none];`, `"n2":"n2.1" -> "n0.1" [arrowhead=none];`} {
+	for _, want := range []string{`"n0.0" -> "n1":"n1.0" [label="=", arrowhead=none];`, `"n2":"n2.1" -> "n0.1" [label="=", arrowhead=none];`} {
 		if !strings.Contains(source, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, source)
 		}

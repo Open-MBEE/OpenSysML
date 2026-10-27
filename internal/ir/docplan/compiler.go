@@ -50,6 +50,8 @@ type compiler struct {
 	bases    bases
 	stack    []string
 	targets  map[*symbols.Symbol]refTarget
+	parsed   map[*symbols.Symbol]*parsedBody
+	outlines map[*symbols.Symbol]*markupOutline
 }
 
 type bases struct {
@@ -145,6 +147,8 @@ func Compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Res
 		entry:    entry,
 		bases:    all,
 		targets:  make(map[*symbols.Symbol]refTarget),
+		parsed:   make(map[*symbols.Symbol]*parsedBody),
+		outlines: make(map[*symbols.Symbol]*markupOutline),
 	}
 	title, err := c.requiredText(entry, "title", ErrorMissingTitle)
 	if err != nil {
@@ -804,6 +808,9 @@ func (c *compiler) resolveRunRefs(runs []Run) error {
 			continue
 		}
 		target, ok := c.targets[run.refSym]
+		if run.refName != "" {
+			target, ok = c.markupSectionTarget(run)
+		}
 		if !ok {
 			cross, err := c.crossDocumentTarget(run)
 			if err != nil {
@@ -919,17 +926,7 @@ func (c *compiler) documentRootTarget(sym *symbols.Symbol, run *Run) (*symbols.S
 		}
 		return defs[0], nil
 	default:
-		names := make([]string, len(defs))
-		for i, def := range defs {
-			names[i] = symbols.FQNOf(def)
-		}
-		return nil, &Error{
-			Kind:     ErrorAmbiguousRefTarget,
-			Document: c.document,
-			Content:  symbols.FQNOf(sym),
-			Actual:   strings.Join(names, " and "),
-			Origin:   run.origin,
-		}
+		return nil, c.ambiguousDocument(sym, defs, run.origin)
 	}
 }
 
@@ -954,17 +951,23 @@ func (c *compiler) chainRootDocument(run *Run) (*symbols.Symbol, error) {
 	case 1:
 		return defs[0], nil
 	default:
-		names := make([]string, len(defs))
-		for i, def := range defs {
-			names[i] = symbols.FQNOf(def)
-		}
-		return nil, &Error{
-			Kind:     ErrorAmbiguousRefTarget,
-			Document: c.document,
-			Content:  symbols.FQNOf(root),
-			Actual:   strings.Join(names, " and "),
-			Origin:   run.origin,
-		}
+		return nil, c.ambiguousDocument(root, defs, run.origin)
+	}
+}
+
+// ambiguousDocument is the error for a usage typed by more than one document
+// definition where a reference needs exactly one.
+func (c *compiler) ambiguousDocument(usage *symbols.Symbol, defs []*symbols.Symbol, origin symbols.Origin) *Error {
+	names := make([]string, len(defs))
+	for i, def := range defs {
+		names[i] = symbols.FQNOf(def)
+	}
+	return &Error{
+		Kind:     ErrorAmbiguousRefTarget,
+		Document: c.document,
+		Content:  symbols.FQNOf(usage),
+		Actual:   strings.Join(names, " and "),
+		Origin:   origin,
 	}
 }
 

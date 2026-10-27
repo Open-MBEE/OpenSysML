@@ -137,7 +137,7 @@ func (s *Server) scanFolder(folder string, budget int) {
 // installed projects that the project at or above folder uses, each once; the
 // dependency sources are recorded against folder so they can be dropped with it.
 func (s *Server) walkWorkspace(folder string, budget int) (paths, unlisted []string) {
-	paths, unlisted = walkFolder(folder, budget)
+	paths, unlisted = walkFolder(folder, budget, nil)
 	seen := make(map[string]bool, len(paths))
 	for _, path := range paths {
 		seen[path] = true
@@ -148,7 +148,9 @@ func (s *Server) walkWorkspace(folder string, budget int) (paths, unlisted []str
 		if used.IsArchived() {
 			more = used.Files()
 		} else {
-			more, failed = walkFolder(used.Dir, -1)
+			// A project nested in an installed one is a project of its own,
+			// read through its own installation.
+			more, failed = walkFolder(used.Dir, -1, project.IsProjectDir)
 		}
 		unlisted = append(unlisted, failed...)
 		for _, path := range more {
@@ -288,7 +290,8 @@ func projectOrDir(name string) string {
 // directories (every directory when budget is negative) and skipping hidden and
 // vendored directories, unreadable entries and files too large to serve. It also
 // lists the directories it could not enumerate, whose sources it cannot vouch for.
-func walkFolder(folder string, budget int) (paths, unlisted []string) {
+// A directory below folder that stop admits, when stop is given, is not entered.
+func walkFolder(folder string, budget int, stop func(dir string) bool) (paths, unlisted []string) {
 	if folder == "" {
 		return nil, nil
 	}
@@ -301,7 +304,7 @@ func walkFolder(folder string, budget int) (paths, unlisted []string) {
 			return nil
 		}
 		if d.IsDir() {
-			if path != folder && (skipDir(d.Name()) || project.IsLibraryDir(filepath.Dir(path), d.Name())) {
+			if path != folder && (skipDir(d.Name()) || project.IsLibraryDir(filepath.Dir(path), d.Name()) || (stop != nil && stop(path))) {
 				return fs.SkipDir
 			}
 			if budget == 0 {

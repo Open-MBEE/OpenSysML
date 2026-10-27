@@ -207,7 +207,7 @@ func (c *calcCompiler) localCheckFor(s lower.Declare) (*scalarCheck, bool) {
 	if !ok {
 		return nil, true
 	}
-	check, ok := c.scalarCheckFor(&calcMemberDecl{Target: target, Owner: c.shape.BodyOwner, multStated: target.countJudged})
+	check, ok := c.scalarCheckFor(&calcMemberDecl{Target: target, Owner: c.shape.BodyOwner, multStated: target.stated})
 	if !ok {
 		return nil, false
 	}
@@ -294,7 +294,7 @@ func bodyStmt(stmts compiledStmt) compiledExpr {
 			return scalar{}, err
 		}
 		if !returned {
-			return scalar{}, fmt.Errorf("%w: compiled body ended without a return", errNoResultExpression)
+			return scalar{}, fmt.Errorf("%w: compiled body ended without a return", ErrNoValue)
 		}
 		return v, nil
 	}

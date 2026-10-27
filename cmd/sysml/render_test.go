@@ -244,7 +244,7 @@ func TestRenderDotForm(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"// view: Demo::overview", "// layout: dot", `digraph "Demo::overview" {`, `label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>`, `"n0" -> "n1" [arrowhead=none];`} {
+	for _, want := range []string{"// view: Demo::overview", "// layout: dot", `digraph "Demo::overview" {`, `label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>`, `"n0" -> "n1" [dir=back, arrowtail=diamond];`} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -294,7 +294,7 @@ func TestRenderPlantUMLForm(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"@startuml\n' Demo::overview — tree rendering\n<style>", "skinparam wrapWidth 300", "hide circle", `class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>`, `as n1 <<part>> <<usage>>`, "n0 -- n1\n@enduml\n"} {
+	for _, want := range []string{"@startuml\n' Demo::overview — tree rendering\n<style>", "skinparam wrapWidth 300", "hide circle", `class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>`, `as n1 <<part>> <<usage>>`, "n0 *-- n1\n@enduml\n"} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -356,7 +356,7 @@ func TestRenderD2Form(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"# Demo::overview — tree rendering\nclasses: {\n", `n0: "«part def»\nVehicle" { class: definition }`, "{ class: usage }\n", "\nn0 -- n1: { class: edge }\n"} {
+	for _, want := range []string{"# Demo::overview — tree rendering\nclasses: {\n", `n0: "«part def»\nVehicle" { class: definition }`, "{ class: usage }\n", "\nn0 <- n1: { class: composition }\n"} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}

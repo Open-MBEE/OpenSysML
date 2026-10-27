@@ -222,6 +222,30 @@ func TestReloadingANotebookRedeclaresIt(t *testing.T) {
 	}
 }
 
+func TestReloadingANotebookFindsTheRootADroppedCellDeclaredBesideIt(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "a.ipynb")
+	writeNotebook(t, path,
+		notebookCell{source: "package Other { part def Thing; }\n"},
+		notebookCell{source: "package Lib { part def Old; }\n"},
+	)
+	s := NewSession()
+	loadMeta(t, s, "%load "+path)
+	writeNotebook(t, path, notebookCell{source: "package Main { part x : Lib::Thing; }\n"})
+	writeFile(t, filepath.Join(dir, "lib.sysml"), "package Lib { part def Thing; }\n")
+	out := loadMeta(t, s, "%load "+path)
+	if strings.Contains(out, "unresolved") || !strings.Contains(out, "lib.sysml") {
+		t.Errorf("want lib.sysml loaded beside the notebook and Lib::Thing resolved:\n%s", out)
+	}
+	if _, _, err := s.lookupSymbol("Lib::Thing"); err != nil {
+		t.Errorf("Lib::Thing did not resolve: %v", err)
+	}
+	list := strings.Join(s.List(), "\n")
+	if strings.Contains(list, "Old") || strings.Contains(list, "Other") {
+		t.Errorf("a dropped cell survived the reload:\n%s", list)
+	}
+}
+
 func TestReloadingPickedCellsKeepsTheOthers(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "a.ipynb")

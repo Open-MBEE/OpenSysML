@@ -79,86 +79,21 @@ func describeBlocks(blocks []Content) string {
 
 // compileMarkupBlocks parses the body of a textual representation owned by a
 // document, section or paragraph into content blocks, each run and block
-// placed at its source position within the body.
+// placed at its source position within the body, headings opening sections.
 func (c *compiler) compileMarkupBlocks(owner, rep *symbols.Symbol) ([]Content, error) {
-	decl, ok := rep.Decl.(*ast.TextualRepresentation)
-	if !ok {
-		return nil, &Error{
-			Kind:     ErrorInvalidContext,
-			Document: c.document,
-			Content:  symbols.FQNOf(owner),
-			Origin:   rep.Origin(),
-			Err:      errors.New("textual representation symbol without its declaration"),
-		}
+	parsed := c.parseMarkupBody(owner, rep)
+	if parsed.err != nil {
+		return nil, parsed.err
 	}
-	declared := source.StringValue(decl.Language)
-	language, ok := markup.For(declared)
-	if !ok {
-		return nil, &Error{
-			Kind:     ErrorUnsupportedMarkupLanguage,
-			Document: c.document,
-			Content:  symbols.FQNOf(owner),
-			Actual:   declared,
-			Expected: markup.Languages(),
-			Origin:   rep.Origin(),
-		}
-	}
-	lookup := c.model.SourceText()
-	if lookup == nil {
-		return nil, &Error{
-			Kind:     ErrorInvalidContext,
-			Document: c.document,
-			Content:  symbols.FQNOf(owner),
-			Origin:   rep.Origin(),
-			Err:      errors.New("the semantic model has no source text to read the body from"),
-		}
-	}
-	body, offsets := source.CommentBodyOffsets(lookup(rep.DocName, decl.BodySpan))
-	at := func(span markup.Span) symbols.Origin {
-		start, stop := offsets[span.Start], offsets[span.Stop]
-		return symbols.OriginAt(rep.DocName, source.Span{Offset: decl.BodySpan.Offset + start, Len: stop - start})
-	}
-	blocks, err := language.Parse(body)
-	if err != nil {
-		var tool *markup.ToolError
-		if errors.As(err, &tool) {
-			kind := ErrorMarkupToolFailed
-			if tool.Missing {
-				kind = ErrorMarkupToolMissing
-			}
-			return nil, &Error{
-				Kind:      kind,
-				Document:  c.document,
-				Content:   symbols.FQNOf(owner),
-				Parameter: language.Language(),
-				Origin:    rep.Origin(),
-				Err:       tool,
-			}
-		}
-		var unsupported *markup.UnsupportedConstructError
-		if errors.As(err, &unsupported) {
-			return nil, &Error{
-				Kind:      ErrorUnsupportedMarkupConstruct,
-				Document:  c.document,
-				Content:   symbols.FQNOf(owner),
-				Parameter: language.Language(),
-				Actual:    unsupported.Construct,
-				Line:      unsupported.Line,
-				Origin:    at(unsupported.Span),
-			}
-		}
-		return nil, &Error{
-			Kind:     ErrorInvalidContext,
-			Document: c.document,
-			Content:  symbols.FQNOf(owner),
-			Origin:   rep.Origin(),
-			Err:      err,
-		}
-	}
-	content := make([]Content, 0, len(blocks))
-	for _, block := range blocks {
+	body, at := parsed.body, func(span markup.Span) symbols.Origin { return parsed.at(rep, span) }
+	nodes := make([]markupNode, 0, len(parsed.blocks))
+	for i := range parsed.blocks {
+		block := &parsed.blocks[i]
 		node := Content{origin: at(block.Span)}
 		switch block.Kind {
+		case markup.BlockHeading:
+			nodes = append(nodes, markupNode{heading: block, content: node})
+			continue
 		case markup.BlockParagraph:
 			node.kind = ContentParagraph
 			runs, err := c.markupRuns(owner, rep, body, block.Runs, at)
@@ -197,9 +132,9 @@ func (c *compiler) compileMarkupBlocks(owner, rep *symbols.Symbol) ([]Content, e
 			node.alt = block.Alt
 			node.caption = block.Caption
 		}
-		content = append(content, node)
+		nodes = append(nodes, markupNode{content: node})
 	}
-	return content, nil
+	return c.nestMarkupSections(owner, rep, parsed, nodes)
 }
 
 // markupRuns maps parsed inline runs onto planned runs, resolving references.
@@ -250,6 +185,9 @@ func (c *compiler) markupRef(owner, rep *symbols.Symbol, body string, run markup
 	line := 1 + strings.Count(body[:run.Span.Start], "\n")
 	value, ok := parser.ParseOneExpression(rep.DocName, run.Destination)
 	if !ok {
+		if section, doc, found, _ := c.markupSectionRef(rep.OwnerScope, run.Destination, nil, origin); found {
+			return Run{kind: RunRef, text: run.Text, refName: section.name, refNameDoc: doc, bound: true, origin: origin}, nil
+		}
 		return Run{}, &Error{
 			Kind:     ErrorInvalidRefTarget,
 			Document: c.document,
@@ -262,6 +200,14 @@ func (c *compiler) markupRef(owner, rep *symbols.Symbol, body string, run markup
 	target, root, err := c.resolveTargetValue(owner, rep.OwnerScope, value, ErrorInvalidRefTarget, ErrorUnknownRefTarget, origin)
 	if err != nil {
 		var planning *Error
+		if errors.As(err, &planning) && (planning.Kind == ErrorUnknownRefTarget || planning.Kind == ErrorInvalidRefTarget) {
+			section, doc, found, sectionErr := c.markupSectionRef(rep.OwnerScope, run.Destination, value, origin)
+			if sectionErr != nil {
+				err = sectionErr
+			} else if found {
+				return Run{kind: RunRef, text: run.Text, refName: section.name, refNameDoc: doc, bound: true, origin: origin}, nil
+			}
+		}
 		if errors.As(err, &planning) {
 			planning.Line = line
 			if planning.Actual == "" {

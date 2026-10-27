@@ -26,8 +26,8 @@ relationships:
   'Provide Transportation' .. objective n3
   fueler -- addFuel
   addFuel -- vehicle: «subject»
-  'Provide Transportation' ..> addFuel: «include»
-  'Provide Transportation' ..> 'enter vehicle': «include»
+  'Provide Transportation' -> addFuel: «include»
+  'Provide Transportation' -> 'enter vehicle': «include»
   'enter vehicle' -- vehicle: «subject»
   driver -- 'enter vehicle'
   'Provide Transportation' *-- 'Drive Vehicle'

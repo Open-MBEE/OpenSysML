@@ -1,7 +1,6 @@
 package solve
 
 import (
-	"errors"
 	"strings"
 	"testing"
 )
@@ -42,7 +41,7 @@ func TestSatisfaction(t *testing.T) {
 
 // TestSatisfactionWithoutConditionsIsVacuous: a requirement stating no condition
 // is true of every assignment, so the satisfaction's query asserts nothing and
-// is satisfiable, while its denial has nothing to deny.
+// is satisfiable, while its denial denies a claim that is true, so it asserts false.
 func TestSatisfactionWithoutConditionsIsVacuous(t *testing.T) {
 	ctx, idx := fixture(t, "<test>", `
 		package test {
@@ -66,8 +65,12 @@ func TestSatisfactionWithoutConditionsIsVacuous(t *testing.T) {
 	if q.Kind != "satisfaction" || len(q.Assertions) != 0 || len(q.Vars) != 0 {
 		t.Fatalf("a vacuous satisfaction asserts something:\n%s", Script(q))
 	}
-	if _, err := Satisfaction(ctx, assertions[1]); !errors.Is(err, ErrNoConditions) {
-		t.Fatalf("translate the denial: %v, want ErrNoConditions", err)
+	d, err := Satisfaction(ctx, assertions[1])
+	if err != nil {
+		t.Fatalf("translate the denial: %v", err)
+	}
+	if len(d.Assertions) != 1 || writeTerm(d.Assertions[0].Term) != "(not true)" {
+		t.Fatalf("the denial of a vacuous satisfaction is not false:\n%s", Script(d))
 	}
 	// The claim holds vacuously, so nothing violates it: the violation query is false.
 	v, err := SatisfactionViolation(ctx, assertions[0], nil)
