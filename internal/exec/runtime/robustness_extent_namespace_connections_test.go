@@ -25,10 +25,8 @@ func TestRuntimeRobustnessExtentNamespaceConnections(t *testing.T) {
 		if ids := ctx.occurrences[lookupOne(t, idx, "test::outer")]; len(ids) != 0 {
 			t.Fatalf("occurrences[outer] = %v, want none: the refused connector records no occurrence", ids)
 		}
-		for _, inst := range ctx.instances {
-			if inst.Type != nil && inst.Type.Name == "Link" {
-				t.Fatalf("a Link remained after its end was refused")
-			}
+		if n := countInstancesOfType(ctx, "Link"); n != 0 {
+			t.Fatalf("%d Link remained after its end was refused, want none", n)
 		}
 	})
 
@@ -125,12 +123,16 @@ func TestRuntimeRobustnessExtentNamespaceConnections(t *testing.T) {
 	})
 }
 
-// countInstancesOfType counts the live objects whose type carries the given name.
+// countInstancesOfType counts the live objects classified by a type of the given name,
+// the usage they were made from or a definition it is typed by.
 func countInstancesOfType(ctx *Context, name string) int {
 	n := 0
 	for _, inst := range ctx.instances {
-		if inst.Type != nil && inst.Type.Name == name {
-			n++
+		for _, typ := range inst.types() {
+			if typ != nil && typ.Name == name {
+				n++
+				break
+			}
 		}
 	}
 	return n
