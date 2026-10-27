@@ -23,13 +23,22 @@ func treeParameter(owner, member *symbols.Symbol) bool {
 }
 
 // pinParameter draws member as a parameter pin of node, which stands for owner.
-// A note about the parameter is anchored to the node its pin sits on, as a
-// note at a pin a display leaves out is.
+// Its Layout and Notes are the ones naming it as owner's member (`about
+// A::x`), or the declaring owner's, so a note about one usage's inherited
+// parameter does not reach another's; a note is anchored to the node the pin
+// sits on, as a note at a pin a display leaves out is.
 func (r *Renderer) pinParameter(view *symbols.Symbol, node *Node, owner, member *symbols.Symbol, out *Rendering) {
-	node.Ports = append(node.Ports, Port{ID: portID(node.ID, len(node.Ports)), Name: r.parameterName(member),
-		NameSynthesized: r.model.NameSynthesized(member), Type: r.headType(member), Direction: pinDirection(member),
-		Parameter: true, Origin: symbolOrigin(member), Geometry: r.geometryOf(view, member, out), Inherited: member.Owner() != owner})
-	r.notesOf(view, member, node.ID, out)
+	name := localName(member)
+	port := Port{ID: portID(node.ID, len(node.Ports)), Name: r.parameterName(member), NameSynthesized: r.model.NameSynthesized(member),
+		Type: r.headType(member), Direction: pinDirection(member), Parameter: true, Origin: symbolOrigin(member), Inherited: member.Owner() != owner}
+	if name == "" {
+		port.Geometry = r.geometryOf(view, member, out)
+		r.notesOf(view, member, node.ID, out)
+	} else {
+		port.Geometry = r.memberGeometryOf(view, owner, name, out)
+		r.memberNotesOf(view, owner, name, node.ID, out)
+	}
+	node.Ports = append(node.Ports, port)
 }
 
 // parameterName is the name a parameter pin is drawn by: the declared one, or

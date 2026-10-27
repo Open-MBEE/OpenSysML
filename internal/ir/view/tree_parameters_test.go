@@ -114,7 +114,9 @@ func TestTreePinsActionAndConstraintParameters(t *testing.T) {
 	}
 }
 
-// A note about a parameter is anchored to the node its pin sits on.
+// A note about a parameter is anchored to the node its pin sits on; one about
+// a usage's inherited parameter (`about a::x`) reaches that usage alone, the
+// declaring definition's every usage.
 func TestTreeAnchorsParameterNotesToTheOwner(t *testing.T) {
 	rendering := renderSource(t, "Diagrams::noted", `package Model {
 	private import ScalarValues::*;
@@ -122,20 +124,30 @@ func TestTreeAnchorsParameterNotesToTheOwner(t *testing.T) {
 		in x : Integer;
 		return : Integer = x;
 	}
+	calc a : Add;
+	calc b : Add;
 }
 package Diagrams {
 	private import Views::*;
 	view noted {
 		expose Model::Add;
+		expose Model::a;
+		expose Model::b;
 		render asTreeDiagram;
 		metadata DiagramLayout::Note about Model::Add::x { text = "the addend"; x = 200; y = 40; }
+		metadata DiagramLayout::Note about Model::a::x { text = "a's addend"; x = 200; y = 80; }
 	}
 }`)
-	root := rendering.Roots[0]
-	wantEqual(t, "pins", pinTexts(root), []string{"in x", "out result"})
-	if len(rendering.Notes) != 1 || rendering.Notes[0].Text != "the addend" || rendering.Notes[0].Anchor != root.ID {
-		t.Errorf("notes = %+v, want one note \"the addend\" anchored to %s", rendering.Notes, root.ID)
+	anchors := map[string]string{}
+	for _, root := range rendering.Roots {
+		wantEqual(t, root.Name+" pins", pinTexts(root), []string{"in x", "out result"})
+		anchors[root.ID] = root.Name
 	}
+	var notes []string
+	for _, note := range rendering.Notes {
+		notes = append(notes, anchors[note.Anchor]+": "+note.Text)
+	}
+	wantEqual(t, "notes", notes, []string{"Model::Add: the addend", "Model::a: a's addend", "Model::a: the addend", "Model::b: the addend"})
 	if !strings.Contains(rendering.Text(), "the addend") {
 		t.Errorf("text form lacks the note:\n%s", rendering.Text())
 	}
