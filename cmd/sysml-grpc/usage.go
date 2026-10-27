@@ -16,6 +16,7 @@ type options struct {
 	tokenFile            string
 	token                string
 	allowUnauthenticated bool
+	allowInsecureToken   bool
 	cacheSize            int
 	logLevel             string
 	showVersion          bool
@@ -51,6 +52,10 @@ func registerFlags(fs *flag.FlagSet) *options {
 			"open the port may parse, run and edit models here, and the log shows peers but "+
 			"never who they are. Only for a trusted network behind a proxy that authenticates "+
 			"for this service; never implied")
+	fs.BoolVar(&o.allowInsecureToken, "allow-insecure-token-transport", false,
+		"Serve a bearer token on an address other machines reach without -tls-cert and "+
+			"-tls-key: the token crosses the network in clear, so anyone observing it can "+
+			"replay it. Only behind a TLS-terminating proxy on a trusted network; never implied")
 	fs.IntVar(&o.cacheSize, "cache-size", 100, "Maximum number of cached parsed files")
 	fs.StringVar(&o.logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
 	fs.BoolVar(&o.showVersion, "version", false, "Show version and exit")
@@ -108,8 +113,8 @@ func doc() usage.Doc {
 				usage.Ex("sysml-grpc -port 0 -report-address", "Let the kernel choose the port and report it"),
 				usage.Ex("sysml-grpc -transport grpc -port 50051", "Serve grpc-go only"),
 				usage.Ex("sysml-grpc -transport stdio", "Speak the protocol over a pipe (a prototype)"),
-				usage.Ex("sysml-grpc -host 0.0.0.0 -token-file grpc.token", "Serve other machines, each call carrying the token"),
-				usage.Ex("sysml-grpc -host 0.0.0.0 -token-file grpc.token -tls-cert server.crt -tls-key server.key", "The same over TLS"),
+				usage.Ex("sysml-grpc -host 0.0.0.0 -token-file grpc.token -tls-cert server.crt -tls-key server.key", "Serve other machines over TLS, each call carrying the token"),
+				usage.Ex("sysml-grpc -host 0.0.0.0 -token-file grpc.token -allow-insecure-token-transport", "The same in clear, behind a proxy that terminates TLS"),
 				usage.Ex("sysml-grpc -host 0.0.0.0 -allow-unauthenticated", "Serve other machines open, behind a proxy that authenticates"),
 			},
 			Paragraphs: []string{
@@ -122,12 +127,13 @@ func doc() usage.Doc {
 					"carries as Authorization: Bearer TOKEN on gRPC, gRPC-Web and " +
 					"Connect alike and is compared in constant time; a call without " +
 					"it is refused with the unauthenticated status and a " +
-					"WWW-Authenticate challenge. The token travels in clear unless " +
-					"-tls-cert and -tls-key are given or a TLS proxy fronts the " +
-					"service. -allow-unauthenticated serves such an address with no " +
-					"token, for a trusted network whose proxy authenticates; it is " +
-					"never implied. /health answers without a token, so probes need " +
-					"none, and -transport stdio binds nothing, so none of this " +
+					"WWW-Authenticate challenge. Such an address carries the token only " +
+					"over TLS (-tls-cert and -tls-key) unless -allow-insecure-token-transport " +
+					"accepts that it travels in clear, behind a proxy that terminates TLS; " +
+					"-allow-unauthenticated serves such an address with no token at " +
+					"all, for a trusted network whose proxy authenticates. Neither " +
+					"opt-out is ever implied. /health answers without a token, so probes " +
+					"need none, and -transport stdio binds nothing, so none of this " +
 					"applies to it.",
 				"Every call is logged at the info level with the peer address, " +
 					"method, protocol, status code, duration and whether it was " +

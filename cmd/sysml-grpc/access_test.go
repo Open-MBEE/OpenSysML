@@ -236,10 +236,15 @@ func TestGRPCRobustnessAuthGRPCTransport(t *testing.T) {
 	if _, err := stream.Recv(); status.Code(err) != codes.Unauthenticated {
 		t.Errorf("the reflection stream without a token: %v, want Unauthenticated", err)
 	}
+	authed := metadata.AppendToOutgoingContext(callContext(t), "authorization", "Bearer "+testToken)
+	if _, err := client.Evaluate(authed, &pb.EvaluateRequest{ModelHash: "no-such-model", Expression: "1"}); status.Code(err) != codes.NotFound {
+		t.Errorf("an unknown model over grpc-go: %v, want NotFound", err)
+	}
 	time.Sleep(100 * time.Millisecond)
 	logs := s.logs.String()
-	wantLog(t, logs, "level=WARN", "call refused", "peer=127.0.0.1:", "method=/sysml.SysMLService/GetServerInfo", "protocol=grpc")
+	wantLog(t, logs, "level=WARN", "call refused", "peer=127.0.0.1:", "method=/sysml.SysMLService/GetServerInfo", "protocol=grpc", "duration_ms=")
 	wantLog(t, logs, "level=INFO", `msg=call`, "code=ok", "authenticated=true", "protocol=grpc")
+	wantLog(t, logs, "level=INFO", `msg=call`, "method=/sysml.SysMLService/Evaluate", "code=not_found", "authenticated=true", "protocol=grpc")
 	if strings.Contains(logs, testToken) {
 		t.Errorf("the log carries the token:\n%s", logs)
 	}
@@ -288,7 +293,7 @@ func TestGRPCRobustnessAuthStartup(t *testing.T) {
 	})
 	t.Run("the environment variable is a token", func(t *testing.T) {
 		t.Setenv(tokenEnv, testToken)
-		s := startService(t, "-host", "0.0.0.0", "-port", "0", "-health-port", "0")
+		s := startService(t, "-host", "0.0.0.0", "-port", "0", "-health-port", "0", "-allow-insecure-token-transport")
 		client := dial(t, s.address(30*time.Second))
 		if _, err := client.GetServerInfo(callContext(t), &pb.ServerInfoRequest{}); status.Code(err) != codes.Unauthenticated {
 			t.Errorf("a call without the token: %v, want Unauthenticated", err)
@@ -297,15 +302,29 @@ func TestGRPCRobustnessAuthStartup(t *testing.T) {
 			t.Errorf("the listening line does not say a token guards it:\n%s", s.logs.String())
 		}
 	})
+	t.Run("a token in clear on an address other machines reach is refused", func(t *testing.T) {
+		s := startService(t, "-host", "0.0.0.0", "-port", "0", "-health-port", "0", "-token", testToken)
+		if s.waitStatus(30*time.Second) != 2 {
+			t.Errorf("exit status != 2:\n%s", s.logs.String())
+		}
+		for _, want := range []string{"in clear", "-tls-cert and -tls-key", "-allow-insecure-token-transport"} {
+			if !strings.Contains(s.logs.String(), want) {
+				t.Errorf("the refusal does not say %q:\n%s", want, s.logs.String())
+			}
+		}
+	})
 	t.Run("a token file is read", func(t *testing.T) {
 		file := filepath.Join(t.TempDir(), "token")
 		if err := os.WriteFile(file, []byte(testToken+"\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		s := startService(t, "-host", "0.0.0.0", "-port", "0", "-health-port", "0", "-token-file", file)
+		s := startService(t, "-host", "0.0.0.0", "-port", "0", "-health-port", "0", "-token-file", file, "-allow-insecure-token-transport")
 		ctx := metadata.AppendToOutgoingContext(callContext(t), "authorization", "Bearer "+testToken)
 		if _, err := dial(t, s.address(30*time.Second)).GetServerInfo(ctx, &pb.ServerInfoRequest{}); err != nil {
 			t.Errorf("the file's token was refused: %v", err)
+		}
+		if !strings.Contains(s.logs.String(), "travels in clear") {
+			t.Errorf("no warning that the token crosses in clear:\n%s", s.logs.String())
 		}
 	})
 	for _, test := range []struct {
@@ -319,6 +338,8 @@ func TestGRPCRobustnessAuthStartup(t *testing.T) {
 		{"stdio refuses -host", []string{"-transport", "stdio", "-host", "0.0.0.0"}, "-host is not for -transport stdio"},
 		{"stdio refuses -token", []string{"-transport", "stdio", "-token", testToken}, "-token is not for -transport stdio"},
 		{"stdio refuses the opt-out", []string{"-transport", "stdio", "-allow-unauthenticated"}, "-allow-unauthenticated is not for -transport stdio"},
+		{"the clear-transport opt-out needs a token", []string{"-allow-insecure-token-transport"}, "there is no token"},
+		{"stdio refuses the clear-transport opt-out", []string{"-transport", "stdio", "-allow-insecure-token-transport"}, "-allow-insecure-token-transport is not for -transport stdio"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			s := startService(t, test.args...)

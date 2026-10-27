@@ -187,7 +187,10 @@ without a token fails at once naming the three ways to supply one and the one wa
 `-allow-unauthenticated` serves every caller that can reach the port, which is only
 appropriate behind a proxy that authenticates on a network that is trusted, and is never
 implied by any other flag. A token on a cleartext port is visible to the network it crosses,
-so pair it with TLS or a TLS-terminating proxy; the service says so at startup. Every call is
+so such an address carries a token only over TLS (`-tls-cert`, `-tls-key`): starting it
+without the pair fails at once unless `-allow-insecure-token-transport` accepts the clear
+transport, which is right only behind a proxy that terminates TLS in front of the service and
+is, like the other opt-out, never implied; the service warns at startup when it is given. Every call is
 logged on one line at `INFO` with the peer address, method, protocol, status code, duration and
 whether it was authenticated; a refused call is logged at `WARN` with the peer. The token
 itself is never logged. The private child a client starts for itself (`-port 0

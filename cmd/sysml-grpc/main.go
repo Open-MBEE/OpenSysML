@@ -88,6 +88,9 @@ func main() {
 		case opts.allowUnauthenticated:
 			fmt.Fprintln(os.Stderr, "sysml-grpc: -allow-unauthenticated is not for -transport stdio, which binds no address")
 			os.Exit(2)
+		case opts.allowInsecureToken:
+			fmt.Fprintln(os.Stderr, "sysml-grpc: -allow-insecure-token-transport is not for -transport stdio, which binds no address")
+			os.Exit(2)
 		case opts.exitWithParent:
 			fmt.Fprintln(os.Stderr,
 				"sysml-grpc: -exit-with-parent is not for -transport stdio, whose stdin is "+
@@ -167,6 +170,14 @@ func main() {
 		// for readiness, and the client's exit closes stdin, which ends this.
 		os.Exit(runStdio(svc))
 	}
+	if opts.allowInsecureToken && !token.Set() {
+		fmt.Fprintln(os.Stderr, "sysml-grpc: -allow-insecure-token-transport is for a bearer token served without TLS; there is no token")
+		os.Exit(2)
+	}
+	if opts.allowInsecureToken && opts.tlsCert != "" {
+		fmt.Fprintln(os.Stderr, "sysml-grpc: -allow-insecure-token-transport is for a port without -tls-cert and -tls-key; this one serves TLS")
+		os.Exit(2)
+	}
 
 	// Start gRPC server
 	addr, err := guard.ListenAddress(net.JoinHostPort(opts.host, strconv.Itoa(opts.port)))
@@ -187,11 +198,16 @@ func main() {
 			fmt.Fprintf(os.Stderr, "sysml-grpc: %s is an address other machines reach: %v; -allow-unauthenticated serves it open\n", lis.Addr(), guard.NoToken(tokenEnv))
 			os.Exit(2)
 		}
+		if token.Set() && opts.tlsCert == "" && !opts.allowInsecureToken {
+			_ = lis.Close()
+			fmt.Fprintf(os.Stderr, "sysml-grpc: %s is an address other machines reach and the bearer token would cross it in clear: serve TLS with -tls-cert and -tls-key, or -allow-insecure-token-transport behind a proxy that terminates TLS\n", lis.Addr())
+			os.Exit(2)
+		}
 		switch {
 		case opts.allowUnauthenticated:
 			slog.Warn("serving an address other machines reach with no authentication; every host that opens the port may use this service", "addr", lis.Addr())
-		case opts.tlsCert == "":
-			slog.Warn("the bearer token travels in clear; serve TLS (-tls-cert, -tls-key) or front this with a TLS proxy", "addr", lis.Addr())
+		case opts.allowInsecureToken:
+			slog.Warn("the bearer token travels in clear; anyone observing this address can replay it, so only a proxy terminating TLS in front makes this safe", "addr", lis.Addr())
 		}
 	}
 

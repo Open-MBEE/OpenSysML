@@ -49,6 +49,19 @@ func TestGRPCRobustnessAuthBinary(t *testing.T) {
 		}
 	})
 
+	t.Run("a token in clear on every interface is refused at startup", func(t *testing.T) {
+		cmd := exec.Command(binary, "-host", "0.0.0.0", "-port", "0", "-health-port", "0", "-token", "conformance-token_1")
+		out, err := cmd.CombinedOutput()
+		if err == nil {
+			t.Fatalf("the service served a bearer token in clear on 0.0.0.0:\n%s", out)
+		}
+		for _, want := range []string{"in clear", "-tls-cert and -tls-key", "-allow-insecure-token-transport"} {
+			if !strings.Contains(string(out), want) {
+				t.Errorf("the refusal does not say %q:\n%s", want, out)
+			}
+		}
+	})
+
 	t.Run("a token-protected port admits only the token", func(t *testing.T) {
 		const token = "conformance-token_1"
 		ctx, cancel := context.WithCancel(context.Background())
