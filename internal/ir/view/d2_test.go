@@ -243,7 +243,7 @@ func TestD2StateDiagram(t *testing.T) {
 // An action graph takes the pseudostate glyphs: a fork and a join a bar, a
 // decision a diamond named by the node, the final a double-bordered dot; the
 // pins an edge ends at are drawn inside their action and joined by path, the
-// rest noticed.
+// rest listed in the action's `parameters` compartment.
 func TestD2ActionGlyphsAndPins(t *testing.T) {
 	d2, err := render(t, "action.sysml", "FlowViews::driveView").D2With(fullNotation)
 	if err != nil {
@@ -257,8 +257,7 @@ func TestD2ActionGlyphsAndPins(t *testing.T) {
 		"\n  bar: { shape: rectangle; width: 80; height: 8; style: { fill: black; stroke: black } }\n",
 		"\n  choice: { shape: diamond; style: { fill: white; stroke: \"#181818\"; stroke-width: 1; font-color: black; font-size: 14 } }\n",
 		"# not represented: 2 fork/join name(s) (split, sync); D2's fork bar draws no label\n",
-		"# not represented: 1 pin(s) not drawn (provide.fuel); D2 draws the pins an edge ends at\n",
-		"\n  n2: \"«action»\\nprovide : Provide\" {\n    class: usage\n    \"n2.1\": \"^torque\" { class: pin }\n  }\n",
+		"\n  n2: \"«action»\\nprovide : Provide\\nparameters\\nin ^fuel\" {\n    class: usage\n    \"n2.1\": \"^torque\" { class: pin }\n  }\n",
 		"\n    \"n3.0\": \"reading\" { class: pin }\n",
 		"\nn0.n2.\"n2.1\" -> n0.n3.\"n3.0\": \"torque to reading\" { class: edge }\n",
 	} {

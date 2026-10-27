@@ -1,5 +1,4 @@
 # FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
-# not represented: 1 pin(s) not drawn (provide.fuel); D2 draws the pins an edge ends at
 # not represented: 2 fork/join name(s) (split, sync); D2's fork bar draws no label
 classes: {
   definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
@@ -16,7 +15,7 @@ n0: "«action def»\nDrive" {
   class: definition
   link: "https://example.test/src/action.sysml#L11"
   n1: "" { class: initial; link: "https://example.test/src/action.sysml#L14" }
-  n2: "«action»\nprovide" {
+  n2: "«action»\nprovide\nparameters\nin ^fuel" {
     class: usage
     link: "https://example.test/src/action.sysml#L16"
     "n2.1": "^torque" { class: pin }

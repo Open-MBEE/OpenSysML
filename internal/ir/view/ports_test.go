@@ -341,8 +341,8 @@ func TestMixedActionPinsKeepTheirFormBehavior(t *testing.T) {
 		if strings.Contains(output, check.ID+"_p0[") || strings.Contains(output, `["request"]`) {
 			t.Errorf("%s Mermaid draws Check's unconnected action pin, unlike an action rendering:\n%s", label, output)
 		}
-		if !strings.Contains(output, "Check.request") || !strings.Contains(output, "pin(s) not drawn") {
-			t.Errorf("%s Mermaid does not report Check.request as an undrawn action pin:\n%s", label, output)
+		if !strings.Contains(output, "parameters\nin request") || strings.Contains(output, "pin(s) not drawn") {
+			t.Errorf("%s Mermaid does not list Check.request in a parameters compartment:\n%s", label, output)
 		}
 	}
 	if strings.Contains(mermaidMinimal, "unused") {

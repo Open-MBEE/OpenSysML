@@ -20,27 +20,46 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 72
 ---
 %% CalcViews::calcFlows — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
-%% not represented: 12 pin(s) not drawn (Calcs::add.x, Calcs::add.y, Calcs::add.result, Calcs::Add.x, Calcs::Add.y, Calcs::Add.r, Calcs::Totaliser::total.x, Calcs::Totaliser::total.y, Calcs::Totaliser::total.r, Calcs::Stepwise.load, Calcs::Stepwise.result, scale.scaled); a flowchart draws the pins an edge ends at
 flowchart TD
   n0("`*«calc»*
 **add**
-declares no nodes`")
+declares no nodes
+parameters
+in x
+in y
+out result`")
   n1["`*«calc def»*
 **Add**
-declares no nodes`"]
+declares no nodes
+parameters
+in x
+in y
+out r`"]
   n2("`*«calc»*
 **total**
-declares no nodes`")
-  subgraph n3 ["`*«calc def»* **Stepwise**`"]
+declares no nodes
+parameters
+in x
+in y
+out ^r`")
+  subgraph n3 ["`*«calc def»* **Stepwise**
+parameters
+in load
+out result`"]
     direction TD
     subgraph n4 ["`*«action»* **measure**`"]
       direction TD
       n4_anchor[" "]
       n4_p0["reading"]
     end
-    subgraph n5 ["`*«action»* **scale**`"]
+    subgraph n5 ["`*«action»* **scale**
+parameters
+out scaled`"]
       direction TD
       n5_anchor[" "]
       n5_p0["raw"]

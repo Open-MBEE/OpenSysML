@@ -1,6 +1,5 @@
 @startuml
 ' FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
-' not represented: 3 pin(s) not drawn (provide.fuel, provide.torque, monitor.reading); PlantUML's state grammar has no pin, so the edges name them
 <style>
 root {
   BackGroundColor white
@@ -44,8 +43,8 @@ hide stereotype
 hide empty description
 state "<size:10>//«action def»//</size>\n**Drive**" as n0 <<action def>> {
   state "**initial**" as n1 <<start>>
-  state "<size:10>//«action»//</size>\n**provide**" as n2 <<action>> <<usage>>
-  state "<size:10>//«action»//</size>\n**monitor**\nown flow" as n3 <<action>> <<usage>> {
+  state "<size:10>//«action»//</size>\n**provide**\nparameters\nin ^fuel\nout ^torque" as n2 <<action>> <<usage>>
+  state "<size:10>//«action»//</size>\n**monitor**\nown flow\nparameters\nin reading" as n3 <<action>> <<usage>> {
     state "**initial**" as n4 <<start>>
     state "<size:10>//«action»//</size>\n**record**" as n5 <<action>> <<usage>>
   }

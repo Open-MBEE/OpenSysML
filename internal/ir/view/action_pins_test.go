@@ -242,7 +242,8 @@ func TestTextActionFramePins(t *testing.T) {
 }
 
 // The Mermaid form draws a frame pin an edge ends at as a node inside the
-// frame's subgraph, as it draws the nodes' pins, and says which pins it leaves out.
+// frame's subgraph, as it draws the nodes' pins, and lists the rest in a
+// `parameters` compartment of their node.
 func TestMermaidActionFramePins(t *testing.T) {
 	rendering := renderActionPins(t, "Pins::ToastBread")
 	source := rendering.MermaidWith(fullNotation)
@@ -252,20 +253,29 @@ func TestMermaidActionFramePins(t *testing.T) {
 		}
 	}
 	loose := renderActionPins(t, "Pins::Loose").MermaidWith(fullNotation)
-	if want := "%% not represented: 3 pin(s) not drawn (heat.t, pack.t, pack.boxed); a flowchart draws the pins an edge ends at"; !strings.Contains(loose, want) {
-		t.Errorf("Mermaid lacks the notice %q:\n%s", want, loose)
+	for _, want := range []string{"**heat : Heat**\nparameters\nout ^t`", "**pack : Pack**\nparameters\nin t\nout ^boxed`"} {
+		if !strings.Contains(loose, want) {
+			t.Errorf("Mermaid does not list the unconnected pins %q:\n%s", want, loose)
+		}
+	}
+	if strings.Contains(loose, "pin(s) not drawn") {
+		t.Errorf("Mermaid notices pins it lists:\n%s", loose)
 	}
 }
 
 // PlantUML's state grammar has no pin: a binding is an undirected line between
-// the frame and the node naming the pins, and the pins left undrawn are noticed.
+// the frame and the node naming the pins, and every pin is listed in its node's
+// `parameters` compartment.
 func TestPlantUMLActionFramePins(t *testing.T) {
 	rendering := renderActionPins(t, "Pins::ToastBread")
 	source, _ := rendering.PlantUMLWith(fullNotation)
 	for _, want := range []string{"n0 -- n1 : bread = b\n", "n2 -- n0 : boxed = toast\n",
-		"' not represented: 6 pin(s) not drawn (Pins::ToastBread.bread, Pins::ToastBread.toast, heat.b, heat.t, pack.t, pack.boxed); PlantUML's state grammar has no pin, so the edges name them\n"} {
+		"**ToastBread**\\nparameters\\nin bread\\nout toast\" as n0", "**heat : Heat**\\nparameters\\nin b\\nout ^t\" as n1", "**pack : Pack**\\nparameters\\nin ^t\\nout ^boxed\" as n2"} {
 		if !strings.Contains(source, want) {
 			t.Errorf("PlantUML lacks %q:\n%s", want, source)
 		}
+	}
+	if strings.Contains(source, "pin(s) not drawn") {
+		t.Errorf("PlantUML notices pins it lists:\n%s", source)
 	}
 }

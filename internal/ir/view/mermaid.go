@@ -48,6 +48,7 @@ func (r *Rendering) MermaidWith(options Options) string {
 	labels := labelsOf(r.Roots, false, nil, r.Shown)
 	labels.skin = skinOf(options.Style)
 	ports := r.portView(options.Ports)
+	labels.listedPin = r.unconnectedPin(r.usedPorts(ports))
 	r.writeMermaidFrontmatter(&b, labels, options, ports)
 	if r.Run {
 		fmt.Fprintf(&b, "%%%% run — %s rendering", r.Kind)
@@ -115,7 +116,7 @@ func (r *Rendering) mermaidNotices(options Options) []string {
 	if r.Kind == KindAction || r.Kind == KindMixed {
 		used := r.usedPorts(r.portView(options.Ports))
 		if pins := r.undrawnPins(func(node *Node, port Port) bool {
-			return r.Kind == KindMixed && port.Direction == PortUndirected || used[node.ID][port.ID]
+			return r.Kind == KindMixed && port.Direction == PortUndirected || used[node.ID][port.ID] || port.Parameter
 		}); len(pins) > 0 {
 			notices = append(notices, fmt.Sprintf("%d pin(s) not drawn (%s); a flowchart draws the pins an edge ends at",
 				len(pins), strings.Join(pins, ", ")))
@@ -1293,6 +1294,7 @@ func mermaidLabel(node *Node, labels labeller, lines []string, title bool) strin
 		markdown = append(markdown, "**"+line+"**")
 	}
 	markdown = append(markdown, labels.details(node)...)
+	markdown = append(markdown, labels.parameterLines(node)...)
 	markdown = append(markdown, labels.compartmentLines(node)...)
 	return `"` + "`" + strings.Join(markdown, "\n") + "`" + `"`
 }

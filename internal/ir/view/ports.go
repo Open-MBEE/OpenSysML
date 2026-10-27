@@ -163,3 +163,12 @@ func (r *Rendering) undrawnPins(drawn func(node *Node, port Port) bool) []string
 	}
 	return names
 }
+
+// unconnectedPin lists, for a form that draws only the pins an edge ends at,
+// an action's parameter pins no edge reaches, in its node's compartment.
+func (r *Rendering) unconnectedPin(used map[string]map[string]bool) func(node *Node, port Port) bool {
+	if r.Kind != KindAction && r.Kind != KindMixed {
+		return nil
+	}
+	return func(node *Node, port Port) bool { return port.Parameter && !used[node.ID][port.ID] }
+}
