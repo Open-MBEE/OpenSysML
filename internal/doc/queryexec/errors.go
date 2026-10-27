@@ -134,13 +134,22 @@ func (e *Error) unknownElementMessage() string {
 	msg := fmt.Sprintf("query %s names no element %s", e.Query, e.Actual)
 	switch {
 	case len(e.Path) > 0:
-		return fmt.Sprintf("%s: the alias %s denotes no element", msg, e.Path[0])
+		return fmt.Sprintf("%s: the alias %s denotes no element", msg, suggest.Notation(e.Path[0]))
 	case e.Target != "":
-		msg += fmt.Sprintf(": %s has no member %s", e.Target, e.Expected)
+		msg += fmt.Sprintf(": %s has no member %s", suggest.Notation(e.Target), suggest.Name(e.Expected))
 	case e.Expected != "":
-		msg += fmt.Sprintf(": nothing is named %s", e.Expected)
+		msg += fmt.Sprintf(": nothing is named %s", suggest.Name(e.Expected))
 	}
-	return suggest.With(msg, e.Expected, e.Candidates)
+	return suggest.With(msg, suggest.Name(e.Expected), spelled(e.Candidates, suggest.Name))
+}
+
+// spelled writes each registered name as it is typed back, by Name or Notation.
+func spelled(names []string, as func(string) string) []string {
+	out := make([]string, 0, len(names))
+	for _, name := range names {
+		out = append(out, as(name))
+	}
+	return out
 }
 
 // column names the projected column an error arose in, when it did in one.
@@ -191,7 +200,7 @@ func (e *Error) Error() string {
 	case ErrorUnknownElement:
 		return e.unknownElementMessage()
 	case ErrorAmbiguousElement:
-		return fmt.Sprintf("query %s names %d elements %s: %s", e.Query, len(e.Candidates), e.Actual, declaredAs(e.Candidates))
+		return fmt.Sprintf("query %s names %d elements %s: %s", e.Query, len(e.Candidates), e.Actual, declaredAs(spelled(e.Candidates, suggest.Notation)))
 	case ErrorUnknownRelationship:
 		return fmt.Sprintf("query %s%s does not support relationship kind %q", e.Query, e.column(), e.Actual)
 	case ErrorUnevaluableFeature:

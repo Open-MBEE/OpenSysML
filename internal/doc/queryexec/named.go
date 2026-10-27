@@ -95,7 +95,7 @@ func (e *executor) unknownElement(expression queryplan.Expression, name string, 
 		err.Outcome.Path.Failures[0] = failure
 		return err
 	}
-	segments := strings.Split(name, "::")
+	segments := symbols.SegmentsOf(name)
 	for i := len(segments) - 1; i >= 1; i-- {
 		prefix := strings.Join(segments[:i], "::")
 		owners, dangling := e.denoted(prefix)

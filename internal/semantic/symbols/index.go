@@ -1793,6 +1793,7 @@ func (idx *Index) shortNamedScan(name string) bool {
 // LookupUniqueCandidates returns the distinct elements LookupUnique chooses among —
 // registered under name exactly, else under every FQN ending in it — none or several telling why it failed.
 func (idx *Index) LookupUniqueCandidates(name string) []*Symbol {
+	name = strings.Join(SegmentsOf(name), fqnSeparator)
 	if matches := idx.LookupQualified(name); len(matches) == 1 {
 		return matches
 	}
@@ -2013,6 +2014,34 @@ func (idx *Index) lookupDirectChildrenNamed(key directChildrenKey, name string) 
 	}
 	idx.members.mu.Unlock()
 	return byName[name]
+}
+
+// SegmentsOf splits a qualified name as the notation spells it — at the `::`
+// outside quotes — each segment read as the name it spells, `'Spare Parts'` unquoted.
+func SegmentsOf(name string) []string {
+	var out []string
+	start, inQuote := 0, false
+	for i := 0; i < len(name); i++ {
+		switch c := name[i]; {
+		case inQuote && c == '\\':
+			i++
+		case c == '\'':
+			inQuote = !inQuote
+		case !inQuote && strings.HasPrefix(name[i:], fqnSeparator):
+			out = append(out, segmentName(name[start:i]))
+			start = i + len(fqnSeparator)
+			i++
+		}
+	}
+	return append(out, segmentName(name[start:]))
+}
+
+// segmentName reads one segment: a quoted one as the unrestricted name it spells.
+func segmentName(raw string) string {
+	if len(raw) >= 2 && raw[0] == '\'' && raw[len(raw)-1] == '\'' {
+		return source.StringValue(raw)
+	}
+	return raw
 }
 
 // LastSegment is the simple name a "::"-qualified name ends in, or name itself.

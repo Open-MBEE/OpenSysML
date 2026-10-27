@@ -937,6 +937,28 @@ func TestRootNamespaceFiltersGateOnlyTheirOwnDocument(t *testing.T) {
 	}
 }
 
+// A name spelled as the notation does, a segment no basic name spells quoted
+// (`Tags::'Spare Parts'::Pad`), names the element the unquoted form registers.
+func TestLookupUniqueReadsQuotedSegments(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "quoted.sysml", `package Tags {
+	package 'Spare Parts' { part def Pad; part def 'Brake Pad'; }
+}`)
+	idx.ExpandWildcardImports()
+
+	for _, name := range []string{"Tags::'Spare Parts'::Pad", "'Spare Parts'::Pad", "Tags::Spare Parts::Pad"} {
+		if got := idx.LookupUnique(name); got == nil || FQNOf(got) != "Tags::Spare Parts::Pad" {
+			t.Errorf("LookupUnique(%s) = %v, want Tags::Spare Parts::Pad", name, got)
+		}
+	}
+	if got := idx.LookupUnique("'Brake Pad'"); got == nil || FQNOf(got) != "Tags::Spare Parts::Brake Pad" {
+		t.Errorf("LookupUnique('Brake Pad') = %v, want Tags::Spare Parts::Brake Pad", got)
+	}
+	if got := idx.LookupUniqueCandidates("Tags::'Spare Parts'"); len(got) != 1 || got[0].Name != "Spare Parts" {
+		t.Errorf("LookupUniqueCandidates(Tags::'Spare Parts') = %v, want the package", got)
+	}
+}
+
 // LookupUnique answers a fully-qualified name, or a name exactly one element's
 // fully-qualified name ends in; two elements ending in it name nothing.
 func TestLookupUniqueBySuffix(t *testing.T) {
