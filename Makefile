@@ -200,7 +200,7 @@ build-release-wasm: ## Build release bin/wasm/release/{sysml-wasm.wasm,sysml-pro
 	@echo "Building release WebAssembly assets..."
 	@mkdir -p $(WASM_DIR)/release
 	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -o $(WASM_DIR)/release/sysml-wasm.wasm ./cmd/sysml-wasm
-	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -tags sysml_prod -o $(WASM_DIR)/release/sysml-prod.wasm ./cmd/sysml
+	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -tags sysml_re -o $(WASM_DIR)/release/sysml-prod.wasm ./cmd/sysml
 	gzip -9nf $(WASM_DIR)/release/sysml-prod.wasm
 	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/release/wasm_exec.js
 	@echo "✓ Built $(WASM_DIR)/release/sysml-wasm.wasm, sysml-prod.wasm.gz and wasm_exec.js ($(VERSION))"
