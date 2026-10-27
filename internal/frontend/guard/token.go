@@ -171,7 +171,7 @@ func Read(tokenFile, token, env string) (Token, string, error) {
 	source, value := "-token", token
 	switch {
 	case tokenFile != "":
-		raw, err := os.ReadFile(tokenFile)
+		raw, err := os.ReadFile(tokenFile) // #nosec G304 -- the operator names the file with -token-file
 		if err != nil {
 			return Token{}, "", fmt.Errorf("-token-file: %w", err)
 		}

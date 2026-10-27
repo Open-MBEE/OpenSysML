@@ -23,7 +23,7 @@ type dialOptions struct {
 
 // TokenEnv is the environment variable Dial reads a bearer token from when
 // WithToken names none; the Python, Node, Java and Rust clients read the same.
-const TokenEnv = "OPENSYSML_GRPC_TOKEN"
+const TokenEnv = "OPENSYSML_GRPC_TOKEN" // #nosec G101 -- a variable name, not a credential
 
 // WithToken sends the bearer token a sysml-grpc serving an address other
 // machines reach requires, as Authorization: Bearer TOKEN on every call.
