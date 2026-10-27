@@ -6,6 +6,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import io
+import re
 import pathlib
 import sys
 import tempfile
@@ -340,6 +341,39 @@ class ReleaseNotesTest(unittest.TestCase):
             self.assertEqual(changelog.main(["release-notes", "0.4.2"]), 0)
         self.assertTrue(buf.getvalue().startswith("### Added\n\n- Older released thing.\n"))
         self.assertIn("**Verify your download.**", buf.getvalue())
+
+    def _long_release(self, entries: int, detail: int) -> None:
+        items = "".join(f"- **Entry {i} lands.** {'x' * detail}\n" for i in range(entries))
+        changelog.CHANGELOG.write_text(f"{BASE}\n## 0.5.0 — 2026-09-01\n\n### Added\n\n{items}", encoding="utf-8")
+
+    def test_a_section_over_budget_becomes_one_line_per_entry(self):
+        self._long_release(entries=2000, detail=80)
+        self.assertGreater(len(changelog.version_section("0.5.0")), changelog.SECTION_BUDGET)
+        out = changelog.release_notes("0.5.0")
+        self.assertLessEqual(len(out), 125_000)
+        self.assertIn("[`CHANGELOG.md`](https://github.com/Acme/Tool/blob/v0.5.0/CHANGELOG.md) at this tag", out)
+        self.assertIn("\n- Entry 1999 lands.\n", out)
+        self.assertNotIn("xxx", out)
+        self.assertNotIn("more entries", out)
+        self.assertTrue(out.endswith("#verifying-a-release).\n"))
+
+    def test_an_outline_over_budget_is_cut_at_an_entry(self):
+        self._long_release(entries=6000, detail=0)
+        section = changelog.within_budget(changelog.version_section("0.5.0"), "0.5.0", "https://github.com/Acme/Tool")
+        self.assertLessEqual(len(section), changelog.SECTION_BUDGET)
+        out = changelog.release_notes("0.5.0")
+        self.assertLessEqual(len(out), 125_000)
+        kept = sum(1 for line in out.splitlines() if line.startswith("- Entry"))
+        self.assertIn(f"… and {6000 - kept} more entries, in [`CHANGELOG.md`]", out)
+        self.assertRegex(out, r"- Entry \d+ lands\.\n\n… and")
+        self.assertIn("**Supported versions.**", out)
+
+    def test_the_sections_already_released_fit_a_release_body(self):
+        changelog.CHANGELOG = self.saved[0]
+        text = changelog.CHANGELOG.read_text(encoding="utf-8")
+        for version in re.findall(r"^## (\d+\.\d+\.\d+)", text, re.MULTILINE):
+            with self.subTest(version=version):
+                self.assertLessEqual(len(changelog.release_notes(version)), 125_000)
 
 
 if __name__ == "__main__":

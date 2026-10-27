@@ -289,8 +289,10 @@ python3 scripts/changelog.py release-notes 0.0.5 > notes.md
 gh release create v0.0.5 --title v0.0.5 --notes-file notes.md --verify-tag
 ```
 
-`release-notes` renders the version's `CHANGELOG.md` section and ends it with
-the support period as `SECURITY.md` states it (the text between its
+`release-notes` renders the version's `CHANGELOG.md` section — one line per
+entry with a link to the full text at the tag when the section is longer than
+GitHub's 125,000-character release body holds, as 0.11.0's is — and ends it
+with the support period as `SECURITY.md` states it (the text between its
 `support-statement` markers, so the two never disagree) and a link to
 [Verifying a release](../guide/security.md#verifying-a-release) on the site;
 the nightly workflow appends the same footer to its notes. Add the

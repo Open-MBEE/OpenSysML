@@ -173,9 +173,15 @@ approve a signature. macOS binaries are not Developer ID signed or notarized.
 `sysml-grpc` and `sysml-mcp -http` bind loopback unless the address says otherwise. Before an
 address other machines can reach:
 
+- **`sysml-grpc` has no authentication.** Nothing in the service tells one caller from
+  another: every client that can reach the address can call every RPC the capability list
+  advertises, edits and runs included. Keep it on loopback, or reach it only through something
+  that does authenticate — a reverse proxy or gateway, a VPN, a network policy — and never from
+  an address the public internet routes to.
 - **TLS.** `-tls-cert` and `-tls-key` (both or neither) serve every protocol over HTTPS on the
-  one port, TLS 1.2 or later. [Service transports](../reference/service-transports.md) is the
-  reference, including the browser-origin allow-list, which is not authentication.
+  one port, TLS 1.2 or later; it encrypts the connection and proves the server, not the client.
+  [Service transports](../reference/service-transports.md) is the reference, including the
+  browser-origin allow-list, which is not authentication either.
 - **`sysml-mcp` requires a bearer token** on a non-loopback address — `-token-file`, `-token`
   or `OPENSYSML_MCP_TOKEN` — and refuses to start without one; every request must carry it.
   See [`sysml-mcp` § Transports](../reference/sysml-mcp.md#transports).
