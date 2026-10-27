@@ -24,7 +24,7 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        TypeMismatchError, InstanceTypeError, IncommensurableUnitsError,
        QueryElement, build_query, as_dict,
        TypeFacts, Multiplicity, Specialization, AttributeFacts, SymbolFacts, SymbolInfo,
-       Bound, Standing, EngineInfo, VerificationVerdict, WitnessAssignment, Verdict,
+       Bound, Standing, EngineInfo, VerificationVerdict, WitnessAssignment, VerdictNote, Verdict,
        Validation, CalcResult, CaseEvaluation, AnalysisResult, ToolDryRun, ToolDryRunFile,
        ToolDryRunInput, ToolDryRunOutput, refresh_diagnostics, SweepRow, SweepTable,
        holds, valid, violated, undecided, selected, failures, is_collection, is_optional, facts, children,
@@ -109,7 +109,7 @@ end
 
 for capability in (
     :CAPABILITY_TYPE_FACTS, :CAPABILITY_CONVERT, :CAPABILITY_MIGRATE, :CAPABILITY_VERIFICATION,
-    :CAPABILITY_VERIFICATION_QUESTIONS, :CAPABILITY_VERIFICATION_ARGUMENTS, :CAPABILITY_QUERY, :CAPABILITY_QUERY_ORDER_BY, :CAPABILITY_OSLC_QUERY,
+    :CAPABILITY_VERIFICATION_QUESTIONS, :CAPABILITY_VERIFICATION_ARGUMENTS, :CAPABILITY_VERDICT_NOTES, :CAPABILITY_QUERY, :CAPABILITY_QUERY_ORDER_BY, :CAPABILITY_OSLC_QUERY,
     :CAPABILITY_DOCUMENT_QUERY,
     :CAPABILITY_RENDER_DOCUMENT, :CAPABILITY_RENDER_DOCUMENT_HTML,
     :CAPABILITY_RENDER_DOCUMENT_ASCIIDOC, :CAPABILITY_RENDER_VIEW,

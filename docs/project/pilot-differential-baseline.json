@@ -1,24 +1,24 @@
 {
   "validator": "build/pilot-sysml-validator/validate-sysml-batch",
   "libraries": "internal/workspace/libs/stdlib/OpenSysML Libraries",
-  "pilotRelease": "2026-08 (jupyter-sysml-kernel 0.62.0)",
+  "pilotRelease": "2026-09 (jupyter-sysml-kernel 0.63.0)",
   "provenance": {
-    "pilotTag": "2026-08",
-    "pilotCommit": "692170b71867353b8f90341e61556f49a5beb0e5",
-    "pilotArtifact": "0.62.0",
-    "errataRegistry": "sha256:e92505147b15ab8e68a09f19632639383570f0cbe0fdc6f50fb76e03b8e04579",
+    "pilotTag": "2026-09",
+    "pilotCommit": "38665073bbf02849bd309b106eba79cbb3a1ee1d",
+    "pilotArtifact": "0.63.0",
+    "errataRegistry": "sha256:d5782936c5c92f29f24a077477b148fc5d178f83f174b143d1bb95c3693ab1b9",
     "tools": [
       {
         "name": "pilot-sysml-validator",
         "source": "scripts/pilot-sysml-validator/ValidateSysML.java",
         "sourceDigest": "sha256:50ed14f8a0ca9014ae3aa7453dfe464f16e767a11c52b25d554b48e191aa09fc",
-        "release": "2026-08 (jupyter-sysml-kernel 0.62.0)"
+        "release": "2026-09 (jupyter-sysml-kernel 0.63.0)"
       },
       {
         "name": "pilot-kerml-validator",
         "source": "scripts/pilot-kerml-validator/ValidateKerML.java",
         "sourceDigest": "sha256:b89029eea7fcee7459bdc645a52af8ba8370f1bbaa64ff780ceb4bdc578d2de6",
-        "release": "2026-08 (jupyter-sysml-kernel 0.62.0)"
+        "release": "2026-09 (jupyter-sysml-kernel 0.63.0)"
       }
     ],
     "inputs": [
@@ -55,7 +55,7 @@
         "dir": "examples/spec-examples",
         "origin": "pinned",
         "files": 511,
-        "digest": "sha256:02f86f46546a1a4aa547c5cc7a3f21725fb4cefcef34b56ebc1896db986aa699"
+        "digest": "sha256:bd8b7c802c1aac350f7973e054a72b605915182eb014f008a1044cef294d1010"
       },
       {
         "name": "testdata",
@@ -90,13 +90,13 @@
   },
   "totals": {
     "files": 921,
-    "filesFullyAgreeing": 521,
+    "filesFullyAgreeing": 518,
     "agreement": 1098,
     "severityMismatch": 11,
     "openSysMLOnly": 360,
-    "pilotOnly": 2451,
+    "pilotOnly": 2462,
     "openSysMLDiagnostics": 1469,
-    "pilotDiagnostics": 3560
+    "pilotDiagnostics": 3571
   },
   "roots": [
     {
@@ -134,13 +134,13 @@
       "dir": "examples/pilot-corpora/sysml-examples",
       "totals": {
         "files": 99,
-        "filesFullyAgreeing": 91,
+        "filesFullyAgreeing": 88,
         "agreement": 0,
         "severityMismatch": 0,
         "openSysMLOnly": 257,
-        "pilotOnly": 0,
+        "pilotOnly": 10,
         "openSysMLDiagnostics": 257,
-        "pilotDiagnostics": 0
+        "pilotDiagnostics": 10
       },
       "files": [
         {
@@ -212,6 +212,84 @@
             }
           ],
           "pilotOnly": []
+        },
+        {
+          "path": "Metadata Examples/RequirementMetadataExample.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
+          "pilotOnly": [
+            {
+              "line": 19,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 20,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 21,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 22,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "path": "Metadata Examples/RiskMetadataExample.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
+          "pilotOnly": [
+            {
+              "line": 7,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 8,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 9,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "path": "Metadata Examples/VerificationMetadataExample.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
+          "pilotOnly": [
+            {
+              "line": 7,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 2
+            },
+            {
+              "line": 11,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            }
+          ]
         },
         {
           "path": "Simple Tests/PartTest.sysml",
@@ -474,13 +552,13 @@
       ],
       "errataTotals": {
         "files": 99,
-        "filesFullyAgreeing": 92,
+        "filesFullyAgreeing": 89,
         "agreement": 0,
         "severityMismatch": 0,
         "openSysMLOnly": 256,
-        "pilotOnly": 0,
+        "pilotOnly": 10,
         "openSysMLDiagnostics": 256,
-        "pilotDiagnostics": 0
+        "pilotDiagnostics": 10
       }
     },
     {
@@ -17808,9 +17886,9 @@
         "agreement": 0,
         "severityMismatch": 0,
         "openSysMLOnly": 9,
-        "pilotOnly": 64,
+        "pilotOnly": 65,
         "openSysMLDiagnostics": 9,
-        "pilotDiagnostics": 64
+        "pilotDiagnostics": 65
       },
       "files": [
         {
@@ -18155,7 +18233,7 @@
               "line": 587,
               "severity": "warning",
               "category": "unmapped",
-              "count": 17
+              "count": 18
             },
             {
               "line": 593,
@@ -18899,6 +18977,11 @@
     {
       "side": "pilot",
       "message": "Duplicate of inherited member name 'result' from ,",
+      "count": 1
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'result' from , , , , , , , , , , , , , , , , , , , , , , , , , , , , , AnalysisFramework",
       "count": 1
     },
     {
@@ -25278,8 +25361,8 @@
     }
   ],
   "errata": {
-    "registryEntries": 16,
-    "corrections": 9,
+    "registryEntries": 13,
+    "corrections": 6,
     "documentedWithoutCorrection": 7,
     "correctionsApplied": 1,
     "entries": [
@@ -25386,41 +25469,17 @@
         "citation": "SysML v2 §9.8.9.1",
         "corrected": true,
         "derivation": "the unit postfix binds to PrimaryExpression (KerMLExpressions.xtext:308), below MultiplicativeExpression, so `[K]` qualifies 900 alone and the value is Θ^-1 where ThermodynamicTemperatureValue is Θ; the evident intent, 0 °F as a temperature in kelvin, is `(229835/900) [K]`."
-      },
-      {
-        "id": "Flows-46",
-        "path": "internal/workspace/libs/stdlib/Systems Library/Flows.sysml",
-        "line": 46,
-        "citation": "SysML v2.1 Beta 2 §8.3.16.2",
-        "corrected": true,
-        "derivation": "§8.3.16.2 types `flowEnd : Usage [0..*] {redefines associationEnd}`, so every end feature of a flow definition, inherited ones included, is a Usage. Published, `Message` owns no ends and inherits `Transfer::source` and `Transfer::target`, KerML features, so the library's own base flow definition violates the clause, and with it every `flow def` that specializes `Message` without ends of its own. The repair is the one OMG issue SYSML21-681 and the pilot's ST6RI-974 apply: `Message` gets owned occurrence usage ends redefining `Transfer::source`/`target`, `messages` becomes an action usage (a flow definition is an action definition, so `Message` types it still) and owns ends redefining `Message::source`/`target` and `transfers::source`/`target`."
-      },
-      {
-        "id": "Flows-99",
-        "path": "internal/workspace/libs/stdlib/Systems Library/Flows.sysml",
-        "line": 99,
-        "citation": "SysML v2.1 Beta 2 §8.3.16.2",
-        "corrected": true,
-        "derivation": "§8.3.16.2 types `flowEnd : Usage [0..*] {redefines associationEnd}`, so every end feature of a flow definition, inherited ones included, is a Usage. Published, `Message` owns no ends and inherits `Transfer::source` and `Transfer::target`, KerML features, so the library's own base flow definition violates the clause, and with it every `flow def` that specializes `Message` without ends of its own. The repair is the one OMG issue SYSML21-681 and the pilot's ST6RI-974 apply: `Message` gets owned occurrence usage ends redefining `Transfer::source`/`target`, `messages` becomes an action usage (a flow definition is an action definition, so `Message` types it still) and owns ends redefining `Message::source`/`target` and `transfers::source`/`target`."
-      },
-      {
-        "id": "Flows-103",
-        "path": "internal/workspace/libs/stdlib/Systems Library/Flows.sysml",
-        "line": 103,
-        "citation": "SysML v2.1 Beta 2 §8.3.16.2",
-        "corrected": true,
-        "derivation": "§8.3.16.2 types `flowEnd : Usage [0..*] {redefines associationEnd}`, so every end feature of a flow definition, inherited ones included, is a Usage. Published, `Message` owns no ends and inherits `Transfer::source` and `Transfer::target`, KerML features, so the library's own base flow definition violates the clause, and with it every `flow def` that specializes `Message` without ends of its own. The repair is the one OMG issue SYSML21-681 and the pilot's ST6RI-974 apply: `Message` gets owned occurrence usage ends redefining `Transfer::source`/`target`, `messages` becomes an action usage (a flow definition is an action definition, so `Message` types it still) and owns ends redefining `Message::source`/`target` and `transfers::source`/`target`."
       }
     ],
     "totals": {
       "files": 921,
-      "filesFullyAgreeing": 522,
+      "filesFullyAgreeing": 519,
       "agreement": 1098,
       "severityMismatch": 11,
       "openSysMLOnly": 359,
-      "pilotOnly": 2451,
+      "pilotOnly": 2462,
       "openSysMLDiagnostics": 1468,
-      "pilotDiagnostics": 3560
+      "pilotDiagnostics": 3571
     },
     "findings": [
       {

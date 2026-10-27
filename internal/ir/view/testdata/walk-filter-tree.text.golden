@@ -4,7 +4,7 @@ part rover
   part chassis
     part axle
   part radio
-    port rx
+    port ^rx
   part gps
   connect
   connect

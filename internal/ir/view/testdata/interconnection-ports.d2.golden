@@ -10,11 +10,11 @@ n0: "«part def»\nToaster" {
   class: definition
   n1: "«part»\nheating" {
     class: usage
-    "n1.0": "durationIn" { class: pin }
+    "n1.0": "^durationIn" { class: pin }
   }
   n2: "«part»\ncontrol" {
     class: usage
-    "n2.0": "durationOut" { class: pin }
+    "n2.0": "^durationOut" { class: pin }
   }
   n3: "«part»\nchassis" { class: usage }
 }

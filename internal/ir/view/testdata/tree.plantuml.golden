@@ -44,8 +44,8 @@ hide circle
 hide empty members
 class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>
 class "<size:10>//«part»//</size>\n**engine**" as n1 <<part>> <<usage>>
-class "<size:10>//«attribute»//</size>\n**power**" as n2 <<attribute>> <<usage>>
-class "<size:10>//«part»//</size>\n**cylinder**" as n3 <<part>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**^power**" as n2 <<attribute>> <<usage>>
+class "<size:10>//«part»//</size>\n**^cylinder**" as n3 <<part>> <<usage>>
 class "<size:10>//«part»//</size>\n**wheels**" as n4 <<part>> <<usage>>
 class "**connect**" as n5 <<connect>> <<usage>>
 n0 -- n5

@@ -274,9 +274,14 @@ A query parameter must be bound to a feature, so a walk rooted at a *package*
 or a *definition* has nothing to bind `root` to. `Named` resolves qualified
 names — spelled as strings, like the types `WhereType` takes — to the elements
 they name, in the order given, and any element may be named, a package or
-definition included. A name that resolves to nothing, or to more than one
-element, fails the query with the name quoted rather than returning fewer rows.
-The SysML v1 migration roots every table scope this way.
+definition included. A name never returns fewer rows than names: one that
+resolves to nothing fails the query saying where the path stopped — the
+namespace that did resolve has no member of the next segment, and the nearest
+spellings are offered (`names no element Cookbook::telescop: Cookbook has no
+member telescop — did you mean telescope?`) — and one that several elements
+carry fails it listing them (`names 2 elements Config: Other::Config,
+Vehicle::Config`), a finding about the model rather than the query. The SysML
+v1 migration roots every table scope this way.
 
 ## Type filters
 

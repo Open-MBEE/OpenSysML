@@ -38,23 +38,23 @@ flowchart TD
     n6("`**connect**`")
   n2 --- n6
     n7("`*«attribute»*
-**mass**`")
+**^mass**`")
   n8["`*«variation part def»*
 **Models**`"]
     n9("`*«variant»*
 **sedan**`")
       n10("`*«attribute»*
-**mass**`")
+**^mass**`")
       n11("`*«abstract port»*
-**fuel**`")
+**^fuel**`")
       n12("`*«abstract part»*
-**engine**`")
+**^engine**`")
       n13("`*«part»*
-**chassis**`")
+**^chassis**`")
       n14("`**connect**`")
   n9 --- n14
     n15("`*«attribute»*
-**mass**`")
+**^mass**`")
   n0 ---|"◇"| n1
   n2 -->|"typing"| n0
   n2 ---|"◇"| n3

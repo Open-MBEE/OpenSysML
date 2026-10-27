@@ -49,7 +49,7 @@ func TestRenderFoldsCompartmentsOnRequest(t *testing.T) {
 		t.Errorf("positioned differs from the default:\n%s", got)
 	}
 	most := render(t, "most")
-	for _, want := range []string{"label : Label<br/>reading : Reading", "sensor : Sensor", "hub : Hub<br/>hub.bearing : Hub", `[headlabel="sensor", dir=back, arrowtail=diamond]`, "// not represented: 5 member(s) drawn as compartment rows of their owner\n"} {
+	for _, want := range []string{"label : Label<br/>reading : Reading", "sensor : Sensor", "hub : Hub<br/>^hub.bearing : Hub", `[headlabel="sensor", dir=back, arrowtail=diamond]`, "// not represented: 5 member(s) drawn as compartment rows of their owner\n"} {
 		if !strings.Contains(most, want) {
 			t.Errorf("most lacks %q:\n%s", want, most)
 		}
@@ -72,7 +72,7 @@ func TestRenderFoldsCompartmentsOnRequest(t *testing.T) {
 		}
 	}
 	ports := render(t, "ports")
-	if !strings.Contains(ports, "hub : Hub<br/>hub.bearing : Hub") || !strings.Contains(ports, "<b>sensor</b>") {
+	if !strings.Contains(ports, "hub : Hub<br/>^hub.bearing : Hub") || !strings.Contains(ports, "<b>sensor</b>") {
 		t.Errorf("ports folds the ports and keeps the parts nodes:\n%s", ports)
 	}
 	_, err := call(t, s, MethodRender, &RenderParams{

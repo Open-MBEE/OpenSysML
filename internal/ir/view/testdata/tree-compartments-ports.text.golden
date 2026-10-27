@@ -3,10 +3,10 @@ CompartmentDemoViews::hub - tree rendering (render asTreeDiagram)
 part def Hub
   ports
     port input : PortDemo::DataPort
-    port input.clock : PortDemo::ClockPort
+    port ^input.clock : PortDemo::ClockPort
     port output : PortDemo::DataPort
     port output.sync : PortDemo::ClockPort
-    port output.clock : PortDemo::ClockPort
+    port ^output.clock : PortDemo::ClockPort
   attribute channels
   part buffer
   part slot

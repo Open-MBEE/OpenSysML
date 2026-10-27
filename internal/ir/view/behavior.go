@@ -109,7 +109,7 @@ func (r *Renderer) renderState(view *symbols.Symbol, elem *symbols.Symbol, ids *
 func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering,
 	record func(*symbols.Symbol, *Node)) *Node {
 	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), NameSynthesized: r.model.NameSynthesized(machine),
-		Type: r.headType(machine), Origin: symbolOrigin(machine), Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.geometryOf(view, machine, out)}
+		Type: r.headType(machine), Origin: symbolOrigin(machine), InheritedFrom: inheritedOrigins(graph.Inherited()), Geometry: r.geometryOf(view, machine, out)}
 	r.dress(view, machine, root, out)
 	if record != nil {
 		record(machine, root)
@@ -117,8 +117,10 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 	nodes := map[ast.Node]*Node{}
 	regions := map[*ast.StateRegion]*Node{}
 	place := func(node *Node, owner, decl ast.Node, name string) *Node {
-		node.Geometry = r.nodeGeometryOf(view, machine, r.bodySymbol(machine, graph, owner), decl, name, out)
+		body := r.bodySymbol(machine, graph, owner)
+		node.Geometry = r.nodeGeometryOf(view, machine, body, decl, name, out)
 		node.NameSynthesized = node.NameSynthesized || r.declaredNameSynthesized(machine, decl)
+		node.Inherited = inheritedMember(r.declaredSymbol(machine, decl), body)
 		return r.declaredDress(view, machine, decl, node, out)
 	}
 
@@ -713,7 +715,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 	root := subject.frame
 	if root == nil {
 		root = &Node{ID: ids.take(), Kind: kind, Name: name, NameSynthesized: r.declaredNameSynthesized(subject.elem, decl), Type: subject.typ,
-			Origin: nodeOrigin(doc, decl), Inherited: inheritedOrigins(graph.Inherited())}
+			Origin: nodeOrigin(doc, decl), InheritedFrom: inheritedOrigins(graph.Inherited())}
 		root.Ports = r.inheritedPorts(subject.elem, decl, root.ID, actionPorts(root.ID, graph.Parameters, doc))
 		root.Geometry = r.declaredGeometryOf(subject.view, subject.elem, decl, out)
 		r.declaredDress(subject.view, subject.elem, decl, root, out)
@@ -741,6 +743,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: nameText(behaviorNodeName(node)),
 			NameSynthesized: languageNamed(node) || r.declaredNameSynthesized(subject.elem, node), StandIn: r.declaredStandIn(subject.elem, node),
 			Type: nodeType(node), Origin: nodeOrigin(nodeDoc, node)}
+		child.Inherited = inheritedMember(r.declaredSymbol(subject.elem, node), owner)
 		if languageNamed(node) {
 			child.Geometry = r.memberGeometryOf(subject.view, owner, behaviorNodeName(node), out)
 			r.memberDress(subject.view, owner, behaviorNodeName(node), child, out)
@@ -1016,7 +1019,7 @@ func (r *Renderer) inheritedPorts(elem *symbols.Symbol, node ast.Node, id string
 		if slices.ContainsFunc(ports, func(port Port) bool { return port.Name == name }) {
 			continue
 		}
-		ports = append(ports, Port{ID: portID(id, len(ports)), Parameter: true, Name: name,
+		ports = append(ports, Port{ID: portID(id, len(ports)), Parameter: true, Name: name, Inherited: true,
 			Direction: portDirection(lower.Feature{Direction: usage.Direction, IsResult: usage.IsResult}), Origin: member.Origin()})
 	}
 	return ports
@@ -1328,4 +1331,10 @@ func declScope(sym *symbols.Symbol) *symbols.Scope {
 		return sym.Scope
 	}
 	return sym.OwnerScope
+}
+
+// inheritedMember reports whether sym, drawn under owner, is declared by another element
+// (inherited through specialization or typing); a node lowered from no declaration is owner's own.
+func inheritedMember(sym, owner *symbols.Symbol) bool {
+	return sym != nil && owner != nil && sym.Owner() != nil && sym.Owner() != owner
 }

@@ -84,7 +84,7 @@ func TestTheMinimalDisplayDrawsTheConnectedPortsAlone(t *testing.T) {
 		"DOT":      `"` + primary.ID + `" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>primary : ControlSystem</b>>];`,
 		"PlantUML": "  rectangle \"<size:10>//«part»//</size>\\n**primary : ControlSystem**\" as " + primary.ID + " <<part>> <<usage>>\n",
 		"Mermaid":  "    " + primary.ID + "(\"`*«part»*\n**primary : ControlSystem**`\")\n",
-		"text":     "  part primary : ControlSystem\n  part backup : ControlSystem\n    port durationOut\n",
+		"text":     "  part primary : ControlSystem\n  part backup : ControlSystem\n    port ^durationOut\n",
 	} {
 		if !strings.Contains(map[string]string{"DOT": dot, "PlantUML": plantuml, "Mermaid": mermaid, "text": text}[label], want) {
 			t.Errorf("%s lacks %q", label, want)
@@ -95,10 +95,10 @@ func TestTheMinimalDisplayDrawsTheConnectedPortsAlone(t *testing.T) {
 	// the connector.
 	for label, wants := range map[string][]string{
 		"DOT": {`"` + backup.ID + `" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0">`,
-			`<td port="` + standby.ID + `" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">durationOut</font></td>`,
+			`<td port="` + standby.ID + `" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^durationOut</font></td>`,
 			`"` + backup.ID + `":"` + standby.ID + `" -> "` + heating.ID + `":"` + in.ID + `" [label="standby"`},
-		"PlantUML": {"    port \"durationOut\" as " + standby.ID + "\n", standby.ID + " -[thickness=3]- " + in.ID + " : standby\n"},
-		"Mermaid":  {"      " + standby.ID + "[\"durationOut\"]\n", "  " + standby.ID + " ===|\"standby\"| " + in.ID + "\n"},
+		"PlantUML": {"    port \"^durationOut\" as " + standby.ID + "\n", standby.ID + " -[thickness=3]- " + in.ID + " : standby\n"},
+		"Mermaid":  {"      " + standby.ID + "[\"^durationOut\"]\n", "  " + standby.ID + " ===|\"standby\"| " + in.ID + "\n"},
 	} {
 		for _, want := range wants {
 			if !strings.Contains(map[string]string{"DOT": dot, "PlantUML": plantuml, "Mermaid": mermaid}[label], want) {
@@ -395,7 +395,7 @@ func TestTheMinimalDisplayFollowsTheEdgesDOTDraws(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`xlabel="durationIn"`, `xlabel="durationOut"`, `"n2.0" -> "n1.0" [label="durationInterface"`} {
+	for _, want := range []string{`xlabel="^durationIn"`, `xlabel="^durationOut"`, `"n2.0" -> "n1.0" [label="durationInterface"`} {
 		if !strings.Contains(stripped, want) {
 			t.Errorf("the strip lacks %q:\n%s", want, stripped)
 		}

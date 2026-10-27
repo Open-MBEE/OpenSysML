@@ -43,6 +43,7 @@ public record RenderedView(
       String detail,
       String text,
       boolean standIn,
+      boolean inherited,
       String parent,
       List<Port> ports,
       Optional<Span> origin,
@@ -56,8 +57,11 @@ public record RenderedView(
     }
   }
 
-  /** One rendered feature on a node's boundary. */
-  public record Port(String id, String name, String type, String direction) {}
+  /**
+   * One rendered feature on a node's boundary; {@code inherited} when the node's owner has it
+   * from its type rather than declares it, drawn with a {@code ^} before its name.
+   */
+  public record Port(String id, String name, String type, String direction, boolean inherited) {}
 
   /** Position and size of a node; an unplaced one only folds or hides it, x and y carrying no position. */
   public record Geometry(
@@ -150,6 +154,7 @@ public record RenderedView(
                         node.getDetail(),
                         node.getText(),
                         node.getStandIn(),
+                        node.getInherited(),
                         node.getParent(),
                         node.getPortsList().stream()
                             .map(
@@ -158,7 +163,8 @@ public record RenderedView(
                                         port.getId(),
                                         port.getName(),
                                         port.getType(),
-                                        port.getDirection()))
+                                        port.getDirection(),
+                                        port.getInherited()))
                             .toList(),
                         node.hasOrigin() ? Optional.of(span(node.getOrigin())) : Optional.empty(),
                         node.hasGeometry()

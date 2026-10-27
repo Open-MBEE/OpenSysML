@@ -530,8 +530,7 @@ func extentHeldFeature(sym *symbols.Symbol) bool {
 		return false
 	}
 	switch usage.Kind {
-	case ast.UsageAction, ast.UsageState, ast.UsageConnection, ast.UsageInterface,
-		ast.UsageAllocation, ast.UsageFlow:
+	case ast.UsageAction, ast.UsageState, ast.UsageFlow:
 		return true
 	}
 	return false

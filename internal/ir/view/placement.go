@@ -276,7 +276,7 @@ func (f *folder) foldNodes(nodes []*Node) {
 func (f *folder) undrawnUnder(row *Node, drawn map[string]bool) int {
 	n := 0
 	for _, child := range row.Children {
-		if f.mode.automatic() && child.FromType {
+		if f.mode.automatic() && child.Inherited {
 			continue
 		}
 		if !drawn[child.ID] {
@@ -430,7 +430,7 @@ func (f *folder) foldMemberships(edges []Edge) (folded []Edge, moved int) {
 			if f.folded(edge.From) {
 				route = nil
 			}
-			folded = append(folded, Edge{From: f.owners[edge.To], To: edges[j].To, Kind: edge.Kind, ToLabel: shown(row) + edge.ToLabel,
+			folded = append(folded, Edge{From: f.owners[edge.To], To: edges[j].To, Kind: edge.Kind, ToLabel: usagePrefix(row.Inherited && shown(row) != "") + shown(row) + edge.ToLabel,
 				Origin: edge.Origin, Route: route, Style: edge.Style})
 		}
 	}

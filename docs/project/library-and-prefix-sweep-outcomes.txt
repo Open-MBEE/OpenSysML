@@ -213,9 +213,70 @@ read	Probe::rd1.subitems	systems	Items::Item::subitems	empty
 read	Probe::rd1.subparts	systems	Items::Item::subparts	empty
 read	Probe::rd1.subrenderings	systems	Views::Rendering::subrenderings	empty
 read	Probe::rd1.voids	systems	Items::Item::voids	empty
-object	Probe::cn1	undetermined <undetermined>
-object	Probe::if1	undetermined <undetermined>
-object	Probe::al1	undetermined <undetermined>
+object	Probe::cn1	object:Probe::cn1
+read	Probe::cn1.boundingShapes	systems	Items::Item::boundingShapes	empty
+read	Probe::cn1.checkedConstraints	systems	Items::Item::checkedConstraints	empty
+read	Probe::cn1.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
+read	Probe::cn1.e1	model	Probe::Cn1::e1	object:Probe::p2
+read	Probe::cn1.e2	model	Probe::Cn1::e2	object:Probe::p2
+read	Probe::cn1.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::cn1.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	Probe::cn1.isSolid	systems	Items::Item::isSolid	constant true
+read	Probe::cn1.ownedActions	systems	Parts::Part::ownedActions	empty
+read	Probe::cn1.ownedPorts	systems	Parts::Part::ownedPorts	empty
+read	Probe::cn1.ownedStates	systems	Parts::Part::ownedStates	empty
+read	Probe::cn1.performedActions	systems	Parts::Part::performedActions	empty
+read	Probe::cn1.self	systemsFRAME	Parts::Part::self	object:Probe::cn1
+read	Probe::cn1.shape	systems	Items::Item::shape	empty
+read	Probe::cn1.source	systems	Connections::BinaryConnection::source	object:Probe::p2
+read	Probe::cn1.start	systemsFRAME	Parts::Part::start	object:Probe::cn1
+read	Probe::cn1.subitems	systems	Items::Item::subitems	empty
+read	Probe::cn1.subparts	systems	Items::Item::subparts	empty
+read	Probe::cn1.target	systems	Connections::BinaryConnection::target	object:Probe::p2
+read	Probe::cn1.voids	systems	Items::Item::voids	empty
+object	Probe::if1	object:Probe::if1
+read	Probe::if1.boundingShapes	systems	Items::Item::boundingShapes	empty
+read	Probe::if1.checkedConstraints	systems	Items::Item::checkedConstraints	empty
+read	Probe::if1.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
+read	Probe::if1.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::if1.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	Probe::if1.isSolid	systems	Items::Item::isSolid	constant true
+read	Probe::if1.ownedActions	systems	Parts::Part::ownedActions	empty
+read	Probe::if1.ownedPorts	systems	Parts::Part::ownedPorts	empty
+read	Probe::if1.ownedStates	systems	Parts::Part::ownedStates	empty
+read	Probe::if1.p1	model	Probe::If1::p1	object:Probe::Pt
+read	Probe::if1.p2	model	Probe::If1::p2	object:Probe::Pt
+read	Probe::if1.participant	systems	Interfaces::BinaryInterface::participant	undetermined <undetermined>
+read	Probe::if1.performedActions	systems	Parts::Part::performedActions	empty
+read	Probe::if1.self	systemsFRAME	Parts::Part::self	object:Probe::if1
+read	Probe::if1.shape	systems	Items::Item::shape	empty
+read	Probe::if1.source	systems	Interfaces::BinaryInterface::source	object:Probe::Pt
+read	Probe::if1.start	systemsFRAME	Parts::Part::start	object:Probe::if1
+read	Probe::if1.subitems	systems	Items::Item::subitems	empty
+read	Probe::if1.subparts	systems	Items::Item::subparts	empty
+read	Probe::if1.target	systems	Interfaces::BinaryInterface::target	object:Probe::Pt
+read	Probe::if1.voids	systems	Items::Item::voids	empty
+object	Probe::al1	object:Probe::al1
+read	Probe::al1.a1	model	Probe::Al1::a1	object:Probe::p2
+read	Probe::al1.a2	model	Probe::Al1::a2	object:Probe::p2
+read	Probe::al1.boundingShapes	systems	Items::Item::boundingShapes	empty
+read	Probe::al1.checkedConstraints	systems	Items::Item::checkedConstraints	empty
+read	Probe::al1.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
+read	Probe::al1.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::al1.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	Probe::al1.isSolid	systems	Items::Item::isSolid	constant true
+read	Probe::al1.ownedActions	systems	Parts::Part::ownedActions	empty
+read	Probe::al1.ownedPorts	systems	Parts::Part::ownedPorts	empty
+read	Probe::al1.ownedStates	systems	Parts::Part::ownedStates	empty
+read	Probe::al1.performedActions	systems	Parts::Part::performedActions	empty
+read	Probe::al1.self	systemsFRAME	Parts::Part::self	object:Probe::al1
+read	Probe::al1.shape	systems	Items::Item::shape	empty
+read	Probe::al1.source	systems	Allocations::Allocation::source	object:Probe::p2
+read	Probe::al1.start	systemsFRAME	Parts::Part::start	object:Probe::al1
+read	Probe::al1.subitems	systems	Items::Item::subitems	empty
+read	Probe::al1.subparts	systems	Items::Item::subparts	empty
+read	Probe::al1.target	systems	Allocations::Allocation::target	object:Probe::p2
+read	Probe::al1.voids	systems	Items::Item::voids	empty
 object	Probe::fl1	undetermined <undetermined>
 object	Probe::o1	object:Probe::o1
 object	Probe::e1	enumeration literal E1::a

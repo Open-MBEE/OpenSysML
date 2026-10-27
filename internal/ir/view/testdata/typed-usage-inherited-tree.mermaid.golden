@@ -32,77 +32,77 @@ flowchart TD
     n3("`*«part»*
 **stage1**`")
       n4("`*«attribute»*
-**propellantMass**`")
+**^propellantMass**`")
       n5("`*«port»*
-**status**`")
+**^status**`")
       n6("`*«part»*
-**engines**`")
+**^engines**`")
         n7("`*«attribute»*
-**thrust**`")
+**^thrust**`")
   n6 --- n7
         n8("`*«attribute»*
-**mass**`")
+**^mass**`")
   n6 --- n8
         n9("`*«part»*
-**subcomponents**`")
+**^subcomponents**`")
           n10("`*«attribute»*
-**mass**`")
+**^mass**`")
   n9 --- n10
   n6 --- n9
       n11("`*«part»*
-**subcomponents**`")
+**^subcomponents**`")
         n12("`*«attribute»*
-**mass**`")
+**^mass**`")
   n11 --- n12
         n13("`*«part»*
-**subcomponents**`")
+**^subcomponents**`")
           n14("`*«attribute»*
-**mass**`")
+**^mass**`")
   n13 --- n14
   n11 --- n13
       n15("`*«attribute»*
-**mass**`")
+**^mass**`")
     n16("`*«part»*
 **stage2**`")
       n17("`*«attribute»*
 **propellantMass**`")
       n18("`*«port»*
-**status**`")
+**^status**`")
       n19("`*«part»*
-**engines**`")
+**^engines**`")
         n20("`*«attribute»*
-**thrust**`")
+**^thrust**`")
   n19 --- n20
         n21("`*«attribute»*
-**mass**`")
+**^mass**`")
   n19 --- n21
         n22("`*«part»*
-**subcomponents**`")
+**^subcomponents**`")
           n23("`*«attribute»*
-**mass**`")
+**^mass**`")
   n22 --- n23
   n19 --- n22
       n24("`*«part»*
-**subcomponents**`")
+**^subcomponents**`")
         n25("`*«attribute»*
-**mass**`")
+**^mass**`")
   n24 --- n25
         n26("`*«part»*
-**subcomponents**`")
+**^subcomponents**`")
           n27("`*«attribute»*
-**mass**`")
+**^mass**`")
   n26 --- n27
   n24 --- n26
       n28("`*«attribute»*
-**mass**`")
+**^mass**`")
     n29("`*«part»*
 **subcomponents**`")
       n30("`*«attribute»*
-**mass**`")
+**^mass**`")
       n31("`*«part»*
-**subcomponents**`")
+**^subcomponents**`")
         n32("`*«attribute»*
-**mass**`")
+**^mass**`")
   n31 --- n32
     n33("`**connect**`")
   n0 --- n33

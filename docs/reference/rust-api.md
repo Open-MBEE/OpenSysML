@@ -124,8 +124,10 @@ model parsed from several documents names them in `documents()`. `Symbol` adds
 ## Results
 
 Each result keeps the response it was read from behind `wire()`. A false verdict is an
-answer: `Verdict` carries `holds`, its `Standing`, `Bound`s, `WitnessAssignment`s and
-the `FailureReason` when it could not be decided. `Satisfaction` holds one per
+answer: `Verdict` carries `holds`, its `Standing`, `Bound`s, `WitnessAssignment`s, the
+`VerdictNote`s a solver's answer rests on (kind `NOTE_ASSUMED_ONE` or `NOTE_UNCOVERED`, with
+the feature as `subject` and the note's `text`; empty without the `verdict_notes` capability)
+and the `FailureReason` when it could not be decided. `Satisfaction` holds one per
 satisfaction assertion; `Validation` one per assertion about an object. `CalcResult` and
 `AnalysisResult` carry their value, named outputs, verdicts and case evaluations; an
 `ActionRun` or `StateRun` its outputs, the states visited and the final clock instant; an

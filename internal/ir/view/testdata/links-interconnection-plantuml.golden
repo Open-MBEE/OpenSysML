@@ -42,15 +42,15 @@ skinparam wrapWidth 300
 hide stereotype
 rectangle "<size:10>//«part def»//</size>\n**Loop**" as n0 <<part def>> [[https://example.test/src/interconnection.sysml#L16]] {
   rectangle "<size:10>//«part»//</size>\n**pump**" as n1 <<part>> <<usage>> [[https://example.test/src/interconnection.sysml#L17]] {
-    port "outlet" as n1.0
-    rectangle "<size:10>//«item»//</size>\n**waterOut**" as n2 <<item>> <<usage>> [[https://example.test/src/interconnection.sysml#L6]]
+    port "^outlet" as n1.0
+    rectangle "<size:10>//«item»//</size>\n**^waterOut**" as n2 <<item>> <<usage>> [[https://example.test/src/interconnection.sysml#L6]]
   }
   rectangle "<size:10>//«part»//</size>\n**tank**" as n3 <<part>> <<usage>> [[https://example.test/src/interconnection.sysml#L18]] {
-    port "inlet" as n3.0
-    rectangle "<size:10>//«item»//</size>\n**waterIn**" as n4 <<item>> <<usage>> [[https://example.test/src/interconnection.sysml#L11]]
+    port "^inlet" as n3.0
+    rectangle "<size:10>//«item»//</size>\n**^waterIn**" as n4 <<item>> <<usage>> [[https://example.test/src/interconnection.sysml#L11]]
   }
   rectangle "<size:10>//«part»//</size>\n**sensor**" as n5 <<part>> <<usage>> [[https://example.test/src/interconnection.sysml#L22]] {
-    rectangle "<size:10>//«item»//</size>\n**waterOut**" as n6 <<item>> <<usage>> [[https://example.test/src/interconnection.sysml#L6]]
+    rectangle "<size:10>//«item»//</size>\n**^waterOut**" as n6 <<item>> <<usage>> [[https://example.test/src/interconnection.sysml#L6]]
   }
 }
 n1.0 -[thickness=3]- n3.0 : [[https://example.test/src/interconnection.sysml#L19]]

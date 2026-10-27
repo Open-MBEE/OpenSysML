@@ -10,12 +10,12 @@ part def Driver
 action def Brake
 part vehicle
   attribute mass
-  part chassis
-  part driver
+  part ^chassis
+  part ^driver
 part heavyVehicle
   attribute mass
-  part chassis
-  part driver
+  part ^chassis
+  part ^driver
 action brake
 package Powertrain
   part def Engine

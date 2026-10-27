@@ -26,72 +26,72 @@ config:
 flowchart LR
   subgraph n0 ["`*«part»* **rocket**`"]
     direction LR
-    n0.0["telemetry"]
+    n0.0["^telemetry"]
     n1("`*«attribute»*
-**mass**`")
-    subgraph n2 ["`*«part»* **stage1**`"]
+**^mass**`")
+    subgraph n2 ["`*«part»* **^stage1**`"]
       direction LR
-      n2.0["status"]
+      n2.0["^status"]
       n3("`*«attribute»*
-**propellantMass**`")
-      subgraph n4 ["`*«part»* **engines**`"]
+**^propellantMass**`")
+      subgraph n4 ["`*«part»* **^engines**`"]
         direction LR
         n4_anchor[" "]
         n5("`*«attribute»*
-**thrust**`")
+**^thrust**`")
         n6("`*«attribute»*
-**mass**`")
+**^mass**`")
         n7("`*«part»*
-**subcomponents**
+**^subcomponents**
 nested deeper than 3 levels; not shown`")
       end
-      subgraph n8 ["`*«part»* **subcomponents**`"]
+      subgraph n8 ["`*«part»* **^subcomponents**`"]
         direction LR
         n8_anchor[" "]
         n9("`*«attribute»*
-**mass**`")
+**^mass**`")
         n10("`*«part»*
-**subcomponents**
+**^subcomponents**
 nested deeper than 3 levels; not shown`")
       end
       n11("`*«attribute»*
-**mass**`")
+**^mass**`")
     end
-    subgraph n12 ["`*«part»* **stage2**`"]
+    subgraph n12 ["`*«part»* **^stage2**`"]
       direction LR
       n13("`*«attribute»*
 **propellantMass**`")
-      subgraph n14 ["`*«part»* **engines**`"]
+      subgraph n14 ["`*«part»* **^engines**`"]
         direction LR
         n14_anchor[" "]
         n15("`*«attribute»*
-**thrust**`")
+**^thrust**`")
         n16("`*«attribute»*
-**mass**`")
+**^mass**`")
         n17("`*«part»*
-**subcomponents**
+**^subcomponents**
 nested deeper than 3 levels; not shown`")
       end
-      subgraph n18 ["`*«part»* **subcomponents**`"]
+      subgraph n18 ["`*«part»* **^subcomponents**`"]
         direction LR
         n18_anchor[" "]
         n19("`*«attribute»*
-**mass**`")
+**^mass**`")
         n20("`*«part»*
-**subcomponents**
+**^subcomponents**
 nested deeper than 3 levels; not shown`")
       end
       n21("`*«attribute»*
-**mass**`")
+**^mass**`")
     end
-    subgraph n22 ["`*«part»* **subcomponents**`"]
+    subgraph n22 ["`*«part»* **^subcomponents**`"]
       direction LR
       n23("`*«attribute»*
-**mass**`")
-      subgraph n24 ["`*«part»* **subcomponents**`"]
+**^mass**`")
+      subgraph n24 ["`*«part»* **^subcomponents**`"]
         direction LR
         n25("`*«attribute»*
-**mass**`")
+**^mass**`")
       end
     end
   end

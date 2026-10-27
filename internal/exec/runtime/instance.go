@@ -454,8 +454,10 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 	// The occurrence is recorded before its behaviors start, so a behavior that
 	// reaches the usage it belongs to reads this object rather than a second one.
 	mark := len(ctx.created)
-	inst, err := ctx.materialize(sym, 0, nil, "")
+	commit, rollback, drain := ctx.connectorJournal(sym)
+	inst, err := ctx.materializeMember(sym, 0, nil, "")
 	if err != nil {
+		rollback()
 		ctx.abandonInstancesSince(mark)
 		return nil, err
 	}
@@ -464,6 +466,11 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 		ctx.beganWithRun(inst)
 	}
 	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
+		rollback()
+		return nil, err
+	}
+	commit()
+	if err := drain(); err != nil {
 		return nil, err
 	}
 	return inst, nil
@@ -498,8 +505,10 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 		return nil, err
 	}
 	mark := len(ctx.created)
+	commit, rollback, drain := ctx.connectorJournal(sym)
 	members, err := ctx.materializeMembers(sym, int(made), nil, "")
 	if err != nil {
+		rollback()
 		ctx.abandonInstancesSince(mark)
 		release()
 		return nil, err
@@ -511,6 +520,7 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 	if lazy {
 		seq, err := ctx.withRequired(nil, sym, nil, "", count-made)
 		if err != nil {
+			rollback()
 			ctx.abandonInstancesSince(mark)
 			release()
 			return nil, err
@@ -519,7 +529,12 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 	}
 	ctx.occurrences[sym] = ids
 	if err := ctx.startClassifierBehaviorsOf(members, mark); err != nil {
+		rollback()
 		release()
+		return nil, err
+	}
+	commit()
+	if err := drain(); err != nil {
 		return nil, err
 	}
 	return members, nil
@@ -711,7 +726,8 @@ func objectUsageKind(kind ast.UsageKind) bool {
 	case ast.UsagePart, ast.UsageItem, ast.UsageOccurrence, ast.UsageIndividual,
 		ast.UsageCase, ast.UsageUseCase, ast.UsageSatisfy,
 		ast.UsageView, ast.UsageViewpoint, ast.UsageConcern, ast.UsageFramedConcern,
-		ast.UsageRendering, ast.UsageViewRendering:
+		ast.UsageRendering, ast.UsageViewRendering,
+		ast.UsageConnection, ast.UsageInterface, ast.UsageAllocation:
 		return true
 	}
 	return false
@@ -1466,13 +1482,25 @@ func (ctx *Context) lowerBoundCount(mult semantics.Range, held int, what string)
 func (ctx *Context) materializeMembers(sym *symbols.Symbol, count int, owner *Instance, feature string) ([]*Instance, error) {
 	members := make([]*Instance, 0, count)
 	for i := 0; i < count; i++ {
-		inst, err := ctx.materialize(sym, 0, owner, feature)
+		inst, err := ctx.materializeMember(sym, 0, owner, feature)
 		if err != nil {
 			return nil, err
 		}
 		members = append(members, inst)
 	}
 	return members, nil
+}
+
+// materializeMember makes one object of sym under identity id (0 for the next), held by owner in
+// feature, its behaviors left for the caller to start once it is recorded; a namespace-level
+// connector usage's object is made with its ends attached.
+func (ctx *Context) materializeMember(sym *symbols.Symbol, id int64, owner *Instance, feature string) (*Instance, error) {
+	if owner == nil && ctx.model.semantics.IsConnectorObjectUsage(sym) {
+		var inst *Instance
+		err := ctx.materializeConnectorStarting(nil, sym, sym, id, false, func(conn *Instance) { inst = conn })
+		return inst, err
+	}
+	return ctx.materialize(sym, id, owner, feature)
 }
 
 // HoldsOnlyContributions reports whether a feature of known multiplicity

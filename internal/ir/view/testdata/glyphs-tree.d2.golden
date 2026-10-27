@@ -11,13 +11,13 @@ classes: {
 }
 n0: "«part def»\nPlant" { class: definition }
 n1: "«part»\ntank" { class: usage }
-n2: "«attribute»\nlevel" { class: usage }
+n2: "«attribute»\n^level" { class: usage }
 n3: "«part»\npump" { class: usage }
 n4: "«timeslice»\nfilling" { class: usage }
 n5: "«snapshot»\nfull" { class: usage }
 n6: "«occurrence»\nstartup" { class: usage }
 n7: "«part»\nspare" { class: usage }
-n8: "«attribute»\nlevel" { class: usage }
+n8: "«attribute»\n^level" { class: usage }
 n9: "«view»\ntankView" { class: usage }
 n10: "«part def»\nTank" { class: definition }
 n11: "«attribute»\nlevel" { class: usage }

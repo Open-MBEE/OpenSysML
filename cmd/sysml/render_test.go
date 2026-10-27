@@ -1193,7 +1193,7 @@ func TestRenderPorts(t *testing.T) {
 	if minimal.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", minimal.status, exitHolds, minimal.output())
 	}
-	for _, want := range []string{`<font point-size="8">out1</font>`, `<font point-size="8">in1</font>`, `[label="wire", arrowhead=none, penwidth=3];`} {
+	for _, want := range []string{`<font point-size="8">^out1</font>`, `<font point-size="8">^in1</font>`, `[label="wire", arrowhead=none, penwidth=3];`} {
 		if !strings.Contains(minimal.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, minimal.stdout)
 		}
@@ -1206,7 +1206,7 @@ func TestRenderPorts(t *testing.T) {
 	if full.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", full.status, exitHolds, full.output())
 	}
-	for _, want := range []string{`port "out1 : Signal" as `, `port "in1 : <U+007E>Signal" as `, `port "spare : Signal" as `} {
+	for _, want := range []string{`port "^out1 : Signal" as `, `port "^in1 : <U+007E>Signal" as `, `port "^spare : Signal" as `} {
 		if !strings.Contains(full.stdout, want) {
 			t.Errorf("-render-ports full is missing %q:\n%s", want, full.stdout)
 		}
@@ -1234,7 +1234,7 @@ func TestRenderShow(t *testing.T) {
 	if plain.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", plain.status, exitHolds, plain.output())
 	}
-	if strings.Contains(plain.stdout, `label="wire"`) || !strings.Contains(plain.stdout, `<font point-size="8">out1</font>`) {
+	if strings.Contains(plain.stdout, `label="wire"`) || !strings.Contains(plain.stdout, `<font point-size="8">^out1</font>`) {
 		t.Errorf("the default drew an edge label or no port symbol:\n%s", plain.stdout)
 	}
 
@@ -1242,7 +1242,7 @@ func TestRenderShow(t *testing.T) {
 	if shown.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", shown.status, exitHolds, shown.output())
 	}
-	for _, want := range []string{`label="wire"`, `<font point-size="8">out1</font>`, "Sender"} {
+	for _, want := range []string{`label="wire"`, `<font point-size="8">^out1</font>`, "Sender"} {
 		if !strings.Contains(shown.stdout, want) {
 			t.Errorf("-render-show edge-labels,typings is missing %q:\n%s", want, shown.stdout)
 		}

@@ -212,7 +212,7 @@ and to PDF, converters installed:
     -o build/self-model/architecture.pdf
 ```
 
-That writes thirty-six pages with the views pre-rendered as vector diagrams.
+That writes thirty-four pages with the views pre-rendered as vector diagrams.
 
 ### The AsciiDoc note
 

@@ -380,6 +380,9 @@ pub struct RenderPort {
     pub port_type: String,
     /// Port direction.
     pub direction: String,
+    /// The node's owner has the port from its type rather than declares it; the
+    /// notation draws `^` before `name`.
+    pub inherited: bool,
 }
 
 /// Node position and size, when stated.
@@ -448,6 +451,10 @@ pub struct RenderNode {
     pub text: String,
     /// Whether this node stands in for an omitted element.
     pub stand_in: bool,
+    /// The owner the node is drawn or listed under has the usage through typing,
+    /// subclassification or subsetting rather than declares it; the notation
+    /// draws `^` before `name`.
+    pub inherited: bool,
     /// Parent node identifier.
     pub parent: String,
     /// The compartment of the parent this node is a row of ("attributes",
@@ -604,6 +611,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
                 detail: node.detail,
                 text: node.text,
                 stand_in: node.stand_in,
+                inherited: node.inherited,
                 parent: node.parent,
                 compartment: node.compartment,
                 ports: node
@@ -614,6 +622,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
                         name: port.name,
                         port_type: port.r#type,
                         direction: port.direction,
+                        inherited: port.inherited,
                     })
                     .collect(),
                 origin: node.origin.map(span),
@@ -714,6 +723,7 @@ mod render_view_tests {
                         name: "api".to_owned(),
                         r#type: "Demo::API".to_owned(),
                         direction: "inout".to_owned(),
+                        inherited: true,
                     }],
                     origin: Some(wire::Span {
                         file: "views.sysml".to_owned(),
@@ -778,6 +788,8 @@ mod render_view_tests {
         assert_eq!(rendered.view, "Demo::view");
         assert!(rendered.nodes[0].name_synthesized);
         assert_eq!(rendered.nodes[0].ports[0].direction, "inout");
+        assert!(rendered.nodes[0].ports[0].inherited);
+        assert!(!rendered.nodes[0].inherited);
         assert_eq!(rendered.nodes[0].origin.as_ref().unwrap().start_line, 4);
         assert!(rendered.nodes[0].geometry.as_ref().unwrap().collapsed);
         assert!(rendered.nodes[0].geometry.as_ref().unwrap().unplaced);

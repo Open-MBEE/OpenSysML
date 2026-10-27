@@ -28,7 +28,7 @@ flowchart TD
     n1("`*«part»*
 **chassis**`")
       n2("`*«attribute»*
-**mass**`")
+**^mass**`")
     n3("`*«part»*
 **wheels**`")
     n4("`*«part»*
@@ -49,21 +49,21 @@ flowchart TD
     n11("`*«part»*
 **chassis**`")
       n12("`*«attribute»*
-**mass**`")
+**^mass**`")
     n13("`*«part»*
 **spare**`")
     n14("`*«part»*
-**wheels**`")
+**^wheels**`")
     n15("`*«part»*
-**driver**`")
+**^driver**`")
     n16("`*«attribute»*
-**total**`")
+**^total**`")
     n17("`*«part»*
-**cabin**`")
+**^cabin**`")
     n18("`*«part»*
-**radio**`")
+**^radio**`")
     n19("`*«part»*
-**trailer**`")
+**^trailer**`")
   n20["`*«part def»*
 **Chassis**`"]
     n21("`*«attribute»*
@@ -81,22 +81,22 @@ flowchart TD
   n27("`*«part»*
 **fleetCar**`")
     n28("`*«part»*
-**chassis**`")
+**^chassis**`")
       n29("`*«attribute»*
-**mass**`")
+**^mass**`")
   n28 --- n29
     n30("`*«part»*
-**wheels**`")
+**^wheels**`")
     n31("`*«part»*
-**driver**`")
+**^driver**`")
     n32("`*«attribute»*
-**total**`")
+**^total**`")
     n33("`*«part»*
-**cabin**`")
+**^cabin**`")
     n34("`*«part»*
-**radio**`")
+**^radio**`")
     n35("`*«part»*
-**trailer**`")
+**^trailer**`")
   n0 ---|"◆"| n1
   n0 ---|"◆"| n3
   n0 ---|"◇"| n4
