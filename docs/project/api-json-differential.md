@@ -254,16 +254,16 @@ The largest **present-different** rows, with the reading the examples support:
 
 | metaclass | property | present-equal | present-different |
 |---|---|---:|---:|
-| `Feature` | `ownedRelationship` | 4159 | 1401 |
-| `AttributeUsage` | `ownedRelationship` | 1248 | 1197 |
-| `PartUsage` | `ownedRelationship` | 874 | 1004 |
-| `PartUsage` | `ownedMember` | 368 | 702 |
-| `PartUsage` | `ownedMembership` | 722 | 634 |
-| `AttributeUsage` | `ownedMembership` | 1184 | 624 |
-| `FeatureMembership` | `memberElement` | 9381 | 570 |
-| `FeatureMembership` | `ownedMemberElement` | 9381 | 570 |
-| `FeatureMembership` | `ownedRelatedElement` | 9381 | 570 |
-| `Feature` | `ownedMembership` | 4271 | 569 |
+| `Feature` | `ownedRelationship` | 4163 | 1430 |
+| `AttributeUsage` | `ownedRelationship` | 1246 | 1245 |
+| `PartUsage` | `ownedRelationship` | 835 | 1067 |
+| `PartUsage` | `ownedMember` | 337 | 736 |
+| `PartUsage` | `ownedMembership` | 677 | 682 |
+| `AttributeUsage` | `ownedMembership` | 1183 | 668 |
+| `FeatureMembership` | `memberElement` | 9488 | 570 |
+| `FeatureMembership` | `ownedMemberElement` | 9488 | 570 |
+| `FeatureMembership` | `ownedRelatedElement` | 9488 | 570 |
+| `Feature` | `ownedMembership` | 4305 | 569 |
 
 ### Where the pilot states nothing and we do
 
