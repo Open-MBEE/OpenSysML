@@ -17,7 +17,7 @@ runs:
   using: composite
   steps:
     - name: Cache the OMG training corpus
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: examples/sysml-v2-training
         key: training-corpus-${{ hashFiles('scripts/download-training-examples.sh', 'scripts/pilot-pin.sh') }}
@@ -39,7 +39,7 @@ runs:
     # Same keying as the training corpus: the download script plus the shared
     # pilot pin.
     - name: Cache the OMG pilot corpora
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: examples/pilot-corpora
         key: pilot-corpora-${{ hashFiles('scripts/download-pilot-corpora.sh', 'scripts/pilot-pin.sh') }}
@@ -64,7 +64,7 @@ runs:
     # the PDFs are cached, the extraction reruns from them (it is the tree's
     # own tool), and the result is verified rather than trusted.
     - name: Cache the OMG specification documents
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: build/spec-docs/pdf
         key: spec-docs-${{ hashFiles('scripts/download-spec-examples.sh', 'scripts/pilot-pin.sh') }}
@@ -89,7 +89,7 @@ runs:
 
     # The PSSM suite is one pinned file; keyed on its download script and pin.
     - name: Cache the OMG PSSM test suite
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: build/pssm
         key: pssm-suite-${{ hashFiles('scripts/download-pssm-suite.sh', 'scripts/pssm-pin.sh') }}
@@ -101,7 +101,7 @@ runs:
     # The SysML v1 to v2 transformation model is one pinned file; keyed on its
     # download script and pin.
     - name: Cache the SysML v1 to v2 transformation model
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: build/sysml-v1tov2
         key: sysml-v1tov2-${{ hashFiles('scripts/download-sysml-v1tov2.sh', 'scripts/sysml-v1tov2-pin.sh') }}
@@ -114,7 +114,7 @@ runs:
     # on its download script and pin. Never run in CI: the Go tests read the
     # committed expected-record (docs/project/fuml-referee.md).
     - name: Cache the fUML reference-implementation suite
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: build/fuml
         key: fuml-suite-${{ hashFiles('scripts/download-fuml-suite.sh', 'scripts/fuml-pin.sh') }}
@@ -126,7 +126,7 @@ runs:
     # The pilot's XMI of the standard library, one subtree of the release
     # repository; keyed on its download script and the shared pilot pin.
     - name: Cache the pilot library XMI
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: build/pilot-library-xmi
         key: pilot-library-xmi-${{ hashFiles('scripts/download-pilot-library-xmi.sh', 'scripts/pilot-pin.sh') }}
@@ -147,7 +147,7 @@ runs:
     # and its pin. A restored cache is verified by the script's own check.
     - name: Cache the Reference-FMUs
       if: inputs.reference-fmus == 'true'
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: examples/reference-fmus
         key: reference-fmus-${{ hashFiles('scripts/download-reference-fmus.sh', 'scripts/reference-fmus-pin.sh') }}

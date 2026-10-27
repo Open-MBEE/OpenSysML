@@ -803,7 +803,7 @@ func (ctx *Context) fillsFromSubsetted(feat *EffectiveFeature) bool {
 // materializeSubsettedCollections reads the collections an optional feature subsets before the
 // feature itself, so what they make up for their lower bounds is held by it whichever is read first.
 func (ctx *Context) materializeSubsettedCollections(inst *Instance, fv *FeatureValue) error {
-	if !ctx.fillsFromSubsetted(fv.Feature) {
+	if !ctx.fillsFromSubsetted(fv.Feature) && !ctx.connectorFillsFromSubsetted(fv.Feature) {
 		return nil
 	}
 	key := featureValueRef{instance: inst.ID, feature: fv.Feature.Name}

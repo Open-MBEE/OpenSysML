@@ -36,9 +36,9 @@ type Instance struct {
 	// the declaration each was of, until the one materialized again here takes it back.
 	keptAnonymous []keptAnonymous
 
-	// keptConnectors holds, per feature value of a named connector, the identity the object
-	// of it had before a carry-over, which the one materialized again takes back.
-	keptConnectors map[*FeatureValue]int64
+	// keptConnectors holds, per feature value of a named connector, the identities the objects
+	// of it had before a carry-over, in order, which the ones materialized again take back.
+	keptConnectors map[*FeatureValue][]int64
 
 	// behaviors are the executions of the behaviors the object's type exhibits or
 	// performs, in declaration order, each bound to this object's identity.
@@ -69,13 +69,13 @@ func (inst *Instance) Owner() (*Instance, string) {
 	return inst.owner, inst.ownerFeature
 }
 
-// keepConnector remembers the identity the object of a named connector feature value had,
-// so the one materialized again against the new declarations keeps it.
+// keepConnector remembers the identity an object of a named connector feature value had, after
+// those of the objects before it, so the one materialized again against the new declarations keeps it.
 func (inst *Instance) keepConnector(fv *FeatureValue, id int64) {
 	if inst.keptConnectors == nil {
-		inst.keptConnectors = make(map[*FeatureValue]int64)
+		inst.keptConnectors = make(map[*FeatureValue][]int64)
 	}
-	inst.keptConnectors[fv] = id
+	inst.keptConnectors[fv] = append(inst.keptConnectors[fv], id)
 }
 
 // Feature value holds the runtime value(s) for one feature.

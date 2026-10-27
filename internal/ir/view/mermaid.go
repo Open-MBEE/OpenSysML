@@ -46,6 +46,7 @@ func (r *Rendering) MermaidWith(options Options) string {
 	direction := options.Direction
 	var b strings.Builder
 	labels := labelsOf(r.Roots, false, nil, r.Shown)
+	labels.pinLines = r.Kind == KindTree
 	labels.skin = skinOf(options.Style)
 	ports := r.portView(options.Ports)
 	r.writeMermaidFrontmatter(&b, labels, options, ports)
@@ -1288,6 +1289,7 @@ func mermaidLabel(node *Node, labels labeller, lines []string, title bool) strin
 		markdown = append(markdown, "**"+line+"**")
 	}
 	markdown = append(markdown, labels.details(node)...)
+	markdown = append(markdown, labels.parameterLines(node)...)
 	markdown = append(markdown, labels.compartmentLines(node)...)
 	return `"` + "`" + strings.Join(markdown, "\n") + "`" + `"`
 }

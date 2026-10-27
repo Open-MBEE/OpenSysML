@@ -171,7 +171,7 @@ func modelMembers(dir string) (map[string][]byte, error) {
 		if !d.Type().IsRegular() || (rel != ProjectFile && (hidden || !IsModelFile(rel))) {
 			return nil
 		}
-		content, err := os.ReadFile(path) // #nosec G304 -- a model file under the directory being archived.
+		content, err := os.ReadFile(path) // #nosec G304 G122 -- a model file under the directory being archived.
 		if err != nil {
 			return err
 		}

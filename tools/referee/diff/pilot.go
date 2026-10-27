@@ -85,8 +85,8 @@ func runPilot(validator string, args []string, byPath map[string]string, out map
 		defer cancel()
 	}
 
-	cmd := exec.CommandContext(ctx, validator, args...)
-	cmd.Stdout = nil // "Reading <library file>..." progress noise
+	cmd := exec.CommandContext(ctx, validator, args...) // #nosec G204 -- the pinned pilot validator
+	cmd.Stdout = nil                                    // "Reading <library file>..." progress noise
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return err

@@ -216,7 +216,7 @@ func (s *service) terminate() {
 // contend for a fixed one.
 func dial(t *testing.T, addr string) pb.SysMLServiceClient {
 	t.Helper()
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("dialling %s: %v", addr, err)
 	}
@@ -536,7 +536,7 @@ func TestMissingModelIsATypedError(t *testing.T) {
 func TestShutdownWithAnOpenConnection(t *testing.T) {
 	s := startService(t, "-port", "0", "-health-port", "0")
 	addr := s.address(30 * time.Second)
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("dialling %s: %v", addr, err)
 	}
