@@ -144,8 +144,8 @@ pilot kernel's `%viz`, so a notebook written for the pilot runs unchanged:
 
 `VIEW` is `DEFAULT`, `TREE`, `INTERCONNECTION`, `STATE`, `ACTION`, `SEQUENCE`, `MIXED` or `CASE`,
 in any letter case. `DEFAULT` — the view when `--view` is absent — chooses the rendering from what
-the names resolve to: a state def or usage draws a state diagram, an action def or usage an action
-diagram, a case def or usage a case diagram, a part or other structural usage holding a
+the names resolve to: a state def or usage draws a state diagram, an action or calc def or usage an action
+diagram (a calculation's parameters are its pins, an unnamed `return` the `result` pin), a case def or usage a case diagram, a part or other structural usage holding a
 connection, binding or flow an interconnection diagram, and a definition, a package or a usage
 with nothing to connect a tree; names calling for different diagrams draw a mixed one. Several
 names draw in one diagram. Names resolve as `%render`'s do: qualified, or simple and in scope.

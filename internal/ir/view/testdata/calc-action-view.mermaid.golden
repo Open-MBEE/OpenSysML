@@ -22,9 +22,22 @@ config:
     edgeLabelBackground: "#FFFFFF"
 ---
 %% CalcViews::calcFlows — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
-%% not represented: calc Calcs::add is no action; an action rendering does not show it
-%% not represented: calc def Calcs::Add is no action; an action rendering does not show it
-%% not represented: calc Calcs::Totaliser::total is no action; an action rendering does not show it
-%% not represented: calc def Calcs::Stepwise is no action; an action rendering does not show it
 flowchart TD
-  empty["the rendering is empty: nothing the view exposes is shown by an action rendering"]
+  n0("`*«calc»*
+**add**
+declares no nodes`")
+  n1["`*«calc def»*
+**Add**
+declares no nodes`"]
+  n2("`*«calc»*
+**total**
+declares no nodes`")
+  subgraph n3 ["`*«calc def»* **Stepwise**`"]
+    direction TD
+    n4("`*«action»*
+**measure**`")
+    n5("`*«action»*
+**scale**`")
+  end
+  n4 -.-> n5
+  n4 --> n5

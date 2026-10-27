@@ -106,7 +106,7 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 		}
 		return
 	}
-	if sym.Kind == symbols.SymbolActionDef || sym.Kind == symbols.SymbolActionUsage {
+	if behaviorKind(sym.Kind) {
 		if node, ok := w.r.renderAction(w.view, sym, w.ids, w.out, w.remember); ok {
 			w.remember(sym, node)
 			w.behaviors[node] = true
@@ -129,7 +129,7 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 
 // traversedMembers lists the members mixedWalk.render visits under sym.
 func (w *mixedWalk) traversedMembers(sym *symbols.Symbol) []*symbols.Symbol {
-	if sym == nil || stateLike(sym) || sym.Kind == symbols.SymbolActionDef || sym.Kind == symbols.SymbolActionUsage {
+	if sym == nil || stateLike(sym) || behaviorKind(sym.Kind) {
 		return nil
 	}
 	members := w.r.containedMembers(sym)
