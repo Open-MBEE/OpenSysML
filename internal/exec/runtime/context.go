@@ -750,7 +750,7 @@ func (ctx *Context) holdsIdentityFrom(id int64) bool {
 			return true
 		}
 		for _, kept := range inst.keptConnectors {
-			if kept >= id {
+			if len(kept) > 0 && slices.Max(kept) >= id {
 				return true
 			}
 		}

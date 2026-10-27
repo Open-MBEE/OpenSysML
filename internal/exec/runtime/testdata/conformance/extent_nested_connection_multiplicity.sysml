@@ -24,11 +24,13 @@ package test {
         connection some : Tie[1..3] connect x to y;
         interface wires : Ifc[2] connect px to py;
         allocation allocs : Aloc[2] allocate x to y;
+        connection subs : Link[0..*] connect x to y;
+        connection sub1 : Link :> subs connect x to y;
     }
 
     calc extents {
         return : Boolean[*] nonunique = (
-            size(all Link) == 3,
+            size(all Link) == 4,
             size(all Tie) == 1,
             size(all Ifc) == 2,
             size(all Aloc) == 2,
@@ -43,7 +45,9 @@ package test {
             size(sys.some) == 1,
             sys.some#(1).b === sys.y,
             sys.wires#(2).x === sys.px,
-            sys.allocs#(1).y === sys.y
+            sys.allocs#(1).y === sys.y,
+            size(sys.subs) == 1,
+            sys.subs#(1) === sys.sub1
         );
     }
 }

@@ -965,9 +965,9 @@ func testUnattachableConnectorEndsRunNothingEarly(t *testing.T) {
 	}
 }
 
-// testMultiplicityOnAConnector: a connector usage holding more than one
-// connector is not one connection, so there is no set of ends to attach — that
-// is reported rather than filled with objects of the connector's type.
+// testMultiplicityOnAConnector: a connector usage holding several connectors attaches the ends
+// of each, so one whose end names a missing feature is refused whole — the typed, located error
+// is reported and no connector of the collection is left behind.
 func testMultiplicityOnAConnector(t *testing.T) {
 	inst, ctx := instantiatePart(t, "Sys", `
 		package test {
@@ -977,10 +977,11 @@ func testMultiplicityOnAConnector(t *testing.T) {
 			part def Sys {
 				part a : A;
 				part b : B;
-				connection links[2] connect a.p to b.q;
+				connection links[2] connect a.p to b.nope;
 			}
 		}
 	`)
+	before := len(ctx.instances)
 	_, err := inst.GetFeatureValue(ctx, "links")
 	if !errors.Is(err, errConnectorEnd) {
 		t.Fatalf("expected errConnectorEnd, got: %v", err)
@@ -992,6 +993,83 @@ func testMultiplicityOnAConnector(t *testing.T) {
 	if !strings.Contains(endErr.Location, "<test>") {
 		t.Errorf("error is located at %q, want the file the connector was written in", endErr.Location)
 	}
+	if fv := inst.FeatureValues["links"]; fv != nil && fv.Materialized {
+		t.Errorf("links is held as %+v after the refusal, want it unmaterialized", fv.Values)
+	}
+	if after := len(ctx.instances); after != before {
+		t.Errorf("%d objects remain after the refusal, want the %d before it", after, before)
+	}
+}
+
+// TestConnector_NestedMultiplicityHoldsThatMany: a connector usage nested in a part with a stated
+// multiplicity holds as many connectors as its lower bound, each with its ends attached to the
+// features the `connect` clause names, and `[0..*]` none — as the same usage at package level does.
+func TestConnector_NestedMultiplicityHoldsThatMany(t *testing.T) {
+	inst, ctx := instantiatePart(t, "Sys", `
+		package test {
+			port def P;
+			part def A { port p : P; }
+			part def B { port q : P; }
+			part def Sys {
+				part a : A;
+				part b : B;
+				connection links[2] connect a.p to b.q;
+				connection none[0..*] connect a.p to b.q;
+				connection some[1..3] connect a.p to b.q;
+			}
+		}
+	`)
+	ap := portOf(t, ctx, inst, "a", "p")
+	bq := portOf(t, ctx, inst, "b", "q")
+	links, err := inst.GetFeatureValue(ctx, "links")
+	if err != nil {
+		t.Fatalf("links: %v", err)
+	}
+	conns := links.Values.Sequence().Elements()
+	if len(conns) != 2 || conns[0] == conns[1] {
+		t.Fatalf("links = %v, want two distinct connectors", links.Values)
+	}
+	for i, c := range conns {
+		conn, ok := ctx.Instance(c.Instance)
+		if !ok || len(conn.Ends) != 2 {
+			t.Fatalf("links#(%d) = %v, want a connector with two ends", i+1, c)
+		}
+		if conn.Ends[0].Value != ap || conn.Ends[1].Value != bq {
+			t.Errorf("links#(%d) ends = %v, %v; want a.p %v and b.q %v", i+1, conn.Ends[0].Value, conn.Ends[1].Value, ap, bq)
+		}
+	}
+	none, err := inst.GetFeatureValue(ctx, "none")
+	if err != nil {
+		t.Fatalf("none: %v", err)
+	}
+	if got := none.Values.Sequence().Elements(); len(got) != 0 {
+		t.Errorf("none = %v, want no connector for [0..*]", got)
+	}
+	some, err := inst.GetFeatureValue(ctx, "some")
+	if err != nil {
+		t.Fatalf("some: %v", err)
+	}
+	if got := some.Values.Sequence().Elements(); len(got) != 1 {
+		t.Errorf("some = %v, want the one connector of the lower bound of [1..3]", got)
+	}
+}
+
+// portOf is the value of port `port` of the part `part` holds.
+func portOf(t *testing.T, ctx *Context, inst *Instance, part, port string) Value {
+	t.Helper()
+	pv, err := inst.GetFeatureValue(ctx, part)
+	if err != nil {
+		t.Fatalf("%s: %v", part, err)
+	}
+	owner, ok := ctx.Instance(pv.Value.Instance)
+	if !ok {
+		t.Fatalf("%s = %v, want an object", part, pv.Value)
+	}
+	fv, err := owner.GetFeatureValue(ctx, port)
+	if err != nil {
+		t.Fatalf("%s.%s: %v", part, port, err)
+	}
+	return fv.Value
 }
 
 // testConnectorAttachedToItself: an end naming the connector it belongs to would
