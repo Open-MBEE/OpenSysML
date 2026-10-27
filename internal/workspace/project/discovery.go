@@ -88,9 +88,10 @@ type Projects struct {
 	// the enclosing projects among them included.
 	installed map[string]bool
 
-	// Unlinked describes the usages that name no installed project and that
-	// several unclaimed ones could answer, one per usage; see used.
-	Unlinked []Warning
+	// Linking describes the usages that name no installed project by publisher
+	// and name: one linked by elimination, one several unclaimed projects could
+	// answer; one warning per usage, see used.
+	Linking []Warning
 }
 
 // Warning is what a load fell short of about the project or archive at Path.
@@ -165,7 +166,31 @@ func (d Discovery) Around(paths []string) Projects {
 		out.Used = installed
 		return out
 	}
-	out.Used, out.Unlinked = used(out.Enclosing, installed)
+	// An enclosing project installed under another's library roots was reached
+	// through a usage: it is linked again as installed, so what the link took
+	// is said after the load as before it, and stays loaded either way.
+	var consumers, reached []*Interchange
+	for _, p := range out.Enclosing {
+		if out.installed[absKey(p.Dir)] {
+			reached = append(reached, p)
+		} else {
+			consumers = append(consumers, p)
+		}
+	}
+	if len(consumers) == 0 {
+		out.Used, out.Linking = used(out.Enclosing, installed)
+		return out
+	}
+	out.Used, out.Linking = used(consumers, installed)
+	linked := make(map[string]bool, len(out.Used))
+	for _, p := range out.Used {
+		linked[absKey(p.Dir)] = true
+	}
+	for _, p := range reached {
+		if !linked[absKey(p.Dir)] {
+			out.Used = append(out.Used, p)
+		}
+	}
 	return out
 }
 
@@ -283,7 +308,7 @@ func walkInstalled(dir string, visited map[string]bool, budget *int, found func(
 
 // used selects the installed projects the enclosing ones use, directly or in turn, each once:
 // by name (Uses) first, else by elimination among the unclaimed (pickUnclaimed), or as learnt.
-func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []Warning) {
+func used(enclosing, installed []*Interchange) (out []*Interchange, linking []Warning) {
 	selected := map[string]bool{}
 	claimed := map[string]bool{}
 	learnt := map[string]string{}
@@ -334,6 +359,7 @@ func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []W
 			switch {
 			case pick != nil:
 				learnt[p.u.key()] = pick.identity()
+				linking = append(linking, eliminationUsage(p.from, p.u, pick))
 				link(pick)
 			case len(candidates) > 1:
 				rest = append(rest, p)
@@ -342,13 +368,13 @@ func used(enclosing, installed []*Interchange) (out []*Interchange, unlinked []W
 		if len(queue) == 0 {
 			for _, p := range rest {
 				_, candidates := pickUnclaimed(installed, claimed, p.u)
-				unlinked = append(unlinked, ambiguousUsage(p.from, p.u, candidates))
+				linking = append(linking, ambiguousUsage(p.from, p.u, candidates))
 			}
 			break
 		}
 		unmatched = rest
 	}
-	return out, unlinked
+	return out, linking
 }
 
 // pickVersion is the highest installed version of the project identity names that
@@ -391,6 +417,16 @@ func pickUnclaimed(installed []*Interchange, claimed map[string]bool, u Usage) (
 		return nil, candidates
 	}
 	return pick, candidates
+}
+
+// eliminationUsage describes a usage of from linked to pick by elimination,
+// naming the project the load took and how the resource would name it.
+func eliminationUsage(from *Interchange, u Usage, pick *Interchange) Warning {
+	return Warning{
+		Path: filepath.Join(from.Dir, ProjectFile),
+		Message: fmt.Sprintf("usage %s names no installed project by publisher and name; linked by elimination to %s %s (%s), the one unclaimed installed project that satisfies it; end the resource with the project's publisher and name (…/%s) to name it",
+			u.Resource, pick.identity(), pick.Version, pick.Dir, pick.identity()),
+	}
 }
 
 // ambiguousUsage describes a usage of from that several unclaimed installed
