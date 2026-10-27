@@ -46,9 +46,7 @@ func (ctx *Context) collectionOf(feat *EffectiveFeature, elements []Value) Value
 }
 
 // declaredCollection is a value read through a declaration, in the shape that declaration
-// holds it (heldShape): one value held by an at-most-one multiplicity is held bare, one held
-// by a multi-valued feature is a one-element collection, a set flowing into a sequence is its
-// canonical sequence, a sequence flowing into a set its distinct elements.
+// holds it (heldShape), so a `[0..*]` feature valued `4` reads `[4]` at namespace level too.
 func (ctx *Context) declaredCollection(sym *symbols.Symbol, val Value) (Value, error) {
 	mult := ctx.featureMultiplicity(sym, nil)
 	feat := &EffectiveFeature{Symbol: sym, Multiplicity: mult, HoldsSet: ctx.holdsSet(sym, ctx.findOwnerType(sym), mult)}

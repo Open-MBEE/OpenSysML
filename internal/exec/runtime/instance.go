@@ -844,10 +844,8 @@ func (feat *EffectiveFeature) heldBy() *symbols.Symbol {
 	return feat.Type
 }
 
-// heldShape is val in the shape feat holds it: a feature's values are a sequence its
-// multiplicity constrains (KerML 1.0 §7.3.4.1, §7.4.12), so a multi-valued feature holds a
-// collection however the value was written, a single value being that collection's one
-// element, and an at-most-one feature holds a one-element collection's element bare.
+// heldShape is val in the shape feat holds it (KerML 1.0 §7.3.4.1, §7.4.12): a multi-valued
+// feature holds a charged collection, one value its one element; an at-most-one feature holds it bare.
 func (ctx *Context) heldShape(feat *EffectiveFeature, val Value) (Value, error) {
 	if val.Kind == ValUndetermined {
 		// A value the model leaves open is held as it is: it is of no fixed count to collect.

@@ -5,10 +5,8 @@ import (
 	"testing"
 )
 
-// A feature's values are a sequence its multiplicity constrains, so a
-// namespace-level read holds one value in the feature's effective multiplicity
-// exactly as the same feature read on an object does: a `[0..*]` feature valued
-// `4` is `[4]` on both, an at-most-one feature holds its one value bare.
+// A namespace-level read holds its value in the feature's effective multiplicity as the
+// same feature read on an object does: `[0..*]` valued `4` is `[4]` on both, at-most-one bare.
 func TestEvalNamespaceReadHoldsEffectiveMultiplicity(t *testing.T) {
 	s := NewSession()
 	res := s.Submit(`package P {
