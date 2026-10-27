@@ -15,14 +15,14 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_PACKAGES_READ_TOKEN }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Build the service binary
         run: make build-grpc
 
       # SysON 2026.9.2 runs on 21; the module compiles at release 17.
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         with:
           distribution: temurin
           java-version: '21'
@@ -35,7 +35,7 @@ jobs:
         run: mvn -B -s editors/syson/settings.xml -f editors/syson/pom.xml -Psyson-artifacts -P '!stubs' install -Dopensysml.requireService=true
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '24'
           cache: npm
