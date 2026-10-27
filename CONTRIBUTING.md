@@ -303,6 +303,11 @@ tier; `CI_TIER=quick` keeps the clients and docs to their own paths). A path no 
 turns every area on, so a new directory is over-tested rather than untested — teach the script
 about it, and add a case to `scripts/ci-changed-areas-test.sh`, which the same job runs.
 
+Every third-party action a workflow or composite action `uses:` is pinned to a full commit SHA
+with the release it resolves to as a trailing comment (`actions/checkout@<sha> # v5.1.0`), one
+pin per action across the repository; a new step takes the same form, and the comment is what
+lets the pin be moved by version.
+
 ### CircleCI
 
 `.circleci/config.yml` runs after a merge and on tags, never on a pull request branch:
