@@ -8,12 +8,17 @@ name: PR
 # checks, the WebAssembly, Xpect and conformance gates, and only the clients and
 # docs whose own paths changed. A push to a non-draft pull request, marking one
 # ready for review, or the label ci:full runs the full tier: the whole suite.
+# A merge-queue commit (merge_group, refs/heads/gh-readonly-queue/develop/...) always
+# runs the full tier over its base_sha..head_sha; Build and test on it lets the entry merge.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
+  merge_group:
+    types: [checks_requested]
 
 concurrency:
-  group: pr-${{ github.event.pull_request.number }}
+  # A queue commit has no pull request; its ref is unique to the entry.
+  group: ${{ github.event_name == 'merge_group' && format('merge-group-{0}', github.ref) || format('pr-{0}', github.event.pull_request.number) }}
   # Any other label re-runs the tier that applies, but waits for the running one rather than cancelling it.
   cancel-in-progress: ${{ github.event.action != 'labeled' || github.event.label.name == 'ci:full' }}
 
@@ -83,8 +88,8 @@ jobs:
       - name: Decide the tier
         id: tier
         env:
-          DRAFT: ${{ github.event.pull_request.draft }}
-          CI_FULL_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'ci:full') }}
+          DRAFT: ${{ github.event_name != 'merge_group' && github.event.pull_request.draft }}
+          CI_FULL_LABEL: ${{ github.event_name != 'merge_group' && contains(github.event.pull_request.labels.*.name, 'ci:full') }}
         run: |
           if [ "$DRAFT" != true ] || [ "$CI_FULL_LABEL" = true ]; then
             echo "tier=full"
@@ -94,12 +99,15 @@ jobs:
             echo 'go_shards=["runtime","model export graph","rest migrate cli codegen"]'
           fi | tee -a "$GITHUB_OUTPUT"
 
+      # A pull request is diffed against the branch it merges into; a merge-group
+      # commit against the queue entry it builds on (the merge group's base_sha).
       - name: Decide which areas to run
         id: areas
         env:
-          BASE_REF: ${{ github.base_ref }}
+          DIFF_BASE: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || format('origin/{0}', github.base_ref) }}
+          DIFF_HEAD: ${{ github.event_name == 'merge_group' && github.event.merge_group.head_sha || 'HEAD' }}
           CI_TIER: ${{ steps.tier.outputs.tier }}
-        run: scripts/ci-changed-areas.sh "origin/$BASE_REF" HEAD | tee -a "$GITHUB_OUTPUT"
+        run: scripts/ci-changed-areas.sh "$DIFF_BASE" "$DIFF_HEAD" | tee -a "$GITHUB_OUTPUT"
 
       # The vendored copy is checked in this job, not static-and-integrity: the
       # changed-areas filter may skip that job for a non-Go change, but drift
@@ -351,12 +359,13 @@ jobs:
       - name: Lint the protobuf schema
         run: make proto-lint
 
-      # Wire compatibility against the branch this pull request merges into;
-      # the baseline is a git archive, so a shallow fetch of it is enough.
+      # Wire compatibility against the branch this pull request (or merge group, as
+      # refs/heads/<branch>) merges into; the baseline is a git archive, so a shallow fetch does.
       - name: Check the protobuf schema for breaking changes
         env:
-          BASE_REF: ${{ github.base_ref }}
+          BASE_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.base_ref }}
         run: |
+          BASE_REF=${BASE_REF#refs/heads/}
           git fetch --no-tags --depth=1 origin "$BASE_REF"
           make proto-breaking BUF_BREAKING_REF="origin/$BASE_REF"
 
@@ -687,10 +696,11 @@ jobs:
       - name: Download Go modules
         run: go mod download
 
+      # A queue commit belongs to no one pull request, so it is stamped merge-queue; COMMIT names it.
       - name: Build binaries
         run: |
           make build \
-            VERSION="pr-${{ github.event.pull_request.number }}" \
+            VERSION="${{ github.event_name == 'merge_group' && 'merge-queue' || format('pr-{0}', github.event.pull_request.number) }}" \
             COMMIT="$(git rev-parse --short HEAD)" \
             BUILD_TIME="$(date -u '+%Y-%m-%d_%H:%M:%S')" \
             GO_VERSION="$(go version | awk '{print $3}')"
