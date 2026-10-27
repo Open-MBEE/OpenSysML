@@ -57,6 +57,58 @@ sysml> %instances
 (no instances created; 1 instance was dropped when the session was reset — re-run %instantiate)
 ```
 
+## What a result line shows
+
+An expression typed at the prompt, or given to `%eval` or `%calc`, is answered on a `= …` line
+that prints what the result feature holds, in the shape its effective multiplicity gives it:
+
+```
+sysml> private import ScalarValues::*;
+✓ import ScalarValues::*
+sysml> calc add { in x : Integer; in y : Integer; return : Integer; x + y }
+✓ calc add
+sysml> add(2, 2)
+✓ add(2, 2)
+  = [4]
+sysml> 2 + 2
+✓ 2 + 2
+  = 4
+sysml> (1, 2)
+✓ (1, 2)
+  = [1, 2]
+sysml> calc add1 { in x : Integer; in y : Integer; return : Integer[1]; x + y }
+✓ calc add1
+sysml> add1(2, 2)
+✓ add1(2, 2)
+  = 4
+```
+
+The square brackets are this project's display notation for a feature holding a sequence of
+values; they are not KerML source notation. In the notation `(1, 2)` is a sequence expression,
+and `[…]` is a multiplicity (`Wheel[4]`) or the bracket expression that gives a quantity its
+unit (`10 [SI::kg]`); on a `= …` line, `[1, 2]` says only that the feature holds two values, and `[4]`
+that it holds one.
+
+Why `add(2, 2)` holds its one value as a sequence while `2 + 2` does not comes down to the
+multiplicity of each result feature. `add`'s `return : Integer` states none, and a bare `return`
+is a reference usage, to which SysML v2 (§7.6.3) gives no implicit `[1..1]`: its effective
+multiplicity is the `[0..*]` of `Performances::Evaluation::result`, which it redefines (§7.19.2),
+so the one computed value is held as a one-element sequence. `2 + 2` calls the library function
+`ScalarFunctions::'+'`, declared `return : ScalarValue[1]`, so its result holds exactly one value
+and prints bare; `(2 + 2)` is the same expression in parentheses. To have a calculation's result
+print bare, state its multiplicity, as `add1` does: `return : Integer[1]` or `return : Integer[0..1]`
+prints `= 4`, while `return : Integer[0..*]` prints `= [4]`, as the bare form does. The same rule
+holds for an attribute read on an object: `attribute xs : Integer[0..*] = 4;` reads `= [4]` and
+`attribute x : Integer = 4;` reads `= 4`. A feature holding no value reads `= []`, and the null
+expression `()` prints `= null`.
+
+The shape does not change the value. KerML has no scalar apart from a sequence of one: a
+one-element sequence is its element, so `add(2, 2) == 4` is `true` and `add(2, 2) + 1` is `5`.
+Up to 0.10.x the prompt unwrapped a one-element result to its scalar; since 0.11.0 it prints what
+the feature holds. The command line reports a calculation the same way
+([chapter 3](03-command-line.md#running-behavior)), and so does a notebook cell
+([chapter 12](12-jupyter.md#cells)).
+
 ## Seeing the model
 
 `%print` writes the session back to the prompt as notation, either the whole model or, if you
