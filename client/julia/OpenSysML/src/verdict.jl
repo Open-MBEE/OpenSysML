@@ -26,6 +26,24 @@ WitnessAssignment(raw::AbstractDict) =
         haskey(raw, "value") ? decode_value(raw["value"]) : nothing,
         String(get(raw, "unit", "")), String(get(raw, "exact", "")))
 
+"""
+    VerdictNote
+
+One assumption or omission behind a verdict, worded as every surface reports it:
+`kind` is `"assumed_one"` (a feature read as holding one value or object while only
+the default `0..*` multiplicity governs it) or `"uncovered"` (an object-holding
+feature whose own assertions the question does not state); `subject` names the
+feature as the report does; `text` is the note as a sentence.
+"""
+struct VerdictNote
+    kind::String
+    subject::String
+    text::String
+end
+VerdictNote(raw::AbstractDict) =
+    VerdictNote(String(get(raw, "kind", "")), String(get(raw, "subject", "")),
+        String(get(raw, "text", "")))
+
 struct Verdict
     kind::String
     element_id::String
@@ -44,6 +62,7 @@ struct Verdict
     question::String
     status::String
     witness::Vector{WitnessAssignment}
+    notes::Vector{VerdictNote}
     instances::Vector{Instance}
     diagnostics::Vector{Diagnostic}
     verifications::Vector{VerificationVerdict}
@@ -60,6 +79,7 @@ function Verdict(raw::AbstractDict; instances=Instance[], diagnostics=Diagnostic
         String(get(raw, "instancePath", "")), String(get(raw, "question", "")),
         String(get(raw, "status", "")),
         WitnessAssignment[WitnessAssignment(w) for w in get(raw, "witness", Any[])],
+        VerdictNote[VerdictNote(n) for n in get(raw, "notes", Any[])],
         Instance[instances...], Diagnostic[diagnostics...],
         VerificationVerdict[verifications...])
 end

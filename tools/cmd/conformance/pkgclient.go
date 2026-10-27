@@ -1845,10 +1845,22 @@ func verdictToProto(verdict *opensysml.Verdict) *pb.Verdict {
 		Question:       verdict.Question,
 		Status:         verdict.Status,
 		Witness:        witnessToProto(verdict.Witness),
+		Notes:          notesToProto(verdict.Notes),
 		Engine:         verdict.Standing.Engine,
 		Strength:       verdict.Standing.Strength,
 		Bounds:         boundsToProto(verdict.Standing.Bounds),
 	}
+}
+
+func notesToProto(notes []opensysml.VerdictNote) []*pb.VerdictNote {
+	if len(notes) == 0 {
+		return nil
+	}
+	out := make([]*pb.VerdictNote, 0, len(notes))
+	for _, n := range notes {
+		out = append(out, &pb.VerdictNote{Kind: n.Kind, Subject: n.Subject, Text: n.Text})
+	}
+	return out
 }
 
 func witnessToProto(witness []opensysml.WitnessAssignment) []*pb.WitnessAssignment {

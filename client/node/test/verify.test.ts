@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { before, test } from "node:test";
 import {
+  VerifyConstraintResponseSchema,
   VerifyRequirementResponseSchema,
   VerifySatisfactionResponseSchema,
 } from "../src/generated/sysml_pb.js";
@@ -264,4 +265,40 @@ test("arguments are refused before the call without verification_arguments", asy
     () => conn.verifyConstraint("hash", "c", { arguments: [3] }),
     MissingCapabilityError,
   );
+});
+
+const ASSUMED_ONE = {
+  kind: "assumed_one",
+  subject: "Tanks::Tank::level",
+  text: "Assuming Tanks::Tank::level holds one value: it declares no multiplicity, so the default [0..*] governs it",
+};
+const UNCOVERED = {
+  kind: "uncovered",
+  subject: "gear",
+  text: "Not in the query: what gear asserts about its own objects, as it may hold more than one object; instantiate and validate an object to check it",
+};
+
+async function verdictWithNotes(notes: { kind: string; subject: string; text: string }[]) {
+  const conn = await fakeConnection(["verification", "verification_questions", "verdict_notes"], () =>
+    create(VerifyConstraintResponseSchema, {
+      verdict: { kind: "constraint", element: "nonNegative", question: "holds", status: "violated", notes },
+    }),
+  );
+  return (await conn.verifyConstraint("hash1", "Tanks::nonNegative", { question: "holds" })).verdict;
+}
+
+test("a verdict carries the one-value assumption", async () => {
+  const verdict = await verdictWithNotes([ASSUMED_ONE]);
+  assert.equal(verdict.kind, "fails");
+  assert.deepEqual(verdict.notes, [ASSUMED_ONE]);
+});
+
+test("a verdict carries what the question leaves uncovered", async () => {
+  const verdict = await verdictWithNotes([UNCOVERED]);
+  assert.deepEqual(verdict.notes, [UNCOVERED]);
+});
+
+test("a verdict without notes carries none", async () => {
+  const verdict = await verdictWithNotes([]);
+  assert.deepEqual(verdict.notes, []);
 });

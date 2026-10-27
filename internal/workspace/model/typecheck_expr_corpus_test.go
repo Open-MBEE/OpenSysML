@@ -102,15 +102,9 @@ var hiddenNameStdlibCorrections = []string{
 // hidden-name list accounts for: lines whose correction, with the others naming
 // the same finding, clears a validation finding the published library reports.
 // Each is keyed by the corrected line and names that finding as "<file>:<line>:
-// <code>". The Flows.sysml lines are one repair: Message as published owns no
-// ends and inherits Transfer's KerML end features, which SysML v2.1 Beta 2
-// §8.3.16.2 (flowEnd : Usage) forbids, and the repair gives Message and messages
-// owned usage ends together.
-var validationStdlibCorrections = map[string]string{
-	"Systems Library/Flows.sysml:46":  "Systems Library/Flows.sysml:38: flow-def-end-not-usage",
-	"Systems Library/Flows.sysml:99":  "Systems Library/Flows.sysml:38: flow-def-end-not-usage",
-	"Systems Library/Flows.sysml:103": "Systems Library/Flows.sysml:38: flow-def-end-not-usage",
-}
+// <code>". Empty since the 2026-09 library published the Flows.sysml repair
+// (Message and messages own usage ends) that the three former entries carried.
+var validationStdlibCorrections = map[string]string{}
 
 // TestStdlibCorrectionsAreAccountedFor pins the registry's library corrections as an exact
 // set: each is a line the checker rejects as published, a listed hidden-name correction, or

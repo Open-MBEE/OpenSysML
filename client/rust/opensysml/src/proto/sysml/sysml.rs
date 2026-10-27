@@ -84,6 +84,29 @@ pub struct Verdict {
     /// for an undecided answer. Reported as the "verification_questions" capability.
     #[prost(message, repeated, tag="17")]
     pub witness: ::prost::alloc::vec::Vec<WitnessAssignment>,
+    /// What the answer rests on, as the REPL's solver reports print it: the
+    /// features the question reads as one value or object while only the default
+    /// `0..*` multiplicity governs them, and the object-holding features whose own
+    /// assertions it does not state. In report order; never set by an evaluation.
+    /// Reported as the "verdict_notes" capability.
+    #[prost(message, repeated, tag="18")]
+    pub notes: ::prost::alloc::vec::Vec<VerdictNote>,
+}
+/// VerdictNote is one assumption or omission behind a Verdict, worded once for
+/// every surface.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VerdictNote {
+    /// "assumed_one" (a feature read as holding one value or object while only the
+    /// default `0..*` governs it) or "uncovered" (an object-holding feature whose
+    /// own assertions the question does not state).
+    #[prost(string, tag="1")]
+    pub kind: ::prost::alloc::string::String,
+    /// The feature the note is about, as the report names it.
+    #[prost(string, tag="2")]
+    pub subject: ::prost::alloc::string::String,
+    /// The note as a sentence.
+    #[prost(string, tag="3")]
+    pub text: ::prost::alloc::string::String,
 }
 /// WitnessAssignment is one free variable's value in a witnessed assignment:
 /// the assignment the solver found, replayed by the evaluator.

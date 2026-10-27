@@ -1,0 +1,1 @@
+- The tag's `pin-release-digests` job now opens a second pull request, `hotfix/pin-vX.Y.Z` against `main`, beside `chore/pin-vX.Y.Z` against `develop`: `main`'s head is the tagged commit and cannot carry its own pin, so without it every `build-test` run on `main` — and its SonarCloud scan — failed the hygiene suite until the next release.

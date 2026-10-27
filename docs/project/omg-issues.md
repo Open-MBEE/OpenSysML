@@ -1045,26 +1045,26 @@ type-tier pass `W10BEndKindPass` reports a definition that inherits a KerML `end
 kernel association (`connection-def-end-not-usage`, `flow-def-end-not-usage`). Over the standard
 library as OMG published it that pass reports `Flows::Message` itself: the base flow definition owns
 no end features and inherits `Transfer::source` and `Transfer::target`, KerML features — and with
-it every `flow def` that specializes `Message` without ends of its own. The pinned pilot (2026-08,
-0.62.0) is silent, because it predates the check; the pilot's master branch adds the same check
-(ST6RI-974) and repairs the library in the same change, which also resolves OMG issue
+it every `flow def` that specializes `Message` without ends of its own. The `2026-08` pilot (0.62.0)
+was silent, because it predated the check; release `2026-09` (0.63.0) adds the same check
+(ST6RI-974, `validateFlowDefinitionEndsAreUsages`) and repairs the library in the same change, which also resolves OMG issue
 [SYSML21-681](https://issues.omg.org/issues/SYSML21-681) ("Problems with the resolution to
 SYSML21-324": the ends had been removed from `Message` and `messages` in the course of resolving
 SYSML21-324, which did not ask for it).
 
-The repair is carried as three entries of the declared errata overlay over `Systems
-Library/Flows.sysml`, one per published line it touches, spelled and placed exactly as upstream
-spells and places it. The published bytes are never edited; the bundled library (`libs.BundledSource`,
-and the snapshot generated from it) reads the corrected text. Two gates in `internal/workspace/model`
-pin the repair: `TestStdlibCorrectionsAreAccountedFor` requires each of the three lines to be listed
-against the finding it answers, and `TestStdlibValidationCorrectionsClearTheirFindings` requires
-`flow-def-end-not-usage` to be reported at `Message` over the published `Flows.sysml` and not over
-the bundled one.
+At `2026-08` the repair was carried as three entries of the declared errata overlay over `Systems
+Library/Flows.sysml`, one per published line it touched, spelled and placed exactly as upstream
+spells and places it; the published bytes were never edited, the bundled library (`libs.BundledSource`,
+and the snapshot generated from it) read the corrected text, and two gates in `internal/workspace/model`
+(`TestStdlibCorrectionsAreAccountedFor`, `TestStdlibValidationCorrectionsClearTheirFindings`) pinned
+each listed line to the finding it answered. The `2026-09` library publishes the repair, so the three
+entries are retired, the vendored `Flows.sysml` is the published file again, and the gates' correction
+list is empty.
 
 ### `Flows::Message` inherits `Transfer::source` and `Transfer::target`, KerML features, as its flow ends
 
-**Resolved upstream** by SYSML21-681 / ST6RI-974, not yet in a pinned release. Published,
-`Flows.sysml`:46 is the last member before the end features belong:
+**Fixed in release `2026-09`** (SYSML21-681 / ST6RI-974); the errata entry `Flows-46` that carried the
+repair at `2026-08` is retired. Published at `2026-08`, `Flows.sysml`:46 is the last member before the end features belong:
 
 ```sysml
 ref payload :>> MessageAction::payload, Transfer::payload;
@@ -1087,7 +1087,7 @@ specification.
 
 ### `Flows::messages` is a flow usage whose ends are `Transfer::source` and `Transfer::target`
 
-**Resolved upstream** by SYSML21-681 / ST6RI-974. Published, `Flows.sysml`:99:
+**Fixed in release `2026-09`** (SYSML21-681 / ST6RI-974); the errata entry `Flows-99` is retired. Published at `2026-08`, `Flows.sysml`:99:
 
 ```sysml
 abstract message messages: Message[0..*] nonunique :> transfers, actions {
@@ -1107,7 +1107,7 @@ published.
 
 ### `Flows::messages` owns no ends redefining `Message::source` and `Message::target`
 
-**Resolved upstream** by SYSML21-681 / ST6RI-974. Published, `Flows.sysml`:103 closes the doc
+**Fixed in release `2026-09`** (SYSML21-681 / ST6RI-974); the errata entry `Flows-103` is retired. Published at `2026-08`, `Flows.sysml`:103 closes the doc
 comment of `messages`:
 
 ```sysml

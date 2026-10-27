@@ -50,6 +50,7 @@ import org.openmbee.opensysml.Value;
 import org.openmbee.opensysml.Verdict;
 import org.openmbee.opensysml.Verification;
 import org.openmbee.opensysml.VerificationVerdict;
+import org.openmbee.opensysml.VerdictNote;
 import org.openmbee.opensysml.WitnessAssignment;
 import org.openmbee.opensysml.proto.AttributeInfo;
 import org.openmbee.opensysml.proto.Bound;
@@ -1060,7 +1061,23 @@ public final class Protos {
         present(verdict.getQuestion()),
         present(verdict.getStatus()),
         witnessAssignments(verdict.getWitnessList()),
+        verdictNotes(verdict.getNotesList()),
         standing(verdict.getEngine(), verdict.getStrength(), verdict.getBoundsList()));
+  }
+
+  /**
+   * Notes of one verdict.
+   *
+   * @param notes the generated notes
+   * @return the immutable notes, in order
+   */
+  public static List<VerdictNote> verdictNotes(
+      List<org.openmbee.opensysml.proto.VerdictNote> notes) {
+    List<VerdictNote> out = new ArrayList<>(notes.size());
+    for (org.openmbee.opensysml.proto.VerdictNote note : notes) {
+      out.add(new VerdictNote(note.getKind(), note.getSubject(), note.getText()));
+    }
+    return List.copyOf(out);
   }
 
   /**

@@ -155,7 +155,7 @@ bounds associated with an answer.
 
 | Result class | Contents and helpers |
 | --- | --- |
-| `Verdict` | Outcome fields including `holds`, condition, witness, error, engine and diagnostics; `explain()`, `raiseForError()`, and logical conversion. |
+| `Verdict` | Outcome fields including `holds`, condition, witness, `notes` (what a solver's answer rests on: `kind` `assumed_one` or `uncovered`, `subject`, `text`), error, engine and diagnostics; `explain()`, `raiseForError()`, and logical conversion. |
 | `Validation` | Verdicts, summary, ordered instance cells in service order, diagnostics and verifications; `valid()`, `violated()`, `undecided()`, `raiseForError()`, and `explain()`. |
 | `CalcResult` | `value`, `outputs`, diagnostics and `Standing`; character conversion formats the computed result. |
 | `AnalysisResult` | Outputs, verdicts, instances, verifications, evaluations, standing and the `toolDryRun` preview (`[]` when the case ran for real); `selected()`, `satisfied()`, and `explain()`. |

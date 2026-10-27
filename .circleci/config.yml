@@ -4012,10 +4012,11 @@ jobs:
 
   # After the GitHub release exists, brings the committed shared table up to
   # date with it: stamps the release from the manifest build-release wrote,
-  # syncs every client copy, and opens a pull request against develop with the
-  # result. The packages published beside it already carry their own pins; this
-  # is for a checkout, and for a later release's packages asked for this one,
-  # and it is what the hygiene suite holds the next release branch to.
+  # syncs every client copy, and opens a pull request against develop and
+  # another against main with the result. The packages published beside it
+  # already carry their own pins; this is for a checkout, and for a later
+  # release's packages asked for this one, and it is what the hygiene suite
+  # holds the next release branch — and main, once it moves past the tag — to.
   pin-release-digests:
     executor: python-executor
     steps:
@@ -4034,35 +4035,51 @@ jobs:
             fi
             ls -l dist/SHA256SUMS.txt
             echo "export PIN_BRANCH=chore/pin-${CIRCLE_TAG}" >> "$BASH_ENV"
+            echo "export PIN_MAIN_BRANCH=hotfix/pin-${CIRCLE_TAG}" >> "$BASH_ENV"
 
       - run:
-          name: Stamp the release into the shared table on a branch from develop
+          name: Stamp the release into the shared table on branches from develop and main
           command: |
-            # The pull request targets develop, so the stamp is made on develop's
-            # tree, not the tag's: what develop already pins stays as it is.
-            git fetch --no-tags origin develop
-            git checkout -B "${PIN_BRANCH}" origin/develop
-            # The shared table is the target, so the script syncs every client
-            # copy from it. A different pin already there for this tag is a
-            # republished release, and the script refuses it.
-            python3 client/python/scripts/pin_release_checksums.py \
-              --version "${CIRCLE_TAG}" \
-              --from-manifest dist/SHA256SUMS.txt
-            python3 scripts/sync-release-digests.py --check
-            git add client
-            git diff --cached --stat
-            if git diff --cached --quiet; then
-              echo "develop already pins ${CIRCLE_TAG}; there is nothing to open."
-              echo "export PIN_NOTHING_TO_DO=1" >> "$BASH_ENV"
-            fi
+            # Each pull request targets its base, so the stamp is made on that
+            # base's tree, not the tag's: what the base already pins stays as it
+            # is. The tagged commit is main's head, so main never pins its own
+            # release until this lands there; a hotfix/ branch is what main takes.
+            git fetch --no-tags origin develop main
+            git config user.name "OpenSysML release"
+            git config user.email "opensysml-release@users.noreply.github.com"
+            : > /tmp/pin-branches.txt
+            stamp() {
+              base=$1
+              branch=$2
+              git checkout -q -B "${branch}" "origin/${base}"
+              # The shared table is the target, so the script syncs every client
+              # copy from it. A different pin already there for this tag is a
+              # republished release, and the script refuses it.
+              python3 client/python/scripts/pin_release_checksums.py \
+                --version "${CIRCLE_TAG}" \
+                --from-manifest dist/SHA256SUMS.txt
+              python3 scripts/sync-release-digests.py --check
+              git add client
+              git diff --cached --stat
+              if git diff --cached --quiet; then
+                echo "${base} already pins ${CIRCLE_TAG}; there is nothing to open against it."
+                return 0
+              fi
+              git commit -q \
+                -m "chore(release): pin ${CIRCLE_TAG} in the shared digest table" \
+                -m "Stamped from the release's SHA256SUMS.txt by the tag's pipeline and synced into every client copy."
+              echo "${base} ${branch}" >> /tmp/pin-branches.txt
+            }
+            stamp develop "${PIN_BRANCH}"
+            stamp main "${PIN_MAIN_BRANCH}"
 
       - unless:
           condition: << pipeline.parameters.release_rehearsal >>
           steps:
             - run:
-                name: Push the branch and open the pull request against develop
+                name: Push the branches and open the pull requests against develop and main
                 command: |
-                  if [ -n "${PIN_NOTHING_TO_DO:-}" ]; then
+                  if [ ! -s /tmp/pin-branches.txt ]; then
                     echo "Nothing to push."
                     exit 0
                   fi
@@ -4075,19 +4092,15 @@ jobs:
                     exit 1
                   fi
                   repo="${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}"
-                  git config user.name "OpenSysML release"
-                  git config user.email "opensysml-release@users.noreply.github.com"
-                  git commit -q \
-                    -m "chore(release): pin ${CIRCLE_TAG} in the shared digest table" \
-                    -m "Stamped from the release's SHA256SUMS.txt by the tag's pipeline and synced into every client copy."
                   # The token travels in a header, never in a URL git would echo.
-                  # The branch is rebuilt from develop on every run, so a run
+                  # Each branch is rebuilt from its base on every run, so a run
                   # repeated after a failure replaces an earlier branch rather
                   # than failing on it.
                   auth=$(printf 'x-access-token:%s' "$TOKEN" | base64 | tr -d '\n')
-                  git -c "http.https://github.com/.extraheader=Authorization: Basic ${auth}" \
-                    push --force "https://github.com/${repo}.git" "HEAD:refs/heads/${PIN_BRANCH}"
-                  PIN_TOKEN="$TOKEN" python3 - "$repo" "$PIN_BRANCH" "$CIRCLE_TAG" \<<'PY'
+                  while read -r base branch; do
+                    git -c "http.https://github.com/.extraheader=Authorization: Basic ${auth}" \
+                      push --force "https://github.com/${repo}.git" "refs/heads/${branch}:refs/heads/${branch}"
+                    PIN_TOKEN="$TOKEN" python3 - "$repo" "$base" "$branch" "$CIRCLE_TAG" \<<'PY'
                   import json
                   import os
                   import sys
@@ -4095,7 +4108,7 @@ jobs:
                   import urllib.parse
                   import urllib.request
 
-                  repo, branch, tag = sys.argv[1:]
+                  repo, base, branch, tag = sys.argv[1:]
                   api = f"https://api.github.com/repos/{repo}"
                   headers = {
                       "Authorization": f"Bearer {os.environ['PIN_TOKEN']}",
@@ -4113,23 +4126,34 @@ jobs:
                           return error.code, json.load(error) if error.fp else {}
 
                   owner = repo.split("/")[0]
-                  query = urllib.parse.urlencode({"head": f"{owner}:{branch}", "base": "develop", "state": "open"})
+                  query = urllib.parse.urlencode({"head": f"{owner}:{branch}", "base": base, "state": "open"})
                   status, open_prs = call("GET", f"{api}/pulls?{query}")
                   if status != 200:
                       raise SystemExit(f"Error: could not list pull requests (HTTP {status}): {open_prs.get('message')}")
                   if open_prs:
                       print(f"The pull request already exists and now carries the branch: {open_prs[0]['html_url']}")
                       raise SystemExit(0)
+                  why = {
+                      "develop": "a checkout and the packages of later releases install it on a pin",
+                      "main": "main, whose head is the tagged commit, pins its own release and its build-test runs stay green until the next release",
+                  }[base]
+                  body = (
+                      f"Pins the five `sysml-grpc` assets of {tag} in `client/release-digests.json` and every "
+                      f"client copy, from the release's `SHA256SUMS.txt`, so {why}. "
+                      "Opened by the tag's release pipeline; see docs/project/releasing.md § Pinned release digests."
+                  )
+                  if base == "main":
+                      body += (
+                          "\n\nBefore merging, lock the platform packages the tag published: "
+                          "`npm install --package-lock-only --ignore-scripts` in `client/node` and `packaging/npm/sysml-mcp` "
+                          "once they answer on npm, and commit both lockfiles; the Node job fails on the unlocked tree. "
+                          "See docs/project/releasing.md § The release branch, step 5."
+                      )
                   status, created = call("POST", f"{api}/pulls", {
                       "title": f"chore(release): pin {tag} in the shared digest table",
                       "head": branch,
-                      "base": "develop",
-                      "body": (
-                          f"Pins the five `sysml-grpc` assets of {tag} in `client/release-digests.json` and every "
-                          f"client copy, from the release's `SHA256SUMS.txt`, so a checkout and the packages of "
-                          f"later releases install {tag} on a pin. Opened by the tag's release pipeline; see "
-                          "docs/project/releasing.md § Pinned release digests."
-                      ),
+                      "base": base,
+                      "body": body,
                   })
                   if status != 201:
                       print(f"Error: could not open the pull request (HTTP {status}): {created.get('message')}")
@@ -4140,8 +4164,9 @@ jobs:
                       raise SystemExit(1)
                   print(f"Opened {created['html_url']}")
                   PY
+                  done < /tmp/pin-branches.txt
       - rehearsal-skip:
-          what: "pushing the pin branch and opening its pull request"
+          what: "pushing the pin branches and opening their pull requests"
 
 workflows:
   version: 2

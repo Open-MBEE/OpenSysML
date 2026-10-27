@@ -25,6 +25,7 @@ import org.openmbee.opensysml.StateRun;
 import org.openmbee.opensysml.Validation;
 import org.openmbee.opensysml.Value;
 import org.openmbee.opensysml.Verdict;
+import org.openmbee.opensysml.VerdictNote;
 import org.openmbee.opensysml.Verification;
 import org.openmbee.opensysml.VerificationVerdict;
 import org.openmbee.opensysml.proto.Bound;
@@ -560,5 +561,57 @@ class ResultProtosTest {
     Quantity quantity = ((Value.QuantityValue) values.get(9)).quantity();
     assertEquals(Optional.of("km"), quantity.unit());
     assertThrows(NullPointerException.class, () -> Protos.proto((Value) null));
+  }
+
+  private static Verdict verdictWithNotes(org.openmbee.opensysml.proto.VerdictNote... notes) {
+    var wire =
+        org.openmbee.opensysml.proto.Verdict.newBuilder()
+            .setKind("constraint")
+            .setElementId("Tanks::nonNegative")
+            .setQuestion("holds")
+            .setStatus("violated");
+    for (org.openmbee.opensysml.proto.VerdictNote note : notes) {
+      wire.addNotes(note);
+    }
+    return Protos.verdict(wire.build());
+  }
+
+  @Test
+  void aVerdictCarriesTheOneValueAssumption() {
+    Verdict verdict =
+        verdictWithNotes(
+            org.openmbee.opensysml.proto.VerdictNote.newBuilder()
+                .setKind("assumed_one")
+                .setSubject("Tanks::Tank::level")
+                .setText(
+                    "Assuming Tanks::Tank::level holds one value: it declares no multiplicity, so the default [0..*] governs it")
+                .build());
+    assertEquals(
+        List.of(
+            new VerdictNote(
+                VerdictNote.KIND_ASSUMED_ONE,
+                "Tanks::Tank::level",
+                "Assuming Tanks::Tank::level holds one value: it declares no multiplicity, so the default [0..*] governs it")),
+        verdict.notes());
+  }
+
+  @Test
+  void aVerdictCarriesWhatTheQuestionLeavesUncovered() {
+    Verdict verdict =
+        verdictWithNotes(
+            org.openmbee.opensysml.proto.VerdictNote.newBuilder()
+                .setKind("uncovered")
+                .setSubject("gear")
+                .setText(
+                    "Not in the query: what gear asserts about its own objects, as it may hold more than one object; instantiate and validate an object to check it")
+                .build());
+    assertEquals(1, verdict.notes().size());
+    assertEquals(VerdictNote.KIND_UNCOVERED, verdict.notes().get(0).kind());
+    assertEquals("gear", verdict.notes().get(0).subject());
+  }
+
+  @Test
+  void aVerdictWithoutNotesCarriesNone() {
+    assertEquals(List.of(), verdictWithNotes().notes());
   }
 }
