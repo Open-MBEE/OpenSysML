@@ -8,12 +8,8 @@ name: PR
 # checks, the WebAssembly, Xpect and conformance gates, and only the clients and
 # docs whose own paths changed. A push to a non-draft pull request, marking one
 # ready for review, or the label ci:full runs the full tier: the whole suite.
-#
-# The merge queue runs it too: when a pull request is enqueued, GitHub builds a
-# commit on refs/heads/gh-readonly-queue/develop/... and asks for the checks on
-# it (merge_group). That run is always the full tier over the pull request's own
-# diff, base_sha..head_sha of the merge group, and Build and test reports on the
-# queue commit, which is what lets the entry merge.
+# A merge-queue commit (merge_group, refs/heads/gh-readonly-queue/develop/...) always
+# runs the full tier over its base_sha..head_sha; Build and test on it lets the entry merge.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
@@ -89,7 +85,6 @@ jobs:
 
       # go_shards is the Go test job's matrix: the race shards under the full tier,
       # three race-free groups of them under quick (see make test-shard, make test-quick).
-      # A merge-group commit is never a draft: the queue gets the full tier.
       - name: Decide the tier
         id: tier
         env:
@@ -364,9 +359,8 @@ jobs:
       - name: Lint the protobuf schema
         run: make proto-lint
 
-      # Wire compatibility against the branch this pull request merges into (the
-      # merge group's base_ref names the same branch, as refs/heads/<branch>);
-      # the baseline is a git archive, so a shallow fetch of it is enough.
+      # Wire compatibility against the branch this pull request (or merge group, as
+      # refs/heads/<branch>) merges into; the baseline is a git archive, so a shallow fetch does.
       - name: Check the protobuf schema for breaking changes
         env:
           BASE_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.base_ref }}
