@@ -46,9 +46,9 @@ class "<size:10>//«part def»//</size>\n**APart**" as n0 <<part def>>
 class "<size:10>//«port»//</size>\n**aPort**" as n1 <<port>> <<usage>>
 class "<size:10>//«port def»//</size>\n**APort**" as n2 <<port def>>
 class "<size:10>//«part»//</size>\n**part1**" as n3 <<part>> <<usage>>
-class "<size:10>//«port»//</size>\n**aPort**" as n4 <<port>> <<usage>>
+class "<size:10>//«port»//</size>\n**^aPort**" as n4 <<port>> <<usage>>
 class "<size:10>//«part»//</size>\n**part2**" as n5 <<part>> <<usage>>
-class "<size:10>//«port»//</size>\n**aPort**" as n6 <<port>> <<usage>>
+class "<size:10>//«port»//</size>\n**^aPort**" as n6 <<port>> <<usage>>
 n0 o-- n1
 n1 --:|> n2
 n3 --:|> n0

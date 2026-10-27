@@ -6,13 +6,13 @@ part def Amplifier
   attribute noise
   attribute output
   constraint amplify
-    port input
-    port gain
-    port output
+    port ^input
+    port ^gain
+    port ^output
   constraint mix
-    port a
-    port b
-    port total
+    port ^a
+    port ^b
+    port ^total
 
 connections:
   signal == amplify.input: =

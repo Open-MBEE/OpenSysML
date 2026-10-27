@@ -5,21 +5,21 @@ requirement def LevelReq
 requirement NotationGlyphs::levelReq
 requirement capacity
   require constraint capacity::levelReq
-    subject plant
-      part tank
-      part pump
-      part spare
-    require constraint keepLevel
-    assume constraint lowLevel
-    require constraint bounded
-      in x
-    assume constraint tight
-      in x
+    subject ^plant
+      part ^tank
+      part ^pump
+      part ^spare
+    require constraint ^keepLevel
+    assume constraint ^lowLevel
+    require constraint ^bounded
+      in ^x
+    assume constraint ^tight
+      in ^x
   assert constraint asserted
 constraint NotationGlyphs::bounded
-  in x
+  in ^x
 constraint NotationGlyphs::tight
-  in x
+  in ^x
 view tankView
 part def Tank
   attribute level

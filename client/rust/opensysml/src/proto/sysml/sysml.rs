@@ -3787,6 +3787,11 @@ pub struct RenderNode {
     /// ("attributes", "parts", "ports", ...); unset for a node drawn as a box.
     #[prost(string, tag="14")]
     pub compartment: ::prost::alloc::string::String,
+    /// The owner the node is drawn or listed under has the usage through typing,
+    /// subclassification or subsetting rather than declares it; the notation
+    /// prefixes its name with `^`. `name` stays the bare name.
+    #[prost(bool, tag="15")]
+    pub inherited: bool,
 }
 /// RenderPort is a feature drawn on a node's border.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -3799,6 +3804,9 @@ pub struct RenderPort {
     pub r#type: ::prost::alloc::string::String,
     #[prost(string, tag="4")]
     pub direction: ::prost::alloc::string::String,
+    /// The node's owner has the port from its type rather than declares it; drawn with a `^` before `name`.
+    #[prost(bool, tag="5")]
+    pub inherited: bool,
 }
 /// RenderEdge joins two rendered nodes and may connect their ports.
 #[derive(Clone, PartialEq, ::prost::Message)]

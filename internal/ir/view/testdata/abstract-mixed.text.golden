@@ -9,8 +9,8 @@ abstract part vehicleFamily
   part chassis
 variation part def Models
   variant sedan
-    abstract part engine
-    part chassis
+    abstract part ^engine
+    part ^chassis
 
 relationships:
   engine -- chassis

@@ -95,6 +95,8 @@ export interface RenderNode {
   type: string;
   detail: string;
   parent?: string;
+  /** The owner the node is drawn or listed under has the usage through typing, subclassification or subsetting rather than declares it; the label prefixes `name` with `^`. */
+  inherited?: boolean;
   /** The qualified name a model edit targets the declaration by, in whichever workspace document declares it; absent for a node with none, and for a library's. */
   fqn?: string;
   /** The requested document declares the node, so every edit reaches it; absent, only a layout does. */
@@ -130,6 +132,8 @@ export interface RenderPort {
   name: string;
   type?: string;
   direction?: string;
+  /** The node's owner has the port from its type rather than declares it; the label prefixes `name` with `^`. */
+  inherited?: boolean;
 }
 
 /** How a Style annotation draws a node or edge: `#RRGGBB` colours and the face, size in points and weight of its text, each absent when unstated. */

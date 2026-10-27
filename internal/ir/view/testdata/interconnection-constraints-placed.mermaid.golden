@@ -45,15 +45,15 @@ flowchart LR
 **output**`")
   subgraph n4 ["`*«constraint»* **amplify**`"]
     direction LR
-    n4.0["input"]
-    n4.1["gain"]
-    n4.2["output"]
+    n4.0["^input"]
+    n4.1["^gain"]
+    n4.2["^output"]
   end
   subgraph n5 ["`*«constraint»* **mix**`"]
     direction LR
-    n5.0["a"]
-    n5.1["b"]
-    n5.2["total"]
+    n5.0["^a"]
+    n5.1["^b"]
+    n5.2["^total"]
   end
   n0 ===|"="| n4.0
   n1 ===|"="| n4.1

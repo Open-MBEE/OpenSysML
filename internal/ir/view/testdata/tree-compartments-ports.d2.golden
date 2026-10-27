@@ -8,7 +8,7 @@ classes: {
   composition: { source-arrowhead: { shape: diamond; style: { filled: true } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
   reference: { source-arrowhead: { shape: diamond; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
 }
-n0: "«part def»\nHub\nports\ninput : DataPort\ninput.clock : ClockPort\noutput : DataPort\noutput.sync : ClockPort\noutput.clock : ClockPort" { class: definition }
+n0: "«part def»\nHub\nports\ninput : DataPort\n^input.clock : ClockPort\noutput : DataPort\noutput.sync : ClockPort\n^output.clock : ClockPort" { class: definition }
 n1: "«attribute»\nchannels" { class: usage }
 n12: "«part»\nbuffer" { class: usage }
 n13: "«part»\nslot" { class: usage }

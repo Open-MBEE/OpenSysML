@@ -25,23 +25,23 @@ digraph "NotationGlyphs::Diagrams::mixedGlyphs" {
       penwidth=0.5;
       "n5" [shape=point, style=invis, width=0, height=0, label=""];
       subgraph "cluster_n6" {
-        label=<<font point-size="10"><i>«subject»</i></font><br/><b>plant</b>>;
+        label=<<font point-size="10"><i>«subject»</i></font><br/><b>^plant</b>>;
         color=black;
         penwidth=0.5;
         "n6" [shape=point, style=invis, width=0, height=0, label=""];
-        "n7" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>tank</b>>];
-        "n8" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>pump</b>>];
-        "n9" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>spare</b>>];
+        "n7" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>^tank</b>>];
+        "n8" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>^pump</b>>];
+        "n9" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>^spare</b>>];
       }
-      "n10" [style="rounded,filled", label=<<font point-size="10"><i>«require constraint»</i></font><br/><b>keepLevel</b>>];
-      "n11" [style="rounded,filled", label=<<font point-size="10"><i>«assume constraint»</i></font><br/><b>lowLevel</b>>];
-      "n12" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n12.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">x</font></td><td></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«require constraint»</i></font><br/><b>bounded</b></td></tr></table></td></tr></table>>];
-      "n13" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n13.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">x</font></td><td></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«assume constraint»</i></font><br/><b>tight</b></td></tr></table></td></tr></table>>];
+      "n10" [style="rounded,filled", label=<<font point-size="10"><i>«require constraint»</i></font><br/><b>^keepLevel</b>>];
+      "n11" [style="rounded,filled", label=<<font point-size="10"><i>«assume constraint»</i></font><br/><b>^lowLevel</b>>];
+      "n12" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n12.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^x</font></td><td></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«require constraint»</i></font><br/><b>^bounded</b></td></tr></table></td></tr></table>>];
+      "n13" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n13.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^x</font></td><td></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«assume constraint»</i></font><br/><b>^tight</b></td></tr></table></td></tr></table>>];
     }
     "n14" [style="rounded,filled", label=<<font point-size="10"><i>«assert constraint»</i></font><br/><b>asserted</b>>];
   }
-  "n15" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n15.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">x</font></td><td></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«constraint»</i></font><br/><b>NotationGlyphs::bounded</b></td></tr></table></td></tr></table>>];
-  "n16" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n16.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">x</font></td><td></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«constraint»</i></font><br/><b>NotationGlyphs::tight</b></td></tr></table></td></tr></table>>];
+  "n15" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n15.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^x</font></td><td></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«constraint»</i></font><br/><b>NotationGlyphs::bounded</b></td></tr></table></td></tr></table>>];
+  "n16" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n16.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^x</font></td><td></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«constraint»</i></font><br/><b>NotationGlyphs::tight</b></td></tr></table></td></tr></table>>];
   "n4" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>tankView</b>>];
   subgraph "cluster_n17" {
     label=<<font point-size="10"><i>«part def»</i></font><br/><b>Tank</b>>;

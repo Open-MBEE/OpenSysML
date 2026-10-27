@@ -5,13 +5,13 @@ classes: {
 }
 n0: "«part»\nline" {
   class: usage
-  n1: "«part»\na" {
+  n1: "«part»\n^a" {
     class: usage
-    n2: "«attribute»\nlevel" { class: usage }
+    n2: "«attribute»\n^level" { class: usage }
   }
-  n3: "«part»\nb" {
+  n3: "«part»\n^b" {
     class: usage
-    n4: "«attribute»\nlevel" { class: usage }
+    n4: "«attribute»\n^level" { class: usage }
   }
 }
 n0.n1.n2 -> n0.n3.n4: "«succession flow»" { class: successionflow }

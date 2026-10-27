@@ -9,9 +9,9 @@ digraph "MembershipViews::structure" {
   "n1" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>aPort</b>>];
   "n2" [label=<<font point-size="10"><i>«port def»</i></font><br/><b>APort</b>>];
   "n3" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>part1</b>>];
-  "n4" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>aPort</b>>];
+  "n4" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>^aPort</b>>];
   "n5" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>part2</b>>];
-  "n6" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>aPort</b>>];
+  "n6" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>^aPort</b>>];
   "n0" -> "n1" [dir=back, arrowtail=odiamond];
   "n1" -> "n2" [arrowhead=onormaldotdot];
   "n3" -> "n0" [arrowhead=onormaldotdot];

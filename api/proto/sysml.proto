@@ -2990,6 +2990,10 @@ message RenderNode {
   // The compartment of the parent node this node is drawn as a row of
   // ("attributes", "parts", "ports", ...); unset for a node drawn as a box.
   string compartment = 14;
+  // The owner the node is drawn or listed under has the usage through typing,
+  // subclassification or subsetting rather than declares it; the notation
+  // prefixes its name with `^`. `name` stays the bare name.
+  bool inherited = 15;
 }
 
 // RenderPort is a feature drawn on a node's border.
@@ -2998,6 +3002,8 @@ message RenderPort {
   string name = 2;
   string type = 3;
   string direction = 4;
+  // The node's owner has the port from its type rather than declares it; drawn with a `^` before `name`.
+  bool inherited = 5;
 }
 
 // RenderEdge joins two rendered nodes and may connect their ports.

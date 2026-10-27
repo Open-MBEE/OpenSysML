@@ -334,7 +334,7 @@ func TestDOTStripPlacesPinsOfUnplacedActions(t *testing.T) {
 	if !strings.Contains(action, `label=<<b>loose : Take</b>>`) || !strings.Contains(action, `pos="51.5,-42!"`) {
 		t.Fatalf("loose is not drawn in the strip: %q\n%s", action, source)
 	}
-	if !strings.Contains(pin, `xlabel="value"`) || !strings.Contains(pin, `pos="51.5,-18!"`) {
+	if !strings.Contains(pin, `xlabel="^value"`) || !strings.Contains(pin, `pos="51.5,-18!"`) {
 		t.Errorf("loose's pin is not on its strip box's top border: %q\n%s", pin, source)
 	}
 	if dotLine(source, `"n1.0" -> "n4.0"`) == "" {

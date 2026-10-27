@@ -2,7 +2,7 @@
 // route it finds is the panel's own, never written to the model by drawing it.
 import { AvoidLib } from "libavoid-js";
 
-import { GAP, portFace, PORT_SIZE, snap, type Box, type PortPosition } from "./geometry";
+import { GAP, portCenter, portFace, PORT_SIZE, snap, type Box, type PortPosition } from "./geometry";
 import type { RenderPoint } from "../protocol";
 
 export const CLEARANCE = GAP / 2;
@@ -51,6 +51,8 @@ export interface AvoidEdge {
 
 export interface AvoidPort extends PortPosition {
   id: string;
+  /** A point on the border itself, with no port square straddling it: an owner's header meets a member's edge there. */
+  flush?: boolean;
 }
 
 export interface AvoidShape {
@@ -147,8 +149,9 @@ export function avoidRoutes(
       const hasPort =
         (edge.fromPort !== undefined && source.ports.has(edge.fromPort)) ||
         (edge.toPort !== undefined && target.ports.has(edge.toPort));
+      // With no path between the ends libavoid draws a straight line between them; that is no route.
       const route = cleanRoute(points, hasPort);
-      if (route) {
+      if (route && orthogonal(route)) {
         const sourcePort = sourceShapeData.ports?.find((port) => port.id === edge.fromPort);
         const targetPort = targetShapeData.ports?.find((port) => port.id === edge.toPort);
         if (sourcePort) {
@@ -560,9 +563,19 @@ function addBoundsFrames(
   });
 }
 
+// portPoint is where a connector meets a port: the square's outer face, or the border itself at a flush pin.
+function portPoint(box: Box, port: AvoidPort): RenderPoint {
+  return port.flush === true ? portCenter(box, port) : portFace(box, port);
+}
+
+// squaresOn reports a side with a port square on it, which the routing box grows over.
+function squaresOn(shapeData: AvoidShape, side: PortPosition["side"]): boolean {
+  return shapeData.ports?.some((port) => port.side === side && port.flush !== true) ?? false;
+}
+
 function shapeRoutingBox(shapeData: AvoidShape): Box {
   const box = shapeData.box;
-  const portsOn = (side: PortPosition["side"]) => shapeData.ports?.some((port) => port.side === side) ?? false;
+  const portsOn = (side: PortPosition["side"]) => squaresOn(shapeData, side);
   const westGrowth = portsOn("west") ? PORT_SIZE / 2 : 0;
   const eastGrowth = portsOn("east") ? PORT_SIZE / 2 : 0;
   const northGrowth = portsOn("north") ? PORT_SIZE / 2 : 0;
@@ -618,7 +631,7 @@ export function routingPinPositions(shapeData: AvoidShape): RoutingPinPosition[]
   const named = (shapeData.ports ?? []).map((port) => ({
     id: port.id,
     side: port.side,
-    ...portFace(box, port),
+    ...portPoint(box, port),
   }));
   const portion = (value: number): number => Math.max(0, Math.min(1, value));
   const genericPins = generic.map(({ side, x, y }) => {
@@ -627,14 +640,14 @@ export function routingPinPositions(shapeData: AvoidShape): RoutingPinPosition[]
         return {
           side,
           x: portion((x - routingBox.x) / routingBox.width),
-          y: shapeData.ports?.some((port) => port.side === side)
+          y: squaresOn(shapeData, side)
             ? portion((box.y - routingBox.y) / routingBox.height)
             : 0,
         };
       case "east":
         return {
           side,
-          x: shapeData.ports?.some((port) => port.side === side)
+          x: squaresOn(shapeData, side)
             ? portion((box.x + box.width - routingBox.x) / routingBox.width)
             : 1,
           y: portion((y - routingBox.y) / routingBox.height),
@@ -643,14 +656,14 @@ export function routingPinPositions(shapeData: AvoidShape): RoutingPinPosition[]
         return {
           side,
           x: portion((x - routingBox.x) / routingBox.width),
-          y: shapeData.ports?.some((port) => port.side === side)
+          y: squaresOn(shapeData, side)
             ? portion((box.y + box.height - routingBox.y) / routingBox.height)
             : 1,
         };
       case "west":
         return {
           side,
-          x: shapeData.ports?.some((port) => port.side === side)
+          x: squaresOn(shapeData, side)
             ? portion((box.x - routingBox.x) / routingBox.width)
             : 0,
           y: portion((y - routingBox.y) / routingBox.height),
@@ -743,7 +756,7 @@ function cleanRoute(points: RenderPoint[], preservePortFaces = false): RenderPoi
 }
 
 function alignPortFace(route: RenderPoint[], pointIndex: number, adjacentIndex: number, box: Box, port: AvoidPort): void {
-  const face = portFace(box, port);
+  const face = portPoint(box, port);
   route[pointIndex] = face;
   const adjacent = route[adjacentIndex];
   const vertical = port.side === "north" || port.side === "south";
@@ -753,6 +766,10 @@ function alignPortFace(route: RenderPoint[], pointIndex: number, adjacentIndex: 
   if (Math.abs(actual - expected) <= tolerance) {
     route[adjacentIndex] = vertical ? { ...adjacent, x: expected } : { ...adjacent, y: expected };
   }
+}
+
+function orthogonal(points: RenderPoint[]): boolean {
+  return points.every((point, i) => i === 0 || point.x === points[i - 1].x || point.y === points[i - 1].y);
 }
 
 function collinear(a: RenderPoint, b: RenderPoint, c: RenderPoint): boolean {

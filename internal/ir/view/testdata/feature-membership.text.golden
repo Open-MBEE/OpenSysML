@@ -4,9 +4,9 @@ part def APart
   port aPort
 port def APort
 part part1
-  port aPort
+  port ^aPort
 part part2
-  port aPort
+  port ^aPort
 
 relationships:
   APart o-- aPort

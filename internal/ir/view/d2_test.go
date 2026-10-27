@@ -174,7 +174,7 @@ func TestD2InterconnectionNestsPorts(t *testing.T) {
 		t.Fatalf("D2: %v", err)
 	}
 	for _, want := range []string{
-		"\nn0: \"«part def»\\nLoop\" {\n  class: definition\n  n1: \"«part»\\npump : Pump\" {\n    class: usage\n    \"n1.0\": \"outlet\" { class: pin }\n    n2: \"«item»\\nwaterOut : Water\" { class: usage }\n  }\n",
+		"\nn0: \"«part def»\\nLoop\" {\n  class: definition\n  n1: \"«part»\\npump : Pump\" {\n    class: usage\n    \"n1.0\": \"^outlet\" { class: pin }\n    n2: \"«item»\\n^waterOut : Water\" { class: usage }\n  }\n",
 		"\nn0.n1.\"n1.0\" -- n0.n3.\"n3.0\": \"supply\" { class: connection }\n",
 		"\n  connection: { style: { stroke: \"#181818\"; font-size: 13; font-color: black; stroke-width: 3 } }\n",
 		"\n  pin: { style: { fill: white; stroke: \"#181818\"; stroke-width: 1; font-color: black; font-size: 10 } }\n",
@@ -187,7 +187,7 @@ func TestD2InterconnectionNestsPorts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("D2 full ports: %v", err)
 	}
-	if !strings.Contains(full, "\"n1.0\": \"«port»\\noutlet : FluidPort\" { class: pin }") {
+	if !strings.Contains(full, "\"n1.0\": \"«port»\\n^outlet : FluidPort\" { class: pin }") {
 		t.Errorf("the full display does not name the port's type:\n%s", full)
 	}
 	flows, err := render(t, "action.sysml", "FlowViews::driveView").D2With(fullNotation)
@@ -258,7 +258,7 @@ func TestD2ActionGlyphsAndPins(t *testing.T) {
 		"\n  choice: { shape: diamond; style: { fill: white; stroke: \"#181818\"; stroke-width: 1; font-color: black; font-size: 14 } }\n",
 		"# not represented: 2 fork/join name(s) (split, sync); D2's fork bar draws no label\n",
 		"# not represented: 1 pin(s) not drawn (provide.fuel); D2 draws the pins an edge ends at\n",
-		"\n  n2: \"«action»\\nprovide : Provide\" {\n    class: usage\n    \"n2.1\": \"torque\" { class: pin }\n  }\n",
+		"\n  n2: \"«action»\\nprovide : Provide\" {\n    class: usage\n    \"n2.1\": \"^torque\" { class: pin }\n  }\n",
 		"\n    \"n3.0\": \"reading\" { class: pin }\n",
 		"\nn0.n2.\"n2.1\" -> n0.n3.\"n3.0\": \"torque to reading\" { class: edge }\n",
 	} {

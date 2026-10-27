@@ -9,9 +9,9 @@ package MixedExamples
     port inlet
   part def Plant
     part pump
-      port outlet
+      port ^outlet
     part tank
-      port inlet
+      port ^inlet
   connection def Connection
     part a
     part b
@@ -30,7 +30,7 @@ package MixedExamples
   perform action run (declares no nodes)
   exhibit state mode
     start
-    state ready (initial)
+    state ^ready (initial)
   part def Person
   view mixedDiagram
   view mixedLayout

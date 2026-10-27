@@ -9,9 +9,9 @@ n0: "«part def»\nAPart" { class: definition }
 n1: "«port»\naPort" { class: usage }
 n2: "«port def»\nAPort" { class: definition }
 n3: "«part»\npart1" { class: usage }
-n4: "«port»\naPort" { class: usage }
+n4: "«port»\n^aPort" { class: usage }
 n5: "«part»\npart2" { class: usage }
-n6: "«port»\naPort" { class: usage }
+n6: "«port»\n^aPort" { class: usage }
 n0 <- n1: { class: reference }
 n1 -> n2: { class: specialization }
 n3 -> n0: { class: specialization }

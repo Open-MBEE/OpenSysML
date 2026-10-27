@@ -7,15 +7,15 @@ abstract part vehicleFamily
   abstract part engine
   part chassis
   connect
-  attribute mass
+  attribute ^mass
 variation part def Models
   variant sedan
-    attribute mass
-    abstract port fuel
-    abstract part engine
-    part chassis
+    attribute ^mass
+    abstract port ^fuel
+    abstract part ^engine
+    part ^chassis
     connect
-  attribute mass
+  attribute ^mass
 
 relationships:
   Vehicle o-- mass

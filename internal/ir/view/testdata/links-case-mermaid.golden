@@ -34,9 +34,9 @@ flowchart LR
   n4(["`*«use case»*
 **addFuel**`"])
   n5["`*«actor»*
-**fueler**`"]
+**^fueler**`"]
   n6["`*«subject»*
-**vehicle**`"]
+**^vehicle**`"]
   n7(["`*«include use case»*
 **'enter vehicle'**`"])
   n8["`*«subject»*
