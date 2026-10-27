@@ -1333,7 +1333,11 @@ func (ec *EvalContext) conformHeld(sym *symbols.Symbol, val Value, countJudged b
 	if err := ec.ctx.classifyHeld(sym, val); err != nil {
 		return Value{}, fmt.Errorf("%s: %w", what(), err)
 	}
-	return ec.bindVariationOf(sym, ec.ctx.classifiedFrame(sym, ec.ctx.declaredCollection(sym, val)))
+	val, err := ec.ctx.declaredCollection(sym, val)
+	if err != nil {
+		return Value{}, fmt.Errorf("%s: %w", what(), err)
+	}
+	return ec.bindVariationOf(sym, ec.ctx.classifiedFrame(sym, val))
 }
 
 // occurrenceReference evaluates a name denoting objects of its own — an occurrence, a

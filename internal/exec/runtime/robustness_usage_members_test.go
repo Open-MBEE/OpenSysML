@@ -99,8 +99,9 @@ func testUsageMembersUnboundConstraintInput(t *testing.T) {
 	if err != nil || val.Kind != ValUndetermined {
 		t.Fatalf("Probe::rig.under.limit = %s, %v; want undetermined for the input nothing binds", FormatValue(val), err)
 	}
-	if val, err := eval("Probe::rig.fits.limit"); err != nil || FormatValue(val) != "100.0" {
-		t.Fatalf("Probe::rig.fits.limit = %s, %v; want the default 100.0", FormatValue(val), err)
+	// A parameter stating no multiplicity is held to [0..*], so its one default is a one-element sequence.
+	if val, err := eval("Probe::rig.fits.limit"); err != nil || FormatValue(val) != "[100.0]" {
+		t.Fatalf("Probe::rig.fits.limit = %s, %v; want the default held as [100.0]", FormatValue(val), err)
 	}
 	if val, err := eval("Probe::rig.fits"); err != nil || FormatValue(val) != "true" {
 		t.Fatalf("Probe::rig.fits = %s, %v; want the verdict", FormatValue(val), err)
