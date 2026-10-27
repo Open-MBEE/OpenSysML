@@ -209,8 +209,8 @@ matches the first. The pilot derives an expression's `featuringType` from its ad
 featuring types, which are filled while the owner is transformed (`FeatureAdapter.addImplicitFeaturingTypesIfNecessary`,
 `FeatureUtil.insertImplicitTypeFeaturings` in `org.omg.sysml.logic`), so the value depends on
 transformation order, not on the model. At pin `2026-09` (`0.63.0`) the disagreement reproduces: two exports of the
-same corpus differed on exactly this row (284/230 against 287/227 present-equal/present-different in
-`pilot-examples`, three unkeyed references) and on nothing else. The metamodel (KerML 1.1 Beta 2 8.3.3.3.4, `featuringType :
+same corpus moved three comparisons of this row between ours-missing and absent-both (284/230 against
+287/227, three unkeyed references) and nothing else. The metamodel (KerML 1.1 Beta 2 8.3.3.3.4, `featuringType :
 Type [0..*] {ordered}`, `deriveFeatureFeaturingType`) derives it from the `typeFeaturing`s and the
 first chaining feature, which this expression has neither of, so the stable answer — none — is the one
 this repository's writer states; the other is not a different fact but a different run.
