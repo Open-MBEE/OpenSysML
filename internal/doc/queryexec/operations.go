@@ -1214,7 +1214,14 @@ func (e *executor) missingFeature(expression queryplan.Expression, property stri
 		// A metadata path names an annotation the element may simply not carry.
 		return nil
 	}
-	features := e.features(sym)
+	reached, segment, nested := sym, property, ""
+	if segments, ok := parseMemberPath(property); ok {
+		reached, segment = e.memberPathStop(sym, segments)
+		if reached != sym {
+			nested = symbols.FQNOf(reached)
+		}
+	}
+	features := e.features(reached)
 	names := make([]string, 0, len(features))
 	for _, f := range features {
 		names = append(names, f.Name)
@@ -1225,12 +1232,13 @@ func (e *executor) missingFeature(expression queryplan.Expression, property stri
 		Operation:  expression.Operation(),
 		Property:   property,
 		Target:     symbols.FQNOf(sym),
+		Actual:     nested,
 		Candidates: names,
 		Origin:     expression.Origin(),
 		Outcome: &Outcome{Path: &PathError{Failures: []Failure{{
-			Step:     Step{Kind: StepFeature, Argument: property},
-			Expected: "a feature named " + property + " on the element",
-			Frontier: Frontier{At: symbols.FQNOf(sym), Features: features, Nearest: first(suggest.Nearest(property, names))},
+			Step:     Step{Kind: StepFeature, Argument: segment},
+			Expected: "a feature named " + segment + " on the element",
+			Frontier: Frontier{At: symbols.FQNOf(reached), Features: features, Nearest: first(suggest.Nearest(segment, names))},
 		}}}},
 	}
 }

@@ -81,3 +81,38 @@ calc def ToleratedHeavyOnes :> Query {
 		t.Fatalf("ToleratedAbsent: error = %v, want unknown-property", err)
 	}
 }
+
+// TestExecuteMissingFeatureOnAMemberPathStopsAtTheMemberReached: a dotted
+// property whose segment names no member reports the member the path reached,
+// with that member's features as the frontier, not the row's.
+func TestExecuteMissingFeatureOnAMemberPathStopsAtTheMemberReached(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+part root {
+	part x { part stat { attribute count = 1; attribute runs = 2; } }
+	part y { part stat { attribute count = 3; attribute run = 4; } }
+}
+calc def Runs :> Query {
+	in source : Element;
+	Project(source = OwnedElements(source = source), properties = ("stat.runs"))
+}
+`)
+	bindings := Bindings{"source": {ElementValue(fixture.symbol(t, "root"))}}
+	var executionError *Error
+	_, err := fixture.execute(t, "Runs", bindings, Options{})
+	if !errors.As(err, &executionError) || executionError.Kind != ErrorMissingFeature {
+		t.Fatalf("error = %v, want missing-feature", err)
+	}
+	if executionError.Target != "Observatory::root::y" || executionError.Actual != "Observatory::root::y::stat" {
+		t.Fatalf("names %s stopping at %s, want root::y stopping at root::y::stat", executionError.Target, executionError.Actual)
+	}
+	if msg := executionError.Error(); !strings.HasSuffix(msg, "reads feature stat.runs of Observatory::root::y, but the path stops at Observatory::root::y::stat: its features are count, run") {
+		t.Fatalf("message = %q", msg)
+	}
+	failure := executionError.Outcome.Path.Failures[0]
+	if failure.Step.Label() != "Feature(runs)" || failure.Frontier.At != "Observatory::root::y::stat" || failure.Frontier.Nearest != "run" {
+		t.Fatalf("failure = %+v", failure)
+	}
+	if len(failure.Frontier.Features) != 2 || failure.Frontier.Features[0].Name != "count" || failure.Frontier.Features[1].Name != "run" {
+		t.Fatalf("frontier features = %+v", failure.Frontier.Features)
+	}
+}

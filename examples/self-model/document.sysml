@@ -33,6 +33,7 @@ package OpenSysMLDocument {
         in root : Element;
         Project(
             source = WhereFeature(
+                tolerate = true,
                 source = WhereType(
                     source = OwnedElements(source = DefinitionOf(root = root)),
                     type = "PartUsage"
@@ -63,6 +64,7 @@ package OpenSysMLDocument {
         in root : Element;
         Project(
             source = WhereFeature(
+                tolerate = true,
                 source = WhereType(
                     source = OwnedElements(source = DefinitionOf(root = root)),
                     type = "PartUsage"
@@ -81,6 +83,7 @@ package OpenSysMLDocument {
         in root : Element;
         Project(
             source = WhereFeature(
+                tolerate = true,
                 source = WhereType(
                     source = OwnedElements(source = DefinitionOf(root = root)),
                     type = "PartUsage"
@@ -111,6 +114,7 @@ package OpenSysMLDocument {
         in root : Element;
         Project(
             source = WhereFeature(
+                tolerate = true,
                 source = WhereType(
                     source = OwnedElements(source = DefinitionOf(root = root)),
                     type = "PartUsage"
@@ -129,6 +133,7 @@ package OpenSysMLDocument {
         in root : Element;
         Project(
             source = WhereFeature(
+                tolerate = true,
                 source = WhereType(
                     source = OwnedElements(source = DefinitionOf(root = root)),
                     type = "PartUsage"
@@ -146,6 +151,7 @@ package OpenSysMLDocument {
         in root : Element;
         Project(
             source = WhereFeature(
+                tolerate = true,
                 source = WhereType(
                     source = OwnedElements(source = DefinitionOf(root = root)),
                     type = "PartUsage"
