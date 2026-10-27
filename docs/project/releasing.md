@@ -322,7 +322,7 @@ so that `dist/` holds:
   registers the kernelspec, and its platform wheels bundle it;
 - `wasm/sysml-wasm.wasm`, `wasm/sysml-prod.wasm.gz` and `wasm/wasm_exec.js`, the
   combined WebAssembly module, the gzip-compressed browser build of the `sysml` REPL
-  (`-tags sysml_prod`, what the site's REPL page runs) and the matching Go runtime,
+  (`-tags sysml_re`, what the site's REPL page runs) and the matching Go runtime,
   each with a `.sha256` sidecar;
 - the Python client's distribution, `opensysml-<x.y.z>-py3-none-any.whl` and
   `opensysml-<x.y.z>.tar.gz`, built by `build-python-package` from those
