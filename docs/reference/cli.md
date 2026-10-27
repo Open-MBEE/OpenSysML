@@ -1027,7 +1027,7 @@ sysml model.sysml -render Views::loopView -render-form dot -render-ports full -o
 rendering draws besides the ones its view's rendering shows. By default a rendering draws port
 symbols, compartments and keywords (and an action's or calculation's parameter pins, part of its node
 form rather than an optional element) and leaves the rest out; each name adds one: `parameter-symbols`, a case's
-`actor`, `subject` and `stakeholder` parameters and an action's parameter pins as squares on the
+`actor`, `subject` and `stakeholder` parameters as squares on the
 node's boundary (without them a connection that ended at a parameter ends at the node itself, one
 line per connection); `port-symbols`, a part's ports on its boundary (without them a connection
 ends at the part); `compartments`, the lists of nested features inside a node; `edge-labels`, the
