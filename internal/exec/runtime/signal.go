@@ -1038,9 +1038,11 @@ func (ctx *Context) addressOwner(scope *symbols.Scope, self *Instance, segments 
 	if scope == nil || ctx.model.resolver == nil {
 		return nil, nil, false, nil
 	}
+	// A performance a namespace declares is a receiver addressed by name, as a
+	// behavior feature of an object is: its messages reach whatever performs it.
 	for n := 1; n <= len(segments); n++ {
 		sym, ok := ctx.pathSymbol(scope, segments[:n])
-		if !ok || !isOccurrenceUsage(sym) || !ctx.occursOnce(sym) {
+		if !ok || !isOccurrenceUsage(sym) || !ctx.occursOnce(sym) || isPerformanceUsage(sym) {
 			continue
 		}
 		if self != nil && self.Type == sym {
