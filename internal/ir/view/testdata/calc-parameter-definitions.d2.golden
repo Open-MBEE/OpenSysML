@@ -1,0 +1,29 @@
+# ParameterCalcViews::definitions — tree rendering (render asTreeDiagram)
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  pin: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 10 } }
+}
+n0: "«calc def»\nAdd" {
+  class: definition
+  "n0.0": "in x" { class: pin }
+  "n0.1": "in y" { class: pin }
+  "n0.2": "out result" { class: pin }
+}
+n1: "«calc def»\nScale" {
+  class: definition
+  "n1.0": "in x" { class: pin }
+  "n1.1": "in factor" { class: pin }
+  "n1.2": "inout count" { class: pin }
+  "n1.3": "out doubled" { class: pin }
+  "n1.4": "out r" { class: pin }
+}
+n2: "«action def»\nHeat" {
+  class: definition
+  "n2.0": "in bread" { class: pin }
+  "n2.1": "out toast" { class: pin }
+}
+n3: "«constraint def»\nBetween" {
+  class: definition
+  "n3.0": "in low" { class: pin }
+  "n3.1": "in value" { class: pin }
+}
