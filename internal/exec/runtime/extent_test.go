@@ -362,10 +362,8 @@ func TestNamespaceConnectorUsageDenotesOneObject(t *testing.T) {
 	}
 }
 
-// TestNamespaceConnectorUsagesBoundAndCounted requires the other namespace paths that make a
-// connector usage's objects to attach its ends as a bare read does: two package-level
-// connections a `bind` joins share one connector with its ends, and a `[2]` connection denotes
-// two connectors, each attached, all counted by `all Link`.
+// TestNamespaceConnectorUsagesBoundAndCounted requires every namespace path that makes a connector
+// usage's objects — a `bind`, a `[2]` collection, a lazily held `[1001]` one — to attach their ends.
 func TestNamespaceConnectorUsagesBoundAndCounted(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
 		package test {
@@ -377,6 +375,7 @@ func TestNamespaceConnectorUsagesBoundAndCounted(t *testing.T) {
 			connection d : Link connect sys.x to sys.y;
 			bind c = d;
 			connection pair : Link[2] connect sys.x to sys.y;
+			connection many : Link[1001] connect sys.x to sys.y;
 		}
 	`))
 	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
@@ -416,7 +415,17 @@ func TestNamespaceConnectorUsagesBoundAndCounted(t *testing.T) {
 			t.Errorf("pair#%d holds ends %v, want sys.x and sys.y", i+1, ends)
 		}
 	}
-	if got := len(elementsOf(eval("all Link"))); got != 3 {
-		t.Errorf("size(all Link) = %d, want 3 (the shared c/d and the two of pair)", got)
+	for _, expr := range []string{"many#(1).a === sys.x", "many#(1001).b === sys.y", "many#(1) != many#(2)"} {
+		if val := eval(expr); val.Kind != ValConst || !val.Const.Bool {
+			t.Errorf("%s = %v, want true", expr, val)
+		}
+	}
+	if got := len(elementsOf(eval("all Link"))); got != 1004 {
+		t.Errorf("size(all Link) = %d, want 1004 (the shared c/d, the two of pair, the 1001 of many)", got)
+	}
+	for id, inst := range ctx.instances {
+		if inst.Type != nil && inst.Type.Name == "Link" && len(inst.Ends) != 2 {
+			t.Fatalf("Link %d holds %d ends, want 2", id, len(inst.Ends))
+		}
 	}
 }
