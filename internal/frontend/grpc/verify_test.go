@@ -74,8 +74,7 @@ const verifyModelSource = `package Demo {
 func mustVerifyModel(t *testing.T, srv *Service, source, hash string) string {
 	t.Helper()
 	resp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: source},
-		ContentHash: hash,
+		Source: &pb.ParseFileRequest_Content{Content: source},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile: %v", err)
