@@ -718,18 +718,23 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 	flowchart.writeFlowchartNoteEdges(w, noteOwners, used)
 	r.writeMermaidStyles(b, fills, options, false)
 	w.writeClasses(flowchart.Notes, options)
-	r.writeFlowchartLinks(b, options, used)
+	r.writeFlowchartLinks(b, options, used, w.clusterAnchors)
 }
 
-func (r *Rendering) writeFlowchartLinks(b *strings.Builder, options Options, used map[string]map[string]bool) {
+func (r *Rendering) writeFlowchartLinks(b *strings.Builder, options Options, used map[string]map[string]bool, anchors map[string]string) {
 	if !options.Links.Enabled() {
 		return
 	}
 	var walk func(*Node)
 	walk = func(node *Node) {
-		if r.Kind == KindTree || !r.flowchartSubgraph(node, used) {
-			if url, ok := options.Links.URL(node.Origin); ok {
-				fmt.Fprintf(b, "  click %s href \"%s\"\n", node.ID, url)
+		if url, ok := options.Links.URL(node.Origin); ok {
+			// A subgraph takes no click; the anchor node drawn inside one does.
+			id, linked := node.ID, true
+			if r.Kind != KindTree && r.flowchartSubgraph(node, used) {
+				id, linked = anchors[node.ID]
+			}
+			if linked {
+				fmt.Fprintf(b, "  click %s href \"%s\"\n", id, url)
 			}
 		}
 		for _, child := range node.Children {

@@ -105,9 +105,8 @@ func (n *narrowing) leftOut(parent, node *Node) bool {
 	return parent != nil && !n.shown.Has(ElementParameterSymbols) && parameterSymbol(parent, node)
 }
 
-// actionPinNode reports whether a node's parameter pins are an action's or a
-// calc's — part of its node form (§8.2.3.17, §8.2.3.19), always drawn — rather
-// than a case's or requirement's parameter symbols, drawn when shown.
+// actionPinNode reports whether a node's parameter pins are an action's or calc's
+// (its node form's, §8.2.3.17/19, always drawn), not a case's parameter symbols.
 func actionPinNode(node *Node) bool {
 	return !caseNodeKind(node.Kind) && !requirementNodeKind(node.Kind)
 }
