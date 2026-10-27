@@ -107,7 +107,7 @@ public final class Connection implements AutoCloseable {
     if (external.isPresent()) {
       String address = external.get();
       ConnectTransport transport =
-          new ConnectTransport(address, options.encoding(), options.requestTimeout());
+          new ConnectTransport(address, options.encoding(), options.requestTimeout(), options.token());
       Connection connection;
       try {
         connection = new Connection(transport, address, Optional.empty());
@@ -131,7 +131,8 @@ public final class Connection implements AutoCloseable {
     }
     PrivateService service = ServiceRegistry.acquire(options);
     ConnectTransport transport =
-        new ConnectTransport(service.address(), options.encoding(), options.requestTimeout());
+        new ConnectTransport(
+            service.address(), options.encoding(), options.requestTimeout(), options.token());
     Connection connection;
     try {
       connection = new Connection(transport, service.address(), Optional.of(service));

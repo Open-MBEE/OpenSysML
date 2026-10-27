@@ -20,6 +20,9 @@ public final class ConnectionOptions {
   /** Names an external service as {@code host:port}, as the Python client reads it too. */
   public static final String SERVICE_ENV = "OPENSYSML_SERVICE";
 
+  /** Names the bearer token every call carries when none is given here. */
+  public static final String TOKEN_ENV = "OPENSYSML_GRPC_TOKEN";
+
   /** Names the service binary a private child is started from. */
   public static final String BINARY_ENV = "OPENSYSML_GRPC_BINARY";
 
@@ -37,6 +40,7 @@ public final class ConnectionOptions {
 
   private final Optional<String> host;
   private final int port;
+  private final Optional<String> token;
   private final boolean autoStart;
   private final Optional<Path> binaryPath;
   private final Optional<String> expectedBinarySha256;
@@ -52,6 +56,7 @@ public final class ConnectionOptions {
   private ConnectionOptions(Builder builder) {
     this.host = Optional.ofNullable(builder.host);
     this.port = builder.port;
+    this.token = Optional.ofNullable(builder.token);
     this.autoStart = builder.autoStart;
     this.binaryPath = Optional.ofNullable(builder.binaryPath);
     this.expectedBinarySha256 = Optional.ofNullable(builder.expectedBinarySha256);
@@ -159,6 +164,18 @@ public final class ConnectionOptions {
   }
 
   /**
+   * The bearer token every call carries, for a service that requires one.
+   *
+   * @return the token, or {@code $OPENSYSML_GRPC_TOKEN} when none was given here
+   */
+  public Optional<String> token() {
+    if (token.isPresent()) {
+      return token;
+    }
+    return Optional.ofNullable(System.getenv(TOKEN_ENV)).filter(value -> !value.isBlank());
+  }
+
+  /**
    * The body encoding calls use.
    *
    * @return the encoding
@@ -209,6 +226,7 @@ public final class ConnectionOptions {
 
     private String host;
     private int port;
+    private String token;
     private boolean autoStart = true;
     private Path binaryPath;
     private String expectedBinarySha256;
@@ -324,6 +342,18 @@ public final class ConnectionOptions {
      */
     public Builder allowUnpinnedDownload(boolean allowUnpinnedDownload) {
       this.allowUnpinnedDownload = allowUnpinnedDownload;
+      return this;
+    }
+
+    /**
+     * The bearer token every call carries, for a service that requires one (one serving an
+     * address other machines reach). {@code $OPENSYSML_GRPC_TOKEN} when not given.
+     *
+     * @param token the token
+     * @return this builder
+     */
+    public Builder token(String token) {
+      this.token = Objects.requireNonNull(token, "token");
       return this;
     }
 
