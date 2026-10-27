@@ -306,7 +306,7 @@ about it, and add a case to `scripts/ci-changed-areas-test.sh`, which the same j
 **Dependency audits** run in both tiers, each in the job whose ecosystem it covers and gated
 by the same `Changed areas` output as that job: `make vulncheck` (govulncheck over both Go
 modules, failing on a vulnerability the code reaches) in the Go static job, `make audit-npm`
-(`npm audit --omit=dev --audit-level=high` over every `package-lock.json`) in each Node job,
+(`npm audit --omit=dev --audit-level=moderate` over every `package-lock.json`) in each Node job,
 `make audit-python` (`pip-audit --strict` over `client/python`, `client/jupyter-kernel`,
 `packaging/pypi-pysysml` and `docs-requirements.txt`) in the Python job, `make audit-rust`
 (`cargo audit`) in the Rust job and `make audit-java` (a CycloneDX SBOM of each Maven tree —
@@ -317,10 +317,9 @@ all five locally. A finding fails the job: fix it by bumping the dependency (a D
 request may already exist), never by lowering a level or ignoring an advisory. The same audits
 run every night over `develop` ([nightly snapshots](docs/project/nightly.md)), so an advisory
 published against an unchanged tree is seen within a day, and before a release
-([releasing](docs/project/releasing.md#before-tagging)). The npm level is `high` because
-`editors/jupyterlab`'s pinned JupyterLab build tooling carries moderate advisories with no
-upstream fix; lower it to `moderate` when `npm audit --omit=dev --audit-level=moderate` is clean
-in every lockfile directory.
+([releasing](docs/project/releasing.md#before-tagging)). The npm level is `moderate`, the
+lowest `npm audit` ranks a real advisory at; `low` is not used because npm reports it for
+advisories without a fix.
 
 ### Dependabot pull requests
 

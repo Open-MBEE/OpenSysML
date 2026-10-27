@@ -32,7 +32,7 @@ CYCLONEDX_MAVEN_VERSION := 2.9.1
 SCA_BIN := build/sca/bin
 PIP_AUDIT := build/sca/venv/bin/pip-audit
 # `npm audit` fails on production advisories at this severity and above, in every lockfile directory.
-NPM_AUDIT_LEVEL := high
+NPM_AUDIT_LEVEL := moderate
 BUF_VERSION := v1.57.2
 GO_WINRES_VERSION := v0.3.3
 
