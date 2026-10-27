@@ -101,7 +101,8 @@ calc def MassTable :> Query {
 	in root : Element;                 // entry parameters, bound by the caller
 	Project(                            // operations compose inside-out
 		source = PartsByMass(root = root),  // ... and queries invoke queries
-		properties = ("name", "mass", "qualifiedName")
+		properties = ("name", "mass", "qualifiedName"),
+		tolerate = true                 // an element lacking a property gets an empty cell
 	)
 }
 ```
@@ -550,7 +551,8 @@ calc def MassTable :> Query {
 	in root : Element;
 	Project(
 		source = PartsByMass(root = root),
-		properties = ("name", "mass", "qualifiedName")
+		properties = ("name", "mass", "qualifiedName"),
+		tolerate = true  // opticalPath and dataPath declare no mass
 	)
 }
 ```
@@ -581,8 +583,22 @@ $ sysml cookbook.sysml -run-query "Cookbook::MassTable root=Cookbook::telescope"
     qualifiedName = "Cookbook::telescope::dataPath"
 ```
 
-A cell for a property the element lacks is empty (`(none)` in the CLI's row
-listing, an empty table cell in a document). A feature whose declared value
+`opticalPath` and `dataPath` are connections: they declare no `mass`. Reading
+a feature of an element that has none so named is by default an error that
+names the element and the features it does have — a path error, telling a
+query that left the model apart from a feature that is present and empty:
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::MassTable root=Cookbook::telescope"   # without tolerate = true
+error: query Cookbook::MassTable reads feature mass of Cookbook::telescope::opticalPath, which has no such feature
+```
+
+`tolerate = true` on `Project` (and on `WhereFeature`) accepts the mixed rows
+and leaves the cell empty (`(none)` in the CLI's row listing, an empty table
+cell in a document). A property no row carries at all is an unknown property
+whichever way — that is a misspelling, not a mixed source. A metadata path
+(`Properties::key`) is always tolerated: an annotation is optional by nature.
+A feature whose declared value
 names an element of the model — an enumeration literal, a part, a unit — holds
 that element, printed by name like `general`, whether the value is written on
 the feature or bound by a redefinition (`attribute :>> beam = Beam::'650mm';`);
@@ -785,6 +801,7 @@ calc def MassBudget :> Query {
 	Project(
 		source = PartsByMass(root = root),
 		properties = ("name", "mass"),
+		tolerate = true,
 		columns = (
 			Column(name = "massLbs", cell = { in row : Subsystem; (row.mass ?? 0.0) * 2.2 }),
 			Column(name = "label", expression = "part: " + Element::name)

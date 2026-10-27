@@ -28,8 +28,11 @@ const (
 	ErrorUnknownElement        ErrorKind = "unknown-element"
 	// ErrorAmbiguousElement: Named was given a name several elements carry — a
 	// finding about the model, where ErrorUnknownElement is one about the query.
-	ErrorAmbiguousElement      ErrorKind = "ambiguous-element"
-	ErrorUnknownRelationship   ErrorKind = "unknown-relationship"
+	ErrorAmbiguousElement    ErrorKind = "ambiguous-element"
+	ErrorUnknownRelationship ErrorKind = "unknown-relationship"
+	// ErrorMissingFeature: Project or WhereFeature read a feature an element row
+	// lacks — a path error about that element; ErrorUnknownProperty: no row had it.
+	ErrorMissingFeature        ErrorKind = "missing-feature"
 	ErrorUnevaluableFeature    ErrorKind = "unevaluable-feature"
 	ErrorUnknownInvocation     ErrorKind = "unknown-invocation"
 	ErrorInvocationCycle       ErrorKind = "invocation-cycle"
@@ -141,6 +144,20 @@ func (e *Error) unknownElementMessage() string {
 	return suggest.With(msg, e.Expected, e.Candidates)
 }
 
+// missingFeatureMessage names the element lacking the feature and the features
+// it does have, so the reader sees where the path left the model.
+func (e *Error) missingFeatureMessage() string {
+	msg := fmt.Sprintf("query %s reads feature %s of %s, which has no such feature", e.Query, e.Property, e.Target)
+	if len(e.Candidates) == 0 {
+		return msg
+	}
+	msg += ": its features are " + strings.Join(e.Candidates, ", ")
+	if len(e.Candidates) <= 3 {
+		return msg
+	}
+	return suggest.With(msg, e.Property, e.Candidates)
+}
+
 // column names the projected column an error arose in, when it did in one.
 func (e *Error) column() string {
 	if e.Property == "" {
@@ -186,6 +203,8 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("query %s references unknown property %s", e.Query, e.Property)
 	case ErrorUnknownClassification:
 		return fmt.Sprintf("query %s references unknown classification %s", e.Query, e.Actual)
+	case ErrorMissingFeature:
+		return e.missingFeatureMessage()
 	case ErrorUnknownElement:
 		return e.unknownElementMessage()
 	case ErrorAmbiguousElement:

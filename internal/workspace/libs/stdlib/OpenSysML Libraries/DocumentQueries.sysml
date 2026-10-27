@@ -179,6 +179,8 @@ library package DocumentQueries {
 		in 'feature' : String[1];
 		in operator : String[1];
 		in value : String[1];
+		/* As for Project: an element lacking the feature is a path error unless tolerated. */
+		in tolerate : Boolean[1] default false;
 		return result : Element[0..*] ordered;
 	}
 
@@ -235,6 +237,9 @@ library package DocumentQueries {
 		in source : Element[0..*] ordered;
 		in properties : String[0..*] ordered default null;
 		in columns : ColumnSpec[0..*] ordered default null;
+		/* A property an element row lacks is a path error naming that element and
+		 * the features it does have; tolerate = true keeps today's empty cell. */
+		in tolerate : Boolean[1] default false;
 		return result : Element[0..*] ordered;
 	}
 
