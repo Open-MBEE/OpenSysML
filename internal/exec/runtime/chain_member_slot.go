@@ -24,20 +24,44 @@ type chainStatic struct {
 }
 
 // noteChainMembers records the declarations a chain's segments name for the
-// reads of its parts, and returns the restore of what was recorded before.
-func (ec *EvalContext) noteChainMembers(base ast.Node, parts []ast.NameSegment) func() {
+// reads of its parts, and returns what was recorded before for restoreChain.
+func (ec *EvalContext) noteChainMembers(base ast.Node, parts []ast.NameSegment) chainStatic {
 	previous := ec.chain
 	ec.chain = chainStatic{parts: parts, decls: ec.chainDeclarations(base, parts)}
-	return func() { ec.chain = previous }
+	return previous
+}
+
+// restoreChain records previous again once the chain it was noted for is evaluated.
+func (ec *EvalContext) restoreChain(previous chainStatic) {
+	ec.chain = previous
+}
+
+// chainDeclarationsKey identifies the declarations one chain's segments name
+// from one base feature or type; parts is an immutable slice of the AST.
+type chainDeclarationsKey struct {
+	base  *symbols.Symbol
+	parts *ast.NameSegment
+	n     int
 }
 
 // chainDeclarations resolves each segment in the namespace of the one before
 // it, from the feature or cast type the base names; nil when the base names none.
+// The resolution is memoized per model, so a chain a loop re-evaluates reads it.
 func (ec *EvalContext) chainDeclarations(base ast.Node, parts []ast.NameSegment) []*symbols.Symbol {
 	cur, ok := ec.chainBaseSymbol(base)
-	if !ok {
+	if !ok || len(parts) == 0 {
 		return nil
 	}
+	key := chainDeclarationsKey{base: cur, parts: &parts[0], n: len(parts)}
+	if decls, ok := ec.ctx.model.chainDeclarations[key]; ok {
+		return decls
+	}
+	decls := ec.resolveChainDeclarations(cur, parts)
+	ec.ctx.model.chainDeclarations[key] = decls
+	return decls
+}
+
+func (ec *EvalContext) resolveChainDeclarations(cur *symbols.Symbol, parts []ast.NameSegment) []*symbols.Symbol {
 	decls := make([]*symbols.Symbol, len(parts))
 	for i := range parts {
 		decl, found := ec.ctx.declaredMember(cur, parts[i].Text)
