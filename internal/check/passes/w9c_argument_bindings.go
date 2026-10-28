@@ -107,7 +107,7 @@ func (ec *exprChecker) judgeBinding(scope *symbols.Scope, value ast.Node, want [
 }
 
 // judgeFeatureValueBinding judges a feature's value by the feature's own types, the binding a
-// FeatureValue implies (KerML 8.3.4.5.2); a `default` implies none, a subject is W9C's, an assignment no value.
+// FeatureValue implies (KerML 8.3.4.5.2); a `default` or an assignment implies none, a subject is W9CBoundFeatureTypesPass's.
 func (ec *exprChecker) judgeFeatureValueBinding(valueScope, declScope *symbols.Scope, d featureDecl, value ast.Node) {
 	var isDefault bool
 	if u, ok := d.node.(*ast.Usage); ok {
