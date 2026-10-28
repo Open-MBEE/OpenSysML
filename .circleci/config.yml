@@ -438,9 +438,8 @@ jobs:
             cancelled = 0
             examined = 0
             token = None
-            # Newest first; stop at pipelines created more than a day ago, far
-            # past the longest a build-test can queue and run, so a busy day
-            # cannot push a still-running one off the end.
+            # Newest first; stop at pipelines created over a day ago, far past the
+            # longest a build-test can queue and run, so none is pushed off the end.
             horizon = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=24)
             done = False
             for _ in range(20):
