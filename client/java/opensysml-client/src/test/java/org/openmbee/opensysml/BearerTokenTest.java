@@ -47,8 +47,8 @@ class BearerTokenTest {
             ConnectionOptions.builder().service(host, port),
             ConnectionOptions.builder().service(host, port).token(TOKEN + "x"),
           }) {
-        ServiceException e =
-            assertThrows(ServiceException.class, () -> Connection.open(refused.build()));
+        ConnectionOptions options = refused.build();
+        ServiceException e = assertThrows(ServiceException.class, () -> Connection.open(options));
         assertEquals(StatusCode.UNAUTHENTICATED, e.status());
       }
     } finally {
