@@ -212,11 +212,11 @@ func TestCheckFailsOnlyOnDrift(t *testing.T) {
 	if err := run(dir, out, true, testPin); err != nil {
 		t.Fatalf("check of the current table: %v", err)
 	}
-	writeFile(t, out, strings.Replace(wantTable, `, Derived: true, Subsets`, `, Subsets`, 1))
+	writeFile(t, out, strings.Replace(wantTable, `, Derived: true, Upper: -1, Subsets`, `, Upper: -1, Subsets`, 1))
 	if err := run(dir, out, true, testPin); err == nil || !strings.Contains(err.Error(), "is stale") {
 		t.Fatalf("check of a drifted table: error %v, want it stale", err)
 	}
-	if got, _ := os.ReadFile(out); strings.Contains(string(got), `Derived: true, Subsets`) {
+	if got, _ := os.ReadFile(out); strings.Contains(string(got), `Derived: true, Upper: -1, Subsets`) {
 		t.Fatal("check rewrote the table")
 	}
 }
