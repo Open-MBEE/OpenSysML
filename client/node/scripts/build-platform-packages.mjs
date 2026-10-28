@@ -306,8 +306,8 @@ function main() {
           },
         ],
       }),
-      buildMCPAlias(args),
     );
+    built.push(buildMCPAlias(args));
   }
 
   if (args.wasm !== undefined) {
