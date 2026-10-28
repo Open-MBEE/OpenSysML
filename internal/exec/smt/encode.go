@@ -327,34 +327,38 @@ type derivedFeature struct {
 }
 
 // checkDerived refuses a feature valued by an expression whose declared type
-// narrows its sort, then flags each whose value may be undefined: its expression
-// has side conditions, or a feature it reads may hold none. A cycle among such
-// features never reaches the encoding: the interpreter refuses it at the start.
+// narrows its sort, and one whose value may be undefined — its expression has
+// side conditions, or a feature it reads may hold none — which the interpreter
+// settles when the performance completes, failing it then even unread. A cycle
+// among such features never reaches the encoding: the interpreter refuses it at the start.
 func (e *Encoding) checkDerived() error {
-	flagged := make(map[string]bool)
+	undefined := make(map[string]bool)
 	var visit func(name string) bool
 	visit = func(name string) bool {
-		if undefined, visited := flagged[name]; visited {
-			return undefined
+		if may, visited := undefined[name]; visited {
+			return may
 		}
 		expr := e.derived[name].expr
-		undefined := len(expr.Defined) > 0
+		may := len(expr.Defined) > 0
 		for _, read := range expressionReads(expr) {
 			if _, derived := e.derived[read.Name]; derived {
-				undefined = visit(read.Name) || undefined
+				may = visit(read.Name) || may
 			}
-			undefined = undefined || e.flagged[read.Name]
+			may = may || e.flagged[read.Name]
 		}
-		flagged[name] = undefined
-		return undefined
+		undefined[name] = may
+		return may
 	}
+	label := nodeLabel(e.Flow.Graph.Initial)
 	for _, name := range slices.Sorted(maps.Keys(e.derived)) {
+		construct := "attribute " + e.derived[name].name
 		if _, narrowed := e.domains[name]; narrowed {
-			return &UnsupportedError{Node: nodeLabel(e.Flow.Graph.Initial), Construct: "attribute " + e.derived[name].name,
+			return &UnsupportedError{Node: label, Construct: construct,
 				Reason: "a feature valued by an expression over other features, with a declared type narrowing its sort, is not encoded: the value is checked against the type at each read"}
 		}
 		if visit(name) {
-			e.flagged[name] = true
+			return &UnsupportedError{Node: label, Construct: construct,
+				Reason: "a feature valued by an expression that may have no value (a side condition, or a feature it reads holding none) is not encoded: the interpreter settles it when the performance completes, failing then even unread"}
 		}
 	}
 	return nil
@@ -378,8 +382,7 @@ func expressionReads(expr *solve.Expression) []*solve.Var {
 }
 
 // deriveValues defines each feature valued by an expression in state s by the
-// expression over the state's values and, where it may be undefined, its
-// presence by the condition under which the interpreter computes it.
+// expression over the state's values; checkDerived left only those always defined.
 func (e *Encoding) deriveValues(s *State, where string) {
 	env := e.environment(s)
 	for _, base := range e.Features {
@@ -387,11 +390,8 @@ func (e *Encoding) deriveValues(s *State, where string) {
 		if !derived {
 			continue
 		}
-		value, defined := env.evaluate(d.expr)
+		value, _ := env.evaluate(d.expr)
 		e.assert(eq(solve.VarTerm(s.value(base)), value), where+": "+base.Name)
-		if e.flagged[base.Name] {
-			e.assert(eq(solve.VarTerm(s.has(base)), defined), where+": "+base.Name)
-		}
 	}
 }
 
@@ -1876,7 +1876,7 @@ func (e *Encoding) write(x *nodeEffect, path *solve.Term, target *solve.Var, val
 // merge joins the environments of two branches by cond, through fresh
 // variables for the features they left different.
 func (e *Encoding) merge(cond *solve.Term, then, otherwise *env, where string) *env {
-	merged := &env{enc: e, values: make(map[string]*solve.Term), has: make(map[string]*solve.Term)}
+	merged := &env{enc: e, values: make(map[string]*solve.Term), has: make(map[string]*solve.Term), written: then.written || otherwise.written}
 	for name, a := range then.values {
 		b := otherwise.values[name]
 		if a == b {
@@ -1990,8 +1990,7 @@ func (v *env) evaluate(expr *solve.Expression) (value, defined *solve.Term) {
 	var reads []*solve.Term
 	replace := func(base *solve.Var) *solve.Term {
 		if d, derived := v.enc.derived[base.Name]; derived && v.written {
-			value, defined := v.evaluate(d.expr)
-			reads = append(reads, defined)
+			value, _ := v.evaluate(d.expr)
 			return value
 		}
 		if has, flagged := v.has[base.Name]; flagged {

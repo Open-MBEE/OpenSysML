@@ -138,6 +138,15 @@ const derivedSrc = `package test {
 		succession first hi then done;
 		succession first lo then done;
 	}
+	action def Branch {
+		attribute x : Integer = 0;
+		attribute y : Integer = x + 1;
+		first start;
+		action step { while y < 4 { assign x := x + 1; } }
+		done;
+		succession first start then step;
+		succession first step then done;
+	}
 	action def Free {
 		attribute n : Integer = 0;
 		attribute y : Integer = n + 1;
@@ -170,6 +179,18 @@ func TestDerivedFeatureInGuardAndProperty(t *testing.T) {
 		t.Errorf("the solver reaches %q (agreeing %v, %d replayed), want %q", outcomes.found, outcomes.agreeing, outcomes.replayed, want)
 	}
 	expect(t, answer(t, e, d, d.holds(t, "test::Gate", "test::Gate::tracks"), budget), analysis.ClaimHolds, analysis.Proved)
+
+	// A loop condition reads the derived value after each iteration's write of what it reads.
+	branch := lookup(t, d.idx, "test::Branch")
+	encoding, refusal = encodeDocument(t, d, branch, budget)
+	if refusal != nil {
+		t.Fatalf("refused: %v", refusal)
+	}
+	exploration = explore(t, runtime.DefaultExploreBudget, d.fresh(budget), branch)
+	outcomes = compareOutcomes(t, solver, encoding, d, branch, budget, exploration)
+	if want := []string{"x = 3; y = 4"}; !slices.Equal(outcomes.found, want) || !outcomes.agreeing || outcomes.replayed != 1 {
+		t.Errorf("the solver reaches %q (agreeing %v, %d replayed), want %q", outcomes.found, outcomes.agreeing, outcomes.replayed, want)
+	}
 	expect(t, answer(t, e, d, d.holds(t, "test::Gate", "test::Gate::small"), budget), analysis.ClaimViolated, analysis.Witnessed)
 
 	q := d.holds(t, "test::Free", "test::Free::nonneg")
@@ -221,6 +242,8 @@ func TestDerivedFeatureRefusals(t *testing.T) {
 			"action m values it by an expression over other features; free a feature it reads instead"},
 		{"narrowed type", model("attribute x : Integer = 0; attribute y : Natural = x + 1;", "assign x := 7;"), "",
 			"attribute y: a feature valued by an expression over other features, with a declared type narrowing its sort, is not encoded"},
+		{"undefined", model("attribute x : Integer = 1; attribute y : Rational = 10 / x;", "assign x := 0;"), "",
+			"attribute y: a feature valued by an expression that may have no value (a side condition, or a feature it reads holding none) is not encoded: the interpreter settles it when the performance completes, failing then even unread"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
