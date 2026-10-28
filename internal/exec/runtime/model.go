@@ -75,6 +75,8 @@ type Model struct {
 	// redefined memoizes, per feature of a type, the features it redefines
 	// transitively; callers read the shared slice and never append to it.
 	redefined map[featureOfType][]*symbols.Symbol
+	// chainDeclarations memoizes the declarations a chain expression's segments name per base.
+	chainDeclarations map[chainDeclarationsKey][]*symbols.Symbol
 
 	// writeTargets memoizes the declaration an assignment's target names, per
 	// scope the statement was written in: what a value written must conform to.
@@ -254,6 +256,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		holders:             make(map[*symbols.Symbol]map[string][]string),
 		returnedParams:      make(map[*calcShape]*returnedAnalysis),
 		redefined:           make(map[featureOfType][]*symbols.Symbol),
+		chainDeclarations:   make(map[chainDeclarationsKey][]*symbols.Symbol),
 		writeTargets:        make(map[writeTargetKey]*writeTarget),
 		calcShapes:          make(map[*symbols.Symbol]*calcShape),
 		predicateShapes:     make(map[*symbols.Symbol]*calcShape),
