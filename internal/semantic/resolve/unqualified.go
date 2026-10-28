@@ -203,9 +203,9 @@ func (r *Resolver) derivedShortName(sym *symbols.Symbol) string {
 	next := r.namingFeatureOf(sym)
 	short := r.derivedShortName(next)
 	delete(r.naming, sym)
-	// A naming feature a semantic query could not reach is asked for again, as
-	// a failed reference is (see resolveQualified).
-	complete := r.Leave() && next != nil
+	// A settled lookup that finds no naming feature is final too: re-deriving it
+	// per sibling lookup re-ran the failed lookup each time.
+	complete := r.Leave()
 	if ordinary {
 		run.derived[sym] = short
 		switch {

@@ -42,3 +42,22 @@ func TestWorkspaceDiagnosticsUnknownDocumentNil(t *testing.T) {
 		t.Fatalf("unknown doc diagnostics = %+v, want nil", d)
 	}
 }
+
+// A redefinition whose naming feature does not resolve names nothing until a
+// sibling document makes its type resolve, and again after it stops.
+func TestWorkspaceDiagnosticsFollowANamingFeatureAcrossDocuments(t *testing.T) {
+	const unresolved, resolved = "package B { }", "package B { part def T :> A::P; }"
+	ws := NewWorkspace()
+	ws.Open("a.sysml", []byte("package A { private import B::*; part def P { attribute <m> mass; } part x : T { attribute :>> mass; attribute w :> m; } }"), 1)
+	ws.Open("b.sysml", []byte(unresolved), 1)
+	for i, src := range []string{unresolved, resolved, unresolved} {
+		if i > 0 {
+			ws.Update("b.sysml", []byte(src), i+1)
+		}
+		d := ws.Diagnostics("a.sysml")
+		t.Logf("step %d: %+v", i, d)
+		if wantClean := src == resolved; wantClean != (len(d) == 0) {
+			t.Errorf("step %d: a.sysml has %d diagnostics, want clean %v: %+v", i, len(d), wantClean, d)
+		}
+	}
+}
