@@ -1,0 +1,22 @@
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{
+			"outputs": {
+				"car.mass": {"type": "Integer", "value": 1200},
+				"m": {"type": "Integer", "value": 1200},
+				"z": {"type": "Integer", "value": 1}
+			}
+		},
+		{
+			"outputs": {
+				"car.mass": {"type": "Integer", "value": 1200},
+				"m": {"type": "Integer", "value": 1200},
+				"z": {"type": "Integer", "value": 2}
+			}
+		}
+	],
+	"admissible": "A feature reached through a part stands on the choice points its writers race at",
+	"orderDependent": {"z": 2}
+}
