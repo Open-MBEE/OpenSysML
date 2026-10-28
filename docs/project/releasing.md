@@ -116,9 +116,11 @@ Central token probes, the Docker Hub login, the GPG key import and test-sign,
 the npm packs, `cargo package`, the Maven build-and-sign and the container
 image's build for both platforms. Only the irreversible commands
 are skipped: cosign keyless signing and attestation (which write to the public
-Rekor log), `ghr` (the GitHub release), `twine upload`, `npm publish`,
-`mvn deploy`, `cargo publish` and the `docker buildx build --push` of the
-container image. A rehearsal exports a stand-in `CIRCLE_TAG`
+Rekor log), `ghr` (the GitHub release), `npm publish`, `mvn deploy`,
+`cargo publish` and the `docker buildx build --push` of the container image.
+The PyPI upload is not this workflow's: `release-pypi.yml` on GitHub Actions has
+a dry run of its own (see [Dry run on TestPyPI](#dry-run-on-testpypi)). A
+rehearsal exports a stand-in `CIRCLE_TAG`
 from `_version.py` (`scripts/rehearsal-version.sh`) before any step reads it,
 so the version bumps must already be on the branch, and the Go suite's jobs
 (`go-static`, `go-race-test`, `go-coverage`, `go-gates`) export it too and tag
@@ -370,7 +372,7 @@ so that `dist/` holds:
   each with a `.sha256` sidecar;
 - the Python client's distribution, `opensysml-<x.y.z>-py3-none-any.whl` and
   `opensysml-<x.y.z>.tar.gz`, built by `build-python-package` from those
-  `sysml-grpc` binaries' digests and the same files `publish-pypi` uploads (see
+  `sysml-grpc` binaries' digests and the same files `release-pypi.yml` uploads to PyPI (see
   [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi));
 - the Jupyter kernel's distributions, `jupyter_opensysml_kernel-<x.y.z>.tar.gz` and one
   `jupyter_opensysml_kernel-<x.y.z>-py3-none-<platform>.whl` per released platform, built
@@ -434,12 +436,14 @@ that release's assets rather than appending duplicates, and leaves everything
 else on the release alone: notes, title and the prerelease/latest flags survive.
 A tag that has no release yet still gets one created.
 
-`publish-pypi` runs after it, off the same built artifacts, and is the one step
-of a release that cannot be repeated: PyPI never accepts a version twice, so on a
-re-run of a published tag it fails by design while the GitHub assets are replaced
-(see [What the jobs do, in order](#what-the-jobs-do-in-order)). Running it after
-the GitHub release means the package version never exists without the release
-it names; if the GitHub upload fails, nothing irreversible has happened yet.
+The PyPI upload — [`release-pypi.yml`](../../.github/workflows/release-pypi.yml), a
+GitHub Actions workflow the same tag runs — waits for that release and takes the
+distributions from it, and is the one step of a release that cannot be repeated:
+PyPI never accepts a version twice, so on a re-run for a published tag it fails by
+design while the GitHub assets are replaced (see [What the jobs do, in
+order](#what-the-jobs-do-in-order)). Running it after the GitHub release means the
+package version never exists without the release it names; if the GitHub upload
+fails, nothing irreversible has happened yet.
 
 `publish-npm` runs beside it, also after the GitHub release and also not
 repeatable: npm never accepts a version twice. It publishes
@@ -664,7 +668,15 @@ one alongside it).
    request); re-run it after fixing the cause — see the recovery path in
    [The Windows installer](#the-windows-installer).
 
-10. **Render the Windows package-manager manifests** when a maintainer wants
+10. **Check the PyPI publication landed.** The tag also runs
+    [`release-pypi.yml`](../../.github/workflows/release-pypi.yml), which waits for
+    CircleCI's release and publishes `opensysml` and `jupyter-opensysml-kernel` from it
+    with trusted publishing (see [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi)).
+    Both project pages must show the version with its attestations (*Verified details*
+    on PyPI); a run that failed on the index or on Sigstore is retried with
+    `gh workflow run release-pypi.yml -f tag=vX.Y.Z`.
+
+11. **Render the Windows package-manager manifests** when a maintainer wants
     to (re)submit them externally. Nothing here submits anything:
 
     ```bash
@@ -1298,9 +1310,12 @@ that organization.
 ## Releasing opensysml to PyPI
 
 The Python client in `client/python/` is published to PyPI as
-[`opensysml`](https://pypi.org/project/opensysml/) by the `release` workflow — the
-same `v<version>` tag that publishes the binaries, and at the same version: `v0.9.0`
-publishes `opensysml` 0.9.0. Nothing is uploaded from a laptop, and no other tag
+[`opensysml`](https://pypi.org/project/opensysml/) from the same `v<version>` tag that
+runs the `release` workflow and publishes the binaries, and at the same version:
+`v0.9.0` publishes `opensysml` 0.9.0. CircleCI builds the distribution and puts it on
+the GitHub release; the GitHub Actions workflow
+[`release-pypi.yml`](../../.github/workflows/release-pypi.yml) uploads it from there
+with trusted publishing. Nothing is uploaded from a laptop, and no other tag
 publishes the package. Releases up to 0.5.0 were cut on a tag of their own,
 `opensysml-v<version>`, which the workflow no longer matches; the version line
 before that carries on from `pysysml` 0.2.0, which was the same client, so no version
@@ -1332,13 +1347,12 @@ The cost is that a client-only fix is a core release (a patch tag, with the
 binaries rebuilt from the same source), and that one step of a release is
 irreversible: `publish-github-release` runs `ghr -replace`, so re-running a tag's
 workflow replaces the GitHub assets, while a PyPI version can be yanked but never
-re-uploaded. `publish-pypi` therefore refuses a version the index already has, and
-on a re-run of a published tag that job fails by design while the rest of the
-workflow succeeds — the package was already published from the same revision, so
-nothing is missing. The upload runs last, only after the whole suite has passed on
-the tagged revision and the GitHub release is published, so a failure anywhere
-else — a rebuild, an expired GitHub token — never leaves a package on PyPI whose
-release does not exist.
+re-uploaded. The upload therefore refuses a version the index already has, and
+on a re-run for a published tag it fails by design while the rest succeeds — the
+package was already published from the same revision, so nothing is missing. The
+upload runs last, only after the whole suite has passed on the tagged revision and
+the GitHub release is published, so a failure anywhere else — a rebuild, an expired
+GitHub token — never leaves a package on PyPI whose release does not exist.
 
 ### The version, in one place
 
@@ -1382,55 +1396,56 @@ the post-release `0.9.0.post1` and sent to PyPI proper.
 python client/python/scripts/check_version.py --tag v0.9.0-rc1   # prints 0.9.0rc1
 ```
 
-### What the job needs
+### What the publication needs
 
-The token lives in a **restricted context**, not in project environment
-variables, so only the release path can read it:
+The upload is made by [`release-pypi.yml`](../../.github/workflows/release-pypi.yml)
+with [trusted publishing](https://docs.pypi.org/trusted-publishers/): PyPI accepts the
+workflow's short-lived OIDC token, there is no token to store, and every uploaded file
+carries a [PEP 740 attestation](https://docs.pypi.org/attestations/) naming the
+workflow that published it. A maintainer registers the publisher once per project and
+index:
 
-1. In CircleCI, **Organization Settings → Contexts**, in the context named
-   `PyPI` (create it if the organization does not have it yet). A context
-   reference in the config is matched exactly, so the name must be spelled with
-   the same case in both places.
-2. **Restrict it to a security group** (Contexts → `PyPI` → *Add security
-   group*) so only that group's members can run a job that uses it. A context
-   with no group restriction is readable by every project job.
-3. Add the token as `PYPI_API_TOKEN` (an *environment variable* in that
-   context). `TWINE_USERNAME` is `__token__`, set by the job; only the token
-   value belongs in the context.
-4. Optionally add `TEST_PYPI_API_TOKEN`, a TestPyPI token, which is what a
-   pre-release tag uses (see the dry run below).
+- **PyPI** — in the publishing settings of
+  [`opensysml`](https://pypi.org/manage/project/opensysml/settings/publishing/) and of
+  [`jupyter-opensysml-kernel`](https://pypi.org/manage/project/jupyter-opensysml-kernel/settings/publishing/),
+  add a GitHub Actions publisher with owner `Open-MBEE`, repository `OpenSysML`,
+  workflow `release-pypi.yml` and environment `pypi` — beside the nightly's entry
+  (`nightly.yml`, environment `nightly`), which stays.
+- **TestPyPI** — the same two entries on [test.pypi.org](https://test.pypi.org/manage/projects/),
+  which is where a pre-release tag publishes (see [Dry run on
+  TestPyPI](#dry-run-on-testpypi)); without them a pre-release tag's upload fails with the
+  index's authentication error and nothing else changes.
+- **GitHub** — the `pypi` environment is created on the workflow's first run; nothing
+  need be added to it. Protection rules on it (required reviewers, a wait timer) gate the
+  two upload jobs without affecting the GitHub release.
 
-`.circleci/config.yml` references the context from the job in the workflow:
+Until a publisher is registered, its upload job fails with the index's authentication
+error; the release is already published by then and nothing is half done. Keep a
+second owner/maintainer on both PyPI projects, so they are not tied to one account.
 
-```yaml
-      - publish-pypi:
-          context:
-            - PyPI
-```
+### Why a GitHub workflow and not a CircleCI job
 
-Any other variables that context happens to carry are ignored. In particular a
-`PYPI_USERNAME`/`PYPI_PASSWORD` pair cannot publish to PyPI at all: uploads from
-an account with 2FA have required an API token or a trusted publisher since
-2023-06-01, and 2FA has been mandatory for every account since 2024-01-01, so a
-password is answered with a 403.
+Releases up to 0.11.0 were uploaded by a CircleCI job with an API token from the `PyPI`
+context. PyPI attaches an attestation only to a file uploaded by a trusted publisher,
+and CircleCI is not one: the supported providers are GitHub Actions, Google Cloud,
+ActiveState and GitLab CI/CD, and CircleCI support is still open upstream
+([pypi/warehouse#13888](https://github.com/pypi/warehouse/issues/13888), with
+[pypi/warehouse#19349](https://github.com/pypi/warehouse/pull/19349) in review; once PyPI
+accepts CircleCI's identity the upload could move back beside the build). The nightly
+snapshots have published with attestations from the start, so every token-published
+release showed PyPI's *Loss of provenance* warning (0.10.0, 0.10.1 and 0.11.0 keep it:
+an attestation can only be attached at upload, and a version is never re-uploaded;
+[Verifying a release](../guide/security.md#python-packages) says how those files are
+checked against the signed manifest instead). The bytes did not move: CircleCI still
+builds the distributions, lists them in the manifest it signs and publishes them on the
+GitHub release; the workflow takes them from there and publishes them under its own
+identity after checking them against that manifest.
 
-The job refuses to run `twine` when the variable it needs is absent, naming the
-variable and the context, rather than letting PyPI answer with a 403 that reads
-like a permissions problem. It never echoes the token and never prints the
-environment.
-
-### The token the job uses
-
-`opensysml` exists on PyPI (0.3.0 and 0.3.1 are published), so the token in the
-`PyPI` context as `PYPI_API_TOKEN` must be **scoped to the `opensysml` project**,
-never account-scoped: an account-scoped token in CI can publish anything the
-account owns. Keep a second owner/maintainer on the PyPI project as well, so it is
-not tied to one account.
-
-PyPI trusted publishing (OIDC) is not an option: the supported providers are
-GitHub Actions, Google Cloud, ActiveState and GitLab CI/CD, and CircleCI support
-is still open upstream ([pypi/warehouse#13888](https://github.com/pypi/warehouse/issues/13888)).
-An API token is the authentication CircleCI has.
+The `PyPI` context and its `PYPI_API_TOKEN` are read only by the
+[`pysysml` placeholder](#the-final-pysysml-release) job now; nothing of a `v*` release
+reads them. A `PYPI_USERNAME`/`PYPI_PASSWORD` pair cannot publish to PyPI at all:
+uploads from an account with 2FA have required an API token or a trusted publisher
+since 2023-06-01, and 2FA has been mandatory for every account since 2024-01-01.
 
 ### What the jobs do, in order
 
@@ -1459,17 +1474,32 @@ it attaches) and gates `build-release`:
    pins are the manifest's `sysml-grpc-*` lines, signs the manifest, and checks
    the distribution's names carry the tag's version.
 
-`publish-pypi`, which runs last, after the Go suite, the Python client tests,
-`build-release` and `publish-github-release` have all passed on the tagged revision:
+`release-pypi.yml`, which the same tag runs on GitHub Actions, in three jobs:
 
-1. Resolves the version from the tag again and checks the workspace holds the
-   wheel and sdist of that version.
-2. Requires the token for the index it will use.
-3. Refuses to continue if that index already has this version (a re-run of an
-   already-published version fails here, deliberately: it cannot be replaced,
-   and `--skip-existing` would let a half-intended re-run look successful).
-4. `twine check --strict` again, then `twine upload` with
-   `TWINE_USERNAME=__token__` and the token from the context.
+1. `fetch` resolves the version from the tag again, with `check_version.py` for both
+   packages, and routes a pre-release to TestPyPI. It then waits, with
+   `scripts/wait-for-release-gate.sh`, until CircleCI has published the release —
+   `SHA256SUMS.txt.bundle` is uploaded only after the Go suite, every client's tests
+   and `build-release` passed on the tag — and checks the tag still names the commit
+   it checked out. It downloads the wheel, the sdist, the kernel's sdist and five
+   wheels, the manifest and its signature from the release; verifies the signature
+   under the pipeline's identity (the issuer and project the Python client pins);
+   checks each file is a line of the manifest and matches it; runs `twine check
+   --strict`; installs the wheel into a clean virtualenv and, with no binary
+   configured, loads and evaluates a model against the release the tag names (the
+   zero-config smoke `python-zero-config-smoke` also runs on CircleCI); and keeps the
+   files as artifacts of the run.
+2. `pypi` (the client) and `jupyter-kernel` (the kernel package), each in the `pypi`
+   environment with `id-token: write`, refuse to continue if the index already has the
+   version (a re-run for a published release fails here, deliberately: a version cannot
+   be replaced, and `--skip-existing` would let a half-intended re-run look successful)
+   and publish with [`pypa/gh-action-pypi-publish`](https://github.com/pypa/gh-action-pypi-publish),
+   which attests each file. The two jobs are independent, so one project refusing a
+   re-run does not block the other.
+
+A publication a transient failure interrupted — Sigstore or the index answering 5xx —
+is retried with `gh workflow run release-pypi.yml -f tag=vX.Y.Z`: the index check makes
+the retry a deliberate failure for a project already published, and the other publishes.
 
 ### Dry run on TestPyPI
 
@@ -1486,8 +1516,8 @@ $EDITOR client/python/opensysml/_version.py
 git tag -a v0.9.0-rc1 -m "v0.9.0-rc1" && git push origin v0.9.0-rc1
 ```
 
-The job resolves the version, sees a PEP 440 pre-release, requires
-`TEST_PYPI_API_TOKEN`, and uploads to `https://test.pypi.org/legacy/`. Verify it
+The workflow resolves the version, sees a PEP 440 pre-release, and uploads to
+`https://test.pypi.org/legacy/` with the TestPyPI trusted publisher. Verify it
 the same way as a real release, pointing pip at TestPyPI but taking the
 dependencies from PyPI:
 
@@ -1501,7 +1531,17 @@ OPENSYSML_GRPC_VERSION=v0.9.0-rc1 python -c "import opensysml; print(opensysml._
 Then set `VERSION` to the final version and tag `v0.9.0`.
 
 Nothing about the pre-release path is required for a normal release; if you skip
-it, no TestPyPI token is needed at all.
+it, no TestPyPI publisher is needed at all.
+
+The workflow itself is rehearsed against any existing release, without a tag:
+
+```bash
+gh workflow run release-pypi.yml -f tag=v0.11.0 -f dry_run=true
+```
+
+fetches, verifies and smoke-tests that release's distributions, looks both versions
+up on the index, and publishes nothing. The CircleCI rehearsal
+(`release_rehearsal`) does not reach this workflow: a branch has no release to fetch.
 
 ### Verifying an upload
 
@@ -1570,10 +1610,12 @@ distributions are built the way the Python client's is, from the binaries themse
 3. `build-release` lists the kernel binaries, their `.sha256` sidecars and the six kernel
    distributions in `SHA256SUMS.txt`, checks every wheel's pins against the manifest it is
    about to sign, and signs it.
-4. `publish-pypi-jupyter-kernel` runs after the GitHub release exists, refuses a version the
-   index already has, and uploads the verified distribution with the same `PyPI` context
-   as `publish-pypi`. The project needs its own trusted-publisher or token entry on PyPI;
-   the token in the context must be allowed to upload to both projects.
+4. `release-pypi.yml` publishes them with the Python client's distribution once the GitHub
+   release exists: it verifies the six files against the signed manifest, refuses a version
+   the index already has, and uploads them with trusted publishing in a job of their own, so
+   a re-run refused for one project does not block the other. The project needs its own
+   trusted-publisher entries on PyPI and TestPyPI (see [What the publication
+   needs](#what-the-publication-needs)).
 
 `tests/hygiene/release_config_test.go` holds the configuration to this order, and
 `pin_release_checksums.py` to the rule that a release carrying any kernel asset carries all
@@ -1592,7 +1634,7 @@ tag that publishes the binaries and `opensysml` — at that version. No other ta
 publishes it; the `client-node-v*` path never ran and is no longer matched.
 The npm packages are published with core releases at the client's version, and
 the `npm` context they need is already in place (see
-[What the job needs](#what-the-job-needs-1)). The same job publishes the MCP
+[What the job needs](#what-the-job-needs)). The same job publishes the MCP
 server's npm runner, `@openmbee/sysml-mcp` (`packaging/npm/sysml-mcp`), its
 five platform packages and its alias `@openmbee/opensysml-mcp`, at the same
 version; see [Fourteen packages, one tag](#fourteen-packages-one-tag).
@@ -1695,7 +1737,7 @@ binary via the platform package; install `@openmbee/opensysml-wasm` at the same
 version for Node's automatic `connectWasm()` package resolution. The cost: a
 client-only fix is a core patch release. And since an npm publish is
 irreversible, the job runs last and refuses
-a version already on the registry, just like `publish-pypi`.
+a version already on the registry, just like the PyPI upload.
 
 ### The version
 
@@ -1757,7 +1799,7 @@ SBOM per tarball and lists tarballs and SBOMs in the manifest it signs, and
 `publish-github-release` uploads the tarballs with the other assets. Nothing is
 packed again afterwards.
 
-`publish-npm` runs after `publish-github-release`, beside `publish-pypi`:
+`publish-npm` runs after `publish-github-release`, beside the PyPI workflow:
 
 1. Resolves the version: fails if the tag is not `v<version>` matching
    `client/node/package.json`, picks the `latest`/`next` dist-tag from the
@@ -1803,7 +1845,7 @@ packed again afterwards.
 
 ### If a publish goes wrong
 
-`publish-npm` runs after `publish-github-release` and beside `publish-pypi`, so
+`publish-npm` runs after `publish-github-release` and beside the PyPI workflow, so
 a failure there leaves the GitHub release and PyPI in place. Before the first
 `npm publish` — a version/tag mismatch, a missing or expired token, an `npm
 whoami`, build, test or digest failure — nothing is on npm: fix the cause (for
@@ -1867,10 +1909,10 @@ None of these can be provisioned from a checkout. The key and the token live
 in the restricted context **`Maven Central`** (Organization Settings →
 Contexts — a context reference is matched exactly, so the case has to match),
 which holds `CENTRAL_TOKEN_USERNAME`, `CENTRAL_TOKEN_PASSWORD`,
-`GPG_PRIVATE_KEY` and `GPG_PASSPHRASE`, set up like the PyPI and npm contexts
+`GPG_PRIVATE_KEY` and `GPG_PASSPHRASE`, set up like the `npm` context
 (see [what the job needs](#what-the-job-needs)). Contexts restricted to a
 security group admit only their members, so whoever pushes the tag must be
-allowed to use all of them — `PyPI`, `npm`, `Maven Central` and `crates.io` —
+allowed to use all of them — `npm`, `Maven Central` and `crates.io` —
 or the job fails as unauthorized before anything runs. The signing key in
 place is a freshly generated one with a two-year expiry, so the rotation note
 below applies within two years.
@@ -1931,7 +1973,7 @@ The client follows the Python and Node clients' choice (see
 release of the same version tested with it in the same pipeline, and a consumer
 pins one number. The old reason for a separate tag — Central is immutable and
 `ghr -replace` re-runs the `v*` tag — is answered by the job running last and
-refusing a version already on Central, like `publish-pypi` and `publish-npm`.
+refusing a version already on Central, like the PyPI workflow and `publish-npm`.
 The cost stays the same too: a client-only fix is a core patch release.
 
 ### What the build already produces
@@ -1984,7 +2026,7 @@ before `0.9.0`. Consumers get it only by naming it.
 
 ### What the job does, in order
 
-`publish-maven` runs after `publish-github-release`, beside `publish-pypi` and
+`publish-maven` runs after `publish-github-release`, beside the PyPI workflow and
 `publish-npm`:
 
 1. Attaches the release workspace, so `dist/grpc` holds the binaries
@@ -2021,7 +2063,7 @@ before `0.9.0`. Consumers get it only by naming it.
 
 ### If a publish goes wrong
 
-`publish-maven` runs after `publish-github-release` and beside `publish-pypi`
+`publish-maven` runs after `publish-github-release` and beside the PyPI workflow
 and `publish-npm`, so its failure leaves the GitHub release, PyPI and npm in
 place. Before the upload — a tag/version mismatch, a missing variable, a
 Central availability-check error, an expired key or wrong passphrase, a build
@@ -2145,7 +2187,7 @@ it followed are gone.
 A crates.io API token with the publish-new/publish-update scopes — scoped to
 the `opensysml` crate alone once it exists — stored as `CARGO_REGISTRY_TOKEN`
 in the restricted context **`crates.io`** (Organization Settings → Contexts —
-the name is matched exactly, lower-case included), set up like the PyPI, npm
+the name is matched exactly, lower-case included), set up like the `npm`
 and `Maven Central` contexts (see [what the job needs](#what-the-job-needs)).
 Whoever pushes the tag must be allowed to use all of them, as the Java section
 above notes. A token can be given an expiry at creation; rotate it before one
@@ -2215,7 +2257,7 @@ so consumers get it only by naming it exactly.
 ### If a publish goes wrong
 
 `publish-crates` runs after `publish-github-release` and beside
-`publish-pypi`, `publish-npm` and `publish-maven`, so its failure leaves those
+the PyPI workflow, `publish-npm` and `publish-maven`, so its failure leaves those
 in place. Before the upload — a tag/version mismatch, a missing token, a
 crates.io availability-check error, a package dry-run failure — nothing is on
 crates.io: fix the cause and *Rerun workflow from failed*.
@@ -2307,7 +2349,7 @@ and names the skipped push.
 
 ### If a publish goes wrong
 
-`publish-docker` runs after `publish-github-release` and beside `publish-pypi`,
+`publish-docker` runs after `publish-github-release` and beside the PyPI workflow,
 `publish-npm`, `publish-maven` and `publish-crates`, so its failure leaves those
 in place and theirs leave the image in place. Before the push — an empty tag, a
 missing variable, a refused login, a build failure, a binary reporting the wrong
