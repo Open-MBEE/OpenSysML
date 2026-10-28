@@ -26,9 +26,8 @@ func (r *Resolver) checkDistinguishability(scope *symbols.Scope) {
 	r.checkImportedNames(scope)
 }
 
-// importedMember is one membership an import surfaces into a namespace, with
-// the import that brought it, or one the namespace inherits (imp nil);
-// exposedOnly is set while every import reaching it is an Expose.
+// importedMember is a membership an import surfaces (imp nil when inherited);
+// exposedOnly means every import reaching it is an Expose.
 type importedMember struct {
 	sym         *symbols.Symbol
 	imp         *ast.Import

@@ -9,9 +9,8 @@ import (
 
 const exposedParts = "package V {\n\tpart a { part p; }\n\tpart b { part p; }\n"
 
-// Memberships that collide only among a view's exposes are no name conflict:
-// the view exposes each Expose's own memberships (SysML ViewUsage::exposedElement),
-// so both p's stay exposed.
+// A collision among a view's exposes alone is no name conflict: the view exposes
+// each Expose's own memberships (SysML ViewUsage::exposedElement).
 func TestExposedCollisionsAreNoNameConflict(t *testing.T) {
 	r, _, scope := resolvedDoc(t, exposedParts+"\tview v { expose a::**; expose b::**; }\n}")
 	if warnings, errors := diagnosticsOf(r); len(warnings)+len(errors) != 0 {
