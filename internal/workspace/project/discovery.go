@@ -311,9 +311,8 @@ func used(enclosing, installed []*Interchange, installedKey map[string]bool) (ou
 	return l.out, l.linking
 }
 
-// linker is the state of one selection by used: the installed projects, the directories selected
-// and identities claimed so far, what each located usage was learnt to name, the projects whose
-// usages are still to be walked, and the selection and warnings so far.
+// linker is the state of one selection by used: the installed projects, what is selected, claimed
+// and learnt so far, the projects still to walk, and the selection and warnings so far.
 type linker struct {
 	installed []*Interchange
 	selected  map[string]bool
