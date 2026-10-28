@@ -34,7 +34,7 @@ func (ctx *Context) kernelCollection(typ *symbols.Symbol, name string) (*symbols
 		return nil, false
 	}
 	for _, kind := range []ast.RelationshipKind{ast.RelInverseOf, ast.RelUnions} {
-		if len(relationshipsOfKind(sym, kind)) > 0 {
+		if len(ctx.relationshipsOfKind(sym, kind)) > 0 {
 			return nil, false
 		}
 	}
@@ -173,20 +173,38 @@ func (ctx *Context) shapeSubsettersOf(inst *Instance, sym *symbols.Symbol) []*Ef
 // subsetsTransitively reports whether feature, a member of owner, subsets target through
 // any chain of declared `:>` edges, implicit nesting subsettings and redefinitions.
 func (ctx *Context) subsetsTransitively(feature, owner, target *symbols.Symbol) bool {
+	key := subsettingKey{feature, owner, target}
+	if subsets, ok := ctx.model.subsetsTransitively[key]; ok {
+		return subsets
+	}
+	subsets := ctx.walkSubsetsTransitively(feature, owner, target)
+	ctx.model.subsetsTransitively[key] = subsets
+	return subsets
+}
+
+// subsettingKey identifies one question subsetsTransitively answers.
+type subsettingKey struct {
+	feature, owner, target *symbols.Symbol
+}
+
+func (ctx *Context) walkSubsetsTransitively(feature, owner, target *symbols.Symbol) bool {
 	seen := map[*symbols.Symbol]bool{feature: true}
 	for queue := []*symbols.Symbol{feature}; len(queue) > 0; {
 		cur := queue[0]
 		queue = queue[1:]
-		next := ctx.relatedFeatures(cur, owner, ast.RelSubsets)
-		next = append(next, ctx.redefinedFeatures(cur, owner)...)
-		next = append(next, ctx.model.semantics.ImplicitSubsettings(cur)...)
-		for _, sub := range next {
-			if sub == target {
-				return true
-			}
-			if sub != nil && !seen[sub] {
-				seen[sub] = true
-				queue = append(queue, sub)
+		for _, next := range [][]*symbols.Symbol{
+			ctx.relatedFeatures(cur, owner, ast.RelSubsets),
+			ctx.redefinedFeatures(cur, owner),
+			ctx.model.semantics.ImplicitSubsettings(cur),
+		} {
+			for _, sub := range next {
+				if sub == target {
+					return true
+				}
+				if sub != nil && !seen[sub] {
+					seen[sub] = true
+					queue = append(queue, sub)
+				}
 			}
 		}
 	}
@@ -197,12 +215,12 @@ func (ctx *Context) subsetsTransitively(feature, owner, target *symbols.Symbol) 
 // an intersection its subsetting alone implies (`subobjects`), so it states no further value.
 func (ctx *Context) intersectsOnlySubsetted(sym *symbols.Symbol) bool {
 	subsetted := map[*symbols.Symbol]bool{}
-	for _, rel := range relationshipsOfKind(sym, ast.RelSubsets) {
+	for _, rel := range ctx.relationshipsOfKind(sym, ast.RelSubsets) {
 		if target := ctx.model.semantics.RelationshipTarget(sym, rel); target != nil {
 			subsetted[target] = true
 		}
 	}
-	for _, rel := range relationshipsOfKind(sym, ast.RelIntersects) {
+	for _, rel := range ctx.relationshipsOfKind(sym, ast.RelIntersects) {
 		if target := ctx.model.semantics.RelationshipTarget(sym, rel); target == nil || !subsetted[target] {
 			return false
 		}

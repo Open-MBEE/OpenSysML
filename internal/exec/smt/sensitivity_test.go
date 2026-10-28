@@ -49,13 +49,20 @@ func (d *document) sensitive(t *testing.T, fqn string, features ...string) analy
 
 // oracleValue is one typed value of a case's expectation.
 type oracleValue struct {
-	Type  string          `json:"type"`
-	Value json.RawMessage `json:"value"`
+	Type     string          `json:"type"`
+	Value    json.RawMessage `json:"value"`
+	Elements []oracleValue   `json:"elements"`
 }
 
 // spell renders the value as the interpreter spells a final value, so the two
 // compare as text.
 func (v oracleValue) spell(t *testing.T) string {
+	t.Helper()
+	return runtime.FormatValue(v.value(t))
+}
+
+// value is the value as the interpreter holds it.
+func (v oracleValue) value(t *testing.T) runtime.Value {
 	t.Helper()
 	var value runtime.Value
 	switch v.Type {
@@ -83,10 +90,16 @@ func (v oracleValue) spell(t *testing.T) string {
 			t.Fatalf("oracle String %s: %v", v.Value, err)
 		}
 		value = runtime.NewStringValue(str)
+	case "Sequence":
+		seq := runtime.NewSequence()
+		for _, element := range v.Elements {
+			seq.Append(element.value(t))
+		}
+		value = runtime.NewSequenceValue(seq)
 	default:
 		t.Fatalf("oracle value of type %s has no spelling here", v.Type)
 	}
-	return runtime.FormatValue(value)
+	return value
 }
 
 // oracleOutcome is the part of one listed outcome the sensitivity checks read.

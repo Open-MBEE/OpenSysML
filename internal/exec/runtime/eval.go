@@ -1333,7 +1333,11 @@ func (ec *EvalContext) conformHeld(sym *symbols.Symbol, val Value, countJudged b
 	if err := ec.ctx.classifyHeld(sym, val); err != nil {
 		return Value{}, fmt.Errorf("%s: %w", what(), err)
 	}
-	return ec.bindVariationOf(sym, ec.ctx.classifiedFrame(sym, ec.ctx.declaredCollection(sym, val)))
+	val, err := ec.ctx.declaredCollection(sym, val)
+	if err != nil {
+		return Value{}, fmt.Errorf("%s: %w", what(), err)
+	}
+	return ec.bindVariationOf(sym, ec.ctx.classifiedFrame(sym, val))
 }
 
 // occurrenceReference evaluates a name denoting objects of its own — an occurrence, a
@@ -1574,7 +1578,7 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 		return Value{}, fmt.Errorf("empty member chain")
 	}
 	base, parts := ast.FeatureChainBase(n)
-	defer ec.noteChainMembers(base, parts)()
+	defer ec.restoreChain(ec.noteChainMembers(n, base, parts))
 
 	// A chain's members resolve in the namespace of the feature before them, where
 	// a redefined feature is not inherited under its name (KerML §7.3.4.5).
