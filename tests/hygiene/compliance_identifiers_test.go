@@ -212,7 +212,7 @@ func goCitations(cell string) []goCitation {
 			}
 			out = append(out, c)
 		}
-		if tokens[i+1].kind != tokenOpen && !(tokens[i+1].kind == tokenWord && tokens[i+1].text == "/") {
+		if !(tokens[i+1].kind == tokenWord && tokens[i+1].text == "/") {
 			parent = m[1]
 		}
 	}
@@ -484,8 +484,8 @@ func (idx *goDeclIndex) load(dir string) *packageDecls {
 
 // declaredNames lists what a top-level declaration names: functions; methods
 // as `Type.method` and bare; types with their struct fields and interface
-// methods as `Type.member`; constants and variables, typed ones also as
-// `Type.name`.
+// methods as `Type.member` and bare; constants and variables, typed ones also
+// as `Type.name`.
 func declaredNames(decl ast.Decl) []string {
 	switch d := decl.(type) {
 	case *ast.FuncDecl:
@@ -534,7 +534,7 @@ func memberNames(typeName string, expr ast.Expr) []string {
 	var names []string
 	for _, f := range fields.List {
 		for _, n := range f.Names {
-			names = append(names, typeName+"."+n.Name)
+			names = append(names, typeName+"."+n.Name, n.Name)
 		}
 	}
 	return names
