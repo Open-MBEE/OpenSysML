@@ -4512,7 +4512,7 @@ workflows:
           name: Cancel superseded pipelines
           filters: &integration-branches
             branches:
-              only: [main, develop]
+              only: [main, develop, ci/circleci-critical-path]
             tags:
               ignore: /.*/
       - go-static:
