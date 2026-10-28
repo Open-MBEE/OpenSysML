@@ -240,10 +240,8 @@ func TestD2StateDiagram(t *testing.T) {
 	}
 }
 
-// An action graph takes the pseudostate glyphs: a fork and a join a bar, a
-// decision a diamond named by the node, the final a double-bordered dot; the
-// pins an edge ends at are drawn inside their action and joined by path, the
-// rest listed in the action's `parameters` compartment.
+// An action graph takes the pseudostate glyphs (fork/join bar, decision diamond, final
+// dot); pins an edge ends at are drawn inside their action, the rest listed as parameters.
 func TestD2ActionGlyphsAndPins(t *testing.T) {
 	d2, err := render(t, "action.sysml", "FlowViews::driveView").D2With(fullNotation)
 	if err != nil {
