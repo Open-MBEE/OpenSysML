@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -32,7 +33,7 @@ public final class ResourceDescriptorWriter {
           "usage: ResourceDescriptorWriter <version> <pluginJar> <bridgeJar> <libDir> <binDir> <out>");
     }
     List<String> files = installedFiles(args[1], args[2], Path.of(args[3]), Path.of(args[4]));
-    Files.writeString(Path.of(args[5]), render(args[0], LocalDate.now().toString(), files), StandardCharsets.UTF_8);
+    Files.writeString(Path.of(args[5]), render(args[0], LocalDate.now(ZoneOffset.UTC).toString(), files), StandardCharsets.UTF_8);
   }
 
   static List<String> installedFiles(String pluginJar, String bridgeJar, Path libDir, Path binDir) throws IOException {
