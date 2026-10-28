@@ -436,18 +436,16 @@ func isMany(upperBound string) (bool, error) {
 	return n > 1 || n == -1, nil
 }
 
-// upperBound is the ecore upperBound as the table carries it: -1 unbounded, else the bound;
-// an absent or unspecified (-2) bound is 1.
+// upperBound is the ecore upperBound as stated: -1 unbounded, -2 unspecified, else the
+// bound; an absent one is ecore's default 1.
 func upperBound(bound string) (int, error) {
-	many, err := isMany(bound)
-	if err != nil {
+	if _, err := isMany(bound); err != nil {
 		return 0, err
 	}
-	n, _ := strconv.Atoi(bound)
-	if !many {
+	if bound == "" {
 		return 1, nil
 	}
-	return n, nil
+	return strconv.Atoi(bound)
 }
 
 // lowerBound is the ecore lowerBound, whose absence means 0; EcoreValidator rejects a negative one.
@@ -507,7 +505,7 @@ func propertyLiterals(properties []property) string {
 				fmt.Fprintf(&b, ", %s: true", flag.name)
 			}
 		}
-		if p.many {
+		if p.upper != 1 {
 			fmt.Fprintf(&b, ", Upper: %d", p.upper)
 		}
 		if len(p.redefines) > 0 {

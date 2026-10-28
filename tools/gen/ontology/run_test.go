@@ -202,6 +202,23 @@ func TestRunWritesABoundedManyProperty(t *testing.T) {
 	}
 }
 
+// TestRunKeepsAnUnspecifiedUpperBound pins that ecore's -2 (unspecified) is written as stated, single-valued.
+func TestRunKeepsAnUnspecifiedUpperBound(t *testing.T) {
+	ecore := strings.Replace(sampleEcore, `name="weight" eType=`, `name="weight" upperBound="-2" eType=`, 1)
+	out := filepath.Join(t.TempDir(), "table.go")
+	if err := run(newMetamodel(t, ecore), out, false, testPin); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	generated, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `IRI: "https://www.omg.org/spec/SysML#Usage_weight", Kind: DatatypeProperty, Range: "http://www.w3.org/2002/07/owl#real", Upper: -2}`
+	if !strings.Contains(string(generated), want) {
+		t.Fatalf("upperBound -2 was not kept as stated:\n%s", generated)
+	}
+}
+
 func TestCheckFailsOnlyOnDrift(t *testing.T) {
 	dir := newMetamodel(t, sampleEcore)
 	out := filepath.Join(t.TempDir(), "table.go")

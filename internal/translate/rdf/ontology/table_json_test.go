@@ -50,4 +50,7 @@ func TestTableRecordKeepsAFiniteUpperBound(t *testing.T) {
 	if single := tableProperty(Property{Name: "y", DefiningClass: "Element"}); single.Upper != 1 {
 		t.Errorf("single-valued upper = %d, want 1", single.Upper)
 	}
+	if unspecified := tableProperty(Property{Name: "z", DefiningClass: "Element", Upper: -2}); unspecified.Upper != -2 {
+		t.Errorf("unspecified upper = %d, want -2 as ecore states it", unspecified.Upper)
+	}
 }
