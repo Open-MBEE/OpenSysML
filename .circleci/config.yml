@@ -372,7 +372,10 @@ jobs:
   # schema checks: everything that needs neither a solver nor the corpora.
   # CircleCI auto-cancels redundant runs only off the default branch, so every
   # merge into develop queued behind the pipelines it superseded. This cancels
-  # the branch's older build-test workflows; without a token it only says so.
+  # the branch's older build-test workflows. The Go jobs require it so that it
+  # runs before they take containers, which is why it never fails: without a
+  # token, or with one the API rejects, it says so and the pipeline goes on.
+  # CIRCLE_TOKEN is taken (the release jobs read it as a GitHub token).
   cancel-superseded:
     docker:
       - image: cimg/base:current
@@ -391,14 +394,14 @@ jobs:
               main|develop) ;;
               *) echo "Branch ${CIRCLE_BRANCH:-?} is not an integration branch: nothing to cancel."; exit 0 ;;
             esac
-            if [ -z "${CIRCLE_TOKEN:-}" ]; then
-              echo "CIRCLE_TOKEN is not set, so older pipelines on ${CIRCLE_BRANCH} keep running."
-              echo "A maintainer enables cancellation by adding a personal API token as the"
-              echo "project environment variable CIRCLE_TOKEN (Project Settings > Environment Variables)."
+            if [ -z "${CIRCLECI_API_TOKEN:-}" ]; then
+              echo "CIRCLECI_API_TOKEN is not set, so older pipelines on ${CIRCLE_BRANCH} keep running."
+              echo "A maintainer enables cancellation by adding a CircleCI personal API token as the"
+              echo "project environment variable CIRCLECI_API_TOKEN (Project Settings > Environment Variables)."
               exit 0
             fi
             python3 - \<<'PY'
-            import json, os, sys, time, urllib.error, urllib.request
+            import datetime, json, os, sys, time, urllib.error, urllib.request
 
             branch = os.environ["CIRCLE_BRANCH"]
             current = int(os.environ["PIPELINE_NUMBER"])
@@ -407,14 +410,16 @@ jobs:
 
             def call(path, method="GET"):
                 request = urllib.request.Request(api + path, method=method, headers={
-                    "Circle-Token": os.environ["CIRCLE_TOKEN"], "Accept": "application/json"})
+                    "Circle-Token": os.environ["CIRCLECI_API_TOKEN"], "Accept": "application/json"})
                 for attempt in range(1, 4):
                     try:
                         with urllib.request.urlopen(request, timeout=30) as response:
                             return json.load(response)
                     except urllib.error.HTTPError as err:
                         if err.code in (401, 403):
-                            sys.exit(f"error: the CircleCI API rejected CIRCLE_TOKEN ({err.code}); the project variable needs a valid personal API token")
+                            print(f"error: the CircleCI API rejected CIRCLECI_API_TOKEN ({err.code}); older pipelines keep running")
+                            print("The project variable needs a valid CircleCI personal API token.")
+                            sys.exit(0)
                         failure = f"HTTP {err.code}"
                     except (urllib.error.URLError, TimeoutError) as err:
                         failure = str(err)
@@ -433,12 +438,19 @@ jobs:
             cancelled = 0
             examined = 0
             token = None
-            # Newest first; two pages reach well past anything still running.
-            for _ in range(2):
+            # Newest first; stop at pipelines older than any job's timeout
+            # lets a build-test run, so a busy day cannot push one off the end.
+            horizon = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=6)
+            done = False
+            for _ in range(20):
                 page = call(f"/project/{slug}/pipeline?branch={branch}" + (f"&page-token={token}" if token else ""))
                 for pipeline in page.get("items", []):
                     if pipeline["number"] >= current:
                         continue
+                    created = datetime.datetime.fromisoformat(pipeline["created_at"].replace("Z", "+00:00"))
+                    if created < horizon:
+                        done = True
+                        break
                     examined += 1
                     if branch_of(pipeline) != branch:
                         continue
@@ -449,9 +461,9 @@ jobs:
                         print(f"cancelled pipeline {pipeline['number']} ({workflow['status']} build-test, superseded by {current})")
                         cancelled += 1
                 token = page.get("next_page_token")
-                if not token:
+                if done or not token:
                     break
-            print(f"{cancelled} superseded pipeline(s) cancelled on {branch}; {examined} older pipeline(s) examined.")
+            print(f"{cancelled} superseded pipeline(s) cancelled on {branch}; {examined} pipeline(s) from the last 6 hours examined.")
             PY
 
   go-static:
@@ -4517,12 +4529,16 @@ workflows:
               ignore: /.*/
       - go-static:
           name: Go static checks
+          requires: &after-cancellation
+            - Cancel superseded pipelines
           filters: *integration-branches
       - go-race-test:
           name: Go race tests
+          requires: *after-cancellation
           filters: *integration-branches
       - go-coverage:
           name: Go coverage shards
+          requires: *after-cancellation
           filters: *integration-branches
       - go-coverage-merge:
           name: Go coverage profile
@@ -4531,9 +4547,11 @@ workflows:
           filters: *integration-branches
       - go-build:
           name: Go binaries
+          requires: *after-cancellation
           filters: *integration-branches
       - go-gates:
           name: Go gates
+          requires: *after-cancellation
           filters: *integration-branches
       - python-test:
           name: Python client tests
