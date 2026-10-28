@@ -22,6 +22,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
@@ -100,78 +101,81 @@ func writableFile(dir, name string) (string, bool) {
 
 // CLI flags
 var (
-	evalExprs          stringSlice
-	showHelp           bool
-	showMan            bool
-	showVersion        bool
-	debugMode          bool
-	quietMode          bool
-	traceMode          bool
-	renderRuns         stringSlice
-	schedule           schedulePolicy
-	listEngines        bool
-	metaclassGraph     bool
-	metamodelTable     bool
-	explainCodes       codeNames
-	probeEngines       bool
-	engine             engineSelection
-	jobsFlag           jobsSetting
-	convertFormat      string
-	stdlibModel        bool
-	migrateFormat      string
-	bundleDir          string
-	unbundleFile       string
-	queryText          string
-	outputPath         string
-	fromFormat         string
-	idForm             string
-	migrationReport    string
-	migrationResults   string
-	layoutPath         string
-	imageBaseURL       string
-	renderView         string
-	graphsSubject      string
-	renderAllDir       string
-	renderForm         string
-	renderPalette      string
-	renderLink         string
-	renderUnplaced     string
-	renderCompartments string
-	renderStyle        string
-	renderPorts        string
-	renderLines        string
-	renderShow         string
-	renderDepth        int
-	renderOverlay      string
-	renderDoc          string
-	listWhat           string
-	listKinds          string
-	listForm           string
-	renderDocsDir      string
-	docForm            string
-	diagramForm        string
-	pdfEngine          string
-	pdfTitlePage       bool
-	pdfTOC             bool
-	pdfNumbering       bool
-	docNumberFigures   bool
-	htmlCSS            stringSlice
-	htmlNoCSS          bool
-	htmlShowCSS        bool
-	htmlFragment       bool
-	htmlMermaid        string
-	htmlMath           string
-	htmlTheme          string
-	strictMode         bool
-	portableMode       bool
-	disabledLints      lintList
-	enabledLints       lintList
-	libraryRoots       pathList
-	noRecordCache      bool
-	modelChecks        checks
-	compileCalc        string
-	compileTarget      string
-	compileSource      bool
+	evalExprs                   stringSlice
+	showHelp                    bool
+	showMan                     bool
+	showVersion                 bool
+	debugMode                   bool
+	quietMode                   bool
+	traceMode                   bool
+	renderRuns                  stringSlice
+	schedule                    schedulePolicy
+	listEngines                 bool
+	metaclassGraph              bool
+	metamodelTable              bool
+	explainCodes                codeNames
+	probeEngines                bool
+	engine                      engineSelection
+	jobsFlag                    jobsSetting
+	convertFormat               string
+	libraryReferencesPath       string
+	includeLibraryStubs         bool
+	conversionLibraryReferences []export.APIJSONLibraryReference
+	stdlibModel                 bool
+	migrateFormat               string
+	bundleDir                   string
+	unbundleFile                string
+	queryText                   string
+	outputPath                  string
+	fromFormat                  string
+	idForm                      string
+	migrationReport             string
+	migrationResults            string
+	layoutPath                  string
+	imageBaseURL                string
+	renderView                  string
+	graphsSubject               string
+	renderAllDir                string
+	renderForm                  string
+	renderPalette               string
+	renderLink                  string
+	renderUnplaced              string
+	renderCompartments          string
+	renderStyle                 string
+	renderPorts                 string
+	renderLines                 string
+	renderShow                  string
+	renderDepth                 int
+	renderOverlay               string
+	renderDoc                   string
+	listWhat                    string
+	listKinds                   string
+	listForm                    string
+	renderDocsDir               string
+	docForm                     string
+	diagramForm                 string
+	pdfEngine                   string
+	pdfTitlePage                bool
+	pdfTOC                      bool
+	pdfNumbering                bool
+	docNumberFigures            bool
+	htmlCSS                     stringSlice
+	htmlNoCSS                   bool
+	htmlShowCSS                 bool
+	htmlFragment                bool
+	htmlMermaid                 string
+	htmlMath                    string
+	htmlTheme                   string
+	strictMode                  bool
+	portableMode                bool
+	disabledLints               lintList
+	enabledLints                lintList
+	libraryRoots                pathList
+	noRecordCache               bool
+	modelChecks                 checks
+	compileCalc                 string
+	compileTarget               string
+	compileSource               bool
 
 	syncDiffWith       string
 	syncApplyTo        string
@@ -631,6 +635,14 @@ func runCLI() int {
 	}
 	if convertFormat != "" && migrateFormat != "" {
 		fmt.Fprintln(os.Stderr, "sysml: -convert and -migrate are mutually exclusive: a SysML v1 model is migrated, a v2 model or an RDF graph converted; ask for one per run")
+		return 2
+	}
+	if (flagGiven("library-references") || includeLibraryStubs) && convertFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -library-references and -include-library-stubs require -convert api-json")
+		return 2
+	}
+	if flagGiven("library-references") && libraryReferencesPath == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -library-references is empty; name a JSON side file")
 		return 2
 	}
 	if migrationReport != "" && migrateFormat == "" {

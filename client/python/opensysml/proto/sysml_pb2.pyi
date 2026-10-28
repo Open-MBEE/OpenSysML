@@ -1069,7 +1069,7 @@ class ExecuteStateResponse(_message.Message):
     def __init__(self, states_visited: _Optional[_Iterable[str]] = ..., final_context: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ..., trace: _Optional[_Iterable[_Union[DocumentEvent, _Mapping]]] = ..., trace_dropped: _Optional[int] = ..., order_dependent: _Optional[_Mapping[str, int]] = ...) -> None: ...
 
 class ConvertRequest(_message.Message):
-    __slots__ = ("file_path", "content", "model_hash", "from_format", "to_format", "tolerate_syntax_errors", "id_form", "documents", "compact", "omit_derived", "keep_derived", "include_check_diagnostics")
+    __slots__ = ("file_path", "content", "model_hash", "from_format", "to_format", "tolerate_syntax_errors", "id_form", "documents", "compact", "omit_derived", "keep_derived", "include_check_diagnostics", "include_library_stubs")
     FILE_PATH_FIELD_NUMBER: _ClassVar[int]
     CONTENT_FIELD_NUMBER: _ClassVar[int]
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
@@ -1082,6 +1082,7 @@ class ConvertRequest(_message.Message):
     OMIT_DERIVED_FIELD_NUMBER: _ClassVar[int]
     KEEP_DERIVED_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_CHECK_DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_LIBRARY_STUBS_FIELD_NUMBER: _ClassVar[int]
     file_path: str
     content: str
     model_hash: str
@@ -1094,10 +1095,11 @@ class ConvertRequest(_message.Message):
     omit_derived: bool
     keep_derived: _containers.RepeatedScalarFieldContainer[str]
     include_check_diagnostics: bool
-    def __init__(self, file_path: _Optional[str] = ..., content: _Optional[str] = ..., model_hash: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., tolerate_syntax_errors: _Optional[bool] = ..., id_form: _Optional[str] = ..., documents: _Optional[_Iterable[str]] = ..., compact: _Optional[bool] = ..., omit_derived: _Optional[bool] = ..., keep_derived: _Optional[_Iterable[str]] = ..., include_check_diagnostics: _Optional[bool] = ...) -> None: ...
+    include_library_stubs: bool
+    def __init__(self, file_path: _Optional[str] = ..., content: _Optional[str] = ..., model_hash: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., tolerate_syntax_errors: _Optional[bool] = ..., id_form: _Optional[str] = ..., documents: _Optional[_Iterable[str]] = ..., compact: _Optional[bool] = ..., omit_derived: _Optional[bool] = ..., keep_derived: _Optional[_Iterable[str]] = ..., include_check_diagnostics: _Optional[bool] = ..., include_library_stubs: _Optional[bool] = ...) -> None: ...
 
 class ConvertResponse(_message.Message):
-    __slots__ = ("content", "from_format", "to_format", "error", "diagnostics", "experimental", "experimental_notice")
+    __slots__ = ("content", "from_format", "to_format", "error", "diagnostics", "experimental", "experimental_notice", "library_references")
     CONTENT_FIELD_NUMBER: _ClassVar[int]
     FROM_FORMAT_FIELD_NUMBER: _ClassVar[int]
     TO_FORMAT_FIELD_NUMBER: _ClassVar[int]
@@ -1105,6 +1107,7 @@ class ConvertResponse(_message.Message):
     DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
     EXPERIMENTAL_FIELD_NUMBER: _ClassVar[int]
     EXPERIMENTAL_NOTICE_FIELD_NUMBER: _ClassVar[int]
+    LIBRARY_REFERENCES_FIELD_NUMBER: _ClassVar[int]
     content: str
     from_format: str
     to_format: str
@@ -1112,7 +1115,18 @@ class ConvertResponse(_message.Message):
     diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
     experimental: bool
     experimental_notice: str
-    def __init__(self, content: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., experimental: _Optional[bool] = ..., experimental_notice: _Optional[str] = ...) -> None: ...
+    library_references: _containers.RepeatedCompositeFieldContainer[LibraryReference]
+    def __init__(self, content: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., experimental: _Optional[bool] = ..., experimental_notice: _Optional[str] = ..., library_references: _Optional[_Iterable[_Union[LibraryReference, _Mapping]]] = ...) -> None: ...
+
+class LibraryReference(_message.Message):
+    __slots__ = ("id", "qualified_name", "type")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    QUALIFIED_NAME_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    qualified_name: str
+    type: str
+    def __init__(self, id: _Optional[str] = ..., qualified_name: _Optional[str] = ..., type: _Optional[str] = ...) -> None: ...
 
 class MigrateRequest(_message.Message):
     __slots__ = ("file_path", "content", "from_format", "to_format", "report", "results", "layout_path", "layout_content", "image_base_url", "strict")

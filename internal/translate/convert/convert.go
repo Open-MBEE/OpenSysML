@@ -410,8 +410,16 @@ func FromGraphWith(graph *rdf.Graph, to Format, opts Options) ([]byte, error) {
 	case to == FormatAPIJSON:
 		if opts.Compact != nil {
 			compact := *opts.Compact
-			compact.IncludeLibraryStubs = opts.IncludeLibraryStubs
-			compact.LibraryReferences = opts.LibraryReferences
+			compact.IncludeLibraryStubs = compact.IncludeLibraryStubs || opts.IncludeLibraryStubs
+			if opts.LibraryReferences != nil {
+				inner := compact.LibraryReferences
+				compact.LibraryReferences = func(refs []export.APIJSONLibraryReference) {
+					if inner != nil {
+						inner(refs)
+					}
+					opts.LibraryReferences(refs)
+				}
+			}
 			return export.WriteAPIJSONCompact(graph, compact)
 		}
 		return export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{

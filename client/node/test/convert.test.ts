@@ -12,6 +12,21 @@ before(() => {
   useServiceBinary();
 });
 
+test("API JSON names library references separately and opts into legacy stubs", async () => {
+  await using connection = await connect();
+  const model = await connection.loads("package P { private import SI::*; attribute time = 20 [s]; }");
+  const plain = await model.convert("api-json");
+  const second = plain.libraryReferences.find((ref) => ref.qualifiedName === "SI::second");
+  assert.equal(second?.id, "0c539f7c-20a1-520d-bae0-f3f855517aea");
+  assert.equal(second?.type, "AttributeUsage");
+  assert.equal(JSON.parse(plain.content).filter((element: {isLibraryElement?: boolean}) => element.isLibraryElement).length, 0);
+  const legacy = await model.convert("api-json", { includeLibraryStubs: true });
+  const stub = JSON.parse(legacy.content).find((element: {"@id": string}) => element["@id"] === second?.id);
+  assert.equal(stub.qualifiedName, "SI::second");
+  assert.equal(stub.isLibraryElement, true);
+  assert.deepEqual(legacy.libraryReferences, plain.libraryReferences);
+});
+
 test("a model writes itself out in notation", async () => {
   await using connection = await connect();
   const model = await connection.loads(SAMPLE);

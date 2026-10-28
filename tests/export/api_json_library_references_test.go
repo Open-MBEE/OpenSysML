@@ -3,11 +3,14 @@ package export_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
 const libraryUnitsModel = `package q {
@@ -96,6 +99,145 @@ func TestAPIJSONLibraryReferencesAndLegacyStubs(t *testing.T) {
 		}
 		if !reflect.DeepEqual(document.LibraryReferences, libraryUnitsReferences) {
 			t.Fatalf("compact table = %#v", document.LibraryReferences)
+		}
+		read, err := export.ReadAPIJSON(compact)
+		if err != nil {
+			t.Fatal(err)
+		}
+		array, err := export.WriteAPIJSON(read)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if bytes.Contains(array, []byte(`"isLibraryElement": true`)) {
+			t.Fatal("compact metadata became model roots")
+		}
+	}
+}
+
+func TestAPIJSONLibraryStubRejectsIncompleteGraph(t *testing.T) {
+	for _, typeTriple := range []string{"", ` a <https://example.org/Wrong> ;`, ` a sysml:Class, sysml:Feature ;`} {
+		graph, err := rdf.ParseTurtle([]byte(`@prefix sysml: <` + rdf.SysML + `> . <urn:sysmlv2:element:L>` + typeTriple + ` sysml:isLibraryElement "true"^^<` + rdf.XSD + `boolean> .`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{IncludeLibraryStubs: true})
+		var unsupported *export.UnsupportedError
+		if !errors.As(err, &unsupported) {
+			t.Fatalf("type %q: got %v, want UnsupportedError", typeTriple, err)
+		}
+	}
+}
+
+func TestAPIJSONCompactLibraryTableIsLiteralMetadata(t *testing.T) {
+	graph, err := convert.SysMLToRDF("units.sysml", []byte(libraryUnitsModel))
+	if err != nil {
+		t.Fatal(err)
+	}
+	inner, outer := 0, 0
+	compact, err := convert.FromGraphWith(graph, convert.FormatAPIJSON, convert.Options{
+		Compact:           &export.CompactAPIJSONOptions{IncludeLibraryStubs: true, LibraryReferences: func([]export.APIJSONLibraryReference) { inner++ }},
+		LibraryReferences: func([]export.APIJSONLibraryReference) { outer++ },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inner != 1 || outer != 1 || !bytes.Contains(compact, []byte(`"isLibraryElement":true`)) {
+		t.Fatal("conversion discarded compact options")
+	}
+	for _, table := range []string{`[]`, `[{"@id":"literal-id","@type":"Class","qualifiedName":"Library::Class"}]`} {
+		data := []byte(`{"format":"api-json-compact/1","ids":[],"elementCount":0,"referenceKeys":["@id","qualifiedName"],"elements":[],"libraryReferences":` + table + `}`)
+		if _, err := export.ReadAPIJSON(data); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, table := range []string{`null`, `{}`, `[{"@id":0,"@type":"Class","qualifiedName":"C"}]`, `[{"@id":"C","@type":"Class"}]`, `[{"@id":"C","@id":"D","@type":"Class","qualifiedName":"C"}]`} {
+		data := []byte(`{"format":"api-json-compact/1","ids":[],"elementCount":0,"referenceKeys":[],"elements":[],"libraryReferences":` + table + `}`)
+		if _, err := export.ReadAPIJSON(data); err == nil {
+			t.Fatalf("accepted invalid table %s", table)
+		}
+	}
+	without := strings.Replace(string(compact), `,"libraryReferences":`, `,"unknownTable":`, 1)
+	if _, err := export.ReadAPIJSON([]byte(without)); err == nil {
+		t.Fatal("accepted unknown top-level key")
+	}
+}
+
+func TestAPIJSONLibraryReferencesAcrossScopes(t *testing.T) {
+	const libraryID = "14c0aa22-5489-59b5-b438-ded26e83ba31"
+	graph := rdf.NewGraph()
+	root, library := rdf.ElementIRIForID("root"), rdf.ElementIRIForID(libraryID)
+	graph.Add(root, rdf.IRI(rdf.RDFType), rdf.SysMLTerm("Class"))
+	graph.Add(root, rdf.SysMLTerm("declaredName"), rdf.String("Root"))
+	graph.Add(root, rdf.SysMLTerm("superclassifier"), library)
+	graph.Add(library, rdf.IRI(rdf.RDFType), rdf.SysMLTerm("DataType"))
+	graph.Add(library, rdf.SysMLTerm("qualifiedName"), rdf.String("ScalarValues::Real"))
+	graph.Add(library, rdf.SysMLTerm("isLibraryElement"), rdf.Bool(true))
+	for _, scopeLibraries := range []bool{false, true} {
+		scoped := rdf.NewGraph()
+		rescope := func(term rdf.Term) rdf.Term {
+			id, ok := rdf.SubjectID(term)
+			if !ok || (!scopeLibraries && export.LibraryReference(graph, term)) {
+				return term
+			}
+			return rdf.ScopedElementIRIForID("project", id)
+		}
+		for _, triple := range graph.Triples() {
+			scoped.Add(rescope(triple.Subject), triple.Predicate, rescope(triple.Object))
+		}
+		for _, compact := range []bool{false, true} {
+			var got []export.APIJSONLibraryReference
+			opts := convert.Options{LibraryReferences: func(refs []export.APIJSONLibraryReference) { got = refs }}
+			if compact {
+				opts.Compact = &export.CompactAPIJSONOptions{}
+			}
+			if _, err := convert.FromGraphWith(scoped, convert.FormatAPIJSON, opts); err != nil {
+				t.Fatal(err)
+			}
+			want := []export.APIJSONLibraryReference{{ID: libraryID, Type: "DataType", QualifiedName: "ScalarValues::Real"}}
+			if scopeLibraries {
+				for i := range want {
+					want[i].ID = "project:" + want[i].ID
+				}
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("compact=%v scoped libraries=%v table=%v want=%v", compact, scopeLibraries, got, want)
+			}
+		}
+	}
+}
+
+func TestAPIJSONUnnamedLibraryMembership(t *testing.T) {
+	graph, err := convert.SysMLToRDF("import.sysml", []byte(`package P { private import ScalarValues::Real; }`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var refs []export.APIJSONLibraryReference
+	compact, err := export.WriteAPIJSONCompact(graph, export.CompactAPIJSONOptions{LibraryReferences: func(got []export.APIJSONLibraryReference) { refs = got }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(refs) != 1 || refs[0].Type != "OwningMembership" || refs[0].QualifiedName != "" {
+		t.Fatalf("unnamed membership=%v", refs)
+	}
+	if _, err := export.ReadAPIJSON(compact); err != nil {
+		t.Fatal(err)
+	}
+	legacy, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{IncludeLibraryStubs: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(legacy, &elements); err != nil {
+		t.Fatal(err)
+	}
+	for _, element := range elements {
+		if element["@id"] == refs[0].ID {
+			if element["memberElement"] == nil {
+				t.Fatal("legacy owning membership lost its memberElement")
+			}
+			if _, exists := element["qualifiedName"]; exists {
+				t.Fatal("invented a name for an unnamed membership")
+			}
 		}
 	}
 }

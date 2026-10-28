@@ -119,8 +119,10 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 	// cannot spell a reference as a bare integer.
 	kept := make([]apiJSONObject, len(elements))
 	references := map[string]bool{}
+	writtenLibraryIDs := map[string]bool{}
 	numbers := map[string]bool{}
 	for i, element := range elements {
+		subject := rdf.ReferenceIRI(rdf.Term{}, element[1].value.(string))
 		typ, _ := element[0].value.(string)
 		metaclass := typ
 		if strings.HasPrefix(typ, "sysx:") {
@@ -160,6 +162,8 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 			walkCompactValue(member.value, func(value any) {
 				switch v := value.(type) {
 				case apiJSONReference:
+					id, _ := rdf.SubjectID(rdf.ReferenceIRI(subject, v.ID))
+					writtenLibraryIDs[id] = true
 					handle(v.ID)
 					if member.key != apiJSONMappingValuesKey {
 						references[member.key] = true
@@ -180,8 +184,7 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 	slices.Sort(referenceKeys)
 	// Only names referenced by the written document belong in its table.
 	libraryReferences = slices.DeleteFunc(libraryReferences, func(ref APIJSONLibraryReference) bool {
-		_, present := handles[ref.ID]
-		return !present
+		return !writtenLibraryIDs[ref.ID]
 	})
 
 	var out bytes.Buffer

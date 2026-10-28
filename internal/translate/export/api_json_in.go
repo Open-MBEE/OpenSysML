@@ -261,6 +261,10 @@ func expandAPIJSONCompact(data []byte) ([]byte, error) {
 			if err := decoder.Decode(&referenceKeys); err != nil {
 				return nil, fmt.Errorf("cannot read compact API reference keys: %w", err)
 			}
+		case "libraryReferences":
+			if err := readAPIJSONLibraryReferences(decoder); err != nil {
+				return nil, err
+			}
 		case "elements":
 			token, err := decoder.Token()
 			if err != nil || token != json.Delim('[') {
