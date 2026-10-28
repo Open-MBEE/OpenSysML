@@ -187,9 +187,10 @@ fi
 
 # source_of DST/name: the staged upstream copy of a vendored path.
 source_of() {
-	case "$1" in
-		"$vendored_project"/*) echo "$upstream_project/$(basename "$1")" ;;
-		*) echo "$upstream/$(basename "$1")" ;;
+	local vendored=$1
+	case "$vendored" in
+		"$vendored_project"/*) echo "$upstream_project/$(basename "$vendored")" ;;
+		*) echo "$upstream/$(basename "$vendored")" ;;
 	esac
 }
 mkdir -p "$vendored_project"
