@@ -1,5 +1,6 @@
 @startuml
 ' FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
+' not represented: 3 pin(s) not drawn (provide.fuel, provide.torque, monitor.reading); PlantUML's state grammar has no pin, so the edges name them
 <style>
 root {
   BackGroundColor white

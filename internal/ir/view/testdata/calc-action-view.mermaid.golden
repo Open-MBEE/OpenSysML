@@ -1,0 +1,52 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% CalcViews::calcFlows — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
+%% not represented: 12 pin(s) not drawn (Calcs::add.x, Calcs::add.y, Calcs::add.result, Calcs::Add.x, Calcs::Add.y, Calcs::Add.r, Calcs::Totaliser::total.x, Calcs::Totaliser::total.y, Calcs::Totaliser::total.r, Calcs::Stepwise.load, Calcs::Stepwise.result, scale.scaled); a flowchart draws the pins an edge ends at
+flowchart TD
+  n0("`*«calc»*
+**add**
+declares no nodes`")
+  n1["`*«calc def»*
+**Add**
+declares no nodes`"]
+  n2("`*«calc»*
+**total**
+declares no nodes`")
+  subgraph n3 ["`*«calc def»* **Stepwise**`"]
+    direction TD
+    subgraph n4 ["`*«action»* **measure**`"]
+      direction TD
+      n4_anchor[" "]
+      n4_p0["reading"]
+    end
+    subgraph n5 ["`*«action»* **scale**`"]
+      direction TD
+      n5_anchor[" "]
+      n5_p0["raw"]
+    end
+  end
+  n4_anchor -.-> n5_anchor
+  n4_p0 --> n5_p0
+  classDef anchor fill:none,stroke:none
+  class n4_anchor,n5_anchor anchor

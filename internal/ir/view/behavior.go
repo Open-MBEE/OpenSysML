@@ -606,7 +606,7 @@ func (r *Renderer) renderActions(view *symbols.Symbol, exposed []*symbols.Symbol
 	var others []*symbols.Symbol
 	roots := map[*symbols.Symbol]*Node{}
 	for _, elem := range exposed {
-		if elem.Kind != symbols.SymbolActionDef && elem.Kind != symbols.SymbolActionUsage {
+		if !behaviorKind(elem.Kind) {
 			others = append(others, elem)
 			continue
 		}
@@ -663,10 +663,21 @@ func (r *Renderer) rootSuccessionEdges(view *symbols.Symbol, roots map[*symbols.
 	}
 }
 
+// behaviorKind reports whether an element of the kind is drawn by an action
+// rendering: an action def or usage, or a calculation def or usage — an action
+// declared with the keyword `calc` (SysML v2 §7.19.2), drawn the same way.
+func behaviorKind(kind symbols.SymbolKind) bool {
+	switch kind {
+	case symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolCalcDef, symbols.SymbolCalcUsage:
+		return true
+	}
+	return false
+}
+
 // renderAction builds one action graph with shared IDs.
 func (r *Renderer) renderAction(view *symbols.Symbol, elem *symbols.Symbol, ids *nodeIDs, out *Rendering,
 	record func(*symbols.Symbol, *Node)) (*Node, bool) {
-	if elem.Kind != symbols.SymbolActionDef && elem.Kind != symbols.SymbolActionUsage {
+	if !behaviorKind(elem.Kind) {
 		out.Notices = append(out.Notices, notShown(r, elem, "action", "action"))
 		return nil, false
 	}
@@ -716,7 +727,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 	if root == nil {
 		root = &Node{ID: ids.take(), Kind: kind, Name: name, NameSynthesized: r.declaredNameSynthesized(subject.elem, decl), Type: subject.typ,
 			Origin: nodeOrigin(doc, decl), InheritedFrom: inheritedOrigins(graph.Inherited())}
-		root.Ports = r.inheritedPorts(subject.elem, decl, root.ID, actionPorts(root.ID, graph.Parameters, doc))
+		root.Ports = r.inheritedPorts(subject.elem, decl, root.ID, actionPorts(root.ID, graph.Parameters, doc), declaresResult(graph.Parameters))
 		root.Geometry = r.declaredGeometryOf(subject.view, subject.elem, decl, out)
 		r.declaredDress(subject.view, subject.elem, decl, root, out)
 	}
@@ -751,7 +762,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 			child.Geometry = r.nodeGeometryOf(subject.view, subject.elem, owner, node, behaviorNodeName(node), out)
 			r.declaredDress(subject.view, subject.elem, node, child, out)
 		}
-		child.Ports = r.inheritedPorts(subject.elem, node, child.ID, actionPorts(child.ID, graph.Features[node], nodeDoc))
+		child.Ports = r.inheritedPorts(subject.elem, node, child.ID, actionPorts(child.ID, graph.Features[node], nodeDoc), declaresResult(graph.Features[node]))
 		if record != nil {
 			record(r.declaredSymbol(subject.elem, node), child)
 		}
@@ -1004,8 +1015,11 @@ func actionPorts(id string, features []lower.Feature, doc string) []Port {
 
 // inheritedPorts adds to a node's declared pins the directed parameters it takes
 // from its type (`action provide : Provide` has Provide's `in`s and `out`s),
-// each not already declared by name, in the type's member order.
-func (r *Renderer) inheritedPorts(elem *symbols.Symbol, node ast.Node, id string, ports []Port) []Port {
+// each not already declared by name, in the type's member order. A result
+// parameter redefines the one of the type it specializes, so the nearest one
+// declared — the node's own when result is set, else the first inherited — is
+// the only result pin (`return r` of a calc stands for Calculation::result).
+func (r *Renderer) inheritedPorts(elem *symbols.Symbol, node ast.Node, id string, ports []Port, result bool) []Port {
 	sym, ok := r.model.SymbolDeclaring(documentScope(elem), node)
 	if !ok {
 		return ports
@@ -1015,6 +1029,12 @@ func (r *Renderer) inheritedPorts(elem *symbols.Symbol, node ast.Node, id string
 		if !ok || !lower.DeclaresNodeFeature(usage) || usage.Direction == ast.DirNone && !usage.IsResult {
 			continue
 		}
+		if usage.IsResult {
+			if result {
+				continue
+			}
+			result = true
+		}
 		name := nameText(member.Name)
 		if slices.ContainsFunc(ports, func(port Port) bool { return port.Name == name }) {
 			continue
@@ -1023,6 +1043,11 @@ func (r *Renderer) inheritedPorts(elem *symbols.Symbol, node ast.Node, id string
 			Direction: portDirection(lower.Feature{Direction: usage.Direction, IsResult: usage.IsResult}), Origin: member.Origin()})
 	}
 	return ports
+}
+
+// declaresResult reports whether the features hold a result parameter.
+func declaresResult(features []lower.Feature) bool {
+	return slices.ContainsFunc(features, func(feature lower.Feature) bool { return feature.IsResult })
 }
 
 // portID identifies the i-th port of a node, under the node's own ID.
