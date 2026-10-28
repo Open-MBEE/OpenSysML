@@ -31,15 +31,7 @@ type expectedRow struct {
 func runRunDocumentQueryCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
 
-	for _, sym := range tc.Instantiate {
-		resp, err := srv.Instantiate(ctx, &pb.InstantiateRequest{ModelHash: modelHash, SymbolId: sym})
-		if err != nil {
-			t.Fatalf("Instantiate %s: %v", sym, err)
-		}
-		if resp.Error != "" {
-			t.Fatalf("Instantiate %s: %s", sym, resp.Error)
-		}
-	}
+	instantiateAll(t, srv, ctx, modelHash, tc.Instantiate)
 	bindings := make([]*pb.DocumentQueryBinding, 0, len(tc.Bindings))
 	for _, b := range tc.Bindings {
 		values := make([]*pb.DocumentValue, 0, len(b.Values))

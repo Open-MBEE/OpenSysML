@@ -10,7 +10,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // VerdictStatus is what a checked condition answered.
@@ -416,18 +415,16 @@ func (s *Session) reportedSubject(result runtime.CheckResult, inst *runtime.Inst
 		// rather than reported under the wrong one.
 		return inst, owner
 	}
-	return result.Subject, root + featurePath(result.SubjectPath)
+	return result.Subject, objectPath(root, result.SubjectPath)
 }
 
-// featurePath spells walked feature names as a label's tail, each after a `.`
-// and quoted where its spelling needs it: `engine`, `mount` → `.engine.mount`.
-func featurePath(names []string) string {
-	var out strings.Builder
-	for _, name := range names {
-		out.WriteString(".")
-		out.WriteString(source.NameText(name))
+// objectPath labels an object nested in the labelled root by the segments walked to it,
+// `fleet.cheap[2]`, the one spelling every verdict about a nested object uses.
+func objectPath(root string, path []string) string {
+	if len(path) == 0 {
+		return root
 	}
-	return out.String()
+	return root + "." + strings.Join(path, ".")
 }
 
 // instanceName is the label the session holds inst under — its name as the

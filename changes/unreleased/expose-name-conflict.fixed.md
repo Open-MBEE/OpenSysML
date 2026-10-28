@@ -1,0 +1,1 @@
+- `name-conflict` no longer warns when the only memberships colliding under one name are those a view's `expose`s bring (`view v { expose a::**; expose b::**; }` with a `p` in both `a` and `b`): a view exposes each expose's own memberships, so both `p` are exposed and rendered. A collision a plain `import` or an inherited member takes part in is still reported.

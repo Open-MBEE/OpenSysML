@@ -1,0 +1,5 @@
+{
+  "rpc": "Evaluate",
+  "expression": "P::d.xs",
+  "expected_result": {"kind": "sequence", "elements": [{"kind": "int_value", "value": 4}]}
+}

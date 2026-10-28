@@ -23,7 +23,7 @@
       "const": true
     },
     "referenceKeys": {
-      "description": "Keys whose references are bare handles. None of them carries a number.",
+      "description": "Keys whose every value is a reference or an array of references, written as bare handles. None of them carries a string, boolean, number or object.",
       "type": "array",
       "items": { "type": "string" },
       "uniqueItems": true

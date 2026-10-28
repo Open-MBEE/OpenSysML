@@ -60,7 +60,11 @@ func (s *Service) ValidateInstance(ctx context.Context, req *pb.ValidateInstance
 		resp.Verdicts = append(resp.Verdicts, v.objectVerdict(ov, plan))
 		if req := ov.Requirement; req != nil && !verified[req] {
 			verified[req] = true
-			resp.VerificationVerdicts = append(resp.VerificationVerdicts, v.requirementVerifications(req, root, nil)...)
+			verifications, err := v.requirementVerifications(req, root, nil)
+			if err != nil {
+				return nil, err
+			}
+			resp.VerificationVerdicts = append(resp.VerificationVerdicts, verifications...)
 		}
 	}
 	return resp, nil
@@ -79,11 +83,17 @@ func (v *verifyContext) objectVerdict(ov runtime.ObjectVerdict, plan analysis.Pl
 		kind = verdictBinding
 	}
 	out := v.verdict(kind, ov.Element, ov.Text, ov.Subject, ov.Status == runtime.ValidationHolds, ov.Err, plan)
-	out.InstancePath = strings.Join(ov.Path, ".")
+	out.InstancePath = instancePath(ov.Path)
 	if ov.Requirement != nil {
 		out.RequirementId = namedFQN(v.cached.Index, ov.Requirement)
 	}
 	return out
+}
+
+// instancePath spells on a verdict the path from the object a request named to
+// the nested object the verdict is about, as the REPL labels it: `cheap[2]`.
+func instancePath(path []string) string {
+	return strings.Join(path, ".")
 }
 
 // summaryVerdict is the verdict about the object as a whole: it holds when every

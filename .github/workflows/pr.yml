@@ -322,6 +322,9 @@ jobs:
           make build-mcp
           scripts/npm-mcp-test.sh
 
+      - name: Audit the npm runner's and Asciidoctor's dependencies
+        run: make audit-npm NPM_LOCK_DIRS="packaging/npm/sysml-mcp scripts/asciidoc"
+
       - name: Provision the pinned corpora
         if: needs.changes.outputs.tier == 'full'
         uses: ./.github/actions/corpora
@@ -339,6 +342,9 @@ jobs:
         run: |
           go vet ./...
           go vet -C tools ./...
+
+      - name: Check Go dependencies for known vulnerabilities
+        run: make vulncheck
 
       - name: Vet and test the RE sysml build (-tags sysml_re)
         run: |
@@ -938,6 +944,9 @@ jobs:
           npm install --ignore-scripts --no-audit --no-fund
           git diff --exit-code package-lock.json
 
+      - name: Audit the extension's dependencies
+        run: make audit-npm NPM_LOCK_DIRS=editors/vscode
+
       # Type-check, bundle and package. The generated TextMate grammars are
       # gated by go test ./editors/... in the job above.
       - name: Package the VS Code extension
@@ -983,6 +992,9 @@ jobs:
       # gated by go test ./editors/... in the Go suite.
       - name: Install JupyterLab
         run: pip install --only-binary ":all:" jupyterlab==4.6.4
+
+      - name: Audit the extension's dependencies
+        run: make audit-npm NPM_LOCK_DIRS=editors/jupyterlab
 
       - name: Test the tokenizer
         run: make jupyterlab-test
@@ -1030,6 +1042,11 @@ jobs:
       # the pipeline test against the freshly built service.
       - name: Build and test the plugin
         run: mvn -B -f editors/mdk/pom.xml verify -Dopensysml.requireService=true
+
+      - name: Audit the plugin's dependencies
+        run: |
+          scripts/download-sca-tools.sh osv-scanner
+          make audit-java JAVA_PROJECT_DIRS=editors/mdk
 
   docs:
     name: Documentation site
@@ -1183,6 +1200,9 @@ jobs:
           npm install --ignore-scripts --no-audit --no-fund
           git diff --exit-code package-lock.json
 
+      - name: Audit the client's dependencies
+        run: make audit-npm NPM_LOCK_DIRS=client/node
+
       - name: Build, typecheck and lint
         working-directory: client/node
         run: |
@@ -1299,6 +1319,11 @@ jobs:
           pip install --only-binary :all: jupyter_client==8.10.0 build==1.6.1
           make jupyter-kernel-install
 
+      - name: Audit the Python packages' dependencies
+        run: |
+          scripts/download-sca-tools.sh pip-audit
+          make audit-python
+
       # The FMI runner test's FMUs, same pin as the Go gate's.
       - name: Cache the Reference-FMUs
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -1398,6 +1423,11 @@ jobs:
           rustup component add rustfmt clippy --toolchain 1.83.0
           rustc --version
           cargo --version
+
+      - name: Audit the Rust client's dependencies
+        run: |
+          scripts/download-sca-tools.sh cargo-audit
+          make audit-rust
 
       - name: Check Rust formatting
         working-directory: client/rust
@@ -1620,6 +1650,11 @@ jobs:
       - name: Make the service binary executable
         run: chmod +x bin/sysml-grpc
 
+      - name: Audit the Java client's dependencies
+        run: |
+          scripts/download-sca-tools.sh osv-scanner
+          make audit-java JAVA_PROJECT_DIRS=client/java
+
       # opensysml.requireService turns "no binary, so skip" into a failure, and
       # `install` builds the sources and javadoc jars a release needs on every commit.
       - name: Test and install the client
@@ -1675,6 +1710,11 @@ jobs:
       - name: Test and install the SysON backend
         run: mvn -B -f editors/syson/pom.xml install -Dopensysml.requireService=true
 
+      - name: Audit the backend's dependencies
+        run: |
+          scripts/download-sca-tools.sh osv-scanner
+          make audit-java JAVA_PROJECT_DIRS=editors/syson
+
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -1690,6 +1730,9 @@ jobs:
           npm run format:check
           npm test
           npm run build
+
+      - name: Audit the frontend's dependencies
+        run: make audit-npm NPM_LOCK_DIRS=editors/syson/frontend
 
   conformance-pkg:
     name: Conformance suite

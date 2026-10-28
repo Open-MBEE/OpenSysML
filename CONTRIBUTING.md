@@ -316,6 +316,38 @@ Every third-party action a workflow or composite action `uses:` is pinned to a f
 with the release that commit is as a trailing comment (`actions/checkout@<sha> # v4.4.0`); a new
 step takes the same form, and the comment is what lets the pin be moved by version.
 
+**Dependency audits** run in both tiers, each in the job whose ecosystem it covers and gated
+by the same `Changed areas` output as that job: `make vulncheck` (govulncheck over both Go
+modules, failing on a vulnerability the code reaches) in the Go static job, `make audit-npm`
+(`npm audit --omit=dev --audit-level=moderate` over every `package-lock.json`) in each Node job,
+`make audit-python` (`pip-audit --strict` over `client/python`, `client/jupyter-kernel`,
+`packaging/pypi-pysysml` and `docs-requirements.txt`) in the Python job, `make audit-rust`
+(`cargo audit`) in the Rust job and `make audit-java` (a CycloneDX SBOM of each Maven tree —
+`client/java`, `editors/syson`, `editors/mdk` — scanned by osv-scanner, test scope excluded) in
+the Java, SysON and MDK jobs. The tools come pinned
+and SHA-256 verified from `scripts/download-sca-tools.sh` (`make sca-tools`); `make audit` runs
+all five locally. A finding fails the job: fix it by bumping the dependency (a Dependabot pull
+request may already exist), never by lowering a level or ignoring an advisory. The same audits
+run every night over `develop` ([nightly snapshots](docs/project/nightly.md)), so an advisory
+published against an unchanged tree is seen within a day and no snapshot is published over a
+failed audit, and before a release
+([releasing](docs/project/releasing.md#before-tagging)). The npm level is `moderate`, the
+lowest `npm audit` ranks a real advisory at; `low` is not used because npm reports it for
+advisories without a fix.
+
+### Dependabot pull requests
+
+[`.github/dependabot.yml`](.github/dependabot.yml) opens one grouped pull request a week per
+ecosystem and directory (both Go modules, every npm lockfile, the Python packages, the Rust
+client, the three Maven trees, and the GitHub Actions the workflows pin), against `develop`, with minor and patch
+updates in one group and a Conventional Commits title (`chore(deps): …`). Such a pull request is
+handled like any other: it opens ready for review, so the full tier runs on it with `Changed
+areas` scoping the jobs to the lockfile it touched, Devin Review and the dependency audits run on
+it, and a maintainer merges it once green; rebase it with a `@dependabot rebase` comment, never
+by hand. A security update Dependabot opens outside the weekly schedule follows the same path.
+Dependabot alerts and security updates are repository settings a maintainer switches on; the
+configuration file only schedules version updates.
+
 ### CircleCI
 
 `.circleci/config.yml` runs after a merge and on tags, never on a pull request branch:
@@ -344,6 +376,7 @@ pull request that is ready for review), which requires:
 - [ ] No race conditions
 - [ ] Code formatted (`gofmt`)
 - [ ] Static analysis clean (`make lint`: staticcheck and gosec)
+- [ ] Dependency audits clean (`make audit`: govulncheck, npm audit, pip-audit, cargo audit, osv-scanner)
 - [ ] OMG corpus gates run (not skipped) and match their expectations
 - [ ] Protobuf schema lints and is wire-compatible with the base branch
 - [ ] Documentation checks pass (`make docs-check`, `make man-check`) and the site builds

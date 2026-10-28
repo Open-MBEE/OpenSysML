@@ -793,14 +793,6 @@ var usageSymbolKinds = map[ast.UsageKind]SymbolKind{
 	ast.UsageBool: SymbolCalcUsage,
 }
 
-// usageSymbolKind maps an ast.UsageKind to its SymbolKind.
-func usageSymbolKind(k ast.UsageKind) SymbolKind {
-	if kind, ok := usageSymbolKinds[k]; ok {
-		return kind
-	}
-	return SymbolUnknown
-}
-
 // classifyUsage determines the correct symbol kind for a usage AST node.
 // Per Phase 4: Parser treats some keywords (like 'datatype') uniformly as usage.
 // Builder classifies based on semantic context (relationships, body structure).
@@ -808,7 +800,7 @@ func usageSymbolKind(k ast.UsageKind) SymbolKind {
 // Classification rules:
 // - Attribute usage with specializes (but NO typing/subsets) → AttributeDef
 // - Attribute usage with typing or subsets/redefines → AttributeUsage
-// - All other usages → use usageSymbolKind directly
+// - All other usages → use UsageSymbolKind directly
 func classifyUsage(u *ast.Usage) SymbolKind {
 	// A `datatype` declares a KerML DataType (KerML 1.0 §8.3.2): a definition whatever
 	// it specializes, unlike the `attribute`/`feature` keywords classified below.
@@ -822,7 +814,7 @@ func classifyUsage(u *ast.Usage) SymbolKind {
 	}
 	// Only classify attribute usages (datatype, attribute, feature keywords)
 	if u.Kind != ast.UsageAttribute {
-		return usageSymbolKind(u.Kind)
+		return UsageSymbolKind(u.Kind)
 	}
 
 	// Check relationships to determine if this is def-like or usage-like

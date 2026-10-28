@@ -668,7 +668,7 @@ func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
 	if tail != nil {
 		return NewSequenceValue(&Sequence{elements: elements, required: tail}), nil
 	}
-	return ctx.declaredCollection(sym, sequenceOf(elements)), nil
+	return ctx.declaredCollection(sym, sequenceOf(elements))
 }
 
 // liveOccurrences is the objects recorded as what sym denotes, while every one of them lives.
@@ -857,24 +857,34 @@ func (feat *EffectiveFeature) heldBy() *symbols.Symbol {
 	return feat.Type
 }
 
-// admitted is the value an admitted val is stored as: a collection for a multi-valued
-// feature, its elements charged, the objects a declared value holds classified by the feature.
-func (ctx *Context) admitted(feat *EffectiveFeature, val Value, how admission) (Value, error) {
+// heldShape is val in the shape feat holds it (KerML 1.0 §7.3.4.1, §7.4.12): a multi-valued
+// feature holds a charged collection, one value its one element; an at-most-one feature holds it bare.
+func (ctx *Context) heldShape(feat *EffectiveFeature, val Value) (Value, error) {
 	if val.Kind == ValUndetermined {
 		// A value the model leaves open is held as it is: it is of no fixed count to collect.
 		return val, nil
 	}
-	if !feat.Scalar() && (val.Kind != ValSequence && val.Kind != ValSet || feat.HoldsSet != (val.Kind == ValSet)) {
-		// A multi-valued feature holds a collection however it was written, so a
-		// single value written to one is that collection's one element.
+	if feat.Scalar() {
+		return soleElement(val), nil
+	}
+	if val.Kind != ValSequence && val.Kind != ValSet || feat.HoldsSet != (val.Kind == ValSet) {
 		elements := elementsOf(val)
 		if err := ctx.chargeElements(int64(len(elements))); err != nil {
 			return Value{}, err
 		}
-		val = ctx.collectionOf(feat, elements)
-	} else if feat.Scalar() {
-		val = soleElement(val)
-	} else if err := ctx.chargeShaped(val); err != nil {
+		return ctx.collectionOf(feat, elements), nil
+	}
+	if err := ctx.chargeShaped(val); err != nil {
+		return Value{}, err
+	}
+	return val, nil
+}
+
+// admitted is the value an admitted val is stored as: a collection for a multi-valued
+// feature, its elements charged, the objects a declared value holds classified by the feature.
+func (ctx *Context) admitted(feat *EffectiveFeature, val Value, how admission) (Value, error) {
+	val, err := ctx.heldShape(feat, val)
+	if err != nil {
 		return Value{}, err
 	}
 	if how == admitDeclared {

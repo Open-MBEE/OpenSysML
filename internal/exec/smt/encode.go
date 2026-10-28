@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"math/big"
+	"slices"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -50,6 +51,9 @@ type Encoding struct {
 	flagged   map[string]bool
 	domains   map[string]*solve.Term
 	exprs     map[ast.Node]*solve.Expression
+	// derived is, by variable name, each feature valued by an expression over
+	// other features: never framed, defined per state and substituted at every read.
+	derived map[string]derivedFeature
 	// pins are the features each node's performance starts afresh; pending
 	// holds the delivery an object flow left at a pin, keyed by the pin.
 	pins    map[ast.Node][]pin
@@ -123,6 +127,7 @@ func Encode(ctx *runtime.Context, action *symbols.Symbol, graph *lower.ActionGra
 		flagged:    make(map[string]bool),
 		domains:    make(map[string]*solve.Term),
 		exprs:      make(map[ast.Node]*solve.Expression),
+		derived:    make(map[string]derivedFeature),
 		pins:       make(map[ast.Node][]pin),
 		pending:    make(map[string]*solve.Var),
 		marks:      make(map[string]*solve.Var),
@@ -228,6 +233,9 @@ func (e *Encoding) collectFeatures() error {
 			e.domains[read.Name] = term
 		}
 	}
+	if err := e.checkDerived(); err != nil {
+		return err
+	}
 	for i := range e.Inputs {
 		e.Inputs[i].Domain = e.domainText(e.Inputs[i].Var)
 	}
@@ -256,9 +264,8 @@ func (e *Encoding) collectAttribute(attr lower.Attribute, declared map[string]bo
 	if attr.Shadowed && attr.Symbol != nil {
 		written = attr.Symbol.Name
 	}
-	if fp := lower.ExpressionFootprint(graph.Resolver(), graph.Semantics(), scope, attr.Value); attr.Binding && (len(fp.Reads) > 0 || fp.Dynamic) {
-		return &UnsupportedError{Node: nodeLabel(graph.Initial), Construct: attributeConstruct + attr.Name,
-			Reason: "a feature valued by an expression over other features is computed as it is read; the states carry only values written"}
+	if fp, derived := derivation(graph, attr); derived {
+		return e.collectDerived(attr, fp, written, scope, declared)
 	}
 	free, released := e.frees(attr)
 	if free {
@@ -290,6 +297,115 @@ func (e *Encoding) collectAttribute(attr lower.Attribute, declared map[string]bo
 	}
 	e.Inputs = append(e.Inputs, in)
 	return nil
+}
+
+// collectDerived declares the variable of a feature valued by an expression over other
+// features and keeps the expression every state defines it by; it is no input.
+func (e *Encoding) collectDerived(attr lower.Attribute, fp lower.Footprint, written string, scope *symbols.Scope, declared map[string]bool) error {
+	label, construct := nodeLabel(e.Flow.Graph.Initial), attributeConstruct+attr.Name
+	if fp.Dynamic {
+		return &UnsupportedError{Node: label, Construct: construct,
+			Reason: "a feature valued by an expression whose reads the lowering cannot resolve is not encoded"}
+	}
+	v, err := e.variable(written, scope, construct, label)
+	if err != nil {
+		return err
+	}
+	declared[v.Name] = true
+	expr, err := e.expression(attr.Value, scope, "value of "+attr.Name, label)
+	if err != nil {
+		return err
+	}
+	e.derived[v.Name] = derivedFeature{name: attr.Name, expr: expr}
+	return nil
+}
+
+// derivedFeature is a feature valued by an expression over other features, as
+// the performance names it, with the expression translated.
+type derivedFeature struct {
+	name string
+	expr *solve.Expression
+}
+
+// checkDerived refuses a derived feature whose declared type narrows its sort, and one that
+// may have no value: the interpreter settles it at completion and fails then even unread.
+func (e *Encoding) checkDerived() error {
+	undefined := make(map[string]bool)
+	var visit func(name string) bool
+	visit = func(name string) bool {
+		if may, visited := undefined[name]; visited {
+			return may
+		}
+		expr := e.derived[name].expr
+		may := len(expr.Defined) > 0
+		for _, read := range expressionReads(expr) {
+			if _, derived := e.derived[read.Name]; derived {
+				may = visit(read.Name) || may
+			}
+			may = may || e.flagged[read.Name]
+		}
+		undefined[name] = may
+		return may
+	}
+	label := nodeLabel(e.Flow.Graph.Initial)
+	for _, name := range slices.Sorted(maps.Keys(e.derived)) {
+		construct := attributeConstruct + e.derived[name].name
+		if _, narrowed := e.domains[name]; narrowed {
+			return &UnsupportedError{Node: label, Construct: construct,
+				Reason: "a feature valued by an expression over other features, with a declared type narrowing its sort, is not encoded: the value is checked against the type at each read"}
+		}
+		if visit(name) {
+			return &UnsupportedError{Node: label, Construct: construct,
+				Reason: "a feature valued by an expression that may have no value (a side condition, or a feature it reads holding none) is not encoded: the interpreter settles it when the performance completes, failing then even unread"}
+		}
+	}
+	return nil
+}
+
+// expressionReads are the variables an expression reads, each once, in first-read order.
+func expressionReads(expr *solve.Expression) []*solve.Var {
+	seen := make(map[string]bool)
+	var vars []*solve.Var
+	visit := func(t *solve.Term) {
+		if t.Op == solve.OpVar && !seen[t.Var.Name] {
+			seen[t.Var.Name] = true
+			vars = append(vars, t.Var)
+		}
+	}
+	walk(expr.Term, visit)
+	for _, d := range expr.Defined {
+		walk(d, visit)
+	}
+	return vars
+}
+
+// deriveValues defines each feature valued by an expression in state s by the
+// expression over the state's values; checkDerived left only those always defined.
+func (e *Encoding) deriveValues(s *State, where string) {
+	env := e.environment(s)
+	for _, base := range e.Features {
+		d, derived := e.derived[base.Name]
+		if !derived {
+			continue
+		}
+		value, _ := env.evaluate(d.expr)
+		e.assert(eq(solve.VarTerm(s.value(base)), value), where+": "+base.Name)
+	}
+}
+
+// derivation reports whether attr is valued by an expression over other
+// features (`y = x + 1`, a binding the interpreter computes at every read rather
+// than a `:=` initial value), with what the expression reads.
+func derivation(graph *lower.ActionGraph, attr lower.Attribute) (lower.Footprint, bool) {
+	if !attr.Binding || attr.Value == nil {
+		return lower.Footprint{}, false
+	}
+	scope := attr.Scope
+	if scope == nil {
+		scope = graph.Scope
+	}
+	fp := lower.ExpressionFootprint(graph.Resolver(), graph.Semantics(), scope, attr.Value)
+	return fp, len(fp.Reads) > 0 || fp.Dynamic
 }
 
 // collectNode translates what one node evaluates: its flows, its body, an
@@ -476,8 +592,13 @@ func (e *Encoding) collectBody(body []lower.Statement, label string, declared ma
 			if _, err := e.expression(s.Value, s.Scope, "assignment to "+s.Target, label); err != nil {
 				return err
 			}
-			if _, err := e.variable(s.Target, s.Scope, "assignment to "+s.Target, label); err != nil {
+			v, err := e.variable(s.Target, s.Scope, "assignment to "+s.Target, label)
+			if err != nil {
 				return err
+			}
+			if _, derived := e.derived[v.Name]; derived {
+				return &UnsupportedError{Node: label, Construct: "assignment to " + s.Target,
+					Reason: "a feature valued by an expression over other features holds the value written until written again; the encoding computes it from the expression at every read"}
 			}
 		case lower.Declare:
 			construct := "declaration of " + s.Name
@@ -712,6 +833,9 @@ func (e *Encoding) initial() error {
 		}
 	}
 	for _, base := range e.Features {
+		if _, derived := e.derived[base.Name]; derived {
+			continue
+		}
 		// A flagged feature starts absent, but an optional free input's presence is
 		// the solver's to choose: its state-0 flag stays open.
 		if e.flagged[base.Name] && !open[base.Name] {
@@ -725,7 +849,11 @@ func (e *Encoding) initial() error {
 	if err != nil {
 		return err
 	}
+	e.deriveValues(s, initialState)
 	for _, base := range e.Features {
+		if _, derived := e.derived[base.Name]; derived {
+			continue
+		}
 		if value := env.values[base.Name]; value.Op != solve.OpVar || value.Var != s.value(base) {
 			e.assert(eq(solve.VarTerm(s.value(base)), value), "initial value of "+base.Name)
 		}
@@ -839,6 +967,7 @@ func (e *Encoding) move(i int) error {
 		return err
 	}
 	e.featureValues(i, prev, next, effects, acts)
+	e.deriveValues(next, fmt.Sprintf("move %d", i))
 	failed, overflow := e.carried(prev, effects, acts)
 	e.loopsPastBound(i, prev, next, effects, acts)
 
@@ -948,6 +1077,9 @@ func (e *Encoding) performances(i int, prev *State, m *Move, acts []*solve.Term)
 // else to their values before it.
 func (e *Encoding) featureValues(i int, prev, next *State, effects []*nodeEffect, acts []*solve.Term) {
 	for _, base := range e.Features {
+		if _, derived := e.derived[base.Name]; derived {
+			continue
+		}
 		value := solve.VarTerm(prev.value(base))
 		var has *solve.Term
 		if e.flagged[base.Name] {
@@ -1742,7 +1874,7 @@ func (e *Encoding) write(x *nodeEffect, path *solve.Term, target *solve.Var, val
 // merge joins the environments of two branches by cond, through fresh
 // variables for the features they left different.
 func (e *Encoding) merge(cond *solve.Term, then, otherwise *env, where string) *env {
-	merged := &env{enc: e, values: make(map[string]*solve.Term), has: make(map[string]*solve.Term)}
+	merged := &env{enc: e, values: make(map[string]*solve.Term), has: make(map[string]*solve.Term), written: then.written || otherwise.written}
 	for name, a := range then.values {
 		b := otherwise.values[name]
 		if a == b {
@@ -1824,10 +1956,13 @@ type env struct {
 	enc    *Encoding
 	values map[string]*solve.Term
 	has    map[string]*solve.Term
+	// written reports a write since the state the values came from, after which a
+	// feature valued by an expression is read by its expression, not the state's variable.
+	written bool
 }
 
 func (v *env) clone() *env {
-	c := &env{enc: v.enc, values: make(map[string]*solve.Term, len(v.values)), has: make(map[string]*solve.Term, len(v.has))}
+	c := &env{enc: v.enc, values: make(map[string]*solve.Term, len(v.values)), has: make(map[string]*solve.Term, len(v.has)), written: v.written}
 	for k, t := range v.values {
 		c.values[k] = t
 	}
@@ -1840,6 +1975,7 @@ func (v *env) clone() *env {
 // write sets a feature's value; it then holds one.
 func (v *env) write(name string, value *solve.Term) {
 	v.values[name] = value
+	v.written = true
 	if _, flagged := v.has[name]; flagged {
 		v.has[name] = solve.BoolTerm(true)
 	}
@@ -1851,6 +1987,10 @@ func (v *env) write(name string, value *solve.Term) {
 func (v *env) evaluate(expr *solve.Expression) (value, defined *solve.Term) {
 	var reads []*solve.Term
 	replace := func(base *solve.Var) *solve.Term {
+		if d, derived := v.enc.derived[base.Name]; derived && v.written {
+			value, _ := v.evaluate(d.expr)
+			return value
+		}
 		if has, flagged := v.has[base.Name]; flagged {
 			reads = append(reads, has)
 		}

@@ -25,7 +25,7 @@ in this directory, so adding a case is a data-only change.
 | `expected_assignments` | ImportData | the assignments' descriptions over every import, in order; `expected_content` is the edited model, `expected_error` a refusal that leaves it unchanged |
 | `results`, `actions`, `runs`, `seed`, `observe` | CompareResults | the results index as JSON, the configurations selected, the runs per configuration, the seed and stored-name → feature pairs |
 | `expected_configurations` | CompareResults | per configuration in index order: `name`, `status`, `runs`, `completed`, `stored_runs`, `observables` (stored name → compared), `unresolved` and `lines_contain` |
-| `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `CheckBehavior` or `VerifyConstraint` |
+| `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `CheckBehavior`, `VerifyConstraint` or `VerifyRequirement` |
 | `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `GetDiagnostics`, `ApplyEdits`, `RunDocumentQuery` or `EvaluateCalc` |
 
 `ApplyEdits` sequence operations may carry the recursive action-body fields
@@ -62,7 +62,9 @@ empty else blocks are not authorable.
 | `expected_status`, `expected_notes` | VerifyConstraint | the verdict's `status`, and the notes its answer rests on, in order: `kind` (`assumed_one` or `uncovered`), `subject`, `text` |
 | `query` | Query | the standard's `Query` as protojson writes it (`scope`, `select`, `where`, `orderBy`) |
 | `expected_element_ids`, `expected_query_error` | Query | the ids the answer reports, in order; or text the refusal's status message must contain |
-| `instantiate` | RunDocumentQuery | FQNs `Instantiate` creates objects of first, in order, so the query can bind and enumerate them |
+| `instantiate` | RunDocumentQuery, VerifyRequirement | FQNs `Instantiate` creates objects of first, in order, so the query can bind and enumerate them, or the verification is about the objects the model holds |
+| `subject_symbol_id` | VerifyRequirement | optional FQN of the part/usage instantiated as the requirement's subject; absent, the requirement is checked over the objects the model holds, as the REPL's `%requirement` is over a session's |
+| `expected_status`, `expected_verification_verdicts` | VerifyRequirement | the requirement verdict's `status`, and the body verdicts of the cases verifying it, in order: `case`, `kind`, `detail` (empty for a decided verdict) and `instance_type`, the type of the object the case ran on (empty for a run on none) |
 | `query_id` | RunDocumentQuery | FQN of the document query to run |
 | `bindings` | RunDocumentQuery | list of `{parameter, values}`, each value a document value bound to the parameter |
 | `expected_columns` | RunDocumentQuery | full ordered projected-column name list |

@@ -234,5 +234,8 @@ func (e *Encoding) output(m model, out Output) (string, bool, error) {
 	if err != nil {
 		return "", false, &WitnessError{Var: out.Var.Name, Reason: err.Error()}
 	}
+	if out.Sequence {
+		text = "[" + text + "]"
+	}
 	return text, true, nil
 }
