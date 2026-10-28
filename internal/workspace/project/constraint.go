@@ -133,10 +133,8 @@ func parseComparator(field string) ([]comparator, error) {
 	}
 }
 
-// wildcardVersion is a version as a comparator spells it: canonical, with the
-// count of parts given before a wildcard or omission (wild: 0 none given, 1
-// major only, 2 major.minor; 3 means complete) and the exclusive upper bound
-// of what the wildcard spans.
+// wildcardVersion is a comparator's version, canonical, with the parts given before a wildcard
+// or omission (wild: 0 none, 1 major, 2 major.minor, 3 complete) and the bound the wildcard spans to.
 type wildcardVersion struct {
 	version string
 	parts   [3]int
