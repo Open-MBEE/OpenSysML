@@ -33,3 +33,41 @@ func TestUnresolvedNamingFeatureIsDerivedOnce(t *testing.T) {
 		t.Errorf("asking x's %d members for their short names allocates %.0f objects, want 0", n, allocs)
 	}
 }
+
+// The settled empty short name is dropped when another document makes the
+// naming feature resolve, and recorded again when it stops resolving.
+func TestUnresolvedNamingFeatureFollowsTheDocumentItReads(t *testing.T) {
+	const unresolved, resolved = "package B { }", "package B { part def T :> A::P; }"
+	w := newTrackedIndex(t, map[string]string{
+		"a.sysml": "package A { private import B::*; part def P { attribute <m> mass; } part x : T { attribute :>> mass; attribute w :> m; } }",
+		"b.sysml": unresolved,
+	})
+	naming := func() (*symbols.Symbol, string) {
+		var feature *symbols.Symbol
+		var short string
+		w.r.InDocument("a.sysml", func() {
+			w.r.ResolveDocument("a.sysml", w.roots["a.sysml"])
+			x := scopeOf(t, scopeOf(t, w.idx.DocumentRoot("a.sysml"), "A"), "x")
+			redefinition := w.r.derivedNamedMembers(x)[0]
+			feature, short = w.r.namingFeatureOf(redefinition), w.r.derivedShortName(redefinition)
+		})
+		return feature, short
+	}
+	m := w.idx.LookupQualified("A::P::mass")[0]
+	for i, step := range []struct {
+		src       string
+		feature   *symbols.Symbol
+		shortName string
+	}{{unresolved, nil, ""}, {resolved, m, "m"}, {unresolved, nil, ""}} {
+		if i > 0 {
+			w.put("b.sysml", step.src)
+			m = w.idx.LookupQualified("A::P::mass")[0]
+			if step.feature != nil {
+				step.feature = m
+			}
+		}
+		if feature, short := naming(); feature != step.feature || short != step.shortName {
+			t.Errorf("step %d: naming feature %v, short name %q; want %v, %q", i, feature, short, step.feature, step.shortName)
+		}
+	}
+}
