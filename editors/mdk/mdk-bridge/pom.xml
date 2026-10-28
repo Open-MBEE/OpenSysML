@@ -3,21 +3,21 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>org.openmbee</groupId>
-    <artifactId>opensysml-mdk-parent</artifactId>
+    <artifactId>magic-mdk-parent</artifactId>
     <version>0.11.0</version>
   </parent>
-  <artifactId>opensysml-mdk-bridge</artifactId>
-  <name>OpenSysML MDK for Cameo DocGen extension</name>
+  <artifactId>magic-mdk-bridge</artifactId>
+  <name>Magic MDK DocGen extension</name>
   <dependencies>
     <dependency>
       <groupId>org.openmbee</groupId>
-      <artifactId>opensysml-mdk-openapi-stubs</artifactId>
+      <artifactId>magic-mdk-openapi-stubs</artifactId>
       <version>${project.version}</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.openmbee</groupId>
-      <artifactId>opensysml-mdk-api-stubs</artifactId>
+      <artifactId>magic-mdk-api-stubs</artifactId>
       <version>${project.version}</version>
       <scope>provided</scope>
     </dependency>

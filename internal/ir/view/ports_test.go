@@ -326,6 +326,9 @@ func TestMixedActionPinsKeepTheirFormBehavior(t *testing.T) {
 	if open < 0 || closeAt < 0 || !strings.Contains(plantUMLMinimal[start+open+1:start+open+1+closeAt], "port \"request\" as "+request.ID) {
 		t.Errorf("minimal PlantUML does not write request inside Check's container:\n%s", plantUMLMinimal)
 	}
+	if strings.Contains(plantUMLMinimal, "parameters") {
+		t.Errorf("minimal PlantUML lists the action pin it writes as a port:\n%s", plantUMLMinimal)
+	}
 	if !strings.Contains(textMinimal, "in request") {
 		t.Errorf("minimal text does not use the action pin direction:\n%s", textMinimal)
 	}
@@ -341,8 +344,8 @@ func TestMixedActionPinsKeepTheirFormBehavior(t *testing.T) {
 		if strings.Contains(output, check.ID+"_p0[") || strings.Contains(output, `["request"]`) {
 			t.Errorf("%s Mermaid draws Check's unconnected action pin, unlike an action rendering:\n%s", label, output)
 		}
-		if !strings.Contains(output, "Check.request") || !strings.Contains(output, "pin(s) not drawn") {
-			t.Errorf("%s Mermaid does not report Check.request as an undrawn action pin:\n%s", label, output)
+		if !strings.Contains(output, "parameters\nin request") || strings.Contains(output, "pin(s) not drawn") {
+			t.Errorf("%s Mermaid does not list Check.request in a parameters compartment:\n%s", label, output)
 		}
 	}
 	if strings.Contains(mermaidMinimal, "unused") {

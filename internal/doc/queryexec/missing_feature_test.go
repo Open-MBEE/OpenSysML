@@ -15,6 +15,7 @@ part def Heavy { attribute mass : ScalarValues::Real; }
 part root {
 	part a : Heavy { attribute :>> mass = 1.0; }
 	part b { attribute volume = 2.0; attribute mas = 3.0; }
+	part c { attribute volume = 4.0; }
 }
 calc def Masses :> Query {
 	in source : Element;
@@ -50,12 +51,15 @@ calc def ToleratedHeavyOnes :> Query {
 		if got := strings.Join(executionError.Candidates, ","); got != "mas,volume" {
 			t.Fatalf("%s: frontier = %q, want the features of root::b", query, got)
 		}
-		if msg := executionError.Error(); !strings.HasSuffix(msg, "of Observatory::root::b, which has no such feature: its features are mas, volume") {
+		if msg := executionError.Error(); !strings.HasSuffix(msg, "of Observatory::root::b, which has no such feature: its features are mas, volume (also absent on Observatory::root::c)") {
 			t.Fatalf("%s: message = %q", query, msg)
 		}
 		outcome := executionError.Outcome
-		if outcome == nil || outcome.Kind() != "pathError" || len(outcome.Path.Failures) != 1 {
-			t.Fatalf("%s: outcome = %+v, want one path failure", query, outcome)
+		if outcome == nil || outcome.Kind() != "pathError" || len(outcome.Path.Failures) != 2 {
+			t.Fatalf("%s: outcome = %+v, want one path failure per element lacking mass", query, outcome)
+		}
+		if second := outcome.Path.Failures[1]; second.Frontier.At != "Observatory::root::c" || len(second.Frontier.Features) != 1 || second.Frontier.Features[0].Name != "volume" {
+			t.Fatalf("%s: second failure = %+v", query, second)
 		}
 		failure := outcome.Path.Failures[0]
 		if failure.Step.Label() != "Feature(mass)" || failure.Expected != "a feature named mass on the element" || failure.Frontier.At != "Observatory::root::b" || failure.Frontier.Nearest != "mas" {
@@ -69,8 +73,8 @@ calc def ToleratedHeavyOnes :> Query {
 	if err != nil {
 		t.Fatalf("ToleratedMasses: %v", err)
 	}
-	if len(tolerated.Rows()) != 2 || len(tolerated.Rows()[0].Cells()[0].Values()) != 1 || len(tolerated.Rows()[1].Cells()[0].Values()) != 0 {
-		t.Fatalf("ToleratedMasses: rows = %+v, want a's mass and an empty cell for b", tolerated.Rows())
+	if len(tolerated.Rows()) != 3 || len(tolerated.Rows()[0].Cells()[0].Values()) != 1 || len(tolerated.Rows()[1].Cells()[0].Values()) != 0 || len(tolerated.Rows()[2].Cells()[0].Values()) != 0 {
+		t.Fatalf("ToleratedMasses: rows = %+v, want a's mass and empty cells for b and c", tolerated.Rows())
 	}
 	kept, err := fixture.execute(t, "ToleratedHeavyOnes", bindings, Options{})
 	if err != nil || len(kept.Rows()) != 1 {
@@ -114,5 +118,32 @@ calc def Runs :> Query {
 	}
 	if len(failure.Frontier.Features) != 2 || failure.Frontier.Features[0].Name != "count" || failure.Frontier.Features[1].Name != "run" {
 		t.Fatalf("frontier features = %+v", failure.Frontier.Features)
+	}
+}
+
+// TestExecuteMissingFeatureSuggestsTheNearestFeatures: the suggestion after the
+// feature list ranks by edit distance from the missing segment, not list order.
+func TestExecuteMissingFeatureSuggestsTheNearestFeatures(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+part root {
+	part a { attribute runs = 3; }
+	part b { attribute count = 1; attribute runa = 2; attribute runb = 2; attribute runz = 2; }
+}
+calc def Runs :> Query {
+	in source : Element;
+	Project(source = OwnedElements(source = source), properties = ("runs"))
+}
+`)
+	bindings := Bindings{"source": {ElementValue(fixture.symbol(t, "root"))}}
+	_, err := fixture.execute(t, "Runs", bindings, Options{})
+	var executionError *Error
+	if !errors.As(err, &executionError) || executionError.Kind != ErrorMissingFeature {
+		t.Fatalf("error = %v, want missing-feature", err)
+	}
+	if msg := executionError.Error(); !strings.HasSuffix(msg, "its features are count, runa, runb, runz — did you mean runa, runb or runz?") {
+		t.Fatalf("message = %q, want the nearest features offered", msg)
+	}
+	if nearest := executionError.Outcome.Path.Failures[0].Frontier.Nearest; nearest != "runa" {
+		t.Fatalf("nearest = %q, want runa", nearest)
 	}
 }

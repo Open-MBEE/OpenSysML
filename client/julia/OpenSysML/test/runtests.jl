@@ -536,4 +536,5 @@ end
 include("extended_client.jl")
 include("authoring.jl")
 include("binary.jl")
+include("auth.jl")
 include("typed_generation.jl")

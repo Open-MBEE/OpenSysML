@@ -245,7 +245,7 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 			b.WriteString(strings.Repeat("  ", depth+2) + rowLine(row) + "\n")
 		}
 	}
-	if ports.interconnection || ports.action {
+	if ports.interconnection || ports.action || ports.tree {
 		for _, port := range ports.of(node) {
 			labels[port.ID] = labels[node.ID] + "." + port.Name
 			b.WriteString(strings.Repeat("  ", depth+1) + pinLine(port, ports) + "\n")
@@ -289,10 +289,14 @@ func hiddenEdges(r *Rendering) []Edge {
 	return edges
 }
 
-// pinLine is a part port's `port <label>` or an action pin's direction and name.
+// pinLine is a part port's `port <label>`, a tree parameter's direction, name
+// and type, or an action pin's direction and name.
 func pinLine(port Port, ports portView) string {
-	if ports.interconnectionPort(port) {
+	switch {
+	case ports.interconnectionPort(port):
 		return "port " + ports.pinLabel(port)
+	case ports.tree:
+		return parameterPinLine(port)
 	}
 	return strings.TrimSpace(port.Direction.String() + " " + port.displayName())
 }

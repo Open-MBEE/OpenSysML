@@ -222,10 +222,10 @@ func isTransition(sym *symbols.Symbol) bool {
 }
 
 // actionLike reports whether an action rendering draws sym as a node: an action
-// or one of the control nodes of its flow.
+// or calculation, or one of the control nodes of its flow.
 func actionLike(sym *symbols.Symbol) bool {
 	switch sym.Kind {
-	case symbols.SymbolActionDef:
+	case symbols.SymbolActionDef, symbols.SymbolCalcDef, symbols.SymbolCalcUsage:
 		return true
 	case symbols.SymbolActionUsage:
 		return !isTransition(sym)

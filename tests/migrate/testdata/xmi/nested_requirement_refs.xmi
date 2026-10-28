@@ -2,7 +2,8 @@
 <xmi:XMI xmi:version="2.5.1"
          xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
          xmlns:uml="http://www.omg.org/spec/UML/20161101"
-         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
   <uml:Model xmi:type="uml:Model" xmi:id="_model" name="Model">
     <packagedElement xmi:type="uml:Package" xmi:id="_pkg_requirements" name="Requirements">
       <packagedElement xmi:type="uml:Class" xmi:id="_req_outer" name="Outer Requirement">
@@ -19,6 +20,27 @@
         <annotatedElement xmi:idref="_req_inner"/>
       </ownedComment>
     </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_cases" name="Cases">
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_uc_operate" name="Operate"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_refine_uc" client="_uc_operate" supplier="_req_inner"/>
+    </packagedElement>
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_cases" name="Operating Cases" ownerOfDiagram="_pkg_cases">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Use Case Diagram" umlType="Use Case Diagram">
+                <diagramContents>
+                  <usedElements>_uc_operate</usedElements>
+                  <usedElements>_req_inner</usedElements>
+                  <usedElements>_dep_refine_uc</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
   </uml:Model>
   <sysml:Requirement xmi:id="_st_req_outer" base_Class="_req_outer" Id="R1" Text="The system shall."/>
   <sysml:Requirement xmi:id="_st_req_nested" base_Class="_req_nested" Id="R1.1" Text="The subsystem shall."/>
@@ -26,4 +48,5 @@
   <sysml:Block xmi:id="_st_host" base_Class="_host"/>
   <sysml:Block xmi:id="_st_block_type" base_Class="_block_type"/>
   <sysml:Refine xmi:id="_st_refine" base_Abstraction="_dep_refine"/>
+  <sysml:Refine xmi:id="_st_refine_uc" base_Abstraction="_dep_refine_uc"/>
 </xmi:XMI>

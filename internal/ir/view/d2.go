@@ -57,6 +57,7 @@ func (r *Rendering) D2With(options Options) (string, error) {
 	}
 	if r.Kind == KindAction {
 		w.used = r.usedPorts(w.ports)
+		w.labels.listedPin = r.listedPin(func(node *Node, port Port) bool { return w.used[node.ID][port.ID] })
 	}
 	for _, root := range r.Roots {
 		w.fills.collect(root)
@@ -119,7 +120,7 @@ func (r *Rendering) d2Notices(options Options, w *d2Writer) []string {
 		notices = append(notices, linesNotice(options.Lines, FormD2))
 	}
 	if r.Kind == KindAction {
-		if pins := r.undrawnPins(func(node *Node, port Port) bool { return w.used[node.ID][port.ID] }); len(pins) > 0 {
+		if pins := r.undrawnPins(func(node *Node, port Port) bool { return w.used[node.ID][port.ID] || w.labels.lists(node, port) }); len(pins) > 0 {
 			notices = append(notices, fmt.Sprintf("%d pin(s) not drawn (%s); D2 draws the pins an edge ends at",
 				len(pins), strings.Join(pins, ", ")))
 		}
@@ -354,10 +355,10 @@ func (w *d2Writer) writeNode(node *Node, scope, indent string) {
 }
 
 // pins are the ports drawn inside a node: an interconnection's under the
-// ports display, an action's the ones an edge ends at.
+// ports display, a tree's parameter pins, an action's the ones an edge ends at.
 func (w *d2Writer) pins(node *Node) []Port {
 	switch {
-	case w.ports.interconnection:
+	case w.ports.interconnection, w.ports.tree:
 		return w.ports.of(node)
 	case w.ports.action:
 		var pins []Port
@@ -373,9 +374,12 @@ func (w *d2Writer) pins(node *Node) []Port {
 
 // pinLabel is a pin's label: on an interconnection the port's stereotype over
 // `name : Type` under the full display and the name alone under the minimal,
-// on an action the pin's name.
+// on a tree the parameter's direction, name and type, on an action the pin's name.
 func (w *d2Writer) pinLabel(port Port) string {
-	if !w.ports.interconnection {
+	switch {
+	case w.ports.tree:
+		return parameterPinLine(port)
+	case !w.ports.interconnection:
 		return port.displayName()
 	}
 	label := w.ports.pinLabel(port)

@@ -5,6 +5,18 @@ function conn = connect(varargin)
     if ~isempty(address)
         conn = opensysml.external(address, varargin{:});
     else
-        conn = opensysml.private(varargin{:});
+        args = withoutToken(varargin);
+        conn = opensysml.private(args{:});
     end
+end
+
+function args = withoutToken(args)
+%WITHOUTTOKEN A private child on loopback needs no bearer token; drop the option.
+    keep = true(1, numel(args));
+    for i = 1:2:numel(args) - 1
+        if strcmp(char(args{i}), 'token')
+            keep(i:i+1) = false;
+        end
+    end
+    args = args(keep);
 end

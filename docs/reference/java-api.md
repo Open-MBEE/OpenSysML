@@ -61,7 +61,10 @@ service that lacks what the caller needs, and the binary controls `binaryPath`,
 `allowUnpinnedDownload`. Each has an environment form —
 `OPENSYSML_SERVICE`, `OPENSYSML_GRPC_BINARY`, `OPENSYSML_GRPC_VERSION`,
 `OPENSYSML_GITHUB_REPO`, `OPENSYSML_ALLOW_UNPINNED_DOWNLOAD` — named as constants
-on `ConnectionOptions`. A connection asked for a release — `downloadVersion` or
+on `ConnectionOptions`. `token(...)` (environment form `OPENSYSML_GRPC_TOKEN`) is
+the bearer token a service other machines reach requires, sent as
+`Authorization: Bearer` on every call; a wrong or missing one is a
+`ServiceException` with status `UNAUTHENTICATED`. A connection asked for a release — `downloadVersion` or
 `$OPENSYSML_GRPC_VERSION`, `"latest"` resolved once — refuses at open a service
 that reports another version with `StaleServiceException`, whose `reason()` and
 `remedy()` say what was found and how to reach the release asked for.

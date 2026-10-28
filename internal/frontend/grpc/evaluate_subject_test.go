@@ -28,8 +28,7 @@ func evaluateIn(t *testing.T, expression, contextID, subjectID string) *pb.Evalu
 	srv := mustNewService(t, 10)
 
 	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: subjectModel},
-		ContentHash: "evaluate-subject",
+		Source: &pb.ParseFileRequest_Content{Content: subjectModel},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)

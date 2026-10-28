@@ -17,6 +17,12 @@ type labeller struct {
 	simple  map[*Node]string // a node's distinguishing suffix, when names are drawn simple
 	skin    dotSkin          // the DOT skin labels are composed and measured for
 	shown   Shown            // the optional notation elements the labels carry
+	// pinLines lists a node's parameter pins as label lines, for a form that
+	// draws no pin on a tree node.
+	pinLines bool
+	// listedPin reports a parameter pin the form lists in the node's `parameters`
+	// compartment instead of drawing it; nil lists none.
+	listedPin func(node *Node, port Port) bool
 }
 
 // labelsOf finds the namespace the named roots share — the longest run of
@@ -349,6 +355,7 @@ func (l labeller) lines(node *Node) []string {
 	}
 	lines = append(lines, l.headLines(node)...)
 	lines = append(lines, l.details(node)...)
+	lines = append(lines, l.parameterLines(node)...)
 	return append(lines, l.compartmentLines(node)...)
 }
 
@@ -361,7 +368,29 @@ func (l labeller) titleLines(node *Node) []string {
 	}
 	lines = append(lines, head...)
 	lines = append(lines, l.details(node)...)
+	lines = append(lines, l.parameterLines(node)...)
 	return append(lines, l.compartmentLines(node)...)
+}
+
+// lists reports whether the node's pin is listed in its `parameters` compartment:
+// every pin where pinLines asks, else one listedPin names under shown compartments.
+func (l labeller) lists(node *Node, port Port) bool {
+	return l.pinLines || l.shown.Has(ElementCompartments) && l.listedPin != nil && l.listedPin(node, port)
+}
+
+// parameterLines are the node's listed parameter pins as the notation's
+// `parameters` compartment, `in x : Integer` a line under the heading.
+func (l labeller) parameterLines(node *Node) []string {
+	var lines []string
+	for _, port := range node.Ports {
+		if l.lists(node, port) {
+			lines = append(lines, parameterPinLine(port))
+		}
+	}
+	if len(lines) == 0 {
+		return nil
+	}
+	return append([]string{"parameters"}, lines...)
 }
 
 // cameoStateDetails splits a state's detail into Cameo's compartment lines, one

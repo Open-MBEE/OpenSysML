@@ -6,6 +6,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import io
+import re
 import pathlib
 import sys
 import tempfile
@@ -279,6 +280,100 @@ class FragmentTest(unittest.TestCase):
         p = self._frag(FIXED_FRAGMENT, "Plain prose.")
         with self.assertRaises(changelog.FragmentError):
             changelog.parse_fragment(p)
+
+
+class ReleaseNotesTest(unittest.TestCase):
+    def setUp(self):
+        d = pathlib.Path(tempfile.mkdtemp())
+        self.saved = (changelog.CHANGELOG, changelog.SECURITY, changelog.MKDOCS)
+        changelog.CHANGELOG = d / "CHANGELOG.md"
+        changelog.SECURITY = d / "SECURITY.md"
+        changelog.MKDOCS = d / "mkdocs.yml"
+        changelog.CHANGELOG.write_text(TWO_RELEASES, encoding="utf-8")
+        changelog.SECURITY.write_text(
+            "# Security policy\n\n## Supported versions\n\n<!-- support-statement:begin -->\n"
+            "Each line is supported\nuntil the next.\n<!-- support-statement:end -->\n\n## Scope\n",
+            encoding="utf-8",
+        )
+        changelog.MKDOCS.write_text(
+            "site_name: t\nsite_url: https://docs.example.org/\nrepo_url: https://github.com/Acme/Tool\n",
+            encoding="utf-8",
+        )
+
+    def tearDown(self):
+        changelog.CHANGELOG, changelog.SECURITY, changelog.MKDOCS = self.saved
+
+    def test_support_statement_is_one_line_from_the_markers(self):
+        self.assertEqual(changelog.support_statement(), "Each line is supported until the next.")
+
+    def test_missing_markers_fail(self):
+        changelog.SECURITY.write_text("# Security policy\n", encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            changelog.support_statement()
+
+    def test_footer_alone(self):
+        out = changelog.release_notes(None)
+        self.assertEqual(
+            out,
+            "**Supported versions.** Each line is supported until the next. How to report a"
+            " vulnerability, and what to expect, is in"
+            " [SECURITY.md](https://github.com/Acme/Tool/security/policy).\n\n"
+            "**Verify your download.** Check `SHA256SUMS.txt` and its cosign signature before running"
+            " anything: [https://docs.example.org/guide/security/#verifying-a-release]"
+            "(https://docs.example.org/guide/security/#verifying-a-release).\n",
+        )
+
+    def test_a_version_prepends_its_section_only(self):
+        out = changelog.release_notes("v0.4.3")
+        self.assertTrue(out.startswith("### Added\n\n- Released thing.\n\n### Fixed\n\n- Shared line.\n\n**Supported"))
+        self.assertNotIn("Older released thing", out)
+        self.assertNotIn("Old added entry", out)
+
+    def test_an_unknown_version_fails(self):
+        with self.assertRaises(SystemExit):
+            changelog.release_notes("9.9.9")
+        with self.assertRaises(SystemExit):
+            changelog.release_notes("not-a-version")
+
+    def test_main_prints_the_notes(self):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            self.assertEqual(changelog.main(["release-notes", "0.4.2"]), 0)
+        self.assertTrue(buf.getvalue().startswith("### Added\n\n- Older released thing.\n"))
+        self.assertIn("**Verify your download.**", buf.getvalue())
+
+    def _long_release(self, entries: int, detail: int) -> None:
+        items = "".join(f"- **Entry {i} lands.** {'x' * detail}\n" for i in range(entries))
+        changelog.CHANGELOG.write_text(f"{BASE}\n## 0.5.0 — 2026-09-01\n\n### Added\n\n{items}", encoding="utf-8")
+
+    def test_a_section_over_budget_becomes_one_line_per_entry(self):
+        self._long_release(entries=2000, detail=80)
+        self.assertGreater(len(changelog.version_section("0.5.0")), changelog.SECTION_BUDGET)
+        out = changelog.release_notes("0.5.0")
+        self.assertLessEqual(len(out), 125_000)
+        self.assertIn("[`CHANGELOG.md`](https://github.com/Acme/Tool/blob/v0.5.0/CHANGELOG.md) at this tag", out)
+        self.assertIn("\n- Entry 1999 lands.\n", out)
+        self.assertNotIn("xxx", out)
+        self.assertNotIn("more entries", out)
+        self.assertTrue(out.endswith("#verifying-a-release).\n"))
+
+    def test_an_outline_over_budget_is_cut_at_an_entry(self):
+        self._long_release(entries=6000, detail=0)
+        section = changelog.within_budget(changelog.version_section("0.5.0"), "0.5.0", "https://github.com/Acme/Tool")
+        self.assertLessEqual(len(section), changelog.SECTION_BUDGET)
+        out = changelog.release_notes("0.5.0")
+        self.assertLessEqual(len(out), 125_000)
+        kept = sum(1 for line in out.splitlines() if line.startswith("- Entry"))
+        self.assertIn(f"… and {6000 - kept} more entries, in [`CHANGELOG.md`]", out)
+        self.assertRegex(out, r"- Entry \d+ lands\.\n\n… and")
+        self.assertIn("**Supported versions.**", out)
+
+    def test_the_sections_already_released_fit_a_release_body(self):
+        changelog.CHANGELOG = self.saved[0]
+        text = changelog.CHANGELOG.read_text(encoding="utf-8")
+        for version in re.findall(r"^## (\d+\.\d+\.\d+)", text, re.MULTILINE):
+            with self.subTest(version=version):
+                self.assertLessEqual(len(changelog.release_notes(version)), 125_000)
 
 
 if __name__ == "__main__":

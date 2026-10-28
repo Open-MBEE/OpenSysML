@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // ErrorKind classifies a document-query execution failure.
@@ -101,6 +102,8 @@ type Error struct {
 	// Outcome is the QVTS record behind a path or model error (outcome.go); nil for
 	// the failures that are neither, the flat fields above being its rendering.
 	Outcome *Outcome
+	// Also names the other elements the same fan-out failed on (missing-feature).
+	Also []string
 	// Cause is the evaluator's reason an unevaluable feature could not be read.
 	Cause error
 }
@@ -137,13 +140,22 @@ func (e *Error) unknownElementMessage() string {
 	msg := fmt.Sprintf("query %s names no element %s", e.Query, e.Actual)
 	switch {
 	case len(e.Path) > 0:
-		return fmt.Sprintf("%s: the alias %s denotes no element", msg, e.Path[0])
+		return fmt.Sprintf("%s: the alias %s denotes no element", msg, suggest.Notation(e.Path[0]))
 	case e.Target != "":
-		msg += fmt.Sprintf(": %s has no member %s", e.Target, e.Expected)
+		msg += fmt.Sprintf(": %s has no member %s", suggest.Notation(e.Target), source.NameText(e.Expected))
 	case e.Expected != "":
-		msg += fmt.Sprintf(": nothing is named %s", e.Expected)
+		msg += fmt.Sprintf(": nothing is named %s", source.NameText(e.Expected))
 	}
-	return suggest.With(msg, e.Expected, e.Candidates)
+	return suggest.With(msg, source.NameText(e.Expected), spelled(e.Candidates, source.NameText))
+}
+
+// spelled writes each registered name as it is typed back, by NameText or Notation.
+func spelled(names []string, as func(string) string) []string {
+	out := make([]string, 0, len(names))
+	for _, name := range names {
+		out = append(out, as(name))
+	}
+	return out
 }
 
 // missingFeatureMessage names the element lacking the feature and the features
@@ -153,20 +165,23 @@ func (e *Error) missingFeatureMessage() string {
 	if e.Actual != "" {
 		msg = fmt.Sprintf("query %s reads feature %s of %s, but the path stops at %s", e.Query, e.Property, e.Target, e.Actual)
 	}
-	if len(e.Candidates) == 0 {
-		return msg
+	if len(e.Candidates) > 0 {
+		msg += ": its features are " + strings.Join(e.Candidates, ", ")
+		if len(e.Candidates) > 3 {
+			segment := e.missingSegment()
+			msg = suggest.With(msg, segment, suggest.Nearest(segment, e.Candidates))
+		}
 	}
-	msg += ": its features are " + strings.Join(e.Candidates, ", ")
-	if len(e.Candidates) <= 3 {
-		return msg
+	if len(e.Also) > 0 {
+		msg += fmt.Sprintf(" (also absent on %s)", strings.Join(e.Also, ", "))
 	}
-	return suggest.With(msg, e.missingSegment(), e.Candidates)
+	return msg
 }
 
 // missingSegment is the segment the record says names nothing: the failed step's
 // argument, so a path that repeats a name cannot misdirect the suggestion.
 func (e *Error) missingSegment() string {
-	if e.Outcome != nil && e.Outcome.Path != nil && len(e.Outcome.Path.Failures) == 1 {
+	if e.Outcome != nil && e.Outcome.Path != nil && len(e.Outcome.Path.Failures) > 0 {
 		return e.Outcome.Path.Failures[0].Step.Argument
 	}
 	return e.Property
@@ -222,7 +237,7 @@ func (e *Error) Error() string {
 	case ErrorUnknownElement:
 		return e.unknownElementMessage()
 	case ErrorAmbiguousElement:
-		return fmt.Sprintf("query %s names %d elements %s: %s", e.Query, len(e.Candidates), e.Actual, declaredAs(e.Candidates))
+		return fmt.Sprintf("query %s names %d elements %s: %s", e.Query, len(e.Candidates), e.Actual, declaredAs(spelled(e.Candidates, suggest.Notation)))
 	case ErrorUnknownRelationship:
 		return fmt.Sprintf("query %s%s does not support relationship kind %q", e.Query, e.column(), e.Actual)
 	case ErrorUnevaluableFeature:

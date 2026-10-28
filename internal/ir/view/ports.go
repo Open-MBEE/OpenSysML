@@ -3,6 +3,7 @@ package view
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -85,9 +86,12 @@ type portView struct {
 	// whose pins text writes under their nodes.
 	interconnection bool
 	action          bool
-	mixed           bool
-	minimal         bool
-	connected       map[string]bool
+	// tree reports a tree rendering, whose pins are the parameters of its
+	// calculations, actions and constraints, written direction first.
+	tree      bool
+	mixed     bool
+	minimal   bool
+	connected map[string]bool
 }
 
 // portView is the ports the rendering draws under display, the minimal
@@ -99,7 +103,7 @@ func (r *Rendering) portView(display Ports) portView { return r.portViewOver(dis
 // no pin stands for a connector the form leaves out.
 func (r *Rendering) portViewOver(display Ports, edges []Edge) portView {
 	v := portView{interconnection: r.Kind == KindInterconnection || r.Kind == KindMixed, action: r.Kind == KindAction,
-		mixed: r.Kind == KindMixed, minimal: display != PortsFull && r.Kind.SupportsPorts()}
+		tree: r.Kind == KindTree, mixed: r.Kind == KindMixed, minimal: display != PortsFull && r.Kind.SupportsPorts()}
 	if !v.minimal {
 		return v
 	}
@@ -162,4 +166,18 @@ func (r *Rendering) undrawnPins(drawn func(node *Node, port Port) bool) []string
 		walk(root)
 	}
 	return names
+}
+
+// listedPin lists, in an action or mixed rendering, the parameter pins a form
+// does not draw in their node's `parameters` compartment; drawn says which it draws.
+func (r *Rendering) listedPin(drawn func(node *Node, port Port) bool) func(node *Node, port Port) bool {
+	if r.Kind != KindAction && r.Kind != KindMixed {
+		return nil
+	}
+	return func(node *Node, port Port) bool { return port.Parameter && !drawn(node, port) }
+}
+
+// drawsPort reports whether port is among the ports a form draws on a node.
+func drawsPort(ports []Port, port Port) bool {
+	return slices.ContainsFunc(ports, func(drawn Port) bool { return drawn.ID == port.ID })
 }

@@ -275,7 +275,9 @@ A query parameter must be bound to a feature, so a walk rooted at a *package*
 or a *definition* has nothing to bind `root` to. `Named` resolves qualified
 names — spelled as strings, like the types `WhereType` takes — to the elements
 they name, in the order given, and any element may be named, a package or
-definition included. A name never returns fewer rows than names: one that
+definition included; a segment that is not a basic name is quoted, as in the
+notation and in the element's own `qualifiedName` (`Vehicle::'Spare Parts'::Pad`).
+A name never returns fewer rows than names: one that
 resolves to nothing fails the query saying where the path stopped — the
 namespace that did resolve has no member of the next segment, and the nearest
 spellings are offered (`names no element Cookbook::telescop: Cookbook has no

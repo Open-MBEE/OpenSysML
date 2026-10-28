@@ -25,7 +25,7 @@ to `∅` is the ambiguity QVTS exists to remove.
 
 | Step | Value | Path error | Model error |
 |:--|:--|:--|:--|
-| `Named` | the element | `unknown-element`: the longest prefix that resolves, the segment it lacks, the nearest spellings; an alias that denotes nothing | `ambiguous-element`: the elements, by qualified name |
+| `Named` | the element | `unknown-element`: the longest prefix that resolves, the segment it lacks, the nearest spellings; an alias that denotes nothing | `ambiguous-element`: the elements, by qualified name; the finding names the owning namespace |
 | `WhereType`, `WhereMetadata` | the selected rows | `unknown-classification` | — |
 | `RelatedElements` | the neighbours, possibly none | `unknown-relationship` | — |
 | `Project`, `WhereFeature` on a feature the element lacks | an empty cell, with `tolerate = true` | `missing-feature`: the element (`Target`), the feature (`Property`), the features it does have (`Candidates`); `unknown-property` when no row carries it | — |
@@ -39,7 +39,7 @@ QVTS record itself (`internal/doc/queryexec/outcome.go`), field for field with
 `lean/QVTS/Outcome.lean`: a `PathError` is a list of `Failure{Step, Expected, Frontier}`, a
 `ModelError` a list of `Finding{Step, Element, Constraint, Observed}` plus the path failures of the
 same fan-out; `Frontier` carries `At`, `Members (name, metaclass)`, `Features (name, type)`, `Kinds`
-and `Nearest`. `Named` and the `missing-feature` outcome of `Project`/`WhereFeature` fill it today. The surfaces that show it: `-run-query` prints it under the
+and `Nearest`. `Named` and the `missing-feature` outcome of `Project`/`WhereFeature` fill it today, the latter with one failure per element lacking the feature (the fan-out keeps every failing element, as `fanOut_pathError_all` in qvts requires). The surfaces that show it: `-run-query` prints it under the
 error line and `-json` writes it as `checks[].outcome` in the shape `qvts/sparql/expected/*.json`
 records (`outcome`, `step`, `failures` | `findings` + `pathFailures`); `%run-query` prints the same
 lines; the gRPC service attaches it to the failed call as a `QueryOutcome` error detail. The

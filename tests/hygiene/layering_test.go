@@ -149,6 +149,7 @@ var packageLayer = map[string]string{
 	"internal/frontend/stdiorpc":               "frontend",
 	"internal/frontend/usage":                  "frontend",
 	"internal/frontend/buildinfo":              "frontend",
+	"internal/frontend/guard":                  "frontend",
 	"internal/frontend/mcp":                    "frontend",
 	"internal/frontend/mcp/catalog":            "frontend",
 	"internal/frontend/mcp/toolkit":            "frontend",
