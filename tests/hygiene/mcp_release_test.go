@@ -85,11 +85,13 @@ func TestMCPServerShipsAsItsOwnArchive(t *testing.T) {
 
 	// The raw binaries under dist/mcp are never published as release assets:
 	// only the archives in dist/ reach the release, through the dist/*.tar.gz
-	// and dist/*.zip globs every other per-binary archive travels by. The one
-	// other job that reads them is publish-npm, which packages them, verified
-	// against their sidecars, as @openmbee/sysml-mcp's platform packages.
+	// and dist/*.zip globs every other per-binary archive travels by. The other
+	// jobs that read them are build-npm-package, whose generator derives the
+	// alias beside the platform packages it builds from them, and publish-npm,
+	// which packages them, verified against their sidecars, as
+	// @openmbee/sysml-mcp's platform packages.
 	raw := readRepoFile(t, ".circleci/config.yml")
-	allowed := [][2]int{jobSpan(t, raw, "build-release-binaries"), jobSpan(t, raw, "publish-npm")}
+	allowed := [][2]int{jobSpan(t, raw, "build-release-binaries"), jobSpan(t, raw, "build-npm-package"), jobSpan(t, raw, "publish-npm")}
 	for i := strings.Index(raw, "dist/mcp"); i >= 0; {
 		inside := false
 		for _, span := range allowed {
@@ -99,7 +101,7 @@ func TestMCPServerShipsAsItsOwnArchive(t *testing.T) {
 		}
 		if !inside {
 			line := 1 + strings.Count(raw[:i], "\n")
-			t.Errorf(".circleci/config.yml line %d touches dist/mcp outside build-release-binaries and publish-npm; the raw sysml-mcp binaries are not release assets", line)
+			t.Errorf(".circleci/config.yml line %d touches dist/mcp outside build-release-binaries, build-npm-package and publish-npm; the raw sysml-mcp binaries are not release assets", line)
 		}
 		next := strings.Index(raw[i+1:], "dist/mcp")
 		if next < 0 {
