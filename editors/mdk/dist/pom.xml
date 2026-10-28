@@ -35,7 +35,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-dependency-plugin</artifactId>
-            <version>3.8.1</version>
+            <version>3.11.0</version>
             <executions>
               <execution>
                 <id>copy-runtime-libraries</id>
@@ -52,7 +52,7 @@
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
-            <version>3.5.0</version>
+            <version>3.6.4</version>
             <configuration>
               <includePluginDependencies>true</includePluginDependencies>
               <includeProjectDependencies>true</includeProjectDependencies>
@@ -105,7 +105,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-assembly-plugin</artifactId>
-            <version>3.7.1</version>
+            <version>3.8.0</version>
             <configuration>
               <finalName>Magic_MDK_${opensysml.version}</finalName>
               <appendAssemblyId>false</appendAssemblyId>
