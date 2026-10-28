@@ -126,6 +126,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml -engines", "List engines, kind and status; nothing runs"),
 				usage.Ex("sysml -engines -probe", "Also start each external engine once"),
 				usage.Ex("sysml -metaclass-graph -o metaclasses.ttl", "Write the metaclass hierarchy as Turtle"),
+				usage.Ex("sysml -metamodel-table -o metamodel.json", "Write the metamodel table as JSON"),
 				usage.Ex("sysml -engine explore -action Drive m.sysml", "The same as -schedule explore"),
 				usage.Ex("sysml -engine all -requirement R m.sysml", "Every engine that covers the question"),
 				usage.Ex("sysml -engine run -json -constraint C m.sysml", "One engine; the plan in the report"),
@@ -697,6 +698,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.samples, "samples", "Draw this many values uniformly from each -sweep range instead of stepping through it; needs -seed")
 	fs.Var(&jobsFlag, "jobs", "Runs of one check that may go concurrently, each on a worker of its own, and files of one load that are parsed and validated at once; the result is the same at any count. Default OPENSYSML_JOBS, else one per CPU, fewer where the memory available leaves less than 512 MiB per worker")
 
+	fs.BoolVar(&metamodelTable, "metamodel-table", false, "Write the pinned pilot metamodel's table as JSON — every metaclass with its parents, every property with its defining class, kind, range, bounds and flags, every enumeration, and the pilot tag, commit and metamodel date — to stdout or -o, without a model, and exit")
 	fs.BoolVar(&metaclassGraph, "metaclass-graph", false, "Write the SysML metaclass hierarchy of the pinned pilot metamodel as Turtle (rdfs:Class, rdfs:subClassOf, sysx:abstract) to stdout or -o, without a model, and exit")
 	fs.BoolVar(&listEngines, "engines", false, "List the analysis engines this build knows and their status, spawning nothing, and exit")
 	fs.BoolVar(&probeEngines, "probe", false, "With -engines, also start each external engine once and report the outcome as its status")
@@ -848,6 +850,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("convert", formatArg),
 			usage.Opt("stdlib", ""),
 			usage.Opt("metaclass-graph", ""),
+			usage.Opt("metamodel-table", ""),
 			usage.Opt("migrate", formatArg),
 			usage.Opt("from", formatArg),
 			usage.Opt("import", fileArg),
