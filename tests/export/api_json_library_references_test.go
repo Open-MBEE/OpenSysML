@@ -111,6 +111,20 @@ func TestAPIJSONLibraryReferencesAndLegacyStubs(t *testing.T) {
 		if bytes.Contains(array, []byte(`"isLibraryElement": true`)) {
 			t.Fatal("compact metadata became model roots")
 		}
+		again, err := export.WriteAPIJSONCompact(read, export.CompactAPIJSONOptions{OmitDerived: omitDerived})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var before, after any
+		if err := json.Unmarshal(compact, &before); err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(again, &after); err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(before, after) {
+			t.Fatal("compact read/write changed the document")
+		}
 	}
 }
 
@@ -144,6 +158,9 @@ func TestAPIJSONCompactLibraryTableIsLiteralMetadata(t *testing.T) {
 	if inner != 1 || outer != 1 || !bytes.Contains(compact, []byte(`"isLibraryElement":true`)) {
 		t.Fatal("conversion discarded compact options")
 	}
+	if _, err := export.ReadAPIJSON(compact); err != nil {
+		t.Fatal(err)
+	}
 	for _, table := range []string{`[]`, `[{"@id":"literal-id","@type":"Class","qualifiedName":"Library::Class"}]`} {
 		data := []byte(`{"format":"api-json-compact/1","ids":[],"elementCount":0,"referenceKeys":["@id","qualifiedName"],"elements":[],"libraryReferences":` + table + `}`)
 		if _, err := export.ReadAPIJSON(data); err != nil {
@@ -159,6 +176,36 @@ func TestAPIJSONCompactLibraryTableIsLiteralMetadata(t *testing.T) {
 	without := strings.Replace(string(compact), `,"libraryReferences":`, `,"unknownTable":`, 1)
 	if _, err := export.ReadAPIJSON([]byte(without)); err == nil {
 		t.Fatal("accepted unknown top-level key")
+	}
+}
+
+func TestAPIJSONCompactLibraryMetadataPreservesLiteralIDsAndNames(t *testing.T) {
+	data := []byte(`{"format":"api-json-compact/1","ids":["root","0"],"elementCount":1,"referenceKeys":["superclassifier","qualifiedName"],"elements":[{"@type":"Class","superclassifier":[1]}],"libraryReferences":[{"@id":"0","@type":"Class","qualifiedName":"0"}]}`)
+	graph, err := export.ReadAPIJSON(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []export.APIJSONLibraryReference
+	array, err := export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{LibraryReferences: func(refs []export.APIJSONLibraryReference) { got = refs }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []export.APIJSONLibraryReference{{ID: "0", Type: "Class", QualifiedName: "0"}}
+	if !reflect.DeepEqual(got, want) || bytes.Contains(array, []byte(`"isLibraryElement": true`)) {
+		t.Fatalf("metadata changed identity or became roots: %#v", got)
+	}
+}
+
+func TestAPIJSONCompactLibraryMetadataRejectsElementConflicts(t *testing.T) {
+	for _, element := range []string{
+		`{"@type":"Class"}`,
+		`{"@type":"Feature","isLibraryElement":true,"qualifiedName":"L"}`,
+		`{"@type":"Class","isLibraryElement":true,"qualifiedName":"Other"}`,
+	} {
+		data := []byte(`{"format":"api-json-compact/1","ids":["L"],"elementCount":1,"referenceKeys":[],"elements":[` + element + `],"libraryReferences":[{"@id":"L","@type":"Class","qualifiedName":"L"}]}`)
+		if _, err := export.ReadAPIJSON(data); err == nil {
+			t.Fatalf("metadata redefined an element: %s", element)
+		}
 	}
 }
 
@@ -190,7 +237,8 @@ func TestAPIJSONLibraryReferencesAcrossScopes(t *testing.T) {
 			if compact {
 				opts.Compact = &export.CompactAPIJSONOptions{}
 			}
-			if _, err := convert.FromGraphWith(scoped, convert.FormatAPIJSON, opts); err != nil {
+			data, err := convert.FromGraphWith(scoped, convert.FormatAPIJSON, opts)
+			if err != nil {
 				t.Fatal(err)
 			}
 			want := []export.APIJSONLibraryReference{{ID: libraryID, Type: "DataType", QualifiedName: "ScalarValues::Real"}}
@@ -201,6 +249,18 @@ func TestAPIJSONLibraryReferencesAcrossScopes(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, want) {
 				t.Fatalf("compact=%v scoped libraries=%v table=%v want=%v", compact, scopeLibraries, got, want)
+			}
+			if compact {
+				read, err := export.ReadAPIJSON(data)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := convert.FromGraphWith(read, convert.FormatAPIJSON, opts); err != nil {
+					t.Fatal(err)
+				}
+				if !reflect.DeepEqual(got, want) {
+					t.Fatalf("compact read/write changed scoped metadata: got %v want %v", got, want)
+				}
 			}
 		}
 	}

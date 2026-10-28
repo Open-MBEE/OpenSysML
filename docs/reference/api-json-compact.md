@@ -101,6 +101,9 @@ are full literal normative IDs, **never handles**, regardless of `referenceKeys`
 `elementIdsAreIds`. A reader interested only in model elements may ignore this table; it
 expands an older document without the table identically. The service also returns the names
 in `ConvertResponse.library_references` (with protobuf fields `id`, `type`, `qualified_name`).
+OpenSysML retains the table as library-reference metadata on import, so a compact read/write
+preserves the names without declaring model roots. Metadata conflicting with a declared
+model element, or with a legacy stub's type or name, is rejected.
 With `omit_derived`, only library elements still referenced in the written output are listed.
 An unnamed library relationship (such as an `OwningMembership`) has an empty
 `qualifiedName`; the table does not invent a name or substitute its member's name.

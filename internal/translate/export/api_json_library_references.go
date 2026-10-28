@@ -63,42 +63,75 @@ func apiJSONLibraryName(graph *rdf.Graph, subject rdf.Term, property string) str
 }
 
 // The table is supplemental metadata; expansion never makes its entries roots.
-func readAPIJSONLibraryReferences(decoder *json.Decoder) error {
+func readAPIJSONLibraryReferences(decoder *json.Decoder) ([]APIJSONLibraryReference, error) {
 	token, err := decoder.Token()
 	if err != nil || token != json.Delim('[') {
-		return fmt.Errorf("compact API libraryReferences must be an array")
+		return nil, fmt.Errorf("compact API libraryReferences must be an array")
 	}
 	ids := map[string]bool{}
+	var references []APIJSONLibraryReference
 	for decoder.More() {
 		token, err := decoder.Token()
 		if err != nil || token != json.Delim('{') {
-			return fmt.Errorf("compact API libraryReferences entries must be objects")
+			return nil, fmt.Errorf("compact API libraryReferences entries must be objects")
 		}
 		entry, err := apiJSONCompactObjectOf(decoder)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if len(entry) != 3 {
-			return fmt.Errorf("compact API libraryReferences entries require @id, @type and qualifiedName")
+			return nil, fmt.Errorf("compact API libraryReferences entries require @id, @type and qualifiedName")
 		}
-		id := ""
+		var reference APIJSONLibraryReference
 		for _, member := range entry {
 			if member.key != "@id" && member.key != "@type" && member.key != "qualifiedName" {
-				return fmt.Errorf("compact API libraryReferences has unknown key %q", member.key)
+				return nil, fmt.Errorf("compact API libraryReferences has unknown key %q", member.key)
 			}
 			value, ok := member.value.(string)
 			if !ok || (value == "" && member.key != "qualifiedName") {
-				return fmt.Errorf("compact API libraryReferences %s must be a literal string (nonempty except qualifiedName)", member.key)
+				return nil, fmt.Errorf("compact API libraryReferences %s must be a literal string (nonempty except qualifiedName)", member.key)
 			}
-			if member.key == "@id" {
-				id = value
+			switch member.key {
+			case "@id":
+				reference.ID = value
+			case "@type":
+				reference.Type = value
+			case "qualifiedName":
+				reference.QualifiedName = value
 			}
 		}
-		if ids[id] {
-			return fmt.Errorf("compact API libraryReferences repeats id %q", id)
+		if ids[reference.ID] {
+			return nil, fmt.Errorf("compact API libraryReferences repeats id %q", reference.ID)
 		}
-		ids[id] = true
+		ids[reference.ID] = true
+		references = append(references, reference)
 	}
 	_, err = decoder.Token()
-	return err
+	return references, err
+}
+
+func addAPIJSONLibraryReferences(graph *rdf.Graph, references []APIJSONLibraryReference) error {
+	for _, reference := range references {
+		subject := rdf.ReferenceIRI(rdf.Term{}, reference.ID)
+		typ, err := apiJSONTypeIRI(reference.Type)
+		if err != nil {
+			return err
+		}
+		if types := graph.ObjectsView(subject, rdf.RDFType); len(types) > 0 {
+			if !LibraryReference(graph, subject) || len(types) != 1 || types[0] != typ {
+				return fmt.Errorf("compact API libraryReferences conflicts with element %q", reference.ID)
+			}
+			if graph.HasProperty(subject, rdf.SysML+"qualifiedName") &&
+				apiJSONLibraryName(graph, subject, "qualifiedName") != reference.QualifiedName {
+				return fmt.Errorf("compact API libraryReferences conflicts with qualifiedName of %q", reference.ID)
+			}
+		} else {
+			graph.Add(subject, rdf.IRI(rdf.RDFType), typ)
+			graph.Add(subject, rdf.SysMLTerm("isLibraryElement"), rdf.Bool(true))
+		}
+		if !graph.HasProperty(subject, rdf.SysML+"qualifiedName") {
+			graph.Add(subject, rdf.SysMLTerm("qualifiedName"), rdf.String(reference.QualifiedName))
+		}
+	}
+	return nil
 }
