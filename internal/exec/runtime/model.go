@@ -150,6 +150,12 @@ type Model struct {
 	// declaredSubsettedNames; callers read the shared slices.
 	subsetted         map[featureOfType][]string
 	declaredSubsetted map[featureOfType][]string
+	// relationships memoizes relationshipsOfKind per feature and kind, related relatedFeatures
+	// per feature, owner and kind; callers read the shared slices, which have no spare capacity.
+	relationships map[relationshipsKey][]*ast.Relationship
+	related       map[relatedKey][]*symbols.Symbol
+	// subsetsTransitively memoizes the walk of the same name per feature, owner and target.
+	subsetsTransitively map[subsettingKey]bool
 
 	// toolExecutions memoizes toolExecutionOf per action; toolUnits the units tool
 	// answers spell, per scope they are read in.
@@ -267,6 +273,9 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		subsetters:          make(map[*symbols.Symbol]map[string][]EffectiveFeature),
 		subsetted:           make(map[featureOfType][]string),
 		declaredSubsetted:   make(map[featureOfType][]string),
+		relationships:       make(map[relationshipsKey][]*ast.Relationship),
+		related:             make(map[relatedKey][]*symbols.Symbol),
+		subsetsTransitively: make(map[subsettingKey]bool),
 		toolExecutions:      make(map[*symbols.Symbol]*toolExecution),
 		toolUnits:           make(map[toolUnitKey]semantics.Unit),
 		objectConns:         make(map[*symbols.Symbol][]lower.Connection),
