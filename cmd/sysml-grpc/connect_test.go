@@ -236,7 +236,7 @@ func TestServeConnectTLS(t *testing.T) {
 	t.Cleanup(cancel)
 	served := make(chan error, 1)
 	go func() {
-		served <- serveConnect(ctx, lis, svc, "test", nil, guard.Token{}, certFile, keyFile)
+		served <- serveConnect(ctx, lis, svc, "test", nil, guard.Token{}, certificateFiles{certFile, keyFile})
 	}()
 
 	address := lis.Addr().String()

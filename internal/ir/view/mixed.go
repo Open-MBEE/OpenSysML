@@ -81,20 +81,7 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 	}
 
 	if caseFamily(sym) {
-		w.cases.container = parent
-		w.cases.render(sym, exposed, nil)
-		w.cases.container = nil
-		w.rememberCaseNodes()
-		for _, member := range w.r.containedMembers(sym) {
-			if semantics.IsActorUsage(member) || semantics.IsSubjectUsage(member) || semantics.IsObjectiveUsage(member) {
-				w.seen[member] = true
-			} else if isReferencedIncludedCase(member) {
-				w.seen[member] = true
-			}
-		}
-		for _, member := range w.traversedMembers(sym) {
-			w.render(member, false, parent)
-		}
+		w.renderCase(sym, exposed, parent)
 		return
 	}
 
@@ -135,6 +122,25 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 func nestedCalc(member *symbols.Symbol) bool {
 	usage, ok := member.Decl.(*ast.Usage)
 	return ok && member.Kind == symbols.SymbolCalcUsage && usage.Direction == ast.DirNone && !usage.IsResult
+}
+
+// renderCase draws a case family through the case walk under parent, marks the
+// members that walk absorbed as seen, and renders the rest beside it.
+func (w *mixedWalk) renderCase(sym *symbols.Symbol, exposed bool, parent *Node) {
+	w.cases.container = parent
+	w.cases.render(sym, exposed, nil)
+	w.cases.container = nil
+	w.rememberCaseNodes()
+	for _, member := range w.r.containedMembers(sym) {
+		if semantics.IsActorUsage(member) || semantics.IsSubjectUsage(member) || semantics.IsObjectiveUsage(member) {
+			w.seen[member] = true
+		} else if isReferencedIncludedCase(member) {
+			w.seen[member] = true
+		}
+	}
+	for _, member := range w.traversedMembers(sym) {
+		w.render(member, false, parent)
+	}
 }
 
 // traversedMembers lists the members mixedWalk.render visits under sym: of a
