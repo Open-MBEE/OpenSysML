@@ -1699,7 +1699,7 @@ jobs:
       - store_test_results:
           path: editors/syson/backend/target/surefire-reports
 
-  # The MDK for Cameo plugin's gate (editors/mdk): the tests of its three
+  # The Magic MDK plugin's gate (editors/mdk): the tests of its three
   # tested modules, with the JaCoCo report of each for the scan. The stub
   # modules have no tests and are not instrumented.
   mdk-test:

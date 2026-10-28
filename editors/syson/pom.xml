@@ -5,11 +5,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.openmbee</groupId>
-    <artifactId>opensysml-syson</artifactId>
+    <artifactId>syson-mdk</artifactId>
     <version>0.11.0</version>
     <packaging>pom</packaging>
 
-    <name>OpenSysML SysON integration</name>
+    <name>SysON MDK</name>
 
     <modules>
         <module>syson-api-stubs</module>

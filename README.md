@@ -30,7 +30,7 @@ engineers expect from a modern language ecosystem. It is the runtime of
 [OpenMBEE](https://www.openmbee.org) community; this repository is the MDK, and the pages
 below use "OpenSysML" for it where no confusion with the suite is possible. The MDK is
 the second generation of OpenMBEE's Model Development Kit, expanded and updated for
-SysML v2; its [Cameo plugin](editors/mdk/README.md) is OpenSysML MDK for Cameo.
+SysML v2; its [Cameo plugin](editors/mdk/README.md) is Magic MDK.
 
 **It runs the model.** A validator reads declarations; an expression evaluator computes a value
 from the ones it is handed. OpenSysML materializes the instances a model describes, evaluates
