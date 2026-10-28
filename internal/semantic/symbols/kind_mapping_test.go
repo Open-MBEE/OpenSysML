@@ -20,7 +20,7 @@ func TestSymbolKindMappingIsPinnedToTheIndexFormatVersion(t *testing.T) {
 		fmt.Fprintf(&b, "def %d=%d\n", int(k), int(definitionSymbolKind(k)))
 	}
 	for k := ast.UsagePart; k <= ast.UsageBool; k++ {
-		fmt.Fprintf(&b, "usage %d=%d\n", int(k), int(usageSymbolKind(k)))
+		fmt.Fprintf(&b, "usage %d=%d\n", int(k), int(UsageSymbolKind(k)))
 	}
 	sum := sha256.Sum256([]byte(b.String()))
 	got := hex.EncodeToString(sum[:8])
