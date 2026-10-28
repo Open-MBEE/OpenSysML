@@ -88,11 +88,30 @@ One JSON object, not indented, ending in a newline:
 | `elementCount` | integer | `ids[0 … elementCount)` are the written elements, in the order the element array writes them. Entries from `elementCount` on are elements a written element refers to that this conversion does not write: a library element, or an element of a document that `documents` left out. |
 | `elementIdsAreIds` | boolean, optional | Present (and `true`) only when every element's `elementId` is its `@id`. Then no element writes `elementId`. |
 | `referenceKeys` | array of string | Keys whose references are written as bare handles (below). |
+| `libraryReferences` | array of object, optional | Names of referenced standard-library elements, sorted by literal `@id`: each entry has `@id`, `@type` (metaclass) and `qualifiedName`. These are metadata, not elements or roots. New writers emit the array even when empty; older documents may omit it. |
 | `elements` | array of object | The elements. Element *i* has the id `ids[i]` and carries no `@id`. |
 
 ## Reading it
 
 A reader turns the document into the element array by these rules and needs nothing else.
+
+The rules apply **only inside `elements`**. `libraryReferences` is an additive metadata
+table, kept separately and never appended to the expanded element array. Its `@id` values
+are full literal normative IDs, **never handles**, regardless of `referenceKeys` or
+`elementIdsAreIds`. A reader interested only in model elements may ignore this table; it
+expands an older document without the table identically. The service also returns the names
+in `ConvertResponse.library_references` (with protobuf fields `id`, `type`, `qualified_name`).
+OpenSysML retains the table as library-reference metadata on import, so a compact read/write
+preserves the names without declaring model roots. Metadata conflicting with a declared
+model element, or with a legacy stub's type or name, is rejected.
+With `omit_derived`, only library elements still referenced in the written output are listed.
+An unnamed library relationship (such as an `OwningMembership`) has an empty
+`qualifiedName`; the table does not invent a name or substitute its member's name.
+
+`ConvertRequest.include_library_stubs` is an independent, default-off compatibility option
+(`convert_library_stubs` capability). It restores the pre-0.11.0 ownerless stubs inside
+`elements`, including in compact output. Clients should prefer the separate table
+(`convert_library_references` capability): stubs look like model roots to an OMG API reader.
 
 1. Element *i* is an object whose `@id` is `ids[i]`, whose `@type` is its `@type`, and, if
    `elementIdsAreIds` is `true`, whose `elementId` is `ids[i]`.

@@ -62,6 +62,9 @@ type expectedNote struct {
 type conformanceCase struct {
 	RPC string `json:"rpc"`
 
+	// Convert: the standard-library names carried outside the element array.
+	LibraryReferences []*pb.LibraryReference `json:"library_references,omitempty"`
+
 	// ApplyEdits
 	Operations      []conformanceEditOperation `json:"operations,omitempty"`
 	ExpectedContent string                     `json:"expected_content,omitempty"`
@@ -369,6 +372,8 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 	}
 
 	switch tc.RPC {
+	case "Convert":
+		runConvertLibraryReferencesCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "GetSymbol":
 		runGetSymbolCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "Evaluate":

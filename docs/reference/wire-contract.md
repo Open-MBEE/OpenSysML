@@ -2038,6 +2038,27 @@ object in place of the element array; `omit_derived` and `keep_derived` leave ou
 derived properties. Expanded, it is the element array. The format is defined in
 [Compact API JSON](api-json-compact.md).
 
+`libraryReferences` on a successful API JSON response, including a compact conversion,
+names every standard-library element the output references: each entry has `id` (the
+literal normative ID), `qualifiedName` and `type` (the API JSON metaclass). Entries are
+sorted by ID and do not declare elements or roots. It needs no request option and is
+advertised as `convert_library_references`; an empty table means no library references.
+`qualifiedName` is empty for an unnamed library relationship, such as an owning membership.
+The compact document also carries the table outside `elements`, using the API JSON keys
+`@id`, `qualifiedName` and `@type`. For graph input, only library metadata present in the
+graph can be reported. Other target formats and failed conversions return no table.
+
+`includeLibraryStubs`, advertised as `convert_library_stubs`, restores the ownerless
+library stubs written before 0.11.0 inside the API JSON element array (or compact
+`elements`). It is default-off and is `invalid_argument` for any other target. The
+stubs carry `@id`, `@type`, `declaredName`, `elementId`, `isLibraryElement: true` and
+`qualifiedName`; an OMG API reader treats them as roots. Prefer the separate table
+for new clients. It composes with `documents`, `idForm` and `compact`.
+
+The Node client exposes `Conversion.libraryReferences` and the
+`includeLibraryStubs` option on `Connection.convert` and `Model.convert`.
+The MCP `convert` tool accepts the same flag and returns the table as `libraryReferences`.
+
 `includeCheckDiagnostics`, under the `convert_check_diagnostics` capability, adds the semantic
 check's diagnostics to `diagnostics` alongside the output, each with its own `severity` (`error`,
 `warning` or `info`) and `code`, as `ParseFile` and

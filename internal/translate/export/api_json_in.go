@@ -24,7 +24,8 @@ import (
 // same elements back; the unnamed root Namespace a document wraps its
 // top-level elements in is dropped, as the Turtle form does not carry it.
 func ReadAPIJSON(data []byte) (*rdf.Graph, error) {
-	expanded, err := expandAPIJSONCompact(data)
+	var references []APIJSONLibraryReference
+	expanded, err := expandAPIJSONCompact(data, &references)
 	if err != nil {
 		return nil, err
 	}
@@ -56,6 +57,9 @@ func ReadAPIJSON(data []byte) (*rdf.Graph, error) {
 	}
 	if len(plan.expressionIDs) > 0 {
 		graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
+	}
+	if err := addAPIJSONLibraryReferences(graph, references); err != nil {
+		return nil, err
 	}
 	return withoutRootNamespace(graph), nil
 }
@@ -204,7 +208,7 @@ func apiJSONQualifiedNameMemberPredicate(key string) (string, bool) {
 	}
 }
 
-func expandAPIJSONCompact(data []byte) ([]byte, error) {
+func expandAPIJSONCompact(data []byte, references *[]APIJSONLibraryReference) ([]byte, error) {
 	trimmed := bytes.TrimSpace(data)
 	if len(trimmed) == 0 || trimmed[0] != '{' {
 		return data, nil
@@ -260,6 +264,12 @@ func expandAPIJSONCompact(data []byte) ([]byte, error) {
 		case "referenceKeys":
 			if err := decoder.Decode(&referenceKeys); err != nil {
 				return nil, fmt.Errorf("cannot read compact API reference keys: %w", err)
+			}
+		case "libraryReferences":
+			var err error
+			*references, err = readAPIJSONLibraryReferences(decoder)
+			if err != nil {
+				return nil, err
 			}
 		case "elements":
 			token, err := decoder.Token()

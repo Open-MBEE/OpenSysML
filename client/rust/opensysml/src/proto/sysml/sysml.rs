@@ -1483,6 +1483,10 @@ pub struct ConvertRequest {
     /// capability.
     #[prost(bool, tag="12")]
     pub include_check_diagnostics: bool,
+    /// For api-json, restore the ownerless library stubs written before 0.11.0.
+    /// Default false: library elements remain bare references, not roots.
+    #[prost(bool, tag="13")]
+    pub include_library_stubs: bool,
     #[prost(oneof="convert_request::Source", tags="1, 2, 6")]
     pub source: ::core::option::Option<convert_request::Source>,
 }
@@ -1528,6 +1532,21 @@ pub struct ConvertResponse {
     /// reports it in. Empty when experimental is false.
     #[prost(string, tag="7")]
     pub experimental_notice: ::prost::alloc::string::String,
+    /// Referenced standard-library names, outside the element array. Populated
+    /// for successful api-json conversions, including compact output.
+    #[prost(message, repeated, tag="8")]
+    pub library_references: ::prost::alloc::vec::Vec<LibraryReference>,
+}
+/// LibraryReference names a referenced standard-library element, not a model root.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct LibraryReference {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub qualified_name: ::prost::alloc::string::String,
+    /// Metaclass, as API JSON's @type spells it.
+    #[prost(string, tag="3")]
+    pub r#type: ::prost::alloc::string::String,
 }
 /// MigrateRequest asks for a SysML v1 model migrated to v2. The source is a
 /// file_path the service reads, or the document carried inline as content —

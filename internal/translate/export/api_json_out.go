@@ -16,6 +16,10 @@ import (
 type APIJSONOptions struct {
 	Omitted    func(APIJSONOmission)
 	Diagnostic func(string)
+	// IncludeLibraryStubs writes ownerless library elements for legacy readers.
+	IncludeLibraryStubs bool
+	// LibraryReferences receives the names of referenced standard-library elements.
+	LibraryReferences func([]APIJSONLibraryReference)
 }
 
 const (
@@ -112,14 +116,27 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 	for _, subject := range subjects {
 		// The element form holds the model's own elements only; a library element
 		// stays a bare reference, as an ownerless element there is a root (the OMG API JSON shape).
-		if LibraryReference(settled, subject) {
+		if LibraryReference(settled, subject) && !options.IncludeLibraryStubs {
 			continue
 		}
 		element, err := writer.element(subject)
 		if err != nil {
 			return nil, err
 		}
+		if LibraryReference(settled, subject) {
+			// Legacy stubs carry stated properties, not metamodel defaults.
+			element = slices.DeleteFunc(element, func(member apiJSONMember) bool {
+				return member.key != "@id" && member.key != "@type" && !settled.HasProperty(subject, rdf.SysML+member.key)
+			})
+		}
 		elements = append(elements, element)
+	}
+	if options.LibraryReferences != nil {
+		refs, err := apiJSONLibraryReferences(settled, elements)
+		if err != nil {
+			return nil, err
+		}
+		options.LibraryReferences(refs)
 	}
 	return elements, nil
 }

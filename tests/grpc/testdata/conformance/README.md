@@ -12,6 +12,9 @@ in this directory, so adding a case is a data-only change.
 
 ## Expectation schema
 
+`Convert` cases declare `library_references` entries with `id`, `qualified_name` and
+`type`. They verify both array and compact output, with and without legacy stubs.
+
 | Field | Applies to | Meaning |
 |---|---|---|
 | `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `RunRuns`, `SelfCheck`, `RecordRun`, `RenderView` or `Query` |

@@ -203,6 +203,10 @@ type Options struct {
 	// Compact, when set, writes the API's JSON element form as the compact
 	// document (export.WriteAPIJSONCompact) rather than the standard array.
 	Compact *export.CompactAPIJSONOptions
+	// IncludeLibraryStubs restores ownerless standard-library stubs for legacy readers.
+	IncludeLibraryStubs bool
+	// LibraryReferences receives the API JSON output's standard-library name table.
+	LibraryReferences func([]export.APIJSONLibraryReference)
 }
 
 // Convert reads data in the from format and writes it in the to format. name is
@@ -405,9 +409,22 @@ func FromGraphWith(graph *rdf.Graph, to Format, opts Options) ([]byte, error) {
 		return rdf.WriteTurtle(graph), nil
 	case to == FormatAPIJSON:
 		if opts.Compact != nil {
-			return export.WriteAPIJSONCompact(graph, *opts.Compact)
+			compact := *opts.Compact
+			compact.IncludeLibraryStubs = compact.IncludeLibraryStubs || opts.IncludeLibraryStubs
+			if opts.LibraryReferences != nil {
+				inner := compact.LibraryReferences
+				compact.LibraryReferences = func(refs []export.APIJSONLibraryReference) {
+					if inner != nil {
+						inner(refs)
+					}
+					opts.LibraryReferences(refs)
+				}
+			}
+			return export.WriteAPIJSONCompact(graph, compact)
 		}
-		return export.WriteAPIJSON(graph)
+		return export.WriteAPIJSONWithOptions(graph, export.APIJSONOptions{
+			IncludeLibraryStubs: opts.IncludeLibraryStubs, LibraryReferences: opts.LibraryReferences,
+		})
 	default:
 		return nil, &NotWritableError{Format: to}
 	}

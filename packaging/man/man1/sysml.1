@@ -246,6 +246,14 @@ input may be a Flexo branch URL (host[:port][/base]/projects/{p}/branches/{b}
 of the FLEXO_SYSMLV2_URL endpoint, or flexo://{p}/{b}), read as its RDF graph.
 A SysML v1 model is refused: it is migrated, with \-migrate
 .TP
+.BR \-library\-references " \fIfile\fP"
+With \-convert api\-json, write the referenced standard\-library name table to
+this JSON side file; the element array stays unchanged
+.TP
+.B \-include\-library\-stubs
+With \-convert api\-json, restore pre\-0.11.0 ownerless library stubs for
+legacy readers (default off)
+.TP
 .B \-stdlib
 With \-convert ttl or api\-json, convert the bundled standard library \(em
 every KerML and SysML file of it, as one model whose elements carry their

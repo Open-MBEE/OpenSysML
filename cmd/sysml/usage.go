@@ -718,6 +718,8 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&bundleDir, "bundle", "", "Write this project directory as a project interchange archive (KerML 1.0 §10.3), to -o or to <name>-<version>.kpar; the archive is the same bytes on every run")
 	fs.StringVar(&unbundleFile, "unbundle", "", "Write this project interchange archive (.kpar) out as a project directory, to -o or to <name>-<version>, which must be new or empty")
 	fs.StringVar(&convertFormat, "convert", "", convertUsage())
+	fs.StringVar(&libraryReferencesPath, "library-references", "", "With -convert api-json, write the referenced standard-library name table to this JSON side file; the element array stays unchanged")
+	fs.BoolVar(&includeLibraryStubs, "include-library-stubs", false, "With -convert api-json, restore pre-0.11.0 ownerless library stubs for legacy readers (default off)")
 	fs.StringVar(&fromFormat, "from", "", fromUsage())
 	fs.Var(&dataImports, "import", "Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row per element, before -convert writes the model; an element column names the element and each other column a feature, as `mass [kg]` (repeatable)")
 	fs.StringVar(&importAs, "import-as", "values", "What -import makes of each row: values, which sets the features of the element the row names")
@@ -848,6 +850,8 @@ func optionGroups() []usage.OptionGroup {
 		Title: "Converting and migrating",
 		Options: []usage.Option{
 			usage.Opt("convert", formatArg),
+			usage.Opt("library-references", fileArg),
+			usage.Opt("include-library-stubs", ""),
 			usage.Opt("stdlib", ""),
 			usage.Opt("metaclass-graph", ""),
 			usage.Opt("metamodel-table", ""),
