@@ -2501,12 +2501,14 @@ Derived constraints:
 
 Open: the order of the two branches, as for two writers of one feature, met here by a write
 and a read of the same place. The write cannot commute with the read, so the choice point
-touches both the place written and the place the read writes to: `z` is open with the single
-choice point, and `x` is too, as the written place of a conflicting alternative.
+touches what the reading branch writes from the place: `z` is open with the single choice
+point. `x` is not: one write of it stands whichever order ran, so a mark on it would assert an
+openness exploration refutes. A write of the reading branch standing on no read the other
+writes (`doneA := true` beside `total := total + 1`) is fixed the same way.
 
 Pinned outcome: the admissible set of two members, stated as `outcomes` citing this section.
-The default run reports `x` and `z` up to the one choice point (`orderDependent` states
-`x: 1, z: 1`).
+The default run reports `z` up to the one choice point and `x` bare (`orderDependent` states
+`z: 1`).
 
 ### A guard reading an order-dependent value leaves what its branch writes order-dependent
 

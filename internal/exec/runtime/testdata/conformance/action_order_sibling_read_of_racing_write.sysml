@@ -3,7 +3,8 @@ package test {
 
 	// Between one fork and one join, one branch writes `x` while its sibling
 	// reads `x` into `z`: the library orders neither before the other, so the
-	// read may see either value, and `z` stands open with `x`.
+	// read may see either value and `z` stands open, while `x`, written once,
+	// holds `1` whichever order ran.
 	action race {
 		attribute x : Integer = 0;
 		attribute z : Integer = 0;

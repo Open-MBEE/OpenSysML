@@ -64,26 +64,46 @@ func onValues(fp lower.Footprint) lower.Footprint {
 	return fp
 }
 
-// touchMeeting adds the writes of two dependent alternatives that meet a place of
-// the other's; when none does (the alternatives meet on the bus, on control, or
-// one is dynamic) every write of both may stand at an order-dependent value.
+// touchMeeting adds the places of two dependent alternatives whose values the
+// order decides: a place both write, and what one writes from a read of a place
+// the other writes, which sees it before or after. When no place meets (the
+// alternatives meet on the bus, on control, or one is dynamic) every write of
+// both may stand at an order-dependent value.
 func (c *ChoicePoint) touchMeeting(f, g lower.Footprint, rel lower.Relation) {
-	met := false
-	for _, p := range f.Writes {
-		if rel.PlaceMeets(p, g.Reads) || rel.PlaceMeets(p, g.Writes) {
-			c.touch(p)
-			met = true
-		}
-	}
-	for _, q := range g.Writes {
-		if rel.PlaceMeets(q, f.Reads) || rel.PlaceMeets(q, f.Writes) {
-			c.touch(q)
-			met = true
-		}
-	}
+	met := c.touchWritesMet(f, g, rel)
+	met = c.touchWritesMet(g, f, rel) || met
 	if !met {
 		c.touchWrites(f, g)
 	}
+}
+
+// touchWritesMet touches the writes of f that meet a write of g, and the writes
+// of g standing on a read of g that a write of f meets; it reports whether any did.
+func (c *ChoicePoint) touchWritesMet(f, g lower.Footprint, rel lower.Relation) bool {
+	met := false
+	for _, p := range f.Writes {
+		if rel.PlaceMeets(p, g.Writes) {
+			c.touch(p)
+			met = true
+		}
+		if rel.PlaceMeets(p, g.Reads) {
+			// A pin is each performance's own, delivered to, not raced for: a read of
+			// one sees what arrived, whichever order the moves ran.
+			if shared(p) {
+				for _, q := range g.WritesReading(func(r lower.Place) bool { return rel.PlaceMeets(p, []lower.Place{r}) }) {
+					c.touch(q)
+				}
+			}
+			met = true
+		}
+	}
+	return met
+}
+
+// shared reports whether a place is one slot every move names, which a choice
+// point records: not a performance's pin or a node's own feature, nor a state.
+func shared(p lower.Place) bool {
+	return !(p.Local && p.Node != nil || p.State != nil)
 }
 
 // classifyExclusive marks a choice among alternatives of which one runs and the
@@ -105,7 +125,7 @@ func (c *ChoicePoint) touchWrites(fps ...lower.Footprint) {
 }
 
 func (c *ChoicePoint) touch(p lower.Place) {
-	if p.Local && p.Node != nil || p.State != nil {
+	if !shared(p) {
 		return
 	}
 	if !slices.ContainsFunc(c.touched, func(q lower.Place) bool { return q.Name == p.Name && q.Sym == p.Sym }) {
@@ -159,6 +179,8 @@ func (ctx *Context) placeNamed(p lower.Place, name string, selves []*Instance) b
 		return true
 	case qualifier == "":
 		return holder == nil
+	case qualifier != "this" && holder == nil:
+		return true // a feature of an object a part of the action denotes, no performer's own
 	default:
 		return len(selves) == 1 && holder == selves[0]
 	}

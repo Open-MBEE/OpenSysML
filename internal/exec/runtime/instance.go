@@ -1318,7 +1318,11 @@ func (inst *Instance) materializeDerived(ctx *Context, fv *FeatureValue, name st
 	if ctx.takeShared(inst, fv) {
 		return fv, nil
 	}
-	return inst.holdDerived(ctx, fv, name, func() (Value, error) { return ctx.evalFeatureValueDefault(inst, fv, name) })
+	held, err := inst.holdDerived(ctx, fv, name, func() (Value, error) { return ctx.evalFeatureValueDefault(inst, fv, name) })
+	if err == nil && fv.body == nil {
+		ctx.deriveMarks(bindingPlace(fv.Feature.Symbol, name), ctx.defaultScope(inst, fv), fv.Feature.DefaultValue)
+	}
+	return held, err
 }
 
 // holdDerived holds what derive states for the feature, recording what it reads, once
@@ -1887,10 +1891,7 @@ func (ctx *Context) evalFeatureValueDefault(inst *Instance, fv *FeatureValue, na
 	if r := ctx.model.resolver; r != nil && r.IsOccurrenceThis(fv.Feature.Symbol) {
 		return ctx.objectValue(ctx.contextOccurrence(inst))
 	}
-	scope := fv.Feature.DefaultScope()
-	if scope == nil {
-		scope = inst.Type.OwnerScope
-	}
+	scope := ctx.defaultScope(inst, fv)
 	ec := NewEvalContextIn(ctx, scope, ctx.bindingContext(inst, fv.Feature))
 	if isBehaviorDefKind(inst.Type.Kind) {
 		// A feature default of a behavior def is evaluated on the def's
@@ -1909,6 +1910,15 @@ func (ctx *Context) evalFeatureValueDefault(inst *Instance, fv *FeatureValue, na
 		return Value{}, fmt.Errorf("feature value %s.%s: %w", inst.Type.Name, name, err)
 	}
 	return val, nil
+}
+
+// defaultScope is the scope a feature's value expression is read in: the one it
+// was declared in, else the one the object's type is.
+func (ctx *Context) defaultScope(inst *Instance, fv *FeatureValue) *symbols.Scope {
+	if scope := fv.Feature.DefaultScope(); scope != nil {
+		return scope
+	}
+	return inst.Type.OwnerScope
 }
 
 // subjectMemberValue reads a subject's value expression that is a qualified feature name of

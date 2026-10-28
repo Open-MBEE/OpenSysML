@@ -16,5 +16,5 @@
 		}
 	],
 	"admissible": "A read racing a write of the same feature stands on the choice point between them",
-	"orderDependent": {"x": 1, "z": 1}
+	"orderDependent": {"z": 1}
 }
