@@ -158,7 +158,8 @@ func (e *Error) missingFeatureMessage() string {
 	if len(e.Candidates) > 0 {
 		msg += ": its features are " + strings.Join(e.Candidates, ", ")
 		if len(e.Candidates) > 3 {
-			msg = suggest.With(msg, e.missingSegment(), e.Candidates)
+			segment := e.missingSegment()
+			msg = suggest.With(msg, segment, suggest.Nearest(segment, e.Candidates))
 		}
 	}
 	if len(e.Also) > 0 {
