@@ -38,6 +38,7 @@ import {
   loads,
   requireCapability,
 } from "../src/node/index.js";
+import { environmentWithoutToken } from "../src/node/service.js";
 import { SAMPLE, serviceBinary, useServiceBinary } from "./support/service.js";
 
 before(() => {
@@ -673,6 +674,15 @@ test("a service this client did not start is opt-in, and close leaves it running
     Reflect.deleteProperty(process.env, SERVICE_ENV);
     external.kill("SIGKILL");
   }
+});
+
+test("the child's environment drops the token under the spelling its platform reads", () => {
+  const env = { PATH: "/bin", OPENSYSML_GRPC_TOKEN: "upper", opensysml_grpc_token: "lower" };
+  assert.deepEqual(environmentWithoutToken(env, "linux"), {
+    PATH: "/bin",
+    opensysml_grpc_token: "lower",
+  });
+  assert.deepEqual(environmentWithoutToken(env, "win32"), { PATH: "/bin" });
 });
 
 test("a private child does not inherit the environment token", async () => {

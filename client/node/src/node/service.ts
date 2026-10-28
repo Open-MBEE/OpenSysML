@@ -9,6 +9,23 @@ import { resolveBinary, type Binary } from "./binary.js";
 /** Names the bearer token every call carries when `token` is not given. */
 export const TOKEN_ENV = "OPENSYSML_GRPC_TOKEN";
 
+/**
+ * The environment a private child is started with: `env` less `TOKEN_ENV`. The
+ * child serves loopback for this process alone, so the token meant for a remote
+ * service must not become one the child demands. Windows names variables
+ * case-insensitively, and the service reads the token that way there.
+ */
+export function environmentWithoutToken(
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform = process.platform,
+): NodeJS.ProcessEnv {
+  const isToken =
+    platform === "win32"
+      ? (name: string) => name.toUpperCase() === TOKEN_ENV
+      : (name: string) => name === TOKEN_ENV;
+  return Object.fromEntries(Object.entries(env).filter(([name]) => !isToken(name)));
+}
+
 const START_TIMEOUT_MS = 10_000;
 const STOP_TIMEOUT_MS = 5_000;
 const STDERR_LINES_KEPT = 20;
@@ -106,11 +123,7 @@ export class PrivateService {
   /** Starts a child and waits for the address it bound. */
   static async start(version?: string): Promise<PrivateService> {
     const binary = await resolveBinary(version === undefined ? {} : { version });
-    // The child serves loopback for this process alone: the token meant for a
-    // remote service must not become one the child demands.
-    const env = Object.fromEntries(
-      Object.entries(process.env).filter(([name]) => name !== TOKEN_ENV),
-    );
+    const env = environmentWithoutToken(process.env);
     const child = spawn(
       binary.path,
       ["-port", "0", "-health-port", "0", "-report-address", "-exit-with-parent"],
