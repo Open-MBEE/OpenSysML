@@ -81,6 +81,11 @@ func namedArgSpan(na ast.NamedArg) source.Span {
 // judgeArgumentBinding records value bound to a parameter typed want when their
 // types conform in neither direction; unknown types and open parameters are not judged.
 func (ec *exprChecker) judgeArgumentBinding(scope *symbols.Scope, value ast.Node, want []*symbols.Symbol, at source.Span) {
+	ec.judgeBinding(scope, value, want, at, ec.model.ExprResultTypes)
+}
+
+// judgeBinding is judgeArgumentBinding with the value's result types read by resultTypes.
+func (ec *exprChecker) judgeBinding(scope *symbols.Scope, value ast.Node, want []*symbols.Symbol, at source.Span, resultTypes func(*symbols.Scope, ast.Node) []*symbols.Symbol) {
 	if value == nil || len(want) == 0 || openParameter(want) || ec.warned[value] {
 		return
 	}
@@ -95,10 +100,59 @@ func (ec *exprChecker) judgeArgumentBinding(scope *symbols.Scope, value ast.Node
 	if _, collection := ec.model.CollectionElements(scope, value); collection {
 		return
 	}
-	got := ec.model.ExprResultTypes(scope, value)
+	got := resultTypes(scope, value)
 	if len(got) > 0 && !w9cTypesConform(ec.model, got, want) {
 		ec.bindings = append(ec.bindings, argumentBinding{value.Span(), at})
 	}
+}
+
+// judgeFeatureValueBinding judges a feature's value against the feature's own types
+// (KerML 8.3.4.5.2): the binding a FeatureValue implies, which a `default` does not
+// (checkFeatureValueBindingConnector). Reported at the feature, as the pilot does; a
+// subject's value is W9CBoundFeatureTypesPass's.
+func (ec *exprChecker) judgeFeatureValueBinding(valueScope, declScope *symbols.Scope, d featureDecl, value ast.Node) {
+	u, ok := d.node.(*ast.Usage)
+	if !ok || u.Value != value || u.ValueIsDefault || u.Kind == ast.UsageSubject {
+		return
+	}
+	sym := declScope.MemberDeclaring(u)
+	if sym == nil {
+		return
+	}
+	ec.judgeBinding(valueScope, value, ec.model.FeatureTypeSet(sym), d.span, ec.declaredResultTypes)
+}
+
+// declaredResultTypes are the types a value's result declares: for an operator
+// other than a cast, the result of the library function it names (KerML
+// 8.3.4.8.17 — `-5` is a DataValue, `5 [m]` and `xs#(1)` an Anything); for an
+// invocation, the result parameter of the behavior it runs, none being an
+// Anything; else its static result types.
+func (ec *exprChecker) declaredResultTypes(scope *symbols.Scope, value ast.Node) []*symbols.Symbol {
+	switch n := value.(type) {
+	case *ast.OperatorExpr:
+		if n.Operator == ast.OpAs {
+			break
+		}
+		if result := ec.model.ResultParameterOf(ec.model.OperatorFunction(n.Operator)); result != nil {
+			return ec.model.FeatureTypeSet(result)
+		}
+		return nil
+	case *ast.InvocationExpr:
+		if result := ec.invocationResultParameter(scope, n); result != nil {
+			return ec.model.FeatureTypeSet(result)
+		}
+		return nil
+	case *ast.IndexExpr:
+		name := "#"
+		if n.Bracket {
+			name = "["
+		}
+		if result := ec.model.ResultParameterOf(ec.model.OperatorFunctionNamed(name)); result != nil {
+			return ec.model.FeatureTypeSet(result)
+		}
+		return nil
+	}
+	return ec.model.ExprResultTypes(scope, value)
 }
 
 // diagnostics are the checker's, with the warning of each non-conforming
