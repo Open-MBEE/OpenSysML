@@ -438,6 +438,20 @@ class NpmSBOM(unittest.TestCase):
         self.assertIn({"spdxElementId": declared["SPDXID"], "relatedSpdxElement": root["SPDXID"], "relationshipType": "DEPENDENCY_OF"}, doc["relationships"])
         sbom.check_npm(doc, "openmbee-opensysml-0.12.0.tgz", CLIENT_MANIFEST)
 
+    def test_a_third_party_optional_dependency_the_lockfile_lacks_is_still_refused(self):
+        doc = npm_document(self.root, *[d for d in self.deps if d["name"] != "@sigstore/tuf"])
+        with tempfile.TemporaryDirectory() as tmp:
+            sbom.describe_npm(doc, CLIENT_MANIFEST, npm_tarball(tmp, CLIENT_MANIFEST), {"name": "@openmbee/opensysml", "version": "0.12.0"})
+        self.assertNotIn("@sigstore/tuf", {p["name"] for p in sbom.components(doc)})
+        with self.assertRaises(sbom.SBOMError) as caught:
+            sbom.check_npm(doc, "openmbee-opensysml-0.12.0.tgz", CLIENT_MANIFEST)
+        self.assertIn("@sigstore/tuf@4.0.2", str(caught.exception))
+
+    def test_only_our_packages_pinned_at_the_release_version_count_as_platform_packages(self):
+        manifest = dict(CLIENT_MANIFEST, optionalDependencies={
+            "@openmbee/opensysml-sysml-grpc-linux-x64": "0.12.0", "@openmbee/opensysml-sysml-grpc-win32-x64": "0.11.0", "@sigstore/tuf": "4.0.2"})
+        self.assertEqual(sbom.release_platform_packages(manifest), {"@openmbee/opensysml-sysml-grpc-linux-x64": "0.12.0"})
+
     def test_a_required_dependency_the_lockfile_lacks_is_still_refused(self):
         doc = npm_document(self.root, *[d for d in self.deps if d["name"] != "@bufbuild/protobuf"])
         with tempfile.TemporaryDirectory() as tmp:

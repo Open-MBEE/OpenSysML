@@ -808,10 +808,11 @@ Three classes of asset need another route to the same document, and get it:
   five platform packages. Development dependencies are not catalogued; peer
   dependencies are the installer's choice and are not listed. The platform
   packages a release publishes beside the tarball are pinned exactly but cannot
-  be in the lockfile before they exist (see [Tagging](#tagging)), so an optional
-  dependency the lockfile lacks is recorded from the manifest's pin, with a
+  be in the lockfile before they exist (see [Tagging](#tagging)), so one the
+  lockfile lacks — an `@openmbee/` optional dependency pinned at the tarball's
+  own version, nothing else — is recorded from the manifest's pin, with a
   `sourceInfo` saying so and no digest. The script refuses a tarball whose file
-  name is not the one npm gives its manifest, a required dependency the lockfile
+  name is not the one npm gives its manifest, any other dependency the lockfile
   does not resolve, or a pin the lockfile resolves to another version.
 - **The Windows installer.** The MSI is built on a Windows runner by
   `release-windows.yml`, outside this manifest, and bundles the Z3 solver, which

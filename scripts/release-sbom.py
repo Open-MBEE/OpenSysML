@@ -57,6 +57,7 @@ import urllib.parse
 import zipfile
 
 RELEASE_URL = "https://github.com/Open-MBEE/OpenSysML/releases/download"
+NPM_SCOPE = "@openmbee"
 NPM_REGISTRY = "https://registry.npmjs.org"
 Z3_RELEASES = "https://github.com/Z3Prover/z3/releases/download"
 SUFFIX = ".spdx.json"
@@ -359,8 +360,16 @@ def npm_package(manifest, tarball):
     }
 
 
+def release_platform_packages(manifest):
+    """The optional dependencies this release publishes beside the tarball: ours, pinned at the tarball's own version."""
+    return {
+        name: pin for name, pin in (manifest.get("optionalDependencies") or {}).items()
+        if name.startswith(NPM_SCOPE + "/") and pin == manifest["version"]
+    }
+
+
 def declared_npm_package(name, version):
-    """An optional dependency the packed manifest pins exactly but the lockfile could not resolve yet."""
+    """A platform package of this release, which the lockfile could not resolve before it existed."""
     return {
         "name": name,
         "SPDXID": spdx_id("npm-declared", f"{name}@{version}"),
@@ -380,9 +389,10 @@ def declared_npm_package(name, version):
 def describe_npm(doc, manifest, tarball, lock_root):
     """Make the lockfile's SBOM describe the packed tarball: its manifest is the package the dependencies hang off.
 
-    The platform packages a release publishes beside the tarball are pinned exactly
-    but cannot be in the lockfile before they exist, so an optional dependency the
-    lockfile lacks is recorded from the manifest's pin, saying so.
+    The platform packages a release publishes beside the tarball (ours, pinned at
+    its version) cannot be in the lockfile before they exist, so one the lockfile
+    lacks is recorded from the manifest's pin, saying so; any other dependency
+    the lockfile lacks stays missing for check_npm to refuse.
     """
     package = npm_package(manifest, tarball)
     replaced = [p["SPDXID"] for p in components(doc)
@@ -396,8 +406,8 @@ def describe_npm(doc, manifest, tarball, lock_root):
         {"spdxElementId": root_id(doc), "relatedSpdxElement": package["SPDXID"], "relationshipType": "CONTAINS"}
     )
     resolved = {p["name"] for p in components(doc)}
-    for dependency, wanted in sorted((manifest.get("optionalDependencies") or {}).items()):
-        if dependency not in resolved and _EXACT_VERSION.match(wanted):
+    for dependency, wanted in sorted(release_platform_packages(manifest).items()):
+        if dependency not in resolved:
             declared = declared_npm_package(dependency, wanted)
             doc["packages"].append(declared)
             doc["relationships"].append(
