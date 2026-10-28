@@ -52,8 +52,8 @@ digraph "MixedExamples::mixedDiagram" {
         color="#99795C";
         penwidth=1;
         "n25" [shape=point, style=invis, width=0, height=0, label=""];
-        "n26" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6"><tr><td><font point-size="9">«part»</font><br/><b>pump</b></td></tr></table></td></tr><tr><td></td><td port="n26.0" border="1" fixedsize="true" width="10" height="10" bgcolor="#FFFFFF"></td><td align="left"><font point-size="8">outlet</font></td><td></td></tr></table>>];
-        "n27" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n27.0" border="1" fixedsize="true" width="10" height="10" bgcolor="#FFFFFF"></td><td align="left"><font point-size="8">inlet</font></td><td></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6"><tr><td><font point-size="9">«part»</font><br/><b>tank</b></td></tr></table></td></tr></table>>];
+        "n26" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6"><tr><td><font point-size="9">«part»</font><br/><b>pump</b></td></tr></table></td></tr><tr><td></td><td port="n26.0" border="1" fixedsize="true" width="10" height="10" bgcolor="#FFFFFF"></td><td align="left"><font point-size="8">^outlet</font></td><td></td></tr></table>>];
+        "n27" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n27.0" border="1" fixedsize="true" width="10" height="10" bgcolor="#FFFFFF"></td><td align="left"><font point-size="8">^inlet</font></td><td></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6"><tr><td><font point-size="9">«part»</font><br/><b>tank</b></td></tr></table></td></tr></table>>];
       }
       subgraph "cluster_n28" {
         label=<<font point-size="9">«connection def»</font><br/><b>Connection</b>>;
@@ -104,7 +104,7 @@ digraph "MixedExamples::mixedDiagram" {
         penwidth=1;
         "n14" [shape=point, style=invis, width=0, height=0, label=""];
         "n16" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label=""];
-        "n15" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<b>ready</b>>];
+        "n15" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<b>^ready</b>>];
       }
       "n31" [label=<<font point-size="9">«part def»</font><br/><b>Person</b>>];
       "n17" [label=<<font point-size="9">«view»</font><br/><b>mixedDiagram</b>>];

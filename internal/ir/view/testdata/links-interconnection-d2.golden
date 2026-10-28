@@ -12,19 +12,19 @@ n0: "«part def»\nLoop" {
   n1: "«part»\npump" {
     class: usage
     link: "https://example.test/src/interconnection.sysml#L17"
-    "n1.0": "outlet" { class: pin }
-    n2: "«item»\nwaterOut" { class: usage; link: "https://example.test/src/interconnection.sysml#L6" }
+    "n1.0": "^outlet" { class: pin }
+    n2: "«item»\n^waterOut" { class: usage; link: "https://example.test/src/interconnection.sysml#L6" }
   }
   n3: "«part»\ntank" {
     class: usage
     link: "https://example.test/src/interconnection.sysml#L18"
-    "n3.0": "inlet" { class: pin }
-    n4: "«item»\nwaterIn" { class: usage; link: "https://example.test/src/interconnection.sysml#L11" }
+    "n3.0": "^inlet" { class: pin }
+    n4: "«item»\n^waterIn" { class: usage; link: "https://example.test/src/interconnection.sysml#L11" }
   }
   n5: "«part»\nsensor" {
     class: usage
     link: "https://example.test/src/interconnection.sysml#L22"
-    n6: "«item»\nwaterOut" { class: usage; link: "https://example.test/src/interconnection.sysml#L6" }
+    n6: "«item»\n^waterOut" { class: usage; link: "https://example.test/src/interconnection.sysml#L6" }
   }
 }
 n0.n1."n1.0" -- n0.n3."n3.0": { class: connection; link: "https://example.test/src/interconnection.sysml#L19" }

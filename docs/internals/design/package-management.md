@@ -91,19 +91,27 @@ A package manager and OpenSysML meet only on disk, at the consuming project's `.
   nothing is linked by elimination: among the installed projects under the consumer's library roots
   that no other usage claims (a claimed project's other versions count as claimed), those whose
   version satisfies the usage's constraint are its candidates; one publisher/name among them → that
-  project, highest satisfying version; several → the usage stays unresolved with a warning naming
-  each candidate, resolved by spelling the project's publisher/name in the usage. A resource that
-  *names* a project (`pkg:sysand/<publisher>/<name>`, any other `pkg:<type>/<publisher>/<name>`) is
-  matched by name alone and stays unresolved when that project is not installed — it never falls
-  back to an unrelated install. Installed projects no usage claims are not loaded.
+  project, highest satisfying version, with a warning naming the project taken and the
+  publisher/name the resource should end with; several → the usage stays unresolved with a warning
+  naming each candidate. Both warnings are judged by the exit policy (`-warnings-as-errors`, `-json`,
+  the baseline) and both are resolved by spelling the project's publisher/name in the usage. A
+  resource that *names* a project (`pkg:sysand/<publisher>/<name>`, any other
+  `pkg:<type>/<publisher>/<name>`) is matched by name alone and stays unresolved when that project
+  is not installed — it never falls back to an unrelated install. Installed projects no usage
+  claims are not loaded.
 - **Versions.** `versionConstraint` is honoured as today (exact, else latest installed by semver
   order). `@<version>` in the IRI is an exact constraint when the usage carries no
   `versionConstraint` (before this, `resourceSegments` discarded it and the latest installed release
   won). Which version lands under `lib/` is the package manager's decision at install time, made
   from its own lock; OpenSysML never reads a lock file and matches the usage against whatever is
   installed.
-- **Verification.** `.meta.json` checksums, archive path traversal, symlink escape and size bounds
-  are checked on the read side regardless of who wrote the tree.
+- **Verification.** An archive's `.meta.json` checksums, path traversal, symlink escape and size
+  bounds are checked on the read side regardless of who wrote it; a checksum that fails refuses the
+  archive (a warning under a library root). An installed directory's `.meta.json` is not verified:
+  the tagged tree is the project, and its files are read as they stand. An archive holding the
+  project's folder rather than its contents (the OMG library releases) is read as the project in
+  that folder, and an index entry naming no member is passed over for the members' declarations;
+  each is a warning on the archive, since name resolution never trusts the index.
 - **Nothing else.** No fetch, no lock reading, no index, no `add`/`install` command, no network from
   `-validate`, the LSP, the REPL or the kernel. Editor affordances stay read-only: an unresolved root
   namespace is a diagnostic that names the project files and well-known directories searched.
@@ -115,10 +123,27 @@ Adding support for a further package manager is the same two items — its insta
 ## 4. What publishing a package takes (for our own libraries)
 
 The Extensions Library (`Open-MBEE/OpenSysML-Extensions-Library`) is published as a project any
-package manager can install: a root `.project.json` (`publisher` Open-MBEE, `version` equal to the
-release tag) and `.meta.json`, `build-kpar.py` deriving the `.kpar` archive from them, and a
-release job asserting tag == version. Nothing OpenSysML-specific is required to consume it, and
-`sysml -validate` resolves it from `lib/` or `.sysand/lib` with no flag once installed.
+package manager can install: a root `.project.json` (`name` "OpenSysML Extensions Library",
+`publisher` Open-MBEE, `version` equal to the release tag, the OMG standard-library archives as
+its `usage`) and `.meta.json` (index of root namespace → `libraries/<Unit>`, SHA-256 per unit and
+for `LICENSE`), `scripts/build-kpar.py` deriving `opensysml-extensions-library-<version>.kpar`
+from them — the two manifests plus exactly the files `.meta.json` records, at their repository
+paths — and a release job asserting tag == version. The tagged tree is the project; the archive
+is derived from it. Nothing OpenSysML-specific is required to consume it, and `sysml -validate`
+resolves it from `lib/` or `.sysand/lib` with no flag once installed.
+
+**The name-slug contract.** A usage is matched to an installed project by the slugs of the
+resource's last two path segments against the slugs of the project's `publisher` and `name`
+(`slug` lower-cases and turns runs of non-alphanumerics into one hyphen). A project meant to be
+used as `pkg:git/<host>/<owner>/<repository>` must therefore give its `name` a slug equal to the
+repository's final path segment and its `publisher` one equal to the owner's — "OpenSysML
+Extensions Library" slugs to `opensysml-extensions-library`, the repository's. A project whose
+name does not (say "OpenSysML Extension Libraries") is still installable: the usage is linked to
+it by elimination when it is the one unclaimed candidate, with the warning §3 describes, and
+stays unresolved with the ambiguity warning when it is not. OpenSysML vendors the published
+manifests beside its bundled copy of the units and holds the two to each other
+(`internal/workspace/libs/extensions_project_test.go`); see
+[extension-libraries.md](../../project/extension-libraries.md).
 
 ## 5. Decisions
 

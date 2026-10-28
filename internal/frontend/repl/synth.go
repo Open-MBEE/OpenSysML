@@ -280,26 +280,14 @@ func unfixedLines(q *solve.Query, unfixed []solve.Unfixed) []string {
 	return lines
 }
 
-// uncoveredLines names the nested parts whose own assertions the query does not
-// state, and why, so a selection it permits is not taken for one validation accepts.
-func uncoveredLines(q *solve.Query) []string {
-	lines := make([]string, 0, len(q.Uncovered))
-	for _, r := range q.Uncovered {
-		lines = append(lines, fmt.Sprintf("  Not in the query: what %s asserts about its own objects, as %s; %%instantiate and %%validate an object to check it", r.Path, r.Reason))
-	}
-	return lines
-}
-
-// assumedOneLines names the features the query reads as one value or object while
-// only the default multiplicity governs them: the verdict is about that case.
-func assumedOneLines(q *solve.Query) []string {
-	lines := make([]string, 0, len(q.AssumedOne))
-	for _, a := range q.AssumedOne {
-		what := "value"
-		if a.Object {
-			what = "object"
-		}
-		lines = append(lines, fmt.Sprintf("  Assuming %s holds one %s: it declares no multiplicity, so the default %s governs it", notationName(a.Name), what, a.Multiplicity.Text()))
+// noteLines prints the query's notes — the nested parts whose own assertions it
+// does not state, and the features it reads as one while only the default
+// multiplicity governs them — so a verdict is read for the case it is about.
+func noteLines(q *solve.Query) []string {
+	notes := q.Notes()
+	lines := make([]string, 0, len(notes))
+	for _, n := range notes {
+		lines = append(lines, "  "+n.Text)
 	}
 	return lines
 }

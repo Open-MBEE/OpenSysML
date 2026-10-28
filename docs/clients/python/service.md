@@ -86,7 +86,10 @@ need the same service release share one child and its model-parse cache.
 
 Connecting to a service the client did not start is explicit: pass a host and
 port, set `$OPENSYSML_SERVICE=host:port`, or pass `auto_start=False` to require
-a caller-managed service. The client never stops such a service. A managed
+a caller-managed service. A service other machines reach requires a bearer
+token: pass `token=` (or set `$OPENSYSML_GRPC_TOKEN`) and every call carries it
+as `authorization: Bearer` metadata; a wrong or missing one raises
+`AuthenticationError`, a `ConnectionError`. The client never stops such a service. A managed
 service is checked with `GetServerInfo` against any requested release and
 capabilities, but is neither replaced nor stopped to satisfy the check.
 

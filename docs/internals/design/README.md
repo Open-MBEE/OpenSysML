@@ -5,20 +5,23 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
 
 - **[The action executor](action-executor.md)** — how a token moves through a lowered
   `ActionGraph`
+- **[Query outcomes](query-outcomes.md)** — how a document query's failures are told apart:
+  a value (possibly empty), a path error that says where the path stopped resolving and what the
+  model offers there, or a model error about the element; where the engine stands step by step
 - **[The analysis framework](analysis-framework.md)** — one engine contract that the
   interpreter, `explore`, the sweep, the SMT solver, the model checkers and external tools
   register against, one scale for the strength of an answer (proved, bounded, witnessed,
   observed, not covered), dispatch by question with fallback, and runs isolated so they can be
   parallel; the contract, the registry and the four engines over existing code are
   implemented (`internal/exec/analysis`), the rest is a proposal
-- **[OpenSysML MDK for Cameo, a Cameo Systems Modeler plugin](mdk-plugin.md)** — a plugin for Cameo
+- **[Magic MDK, a Cameo Systems Modeler plugin](mdk-plugin.md)** — a plugin for Cameo
   2026x Refresh1, positioned as the successor to OpenMBEE's MDK, that exports the selection, runs `Convert(xmi→sysml)` and `ParseSources` over
   the Java client, executes and verifies on `sysml-grpc`, and lands each verdict on the Cameo
   element it came from through the migration report's `xmi:id → target` accounting; the vendor
   plugin mechanics, UI contribution points, export routes, Simulation Toolkit positioning and
   SysML v2 status answered from public documentation with every unverified claim marked, a
   migration benchmark over twenty public v1 models, a phased plan and the risks
-- **[MTIP and diagram geometry in the OpenSysML MDK for Cameo](mdk-mtip.md)** — where OpenMBEE's
+- **[MTIP and diagram geometry in the Magic MDK](mdk-mtip.md)** — where OpenMBEE's
   MTIP plugin (HUDS XML export and import) fits the plugin's parity plan with OpenMBEE MDK: what the
   migrator already reads from a HUDS export (the diagram layer, as a layout augment), what the
   *Export as SysML v2* action writes for v1 and v2 projects, and the open decisions — port MTIP,

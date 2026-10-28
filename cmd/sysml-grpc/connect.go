@@ -11,16 +11,13 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"connectrpc.com/connect"
 	"connectrpc.com/grpcreflect"
 	"github.com/Open-MBEE/OpenSysML/api/proto/protoconnect"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
-	"google.golang.org/protobuf/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
 )
 
 // Transports this binary can serve.
@@ -32,20 +29,20 @@ const (
 
 // connectHandler builds the routes a Connect server answers: every RPC of
 // SysMLService under /sysml.SysMLService/, gRPC server reflection, and the
-// health endpoint that otherwise needs a port of its own.
-func connectHandler(svc *sysmlgrpc.Service, ver string, origins map[string]struct{}) http.Handler {
+// health endpoint that otherwise needs a port of its own. Every RPC passes the
+// access policy; health alone is open to probes.
+func connectHandler(svc *sysmlgrpc.Service, ver string, origins map[string]struct{}, token guard.Token) http.Handler {
+	door := connect.WithInterceptors(connectAccess{access{token: token}})
 	mux := http.NewServeMux()
-	mux.Handle(protoconnect.NewSysMLServiceHandler(
-		sysmlgrpc.NewConnectAdapter(svc),
-		connect.WithInterceptors(connectLoggingInterceptor()),
-	))
+	mux.Handle(protoconnect.NewSysMLServiceHandler(sysmlgrpc.NewConnectAdapter(svc), door))
 
 	// grpcurl and grpcui ask the reflection service for the schema, which
 	// connect-go serves from a package of its own rather than in the handler.
 	reflector := grpcreflect.NewStaticReflector(protoconnect.SysMLServiceName)
-	mux.Handle(grpcreflect.NewHandlerV1(reflector))
-	mux.Handle(grpcreflect.NewHandlerV1Alpha(reflector))
+	mux.Handle(grpcreflect.NewHandlerV1(reflector, door))
+	mux.Handle(grpcreflect.NewHandlerV1Alpha(reflector, door))
 
+	// Health answers probes, which carry no token; it names the build and no more.
 	mux.Handle("/health", healthHandler(ver))
 	if len(origins) == 0 {
 		return mux
@@ -56,8 +53,8 @@ func connectHandler(svc *sysmlgrpc.Service, ver string, origins map[string]struc
 // serveConnect serves gRPC, gRPC-Web and the Connect protocol on one port until
 // the context is cancelled. h2c carries HTTP/2 in cleartext, which is how an
 // existing gRPC client reaches an address that offers no TLS.
-func serveConnect(ctx context.Context, lis net.Listener, svc *sysmlgrpc.Service, ver string, origins map[string]struct{}, certFile, keyFile string) error {
-	handler := connectHandler(svc, ver, origins)
+func serveConnect(ctx context.Context, lis net.Listener, svc *sysmlgrpc.Service, ver string, origins map[string]struct{}, token guard.Token, certFile, keyFile string) error {
+	handler := connectHandler(svc, ver, origins, token)
 	srv := &http.Server{
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
@@ -68,19 +65,21 @@ func serveConnect(ctx context.Context, lis net.Listener, svc *sysmlgrpc.Service,
 			NextProtos: []string{"h2", "http/1.1"},
 		}
 	} else {
-		srv.Handler = h2c.NewHandler(handler, &http2.Server{})
+		srv.Protocols = new(http.Protocols)
+		srv.Protocols.SetHTTP1(true)
+		srv.Protocols.SetUnencryptedHTTP2(true)
 	}
 
 	errs := make(chan error, 1)
 	go func() {
 		if certFile != "" {
 			slog.Info("Connect server listening",
-				"addr", lis.Addr(), "protocols", "grpc, grpc-web, connect", "security", "TLS")
+				"addr", lis.Addr(), "protocols", "grpc, grpc-web, connect", "security", "TLS", "auth", authDescription(token))
 			errs <- srv.ServeTLS(lis, certFile, keyFile)
 			return
 		}
 		slog.Info("Connect server listening",
-			"addr", lis.Addr(), "protocols", "grpc, grpc-web, connect", "security", "cleartext/h2c")
+			"addr", lis.Addr(), "protocols", "grpc, grpc-web, connect", "security", "cleartext/h2c", "auth", authDescription(token))
 		errs <- srv.Serve(lis)
 	}()
 
@@ -102,41 +101,4 @@ func serveConnect(ctx context.Context, lis net.Listener, svc *sysmlgrpc.Service,
 	}
 	slog.Info("Connect server stopped")
 	return nil
-}
-
-// connectLoggingInterceptor logs each call with its procedure and duration, as
-// the grpc-go path's interceptor does.
-func connectLoggingInterceptor() connect.UnaryInterceptorFunc {
-	return func(next connect.UnaryFunc) connect.UnaryFunc {
-		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			start := time.Now()
-			res, err := next(ctx, req)
-			if err == nil && strings.Contains(strings.ToLower(req.Header().Get("Content-Type")), "json") {
-				if message, ok := res.Any().(proto.Message); ok {
-					size := proto.Size(message)
-					if size >= 256*1024 {
-						slog.Warn("large JSON response; a protobuf body is several times cheaper for large answers",
-							"procedure", req.Spec().Procedure,
-							"protobuf_size_bytes", size)
-					}
-				}
-			}
-			dur := time.Since(start)
-			if err != nil {
-				slog.Error("Connect call failed",
-					"procedure", req.Spec().Procedure,
-					"protocol", req.Peer().Protocol,
-					"duration_ms", dur.Milliseconds(),
-					"error", err,
-				)
-			} else {
-				slog.Debug("Connect call",
-					"procedure", req.Spec().Procedure,
-					"protocol", req.Peer().Protocol,
-					"duration_ms", dur.Milliseconds(),
-				)
-			}
-			return res, err
-		}
-	}
 }

@@ -2,8 +2,8 @@ VehicleViews::vehicleView - tree rendering (the view states no rendering; a tree
 
 part def Vehicle
   part engine
-    attribute power
-    part cylinder
+    attribute ^power
+    part ^cylinder
   part wheels
   connect
 view engineSubview

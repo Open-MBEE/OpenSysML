@@ -712,7 +712,8 @@ class PublicTypesTest {
   void theExploreEngineNeedsScheduleExploreBesideEngines() {
     try (Connection limited =
         new Connection(
-            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new ConnectTransport(
+                "127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1), Optional.empty()),
             new Capabilities("dev", java.util.Set.of(Capabilities.ENGINES)))) {
       Model model = new Model(limited, "hash", List.of(), List.of());
       CapabilityException refused =
@@ -725,7 +726,8 @@ class PublicTypesTest {
   void addingAConnectionNeedsConnectionAuthoringBesideAuthoring() {
     try (Connection limited =
         new Connection(
-            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new ConnectTransport(
+                "127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1), Optional.empty()),
             new Capabilities("dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.AUTHORING)))) {
       Model model = new Model(limited, "hash", List.of(), List.of());
       List<Edit> edits =
@@ -808,7 +810,8 @@ class PublicTypesTest {
   void anEmptyConstraintBodyDoesNotRequireConstraintBodyAuthoring() {
     try (Connection limited =
         new Connection(
-            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new ConnectTransport(
+                "127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1), Optional.empty()),
             new Capabilities(
                 "dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.AUTHORING)))) {
       Model model = new Model(limited, "hash", List.of(), List.of());
@@ -833,7 +836,8 @@ class PublicTypesTest {
   void addingATransitionAlsoRequiresAuthoring() {
     try (Connection limited =
         new Connection(
-            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new ConnectTransport(
+                "127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1), Optional.empty()),
             new Capabilities(
                 "dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.TRANSITION_AUTHORING)))) {
       Model model = new Model(limited, "hash", List.of(), List.of());
@@ -848,7 +852,8 @@ class PublicTypesTest {
   void addingASequenceAlsoRequiresAuthoring() {
     try (Connection limited =
         new Connection(
-            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new ConnectTransport(
+                "127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1), Optional.empty()),
             new Capabilities(
                 "dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.SEQUENCE_AUTHORING)))) {
       Model model = new Model(limited, "hash", List.of(), List.of());
@@ -863,7 +868,8 @@ class PublicTypesTest {
   void anActionBodyStatementAlsoRequiresItsCapability() {
     try (Connection limited =
         new Connection(
-            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new ConnectTransport(
+                "127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1), Optional.empty()),
             new Capabilities(
                 "dev",
                 java.util.Set.of(
@@ -886,7 +892,8 @@ class PublicTypesTest {
   void addingAnImportAlsoRequiresAuthoring() {
     try (Connection limited =
         new Connection(
-            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new ConnectTransport(
+                "127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1), Optional.empty()),
             new Capabilities(
                 "dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.IMPORT_AUTHORING)))) {
       Model model = new Model(limited, "hash", List.of(), List.of());
@@ -900,7 +907,8 @@ class PublicTypesTest {
   private static void assertEditCapability(Edit edit, String capability) {
     try (Connection limited =
         new Connection(
-            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new ConnectTransport(
+                "127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1), Optional.empty()),
             new Capabilities(
                 "dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.AUTHORING)))) {
       Model model = new Model(limited, "hash", List.of(), List.of());

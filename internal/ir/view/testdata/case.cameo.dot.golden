@@ -20,8 +20,8 @@ digraph "CaseExamples::caseDiagram" {
     "n2" [shape=box, label=<<font point-size="9">«actor»</font><br/><b>driver</b>>];
     "n3" [shape=note, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>objective</b></td></tr><hr/><tr><td align="left">Transport the vehicle and its passengers safely.</td></tr></table>>];
     "n4" [shape=ellipse, label=<<font point-size="9">«use case»</font><br/><b>addFuel</b>>];
-    "n5" [shape=box, label=<<font point-size="9">«actor»</font><br/><b>fueler</b>>];
-    "n6" [shape=box, label=<<font point-size="9">«subject»</font><br/><b>vehicle</b>>];
+    "n5" [shape=box, label=<<font point-size="9">«actor»</font><br/><b>^fueler</b>>];
+    "n6" [shape=box, label=<<font point-size="9">«subject»</font><br/><b>^vehicle</b>>];
     "n7" [shape=ellipse, label=<<font point-size="9">«include use case»</font><br/><b>enter vehicle</b>>];
     "n8" [shape=box, label=<<font point-size="9">«subject»</font><br/><b>vehicle</b>>];
     "n9" [shape=box, label=<<font point-size="9">«actor»</font><br/><b>driver</b>>];

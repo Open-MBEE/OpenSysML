@@ -1,0 +1,1690 @@
+{
+ "view": "MixedMemberships::memberships",
+ "kind": "mixed",
+ "style": "pilot",
+ "stated": "render asMixedDiagram",
+ "shown": [
+  "port-symbols",
+  "compartments",
+  "keywords"
+ ],
+ "form": "mermaid",
+ "artifact": "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n  themeCSS: \".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }\"\n  themeVariables:\n    fontFamily: \"Helvetica, Arial, sans-serif\"\n    fontSize: \"14px\"\n    primaryColor: \"#FFFFFF\"\n    secondaryColor: \"#FFFFFF\"\n    tertiaryColor: \"#FFFFFF\"\n    background: \"#FFFFFF\"\n    primaryBorderColor: \"#181818\"\n    primaryTextColor: \"#000000\"\n    lineColor: \"#181818\"\n    textColor: \"#000000\"\n    noteBkgColor: \"#FEFFDD\"\n    noteBorderColor: \"#181818\"\n    noteTextColor: \"#000000\"\n    clusterBkg: \"#FFFFFF\"\n    clusterBorder: \"#181818\"\n    edgeLabelBackground: \"#FFFFFF\"\n---\n%% MixedMemberships::memberships — mixed rendering (render asMixedDiagram)\nflowchart TD\n  subgraph n0 [\"`*«package»* **MixedMemberships**`\"]\n    direction TD\n    subgraph n1 [\"`*«package»* **Library**`\"]\n      direction TD\n      n2[\"`*«attribute def»*\n**Pressure**`\"]\n      n8[\"`*«port def»*\n**FluidPort**`\"]\n    end\n    n9[\"`*«part def»*\n**Impeller**`\"]\n    subgraph n10 [\"`*«part def»* **Pump**`\"]\n      direction TD\n      n18(\"`*«attribute»*\n**pressure**`\")\n      n11(\"`*«port»*\n**outlet**`\")\n      n12(\"`*«part»*\n**impeller**`\")\n      n13(\"`*«part»*\n**spare**`\")\n      n19(\"`*«action»*\n**prime**\ndeclares no nodes`\")\n      n20(\"`*«state»*\n**armed**\ndeclares no states`\")\n      n14[\"`*«part def»*\n**Seal**`\"]\n    end\n    n3[\"`*«concern def»*\n**Containment**`\"]\n    subgraph n4 [\"`*«requirement def»* **Safety**`\"]\n      direction TD\n      n15(\"`*«require constraint»*\n**minPressure**`\")\n      n16(\"`*«assume constraint»*\n**primedPump**`\")\n      n17(\"`*«assert constraint»*\n**sealed**`\")\n      n5(\"`*«frame»*\n**contained**`\")\n    end\n    n6(\"`*«view»*\n**memberships**`\")\n    n7(\"`*«view»*\n**membershipsLayout**`\")\n  end\n  n5 -->|\"typing\"| n3\n  n11 -->|\"typing\"| n8\n  n12 -->|\"typing\"| n9\n  n13 -->|\"typing\"| n9\n  n18 -->|\"typing\"| n2\n",
+ "nodes": [
+  {
+   "id": "n0",
+   "kind": "package",
+   "name": "MixedMemberships",
+   "type": "",
+   "detail": "",
+   "fqn": "MixedMemberships",
+   "declaredHere": true,
+   "notation": "package",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 0,
+      "character": 0
+     },
+     "end": {
+      "line": 41,
+      "character": 1
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 0,
+      "character": 8
+     },
+     "end": {
+      "line": 0,
+      "character": 24
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n1",
+   "kind": "package",
+   "name": "Library",
+   "type": "",
+   "detail": "",
+   "parent": "n0",
+   "fqn": "MixedMemberships::Library",
+   "declaredHere": true,
+   "notation": "package",
+   "owners": [
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 4,
+      "character": 1
+     },
+     "end": {
+      "line": 7,
+      "character": 2
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 4,
+      "character": 9
+     },
+     "end": {
+      "line": 4,
+      "character": 16
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n2",
+   "kind": "attribute def",
+   "name": "Pressure",
+   "type": "",
+   "detail": "",
+   "parent": "n1",
+   "fqn": "MixedMemberships::Library::Pressure",
+   "declaredHere": true,
+   "notation": "attribute def",
+   "owners": [
+    {
+     "fqn": "MixedMemberships::Library",
+     "feature": false
+    },
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 5,
+      "character": 2
+     },
+     "end": {
+      "line": 5,
+      "character": 25
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 5,
+      "character": 16
+     },
+     "end": {
+      "line": 5,
+      "character": 24
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n8",
+   "kind": "port def",
+   "name": "MixedMemberships::Library::FluidPort",
+   "type": "",
+   "detail": "",
+   "parent": "n1",
+   "fqn": "MixedMemberships::Library::FluidPort",
+   "declaredHere": true,
+   "notation": "port def",
+   "owners": [
+    {
+     "fqn": "MixedMemberships::Library",
+     "feature": false
+    },
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 6,
+      "character": 2
+     },
+     "end": {
+      "line": 6,
+      "character": 21
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 6,
+      "character": 11
+     },
+     "end": {
+      "line": 6,
+      "character": 20
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n9",
+   "kind": "part def",
+   "name": "MixedMemberships::Impeller",
+   "type": "",
+   "detail": "",
+   "parent": "n0",
+   "fqn": "MixedMemberships::Impeller",
+   "declaredHere": true,
+   "notation": "part def",
+   "owners": [
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 9,
+      "character": 1
+     },
+     "end": {
+      "line": 9,
+      "character": 19
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 9,
+      "character": 10
+     },
+     "end": {
+      "line": 9,
+      "character": 18
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n10",
+   "kind": "part def",
+   "name": "MixedMemberships::Pump",
+   "type": "",
+   "detail": "",
+   "parent": "n0",
+   "fqn": "MixedMemberships::Pump",
+   "declaredHere": true,
+   "notation": "part def",
+   "owners": [
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 11,
+      "character": 1
+     },
+     "end": {
+      "line": 19,
+      "character": 2
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 11,
+      "character": 10
+     },
+     "end": {
+      "line": 11,
+      "character": 14
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n18",
+   "kind": "attribute",
+   "name": "pressure",
+   "type": "",
+   "detail": "",
+   "parent": "n10",
+   "fqn": "MixedMemberships::Pump::pressure",
+   "declaredHere": true,
+   "notation": "attribute",
+   "owners": [
+    {
+     "fqn": "MixedMemberships::Pump",
+     "feature": false
+    },
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 12,
+      "character": 2
+     },
+     "end": {
+      "line": 12,
+      "character": 41
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 12,
+      "character": 12
+     },
+     "end": {
+      "line": 12,
+      "character": 20
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n11",
+   "kind": "port",
+   "name": "outlet",
+   "type": "",
+   "detail": "",
+   "parent": "n10",
+   "fqn": "MixedMemberships::Pump::outlet",
+   "declaredHere": true,
+   "notation": "port",
+   "owners": [
+    {
+     "fqn": "MixedMemberships::Pump",
+     "feature": false
+    },
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 13,
+      "character": 2
+     },
+     "end": {
+      "line": 13,
+      "character": 35
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 13,
+      "character": 7
+     },
+     "end": {
+      "line": 13,
+      "character": 13
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n12",
+   "kind": "part",
+   "name": "impeller",
+   "type": "",
+   "detail": "",
+   "parent": "n10",
+   "fqn": "MixedMemberships::Pump::impeller",
+   "declaredHere": true,
+   "notation": "part",
+   "owners": [
+    {
+     "fqn": "MixedMemberships::Pump",
+     "feature": false
+    },
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 14,
+      "character": 2
+     },
+     "end": {
+      "line": 14,
+      "character": 27
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 14,
+      "character": 7
+     },
+     "end": {
+      "line": 14,
+      "character": 15
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n13",
+   "kind": "part",
+   "name": "spare",
+   "type": "",
+   "detail": "",
+   "parent": "n10",
+   "fqn": "MixedMemberships::Pump::spare",
+   "declaredHere": true,
+   "notation": "part",
+   "owners": [
+    {
+     "fqn": "MixedMemberships::Pump",
+     "feature": false
+    },
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 15,
+      "character": 2
+     },
+     "end": {
+      "line": 15,
+      "character": 28
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 15,
+      "character": 11
+     },
+     "end": {
+      "line": 15,
+      "character": 16
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n19",
+   "kind": "action",
+   "name": "MixedMemberships::Pump::prime",
+   "type": "",
+   "detail": "declares no nodes",
+   "parent": "n10",
+   "fqn": "MixedMemberships::Pump::prime",
+   "declaredHere": true,
+   "notation": "action",
+   "owners": [
+    {
+     "fqn": "MixedMemberships::Pump",
+     "feature": false
+    },
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 16,
+      "character": 2
+     },
+     "end": {
+      "line": 16,
+      "character": 15
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n20",
+   "kind": "state",
+   "name": "MixedMemberships::Pump::armed",
+   "type": "",
+   "detail": "declares no states",
+   "parent": "n10",
+   "fqn": "MixedMemberships::Pump::armed",
+   "declaredHere": true,
+   "notation": "state",
+   "owners": [
+    {
+     "fqn": "MixedMemberships::Pump",
+     "feature": false
+    },
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 17,
+      "character": 2
+     },
+     "end": {
+      "line": 17,
+      "character": 14
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 17,
+      "character": 8
+     },
+     "end": {
+      "line": 17,
+      "character": 13
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n14",
+   "kind": "part def",
+   "name": "Seal",
+   "type": "",
+   "detail": "",
+   "parent": "n10",
+   "fqn": "MixedMemberships::Pump::Seal",
+   "declaredHere": true,
+   "notation": "part def",
+   "owners": [
+    {
+     "fqn": "MixedMemberships::Pump",
+     "feature": false
+    },
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 18,
+      "character": 2
+     },
+     "end": {
+      "line": 18,
+      "character": 16
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 18,
+      "character": 11
+     },
+     "end": {
+      "line": 18,
+      "character": 15
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n3",
+   "kind": "concern def",
+   "name": "Containment",
+   "type": "",
+   "detail": "",
+   "parent": "n0",
+   "fqn": "MixedMemberships::Containment",
+   "declaredHere": true,
+   "notation": "concern def",
+   "owners": [
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 21,
+      "character": 1
+     },
+     "end": {
+      "line": 21,
+      "character": 25
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 21,
+      "character": 13
+     },
+     "end": {
+      "line": 21,
+      "character": 24
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n4",
+   "kind": "requirement def",
+   "name": "Safety",
+   "type": "",
+   "detail": "",
+   "parent": "n0",
+   "fqn": "MixedMemberships::Safety",
+   "declaredHere": true,
+   "notation": "requirement def",
+   "owners": [
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 23,
+      "character": 1
+     },
+     "end": {
+      "line": 28,
+      "character": 2
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 23,
+      "character": 17
+     },
+     "end": {
+      "line": 23,
+      "character": 23
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n15",
+   "kind": "require constraint",
+   "name": "MixedMemberships::Safety::minPressure",
+   "type": "",
+   "detail": "",
+   "parent": "n4",
+   "fqn": "MixedMemberships::Safety::minPressure",
+   "declaredHere": true,
+   "notation": "require constraint",
+   "owners": [
+    {
+     "fqn": "MixedMemberships::Safety",
+     "feature": false
+    },
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 24,
+      "character": 2
+     },
+     "end": {
+      "line": 24,
+      "character": 41
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 24,
+      "character": 21
+     },
+     "end": {
+      "line": 24,
+      "character": 32
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n16",
+   "kind": "assume constraint",
+   "name": "MixedMemberships::Safety::primedPump",
+   "type": "",
+   "detail": "",
+   "parent": "n4",
+   "fqn": "MixedMemberships::Safety::primedPump",
+   "declaredHere": true,
+   "notation": "assume constraint",
+   "owners": [
+    {
+     "fqn": "MixedMemberships::Safety",
+     "feature": false
+    },
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 25,
+      "character": 2
+     },
+     "end": {
+      "line": 25,
+      "character": 39
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 25,
+      "character": 20
+     },
+     "end": {
+      "line": 25,
+      "character": 30
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n17",
+   "kind": "assert constraint",
+   "name": "MixedMemberships::Safety::sealed",
+   "type": "",
+   "detail": "",
+   "parent": "n4",
+   "fqn": "MixedMemberships::Safety::sealed",
+   "declaredHere": true,
+   "notation": "assert constraint",
+   "owners": [
+    {
+     "fqn": "MixedMemberships::Safety",
+     "feature": false
+    },
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 26,
+      "character": 2
+     },
+     "end": {
+      "line": 26,
+      "character": 35
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 26,
+      "character": 20
+     },
+     "end": {
+      "line": 26,
+      "character": 26
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n5",
+   "kind": "frame",
+   "name": "contained",
+   "type": "",
+   "detail": "",
+   "parent": "n4",
+   "fqn": "MixedMemberships::Safety::contained",
+   "declaredHere": true,
+   "notation": "frame",
+   "owners": [
+    {
+     "fqn": "MixedMemberships::Safety",
+     "feature": false
+    },
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 27,
+      "character": 2
+     },
+     "end": {
+      "line": 27,
+      "character": 40
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 27,
+      "character": 16
+     },
+     "end": {
+      "line": 27,
+      "character": 25
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n6",
+   "kind": "view",
+   "name": "memberships",
+   "type": "",
+   "detail": "",
+   "parent": "n0",
+   "fqn": "MixedMemberships::memberships",
+   "declaredHere": true,
+   "notation": "view",
+   "owners": [
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 30,
+      "character": 1
+     },
+     "end": {
+      "line": 33,
+      "character": 2
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 30,
+      "character": 6
+     },
+     "end": {
+      "line": 30,
+      "character": 17
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "id": "n7",
+   "kind": "view",
+   "name": "membershipsLayout",
+   "type": "",
+   "detail": "",
+   "parent": "n0",
+   "fqn": "MixedMemberships::membershipsLayout",
+   "declaredHere": true,
+   "notation": "view",
+   "owners": [
+    {
+     "fqn": "MixedMemberships",
+     "feature": false
+    }
+   ],
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 35,
+      "character": 1
+     },
+     "end": {
+      "line": 40,
+      "character": 2
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 35,
+      "character": 6
+     },
+     "end": {
+      "line": 35,
+      "character": 23
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  }
+ ],
+ "edges": [
+  {
+   "from": "n0",
+   "to": "n1",
+   "label": "",
+   "kind": "containment",
+   "fqn": "MixedMemberships::Library",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 4,
+      "character": 1
+     },
+     "end": {
+      "line": 7,
+      "character": 2
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 4,
+      "character": 9
+     },
+     "end": {
+      "line": 4,
+      "character": 16
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n1",
+   "to": "n2",
+   "label": "",
+   "kind": "containment",
+   "fqn": "MixedMemberships::Library::Pressure",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 5,
+      "character": 2
+     },
+     "end": {
+      "line": 5,
+      "character": 25
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 5,
+      "character": 16
+     },
+     "end": {
+      "line": 5,
+      "character": 24
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n1",
+   "to": "n8",
+   "label": "",
+   "kind": "containment",
+   "fqn": "MixedMemberships::Library::FluidPort",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 6,
+      "character": 2
+     },
+     "end": {
+      "line": 6,
+      "character": 21
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 6,
+      "character": 11
+     },
+     "end": {
+      "line": 6,
+      "character": 20
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n0",
+   "to": "n9",
+   "label": "",
+   "kind": "containment",
+   "fqn": "MixedMemberships::Impeller",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 9,
+      "character": 1
+     },
+     "end": {
+      "line": 9,
+      "character": 19
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 9,
+      "character": 10
+     },
+     "end": {
+      "line": 9,
+      "character": 18
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n0",
+   "to": "n10",
+   "label": "",
+   "kind": "containment",
+   "fqn": "MixedMemberships::Pump",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 11,
+      "character": 1
+     },
+     "end": {
+      "line": 19,
+      "character": 2
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 11,
+      "character": 10
+     },
+     "end": {
+      "line": 11,
+      "character": 14
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n10",
+   "to": "n18",
+   "label": "",
+   "kind": "reference",
+   "fqn": "MixedMemberships::Pump::pressure",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 12,
+      "character": 2
+     },
+     "end": {
+      "line": 12,
+      "character": 41
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 12,
+      "character": 12
+     },
+     "end": {
+      "line": 12,
+      "character": 20
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n10",
+   "to": "n11",
+   "label": "",
+   "kind": "reference",
+   "fqn": "MixedMemberships::Pump::outlet",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 13,
+      "character": 2
+     },
+     "end": {
+      "line": 13,
+      "character": 35
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 13,
+      "character": 7
+     },
+     "end": {
+      "line": 13,
+      "character": 13
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n10",
+   "to": "n12",
+   "label": "",
+   "kind": "composition",
+   "fqn": "MixedMemberships::Pump::impeller",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 14,
+      "character": 2
+     },
+     "end": {
+      "line": 14,
+      "character": 27
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 14,
+      "character": 7
+     },
+     "end": {
+      "line": 14,
+      "character": 15
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n10",
+   "to": "n13",
+   "label": "",
+   "kind": "reference",
+   "fqn": "MixedMemberships::Pump::spare",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 15,
+      "character": 2
+     },
+     "end": {
+      "line": 15,
+      "character": 28
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 15,
+      "character": 11
+     },
+     "end": {
+      "line": 15,
+      "character": 16
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n10",
+   "to": "n19",
+   "label": "",
+   "kind": "composition",
+   "fqn": "MixedMemberships::Pump::prime",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 16,
+      "character": 2
+     },
+     "end": {
+      "line": 16,
+      "character": 15
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 16,
+      "character": 9
+     },
+     "end": {
+      "line": 16,
+      "character": 14
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n10",
+   "to": "n20",
+   "label": "",
+   "kind": "composition",
+   "fqn": "MixedMemberships::Pump::armed",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 17,
+      "character": 2
+     },
+     "end": {
+      "line": 17,
+      "character": 14
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 17,
+      "character": 8
+     },
+     "end": {
+      "line": 17,
+      "character": 13
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n10",
+   "to": "n14",
+   "label": "",
+   "kind": "containment",
+   "fqn": "MixedMemberships::Pump::Seal",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 18,
+      "character": 2
+     },
+     "end": {
+      "line": 18,
+      "character": 16
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 18,
+      "character": 11
+     },
+     "end": {
+      "line": 18,
+      "character": 15
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n0",
+   "to": "n3",
+   "label": "",
+   "kind": "containment",
+   "fqn": "MixedMemberships::Containment",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 21,
+      "character": 1
+     },
+     "end": {
+      "line": 21,
+      "character": 25
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 21,
+      "character": 13
+     },
+     "end": {
+      "line": 21,
+      "character": 24
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n0",
+   "to": "n4",
+   "label": "",
+   "kind": "containment",
+   "fqn": "MixedMemberships::Safety",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 23,
+      "character": 1
+     },
+     "end": {
+      "line": 28,
+      "character": 2
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 23,
+      "character": 17
+     },
+     "end": {
+      "line": 23,
+      "character": 23
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n4",
+   "to": "n15",
+   "label": "require",
+   "kind": "require",
+   "fqn": "MixedMemberships::Safety::minPressure",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 24,
+      "character": 2
+     },
+     "end": {
+      "line": 24,
+      "character": 41
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 24,
+      "character": 21
+     },
+     "end": {
+      "line": 24,
+      "character": 32
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n4",
+   "to": "n16",
+   "label": "assume",
+   "kind": "assume",
+   "fqn": "MixedMemberships::Safety::primedPump",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 25,
+      "character": 2
+     },
+     "end": {
+      "line": 25,
+      "character": 39
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 25,
+      "character": 20
+     },
+     "end": {
+      "line": 25,
+      "character": 30
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n4",
+   "to": "n17",
+   "label": "assert",
+   "kind": "assert",
+   "fqn": "MixedMemberships::Safety::sealed",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 26,
+      "character": 2
+     },
+     "end": {
+      "line": 26,
+      "character": 35
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 26,
+      "character": 20
+     },
+     "end": {
+      "line": 26,
+      "character": 26
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n4",
+   "to": "n5",
+   "label": "frame",
+   "kind": "frame",
+   "fqn": "MixedMemberships::Safety::contained",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 27,
+      "character": 2
+     },
+     "end": {
+      "line": 27,
+      "character": 40
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 27,
+      "character": 16
+     },
+     "end": {
+      "line": 27,
+      "character": 25
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n0",
+   "to": "n6",
+   "label": "",
+   "kind": "composition",
+   "fqn": "MixedMemberships::memberships",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 30,
+      "character": 1
+     },
+     "end": {
+      "line": 33,
+      "character": 2
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 30,
+      "character": 6
+     },
+     "end": {
+      "line": 30,
+      "character": 17
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n0",
+   "to": "n7",
+   "label": "",
+   "kind": "composition",
+   "fqn": "MixedMemberships::membershipsLayout",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 35,
+      "character": 1
+     },
+     "end": {
+      "line": 40,
+      "character": 2
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 35,
+      "character": 6
+     },
+     "end": {
+      "line": 35,
+      "character": 23
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n5",
+   "to": "n3",
+   "label": "",
+   "kind": "typing",
+   "fqn": "MixedMemberships::Safety::contained",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 27,
+      "character": 2
+     },
+     "end": {
+      "line": 27,
+      "character": 40
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 27,
+      "character": 16
+     },
+     "end": {
+      "line": 27,
+      "character": 25
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n11",
+   "to": "n8",
+   "label": "",
+   "kind": "typing",
+   "fqn": "MixedMemberships::Pump::outlet",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 13,
+      "character": 2
+     },
+     "end": {
+      "line": 13,
+      "character": 35
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 13,
+      "character": 7
+     },
+     "end": {
+      "line": 13,
+      "character": 13
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n12",
+   "to": "n9",
+   "label": "",
+   "kind": "typing",
+   "fqn": "MixedMemberships::Pump::impeller",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 14,
+      "character": 2
+     },
+     "end": {
+      "line": 14,
+      "character": 27
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 14,
+      "character": 7
+     },
+     "end": {
+      "line": 14,
+      "character": 15
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n13",
+   "to": "n9",
+   "label": "",
+   "kind": "typing",
+   "fqn": "MixedMemberships::Pump::spare",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 15,
+      "character": 2
+     },
+     "end": {
+      "line": 15,
+      "character": 28
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 15,
+      "character": 11
+     },
+     "end": {
+      "line": 15,
+      "character": 16
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  },
+  {
+   "from": "n18",
+   "to": "n2",
+   "label": "",
+   "kind": "typing",
+   "fqn": "MixedMemberships::Pump::pressure",
+   "origin": {
+    "uri": "file:///home/ubuntu/probe/ws/mixed-memberships.sysml",
+    "range": {
+     "start": {
+      "line": 12,
+      "character": 2
+     },
+     "end": {
+      "line": 12,
+      "character": 41
+     }
+    },
+    "selectionRange": {
+     "start": {
+      "line": 12,
+      "character": 12
+     },
+     "end": {
+      "line": 12,
+      "character": 20
+     }
+    },
+    "digest": "3ce3c36bd06283ad4e151a5dddad0eb8"
+   }
+  }
+ ],
+ "notices": [],
+ "version": 1
+}

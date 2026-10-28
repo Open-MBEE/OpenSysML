@@ -2,13 +2,13 @@ NotationGlyphs::Diagrams::treeGlyphs - tree rendering (the view states no render
 
 part def Plant
   part tank
-    attribute level
+    attribute ^level
   part pump
   timeslice filling
   snapshot full
   occurrence startup
   part spare
-    attribute level
+    attribute ^level
 view tankView
 part def Tank
   attribute level

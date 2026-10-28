@@ -103,7 +103,14 @@ func (r *Renderer) treeDescendants(view, sym *symbols.Symbol, members func(*symb
 		defer leave(path, added)
 		folded := depth >= bound || r.collapsedIn(view, sym)
 		for _, member := range members(sym) {
-			if recursive != nil && member.Owner() != sym || folded && !pinnedAt(sym, member) {
+			if recursive != nil && member.Owner() != sym {
+				continue
+			}
+			if treeParameter(sym, member) {
+				out[symbols.KeyOf(member)] = true
+				continue
+			}
+			if folded && !pinnedAt(sym, member) {
 				continue
 			}
 			out[symbols.KeyOf(member)] = true
@@ -164,12 +171,17 @@ func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, path expans
 	if recursive != nil {
 		node.Detail = detailWith(node.Detail, recursionNote(recursive))
 	}
-	// At the depth bound, or collapsed, an element keeps its ports and pins — they
-	// count at their owner's depth — and nothing else nested is drawn.
+	// A parameter is a pin of its owner's node, drawn at every depth. At the depth
+	// bound, or collapsed, an element keeps its ports and pins — they count at
+	// their owner's depth — and nothing else nested is drawn.
 	bound, cut := r.walkBound(view), 0
 	folded := depth >= bound || collapsed(node)
 	for _, member := range r.walkMembers(view, sym) {
 		if recursive != nil && member.Owner() != sym {
+			continue
+		}
+		if treeParameter(sym, member) {
+			r.pinParameter(view, node, sym, member, out)
 			continue
 		}
 		if folded && !pinnedAt(sym, member) {
@@ -179,7 +191,7 @@ func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, path expans
 			continue
 		}
 		child := r.treeNode(view, member, ids, path, depth+1, false, out)
-		child.FromType = member.Owner() != sym
+		child.Inherited = member.Owner() != sym
 		node.Children = append(node.Children, child)
 	}
 	if cut > 0 {

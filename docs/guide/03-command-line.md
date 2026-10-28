@@ -370,10 +370,11 @@ version-control package URL (`pkg:git/`, `pkg:svn/`, `pkg:hg/`) or a plain URL, 
 `pkg:git/github.com/MBSE4U/sysmod-sysmlv2` for the project `mbse4u/sysmod` — is linked by
 elimination once every usage has had its say: of the installed projects no usage
 claims (another version of a claimed project counts as claimed), those satisfying its
-constraint, when they are all one project, at the highest such version. When several
-projects are left it, the usage selects nothing and a warning — one `-warnings-as-errors`
-judges as any other — names each candidate and the publisher/name the resource should end
-with; a later usage of the same repository takes the project so learnt, at its own version.
+constraint, when they are all one project, at the highest such version. The link is a
+warning on the consumer's `.project.json` — one `-warnings-as-errors` judges as any other —
+naming the project taken and the publisher/name the resource should end with to name it. When
+several projects are left it, the usage selects nothing and the warning names each candidate
+instead; a later usage of the same repository takes the project so learnt, at its own version.
 A usage that names a project (`pkg:registry/acme/gears`, `pkg:sysand/acme/gears`) is matched by
 name alone and stays unresolved when that project is not installed; the standard library's
 usages are never linked to anything installed. OpenSysML reads what any package manager that follows KerML 10.3 project interchange
@@ -432,7 +433,10 @@ project is reported as such), `name` and `version` must be present, every usage 
 `resource`, the index and the checksums must name members, and every checksum whose
 algorithm this build computes is verified. A malformed archive named on the command line is
 refused with the reason; one found under a library root is a warning on its path and the
-load goes on without it.
+load goes on without it. Two shortfalls are read through and warned about on the archive's
+path rather than refused: an archive holding the project's folder with the manifests inside
+it, as the OMG library releases are laid out, is read as the project in that folder; and an
+index entry naming no member is passed over for what the members themselves declare.
 
 `-bundle` writes a project directory as an archive and `-unbundle` writes one back:
 
@@ -445,11 +449,21 @@ wrote widgets (Widgets 1.0.0, 4 files)
 
 Without `-o` the archive is named `<name>-<version>.kpar` after the project, and the
 directory `<name>-<version>`. The archive's members are sorted and carry a fixed timestamp,
-so bundling the same directory twice gives the same bytes; a `.meta.json` the directory has
-is kept (and its checksums verified), and one it lacks is generated with the index, a SHA256
-checksum per file and a creation time of `SOURCE_DATE_EPOCH` when that is set. Hidden
-directories such as `.git` and `.sysand` stay out of the archive. `-unbundle` writes into a
-new or empty directory only, so an archive never overwrites a file.
+so bundling the same directory twice gives the same bytes. Which files are members is the
+project's `.meta.json`'s to say: a directory that has one is archived as the two manifests
+plus exactly the files the metadata records — every `checksum` key and every `index` target,
+at their recorded paths — so a repository's README, scripts, caches and version-control
+metadata stay out unless recorded, and a recorded file missing from the tree is an error
+naming it (`.meta.json records LICENSE, which is not in the directory`). The kept `.meta.json`
+is verified on the way: a recorded checksum that no longer matches refuses the bundle. A
+directory without a `.meta.json` is archived as KerML 10.3 describes a project archive — its
+`.project.json` and its model files (`.sysml`, `.kerml`), outside hidden entries, library
+directories (`lib/`, `.sysand/lib`) and nested projects — and the `.meta.json` is generated
+with the index, a SHA256 checksum per member and a creation time of `SOURCE_DATE_EPOCH` when
+that is set; to carry a license or any other file, record it in a `.meta.json` of your own.
+An archive another tool wrote re-bundles from its unbundled directory to the files its
+`.meta.json` records. `-unbundle` writes into a new or empty directory only, so an archive
+never overwrites a file.
 
 ## Running behavior
 
@@ -491,9 +505,11 @@ $ sysml -state MyModel::Monitor -advance 15 checks.sysml
 
 A calculation's result and an action's parameters print in brackets because a feature holds a
 number of values bounded by its multiplicity (KerML 8.4.4.12.1), which these surfaces report as a
-sequence: `[80.0]` is the one-element sequence a result of multiplicity `1` holds, and a result of
-multiplicity `0..*` prints every element the same way. `-e` on a plain attribute still prints the
-scalar it holds. Up to 0.10.x these surfaces unwrapped a one-element result to its scalar.
+sequence: `[80.0]` is the one-element sequence a result that states no multiplicity holds, and a
+result of multiplicity `0..*` prints every element the same way. `-e` on a plain attribute still
+prints the scalar it holds. Up to 0.10.x these surfaces unwrapped a one-element result to its
+scalar. Why a bare `return` holds a sequence, and the `return : Real[1]` spelling that prints one
+value bare, are explained in [What a result line shows](04-repl.md#what-a-result-line-shows).
 
 An analysis case is a calculation performed as an action, so `-analysis` runs it the way
 `-calc` invokes a calc and `-requirement` checks a requirement: it names the case, optionally

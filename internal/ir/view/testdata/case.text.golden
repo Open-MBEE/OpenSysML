@@ -5,8 +5,8 @@ subject vehicle
 actor driver
 objective (Transport the vehicle and its passengers safely.)
 use case addFuel
-actor fueler
-subject vehicle
+actor ^fueler
+subject ^vehicle
 include use case 'enter vehicle'
 subject vehicle
 actor driver

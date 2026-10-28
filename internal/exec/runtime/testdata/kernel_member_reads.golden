@@ -441,9 +441,9 @@ withoutOccurrences: empty
 
 # Probe::a (unperformed action usage)
 differencesOf: empty
-dispatchScope: undetermined <undetermined>
+dispatchScope: object of Probe::a
 done: undetermined <undetermined>
-enclosedPerformances: undetermined <undetermined>
+enclosedPerformances: collection of 2
 immediatePredecessors: empty
 immediateSuccessors: empty
 incomingTransferSort: undetermined <undetermined>
@@ -465,13 +465,13 @@ outgoingTransfers: empty
 outgoingTransfersFromSelf: undetermined <undetermined>
 outsideOfOccurrences: empty
 performers: empty
-portionOf: undetermined <undetermined>
-portionOfLife: undetermined <undetermined>
+portionOf: collection of 1
+portionOfLife: object of Probe::a
 portions: undetermined <undetermined>
-predecessors: undetermined <undetermined>
-runToCompletionScope: undetermined <undetermined>
-sameLifeOccurrences: undetermined <undetermined>
-self: undetermined <undetermined>
+predecessors: empty
+runToCompletionScope: object of Probe::a
+sameLifeOccurrences: collection of 1
+self: object of Probe::a
 snapshotOf: empty
 snapshots: undetermined <undetermined>
 spaceBoundary: null
@@ -481,22 +481,22 @@ spaceInterior: null
 spaceInteriorOf: null
 spaceShotOf: empty
 spaceShots: undetermined <undetermined>
-spaceSliceOf: undetermined <undetermined>
-spaceSlices: undetermined <undetermined>
-spaceTimeCoincidentOccurrences: undetermined <undetermined>
+spaceSliceOf: collection of 1
+spaceSlices: collection of 1
+spaceTimeCoincidentOccurrences: collection of 1
 spaceTimeEnclosedOccurrences: undetermined <undetermined>
 spaceTimeEnclosedPoints: undetermined <undetermined>
-start: undetermined <undetermined>
-suboccurrences: undetermined <undetermined>
-subperformances: undetermined <undetermined>
+start: object of Probe::a
+suboccurrences: collection of 2
+subperformances: collection of 2
 successors: undetermined <undetermined>
 superoccurrence: null
 surroundedByOccurrences: empty
-this: undetermined <undetermined>
-thisPerformance: undetermined <undetermined>
-timeCoincidentOccurrences: undetermined <undetermined>
+this: object of Probe::a
+thisPerformance: object of Probe::a
+timeCoincidentOccurrences: collection of 1
 timeEnclosedOccurrences: undetermined <undetermined>
-timeSliceOf: undetermined <undetermined>
+timeSliceOf: collection of 1
 timeSlices: undetermined <undetermined>
 unionsOf: empty
 withoutOccurrences: empty

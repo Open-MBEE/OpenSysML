@@ -87,7 +87,13 @@ features can take, `satisfiable` finds one. A `Verdict` answers it through `Ques
 (`holds` | `violated` | `undecided` | `satisfiable` | `unsatisfiable`), and a violated or
 satisfiable answer carries `Witness`, the free features' replayed values with their units and exact
 spellings; undecided names the reason and reports `ReasonUndecided`. A question other than evaluate
-needs the `verification_questions` capability, checked before anything is sent.
+needs the `verification_questions` capability, checked before anything is sent. A solver's answer
+also carries `Notes`, what it rests on, in the order the REPL's `%check` prints them: a feature the
+question reads as one value or object while only the default `0..*` multiplicity governs it (kind
+`assumed_one`, `Assuming Tanks::Tank::level holds one value: it declares no multiplicity, so the
+default [0..*] governs it`), and an object-holding feature whose own assertions the question does
+not state (kind `uncovered`). Each note names its `Subject` and carries its `Text`; an evaluation
+carries none, and so does a service without the `verdict_notes` capability.
 
 `VerifyConstraint` and `VerifyRequirement` also take `VerifyArguments(values...)` and
 `VerifyArgument(name, value)`, binding the element's `in` parameters positionally in declaration
@@ -1649,4 +1655,4 @@ Test fixtures in `testdata/*.sysml`.
 - **[ARCHITECTURE.md](../internals/architecture.md)** — System architecture and design decisions
 - **[the guide](../guide/)** — Getting started guide
 - **[Wire contract](wire-contract.md)** — Connect + JSON field by field, for a client with no generated library
-- **[OMG SysML v2.1 Beta 1 Spec](https://www.omg.org/spec/SysML/2.0)** — Language specification (2026-08 release)
+- **[OMG SysML v2.1 Beta 1 Spec](https://www.omg.org/spec/SysML/2.0)** — Language specification (2026-09 release)

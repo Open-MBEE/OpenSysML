@@ -46,7 +46,7 @@ func TestLayoutSizedTypedPortsAreThePartsPins(t *testing.T) {
 	boxes := pinnedBoxes(t, dot)
 	portSquare(t, boxes, out, Point{X: 265, Y: 180 + dotPinSize/2})
 	portSquare(t, boxes, in, Point{X: 265, Y: 240 - dotPinSize/2})
-	for _, name := range []string{`"tx"`, `"rx"`} {
+	for _, name := range []string{`"^tx"`, `"^rx"`} {
 		if got := strings.Count(dot, "xlabel="+name); got != 1 {
 			t.Errorf("DOT names the port %s %d times, want once beside its square:\n%s", name, got, dot)
 		}
@@ -161,7 +161,7 @@ func TestAnExposedUnconnectedPortIsDrawnUnderTheMinimalDisplay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Count(dot, `xlabel="tap"`); got != 1 {
+	if got := strings.Count(dot, `xlabel="^tap"`); got != 1 {
 		t.Errorf("DOT names the exposed port %d times, want once:\n%s", got, dot)
 	}
 	portSquare(t, pinnedBoxes(t, dot), probe.Ports[0].ID, Point{X: 340 + dotPinSize/2, Y: 100})

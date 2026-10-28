@@ -833,3 +833,13 @@ test("avoidRoutes keeps randomized port endpoints on their faces with perpendicu
     sample++;
   }
 });
+
+test("routingPinPositions pins a flush port on the border itself and grows the routing box for none", () => {
+  const box = { x: 0, y: 0, width: 100, height: 50 };
+  const pins = routingPinPositions({ box, ports: [{ id: "a/3", side: "south", offset: 0.3, flush: true }] });
+  const flush = pins.find((pin) => pin.id === "a/3")!;
+  assert.deepEqual({ x: flush.x, y: flush.y, side: flush.side }, { x: 0.3, y: 1, side: "south" });
+  assert.ok(pins.filter((pin) => pin.id === undefined && pin.side === "south").every((pin) => pin.y === 1));
+  const squared = routingPinPositions({ box, ports: [{ id: "p", side: "south", offset: 0.3 }] });
+  assert.ok(squared.find((pin) => pin.id === "p")!.y === 1 && squared.find((pin) => pin.id === undefined && pin.side === "south")!.y < 1);
+});

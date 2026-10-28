@@ -17,9 +17,9 @@ be put to the specification authors. Items are ranked by modeler impact:
 **silent wrong results > spurious errors > missed diagnostics > cosmetic**.
 
 **Pilot:** [SysML v2 Pilot Implementation](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation)
-release `2026-08`, commit `692170b71867353b8f90341e61556f49a5beb0e5` — the pin in
+release `2026-09`, commit `38665073bbf02849bd309b106eba79cbb3a1ee1d` — the pin in
 `scripts/pilot-pin.sh`. Where a source record observed an earlier release (`2026-05`, `2026-07`),
-the item says so; those observations have not been re-run against `2026-08` for this register
+the item says so; those observations have not been re-run against `2026-09` for this register
 unless stated.
 
 **Specification text:** the clause numbers and quotations below were taken from the OMG
@@ -75,7 +75,7 @@ turned out to rest on a clause after all — retained so it is not re-audited).
 | 26 | — | Five validation constraints the pilot source marks `TODO` | implemented under the `TODO` | implemented | no difference; the `TODO`s are stale |
 | 27 | Spurious error | An explicitly declared subject or return parameter of a variation usage | accepted: every `ParameterMembership` is exempt | rejected: only objectives are exempt | spec clear (`validateUsageVariationOwnedFeatureMembership`), both short for objectives; pilot short for parameters |
 | 28 | Cosmetic | A negative model-level-evaluable multiplicity bound (KERML-199) | rejected, by a `-2` marker the OCL does not have | rejected | spec OCL short of its prose; both follow the prose |
-| 29 | Missed diagnostic | A connection or flow definition whose end features, inherited ones included, are KerML features (`abstract connection def B :> Links::BinaryLink;`) | accepts (2026-08); rejected on master (ST6RI-974) | rejected (`connection-def-end-not-usage`, `flow-def-end-not-usage`), with the standard library's `Flows::Message` repaired by three declared errata | spec clear (SysML v2.1 Beta 2 §8.3.13.3, §8.3.16.2); pilot short at the pin, caught up on master |
+| 29 | Missed diagnostic | A connection or flow definition whose end features, inherited ones included, are KerML features (`abstract connection def B :> Links::BinaryLink;`) | rejects since 2026-09 (`validateConnectionDefinitionEndsAreUsages`, `validateFlowDefinitionEndsAreUsages`, ST6RI-974); accepted at 2026-08 | rejected (`connection-def-end-not-usage`, `flow-def-end-not-usage`); the standard library's `Flows::Message` is repaired upstream in the 2026-09 library | spec clear (SysML v2.1 Beta 2 §8.3.13.3, §8.3.16.2); closed, both reject |
 
 Grouped inventories follow the detailed items: [the `spec-compliance.md` rows whose
 justification is the pilot or nothing](#inventory-a--spec-compliancemd-rows-justified-by-the-pilot-or-by-nothing),
@@ -1453,8 +1453,9 @@ allocation definitions and `flow-def-end-not-usage` on flow definitions, once at
 counterparts stay clean. `abstract allocation def ABin :> Links::BinaryLink;` is clean on both
 sides: an allocation definition specializes `Allocations::Allocation`, a `BinaryConnection` whose
 usage ends redefine `BinaryLink`'s. `abstract connection def CLink :> Links::Link;` is clean too:
-`Link::participant` is a plain feature, so the definition has no end at all. The library repair is
-carried by the declared errata overlay (`Flows-46`, `Flows-99`, `Flows-103`, [omg-issues.md](omg-issues.md#defects-in-the-vendored-systems-library)).
+`Link::participant` is a plain feature, so the definition has no end at all. The library repair the
+errata overlay carried as `Flows-46`, `Flows-99` and `Flows-103` is published in the `2026-09` library, so
+those entries are retired ([omg-issues.md](omg-issues.md#defects-in-the-vendored-systems-library)).
 
 **Specification:** SysML v2.1 Beta 2 §8.3.13.3 ConnectionDefinition, "The end Features of a
 ConnectionDefinition must be Usages", `/connectionEnd : Usage [0..*] {redefines associationEnd,

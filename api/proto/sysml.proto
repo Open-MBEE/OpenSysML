@@ -217,6 +217,25 @@ message Verdict {
   // satisfiable one: the query's free variables, in query order. Never set
   // for an undecided answer. Reported as the "verification_questions" capability.
   repeated WitnessAssignment witness = 17;
+  // What the answer rests on, as the REPL's solver reports print it: the
+  // features the question reads as one value or object while only the default
+  // `0..*` multiplicity governs them, and the object-holding features whose own
+  // assertions it does not state. In report order; never set by an evaluation.
+  // Reported as the "verdict_notes" capability.
+  repeated VerdictNote notes = 18;
+}
+
+// VerdictNote is one assumption or omission behind a Verdict, worded once for
+// every surface.
+message VerdictNote {
+  // "assumed_one" (a feature read as holding one value or object while only the
+  // default `0..*` governs it) or "uncovered" (an object-holding feature whose
+  // own assertions the question does not state).
+  string kind = 1;
+  // The feature the note is about, as the report names it.
+  string subject = 2;
+  // The note as a sentence.
+  string text = 3;
 }
 
 // WitnessAssignment is one free variable's value in a witnessed assignment:
@@ -2880,6 +2899,53 @@ message RunDocumentQueryResponse {
   repeated DocumentQueryRow rows = 2;
 }
 
+// QueryOutcome is the record behind a document query that could not be run, an error
+// detail of the failed call: a pathError or modelError at its step, as -json's checks[].outcome.
+message QueryOutcome {
+  string kind = 1;    // "pathError" or "modelError"
+  string step = 2;    // the step the outcome is reported at, as "Named(Observatory::x)"
+  repeated QueryFailure failures = 3;        // a pathError's failures, one per failing element
+  repeated QueryFinding findings = 4;        // a modelError's findings
+  repeated QueryFailure path_failures = 5;   // a modelError's path failures from the same fan-out
+}
+
+// QueryFailure is one failure of one step on one element: what the step
+// expected, and what the model holds where the path stopped resolving.
+message QueryFailure {
+  string step = 1;
+  string expected = 2;
+  QueryFrontier frontier = 3;
+}
+
+// QueryFrontier is what the model holds where the path stopped: the last
+// element that resolved and what it offers in place of what was asked.
+message QueryFrontier {
+  string at = 1;                               // empty when nothing on the path resolved
+  repeated QueryFrontierMember members = 2;    // its members, when a name was expected
+  repeated QueryFrontierFeature features = 3;  // its features, when a feature was expected
+  repeated string kinds = 4;                   // the relationship kinds there are, when a kind was expected
+  string nearest = 5;                          // the closest spelling, when a name was expected
+}
+
+message QueryFrontierMember {
+  string name = 1;
+  string metaclass = 2;
+}
+
+message QueryFrontierFeature {
+  string name = 1;
+  string type = 2;  // empty for an untyped feature
+}
+
+// QueryFinding is one finding about an element at a step: a constraint the
+// model violates (ambiguousName, multiplicity, typing, unit) and what was observed.
+message QueryFinding {
+  string step = 1;
+  string element = 2;
+  string constraint = 3;
+  string observed = 4;
+}
+
 // RenderDocumentRequest renders a named document — a part def specializing
 // DocumentQueries::Document — to Markdown or HTML. A document binds its
 // queries' parameters in the model, so the request carries none.
@@ -2971,6 +3037,10 @@ message RenderNode {
   // The compartment of the parent node this node is drawn as a row of
   // ("attributes", "parts", "ports", ...); unset for a node drawn as a box.
   string compartment = 14;
+  // The owner the node is drawn or listed under has the usage through typing,
+  // subclassification or subsetting rather than declares it; the notation
+  // prefixes its name with `^`. `name` stays the bare name.
+  bool inherited = 15;
 }
 
 // RenderPort is a feature drawn on a node's border.
@@ -2979,6 +3049,8 @@ message RenderPort {
   string name = 2;
   string type = 3;
   string direction = 4;
+  // The node's owner has the port from its type rather than declares it; drawn with a `^` before `name`.
+  bool inherited = 5;
 }
 
 // RenderEdge joins two rendered nodes and may connect their ports.

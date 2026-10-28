@@ -46,27 +46,27 @@ rectangle "<size:10>//«requirement def»//</size>\n**LevelReq**" as n0 <<requir
 rectangle "<size:10>//«requirement»//</size>\n**NotationGlyphs::levelReq**" as n2 <<requirement>> <<usage>>
 rectangle "<size:10>//«requirement»//</size>\n**capacity**" as n3 <<requirement>> <<usage>> {
   rectangle "<size:10>//«require constraint»//</size>\n**capacity::levelReq**" as n5 <<require constraint>> <<usage>> {
-    rectangle "<size:10>//«subject»//</size>\n**plant**" as n6 <<subject>> <<usage>> {
-      rectangle "<size:10>//«part»//</size>\n**tank**" as n7 <<part>> <<usage>>
-      rectangle "<size:10>//«part»//</size>\n**pump**" as n8 <<part>> <<usage>>
-      rectangle "<size:10>//«part»//</size>\n**spare**" as n9 <<part>> <<usage>>
+    rectangle "<size:10>//«subject»//</size>\n**^plant**" as n6 <<subject>> <<usage>> {
+      rectangle "<size:10>//«part»//</size>\n**^tank**" as n7 <<part>> <<usage>>
+      rectangle "<size:10>//«part»//</size>\n**^pump**" as n8 <<part>> <<usage>>
+      rectangle "<size:10>//«part»//</size>\n**^spare**" as n9 <<part>> <<usage>>
     }
-    rectangle "<size:10>//«require constraint»//</size>\n**keepLevel**" as n10 <<require constraint>> <<usage>>
-    rectangle "<size:10>//«assume constraint»//</size>\n**lowLevel**" as n11 <<assume constraint>> <<usage>>
-    rectangle "<size:10>//«require constraint»//</size>\n**bounded**" as n12 <<require constraint>> <<usage>> {
-      port "x" as n12.0
+    rectangle "<size:10>//«require constraint»//</size>\n**^keepLevel**" as n10 <<require constraint>> <<usage>>
+    rectangle "<size:10>//«assume constraint»//</size>\n**^lowLevel**" as n11 <<assume constraint>> <<usage>>
+    rectangle "<size:10>//«require constraint»//</size>\n**^bounded**" as n12 <<require constraint>> <<usage>> {
+      port "^x" as n12.0
     }
-    rectangle "<size:10>//«assume constraint»//</size>\n**tight**" as n13 <<assume constraint>> <<usage>> {
-      port "x" as n13.0
+    rectangle "<size:10>//«assume constraint»//</size>\n**^tight**" as n13 <<assume constraint>> <<usage>> {
+      port "^x" as n13.0
     }
   }
   rectangle "<size:10>//«assert constraint»//</size>\n**asserted**" as n14 <<assert constraint>> <<usage>>
 }
 rectangle "<size:10>//«constraint»//</size>\n**NotationGlyphs::bounded**" as n15 <<constraint>> <<usage>> {
-  port "x" as n15.0
+  port "^x" as n15.0
 }
 rectangle "<size:10>//«constraint»//</size>\n**NotationGlyphs::tight**" as n16 <<constraint>> <<usage>> {
-  port "x" as n16.0
+  port "^x" as n16.0
 }
 rectangle "<size:10>//«view»//</size>\n**tankView**" as n4 <<view>> <<usage>>
 rectangle "<size:10>//«part def»//</size>\n**Tank**" as n17 <<part def>> {

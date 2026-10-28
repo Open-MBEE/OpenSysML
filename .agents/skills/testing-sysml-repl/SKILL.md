@@ -1707,10 +1707,12 @@ And prove "never listened" with `ss -ltn`, since an exit code alone does not. Tw
 real time:
 
 - `-port 0` makes the *resolved* port observable only in the log line
-  `msg="gRPC server listening" addr=[::]:<port>`. The `-health-port 0` line logs the literal
-  `addr=:0`, so a naive `grep -o 'addr=[^ ]*' | head -1` grabs the health line and you dial port 0
-  ("Connection refused"). Always filter on `gRPC server listening` first, and take the port with
-  `${ADDR##*:}` — `cut -d: -f3` yields `]` for `[::]:41325`.
+  `msg="Connect server listening" addr=127.0.0.1:<port>` (`gRPC server listening` under
+  `-transport grpc`; loopback, since the service binds `localhost` unless `-host` says otherwise,
+  and `-host 0.0.0.0` needs `-token`/`-token-file`/`OPENSYSML_GRPC_TOKEN` or
+  `-allow-unauthenticated`). The `-health-port 0` line logs the literal `addr=localhost:0`, so a
+  naive `grep -o 'addr=[^ ]*' | head -1` grabs the health line and you dial port 0 ("Connection
+  refused"). Always filter on `server listening` first, and take the port with `${ADDR##*:}`.
 - Expected values at 0cf94e80 for `tests/grpc/testdata/conformance/instantiate_derived_slot.sysml`:
   `mass` → `materialized=True kind=real_value 1500.0`, `doubled` → `real_value 3000.0`; a missing
   model path raises `opensysml.errors.ModelFileNotFoundError` ("file not found: open …") and the
@@ -2894,10 +2896,10 @@ on `main`; the "old" shapes double as A/B canaries against the parent commit.
   naming a missing feature gives
   `<error: connector end cannot be attached: anonymous connector end "a.nope" at <repl>:8:17: member nope not found in instance>`
   — assert the `<repl>:line:col` is present, since that is exactly what the pre-fix path lacked.
-  A connector with multiplicity (`connection multi : Link[2] connect a.p to b.q;`) gives
-  `sys.multi end "multi" at <repl>:8:9: a connector of more than one object has no set of ends to
-  attach` — located too, so assert the `<repl>:line:col` on both. Follow either with `%eval 1 + 1` →
-  `= 2` to show the session survived.
+  A connector with multiplicity (`connection multi : Link[2] connect a.p to b.q;`) is two Links,
+  each with both ends attached (`%eval sys.multi#(2).a == sys.a.p` → `= true`, `size(sys.multi)` →
+  `= 2`), and `[0..*]` an empty `[]`; a `[2]` whose end names a missing feature is refused whole with
+  the same located error. Follow either with `%eval 1 + 1` → `= 2` to show the session survived.
 - **A connector naming itself at an end is `ErrCyclicSlot`, not a hang.** `connection link connect
   link to a.p;` and a mutual pair (`connection here connect there to a.p;` /
   `connection there connect here to a.p;`) both report a cycle.

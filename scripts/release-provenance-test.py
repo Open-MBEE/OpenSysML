@@ -18,10 +18,12 @@ spec.loader.exec_module(provenance)
 
 A = "a" * 64
 B = "b" * 64
+C = "c" * 64
 COMMIT = "0123456789abcdef0123456789abcdef01234567"
 
 MANIFEST = f"""{A}  sysml-linux-amd64.tar.gz
 {B}  opensysml-0.9.0-py3-none-any.whl
+{C}  sysml-linux-amd64.tar.gz.spdx.json
 """
 
 ENV = {
@@ -50,8 +52,13 @@ class SubjectsTest(unittest.TestCase):
             [
                 {"name": "sysml-linux-amd64.tar.gz", "digest": {"sha256": A}},
                 {"name": "opensysml-0.9.0-py3-none-any.whl", "digest": {"sha256": B}},
+                {"name": "sysml-linux-amd64.tar.gz.spdx.json", "digest": {"sha256": C}},
             ],
         )
+
+    def test_an_sbom_the_manifest_lists_is_a_subject_like_any_asset(self):
+        sboms = [s for s in provenance.subjects(MANIFEST) if s["name"].endswith(".spdx.json")]
+        self.assertEqual(sboms, [{"name": "sysml-linux-amd64.tar.gz.spdx.json", "digest": {"sha256": C}}])
 
     def test_blank_lines_and_binary_mode_markers_are_accepted(self):
         self.assertEqual(
@@ -97,7 +104,7 @@ class StatementTest(unittest.TestCase):
         got = provenance.statement(MANIFEST, build())
         self.assertEqual(got["_type"], "https://in-toto.io/Statement/v1")
         self.assertEqual(got["predicateType"], "https://slsa.dev/provenance/v1")
-        self.assertEqual(len(got["subject"]), 2)
+        self.assertEqual(len(got["subject"]), 3)
         definition = got["predicate"]["buildDefinition"]
         self.assertEqual(definition["buildType"], provenance.BUILD_TYPE)
         self.assertEqual(
@@ -151,7 +158,7 @@ class MainTest(unittest.TestCase):
                 self.assertEqual(
                     provenance.main(["--manifest", str(manifest), "--out", str(out)]), 0
                 )
-            self.assertEqual(len(json.loads(out.read_text())["subject"]), 2)
+            self.assertEqual(len(json.loads(out.read_text())["subject"]), 3)
             out.unlink()
             with unittest.mock.patch.dict("os.environ", {}, clear=True):
                 self.assertEqual(

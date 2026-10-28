@@ -57,6 +57,7 @@ var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityVerification:                   "verify_constraint",
 	sysmlgrpc.CapabilityVerificationQuestions:          "verify_constraint",
 	sysmlgrpc.CapabilityVerificationArguments:          "verify_constraint",
+	sysmlgrpc.CapabilityVerdictNotes:                   "verify_constraint",
 	sysmlgrpc.CapabilityVerificationVerdicts:           "verify_requirement",
 	sysmlgrpc.CapabilityCaseEvaluations:                "run_analysis",
 	sysmlgrpc.CapabilityEngines:                        "list_engines",

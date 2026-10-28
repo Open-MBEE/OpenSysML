@@ -113,6 +113,9 @@ func compartmentsOf(rows []*Node) []Compartment {
 func (l labeller) rowText(node *Node) string {
 	prefix, _ := splitRowPrefix(node.Kind)
 	text := shown(node)
+	if text != "" {
+		text = usagePrefix(node.Inherited) + text
+	}
 	if text == "" && node.Type == "" {
 		text = node.Text
 	}

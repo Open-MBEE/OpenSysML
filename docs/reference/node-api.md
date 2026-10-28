@@ -54,7 +54,11 @@ and `Model` both implement `Symbol.asyncDispose`, so `await using` closes them;
 | `version` | the version the service must report, else connecting fails with `StaleServiceError` |
 | `requireCapabilities` | capabilities the service must advertise, else connecting fails |
 
-`$OPENSYSML_SERVICE=host:port` is the environment form of `address`. A connection
+`$OPENSYSML_SERVICE=host:port` is the environment form of `address`, and
+`$OPENSYSML_GRPC_TOKEN` of `token`, the bearer token a service that other
+machines reach requires (`Authorization: Bearer` on every call; a wrong or
+missing one is a `ServiceError` with code `UNAUTHENTICATED`). The browser entry
+takes `token` too, and reads no environment. A connection
 to a service this client did not start is only disconnected from on `close()`,
 never stopped.
 
@@ -131,7 +135,9 @@ the third a field the answer did not carry. `SysMLVerdict`
 (`holds` / `fails` / `undecided`) and `FeatureValue` (`single` / `many` / `error`)
 are unions of the same shape; every verdict arm carries a `standing` (`engine`, `strength`,
 `bounds`, plus `reported` and `reached` — the bounds the engine stopped at),
-empty from a service without the `engines` capability; `CalcResult`,
+empty from a service without the `engines` capability, and the `notes` a solver's answer
+rests on (`VerdictNote`: `kind` `assumed_one` or `uncovered`, `subject`, `text`), empty from
+one without `verdict_notes`; `CalcResult`,
 `AnalysisResult`, `Validation` and `SweepTable` read the same fields through
 `engine`, `strength` and `bounds` getters. Integers are `bigint`,
 because the service's `int64` does not fit a `number` and an exact comparison would

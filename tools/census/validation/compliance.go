@@ -92,7 +92,7 @@ func goValidateFunctions(root string) (map[string]bool, error) {
 			if d.IsDir() || !strings.HasSuffix(path, ".go") {
 				return nil
 			}
-			content, err := os.ReadFile(path) // #nosec G304 -- walking the repository
+			content, err := os.ReadFile(path) // #nosec G304 G122 -- walking the repository
 			if err != nil {
 				return err
 			}

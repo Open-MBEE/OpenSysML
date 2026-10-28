@@ -73,7 +73,10 @@ after v0.10.1). Naming such a tool explicitly on an older release fails instead.
 publishes beside it (see [the signed checksum manifest](../project/releasing.md#the-signed-checksum-manifest)); it needs
 [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) on `PATH`. Without it
 the script still verifies every download against the manifest; the signature additionally
-proves the manifest itself came from the project's CI.
+proves the manifest itself came from the project's CI. The same manifest lists an SPDX
+software bill of materials per asset, `<asset>.spdx.json`, so once the signature is verified
+`sha256sum -c SHA256SUMS.txt --ignore-missing` also vouches for a downloaded SBOM (see
+[the software bills of materials](../project/releasing.md#the-software-bills-of-materials)).
 
 The scripts are [`install.sh`](https://github.com/Open-MBEE/OpenSysML/blob/main/install.sh)
 and [`install.ps1`](https://github.com/Open-MBEE/OpenSysML/blob/main/install.ps1) at the root
@@ -391,7 +394,11 @@ calls `sysml -convert` needs one image. It is built on
 and nothing else — no shell and no package manager.
 
 ```bash
-docker run --rm -p 50051:50051 -p 8081:8081 openmbee/opensysml:latest
+docker run --rm -p 50051:50051 -p 8081:8081 \
+  -e OPENSYSML_GRPC_TOKEN="$(openssl rand -base64 32)" \
+  -v "$PWD/tls:/run/tls:ro" openmbee/opensysml:latest \
+  -host 0.0.0.0 -port 50051 -health-port 8081 \
+  -tls-cert /run/tls/server.crt -tls-key /run/tls/server.key
 curl -fsS http://localhost:8081/health
 # {"service":"sysml-grpc","status":"ok","version":"v0.11.0"}
 ```
@@ -399,14 +406,39 @@ curl -fsS http://localhost:8081/health
 Port 50051 serves gRPC, Connect and gRPC-Web (see
 [Service transports](../reference/service-transports.md)); port 8081 answers
 `GET /health`, which is also served on 50051, so a deployment that probes the
-main port can pass `-health-port 0` and expose one port. The arguments after
-the image name replace the defaults (`-port 50051 -health-port 8081`):
+main port can pass `-health-port 0` and expose one port. The image binds every
+interface of the container (`-host 0.0.0.0`, which is what makes `-p` work),
+and an address other machines reach is served only with a bearer token: give
+one as `OPENSYSML_GRPC_TOKEN`, or mount a file and name it with `-token-file`,
+and every client call carries it as `Authorization: Bearer` (each client's
+token option or `$OPENSYSML_GRPC_TOKEN` on its side). Without one the
+container exits at once, saying so. The token crosses the network only over
+TLS: mount a certificate and key and name them with `-tls-cert` and
+`-tls-key`, as above, or — behind a proxy that terminates TLS in front of the
+container — accept the clear transport explicitly with
+`-allow-insecure-token-transport`; without either the container exits at once
+too. `GET /health` needs no token. The arguments after the image name replace
+the defaults (`-host 0.0.0.0 -port 50051 -health-port 8081`):
 
 ```bash
-docker run --rm -p 9000:9000 openmbee/opensysml:latest -port 9000 -health-port 0
+docker run --rm -p 9000:9000 -v "$PWD/grpc.token:/run/secrets/grpc.token:ro" \
+  openmbee/opensysml:latest -host 0.0.0.0 -port 9000 -health-port 0 \
+  -token-file /run/secrets/grpc.token -allow-insecure-token-transport
+```
+
+A deployment behind a proxy that authenticates callers itself, on a network
+that is trusted, can decline the token explicitly; nothing implies it:
+
+```bash
+docker run --rm -p 50051:50051 openmbee/opensysml:latest \
+  -host 0.0.0.0 -port 50051 -health-port 8081 -allow-unauthenticated
 ```
 
 The knobs a deployment sets, as arguments or environment:
+
+- `-host`, `-token-file`, `-token`, `OPENSYSML_GRPC_TOKEN`, `-tls-cert`,
+  `-tls-key`, `-allow-insecure-token-transport` and `-allow-unauthenticated`,
+  above.
 
 - `-cors-allowed-origins <origin,…>` names the exact browser origins a Connect
   or gRPC-Web client may call from; native clients need no entry.
@@ -438,7 +470,7 @@ the version `git describe` reports, for the local platform.
 ## From source
 
 **Prerequisites:**
-- Go 1.25 or later
+- Go 1.26 or later
 - Git
 - Make (optional but recommended)
 

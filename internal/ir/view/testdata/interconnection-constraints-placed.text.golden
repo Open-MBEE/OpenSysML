@@ -7,13 +7,13 @@ attribute gain at (20, 100) size 100×30
 attribute noise at (20, 160) size 100×30
 attribute output at (780, 40) size 100×30
 constraint amplify at (200, 20) size 200×80
-  port input
-  port gain
-  port output
+  port ^input
+  port ^gain
+  port ^output
 constraint mix at (500, 20) size 200×80
-  port a
-  port b
-  port total
+  port ^a
+  port ^b
+  port ^total
 
 connections:
   signal == amplify.input: = via (120, 55) (200, 52)

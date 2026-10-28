@@ -105,6 +105,12 @@ func (n *narrowing) leftOut(parent, node *Node) bool {
 	return parent != nil && !n.shown.Has(ElementParameterSymbols) && parameterSymbol(parent, node)
 }
 
+// actionPinNode reports whether a node's parameter pins are an action's or calc's
+// (its node form's, §8.2.3.17/19, always drawn), not a case's parameter symbols.
+func actionPinNode(node *Node) bool {
+	return !caseNodeKind(node.Kind) && !requirementNodeKind(node.Kind)
+}
+
 // remove maps node and everything nested in it to parent, the node now
 // standing for them.
 func (n *narrowing) remove(node, parent *Node) {
@@ -125,7 +131,9 @@ func (n *narrowing) narrow(node *Node) {
 	for _, port := range node.Ports {
 		pinShown := n.shown.Has(ElementPortSymbols)
 		if port.Parameter {
-			pinShown = n.shown.Has(ElementParameterSymbols)
+			// A tree's parameter pins are model structure, listed as its members are;
+			// an action's or calc's are its node form's: both drawn whatever is shown.
+			pinShown = n.shown.Has(ElementParameterSymbols) || n.kind == KindTree || actionPinNode(node)
 		}
 		if !pinShown {
 			n.redirect[port.ID] = node.ID

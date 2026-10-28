@@ -25,9 +25,13 @@ config:
 flowchart TD
   subgraph n0 ["`*«action def»* **Fill**`"]
     direction TD
-    n1("`*«action»*
-**open**`")
-    n2("`*«action»*
-**pour**`")
+    subgraph n1 ["`*«action»* **open**`"]
+      direction TD
+      n1_p0["water"]
+    end
+    subgraph n2 ["`*«action»* **pour**`"]
+      direction TD
+      n2_p0["water"]
+    end
   end
-  n1 -.->|"«succession flow»"| n2
+  n1_p0 -.->|"«succession flow»"| n2_p0

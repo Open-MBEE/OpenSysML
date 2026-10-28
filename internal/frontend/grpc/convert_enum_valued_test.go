@@ -27,8 +27,7 @@ package D {
 func evaluateValued(t *testing.T, srv *Service, expression string) *pb.Value {
 	t.Helper()
 	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: valuedEnumModel},
-		ContentHash: "valued-enum",
+		Source: &pb.ParseFileRequest_Content{Content: valuedEnumModel},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)
@@ -103,8 +102,7 @@ func TestScalarValuedEnumLiteralInstanceFeature(t *testing.T) {
 func TestScalarValuedEnumLiteralRoundTrip(t *testing.T) {
 	srv := mustNewService(t, 10)
 	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: valuedEnumModel},
-		ContentHash: "valued-enum-roundtrip",
+		Source: &pb.ParseFileRequest_Content{Content: valuedEnumModel},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)

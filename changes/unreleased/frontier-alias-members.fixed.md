@@ -1,0 +1,1 @@
+- The frontier a failed `Named` query records (`-run-query`, `-json`'s `checks[].outcome`, `%run-query`, the gRPC `QueryOutcome` detail) lists the namespace's owned members only: an alias declared there was listed as a member of metaclass `Membership`, which no element has; its name is still offered as a spelling for a typo.

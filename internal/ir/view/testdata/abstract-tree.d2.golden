@@ -14,15 +14,15 @@ n3: "«abstract port»\nfuel" { class: usage }
 n4: "«abstract part»\nengine" { class: usage }
 n5: "«part»\nchassis" { class: usage }
 n6: "connect" { class: usage }
-n7: "«attribute»\nmass" { class: usage }
+n7: "«attribute»\n^mass" { class: usage }
 n8: "«variation part def»\nModels" { class: definition }
 n9: "«variant»\nsedan" { class: usage }
-n10: "«attribute»\nmass" { class: usage }
-n11: "«abstract port»\nfuel" { class: usage }
-n12: "«abstract part»\nengine" { class: usage }
-n13: "«part»\nchassis" { class: usage }
+n10: "«attribute»\n^mass" { class: usage }
+n11: "«abstract port»\n^fuel" { class: usage }
+n12: "«abstract part»\n^engine" { class: usage }
+n13: "«part»\n^chassis" { class: usage }
 n14: "connect" { class: usage }
-n15: "«attribute»\nmass" { class: usage }
+n15: "«attribute»\n^mass" { class: usage }
 n2 -- n6: { class: edge }
 n9 -- n14: { class: edge }
 n0 <- n1: { class: reference }

@@ -50,16 +50,16 @@ class "<size:10>//«abstract part»//</size>\n**engine**" as n4 <<abstract part>
 class "<size:10>//«part»//</size>\n**chassis**" as n5 <<part>> <<usage>>
 class "**connect**" as n6 <<connect>> <<usage>>
 n2 -- n6
-class "<size:10>//«attribute»//</size>\n**mass**" as n7 <<attribute>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**^mass**" as n7 <<attribute>> <<usage>>
 class "<size:10>//«variation part def»//</size>\n**Models**" as n8 <<variation part def>>
 class "<size:10>//«variant»//</size>\n**sedan**" as n9 <<variant>> <<usage>>
-class "<size:10>//«attribute»//</size>\n**mass**" as n10 <<attribute>> <<usage>>
-class "<size:10>//«abstract port»//</size>\n**fuel**" as n11 <<abstract port>> <<usage>>
-class "<size:10>//«abstract part»//</size>\n**engine**" as n12 <<abstract part>> <<usage>>
-class "<size:10>//«part»//</size>\n**chassis**" as n13 <<part>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**^mass**" as n10 <<attribute>> <<usage>>
+class "<size:10>//«abstract port»//</size>\n**^fuel**" as n11 <<abstract port>> <<usage>>
+class "<size:10>//«abstract part»//</size>\n**^engine**" as n12 <<abstract part>> <<usage>>
+class "<size:10>//«part»//</size>\n**^chassis**" as n13 <<part>> <<usage>>
 class "**connect**" as n14 <<connect>> <<usage>>
 n9 -- n14
-class "<size:10>//«attribute»//</size>\n**mass**" as n15 <<attribute>> <<usage>>
+class "<size:10>//«attribute»//</size>\n**^mass**" as n15 <<attribute>> <<usage>>
 n0 o-- n1
 n2 --:|> n0
 n2 o-- n3

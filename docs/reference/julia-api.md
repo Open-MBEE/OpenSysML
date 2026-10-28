@@ -15,13 +15,17 @@ using OpenSysML
 
 ```julia
 conn = connect(; timeout=30, version=nothing, require_capabilities=[])
-conn = external("localhost:50051"; timeout=30)
+conn = external("localhost:50051"; timeout=30, token=nothing)
 conn = private(; binary=nothing, timeout=30)
 ```
 
 `connect` uses `$OPENSYSML_SERVICE` when set and otherwise starts a private
 child. `external` connects to a service managed elsewhere; closing it only
-disconnects. `private` resolves and starts its own child. These constructors
+disconnects. A service on an address other machines reach requires a bearer
+token, which `external` and `connect` send as `Authorization: Bearer` on every
+call: the `token` keyword, or `$OPENSYSML_GRPC_TOKEN` (`TOKEN_ENV`) when none
+is given; a call without the right one raises `ConnectError` with code
+`unauthenticated`. `private` resolves and starts its own child. These constructors
 accept a timeout, expected service version, and required capabilities.
 `call(conn, method, request)` posts a proto3-JSON request and returns the
 decoded JSON value.
@@ -147,7 +151,9 @@ explore_state(model, "Demo::machine"; events=String[], engine=nothing)
 ```
 
 Engine, question, and schedule options are checked against their respective
-service capabilities before the RPC. `execute_action` and `execute_state` take
+service capabilities before the RPC. A `Verdict` lists in `notes` what a solver's
+answer rests on, each a `VerdictNote` (`kind` `"assumed_one"` or `"uncovered"`,
+`subject`, `text`), empty from a service without `verdict_notes`. `execute_action` and `execute_state` take
 the run options of the `sysml` command: `advance` (simulated seconds to run
 for), `seed` (the model's own draws), `draws` (`"random"`, `"min"`, `"max"` or
 `"average"`) and `clock_step`; a negative or unknown one is an `ArgumentError`

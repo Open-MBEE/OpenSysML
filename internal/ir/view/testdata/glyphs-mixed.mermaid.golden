@@ -37,23 +37,23 @@ flowchart TD
     n3_anchor[" "]
     subgraph n5 ["`*«require constraint»* **capacity::levelReq**`"]
       direction TD
-      subgraph n6 ["`*«subject»* **plant**`"]
+      subgraph n6 ["`*«subject»* **^plant**`"]
         direction TD
         n7("`*«part»*
-**tank**`")
+**^tank**`")
         n8("`*«part»*
-**pump**`")
+**^pump**`")
         n9("`*«part»*
-**spare**`")
+**^spare**`")
       end
       n10("`*«require constraint»*
-**keepLevel**`")
+**^keepLevel**`")
       n11("`*«assume constraint»*
-**lowLevel**`")
+**^lowLevel**`")
       n12("`*«require constraint»*
-**bounded**`")
+**^bounded**`")
       n13("`*«assume constraint»*
-**tight**`")
+**^tight**`")
     end
     n14("`*«assert constraint»*
 **asserted**`")

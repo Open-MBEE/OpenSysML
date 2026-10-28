@@ -3,26 +3,26 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>org.openmbee</groupId>
-    <artifactId>opensysml-mdk-parent</artifactId>
+    <artifactId>magic-mdk-parent</artifactId>
     <version>0.11.0</version>
   </parent>
-  <artifactId>opensysml-mdk-dist</artifactId>
+  <artifactId>magic-mdk-dist</artifactId>
   <packaging>pom</packaging>
-  <name>OpenSysML MDK for Cameo distribution</name>
+  <name>Magic MDK distribution</name>
   <dependencies>
     <dependency>
       <groupId>org.openmbee</groupId>
-      <artifactId>opensysml-mdk-plugin</artifactId>
+      <artifactId>magic-mdk-plugin</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.openmbee</groupId>
-      <artifactId>opensysml-mdk-tools</artifactId>
+      <artifactId>magic-mdk-tools</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.openmbee</groupId>
-      <artifactId>opensysml-mdk-bridge</artifactId>
+      <artifactId>magic-mdk-bridge</artifactId>
       <version>${project.version}</version>
     </dependency>
   </dependencies>
@@ -43,7 +43,7 @@
                 <goals><goal>copy-dependencies</goal></goals>
                 <configuration>
                   <outputDirectory>${project.build.directory}/lib</outputDirectory>
-                  <excludeArtifactIds>opensysml-mdk-plugin,opensysml-mdk-tools,opensysml-mdk-bridge</excludeArtifactIds>
+                  <excludeArtifactIds>magic-mdk-plugin,magic-mdk-tools,magic-mdk-bridge</excludeArtifactIds>
                   <excludeScope>provided</excludeScope>
                 </configuration>
               </execution>
@@ -63,7 +63,7 @@
                 <phase>prepare-package</phase>
                 <goals><goal>java</goal></goals>
                 <configuration>
-                  <mainClass>org.openmbee.opensysml.mdk.tools.BinaryStager</mainClass>
+                  <mainClass>org.openmbee.mdk.magic.tools.BinaryStager</mainClass>
                   <arguments>
                     <argument>${opensysml.version}</argument>
                     <argument>${project.build.directory}/bin</argument>
@@ -75,12 +75,28 @@
                 <phase>prepare-package</phase>
                 <goals><goal>java</goal></goals>
                 <configuration>
-                  <mainClass>org.openmbee.opensysml.mdk.tools.PluginDescriptorWriter</mainClass>
+                  <mainClass>org.openmbee.mdk.magic.tools.PluginDescriptorWriter</mainClass>
                   <arguments>
                     <argument>${opensysml.version}</argument>
-                    <argument>opensysml-mdk-plugin-${project.version}.jar</argument>
+                    <argument>magic-mdk-plugin-${project.version}.jar</argument>
                     <argument>${project.build.directory}/lib</argument>
                     <argument>${project.build.directory}/plugin.xml</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+              <execution>
+                <id>write-resource-descriptor</id>
+                <phase>prepare-package</phase>
+                <goals><goal>java</goal></goals>
+                <configuration>
+                  <mainClass>org.openmbee.mdk.magic.tools.ResourceDescriptorWriter</mainClass>
+                  <arguments>
+                    <argument>${opensysml.version}</argument>
+                    <argument>magic-mdk-plugin-${project.version}.jar</argument>
+                    <argument>magic-mdk-bridge-${project.version}.jar</argument>
+                    <argument>${project.build.directory}/lib</argument>
+                    <argument>${project.build.directory}/bin</argument>
+                    <argument>${project.build.directory}/MDR_Plugin_Magic_MDK_91120_descriptor.xml</argument>
                   </arguments>
                 </configuration>
               </execution>
@@ -91,7 +107,7 @@
             <artifactId>maven-assembly-plugin</artifactId>
             <version>3.7.1</version>
             <configuration>
-              <finalName>OpenSysML_MDK_${opensysml.version}</finalName>
+              <finalName>Magic_MDK_${opensysml.version}</finalName>
               <appendAssemblyId>false</appendAssemblyId>
               <descriptors>
                 <descriptor>src/assembly/mdk.xml</descriptor>

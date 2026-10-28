@@ -33,7 +33,9 @@ const defaultKindModel = `package Demo {
   state lamp : Lamp;
   action def Start { action a; action b; first a then b; }
   action start : Start;
+  action def Idle;
   calc def Sum { in x : Real; return x; }
+  calc sum : Sum;
   use case def Drive;
   use case drive : Drive;
   analysis case def Study;
@@ -53,7 +55,6 @@ func TestElementKindFollowsWhatTheElementIs(t *testing.T) {
 		"Demo::Car":     KindTree,
 		"Demo::Bare":    KindTree,
 		"Demo::Cargo":   KindTree,
-		"Demo::Sum":     KindTree,
 		"Demo::lone":    KindTree,
 		"Demo::car":     KindInterconnection,
 		"Demo::reader":  KindInterconnection,
@@ -62,6 +63,9 @@ func TestElementKindFollowsWhatTheElementIs(t *testing.T) {
 		"Demo::lamp":    KindState,
 		"Demo::Start":   KindAction,
 		"Demo::start":   KindAction,
+		"Demo::Idle":    KindAction,
+		"Demo::Sum":     KindAction,
+		"Demo::sum":     KindAction,
 		"Demo::Drive":   KindCase,
 		"Demo::drive":   KindCase,
 		"Demo::Study":   KindCase,
@@ -93,6 +97,7 @@ func TestDefaultKindAgreesOrIsMixed(t *testing.T) {
 		{[]string{"Demo::Lamp"}, KindState},
 		{[]string{"Demo::Lamp", "Demo::lamp"}, KindState},
 		{[]string{"Demo::Start", "Demo::start"}, KindAction},
+		{[]string{"Demo::Start", "Demo::Sum", "Demo::sum"}, KindAction},
 		{[]string{"Demo::Wheel", "Demo::Car"}, KindTree},
 		{[]string{"Demo::car"}, KindInterconnection},
 		{[]string{"Demo::car", "Demo::reader"}, KindInterconnection},
@@ -110,7 +115,7 @@ func TestDefaultKindAgreesOrIsMixed(t *testing.T) {
 // never names a kind the renderer refuses.
 func TestDefaultKindsAreRenderable(t *testing.T) {
 	r, idx := defaultKindFixture(t)
-	for _, fqn := range []string{"Demo", "Demo::car", "Demo::reader", "Demo::Lamp", "Demo::Start", "Demo::drive"} {
+	for _, fqn := range []string{"Demo", "Demo::car", "Demo::reader", "Demo::Lamp", "Demo::Start", "Demo::Sum", "Demo::drive"} {
 		sym := lookup(t, idx, fqn)
 		kind := r.DefaultKind([]*symbols.Symbol{sym})
 		if _, ok := PseudoViewKind(string(kind)); !ok {

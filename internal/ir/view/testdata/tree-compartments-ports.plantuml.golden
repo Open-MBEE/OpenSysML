@@ -43,7 +43,7 @@ skinparam wrapWidth 300
 hide stereotype
 hide circle
 hide empty members
-class "<size:10>//«part def»//</size>\n**Hub**\nports\ninput : DataPort\ninput.clock : ClockPort\noutput : DataPort\noutput.sync : ClockPort\noutput.clock : ClockPort" as n0 <<part def>>
+class "<size:10>//«part def»//</size>\n**Hub**\nports\ninput : DataPort\n^input.clock : ClockPort\noutput : DataPort\noutput.sync : ClockPort\n^output.clock : ClockPort" as n0 <<part def>>
 class "<size:10>//«attribute»//</size>\n**channels**" as n1 <<attribute>> <<usage>>
 class "<size:10>//«part»//</size>\n**buffer**" as n12 <<part>> <<usage>>
 class "<size:10>//«part»//</size>\n**slot**" as n13 <<part>> <<usage>>

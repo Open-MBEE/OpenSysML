@@ -23,8 +23,10 @@ conn = opensysml.connect('version', 'v0.0.0', ...
 ```
 
 `connect` selects `external` when `OPENSYSML_SERVICE` is set and `private` otherwise. `private`
-accepts `binary`, `timeout`, `version`, and `capabilities`; `external` accepts `version` and
-`capabilities`. When no binary is given, `private` checks `$OPENSYSML_GRPC_BINARY`,
+accepts `binary`, `timeout`, `version`, and `capabilities`; `external` accepts `version`,
+`capabilities` and `token` — the bearer token a service on an address other machines reach
+requires, sent as `Authorization: Bearer` on every call and read from `OPENSYSML_GRPC_TOKEN`
+when the option is absent. When no binary is given, `private` checks `$OPENSYSML_GRPC_BINARY`,
 `~/.opensysml/bin/sysml-grpc`, and `PATH`. It starts the process with
 `-port 0 -health-port 0 -report-address -exit-with-parent` through Java's `ProcessBuilder`.
 Octave built without Java cannot spawn a private service. `conn.close()` stops a private child
@@ -155,7 +157,7 @@ bounds associated with an answer.
 
 | Result class | Contents and helpers |
 | --- | --- |
-| `Verdict` | Outcome fields including `holds`, condition, witness, error, engine and diagnostics; `explain()`, `raiseForError()`, and logical conversion. |
+| `Verdict` | Outcome fields including `holds`, condition, witness, `notes` (what a solver's answer rests on: `kind` `assumed_one` or `uncovered`, `subject`, `text`), error, engine and diagnostics; `explain()`, `raiseForError()`, and logical conversion. |
 | `Validation` | Verdicts, summary, ordered instance cells in service order, diagnostics and verifications; `valid()`, `violated()`, `undecided()`, `raiseForError()`, and `explain()`. |
 | `CalcResult` | `value`, `outputs`, diagnostics and `Standing`; character conversion formats the computed result. |
 | `AnalysisResult` | Outputs, verdicts, instances, verifications, evaluations, standing and the `toolDryRun` preview (`[]` when the case ran for real); `selected()`, `satisfied()`, and `explain()`. |

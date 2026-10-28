@@ -42,6 +42,15 @@ class ConnectionError(OpenSysMLError, builtins.ConnectionError):
         self.code = code
 
 
+class AuthenticationError(ConnectionError):
+    """Raised when the service wants a bearer token the call did not carry, or
+    carried wrong.
+
+    A service reachable from other machines is served only with a token; give
+    this client the same one with ``token=`` or ``$OPENSYSML_GRPC_TOKEN``.
+    """
+
+
 class ChecksumMismatchError(ConnectionError):
     """Raised when a downloaded binary does not match the checksum published for it.
 
@@ -538,6 +547,7 @@ _CODE_ERRORS = {
     grpc.StatusCode.FAILED_PRECONDITION: InvalidRequestError,
     grpc.StatusCode.OUT_OF_RANGE: InvalidRequestError,
     grpc.StatusCode.UNAVAILABLE: ConnectionError,
+    grpc.StatusCode.UNAUTHENTICATED: AuthenticationError,
     grpc.StatusCode.DEADLINE_EXCEEDED: ServiceTimeoutError,
     grpc.StatusCode.CANCELLED: ServiceTimeoutError,
     grpc.StatusCode.UNIMPLEMENTED: UnsupportedOperationError,

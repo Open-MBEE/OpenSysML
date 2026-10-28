@@ -164,7 +164,8 @@ package Cookbook {
 		in root : Element;
 		Project(
 			source = PartsByMass(root = root),
-			properties = ("name", "mass", "qualifiedName")
+			properties = ("name", "mass", "qualifiedName"),
+			tolerate = true  // opticalPath and dataPath declare no mass
 		)
 	}
 
@@ -173,6 +174,7 @@ package Cookbook {
 		Project(
 			source = PartsByMass(root = root),
 			properties = ("name", "mass"),
+			tolerate = true,
 			columns = (
 				Column(name = "massLbs", cell = { in row : Subsystem; (row.mass ?? 0.0) * 2.2 }),
 				Column(name = "label", expression = "part: " + Element::name)

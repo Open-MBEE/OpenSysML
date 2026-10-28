@@ -1,0 +1,93 @@
+enter calc test::extents
+  stmt return
+          enter calc SequenceFunctions::size
+materialize: a #1
+materialize: pair #2
+materialize: pair #3
+materialize: sys #4
+materialize: Act #5
+            eval operator all -> (instance#1, instance#2, instance#3, instance#5)
+            bind seq = (instance#1, instance#2, instance#3, instance#5) [argument]
+          exit calc SequenceFunctions::size -> 4
+        eval invoke size -> 4
+        eval literal 4 -> 4
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+materialize: s #6
+materialize: Sta #7
+            eval operator all -> (instance#6, instance#7)
+            bind seq = (instance#6, instance#7) [argument]
+          exit calc SequenceFunctions::size -> 2
+        eval invoke size -> 2
+        eval literal 2 -> 2
+      eval operator == -> true
+          eval operator all -> (instance#1, instance#2, instance#3, instance#5)
+          eval literal 1 -> 1
+        eval index -> instance#1
+        eval feature a -> instance#1
+      eval operator === -> true
+          eval operator all -> (instance#1, instance#2, instance#3, instance#5)
+          eval literal 4 -> 4
+        eval index -> instance#5
+        eval chain na -> instance#5
+      eval operator === -> true
+          eval operator all -> (instance#6, instance#7)
+          eval literal 1 -> 1
+        eval index -> instance#6
+        eval feature s -> instance#6
+      eval operator === -> true
+          enter calc SequenceFunctions::size
+            eval feature a -> instance#1
+            bind seq = instance#1 [argument]
+          exit calc SequenceFunctions::size -> 1
+        eval invoke size -> 1
+        eval literal 1 -> 1
+      eval operator == -> true
+        eval feature a -> instance#1
+        eval feature a -> instance#1
+      eval operator == -> true
+        eval feature a -> instance#1
+        eval chain na -> instance#5
+      eval operator != -> true
+        eval chain hits -> 0
+        eval literal 0 -> 0
+      eval operator == -> true
+        eval chain hits -> 0
+        eval literal 0 -> 0
+      eval operator == -> true
+        eval chain n -> 5
+        eval literal 5 -> 5
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+            eval feature none -> ()
+            bind seq = () [argument]
+          exit calc SequenceFunctions::size -> 0
+        eval invoke size -> 0
+        eval literal 0 -> 0
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+            eval feature pair -> (instance#2, instance#3)
+            bind seq = (instance#2, instance#3) [argument]
+          exit calc SequenceFunctions::size -> 2
+        eval invoke size -> 2
+        eval literal 2 -> 2
+      eval operator == -> true
+          eval feature pair -> (instance#2, instance#3)
+          eval literal 1 -> 1
+        eval index -> instance#2
+          eval feature pair -> (instance#2, instance#3)
+          eval literal 2 -> 2
+        eval index -> instance#3
+      eval operator != -> true
+    eval sequence of 14 -> (true, true, true, true, true, true, true, true, true, true, true, true, true, true)
+exit calc test::extents -> (true, true, true, true, true, true, true, true, true, true, true, true, true, true)
+eval literal 0 -> 0
+step 1: token 1@assign hits
+stmt assign hits
+    eval feature hits -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 2: token 1@done
+step 3: no active tokens
+eval literal 5 -> 5
+enter: s0

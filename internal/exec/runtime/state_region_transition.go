@@ -536,10 +536,11 @@ func (e *StateExecutor) enterOutside(trans *lower.Transition, source, lca, targe
 // rootToLeaf returns state's ancestors and state itself, outermost first.
 func (e *StateExecutor) rootToLeaf(state *ast.StateNode) []*ast.StateNode {
 	chain := e.getParentChain(state)
-	for i, j := 0, len(chain)-1; i < j; i, j = i+1, j-1 {
-		chain[i], chain[j] = chain[j], chain[i]
+	path := make([]*ast.StateNode, len(chain))
+	for i, s := range chain {
+		path[len(chain)-1-i] = s
 	}
-	return chain
+	return path
 }
 
 // recordTransitionTrace records one transition in the trace, naming the state

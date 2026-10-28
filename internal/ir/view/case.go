@@ -201,7 +201,7 @@ func (w *caseWalk) resolveIncludedCases() {
 func (w *caseWalk) roleNode(owner *symbols.Symbol, caseNode *Node, sym *symbols.Symbol, kind string, edgeKind EdgeKind, label string) {
 	node := &Node{ID: w.ids.take(), Kind: kind, Name: localName(sym), NameSynthesized: w.r.model.NameSynthesized(sym),
 		Type: w.r.headType(sym), Typings: w.r.headTypings(sym), Origin: symbolOrigin(sym),
-		Geometry: w.r.geometryOf(w.view, sym, w.out)}
+		Geometry: w.r.geometryOf(w.view, sym, w.out), Inherited: sym.Owner() != owner}
 	w.r.dress(w.view, sym, node, w.out)
 	w.append(node)
 	w.drawn[sym] = node
@@ -223,7 +223,7 @@ func (w *caseWalk) objectiveNode(owner *symbols.Symbol, caseNode *Node, sym *sym
 	detail := strings.Join(w.r.documentation(sym), "\n")
 	node := &Node{ID: w.ids.take(), Kind: "objective", Name: localName(sym), NameSynthesized: w.r.model.NameSynthesized(sym),
 		Type: w.r.headType(sym), Detail: detail, Typings: w.r.headTypings(sym), Origin: symbolOrigin(sym),
-		Geometry: w.r.geometryOf(w.view, sym, w.out)}
+		Geometry: w.r.geometryOf(w.view, sym, w.out), Inherited: sym.Owner() != owner}
 	w.r.dress(w.view, sym, node, w.out)
 	w.append(node)
 	w.drawn[sym] = node

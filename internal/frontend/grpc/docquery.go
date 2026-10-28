@@ -491,7 +491,7 @@ func documentStatus(err error) error {
 	}
 	var execErr *queryexec.Error
 	if errors.As(err, &execErr) {
-		return statusWithOrigin(queryExecCode(execErr.Kind), err, execErr.Origin)
+		return withQueryOutcome(statusWithOrigin(queryExecCode(execErr.Kind), err, execErr.Origin), execErr)
 	}
 	var docPlanErr *docplan.Error
 	if errors.As(err, &docPlanErr) {
@@ -499,9 +499,63 @@ func documentStatus(err error) error {
 	}
 	var docIRErr *docir.Error
 	if errors.As(err, &docIRErr) {
-		return statusWithOrigin(docIRCode(docIRErr), err, docIRErr.Origin)
+		status := statusWithOrigin(docIRCode(docIRErr), err, docIRErr.Origin)
+		if errors.As(docIRErr.Err, &execErr) {
+			return withQueryOutcome(status, execErr)
+		}
+		return status
 	}
 	return connect.NewError(connect.CodeInternal, err)
+}
+
+// withQueryOutcome attaches the QVTS record behind a failed query to its status
+// as a QueryOutcome detail, so a client reads the frontier and not just the message.
+func withQueryOutcome(status error, execErr *queryexec.Error) error {
+	if execErr.Outcome == nil {
+		return status
+	}
+	var connErr *connect.Error
+	if !errors.As(status, &connErr) {
+		return status
+	}
+	detail, err := connect.NewErrorDetail(queryOutcomeMessage(*execErr.Outcome))
+	if err != nil {
+		return status
+	}
+	connErr.AddDetail(detail)
+	return connErr
+}
+
+// queryOutcomeMessage is the record in its wire form, field for field.
+func queryOutcomeMessage(outcome queryexec.Outcome) *pb.QueryOutcome {
+	out := &pb.QueryOutcome{Kind: outcome.Kind(), Step: outcome.Step().Label()}
+	if outcome.Path != nil {
+		out.Failures = queryFailures(outcome.Path.Failures)
+	}
+	if outcome.Model != nil {
+		for _, f := range outcome.Model.Findings {
+			out.Findings = append(out.Findings, &pb.QueryFinding{
+				Step: f.Step.Label(), Element: f.Element, Constraint: string(f.Constraint), Observed: f.Observed,
+			})
+		}
+		out.PathFailures = queryFailures(outcome.Model.PathFailures)
+	}
+	return out
+}
+
+func queryFailures(failures []queryexec.Failure) []*pb.QueryFailure {
+	out := make([]*pb.QueryFailure, 0, len(failures))
+	for _, f := range failures {
+		frontier := &pb.QueryFrontier{At: f.Frontier.At, Kinds: f.Frontier.Kinds, Nearest: f.Frontier.Nearest}
+		for _, m := range f.Frontier.Members {
+			frontier.Members = append(frontier.Members, &pb.QueryFrontierMember{Name: m.Name, Metaclass: m.Metaclass})
+		}
+		for _, r := range f.Frontier.Features {
+			frontier.Features = append(frontier.Features, &pb.QueryFrontierFeature{Name: r.Name, Type: r.Type})
+		}
+		out = append(out, &pb.QueryFailure{Step: f.Step.Label(), Expected: f.Expected, Frontier: frontier})
+	}
+	return out
 }
 
 // statusWithOrigin fails with the engine's message, naming the source

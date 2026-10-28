@@ -15,6 +15,8 @@ pub const CAPABILITY_VERIFICATION: &str = "verification";
 pub const CAPABILITY_VERIFICATION_QUESTIONS: &str = "verification_questions";
 /// `arguments` and `named_arguments` on VerifyConstraint and VerifyRequirement.
 pub const CAPABILITY_VERIFICATION_ARGUMENTS: &str = "verification_arguments";
+/// `notes` on every Verdict; a service without it answers with none.
+pub const CAPABILITY_VERDICT_NOTES: &str = "verdict_notes";
 /// The `Query` RPC.
 pub const CAPABILITY_QUERY: &str = "query";
 /// `order_by` on `Query`; a service without it would ignore the field.
