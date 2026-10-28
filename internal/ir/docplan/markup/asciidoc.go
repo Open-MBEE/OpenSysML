@@ -3,6 +3,7 @@ package markup
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 )
@@ -14,6 +15,15 @@ const AsciiDocEnv = "OPENSYSML_ASCIIDOCTOR"
 
 // asciiDocTool is the converter's name on PATH when the variable is unset.
 const asciiDocTool = "asciidoctor-json"
+
+// asciiDocName is the converter to look for: what the variable names, and
+// whether it named one, else the default to look up on PATH.
+func asciiDocName() (name string, named bool) {
+	if name = strings.TrimSpace(os.Getenv(AsciiDocEnv)); name != "" {
+		return name, true
+	}
+	return asciiDocTool, false
+}
 
 // asciiDocTimeout bounds one converter run, as every document converter is bounded.
 const asciiDocTimeout = 5 * time.Minute
@@ -37,10 +47,13 @@ func (AsciiDoc) Parse(body string) ([]Block, error) {
 	return decodeAsciiDoc(body, output)
 }
 
-// ToolError reports the converter missing or failing.
+// ToolError reports the converter missing or failing: Tool is the converter
+// looked for, Named whether EnvVar named it (else it is the default looked up
+// on PATH), Missing whether it was not found, Detail what else was observed.
 type ToolError struct {
 	Tool    string
 	EnvVar  string
+	Named   bool
 	Missing bool
 	Detail  string
 }
@@ -48,8 +61,13 @@ type ToolError struct {
 func (e *ToolError) Error() string {
 	if e.Missing {
 		msg := fmt.Sprintf("the AsciiDoc converter %s was not found", e.Tool)
-		if e.Detail != "" {
+		switch {
+		case e.Detail != "":
 			msg += " (" + e.Detail + ")"
+		case e.Named:
+			msg += fmt.Sprintf(" (%s names it)", e.EnvVar)
+		default:
+			msg += fmt.Sprintf(" on PATH (%s is unset)", e.EnvVar)
 		}
 		return msg + fmt.Sprintf("; run ./scripts/download-doc-pdf-toolchain.sh and point %s at build/doc-pdf/asciidoctor/asciidoctor-json.js", e.EnvVar)
 	}
