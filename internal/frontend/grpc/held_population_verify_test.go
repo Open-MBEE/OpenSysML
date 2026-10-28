@@ -30,11 +30,8 @@ const heldPopulationModel = `package test {
 	part fleet : Fleet;
 }`
 
-// TestVerifyRequirementWithoutASubjectSweepsTheHeldPopulation verifies that
-// VerifyRequirement naming no subject answers over the objects Instantiate holds,
-// as the REPL's %requirement does after %instantiate: the requirement's own verdict
-// is undecided, its subject being unbound, and the definition-owned case runs once
-// on each held object of the definition — the same verdicts VerifySatisfaction reports.
+// TestVerifyRequirementWithoutASubjectSweepsTheHeldPopulation verifies that a subjectless
+// VerifyRequirement runs the definition-owned case once per held object, as %requirement does.
 func TestVerifyRequirementWithoutASubjectSweepsTheHeldPopulation(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := mustVerifyModel(t, srv, heldPopulationModel, "held-population-requirement")
@@ -74,10 +71,8 @@ func TestVerifyRequirementWithoutASubjectSweepsTheHeldPopulation(t *testing.T) {
 	}
 }
 
-// TestVerifyConstraintWithoutASubjectIsAboutTheHeldCarrier verifies that a
-// constraint a definition owns, asked about with no subject, is checked on the
-// one held object carrying it, is ambiguous over two, and reads declared defaults
-// when the model holds none — as the REPL's %constraint decides it.
+// TestVerifyConstraintWithoutASubjectIsAboutTheHeldCarrier verifies a subjectless constraint
+// check is about the one held carrier, ambiguous over two, on defaults with none, as %constraint.
 func TestVerifyConstraintWithoutASubjectIsAboutTheHeldCarrier(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := mustVerifyModel(t, srv, `package Tanks {
@@ -129,10 +124,8 @@ func TestVerifyConstraintWithoutASubjectIsAboutTheHeldCarrier(t *testing.T) {
 	}
 }
 
-// TestRunAnalysisWithoutASubjectRunsOnTheHeldObject verifies that a case a
-// definition owns, run with no subject, is a feature of the one held object of
-// the definition, reports the ambiguity over two, and asks for one when the model
-// holds none — as the REPL's %analysis decides it.
+// TestRunAnalysisWithoutASubjectRunsOnTheHeldObject verifies a subjectless definition-owned
+// case runs on the one held object, is ambiguous over two, and asks for one with none.
 func TestRunAnalysisWithoutASubjectRunsOnTheHeldObject(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := mustVerifyModel(t, srv, definitionOwnedCaseModel, "held-definition-owned-analysis")

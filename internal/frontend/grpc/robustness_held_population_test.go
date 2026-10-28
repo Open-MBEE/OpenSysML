@@ -9,12 +9,8 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
 
-// TestGRPCRobustnessHeldPopulation puts the verification RPCs to the objects
-// Instantiate holds, with no subject named, at the population's bound: a case run
-// on a held object needs an object of its own, so a sweep that would pass the
-// bound is RESOURCE_EXHAUSTED naming it, as Instantiate is, not an error verdict
-// quoting the runtime; the population is left as it was, and a check about a
-// named subject, made on a worker of its own, is unaffected.
+// TestGRPCRobustnessHeldPopulation: a subjectless sweep that would pass the held-objects
+// bound is RESOURCE_EXHAUSTED, the population unchanged, a named-subject check unaffected.
 func TestGRPCRobustnessHeldPopulation(t *testing.T) {
 	t.Setenv(HeldObjectsEnvVar, "3")
 	srv := mustNewService(t, 10)

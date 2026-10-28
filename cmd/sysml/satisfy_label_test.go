@@ -23,9 +23,8 @@ const repeatedPartModel = `package test {
 	part fleet : Fleet;
 }`
 
-// TestSatisfyLabelsObjectsAsValidateDoes checks that -satisfy names each object
-// a definition's `satisfy r;` is decided on by the same indexed path -validate
-// prints for it, so the two reports agree on which object a verdict is about.
+// TestSatisfyLabelsObjectsAsValidateDoes checks that -satisfy names each object a
+// definition's `satisfy r;` is decided on by the indexed path -validate prints for it.
 func TestSatisfyLabelsObjectsAsValidateDoes(t *testing.T) {
 	binary := buildCLI(t)
 	files := map[string]string{"fleet.sysml": repeatedPartModel}

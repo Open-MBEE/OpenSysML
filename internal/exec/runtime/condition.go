@@ -1240,9 +1240,8 @@ type heldSegment struct {
 	id      int64
 }
 
-// heldSegments returns the identities a feature value denotes, a collection's
-// elements included, each under the segment a path names it by: the feature's
-// name, indexed for a collection's element.
+// heldSegments returns the identities a feature value denotes, a collection's elements
+// included, each under the segment a path names it by: the name, indexed for an element.
 func heldSegments(val Value, name string) []heldSegment {
 	if id, ok := val.Object(); ok {
 		return []heldSegment{{segment: name, id: id}}
@@ -1336,11 +1335,8 @@ func carrierPath(c carrier, definition string) []string {
 	return walked
 }
 
-// carrierFeatures is the path to a nested carrier as a verdict labels it: the
-// segments walked from its root, a collection's element indexed as a validation
-// walk spells the object it reaches, ending in the declaration the carrier
-// materializes where a collection gathers objects of several declarations, as
-// carrierLabels names it.
+// carrierFeatures is a verdict's path to a nested carrier: the segments walked from its root,
+// a collection's element indexed as validation spells it, ending in the declaration it materializes.
 func (ctx *Context) carrierFeatures(c carrier) []string {
 	if len(c.segments) == 0 || c.instance == nil {
 		return nil

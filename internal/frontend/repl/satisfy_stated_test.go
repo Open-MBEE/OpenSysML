@@ -93,8 +93,7 @@ func TestSatisfyStatedByADefinitionSweepsItsObjects(t *testing.T) {
 }
 
 // TestSatisfyLabelsObjectsAsValidateDoes checks that %satisfy names each object a
-// definition's `satisfy r;` is decided on by the indexed path %validate prints for
-// it — `fleet.cheap[2]`, not `fleet.cheap` — so the two reports agree on the object.
+// definition's `satisfy r;` is decided on by the indexed path %validate prints for it.
 func TestSatisfyLabelsObjectsAsValidateDoes(t *testing.T) {
 	s := loadSource(t, `package test {
 	private import ScalarValues::Real;

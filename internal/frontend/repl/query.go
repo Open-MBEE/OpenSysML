@@ -418,9 +418,8 @@ func (s *Session) reportedSubject(result runtime.CheckResult, inst *runtime.Inst
 	return result.Subject, objectPath(root, result.SubjectPath)
 }
 
-// objectPath labels an object nested in the one labelled root by the segments
-// walked to it, as the runtime spells them: `fleet.cheap[2]`. Every verdict about
-// a nested object — %validate's, %satisfy's, a check's — labels it this way.
+// objectPath labels an object nested in the labelled root by the segments walked to it,
+// `fleet.cheap[2]`, the one spelling every verdict about a nested object uses.
 func objectPath(root string, path []string) string {
 	if len(path) == 0 {
 		return root

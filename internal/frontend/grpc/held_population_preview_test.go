@@ -10,10 +10,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 )
 
-// TestToolPreviewLeavesTheHeldPopulationAsItWas verifies that a tool dry run of a
-// case naming no subject, made over the held population, leaves it as it found it:
-// the objects the preview materialized are gone with it, and the runner the
-// population's runtime had is back on it rather than the preview's.
+// TestToolPreviewLeavesTheHeldPopulationAsItWas verifies that a subjectless tool dry run
+// leaves the held population as it found it: no preview object held, the prior runner back on.
 func TestToolPreviewLeavesTheHeldPopulationAsItWas(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := mustVerifyModel(t, srv, heldPopulationModel, "held-population-preview")

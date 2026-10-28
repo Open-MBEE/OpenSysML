@@ -80,9 +80,8 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 	return v.caseResponse(run, plan, err), nil
 }
 
-// exhaustedRun is the RESOURCE_EXHAUSTED status of a run over the held population
-// that would pass its bound, whether the call failed of it or a verification case's
-// verdict carries the failure, as a case run reports its own; nil for any other run.
+// exhaustedRun is the RESOURCE_EXHAUSTED status of a held-population run that passed
+// its bound, in the call's error or in a verification verdict's; nil for any other run.
 func (v *verifyContext) exhaustedRun(run caseRun, err error) error {
 	if status := v.exhausted(err); status != nil {
 		return status
@@ -95,9 +94,8 @@ func (v *verifyContext) exhaustedRun(run caseRun, err error) error {
 	return nil
 }
 
-// scheduled sets the runtime's schedule for this request and returns what puts
-// back the one it had, so a request leaves the held population's runtime as it
-// found it; a policy the runtime cannot be set to is the error.
+// scheduled sets the runtime's schedule for this request and returns what puts back
+// the one it had, so the held population's runtime is left as found; unsettable is the error.
 func (v *verifyContext) scheduled(policy runtime.SchedulePolicy) (func(), error) {
 	was := v.runtime.Schedule()
 	if err := v.runtime.SetSchedule(policy); err != nil {

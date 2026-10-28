@@ -8,9 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 )
 
-// expectedVerificationVerdict is the fixture encoding of a pb.VerificationVerdict:
-// the case, the verdict kind its body answered, the detail of one that decided
-// nothing, and the type of the object it ran on (empty for a run on none).
+// expectedVerificationVerdict is the fixture encoding of a pb.VerificationVerdict: case,
+// kind, the detail of one deciding nothing, and the type of the object it ran on.
 type expectedVerificationVerdict struct {
 	Case         string `json:"case"`
 	Kind         string `json:"kind"`
@@ -18,9 +17,8 @@ type expectedVerificationVerdict struct {
 	InstanceType string `json:"instance_type"`
 }
 
-// runVerifyRequirementCase instantiates the case's objects, verifies the requirement
-// about the subject named (none when empty) and compares the requirement's status
-// with the body verdicts of the cases verifying it, each about its own object.
+// runVerifyRequirementCase instantiates the case's objects, verifies the requirement about
+// the subject named (none when empty) and compares the status and body verdicts expected.
 func runVerifyRequirementCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
 	instantiateAll(t, srv, ctx, modelHash, tc.Instantiate)

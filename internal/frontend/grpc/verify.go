@@ -88,11 +88,8 @@ func releaseNothing() {
 	// The parent context releases the worker it borrowed; this one holds none.
 }
 
-// overHeld is this request's context over the objects Instantiate holds for the model,
-// under the population's lock, which the returned function releases: a request naming no
-// subject is about those objects, as a REPL check is about the objects the session holds.
-// A request naming its subject, or a model holding no object, keeps the request's own
-// worker and releases nothing.
+// overHeld is this request's context over the objects Instantiate holds, under the population's
+// lock the returned function releases; a named subject or an empty population keeps the worker.
 func (v *verifyContext) overHeld(ctx context.Context, subject *runtime.Instance) (*verifyContext, func()) {
 	if subject != nil {
 		return v, releaseNothing
@@ -777,10 +774,8 @@ func (v *verifyContext) calcUsageOutputs(ctx context.Context, subject string, sy
 	return pbOutputs, true, plan, nil
 }
 
-// requirementVerificationRuns runs the whole model's verification cases verifying req (the
-// case need not share the requirement's document), type-owned ones about subject, and
-// reports their body verdicts; a run over the held population that would pass its bound
-// is the RESOURCE_EXHAUSTED status instead.
+// requirementVerificationRuns runs every verification case verifying req, type-owned ones about
+// subject, and reports their body verdicts; past the held-objects bound it is RESOURCE_EXHAUSTED.
 func (v *verifyContext) requirementVerificationRuns(req *symbols.Symbol, subject *runtime.Instance, runs *runtime.VerificationRuns) ([]runtime.VerificationVerdict, error) {
 	verdicts := v.runtime.VerificationVerdictsOnce(v.cached.DocumentRoots(), req, subject, runs)
 	for _, verdict := range verdicts {
