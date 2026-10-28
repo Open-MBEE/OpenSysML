@@ -74,10 +74,25 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 	if gone := callerGone(ctx, err); gone != nil {
 		return nil, gone
 	}
-	if status := v.exhausted(err); status != nil {
+	if status := v.exhaustedRun(run, err); status != nil {
 		return nil, status
 	}
 	return v.caseResponse(run, plan, err), nil
+}
+
+// exhaustedRun is the RESOURCE_EXHAUSTED status of a run over the held population
+// that would pass its bound, whether the call failed of it or a verification case's
+// verdict carries the failure, as a case run reports its own; nil for any other run.
+func (v *verifyContext) exhaustedRun(run caseRun, err error) error {
+	if status := v.exhausted(err); status != nil {
+		return status
+	}
+	for _, verdict := range run.verdicts() {
+		if status := v.exhausted(verdict.Err); status != nil {
+			return status
+		}
+	}
+	return nil
 }
 
 // scheduled sets the runtime's schedule for this request and returns what puts

@@ -39,6 +39,10 @@ func TestGRPCRobustnessHeldPopulation(t *testing.T) {
 		_, err := srv.VerifyRequirement(ctx, &pb.VerifyRequirementRequest{ModelHash: hash, SymbolId: "test::costReq"})
 		exhausted(t, "VerifyRequirement", err)
 	})
+	t.Run("case run at the bound", func(t *testing.T) {
+		_, err := srv.RunAnalysis(ctx, &pb.RunAnalysisRequest{ModelHash: hash, SymbolId: "test::Definition::costTest"})
+		exhausted(t, "RunAnalysis", err)
+	})
 	t.Run("satisfaction sweep at the bound", func(t *testing.T) {
 		_, err := srv.VerifySatisfaction(ctx, &pb.VerifySatisfactionRequest{ModelHash: hash})
 		exhausted(t, "VerifySatisfaction", err)
