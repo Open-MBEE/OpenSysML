@@ -137,7 +137,7 @@ func (ec *EvalContext) invokePredicateDirect(sym *symbols.Symbol, args calcArgs)
 	if binder.trace != nil {
 		binder.trace.recordCalculationEnter(shape.Kind, shape.Name)
 	}
-	if err := ctx.bindCalcParameters(shape, binder, args, ec.scope, env, nil, nil, nil); err != nil {
+	if err := ctx.bindCalcParameters(shape, binder, args, ec.scope, env, calcBindingSite{}); err != nil {
 		if binder.trace != nil {
 			binder.trace.recordCalculationExitError(shape.Kind, shape.Name, err)
 		}

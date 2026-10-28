@@ -904,7 +904,7 @@ func (ctx *Context) bindCalcUsage(shape *calcShape, reader *EvalContext, args ca
 	if shape.readsOpen(nested, args) {
 		open = unsupplied
 	}
-	if err := ctx.bindCalcParameters(shape, ec, args, reader.scope, env, nested, occurrence, open); err != nil {
+	if err := ctx.bindCalcParameters(shape, ec, args, reader.scope, env, calcBindingSite{nested: nested, occurrence: occurrence, open: open}); err != nil {
 		if ec.trace != nil {
 			ec.trace.recordCalculationExitError(shape.Kind, shape.Name, err)
 		}
