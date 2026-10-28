@@ -4,12 +4,12 @@
 # sysml-lsp beside it in /usr/local/bin. `make docker` builds it locally and
 # the release's publish-docker job pushes it for linux/amd64 and linux/arm64.
 #
-# The build stage runs the Go toolchain go.mod pins (`toolchain go1.25.11`),
+# The build stage runs the Go toolchain go.mod pins (`toolchain go1.27.3`),
 # so the image's binaries are built by the same compiler as the release
 # archives; tests/hygiene/container_image_test.go holds the two in lockstep. The
 # stage always runs on the build host's own platform and cross-compiles for
 # the target, which Go does without an emulator.
-FROM --platform=$BUILDPLATFORM golang:1.25.11-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine AS build
 
 # Release metadata the Makefile stamps into the binaries with -ldflags; the
 # defaults name a local development build. GO_VERSION is left to the

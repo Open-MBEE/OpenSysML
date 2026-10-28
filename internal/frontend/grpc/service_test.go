@@ -82,8 +82,7 @@ package Vehicle {
 `
 
 	req := &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "test-hash-1",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	}
 
 	resp, err := srv.ParseFile(context.Background(), req)
@@ -221,8 +220,7 @@ package Vehicle {
 `
 
 	req := &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "test-hash-error",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	}
 
 	resp, err := srv.ParseFile(context.Background(), req)
@@ -257,8 +255,7 @@ func TestParseFile_FileNotFound(t *testing.T) {
 	srv := mustNewService(t, 10)
 
 	req := &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_FilePath{FilePath: "/nonexistent/file.sysml"},
-		ContentHash: "test-hash-notfound",
+		Source: &pb.ParseFileRequest_FilePath{FilePath: "/nonexistent/file.sysml"},
 	}
 
 	resp, err := srv.ParseFile(context.Background(), req)
@@ -277,8 +274,7 @@ func TestParseFile_CacheHit(t *testing.T) {
 
 	content := `package Test { part def A; }`
 	req := &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "cache-test-hash",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	}
 
 	// First call - cache miss
@@ -326,7 +322,8 @@ func TestParseFileCachesByContentRead(t *testing.T) {
 
 	// The same content parses to the cached record, even carrying b's hash.
 	again, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: a},
+		Source: &pb.ParseFileRequest_Content{Content: a},
+		//lint:ignore SA1019 the deprecated hash is what this test proves the cache ignores
 		ContentHash: other.ModelHash,
 	})
 	if err != nil {
@@ -407,8 +404,7 @@ package Vehicle {
 }
 `
 	parseReq := &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "symbol-test-hash",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	}
 
 	parseResp, err := srv.ParseFile(context.Background(), parseReq)
@@ -448,8 +444,7 @@ func TestGetSymbol_NotFound(t *testing.T) {
 	// Parse a model
 	content := `package Vehicle { part def Engine; }`
 	parseReq := &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "symbol-notfound-hash",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	}
 
 	parseResp, err := srv.ParseFile(context.Background(), parseReq)
@@ -503,8 +498,7 @@ func TestGetDiagnostics(t *testing.T) {
 	// Parse model with errors
 	content := `package Bad { invalid }`
 	parseReq := &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: content},
-		ContentHash: "diag-test-hash",
+		Source: &pb.ParseFileRequest_Content{Content: content},
 	}
 
 	parseResp, err := srv.ParseFile(context.Background(), parseReq)
@@ -563,8 +557,7 @@ func TestParseFile_FromFile(t *testing.T) {
 	}
 
 	req := &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_FilePath{FilePath: testFile},
-		ContentHash: "file-test-hash",
+		Source: &pb.ParseFileRequest_FilePath{FilePath: testFile},
 	}
 
 	resp, err := srv.ParseFile(context.Background(), req)

@@ -796,10 +796,12 @@ func publishCount(fc *fakeClient, name string) int {
 
 func TestInitializeFoldersFallsBackToRoot(t *testing.T) {
 	dir := t.TempDir()
+	//lint:ignore SA1019 clients that still send only the deprecated root fields are what this test covers
 	got := initializeFolders(&protocol.InitializeParams{RootURI: uri.File(dir)})
 	if len(got) != 1 || got[0] != uri.File(dir).Filename() {
 		t.Errorf("folders = %v, want [%s]", got, uri.File(dir).Filename())
 	}
+	//lint:ignore SA1019 see above
 	got = initializeFolders(&protocol.InitializeParams{RootPath: dir})
 	if len(got) != 1 || got[0] != dir {
 		t.Errorf("folders = %v, want [%s]", got, dir)

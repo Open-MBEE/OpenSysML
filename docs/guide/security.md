@@ -16,8 +16,8 @@ supported versions and the scope.*
 ## Verifying a release
 
 Every stable release publishes one checksum manifest, `SHA256SUMS.txt`, covering every asset of
-the release — archives, bare binaries, the Python wheel and sdist, the WebAssembly builds — and
-signs it with [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) from the
+the release — archives, bare binaries, the Python wheel and sdist, the WebAssembly builds, and
+the SBOM of each of them — and signs it with [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) from the
 release pipeline's identity (keyless; the certificate names the CircleCI project, not a person),
 as `SHA256SUMS.txt.bundle`. A SLSA provenance statement, `provenance.intoto.json`, is signed the
 same way. Verify the manifest first; everything else is checked against it. The commands below
@@ -67,6 +67,23 @@ jq -r '.predicate.buildDefinition.buildType,
 For v0.11.0 the build type is `https://github.com/Open-MBEE/OpenSysML/.circleci/build-release/v1`
 and the one resolved dependency is `git+https://github.com/Open-MBEE/OpenSysML@refs/tags/v0.11.0`
 at commit `ddf4df00037d6ddbfb1fa9d743a4389f75c9e2dc` — the commit the tag points at on GitHub.
+
+### The software bills of materials
+
+Releases after v0.11.0 publish one [SPDX 2.3](https://spdx.github.io/spdx-spec/v2.3/) JSON
+software bill of materials per asset, named `<asset>.spdx.json`: the Go modules and toolchain a
+binary or archive was built from (the list `go version -m` prints), or the Python distribution a
+wheel or sdist carries. Each SBOM is a line of the signed manifest, so once the manifest is
+verified the digest check vouches for it like any other asset:
+
+```bash
+curl -fsSLO $R/opensysml-linux-amd64.tar.gz.spdx.json
+sha256sum -c SHA256SUMS.txt --ignore-missing
+jq -r '.packages[] | "\(.name) \(.versionInfo)"' opensysml-linux-amd64.tar.gz.spdx.json
+```
+
+How the SBOMs are produced and checked against the binaries is in
+[Releasing § The software bills of materials](../project/releasing.md#the-software-bills-of-materials).
 
 ### The `.sha256` sidecars
 

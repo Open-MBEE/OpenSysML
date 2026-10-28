@@ -55,10 +55,11 @@ same way; [WebAssembly builds](reference/wasm.md) says how to run it.
 
 | File | Purpose |
 |---|---|
-| [SHA256SUMS.txt](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/SHA256SUMS.txt) | Digests for release assets. |
+| [SHA256SUMS.txt](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/SHA256SUMS.txt) | Digests for release assets, the SBOMs included. |
 | [SHA256SUMS.txt.bundle](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/SHA256SUMS.txt.bundle) | Signed checksum bundle. |
 | [provenance.intoto.json](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/provenance.intoto.json) | Build provenance. |
 | [provenance.intoto.json.bundle](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/provenance.intoto.json.bundle) | Signed provenance bundle. |
+| `<asset>.spdx.json` | SPDX 2.3 software bill of materials of each archive, wheel, sdist and raw binary, naming the Go modules and toolchain (or Python distribution) it was built from. |
 | Windows installer | Unsigned MSI digest: `SHA256SUMS-windows-msi.txt`; signed MSI digest: `SHA256SUMS-windows-signed.txt`. Both are on the release page. |
 
 After downloading release assets into the same directory, verify their checksums with:
@@ -68,7 +69,9 @@ sha256sum -c --ignore-missing SHA256SUMS.txt
 ```
 
 To check the manifest's signature, the provenance statement, a package or the container image,
-see [Security § Verifying a release](guide/security.md#verifying-a-release).
+see [Security § Verifying a release](guide/security.md#verifying-a-release). That checks the
+SBOMs too: each `<asset>.spdx.json` is a line of the manifest, so the signature over
+`SHA256SUMS.txt` vouches for it.
 
 For signature verification with cosign, see the [install guide](guide/01-install.md).
 
