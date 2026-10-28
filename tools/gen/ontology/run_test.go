@@ -82,12 +82,12 @@ const SourceCommit = "0123456789abcdef0123456789abcdef01234567"
 var properties = []Property{
 	{Name: "isLibraryElement", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_isLibraryElement", Kind: DatatypeProperty, Range: "http://www.w3.org/2001/XMLSchema#boolean", Default: "false", HasDefault: true},
 	{Name: "name", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_name", Kind: DatatypeProperty, Range: "http://www.w3.org/2001/XMLSchema#string", Default: "", HasDefault: true},
-	{Name: "ownedRelationship", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_ownedRelationship", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#Element", Lower: 1, Many: true, Ordered: true, Opposite: "Element::owningRelatedElement"},
+	{Name: "ownedRelationship", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_ownedRelationship", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#Element", Lower: 1, Many: true, Ordered: true, Upper: -1, Opposite: "Element::owningRelatedElement"},
 	{Name: "owningRelatedElement", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_owningRelatedElement", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#Element", Opposite: "Element::ownedRelationship"},
 	{Name: "visibility", DefiningClass: "Element", IRI: "https://www.omg.org/spec/SysML#Element_visibility", Kind: DatatypeProperty, Range: "https://www.omg.org/spec/SysML#VisibilityKind", Lower: 1, Default: "public", HasDefault: true},
-	{Name: "itemDefinition", DefiningClass: "ItemUsage", IRI: "https://www.omg.org/spec/SysML#ItemUsage_itemDefinition", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#PartDefinition", Many: true, Derived: true},
-	{Name: "ownedPart", DefiningClass: "PartDefinition", IRI: "https://www.omg.org/spec/SysML#PartDefinition_ownedPart", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#PartUsage", Many: true, Ordered: true, Derived: true, Redefines: []string{"Element::ownedRelationship", "ItemUsage::itemDefinition"}},
-	{Name: "partDefinition", DefiningClass: "PartUsage", IRI: "https://www.omg.org/spec/SysML#PartUsage_partDefinition", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#PartDefinition", Many: true, Nonunique: true, Derived: true, Subsets: []string{"ItemUsage::itemDefinition"}},
+	{Name: "itemDefinition", DefiningClass: "ItemUsage", IRI: "https://www.omg.org/spec/SysML#ItemUsage_itemDefinition", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#PartDefinition", Many: true, Derived: true, Upper: -1},
+	{Name: "ownedPart", DefiningClass: "PartDefinition", IRI: "https://www.omg.org/spec/SysML#PartDefinition_ownedPart", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#PartUsage", Many: true, Ordered: true, Derived: true, Upper: -1, Redefines: []string{"Element::ownedRelationship", "ItemUsage::itemDefinition"}},
+	{Name: "partDefinition", DefiningClass: "PartUsage", IRI: "https://www.omg.org/spec/SysML#PartUsage_partDefinition", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#PartDefinition", Many: true, Nonunique: true, Derived: true, Upper: -1, Subsets: []string{"ItemUsage::itemDefinition"}},
 	{Name: "weight", DefiningClass: "Usage", IRI: "https://www.omg.org/spec/SysML#Usage_weight", Kind: DatatypeProperty, Range: "http://www.w3.org/2002/07/owl#real"},
 }
 
@@ -196,7 +196,7 @@ func TestRunWritesABoundedManyProperty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `IRI: "https://www.omg.org/spec/SysML#Usage_weight", Kind: DatatypeProperty, Range: "http://www.w3.org/2002/07/owl#real", Many: true, Ordered: true}`
+	want := `IRI: "https://www.omg.org/spec/SysML#Usage_weight", Kind: DatatypeProperty, Range: "http://www.w3.org/2002/07/owl#real", Many: true, Ordered: true, Upper: 2}`
 	if !strings.Contains(string(generated), want) {
 		t.Fatalf("upperBound 2 was not generated as Many:\n%s", generated)
 	}
