@@ -132,7 +132,7 @@ func decodeAsciiDoc(body string, output []byte) ([]Block, error) {
 
 // flattenAsciiDoc lays the converter's tree out in body order: a section is
 // its heading followed by its blocks, subsections among them.
-func flattenAsciiDoc(flat []asciiDocBlock, nodes []asciiDocBlock) []asciiDocBlock {
+func flattenAsciiDoc(flat, nodes []asciiDocBlock) []asciiDocBlock {
 	for _, node := range nodes {
 		if node.Kind != "section" {
 			flat = append(flat, node)

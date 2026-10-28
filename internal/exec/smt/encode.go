@@ -239,6 +239,9 @@ func (e *Encoding) collectFeatures() error {
 	return nil
 }
 
+// attributeConstruct names an attribute in the construct an UnsupportedError reports.
+const attributeConstruct = "attribute "
+
 // collectAttribute declares the variable of an attribute the performance holds,
 // free or valued, and records it as an input; declared gains the variable.
 func (e *Encoding) collectAttribute(attr lower.Attribute, declared map[string]bool) error {
@@ -254,16 +257,16 @@ func (e *Encoding) collectAttribute(attr lower.Attribute, declared map[string]bo
 		written = attr.Symbol.Name
 	}
 	if fp := lower.ExpressionFootprint(graph.Resolver(), graph.Semantics(), scope, attr.Value); attr.Binding && (len(fp.Reads) > 0 || fp.Dynamic) {
-		return &UnsupportedError{Node: nodeLabel(graph.Initial), Construct: "attribute " + attr.Name,
+		return &UnsupportedError{Node: nodeLabel(graph.Initial), Construct: attributeConstruct + attr.Name,
 			Reason: "a feature valued by an expression over other features is computed as it is read; the states carry only values written"}
 	}
 	free, released := e.frees(attr)
 	if free {
-		if _, err := e.translator.Variable(written, scope, "attribute "+attr.Name); err != nil {
+		if _, err := e.translator.Variable(written, scope, attributeConstruct+attr.Name); err != nil {
 			return noDomain(attr, err)
 		}
 	}
-	v, err := e.variable(written, scope, "attribute "+attr.Name, nodeLabel(graph.Initial))
+	v, err := e.variable(written, scope, attributeConstruct+attr.Name, nodeLabel(graph.Initial))
 	if err != nil {
 		return err
 	}
