@@ -1,6 +1,9 @@
 package ast
 
-import "reflect"
+import (
+	"reflect"
+	"sync"
+)
 
 // Inspect visits n and, wherever visit answers true, every node reachable
 // through n's exported fields: pointer, interface, slice and map members, and
@@ -45,11 +48,8 @@ func inspectValue(v reflect.Value, visit func(Node) bool, seen map[visitKey]bool
 		}
 		inspectValue(v.Elem(), visit, seen)
 	case reflect.Struct:
-		t := v.Type()
-		for i := 0; i < v.NumField(); i++ {
-			if t.Field(i).IsExported() {
-				inspectValue(v.Field(i), visit, seen)
-			}
+		for _, i := range nodeFields(v.Type()) {
+			inspectValue(v.Field(i), visit, seen)
 		}
 	case reflect.Slice, reflect.Array:
 		for i := 0; i < v.Len(); i++ {
@@ -60,4 +60,45 @@ func inspectValue(v reflect.Value, visit func(Node) bool, seen map[visitKey]bool
 			inspectValue(v.MapIndex(k), visit, seen)
 		}
 	}
+}
+
+// nodeFieldPlans memoizes, per struct type, the indices of the exported fields
+// a node can be reached through: reading every field's description from the
+// type on each struct visited dominated a walk, and scalar fields hold no node.
+var nodeFieldPlans sync.Map // reflect.Type -> []int
+
+func nodeFields(t reflect.Type) []int {
+	if plan, ok := nodeFieldPlans.Load(t); ok {
+		return plan.([]int)
+	}
+	plan := []int{}
+	for i := 0; i < t.NumField(); i++ {
+		if f := t.Field(i); f.IsExported() && mayHoldNode(f.Type, nil) {
+			plan = append(plan, i)
+		}
+	}
+	nodeFieldPlans.Store(t, plan)
+	return plan
+}
+
+// mayHoldNode reports whether a value of type t can reach a Node: through a
+// pointer, interface, slice, array or map, or a struct with such a field.
+func mayHoldNode(t reflect.Type, visiting []reflect.Type) bool {
+	switch t.Kind() {
+	case reflect.Interface, reflect.Ptr, reflect.Slice, reflect.Array, reflect.Map:
+		return true
+	case reflect.Struct:
+		for _, v := range visiting {
+			if v == t {
+				return false
+			}
+		}
+		visiting = append(visiting, t)
+		for i := 0; i < t.NumField(); i++ {
+			if f := t.Field(i); f.IsExported() && mayHoldNode(f.Type, visiting) {
+				return true
+			}
+		}
+	}
+	return false
 }
