@@ -473,7 +473,8 @@ them, and `SHA256SUMS.txt` covering all of it, signed with cosign (see
 [docs/project/releasing.md](docs/project/releasing.md#the-software-bills-of-materials)). Windows also gets an installer,
 `opensysml-<x.y.z>-windows-amd64.msi` (`sysml`, `sysml-lsp`, `sysml-grpc`, `sysml-mcp`, optional bundled Z3
 solver; see [packaging/msi](packaging/msi/README.md)), built by the GitHub Actions release
-workflow after CircleCI publishes the release, with its digest in `SHA256SUMS-windows-msi.txt`.
+workflow after CircleCI publishes the release, with its digest and that of its input-derived
+SBOM in `SHA256SUMS-windows-msi.txt`.
 macOS binaries are not Developer ID signed or notarized; see
 [docs/project/macos-distribution.md](docs/project/macos-distribution.md). Windows binaries and
 the MSI are Authenticode signed through [SignPath Foundation](https://signpath.org) once the

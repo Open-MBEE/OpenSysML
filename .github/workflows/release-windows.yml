@@ -53,6 +53,8 @@ env:
   UNSIGNED_MSI_ARTIFACT: windows-amd64-msi-unsigned
   PRESIGN_MSI_ARTIFACT: windows-amd64-msi-presign
   MSI_INPUTS_ARTIFACT: windows-msi-inputs
+  MSI_SBOM_ARTIFACT: windows-msi-sbom
+  SIGNED_MSI_SBOM_ARTIFACT: windows-msi-signed-sbom
   WIX_VERSION: 5.0.2
 
 jobs:
@@ -131,6 +133,41 @@ jobs:
             make windows-versioninfo-check EXE="$exe" VERSION="$VERSION"
           done
 
+      # The installer is built on Windows from these executables and the Z3
+      # release packaging/msi/z3.pin names. Its SBOM is written here, from
+      # those inputs, with the syft the CircleCI release pins, and travels to
+      # the MSI jobs as an artifact to be listed beside the installer's digest.
+      - name: Install syft
+        run: |
+          curl -fsSL -o /tmp/syft.tar.gz \
+            https://github.com/anchore/syft/releases/download/v1.55.0/syft_1.55.0_linux_amd64.tar.gz
+          echo "bb65249542db5fedeeb4d3f9b018b75e7264dbfbbb10486f044581a92f90490d  /tmp/syft.tar.gz" | sha256sum --check --strict
+          tar -xzf /tmp/syft.tar.gz -C /tmp syft
+          sudo install -m 0755 /tmp/syft /usr/local/bin/syft
+          syft version
+
+      - name: Write the installer's software bill of materials from its inputs
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # The pinned Z3 zip build-msi.sh bundles, refused on a digest mismatch as there.
+          # shellcheck source=packaging/msi/z3.pin
+          source packaging/msi/z3.pin
+          curl -fsSL --proto '=https' --proto-redir '=https' -o "/tmp/${Z3_ZIP}" \
+            "https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/${Z3_ZIP}"
+          echo "${Z3_SHA256}  /tmp/${Z3_ZIP}" | sha256sum --check --strict
+          python3 scripts/release-sbom.py --version "$VERSION" --out dist/msi-sbom \
+            --msi-inputs dist/unsigned --z3-pin packaging/msi/z3.pin --z3-zip "/tmp/${Z3_ZIP}"
+          ls -l dist/msi-sbom
+
+      - name: Upload the installer's SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.MSI_SBOM_ARTIFACT }}
+          path: dist/msi-sbom/*.spdx.json
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Upload unsigned binaries
         id: upload
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -201,6 +238,14 @@ jobs:
           name: ${{ env.UNSIGNED_ARTIFACT }}
           path: dist/unsigned
 
+      # The SBOM the build job wrote from the installer's inputs, published
+      # beside it under its name and listed with its digest.
+      - name: Download the installer's SBOM
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.MSI_SBOM_ARTIFACT }}
+          path: dist/release
+
       - name: Install WiX
         run: |
           dotnet tool install --global wix --version "$WIX_VERSION"
@@ -215,7 +260,10 @@ jobs:
           wix msi validate "$msi"
           mkdir -p dist/release
           mv "$msi" dist/release/
-          (cd dist/release && sha256sum ./*.msi | sed 's|\./||' | tee SHA256SUMS-windows-msi.txt)
+          if [ ! -f "dist/release/$(basename "$msi").spdx.json" ]; then
+            echo "Error: no SBOM named after $(basename "$msi") in dist/release:"; ls -l dist/release; exit 1
+          fi
+          (cd dist/release && sha256sum ./*.msi ./*.spdx.json | sed 's|\./||' | tee SHA256SUMS-windows-msi.txt)
 
       - name: Upload the unsigned MSI as a workflow artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -330,6 +378,39 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      # The signed installer is built from these signed executables, whose
+      # bytes differ from the unsigned ones: its SBOM is written here, from
+      # them, with the same pinned syft and Z3 as the unsigned installer's.
+      - name: Install syft
+        run: |
+          curl -fsSL -o /tmp/syft.tar.gz \
+            https://github.com/anchore/syft/releases/download/v1.55.0/syft_1.55.0_linux_amd64.tar.gz
+          echo "bb65249542db5fedeeb4d3f9b018b75e7264dbfbbb10486f044581a92f90490d  /tmp/syft.tar.gz" | sha256sum --check --strict
+          tar -xzf /tmp/syft.tar.gz -C /tmp syft
+          sudo install -m 0755 /tmp/syft /usr/local/bin/syft
+          syft version
+
+      - name: Write the signed installer's software bill of materials from its inputs
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          # shellcheck source=packaging/msi/z3.pin
+          source packaging/msi/z3.pin
+          curl -fsSL --proto '=https' --proto-redir '=https' -o "/tmp/${Z3_ZIP}" \
+            "https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/${Z3_ZIP}"
+          echo "${Z3_SHA256}  /tmp/${Z3_ZIP}" | sha256sum --check --strict
+          python3 scripts/release-sbom.py --version "$VERSION" --out dist/msi-sbom \
+            --msi-inputs dist/signed --msi-signed --z3-pin packaging/msi/z3.pin --z3-zip "/tmp/${Z3_ZIP}"
+          ls -l dist/msi-sbom
+
+      - name: Upload the signed installer's SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.SIGNED_MSI_SBOM_ARTIFACT }}
+          path: dist/msi-sbom/*.spdx.json
+          if-no-files-found: error
+          retention-days: 14
+
   msi-signed:
     name: Build the MSI from the signed binaries and sign it
     needs: [build, sign]
@@ -439,6 +520,14 @@ jobs:
           name: windows-amd64-msi-signed
           path: dist/release
 
+      # Its SBOM, written by the sign job from the executables SignPath signed
+      # and the pinned Z3, under the signed installer's name.
+      - name: Download the signed installer's SBOM
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.SIGNED_MSI_SBOM_ARTIFACT }}
+          path: dist/release
+
       # No checkout here either; the LICENSE the sysml-mcp zip carries comes
       # from the packaging inputs the build job uploaded.
       - name: Download the MSI packaging inputs
@@ -467,8 +556,13 @@ jobs:
           (cd stage && zip -q ../../release/opensysml-windows-amd64-signed.zip sysml.exe sysml-lsp.exe)
           rm -rf stage
           cd ../release
+          for msi in ./*.msi; do
+            if [ ! -f "$msi.spdx.json" ]; then
+              echo "Error: no SBOM named after $msi in dist/release:"; ls -l; exit 1
+            fi
+          done
           sha256sum sysml-grpc-windows-amd64-signed.exe > sysml-grpc-windows-amd64-signed.exe.sha256
-          sha256sum ./*.zip ./*.msi sysml-grpc-windows-amd64-signed.exe | sed 's|\./||' > SHA256SUMS-windows-signed.txt
+          sha256sum ./*.zip ./*.msi ./*.spdx.json sysml-grpc-windows-amd64-signed.exe | sed 's|\./||' > SHA256SUMS-windows-signed.txt
           cat SHA256SUMS-windows-signed.txt
 
       - name: Upload signed assets as a workflow artifact

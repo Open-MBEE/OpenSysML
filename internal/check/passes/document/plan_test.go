@@ -1,11 +1,13 @@
 package document_test
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/document"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan/markup"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -141,5 +143,57 @@ part def Report :> Document {
 	}
 	if !found {
 		t.Fatalf("missing unknown-parameter diagnostic: %v", diagnostics)
+	}
+}
+
+// documentPlanDiagnosticsWithSource analyses body as a batch does, with the
+// notation readable, since a markup body is read from the source text.
+func documentPlanDiagnosticsWithSource(t *testing.T, body string) []diag.Diagnostic {
+	t.Helper()
+	index := libs.NewModelIndex()
+	name := "documents.sysml"
+	sf := source.New(name, []byte(`
+package Fixture {
+	private import DocumentQueries::*;
+	`+body+`
+}`))
+	p := parser.New(sf)
+	root := p.ParseFile()
+	index.AddDocument(name, root)
+	index.ExpandWildcardImports()
+	batch := &passes.Batch{Documents: []string{name}, Source: func(doc string, span source.Span) string {
+		if doc != name {
+			return ""
+		}
+		return sf.Text(span)
+	}}
+	passes.PrepareBatch(index, batch)
+	diagnostics, _ := passes.AnalyzeInBatch(name, source.KindSysML, root, parserDiagnostics(p), index, passes.Options{}, batch)
+	return diagnostics
+}
+
+func TestDocumentPlanPassWarnsOfMissingMarkupConverterAndGoesOn(t *testing.T) {
+	t.Setenv(markup.AsciiDocEnv, filepath.Join(t.TempDir(), "missing-converter"))
+	diagnostics := documentPlanDiagnosticsWithSource(t, `
+part def Report :> Document {
+	attribute redefines title = "Report";
+	part intro : Paragraph {
+		rep language "asciidoc" /* Overview. */
+	}
+	part empty : Paragraph;
+}
+`)
+	if len(diagnostics) != 2 {
+		t.Fatalf("diagnostics = %v, want the converter warning and the missing text", diagnostics)
+	}
+	warning, missing := diagnostics[0], diagnostics[1]
+	if warning.Severity != diag.SeverityWarning || warning.Code != "document-plan-markup-tool-missing" || warning.Source != "document-plan" {
+		t.Errorf("warning = %+v, want a document-plan-markup-tool-missing warning", warning)
+	}
+	if !strings.Contains(warning.Message, "was not checked") || !strings.Contains(warning.Message, markup.AsciiDocEnv+" names it") || !strings.Contains(warning.Message, "download-doc-pdf-toolchain.sh") {
+		t.Errorf("warning message %q lacks the unchecked body, the variable or the remedy", warning.Message)
+	}
+	if missing.Severity != diag.SeverityError || missing.Code != "document-plan-missing-text" {
+		t.Errorf("error = %+v, want document-plan-missing-text", missing)
 	}
 }

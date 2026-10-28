@@ -606,100 +606,132 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 	if err != nil {
 		return sequence{}, err
 	}
-	var properties []string
-	if hasArgument(expression, "properties") {
-		properties, err = e.stringsArgument(expression, "properties")
-		if err != nil {
-			return sequence{}, err
-		}
-	}
-	var computed []computedColumn
-	if columnsValue, ok := argumentValue(expression, "columns"); ok {
-		computed, err = e.computedColumns(expression, columnsValue)
-		if err != nil {
-			return sequence{}, err
-		}
-	}
-	total := len(properties) + len(computed)
-	if total == 0 {
-		return sequence{}, e.invalidArgument(expression, "properties", "empty")
-	}
-	tolerate, err := e.tolerateArgument(expression)
+	p, err := e.newProjection(expression)
 	if err != nil {
 		return sequence{}, err
 	}
-	seen := make(map[string]bool, total)
-	for _, property := range properties {
-		seen[property] = true
-	}
-	for _, column := range computed {
-		if seen[column.name] {
-			return sequence{}, e.invalidArgument(expression, "columns", column.name)
-		}
-		seen[column.name] = true
-	}
+	total := len(p.properties) + len(p.computed)
 	result := sequence{
 		values:  append([]Value(nil), source.values...),
 		columns: make([]Column, total),
 		cells:   make([][]Cell, len(source.values)),
 		depths:  append([]int64(nil), source.depths...),
 	}
-	known := make([]bool, len(properties))
-	for i, property := range properties {
+	for i, property := range p.properties {
 		result.columns[i] = Column{name: property, origin: expression.Origin()}
 	}
-	for i, column := range computed {
-		result.columns[len(properties)+i] = Column{name: column.name, origin: column.origin.Origin()}
+	for i, column := range p.computed {
+		result.columns[len(p.properties)+i] = Column{name: column.name, origin: column.origin.Origin()}
 	}
-	tracker := newPropertyTracker()
-	missing := make([][]*Error, len(properties))
 	for row, value := range source.values {
-		result.cells[row] = make([]Cell, total)
-		for column, property := range properties {
-			values, present, valueErr := e.propertyValues(value, property)
-			if valueErr != nil {
-				return sequence{}, e.unevaluable(expression, property, value, valueErr)
-			}
-			if !present && !tolerate {
-				if m := e.missingFeature(expression, property, value); m != nil {
-					missing[column] = append(missing[column], m)
-				}
-			}
-			known[column] = known[column] || present
-			result.cells[row][column] = Cell{
-				values: values,
-				origin: value.Origin(),
-			}
-		}
-		for i, column := range computed {
-			values, cellErr := e.evaluateColumnCell(column, value, tracker)
-			if cellErr != nil {
-				return sequence{}, cellErr
-			}
-			result.cells[row][len(properties)+i] = Cell{
-				values: values,
-				origin: value.Origin(),
-			}
+		if result.cells[row], err = p.cells(value); err != nil {
+			return sequence{}, err
 		}
 	}
 	if len(source.values) > 0 {
-		for i, property := range properties {
-			if !known[i] {
-				return sequence{}, e.unknownProperty(expression, property)
-			}
-		}
-		// A property some rows carry and an element row lacks is a path error
-		// about that element, unless tolerated; one no row carries is unknown.
-		for _, column := range missing {
-			if err := joinMissing(column); err != nil {
-				return sequence{}, err
-			}
-		}
-		if property, missing := tracker.missing(); missing {
-			return sequence{}, e.unknownProperty(expression, property)
+		if err := p.checkProperties(); err != nil {
+			return sequence{}, err
 		}
 	}
 	return result, nil
+}
+
+// projection is one project operation's columns and what reading its rows
+// learnt of them: which properties any row carried and which rows lacked one.
+type projection struct {
+	e          *executor
+	expression queryplan.Expression
+	properties []string
+	computed   []computedColumn
+	tolerate   bool
+	tracker    *propertyTracker
+	known      []bool
+	missing    [][]*Error
+}
+
+// newProjection reads the operation's properties and computed columns, at
+// least one in all and each named once.
+func (e *executor) newProjection(expression queryplan.Expression) (*projection, error) {
+	p := &projection{e: e, expression: expression}
+	var err error
+	if hasArgument(expression, "properties") {
+		if p.properties, err = e.stringsArgument(expression, "properties"); err != nil {
+			return nil, err
+		}
+	}
+	if columnsValue, ok := argumentValue(expression, "columns"); ok {
+		if p.computed, err = e.computedColumns(expression, columnsValue); err != nil {
+			return nil, err
+		}
+	}
+	total := len(p.properties) + len(p.computed)
+	if total == 0 {
+		return nil, e.invalidArgument(expression, "properties", "empty")
+	}
+	if p.tolerate, err = e.tolerateArgument(expression); err != nil {
+		return nil, err
+	}
+	seen := make(map[string]bool, total)
+	for _, property := range p.properties {
+		seen[property] = true
+	}
+	for _, column := range p.computed {
+		if seen[column.name] {
+			return nil, e.invalidArgument(expression, "columns", column.name)
+		}
+		seen[column.name] = true
+	}
+	p.tracker = newPropertyTracker()
+	p.known = make([]bool, len(p.properties))
+	p.missing = make([][]*Error, len(p.properties))
+	return p, nil
+}
+
+// cells reads one row's columns, noting the properties it carries and lacks.
+func (p *projection) cells(value Value) ([]Cell, error) {
+	cells := make([]Cell, len(p.properties)+len(p.computed))
+	for column, property := range p.properties {
+		values, present, err := p.e.propertyValues(value, property)
+		if err != nil {
+			return nil, p.e.unevaluable(p.expression, property, value, err)
+		}
+		if !present && !p.tolerate {
+			if m := p.e.missingFeature(p.expression, property, value); m != nil {
+				p.missing[column] = append(p.missing[column], m)
+			}
+		}
+		p.known[column] = p.known[column] || present
+		cells[column] = Cell{values: values, origin: value.Origin()}
+	}
+	for i, column := range p.computed {
+		values, err := p.e.evaluateColumnCell(column, value, p.tracker)
+		if err != nil {
+			return nil, err
+		}
+		cells[len(p.properties)+i] = Cell{values: values, origin: value.Origin()}
+	}
+	return cells, nil
+}
+
+// checkProperties reports, once every row is read, a property no row carried
+// as unknown, then the rows that lacked one others carry.
+func (p *projection) checkProperties() error {
+	for i, property := range p.properties {
+		if !p.known[i] {
+			return p.e.unknownProperty(p.expression, property)
+		}
+	}
+	// A property some rows carry and an element row lacks is a path error
+	// about that element, unless tolerated; one no row carries is unknown.
+	for _, column := range p.missing {
+		if err := joinMissing(column); err != nil {
+			return err
+		}
+	}
+	if property, missing := p.tracker.missing(); missing {
+		return p.e.unknownProperty(p.expression, property)
+	}
+	return nil
 }
 
 // propertyValues reads a property of a row: of the session for an object row,

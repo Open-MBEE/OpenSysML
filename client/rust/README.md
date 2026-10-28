@@ -74,7 +74,9 @@ There are two connection modes.
   other machines reach requires a bearer token:
   `Connection::external_with_token(host, port, token)`, or `$OPENSYSML_GRPC_TOKEN`
   for the other constructors, puts `Authorization: Bearer` on every call; a wrong
-  or missing one is `Error::Service` with `Status::Unauthenticated`. Closing
+  or missing one is `Error::Service` with `Status::Unauthenticated`; a private
+  child needs none and is started without `$OPENSYSML_GRPC_TOKEN` in its
+  environment. Closing
   an external connection does not stop that service.
 
 `Drop` gives deterministic cleanup rather than relying on Python garbage

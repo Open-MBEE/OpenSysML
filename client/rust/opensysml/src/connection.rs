@@ -581,6 +581,9 @@ impl PrivateService {
             "-report-address",
             "-exit-with-parent",
         ]);
+        // The child serves loopback for this process alone: the token meant for a
+        // remote service must not become one the child demands.
+        command.env_remove(TOKEN_ENV);
         command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

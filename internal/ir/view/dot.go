@@ -2139,7 +2139,7 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 	case EdgeSuccessionFlow:
 		attrs = append(attrs, dotStyleDashed)
 	case EdgeRequire, EdgeAssume, EdgeAssert, EdgeFrame, EdgeEvent:
-		attrs = append(attrs, "arrowhead=vee")
+		attrs = append(attrs, dotArrowheadVee)
 	case EdgePortion:
 		// Graphviz has no three-quarter circle: a filled circle stands at the occurrence end.
 		attrs = append(attrs, dotDirBack, "arrowtail=dot")
@@ -2149,7 +2149,7 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 	case EdgeUnownedMembership:
 		attrs = append(attrs, dotDirBack, "arrowtail=odot")
 	case EdgeExpose:
-		attrs = append(attrs, "arrowhead=vee", dotStyleDashed)
+		attrs = append(attrs, dotArrowheadVee, dotStyleDashed)
 	}
 	attrs = append(attrs, dotStyleAttributes(edge.Style, false)...)
 	if len(edge.Route) > 1 {

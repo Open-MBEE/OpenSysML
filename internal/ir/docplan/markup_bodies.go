@@ -34,9 +34,10 @@ func markupLanguage(rep *symbols.Symbol) string {
 
 // compileParagraphBody compiles the one markup body a paragraph carries into
 // its runs: the body must yield exactly one paragraph, whose runs they are.
-func (c *compiler) compileParagraphBody(member *symbols.Symbol, bodies []*symbols.Symbol) ([]Run, error) {
+// A body left unchecked for want of its converter yields no runs and says so.
+func (c *compiler) compileParagraphBody(member *symbols.Symbol, bodies []*symbols.Symbol) (runs []Run, unchecked bool, err error) {
 	if len(bodies) > 1 {
-		return nil, &Error{
+		return nil, false, &Error{
 			Kind:      ErrorMarkupBodyNotParagraph,
 			Document:  c.document,
 			Content:   symbols.FQNOf(member),
@@ -45,12 +46,15 @@ func (c *compiler) compileParagraphBody(member *symbols.Symbol, bodies []*symbol
 			Origin:    bodies[1].Origin(),
 		}
 	}
+	if c.parseMarkupBody(member, bodies[0]).unchecked != nil {
+		return nil, true, nil
+	}
 	blocks, err := c.compileMarkupBlocks(member, bodies[0])
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if len(blocks) != 1 || blocks[0].kind != ContentParagraph {
-		return nil, &Error{
+		return nil, false, &Error{
 			Kind:      ErrorMarkupBodyNotParagraph,
 			Document:  c.document,
 			Content:   symbols.FQNOf(member),
@@ -59,7 +63,7 @@ func (c *compiler) compileParagraphBody(member *symbols.Symbol, bodies []*symbol
 			Origin:    bodies[0].Origin(),
 		}
 	}
-	return blocks[0].runs, nil
+	return blocks[0].runs, false, nil
 }
 
 // describeBlocks states what a body yielded, for a paragraph that wanted one paragraph.

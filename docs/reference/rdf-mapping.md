@@ -2329,6 +2329,7 @@ as an RDF vocabulary graph a store loads beside its models:
 ```bash
 sysml -metaclass-graph                          # Turtle to stdout; no model is read
 sysml -metaclass-graph -o sysml-metaclasses.ttl
+sysml -metamodel-table -o metamodel.json         # the whole table as JSON: classes, properties, enumerations
 ```
 
 The graph is written from the metamodel table of
@@ -2381,7 +2382,7 @@ exactly, which a converted model never contains.
 | `internal/translate/convert` | The `Convert` entry point: format names, notation parsing, the SysML v1 migration |
 | `tests/corpus/roundtrip_test.go` | The per-file round-trip ratchets over every model under `examples/`, with their baselines in `testdata/corpus_roundtrip_expected.txt` (Turtle) and `testdata/api_json_roundtrip_expected.txt` (the API element form) ([rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md)) |
 | `internal/frontend/repl` | `%save` |
-| `cmd/sysml` | `-convert`, `-from`, `-o`, `-metaclass-graph` |
+| `cmd/sysml` | `-convert`, `-from`, `-o`, `-metaclass-graph`, `-metamodel-table` |
 
 The RDF layer is hand-written against the Turtle grammar rather than pulled in
 as a dependency: the subset needed here is small, and the parser rejects what it

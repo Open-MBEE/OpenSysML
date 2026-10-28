@@ -404,9 +404,16 @@ the content blocks of this chapter. `./scripts/download-doc-pdf-toolchain.sh`
 installs the pinned Asciidoctor.js beside the script under
 `build/doc-pdf/asciidoctor/`; point `OPENSYSML_ASCIIDOCTOR` at the installed
 `asciidoctor-json.js` (an `asciidoctor-json` on `PATH` is found without it).
-A document with an AsciiDoc body and no converter fails to plan with a typed
-error naming the script and the variable, and a converter that fails is
-reported with its message — the body is never rendered as literal text.
+Validation (`sysml -validate`, the editors, the SARIF report) does not need
+the converter installed: a document with an AsciiDoc body and no converter
+gets one `document-plan-markup-tool-missing` warning at its first body, naming
+the converter looked for, where (`OPENSYSML_ASCIIDOCTOR` or `PATH`) and the
+remedy, and its AsciiDoc bodies go unchecked while the rest of the document
+is still validated; `-warnings-as-errors` makes that a failure. A rendering
+needs the body parsed, so `-render-document` fails with the same message
+until the converter is installed, and a converter that is found but fails is
+an error reported with its message — the body is never rendered as literal
+text.
 
 | AsciiDoc | Content |
 | --- | --- |

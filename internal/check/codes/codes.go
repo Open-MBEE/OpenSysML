@@ -68,10 +68,22 @@ type Entry struct {
 	// Kinds, for a family code, are the suffixes the emitted code appends to
 	// Code after a dash, each naming one rule of the family.
 	Kinds []string
+	// KindSeverities, for a family code, are the severities of the members
+	// that are not reported at the family's Severity, by kind.
+	KindSeverities map[string]string
 }
 
 // IsFamily reports whether the entry stands for a family of codes `Code-<kind>`.
 func (e Entry) IsFamily() bool { return len(e.Kinds) > 0 }
+
+// MemberSeverity is the severity the member of the family named kind is
+// reported with; the empty kind is the family's base code.
+func (e Entry) MemberSeverity(kind string) string {
+	if severity, ok := e.KindSeverities[kind]; ok {
+		return severity
+	}
+	return e.Severity
+}
 
 // CatalogueURL is the published catalogue every code is a section of.
 const CatalogueURL = "https://runtime.opensysml.org/reference/diagnostics/"
@@ -152,7 +164,7 @@ func Explain(code string) (string, error) {
 		return "", fmt.Errorf("unknown diagnostic code %q; `sysml -explain` lists them", code)
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s: %s (%s)\n", code, e.Severity, e.Tier)
+	fmt.Fprintf(&b, "%s: %s (%s)\n", code, e.MemberSeverity(kind), e.Tier)
 	fmt.Fprintf(&b, "  %s\n\n", e.Summary)
 	b.WriteString(wrap(e.Meaning, 78))
 	if kind != "" {
@@ -181,7 +193,7 @@ func Rows() []Row {
 		out = append(out, Row{Code: e.Code, Severity: e.Severity, Tier: e.Tier, Summary: e.Summary})
 		// A family's base code is emitted too, for an error outside its kinds.
 		for _, k := range e.Kinds {
-			out = append(out, Row{Code: e.Code + "-" + k, Severity: e.Severity, Tier: e.Tier, Summary: e.Summary + " (rule " + k + ")"})
+			out = append(out, Row{Code: e.Code + "-" + k, Severity: e.MemberSeverity(k), Tier: e.Tier, Summary: e.Summary + " (rule " + k + ")"})
 		}
 	}
 	return out

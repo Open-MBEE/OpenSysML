@@ -194,7 +194,9 @@ is, like the other opt-out, never implied; the service warns at startup when it 
 logged on one line at `INFO` with the peer address, method, protocol, status code, duration and
 whether it was authenticated; a refused call is logged at `WARN` with the peer. The token
 itself is never logged. The private child a client starts for itself (`-port 0
--exit-with-parent`) is unaffected: it binds loopback and needs no token.
+-exit-with-parent`) is unaffected: it binds loopback and needs no token, and the client starts
+it without `OPENSYSML_GRPC_TOKEN` in its environment, so a token set for a remote service is
+never one the child demands.
 
 **TLS.** `-tls-cert` and `-tls-key` (both or neither) serve everything above over HTTPS on the
 same port, negotiating `h2` and `http/1.1`, minimum TLS 1.2. A browser on an `https://` page

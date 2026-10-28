@@ -38,6 +38,9 @@ function conn = private(varargin)
     end
     try
         pb = javaObject('java.lang.ProcessBuilder', args);
+        % The child serves loopback for this process alone: the token meant for a
+        % remote service must not become one the child demands.
+        pb.environment().remove(javaObject('java.lang.String', 'OPENSYSML_GRPC_TOKEN'));
         proc = pb.start();
     catch e
         opensysml.internal.raise('opensysml:transport', ...

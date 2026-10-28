@@ -89,7 +89,8 @@ port, set `$OPENSYSML_SERVICE=host:port`, or pass `auto_start=False` to require
 a caller-managed service. A service other machines reach requires a bearer
 token: pass `token=` (or set `$OPENSYSML_GRPC_TOKEN`) and every call carries it
 as `authorization: Bearer` metadata; a wrong or missing one raises
-`AuthenticationError`, a `ConnectionError`. The client never stops such a service. A managed
+`AuthenticationError`, a `ConnectionError`. The client never stops such a service. A private
+child needs no token and is started without `$OPENSYSML_GRPC_TOKEN` in its environment. A managed
 service is checked with `GetServerInfo` against any requested release and
 capabilities, but is neither replaced nor stopped to satisfy the check.
 
