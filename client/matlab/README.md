@@ -33,7 +33,8 @@ conn = opensysml.private('binary', '/path/to/sysml-grpc', 'timeout', 30);
 name-value options; `external` accepts `version`, `capabilities` and `token` —
 the bearer token a service on an address other machines reach requires, sent as
 `Authorization: Bearer` on every call, read from `OPENSYSML_GRPC_TOKEN` when the
-option is absent.
+option is absent. `private` starts its child without that variable in its
+environment: a private child needs no token.
 `connect` forwards the applicable requirements to whichever connection it
 selects. When no binary is named, `private` checks
 `OPENSYSML_GRPC_BINARY`, `~/.opensysml/bin/sysml-grpc`, then `PATH`. The

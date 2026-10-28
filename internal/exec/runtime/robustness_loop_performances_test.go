@@ -91,7 +91,7 @@ func testLoopPerformancesEndWithTheRun(t *testing.T) {
 	for i := 1; i < len(bodies); i++ {
 		before, _ := ctx.OccurrenceLife(mustObject(bodies[i-1]))
 		after, _ := ctx.OccurrenceLife(mustObject(bodies[i]))
-		if !(before.Ended <= after.Began) {
+		if before.Ended > after.Began {
 			t.Errorf("body #%d ended at %d after body #%d began at %d: iterations are in sequence", i, before.Ended, i+1, after.Began)
 		}
 	}

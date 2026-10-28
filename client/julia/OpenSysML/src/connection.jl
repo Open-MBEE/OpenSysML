@@ -76,7 +76,11 @@ function private(; binary::Union{AbstractString,Nothing}=nothing, timeout::Real=
                  version=nothing, require_capabilities=())
     bin = binary === nothing ? resolve_binary(; version=version) : String(binary)
     _is_executable_file(bin) || throw(TransportError("sysml-grpc binary is not an executable file: $(bin)"))
-    cmd = `$bin -port 0 -health-port 0 -report-address -exit-with-parent`
+    # The child serves loopback for this process alone: the token meant for a
+    # remote service must not become one the child demands (Windows names it in any case).
+    istoken(name) = Sys.iswindows() ? uppercase(name) == TOKEN_ENV : name == TOKEN_ENV
+    env = [name * "=" * value for (name, value) in ENV if !istoken(name)]
+    cmd = setenv(`$bin -port 0 -health-port 0 -report-address -exit-with-parent`, env)
     proc = try
         open(cmd, "r+")
     catch e

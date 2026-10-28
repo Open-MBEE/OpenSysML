@@ -38,20 +38,30 @@ func (PlanPass) Run(ctx *kit.Context, name string, root *ast.RootNamespace) []di
 		if ctx.DownstreamOfFailure(sym.Decl) {
 			return
 		}
-		if _, err := docplan.Compile(ctx.Index, ctx.Model(), ctx.Resolver(), sym); err != nil {
-			var planning *docplan.Error
-			if errors.As(err, &planning) {
-				if planning.Origin.Doc != "" && planning.Origin.Doc != name {
-					return
-				}
-				if ctx.DownstreamSpan(planning.Origin.Span) {
-					return
-				}
+		warnings, err := docplan.Validate(ctx.Index, ctx.Model(), ctx.Resolver(), sym)
+		for _, warning := range warnings {
+			if reportedHere(ctx, name, warning) {
+				diagnostics = append(diagnostics, planDiagnostic(warning))
 			}
+		}
+		if err != nil && reportedHere(ctx, name, err) {
 			diagnostics = append(diagnostics, planDiagnostic(err))
 		}
 	})
 	return diagnostics
+}
+
+// reportedHere is whether a planning error is this document's to report: one
+// placed in another document, or downstream of a failure, is not.
+func reportedHere(ctx *kit.Context, name string, err error) bool {
+	var planning *docplan.Error
+	if !errors.As(err, &planning) {
+		return true
+	}
+	if planning.Origin.Doc != "" && planning.Origin.Doc != name {
+		return false
+	}
+	return !ctx.DownstreamSpan(planning.Origin.Span)
 }
 
 func planDiagnostic(err error) diag.Diagnostic {
@@ -65,7 +75,7 @@ func planDiagnostic(err error) diag.Diagnostic {
 		}
 	}
 	return diag.Diagnostic{
-		Severity: diag.SeverityError,
+		Severity: planning.Kind.Severity(),
 		Span:     planning.Origin.Span,
 		Message:  planning.Error(),
 		Code:     planSource + "-" + string(planning.Kind),

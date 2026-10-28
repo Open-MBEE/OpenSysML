@@ -305,7 +305,7 @@ func TestGoldenMermaidPalette(t *testing.T) {
 }
 
 func TestMermaidEdgeSyntaxAndLinkStyleIndices(t *testing.T) {
-	if got, want := []string{mermaidArrow(KindInterconnection, EdgeConnection), mermaidArrow(KindInterconnection, EdgeBinding), mermaidArrow(KindAction, EdgeFlow), mermaidArrow(KindAction, EdgeSuccession)},
+	if got, want := []string{mermaidArrow(EdgeConnection), mermaidArrow(EdgeBinding), mermaidArrow(EdgeFlow), mermaidArrow(EdgeSuccession)},
 		[]string{"===", "===", "-->", "-.->"}; fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("arrows = %v, want %v", got, want)
 	}

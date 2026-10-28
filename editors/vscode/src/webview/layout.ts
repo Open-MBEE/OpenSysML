@@ -553,8 +553,8 @@ function pinsOn(child: PlacedNode, geometry: Geometry): boolean {
 
 /** portKind reports a port usage's kind: `port`, `ref port`, but no `port def`. */
 export function portKind(kind: string): boolean {
-  const words = kind.split(" ");
-  return words.includes("port") && !words.includes("def");
+  const words = new Set(kind.split(" "));
+  return words.has("port") && !words.has("def");
 }
 
 // pinOf is a port node as the pin it is drawn as.
@@ -641,9 +641,10 @@ function memberEdgeOwners(
 // drawnUnder is the boxes drawn inside a node: its drawn children less the pins on its
 // border, and the drawn members under a clipped child, which has no box of its own.
 function drawnUnder(entry: PlacedNode): PlacedNode[] {
-  return entry.children.flatMap((child) =>
-    child.snapped ? [] : child.clipped ? drawnUnder(child) : [child],
-  );
+  return entry.children.flatMap((child) => {
+    if (child.snapped) return [];
+    return child.clipped ? drawnUnder(child) : [child];
+  });
 }
 
 /** headerBox is the strip a node's label takes at the top of its box: the whole box when nothing is drawn inside it. */
@@ -871,54 +872,72 @@ export function portLabelPlacement(
   };
 }
 
+/** Extent is a bounding box grown to reach every point put to it; empty until one is. */
+class Extent {
+  private left = Infinity;
+  private top = Infinity;
+  private right = -Infinity;
+  private bottom = -Infinity;
+
+  /** of starts an extent already covering a box. */
+  static of(box: Box): Extent {
+    const extent = new Extent();
+    extent.reach(box.x, box.y);
+    extent.reach(box.x + box.width, box.y + box.height);
+    return extent;
+  }
+
+  reach(x: number, y: number): void {
+    this.left = Math.min(this.left, x);
+    this.top = Math.min(this.top, y);
+    this.right = Math.max(this.right, x);
+    this.bottom = Math.max(this.bottom, y);
+  }
+
+  box(): Box {
+    return { x: this.left, y: this.top, width: this.right - this.left, height: this.bottom - this.top };
+  }
+}
+
 /** nodeExtent covers a node, its ports and labels, plus any outward port-pin leg requested. */
 export function nodeExtent(
   node: PlacedNode,
   portExitLeg: number | ((port: PlacedPort) => number) = 0,
 ): Box {
-  let left = node.box.x;
-  let top = node.box.y;
-  let right = node.box.x + node.box.width;
-  let bottom = node.box.y + node.box.height;
-  const reach = (x: number, y: number): void => {
-    left = Math.min(left, x);
-    top = Math.min(top, y);
-    right = Math.max(right, x);
-    bottom = Math.max(bottom, y);
-  };
+  const extent = Extent.of(node.box);
   for (const port of node.ports) {
     const square = portBox(node.box, port);
     const label = portLabelPlacement(node.box, port).bounds;
-    reach(square.x, square.y);
-    reach(square.x + square.width, square.y + square.height);
-    reach(label.x, label.y);
-    reach(label.x + label.width, label.y + label.height);
+    extent.reach(square.x, square.y);
+    extent.reach(square.x + square.width, square.y + square.height);
+    extent.reach(label.x, label.y);
+    extent.reach(label.x + label.width, label.y + label.height);
     const exitLeg =
       typeof portExitLeg === "function" ? portExitLeg(port) : portExitLeg;
     if (exitLeg > 0) {
       const face = portFace(node.box, port);
       switch (port.side) {
         case "north":
-          reach(face.x, face.y - exitLeg);
+          extent.reach(face.x, face.y - exitLeg);
           break;
         case "east":
-          reach(face.x + exitLeg, face.y);
+          extent.reach(face.x + exitLeg, face.y);
           break;
         case "south":
-          reach(face.x, face.y + exitLeg);
+          extent.reach(face.x, face.y + exitLeg);
           break;
         case "west":
-          reach(face.x - exitLeg, face.y);
+          extent.reach(face.x - exitLeg, face.y);
           break;
       }
     }
   }
   if (node.snapped && node.parent) {
     const label = portLabelPlacement(node.parent.box, node.snapped).bounds;
-    reach(label.x, label.y);
-    reach(label.x + label.width, label.y + label.height);
+    extent.reach(label.x, label.y);
+    extent.reach(label.x + label.width, label.y + label.height);
   }
-  return { x: left, y: top, width: right - left, height: bottom - top };
+  return extent.box();
 }
 
 /** edgeLabelBox is the box an edge's label is drawn in, centred over the edge's midpoint; none for an unlabelled edge. */
@@ -991,31 +1010,28 @@ function labelPoint(points: RenderPoint[], label: string, headers: Box[]): Rende
 
 /** edgeExtent covers an edge's polyline, the arrowheads at its ends and its label. */
 export function edgeExtent(edge: PlacedEdge): Box {
-  let left = Infinity;
-  let top = Infinity;
-  let right = -Infinity;
-  let bottom = -Infinity;
-  const reach = (x: number, y: number): void => {
-    left = Math.min(left, x);
-    top = Math.min(top, y);
-    right = Math.max(right, x);
-    bottom = Math.max(bottom, y);
-  };
+  const extent = new Extent();
   for (const point of edge.points) {
-    reach(point.x, point.y);
+    extent.reach(point.x, point.y);
   }
   for (const end of [edge.points[0], edge.points.at(-1)]) {
     if (end) {
-      reach(end.x - MARKER_REACH, end.y - MARKER_REACH);
-      reach(end.x + MARKER_REACH, end.y + MARKER_REACH);
+      extent.reach(end.x - MARKER_REACH, end.y - MARKER_REACH);
+      extent.reach(end.x + MARKER_REACH, end.y + MARKER_REACH);
     }
   }
   const label = edgeLabelBox(edge);
   if (label) {
-    reach(label.x, label.y);
-    reach(label.x + label.width, label.y + label.height);
+    extent.reach(label.x, label.y);
+    extent.reach(label.x + label.width, label.y + label.height);
   }
-  return { x: left, y: top, width: right - left, height: bottom - top };
+  return extent.box();
+}
+
+/** endBox is the box an edge meets at one end: an owner meets the edge to its member at its header line, not on its outer border. */
+function endBox(end: PlacedNode | undefined, other: PlacedNode | undefined, viaPort: boolean): Box {
+  if (!end) return EMPTY_BOX;
+  return !viaPort && other && encloses(end, other) ? headerBox(end) : end.box;
 }
 
 /** clampNodeToBounds keeps a node's full visible and routing extent inside a box. */
@@ -1739,9 +1755,8 @@ function routeEdge(
   const route = stated ?? [];
   const fromPort = source?.ports.find((port) => port.port.id === edge.fromPort);
   const toPort = target?.ports.find((port) => port.port.id === edge.toPort);
-  // An owner meets the edge to its member at its header line, not on its outer border.
-  const from = source ? (!fromPort && target && encloses(source, target) ? headerBox(source) : source.box) : EMPTY_BOX;
-  const to = target ? (!toPort && source && encloses(target, source) ? headerBox(target) : target.box) : EMPTY_BOX;
+  const from = endBox(source, target, fromPort !== undefined);
+  const to = endBox(target, source, toPort !== undefined);
   let inner = route;
   if (route.length === 0 && edge.from === edge.to) {
     inner = [
