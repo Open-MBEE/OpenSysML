@@ -33,12 +33,31 @@ class ResourceDescriptorWriterTest {
 
   @Test
   void packsTheVersionIntoAnOrderedInteger() {
-    assertEquals(11_000L, ResourceDescriptorWriter.internalVersion("0.11.0"));
-    assertEquals(11_000L, ResourceDescriptorWriter.internalVersion("v0.11.0"));
-    assertEquals(1_002_003L, ResourceDescriptorWriter.internalVersion("1.2.3-nightly-20260101-abc"));
+    assertEquals(11_009_999L, ResourceDescriptorWriter.internalVersion("0.11.0"));
+    assertEquals(11_009_999L, ResourceDescriptorWriter.internalVersion("v0.11.0"));
+    assertEquals(102_030_000L, ResourceDescriptorWriter.internalVersion("1.2.3-nightly-20260101-abc"));
     assertTrue(ResourceDescriptorWriter.internalVersion("0.12.0") > ResourceDescriptorWriter.internalVersion("0.11.9"));
     assertTrue(ResourceDescriptorWriter.internalVersion("1.0.0") > ResourceDescriptorWriter.internalVersion("0.99.99"));
+    assertTrue(ResourceDescriptorWriter.internalVersion("21.0.0") <= Integer.MAX_VALUE);
     assertThrows(IllegalArgumentException.class, () -> ResourceDescriptorWriter.internalVersion("nightly"));
+    assertThrows(IllegalArgumentException.class, () -> ResourceDescriptorWriter.internalVersion("0.11.0-rc1"));
+    assertThrows(IllegalArgumentException.class, () -> ResourceDescriptorWriter.internalVersion("0.100.0"));
+    assertThrows(IllegalArgumentException.class, () -> ResourceDescriptorWriter.internalVersion("22.0.0"));
+  }
+
+  @Test
+  void ordersNightliesByDayBetweenTheReleaseTheyLeadToAndThePreviousOne() {
+    long previous = ResourceDescriptorWriter.internalVersion("0.11.0");
+    long first = ResourceDescriptorWriter.internalVersion("0.11.1-nightly-20261028-aaa1111");
+    long sameDay = ResourceDescriptorWriter.internalVersion("0.11.1-nightly-20261028-bbb2222");
+    long next = ResourceDescriptorWriter.internalVersion("0.11.1-nightly-20261029-ccc3333");
+    long release = ResourceDescriptorWriter.internalVersion("0.11.1");
+    assertEquals(11_010_300L, first);
+    assertEquals(first, sameDay);
+    assertTrue(previous < first && first < next && next < release);
+    assertTrue(release < ResourceDescriptorWriter.internalVersion("0.11.2-nightly-20260101-ddd4444"));
+    assertEquals(ResourceDescriptorWriter.internalVersion("0.11.1-nightly-20250101-e5e5e5e"), first - 300);
+    assertEquals(release - 1, ResourceDescriptorWriter.internalVersion("0.11.1-nightly-20991231-f6f6f6f"));
   }
 
   @Test
@@ -50,7 +69,7 @@ class ResourceDescriptorWriterTest {
     assertTrue(xml.contains("type=\"Plugin\""));
     assertTrue(xml.contains("mdVersionMax=\"higher\""));
     assertTrue(xml.contains("name=\"Magic MDK\""));
-    assertTrue(xml.contains("<version human=\"0.11.0\" internal=\"11000\" resource=\"11000\"/>"));
+    assertTrue(xml.contains("<version human=\"0.11.0\" internal=\"11009999\" resource=\"11009999\"/>"));
     assertTrue(xml.contains("<provider name=\"Open-MBEE\""));
     assertTrue(xml.contains("<edition>Enterprise</edition>"));
     assertTrue(xml.contains(

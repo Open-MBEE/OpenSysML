@@ -823,13 +823,15 @@ jobs:
         with:
           ref: ${{ needs.select.outputs.sha }}
 
+      # The distribution module, and its staging of binaries from a directory (an older module
+      # only downloads a release's by tag, which a night does not have).
       - name: Check the commit carries the distribution module
         id: layout
         run: |
-          if [[ -f editors/mdk/dist/pom.xml && -f editors/mdk/tools/pom.xml ]]; then
+          if [[ -f editors/mdk/dist/pom.xml ]] && grep -q 'opensysml.binaries' editors/mdk/dist/pom.xml; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::notice::$(git rev-parse --short HEAD) predates editors/mdk/dist; no Cameo plugin tonight."
+            echo "::notice::$(git rev-parse --short HEAD) predates the Cameo distribution's -Dopensysml.binaries; no Cameo plugin tonight."
             echo "present=false" >> "$GITHUB_OUTPUT"
           fi
 

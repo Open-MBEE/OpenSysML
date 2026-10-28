@@ -103,15 +103,17 @@ same 14 days, under the run on the
   lists the same digests), after the plugin's own suite ran against the night's service. It is
   what `mvn -f editors/mdk/pom.xml -Dopensysml.version=<version> package` produces for a
   release, with the night's binaries in place of a release's (`-Dopensysml.binaries=<dir>`),
-  versioned as the `.vsix` is — `0.9.3-nightly-<yyyymmdd>-<commit>` — so the Resource Manager
-  orders it by the release it leads to and the name tells one night from the next;
+  versioned as the `.vsix` is — `0.9.3-nightly-<yyyymmdd>-<commit>` — and its descriptor's
+  internal version places it above the previous release and below the one it leads to, nights
+  ordered by the day they were built (two nights of one day, a forced rebuild, rank equal);
 - `syson-plugin` — the SysON MDK backend jar and the `@openmbee/syson-mdk` frontend tarball
   (`npm pack`), the two pieces a [SysON build consumes](../../editors/syson/README.md), with a
   `SNAPSHOT` line naming the night and commit. The backend is compiled against the
   repository's API stubs, as the PR gate compiles it; the jar and tarball carry the version
   the tree declares, not the snapshot's.
 
-Both are skipped, not failed, on a night whose commit predates the plugin's distribution module.
+Both are skipped, not failed, on a night whose commit predates the plugin's distribution module
+(for the Cameo plugin, its staging of binaries from a directory).
 
 Not in a snapshot: the Windows installer, the Authenticode-signed Windows binaries, the
 Homebrew formula, and the Maven and crates.io client packages. Those belong to the

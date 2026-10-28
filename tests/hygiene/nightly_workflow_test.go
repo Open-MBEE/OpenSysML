@@ -573,8 +573,11 @@ func TestNightlyKeepsTheEditorPluginsAsArtifactsOfTheNight(t *testing.T) {
 			t.Errorf("the %s job keeps no artifact", name)
 		}
 	}
-	packaged := false
+	packaged, gated := false, false
 	for _, step := range nightlyJob(t, workflow, "cameo-plugin").Steps {
+		if strings.Contains(step.Run, `grep -q 'opensysml.binaries' editors/mdk/dist/pom.xml`) && strings.Contains(step.Run, "present=false") {
+			gated = true
+		}
 		if strings.Contains(step.Run, `-Dopensysml.binaries="$PWD/binaries"`) && strings.Contains(step.Run, "-Dopensysml.requireService=true") {
 			packaged = true
 			if !strings.Contains(step.Run, `-Dopensysml.version="$CORE-$VERSION"`) || step.Env["CORE"] != "${{ needs.publish.outputs.core }}" {
@@ -584,6 +587,9 @@ func TestNightlyKeepsTheEditorPluginsAsArtifactsOfTheNight(t *testing.T) {
 	}
 	if !packaged {
 		t.Error("the Cameo plugin is not packaged around the binaries fetched from the night's release, with its service-backed tests required")
+	}
+	if !gated {
+		t.Error("a selected commit whose distribution module cannot stage binaries from a directory is not skipped; its stager would reject the night's version")
 	}
 	if workflow.Jobs["publish"].Outputs["core"] != "${{ steps.version.outputs.core }}" {
 		t.Error("the publish job does not expose the snapshot core the plugin job versions by")
