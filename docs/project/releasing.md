@@ -40,10 +40,13 @@ CircleCI one the clients pin. The clients go to PyPI and npm as development vers
 dist-tag) through trusted publishing, so no default install and no `latest` moves. It
 touches nothing described on this page: the `nightly*` tags match neither the `v*` filter
 of the `release` workflow nor the Windows signing workflow, `releases/latest` keeps
-resolving to the stable line, and the stable client publication below stays with
-CircleCI and its tokens. [Nightly snapshots](nightly.md) documents it for a user, with the
-one-time trusted-publisher setup; when `build-release` or the client packaging changes
-what it produces, change the nightly workflow so the two stay the same.
+resolving to the stable line, and the stable npm, Maven Central, crates.io and Docker
+publication below stays with CircleCI and its tokens; only the stable PyPI upload also
+goes through GitHub Actions with trusted publishing (`release-pypi.yml`, see [Releasing
+opensysml to PyPI](#releasing-opensysml-to-pypi)). [Nightly snapshots](nightly.md)
+documents it for a user, with the one-time trusted-publisher setup; when `build-release`
+or the client packaging changes what it produces, change the nightly workflow so the two
+stay the same.
 
 ## Before tagging
 
