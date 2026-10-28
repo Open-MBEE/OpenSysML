@@ -131,7 +131,7 @@ func TestVerifyConstraintWithoutASubjectIsAboutTheHeldCarrier(t *testing.T) {
 
 // TestRunAnalysisWithoutASubjectRunsOnTheHeldObject verifies that a case a
 // definition owns, run with no subject, is a feature of the one held object of
-// the definition, is ambiguous over two, and asks for one when the model holds
+// the definition, reports the ambiguity over two, and asks for one when the model
 // holds none — as the REPL's %analysis decides it.
 func TestRunAnalysisWithoutASubjectRunsOnTheHeldObject(t *testing.T) {
 	srv := mustNewService(t, 10)
