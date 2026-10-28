@@ -63,6 +63,8 @@ ENV XDG_CACHE_HOME=/home/nonroot/.cache
 EXPOSE 50051 8081
 
 # `docker run … openmbee/opensysml -port 9000` replaces the CMD, so the
-# flags below are defaults a deployer overrides by naming new ones.
+# flags below are defaults a deployer overrides by naming new ones. Binding
+# 0.0.0.0 needs a token (OPENSYSML_GRPC_TOKEN or -token-file) with -tls-cert
+# and -tls-key, or -allow-insecure-token-transport, or -allow-unauthenticated.
 ENTRYPOINT ["/usr/local/bin/sysml-grpc"]
-CMD ["-port", "50051", "-health-port", "8081"]
+CMD ["-host", "0.0.0.0", "-port", "50051", "-health-port", "8081"]

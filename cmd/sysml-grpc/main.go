@@ -15,12 +15,14 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 )
 
@@ -65,8 +67,30 @@ func main() {
 		os.Exit(2)
 	}
 
+	token, _, err := guard.Read(opts.tokenFile, opts.token, tokenEnv)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sysml-grpc: %v\n", err)
+		os.Exit(2)
+	}
+	if token.Set() && opts.allowUnauthenticated {
+		fmt.Fprintln(os.Stderr, "sysml-grpc: -allow-unauthenticated and a bearer token contradict each other; give one")
+		os.Exit(2)
+	}
+
 	if opts.transport == transportStdio {
+		for _, f := range []struct{ name, value string }{{"-host", opts.host}, {"-token", opts.token}, {"-token-file", opts.tokenFile}} {
+			if f.value != "" {
+				fmt.Fprintf(os.Stderr, "sysml-grpc: %s is not for -transport stdio, which binds no address\n", f.name)
+				os.Exit(2)
+			}
+		}
 		switch {
+		case opts.allowUnauthenticated:
+			fmt.Fprintln(os.Stderr, "sysml-grpc: -allow-unauthenticated is not for -transport stdio, which binds no address")
+			os.Exit(2)
+		case opts.allowInsecureToken:
+			fmt.Fprintln(os.Stderr, "sysml-grpc: -allow-insecure-token-transport is not for -transport stdio, which binds no address")
+			os.Exit(2)
 		case opts.exitWithParent:
 			fmt.Fprintln(os.Stderr,
 				"sysml-grpc: -exit-with-parent is not for -transport stdio, whose stdin is "+
@@ -146,12 +170,57 @@ func main() {
 		// for readiness, and the client's exit closes stdin, which ends this.
 		os.Exit(runStdio(svc))
 	}
+	if opts.allowInsecureToken && !token.Set() {
+		fmt.Fprintln(os.Stderr, "sysml-grpc: -allow-insecure-token-transport is for a bearer token served without TLS; there is no token")
+		os.Exit(2)
+	}
+	if opts.allowInsecureToken && opts.tlsCert != "" {
+		fmt.Fprintln(os.Stderr, "sysml-grpc: -allow-insecure-token-transport is for a port without -tls-cert and -tls-key; this one serves TLS")
+		os.Exit(2)
+	}
 
-	// Start health check server
+	// Start gRPC server
+	addr, err := guard.ListenAddress(net.JoinHostPort(opts.host, strconv.Itoa(opts.port)))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sysml-grpc: -host %s -port %d: %v\n", opts.host, opts.port, err)
+		os.Exit(2)
+	}
+	lis, err := net.Listen("tcp", addr)
+	if err != nil {
+		slog.Error("Failed to listen", "addr", addr, "port", opts.port, "error", err)
+		os.Exit(1)
+	}
+	// Refused before anything is served or reported: an address other machines
+	// reach is not offered open by accident.
+	if !guard.IsLoopbackAddr(lis.Addr()) {
+		if !token.Set() && !opts.allowUnauthenticated {
+			_ = lis.Close()
+			fmt.Fprintf(os.Stderr, "sysml-grpc: %s is an address other machines reach: %v; -allow-unauthenticated serves it open\n", lis.Addr(), guard.NoToken(tokenEnv))
+			os.Exit(2)
+		}
+		if token.Set() && opts.tlsCert == "" && !opts.allowInsecureToken {
+			_ = lis.Close()
+			fmt.Fprintf(os.Stderr, "sysml-grpc: %s is an address other machines reach and the bearer token would cross it in clear: serve TLS with -tls-cert and -tls-key, or -allow-insecure-token-transport behind a proxy that terminates TLS\n", lis.Addr())
+			os.Exit(2)
+		}
+		switch {
+		case opts.allowUnauthenticated:
+			slog.Warn("serving an address other machines reach with no authentication; every host that opens the port may use this service", "addr", lis.Addr())
+		case opts.allowInsecureToken:
+			slog.Warn("the bearer token travels in clear; anyone observing this address can replay it, so only a proxy terminating TLS in front makes this safe", "addr", lis.Addr())
+		}
+	}
+
+	// Start health check server, on the same host as the service.
 	var healthSrv *http.Server
 	if opts.healthPort != 0 {
+		healthAddr, err := guard.ListenAddress(net.JoinHostPort(opts.host, strconv.Itoa(opts.healthPort)))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "sysml-grpc: -host %s -health-port %d: %v\n", opts.host, opts.healthPort, err)
+			os.Exit(2)
+		}
 		healthSrv = &http.Server{
-			Addr:              fmt.Sprintf(":%d", opts.healthPort),
+			Addr:              healthAddr,
 			Handler:           healthHandler(info.Version),
 			ReadHeaderTimeout: 10 * time.Second,
 		}
@@ -165,13 +234,6 @@ func main() {
 			slog.Warn("the separate health listener is deprecated; /health is served on the main port and -health-port 0 disables it",
 				"health_port", opts.healthPort)
 		}
-	}
-
-	// Start gRPC server
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", opts.port))
-	if err != nil {
-		slog.Error("Failed to listen", "port", opts.port, "error", err)
-		os.Exit(1)
 	}
 
 	// The port is the kernel's under -port 0, so report the bound one before
@@ -193,7 +255,9 @@ func main() {
 	if opts.transport == transportConnect {
 		serveCtx, cancelServe := context.WithCancel(context.Background())
 		served := make(chan error, 1)
-		go func() { served <- serveConnect(serveCtx, lis, svc, info.Version, origins, opts.tlsCert, opts.tlsKey) }()
+		go func() {
+			served <- serveConnect(serveCtx, lis, svc, info.Version, origins, token, opts.tlsCert, opts.tlsKey)
+		}()
 
 		select {
 		case err := <-served:
@@ -216,8 +280,16 @@ func main() {
 		return
 	}
 
-	runGRPC(lis, svc, shutdown)
+	runGRPC(lis, svc, token, shutdown)
 	stopHealthServer(healthSrv)
+}
+
+// authDescription says in a startup line what guards the service.
+func authDescription(token guard.Token) string {
+	if token.Set() {
+		return "bearer token"
+	}
+	return "none"
 }
 
 // dialAddress renders a listening address as one a client can dial: a wildcard

@@ -177,7 +177,10 @@ A connection uses a service of its own and never stops one it did not start.
   `ServletContextListener`, since unloading a classloader does not by itself stop
   a child (below).
 - Reaching a service the client did not start is explicit: `service(host, port)`,
-  `$OPENSYSML_SERVICE=host:port`, or `autoStart(false)` to require one. Closing
+  `$OPENSYSML_SERVICE=host:port`, or `autoStart(false)` to require one. A service
+  other machines reach requires a bearer token: `token(...)` (or
+  `$OPENSYSML_GRPC_TOKEN`) puts `Authorization: Bearer` on every call; a wrong or
+  missing one is a `ServiceException` with status `UNAUTHENTICATED`. Closing
   such a connection leaves it running, always.
 
 ### No orphans

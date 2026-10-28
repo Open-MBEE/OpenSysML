@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -89,7 +90,7 @@ func (p OriginPolicy) Allows(origin string) bool {
 		return true
 	}
 	u, _ := url.Parse(normalized)
-	return isLoopbackHost(u.Hostname())
+	return guard.IsLoopbackHost(u.Hostname())
 }
 
 // Named reports whether origin is one the policy admits by name, as opposed
@@ -157,22 +158,9 @@ func normalizeOrigin(s string) (string, bool) {
 	return strings.ToLower(u.Scheme) + "://" + host, true
 }
 
-// isLoopbackHost reports whether a host name or address is this machine's
-// loopback: localhost or a loopback IP.
-func isLoopbackHost(host string) bool {
-	if strings.EqualFold(host, "localhost") {
-		return true
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
-}
-
 // IsLoopbackAddr reports whether a bound address can be reached from this
 // machine only; an address on every interface cannot.
-func IsLoopbackAddr(addr net.Addr) bool {
-	tcp, ok := addr.(*net.TCPAddr)
-	return ok && tcp.IP != nil && tcp.IP.IsLoopback()
-}
+func IsLoopbackAddr(addr net.Addr) bool { return guard.IsLoopbackAddr(addr) }
 
 // Handler is the Streamable HTTP transport of this server, mounted at HTTPPath
 // behind origins and token, with the token's resource metadata served open.
@@ -189,7 +177,7 @@ func (s *Server) Handler(origins OriginPolicy, token BearerToken) http.Handler {
 }
 
 // ErrNoToken is why a listener other machines reach is refused with no token.
-var ErrNoToken = errors.New("no bearer token is configured; name one with -token-file, -token or " + TokenEnv + ", or bind loopback")
+var ErrNoToken = guard.NoToken(TokenEnv)
 
 // ServeStreamableHTTP serves clients over cfg.Listener until ctx ends, then
 // closes the live sessions and drains the connections within the timeout.

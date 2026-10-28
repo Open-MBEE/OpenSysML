@@ -23,7 +23,8 @@ class EditorTest {
 
   private static Connection offline(String... capabilities) {
     return new Connection(
-        new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+        new ConnectTransport(
+                "127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1), Optional.empty()),
         new Capabilities("dev", Set.of(capabilities)));
   }
 

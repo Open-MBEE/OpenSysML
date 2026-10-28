@@ -407,7 +407,11 @@ reads them).
 `"https://sysml.example.com"`). It speaks the Connect protocol with protobuf
 bodies by default — JSON (`WithJSONBody`) costs an order of magnitude in
 encoding time on large responses and is a debugging affordance, per
-`docs/internals/design/transport-evaluation.md`. This package never spawns a
+`docs/internals/design/transport-evaluation.md`. A service on an address other
+machines reach requires a bearer token, which `WithToken` sends as
+`Authorization: Bearer` on every call; without it `Dial` reads
+`$OPENSYSML_GRPC_TOKEN` (`TokenEnv`), and a call without the right token fails
+with `CodeUnauthenticated`. This package never spawns a
 service: a Go process that wants the engine in-process uses `New`, which is
 strictly better than a private child — the child's entire job would be to serve
 the code `New` already calls.

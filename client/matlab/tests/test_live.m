@@ -11,6 +11,11 @@ function test_live()
 
     [version, capabilities] = conn.serverInfo();
     assert_equal(ischar(version) && ~isempty(version), true, 'serverInfo version');
+
+    % An open service ignores a bearer token, so the header path is exercised here.
+    guarded = opensysml.external(addr, 'token', 'live-token_1');
+    [tokenVersion, ~] = guarded.serverInfo();
+    assert_equal(tokenVersion, version, 'serverInfo with a bearer token');
     assert_equal(iscell(capabilities), true, 'serverInfo capabilities');
     assert_equal(conn.hasCapability('query'), true, 'hasCapability');
     assert_equal(conn.hasCapability('nonsense_capability'), false, 'hasCapability negative');

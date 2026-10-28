@@ -145,7 +145,10 @@ const connection = await connect({ address: "localhost:50051" });
 await connection.close();     // that service keeps running
 ```
 
-or set `$OPENSYSML_SERVICE=host:port`. A connection made this way never owns the
+or set `$OPENSYSML_SERVICE=host:port`. A service that other machines reach
+requires a bearer token: pass `token` (or set `$OPENSYSML_GRPC_TOKEN`) and every
+call carries `Authorization: Bearer`; a wrong or missing one is a `ServiceError`
+with code `UNAUTHENTICATED`. A connection made this way never owns the
 service: closing it disconnects and nothing else. There is no adoption of a
 service left listening by another process, no pidfile and no port probing.
 
