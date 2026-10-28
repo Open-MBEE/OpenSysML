@@ -86,14 +86,19 @@ A package manager and OpenSysML meet only on disk, at the consuming project's `.
   names (`pkg:git/host/acme/widgets#packages/gears`): the installed project matched is the fragment's
   last segment under the repository's owner (`acme`/`gears`), read through its own installation alone.
   A repository path need not spell the project's publisher/name (`MBSE4U/sysmod-sysmlv2` installs
-  publisher `mbse4u`, name `sysmod`), so a usage that slug-matches nothing is linked by elimination:
-  among the installed projects under the consumer's library roots that no other usage claims, those
-  whose version satisfies the usage's constraint are its candidates; one publisher/name among them →
-  that project, highest satisfying version, with a warning naming the project taken and the
+  publisher `mbse4u`, name `sysmod`), so a usage whose resource spells a *location* — a
+  version-control purl (`pkg:git/`, `pkg:svn/`, `pkg:hg/`) or a plain scheme URL — and slug-matches
+  nothing is linked by elimination: among the installed projects under the consumer's library roots
+  that no other usage claims (a claimed project's other versions count as claimed), those whose
+  version satisfies the usage's constraint are its candidates; one publisher/name among them → that
+  project, highest satisfying version, with a warning naming the project taken and the
   publisher/name the resource should end with; several → the usage stays unresolved with a warning
   naming each candidate. Both warnings are judged by the exit policy (`-warnings-as-errors`, `-json`,
-  the baseline) and both are resolved by spelling the project's publisher/name in the usage.
-  Installed projects no usage claims are not loaded.
+  the baseline) and both are resolved by spelling the project's publisher/name in the usage. A
+  resource that *names* a project (`pkg:sysand/<publisher>/<name>`, any other
+  `pkg:<type>/<publisher>/<name>`) is matched by name alone and stays unresolved when that project
+  is not installed — it never falls back to an unrelated install. Installed projects no usage
+  claims are not loaded.
 - **Versions.** `versionConstraint` is honoured as today (exact, else latest installed by semver
   order). `@<version>` in the IRI is an exact constraint when the usage carries no
   `versionConstraint` (before this, `resourceSegments` discarded it and the latest installed release

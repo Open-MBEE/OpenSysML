@@ -183,6 +183,18 @@ func (u Usage) standardLibrary() bool {
 	return strings.HasPrefix(u.Resource, identity.KerML.Prefix()) || strings.HasPrefix(u.Resource, identity.SysML.Prefix())
 }
 
+// spellsLocation reports whether the usage's resource spells where a project is
+// kept rather than the project: a version-control package URL, or a URL of any scheme but pkg.
+func (u Usage) spellsLocation() bool {
+	lower := strings.ToLower(u.Resource)
+	for _, vcs := range []string{"pkg:git/", "pkg:svn/", "pkg:hg/"} {
+		if strings.HasPrefix(lower, vcs) {
+			return true
+		}
+	}
+	return !strings.HasPrefix(lower, "pkg:") && (strings.Contains(lower, "://") || strings.HasPrefix(lower, "git@"))
+}
+
 // key is the resource as a path of slugs, without version, query or fragment:
 // what two usages of one repository at two versions share.
 func (u Usage) key() string {

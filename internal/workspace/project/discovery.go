@@ -281,8 +281,8 @@ func walkInstalled(dir string, visited map[string]bool, budget *int, found func(
 	}
 }
 
-// used selects the installed projects the enclosing ones use, directly or in turn, each once: by name (Uses), else
-// by elimination (pickUnclaimed) or as learnt; an enclosing project installed under the roots (installedKey) may answer one.
+// used selects the installed projects the enclosing ones use, directly or in turn, each once: by name (Uses), else — a
+// resource spelling a location — by elimination (pickUnclaimed) or as learnt; an enclosing project installed under the roots (installedKey) may answer one.
 func used(enclosing, installed []*Interchange, installedKey map[string]bool) (out []*Interchange, linking []Warning) {
 	selected := map[string]bool{}
 	claimed := map[string]bool{}
@@ -294,7 +294,9 @@ func used(enclosing, installed []*Interchange, installedKey map[string]bool) (ou
 		}
 	}
 	var queue []*Interchange
+	linked := false // whether this pass claimed anything, enqueued or already selected
 	link := func(pick *Interchange) {
+		linked = true
 		claimed[pick.identity()] = true
 		if selected[absKey(pick.Dir)] {
 			return
@@ -304,8 +306,9 @@ func used(enclosing, installed []*Interchange, installedKey map[string]bool) (ou
 		queue = append(queue, pick)
 	}
 	type pending struct {
-		from *Interchange
-		u    Usage
+		from       *Interchange
+		u          Usage
+		candidates []*Interchange // the unclaimed projects that deferred it, last pass
 	}
 	var unmatched []pending
 	queue = append(queue, enclosing...)
@@ -316,8 +319,8 @@ func used(enclosing, installed []*Interchange, installedKey map[string]bool) (ou
 			for _, u := range project.Usage {
 				if pick := pickInstalled(installed, u); pick != nil {
 					link(pick)
-				} else if !u.standardLibrary() {
-					unmatched = append(unmatched, pending{project, u})
+				} else if u.spellsLocation() && !u.standardLibrary() {
+					unmatched = append(unmatched, pending{from: project, u: u})
 				}
 			}
 		}
@@ -325,6 +328,7 @@ func used(enclosing, installed []*Interchange, installedKey map[string]bool) (ou
 			break
 		}
 		var rest []pending
+		linked = false
 		for _, p := range unmatched {
 			if id, ok := learnt[p.u.key()]; ok {
 				if pick := pickVersion(installed, id, p.u.constraint()); pick != nil {
@@ -339,13 +343,14 @@ func used(enclosing, installed []*Interchange, installedKey map[string]bool) (ou
 				linking = append(linking, eliminationUsage(p.from, p.u, pick))
 				link(pick)
 			case len(candidates) > 1:
+				p.candidates = candidates
 				rest = append(rest, p)
 			}
 		}
-		if len(queue) == 0 {
+		if !linked {
+			// Nothing was claimed this pass, so what deferred each usage still stands.
 			for _, p := range rest {
-				_, candidates := pickUnclaimed(installed, claimed, p.from, p.u)
-				linking = append(linking, ambiguousUsage(p.from, p.u, candidates))
+				linking = append(linking, ambiguousUsage(p.from, p.u, p.candidates))
 			}
 			break
 		}
