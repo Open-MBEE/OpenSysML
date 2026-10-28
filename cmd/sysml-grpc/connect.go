@@ -50,16 +50,22 @@ func connectHandler(svc *sysmlgrpc.Service, ver string, origins map[string]struc
 	return corsMiddleware(mux, origins)
 }
 
+// certificateFiles names the PEM certificate and private key a server serves
+// TLS with; with no certificate the server speaks cleartext.
+type certificateFiles struct{ cert, key string }
+
+func (c certificateFiles) set() bool { return c.cert != "" }
+
 // serveConnect serves gRPC, gRPC-Web and the Connect protocol on one port until
 // the context is cancelled. h2c carries HTTP/2 in cleartext, which is how an
 // existing gRPC client reaches an address that offers no TLS.
-func serveConnect(ctx context.Context, lis net.Listener, svc *sysmlgrpc.Service, ver string, origins map[string]struct{}, token guard.Token, certFile, keyFile string) error {
+func serveConnect(ctx context.Context, lis net.Listener, svc *sysmlgrpc.Service, ver string, origins map[string]struct{}, token guard.Token, certs certificateFiles) error {
 	handler := connectHandler(svc, ver, origins, token)
 	srv := &http.Server{
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	if certFile != "" {
+	if certs.set() {
 		srv.TLSConfig = &tls.Config{
 			MinVersion: tls.VersionTLS12,
 			NextProtos: []string{"h2", "http/1.1"},
@@ -72,10 +78,10 @@ func serveConnect(ctx context.Context, lis net.Listener, svc *sysmlgrpc.Service,
 
 	errs := make(chan error, 1)
 	go func() {
-		if certFile != "" {
+		if certs.set() {
 			slog.Info("Connect server listening",
 				"addr", lis.Addr(), "protocols", "grpc, grpc-web, connect", "security", "TLS", "auth", authDescription(token))
-			errs <- srv.ServeTLS(lis, certFile, keyFile)
+			errs <- srv.ServeTLS(lis, certs.cert, certs.key)
 			return
 		}
 		slog.Info("Connect server listening",

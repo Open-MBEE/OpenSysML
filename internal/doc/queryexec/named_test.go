@@ -192,7 +192,8 @@ func TestExecuteNamedRejectsAmbiguousNames(t *testing.T) {
 	if got := strings.Join(ambiguous.Candidates, ","); got != "Observatory::Other::Config,Observatory::Vehicle::Config" {
 		t.Fatalf("Named(Config) candidates = %v", ambiguous.Candidates)
 	}
-	if want := "names 2 elements Config: Observatory::Other::Config, Observatory::Vehicle::Config"; !strings.Contains(err.Error(), want) {
+	const want = "names 2 elements Config: Observatory::Other::Config, Observatory::Vehicle::Config"
+	if !strings.Contains(err.Error(), want) {
 		t.Fatalf("Named(Config) message = %v, want it to contain %q", err, want)
 	}
 	// Two members declared under one name are that name once, with its count.

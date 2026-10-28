@@ -78,28 +78,8 @@ func main() {
 	}
 
 	if opts.transport == transportStdio {
-		for _, f := range []struct{ name, value string }{{"-host", opts.host}, {"-token", opts.token}, {"-token-file", opts.tokenFile}} {
-			if f.value != "" {
-				fmt.Fprintf(os.Stderr, "sysml-grpc: %s is not for -transport stdio, which binds no address\n", f.name)
-				os.Exit(2)
-			}
-		}
-		switch {
-		case opts.allowUnauthenticated:
-			fmt.Fprintln(os.Stderr, "sysml-grpc: -allow-unauthenticated is not for -transport stdio, which binds no address")
-			os.Exit(2)
-		case opts.allowInsecureToken:
-			fmt.Fprintln(os.Stderr, "sysml-grpc: -allow-insecure-token-transport is not for -transport stdio, which binds no address")
-			os.Exit(2)
-		case opts.exitWithParent:
-			fmt.Fprintln(os.Stderr,
-				"sysml-grpc: -exit-with-parent is not for -transport stdio, whose stdin is "+
-					"the session and already ends it at end of file")
-			os.Exit(2)
-		case opts.reportAddress:
-			fmt.Fprintln(os.Stderr,
-				"sysml-grpc: -report-address is not for -transport stdio, which binds no "+
-					"address and speaks the protocol itself on stdout")
+		if msg := stdioRefusal(opts); msg != "" {
+			fmt.Fprintln(os.Stderr, msg)
 			os.Exit(2)
 		}
 	}
@@ -119,21 +99,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	// Configure logging
-	var lvl slog.Level
-	switch opts.logLevel {
-	case "debug":
-		lvl = slog.LevelDebug
-	case "info":
-		lvl = slog.LevelInfo
-	case "warn":
-		lvl = slog.LevelWarn
-	case "error":
-		lvl = slog.LevelError
-	default:
-		lvl = slog.LevelInfo
-	}
-	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: lvl}))
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel(opts.logLevel)}))
 	slog.SetDefault(logger)
 
 	slog.Info("Starting sysml-grpc server",
@@ -193,47 +159,18 @@ func main() {
 	// Refused before anything is served or reported: an address other machines
 	// reach is not offered open by accident.
 	if !guard.IsLoopbackAddr(lis.Addr()) {
-		if !token.Set() && !opts.allowUnauthenticated {
+		if msg := openAddressRefusal(lis.Addr(), token, opts); msg != "" {
 			_ = lis.Close()
-			fmt.Fprintf(os.Stderr, "sysml-grpc: %s is an address other machines reach: %v; -allow-unauthenticated serves it open\n", lis.Addr(), guard.NoToken(tokenEnv))
+			fmt.Fprintln(os.Stderr, msg)
 			os.Exit(2)
 		}
-		if token.Set() && opts.tlsCert == "" && !opts.allowInsecureToken {
-			_ = lis.Close()
-			fmt.Fprintf(os.Stderr, "sysml-grpc: %s is an address other machines reach and the bearer token would cross it in clear: serve TLS with -tls-cert and -tls-key, or -allow-insecure-token-transport behind a proxy that terminates TLS\n", lis.Addr())
-			os.Exit(2)
-		}
-		switch {
-		case opts.allowUnauthenticated:
-			slog.Warn("serving an address other machines reach with no authentication; every host that opens the port may use this service", "addr", lis.Addr())
-		case opts.allowInsecureToken:
-			slog.Warn("the bearer token travels in clear; anyone observing this address can replay it, so only a proxy terminating TLS in front makes this safe", "addr", lis.Addr())
-		}
+		warnOpenAddress(lis.Addr(), opts)
 	}
 
-	// Start health check server, on the same host as the service.
-	var healthSrv *http.Server
-	if opts.healthPort != 0 {
-		healthAddr, err := guard.ListenAddress(net.JoinHostPort(opts.host, strconv.Itoa(opts.healthPort)))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "sysml-grpc: -host %s -health-port %d: %v\n", opts.host, opts.healthPort, err)
-			os.Exit(2)
-		}
-		healthSrv = &http.Server{
-			Addr:              healthAddr,
-			Handler:           healthHandler(info.Version),
-			ReadHeaderTimeout: 10 * time.Second,
-		}
-		go func() {
-			slog.Info("Health check server listening", "addr", healthSrv.Addr)
-			if err := healthSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				slog.Error("Health check server failed", "error", err)
-			}
-		}()
-		if opts.transport == transportConnect {
-			slog.Warn("the separate health listener is deprecated; /health is served on the main port and -health-port 0 disables it",
-				"health_port", opts.healthPort)
-		}
+	healthSrv, err := startHealthServer(opts, info.Version)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sysml-grpc: %v\n", err)
+		os.Exit(2)
 	}
 
 	// The port is the kernel's under -port 0, so report the bound one before
@@ -256,7 +193,7 @@ func main() {
 		serveCtx, cancelServe := context.WithCancel(context.Background())
 		served := make(chan error, 1)
 		go func() {
-			served <- serveConnect(serveCtx, lis, svc, info.Version, origins, token, opts.tlsCert, opts.tlsKey)
+			served <- serveConnect(serveCtx, lis, svc, info.Version, origins, token, certificateFiles{opts.tlsCert, opts.tlsKey})
 		}()
 
 		select {
@@ -282,6 +219,93 @@ func main() {
 
 	runGRPC(lis, svc, token, shutdown)
 	stopHealthServer(healthSrv)
+}
+
+// stdioRefusal names the first flag that is not for -transport stdio, which
+// binds no address, or is empty when every flag given fits it.
+func stdioRefusal(opts *options) string {
+	for _, f := range []struct{ name, value string }{{"-host", opts.host}, {"-token", opts.token}, {"-token-file", opts.tokenFile}} {
+		if f.value != "" {
+			return fmt.Sprintf("sysml-grpc: %s is not for -transport stdio, which binds no address", f.name)
+		}
+	}
+	switch {
+	case opts.allowUnauthenticated:
+		return "sysml-grpc: -allow-unauthenticated is not for -transport stdio, which binds no address"
+	case opts.allowInsecureToken:
+		return "sysml-grpc: -allow-insecure-token-transport is not for -transport stdio, which binds no address"
+	case opts.exitWithParent:
+		return "sysml-grpc: -exit-with-parent is not for -transport stdio, whose stdin is " +
+			"the session and already ends it at end of file"
+	case opts.reportAddress:
+		return "sysml-grpc: -report-address is not for -transport stdio, which binds no " +
+			"address and speaks the protocol itself on stdout"
+	}
+	return ""
+}
+
+// logLevel reads the -log-level name; an unknown one logs at info.
+func logLevel(name string) slog.Level {
+	switch name {
+	case "debug":
+		return slog.LevelDebug
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
+
+// openAddressRefusal says why an address other machines reach may not be served
+// as configured, or is empty when the configuration guards it.
+func openAddressRefusal(addr net.Addr, token guard.Token, opts *options) string {
+	if !token.Set() && !opts.allowUnauthenticated {
+		return fmt.Sprintf("sysml-grpc: %s is an address other machines reach: %v; -allow-unauthenticated serves it open", addr, guard.NoToken(tokenEnv))
+	}
+	if token.Set() && opts.tlsCert == "" && !opts.allowInsecureToken {
+		return fmt.Sprintf("sysml-grpc: %s is an address other machines reach and the bearer token would cross it in clear: serve TLS with -tls-cert and -tls-key, or -allow-insecure-token-transport behind a proxy that terminates TLS", addr)
+	}
+	return ""
+}
+
+// warnOpenAddress logs what an opt-out gives up on an address other machines reach.
+func warnOpenAddress(addr net.Addr, opts *options) {
+	switch {
+	case opts.allowUnauthenticated:
+		slog.Warn("serving an address other machines reach with no authentication; every host that opens the port may use this service", "addr", addr)
+	case opts.allowInsecureToken:
+		slog.Warn("the bearer token travels in clear; anyone observing this address can replay it, so only a proxy terminating TLS in front makes this safe", "addr", addr)
+	}
+}
+
+// startHealthServer serves /health on -health-port beside the service, on the
+// same host; nil under -health-port 0.
+func startHealthServer(opts *options, ver string) (*http.Server, error) {
+	if opts.healthPort == 0 {
+		return nil, nil
+	}
+	healthAddr, err := guard.ListenAddress(net.JoinHostPort(opts.host, strconv.Itoa(opts.healthPort)))
+	if err != nil {
+		return nil, fmt.Errorf("-host %s -health-port %d: %w", opts.host, opts.healthPort, err)
+	}
+	healthSrv := &http.Server{
+		Addr:              healthAddr,
+		Handler:           healthHandler(ver),
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	go func() {
+		slog.Info("Health check server listening", "addr", healthSrv.Addr)
+		if err := healthSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("Health check server failed", "error", err)
+		}
+	}()
+	if opts.transport == transportConnect {
+		slog.Warn("the separate health listener is deprecated; /health is served on the main port and -health-port 0 disables it",
+			"health_port", opts.healthPort)
+	}
+	return healthSrv, nil
 }
 
 // authDescription says in a startup line what guards the service.
