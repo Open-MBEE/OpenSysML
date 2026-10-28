@@ -50,9 +50,21 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 	if explores {
 		return s.exploreAnalysis(ctx, policy, v, req, sym)
 	}
-	if err := v.runtime.SetSchedule(schedule); err != nil {
+	// A case naming no subject runs over the objects the model holds, a type-owned
+	// one as a feature of the object of its type held, as the REPL's %analysis does.
+	if on, unlock := v.overHeld(ctx, args.Subject); on != v {
+		defer unlock()
+		v = on
+		// Read again on the runtime the run is made on, as an explored run reads them.
+		if args, resp, err = v.analysisArgs(req); resp != nil || err != nil {
+			return resp, err
+		}
+	}
+	reset, err := v.scheduled(schedule)
+	if err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
+	defer reset()
 	if req.ToolDryRun {
 		return s.toolDryRun(ctx, v, sym, args)
 	}
@@ -62,7 +74,24 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 	if gone := callerGone(ctx, err); gone != nil {
 		return nil, gone
 	}
+	if status := v.exhausted(err); status != nil {
+		return nil, status
+	}
 	return v.caseResponse(run, plan, err), nil
+}
+
+// scheduled sets the runtime's schedule for this request and returns what puts
+// back the one it had, so a request leaves the held population's runtime as it
+// found it; a policy the runtime cannot be set to is the error.
+func (v *verifyContext) scheduled(policy runtime.SchedulePolicy) (func(), error) {
+	was := v.runtime.Schedule()
+	if err := v.runtime.SetSchedule(policy); err != nil {
+		return nil, err
+	}
+	return func() {
+		// The policy the runtime held was set once already, so it is settable.
+		_ = v.runtime.SetSchedule(was)
+	}, nil
 }
 
 // caseResponse reports one run of a case: its outputs, verdicts, evaluations

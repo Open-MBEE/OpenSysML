@@ -1423,7 +1423,7 @@ func (ec *EvalContext) thisValue() (Value, error) {
 	if occurrence == nil && ec.thisOccurrence != nil {
 		materialized, err := ec.thisOccurrence()
 		if err != nil {
-			return Value{}, fmt.Errorf("%w: %v", errThisNotAnObject, err)
+			return Value{}, fmt.Errorf("%w: %w", errThisNotAnObject, err)
 		}
 		occurrence = materialized
 		ec.occurrence = materialized

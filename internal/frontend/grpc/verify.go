@@ -57,6 +57,8 @@ type verifyContext struct {
 	engine analysis.Selection
 	// release gives the runtime's worker back once the request is answered; the RPC defers it.
 	release func()
+	// held is the population the request evaluates over, nil on a worker of the request's own.
+	held *heldObjects
 }
 
 // newVerifyContext reads the request's engine, looks the model up and builds a
@@ -84,6 +86,44 @@ func (v *verifyContext) on(rt *runtime.Context) *verifyContext {
 // which borrowed no worker and so has nothing to give back.
 func releaseNothing() {
 	// The parent context releases the worker it borrowed; this one holds none.
+}
+
+// overHeld is this request's context over the objects Instantiate holds for the model,
+// under the population's lock, which the returned function releases: a request naming no
+// subject is about those objects, as a REPL check is about the objects the session holds.
+// A request naming its subject, or a model holding no object, keeps the request's own
+// worker and releases nothing.
+func (v *verifyContext) overHeld(ctx context.Context, subject *runtime.Instance) (*verifyContext, func()) {
+	if subject != nil {
+		return v, releaseNothing
+	}
+	held, ok := v.service.heldObjects(v.cached)
+	if !ok {
+		return v, releaseNothing
+	}
+	unlock := held.lock(ctx)
+	if held.empty() {
+		unlock()
+		return v, releaseNothing
+	}
+	return v.onHeld(held), unlock
+}
+
+// onHeld is this request's context over a held population's runtime, which the
+// caller holds the lock of; its failures at the population's bound are statuses.
+func (v *verifyContext) onHeld(held *heldObjects) *verifyContext {
+	on := v.on(held.rt)
+	on.held = held
+	return on
+}
+
+// exhausted is the RESOURCE_EXHAUSTED status of an evaluation over the held population
+// that would pass its bound; nil for any other failure, and on a worker of the request's own.
+func (v *verifyContext) exhausted(err error) error {
+	if v.held == nil {
+		return nil
+	}
+	return v.held.exhausted(err)
 }
 
 // sem is the semantic model the request's runtime evaluates against.
@@ -297,6 +337,8 @@ func (s *Service) VerifyConstraint(ctx context.Context, req *pb.VerifyConstraint
 	if err != nil {
 		return &pb.VerifyConstraintResponse{Error: err.Error()}, nil
 	}
+	v, unlock := v.overHeld(ctx, inst)
+	defer unlock()
 	args, readErr, err := v.checkArgs(question, req.Arguments, req.NamedArguments)
 	if err != nil {
 		return nil, err
@@ -313,6 +355,9 @@ func (s *Service) VerifyConstraint(ctx context.Context, req *pb.VerifyConstraint
 	})
 	if err := callerGone(ctx, evalErr); err != nil {
 		return nil, err
+	}
+	if status := v.exhausted(evalErr); status != nil {
+		return nil, status
 	}
 	subject := subjectOf(result, inst)
 	return &pb.VerifyConstraintResponse{
@@ -393,6 +438,8 @@ func (s *Service) VerifyRequirement(ctx context.Context, req *pb.VerifyRequireme
 	if err != nil {
 		return &pb.VerifyRequirementResponse{Error: err.Error()}, nil
 	}
+	v, unlock := v.overHeld(ctx, inst)
+	defer unlock()
 	args, readErr, err := v.checkArgs(question, req.Arguments, req.NamedArguments)
 	if err != nil {
 		return nil, err
@@ -410,13 +457,21 @@ func (s *Service) VerifyRequirement(ctx context.Context, req *pb.VerifyRequireme
 	if err := callerGone(ctx, evalErr); err != nil {
 		return nil, err
 	}
+	if status := v.exhausted(evalErr); status != nil {
+		return nil, status
+	}
 	subject := subjectOf(result, inst)
+	// Beside the requirement's verdict: what the cases verifying it answered when
+	// their bodies ran, a type-owned one on each object of the type the model holds.
+	verifications, err := v.requirementVerificationRuns(sym, subject, nil)
+	if err != nil {
+		return nil, err
+	}
 	return &pb.VerifyRequirementResponse{
-		Verdict:   v.verdict(verdictRequirement, sym, "", subject, result.Holds, evalErr, plan),
-		Instances: v.instanceGraph(subject),
-		// Beside the satisfaction verdict: what the cases verifying this
-		// requirement answered when their bodies ran.
-		VerificationVerdicts: v.requirementVerifications(sym, subject, nil),
+		Verdict: v.verdict(verdictRequirement, sym, "", subject, result.Holds, evalErr, plan),
+		// The subject's graph, and that of every object a case ran on.
+		Instances:            v.instanceGraphs(v.runRoots(subject, verifications, nil, nil)),
+		VerificationVerdicts: v.verificationVerdicts(verifications, namedFQN(v.cached.Index, sym)),
 	}, nil
 }
 
@@ -525,7 +580,11 @@ func (v *verifyContext) satisfyVerdicts(ctx context.Context, a *runtime.SatisfyA
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		return []*pb.Verdict{verdict}, instances, v.assertionVerifications(a, subject, runs), nil
+		verifications, err := v.assertionVerifications(a, subject, runs)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		return []*pb.Verdict{verdict}, instances, verifications, nil
 	}
 	if a.StatingType() == nil {
 		return one(v.satisfyVerdict(ctx, a))
@@ -539,7 +598,7 @@ func (v *verifyContext) satisfyVerdicts(ctx context.Context, a *runtime.SatisfyA
 	if len(subjects) == 0 {
 		return one(v.satisfyVerdict(ctx, a))
 	}
-	on := v.on(held.rt)
+	on := v.onHeld(held)
 	var verdicts []*pb.Verdict
 	var instances []*pb.Instance
 	var verifications []*pb.VerificationVerdict
@@ -556,7 +615,11 @@ func (v *verifyContext) satisfyVerdicts(ctx context.Context, a *runtime.SatisfyA
 		on.associateRequirement(verdict, a)
 		verdicts = append(verdicts, verdict)
 		instances = append(instances, on.instanceGraph(subject)...)
-		verifications = append(verifications, on.assertionVerifications(a, subject, runs)...)
+		verified, err := on.assertionVerifications(a, subject, runs)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		verifications = append(verifications, verified...)
 	}
 	return verdicts, instances, verifications, nil
 }
@@ -713,20 +776,35 @@ func (v *verifyContext) calcUsageOutputs(ctx context.Context, subject string, sy
 	return pbOutputs, true, plan, nil
 }
 
-// requirementVerifications are the body verdicts of the whole model's verification cases verifying
-// req (the case need not share the requirement's document), type-owned ones run about subject.
-func (v *verifyContext) requirementVerifications(req *symbols.Symbol, subject *runtime.Instance, runs *runtime.VerificationRuns) []*pb.VerificationVerdict {
-	return v.verificationVerdicts(
-		v.runtime.VerificationVerdictsOnce(v.cached.DocumentRoots(), req, subject, runs),
-		namedFQN(v.cached.Index, req))
+// requirementVerificationRuns runs the whole model's verification cases verifying req (the
+// case need not share the requirement's document), type-owned ones about subject, and
+// reports their body verdicts; a run over the held population that would pass its bound
+// is the RESOURCE_EXHAUSTED status instead.
+func (v *verifyContext) requirementVerificationRuns(req *symbols.Symbol, subject *runtime.Instance, runs *runtime.VerificationRuns) ([]runtime.VerificationVerdict, error) {
+	verdicts := v.runtime.VerificationVerdictsOnce(v.cached.DocumentRoots(), req, subject, runs)
+	for _, verdict := range verdicts {
+		if status := v.exhausted(verdict.Err); status != nil {
+			return nil, status
+		}
+	}
+	return verdicts, nil
+}
+
+// requirementVerifications are requirementVerificationRuns' verdicts spelled for the wire.
+func (v *verifyContext) requirementVerifications(req *symbols.Symbol, subject *runtime.Instance, runs *runtime.VerificationRuns) ([]*pb.VerificationVerdict, error) {
+	verdicts, err := v.requirementVerificationRuns(req, subject, runs)
+	if err != nil {
+		return nil, err
+	}
+	return v.verificationVerdicts(verdicts, namedFQN(v.cached.Index, req)), nil
 }
 
 // assertionVerifications are the body verdicts of the verification cases whose
 // objective verifies the requirement an assertion satisfies, run about subject.
-func (v *verifyContext) assertionVerifications(a *runtime.SatisfyAssertion, subject *runtime.Instance, runs *runtime.VerificationRuns) []*pb.VerificationVerdict {
+func (v *verifyContext) assertionVerifications(a *runtime.SatisfyAssertion, subject *runtime.Instance, runs *runtime.VerificationRuns) ([]*pb.VerificationVerdict, error) {
 	req := a.AssertedRequirement()
 	if req == nil {
-		return nil
+		return nil, nil
 	}
 	return v.requirementVerifications(req, subject, runs)
 }
