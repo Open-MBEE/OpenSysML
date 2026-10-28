@@ -114,6 +114,67 @@ commands:
 
   # The solver is an external process: without one on PATH the
   # solver-dependent tests would skip rather than run.
+  # Go for the client executors that ship none. The orb streams the tarball
+  # straight into tar, so one dropped connection fails the job (curl: (92)
+  # HTTP/2 stream INTERNAL_ERROR on Rust client tests); this downloads to a
+  # file, checks the published SHA-256, and retries both.
+  install-go:
+    parameters:
+      version:
+        type: string
+        default: "1.27.3"
+      sha256:
+        type: string
+        description: SHA-256 of go<version>.linux-amd64.tar.gz, from https://go.dev/dl/?mode=json&include=all
+        default: "65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40"
+    steps:
+      # The cache is restored as the container's user, so the directory is
+      # theirs before it is restored into.
+      - run:
+          name: Prepare /usr/local/go
+          command: |
+            sudo=""; [ "$(id -u)" -eq 0 ] || sudo=sudo
+            $sudo mkdir -p /usr/local/go
+            $sudo chown -R "$(id -un)": /usr/local/go
+      - restore_cache:
+          keys:
+            - go-toolchain-v1-<< parameters.version >>-<< parameters.sha256 >>-{{ arch }}
+      - run:
+          name: Install Go << parameters.version >>
+          environment:
+            GO_VERSION: << parameters.version >>
+            GO_SHA256: << parameters.sha256 >>
+          command: |
+            set -eu
+            if /usr/local/go/bin/go version 2>/dev/null | grep -q "go${GO_VERSION} "; then
+              echo "Go ${GO_VERSION} is already under /usr/local/go (restored from the cache)."
+            else
+              tarball="go${GO_VERSION}.linux-amd64.tar.gz"
+              url="https://dl.google.com/go/${tarball}"
+              for attempt in 1 2 3; do
+                rm -f "/tmp/${tarball}"
+                if curl --fail --location --silent --show-error --output "/tmp/${tarball}" "$url" \
+                  && echo "${GO_SHA256}  /tmp/${tarball}" | sha256sum --check --strict; then
+                  break
+                fi
+                if [ "$attempt" -eq 3 ]; then
+                  echo "error: downloading and verifying ${url} failed 3 times" >&2
+                  exit 1
+                fi
+                echo "download or checksum of ${tarball} failed (attempt ${attempt} of 3); retrying in $((attempt * 15))s" >&2
+                sleep $((attempt * 15))
+              done
+              rm -rf /usr/local/go/*
+              tar --no-same-owner --strip-components=1 -xzf "/tmp/${tarball}" -C /usr/local/go
+              rm -f "/tmp/${tarball}"
+            fi
+            echo 'export PATH=$PATH:/usr/local/go/bin' >> "$BASH_ENV"
+            /usr/local/go/bin/go version
+      - save_cache:
+          key: go-toolchain-v1-<< parameters.version >>-<< parameters.sha256 >>-{{ arch }}
+          paths:
+            - /usr/local/go
+
   install-solvers:
     steps:
       - run:
@@ -309,6 +370,102 @@ commands:
 jobs:
   # Formatting, vet, static analysis, the documentation gates and the protobuf
   # schema checks: everything that needs neither a solver nor the corpora.
+  # CircleCI auto-cancels redundant runs only off the default branch, so every
+  # merge into develop queued behind the pipelines it superseded. This cancels
+  # the branch's older build-test workflows. The Go jobs require it so that it
+  # runs before they take containers, which is why it never fails: without a
+  # token, or with one the API rejects, it says so and the pipeline goes on.
+  # CIRCLE_TOKEN is taken (the release jobs read it as a GitHub token).
+  cancel-superseded:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+    steps:
+      - run:
+          name: Cancel superseded pipelines on this branch
+          environment:
+            PIPELINE_NUMBER: << pipeline.number >>
+          command: |
+            if [ -n "${CIRCLE_TAG:-}" ]; then
+              echo "Tag ${CIRCLE_TAG}: nothing to cancel."
+              exit 0
+            fi
+            case "${CIRCLE_BRANCH:-}" in
+              main|develop) ;;
+              *) echo "Branch ${CIRCLE_BRANCH:-?} is not an integration branch: nothing to cancel."; exit 0 ;;
+            esac
+            if [ -z "${CIRCLECI_API_TOKEN:-}" ]; then
+              echo "CIRCLECI_API_TOKEN is not set, so older pipelines on ${CIRCLE_BRANCH} keep running."
+              echo "A maintainer enables cancellation by adding a CircleCI personal API token as the"
+              echo "project environment variable CIRCLECI_API_TOKEN (Project Settings > Environment Variables)."
+              exit 0
+            fi
+            python3 - \<<'PY'
+            import datetime, json, os, sys, time, urllib.error, urllib.request
+
+            branch = os.environ["CIRCLE_BRANCH"]
+            current = int(os.environ["PIPELINE_NUMBER"])
+            slug = "gh/" + os.environ["CIRCLE_PROJECT_USERNAME"] + "/" + os.environ["CIRCLE_PROJECT_REPONAME"]
+            api = "https://circleci.com/api/v2"
+
+            def call(path, method="GET"):
+                request = urllib.request.Request(api + path, method=method, headers={
+                    "Circle-Token": os.environ["CIRCLECI_API_TOKEN"], "Accept": "application/json"})
+                for attempt in range(1, 4):
+                    try:
+                        with urllib.request.urlopen(request, timeout=30) as response:
+                            return json.load(response)
+                    except urllib.error.HTTPError as err:
+                        if err.code in (401, 403):
+                            print(f"error: the CircleCI API rejected CIRCLECI_API_TOKEN ({err.code}); older pipelines keep running")
+                            print("The project variable needs a valid CircleCI personal API token.")
+                            sys.exit(0)
+                        failure = f"HTTP {err.code}"
+                    except (urllib.error.URLError, TimeoutError) as err:
+                        failure = str(err)
+                    if attempt < 3:
+                        time.sleep(5 * attempt)
+                print(f"warning: {method} {path} failed three times ({failure}); older pipelines keep running")
+                sys.exit(0)
+
+            def branch_of(pipeline):
+                vcs = pipeline.get("vcs") or {}
+                app = (pipeline.get("trigger_parameters") or {}).get("github_app") or {}
+                if vcs.get("tag") or app.get("full_ref", "").startswith("refs/tags/"):
+                    return None
+                return vcs.get("branch") or app.get("branch")
+
+            cancelled = 0
+            examined = 0
+            token = None
+            # Newest first; stop at pipelines created over a day ago, far past the
+            # longest a build-test can queue and run, so none is pushed off the end.
+            horizon = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=24)
+            done = False
+            for _ in range(20):
+                page = call(f"/project/{slug}/pipeline?branch={branch}" + (f"&page-token={token}" if token else ""))
+                for pipeline in page.get("items", []):
+                    if pipeline["number"] >= current:
+                        continue
+                    created = datetime.datetime.fromisoformat(pipeline["created_at"].replace("Z", "+00:00"))
+                    if created < horizon:
+                        done = True
+                        break
+                    examined += 1
+                    if branch_of(pipeline) != branch:
+                        continue
+                    for workflow in call(f"/pipeline/{pipeline['id']}/workflow").get("items", []):
+                        if workflow["name"] != "build-test" or workflow["status"] not in ("running", "on_hold"):
+                            continue
+                        call(f"/workflow/{workflow['id']}/cancel", method="POST")
+                        print(f"cancelled pipeline {pipeline['number']} ({workflow['status']} build-test, superseded by {current})")
+                        cancelled += 1
+                token = page.get("next_page_token")
+                if done or not token:
+                    break
+            print(f"{cancelled} superseded pipeline(s) cancelled on {branch}; {examined} pipeline(s) from the last 24 hours examined.")
+            PY
+
   go-static:
     executor: go-executor
     steps:
@@ -629,9 +786,47 @@ jobs:
             # The scan job reads this profile; without it Sonar shows no coverage.
             - coverage.txt
 
+  # The host binaries the client jobs test against, built on their own so those
+  # jobs start minutes into the pipeline rather than after the gates.
+  go-build:
+    executor: go-executor
+    resource_class: large
+    steps:
+      - checkout
+      - rehearsal-checkout-tag
+      - go/load-cache
+      - go/mod-download
+      - go/save-cache
+
+      - run:
+          name: Build binaries
+          command: |
+            VERSION=${CIRCLE_TAG:-dev}
+            COMMIT=${CIRCLE_SHA1:-unknown}
+            BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
+            GO_VERSION=$(go version | awk '{print $3}')
+
+            make build VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+
+      - run:
+          name: Verify binaries
+          command: |
+            ./bin/sysml --version
+            ./bin/sysml-lsp --version
+            ls -lh bin/
+
+      # The client jobs test against this binary.
+      - persist_to_workspace:
+          root: .
+          paths:
+            - bin/sysml-grpc
+
+      - store_artifacts:
+          path: bin/
+          destination: binaries
+
   # The gates that re-run part of the suite on their own so their verdicts are
-  # legible in the log, the conformance suite over every transport, and the
-  # host binaries the client jobs test against.
+  # legible in the log, and the conformance suite over every transport.
   go-gates:
     executor: go-executor
     steps:
@@ -943,32 +1138,6 @@ jobs:
           path: bin/conformance-mcp-report.xml
           when: always
 
-      - run:
-          name: Build binaries
-          command: |
-            VERSION=${CIRCLE_TAG:-dev}
-            COMMIT=${CIRCLE_SHA1:-unknown}
-            BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
-            GO_VERSION=$(go version | awk '{print $3}')
-
-            make build VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
-
-      - run:
-          name: Verify binaries
-          command: |
-            ./bin/sysml --version
-            ./bin/sysml-lsp --version
-            ls -lh bin/
-
-      # The client jobs test against this binary.
-      - persist_to_workspace:
-          root: .
-          paths:
-            - bin/sysml-grpc
-
-      - store_artifacts:
-          path: bin/
-          destination: binaries
   # SonarCloud analysis. The `SonarCloud` context supplies SONAR_TOKEN.
   scan:
     docker:
@@ -1193,8 +1362,7 @@ jobs:
           at: .
 
       # make scripts-coverage runs the test-suite figures test, which renders the figures with go run.
-      - go/install:
-          version: "1.27.3"
+      - install-go
 
       - run:
           name: Verify Go version
@@ -1322,8 +1490,7 @@ jobs:
             rustc --version
             cargo --version
 
-      - go/install:
-          version: "1.27.3"
+      - install-go
 
       - run:
           name: Verify Go version
@@ -1401,8 +1568,7 @@ jobs:
             apt-get install -y --no-install-recommends make
             make --version | head -1
 
-      - go/install:
-          version: "1.27.3"
+      - install-go
 
       - run:
           name: Build sysml-grpc
@@ -1433,8 +1599,7 @@ jobs:
     steps:
       - checkout
 
-      - go/install:
-          version: "1.27.3"
+      - install-go
 
       - run:
           name: Install GNU Octave
@@ -4350,69 +4515,83 @@ workflows:
   version: 2
 
   # Build and test every merge into main or develop; pull requests run .github/workflows/pr.yml instead.
-  # The race run gates the workflow but not the client tests or the scan, which
-  # need only the coverage profile and the binaries.
+  # The race run and the gates verdict the workflow but gate neither the client
+  # tests, which need only the binaries, nor the scan, which reads the coverage
+  # profile and the clients' reports.
   build-test:
     jobs:
-      - go-static:
-          name: Go static checks
+      - cancel-superseded:
+          name: Cancel superseded pipelines
           filters: &integration-branches
             branches:
               only: [main, develop]
             tags:
               ignore: /.*/
+      - go-static:
+          name: Go static checks
+          requires: &after-cancellation
+            - Cancel superseded pipelines
+          filters: *integration-branches
       - go-race-test:
           name: Go race tests
+          requires: *after-cancellation
           filters: *integration-branches
       - go-coverage:
           name: Go coverage shards
+          requires: *after-cancellation
           filters: *integration-branches
       - go-coverage-merge:
           name: Go coverage profile
           requires:
             - Go coverage shards
           filters: *integration-branches
+      - go-build:
+          name: Go binaries
+          requires: *after-cancellation
+          filters: *integration-branches
       - go-gates:
-          name: Go gates and binaries
+          name: Go gates
+          requires: *after-cancellation
           filters: *integration-branches
       - python-test:
           name: Python client tests
-          requires: &scan-inputs
+          requires:
+            - Go binaries
+            # Persists docs/assets/landing, which make scripts-coverage reads.
             - Go static checks
-            - Go coverage profile
-            - Go gates and binaries
           filters: *integration-branches
       - rust-test:
           name: Rust client tests
-          requires: *scan-inputs
+          requires: &client-inputs
+            - Go binaries
           filters: *integration-branches
       - julia-client:
           name: Julia client tests
-          requires: *scan-inputs
+          requires: *client-inputs
           filters: *integration-branches
       - matlab-client:
           name: MATLAB client tests
-          requires: *scan-inputs
+          requires: *client-inputs
           filters: *integration-branches
       - java-test:
           name: Java client tests
-          requires: *scan-inputs
+          requires: *client-inputs
           filters: *integration-branches
       - node-test:
           name: Node client tests
-          requires: *scan-inputs
+          requires: *client-inputs
           filters: *integration-branches
       - syson-test:
           name: SysON backend tests
-          requires: *scan-inputs
+          requires: *client-inputs
           filters: *integration-branches
       - mdk-test:
           name: MDK plugin tests
-          requires: *scan-inputs
+          requires: *client-inputs
           filters: *integration-branches
       - editors-node-test:
           name: Editor and npm package tests
-          requires: *scan-inputs
+          requires: *client-inputs
           filters: *integration-branches
       - scan:
           name: SonarCloud scan
@@ -4423,7 +4602,6 @@ workflows:
             - Go static checks
             # Persists coverage.txt, the Go report the scan reads.
             - Go coverage profile
-            - Go gates and binaries
             # Each contributes a coverage report; without them the scan sees
             # only Go coverage and grades every other language at zero.
             - Python client tests
@@ -4462,8 +4640,11 @@ workflows:
           requires:
             - Go coverage shards
           filters: *release-tags
+      - go-build:
+          name: Go binaries
+          filters: *release-tags
       - go-gates:
-          name: Go gates and binaries
+          name: Go gates
           filters: *release-tags
 
       - python-test:
@@ -4472,7 +4653,8 @@ workflows:
             - Go static checks
             - Go race tests
             - Go coverage profile
-            - Go gates and binaries
+            - Go binaries
+            - Go gates
           filters: *release-tags
 
       - node-test:
@@ -4677,8 +4859,11 @@ workflows:
           requires:
             - Go coverage shards
           filters: *pysysml-tags
+      - go-build:
+          name: Go binaries
+          filters: *pysysml-tags
       - go-gates:
-          name: Go gates and binaries
+          name: Go gates
           filters: *pysysml-tags
 
       - python-test:
