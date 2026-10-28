@@ -89,8 +89,60 @@ read	Probe::i1.subparts	systems	Items::Item::subparts	empty
 read	Probe::i1.voids	systems	Items::Item::voids	empty
 read	Probe::i1.w	model	Probe::I1::w	constant 1.0
 object	Probe::pt	undetermined <undetermined>
-object	Probe::act	undetermined <undetermined>
-object	Probe::st	undetermined <undetermined>
+object	Probe::act	object:Probe::act
+read	Probe::act.acceptSubactions	systems	Actions::Action::acceptSubactions	empty
+read	Probe::act.assignments	systems	Actions::Action::assignments	empty
+read	Probe::act.controls	systems	Actions::Action::controls	empty
+read	Probe::act.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
+read	Probe::act.decisions	systems	Actions::Action::decisions	empty
+read	Probe::act.done	systemsFRAME	Actions::Action::done	undetermined <undetermined>
+read	Probe::act.forLoops	systems	Actions::Action::forLoops	empty
+read	Probe::act.forks	systems	Actions::Action::forks	empty
+read	Probe::act.i	model	Probe::A1::i	undetermined <undetermined>
+read	Probe::act.ifSubactions	systems	Actions::Action::ifSubactions	empty
+read	Probe::act.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
+read	Probe::act.joins	systems	Actions::Action::joins	empty
+read	Probe::act.loops	systems	Actions::Action::loops	empty
+read	Probe::act.merges	systems	Actions::Action::merges	empty
+read	Probe::act.nested	model	Probe::A1::nested	object:Probe::A2
+read	Probe::act.o	model	Probe::A1::o	undetermined <undetermined>
+read	Probe::act.self	systemsFRAME	Actions::Action::self	object:Probe::act
+read	Probe::act.sendSubactions	systems	Actions::Action::sendSubactions	empty
+read	Probe::act.start	systemsFRAME	Actions::Action::start	object:Probe::act
+read	Probe::act.subactions	systems	Actions::Action::subactions	collection(1) [object:Probe::A2#1]
+read	Probe::act.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
+read	Probe::act.transitions	systems	Actions::Action::transitions	empty
+read	Probe::act.whileLoops	systems	Actions::Action::whileLoops	empty
+object	Probe::st	object:Probe::st
+read	Probe::st.acceptSubactions	systems	Actions::Action::acceptSubactions	empty
+read	Probe::st.assignments	systems	Actions::Action::assignments	empty
+read	Probe::st.controls	systems	Actions::Action::controls	empty
+read	Probe::st.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
+read	Probe::st.decisions	systems	Actions::Action::decisions	empty
+read	Probe::st.doAction	systems	States::StateAction::doAction	object:Actions::Action
+read	Probe::st.done	systemsFRAME	States::StateAction::done	undetermined <undetermined>
+read	Probe::st.entryAction	systems	States::StateAction::entryAction	object:States::StateAction::entryAction
+read	Probe::st.exclusiveStates	systems	States::StateAction::exclusiveStates	empty
+read	Probe::st.exitAction	systems	States::StateAction::exitAction	object:Actions::Action
+read	Probe::st.forLoops	systems	Actions::Action::forLoops	empty
+read	Probe::st.forks	systems	Actions::Action::forks	empty
+read	Probe::st.ifSubactions	systems	Actions::Action::ifSubactions	empty
+read	Probe::st.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
+read	Probe::st.isTriggerDuring	systems	States::StateAction::isTriggerDuring	constant true
+read	Probe::st.joins	systems	Actions::Action::joins	empty
+read	Probe::st.loops	systems	Actions::Action::loops	empty
+read	Probe::st.merges	systems	Actions::Action::merges	empty
+read	Probe::st.on1	model	Probe::S1::on1	undetermined <undetermined>
+read	Probe::st.self	systemsFRAME	States::StateAction::self	object:Probe::st
+read	Probe::st.sendSubactions	systems	Actions::Action::sendSubactions	empty
+read	Probe::st.start	systemsFRAME	States::StateAction::start	object:Probe::st
+read	Probe::st.stateSequencing	systems	States::StateAction::stateSequencing	ERR_NOSUCHFEATURE object has no such feature: member stateSequencing not found in instance
+read	Probe::st.stateTransitions	systems	States::StateAction::stateTransitions	empty
+read	Probe::st.subactions	systems	States::StateAction::subactions	collection(1) [object:Actions::Action#1]
+read	Probe::st.substates	systems	States::StateAction::substates	empty
+read	Probe::st.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
+read	Probe::st.transitions	systems	Actions::Action::transitions	empty
+read	Probe::st.whileLoops	systems	Actions::Action::whileLoops	empty
 object	Probe::r1	undetermined <undetermined>
 object	Probe::c1	undetermined <undetermined>
 object	Probe::k1	function Probe::k1

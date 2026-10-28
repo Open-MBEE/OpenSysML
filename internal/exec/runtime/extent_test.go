@@ -362,6 +362,64 @@ func TestNamespaceConnectorUsageDenotesOneObject(t *testing.T) {
 	}
 }
 
+// TestNamespacePerformanceUsageDenotesOneObject requires a valueless package-level action or
+// state usage to denote one performance for the run, as a nested one inside a part does: reached
+// by `all T` before any read of it, read twice as the same object, its type's exhibited behavior
+// started and its own body not run; `[0..*]` denotes none and `[2]` two.
+func TestNamespacePerformanceUsageDenotesOneObject(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ScalarValues::*;
+			private import SequenceFunctions::*;
+			state def Inner;
+			action def Act {
+				attribute hits : Integer := 0;
+				exhibit state m : Inner;
+				first start;
+				then assign hits := hits + 1;
+				then done;
+			}
+			state def Sta { attribute n : Integer := 5; entry; then s0; state s0; }
+			action a : Act;
+			state s : Sta;
+			action none : Act[0..*];
+			action pair : Act[2];
+			part sys { part x; action na : Act; state ns : Sta; }
+		}
+	`))
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok || pkg.Scope == nil {
+		t.Fatal("test package not indexed")
+	}
+	eval := func(expr string) Value {
+		val, err := evalIn(t, ctx, pkg.Scope, expr)
+		if err != nil {
+			t.Fatalf("%s: %v", expr, err)
+		}
+		return val
+	}
+	for expr, want := range map[string]int{"all Act": 4, "all Sta": 2, "all Inner": 4, "none": 0, "pair": 2} {
+		if got := len(elementsOf(eval(expr))); got != want {
+			t.Errorf("size(%s) = %d, want %d", expr, got, want)
+		}
+	}
+	a := eval("a")
+	if a.Kind != ValInstance {
+		t.Fatalf("a = %s, want one object", a.Kind)
+	}
+	if again := eval("a"); again.Instance != a.Instance {
+		t.Errorf("a read twice denotes objects %d and %d, want the same one", a.Instance, again.Instance)
+	}
+	if ids := ctx.occurrences[lookupOne(t, idx, "test::a")]; len(ids) != 1 || ids[0] != a.Instance {
+		t.Errorf("occurrences[a] = %v, want [%d]", ids, a.Instance)
+	}
+	for _, expr := range []string{"(all Act)#(1) === a", "(all Act)#(4) === sys.na", "a != sys.na", "a.hits == 0", "sys.na.hits == 0", "s.n == 5", "pair#(1) != pair#(2)"} {
+		if val := eval(expr); val.Kind != ValConst || !val.Const.Bool {
+			t.Errorf("%s = %v, want true", expr, val)
+		}
+	}
+}
+
 // TestNamespaceConnectorUsagesBoundAndCounted requires every namespace path that makes a connector
 // usage's objects — a `bind`, a `[2]` collection, a lazily held `[1001]` one — to attach their ends.
 func TestNamespaceConnectorUsagesBoundAndCounted(t *testing.T) {

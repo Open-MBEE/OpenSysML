@@ -706,8 +706,8 @@ func (ctx *Context) OccurrenceUsage(inst *Instance) string {
 }
 
 // isOccurrenceUsage reports whether sym declares a usage that is an occurrence:
-// a part, item or individual, which is a thing with features rather than a
-// value, so a chain through it reads the features of that thing.
+// a part, item, individual or a performance, which is a thing with features rather
+// than a value, so a chain through it reads the features of that thing.
 func isOccurrenceUsage(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
@@ -716,7 +716,20 @@ func isOccurrenceUsage(sym *symbols.Symbol) bool {
 	if !ok || usage.Value != nil {
 		return false
 	}
-	return objectUsageKind(usage.Kind)
+	return objectUsageKind(usage.Kind) || performanceUsageKind(usage.Kind) && sym.OwnerScope != nil && namespaceScope(sym.OwnerScope)
+}
+
+// isPerformanceUsage reports whether sym declares an action or state usage.
+func isPerformanceUsage(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && performanceUsageKind(usage.Kind)
+}
+
+// performanceUsageKind reports a usage kind whose values are performances: an action or
+// state usage (SysML v2 §7.17, §7.18) denotes one performance per occurrence, which a read
+// materializes as an object, starting what its type exhibits or performs but not its body.
+func performanceUsageKind(kind ast.UsageKind) bool {
+	return kind == ast.UsageAction || kind == ast.UsageState
 }
 
 // objectUsageKind reports a usage kind whose values are objects: the occurrence usages
@@ -1601,7 +1614,8 @@ func (ctx *Context) declaresFeatures(feat *EffectiveFeature) bool {
 // untypedOccurrenceUsage reports an occurrence, port, action or state usage declaring no
 // type, which its kind's implicit base still classifies (SysML v2 §7.9.2: an untyped `item`
 // is an Items::Item, an untyped `port` a Ports::Port; §7.16.2, §7.17.2: an untyped `action`
-// an Actions::Action, an untyped `state` a States::StateAction).
+// an Actions::Action, an untyped `state` a States::StateAction), held as a typed one is
+// (Parts.sysml `ownedActions`, `ownedStates`; Actions.sysml `subactions`).
 func untypedOccurrenceUsage(feat *EffectiveFeature) bool {
 	if feat.Type != nil || !(isOccurrenceUsage(feat.Symbol) || untypedPortUsage(feat.Symbol) || untypedPerformanceUsage(feat.Symbol)) {
 		return false
@@ -1611,15 +1625,14 @@ func untypedOccurrenceUsage(feat *EffectiveFeature) bool {
 }
 
 // untypedPerformanceUsage reports an action or state usage declaring no type and no value,
-// a performance its owner holds as it holds a typed one (Parts.sysml `ownedActions`,
-// `ownedStates`; Actions.sysml `subactions`): one object for a usage declaring no
+// a performance its owner holds as it holds a typed one: one object for a usage declaring no
 // multiplicity, as many as a fixed bound states, none made up for an open bound.
 func untypedPerformanceUsage(sym *symbols.Symbol) bool {
-	if sym == nil || (sym.Kind != symbols.SymbolActionUsage && sym.Kind != symbols.SymbolStateUsage) {
+	if sym == nil {
 		return false
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
-	return ok && usage.Value == nil
+	return ok && usage.Value == nil && performanceUsageKind(usage.Kind)
 }
 
 // untypedPortUsage reports a port usage, whose object a binding connector can join to another's.
