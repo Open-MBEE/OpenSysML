@@ -716,7 +716,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 		from, to := r.edgeEnds(edge, portEnds)
 		from = flowchartEndpoint(from, w.clusterAnchors)
 		to = flowchartEndpoint(to, w.clusterAnchors)
-		w.edge(from, mermaidArrow(r.Kind, edge.Kind), mermaidEdgeLabel(r.Kind, edge), to, edge.Style, edge.Kind)
+		w.edge(from, mermaidArrow(edge.Kind), mermaidEdgeLabel(r.Kind, edge), to, edge.Style, edge.Kind)
 	}
 	flowchart.writeFlowchartNoteEdges(w, noteOwners, used)
 	r.writeMermaidStyles(b, fills, options, false)
@@ -1973,20 +1973,16 @@ func (l labeller) mermaidLines(lines []string) string {
 }
 
 // mermaidArrow is how an edge of each kind is drawn in a flowchart.
-func mermaidArrow(kind Kind, edge EdgeKind) string {
+func mermaidArrow(edge EdgeKind) string {
 	switch edge {
 	case EdgeConnection, EdgeBinding:
 		return "==="
-	case EdgeSuccession, EdgeImport, EdgeDerive, EdgeRefine, EdgeDependency:
+	case EdgeSuccession, EdgeSuccessionFlow, EdgeImport, EdgeDerive, EdgeRefine, EdgeDependency, EdgeExpose:
 		return "-.->"
-	case EdgeComposition, EdgeReference, EdgeContainment, EdgeAssociation:
+	case EdgeComposition, EdgeReference, EdgeContainment, EdgeAssociation, EdgePortion, EdgeUnownedMembership:
 		return "---"
 	case EdgeAnchor:
 		return "-.-"
-	case EdgeSuccessionFlow, EdgeExpose:
-		return "-.->"
-	case EdgePortion, EdgeUnownedMembership:
-		return "---"
 	}
 	return "-->"
 }
