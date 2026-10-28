@@ -53,10 +53,18 @@ type compiler struct {
 	parsed   map[*symbols.Symbol]*parsedBody
 	outlines map[*symbols.Symbol]*markupOutline
 	// lenient leaves a body whose markup converter is missing unchecked and
-	// records the warning, once per language, instead of stopping the plan.
+	// records the warning, once per language and document, instead of
+	// stopping the plan; scanned is the document whose bodies are being read,
+	// entry unless another document's outline is, whose warnings are its own.
 	lenient     bool
+	scanned     *symbols.Symbol
 	unchecked   []*Error
-	uncheckedBy map[string]*Error
+	uncheckedBy map[uncheckedKey]*Error
+}
+
+type uncheckedKey struct {
+	document *symbols.Symbol
+	language string
 }
 
 type bases struct {
@@ -170,7 +178,8 @@ func compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Res
 		outlines: make(map[*symbols.Symbol]*markupOutline),
 
 		lenient:     lenient,
-		uncheckedBy: make(map[string]*Error),
+		scanned:     entry,
+		uncheckedBy: make(map[uncheckedKey]*Error),
 	}
 	title, err := c.requiredText(entry, "title", ErrorMissingTitle)
 	if err != nil {

@@ -120,7 +120,8 @@ func (c *compiler) parseBody(owner, rep *symbols.Symbol) *parsedBody {
 	}
 	body, offsets := source.CommentBodyOffsets(lookup(rep.DocName, decl.BodySpan))
 	parsed := &parsedBody{language: language, body: body, offsets: offsets}
-	if prior := c.uncheckedBy[language.Language()]; prior != nil {
+	key := uncheckedKey{c.scanned, language.Language()}
+	if prior := c.uncheckedBy[key]; prior != nil {
 		prior.Bodies++
 		parsed.unchecked = prior
 		return parsed
@@ -136,11 +137,14 @@ func (c *compiler) parseBody(owner, rep *symbols.Symbol) *parsedBody {
 		if tool.Missing {
 			kind = ErrorMarkupToolMissing
 		}
-		planning := &Error{Kind: kind, Document: c.document, Content: symbols.FQNOf(owner), Parameter: language.Language(), Origin: rep.Origin(), Err: tool}
+		planning := &Error{Kind: kind, Document: symbols.FQNOf(c.scanned), Content: symbols.FQNOf(owner), Parameter: language.Language(), Origin: rep.Origin(), Err: tool}
 		if c.lenient && tool.Missing {
+			// Another document's bodies are its own plan's to warn of.
 			planning.Bodies = 1
-			c.unchecked = append(c.unchecked, planning)
-			c.uncheckedBy[language.Language()] = planning
+			if c.scanned == c.entry {
+				c.unchecked = append(c.unchecked, planning)
+			}
+			c.uncheckedBy[key] = planning
 			parsed.unchecked = planning
 			return parsed
 		}
@@ -172,7 +176,10 @@ func (c *compiler) outlineOf(doc *symbols.Symbol) *markupOutline {
 	c.outlines[doc] = outline
 	used := make(map[string]bool)
 	c.collectContentNames(doc, used)
+	scanned := c.scanned
+	c.scanned = doc
 	c.scanBodies(doc, nil, outline, used)
+	c.scanned = scanned
 	return outline
 }
 

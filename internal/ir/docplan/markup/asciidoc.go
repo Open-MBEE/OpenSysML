@@ -38,6 +38,9 @@ type AsciiDoc struct{}
 // Language implements Parser.
 func (AsciiDoc) Language() string { return "asciidoc" }
 
+// External reports that the converter runs outside the process.
+func (AsciiDoc) External() bool { return true }
+
 // Parse implements Parser.
 func (AsciiDoc) Parse(body string) ([]Block, error) {
 	output, err := runAsciiDoc(body)

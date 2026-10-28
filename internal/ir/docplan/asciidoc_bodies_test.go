@@ -206,3 +206,36 @@ func TestValidateReportsOneWarningPerBody(t *testing.T) {
 		t.Errorf("warnings %v, want one over the paragraph's body", warnings)
 	}
 }
+
+// A document whose plan reads another document's outline leaves that
+// document's unchecked bodies to its own plan: each warns once, of its own.
+func TestValidateWarnsOfItsOwnBodiesOnly(t *testing.T) {
+	fixture := loadPlanningFixture(t, `
+		part def Appendix :> Document {
+			attribute redefines title = "Appendix";
+			rep language "AsciiDoc" /* An appendix body. */
+			part tables : Section {
+				attribute redefines title = "Tables";
+				rep language "markdown" /* ## Detail */
+			}
+		}
+		part def Report :> Document {
+			attribute redefines title = "Report";
+			rep language "markdown" /* See [](sysml:Appendix::tables.detail). */
+			part note : Paragraph {
+				rep language "AsciiDoc" /* A report body. */
+			}
+		}
+	`)
+	t.Setenv(markup.AsciiDocEnv, filepath.Join(t.TempDir(), "missing-converter"))
+	for _, name := range []string{"Report", "Appendix"} {
+		warnings, err := Validate(fixture.index, fixture.model, fixture.resolver, fixture.symbol(t, name))
+		if err != nil {
+			t.Fatalf("Validate %s: %v", name, err)
+		}
+		fqn := "Observatory::" + name
+		if len(warnings) != 1 || warnings[0].Document != fqn || warnings[0].Bodies != 1 || !strings.HasPrefix(warnings[0].Content, fqn) {
+			t.Errorf("Validate %s: warnings %v, want one over its own body", name, warnings)
+		}
+	}
+}

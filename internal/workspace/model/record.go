@@ -7,7 +7,6 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
-	"github.com/Open-MBEE/OpenSysML/internal/check/passes/document"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -64,9 +63,6 @@ func (w *Workspace) interfaceRecordLocked(name string, doc *Document, src libs.S
 		delete(w.diagCache, name)
 	}
 	diags := w.diagnosticsLocked(name, doc)
-	if i := slices.IndexFunc(diags, document.HostDependent); i >= 0 {
-		return nil, fmt.Errorf("%w: %s is reported on this host's tools (%s)", libs.ErrUnrecordable, name, diags[i].Code)
-	}
 	gathered, err := passes.GatherRelationships(w.contextLocked(), name)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", libs.ErrUnrecordable, err)

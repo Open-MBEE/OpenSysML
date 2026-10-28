@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan/markup"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -114,6 +116,21 @@ func (w *interfaceWriter) fail(sym *symbols.Symbol, what string) {
 	}
 }
 
+// checkDocumentPlanning fails the record for what a document plan in another
+// document reads of this one and a record cannot answer: a query definition,
+// whose result expression the plan evaluates, and a prose body an external
+// converter checks, whose verdict is the host's and not the document's.
+func (w *interfaceWriter) checkDocumentPlanning(sym *symbols.Symbol) {
+	if queryplan.IsQueryDefinition(w.idx, w.model, sym) {
+		w.fail(sym, "result expression of a document query definition")
+	}
+	if decl, ok := sym.Decl.(*ast.TextualRepresentation); ok && sym.Kind == symbols.SymbolTextualRepresentation {
+		if parser, ok := markup.For(source.StringValue(decl.Language)); ok && parser.External() {
+			w.fail(sym, parser.Language()+" body an external converter checks")
+		}
+	}
+}
+
 // checkAnnotation fails the record for an annotation no reference restores the
 // metadata type of, or with a value a record cannot carry: a quantity, which
 // only the runtime evaluates.
@@ -155,6 +172,7 @@ func (w *interfaceWriter) refs(of *symbols.Symbol, syms []*symbols.Symbol, what 
 // facts states what sym's declaration yields, as its record carries it.
 func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	m := w.model
+	w.checkDocumentPlanning(sym)
 	supers := m.DirectSupertypes(sym)
 	implied := slices.DeleteFunc(slices.Clone(m.ImplicitGenerals(sym)), func(base *symbols.Symbol) bool {
 		return !slices.Contains(supers, base)
