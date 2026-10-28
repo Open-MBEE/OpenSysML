@@ -62,6 +62,20 @@ func TestInterfaceRecordRefusesExternallyCheckedBodies(t *testing.T) {
 	})
 }
 
+// A body no document plan reads — one on an ordinary part — leaves the
+// document recordable, converter or no converter.
+func TestInterfaceRecordKeepsBodiesOutsideDocuments(t *testing.T) {
+	t.Setenv(markup.AsciiDocEnv, filepath.Join(t.TempDir(), "missing-converter"))
+	ws := NewWorkspace()
+	ws.Open("engine.sysml", []byte(`package Model { part engine { rep language "asciidoc" /* engine notes */ } }`), 1)
+	if diags := ws.Diagnostics("engine.sysml"); len(diags) != 0 {
+		t.Fatalf("the fixture reports %v, want nothing", diags)
+	}
+	if _, err := ws.InterfaceRecord("engine.sysml"); err != nil {
+		t.Fatalf("InterfaceRecord = %v, want the record", err)
+	}
+}
+
 // A document declaring a document query definition is not recorded: a plan
 // in another document evaluates the query's result expression from the tree.
 func TestInterfaceRecordRefusesQueryDefinitions(t *testing.T) {

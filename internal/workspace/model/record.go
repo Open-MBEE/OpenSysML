@@ -8,6 +8,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan/markup"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -55,11 +56,8 @@ func (w *Workspace) InterfaceRecord(name string) (*libs.InterfaceRecord, error) 
 	return w.interfaceRecordLocked(name, doc, w.sourcesLocked())
 }
 
-// plannedElsewhereLocked refuses the record of a document holding what a
-// document plan in another document reads of it and no record answers: a
-// document query definition, whose result expression the plan evaluates from
-// the tree, and a prose body an external converter checks, whose verdict is
-// the host's and not the document's. Caller holds the write lock.
+// plannedElsewhereLocked refuses the record of a document whose query definitions or
+// externally-converted prose bodies another document's plan reads. Caller holds the write lock.
 func (w *Workspace) plannedElsewhereLocked(name string) error {
 	root := w.index.DocumentRoot(name)
 	if root == nil {
@@ -71,7 +69,7 @@ func (w *Workspace) plannedElsewhereLocked(name string) error {
 			return fmt.Errorf("%w: result expression of document query definition %s", libs.ErrUnrecordable, symbols.FQNOf(sym))
 		}
 		decl, ok := sym.Decl.(*ast.TextualRepresentation)
-		if !ok || sym.Kind != symbols.SymbolTextualRepresentation {
+		if !ok || !docplan.ReadsBody(w.index, sem, sym) {
 			continue
 		}
 		if parser, ok := markup.For(source.StringValue(decl.Language)); ok && parser.External() {

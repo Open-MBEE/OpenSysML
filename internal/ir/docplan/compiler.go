@@ -52,10 +52,8 @@ type compiler struct {
 	targets  map[*symbols.Symbol]refTarget
 	parsed   map[*symbols.Symbol]*parsedBody
 	outlines map[*symbols.Symbol]*markupOutline
-	// lenient leaves a body whose markup converter is missing unchecked and
-	// records the warning, once per language and document, instead of
-	// stopping the plan; scanned is the document whose bodies are being read,
-	// entry unless another document's outline is, whose warnings are its own.
+	// lenient leaves a body whose converter is missing unchecked, warning once per
+	// language and scanned document (entry, or another whose outline is read).
 	lenient     bool
 	scanned     *symbols.Symbol
 	unchecked   []*Error
@@ -102,6 +100,28 @@ func IsDocumentDefinition(index *symbols.Index, model *semantics.Model, sym *sym
 	base := libraryBase(index, documentBaseFQN)
 	return base != nil && sym != nil && sym != base &&
 		sym.Kind == symbols.SymbolPartDef && model != nil && model.Conforms(sym, base)
+}
+
+// ReadsBody reports whether a document plan reads the body of the textual
+// representation rep: one owned, at any depth, by a document, section or paragraph.
+func ReadsBody(index *symbols.Index, model *semantics.Model, rep *symbols.Symbol) bool {
+	if rep == nil || rep.Kind != symbols.SymbolTextualRepresentation || model == nil {
+		return false
+	}
+	var bases []*symbols.Symbol
+	for _, fqn := range []string{documentBaseFQN, sectionBaseFQN, paragraphBaseFQN} {
+		if base := libraryBase(index, fqn); base != nil {
+			bases = append(bases, base)
+		}
+	}
+	for owner := rep.Owner(); owner != nil; owner = owner.Owner() {
+		for _, base := range bases {
+			if owner != base && model.Conforms(owner, base) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // QueryTarget resolves the query definition a calc usage is typed by, following
