@@ -387,39 +387,9 @@ func (tc *typeChecker) checkRelationships(scope *symbols.Scope, rels []*ast.Rela
 // checkTypeTarget checks one relationship target against the kind rules for the
 // declaration carrying it.
 func (tc *typeChecker) checkTypeTarget(scope *symbols.Scope, target ast.Node, relKind ast.RelationshipKind, decl declKind) {
-	// Unwrap FeatureReference if needed
-	targetNode := target
-	if fr, ok := targetNode.(*ast.FeatureReference); ok {
-		targetNode = fr.Name
-	}
-	var sym *symbols.Symbol
-	var ok bool
-	if qn, isQN := targetNode.(*ast.QualifiedName); isQN {
-		sym, ok = tc.resolver.ResolveQualified(scope, qn)
-	} else {
-		tc.checkChainSegments(scope, targetNode)
-		tc.checkChainReferenceKind(scope, targetNode, relKind, decl)
-		if relKind != ast.RelTyping {
-			return
-		}
-		// A feature chain types a feature as a qualified name does (KerML 8.2.3
-		// OwnedFeatureTyping), so the feature it ends in meets the same kind rules.
-		sym, ok = tc.resolver.ResolveTarget(scope, targetNode)
-	}
-	if !ok || sym == nil {
-		return // unresolved: name-resolution tier owns this
-	}
-	// Resolve aliases to their underlying types for the relationships whose
-	// check depends on the target's kind: a typing and a generalization.
-	targetSym := sym
-	aliasMatters := relKind == ast.RelSpecializes ||
-		relKind == ast.RelSubsets ||
-		relKind == ast.RelRedefines ||
-		relKind == ast.RelTyping
-	if aliasMatters && sym.Kind == symbols.SymbolAlias {
-		if resolved, ok := tc.resolver.ResolveAliasTarget(sym); ok && resolved != nil {
-			targetSym = resolved
-		}
+	targetSym, ok := tc.typeTargetSymbol(scope, target, relKind, decl)
+	if !ok {
+		return
 	}
 	if relKind == ast.RelRedefines || relKind == ast.RelSubsets {
 		if tc.checkNearestDeclaredUsageTyping(targetSym, decl) {
@@ -437,6 +407,51 @@ func (tc *typeChecker) checkTypeTarget(scope *symbols.Scope, target ast.Node, re
 		tc.checkKerMLTyping(decl, targetSym)
 		return
 	}
+	tc.reportTargetKind(target, relKind, decl, targetSym)
+}
+
+// typeTargetSymbol resolves a target to the symbol the kind rules judge (an alias
+// to its target where kind matters), or false when unresolved or a chain no rule judges.
+func (tc *typeChecker) typeTargetSymbol(scope *symbols.Scope, target ast.Node, relKind ast.RelationshipKind, decl declKind) (*symbols.Symbol, bool) {
+	// Unwrap FeatureReference if needed
+	targetNode := target
+	if fr, ok := targetNode.(*ast.FeatureReference); ok {
+		targetNode = fr.Name
+	}
+	var sym *symbols.Symbol
+	var ok bool
+	if qn, isQN := targetNode.(*ast.QualifiedName); isQN {
+		sym, ok = tc.resolver.ResolveQualified(scope, qn)
+	} else {
+		tc.checkChainSegments(scope, targetNode)
+		tc.checkChainReferenceKind(scope, targetNode, relKind, decl)
+		if relKind != ast.RelTyping {
+			return nil, false
+		}
+		// A feature chain types a feature as a qualified name does (KerML 8.2.3
+		// OwnedFeatureTyping), so the feature it ends in meets the same kind rules.
+		sym, ok = tc.resolver.ResolveTarget(scope, targetNode)
+	}
+	if !ok || sym == nil {
+		return nil, false // unresolved: name-resolution tier owns this
+	}
+	// Resolve aliases to their underlying types for the relationships whose
+	// check depends on the target's kind: a typing and a generalization.
+	aliasMatters := relKind == ast.RelSpecializes ||
+		relKind == ast.RelSubsets ||
+		relKind == ast.RelRedefines ||
+		relKind == ast.RelTyping
+	if aliasMatters && sym.Kind == symbols.SymbolAlias {
+		if resolved, ok := tc.resolver.ResolveAliasTarget(sym); ok && resolved != nil {
+			return resolved, true
+		}
+	}
+	return sym, true
+}
+
+// reportTargetKind reports a target whose kind the declaration's relationship
+// does not admit, worded per kind for a typing as the pilot words it.
+func (tc *typeChecker) reportTargetKind(target ast.Node, relKind ast.RelationshipKind, decl declKind, targetSym *symbols.Symbol) {
 	kind := targetSym.Kind
 	if relKind.ReferenceSubsets() || relKind == ast.RelSubsets {
 		kind = referentKind(targetSym)

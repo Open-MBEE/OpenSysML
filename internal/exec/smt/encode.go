@@ -247,6 +247,9 @@ func (e *Encoding) collectFeatures() error {
 	return nil
 }
 
+// attributeConstruct names an attribute in the construct an UnsupportedError reports.
+const attributeConstruct = "attribute "
+
 // collectAttribute declares the variable of an attribute the performance holds,
 // free or valued, and records it as an input; declared gains the variable.
 func (e *Encoding) collectAttribute(attr lower.Attribute, declared map[string]bool) error {
@@ -266,11 +269,11 @@ func (e *Encoding) collectAttribute(attr lower.Attribute, declared map[string]bo
 	}
 	free, released := e.frees(attr)
 	if free {
-		if _, err := e.translator.Variable(written, scope, "attribute "+attr.Name); err != nil {
+		if _, err := e.translator.Variable(written, scope, attributeConstruct+attr.Name); err != nil {
 			return noDomain(attr, err)
 		}
 	}
-	v, err := e.variable(written, scope, "attribute "+attr.Name, nodeLabel(graph.Initial))
+	v, err := e.variable(written, scope, attributeConstruct+attr.Name, nodeLabel(graph.Initial))
 	if err != nil {
 		return err
 	}
@@ -299,7 +302,7 @@ func (e *Encoding) collectAttribute(attr lower.Attribute, declared map[string]bo
 // collectDerived declares the variable of a feature valued by an expression over other
 // features and keeps the expression every state defines it by; it is no input.
 func (e *Encoding) collectDerived(attr lower.Attribute, fp lower.Footprint, written string, scope *symbols.Scope, declared map[string]bool) error {
-	label, construct := nodeLabel(e.Flow.Graph.Initial), "attribute "+attr.Name
+	label, construct := nodeLabel(e.Flow.Graph.Initial), attributeConstruct+attr.Name
 	if fp.Dynamic {
 		return &UnsupportedError{Node: label, Construct: construct,
 			Reason: "a feature valued by an expression whose reads the lowering cannot resolve is not encoded"}
@@ -346,7 +349,7 @@ func (e *Encoding) checkDerived() error {
 	}
 	label := nodeLabel(e.Flow.Graph.Initial)
 	for _, name := range slices.Sorted(maps.Keys(e.derived)) {
-		construct := "attribute " + e.derived[name].name
+		construct := attributeConstruct + e.derived[name].name
 		if _, narrowed := e.domains[name]; narrowed {
 			return &UnsupportedError{Node: label, Construct: construct,
 				Reason: "a feature valued by an expression over other features, with a declared type narrowing its sort, is not encoded: the value is checked against the type at each read"}

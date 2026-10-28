@@ -263,7 +263,7 @@ func parseEcore(path string) (ePackage, error) {
 // the package they live in does not compile until this has run.
 type property struct {
 	name, definingClass, iri, kind, rangeIRI, opposite string
-	lower                                              int
+	lower, upper                                       int
 	defaultValue                                       string
 	hasDefault, many, ordered, nonunique, derived      bool
 	redefines, subsets                                 []string
@@ -361,6 +361,10 @@ func newProperty(defining string, f eFeature, kinds map[string]string, features 
 	if err != nil {
 		return property{}, err
 	}
+	upper, err := upperBound(f.UpperBound)
+	if err != nil {
+		return property{}, err
+	}
 	lower, err := lowerBound(f.LowerBound)
 	if err != nil {
 		return property{}, err
@@ -371,6 +375,7 @@ func newProperty(defining string, f eFeature, kinds map[string]string, features 
 		iri:           sysmlNS + defining + "_" + f.Name,
 		lower:         lower,
 		many:          many,
+		upper:         upper,
 		derived:       f.Derived,
 	}
 	// Like ordered, unique only means something on a multi-valued feature.
@@ -431,6 +436,18 @@ func isMany(upperBound string) (bool, error) {
 	return n > 1 || n == -1, nil
 }
 
+// upperBound is the ecore upperBound as stated: -1 unbounded, -2 unspecified, else the
+// bound; an absent one is ecore's default 1.
+func upperBound(bound string) (int, error) {
+	if _, err := isMany(bound); err != nil {
+		return 0, err
+	}
+	if bound == "" {
+		return 1, nil
+	}
+	return strconv.Atoi(bound)
+}
+
 // lowerBound is the ecore lowerBound, whose absence means 0; EcoreValidator rejects a negative one.
 func lowerBound(bound string) (int, error) {
 	if bound == "" {
@@ -487,6 +504,9 @@ func propertyLiterals(properties []property) string {
 			if flag.set {
 				fmt.Fprintf(&b, ", %s: true", flag.name)
 			}
+		}
+		if p.upper != 1 {
+			fmt.Fprintf(&b, ", Upper: %d", p.upper)
 		}
 		if len(p.redefines) > 0 {
 			fmt.Fprintf(&b, ", Redefines: %s", stringSlice(p.redefines))

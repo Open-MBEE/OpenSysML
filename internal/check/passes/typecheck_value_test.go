@@ -68,13 +68,17 @@ func TestValueScalarConstantToScalarValuedEnumeration(t *testing.T) {
 	wantNoValueDiags(t, level+`package P {
 		attribute l : L::Level = 3;
 		attribute h : L::Level = L::Level::high;
-		attribute g : L::Grade = 4;
 		attribute many : L::Level[*] = (1, 3);
 		attribute n : ScalarValues::Integer = 2;
 		attribute fromFeature : L::Level = n;
 		attribute folded : L::Level = 1 + 2;
 		attribute computed : L::Level = n + 1;
 	}`)
+	// An Integer constant equal to a Real-valued enumeration's value is admitted, but
+	// Integer and the enumeration are unrelated types: the binding warns, as the pilot does.
+	if got := valueDiags(t, level+`package P { attribute g : L::Grade = 4; }`); len(got) != 1 || got[0].Code != "bound-feature-types" {
+		t.Fatalf("expected the bound-feature-types warning alone, got %v", got)
+	}
 	wantOneValueDiag(t, level+`package P { attribute l : L::Level = 1 + 1; }`,
 		"cannot bind 2 (an Integer) to a feature typed by Level, whose values are Level::low = 1, Level::high = 3")
 	wantOneValueDiag(t, level+`package P { attribute l : L::Level = 2; }`,
@@ -721,17 +725,17 @@ func TestArgumentCollectionElementsAreJudgedSeverally(t *testing.T) {
 		"argument 1 of Drive expects Vehicle, found Boat")
 	wantCollectionValueDiags(t, `
 		function Count { in n : Integer; return r : Integer; }
-		part n = Count(vs.{ in v : Vehicle; 1.5 });`,
+		attribute n = Count(vs.{ in v : Vehicle; 1.5 });`,
 		"argument 1 of Count expects Integer, found Rational")
 	wantCollectionValueDiags(t, `
 		function Count { in n : Integer; return r : Integer; }
-		part n = Count(n = vs->collect { in v : Vehicle; (1, 1.5) });`,
+		attribute n = Count(n = vs->collect { in v : Vehicle; (1, 1.5) });`,
 		"argument n of Count expects Integer, found Rational")
 	wantCollectionValueDiags(t, `
 		function Count { in n : Integer; return r : Integer; }
 		attribute h : Real;
-		part n = Count(vs.{ in v : Vehicle; 1 });
-		part n2 = Count(vs.{ in v : Vehicle; h });
+		attribute n = Count(vs.{ in v : Vehicle; 1 });
+		attribute n2 = Count(vs.{ in v : Vehicle; h });
 		part b = Sail((boat, vs.{ in v : Vehicle; boat }));`)
 }
 

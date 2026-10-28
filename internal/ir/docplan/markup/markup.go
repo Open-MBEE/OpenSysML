@@ -16,6 +16,9 @@ type Parser interface {
 	// Parse maps a body onto content blocks, or fails with an
 	// *UnsupportedConstructError for a construct no content block carries.
 	Parse(body string) ([]Block, error)
+	// External reports whether Parse runs a converter of the host rather than
+	// code of this process, so that what it answers is the host's.
+	External() bool
 }
 
 // For returns the parser for a textual representation's language, matched

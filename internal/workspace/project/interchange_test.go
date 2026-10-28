@@ -588,3 +588,79 @@ func TestUsedLinksEachVersionOfARepositoryOnceItsProjectIsLearnt(t *testing.T) {
 		})
 	}
 }
+
+// A deferred usage whose candidates later usages all claim selects nothing and
+// says nothing, rather than failing on an emptied candidate list; the two links are said.
+func TestUsedSurvivesADeferredUsageWhoseCandidatesAreAllClaimedLater(t *testing.T) {
+	root := t.TempDir()
+	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:git/example.org/acme/either-repo"},
+  {"resource": "pkg:git/example.org/acme/gears-repo@1.0.0"},
+  {"resource": "pkg:git/example.org/acme/widgets-repo@2.0.0"}]}`)
+	gears := writeProject(t, filepath.Join(proj, "lib", "acme-gears_1.0.0"), `{"name": "Gears", "publisher": "acme", "version": "1.0.0"}`)
+	widgets := writeProject(t, filepath.Join(proj, "lib", "acme-widgets_2.0.0"), `{"name": "Widgets", "publisher": "acme", "version": "2.0.0"}`)
+
+	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+	if want := []string{gears, widgets}; !reflect.DeepEqual(projectDirs(found.Used), want) {
+		t.Fatalf("Used = %v, want %v", projectDirs(found.Used), want)
+	}
+	if len(found.Linking) != 2 || !strings.Contains(found.Linking[0].Message, "linked by elimination to acme/gears 1.0.0") || !strings.Contains(found.Linking[1].Message, "linked by elimination to acme/widgets 2.0.0") {
+		t.Fatalf("Linking = %q, want the two elimination links alone: both candidates went to the usages that name them", found.Linking)
+	}
+}
+
+// A usage that names a project is matched by name alone: with that project
+// missing, the one unrelated installed project is not taken in its place.
+func TestUsedLeavesAMissingNamedUsageUnresolved(t *testing.T) {
+	for _, resource := range []string{"pkg:registry/acme/gears", "pkg:sysand/acme/gears@1.0.0", "pkg:npm/acme/gears"} {
+		t.Run(resource, func(t *testing.T) {
+			root := t.TempDir()
+			proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [{"resource": "`+resource+`"}]}`)
+			writeProject(t, filepath.Join(proj, "lib", "acme-widgets_1.0.0"), `{"name": "Widgets", "publisher": "acme", "version": "1.0.0"}`)
+
+			found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+			if len(found.Used) != 0 || len(found.Linking) != 0 {
+				t.Fatalf("Used = %v, Unlinked = %v, want nothing: the usage names a project, not a location", projectDirs(found.Used), found.Linking)
+			}
+		})
+	}
+}
+
+func TestSpellsLocation(t *testing.T) {
+	for resource, want := range map[string]bool{
+		"pkg:git/github.com/MBSE4U/sysmod-sysmlv2@5.1.5": true,
+		"pkg:svn/example.org/repo/trunk":                 true,
+		"pkg:hg/example.org/repo":                        true,
+		"https://example.org/acme/gears.git":             true,
+		"ssh://git@example.org/acme/gears.git@1.0.0":     true,
+		"git@example.org:acme/gears.git":                 true,
+		"file:///srv/projects/gears":                     true,
+		"pkg:registry/acme/gears":                        false,
+		"pkg:sysand/acme/gears@1.0.0":                    false,
+		"pkg:github/acme/gears":                          false,
+		"acme/gears":                                     false,
+	} {
+		if got := (Usage{Resource: resource}).spellsLocation(); got != want {
+			t.Errorf("spellsLocation(%s) = %v, want %v", resource, got, want)
+		}
+	}
+}
+
+// A claim that enqueues nothing — the claimed project is an input path too, so
+// already selected — still narrows a deferred usage to its one remaining candidate.
+func TestUsedRevisitsADeferredUsageAfterAClaimOfASelectedProject(t *testing.T) {
+	root := t.TempDir()
+	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:git/example.org/acme/either-repo"},
+  {"resource": "pkg:git/example.org/acme/gears-repo@1.0.0"}]}`)
+	gears := writeProject(t, filepath.Join(proj, "lib", "acme-gears_1.0.0"), `{"name": "Gears", "publisher": "acme", "version": "1.0.0"}`)
+	widgets := writeProject(t, filepath.Join(proj, "lib", "acme-widgets_2.0.0"), `{"name": "Widgets", "publisher": "acme", "version": "2.0.0"}`)
+
+	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml"), filepath.Join(gears, "Gears.sysml")})
+	if want := []string{widgets}; !reflect.DeepEqual(projectDirs(found.Used), want) {
+		t.Fatalf("Used = %v, want %v (Gears is enclosing already)", projectDirs(found.Used), want)
+	}
+	if len(found.Linking) != 2 || !strings.Contains(found.Linking[0].Message, "linked by elimination to acme/gears 1.0.0") || !strings.Contains(found.Linking[1].Message, "linked by elimination to acme/widgets 2.0.0") {
+		t.Fatalf("Linking = %q, want the two elimination links, no ambiguity", found.Linking)
+	}
+}

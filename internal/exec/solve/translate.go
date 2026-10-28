@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 	"sort"
 	"strings"
 
@@ -590,14 +591,7 @@ func newTranslator(ctx *runtime.Context, subject Subject) *translator {
 func mergeAssumed(have, more []AssumedOne, byPath bool) []AssumedOne {
 	out := append([]AssumedOne(nil), have...)
 	for _, a := range more {
-		seen := false
-		for _, h := range have {
-			if h.Feature == a.Feature && (!byPath || h.Name == a.Name) {
-				seen = true
-				break
-			}
-		}
-		if !seen {
+		if !slices.ContainsFunc(have, func(h AssumedOne) bool { return h.Feature == a.Feature && (!byPath || h.Name == a.Name) }) {
 			out = append(out, a)
 		}
 	}

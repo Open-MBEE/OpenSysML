@@ -634,8 +634,13 @@ func TestInvocationPerformedActionMustNameAnAction(t *testing.T) {
 			}
 		}
 	`
+	// The calculation's Integer result is no Action either: the binding warns too, as the pilot does.
 	for _, imports := range []string{``, `private import B::*;`} {
-		wantLibraryDiag(t, fmt.Sprintf(calcs, imports, `tag(3)`), "usage-reference-kind", "Must reference an action.")
+		diags := libraryDiags(t, fmt.Sprintf(calcs, imports, `tag(3)`))
+		if len(diags) != 2 || diags[0].Code != "bound-feature-types" || diags[1].Code != "usage-reference-kind" ||
+			!strings.Contains(diags[1].Message, "Must reference an action.") {
+			t.Fatalf("expected the binding warning and the usage-reference-kind error, got %v", diags)
+		}
 	}
 	wantLibraryDiag(t, fmt.Sprintf(calcs, ``, `Wheel()`), "invocation-not-behavior", "Must invoke a behavior or a behavioral feature")
 }

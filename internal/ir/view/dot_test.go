@@ -433,7 +433,7 @@ func TestDOTEdgeKinds(t *testing.T) {
 			}
 			// Mermaid draws the same distinction: a line, a dashed arrow, an arrow. An
 			// edge DOT draws backward has no head at its target, which a line shows.
-			arrow := mermaidArrow(rk, kind)
+			arrow := mermaidArrow(kind)
 			undirected := !strings.Contains(arrow, ">")
 			dotUndirected := strings.Contains(want, "dir=none") || strings.Contains(want, "arrowhead=none") ||
 				strings.Contains(want, dotDirBack)

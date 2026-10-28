@@ -673,7 +673,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 
 	mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym))
 	abstract := symbols.IsAbstract(sym)
-	commit, rollback, drain := func() {}, func() {}, func() error { return nil }
+	commit, rollback, drain := noJournal()
 	if !abstract {
 		count, err := ctx.lowerBoundCount(mult, len(contributed), fmt.Sprintf("usage %s", SymbolText(sym)))
 		if err != nil {

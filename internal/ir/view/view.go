@@ -282,79 +282,52 @@ const (
 	EdgeUnownedMembership
 	// EdgeExpose is a view's exposure of an element, from the view.
 	EdgeExpose
+	// edgeKindCount is one past the last edge kind, sizing edgeKindNames.
+	edgeKindCount
 )
+
+// edgeKindNames names each edge kind the way the notation speaks of it.
+var edgeKindNames = [edgeKindCount]string{
+	EdgeConnection:          "connection",
+	EdgeTransition:          "transition",
+	EdgeSuccession:          "succession",
+	EdgeFlow:                "flow",
+	EdgeBinding:             "binding",
+	EdgeSpecialization:      "specialization",
+	EdgeTyping:              "typing",
+	EdgeComposition:         "composition",
+	EdgeReference:           "reference",
+	EdgeContainment:         "containment",
+	EdgeImport:              "import",
+	EdgeSatisfy:             "satisfy",
+	EdgeVerify:              "verify",
+	EdgeDerive:              "derive",
+	EdgeRefine:              "refine",
+	EdgeAllocate:            "allocate",
+	EdgeAssociation:         "association",
+	EdgeInclude:             "include",
+	EdgeAnchor:              "anchor",
+	EdgeDependency:          "dependency",
+	EdgeSubsetting:          "subsetting",
+	EdgeRedefinition:        "redefinition",
+	EdgePerform:             "perform",
+	EdgeExhibit:             "exhibit",
+	EdgeSuccessionFlow:      "succession flow",
+	EdgeRequire:             "require",
+	EdgeAssume:              "assume",
+	EdgeAssert:              "assert",
+	EdgeFrame:               "frame",
+	EdgeEvent:               "event",
+	EdgePortion:             "portion",
+	EdgeReferenceSubsetting: "reference subsetting",
+	EdgeUnownedMembership:   "unowned membership",
+	EdgeExpose:              "expose",
+}
 
 // String names an edge kind the way the notation speaks of it.
 func (k EdgeKind) String() string {
-	switch k {
-	case EdgeConnection:
-		return "connection"
-	case EdgeTransition:
-		return "transition"
-	case EdgeSuccession:
-		return "succession"
-	case EdgeFlow:
-		return "flow"
-	case EdgeBinding:
-		return "binding"
-	case EdgeSpecialization:
-		return "specialization"
-	case EdgeTyping:
-		return "typing"
-	case EdgeComposition:
-		return "composition"
-	case EdgeReference:
-		return "reference"
-	case EdgeContainment:
-		return "containment"
-	case EdgeImport:
-		return "import"
-	case EdgeSatisfy:
-		return "satisfy"
-	case EdgeVerify:
-		return "verify"
-	case EdgeDerive:
-		return "derive"
-	case EdgeRefine:
-		return "refine"
-	case EdgeAllocate:
-		return "allocate"
-	case EdgeAssociation:
-		return "association"
-	case EdgeInclude:
-		return "include"
-	case EdgeAnchor:
-		return "anchor"
-	case EdgeDependency:
-		return "dependency"
-	case EdgeSubsetting:
-		return "subsetting"
-	case EdgeRedefinition:
-		return "redefinition"
-	case EdgePerform:
-		return "perform"
-	case EdgeExhibit:
-		return "exhibit"
-	case EdgeSuccessionFlow:
-		return "succession flow"
-	case EdgeRequire:
-		return "require"
-	case EdgeAssume:
-		return "assume"
-	case EdgeAssert:
-		return "assert"
-	case EdgeFrame:
-		return "frame"
-	case EdgeEvent:
-		return "event"
-	case EdgePortion:
-		return "portion"
-	case EdgeReferenceSubsetting:
-		return "reference subsetting"
-	case EdgeUnownedMembership:
-		return "unowned membership"
-	case EdgeExpose:
-		return "expose"
+	if k >= 0 && k < edgeKindCount && edgeKindNames[k] != "" {
+		return edgeKindNames[k]
 	}
 	return "edge"
 }
