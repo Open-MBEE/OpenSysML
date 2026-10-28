@@ -2613,7 +2613,7 @@ func (s *Session) satisfyVerdictsOf(ctx *runtime.Context, a *runtime.SatisfyAsse
 func (s *Session) subjectLabel(subject runtime.SatisfactionSubject) string {
 	if subject.Root != nil && subject.Root != subject.Object {
 		if root := s.instanceName(subject.Root); root != "" {
-			return root + featurePath(subject.Path)
+			return objectPath(root, subject.Path)
 		}
 	}
 	return s.objectLabel(subject.Object)

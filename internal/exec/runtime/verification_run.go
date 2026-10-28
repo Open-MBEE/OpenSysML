@@ -52,6 +52,10 @@ type VerificationVerdict struct {
 	// decided nothing; empty for pass and fail.
 	Detail string
 
+	// Err is the failure an error verdict reports, so a caller can tell a
+	// resource bound from a fault of the model; nil for every other verdict.
+	Err error
+
 	// Subcase marks the verdict of a case performed by another, which the
 	// library states no roll-up for and which is therefore reported on its own.
 	Subcase bool
@@ -145,7 +149,7 @@ func (ctx *Context) RunVerification(sym *symbols.Symbol, args AnalysisArgs, scop
 			}, nil
 		}
 		return VerificationResult{
-			Verdict: VerificationVerdict{Case: name, Symbol: sym, Kind: verdictError, Detail: err.Error(), Subject: performer},
+			Verdict: VerificationVerdict{Case: name, Symbol: sym, Kind: verdictError, Detail: err.Error(), Err: err, Subject: performer},
 		}, nil
 	}
 	result := VerificationResult{Verdict: ctx.bodyVerdict(sym, name, caseRun, run), Run: run}

@@ -1068,8 +1068,8 @@ func (ctx *Context) reachCarriers(roots []*Instance, carries func(*Instance) boo
 	var out []carrier
 	seen := make(map[int64]bool, len(roots))
 	path := make(map[*symbols.Symbol]bool)
-	var descend func(root, inst *Instance, through string, features []string)
-	descend = func(root, inst *Instance, through string, features []string) {
+	var descend func(root, inst *Instance, through string, features, segments []string)
+	descend = func(root, inst *Instance, through string, features, segments []string) {
 		// A destroyed object a live holder retains is no carrier, and holds nothing to walk.
 		if inst == nil || seen[inst.ID] || ctx.checkNotDestroyed(inst) != nil {
 			return
@@ -1077,7 +1077,7 @@ func (ctx *Context) reachCarriers(roots []*Instance, carries func(*Instance) boo
 		seen[inst.ID] = true
 		if carries(inst) {
 			occurrence := carrierOccurrence{through: through, decl: inst.Type}
-			out = append(out, carrier{instance: inst, root: root, features: features, occurrence: occurrence})
+			out = append(out, carrier{instance: inst, root: root, features: features, segments: segments, occurrence: occurrence})
 		}
 		if inst.Type != nil {
 			if path[inst.Type] {
@@ -1088,11 +1088,12 @@ func (ctx *Context) reachCarriers(roots []*Instance, carries func(*Instance) boo
 		}
 		for _, child := range ctx.nestedObjects(inst) {
 			nested := append(features[:len(features):len(features)], child.feature)
-			descend(root, child.instance, through+"/"+strconv.Quote(child.feature), nested)
+			walked := append(segments[:len(segments):len(segments)], child.segment)
+			descend(root, child.instance, through+"/"+strconv.Quote(child.feature), nested, walked)
 		}
 	}
 	for _, root := range roots {
-		descend(root, root, ctx.rootPath(root), nil)
+		descend(root, root, ctx.rootPath(root), nil, nil)
 	}
 	return out
 }
@@ -1128,9 +1129,12 @@ func (ctx *Context) rootPath(root *Instance) string {
 // carrier is an object a search reached: the object the search started from and
 // the features walked from it name a nested one, which has no name of its own.
 type carrier struct {
-	instance   *Instance
-	root       *Instance
-	features   []string
+	instance *Instance
+	root     *Instance
+	features []string
+	// segments spell the features walked as a path names them, a collection's
+	// element indexed: what a verdict about the carrier labels it by.
+	segments   []string
 	occurrence carrierOccurrence
 }
 
@@ -1150,6 +1154,9 @@ type carrierOccurrence struct {
 type heldObject struct {
 	feature  string
 	instance *Instance
+	// segment names the object under its feature as a path spells it: the
+	// feature's name, indexed for a collection's element (`wheels[2]`).
+	segment string
 }
 
 // nestedObjects returns the objects the object-valued features of inst hold,
@@ -1199,9 +1206,9 @@ func (ctx *Context) heldObjectsOf(inst *Instance, through func(*Instance, Object
 			}
 			held = NewSequenceValue(&Sequence{elements: standingElements(fv.HeldValue())})
 		}
-		for _, id := range heldObjects(held) {
-			if child, ok := ctx.instances[id]; ok {
-				out = append(out, heldObject{feature: of.Name, instance: child})
+		for _, held := range heldSegments(held, source.NameText(of.Name)) {
+			if child, ok := ctx.instances[held.id]; ok {
+				out = append(out, heldObject{feature: of.Name, instance: child, segment: held.segment})
 			}
 		}
 	}
@@ -1226,11 +1233,18 @@ func objectFeature(sym *symbols.Symbol) bool {
 	return objectUsageKind(usage.Kind) || usage.Kind == ast.UsagePort
 }
 
-// heldObjects returns the identities a feature value denotes, a collection's
-// elements included.
-func heldObjects(val Value) []int64 {
+// heldSegment is the identity of an object a feature value holds and the segment
+// naming it there.
+type heldSegment struct {
+	segment string
+	id      int64
+}
+
+// heldSegments returns the identities a feature value denotes, a collection's elements
+// included, each under the segment a path names it by: the name, indexed for an element.
+func heldSegments(val Value, name string) []heldSegment {
 	if id, ok := val.Object(); ok {
-		return []int64{id}
+		return []heldSegment{{segment: name, id: id}}
 	}
 	var elements []Value
 	switch {
@@ -1239,13 +1253,30 @@ func heldObjects(val Value) []int64 {
 	case val.Kind == ValSet && val.Set() != nil:
 		elements = val.Set().Elements()
 	}
-	var out []int64
-	for _, element := range elements {
+	var out []heldSegment
+	for i, element := range elements {
 		if id, ok := element.Object(); ok {
-			out = append(out, id)
+			out = append(out, heldSegment{segment: indexedSegment(name, i), id: id})
 		}
 	}
 	return out
+}
+
+// heldObjects returns the identities a feature value denotes, a collection's
+// elements included.
+func heldObjects(val Value) []int64 {
+	held := heldSegments(val, "")
+	out := make([]int64, len(held))
+	for i, h := range held {
+		out[i] = h.id
+	}
+	return out
+}
+
+// indexedSegment names a collection's element in a path: the feature's name
+// indexed from 1, `wheels[2]`, as every surface reporting an object spells it.
+func indexedSegment(name string, i int) string {
+	return fmt.Sprintf("%s[%d]", name, i+1)
 }
 
 // carrierLabels names carriers as a diagnostic can quote them: the definition
@@ -1277,14 +1308,20 @@ func qualifiedText(names []string) string {
 	return strings.Join(parts, "::")
 }
 
+// carrierDeclaration is the name of the declaration a carrier materializes where
+// it is not the definition it is an object of; empty where it is.
+func carrierDeclaration(c carrier, definition string) string {
+	if c.instance.Type != nil && c.instance.Type.Name != definition {
+		return c.instance.Type.Name
+	}
+	return ""
+}
+
 // carrierPath names a carrier apart from its siblings: the features walked to
 // it, ending in the declaration it materializes — which differs from the feature
 // holding it when a collection gathers objects of several declarations.
 func carrierPath(c carrier, definition string) []string {
-	decl := ""
-	if c.instance.Type != nil && c.instance.Type.Name != definition {
-		decl = c.instance.Type.Name
-	}
+	decl := carrierDeclaration(c, definition)
 	if len(c.features) == 0 {
 		if decl == "" {
 			return nil
@@ -1298,17 +1335,23 @@ func carrierPath(c carrier, definition string) []string {
 	return walked
 }
 
-// carrierFeatures is the feature path to a nested carrier, one name a segment,
-// corrected the way carrierLabels names an ambiguity's carriers.
+// carrierFeatures is a verdict's path to a nested carrier: the segments walked from its root,
+// a collection's element indexed as validation spells it, ending in the declaration it materializes.
 func (ctx *Context) carrierFeatures(c carrier) []string {
-	if len(c.features) == 0 || c.instance == nil {
+	if len(c.segments) == 0 || c.instance == nil {
 		return nil
 	}
 	name := "object"
 	if def := ctx.definitionOf(c.instance.Type); def != nil && def.Name != "" {
 		name = def.Name
 	}
-	return carrierPath(c, name)
+	decl := carrierDeclaration(c, name)
+	if decl == "" || c.features[len(c.features)-1] == decl {
+		return c.segments
+	}
+	walked := append([]string(nil), c.segments...)
+	walked[len(walked)-1] = source.NameText(decl)
+	return walked
 }
 
 // definitionOf is the definition objects of sym are objects of: sym itself when
