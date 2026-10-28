@@ -61,14 +61,17 @@ NPM_SCOPE = "@openmbee"
 NPM_REGISTRY = "https://registry.npmjs.org"
 Z3_RELEASES = "https://github.com/Z3Prover/z3/releases/download"
 SUFFIX = ".spdx.json"
+OPEN_MBEE = "Organization: Open-MBEE"
 WASM_SUFFIXES = (".wasm", ".wasm.gz")
 
 # Go's linker brackets the module information with these two markers (debug/buildinfo's infoStart/infoEnd).
 MODINFO_START = bytes.fromhex("3077af0c9274080241e1c107e6d618e6")
 MODINFO_END = bytes.fromhex("f932433186182072008242104116d8f2")
-_TOOLCHAIN = re.compile(rb"go1\.[0-9]+\.[0-9]+")
-_EXACT_VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$")
-_MSI_TAG = re.compile(r"^v([0-9]+)\.([0-9]+)\.([0-9]+)(?:[-+].*)?$")
+_TOOLCHAIN = re.compile(rb"go1\.\d+\.\d+")
+_EXACT_VERSION = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$", re.ASCII)
+_MSI_TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$", re.ASCII)
+# What an SPDX identifier may not hold; every other character becomes a hyphen.
+_SPDX_ID_UNSAFE = re.compile(r"[^A-Za-z0-9.-]")
 
 # What build-msi.sh takes from the Z3 zip, under the names the MSI installs them as.
 Z3_FILES = (
@@ -188,7 +191,7 @@ def scan(syft, source, name, version, out):
 
 
 def spdx_id(kind, name):
-    return "SPDXRef-Package-" + re.sub(r"[^A-Za-z0-9.-]", "-", f"{kind}-{name}")
+    return "SPDXRef-Package-" + _SPDX_ID_UNSAFE.sub("-", f"{kind}-{name}")
 
 
 def root_id(doc):
@@ -270,7 +273,7 @@ def go_module_package(path, version, member):
 
 def authored_document(name, version, packages):
     """An SPDX document of this script's own, describing `name` as holding `packages`."""
-    root = "SPDXRef-DocumentRoot-File-" + re.sub(r"[^A-Za-z0-9.-]", "-", name)
+    root = "SPDXRef-DocumentRoot-File-" + _SPDX_ID_UNSAFE.sub("-", name)
     created = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return {
         "spdxVersion": "SPDX-2.3",
@@ -278,13 +281,13 @@ def authored_document(name, version, packages):
         "SPDXID": "SPDXRef-DOCUMENT",
         "name": name,
         "documentNamespace": f"{RELEASE_URL}/{version}/{name}{SUFFIX}",
-        "creationInfo": {"created": created, "creators": ["Organization: Open-MBEE", "Tool: release-sbom.py"]},
+        "creationInfo": {"created": created, "creators": [OPEN_MBEE, "Tool: release-sbom.py"]},
         "packages": [
             {
                 "name": name,
                 "SPDXID": root,
                 "versionInfo": version,
-                "supplier": "Organization: Open-MBEE",
+                "supplier": OPEN_MBEE,
                 "downloadLocation": f"{RELEASE_URL}/{version}/{name}",
                 "filesAnalyzed": False,
                 "licenseConcluded": "NOASSERTION",
@@ -348,7 +351,7 @@ def npm_package(manifest, tarball):
         "name": name,
         "SPDXID": spdx_id("npm", f"{name}@{version}"),
         "versionInfo": version,
-        "supplier": "Organization: Open-MBEE",
+        "supplier": OPEN_MBEE,
         "downloadLocation": f"{NPM_REGISTRY}/{name}/-/{name.split('/')[-1]}-{version}.tgz",
         "filesAnalyzed": False,
         "checksums": [{"algorithm": "SHA256", "checksumValue": sha256(tarball)}],
@@ -476,7 +479,7 @@ def z3_package(pin, zip_path):
                 raise SBOMError(f"{pin['Z3_ZIP']} has no {top}/{member}") from None
             files.append({
                 "fileName": f"./z3/{installed}",
-                "SPDXID": "SPDXRef-File-z3-" + re.sub(r"[^A-Za-z0-9.-]", "-", installed),
+                "SPDXID": "SPDXRef-File-z3-" + _SPDX_ID_UNSAFE.sub("-", installed),
                 "checksums": [{"algorithm": "SHA256", "checksumValue": hashlib.sha256(data).hexdigest()}],
                 "licenseConcluded": "NOASSERTION",
                 "copyrightText": "NOASSERTION",
