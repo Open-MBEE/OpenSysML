@@ -1,0 +1,1 @@
+- The `Implementation` column of `docs/project/spec-compliance.md` and the other compliance tables under `docs/project/` cites the live Go declaration again: every identifier that had been deleted, renamed, re-cased or moved to another file now names its current `file:function`, and `tests/hygiene` checks the column against the parsed Go tree so it cannot drift silently.
