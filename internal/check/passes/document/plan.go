@@ -2,6 +2,7 @@ package document
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
@@ -12,6 +13,17 @@ import (
 
 // planSource names this pass in the diagnostics it emits.
 const planSource = "document-plan"
+
+// HostDependent reports whether d answers to the host the analysis ran on
+// rather than to the document — a markup converter found, missing or failing
+// — so a verdict holding it is not kept for another host.
+func HostDependent(d diag.Diagnostic) bool {
+	if d.Source != planSource {
+		return false
+	}
+	kind, ok := strings.CutPrefix(d.Code, planSource+"-")
+	return ok && docplan.ErrorKind(kind).HostDependent()
+}
 
 // PlanPass validates native document definitions.
 type PlanPass struct{}

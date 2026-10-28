@@ -106,6 +106,13 @@ func (k ErrorKind) Severity() diag.Severity {
 	return diag.SeverityError
 }
 
+// HostDependent reports whether an error of this kind answers to the host
+// rather than the document: a markup converter is found, missing or failing
+// per host, so a verdict carrying one does not hold for another host.
+func (k ErrorKind) HostDependent() bool {
+	return k == ErrorMarkupToolMissing || k == ErrorMarkupToolFailed
+}
+
 func (e *Error) Error() string {
 	message := e.message()
 	if e.Line > 0 {

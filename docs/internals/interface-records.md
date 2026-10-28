@@ -155,6 +155,14 @@ whose `baseType` is bound conditionally. In the four OMG corpora one document of
 (`kerml-examples/Simple Tests/MetadataTest.kerml`, a conditional `baseType`
 binding). A refusal is never silent: the error names the fact and the element.
 
+The writer also refuses a document whose diagnostics answer to the host rather
+than to the document (`document.HostDependent`): a `rep language "asciidoc"`
+body is checked by an external converter, so a document reported on that
+converter being missing (`document-plan-markup-tool-missing`) or failing
+(`document-plan-markup-tool-failed`) is analyzed again wherever it is next
+opened, and installing the converter is seen at once rather than when the
+record would have been invalidated.
+
 ## Cache key
 
 `Cache.InterfaceKey(name, content, libraryIdentity, mode)` is the document's
