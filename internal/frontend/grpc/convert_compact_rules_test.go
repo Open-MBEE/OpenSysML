@@ -201,7 +201,7 @@ func TestConvertCompactExpandsByTheDocumentedRulesOnly(t *testing.T) {
 					t.Fatalf("seed %d documents:\n%s\nfull documented-rules reader: %v",
 						seed, documentText, err)
 				}
-				assertLeanCompactExpansion(t, seed, documentText, expanded, fullExpanded)
+				assertLeanCompactExpansion(t, seed, documentText, expanded, fullExpanded, test.keepDerived)
 				continue
 			}
 
@@ -359,6 +359,7 @@ func assertLeanCompactExpansion(
 	seed uint64,
 	documentText string,
 	lean, full []map[string]any,
+	keepDerived []string,
 ) {
 	t.Helper()
 	if len(lean) != len(full) {
@@ -370,11 +371,31 @@ func assertLeanCompactExpansion(
 			t.Fatalf("seed %d documents:\n%s\nelement %d id differs: lean %#v, full %#v",
 				seed, documentText, i, lean[i]["@id"], full[i]["@id"])
 		}
+		for _, key := range keepDerived {
+			fullValue, exists := full[i][key]
+			if !exists {
+				continue
+			}
+			leanValue, kept := lean[i][key]
+			if !kept || !reflect.DeepEqual(leanValue, fullValue) {
+				t.Fatalf("seed %d documents:\n%s\nelement %d kept-derived key %s differs: lean %#v, full %#v",
+					seed, documentText, i, key, leanValue, fullValue)
+			}
+		}
 		for key, value := range lean[i] {
 			if !reflect.DeepEqual(value, full[i][key]) {
 				t.Fatalf("seed %d documents:\n%s\nelement %d key %s differs: lean %#v, full %#v",
 					seed, documentText, i, key, value, full[i][key])
 			}
 		}
+	}
+	leanKeys, fullKeys := 0, 0
+	for i := range lean {
+		leanKeys += len(lean[i])
+		fullKeys += len(full[i])
+	}
+	if leanKeys >= fullKeys {
+		t.Fatalf("seed %d documents:\n%s\nomit-derived has %d keys, full compact has %d; expected some derived keys omitted",
+			seed, documentText, leanKeys, fullKeys)
 	}
 }
