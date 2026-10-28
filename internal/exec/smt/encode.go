@@ -253,7 +253,7 @@ func (e *Encoding) collectAttribute(attr lower.Attribute, declared map[string]bo
 	if attr.Shadowed && attr.Symbol != nil {
 		written = attr.Symbol.Name
 	}
-	if fp := lower.ExpressionFootprint(graph.Resolver(), graph.Semantics(), scope, attr.Value); attr.Binding && (len(fp.Reads) > 0 || fp.Dynamic) {
+	if _, derived := derivation(graph, attr); derived {
 		return &UnsupportedError{Node: nodeLabel(graph.Initial), Construct: "attribute " + attr.Name,
 			Reason: "a feature valued by an expression over other features is computed as it is read; the states carry only values written"}
 	}
@@ -287,6 +287,21 @@ func (e *Encoding) collectAttribute(attr lower.Attribute, declared map[string]bo
 	}
 	e.Inputs = append(e.Inputs, in)
 	return nil
+}
+
+// derivation reports whether attr is valued by an expression over other
+// features (`y = x + 1`, a binding the interpreter computes at every read rather
+// than a `:=` initial value), with what the expression reads.
+func derivation(graph *lower.ActionGraph, attr lower.Attribute) (lower.Footprint, bool) {
+	if !attr.Binding || attr.Value == nil {
+		return lower.Footprint{}, false
+	}
+	scope := attr.Scope
+	if scope == nil {
+		scope = graph.Scope
+	}
+	fp := lower.ExpressionFootprint(graph.Resolver(), graph.Semantics(), scope, attr.Value)
+	return fp, len(fp.Reads) > 0 || fp.Dynamic
 }
 
 // collectNode translates what one node evaluates: its flows, its body, an
