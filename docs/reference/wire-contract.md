@@ -1748,7 +1748,8 @@ one per assertion. All three return the `instances` they built, in the same shap
 With no `subjectSymbolId`, the three — and `RunAnalysis` — evaluate over the objects
 `Instantiate` holds for the model, as the REPL's `%constraint`, `%requirement`, `%satisfy` and
 `%analysis` are about the objects a session holds: a constraint or requirement a definition owns
-is checked on the one held object carrying it (ambiguous over several, as the REPL answers), a
+is checked on the one held object carrying it (ambiguous over several of distinct declarations, as
+the REPL answers; one declaration instantiated twice is checked on its newest object), a
 verification case a definition owns runs once per held object of that definition and reports a
 `verificationVerdicts` entry about each, naming the object by `instanceId`, and a `satisfy`
 a definition states is decided per held object with `instancePath` spelling the object's path
@@ -1756,7 +1757,10 @@ from the root it was instantiated under (`cheap[2]`), as `ValidateInstance` spel
 `instances` carry every object a verdict is about. With nothing held, the answer is about
 declared defaults, and a definition-owned case is `inconclusive` asking for an object. A
 sweep that would make one more object than `OPENSYSML_GRPC_MAX_HELD_OBJECTS` allows is
-`RESOURCE_EXHAUSTED`, as `Instantiate` is, and leaves the population as it was.
+`RESOURCE_EXHAUSTED`, as `Instantiate` is, and leaves the population as it was. A `RunAnalysis`
+tool dry run over the held population leaves it as it was too: the preview's writes are undone
+and the runner it previewed with is taken off. An `explore` schedule is the exception: its runs
+are made on runtimes of their own, one per linearization, holding nothing, as the REPL's are.
 
 A constraint or requirement whose condition reads `in` parameters takes their values on the
 request: `arguments` is a positional list bound in declaration order, `namedArguments` binds by
