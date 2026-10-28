@@ -1008,10 +1008,8 @@ func (m *Model) FeatureTypeSetWithImplied(sym *symbols.Symbol) []*symbols.Symbol
 	return m.mostSpecificTypes(types)
 }
 
-// withUsageBases adds to a usage's implied generals the base features of its kind:
-// a membership's own base (a case's subject) can stand in for the kind's among the
-// implied generals, so the base feature of the symbol's kind joins too (a subject is
-// a part usage).
+// withUsageBases adds a usage kind's base features to its implied generals, where a
+// membership's own base (a case's subject) may stand in for the kind's (a part usage).
 func (m *Model) withUsageBases(sym *symbols.Symbol, bases []*symbols.Symbol) []*symbols.Symbol {
 	_, isUsage := sym.Decl.(*ast.Usage)
 	if !(isUsage || sym.Kind == symbols.SymbolPartUsage) || m.isKerMLDoc(sym) || m.resolver == nil || m.resolver.Index() == nil {

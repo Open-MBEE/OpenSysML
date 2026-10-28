@@ -410,9 +410,8 @@ func (tc *typeChecker) checkTypeTarget(scope *symbols.Scope, target ast.Node, re
 	tc.reportTargetKind(target, relKind, decl, targetSym)
 }
 
-// typeTargetSymbol resolves a relationship target to the symbol whose kind the
-// rules judge — an alias stands for its target where the check depends on the
-// kind — or reports false for one unresolved or a chain no kind rule judges.
+// typeTargetSymbol resolves a target to the symbol the kind rules judge (an alias
+// to its target where kind matters), or false when unresolved or a chain no rule judges.
 func (tc *typeChecker) typeTargetSymbol(scope *symbols.Scope, target ast.Node, relKind ast.RelationshipKind, decl declKind) (*symbols.Symbol, bool) {
 	// Unwrap FeatureReference if needed
 	targetNode := target
