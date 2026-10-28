@@ -82,15 +82,15 @@ func (c *ChoicePoint) touchMeeting(f, g lower.Footprint, rel lower.Relation) {
 func (c *ChoicePoint) touchWritesMet(f, g lower.Footprint, rel lower.Relation) bool {
 	met := false
 	for _, p := range f.Writes {
-		if rel.PlaceMeets(p, g.Writes) {
+		if c.meets(rel, p, g.Writes) {
 			c.touch(p)
 			met = true
 		}
-		if rel.PlaceMeets(p, g.Reads) {
+		if c.meets(rel, p, g.Reads) {
 			// A pin is each performance's own, delivered to, not raced for: a read of
 			// one sees what arrived, whichever order the moves ran.
 			if shared(p) {
-				for _, q := range g.WritesReading(func(r lower.Place) bool { return rel.PlaceMeets(p, []lower.Place{r}) }) {
+				for _, q := range g.WritesReading(func(r lower.Place) bool { return c.meets(rel, p, []lower.Place{r}) }) {
 					c.touch(q)
 				}
 			}
@@ -98,6 +98,17 @@ func (c *ChoicePoint) touchWritesMet(f, g lower.Footprint, rel lower.Relation) b
 		}
 	}
 	return met
+}
+
+// meets reports whether p may name the value of a place among qs: the
+// declarations' answer, narrowed by what the run knows two parts denote.
+func (c *ChoicePoint) meets(rel lower.Relation, p lower.Place, qs []lower.Place) bool {
+	for _, q := range qs {
+		if rel.PlaceMeets(p, []lower.Place{q}) && (c.alike == nil || c.alike(p, q)) {
+			return true
+		}
+	}
+	return false
 }
 
 // shared reports whether a place is one slot every move names, which a choice
@@ -173,7 +184,7 @@ func (ctx *Context) placeNamed(p lower.Place, name string, selves []*Instance) b
 	if p.Sym != nil && qualifier != "" && qualifier != "this" && ctx.run.marks.performed(lastSegment(qualifier)) {
 		return declaredUnder(p.Sym, lastSegment(qualifier))
 	}
-	if p.Via != nil && qualifier != "" && qualifier != "this" && p.Via.Name != lastSegment(qualifier) {
+	if p.Via != nil && qualifier != "" && qualifier != "this" && !ctx.partNamedHolds(p.Via, lastSegment(qualifier)) {
 		return false // held by a part other than the one named
 	}
 	holder := ctx.performerOwning(selves, p.Sym)
@@ -273,4 +284,18 @@ func (ctx *Context) UnresolvedChoices() int {
 		}
 	}
 	return count
+}
+
+// partNamedHolds reports whether the part named beside via may hold what via
+// holds: via itself, a sibling denoting an object in common, or one the
+// declarations do not place.
+func (ctx *Context) partNamedHolds(via *symbols.Symbol, name string) bool {
+	if via.Name == name || via.OwnerScope == nil {
+		return true
+	}
+	sibling, ok := via.OwnerScope.LookupLocal(name)
+	if !ok {
+		return true
+	}
+	return ctx.partsShareObject(via, sibling)
 }

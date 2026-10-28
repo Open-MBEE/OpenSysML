@@ -190,9 +190,12 @@ tracker and never by re-reading declarations in the runtime:
   feature stands open where a plain one would (`action_order_chained_write_of_racing_writers`,
   `action_order_chained_two_level_write`). The place remembers the feature it was reached
   through (`Place.Via`, the part's object `Instance.heldBy` for a write or derivation the run
-  makes): two parts of one definition hold two values of its feature, so `left.raw` racing
-  leaves `right.raw`, `right.scaled` and a read of them bare (`lower.HeldAlike`,
-  `action_order_chained_parts_apart`).
+  makes); whether two such places hold one value is the run's to say (`Context.heldAlike`: the
+  parts denote an object in common), not the declarations' (`Place.Conflicts` stays
+  conservative for the checker's reduction, as features may alias). So `left.raw` racing
+  leaves `right.raw`, `right.scaled` and a read of them bare, while `twin = cell` writing
+  `twin.mark` races `cell.mark` (`action_order_chained_parts_apart`,
+  `action_order_chained_alias_of_racing_writers`).
 - **Propagate.** A move with footprint `fp` that writes `w` leaves `w` standing on what `fp` read
   — the union of the marks of every place in `fp.Reads` — together with the *control* the move
   runs under; a footprint the declarations do not decide (`fp.Dynamic`: a property read, a chained

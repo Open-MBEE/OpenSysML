@@ -379,7 +379,7 @@ func (e *performances) markPerformance(graph *lower.ActionGraph, node ast.Node, 
 	by := slices.Clone(e.ctx.controls)
 	for _, w := range fp.Writes {
 		if w.Local {
-			by = unionSerials(by, e.ctx.run.marks.at(w))
+			by = unionSerials(by, e.ctx.run.marks.at(w, e.ctx.heldAlike))
 		}
 	}
 	e.ctx.writeMarks(fp.Writes, by)

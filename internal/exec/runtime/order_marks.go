@@ -106,10 +106,10 @@ func (m *orderMarks) add(p lower.Place, by []int64) {
 }
 
 // of is what a read of the place stands on: every entry the place may name.
-func (m *orderMarks) of(p lower.Place) []int64 {
+func (m *orderMarks) of(p lower.Place, alike func(p, q lower.Place) bool) []int64 {
 	var out []int64
 	for _, e := range m.entries {
-		if e.place.Conflicts(p) {
+		if e.place.Conflicts(p) && alike(e.place, p) {
 			out = unionSerials(out, e.by)
 		}
 	}
@@ -118,10 +118,10 @@ func (m *orderMarks) of(p lower.Place) []int64 {
 
 // at is what the one declaration the place names stands on, the marks a rewrite
 // of the place replaces; a read, which may reach same-named places, uses of.
-func (m *orderMarks) at(p lower.Place) []int64 {
+func (m *orderMarks) at(p lower.Place, alike func(p, q lower.Place) bool) []int64 {
 	var out []int64
 	for _, e := range m.entries {
-		if samePlace(e.place, p) {
+		if samePlace(e.place, p) && alike(e.place, p) {
 			out = unionSerials(out, e.by)
 		}
 	}
@@ -141,11 +141,11 @@ func (m *orderMarks) all() []int64 {
 // choice drawn at this instant of the clock left on it, which the write is not
 // ordered after. Only the place itself is rewritten: a same-named place of
 // another declaration may hold a different value, which the write leaves as it was.
-func (m *orderMarks) rewrite(p lower.Place, by []int64, now float64) {
+func (m *orderMarks) rewrite(p lower.Place, by []int64, now float64, alike func(p, q lower.Place) bool) {
 	kept := slices.Clone(by)
 	entries := m.entries[:0]
 	for _, e := range m.entries {
-		if !samePlace(e.place, p) {
+		if !samePlace(e.place, p) || !alike(e.place, p) {
 			entries = append(entries, e)
 			continue
 		}
@@ -182,7 +182,7 @@ func samePlace(p, q lower.Place) bool {
 		return p.State == q.State
 	}
 	if p.Sym != nil || q.Sym != nil {
-		return p.Sym == q.Sym && lower.HeldAlike(p, q)
+		return p.Sym == q.Sym
 	}
 	return p.Name == q.Name
 }
@@ -254,7 +254,7 @@ func (ctx *Context) readStanding(deps []int64, fp lower.Footprint, dynamicAll bo
 		return unionSerials(deps, marks.all())
 	}
 	for _, r := range fp.Reads {
-		deps = unionSerials(deps, marks.of(ctx.placeOf(r)))
+		deps = unionSerials(deps, marks.of(ctx.placeOf(r), ctx.heldAlike))
 	}
 	return deps
 }
@@ -315,7 +315,7 @@ func (ctx *Context) writeMarks(places []lower.Place, by []int64) {
 		return
 	}
 	for _, w := range places {
-		ctx.run.marks.rewrite(ctx.placeOf(w), by, ctx.clock.now)
+		ctx.run.marks.rewrite(ctx.placeOf(w), by, ctx.clock.now, ctx.heldAlike)
 	}
 }
 
@@ -365,4 +365,35 @@ func commonReach(graph *lower.ActionGraph, successors []lower.ActionEdge) map[as
 		}
 	}
 	return common
+}
+
+// heldAlike reports whether two places of one declaration may hold one value in
+// this run: yes unless each is reached through a part and the two parts denote no
+// object in common (`left.raw` beside `right.raw`; `twin = cell` denote one).
+func (ctx *Context) heldAlike(p, q lower.Place) bool {
+	if p.Via == nil || q.Via == nil || p.Via == q.Via {
+		return true
+	}
+	return ctx.partsShareObject(p.Via, q.Via)
+}
+
+// partsShareObject reports whether the objects two features denote overlap, true
+// where the run does not know what either denotes.
+func (ctx *Context) partsShareObject(a, b *symbols.Symbol) bool {
+	as, ok := ctx.liveOccurrences(a)
+	if !ok {
+		return true
+	}
+	bs, ok := ctx.liveOccurrences(b)
+	if !ok {
+		return true
+	}
+	for _, x := range as {
+		for _, y := range bs {
+			if x == y {
+				return true
+			}
+		}
+	}
+	return false
 }

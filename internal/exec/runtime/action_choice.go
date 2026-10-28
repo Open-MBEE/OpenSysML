@@ -370,6 +370,7 @@ func (e *ActionExecutor) noteTokenOrder(step int, order stepOrder, schedule *tok
 		File:         e.action.DocName,
 		Span:         e.action.DeclSpan,
 	}
+	choice.alike = e.ctx.heldAlike
 	classifyChoice(&choice, fps, nil)
 	e.noteChoice(choice)
 }
