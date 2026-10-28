@@ -352,8 +352,11 @@ so that `dist/` holds:
   by `build-jupyter-kernel-package` from the `sysml-jupyter-kernel` binaries and their
   digests (see
   [Releasing jupyter-opensysml-kernel to PyPI](#releasing-jupyter-opensysml-kernel-to-pypi));
+- one SPDX 2.3 JSON software bill of materials per archive, wheel, sdist, `sysml-grpc`
+  and `sysml-jupyter-kernel` binary, named `<asset>.spdx.json` after the asset it
+  describes (see [The software bills of materials](#the-software-bills-of-materials));
 - `SHA256SUMS.txt` over every archive, every wheel and sdist, every `sysml-grpc` and
-  `sysml-jupyter-kernel` binary and all three WebAssembly assets,
+  `sysml-jupyter-kernel` binary, all three WebAssembly assets and every SBOM,
   with its cosign signature `SHA256SUMS.txt.bundle` (see
   [The signed checksum manifest](#the-signed-checksum-manifest));
 - `provenance.intoto.json`, the SLSA provenance statement naming every artifact
@@ -377,7 +380,7 @@ windows/amd64.
 The two jobs share one workspace: `build-release-binaries` persists the whole
 `dist/` tree, the binaries' `.sha256` sidecars included, and `build-release`
 persists only what it added to it — the manifest, its signature and provenance
-bundles, the WebAssembly sidecars and the Python distributions. Workspace layers are additive, and a path persisted by two
+bundles, the SBOMs, the WebAssembly sidecars and the Python distributions. Workspace layers are additive, and a path persisted by two
 upstream jobs fails the attach in every job downstream of both, which is every
 publish job.
 
@@ -496,6 +499,16 @@ one alongside it).
      --bundle provenance.intoto.json.bundle --type slsaprovenance1 \
      --certificate-oidc-issuer https://oidc.circleci.com/org/1169df8b-0b59-400f-82d2-c9d8e98bdb62 \
      --certificate-identity-regexp '^https://circleci\.com/api/v2/projects/eeb0dddd-237f-4f02-9e51-8e24caef589d/pipeline-definitions/[0-9a-f-]+$'
+   ```
+
+   And the archive's SBOM is a line of the manifest just verified, so its digest
+   is checked against it; what it names must match the binary:
+
+   ```bash
+   curl -fLO https://github.com/Open-MBEE/OpenSysML/releases/download/v0.0.5/opensysml-linux-amd64.tar.gz.spdx.json
+   sha256sum -c SHA256SUMS.txt --ignore-missing
+   jq -r '.packages[] | select(.name == "stdlib") | .versionInfo' opensysml-linux-amd64.tar.gz.spdx.json
+   go version -m sysml | head -1
    ```
 
    Then install the Python client the release published, from the index rather
@@ -695,7 +708,8 @@ attestation against three published artifacts (a bundle archive, a `sysml-grpc`
 binary and the wheel) under the identity the clients pin, and checks that the
 subjects are the manifest's lines, no more and no fewer, before anything is
 stored; `publish-github-release` uploads the statement and the bundle beside
-`SHA256SUMS.txt`.
+`SHA256SUMS.txt`. Two of the SBOMs are checked the same way, so the subjects
+cover them too.
 
 What this is, and is not. The statement is produced by the build that produced
 the artifacts, on CircleCI's hosted runners, and signed with an identity only
@@ -716,6 +730,59 @@ authoritative statement is the bundle's payload:
 ```bash
 jq -r '.dsseEnvelope.payload' provenance.intoto.json.bundle | base64 -d | jq .
 ```
+
+### The software bills of materials
+
+Before `build-release` writes the manifest, `scripts/release-sbom.py` writes one
+[SPDX 2.3](https://spdx.github.io/spdx-spec/v2.3/) JSON document per asset into
+`dist/sbom/`, named after the asset it describes: `sysml-linux-amd64.tar.gz.spdx.json`
+for the archive, `sysml-grpc-linux-amd64.spdx.json` for the raw binary,
+`opensysml-<x.y.z>-py3-none-any.whl.spdx.json` for the wheel, and so on for every
+archive, wheel, sdist, `sysml-grpc` and `sysml-jupyter-kernel` binary. The manifest
+step then lists them in `SHA256SUMS.txt` like any other asset, so the cosign
+signature over the manifest and the provenance statement's subjects cover them
+without a second signing step, and `publish-github-release` uploads them beside the
+assets. SPDX rather than CycloneDX because it is the ISO standard (ISO/IEC 5962)
+and the format the US federal guidance names first; a consumer who needs
+CycloneDX converts with `syft convert`.
+
+The documents are written by [syft](https://github.com/anchore/syft), installed
+in the job from a pinned release whose SHA-256 is checked, like every other tool
+the pipeline downloads. For a Go executable syft reads the module list the Go
+toolchain embeds in the binary, so an SBOM names the module versions that were
+actually linked — the same list `go version -m <binary>` prints — and the
+toolchain itself as the `stdlib` package. The script then refuses the document
+unless that holds: it runs `go version -m` over every Go executable the asset
+holds (raw, or unpacked from the archive or wheel) and fails the release if any
+module, at its built version, or the toolchain is missing from the SBOM, if the
+SBOM names no component at all, or if it mentions a path of the builder. It also
+replaces syft's random document namespace with the URL the SBOM is published at,
+`https://github.com/Open-MBEE/OpenSysML/releases/download/<tag>/<asset>.spdx.json`,
+so two builds of one tag produce SBOMs that differ only in `creationInfo.created`.
+
+A wheel's SBOM names the Python distribution; the kernel's platform wheels also
+carry their bundled `sysml-jupyter-kernel`, so those name its Go modules too. A
+consumer verifies an SBOM exactly as any asset — the manifest's signature first,
+then the digest:
+
+```bash
+curl -fLO https://github.com/Open-MBEE/OpenSysML/releases/download/v0.12.0/SHA256SUMS.txt
+curl -fLO https://github.com/Open-MBEE/OpenSysML/releases/download/v0.12.0/SHA256SUMS.txt.bundle
+curl -fLO https://github.com/Open-MBEE/OpenSysML/releases/download/v0.12.0/opensysml-linux-amd64.tar.gz.spdx.json
+cosign verify-blob SHA256SUMS.txt --bundle SHA256SUMS.txt.bundle \
+  --certificate-oidc-issuer https://oidc.circleci.com/org/1169df8b-0b59-400f-82d2-c9d8e98bdb62 \
+  --certificate-identity-regexp '^https://circleci\.com/api/v2/projects/eeb0dddd-237f-4f02-9e51-8e24caef589d/pipeline-definitions/[0-9a-f-]+$'
+sha256sum -c SHA256SUMS.txt --ignore-missing
+```
+
+The WebAssembly assets have no SBOM: Go's build information is not readable from
+a `wasm` file, so neither syft nor `go version -m` can say what they were built
+from, and the script would refuse an empty document. The container image carries
+its own SBOM and provenance, attached by `docker buildx` (see
+[Releasing the container image to Docker Hub](#releasing-the-container-image-to-docker-hub)).
+The npm packages are packed by `publish-npm` after the manifest is signed, and
+the MSI is built by the GitHub Actions workflow with the Z3 solver it bundles, so
+neither has an SBOM under this signature yet.
 
 The Python and Node clients keep reading the signed manifest, not the
 provenance; nothing in them changes.

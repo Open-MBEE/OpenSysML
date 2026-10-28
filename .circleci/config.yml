@@ -397,6 +397,10 @@ jobs:
           command: python3 scripts/release-provenance-test.py
 
       - run:
+          name: Check the release SBOM writer
+          command: python3 scripts/release-sbom-test.py
+
+      - run:
           name: Check the release announcer
           command: python3 scripts/release-announce-test.py
 
@@ -2758,6 +2762,17 @@ jobs:
       - go/mod-download
       - go/save-cache
 
+      # syft writes the SBOMs; pinned and checked like every other tool here.
+      - run:
+          name: Install syft
+          command: |
+            curl -fsSL -o /tmp/syft.tar.gz \
+              https://github.com/anchore/syft/releases/download/v1.55.0/syft_1.55.0_linux_amd64.tar.gz
+            echo "bb65249542db5fedeeb4d3f9b018b75e7264dbfbbb10486f044581a92f90490d  /tmp/syft.tar.gz" | sha256sum --check --strict
+            tar -xzf /tmp/syft.tar.gz -C /tmp syft
+            sudo install -m 0755 /tmp/syft /usr/local/bin/syft
+            syft version
+
       - run:
           name: Assemble the release and write its checksum manifest
           command: |
@@ -2768,6 +2783,13 @@ jobs:
             cp ../client/python/dist/opensysml-*.whl ../client/python/dist/opensysml-*.tar.gz .
             cp ../client/jupyter-kernel/dist/jupyter_opensysml_kernel-*.whl \
                ../client/jupyter-kernel/dist/jupyter_opensysml_kernel-*.tar.gz .
+
+            # One SPDX SBOM per published archive, wheel, sdist and raw binary,
+            # checked against the Go build info of what it describes; the
+            # manifest lists them below, so the signature and provenance cover them.
+            python3 ../scripts/release-sbom.py --version "${CIRCLE_TAG}" --out sbom ./*.tar.gz ./*.zip ./*.whl
+            find grpc jupyter -type f ! -name '*.sha256' -exec \
+              python3 ../scripts/release-sbom.py --version "${CIRCLE_TAG}" --out sbom {} +
 
             # Checksums over every published archive, so a Homebrew formula
             # (or a careful user) can verify a download.
@@ -2782,6 +2804,8 @@ jobs:
             (cd mcp && sha256sum --check --strict sysml-mcp-*.sha256)
             (cd wasm && sha256sum sysml-wasm.wasm sysml-prod.wasm.gz wasm_exec.js >> ../SHA256SUMS.txt)
             (cd wasm && for f in sysml-wasm.wasm sysml-prod.wasm.gz wasm_exec.js; do sha256sum "$f" > "$f.sha256"; done)
+            # And the SBOMs, so each is signed with the manifest and is a provenance subject.
+            (cd sbom && sha256sum ./*.spdx.json | sed 's|\./||' >> ../SHA256SUMS.txt)
             cat SHA256SUMS.txt
 
       # The distribution was stamped from the binaries before the manifest
@@ -2796,13 +2820,13 @@ jobs:
             import zipfile
 
             tag, manifest_path, wheel_path = sys.argv[1:]
+            # The five binaries by exact name: the manifest also lists their sidecars and SBOMs.
+            assets = {f"sysml-grpc-{p}" for p in ("darwin-amd64", "darwin-arm64", "linux-amd64", "linux-arm64", "windows-amd64.exe")}
             listed = {}
             with open(manifest_path, encoding="utf-8") as manifest:
                 for line in manifest:
                     fields = line.split()
-                    if len(fields) != 2 or not fields[1].startswith("sysml-grpc-"):
-                        continue
-                    if not fields[1].endswith(".sha256"):
+                    if len(fields) == 2 and fields[1] in assets:
                         listed[fields[1]] = fields[0]
             with zipfile.ZipFile(wheel_path) as wheel:
                 with wheel.open("opensysml/release-digests.json") as member:
@@ -2829,13 +2853,12 @@ jobs:
             tag, manifest_path, *wheel_paths = sys.argv[1:]
             if len(wheel_paths) != 5:
                 raise SystemExit(f"Error: expected five kernel wheels, got {wheel_paths}; nothing was signed.")
+            assets = {f"sysml-jupyter-kernel-{p}" for p in ("darwin-amd64", "darwin-arm64", "linux-amd64", "linux-arm64", "windows-amd64.exe")}
             listed = {}
             with open(manifest_path, encoding="utf-8") as manifest:
                 for line in manifest:
                     fields = line.split()
-                    if len(fields) != 2 or not fields[1].startswith("sysml-jupyter-kernel-"):
-                        continue
-                    if not fields[1].endswith(".sha256"):
+                    if len(fields) == 2 and fields[1] in assets:
                         listed[fields[1]] = fields[0]
             for wheel_path in wheel_paths:
                 with zipfile.ZipFile(wheel_path) as wheel:
@@ -2916,7 +2939,7 @@ jobs:
                 command: |
                   export PATH="$(go env GOPATH)/bin:$PATH"
                   cd dist
-                  for artifact in opensysml-linux-amd64.tar.gz grpc/sysml-grpc-linux-amd64 jupyter/sysml-jupyter-kernel-linux-amd64 wasm/sysml-wasm.wasm opensysml-*-py3-none-any.whl jupyter_opensysml_kernel-*-py3-none-*.whl; do
+                  for artifact in opensysml-linux-amd64.tar.gz grpc/sysml-grpc-linux-amd64 jupyter/sysml-jupyter-kernel-linux-amd64 wasm/sysml-wasm.wasm opensysml-*-py3-none-any.whl jupyter_opensysml_kernel-*-py3-none-*.whl sbom/opensysml-linux-amd64.tar.gz.spdx.json sbom/opensysml-*-py3-none-any.whl.spdx.json; do
                     cosign verify-blob-attestation "$artifact" \
                       --bundle provenance.intoto.json.bundle \
                       --type slsaprovenance1 \
@@ -2983,6 +3006,7 @@ jobs:
           root: .
           paths:
             - dist/SHA256SUMS.txt
+            - dist/sbom
             - dist/wasm/*.sha256
             - dist/opensysml-*-py3-none-any.whl
             - dist/opensysml-[0-9]*.tar.gz
@@ -3912,6 +3936,7 @@ jobs:
                   mv dist/grpc/* dist/release/
                   mv dist/jupyter/* dist/release/
                   mv dist/wasm/* dist/release/
+                  mv dist/sbom/* dist/release/
                   mv dist/SHA256SUMS.txt dist/release/
                   # The signature over that manifest, which the Python client verifies
                   # before it trusts a digest from it.
