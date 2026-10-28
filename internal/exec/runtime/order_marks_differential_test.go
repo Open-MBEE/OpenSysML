@@ -48,12 +48,12 @@ func TestOrderMarksAgreeWithExploredOutcomes(t *testing.T) {
 	cases := 0
 	for _, entry := range entries {
 		name := entry.Name()
-		if !strings.HasPrefix(name, "action_order_") || !strings.HasSuffix(name, ".expected.json") {
+		if !strings.HasSuffix(name, ".expected.json") || !strings.HasPrefix(name, "action_order_") && !strings.HasPrefix(name, "state_order_") {
 			continue
 		}
 		caseName := strings.TrimSuffix(name, ".expected.json")
 		expected := loadExpectedOutcome(t, conformanceDir, caseName)
-		if len(expected.Outcomes) == 0 || len(expected.Performers) > 0 || expected.Type != "action" {
+		if len(expected.Outcomes) == 0 || len(expected.Performers) > 0 {
 			continue
 		}
 		cases++
