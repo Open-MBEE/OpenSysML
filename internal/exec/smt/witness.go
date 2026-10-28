@@ -353,6 +353,9 @@ func (e *Encoding) DecodeOutputs(values []solve.Assignment) (map[string]string, 
 		if err != nil {
 			return nil, &WitnessError{Var: out.Var.Name, Reason: err.Error()}
 		}
+		if out.Sequence {
+			text = "[" + text + "]"
+		}
 		outputs[out.Name] = text
 	}
 	return outputs, nil
