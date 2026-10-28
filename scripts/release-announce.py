@@ -68,7 +68,7 @@ def _github_release(repo: str, tag: str, token: str) -> dict[str, Any]:
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
             return json.loads(response.read().decode("utf-8"))
-    except Exception as error:  # noqa: BLE001 - report the HTTP status, not a stack
+    except Exception as error:  # report the HTTP status, not a stack
         sys.exit(f"Error: reading release {tag} of {repo} failed: {error}")
 
 
@@ -98,8 +98,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if "-" in args.tag:
         print(f"Not announcing pre-release {args.tag}; only stable releases are announced.")
-        return 0
+    else:
+        announce(args, parser)
+    return 0
 
+
+def announce(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    """Build the release's message and post it, or print it for a dry run.
+
+    A failure exits with its message, as the parser does for a bad argument."""
     repo = _env("GH_REPO")
     if not repo:
         owner, name = _env("CIRCLE_PROJECT_USERNAME"), _env("CIRCLE_PROJECT_REPONAME")
@@ -132,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.dry_run:
         print(json.dumps(payload, indent=2))
-        return 0
+        return
 
     webhook = _env("OPENSYSML_WEBHOOK_URL")
     if not webhook:
@@ -149,10 +156,9 @@ def main(argv: list[str] | None = None) -> int:
             body = response.read().decode("utf-8", errors="replace")
             if body.strip() != "ok":
                 sys.exit(f"Error: the Slack webhook answered {response.status} {body!r}")
-    except Exception as error:  # noqa: BLE001 - report the HTTP status, not a stack
+    except Exception as error:  # report the HTTP status, not a stack
         sys.exit(f"Error: posting to the Slack webhook failed: {error}")
     print(f"Announced {args.tag} of {repo} to Slack.")
-    return 0
 
 
 if __name__ == "__main__":
