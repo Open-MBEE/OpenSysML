@@ -20,12 +20,16 @@ import (
 // (nil when unresolved) and the name; Local marks a pin, held per performance.
 // State marks the activity of a state, which a transition reads and writes.
 // Direct marks a name written alone, not reached through a chain or qualified.
+// Via is the feature whose value holds the one a chain names (`left` in
+// `left.raw`), nil for a name reached no such way: two parts of one definition
+// hold distinct values of its feature.
 type Place struct {
 	Sym    *symbols.Symbol
 	Name   string
 	Local  bool
 	State  *ast.StateNode
 	Direct bool
+	Via    *symbols.Symbol
 	// Node is the node whose pin the place is, each performance of a node holding
 	// its own; nil for a feature or a declaration's own value.
 	Node ast.Node
@@ -44,13 +48,19 @@ func (p Place) Conflicts(q Place) bool {
 	}
 	if p.Sym != nil && q.Sym != nil {
 		if p.Sym == q.Sym {
-			return true
+			return HeldAlike(p, q)
 		}
 		if p.Local || q.Local {
 			return false
 		}
 	}
 	return p.Name == q.Name
+}
+
+// HeldAlike reports whether two places of one declaration may hold one value:
+// not when each is reached through a different feature holding it.
+func HeldAlike(p, q Place) bool {
+	return p.Via == nil || q.Via == nil || p.Via == q.Via
 }
 
 // String renders the place as the name it was written under.
@@ -518,7 +528,11 @@ func (b *footprintBuilder) place(scope *symbols.Scope, segments []string, each f
 	sym, _ := resolve.FeatureSymbolInScope(scope, segments)
 	local := sym != nil && b.declaredByNode(sym)
 	direct := len(segments) == 1
-	each(Place{Sym: sym, Name: name, Local: local, Direct: direct})
+	var via *symbols.Symbol
+	if !direct {
+		via, _ = resolve.FeatureSymbolInScope(scope, segments[:len(segments)-1])
+	}
+	each(Place{Sym: sym, Name: name, Local: local, Direct: direct, Via: via})
 	if sym == nil {
 		return nil
 	}
@@ -531,7 +545,7 @@ func (b *footprintBuilder) place(scope *symbols.Scope, segments []string, each f
 	if usage, ok := sym.Decl.(*ast.Usage); ok {
 		for _, redefined := range redefinedNames(usage) {
 			if redefined != name {
-				each(Place{Sym: sym, Name: redefined, Local: local, Direct: direct})
+				each(Place{Sym: sym, Name: redefined, Local: local, Direct: direct, Via: via})
 			}
 		}
 		b.calcUsage(sym, usage)

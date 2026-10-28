@@ -182,7 +182,7 @@ func samePlace(p, q lower.Place) bool {
 		return p.State == q.State
 	}
 	if p.Sym != nil || q.Sym != nil {
-		return p.Sym == q.Sym
+		return p.Sym == q.Sym && lower.HeldAlike(p, q)
 	}
 	return p.Name == q.Name
 }
@@ -264,11 +264,21 @@ func (ctx *Context) readStanding(deps []int64, fp lower.Footprint, dynamicAll bo
 // computed from them would. Deriving is a read, not a move, so it stands on no
 // control; a derivation reading nothing order-dependent clears the mark, as a
 // clean write does.
+// For a feature of an object held via a feature, the expression's bare names
+// are that object's own, held the same way.
 func (ctx *Context) deriveMarks(place lower.Place, scope *symbols.Scope, value ast.Node) {
 	if place.Name == "" || value == nil {
 		return
 	}
 	fp := ctx.model.expressionFootprint(scope, value)
+	if place.Via != nil {
+		fp.Reads = slices.Clone(fp.Reads)
+		for i := range fp.Reads {
+			if fp.Reads[i].Via == nil && fp.Reads[i].Node == nil && !fp.Reads[i].Local {
+				fp.Reads[i].Via = place.Via
+			}
+		}
+	}
 	ctx.writeMarks([]lower.Place{place}, ctx.readStanding(nil, fp, true))
 }
 

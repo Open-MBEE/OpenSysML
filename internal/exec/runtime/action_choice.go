@@ -35,6 +35,7 @@ type destWrites struct {
 	label   string          // the destination as a trace names it: `x`, or `x of object #3`
 	feature string          // the feature written, as the write spelled it
 	sym     *symbols.Symbol // the feature's declaration, nil when none resolves
+	via     *symbols.Symbol // the part or item the written object is held as, nil for none
 	file    string
 	span    source.Span
 	last    []stepWrite
@@ -90,7 +91,7 @@ func (e *performances) beginTokenStep(id int64) func() {
 func (e *performances) noteFrameWrite(f *actionFrame, name string, value Value) {
 	sym := e.ctx.featureDeclared(f.scope, name)
 	key := f.key(name)
-	e.ctx.noteWrite(writeDest{holder: f, name: key}, key, name, sym, value)
+	e.ctx.noteWrite(writeDest{holder: f, name: key}, key, name, sym, nil, value)
 }
 
 // noteObjectWrite records a write the running token made to a feature obj holds,
@@ -104,13 +105,13 @@ func (ctx *Context) noteObjectWrite(obj *Instance, name string, value Value) {
 			sym = fv.Feature.Symbol
 		}
 	}
-	ctx.noteWrite(dest, fmt.Sprintf("%s of object #%d", name, obj.ID), name, sym, value)
+	ctx.noteWrite(dest, fmt.Sprintf("%s of object #%d", name, obj.ID), name, sym, obj.heldBy(), value)
 }
 
 // noteWrite records a write the running token made to dest, labelled as a trace
 // names it and under the feature's name and declaration; destinations several
 // tokens wrote are reported once the step ends.
-func (ctx *Context) noteWrite(dest writeDest, label, feature string, sym *symbols.Symbol, value Value) {
+func (ctx *Context) noteWrite(dest writeDest, label, feature string, sym, via *symbols.Symbol, value Value) {
 	ledger := ctx.stepWrites
 	if ledger == nil || ledger.writer == 0 {
 		return
@@ -118,7 +119,7 @@ func (ctx *Context) noteWrite(dest writeDest, label, feature string, sym *symbol
 	w := stepWrite{token: ledger.writer, value: value}
 	d := ledger.writes[dest]
 	if d == nil {
-		d = &destWrites{label: label, feature: feature, sym: sym}
+		d = &destWrites{label: label, feature: feature, sym: sym, via: via}
 		if sym != nil {
 			d.file, d.span = sym.DocName, sym.DeclSpan
 		}
@@ -159,7 +160,7 @@ func (l *stepWriteLedger) noteChoices(e *performances) {
 			File:         d.file,
 			Span:         d.span,
 			Touches:      []string{d.feature},
-			touched:      []lower.Place{{Sym: d.sym, Name: d.feature}},
+			touched:      []lower.Place{{Sym: d.sym, Name: d.feature, Via: d.via}},
 		})
 	}
 }

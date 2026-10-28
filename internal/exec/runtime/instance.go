@@ -1320,7 +1320,9 @@ func (inst *Instance) materializeDerived(ctx *Context, fv *FeatureValue, name st
 	}
 	held, err := inst.holdDerived(ctx, fv, name, func() (Value, error) { return ctx.evalFeatureValueDefault(inst, fv, name) })
 	if err == nil && fv.body == nil {
-		ctx.deriveMarks(bindingPlace(fv.Feature.Symbol, name), ctx.defaultScope(inst, fv), fv.Feature.DefaultValue)
+		place := bindingPlace(fv.Feature.Symbol, name)
+		place.Via = inst.heldBy()
+		ctx.deriveMarks(place, ctx.defaultScope(inst, fv), fv.Feature.DefaultValue)
 	}
 	return held, err
 }
@@ -1945,4 +1947,23 @@ func (ctx *Context) qualifiedMemberOf(self *Instance, scope *symbols.Scope, expr
 		return Value{}, true, err
 	}
 	return fv.HeldValue(), true, nil
+}
+
+// heldBy is the one part or item usage the object is held as the value of, nil
+// where none or more than one classifies it so.
+func (inst *Instance) heldBy() *symbols.Symbol {
+	if inst.Type != nil && (inst.Type.Kind == symbols.SymbolPartUsage || inst.Type.Kind == symbols.SymbolItemUsage) {
+		return inst.Type
+	}
+	var held *symbols.Symbol
+	for _, sym := range inst.classifiers {
+		if sym.Kind != symbols.SymbolPartUsage && sym.Kind != symbols.SymbolItemUsage {
+			continue
+		}
+		if held != nil && held != sym {
+			return nil
+		}
+		held = sym
+	}
+	return held
 }

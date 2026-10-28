@@ -2454,7 +2454,7 @@ them directly would.
 ### A feature reached through a part stands on the choice points its writers race at
 
 Fixtures: `action_order_chained_write_of_racing_writers`, `action_order_chained_two_level_write`,
-`action_order_chained_read_of_unraced_stays_bare` (golden, explored).
+`action_order_chained_read_of_unraced_stays_bare`, `action_order_chained_parts_apart` (golden, explored).
 
 ```
 part def Sensor { attribute raw : Integer = 0;  attribute scaled : Integer = raw * 10; }
@@ -2476,13 +2476,15 @@ Open: the order of the two branches, exactly as for a feature of the action's ow
 the feature written whatever path reaches it, so the chained place stands open where a plain
 one would, and so does everything read or computed from it. A feature reached through a part
 that no racing branch writes (`sensor.raw` written once before the fork while `x` races) is
-fixed, and a value read from it after the join is fixed with it.
+fixed, and a value read from it after the join is fixed with it. Two parts of one definition
+(`left`, `right : Sensor`) hold two values of its feature: `left.raw` racing leaves `right.raw`,
+`right.scaled` and a value read from them fixed.
 
 Pinned outcome: the admissible set of two members in each fixture, stated as `outcomes` citing
 this section. The default run reports `sensor.raw`, `sensor.scaled`, `z` and `zz` up to the same
 two choice points (`orderDependent` states each `2`); in the two-level fixture `z` alone, the
 chained place itself not being among the results; in the unraced fixture `x` and the read of it
-alone, the chained reads bare.
+alone, the chained reads bare; in the two-parts fixture `left.raw` and `left.scaled` alone.
 
 ### A read racing a write of the same feature stands on the choice point between them
 

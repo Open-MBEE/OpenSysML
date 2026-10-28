@@ -128,7 +128,7 @@ func (c *ChoicePoint) touch(p lower.Place) {
 	if !shared(p) {
 		return
 	}
-	if !slices.ContainsFunc(c.touched, func(q lower.Place) bool { return q.Name == p.Name && q.Sym == p.Sym }) {
+	if !slices.ContainsFunc(c.touched, func(q lower.Place) bool { return q.Name == p.Name && q.Sym == p.Sym && q.Via == p.Via }) {
 		c.touched = append(c.touched, p)
 	}
 	name := p.String()
@@ -172,6 +172,9 @@ func (ctx *Context) placeNamed(p lower.Place, name string, selves []*Instance) b
 	}
 	if p.Sym != nil && qualifier != "" && qualifier != "this" && ctx.run.marks.performed(lastSegment(qualifier)) {
 		return declaredUnder(p.Sym, lastSegment(qualifier))
+	}
+	if p.Via != nil && qualifier != "" && qualifier != "this" && p.Via.Name != lastSegment(qualifier) {
+		return false // held by a part other than the one named
 	}
 	holder := ctx.performerOwning(selves, p.Sym)
 	switch {
