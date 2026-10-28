@@ -1,4 +1,4 @@
-.PHONY: all build docker extension-libraries-check extension-libraries-sync build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model mcp-registry-check
+.PHONY: all build docker vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model mcp-registry-check
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -26,6 +26,14 @@ STATICCHECK_VERSION := 2026.2.2
 STATICCHECK_ENV := GOMEMLIMIT=2GiB
 GOSEC_VERSION := v2.30.0
 GOSEC_EXCLUDE := -exclude=G602,G703
+# Dependency-audit tool versions: govulncheck runs through `go run`; the others come
+# from scripts/download-sca-tools.sh, pinned and SHA-256 verified there.
+GOVULNCHECK_VERSION := v1.9.0
+CYCLONEDX_MAVEN_VERSION := 2.9.1
+SCA_BIN := build/sca/bin
+PIP_AUDIT := build/sca/venv/bin/pip-audit
+# `npm audit` fails on production advisories at this severity and above, in every lockfile directory.
+NPM_AUDIT_LEVEL := moderate
 BUF_VERSION := v1.57.2
 GO_WINRES_VERSION := v0.3.3
 
@@ -59,6 +67,10 @@ PROTOC_GEN_ES := $(NODE_DIR)/node_modules/.bin/protoc-gen-es
 VSCODE_DIR := editors/vscode
 JUPYTERLAB_DIR := editors/jupyterlab
 MCP_NPM_DIR := packaging/npm/sysml-mcp
+NPM_LOCK_DIRS := $(NODE_DIR) $(MCP_NPM_DIR) $(VSCODE_DIR) $(JUPYTERLAB_DIR) editors/syson/frontend scripts/asciidoc
+PYTHON_PROJECT_DIRS := $(PYTHON_DIR) $(JUPYTER_KERNEL_DIR) packaging/pypi-pysysml
+PYTHON_REQUIREMENTS := docs-requirements.txt
+JAVA_PROJECT_DIRS := client/java editors/syson editors/mdk
 PYTHON ?= python3
 # api/proto/buf.gen.python.yaml starts the interpreter this names.
 export PYTHON
@@ -403,6 +415,30 @@ lint: ## Run static analysis (staticcheck + gosec), as CI does
 	module_go_version=$$(go list -m -f '{{.GoVersion}}') && GOSECGOVERSION=$$module_go_version go run github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) -quiet -exclude-generated $(GOSEC_EXCLUDE) ./...
 	module_go_version=$$(go list -C $(TOOLS_DIR) -m -f '{{.GoVersion}}') && GOSECGOVERSION=$$module_go_version go run -C $(TOOLS_DIR) github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) -quiet -exclude-generated $(GOSEC_EXCLUDE) ./...
 	@echo "✓ Lint passed"
+
+vulncheck: ## Fail on known vulnerabilities reachable from the Go modules (govulncheck), as CI does
+	go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
+	go run -C $(TOOLS_DIR) golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
+
+sca-tools: ## Provision the pinned cargo-audit, osv-scanner and pip-audit under build/sca
+	./scripts/download-sca-tools.sh
+
+audit-npm: ## Fail on $(NPM_AUDIT_LEVEL)+ advisories against the production dependencies of every npm lockfile (NPM_LOCK_DIRS=dir... narrows)
+	@for dir in $(NPM_LOCK_DIRS); do echo "npm audit $$dir" && npm --prefix "$$dir" audit --omit=dev --audit-level=$(NPM_AUDIT_LEVEL) || exit 1; done
+
+audit-python: ## Fail on known vulnerabilities in the Python packages' dependencies and the pinned requirements files (pip-audit --strict)
+	@for dir in $(PYTHON_PROJECT_DIRS); do echo "pip-audit $$dir" && $(PIP_AUDIT) --strict --progress-spinner off "$$dir" || exit 1; done
+	@for file in $(PYTHON_REQUIREMENTS); do echo "pip-audit -r $$file" && $(PIP_AUDIT) --strict --progress-spinner off -r "$$file" || exit 1; done
+
+audit-rust: ## Fail on RustSec advisories against client/rust/Cargo.lock (cargo audit)
+	$(SCA_BIN)/cargo-audit audit --file client/rust/Cargo.lock
+
+audit-java: ## Fail on OSV advisories against the Maven trees' compile and runtime dependencies (JAVA_PROJECT_DIRS=dir... narrows)
+	@# A CycloneDX SBOM carries the versions Maven resolved, reactor modules included, which osv-scanner's own pom resolver cannot follow.
+	@for dir in $(JAVA_PROJECT_DIRS); do echo "osv-scanner $$dir" && mvn -B -q -f "$$dir/pom.xml" org.cyclonedx:cyclonedx-maven-plugin:$(CYCLONEDX_MAVEN_VERSION):makeAggregateBom -DoutputFormat=json -DoutputName=bom -DincludeTestScope=false && $(SCA_BIN)/osv-scanner scan source -L "$$dir/target/bom.json" || exit 1; done
+
+audit: vulncheck audit-npm audit-python audit-rust audit-java ## Run every dependency audit, as CI and the release procedure do
+	@echo "✓ Dependency audits passed"
 
 test-short: ## Run Go tests without race detection
 	@echo "Running Go tests without race detection..."
