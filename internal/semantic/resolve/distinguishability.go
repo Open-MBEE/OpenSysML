@@ -27,10 +27,12 @@ func (r *Resolver) checkDistinguishability(scope *symbols.Scope) {
 }
 
 // importedMember is one membership an import surfaces into a namespace, with
-// the import that brought it, or one the namespace inherits (imp nil).
+// the import that brought it, or one the namespace inherits (imp nil);
+// exposedOnly is set while every import reaching it is an Expose.
 type importedMember struct {
-	sym *symbols.Symbol
-	imp *ast.Import
+	sym         *symbols.Symbol
+	imp         *ast.Import
+	exposedOnly bool
 }
 
 // ownedName is a name among one namespace's own members. A repeat of it there
@@ -109,11 +111,22 @@ func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
 				}
 			}
 		}
-		if len(kept) < 2 || imported == 0 {
+		if len(kept) < 2 || imported == 0 || exposedOnly(kept) {
 			continue
 		}
 		r.duplicateImported(name, kept)
 	}
+}
+
+// exposedOnly reports whether every colliding membership comes through an
+// Expose: a view exposes each Expose's own memberships (SysML ViewUsage::exposedElement).
+func exposedOnly(members []importedMember) bool {
+	for _, member := range members {
+		if !member.exposedOnly {
+			return false
+		}
+	}
+	return true
 }
 
 // importCollisions is what the imports of one namespace bring, by name, and
@@ -218,7 +231,7 @@ func (r *Resolver) ownedNames(scope *symbols.Scope) []string {
 // be settled yet.
 func (r *Resolver) collectImported(scope *symbols.Scope, imports []*ast.Import) (*importCollisions, bool) {
 	complete := r.inCondition == 0
-	g := &importedGather{owned: map[string]bool{}, seen: map[boundName]bool{}, owners: map[ownedName]bool{}}
+	g := &importedGather{owned: map[string]bool{}, seen: map[boundName]int{}, owners: map[ownedName]bool{}}
 	for _, name := range r.ownedNames(scope) {
 		g.owned[name] = true
 	}
@@ -250,7 +263,7 @@ func (r *Resolver) collectImported(scope *symbols.Scope, imports []*ast.Import) 
 // scope owns, and the memberships and owner-name pairs already gathered.
 type importedGather struct {
 	owned  map[string]bool
-	seen   map[boundName]bool
+	seen   map[boundName]int
 	owners map[ownedName]bool
 }
 
@@ -268,15 +281,21 @@ func (r *Resolver) gatherImported(scope *symbols.Scope, imp *ast.Import, g *impo
 			}
 			bound := boundName{key: key, name: name}
 			owner := ownedName{owner: ownerKeyOf(sym.OwnerScope), name: name}
-			if g.owned[name] || g.seen[bound] || g.owners[owner] {
+			if i, ok := g.seen[bound]; ok {
+				if !imp.IsExpose {
+					c.byName[name][i].exposedOnly = false
+				}
 				continue
 			}
-			g.seen[bound] = true
+			if g.owned[name] || g.owners[owner] {
+				continue
+			}
+			g.seen[bound] = len(c.byName[name])
 			g.owners[owner] = true
 			if _, ok := c.byName[name]; !ok {
 				c.names = append(c.names, name)
 			}
-			c.byName[name] = append(c.byName[name], importedMember{sym: sym, imp: imp})
+			c.byName[name] = append(c.byName[name], importedMember{sym: sym, imp: imp, exposedOnly: imp.IsExpose})
 		}
 	}
 }
