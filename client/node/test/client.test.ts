@@ -27,6 +27,7 @@ import {
   ClosedConnectionError,
   MissingCapabilityError,
   EvaluationError,
+  PrivateService,
   SymbolNotFoundError,
   SERVICE_ENV,
   ServiceError,
@@ -671,6 +672,23 @@ test("a service this client did not start is opt-in, and close leaves it running
   } finally {
     Reflect.deleteProperty(process.env, SERVICE_ENV);
     external.kill("SIGKILL");
+  }
+});
+
+test("a private child does not inherit the environment token", async () => {
+  process.env[TOKEN_ENV] = "not-for-the-child";
+  let service: PrivateService;
+  try {
+    service = await PrivateService.start();
+  } finally {
+    Reflect.deleteProperty(process.env, TOKEN_ENV);
+  }
+  try {
+    // The child is this process's own, on loopback: a call carrying no token is served.
+    await using connection = await connect({ address: service.address });
+    assert.ok(connection.info.version);
+  } finally {
+    await service.stop();
   }
 });
 

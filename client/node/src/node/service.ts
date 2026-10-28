@@ -6,6 +6,9 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { ServiceStartError } from "../core/errors.js";
 import { resolveBinary, type Binary } from "./binary.js";
 
+/** Names the bearer token every call carries when `token` is not given. */
+export const TOKEN_ENV = "OPENSYSML_GRPC_TOKEN";
+
 const START_TIMEOUT_MS = 10_000;
 const STOP_TIMEOUT_MS = 5_000;
 const STDERR_LINES_KEPT = 20;
@@ -103,10 +106,16 @@ export class PrivateService {
   /** Starts a child and waits for the address it bound. */
   static async start(version?: string): Promise<PrivateService> {
     const binary = await resolveBinary(version === undefined ? {} : { version });
+    // The child serves loopback for this process alone: the token meant for a
+    // remote service must not become one the child demands.
+    const env = Object.fromEntries(
+      Object.entries(process.env).filter(([name]) => name !== TOKEN_ENV),
+    );
     const child = spawn(
       binary.path,
       ["-port", "0", "-health-port", "0", "-report-address", "-exit-with-parent"],
       {
+        env,
         stdio: ["pipe", "pipe", "pipe"],
         // A new session (a new process group on Windows), so a Ctrl-C meant for
         // this process does not reach the child mid-call.

@@ -576,6 +576,9 @@ class _PrivateService:
         binary_path = ensure_binary(version=version)
         if not os.path.exists(binary_path):
             raise ConnectionError(f"Binary not found after download: {binary_path}")
+        # The child serves loopback for this process alone: the token meant for a
+        # remote service must not become one the child demands.
+        environment = {name: value for name, value in os.environ.items() if name != TOKEN_ENV}
         process = subprocess.Popen(
             [binary_path, '-port', '0', '-health-port', '0',
              '-report-address', '-exit-with-parent'],
@@ -583,6 +586,7 @@ class _PrivateService:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             start_new_session=True,
+            env=environment,
         )
         service = cls(process, binary_path, key)
         try:

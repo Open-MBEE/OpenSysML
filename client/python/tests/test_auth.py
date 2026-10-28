@@ -66,3 +66,21 @@ def test_the_token_rides_every_call_as_bearer_metadata():
     sent = _BearerToken("abc").intercept_unary_unary(lambda d, r: d, Details(), None)
     assert ("authorization", "Bearer abc") in sent
     assert ("x", "y") in sent
+
+
+def test_a_private_child_does_not_inherit_the_environment_token(monkeypatch):
+    from opensysml.connection import _PrivateService
+
+    binary = service_binary()
+    if binary is None:
+        pytest.skip("no sysml-grpc binary to start")
+    monkeypatch.setenv("OPENSYSML_BINARY", binary)
+    monkeypatch.setenv("OPENSYSML_GRPC_TOKEN", TOKEN)
+    service = _PrivateService.start(None, None)
+    try:
+        # The child is this process's own, on loopback: a call carrying no token is served.
+        monkeypatch.delenv("OPENSYSML_GRPC_TOKEN")
+        with opensysml.connect(service.address) as conn:
+            assert conn.server_info().version
+    finally:
+        service.stop()

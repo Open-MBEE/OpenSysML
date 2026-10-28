@@ -57,8 +57,9 @@ and `Model` both implement `Symbol.asyncDispose`, so `await using` closes them;
 `$OPENSYSML_SERVICE=host:port` is the environment form of `address`, and
 `$OPENSYSML_GRPC_TOKEN` of `token`, the bearer token a service that other
 machines reach requires (`Authorization: Bearer` on every call; a wrong or
-missing one is a `ServiceError` with code `UNAUTHENTICATED`). The browser entry
-takes `token` too, and reads no environment. A connection
+missing one is a `ServiceError` with code `UNAUTHENTICATED`). A private child
+needs no token and is started without `$OPENSYSML_GRPC_TOKEN` in its environment.
+The browser entry takes `token` too, and reads no environment. A connection
 to a service this client did not start is only disconnected from on `close()`,
 never stopped.
 

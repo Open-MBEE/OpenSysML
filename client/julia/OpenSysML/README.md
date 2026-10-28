@@ -29,7 +29,8 @@ close(conn)
 process — one serving an address other machines reach requires a bearer token,
 sent as `Authorization: Bearer` on every call: `token`, or `$OPENSYSML_GRPC_TOKEN`
 (`TOKEN_ENV`) when none is given — and
-`private(; binary=nothing, ...)` starts one directly. `close(conn)` stops a
+`private(; binary=nothing, ...)` starts one directly, without `$OPENSYSML_GRPC_TOKEN`
+in its environment: a private child needs no token. `close(conn)` stops a
 private child; it does not stop an external service. `call(conn, method,
 request)` is the JSON-level escape hatch for any RPC.
 
