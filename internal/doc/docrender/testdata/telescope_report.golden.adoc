@@ -111,11 +111,11 @@ flowchart LR
     direction LR
     subgraph n1 ["`*«part»* **camera**`"]
       direction LR
-      n1.0["output"]
+      n1.0["^output"]
     end
     subgraph n2 ["`*«part»* **recorder**`"]
       direction LR
-      n2.0["input"]
+      n2.0["^input"]
     end
   end
   n1.0 === n2.0
@@ -159,8 +159,8 @@ config:
 stateDiagram-v2
   direction LR
   state "«state» operatingStates" as n0 {
-    state "«state»<br>idle<br>initial" as n1
-    state "«state»<br>observing" as n2
+    state "«state»<br>^idle<br>initial" as n1
+    state "«state»<br>^observing" as n2
     [*] --> n1
   }
   n1 --> n2

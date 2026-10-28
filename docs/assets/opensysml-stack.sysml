@@ -52,7 +52,7 @@ package OpenSysMLStack {
             }
             part editors : Component {
                 :>> label = "Editor integrations";
-                :>> role = "VS Code, Cameo MDK, SysON";
+                :>> role = "VS Code, Magic MDK, SysON MDK";
             }
             part repl : Component {
                 :>> label = "REPL";

@@ -1,0 +1,13 @@
+{
+  "rpc": "VerifyConstraint",
+  "symbol_id": "Tanks::nonNegative",
+  "question": "holds",
+  "expected_status": "violated",
+  "expected_notes": [
+    {
+      "kind": "assumed_one",
+      "subject": "Tanks::NonNegative::level",
+      "text": "Assuming Tanks::NonNegative::level holds one value: it declares no multiplicity, so the default [0..*] governs it"
+    }
+  ]
+}

@@ -36,9 +36,9 @@ type Instance struct {
 	// the declaration each was of, until the one materialized again here takes it back.
 	keptAnonymous []keptAnonymous
 
-	// keptConnectors holds, per feature value of a named connector, the identity the object
-	// of it had before a carry-over, which the one materialized again takes back.
-	keptConnectors map[*FeatureValue]int64
+	// keptConnectors holds, per feature value of a named connector, the identities the objects
+	// of it had before a carry-over, in order, which the ones materialized again take back.
+	keptConnectors map[*FeatureValue][]int64
 
 	// behaviors are the executions of the behaviors the object's type exhibits or
 	// performs, in declaration order, each bound to this object's identity.
@@ -69,13 +69,13 @@ func (inst *Instance) Owner() (*Instance, string) {
 	return inst.owner, inst.ownerFeature
 }
 
-// keepConnector remembers the identity the object of a named connector feature value had,
-// so the one materialized again against the new declarations keeps it.
+// keepConnector remembers the identity an object of a named connector feature value had, after
+// those of the objects before it, so the one materialized again against the new declarations keeps it.
 func (inst *Instance) keepConnector(fv *FeatureValue, id int64) {
 	if inst.keptConnectors == nil {
-		inst.keptConnectors = make(map[*FeatureValue]int64)
+		inst.keptConnectors = make(map[*FeatureValue][]int64)
 	}
-	inst.keptConnectors[fv] = id
+	inst.keptConnectors[fv] = append(inst.keptConnectors[fv], id)
 }
 
 // Feature value holds the runtime value(s) for one feature.
@@ -454,8 +454,10 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 	// The occurrence is recorded before its behaviors start, so a behavior that
 	// reaches the usage it belongs to reads this object rather than a second one.
 	mark := len(ctx.created)
-	inst, err := ctx.materialize(sym, 0, nil, "")
+	commit, rollback, drain := ctx.connectorJournal(sym)
+	inst, err := ctx.materializeMember(sym, 0, nil, "")
 	if err != nil {
+		rollback()
 		ctx.abandonInstancesSince(mark)
 		return nil, err
 	}
@@ -464,6 +466,11 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 		ctx.beganWithRun(inst)
 	}
 	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
+		rollback()
+		return nil, err
+	}
+	commit()
+	if err := drain(); err != nil {
 		return nil, err
 	}
 	return inst, nil
@@ -498,8 +505,10 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 		return nil, err
 	}
 	mark := len(ctx.created)
+	commit, rollback, drain := ctx.connectorJournal(sym)
 	members, err := ctx.materializeMembers(sym, int(made), nil, "")
 	if err != nil {
+		rollback()
 		ctx.abandonInstancesSince(mark)
 		release()
 		return nil, err
@@ -511,6 +520,7 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 	if lazy {
 		seq, err := ctx.withRequired(nil, sym, nil, "", count-made)
 		if err != nil {
+			rollback()
 			ctx.abandonInstancesSince(mark)
 			release()
 			return nil, err
@@ -519,7 +529,12 @@ func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
 	}
 	ctx.occurrences[sym] = ids
 	if err := ctx.startClassifierBehaviorsOf(members, mark); err != nil {
+		rollback()
 		release()
+		return nil, err
+	}
+	commit()
+	if err := drain(); err != nil {
 		return nil, err
 	}
 	return members, nil
@@ -691,8 +706,8 @@ func (ctx *Context) OccurrenceUsage(inst *Instance) string {
 }
 
 // isOccurrenceUsage reports whether sym declares a usage that is an occurrence:
-// a part, item or individual, which is a thing with features rather than a
-// value, so a chain through it reads the features of that thing.
+// a part, item, individual or a performance, which is a thing with features rather
+// than a value, so a chain through it reads the features of that thing.
 func isOccurrenceUsage(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
@@ -701,7 +716,20 @@ func isOccurrenceUsage(sym *symbols.Symbol) bool {
 	if !ok || usage.Value != nil {
 		return false
 	}
-	return objectUsageKind(usage.Kind)
+	return objectUsageKind(usage.Kind) || performanceUsageKind(usage.Kind) && sym.OwnerScope != nil && namespaceScope(sym.OwnerScope)
+}
+
+// isPerformanceUsage reports whether sym declares an action or state usage.
+func isPerformanceUsage(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && performanceUsageKind(usage.Kind)
+}
+
+// performanceUsageKind reports a usage kind whose values are performances: an action or
+// state usage (SysML v2 §7.17, §7.18) denotes one performance per occurrence, which a read
+// materializes as an object, starting what its type exhibits or performs but not its body.
+func performanceUsageKind(kind ast.UsageKind) bool {
+	return kind == ast.UsageAction || kind == ast.UsageState
 }
 
 // objectUsageKind reports a usage kind whose values are objects: the occurrence usages
@@ -711,7 +739,8 @@ func objectUsageKind(kind ast.UsageKind) bool {
 	case ast.UsagePart, ast.UsageItem, ast.UsageOccurrence, ast.UsageIndividual,
 		ast.UsageCase, ast.UsageUseCase, ast.UsageSatisfy,
 		ast.UsageView, ast.UsageViewpoint, ast.UsageConcern, ast.UsageFramedConcern,
-		ast.UsageRendering, ast.UsageViewRendering:
+		ast.UsageRendering, ast.UsageViewRendering,
+		ast.UsageConnection, ast.UsageInterface, ast.UsageAllocation:
 		return true
 	}
 	return false
@@ -1466,13 +1495,25 @@ func (ctx *Context) lowerBoundCount(mult semantics.Range, held int, what string)
 func (ctx *Context) materializeMembers(sym *symbols.Symbol, count int, owner *Instance, feature string) ([]*Instance, error) {
 	members := make([]*Instance, 0, count)
 	for i := 0; i < count; i++ {
-		inst, err := ctx.materialize(sym, 0, owner, feature)
+		inst, err := ctx.materializeMember(sym, 0, owner, feature)
 		if err != nil {
 			return nil, err
 		}
 		members = append(members, inst)
 	}
 	return members, nil
+}
+
+// materializeMember makes one object of sym under identity id (0 for the next), held by owner in
+// feature, its behaviors left for the caller to start once it is recorded; a namespace-level
+// connector usage's object is made with its ends attached.
+func (ctx *Context) materializeMember(sym *symbols.Symbol, id int64, owner *Instance, feature string) (*Instance, error) {
+	if owner == nil && ctx.model.semantics.IsConnectorObjectUsage(sym) {
+		var inst *Instance
+		err := ctx.materializeConnectorStarting(nil, sym, sym, id, false, func(conn *Instance) { inst = conn })
+		return inst, err
+	}
+	return ctx.materialize(sym, id, owner, feature)
 }
 
 // HoldsOnlyContributions reports whether a feature of known multiplicity
@@ -1573,7 +1614,8 @@ func (ctx *Context) declaresFeatures(feat *EffectiveFeature) bool {
 // untypedOccurrenceUsage reports an occurrence, port, action or state usage declaring no
 // type, which its kind's implicit base still classifies (SysML v2 §7.9.2: an untyped `item`
 // is an Items::Item, an untyped `port` a Ports::Port; §7.16.2, §7.17.2: an untyped `action`
-// an Actions::Action, an untyped `state` a States::StateAction).
+// an Actions::Action, an untyped `state` a States::StateAction), held as a typed one is
+// (Parts.sysml `ownedActions`, `ownedStates`; Actions.sysml `subactions`).
 func untypedOccurrenceUsage(feat *EffectiveFeature) bool {
 	if feat.Type != nil || !(isOccurrenceUsage(feat.Symbol) || untypedPortUsage(feat.Symbol) || untypedPerformanceUsage(feat.Symbol)) {
 		return false
@@ -1583,15 +1625,14 @@ func untypedOccurrenceUsage(feat *EffectiveFeature) bool {
 }
 
 // untypedPerformanceUsage reports an action or state usage declaring no type and no value,
-// a performance its owner holds as it holds a typed one (Parts.sysml `ownedActions`,
-// `ownedStates`; Actions.sysml `subactions`): one object for a usage declaring no
+// a performance its owner holds as it holds a typed one: one object for a usage declaring no
 // multiplicity, as many as a fixed bound states, none made up for an open bound.
 func untypedPerformanceUsage(sym *symbols.Symbol) bool {
-	if sym == nil || (sym.Kind != symbols.SymbolActionUsage && sym.Kind != symbols.SymbolStateUsage) {
+	if sym == nil {
 		return false
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
-	return ok && usage.Value == nil
+	return ok && usage.Value == nil && performanceUsageKind(usage.Kind)
 }
 
 // untypedPortUsage reports a port usage, whose object a binding connector can join to another's.

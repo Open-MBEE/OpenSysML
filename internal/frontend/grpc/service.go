@@ -67,6 +67,10 @@ const CapabilityRecordRun = "record_run"
 // and the `question`, `status` and `witness` fields of every Verdict.
 const CapabilityVerificationQuestions = "verification_questions"
 
+// CapabilityVerdictNotes names the `notes` field of every Verdict: the
+// assumptions and omissions behind a solver's answer, as the REPL prints them.
+const CapabilityVerdictNotes = "verdict_notes"
+
 // CapabilityVerificationArguments names the `arguments` and `named_arguments`
 // fields of VerifyConstraintRequest and VerifyRequirementRequest, which bind the
 // checked element's `in` parameters as RunAnalysisRequest binds a case's.
@@ -394,6 +398,7 @@ var capabilities = []string{
 	CapabilityParseSourcesAffected,
 	CapabilityRenderDocumentFileName,
 	CapabilityOrderDependence,
+	CapabilityVerdictNotes,
 }
 
 type capabilityAvailability struct {

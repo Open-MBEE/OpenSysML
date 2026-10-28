@@ -450,6 +450,10 @@ The public exception hierarchy for client, service, model and edit failures.
     options:
       heading_level: 3
 
+::: opensysml.AuthenticationError
+    options:
+      heading_level: 3
+
 ::: opensysml.ChecksumMismatchError
     options:
       heading_level: 3

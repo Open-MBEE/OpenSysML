@@ -1790,26 +1790,70 @@ func (idx *Index) shortNamedScan(name string) bool {
 	return shortRegistered(name)
 }
 
-// LookupUnique returns the element name denotes: the one registered under it
-// as a fully-qualified name, or the only one whose fully-qualified name ends
-// in `::name`. Nil when nothing, or more than one element, answers.
-func (idx *Index) LookupUnique(name string) *Symbol {
-	if matches := idx.LookupQualified(name); len(matches) == 1 {
-		return matches[0]
+// LookupUniqueCandidates returns the distinct elements LookupUnique chooses among —
+// registered under name exactly, else under every FQN ending in it — none or several telling why it failed.
+func (idx *Index) LookupUniqueCandidates(name string) []*Symbol {
+	segments := SegmentsOf(name)
+	key := strings.Join(segments, fqnSeparator)
+	if matches := idx.readingAs(key, segments); len(matches) == 1 {
+		return matches
 	}
-	var match *Symbol
+	var out []*Symbol
 	for _, fqn := range idx.FQNs() {
-		if fqn != name && !strings.HasSuffix(fqn, "::"+name) {
+		if fqn != key && !strings.HasSuffix(fqn, fqnSeparator+key) {
 			continue
 		}
-		for _, candidate := range idx.LookupQualified(fqn) {
-			if match != nil && !SameElement(match, candidate) {
-				return nil
+		for _, candidate := range idx.readingAs(fqn, segments) {
+			if !slices.ContainsFunc(out, func(o *Symbol) bool { return SameElement(o, candidate) }) {
+				out = append(out, candidate)
 			}
-			match = candidate
 		}
 	}
-	return match
+	return out
+}
+
+// readingAs is LookupQualified(fqn) less the symbols segments do not name: once a
+// name holding `::` is involved, fqn's boundaries are checked against them name by name.
+func (idx *Index) readingAs(fqn string, segments []string) []*Symbol {
+	return slices.DeleteFunc(slices.Clone(idx.LookupQualified(fqn)), func(sym *Symbol) bool {
+		return (holdsSeparator(segments) || holdsSeparator(NameChain(sym))) && !idx.keyReadsAs(fqn, sym, segments)
+	})
+}
+
+// keyReadsAs reports whether the registered fqn, naming sym, ends in segments at
+// those boundaries: the last is a name of sym, the rest a registered namespace reading as the rest.
+func (idx *Index) keyReadsAs(fqn string, sym *Symbol, segments []string) bool {
+	if len(segments) == 0 {
+		return true
+	}
+	last := segments[len(segments)-1]
+	if sym.Name != last && sym.ShortName != last {
+		return false
+	}
+	prefix := strings.TrimSuffix(fqn, last)
+	if prefix == "" {
+		return len(segments) == 1
+	}
+	prefix, ok := strings.CutSuffix(prefix, fqnSeparator)
+	if !ok {
+		return false
+	}
+	return slices.ContainsFunc(idx.LookupQualified(prefix), func(namespace *Symbol) bool {
+		return idx.keyReadsAs(prefix, namespace, segments[:len(segments)-1])
+	})
+}
+
+func holdsSeparator(names []string) bool {
+	return slices.ContainsFunc(names, func(name string) bool { return strings.Contains(name, fqnSeparator) })
+}
+
+// LookupUnique resolves a name that is either fully qualified or unique over
+// the model by its last segments; nil when it names nothing or several elements.
+func (idx *Index) LookupUnique(name string) *Symbol {
+	if candidates := idx.LookupUniqueCandidates(name); len(candidates) == 1 {
+		return candidates[0]
+	}
+	return nil
 }
 
 // FQNsEndingIn returns up to limit registered fully-qualified names whose last
@@ -2006,6 +2050,15 @@ func (idx *Index) lookupDirectChildrenNamed(key directChildrenKey, name string) 
 	}
 	idx.members.mu.Unlock()
 	return byName[name]
+}
+
+// SegmentsOf reads a qualified name as the notation spells it into its names,
+// `'x::y'` one and `x::y` two, quotes dropped and escapes kept as the parser keeps them.
+func SegmentsOf(name string) []string {
+	if segments, ok := source.QualifiedNameSegments(name); ok {
+		return segments
+	}
+	return strings.Split(name, fqnSeparator)
 }
 
 // LastSegment is the simple name a "::"-qualified name ends in, or name itself.

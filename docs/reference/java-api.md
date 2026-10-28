@@ -61,7 +61,10 @@ service that lacks what the caller needs, and the binary controls `binaryPath`,
 `allowUnpinnedDownload`. Each has an environment form —
 `OPENSYSML_SERVICE`, `OPENSYSML_GRPC_BINARY`, `OPENSYSML_GRPC_VERSION`,
 `OPENSYSML_GITHUB_REPO`, `OPENSYSML_ALLOW_UNPINNED_DOWNLOAD` — named as constants
-on `ConnectionOptions`. A connection asked for a release — `downloadVersion` or
+on `ConnectionOptions`. `token(...)` (environment form `OPENSYSML_GRPC_TOKEN`) is
+the bearer token a service other machines reach requires, sent as
+`Authorization: Bearer` on every call; a wrong or missing one is a
+`ServiceException` with status `UNAUTHENTICATED`. A connection asked for a release — `downloadVersion` or
 `$OPENSYSML_GRPC_VERSION`, `"latest"` resolved once — refuses at open a service
 that reports another version with `StaleServiceException`, whose `reason()` and
 `remedy()` say what was found and how to reach the release asked for.
@@ -206,7 +209,12 @@ Analysis bound = model.runAnalysis("Trade::perOffset",
 `Calculation`, `Analysis` and every `Verdict` carry the `Standing` of the answer:
 which `engine` answered (`run`, `explore`, `solve`, `sweep`), the `strength` of
 its answer (`observed`, `witnessed`, `bounded`, `proved`, or `not covered`) and
-the `bounds` it ran under, each `reached` or not. `model.withEngine("solve")` (or
+the `bounds` it ran under, each `reached` or not. A `Verdict` also lists the `notes`
+a solver's answer rests on, each a `VerdictNote` of kind `KIND_ASSUMED_ONE` (a feature
+read as one value or object while only the default `0..*` multiplicity governs it) or
+`KIND_UNCOVERED` (an object-holding feature whose own assertions the question does not
+state), with the feature as `subject` and the note's `text`; a service without the
+`verdict_notes` capability answers with none. `model.withEngine("solve")` (or
 `Standing.ENGINE_AUTO`/`ENGINE_ALL`) binds every question the model is asked to an
 engine, and `connection.listEngines()` names what is available; both need the
 `engines` capability. A run whose objective stops on an error throws an `AnalysisException`

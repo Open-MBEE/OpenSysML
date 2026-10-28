@@ -27,8 +27,7 @@ package Demo {
 `
 	srv := mustNewService(t, 10)
 	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: model},
-		ContentHash: "evaluate-retention",
+		Source: &pb.ParseFileRequest_Content{Content: model},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)
@@ -107,8 +106,7 @@ package Demo {
 `
 	srv := mustNewService(t, 10)
 	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: model},
-		ContentHash: "evaluate-worker-retention",
+		Source: &pb.ParseFileRequest_Content{Content: model},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)
@@ -174,8 +172,7 @@ package Demo {
 `
 	srv := mustNewService(t, 10)
 	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
-		Source:      &pb.ParseFileRequest_Content{Content: model},
-		ContentHash: "evaluate-selection-retention",
+		Source: &pb.ParseFileRequest_Content{Content: model},
 	})
 	if err != nil {
 		t.Fatalf("ParseFile failed: %v", err)

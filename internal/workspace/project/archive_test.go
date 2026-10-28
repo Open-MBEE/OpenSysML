@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -83,7 +84,8 @@ func TestParseArchiveRejectsMalformedArchives(t *testing.T) {
 		{"empty", nil, "not a ZIP archive"},
 		{"no project file", zipOf(t, [2]string{"Probe.sysml", probeModel}, [2]string{".meta.json", probeMeta}), "no .project.json at the top level"},
 		{"no meta file", zipOf(t, [2]string{"Probe.sysml", probeModel}, [2]string{".project.json", probeProject}), "no .meta.json at the top level"},
-		{"nested folder", zipOf(t, [2]string{"probe/.project.json", probeProject}, [2]string{"probe/.meta.json", probeMeta}, [2]string{"probe/Probe.sysml", probeModel}), "holds a folder rather than a project"},
+		{"nested folder beside a top-level member", zipOf(t, [2]string{"probe/.project.json", probeProject}, [2]string{"probe/.meta.json", probeMeta}, [2]string{"Probe.sysml", probeModel}), "holds a folder rather than a project"},
+		{"nested folder without .meta.json", zipOf(t, [2]string{"probe/.project.json", probeProject}, [2]string{"probe/Probe.sysml", probeModel}), "holds a folder rather than a project"},
 		{"project not json", zipOf(t, [2]string{".project.json", "{"}, [2]string{".meta.json", probeMeta}), ".project.json"},
 		{"project not an object", zipOf(t, [2]string{".project.json", "[]"}, [2]string{".meta.json", probeMeta}), "does not hold a JSON object"},
 		{"project without name", zipOf(t, [2]string{".project.json", `{"version": "1"}`}, [2]string{".meta.json", probeMeta}), "name"},
@@ -92,7 +94,6 @@ func TestParseArchiveRejectsMalformedArchives(t *testing.T) {
 		{"usage without resource", zipOf(t, [2]string{".project.json", `{"name": "Probe", "version": "1", "usage": [{"versionConstraint": "1"}]}`}, [2]string{".meta.json", probeMeta}), "resource"},
 		{"meta without created", zipOf(t, [2]string{".project.json", probeProject}, [2]string{".meta.json", `{"index": {}}`}), "created"},
 		{"meta without index", zipOf(t, [2]string{".project.json", probeProject}, [2]string{".meta.json", `{"created": "2026-01-01T00:00:00Z"}`}), "index"},
-		{"index names a missing member", zipOf(t, [2]string{".project.json", probeProject}, [2]string{".meta.json", `{"index": {"Probe": "Gone.sysml"}, "created": "2026-01-01T00:00:00Z"}`}), `"Gone.sysml", which is not a member`},
 		{"checksum of a missing member", zipOf(t, [2]string{".project.json", probeProject}, [2]string{".meta.json", `{"index": {}, "created": "2026-01-01T00:00:00Z", "checksum": {"Gone.sysml": {"value": "00", "algorithm": "SHA256"}}}`}), "checksum is recorded for"},
 		{"checksum does not match", zipOf(t, [2]string{"Probe.sysml", "package Changed;"}, [2]string{".project.json", probeProject}, [2]string{".meta.json", probeMeta}), "does not match"},
 		{"checksum algorithm outside the schema", zipOf(t, [2]string{"Probe.sysml", probeModel}, [2]string{".project.json", probeProject}, [2]string{".meta.json", `{"index": {}, "created": "2026-01-01T00:00:00Z", "checksum": {"Probe.sysml": {"value": "00", "algorithm": "CRC32"}}}`}), "not an algorithm the interchange schema allows"},
@@ -114,6 +115,44 @@ func TestParseArchiveRejectsMalformedArchives(t *testing.T) {
 				t.Errorf("err = %q, want it on lib/probe.kpar mentioning %q", err, c.want)
 			}
 		})
+	}
+}
+
+// An archive made of the project's folder rather than its contents, as the
+// OMG library releases are, is read as the project in that folder and noted.
+func TestParseArchiveReadsTheProjectInsideAFolder(t *testing.T) {
+	a, err := ParseArchive("lib/probe.kpar", zipOf(t, [2]string{"Probe Library/.project.json", probeProject}, [2]string{"Probe Library/.meta.json", probeMeta}, [2]string{"Probe Library/Probe.sysml", probeModel}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Project.Name != "Probe" || a.Project.Dir != "lib/probe.kpar" {
+		t.Errorf("project = %q in %q, want Probe in lib/probe.kpar", a.Project.Name, a.Project.Dir)
+	}
+	if got, want := a.Names(), []string{".meta.json", ".project.json", "Probe.sysml"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Names() = %q, want the folder's contents %q", got, want)
+	}
+	if content, err := a.Read("Probe.sysml"); err != nil || string(content) != probeModel {
+		t.Errorf("Read(Probe.sysml) = %q, %v", content, err)
+	}
+	if len(a.Notes) != 1 || !strings.Contains(a.Notes[0], "holds the folder Probe Library/ with the project inside it") {
+		t.Errorf("notes = %q, want the folder layout noted", a.Notes)
+	}
+}
+
+// An index entry naming no member is the manifest's mistake, not a reason to
+// lose the project: the members' declarations are read, and the entry noted.
+func TestParseArchiveNotesAnIndexEntryNamingNoMember(t *testing.T) {
+	meta := `{"index": {"Probes": "Probes.sysml"}, "created": "2026-01-01T00:00:00Z"}`
+	a, err := ParseArchive("lib/probe.kpar", zipOf(t, [2]string{"Probe.sysml", probeModel}, [2]string{".project.json", probeProject}, [2]string{".meta.json", meta}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := a.Files(); len(got) != 1 || got[0] != "lib/probe.kpar/Probe.sysml" {
+		t.Errorf("Files() = %q, want the model member", got)
+	}
+	want := `.meta.json: index entry "Probes" names "Probes.sysml", which is not a member of the archive; the members' own declarations are read instead`
+	if len(a.Notes) != 1 || a.Notes[0] != want {
+		t.Errorf("notes = %q, want %q", a.Notes, want)
 	}
 }
 

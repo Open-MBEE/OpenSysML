@@ -89,8 +89,60 @@ read	Probe::i1.subparts	systems	Items::Item::subparts	empty
 read	Probe::i1.voids	systems	Items::Item::voids	empty
 read	Probe::i1.w	model	Probe::I1::w	constant 1.0
 object	Probe::pt	undetermined <undetermined>
-object	Probe::act	undetermined <undetermined>
-object	Probe::st	undetermined <undetermined>
+object	Probe::act	object:Probe::act
+read	Probe::act.acceptSubactions	systems	Actions::Action::acceptSubactions	empty
+read	Probe::act.assignments	systems	Actions::Action::assignments	empty
+read	Probe::act.controls	systems	Actions::Action::controls	empty
+read	Probe::act.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
+read	Probe::act.decisions	systems	Actions::Action::decisions	empty
+read	Probe::act.done	systemsFRAME	Actions::Action::done	undetermined <undetermined>
+read	Probe::act.forLoops	systems	Actions::Action::forLoops	empty
+read	Probe::act.forks	systems	Actions::Action::forks	empty
+read	Probe::act.i	model	Probe::A1::i	undetermined <undetermined>
+read	Probe::act.ifSubactions	systems	Actions::Action::ifSubactions	empty
+read	Probe::act.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
+read	Probe::act.joins	systems	Actions::Action::joins	empty
+read	Probe::act.loops	systems	Actions::Action::loops	empty
+read	Probe::act.merges	systems	Actions::Action::merges	empty
+read	Probe::act.nested	model	Probe::A1::nested	object:Probe::A2
+read	Probe::act.o	model	Probe::A1::o	undetermined <undetermined>
+read	Probe::act.self	systemsFRAME	Actions::Action::self	object:Probe::act
+read	Probe::act.sendSubactions	systems	Actions::Action::sendSubactions	empty
+read	Probe::act.start	systemsFRAME	Actions::Action::start	object:Probe::act
+read	Probe::act.subactions	systems	Actions::Action::subactions	collection(1) [object:Probe::A2#1]
+read	Probe::act.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
+read	Probe::act.transitions	systems	Actions::Action::transitions	empty
+read	Probe::act.whileLoops	systems	Actions::Action::whileLoops	empty
+object	Probe::st	object:Probe::st
+read	Probe::st.acceptSubactions	systems	Actions::Action::acceptSubactions	empty
+read	Probe::st.assignments	systems	Actions::Action::assignments	empty
+read	Probe::st.controls	systems	Actions::Action::controls	empty
+read	Probe::st.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
+read	Probe::st.decisions	systems	Actions::Action::decisions	empty
+read	Probe::st.doAction	systems	States::StateAction::doAction	object:Actions::Action
+read	Probe::st.done	systemsFRAME	States::StateAction::done	undetermined <undetermined>
+read	Probe::st.entryAction	systems	States::StateAction::entryAction	object:States::StateAction::entryAction
+read	Probe::st.exclusiveStates	systems	States::StateAction::exclusiveStates	empty
+read	Probe::st.exitAction	systems	States::StateAction::exitAction	object:Actions::Action
+read	Probe::st.forLoops	systems	Actions::Action::forLoops	empty
+read	Probe::st.forks	systems	Actions::Action::forks	empty
+read	Probe::st.ifSubactions	systems	Actions::Action::ifSubactions	empty
+read	Probe::st.incomingTransfers	systemsFRAME	Actions::Action::incomingTransfers	empty
+read	Probe::st.isTriggerDuring	systems	States::StateAction::isTriggerDuring	constant true
+read	Probe::st.joins	systems	Actions::Action::joins	empty
+read	Probe::st.loops	systems	Actions::Action::loops	empty
+read	Probe::st.merges	systems	Actions::Action::merges	empty
+read	Probe::st.on1	model	Probe::S1::on1	undetermined <undetermined>
+read	Probe::st.self	systemsFRAME	States::StateAction::self	object:Probe::st
+read	Probe::st.sendSubactions	systems	Actions::Action::sendSubactions	empty
+read	Probe::st.start	systemsFRAME	States::StateAction::start	object:Probe::st
+read	Probe::st.stateSequencing	systems	States::StateAction::stateSequencing	ERR_NOSUCHFEATURE object has no such feature: member stateSequencing not found in instance
+read	Probe::st.stateTransitions	systems	States::StateAction::stateTransitions	empty
+read	Probe::st.subactions	systems	States::StateAction::subactions	collection(1) [object:Actions::Action#1]
+read	Probe::st.substates	systems	States::StateAction::substates	empty
+read	Probe::st.terminateSubactions	systems	Actions::Action::terminateSubactions	empty
+read	Probe::st.transitions	systems	Actions::Action::transitions	empty
+read	Probe::st.whileLoops	systems	Actions::Action::whileLoops	empty
 object	Probe::r1	undetermined <undetermined>
 object	Probe::c1	undetermined <undetermined>
 object	Probe::k1	function Probe::k1
@@ -213,9 +265,70 @@ read	Probe::rd1.subitems	systems	Items::Item::subitems	empty
 read	Probe::rd1.subparts	systems	Items::Item::subparts	empty
 read	Probe::rd1.subrenderings	systems	Views::Rendering::subrenderings	empty
 read	Probe::rd1.voids	systems	Items::Item::voids	empty
-object	Probe::cn1	undetermined <undetermined>
-object	Probe::if1	undetermined <undetermined>
-object	Probe::al1	undetermined <undetermined>
+object	Probe::cn1	object:Probe::cn1
+read	Probe::cn1.boundingShapes	systems	Items::Item::boundingShapes	empty
+read	Probe::cn1.checkedConstraints	systems	Items::Item::checkedConstraints	empty
+read	Probe::cn1.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
+read	Probe::cn1.e1	model	Probe::Cn1::e1	object:Probe::p2
+read	Probe::cn1.e2	model	Probe::Cn1::e2	object:Probe::p2
+read	Probe::cn1.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::cn1.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	Probe::cn1.isSolid	systems	Items::Item::isSolid	constant true
+read	Probe::cn1.ownedActions	systems	Parts::Part::ownedActions	empty
+read	Probe::cn1.ownedPorts	systems	Parts::Part::ownedPorts	empty
+read	Probe::cn1.ownedStates	systems	Parts::Part::ownedStates	empty
+read	Probe::cn1.performedActions	systems	Parts::Part::performedActions	empty
+read	Probe::cn1.self	systemsFRAME	Parts::Part::self	object:Probe::cn1
+read	Probe::cn1.shape	systems	Items::Item::shape	empty
+read	Probe::cn1.source	systems	Connections::BinaryConnection::source	object:Probe::p2
+read	Probe::cn1.start	systemsFRAME	Parts::Part::start	object:Probe::cn1
+read	Probe::cn1.subitems	systems	Items::Item::subitems	empty
+read	Probe::cn1.subparts	systems	Items::Item::subparts	empty
+read	Probe::cn1.target	systems	Connections::BinaryConnection::target	object:Probe::p2
+read	Probe::cn1.voids	systems	Items::Item::voids	empty
+object	Probe::if1	object:Probe::if1
+read	Probe::if1.boundingShapes	systems	Items::Item::boundingShapes	empty
+read	Probe::if1.checkedConstraints	systems	Items::Item::checkedConstraints	empty
+read	Probe::if1.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
+read	Probe::if1.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::if1.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	Probe::if1.isSolid	systems	Items::Item::isSolid	constant true
+read	Probe::if1.ownedActions	systems	Parts::Part::ownedActions	empty
+read	Probe::if1.ownedPorts	systems	Parts::Part::ownedPorts	empty
+read	Probe::if1.ownedStates	systems	Parts::Part::ownedStates	empty
+read	Probe::if1.p1	model	Probe::If1::p1	object:Probe::Pt
+read	Probe::if1.p2	model	Probe::If1::p2	object:Probe::Pt
+read	Probe::if1.participant	systems	Interfaces::BinaryInterface::participant	undetermined <undetermined>
+read	Probe::if1.performedActions	systems	Parts::Part::performedActions	empty
+read	Probe::if1.self	systemsFRAME	Parts::Part::self	object:Probe::if1
+read	Probe::if1.shape	systems	Items::Item::shape	empty
+read	Probe::if1.source	systems	Interfaces::BinaryInterface::source	object:Probe::Pt
+read	Probe::if1.start	systemsFRAME	Parts::Part::start	object:Probe::if1
+read	Probe::if1.subitems	systems	Items::Item::subitems	empty
+read	Probe::if1.subparts	systems	Items::Item::subparts	empty
+read	Probe::if1.target	systems	Interfaces::BinaryInterface::target	object:Probe::Pt
+read	Probe::if1.voids	systems	Items::Item::voids	empty
+object	Probe::al1	object:Probe::al1
+read	Probe::al1.a1	model	Probe::Al1::a1	object:Probe::p2
+read	Probe::al1.a2	model	Probe::Al1::a2	object:Probe::p2
+read	Probe::al1.boundingShapes	systems	Items::Item::boundingShapes	empty
+read	Probe::al1.checkedConstraints	systems	Items::Item::checkedConstraints	empty
+read	Probe::al1.done	systemsFRAME	Parts::Part::done	undetermined <undetermined>
+read	Probe::al1.envelopingShapes	systems	Items::Item::envelopingShapes	empty
+read	Probe::al1.exhibitedStates	systems	Parts::Part::exhibitedStates	empty
+read	Probe::al1.isSolid	systems	Items::Item::isSolid	constant true
+read	Probe::al1.ownedActions	systems	Parts::Part::ownedActions	empty
+read	Probe::al1.ownedPorts	systems	Parts::Part::ownedPorts	empty
+read	Probe::al1.ownedStates	systems	Parts::Part::ownedStates	empty
+read	Probe::al1.performedActions	systems	Parts::Part::performedActions	empty
+read	Probe::al1.self	systemsFRAME	Parts::Part::self	object:Probe::al1
+read	Probe::al1.shape	systems	Items::Item::shape	empty
+read	Probe::al1.source	systems	Allocations::Allocation::source	object:Probe::p2
+read	Probe::al1.start	systemsFRAME	Parts::Part::start	object:Probe::al1
+read	Probe::al1.subitems	systems	Items::Item::subitems	empty
+read	Probe::al1.subparts	systems	Items::Item::subparts	empty
+read	Probe::al1.target	systems	Allocations::Allocation::target	object:Probe::p2
+read	Probe::al1.voids	systems	Items::Item::voids	empty
 object	Probe::fl1	undetermined <undetermined>
 object	Probe::o1	object:Probe::o1
 object	Probe::e1	enumeration literal E1::a
@@ -1636,7 +1749,7 @@ prefix	in	state S1	in state x : S1;	Probe::d.x => empty
 prefix	in	requirement R1	in requirement x : R1;	Probe::d.x => empty
 prefix	in	constraint C1	in constraint x : C1;	Probe::d.x => empty
 prefix	in	occurrence O1	in occurrence x : O1;	Probe::d.x => empty
-prefix	in	connection Cn1	in connection x : Cn1 connect sub1 to sub2;	Probe::d.x => error connector end cannot be attached: d.x end "x" at <test>:#560: a connector of more than one object has no set of ends to attach
+prefix	in	connection Cn1	in connection x : Cn1 connect sub1 to sub2;	Probe::d.x => empty
 prefix	out	attribute Integer	out attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	out	attribute At1	out attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	out	enum E1	out enum x : E1;	Probe::d.x => undetermined <undetermined>
@@ -1649,7 +1762,7 @@ prefix	out	state S1	out state x : S1;	Probe::d.x => empty
 prefix	out	requirement R1	out requirement x : R1;	Probe::d.x => empty
 prefix	out	constraint C1	out constraint x : C1;	Probe::d.x => empty
 prefix	out	occurrence O1	out occurrence x : O1;	Probe::d.x => empty
-prefix	out	connection Cn1	out connection x : Cn1 connect sub1 to sub2;	Probe::d.x => error connector end cannot be attached: d.x end "x" at <test>:#560: a connector of more than one object has no set of ends to attach
+prefix	out	connection Cn1	out connection x : Cn1 connect sub1 to sub2;	Probe::d.x => empty
 prefix	inout	attribute Integer	inout attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	inout	attribute At1	inout attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	inout	enum E1	inout enum x : E1;	Probe::d.x => undetermined <undetermined>
@@ -1662,7 +1775,7 @@ prefix	inout	state S1	inout state x : S1;	Probe::d.x => empty
 prefix	inout	requirement R1	inout requirement x : R1;	Probe::d.x => empty
 prefix	inout	constraint C1	inout constraint x : C1;	Probe::d.x => empty
 prefix	inout	occurrence O1	inout occurrence x : O1;	Probe::d.x => empty
-prefix	inout	connection Cn1	inout connection x : Cn1 connect sub1 to sub2;	Probe::d.x => error connector end cannot be attached: d.x end "x" at <test>:#560: a connector of more than one object has no set of ends to attach
+prefix	inout	connection Cn1	inout connection x : Cn1 connect sub1 to sub2;	Probe::d.x => empty
 prefix	ref (unbound)	attribute Integer	ref attribute x : Integer;	Probe::d.x => undetermined <undetermined>
 prefix	ref (unbound)	attribute At1	ref attribute x : At1;	Probe::d.x => undetermined <undetermined>
 prefix	ref (unbound)	enum E1	ref enum x : E1;	Probe::d.x => undetermined <undetermined>
@@ -1815,7 +1928,7 @@ prefix	[2..4]	state S1	state x : S1[2..4];	Probe::d.x => undetermined <undetermi
 prefix	[2..4]	requirement R1	requirement x : R1[2..4];	Probe::d.x => undetermined <undetermined>
 prefix	[2..4]	constraint C1	constraint x : C1[2..4];	Probe::d.x => undetermined <undetermined>
 prefix	[2..4]	occurrence O1	occurrence x : O1[2..4];	Probe::d.x => undetermined <undetermined>
-prefix	[2..4]	connection Cn1	connection x : Cn1[2..4] connect sub1 to sub2;	Probe::d.x => error connector end cannot be attached: d.x end "x" at <test>:#560: a connector of more than one object has no set of ends to attach
+prefix	[2..4]	connection Cn1	connection x : Cn1[2..4] connect sub1 to sub2;	Probe::d.x => undetermined <undetermined>
 prefix	[*] = (3,1,3) (unique default)	attribute Integer	attribute x : Integer[*] = (3, 1, 3);	Probe::d.x => error feature value d.x: uniqueness violation: 3 (an Integer) is written at positions 1 and 3 of a unique feature
 prefix	[*] ordered nonunique = (3,1,3)	attribute Integer	attribute x : Integer[*] ordered nonunique = (3, 1, 3);	Probe::d.x => collection(3) [constant 3, constant 1, constant 3]
 prefix	[*] ordered = (3,1,3)	attribute Integer	attribute x : Integer[*] ordered = (3, 1, 3);	Probe::d.x => error feature value d.x: uniqueness violation: 3 (an Integer) is written at positions 1 and 3 of a unique feature
@@ -1873,7 +1986,7 @@ prefix	:> subsetting	state S1	state x : S1[0..*]; state y : S1 :> x;	Probe::d.x 
 prefix	:> subsetting	requirement R1	requirement x : R1[0..*]; requirement y : R1 :> x;	Probe::d.x => collection(1) [object:Probe::R1#1] ;; Probe::d.y => object:Probe::R1
 prefix	:> subsetting	constraint C1	constraint x : C1[0..*]; constraint y : C1 :> x;	Probe::d.x => collection(1) [object:Probe::C1#1] ;; Probe::d.y => object:Probe::C1
 prefix	:> subsetting	occurrence O1	occurrence x : O1[0..*]; occurrence y : O1 :> x;	Probe::d.x => collection(1) [object:Probe::O1#1] ;; Probe::d.y => object:Probe::O1
-prefix	:> subsetting	connection Cn1	connection x : Cn1[0..*] connect sub1 to sub2; connection y : Cn1 connect sub1 to sub2 :> x;	Probe::d.x => error connector end cannot be attached: d.x end "x" at <test>:#560: a connector of more than one object has no set of ends to attach ;; Probe::d.y => object:Probe::Cn1
+prefix	:> subsetting	connection Cn1	connection x : Cn1[0..*] connect sub1 to sub2; connection y : Cn1 connect sub1 to sub2 :> x;	Probe::d.x => empty ;; Probe::d.y => object:Probe::Cn1
 prefix	::> reference subsetting	attribute Integer	attribute x : Integer; ref attribute y ::> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined> ;; Probe::d.y == Probe::d.x => undetermined <undetermined>
 prefix	::> reference subsetting	attribute At1	attribute x : At1; ref attribute y ::> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined> ;; Probe::d.y == Probe::d.x => undetermined <undetermined>
 prefix	::> reference subsetting	enum E1	enum x : E1; ref enum y ::> x;	Probe::d.x => undetermined <undetermined> ;; Probe::d.y => undetermined <undetermined> ;; Probe::d.y == Probe::d.x => undetermined <undetermined>

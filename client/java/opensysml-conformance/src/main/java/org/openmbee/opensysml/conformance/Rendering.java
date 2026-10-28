@@ -261,6 +261,15 @@ final class Rendering {
     verdict.question().ifPresent(builder::setQuestion);
     verdict.status().ifPresent(builder::setStatus);
     verdict.witness().forEach(assignment -> builder.addWitness(witness(assignment)));
+    verdict
+        .notes()
+        .forEach(
+            note ->
+                builder.addNotes(
+                    org.openmbee.opensysml.proto.VerdictNote.newBuilder()
+                        .setKind(note.kind())
+                        .setSubject(note.subject())
+                        .setText(note.text())));
     return builder.build();
   }
 

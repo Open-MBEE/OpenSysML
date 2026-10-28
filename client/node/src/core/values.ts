@@ -236,6 +236,20 @@ export interface WitnessAssignment {
   exact: string;
 }
 
+/**
+ * One assumption or omission behind a verdict, worded as every surface reports
+ * it: `kind` is "assumed_one" (a feature read as holding one value or object
+ * while only the default `0..*` multiplicity governs it) or "uncovered" (an
+ * object-holding feature whose own assertions the question does not state).
+ */
+export interface VerdictNote {
+  kind: string;
+  /** The feature the note is about, as the report names it. */
+  subject: string;
+  /** The note as a sentence. */
+  text: string;
+}
+
 /** What the body of a verification case answered when it ran. */
 export interface VerificationVerdict {
   /** FQN of the verification case that ran. */
@@ -285,7 +299,8 @@ export interface VerdictStanding {
  * answer, which a `holds: false` alone does not distinguish. Every arm carries
  * the `standing` its evidence rests on, the `question` asked and the `status`
  * the service answered with, the `witness` assignment when the answer carries
- * one, and the `verifications` the requirement's verification cases produced.
+ * one, the `notes` the answer rests on, and the `verifications` the
+ * requirement's verification cases produced.
  */
 export type SysMLVerdict =
   | {
@@ -295,6 +310,7 @@ export type SysMLVerdict =
       question: string;
       status: string;
       witness: WitnessAssignment[];
+      notes: VerdictNote[];
       verifications: VerificationVerdict[];
     }
   | {
@@ -305,6 +321,7 @@ export type SysMLVerdict =
       question: string;
       status: string;
       witness: WitnessAssignment[];
+      notes: VerdictNote[];
       verifications: VerificationVerdict[];
     }
   | {
@@ -316,6 +333,7 @@ export type SysMLVerdict =
       question: string;
       status: string;
       witness: WitnessAssignment[];
+      notes: VerdictNote[];
       verifications: VerificationVerdict[];
     };
 
@@ -523,6 +541,7 @@ export function decodeVerdict(
     unit: assignment.unit,
     exact: assignment.exact,
   }));
+  const notes = verdict.notes.map((note) => ({ kind: note.kind, subject: note.subject, text: note.text }));
   if (verdict.error !== "") {
     return {
       kind: "undecided",
@@ -533,6 +552,7 @@ export function decodeVerdict(
       question: verdict.question,
       status: verdict.status,
       witness,
+      notes,
       verifications: [...verifications],
     };
   }
@@ -544,6 +564,7 @@ export function decodeVerdict(
         question: verdict.question,
         status: verdict.status,
         witness,
+        notes,
         verifications: [...verifications],
       }
     : {
@@ -554,6 +575,7 @@ export function decodeVerdict(
         question: verdict.question,
         status: verdict.status,
         witness,
+        notes,
         verifications: [...verifications],
       };
 }

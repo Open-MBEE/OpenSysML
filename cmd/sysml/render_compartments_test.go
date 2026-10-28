@@ -41,7 +41,7 @@ func TestRenderCompartments(t *testing.T) {
 		t.Errorf("-render-compartments positioned changed an unpositioned tree:\n%s", positioned.stdout)
 	}
 	most := render("-render-compartments", "most")
-	for _, want := range []string{"label : Label<br/>reading : Reading", "enabled : Switch", "sensor : Sensor", "hub : Hub<br/>hub.bearing : Hub", `[headlabel="sensor", dir=back, arrowtail=diamond]`, "// not represented: 6 member(s) drawn as compartment rows of their owner\n"} {
+	for _, want := range []string{"label : Label<br/>reading : Reading", "enabled : Switch", "sensor : Sensor", "hub : Hub<br/>^hub.bearing : Hub", `[headlabel="sensor", dir=back, arrowtail=diamond]`, "// not represented: 6 member(s) drawn as compartment rows of their owner\n"} {
 		if !strings.Contains(most.stdout, want) {
 			t.Errorf("-render-compartments most lacks %q:\n%s", want, most.stdout)
 		}
@@ -50,7 +50,7 @@ func TestRenderCompartments(t *testing.T) {
 		t.Errorf("-render-compartments most draws two nodes:\n%s", most.stdout)
 	}
 	ports := render("-render-compartments", "ports")
-	if !strings.Contains(ports.stdout, "hub : Hub<br/>hub.bearing : Hub") || !strings.Contains(ports.stdout, "<b>sensor</b>") {
+	if !strings.Contains(ports.stdout, "hub : Hub<br/>^hub.bearing : Hub") || !strings.Contains(ports.stdout, "<b>sensor</b>") {
 		t.Errorf("-render-compartments ports folds the ports and leaves the parts as nodes:\n%s", ports.stdout)
 	}
 

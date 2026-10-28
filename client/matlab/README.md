@@ -30,7 +30,10 @@ conn = opensysml.private('binary', '/path/to/sysml-grpc', 'timeout', 30);
 ```
 
 `private` accepts `binary`, `timeout`, `version`, and `capabilities`
-name-value options; `external` accepts `version` and `capabilities`.
+name-value options; `external` accepts `version`, `capabilities` and `token` —
+the bearer token a service on an address other machines reach requires, sent as
+`Authorization: Bearer` on every call, read from `OPENSYSML_GRPC_TOKEN` when the
+option is absent.
 `connect` forwards the applicable requirements to whichever connection it
 selects. When no binary is named, `private` checks
 `OPENSYSML_GRPC_BINARY`, `~/.opensysml/bin/sysml-grpc`, then `PATH`. The
@@ -136,7 +139,8 @@ Options are MATLAB name-value pairs such as `inputs`, `events`,
 `engine`, and `question`, as supported by each call.
 
 - `Verdict` records a verification or execution outcome and provides
-  `explain`, `raiseForError`, and logical conversion.
+  `explain`, `raiseForError`, and logical conversion; its `notes` list what a
+  solver's answer rests on (`kind` `assumed_one` or `uncovered`, `subject`, `text`).
 - `Validation` groups instance verdicts, diagnostics, verification
   records, summary and `valid`, `violated`, `undecided`, and `explain`.
   Its `instances` property is an ordered cell array in service order.

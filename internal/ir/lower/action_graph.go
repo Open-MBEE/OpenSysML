@@ -1795,12 +1795,16 @@ func lowerEffectiveActionNodeFeatures(graph *ActionGraph, node *ast.Usage, scope
 }
 
 // declaredFeature is the parameter or attribute a member declares, false for a
-// member declaring none or one with no name.
+// member declaring none or one with no name — but an unnamed result parameter
+// (`return : Integer`) is named by the result feature it redefines.
 func declaredFeature(m *ast.Usage, scope *symbols.Scope) (Feature, bool) {
 	if !DeclaresNodeFeature(m) {
 		return Feature{}, false
 	}
 	name, _ := ast.EffectiveName(m)
+	if name == "" && m.IsResult {
+		name = ast.ResultFeature
+	}
 	if name == "" {
 		return Feature{}, false
 	}

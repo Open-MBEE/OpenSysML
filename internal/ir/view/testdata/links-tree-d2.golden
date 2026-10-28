@@ -9,8 +9,8 @@ classes: {
 }
 n0: "«part def»\nVehicle" { class: definition; link: "https://example.test/src/tree.sysml#L11" }
 n1: "«part»\nengine" { class: usage; link: "https://example.test/src/tree.sysml#L12" }
-n2: "«attribute»\npower" { class: usage; link: "https://example.test/src/tree.sysml#L5" }
-n3: "«part»\ncylinder" { class: usage; link: "https://example.test/src/tree.sysml#L6" }
+n2: "«attribute»\n^power" { class: usage; link: "https://example.test/src/tree.sysml#L5" }
+n3: "«part»\n^cylinder" { class: usage; link: "https://example.test/src/tree.sysml#L6" }
 n4: "«part»\nwheels" { class: usage; link: "https://example.test/src/tree.sysml#L13" }
 n5: "connect" { class: usage; link: "https://example.test/src/tree.sysml#L14" }
 n6: "«view»\nengineSubview" { class: usage; link: "https://example.test/src/tree.sysml#L29" }

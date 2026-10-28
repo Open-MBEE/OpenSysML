@@ -28,7 +28,7 @@ flowchart TD
     n1("`*«part»*
 **tank**`")
       n2("`*«attribute»*
-**level**`")
+**^level**`")
     n3("`*«part»*
 **pump**`")
     n4("`*«timeslice»*
@@ -40,7 +40,7 @@ flowchart TD
     n7("`*«part»*
 **spare**`")
       n8("`*«attribute»*
-**level**`")
+**^level**`")
   n9("`*«view»*
 **tankView**`")
   n10["`*«part def»*

@@ -222,6 +222,10 @@ _UNRESOLVED = object()
 #: Naming one here is the opt-in for a caller who cannot pass host and port.
 SERVICE_ENV = 'OPENSYSML_SERVICE'
 
+#: Bearer token every call carries, for a service that requires one; the same
+#: variable names the token on the service's side.
+TOKEN_ENV = 'OPENSYSML_GRPC_TOKEN'
+
 #: Options of every channel this client opens: only identity compression, so
 #: no service compresses a response, which grpcio can hand to the parser still
 #: compressed; and no bound on a message's size, since a migrated project's
@@ -263,16 +267,46 @@ _private_services: Dict[Optional[str], '_PrivateService'] = {}
 _private_services_lock = threading.RLock()
 
 
-def open_channel(address):
+class _BearerToken(grpc.UnaryUnaryClientInterceptor,
+                   grpc.UnaryStreamClientInterceptor,
+                   grpc.StreamUnaryClientInterceptor,
+                   grpc.StreamStreamClientInterceptor):
+    """Adds ``authorization: Bearer TOKEN`` to every call of a channel."""
+
+    def __init__(self, token):
+        self._metadata = ('authorization', f'Bearer {token}')
+
+    def _with_token(self, details):
+        metadata = list(details.metadata or ()) + [self._metadata]
+        return details._replace(metadata=metadata)
+
+    def intercept_unary_unary(self, continuation, details, request):
+        return continuation(self._with_token(details), request)
+
+    def intercept_unary_stream(self, continuation, details, request):
+        return continuation(self._with_token(details), request)
+
+    def intercept_stream_unary(self, continuation, details, request_iterator):
+        return continuation(self._with_token(details), request_iterator)
+
+    def intercept_stream_stream(self, continuation, details, request_iterator):
+        return continuation(self._with_token(details), request_iterator)
+
+
+def open_channel(address, token=None):
     """Open an insecure channel to ``address`` with this client's options.
 
     Args:
         address (str): The service's ``host:port``
+        token (str, optional): Bearer token every call carries
 
     Returns:
         grpc.Channel: The channel, to be closed by the caller
     """
-    return grpc.insecure_channel(address, options=CHANNEL_OPTIONS)
+    channel = grpc.insecure_channel(address, options=CHANNEL_OPTIONS)
+    if token:
+        channel = grpc.intercept_channel(channel, _BearerToken(token))
+    return channel
 
 
 def split_target(host, port=None):
@@ -1133,7 +1167,7 @@ class Connection:
     """
     
     def __init__(self, host='localhost', port=None, auto_start=True,
-                 version=None, require_capabilities=None):
+                 version=None, require_capabilities=None, token=None):
         """Initialize connection to sysml-grpc service.
         
         Args:
@@ -1159,11 +1193,17 @@ class Connection:
             require_capabilities (iterable, optional): Capability names the
                 service must report, checked once at connect time rather than
                 when the first call needing one is made
+            token (str, optional): Bearer token every call carries, for a
+                service that requires one (one serving an address other
+                machines reach). Defaults to $OPENSYSML_GRPC_TOKEN; a private
+                child needs none
 
         Raises:
             ValueError: If host names a port that is unreadable or disagrees
                 with port
             ConnectionError: If a private child cannot be started
+            AuthenticationError: If the service wants a token this connection
+                does not carry, or carries wrong
             StaleServiceError: If the service reached is another release
             MissingCapabilityError: If the service lacks a required capability
         """
@@ -1175,6 +1215,7 @@ class Connection:
         self._version = version or os.environ.get('OPENSYSML_GRPC_VERSION') or None
         self._required_capabilities = frozenset(require_capabilities or ())
         self._resolved_release = _UNRESOLVED
+        self._token = token if token is not None else (os.environ.get(TOKEN_ENV) or None)
         # An externally managed service that was not listening yet is checked at
         # the first handshake, so connecting stays free of eager I/O.
         self._check_release_on_handshake = False
@@ -1190,7 +1231,7 @@ class Connection:
                 f"service at {self._address} (not started by this client)"
             )
 
-        self._channel = open_channel(self._address)
+        self._channel = open_channel(self._address, self._token)
         self._service = sysml_pb2_grpc.SysMLServiceStub(self._channel)
         try:
             if self._private is None:
@@ -3729,7 +3770,7 @@ class Connection:
                 predates the handshake, which is itself an answer, and None when
                 the call failed, so nothing was learned
         """
-        channel = open_channel(self._address)
+        channel = open_channel(self._address, self._token)
         try:
             stub = sysml_pb2_grpc.SysMLServiceStub(channel)
             response = stub.GetServerInfo(

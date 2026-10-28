@@ -67,7 +67,7 @@ if [[ -x "$pandoc_dir/bin/pandoc" ]]; then
 else
 	tarball="$dest/pandoc-$PANDOC_VERSION-linux-$pandoc_arch.tar.gz"
 	echo "Fetching pandoc $PANDOC_VERSION ($pandoc_arch) ..."
-	curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" -o "$tarball" \
+	curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" --retry 3 --retry-all-errors -o "$tarball" \
 		"https://github.com/jgm/pandoc/releases/download/$PANDOC_VERSION/pandoc-$PANDOC_VERSION-linux-$pandoc_arch.tar.gz"
 	echo "$pandoc_sha256  $tarball" | sha256sum -c -
 	tar -xzf "$tarball" -C "$dest"
@@ -165,7 +165,7 @@ else
 	else
 		echo "Fetching Graphviz $GRAPHVIZ_VERSION (Ubuntu $ubuntu_version) ..."
 		tarball="$dest/graphviz-$GRAPHVIZ_VERSION-debs.tar.xz"
-		curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" -o "$tarball" \
+		curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" --retry 3 --retry-all-errors -o "$tarball" \
 			"https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/$GRAPHVIZ_VERSION/ubuntu_${ubuntu_version}_graphviz-$GRAPHVIZ_VERSION-debs.tar.xz"
 		echo "$graphviz_sha256  $tarball" | sha256sum -c -
 		debs="$dest/graphviz-debs"
@@ -221,7 +221,7 @@ if [[ -s "$plantuml" ]]; then
 else
 	echo "Fetching PlantUML $PLANTUML_VERSION ..."
 	mkdir -p "$(dirname "$plantuml")"
-	curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" -o "$plantuml.part" \
+	curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" --retry 3 --retry-all-errors -o "$plantuml.part" \
 		"https://github.com/plantuml/plantuml/releases/download/v$PLANTUML_VERSION/plantuml-$PLANTUML_VERSION.jar"
 	echo "$PLANTUML_SHA256  $plantuml.part" | sha256sum -c -
 	mv "$plantuml.part" "$plantuml"
@@ -234,7 +234,7 @@ else
 	echo "Fetching D2 $D2_VERSION ..."
 	mkdir -p "$dest/d2"
 	tarball="$dest/d2-v$D2_VERSION-linux-$pandoc_arch.tar.gz"
-	curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" -o "$tarball" \
+	curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" --retry 3 --retry-all-errors -o "$tarball" \
 		"https://github.com/terrastruct/d2/releases/download/v$D2_VERSION/d2-v$D2_VERSION-linux-$pandoc_arch.tar.gz"
 	echo "$d2_sha256  $tarball" | sha256sum -c -
 	rm -rf "$dest/d2/d2-v$D2_VERSION"

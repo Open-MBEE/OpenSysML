@@ -362,9 +362,9 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     response.canvas.has_size = True
     node = response.nodes.add(
         id="n0", kind="part", name="root", name_synthesized=True, type="Demo::Part",
-        detail="detail", text="text", stand_in=True, parent="",
+        detail="detail", text="text", stand_in=True, parent="", inherited=True,
     )
-    node.ports.add(id="n0.0", name="api", type="Demo::API", direction="inout")
+    node.ports.add(id="n0.0", name="api", type="Demo::API", direction="inout", inherited=True)
     node.origin.file = "views.sysml"
     node.origin.start_line = 4
     node.geometry.x = 10

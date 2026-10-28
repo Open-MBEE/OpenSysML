@@ -27,20 +27,20 @@ flowchart LR
     direction LR
     subgraph n1 ["`*«part»* **pump**`"]
       direction LR
-      n1.0["outlet"]
+      n1.0["^outlet"]
       n2("`*«item»*
-**waterOut**`")
+**^waterOut**`")
     end
     subgraph n3 ["`*«part»* **tank**`"]
       direction LR
-      n3.0["inlet"]
+      n3.0["^inlet"]
       n4("`*«item»*
-**waterIn**`")
+**^waterIn**`")
     end
     subgraph n5 ["`*«part»* **sensor**`"]
       direction LR
       n6("`*«item»*
-**waterOut**`")
+**^waterOut**`")
     end
   end
   n1.0 === n3.0

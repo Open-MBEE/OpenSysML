@@ -4,7 +4,7 @@
 
 **Corpus:** the textual-notation examples printed in the OMG SysML v2.1 Beta 2 and KerML 1.1 Beta 2
 specifications themselves, extracted by `./scripts/download-spec-examples.sh` from the two PDFs of
-release `2026-08`, commit `fb97b754f29588b8e9c7a35f370880cd15eb29e7` (`scripts/pilot-pin.sh`,
+release `2026-09`, commit `b7a6b77000c9136f8f24822fc9d2cb237c76267f` (`scripts/pilot-pin.sh`,
 `PILOT_RELEASE_COMMIT`).
 
 | Root | Source | Clauses | Directory | Files |
@@ -73,7 +73,7 @@ does not import a library package wholesale, and it does not reorder or split an
 
 ## Results
 
-Pilot `2026-08` (`0.62.0`), both validators, fresh cache:
+Pilot `2026-09` (`0.63.0`), both validators, fresh cache:
 
 | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---:|---:|---:|---:|---:|---:|---:|---:|

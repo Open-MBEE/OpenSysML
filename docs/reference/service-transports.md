@@ -57,7 +57,7 @@ capability's definition rather than something a client has to guess:
 | The capability describes | A request that needs it | What a client should do |
 |---|---|---|
 | what the service can be *asked*: `strict_conformance`, `inline_language`, `parse_sources`, `evaluate_subject`, `verification`, `convert`, `apply_edits`, `authoring`, `connection_authoring`, `edit_documents`, `query`, `query_order_by`, `runs`, `self_check`, `record_run`, `oslc_query`, `document_query`, `render_document`, `render_document_html`, `render_view`, `export_graphs`, `import_data`, `compare_results`, `schedule`, `performer`, `state_trace`, `satisfy_authoring`, `requirement_constraint_authoring`, `member_modifiers`, `transition_authoring`, `verification_objective_authoring`, `metadata_authoring`, `metadata_prefix_authoring`, `sequence_authoring`, `implicit_parameters`, `action_body_statement_authoring`, `constraint_body_authoring`, `state_action_authoring`, `import_authoring`, `documentation_authoring`, `comment_authoring`, `migrate`, `convert_documents`, `convert_compact`, `convert_check_diagnostics`, `parse_sources_affected`, `schedule_explore`, `verification_questions`, `verification_arguments`, `engines_external`, `check`, `set_values`, `tensor_values` | is **refused** with `UNIMPLEMENTED`, naming the capability | check the advertised list first, and report the missing capability locally rather than spending a round trip |
-| how a response is *populated*: `type_facts`, `symbol_attributes`, `feature_values`, `enum_values`, `unset_value`, `undetermined_value`, `complex_values`, `structured_values`, `measurement_refs`, `function_values`, `metaobject_values`, `set_values`, `tensor_values`, `big_int_values`, `rational_values`, `verification_verdicts`, `case_evaluations`, `infinity_value`, `diagnostic_codes`, `final_time`, `engines`, `edit_documents`, `render_document_file_name` | is answered with those fields **omitted** | check before reading the fields; an omitted field is not an error |
+| how a response is *populated*: `type_facts`, `symbol_attributes`, `feature_values`, `enum_values`, `unset_value`, `undetermined_value`, `complex_values`, `structured_values`, `measurement_refs`, `function_values`, `metaobject_values`, `set_values`, `tensor_values`, `big_int_values`, `rational_values`, `verification_verdicts`, `case_evaluations`, `infinity_value`, `diagnostic_codes`, `final_time`, `engines`, `edit_documents`, `render_document_file_name`, `verdict_notes` | is answered with those fields **omitted** | check before reading the fields; an omitted field is not an error |
 
 `edit_documents` sits in both rows: without it `ApplyEdits` still edits a model of one document
 and answers `content`, but omits `documents`, `referrers` and each applied edit's `document`;
@@ -166,8 +166,35 @@ Three prerequisites, in the order you will run into them:
 The allowed set drives the preflight response, and the response exposes gRPC-Web's trailer
 headers (`Grpc-Status`, `Grpc-Message`, `Grpc-Status-Details-Bin`); a gRPC-Web client whose
 trailers are not exposed fails in a way that looks like a server bug. CORS is a browser-side
-control, not authentication: a non-browser client is unaffected by the list, and this
-service still has no authentication of any kind.
+control, not authentication: a non-browser client is unaffected by the list; the token below
+is what authenticates. The preflight allows the `Authorization` request header and exposes
+`WWW-Authenticate`.
+
+<a id="authentication"></a>
+**Bind address and authentication.** The service binds loopback unless `-host` says otherwise:
+`-port 50051` alone, `-host ""` and `-host localhost` all serve `localhost:50051`, reachable only
+from the same machine, and the health server binds the same host. An address other machines
+reach (`-host 0.0.0.0`, `-host ::`, a hostname or address of the machine) is served only with
+a bearer token — `-token-file <path>` (one line; the file should be readable by the service user
+only), `-token <value>`, or `OPENSYSML_GRPC_TOKEN` in the environment — and every call on every
+protocol must then carry it: `Authorization: Bearer <token>` on Connect, gRPC-Web and
+Connect-HTTP, the `authorization` metadata on grpc-go, compared in constant time. A call without
+it is answered `unauthenticated` (HTTP 401 with `WWW-Authenticate: Bearer realm="sysml-grpc"`;
+the grpc-go trailer carries the same), and the [wire contract](wire-contract.md#connect-errors-the-code-table)
+says what each client raises. `GET /health` is answered without a token so that liveness
+probes need no secret; it says the version, nothing about any model. Starting non-loopback
+without a token fails at once naming the three ways to supply one and the one way to decline:
+`-allow-unauthenticated` serves every caller that can reach the port, which is only
+appropriate behind a proxy that authenticates on a network that is trusted, and is never
+implied by any other flag. A token on a cleartext port is visible to the network it crosses,
+so such an address carries a token only over TLS (`-tls-cert`, `-tls-key`): starting it
+without the pair fails at once unless `-allow-insecure-token-transport` accepts the clear
+transport, which is right only behind a proxy that terminates TLS in front of the service and
+is, like the other opt-out, never implied; the service warns at startup when it is given. Every call is
+logged on one line at `INFO` with the peer address, method, protocol, status code, duration and
+whether it was authenticated; a refused call is logged at `WARN` with the peer. The token
+itself is never logged. The private child a client starts for itself (`-port 0
+-exit-with-parent`) is unaffected: it binds loopback and needs no token.
 
 **TLS.** `-tls-cert` and `-tls-key` (both or neither) serve everything above over HTTPS on the
 same port, negotiating `h2` and `http/1.1`, minimum TLS 1.2. A browser on an `https://` page
@@ -226,11 +253,11 @@ The stdio transport this project does support is a different protocol for a diff
 agent's host, which starts the process itself — the one situation where a child process is the
 right shape. Its `runtime` tool group is this service's RPC surface, one tool per RPC with the
 RPC's request and response, so an agent gets the same contract the clients on this page do. Its
-`-http` flag serves the same protocol over a port to many agents, with the TLS and origin
-stance this page takes — loopback unless the address says otherwise, TLS from a certificate and
-key pair, an origin allow-list that is not authentication — and one difference the Model Context
-Protocol asks for: an address other machines reach is served only with a bearer token
-(`-token-file`), which every request must carry; loopback alone is served without one.
+`-http` flag serves the same protocol over a port to many agents, with the stance this page
+takes — loopback unless the address says otherwise, an address other machines reach served only
+with a bearer token (`-token-file`, `-token`, `OPENSYSML_MCP_TOKEN` there), TLS from a
+certificate and key pair, an origin allow-list that is not authentication; the two commands
+share one implementation of the token and of the loopback rule.
 
 ## Every protocol is tested, not merely served
 

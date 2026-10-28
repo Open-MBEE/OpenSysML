@@ -2508,7 +2508,7 @@ engine. The Node client defaults to a worker thread over the module and the brow
 through `connectWasm` over `sysml-wasm.wasm.gz` built from the tree (#1230). The gate is
 `tests/wasm`: both targets compile and vet the whole tree (`OPENSYSML_REQUIRE_WASM=1`), the
 gzipped sizes are bounded against gross growth (#970, #975; `sysml-core`'s budget #1278 and
-`sysml-syntax`'s #1283), the `-tags sysml_prod` build drops the optional features for the
+`sysml-syntax`'s #1283), the `-tags sysml_re` build drops the optional features for the
 production module (`CHANGELOG.md` **0.10.0**), and the gate's own timeout fits a slow runner
 (#1334). `v0.10.1` was cut for the budget alone (#1185). What remains is in *Scaling to very
 large models* under *Proposed*: the module's size against a browser's patience.
@@ -3538,7 +3538,7 @@ entry counts are `CHANGELOG.md`'s sections, which are the tags' content.
   (#951), the nightly JupyterLab wheel (#1016), the install and packaging audit (#1070), the
   Cameo plugin as OpenSysML MDK (#759) and the SysON packaging (#483). Beside the tracks,
   `CHANGELOG.md` **0.10.0** carries unbounded `Integer`s, the agent skills under
-  `packaging/agent-skills/`, the `-tags sysml_prod` production build and the `GeneralView`
+  `packaging/agent-skills/`, the `-tags sysml_re` production build and the `GeneralView`
   filters.
 - **`v0.10.1`** (2026-10-14 by the changelog, tagged 2026-10-15; 31 entries: 1 added, 4 changed,
   26 fixed) — the hotfix release #1143: the migrator's layout for association and connector

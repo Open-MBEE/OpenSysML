@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Reference:** [SysML v2 Pilot Implementation](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation), release `2026-08` (`jupyter-sysml-kernel` 0.62.0) — the same release the training corpus is pinned to
+**Reference:** [SysML v2 Pilot Implementation](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation), release `2026-09` (`jupyter-sysml-kernel` 0.63.0) — the same release the training corpus is pinned to
 **Bridges:** two pinned plain-Java programs over the pilot's own validators — `scripts/pilot-sysml-validator/ValidateSysML.java` and `scripts/pilot-kerml-validator/ValidateKerML.java` — built against the shaded jar the [DeciSym/sysmlv2-validator](https://github.com/DeciSym/sysmlv2-validator) build (commit `63abbd9fbc7851dc437d01b2dc07836b919770b8`) provisions
 **Provision:** `./scripts/download-pilot-sysml-validator.sh` and `./scripts/download-pilot-kerml-validator.sh` (each needs Java 21+, and calls `download-pilot-validator.sh` for the pinned jar when it is absent; they write `build/pilot-sysml-validator/` and `build/pilot-kerml-validator/`)
 **Run:** `go run -C tools ./cmd/pilot-diff` (writes `build/pilot-diff/pilot-diff.txt` and `build/pilot-diff/pilot-diff.json`, plus two CI-consumable renderings of the same run: `pilot-diff.xml`, JUnit XML with one suite per corpus root and one case per file that drew a diagnostic, and `pilot-diff.sarif`, SARIF 2.1.0 with one result per disagreeing diagnostic group located on the compared model file)
@@ -147,8 +147,8 @@ corpus.
 The OMG corpora are not vendored, for the same licensing reason as the training corpus, and the
 pilot release they are fetched at is pinned once in `scripts/pilot-pin.sh` — the same pin the
 validator build reads, so corpus and reference can never come from different releases. The pin
-is a release tag *and* the commit it names (`PILOT_TAG=2026-08`,
-`PILOT_COMMIT=692170b71867353b8f90341e61556f49a5beb0e5`): the tag is the human-readable release
+is a release tag *and* the commit it names (`PILOT_TAG=2026-09`,
+`PILOT_COMMIT=38665073bbf02849bd309b106eba79cbb3a1ee1d`): the tag is the human-readable release
 and what the clone asks for, the commit is what makes the pin immutable, and every fetch fails
 if the tag no longer resolves to that commit. A tag alone is a mutable name, so the baselines
 below record `pilotCommit` alongside `pilotTag`: a baseline then identifies the bytes it
@@ -245,19 +245,19 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 920 files)
+## Results (pilot `2026-09`, 921 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | `examples/sysml-v2-training` | 100 | 99 | 1 | 0 | 0 | 0 | 1 | 0 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 91 | 257 | 0 | 0 | 0 | 257 | 0 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 88 | 257 | 10 | 0 | 0 | 257 | 10 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 54 | 11 | 0 | 0 | 0 | 11 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 16 | 0 | 0 | 0 | 16 | 0 |
 | `examples/spec-examples` | 511 | 151 | 1091 | 3395 | 1038 | 6 | 47 | 2351 |
 | `tests/testdata` | 40 | 25 | 78 | 101 | 60 | 5 | 13 | 36 |
-| `examples` | 52 | 45 | 8 | 63 | 0 | 0 | 8 | 63 |
+| `examples` | 53 | 45 | 9 | 65 | 0 | 0 | 9 | 65 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **920** | **521** | **1468** | **3559** | **1098** | **11** | **359** | **2450** |
+| **Total** | **921** | **518** | **1469** | **3571** | **1098** | **11** | **360** | **2462** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -305,9 +305,9 @@ Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-exam
 `unmapped`, 26 `unresolved-reference`, 2 `units`, 1 `kind-mismatch`, 1 `multiplicity`; `pilot-validation` 8 `unmapped`,
 3 `unresolved-reference`; `kerml-examples` 13 `unmapped`, 3 `unresolved-reference`; `testdata` 10 `unmapped`,
 1 `unresolved-reference`, 2 `multiplicity`; `examples` 5
-`unmapped`, 1 `kind-mismatch`, 2 `multiplicity`; `probes` 6 `unmapped`; `spec-examples` 7 `syntax`,
+`unmapped`, 1 `kind-mismatch`, 2 `multiplicity`, 1 `unresolved-reference`; `probes` 6 `unmapped`; `spec-examples` 7 `syntax`,
 38 `unresolved-reference`, 2 `unmapped`. Only-pilot: `testdata` 14 `kind-mismatch`, 17 `unmapped`,
-3 `syntax`, 2 `unresolved-reference`; `examples` 23 `unmapped`, 40 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
+3 `syntax`, 2 `unresolved-reference`; `pilot-examples` 10 `kind-mismatch`; `examples` 24 `unmapped`, 41 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
 586 `kind-mismatch`, 196 `syntax`, 156 `unresolved-reference`, 50 `multiplicity`, 4 `units`.
 
 The `spec-examples` figures are dominated by fragments: the specification's examples leave
@@ -680,6 +680,43 @@ initialized by an operator expression over a `sum`, the same family as the
 | severity-only | 3 | **3** |
 | `examples`: only pilot | 1085 | **1093** |
 
+### Release `2026-09` round
+
+The pin moved from `2026-08` (`0.62.0`) to `2026-09` (`0.63.0`). The corpora are the same 920
+files and our diagnostics do not move at all: 1468 in total, 359 only ours, 1098 agreed, 11
+severity-only, every row where it was. The library moved: the `2026-09` `Flows.sysml` publishes the
+repair the errata overlay carried as `Flows-46`, `Flows-99` and `Flows-103` (`Message` and
+`messages` own `end occurrence source/target` usages, `messages` is an action), so those three
+entries are retired (16 → **13** entries, 9 → **6** corrections) and the overlay-corrected run
+equals the published one on that file.
+
+Both movements are the reference's. The `0.63.0` pilot evaluates enumeration-valued metadata
+properties (its expression-result processing round), and now warns `Bound features should have
+conforming types` on every `attribute = <enumeration literal>` binding inside a metadata usage of
+its own examples — `Metadata Examples/RequirementMetadataExample.sysml`:19–22 and
+`RiskMetadataExample.sysml`:7–9 (`totalRisk = high;` … `costRisk = medium;`, `RiskLevelEnum`
+literals bound to `RiskMetadata` attributes typed `RiskLevel`, which `RiskLevelEnum` specializes)
+and `VerificationMetadataExample.sysml`:7, 11 (`kind = (test,demo);`, `kind = analyze;`,
+`VerificationMethodKind` literals bound to `kind : VerificationMethodKind`) — ten `kind-mismatch`
+warnings. In every one the literal's enumeration is the attribute's type or a specialization of
+it, so the binding conforms and we are right to be silent; the rows are the reference's (where we
+do report at those lines it is the unresolved `high`/`medium`, the import-of-an-import resolver
+gap already adjudicated as only-ours below, which the pilot resolves): `sysml-examples` fully agreeing 91 → **88**, only pilot 0 →
+**10**. And on `examples/self-model/document.sysml`:403 the pilot adds one more `Duplicate of
+inherited member name 'result'` row to the seventeen it already drew there (the reference's
+inherited-`result` cascade, `unmapped`): `examples` only pilot 63 → **64**. Overall fully
+agreeing 521 → **518**, only pilot 2450 → **2461**, pilot diagnostics 3559 → **3570**.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 521 | **518** |
+| only pilot | 2450 | **2461** |
+| pilot diagnostics | 3559 | **3570** |
+| `sysml-examples`: fully agreeing | 91 | **88** |
+| `sysml-examples`: only pilot | 0 | **10** |
+| `examples`: only pilot | 63 | **64** |
+| errata entries / corrections | 16 / 9 | **13 / 6** |
+
 ### Release `2026-08` round
 
 The pin moved from `2026-07` (`0.61.0`) to `2026-08` (`0.62.0`). The reference corpora are the
@@ -858,7 +895,7 @@ so the expression has no value. It is **ours, one-sided by design**: the operand
 unchanged, and the round only lets it see a parameter it could not type before. Recorded in the
 pilot-corpora ratchet (`Expressions.kerml` 0 → 2) and here; the Xpect harness moves one row, the
 file's `noErrors` (1268 agree / 57 disagree → 1267 / 58), recorded in
-[pilot-xpect.md](pilot-xpect.md#noerrors--265-of-276-agree).
+[pilot-xpect.md](pilot-xpect.md#noerrors--266-of-277-agree).
 
 | Count | Before | Now |
 |---|---:|---:|
@@ -977,8 +1014,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **2450** |
-| pilot diagnostics | 123 | **3559** |
+| only pilot | 82 | **2462** |
+| pilot diagnostics | 123 | **3571** |
 | severity-only | 9 | **11** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -1202,14 +1239,14 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **521 / 359 / 1468** |
-| only pilot | **2450** |
-| pilot diagnostics | **3559** |
+| overall: fully agreeing / only ours / our diagnostics | **518 / 360 / 1469** |
+| only pilot | **2462** |
+| pilot diagnostics | **3571** |
 | severity-only | **11** |
 | unmapped, our side | **288** |
 | kerml-examples: only ours | **16** |
 | pilot-examples: only ours | **257** |
-| examples: only pilot | **63** |
+| examples: only pilot | **65** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
 only-pilot, with 56 of 58 files fully agreeing (439 / 6 and 10 / 58 when the root was added, and
@@ -2976,7 +3013,7 @@ about parsing and static checking on these corpora, not about behavioral conform
 ## Re-running and diffing
 
 ```sh
-./scripts/download-training-examples.sh   # the OMG training corpus (pinned 2026-08)
+./scripts/download-training-examples.sh   # the OMG training corpus (pinned 2026-09)
 ./scripts/download-pilot-corpora.sh       # the other OMG corpora, same pin
 ./scripts/download-pilot-validator.sh     # the pilot validator (pinned wrapper, built at the same pin)
 ./scripts/download-pilot-kerml-validator.sh  # the KerML oracle, same pin

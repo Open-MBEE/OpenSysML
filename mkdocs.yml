@@ -112,6 +112,7 @@ not_in_nav: |
 # on GitHub and 404 here, so they are rewritten to the repository at build time.
 # landing: docs/README.md is rendered with the landing page template.
 hooks:
+  - scripts/mkdocs_security.py
   - scripts/mkdocs_repo_links.py
   - scripts/mkdocs_landing.py
   - scripts/mkdocs_census.py
@@ -234,6 +235,7 @@ nav:
   - Guide:
       - guide/README.md
       - guide/01-install.md
+      - Security: guide/security.md
       - guide/02-first-model.md
       - guide/03-command-line.md
       - guide/04-repl.md

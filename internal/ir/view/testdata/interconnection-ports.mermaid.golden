@@ -27,11 +27,11 @@ flowchart LR
     direction LR
     subgraph n1 ["`*«part»* **heating**`"]
       direction LR
-      n1.0["durationIn"]
+      n1.0["^durationIn"]
     end
     subgraph n2 ["`*«part»* **control**`"]
       direction LR
-      n2.0["durationOut"]
+      n2.0["^durationOut"]
     end
     n3("`*«part»*
 **chassis**`")

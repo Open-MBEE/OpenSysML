@@ -14,10 +14,10 @@ type Element string
 
 const (
 	// ElementParameterSymbols are the symbols on a node's boundary standing for
-	// its parameters: a case's actor, subject and stakeholder parameters and an
-	// action's parameter pins (SysML v2 §7.26.5 and the distinguished-parameter
-	// alternatives of §8.2.3). Left out, a connection that ended at the
-	// parameter ends at the node declaring it.
+	// a case's or requirement's actor, subject and stakeholder parameters (SysML
+	// v2 §7.26.5 and the distinguished-parameter alternatives of §8.2.3). Left
+	// out, a connection that ended at the parameter ends at the node declaring
+	// it. An action's parameter pins are its node form's, drawn regardless.
 	ElementParameterSymbols Element = "parameter-symbols"
 	// ElementPortSymbols are the port symbols on a part's boundary (§7.26.5,
 	// "can include symbols on the boundary of the node to represent ports").
@@ -94,7 +94,8 @@ type Shown map[Element]bool
 // DefaultShown is what a rendering shows when neither the model nor the caller
 // says: ports, compartments and keywords, as the notation's examples draw them,
 // and none of the parameter symbols, edge labels, multiplicities, typings and
-// qualifiers. It is the one place the default is decided.
+// qualifiers. It is the one place the default is decided; an action's
+// parameter pins are no optional element but its node form's, always drawn.
 var DefaultShown = Shown{ElementPortSymbols: true, ElementCompartments: true, ElementKeywords: true}
 
 // AllShown is every optional element, what "all" names: the full notation.

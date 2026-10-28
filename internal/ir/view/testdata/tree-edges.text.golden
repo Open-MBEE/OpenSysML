@@ -2,7 +2,7 @@ FleetViews::structure - tree rendering (the view states no rendering; a tree is 
 
 part def Vehicle
   part chassis
-    attribute mass
+    attribute ^mass
   part wheels
   part driver
   attribute total
@@ -12,14 +12,14 @@ part def Vehicle
   part trailer
 part def SportsCar
   part chassis
-    attribute mass
+    attribute ^mass
   part spare
-  part wheels
-  part driver
-  attribute total
-  part cabin
-  part radio
-  part trailer
+  part ^wheels
+  part ^driver
+  attribute ^total
+  part ^cabin
+  part ^radio
+  part ^trailer
 part def Chassis
   attribute mass
 part def LightChassis
@@ -28,14 +28,14 @@ part def Wheel
 part def Driver
 attribute def Mass
 part fleetCar
-  part chassis
-    attribute mass
-  part wheels
-  part driver
-  attribute total
-  part cabin
-  part radio
-  part trailer
+  part ^chassis
+    attribute ^mass
+  part ^wheels
+  part ^driver
+  attribute ^total
+  part ^cabin
+  part ^radio
+  part ^trailer
 
 relationships:
   Vehicle *-- chassis

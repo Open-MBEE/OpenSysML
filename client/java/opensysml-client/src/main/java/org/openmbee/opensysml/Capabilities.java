@@ -30,6 +30,9 @@ public final class Capabilities {
   /** The verification RPCs answer {@code holds} and {@code satisfiable} questions, reporting a verdict's status and witness. */
   public static final String VERIFICATION_QUESTIONS = "verification_questions";
 
+  /** Every {@code Verdict} carries {@code notes}: what a solver's answer assumes and what it leaves uncovered. A service without it answers with none. */
+  public static final String VERDICT_NOTES = "verdict_notes";
+
   /** {@code VerifyConstraint} and {@code VerifyRequirement} bind {@code arguments} and {@code named_arguments} to the element's {@code in} parameters. */
   public static final String VERIFICATION_ARGUMENTS = "verification_arguments";
 

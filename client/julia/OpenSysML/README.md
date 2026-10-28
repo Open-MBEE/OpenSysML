@@ -25,7 +25,10 @@ close(conn)
 
 `connect(; timeout=30, version=nothing, require_capabilities=[])` connects to
 `$OPENSYSML_SERVICE` when set, otherwise it starts a private service child.
-`external(address; ...)` connects to a service owned by another process, and
+`external(address; token=nothing, ...)` connects to a service owned by another
+process — one serving an address other machines reach requires a bearer token,
+sent as `Authorization: Bearer` on every call: `token`, or `$OPENSYSML_GRPC_TOKEN`
+(`TOKEN_ENV`) when none is given — and
 `private(; binary=nothing, ...)` starts one directly. `close(conn)` stops a
 private child; it does not stop an external service. `call(conn, method,
 request)` is the JSON-level escape hatch for any RPC.

@@ -876,12 +876,12 @@ func TestRenderTakesACompartmentFolding(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := run(t, s, "%render Folded::overview dot compartments=most")
-	wants(t, got, "speed : Speed", "fl : Wheel", "hub : Hub<br/>hub.bearing : Hub", "drawn as compartment rows of their owner")
+	wants(t, got, "speed : Speed", "fl : Wheel", "hub : Hub<br/>^hub.bearing : Hub", "drawn as compartment rows of their owner")
 	if strings.Count(got, "[label=") != 2 {
 		t.Errorf("most folds Car's members into its node, leaving Car and Wheel:\n%s", got)
 	}
 	got = run(t, s, "%render Folded::overview compartments=ports")
-	wants(t, got, "  part fl", "  attribute speed", "port hub : Folded::Hub", "port hub.bearing : Folded::Hub")
+	wants(t, got, "  part fl", "  attribute speed", "port hub : Folded::Hub", "port ^hub.bearing : Folded::Hub")
 	if got := run(t, s, "%render Folded::overview text"); strings.Contains(got, "hub.bearing") || !strings.Contains(got, "port hub") {
 		t.Errorf("without a folding every member is a node:\n%s", got)
 	}

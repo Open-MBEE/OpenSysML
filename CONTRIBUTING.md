@@ -9,7 +9,7 @@ reviewed and released.
 
 ### Prerequisites
 
-- Go 1.25 or later
+- Go 1.26 or later
 - Git
 - Make (recommended for build automation)
 
@@ -295,6 +295,12 @@ and solver gates, the PDF toolchain, the coverage merge and the fan-out from a s
 to every client wait for the full tier. Draft until the quick tier is green, then mark ready;
 the full tier is what a pull request has to pass to merge.
 
+**The merge queue**, when the `develop` ruleset has one, runs the full tier once more on the
+commit it builds for each queued pull request (`refs/heads/gh-readonly-queue/develop/...`,
+the `merge_group` event): the diff is the merge group's own, `base_sha..head_sha`, the run is
+never a draft, and `Build and test` reporting on that commit is what lets the entry merge. A
+queue commit therefore gets at least the checks a ready pull request with the same diff gets.
+
 The first job, `Changed areas`, decides the tier from the pull request's draft flag and labels,
 then runs `scripts/ci-changed-areas.sh` over its files and the rest of the jobs are gated on
 what it reports: a change confined to one client runs that client's job alone, while a change
@@ -302,6 +308,10 @@ to the Go sources, the proto, `conformance/` or the workflows runs everything (u
 tier; `CI_TIER=quick` keeps the clients and docs to their own paths). A path no area claims
 turns every area on, so a new directory is over-tested rather than untested — teach the script
 about it, and add a case to `scripts/ci-changed-areas-test.sh`, which the same job runs.
+
+Every third-party action a workflow or composite action `uses:` is pinned to a full commit SHA
+with the release that commit is as a trailing comment (`actions/checkout@<sha> # v4.4.0`); a new
+step takes the same form, and the comment is what lets the pin be moved by version.
 
 ### CircleCI
 

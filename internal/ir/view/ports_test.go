@@ -84,7 +84,7 @@ func TestTheMinimalDisplayDrawsTheConnectedPortsAlone(t *testing.T) {
 		"DOT":      `"` + primary.ID + `" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>primary : ControlSystem</b>>];`,
 		"PlantUML": "  rectangle \"<size:10>//«part»//</size>\\n**primary : ControlSystem**\" as " + primary.ID + " <<part>> <<usage>>\n",
 		"Mermaid":  "    " + primary.ID + "(\"`*«part»*\n**primary : ControlSystem**`\")\n",
-		"text":     "  part primary : ControlSystem\n  part backup : ControlSystem\n    port durationOut\n",
+		"text":     "  part primary : ControlSystem\n  part backup : ControlSystem\n    port ^durationOut\n",
 	} {
 		if !strings.Contains(map[string]string{"DOT": dot, "PlantUML": plantuml, "Mermaid": mermaid, "text": text}[label], want) {
 			t.Errorf("%s lacks %q", label, want)
@@ -95,10 +95,10 @@ func TestTheMinimalDisplayDrawsTheConnectedPortsAlone(t *testing.T) {
 	// the connector.
 	for label, wants := range map[string][]string{
 		"DOT": {`"` + backup.ID + `" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0">`,
-			`<td port="` + standby.ID + `" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">durationOut</font></td>`,
+			`<td port="` + standby.ID + `" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^durationOut</font></td>`,
 			`"` + backup.ID + `":"` + standby.ID + `" -> "` + heating.ID + `":"` + in.ID + `" [label="standby"`},
-		"PlantUML": {"    port \"durationOut\" as " + standby.ID + "\n", standby.ID + " -[thickness=3]- " + in.ID + " : standby\n"},
-		"Mermaid":  {"      " + standby.ID + "[\"durationOut\"]\n", "  " + standby.ID + " ===|\"standby\"| " + in.ID + "\n"},
+		"PlantUML": {"    port \"^durationOut\" as " + standby.ID + "\n", standby.ID + " -[thickness=3]- " + in.ID + " : standby\n"},
+		"Mermaid":  {"      " + standby.ID + "[\"^durationOut\"]\n", "  " + standby.ID + " ===|\"standby\"| " + in.ID + "\n"},
 	} {
 		for _, want := range wants {
 			if !strings.Contains(map[string]string{"DOT": dot, "PlantUML": plantuml, "Mermaid": mermaid}[label], want) {
@@ -326,6 +326,9 @@ func TestMixedActionPinsKeepTheirFormBehavior(t *testing.T) {
 	if open < 0 || closeAt < 0 || !strings.Contains(plantUMLMinimal[start+open+1:start+open+1+closeAt], "port \"request\" as "+request.ID) {
 		t.Errorf("minimal PlantUML does not write request inside Check's container:\n%s", plantUMLMinimal)
 	}
+	if strings.Contains(plantUMLMinimal, "parameters") {
+		t.Errorf("minimal PlantUML lists the action pin it writes as a port:\n%s", plantUMLMinimal)
+	}
 	if !strings.Contains(textMinimal, "in request") {
 		t.Errorf("minimal text does not use the action pin direction:\n%s", textMinimal)
 	}
@@ -341,8 +344,8 @@ func TestMixedActionPinsKeepTheirFormBehavior(t *testing.T) {
 		if strings.Contains(output, check.ID+"_p0[") || strings.Contains(output, `["request"]`) {
 			t.Errorf("%s Mermaid draws Check's unconnected action pin, unlike an action rendering:\n%s", label, output)
 		}
-		if !strings.Contains(output, "Check.request") || !strings.Contains(output, "pin(s) not drawn") {
-			t.Errorf("%s Mermaid does not report Check.request as an undrawn action pin:\n%s", label, output)
+		if !strings.Contains(output, "parameters\nin request") || strings.Contains(output, "pin(s) not drawn") {
+			t.Errorf("%s Mermaid does not list Check.request in a parameters compartment:\n%s", label, output)
 		}
 	}
 	if strings.Contains(mermaidMinimal, "unused") {
@@ -395,7 +398,7 @@ func TestTheMinimalDisplayFollowsTheEdgesDOTDraws(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`xlabel="durationIn"`, `xlabel="durationOut"`, `"n2.0" -> "n1.0" [label="durationInterface"`} {
+	for _, want := range []string{`xlabel="^durationIn"`, `xlabel="^durationOut"`, `"n2.0" -> "n1.0" [label="durationInterface"`} {
 		if !strings.Contains(stripped, want) {
 			t.Errorf("the strip lacks %q:\n%s", want, stripped)
 		}

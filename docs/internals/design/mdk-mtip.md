@@ -1,7 +1,7 @@
-# MTIP and diagram geometry in the OpenSysML MDK for Cameo
+# MTIP and diagram geometry in the Magic MDK
 
 **Status: design note, decisions open.** This records where OpenMBEE's MTIP plugin and its HUDS
-XML fit the plan to bring the OpenSysML MDK for Cameo (`editors/mdk/`,
+XML fit the plan to bring the Magic MDK (`editors/mdk/`,
 [mdk-plugin.md](mdk-plugin.md)) to parity with OpenMBEE MDK
 ([mdk-parity.md](../../project/mdk-parity.md)): what the repository already does with a HUDS
 export, what the new *Export as SysML v2* action writes for v1 and v2 projects, what "MTIP

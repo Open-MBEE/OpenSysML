@@ -118,6 +118,9 @@ func verdictText(v *pb.Verdict) string {
 			fmt.Fprintf(&b, " (%s)", w.GetExact())
 		}
 	}
+	for _, n := range v.GetNotes() {
+		fmt.Fprintf(&b, "\n  %s", n.GetText())
+	}
 	return b.String()
 }
 

@@ -32,7 +32,7 @@ flowchart TD
     n3("`*«part»*
 **radio**`")
       n4("`*«port»*
-**rx**`")
+**^rx**`")
     n5("`*«part»*
 **gps**`")
     n6("`**connect**`")

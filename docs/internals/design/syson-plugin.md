@@ -456,8 +456,8 @@ editors/syson/
   README.md
   pom.xml
   syson-api-stubs/               compile-only Sirius Web and SysON API classes
-  backend/                       org.openmbee:opensysml-syson
-    src/main/java/org/openmbee/opensysml/syson/
+  backend/                       org.openmbee:syson-mdk
+    src/main/java/org/openmbee/mdk/syson/
       OpenSysMLAutoConfiguration.java
       run/RunWithOpenSysMLService.java
       export/ProjectTextExporter.java
@@ -469,7 +469,7 @@ editors/syson/
       validation/OpenSysMLValidationService.java
     src/main/resources/schema/opensysml.graphqls
     src/test/java/...
-  frontend/                      @openmbee/opensysml-syson
+  frontend/                      @openmbee/syson-mdk
     src/extension/RunWithOpenSysMLMenuContribution.tsx
     src/dialog/RunWithOpenSysMLDialog.tsx
     src/results/RunResultsPanel.tsx
@@ -646,7 +646,7 @@ keyed by `elementId`.
 Where the code departs from §3–§4, and why.
 
 - **Beans are registered by Spring Boot auto-configuration, not by package scan.** The jar's
-  classes live under `org.openmbee.opensysml.syson` and are listed in
+  classes live under `org.openmbee.mdk.syson` and are listed in
   `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`, so a
   deployment adds the jar and nothing else; putting them under `org.eclipse.syson` (§2.1) would
   have made a foreign jar claim SysON's namespace.

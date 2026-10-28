@@ -43,7 +43,18 @@ the usage's end — the glyphs of SysML v2 §8.2.3.6, the diamond read from the 
 `Feature::isComposite` (`semantics.Model.UsageIsComposite`: a `ref`, an attribute, a port outside a
 port, an end, a directed or an enumeration usage is non-composite). The writers draw that edge in
 place of the containment line they draw to every other child, so a usage hangs off its owner by its
-membership glyph alone. A usage listed in a compartment row instead of drawn as a node (the
+membership glyph alone. The directed parameters of a calculation, action or constraint definition
+or usage — `in`, `out`, `inout` and `return` — are no member nodes of a tree: `treeParameter`
+(`tree_parameters.go`) pins each on its owner's node as a `Port` with `Parameter` set and the
+direction `pinDirection` reads, where §8.2.3.17, §8.2.3.19 and §8.2.3.20 set a calc's, action's and
+constraint's parameters (`param-l*`, `param-r*`, `param-b*`). A `return` declaring no name is the
+`result` pin, named by the `Function::result` it redefines (§7.19.2); a usage typed by a definition
+pins each parameter once, its own redefining ones as declared and the definition's others as
+inherited (`^y`). The text form lists the pins under their node direction first (`in x : Integer`,
+the type under `typings`), DOT and D2 draw them as pins, and Mermaid's flowchart and PlantUML's
+class diagram, which have no pin on a tree node, list them in a `parameters` compartment
+(`labeller.parameterLines`). The pins are the tree's model structure and stay whatever
+`parameter-symbols` says, as its members do. A usage listed in a compartment row instead of drawn as a node (the
 compartment foldings, or a positioned tree's unplaced members) folds its membership and typing into
 one edge from its owner to each drawn definition, labelled with the usage's name and multiplicity
 at the definition's end — the property association a block definition diagram draws. Both
@@ -257,6 +268,23 @@ else by the activity its type performs (`do action : Initialize` reads `Initiali
 what its anonymous body does — the message it sends or the one assignment it makes — and the
 keyword alone when none of that names it.
 
+A usage drawn or listed under an owner that does not declare it — one the owner has through
+typing, subclassification or subsetting — is marked inherited (`Node.Inherited`, set by the tree
+and interconnection walks, the case walk's inherited actors and subjects, and the action pins a
+node takes from its type; `Port.Inherited` for a pinned port), and every form writes the
+notation's `^` before its name (SysML v2.1 §8.2.3.6, `usage-name-with-alias` and `el-prefix`):
+`^mass` in a node head, a compartment row and the text form, `^aPort : APort` for a typed one, a
+pin's `^aPort` label, and the end label of a folded membership edge. A redefinition the owner
+declares is its own and reads bare (`attribute :>> mass` under `part d : APart` lists `mass`,
+beside `^aPort`), as does every member of a definition under the definition itself. The
+`usagePrefix` in `label.go` is the one place the glyph comes from. The data form and the JSON the
+LSP, the engine and the gRPC `RenderView` answer carry the mark as a field beside the bare name
+(`Inherited` on `NodeData` and `Port`, `inherited` on `RenderNode` and `RenderPort`) rather than
+in `name`, because the canvas and the clients key on names — the canvas's `labelHead` and
+`portName` add the `^` when they draw. The derived-feature prefix `/` of the same production is a
+different fact (the `derived` keyword, which the compartment row keeps as a prefix word) and is not
+drawn as a glyph.
+
 The name and type a node carries (`Node.Name`, `Node.Type`, the JSON's `name` and `type`) stay
 as the walk spells them — a root's name qualified, a nested member's simple, a type as the
 declaration references it — and the text form prints them so. The graphical forms head a node
@@ -434,11 +462,11 @@ table records what each rendering feature writes:
 | Feature | Mermaid syntax and behavior |
 | --- | --- |
 | Definitions, regions, package kinds | Square flowchart nodes, `n0["…"]`; cases use stadium nodes, actors and subjects use keyword-bearing rectangles, and objectives use note nodes. Other non-symbol leaves are rounded `n0("…")` nodes. Cameo follows the DOT skin's rounded rule. |
-| Tree containment | Plain shaped nodes joined by `---`; tree nodes are never subgraphs and have no synthetic anchors. |
+| Tree containment | Plain shaped nodes joined by `---`; tree nodes are never subgraphs and have no synthetic anchors. A calc's, action's or constraint's parameter pins are lines of the node's label under a `parameters` heading (`in x : Integer`). |
 | Initial, final, junction, fork and join | `f-circ` for initial and junction nodes, `fr-circ` for final nodes, and `fork` for fork/join bars. Only fork/join bars use the `control` class. Named fork/join nodes are listed in a notice because the bar draws no label. |
 | Decision, merge, choice and history | Diamonds; empty and synthesized decision names use a blank diamond. Shallow/deep history use `(("H"))` and `(("H*"))`. |
 | State pseudostates and final transitions | Mermaid state stereotypes (`<<fork>>`, `<<join>>`, `<<choice>>`) and `[*]` for initial/final markers. A final in the same state body is implicit; cross-body final transitions retain the explicit final and receive a notice. |
-| Edges | `===` for connections/bindings, `-.->` for flows and typing/references, `-.->|"«include»"|` for includes, `---` for associations and tree containment, `-.-` for anchors, and `-->|"«specializes»"|` for specialization. Links to non-tree clusters use a hidden anchor inside the subgraph. Per-edge styles use `linkStyle` indices spanning containment, rendering edges and note anchors. |
+| Edges | `===` for connections/bindings, `-->` for flows, typing, transitions, satisfy/verify/allocate and `-->|"«include»"|` for includes (solid, as the notation draws them), `-.->` for successions, succession flows, imports, exposes and dependencies, `---` for memberships, associations and tree containment, `-.-` for anchors, and `-->|"«specializes»"|` for specialization. Links to non-tree clusters use a hidden anchor inside the subgraph. Per-edge styles use `linkStyle` indices spanning containment, rendering edges and note anchors. |
 | Markdown labels | Flowchart node labels use bold head lines, an italic keyword line and plain details. Container titles put the italic keyword and bold name on one line, then any further head lines and details. Unsafe punctuation, list-like starts, non-multiplicity `*` and non-intraword `_` use the plain escaped label instead. Leaf state, sequence and edge labels are unchanged. |
 | Theme variables | Common font, primary/secondary/tertiary, background, line/text and note variables are shared. Flowcharts add cluster and edge-label variables; state diagrams add state, composite and transition variables; sequences add actor, signal, label-box, activation and sequence-number variables. |
 | Styles and palettes | `classDef`/`class` fill applicable nodes by keyword family; palettes override Cameo fills. `Style` CSS covers Mermaid's supported node and edge fields; unsupported fields are listed in notices. Sequence palettes are accepted but cannot fill individual participants. Cluster anchors do not receive palette fills or count as model nodes. |
@@ -577,12 +605,14 @@ digraph "VehicleViews::vehicleView" {
   frame's pins are set on the cluster's border as a positioned node's are (`writePins` on the
   root cluster). The text form lists a node's pins under it by direction and name (`in bread`)
   and names the pins an edge joins as its ends (`heat.t => pack.t`, `ToastBread.bread ==
-  heat.b`), labelling the edge by its own name alone as DOT does. Mermaid's flowchart draws the
-  pins an edge ends at (`n0_p0 ===|"bread = b"| n1_p0`) and names the rest in a `not
-  represented` notice, `N pin(s) not drawn (…); a flowchart draws the pins an edge ends at`.
-  PlantUML's state grammar, which an action rendering uses, has no pin: the edge keeps its label
-  naming the pins (`n0 -- n1 : bread = b`) and every pin is named in a `not represented` notice,
-  `N pin(s) not drawn (…); PlantUML's state grammar has no pin, so the edges name them`.
+  heat.b`), labelling the edge by its own name alone as DOT does. Mermaid's flowchart and D2 draw
+  the pins an edge ends at (`n0_p0 ===|"bread = b"| n1_p0`) and list the rest in a `parameters`
+  compartment of their node (`labeller.parameterLines`, the pins `Rendering.unconnectedPin`
+  names), one line per pin as the tree form writes it (`in x`, `out ^result`, typed under
+  `typings`). PlantUML's state grammar, which an action rendering uses, has no pin: the edge keeps
+  its label naming the pins (`n0 -- n1 : bread = b`) and every pin is listed in its node's
+  `parameters` compartment. The `N pin(s) not drawn` notice remains for a pin that is neither
+  drawn nor listed.
 - **Interconnection ports.** A part's node carries as its `Ports` the ports it has from its
   definition and what that specializes without declaring them itself (`featureWalk.pinPorts`,
   `Renderer.typedPorts` in `interconnection.go`: `Model.MembersOf` less the part's own members
@@ -1186,7 +1216,8 @@ pseudostate shape only when nothing else is attached.
   Mermaid and DOT trees draw containment — a tree of edges, no nested containers — so the three
   forms show the same picture and a tree has no blocks. The Pilot's `comp def`/`comp usage`
   element kinds exist only in the PlantUML fork and are not emitted; every element is a standard
-  `class`.
+  `class`, a calc's, action's or constraint's parameter pins listed in its label under a
+  `parameters` heading, as the Mermaid tree lists them.
 - **`interconnection`** — nested `rectangle` blocks: a node with children is `rectangle "…" as
   n<i> <<kind>> {` … `}`, indented two spaces a level, a leaf a one-line `rectangle`. A port is a
   nested rectangle inside its owner, not a `portin`/`portout`: the released jar's port grammar
@@ -1274,7 +1305,7 @@ one `skinparam` the block cannot express. The translation of the same two source
 | note `BackGroundColor #FEFFDD`, 13 pt | `note { BackGroundColor #FEFFDD; FontSize 13 }` — no note is drawn today, the rule is there for one |
 | Pilot `skinparam wrapWidth 300` | `skinparam wrapWidth 300`, the one rule written as a `skinparam`; DOT could not wrap |
 | Pilot `hide circle` | `hide circle` on the class diagram (a tree), where the circle exists |
-| Pilot `-[thickness=3]-` connectors, `-->` flows and successions | `-[thickness=3]-` for `EdgeConnection`; `-->` for a transition or succession; `-[dashed]->` for a flow, as the Pilot's `VAction` dashes flows |
+| Pilot `-[thickness=3]-` connectors, `-->` flows and successions | `-[thickness=3]-` for `EdgeConnection`; `-->` for a transition and for a flow (solid with the notation's filled head, which PlantUML has not; the Pilot's `VAction` dashes flows, the notation does not); `-[dashed]->` for a succession, as the `aflow-succession` glyph dashes it |
 | initial and final pseudo-states | PlantUML's own `<<start>>`/`<<end>>` dots, filled black by `start, end, activityBar { BackGroundColor black }` (the `element` rule would otherwise leave them and the fork/join bars hollow) |
 
 So the three rules DOT could not honour — the 20-unit usage radius, shadows off and the 300 px
@@ -1344,7 +1375,7 @@ a `.` (`"n1.0"`) so D2 does not read it as a path.
 The look is the [DOT style](#style) restated as D2 classes: `definition` square and `usage` with
 `border-radius: 8`, both white with a `#181818` 1 px stroke and 14 pt black text; `package` and
 `region` containers (the region's `stroke-dash: 3` for an orthogonal region, as DOT dashes it);
-`pin` at 10 pt; `edge` 1 px, `connection` 3 px, `flow` dashed, all with 13 pt labels; the
+`pin` at 10 pt; `edge` 1 px, `connection` 3 px, `succession` dashed, all with 13 pt labels; the
 pseudostate classes above. A palette fills a node as `style: { fill: "#hex"; stroke: "#hex" }`
 after its class, the [palette rules](#palettes) shared with DOT unchanged — same family, same
 tint, same contrast lightening, same hex per node — and a container's fill is written the same
@@ -1369,13 +1400,15 @@ ports drawn or not, an edge's label, the `«keyword»` and the name's qualificat
 multiplicity, a feature's `: Type`. A rendering draws the required notation and, of the
 optional, what it is told to show. `view.DefaultShown` is the default, one named constant:
 port symbols, compartments and keywords, the three the notation's own examples draw on every
-node. Each element has a name every surface uses and a Boolean
+node. An action's or calculation's parameter pins are no optional element: the action and
+calculation node forms carry them as `param-l*`/`param-r*`/`param-b*` (§8.2.3.17, §8.2.3.19), so
+`narrow` keeps them whatever is shown (`actionPinNode`). Each element has a name every surface uses and a Boolean
 attribute a rendering in the model chooses it by:
 
 | Element | Attribute | What it draws | Optional by |
 | --- | --- | --- | --- |
-| `parameter-symbols` | `showParameterSymbols` | A case's `actor`, `subject` and `stakeholder` parameters and an action's parameter pins as squares on the node's boundary. Without them a connection that ended at a parameter ends at the node that declares it: one line per connection, one node per actor. A tree lists a case's parameters as members, which stay. | §7.26.5; §8.2.3 `distinguished-parameter`, `distinguished-parameter-link` |
-| `port-symbols` | `showPortSymbols` | A part's ports, and a constraint's parameters, as pins on its boundary. Without them a connection that ended at a port ends at the part, a binding that ended at a parameter at the constraint; a port drawn as a nested member of a tree is model structure and stays. Default. | §7.26.5; §8.2.3 `port-node` |
+| `parameter-symbols` | `showParameterSymbols` | A case's `actor`, `subject` and `stakeholder` parameters as squares on the node's boundary (an action's parameter pins are its node form's, always drawn). Without them a connection that ended at a parameter ends at the node that declares it: one line per connection, one node per actor. A tree lists a case's parameters as members and a calc's, action's or constraint's as pins of their owner, all of which stay. | §7.26.5; §8.2.3 `distinguished-parameter`, `distinguished-parameter-link` |
+| `port-symbols` | `showPortSymbols` | A part's ports, and a constraint's parameters, as pins on its boundary. Without them a connection that ended at a port ends at the part, a binding that ended at a parameter at the constraint; a port drawn as a nested member of a tree is model structure and stays, as are a tree's parameter pins. Default. | §7.26.5; §8.2.3 `port-node` |
 | `compartments` | `showCompartments` | The lists of nested features inside a node. Default. | §7.26.5; §8.2.3 `compartment` |
 | `edge-labels` | `showEdgeLabels` | The names of connections, flows, bindings and allocations along their lines. Without them no label box is left. A sequence diagram's message lines keep their labels: the label is the message. | §8.2.3 `edge-label` |
 | `keywords` | `showKeywords` | The `«keyword»` over each name (`«part def»`, `«part»`, `«enum def»`, …), as the notation's examples, the pilot and SysON draw every node. Default. | §8.2.3 `keyword-list` |

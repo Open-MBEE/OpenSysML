@@ -54,7 +54,7 @@ in [reference/environment.md](../reference/environment.md).
 
 - **GitHub Issues:** report defects or request features
 - **Discussions:** questions about SysML v2 usage
-- **Specification reference:** [OMG SysML v2.1 Beta 1 Specification](https://www.omg.org/spec/SysML/2.0) (2026-08 release)
+- **Specification reference:** [OMG SysML v2.1 Beta 1 Specification](https://www.omg.org/spec/SysML/2.0) (2026-09 release)
 
 ---
 

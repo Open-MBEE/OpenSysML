@@ -1,5 +1,5 @@
 {
-  "hash": "ffa7651c440765f520364271bd1b5040e0993f0cada9389a570c3d4bdf8b516f",
+  "hash": "0d29c2a195b8f741dce92ae0aa43f8d2f10da5424de438a8efced36fbb5e467d",
   "render": {
     "kind": "interconnection",
     "stated": "no view declared; rendering OpenSysMLStack::stack directly",
@@ -26,7 +26,8 @@
           {
             "id": "n1.0",
             "name": "api",
-            "type": "ModelPort"
+            "type": "ModelPort",
+            "inherited": true
           }
         ],
         "origin": {
@@ -161,7 +162,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n11",
@@ -217,7 +219,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n15",
@@ -273,7 +276,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n19",
@@ -329,7 +333,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n23",
@@ -370,7 +375,7 @@
           "startLine": 55,
           "startCol": 17,
           "endLine": 55,
-          "endCol": 56
+          "endCol": 60
         }
       },
       {
@@ -385,7 +390,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n27",
@@ -441,7 +447,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n31",
@@ -497,7 +504,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n35",
@@ -553,7 +561,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n39",
@@ -609,7 +618,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n43",
@@ -665,7 +675,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n47",
@@ -721,7 +732,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n51",
@@ -777,7 +789,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n55",
@@ -833,7 +846,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n59",
@@ -889,7 +903,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n63",
@@ -945,7 +960,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n67",
@@ -1001,7 +1017,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n71",
@@ -1013,7 +1030,8 @@
           {
             "id": "n71.0",
             "name": "api",
-            "type": "ModelPort"
+            "type": "ModelPort",
+            "inherited": true
           }
         ],
         "origin": {
@@ -1148,7 +1166,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n81",
@@ -1204,7 +1223,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n85",
@@ -1260,7 +1280,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n89",
@@ -1316,7 +1337,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n93",
@@ -1372,7 +1394,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n97",
@@ -1428,7 +1451,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n101",
@@ -1484,7 +1508,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n105",
@@ -1540,7 +1565,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n109",
@@ -1552,7 +1578,8 @@
           {
             "id": "n109.0",
             "name": "api",
-            "type": "ModelPort"
+            "type": "ModelPort",
+            "inherited": true
           }
         ],
         "origin": {
@@ -1687,7 +1714,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n119",
@@ -1743,7 +1771,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n123",
@@ -1799,7 +1828,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       },
       {
         "id": "n127",
@@ -1855,7 +1885,8 @@
           "startCol": 9,
           "endLine": 21,
           "endCol": 47
-        }
+        },
+        "inherited": true
       }
     ],
     "edges": [
@@ -3205,7 +3236,7 @@
         "role": {
           "featureName": "role",
           "value": {
-            "stringValue": "VS Code, Cameo MDK, SysON"
+            "stringValue": "VS Code, Magic MDK, SysON MDK"
           },
           "materialized": true
         },
