@@ -50,6 +50,7 @@ import org.openmbee.mdk.magic.ui.ResultsWindow;
  */
 public final class OperationActions implements BrowserContextAMConfigurator, DiagramContextAMConfigurator {
   private static final String CATEGORY_ID = "org.openmbee.opensysml";
+  private static final String SYSML_EXTENSION = ".sysml";
 
   private final Supplier<Engine> engine;
   private final SelectionResolver resolver;
@@ -174,8 +175,8 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
         }
         Path destination = chooser.getSelectedFile().toPath();
         String name = destination.getFileName().toString();
-        if (!name.toLowerCase(Locale.ROOT).endsWith(".sysml") && !name.toLowerCase(Locale.ROOT).endsWith(".kerml")) {
-          destination = destination.resolveSibling(name + ".sysml");
+        if (!name.toLowerCase(Locale.ROOT).endsWith(SYSML_EXTENSION) && !name.toLowerCase(Locale.ROOT).endsWith(".kerml")) {
+          destination = destination.resolveSibling(name + SYSML_EXTENSION);
         }
         if (!Files.exists(destination)) return Optional.of(destination);
         int overwrite = JOptionPane.showConfirmDialog(
@@ -210,7 +211,7 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
     private String defaultFileName() {
       String name = project.getName();
       String stem = name == null || name.isBlank() ? "model" : name.replaceAll("[\\\\/:*?\"<>|]", "_");
-      return stem + ".sysml";
+      return stem + SYSML_EXTENSION;
     }
 
     /**
