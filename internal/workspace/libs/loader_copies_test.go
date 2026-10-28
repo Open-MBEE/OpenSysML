@@ -16,8 +16,8 @@ import (
 // either copy resolves D's supertype to the B declared beside it.
 func copiedLibrary(t *testing.T, dir string) {
 	t.Helper()
-	for _, copy := range []string{"one", "two"} {
-		path := filepath.Join(dir, copy, "Lib.kerml")
+	for _, replica := range []string{"one", "two"} {
+		path := filepath.Join(dir, replica, "Lib.kerml")
 		if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 			t.Fatal(err)
 		}
@@ -81,9 +81,9 @@ func TestLoaderRestoresEachCopyFromItsOwnRecord(t *testing.T) {
 			t.Errorf("%s: warm supertypes %q, cold %q", key, got, want)
 		}
 	}
-	for _, copy := range []string{"one", "two"} {
-		key := copy + "/Lib.kerml#Lib::D"
-		if want := copy + "/Lib.kerml#Lib::B"; coldSupers[key] != want {
+	for _, replica := range []string{"one", "two"} {
+		key := replica + "/Lib.kerml#Lib::D"
+		if want := replica + "/Lib.kerml#Lib::B"; coldSupers[key] != want {
 			t.Errorf("%s: cold supertypes %q, want %q", key, coldSupers[key], want)
 		}
 	}

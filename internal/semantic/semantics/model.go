@@ -989,27 +989,7 @@ func (m *Model) FeatureTypeSetWithImplied(sym *symbols.Symbol) []*symbols.Symbol
 			types = append(types, typ)
 		}
 	}
-	bases := m.ImplicitGenerals(sym)
-	// A membership's own base (a case's subject) can stand in for the kind's among the implied
-	// generals, so the base feature of the symbol's kind joins too (a subject is a part usage).
-	if _, isUsage := sym.Decl.(*ast.Usage); (isUsage || sym.Kind == symbols.SymbolPartUsage) && !m.isKerMLDoc(sym) && m.resolver != nil && m.resolver.Index() != nil {
-		fqns := []string{}
-		if fqn, ok := m.FeatureBaseFQN(sym); ok {
-			fqns = append(fqns, fqn)
-		}
-		for kind, fqn := range implicitUsageBases {
-			if fqn != lifeFQN && symbols.UsageSymbolKind(kind) == sym.Kind {
-				fqns = append(fqns, fqn)
-			}
-		}
-		for _, fqn := range fqns {
-			for _, base := range m.resolver.Index().LookupQualified(fqn) {
-				if base != nil && base != sym && !containsElement(bases, base) {
-					bases = append(bases, base)
-				}
-			}
-		}
-	}
+	bases := m.withUsageBases(sym, m.ImplicitGenerals(sym))
 	for _, general := range bases {
 		if general == nil {
 			continue
@@ -1026,6 +1006,32 @@ func (m *Model) FeatureTypeSetWithImplied(sym *symbols.Symbol) []*symbols.Symbol
 		return nil
 	}
 	return m.mostSpecificTypes(types)
+}
+
+// withUsageBases adds a usage kind's base features to its implied generals, where a
+// membership's own base (a case's subject) may stand in for the kind's (a part usage).
+func (m *Model) withUsageBases(sym *symbols.Symbol, bases []*symbols.Symbol) []*symbols.Symbol {
+	_, isUsage := sym.Decl.(*ast.Usage)
+	if !(isUsage || sym.Kind == symbols.SymbolPartUsage) || m.isKerMLDoc(sym) || m.resolver == nil || m.resolver.Index() == nil {
+		return bases
+	}
+	fqns := []string{}
+	if fqn, ok := m.FeatureBaseFQN(sym); ok {
+		fqns = append(fqns, fqn)
+	}
+	for kind, fqn := range implicitUsageBases {
+		if fqn != lifeFQN && symbols.UsageSymbolKind(kind) == sym.Kind {
+			fqns = append(fqns, fqn)
+		}
+	}
+	for _, fqn := range fqns {
+		for _, base := range m.resolver.Index().LookupQualified(fqn) {
+			if base != nil && base != sym && !containsElement(bases, base) {
+				bases = append(bases, base)
+			}
+		}
+	}
+	return bases
 }
 
 // mostSpecificTypes drops every type another one in the list specializes.
