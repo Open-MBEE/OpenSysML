@@ -1089,70 +1089,88 @@ func (m *materializing) message(msg Message) (Message, error) {
 // recordedOccurrences brings the image's shots, fired successions and transfers
 // to dst under the identities the objects were made with.
 func (m *materializing) recordedOccurrences() error {
-	made := func(id int64) int64 {
-		if inst, ok := m.made[id]; ok {
-			return inst.ID
-		}
-		return 0
-	}
-	madeAll := func(ids []int64) []int64 {
-		out := make([]int64, 0, len(ids))
-		for _, id := range ids {
-			if to := made(id); to != 0 {
-				out = append(out, to)
-			}
-		}
-		return out
-	}
 	for id, values := range m.img.startValues {
-		to := made(id)
+		to := m.madeID(id)
 		if to == 0 {
 			continue
 		}
-		carried := make(map[string]Value, len(values))
-		for name, value := range values {
-			value, err := m.value(value)
-			if err != nil {
-				return fmt.Errorf("object #%d start value %s: %w", id, name, err)
-			}
-			carried[name] = value
+		carried, err := m.carriedStartValues(id, values)
+		if err != nil {
+			return err
 		}
 		m.dst.startValues[to] = carried
 	}
 	for id, shots := range m.img.shots {
-		if to := made(id); to != 0 {
-			m.dst.shots[to] = occurrenceShots{start: made(shots.start), end: made(shots.end)}
+		if to := m.madeID(id); to != 0 {
+			m.dst.shots[to] = occurrenceShots{start: m.madeID(shots.start), end: m.madeID(shots.end)}
 		}
 	}
 	for id, predecessors := range m.img.fired {
-		if to := made(id); to != 0 {
-			m.dst.fired[to] = madeAll(predecessors)
+		if to := m.madeID(id); to != 0 {
+			m.dst.fired[to] = m.madeIDs(predecessors)
 		}
 	}
 	for _, record := range m.img.transfers {
-		to := made(record.id)
+		to := m.madeID(record.id)
 		if to == 0 || slices.ContainsFunc(m.dst.transfers, func(r transferRecord) bool { return r.id == to }) {
 			continue
 		}
-		payload := record.payload
-		if elems := elementsOf(payload); len(elems) > 0 {
-			mapped := make([]Value, 0, len(elems))
-			for _, elem := range elems {
-				if elem.Kind == ValInstance {
-					elem = Value{Kind: ValInstance, Instance: made(elem.Instance)}
-				}
-				mapped = append(mapped, elem)
-			}
-			if payload.Kind == ValInstance {
-				payload = mapped[0]
-			} else {
-				payload = sequenceOf(mapped)
-			}
-		}
-		m.dst.transfers = append(m.dst.transfers, transferRecord{
-			id: to, source: made(record.source), target: made(record.target), payload: payload,
-			sources: madeAll(record.sources), targets: madeAll(record.targets),
-		})
+		m.dst.transfers = append(m.dst.transfers, m.carriedTransfer(to, record))
 	}
 	return nil
+}
+
+// madeID is the identity the image's object id was made under, 0 when it was not made.
+func (m *materializing) madeID(id int64) int64 {
+	if inst, ok := m.made[id]; ok {
+		return inst.ID
+	}
+	return 0
+}
+
+// madeIDs maps ids to the identities they were made under, dropping those not made.
+func (m *materializing) madeIDs(ids []int64) []int64 {
+	out := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if to := m.madeID(id); to != 0 {
+			out = append(out, to)
+		}
+	}
+	return out
+}
+
+// carriedStartValues brings the start values recorded for the image's object id to dst.
+func (m *materializing) carriedStartValues(id int64, values map[string]Value) (map[string]Value, error) {
+	carried := make(map[string]Value, len(values))
+	for name, value := range values {
+		value, err := m.value(value)
+		if err != nil {
+			return nil, fmt.Errorf("object #%d start value %s: %w", id, name, err)
+		}
+		carried[name] = value
+	}
+	return carried, nil
+}
+
+// carriedTransfer is record for the transfer made as to, its ends and payload mapped alike.
+func (m *materializing) carriedTransfer(to int64, record transferRecord) transferRecord {
+	payload := record.payload
+	if elems := elementsOf(payload); len(elems) > 0 {
+		mapped := make([]Value, 0, len(elems))
+		for _, elem := range elems {
+			if elem.Kind == ValInstance {
+				elem = Value{Kind: ValInstance, Instance: m.madeID(elem.Instance)}
+			}
+			mapped = append(mapped, elem)
+		}
+		if payload.Kind == ValInstance {
+			payload = mapped[0]
+		} else {
+			payload = sequenceOf(mapped)
+		}
+	}
+	return transferRecord{
+		id: to, source: m.madeID(record.source), target: m.madeID(record.target), payload: payload,
+		sources: m.madeIDs(record.sources), targets: m.madeIDs(record.targets),
+	}
 }

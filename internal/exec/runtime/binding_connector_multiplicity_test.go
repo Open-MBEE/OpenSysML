@@ -37,7 +37,7 @@ func TestConnectorMultiplicityBoundsLinks(t *testing.T) {
 			t.Fatalf("%s = %v, want what its own declaration states", expr, err)
 		}
 		if got := len(elementsOf(val)); got != want {
-			t.Errorf("%s = %s, want %d object(s) of its own", expr, FormatValue(val), want)
+			t.Errorf("%s = %s holds %d object(s), want %d of its own", expr, FormatValue(val), got, want)
 		}
 	}
 	// `many : Real [2]` states no value, so the binding to `own` leaves it undetermined.

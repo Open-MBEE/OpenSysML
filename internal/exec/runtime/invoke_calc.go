@@ -835,7 +835,7 @@ func (ctx *Context) invokeCalcShapeDirect(shape *calcShape, args calcArgs, calle
 		ec.trace.recordCalculationEnter(shape.Kind, shape.Name)
 	}
 
-	if err := ctx.bindCalcParameters(shape, ec, args, callerScope, locals, nil, occurrence, nil); err != nil {
+	if err := ctx.bindCalcParameters(shape, ec, args, callerScope, locals, calcBindingSite{occurrence: occurrence}); err != nil {
 		if ec.trace != nil {
 			ec.trace.recordCalculationExitError(shape.Kind, shape.Name, err)
 		}
@@ -923,23 +923,30 @@ func (ctx *Context) leaveCalc() {
 	ctx.calcDepth--
 }
 
+// calcBindingSite is where an invocation's parameters are bound beyond the call
+// itself: nested, when non-null, is the environment reading a nested usage, which
+// the bindings the usage itself declares are written in and evaluate against;
+// occurrence is the performance the bound values are also written to; open names
+// the parameters a usage read as a feature leaves unsupplied, bound to no value.
+type calcBindingSite struct {
+	nested     *EvalContext
+	occurrence *calcOccurrence
+	open       map[string]bool
+}
+
 // bindCalcParameters binds the calc's input parameters into bindings: each
 // parameter's argument, or, for a parameter no argument supplies, the default
 // declared closest to the invoked calc, evaluated in the scope of the calc
-// declaring it. ec supplies the environment defaults are evaluated in; nested,
-// when non-null, is the environment reading a nested usage, which the bindings
-// the usage itself declares are written in and evaluate against. open names the
-// parameters a usage read as a feature leaves unsupplied, bound to no value.
+// declaring it. ec supplies the environment defaults are evaluated in.
 func (ctx *Context) bindCalcParameters(
 	shape *calcShape,
 	ec *EvalContext,
 	args calcArgs,
 	callerScope *symbols.Scope,
 	bindings frame,
-	nested *EvalContext,
-	occurrence *calcOccurrence,
-	open map[string]bool,
+	site calcBindingSite,
 ) error {
+	nested, occurrence, open := site.nested, site.occurrence, site.open
 	positional := 0
 	for i := range shape.Params {
 		param := &shape.Params[i]
@@ -1482,7 +1489,7 @@ func (ctx *Context) applyLibraryPerformance(perf *libraryPerformance, args calcA
 		trace:      ctx.trace,
 		activation: activation,
 	}
-	if err := ctx.bindCalcParameters(sig, ec, args, callerScope, locals, nil, nil, nil); err != nil {
+	if err := ctx.bindCalcParameters(sig, ec, args, callerScope, locals, calcBindingSite{}); err != nil {
 		return Value{}, err
 	}
 
