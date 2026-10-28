@@ -118,7 +118,7 @@ func checkNotationRow(t *testing.T, row notationTableRow, kind EdgeKind) {
 	if got, want := plantumlArrow(KindAction, kind), unticked(row.plantuml); got != want {
 		t.Errorf("%s (%s): PlantUML arrow %q, table says %q", row.production, kind, got, want)
 	}
-	if got, want := mermaidArrow(KindAction, kind), unticked(row.mermaid); got != want {
+	if got, want := mermaidArrow(kind), unticked(row.mermaid); got != want {
 		t.Errorf("%s (%s): Mermaid arrow %q, table says %q", row.production, kind, got, want)
 	}
 	arrow, class, _ := strings.Cut(unticked(row.d2), " ")

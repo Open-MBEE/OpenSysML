@@ -84,7 +84,7 @@ func (ctx *Context) materializeConnectorCollection(owner *Instance, fv *FeatureV
 	mark := len(ctx.created)
 	commit, rollback := ctx.beginJournal()
 	endBoundary := ctx.beginRunBoundary()
-	undoFills := func() {}
+	filled, undoFills, err := ctx.fillOptionalConnectorSubsetters(owner, name, int(count))
 	fail := func(err error) error {
 		fv.Values, fv.Materialized = Value{}, false
 		undoFills()
@@ -93,12 +93,10 @@ func (ctx *Context) materializeConnectorCollection(owner *Instance, fv *FeatureV
 		release()
 		return err
 	}
-	elements := append(make([]Value, 0, int64(len(contributed))+count), contributed...)
-	filled, undo, err := ctx.fillOptionalConnectorSubsetters(owner, name, int(count))
-	undoFills = undo
 	if err != nil {
 		return fail(err)
 	}
+	elements := append(make([]Value, 0, int64(len(contributed))+count), contributed...)
 	conns := append(make([]*Instance, 0, count), filled...)
 	for _, conn := range filled {
 		elements = append(elements, Value{Kind: ValInstance, Instance: conn.ID})
@@ -359,13 +357,22 @@ func (ctx *Context) materializeConnectorStarting(owner *Instance, connSym, base 
 	return ctx.runAttachedBehaviors()
 }
 
+// noJournal stands for a journal nothing opened: committing or rolling back has nothing to
+// make durable or undo, and no behavior was woken that a drain could let answer.
+func noJournal() (commit, rollback func(), drain func() error) {
+	nothing := func() {
+		// Nothing was opened, so there is nothing to commit or undo.
+	}
+	return nothing, nothing, func() error { return nil }
+}
+
 // connectorJournal opens a journal and a run boundary when sym is a connector usage, so what a
 // namespace path does for it — attach, record, start — is undone whole on failure as a nested
 // connector's is. commit makes it durable; drain, once the path's own guards are cleared, lets the
 // older behaviors it woke answer, a failure of theirs their own. For any other usage all are no-ops.
 func (ctx *Context) connectorJournal(sym *symbols.Symbol) (commit, rollback func(), drain func() error) {
 	if !ctx.model.semantics.IsConnectorObjectUsage(sym) {
-		return func() {}, func() {}, func() error { return nil }
+		return noJournal()
 	}
 	endBoundary := ctx.beginRunBoundary()
 	commitJournal, rollbackJournal := ctx.beginJournal()

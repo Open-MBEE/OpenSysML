@@ -595,6 +595,12 @@ func (g *generalGraph) packageEdges(pkg *symbols.Symbol) {
 	if pkg.Scope == nil {
 		return
 	}
+	g.aliasEdges(pkg, node)
+	g.importEdges(pkg, node)
+}
+
+// aliasEdges draws the package's aliases of drawn elements as unowned memberships.
+func (g *generalGraph) aliasEdges(pkg *symbols.Symbol, node *Node) {
 	for _, member := range pkg.Scope.Members() {
 		if member.Kind != symbols.SymbolAlias {
 			continue
@@ -610,6 +616,10 @@ func (g *generalGraph) packageEdges(pkg *symbols.Symbol) {
 			g.add(Edge{From: node.ID, To: to.ID, Kind: EdgeUnownedMembership, ToLabel: member.Name, Origin: symbolOrigin(member)})
 		}
 	}
+}
+
+// importEdges draws the package's imports of drawn packages, or of members of them.
+func (g *generalGraph) importEdges(pkg *symbols.Symbol, node *Node) {
 	for _, imp := range pkg.Scope.Imports() {
 		if imp == nil || imp.IsExpose || imp.Imported == nil {
 			continue

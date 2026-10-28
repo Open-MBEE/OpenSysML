@@ -5,6 +5,7 @@ import (
 	"math"
 	"slices"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -28,8 +29,24 @@ import (
 // A declaration that itself restates sym (`:>> elements` on an object, walked past
 // its library chain) masks nothing on that walk: the target stays the resolved one.
 func (ctx *Context) relatedFeatures(sym, owner *symbols.Symbol, kind ast.RelationshipKind) []*symbols.Symbol {
+	key := relatedKey{sym, owner, kind}
+	if features, ok := ctx.model.related[key]; ok {
+		return features
+	}
+	features := slices.Clip(ctx.collectRelatedFeatures(sym, owner, kind))
+	ctx.model.related[key] = features
+	return features
+}
+
+// relatedKey identifies the features of one owner a feature's relationships of a kind name.
+type relatedKey struct {
+	sym, owner *symbols.Symbol
+	kind       ast.RelationshipKind
+}
+
+func (ctx *Context) collectRelatedFeatures(sym, owner *symbols.Symbol, kind ast.RelationshipKind) []*symbols.Symbol {
 	var features []*symbols.Symbol
-	for _, rel := range relationshipsOfKind(sym, kind) {
+	for _, rel := range ctx.relationshipsOfKind(sym, kind) {
 		qn := ast.AsQualifiedName(rel.Target)
 		resolved := ctx.model.semantics.RelationshipTarget(sym, rel)
 		if resolved != nil && resolved != sym {
@@ -100,8 +117,26 @@ func (ctx *Context) ownDeclarationNamed(owner, sym *symbols.Symbol, names ...str
 	return nil, false
 }
 
-// relationshipsOfKind returns sym's relationships of the given kind that name a target.
-func relationshipsOfKind(sym *symbols.Symbol, kind ast.RelationshipKind) []*ast.Relationship {
+// relationshipsKey identifies the relationships of one kind a symbol declares.
+type relationshipsKey struct {
+	sym  *symbols.Symbol
+	kind ast.RelationshipKind
+}
+
+// relationshipsOfKind returns sym's relationships of the given kind that name a target,
+// memoized per symbol and kind; callers read the shared slice and never append to it.
+func (ctx *Context) relationshipsOfKind(sym *symbols.Symbol, kind ast.RelationshipKind) []*ast.Relationship {
+	key := relationshipsKey{sym, kind}
+	if rels, ok := ctx.model.relationships[key]; ok {
+		return rels
+	}
+	rels := declaredRelationshipsOfKind(sym, kind)
+	ctx.model.relationships[key] = rels
+	return rels
+}
+
+// declaredRelationshipsOfKind collects sym's relationships of the given kind that name a target.
+func declaredRelationshipsOfKind(sym *symbols.Symbol, kind ast.RelationshipKind) []*ast.Relationship {
 	var rels []*ast.Relationship
 	for _, rel := range semantics.RelationshipsOf(sym) {
 		if rel == nil || rel.Kind != kind || rel.Target == nil {
@@ -604,13 +639,20 @@ func (ctx *Context) SubsettingFeatures(inst *Instance, typ *symbols.Symbol, name
 	if inst == nil {
 		return ofType
 	}
-	var subsetting []EffectiveFeature
-	for _, feat := range ofType {
+	for i, feat := range ofType {
 		if _, ok := inst.FeatureValues[feat.Name]; ok {
-			subsetting = append(subsetting, feat)
+			continue
 		}
+		// The first feature inst does not hold: the rest is filtered into a slice of its own.
+		subsetting := append(make([]EffectiveFeature, 0, len(ofType)-1), ofType[:i]...)
+		for _, feat := range ofType[i+1:] {
+			if _, ok := inst.FeatureValues[feat.Name]; ok {
+				subsetting = append(subsetting, feat)
+			}
+		}
+		return subsetting
 	}
-	return subsetting
+	return ofType
 }
 
 // subsettersOf is SubsettingFeatures for the type alone, memoized per type and name;
@@ -637,6 +679,7 @@ func (ctx *Context) subsettersOf(typ *symbols.Symbol, name string) []EffectiveFe
 			}
 		}
 	}
+	subsetting = slices.Clip(subsetting)
 	byName[name] = subsetting
 	return subsetting
 }
@@ -1111,66 +1154,15 @@ func (ctx *Context) siblingSubsetterValues(inst *Instance, fv *FeatureValue, sub
 // bindingWitnesses draws, per binding constraining the named feature, as many of its other end's
 // values as the binding links, from pool where the subsetted features fix one (KerML 1.0 §7.4.6).
 func (ctx *Context) bindingWitnesses(inst *Instance, name string, pool []Value, pooled bool, taken map[int64]bool) ([]Value, map[int64]bool, error) {
-	fv := inst.FeatureValues[name]
-	var chosen []Value
-	var seen map[int64]bool
-	inPool := map[int64]bool{}
+	draw := &witnessDraw{fv: inst.FeatureValues[name], pooled: pooled, inPool: make(map[int64]bool, len(pool)), taken: taken}
 	for _, v := range pool {
-		inPool[v.Instance] = true
+		draw.inPool[v.Instance] = true
 	}
 	// A binding of an owner naming the feature through its path constrains it as well.
 	for current, path := inst, name; current != nil; {
 		for _, binding := range ctx.bindingsOf(current, path) {
-			end := bindingEndForPath(binding, path)
-			if end < 0 {
-				continue
-			}
-			constrains, err := ctx.constrainingBinding(current, binding)
-			if err != nil {
+			if err := ctx.drawBindingWitnesses(draw, inst, current, binding, path); err != nil {
 				return nil, nil, err
-			}
-			if !constrains {
-				continue
-			}
-			other, err := ctx.resolveBindingEndpoint(current, binding, 1-end)
-			if err != nil {
-				return nil, nil, err
-			}
-			// An end drawing its own values meanwhile has none to share yet; nor, for a binding an
-			// owner declares, one that will draw them from what it subsets when read.
-			if slices.ContainsFunc(other.locations, func(loc bindingLocation) bool {
-				return ctx.drawingSubsetters[featureValueRef{instance: loc.instance.ID, feature: loc.name}] ||
-					(current != inst && ctx.drawsFromSubsetted(loc))
-			}) {
-				continue
-			}
-			for _, loc := range other.locations {
-				if src, ok := loc.instance.FeatureValues[loc.name]; ok && src != fv {
-					ctx.listRead(src, fv)
-				}
-			}
-			// An end that cannot be read shares nothing here; validating the binding reports why.
-			val, found, err := ctx.bindingEndpointValue(other, current, true)
-			if err != nil || !found {
-				continue
-			}
-			candidates, err := ctx.HeldElements(val)
-			if err != nil {
-				continue
-			}
-			admits := func(v Value) bool {
-				return v.Kind == ValInstance && (!pooled || inPool[v.Instance]) && !seen[v.Instance]
-			}
-			links, _ := ctx.bindingLinks(binding)
-			for n := int64(0); n < links; n++ {
-				pick := slices.IndexFunc(candidates, func(v Value) bool { return admits(v) && !taken[v.Instance] })
-				if pick < 0 {
-					pick = slices.IndexFunc(candidates, admits)
-				}
-				if pick < 0 {
-					break
-				}
-				chosen, seen = appendUniqueInstances(chosen, candidates[pick:pick+1], seen)
 			}
 		}
 		owner, ownerFeature := current.Owner()
@@ -1180,7 +1172,77 @@ func (ctx *Context) bindingWitnesses(inst *Instance, name string, pool []Value, 
 		path = ownerFeature + "." + path
 		current = owner
 	}
-	return chosen, seen, nil
+	return draw.chosen, draw.seen, nil
+}
+
+// witnessDraw is one bindingWitnesses draw: the feature drawn for, the pool it may draw
+// from, what sibling subsetters hold, and what it has chosen so far.
+type witnessDraw struct {
+	fv     *FeatureValue
+	pooled bool
+	inPool map[int64]bool
+	taken  map[int64]bool
+	chosen []Value
+	seen   map[int64]bool
+}
+
+// drawBindingWitnesses draws from the other end of binding, when it constrains path at
+// current, as many of that end's values as the binding links.
+func (ctx *Context) drawBindingWitnesses(draw *witnessDraw, inst, current *Instance, binding lower.Binding, path string) error {
+	end := bindingEndForPath(binding, path)
+	if end < 0 {
+		return nil
+	}
+	constrains, err := ctx.constrainingBinding(current, binding)
+	if err != nil || !constrains {
+		return err
+	}
+	other, err := ctx.resolveBindingEndpoint(current, binding, 1-end)
+	if err != nil {
+		return err
+	}
+	// An end drawing its own values meanwhile has none to share yet; nor, for a binding an
+	// owner declares, one that will draw them from what it subsets when read.
+	if slices.ContainsFunc(other.locations, func(loc bindingLocation) bool {
+		return ctx.drawingSubsetters[featureValueRef{instance: loc.instance.ID, feature: loc.name}] ||
+			(current != inst && ctx.drawsFromSubsetted(loc))
+	}) {
+		return nil
+	}
+	for _, loc := range other.locations {
+		if src, ok := loc.instance.FeatureValues[loc.name]; ok && src != draw.fv {
+			ctx.listRead(src, draw.fv)
+		}
+	}
+	// An end that cannot be read shares nothing here; validating the binding reports why.
+	val, found, err := ctx.bindingEndpointValue(other, current, true)
+	if err != nil || !found {
+		return nil
+	}
+	candidates, err := ctx.HeldElements(val)
+	if err != nil {
+		return nil
+	}
+	links, _ := ctx.bindingLinks(binding)
+	draw.pick(candidates, links)
+	return nil
+}
+
+// pick draws up to links admitted candidates, those no sibling subsetter holds first.
+func (d *witnessDraw) pick(candidates []Value, links int64) {
+	admits := func(v Value) bool {
+		return v.Kind == ValInstance && (!d.pooled || d.inPool[v.Instance]) && !d.seen[v.Instance]
+	}
+	for n := int64(0); n < links; n++ {
+		pick := slices.IndexFunc(candidates, func(v Value) bool { return admits(v) && !d.taken[v.Instance] })
+		if pick < 0 {
+			pick = slices.IndexFunc(candidates, admits)
+		}
+		if pick < 0 {
+			return
+		}
+		d.chosen, d.seen = appendUniqueInstances(d.chosen, candidates[pick:pick+1], d.seen)
+	}
 }
 
 // drawsFromSubsetted reports a feature at loc that holds no value yet and states none of its

@@ -1201,3 +1201,16 @@ func mapNodeNames(nodes map[string][]*Node) []string {
 	sort.Strings(names)
 	return names
 }
+
+// TestEdgeKindNamesEveryKind checks every edge kind has a name of its own, so a
+// kind added without one cannot render as a bare "edge".
+func TestEdgeKindNamesEveryKind(t *testing.T) {
+	for kind := EdgeConnection; kind < edgeKindCount; kind++ {
+		if got := kind.String(); got == "edge" || got == "" {
+			t.Errorf("EdgeKind(%d).String() = %q, want a name of its own", int(kind), got)
+		}
+	}
+	if got := EdgeKind(edgeKindCount).String(); got != "edge" {
+		t.Errorf("EdgeKind(edgeKindCount).String() = %q, want %q", got, "edge")
+	}
+}

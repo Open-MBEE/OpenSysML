@@ -52,6 +52,17 @@ type compiler struct {
 	targets  map[*symbols.Symbol]refTarget
 	parsed   map[*symbols.Symbol]*parsedBody
 	outlines map[*symbols.Symbol]*markupOutline
+	// lenient leaves a body whose converter is missing unchecked, warning once per
+	// language and scanned document (entry, or another whose outline is read).
+	lenient     bool
+	scanned     *symbols.Symbol
+	unchecked   []*Error
+	uncheckedBy map[uncheckedKey]*Error
+}
+
+type uncheckedKey struct {
+	document *symbols.Symbol
+	language string
 }
 
 type bases struct {
@@ -91,6 +102,28 @@ func IsDocumentDefinition(index *symbols.Index, model *semantics.Model, sym *sym
 		sym.Kind == symbols.SymbolPartDef && model != nil && model.Conforms(sym, base)
 }
 
+// ReadsBody reports whether a document plan reads the body of the textual
+// representation rep: one owned, at any depth, by a document, section or paragraph.
+func ReadsBody(index *symbols.Index, model *semantics.Model, rep *symbols.Symbol) bool {
+	if rep == nil || rep.Kind != symbols.SymbolTextualRepresentation || model == nil {
+		return false
+	}
+	var bases []*symbols.Symbol
+	for _, fqn := range []string{documentBaseFQN, sectionBaseFQN, paragraphBaseFQN} {
+		if base := libraryBase(index, fqn); base != nil {
+			bases = append(bases, base)
+		}
+	}
+	for owner := rep.Owner(); owner != nil; owner = owner.Owner() {
+		for _, base := range bases {
+			if owner != base && model.Conforms(owner, base) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // QueryTarget resolves the query definition a calc usage is typed by, following
 // redefinition lineage; nil when it is not typed by a query definition.
 func QueryTarget(index *symbols.Index, model *semantics.Model, resolver *resolve.Resolver, usage *symbols.Symbol) *symbols.Symbol {
@@ -107,8 +140,22 @@ func QueryTarget(index *symbols.Index, model *semantics.Model, resolver *resolve
 
 // Compile compiles a document definition into an immutable document plan.
 func Compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Resolver, entry *symbols.Symbol) (*Plan, error) {
+	plan, _, err := compile(index, model, resolver, entry, false)
+	return plan, err
+}
+
+// Validate plans entry as Compile does, except that a markup body whose
+// converter is missing is left unchecked and reported as a warning, one per
+// language, so the rest of the document is still checked. A rendering needs
+// every body parsed and uses Compile, which stops at such a body.
+func Validate(index *symbols.Index, model *semantics.Model, resolver *resolve.Resolver, entry *symbols.Symbol) (warnings []*Error, err error) {
+	_, warnings, err = compile(index, model, resolver, entry, true)
+	return warnings, err
+}
+
+func compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Resolver, entry *symbols.Symbol, lenient bool) (*Plan, []*Error, error) {
 	if index == nil || model == nil || resolver == nil {
-		return nil, &Error{Kind: ErrorInvalidContext}
+		return nil, nil, &Error{Kind: ErrorInvalidContext}
 	}
 	all := bases{
 		document:    libraryBase(index, documentBaseFQN),
@@ -133,11 +180,11 @@ func Compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Res
 		all.table == nil || all.list == nil || all.definitions == nil || all.formula == nil || all.diagram == nil || all.image == nil ||
 		all.run == nil || all.span == nil || all.link == nil || all.ref == nil ||
 		all.columnRun == nil || all.spanColumn == nil || all.linkColumn == nil {
-		return nil, &Error{Kind: ErrorLibraryUnavailable}
+		return nil, nil, &Error{Kind: ErrorLibraryUnavailable}
 	}
 	name := symbols.FQNOf(entry)
 	if entry == nil || entry == all.document || entry.Kind != symbols.SymbolPartDef || !model.Conforms(entry, all.document) {
-		return nil, &Error{Kind: ErrorNotDocumentDefinition, Document: name, Origin: entry.Origin()}
+		return nil, nil, &Error{Kind: ErrorNotDocumentDefinition, Document: name, Origin: entry.Origin()}
 	}
 	c := &compiler{
 		index:    index,
@@ -149,17 +196,21 @@ func Compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Res
 		targets:  make(map[*symbols.Symbol]refTarget),
 		parsed:   make(map[*symbols.Symbol]*parsedBody),
 		outlines: make(map[*symbols.Symbol]*markupOutline),
+
+		lenient:     lenient,
+		scanned:     entry,
+		uncheckedBy: make(map[uncheckedKey]*Error),
 	}
 	title, err := c.requiredText(entry, "title", ErrorMissingTitle)
 	if err != nil {
-		return nil, err
+		return nil, c.unchecked, err
 	}
 	content, err := c.compileMembers(entry)
 	if err != nil {
-		return nil, err
+		return nil, c.unchecked, err
 	}
 	if err := c.resolveRefs(content); err != nil {
-		return nil, err
+		return nil, c.unchecked, err
 	}
 	return &Plan{
 		compiled: true,
@@ -167,7 +218,7 @@ func Compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Res
 		title:    title,
 		content:  content,
 		origin:   entry.Origin(),
-	}, nil
+	}, c.unchecked, nil
 }
 
 func libraryBase(index *symbols.Index, fqn string) *symbols.Symbol {
@@ -372,13 +423,14 @@ func (c *compiler) compileParagraph(member *symbols.Symbol) (Content, error) {
 			Origin:   member.Origin(),
 		}
 	}
+	var unchecked bool
 	if len(bodies) > 0 {
-		runs, err = c.compileParagraphBody(member, bodies)
+		runs, unchecked, err = c.compileParagraphBody(member, bodies)
 		if err != nil {
 			return Content{}, err
 		}
 	}
-	if !stated && query == nil && len(runs) == 0 {
+	if !stated && query == nil && len(runs) == 0 && !unchecked {
 		return Content{}, &Error{
 			Kind:     ErrorMissingText,
 			Document: c.document,

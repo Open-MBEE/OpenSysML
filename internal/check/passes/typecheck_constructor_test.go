@@ -158,13 +158,13 @@ func TestConstructorInActionNodeBodiesIsChecked(t *testing.T) {
 			return `action m; send m to ground { in delay = ` + value + `; }`
 		},
 		"succession body": func(value string) string {
-			return `action m; action n; first m; then n { attribute q = ` + value + `; }`
+			return `action m; action n; first m; then n { item q = ` + value + `; }`
 		},
 		"transition body": func(value string) string {
-			return `state def S { state s; state u; transition s then u { attribute z = ` + value + `; } }`
+			return `state def S { state s; state u; transition s then u { item z = ` + value + `; } }`
 		},
 		"state subaction body": func(value string) string {
-			return `state def S { state s { entry action e { attribute w = ` + value + `; } } }`
+			return `state def S { state s { entry action e { item w = ` + value + `; } } }`
 		},
 	}
 	values := map[string]struct{ value, at, want string }{

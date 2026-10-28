@@ -1574,7 +1574,7 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 		return Value{}, fmt.Errorf("empty member chain")
 	}
 	base, parts := ast.FeatureChainBase(n)
-	defer ec.noteChainMembers(base, parts)()
+	defer ec.restoreChain(ec.noteChainMembers(n, base, parts))
 
 	// A chain's members resolve in the namespace of the feature before them, where
 	// a redefined feature is not inherited under its name (KerML §7.3.4.5).
@@ -1616,14 +1616,8 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 
 	// A constraint usage of the object being evaluated is the predicate it enacts,
 	// read through the object (`fits.limit` as `self.fits.limit`).
-	if name := simpleEndName(base); name != "" && ec.self != nil {
-		if _, enacted := ec.enactedConstraint(ec.self, name); enacted {
-			if names, err := ec.namesValue(name); err != nil {
-				return Value{}, err
-			} else if !names {
-				return ec.chainMemberValue(Value{Kind: ValInstance, Instance: ec.self.ID}, append([]ast.NameSegment{{Text: name}}, parts...), "")
-			}
-		}
+	if val, ok, err := ec.enactedConstraintChain(base, parts); ok {
+		return val, err
 	}
 
 	// A variant named through the variation usage it belongs to is that variant,
@@ -1639,48 +1633,83 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 	if sym, ok, err := ec.occurrenceOperand(base); err != nil {
 		return Value{}, err
 	} else if ok {
-		// A usage of the behavior performed is read from its performance, so `fresh.n`
-		// inside `go` reads the part the performance holds, as a bare `fresh` does.
-		if val, ok, err := ec.performanceFeatureOf(sym); ok {
-			if err != nil {
-				return Value{}, err
-			}
-			return ec.chainMemberValue(val, parts, sym.Name)
-		}
-		// A usage of an enclosing object is read from that object, so a sibling
-		// chain `e1.length` inside `e3` reads the containing rectangle's e1.
-		if val, ok, err := ec.outerFeatureValue(sym); ok {
-			if err != nil {
-				return Value{}, err
-			}
-			return ec.chainMemberValue(val, parts, sym.Name)
-		}
-		// The objects read as their values, whose own members they answer before the objects'.
-		val, err := ec.ctx.denotedValue(sym)
-		if err != nil {
-			return Value{}, err
-		}
-		return ec.chainMemberValue(val, parts, sym.Name)
+		return ec.occurrenceChainValue(sym, parts)
 	}
 
 	// One chain is one read from its first operand through every member in turn
 	// (KerML 1.0 §7.4.9.3), not a read off the value of a shorter chain.
 	operand, err := ec.Eval(base)
 	if err != nil {
-		var noValue *NoValueError
-		if errors.As(err, &noValue) {
-			if unresolved := ec.chainMembersDeclared(base, parts); unresolved != nil {
-				return Value{}, unresolved
-			}
-			// A usage no object stands for answers the chain through the
-			// value its member declares, as `usage::member` reads it.
-			if val, ok, err := ec.declaredChainValue(base, parts); ok {
-				return val, err
-			}
+		return ec.valuelessChain(err, base, parts)
+	}
+	return ec.operandChainValue(operand, base, parts)
+}
+
+// enactedConstraintChain reads a chain whose base names a constraint usage the
+// object being evaluated enacts through that object, unless the name has a value.
+func (ec *EvalContext) enactedConstraintChain(base ast.Node, parts []ast.NameSegment) (Value, bool, error) {
+	name := simpleEndName(base)
+	if name == "" || ec.self == nil {
+		return Value{}, false, nil
+	}
+	if _, enacted := ec.enactedConstraint(ec.self, name); !enacted {
+		return Value{}, false, nil
+	}
+	if names, err := ec.namesValue(name); err != nil {
+		return Value{}, true, err
+	} else if names {
+		return Value{}, false, nil
+	}
+	val, err := ec.chainMemberValue(Value{Kind: ValInstance, Instance: ec.self.ID}, append([]ast.NameSegment{{Text: name}}, parts...), "")
+	return val, true, err
+}
+
+// occurrenceChainValue reads the chain's members from the object sym denotes.
+func (ec *EvalContext) occurrenceChainValue(sym *symbols.Symbol, parts []ast.NameSegment) (Value, error) {
+	// A usage of the behavior performed is read from its performance, so `fresh.n`
+	// inside `go` reads the part the performance holds, as a bare `fresh` does.
+	if val, ok, err := ec.performanceFeatureOf(sym); ok {
+		if err != nil {
+			return Value{}, err
 		}
+		return ec.chainMemberValue(val, parts, sym.Name)
+	}
+	// A usage of an enclosing object is read from that object, so a sibling
+	// chain `e1.length` inside `e3` reads the containing rectangle's e1.
+	if val, ok, err := ec.outerFeatureValue(sym); ok {
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.chainMemberValue(val, parts, sym.Name)
+	}
+	// The objects read as their values, whose own members they answer before the objects'.
+	val, err := ec.ctx.denotedValue(sym)
+	if err != nil {
 		return Value{}, err
 	}
+	return ec.chainMemberValue(val, parts, sym.Name)
+}
 
+// valuelessChain answers a chain whose base has no value: unresolved when a
+// member is undeclared, the declared member value when there is one, else err.
+func (ec *EvalContext) valuelessChain(err error, base ast.Node, parts []ast.NameSegment) (Value, error) {
+	var noValue *NoValueError
+	if !errors.As(err, &noValue) {
+		return Value{}, err
+	}
+	if unresolved := ec.chainMembersDeclared(base, parts); unresolved != nil {
+		return Value{}, unresolved
+	}
+	// A usage no object stands for answers the chain through the
+	// value its member declares, as `usage::member` reads it.
+	if val, ok, err := ec.declaredChainValue(base, parts); ok {
+		return val, err
+	}
+	return Value{}, err
+}
+
+// operandChainValue reads the chain's members from the value its base evaluated to.
+func (ec *EvalContext) operandChainValue(operand Value, base ast.Node, parts []ast.NameSegment) (Value, error) {
 	if operand.Kind == ValInstance {
 		if _, ok := ec.ctx.instances[operand.Instance]; !ok {
 			return Value{}, fmt.Errorf("instance ID %d not found", operand.Instance)
@@ -1700,7 +1729,6 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 			return val, err
 		}
 	}
-
 	return ec.chainMemberValue(operand, parts, "")
 }
 

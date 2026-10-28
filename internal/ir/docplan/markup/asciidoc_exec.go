@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -16,17 +15,14 @@ import (
 // locateAsciiDoc finds the converter: the executable the variable names, else
 // the tool on PATH.
 func locateAsciiDoc() (string, error) {
-	name := strings.TrimSpace(os.Getenv(AsciiDocEnv))
-	if name == "" {
-		name = asciiDocTool
-	}
+	name, named := asciiDocName()
 	path, err := exec.LookPath(name)
 	if err != nil {
-		return "", &ToolError{Tool: name, EnvVar: AsciiDocEnv, Missing: true}
+		return "", &ToolError{Tool: name, EnvVar: AsciiDocEnv, Named: named, Missing: true}
 	}
 	if !filepath.IsAbs(path) {
 		if path, err = filepath.Abs(path); err != nil {
-			return "", &ToolError{Tool: name, EnvVar: AsciiDocEnv, Missing: true, Detail: err.Error()}
+			return "", &ToolError{Tool: name, EnvVar: AsciiDocEnv, Named: named, Missing: true, Detail: err.Error()}
 		}
 	}
 	return path, nil

@@ -2,6 +2,7 @@ package codes
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -34,6 +35,31 @@ func TestEntriesAreWellFormed(t *testing.T) {
 			if !kebab.MatchString(k) {
 				t.Errorf("%s: kind %q is not kebab-case", e.Code, k)
 			}
+		}
+		for k, severity := range e.KindSeverities {
+			if !slices.Contains(e.Kinds, k) {
+				t.Errorf("%s: severity for %q, which is no kind of the family", e.Code, k)
+			}
+			if severity == e.Severity || (severity != "error" && severity != "warning") {
+				t.Errorf("%s-%s: severity %q is not the other of error and warning", e.Code, k, severity)
+			}
+		}
+	}
+}
+
+func TestFamilyMembersCarryTheirOwnSeverity(t *testing.T) {
+	const missing, failed = "document-plan-markup-tool-missing", "document-plan-markup-tool-failed"
+	severities := make(map[string]string)
+	for _, row := range Rows() {
+		severities[row.Code] = row.Severity
+	}
+	if severities[missing] != "warning" || severities[failed] != "error" || severities["document-plan"] != "error" {
+		t.Errorf("Rows severities: %s=%q %s=%q document-plan=%q, want warning, error, error", missing, severities[missing], failed, severities[failed], severities["document-plan"])
+	}
+	for code, want := range map[string]string{missing: missing + ": warning (document)", failed: failed + ": error (document)"} {
+		text, err := Explain(code)
+		if err != nil || !strings.HasPrefix(text, want) {
+			t.Errorf("Explain(%s) = %q, %v, want a text opening %q", code, text, err, want)
 		}
 	}
 }

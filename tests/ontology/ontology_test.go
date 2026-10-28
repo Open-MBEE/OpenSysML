@@ -142,6 +142,7 @@ func TestLookups(t *testing.T) {
 		Kind:          ontology.ObjectProperty,
 		Range:         rdf.SysML + "Feature",
 		Many:          true,
+		Upper:         -1,
 		Ordered:       true,
 		Derived:       true,
 		Subsets:       []string{"Namespace::ownedMember"},

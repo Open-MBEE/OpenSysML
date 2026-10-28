@@ -248,7 +248,7 @@ func (ctx *Context) kernelInverseValue(inst *Instance, sym *symbols.Symbol, feat
 	composite := false
 	owner, held := inst.Owner()
 	self, hasSelf := ctx.model.semantics.LookupMember(inst.Type, "self")
-	for _, rel := range relationshipsOfKind(sym, ast.RelInverseOf) {
+	for _, rel := range ctx.relationshipsOfKind(sym, ast.RelInverseOf) {
 		target := ctx.model.semantics.RelationshipTarget(sym, rel)
 		if target == nil {
 			continue

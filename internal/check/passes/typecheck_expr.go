@@ -173,6 +173,7 @@ func (ec *exprChecker) checkBoundValue(valueScope, declScope *symbols.Scope, d f
 		ec.checkScalarBinding(element, got, want)
 	}
 	ec.checkValueConformance(valueScope, declScope, d, value, latticeTyped)
+	ec.judgeFeatureValueBinding(valueScope, declScope, d, value)
 	ec.checkValueDimension(valueScope, declScope, d, value)
 	ec.checkValueCount(valueScope, declScope, d, value)
 	// Uniqueness is judged last, as the run time judges it: a value refused for

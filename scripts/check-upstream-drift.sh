@@ -45,9 +45,9 @@ newest_tag() {
 # tag_commit <repo> <tag>: the commit a tag resolves to (the peeled "^{}" row of an
 # annotated tag); fails when the remote cannot be listed, empty when the tag is gone.
 tag_commit() {
-	local rows
-	rows="$(git ls-remote "$1" "refs/tags/$2^{}" "refs/tags/$2")" || return 1
-	awk -v t="refs/tags/$2" '{c[$2]=$1} END {print ((t "^{}") in c) ? c[t "^{}"] : c[t]}' <<<"$rows"
+	local repo=$1 tag=$2 rows
+	rows="$(git ls-remote "$repo" "refs/tags/$tag^{}" "refs/tags/$tag")" || return 1
+	awk -v t="refs/tags/$tag" '{c[$2]=$1} END {print ((t "^{}") in c) ? c[t "^{}"] : c[t]}' <<<"$rows"
 }
 
 # check_repo <name> <repo> <pinned commit>: reports the pinned tag's state and
@@ -112,7 +112,8 @@ spec_docs_changed() {
 
 # omg_versions <page url> <language>: the version entries the OMG page links.
 omg_versions() {
-	curl -fsSL --max-time 60 "$1" | grep -oE "spec/$2/[0-9]+\.[0-9]+(/Beta[0-9]+)?" | sed "s|spec/$2/||" | sort -u
+	local page=$1 language=$2
+	curl -fsSL --max-time 60 "$page" | grep -oE "spec/$language/[0-9]+\.[0-9]+(/Beta[0-9]+)?" | sed "s|spec/$language/||" | sort -u
 }
 
 check_omg() {

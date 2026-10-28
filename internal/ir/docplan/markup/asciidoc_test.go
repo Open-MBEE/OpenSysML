@@ -302,9 +302,49 @@ func TestAsciiDocMissingConverter(t *testing.T) {
 		t.Fatalf("error = %v, want the converter missing", err)
 	}
 	msg := tool.Error()
-	for _, want := range []string{"download-doc-pdf-toolchain.sh", AsciiDocEnv, "no-such-converter"} {
+	for _, want := range []string{"download-doc-pdf-toolchain.sh", "no-such-converter", "(" + AsciiDocEnv + " names it)"} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("message %q lacks %q", msg, want)
+		}
+	}
+	if strings.Contains(msg, "PATH") {
+		t.Errorf("message %q blames PATH for a converter the variable named", msg)
+	}
+}
+
+func TestAsciiDocMissingDefaultConverterNamesPath(t *testing.T) {
+	t.Setenv(AsciiDocEnv, "")
+	t.Setenv("PATH", t.TempDir())
+	_, err := AsciiDoc{}.Parse("a\n")
+	var tool *ToolError
+	if !errors.As(err, &tool) || !tool.Missing || tool.Named || tool.Tool != asciiDocTool {
+		t.Fatalf("error = %v, want the default converter %s missing", err, asciiDocTool)
+	}
+	msg := tool.Error()
+	for _, want := range []string{"the AsciiDoc converter asciidoctor-json was not found on PATH (" + AsciiDocEnv + " is unset)", "; run ./scripts/download-doc-pdf-toolchain.sh and point " + AsciiDocEnv + " at build/doc-pdf/asciidoctor/asciidoctor-json.js"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("message %q lacks %q", msg, want)
+		}
+	}
+}
+
+func TestToolErrorMessages(t *testing.T) {
+	cases := map[string]struct {
+		err  ToolError
+		want string
+	}{
+		"missing with detail": {
+			ToolError{Tool: "x", EnvVar: AsciiDocEnv, Named: true, Missing: true, Detail: "this host starts no process"},
+			"the AsciiDoc converter x was not found (this host starts no process); run ./scripts/download-doc-pdf-toolchain.sh and point " + AsciiDocEnv + " at build/doc-pdf/asciidoctor/asciidoctor-json.js",
+		},
+		"failed": {
+			ToolError{Tool: "x", EnvVar: AsciiDocEnv, Detail: "exit status 1"},
+			"the AsciiDoc converter x failed: exit status 1",
+		},
+	}
+	for name, c := range cases {
+		if got := c.err.Error(); got != c.want {
+			t.Errorf("%s: message %q, want %q", name, got, c.want)
 		}
 	}
 }
