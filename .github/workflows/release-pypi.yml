@@ -1,17 +1,5 @@
-# Publishes the Python client and the Jupyter kernel package of a `v*` release to
-# PyPI with trusted publishing, so each file carries a PEP 740 attestation.
-#
-# CircleCI builds the distributions, lists them in the release's signed
-# SHA256SUMS.txt and publishes them on the GitHub release; it cannot attest them,
-# because PyPI accepts attestations only from a trusted publisher and CircleCI is
-# not one (pypi/warehouse#13888). This workflow waits for that gated release,
-# downloads the distributions from it, checks them against the manifest CircleCI
-# signed, runs the built wheel against the release it names, and uploads them
-# under the workflow's own OIDC identity. The same bytes reach both places.
-#
-# A pre-release tag publishes to TestPyPI, as the CircleCI jobs did. A dispatch
-# with dry_run fetches and verifies an existing release's distributions and
-# publishes nothing: the rehearsal of this workflow.
+# Publishes a `v*` release's Python client and Jupyter kernel package to PyPI with
+# trusted publishing, from CircleCI's signed release: docs/project/releasing.md.
 name: Release to PyPI
 
 on:
@@ -40,12 +28,10 @@ env:
   KERNEL_PYPI_PROJECT: jupyter-opensysml-kernel
   PYTHON_DIST_ARTIFACT: release-python-dist
   KERNEL_DIST_ARTIFACT: release-jupyter-kernel-dist
-  # The CircleCI identity that signs the release manifest; the Python client pins
-  # the same issuer and project (client/python/opensysml/signing.py).
+  # The CircleCI identity that signs the release manifest (client/python/opensysml/signing.py).
   MANIFEST_OIDC_ISSUER: https://oidc.circleci.com/org/1169df8b-0b59-400f-82d2-c9d8e98bdb62
   MANIFEST_IDENTITY_REGEXP: ^https://circleci\.com/api/v2/projects/eeb0dddd-237f-4f02-9e51-8e24caef589d/pipeline-definitions/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
-  # CircleCI publishes the release after its whole suite and every client's tests
-  # passed on the tag, which takes a while on a busy plan.
+  # CircleCI publishes the release only after its whole suite passed on the tag.
   RELEASE_GATE_TIMEOUT: 10800
   DRY_RUN: ${{ inputs.dry_run == true }}
 
@@ -73,8 +59,7 @@ jobs:
       - name: Install the checking tools
         run: python -m pip install --only-binary ":all:" pip==26.2.1 twine==7.0.0 packaging==26.3
 
-      # The same gate the CircleCI jobs ran: the tag must name the version both
-      # packages declare, and a pre-release version goes to TestPyPI.
+      # The tag must name the version both packages declare; a pre-release goes to TestPyPI.
       - name: Resolve the version from the tag
         id: version
         env:
@@ -116,9 +101,8 @@ jobs:
             echo "commit=$(git rev-parse HEAD)"
           } >> "$GITHUB_OUTPUT"
 
-      # CircleCI uploads SHA256SUMS.txt.bundle only once the suite, the client tests
-      # and build-release passed on the tag; nothing is published from a release
-      # CircleCI rejected, and the tag must still be the commit checked out here.
+      # The bundle is CircleCI's last upload, after the suite and build-release passed on
+      # the tag; the tag must still be the commit checked out here.
       - name: Wait for CircleCI to publish the gated release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -155,8 +139,7 @@ jobs:
             --certificate-oidc-issuer "$MANIFEST_OIDC_ISSUER" \
             --certificate-identity-regexp "$MANIFEST_IDENTITY_REGEXP"
 
-      # Every distribution must be a line of the verified manifest, and the release
-      # must carry the tag's sdist and five platform wheels of the kernel package.
+      # Every distribution must be a line of the verified manifest; the kernel needs five wheels.
       - name: Check the distributions against the manifest
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -184,9 +167,8 @@ jobs:
           python -m twine check --strict client/python/dist/*
           python -m twine check --strict client/jupyter-kernel/dist/*
 
-      # The zero-config smoke the release runs, here on the wheel about to be
-      # published: with no binary configured it must download the release the tag
-      # names and evaluate a model with it.
+      # Zero-config smoke: with no binary configured the wheel must fetch the release
+      # the tag names and evaluate a model with it.
       - name: Run the built wheel against the release it names
         env:
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
@@ -241,10 +223,8 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # Trusted publishing: PyPI accepts this workflow's OIDC token for the `opensysml`
-  # project once a maintainer registers it as a trusted publisher (repository
-  # Open-MBEE/OpenSysML, workflow release-pypi.yml, environment pypi); there is no
-  # token to store, and the upload carries an attestation under that identity.
+  # Trusted publishing: registered on PyPI as Open-MBEE/OpenSysML, workflow
+  # release-pypi.yml, environment pypi; no token, each file attested.
   pypi:
     name: Publish opensysml to PyPI
     needs: fetch
@@ -261,8 +241,7 @@ jobs:
           name: ${{ env.PYTHON_DIST_ARTIFACT }}
           path: client/python/dist/
 
-      # A PyPI version is immutable: a re-run of a published release fails here by
-      # design rather than half-publishing, and a dry run only reports.
+      # A PyPI version is immutable: a re-run of a published release fails here by design.
       - name: Refuse a version the index already has
         id: index
         env:
@@ -301,10 +280,8 @@ jobs:
           repository-url: ${{ needs.fetch.outputs.repository-url }}
           print-hash: true
 
-  # The kernel package is a second PyPI project under the same trusted publisher
-  # (repository, workflow and environment), checked and published the same way;
-  # independent of the client's job so neither project refusing a re-run blocks
-  # the other.
+  # Second project under the same trusted publisher, published the same way and
+  # independently, so neither project refusing a re-run blocks the other.
   jupyter-kernel:
     name: Publish jupyter-opensysml-kernel to PyPI
     needs: fetch
