@@ -612,6 +612,7 @@ func (v *verifyContext) satisfyVerdicts(ctx context.Context, a *runtime.SatisfyA
 		}
 		subject := subjectOf(result, inst)
 		verdict := on.verdict(verdictSatisfy, a.Symbol, a.Text(), subject, result.Holds, err, plan)
+		verdict.InstancePath = instancePath(held.Path)
 		on.associateRequirement(verdict, a)
 		verdicts = append(verdicts, verdict)
 		instances = append(instances, on.instanceGraph(subject)...)

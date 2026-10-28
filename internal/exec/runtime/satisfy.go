@@ -464,7 +464,7 @@ func (ctx *Context) SatisfactionSubjects(a *SatisfyAssertion, roots []*Instance)
 	carriers := ctx.carriersWhere(roots, func(inst *Instance) bool { return ctx.statedOf(a, inst) })
 	out := make([]SatisfactionSubject, 0, len(carriers))
 	for _, c := range carriers {
-		out = append(out, SatisfactionSubject{Object: c.instance, Root: c.root, Path: ctx.carrierFeatures(c)})
+		out = append(out, SatisfactionSubject{Object: c.instance, Root: c.root, Path: carrierFeatures(c)})
 	}
 	return out
 }
