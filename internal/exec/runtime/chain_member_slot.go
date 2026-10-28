@@ -25,9 +25,9 @@ type chainStatic struct {
 
 // noteChainMembers records the declarations a chain's segments name for the
 // reads of its parts, and returns what was recorded before for restoreChain.
-func (ec *EvalContext) noteChainMembers(base ast.Node, parts []ast.NameSegment) chainStatic {
+func (ec *EvalContext) noteChainMembers(chain *ast.FeatureChainExpr, base ast.Node, parts []ast.NameSegment) chainStatic {
 	previous := ec.chain
-	ec.chain = chainStatic{parts: parts, decls: ec.chainDeclarations(base, parts)}
+	ec.chain = chainStatic{parts: parts, decls: ec.chainDeclarations(chain, base, parts)}
 	return previous
 }
 
@@ -36,23 +36,22 @@ func (ec *EvalContext) restoreChain(previous chainStatic) {
 	ec.chain = previous
 }
 
-// chainDeclarationsKey identifies the declarations one chain's segments name
-// from one base feature or type; parts is an immutable slice of the AST.
+// chainDeclarationsKey identifies the declarations one chain expression's
+// segments name from one base feature or type; the chain node is immutable AST.
 type chainDeclarationsKey struct {
 	base  *symbols.Symbol
-	parts *ast.NameSegment
-	n     int
+	chain *ast.FeatureChainExpr
 }
 
 // chainDeclarations resolves each segment in the namespace of the one before
 // it, from the feature or cast type the base names; nil when the base names none.
 // The resolution is memoized per model, so a chain a loop re-evaluates reads it.
-func (ec *EvalContext) chainDeclarations(base ast.Node, parts []ast.NameSegment) []*symbols.Symbol {
+func (ec *EvalContext) chainDeclarations(chain *ast.FeatureChainExpr, base ast.Node, parts []ast.NameSegment) []*symbols.Symbol {
 	cur, ok := ec.chainBaseSymbol(base)
 	if !ok || len(parts) == 0 {
 		return nil
 	}
-	key := chainDeclarationsKey{base: cur, parts: &parts[0], n: len(parts)}
+	key := chainDeclarationsKey{base: cur, chain: chain}
 	if decls, ok := ec.ctx.model.chainDeclarations[key]; ok {
 		return decls
 	}

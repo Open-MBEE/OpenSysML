@@ -75,7 +75,7 @@ type Model struct {
 	// redefined memoizes, per feature of a type, the features it redefines
 	// transitively; callers read the shared slice and never append to it.
 	redefined map[featureOfType][]*symbols.Symbol
-	// chainDeclarations memoizes the declarations a feature chain's segments name per base.
+	// chainDeclarations memoizes the declarations a chain expression's segments name per base.
 	chainDeclarations map[chainDeclarationsKey][]*symbols.Symbol
 
 	// writeTargets memoizes the declaration an assignment's target names, per
