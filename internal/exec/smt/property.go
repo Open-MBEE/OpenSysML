@@ -259,6 +259,9 @@ type Output struct {
 	Var  *solve.Var
 	// Has is nil for an attribute that holds a value in every state.
 	Has *solve.Var
+	// Sequence reports a feature the interpreter holds as a sequence of its one
+	// value, which a result spells as such (`[2]`).
+	Sequence bool
 }
 
 // Outputs are the features the performance holds as the final state leaves
@@ -277,6 +280,9 @@ func (e *Encoding) Outputs() []Output {
 			continue
 		}
 		out := Output{Name: attr.Name, Var: final.value(base)}
+		if held, ok := e.held.Value(attr.Name); ok && held.Kind == runtime.ValSequence {
+			out.Sequence = true
+		}
 		if e.flagged[base.Name] {
 			out.Has = final.has(base)
 		}

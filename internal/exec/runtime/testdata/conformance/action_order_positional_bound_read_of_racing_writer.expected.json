@@ -2,10 +2,12 @@
 	"type": "action",
 	"evaluate": "test::Race",
 	"trace": true,
+	"solverBudget": {"moves": 20},
 	"outcomes": [
 		{
 			"outputs": {
 				"x": {"type": "Integer", "value": 1},
+				"yBase": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}]},
 				"yRace": {"type": "Integer", "value": 2},
 				"z": {"type": "Integer", "value": 2}
 			}
@@ -13,6 +15,7 @@
 		{
 			"outputs": {
 				"x": {"type": "Integer", "value": 2},
+				"yBase": {"type": "Sequence", "elements": [{"type": "Integer", "value": 3}]},
 				"yRace": {"type": "Integer", "value": 3},
 				"z": {"type": "Integer", "value": 3}
 			}

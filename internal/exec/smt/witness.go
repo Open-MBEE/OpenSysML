@@ -336,22 +336,12 @@ func (e *Encoding) DecodeOutputs(values []solve.Assignment) (map[string]string, 
 	}
 	outputs := make(map[string]string)
 	for _, out := range e.Outputs() {
-		if out.Has != nil {
-			has, err := m.boolean(out.Has.Name)
-			if err != nil {
-				return nil, err
-			}
-			if !has {
-				continue
-			}
-		}
-		v, ok := m[out.Var.Name]
-		if !ok {
-			return nil, &WitnessError{Var: out.Var.Name, Reason: unassignedReason}
-		}
-		text, err := spell(v)
+		text, held, err := e.output(m, out)
 		if err != nil {
-			return nil, &WitnessError{Var: out.Var.Name, Reason: err.Error()}
+			return nil, err
+		}
+		if !held {
+			continue
 		}
 		outputs[out.Name] = text
 	}
