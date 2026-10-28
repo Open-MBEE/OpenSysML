@@ -28,8 +28,24 @@ import (
 // A declaration that itself restates sym (`:>> elements` on an object, walked past
 // its library chain) masks nothing on that walk: the target stays the resolved one.
 func (ctx *Context) relatedFeatures(sym, owner *symbols.Symbol, kind ast.RelationshipKind) []*symbols.Symbol {
+	key := relatedKey{sym, owner, kind}
+	if features, ok := ctx.model.related[key]; ok {
+		return features
+	}
+	features := slices.Clip(ctx.collectRelatedFeatures(sym, owner, kind))
+	ctx.model.related[key] = features
+	return features
+}
+
+// relatedKey identifies the features of one owner a feature's relationships of a kind name.
+type relatedKey struct {
+	sym, owner *symbols.Symbol
+	kind       ast.RelationshipKind
+}
+
+func (ctx *Context) collectRelatedFeatures(sym, owner *symbols.Symbol, kind ast.RelationshipKind) []*symbols.Symbol {
 	var features []*symbols.Symbol
-	for _, rel := range relationshipsOfKind(sym, kind) {
+	for _, rel := range ctx.relationshipsOfKind(sym, kind) {
 		qn := ast.AsQualifiedName(rel.Target)
 		resolved := ctx.model.semantics.RelationshipTarget(sym, rel)
 		if resolved != nil && resolved != sym {
@@ -100,8 +116,26 @@ func (ctx *Context) ownDeclarationNamed(owner, sym *symbols.Symbol, names ...str
 	return nil, false
 }
 
-// relationshipsOfKind returns sym's relationships of the given kind that name a target.
-func relationshipsOfKind(sym *symbols.Symbol, kind ast.RelationshipKind) []*ast.Relationship {
+// relationshipsKey identifies the relationships of one kind a symbol declares.
+type relationshipsKey struct {
+	sym  *symbols.Symbol
+	kind ast.RelationshipKind
+}
+
+// relationshipsOfKind returns sym's relationships of the given kind that name a target,
+// memoized per symbol and kind; callers read the shared slice and never append to it.
+func (ctx *Context) relationshipsOfKind(sym *symbols.Symbol, kind ast.RelationshipKind) []*ast.Relationship {
+	key := relationshipsKey{sym, kind}
+	if rels, ok := ctx.model.relationships[key]; ok {
+		return rels
+	}
+	rels := declaredRelationshipsOfKind(sym, kind)
+	ctx.model.relationships[key] = rels
+	return rels
+}
+
+// declaredRelationshipsOfKind collects sym's relationships of the given kind that name a target.
+func declaredRelationshipsOfKind(sym *symbols.Symbol, kind ast.RelationshipKind) []*ast.Relationship {
 	var rels []*ast.Relationship
 	for _, rel := range semantics.RelationshipsOf(sym) {
 		if rel == nil || rel.Kind != kind || rel.Target == nil {
@@ -604,13 +638,20 @@ func (ctx *Context) SubsettingFeatures(inst *Instance, typ *symbols.Symbol, name
 	if inst == nil {
 		return ofType
 	}
-	var subsetting []EffectiveFeature
-	for _, feat := range ofType {
+	for i, feat := range ofType {
 		if _, ok := inst.FeatureValues[feat.Name]; ok {
-			subsetting = append(subsetting, feat)
+			continue
 		}
+		// The first feature inst does not hold: the rest is filtered into a slice of its own.
+		subsetting := append(make([]EffectiveFeature, 0, len(ofType)-1), ofType[:i]...)
+		for _, feat := range ofType[i+1:] {
+			if _, ok := inst.FeatureValues[feat.Name]; ok {
+				subsetting = append(subsetting, feat)
+			}
+		}
+		return subsetting
 	}
-	return subsetting
+	return ofType
 }
 
 // subsettersOf is SubsettingFeatures for the type alone, memoized per type and name;
@@ -637,6 +678,7 @@ func (ctx *Context) subsettersOf(typ *symbols.Symbol, name string) []EffectiveFe
 			}
 		}
 	}
+	subsetting = slices.Clip(subsetting)
 	byName[name] = subsetting
 	return subsetting
 }

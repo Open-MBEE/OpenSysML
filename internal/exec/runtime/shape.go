@@ -562,7 +562,7 @@ func (ctx *Context) roleRedefiningDefault(sym, typeSym *symbols.Symbol) (ast.Nod
 // inherits any redefined feature's (KerML 1.0 §7.3.4.5), though no object carries them.
 func (ctx *Context) redefinedNamespaceUsages(sym *symbols.Symbol) []*symbols.Symbol {
 	var usages []*symbols.Symbol
-	for _, rel := range relationshipsOfKind(sym, ast.RelRedefines) {
+	for _, rel := range ctx.relationshipsOfKind(sym, ast.RelRedefines) {
 		resolved := ctx.model.semantics.RelationshipTarget(sym, rel)
 		if resolved == nil || resolved == sym {
 			continue
