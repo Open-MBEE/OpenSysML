@@ -36,8 +36,8 @@ irm https://opensysml.org/install.ps1 | iex             # Windows
 ## Individual tools
 
 Each archive contains only the named tool. The `sysml-mcp` archive, the
-[MCP server](reference/sysml-mcp.md) for coding agents, also carries its manual page and the
-LICENSE; `sysml-mcp -print-config <host>` then configures the agent. The `sysml-grpc` service
+[MCP server](reference/sysml-mcp.md) for coding agents, also carries the LICENSE and, on Linux
+and macOS, its manual page; `sysml-mcp -print-config <host>` then configures the agent. The `sysml-grpc` service
 and the `sysml-jupyter-kernel` Jupyter kernel are separate downloads; most
 [client libraries](reference/clients.md) fetch the service themselves, and
 `pip install jupyter-opensysml-kernel` carries the kernel in its platform wheels and downloads
