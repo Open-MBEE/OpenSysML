@@ -923,11 +923,8 @@ func (ctx *Context) leaveCalc() {
 	ctx.calcDepth--
 }
 
-// calcBindingSite is where an invocation's parameters are bound beyond the call
-// itself: nested, when non-null, is the environment reading a nested usage, which
-// the bindings the usage itself declares are written in and evaluate against;
-// occurrence is the performance the bound values are also written to; open names
-// the parameters a usage read as a feature leaves unsupplied, bound to no value.
+// calcBindingSite is where a usage's bindings land beyond the call: the nested
+// reader they evaluate in, the performance written to, and the open parameters.
 type calcBindingSite struct {
 	nested     *EvalContext
 	occurrence *calcOccurrence
