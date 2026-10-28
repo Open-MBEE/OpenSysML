@@ -492,12 +492,12 @@ func apiJSONExpressionIDs(data []byte) (*apiJSONImportPlan, error) {
 		}
 		toolkitForm = toolkitForm || (object.toolkitForm && !statedDefaults)
 	}
-	graph, syntheticRootIndexes, annotations, incomingMemberships, err := apiJSONMappingGraph(objects)
+	graph, syntheticRootIndexes, annotations, graphIndex, err := apiJSONMappingGraph(objects)
 	if err != nil {
 		return nil, err
 	}
 	mappingGraph := apiJSONEvaluationGraph(graph)
-	mappingContext := newMappingQualifiedNameContextWithMemberships(mappingGraph, incomingMemberships)
+	mappingContext := newMappingQualifiedNameContext(mappingGraph, graphIndex)
 	reconstructedNames := mappingQualifiedNamesWithContext(mappingGraph, mappingContext)
 	index, err := newAPIJSONIndex(objects)
 	if err != nil {
@@ -546,7 +546,7 @@ func apiJSONExpressionIDs(data []byte) (*apiJSONImportPlan, error) {
 	}, nil
 }
 
-func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Triple]struct{}, []apiJSONAnnotation, map[string][]rdf.Term, error) {
+func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Triple]struct{}, []apiJSONAnnotation, *apiJSONGraphIndex, error) {
 	builder := rdf.NewGraphBuilder(len(objects) * apiJSONEstimatedTriplesPerElement)
 	cache := newAPIJSONTermCache()
 	var annotations []apiJSONAnnotation
@@ -645,7 +645,7 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 	}
 	graph := builder.Build()
 	graph = apiJSONGraphWithPropertyOrder(graph, objects)
-	incomingMemberships := mappingIncomingMemberships(graph)
+	graphIndex := newAPIJSONGraphIndex(graph, nil)
 	syntheticRootIndexes := make(map[rdf.Triple]struct{})
 	rootIndex := 0
 	for _, object := range objects {
@@ -654,7 +654,7 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 			mappingHasOwnerFact(graph, subject) {
 			continue
 		}
-		if _, hasOwner := mappingQualifiedNameOwner(graph, subject, incomingMemberships, make(map[string]bool)); hasOwner {
+		if _, hasOwner := mappingQualifiedNameOwner(graph, subject, graphIndex.incomingMemberships, make(map[string]bool)); hasOwner {
 			continue
 		}
 		if mappingTypeConforms(graph, subject, "Namespace") &&
@@ -677,7 +677,7 @@ func apiJSONMappingGraph(objects []apiJSONElementData) (*rdf.Graph, map[rdf.Trip
 		}
 		rootIndex++
 	}
-	return graph, syntheticRootIndexes, annotations, incomingMemberships, nil
+	return graph, syntheticRootIndexes, annotations, graphIndex, nil
 }
 
 func apiJSONGraphWithPropertyOrder(graph *rdf.Graph, objects []apiJSONElementData) *rdf.Graph {

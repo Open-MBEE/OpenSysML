@@ -14,27 +14,34 @@ func mappingTypeConforms(graph *rdf.Graph, subject rdf.Term, ancestor string) bo
 		return false
 	}
 	for _, typ := range graph.ObjectsView(subject, rdf.RDFType) {
-		seen := map[string]bool{}
-		queue := []string{typ.Value}
-		for len(queue) > 0 {
-			current := queue[0]
-			queue = queue[1:]
-			if seen[current] {
-				continue
-			}
-			seen[current] = true
-			class := ontology.LocalName(current)
-			if ontology.IsAncestorOrSelf(class, ancestor) {
-				return true
-			}
-			if resolved := apiJSONOwnedAbsenceMetaclassInGraph(graph, current); resolved != "" &&
-				ontology.IsAncestorOrSelf(resolved, ancestor) {
-				return true
-			}
-			for _, parent := range graph.ObjectsView(rdf.IRI(current), mappingRDFSSubClassOf) {
-				if parent.IsIRI() {
-					queue = append(queue, parent.Value)
-				}
+		if mappingTypeIRIConforms(graph, typ.Value, ancestor) {
+			return true
+		}
+	}
+	return false
+}
+
+func mappingTypeIRIConforms(graph *rdf.Graph, typ, ancestor string) bool {
+	seen := map[string]bool{}
+	queue := []string{typ}
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		if seen[current] {
+			continue
+		}
+		seen[current] = true
+		class := ontology.LocalName(current)
+		if ontology.IsAncestorOrSelf(class, ancestor) {
+			return true
+		}
+		if resolved := apiJSONOwnedAbsenceMetaclassInGraph(graph, current); resolved != "" &&
+			ontology.IsAncestorOrSelf(resolved, ancestor) {
+			return true
+		}
+		for _, parent := range graph.ObjectsView(rdf.IRI(current), mappingRDFSSubClassOf) {
+			if parent.IsIRI() {
+				queue = append(queue, parent.Value)
 			}
 		}
 	}
@@ -62,22 +69,22 @@ func mappingHasIdentity(graph *rdf.Graph, subject rdf.Term) bool {
 		graph.HasProperty(subject, rdf.SysML+"declaredKeyword")
 }
 
-func mappingFeatureChain(graph *rdf.Graph, subject rdf.Term) bool {
-	if !mappingTypeConforms(graph, subject, "Feature") || mappingHasElementName(graph, subject) {
+func mappingFeatureChain(graph *rdf.Graph, subject rdf.Term, context *mappingQualifiedNameContext) bool {
+	if !context.conforms(graph, subject, "Feature") || mappingHasElementName(graph, subject) {
 		return false
 	}
 	if graph.HasProperty(subject, rdf.SysML+"chainingFeature") {
 		return true
 	}
 	for _, relationship := range graph.ObjectsView(subject, rdf.SysML+pOwnedRelationship) {
-		if mappingTypeConforms(graph, relationship, "FeatureChaining") {
+		if context.conforms(graph, relationship, "FeatureChaining") {
 			return true
 		}
 	}
 	return false
 }
 
-func mappingFilterPackageNodes(graph *rdf.Graph) map[string]bool {
+func mappingFilterPackageNodes(graph *rdf.Graph, index *apiJSONGraphIndex) map[string]bool {
 	filtered := make(map[string]bool)
 	if graph == nil {
 		return filtered
@@ -94,11 +101,11 @@ func mappingFilterPackageNodes(graph *rdf.Graph) map[string]bool {
 				children[owner.Value] = append(children[owner.Value], subject)
 			}
 		}
-		if !mappingTypeConforms(graph, subject, "Package") {
+		if !index.conforms(graph, subject, "Package") {
 			continue
 		}
 		importer := firstIRI(graph, subject, pOwningRelationship)
-		if mappingTypeConforms(graph, importer, "Import") {
+		if index.conforms(graph, importer, "Import") {
 			if imported, ok := graph.Object(importer, rdf.SysML+pImportedNamespace); ok && imported == subject {
 				filtered[subject.Value] = true
 				queue = append(queue, subject)
@@ -122,7 +129,11 @@ func mappingFilterPackageNodes(graph *rdf.Graph) map[string]bool {
 	return filtered
 }
 
-func mappingFilterPackageNodeWithCache(graph *rdf.Graph, subject rdf.Term, cache map[string]bool) bool {
+func mappingFilterPackageNode(graph *rdf.Graph, subject rdf.Term, context *mappingQualifiedNameContext) bool {
+	var cache map[string]bool
+	if context != nil {
+		cache = context.packageCache
+	}
 	if cache != nil {
 		if filtered, ok := cache[subject.Value]; ok {
 			return filtered
@@ -137,9 +148,9 @@ func mappingFilterPackageNodeWithCache(graph *rdf.Graph, subject rdf.Term, cache
 			continue
 		}
 		seen[current.Value] = true
-		if mappingTypeConforms(graph, current, "Package") {
+		if context.conforms(graph, current, "Package") {
 			importer := firstIRI(graph, current, pOwningRelationship)
-			if mappingTypeConforms(graph, importer, "Import") {
+			if context.conforms(graph, importer, "Import") {
 				if imported, ok := graph.Object(importer, rdf.SysML+pImportedNamespace); ok && imported == current {
 					if cache != nil {
 						cache[subject.Value] = true
@@ -166,49 +177,34 @@ func mappingFilterPackageNodeWithCache(graph *rdf.Graph, subject rdf.Term, cache
 // MappingElementSubject reports whether the subject is emitted as an Element
 // rather than a reified membership edge.
 func MappingElementSubject(graph *rdf.Graph, subject rdf.Term) bool {
-	return mappingElementSubjectWithCache(graph, subject, map[string]bool{}, nil)
+	return mappingElementSubjectWithContext(graph, subject, map[string]bool{}, nil)
 }
 
-func mappingElementSubjectWithCache(graph *rdf.Graph, subject rdf.Term, seen, packageCache map[string]bool) bool {
-	return mappingElementSubjectWithMemo(graph, subject, seen, packageCache, nil, nil)
-}
-
+// mappingElementSubjectWithContext is MappingElementSubject, memoized in the
+// context when there is one.
 func mappingElementSubjectWithContext(
 	graph *rdf.Graph,
 	subject rdf.Term,
 	seen map[string]bool,
 	context *mappingQualifiedNameContext,
 ) bool {
-	if context == nil {
-		return mappingElementSubjectWithCache(graph, subject, seen, nil)
-	}
-	return mappingElementSubjectWithMemo(
-		graph, subject, seen, context.packageCache, context.elementSubjects, context.membershipElements,
-	)
-}
-
-func mappingElementSubjectWithMemo(
-	graph *rdf.Graph,
-	subject rdf.Term,
-	seen, packageCache, elementCache, membershipCache map[string]bool,
-) bool {
 	if seen[subject.Value] {
 		return false
 	}
-	if elementCache != nil {
-		if result, ok := elementCache[subject.Value]; ok {
+	if context != nil {
+		if result, ok := context.elementSubjects[subject.Value]; ok {
 			return result
 		}
 	}
 	_, ok := rdf.SubjectID(subject)
 	if graph == nil || !ok ||
-		!mappingTypeConforms(graph, subject, "Element") {
+		!context.conforms(graph, subject, "Element") {
 		return false
 	}
 	seen[subject.Value] = true
-	result := mappingElementSubjectUncached(graph, subject, seen, packageCache, elementCache, membershipCache)
-	if elementCache != nil {
-		elementCache[subject.Value] = result
+	result := mappingElementSubjectUncached(graph, subject, seen, context)
+	if context != nil {
+		context.elementSubjects[subject.Value] = result
 	}
 	return result
 }
@@ -216,17 +212,18 @@ func mappingElementSubjectWithMemo(
 func mappingElementSubjectUncached(
 	graph *rdf.Graph,
 	subject rdf.Term,
-	seen, packageCache, elementCache, membershipCache map[string]bool,
+	seen map[string]bool,
+	context *mappingQualifiedNameContext,
 ) bool {
-	if mappingFilterPackageNodeWithCache(graph, subject, packageCache) {
+	if mappingFilterPackageNode(graph, subject, context) {
 		return false
 	}
-	if mappingTypeConforms(graph, subject, "FeatureChaining") || mappingFeatureChain(graph, subject) {
+	if context.conforms(graph, subject, "FeatureChaining") || mappingFeatureChain(graph, subject, context) {
 		return false
 	}
-	if mappingTypeConforms(graph, subject, "Membership") {
-		return mappingTypeConforms(graph, subject, "ElementFilterMembership") ||
-			mappingTypeConforms(graph, subject, "StateSubactionMembership") ||
+	if context.conforms(graph, subject, "Membership") {
+		return context.conforms(graph, subject, "ElementFilterMembership") ||
+			context.conforms(graph, subject, "StateSubactionMembership") ||
 			mappingHasIdentity(graph, subject) ||
 			graph.HasProperty(subject, rdf.OpenSysML+"memberIndex")
 	}
@@ -240,10 +237,8 @@ func mappingElementSubjectUncached(
 		firstIRI(graph, subject, pOwningMembership),
 		firstIRI(graph, subject, pOwningRelationship),
 	} {
-		if mappingTypeConforms(graph, owner, "Membership") {
-			return mappingMembershipMemberIsElementWithMemo(
-				graph, owner, subject, seen, packageCache, elementCache, membershipCache,
-			)
+		if context.conforms(graph, owner, "Membership") {
+			return mappingMembershipMemberIsElementWithContext(graph, owner, subject, seen, context)
 		}
 	}
 	for _, typ := range graph.ObjectsView(subject, rdf.RDFType) {
@@ -289,43 +284,38 @@ func mappingExpressionBodyMemberSubject(graph *rdf.Graph, subject rdf.Term) bool
 // MappingMembershipMemberIsElement reports whether the forward mapping emits a
 // membership's member as an Element rather than as an expression part.
 func MappingMembershipMemberIsElement(graph *rdf.Graph, membership, member rdf.Term) bool {
-	return mappingMembershipMemberIsElementWithCache(graph, membership, member, map[string]bool{}, nil)
+	return mappingMembershipMemberIsElementWithContext(graph, membership, member, map[string]bool{}, nil)
 }
 
-func mappingMembershipMemberIsElementWithCache(graph *rdf.Graph, membership, member rdf.Term, seen, packageCache map[string]bool) bool {
-	return mappingMembershipMemberIsElementWithMemo(graph, membership, member, seen, packageCache, nil, nil)
-}
-
-func mappingMembershipMemberIsElementWithMemo(
+func mappingMembershipMemberIsElementWithContext(
 	graph *rdf.Graph,
 	membership, member rdf.Term,
-	seen, packageCache, elementCache, membershipCache map[string]bool,
+	seen map[string]bool,
+	context *mappingQualifiedNameContext,
 ) bool {
+	if context == nil {
+		return mappingMembershipMemberIsElementUncached(graph, membership, member, seen, nil)
+	}
 	cacheKey := membership.Value + "\x00" + member.Value
-	if membershipCache != nil {
-		if result, ok := membershipCache[cacheKey]; ok {
-			return result
-		}
+	if result, ok := context.membershipElements[cacheKey]; ok {
+		return result
 	}
-	result := mappingMembershipMemberIsElementUncached(
-		graph, membership, member, seen, packageCache, elementCache, membershipCache,
-	)
-	if membershipCache != nil {
-		membershipCache[cacheKey] = result
-	}
+	result := mappingMembershipMemberIsElementUncached(graph, membership, member, seen, context)
+	context.membershipElements[cacheKey] = result
 	return result
 }
 
 func mappingMembershipMemberIsElementUncached(
 	graph *rdf.Graph,
 	membership, member rdf.Term,
-	seen, packageCache, elementCache, membershipCache map[string]bool,
+	seen map[string]bool,
+	context *mappingQualifiedNameContext,
 ) bool {
 	if graph == nil {
 		return false
 	}
 	if _, ok := rdf.SubjectID(member); !ok ||
-		!mappingTypeConforms(graph, member, "Element") {
+		!context.conforms(graph, member, "Element") {
 		return false
 	}
 	if mappingExpressionType(graph, member) &&
@@ -340,9 +330,9 @@ func mappingMembershipMemberIsElementUncached(
 	if !owner.IsIRI() {
 		owner = firstIRI(graph, membership, pOwner)
 	}
-	resultExpression := mappingTypeConforms(graph, membership, "ResultExpressionMembership")
+	resultExpression := context.conforms(graph, membership, "ResultExpressionMembership")
 	ownerIsElement := owner.IsIRI() &&
-		mappingElementSubjectWithMemo(graph, owner, seen, packageCache, elementCache, membershipCache)
+		mappingElementSubjectWithContext(graph, owner, seen, context)
 	if mappingExpressionType(graph, owner) && !ownerIsElement {
 		return false
 	}
@@ -352,21 +342,21 @@ func mappingMembershipMemberIsElementUncached(
 	if owner.IsIRI() && !ownerIsElement && !resultExpression {
 		return mappingHasElementName(graph, member) || mappingHasMemberName(graph, membership)
 	}
-	if mappingTypeConforms(graph, membership, "TransitionFeatureMembership") {
+	if context.conforms(graph, membership, "TransitionFeatureMembership") {
 		for _, typ := range graph.ObjectsView(member, rdf.RDFType) {
 			if expressionMetaclasses[ontology.LocalName(typ.Value)] {
 				return false
 			}
 		}
 	}
-	parameter := mappingTypeConforms(graph, membership, "ParameterMembership") ||
-		mappingTypeConforms(graph, membership, "ReturnParameterMembership")
+	parameter := context.conforms(graph, membership, "ParameterMembership") ||
+		context.conforms(graph, membership, "ReturnParameterMembership")
 	if resultExpression {
 		return true
 	}
-	if !parameter && mappingTypeConforms(graph, membership, "FeatureMembership") {
+	if !parameter && context.conforms(graph, membership, "FeatureMembership") {
 		if graph.BoolValue(member, rdf.SysML+"isEnd") &&
-			mappingTypeConforms(graph, membership, "EndFeatureMembership") {
+			context.conforms(graph, membership, "EndFeatureMembership") {
 			return false
 		}
 		if mappingHasElementName(graph, member) || mappingHasMemberName(graph, membership) {
@@ -390,8 +380,8 @@ func mappingMembershipMemberIsElementUncached(
 	if !graph.HasProperty(member, rdf.OpenSysML+"memberIndex") || mappingExpressionType(graph, member) {
 		return false
 	}
-	if (mappingTypeConforms(graph, membership, "ParameterMembership") ||
-		mappingTypeConforms(graph, membership, "ReturnParameterMembership")) &&
+	if (context.conforms(graph, membership, "ParameterMembership") ||
+		context.conforms(graph, membership, "ReturnParameterMembership")) &&
 		mappingExpressionType(graph, owner) && mappingHasExactType(graph, member, "Feature") {
 		return false
 	}
