@@ -362,10 +362,13 @@ the usual search for the root namespaces it imports, which now also looks in the
 project and in the projects that uses. An installed project is matched to a usage by its
 own `.project.json`, never by its directory name: the resource IRI's last two path segments
 are its publisher and name (compared as lower-case slugs, so `Requirements Management`
-answers to `…/ode4hera/requirements-management`), and of several installed versions the one
-a `versionConstraint` names exactly is taken — or, when the usage carries none, the one a
+answers to `…/ode4hera/requirements-management`), and of several installed versions the
+highest one its `versionConstraint` admits is taken — or, when the usage carries none, the one a
 version written after `@` in its IRI names (`pkg:registry/acme/gears@1.0.0`) — else the
-latest. A usage whose IRI spells where the project is kept rather than the project — a
+latest. KerML §10.3 defines no syntax for `versionConstraint`; OpenSysML reads it as an
+npm-style semver range (`1.2.3`, `^1.2`, `~1.2.3`, `>=1.0.0 <2.0.0`, `1.x`, `1.0.0 - 2.0.0`,
+`a || b`). A constraint no installed version satisfies, or one outside that grammar, is a
+`project.load` warning at the project file and the usage selects nothing. A usage whose IRI spells where the project is kept rather than the project — a
 version-control package URL (`pkg:git/`, `pkg:svn/`, `pkg:hg/`) or a plain URL, such as
 `pkg:git/github.com/MBSE4U/sysmod-sysmlv2` for the project `mbse4u/sysmod` — is linked by
 elimination once every usage has had its say: of the installed projects no usage

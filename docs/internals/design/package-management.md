@@ -45,7 +45,7 @@ Non-goals
 | Parse/verify `.meta.json`, read `.kpar` in memory | `archive.go` `ParseArchive`, `ParseMeta`, `verify` | every checksum of a known algorithm verified before any member is read; path traversal, symlink escape and size bounds enforced |
 | Write/unpack archives deterministically | `bundle.go`, CLI `-bundle`/`-unbundle` | byte-identical output; `SOURCE_DATE_EPOCH` honoured |
 | Find installed projects | `discovery.go` `Discovery.Around` | nearest enclosing project + usage closure under well-known dirs (`.sysand/lib`) and `-library-root`/`OPENSYSML_LIBRARY_ROOTS`/LSP `libraryRoots` |
-| Match usage → installed project | `interchange.go` `Uses`, `resourceSegments`, `slug` | last two IRI path segments = publisher/name, lower-case slugs; exact `versionConstraint` or latest (semver order) |
+| Match usage → installed project | `interchange.go` `Uses`, `resourceSegments`, `slug` | last two IRI path segments = publisher/name, lower-case slugs; `versionConstraint` an npm-style semver range (exact, `^`, `~`, comparators, `x`, hyphen, `\|\|`), highest satisfying installed version, else a warning; none → latest (semver order) |
 | OMG std-lib usages | `discovery.go` | `https://www.omg.org/spec/{KerML,SysML}/20250201/*.kpar` answered by the bundled library |
 | Import-driven dependency search | `deps.go` | unresolved root namespace → project files → installed projects |
 | Fixtures | `tests/kpar/testdata/{omg,sysand}` | the 10 OMG release archives; one sysand-laid-out project with a dir and a `.kpar` dependency |
@@ -99,12 +99,18 @@ A package manager and OpenSysML meet only on disk, at the consuming project's `.
   `pkg:<type>/<publisher>/<name>`) is matched by name alone and stays unresolved when that project
   is not installed — it never falls back to an unrelated install. Installed projects no usage
   claims are not loaded.
-- **Versions.** `versionConstraint` is honoured as today (exact, else latest installed by semver
-  order). `@<version>` in the IRI is an exact constraint when the usage carries no
-  `versionConstraint` (before this, `resourceSegments` discarded it and the latest installed release
-  won). Which version lands under `lib/` is the package manager's decision at install time, made
-  from its own lock; OpenSysML never reads a lock file and matches the usage against whatever is
-  installed.
+- **Versions.** KerML 1.1 §10.3 (Table 12) makes `versionConstraint` a string and defines no
+  syntax for it, so OpenSysML accepts the de-facto one package managers share, the npm-style semver
+  range: an exact version (`1.2.3`, `=1.2.3`, `v1.2.3`), comparators (`<`, `<=`, `>`, `>=`), caret
+  (`^1.2`), tilde (`~1.2.3`), `x`/`*` wildcards (`1.x`), hyphen ranges (`1.0.0 - 2.0.0`), space or
+  comma as AND and `||` as OR, pre-releases ordered as semver 2.0.0 orders them and admitted only
+  where the range names their release (`>=1.0.0-rc.1`, as npm ranges do). The highest
+  installed version in the range is taken; no version in it, or a constraint outside the grammar,
+  is a `project.load` warning at the consumer's `.project.json` and the usage links nothing (never
+  silently "any"). No constraint → the latest installed. `@<version>` in the IRI is an exact
+  constraint when the usage carries no `versionConstraint`. Which version lands under `lib/` is the
+  package manager's decision at install time, made from its own lock; OpenSysML never reads a lock
+  file and matches the usage against whatever is installed.
 - **Verification.** An archive's `.meta.json` checksums, path traversal, symlink escape and size
   bounds are checked on the read side regardless of who wrote it; a checksum that fails refuses the
   archive (a warning under a library root). An installed directory's `.meta.json` is not verified:
