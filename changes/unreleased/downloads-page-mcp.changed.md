@@ -1,0 +1,1 @@
+- The downloads page lists `sysml-mcp`: its per-platform release archive in the individual-tools table, the `@openmbee/sysml-mcp` npm package and the MCP Registry entry under package managers, the `--tools` option of the install script, and that the Homebrew formula, the Windows MSI and the nightly carry it too.

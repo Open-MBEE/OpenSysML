@@ -12,7 +12,8 @@ covers checksum and signature verification, Gatekeeper on macOS, and the optiona
 One command on every platform: it picks the bundle below for this machine, verifies it
 against `SHA256SUMS.txt` and installs `sysml` and `sysml-lsp`. The
 [install guide](guide/01-install.md#with-the-install-script) lists its options — a pinned
-release or the nightly, `sysml-grpc` as well, another directory.
+release or the nightly, `sysml-grpc` or `sysml-mcp` as well (`--tools sysml,sysml-lsp,sysml-mcp`,
+or `--tools all`), another directory.
 
 ```bash
 curl -fsSL https://opensysml.org/install.sh | sh        # Linux and macOS
@@ -29,13 +30,15 @@ irm https://opensysml.org/install.ps1 | iex             # Windows
 | Linux arm64 | [opensysml-linux-arm64.tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml-linux-arm64.tar.gz) | Contains `sysml` and `sysml-lsp`. |
 | macOS Apple Silicon | [opensysml-darwin-arm64.tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml-darwin-arm64.tar.gz) | Contains `sysml` and `sysml-lsp`; Homebrew also installs Z3. |
 | macOS Intel | [opensysml-darwin-amd64.tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml-darwin-amd64.tar.gz) | Contains `sysml` and `sysml-lsp`; Homebrew also installs Z3. |
-| macOS · Homebrew | `brew install Open-MBEE/tap/opensysml` | Recommended; installs the SMT solver too. |
-| Windows x64 | [MSI installer on the latest release page](https://github.com/Open-MBEE/OpenSysML/releases/latest) · [portable ZIP](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml-windows-amd64.zip) | The MSI bundles Z3 and adds `sysml` to `PATH`; the portable ZIP contains `sysml` and `sysml-lsp`. |
+| macOS · Homebrew | `brew install Open-MBEE/tap/opensysml` | Recommended; installs `sysml-mcp` and the SMT solver too. |
+| Windows x64 | [MSI installer on the latest release page](https://github.com/Open-MBEE/OpenSysML/releases/latest) · [portable ZIP](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml-windows-amd64.zip) | The MSI bundles Z3, installs `sysml-mcp` as its *MCP server* feature and adds `sysml` to `PATH`; the portable ZIP contains `sysml` and `sysml-lsp`. |
 
 ## Individual tools
 
-Each archive contains only the named tool. The `sysml-grpc` service and the
-`sysml-jupyter-kernel` Jupyter kernel are separate downloads; most
+Each archive contains only the named tool. The `sysml-mcp` archive, the
+[MCP server](reference/sysml-mcp.md) for coding agents, also carries its manual page and the
+LICENSE; `sysml-mcp -print-config <host>` then configures the agent. The `sysml-grpc` service
+and the `sysml-jupyter-kernel` Jupyter kernel are separate downloads; most
 [client libraries](reference/clients.md) fetch the service themselves, and
 `pip install jupyter-opensysml-kernel` carries the kernel in its platform wheels and downloads
 it otherwise (see the
@@ -45,6 +48,7 @@ it otherwise (see the
 |---|---|---|---|---|---|
 | `sysml` | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-linux-amd64.tar.gz) | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-linux-arm64.tar.gz) | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-darwin-amd64.tar.gz) | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-darwin-arm64.tar.gz) | [ZIP](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-windows-amd64.zip) |
 | `sysml-lsp` | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-lsp-linux-amd64.tar.gz) | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-lsp-linux-arm64.tar.gz) | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-lsp-darwin-amd64.tar.gz) | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-lsp-darwin-arm64.tar.gz) | [ZIP](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-lsp-windows-amd64.zip) |
+| `sysml-mcp` | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-mcp-linux-amd64.tar.gz) | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-mcp-linux-arm64.tar.gz) | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-mcp-darwin-amd64.tar.gz) | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-mcp-darwin-arm64.tar.gz) | [ZIP](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-mcp-windows-amd64.zip) |
 | `sysml-grpc` | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-linux-amd64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-linux-amd64.sha256) | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-linux-arm64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-linux-arm64.sha256) | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-darwin-amd64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-darwin-amd64.sha256) | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-darwin-arm64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-darwin-arm64.sha256) | [EXE](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-windows-amd64.exe) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-windows-amd64.exe.sha256) |
 | `sysml-jupyter-kernel` | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-linux-amd64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-linux-amd64.sha256) | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-linux-arm64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-linux-arm64.sha256) | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-darwin-amd64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-darwin-amd64.sha256) | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-darwin-arm64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-darwin-arm64.sha256) | [EXE](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-windows-amd64.exe) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-windows-amd64.exe.sha256) |
 
@@ -83,6 +87,11 @@ For signature verification with cosign, see the [install guide](guide/01-install
   ([Airflow provider](reference/airflow-provider.md)).
 - **Node:** [`@openmbee/opensysml` on npm](https://www.npmjs.com/package/@openmbee/opensysml) —
   `npm install @openmbee/opensysml`; its per-platform packages carry `sysml-grpc`.
+- **MCP server:** [`@openmbee/sysml-mcp` on npm](https://www.npmjs.com/package/@openmbee/sysml-mcp) —
+  `npx -y @openmbee/sysml-mcp` runs the release's `sysml-mcp` for the platform with nothing
+  preinstalled but Node (also published as `@openmbee/opensysml-mcp`). Each release is listed
+  in the [MCP Registry](https://registry.modelcontextprotocol.io) as `org.opensysml/sysml-mcp`,
+  so a host that reads the registry offers it directly ([MCP server](reference/sysml-mcp.md)).
 - **Rust:** [`opensysml` on crates.io](https://crates.io/crates/opensysml) —
   `cargo add opensysml`, at the core's version.
 - **Go:** `go install github.com/Open-MBEE/OpenSysML/cmd/sysml@latest`, or use the
@@ -103,7 +112,10 @@ See [all releases](https://github.com/Open-MBEE/OpenSysML/releases).
 ## Nightly
 
 Nightly bundles rebuild `develop`. They contain `sysml` and `sysml-lsp` but have no MSI or provenance.
-The install script installs one with `--version nightly` (`-Version nightly` on Windows).
+The install script installs one with `--version nightly` (`-Version nightly` on Windows). The
+nightly also publishes the individual tools above at the same path, `sysml-mcp` included
+([sysml-mcp-linux-amd64.tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/sysml-mcp-linux-amd64.tar.gz),
+`…-windows-amd64.zip`).
 
 | Platform | Bundle |
 |---|---|
