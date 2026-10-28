@@ -1309,14 +1309,20 @@ func qualifiedText(names []string) string {
 	return strings.Join(parts, "::")
 }
 
+// carrierDeclaration is the name of the declaration a carrier materializes where
+// it is not the definition it is an object of; empty where it is.
+func carrierDeclaration(c carrier, definition string) string {
+	if c.instance.Type != nil && c.instance.Type.Name != definition {
+		return c.instance.Type.Name
+	}
+	return ""
+}
+
 // carrierPath names a carrier apart from its siblings: the features walked to
 // it, ending in the declaration it materializes — which differs from the feature
 // holding it when a collection gathers objects of several declarations.
 func carrierPath(c carrier, definition string) []string {
-	decl := ""
-	if c.instance.Type != nil && c.instance.Type.Name != definition {
-		decl = c.instance.Type.Name
-	}
+	decl := carrierDeclaration(c, definition)
 	if len(c.features) == 0 {
 		if decl == "" {
 			return nil
@@ -1331,13 +1337,25 @@ func carrierPath(c carrier, definition string) []string {
 }
 
 // carrierFeatures is the path to a nested carrier as a verdict labels it: the
-// segments walked from its root, a collection's element indexed, spelled as a
-// validation walk spells the object it reaches.
-func carrierFeatures(c carrier) []string {
-	if c.instance == nil {
+// segments walked from its root, a collection's element indexed as a validation
+// walk spells the object it reaches, ending in the declaration the carrier
+// materializes where a collection gathers objects of several declarations, as
+// carrierLabels names it.
+func (ctx *Context) carrierFeatures(c carrier) []string {
+	if len(c.segments) == 0 || c.instance == nil {
 		return nil
 	}
-	return c.segments
+	name := "object"
+	if def := ctx.definitionOf(c.instance.Type); def != nil && def.Name != "" {
+		name = def.Name
+	}
+	decl := carrierDeclaration(c, name)
+	if decl == "" || c.features[len(c.features)-1] == decl {
+		return c.segments
+	}
+	walked := append([]string(nil), c.segments...)
+	walked[len(walked)-1] = source.NameText(decl)
+	return walked
 }
 
 // definitionOf is the definition objects of sym are objects of: sym itself when
