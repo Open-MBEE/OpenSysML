@@ -28,9 +28,8 @@ type TableEnumeration struct {
 	Literals []string `json:"literals"`
 }
 
-// TableProperty is Property with its kind and range spelled as the table README does:
-// kind "object" or "datatype", range the local name of a metaclass or enumeration,
-// else the datatype IRI; Upper is 1 or -1 (unbounded, ecore's spelling).
+// TableProperty gives each property its kind ("object"/"datatype"), its range as a metaclass
+// or enumeration name (else the datatype IRI) and its upper bound, 1 or -1 for unbounded.
 type TableProperty struct {
 	Name          string   `json:"name"`
 	DefiningClass string   `json:"definingClass"`
