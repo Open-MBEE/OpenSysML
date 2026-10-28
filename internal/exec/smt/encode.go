@@ -296,10 +296,8 @@ func (e *Encoding) collectAttribute(attr lower.Attribute, declared map[string]bo
 	return nil
 }
 
-// collectDerived declares the variable of a feature valued by an expression over
-// other features and keeps the expression: every state defines the variable by it
-// and every read within a move substitutes it, as the interpreter computes the
-// feature at each read. It is no input: neither pinned nor free in state 0.
+// collectDerived declares the variable of a feature valued by an expression over other
+// features and keeps the expression every state defines it by; it is no input.
 func (e *Encoding) collectDerived(attr lower.Attribute, fp lower.Footprint, written string, scope *symbols.Scope, declared map[string]bool) error {
 	label, construct := nodeLabel(e.Flow.Graph.Initial), "attribute "+attr.Name
 	if fp.Dynamic {
@@ -326,11 +324,8 @@ type derivedFeature struct {
 	expr *solve.Expression
 }
 
-// checkDerived refuses a feature valued by an expression whose declared type
-// narrows its sort, and one whose value may be undefined — its expression has
-// side conditions, or a feature it reads may hold none — which the interpreter
-// settles when the performance completes, failing it then even unread. A cycle
-// among such features never reaches the encoding: the interpreter refuses it at the start.
+// checkDerived refuses a derived feature whose declared type narrows its sort, and one that
+// may have no value: the interpreter settles it at completion and fails then even unread.
 func (e *Encoding) checkDerived() error {
 	undefined := make(map[string]bool)
 	var visit func(name string) bool
