@@ -2451,6 +2451,63 @@ by an expression stands on the places its lowered expression reads, through feat
 in turn, at the moment it is read, and a write from it stands on those places as a write from
 them directly would.
 
+### A feature reached through a part stands on the choice points its writers race at
+
+Fixtures: `action_order_chained_write_of_racing_writers`, `action_order_chained_two_level_write`,
+`action_order_chained_read_of_unraced_stays_bare` (golden, explored).
+
+```
+part def Sensor { attribute raw : Integer = 0;  attribute scaled : Integer = raw * 10; }
+part sensor : Sensor;
+start → split ⇉ a { sensor.raw := 1 } ─┐
+              ⇉ b { sensor.raw := 2 } ─┘→ sync → derive { z := sensor.raw; zz := sensor.scaled } → done
+```
+
+Derived constraints:
+
+- `sensor.raw` is a feature of the one object the action's part denotes, reached through the
+  part by a feature chain (KerML 1.1 §7.3.4.6); the two branches write that one place, and
+  `sensor.scaled` is bound to an expression over it, computed as it is read.
+- `sync` follows both writes, so the reads after it see the `raw` that stands after both:
+  `{raw = 1, scaled = 10, z = 1, zz = 10}` or `{raw = 2, scaled = 20, z = 2, zz = 20}`. A chain two
+  parts deep (`car.engine.rpm`) names one place the same way.
+
+Open: the order of the two branches, exactly as for a feature of the action's own. A place is
+the feature written whatever path reaches it, so the chained place stands open where a plain
+one would, and so does everything read or computed from it. A feature reached through a part
+that no racing branch writes (`sensor.raw` written once before the fork while `x` races) is
+fixed, and a value read from it after the join is fixed with it.
+
+Pinned outcome: the admissible set of two members in each fixture, stated as `outcomes` citing
+this section. The default run reports `sensor.raw`, `sensor.scaled`, `z` and `zz` up to the same
+two choice points (`orderDependent` states each `2`); in the two-level fixture `z` alone, the
+chained place itself not being among the results; in the unraced fixture `x` and the read of it
+alone, the chained reads bare.
+
+### A read racing a write of the same feature stands on the choice point between them
+
+Fixture: `action_order_sibling_read_of_racing_write` (golden, explored).
+
+```
+start → split ⇉ a { x := 1 } ─┐
+              ⇉ b { z := x } ─┘→ sync → done
+```
+
+Derived constraints:
+
+- Neither branch is ordered before the other (no HappensBefore between them), so `b` reads
+  `x` either before or after `a` writes it: `{x = 1, z = 0}` or `{x = 1, z = 1}`.
+- `x` holds `1` in every linearization: the one write of it is not raced by another write.
+
+Open: the order of the two branches, as for two writers of one feature, met here by a write
+and a read of the same place. The write cannot commute with the read, so the choice point
+touches both the place written and the place the read writes to: `z` is open with the single
+choice point, and `x` is too, as the written place of a conflicting alternative.
+
+Pinned outcome: the admissible set of two members, stated as `outcomes` citing this section.
+The default run reports `x` and `z` up to the one choice point (`orderDependent` states
+`x: 1, z: 1`).
+
 ### A guard reading an order-dependent value leaves what its branch writes order-dependent
 
 Fixture: `action_order_guard_reads_racing_writer` (golden, explored).
