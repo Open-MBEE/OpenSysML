@@ -606,30 +606,64 @@ func TestReleaseJobsPersistDisjointWorkspaceLayers(t *testing.T) {
 	)
 }
 
-// TestNodePackageIsStampedWithItsReleaseDigests holds publish-npm to the same
-// contract as the Python wheel: the digests of the binaries in dist/grpc are
-// stamped into the package's table before it is packed, the packed tarball is
-// asserted to pin all five assets for the tag, and that verified tarball is
-// what is published.
+// TestNodePackageIsStampedWithItsReleaseDigests holds the npm release to the
+// same contract as the Python wheel: build-npm-package stamps the digests of
+// the binaries in dist/grpc into the package's table before it packs the
+// client, asserts the packed tarball pins all five assets for the tag, and
+// persists the tarballs for build-release to list in the manifest it signs;
+// publish-npm then stamps the same digests for its suite, verifies the
+// tarballs against that manifest, and publishes them rather than packing again.
 func TestNodePackageIsStampedWithItsReleaseDigests(t *testing.T) {
 	config := loadCircleConfig(t)
+	build, ok := config.Jobs["build-npm-package"]
+	if !ok {
+		t.Fatal("no build-npm-package job")
+	}
+	if !stepHasBareStep(build.Steps, "attach_workspace") {
+		t.Error("build-npm-package does not attach the workspace that carries dist/grpc")
+	}
+	stampFragments := []string{
+		"client/python/scripts/pin_release_checksums.py",
+		`--version "${CIRCLE_TAG}"`,
+		"--from-binaries dist/grpc",
+		"--table client/node/release-digests.json",
+	}
+	buildSteps := runSteps(t, build.Steps)
+	stamp := stepIndex(buildSteps, stampFragments...)
+	pack := stepIndex(buildSteps, "cd client/node && npm pack --pack-destination")
+	assert := stepIndex(buildSteps, "package/release-digests.json", "tarfile", "hashlib")
+	switch {
+	case stamp < 0:
+		t.Error("build-npm-package does not stamp the release's digests from dist/grpc into the package's table")
+	case pack < 0:
+		t.Error("build-npm-package does not pack the client into a tarball")
+	case stamp > pack:
+		t.Errorf("the digest stamp (step %d) runs after npm pack (step %d), so the tarball ships without it", stamp, pack)
+	}
+	switch {
+	case assert < 0:
+		t.Fatal("build-npm-package does not assert the packed tarball pins the release's service digests")
+	case assert != pack:
+		t.Errorf("the tarball assertion (step %d) must run in the step that packs it (step %d)", assert, pack)
+	}
+	for _, asset := range serviceAssets {
+		if !strings.Contains(buildSteps[assert].Command, asset) {
+			t.Errorf("the tarball assertion does not require %s", asset)
+		}
+	}
+	requireAll(t, "build-npm-package persists", persistedPaths(t, build.Steps), "dist/npm")
+
 	npm, ok := config.Jobs["publish-npm"]
 	if !ok {
 		t.Fatal("no publish-npm job")
 	}
 	if !stepHasBareStep(npm.Steps, "attach_workspace") {
-		t.Error("publish-npm does not attach the workspace that carries dist/grpc")
+		t.Error("publish-npm does not attach the workspace that carries dist/grpc and dist/npm")
 	}
 	steps := runSteps(t, npm.Steps)
-	stamp := stepIndex(steps,
-		"client/python/scripts/pin_release_checksums.py",
-		`--version "${CIRCLE_TAG}"`,
-		"--from-binaries dist/grpc",
-		"--table client/node/release-digests.json",
-	)
+	stamp = stepIndex(steps, stampFragments...)
 	test := stepIndex(steps, "npm test")
-	pack := stepIndex(steps, "npm pack --pack-destination")
-	assert := stepIndex(steps, "package/release-digests.json", "tarfile", "hashlib")
+	verify := stepIndex(steps, "cd dist/npm && grep -E ' openmbee-[^ ]*\\.tgz$' ../SHA256SUMS.txt | sha256sum --check --strict")
 	publish := stepIndex(steps, "npm publish", "--access public", "NPM_TARBALL")
 	switch {
 	case stamp < 0:
@@ -638,36 +672,28 @@ func TestNodePackageIsStampedWithItsReleaseDigests(t *testing.T) {
 		t.Error("publish-npm does not run the Node suite")
 	case stamp > test:
 		t.Errorf("the digest stamp (step %d) runs after npm test (step %d), so the suite cannot check it", stamp, test)
-	case pack < 0:
-		t.Error("publish-npm does not pack the client into a tarball")
-	case stamp > pack:
-		t.Errorf("the digest stamp (step %d) runs after npm pack (step %d), so the tarball ships without it", stamp, pack)
 	}
 	if test >= 0 && !strings.Contains(steps[test].Command, `OPENSYSML_EXPECT_PINNED_RELEASE="${CIRCLE_TAG}"`) {
 		t.Error("publish-npm runs the Node suite without OPENSYSML_EXPECT_PINNED_RELEASE, so the suite does not assert the stamped pin")
 	}
 	switch {
-	case assert < 0:
-		t.Fatal("publish-npm does not assert the packed tarball pins the release's service digests")
-	case assert != pack:
-		t.Errorf("the tarball assertion (step %d) must run in the step that packs it (step %d)", assert, pack)
-	}
-	for _, asset := range serviceAssets {
-		if !strings.Contains(steps[assert].Command, asset) {
-			t.Errorf("the tarball assertion does not require %s", asset)
-		}
-	}
-	switch {
+	case verify < 0:
+		t.Error("publish-npm does not verify the npm tarballs against the signed manifest")
 	case publish < 0:
 		t.Error("publish-npm does not publish the verified tarball; publishing the directory would pack it again unverified")
-	case publish < assert:
-		t.Errorf("npm publish (step %d) runs before the tarball is verified (step %d)", publish, assert)
+	case publish < verify:
+		t.Errorf("npm publish (step %d) runs before the tarballs are verified (step %d)", publish, verify)
+	}
+	if stepIndex(steps, "npm pack --pack-destination") >= 0 {
+		t.Error("publish-npm packs a tarball instead of publishing the ones the signed manifest lists")
 	}
 	if stepIndex(steps, "cd client/node", "npm pack --dry-run") >= 0 {
 		t.Error("publish-npm packs the client a second time instead of using the verified tarball")
 	}
 
 	release := config.workflow(t, "release")
+	requireAll(t, "Build npm packages", requiresOf(t, release, "Build npm packages"), "Build release binaries")
+	requireAll(t, "Build release artifacts", requiresOf(t, release, "Build release artifacts"), "Build npm packages")
 	requireAll(t, "Publish opensysml to npm", requiresOf(t, release, "Publish opensysml to npm"), "Publish GitHub release")
 }
 
@@ -864,6 +890,20 @@ func TestNpmRunnerIsPublishedWithTheClient(t *testing.T) {
 		t.Error("build-release-binaries writes no .sha256 sidecar beside the raw sysml-mcp binaries, so the platform packages cannot be verified")
 	}
 
+	pack, ok := config.Jobs["build-npm-package"]
+	if !ok {
+		t.Fatal("no build-npm-package job")
+	}
+	packSteps := runSteps(t, pack.Steps)
+	packed := stepIndex(packSteps,
+		"cd packaging/npm/sysml-mcp && npm pack --pack-destination ../../../dist/npm",
+		"npm run platform-packages -- --mcp ../../dist/mcp",
+		"cd client/node/packages/opensysml-mcp && npm pack --pack-destination ../../../../dist/npm",
+	)
+	if packed < 0 {
+		t.Error("build-npm-package does not pack @openmbee/sysml-mcp and the alias the generator derives from it into dist/npm")
+	}
+
 	npm, ok := config.Jobs["publish-npm"]
 	if !ok {
 		t.Fatal("no publish-npm job")
@@ -872,7 +912,7 @@ func TestNpmRunnerIsPublishedWithTheClient(t *testing.T) {
 	refuse := stepIndex(steps, "packaging/npm/sysml-mcp/package.json", "npm view", "-ne 14", "const alias = '"+mcpAliasPackage+"'")
 	build := stepIndex(steps, "npm run platform-packages", "--mcp ../../dist/mcp")
 	prove := stepIndex(steps, "openmbee-sysml-mcp-${NPM_VERSION}.tgz", "NPM_MCP_TARBALL", "scripts/npm-mcp-test.sh")
-	proveAlias := stepIndex(steps, "client/node/packages/opensysml-mcp", "openmbee-opensysml-mcp-${NPM_VERSION}.tgz", "NPM_MCP_ALIAS_TARBALL", `pkg.mcpName !== undefined`, `pkg.bin["opensysml-mcp"] === shim`)
+	proveAlias := stepIndex(steps, "openmbee-opensysml-mcp-${NPM_VERSION}.tgz", "NPM_MCP_ALIAS_TARBALL", `pkg.mcpName !== undefined`, `pkg.bin["opensysml-mcp"] === shim`)
 	whoami := stepIndex(steps, "npm whoami")
 	platforms := stepIndex(steps, "npm publish", "client/node/packages/sysml-mcp-*")
 	shim := stepIndex(steps, "npm publish", `"$NPM_MCP_TARBALL"`)
@@ -883,11 +923,11 @@ func TestNpmRunnerIsPublishedWithTheClient(t *testing.T) {
 	case build < 0:
 		t.Error("publish-npm does not build the sysml-mcp platform packages from dist/mcp")
 	case prove < 0:
-		t.Error("publish-npm does not pack @openmbee/sysml-mcp and prove the packed shim serves the protocol")
+		t.Error("publish-npm does not take the packed @openmbee/sysml-mcp and prove the shim serves the protocol")
 	case prove < build:
 		t.Errorf("the shim is packed and proved (step %d) before its platform packages are built (step %d)", prove, build)
 	case proveAlias < 0:
-		t.Error("publish-npm does not pack @openmbee/opensysml-mcp from the generator's tree and check its version, pins, both commands and the absent mcpName")
+		t.Error("publish-npm does not check the packed @openmbee/opensysml-mcp for its version, pins, both commands and the absent mcpName")
 	case proveAlias < prove:
 		t.Errorf("the alias is packed (step %d) before the shim it is derived from is proved (step %d)", proveAlias, prove)
 	case whoami < proveAlias:
@@ -960,6 +1000,27 @@ func TestReleaseSBOMsAreSignedWithTheManifest(t *testing.T) {
 	if !strings.Contains(command, "find grpc jupyter -type f ! -name '*.sha256' -exec") {
 		t.Error("the raw service and kernel binaries get no SBOM")
 	}
+	wasm := strings.Index(command, "--out sbom wasm/sysml-wasm.wasm wasm/sysml-prod.wasm.gz")
+	client := strings.Index(command, "--npm-lock ../client/node/package-lock.json npm/openmbee-opensysml-[0-9]*.tgz")
+	runner := strings.Index(command, "--npm-lock ../packaging/npm/sysml-mcp/package-lock.json npm/openmbee-sysml-mcp-[0-9]*.tgz npm/openmbee-opensysml-mcp-[0-9]*.tgz")
+	tarballs := strings.Index(command, "cd npm && sha256sum ./*.tgz | sed 's|\\./||' >> ../SHA256SUMS.txt")
+	switch {
+	case wasm < 0:
+		t.Error("the WebAssembly modules get no SBOM")
+	case wasm > manifestWrite:
+		t.Error("the WebAssembly SBOMs are written after the manifest they must be listed in")
+	}
+	switch {
+	case client < 0 || runner < 0:
+		t.Error("the npm tarballs get no SBOM resolved through their lockfiles")
+	case client > manifestWrite || runner > manifestWrite:
+		t.Error("the npm SBOMs are written after the manifest they must be listed in")
+	case tarballs < 0:
+		t.Error("the npm tarballs themselves are not listed in SHA256SUMS.txt")
+	}
+	if lists >= 0 && tarballs > lists {
+		t.Error("the npm tarballs are listed after the SBOMs; the manifest lists assets before their SBOMs")
+	}
 	// The SBOM of a binary shares its name prefix, so the wheel-pin checks must
 	// read the manifest by exact binary name rather than by prefix.
 	for _, check := range []string{"opensysml/release-digests.json", "jupyter_opensysml_kernel/release-digests.json"} {
@@ -974,10 +1035,10 @@ func TestReleaseSBOMsAreSignedWithTheManifest(t *testing.T) {
 		t.Fatal("no publish-github-release job")
 	}
 	githubSteps := runSteps(t, github.Steps)
-	move := stepIndex(githubSteps, "mv dist/sbom/* dist/release/")
+	move := stepIndex(githubSteps, "mv dist/sbom/* dist/release/", "mv dist/npm/*.tgz dist/release/")
 	upload := stepIndex(githubSteps, "ghr ")
 	if move < 0 || upload < 0 || move > upload {
-		t.Error("publish-github-release does not move the SBOMs into dist/release before ghr uploads it")
+		t.Error("publish-github-release does not move the SBOMs and the npm tarballs into dist/release before ghr uploads it")
 	}
 
 	static, ok := config.Jobs["go-static"]
@@ -986,5 +1047,70 @@ func TestReleaseSBOMsAreSignedWithTheManifest(t *testing.T) {
 	}
 	if stepIndex(runSteps(t, static.Steps), "python3 scripts/release-sbom-test.py") < 0 {
 		t.Error("go-static does not run scripts/release-sbom-test.py")
+	}
+}
+
+// TestWindowsInstallerSBOMIsDerivedFromItsInputs holds release-windows.yml to
+// writing the MSI's SBOM where its inputs are: the build job, from the Go
+// executables it built and the Z3 release packaging/msi/z3.pin names, with the
+// syft the CircleCI release pins; the msi and publish-signed jobs then list the
+// SBOM beside the installer's digest, under the installer's own name.
+func TestWindowsInstallerSBOMIsDerivedFromItsInputs(t *testing.T) {
+	windows := readRepoFile(t, ".github/workflows/release-windows.yml")
+	circle := readRepoFile(t, ".circleci/config.yml")
+
+	// The build job writes the unsigned installer's SBOM from the executables
+	// it built; the sign job writes the signed installer's from the executables
+	// SignPath returned, whose bytes differ. Both pin the syft CircleCI pins.
+	syftURL := regexp.MustCompile(`https://github\.com/anchore/syft/releases/download/v[0-9.]+/syft_[0-9.]+_linux_amd64\.tar\.gz`)
+	syftDigest := regexp.MustCompile(`echo "[0-9a-f]{64}  /tmp/syft\.tar\.gz" \| sha256sum --check --strict`)
+	for _, pin := range []*regexp.Regexp{syftURL, syftDigest} {
+		circlePins, windowsPins := pin.FindAllString(circle, -1), pin.FindAllString(windows, -1)
+		if len(circlePins) != 1 || len(windowsPins) != 2 {
+			t.Fatalf("syft is pinned %d times in .circleci/config.yml and %d times in release-windows.yml; expected once and twice (%s)", len(circlePins), len(windowsPins), pin)
+		}
+		for _, windowsPin := range windowsPins {
+			if circlePins[0] != windowsPin {
+				t.Errorf("release-windows.yml pins syft as %q, .circleci/config.yml as %q", windowsPin, circlePins[0])
+			}
+		}
+	}
+
+	requireFragments(t, ".github/workflows/release-windows.yml", windows,
+		"source packaging/msi/z3.pin",
+		`echo "${Z3_SHA256}  /tmp/${Z3_ZIP}" | sha256sum --check --strict`,
+		`python3 scripts/release-sbom.py --version "$VERSION" --out dist/msi-sbom`,
+		`--msi-inputs dist/unsigned --z3-pin packaging/msi/z3.pin --z3-zip "/tmp/${Z3_ZIP}"`,
+		`--msi-inputs dist/signed --msi-signed --z3-pin packaging/msi/z3.pin --z3-zip "/tmp/${Z3_ZIP}"`,
+		"name: ${{ env.MSI_SBOM_ARTIFACT }}",
+		"name: ${{ env.SIGNED_MSI_SBOM_ARTIFACT }}",
+	)
+	for _, job := range []struct{ name, inputs string }{
+		{"build", "--msi-inputs dist/unsigned "},
+		{"sign", "--msi-inputs dist/signed --msi-signed "},
+	} {
+		section := windows[strings.Index(windows, "\n  "+job.name+":\n"):]
+		if next := nextJobHeader.FindStringIndex(section[1:]); next != nil {
+			section = section[:1+next[0]]
+		}
+		if !strings.Contains(section, job.inputs) {
+			t.Errorf("the %s job does not write the installer SBOM from %s", job.name, strings.TrimSpace(job.inputs))
+		}
+	}
+	for _, job := range []struct{ name, manifest string }{
+		{"msi", `sha256sum ./*.msi ./*.spdx.json | sed 's|\./||' | tee SHA256SUMS-windows-msi.txt`},
+		{"publish-signed", `sha256sum ./*.zip ./*.msi ./*.spdx.json sysml-grpc-windows-amd64-signed.exe | sed 's|\./||' > SHA256SUMS-windows-signed.txt`},
+	} {
+		section := windows[strings.Index(windows, "\n  "+job.name+":\n"):]
+		if next := nextJobHeader.FindStringIndex(section[1:]); next != nil {
+			section = section[:1+next[0]]
+		}
+		requireFragments(t, ".github/workflows/release-windows.yml ("+job.name+")", section,
+			".spdx.json\"", // the SBOM must exist under the installer's name before it is listed
+			job.manifest,
+		)
+		if strings.Index(section, ".spdx.json\"") > strings.Index(section, job.manifest) {
+			t.Errorf("%s lists the SBOM before checking it is named after the installer", job.name)
+		}
 	}
 }

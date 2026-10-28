@@ -59,8 +59,8 @@ same way; [WebAssembly builds](reference/wasm.md) says how to run it.
 | [SHA256SUMS.txt.bundle](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/SHA256SUMS.txt.bundle) | Signed checksum bundle. |
 | [provenance.intoto.json](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/provenance.intoto.json) | Build provenance. |
 | [provenance.intoto.json.bundle](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/provenance.intoto.json.bundle) | Signed provenance bundle. |
-| `<asset>.spdx.json` | SPDX 2.3 software bill of materials of each archive, wheel, sdist and raw binary, naming the Go modules and toolchain (or Python distribution) it was built from. |
-| Windows installer | Unsigned MSI digest: `SHA256SUMS-windows-msi.txt`; signed MSI digest: `SHA256SUMS-windows-signed.txt`. Both are on the release page. |
+| `<asset>.spdx.json` | SPDX 2.3 software bill of materials of each archive, wheel, sdist, raw binary, WebAssembly module and npm tarball, naming the Go modules and toolchain (or the Python distribution, or the npm packages the lockfile resolves) it was built from. |
+| Windows installer | Unsigned MSI digest: `SHA256SUMS-windows-msi.txt`; signed MSI digest: `SHA256SUMS-windows-signed.txt`. Both are on the release page, and each lists the installer's `<msi>.spdx.json` beside it — an SBOM derived from the installer's inputs: the Go executables and the bundled Z3 release, with its version and digests. |
 
 After downloading release assets into the same directory, verify their checksums with:
 

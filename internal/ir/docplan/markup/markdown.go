@@ -21,6 +21,9 @@ type Markdown struct{}
 // Language implements Parser.
 func (Markdown) Language() string { return "markdown" }
 
+// External reports that Markdown is parsed in this process.
+func (Markdown) External() bool { return false }
+
 // markdown is the configured CommonMark parser: the default block and inline
 // parsers plus inline mathematics.
 var markdown = goldmark.New(goldmark.WithParserOptions(

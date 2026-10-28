@@ -26,7 +26,8 @@ conn = opensysml.connect('version', 'v0.0.0', ...
 accepts `binary`, `timeout`, `version`, and `capabilities`; `external` accepts `version`,
 `capabilities` and `token` — the bearer token a service on an address other machines reach
 requires, sent as `Authorization: Bearer` on every call and read from `OPENSYSML_GRPC_TOKEN`
-when the option is absent. When no binary is given, `private` checks `$OPENSYSML_GRPC_BINARY`,
+when the option is absent; `private` starts its child without that variable in its
+environment, as a private child needs no token. When no binary is given, `private` checks `$OPENSYSML_GRPC_BINARY`,
 `~/.opensysml/bin/sysml-grpc`, and `PATH`. It starts the process with
 `-port 0 -health-port 0 -report-address -exit-with-parent` through Java's `ProcessBuilder`.
 Octave built without Java cannot spawn a private service. `conn.close()` stops a private child

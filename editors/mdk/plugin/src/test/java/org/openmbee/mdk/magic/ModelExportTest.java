@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -24,6 +25,9 @@ import org.openmbee.mdk.magic.export.ModelExport;
 /** The on-disk shape of an export: text, files beside it, the report, and the paths it refuses. */
 class ModelExportTest {
   private static final List<SourceDocument> MODEL = List.of(SourceDocument.inline("model.sysml", "package P;\n"));
+  private static final Optional<String> NO_REPORT = Optional.empty();
+  private static final List<Diagnostic> NO_DIAGNOSTICS = List.of();
+  private static final Predicate<List<Path>> REPLACE = existing -> true;
 
   @Test
   void writesTextFilesAndReportBesideTheDestination(@TempDir Path directory) throws Exception {
@@ -65,8 +69,9 @@ class ModelExportTest {
   void refusesFilesThatLeaveTheDestinationDirectory(@TempDir Path directory) {
     Path destination = directory.resolve("out").resolve("model.sysml");
     for (String escape : List.of("../outside.png", "/etc/passwd", "")) {
+      Map<String, byte[]> files = Map.of(escape, new byte[0]);
       IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
-          () -> ModelExport.write(destination, MODEL, Map.of(escape, new byte[0]), Optional.empty(), List.of(), existing -> true), escape);
+          () -> ModelExport.write(destination, MODEL, files, NO_REPORT, NO_DIAGNOSTICS, REPLACE), escape);
       assertTrue(refused.getMessage().contains("leaves the destination directory"), refused.getMessage());
     }
     assertFalse(Files.exists(directory.resolve("outside.png")));
@@ -129,8 +134,8 @@ class ModelExportTest {
     Files.writeString(destination, "old\n");
     Files.writeString(directory.resolve("images"), "a file where the export needs a directory\n");
 
-    assertThrows(UncheckedIOException.class, () -> ModelExport.write(
-        destination, MODEL, Map.of("images/logo.png", new byte[] {1}), Optional.empty(), List.of(), existing -> true));
+    Map<String, byte[]> files = Map.of("images/logo.png", new byte[] {1});
+    assertThrows(UncheckedIOException.class, () -> ModelExport.write(destination, MODEL, files, NO_REPORT, NO_DIAGNOSTICS, REPLACE));
 
     assertEquals("old\n", Files.readString(destination));
     assertEquals(List.of("Mission.sysml", "images"), Files.list(directory).map(path -> path.getFileName().toString()).sorted().toList());
@@ -142,9 +147,11 @@ class ModelExportTest {
     Path outside = Files.createDirectories(directory.resolve("outside"));
     Path out = Files.createDirectories(directory.resolve("out"));
     Files.createSymbolicLink(out.resolve("images"), outside);
+    Path destination = out.resolve("model.sysml");
+    Map<String, byte[]> files = Map.of("images/logo.png", new byte[] {1});
 
-    IllegalArgumentException refused = assertThrows(IllegalArgumentException.class, () -> ModelExport.write(
-        out.resolve("model.sysml"), MODEL, Map.of("images/logo.png", new byte[] {1}), Optional.empty(), List.of(), existing -> true));
+    IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+        () -> ModelExport.write(destination, MODEL, files, NO_REPORT, NO_DIAGNOSTICS, REPLACE));
 
     assertTrue(refused.getMessage().contains("symbolic link"), refused.getMessage());
     assertEquals(List.of(), Files.list(outside).toList());
@@ -175,10 +182,11 @@ class ModelExportTest {
     Path out = Files.createDirectories(directory.resolve("out"));
     Files.createDirectories(out.resolve("images"));
     Files.createSymbolicLink(out.resolve("images/icons"), Files.createDirectories(out.resolve("elsewhere")));
+    Path destination = out.resolve("model.sysml");
+    Map<String, byte[]> files = Map.of("images/icons/a.png", new byte[] {1});
 
-    IllegalArgumentException refused = assertThrows(IllegalArgumentException.class, () -> ModelExport.write(
-        out.resolve("model.sysml"), MODEL, Map.of("images/icons/a.png", new byte[] {1}), Optional.empty(), List.of(),
-        existing -> true));
+    IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+        () -> ModelExport.write(destination, MODEL, files, NO_REPORT, NO_DIAGNOSTICS, REPLACE));
 
     assertTrue(refused.getMessage().contains("symbolic link"), refused.getMessage());
     assertEquals(List.of(), Files.list(out.resolve("elsewhere")).toList());

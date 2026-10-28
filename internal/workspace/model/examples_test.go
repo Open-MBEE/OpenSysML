@@ -13,8 +13,8 @@ import (
 
 const examplesDir = "../../../examples"
 
-// markupToolMissingCode is the document-plan error for a prose body whose
-// converter is not installed; toolchainRequiredEnv turns the skip into a failure.
+// markupToolMissingCode is the document-plan warning for a prose body whose
+// converter is not installed; toolchainRequiredEnv makes that a failure.
 const (
 	markupToolMissingCode = "document-plan-" + string(docplan.ErrorMarkupToolMissing)
 	toolchainRequiredEnv  = "OPENSYSML_REQUIRE_PDF_TOOLCHAIN"
@@ -41,25 +41,25 @@ func TestExamplesAnalyseCleanly(t *testing.T) {
 				ws.Open(sibling, content, 1)
 			}
 
-			var errs []string
-			toolMissing := true
+			var errs, unchecked []string
 			for _, d := range ws.Diagnostics(rel) {
-				if d.Severity == diag.SeverityError {
+				switch {
+				case d.Severity == diag.SeverityError:
 					errs = append(errs, d.Message)
-					toolMissing = toolMissing && d.Code == markupToolMissingCode
+				case d.Code == markupToolMissingCode:
+					unchecked = append(unchecked, d.Message)
 				}
-			}
-
-			if len(errs) > 0 && toolMissing {
-				// The example's prose needs an external converter: the PDF
-				// toolchain job installs it and requires the example to analyse.
-				if required := os.Getenv(toolchainRequiredEnv); required != "" {
-					t.Fatalf("%s=%s but %s", toolchainRequiredEnv, required, strings.Join(errs, "; "))
-				}
-				t.Skipf("%s", strings.Join(errs, "; "))
 			}
 			if len(errs) > 0 {
 				t.Errorf("%d error(s): %s", len(errs), strings.Join(errs, "; "))
+			}
+			if len(unchecked) > 0 {
+				// The example's prose needs an external converter: the PDF
+				// toolchain job installs it and requires the bodies checked.
+				if required := os.Getenv(toolchainRequiredEnv); required != "" {
+					t.Fatalf("%s=%s but %s", toolchainRequiredEnv, required, strings.Join(unchecked, "; "))
+				}
+				t.Logf("left unchecked: %s", strings.Join(unchecked, "; "))
 			}
 		})
 	}

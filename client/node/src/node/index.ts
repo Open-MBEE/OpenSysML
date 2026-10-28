@@ -39,7 +39,7 @@ import {
   timeoutOf,
 } from "../core/transport.js";
 import { resolveLatestVersion, VERSION_ENV } from "./binary.js";
-import { acquirePrivateService } from "./service.js";
+import { acquirePrivateService, TOKEN_ENV } from "./service.js";
 
 export * from "../core/index.js";
 export {
@@ -95,8 +95,7 @@ export type { WasmConnectOptions } from "./wasm.js";
 /** Names a service to connect to instead of starting one. */
 export const SERVICE_ENV = "OPENSYSML_SERVICE";
 
-/** Names the bearer token every call carries when `token` is not given. */
-export const TOKEN_ENV = "OPENSYSML_GRPC_TOKEN";
+export { TOKEN_ENV } from "./service.js";
 
 /** How this process connects. Without an address it starts a private child. */
 export interface ConnectOptions extends TransportOptions {

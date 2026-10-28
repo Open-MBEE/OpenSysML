@@ -475,6 +475,18 @@ const GRPC_BINARY = get(ENV, "OPENSYSML_GRPC_BINARY",
             @test !isempty(version) && "evaluate_subject" in caps
             @test has_capability(conn, "query")
 
+            # A private child is this process's own, on loopback: it serves without the
+            # token meant for a remote service, even when the environment names one.
+            withenv(TOKEN_ENV => "not-for-the-child") do
+                child = OpenSysML.private(binary=GRPC_BINARY)
+                try
+                    @test child.token === nothing
+                    @test !isempty(server_info(child).version)
+                finally
+                    close(child)
+                end
+            end
+
             model = parse_source(conn, read(joinpath(FIXTURES, "simple_part.sysml"), String);
                                  name="simple_part.sysml")
             @test !isempty(model.hash)

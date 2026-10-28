@@ -1,0 +1,1 @@
+- Pull requests are opened ready for review, so the full CI tier runs from the first push; the quick tier is an opt-in for work-in-progress, taken by opening the pull request as a draft, which has to be marked ready before it is considered.

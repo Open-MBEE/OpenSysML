@@ -111,6 +111,7 @@ var (
 	schedule           schedulePolicy
 	listEngines        bool
 	metaclassGraph     bool
+	metamodelTable     bool
 	explainCodes       codeNames
 	probeEngines       bool
 	engine             engineSelection
@@ -499,7 +500,7 @@ func runCLI() int {
 		case len(args) > 0:
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet, which no model shapes; ask for it without model files")
 			return 2
-		case modelRunRequested() || metaclassGraph:
+		case modelRunRequested() || metaclassGraph || metamodelTable:
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet and nothing else; ask for it in its own run")
 			return 2
 		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlPageFlagsGiven():
@@ -523,7 +524,7 @@ func runCLI() int {
 		case len(args) > 0:
 			fmt.Fprintln(os.Stderr, "sysml: -metaclass-graph writes the metaclass hierarchy of the pinned metamodel, which no model shapes; ask for it without model files")
 			return 2
-		case modelRunRequested() || htmlShowCSS:
+		case modelRunRequested() || htmlShowCSS || metamodelTable:
 			fmt.Fprintln(os.Stderr, "sysml: -metaclass-graph writes the metaclass hierarchy and nothing else; ask for it in its own run")
 			return 2
 		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlPageFlagsGiven() ||
@@ -533,6 +534,28 @@ func runCLI() int {
 			return 2
 		}
 		if err := writeMetaclassGraph(); err != nil {
+			return fail(err)
+		}
+		return exitHolds
+	}
+
+	// The metamodel table is likewise a property of the pin: one JSON record of
+	// every metaclass, property and enumeration, for generators outside this module.
+	if metamodelTable {
+		switch {
+		case len(args) > 0:
+			fmt.Fprintln(os.Stderr, "sysml: -metamodel-table writes the pinned metamodel's table, which no model shapes; ask for it without model files")
+			return 2
+		case modelRunRequested() || htmlShowCSS:
+			fmt.Fprintln(os.Stderr, "sysml: -metamodel-table writes the metamodel table and nothing else; ask for it in its own run")
+			return 2
+		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlPageFlagsGiven() ||
+			fromFormat != "" || strictMode || syncBase != "" || syncState != "" ||
+			syncConfirmDeletes || syncMintIDs || syncAnnotate != "":
+			fmt.Fprintln(os.Stderr, "sysml: -metamodel-table writes the metamodel table, which reads no input; the input, repository and document options do not apply")
+			return 2
+		}
+		if err := writeMetamodelTable(); err != nil {
 			return fail(err)
 		}
 		return exitHolds

@@ -1,0 +1,1 @@
+- **The sponsor links open NumFOCUS's OpenMBEE donation page.** The landing page's Sponsor button, the Community page's Sponsor card and the repository's Sponsor button now open https://numfocus.org/donate-to-openmbee, the official NumFOCUS donation page for OpenMBEE, instead of the Open Collective page.

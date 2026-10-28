@@ -1,6 +1,8 @@
 package solve
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -279,10 +281,8 @@ func (t *translator) holdsOne(node ast.Node, step *symbols.Symbol, written, what
 // assumeOne records a feature read under the assumption that it holds one, once
 // per feature however often and through whatever chain it is read.
 func (t *translator) assumeOne(a AssumedOne) {
-	for _, have := range t.assumedOne {
-		if have.Feature == a.Feature {
-			return
-		}
+	if slices.ContainsFunc(t.assumedOne, func(h AssumedOne) bool { return h.Feature == a.Feature }) {
+		return
 	}
 	t.assumedOne = append(t.assumedOne, a)
 }
