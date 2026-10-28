@@ -13,10 +13,10 @@ const NAMED_ENTITIES = { lt: '<', gt: '>', amp: '&', quot: '"', apos: "'", nbsp:
 function decodeEntities(text) {
   return text.replace(/&(#x[0-9a-fA-F]+|#\d+|[a-zA-Z]+);/g, (whole, body) => {
     if (body[0] === '#') {
-      const code = body[1] === 'x' || body[1] === 'X' ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
+      const code = body[1] === 'x' || body[1] === 'X' ? Number.parseInt(body.slice(2), 16) : Number.parseInt(body.slice(1), 10);
       return Number.isFinite(code) ? String.fromCodePoint(code) : whole;
     }
-    return Object.prototype.hasOwnProperty.call(NAMED_ENTITIES, body) ? NAMED_ENTITIES[body] : whole;
+    return Object.hasOwn(NAMED_ENTITIES, body) ? NAMED_ENTITIES[body] : whole;
   });
 }
 
@@ -45,27 +45,30 @@ function segments(content) {
       continue;
     }
     if (i > textStart) out.push(content.slice(textStart, i));
-    let j = i + 1;
-    while (content[j] !== SEP && content[j] !== CLOSE) j++;
-    const node = unmark(content.slice(i + 1, j));
-    let inner = null;
-    if (content[j] === SEP) {
-      let depth = 1;
-      let k = j + 1;
-      while (depth > 0) {
-        if (content[k] === OPEN) depth++;
-        else if (content[k] === CLOSE) depth--;
-        k++;
-      }
-      inner = content.slice(j + 1, k - 1);
-      j = k - 1;
-    }
+    const { node, inner, end } = markedAt(content, i);
     out.push({ node, inner });
-    i = j + 1;
+    i = end;
     textStart = i;
   }
   if (textStart < content.length) out.push(content.slice(textStart));
   return out;
+}
+
+// markedAt reads the marked node opening at i: the node, the text it nests
+// (null for one without), and the index just past its closing marker.
+function markedAt(content, i) {
+  let j = i + 1;
+  while (content[j] !== SEP && content[j] !== CLOSE) j++;
+  const node = unmark(content.slice(i + 1, j));
+  if (content[j] !== SEP) return { node, inner: null, end: j + 1 };
+  let depth = 1;
+  let k = j + 1;
+  while (depth > 0) {
+    if (content[k] === OPEN) depth++;
+    else if (content[k] === CLOSE) depth--;
+    k++;
+  }
+  return { node, inner: content.slice(j + 1, k - 1), end: k };
 }
 
 // runsOf maps converted inline content onto runs: plain text between
@@ -98,7 +101,7 @@ function expand(node, inner, style) {
     case 'value': {
       const text = plainText(inner);
       if (text === null) return [{ kind: 'unsupported', construct: 'styled ' + node.kind + ' text' }];
-      return [Object.assign({}, node, { text })];
+      return [{ ...node, text }];
     }
     default:
       return [node];
@@ -170,14 +173,14 @@ class JSONConverter {
 }
 
 function lineOf(node) {
-  const line = node.getLineNumber && node.getLineNumber();
+  const line = node.getLineNumber?.();
   return typeof line === 'number' ? line : 0;
 }
 
 function block(node) {
   const base = { kind: node.getContext(), line: lineOf(node) };
   if (node.getContext() === 'section') return section(node, base);
-  if (node.hasTitle && node.hasTitle()) {
+  if (node.hasTitle?.()) {
     const title = plainText(node.getTitle());
     base.title = title === null ? '' : title;
     base.styledTitle = title === null;
@@ -291,7 +294,7 @@ function main() {
         attributes: { stem: 'latexmath', 'skip-front-matter': '', 'sectids!': '' },
       });
     } catch (err) {
-      process.stderr.write(String(err && err.message ? err.message : err) + '\n');
+      process.stderr.write(String(err?.message ? err.message : err) + '\n');
       process.exit(1);
     }
     const blocks = doc.getBlocks().map(block);

@@ -90,7 +90,7 @@ func (ctx *Context) namespaceModelIndex() *namespaceModelIndex {
 			if _, ok := member.Decl.(*ast.Usage); !ok {
 				return true
 			}
-			for _, rel := range relationshipsOfKind(member, ast.RelSubsets) {
+			for _, rel := range ctx.relationshipsOfKind(member, ast.RelSubsets) {
 				if target := ctx.model.semantics.RelationshipTarget(member, rel); target != nil {
 					out.subsetters[target] = append(out.subsetters[target], member)
 				}
@@ -673,7 +673,7 @@ func (ctx *Context) namespacedSubsetObjects(sym *symbols.Symbol) ([]*Instance, b
 
 	mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym))
 	abstract := symbols.IsAbstract(sym)
-	commit, rollback, drain := func() {}, func() {}, func() error { return nil }
+	commit, rollback, drain := noJournal()
 	if !abstract {
 		count, err := ctx.lowerBoundCount(mult, len(contributed), fmt.Sprintf("usage %s", SymbolText(sym)))
 		if err != nil {

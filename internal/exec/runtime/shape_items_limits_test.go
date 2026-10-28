@@ -51,7 +51,7 @@ func TestShapeItemsUnsupportedExpressionsAreTypedErrors(t *testing.T) {
 			t.Fatalf("%s: %v", expr, err)
 		}
 		if got := len(elementsOf(val)); got != want {
-			t.Errorf("%s = %s, want %d objects", expr, FormatValue(val), want)
+			t.Errorf("%s = %s holds %d objects, want %d", expr, FormatValue(val), got, want)
 		}
 	}
 

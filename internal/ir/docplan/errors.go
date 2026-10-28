@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // ErrorKind classifies a document-planning failure.
@@ -90,7 +91,19 @@ type Error struct {
 	Origin    symbols.Origin
 	// Line is the 1-based line within a markup body the failure is at, or 0.
 	Line int
-	Err  error
+	// Bodies counts the bodies a missing markup converter left unchecked when
+	// validation went on without it, or is 0 when planning stopped at the body.
+	Bodies int
+	Err    error
+}
+
+// Severity is how a check reports an error of this kind: a missing markup
+// converter leaves bodies unchecked, a warning; every other kind is an error.
+func (k ErrorKind) Severity() diag.Severity {
+	if k == ErrorMarkupToolMissing {
+		return diag.SeverityWarning
+	}
+	return diag.SeverityError
 }
 
 func (e *Error) Error() string {
@@ -270,6 +283,12 @@ func (e *Error) message() string {
 	case ErrorMarkupBodyNotParagraph:
 		return fmt.Sprintf("document %s paragraph %s carries a %s body that yields %s rather than exactly one paragraph", e.Document, e.Content, e.Parameter, e.Actual)
 	case ErrorMarkupToolMissing, ErrorMarkupToolFailed:
+		switch {
+		case e.Bodies > 1:
+			return fmt.Sprintf("document %s carries %d %s bodies that were not checked, the first in content %s: %v", e.Document, e.Bodies, e.Parameter, e.Content, e.Err)
+		case e.Bodies == 1:
+			return fmt.Sprintf("document %s content %s carries a %s body that was not checked: %v", e.Document, e.Content, e.Parameter, e.Err)
+		}
 		return fmt.Sprintf("document %s content %s carries a %s body that could not be parsed: %v", e.Document, e.Content, e.Parameter, e.Err)
 	case ErrorMarkupHeadingLevel:
 		return fmt.Sprintf("document %s content %s carries a %s body whose %s is out of sequence: expected %s", e.Document, e.Content, e.Parameter, e.Actual, e.Expected)

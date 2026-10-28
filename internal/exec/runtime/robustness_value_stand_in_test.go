@@ -179,8 +179,8 @@ func TestRuntimeRobustnessValueStandIn(t *testing.T) {
 			t.Fatalf("stand-in #%d is still registered after the write", standIn)
 		}
 		copied := imageInto(t, ctx, host)
-		if source, copy := heldDigest(ctx, everyObject), heldDigest(copied, everyObject); source != copy {
-			t.Fatalf("the copy differs from the source:\n--- source\n%s\n--- copy\n%s", source, copy)
+		if source, replica := heldDigest(ctx, everyObject), heldDigest(copied, everyObject); source != replica {
+			t.Fatalf("the copy differs from the source:\n--- source\n%s\n--- copy\n%s", source, replica)
 		}
 	})
 

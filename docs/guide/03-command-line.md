@@ -362,19 +362,25 @@ the usual search for the root namespaces it imports, which now also looks in the
 project and in the projects that uses. An installed project is matched to a usage by its
 own `.project.json`, never by its directory name: the resource IRI's last two path segments
 are its publisher and name (compared as lower-case slugs, so `Requirements Management`
-answers to `…/ode4hera/requirements-management`), and of several installed versions the one
-a `versionConstraint` names exactly is taken — or, when the usage carries none, the one a
+answers to `…/ode4hera/requirements-management`), and of several installed versions the
+highest one its `versionConstraint` admits is taken — or, when the usage carries none, the one a
 version written after `@` in its IRI names (`pkg:registry/acme/gears@1.0.0`) — else the
-latest. A usage whose IRI spells something else — a repository's path, as a version-control
-IRI does (`pkg:git/github.com/MBSE4U/sysmod-sysmlv2` for the project `mbse4u/sysmod`) — is
-linked by elimination once every usage has had its say: of the installed projects no usage
+latest. KerML §10.3 defines no syntax for `versionConstraint`; OpenSysML reads it as an
+npm-style semver range (`1.2.3`, `^1.2`, `~1.2.3`, `>=1.0.0 <2.0.0`, `1.x`, `1.0.0 - 2.0.0`,
+`a || b`). A constraint no installed version satisfies, or one outside that grammar, is a
+`project.load` warning at the project file and the usage selects nothing. A usage whose IRI spells where the project is kept rather than the project — a
+version-control package URL (`pkg:git/`, `pkg:svn/`, `pkg:hg/`) or a plain URL, such as
+`pkg:git/github.com/MBSE4U/sysmod-sysmlv2` for the project `mbse4u/sysmod` — is linked by
+elimination once every usage has had its say: of the installed projects no usage
 claims (another version of a claimed project counts as claimed), those satisfying its
 constraint, when they are all one project, at the highest such version. The link is a
 warning on the consumer's `.project.json` — one `-warnings-as-errors` judges as any other —
 naming the project taken and the publisher/name the resource should end with to name it. When
 several projects are left it, the usage selects nothing and the warning names each candidate
 instead; a later usage of the same repository takes the project so learnt, at its own version.
-The standard library's usages are never linked to anything installed. OpenSysML reads what any package manager that follows KerML 10.3 project interchange
+A usage that names a project (`pkg:registry/acme/gears`, `pkg:sysand/acme/gears`) is matched by
+name alone and stays unresolved when that project is not installed; the standard library's
+usages are never linked to anything installed. OpenSysML reads what any package manager that follows KerML 10.3 project interchange
 installs (sysand today) under `lib/` or `.sysand/lib` beside `.project.json`; it does not fetch. Those library directories
 hold the installed projects, not the project's own files: a walk of the project directory
 (`sysml <dir>`, `-bundle`, the editor's workspace scan) passes over them and loads what lies

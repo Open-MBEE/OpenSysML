@@ -25,7 +25,8 @@ disconnects. A service on an address other machines reach requires a bearer
 token, which `external` and `connect` send as `Authorization: Bearer` on every
 call: the `token` keyword, or `$OPENSYSML_GRPC_TOKEN` (`TOKEN_ENV`) when none
 is given; a call without the right one raises `ConnectError` with code
-`unauthenticated`. `private` resolves and starts its own child. These constructors
+`unauthenticated`. `private` resolves and starts its own child, without
+`$OPENSYSML_GRPC_TOKEN` in its environment: a private child needs no token. These constructors
 accept a timeout, expected service version, and required capabilities.
 `call(conn, method, request)` posts a proto3-JSON request and returns the
 decoded JSON value.

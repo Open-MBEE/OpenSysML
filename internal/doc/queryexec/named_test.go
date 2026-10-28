@@ -140,7 +140,7 @@ func TestExecuteNamedReadsQuotedSegments(t *testing.T) {
 		_, err := fixture.execute(t, "ByName", Bindings{"qualifiedName": {StringValue(name)}}, Options{})
 		unknown := executionError(t, err, ErrorUnknownElement)
 		if unknown.Actual != name || !strings.Contains(err.Error(), want) {
-			t.Fatalf("Named(%s) = %v, want it to contain %q", name, err, want)
+			t.Fatalf("Named(%s) = %v naming %q, want it to name %q and contain %q", name, err, unknown.Actual, name, want)
 		}
 	}
 	// Escapes are read as the parser reads them; a quoted `::` is one segment, so

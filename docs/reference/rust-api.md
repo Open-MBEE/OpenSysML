@@ -53,7 +53,8 @@ let guarded = Connection::external_with_token("host", 50051, token)?; // one req
 A service other machines reach requires a bearer token; `external_with_token`
 sends it as `Authorization: Bearer` on every call, and the other constructors
 send `$OPENSYSML_GRPC_TOKEN` when it is set. A wrong or missing token is
-`Error::Service` with `Status::Unauthenticated`.
+`Error::Service` with `Status::Unauthenticated`. A private child needs no token
+and is started without `$OPENSYSML_GRPC_TOKEN` in its environment.
 
 | method | what it does |
 | --- | --- |

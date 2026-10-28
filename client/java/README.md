@@ -181,7 +181,8 @@ A connection uses a service of its own and never stops one it did not start.
   other machines reach requires a bearer token: `token(...)` (or
   `$OPENSYSML_GRPC_TOKEN`) puts `Authorization: Bearer` on every call; a wrong or
   missing one is a `ServiceException` with status `UNAUTHENTICATED`. Closing
-  such a connection leaves it running, always.
+  such a connection leaves it running, always. A private child needs no token
+  and is started without `$OPENSYSML_GRPC_TOKEN` in its environment.
 
 ### No orphans
 

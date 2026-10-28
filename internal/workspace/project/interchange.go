@@ -183,6 +183,18 @@ func (u Usage) standardLibrary() bool {
 	return strings.HasPrefix(u.Resource, identity.KerML.Prefix()) || strings.HasPrefix(u.Resource, identity.SysML.Prefix())
 }
 
+// spellsLocation reports whether the usage's resource spells where a project is
+// kept rather than the project: a version-control package URL, or a URL of any scheme but pkg.
+func (u Usage) spellsLocation() bool {
+	lower := strings.ToLower(u.Resource)
+	for _, vcs := range []string{"pkg:git/", "pkg:svn/", "pkg:hg/"} {
+		if strings.HasPrefix(lower, vcs) {
+			return true
+		}
+	}
+	return !strings.HasPrefix(lower, "pkg:") && (strings.Contains(lower, "://") || strings.HasPrefix(lower, "git@"))
+}
+
 // key is the resource as a path of slugs, without version, query or fragment:
 // what two usages of one repository at two versions share.
 func (u Usage) key() string {
@@ -289,15 +301,12 @@ func resourceVersion(resource string) string {
 	return ""
 }
 
-// satisfies reports whether the project's version is the one the constraint
-// names exactly; only an exact version (optionally written =, == or v first)
-// is understood, any other constraint is not decided here.
-func (p *Interchange) satisfies(constraint string) bool {
-	want := strings.TrimSpace(constraint)
-	want = strings.TrimPrefix(strings.TrimPrefix(want, "=="), "=")
-	want = strings.TrimPrefix(strings.TrimSpace(want), "v")
-	return want != "" && want == strings.TrimPrefix(p.Version, "v")
-}
+// versionRange is the usage's constraint parsed; an error wrapping errBadConstraint
+// when it does not follow the grammar.
+func (u Usage) versionRange() (versionRange, error) { return parseVersionRange(u.constraint()) }
+
+// satisfies reports whether the project's version lies in the range.
+func (p *Interchange) satisfies(r versionRange) bool { return r.matches(p.Version) }
 
 // newerVersion reports whether a is a later version than b, in semantic
 // versioning's order: the dot-separated numeric core first, then a release

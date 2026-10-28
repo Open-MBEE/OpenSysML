@@ -124,11 +124,6 @@ func (s *Session) resolveReferences(res Result, parses []parsed, search *rootSea
 	if search == nil {
 		return workspaceLoad{}
 	}
-	var imported, referenced []string
-	for _, pre := range parses {
-		imported = append(imported, project.ImportedRoots(pre.root)...)
-		referenced = append(referenced, project.ReferencedRoots(pre.root)...)
-	}
 	var subjects []string
 	for _, d := range res.Diagnostics {
 		if d.Code != resolve.CodeUnresolved || !res.mine(d.Span) {
@@ -138,10 +133,22 @@ func (s *Session) resolveReferences(res Result, parses []parsed, search *rootSea
 			subjects = append(subjects, subject)
 		}
 	}
+	if len(subjects) == 0 {
+		// Nothing unresolved: no root is looked for, so the text is not walked.
+		return workspaceLoad{}
+	}
 	unresolved := func(name string) bool { return referenceBegins(subjects, name) }
+	var imported []string
+	for _, pre := range parses {
+		imported = append(imported, project.ImportedRoots(pre.root)...)
+	}
 	ws := s.loadDeclaring(s.undeclaredRoots(imported, unresolved), search)
 	if !ws.loaded {
 		// An import no file answers must not keep the qualified names waiting.
+		var referenced []string
+		for _, pre := range parses {
+			referenced = append(referenced, project.ReferencedRoots(pre.root)...)
+		}
 		more := s.loadDeclaring(s.undeclaredRoots(referenced, unresolved), search)
 		more.notices = append(ws.notices, more.notices...)
 		ws = more

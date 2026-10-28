@@ -114,8 +114,9 @@ test('a table answers its header, body, footer and specified column widths', () 
 });
 
 test('stem blocks and block images answer their source, target, alt and title', () => {
-  const [stem, image] = convert('.Scaling\n[stem]\n++++\nm \\propto D^2\n++++\n\n.Optics\nimage::figures/optics.png[The optics]\n');
-  assert.deepEqual(stem, { kind: 'stem', line: 3, title: 'Scaling', styledTitle: false, style: 'latexmath', source: 'm \\propto D^2' });
+  const formula = String.raw`m \propto D^2`;
+  const [stem, image] = convert(['.Scaling', '[stem]', '++++', formula, '++++', '', '.Optics', 'image::figures/optics.png[The optics]', ''].join('\n'));
+  assert.deepEqual(stem, { kind: 'stem', line: 3, title: 'Scaling', styledTitle: false, style: 'latexmath', source: formula });
   assert.deepEqual(image, { kind: 'image', line: 8, title: 'Optics', styledTitle: false, target: 'figures/optics.png', alt: 'The optics' });
 });
 

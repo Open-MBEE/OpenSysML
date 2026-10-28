@@ -8,6 +8,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan/markup"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan/markup/markuptest"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 const asciiDocRecordings = "markup/testdata"
@@ -138,5 +139,103 @@ func TestCompileAsciiDocBodyToolErrors(t *testing.T) {
 	planning = bodyPlanningError(t, err)
 	if planning.Kind != ErrorMarkupToolFailed || !strings.Contains(err.Error(), "no recorded converter answer") {
 		t.Errorf("kind %s: %v, want %s naming the converter's message", planning.Kind, err, ErrorMarkupToolFailed)
+	}
+}
+
+func TestValidateLeavesBodiesOfMissingConverterUnchecked(t *testing.T) {
+	fixture := loadPlanningFixture(t, `
+		part def Report :> Document {
+			attribute redefines title = "Report";
+			rep language "AsciiDoc" /* A body. */
+			part intro : Paragraph {
+				rep language "AsciiDoc" /* Another body. */
+			}
+			part body : Section {
+				attribute redefines title = "Body";
+				rep language "AsciiDoc" /* A third body. */
+			}
+			part empty : Paragraph;
+		}
+	`)
+	t.Setenv(markup.AsciiDocEnv, filepath.Join(t.TempDir(), "missing-converter"))
+
+	// Validation goes on past the bodies, one warning for all three, and
+	// still finds the paragraph that has no text.
+	warnings, err := Validate(fixture.index, fixture.model, fixture.resolver, fixture.symbol(t, "Report"))
+	if planning := planningError(t, err); planning.Kind != ErrorMissingText || planning.Content != "Observatory::Report::empty" {
+		t.Errorf("error %v, want %s at Observatory::Report::empty", err, ErrorMissingText)
+	}
+	if len(warnings) != 1 {
+		t.Fatalf("warnings %v, want one", warnings)
+	}
+	warning := warnings[0]
+	if warning.Kind != ErrorMarkupToolMissing || warning.Kind.Severity() != diag.SeverityWarning || warning.Bodies != 3 || warning.Content != "Observatory::Report" {
+		t.Errorf("warning %+v, want %s (a warning) over 3 bodies, the first in Observatory::Report", warning, ErrorMarkupToolMissing)
+	}
+	for _, want := range []string{"carries 3 asciidoc bodies that were not checked, the first in content Observatory::Report", "missing-converter", "(" + markup.AsciiDocEnv + " names it)", "download-doc-pdf-toolchain.sh"} {
+		if !strings.Contains(warning.Error(), want) {
+			t.Errorf("%v lacks %q", warning, want)
+		}
+	}
+	if ErrorMarkupToolFailed.Severity() != diag.SeverityError {
+		t.Errorf("%s is a %s, want an error", ErrorMarkupToolFailed, ErrorMarkupToolFailed.Severity())
+	}
+
+	// A rendering needs the bodies: Compile stops at the first.
+	_, err = fixture.compile(t, "Report")
+	if planning := bodyPlanningError(t, err); planning.Kind != ErrorMarkupToolMissing || planning.Bodies != 0 || !strings.Contains(err.Error(), "could not be parsed") {
+		t.Errorf("Compile: %v, want %s stopping at the body", err, ErrorMarkupToolMissing)
+	}
+}
+
+func TestValidateReportsOneWarningPerBody(t *testing.T) {
+	fixture := loadPlanningFixture(t, `
+		part def Report :> Document {
+			attribute redefines title = "Report";
+			part intro : Paragraph {
+				rep language "AsciiDoc" /* A body. */
+			}
+		}
+	`)
+	t.Setenv(markup.AsciiDocEnv, filepath.Join(t.TempDir(), "missing-converter"))
+	warnings, err := Validate(fixture.index, fixture.model, fixture.resolver, fixture.symbol(t, "Report"))
+	if err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	if len(warnings) != 1 || warnings[0].Bodies != 1 || !strings.Contains(warnings[0].Error(), "content Observatory::Report::intro carries a asciidoc body that was not checked") {
+		t.Errorf("warnings %v, want one over the paragraph's body", warnings)
+	}
+}
+
+// A document whose plan reads another document's outline leaves that
+// document's unchecked bodies to its own plan: each warns once, of its own.
+func TestValidateWarnsOfItsOwnBodiesOnly(t *testing.T) {
+	fixture := loadPlanningFixture(t, `
+		part def Appendix :> Document {
+			attribute redefines title = "Appendix";
+			rep language "AsciiDoc" /* An appendix body. */
+			part tables : Section {
+				attribute redefines title = "Tables";
+				rep language "markdown" /* ## Detail */
+			}
+		}
+		part def Report :> Document {
+			attribute redefines title = "Report";
+			rep language "markdown" /* See [](sysml:Appendix::tables.detail). */
+			part note : Paragraph {
+				rep language "AsciiDoc" /* A report body. */
+			}
+		}
+	`)
+	t.Setenv(markup.AsciiDocEnv, filepath.Join(t.TempDir(), "missing-converter"))
+	for _, name := range []string{"Report", "Appendix"} {
+		warnings, err := Validate(fixture.index, fixture.model, fixture.resolver, fixture.symbol(t, name))
+		if err != nil {
+			t.Fatalf("Validate %s: %v", name, err)
+		}
+		fqn := "Observatory::" + name
+		if len(warnings) != 1 || warnings[0].Document != fqn || warnings[0].Bodies != 1 || !strings.HasPrefix(warnings[0].Content, fqn) {
+			t.Errorf("Validate %s: warnings %v, want one over its own body", name, warnings)
+		}
 	}
 }
