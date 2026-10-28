@@ -16,6 +16,10 @@ import (
 type APIJSONOptions struct {
 	Omitted    func(APIJSONOmission)
 	Diagnostic func(string)
+	// IncludeLibraryStubs writes ownerless library elements for legacy readers.
+	IncludeLibraryStubs bool
+	// LibraryReferences receives the names of referenced standard-library elements.
+	LibraryReferences func([]APIJSONLibraryReference)
 }
 
 const (
@@ -113,6 +117,9 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 		// The element form holds the model's own elements only; a library element
 		// stays a bare reference, as an ownerless element there is a root (the OMG API JSON shape).
 		if LibraryReference(settled, subject) {
+			if options.IncludeLibraryStubs {
+				elements = append(elements, apiJSONLibraryStub(settled, subject))
+			}
 			continue
 		}
 		element, err := writer.element(subject)
@@ -120,6 +127,9 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 			return nil, err
 		}
 		elements = append(elements, element)
+	}
+	if options.LibraryReferences != nil {
+		options.LibraryReferences(apiJSONLibraryReferences(settled, elements))
 	}
 	return elements, nil
 }

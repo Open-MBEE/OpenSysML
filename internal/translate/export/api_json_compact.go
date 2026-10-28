@@ -29,9 +29,11 @@ type CompactAPIJSONOptions struct {
 	// specialization does not need it.
 	OmitDerived bool
 	// KeepDerived names the derived properties still written when OmitDerived is set.
-	KeepDerived []string
-	Omitted     func(APIJSONOmission)
-	Diagnostic  func(string)
+	KeepDerived         []string
+	Omitted             func(APIJSONOmission)
+	Diagnostic          func(string)
+	IncludeLibraryStubs bool
+	LibraryReferences   func([]APIJSONLibraryReference)
 }
 
 // WriteAPIJSONCompact writes the elements WriteAPIJSON writes in a form built
@@ -54,8 +56,11 @@ type CompactAPIJSONOptions struct {
 // another, "elementId" is left out and "elementIdsAreIds" says so: a reader
 // restores it from the table.
 func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, error) {
+	var libraryReferences []APIJSONLibraryReference
 	elements, err := apiJSONElementsWithOptions(graph, APIJSONOptions{
 		Omitted: opts.Omitted, Diagnostic: opts.Diagnostic,
+		IncludeLibraryStubs: opts.IncludeLibraryStubs,
+		LibraryReferences:   func(refs []APIJSONLibraryReference) { libraryReferences = refs },
 	})
 	if err != nil {
 		return nil, err
@@ -173,6 +178,11 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 		}
 	}
 	slices.Sort(referenceKeys)
+	// Only names referenced by the written document belong in its table.
+	libraryReferences = slices.DeleteFunc(libraryReferences, func(ref APIJSONLibraryReference) bool {
+		_, present := handles[ref.ID]
+		return !present
+	})
 
 	var out bytes.Buffer
 	w := apiJSONWriter{buf: &out, enc: json.NewEncoder(&out)}
@@ -195,6 +205,10 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 	}
 	out.WriteString(`"referenceKeys":`)
 	if err := w.value(referenceKeys); err != nil {
+		return nil, err
+	}
+	out.WriteString(`,"libraryReferences":`)
+	if err := w.value(libraryReferences); err != nil {
 		return nil, err
 	}
 	out.WriteString(`,"elements":[`)
@@ -222,6 +236,9 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 		out.WriteByte('}')
 	}
 	out.WriteString("]}\n")
+	if opts.LibraryReferences != nil {
+		opts.LibraryReferences(libraryReferences)
+	}
 	return out.Bytes(), nil
 }
 
