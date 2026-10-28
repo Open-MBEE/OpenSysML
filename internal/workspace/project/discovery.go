@@ -294,7 +294,9 @@ func used(enclosing, installed []*Interchange, installedKey map[string]bool) (ou
 		}
 	}
 	var queue []*Interchange
+	linked := false // whether this pass claimed anything, enqueued or already selected
 	link := func(pick *Interchange) {
+		linked = true
 		claimed[pick.identity()] = true
 		if selected[absKey(pick.Dir)] {
 			return
@@ -335,6 +337,7 @@ func used(enclosing, installed []*Interchange, installedKey map[string]bool) (ou
 			break
 		}
 		var rest []pending
+		linked = false
 		for _, p := range unmatched {
 			if id, ok := learnt[p.u.key()]; ok {
 				if pick, versions := pickVersion(installed, id, p.r); pick != nil {
@@ -355,8 +358,8 @@ func used(enclosing, installed []*Interchange, installedKey map[string]bool) (ou
 				rest = append(rest, p)
 			}
 		}
-		if len(queue) == 0 {
-			// Nothing linked this pass, so what deferred each usage still stands.
+		if !linked {
+			// Nothing was claimed this pass, so what deferred each usage still stands.
 			for _, p := range rest {
 				linking = append(linking, ambiguousUsage(p.from, p.u, p.candidates))
 			}

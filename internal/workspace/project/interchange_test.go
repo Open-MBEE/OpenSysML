@@ -602,9 +602,8 @@ func TestUsedLinksEachVersionOfARepositoryOnceItsProjectIsLearnt(t *testing.T) {
 	}
 }
 
-// An unconstrained usage several unclaimed versions could answer is deferred;
-// when later usages then claim every candidate, it selects nothing and says
-// nothing rather than failing on an emptied candidate list.
+// A deferred usage whose candidates later usages all claim selects nothing and
+// says nothing, rather than failing on an emptied candidate list; the two links are said.
 func TestUsedSurvivesADeferredUsageWhoseCandidatesAreAllClaimedLater(t *testing.T) {
 	root := t.TempDir()
 	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
@@ -713,5 +712,24 @@ func TestUsedReportsAnUnsatisfiedOrMalformedConstraint(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// A claim that enqueues nothing — the claimed project is an input path too, so
+// already selected — still narrows a deferred usage to its one remaining candidate.
+func TestUsedRevisitsADeferredUsageAfterAClaimOfASelectedProject(t *testing.T) {
+	root := t.TempDir()
+	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:git/example.org/acme/either-repo"},
+  {"resource": "pkg:git/example.org/acme/gears-repo@1.0.0"}]}`)
+	gears := writeProject(t, filepath.Join(proj, "lib", "acme-gears_1.0.0"), `{"name": "Gears", "publisher": "acme", "version": "1.0.0"}`)
+	widgets := writeProject(t, filepath.Join(proj, "lib", "acme-widgets_2.0.0"), `{"name": "Widgets", "publisher": "acme", "version": "2.0.0"}`)
+
+	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml"), filepath.Join(gears, "Gears.sysml")})
+	if want := []string{widgets}; !reflect.DeepEqual(projectDirs(found.Used), want) {
+		t.Fatalf("Used = %v, want %v (Gears is enclosing already)", projectDirs(found.Used), want)
+	}
+	if len(found.Linking) != 2 || !strings.Contains(found.Linking[0].Message, "linked by elimination to acme/gears 1.0.0") || !strings.Contains(found.Linking[1].Message, "linked by elimination to acme/widgets 2.0.0") {
+		t.Fatalf("Linking = %q, want the two elimination links, no ambiguity", found.Linking)
 	}
 }
