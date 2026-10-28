@@ -438,9 +438,10 @@ jobs:
             cancelled = 0
             examined = 0
             token = None
-            # Newest first; stop at pipelines older than any job's timeout
-            # lets a build-test run, so a busy day cannot push one off the end.
-            horizon = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=6)
+            # Newest first; stop at pipelines created more than a day ago, far
+            # past the longest a build-test can queue and run, so a busy day
+            # cannot push a still-running one off the end.
+            horizon = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=24)
             done = False
             for _ in range(20):
                 page = call(f"/project/{slug}/pipeline?branch={branch}" + (f"&page-token={token}" if token else ""))
@@ -463,7 +464,7 @@ jobs:
                 token = page.get("next_page_token")
                 if done or not token:
                     break
-            print(f"{cancelled} superseded pipeline(s) cancelled on {branch}; {examined} pipeline(s) from the last 6 hours examined.")
+            print(f"{cancelled} superseded pipeline(s) cancelled on {branch}; {examined} pipeline(s) from the last 24 hours examined.")
             PY
 
   go-static:
