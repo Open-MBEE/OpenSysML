@@ -60,12 +60,8 @@ public final class ResourceDescriptorWriter {
     }
   }
 
-  /**
-   * The version packed into one integer the Resource Manager orders installs by: two digits each
-   * for minor and patch, then four for the pre-release — 9999 for a release, for a nightly the day
-   * it was built counted from {@link #NIGHTLY_EPOCH} — so every night of a version sits above the
-   * previous release and below its own. Two nights of one day (a forced rebuild) share a value.
-   */
+  /** Packs the version into the integer the Resource Manager orders installs by: MMmmpp then four pre-release
+   *  digits, 9999 for a release and the day since {@link #NIGHTLY_EPOCH} for a nightly (one day's nights tie). */
   static long internalVersion(String version) {
     Matcher m = VERSION.matcher(version);
     if (!m.matches()) {
