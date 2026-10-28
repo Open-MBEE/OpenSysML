@@ -67,6 +67,10 @@ func (tc *typeChecker) checkMetadataBinding(scope *symbols.Scope, u *ast.Usage, 
 		return
 	}
 	tc.expr.checkBoundValue(scope, target.OwnerScope, td, u.Value, nil)
+	// The body declaration restating the feature binds it to the value it writes.
+	if !u.ValueIsDefault {
+		tc.expr.judgeBoundFeature(scope, target, u.Value, u.Span())
+	}
 }
 
 // metadataBodyTarget is the feature of owner a body declaration restates: the one
