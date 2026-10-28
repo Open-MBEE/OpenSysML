@@ -662,7 +662,7 @@ func TestSpellsLocation(t *testing.T) {
 // A versionConstraint is an npm-style semver range on both paths: the project a
 // usage names (slug match) and the one it reaches by elimination.
 func TestUsedHonoursARangeConstraintOnBothPaths(t *testing.T) {
-	cases := map[string]string{"^1.0.0": "1.1.0", ">=1.0.0": "2.0.0", "~1.1.0": "1.1.0", "1.1.x": "1.1.0", ">=1.0.0 <2.0.0": "1.1.0", "1.0.0 - 1.1.0": "1.1.0", "1.0.0 || 2.0.0": "2.0.0", "=1.1.0": "1.1.0", "v2.0.0": "2.0.0", "<1.0.0": "1.0.0-rc.1", ">=1.0.0-rc.1 <1.0.0": "1.0.0-rc.1", "": "2.0.0"}
+	cases := map[string]string{"^1.0.0": "1.1.0", ">=1.0.0": "2.0.0", "~1.1.0": "1.1.0", "1.1.x": "1.1.0", ">=1.0.0 <2.0.0": "1.1.0", "1.0.0 - 1.1.0": "1.1.0", "1.0.0 || 2.0.0": "2.0.0", "=1.1.0": "1.1.0", "v2.0.0": "2.0.0", ">=1.0.0-rc.1 <1.0.0": "1.0.0-rc.1", "": "2.0.0"}
 	for _, path := range []string{"pkg:sysand/acme/widgets", "pkg:hg/hg.example.org/models/hg-widgets"} {
 		for constraint, want := range cases {
 			t.Run(path+" "+constraint, func(t *testing.T) {
@@ -690,7 +690,7 @@ func TestUsedHonoursARangeConstraintOnBothPaths(t *testing.T) {
 // a warning at the consumer's .project.json and links nothing — never "any".
 func TestUsedReportsAnUnsatisfiedOrMalformedConstraint(t *testing.T) {
 	for _, path := range []string{"pkg:sysand/acme/widgets", "pkg:hg/hg.example.org/models/hg-widgets"} {
-		for constraint, want := range map[string]string{"^3.0.0": "none of the installed versions satisfies: 1.1.0 (", "latest": "malformed version constraint", "1.x.3": "malformed version constraint"} {
+		for constraint, want := range map[string]string{"^3.0.0": "none of the installed versions satisfies: 1.1.0 (", "<1.0.0": "none of the installed versions satisfies: 1.1.0 (", "latest": "malformed version constraint", "1.x.3": "malformed version constraint"} {
 			t.Run(path+" "+constraint, func(t *testing.T) {
 				root := t.TempDir()
 				proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
@@ -700,13 +700,17 @@ func TestUsedReportsAnUnsatisfiedOrMalformedConstraint(t *testing.T) {
 				if len(found.Used) != 0 {
 					t.Fatalf("Used = %v, want nothing", projectDirs(found.Used))
 				}
-				if constraint == "^3.0.0" && strings.HasPrefix(path, "pkg:hg/") {
+				if strings.HasPrefix(constraint, "^3") || strings.HasPrefix(constraint, "<") {
+					if !strings.HasPrefix(path, "pkg:hg/") {
+						goto warned
+					}
 					// By elimination nothing in range is a candidate: unresolved, as for any usage nothing answers.
 					if len(found.Linking) != 0 {
 						t.Fatalf("Linking = %v, want nothing", found.Linking)
 					}
 					return
 				}
+			warned:
 				if len(found.Linking) != 1 || found.Linking[0].Path != filepath.Join(proj, ProjectFile) || !strings.Contains(found.Linking[0].Message, want) {
 					t.Fatalf("Linking = %v, want one at %s containing %q", found.Linking, ProjectFile, want)
 				}

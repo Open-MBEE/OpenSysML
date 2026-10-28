@@ -103,7 +103,8 @@ A package manager and OpenSysML meet only on disk, at the consuming project's `.
   syntax for it, so OpenSysML accepts the de-facto one package managers share, the npm-style semver
   range: an exact version (`1.2.3`, `=1.2.3`, `v1.2.3`), comparators (`<`, `<=`, `>`, `>=`), caret
   (`^1.2`), tilde (`~1.2.3`), `x`/`*` wildcards (`1.x`), hyphen ranges (`1.0.0 - 2.0.0`), space or
-  comma as AND and `||` as OR, pre-releases ordered as semver 2.0.0 orders them. The highest
+  comma as AND and `||` as OR, pre-releases ordered as semver 2.0.0 orders them and admitted only
+  where the range names their release (`>=1.0.0-rc.1`, as npm ranges do). The highest
   installed version in the range is taken; no version in it, or a constraint outside the grammar,
   is a `project.load` warning at the consumer's `.project.json` and the usage links nothing (never
   silently "any"). No constraint → the latest installed. `@<version>` in the IRI is an exact

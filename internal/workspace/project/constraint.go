@@ -89,13 +89,13 @@ func parseComparator(field string) ([]comparator, error) {
 	if err != nil {
 		return nil, err
 	}
+	if w.wild == 0 && (op == "" || op == "=" || op == "==" || op == "^" || op == "~") {
+		return nil, nil // *, ^* and ~* alone admit any version
+	}
 	major, minor, patch := w.parts[0], w.parts[1], w.parts[2]
 	switch op {
 	case "", "=", "==":
-		switch {
-		case w.wild == 0: // * alone: any version
-			return nil, nil
-		case w.upper != "": // 1.x, 1.2.x
+		if w.upper != "" { // 1.x, 1.2.x
 			return []comparator{{">=", w.version}, {"<", w.upper}}, nil
 		}
 		return []comparator{{"=", w.version}}, nil
@@ -149,8 +149,12 @@ func parseWildcardVersion(text string) (wildcardVersion, error) {
 	if v == "" {
 		return wildcardVersion{}, errors.New("a version is missing")
 	}
-	core, pre := splitVersion(v)
-	if len(core) > 3 || (strings.Contains(v, "-") && len(pre) == 0) {
+	base, build, hasBuild := strings.Cut(v, "+")
+	if hasBuild && !validIdentifiers(build) {
+		return wildcardVersion{}, fmt.Errorf("%q has malformed build metadata", v)
+	}
+	core, pre := splitVersion(base)
+	if len(core) > 3 || (strings.Contains(base, "-") && len(pre) == 0) {
 		return wildcardVersion{}, fmt.Errorf("%q is not a semantic version", v)
 	}
 	w := wildcardVersion{wild: 3}
@@ -180,25 +184,37 @@ func parseWildcardVersion(text string) (wildcardVersion, error) {
 	case 2:
 		w.upper = fmt.Sprintf("%d.%d.0-0", w.parts[0], w.parts[1]+1)
 	}
-	for _, id := range pre {
-		if id == "" || strings.Trim(id, "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-") != "" {
-			return wildcardVersion{}, fmt.Errorf("%q has a malformed pre-release", v)
-		}
+	if len(pre) > 0 && !validIdentifiers(strings.Join(pre, ".")) {
+		return wildcardVersion{}, fmt.Errorf("%q has a malformed pre-release", v)
 	}
 	return w, nil
+}
+
+// validIdentifiers reports whether ids is dot-separated, non-empty [0-9A-Za-z-] identifiers.
+func validIdentifiers(ids string) bool {
+	for _, id := range strings.Split(ids, ".") {
+		if id == "" || strings.Trim(id, "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-") != "" {
+			return false
+		}
+	}
+	return true
 }
 
 // any reports whether the range admits every version.
 func (r versionRange) any() bool { return len(r.sets) == 0 }
 
-// matches reports whether version satisfies the range: some alternative whose
-// every comparator holds, versions ordered as semver 2.0.0 orders them.
+// matches reports whether version satisfies the range: some alternative whose every comparator
+// holds, versions ordered as semver 2.0.0 orders them; a pre-release only where the alternative names its release.
 func (r versionRange) matches(version string) bool {
 	if r.any() {
 		return true
 	}
 	v := strings.TrimPrefix(strings.TrimSpace(version), "v")
+	core, pre := splitVersion(v)
 	for _, set := range r.sets {
+		if len(pre) > 0 && !admitsPreRelease(set, core) {
+			continue
+		}
 		ok := true
 		for _, c := range set {
 			cmp := compareVersions(v, c.version)
@@ -219,6 +235,17 @@ func (r versionRange) matches(version string) bool {
 			}
 		}
 		if ok {
+			return true
+		}
+	}
+	return false
+}
+
+// admitsPreRelease reports whether some comparator of the set is itself a pre-release of the
+// release core names, which is when npm-style ranges let a pre-release in.
+func admitsPreRelease(set []comparator, core []string) bool {
+	for _, c := range set {
+		if cc, cpre := splitVersion(c.version); len(cpre) > 0 && strings.Join(cc, ".") == strings.Join(core, ".") {
 			return true
 		}
 	}
