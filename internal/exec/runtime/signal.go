@@ -1038,13 +1038,23 @@ func (ctx *Context) addressOwner(scope *symbols.Scope, self *Instance, segments 
 	if scope == nil || ctx.model.resolver == nil {
 		return nil, nil, false, nil
 	}
+	// A namespace performance as the whole target is a receiver addressed by name (its
+	// messages reach whatever performs it); led through, it is the object the path walks.
 	for n := 1; n <= len(segments); n++ {
 		sym, ok := ctx.pathSymbol(scope, segments[:n])
-		if !ok || !isOccurrenceUsage(sym) || !ctx.occursOnce(sym) {
+		if !ok || !isOccurrenceUsage(sym) || !ctx.occursOnce(sym) || n == len(segments) && isPerformanceUsage(sym) {
 			continue
 		}
 		if self != nil && self.Type == sym {
 			return self, segments[n:], true, nil
+		}
+		// An optional usage denotes only what binds it; one nothing binds leads nowhere.
+		if ctx.optionalValueless(sym) {
+			denoted, err := ctx.denotedObjects(sym)
+			if err != nil || len(denoted) != 1 {
+				return nil, nil, false, err
+			}
+			return denoted[0], segments[n:], true, nil
 		}
 		// A target that names an object this run cannot build fails as that, rather
 		// than being reported as an address naming nothing.

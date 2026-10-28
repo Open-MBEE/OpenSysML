@@ -1077,7 +1077,7 @@ func (m *migration) actorLinkOf(e *sysmlv1.Element) *actorLink {
 func (m *migration) shownRef(e, scope *sysmlv1.Element, f viewForm) string {
 	if f.useCases {
 		if u := m.usageIn(e); u != nil {
-			return m.usageRef(u, scope)
+			return m.usageMemberRef(u, scope)
 		}
 		if c := m.connOf(e); c != nil {
 			return m.connRefs(c.of, scope)[0]

@@ -1,0 +1,1 @@
+- `scripts/download-doc-pdf-toolchain.sh` retries each download (pandoc, Graphviz, PlantUML, D2) three times before giving up, as the other download scripts do, so a transient upstream error such as the `502` GitLab returned for the Graphviz packages no longer fails the PDF toolchain job outright.

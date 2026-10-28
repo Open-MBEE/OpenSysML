@@ -259,7 +259,7 @@ func TestPlantUMLActionUsesStateGrammar(t *testing.T) {
 		"  state \"<size:10>//«fork»//</size>\\n**split**\" as n7 <<fork>>\n",
 		"  state \"**final**\" as n9 <<end>>\n",
 		"  state \"<size:10>//«decision»//</size>\\n**check**\" as n11 <<choice>>\n",
-		"  state \"<size:10>//«action»//</size>\\n**monitor**\\nown flow\" as n3 <<action>> <<usage>> {\n",
+		"  state \"<size:10>//«action»//</size>\\n**monitor**\\nown flow\\nparameters\\nin reading\" as n3 <<action>> <<usage>> {\n",
 		"\nn2 --> n3 : torque to reading\n",
 		"\nn11 -[dashed]-> n9 : [speed <U+003E> 0]\n",
 		"\nn1 -[dashed]-> n7\n",

@@ -1,8 +1,6 @@
 package queryexec
 
 import (
-	"strings"
-
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -78,7 +76,7 @@ func (e *executor) metadataPathValues(sym *symbols.Symbol, property string) ([]V
 	if !ok {
 		return nil, false, nil
 	}
-	metadata := e.metadataType(strings.Join(metadataSegments, "::"))
+	metadata := e.metadataType(source.QualifiedNameOf(metadataSegments))
 	if metadata == nil {
 		return nil, false, nil
 	}

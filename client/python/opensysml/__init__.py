@@ -92,7 +92,7 @@ from opensysml.conversion import (
 )
 from opensysml.edit import AppliedEdit, Body, EditedDocument, EditResult, Editor
 from opensysml.errors import (
-    OpenSysMLError, AnalysisRunError, ChecksumMismatchError, ConnectionError, ConversionError,
+    OpenSysMLError, AnalysisRunError, AuthenticationError, ChecksumMismatchError, ConnectionError, ConversionError,
     EditError, EditResultError, EditTargetError, ExecutionError, MigrationError,
     FeatureValueError, InvalidEditError, NoEditsError, OverlappingEditsError,
     RenameReferencedError,
@@ -156,7 +156,7 @@ __all__ = [
     "CaseStatistic", "CaseStatistics", "ComparedDistribution", "Comparison", "ConfigurationComparison",
     "ImportResult", "ImportedFile", "ImportedValue", "ObservableComparison", "StatisticDifference",
     "CAPABILITY_IMPORT_DATA", "CAPABILITY_COMPARE_RESULTS",
-    "OpenSysMLError", "AnalysisRunError", "ChecksumMismatchError", "ConnectionError",
+    "OpenSysMLError", "AnalysisRunError", "AuthenticationError", "ChecksumMismatchError", "ConnectionError",
     "ConversionError", "ExecutionError", "FeatureValueError", "MigrationError",
     "EditError", "NoEditsError", "EditTargetError", "InvalidEditError",
     "RenameReferencedError", "OverlappingEditsError", "EditResultError",
@@ -312,7 +312,7 @@ def load(file_path, host='localhost', port=None, strict=False,
 
 
 def connect(host='localhost', port=None, auto_start=True, version=None,
-            require_capabilities=None):
+            require_capabilities=None, token=None):
     """Create a new connection to sysml-grpc service.
     
     Convenience function that creates a new Connection instance.
@@ -331,6 +331,8 @@ def connect(host='localhost', port=None, auto_start=True, version=None,
             service is private or externally managed
         require_capabilities (iterable, optional): Capability names the service
             must report, checked at connect time
+        token (str, optional): Bearer token every call carries, for a service
+            that requires one; defaults to $OPENSYSML_GRPC_TOKEN
     
     Returns:
         Connection: New connection instance
@@ -348,7 +350,7 @@ def connect(host='localhost', port=None, auto_start=True, version=None,
     """
     return Connection(
         host, port, auto_start=auto_start, version=version,
-        require_capabilities=require_capabilities,
+        require_capabilities=require_capabilities, token=token,
     )
 
 

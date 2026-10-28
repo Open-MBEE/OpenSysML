@@ -42,8 +42,8 @@ skinparam wrapWidth 300
 hide stereotype
 hide empty description
 state "<size:10>//«action def»//</size>\n**Fill**" as n0 <<action def>> {
-  state "<size:10>//«action»//</size>\n**open**" as n1 <<action>> <<usage>>
-  state "<size:10>//«action»//</size>\n**pour**" as n2 <<action>> <<usage>>
+  state "<size:10>//«action»//</size>\n**open**\nparameters\nout water" as n1 <<action>> <<usage>>
+  state "<size:10>//«action»//</size>\n**pour**\nparameters\nin water" as n2 <<action>> <<usage>>
 }
 n1 -[dashed]-> n2 : «succession flow»
 @enduml

@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	corsHeaders       = "Content-Type, Connect-Protocol-Version, Connect-Timeout-Ms, Grpc-Timeout, X-Grpc-Web, X-User-Agent, Accept, Accept-Encoding, Connect-Content-Encoding, Connect-Accept-Encoding, Grpc-Encoding, Grpc-Accept-Encoding"
-	corsExposeHeaders = "Grpc-Status, Grpc-Message, Grpc-Status-Details-Bin, Connect-Content-Encoding, Connect-Accept-Encoding, Grpc-Encoding, Grpc-Accept-Encoding"
+	corsHeaders       = "Authorization, Content-Type, Connect-Protocol-Version, Connect-Timeout-Ms, Grpc-Timeout, X-Grpc-Web, X-User-Agent, Accept, Accept-Encoding, Connect-Content-Encoding, Connect-Accept-Encoding, Grpc-Encoding, Grpc-Accept-Encoding"
+	corsExposeHeaders = "WWW-Authenticate, Grpc-Status, Grpc-Message, Grpc-Status-Details-Bin, Connect-Content-Encoding, Connect-Accept-Encoding, Grpc-Encoding, Grpc-Accept-Encoding"
 )
 
 func parseCORSOrigins(value string) (map[string]struct{}, error) {

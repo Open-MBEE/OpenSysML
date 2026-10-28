@@ -997,7 +997,7 @@ jobs:
           if-no-files-found: error
 
   mdk-plugin:
-    name: OpenSysML MDK for Cameo plugin
+    name: Magic MDK plugin
     needs: [changes, build]
     if: needs.changes.outputs.mdk == 'true'
     runs-on: ubuntu-latest

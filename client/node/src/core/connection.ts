@@ -200,6 +200,8 @@ export interface TransportOptions {
   timeoutMs?: number;
   /** Extra headers sent with every call. */
   headers?: Record<string, string>;
+  /** Bearer token every call carries, for a service that requires one. */
+  token?: string;
   /** Called with each response, for logging, metrics or a conformance runner. */
   onResponse?: ResponseTap;
 }

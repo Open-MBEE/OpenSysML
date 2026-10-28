@@ -44,10 +44,10 @@ export default defineConfig({
   build: {
     minify: false,
     lib: {
-      name: 'opensysml-syson',
+      name: 'syson-mdk',
       entry: path.resolve(root, 'src/index.ts'),
       formats: ['es', 'cjs'],
-      fileName: (format) => `opensysml-syson.${format}.js`,
+      fileName: (format) => `syson-mdk.${format}.js`,
     },
     rollupOptions: {
       external: isExternal,

@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // evaluateNamed resolves each qualified name to the one element it denotes: no
@@ -134,9 +135,9 @@ func (e *executor) unknownElement(expression queryplan.Expression, name string, 
 		err.Outcome.Path.Failures[0] = failure
 		return err
 	}
-	segments := strings.Split(name, "::")
+	segments := symbols.SegmentsOf(name)
 	for i := len(segments) - 1; i >= 1; i-- {
-		prefix := strings.Join(segments[:i], "::")
+		prefix := source.QualifiedNameOf(segments[:i])
 		found, dangling := e.denoted(prefix)
 		owners := elementsOf(found)
 		switch len(owners) {
@@ -179,19 +180,35 @@ func first(xs []string) string {
 }
 
 // memberNames lists the simple names a qualified reference from outside reaches
-// directly under fqn, in name order; a name only a private import surfaced is not one.
+// directly under fqn, aliases included, in name order; a name only a private import surfaced is not one.
 func (e *executor) memberNames(fqn string) []string {
 	names := make([]string, 0)
-	for _, member := range e.members(fqn) {
-		names = append(names, member.Name)
-	}
-	return names
+	e.eachDeclared(fqn, func(name string, _ *symbols.Symbol) { names = append(names, name) })
+	sort.Strings(names)
+	return slices.Compact(names)
 }
 
-// members lists the members memberNames does as distinct (name, metaclass) pairs,
-// so two declarations of one name show both metaclasses; for "" the root namespaces.
+// members lists fqn's owned members as distinct (name, metaclass) pairs (for "" the root namespaces);
+// an alias is a Membership of its element (KerML 8.2.3.5.2), not an owned member, so it is skipped.
 func (e *executor) members(fqn string) []Member {
 	out := []Member{}
+	e.eachDeclared(fqn, func(name string, target *symbols.Symbol) {
+		if target.Kind == symbols.SymbolAlias {
+			return
+		}
+		out = append(out, Member{Name: name, Metaclass: e.metaclassOf(target)})
+	})
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Name != out[j].Name {
+			return out[i].Name < out[j].Name
+		}
+		return out[i].Metaclass < out[j].Metaclass
+	})
+	return slices.Compact(out)
+}
+
+// eachDeclared visits every symbol registered directly under fqn with its simple name.
+func (e *executor) eachDeclared(fqn string, visit func(name string, target *symbols.Symbol)) {
 	for _, registered := range e.context.Index.FQNs() {
 		rest := registered
 		if fqn != "" {
@@ -204,16 +221,9 @@ func (e *executor) members(fqn string) []Member {
 			continue
 		}
 		for _, target := range e.context.Index.LookupQualified(registered) {
-			out = append(out, Member{Name: rest, Metaclass: e.metaclassOf(target)})
+			visit(rest, target)
 		}
 	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].Name != out[j].Name {
-			return out[i].Name < out[j].Name
-		}
-		return out[i].Metaclass < out[j].Metaclass
-	})
-	return slices.Compact(out)
 }
 
 // metaclassOf is the simple name of the element's metaclass, `PartUsage`.

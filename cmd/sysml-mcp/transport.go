@@ -4,11 +4,8 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"net"
-	"os"
-	"strconv"
-	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
 )
 
@@ -66,29 +63,11 @@ func (h *httpOptions) tokenValue() string { return h.tokenText }
 // readToken reads the token from -token-file (one trailing line break dropped),
 // -token or the environment, in that order; both flags together are refused.
 func readToken(o *options) (mcp.BearerToken, string, error) {
-	if o.token != "" && o.tokenFile != "" {
-		return mcp.BearerToken{}, "", errors.New("-token and -token-file both name the bearer token; give one")
-	}
-	source, value := "-token", o.token
-	switch {
-	case o.tokenFile != "":
-		raw, err := os.ReadFile(o.tokenFile)
-		if err != nil {
-			return mcp.BearerToken{}, "", fmt.Errorf("-token-file: %w", err)
-		}
-		source, value = fmt.Sprintf("-token-file %q", o.tokenFile), strings.TrimSuffix(strings.TrimSuffix(string(raw), "\n"), "\r")
-	case o.token == "":
-		env := os.Getenv(mcp.TokenEnv)
-		if env == "" {
-			return mcp.BearerToken{}, "", nil
-		}
-		source, value = mcp.TokenEnv, env
-	}
-	token, err := mcp.NewBearerToken(value)
+	token, text, err := guard.Read(o.tokenFile, o.token, mcp.TokenEnv)
 	if err != nil {
-		return mcp.BearerToken{}, "", fmt.Errorf("%s: %w", source, err)
+		return mcp.BearerToken{}, "", err
 	}
-	return token, value, nil
+	return mcp.BearerToken{Token: token}, text, nil
 }
 
 // loadTLS proves the TLS pair loads before anything is served; nothing to
@@ -114,19 +93,4 @@ func (h *httpOptions) url() string {
 
 // httpAddress reads -http into the address to bind: host:port as given, or
 // loopback for a port alone or an address with no host.
-func httpAddress(spec string) (string, error) {
-	if _, err := strconv.ParseUint(spec, 10, 16); err == nil {
-		return net.JoinHostPort("localhost", spec), nil
-	}
-	host, port, err := net.SplitHostPort(spec)
-	if err != nil {
-		return "", fmt.Errorf("%q is not a port or a host:port address", spec)
-	}
-	if _, err := strconv.ParseUint(port, 10, 16); err != nil {
-		return "", fmt.Errorf("%q is not a port", port)
-	}
-	if host == "" {
-		host = "localhost"
-	}
-	return net.JoinHostPort(host, port), nil
-}
+func httpAddress(spec string) (string, error) { return guard.ListenAddress(spec) }
