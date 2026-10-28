@@ -967,12 +967,8 @@ func w9cCheckLines(t *testing.T, got []int, code string, want []int) {
 	}
 }
 
-// A feature value implies a binding of the feature to the value's result (KerML
-// 8.3.4.5.2, checkFeatureValueBindingConnector), judged by the feature's declared
-// type itself — an Integer literal is unrelated to a user `R :> Real` though it
-// conforms to Real — at the feature, where the pinned pilot warns. An initial
-// value binds too; a `default` implies no binding and a cast or an operator
-// result (`DataFunctions::'-'` returns a DataValue) conforms.
+// A feature value binds the feature to its result (KerML 8.3.4.5.2), judged by the
+// feature's own type (`R :> Real` vs Integer) at the feature, as the pinned pilot does.
 func TestW9CFeatureValueBindingConformance(t *testing.T) {
 	src := `package Gap {
     private import ScalarValues::*;
@@ -1026,9 +1022,8 @@ func TestW9CFeatureValueBindingConformance(t *testing.T) {
 	}
 }
 
-// A metadata body declaration restating a feature (`@M { x = 5; }`) and the constraint
-// an `assume`/`require` member owns bind their values as any feature value does; the
-// pinned pilot reports each at the same position.
+// A metadata body declaration (`@M { x = 5; }`) and an owned assume/require
+// constraint bind their values too; the pinned pilot reports each at the declaration.
 func TestW9CFeatureValueBindingOfBodyAndOwnedDeclarations(t *testing.T) {
 	src := `package Gap6 {
     private import ScalarValues::*;

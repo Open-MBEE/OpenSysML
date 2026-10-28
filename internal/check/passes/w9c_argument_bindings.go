@@ -106,10 +106,8 @@ func (ec *exprChecker) judgeBinding(scope *symbols.Scope, value ast.Node, want [
 	}
 }
 
-// judgeFeatureValueBinding judges a feature's value against the feature's own types
-// (KerML 8.3.4.5.2): the binding a FeatureValue implies, which a `default` does not
-// (checkFeatureValueBindingConnector). Reported at the feature, as the pilot does; a
-// subject's value is W9CBoundFeatureTypesPass's, an assignment's is no feature value.
+// judgeFeatureValueBinding judges a feature's value by the feature's own types, the binding a
+// FeatureValue implies (KerML 8.3.4.5.2); a `default` implies none, a subject is W9C's, an assignment no value.
 func (ec *exprChecker) judgeFeatureValueBinding(valueScope, declScope *symbols.Scope, d featureDecl, value ast.Node) {
 	var isDefault bool
 	if u, ok := d.node.(*ast.Usage); ok {
@@ -139,11 +137,8 @@ func (ec *exprChecker) judgeBoundFeature(valueScope *symbols.Scope, sym *symbols
 	ec.judgeBinding(valueScope, value, ec.model.FeatureTypeSet(sym), at, ec.declaredResultTypes)
 }
 
-// declaredResultTypes are the types a value's result declares: for an operator
-// other than a cast, the result of the library function it names (KerML
-// 8.3.4.8.17 — `-5` is a DataValue, `5 [m]` and `xs#(1)` an Anything); for an
-// invocation, the result parameter of the behavior it runs, none being an
-// Anything; else its static result types.
+// declaredResultTypes are the types a value's result declares: an operator's library function
+// result (KerML 8.3.4.8.17: `-5` a DataValue, `5 [m]` an Anything), an invocation's result parameter.
 func (ec *exprChecker) declaredResultTypes(scope *symbols.Scope, value ast.Node) []*symbols.Symbol {
 	switch n := value.(type) {
 	case *ast.OperatorExpr:
