@@ -284,90 +284,116 @@ func walkInstalled(dir string, visited map[string]bool, budget *int, found func(
 // used selects the installed projects the enclosing ones use, directly or in turn, each once: by name (Uses), else — a
 // resource spelling a location — by elimination (pickUnclaimed) or as learnt; an enclosing project installed under the roots (installedKey) may answer one.
 func used(enclosing, installed []*Interchange, installedKey map[string]bool) (out []*Interchange, linking []Warning) {
-	selected := map[string]bool{}
-	claimed := map[string]bool{}
-	learnt := map[string]string{}
+	l := &linker{installed: installed, selected: map[string]bool{}, claimed: map[string]bool{}, learnt: map[string]string{}}
 	for _, project := range enclosing {
-		selected[absKey(project.Dir)] = true
+		l.selected[absKey(project.Dir)] = true
 		if !installedKey[absKey(project.Dir)] {
-			claimed[project.identity()] = true
+			l.claimed[project.identity()] = true
 		}
 	}
-	var queue []*Interchange
-	linked := false // whether this pass claimed anything, enqueued or already selected
-	link := func(pick *Interchange) {
-		linked = true
-		claimed[pick.identity()] = true
-		if selected[absKey(pick.Dir)] {
-			return
-		}
-		selected[absKey(pick.Dir)] = true
-		out = append(out, pick)
-		queue = append(queue, pick)
-	}
-	type pending struct {
-		from       *Interchange
-		u          Usage
-		r          versionRange
-		candidates []*Interchange // the unclaimed projects that deferred it, last pass
-	}
+	l.queue = append(l.queue, enclosing...)
 	var unmatched []pending
-	queue = append(queue, enclosing...)
 	for {
-		for len(queue) > 0 {
-			project := queue[0]
-			queue = queue[1:]
-			for _, u := range project.Usage {
-				r, err := u.versionRange()
-				if err != nil {
-					linking = append(linking, malformedConstraint(project, u, err))
-					continue
-				}
-				switch pick, named := pickInstalled(installed, u, r); {
-				case pick != nil:
-					link(pick)
-				case named != nil:
-					linking = append(linking, unsatisfiedUsage(project, u, named))
-				case u.spellsLocation() && !u.standardLibrary():
-					unmatched = append(unmatched, pending{from: project, u: u, r: r})
-				}
-			}
-		}
+		unmatched = l.drain(unmatched)
 		if len(unmatched) == 0 {
 			break
 		}
-		var rest []pending
-		linked = false
-		for _, p := range unmatched {
-			if id, ok := learnt[p.u.key()]; ok {
-				if pick, versions := pickVersion(installed, id, p.r); pick != nil {
-					link(pick)
-				} else {
-					linking = append(linking, unsatisfiedUsage(p.from, p.u, versions))
-				}
-				continue
-			}
-			pick, candidates := pickUnclaimed(installed, claimed, p.from, p.u, p.r)
-			switch {
-			case pick != nil:
-				learnt[p.u.key()] = pick.identity()
-				linking = append(linking, eliminationUsage(p.from, p.u, pick))
-				link(pick)
-			case len(candidates) > 1:
-				p.candidates = candidates
-				rest = append(rest, p)
-			}
-		}
+		rest, linked := l.retry(unmatched)
 		if !linked {
 			// Nothing was claimed this pass, so what deferred each usage still stands.
 			for _, p := range rest {
-				linking = append(linking, ambiguousUsage(p.from, p.u, p.candidates))
+				l.linking = append(l.linking, ambiguousUsage(p.from, p.u, p.candidates))
 			}
 			break
 		}
 		unmatched = rest
 	}
-	return out, linking
+	return l.out, l.linking
+}
+
+// linker is the state of one selection by used: the installed projects, the directories selected
+// and identities claimed so far, what each located usage was learnt to name, the projects whose
+// usages are still to be walked, and the selection and warnings so far.
+type linker struct {
+	installed []*Interchange
+	selected  map[string]bool
+	claimed   map[string]bool
+	learnt    map[string]string
+	queue     []*Interchange
+	linked    bool // whether this pass claimed anything, enqueued or already selected
+	out       []*Interchange
+	linking   []Warning
+}
+
+// pending is a usage spelling a location that no installed project answered by name yet.
+type pending struct {
+	from       *Interchange
+	u          Usage
+	r          versionRange
+	candidates []*Interchange // the unclaimed projects that deferred it, last pass
+}
+
+func (l *linker) link(pick *Interchange) {
+	l.linked = true
+	l.claimed[pick.identity()] = true
+	if l.selected[absKey(pick.Dir)] {
+		return
+	}
+	l.selected[absKey(pick.Dir)] = true
+	l.out = append(l.out, pick)
+	l.queue = append(l.queue, pick)
+}
+
+// drain walks the usages of every queued project, linking what an installed project answers by
+// name and adding to unmatched what spells a location none does.
+func (l *linker) drain(unmatched []pending) []pending {
+	for len(l.queue) > 0 {
+		project := l.queue[0]
+		l.queue = l.queue[1:]
+		for _, u := range project.Usage {
+			r, err := u.versionRange()
+			if err != nil {
+				l.linking = append(l.linking, malformedConstraint(project, u, err))
+				continue
+			}
+			switch pick, named := pickInstalled(l.installed, u, r); {
+			case pick != nil:
+				l.link(pick)
+			case named != nil:
+				l.linking = append(l.linking, unsatisfiedUsage(project, u, named))
+			case u.spellsLocation() && !u.standardLibrary():
+				unmatched = append(unmatched, pending{from: project, u: u, r: r})
+			}
+		}
+	}
+	return unmatched
+}
+
+// retry links each unmatched usage as learnt or by elimination; it returns the usages several
+// unclaimed candidates still defer and whether the pass claimed anything.
+func (l *linker) retry(unmatched []pending) (rest []pending, linked bool) {
+	l.linked = false
+	for _, p := range unmatched {
+		if id, ok := l.learnt[p.u.key()]; ok {
+			if pick, versions := pickVersion(l.installed, id, p.r); pick != nil {
+				l.link(pick)
+			} else {
+				l.linking = append(l.linking, unsatisfiedUsage(p.from, p.u, versions))
+			}
+			continue
+		}
+		pick, candidates := pickUnclaimed(l.installed, l.claimed, p.from, p.u, p.r)
+		switch {
+		case pick != nil:
+			l.learnt[p.u.key()] = pick.identity()
+			l.linking = append(l.linking, eliminationUsage(p.from, p.u, pick))
+			l.link(pick)
+		case len(candidates) > 1:
+			p.candidates = candidates
+			rest = append(rest, p)
+		}
+	}
+	return rest, l.linked
 }
 
 // pickVersion is the highest installed version of the project identity names that
