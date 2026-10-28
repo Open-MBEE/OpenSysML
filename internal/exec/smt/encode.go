@@ -1958,10 +1958,13 @@ type env struct {
 	enc    *Encoding
 	values map[string]*solve.Term
 	has    map[string]*solve.Term
+	// written reports a write since the state the values came from, after which a
+	// feature valued by an expression is read by its expression, not the state's variable.
+	written bool
 }
 
 func (v *env) clone() *env {
-	c := &env{enc: v.enc, values: make(map[string]*solve.Term, len(v.values)), has: make(map[string]*solve.Term, len(v.has))}
+	c := &env{enc: v.enc, values: make(map[string]*solve.Term, len(v.values)), has: make(map[string]*solve.Term, len(v.has)), written: v.written}
 	for k, t := range v.values {
 		c.values[k] = t
 	}
@@ -1974,6 +1977,7 @@ func (v *env) clone() *env {
 // write sets a feature's value; it then holds one.
 func (v *env) write(name string, value *solve.Term) {
 	v.values[name] = value
+	v.written = true
 	if _, flagged := v.has[name]; flagged {
 		v.has[name] = solve.BoolTerm(true)
 	}
@@ -1985,7 +1989,7 @@ func (v *env) write(name string, value *solve.Term) {
 func (v *env) evaluate(expr *solve.Expression) (value, defined *solve.Term) {
 	var reads []*solve.Term
 	replace := func(base *solve.Var) *solve.Term {
-		if d, derived := v.enc.derived[base.Name]; derived {
+		if d, derived := v.enc.derived[base.Name]; derived && v.written {
 			value, defined := v.evaluate(d.expr)
 			reads = append(reads, defined)
 			return value

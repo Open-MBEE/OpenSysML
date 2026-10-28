@@ -2,6 +2,7 @@
 	"type": "action",
 	"evaluate": "test::Race",
 	"trace": true,
+	"solverBudget": {"moves": 20},
 	"outcomes": [
 		{
 			"outputs": {
