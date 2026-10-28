@@ -6,6 +6,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -23,7 +25,11 @@ public final class ResourceDescriptorWriter {
   public static final String MINIMUM_RELEASE = "2024x";
   static final String PLUGIN_DIR = "plugins/org.openmbee.mdk.magic";
   static final String BRIDGE_DIR = "plugins/org.openmbee.mdk/extensions";
-  private static final Pattern VERSION = Pattern.compile("^v?(\\d+)\\.(\\d+)\\.(\\d+)");
+  private static final Pattern VERSION =
+      Pattern.compile("^v?(\\d+)\\.(\\d+)\\.(\\d+)(?:-nightly-(\\d{8})-[0-9a-f]+)?$");
+  /** Nights are counted from here; the count fills the pre-release digits below {@link #RELEASE}. */
+  static final LocalDate NIGHTLY_EPOCH = LocalDate.of(2026, 1, 1);
+  static final int RELEASE = 9_999;
 
   private ResourceDescriptorWriter() {}
 
@@ -54,11 +60,25 @@ public final class ResourceDescriptorWriter {
     }
   }
 
-  /** {@code major.minor.patch} packed into one integer the Resource Manager can order installs by. */
+  /** Packs the version into the integer the Resource Manager orders installs by: MMmmpp then four pre-release
+   *  digits, 9999 for a release and the day since {@link #NIGHTLY_EPOCH} for a nightly (one day's nights tie). */
   static long internalVersion(String version) {
     Matcher m = VERSION.matcher(version);
-    if (!m.find()) throw new IllegalArgumentException("version is not major.minor.patch: " + version);
-    return Long.parseLong(m.group(1)) * 1_000_000L + Long.parseLong(m.group(2)) * 1_000L + Long.parseLong(m.group(3));
+    if (!m.matches()) {
+      throw new IllegalArgumentException("version is not major.minor.patch[-nightly-yyyymmdd-commit]: " + version);
+    }
+    long major = Long.parseLong(m.group(1));
+    long minor = Long.parseLong(m.group(2));
+    long patch = Long.parseLong(m.group(3));
+    if (minor > 99 || patch > 99) throw new IllegalArgumentException("minor and patch must be below 100: " + version);
+    long preRelease = RELEASE;
+    if (m.group(4) != null) {
+      LocalDate built = LocalDate.parse(m.group(4), DateTimeFormatter.BASIC_ISO_DATE);
+      preRelease = Math.min(Math.max(ChronoUnit.DAYS.between(NIGHTLY_EPOCH, built), 0), RELEASE - 1);
+    }
+    long internal = ((major * 100 + minor) * 100 + patch) * 10_000 + preRelease;
+    if (internal > Integer.MAX_VALUE) throw new IllegalArgumentException("version exceeds the descriptor's integer: " + version);
+    return internal;
   }
 
   static String render(String version, String date, List<String> files) {

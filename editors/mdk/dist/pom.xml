@@ -26,6 +26,11 @@
       <version>${project.version}</version>
     </dependency>
   </dependencies>
+  <properties>
+    <!-- A directory holding the five sysml-grpc binaries to stage instead of downloading the
+         release's: the nightly workflow names the night's own, verified against its manifest. -->
+    <opensysml.binaries></opensysml.binaries>
+  </properties>
   <profiles>
     <profile>
       <id>dist</id>
@@ -67,6 +72,8 @@
                   <arguments>
                     <argument>${opensysml.version}</argument>
                     <argument>${project.build.directory}/bin</argument>
+                    <argument>--from</argument>
+                    <argument>${opensysml.binaries}</argument>
                   </arguments>
                 </configuration>
               </execution>
