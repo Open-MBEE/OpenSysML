@@ -118,9 +118,12 @@ already uses — `check_reduce.go`, `future_footprint.go`; there is no second co
   one meets a *read* of the other, what the reading alternative writes from that read — the
   statements of its body whose flow reads the place (`lower.Footprint.Flows`, one data flow per
   statement, `Footprint.WritesReading`), or every write of the alternative when the read is not a
-  statement's (a guard's) or the move is described whole. The place read is not touched by the
-  meeting: one write of it stands whichever order ran, so a mark on it would assert an openness
-  exploration refutes (`action_order_sibling_read_of_racing_write`: `z` open, `x` bare). A pin is
+  statement's (a guard's) or the move is described whole. The rule throughout: a value is marked
+  if and only if exploration proves more than one outcome for it. So the place read is not
+  touched by the meeting — a once-written feature read by a racing sibling holds one value
+  whichever order ran, and a mark on it would assert an openness exploration refutes — while
+  what the reader writes from it is (`action_order_sibling_read_of_racing_write`: `z` open, `x`
+  bare). A pin is
   each performance's own, delivered to rather than raced for, and is neither touched nor a read
   that touches (`shared`). A pair that meets only on a channel or through a dynamic target
   (`Footprint.Dynamic`: a property read or a chained target the declarations do not decide) touches
