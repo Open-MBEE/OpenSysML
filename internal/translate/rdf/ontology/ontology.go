@@ -53,6 +53,9 @@ type Property struct {
 	// Many reports an upper multiplicity above 1 or unbounded (ecore upperBound
 	// -1): the API JSON shape is an array.
 	Many bool
+	// Upper is a Many property's ecore upperBound: -1 unbounded, else the finite
+	// bound; a single-valued property leaves it zero, which UpperBound reads as 1.
+	Upper int
 	// Ordered reports a Many property whose values are ordered (ecore
 	// ordered, which defaults to true); a single-valued property is never Ordered.
 	Ordered bool
@@ -68,6 +71,14 @@ type Property struct {
 	// Opposite is the "DefiningClass::name" of the ecore eOpposite, the
 	// navigable property at the other end of the same association, if any.
 	Opposite string
+}
+
+// UpperBound is the upper multiplicity as ecore spells it: -1 unbounded, else the bound.
+func (p Property) UpperBound() int {
+	if !p.Many {
+		return 1
+	}
+	return p.Upper
 }
 
 // QualifiedName returns the property as "DefiningClass::name", the form

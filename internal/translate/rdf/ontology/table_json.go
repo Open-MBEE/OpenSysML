@@ -29,7 +29,7 @@ type TableEnumeration struct {
 }
 
 // TableProperty gives each property its kind ("object"/"datatype"), its range as a metaclass
-// or enumeration name (else the datatype IRI) and its upper bound, 1 or -1 for unbounded.
+// or enumeration name (else the datatype IRI) and its ecore upper bound (-1 unbounded).
 type TableProperty struct {
 	Name          string   `json:"name"`
 	DefiningClass string   `json:"definingClass"`
@@ -71,7 +71,7 @@ func CurrentTable() Table {
 func tableProperty(p Property) TableProperty {
 	out := TableProperty{
 		Name: p.Name, DefiningClass: p.DefiningClass, Kind: "datatype", Range: p.Range,
-		Lower: p.Lower, Upper: 1, Ordered: p.Ordered, Nonunique: p.Nonunique, Derived: p.Derived,
+		Lower: p.Lower, Upper: p.UpperBound(), Ordered: p.Ordered, Nonunique: p.Nonunique, Derived: p.Derived,
 		Redefines: append([]string(nil), p.Redefines...), Subsets: append([]string(nil), p.Subsets...),
 		Opposite: p.Opposite,
 	}
@@ -84,9 +84,6 @@ func tableProperty(p Property) TableProperty {
 		} else if _, ok := LookupEnumeration(local); ok {
 			out.Range = local
 		}
-	}
-	if p.Many {
-		out.Upper = -1
 	}
 	if p.HasDefault {
 		value := p.Default

@@ -40,3 +40,14 @@ func TestTableRecordSpellsTheProperties(t *testing.T) {
 		t.Errorf("header = %+v, want the table's", table)
 	}
 }
+
+// TestTableRecordKeepsAFiniteUpperBound pins that a finite bound above one is written as is.
+func TestTableRecordKeepsAFiniteUpperBound(t *testing.T) {
+	finite := tableProperty(Property{Name: "x", DefiningClass: "Element", Many: true, Upper: 3})
+	if finite.Upper != 3 {
+		t.Errorf("upper = %d, want 3", finite.Upper)
+	}
+	if single := tableProperty(Property{Name: "y", DefiningClass: "Element"}); single.Upper != 1 {
+		t.Errorf("single-valued upper = %d, want 1", single.Upper)
+	}
+}
