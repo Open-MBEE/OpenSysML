@@ -191,7 +191,8 @@ The repository follows git-flow with two long-lived branches:
 3. **Make changes** with clear commit messages
 4. **Run tests**: `go test ./...`
 5. **Push** to your fork
-6. **Open a Pull Request** targeting `develop`
+6. **Open a Pull Request** targeting `develop`, ready for review (a draft is only for work you do
+   not yet want reviewed; see [CI tiers](#github-actions))
 
 ### PR Guidelines
 
@@ -276,24 +277,26 @@ decision is recorded through the Release Checklist item above.
 `Build and test` job aggregates whichever tier ran, so that is the one check branch protection
 needs to require.
 
-**The full tier** runs on every push to a non-draft pull request, when a draft is marked ready
-for review, and on any pull request carrying the label `ci:full`. It gates: gofmt, `go vet`,
-`make lint`, the race-enabled test suite (nine shards, `make test-shard`), the binaries, the
-client suites, the conformance suite over each transport, the protobuf lint and
-wire-compatibility checks, the documentation hygiene checks (`make docs-check`,
-`make man-check` and the census check), the site build, and in each client's job the
-release-digest copy it ships and the stubs it commits (regenerated with the pinned buf and
-diffed). It downloads the OMG corpora before the suite and runs each corpus gate as its own
+**The full tier** is the default: it runs on every push to a pull request that is ready for
+review, when a draft is marked ready, and on any pull request carrying the label `ci:full`. It
+gates: gofmt, `go vet`, `make lint`, the race-enabled test suite (nine shards,
+`make test-shard`), the binaries, the client suites, the conformance suite over each transport,
+the protobuf lint and wire-compatibility checks, the documentation hygiene checks
+(`make docs-check`, `make man-check` and the census check), the site build, and in each
+client's job the release-digest copy it ships and the stubs it commits (regenerated with the
+pinned buf and diffed). It downloads the OMG corpora before the suite and runs each corpus gate as its own
 step, so those gates are required rather than skipped.
 
-**The quick tier** runs on every push to a draft pull request, within about a third of the
-runner time: the binaries, the same Go suite without `-race` in three shards
-(`make test-quick`), the download-free static checks (gofmt, vet, the production build, the
-library snapshot, grpc imports, proto lint and breaking), the WebAssembly, Xpect and
-conformance gates, and only the clients and docs whose own paths changed. The lint, the corpus
-and solver gates, the PDF toolchain, the coverage merge and the fan-out from a service change
-to every client wait for the full tier. Draft until the quick tier is green, then mark ready;
-the full tier is what a pull request has to pass to merge.
+**The quick tier** is what a draft pull request gets — an opt-in for work the author does not
+yet want reviewed — on every push to it, within about a third of the runner time: the binaries,
+the same Go suite without `-race` in three shards (`make test-quick`), the download-free static
+checks (gofmt, vet, the production build, the library snapshot, grpc imports, proto lint and
+breaking), the WebAssembly, Xpect and conformance gates, and only the clients and docs whose
+own paths changed. The lint, the corpus and solver gates, the PDF toolchain, the coverage merge
+and the fan-out from a service change to every client wait for the full tier. Open a pull
+request ready for review rather than as a draft: marking a draft ready starts a second full run
+on a head the quick tier already ran, and a draft is not considered until it is marked ready.
+The full tier is what a pull request has to pass to merge.
 
 **The merge queue**, when the `develop` ruleset has one, runs the full tier once more on the
 commit it builds for each queued pull request (`refs/heads/gh-readonly-queue/develop/...`,
@@ -334,8 +337,8 @@ rather than only in the log. The README badge tracks this workflow.
 
 ### Required Checks
 
-PRs must pass the GitHub Actions `Build and test` check under the full tier (every push once
-the pull request is not a draft), which requires:
+PRs must pass the GitHub Actions `Build and test` check under the full tier (every push to a
+pull request that is ready for review), which requires:
 - [ ] Build succeeds
 - [ ] All tests pass
 - [ ] No race conditions
