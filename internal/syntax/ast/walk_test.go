@@ -79,8 +79,7 @@ func TestInspectPrunesAndTerminates(t *testing.T) {
 }
 
 // The walk descends only through fields a node can be reached by: a usage's
-// prefixes, value and multiplicity, not its keyword, flags or the spans that
-// record how it was spelled.
+// prefixes, value and multiplicity, not its keyword, flags or spans.
 func TestNodeFieldsSkipScalarFields(t *testing.T) {
 	typ := reflect.TypeOf(Usage{})
 	plan := map[string]bool{}

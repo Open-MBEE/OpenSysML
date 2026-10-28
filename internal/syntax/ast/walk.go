@@ -62,9 +62,8 @@ func inspectValue(v reflect.Value, visit func(Node) bool, seen map[visitKey]bool
 	}
 }
 
-// nodeFieldPlans memoizes, per struct type, the indices of the exported fields
-// a node can be reached through: reading every field's description from the
-// type on each struct visited dominated a walk, and scalar fields hold no node.
+// nodeFieldPlans memoizes per struct type the indices of the fields a node can be
+// reached through: describing every field on each struct visited dominated a walk.
 var nodeFieldPlans sync.Map // reflect.Type -> []int
 
 func nodeFields(t reflect.Type) []int {
