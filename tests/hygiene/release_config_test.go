@@ -1059,15 +1059,20 @@ func TestWindowsInstallerSBOMIsDerivedFromItsInputs(t *testing.T) {
 	windows := readRepoFile(t, ".github/workflows/release-windows.yml")
 	circle := readRepoFile(t, ".circleci/config.yml")
 
+	// The build job writes the unsigned installer's SBOM from the executables
+	// it built; the sign job writes the signed installer's from the executables
+	// SignPath returned, whose bytes differ. Both pin the syft CircleCI pins.
 	syftURL := regexp.MustCompile(`https://github\.com/anchore/syft/releases/download/v[0-9.]+/syft_[0-9.]+_linux_amd64\.tar\.gz`)
 	syftDigest := regexp.MustCompile(`echo "[0-9a-f]{64}  /tmp/syft\.tar\.gz" \| sha256sum --check --strict`)
 	for _, pin := range []*regexp.Regexp{syftURL, syftDigest} {
 		circlePins, windowsPins := pin.FindAllString(circle, -1), pin.FindAllString(windows, -1)
-		if len(circlePins) != 1 || len(windowsPins) != 1 {
-			t.Fatalf("syft is pinned %d times in .circleci/config.yml and %d times in release-windows.yml; expected once each (%s)", len(circlePins), len(windowsPins), pin)
+		if len(circlePins) != 1 || len(windowsPins) != 2 {
+			t.Fatalf("syft is pinned %d times in .circleci/config.yml and %d times in release-windows.yml; expected once and twice (%s)", len(circlePins), len(windowsPins), pin)
 		}
-		if circlePins[0] != windowsPins[0] {
-			t.Errorf("release-windows.yml pins syft as %q, .circleci/config.yml as %q", windowsPins[0], circlePins[0])
+		for _, windowsPin := range windowsPins {
+			if circlePins[0] != windowsPin {
+				t.Errorf("release-windows.yml pins syft as %q, .circleci/config.yml as %q", windowsPin, circlePins[0])
+			}
 		}
 	}
 
@@ -1076,9 +1081,22 @@ func TestWindowsInstallerSBOMIsDerivedFromItsInputs(t *testing.T) {
 		`echo "${Z3_SHA256}  /tmp/${Z3_ZIP}" | sha256sum --check --strict`,
 		`python3 scripts/release-sbom.py --version "$VERSION" --out dist/msi-sbom`,
 		`--msi-inputs dist/unsigned --z3-pin packaging/msi/z3.pin --z3-zip "/tmp/${Z3_ZIP}"`,
+		`--msi-inputs dist/signed --msi-signed --z3-pin packaging/msi/z3.pin --z3-zip "/tmp/${Z3_ZIP}"`,
 		"name: ${{ env.MSI_SBOM_ARTIFACT }}",
 		"name: ${{ env.SIGNED_MSI_SBOM_ARTIFACT }}",
 	)
+	for _, job := range []struct{ name, inputs string }{
+		{"build", "--msi-inputs dist/unsigned "},
+		{"sign", "--msi-inputs dist/signed --msi-signed "},
+	} {
+		section := windows[strings.Index(windows, "\n  "+job.name+":\n"):]
+		if next := nextJobHeader.FindStringIndex(section[1:]); next != nil {
+			section = section[:1+next[0]]
+		}
+		if !strings.Contains(section, job.inputs) {
+			t.Errorf("the %s job does not write the installer SBOM from %s", job.name, strings.TrimSpace(job.inputs))
+		}
+	}
 	for _, job := range []struct{ name, manifest string }{
 		{"msi", `sha256sum ./*.msi ./*.spdx.json | sed 's|\./||' | tee SHA256SUMS-windows-msi.txt`},
 		{"publish-signed", `sha256sum ./*.zip ./*.msi ./*.spdx.json sysml-grpc-windows-amd64-signed.exe | sed 's|\./||' > SHA256SUMS-windows-signed.txt`},

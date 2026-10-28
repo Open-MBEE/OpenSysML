@@ -156,29 +156,15 @@ jobs:
           curl -fsSL --proto '=https' --proto-redir '=https' -o "/tmp/${Z3_ZIP}" \
             "https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/${Z3_ZIP}"
           echo "${Z3_SHA256}  /tmp/${Z3_ZIP}" | sha256sum --check --strict
-          # One SBOM under the unsigned installer's name and one under the
-          # signed installer's: the signed executables carry the same Go build
-          # information, Authenticode-signed.
           python3 scripts/release-sbom.py --version "$VERSION" --out dist/msi-sbom \
             --msi-inputs dist/unsigned --z3-pin packaging/msi/z3.pin --z3-zip "/tmp/${Z3_ZIP}"
-          mkdir -p dist/msi-sbom/unsigned dist/msi-sbom/signed
-          mv dist/msi-sbom/*-signed.msi.spdx.json dist/msi-sbom/signed/
-          mv dist/msi-sbom/*.msi.spdx.json dist/msi-sbom/unsigned/
-          ls -l dist/msi-sbom/unsigned dist/msi-sbom/signed
+          ls -l dist/msi-sbom
 
       - name: Upload the installer's SBOM
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ env.MSI_SBOM_ARTIFACT }}
-          path: dist/msi-sbom/unsigned/*.spdx.json
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload the signed installer's SBOM
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ env.SIGNED_MSI_SBOM_ARTIFACT }}
-          path: dist/msi-sbom/signed/*.spdx.json
+          path: dist/msi-sbom/*.spdx.json
           if-no-files-found: error
           retention-days: 14
 
@@ -392,6 +378,39 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      # The signed installer is built from these signed executables, whose
+      # bytes differ from the unsigned ones: its SBOM is written here, from
+      # them, with the same pinned syft and Z3 as the unsigned installer's.
+      - name: Install syft
+        run: |
+          curl -fsSL -o /tmp/syft.tar.gz \
+            https://github.com/anchore/syft/releases/download/v1.55.0/syft_1.55.0_linux_amd64.tar.gz
+          echo "bb65249542db5fedeeb4d3f9b018b75e7264dbfbbb10486f044581a92f90490d  /tmp/syft.tar.gz" | sha256sum --check --strict
+          tar -xzf /tmp/syft.tar.gz -C /tmp syft
+          sudo install -m 0755 /tmp/syft /usr/local/bin/syft
+          syft version
+
+      - name: Write the signed installer's software bill of materials from its inputs
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          # shellcheck source=packaging/msi/z3.pin
+          source packaging/msi/z3.pin
+          curl -fsSL --proto '=https' --proto-redir '=https' -o "/tmp/${Z3_ZIP}" \
+            "https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/${Z3_ZIP}"
+          echo "${Z3_SHA256}  /tmp/${Z3_ZIP}" | sha256sum --check --strict
+          python3 scripts/release-sbom.py --version "$VERSION" --out dist/msi-sbom \
+            --msi-inputs dist/signed --msi-signed --z3-pin packaging/msi/z3.pin --z3-zip "/tmp/${Z3_ZIP}"
+          ls -l dist/msi-sbom
+
+      - name: Upload the signed installer's SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.SIGNED_MSI_SBOM_ARTIFACT }}
+          path: dist/msi-sbom/*.spdx.json
+          if-no-files-found: error
+          retention-days: 14
+
   msi-signed:
     name: Build the MSI from the signed binaries and sign it
     needs: [build, sign]
@@ -501,7 +520,7 @@ jobs:
           name: windows-amd64-msi-signed
           path: dist/release
 
-      # Its SBOM, written by the build job from the executables SignPath signed
+      # Its SBOM, written by the sign job from the executables SignPath signed
       # and the pinned Z3, under the signed installer's name.
       - name: Download the signed installer's SBOM
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0

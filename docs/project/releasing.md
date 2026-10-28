@@ -806,10 +806,13 @@ Three classes of asset need another route to the same document, and get it:
   `@openmbee/sysml-mcp` and for `@openmbee/opensysml-mcp`, the runner under its
   other name, whose generated tree has no lockfile of its own and pins the same
   five platform packages. Development dependencies are not catalogued; peer
-  dependencies are the installer's choice and are not listed. The script refuses a
-  tarball whose file name is not the one npm gives its manifest, a declared
-  dependency the lockfile does not resolve, or an exact pin resolved to another
-  version.
+  dependencies are the installer's choice and are not listed. The platform
+  packages a release publishes beside the tarball are pinned exactly but cannot
+  be in the lockfile before they exist (see [Tagging](#tagging)), so an optional
+  dependency the lockfile lacks is recorded from the manifest's pin, with a
+  `sourceInfo` saying so and no digest. The script refuses a tarball whose file
+  name is not the one npm gives its manifest, a required dependency the lockfile
+  does not resolve, or a pin the lockfile resolves to another version.
 - **The Windows installer.** The MSI is built on a Windows runner by
   `release-windows.yml`, outside this manifest, and bundles the Z3 solver, which
   syft cannot see inside an MSI. Its SBOM is **derived from the installer's
@@ -820,9 +823,10 @@ Three classes of asset need another route to the same document, and get it:
   SHA-256 the pin verifies, and the five files the installer takes from the zip
   with their own SHA-256 digests — and the `msi` job lists it beside the
   installer in `SHA256SUMS-windows-msi.txt`, under the installer's name
-  (`opensysml-<x.y.z>-windows-amd64.msi.spdx.json`). The signed installer gets
-  the same document under its name, listed in `SHA256SUMS-windows-signed.txt`;
-  SignPath changes the executables' signatures, not their build information. See
+  (`opensysml-<x.y.z>-windows-amd64.msi.spdx.json`). The signed installer's
+  document is written the same way by the `sign` job from the executables
+  SignPath returned — their bytes, so their file digests, differ from the
+  unsigned ones — and listed in `SHA256SUMS-windows-signed.txt`. See
   [The Windows installer](#the-windows-installer).
 
 The container image carries its own SBOM and provenance, attached by `docker
@@ -1001,12 +1005,14 @@ the zip's URL and SHA-256 (the job downloads the zip and refuses a digest other
 than the pin's, as `build-msi.sh` does) and the five files the installer takes
 from it, each with its digest. The `msi` job downloads that document as a
 workflow artifact, requires it to be named after the MSI it just built, and
-lists both in `SHA256SUMS-windows-msi.txt`; `publish-signed` does the same with
-the `-signed.msi.spdx.json` copy and `SHA256SUMS-windows-signed.txt`. The signed
-executables carry the same module information, so the two documents differ only
-in name and namespace. The syft the job installs is the release the CircleCI
-`build-release` job pins, at the same digest (`tests/hygiene` holds the two
-files to one pin).
+lists both in `SHA256SUMS-windows-msi.txt`. The `sign` job writes
+`opensysml-<x.y.z>-windows-amd64-signed.msi.spdx.json` the same way
+(`--msi-inputs dist/signed --msi-signed`) from the executables SignPath
+returned, whose bytes — so whose file digests — differ from the unsigned ones
+while the module information is the same, and `publish-signed` lists it in
+`SHA256SUMS-windows-signed.txt`. The syft both jobs install is the release the
+CircleCI `build-release` job pins, at the same digest (`tests/hygiene` holds
+the two files to one pin).
 
 **SignPath and the MSI.** Add a second artifact configuration to the SignPath
 project: a single `.msi` file, Authenticode-signed, and put its slug in the

@@ -30,10 +30,11 @@ the manifest declares must be resolved there, at the pinned version when the
 pin is exact.
 
 The Windows installer is built elsewhere from inputs this script can see: the
-SBOM of `opensysml-<x.y.z>-windows-amd64.msi` (and of the `-signed` one, the
-same executables Authenticode-signed) is written from the Go executables in
-`--msi-inputs`, with the bundled Z3 declared from `packaging/msi/z3.pin` and
-the release zip it names, whose SHA-256 must match the pin.
+SBOM of `opensysml-<x.y.z>-windows-amd64.msi` (`--msi-signed`: of the `-signed`
+one, from the Authenticode-signed executables) is written from the Go
+executables in `--msi-inputs`, with the bundled Z3 declared from
+`packaging/msi/z3.pin` and the release zip it names, whose SHA-256 must match
+the pin.
 """
 
 from __future__ import annotations
@@ -358,8 +359,31 @@ def npm_package(manifest, tarball):
     }
 
 
+def declared_npm_package(name, version):
+    """An optional dependency the packed manifest pins exactly but the lockfile could not resolve yet."""
+    return {
+        "name": name,
+        "SPDXID": spdx_id("npm-declared", f"{name}@{version}"),
+        "versionInfo": version,
+        "supplier": "NOASSERTION",
+        "downloadLocation": f"{NPM_REGISTRY}/{name}/-/{name.split('/')[-1]}-{version}.tgz",
+        "filesAnalyzed": False,
+        "sourceInfo": "declared as an optional dependency by the packed manifest; "
+                      "published with this release, so not yet resolvable through the lockfile",
+        "licenseConcluded": "NOASSERTION",
+        "licenseDeclared": "NOASSERTION",
+        "copyrightText": "NOASSERTION",
+        "externalRefs": [purl_ref(f"pkg:npm/{urllib.parse.quote(name, safe='/')}@{version}")],
+    }
+
+
 def describe_npm(doc, manifest, tarball, lock_root):
-    """Make the lockfile's SBOM describe the packed tarball: its manifest is the package the dependencies hang off."""
+    """Make the lockfile's SBOM describe the packed tarball: its manifest is the package the dependencies hang off.
+
+    The platform packages a release publishes beside the tarball are pinned exactly
+    but cannot be in the lockfile before they exist, so an optional dependency the
+    lockfile lacks is recorded from the manifest's pin, saying so.
+    """
     package = npm_package(manifest, tarball)
     replaced = [p["SPDXID"] for p in components(doc)
                 if p["name"] == lock_root.get("name") and p.get("versionInfo") == lock_root.get("version")]
@@ -371,6 +395,14 @@ def describe_npm(doc, manifest, tarball, lock_root):
     doc.setdefault("relationships", []).append(
         {"spdxElementId": root_id(doc), "relatedSpdxElement": package["SPDXID"], "relationshipType": "CONTAINS"}
     )
+    resolved = {p["name"] for p in components(doc)}
+    for dependency, wanted in sorted((manifest.get("optionalDependencies") or {}).items()):
+        if dependency not in resolved and _EXACT_VERSION.match(wanted):
+            declared = declared_npm_package(dependency, wanted)
+            doc["packages"].append(declared)
+            doc["relationships"].append(
+                {"spdxElementId": declared["SPDXID"], "relatedSpdxElement": package["SPDXID"], "relationshipType": "DEPENDENCY_OF"}
+            )
     return doc
 
 
@@ -456,16 +488,16 @@ def z3_package(pin, zip_path):
     return package, files
 
 
-def msi_names(version):
-    """The installer names a tag yields, as build-msi.sh derives the ProductVersion: `v0.12.0-rc1` is `0.12.0`."""
+def msi_name(version, signed):
+    """The installer name a tag yields, as build-msi.sh derives the ProductVersion: `v0.12.0-rc1` is `0.12.0`."""
     match = _MSI_TAG.match(version)
     if not match:
         raise SBOMError(f"{version!r} is not a release tag v<major>.<minor>.<patch>[-suffix]")
-    stem = f"opensysml-{'.'.join(match.groups())}-windows-amd64"
-    return (f"{stem}.msi", f"{stem}-signed.msi")
+    return f"opensysml-{'.'.join(match.groups())}-windows-amd64{'-signed' if signed else ''}.msi"
 
 
-def write_msi_sboms(inputs, pin_path, zip_path, version, out_dir, syft, go):
+def write_msi_sbom(inputs, pin_path, zip_path, version, out_dir, syft, go, signed):
+    """The installer's SBOM from its inputs: the executables it is built from (signed ones for the signed MSI) and the pinned Z3."""
     inputs = pathlib.Path(inputs)
     executables = sorted(p for p in inputs.iterdir() if p.suffix == ".exe")
     if not executables:
@@ -477,22 +509,20 @@ def write_msi_sboms(inputs, pin_path, zip_path, version, out_dir, syft, go):
             raise SBOMError(f"{executable.name}: not a Go executable")
         infos.append((executable.name, info))
     package, files = z3_package(read_pin(pin_path), zip_path)
-    lines = []
-    for name in msi_names(version):
-        out = pathlib.Path(out_dir) / (name + SUFFIX)
-        doc = scan(syft, f"dir:{inputs}", name, version, out)
-        doc["packages"].append(package)
-        doc["files"] = doc.get("files", []) + files
-        doc["relationships"] = doc.get("relationships", []) + [
-            {"spdxElementId": root_id(doc), "relatedSpdxElement": package["SPDXID"], "relationshipType": "CONTAINS"},
-            *({"spdxElementId": package["SPDXID"], "relatedSpdxElement": f["SPDXID"], "relationshipType": "CONTAINS"}
-              for f in files),
-        ]
-        check(doc, name, infos, [str(inputs.resolve()), str(pathlib.Path(zip_path).resolve().parent), os.getcwd()])
-        finalize(doc, name, version)
-        out.write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8")
-        lines.append(describe(doc, name, infos) + f", Z3 {package['versionInfo']}")
-    return lines
+    name = msi_name(version, signed)
+    out = pathlib.Path(out_dir) / (name + SUFFIX)
+    doc = scan(syft, f"dir:{inputs}", name, version, out)
+    doc["packages"].append(package)
+    doc["files"] = doc.get("files", []) + files
+    doc["relationships"] = doc.get("relationships", []) + [
+        {"spdxElementId": root_id(doc), "relatedSpdxElement": package["SPDXID"], "relationshipType": "CONTAINS"},
+        *({"spdxElementId": package["SPDXID"], "relatedSpdxElement": f["SPDXID"], "relationshipType": "CONTAINS"}
+          for f in files),
+    ]
+    check(doc, name, infos, [str(inputs.resolve()), str(pathlib.Path(zip_path).resolve().parent), os.getcwd()])
+    finalize(doc, name, version)
+    out.write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8")
+    return describe(doc, name, infos) + f", Z3 {package['versionInfo']}"
 
 
 def write_sbom(asset, version, out_dir, syft, go):
@@ -528,6 +558,8 @@ def main(argv=None):
                         help="directory of the Go executables the Windows installer is built from")
     parser.add_argument("--z3-pin", type=pathlib.Path, help="packaging/msi/z3.pin, the bundled Z3 release")
     parser.add_argument("--z3-zip", type=pathlib.Path, help="the Z3 release zip the pin names, as downloaded")
+    parser.add_argument("--msi-signed", action="store_true",
+                        help="the inputs are the Authenticode-signed executables: name the SBOM after the -signed installer")
     parser.add_argument("assets", nargs="*", type=pathlib.Path, help="the release assets to describe")
     args = parser.parse_args(argv)
     msi = (args.msi_inputs, args.z3_pin, args.z3_zip)
@@ -540,9 +572,8 @@ def main(argv=None):
     args.out.mkdir(parents=True, exist_ok=True)
     try:
         if all(msi):
-            for line in write_msi_sboms(args.msi_inputs, args.z3_pin, args.z3_zip, args.version, args.out,
-                                        args.syft, args.go):
-                print(line)
+            print(write_msi_sbom(args.msi_inputs, args.z3_pin, args.z3_zip, args.version, args.out,
+                                 args.syft, args.go, args.msi_signed))
         for asset in args.assets:
             if args.npm_lock:
                 print(write_npm_sbom(asset, args.npm_lock, args.version, args.out, args.syft))

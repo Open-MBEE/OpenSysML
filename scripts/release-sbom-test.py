@@ -422,6 +422,30 @@ class NpmSBOM(unittest.TestCase):
                          ["@openmbee/opensysml-mcp", "@openmbee/sysml-mcp-linux-x64", "@openmbee/sysml-mcp-win32-x64"])
         sbom.check_npm(doc, "openmbee-opensysml-mcp-0.12.0.tgz", alias)
 
+    def test_an_optional_platform_package_not_yet_published_is_declared_from_the_manifest(self):
+        # At a release tag the lockfile cannot resolve the platform packages the same
+        # release publishes, so the client's exact pin stands in, saying so.
+        unresolved = [d for d in self.deps if d["name"] != "@openmbee/opensysml-sysml-grpc-linux-x64"]
+        doc = npm_document(self.root, *unresolved)
+        with tempfile.TemporaryDirectory() as tmp:
+            sbom.describe_npm(doc, CLIENT_MANIFEST, npm_tarball(tmp, CLIENT_MANIFEST), {"name": "@openmbee/opensysml", "version": "0.12.0"})
+        declared = next(p for p in sbom.components(doc) if p["name"] == "@openmbee/opensysml-sysml-grpc-linux-x64")
+        self.assertEqual(declared["versionInfo"], "0.12.0")
+        self.assertIn("not yet resolvable through the lockfile", declared["sourceInfo"])
+        self.assertNotIn("checksums", declared)
+        self.assertIn("pkg:npm/@openmbee/opensysml-sysml-grpc-linux-x64@0.12.0", sbom.purls(doc))
+        root = next(p for p in sbom.components(doc) if p["name"] == "@openmbee/opensysml")
+        self.assertIn({"spdxElementId": declared["SPDXID"], "relatedSpdxElement": root["SPDXID"], "relationshipType": "DEPENDENCY_OF"}, doc["relationships"])
+        sbom.check_npm(doc, "openmbee-opensysml-0.12.0.tgz", CLIENT_MANIFEST)
+
+    def test_a_required_dependency_the_lockfile_lacks_is_still_refused(self):
+        doc = npm_document(self.root, *[d for d in self.deps if d["name"] != "@bufbuild/protobuf"])
+        with tempfile.TemporaryDirectory() as tmp:
+            sbom.describe_npm(doc, CLIENT_MANIFEST, npm_tarball(tmp, CLIENT_MANIFEST), {"name": "@openmbee/opensysml", "version": "0.12.0"})
+        with self.assertRaises(sbom.SBOMError) as caught:
+            sbom.check_npm(doc, "openmbee-opensysml-0.12.0.tgz", CLIENT_MANIFEST)
+        self.assertIn("@bufbuild/protobuf@2.14.0", str(caught.exception))
+
     def test_refuses_an_sbom_lacking_a_declared_dependency(self):
         doc = npm_document(self.root, *[d for d in self.deps if d["name"] != "@sigstore/tuf"])
         with self.assertRaises(sbom.SBOMError) as caught:
@@ -465,17 +489,15 @@ def z3_zip(tmp, members=("bin/z3.exe", "bin/msvcp140.dll", "bin/vcruntime140.dll
 
 
 class MSISBOM(unittest.TestCase):
-    def test_the_installer_names_follow_the_tag_as_build_msi_derives_the_product_version(self):
-        self.assertEqual(sbom.msi_names("v0.12.0"), ("opensysml-0.12.0-windows-amd64.msi", "opensysml-0.12.0-windows-amd64-signed.msi"))
-        self.assertEqual(sbom.msi_names("v0.12.0-rc1")[0], "opensysml-0.12.0-windows-amd64.msi")
-        self.assertEqual(sbom.msi_names("v0.12.0+build")[0], "opensysml-0.12.0-windows-amd64.msi")
-        for tag in ("0.12.0", "v0.12", "v0.0.0-dry-run-"):
-            with self.subTest(tag=tag):
-                if tag == "v0.0.0-dry-run-":
-                    self.assertEqual(sbom.msi_names(tag)[0], "opensysml-0.0.0-windows-amd64.msi")
-                else:
-                    with self.assertRaises(sbom.SBOMError):
-                        sbom.msi_names(tag)
+    def test_the_installer_name_follows_the_tag_as_build_msi_derives_the_product_version(self):
+        self.assertEqual(sbom.msi_name("v0.12.0", signed=False), "opensysml-0.12.0-windows-amd64.msi")
+        self.assertEqual(sbom.msi_name("v0.12.0", signed=True), "opensysml-0.12.0-windows-amd64-signed.msi")
+        self.assertEqual(sbom.msi_name("v0.12.0-rc1", signed=False), "opensysml-0.12.0-windows-amd64.msi")
+        self.assertEqual(sbom.msi_name("v0.12.0+build", signed=False), "opensysml-0.12.0-windows-amd64.msi")
+        self.assertEqual(sbom.msi_name("v0.0.0-dry-run", signed=False), "opensysml-0.0.0-windows-amd64.msi")
+        for tag in ("0.12.0", "v0.12"):
+            with self.subTest(tag=tag), self.assertRaises(sbom.SBOMError):
+                sbom.msi_name(tag, signed=False)
 
     def test_reads_the_pin_build_msi_sources(self):
         with tempfile.TemporaryDirectory() as tmp:
