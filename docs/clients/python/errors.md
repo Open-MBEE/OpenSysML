@@ -9,6 +9,7 @@ service error came from an RPC, the original `grpc.RpcError` is available as
 | Error | Use it for |
 | --- | --- |
 | `ConnectionError` | service unavailable, startup failure or binary resolution |
+| `AuthenticationError` | the service requires a bearer token the call did not present, or refused the one it did (a `ConnectionError`) |
 | `ChecksumMismatchError` | downloaded bytes contradict a pinned digest |
 | `ManifestSignatureError` | the release checksum manifest's signature is invalid |
 | `UnpinnedReleaseError` | no digest is pinned for the requested release |

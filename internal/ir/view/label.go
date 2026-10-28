@@ -20,6 +20,9 @@ type labeller struct {
 	// pinLines lists a node's parameter pins as label lines, for a form that
 	// draws no pin on a tree node.
 	pinLines bool
+	// listedPin reports a parameter pin the form lists in the node's `parameters`
+	// compartment instead of drawing it; nil lists none.
+	listedPin func(node *Node, port Port) bool
 }
 
 // labelsOf finds the namespace the named roots share — the longest run of
@@ -369,18 +372,25 @@ func (l labeller) titleLines(node *Node) []string {
 	return append(lines, l.compartmentLines(node)...)
 }
 
-// parameterLines are a node's parameter pins as the notation's `parameters`
-// compartment, `in x : Integer` a line under the heading, where pinLines asks
-// for them; nothing for a node with no pin.
+// lists reports whether the node's pin is listed in its `parameters` compartment:
+// every pin where pinLines asks, else one listedPin names under shown compartments.
+func (l labeller) lists(node *Node, port Port) bool {
+	return l.pinLines || l.shown.Has(ElementCompartments) && l.listedPin != nil && l.listedPin(node, port)
+}
+
+// parameterLines are the node's listed parameter pins as the notation's
+// `parameters` compartment, `in x : Integer` a line under the heading.
 func (l labeller) parameterLines(node *Node) []string {
-	if !l.pinLines || len(node.Ports) == 0 {
+	var lines []string
+	for _, port := range node.Ports {
+		if l.lists(node, port) {
+			lines = append(lines, parameterPinLine(port))
+		}
+	}
+	if len(lines) == 0 {
 		return nil
 	}
-	lines := []string{"parameters"}
-	for _, port := range node.Ports {
-		lines = append(lines, parameterPinLine(port))
-	}
-	return lines
+	return append([]string{"parameters"}, lines...)
 }
 
 // cameoStateDetails splits a state's detail into Cameo's compartment lines, one

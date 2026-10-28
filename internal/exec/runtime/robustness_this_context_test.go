@@ -8,15 +8,16 @@ import (
 // TestRuntimeRobustnessThisContext covers `this` where no object gives it a
 // context, and where the context it has is not what a feature typed for it holds.
 func TestRuntimeRobustnessThisContext(t *testing.T) {
-	t.Run("unperformed_package_level_action_this_stays_undetermined", testUnperformedPackageLevelActionThisStaysUndetermined)
+	t.Run("unperformed_package_level_action_is_its_own_context", testUnperformedPackageLevelActionIsItsOwnContext)
 	t.Run("performer_not_conforming_to_a_typed_this_redefinition_is_refused", testPerformerNotConformingToTypedThisIsRefused)
 	t.Run("exhibited_machine_binding_this_to_its_own_definition_type_is_refused", testExhibitedMachineBindingThisToItsDefinitionIsRefused)
 }
 
-// testUnperformedPackageLevelActionThisStaysUndetermined reads `this`, a feature
-// valued by `this` and one in a subaction of a package-level action usage no
-// object performs: each is undetermined, not the action itself.
-func testUnperformedPackageLevelActionThisStaysUndetermined(t *testing.T) {
+// testUnperformedPackageLevelActionIsItsOwnContext reads `this`, a feature valued by
+// `this` and one in a subaction of a package-level action usage no object performs:
+// the usage denotes one performance, which is its own context (Occurrences.kerml
+// `this : Occurrence[1] default self`), and the subaction's context is that performance.
+func testUnperformedPackageLevelActionIsItsOwnContext(t *testing.T) {
 	src := `
 	package Probe {
 		action def A { attribute who = this; action sub { attribute w = this; } }
@@ -24,13 +25,20 @@ func testUnperformedPackageLevelActionThisStaysUndetermined(t *testing.T) {
 	}`
 	ctx, idx := libraryShapeContext(t, src)
 	root := idx.DocumentRoot("<test>")
-	for _, path := range []string{"Probe::a", "Probe::a.this", "Probe::a.who", "Probe::a.sub.w"} {
+	a, err := evalIn(t, ctx, root, "Probe::a")
+	if err != nil {
+		t.Fatalf("Probe::a: %v", err)
+	}
+	if a.Kind != ValInstance {
+		t.Fatalf("Probe::a = %s, want one performance", FormatValue(a))
+	}
+	for _, path := range []string{"Probe::a.this", "Probe::a.who", "Probe::a.sub.w"} {
 		val, err := evalIn(t, ctx, root, path)
 		if err != nil {
 			t.Fatalf("%s: %v", path, err)
 		}
-		if val.Kind != ValUndetermined {
-			t.Errorf("%s = %s, want <undetermined>", path, FormatValue(val))
+		if val.Kind != ValInstance || val.Instance != a.Instance {
+			t.Errorf("%s = %s, want the performance %d itself", path, FormatValue(val), a.Instance)
 		}
 	}
 }

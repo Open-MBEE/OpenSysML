@@ -82,6 +82,9 @@ KERNEL_ASSETS = frozenset(KERNEL_PREFIX + platform for platform in PLATFORMS)
 #: Every pinned family, by the prefix its assets share; each is pinned whole.
 ASSET_FAMILIES = {SERVICE_PREFIX: SERVICE_ASSETS, KERNEL_PREFIX: KERNEL_ASSETS}
 ASSET_PREFIXES = tuple(ASSET_FAMILIES)
+#: The binaries themselves, by exact name: a release also serves each one's
+#: `.sha256` sidecar and `.spdx.json` SBOM under the same prefix.
+PINNED_ASSETS = SERVICE_ASSETS | KERNEL_ASSETS
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
 NETWORK_TIMEOUT = 60
 
@@ -182,7 +185,7 @@ def release_assets(repo, version):
     assets = {
         asset["name"]: asset["browser_download_url"]
         for asset in release.get("assets", [])
-        if asset["name"].startswith(ASSET_PREFIXES) and not asset["name"].endswith(SIDECAR_SUFFIX)
+        if asset["name"] in PINNED_ASSETS
     }
     if not assets:
         raise PinError(f"release {version} of {repo} publishes no {SERVICE_PREFIX}* assets")
@@ -292,7 +295,7 @@ def manifest_service_digests(manifest_path):
         if not fields:
             continue
         asset = fields[1] if len(fields) > 1 else fields[0]
-        if asset.endswith(SIDECAR_SUFFIX) or not asset.startswith(ASSET_PREFIXES):
+        if asset not in PINNED_ASSETS:
             continue
         if len(fields) != 2:
             raise PinError(
@@ -343,7 +346,7 @@ def binary_service_digests(binaries_dir):
 
     digests = {}
     for asset in names:
-        if asset.endswith(SIDECAR_SUFFIX) or not asset.startswith(ASSET_PREFIXES):
+        if asset not in PINNED_ASSETS:
             continue
         path = os.path.join(binaries_dir, asset)
         if not os.path.isfile(path):

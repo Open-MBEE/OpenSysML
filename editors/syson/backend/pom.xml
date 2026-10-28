@@ -6,11 +6,11 @@
 
     <parent>
         <groupId>org.openmbee</groupId>
-        <artifactId>opensysml-syson</artifactId>
+        <artifactId>syson-mdk</artifactId>
         <version>0.11.0</version>
     </parent>
 
-    <artifactId>opensysml-syson-backend</artifactId>
+    <artifactId>syson-mdk-backend</artifactId>
     <packaging>jar</packaging>
 
     <dependencies>
@@ -79,7 +79,7 @@
             <dependencies>
                 <dependency>
                     <groupId>org.openmbee</groupId>
-                    <artifactId>opensysml-syson-api-stubs</artifactId>
+                    <artifactId>syson-mdk-api-stubs</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>

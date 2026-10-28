@@ -1,6 +1,7 @@
 package project
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -119,24 +120,37 @@ func TestUsesMatchesTheResourceByPublisherAndNameSlug(t *testing.T) {
 	}
 }
 
-func TestPickInstalledPrefersTheConstrainedVersionThenTheLatest(t *testing.T) {
+// pick is pickInstalled over a usage whose constraint must parse.
+func pick(t *testing.T, installed []*Interchange, u Usage) (*Interchange, []*Interchange) {
+	t.Helper()
+	r, err := u.versionRange()
+	if err != nil {
+		t.Fatalf("%q: %v", u.constraint(), err)
+	}
+	return pickInstalled(installed, u, r)
+}
+
+func TestPickInstalledTakesTheHighestVersionInTheRange(t *testing.T) {
 	v1 := &Interchange{Dir: "v1", Publisher: "acme", Name: "gears", Version: "1.0.0"}
 	v2 := &Interchange{Dir: "v2", Publisher: "acme", Name: "gears", Version: "2.0.0"}
 	v10 := &Interchange{Dir: "v10", Publisher: "acme", Name: "gears", Version: "10.0.0"}
 	other := &Interchange{Dir: "other", Publisher: "acme", Name: "other", Version: "99.0.0"}
 	installed := []*Interchange{v1, v10, v2, other}
 
-	if got := pickInstalled(installed, Usage{Resource: "pkg:r/acme/gears"}); got != v10 {
-		t.Errorf("unconstrained pick = %v, want the latest (10.0.0)", got)
+	for constraint, want := range map[string]*Interchange{"": v10, "=2.0.0": v2, "^1.0.0": v1, "~2.0": v2, ">=2.0.0 <11.0.0": v10, "1.x": v1, "1.0.0 - 2.0.0": v2, "1.0.0 || 2.0.0": v2, "*": v10} {
+		if got, _ := pick(t, installed, Usage{Resource: "pkg:r/acme/gears", VersionConstraint: constraint}); got != want {
+			t.Errorf("pick under %q = %v, want %v", constraint, got, want)
+		}
 	}
-	if got := pickInstalled(installed, Usage{Resource: "pkg:r/acme/gears", VersionConstraint: "=2.0.0"}); got != v2 {
-		t.Errorf("constrained pick = %v, want 2.0.0", got)
+	got, named := pick(t, installed, Usage{Resource: "pkg:r/acme/gears", VersionConstraint: "^3.0.0"})
+	if got != nil || len(named) != 3 {
+		t.Errorf("pick under a range nothing satisfies = %v with %d named, want nil with the three versions named (no fallback to the latest)", got, len(named))
 	}
-	if got := pickInstalled(installed, Usage{Resource: "pkg:r/acme/gears", VersionConstraint: "^3.0.0"}); got != v10 {
-		t.Errorf("pick under an undecidable constraint = %v, want the latest", got)
+	if got, named := pick(t, installed, Usage{Resource: "pkg:r/acme/missing"}); got != nil || named != nil {
+		t.Errorf("pick of an uninstalled project = %v, %v, want nil, nil", got, named)
 	}
-	if got := pickInstalled(installed, Usage{Resource: "pkg:r/acme/missing"}); got != nil {
-		t.Errorf("pick of an uninstalled project = %v, want nil", got)
+	if _, err := (Usage{Resource: "pkg:r/acme/gears", VersionConstraint: "latest"}).versionRange(); !errors.Is(err, errBadConstraint) {
+		t.Errorf("a constraint outside the grammar must not parse, got %v", err)
 	}
 }
 
@@ -403,18 +417,17 @@ func TestPickInstalledHonoursTheVersionInTheResourceIRI(t *testing.T) {
 	installed := []*Interchange{v1, v2}
 	// A fragment names a sub-package ("@1.0.0#sub" would select a project named
 	// sub); see TestUsesMatchesASubpathUsageToTheProjectTheFragmentNames.
+	// Build metadata (+build) is outside semver precedence, so 1.0.0+build is 1.0.0.
 	for _, resource := range []string{"pkg:r/acme/gears@1.0.0", "pkg:r/acme/gears@v1.0.0", "pkg:r/acme/gears@1.0.0/", "pkg:r/acme/gears@1.0.0?q=1", "pkg:r/acme/gears@1.0.0%2Bbuild"} {
-		if got := pickInstalled(installed, Usage{Resource: resource}); resource != "pkg:r/acme/gears@1.0.0%2Bbuild" && got != v1 {
+		if got, _ := pick(t, installed, Usage{Resource: resource}); got != v1 {
 			t.Errorf("%s picked %v, want 1.0.0", resource, got)
-		} else if resource == "pkg:r/acme/gears@1.0.0%2Bbuild" && got != v2 {
-			t.Errorf("%s names 1.0.0+build, which nothing satisfies; picked %v, want the latest", resource, got)
 		}
 	}
-	if got := pickInstalled(installed, Usage{Resource: "pkg:r/acme/gears@1.0.0", VersionConstraint: "2.0.0"}); got != v2 {
+	if got, _ := pick(t, installed, Usage{Resource: "pkg:r/acme/gears@1.0.0", VersionConstraint: "2.0.0"}); got != v2 {
 		t.Errorf("versionConstraint must win over the IRI's version; picked %v", got)
 	}
-	if got := pickInstalled(installed, Usage{Resource: "pkg:r/acme/gears@3.0.0"}); got != v2 {
-		t.Errorf("an IRI version nothing satisfies falls back to the latest; picked %v", got)
+	if got, named := pick(t, installed, Usage{Resource: "pkg:r/acme/gears@3.0.0"}); got != nil || len(named) != 2 {
+		t.Errorf("an IRI version nothing satisfies selects nothing and names the installed versions; got %v, %v", got, named)
 	}
 	if got := resourceVersion("git@example.org:acme/gears"); got != "" {
 		t.Errorf("a user@host is no version, got %q", got)
@@ -586,5 +599,141 @@ func TestUsedLinksEachVersionOfARepositoryOnceItsProjectIsLearnt(t *testing.T) {
 				t.Fatalf("Linking = %q, want the elimination link to %s said once", found.Linking, order[0])
 			}
 		})
+	}
+}
+
+// A deferred usage whose candidates later usages all claim selects nothing and
+// says nothing, rather than failing on an emptied candidate list; the two links are said.
+func TestUsedSurvivesADeferredUsageWhoseCandidatesAreAllClaimedLater(t *testing.T) {
+	root := t.TempDir()
+	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:git/example.org/acme/either-repo"},
+  {"resource": "pkg:git/example.org/acme/gears-repo@1.0.0"},
+  {"resource": "pkg:git/example.org/acme/widgets-repo@2.0.0"}]}`)
+	gears := writeProject(t, filepath.Join(proj, "lib", "acme-gears_1.0.0"), `{"name": "Gears", "publisher": "acme", "version": "1.0.0"}`)
+	widgets := writeProject(t, filepath.Join(proj, "lib", "acme-widgets_2.0.0"), `{"name": "Widgets", "publisher": "acme", "version": "2.0.0"}`)
+
+	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+	if want := []string{gears, widgets}; !reflect.DeepEqual(projectDirs(found.Used), want) {
+		t.Fatalf("Used = %v, want %v", projectDirs(found.Used), want)
+	}
+	if len(found.Linking) != 2 || !strings.Contains(found.Linking[0].Message, "linked by elimination to acme/gears 1.0.0") || !strings.Contains(found.Linking[1].Message, "linked by elimination to acme/widgets 2.0.0") {
+		t.Fatalf("Linking = %q, want the two elimination links alone: both candidates went to the usages that name them", found.Linking)
+	}
+}
+
+// A usage that names a project is matched by name alone: with that project
+// missing, the one unrelated installed project is not taken in its place.
+func TestUsedLeavesAMissingNamedUsageUnresolved(t *testing.T) {
+	for _, resource := range []string{"pkg:registry/acme/gears", "pkg:sysand/acme/gears@1.0.0", "pkg:npm/acme/gears"} {
+		t.Run(resource, func(t *testing.T) {
+			root := t.TempDir()
+			proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [{"resource": "`+resource+`"}]}`)
+			writeProject(t, filepath.Join(proj, "lib", "acme-widgets_1.0.0"), `{"name": "Widgets", "publisher": "acme", "version": "1.0.0"}`)
+
+			found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+			if len(found.Used) != 0 || len(found.Linking) != 0 {
+				t.Fatalf("Used = %v, Linking = %v, want nothing: the usage names a project, not a location", projectDirs(found.Used), found.Linking)
+			}
+		})
+	}
+}
+
+func TestSpellsLocation(t *testing.T) {
+	for resource, want := range map[string]bool{
+		"pkg:git/github.com/MBSE4U/sysmod-sysmlv2@5.1.5": true,
+		"pkg:svn/example.org/repo/trunk":                 true,
+		"pkg:hg/example.org/repo":                        true,
+		"https://example.org/acme/gears.git":             true,
+		"ssh://git@example.org/acme/gears.git@1.0.0":     true,
+		"git@example.org:acme/gears.git":                 true,
+		"file:///srv/projects/gears":                     true,
+		"pkg:registry/acme/gears":                        false,
+		"pkg:sysand/acme/gears@1.0.0":                    false,
+		"pkg:github/acme/gears":                          false,
+		"acme/gears":                                     false,
+	} {
+		if got := (Usage{Resource: resource}).spellsLocation(); got != want {
+			t.Errorf("spellsLocation(%s) = %v, want %v", resource, got, want)
+		}
+	}
+}
+
+// A versionConstraint is an npm-style semver range on both paths: the project a
+// usage names (slug match) and the one it reaches by elimination.
+func TestUsedHonoursARangeConstraintOnBothPaths(t *testing.T) {
+	cases := map[string]string{"^1.0.0": "1.1.0", ">=1.0.0": "2.0.0", "~1.1.0": "1.1.0", "1.1.x": "1.1.0", ">=1.0.0 <2.0.0": "1.1.0", "1.0.0 - 1.1.0": "1.1.0", "1.0.0 || 2.0.0": "2.0.0", "=1.1.0": "1.1.0", "v2.0.0": "2.0.0", ">=1.0.0-rc.1 <1.0.0": "1.0.0-rc.1", "": "2.0.0"}
+	for _, path := range []string{"pkg:sysand/acme/widgets", "pkg:hg/hg.example.org/models/hg-widgets"} {
+		for constraint, want := range cases {
+			t.Run(path+" "+constraint, func(t *testing.T) {
+				root := t.TempDir()
+				proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "`+path+`", "versionConstraint": "`+constraint+`"}]}`)
+				var dirs []string
+				for _, v := range []string{"1.0.0-rc.1", "1.0.0", "1.1.0", "2.0.0"} {
+					dirs = append(dirs, writeProject(t, filepath.Join(proj, "lib", "acme-widgets_"+v), `{"name": "Widgets", "publisher": "acme", "version": "`+v+`"}`))
+				}
+				found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+				if got := projectDirs(found.Used); len(got) != 1 || !strings.HasSuffix(got[0], "acme-widgets_"+want) {
+					t.Fatalf("Used = %v, want acme-widgets_%s alone (of %d installed)", got, want, len(dirs))
+				}
+				// The elimination path says its link; the name match says nothing.
+				if said := strings.HasPrefix(path, "pkg:hg/"); len(found.Linking) != map[bool]int{true: 1, false: 0}[said] || (said && !strings.Contains(found.Linking[0].Message, "linked by elimination to acme/widgets "+want)) {
+					t.Fatalf("Linking = %q, want %v", found.Linking, map[bool]string{true: "the elimination link said once", false: "nothing"}[said])
+				}
+			})
+		}
+	}
+}
+
+// A constraint no installed version satisfies, or one outside the grammar, is
+// a warning at the consumer's .project.json and links nothing — never "any".
+func TestUsedReportsAnUnsatisfiedOrMalformedConstraint(t *testing.T) {
+	for _, path := range []string{"pkg:sysand/acme/widgets", "pkg:hg/hg.example.org/models/hg-widgets"} {
+		for constraint, want := range map[string]string{"^3.0.0": "none of the installed versions satisfies: 1.1.0 (", "<1.0.0": "none of the installed versions satisfies: 1.1.0 (", "latest": "malformed version constraint", "1.x.3": "malformed version constraint"} {
+			t.Run(path+" "+constraint, func(t *testing.T) {
+				root := t.TempDir()
+				proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "`+path+`", "versionConstraint": "`+constraint+`"}]}`)
+				writeProject(t, filepath.Join(proj, "lib", "acme-widgets_1.1.0"), `{"name": "Widgets", "publisher": "acme", "version": "1.1.0"}`)
+				found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml")})
+				if len(found.Used) != 0 {
+					t.Fatalf("Used = %v, want nothing", projectDirs(found.Used))
+				}
+				if strings.HasPrefix(constraint, "^3") || strings.HasPrefix(constraint, "<") {
+					if !strings.HasPrefix(path, "pkg:hg/") {
+						goto warned
+					}
+					// By elimination nothing in range is a candidate: unresolved, as for any usage nothing answers.
+					if len(found.Linking) != 0 {
+						t.Fatalf("Linking = %v, want nothing", found.Linking)
+					}
+					return
+				}
+			warned:
+				if len(found.Linking) != 1 || found.Linking[0].Path != filepath.Join(proj, ProjectFile) || !strings.Contains(found.Linking[0].Message, want) {
+					t.Fatalf("Linking = %v, want one at %s containing %q", found.Linking, ProjectFile, want)
+				}
+			})
+		}
+	}
+}
+
+// A claim that enqueues nothing — the claimed project is an input path too, so
+// already selected — still narrows a deferred usage to its one remaining candidate.
+func TestUsedRevisitsADeferredUsageAfterAClaimOfASelectedProject(t *testing.T) {
+	root := t.TempDir()
+	proj := writeProject(t, filepath.Join(root, "proj"), `{"name": "Consumer", "publisher": "example", "version": "0.1.0", "usage": [
+  {"resource": "pkg:git/example.org/acme/either-repo"},
+  {"resource": "pkg:git/example.org/acme/gears-repo@1.0.0"}]}`)
+	gears := writeProject(t, filepath.Join(proj, "lib", "acme-gears_1.0.0"), `{"name": "Gears", "publisher": "acme", "version": "1.0.0"}`)
+	widgets := writeProject(t, filepath.Join(proj, "lib", "acme-widgets_2.0.0"), `{"name": "Widgets", "publisher": "acme", "version": "2.0.0"}`)
+
+	found := Discovery{}.Around([]string{filepath.Join(proj, "main.sysml"), filepath.Join(gears, "Gears.sysml")})
+	if want := []string{widgets}; !reflect.DeepEqual(projectDirs(found.Used), want) {
+		t.Fatalf("Used = %v, want %v (Gears is enclosing already)", projectDirs(found.Used), want)
+	}
+	if len(found.Linking) != 2 || !strings.Contains(found.Linking[0].Message, "linked by elimination to acme/gears 1.0.0") || !strings.Contains(found.Linking[1].Message, "linked by elimination to acme/widgets 2.0.0") {
+		t.Fatalf("Linking = %q, want the two elimination links, no ambiguity", found.Linking)
 	}
 }

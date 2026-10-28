@@ -57,6 +57,7 @@ func (r *Rendering) D2With(options Options) (string, error) {
 	}
 	if r.Kind == KindAction {
 		w.used = r.usedPorts(w.ports)
+		w.labels.listedPin = r.listedPin(func(node *Node, port Port) bool { return w.used[node.ID][port.ID] })
 	}
 	for _, root := range r.Roots {
 		w.fills.collect(root)
@@ -119,7 +120,7 @@ func (r *Rendering) d2Notices(options Options, w *d2Writer) []string {
 		notices = append(notices, linesNotice(options.Lines, FormD2))
 	}
 	if r.Kind == KindAction {
-		if pins := r.undrawnPins(func(node *Node, port Port) bool { return w.used[node.ID][port.ID] }); len(pins) > 0 {
+		if pins := r.undrawnPins(func(node *Node, port Port) bool { return w.used[node.ID][port.ID] || w.labels.lists(node, port) }); len(pins) > 0 {
 			notices = append(notices, fmt.Sprintf("%d pin(s) not drawn (%s); D2 draws the pins an edge ends at",
 				len(pins), strings.Join(pins, ", ")))
 		}

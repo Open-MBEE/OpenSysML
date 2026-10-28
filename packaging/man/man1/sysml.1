@@ -257,6 +257,12 @@ Write the SysML metaclass hierarchy of the pinned pilot metamodel as Turtle
 (rdfs:Class, rdfs:subClassOf, sysx:abstract) to stdout or \-o, without a
 model, and exit
 .TP
+.B \-metamodel\-table
+Write the pinned pilot metamodel's table as JSON \(em every metaclass with its
+parents, every property with its defining class, kind, range, bounds and
+flags, every enumeration, and the pilot tag, commit and metamodel date \(em to
+stdout or \-o, without a model, and exit
+.TP
 .BR \-migrate " \fIformat\fP"
 Migrate the SysML v1 model (.xmi, .uml or .mdzip; \-from names the format when
 the extension does not) to SysML v2, written in this format: sysml, kerml,
@@ -684,6 +690,8 @@ sysml \-engines
 sysml \-engines \-probe
 # Write the metaclass hierarchy as Turtle
 sysml \-metaclass\-graph \-o metaclasses.ttl
+# Write the metamodel table as JSON
+sysml \-metamodel\-table \-o metamodel.json
 # The same as \-schedule explore
 sysml \-engine explore \-action Drive m.sysml
 # Every engine that covers the question

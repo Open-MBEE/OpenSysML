@@ -5,11 +5,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.openmbee</groupId>
-    <artifactId>opensysml-syson</artifactId>
+    <artifactId>syson-mdk</artifactId>
     <version>0.11.0</version>
     <packaging>pom</packaging>
 
-    <name>OpenSysML SysON integration</name>
+    <name>SysON MDK</name>
 
     <modules>
         <module>syson-api-stubs</module>
@@ -26,10 +26,50 @@
         <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
         <maven.surefire.plugin.version>3.5.2</maven.surefire.plugin.version>
         <jacoco.plugin.version>0.8.12</jacoco.plugin.version>
+        <!-- Held past their known advisories ahead of the Spring Boot BOM, which manages
+             jackson and grpc lower; bouncycastle and guava arrive through the client's sigstore-java. -->
+        <jackson.version>3.1.8</jackson.version>
+        <grpc.version>1.85.1</grpc.version>
+        <bouncycastle.version>1.86</bouncycastle.version>
+        <guava.version>33.7.2-jre</guava.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>tools.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-bom</artifactId>
+                <version>${grpc.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>${bouncycastle.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcpkix-jdk18on</artifactId>
+                <version>${bouncycastle.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcutil-jdk18on</artifactId>
+                <version>${bouncycastle.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>${guava.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>

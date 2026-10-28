@@ -4,10 +4,10 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.openmbee</groupId>
-  <artifactId>opensysml-mdk-parent</artifactId>
+  <artifactId>magic-mdk-parent</artifactId>
   <version>0.11.0</version>
   <packaging>pom</packaging>
-  <name>OpenSysML MDK for Cameo</name>
+  <name>Magic MDK</name>
   <modules>
     <module>openapi-stubs</module>
     <module>mdk-api-stubs</module>
@@ -24,9 +24,41 @@
     <maven.surefire.plugin.version>3.5.2</maven.surefire.plugin.version>
     <jacoco.plugin.version>0.8.12</jacoco.plugin.version>
     <opensysml.client.version>0.11.0</opensysml.client.version>
+    <!-- The client's sigstore-java brings grpc-netty-shaded, bcprov/bcpkix and guava; a
+         consumer's own management is what holds them past their known advisories. -->
+    <grpc.version>1.85.1</grpc.version>
+    <bouncycastle.version>1.86</bouncycastle.version>
+    <guava.version>33.7.2-jre</guava.version>
   </properties>
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-bom</artifactId>
+        <version>${grpc.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.bouncycastle</groupId>
+        <artifactId>bcprov-jdk18on</artifactId>
+        <version>${bouncycastle.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.bouncycastle</groupId>
+        <artifactId>bcpkix-jdk18on</artifactId>
+        <version>${bouncycastle.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.bouncycastle</groupId>
+        <artifactId>bcutil-jdk18on</artifactId>
+        <version>${bouncycastle.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>${guava.version}</version>
+      </dependency>
       <dependency>
         <groupId>org.junit.jupiter</groupId>
         <artifactId>junit-jupiter</artifactId>

@@ -397,6 +397,10 @@ jobs:
           command: python3 scripts/release-provenance-test.py
 
       - run:
+          name: Check the release SBOM writer
+          command: python3 scripts/release-sbom-test.py
+
+      - run:
           name: Check the release announcer
           command: python3 scripts/release-announce-test.py
 
@@ -1729,7 +1733,7 @@ jobs:
       - store_test_results:
           path: editors/syson/backend/target/surefire-reports
 
-  # The MDK for Cameo plugin's gate (editors/mdk): the tests of its three
+  # The Magic MDK plugin's gate (editors/mdk): the tests of its three
   # tested modules, with the JaCoCo report of each for the scan. The stub
   # modules have no tests and are not instrumented.
   mdk-test:
@@ -2798,6 +2802,17 @@ jobs:
       - go/mod-download
       - go/save-cache
 
+      # syft writes the SBOMs; pinned and checked like every other tool here.
+      - run:
+          name: Install syft
+          command: |
+            curl -fsSL -o /tmp/syft.tar.gz \
+              https://github.com/anchore/syft/releases/download/v1.55.0/syft_1.55.0_linux_amd64.tar.gz
+            echo "bb65249542db5fedeeb4d3f9b018b75e7264dbfbbb10486f044581a92f90490d  /tmp/syft.tar.gz" | sha256sum --check --strict
+            tar -xzf /tmp/syft.tar.gz -C /tmp syft
+            sudo install -m 0755 /tmp/syft /usr/local/bin/syft
+            syft version
+
       - run:
           name: Assemble the release and write its checksum manifest
           command: |
@@ -2808,6 +2823,22 @@ jobs:
             cp ../client/python/dist/opensysml-*.whl ../client/python/dist/opensysml-*.tar.gz .
             cp ../client/jupyter-kernel/dist/jupyter_opensysml_kernel-*.whl \
                ../client/jupyter-kernel/dist/jupyter_opensysml_kernel-*.tar.gz .
+
+            # One SPDX SBOM per published archive, wheel, sdist and raw binary,
+            # checked against the Go build info of what it describes; the
+            # manifest lists them below, so the signature and provenance cover them.
+            python3 ../scripts/release-sbom.py --version "${CIRCLE_TAG}" --out sbom ./*.tar.gz ./*.zip ./*.whl
+            find grpc jupyter -type f ! -name '*.sha256' -exec \
+              python3 ../scripts/release-sbom.py --version "${CIRCLE_TAG}" --out sbom {} +
+            # The WebAssembly modules, from the module information Go embeds in them.
+            python3 ../scripts/release-sbom.py --version "${CIRCLE_TAG}" --out sbom wasm/sysml-wasm.wasm wasm/sysml-prod.wasm.gz
+            # The npm tarballs build-npm-package packed: each SBOM describes the
+            # packed manifest and resolves its dependencies through the lockfile,
+            # the client's own and the runner's for the runner and its alias.
+            python3 ../scripts/release-sbom.py --version "${CIRCLE_TAG}" --out sbom \
+              --npm-lock ../client/node/package-lock.json npm/openmbee-opensysml-[0-9]*.tgz
+            python3 ../scripts/release-sbom.py --version "${CIRCLE_TAG}" --out sbom \
+              --npm-lock ../packaging/npm/sysml-mcp/package-lock.json npm/openmbee-sysml-mcp-[0-9]*.tgz npm/openmbee-opensysml-mcp-[0-9]*.tgz
 
             # Checksums over every published archive, so a Homebrew formula
             # (or a careful user) can verify a download.
@@ -2822,6 +2853,10 @@ jobs:
             (cd mcp && sha256sum --check --strict sysml-mcp-*.sha256)
             (cd wasm && sha256sum sysml-wasm.wasm sysml-prod.wasm.gz wasm_exec.js >> ../SHA256SUMS.txt)
             (cd wasm && for f in sysml-wasm.wasm sysml-prod.wasm.gz wasm_exec.js; do sha256sum "$f" > "$f.sha256"; done)
+            # The npm tarballs, so publish-npm publishes bytes the signed manifest lists.
+            (cd npm && sha256sum ./*.tgz | sed 's|\./||' >> ../SHA256SUMS.txt)
+            # And the SBOMs, so each is signed with the manifest and is a provenance subject.
+            (cd sbom && sha256sum ./*.spdx.json | sed 's|\./||' >> ../SHA256SUMS.txt)
             cat SHA256SUMS.txt
 
       # The distribution was stamped from the binaries before the manifest
@@ -2836,13 +2871,13 @@ jobs:
             import zipfile
 
             tag, manifest_path, wheel_path = sys.argv[1:]
+            # The five binaries by exact name: the manifest also lists their sidecars and SBOMs.
+            assets = {f"sysml-grpc-{p}" for p in ("darwin-amd64", "darwin-arm64", "linux-amd64", "linux-arm64", "windows-amd64.exe")}
             listed = {}
             with open(manifest_path, encoding="utf-8") as manifest:
                 for line in manifest:
                     fields = line.split()
-                    if len(fields) != 2 or not fields[1].startswith("sysml-grpc-"):
-                        continue
-                    if not fields[1].endswith(".sha256"):
+                    if len(fields) == 2 and fields[1] in assets:
                         listed[fields[1]] = fields[0]
             with zipfile.ZipFile(wheel_path) as wheel:
                 with wheel.open("opensysml/release-digests.json") as member:
@@ -2869,13 +2904,12 @@ jobs:
             tag, manifest_path, *wheel_paths = sys.argv[1:]
             if len(wheel_paths) != 5:
                 raise SystemExit(f"Error: expected five kernel wheels, got {wheel_paths}; nothing was signed.")
+            assets = {f"sysml-jupyter-kernel-{p}" for p in ("darwin-amd64", "darwin-arm64", "linux-amd64", "linux-arm64", "windows-amd64.exe")}
             listed = {}
             with open(manifest_path, encoding="utf-8") as manifest:
                 for line in manifest:
                     fields = line.split()
-                    if len(fields) != 2 or not fields[1].startswith("sysml-jupyter-kernel-"):
-                        continue
-                    if not fields[1].endswith(".sha256"):
+                    if len(fields) == 2 and fields[1] in assets:
                         listed[fields[1]] = fields[0]
             for wheel_path in wheel_paths:
                 with zipfile.ZipFile(wheel_path) as wheel:
@@ -2956,7 +2990,7 @@ jobs:
                 command: |
                   export PATH="$(go env GOPATH)/bin:$PATH"
                   cd dist
-                  for artifact in opensysml-linux-amd64.tar.gz grpc/sysml-grpc-linux-amd64 jupyter/sysml-jupyter-kernel-linux-amd64 wasm/sysml-wasm.wasm opensysml-*-py3-none-any.whl jupyter_opensysml_kernel-*-py3-none-*.whl; do
+                  for artifact in opensysml-linux-amd64.tar.gz grpc/sysml-grpc-linux-amd64 jupyter/sysml-jupyter-kernel-linux-amd64 wasm/sysml-wasm.wasm opensysml-*-py3-none-any.whl jupyter_opensysml_kernel-*-py3-none-*.whl npm/openmbee-opensysml-[0-9]*.tgz sbom/opensysml-linux-amd64.tar.gz.spdx.json sbom/opensysml-*-py3-none-any.whl.spdx.json sbom/sysml-wasm.wasm.spdx.json; do
                     cosign verify-blob-attestation "$artifact" \
                       --bundle provenance.intoto.json.bundle \
                       --type slsaprovenance1 \
@@ -3023,6 +3057,7 @@ jobs:
           root: .
           paths:
             - dist/SHA256SUMS.txt
+            - dist/sbom
             - dist/wasm/*.sha256
             - dist/opensysml-*-py3-none-any.whl
             - dist/opensysml-[0-9]*.tar.gz
@@ -3037,6 +3072,144 @@ jobs:
                   - dist/SHA256SUMS.txt.bundle
                   - dist/provenance.intoto.json
                   - dist/provenance.intoto.json.bundle
+
+  # Packs the npm tarballs the release publishes before build-release writes
+  # the manifest, so SHA256SUMS.txt lists them and their SBOMs: the client,
+  # stamped with this release's service digests like the wheel, the
+  # @openmbee/sysml-mcp runner, and its alias @openmbee/opensysml-mcp, which
+  # the generator derives from the runner beside the sysml-mcp platform
+  # packages. publish-npm publishes exactly these bytes after checking them
+  # against the signed manifest; nothing is packed again there.
+  build-npm-package:
+    executor: node-executor
+    steps:
+      - checkout
+      - rehearsal-tag
+      # dist/grpc and dist/mcp from build-release-binaries: the service
+      # binaries whose digests the client ships, and the sysml-mcp binaries the
+      # generator derives the alias beside.
+      - attach_workspace:
+          at: .
+
+      - run:
+          name: Resolve the version from the tag
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              echo "Error: CIRCLE_TAG is empty; this job only runs on a core v* tag."
+              exit 1
+            fi
+            version=$(node -p "require('./client/node/package.json').version")
+            if [ "${CIRCLE_TAG}" != "v${version}" ]; then
+              echo "Error: tag ${CIRCLE_TAG} does not match client/node/package.json"
+              echo "version ${version}; the tag for it is v${version}. Nothing was packed."
+              exit 1
+            fi
+            echo "export NPM_VERSION=${version}" >> "$BASH_ENV"
+            ls -l dist/grpc/sysml-grpc-* dist/mcp/sysml-mcp-*
+
+      # The same stamp publish-npm makes before the suite asserts it: the
+      # package's own copy of the table is the only pin the published client
+      # carries, so the tarball must be packed from the stamped tree.
+      - run:
+          name: Stamp this release's service digests into the package
+          command: |
+            if ! command -v python3 >/dev/null; then
+              sudo apt-get update -q && sudo apt-get install -yq python3
+            fi
+            python3 client/python/scripts/pin_release_checksums.py \
+              --version "${CIRCLE_TAG}" \
+              --from-binaries dist/grpc \
+              --table client/node/release-digests.json
+            git diff --stat
+
+      - run:
+          name: Build the client
+          command: |
+            cd client/node
+            npm install --ignore-scripts --no-audit --no-fund
+            git diff --exit-code package-lock.json
+            npm run build
+
+      - run:
+          name: Pack the client and verify its pins
+          command: |
+            # The tarball packed here is the one published below, so what is
+            # verified is what ships. Its table must pin this tag for every
+            # service asset, with the digests of the binaries in dist/grpc.
+            rm -rf dist/npm && mkdir -p dist/npm
+            (cd client/node && npm pack --pack-destination ../../dist/npm)
+            tarballs=$(ls dist/npm/openmbee-opensysml-*.tgz)
+            if [ "$(echo "$tarballs" | wc -l)" -ne 1 ]; then
+              echo "Error: expected exactly one client tarball in dist/npm:"
+              echo "$tarballs"
+              exit 1
+            fi
+            echo "export NPM_TARBALL=$(pwd)/${tarballs}" >> "$BASH_ENV"
+            python3 - "${tarballs}" "${CIRCLE_TAG}" dist/grpc \<<'PY'
+            import hashlib
+            import json
+            import os
+            import sys
+            import tarfile
+
+            tarball_path, tag, binaries = sys.argv[1:]
+            required = {
+                "sysml-grpc-darwin-amd64",
+                "sysml-grpc-darwin-arm64",
+                "sysml-grpc-linux-amd64",
+                "sysml-grpc-linux-arm64",
+                "sysml-grpc-windows-amd64.exe",
+            }
+            with tarfile.open(tarball_path, "r:gz") as tarball:
+                try:
+                    member = tarball.extractfile("package/release-digests.json")
+                except KeyError:
+                    member = None
+                if member is None:
+                    raise SystemExit("Error: packed tarball has no release-digests.json.")
+                with member:
+                    table = json.load(member)
+
+            digests = table.get("Open-MBEE/OpenSysML", {}).get(tag, {})
+            missing = sorted(required - digests.keys())
+            if missing:
+                raise SystemExit(
+                    f"Error: packed tarball has no complete digest pin for {tag}: "
+                    f"{', '.join(missing)}"
+                )
+            for asset in sorted(required):
+                with open(os.path.join(binaries, asset), "rb") as binary:
+                    actual = hashlib.sha256(binary.read()).hexdigest()
+                if digests[asset] != actual:
+                    raise SystemExit(
+                        f"Error: packed tarball pins {digests[asset]} for {asset} of {tag}, "
+                        f"but the release binary is {actual}"
+                    )
+            print(f"Verified the packed tarball embeds all five service digests for {tag}.")
+            PY
+
+      - run:
+          name: Pack @openmbee/sysml-mcp and its alias @openmbee/opensysml-mcp
+          command: |
+            (cd packaging/npm/sysml-mcp && npm pack --pack-destination ../../../dist/npm)
+            # The alias has no tree of its own: the generator writes it from the
+            # runner when it builds the sysml-mcp platform packages, checking
+            # each binary against its .sha256 sidecar.
+            (cd client/node && npm run platform-packages -- --mcp ../../dist/mcp)
+            (cd client/node/packages/opensysml-mcp && npm pack --pack-destination ../../../../dist/npm)
+            for tarball in "openmbee-sysml-mcp-${NPM_VERSION}.tgz" "openmbee-opensysml-mcp-${NPM_VERSION}.tgz"; do
+              if [ ! -f "dist/npm/${tarball}" ]; then
+                echo "Error: ${tarball} was not packed into dist/npm:"
+                ls -l dist/npm
+                exit 1
+              fi
+            done
+            ls -l dist/npm
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist/npm
 
   # Publishes @openmbee/opensysml and its five per-platform packages from the
   # core `v<version>` tag, carrying the sysml-grpc binaries build-release
@@ -3190,75 +3363,32 @@ jobs:
             cd client/node
             npm run platform-packages -- --binaries ../../dist/grpc --mcp ../../dist/mcp --wasm ../../dist/wasm
 
+      # The tarballs published below are the ones build-npm-package packed and
+      # build-release listed in the manifest it signed; the client's pins were
+      # asserted there. What is verified here is what ships.
       - run:
-          name: Pack the client and verify its pins
+          name: Verify the npm tarballs against the signed manifest
           command: |
-            # The tarball packed here is the one published below, so what is
-            # verified is what ships. Its table must pin this tag for every
-            # service asset, with the digests of the binaries in dist/grpc.
-            rm -rf dist/npm && mkdir -p dist/npm
-            (cd client/node && npm pack --pack-destination ../../dist/npm)
-            tarballs=$(ls dist/npm/openmbee-opensysml-*.tgz)
+            (cd dist/npm && grep -E ' openmbee-[^ ]*\.tgz$' ../SHA256SUMS.txt | sha256sum --check --strict)
+            tarballs=$(ls dist/npm/openmbee-opensysml-[0-9]*.tgz)
             if [ "$(echo "$tarballs" | wc -l)" -ne 1 ]; then
               echo "Error: expected exactly one client tarball in dist/npm:"
               echo "$tarballs"
               exit 1
             fi
             echo "export NPM_TARBALL=$(pwd)/${tarballs}" >> "$BASH_ENV"
-            python3 - "${tarballs}" "${CIRCLE_TAG}" dist/grpc \<<'PY'
-            import hashlib
-            import json
-            import os
-            import sys
-            import tarfile
-
-            tarball_path, tag, binaries = sys.argv[1:]
-            required = {
-                "sysml-grpc-darwin-amd64",
-                "sysml-grpc-darwin-arm64",
-                "sysml-grpc-linux-amd64",
-                "sysml-grpc-linux-arm64",
-                "sysml-grpc-windows-amd64.exe",
-            }
-            with tarfile.open(tarball_path, "r:gz") as tarball:
-                try:
-                    member = tarball.extractfile("package/release-digests.json")
-                except KeyError:
-                    member = None
-                if member is None:
-                    raise SystemExit("Error: packed tarball has no release-digests.json.")
-                with member:
-                    table = json.load(member)
-
-            digests = table.get("Open-MBEE/OpenSysML", {}).get(tag, {})
-            missing = sorted(required - digests.keys())
-            if missing:
-                raise SystemExit(
-                    f"Error: packed tarball has no complete digest pin for {tag}: "
-                    f"{', '.join(missing)}"
-                )
-            for asset in sorted(required):
-                with open(os.path.join(binaries, asset), "rb") as binary:
-                    actual = hashlib.sha256(binary.read()).hexdigest()
-                if digests[asset] != actual:
-                    raise SystemExit(
-                        f"Error: packed tarball pins {digests[asset]} for {asset} of {tag}, "
-                        f"but the release binary is {actual}"
-                    )
-            print(f"Verified the packed tarball embeds all five service digests for {tag}.")
-            PY
 
       - run:
           name: Pack @openmbee/sysml-mcp and prove it serves the protocol
           command: |
-            # The shim tarball packed here is the one published below. It must
-            # be this tag's version and pin its five platform packages at it;
-            # then the packed shim, installed beside this platform's package
-            # from the generator's tree, must answer initialize and tools/list.
-            (cd packaging/npm/sysml-mcp && npm pack --pack-destination ../../../dist/npm)
+            # The shim tarball build-npm-package packed is the one published
+            # below. It must be this tag's version and pin its five platform
+            # packages at it; then the shim, packed from the same tree and
+            # installed beside this platform's package from the generator's
+            # tree, must answer initialize and tools/list.
             tarball="dist/npm/openmbee-sysml-mcp-${NPM_VERSION}.tgz"
             if [ ! -f "$tarball" ]; then
-              echo "Error: packaging/npm/sysml-mcp did not pack as ${tarball}:"
+              echo "Error: build-npm-package did not pack packaging/npm/sysml-mcp as ${tarball}:"
               ls -l dist/npm
               exit 1
             fi
@@ -3284,14 +3414,14 @@ jobs:
           name: Pack @openmbee/opensysml-mcp and prove it is the runner under its other name
           command: |
             # The alias the generator derived from packaging/npm/sysml-mcp: the
-            # tarball packed here is the one published below. It must be this
-            # tag's version, pin the same five platform packages at it, declare
-            # both commands and no registry name; npm-mcp-test.sh above already
-            # installed it beside this platform's package and ran both commands.
-            (cd client/node/packages/opensysml-mcp && npm pack --pack-destination ../../../../dist/npm)
+            # tarball build-npm-package packed is the one published below. It
+            # must be this tag's version, pin the same five platform packages at
+            # it, declare both commands and no registry name; npm-mcp-test.sh
+            # above already installed the generator's alias beside this
+            # platform's package and ran both commands.
             alias_tarball="dist/npm/openmbee-opensysml-mcp-${NPM_VERSION}.tgz"
             if [ ! -f "$alias_tarball" ]; then
-              echo "Error: client/node/packages/opensysml-mcp did not pack as ${alias_tarball}:"
+              echo "Error: build-npm-package did not pack the alias as ${alias_tarball}:"
               ls -l dist/npm
               exit 1
             fi
@@ -3349,7 +3479,7 @@ jobs:
             - run:
                 name: "REHEARSAL: pack every package"
                 command: |
-                  # The client, @openmbee/sysml-mcp and @openmbee/opensysml-mcp were packed and verified above.
+                  # The client, @openmbee/sysml-mcp and @openmbee/opensysml-mcp were packed by build-npm-package and verified above.
                   npm pack client/node/packages/sysml-wasm --dry-run
                   for directory in client/node/packages/sysml-grpc-* client/node/packages/sysml-mcp-*; do
                     npm pack "$directory" --dry-run
@@ -3952,6 +4082,9 @@ jobs:
                   mv dist/grpc/* dist/release/
                   mv dist/jupyter/* dist/release/
                   mv dist/wasm/* dist/release/
+                  # The npm tarballs publish-npm publishes, listed in the manifest.
+                  mv dist/npm/*.tgz dist/release/
+                  mv dist/sbom/* dist/release/
                   mv dist/SHA256SUMS.txt dist/release/
                   # The signature over that manifest, which the Python client verifies
                   # before it trusts a digest from it.
@@ -3988,6 +4121,11 @@ jobs:
                 command: |
                   ls dist/SHA256SUMS.txt > /dev/null
                   ls dist/wasm/sysml-wasm.wasm dist/wasm/sysml-prod.wasm.gz dist/wasm/wasm_exec.js > /dev/null
+                  set -- dist/npm/openmbee-*.tgz
+                  if [ $# -ne 3 ]; then
+                    echo "Error: expected the three npm tarballs dist/npm/openmbee-*.tgz"
+                    exit 1
+                  fi
                   set -- dist/opensysml-*-py3-none-any.whl
                   if [ ! -f "$1" ] || [ $# -ne 1 ]; then
                     echo "Error: expected exactly one dist/opensysml-*-py3-none-any.whl"
@@ -4373,6 +4511,14 @@ workflows:
             - Build release binaries
           filters: *release-tags
 
+      # And the npm tarballs, stamped from the service binaries, so the
+      # manifest lists them and publish-npm publishes signed bytes.
+      - build-npm-package:
+          name: Build npm packages
+          requires:
+            - Build release binaries
+          filters: *release-tags
+
       # Writes and signs the one manifest over the binaries and the distributions.
       - build-release:
           name: Build release artifacts
@@ -4380,6 +4526,7 @@ workflows:
             - Build release binaries
             - Build Python distribution
             - Build Jupyter kernel distribution
+            - Build npm packages
           filters: *release-tags
 
       - publish-github-release:

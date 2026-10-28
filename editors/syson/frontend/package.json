@@ -1,10 +1,10 @@
 {
-  "name": "@openmbee/opensysml-syson",
+  "name": "@openmbee/syson-mdk",
   "version": "0.11.0",
   "private": false,
   "type": "module",
-  "main": "dist/opensysml-syson.cjs.js",
-  "module": "dist/opensysml-syson.es.js",
+  "main": "dist/syson-mdk.cjs.js",
+  "module": "dist/syson-mdk.es.js",
   "types": "dist/index.d.ts",
   "files": [
     "dist"

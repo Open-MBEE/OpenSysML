@@ -1,0 +1,71 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 72
+---
+%% CalcViews::calcFlows — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
+flowchart TD
+  n0("`*«calc»*
+**add**
+declares no nodes
+parameters
+in x
+in y
+out result`")
+  n1["`*«calc def»*
+**Add**
+declares no nodes
+parameters
+in x
+in y
+out r`"]
+  n2("`*«calc»*
+**total**
+declares no nodes
+parameters
+in x
+in y
+out ^r`")
+  subgraph n3 ["`*«calc def»* **Stepwise**
+parameters
+in load
+out result`"]
+    direction TD
+    subgraph n4 ["`*«action»* **measure**`"]
+      direction TD
+      n4_anchor[" "]
+      n4_p0["reading"]
+    end
+    subgraph n5 ["`*«action»* **scale**
+parameters
+out scaled`"]
+      direction TD
+      n5_anchor[" "]
+      n5_p0["raw"]
+    end
+  end
+  n4_anchor -.-> n5_anchor
+  n4_p0 --> n5_p0
+  classDef anchor fill:none,stroke:none
+  class n4_anchor,n5_anchor anchor

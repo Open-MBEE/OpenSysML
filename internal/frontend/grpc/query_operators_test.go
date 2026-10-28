@@ -167,9 +167,9 @@ func TestQueryInstanceOfSelectsByMetaclassConformance(t *testing.T) {
 // TestQueryInstanceOfAnyOfAListAndInverse verifies a list under instanceOf
 // matches an instance of any listed metaclass, and inverse negates the verdict.
 func TestQueryInstanceOfAnyOfAListAndInverse(t *testing.T) {
-	any := mustRunQuery(t, &pb.Query{Where: primitive(QueryPropType, opInstanceOf, false, "Definition", "AttributeUsage")})
-	if want := []string{"Demo::Vehicle", "Demo::Vehicle::mass", "Demo::Wheel", "Demo::vehicle::vin"}; !slices.Equal(any, want) {
-		t.Errorf("@type instanceOf [Definition, AttributeUsage] = %v, want %v", any, want)
+	listed := mustRunQuery(t, &pb.Query{Where: primitive(QueryPropType, opInstanceOf, false, "Definition", "AttributeUsage")})
+	if want := []string{"Demo::Vehicle", "Demo::Vehicle::mass", "Demo::Wheel", "Demo::vehicle::vin"}; !slices.Equal(listed, want) {
+		t.Errorf("@type instanceOf [Definition, AttributeUsage] = %v, want %v", listed, want)
 	}
 	notUsage := mustRunQuery(t, &pb.Query{Where: primitive(QueryPropType, opInstanceOf, true, "Usage")})
 	if want := []string{"Demo", "Demo::Vehicle", "Demo::Wheel", "Demo::vehicle::wheels::@0"}; !slices.Equal(notUsage, want) {

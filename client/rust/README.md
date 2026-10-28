@@ -70,7 +70,13 @@ There are two connection modes.
   read from the child's first stdout line. The child is shared, so its parse
   cache is shared too.
 * `Connection::external(host, port)` explicitly connects to an existing
-  service. `Connection::connect()` also accepts `$OPENSYSML_SERVICE`. Closing
+  service. `Connection::connect()` also accepts `$OPENSYSML_SERVICE`. A service
+  other machines reach requires a bearer token:
+  `Connection::external_with_token(host, port, token)`, or `$OPENSYSML_GRPC_TOKEN`
+  for the other constructors, puts `Authorization: Bearer` on every call; a wrong
+  or missing one is `Error::Service` with `Status::Unauthenticated`; a private
+  child needs none and is started without `$OPENSYSML_GRPC_TOKEN` in its
+  environment. Closing
   an external connection does not stop that service.
 
 `Drop` gives deterministic cleanup rather than relying on Python garbage

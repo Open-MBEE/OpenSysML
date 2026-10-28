@@ -131,3 +131,31 @@ func TestOutcomeLinesIsEmptyForErrorsWithoutARecord(t *testing.T) {
 		t.Fatalf("lines = %q, want none", lines)
 	}
 }
+
+// Frontier members are the namespace's owned members: an alias is a Membership of its
+// element (KerML 8.2.3.5.2), not a member with a metaclass of its own, though its name is still offered.
+func TestFrontierMembersAreOwnedMembers(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+part telescope;
+alias Scope for telescope;
+alias Broken for Nowhere;
+calc def Misspelled :> Query { Named(qualifiedName = "Observatory::telescop") }
+calc def AliasTypo :> Query { Named(qualifiedName = "Observatory::Scop") }
+`)
+	_, err := fixture.execute(t, "Misspelled", nil, Options{})
+	var typed *Error
+	if !errors.As(err, &typed) || typed.Outcome == nil {
+		t.Fatalf("Misspelled: error = %v, want one carrying an outcome", err)
+	}
+	var members []string
+	for _, m := range typed.Outcome.Path.Failures[0].Frontier.Members {
+		members = append(members, m.Name+":"+m.Metaclass)
+	}
+	if got := strings.Join(members, ","); strings.Contains(got, "Scope") || strings.Contains(got, "Broken") || !strings.Contains(got, "telescope:PartUsage") {
+		t.Errorf("Misspelled: members = %s, want the owned members only", got)
+	}
+	_, err = fixture.execute(t, "AliasTypo", nil, Options{})
+	if err == nil || !strings.Contains(err.Error(), "did you mean Scope?") {
+		t.Errorf("Named(Observatory::Scop) = %v, want the alias offered as a spelling", err)
+	}
+}

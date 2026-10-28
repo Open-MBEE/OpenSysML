@@ -39,7 +39,7 @@ import {
   timeoutOf,
 } from "../core/transport.js";
 import { resolveLatestVersion, VERSION_ENV } from "./binary.js";
-import { acquirePrivateService } from "./service.js";
+import { acquirePrivateService, TOKEN_ENV } from "./service.js";
 
 export * from "../core/index.js";
 export {
@@ -95,6 +95,8 @@ export type { WasmConnectOptions } from "./wasm.js";
 /** Names a service to connect to instead of starting one. */
 export const SERVICE_ENV = "OPENSYSML_SERVICE";
 
+export { TOKEN_ENV } from "./service.js";
+
 /** How this process connects. Without an address it starts a private child. */
 export interface ConnectOptions extends TransportOptions {
   /** HTTP version used to reach the service. HTTP/2 (h2c over plain http) by default. */
@@ -119,8 +121,13 @@ export interface ConnectOptions extends TransportOptions {
  * closing the connection leaves that service running.
  */
 export async function connect(
-  options: ConnectOptions = {},
+  given: ConnectOptions = {},
 ): Promise<Connection> {
+  const envToken = process.env[TOKEN_ENV];
+  const options: ConnectOptions =
+    given.token === undefined && envToken !== undefined && envToken !== ""
+      ? { ...given, token: envToken }
+      : given;
   const address = options.address ?? process.env[SERVICE_ENV];
   if (address !== undefined && address !== "") {
     return connectExternal(address, options);

@@ -32,7 +32,7 @@ pub use check::{
     CheckDivergence, CheckDivergentValue, CheckFinal, CheckOptions, CheckResult, CheckSearch,
     CheckViolation, CheckWitness,
 };
-pub use connection::Connection;
+pub use connection::{Connection, TOKEN_ENV};
 pub use domain::{
     Array, BigInteger, Capabilities, Complex, Diagnostic, EnumLiteral, EvalOptions, Evaluation,
     FeatureValue, Function, Instance, Instantiation, Language, Magnitude, MeasurementRef,

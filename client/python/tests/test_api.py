@@ -143,7 +143,7 @@ class TestModuleLevelAPI:
             # No port named, so the connection starts a private child of its own.
             MockConnection.assert_called_once_with(
                 'localhost', None, auto_start=True, version=None,
-                require_capabilities=None,
+                require_capabilities=None, token=None,
             )
             
             assert result == mock_conn
@@ -160,7 +160,7 @@ class TestModuleLevelAPI:
             # Should create connection with custom params
             MockConnection.assert_called_once_with(
                 'example.com', 9999, auto_start=False, version=None,
-                require_capabilities=None,
+                require_capabilities=None, token=None,
             )
             
             assert result == mock_conn

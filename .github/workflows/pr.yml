@@ -3,11 +3,12 @@ name: PR
 # The only CI a pull request runs. Pushes to main and develop, and tags, are covered
 # by the CircleCI config; this workflow mirrors its build-test workflow, not release.
 #
-# Two tiers, decided by the Changed areas job. A draft pull request runs the quick
-# tier: the binaries, the race-free Go suite in three shards, the cheap static
-# checks, the WebAssembly, Xpect and conformance gates, and only the clients and
-# docs whose own paths changed. A push to a non-draft pull request, marking one
-# ready for review, or the label ci:full runs the full tier: the whole suite.
+# Two tiers, decided by the Changed areas job. A push to a pull request that is ready
+# for review (the default), marking a draft ready, or the label ci:full runs the full
+# tier: the whole suite. A draft pull request, an opt-in for work not yet meant for
+# review, runs the quick tier: the binaries, the race-free Go suite in three shards,
+# the cheap static checks, the WebAssembly, Xpect and conformance gates, and only
+# the clients and docs whose own paths changed.
 # A merge-queue commit (merge_group, refs/heads/gh-readonly-queue/develop/...) always
 # runs the full tier over its base_sha..head_sha; Build and test on it lets the entry merge.
 on:
@@ -1009,7 +1010,7 @@ jobs:
           if-no-files-found: error
 
   mdk-plugin:
-    name: OpenSysML MDK for Cameo plugin
+    name: Magic MDK plugin
     needs: [changes, build]
     if: needs.changes.outputs.mdk == 'true'
     runs-on: ubuntu-latest

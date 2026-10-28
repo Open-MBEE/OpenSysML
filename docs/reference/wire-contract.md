@@ -898,8 +898,8 @@ actually produces and for what:
 | `resource_exhausted` | 429 | A document query (`RunDocumentQuery`, or one a `RenderDocument` runs) exhausted its visit, invocation or invocation-depth budget | `ServiceError` — the query, not the request, is at fault |
 | `already_exists` | 409 | Not currently produced | `ServiceError` |
 | `aborted` | 409 | Not currently produced | `ServiceError` |
-| `permission_denied` | 403 | Not currently produced (the service has no authentication) | `ServiceError` |
-| `unauthenticated` | 401 | Not currently produced | `ServiceError` |
+| `permission_denied` | 403 | Not produced by the service itself, which has one token and no roles; a proxy in front of it answers it | `ServiceError` |
+| `unauthenticated` | 401 | A service started with a token refused the call: no `Authorization` header (or `authorization` metadata), one that is not `Bearer`, or the wrong token (see [Service transports](service-transports.md#authentication)). The HTTP answer carries `WWW-Authenticate: Bearer realm="sysml-grpc"` (with `error="invalid_token"` for a wrong one); a grpc-go answer carries the same in its `www-authenticate` trailer. A malformed header is 400 `invalid_request`, which gRPC reports as `invalid_argument` | `AuthenticationError` (a `ConnectionError`) — supply the service's token |
 | `internal` | 500 | A bug in the service: something that should not have failed did (an edit that could not be applied, a document-query library that could not be loaded, a document whose evaluation failed for a reason other than one of its queries) | `ServiceError` — report it |
 | `unknown` | 500 | An error the service could not classify | `ServiceError` |
 | `data_loss` | 500 | Not currently produced | `ServiceError` |

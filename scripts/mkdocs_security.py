@@ -117,7 +117,7 @@ def on_files(files, config):
     return files
 
 
-def on_page_markdown(markdown: str, page, config, files) -> str:
+def on_page_markdown(markdown: str, page, config, **_kwargs) -> str:
     if page.file.src_uri != PAGE:
         return markdown
     begin, end = markdown.find(BEGIN), markdown.find(END)

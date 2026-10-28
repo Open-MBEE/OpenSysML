@@ -104,6 +104,11 @@ async function layOut(result: RenderResult, free: boolean): Promise<AutoLayout> 
     (free || node.x === undefined || node.y === undefined);
   const nested = (node: RenderNode): RenderNode[] =>
     (children.get(node.id) ?? []).filter((kid) => !pinOnBorder(kid));
+  // An edge end is the port it names on the node, else the node itself when that is a pin on a border.
+  const endPort = (node: RenderNode, portId: string | undefined): string | undefined => {
+    if (node.ports?.some((port) => port.id === portId)) return portId;
+    return pinOnBorder(node) ? node.id : undefined;
+  };
   const options = spacingOptions(result.kind);
   const edges: ElkExtendedEdge[] = [];
   const portEndpoints: Array<{ nodeId: string; portId: string }> = [];
@@ -113,12 +118,8 @@ async function layOut(result: RenderResult, free: boolean): Promise<AutoLayout> 
     }
     const from = byId.get(edge.from)!;
     const to = byId.get(edge.to)!;
-    const fromPort = from.ports?.some((port) => port.id === edge.fromPort)
-      ? edge.fromPort
-      : pinOnBorder(from) ? from.id : undefined;
-    const toPort = to.ports?.some((port) => port.id === edge.toPort)
-      ? edge.toPort
-      : pinOnBorder(to) ? to.id : undefined;
+    const fromPort = endPort(from, edge.fromPort);
+    const toPort = endPort(to, edge.toPort);
     edges.push({
       id: `e${index}`,
       sources: [fromPort ?? edge.from],
@@ -337,39 +338,14 @@ function reconcile(
 ): void {
   const nodes = result.nodes ?? [];
   const byId = new Map(nodes.map((node) => [node.id, node]));
-  const depth = (node: RenderNode): number => {
-    let d = 0;
-    let at = node;
-    while (
-      at.parent !== undefined &&
-      at.parent !== at.id &&
-      byId.has(at.parent)
-    ) {
-      d++;
-      at = byId.get(at.parent)!;
-    }
-    return d;
-  };
-  const subtree = (id: string): Set<string> => {
-    const inside = new Set([id]);
-    const stack = [id];
-    while (stack.length > 0) {
-      for (const child of children.get(stack.pop()!) ?? []) {
-        if (!inside.has(child.id)) {
-          inside.add(child.id);
-          stack.push(child.id);
-        }
-      }
-    }
-    return inside;
-  };
+  const depth = (node: RenderNode): number => depthOf(node, byId);
   for (const node of nodes
     .filter((n) => n.x !== undefined && n.y !== undefined && placed.has(n.id))
     .sort((a, b) => depth(a) - depth(b))) {
     const geometry = placed.get(node.id)!;
     const dx = node.x! - geometry.x;
     const dy = node.y! - geometry.y;
-    const inside = subtree(node.id);
+    const inside = subtreeOf(node.id, children);
     for (const id of inside) {
       // A pin on a border is not placed as a node; it follows its owner's box.
       const moved = id === node.id ? undefined : placed.get(id);
@@ -387,22 +363,7 @@ function reconcile(
     if (node.height !== undefined) {
       geometry.height = node.height;
     }
-    for (const [index, points] of routes) {
-      const edge = result.edges![index];
-      const from = inside.has(edge.from);
-      const to = inside.has(edge.to);
-      if (from && to) {
-        routes.set(
-          index,
-          points.map((point) => ({
-            x: snap(point.x + dx),
-            y: snap(point.y + dy),
-          })),
-        );
-      } else if (from || to) {
-        routes.delete(index);
-      }
-    }
+    shiftRoutes(routes, result.edges!, inside, dx, dy);
   }
   const names = simpleNames(result.nodes ?? []);
   for (const node of nodes
@@ -451,6 +412,62 @@ function reconcile(
       if (edge.from === node.id || edge.to === node.id) {
         routes.delete(index);
       }
+    }
+  }
+}
+
+// depthOf counts the placed ancestors above a node.
+function depthOf(node: RenderNode, byId: Map<string, RenderNode>): number {
+  let d = 0;
+  let at = node;
+  while (
+    at.parent !== undefined &&
+    at.parent !== at.id &&
+    byId.has(at.parent)
+  ) {
+    d++;
+    at = byId.get(at.parent)!;
+  }
+  return d;
+}
+
+// subtreeOf is a node's id with those of everything nested under it.
+function subtreeOf(id: string, children: Map<string | undefined, RenderNode[]>): Set<string> {
+  const inside = new Set([id]);
+  const stack = [id];
+  while (stack.length > 0) {
+    for (const child of children.get(stack.pop()!) ?? []) {
+      if (!inside.has(child.id)) {
+        inside.add(child.id);
+        stack.push(child.id);
+      }
+    }
+  }
+  return inside;
+}
+
+// shiftRoutes moves the routes within a moved subtree by (dx, dy) and drops those crossing its border.
+function shiftRoutes(
+  routes: Map<number, RenderPoint[]>,
+  edges: NonNullable<RenderResult["edges"]>,
+  inside: Set<string>,
+  dx: number,
+  dy: number,
+): void {
+  for (const [index, points] of routes) {
+    const edge = edges[index];
+    const from = inside.has(edge.from);
+    const to = inside.has(edge.to);
+    if (from && to) {
+      routes.set(
+        index,
+        points.map((point) => ({
+          x: snap(point.x + dx),
+          y: snap(point.y + dy),
+        })),
+      );
+    } else if (from || to) {
+      routes.delete(index);
     }
   }
 }

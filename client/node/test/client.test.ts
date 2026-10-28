@@ -27,14 +27,18 @@ import {
   ClosedConnectionError,
   MissingCapabilityError,
   EvaluationError,
+  PrivateService,
   SymbolNotFoundError,
   SERVICE_ENV,
+  ServiceError,
+  TOKEN_ENV,
   connect,
   currentPrivateService,
   formatValue,
   loads,
   requireCapability,
 } from "../src/node/index.js";
+import { environmentWithoutToken } from "../src/node/service.js";
 import { SAMPLE, serviceBinary, useServiceBinary } from "./support/service.js";
 
 before(() => {
@@ -668,6 +672,59 @@ test("a service this client did not start is opt-in, and close leaves it running
     assert.equal(currentPrivateService(), undefined);
   } finally {
     Reflect.deleteProperty(process.env, SERVICE_ENV);
+    external.kill("SIGKILL");
+  }
+});
+
+test("the child's environment drops the token under the spelling its platform reads", () => {
+  const env = { PATH: "/bin", OPENSYSML_GRPC_TOKEN: "upper", opensysml_grpc_token: "lower" };
+  assert.deepEqual(environmentWithoutToken(env, "linux"), {
+    PATH: "/bin",
+    opensysml_grpc_token: "lower",
+  });
+  assert.deepEqual(environmentWithoutToken(env, "win32"), { PATH: "/bin" });
+});
+
+test("a private child does not inherit the environment token", async () => {
+  process.env[TOKEN_ENV] = "not-for-the-child";
+  let service: PrivateService;
+  try {
+    service = await PrivateService.start();
+  } finally {
+    Reflect.deleteProperty(process.env, TOKEN_ENV);
+  }
+  try {
+    // The child is this process's own, on loopback: a call carrying no token is served.
+    await using connection = await connect({ address: service.address });
+    assert.ok(connection.info.version);
+  } finally {
+    await service.stop();
+  }
+});
+
+test("a service that requires a bearer token admits the right one and refuses the rest", async () => {
+  const token = "node-token_1";
+  const external = spawn(
+    serviceBinary(),
+    ["-port", "0", "-health-port", "0", "-report-address", "-token", token],
+    { stdio: ["pipe", "pipe", "inherit"] },
+  );
+  try {
+    const address = await firstLine(external);
+    await using admitted = await connect({ address, token });
+    await using model = await admitted.loads(SAMPLE);
+    assert.deepEqual(await model.eval("1 + 1"), { kind: "int", value: 2n });
+    for (const wrong of [{}, { token: token + "x" }]) {
+      await assert.rejects(
+        () => connect({ address, ...wrong }),
+        (error: unknown) => error instanceof ServiceError && error.code === "UNAUTHENTICATED",
+      );
+    }
+    process.env[TOKEN_ENV] = token;
+    await using fromEnv = await connect({ address });
+    assert.match(fromEnv.info.origin, /did not start/);
+  } finally {
+    Reflect.deleteProperty(process.env, TOKEN_ENV);
     external.kill("SIGKILL");
   }
 });

@@ -12,6 +12,7 @@ classdef Connection < handle
     properties (Hidden)
         expectedVersion = ''
         expectedCapabilities = {}
+        token = ''               % bearer token every call carries, '' for none
     end
     properties (SetAccess = private)
         closed = false

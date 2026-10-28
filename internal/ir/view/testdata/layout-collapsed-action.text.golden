@@ -1,6 +1,7 @@
 FoldedBehaviors::flows - action rendering (view def ActionFlowView)
 
 action def Flow
+  in flowIn
   action a (own flow) collapsed
   action b
 
