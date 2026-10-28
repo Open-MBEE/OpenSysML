@@ -8,10 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-// A redefinition whose target no general offers has no naming feature, and that
-// settled answer is memoized like any other: every lookup passing through the
-// scope asks each member for its derived short name, so re-deriving it there
-// re-ran the failed lookup once per member per lookup.
+// A redefinition no general offers a target for has a settled empty short name,
+// memoized so lookups through its scope do not re-run the failed lookup.
 func TestUnresolvedNamingFeatureIsDerivedOnce(t *testing.T) {
 	const n = 16
 	var src strings.Builder
