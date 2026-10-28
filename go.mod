@@ -15,7 +15,7 @@ require (
 	github.com/yuin/goldmark v1.8.6
 	go.lsp.dev/jsonrpc2 v0.10.0
 	go.lsp.dev/protocol v0.12.0
-	go.lsp.dev/uri v0.3.0
+	go.lsp.dev/uri v1.0.1
 	go.uber.org/zap v1.21.0
 	golang.org/x/net v0.61.0
 	golang.org/x/text v0.43.0
