@@ -267,7 +267,7 @@ func TestConvertCompactOfOneDocument(t *testing.T) {
 // The document conforms to the JSON Schema the documentation publishes, and the
 // invariants a schema cannot state hold: every handle is in the table, the
 // elements are the table's first elementCount entries, and a reference key
-// carries no number.
+// carries only handles.
 func TestConvertCompactConformsToItsSchema(t *testing.T) {
 	file, err := os.ReadFile("../../../docs/reference/api-json-compact.schema.json")
 	if err != nil {
@@ -343,9 +343,29 @@ func TestConvertCompactConformsToItsSchema(t *testing.T) {
 				}
 			}
 		}
+		var checkBare func(key string, value any)
+		checkBare = func(key string, value any) {
+			switch v := value.(type) {
+			case nil:
+			case float64:
+				if v < 0 || int(v) >= len(doc.IDs) || v != float64(int(v)) {
+					t.Errorf("%s: handle %v is not in the id table of %d", key, v, len(doc.IDs))
+				}
+			case []any:
+				for _, item := range v {
+					checkBare(key, item)
+				}
+			default:
+				t.Errorf("%s: reference key carries a non-handle value %v", key, value)
+			}
+		}
 		for _, element := range doc.Elements {
 			for key, value := range element {
-				check(key, value)
+				if bare[key] {
+					checkBare(key, value)
+				} else {
+					check(key, value)
+				}
 			}
 		}
 	}
