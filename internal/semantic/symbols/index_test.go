@@ -937,6 +937,72 @@ func TestRootNamespaceFiltersGateOnlyTheirOwnDocument(t *testing.T) {
 	}
 }
 
+// A name spelled as the notation does, a segment no basic name spells quoted
+// (`Tags::'Spare Parts'::Pad`), names the element the unquoted form registers.
+func TestLookupUniqueReadsQuotedSegments(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "quoted.sysml", `package Tags {
+	package 'Spare Parts' { part def Pad; part def 'Brake Pad'; }
+}`)
+	idx.ExpandWildcardImports()
+
+	for _, name := range []string{"Tags::'Spare Parts'::Pad", "'Spare Parts'::Pad", "Tags::Spare Parts::Pad"} {
+		if got := idx.LookupUnique(name); got == nil || FQNOf(got) != "Tags::Spare Parts::Pad" {
+			t.Errorf("LookupUnique(%s) = %v, want Tags::Spare Parts::Pad", name, got)
+		}
+	}
+	if got := idx.LookupUnique("'Brake Pad'"); got == nil || FQNOf(got) != "Tags::Spare Parts::Brake Pad" {
+		t.Errorf("LookupUnique('Brake Pad') = %v, want Tags::Spare Parts::Brake Pad", got)
+	}
+	if got := idx.LookupUniqueCandidates("Tags::'Spare Parts'"); len(got) != 1 || got[0].Name != "Spare Parts" {
+		t.Errorf("LookupUniqueCandidates(Tags::'Spare Parts') = %v, want the package", got)
+	}
+}
+
+// A quoted segment keeps its escapes, as the parser keeps them, and keeps its
+// boundary: `P::'x::y'` is the member named `x::y`, `P::x::y` the nested `y`.
+func TestLookupUniqueTellsQuotedSegmentsApart(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "quoted.sysml", `package P {
+	part def 'a\'b';
+	package x { part def y; }
+	part def 'x::y';
+}`)
+	idx.ExpandWildcardImports()
+
+	if got := idx.LookupUnique(`P::'a\'b'`); got == nil || got.Name != `a\'b` {
+		t.Errorf("LookupUnique(P::'a\\'b') = %v, want the escaped name", got)
+	}
+	if got := idx.LookupUnique("P::'x::y'"); got == nil || got.Name != "x::y" {
+		t.Errorf("LookupUnique(P::'x::y') = %v, want the member named x::y", got)
+	}
+	if got := idx.LookupUnique("P::x::y"); got == nil || got.Name != "y" || FQNOf(got) != "P::x::y" {
+		t.Errorf("LookupUnique(P::x::y) = %v, want the nested y", got)
+	}
+	if got := idx.LookupUnique("P::'x::z'"); got != nil {
+		t.Errorf("LookupUnique(P::'x::z') = %s, want nil", FQNOf(got))
+	}
+}
+
+// A name holding `::` is read at the boundaries of each registered key, past an
+// exact key another element collides on and along the key's own namespaces.
+func TestLookupUniqueReadsQuotedSegmentsAlongRegisteredRoutes(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "routes.sysml", `package P { package x { part def y; } }
+package Outer { package P { part def 'x::y'; } }`)
+	idx.ExpandWildcardImports()
+
+	if got := idx.LookupUnique("P::'x::y'"); got == nil || FQNOf(got) != "Outer::P::x::y" || got.Name != "x::y" {
+		t.Errorf("LookupUnique(P::'x::y') = %v, want Outer::P's member named x::y", got)
+	}
+	if got := idx.LookupUnique("P::x::y"); got == nil || got.Name != "y" || FQNOf(got) != "P::x::y" {
+		t.Errorf("LookupUnique(P::x::y) = %v, want the nested y", got)
+	}
+	if got := idx.LookupUnique("Outer::P::'x::y'::z"); got != nil {
+		t.Errorf("LookupUnique(Outer::P::'x::y'::z) = %s, want nil", FQNOf(got))
+	}
+}
+
 // LookupUnique answers a fully-qualified name, or a name exactly one element's
 // fully-qualified name ends in; two elements ending in it name nothing.
 func TestLookupUniqueBySuffix(t *testing.T) {

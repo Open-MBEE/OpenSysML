@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // evaluateNamed resolves each qualified name to the one element it denotes: no
@@ -134,9 +135,9 @@ func (e *executor) unknownElement(expression queryplan.Expression, name string, 
 		err.Outcome.Path.Failures[0] = failure
 		return err
 	}
-	segments := strings.Split(name, "::")
+	segments := symbols.SegmentsOf(name)
 	for i := len(segments) - 1; i >= 1; i-- {
-		prefix := strings.Join(segments[:i], "::")
+		prefix := source.QualifiedNameOf(segments[:i])
 		found, dangling := e.denoted(prefix)
 		owners := elementsOf(found)
 		switch len(owners) {
