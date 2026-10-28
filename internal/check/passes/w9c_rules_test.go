@@ -1026,6 +1026,32 @@ func TestW9CFeatureValueBindingConformance(t *testing.T) {
 	}
 }
 
+// A metadata body declaration restating a feature (`@M { x = 5; }`) and the constraint
+// an `assume`/`require` member owns bind their values as any feature value does; the
+// pinned pilot reports each at the same position.
+func TestW9CFeatureValueBindingOfBodyAndOwnedDeclarations(t *testing.T) {
+	src := `package Gap6 {
+    private import ScalarValues::*;
+    attribute def R :> Real;
+    metadata def M { attribute x : R; attribute y : Real; }
+    part p { @M { x = 5; y = 5; } }
+    attribute flag : Boolean;
+    attribute n : Integer;
+    requirement def Rq {
+        require constraint c1 = flag;
+        require constraint c2 = n;
+        assume constraint c3 = 5;
+        constraint c4 = n;
+    }
+    constraint c5 = flag;
+}`
+	got := w9cPositions(src, only(w9cLibraryDiags(t, src, false), "bound-feature-types"))
+	want := []string{"5:19", "9:17", "10:17", "11:16", "12:9", "14:5"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("bound-feature-types at %v, want %v", got, want)
+	}
+}
+
 // w9cPositions lists the 1-based line:column of each diagnostic in source order.
 func w9cPositions(src string, diags []diag.Diagnostic) []string {
 	var out []string

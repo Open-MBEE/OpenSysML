@@ -109,17 +109,34 @@ func (ec *exprChecker) judgeBinding(scope *symbols.Scope, value ast.Node, want [
 // judgeFeatureValueBinding judges a feature's value against the feature's own types
 // (KerML 8.3.4.5.2): the binding a FeatureValue implies, which a `default` does not
 // (checkFeatureValueBindingConnector). Reported at the feature, as the pilot does; a
-// subject's value is W9CBoundFeatureTypesPass's.
+// subject's value is W9CBoundFeatureTypesPass's, an assignment's is no feature value.
 func (ec *exprChecker) judgeFeatureValueBinding(valueScope, declScope *symbols.Scope, d featureDecl, value ast.Node) {
-	u, ok := d.node.(*ast.Usage)
-	if !ok || u.Value != value || u.ValueIsDefault || u.Kind == ast.UsageSubject {
+	var isDefault bool
+	if u, ok := d.node.(*ast.Usage); ok {
+		if u.Value != value || u.Kind == ast.UsageSubject {
+			return
+		}
+		isDefault = u.ValueIsDefault
+	} else if oc, ok := ast.OwnedConstraintOf(d.node); ok {
+		if oc.Value != value {
+			return
+		}
+		isDefault = oc.ValueIsDefault
+	} else {
 		return
 	}
-	sym := declScope.MemberDeclaring(u)
+	if !isDefault {
+		ec.judgeBoundFeature(valueScope, declScope.MemberDeclaring(d.node), value, d.span)
+	}
+}
+
+// judgeBoundFeature judges value, bound to the feature sym by a feature value, by
+// sym's own types, reporting at the declaration that binds it.
+func (ec *exprChecker) judgeBoundFeature(valueScope *symbols.Scope, sym *symbols.Symbol, value ast.Node, at source.Span) {
 	if sym == nil {
 		return
 	}
-	ec.judgeBinding(valueScope, value, ec.model.FeatureTypeSet(sym), d.span, ec.declaredResultTypes)
+	ec.judgeBinding(valueScope, value, ec.model.FeatureTypeSet(sym), at, ec.declaredResultTypes)
 }
 
 // declaredResultTypes are the types a value's result declares: for an operator
