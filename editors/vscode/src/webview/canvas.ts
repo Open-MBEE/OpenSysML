@@ -394,7 +394,7 @@ function boxClass(kind: string): "package" | "definition" | "region" | "usage" {
 // where the edge starts, and no arrowhead at the part it leads to. A kind of
 // more than one word is classed with hyphens (`succession-flow`).
 function drawEdge(edge: PlacedEdge): SVGGElement {
-  const group = element("g", { class: `opensysml-edge ${edge.edge.kind.replace(/ /g, "-")}`, "data-edge": String(edge.index) });
+  const group = element("g", { class: `opensysml-edge ${edge.edge.kind.replaceAll(" ", "-")}`, "data-edge": String(edge.index) });
   const attrs: Record<string, string> = { points: polyline(edge.points), class: "line" };
   switch (edge.edge.kind) {
     case "flow":
