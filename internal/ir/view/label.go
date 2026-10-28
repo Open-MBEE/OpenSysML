@@ -372,9 +372,8 @@ func (l labeller) titleLines(node *Node) []string {
 	return append(lines, l.compartmentLines(node)...)
 }
 
-// lists reports whether the node's parameter pin is listed in its `parameters`
-// compartment: every pin where pinLines asks, else a pin listedPin names when
-// the rendering shows compartments.
+// lists reports whether the node's pin is listed in its `parameters` compartment:
+// every pin where pinLines asks, else one listedPin names under shown compartments.
 func (l labeller) lists(node *Node, port Port) bool {
 	return l.pinLines || l.shown.Has(ElementCompartments) && l.listedPin != nil && l.listedPin(node, port)
 }

@@ -241,9 +241,8 @@ func TestTextActionFramePins(t *testing.T) {
 	}
 }
 
-// The Mermaid form draws a frame pin an edge ends at as a node inside the
-// frame's subgraph, as it draws the nodes' pins, and lists the rest in a
-// `parameters` compartment of their node.
+// The Mermaid form draws a frame pin an edge ends at as a node inside the frame's
+// subgraph, as it draws the nodes' pins, and lists the rest in a parameters compartment.
 func TestMermaidActionFramePins(t *testing.T) {
 	rendering := renderActionPins(t, "Pins::ToastBread")
 	source := rendering.MermaidWith(fullNotation)
