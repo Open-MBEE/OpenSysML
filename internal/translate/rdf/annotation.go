@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 // Flexo reads a collection from the <AnnotationJSON><key> literal and skips a
@@ -189,6 +190,13 @@ func ParseCollectionJSON(text string) ([]CollectionMember, error) {
 }
 
 func parseMember(item json.RawMessage) (CollectionMember, error) {
+	if member, ok := parsePlainMember(item); ok {
+		return member, nil
+	}
+	return decodeMember(item)
+}
+
+func decodeMember(item json.RawMessage) (CollectionMember, error) {
 	dec := json.NewDecoder(bytes.NewReader(item))
 	dec.UseNumber()
 	var value any
@@ -219,4 +227,45 @@ func parseMember(item json.RawMessage) (CollectionMember, error) {
 		return CollectionMember{}, fmt.Errorf("a collection member cannot be null")
 	}
 	return CollectionMember{}, fmt.Errorf("a collection member cannot be %s", item)
+}
+
+// parsePlainMember reads a member spelled the way the annotation writer spells
+// it without a decoder; any other spelling is left to parseMember.
+func parsePlainMember(item json.RawMessage) (CollectionMember, bool) {
+	const referencePrefix, referenceSuffix = `{"@id":"`, `"}`
+	switch {
+	case bytes.HasPrefix(item, []byte(referencePrefix)) && bytes.HasSuffix(item, []byte(referenceSuffix)):
+		id := item[len(referencePrefix) : len(item)-len(referenceSuffix)]
+		if len(id) == 0 || !plainJSONString(id) {
+			return CollectionMember{}, false
+		}
+		return CollectionMember{ID: string(id)}, true
+	case len(item) >= 2 && item[0] == '"' && item[len(item)-1] == '"' && plainJSONString(item[1:len(item)-1]):
+		return CollectionMember{Literal: String(string(item[1 : len(item)-1]))}, true
+	case string(item) == "true":
+		return CollectionMember{Literal: Bool(true)}, true
+	case string(item) == "false":
+		return CollectionMember{Literal: Bool(false)}, true
+	case len(item) > 0 && (item[0] == '-' || item[0] >= '0' && item[0] <= '9'):
+		lexical := string(item)
+		switch {
+		case integerLexical.MatchString(lexical):
+			return CollectionMember{Literal: TypedLiteral(lexical, XSD+"integer")}, true
+		case decimalLexical.MatchString(lexical):
+			return CollectionMember{Literal: TypedLiteral(lexical, XSD+"decimal")}, true
+		}
+		return CollectionMember{Literal: TypedLiteral(lexical, XSD+"double")}, true
+	}
+	return CollectionMember{}, false
+}
+
+// plainJSONString reports whether text is a JSON string body that decodes to
+// itself: valid UTF-8 with no quote, escape or control character.
+func plainJSONString(text []byte) bool {
+	for _, b := range text {
+		if b < 0x20 || b == '"' || b == '\\' {
+			return false
+		}
+	}
+	return utf8.Valid(text)
 }
