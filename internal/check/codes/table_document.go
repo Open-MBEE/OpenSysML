@@ -3,6 +3,7 @@ package codes
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // documentCodes are the codes of the document and query planning passes: two
@@ -13,8 +14,9 @@ var documentCodes = []Entry{
 		Summary: "a document definition the document planner cannot compile",
 		Meaning: "A document definition (one typed by `DocumentDefinitions::Document` or a specialization of it) is compiled into a document plan before it is rendered; the member code names the rule that failed — a content with no title, an attribute that is not one string literal, a nested document, a query the document does not declare, a diagram kind no rendering supports — and the message states where. " +
 			"Correct the member the message names; the plain `document-plan` code reports a failure no rule classifies, with the planner's own message.",
-		Spec:  "OpenSysML DocumentDefinitions library",
-		Kinds: docplanKinds(),
+		Spec:           "OpenSysML DocumentDefinitions library",
+		Kinds:          docplanKinds(),
+		KindSeverities: docplanKindSeverities(),
 	},
 	{
 		Code: "document-query", Tier: TierDocument, Severity: "error",
@@ -33,6 +35,18 @@ func docplanKinds() []string {
 		kinds = append(kinds, string(k))
 	}
 	return kinds
+}
+
+// docplanKindSeverities names the document planning error kinds reported as
+// warnings, as docplan.ErrorKind.Severity decides.
+func docplanKindSeverities() map[string]string {
+	severities := make(map[string]string)
+	for _, k := range docplan.ErrorKinds() {
+		if k.Severity() == diag.SeverityWarning {
+			severities[string(k)] = "warning"
+		}
+	}
+	return severities
 }
 
 // queryplanKinds lists the query planning error kinds, as queryplan.ErrorKind spells them.

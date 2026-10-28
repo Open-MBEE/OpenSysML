@@ -245,7 +245,8 @@ not.
 
 `-doc-form html` and `-doc-form asciidoc` render the same note as HTML and back to AsciiDoc.
 Without the converter the command fails to plan the document with an error naming
-`OPENSYSML_ASCIIDOCTOR` and the download script, and nothing is rendered as literal text. The
+`OPENSYSML_ASCIIDOCTOR` and the download script, and nothing is rendered as literal text;
+`-validate` over the model instead warns once that the note's bodies went unchecked. The
 note's test, `TestSelfModelAsciiDocNoteRendersInstalled` in
 [`../self_model_asciidoc_test.go`](../self_model_asciidoc_test.go), renders all three forms and
 pins every value run against the model; it skips with the same instruction when the converter is

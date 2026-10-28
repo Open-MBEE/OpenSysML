@@ -60,13 +60,15 @@ func (o *markupOutline) sectionAt(path []string) (markupSection, bool) {
 }
 
 // parsedBody is a textual representation's body parsed once: its language,
-// text, offsets into the source and blocks, or the planning error instead.
+// text, offsets into the source and blocks, or the planning error instead;
+// unchecked is the warning a lenient plan left the body unparsed under.
 type parsedBody struct {
-	language markup.Parser
-	body     string
-	offsets  []int
-	blocks   []markup.Block
-	err      *Error
+	language  markup.Parser
+	body      string
+	offsets   []int
+	blocks    []markup.Block
+	err       *Error
+	unchecked *Error
 }
 
 // at is the source origin of a span of the body.
@@ -118,6 +120,12 @@ func (c *compiler) parseBody(owner, rep *symbols.Symbol) *parsedBody {
 	}
 	body, offsets := source.CommentBodyOffsets(lookup(rep.DocName, decl.BodySpan))
 	parsed := &parsedBody{language: language, body: body, offsets: offsets}
+	key := uncheckedKey{c.scanned, language.Language()}
+	if prior := c.uncheckedBy[key]; prior != nil {
+		prior.Bodies++
+		parsed.unchecked = prior
+		return parsed
+	}
 	blocks, err := language.Parse(body)
 	if err == nil {
 		parsed.blocks = blocks
@@ -129,7 +137,18 @@ func (c *compiler) parseBody(owner, rep *symbols.Symbol) *parsedBody {
 		if tool.Missing {
 			kind = ErrorMarkupToolMissing
 		}
-		parsed.err = &Error{Kind: kind, Document: c.document, Content: symbols.FQNOf(owner), Parameter: language.Language(), Origin: rep.Origin(), Err: tool}
+		planning := &Error{Kind: kind, Document: symbols.FQNOf(c.scanned), Content: symbols.FQNOf(owner), Parameter: language.Language(), Origin: rep.Origin(), Err: tool}
+		if c.lenient && tool.Missing {
+			// Another document's bodies are its own plan's to warn of.
+			planning.Bodies = 1
+			if c.scanned == c.entry {
+				c.unchecked = append(c.unchecked, planning)
+			}
+			c.uncheckedBy[key] = planning
+			parsed.unchecked = planning
+			return parsed
+		}
+		parsed.err = planning
 		return parsed
 	}
 	var unsupported *markup.UnsupportedConstructError
@@ -157,7 +176,10 @@ func (c *compiler) outlineOf(doc *symbols.Symbol) *markupOutline {
 	c.outlines[doc] = outline
 	used := make(map[string]bool)
 	c.collectContentNames(doc, used)
+	scanned := c.scanned
+	c.scanned = doc
 	c.scanBodies(doc, nil, outline, used)
+	c.scanned = scanned
 	return outline
 }
 
