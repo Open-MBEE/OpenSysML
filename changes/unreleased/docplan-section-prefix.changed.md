@@ -1,0 +1,1 @@
+- The document planner's markup-section outline compares section paths with `slices.Equal` and names the open-heading record it keeps while scanning bodies once, with no change in behaviour.

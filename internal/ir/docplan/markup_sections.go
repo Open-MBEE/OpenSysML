@@ -3,6 +3,7 @@ package docplan
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -48,13 +49,8 @@ func (o *markupOutline) section(name string) (markupSection, bool) {
 // or explicit id, the ones before it the names of the sections above it.
 func (o *markupOutline) sectionAt(path []string) (markupSection, bool) {
 	section, ok := o.section(path[len(path)-1])
-	if !ok || len(section.path) != len(path) {
+	if !ok || len(section.path) != len(path) || !slices.Equal(section.path[:len(path)-1], path[:len(path)-1]) {
 		return markupSection{}, false
-	}
-	for i, name := range path[:len(path)-1] {
-		if section.path[i] != name {
-			return markupSection{}, false
-		}
 	}
 	return section, true
 }
@@ -216,10 +212,11 @@ func (c *compiler) scanBodies(owner *symbols.Symbol, path []string, outline *mar
 		if parsed.err != nil {
 			continue
 		}
-		var open []struct {
+		type openHeading struct {
 			level int
 			name  string
 		}
+		var open []openHeading
 		for _, block := range parsed.blocks {
 			if block.Kind != markup.BlockHeading {
 				continue
@@ -238,10 +235,7 @@ func (c *compiler) scanBodies(owner *symbols.Symbol, path []string, outline *mar
 				full = append(full, section.name)
 			}
 			full = append(full, name)
-			open = append(open, struct {
-				level int
-				name  string
-			}{block.Level, name})
+			open = append(open, openHeading{block.Level, name})
 			outline.sections[name] = markupSection{name: name, title: block.Title, path: full}
 		}
 	}
