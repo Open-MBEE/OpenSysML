@@ -3,6 +3,7 @@ package view
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -165,4 +166,18 @@ func (r *Rendering) undrawnPins(drawn func(node *Node, port Port) bool) []string
 		walk(root)
 	}
 	return names
+}
+
+// listedPin lists, in an action or mixed rendering, the parameter pins a form
+// does not draw in their node's `parameters` compartment; drawn says which it draws.
+func (r *Rendering) listedPin(drawn func(node *Node, port Port) bool) func(node *Node, port Port) bool {
+	if r.Kind != KindAction && r.Kind != KindMixed {
+		return nil
+	}
+	return func(node *Node, port Port) bool { return port.Parameter && !drawn(node, port) }
+}
+
+// drawsPort reports whether port is among the ports a form draws on a node.
+func drawsPort(ports []Port, port Port) bool {
+	return slices.ContainsFunc(ports, func(drawn Port) bool { return drawn.ID == port.ID })
 }

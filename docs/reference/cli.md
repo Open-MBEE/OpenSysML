@@ -853,11 +853,11 @@ binds its own parameters to its nodes' pins as the frame does. A binding one end
 a literal, an expression, an attribute — draws nothing. `dot`
 sets the frame's pins on the cluster's border as squares, the way it sets a node's; `text` lists
 each pin under its node (`in bread`) and names the pins an edge joins (`heat.t => pack.t`,
-`ToastBread.bread == heat.b`); `mermaid`'s flowchart draws the pins an edge ends at, and names the
-rest in a `%% not represented:` notice; `plantuml`'s state grammar has no pin, so it names the edge's
-pins in the edge's label (`n0 -- n1 : bread = b`) and the pins in a `' not represented:` notice; `d2`
-draws the pins an edge ends at as nodes nested in their owner, and names the rest in a
-`# not represented:` notice.
+`ToastBread.bread == heat.b`); `mermaid`'s flowchart draws the pins an edge ends at, and lists the
+rest in a `parameters` compartment of their node (`parameters`, `in x`, `out result`); `plantuml`'s
+state grammar has no pin, so it names the edge's pins in the edge's label (`n0 -- n1 : bread = b`)
+and lists every pin in its node's `parameters` compartment; `d2` draws the pins an edge ends at as
+nodes nested in their owner, and lists the rest in the `parameters` compartment.
 
 A tree rendering draws the directed parameters of a calculation, action or constraint definition or
 usage — `in`, `out`, `inout` and `return` — as parameter pins of their owner's node rather than as

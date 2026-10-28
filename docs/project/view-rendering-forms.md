@@ -605,12 +605,14 @@ digraph "VehicleViews::vehicleView" {
   frame's pins are set on the cluster's border as a positioned node's are (`writePins` on the
   root cluster). The text form lists a node's pins under it by direction and name (`in bread`)
   and names the pins an edge joins as its ends (`heat.t => pack.t`, `ToastBread.bread ==
-  heat.b`), labelling the edge by its own name alone as DOT does. Mermaid's flowchart draws the
-  pins an edge ends at (`n0_p0 ===|"bread = b"| n1_p0`) and names the rest in a `not
-  represented` notice, `N pin(s) not drawn (…); a flowchart draws the pins an edge ends at`.
-  PlantUML's state grammar, which an action rendering uses, has no pin: the edge keeps its label
-  naming the pins (`n0 -- n1 : bread = b`) and every pin is named in a `not represented` notice,
-  `N pin(s) not drawn (…); PlantUML's state grammar has no pin, so the edges name them`.
+  heat.b`), labelling the edge by its own name alone as DOT does. Mermaid's flowchart and D2 draw
+  the pins an edge ends at (`n0_p0 ===|"bread = b"| n1_p0`) and list the rest in a `parameters`
+  compartment of their node (`labeller.parameterLines`, the pins `Rendering.unconnectedPin`
+  names), one line per pin as the tree form writes it (`in x`, `out ^result`, typed under
+  `typings`). PlantUML's state grammar, which an action rendering uses, has no pin: the edge keeps
+  its label naming the pins (`n0 -- n1 : bread = b`) and every pin is listed in its node's
+  `parameters` compartment. The `N pin(s) not drawn` notice remains for a pin that is neither
+  drawn nor listed.
 - **Interconnection ports.** A part's node carries as its `Ports` the ports it has from its
   definition and what that specializes without declaring them itself (`featureWalk.pinPorts`,
   `Renderer.typedPorts` in `interconnection.go`: `Model.MembersOf` less the part's own members

@@ -49,6 +49,8 @@ func (r *Rendering) MermaidWith(options Options) string {
 	labels.pinLines = r.Kind == KindTree
 	labels.skin = skinOf(options.Style)
 	ports := r.portView(options.Ports)
+	used := r.usedPorts(ports)
+	labels.listedPin = r.listedPin(func(node *Node, port Port) bool { return used[node.ID][port.ID] })
 	r.writeMermaidFrontmatter(&b, labels, options, ports)
 	if r.Run {
 		fmt.Fprintf(&b, "%%%% run — %s rendering", r.Kind)
@@ -74,7 +76,7 @@ func (r *Rendering) MermaidWith(options Options) string {
 			fills.collect(root)
 		}
 	}
-	for _, notice := range r.mermaidNotices(options) {
+	for _, notice := range r.mermaidNotices(options, labels) {
 		fmt.Fprintf(&b, "%%%% not represented: %s\n", notice)
 	}
 	r.writeGeometryComments(&b, "%%")
@@ -103,7 +105,7 @@ func (r *Rendering) MermaidWith(options Options) string {
 	return b.String()
 }
 
-func (r *Rendering) mermaidNotices(options Options) []string {
+func (r *Rendering) mermaidNotices(options Options, labels labeller) []string {
 	var notices []string
 	if err := options.Palette.check(); err != nil {
 		notices = append(notices, err.Error())
@@ -116,7 +118,7 @@ func (r *Rendering) mermaidNotices(options Options) []string {
 	if r.Kind == KindAction || r.Kind == KindMixed {
 		used := r.usedPorts(r.portView(options.Ports))
 		if pins := r.undrawnPins(func(node *Node, port Port) bool {
-			return r.Kind == KindMixed && port.Direction == PortUndirected || used[node.ID][port.ID]
+			return r.Kind == KindMixed && port.Direction == PortUndirected || used[node.ID][port.ID] || labels.lists(node, port)
 		}); len(pins) > 0 {
 			notices = append(notices, fmt.Sprintf("%d pin(s) not drawn (%s); a flowchart draws the pins an edge ends at",
 				len(pins), strings.Join(pins, ", ")))
