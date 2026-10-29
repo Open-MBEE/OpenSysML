@@ -160,6 +160,14 @@ func xmlNumber(t *testing.T, value string) float64 {
 	return n
 }
 
+// onDrawioBorder reports a point on the border of box, within a pixel.
+func onDrawioBorder(p Point, box drawioBox) bool {
+	inside := p.X >= box.X-1 && p.X <= box.right()+1 && p.Y >= box.Y-1 && p.Y <= box.bottom()+1
+	onX := math.Abs(p.X-box.X) <= 1 || math.Abs(p.X-box.right()) <= 1
+	onY := math.Abs(p.Y-box.Y) <= 1 || math.Abs(p.Y-box.bottom()) <= 1
+	return inside && (onX || onY)
+}
+
 // drawioAnchor is where an edge end sits on its cell's box, read from the
 // exitX/exitY or entryX/entryY fractions of the edge's style.
 func drawioAnchor(t *testing.T, style, end string, box drawioBox) (Point, bool) {
@@ -457,6 +465,16 @@ func TestDrawioRoutesUnroutedEdges(t *testing.T) {
 				if !exitOK || !entryOK || !strings.Contains(cell.style, "edgeStyle=none;") {
 					t.Errorf("%s (%s -> %s): not routed: style %q", cell.id, edge.From, edge.To, cell.style)
 					continue
+				}
+				for _, end := range []struct {
+					name string
+					p    Point
+				}{{cell.source, exit}, {cell.target, entry}} {
+					// A port cell is left through its border; a container is
+					// left through its header's underside, inside its box.
+					if strings.Contains(end.name, ":") && !onDrawioBorder(end.p, drawioAbsolute(cells, end.name)) {
+						t.Errorf("%s: end %v is not on the border of %s", cell.id, end.p, end.name)
+					}
 				}
 				path := append(append([]Point{exit}, cell.points...), entry)
 				for j := 1; j < len(path); j++ {

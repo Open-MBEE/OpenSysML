@@ -3,6 +3,8 @@ package view
 import (
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view/route"
@@ -47,15 +49,22 @@ func (w *drawioWriter) routeEdges(r *Rendering) ([]Edge, error) {
 			header.Height = w.headroom(tree.nodes[key])
 		}
 		var memberPins []route.Port
+		portShapes := map[string]route.Shape{}
 		asked := make([]route.Edge, len(group))
 		for j, i := range group {
 			asked[j] = route.Edge{Index: j, From: edges[i].From, To: edges[i].To, FromPort: edges[i].FromPort, ToPort: edges[i].ToPort}
 			if key == "" || (edges[i].From != key && edges[i].To != key) || edges[i].From == edges[i].To {
 				continue
 			}
-			member := edges[i].To
+			member, port := edges[i].To, edges[i].FromPort
 			if member == key {
-				member = edges[i].From
+				member, port = edges[i].From, edges[i].ToPort
+			}
+			// The container's own named port is a cell of its own: the edge
+			// leaves it through its inner face, into the container.
+			if shape, ok := w.portShape(tree.nodes[key], w.boxes[key], port, true); ok {
+				portShapes[shape.ID] = shape
+				continue
 			}
 			pin := route.Port{ID: fmt.Sprintf("\x00member/%d", i), Side: route.South, Flush: true}
 			pin.Offset = min(1, max(0, (w.boxes[member].X+w.boxes[member].Width/2-header.X)/header.Width))
@@ -73,12 +82,28 @@ func (w *drawioWriter) routeEdges(r *Rendering) ([]Edge, error) {
 			if exempt[id] {
 				box.Height = w.headroom(node)
 			}
-			shape := route.Shape{ID: id, Box: route.Box(box), Ports: w.routePorts(node, box)}
+			ports, placed := w.routePorts(node, box)
+			for _, shape := range placed {
+				portShapes[shape.ID] = shape
+			}
+			shape := route.Shape{ID: id, Box: route.Box(box), Ports: ports}
 			if id == key {
 				shape.Box = route.Box(header)
 				shape.Ports = append(shape.Ports, memberPins...)
 			}
 			shapes = append(shapes, shape)
+		}
+		for _, id := range slices.Sorted(maps.Keys(portShapes)) {
+			shapes = append(shapes, portShapes[id])
+		}
+		// An end at a port that is a shape of its own attaches there.
+		for j := range asked {
+			if _, ok := portShapes[asked[j].From+":"+asked[j].FromPort]; ok && asked[j].FromPort != "" {
+				asked[j].From += ":" + asked[j].FromPort
+			}
+			if _, ok := portShapes[asked[j].To+":"+asked[j].ToPort]; ok && asked[j].ToPort != "" {
+				asked[j].To += ":" + asked[j].ToPort
+			}
 		}
 		var bounds *route.Box
 		if key != "" {
@@ -104,27 +129,74 @@ func (w *drawioWriter) routeEdges(r *Rendering) ([]Edge, error) {
 	return edges, nil
 }
 
-// routePorts is where a node's drawn ports sit for the router: on the side
-// and at the fraction the port cell is written at.
-func (w *drawioWriter) routePorts(node *Node, box drawioBox) []route.Port {
+// routePorts is where a node's drawn ports sit for the router: a port drawn
+// on the border at a fraction is a pin of the node's shape; a positioned
+// port, wherever it was put, is a shape of its own with a pin on its outer face.
+func (w *drawioWriter) routePorts(node *Node, box drawioBox) ([]route.Port, []route.Shape) {
 	ports := w.ports.of(node)
 	if len(ports) == 0 {
-		return nil
+		return nil, nil
 	}
 	sides := map[PortDirection][]Port{}
 	for _, port := range ports {
 		sides[drawioPortSide(port)] = append(sides[drawioPortSide(port)], port)
 	}
-	out := make([]route.Port, 0, len(ports))
+	var pins []route.Port
+	var shapes []route.Shape
 	for _, port := range ports {
-		side := drawioPortSide(port)
-		p := route.Port{ID: port.ID, Side: routeSide(side), Offset: float64(drawioPortIndex(sides[side], port)+1) / float64(len(sides[side])+1)}
-		if g := port.Geometry; g.placed() {
-			p.Side, p.Offset = placedPortSide(box, g)
+		if port.Geometry.placed() {
+			shape, _ := w.portShape(node, box, port.ID, false)
+			shapes = append(shapes, shape)
+			continue
 		}
-		out = append(out, p)
+		side := drawioPortSide(port)
+		pins = append(pins, route.Port{ID: port.ID, Side: routeSide(side), Offset: float64(drawioPortIndex(sides[side], port)+1) / float64(len(sides[side])+1)})
 	}
-	return out
+	return pins, shapes
+}
+
+// portShape is a port cell of node as a shape of its own, named like the
+// cell, with one flush pin at the middle of the face the edge leaves through:
+// the face away from the owner, or the inner one for an edge into the owner.
+func (w *drawioWriter) portShape(node *Node, box drawioBox, portID string, inward bool) (route.Shape, bool) {
+	if node == nil || portID == "" {
+		return route.Shape{}, false
+	}
+	ports := w.ports.of(node)
+	sides := map[PortDirection][]Port{}
+	for _, port := range ports {
+		sides[drawioPortSide(port)] = append(sides[drawioPortSide(port)], port)
+	}
+	for _, port := range ports {
+		if port.ID != portID {
+			continue
+		}
+		side := drawioPortSide(port)
+		fraction := float64(drawioPortIndex(sides[side], port)+1) / float64(len(sides[side])+1)
+		cell := drawioPortCellBox(box, side, fraction, port.Geometry)
+		face := routeSide(side)
+		if port.Geometry.placed() {
+			face, _ = placedPortSide(box, port.Geometry)
+		}
+		if inward {
+			face = opposite(face)
+		}
+		pin := route.Port{ID: port.ID, Side: face, Offset: 0.5, Flush: true}
+		return route.Shape{ID: node.ID + ":" + port.ID, Box: route.Box(cell), Ports: []route.Port{pin}}, true
+	}
+	return route.Shape{}, false
+}
+
+func opposite(side route.Side) route.Side {
+	switch side {
+	case route.North:
+		return route.South
+	case route.South:
+		return route.North
+	case route.East:
+		return route.West
+	}
+	return route.East
 }
 
 // routeSide is the router's side for the border a port direction puts it on.

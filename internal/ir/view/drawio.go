@@ -226,13 +226,19 @@ func (w *drawioWriter) settleChildren(node *Node, box drawioBox) {
 	for i, child := range unplaced {
 		sizes[i] = w.fitted(child)
 	}
-	origin := drawioBox{X: box.X + drawioNestedPad, Y: box.Y + w.headroom(node) + drawioNestedGap}
+	// Under a header the router needs a channel; a container of stated size
+	// keeps the pad, since its children must fit the size it states.
+	gap := drawioNestedGap
+	if g := node.Geometry; g != nil && g.HasSize {
+		gap = drawioNestedPad
+	}
+	origin := drawioBox{X: box.X + drawioNestedPad, Y: box.Y + w.headroom(node) + gap}
 	for _, child := range node.Children {
 		if child.Geometry.placed() {
-			origin.Y = math.Max(origin.Y, w.boxes[child.ID].bottom()+drawioNestedGap)
+			origin.Y = math.Max(origin.Y, w.boxes[child.ID].bottom()+gap)
 		}
 	}
-	for i, child := range drawioGrid(sizes, origin, drawioNestedGap) {
+	for i, child := range drawioGrid(sizes, origin, gap) {
 		w.settle(unplaced[i], child)
 	}
 }
@@ -638,11 +644,10 @@ func (w *drawioWriter) writePorts(node *Node, fqn string) {
 				size = drawioBox{Width: g.Width, Height: g.Height}
 			}
 			w.geometry("            ", drawioBox{X: g.X - box.X, Y: g.Y - box.Y, Width: size.Width, Height: size.Height}, nil, nil)
-			w.portBoxes[id] = drawioBox{X: g.X, Y: g.Y, Width: size.Width, Height: size.Height}
 		} else {
 			w.relativeGeometry("            ", side, fraction)
-			w.portBoxes[id] = drawioPortBox(box, side, fraction)
 		}
+		w.portBoxes[id] = drawioPortCellBox(box, side, fraction, port.Geometry)
 		w.b.WriteString("          </mxCell>\n        </object>\n")
 		w.cells[id] = true
 	}
@@ -689,6 +694,19 @@ func drawioPortStyle(side PortDirection) string {
 
 // relativeGeometry writes a port's geometry as a fraction of its owner's
 // border, offset to centre the square on the edge.
+// drawioPortCellBox is a port cell's box on the page: its stated geometry
+// when placed, else where relativeGeometry puts it on its owner's box.
+func drawioPortCellBox(box drawioBox, side PortDirection, fraction float64, g *Geometry) drawioBox {
+	if g.placed() {
+		size := drawioBox{Width: drawioPortSize, Height: drawioPortSize}
+		if g.HasSize {
+			size = drawioBox{Width: g.Width, Height: g.Height}
+		}
+		return drawioBox{X: g.X, Y: g.Y, Width: size.Width, Height: size.Height}
+	}
+	return drawioPortBox(box, side, fraction)
+}
+
 // drawioPortBox is where a port drawn at fraction along side sits on the page,
 // as relativeGeometry places it.
 func drawioPortBox(box drawioBox, side PortDirection, fraction float64) drawioBox {
