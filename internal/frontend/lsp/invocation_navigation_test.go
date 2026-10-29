@@ -32,7 +32,7 @@ func definitionOf(t *testing.T, s *Server, name, src, needle string) []protocol.
 	if off < 0 {
 		t.Fatalf("%q not in source", needle)
 	}
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(src), off),

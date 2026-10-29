@@ -47,14 +47,14 @@ func TestDebugTargetDeclaredInAnotherDocument(t *testing.T) {
 
 	// An edit to the machine's document that leaves the machine as declared
 	// keeps the session running; one rewriting the machine ends it.
-	s.applyDidChange(ctx, uriToName(machinesURI), []rawContentChange{{Text: strings.Replace(machines, "attribute def Halt;", "attribute def Halt;\n\tattribute def Stop;", 1)}}, 2)
+	applyFullChange(ctx, s, uriToName(machinesURI), strings.Replace(machines, "attribute def Halt;", "attribute def Halt;\n\tattribute def Stop;", 1), 2)
 	for _, moved := range rec.debugChanged() {
 		if moved.Session != snap.Session || moved.State == debugEnded {
 			t.Fatalf("debugChanged after an unrelated edit to the machine's document = %s", describe(moved))
 		}
 		wantStrings(t, "active states after an unrelated edit", moved.ActiveStates, snap.ActiveStates)
 	}
-	s.applyDidChange(ctx, uriToName(machinesURI), []rawContentChange{{Text: strings.Replace(machines, "state elapsed;", "state elapsed;\n\t\tstate cooling;", 1)}}, 3)
+	applyFullChange(ctx, s, uriToName(machinesURI), strings.Replace(machines, "state elapsed;", "state elapsed;\n\t\tstate cooling;", 1), 3)
 	changed := rec.debugChanged()
 	last := changed[len(changed)-1]
 	if last.Session != snap.Session || last.State != debugEnded || !strings.Contains(last.Reason, "Machines::Ops was edited") {

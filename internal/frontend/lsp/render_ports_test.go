@@ -34,7 +34,7 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
-	experimental := res.Capabilities.Experimental.(map[string]any)
+	experimental := res.Capabilities.Experimental
 	if advertised, _ := experimental[RenderPortsCapability].([]string); !slices.Equal(advertised, []string{"minimal", "full"}) {
 		t.Fatalf("%s = %#v, want minimal then full", RenderPortsCapability, experimental[RenderPortsCapability])
 	}

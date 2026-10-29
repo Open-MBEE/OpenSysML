@@ -55,8 +55,8 @@ func TestHoverOnUntypedUsageStillReportsItsKind(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Hover err = %v", err)
 	}
-	if res == nil || !strings.Contains(res.Contents.Value, "state") ||
-		!strings.Contains(res.Contents.Value, "normal") {
+	if res == nil || !strings.Contains(hoverMarkup(t, res).Value, "state") ||
+		!strings.Contains(hoverMarkup(t, res).Value, "normal") {
 		t.Fatalf("hover on `normal` = %+v, want its own kind and name", res)
 	}
 }

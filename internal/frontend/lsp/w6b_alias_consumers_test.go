@@ -23,7 +23,7 @@ func TestW6BDefinitionThroughAliasLandsOnTheTarget(t *testing.T) {
 	name := uri.File("/tmp/w6b_alias_def.sysml").FsPath()
 	ws.Open(name, []byte(w6bAliasSrc), 1)
 
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(w6bAliasSrc), strings.Index(w6bAliasSrc, "part b : Box")+len("part b : ")),
@@ -58,7 +58,7 @@ func TestW6BHoverOnTheAliasDeclaration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Hover err = %v", err)
 	}
-	if res == nil || !strings.Contains(res.Contents.Value, "alias Box") {
+	if res == nil || !strings.Contains(hoverMarkup(t, res).Value, "alias Box") {
 		t.Fatalf("hover = %v, want \"alias Box\"", res)
 	}
 }
@@ -71,7 +71,7 @@ func TestW6BCompletionStillOffersTheAliasName(t *testing.T) {
 	src := "package ShapeItems {\n\tpart def Cube;\n\talias Box for Cube;\n\tpart p : \n}\n"
 	ws.Open(name, []byte(src), 1)
 
-	list, err := s.Completion(context.Background(), &protocol.CompletionParams{
+	list, err := completions(t, s, context.Background(), &protocol.CompletionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(src), strings.Index(src, "part p : ")+len("part p : ")),
@@ -104,7 +104,7 @@ func TestW6BMembersThroughAliasAreTheTargets(t *testing.T) {
 		"\talias Box for Cube;\n}\npackage Uses {\n\tpart b : ShapeItems::Box::"
 	ws.Open(name, []byte(src), 1)
 
-	list, err := s.Completion(context.Background(), &protocol.CompletionParams{
+	list, err := completions(t, s, context.Background(), &protocol.CompletionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(src), len(src)),

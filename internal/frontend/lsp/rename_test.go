@@ -201,7 +201,7 @@ func TestPrepareRenameReportsIdentifierRange(t *testing.T) {
 		return offsetToPosition([]byte(src), strings.Index(src, anchor))
 	}
 
-	rng, err := s.PrepareRename(context.Background(), &protocol.PrepareRenameParams{
+	rng, err := prepareRename(t, s, context.Background(), &protocol.PrepareRenameParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     at("N;"),
@@ -215,7 +215,7 @@ func TestPrepareRenameReportsIdentifierRange(t *testing.T) {
 	}
 
 	// A position that names nothing is refused rather than silently accepted.
-	if _, err := s.PrepareRename(context.Background(), &protocol.PrepareRenameParams{
+	if _, err := prepareRename(t, s, context.Background(), &protocol.PrepareRenameParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     at("{"),
@@ -327,7 +327,7 @@ func TestPrepareRenameAcceptsBodyExpressionParameter(t *testing.T) {
 	name := openRenameDoc(t, ws, "/tmp/prepare_bodyparam.sysml", bodyParamSrc)
 
 	want := strings.Index(bodyParamSrc, "s : Real; s > 0")
-	rng, err := s.PrepareRename(context.Background(), &protocol.PrepareRenameParams{
+	rng, err := prepareRename(t, s, context.Background(), &protocol.PrepareRenameParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(bodyParamSrc), want),

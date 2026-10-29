@@ -35,8 +35,8 @@ func TestCompletionOnStateOffersIsActiveOnlyWithTheImport(t *testing.T) {
 	if !ok {
 		t.Fatalf("completion after 'fill.' missing 'isActive'; got %v", labelsOf(items))
 	}
-	if !strings.Contains(item.Detail, "Boolean") {
-		t.Errorf("'isActive' detail = %q, want it to name Boolean", item.Detail)
+	if !strings.Contains(optString(item.Detail), "Boolean") {
+		t.Errorf("'isActive' detail = %q, want it to name Boolean", optString(item.Detail))
 	}
 	if _, ok := items["substates"]; !ok {
 		t.Errorf("completion after 'fill.' lost the standard member 'substates'; got %v", labelsOf(items))
@@ -70,7 +70,7 @@ func TestHoverOnIsActiveShowsTheBooleanFeature(t *testing.T) {
 	if res == nil {
 		t.Fatal("Hover result = nil, want the isActive feature")
 	}
-	if !strings.Contains(res.Contents.Value, "isActive") || !strings.Contains(res.Contents.Value, "Boolean") {
-		t.Errorf("hover value = %q, want the feature isActive typed Boolean", res.Contents.Value)
+	if !strings.Contains(hoverMarkup(t, res).Value, "isActive") || !strings.Contains(hoverMarkup(t, res).Value, "Boolean") {
+		t.Errorf("hover value = %q, want the feature isActive typed Boolean", hoverMarkup(t, res).Value)
 	}
 }

@@ -14,47 +14,10 @@ import (
 )
 
 // baseClient stubs all 12 protocol.Client methods; only PublishDiagnostics is overridden by fakeClient.
-type baseClient struct{}
+// baseClient answers every client request as unimplemented; fakes embed it and
+// record what they need.
+type baseClient struct{ protocol.UnimplementedClient }
 
-func (baseClient) Progress(ctx context.Context, params *protocol.ProgressParams) error {
-	return nil
-}
-func (baseClient) WorkDoneProgressCreate(ctx context.Context, params *protocol.WorkDoneProgressCreateParams) error {
-	return nil
-}
-func (baseClient) LogMessage(ctx context.Context, params *protocol.LogMessageParams) error {
-	return nil
-}
-func (baseClient) PublishDiagnostics(ctx context.Context, params *protocol.PublishDiagnosticsParams) error {
-	return nil
-}
-func (baseClient) ShowMessage(ctx context.Context, params *protocol.ShowMessageParams) error {
-	return nil
-}
-func (baseClient) ShowMessageRequest(ctx context.Context, params *protocol.ShowMessageRequestParams) (*protocol.MessageActionItem, error) {
-	return nil, nil
-}
-func (baseClient) Telemetry(ctx context.Context, params interface{}) error {
-	return nil
-}
-func (baseClient) RegisterCapability(ctx context.Context, params *protocol.RegistrationParams) error {
-	return nil
-}
-func (baseClient) UnregisterCapability(ctx context.Context, params *protocol.UnregistrationParams) error {
-	return nil
-}
-func (baseClient) ApplyEdit(ctx context.Context, params *protocol.ApplyWorkspaceEditParams) (bool, error) {
-	return false, nil
-}
-func (baseClient) Configuration(ctx context.Context, params *protocol.ConfigurationParams) ([]interface{}, error) {
-	return nil, nil
-}
-func (baseClient) WorkspaceFolders(ctx context.Context) ([]protocol.WorkspaceFolder, error) {
-	return nil, nil
-}
-
-// fakeClient is locked because the debounced cross-document refresh publishes
-// from a timer goroutine.
 type fakeClient struct {
 	baseClient
 	mu        sync.Mutex

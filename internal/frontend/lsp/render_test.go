@@ -730,7 +730,7 @@ func TestRenderAnswersEveryAdvertisedForm(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
-	experimental, ok := res.Capabilities.Experimental.(map[string]any)
+	experimental, ok := res.Capabilities.Experimental
 	if !ok {
 		t.Fatalf("Experimental = %#v, want a map", res.Capabilities.Experimental)
 	}
@@ -1189,9 +1189,7 @@ func TestDidChangeNotifiesRenderChangedAfterDiagnostics(t *testing.T) {
 	}
 	// A burst of edits, as typing is.
 	for version := 2; version <= 6; version++ {
-		s.applyDidChange(ctx, uriToName(docURI), []rawContentChange{
-			{Text: fmt.Sprintf("package Kit {\n\tpart def Widget;\n\tpart def Cog%d;\n}\n", version)},
-		}, version)
+		applyFullChange(ctx, s, uriToName(docURI), fmt.Sprintf("package Kit {\n\tpart def Widget;\n\tpart def Cog%d;\n}\n", version), version)
 	}
 
 	// The notification arrives once the burst settles rather than per keystroke.
@@ -1247,7 +1245,7 @@ func TestInitializeAdvertisesTheRenderCapability(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
-	experimental, ok := res.Capabilities.Experimental.(map[string]any)
+	experimental, ok := res.Capabilities.Experimental
 	if !ok {
 		t.Fatalf("Experimental = %#v, want a map", res.Capabilities.Experimental)
 	}
@@ -1329,7 +1327,7 @@ package StyledViews {
 	if err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
-	experimental := res.Capabilities.Experimental.(map[string]any)
+	experimental := res.Capabilities.Experimental
 	if advertised, _ := experimental[RenderStylesCapability].([]string); !slices.Equal(advertised, []string{"pilot", "cameo"}) {
 		t.Fatalf("%s = %#v, want pilot then cameo", RenderStylesCapability, experimental[RenderStylesCapability])
 	}
@@ -1409,7 +1407,7 @@ func TestRenderShowsOptionalNotationElements(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
-	experimental := res.Capabilities.Experimental.(map[string]any)
+	experimental := res.Capabilities.Experimental
 	wantNames := []string{"parameter-symbols", "port-symbols", "compartments", "edge-labels", "keywords", "multiplicities", "typings", "qualifiers", "all"}
 	if advertised, _ := experimental[RenderElementsCapability].([]string); !slices.Equal(advertised, wantNames) {
 		t.Fatalf("%s = %#v, want %v", RenderElementsCapability, experimental[RenderElementsCapability], wantNames)

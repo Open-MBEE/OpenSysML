@@ -17,7 +17,7 @@ func actionsFor(t *testing.T, file, src string, rng protocol.Range) []protocol.C
 	s := NewServer(ws)
 	name := uri.File(file).FsPath()
 	ws.Open(name, []byte(src), 1)
-	acts, err := s.CodeAction(context.Background(), &protocol.CodeActionParams{
+	acts, err := codeActions(t, s, context.Background(), &protocol.CodeActionParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 		Range:        rng,
 	})
@@ -167,9 +167,9 @@ func TestCodeActionHonoursOnlyFilter(t *testing.T) {
 	}{
 		{nil, 1},
 		{[]protocol.CodeActionKind{protocol.CodeActionKindQuickFix}, 1},
-		{[]protocol.CodeActionKind{protocol.Refactor, protocol.SourceOrganizeImports}, 0},
+		{[]protocol.CodeActionKind{protocol.CodeActionKindRefactor, protocol.CodeActionKindSourceOrganizeImports}, 0},
 	} {
-		acts, err := s.CodeAction(context.Background(), &protocol.CodeActionParams{
+		acts, err := codeActions(t, s, context.Background(), &protocol.CodeActionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Range:        wholeFile,
 			Context:      protocol.CodeActionContext{Only: tc.only},
@@ -186,7 +186,7 @@ func TestCodeActionHonoursOnlyFilter(t *testing.T) {
 // An unknown document has no actions rather than an error.
 func TestCodeActionUnknownDocument(t *testing.T) {
 	s := NewServer(model.NewWorkspace())
-	acts, err := s.CodeAction(context.Background(), &protocol.CodeActionParams{
+	acts, err := codeActions(t, s, context.Background(), &protocol.CodeActionParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File("/tmp/missing.sysml")},
 		Range:        wholeFile,
 	})

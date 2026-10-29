@@ -41,7 +41,7 @@ func multiFileWorkspace(t *testing.T) (*Server, *fakeClient, string, string, str
 	s.client = fc
 	ctx := context.Background()
 	if _, err := s.Initialize(ctx, &protocol.InitializeParams{
-		WorkspaceFolders: []protocol.WorkspaceFolder{{URI: string(uri.File(dir)), Name: "multi"}},
+		WorkspaceFoldersInitializeParams: workspaceFolders(protocol.WorkspaceFolder{URI: uri.File(dir), Name: "multi"}),
 	}); err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
@@ -151,7 +151,7 @@ func TestWatchedFileCreateAndChangeReindex(t *testing.T) {
 		t.Fatalf("write extra: %v", err)
 	}
 	if err := s.DidChangeWatchedFiles(ctx, &protocol.DidChangeWatchedFilesParams{
-		Changes: []*protocol.FileEvent{{URI: uri.File(extra), Type: protocol.FileChangeTypeCreated}},
+		Changes: []protocol.FileEvent{{URI: uri.File(extra), Type: protocol.FileChangeTypeCreated}},
 	}); err != nil {
 		t.Fatalf("DidChangeWatchedFiles err = %v", err)
 	}
@@ -184,7 +184,7 @@ func TestWatchedFileCreateAndChangeReindex(t *testing.T) {
 		t.Fatalf("rewrite extra: %v", err)
 	}
 	if err := s.DidChangeWatchedFiles(ctx, &protocol.DidChangeWatchedFilesParams{
-		Changes: []*protocol.FileEvent{{URI: uri.File(extra), Type: protocol.FileChangeTypeChanged}},
+		Changes: []protocol.FileEvent{{URI: uri.File(extra), Type: protocol.FileChangeTypeChanged}},
 	}); err != nil {
 		t.Fatalf("DidChangeWatchedFiles err = %v", err)
 	}
@@ -314,7 +314,7 @@ func TestFolderScanFollowsSymlinksOnlyWithinTheFolder(t *testing.T) {
 	// A link out of the workspace that a watcher reported, and so was indexed
 	// by path, is dropped by the next rescan: the walk does not yield it.
 	if err := s.DidChangeWatchedFiles(ctx, &protocol.DidChangeWatchedFilesParams{
-		Changes: []*protocol.FileEvent{{URI: uri.File(escape), Type: protocol.FileChangeTypeCreated}},
+		Changes: []protocol.FileEvent{{URI: uri.File(escape), Type: protocol.FileChangeTypeCreated}},
 	}); err != nil {
 		t.Fatalf("DidChangeWatchedFiles err = %v", err)
 	}
@@ -336,7 +336,7 @@ func TestWatchedFileDeleteUnindexesClosedDocument(t *testing.T) {
 		t.Fatalf("remove lib: %v", err)
 	}
 	if err := s.DidChangeWatchedFiles(ctx, &protocol.DidChangeWatchedFilesParams{
-		Changes: []*protocol.FileEvent{{URI: uri.File(lib), Type: protocol.FileChangeTypeDeleted}},
+		Changes: []protocol.FileEvent{{URI: uri.File(lib), Type: protocol.FileChangeTypeDeleted}},
 	}); err != nil {
 		t.Fatalf("DidChangeWatchedFiles err = %v", err)
 	}
@@ -359,7 +359,7 @@ func TestWatchedFileDeleteKeepsOpenBuffer(t *testing.T) {
 		t.Fatalf("remove lib: %v", err)
 	}
 	if err := s.DidChangeWatchedFiles(ctx, &protocol.DidChangeWatchedFilesParams{
-		Changes: []*protocol.FileEvent{{URI: uri.File(lib), Type: protocol.FileChangeTypeDeleted}},
+		Changes: []protocol.FileEvent{{URI: uri.File(lib), Type: protocol.FileChangeTypeDeleted}},
 	}); err != nil {
 		t.Fatalf("DidChangeWatchedFiles err = %v", err)
 	}
@@ -552,7 +552,7 @@ func TestDidChangeWorkspaceFoldersIndexesAddedFolder(t *testing.T) {
 	}
 	if err := s.DidChangeWorkspaceFolders(ctx, &protocol.DidChangeWorkspaceFoldersParams{
 		Event: protocol.WorkspaceFoldersChangeEvent{
-			Added: []protocol.WorkspaceFolder{{URI: string(uri.File(added)), Name: "extra"}},
+			Added: []protocol.WorkspaceFolder{{URI: uri.File(added), Name: "extra"}},
 		},
 	}); err != nil {
 		t.Fatalf("DidChangeWorkspaceFolders err = %v", err)
@@ -567,7 +567,7 @@ func TestDidChangeWorkspaceFoldersIndexesAddedFolder(t *testing.T) {
 	// Removing the folder again unindexes what it contributed.
 	if err := s.DidChangeWorkspaceFolders(ctx, &protocol.DidChangeWorkspaceFoldersParams{
 		Event: protocol.WorkspaceFoldersChangeEvent{
-			Removed: []protocol.WorkspaceFolder{{URI: string(uri.File(added)), Name: "extra"}},
+			Removed: []protocol.WorkspaceFolder{{URI: uri.File(added), Name: "extra"}},
 		},
 	}); err != nil {
 		t.Fatalf("DidChangeWorkspaceFolders err = %v", err)
@@ -592,7 +592,7 @@ func TestRemovingFolderAroundOpenFileKeepsSiblingsIndexed(t *testing.T) {
 	}
 	if err := s.DidChangeWorkspaceFolders(ctx, &protocol.DidChangeWorkspaceFoldersParams{
 		Event: protocol.WorkspaceFoldersChangeEvent{
-			Removed: []protocol.WorkspaceFolder{{URI: string(uri.File(dir)), Name: "multi"}},
+			Removed: []protocol.WorkspaceFolder{{URI: uri.File(dir), Name: "multi"}},
 		},
 	}); err != nil {
 		t.Fatalf("DidChangeWorkspaceFolders err = %v", err)
@@ -622,7 +622,7 @@ func TestDidChangeWorkspaceFoldersKeepsOpenBuffer(t *testing.T) {
 	openFile(t, s, lib, libSource)
 	if err := s.DidChangeWorkspaceFolders(context.Background(), &protocol.DidChangeWorkspaceFoldersParams{
 		Event: protocol.WorkspaceFoldersChangeEvent{
-			Removed: []protocol.WorkspaceFolder{{URI: string(uri.File(dir)), Name: "multi"}},
+			Removed: []protocol.WorkspaceFolder{{URI: uri.File(dir), Name: "multi"}},
 		},
 	}); err != nil {
 		t.Fatalf("DidChangeWorkspaceFolders err = %v", err)
@@ -648,14 +648,14 @@ func TestDidChangeWorkspaceFoldersKeepsNestedFolder(t *testing.T) {
 	}
 	if err := s.DidChangeWorkspaceFolders(ctx, &protocol.DidChangeWorkspaceFoldersParams{
 		Event: protocol.WorkspaceFoldersChangeEvent{
-			Added: []protocol.WorkspaceFolder{{URI: string(uri.File(nested)), Name: "nested"}},
+			Added: []protocol.WorkspaceFolder{{URI: uri.File(nested), Name: "nested"}},
 		},
 	}); err != nil {
 		t.Fatalf("DidChangeWorkspaceFolders err = %v", err)
 	}
 	if err := s.DidChangeWorkspaceFolders(ctx, &protocol.DidChangeWorkspaceFoldersParams{
 		Event: protocol.WorkspaceFoldersChangeEvent{
-			Removed: []protocol.WorkspaceFolder{{URI: string(uri.File(dir)), Name: "multi"}},
+			Removed: []protocol.WorkspaceFolder{{URI: uri.File(dir), Name: "multi"}},
 		},
 	}); err != nil {
 		t.Fatalf("DidChangeWorkspaceFolders err = %v", err)
@@ -679,7 +679,7 @@ func TestLoadFromDiskSkipsOversizedFile(t *testing.T) {
 		t.Fatalf("write huge: %v", err)
 	}
 	if err := s.DidChangeWatchedFiles(context.Background(), &protocol.DidChangeWatchedFilesParams{
-		Changes: []*protocol.FileEvent{{URI: uri.File(huge), Type: protocol.FileChangeTypeCreated}},
+		Changes: []protocol.FileEvent{{URI: uri.File(huge), Type: protocol.FileChangeTypeCreated}},
 	}); err != nil {
 		t.Fatalf("DidChangeWatchedFiles err = %v", err)
 	}
@@ -724,7 +724,7 @@ func TestWatchedFileDeleteClearsDiagnostics(t *testing.T) {
 		t.Fatalf("remove lib: %v", err)
 	}
 	if err := s.DidChangeWatchedFiles(ctx, &protocol.DidChangeWatchedFilesParams{
-		Changes: []*protocol.FileEvent{{URI: uri.File(lib), Type: protocol.FileChangeTypeDeleted}},
+		Changes: []protocol.FileEvent{{URI: uri.File(lib), Type: protocol.FileChangeTypeDeleted}},
 	}); err != nil {
 		t.Fatalf("DidChangeWatchedFiles err = %v", err)
 	}

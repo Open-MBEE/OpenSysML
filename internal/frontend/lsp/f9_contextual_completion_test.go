@@ -32,8 +32,8 @@ func TestCompletionOffersContextualWords(t *testing.T) {
 			if item.Kind != protocol.CompletionItemKindKeyword {
 				t.Errorf("%s: %q kind = %v, want Keyword", tc.file, w, item.Kind)
 			}
-			if item.Detail != "contextual keyword" {
-				t.Errorf("%s: %q detail = %q, want \"contextual keyword\"", tc.file, w, item.Detail)
+			if optString(item.Detail) != "contextual keyword" {
+				t.Errorf("%s: %q detail = %q, want \"contextual keyword\"", tc.file, w, optString(item.Detail))
 			}
 		}
 	}
@@ -88,7 +88,7 @@ func f9CompletionAt(t *testing.T, path, src string) map[string]protocol.Completi
 	name := uri.File(path).FsPath()
 	ws.Open(name, []byte(src), 1)
 
-	list, err := s.Completion(context.Background(), &protocol.CompletionParams{
+	list, err := completions(t, s, context.Background(), &protocol.CompletionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(src), len(src)),

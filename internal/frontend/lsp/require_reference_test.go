@@ -30,7 +30,7 @@ func TestDefinitionQualifiedRequireReference(t *testing.T) {
 	ws.Open(name, []byte(src), 1)
 
 	off := strings.LastIndex(src, "fuelMassRequirement")
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(src), off),
@@ -72,7 +72,7 @@ func TestDefinitionOfRequirementConstraintMember(t *testing.T) {
 		line uint32
 	}{{":>> assumed", 3}, {":>> required", 4}} {
 		off := strings.Index(src, tc.ref) + len(":>> ")
-		locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+		locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 				Position:     offsetToPosition([]byte(src), off),

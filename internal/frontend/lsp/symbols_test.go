@@ -18,7 +18,7 @@ func TestDocumentSymbolReturnsTree(t *testing.T) {
 	name := uri.File("/tmp/d.sysml").FsPath()
 	ws.Open(name, []byte("package P { namespace N; }"), 1)
 
-	res, err := s.DocumentSymbol(context.Background(), &protocol.DocumentSymbolParams{
+	res, err := documentSymbols(t, s, context.Background(), &protocol.DocumentSymbolParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 	})
 	if err != nil {
@@ -49,7 +49,7 @@ func TestDocumentSymbolNamesAViewRenderingByItsRendering(t *testing.T) {
 	s := NewServer(ws)
 	name := uri.File("/tmp/render.sysml").FsPath()
 	ws.Open(name, []byte("package P { rendering def Tree; rendering tree : Tree; view def V { render tree; } }"), 1)
-	res, err := s.DocumentSymbol(context.Background(), &protocol.DocumentSymbolParams{
+	res, err := documentSymbols(t, s, context.Background(), &protocol.DocumentSymbolParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 	})
 	if err != nil {

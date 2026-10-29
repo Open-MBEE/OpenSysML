@@ -83,7 +83,7 @@ func documentPosParams(name string, src, anchor string, t *testing.T) protocol.T
 
 func TestDefinitionQueryInvocationToCalcDef(t *testing.T) {
 	_, s, name := openDocumentModel(t)
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: documentPosParams(name, documentModel, "SubsystemTable {", t),
 	})
 	if err != nil {
@@ -100,7 +100,7 @@ func TestDefinitionQueryInvocationToCalcDef(t *testing.T) {
 
 func TestDefinitionBindingNameToQueryParameter(t *testing.T) {
 	_, s, name := openDocumentModel(t)
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: documentPosParams(name, documentModel, "root = telescope", t),
 	})
 	if err != nil {
@@ -119,7 +119,7 @@ func TestDefinitionBindingNameToQueryParameter(t *testing.T) {
 
 func TestDefinitionBindingValueToModelElement(t *testing.T) {
 	_, s, name := openDocumentModel(t)
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: documentPosParams(name, documentModel, "telescope;", t),
 	})
 	if err != nil {
@@ -142,7 +142,7 @@ func TestHoverQueryInvocationShowsQueryDef(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Hover err = %v", err)
 	}
-	if hov == nil || !strings.Contains(hov.Contents.Value, "calc def SubsystemTable") {
+	if hov == nil || !strings.Contains(hoverMarkup(t, hov).Value, "calc def SubsystemTable") {
 		t.Fatalf("hover = %+v, want the query's calc def signature", hov)
 	}
 }
@@ -155,7 +155,7 @@ func TestHoverQueryReferenceShowsDocComment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Hover err = %v", err)
 	}
-	if hov == nil || !strings.Contains(hov.Contents.Value, "finds every part usage") {
+	if hov == nil || !strings.Contains(hoverMarkup(t, hov).Value, "finds every part usage") {
 		t.Fatalf("hover = %+v, want the referenced query's doc comment", hov)
 	}
 }
@@ -168,15 +168,15 @@ func TestHoverDocumentLibraryType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Hover err = %v", err)
 	}
-	if hov == nil || !strings.Contains(hov.Contents.Value, "part def") ||
-		!strings.Contains(hov.Contents.Value, "Document") {
+	if hov == nil || !strings.Contains(hoverMarkup(t, hov).Value, "part def") ||
+		!strings.Contains(hoverMarkup(t, hov).Value, "Document") {
 		t.Fatalf("hover = %+v, want the library Document part def", hov)
 	}
 }
 
 func completionLabels(t *testing.T, s *Server, name, anchor string) []string {
 	t.Helper()
-	list, err := s.Completion(context.Background(), &protocol.CompletionParams{
+	list, err := completions(t, s, context.Background(), &protocol.CompletionParams{
 		TextDocumentPositionParams: documentPosParams(name, documentModel, anchor, t),
 	})
 	if err != nil {
@@ -279,7 +279,7 @@ func completionLabelsIn(t *testing.T, s *Server, name, src, anchor string, delta
 	if off < 0 {
 		t.Fatalf("anchor %q not in fixture", anchor)
 	}
-	list, err := s.Completion(context.Background(), &protocol.CompletionParams{
+	list, err := completions(t, s, context.Background(), &protocol.CompletionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(src), off+delta),
@@ -357,15 +357,15 @@ func TestHoverQualifiedReferenceSegments(t *testing.T) {
 	s, name := openReportModel(t)
 	anchor := "QueryLib::NoInputs {"
 	if hov := reportHover(t, s, name, anchor, 0); hov == nil ||
-		!strings.Contains(hov.Contents.Value, "package QueryLib") {
+		!strings.Contains(hoverMarkup(t, hov).Value, "package QueryLib") {
 		t.Fatalf("qualifier hover = %+v, want package QueryLib", hov)
 	}
 	if hov := reportHover(t, s, name, anchor, len("QueryLib::")); hov == nil ||
-		!strings.Contains(hov.Contents.Value, "calc def NoInputs") {
+		!strings.Contains(hoverMarkup(t, hov).Value, "calc def NoInputs") {
 		t.Fatalf("member hover = %+v, want calc def NoInputs", hov)
 	}
 	if hov := reportHover(t, s, name, anchor, len("QueryLib:")); hov != nil &&
-		strings.Contains(hov.Contents.Value, "NoInputs") {
+		strings.Contains(hoverMarkup(t, hov).Value, "NoInputs") {
 		t.Fatalf("separator hover = %+v, want not the reference target", hov)
 	}
 }
@@ -444,7 +444,7 @@ func TestDocumentsListsWorkspaceDocuments(t *testing.T) {
 	if res.Documents[0].Name != "Observatory::MassReport" {
 		t.Errorf("name = %q, want Observatory::MassReport", res.Documents[0].Name)
 	}
-	if res.Documents[0].URI != string(uri.File(name)) {
+	if res.Documents[0].URI != uri.File(name) {
 		t.Errorf("uri = %q, want %q", res.Documents[0].URI, uri.File(name))
 	}
 }

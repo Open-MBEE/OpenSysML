@@ -34,7 +34,7 @@ func projectWorkspace(t *testing.T, folder string, options map[string]any) (*Ser
 	s.client = fc
 	ctx := context.Background()
 	params := &protocol.InitializeParams{
-		WorkspaceFolders: []protocol.WorkspaceFolder{{URI: string(uri.File(folder)), Name: filepath.Base(folder)}},
+		WorkspaceFoldersInitializeParams: workspaceFolders(protocol.WorkspaceFolder{URI: uri.File(folder), Name: filepath.Base(folder)}),
 	}
 	if options != nil {
 		params.InitializationOptions = options
@@ -174,7 +174,7 @@ func TestRescanKeepsTheDependenciesAndDropsAFolderWithThem(t *testing.T) {
 	}
 
 	if err := s.DidChangeWorkspaceFolders(ctx, &protocol.DidChangeWorkspaceFoldersParams{
-		Event: protocol.WorkspaceFoldersChangeEvent{Removed: []protocol.WorkspaceFolder{{URI: string(uri.File(proj)), Name: "proj"}}},
+		Event: protocol.WorkspaceFoldersChangeEvent{Removed: []protocol.WorkspaceFolder{{URI: uri.File(proj), Name: "proj"}}},
 	}); err != nil {
 		t.Fatalf("DidChangeWorkspaceFolders err = %v", err)
 	}
@@ -237,8 +237,8 @@ func TestRemovingAFolderKeepsTheSourcesAnotherFoldersProjectUses(t *testing.T) {
 	s.client = &fakeClient{}
 	ctx := context.Background()
 	if _, err := s.Initialize(ctx, &protocol.InitializeParams{
-		WorkspaceFolders:      []protocol.WorkspaceFolder{{URI: string(uri.File(a)), Name: "a"}, {URI: string(uri.File(b)), Name: "b"}},
-		InitializationOptions: map[string]any{"libraryRoots": []any{root}},
+		WorkspaceFoldersInitializeParams: workspaceFolders(protocol.WorkspaceFolder{URI: uri.File(a), Name: "a"}, protocol.WorkspaceFolder{URI: uri.File(b), Name: "b"}),
+		InitializationOptions:            map[string]any{"libraryRoots": []any{root}},
 	}); err != nil {
 		t.Fatalf("Initialize err = %v", err)
 	}
@@ -251,7 +251,7 @@ func TestRemovingAFolderKeepsTheSourcesAnotherFoldersProjectUses(t *testing.T) {
 	}
 
 	if err := s.DidChangeWorkspaceFolders(ctx, &protocol.DidChangeWorkspaceFoldersParams{
-		Event: protocol.WorkspaceFoldersChangeEvent{Removed: []protocol.WorkspaceFolder{{URI: string(uri.File(b)), Name: "b"}}},
+		Event: protocol.WorkspaceFoldersChangeEvent{Removed: []protocol.WorkspaceFolder{{URI: uri.File(b), Name: "b"}}},
 	}); err != nil {
 		t.Fatalf("DidChangeWorkspaceFolders err = %v", err)
 	}
@@ -259,7 +259,7 @@ func TestRemovingAFolderKeepsTheSourcesAnotherFoldersProjectUses(t *testing.T) {
 		t.Errorf("%s dropped with folder b, though folder a's project uses it", shared)
 	}
 	if err := s.DidChangeWorkspaceFolders(ctx, &protocol.DidChangeWorkspaceFoldersParams{
-		Event: protocol.WorkspaceFoldersChangeEvent{Removed: []protocol.WorkspaceFolder{{URI: string(uri.File(a)), Name: "a"}}},
+		Event: protocol.WorkspaceFoldersChangeEvent{Removed: []protocol.WorkspaceFolder{{URI: uri.File(a), Name: "a"}}},
 	}); err != nil {
 		t.Fatalf("DidChangeWorkspaceFolders err = %v", err)
 	}
@@ -284,7 +284,7 @@ func TestChangedProjectFileFindsTheProjectsAgain(t *testing.T) {
 	// file the editor watches.
 	writeFile(t, filepath.Join(a, ".project.json"), `{"name": "a", "publisher": "acme", "version": "1", "usage": [{"resource": "pkg:r/acme/b"}]}`)
 	if err := s.DidChangeWatchedFiles(ctx, &protocol.DidChangeWatchedFilesParams{
-		Changes: []*protocol.FileEvent{{URI: uri.File(filepath.Join(a, ".project.json")), Type: protocol.FileChangeTypeChanged}},
+		Changes: []protocol.FileEvent{{URI: uri.File(filepath.Join(a, ".project.json")), Type: protocol.FileChangeTypeChanged}},
 	}); err != nil {
 		t.Fatalf("DidChangeWatchedFiles err = %v", err)
 	}

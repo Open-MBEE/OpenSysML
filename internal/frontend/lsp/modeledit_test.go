@@ -397,7 +397,7 @@ func TestApplyModelEditRenamesEveryReference(t *testing.T) {
 	if strings.Contains(got, "Tank;") && !strings.Contains(got, "FuelTank;") {
 		t.Errorf("reference not renamed:\n%s", got)
 	}
-	if n := len(out.Edit.DocumentChanges[0].Edits); n != 2 {
+	if n := len(out.Edit.DocumentChanges[0].(*protocol.TextDocumentEdit).Edits); n != 2 {
 		t.Errorf("edits = %d, want one per changed line (declaration and usage)", n)
 	}
 }

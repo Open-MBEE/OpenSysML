@@ -86,7 +86,7 @@ func NewHost(ctx context.Context, root string, ws *model.Workspace, version stri
 		WorkspaceFolders: []protocol.WorkspaceFolder{{URI: string(uri.File(root)), Name: root}},
 		Capabilities: protocol.ClientCapabilities{
 			TextDocument: &protocol.TextDocumentClientCapabilities{
-				Hover: &protocol.HoverTextDocumentClientCapabilities{ContentFormat: []protocol.MarkupKind{protocol.MarkupKindMarkdown}},
+				Hover: &protocol.HoverClientCapabilities{ContentFormat: []protocol.MarkupKind{protocol.MarkupKindMarkdown}},
 			},
 		},
 	}

@@ -23,7 +23,7 @@ func TestDefinitionJumpsToDeclaration(t *testing.T) {
 	off := strings.LastIndex(src, "N")
 	pos := offsetToPosition([]byte(src), off)
 
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     pos,
@@ -78,7 +78,7 @@ func TestDefinitionViaContextRouteSegments(t *testing.T) {
 
 	definitionLineAt := func(offset int) uint32 {
 		t.Helper()
-		locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+		locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 				Position:     offsetToPosition([]byte(src), offset),
@@ -133,7 +133,7 @@ func TestDefinitionSendWithBodyViaContextRouteSegments(t *testing.T) {
 
 	definitionLineAt := func(offset int) uint32 {
 		t.Helper()
-		locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+		locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 				Position:     offsetToPosition([]byte(src), offset),
@@ -177,7 +177,7 @@ func TestDefinitionBodyExpressionParameter(t *testing.T) {
 
 	definitionAt := func(anchor string) []protocol.Location {
 		t.Helper()
-		locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+		locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 				Position:     offsetToPosition([]byte(src), strings.Index(src, anchor)),
@@ -216,7 +216,7 @@ func TestDefinitionCrossFile(t *testing.T) {
 	off := strings.LastIndex(useSrc, "N")
 	pos := offsetToPosition([]byte(useSrc), off)
 
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(useName)},
 			Position:     pos,
@@ -253,7 +253,7 @@ func TestDefinitionPerformReference(t *testing.T) {
 	ws.Open(name, []byte(src), 1)
 
 	off := strings.LastIndex(src, "providePower")
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(src), off),
@@ -290,7 +290,7 @@ func TestDefinitionPerformChainMember(t *testing.T) {
 	ws.Open(name, []byte(src), 1)
 
 	off := strings.LastIndex(src, "generateTorque")
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(src), off),
@@ -332,7 +332,7 @@ func TestDefinitionConnectorEndReferenceIsNotASiblingEnd(t *testing.T) {
 	ws.Open(name, []byte(src), 1)
 
 	off := strings.LastIndex(src, "references bead") + len("references ")
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(src), off),
@@ -370,7 +370,7 @@ func TestDefinitionKerMLBinaryConnectorFirstEnd(t *testing.T) {
 
 	for _, probe := range []string{"connector eng to", "::> eng to", "[0..1] eng to"} {
 		off := strings.Index(src, probe) + strings.Index(probe, "eng")
-		locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+		locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 				Position:     offsetToPosition([]byte(src), off),
@@ -420,7 +420,7 @@ func TestDefinitionKerMLDisjoiningEnds(t *testing.T) {
 		{"next from A", 1},
 	} {
 		off := strings.Index(src, tc.probe) + strings.LastIndexAny(tc.probe, " .") + 1
-		locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+		locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 				Position:     offsetToPosition([]byte(src), off),
@@ -465,7 +465,7 @@ package P {
 		decl uint32
 	}{{"Other", 2}, {"Safety", 1}} {
 		pos := offsetToPosition([]byte(src), strings.LastIndex(src, tc.name))
-		locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+		locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 				Position:     pos,
@@ -501,7 +501,7 @@ func TestDefinitionBindingConnectorEnds(t *testing.T) {
 
 	for _, probe := range []string{"bind a = b", "e1 ::> a", "[1] e3 ::> a"} {
 		off := strings.Index(src, probe) + strings.LastIndex(probe, "a")
-		locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+		locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 				Position:     offsetToPosition([]byte(src), off),
@@ -519,7 +519,7 @@ func TestDefinitionBindingConnectorEnds(t *testing.T) {
 		}
 	}
 	off := strings.Index(src, "e2 references b") + len("e2 references ")
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(src), off),

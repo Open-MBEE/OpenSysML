@@ -58,7 +58,7 @@ func hoverAt(t *testing.T, s *Server, name string, offset int) *protocol.Hover {
 
 func definitionAt(t *testing.T, s *Server, name string, offset int) []protocol.Location {
 	t.Helper()
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(metadataBodySrc), offset),
@@ -72,7 +72,7 @@ func definitionAt(t *testing.T, s *Server, name string, offset int) []protocol.L
 
 func bodyCompletionAt(t *testing.T, s *Server, name string, offset int) map[string]bool {
 	t.Helper()
-	list, err := s.Completion(context.Background(), &protocol.CompletionParams{
+	list, err := completions(t, s, context.Background(), &protocol.CompletionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(metadataBodySrc), offset),
@@ -95,7 +95,7 @@ func TestMetadataBodyHoverNamesRedefinedFeature(t *testing.T) {
 	if h == nil {
 		t.Fatal("hover on body declaration returned nil")
 	}
-	text := h.Contents.Value
+	text := hoverMarkup(t, h).Value
 	if !strings.Contains(text, "redefines Anno::own") {
 		t.Errorf("hover = %q, want it to name Anno::own", text)
 	}
@@ -171,7 +171,7 @@ func TestMetadataBodyUnresolvedMetaclassDegradesQuietly(t *testing.T) {
 	ghost := strings.Index(metadataBodySrc, "ghost = 1")
 
 	if h := hoverAt(t, s, name, ghost); h != nil {
-		text := h.Contents.Value
+		text := hoverMarkup(t, h).Value
 		if strings.Contains(text, "redefines") {
 			t.Errorf("hover under unresolved metaclass = %q, want no redefinition", text)
 		}
@@ -205,7 +205,7 @@ item p {
 `
 	ws.Open(name, []byte(src), 1)
 
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(src), strings.Index(src, "label = 3")),
@@ -264,7 +264,7 @@ func TestMetadataBodyNestedDeclarationsFollowTheRedefinedFeature(t *testing.T) {
 			"b = 3": "P::T::b",
 			"d = 4": "P::U::d",
 		} {
-			locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{TextDocumentPositionParams: at(anchor)})
+			locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{TextDocumentPositionParams: at(anchor)})
 			if err != nil {
 				t.Fatalf("%s: Definition err = %v", file, err)
 			}
@@ -280,8 +280,8 @@ func TestMetadataBodyNestedDeclarationsFollowTheRedefinedFeature(t *testing.T) {
 			if err != nil || h == nil {
 				t.Fatalf("%s: Hover on %q = %v, %v", file, anchor, h, err)
 			}
-			if !strings.Contains(h.Contents.Value, "redefines "+want) {
-				t.Errorf("%s: hover on %q = %q, want it to redefine %s", file, anchor, h.Contents.Value, want)
+			if !strings.Contains(hoverMarkup(t, h).Value, "redefines "+want) {
+				t.Errorf("%s: hover on %q = %q, want it to redefine %s", file, anchor, hoverMarkup(t, h).Value, want)
 			}
 		}
 		for anchor, want := range map[string][]string{
@@ -289,7 +289,7 @@ func TestMetadataBodyNestedDeclarationsFollowTheRedefinedFeature(t *testing.T) {
 			"d = 2": {"d"},
 			"d = 4": {"d"},
 		} {
-			list, err := s.Completion(context.Background(), &protocol.CompletionParams{TextDocumentPositionParams: at(anchor)})
+			list, err := completions(t, s, context.Background(), &protocol.CompletionParams{TextDocumentPositionParams: at(anchor)})
 			if err != nil {
 				t.Fatalf("%s: Completion err = %v", file, err)
 			}
@@ -312,7 +312,7 @@ func TestMetadataBodyNestedDeclarationsFollowTheRedefinedFeature(t *testing.T) {
 func TestMetadataBodyDocumentSymbols(t *testing.T) {
 	s, name := openMetadataBodyDoc(t)
 
-	out, err := s.DocumentSymbol(context.Background(), &protocol.DocumentSymbolParams{
+	out, err := documentSymbols(t, s, context.Background(), &protocol.DocumentSymbolParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 	})
 	if err != nil {

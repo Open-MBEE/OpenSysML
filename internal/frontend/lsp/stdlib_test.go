@@ -89,7 +89,7 @@ func TestDefinitionOfLibrarySymbolOpensVirtualDocument(t *testing.T) {
 	src := "package P { attribute x : ScalarValues::Integer; }\n"
 	ws.Open(name, []byte(src), 1)
 
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(src), strings.Index(src, "Integer")),
@@ -122,7 +122,7 @@ func TestDefinitionWithinLibraryDocuments(t *testing.T) {
 	if off < 0 {
 		t.Fatal("Occurrences.kerml no longer imports Base::Anything")
 	}
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: libraryURI(occurrencesName)},
 			Position:     offsetToPosition([]byte(text), off+len("Base::")),
@@ -160,11 +160,11 @@ func TestRequestsAgainstLibraryURI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Hover err = %v", err)
 	}
-	if hov == nil || !strings.Contains(hov.Contents.Value, "classifier Anything") {
+	if hov == nil || !strings.Contains(hoverMarkup(t, hov).Value, "classifier Anything") {
 		t.Errorf("hover = %+v, want the classifier's signature", hov)
 	}
 
-	syms, err := s.DocumentSymbol(ctx, &protocol.DocumentSymbolParams{
+	syms, err := documentSymbols(t, s, ctx, &protocol.DocumentSymbolParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 	})
 	if err != nil {
@@ -341,7 +341,7 @@ func TestLibraryLocationsUseUTF16Positions(t *testing.T) {
 	text := "package P { attribute x : Fake::Thing; }\n"
 	ws.Open(name, []byte(text), 1)
 
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(text), strings.Index(text, "Thing")),

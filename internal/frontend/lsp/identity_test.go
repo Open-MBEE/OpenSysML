@@ -429,11 +429,11 @@ func TestIdentityActionHonorsKindFilter(t *testing.T) {
 		want int
 	}{
 		{[]protocol.CodeActionKind{protocol.CodeActionKindQuickFix}, 0},
-		{[]protocol.CodeActionKind{protocol.Refactor}, 1},
+		{[]protocol.CodeActionKind{protocol.CodeActionKindRefactor}, 1},
 		{[]protocol.CodeActionKind{protocol.CodeActionKindRefactorRewrite}, 1},
 		{nil, 1},
 	} {
-		acts, err := s.CodeAction(context.Background(), &protocol.CodeActionParams{
+		acts, err := codeActions(t, s, context.Background(), &protocol.CodeActionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Range:        cursorAt(t, scopedSrc, "Chassis"),
 			Context:      protocol.CodeActionContext{Only: tc.only},

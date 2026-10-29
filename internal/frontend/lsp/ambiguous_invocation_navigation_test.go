@@ -189,15 +189,15 @@ func TestHoverNamesAmbiguousOverloads(t *testing.T) {
 		t.Fatal("Hover = nil, want the tied overloads")
 	}
 	for _, want := range []string{"A::pick", "B::pick", "Ambiguous call"} {
-		if !strings.Contains(hov.Contents.Value, want) {
-			t.Errorf("hover %q lacks %q", hov.Contents.Value, want)
+		if !strings.Contains(hoverMarkup(t, hov).Value, want) {
+			t.Errorf("hover %q lacks %q", hoverMarkup(t, hov).Value, want)
 		}
 	}
-	if strings.Contains(hov.Contents.Value, "C::pick") {
-		t.Errorf("hover %q names the beaten Real overload", hov.Contents.Value)
+	if strings.Contains(hoverMarkup(t, hov).Value, "C::pick") {
+		t.Errorf("hover %q names the beaten Real overload", hoverMarkup(t, hov).Value)
 	}
-	if strings.Contains(hov.Contents.Value, "attribute") {
-		t.Errorf("hover %q describes the enclosing attribute", hov.Contents.Value)
+	if strings.Contains(hoverMarkup(t, hov).Value, "attribute") {
+		t.Errorf("hover %q describes the enclosing attribute", hoverMarkup(t, hov).Value)
 	}
 	if hov.Range == nil || hov.Range.Start.Line != lineOfSrc(t, src, "pick(2)") {
 		t.Errorf("hover range = %v, want the call's name", hov.Range)
@@ -463,7 +463,7 @@ func TestSeparatorOfQualifiedAmbiguousCall(t *testing.T) {
 
 	for _, at := range []string{"::pick(2)", `::pick("s")`} {
 		hov := hoverOf(t, s, name, src, at)
-		if hov == nil || !strings.Contains(hov.Contents.Value, "attribute q") || strings.Contains(hov.Contents.Value, "Ambiguous") {
+		if hov == nil || !strings.Contains(hoverMarkup(t, hov).Value, "attribute q") || strings.Contains(hoverMarkup(t, hov).Value, "Ambiguous") {
 			t.Errorf("hover on %q = %v, want the enclosing attribute", at, hov)
 		}
 	}

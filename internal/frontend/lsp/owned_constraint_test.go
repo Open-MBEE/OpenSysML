@@ -36,7 +36,7 @@ func openOwnedConstraintDoc(t *testing.T) (*Server, string) {
 func TestDefinitionNamedOwnedConstraintRedefinition(t *testing.T) {
 	s, name := openOwnedConstraintDoc(t)
 	off := strings.LastIndex(ownedConstraintSrc, ":>> c") + len(":>> ")
-	locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+	locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 			Position:     offsetToPosition([]byte(ownedConstraintSrc), off),
@@ -65,14 +65,14 @@ func TestHoverNamedOwnedConstraint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Hover err = %v", err)
 	}
-	if res == nil || !strings.Contains(res.Contents.Value, "constraint") || !strings.Contains(res.Contents.Value, "c") {
+	if res == nil || !strings.Contains(hoverMarkup(t, res).Value, "constraint") || !strings.Contains(hoverMarkup(t, res).Value, "c") {
 		t.Fatalf("hover = %+v, want a constraint usage named c", res)
 	}
 }
 
 func TestDocumentSymbolListsNamedOwnedConstraint(t *testing.T) {
 	s, name := openOwnedConstraintDoc(t)
-	res, err := s.DocumentSymbol(context.Background(), &protocol.DocumentSymbolParams{
+	res, err := documentSymbols(t, s, context.Background(), &protocol.DocumentSymbolParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 	})
 	if err != nil {

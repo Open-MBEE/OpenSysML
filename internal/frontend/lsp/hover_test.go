@@ -35,8 +35,8 @@ func TestHoverShowsKindAndName(t *testing.T) {
 	if res == nil {
 		t.Fatal("Hover result = nil, want content")
 	}
-	if !strings.Contains(res.Contents.Value, "namespace") || !strings.Contains(res.Contents.Value, "N") {
-		t.Errorf("hover value = %q, want kind+name", res.Contents.Value)
+	if !strings.Contains(hoverMarkup(t, res).Value, "namespace") || !strings.Contains(hoverMarkup(t, res).Value, "N") {
+		t.Errorf("hover value = %q, want kind+name", hoverMarkup(t, res).Value)
 	}
 }
 
@@ -63,8 +63,8 @@ func TestHoverIncludesDocComment(t *testing.T) {
 	if res == nil {
 		t.Fatal("Hover result = nil, want content")
 	}
-	if !strings.Contains(res.Contents.Value, "hello docs") {
-		t.Errorf("hover value = %q, want doc-comment text", res.Contents.Value)
+	if !strings.Contains(hoverMarkup(t, res).Value, "hello docs") {
+		t.Errorf("hover value = %q, want doc-comment text", hoverMarkup(t, res).Value)
 	}
 }
 
@@ -74,7 +74,7 @@ func initMarkdownHover(t *testing.T, s *Server) {
 	_, err := s.Initialize(context.Background(), &protocol.InitializeParams{
 		Capabilities: protocol.ClientCapabilities{
 			TextDocument: &protocol.TextDocumentClientCapabilities{
-				Hover: &protocol.HoverTextDocumentClientCapabilities{
+				Hover: &protocol.HoverClientCapabilities{
 					ContentFormat: []protocol.MarkupKind{protocol.MarkupKindMarkdown, protocol.MarkupKindPlainText},
 				},
 			},
@@ -117,8 +117,8 @@ func TestHoverKerMLBinaryConnectorFirstToken(t *testing.T) {
 		"connector c":   "connector c",
 	} {
 		res := hoverInSrc(t, s, name, src, strings.Index(src, probe)+len("connector "))
-		if !strings.Contains(res.Contents.Value, want) {
-			t.Errorf("%s: hover = %q, want %q", probe, res.Contents.Value, want)
+		if !strings.Contains(hoverMarkup(t, res).Value, want) {
+			t.Errorf("%s: hover = %q, want %q", probe, hoverMarkup(t, res).Value, want)
 		}
 	}
 }
@@ -141,7 +141,7 @@ func TestHoverKerMLDisjoiningEnds(t *testing.T) {
 	} {
 		off := strings.Index(src, probe) + strings.LastIndexAny(probe, " .") + 1
 		res := hoverInSrc(t, s, name, src, off)
-		if res == nil || !strings.Contains(res.Contents.Value, want) {
+		if res == nil || !strings.Contains(hoverMarkup(t, res).Value, want) {
 			t.Errorf("%s: hover = %+v, want %q", probe, res, want)
 		}
 	}
@@ -156,21 +156,21 @@ func TestHoverRendersMarkdownWhenClientSupportsIt(t *testing.T) {
 	ws.Open(name, []byte(src), 1)
 
 	res := hoverInSrc(t, s, name, src, strings.Index(src, "Wheel"))
-	if res.Contents.Kind != protocol.MarkupKindMarkdown {
-		t.Errorf("hover kind = %q, want %q", res.Contents.Kind, protocol.MarkupKindMarkdown)
+	if hoverMarkup(t, res).Kind != protocol.MarkupKindMarkdown {
+		t.Errorf("hover kind = %q, want %q", hoverMarkup(t, res).Kind, protocol.MarkupKindMarkdown)
 	}
-	if !strings.Contains(res.Contents.Value, "```sysml") {
-		t.Errorf("hover value = %q, want a fenced sysml block", res.Contents.Value)
+	if !strings.Contains(hoverMarkup(t, res).Value, "```sysml") {
+		t.Errorf("hover value = %q, want a fenced sysml block", hoverMarkup(t, res).Value)
 	}
-	if !strings.Contains(res.Contents.Value, "Wheel") {
-		t.Errorf("hover value = %q, want the signature", res.Contents.Value)
+	if !strings.Contains(hoverMarkup(t, res).Value, "Wheel") {
+		t.Errorf("hover value = %q, want the signature", hoverMarkup(t, res).Value)
 	}
-	if !strings.Contains(res.Contents.Value, "A wheel.") {
-		t.Errorf("hover value = %q, want the doc text", res.Contents.Value)
+	if !strings.Contains(hoverMarkup(t, res).Value, "A wheel.") {
+		t.Errorf("hover value = %q, want the doc text", hoverMarkup(t, res).Value)
 	}
 	for _, marker := range []string{"/*", "*/", " * "} {
-		if strings.Contains(res.Contents.Value, marker) {
-			t.Errorf("hover value = %q, still carries the comment marker %q", res.Contents.Value, marker)
+		if strings.Contains(hoverMarkup(t, res).Value, marker) {
+			t.Errorf("hover value = %q, still carries the comment marker %q", hoverMarkup(t, res).Value, marker)
 		}
 	}
 }
@@ -191,8 +191,8 @@ func TestHoverSignatureUsesNotationKeywords(t *testing.T) {
 		{at: "w :", want: "```sysml\npart w\n```"},
 	} {
 		res := hoverInSrc(t, s, name, src, strings.Index(src, tc.at))
-		if res.Contents.Value != tc.want {
-			t.Errorf("hover on %q = %q, want %q", tc.at, res.Contents.Value, tc.want)
+		if hoverMarkup(t, res).Value != tc.want {
+			t.Errorf("hover on %q = %q, want %q", tc.at, hoverMarkup(t, res).Value, tc.want)
 		}
 	}
 }
@@ -207,8 +207,8 @@ func TestHoverStripsDelimitersOfEveryLeadingComment(t *testing.T) {
 
 	res := hoverInSrc(t, s, name, src, strings.Index(src, "Wheel;"))
 	want := "```sysml\npart def Wheel\n```\n\nfirst\n\nsecond"
-	if res.Contents.Value != want {
-		t.Errorf("hover value = %q, want %q", res.Contents.Value, want)
+	if hoverMarkup(t, res).Value != want {
+		t.Errorf("hover value = %q, want %q", hoverMarkup(t, res).Value, want)
 	}
 }
 
@@ -222,8 +222,8 @@ func TestHoverQuotesAnUnrestrictedName(t *testing.T) {
 
 	res := hoverInSrc(t, s, name, src, strings.Index(src, "my wheel"))
 	want := "```sysml\npart def 'my wheel'\n```"
-	if res.Contents.Value != want {
-		t.Errorf("hover value = %q, want %q", res.Contents.Value, want)
+	if hoverMarkup(t, res).Value != want {
+		t.Errorf("hover value = %q, want %q", hoverMarkup(t, res).Value, want)
 	}
 }
 
@@ -237,8 +237,8 @@ func TestHoverStripsBlockNoteDelimiters(t *testing.T) {
 
 	res := hoverInSrc(t, s, name, src, strings.Index(src, "Wheel;"))
 	want := "```sysml\npart def Wheel\n```\n\na note"
-	if res.Contents.Value != want {
-		t.Errorf("hover value = %q, want %q", res.Contents.Value, want)
+	if hoverMarkup(t, res).Value != want {
+		t.Errorf("hover value = %q, want %q", hoverMarkup(t, res).Value, want)
 	}
 }
 
@@ -252,8 +252,8 @@ func TestHoverKeepsDocCommentLineBreaks(t *testing.T) {
 
 	res := hoverInSrc(t, s, name, src, strings.Index(src, "Wheel;"))
 	want := "```sysml\npart def Wheel\n```\n\nFirst line.  \nSecond line."
-	if res.Contents.Value != want {
-		t.Errorf("hover value = %q, want %q", res.Contents.Value, want)
+	if hoverMarkup(t, res).Value != want {
+		t.Errorf("hover value = %q, want %q", hoverMarkup(t, res).Value, want)
 	}
 }
 
@@ -269,8 +269,8 @@ func TestHoverKeepsAuthoredMarkdownEmphasis(t *testing.T) {
 
 	res := hoverInSrc(t, s, name, src, strings.Index(src, "Wheel;"))
 	want := "```sysml\npart def Wheel\n```\n\n**Warning** load-bearing."
-	if res.Contents.Value != want {
-		t.Errorf("hover value = %q, want %q", res.Contents.Value, want)
+	if hoverMarkup(t, res).Value != want {
+		t.Errorf("hover value = %q, want %q", hoverMarkup(t, res).Value, want)
 	}
 }
 
@@ -283,11 +283,11 @@ func TestHoverFallsBackToPlainTextWithoutMarkdownCapability(t *testing.T) {
 	ws.Open(name, []byte(src), 1)
 
 	res := hoverInSrc(t, s, name, src, strings.Index(src, "N"))
-	if res.Contents.Kind != protocol.MarkupKindPlainText {
-		t.Errorf("hover kind = %q, want %q", res.Contents.Kind, protocol.MarkupKindPlainText)
+	if hoverMarkup(t, res).Kind != protocol.MarkupKindPlainText {
+		t.Errorf("hover kind = %q, want %q", hoverMarkup(t, res).Kind, protocol.MarkupKindPlainText)
 	}
-	if strings.Contains(res.Contents.Value, "```") {
-		t.Errorf("plaintext hover value = %q, should carry no Markdown fence", res.Contents.Value)
+	if strings.Contains(hoverMarkup(t, res).Value, "```") {
+		t.Errorf("plaintext hover value = %q, should carry no Markdown fence", hoverMarkup(t, res).Value)
 	}
 }
 
@@ -329,8 +329,8 @@ func TestHoverBindingConnectorEnds(t *testing.T) {
 	} {
 		off := strings.Index(src, tc.before+tc.token) + len(tc.before)
 		res := hoverInSrc(t, s, name, src, off)
-		if !strings.Contains(res.Contents.Value, tc.want) {
-			t.Errorf("%s: hover = %q, want %q", tc.token, res.Contents.Value, tc.want)
+		if !strings.Contains(hoverMarkup(t, res).Value, tc.want) {
+			t.Errorf("%s: hover = %q, want %q", tc.token, hoverMarkup(t, res).Value, tc.want)
 		}
 	}
 }
@@ -354,12 +354,12 @@ func TestHoverStatesDeclaredAndNormativeIdentity(t *testing.T) {
 		{at: "ConsensusStandard;", want: "\n\nElement id `" + identity.ElementID(identity.OpenSysML, "MOSA::ConsensusStandard") + "` (extension, OpenSysML)"},
 	} {
 		res := hoverInSrc(t, s, name, src, strings.Index(src, tc.at))
-		if !strings.HasSuffix(res.Contents.Value, tc.want) {
-			t.Errorf("hover on %q = %q, want it to end in %q", tc.at, res.Contents.Value, tc.want)
+		if !strings.HasSuffix(hoverMarkup(t, res).Value, tc.want) {
+			t.Errorf("hover on %q = %q, want it to end in %q", tc.at, hoverMarkup(t, res).Value, tc.want)
 		}
 	}
-	if res := hoverInSrc(t, s, name, src, strings.Index(src, "w :")); strings.Contains(res.Contents.Value, "Element id") {
-		t.Errorf("hover on a derived id = %q, want no identity line", res.Contents.Value)
+	if res := hoverInSrc(t, s, name, src, strings.Index(src, "w :")); strings.Contains(hoverMarkup(t, res).Value, "Element id") {
+		t.Errorf("hover on a derived id = %q, want no identity line", hoverMarkup(t, res).Value)
 	}
 }
 
@@ -370,8 +370,8 @@ func TestHoverStatesIdentityInPlainText(t *testing.T) {
 	src := "package P { attribute mass : ScalarValues::Real; }"
 	ws.Open(name, []byte(src), 1)
 	res := hoverInSrc(t, s, name, src, strings.Index(src, "Real;"))
-	if want := "\n\nElement id 14c0aa22-5489-59b5-b438-ded26e83ba31 (normative, KerML)"; !strings.HasSuffix(res.Contents.Value, want) {
-		t.Errorf("hover = %q, want it to end in %q", res.Contents.Value, want)
+	if want := "\n\nElement id 14c0aa22-5489-59b5-b438-ded26e83ba31 (normative, KerML)"; !strings.HasSuffix(hoverMarkup(t, res).Value, want) {
+		t.Errorf("hover = %q, want it to end in %q", hoverMarkup(t, res).Value, want)
 	}
 }
 
@@ -389,14 +389,14 @@ func TestHoverWorkspaceCopyOfLibraryFileStatesNormativeIdentity(t *testing.T) {
 	src := string(lib.Content)
 	ws.Open(copyName, lib.Content, 1)
 	const want = "Element id 14c0aa22-5489-59b5-b438-ded26e83ba31 (normative, KerML)"
-	if res := hoverInSrc(t, s, copyName, src, strings.Index(src, "datatype Real ")+len("datatype ")); !strings.Contains(res.Contents.Value, want) {
-		t.Errorf("hover on the copy's Real = %q, want %q", res.Contents.Value, want)
+	if res := hoverInSrc(t, s, copyName, src, strings.Index(src, "datatype Real ")+len("datatype ")); !strings.Contains(hoverMarkup(t, res).Value, want) {
+		t.Errorf("hover on the copy's Real = %q, want %q", hoverMarkup(t, res).Value, want)
 	}
 	user := uri.File("/tmp/uses.sysml").FsPath()
 	use := "package P { attribute mass : ScalarValues::Real; }"
 	ws.Open(user, []byte(use), 1)
-	if res := hoverInSrc(t, s, user, use, strings.Index(use, "Real;")); !strings.Contains(res.Contents.Value, want) {
-		t.Errorf("hover on a reference to the copy's Real = %q, want %q", res.Contents.Value, want)
+	if res := hoverInSrc(t, s, user, use, strings.Index(use, "Real;")); !strings.Contains(hoverMarkup(t, res).Value, want) {
+		t.Errorf("hover on a reference to the copy's Real = %q, want %q", hoverMarkup(t, res).Value, want)
 	}
 }
 
@@ -419,7 +419,7 @@ func TestHoverLibraryDeclarationStatesNormativeIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Hover err = %v", err)
 	}
-	if res == nil || !strings.Contains(res.Contents.Value, "Element id 14c0aa22-5489-59b5-b438-ded26e83ba31 (normative, KerML)") {
+	if res == nil || !strings.Contains(hoverMarkup(t, res).Value, "Element id 14c0aa22-5489-59b5-b438-ded26e83ba31 (normative, KerML)") {
 		t.Errorf("hover = %+v, want the norm's id for ScalarValues::Real", res)
 	}
 }
@@ -448,8 +448,8 @@ func TestHoverWritesTheAbstractKeyword(t *testing.T) {
 		if err != nil || res == nil {
 			t.Fatalf("Hover(%s) = %v, %v", marker, res, err)
 		}
-		if !strings.Contains(res.Contents.Value, want) || strings.Contains(res.Contents.Value, "abstract variation") {
-			t.Errorf("hover at %s = %q, want %q", marker, res.Contents.Value, want)
+		if !strings.Contains(hoverMarkup(t, res).Value, want) || strings.Contains(hoverMarkup(t, res).Value, "abstract variation") {
+			t.Errorf("hover at %s = %q, want %q", marker, hoverMarkup(t, res).Value, want)
 		}
 	}
 }
