@@ -7,13 +7,17 @@
 // keeps every lexeme and only rewrites the whitespace between them.
 //
 // The rules are deliberately conservative: line breaks the author wrote are
-// preserved, so the formatter never joins or splits a line. It fixes
+// preserved, so by default the formatter never joins or splits a line. It fixes
 // indentation, trailing whitespace, runs of blank lines, and the padding just
 // inside brackets and before separators. A line that continues the statement
 // above it — the author broke a declaration or expression across lines — is
 // indented one level deeper than that statement, so it still reads as a
 // continuation rather than as a new statement. Line endings are emitted in the
 // document's own dominant style, so a CRLF file stays CRLF throughout.
+//
+// Options.BreakStatements adds line breaks: it lays every statement of a
+// body out on a line of its own, for text that was generated without them. A
+// line is never joined even then, so the author's own breaks all survive.
 package format
 
 import (
@@ -31,10 +35,22 @@ type Options struct {
 	IndentWidth int
 	// UseTabs indents with one tab per level instead of spaces.
 	UseTabs bool
+	// BreakStatements starts a new line after the `{` of a body, after each
+	// `;` directly inside one, and before its `}`, so a body written on one
+	// line comes out one statement per line. A body holding no statement —
+	// empty, or one result expression as `assert constraint { x > 0 }` — stays
+	// on its line, and the body of an expression — a `->forAll { in x; ... }`
+	// or the `{ ... }` an operator takes — keeps its author's layout, as does
+	// a note at the end of a line.
+	BreakStatements bool
 }
 
 // DefaultOptions matches the indentation used by the models in examples/.
 var DefaultOptions = Options{IndentWidth: 4}
+
+// ConvertOptions are DefaultOptions with BreakStatements: what a conversion to
+// notation writes, since its input may be generated text with no line breaks.
+var ConvertOptions = Options{IndentWidth: 4, BreakStatements: true}
 
 // ErrNotIdempotent reports that formatting would have changed the token stream.
 // It signals a bug in the formatter, never bad input: callers should present the
@@ -92,10 +108,20 @@ type formatter struct {
 	started     bool
 	lastCode    lexer.Kind // last non-comment token: what a line break interrupts
 	openComment bool       // the last token is a comment the lexer never saw closed
+
+	// Statement layout (Options.BreakStatements): the kind of every `{` in
+	// the document in order, the ones still open, and the line break the last
+	// code token asked for before the next.
+	braces []braceKind
+	open   []braceKind
+	owed   breakKind
 }
 
 func (f *formatter) run(toks []lexer.Token) []byte {
 	f.atLineStart = true
+	if f.opts.BreakStatements {
+		f.braces = classifyBraces(toks)
+	}
 	for _, tok := range toks {
 		if tok.Kind == lexer.Whitespace {
 			text := f.text(tok)
@@ -126,6 +152,10 @@ func (f *formatter) emit(tok lexer.Token) {
 		if f.depth < 0 {
 			f.depth = 0
 		}
+	}
+
+	if f.opts.BreakStatements && f.pendingNL == 0 && f.started && f.breakBefore(tok) {
+		f.pendingNL = 1
 	}
 
 	switch {
@@ -161,6 +191,9 @@ func (f *formatter) emit(tok lexer.Token) {
 	}
 	f.prev, f.started, f.atLineStart = tok, true, false
 	f.openComment = tok.Unterminated
+	if f.opts.BreakStatements {
+		f.owed = f.trackStatement(tok)
+	}
 	if !isComment(tok.Kind) {
 		// A trailing comment interrupts nothing, so the token before it is
 		// still what the next line continues.
@@ -225,6 +258,12 @@ func (f *formatter) continues(tok lexer.Token) bool {
 	case lexer.LBrace, lexer.RBrace, lexer.RParen, lexer.RBracket:
 		// A delimiter on its own line belongs to the line that opened it rather
 		// than one level in from it.
+		return false
+	}
+	switch f.lastCode {
+	case lexer.Semicolon, lexer.LBrace, lexer.RBrace:
+		// The statement above ended, so this line starts a new one however it
+		// begins: `:>> x = 1;` redefines at the body's own level.
 		return false
 	}
 	return incompleteBefore[f.lastCode] || continuesAfter[tok.Kind]
