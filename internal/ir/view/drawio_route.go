@@ -84,7 +84,10 @@ func (w *drawioWriter) routeEdges(r *Rendering) ([]Edge, error) {
 			}
 			ports, placed := w.routePorts(node, box)
 			for _, shape := range placed {
-				portShapes[shape.ID] = shape
+				// The container's port an edge enters it through keeps its inner face.
+				if _, inward := portShapes[shape.ID]; !inward {
+					portShapes[shape.ID] = shape
+				}
 			}
 			shape := route.Shape{ID: id, Box: route.Box(box), Ports: ports}
 			if id == key {
