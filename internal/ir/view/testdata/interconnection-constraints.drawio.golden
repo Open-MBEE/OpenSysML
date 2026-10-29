@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- ParametricViews::amplifierView — interconnection rendering (render asInterconnectionDiagram) -->
 <!-- 1 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
-<!-- notice: edge Parametrics::Amplifier::noiseIn not routed: the router found no path at this layout; draw.io routes it when the file opens -->
+<!-- notice: edge Parametrics::Amplifier::noiseIn (n3 -> n6) not routed: the router found no path at this layout; draw.io routes it when the file opens -->
 <mxfile host="OpenSysML" type="device" compressed="false">
   <diagram id="ParametricViews-amplifierView" name="ParametricViews::amplifierView">
     <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">

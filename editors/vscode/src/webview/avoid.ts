@@ -682,7 +682,12 @@ export function routingPinPositions(shapeData: AvoidShape): RoutingPinPosition[]
         return { id, side, x: 0, y: portion((y - routingBox.y) / routingBox.height) };
     }
   });
-  return [...genericPins, ...namedPins];
+  // libavoid attaches to neither of two pins at one point: a generic pin
+  // under a named one (a flush pin at a quarter, half or three quarters) goes.
+  const uncovered = genericPins.filter(
+    (pin) => !namedPins.some((named) => named.side === pin.side && named.x === pin.x && named.y === pin.y),
+  );
+  return [...uncovered, ...namedPins];
 }
 
 // addShape is a box as a routing obstacle, with twelve proportional pins spread

@@ -26,6 +26,10 @@ func (w *drawioWriter) routeEdges(r *Rendering) ([]Edge, error) {
 			continue
 		}
 		key := tree.commonContainer(edge.From, edge.To)
+		// A member drawn outside its container is not held by it.
+		for key != "" && !(w.boxes[key].contains(w.boxes[edge.From]) && w.boxes[key].contains(w.boxes[edge.To])) {
+			key = tree.parents[key]
+		}
 		groups[key] = append(groups[key], i)
 	}
 	keys := make([]string, 0, len(groups))
@@ -65,7 +69,11 @@ func (w *drawioWriter) routeEdges(r *Rendering) ([]Edge, error) {
 			// leaves it through its inner face, into the container.
 			if shape, ok := w.portShape(tree.nodes[key], w.boxes[key], port, true); ok {
 				portShapes[shape.ID] = shape
-				w.inward[shape.ID] = true
+				if edges[i].From == key {
+					w.inward[i] |= drawioFrom
+				} else {
+					w.inward[i] |= drawioTo
+				}
 				continue
 			}
 			pin := route.Port{ID: fmt.Sprintf("\x00member/%d", i), Side: route.South, Flush: true}

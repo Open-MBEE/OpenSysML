@@ -67,7 +67,7 @@
           </mxCell>
         </object>
         <object id="e3" label="" kind="reference" view="MembershipViews::structure" link="feature-membership.sysml:10">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0.5;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n3" target="n4">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n3" target="n4">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
@@ -82,7 +82,7 @@
           </mxCell>
         </object>
         <object id="e5" label="" kind="reference" view="MembershipViews::structure" link="feature-membership.sysml:10">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0.5;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n5" target="n6">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n5" target="n6">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>

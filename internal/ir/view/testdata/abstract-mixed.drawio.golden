@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- AbstractViews::familyMixed — mixed rendering (render asMixedDiagram) -->
 <!-- 4 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
-<!-- notice: edge AbstractViews::Vehicle::mass not routed: the router found no path at this layout; draw.io routes it when the file opens -->
 <mxfile host="OpenSysML" type="device" compressed="false">
   <diagram id="AbstractViews-familyMixed" name="AbstractViews::familyMixed">
     <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
@@ -73,8 +72,13 @@
           </mxCell>
         </object>
         <object id="e2" label="" kind="reference" view="AbstractViews::familyMixed" link="abstract.sysml:8">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n0">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.1556;exitPerimeter=0;entryX=0;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="367" y="61"/>
+                <mxPoint x="367" y="59"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e3" label="" kind="reference" view="AbstractViews::familyMixed" link="abstract.sysml:15">
@@ -99,25 +103,27 @@
           </mxCell>
         </object>
         <object id="e6" label="" kind="reference" view="AbstractViews::familyMixed" link="abstract.sysml:22">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.1803;exitPerimeter=0;entryX=0.5;entryY=0.5;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n6" target="n7">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.1803;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n6" target="n7">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e7" label="" kind="typing" view="AbstractViews::familyMixed" link="abstract.sysml:14">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.5016;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n2" target="n1">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.5016;entryY=0.3111;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n2" target="n1">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="182" y="195"/>
-                <mxPoint x="194" y="195"/>
+                <mxPoint x="182" y="149"/>
+                <mxPoint x="194" y="149"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e8" label="" kind="specialization" view="AbstractViews::familyMixed" link="abstract.sysml:21">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.7481;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n6" target="n1">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.237;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n6" target="n1">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="514" y="141"/>
+                <mxPoint x="514" y="146"/>
+                <mxPoint x="367" y="146"/>
+                <mxPoint x="367" y="72"/>
               </Array>
             </mxGeometry>
           </mxCell>

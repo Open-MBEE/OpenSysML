@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- VehicleViews::vehicleView — tree rendering -->
 <!-- 2 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
-<!-- notice: edge Vehicles::Engine::cylinder not routed: the router found no path at this layout; draw.io routes it when the file opens -->
 <mxfile host="OpenSysML" type="device" compressed="false">
   <diagram id="VehicleViews-vehicleView" name="VehicleViews::vehicleView">
     <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
@@ -89,7 +88,7 @@
           </mxCell>
         </object>
         <object id="e6" label="" kind="composition" view="VehicleViews::vehicleView" link="tree.sysml:6">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n7" target="n9">
+          <mxCell style="edgeStyle=none;exitX=0.75;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n7" target="n9">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>

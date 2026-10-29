@@ -267,7 +267,7 @@
           </mxCell>
         </object>
         <object id="e8" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:10">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0.5;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n2">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n2">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
@@ -410,7 +410,7 @@
           </mxCell>
         </object>
         <object id="e24" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:14">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0.5;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n11" target="n12">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n11" target="n12">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
@@ -438,7 +438,7 @@
           </mxCell>
         </object>
         <object id="e27" label="" kind="reference" view="FleetViews::structure" link="tree-edges.sysml:10">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0.5;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n20" target="n21">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n20" target="n21">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>

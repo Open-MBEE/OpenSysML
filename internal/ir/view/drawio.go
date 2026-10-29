@@ -50,7 +50,7 @@ func (r *Rendering) DrawioWith(options Options) (string, error) {
 		cells:     map[string]bool{},
 		portBoxes: map[string]drawioBox{},
 		routed:    map[int]bool{},
-		inward:    map[string]bool{},
+		inward:    map[int]drawioEnds{},
 		fqns:      map[string]bool{},
 	}
 	if r.Kind == KindAction {
@@ -86,7 +86,7 @@ type drawioWriter struct {
 	portBoxes  map[string]drawioBox // port cell ID -> its box in canvas coordinates
 	routed     map[int]bool         // the edges (by index) the router gave their route
 	unroutable []int                // the edges (by index) the router found no path for
-	inward     map[string]bool      // the port cells whose edges lead into their owner
+	inward     map[int]drawioEnds   // per edge, the ends that lead into the port's owner
 	fqns       map[string]bool      // the qualified names written on cells so far
 	edgeIDs    map[[2]string]string // edge ends -> its cell ID, the anchor an edge note joins
 	grid       int                  // nodes and notes laid on the grid for want of a position
@@ -109,6 +109,11 @@ func (b drawioBox) relativeTo(parent drawioBox) drawioBox {
 // right and bottom are the box's far edges.
 func (b drawioBox) right() float64  { return b.X + b.Width }
 func (b drawioBox) bottom() float64 { return b.Y + b.Height }
+
+// contains reports whether o lies within b.
+func (b drawioBox) contains(o drawioBox) bool {
+	return o.X >= b.X && o.Y >= b.Y && o.right() <= b.right() && o.bottom() <= b.bottom()
+}
 
 // The spacing the grid lays unplaced nodes out with, and the padding a
 // container keeps about its nested children, in draw.io pixels.
@@ -953,7 +958,7 @@ func (w *drawioWriter) writeEdge(i int, edge Edge) {
 		points = points[1 : len(points)-1]
 	} else if slices.Contains(w.unroutable, i) {
 		// No route, but an end at a port still leaves through the port's face.
-		anchors = w.faceAnchor("exit", source) + w.faceAnchor("entry", target)
+		anchors = w.faceAnchor("exit", source, w.inward[i]&drawioFrom != 0) + w.faceAnchor("entry", target, w.inward[i]&drawioTo != 0)
 	}
 	w.openObject("        ", drawioObject{id: id, label: edge.Label, fqn: w.edgeFQN(edge), kind: edge.Kind.String(), link: w.link(edge.Origin)})
 	w.b.WriteString("          <mxCell")
@@ -995,13 +1000,22 @@ func (w *drawioWriter) edgeFQN(edge Edge) string {
 	return fqn
 }
 
-// edgeName names an edge in a notice: its qualified name when it has one,
-// else its label with its ends, else its ends alone.
+// drawioEnds is a set of edge ends.
+type drawioEnds uint8
+
+const (
+	drawioFrom drawioEnds = 1 << iota
+	drawioTo
+)
+
+// edgeName names an edge in a notice by its cells, which the file's reader
+// can find, after its qualified name or label when it has one; a declaration
+// drawn more than once draws more than one edge.
 func (w *drawioWriter) edgeName(edge Edge) string {
-	if fqn := w.siteName(edge.Origin); fqn != "" {
-		return fqn
-	}
 	ends := edge.From + " -> " + edge.To
+	if fqn := w.siteName(edge.Origin); fqn != "" {
+		return fqn + " (" + ends + ")"
+	}
 	if edge.Label != "" {
 		return edge.Label + " (" + ends + ")"
 	}
@@ -1009,9 +1023,9 @@ func (w *drawioWriter) edgeName(edge Edge) string {
 }
 
 // faceAnchor fixes an edge end at the middle of a port cell's face: the outer
-// one, nearest its owner's border, or the inner one for an edge the port leads
-// into its owner; a node end is left to draw.io.
-func (w *drawioWriter) faceAnchor(end, cell string) string {
+// one, nearest its owner's border, or the inner one when the edge leads into
+// the port's owner; a node end is left to draw.io.
+func (w *drawioWriter) faceAnchor(end, cell string, inward bool) string {
 	owner, _, isPort := strings.Cut(cell, ":")
 	port, ok := w.portBoxes[cell]
 	box, known := w.boxes[owner]
@@ -1029,7 +1043,7 @@ func (w *drawioWriter) faceAnchor(end, cell string) string {
 	if d := cx - box.X; d < best {
 		fx, fy = 0, 0.5
 	}
-	if w.inward[cell] {
+	if inward {
 		fx, fy = 1-fx, 1-fy
 	}
 	return fmt.Sprintf("%sX=%s;%sY=%s;%sPerimeter=0;", end, formatCoord(fx), end, formatCoord(fy), end)

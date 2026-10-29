@@ -1461,8 +1461,16 @@ of one container share stay inside that container, with its header and its other
 obstacles and the ancestors an end lies in reduced to their headers; an edge from a container to
 its own member leaves the header's underside above the member. Containers are padded by more than
 twice the clearance so a path fits between neighbours. A stated `Route` is never re-routed, and
-an edge the router finds no path for (two boxes nearer than twice the clearance) is written
-without waypoints under `edgeStyle=orthogonalEdgeStyle`, for draw.io to route as before, under a notice naming the edge (an end at a port keeps its face as the anchor). Waypoints are written to a thousandth of a pixel. An edge that is a declaration of its own — a connection, flow, succession, transition, dependency and the like — carries its qualified name as `fqn` on its `<object>`, as the nodes do; an edge drawn from a member's declaration, such as a composition or a typing, carries none. The `js` and `wasip1` builds of `sysml`
+an edge the router finds no path for (two boxes nearer than twice the clearance plus their
+port squares, as the default layout's 40 px between siblings can be) is written without
+waypoints under `edgeStyle=orthogonalEdgeStyle`, for draw.io to route as before, under a notice
+naming the edge and its cells; an end at a port keeps its face as the anchor, the inner face when
+the edge leads into the port's owner. A member drawn outside its container is routed in the
+nearest container holding both ends. Routed waypoints are written to a thousandth of a pixel; a
+stated `Route` keeps its points. An edge that is a declaration of its own — a connection, flow,
+succession, transition, dependency and the like — carries its qualified name as `fqn` on its
+`<object>`, as the nodes do; an edge drawn from a member's declaration, such as a composition or a
+typing, carries none. The `js` and `wasip1` builds of `sysml`
 carry no router (a WebAssembly runtime inside WebAssembly would route several times slower and
 add to the download): they write every unrouted edge that way, under a notice, and draw.io routes
 them when the file opens.

@@ -128,7 +128,7 @@
           </mxCell>
         </object>
         <object id="e7" label="" kind="reference" view="NotationGlyphs::Diagrams::treeGlyphs" link="notation-glyphs.sysml:12">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0.5;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n2">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n2">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
@@ -142,7 +142,7 @@
           </mxCell>
         </object>
         <object id="e9" label="" kind="reference" view="NotationGlyphs::Diagrams::treeGlyphs" link="notation-glyphs.sysml:12">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0.5;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n7" target="n8">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n7" target="n8">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
@@ -156,7 +156,7 @@
           </mxCell>
         </object>
         <object id="e11" label="" kind="reference" view="NotationGlyphs::Diagrams::treeGlyphs" link="notation-glyphs.sysml:12">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0.5;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n10" target="n11">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.3111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n10" target="n11">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
