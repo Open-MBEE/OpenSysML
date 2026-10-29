@@ -5,7 +5,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { confinedDirectory } from "./golden-dir";
+import { confinedPath } from "./golden-dir";
 import { avoidRoutes, CLEARANCE, loadAvoid, type AvoidEdge, type AvoidPort, type AvoidShape } from "../src/webview/avoid";
 import type { Box } from "../src/webview/geometry";
 import type { RenderPoint } from "../src/protocol";
@@ -301,7 +301,7 @@ const groups: Record<string, () => Scene[]> = {
 // tools/ and the bundle under out/ both sit one level below the extension.
 const extensionDir = fileURLToPath(new URL("..", import.meta.url));
 const repoRoot = path.resolve(extensionDir, "..", "..");
-const outDir = confinedDirectory(process.argv[2] ?? path.join(repoRoot, "internal/ir/view/route/testdata/parity"), repoRoot);
+const outDir = confinedPath(process.argv[2] ?? path.join(repoRoot, "internal/ir/view/route/testdata/parity"), repoRoot);
 mkdirSync(outDir, { recursive: true });
 await loadAvoid(path.join(extensionDir, "node_modules/libavoid-js/dist/libavoid.wasm"));
 let scenes = 0;
@@ -315,7 +315,8 @@ for (const [group, build] of Object.entries(groups)) {
   for (let shard = 0; shard * shardSize < goldens.length; shard++) {
     const name = goldens.length > shardSize ? `${group}-${shard}.json` : `${group}.json`;
     const slice = goldens.slice(shard * shardSize, (shard + 1) * shardSize);
-    writeFileSync(path.join(outDir, name), JSON.stringify({ scenes: slice }) + "\n");
+    // Checked per file so that a symlinked golden cannot redirect the write outside the checkout.
+    writeFileSync(confinedPath(path.join(outDir, name), repoRoot), JSON.stringify({ scenes: slice }) + "\n");
   }
 }
 console.log(`${scenes} scenes, ${routes} routes written to ${outDir}`);
