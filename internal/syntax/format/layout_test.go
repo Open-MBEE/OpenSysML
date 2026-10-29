@@ -66,6 +66,12 @@ func TestBreakStatementsLeavesExpressionBodies(t *testing.T) {
 			"package Q {\n    attribute v = {in x; x + 1};\n}\n"},
 		{"package Q { attribute w = f(x->select{in y; y > 0}); }\n",
 			"package Q {\n    attribute w = f(x->select{in y; y > 0});\n}\n"},
+		{"package Q { return r = xs->ControlFunctions::collect {in x; x + 1}; }\n",
+			"package Q {\n    return r = xs->ControlFunctions::collect {in x; x + 1};\n}\n"},
+		{"package Q { attribute total = {in x; x} + 1; attribute s = xs->reduce {in a; in b; a + b} + 1; }\n",
+			"package Q {\n    attribute total = {in x; x} + 1;\n    attribute s = xs->reduce {in a; in b; a + b} + 1;\n}\n"},
+		{"calc def C { in x; {in y; y} + x }\n",
+			"calc def C {\n    in x;\n    {in y; y} + x\n}\n"},
 	}
 	for _, tc := range cases {
 		if got := layout(t, tc.src); got != tc.want {

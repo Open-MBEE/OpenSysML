@@ -27,10 +27,11 @@ const (
 
 // classifyBraces decides the kind of every `{` in toks, in order. A brace opens
 // an expression body when it is inside a bracket or another expression body,
-// follows an operator awaiting its operand, or names the body of a
-// `->collect`-style invocation; a statement body is multiBody once a `;` or a
-// nested statement body appears directly inside it, or a comment element
-// shares it with anything else (`{ /* ... */ }` alone stays on its line).
+// follows an operator awaiting its operand, names the body of a `->collect` or
+// `->Lib::collect` invocation, or begins a result expression (no statement
+// starts with `{`); a statement body is multiBody once a `;` or a nested
+// statement body appears directly inside it, or a comment element shares it
+// with anything else (`{ /* ... */ }` alone stays on its line).
 func classifyBraces(toks []lexer.Token) []braceKind {
 	var kinds []braceKind
 	type openBrace struct {
@@ -39,7 +40,8 @@ func classifyBraces(toks []lexer.Token) []braceKind {
 	}
 	var stack []*openBrace
 	brackets := 0
-	var last, before lexer.Kind
+	var last lexer.Kind
+	invoked := false // inside the (qualified) name an `->` invokes
 	top := func() *openBrace { return stack[len(stack)-1] }
 	for _, tok := range toks {
 		if tok.IsTrivia() {
@@ -65,7 +67,7 @@ func classifyBraces(toks []lexer.Token) []braceKind {
 			kind := singleBody
 			switch {
 			case brackets > 0, len(stack) > 0 && kinds[top().at] == exprBody,
-				incompleteBefore[last], last == lexer.Identifier && before == lexer.Arrow:
+				incompleteBefore[last], invoked, last == 0, last == lexer.Semicolon, last == lexer.LBrace:
 				kind = exprBody
 			case len(stack) > 0:
 				kinds[top().at] = multiBody
@@ -84,8 +86,15 @@ func classifyBraces(toks []lexer.Token) []braceKind {
 				kinds[top().at] = multiBody
 			}
 		}
+		switch tok.Kind {
+		case lexer.Arrow:
+			invoked = true
+		case lexer.Identifier, lexer.ColonColon:
+		default:
+			invoked = false
+		}
 		if tok.Kind != lexer.RegularComment {
-			before, last = last, tok.Kind
+			last = tok.Kind
 		}
 	}
 	return kinds
@@ -103,6 +112,10 @@ func (f *formatter) breakBefore(tok lexer.Token) bool {
 	case breakNext:
 		return true
 	case breakUnlessJoined:
+		if tok.Kind == lexer.LBrace {
+			// `default {true} {` goes on; a result expression after `;` does not.
+			return f.lastCode != lexer.RBrace
+		}
 		return !joinsStatement(tok)
 	}
 	return tok.Kind == lexer.RBrace && f.innermost() == multiBody
@@ -157,14 +170,21 @@ func (f *formatter) innermost() braceKind {
 
 // joinsStatement reports whether tok continues the statement whose body or
 // `;` came before it, so the two stay on one line: `} then Idle;`, `} else {`,
-// `} until x;`, `entry; then Idle;`, `default {true} {`.
+// `} until x;`, `entry; then Idle;`. An operator that no
+// statement can begin with joins too, so a brace that was an operand after
+// all (`{in x; x} + 1`) is not split from its expression.
 func joinsStatement(tok lexer.Token) bool {
 	switch tok.Kind {
-	case lexer.Semicolon, lexer.Comma, lexer.RParen, lexer.RBracket, lexer.LBrace:
+	case lexer.Semicolon, lexer.Comma, lexer.RParen, lexer.RBracket,
+		lexer.Pipe, lexer.Amp, lexer.EqEq, lexer.NotEq, lexer.EqEqEq, lexer.NotEqEq,
+		lexer.Lt, lexer.Gt, lexer.Le, lexer.Ge, lexer.DotDot,
+		lexer.Plus, lexer.Minus, lexer.Star, lexer.Slash, lexer.Percent,
+		lexer.StarStar, lexer.Caret, lexer.Dot, lexer.Arrow, lexer.DotQuestion,
+		lexer.Question, lexer.QuestionQ:
 		return true
 	case lexer.Keyword:
 		switch tok.KeywordID {
-		case "then", "else", "until":
+		case "then", "else", "until", "and", "or", "xor", "implies", "istype", "hastype", "as":
 			return true
 		}
 	}
