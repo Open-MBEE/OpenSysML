@@ -1433,7 +1433,7 @@ it.
 | Nested children | Child vertices of the container cell with container-relative geometry (draw.io positions a child from its parent's corner; the rendering's absolute coordinates are converted) |
 | Ports and pins | Small child cells on the owner's border, in-ports left, out-ports right, the rest spread along the top; an edge naming `FromPort`/`ToPort` attaches to the port cell |
 | Pseudostates | The UML template's shapes: `ellipse` filled for initial and junction, a ringed filled ellipse for final, a bar for fork and join, a rhombus for decision, choice and merge, a circle labelled `H` for history, `umlDestroy` (an ×) for terminate |
-| Edges | `edgeStyle=orthogonalEdgeStyle` with the §8.2.3 glyph per `EdgeKind` ([notation table](#notation-table), draw.io column): generalization (and subsetting, redefinition) `endArrow=block;endFill=0`, typing the same dashed, composition `startArrow=diamondThin;startFill=1` and reference `startArrow=diamondThin;startFill=0` (the diamond at the owner), containment `startArrow=circlePlus`, a connection `endArrow=none;strokeWidth=3`, a binding a plain line, a flow `endArrow=block;endFill=1`, a succession `dashed=1;endArrow=open`, a transition `endArrow=open`, import, dependency, derive, refine, satisfy, verify, allocate and the rest `dashed=1;endArrow=open` with the stereotype as the label; `Label` is the edge's value, `FromLabel` and `ToLabel` child `edgeLabel` cells at each end |
+| Edges | `edgeStyle=none` through the edge's waypoints, stated or routed (below), `edgeStyle=orthogonalEdgeStyle` for draw.io to route when it has none, with the §8.2.3 glyph per `EdgeKind` ([notation table](#notation-table), draw.io column): generalization (and subsetting, redefinition) `endArrow=block;endFill=0`, typing the same dashed, composition `startArrow=diamondThin;startFill=1` and reference `startArrow=diamondThin;startFill=0` (the diamond at the owner), containment `startArrow=circlePlus`, a connection `endArrow=none;strokeWidth=3`, a binding a plain line, a flow `endArrow=block;endFill=1`, a succession `dashed=1;endArrow=open`, a transition `endArrow=open`, import, dependency, derive, refine, satisfy, verify, allocate and the rest `dashed=1;endArrow=open` with the stereotype as the label; `Label` is the edge's value, `FromLabel` and `ToLabel` child `edgeLabel` cells at each end |
 | Geometry | `mxGeometry x y width height` from `DiagramLayout::Layout`; a `Route` as `<Array as="points">` of `mxPoint`s; a `Style` as `fillColor`, `strokeColor`, `fontColor`, `fontFamily`, `fontSize` and `fontStyle` (1 bold, 2 italic, 3 both); a `Canvas` as the model's `pageWidth`/`pageHeight` in its unit |
 | Notes | A `shape=note` cell holding the text and a dashed anchor edge to every subject the annotation is about (one box per annotation) |
 | Pictures | A `shape=image` cell with the image embedded the way draw.io stores one in a style, `image=data:<type>,<base64>`, for a local file or a declared data URL under the [trust rules](#optional-notation-elements) the SVG and document writers apply; a refused or remote picture is a notice |
@@ -1445,6 +1445,27 @@ way the diagram panel sizes it, and the file opens with a comment saying the dia
 out: draw.io's *Arrange › Layout*, or `drawio --normalize --layout elkLayered` on the command line
 of draw.io desktop 32 and later, arranges it. The writer adds no layout engine; a positioned view
 keeps every position and route it states, as the DOT form does.
+
+Every edge the view leaves unrouted is routed before writing, so the file carries each bend and
+opens the same everywhere rather than being routed afresh by each editor: the route's two ends
+become the edge's `exitX`/`exitY` and `entryX`/`entryY` anchors on their cells (taken exactly,
+`exitPerimeter=0`), its bends the waypoints between. The router is libavoid,
+the orthogonal router the VS Code diagram panel draws with, run in-process from its WebAssembly
+build (`internal/ir/view/route`, `libavoid-js` 0.4.5 under wazero; `scripts/build-libavoid-wasm.sh`
+reproduces the module) with the panel's parameters: a clearance of 16 pixels about every box, bends
+nudged 8 pixels apart, a connector leaving a box through pins along the side it faces and a named
+port through the port's own face — then short jogs are straightened as the panel straightens
+them, so an edge comes out point for point as the panel draws it (the route package checks
+this against routes recorded from the panel's own router). The edges are routed container by container — those two members
+of one container share stay inside that container, with its header and its other members as
+obstacles and the ancestors an end lies in reduced to their headers; an edge from a container to
+its own member leaves the header's underside above the member. Containers are padded by more than
+twice the clearance so a path fits between neighbours. A stated `Route` is never re-routed, and
+an edge the router finds no path for (two boxes nearer than twice the clearance) is written
+without waypoints under `edgeStyle=orthogonalEdgeStyle`, for draw.io to route as before. The `js` and `wasip1` builds of `sysml`
+carry no router (a WebAssembly runtime inside WebAssembly would route several times slower and
+add to the download): they write every unrouted edge that way, under a notice, and draw.io routes
+them when the file opens.
 
 Supported kinds are `tree`, `interconnection`, `state`, `action`, `case`, `mixed`,
 `requirement`, `definition` and `package`. A `sequence` (and the timeline it implies) has no

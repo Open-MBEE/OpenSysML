@@ -696,7 +696,8 @@ pins no positions either, so `DiagramLayout` geometry rides along as `#` comment
 `drawio` writes the view as an uncompressed [diagrams.net](https://www.diagrams.net) (draw.io)
 file, for draw.io desktop, the diagrams.net editor and the VS Code draw.io extension to open and
 edit: `%render Demo::summary drawio` prints the XML, every element a cell wrapped in an
-`<object>` with its qualified name, positions and routes kept where the view states them and a
+`<object>` with its qualified name, positions and routes kept where the view states them, the
+other edges routed by libavoid (the diagram panel's router) before writing, and a
 grid otherwise (draw.io's *Arrange › Layout*, or `drawio --normalize --layout elkLayered`,
 arranges it). A palette name after `drawio` fills the nodes as it fills DOT's. Every graph-shaped
 kind but a sequence has the form ([the draw.io form](../project/view-rendering-forms.md#drawio)).
