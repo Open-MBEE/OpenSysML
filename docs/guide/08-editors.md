@@ -3,7 +3,9 @@
 `sysml-lsp` implements the Language Server Protocol over standard input and output, so any editor
 with a generic LSP client can use it. The VS Code extension in
 [editors/vscode](../../editors/vscode) also adds `.sysml` and `.kerml` syntax
-highlighting.
+highlighting; editors built on Tree-sitter get theirs from
+[tree-sitter-sysml](https://github.com/Open-MBEE/tree-sitter-sysml), see
+[Helix, Neovim and Zed](#helix-neovim-and-zed).
 
 ## VS Code
 
@@ -248,6 +250,54 @@ parameter list of what it calls appears as you type, and inlay hints show the ty
 declared without one is inferred to have and the constant a value evaluates to from the model
 alone (<kbd>Ctrl</kbd>+<kbd>Alt</kbd> toggles them when `editor.inlayHints.enabled` is
 `offUnlessPressed`).
+
+## Helix, Neovim and Zed
+
+[tree-sitter-sysml](https://github.com/Open-MBEE/tree-sitter-sysml) ships Tree-sitter grammars
+for both notations — `sysml/` for `.sysml` files and `kerml/` for `.kerml` files, generated from one
+shared definition so that a word reserved in one notation stays an ordinary name in the other — with
+the query files editors expect under `queries/<lang>/`: highlights, injections (comments and
+`rep language "…"` bodies), locals, tags, folds, indents and textobjects. The grammars follow the
+OMG textual notation as encoded in the pilot implementation's Xtext at the release OpenSysML pins,
+and every model under `examples/` and in the bundled standard library parses with them. They give
+an editor highlighting, folding, indentation and textobjects without a running server;
+`sysml-lsp` adds diagnostics, completion and navigation on top, declared the same way as any other
+language server.
+
+Helix takes both from `languages.toml`; `rev` is a commit on the grammar repository's `develop`
+branch:
+
+```toml
+[language-server.sysml-lsp]
+command = "sysml-lsp"
+args = ["--stdio"]
+
+[[language]]
+name = "sysml"
+scope = "source.sysml"
+injection-regex = "sysml"
+file-types = ["sysml"]
+comment-tokens = "//"
+block-comment-tokens = { start = "/*", end = "*/" }
+indent = { tab-width = 4, unit = "    " }
+language-servers = ["sysml-lsp"]
+
+[[grammar]]
+name = "sysml"
+source = { git = "https://github.com/Open-MBEE/tree-sitter-sysml", rev = "<commit>", subpath = "sysml" }
+```
+
+The `kerml` language and grammar are declared the same way with `subpath = "kerml"`. Then
+`hx --grammar fetch && hx --grammar build`, and copy `queries/sysml/` and `queries/kerml/` from the
+grammar repository into `~/.config/helix/runtime/queries/`.
+
+Neovim registers the parsers with nvim-treesitter (`location = "sysml"` or `"kerml"`,
+`files = { "src/parser.c" }`, `branch = "develop"`) and the server with nvim-lspconfig
+(`cmd = { "sysml-lsp", "--stdio" }` for the `sysml` and `kerml` filetypes, which
+`vim.filetype.add` maps from the two extensions). A Zed extension points its
+`grammars.<name>.repository` at the repository with `path = "sysml"` or `"kerml"` and reuses the
+query files. The grammar repository's README carries the complete snippets for each editor and
+is the reference when they change.
 
 ## OpenCode
 
