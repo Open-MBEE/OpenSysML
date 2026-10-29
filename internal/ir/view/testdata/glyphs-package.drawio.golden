@@ -26,8 +26,8 @@
           <mxCell style="edgeStyle=none;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="186" y="58.5"/>
-                <mxPoint x="226" y="58.5"/>
+                <mxPoint x="186" y="59"/>
+                <mxPoint x="226" y="59"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -38,8 +38,8 @@
               <Array as="points">
                 <mxPoint x="113" y="77"/>
                 <mxPoint x="113" y="97"/>
-                <mxPoint x="92.5" y="97"/>
-                <mxPoint x="92.5" y="117"/>
+                <mxPoint x="93" y="97"/>
+                <mxPoint x="93" y="117"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -48,9 +48,9 @@
           <mxCell style="edgeStyle=none;rounded=0;html=0;startArrow=oval;startFill=0;endArrow=none;" edge="1" parent="1" source="n2" target="n1">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="110" y="135.5"/>
-                <mxPoint x="243.5" y="135.5"/>
-                <mxPoint x="243.5" y="77"/>
+                <mxPoint x="110" y="136"/>
+                <mxPoint x="244" y="136"/>
+                <mxPoint x="244" y="77"/>
               </Array>
             </mxGeometry>
           </mxCell>
