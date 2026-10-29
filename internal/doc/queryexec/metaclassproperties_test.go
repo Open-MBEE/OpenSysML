@@ -163,3 +163,25 @@ func TestExecuteUnservedPropertyNamesTheGap(t *testing.T) {
 		t.Fatalf("the error carries no path-error record")
 	}
 }
+
+// TestExecuteRedefinedMetaclassPropertyStaysExposed: a metaclass redefining an
+// inherited property under a new name (PartUsage::partDefinition over
+// Usage::definition) keeps the inherited name readable: it resolves to the
+// metaclass's property rather than being unknown.
+func TestExecuteRedefinedMetaclassPropertyStaysExposed(t *testing.T) {
+	fixture := loadExecutionFixture(t, metaclassPropertyModel+`
+calc def Definitions :> Query {
+	in root : Element;
+	Project(source = PartUsages(root = root), properties = ("name", "definition"))
+}
+`)
+	bindings := Bindings{"root": {ElementValue(fixture.symbol(t, "Scope"))}}
+	_, err := fixture.execute(t, "Definitions", bindings, Options{})
+	var typed *Error
+	if errors.As(err, &typed) && typed.Kind == ErrorUnknownProperty {
+		t.Fatalf("definition is unknown on a PartUsage: %v", err)
+	}
+	if err != nil && (!errors.As(err, &typed) || typed.Kind != ErrorUnservedProperty || typed.Expected != "Usage::definition") {
+		t.Fatalf("Definitions: %v, want rows or the unserved Usage::definition", err)
+	}
+}

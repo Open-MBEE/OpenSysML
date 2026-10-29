@@ -1,7 +1,6 @@
 package export
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -36,24 +35,6 @@ func NewElementIDs(documents []ModelDocument) (*ElementIDs, error) {
 		return nil, err
 	}
 	return elementIDsOf(graph, res, encoders), nil
-}
-
-// NewElementIDsOfDocument is NewElementIDs for a model of one document, which
-// is converted from its text as a conversion of one document is: parsed
-// afresh, in the language its name gives it, then written alone (ToRDF). A
-// document the parser cannot read whole converts to nothing, so it is refused.
-func NewElementIDsOfDocument(name string, data []byte) (*ElementIDs, error) {
-	file := source.New(name, data)
-	p := parser.New(file)
-	root := p.ParseFile()
-	if len(p.Diagnostics) > 0 {
-		return nil, fmt.Errorf("%s: %d syntax error(s)", name, len(p.Diagnostics))
-	}
-	e, err := encodeDocument(file, root, "", IDQualifiedName)
-	if err != nil {
-		return nil, err
-	}
-	return elementIDsOf(e.graph, e.res, []*encoder{e}), nil
 }
 
 // elementIDsOf records the elementId a converted graph writes for each element,
@@ -120,7 +101,9 @@ func (ids *ElementIDs) Of(fqn string) (string, bool) {
 }
 
 // ElementIDDocument is a document of the model whose elementIds are read: its
-// parse, and the parse's errors, which refuse a model of several documents.
+// parse, and the parse's errors, which refuse a model of several documents. A
+// document held without its parse (a workspace's interface record) gives its
+// text alone and is parsed for the conversion.
 type ElementIDDocument struct {
 	File       *source.SourceFile
 	Root       *ast.RootNamespace
@@ -138,7 +121,7 @@ type ElementIDReader struct {
 }
 
 // NewElementIDReader reads the elementIds of the model documents make; a
-// document without a parse is not written. Nothing is converted until Read.
+// document without text is not written. Nothing is converted until Read.
 func NewElementIDReader(documents []ElementIDDocument) *ElementIDReader {
 	return &ElementIDReader{documents: documents}
 }
@@ -157,31 +140,35 @@ func (r *ElementIDReader) Read(decl ast.Node, fqn string) (string, error) {
 	return id, nil
 }
 
-// convert makes the ids as Convert writes them for this model: one document is
-// converted from its text (convertSource), several from what parse read
-// (convertModelOfDocuments), and a model of several documents one of which the
-// parser could not read whole is refused, so no ids come from recovered trees.
+// convert makes the ids as Convert writes them for this model, over the trees
+// the model was read from, so a declaration's id is found by its own node: one
+// document is written alone (ToRDF), several together (ModelToRDFWith), and a
+// document the parser could not read whole refuses the model, so no ids come
+// from a recovered tree.
 func (r *ElementIDReader) convert() {
 	documents := make([]ModelDocument, 0, len(r.documents))
 	for _, doc := range r.documents {
-		if doc.File != nil && doc.Root != nil {
-			documents = append(documents, ModelDocument{File: doc.File, Root: doc.Root})
+		if doc.File == nil {
+			continue
 		}
-	}
-	if len(documents) > 1 {
-		for _, doc := range r.documents {
-			if doc.File == nil {
-				continue
-			}
-			if syntax := parser.SyntaxErrorOf(doc.File.Name(), doc.File, doc.ParseDiags); syntax != nil {
-				r.err = syntax
-				return
-			}
+		root, diags := doc.Root, doc.ParseDiags
+		if root == nil {
+			p := parser.New(doc.File)
+			root, diags = p.ParseFile(), p.Diagnostics
 		}
+		if syntax := parser.SyntaxErrorOf(doc.File.Name(), doc.File, diags); syntax != nil {
+			r.err = syntax
+			return
+		}
+		documents = append(documents, ModelDocument{File: doc.File, Root: root})
 	}
 	if len(documents) == 1 {
-		file := documents[0].File
-		r.ids, r.err = NewElementIDsOfDocument(file.Name(), file.Bytes())
+		e, err := encodeDocument(documents[0].File, documents[0].Root, "", IDQualifiedName)
+		if err != nil {
+			r.err = err
+			return
+		}
+		r.ids = elementIDsOf(e.graph, e.res, []*encoder{e})
 		return
 	}
 	r.ids, r.err = NewElementIDs(documents)

@@ -18,8 +18,10 @@ type metaclassProperty struct {
 }
 
 // metaclassProperties are the properties of a metaclass by name: the features
-// the library's metaclass declaration has, inherited ones included, memoized
-// per metaclass across one execution.
+// the library's metaclass declaration has, inherited ones included — under the
+// name a redefinition gives one and under the name it redefines, as the
+// metamodel keeps both (PartUsage::partDefinition and Usage::definition) —
+// memoized per metaclass across one execution.
 func (e *executor) metaclassProperties(metaclass *symbols.Symbol) map[string]metaclassProperty {
 	if properties, ok := e.metaclassFeatures[metaclass]; ok {
 		return properties
@@ -28,7 +30,7 @@ func (e *executor) metaclassProperties(metaclass *symbols.Symbol) map[string]met
 		e.metaclassFeatures = map[*symbols.Symbol]map[string]metaclassProperty{}
 	}
 	properties := map[string]metaclassProperty{}
-	for _, member := range e.context.Model.MembersOf(metaclass) {
+	for _, member := range e.context.Model.MembersOfIncludingRedefined(metaclass) {
 		if member == nil || !member.IsFeature() {
 			continue
 		}
