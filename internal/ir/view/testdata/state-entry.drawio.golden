@@ -9,90 +9,90 @@
         <mxCell id="1" parent="0"/>
         <object id="n0" label="«state def»&#xA;Thermostat" fqn="Machines::Thermostat" kind="state def" view="MachineViews::thermostat" link="state-entry.sysml:7">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
-            <mxGeometry x="40" y="40" width="625" height="502" as="geometry"/>
+            <mxGeometry x="50" y="50" width="675" height="552" as="geometry"/>
           </mxCell>
         </object>
         <object id="n12" label="start" kind="start" view="MachineViews::thermostat">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n0">
-            <mxGeometry x="16" y="82" width="20" height="20" as="geometry"/>
+            <mxGeometry x="16" y="92" width="20" height="20" as="geometry"/>
           </mxCell>
         </object>
         <object id="n1" label="«state»&#xA;heating" fqn="Machines::Thermostat::heating" kind="state" view="MachineViews::thermostat" link="state-entry.sysml:14">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
-            <mxGeometry x="76" y="82" width="81" height="37" as="geometry"/>
+            <mxGeometry x="86" y="92" width="81" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n2" label="«state»&#xA;idle" fqn="Machines::Thermostat::idle" kind="state" view="MachineViews::thermostat" link="state-entry.sysml:15">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
-            <mxGeometry x="16" y="159" width="164" height="212" as="geometry"/>
+            <mxGeometry x="16" y="179" width="174" height="232" as="geometry"/>
           </mxCell>
         </object>
         <object id="n13" label="start" kind="start" view="MachineViews::thermostat">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n2">
-            <mxGeometry x="16" y="82" width="20" height="20" as="geometry"/>
+            <mxGeometry x="16" y="92" width="20" height="20" as="geometry"/>
           </mxCell>
         </object>
         <object id="n3" label="«state»&#xA;drying" fqn="Machines::Thermostat::idle::drying" kind="state" view="MachineViews::thermostat" link="state-entry.sysml:18">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n2">
-            <mxGeometry x="76" y="82" width="72" height="37" as="geometry"/>
+            <mxGeometry x="86" y="92" width="72" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n4" label="«state»&#xA;resting" fqn="Machines::Thermostat::idle::resting" kind="state" view="MachineViews::thermostat" link="state-entry.sysml:19">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n2">
-            <mxGeometry x="16" y="159" width="81" height="37" as="geometry"/>
+            <mxGeometry x="16" y="179" width="81" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n5" label="«state»&#xA;monitoring" fqn="Machines::Thermostat::monitoring" kind="state" view="MachineViews::thermostat" link="state-entry.sysml:21">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
-            <mxGeometry x="220" y="159" width="389" height="327" as="geometry"/>
+            <mxGeometry x="240" y="179" width="419" height="357" as="geometry"/>
           </mxCell>
         </object>
         <object id="n6" label="«region»&#xA;lights" fqn="Machines::Thermostat::monitoring::lights" kind="region" view="MachineViews::thermostat" link="state-entry.sysml:22">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;dashed=1;align=left;verticalAlign=top;startSize=42;collapsible=0;rounded=1;arcSize=10;" vertex="1" parent="n5">
-            <mxGeometry x="16" y="82" width="150" height="212" as="geometry"/>
+            <mxGeometry x="16" y="92" width="160" height="232" as="geometry"/>
           </mxCell>
         </object>
         <object id="n14" label="start" kind="start" view="MachineViews::thermostat">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n6">
-            <mxGeometry x="16" y="82" width="20" height="20" as="geometry"/>
+            <mxGeometry x="16" y="92" width="20" height="20" as="geometry"/>
           </mxCell>
         </object>
         <object id="n8" label="«state»&#xA;lit" fqn="Machines::Thermostat::monitoring::lights::lit" kind="state" view="MachineViews::thermostat" link="state-entry.sysml:25">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n6">
-            <mxGeometry x="76" y="82" width="58" height="37" as="geometry"/>
+            <mxGeometry x="86" y="92" width="58" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n9" label="«state»&#xA;unlit" fqn="Machines::Thermostat::monitoring::lights::unlit" kind="state" view="MachineViews::thermostat" link="state-entry.sysml:26">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n6">
-            <mxGeometry x="16" y="159" width="63" height="37" as="geometry"/>
+            <mxGeometry x="16" y="179" width="63" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n7" label="«region»&#xA;fans" fqn="Machines::Thermostat::monitoring::fans" kind="region" view="MachineViews::thermostat" link="state-entry.sysml:28">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;dashed=1;align=left;verticalAlign=top;startSize=42;collapsible=0;rounded=1;arcSize=10;" vertex="1" parent="n5">
-            <mxGeometry x="206" y="82" width="167" height="229" as="geometry"/>
+            <mxGeometry x="226" y="92" width="177" height="249" as="geometry"/>
           </mxCell>
         </object>
         <object id="n15" label="start" kind="start" view="MachineViews::thermostat">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n7">
-            <mxGeometry x="16" y="82" width="20" height="20" as="geometry"/>
+            <mxGeometry x="16" y="92" width="20" height="20" as="geometry"/>
           </mxCell>
         </object>
         <object id="n10" label="«state»&#xA;off&#xA;initial" fqn="Machines::Thermostat::monitoring::fans::off" kind="state" view="MachineViews::thermostat" link="state-entry.sysml:31">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n7">
-            <mxGeometry x="76" y="82" width="75" height="54" as="geometry"/>
+            <mxGeometry x="86" y="92" width="75" height="54" as="geometry"/>
           </mxCell>
         </object>
         <object id="n11" label="«state»&#xA;on" fqn="Machines::Thermostat::monitoring::fans::on" kind="state" view="MachineViews::thermostat" link="state-entry.sysml:32">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n7">
-            <mxGeometry x="16" y="176" width="58" height="37" as="geometry"/>
+            <mxGeometry x="16" y="196" width="58" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="e0" label="[cold]" kind="transition" view="MachineViews::thermostat" link="state-entry.sysml:12">
           <mxCell style="edgeStyle=none;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n12" target="n1">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="96" y="132"/>
-                <mxPoint x="96" y="131"/>
+                <mxPoint x="111" y="152"/>
+                <mxPoint x="111" y="151"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -101,8 +101,8 @@
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n12" target="n2">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="66" y="187"/>
-                <mxPoint x="138" y="187"/>
+                <mxPoint x="76" y="212"/>
+                <mxPoint x="153" y="212"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -111,37 +111,36 @@
           <mxCell style="edgeStyle=none;exitX=1;exitY=0.85;exitPerimeter=0;entryX=0;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n13" target="n3">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="108" y="298"/>
-                <mxPoint x="108" y="300"/>
+                <mxPoint x="130" y="338"/>
+                <mxPoint x="130" y="340"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e3" label="" kind="transition" view="MachineViews::thermostat" link="state-entry.sysml:16">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.45;exitPerimeter=0;entryX=0.5432;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n13" target="n4">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.45;exitPerimeter=0;entryX=0.4938;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n13" target="n4">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="116" y="290"/>
+                <mxPoint x="122" y="330"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e4" label="[dark]" kind="transition" view="MachineViews::thermostat" link="state-entry.sysml:23">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n14" target="n8">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.2586;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n14" target="n8">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="332" y="373"/>
-                <mxPoint x="332" y="372"/>
+                <mxPoint x="332" y="397"/>
+                <mxPoint x="407" y="397"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e5" label="[not dark]" kind="transition" view="MachineViews::thermostat" link="state-entry.sysml:23">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.254;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n14" target="n9">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0.746;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n14" target="n9">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="302" y="412"/>
-                <mxPoint x="308" y="412"/>
+                <mxPoint x="369" y="423"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -150,26 +149,26 @@
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0;entryY=0.7593;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n15" target="n10">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="492" y="404"/>
+                <mxPoint x="542" y="454"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e7" label="" kind="transition" view="MachineViews::thermostat" link="state-entry.sysml:38">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n1" target="n2">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=0.2529;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n1" target="n2">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="97" y="141"/>
+                <mxPoint x="110" y="161"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e8" label="" kind="transition" view="MachineViews::thermostat" link="state-entry.sysml:39">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.2508;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n2" target="n5">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.2493;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n2" target="n5">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="240" y="305"/>
-                <mxPoint x="240" y="281"/>
+                <mxPoint x="265" y="345"/>
+                <mxPoint x="265" y="318"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -178,7 +177,7 @@
           <mxCell style="edgeStyle=none;exitX=0.5067;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n10" target="n11">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="580" y="466"/>
+                <mxPoint x="640" y="526"/>
               </Array>
             </mxGeometry>
           </mxCell>

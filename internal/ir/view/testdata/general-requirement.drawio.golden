@@ -4,83 +4,83 @@
 <!-- notice: 4 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements -->
 <mxfile host="OpenSysML" type="device" compressed="false">
   <diagram id="GeneralViews-requirementView" name="GeneralViews::requirementView">
-    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1664" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1714" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
         <object id="n0" label="«requirement def»&#xA;MassRequirement&#xA;id R1, “The total mass of the vehicle shall not exceed the stated...”" fqn="VehicleRequirements::MassRequirement" kind="requirement def" view="GeneralViews::requirementView" link="general.sysml:33">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="40" y="40" width="596" height="54" as="geometry"/>
+            <mxGeometry x="50" y="50" width="596" height="54" as="geometry"/>
           </mxCell>
         </object>
         <object id="n1" label="«requirement def»&#xA;StoppingRequirement&#xA;id R2, “The vehicle shall stop within the stated distance.”" fqn="VehicleRequirements::StoppingRequirement" kind="requirement def" view="GeneralViews::requirementView" link="general.sysml:39">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="676" y="40" width="512" height="54" as="geometry"/>
+            <mxGeometry x="696" y="50" width="512" height="54" as="geometry"/>
           </mxCell>
         </object>
         <object id="n2" label="«requirement def»&#xA;EmergencyStopRequirement&#xA;id R3" fqn="VehicleRequirements::EmergencyStopRequirement" kind="requirement def" view="GeneralViews::requirementView" link="general.sysml:42">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="1228" y="40" width="238" height="54" as="geometry"/>
+            <mxGeometry x="1258" y="50" width="238" height="54" as="geometry"/>
           </mxCell>
         </object>
         <object id="n3" label="«requirement»&#xA;vehicleMass&#xA;id R1.1" fqn="VehicleRequirements::vehicleMass" kind="requirement" view="GeneralViews::requirementView" link="general.sysml:44">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="1506" y="40" width="118" height="54" as="geometry"/>
+            <mxGeometry x="1546" y="50" width="118" height="54" as="geometry"/>
           </mxCell>
         </object>
         <object id="n4" label="«requirement»&#xA;chassisMass&#xA;id R1.2" fqn="VehicleRequirements::chassisMass" kind="requirement" view="GeneralViews::requirementView" link="general.sysml:47">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="40" y="134" width="118" height="54" as="geometry"/>
+            <mxGeometry x="50" y="154" width="118" height="54" as="geometry"/>
           </mxCell>
         </object>
         <object id="n5" label="«requirement»&#xA;emergencyStop&#xA;id R3.1" fqn="VehicleRequirements::emergencyStop" kind="requirement" view="GeneralViews::requirementView" link="general.sysml:48">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="198" y="134" width="136" height="54" as="geometry"/>
+            <mxGeometry x="218" y="154" width="136" height="54" as="geometry"/>
           </mxCell>
         </object>
         <object id="n6" label="«part def»&#xA;LightChassis" fqn="VehicleStructure::LightChassis" kind="part def" view="GeneralViews::requirementView" link="general.sysml:10">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="374" y="134" width="127" height="37" as="geometry"/>
+            <mxGeometry x="404" y="154" width="127" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n7" label="«part»&#xA;vehicle" fqn="VehicleStructure::vehicle" kind="part" view="GeneralViews::requirementView" link="general.sysml:14">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="541" y="134" width="81" height="37" as="geometry"/>
+            <mxGeometry x="581" y="154" width="81" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n8" label="«part»&#xA;heavyVehicle" fqn="VehicleStructure::heavyVehicle" kind="part" view="GeneralViews::requirementView" link="general.sysml:17">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="40" y="228" width="127" height="37" as="geometry"/>
+            <mxGeometry x="50" y="258" width="127" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n9" label="«action»&#xA;brake" fqn="VehicleStructure::brake" kind="action" view="GeneralViews::requirementView" link="general.sysml:20">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="207" y="228" width="64" height="37" as="geometry"/>
+            <mxGeometry x="227" y="258" width="64" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n10" label="«verification def»&#xA;MassTest" fqn="VehicleVerification::MassTest" kind="verification def" view="GeneralViews::requirementView" link="general.sysml:67">
           <mxCell style="ellipse;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="311" y="228" width="124" height="37" as="geometry"/>
+            <mxGeometry x="341" y="258" width="124" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n11" label="«verification»&#xA;lightMassTest" fqn="VehicleVerification::lightMassTest" kind="verification" view="GeneralViews::requirementView" link="general.sysml:74">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="475" y="228" width="136" height="37" as="geometry"/>
+            <mxGeometry x="515" y="258" width="136" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n12" label="«verification»&#xA;heavyMassTest" fqn="VehicleVerification::heavyMassTest" kind="verification" view="GeneralViews::requirementView" link="general.sysml:77">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="40" y="305" width="136" height="37" as="geometry"/>
+            <mxGeometry x="50" y="345" width="136" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n13" label="«verification def»&#xA;StopTest" fqn="VehicleVerification::StopTest" kind="verification def" view="GeneralViews::requirementView" link="general.sysml:80">
           <mxCell style="ellipse;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="216" y="305" width="124" height="37" as="geometry"/>
+            <mxGeometry x="236" y="345" width="124" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n14" label="«verification»&#xA;stopTest" fqn="VehicleVerification::stopTest" kind="verification" view="GeneralViews::requirementView" link="general.sysml:86">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="380" y="305" width="100" height="37" as="geometry"/>
+            <mxGeometry x="410" y="345" width="100" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="e0" label="" kind="specialization" view="GeneralViews::requirementView" link="general.sysml:42">
@@ -92,19 +92,18 @@
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.2593;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n3" target="n0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="1565" y="24"/>
-                <mxPoint x="656" y="24"/>
-                <mxPoint x="656" y="54"/>
+                <mxPoint x="1605" y="34"/>
+                <mxPoint x="671" y="34"/>
+                <mxPoint x="671" y="64"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e2" label="" kind="typing" view="GeneralViews::requirementView" link="general.sysml:47">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.7593;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n4" target="n0">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0.25;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n4" target="n0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="24" y="161"/>
-                <mxPoint x="24" y="81"/>
+                <mxPoint x="199" y="181"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -113,8 +112,8 @@
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.2521;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n5" target="n2">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="266" y="111"/>
-                <mxPoint x="1288" y="111"/>
+                <mxPoint x="286" y="121"/>
+                <mxPoint x="1318" y="121"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -123,9 +122,9 @@
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0;entryY=0.2593;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n4" target="n3">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="99" y="113"/>
-                <mxPoint x="1482" y="113"/>
-                <mxPoint x="1482" y="54"/>
+                <mxPoint x="109" y="127"/>
+                <mxPoint x="1513" y="127"/>
+                <mxPoint x="1513" y="64"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -134,8 +133,8 @@
           <mxCell style="edgeStyle=none;exitX=0.5039;exitY=0;exitPerimeter=0;entryX=0.7542;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n6" target="n4">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="438" y="116"/>
-                <mxPoint x="129" y="116"/>
+                <mxPoint x="468" y="132"/>
+                <mxPoint x="139" y="132"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -144,7 +143,7 @@
           <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0.7542;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n7" target="n3">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="1595" y="153"/>
+                <mxPoint x="1635" y="173"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -153,9 +152,9 @@
           <mxCell style="edgeStyle=none;exitX=0.5039;exitY=0;exitPerimeter=0;entryX=0;entryY=0.5;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n8" target="n3">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="104" y="208"/>
-                <mxPoint x="1486" y="208"/>
-                <mxPoint x="1486" y="67"/>
+                <mxPoint x="114" y="225"/>
+                <mxPoint x="1521" y="225"/>
+                <mxPoint x="1521" y="77"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -164,18 +163,18 @@
           <mxCell style="edgeStyle=none;exitX=0.5062;exitY=0;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n7" target="n5">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="582" y="118"/>
-                <mxPoint x="300" y="118"/>
+                <mxPoint x="622" y="138"/>
+                <mxPoint x="320" y="138"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e9" label="«allocate»" kind="allocate" view="GeneralViews::requirementView" link="general.sysml:59">
-          <mxCell style="edgeStyle=none;exitX=0.25;exitY=1;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n5" target="n9">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n5" target="n9">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="232" y="212"/>
-                <mxPoint x="239" y="212"/>
+                <mxPoint x="286" y="233"/>
+                <mxPoint x="275" y="233"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -184,9 +183,9 @@
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0;entryY=0.7593;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n10" target="n3">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="373" y="200"/>
-                <mxPoint x="1490" y="200"/>
-                <mxPoint x="1490" y="81"/>
+                <mxPoint x="403" y="233"/>
+                <mxPoint x="1529" y="233"/>
+                <mxPoint x="1529" y="91"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -195,7 +194,7 @@
           <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0.5;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n11" target="n3">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="1565" y="247"/>
+                <mxPoint x="1605" y="277"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -204,30 +203,28 @@
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.2542;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n12" target="n3">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="108" y="289"/>
-                <mxPoint x="1536" y="289"/>
+                <mxPoint x="118" y="324"/>
+                <mxPoint x="1576" y="324"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e13" label="«verify»" fqn="VehicleVerification::StopTest::emergencyStop" kind="verify" view="GeneralViews::requirementView" link="general.sysml:83">
-          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.5;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n13" target="n5">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.7593;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n13" target="n5">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="278" y="281"/>
-                <mxPoint x="287" y="281"/>
-                <mxPoint x="287" y="204"/>
-                <mxPoint x="266" y="204"/>
+                <mxPoint x="202" y="364"/>
+                <mxPoint x="202" y="195"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e14" label="«verify»" kind="verify" view="GeneralViews::requirementView" link="general.sysml:83">
-          <mxCell style="edgeStyle=none;exitX=0.75;exitY=0;exitPerimeter=0;entryX=0.75;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n14" target="n5">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.75;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n14" target="n5">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="455" y="204"/>
-                <mxPoint x="300" y="204"/>
+                <mxPoint x="460" y="316"/>
+                <mxPoint x="320" y="316"/>
               </Array>
             </mxGeometry>
           </mxCell>

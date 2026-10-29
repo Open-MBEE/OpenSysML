@@ -1463,7 +1463,8 @@ obstacles and the ancestors an end lies in reduced to their headers; an edge fro
 its own member leaves the header's underside above the member. Containers are padded by more than
 twice the clearance so a path fits between neighbours. A stated `Route` is never re-routed, and
 an edge the router finds no path for (two boxes nearer than twice the clearance plus their
-port squares, as the default layout's 40 px between siblings can be) is written without
+port squares; the grid and the members of a container keep that distance plus a nudging lane,
+50 px) is written without
 waypoints under `edgeStyle=orthogonalEdgeStyle`, for draw.io to route as before, under a notice
 naming the edge and its cells; an end at a port keeps its face as the anchor, the inner face when
 the edge leads into the port's owner. A member drawn outside its container is routed in the

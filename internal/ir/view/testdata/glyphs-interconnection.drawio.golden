@@ -9,27 +9,27 @@
         <mxCell id="1" parent="0"/>
         <object id="n0" label="«part»&#xA;line" fqn="NotationGlyphs::line" kind="part" view="NotationGlyphs::Diagrams::lineGlyphs" link="notation-glyphs.sysml:58">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="1">
-            <mxGeometry x="40" y="40" width="300" height="233" as="geometry"/>
+            <mxGeometry x="50" y="50" width="310" height="253" as="geometry"/>
           </mxCell>
         </object>
         <object id="n1" label="«part»&#xA;^a" fqn="NotationGlyphs::Line::a" kind="part" view="NotationGlyphs::Diagrams::lineGlyphs" link="notation-glyphs.sysml:54">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
-            <mxGeometry x="16" y="82" width="114" height="135" as="geometry"/>
+            <mxGeometry x="16" y="92" width="114" height="145" as="geometry"/>
           </mxCell>
         </object>
         <object id="n2" label="«attribute»&#xA;^level" fqn="NotationGlyphs::Tank::level" kind="attribute" view="NotationGlyphs::Diagrams::lineGlyphs" link="notation-glyphs.sysml:12">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n1">
-            <mxGeometry x="16" y="82" width="82" height="37" as="geometry"/>
+            <mxGeometry x="16" y="92" width="82" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n3" label="«part»&#xA;^b" fqn="NotationGlyphs::Line::b" kind="part" view="NotationGlyphs::Diagrams::lineGlyphs" link="notation-glyphs.sysml:55">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
-            <mxGeometry x="170" y="82" width="114" height="135" as="geometry"/>
+            <mxGeometry x="180" y="92" width="114" height="145" as="geometry"/>
           </mxCell>
         </object>
         <object id="n4" label="«attribute»&#xA;^level" fqn="NotationGlyphs::Tank::level" kind="attribute" view="NotationGlyphs::Diagrams::lineGlyphs" link="notation-glyphs.sysml:12">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n3">
-            <mxGeometry x="16" y="82" width="82" height="37" as="geometry"/>
+            <mxGeometry x="16" y="92" width="82" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="e0" label="«succession flow»" kind="succession flow" view="NotationGlyphs::Diagrams::lineGlyphs" link="notation-glyphs.sysml:56">

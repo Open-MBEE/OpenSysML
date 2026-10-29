@@ -9,67 +9,67 @@
         <mxCell id="1" parent="0"/>
         <object id="n0" label="«part def»&#xA;Plant" fqn="NotationGlyphs::Plant" kind="part def" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:15">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="40" y="40" width="76" height="37" as="geometry"/>
+            <mxGeometry x="50" y="50" width="76" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n1" label="«part»&#xA;tank" fqn="NotationGlyphs::Plant::tank" kind="part" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:16">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="156" y="40" width="54" height="37" as="geometry"/>
+            <mxGeometry x="176" y="50" width="54" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n2" label="«part»&#xA;spare" fqn="NotationGlyphs::Plant::spare" kind="part" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:21">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="250" y="40" width="63" height="37" as="geometry"/>
+            <mxGeometry x="280" y="50" width="63" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n3" label="«timeslice»&#xA;filling" fqn="NotationGlyphs::Plant::filling" kind="timeslice" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:18">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="353" y="40" width="82" height="37" as="geometry"/>
+            <mxGeometry x="393" y="50" width="82" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n4" label="«snapshot»&#xA;full" fqn="NotationGlyphs::Plant::full" kind="snapshot" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:19">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="40" y="117" width="76" height="37" as="geometry"/>
+            <mxGeometry x="50" y="137" width="76" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n5" label="«occurrence»&#xA;startup" fqn="NotationGlyphs::Plant::startup" kind="occurrence" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:20">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="156" y="117" width="88" height="37" as="geometry"/>
+            <mxGeometry x="176" y="137" width="88" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n6" label="«requirement def»&#xA;LevelReq" fqn="NotationGlyphs::LevelReq" kind="requirement def" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:31">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="284" y="117" width="118" height="37" as="geometry"/>
+            <mxGeometry x="314" y="137" width="118" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n7" label="«require constraint»&#xA;keepLevel" fqn="NotationGlyphs::LevelReq::keepLevel" kind="require constraint" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:33">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="442" y="117" width="136" height="37" as="geometry"/>
+            <mxGeometry x="482" y="137" width="136" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n8" label="«assume constraint»&#xA;lowLevel" fqn="NotationGlyphs::LevelReq::lowLevel" kind="assume constraint" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:34">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="40" y="194" width="130" height="37" as="geometry"/>
+            <mxGeometry x="50" y="224" width="130" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n9" label="«constraint»&#xA;bounded" fqn="NotationGlyphs::bounded" kind="constraint" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:26">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="210" y="194" width="88" height="37" as="geometry"/>
+            <mxGeometry x="230" y="224" width="88" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n10" label="«constraint»&#xA;tight" fqn="NotationGlyphs::tight" kind="constraint" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:27">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="338" y="194" width="88" height="37" as="geometry"/>
+            <mxGeometry x="368" y="224" width="88" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n11" label="«requirement»&#xA;capacity" fqn="NotationGlyphs::capacity" kind="requirement" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:40">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="466" y="194" width="94" height="37" as="geometry"/>
+            <mxGeometry x="506" y="224" width="94" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n12" label="«assert constraint»&#xA;asserted" fqn="NotationGlyphs::capacity::asserted" kind="assert constraint" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:42">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="40" y="271" width="130" height="37" as="geometry"/>
+            <mxGeometry x="50" y="311" width="130" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="e0" label="" kind="composition" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:16">
@@ -86,8 +86,8 @@
           <mxCell style="edgeStyle=none;exitX=0.75;exitY=0;exitPerimeter=0;entryX=0.254;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n2">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="97" y="24"/>
-                <mxPoint x="266" y="24"/>
+                <mxPoint x="107" y="34"/>
+                <mxPoint x="296" y="34"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -96,8 +96,8 @@
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.2561;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=oval;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n3">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="78" y="16"/>
-                <mxPoint x="374" y="16"/>
+                <mxPoint x="88" y="26"/>
+                <mxPoint x="414" y="26"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -111,28 +111,26 @@
           <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n0" target="n5">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="136" y="59"/>
-                <mxPoint x="136" y="126"/>
+                <mxPoint x="151" y="69"/>
+                <mxPoint x="151" y="146"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e6" label="require" fqn="NotationGlyphs::LevelReq::bounded" kind="require" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:36">
-          <mxCell style="edgeStyle=none;exitX=0.2542;exitY=1;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n9">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n9">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="314" y="178"/>
-                <mxPoint x="276" y="178"/>
+                <mxPoint x="296" y="156"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e7" label="assume" fqn="NotationGlyphs::LevelReq::tight" kind="assume" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:37">
-          <mxCell style="edgeStyle=none;exitX=0.7542;exitY=1;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n10">
+          <mxCell style="edgeStyle=none;exitX=0.2542;exitY=1;exitPerimeter=0;entryX=0;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n10">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="373" y="174"/>
-                <mxPoint x="382" y="174"/>
+                <mxPoint x="344" y="233"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -146,9 +144,9 @@
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n8">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="343" y="170"/>
-                <mxPoint x="190" y="170"/>
-                <mxPoint x="190" y="203"/>
+                <mxPoint x="373" y="199"/>
+                <mxPoint x="205" y="199"/>
+                <mxPoint x="205" y="233"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -157,7 +155,7 @@
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n11" target="n12">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="513" y="280"/>
+                <mxPoint x="553" y="320"/>
               </Array>
             </mxGeometry>
           </mxCell>
