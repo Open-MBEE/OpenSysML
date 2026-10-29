@@ -423,12 +423,8 @@ type drawioRename struct {
 	base string
 }
 
-// resolveRenames appends the renames after every other edit — the edit batch
-// applies in order, so the Layout, Route and Style edits are written against
-// the names the file still has and the rename then moves them too — deepest
-// path first, so a member renamed along with its owner is still reached by the
-// path the file names it with — keeping one rename per element; copies of an element the view draws twice that
-// disagree are reported and none of them is imported.
+// resolveRenames appends the renames last (the earlier edits still resolve by the old names), deepest
+// path first (a member before its owner), one per element; copies that disagree are reported, not imported.
 func (m *drawioMatcher) resolveRenames() {
 	byCell, seen := map[string]drawioRename{}, map[string]bool{}
 	for _, r := range m.renames {
@@ -794,11 +790,8 @@ func drawioPictureWithin(location, dir string) (string, bool) {
 	return filepath.ToSlash(rel), true
 }
 
-// drawioPictureLocation is the Picture location a draw.io image source names:
-// a path, kept relative to the view's directory dir as the Picture states it,
-// or a file URL made one. Embedded data, a URL no drawing tool reads, a file
-// outside dir and one that does not read as an image are a problem, worded for
-// a notice.
+// drawioPictureLocation is the Picture location (a path relative to the view's directory dir) a draw.io
+// image source names; embedded data, a URL, a file outside dir or a non-image is a problem, worded for a notice.
 func drawioPictureLocation(src, dir string) (location, problem string) {
 	src = strings.TrimSpace(src)
 	switch {

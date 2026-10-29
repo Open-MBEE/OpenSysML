@@ -120,11 +120,8 @@ func (m Model) renameOccurrences(r *resolve.Resolver, sym *symbols.Symbol, ident
 	return out, elsewhere
 }
 
-// renameable is the declaration an operation renames: one of this model's own
-// document, or, for a rename stated DeclaredIn another document, the one
-// declared there — a view's import renames what the view draws from any
-// document of the workspace, and the rename rewrites that document as it does
-// the references of any other.
+// renameable is the declaration an operation renames: in this model's document,
+// or in the one a rename is stated DeclaredIn (a view renames what it draws from any document).
 func (m Model) renameable(i int, op Operation) (*symbols.Symbol, error) {
 	var sym *symbols.Symbol
 	var err error
