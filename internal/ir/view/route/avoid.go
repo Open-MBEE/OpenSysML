@@ -120,9 +120,6 @@ func instantiateHost(ctx context.Context, r wazero.Runtime, compiled wazero.Comp
 		return 1
 	}).Export("emscripten_resize_heap")
 	env.NewFunctionBuilder().WithFunc(func(buf, max, format, tm, locale uint32) uint32 { return 0 }).Export("strftime_l")
-	env.NewFunctionBuilder().WithFunc(func(exception uint32) {
-		panic(avoidError{fmt.Sprintf("exception %d thrown", exception)})
-	}).Export("__throw_exception_with_stack_trace")
 	_, err = env.Instantiate(ctx)
 	return err
 }

@@ -78,68 +78,168 @@
           </mxCell>
         </object>
         <object id="e0" label="" kind="specialization" view="GeneralViews::definitionView" link="general.sysml:10">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n2" target="n1">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n2" target="n1">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="282" y="58.5"/>
+                <mxPoint x="242" y="58.5"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e1" label="" kind="typing" view="GeneralViews::definitionView" link="general.sysml:14">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n5" target="n0">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n5" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="208.5" y="117"/>
+                <mxPoint x="208.5" y="97"/>
+                <mxPoint x="100.75" y="97"/>
+                <mxPoint x="100.75" y="77"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e2" label="" kind="typing" view="GeneralViews::definitionView" link="general.sysml:17">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n6" target="n0">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n6" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="352.5" y="117"/>
+                <mxPoint x="352.5" y="93"/>
+                <mxPoint x="139.99999999975" y="93"/>
+                <mxPoint x="139.99999999975" y="67.75"/>
+                <mxPoint x="121" y="67.75"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e3" label="" kind="typing" view="GeneralViews::definitionView" link="general.sysml:20">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n7" target="n4">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n7" target="n4">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="488" y="154"/>
+                <mxPoint x="488" y="170"/>
+                <mxPoint x="151.99999999975" y="170"/>
+                <mxPoint x="151.99999999975" y="144.75"/>
+                <mxPoint x="128" y="144.75"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e4" label="" kind="reference" view="GeneralViews::definitionView" link="general.sysml:5">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n8">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n8">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="40" y="58.5"/>
+                <mxPoint x="24" y="58.5"/>
+                <mxPoint x="24" y="203.25"/>
+                <mxPoint x="40" y="203.25"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e5" label="" kind="typing" view="GeneralViews::definitionView" link="general.sysml:6">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n9" target="n1">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n9" target="n1">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="256.5" y="194"/>
+                <mxPoint x="256.5" y="171.60000000000002"/>
+                <mxPoint x="265" y="171.60000000000002"/>
+                <mxPoint x="265" y="67.75"/>
+                <mxPoint x="242" y="67.75"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e6" label="" kind="composition" view="GeneralViews::definitionView" link="general.sysml:6">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n9">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n9">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="80.5" y="77"/>
+                <mxPoint x="80.5" y="101"/>
+                <mxPoint x="147.99999999975" y="101"/>
+                <mxPoint x="147.99999999975" y="176.40000000000003"/>
+                <mxPoint x="200" y="176.40000000000003"/>
+                <mxPoint x="200" y="203.25"/>
+                <mxPoint x="216" y="203.25"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e7" label="" kind="typing" view="GeneralViews::definitionView" link="general.sysml:7">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n10" target="n3">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n10" target="n3">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="409" y="212.5"/>
+                <mxPoint x="433" y="212.5"/>
+                <mxPoint x="433" y="67.75"/>
+                <mxPoint x="449" y="67.75"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e8" label="" kind="reference" view="GeneralViews::definitionView" link="general.sysml:7">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n10">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n10">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="121" y="58.5"/>
+                <mxPoint x="144" y="58.5"/>
+                <mxPoint x="144" y="174.8"/>
+                <mxPoint x="313" y="174.8"/>
+                <mxPoint x="313" y="203.25"/>
+                <mxPoint x="337" y="203.25"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e9" label="" kind="redefinition" view="GeneralViews::definitionView" link="general.sysml:15">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n11" target="n8">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n11" target="n8">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="517" y="194"/>
+                <mxPoint x="517" y="178"/>
+                <mxPoint x="192" y="178"/>
+                <mxPoint x="192" y="203.25"/>
+                <mxPoint x="176" y="203.25"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e10" label="" kind="reference" view="GeneralViews::definitionView" link="general.sysml:15">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n5" target="n11">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n5" target="n11">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="208.5" y="154"/>
+                <mxPoint x="208.5" y="173.20000000000002"/>
+                <mxPoint x="425.00000000035004" y="173.20000000000002"/>
+                <mxPoint x="425.00000000035004" y="203.25"/>
+                <mxPoint x="449" y="203.25"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e11" label="" kind="redefinition" view="GeneralViews::definitionView" link="general.sysml:18">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n12" target="n8">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n12" target="n8">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="131.5" y="271"/>
+                <mxPoint x="131.5" y="251"/>
+                <mxPoint x="142" y="251"/>
+                <mxPoint x="142" y="231"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e12" label="" kind="reference" view="GeneralViews::definitionView" link="general.sysml:18">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n6" target="n12">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n6" target="n12">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="320.9999999979" y="154"/>
+                <mxPoint x="320.9999999979" y="251"/>
+                <mxPoint x="243" y="251"/>
+                <mxPoint x="243" y="280.25"/>
+                <mxPoint x="223" y="280.25"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
       </root>

@@ -55,6 +55,14 @@ node binaryen/bin/wasm-opt \
 	--enable-bulk-memory --enable-mutable-globals --enable-sign-ext \
 	--enable-nontrapping-float-to-int \
 	-O0 \
-	libavoid-js/dist/libavoid.wasm -o libavoid.wasm
+	libavoid-js/dist/libavoid.wasm -o libavoid-exnref.wasm
+features="--enable-exception-handling --enable-reference-types --enable-multivalue \
+	--enable-bulk-memory --enable-mutable-globals --enable-sign-ext \
+	--enable-nontrapping-float-to-int"
+# shellcheck disable=SC2086 # the feature flags are meant to split
+node binaryen/bin/wasm-as $features "$root/scripts/libavoid-throw.wat" -o throw.wasm
+# shellcheck disable=SC2086
+node binaryen/bin/wasm-merge $features \
+	libavoid-exnref.wasm libavoid throw.wasm env -o libavoid.wasm
 cp libavoid.wasm "$out"
 sha256sum "$out"

@@ -28,18 +28,38 @@
           </mxCell>
         </object>
         <object id="e0" label="frame" kind="frame" view="NotationGlyphs::Diagrams::requirementGlyphs" link="notation-glyphs.sysml:35">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n0" target="n3">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n0" target="n3">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="99" y="77"/>
+                <mxPoint x="99" y="101"/>
+                <mxPoint x="220" y="101"/>
+                <mxPoint x="220" y="117"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e1" label="" kind="typing" view="NotationGlyphs::Diagrams::requirementGlyphs" link="notation-glyphs.sysml:39">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n0">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="198" y="58.5"/>
+                <mxPoint x="158" y="58.5"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e2" label="require" kind="require" view="NotationGlyphs::Diagrams::requirementGlyphs" link="notation-glyphs.sysml:41">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n2" target="n1">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n2" target="n1">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="87" y="117"/>
+                <mxPoint x="87" y="93"/>
+                <mxPoint x="178" y="93"/>
+                <mxPoint x="178" y="67.75"/>
+                <mxPoint x="198" y="67.75"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
       </root>

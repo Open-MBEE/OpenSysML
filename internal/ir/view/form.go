@@ -231,6 +231,9 @@ type Options struct {
 	// Lines is how the DOT and PlantUML forms route their edges; empty leaves
 	// each engine's curved default, as LinesSplines does.
 	Lines Lines
+	// Routing is who lays the paths of the edges the model leaves unrouted;
+	// empty is each form's default, libavoid in-process for draw.io.
+	Routing Routing
 	// Show is the optional notation elements drawn besides those the rendering
 	// shows of itself (its Shown, the model's choice or DefaultShown); nil adds none.
 	Show Shown
@@ -260,6 +263,9 @@ func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
 		return "", err
 	}
 	if err := options.Lines.check(); err != nil {
+		return "", err
+	}
+	if err := options.Routing.check(); err != nil {
 		return "", err
 	}
 	if err := options.Compartments.check(); err != nil {

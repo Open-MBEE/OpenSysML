@@ -9,32 +9,45 @@
         <mxCell id="1" parent="0"/>
         <object id="n0" label="«action»&#xA;run" fqn="Typed::run" kind="action" view="TypedViews::cycleView" link="typed-behavior.sysml:7">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="1">
-            <mxGeometry x="40" y="40" width="136" height="161" as="geometry"/>
+            <mxGeometry x="40" y="40" width="156" height="205" as="geometry"/>
           </mxCell>
         </object>
         <object id="n1" label="initial" fqn="Typed::run::start" kind="initial" view="TypedViews::cycleView" link="typed-behavior.sysml:8">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n0">
-            <mxGeometry x="16" y="58" width="20" height="20" as="geometry"/>
+            <mxGeometry x="16" y="82" width="20" height="20" as="geometry"/>
           </mxCell>
         </object>
         <object id="n2" label="«action»&#xA;warm" fqn="Typed::run::warm" kind="action" view="TypedViews::cycleView" link="typed-behavior.sysml:9">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
-            <mxGeometry x="56" y="58" width="64" height="37" as="geometry"/>
+            <mxGeometry x="76" y="82" width="64" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n3" label="final" kind="final" view="TypedViews::cycleView" link="typed-behavior.sysml:10">
           <mxCell style="ellipse;shape=endState;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n0">
-            <mxGeometry x="16" y="115" width="30" height="30" as="geometry"/>
+            <mxGeometry x="16" y="159" width="30" height="30" as="geometry"/>
           </mxCell>
         </object>
         <object id="e0" label="" kind="succession" view="TypedViews::cycleView" link="typed-behavior.sysml:11">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n1" target="n2">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n1" target="n2">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="76" y="132"/>
+                <mxPoint x="96" y="132"/>
+                <mxPoint x="96" y="131.25"/>
+                <mxPoint x="116" y="131.25"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e1" label="" kind="succession" view="TypedViews::cycleView" link="typed-behavior.sysml:12">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n2" target="n3">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n2" target="n3">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="148" y="159"/>
+                <mxPoint x="148" y="206.5"/>
+                <mxPoint x="86" y="206.5"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
       </root>

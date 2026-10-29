@@ -11,7 +11,7 @@ import (
 // The embedded module is the one scripts/build-libavoid-wasm.sh builds from
 // the pinned libavoid-js release, and the script still pins that release.
 func TestEmbeddedLibavoidIsThePinnedBuild(t *testing.T) {
-	const want = "c11a35dbd53a0e571b04d4786a397b520249f223fb73dc3ce59b77af1d97a76a"
+	const want = "809f5bbf5ff0435c8fc18813bdbcc4ccf0b02f8140a61c9c35d0e5b65360060e"
 	sum := sha256.Sum256(libavoidWasm)
 	if got := hex.EncodeToString(sum[:]); got != want {
 		t.Fatalf("libavoid.wasm sha256 %s, want %s; rebuild it with scripts/build-libavoid-wasm.sh and update both", got, want)
@@ -20,7 +20,7 @@ func TestEmbeddedLibavoidIsThePinnedBuild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, pin := range []string{`LIBAVOID_JS_VERSION="0.4.5"`, `BINARYEN_VERSION="132.0.0"`, "--translate-to-exnref"} {
+	for _, pin := range []string{`LIBAVOID_JS_VERSION="0.4.5"`, `BINARYEN_VERSION="132.0.0"`, "--translate-to-exnref", "wasm-merge"} {
 		if !strings.Contains(string(script), pin) {
 			t.Errorf("build-libavoid-wasm.sh no longer states %s", pin)
 		}

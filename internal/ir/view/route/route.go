@@ -51,8 +51,12 @@ type Edge struct {
 // The panel's routing constants: the clearance kept from boxes, the distance
 // parallel routes are nudged apart, the size of a port square, and the number
 // of edges at a shape above which its generic pins are shared.
+// Clearance is how far the router keeps a path from every shape; two shapes
+// closer than twice it leave no channel between them.
+const Clearance = 16
+
 const (
-	clearance         = 16
+	clearance         = Clearance
 	nudging           = 8
 	portSize          = 10
 	exclusivePinLimit = 12

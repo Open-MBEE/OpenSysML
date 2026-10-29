@@ -33,28 +33,63 @@
           </mxCell>
         </object>
         <object id="e0" label="" kind="containment" view="GeneralViews::packageView" link="general.sysml:22">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="204" y="58.5"/>
+                <mxPoint x="244" y="58.5"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e1" label="«private import»*" kind="import" view="GeneralViews::packageView" link="general.sysml:31">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n2" target="n0">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n2" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="489" y="40"/>
+                <mxPoint x="489" y="24"/>
+                <mxPoint x="163" y="24"/>
+                <mxPoint x="163" y="40"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e2" label="«private import»*" kind="import" view="GeneralViews::packageView" link="general.sysml:63">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n3" target="n0">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n3" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="88" y="117"/>
+                <mxPoint x="88" y="97"/>
+                <mxPoint x="81" y="97"/>
+                <mxPoint x="81" y="77"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e3" label="«private import»*" kind="import" view="GeneralViews::packageView" link="general.sysml:64">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n3" target="n1">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n3" target="n1">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="184" y="117"/>
+                <mxPoint x="184" y="93"/>
+                <mxPoint x="224" y="93"/>
+                <mxPoint x="224" y="67.75"/>
+                <mxPoint x="244" y="67.75"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e4" label="«private import»*" kind="import" view="GeneralViews::packageView" link="general.sysml:65">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n3" target="n2">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n3" target="n2">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="136" y="117"/>
+                <mxPoint x="136" y="101"/>
+                <mxPoint x="373" y="101"/>
+                <mxPoint x="373" y="67.75"/>
+                <mxPoint x="393" y="67.75"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
       </root>

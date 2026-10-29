@@ -9,32 +9,40 @@
         <mxCell id="1" parent="0"/>
         <object id="n0" label="«abstract part»&#xA;vehicleFamily" fqn="AbstractViews::vehicleFamily" kind="abstract part" view="AbstractViews::familyLinks" link="abstract.sysml:14">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="1">
-            <mxGeometry x="40" y="40" width="264" height="168" as="geometry"/>
+            <mxGeometry x="40" y="40" width="284" height="212" as="geometry"/>
           </mxCell>
         </object>
         <object id="n1" label="«abstract port»&#xA;fuel" fqn="AbstractViews::vehicleFamily::fuel" kind="abstract port" view="AbstractViews::familyLinks" link="abstract.sysml:15">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
-            <mxGeometry x="16" y="58" width="106" height="37" as="geometry"/>
+            <mxGeometry x="16" y="82" width="106" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n2" label="«abstract part»&#xA;engine" fqn="AbstractViews::vehicleFamily::engine" kind="abstract part" view="AbstractViews::familyLinks" link="abstract.sysml:16">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
-            <mxGeometry x="142" y="58" width="106" height="37" as="geometry"/>
+            <mxGeometry x="162" y="82" width="106" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n3" label="«part»&#xA;chassis" fqn="AbstractViews::vehicleFamily::chassis" kind="part" view="AbstractViews::familyLinks" link="abstract.sysml:17">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
-            <mxGeometry x="16" y="115" width="81" height="37" as="geometry"/>
+            <mxGeometry x="16" y="159" width="81" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n4" label="«attribute»&#xA;^mass" fqn="AbstractViews::Vehicle::mass" kind="attribute" view="AbstractViews::familyLinks" link="abstract.sysml:8">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
-            <mxGeometry x="117" y="115" width="82" height="37" as="geometry"/>
+            <mxGeometry x="137" y="159" width="82" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="e0" label="" kind="connection" view="AbstractViews::familyLinks" link="abstract.sysml:18">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n2" target="n3">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n2" target="n3">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="255" y="159"/>
+                <mxPoint x="255" y="179"/>
+                <mxPoint x="157" y="179"/>
+                <mxPoint x="157" y="208.25"/>
+                <mxPoint x="137" y="208.25"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
       </root>

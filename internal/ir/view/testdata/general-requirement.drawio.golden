@@ -84,78 +84,185 @@
           </mxCell>
         </object>
         <object id="e0" label="" kind="specialization" view="GeneralViews::requirementView" link="general.sysml:42">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n2" target="n1">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n2" target="n1">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="1228" y="67"/>
+                <mxPoint x="1188" y="67"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e1" label="" kind="typing" view="GeneralViews::requirementView" link="general.sysml:44">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n3" target="n0">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n3" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="1565" y="40"/>
+                <mxPoint x="1565" y="24"/>
+                <mxPoint x="656" y="24"/>
+                <mxPoint x="656" y="53.5"/>
+                <mxPoint x="636" y="53.5"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e2" label="" kind="typing" view="GeneralViews::requirementView" link="general.sysml:47">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n4" target="n0">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n4" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="40" y="161"/>
+                <mxPoint x="24" y="161"/>
+                <mxPoint x="24" y="80.5"/>
+                <mxPoint x="40" y="80.5"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e3" label="" kind="typing" view="GeneralViews::requirementView" link="general.sysml:48">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n5" target="n2">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n5" target="n2">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="266" y="134"/>
+                <mxPoint x="266" y="110.80000002439999"/>
+                <mxPoint x="1287.5" y="110.80000002439999"/>
+                <mxPoint x="1287.5" y="94"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e4" label="«derive»" kind="derive" view="GeneralViews::requirementView" link="general.sysml:50">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n4" target="n3">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n4" target="n3">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="99" y="134"/>
+                <mxPoint x="99" y="113.20000002439998"/>
+                <mxPoint x="1482" y="113.20000002439998"/>
+                <mxPoint x="1482" y="53.5"/>
+                <mxPoint x="1506" y="53.5"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e5" label="«refine»" kind="refine" view="GeneralViews::requirementView" link="general.sysml:54">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n6" target="n4">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n6" target="n4">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="437.5" y="134"/>
+                <mxPoint x="437.5" y="115.60000002439999"/>
+                <mxPoint x="128.5" y="115.60000002439999"/>
+                <mxPoint x="128.5" y="134"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e6" label="«satisfy»" kind="satisfy" view="GeneralViews::requirementView" link="general.sysml:56">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n7" target="n3">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n7" target="n3">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="622" y="152.5"/>
+                <mxPoint x="1594.5" y="152.5"/>
+                <mxPoint x="1594.5" y="94"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e7" label="«satisfy»" kind="satisfy" view="GeneralViews::requirementView" link="general.sysml:57">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n8" target="n3">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n8" target="n3">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="103.5" y="228"/>
+                <mxPoint x="103.5" y="208.0000000004"/>
+                <mxPoint x="1486" y="208.0000000004"/>
+                <mxPoint x="1486" y="67"/>
+                <mxPoint x="1506" y="67"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e8" label="«satisfy»" kind="satisfy" view="GeneralViews::requirementView" link="general.sysml:58">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n7" target="n5">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n7" target="n5">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="581.5" y="134"/>
+                <mxPoint x="581.5" y="118"/>
+                <mxPoint x="300" y="118"/>
+                <mxPoint x="300" y="134"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e9" label="«allocate»" kind="allocate" view="GeneralViews::requirementView" link="general.sysml:59">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n5" target="n9">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n5" target="n9">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="232" y="188"/>
+                <mxPoint x="232" y="212"/>
+                <mxPoint x="239" y="212"/>
+                <mxPoint x="239" y="228"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e10" label="«verify»" kind="verify" view="GeneralViews::requirementView" link="general.sysml:70">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n10" target="n3">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n10" target="n3">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="373" y="228"/>
+                <mxPoint x="373" y="199.5"/>
+                <mxPoint x="1490" y="199.5"/>
+                <mxPoint x="1490" y="80.5"/>
+                <mxPoint x="1506" y="80.5"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e11" label="«verify»" kind="verify" view="GeneralViews::requirementView" link="general.sysml:70">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n11" target="n3">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n11" target="n3">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="611" y="246.5"/>
+                <mxPoint x="1565" y="246.5"/>
+                <mxPoint x="1565" y="94"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e12" label="«verify»" kind="verify" view="GeneralViews::requirementView" link="general.sysml:70">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n12" target="n3">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n12" target="n3">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="108" y="305"/>
+                <mxPoint x="108" y="289"/>
+                <mxPoint x="1535.5" y="289"/>
+                <mxPoint x="1535.5" y="94"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e13" label="«verify»" kind="verify" view="GeneralViews::requirementView" link="general.sysml:83">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n13" target="n5">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n13" target="n5">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="278" y="305"/>
+                <mxPoint x="278" y="281"/>
+                <mxPoint x="287" y="281"/>
+                <mxPoint x="287" y="204.0000000004"/>
+                <mxPoint x="266" y="204.0000000004"/>
+                <mxPoint x="266" y="188"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e14" label="«verify»" kind="verify" view="GeneralViews::requirementView" link="general.sysml:83">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n14" target="n5">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n14" target="n5">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="455" y="305"/>
+                <mxPoint x="455" y="204.0000000004"/>
+                <mxPoint x="300" y="204.0000000004"/>
+                <mxPoint x="300" y="188"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
       </root>

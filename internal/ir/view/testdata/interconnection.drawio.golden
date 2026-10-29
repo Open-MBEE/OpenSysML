@@ -9,12 +9,12 @@
         <mxCell id="1" parent="0"/>
         <object id="n0" label="«part def»&#xA;Loop" fqn="Plant::Loop" kind="part def" view="PlantViews::loopView" link="interconnection.sysml:16">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
-            <mxGeometry x="40" y="40" width="306" height="316" as="geometry"/>
+            <mxGeometry x="40" y="40" width="326" height="408" as="geometry"/>
           </mxCell>
         </object>
         <object id="n1" label="«part»&#xA;pump" fqn="Plant::Loop::pump" kind="part" view="PlantViews::loopView" link="interconnection.sysml:17">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
-            <mxGeometry x="16" y="58" width="132" height="111" as="geometry"/>
+            <mxGeometry x="16" y="82" width="132" height="135" as="geometry"/>
           </mxCell>
         </object>
         <object id="n1:n1.0" label="^outlet" fqn="Plant::Pump::outlet" kind="port" view="PlantViews::loopView" link="interconnection.sysml:5">
@@ -26,12 +26,12 @@
         </object>
         <object id="n2" label="«item»&#xA;^waterOut" fqn="Plant::Pump::waterOut" kind="item" view="PlantViews::loopView" link="interconnection.sysml:6">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n1">
-            <mxGeometry x="16" y="58" width="100" height="37" as="geometry"/>
+            <mxGeometry x="16" y="82" width="100" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n3" label="«part»&#xA;tank" fqn="Plant::Loop::tank" kind="part" view="PlantViews::loopView" link="interconnection.sysml:18">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
-            <mxGeometry x="168" y="58" width="122" height="111" as="geometry"/>
+            <mxGeometry x="188" y="82" width="122" height="135" as="geometry"/>
           </mxCell>
         </object>
         <object id="n3:n3.0" label="^inlet" fqn="Plant::Tank::inlet" kind="port" view="PlantViews::loopView" link="interconnection.sysml:10">
@@ -43,27 +43,39 @@
         </object>
         <object id="n4" label="«item»&#xA;^waterIn" fqn="Plant::Tank::waterIn" kind="item" view="PlantViews::loopView" link="interconnection.sysml:11">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n3">
-            <mxGeometry x="16" y="58" width="90" height="37" as="geometry"/>
+            <mxGeometry x="16" y="82" width="90" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n5" label="«part»&#xA;sensor" fqn="Plant::Loop::sensor" kind="part" view="PlantViews::loopView" link="interconnection.sysml:22">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
-            <mxGeometry x="16" y="189" width="132" height="111" as="geometry"/>
+            <mxGeometry x="16" y="257" width="132" height="135" as="geometry"/>
           </mxCell>
         </object>
         <object id="n6" label="«item»&#xA;^waterOut" fqn="Plant::Pump::waterOut" kind="item" view="PlantViews::loopView" link="interconnection.sysml:6">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n5">
-            <mxGeometry x="16" y="58" width="100" height="37" as="geometry"/>
+            <mxGeometry x="16" y="82" width="100" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="e0" label="" kind="connection" view="PlantViews::loopView" link="interconnection.sysml:19">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n1:n1.0" target="n3:n3.0">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n1:n1.0" target="n3:n3.0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="122" y="117"/>
+                <mxPoint x="122" y="101"/>
+                <mxPoint x="289" y="101"/>
+                <mxPoint x="289" y="117"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e1" label="" kind="flow" view="PlantViews::loopView" link="interconnection.sysml:20">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;" edge="1" parent="1" source="n2" target="n4">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;" edge="1" parent="1" source="n2" target="n4">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="172" y="222.5"/>
+                <mxPoint x="244" y="222.5"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
       </root>

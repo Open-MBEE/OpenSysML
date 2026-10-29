@@ -9,67 +9,105 @@
         <mxCell id="1" parent="0"/>
         <object id="n0" label="«state def»&#xA;VehicleStates" fqn="Machines::VehicleStates" kind="state def" view="MachineViews::vehicleStates" link="state.sysml:8">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
-            <mxGeometry x="40" y="40" width="179" height="333" as="geometry"/>
+            <mxGeometry x="40" y="40" width="199" height="421" as="geometry"/>
           </mxCell>
         </object>
         <object id="n5" label="start" kind="start" view="MachineViews::vehicleStates">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n0">
-            <mxGeometry x="16" y="58" width="20" height="20" as="geometry"/>
+            <mxGeometry x="16" y="82" width="20" height="20" as="geometry"/>
           </mxCell>
         </object>
         <object id="n1" label="«state»&#xA;off&#xA;initial" fqn="Machines::VehicleStates::off" kind="state" view="MachineViews::vehicleStates" link="state.sysml:13">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
-            <mxGeometry x="56" y="58" width="75" height="54" as="geometry"/>
+            <mxGeometry x="76" y="82" width="75" height="54" as="geometry"/>
           </mxCell>
         </object>
         <object id="n2" label="«state»&#xA;operating" fqn="Machines::VehicleStates::operating" kind="state" view="MachineViews::vehicleStates" link="state.sysml:14">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
-            <mxGeometry x="16" y="132" width="147" height="185" as="geometry"/>
+            <mxGeometry x="16" y="176" width="167" height="229" as="geometry"/>
           </mxCell>
         </object>
         <object id="n6" label="start" kind="start" view="MachineViews::vehicleStates">
           <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n2">
-            <mxGeometry x="16" y="58" width="20" height="20" as="geometry"/>
+            <mxGeometry x="16" y="82" width="20" height="20" as="geometry"/>
           </mxCell>
         </object>
         <object id="n3" label="«state»&#xA;idle&#xA;initial" fqn="Machines::VehicleStates::operating::idle" kind="state" view="MachineViews::vehicleStates" link="state.sysml:17">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n2">
-            <mxGeometry x="56" y="58" width="75" height="54" as="geometry"/>
+            <mxGeometry x="76" y="82" width="75" height="54" as="geometry"/>
           </mxCell>
         </object>
         <object id="n4" label="«state»&#xA;moving" fqn="Machines::VehicleStates::operating::moving" kind="state" view="MachineViews::vehicleStates" link="state.sysml:18">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n2">
-            <mxGeometry x="16" y="132" width="72" height="37" as="geometry"/>
+            <mxGeometry x="16" y="176" width="72" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="e0" label="" kind="transition" view="MachineViews::vehicleStates" link="state.sysml:11">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n5" target="n1">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n5" target="n1">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="66" y="142"/>
+                <mxPoint x="66" y="162.5"/>
+                <mxPoint x="116" y="162.5"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e1" label="" kind="transition" view="MachineViews::vehicleStates" link="state.sysml:15">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n3">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n3">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="92" y="308"/>
+                <mxPoint x="112" y="308"/>
+                <mxPoint x="112" y="311.5"/>
+                <mxPoint x="132" y="311.5"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e2" label="" kind="transition" view="MachineViews::vehicleStates" link="state.sysml:29">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n1" target="n2">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n1" target="n2">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="116" y="149"/>
+                <mxPoint x="97.75" y="149"/>
+                <mxPoint x="97.75" y="216"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e3" label="" kind="transition" view="MachineViews::vehicleStates" link="state.sysml:30">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n2" target="n1">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n2" target="n1">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="139.5" y="216"/>
+                <mxPoint x="139.5" y="204"/>
+                <mxPoint x="134.75" y="204"/>
+                <mxPoint x="134.75" y="176"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e4" label="accept Signal [temperature &gt; 0]" kind="transition" view="MachineViews::vehicleStates" link="state.sysml:20">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n3" target="n4">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n3" target="n4">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="169.5" y="352"/>
+                <mxPoint x="169.5" y="401.25"/>
+                <mxPoint x="144" y="401.25"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e5" label="" kind="transition" view="MachineViews::vehicleStates" link="state.sysml:26">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n4" target="n3">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n4" target="n3">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="108" y="392"/>
+                <mxPoint x="108" y="338.5"/>
+                <mxPoint x="132" y="338.5"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
       </root>

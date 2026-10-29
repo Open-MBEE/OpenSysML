@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view/route"
 	"math"
 	"os"
 	"strings"
@@ -30,6 +31,9 @@ func (r *Rendering) DrawioWith(options Options) (string, error) {
 	if err := options.Ports.check(); err != nil {
 		return "", err
 	}
+	if err := options.Routing.check(); err != nil {
+		return "", err
+	}
 	r = r.showing(options.Show)
 	if options.Unplaced != UnplacedStrip || options.Compartments.automatic() {
 		r = foldCompartments(withoutStandIns(r), options.Compartments)
@@ -54,6 +58,15 @@ func (r *Rendering) DrawioWith(options Options) (string, error) {
 		w.fills.collect(root)
 	}
 	w.layout(r)
+	if options.Routing.routesDrawio() {
+		edges, err := w.routeEdges(r)
+		if err != nil {
+			return "", err
+		}
+		routed := *r
+		routed.Edges = edges
+		r = &routed
+	}
 	w.edgeIDs = drawioEdgeIDs(r.Edges)
 	return w.document(r, options), nil
 }
@@ -93,8 +106,10 @@ func (b drawioBox) bottom() float64 { return b.Y + b.Height }
 // The spacing the grid lays unplaced nodes out with, and the padding a
 // container keeps about its nested children, in draw.io pixels.
 const (
-	drawioGridGap     = 40
-	drawioNestedGap   = 20
+	drawioGridGap = 40
+	// drawioNestedGap also parts a header from its members: more than twice
+	// the router's clearance, so a path can pass between neighbours.
+	drawioNestedGap   = 2*route.Clearance + 8
 	drawioNestedPad   = 16
 	drawioPortSize    = 12
 	drawioMinWidth    = 100
@@ -210,7 +225,7 @@ func (w *drawioWriter) settleChildren(node *Node, box drawioBox) {
 	for i, child := range unplaced {
 		sizes[i] = w.fitted(child)
 	}
-	origin := drawioBox{X: box.X + drawioNestedPad, Y: box.Y + w.headroom(node) + drawioNestedPad}
+	origin := drawioBox{X: box.X + drawioNestedPad, Y: box.Y + w.headroom(node) + drawioNestedGap}
 	for _, child := range node.Children {
 		if child.Geometry.placed() {
 			origin.Y = math.Max(origin.Y, w.boxes[child.ID].bottom()+drawioNestedGap)
@@ -236,7 +251,7 @@ func (w *drawioWriter) childShift(node *Node, box drawioBox) drawioBox {
 	if !any {
 		return drawioBox{}
 	}
-	return drawioBox{X: box.X + drawioNestedPad - minX, Y: box.Y + w.headroom(node) + drawioNestedPad - minY}
+	return drawioBox{X: box.X + drawioNestedPad - minX, Y: box.Y + w.headroom(node) + drawioNestedGap - minY}
 }
 
 // fitted is the size a node is drawn at: the stated one, else a glyph's fixed

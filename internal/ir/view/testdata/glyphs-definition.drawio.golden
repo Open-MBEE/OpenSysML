@@ -73,58 +73,127 @@
           </mxCell>
         </object>
         <object id="e0" label="" kind="composition" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:16">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="116" y="49.25"/>
+                <mxPoint x="156" y="49.25"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e1" label="references" kind="reference subsetting" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:21">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n2" target="n1">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n2" target="n1">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="250" y="58.5"/>
+                <mxPoint x="210" y="58.5"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e2" label="" kind="reference" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:21">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n2">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n2">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="97" y="40"/>
+                <mxPoint x="97" y="24"/>
+                <mxPoint x="265.75" y="24"/>
+                <mxPoint x="265.75" y="40"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e3" label="" kind="portion" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:18">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=oval;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n3">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;startArrow=oval;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n3">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="78" y="40"/>
+                <mxPoint x="78" y="16.00000008"/>
+                <mxPoint x="373.5" y="16.00000008"/>
+                <mxPoint x="373.5" y="40"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e4" label="" kind="portion" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:19">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=oval;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n4">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;startArrow=oval;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n4">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="78" y="77"/>
+                <mxPoint x="78" y="117"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e5" label="event" kind="event" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:20">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n0" target="n5">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n0" target="n5">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="116" y="58.5"/>
+                <mxPoint x="136" y="58.5"/>
+                <mxPoint x="136" y="126.25"/>
+                <mxPoint x="156" y="126.25"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e6" label="require" kind="require" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:36">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n9">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n9">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="313.5" y="154"/>
+                <mxPoint x="313.5" y="178"/>
+                <mxPoint x="276" y="178"/>
+                <mxPoint x="276" y="194"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e7" label="assume" kind="assume" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:37">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n10">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n10">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="372.5" y="154"/>
+                <mxPoint x="372.5" y="174"/>
+                <mxPoint x="382" y="174"/>
+                <mxPoint x="382" y="194"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e8" label="require" kind="require" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:33">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n7">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n7">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="402" y="135.5"/>
+                <mxPoint x="442" y="135.5"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e9" label="assume" kind="assume" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:34">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n8">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n6" target="n8">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="343" y="154"/>
+                <mxPoint x="343" y="170"/>
+                <mxPoint x="190" y="170"/>
+                <mxPoint x="190" y="203.25"/>
+                <mxPoint x="170" y="203.25"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
         <object id="e10" label="assert" kind="assert" view="NotationGlyphs::Diagrams::definitionGlyphs" link="notation-glyphs.sysml:42">
-          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n11" target="n12">
-            <mxGeometry relative="1" as="geometry"/>
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n11" target="n12">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="513" y="231"/>
+                <mxPoint x="513" y="280.25"/>
+                <mxPoint x="170" y="280.25"/>
+              </Array>
+            </mxGeometry>
           </mxCell>
         </object>
       </root>
