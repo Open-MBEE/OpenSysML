@@ -2760,6 +2760,21 @@ ports (#1458) and sized owner children (#1480), with the expectations the testin
 
 ---
 
+## W6 — a `drawio` form (landed)
+
+A view is written as an uncompressed diagrams.net file that draw.io desktop, the diagrams.net
+editor and the VS Code draw.io extension open and edit: the §8.2.3 notation's node and edge
+glyphs, nested parts and regions as container children, ports on the border, stated positions,
+routes, colours and fonts, notes and pictures, each cell tagged with its element's qualified name
+and declaration so a reader can match an edited file back to the model. Unplaced views sit on a
+grid for draw.io's layout to arrange. Offered by `-render-form drawio`, `%render`, `%viz`, the
+LSP and MCP `render` requests and the VS Code export picker; tree, interconnection, state, action,
+case, mixed, requirement, definition and package renderings, not sequence
+([the draw.io form](view-rendering-forms.md#drawio)). A document figure in that form, a reader
+of positions edited in draw.io and an *open in draw.io* editor command are the open follow-ons.
+
+---
+
 # Track M — an embedded, RTOS-compatible target
 
 The question was whether OpenSysML models could run on a microcontroller under an RTOS, and what

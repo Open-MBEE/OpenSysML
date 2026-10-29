@@ -182,7 +182,9 @@ the first diagram opened in a session move out on its own; later ones join it as
 the drawn view in a form you pick from a list: Mermaid (`.mmd`) with the model's positions as
 `%% layout:` comments, Graphviz DOT (`.dot`) with the positions as `pos` attributes and a
 `// layout:` header naming the engine that keeps them, PlantUML (`.puml`) in the Pilot
-visualizer's style, D2 (`.d2`) in the same look, Markdown (`.md`), comma-separated (`.csv`) or tab-separated (`.tsv`) values
+visualizer's style, D2 (`.d2`) in the same look, a diagrams.net file (`.drawio`) that draw.io desktop,
+the diagrams.net editor and the VS Code draw.io extension open — stated positions kept, an unplaced view
+on a grid for *Arrange › Layout* or `drawio --normalize --layout elkLayered` to arrange —, Markdown (`.md`), comma-separated (`.csv`) or tab-separated (`.tsv`) values
 for a table, or the text form (`.txt`). The list is the
 one the connected server advertises, so it matches what that server writes; the pick is sent
 as the request's `form`, the server writes that form, and the save dialog opens on the matching
