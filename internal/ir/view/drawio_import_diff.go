@@ -190,18 +190,16 @@ func (m *drawioMatcher) match() {
 			}
 		}
 	}
-	var pending, plain []*DrawioCell
-	type pairing struct{ cell, base *DrawioCell }
-	var pairs []pairing
+	var pending []*DrawioCell
+	baseOf := map[*DrawioCell]*DrawioCell{}
 	pair := func(cell, base *DrawioCell) {
 		m.matched[base.ID] = true
 		m.paired[base.ID] = cell
-		pairs = append(pairs, pairing{cell, base})
+		baseOf[cell] = base
 	}
 	for i := range m.file.Cells {
 		cell := &m.file.Cells[i]
 		if cell.Kind == "" {
-			plain = append(plain, cell)
 			continue
 		}
 		if base := m.base.Cell(cell.ID); base != nil && sameDrawioElement(cell, base, fileKeys, baseKeys) {
@@ -234,12 +232,15 @@ func (m *drawioMatcher) match() {
 		}
 	}
 	// Every pair is known before any is diffed, so pinning a container reads
-	// each child's edited cell whatever id the file gives it.
-	for _, p := range pairs {
-		m.diff(p.cell, p.base, baseKeys)
-	}
-	for _, cell := range plain {
-		m.plainCell(cell)
+	// each child's edited cell whatever id the file gives it; the edits come
+	// in the file's order.
+	for i := range m.file.Cells {
+		cell := &m.file.Cells[i]
+		if cell.Kind == "" {
+			m.plainCell(cell)
+		} else if base := baseOf[cell]; base != nil {
+			m.diff(cell, base, baseKeys)
+		}
 	}
 	m.deleted()
 }

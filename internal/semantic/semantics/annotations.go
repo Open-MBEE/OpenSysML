@@ -73,9 +73,8 @@ func (m *Model) annotationsOf(sym *symbols.Symbol) []annotation {
 		out = append(out, m.declaredAnnotations(sym)...)
 		out = append(out, m.aboutAnnotations(sym)...)
 	}
-	// Asked while the `about` index is still being built — a view's filter
-	// evaluating a candidate as an `about` target resolves — the answer lacks
-	// what the index has not reached yet, so it is given but not kept.
+	// Asked while the `about` index is still being built (a view's filter
+	// resolving), the answer is partial: given, not kept.
 	if m.aboutBuilding {
 		delete(m.annotations, sym)
 		return out
