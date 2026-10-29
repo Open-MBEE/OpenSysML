@@ -1417,12 +1417,15 @@ one model write byte-identical files. No draw.io is run to write it, and none is
 ```
 
 Every semantic cell — a node, a port, an edge — is wrapped in an `<object>` carrying the
-element's handle beside draw.io's own `label`: `fqn`, the declaration's qualified name; `kind`,
-the node's keyword (`part def`, `state`, `initial`, …) or the edge's kind; `view`, the view
-rendered; and `link`, the declaration's `file:line` when the element has one. Compartment rows
-and edge end labels are plain `mxCell`s and carry no `fqn`. The `fqn` is exact and the same for
-every cell of one element, so a tool reading an edited file back can match each cell to its
-declaration; a later round trip of positions edited in draw.io builds on it.
+element's handle beside draw.io's own `label`: `kind`, the node's keyword (`part def`, `state`,
+`initial`, …) or the edge's kind; `view`, the view rendered; `link`, the declaration's
+`file:line` when the element has one; and, on a node or a port, `fqn`, the declaration's
+qualified name. An edge carries no `fqn` — a relationship has no name of its own in most
+models — and is matched by its `link` and the `source` and `target` cells it joins.
+Compartment rows and edge end labels are plain `mxCell`s and carry none of these. The `fqn` is
+exact and the same for every cell of one element, so a tool reading an edited file back can
+match each cell to its declaration; a later round trip of positions edited in draw.io builds on
+it.
 
 | Rendering | draw.io |
 | --- | --- |
@@ -1430,7 +1433,7 @@ declaration; a later round trip of positions edited in draw.io builds on it.
 | Nested children | Child vertices of the container cell with container-relative geometry (draw.io positions a child from its parent's corner; the rendering's absolute coordinates are converted) |
 | Ports and pins | Small child cells on the owner's border, in-ports left, out-ports right, the rest spread along the top; an edge naming `FromPort`/`ToPort` attaches to the port cell |
 | Pseudostates | The UML template's shapes: `ellipse` filled for initial and junction, a ringed filled ellipse for final, a bar for fork and join, a rhombus for decision, choice and merge, an `H` circle for history, a crossed circle for terminate |
-| Edges | `edgeStyle=orthogonalEdgeStyle` with the §8.2.3 glyph per `EdgeKind` ([notation table](#notation-table), draw.io column): generalization `endArrow=block;endFill=0`, composition `endArrow=diamondThin;endFill=1`, reference `endArrow=diamondThin;endFill=0`, a connection a heavy plain line, a flow `dashed=1;endArrow=open`, a succession and a transition `endArrow=open`, dependency, satisfy, verify, allocate and the rest `dashed=1;endArrow=open` with the stereotype as the label; `Label` is the edge's value, `FromLabel` and `ToLabel` child `edgeLabel` cells at each end |
+| Edges | `edgeStyle=orthogonalEdgeStyle` with the §8.2.3 glyph per `EdgeKind` ([notation table](#notation-table), draw.io column): generalization (and subsetting, redefinition) `endArrow=block;endFill=0`, typing the same dashed, composition `startArrow=diamondThin;startFill=1` and reference `startArrow=diamondThin;startFill=0` (the diamond at the owner), containment `startArrow=circlePlus`, a connection `endArrow=none;strokeWidth=3`, a binding a plain line, a flow `endArrow=block;endFill=1`, a succession `dashed=1;endArrow=open`, a transition `endArrow=open`, import, dependency, derive, refine, satisfy, verify, allocate and the rest `dashed=1;endArrow=open` with the stereotype as the label; `Label` is the edge's value, `FromLabel` and `ToLabel` child `edgeLabel` cells at each end |
 | Geometry | `mxGeometry x y width height` from `DiagramLayout::Layout`; a `Route` as `<Array as="points">` of `mxPoint`s; a `Style` as `fillColor`, `strokeColor`, `fontColor`, `fontFamily`, `fontSize` and `fontStyle` (1 bold, 2 italic, 3 both); a `Canvas` as the model's `pageWidth`/`pageHeight` in its unit |
 | Notes | A `shape=note` cell holding the text and a dashed anchor edge to every subject the annotation is about (one box per annotation) |
 | Pictures | A `shape=image` cell with the image embedded the way draw.io stores one in a style, `image=data:<type>,<base64>`, for a local file or a declared data URL under the [trust rules](#optional-notation-elements) the SVG and document writers apply; a refused or remote picture is a notice |
