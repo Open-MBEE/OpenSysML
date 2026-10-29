@@ -92,9 +92,8 @@ func TestInOrderRunsHandlersInWireOrder(t *testing.T) {
 	}
 }
 
-// A request queued behind a slow handler can still be cancelled: the read
-// loop is free, so the cancel is seen, and the request answers without running.
-// The messages behind the cancelled request still wait for the slow handler.
+// A request queued behind a slow handler is cancelled without running, and the
+// messages behind it still wait for the slow handler.
 func TestInOrderAnswersCancelledWhileQueued(t *testing.T) {
 	for range 20 {
 		o := newOrderedSession(t)
