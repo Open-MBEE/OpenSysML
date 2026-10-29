@@ -42,25 +42,21 @@
           </mxCell>
         </object>
         <object id="e0" label="" kind="connection" view="ToasterViews::toasterView" link="interconnection-ports.sysml:23">
-          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n2:n2.0" target="n1:n1.0">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.08333333333333333;exitPerimeter=0;entryX=0.5;entryY=0.08333333333333333;entryPerimeter=0;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n2:n2.0" target="n1:n1.0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="217.5" y="117"/>
                 <mxPoint x="217.5" y="101"/>
                 <mxPoint x="96.5" y="101"/>
-                <mxPoint x="96.5" y="117"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e1" label="" kind="flow" view="ToasterViews::toasterView" link="interconnection-ports.sysml:24">
-          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;" edge="1" parent="1" source="n2:n2.0" target="n1:n1.0">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.08333333333333333;exitPerimeter=0;entryX=0.5;entryY=0.08333333333333333;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=1;" edge="1" parent="1" source="n2:n2.0" target="n1:n1.0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="217.5" y="117"/>
                 <mxPoint x="217.5" y="98.60000002400001"/>
                 <mxPoint x="96.5" y="98.60000002400001"/>
-                <mxPoint x="96.5" y="117"/>
               </Array>
             </mxGeometry>
           </mxCell>

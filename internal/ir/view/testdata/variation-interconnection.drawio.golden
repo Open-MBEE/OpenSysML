@@ -33,12 +33,10 @@
           </mxCell>
         </object>
         <object id="e0" label="" kind="connection" view="VariationViews::familyLinks" link="variation.sysml:26">
-          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n1" target="n2">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0;entryY=0.5037037037037037;entryPerimeter=0;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n1" target="n2">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="92" y="159"/>
                 <mxPoint x="92" y="190"/>
-                <mxPoint x="168" y="190"/>
               </Array>
             </mxGeometry>
           </mxCell>

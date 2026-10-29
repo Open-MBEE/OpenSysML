@@ -8,6 +8,7 @@ import (
 	"image"
 	"image/png"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -73,6 +74,8 @@ type drawioCell struct {
 	vertex, edge, geometry     bool
 	fqn, link, style           string
 	box                        drawioBox
+	relative                   bool  // box.X and box.Y are fractions of the parent's box
+	offset                     Point // added to a relative position
 	points                     []Point
 }
 
@@ -118,11 +121,18 @@ func parseDrawio(t *testing.T, doc string) []drawioCell {
 					open[len(open)-1].geometry = true
 					open[len(open)-1].box = drawioBox{X: xmlNumber(t, attrs["x"]), Y: xmlNumber(t, attrs["y"]),
 						Width: xmlNumber(t, attrs["width"]), Height: xmlNumber(t, attrs["height"])}
+					open[len(open)-1].relative = attrs["relative"] == "1"
 				}
 			case "mxPoint":
-				if len(open) > 0 && attrs["as"] == "" {
+				if len(open) > 0 {
 					cell := open[len(open)-1]
-					cell.points = append(cell.points, Point{X: xmlNumber(t, attrs["x"]), Y: xmlNumber(t, attrs["y"])})
+					point := Point{X: xmlNumber(t, attrs["x"]), Y: xmlNumber(t, attrs["y"])}
+					switch attrs["as"] {
+					case "":
+						cell.points = append(cell.points, point)
+					case "offset":
+						cell.offset = point
+					}
 				}
 			}
 		case xml.EndElement:
@@ -150,13 +160,45 @@ func xmlNumber(t *testing.T, value string) float64 {
 	return n
 }
 
-// drawioAbsolute is a cell's box in page coordinates, its parents' origins added.
-func drawioAbsolute(cells map[string]drawioCell, id string) drawioBox {
-	box := cells[id].box
-	for parent := cells[id].parent; parent != "" && parent != "1"; parent = cells[parent].parent {
-		box.X += cells[parent].box.X
-		box.Y += cells[parent].box.Y
+// drawioAnchor is where an edge end sits on its cell's box, read from the
+// exitX/exitY or entryX/entryY fractions of the edge's style.
+func drawioAnchor(t *testing.T, style, end string, box drawioBox) (Point, bool) {
+	t.Helper()
+	var p Point
+	found := 0
+	for _, entry := range strings.Split(style, ";") {
+		key, value, ok := strings.Cut(entry, "=")
+		if !ok {
+			continue
+		}
+		switch key {
+		case end + "X":
+			p.X = box.X + xmlNumber(t, value)*box.Width
+			found++
+		case end + "Y":
+			p.Y = box.Y + xmlNumber(t, value)*box.Height
+			found++
+		}
 	}
+	return p, found == 2
+}
+
+// drawioAbsolute is a cell's box in page coordinates: its parent's origin added,
+// or, placed relative to the parent, the fractions of the parent's box plus the offset.
+func drawioAbsolute(cells map[string]drawioCell, id string) drawioBox {
+	cell := cells[id]
+	box := cell.box
+	if cell.parent == "" || cell.parent == "1" {
+		return box
+	}
+	parent := drawioAbsolute(cells, cell.parent)
+	if cell.relative {
+		box.X = parent.X + box.X*parent.Width + cell.offset.X
+		box.Y = parent.Y + box.Y*parent.Height + cell.offset.Y
+		return box
+	}
+	box.X += parent.X
+	box.Y += parent.Y
 	return box
 }
 
@@ -410,13 +452,16 @@ func TestDrawioRoutesUnroutedEdges(t *testing.T) {
 					}
 					continue
 				}
-				if len(cell.points) < 2 || !strings.Contains(cell.style, "edgeStyle=none;") {
-					t.Errorf("%s (%s -> %s): not routed: %d point(s), style %q", cell.id, edge.From, edge.To, len(cell.points), cell.style)
+				exit, exitOK := drawioAnchor(t, cell.style, "exit", drawioAbsolute(cells, cell.source))
+				entry, entryOK := drawioAnchor(t, cell.style, "entry", drawioAbsolute(cells, cell.target))
+				if !exitOK || !entryOK || !strings.Contains(cell.style, "edgeStyle=none;") {
+					t.Errorf("%s (%s -> %s): not routed: style %q", cell.id, edge.From, edge.To, cell.style)
 					continue
 				}
-				for j := 1; j < len(cell.points); j++ {
-					a, b := cell.points[j-1], cell.points[j]
-					if a.X != b.X && a.Y != b.Y {
+				path := append(append([]Point{exit}, cell.points...), entry)
+				for j := 1; j < len(path); j++ {
+					a, b := path[j-1], path[j]
+					if math.Abs(a.X-b.X) > 1e-6 && math.Abs(a.Y-b.Y) > 1e-6 {
 						t.Errorf("%s: segment %v -> %v is not orthogonal", cell.id, a, b)
 					}
 				}

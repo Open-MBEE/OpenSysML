@@ -98,6 +98,7 @@ func (w *drawioWriter) routeEdges(r *Rendering) ([]Edge, error) {
 			for _, p := range found.Points {
 				edges[i].Route = append(edges[i].Route, Point{X: p.X, Y: p.Y})
 			}
+			w.routed[i] = true
 		}
 	}
 	return edges, nil

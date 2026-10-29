@@ -37,13 +37,8 @@
           </mxCell>
         </object>
         <object id="e0" label="«succession flow»" kind="succession flow" view="NotationGlyphs::Diagrams::fillGlyphs" link="notation-glyphs.sysml:51">
-          <mxCell style="edgeStyle=none;rounded=0;html=0;dashed=1;endArrow=block;endFill=1;" edge="1" parent="1" source="n1:n1.0" target="n2:n2.0">
-            <mxGeometry relative="1" as="geometry">
-              <Array as="points">
-                <mxPoint x="125" y="140.5"/>
-                <mxPoint x="155" y="140.5"/>
-              </Array>
-            </mxGeometry>
+          <mxCell style="edgeStyle=none;exitX=0.9166666666666666;exitY=0.5;exitPerimeter=0;entryX=0.08333333333333333;entryY=0.5;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=1;" edge="1" parent="1" source="n1:n1.0" target="n2:n2.0">
+            <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
       </root>

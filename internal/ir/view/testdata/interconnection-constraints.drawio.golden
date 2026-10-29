@@ -85,37 +85,28 @@
           </mxCell>
         </object>
         <object id="e0" label="=" kind="binding" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:31">
-          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n1" target="n5:n5.0">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0.08333333333333333;entryY=0.5;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n1" target="n5:n5.0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="138" y="140.5"/>
                 <mxPoint x="154.60000000008998" y="140.5"/>
                 <mxPoint x="154.60000000008998" y="211.33333333333334"/>
-                <mxPoint x="173" y="211.33333333333334"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e1" label="=" kind="binding" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:32">
-          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n2" target="n5:n5.1">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5;exitPerimeter=0;entryX=0.08333333333333333;entryY=0.5;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n2" target="n5:n5.1">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="178" y="140.5"/>
                 <mxPoint x="157" y="140.5"/>
                 <mxPoint x="157" y="223.66666666666666"/>
-                <mxPoint x="173" y="223.66666666666666"/>
               </Array>
             </mxGeometry>
           </mxCell>
         </object>
         <object id="e2" label="=" kind="binding" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:33">
-          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n5:n5.2" target="n6:n6.0">
-            <mxGeometry relative="1" as="geometry">
-              <Array as="points">
-                <mxPoint x="271" y="217.5"/>
-                <mxPoint x="301" y="211.33333333333334"/>
-              </Array>
-            </mxGeometry>
+          <mxCell style="edgeStyle=none;exitX=0.9166666666666666;exitY=0.5;exitPerimeter=0;entryX=0.08333333333333333;entryY=0.5;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n5:n5.2" target="n6:n6.0">
+            <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e3" label="=" kind="binding" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:34">
@@ -124,13 +115,8 @@
           </mxCell>
         </object>
         <object id="e4" label="=" kind="binding" view="ParametricViews::amplifierView" link="interconnection-constraints.sysml:35">
-          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n6:n6.2" target="n4">
-            <mxGeometry relative="1" as="geometry">
-              <Array as="points">
-                <mxPoint x="399" y="217.5"/>
-                <mxPoint x="97" y="217.5"/>
-              </Array>
-            </mxGeometry>
+          <mxCell style="edgeStyle=none;exitX=0.9166666666666666;exitY=0.5;exitPerimeter=0;entryX=0.5;entryY=0.5;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n6:n6.2" target="n4">
+            <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
       </root>

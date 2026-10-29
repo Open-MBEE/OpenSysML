@@ -120,33 +120,18 @@
           </mxCell>
         </object>
         <object id="e0" label="" kind="reference" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:43">
-          <mxCell style="edgeStyle=none;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n2">
-            <mxGeometry relative="1" as="geometry">
-              <Array as="points">
-                <mxPoint x="191" y="82"/>
-                <mxPoint x="191" y="122"/>
-              </Array>
-            </mxGeometry>
+          <mxCell style="edgeStyle=none;exitX=0.15921787709497207;exitY=0.19811320754716982;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n2">
+            <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e1" label="" kind="reference" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:44">
-          <mxCell style="edgeStyle=none;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n3">
-            <mxGeometry relative="1" as="geometry">
-              <Array as="points">
-                <mxPoint x="313" y="82"/>
-                <mxPoint x="313" y="140.5"/>
-              </Array>
-            </mxGeometry>
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.19811320754716982;exitPerimeter=0;entryX=0.5;entryY=0.5;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n3">
+            <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
         <object id="e2" label="" kind="reference" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:45">
-          <mxCell style="edgeStyle=none;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n4">
-            <mxGeometry relative="1" as="geometry">
-              <Array as="points">
-                <mxPoint x="435" y="82"/>
-                <mxPoint x="435" y="122"/>
-              </Array>
-            </mxGeometry>
+          <mxCell style="edgeStyle=none;exitX=0.840782122905028;exitY=0.19811320754716982;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n4">
+            <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
       </root>
