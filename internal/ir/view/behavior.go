@@ -814,6 +814,13 @@ func (r *Renderer) placedStart(view, owner *symbols.Symbol, graph *lower.ActionG
 	if !ok {
 		return false
 	}
+	// A Layout the declaring owner's start falls back to places that body's
+	// start where it is drawn, not a start here: only one naming this body's adds one.
+	if member, ok := r.model.LookupMember(owner, "start"); ok && member.Owner() != nil && member.Owner().Decl != owner.Decl {
+		if via := r.model.MemberLayoutOwner(site, member); via == nil || via.Decl != owner.Decl {
+			return false
+		}
+	}
 	if site.Layout == nil || site.Layout.Unplaced {
 		r.noteLayoutProblems(site, owner, out)
 		return false

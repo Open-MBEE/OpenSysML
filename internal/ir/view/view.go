@@ -641,8 +641,11 @@ func (r *Rendering) Positioned() bool {
 // recognized kind this package does not produce is an *UnsupportedKindError —
 // never another kind's rendering.
 func (r *Renderer) Render(view *symbols.Symbol) (*Rendering, error) {
-	return r.render(view, nil)
+	return r.render(view, newDrawn())
 }
+
+// Drawn is what the rendering draws, for the edits that apply to it.
+func (r *Rendering) Drawn() *Drawn { return r.drawn }
 
 // render is Render, collecting what is drawn into drawn when it is not nil.
 func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error) {

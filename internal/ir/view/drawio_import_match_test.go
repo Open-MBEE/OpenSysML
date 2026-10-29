@@ -58,7 +58,8 @@ func drawioCount(t *testing.T, document, fqn string) int {
 }
 
 // The tree draws Vehicle::mass once declared and three times inherited; the
-// cells share one fqn, so the order of the file must not decide which is which.
+// cells share one fqn, so the order of the file must not decide which is which,
+// and the inherited one moved is placed as its inheritor's (vehicleFamily::mass).
 func TestDrawioImportReorderedDuplicatesKeepTheirIdentity(t *testing.T) {
 	c, golden := drawioGolden(t, "abstract-tree")
 	const mass = "AbstractViews::Vehicle::mass"
@@ -82,7 +83,7 @@ func TestDrawioImportReorderedDuplicatesKeepTheirIdentity(t *testing.T) {
 	if n7 == nil {
 		t.Fatal("no node n7 in the rendering")
 	}
-	if edit.Cell != "n7" || edit.FQN != mass || edit.Origin != n7.Origin || !strings.Contains(edit.Label, "^mass") {
+	if edit.Cell != "n7" || edit.FQN != "AbstractViews::vehicleFamily::mass" || edit.Origin != n7.Origin || !strings.Contains(edit.Label, "^mass") {
 		t.Errorf("edit = %+v, want the inherited mass at n7 (origin %+v)", edit, n7.Origin)
 	}
 	if len(imp.Unmatched)+len(imp.Deleted) != 0 {

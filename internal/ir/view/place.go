@@ -11,6 +11,7 @@ import (
 // an owner's — the start or done a body inherits — by the owner as well.
 type Drawn struct {
 	nodes, edges map[ast.Node]bool
+	steered      map[Origin]bool                // origins of the edges a Route steers
 	members      map[ast.Node]map[ast.Node]bool // member decl -> owner decls it is drawn as a member of
 	generals     map[ast.Node]map[ast.Node]bool // element decl -> decls of the generals it is drawn with an edge to
 }
@@ -34,6 +35,17 @@ func (d *Drawn) MemberNode(owner, sym *symbols.Symbol) bool {
 		return d.Node(sym)
 	}
 	return owner != nil && owners[owner.Decl]
+}
+
+func newDrawn() *Drawn {
+	return &Drawn{nodes: map[ast.Node]bool{}, edges: map[ast.Node]bool{}, steered: map[Origin]bool{},
+		members: map[ast.Node]map[ast.Node]bool{}, generals: map[ast.Node]map[ast.Node]bool{}}
+}
+
+// Steers reports whether a Route steers the edge declared at origin; the edge
+// of a specialization, typing or subsetting has none an edit writes yet.
+func (d *Drawn) Steers(origin Origin) bool {
+	return d != nil && d.steered[origin]
 }
 
 // Edge reports whether the rendering draws sym as an edge a Route steers.
@@ -68,6 +80,7 @@ func (d *Drawn) note(elem *symbols.Symbol, asEdge bool) {
 	}
 	if asEdge {
 		d.edges[elem.Decl] = true
+		d.steered[elem.Origin()] = true
 	} else {
 		d.nodes[elem.Decl] = true
 	}
@@ -91,7 +104,7 @@ func (d *Drawn) noteMember(owner, member *symbols.Symbol) {
 // Layout or Route stated in the view's body can apply to. A view that does
 // not render is the error Render gives.
 func (r *Renderer) DrawnIn(view *symbols.Symbol) (*Drawn, error) {
-	drawn := &Drawn{nodes: map[ast.Node]bool{}, edges: map[ast.Node]bool{}, members: map[ast.Node]map[ast.Node]bool{}, generals: map[ast.Node]map[ast.Node]bool{}}
+	drawn := newDrawn()
 	if _, err := r.render(view, drawn); err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // DrawioTolerance is how far a coordinate may move in draw.io and still count
@@ -106,11 +107,6 @@ type DrawioImport struct {
 	Notices []string
 }
 
-// drawioMatch pairs a file cell with the baseline cell it stands for.
-type drawioMatch struct {
-	file, base *DrawioCell
-}
-
 // ImportDrawio reads an edited draw.io file of this rendering back as edits:
 // the file the writer would emit now under options is the baseline, and only
 // cells that differ from it are imported, so the writer's own geometry — grids,
@@ -132,7 +128,7 @@ func (r *Rendering) ImportDrawio(file *DrawioFile, options Options) (*DrawioImpo
 		return nil, err
 	}
 	out := &DrawioImport{View: norm.View}
-	m := &drawioMatcher{norm: norm, w: w, base: base, file: file, out: out, nodes: map[string]*Node{}, ports: map[string]Port{}, framed: map[string]bool{}, paired: map[string]*DrawioCell{}}
+	m := &drawioMatcher{norm: norm, drawn: r.drawn, w: w, base: base, file: file, out: out, nodes: map[string]*Node{}, ports: map[string]Port{}, framed: map[string]bool{}, paired: map[string]*DrawioCell{}}
 	for _, node := range drawioNodes(norm.Roots) {
 		m.nodes[node.ID] = node
 		for _, port := range node.Ports {
@@ -157,7 +153,10 @@ func drawioNodes(roots []*Node) []*Node {
 // drawioMatcher pairs the cells of the edited file with the baseline's and
 // turns each difference into an edit.
 type drawioMatcher struct {
-	norm       *Rendering
+	norm *Rendering
+	// drawn is the rendering's own record of what it drew; its normalization
+	// for the writer, a clone, carries none.
+	drawn      *Drawn
 	w          *drawioWriter
 	base, file *DrawioFile
 	out        *DrawioImport
@@ -334,7 +333,7 @@ func (m *drawioMatcher) edgeLabel(cell *DrawioCell, f *DrawioFile) string {
 // position is drawn on its owner's border, so only its style is read.
 func (m *drawioMatcher) diffVertex(cell, base *DrawioCell) {
 	origin, isPort := m.originOf(base.ID)
-	edit := DrawioEdit{Cell: cell.ID, Label: cell.Label, FQN: cell.FQN, Origin: origin}
+	edit := DrawioEdit{Cell: cell.ID, Label: cell.Label, FQN: m.targetName(cell), Origin: origin}
 	if isPort {
 		if !sameBox(boxOf(cell), boxOf(base)) {
 			m.out.Notices = append(m.out.Notices, fmt.Sprintf("%s: a port is drawn on its owner's border; its position in the file is not imported", cell.FQN))
@@ -461,7 +460,19 @@ func (m *drawioMatcher) framePlace(cell, base *DrawioCell, node *Node, sized boo
 		layout.Hidden = node.Geometry.Hidden
 	}
 	origin, _ := m.originOf(base.ID)
-	m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditLayout, Cell: cell.ID, Label: cell.Label, FQN: cell.FQN, Origin: origin, Layout: layout})
+	m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditLayout, Cell: cell.ID, Label: cell.Label, FQN: m.targetName(cell), Origin: origin, Layout: layout})
+}
+
+// targetName is the name an annotation about the cell's element states: its
+// qualified name, or, for a member drawn under a node of another element — an
+// inherited state, a part of the usage's type — that node's name and its own,
+// the path a Layout about it resolves through (semantics.MemberLayoutOf).
+func (m *drawioMatcher) targetName(cell *DrawioCell) string {
+	parent := m.file.Cell(cell.Parent)
+	if parent == nil || parent.FQN == "" || !parent.Vertex || cell.FQN == "" || strings.HasPrefix(cell.FQN, parent.FQN+"::") {
+		return cell.FQN
+	}
+	return parent.FQN + "::" + symbols.LastSegment(cell.FQN)
 }
 
 // diffEdge imports an edge's moved waypoints and changed colours or font.
@@ -471,8 +482,13 @@ func (m *drawioMatcher) diffEdge(cell, base *DrawioCell, key DrawioEdgeKey) {
 		return
 	}
 	edge := m.norm.Edges[i]
-	out := DrawioEdit{Cell: cell.ID, Label: cell.Label, Origin: edge.Origin, Edge: &key}
-	if !sameWaypoints(cell.Points, base.Points) {
+	out := DrawioEdit{Cell: cell.ID, Label: cell.Label, FQN: m.w.siteName(edge.Origin), Origin: edge.Origin, Edge: &key}
+	// A rendering built without a record of what it draws leaves the refusal
+	// of an edge no Route steers to the edit applying the import.
+	steered := m.drawn == nil || m.drawn.Steers(edge.Origin)
+	if !sameWaypoints(cell.Points, base.Points) && !steered {
+		m.out.Notices = append(m.out.Notices, fmt.Sprintf("edge %s re-routed: no Route steers a %s edge yet, so its waypoints are not imported", key.String(), edge.Kind))
+	} else if !sameWaypoints(cell.Points, base.Points) {
 		out.Kind = DrawioEditRoute
 		if len(cell.Points) > 0 {
 			out.Route = &semantics.Route{}

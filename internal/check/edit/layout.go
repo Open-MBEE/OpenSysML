@@ -473,32 +473,31 @@ func (m Model) checkPlaceable(i int, op Operation, renderer *view.Renderer, sem 
 		}
 		return nil
 	}
-	exposed := sym
-	if target.owner != nil {
-		exposed = target.owner
-	}
-	if !m.exposes(sem, viewSym, exposed) {
-		return &Error{Failure: FailureNotExposed, OperationIndex: i,
-			Message: fmt.Sprintf("%s does not expose %s, so a %s in its body would place nothing",
-				op.View, m.label(op), layoutTypeName(op.Annotation))}
-	}
 	drawn, err := renderer.DrawnIn(viewSym)
 	if err != nil {
 		return &Error{Failure: FailureNotDrawn, OperationIndex: i,
 			Message: fmt.Sprintf("%s does not render: %v", op.View, err)}
 	}
+	var placed bool
+	exposed := sym
 	if target.owner != nil {
-		if !drawn.MemberNode(target.owner, sym) {
-			return &Error{Failure: FailureNotDrawn, OperationIndex: i,
-				Message: fmt.Sprintf("the rendering of %s does not draw %s as %s", op.View, m.label(op), role)}
-		}
+		exposed = target.owner
+		placed = drawn.MemberNode(target.owner, sym)
+	} else {
+		placed = wantNode && drawn.Node(sym) || wantEdge && drawn.Edge(sym)
+	}
+	if placed {
 		return nil
 	}
-	if !(wantNode && drawn.Node(sym)) && !(wantEdge && drawn.Edge(sym)) {
-		return &Error{Failure: FailureNotDrawn, OperationIndex: i,
-			Message: fmt.Sprintf("the rendering of %s does not draw %s as %s", op.View, m.label(op), role)}
+	// A view draws what it exposes and, under those nodes, their members: a
+	// part of an exposed usage's type is drawn without being exposed itself.
+	if !m.exposes(sem, viewSym, exposed) {
+		return &Error{Failure: FailureNotExposed, OperationIndex: i,
+			Message: fmt.Sprintf("%s does not expose %s, so a %s in its body would place nothing",
+				op.View, m.label(op), layoutTypeName(op.Annotation))}
 	}
-	return nil
+	return &Error{Failure: FailureNotDrawn, OperationIndex: i,
+		Message: fmt.Sprintf("the rendering of %s does not draw %s as %s", op.View, m.label(op), role)}
 }
 
 // exposes reports whether view exposes sym or an element sym is nested in.
