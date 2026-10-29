@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- VariationViews::familyMixed — mixed rendering (render asMixedDiagram) -->
+<!-- 2 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="VariationViews-familyMixed" name="VariationViews::familyMixed">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«part»&#xA;vehicleFamily" fqn="VariationViews::vehicleFamily" kind="part" view="VariationViews::familyMixed" link="variation.sysml:20">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="1">
+            <mxGeometry x="40" y="40" width="388" height="233" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«part»&#xA;engine" fqn="VariationViews::vehicleFamily::engine" kind="part" view="VariationViews::familyMixed" link="variation.sysml:21">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="82" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«variation part»&#xA;transmission" fqn="VariationViews::vehicleFamily::transmission" kind="variation part" view="VariationViews::familyMixed" link="variation.sysml:22">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
+            <mxGeometry x="128" y="82" width="244" height="135" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n3" label="«variant»&#xA;manual" fqn="VariationViews::vehicleFamily::transmission::manual" kind="variant" view="VariationViews::familyMixed" link="variation.sysml:23">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n2">
+            <mxGeometry x="16" y="82" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4" label="«variant part»&#xA;automatic" fqn="VariationViews::vehicleFamily::transmission::automatic" kind="variant part" view="VariationViews::familyMixed" link="variation.sysml:24">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n2">
+            <mxGeometry x="128" y="82" width="100" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5" label="«variation part def»&#xA;EngineChoices" fqn="VariationViews::EngineChoices" kind="variation part def" view="VariationViews::familyMixed" link="variation.sysml:15">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
+            <mxGeometry x="468" y="40" width="317" height="135" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n6" label="«variant»&#xA;fourCylinder" fqn="VariationViews::EngineChoices::fourCylinder" kind="variant" view="VariationViews::familyMixed" link="variation.sysml:16">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n5">
+            <mxGeometry x="16" y="82" width="127" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n7" label="«variant»&#xA;sixCylinder" fqn="VariationViews::EngineChoices::sixCylinder" kind="variant" view="VariationViews::familyMixed" link="variation.sysml:17">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n5">
+            <mxGeometry x="183" y="82" width="118" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="" kind="connection" view="VariationViews::familyMixed" link="variation.sysml:26">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0;entryY=0.5037037037037037;entryPerimeter=0;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n1" target="n2">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="92" y="190"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e1" label="" kind="composition" view="VariationViews::familyMixed" link="variation.sysml:21">
+          <mxCell style="edgeStyle=none;exitX=0.13402061855670103;exitY=0.18025751072961374;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e2" label="" kind="composition" view="VariationViews::familyMixed" link="variation.sysml:22">
+          <mxCell style="edgeStyle=none;exitX=0.6443298969072165;exitY=0.18025751072961374;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n2">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e3" label="" kind="reference" view="VariationViews::familyMixed" link="variation.sysml:23">
+          <mxCell style="edgeStyle=none;exitX=0.21311475409836064;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n2" target="n3">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e4" label="" kind="composition" view="VariationViews::familyMixed" link="variation.sysml:24">
+          <mxCell style="edgeStyle=none;exitX=0.7295081967213115;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n2" target="n4">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e5" label="" kind="reference" view="VariationViews::familyMixed" link="variation.sysml:16">
+          <mxCell style="edgeStyle=none;exitX=0.250788643533123;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n5" target="n6">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e6" label="" kind="reference" view="VariationViews::familyMixed" link="variation.sysml:17">
+          <mxCell style="edgeStyle=none;exitX=0.7634069400630915;exitY=0.3111111111111111;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n5" target="n7">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e7" label="" kind="typing" view="VariationViews::familyMixed" link="variation.sysml:21">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0;entryY=0.5037037037037037;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n5">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="92" y="106"/>
+                <mxPoint x="448" y="106"/>
+                <mxPoint x="448" y="108"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

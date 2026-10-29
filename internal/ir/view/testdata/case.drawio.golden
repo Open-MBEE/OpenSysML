@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- CaseExamples::caseDiagram — case rendering (render asCaseDiagram) -->
+<!-- 19 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<!-- notice: part def CaseExamples::Tool holds no case; a case rendering does not show it -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="CaseExamples-caseDiagram" name="CaseExamples::caseDiagram">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1132" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«use case»&#xA;&#39;Provide Transportation&#39;" fqn="CaseExamples::&#39;Provide Transportation&#39;" kind="use case" view="CaseExamples::caseDiagram" link="case.sysml:27">
+          <mxCell style="ellipse;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="40" width="238" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«subject»&#xA;vehicle" fqn="CaseExamples::&#39;Provide Transportation&#39;::vehicle" kind="subject" view="CaseExamples::caseDiagram" link="case.sysml:28">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="318" y="40" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«actor»&#xA;driver" fqn="CaseExamples::&#39;Provide Transportation&#39;::driver" kind="actor" view="CaseExamples::caseDiagram" link="case.sysml:29">
+          <mxCell style="shape=umlActor;html=0;whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+            <mxGeometry x="439" y="40" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n3" label="objective&#xA;Transport the vehicle and its passengers safely." kind="objective" view="CaseExamples::caseDiagram" link="case.sysml:30">
+          <mxCell style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+            <mxGeometry x="551" y="40" width="420" height="42" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4" label="«use case»&#xA;addFuel" fqn="CaseExamples::addFuel" kind="use case" view="CaseExamples::caseDiagram" link="case.sysml:25">
+          <mxCell style="ellipse;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="1011" y="40" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5" label="«actor»&#xA;^fueler" fqn="CaseExamples::&#39;Add Fuel&#39;::fueler" kind="actor" view="CaseExamples::caseDiagram" link="case.sysml:18">
+          <mxCell style="shape=umlActor;html=0;whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+            <mxGeometry x="40" y="122" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n6" label="«subject»&#xA;^vehicle" fqn="CaseExamples::&#39;Add Fuel&#39;::vehicle" kind="subject" view="CaseExamples::caseDiagram" link="case.sysml:17">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="161" y="122" width="90" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n7" label="«include use case»&#xA;&#39;enter vehicle&#39;" fqn="CaseExamples::&#39;Provide Transportation&#39;::&#39;enter vehicle&#39;" kind="include use case" view="CaseExamples::caseDiagram" link="case.sysml:39">
+          <mxCell style="ellipse;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="291" y="122" width="155" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n8" label="«subject»&#xA;vehicle" fqn="CaseExamples::&#39;Provide Transportation&#39;::&#39;enter vehicle&#39;::vehicle" kind="subject" view="CaseExamples::caseDiagram" link="case.sysml:40">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="486" y="122" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n9" label="«actor»&#xA;driver" fqn="CaseExamples::&#39;Provide Transportation&#39;::&#39;enter vehicle&#39;::driver" kind="actor" view="CaseExamples::caseDiagram" link="case.sysml:41">
+          <mxCell style="shape=umlActor;html=0;whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+            <mxGeometry x="607" y="122" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n10" label="«use case»&#xA;&#39;Drive Vehicle&#39;" fqn="CaseExamples::&#39;Provide Transportation&#39;::&#39;Drive Vehicle&#39;" kind="use case" view="CaseExamples::caseDiagram" link="case.sysml:44">
+          <mxCell style="ellipse;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="199" width="155" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n11" label="«subject»&#xA;vehicle" fqn="CaseExamples::&#39;Provide Transportation&#39;::&#39;Drive Vehicle&#39;::vehicle" kind="subject" view="CaseExamples::caseDiagram" link="case.sysml:45">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="235" y="199" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n12" label="«actor»&#xA;driver" fqn="CaseExamples::&#39;Provide Transportation&#39;::&#39;Drive Vehicle&#39;::driver" kind="actor" view="CaseExamples::caseDiagram" link="case.sysml:46">
+          <mxCell style="shape=umlActor;html=0;whiteSpace=wrap;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+            <mxGeometry x="356" y="199" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n13" label="«analysis def»&#xA;FuelAnalysis" fqn="CaseExamples::FuelAnalysis" kind="analysis def" view="CaseExamples::caseDiagram" link="case.sysml:50">
+          <mxCell style="ellipse;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="468" y="199" width="127" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n14" label="«subject»&#xA;vehicle" fqn="CaseExamples::FuelAnalysis::vehicle" kind="subject" view="CaseExamples::caseDiagram" link="case.sysml:51">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="635" y="199" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n15" label="objective&#xA;Estimate the fuel remaining after a journey." kind="objective" view="CaseExamples::caseDiagram" link="case.sysml:52">
+          <mxCell style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+            <mxGeometry x="40" y="276" width="386" height="42" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n16" label="«verification def»&#xA;FuelVerification" fqn="CaseExamples::FuelVerification" kind="verification def" view="CaseExamples::caseDiagram" link="case.sysml:57">
+          <mxCell style="ellipse;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="466" y="276" width="164" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n17" label="«subject»&#xA;vehicle" fqn="CaseExamples::FuelVerification::vehicle" kind="subject" view="CaseExamples::caseDiagram" link="case.sysml:58">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="670" y="276" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n18" label="objective" kind="objective" view="CaseExamples::caseDiagram" link="case.sysml:59">
+          <mxCell style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+            <mxGeometry x="791" y="276" width="100" height="36" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="«subject»" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:28">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.7567567567567568;exitPerimeter=0;entryX=0;entryY=0.7567567567567568;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e1" label="" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:29">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n2" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="475" y="24"/>
+                <mxPoint x="298" y="24"/>
+                <mxPoint x="298" y="49"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e2" label="" kind="anchor" view="CaseExamples::caseDiagram" link="case.sysml:30">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.7619047619047619;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n0" target="n3">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="298" y="59"/>
+                <mxPoint x="298" y="93"/>
+                <mxPoint x="531" y="93"/>
+                <mxPoint x="531" y="72"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e3" label="" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:18">
+          <mxCell style="edgeStyle=none;exitX=0.5061728395061729;exitY=0;exitPerimeter=0;entryX=0.24691358024691357;entryY=1;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n5" target="n4">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="81" y="98"/>
+                <mxPoint x="1031" y="98"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e4" label="«subject»" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:17">
+          <mxCell style="edgeStyle=none;exitX=0.5061728395061729;exitY=1;exitPerimeter=0;entryX=0.7555555555555555;entryY=0;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n4" target="n6">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="1052" y="102"/>
+                <mxPoint x="229" y="102"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e5" label="«include»" kind="include" view="CaseExamples::caseDiagram" link="case.sysml:34">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.24691358024691357;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n0" target="n4">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="159" y="16"/>
+                <mxPoint x="1031" y="16"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e6" label="«include»" kind="include" view="CaseExamples::caseDiagram" link="case.sysml:39">
+          <mxCell style="edgeStyle=none;exitX=0.7521008403361344;exitY=1;exitPerimeter=0;entryX=0;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n0" target="n7">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="219" y="106"/>
+                <mxPoint x="271" y="106"/>
+                <mxPoint x="271" y="131"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e7" label="«subject»" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:40">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.5135135135135135;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n7" target="n8">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e8" label="" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:41">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n9" target="n7">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="643" y="106"/>
+                <mxPoint x="466" y="106"/>
+                <mxPoint x="466" y="131"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e9" label="" kind="composition" view="CaseExamples::caseDiagram" link="case.sysml:44">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.7483870967741936;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n10">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="159" y="102"/>
+                <mxPoint x="145" y="102"/>
+                <mxPoint x="145" y="179"/>
+                <mxPoint x="156" y="179"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e10" label="«subject»" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:45">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.5135135135135135;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n10" target="n11">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e11" label="" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:46">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=1;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n12" target="n10">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="392" y="183"/>
+                <mxPoint x="215" y="183"/>
+                <mxPoint x="215" y="208"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e12" label="«subject»" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:51">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.5135135135135135;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n13" target="n14">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e13" label="" kind="anchor" view="CaseExamples::caseDiagram" link="case.sysml:52">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5135135135135135;exitPerimeter=0;entryX=1;entryY=0.2619047619047619;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n13" target="n15">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="447" y="218"/>
+                <mxPoint x="447" y="287"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e14" label="«subject»" kind="association" view="CaseExamples::caseDiagram" link="case.sysml:58">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.5135135135135135;entryPerimeter=0;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n16" target="n17">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e15" label="" kind="anchor" view="CaseExamples::caseDiagram" link="case.sysml:59">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.25;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n16" target="n18">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="548" y="260"/>
+                <mxPoint x="816" y="260"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

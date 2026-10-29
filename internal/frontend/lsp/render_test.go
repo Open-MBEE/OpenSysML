@@ -738,7 +738,7 @@ func TestRenderAnswersEveryAdvertisedForm(t *testing.T) {
 	if !ok {
 		t.Fatalf("%s = %#v, want a list of forms", RenderFormsCapability, experimental[RenderFormsCapability])
 	}
-	if want := []string{"text", "mermaid", "markdown", "dot", "plantuml", "d2", "csv", "tsv"}; !slices.Equal(advertised, want) {
+	if want := []string{"text", "mermaid", "markdown", "dot", "plantuml", "d2", "drawio", "csv", "tsv"}; !slices.Equal(advertised, want) {
 		t.Fatalf("%s = %v, want %v", RenderFormsCapability, advertised, want)
 	}
 	// A table is the one kind written in Markdown, CSV and TSV; the tree view has every other form.
@@ -783,7 +783,7 @@ func TestRenderRefusesD2ForCaseAndMixed(t *testing.T) {
 			View:         tc.name,
 			Form:         string(view.FormD2),
 		})
-		if err == nil || !strings.Contains(err.Error(), tc.kind+" rendering is not written as d2; ask for text, mermaid, dot or plantuml") {
+		if err == nil || !strings.Contains(err.Error(), tc.kind+" rendering is not written as d2; ask for text, mermaid, dot, plantuml or drawio") {
 			t.Errorf("%s as d2: err = %v, want the form refused", tc.name, err)
 		}
 	}

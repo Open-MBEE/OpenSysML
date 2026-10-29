@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- GeneralViews::packageView — package rendering (view def GeneralView, filter @Package) -->
+<!-- 5 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="GeneralViews-packageView" name="GeneralViews::packageView">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«package»&#xA;VehicleStructure" fqn="VehicleStructure" kind="package" view="GeneralViews::packageView" link="general.sysml:1">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="40" width="164" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«package»&#xA;Powertrain" fqn="VehicleStructure::Powertrain" kind="package" view="GeneralViews::packageView" link="general.sysml:22">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="244" y="40" width="109" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«package»&#xA;VehicleRequirements" fqn="VehicleRequirements" kind="package" view="GeneralViews::packageView" link="general.sysml:27">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="393" y="40" width="192" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n3" label="«package»&#xA;VehicleVerification" fqn="VehicleVerification" kind="package" view="GeneralViews::packageView" link="general.sysml:62">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="117" width="192" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4" label="«package»&#xA;GeneralViews" fqn="GeneralViews" kind="package" view="GeneralViews::packageView" link="general.sysml:91">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="272" y="117" width="127" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="" kind="containment" view="GeneralViews::packageView" link="general.sysml:22">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135135135135135;exitPerimeter=0;entryX=0;entryY=0.5135135135135135;entryPerimeter=0;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e1" label="«private import»*" kind="import" view="GeneralViews::packageView" link="general.sysml:31">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.75;entryY=0;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n2" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="489" y="24"/>
+                <mxPoint x="163" y="24"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e2" label="«private import»*" kind="import" view="GeneralViews::packageView" link="general.sysml:63">
+          <mxCell style="edgeStyle=none;exitX=0.25;exitY=0;exitPerimeter=0;entryX=0.25;entryY=1;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n3" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="88" y="97"/>
+                <mxPoint x="81" y="97"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e3" label="«private import»*" kind="import" view="GeneralViews::packageView" link="general.sysml:64">
+          <mxCell style="edgeStyle=none;exitX=0.75;exitY=0;exitPerimeter=0;entryX=0;entryY=0.7567567567567568;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n3" target="n1">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="184" y="93"/>
+                <mxPoint x="224" y="93"/>
+                <mxPoint x="224" y="68"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e4" label="«private import»*" kind="import" view="GeneralViews::packageView" link="general.sysml:65">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0;entryY=0.7567567567567568;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=open;" edge="1" parent="1" source="n3" target="n2">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="136" y="101"/>
+                <mxPoint x="373" y="101"/>
+                <mxPoint x="373" y="68"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

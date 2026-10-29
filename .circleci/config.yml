@@ -42,7 +42,7 @@ executors:
       - image: cimg/openjdk:17.0
     resource_class: medium
 
-  # Node 22 is the active LTS; the client supports >=20.11 for `await using`.
+  # Node 22 is the oldest line the client supports (its Connect transport dropped Node 20).
   node-executor:
     docker:
       - image: cimg/node:22.12

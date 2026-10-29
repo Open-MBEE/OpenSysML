@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -23,6 +24,7 @@ func TestRuntimeRobustnessVerification(t *testing.T) {
 	t.Run("verification_objective_subject_left_unbound", testVerificationObjectiveSubjectLeftUnbound)
 	t.Run("verification_objective_subject_rebound", testVerificationObjectiveSubjectRebound)
 	t.Run("verification_runs_once_per_repeated_object", testVerificationRunsOncePerRepeatedObject)
+	t.Run("verification_runs_on_every_object_of_one_declaration", testVerificationRunsOnEveryObjectOfOneDeclaration)
 }
 
 // testVerificationBodyThatCannotRun: a body whose subject nothing binds is the
@@ -212,7 +214,8 @@ func testVerificationObjectiveSubjectRebound(t *testing.T) {
 }
 
 // testVerificationRunsOncePerRepeatedObject: four repeated wheels' bolts are four runs while a check
-// resolves them to one subject; instantiating the car again runs on the latest car's bolts only.
+// resolves them to one subject; instantiating the car again leaves two live cars, so the case runs
+// on the bolts of both — eight live bolts, eight runs — rather than on the latest car's alone.
 func testVerificationRunsOncePerRepeatedObject(t *testing.T) {
 	src := `
 		package test {
@@ -237,7 +240,7 @@ func testVerificationRunsOncePerRepeatedObject(t *testing.T) {
 	if _, err := ctx.Instantiate(lookupOne(t, idx, "test::car")); err != nil {
 		t.Fatalf("instantiate car: %v", err)
 	}
-	runsOnFourBolts := func(label string) map[int64]bool {
+	runsOnBolts := func(label string, want int) map[int64]bool {
 		results := ctx.VerificationResultsOn([]*symbols.Scope{scope}, lookupOne(t, idx, "test::tight"), nil)
 		subjects := map[int64]bool{}
 		for _, r := range results {
@@ -249,12 +252,12 @@ func testVerificationRunsOncePerRepeatedObject(t *testing.T) {
 				t.Errorf("%s: verdict on object #%d = %s (%s), want fail", label, r.Verdict.Subject.ID, r.Verdict.Kind, r.Verdict.Detail)
 			}
 		}
-		if len(results) != 4 || len(subjects) != 4 {
-			t.Fatalf("%s: %d run(s) on %d object(s), want one on each of the four bolts", label, len(results), len(subjects))
+		if len(results) != want || len(subjects) != want {
+			t.Fatalf("%s: %d run(s) on %d object(s), want one on each of the %d bolts", label, len(results), len(subjects), want)
 		}
 		return subjects
 	}
-	first := runsOnFourBolts("one car")
+	first := runsOnBolts("one car", 4)
 	tightEnough := lookupOne(t, idx, "test::Bolt::tightEnough")
 	if _, err := ctx.EvaluateConstraint(tightEnough, tightEnough.OwnerScope); !errors.Is(err, ErrViolated) {
 		t.Errorf("EvaluateConstraint on the repeated bolts: %v, want the one subject's violation", err)
@@ -262,9 +265,74 @@ func testVerificationRunsOncePerRepeatedObject(t *testing.T) {
 	if _, err := ctx.Instantiate(lookupOne(t, idx, "test::car")); err != nil {
 		t.Fatalf("instantiate car again: %v", err)
 	}
-	for id := range runsOnFourBolts("two cars") {
-		if first[id] {
-			t.Errorf("object #%d of the first car is still run on; the latest car is the usage's one root", id)
+	both := runsOnBolts("two cars", 8)
+	for id := range first {
+		if !both[id] {
+			t.Errorf("object #%d of the first car is no longer run on; it is a live bolt the case is a feature of", id)
+		}
+	}
+}
+
+// testVerificationRunsOnEveryObjectOfOneDeclaration: a declaration instantiated twice leaves two
+// live objects of its definition, so a type-owned case verifying a requirement runs on each, while a
+// check of a type-owned constraint naming no object is a question between the two — answered once
+// one of them is named — rather than silently about the latest.
+func testVerificationRunsOnEveryObjectOfOneDeclaration(t *testing.T) {
+	src := `
+		package test {
+			private import ScalarValues::Real;
+			requirement def Tightness { subject b : Bolt; require constraint { b.torque < 10.0 } }
+			requirement tight : Tightness;
+			part def Bolt {
+				attribute torque : Real default = 99.0;
+				constraint tightEnough { torque < 10.0 }
+				verification torqueTest {
+					objective { verify tight; }
+					return verdict = VerificationCases::PassIf(tight(this));
+				}
+				satisfy tight;
+			}
+			part b : Bolt;
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	scope := idx.DocumentRoot("<test>")
+	bolt := lookupOne(t, idx, "test::b")
+	first, err := ctx.Instantiate(bolt)
+	if err != nil {
+		t.Fatalf("instantiate b: %v", err)
+	}
+	second, err := ctx.Instantiate(bolt)
+	if err != nil {
+		t.Fatalf("instantiate b again: %v", err)
+	}
+	results := ctx.VerificationResultsOn([]*symbols.Scope{scope}, lookupOne(t, idx, "test::tight"), nil)
+	subjects := map[int64]bool{}
+	for _, r := range results {
+		if r.Verdict.Subject == nil {
+			t.Fatalf("a run of %s names no object", r.Verdict.Case)
+		}
+		subjects[r.Verdict.Subject.ID] = true
+		if r.Verdict.Kind != VerdictFail {
+			t.Errorf("verdict on object #%d = %s (%s), want fail", r.Verdict.Subject.ID, r.Verdict.Kind, r.Verdict.Detail)
+		}
+	}
+	if len(results) != 2 || !subjects[first.ID] || !subjects[second.ID] {
+		t.Fatalf("%d run(s) on objects %v, want one on each of #%d and #%d", len(results), subjects, first.ID, second.ID)
+	}
+	tightEnough := lookupOne(t, idx, "test::Bolt::tightEnough")
+	_, err = ctx.EvaluateConstraint(tightEnough, tightEnough.OwnerScope)
+	if !errors.Is(err, ErrAmbiguousSubject) {
+		t.Fatalf("EvaluateConstraint over two bolts of one declaration: %v, want ErrAmbiguousSubject", err)
+	}
+	for _, want := range []string{fmt.Sprintf("Bolt #%d (displaced from b)", first.ID), fmt.Sprintf("Bolt #%d (b)", second.ID), "check it on one of them"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("%q does not say %q", err, want)
+		}
+	}
+	for _, obj := range []*Instance{first, second} {
+		if _, err := ctx.EvaluateConstraintOn(tightEnough, tightEnough.OwnerScope, obj); !errors.Is(err, ErrViolated) {
+			t.Errorf("EvaluateConstraintOn object #%d: %v, want the named object's violation", obj.ID, err)
 		}
 	}
 }
