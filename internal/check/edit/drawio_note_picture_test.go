@@ -59,7 +59,7 @@ func TestDrawioImportAppliesANoteText(t *testing.T) {
 		{"Checked weekly&#xa;by the &quot;operator&quot;", "Checked weekly\nby the \"operator\"", `"Checked weekly\nby the \"operator\""`},
 	} {
 		edited := drawioMutate(t, document, "note0", func(cell string) string { return drawioSetValue(cell, tc.value) })
-		_, imp := drawioImport(t, rendering, options, edited)
+		_, imp := drawioImport(t, drawioImporter(t, rendering, options), rendering.View, edited)
 		if len(imp.Edits) != 1 || imp.Edits[0].Kind != view.DrawioEditNote || imp.Edits[0].Note.Text != tc.text || imp.Edits[0].Note.X != 300 {
 			t.Fatalf("edits = %+v", imp.Edits)
 		}
@@ -76,7 +76,7 @@ func TestDrawioImportAppliesANoteText(t *testing.T) {
 		if note := re.Cell("note0"); note == nil || note.Value != tc.text {
 			t.Errorf("re-exported note = %+v, want text %q", note, tc.text)
 		}
-		if _, again := drawioImport(t, redrawn, reoptions, edited); len(again.Edits) != 0 || len(again.Notices) != 0 {
+		if _, again := drawioImport(t, drawioImporter(t, redrawn, reoptions), redrawn.View, edited); len(again.Edits) != 0 || len(again.Notices) != 0 {
 			t.Errorf("the edited file still imports %+v %q", again.Edits, again.Notices)
 		}
 	}
@@ -95,7 +95,7 @@ func TestDrawioImportAppliesAPictureSource(t *testing.T) {
 	edited := drawioMutate(t, document, "picture0", func(cell string) string {
 		return regexp.MustCompile(`image=[^;"]*;`).ReplaceAllLiteralString(cell, "image=file://"+filepath.ToSlash(filepath.Join(dir, "other.png"))+";")
 	})
-	_, imp := drawioImport(t, rendering, options, edited)
+	_, imp := drawioImport(t, drawioImporter(t, rendering, options), rendering.View, edited)
 	if len(imp.Edits) != 1 || imp.Edits[0].Kind != view.DrawioEditPicture || imp.Edits[0].Picture.Location != "other.png" || imp.Edits[0].Picture.Alt != "the site" {
 		t.Fatalf("edits = %+v notices %q", imp.Edits, imp.Notices)
 	}
@@ -117,7 +117,7 @@ func TestDrawioImportAppliesAPictureSource(t *testing.T) {
 	edited = drawioMutate(t, document, "picture0", func(cell string) string {
 		return regexp.MustCompile(`image=[^;"]*;`).ReplaceAllLiteralString(cell, "image=data:image/png,"+base64.StdEncoding.EncodeToString(other)+";")
 	})
-	if _, imp := drawioImport(t, rendering, options, edited); len(imp.Edits) != 0 || len(imp.Notices) != 1 || !strings.Contains(imp.Notices[0], "embedded image data") {
+	if _, imp := drawioImport(t, drawioImporter(t, rendering, options), rendering.View, edited); len(imp.Edits) != 0 || len(imp.Notices) != 1 || !strings.Contains(imp.Notices[0], "embedded image data") {
 		t.Errorf("edits %+v notices %q", imp.Edits, imp.Notices)
 	}
 }

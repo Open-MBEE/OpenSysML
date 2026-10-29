@@ -249,6 +249,13 @@
       ]
     },
     {
+      "name": "DocumentQueries::Differ",
+      "kind": "document",
+      "consumers": [
+        "internal/ir/queryplan/compiler.go"
+      ]
+    },
+    {
       "name": "DocumentQueries::Distinct",
       "kind": "document",
       "migratorEmitted": true,

@@ -1,0 +1,1 @@
+- `DocumentQueries::Differ(left, right, key, column)`: a keyed value comparison of two projected tables — one row (`key`, `left`, `right`) per key value on both sides whose `column` cells differ. A side that projects no such column is the path error `unknown-column`; a key value on two rows of one side is the model error `duplicate-key`, every finding kept.

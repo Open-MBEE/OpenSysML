@@ -43,6 +43,7 @@ var builtins = map[string]builtin{
 	"DocumentQueries::WhereRelated":    {OperationWhereRelated},
 	"DocumentQueries::Except":          {OperationExcept},
 	"DocumentQueries::Union":           {OperationUnion},
+	"DocumentQueries::Differ":          {OperationDiffer},
 	"DocumentQueries::Tree":            {OperationTree},
 }
 

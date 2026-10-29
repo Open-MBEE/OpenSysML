@@ -356,13 +356,22 @@ func drawioMutate(t *testing.T, document, id string, edit func(cell string) stri
 	return strings.Replace(document, whole, edited, 1)
 }
 
-func drawioImport(t *testing.T, rendering *view.Rendering, options view.Options, document string) (*view.DrawioFile, *view.DrawioImport) {
+func drawioImporter(t *testing.T, rendering *view.Rendering, options view.Options) *view.DrawioImporter {
 	t.Helper()
-	file, err := view.ReadDrawio([]byte(document), rendering.View)
+	importer, err := rendering.DrawioImporter(options)
 	if err != nil {
 		t.Fatal(err)
 	}
-	imp, err := rendering.ImportDrawio(file, options)
+	return importer
+}
+
+func drawioImport(t *testing.T, importer *view.DrawioImporter, viewName, document string) (*view.DrawioFile, *view.DrawioImport) {
+	t.Helper()
+	file, err := view.ReadDrawio([]byte(document), viewName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	imp, err := importer.Import(file)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -380,13 +389,15 @@ func TestDrawioRoundTrip(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			content, err := os.ReadFile(filepath.Join(viewFixtures, c.file))
 			if err != nil {
 				t.Fatal(err)
 			}
 			m, rendering, options := drawioModel(t, string(content), c.view)
 			document, exported := drawioExport(t, rendering, options)
-			if _, imp := drawioImport(t, rendering, options, document); len(imp.Edits)+len(imp.Unmatched)+len(imp.Deleted)+len(imp.Unknown)+len(imp.Notices) != 0 {
+			importer := drawioImporter(t, rendering, options)
+			if _, imp := drawioImport(t, importer, rendering.View, document); len(imp.Edits)+len(imp.Unmatched)+len(imp.Deleted)+len(imp.Unknown)+len(imp.Notices) != 0 {
 				t.Fatalf("untouched export: %+v", imp)
 			}
 			mutate := func(mut drawioMutation, id string) string {
@@ -397,7 +408,7 @@ func TestDrawioRoundTrip(t *testing.T) {
 			}
 			try := func(mut drawioMutation) func(c *view.DrawioCell) *view.DrawioImport {
 				return func(c *view.DrawioCell) *view.DrawioImport {
-					_, imp := drawioImport(t, rendering, options, mutate(mut, c.ID))
+					_, imp := drawioImport(t, importer, rendering.View, mutate(mut, c.ID))
 					return imp
 				}
 			}
@@ -408,7 +419,7 @@ func TestDrawioRoundTrip(t *testing.T) {
 				}
 				t.Run(mut.name, func(t *testing.T) {
 					edited := mutate(mut, cell.ID)
-					editedFile, imp := drawioImport(t, rendering, options, edited)
+					editedFile, imp := drawioImport(t, importer, rendering.View, edited)
 					if mut.notice != "" {
 						if len(imp.Edits) != 0 || len(imp.Notices) != 1 || !strings.Contains(imp.Notices[0], mut.notice) {
 							t.Fatalf("edits %+v notices %q, want none and one saying %q", imp.Edits, imp.Notices, mut.notice)
@@ -462,7 +473,7 @@ func TestDrawioRoundTrip(t *testing.T) {
 					}
 					// The edited cells are where the file has them; unplaced neighbours may have
 					// flowed around them, and a renamed node is sized to its longer name.
-					if _, imp := drawioImport(t, redrawn, reoptions, edited); len(imp.Edits) != 0 {
+					if _, imp := drawioImport(t, drawioImporter(t, redrawn, reoptions), rendering.View, edited); len(imp.Edits) != 0 {
 						for _, e := range imp.Edits {
 							if e.Cell == cell.ID && (mut.kind != view.DrawioEditRename || e.Kind == view.DrawioEditRename) {
 								t.Errorf("the edited file still imports %+v against the edited model", e)

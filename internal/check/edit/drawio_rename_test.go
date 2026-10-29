@@ -49,7 +49,7 @@ func TestDrawioImportRenamesAPortAndItsConnectionEnds(t *testing.T) {
 	document, exported := drawioExport(t, rendering, options)
 	port := drawioCellOf(t, exported, "port", "Plant::Pump::outlet")
 	edited := drawioRelabel(t, document, port.ID, func(label string) string { return strings.Replace(label, "outlet", "discharge", 1) })
-	_, imp := drawioImport(t, rendering, options, edited)
+	_, imp := drawioImport(t, drawioImporter(t, rendering, options), rendering.View, edited)
 	if e := drawioRenameOf(t, imp); e.FQN != "Plant::Loop::pump::outlet" || e.NewName != "discharge" {
 		t.Fatalf("rename = %s to %q, want the port by the path a Layout of it takes", e.FQN, e.NewName)
 	}
@@ -74,7 +74,7 @@ func TestDrawioImportRenameRewritesAnotherDocument(t *testing.T) {
 	m, rendering, options := drawioModelOf(t, m, "Plant::loopView")
 	document, exported := drawioExport(t, rendering, options)
 	pump := drawioCellOf(t, exported, "part", "Plant::Loop::pump")
-	_, imp := drawioImport(t, rendering, options, drawioRelabel(t, document, pump.ID, func(label string) string { return label + "2" }))
+	_, imp := drawioImport(t, drawioImporter(t, rendering, options), rendering.View, drawioRelabel(t, document, pump.ID, func(label string) string { return label + "2" }))
 	if e := drawioRenameOf(t, imp); e.FQN != "Plant::Loop::pump" || e.NewName != "pump2" {
 		t.Fatalf("rename = %+v", e)
 	}
@@ -92,7 +92,7 @@ func TestDrawioImportRenameRewritesAnotherDocument(t *testing.T) {
 	_, rendering, options = drawioModelOf(t, loadEditableWorkspace(t, "model.sysml", strings.Replace(drawioLoop, "expose Loop::*;", "expose Plant::Pump;", 1), map[string]string{"other.sysml": other}), "Plant::loopView")
 	document, exported = drawioExport(t, rendering, options)
 	def := drawioCellOf(t, exported, "part def", "Plant::Pump")
-	_, imp = drawioImport(t, rendering, options, drawioRelabel(t, document, def.ID, func(label string) string { return strings.Replace(label, "Pump", "Motor", 1) }))
+	_, imp = drawioImport(t, drawioImporter(t, rendering, options), rendering.View, drawioRelabel(t, document, def.ID, func(label string) string { return strings.Replace(label, "Pump", "Motor", 1) }))
 	m = loadEditableWorkspace(t, "model.sysml", strings.Replace(drawioLoop, "expose Loop::*;", "expose Plant::Pump;", 1), map[string]string{"other.sysml": other})
 	res, err = Apply(m, DrawioOperations(imp, false))
 	if err != nil {
@@ -112,7 +112,7 @@ func TestDrawioImportReportsARenameTheEditorRefuses(t *testing.T) {
 	pump := drawioCellOf(t, exported, "part", "Plant::Loop::pump")
 	edited := drawioRelabel(t, document, pump.ID, func(label string) string { return strings.Replace(label, "pump", "tank", 1) })
 	edited = drawioMutate(t, edited, pump.ID, func(cell string) string { return drawioShift(cell, "x", 77) })
-	_, imp := drawioImport(t, rendering, options, edited)
+	_, imp := drawioImport(t, drawioImporter(t, rendering, options), rendering.View, edited)
 	if _, err := Apply(m, DrawioOperations(imp, false)); err == nil {
 		t.Fatal("renaming pump to tank applied")
 	}
@@ -143,7 +143,7 @@ func TestDrawioImportRenamesAndMovesOneElement(t *testing.T) {
 	pump := drawioCellOf(t, exported, "part", "Plant::Loop::pump")
 	edited := drawioRelabel(t, document, pump.ID, func(label string) string { return label + "X" })
 	edited = drawioMutate(t, edited, pump.ID, func(cell string) string { return drawioShift(cell, "x", 77) })
-	editedFile, imp := drawioImport(t, rendering, options, edited)
+	editedFile, imp := drawioImport(t, drawioImporter(t, rendering, options), rendering.View, edited)
 	if n := len(imp.Edits); n < 2 || imp.Edits[n-1].Kind != view.DrawioEditRename || imp.Edits[n-1].NewName != "pumpX" {
 		t.Fatalf("edits %+v, want Layouts then the Rename", imp.Edits)
 	}
@@ -170,7 +170,7 @@ func TestDrawioImportRenamesAnOwnerAndItsMemberTogether(t *testing.T) {
 	loop, pump := drawioCellOf(t, exported, "part def", "Plant::Loop"), drawioCellOf(t, exported, "part", "Plant::Loop::pump")
 	edited := drawioRelabel(t, document, loop.ID, func(label string) string { return strings.Replace(label, "Loop", "Circuit", 1) })
 	edited = drawioRelabel(t, edited, pump.ID, func(label string) string { return strings.Replace(label, "pump", "motor", 1) })
-	_, imp := drawioImport(t, rendering, options, edited)
+	_, imp := drawioImport(t, drawioImporter(t, rendering, options), rendering.View, edited)
 	if len(imp.Edits) != 2 || imp.Edits[0].FQN != "Plant::Loop::pump" || imp.Edits[0].NewName != "motor" || imp.Edits[1].FQN != "Plant::Loop" || imp.Edits[1].NewName != "Circuit" {
 		t.Fatalf("edits %+v notices %q, want the member's rename before its owner's", imp.Edits, imp.Notices)
 	}
@@ -207,7 +207,7 @@ func TestDrawioImportRenamesWhatAnotherDocumentDeclares(t *testing.T) {
 			m, rendering, options := drawioModelOf(t, m, "Views::loopView")
 			document, exported := drawioExport(t, rendering, options)
 			cell := drawioCellOf(t, exported, tc.kind, tc.fqn)
-			_, imp := drawioImport(t, rendering, options, drawioRelabel(t, document, cell.ID, func(label string) string { return strings.Replace(label, tc.from, tc.to, 1) }))
+			_, imp := drawioImport(t, drawioImporter(t, rendering, options), rendering.View, drawioRelabel(t, document, cell.ID, func(label string) string { return strings.Replace(label, tc.from, tc.to, 1) }))
 			if e := drawioRenameOf(t, imp); e.FQN != tc.fqn || e.NewName != tc.to || e.Origin.Doc != "plant.sysml" {
 				t.Fatalf("rename = %+v", e)
 			}
