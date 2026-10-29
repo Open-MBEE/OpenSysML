@@ -115,3 +115,43 @@ func TestImportDiagramFlagsNeedTheFile(t *testing.T) {
 		}
 	}
 }
+
+// A model reached through a symlink is edited where the link points, the link
+// kept; a document the import leaves as it was is not rewritten.
+func TestImportDiagramWritesThroughSymlinksAndLeavesUnchangedFilesAlone(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	real := filepath.Join(dir, "src", "plant.sysml")
+	if err := os.MkdirAll(filepath.Dir(real), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(real, []byte(importDiagramModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "plant.sysml")
+	if err := os.Symlink(real, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	other := filepath.Join(dir, "other.sysml")
+	if err := os.WriteFile(other, []byte("package Other;\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.Stat(other)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file := exportDrawio(t, binary, dir, link)
+	got := runFiles(t, binary, []string{link, other}, "-import-diagram", file)
+	if got.status != exitHolds || !strings.Contains(got.stderr, link+": written") || strings.Contains(got.stderr, other+": written") {
+		t.Fatalf("import: status %d\n%s", got.status, got.output())
+	}
+	if info, err := os.Lstat(link); err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("plant.sysml is no longer a symlink: %v %v", info, err)
+	}
+	if text, _ := os.ReadFile(real); !strings.Contains(string(text), "Layout about Plant::Loop::pump") {
+		t.Errorf("linked model not edited:\n%s", text)
+	}
+	if after, err := os.Stat(other); err != nil || !os.SameFile(before, after) || !after.ModTime().Equal(before.ModTime()) {
+		t.Errorf("other.sysml rewritten though unchanged: %v %v", after, err)
+	}
+}

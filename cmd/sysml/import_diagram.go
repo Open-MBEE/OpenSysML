@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -72,7 +73,9 @@ func runImportDiagram(files []string) error {
 		return err
 	}
 	for _, edited := range result.Documents {
-		fmt.Fprintf(os.Stderr, "%s: written\n", edited.Name)
+		if !bytes.Equal(edited.Original, edited.Content) {
+			fmt.Fprintf(os.Stderr, "%s: written\n", edited.Name)
+		}
 	}
 	return nil
 }
@@ -99,24 +102,36 @@ func commitEditedDocuments(documents []model.DocumentEdit) (err error) {
 			_ = os.Remove(name)
 		}
 	}()
+	targets := map[string]string{}
 	for _, edited := range documents {
-		info, statErr := os.Stat(edited.Name)
+		if bytes.Equal(edited.Original, edited.Content) {
+			continue
+		}
+		target, statErr := filepath.EvalSymlinks(edited.Name)
 		if statErr != nil {
 			return statErr
 		}
-		name, stageErr := stageEdited(edited, info.Mode().Perm())
+		if other, dup := targets[target]; dup {
+			return fmt.Errorf("write %s: %s is the same file", edited.Name, other)
+		}
+		targets[target] = edited.Name
+		info, statErr := os.Stat(target)
+		if statErr != nil {
+			return statErr
+		}
+		name, stageErr := stageEdited(target, edited.Content, info.Mode().Perm())
 		if name != "" {
 			staged = append(staged, name)
 		}
 		if stageErr != nil {
 			return stageErr
 		}
-		backup, movedAside, backupErr := backUp(edited.Name)
+		backup, movedAside, backupErr := backUp(target)
 		if backupErr != nil {
 			return fmt.Errorf("write %s: %w", edited.Name, backupErr)
 		}
-		done = append(done, swap{edited.Name, backup, movedAside})
-		if renameErr := os.Rename(name, edited.Name); renameErr != nil {
+		done = append(done, swap{target, backup, movedAside})
+		if renameErr := os.Rename(name, target); renameErr != nil {
 			return fmt.Errorf("write %s: %w", edited.Name, renameErr)
 		}
 	}
@@ -129,25 +144,25 @@ func commitEditedDocuments(documents []model.DocumentEdit) (err error) {
 
 // stageEdited writes the edited document to a temporary file beside its own,
 // with the same permissions, and names it.
-func stageEdited(edited model.DocumentEdit, perm fs.FileMode) (string, error) {
-	file, err := os.CreateTemp(filepath.Dir(edited.Name), ".sysml-staged-*")
+func stageEdited(target string, content []byte, perm fs.FileMode) (string, error) {
+	file, err := os.CreateTemp(filepath.Dir(target), ".sysml-staged-*")
 	if err != nil {
-		return "", fmt.Errorf("stage %s: %w", edited.Name, err)
+		return "", fmt.Errorf("stage %s: %w", target, err)
 	}
 	name := file.Name()
-	if _, err := file.Write(edited.Content); err != nil {
+	if _, err := file.Write(content); err != nil {
 		_ = file.Close()
-		return name, fmt.Errorf("stage %s: %w", edited.Name, err)
+		return name, fmt.Errorf("stage %s: %w", target, err)
 	}
 	if err := file.Sync(); err != nil {
 		_ = file.Close()
-		return name, fmt.Errorf("stage %s: %w", edited.Name, err)
+		return name, fmt.Errorf("stage %s: %w", target, err)
 	}
 	if err := file.Close(); err != nil {
-		return name, fmt.Errorf("stage %s: %w", edited.Name, err)
+		return name, fmt.Errorf("stage %s: %w", target, err)
 	}
 	if err := os.Chmod(name, perm); err != nil {
-		return name, fmt.Errorf("stage %s: %w", edited.Name, err)
+		return name, fmt.Errorf("stage %s: %w", target, err)
 	}
 	return name, nil
 }
