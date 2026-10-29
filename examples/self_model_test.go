@@ -1191,8 +1191,8 @@ func TestSelfModelLanguageServerMatchesImplementation(t *testing.T) {
 			identityActions = identityActions || kind == protocol.CodeActionKindRefactorRewrite
 		}
 	}
-	forms, _ := experimental[lsp.RenderFormsCapability].([]string)
-	styles, _ := experimental[lsp.RenderStylesCapability].([]string)
+	forms, _ := experimental[lsp.RenderFormsCapability].([]any)
+	styles, _ := experimental[lsp.RenderStylesCapability].([]any)
 	folders := caps.Workspace != nil && caps.Workspace.WorkspaceFolders != nil && caps.Workspace.WorkspaceFolders.Supported != nil && *caps.Workspace.WorkspaceFolders.Supported
 
 	advertised := map[string]bool{

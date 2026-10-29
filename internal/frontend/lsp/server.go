@@ -120,7 +120,8 @@ func NewServer(ws *model.Workspace, opts ...Option) *Server {
 // chain this server needs, with the lifecycle ordered ahead of the asynchronous
 // dispatch.
 func (s *Server) Run(ctx context.Context, rwc io.ReadWriteCloser) error {
-	conn := jsonrpc2.NewConn(jsonrpc2.NewStream(rwc), jsonrpc2.WithCodec(lspCodec{}))
+	stream := jsonrpc2.NewStream(rwc)
+	conn := jsonrpc2.NewConn(stream, jsonrpc2.WithCodec(lspCodec{}))
 	client := protocol.ClientDispatcher(conn)
 	ctx = protocol.WithClient(ctx, client)
 	s.client = client
@@ -130,9 +131,10 @@ func (s *Server) Run(ctx context.Context, rwc io.ReadWriteCloser) error {
 	case <-conn.Done():
 		return conn.Err()
 	case <-s.exited:
-		// The exit notification ends the session: the stream is released here,
-		// where nothing is waiting on it, and the session is not in error.
-		_ = conn.Close()
+		// The exit notification ends the session. The stream is closed rather
+		// than the connection: closing the connection waits for the read loop,
+		// which a blocking stdin never releases.
+		_ = stream.Close()
 		return nil
 	}
 }
