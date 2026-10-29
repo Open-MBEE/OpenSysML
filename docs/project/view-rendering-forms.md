@@ -1419,9 +1419,10 @@ one model write byte-identical files. No draw.io is run to write it, and none is
 Every semantic cell — a node, a port, an edge — is wrapped in an `<object>` carrying the
 element's handle beside draw.io's own `label`: `kind`, the node's keyword (`part def`, `state`,
 `initial`, …) or the edge's kind; `view`, the view rendered; `link`, the declaration's
-`file:line` when the element has one; and, on a node or a port, `fqn`, the declaration's
-qualified name. An edge carries no `fqn` — a relationship has no name of its own in most
-models — and is matched by its `link` and the `source` and `target` cells it joins.
+`file:line` when the element has one; and `fqn`, the declaration's qualified name, on a node, a
+port, and an edge that is a declaration of its own (a connection, flow, succession, transition,
+dependency and the like). An edge drawn from a member's declaration — a composition, a typing —
+carries no `fqn` and is matched by its `link` and the `source` and `target` cells it joins.
 Compartment rows and edge end labels are plain `mxCell`s and carry none of these. The `fqn` is
 exact and the same for every cell of one element, so a tool reading an edited file back can
 match each cell to its declaration; a later round trip of positions edited in draw.io builds on
@@ -1461,8 +1462,16 @@ of one container share stay inside that container, with its header and its other
 obstacles and the ancestors an end lies in reduced to their headers; an edge from a container to
 its own member leaves the header's underside above the member. Containers are padded by more than
 twice the clearance so a path fits between neighbours. A stated `Route` is never re-routed, and
-an edge the router finds no path for (two boxes nearer than twice the clearance) is written
-without waypoints under `edgeStyle=orthogonalEdgeStyle`, for draw.io to route as before. The `js` and `wasip1` builds of `sysml`
+an edge the router finds no path for (two boxes nearer than twice the clearance plus their
+port squares, as the default layout's 40 px between siblings can be) is written without
+waypoints under `edgeStyle=orthogonalEdgeStyle`, for draw.io to route as before, under a notice
+naming the edge and its cells; an end at a port keeps its face as the anchor, the inner face when
+the edge leads into the port's owner. A member drawn outside its container is routed in the
+nearest container holding both ends. Routed waypoints are written to a thousandth of a pixel; a
+stated `Route` keeps its points. An edge that is a declaration of its own — a connection, flow,
+succession, transition, dependency and the like — carries its qualified name as `fqn` on its
+`<object>`, as the nodes do; an edge drawn from a member's declaration, such as a composition or a
+typing, carries none. The `js` and `wasip1` builds of `sysml`
 carry no router (a WebAssembly runtime inside WebAssembly would route several times slower and
 add to the download): they write every unrouted edge that way, under a notice, and draw.io routes
 them when the file opens.

@@ -6,6 +6,7 @@ package route
 import (
 	"errors"
 	"math"
+	"slices"
 )
 
 // Routes is the orthogonal route of each edge the router found a path for,
@@ -232,6 +233,7 @@ func RoutingPinPositions(shape *Shape) []PinPosition {
 			pins = append(pins, pin)
 		}
 	}
+	var named []PinPosition
 	for _, port := range shape.Ports {
 		point := portPoint(box, port)
 		pin := PinPosition{ID: port.ID, Named: true, Side: port.Side}
@@ -247,9 +249,17 @@ func RoutingPinPositions(shape *Shape) []PinPosition {
 		case West:
 			pin.Y = portion((point.Y - routingBox.Y) / routingBox.Height)
 		}
-		pins = append(pins, pin)
+		named = append(named, pin)
 	}
-	return pins
+	// libavoid attaches to neither of two pins at one point: a generic pin
+	// under a named one (a flush pin at a quarter, half or three quarters) goes.
+	kept := pins[:0]
+	for _, pin := range pins {
+		if !slices.ContainsFunc(named, func(n PinPosition) bool { return n.Side == pin.Side && n.X == pin.X && n.Y == pin.Y }) {
+			kept = append(kept, pin)
+		}
+	}
+	return append(kept, named...)
 }
 
 // snap rounds to the pixel grid the way JavaScript's Math.round does (halves go up).

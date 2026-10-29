@@ -28,7 +28,7 @@
           </mxCell>
         </object>
         <object id="e0" label="" kind="transition" view="TypedViews::boilerView" link="typed-behavior.sysml:18">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.25925925925925924;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n3" target="n1">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.2593;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n3" target="n1">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="96" y="132"/>
@@ -38,7 +38,7 @@
           </mxCell>
         </object>
         <object id="e1" label="" kind="transition" view="TypedViews::boilerView" link="typed-behavior.sysml:23">
-          <mxCell style="edgeStyle=none;exitX=0.5066666666666667;exitY=1;exitPerimeter=0;entryX=1;entryY=0.24324324324324326;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n1" target="n2">
+          <mxCell style="edgeStyle=none;exitX=0.5067;exitY=1;exitPerimeter=0;entryX=1;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n1" target="n2">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="154" y="225"/>
@@ -47,7 +47,7 @@
           </mxCell>
         </object>
         <object id="e2" label="" kind="transition" view="TypedViews::boilerView" link="typed-behavior.sysml:24">
-          <mxCell style="edgeStyle=none;exitX=0.5061728395061729;exitY=0;exitPerimeter=0;entryX=0;entryY=0.7592592592592593;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n2" target="n1">
+          <mxCell style="edgeStyle=none;exitX=0.5062;exitY=0;exitPerimeter=0;entryX=0;entryY=0.7593;entryPerimeter=0;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n2" target="n1">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="97" y="163"/>

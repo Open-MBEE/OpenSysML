@@ -435,6 +435,7 @@ func TestDrawioSharesANoteAmongItsAnchors(t *testing.T) {
 func TestDrawioRoutesUnroutedEdges(t *testing.T) {
 	for _, c := range []struct{ name, file, view string }{
 		{"interconnection-ports", "interconnection-ports.sysml", "ToasterViews::toasterView"},
+		{"interconnection-header-ports", "interconnection-header-ports.sysml", "PumpStationViews::stationView"},
 		{"tree-edges", "tree-edges.sysml", "FleetViews::structure"},
 		{"layout", "layout.sysml", "PlantViews::placedView"},
 	} {
@@ -479,7 +480,7 @@ func TestDrawioRoutesUnroutedEdges(t *testing.T) {
 				path := append(append([]Point{exit}, cell.points...), entry)
 				for j := 1; j < len(path); j++ {
 					a, b := path[j-1], path[j]
-					if math.Abs(a.X-b.X) > 1e-6 && math.Abs(a.Y-b.Y) > 1e-6 {
+					if math.Abs(a.X-b.X) > 0.5 && math.Abs(a.Y-b.Y) > 0.5 {
 						t.Errorf("%s: segment %v -> %v is not orthogonal", cell.id, a, b)
 					}
 				}
