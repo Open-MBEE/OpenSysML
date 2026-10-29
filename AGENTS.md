@@ -192,6 +192,26 @@ Then update `docs/project/spec-compliance.md` mapping: semantic rule → impleme
 
 ---
 
+### 6.1 Bumping the extension-library pin
+
+The vendored `OpenSysML Libraries` (`scripts/extension-libraries-pin.sh`, synced by
+`scripts/sync-extension-libraries.sh`) are an input to gates far from `internal/workspace/libs`, and
+the full CI tier is expensive, so run them locally before the PR, every time the pin moves:
+
+1. `go generate ./internal/workspace/libs` — `stdlib.snapshot` embeds the libraries; commit it.
+2. `make extension-libraries-pin-check` — Java-free, about a minute: the sync check, the snapshot,
+   `tests/hygiene TestEngineContractCoversEveryBoundName` (a new binding in
+   `internal/ir/queryplan/compiler.go` needs an `engine-contract.json` entry upstream, in the same
+   library PR as the declaration), the provenance guards of both pilot-differential baselines, and
+   the REPL/query tests (a new library name enters the REPL's "did you mean" suggestions and can
+   collide with a fixture).
+3. If a provenance guard fails, the baselines record the previous library digest: run
+   `go run -C tools ./cmd/pilot-diff` and `./cmd/pilot-apijson-diff` (the pilot toolchain is in the
+   blueprint), adjudicate every moved entry against the committed baseline, write the adjudication
+   into `docs/project/pilot-differential.md` / `api-json-differential.md`, then re-record with
+   `-update` and run `make docs-counts`. A library change that adds declarations always moves
+   `pilotLibraryElements`; anything else moving is an implementation difference to explain.
+
 ## 7. Code Style & Commits
 
 - **Formatting:** `gofmt` is mandatory (CI-enforced). Follow *Effective Go*. Document exported types/functions.

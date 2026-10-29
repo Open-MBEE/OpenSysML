@@ -86,7 +86,7 @@
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
         "files": 16,
-        "digest": "sha256:29a3bf0fb7bb630a1457768ba774a6baf042469b071c8bda677117ed65d98c65"
+        "digest": "sha256:4f350c5a695cda953e0fb8f1b9b273c998f57480b9770bf063b6ca51a96cdf13"
       }
     ],
     "recorded": "2026-10-29"
@@ -111,7 +111,7 @@
     "oursUnconvertible": 0,
     "oursColliding": 28,
     "pilotFailed": 59,
-    "pilotLibraryElements": 37613,
+    "pilotLibraryElements": 38423,
     "elements": {
       "matched": 92426,
       "oursOnly": 18479,
@@ -371,7 +371,7 @@
       "oursRefused": 0,
       "pilotFailed": 0,
       "oursColliding": 3,
-      "pilotLibraryElements": 15648,
+      "pilotLibraryElements": 15963,
       "elements": {
         "matched": 26937,
         "oursOnly": 6046,
@@ -443,7 +443,7 @@
       "files": 11,
       "oursRefused": 0,
       "pilotFailed": 0,
-      "pilotLibraryElements": 17209,
+      "pilotLibraryElements": 17704,
       "elements": {
         "matched": 7199,
         "oursOnly": 920,

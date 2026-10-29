@@ -49,7 +49,12 @@ const (
 	ErrorColumnIncommensurable ErrorKind = "column-incommensurable"
 	ErrorColumnArithmetic      ErrorKind = "column-arithmetic"
 	ErrorColumnAbsent          ErrorKind = "column-absent"
-	ErrorColumnCardinality     ErrorKind = "column-cardinality"
+	// ErrorUnknownColumn: Differ named a key or column one side does not project.
+	ErrorUnknownColumn ErrorKind = "unknown-column"
+	// ErrorDuplicateKey: a Differ side carries one key value on two rows, or a key cell
+	// that is not single-valued — the model error, every finding kept.
+	ErrorDuplicateKey      ErrorKind = "duplicate-key"
+	ErrorColumnCardinality ErrorKind = "column-cardinality"
 	// ErrorNoRuntime: an operation over a session's objects ran with no session.
 	ErrorNoRuntime ErrorKind = "no-runtime"
 	// ErrorObjectRow: a model-only operation was given a runtime object row.
@@ -234,6 +239,10 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("query %s references unknown classification %s", e.Query, e.Actual)
 	case ErrorMissingFeature:
 		return e.missingFeatureMessage()
+	case ErrorUnknownColumn:
+		return fmt.Sprintf("query %s operation %s: the %s rows project no column %s (columns: %s)", e.Query, e.Operation, e.Parameter, e.Property, strings.Join(e.Candidates, ", "))
+	case ErrorDuplicateKey:
+		return fmt.Sprintf("query %s operation %s: %s", e.Query, e.Operation, e.Actual)
 	case ErrorUnknownElement:
 		return e.unknownElementMessage()
 	case ErrorAmbiguousElement:
