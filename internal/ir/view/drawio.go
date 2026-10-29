@@ -15,9 +15,8 @@ import (
 // one mxGraphModel whose vertices and edges carry the rendering's geometry.
 func (r *Rendering) Drawio() (string, error) { return r.DrawioWith(Options{}) }
 
-// DrawioWith writes the rendering as a draw.io file under options. Every
-// semantic cell is an <object> carrying the element's qualified name, kind,
-// view and declaration site, the handles a reader of the edited file matches on.
+// DrawioWith writes the rendering as a draw.io file under options; every semantic
+// cell is an <object> carrying the element's qualified name, kind, view and declaration.
 func (r *Rendering) DrawioWith(options Options) (string, error) {
 	if !r.supportsForm(FormDrawio) {
 		return "", r.wrongFormError(FormDrawio)
@@ -192,9 +191,8 @@ func (w *drawioWriter) settle(node *Node, at drawioBox) {
 	w.settleChildren(node, box)
 }
 
-// settleChildren settles a container's children under its box: placed children
-// keep their stated offset from the container, the rest fill a grid under the
-// container's header, compartments and placed children.
+// settleChildren places a container's children: placed ones keep their stated offset,
+// the rest fill a grid under the header, compartments and placed children.
 func (w *drawioWriter) settleChildren(node *Node, box drawioBox) {
 	if len(node.Children) == 0 {
 		return
@@ -496,9 +494,8 @@ func (w *drawioWriter) link(origin Origin) string {
 	return fmt.Sprintf("%s:%d", site.File, site.Line)
 }
 
-// fqn is a node's qualified name: the declaration's, when its site is known,
-// else a root's name as the view exposes it or a nested node's under its
-// container's; a synthesized name is none.
+// fqn is a node's qualified name: the declaration's when its site is known, else the
+// exposed name under its container's; a synthesized name is none.
 func (w *drawioWriter) fqn(node *Node, parent string) string {
 	if name := w.siteName(node.Origin); name != "" {
 		return name
@@ -589,9 +586,8 @@ func (w *drawioWriter) writeCompartment(id string, node *Node, compartment Compa
 	w.b.WriteString("        </mxCell>\n")
 }
 
-// writePorts writes a node's drawn ports as small cells on its border: inputs
-// on the left edge, outputs on the right, the rest along the top, each at a
-// fraction of the edge unless its own Layout places it.
+// writePorts writes a node's drawn ports as small border cells, inputs left, outputs
+// right, the rest along the top, each at a fraction of the edge unless its Layout places it.
 func (w *drawioWriter) writePorts(node *Node, fqn string) {
 	ports := w.ports.of(node)
 	if len(ports) == 0 {
@@ -948,9 +944,8 @@ func drawioEdgeFullStyle(edge Edge) string {
 	return style
 }
 
-// drawioEdgeStyle is the draw.io arrow style drawing an edge kind's glyph, the
-// notation table's draw.io column: the source end's marker as startArrow, the
-// target end's as endArrow.
+// drawioEdgeStyle is the notation table's draw.io column for an edge kind: the
+// source end's marker as startArrow, the target end's as endArrow.
 func drawioEdgeStyle(kind EdgeKind) string {
 	switch kind {
 	case EdgeConnection:
@@ -987,10 +982,8 @@ func drawioEdgeStyle(kind EdgeKind) string {
 	return "endArrow=open"
 }
 
-// writeNotes writes the notes as note-shaped cells, each joined to its subjects
-// by dashed anchor edges; one annotation about several elements is one box
-// (its notes share an Origin). A note with no stated box sits beside its first
-// subject, or on the grid when it has none.
+// writeNotes writes one note cell per annotation (its notes share an Origin), anchored
+// to each subject; an unplaced note sits beside its first subject, else on the grid.
 func (w *drawioWriter) writeNotes(r *Rendering) {
 	groups := drawioNoteGroups(r.Notes)
 	var loose [][]int
@@ -1073,8 +1066,7 @@ func (w *drawioWriter) writeNote(group []int, notes []Note, box drawioBox) {
 	}
 }
 
-// writePicture writes a picture as an image cell, the image embedded as a data
-// URL; the picture was checked under the shared trust rules before this.
+// writePicture writes a picture as an image cell, the image embedded in its style.
 func (w *drawioWriter) writePicture(i int, picture Picture) {
 	src, ok := drawioPictureSource(picture)
 	if !ok {
@@ -1089,10 +1081,8 @@ func (w *drawioWriter) writePicture(i int, picture Picture) {
 	w.b.WriteString("        </mxCell>\n")
 }
 
-// drawioPictureSource is a picture's image in the form draw.io keeps embedded
-// images in a style, `data:<type>,<base64>` without `;base64` (a style is
-// `;`-separated): a declared data URL re-encoded, a local file read; a remote
-// location or an unsafe image is none, as pictureRefusal already reported.
+// drawioPictureSource is a picture's image as draw.io keeps one in a style,
+// `data:<type>,<base64>`; a remote or unsafe picture is none, as pictureRefusal reported.
 func drawioPictureSource(picture Picture) (string, bool) {
 	src := strings.TrimSpace(picture.Location)
 	if strings.HasPrefix(strings.ToLower(src), "data:") {

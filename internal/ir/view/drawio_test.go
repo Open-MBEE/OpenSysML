@@ -10,15 +10,15 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// renderWithSites renders a fixture view with the declaration sites resolved,
-// as the CLI, REPL and LSP resolve them, so the cells carry exact qualified
-// names and `file:line` links.
+// renderWithSites renders a fixture view with the declaration sites resolved, as the
+// CLI, REPL and LSP do, so the cells carry exact qualified names and `file:line` links.
 func renderWithSites(t *testing.T, file, view string) (*Rendering, Options) {
 	t.Helper()
 	r, idx := loadFixtures(t, file)
@@ -126,11 +126,8 @@ func parseDrawio(t *testing.T, doc string) []drawioCell {
 	return cells
 }
 
-// checkDrawioDocument checks what draw.io needs of a file: well-formed XML,
-// the two root cells, a geometry on every vertex, both ends on every edge, a
-// parent every cell has, and one declaration per fqn: an element drawn in two
-// cells (an inherited feature under each subtype) repeats its fqn, two
-// declarations never share one.
+// checkDrawioDocument checks what draw.io needs of a file (well-formed XML, root cells,
+// every vertex placed, every edge and parent resolved) and that two declarations never share an fqn.
 func checkDrawioDocument(t *testing.T, doc string) {
 	t.Helper()
 	if !strings.HasPrefix(doc, `<?xml version="1.0" encoding="UTF-8"?>`+"\n") {
@@ -283,9 +280,8 @@ func containsForm(forms []Form, form Form) bool {
 	return false
 }
 
-// A picture is embedded the way draw.io keeps an image in a style, `data:<type>,<base64>`
-// with no `;base64` (a style is `;`-separated), whether declared as a data URL or a local
-// file; a picture the trust rules refuse stays a notice.
+// A local or data-URL picture is embedded as draw.io keeps an image in a style,
+// `data:<type>,<base64>` with no `;base64`; a refused picture stays a notice.
 func TestDrawioPictures(t *testing.T) {
 	var imageData bytes.Buffer
 	if err := png.Encode(&imageData, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
@@ -320,5 +316,30 @@ func TestDrawioPictures(t *testing.T) {
 	}
 	if strings.Contains(got, `id="picture2"`) || !strings.Contains(got, "remote.png") {
 		t.Errorf("the remote picture is drawn or its refusal is not noted:\n%s", got)
+	}
+}
+
+// A Note about several elements is one note cell anchored to each subject; Notes
+// stated apart are separate cells even when their text coincides.
+func TestDrawioSharesANoteAmongItsAnchors(t *testing.T) {
+	rendering := render(t, "shared-notes.sysml", "SharedViews::rigView")
+	got, err := rendering.Write(FormDrawio)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkDrawioDocument(t, got)
+	cells := regexp.MustCompile(`<mxCell id="(note\d+)" value="([^"]*)"`).FindAllStringSubmatch(got, -1)
+	byText := map[string][]string{}
+	for _, m := range cells {
+		byText[m[2]] = append(byText[m[2]], m[1])
+	}
+	if len(byText["calibrated"]) != 1 {
+		t.Fatalf("the note about two parts is drawn as %v, want one cell:\n%s", byText["calibrated"], got)
+	}
+	if n := strings.Count(got, `id="`+byText["calibrated"][0]+`:anchor`); n != 2 {
+		t.Errorf("the shared note has %d anchors, want 2:\n%s", n, got)
+	}
+	if len(byText["on loan"]) != 2 {
+		t.Errorf("the two notes stated apart are drawn as %v, want two cells:\n%s", byText["on loan"], got)
 	}
 }
