@@ -56,3 +56,40 @@ func TestImportDiagramAnswersTheLayoutsAsAWorkspaceEdit(t *testing.T) {
 		t.Error("a request without a file was answered")
 	}
 }
+
+const portsModel = `package PumpStation {
+	private import Views::*;
+	private import OpenSysMLRenderings::*;
+	part def Tank { port outlet; }
+	part def Pump { port inlet; }
+	part station {
+		part tank : Tank;
+		part pump : Pump;
+		connect tank.outlet to pump.inlet;
+	}
+	view stationView {
+		expose station;
+		render asInterconnectionDiagram;
+	}
+}
+`
+
+// The server's export names ports by their declaration like the CLI's, so an
+// untouched export of a view with ports imports and reports nothing.
+func TestRenderedPortsImportSilently(t *testing.T) {
+	s, docURI := renderServer(t, "pumps.sysml", portsModel)
+	exported, err := s.Render(&RenderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "PumpStation::stationView", Form: "drawio"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(exported.Artifact, `fqn="PumpStation::Tank::outlet"`) || strings.Contains(exported.Artifact, `fqn="PumpStation::station::tank::outlet"`) {
+		t.Errorf("export names ports by their usage path:\n%s", exported.Artifact)
+	}
+	out, err := s.ImportDiagram(&ImportDiagramParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, Content: exported.Artifact})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Edits)+len(out.Unmatched)+len(out.Unknown)+len(out.Deleted)+len(out.Notices) != 0 || out.Edit != nil {
+		t.Errorf("untouched export imports %+v, want nothing", out)
+	}
+}
