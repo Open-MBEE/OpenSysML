@@ -38,7 +38,7 @@ export {
   migrationReportOf,
   pathIsV1,
 } from "./conversion.js";
-export type { MigrateOptions, MigrationEntry } from "./conversion.js";
+export type { ConvertOptions, LibraryReference, MigrateOptions, MigrationEntry } from "./conversion.js";
 export {
   QueryElement,
   TYPE_COMPOSITE_CONSTRAINT,
@@ -179,6 +179,8 @@ export {
   CAPABILITY_CONVERT,
   CAPABILITY_CONVERT_DOCUMENTS,
   CAPABILITY_CONVERT_COMPACT,
+  CAPABILITY_CONVERT_LIBRARY_REFERENCES,
+  CAPABILITY_CONVERT_LIBRARY_STUBS,
   CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
   CAPABILITY_PARSE_SOURCES_AFFECTED,
   CAPABILITY_RENDER_DOCUMENT_FILE_NAME,

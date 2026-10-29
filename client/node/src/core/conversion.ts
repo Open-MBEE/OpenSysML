@@ -80,6 +80,21 @@ export function formatOfPath(path: string): string {
   return format;
 }
 
+/** Options for writing a model through Convert. */
+export interface ConvertOptions {
+  fromFormat?: string;
+  tolerateSyntaxErrors?: boolean;
+  /** Restore pre-0.11.0 ownerless library stubs in API JSON. Default off. */
+  includeLibraryStubs?: boolean;
+}
+
+/** A referenced standard-library element, not a model root. */
+export interface LibraryReference {
+  readonly id: string;
+  readonly qualifiedName: string;
+  readonly type: string;
+}
+
 /** A model written out in one of the formats OpenSysML writes. */
 export class Conversion {
   /** The converted model. */
@@ -94,6 +109,8 @@ export class Conversion {
   readonly experimental: boolean;
   /** What is experimental about it, in the service's own wording; empty when stable. */
   readonly experimentalNotice: string;
+  /** Names referenced by API JSON output, outside its element array. */
+  readonly libraryReferences: readonly LibraryReference[];
 
   constructor(init: {
     content: string;
@@ -102,6 +119,7 @@ export class Conversion {
     diagnostics: readonly ModelDiagnostic[];
     experimental: boolean;
     experimentalNotice: string;
+    libraryReferences?: readonly LibraryReference[];
   }) {
     this.content = init.content;
     this.fromFormat = init.fromFormat;
@@ -109,6 +127,7 @@ export class Conversion {
     this.diagnostics = init.diagnostics;
     this.experimental = init.experimental;
     this.experimentalNotice = init.experimentalNotice;
+    this.libraryReferences = init.libraryReferences ?? [];
   }
 
   toString(): string {

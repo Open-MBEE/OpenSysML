@@ -1,0 +1,337 @@
+# Publishes a `v*` release's Python client and Jupyter kernel package to PyPI with
+# trusted publishing, from CircleCI's signed release: docs/project/releasing.md.
+name: Release to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag (vX.Y.Z) whose Python distributions to publish, as the tag push would
+        required: true
+      dry_run:
+        description: Fetch and verify the release's distributions without publishing them
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-pypi-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  PYPI_PROJECT: opensysml
+  KERNEL_PYPI_PROJECT: jupyter-opensysml-kernel
+  PYTHON_DIST_ARTIFACT: release-python-dist
+  KERNEL_DIST_ARTIFACT: release-jupyter-kernel-dist
+  # The CircleCI identity that signs the release manifest (client/python/opensysml/signing.py).
+  MANIFEST_OIDC_ISSUER: https://oidc.circleci.com/org/1169df8b-0b59-400f-82d2-c9d8e98bdb62
+  MANIFEST_IDENTITY_REGEXP: ^https://circleci\.com/api/v2/projects/eeb0dddd-237f-4f02-9e51-8e24caef589d/pipeline-definitions/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+  # CircleCI publishes the release only after its whole suite passed on the tag.
+  RELEASE_GATE_TIMEOUT: 10800
+  DRY_RUN: ${{ inputs.dry_run == true }}
+
+jobs:
+  fetch:
+    name: Fetch and verify the release's distributions
+    runs-on: ubuntu-latest
+    timeout-minutes: 200
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      index-host: ${{ steps.version.outputs.index-host }}
+      repository-url: ${{ steps.version.outputs.repository-url }}
+    steps:
+      - name: Check out the tag
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Install the checking tools
+        run: python -m pip install --only-binary ":all:" pip==26.2.1 twine==7.0.0 packaging==26.3
+
+      # The tag must name the version both packages declare; a pre-release goes to TestPyPI.
+      - name: Resolve the version from the tag
+        id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          if [ -n "$INPUT_TAG" ]; then
+            TAG="$INPUT_TAG"
+          elif [ "$REF_TYPE" = "tag" ]; then
+            TAG="$REF_NAME"
+          else
+            echo "::error::this workflow runs on a v* tag or a dispatch naming one"
+            exit 1
+          fi
+          case "$TAG" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::tag '$TAG' must look like v<major>.<minor>.<patch>[-suffix]"; exit 1 ;;
+          esac
+          VERSION="$(python client/python/scripts/check_version.py --tag "$TAG")"
+          KERNEL_VERSION="$(python client/python/scripts/check_version.py --jupyter-kernel --tag "$TAG")"
+          if [ "$KERNEL_VERSION" != "$VERSION" ]; then
+            echo "::error::the Jupyter kernel package declares ${KERNEL_VERSION}, the Python client ${VERSION}"
+            exit 1
+          fi
+          if [ "$(python client/python/scripts/check_version.py --pre-release --tag "$TAG")" = "yes" ]; then
+            INDEX_HOST=test.pypi.org
+            REPOSITORY_URL=https://test.pypi.org/legacy/
+          else
+            INDEX_HOST=pypi.org
+            REPOSITORY_URL=https://upload.pypi.org/legacy/
+          fi
+          echo "Publishing ${PYPI_PROJECT} and ${KERNEL_PYPI_PROJECT} ${VERSION} from ${TAG} to ${INDEX_HOST} (dry run: ${DRY_RUN})"
+          {
+            echo "tag=$TAG"
+            echo "version=$VERSION"
+            echo "index-host=$INDEX_HOST"
+            echo "repository-url=$REPOSITORY_URL"
+            echo "commit=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
+
+      # The bundle is CircleCI's last upload, after the suite and build-release passed on
+      # the tag; the tag must still be the commit checked out here.
+      - name: Wait for CircleCI to publish the gated release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.version.outputs.tag }}
+          COMMIT: ${{ steps.version.outputs.commit }}
+        run: scripts/wait-for-release-gate.sh "$TAG" "$COMMIT"
+
+      - name: Download the distributions and the signed manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release download "$TAG" --dir release \
+            --pattern SHA256SUMS.txt --pattern SHA256SUMS.txt.bundle \
+            --pattern "opensysml-${VERSION}-py3-none-any.whl" \
+            --pattern "opensysml-${VERSION}.tar.gz" \
+            --pattern "jupyter_opensysml_kernel-${VERSION}.tar.gz" \
+            --pattern "jupyter_opensysml_kernel-${VERSION}-py3-none-*.whl"
+          ls -l release
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.0.3
+
+      - name: Verify the manifest was signed by the release pipeline
+        run: |
+          cd release
+          cosign verify-blob SHA256SUMS.txt \
+            --bundle SHA256SUMS.txt.bundle \
+            --certificate-oidc-issuer "$MANIFEST_OIDC_ISSUER" \
+            --certificate-identity-regexp "$MANIFEST_IDENTITY_REGEXP"
+
+      # Every distribution must be a line of the verified manifest; the kernel needs five wheels.
+      - name: Check the distributions against the manifest
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cd release
+          set -- jupyter_opensysml_kernel-"${VERSION}"-py3-none-*.whl
+          if [ ! -f "$1" ] || [ $# -ne 5 ]; then
+            echo "::error::expected five platform wheels of jupyter-opensysml-kernel ${VERSION} on the release, found $#: $*"
+            exit 1
+          fi
+          for file in "opensysml-${VERSION}-py3-none-any.whl" "opensysml-${VERSION}.tar.gz" \
+                      "jupyter_opensysml_kernel-${VERSION}.tar.gz" "$@"; do
+            if ! grep -q "  ${file}\$" SHA256SUMS.txt; then
+              echo "::error::${file} is not listed in the signed SHA256SUMS.txt; not publishing a file the release pipeline did not sign for"
+              exit 1
+            fi
+          done
+          sha256sum -c SHA256SUMS.txt --ignore-missing
+          mkdir -p ../client/python/dist ../client/jupyter-kernel/dist
+          mv opensysml-"${VERSION}"* ../client/python/dist/
+          mv jupyter_opensysml_kernel-"${VERSION}"* ../client/jupyter-kernel/dist/
+
+      - name: Check the metadata (twine check --strict)
+        run: |
+          python -m twine check --strict client/python/dist/*
+          python -m twine check --strict client/jupyter-kernel/dist/*
+
+      # Zero-config smoke: with no binary configured the wheel must fetch the release
+      # the tag names and evaluate a model with it.
+      - name: Run the built wheel against the release it names
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          python -m venv /tmp/verify-zero-config
+          /tmp/verify-zero-config/bin/python -m pip install --only-binary ":all:" pip==26.2.1
+          /tmp/verify-zero-config/bin/python -m pip install client/python/dist/opensysml-*.whl
+          home="$(mktemp -d)"
+          trap 'rm -rf "$home"' EXIT
+          env -u OPENSYSML_BINARY -u OPENSYSML_GRPC_VERSION \
+            HOME="$home" PATH="/tmp/verify-zero-config/bin:/usr/bin:/bin" RELEASE_TAG="$RELEASE_TAG" \
+            /tmp/verify-zero-config/bin/python - <<'EOF'
+          import json
+          import os
+          from pathlib import Path
+
+          import opensysml
+
+          model_path = Path(os.environ["HOME"]) / "Demo.sysml"
+          model_path.write_text(
+              """package Demo {
+                part def Vehicle { attribute mass default = 1500.0; }
+                part sedan : Vehicle { attribute :>> mass = 1800.0; }
+              }""",
+              encoding="utf-8",
+          )
+          model = opensysml.load(str(model_path), strict=True)
+          actual = model.eval("mass", subject="Demo::sedan")
+          assert actual == 1800.0, actual
+          print(actual)
+
+          metadata = Path(os.environ["HOME"]) / ".opensysml" / "bin" / "sysml-grpc.json"
+          cached = json.loads(metadata.read_text())
+          expected = os.environ["RELEASE_TAG"]
+          assert cached["version"] == expected, (cached["version"], expected)
+          print(f"cached release: {cached['version']}")
+          EOF
+
+      - name: Keep the Python distribution for the PyPI job
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ env.PYTHON_DIST_ARTIFACT }}
+          path: client/python/dist/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Keep the Jupyter kernel distribution for the PyPI job
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ env.KERNEL_DIST_ARTIFACT }}
+          path: client/jupyter-kernel/dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  # Trusted publishing: registered on PyPI as Open-MBEE/OpenSysML, workflow
+  # release-pypi.yml, environment pypi; no token, each file attested.
+  pypi:
+    name: Publish opensysml to PyPI
+    needs: fetch
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Fetch the Python distribution
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ env.PYTHON_DIST_ARTIFACT }}
+          path: client/python/dist/
+
+      # A PyPI version is immutable: a re-run of a published release fails here by design.
+      - name: Refuse a version the index already has
+        id: index
+        env:
+          VERSION: ${{ needs.fetch.outputs.version }}
+          INDEX_HOST: ${{ needs.fetch.outputs.index-host }}
+        run: |
+          ls -l client/python/dist
+          status=$(curl -s -o /dev/null -w '%{http_code}' "https://${INDEX_HOST}/pypi/${PYPI_PROJECT}/${VERSION}/json")
+          case "$status" in
+            200)
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "::notice::${PYPI_PROJECT} ${VERSION} is already on ${INDEX_HOST}; a dry run publishes nothing."
+                echo "publish=false" >> "$GITHUB_OUTPUT"
+              else
+                echo "::error::${PYPI_PROJECT} ${VERSION} is already on ${INDEX_HOST}. A PyPI version can be yanked but never replaced, so this job fails rather than half-publishing; a re-run of a published release is expected to fail here and needs no action."
+                exit 1
+              fi ;;
+            404)
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "::notice::${INDEX_HOST} has no ${PYPI_PROJECT} ${VERSION}; a tag push would publish it. Dry run: not publishing."
+                echo "publish=false" >> "$GITHUB_OUTPUT"
+              else
+                echo "${INDEX_HOST} has no ${PYPI_PROJECT} ${VERSION}; publishing"
+                echo "publish=true" >> "$GITHUB_OUTPUT"
+              fi ;;
+            *)
+              echo "::error::${INDEX_HOST} answered HTTP ${status} for ${PYPI_PROJECT} ${VERSION}; not publishing blind."
+              exit 1 ;;
+          esac
+
+      - name: Publish to PyPI with trusted publishing
+        if: steps.index.outputs.publish == 'true'
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          packages-dir: client/python/dist/
+          repository-url: ${{ needs.fetch.outputs.repository-url }}
+          print-hash: true
+
+  # Second project under the same trusted publisher, published the same way and
+  # independently, so neither project refusing a re-run blocks the other.
+  jupyter-kernel:
+    name: Publish jupyter-opensysml-kernel to PyPI
+    needs: fetch
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Fetch the Jupyter kernel distribution
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ env.KERNEL_DIST_ARTIFACT }}
+          path: client/jupyter-kernel/dist/
+
+      - name: Refuse a version the index already has
+        id: index
+        env:
+          VERSION: ${{ needs.fetch.outputs.version }}
+          INDEX_HOST: ${{ needs.fetch.outputs.index-host }}
+        run: |
+          ls -l client/jupyter-kernel/dist
+          status=$(curl -s -o /dev/null -w '%{http_code}' "https://${INDEX_HOST}/pypi/${KERNEL_PYPI_PROJECT}/${VERSION}/json")
+          case "$status" in
+            200)
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "::notice::${KERNEL_PYPI_PROJECT} ${VERSION} is already on ${INDEX_HOST}; a dry run publishes nothing."
+                echo "publish=false" >> "$GITHUB_OUTPUT"
+              else
+                echo "::error::${KERNEL_PYPI_PROJECT} ${VERSION} is already on ${INDEX_HOST}. A PyPI version can be yanked but never replaced, so this job fails rather than half-publishing; a re-run of a published release is expected to fail here and needs no action."
+                exit 1
+              fi ;;
+            404)
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "::notice::${INDEX_HOST} has no ${KERNEL_PYPI_PROJECT} ${VERSION}; a tag push would publish it. Dry run: not publishing."
+                echo "publish=false" >> "$GITHUB_OUTPUT"
+              else
+                echo "${INDEX_HOST} has no ${KERNEL_PYPI_PROJECT} ${VERSION}; publishing"
+                echo "publish=true" >> "$GITHUB_OUTPUT"
+              fi ;;
+            *)
+              echo "::error::${INDEX_HOST} answered HTTP ${status} for ${KERNEL_PYPI_PROJECT} ${VERSION}; not publishing blind."
+              exit 1 ;;
+          esac
+
+      - name: Publish the Jupyter kernel to PyPI with trusted publishing
+        if: steps.index.outputs.publish == 'true'
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          packages-dir: client/jupyter-kernel/dist/
+          repository-url: ${{ needs.fetch.outputs.repository-url }}
+          print-hash: true

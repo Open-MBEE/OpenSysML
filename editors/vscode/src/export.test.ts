@@ -106,7 +106,7 @@ test("serverForms takes the forms the server advertises, else the documented six
   assert.deepEqual(serverForms({ openSysmlRender: true }), DOCUMENTED_FORMS);
   assert.deepEqual(serverForms({ [RENDER_FORMS_CAPABILITY]: [] }), DOCUMENTED_FORMS);
   assert.deepEqual(serverForms({ [RENDER_FORMS_CAPABILITY]: ["dot", 3] }), DOCUMENTED_FORMS);
-  assert.deepEqual(DOCUMENTED_FORMS, ["text", "mermaid", "markdown", "dot", "plantuml", "d2"]);
+  assert.deepEqual(DOCUMENTED_FORMS, ["text", "mermaid", "markdown", "dot", "plantuml", "d2", "drawio"]);
 });
 
 test("every form saves under its own extension and filter, and an unknown one as text", () => {
@@ -119,6 +119,7 @@ test("every form saves under its own extension and filter, and an unknown one as
       ["dot", ".dot", "Graphviz DOT"],
       ["plantuml", ".puml", "PlantUML"],
       ["d2", ".d2", "D2"],
+      ["drawio", ".drawio", "draw.io"],
       ["csv", ".csv", "CSV"],
       ["tsv", ".tsv", "TSV"],
     ],

@@ -3,6 +3,7 @@ package export
 import (
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
@@ -18,8 +19,7 @@ const apiJSONGraphAspectPrefix = "graph:"
 
 type apiJSONGraphStructure struct {
 	graph                       *rdf.Graph
-	subjectSlots                map[string]int
-	subjects                    []rdf.Term
+	index                       *apiJSONGraphIndex
 	elements                    []metamodel.Element
 	byID                        map[string][]int
 	ownedRelationshipsByEnd     [][]rdf.Term
@@ -33,13 +33,12 @@ type apiJSONEvaluation struct {
 	evaluator *metamodel.Evaluator
 }
 
-func newAPIJSONEvaluation(graph *rdf.Graph, subjectSlots ...map[string]int) *apiJSONEvaluation {
-	graph = apiJSONEvaluationGraph(graph)
-	var slots map[string]int
-	if len(subjectSlots) > 0 {
-		slots = subjectSlots[0]
-	}
-	structure := newAPIJSONGraphStructureWithSubjectSlots(graph, slots)
+func newAPIJSONEvaluation(graph *rdf.Graph) *apiJSONEvaluation {
+	return newAPIJSONEvaluationWithIndex(newAPIJSONWriteIndex(graph))
+}
+
+func newAPIJSONEvaluationWithIndex(index *apiJSONGraphIndex) *apiJSONEvaluation {
+	structure := newAPIJSONGraphStructure(index)
 	resolver := resolve.New(libs.SharedBase())
 	return &apiJSONEvaluation{
 		structure: structure,
@@ -104,29 +103,24 @@ func apiJSONEvaluationGraph(graph *rdf.Graph) *rdf.Graph {
 	return rdf.NewGraphOfWithIndexOverlay(triples, graph.Prefixes, graph, additions)
 }
 
-func newAPIJSONGraphStructureWithSubjectSlots(graph *rdf.Graph, subjectSlots map[string]int) *apiJSONGraphStructure {
+func newAPIJSONGraphStructure(index *apiJSONGraphIndex) *apiJSONGraphStructure {
 	s := &apiJSONGraphStructure{
-		graph: graph,
+		graph: index.graph,
+		index: index,
 		byID:  make(map[string][]int),
 	}
+	graph := index.graph
 	if graph == nil {
 		return s
 	}
-	if subjectSlots == nil {
-		subjectSlots = make(map[string]int)
-	}
-	subjects := make([]rdf.Term, len(subjectSlots))
-	for _, subject := range graph.SubjectsView() {
-		if position, ok := subjectSlots[subject.Value]; ok {
-			subjects[position] = subject
-			continue
+	subjects := index.subjects
+	for _, subject := range subjects {
+		typ := graph.Type(subject)
+		if _, ok := index.metaclasses[typ]; !ok {
+			class, ok := s.typeMetaclass(typ)
+			index.metaclasses[typ] = apiJSONMetaclass{class, ok}
 		}
-		position := len(subjectSlots)
-		subjectSlots[subject.Value] = position
-		subjects = append(subjects, subject)
 	}
-	s.subjects = subjects
-	s.subjectSlots = subjectSlots
 	s.elements = make([]metamodel.Element, len(subjects))
 	s.ownedRelationshipsByEnd = make([][]rdf.Term, len(subjects))
 	s.owningRelationshipByOwned = make([][]rdf.Term, len(subjects))
@@ -179,7 +173,7 @@ func newAPIJSONGraphStructureWithSubjectSlots(graph *rdf.Graph, subjectSlots map
 }
 
 func (s *apiJSONGraphStructure) appendSubjectRelated(index *[][]rdf.Term, subject, related rdf.Term) {
-	position, ok := s.subjectSlots[subject.Value]
+	position, ok := s.index.slots[subject.Value]
 	if ok {
 		(*index)[position] = append((*index)[position], related)
 	}
@@ -190,6 +184,13 @@ func (s *apiJSONGraphStructure) metaclass(subject rdf.Term) (string, bool) {
 		return "", false
 	}
 	typ := s.graph.Type(subject)
+	if cached, ok := s.index.metaclasses[typ]; ok {
+		return cached.class, cached.ok
+	}
+	return s.typeMetaclass(typ)
+}
+
+func (s *apiJSONGraphStructure) typeMetaclass(typ string) (string, bool) {
 	if typ == "" {
 		return "", false
 	}
@@ -214,11 +215,11 @@ func (s *apiJSONGraphStructure) subject(element metamodel.Element) (rdf.Term, bo
 	if err != nil || position < 0 || position >= len(s.elements) || s.elements[position].Key() != element.Key() {
 		return rdf.Term{}, false
 	}
-	return s.subjects[position], true
+	return s.index.subjects[position], true
 }
 
 func (s *apiJSONGraphStructure) element(subject rdf.Term) (metamodel.Element, bool) {
-	position, ok := s.subjectSlots[subject.Value]
+	position, ok := s.index.slots[subject.Value]
 	if !ok {
 		return metamodel.Element{}, false
 	}
@@ -230,7 +231,7 @@ func (s *apiJSONGraphStructure) element(subject rdf.Term) (metamodel.Element, bo
 }
 
 func (s *apiJSONGraphStructure) relatedBySubject(index [][]rdf.Term, subject rdf.Term) []rdf.Term {
-	position, ok := s.subjectSlots[subject.Value]
+	position, ok := s.index.slots[subject.Value]
 	if !ok {
 		return nil
 	}
@@ -403,7 +404,7 @@ func (s *apiJSONGraphStructure) related(subject rdf.Term, property string) ([]me
 				}
 				return nil, false
 			}
-			element, ok := s.element(s.subjects[targets[0]])
+			element, ok := s.element(s.index.subjects[targets[0]])
 			if !ok {
 				return nil, false
 			}
@@ -411,7 +412,7 @@ func (s *apiJSONGraphStructure) related(subject rdf.Term, property string) ([]me
 		}
 		return values, true
 	}
-	objects := s.graph.ObjectsView(subject, rdf.SysML+property)
+	objects := s.graph.ObjectsView(subject, apiJSONSysMLPredicate(property))
 	values := make([]metamodel.Element, 0, len(objects))
 	for _, object := range objects {
 		element, ok := s.element(object)
@@ -424,7 +425,7 @@ func (s *apiJSONGraphStructure) related(subject rdf.Term, property string) ([]me
 }
 
 func (s *apiJSONGraphStructure) relatedOne(subject rdf.Term, property string) (metamodel.Element, bool, bool) {
-	objects := s.graph.ObjectsView(subject, rdf.SysML+property)
+	objects := s.graph.ObjectsView(subject, apiJSONSysMLPredicate(property))
 	if len(objects) == 0 {
 		return metamodel.Element{}, false, true
 	}
@@ -449,7 +450,7 @@ func (s *apiJSONGraphStructure) Attribute(element metamodel.Element, property st
 	if !ok || definition.Kind != ontology.DatatypeProperty {
 		return metamodel.Value{}, false
 	}
-	objects := s.graph.ObjectsView(subject, rdf.SysML+graphProperty)
+	objects := s.graph.ObjectsView(subject, apiJSONSysMLPredicate(graphProperty))
 	if len(objects) == 0 {
 		if definition.Lower > 0 {
 			return metamodel.Value{}, false
@@ -459,39 +460,64 @@ func (s *apiJSONGraphStructure) Attribute(element metamodel.Element, property st
 		}
 		return metamodel.Value{Kind: metamodel.NullValue, Success: true}, true
 	}
+	if len(objects) == 1 {
+		return apiJSONGraphAttributeValue(objects[0])
+	}
 	values := make([]metamodel.Value, 0, len(objects))
 	for _, object := range objects {
-		if object.Kind == rdf.TermIRI {
+		value, ok := apiJSONGraphAttributeValue(object)
+		if !ok {
 			return metamodel.Value{}, false
 		}
-		switch object.Datatype {
-		case rdf.XSD + "boolean":
-			values = append(values, metamodel.Value{Kind: metamodel.BooleanValue, Boolean: object.Value == "true" || object.Value == "1", Success: true})
-		case rdf.XSD + "integer", rdf.XSD + "int", rdf.XSD + "long", rdf.XSD + "short", rdf.XSD + "byte":
-			value, err := strconv.ParseInt(object.Value, 10, 64)
-			if err != nil {
-				return metamodel.Value{}, false
-			}
-			values = append(values, metamodel.Value{Kind: metamodel.IntegerValue, Integer: value, Success: true})
-		case rdf.XSD + "double", rdf.XSD + "float", rdf.XSD + "decimal":
-			value, err := strconv.ParseFloat(object.Value, 64)
-			if err != nil {
-				return metamodel.Value{}, false
-			}
-			values = append(values, metamodel.Value{Kind: metamodel.RealValue, Real: value, Success: true})
-		default:
-			values = append(values, metamodel.Value{Kind: metamodel.StringValue, String: object.Value, Success: true})
-		}
-	}
-	if len(values) == 1 {
-		return values[0], true
+		values = append(values, value)
 	}
 	return metamodel.Value{Kind: metamodel.SequenceValue, Values: values, Success: true}, true
 }
 
+func apiJSONGraphAttributeValue(object rdf.Term) (metamodel.Value, bool) {
+	if object.Kind == rdf.TermIRI {
+		return metamodel.Value{}, false
+	}
+	switch object.Datatype {
+	case rdf.XSD + "boolean":
+		return metamodel.Value{Kind: metamodel.BooleanValue, Boolean: object.Value == "true" || object.Value == "1", Success: true}, true
+	case rdf.XSD + "integer", rdf.XSD + "int", rdf.XSD + "long", rdf.XSD + "short", rdf.XSD + "byte":
+		value, err := strconv.ParseInt(object.Value, 10, 64)
+		if err != nil {
+			return metamodel.Value{}, false
+		}
+		return metamodel.Value{Kind: metamodel.IntegerValue, Integer: value, Success: true}, true
+	case rdf.XSD + "double", rdf.XSD + "float", rdf.XSD + "decimal":
+		value, err := strconv.ParseFloat(object.Value, 64)
+		if err != nil {
+			return metamodel.Value{}, false
+		}
+		return metamodel.Value{Kind: metamodel.RealValue, Real: value, Success: true}, true
+	default:
+		return metamodel.Value{Kind: metamodel.StringValue, String: object.Value, Success: true}, true
+	}
+}
+
+// apiJSONSysMLPredicates maps each ontology property name to its graph
+// predicate, so a structure read does not build the IRI per call.
+var apiJSONSysMLPredicates = sync.OnceValue(func() map[string]string {
+	predicates := make(map[string]string)
+	for _, property := range ontology.Properties() {
+		predicates[property.Name] = rdf.SysML + property.Name
+	}
+	return predicates
+})
+
+func apiJSONSysMLPredicate(name string) string {
+	if predicate, ok := apiJSONSysMLPredicates()[name]; ok {
+		return predicate
+	}
+	return rdf.SysML + name
+}
+
 func (s *apiJSONGraphStructure) StatedAttribute(element metamodel.Element, property string) (metamodel.Value, bool) {
 	subject, ok := s.subject(element)
-	if !ok || !s.graph.HasProperty(subject, rdf.SysML+apiJSONGraphAttributeName(property)) {
+	if !ok || !s.graph.HasProperty(subject, apiJSONSysMLPredicate(apiJSONGraphAttributeName(property))) {
 		return metamodel.Value{}, false
 	}
 	return s.Attribute(element, property)
@@ -521,7 +547,7 @@ func (s *apiJSONGraphStructure) StatedRelatedElements(element metamodel.Element,
 	if !ok || definition.Kind != ontology.ObjectProperty || definition.Derived {
 		return nil, false
 	}
-	if !s.graph.HasProperty(subject, rdf.SysML+property) {
+	if !s.graph.HasProperty(subject, apiJSONSysMLPredicate(property)) {
 		return nil, false
 	}
 	return s.related(subject, property)
@@ -538,7 +564,7 @@ func (s *apiJSONGraphStructure) HasStatedRelatedElement(element metamodel.Elemen
 	}
 	definition, ok := ontology.PropertyOf(class, property)
 	return ok && definition.Kind == ontology.ObjectProperty &&
-		!definition.Derived && len(s.graph.ObjectsView(subject, rdf.SysML+property)) > 0
+		!definition.Derived && len(s.graph.ObjectsView(subject, apiJSONSysMLPredicate(property))) > 0
 }
 
 func (s *apiJSONGraphStructure) HasUnresolvedRelatedElement(element metamodel.Element, property string) bool {
@@ -546,7 +572,7 @@ func (s *apiJSONGraphStructure) HasUnresolvedRelatedElement(element metamodel.El
 	if !ok {
 		return false
 	}
-	for _, object := range s.graph.ObjectsView(subject, rdf.SysML+property) {
+	for _, object := range s.graph.ObjectsView(subject, apiJSONSysMLPredicate(property)) {
 		if object.IsIRI() {
 			if _, ok := s.element(object); !ok {
 				return true

@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- MixedMemberships::memberships — mixed rendering (render asMixedDiagram) -->
+<!-- 1 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="MixedMemberships-memberships" name="MixedMemberships::memberships">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="962" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«package»&#xA;MixedMemberships" fqn="MixedMemberships" kind="package" view="MixedMemberships::memberships" link="mixed-memberships.sysml:1">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="1">
+            <mxGeometry x="40" y="40" width="882" height="561" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«package»&#xA;Library" fqn="MixedMemberships::Library" kind="package" view="MixedMemberships::memberships" link="mixed-memberships.sysml:5">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="58" width="258" height="111" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«attribute def»&#xA;Pressure" fqn="MixedMemberships::Library::Pressure" kind="attribute def" view="MixedMemberships::memberships" link="mixed-memberships.sysml:6">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n1">
+            <mxGeometry x="16" y="58" width="106" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n8" label="«port def»&#xA;FluidPort" fqn="MixedMemberships::Library::FluidPort" kind="port def" view="MixedMemberships::memberships" link="mixed-memberships.sysml:7">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n1">
+            <mxGeometry x="142" y="58" width="100" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n9" label="«part def»&#xA;Impeller" fqn="MixedMemberships::Impeller" kind="part def" view="MixedMemberships::memberships" link="mixed-memberships.sysml:10">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="294" y="58" width="90" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n10" label="«part def»&#xA;Pump" fqn="MixedMemberships::Pump" kind="part def" view="MixedMemberships::memberships" link="mixed-memberships.sysml:12">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="n0">
+            <mxGeometry x="404" y="58" width="462" height="242" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n18" label="«attribute»&#xA;pressure" fqn="MixedMemberships::Pump::pressure" kind="attribute" view="MixedMemberships::memberships" link="mixed-memberships.sysml:13">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n10">
+            <mxGeometry x="16" y="58" width="90" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n11" label="«port»&#xA;outlet" fqn="MixedMemberships::Pump::outlet" kind="port" view="MixedMemberships::memberships" link="mixed-memberships.sysml:14">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n10">
+            <mxGeometry x="126" y="58" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n12" label="«part»&#xA;impeller" fqn="MixedMemberships::Pump::impeller" kind="part" view="MixedMemberships::memberships" link="mixed-memberships.sysml:15">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n10">
+            <mxGeometry x="218" y="58" width="90" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n13" label="«part»&#xA;spare" fqn="MixedMemberships::Pump::spare" kind="part" view="MixedMemberships::memberships" link="mixed-memberships.sysml:16">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n10">
+            <mxGeometry x="16" y="115" width="63" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n19" label="«action»&#xA;prime&#xA;declares no nodes" fqn="MixedMemberships::Pump::prime" kind="action" view="MixedMemberships::memberships" link="mixed-memberships.sysml:17">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n10">
+            <mxGeometry x="99" y="115" width="159" height="54" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n20" label="«state»&#xA;armed&#xA;declares no states" fqn="MixedMemberships::Pump::armed" kind="state" view="MixedMemberships::memberships" link="mixed-memberships.sysml:18">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n10">
+            <mxGeometry x="278" y="115" width="168" height="54" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n14" label="«part def»&#xA;Seal" fqn="MixedMemberships::Pump::Seal" kind="part def" view="MixedMemberships::memberships" link="mixed-memberships.sysml:19">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n10">
+            <mxGeometry x="16" y="189" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n3" label="«concern def»&#xA;Containment" fqn="MixedMemberships::Containment" kind="concern def" view="MixedMemberships::memberships" link="mixed-memberships.sysml:22">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="320" width="118" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4" label="«requirement def»&#xA;Safety" fqn="MixedMemberships::Safety" kind="requirement def" view="MixedMemberships::memberships" link="mixed-memberships.sysml:24">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="n0">
+            <mxGeometry x="154" y="320" width="318" height="168" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n15" label="«require constraint»&#xA;minPressure" fqn="MixedMemberships::Safety::minPressure" kind="require constraint" view="MixedMemberships::memberships" link="mixed-memberships.sysml:25">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n4">
+            <mxGeometry x="16" y="58" width="136" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n16" label="«assume constraint»&#xA;primedPump" fqn="MixedMemberships::Safety::primedPump" kind="assume constraint" view="MixedMemberships::memberships" link="mixed-memberships.sysml:26">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n4">
+            <mxGeometry x="172" y="58" width="130" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n17" label="«assert constraint»&#xA;sealed" fqn="MixedMemberships::Safety::sealed" kind="assert constraint" view="MixedMemberships::memberships" link="mixed-memberships.sysml:27">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n4">
+            <mxGeometry x="16" y="115" width="130" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5" label="«frame»&#xA;contained" fqn="MixedMemberships::Safety::contained" kind="frame" view="MixedMemberships::memberships" link="mixed-memberships.sysml:28">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n4">
+            <mxGeometry x="166" y="115" width="100" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n6" label="«view»&#xA;memberships" fqn="MixedMemberships::memberships" kind="view" view="MixedMemberships::memberships" link="mixed-memberships.sysml:31">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="492" y="320" width="118" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n7" label="«view»&#xA;membershipsLayout" fqn="MixedMemberships::membershipsLayout" kind="view" view="MixedMemberships::memberships" link="mixed-memberships.sysml:36">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="508" width="173" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="" kind="containment" view="MixedMemberships::memberships" link="mixed-memberships.sysml:5">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e1" label="" kind="containment" view="MixedMemberships::memberships" link="mixed-memberships.sysml:6">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n2">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e2" label="" kind="containment" view="MixedMemberships::memberships" link="mixed-memberships.sysml:7">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n8">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e3" label="" kind="containment" view="MixedMemberships::memberships" link="mixed-memberships.sysml:10">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n9">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e4" label="" kind="containment" view="MixedMemberships::memberships" link="mixed-memberships.sysml:12">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n10">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e5" label="" kind="reference" view="MixedMemberships::memberships" link="mixed-memberships.sysml:13">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n10" target="n18">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e6" label="" kind="reference" view="MixedMemberships::memberships" link="mixed-memberships.sysml:14">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n10" target="n11">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e7" label="" kind="composition" view="MixedMemberships::memberships" link="mixed-memberships.sysml:15">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n12">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e8" label="" kind="reference" view="MixedMemberships::memberships" link="mixed-memberships.sysml:16">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n10" target="n13">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e9" label="" kind="composition" view="MixedMemberships::memberships" link="mixed-memberships.sysml:17">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n19">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e10" label="" kind="composition" view="MixedMemberships::memberships" link="mixed-memberships.sysml:18">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n10" target="n20">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e11" label="" kind="containment" view="MixedMemberships::memberships" link="mixed-memberships.sysml:19">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n10" target="n14">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e12" label="" kind="containment" view="MixedMemberships::memberships" link="mixed-memberships.sysml:22">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n3">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e13" label="" kind="containment" view="MixedMemberships::memberships" link="mixed-memberships.sysml:24">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=circlePlus;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n4">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e14" label="require" kind="require" view="MixedMemberships::memberships" link="mixed-memberships.sysml:25">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n4" target="n15">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e15" label="assume" kind="assume" view="MixedMemberships::memberships" link="mixed-memberships.sysml:26">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n4" target="n16">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e16" label="assert" kind="assert" view="MixedMemberships::memberships" link="mixed-memberships.sysml:27">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n4" target="n17">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e17" label="frame" kind="frame" view="MixedMemberships::memberships" link="mixed-memberships.sysml:28">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n4" target="n5">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e18" label="" kind="composition" view="MixedMemberships::memberships" link="mixed-memberships.sysml:31">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n6">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e19" label="" kind="composition" view="MixedMemberships::memberships" link="mixed-memberships.sysml:36">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n7">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e20" label="" kind="typing" view="MixedMemberships::memberships" link="mixed-memberships.sysml:28">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n5" target="n3">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e21" label="" kind="typing" view="MixedMemberships::memberships" link="mixed-memberships.sysml:14">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n11" target="n8">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e22" label="" kind="typing" view="MixedMemberships::memberships" link="mixed-memberships.sysml:15">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n12" target="n9">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e23" label="" kind="typing" view="MixedMemberships::memberships" link="mixed-memberships.sysml:16">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n13" target="n9">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e24" label="" kind="typing" view="MixedMemberships::memberships" link="mixed-memberships.sysml:13">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n18" target="n2">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

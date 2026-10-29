@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ParametricViews::placedView — interconnection rendering (render asInterconnectionDiagram) -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="ParametricViews-placedView" name="ParametricViews::placedView">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="900" pageHeight="220" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«attribute»&#xA;signal" fqn="Parametrics::Amplifier::signal" kind="attribute" view="ParametricViews::placedView" link="interconnection-constraints.sysml:21">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="20" y="40" width="100" height="30" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«attribute»&#xA;gain" fqn="Parametrics::Amplifier::gain" kind="attribute" view="ParametricViews::placedView" link="interconnection-constraints.sysml:22">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="20" y="100" width="100" height="30" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«attribute»&#xA;noise" fqn="Parametrics::Amplifier::noise" kind="attribute" view="ParametricViews::placedView" link="interconnection-constraints.sysml:23">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="20" y="160" width="100" height="30" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n3" label="«attribute»&#xA;output" fqn="Parametrics::Amplifier::output" kind="attribute" view="ParametricViews::placedView" link="interconnection-constraints.sysml:24">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="780" y="40" width="100" height="30" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4" label="«constraint»&#xA;amplify" fqn="Parametrics::Amplifier::amplify" kind="constraint" view="ParametricViews::placedView" link="interconnection-constraints.sysml:26">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="200" y="20" width="200" height="80" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4:n4.0" label="^input" fqn="Parametrics::Amplify::input" kind="port" view="ParametricViews::placedView" link="interconnection-constraints.sysml:5">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n4">
+            <mxGeometry y="25" width="15" height="15" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4:n4.1" label="^gain" fqn="Parametrics::Amplify::gain" kind="port" view="ParametricViews::placedView" link="interconnection-constraints.sysml:6">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n4">
+            <mxGeometry y="65" width="15" height="15" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4:n4.2" label="^output" fqn="Parametrics::Amplify::output" kind="port" view="ParametricViews::placedView" link="interconnection-constraints.sysml:7">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;" vertex="1" parent="n4">
+            <mxGeometry x="185" y="40" width="15" height="15" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5" label="«constraint»&#xA;mix" fqn="Parametrics::Amplifier::mix" kind="constraint" view="ParametricViews::placedView" link="interconnection-constraints.sysml:27">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="500" y="20" width="200" height="80" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5:n5.0" label="^a" fqn="Parametrics::Mix::a" kind="port" view="ParametricViews::placedView" link="interconnection-constraints.sysml:12">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n5">
+            <mxGeometry y="25" width="15" height="15" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5:n5.1" label="^b" fqn="Parametrics::Mix::b" kind="port" view="ParametricViews::placedView" link="interconnection-constraints.sysml:13">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n5">
+            <mxGeometry y="65" width="15" height="15" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5:n5.2" label="^total" fqn="Parametrics::Mix::total" kind="port" view="ParametricViews::placedView" link="interconnection-constraints.sysml:14">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;" vertex="1" parent="n5">
+            <mxGeometry x="185" y="40" width="15" height="15" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="=" kind="binding" view="ParametricViews::placedView" link="interconnection-constraints.sysml:31">
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n0" target="n4:n4.0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="120" y="55"/>
+                <mxPoint x="200" y="52"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e1" label="=" kind="binding" view="ParametricViews::placedView" link="interconnection-constraints.sysml:32">
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n1" target="n4:n4.1">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="120" y="115"/>
+                <mxPoint x="200" y="92"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e2" label="=" kind="binding" view="ParametricViews::placedView" link="interconnection-constraints.sysml:33">
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n4:n4.2" target="n5:n5.0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="400" y="67"/>
+                <mxPoint x="500" y="52"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e3" label="=" kind="binding" view="ParametricViews::placedView" link="interconnection-constraints.sysml:34">
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n2" target="n5:n5.1">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="120" y="175"/>
+                <mxPoint x="500" y="92"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e4" label="=" kind="binding" view="ParametricViews::placedView" link="interconnection-constraints.sysml:35">
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=none;" edge="1" parent="1" source="n5:n5.2" target="n3">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="700" y="67"/>
+                <mxPoint x="780" y="55"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

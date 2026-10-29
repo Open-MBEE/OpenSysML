@@ -394,7 +394,7 @@ func TestD2FormSupport(t *testing.T) {
 				wrong.View != tc.view || !errors.Is(err, ErrWrongForm) {
 				t.Fatalf("Write(FormD2) of %s: %v", tc.name, err)
 			}
-			want := fmt.Sprintf("a %s rendering is not written as d2; ask for text, mermaid, dot or plantuml", tc.kind)
+			want := fmt.Sprintf("a %s rendering is not written as d2; ask for text, mermaid, dot, plantuml or drawio", tc.kind)
 			if !strings.Contains(err.Error(), want) {
 				t.Errorf("wrong form error = %q, want it to name %q", err, want)
 			}

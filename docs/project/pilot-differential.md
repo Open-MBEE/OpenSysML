@@ -255,9 +255,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 16 | 0 | 0 | 0 | 16 | 0 |
 | `examples/spec-examples` | 511 | 151 | 1091 | 3395 | 1038 | 6 | 47 | 2351 |
 | `tests/testdata` | 40 | 25 | 78 | 101 | 60 | 5 | 13 | 36 |
-| `examples` | 53 | 45 | 9 | 65 | 0 | 0 | 9 | 65 |
+| `examples` | 53 | 46 | 8 | 65 | 0 | 0 | 8 | 65 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **921** | **518** | **1469** | **3571** | **1098** | **11** | **360** | **2462** |
+| **Total** | **921** | **519** | **1468** | **3571** | **1098** | **11** | **359** | **2462** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -304,7 +304,7 @@ errors — the pair sits in severity-only rather than either side changing what 
 Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-examples` 227
 `unmapped`, 26 `unresolved-reference`, 2 `units`, 1 `kind-mismatch`, 1 `multiplicity`; `pilot-validation` 8 `unmapped`,
 3 `unresolved-reference`; `kerml-examples` 13 `unmapped`, 3 `unresolved-reference`; `testdata` 10 `unmapped`,
-1 `unresolved-reference`, 2 `multiplicity`; `examples` 5
+1 `unresolved-reference`, 2 `multiplicity`; `examples` 4
 `unmapped`, 1 `kind-mismatch`, 2 `multiplicity`, 1 `unresolved-reference`; `probes` 6 `unmapped`; `spec-examples` 7 `syntax`,
 38 `unresolved-reference`, 2 `unmapped`. Only-pilot: `testdata` 14 `kind-mismatch`, 17 `unmapped`,
 3 `syntax`, 2 `unresolved-reference`; `pilot-examples` 10 `kind-mismatch`; `examples` 24 `unmapped`, 41 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
@@ -1239,11 +1239,11 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **518 / 360 / 1469** |
+| overall: fully agreeing / only ours / our diagnostics | **519 / 359 / 1468** |
 | only pilot | **2462** |
 | pilot diagnostics | **3571** |
 | severity-only | **11** |
-| unmapped, our side | **288** |
+| unmapped, our side | **287** |
 | kerml-examples: only ours | **16** |
 | pilot-examples: only ours | **257** |
 | examples: only pilot | **65** |
@@ -3270,6 +3270,23 @@ counts ([pilot-corpora.md](pilot-corpora.md), "Imported memberships the specific
 | `pilot-validation`: fully agreeing / only ours | 54 / 8 | **54 / 11** |
 | `kerml-examples`: fully agreeing / only ours | 55 / 13 | **55 / 16** |
 | `testdata`: files / only ours | 22 / 11 | **22 / 12** |
+
+### Expose-only collisions round
+
+A collision among the memberships a view's `expose`s bring is no longer warned: SysML
+`ViewUsage::exposedElement` reads each Expose's own `importedMemberships`, so such a collision never
+changes what the view exposes, and KerML 8.3.2.4.5 already leaves the colliding memberships out of
+`membership`, the set `validateNamespaceDistinguishibility` ranges over. The memberships stay hidden
+from names written in the view; a collision a plain `import` or an inherited member takes part in is
+still warned. One row retires: `general-views-demo/vehicle.sysml:102`, where the single recursive
+`expose VehicleStructure::**[…]` of `definitionView` reaches `Vehicle::mass`, `vehicle::mass` and
+`heavyVehicle::mass`. The Annex A rows above come through recursive `import`s and stay. Nothing
+else moves.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing / only ours / our diagnostics | 518 / 360 / 1469 | **519 / 359 / 1468** |
+| `examples`: fully agreeing / only ours | 45 / 9 | **46 / 8** |
 
 ## Current branch movement and adjudications
 

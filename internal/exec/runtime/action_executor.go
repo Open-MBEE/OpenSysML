@@ -3567,6 +3567,11 @@ func (e *ActionExecutor) Results() map[string]Value {
 // ResultsWithError returns the values the action's features hold and the first binding
 // derivation error; a feature whose binding fails to derive is omitted.
 func (e *ActionExecutor) ResultsWithError() (map[string]Value, error) {
+	// A binding derived to answer is a read of this run: deriving it under a run
+	// of its own would install that run, losing this one's marks to the caller.
+	if e.driven.state != nil {
+		defer e.ctx.enterRun(e.driven.state)()
+	}
 	results := make(map[string]Value, len(e.root.data))
 	err := e.root.collect("", results)
 	if e.occurrence != nil {

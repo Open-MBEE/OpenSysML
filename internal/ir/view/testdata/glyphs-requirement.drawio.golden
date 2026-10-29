@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NotationGlyphs::Diagrams::requirementGlyphs — requirement rendering (view def GeneralView, filter @RequirementDefinition or @RequirementUsage) -->
+<!-- 4 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="NotationGlyphs-Diagrams-requirementGlyphs" name="NotationGlyphs::Diagrams::requirementGlyphs">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«requirement def»&#xA;LevelReq" fqn="NotationGlyphs::LevelReq" kind="requirement def" view="NotationGlyphs::Diagrams::requirementGlyphs" link="notation-glyphs.sysml:31">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="40" width="118" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«requirement»&#xA;levelReq" fqn="NotationGlyphs::levelReq" kind="requirement" view="NotationGlyphs::Diagrams::requirementGlyphs" link="notation-glyphs.sysml:39">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="198" y="40" width="94" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«requirement»&#xA;capacity" fqn="NotationGlyphs::capacity" kind="requirement" view="NotationGlyphs::Diagrams::requirementGlyphs" link="notation-glyphs.sysml:40">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="117" width="94" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n3" label="«concern»&#xA;safety&#xA;“Nothing overflows.”" fqn="NotationGlyphs::safety" kind="concern" view="NotationGlyphs::Diagrams::requirementGlyphs" link="notation-glyphs.sysml:28">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="174" y="117" width="184" height="54" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="frame" kind="frame" view="NotationGlyphs::Diagrams::requirementGlyphs" link="notation-glyphs.sysml:35">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n0" target="n3">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e1" label="" kind="typing" view="NotationGlyphs::Diagrams::requirementGlyphs" link="notation-glyphs.sysml:39">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n0">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e2" label="require" kind="require" view="NotationGlyphs::Diagrams::requirementGlyphs" link="notation-glyphs.sysml:41">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n2" target="n1">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

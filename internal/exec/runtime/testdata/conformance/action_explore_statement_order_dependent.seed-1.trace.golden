@@ -1,5 +1,5 @@
 step 1: token 1@s
-choice statements in action node s: next 1 assign x, 2 assign y (unordered; took 2 assign y first; order-dependent: x)
+choice statements in action node s: next 1 assign x, 2 assign y (unordered; took 2 assign y first; order-dependent: y)
 stmt assign y
   eval feature x -> 0
 stmt assign x

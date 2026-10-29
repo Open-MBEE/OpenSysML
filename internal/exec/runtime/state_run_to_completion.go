@@ -241,6 +241,7 @@ func (e *StateExecutor) entryStep(progress *dueProgress) (bool, error) {
 		File:         e.stateMachine.DocName,
 		Span:         e.stateMachine.DeclSpan,
 	}
+	choice.alike = e.ctx.heldAlike
 	classifyChoice(&choice, fps, nil)
 	choice.Taken = e.ctx.scheduling().choose(choice, nil)
 	if err := e.ctx.scheduling().refusal(); err != nil {

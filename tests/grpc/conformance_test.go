@@ -62,6 +62,9 @@ type expectedNote struct {
 type conformanceCase struct {
 	RPC string `json:"rpc"`
 
+	// Convert: the standard-library names carried outside the element array.
+	LibraryReferences []*pb.LibraryReference `json:"library_references,omitempty"`
+
 	// ApplyEdits
 	Operations      []conformanceEditOperation `json:"operations,omitempty"`
 	ExpectedContent string                     `json:"expected_content,omitempty"`
@@ -138,8 +141,12 @@ type conformanceCase struct {
 	Question      string         `json:"question,omitempty"`
 	ExpectedNotes []expectedNote `json:"expected_notes"`
 
-	// RunDocumentQuery: the symbols Instantiate creates objects of first, in
-	// order, then the query and its bindings.
+	// VerifyRequirement: the body verdicts the cases verifying the requirement
+	// must answer, in order, each about the object it ran on.
+	ExpectedVerificationVerdicts []expectedVerificationVerdict `json:"expected_verification_verdicts"`
+
+	// RunDocumentQuery, VerifyRequirement: the symbols Instantiate creates objects
+	// of first, in order, so the request is about the objects the model holds.
 	Instantiate     []string          `json:"instantiate,omitempty"`
 	QueryID         string            `json:"query_id,omitempty"`
 	Bindings        []expectedBinding `json:"bindings,omitempty"`
@@ -365,6 +372,8 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 	}
 
 	switch tc.RPC {
+	case "Convert":
+		runConvertLibraryReferencesCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "GetSymbol":
 		runGetSymbolCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "Evaluate":
@@ -401,6 +410,8 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		runCheckBehaviorCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "VerifyConstraint":
 		runVerifyConstraintCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "VerifyRequirement":
+		runVerifyRequirementCase(t, srv, ctx, parseResp.ModelHash, tc)
 	default:
 		t.Fatalf("unknown rpc %q", tc.RPC)
 	}
