@@ -238,6 +238,11 @@ func (w *Workspace) renderViewLocked(doc, fqn string, overlay view.Overlay, verd
 	if d == nil {
 		return nil, nil, fmt.Errorf("%s: no such document", doc)
 	}
+	// A rendering walks the bodies of whatever it reaches — exposed elements,
+	// their types, nested views — and a record carries none.
+	if w.hydrateAllLocked(); d.Recorded() {
+		d = w.docs[doc]
+	}
 	var rendering *view.Rendering
 	var err error
 	w.queryLocked(doc, func(*resolve.Resolver, *semantics.Model) {

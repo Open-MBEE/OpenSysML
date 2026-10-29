@@ -68,8 +68,14 @@ func newFixture(t *testing.T) *fixture {
 	write(t, root, "b.sysml", fleet)
 	write(t, root, "c.sysml", accents)
 	write(t, root, "bad.sysml", broken)
+	return newFixtureOver(t, root, model.NewWorkspace())
+}
+
+// newFixtureOver serves the files under root through ws.
+func newFixtureOver(t *testing.T, root string, ws *model.Workspace) *fixture {
+	t.Helper()
 	ctx := context.Background()
-	host, err := NewHost(ctx, root, model.NewWorkspace(), "test")
+	host, err := NewHost(ctx, root, ws, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
