@@ -57,21 +57,8 @@ func checkName(i int, name string) error {
 			Message:        fmt.Sprintf("new name %q %s", name, reason),
 		}
 	}
-	if name == "" {
-		return refuse("is empty")
-	}
-	if source.IsKeyword(name) {
-		return refuse("is a keyword")
-	}
-	lx := lexer.New(source.New("<name>", []byte(name)))
-	tok := lx.Next()
-	switch {
-	case tok.Kind != lexer.Identifier && tok.Kind != lexer.UnrestrictedName:
-		return refuse("is not an identifier")
-	case tok.Unterminated:
-		return refuse("is an unterminated quoted name")
-	case tok.Span.Len != len(name):
-		return refuse("is not a single name")
+	if problem := lexer.NameProblem(name); problem != "" {
+		return refuse(problem)
 	}
 	return nil
 }

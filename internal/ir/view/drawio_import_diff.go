@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+	"html"
 	"math"
 	"sort"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 )
 
 // DrawioTolerance is how far a coordinate may move in draw.io and still count
@@ -25,6 +27,7 @@ const (
 	DrawioEditCanvas
 	DrawioEditNote
 	DrawioEditPicture
+	DrawioEditRename
 )
 
 // String names the annotation the kind writes.
@@ -42,6 +45,8 @@ func (k DrawioEditKind) String() string {
 		return "Note"
 	case DrawioEditPicture:
 		return "Picture"
+	case DrawioEditRename:
+		return "Rename"
 	}
 	return "Layout"
 }
@@ -69,6 +74,8 @@ type DrawioEdit struct {
 	Canvas  *semantics.Canvas
 	Note    *semantics.Note
 	Picture *semantics.Picture
+	// NewName is the name a Rename gives the element.
+	NewName string
 }
 
 // DrawioEdgeKey identifies an edge across exports: the qualified names of its
@@ -137,6 +144,7 @@ func (r *Rendering) ImportDrawio(file *DrawioFile, options Options) (*DrawioImpo
 	}
 	m.match()
 	m.canvas()
+	m.resolveRenames()
 	return out, nil
 }
 
@@ -153,7 +161,8 @@ func drawioNodes(roots []*Node) []*Node {
 // drawioMatcher pairs the cells of the edited file with the baseline's and
 // turns each difference into an edit.
 type drawioMatcher struct {
-	norm *Rendering
+	renames []drawioRename
+	norm    *Rendering
 	// drawn is the rendering's own record of what it drew; its normalization
 	// for the writer, a clone, carries none.
 	drawn      *Drawn
@@ -349,6 +358,9 @@ func (m *drawioMatcher) diffVertex(cell, base *DrawioCell) {
 		edit.Kind, edit.Layout = DrawioEditLayout, layout
 		m.out.Edits = append(m.out.Edits, edit)
 	}
+	if cell.Label != base.Label {
+		m.diffLabel(cell, base, edit)
+	}
 	var current *Style
 	if node := m.nodes[base.ID]; node != nil {
 		current = node.Style
@@ -363,6 +375,133 @@ func (m *drawioMatcher) diffVertex(cell, base *DrawioCell) {
 	}
 	edit.Kind, edit.Style, edit.Layout = DrawioEditStyle, style, nil
 	m.out.Edits = append(m.out.Edits, edit)
+}
+
+// diffLabel imports an edited label as a rename when the only change is the
+// declared name's token, replaced by one SysML name; any other change, and a
+// cell whose label shows no name of its own, are reported and left alone.
+func (m *drawioMatcher) diffLabel(cell, base *DrawioCell, edit DrawioEdit) {
+	label := drawioLabelText(cell)
+	if label == base.Label {
+		return
+	}
+	cellName := edit.FQN
+	if cellName == "" {
+		cellName = cell.Kind + " " + strconv.Quote(base.Label)
+	}
+	name, ok := m.w.names[base.ID]
+	if !ok || edit.FQN == "" {
+		m.out.Notices = append(m.out.Notices, fmt.Sprintf("%s: its label was edited, but the cell shows no declared name of its own (its name is synthesized or the label carries other text), so nothing is renamed and the label is not imported", cellName))
+		return
+	}
+	head, tail := base.Label[:name.Offset], base.Label[name.Offset+name.Len:]
+	beyond := fmt.Sprintf("%s: its label changed beyond the name %q; a keyword, type, multiplicity, parameter or compartment edit is not imported", cellName, base.Label[name.Offset:name.Offset+name.Len])
+	if len(label) < len(head)+len(tail) || !strings.HasPrefix(label, head) || !strings.HasSuffix(label, tail) {
+		m.out.Notices = append(m.out.Notices, beyond)
+		return
+	}
+	newName := label[len(head) : len(label)-len(tail)]
+	if problem := lexer.NameProblem(newName); problem == lexer.NotASingleName {
+		m.out.Notices = append(m.out.Notices, beyond)
+		return
+	} else if problem != "" {
+		m.out.Notices = append(m.out.Notices, fmt.Sprintf("%s: renamed to %q, which %s, so the rename is not imported", cellName, newName, problem))
+		return
+	}
+	edit.Kind, edit.Layout, edit.Style, edit.Route, edit.NewName, edit.Label = DrawioEditRename, nil, nil, nil, newName, label
+	m.renames = append(m.renames, drawioRename{edit: edit, base: base.ID})
+}
+
+// drawioRename is a rename read from one cell, held back until every copy of
+// the element the view draws has been read.
+type drawioRename struct {
+	edit DrawioEdit
+	base string
+}
+
+// resolveRenames appends the renames after every other edit — the edit batch
+// applies in order, so the Layout, Route and Style edits are written against
+// the names the file still has and the rename then moves them too — keeping
+// one rename per element; copies of an element the view draws twice that
+// disagree are reported and none of them is imported.
+func (m *drawioMatcher) resolveRenames() {
+	byCell, seen := map[string]drawioRename{}, map[string]bool{}
+	for _, r := range m.renames {
+		byCell[r.base] = r
+	}
+	for _, r := range m.renames {
+		if declared := m.base.Cell(r.base).FQN; seen[declared] {
+			continue
+		} else {
+			seen[declared] = true
+		}
+		if other, differs := m.copyDisagrees(r, byCell); differs {
+			m.out.Notices = append(m.out.Notices, fmt.Sprintf("%s: the view draws it twice and the copies disagree (%q and %q), so no rename is imported", r.edit.FQN, r.edit.NewName, other))
+			continue
+		}
+		m.out.Edits = append(m.out.Edits, r.edit)
+	}
+}
+
+// copyDisagrees finds another drawn copy of a renamed element whose new name
+// differs — a copy left as it was still shows the old name — and names it.
+func (m *drawioMatcher) copyDisagrees(r drawioRename, byCell map[string]drawioRename) (string, bool) {
+	base := m.base.Cell(r.base)
+	for i := range m.base.Cells {
+		other := &m.base.Cells[i]
+		if other.ID == base.ID || other.FQN != base.FQN || other.Kind != base.Kind || m.paired[other.ID] == nil {
+			continue
+		}
+		if copied, ok := byCell[other.ID]; ok {
+			if copied.edit.NewName != r.edit.NewName {
+				return copied.edit.NewName, true
+			}
+			continue
+		}
+		if name, ok := m.w.names[other.ID]; ok {
+			return other.Label[name.Offset : name.Offset+name.Len], true
+		}
+		return other.Label, true
+	}
+	return "", false
+}
+
+// drawioLabelText is a cell's label as plain text: the label as written when
+// the cell is plain text, as the writer leaves every cell; the HTML draw.io
+// writes once a user turns formatted text on decoded back to the lines and
+// characters the writer emitted.
+func drawioLabelText(cell *DrawioCell) string {
+	if cell.Style["html"] != "1" {
+		return cell.Label
+	}
+	return drawioHTMLText(cell.Label)
+}
+
+// drawioHTMLText decodes draw.io's formatted-text HTML to plain text: a
+// `<br>` is a line break, a `<div>` or `<p>` opens a new line after the first,
+// other tags are dropped, and entities read as the characters they name.
+func drawioHTMLText(text string) string {
+	var b strings.Builder
+	for i := 0; i < len(text); {
+		if text[i] != '<' {
+			b.WriteByte(text[i])
+			i++
+			continue
+		}
+		end := strings.IndexByte(text[i:], '>')
+		if end < 0 {
+			b.WriteString(text[i:])
+			break
+		}
+		tag := strings.ToLower(text[i+1 : i+end])
+		name, _, _ := strings.Cut(strings.Trim(tag, "/ "), " ")
+		closing := strings.HasPrefix(tag, "/")
+		if name == "br" || (name == "div" || name == "p") && !closing && b.Len() > 0 {
+			b.WriteByte('\n')
+		}
+		i += end + 1
+	}
+	return strings.ReplaceAll(html.UnescapeString(b.String()), "\u00a0", " ")
 }
 
 // originOf is the declaration behind a baseline cell id: a port's or a node's.
@@ -532,6 +671,10 @@ func (m *drawioMatcher) diffEdge(cell, base *DrawioCell, key DrawioEdgeKey) {
 	if style, changed := styleDiff(cell.Style, base.Style, edge.Style, drawioEdgeStyleKeys); changed {
 		out.Kind, out.Route, out.Style = DrawioEditStyle, nil, style
 		m.out.Edits = append(m.out.Edits, out)
+	}
+	if cell.Label != base.Label {
+		out.FQN = base.FQN
+		m.diffLabel(cell, base, out)
 	}
 }
 

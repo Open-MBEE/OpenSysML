@@ -1,12 +1,14 @@
 package edit
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // renameSplices are the byte ranges a rename rewrites: the declaration's name
@@ -112,4 +114,37 @@ func (m Model) renameOccurrences(r *resolve.Resolver, sym *symbols.Symbol, ident
 	}
 	sortReferrers(elsewhere)
 	return out, elsewhere
+}
+
+// renameTarget is the declaration a rename names when no declaration answers
+// to its target: a qualified path reaching an inherited member through the
+// owner a rendering draws it under, as a Layout about that member states it,
+// renames the declaration the member resolves to. The path's own failure
+// stands when it leads nowhere.
+func (m Model) renameTarget(i int, op Operation, err error) (*symbols.Symbol, error) {
+	var refusal *Error
+	if !errors.As(err, &refusal) || refusal.Failure != FailureUnknownTarget || op.Target == "" {
+		return nil, err
+	}
+	names, ok := source.QualifiedNameSegments(op.Target)
+	if !ok || len(names) < 2 {
+		return nil, err
+	}
+	owner, ownerErr := m.declaredOnceIn(i, source.QualifiedNameOf(names[:len(names)-1]), op.DeclarationDoc)
+	if ownerErr != nil {
+		return nil, err
+	}
+	_, sem := m.resolver()
+	member, ok := sem.LookupMember(owner, names[len(names)-1])
+	if !ok {
+		return nil, err
+	}
+	if member.DocName != m.Source.Name() {
+		return nil, &Error{
+			Failure:        FailureUnknownTarget,
+			OperationIndex: i,
+			Message:        fmt.Sprintf("%q is declared in %s, not in this model's source", op.Target, docLabel(member.DocName)),
+		}
+	}
+	return member, nil
 }

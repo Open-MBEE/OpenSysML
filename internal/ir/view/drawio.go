@@ -55,6 +55,7 @@ func (r *Rendering) drawioPrepare(options Options) (*Rendering, *drawioWriter, e
 	w := &drawioWriter{
 		fills:     familyFills{palette: options.Palette, tree: r.Kind == KindTree},
 		labels:    labelsOf(r.Roots, false, nil, r.Shown),
+		names:     map[string]drawioName{},
 		ports:     r.portView(options.Ports),
 		links:     options.Links,
 		view:      r.View,
@@ -92,17 +93,18 @@ type drawioWriter struct {
 	used       map[string]map[string]bool
 	links      Links
 	view       string
-	boxes      map[string]drawioBox // node ID -> its box in canvas coordinates
-	unrouted   bool                 // this build has no router; draw.io routes on opening
-	cells      map[string]bool      // the cell IDs written, the ends an edge may attach to
-	portBoxes  map[string]drawioBox // port cell ID -> its box in canvas coordinates
-	routed     map[int]bool         // the edges (by index) the router gave their route
-	unroutable []int                // the edges (by index) the router found no path for
-	inward     map[int]drawioEnds   // per edge, the ends that lead into the port's owner
-	fqns       map[string]bool      // the qualified names written on cells so far
-	edgeIDs    map[[2]string]string // edge ends -> its cell ID, the anchor an edge note joins
-	grid       int                  // nodes and notes laid on the grid for want of a position
-	extent     drawioBox            // the bounds of everything placed
+	boxes      map[string]drawioBox  // node ID -> its box in canvas coordinates
+	unrouted   bool                  // this build has no router; draw.io routes on opening
+	cells      map[string]bool       // the cell IDs written, the ends an edge may attach to
+	portBoxes  map[string]drawioBox  // port cell ID -> its box in canvas coordinates
+	routed     map[int]bool          // the edges (by index) the router gave their route
+	unroutable []int                 // the edges (by index) the router found no path for
+	inward     map[int]drawioEnds    // per edge, the ends that lead into the port's owner
+	fqns       map[string]bool       // the qualified names written on cells so far
+	names      map[string]drawioName // cell ID -> where its label shows the declared name
+	edgeIDs    map[[2]string]string  // edge ends -> its cell ID, the anchor an edge note joins
+	grid       int                   // nodes and notes laid on the grid for want of a position
+	extent     drawioBox             // the bounds of everything placed
 	b          strings.Builder
 }
 
@@ -516,6 +518,13 @@ func (w *drawioWriter) attr(name, value string) {
 // drawioObject are the attributes a semantic cell's <object> carries.
 type drawioObject struct {
 	id, label, fqn, kind, link string
+	name                       drawioName
+}
+
+// drawioName is where a cell's label shows the declared name of its element,
+// the token a rename of the cell rewrites; Len 0 when the label shows none.
+type drawioName struct {
+	Offset, Len int
 }
 
 // openObject writes the <object> wrapper of a semantic cell; the view is every
@@ -533,7 +542,42 @@ func (w *drawioWriter) openObject(indent string, o drawioObject) {
 	if o.link != "" {
 		w.attr("link", o.link)
 	}
+	if o.name.Len > 0 && w.names != nil {
+		w.names[o.id] = o.name
+	}
 	w.b.WriteString(">\n")
+}
+
+// nodeName locates shown(node)'s token in the label headerLines joins: after
+// the keyword line and the head's usage prefix, as the labeller places it.
+func (w *drawioWriter) nodeName(node *Node) drawioName {
+	before, name := w.labels.headName(node)
+	if name == "" {
+		return drawioName{}
+	}
+	offset := len(before)
+	if keyword := w.labels.keyword(node); keyword != "" {
+		offset += len(keyword) + 1
+	}
+	return drawioName{Offset: offset, Len: len(name)}
+}
+
+// drawioPortName locates a port's name in its pin label, after the usage prefix
+// displayName writes; a synthesized name is drawn as none.
+func drawioPortName(port Port) drawioName {
+	if port.Name == "" || port.NameSynthesized {
+		return drawioName{}
+	}
+	return drawioName{Offset: len(usagePrefix(port.Inherited)), Len: len(port.Name)}
+}
+
+// drawioEdgeName is an edge's whole label when that is its name alone; a label
+// carrying a trigger, guard or pins shows no name to rename.
+func drawioEdgeName(edge Edge) drawioName {
+	if edge.Name == "" || edge.Label != edge.Name {
+		return drawioName{}
+	}
+	return drawioName{Len: len(edge.Label)}
 }
 
 // link is a declaration's site, `file:line`, or the link template's URL when
@@ -607,7 +651,7 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 	}
 	compartments := w.compartments(node)
 	header := w.headerHeight(node)
-	w.openObject("        ", drawioObject{id: node.ID, label: strings.Join(w.headerLines(node), "\n"), fqn: fqn, kind: node.Kind, link: w.link(node.Origin)})
+	w.openObject("        ", drawioObject{id: node.ID, label: strings.Join(w.headerLines(node), "\n"), fqn: fqn, kind: node.Kind, link: w.link(node.Origin), name: w.nodeName(node)})
 	w.b.WriteString("          <mxCell")
 	w.attr("style", w.nodeStyle(node, header, len(compartments) > 0))
 	w.b.WriteString(` vertex="1"`)
@@ -669,7 +713,7 @@ func (w *drawioWriter) writePorts(node *Node, fqn string) {
 		if portFQN == "" && fqn != "" && port.Name != "" && !port.NameSynthesized {
 			portFQN = fqn + "::" + port.Name
 		}
-		w.openObject("        ", drawioObject{id: id, label: w.ports.pinLabel(port), fqn: portFQN, kind: drawioPortKind(port), link: w.link(port.Origin)})
+		w.openObject("        ", drawioObject{id: id, label: w.ports.pinLabel(port), fqn: portFQN, kind: drawioPortKind(port), link: w.link(port.Origin), name: drawioPortName(port)})
 		w.b.WriteString("          <mxCell")
 		w.attr("style", drawioPortStyle(side)+drawioStyleOf(nil, ""))
 		w.b.WriteString(` vertex="1"`)
@@ -982,7 +1026,7 @@ func (w *drawioWriter) writeEdge(i int, edge Edge) {
 		// No route, but an end at a port still leaves through the port's face.
 		anchors = w.faceAnchor("exit", source, w.inward[i]&drawioFrom != 0) + w.faceAnchor("entry", target, w.inward[i]&drawioTo != 0)
 	}
-	w.openObject("        ", drawioObject{id: id, label: edge.Label, fqn: w.edgeFQN(edge), kind: edge.Kind.String(), link: w.link(edge.Origin)})
+	w.openObject("        ", drawioObject{id: id, label: edge.Label, fqn: w.edgeFQN(edge), kind: edge.Kind.String(), link: w.link(edge.Origin), name: drawioEdgeName(edge)})
 	w.b.WriteString("          <mxCell")
 	w.attr("style", drawioEdgeFullStyle(edge, anchors))
 	w.b.WriteString(` edge="1"`)

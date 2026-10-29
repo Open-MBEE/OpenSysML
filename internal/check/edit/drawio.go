@@ -1,6 +1,9 @@
 package edit
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
@@ -30,6 +33,8 @@ func DrawioOperations(imp *view.DrawioImport, inline bool) []Operation {
 			op = SetNoteAt(e.Origin.Span, e.Note).DeclaredIn(e.Origin.Doc)
 		case view.DrawioEditPicture:
 			op = SetPictureAt(e.Origin.Span, e.Picture).DeclaredIn(e.Origin.Doc)
+		case view.DrawioEditRename:
+			op = Rename(e.FQN, e.NewName)
 		default:
 			continue
 		}
@@ -45,4 +50,31 @@ func drawioTargeted(e view.DrawioEdit, named, declared Operation) Operation {
 		return named
 	}
 	return declared.DeclaredIn(e.Origin.Doc)
+}
+
+// ImportDrawio applies an import's edits through apply, the editor of the
+// document the view is declared in. A rename the editor refuses — the name is
+// taken, a reference would be captured — is reported in the import's notices
+// and the other edits are applied again, so one refused rename holds none of
+// them back; any other refusal is the caller's. The import's edits are left
+// as what was applied.
+func ImportDrawio[R any](imp *view.DrawioImport, inline bool, apply func([]Operation) (R, error)) (R, error) {
+	for {
+		var none R
+		if len(imp.Edits) == 0 {
+			return none, nil
+		}
+		result, err := apply(DrawioOperations(imp, inline))
+		var refusal *Error
+		if !errors.As(err, &refusal) {
+			return result, err
+		}
+		i := refusal.OperationIndex
+		if i < 0 || i >= len(imp.Edits) || imp.Edits[i].Kind != view.DrawioEditRename {
+			return result, err
+		}
+		e := imp.Edits[i]
+		imp.Notices = append(imp.Notices, fmt.Sprintf("%s: not renamed to %q: %s", e.FQN, e.NewName, refusal.Message))
+		imp.Edits = append(imp.Edits[:i:i], imp.Edits[i+1:]...)
+	}
 }

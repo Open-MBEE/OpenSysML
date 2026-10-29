@@ -44,14 +44,15 @@ func runImportDiagram(files []string) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", importDiagramPath, err)
 	}
+	doc := drawioImportDocument(imp, files)
+	result, err := modeledit.ImportDrawio(imp, false, func(ops []modeledit.Operation) (*model.EditResult, error) {
+		return sess.ApplyModelEdit(doc, ops)
+	})
 	reportDrawioImport(imp)
 	if len(imp.Edits) == 0 {
 		fmt.Fprintf(os.Stderr, "%s: nothing differs from the rendering of %s; nothing to import\n", importDiagramPath, file.View)
 		return nil
 	}
-	ops := modeledit.DrawioOperations(imp, false)
-	doc := drawioImportDocument(imp, files)
-	result, err := sess.ApplyModelEdit(doc, ops)
 	if err != nil {
 		var refusal *modeledit.Error
 		if errors.As(err, &refusal) {
