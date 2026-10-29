@@ -219,3 +219,27 @@ func TestDrawioImportReroutedTypingEdgeBesideMembershipIsReported(t *testing.T) 
 		t.Errorf("membership edge: edit %+v, want its one waypoint as a Route", edit)
 	}
 }
+
+// Resizing a container the model does not place pins it with the size the
+// file shows; the writer then lays its unplaced children out by that size, so
+// each child is pinned too, at the box the file shows, not left to move.
+func TestDrawioImportResizedUnplacedContainerPinsItsChildren(t *testing.T) {
+	c, golden := drawioGolden(t, "tree")
+	if !strings.Contains(drawioObjectXML(t, golden, "n6"), `fqn="VehicleViews::vehicleView::engineSubview"`) {
+		t.Fatalf("n6 is not engineSubview:\n%s", drawioObjectXML(t, golden, "n6"))
+	}
+	file, err := ReadDrawio([]byte(golden), c.view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resized := mutateCell(t, golden, "n6", func(cell string) string { return setGeometryAttr(t, cell, "width", "400") })
+	imp := drawioGoldenImport(t, c, resized)
+	container := editOf(t, imp, DrawioEditLayout, "n6")
+	if !container.Layout.HasSize || container.Layout.Width != 400 {
+		t.Errorf("container = %+v, want its new width stated", container.Layout)
+	}
+	engine := editOf(t, imp, DrawioEditLayout, "n7")
+	if box := file.Cell("n7").Geometry; engine.FQN != "Vehicles::Engine" || engine.Layout.X != box.X || engine.Layout.Y != box.Y {
+		t.Errorf("Engine = %+v, want it pinned at its unchanged box %+v", engine.Layout, box)
+	}
+}

@@ -291,12 +291,18 @@ func (w *drawioWriter) fitted(node *Node) drawioBox {
 	}
 	// Children are settled from a provisional corner so their extent is known;
 	// settle moves them to the final one afterwards.
+	// A placed container's placed children sit at their absolute Layouts, so
+	// their extent is measured from the container's own corner.
+	corner := drawioBox{Width: width, Height: height}
+	if g := node.Geometry; g.placed() {
+		corner.X, corner.Y = g.X, g.Y
+	}
 	probe := &drawioWriter{labels: w.labels, ports: w.ports, boxes: map[string]drawioBox{}}
-	probe.settleChildren(node, drawioBox{Width: width, Height: height})
+	probe.settleChildren(node, corner)
 	right, bottom := 0.0, 0.0
 	for _, child := range node.Children {
-		right = math.Max(right, probe.boxes[child.ID].right())
-		bottom = math.Max(bottom, probe.boxes[child.ID].bottom())
+		right = math.Max(right, probe.boxes[child.ID].right()-corner.X)
+		bottom = math.Max(bottom, probe.boxes[child.ID].bottom()-corner.Y)
 	}
 	return drawioBox{Width: math.Max(width, right+drawioNestedPad), Height: math.Max(height, bottom+drawioNestedPad)}
 }

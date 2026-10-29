@@ -431,8 +431,11 @@ func (m *drawioMatcher) frameShift(base *DrawioCell) DrawioBox {
 }
 
 // pin places a container the model does not place at its box on the page, and
-// its placed children at theirs, so that a child moved inside it lands where
-// the file has it: the Layouts turn absolute, as the notation reads them.
+// its children at theirs, so that a child moved inside it lands where the file
+// has it: the Layouts turn absolute, as the notation reads them. Placed, the
+// container is no longer fitted around the children drawn in its frame and lays
+// out those it does not place by its stated size, so it and every child it does
+// not place keep the box the file shows, a child container pinned in turn.
 func (m *drawioMatcher) pin(id string) {
 	if m.framed[id] {
 		return
@@ -442,17 +445,22 @@ func (m *drawioMatcher) pin(id string) {
 	if container == nil || base == nil {
 		return
 	}
-	// Placed, the container is no longer fitted around children drawn in its
-	// frame, so it keeps the size the file shows.
 	m.framePlace(m.editedOf(base), base, container, true)
 	for i := range m.base.Cells {
 		child := &m.base.Cells[i]
 		node := m.nodes[child.ID]
-		if child.Parent != id || !child.Vertex || child.Relative || node == nil || !node.Geometry.placed() || m.framed[child.ID] {
+		if child.Parent != id || !child.Vertex || child.Relative || node == nil || m.framed[child.ID] {
+			continue
+		}
+		if !node.Geometry.placed() && m.framesChildren(child.ID) {
+			m.pin(child.ID)
 			continue
 		}
 		m.framed[child.ID] = true
-		m.framePlace(m.editedOf(child), child, node, node.Geometry.HasSize)
+		edited := m.editedOf(child)
+		sized := !node.Geometry.placed() || node.Geometry.HasSize ||
+			!near(fullBox(edited).Width, fullBox(child).Width) || !near(fullBox(edited).Height, fullBox(child).Height)
+		m.framePlace(edited, child, node, sized)
 	}
 }
 

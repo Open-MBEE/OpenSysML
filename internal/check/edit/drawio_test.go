@@ -83,9 +83,11 @@ type drawioMutation struct {
 	edit func(cell string) string
 	// kind is the edit expected, and check the cell of the re-export against the
 	// edited one; a notice instead names what the import reports and leaves alone.
-	kind   view.DrawioEditKind
-	notice string
-	check  func(t *testing.T, edited, reexported *view.DrawioCell)
+	kind view.DrawioEditKind
+	// children asks that the edited cell's children keep their boxes as well.
+	children bool
+	notice   string
+	check    func(t *testing.T, edited, reexported *view.DrawioCell)
 }
 
 func drawioFirst(file *view.DrawioFile, want func(c *view.DrawioCell) bool) *view.DrawioCell {
@@ -208,11 +210,18 @@ var drawioMutations = []drawioMutation{
 				t.Errorf("moved to %+v, re-exported at %+v", edited.Geometry, re.Geometry)
 			}
 		}},
-	{name: "move container", pick: drawioContainer,
+	{name: "move container", pick: drawioContainer, children: true,
 		edit: func(cell string) string { return drawioShift(cell, "y", 60) }, kind: view.DrawioEditLayout,
 		check: func(t *testing.T, edited, re *view.DrawioCell) {
 			if !drawioSameBox(edited.Geometry, re.Geometry) {
 				t.Errorf("%s moved to %+v, re-exported at %+v", edited.ID, edited.Geometry, re.Geometry)
+			}
+		}},
+	{name: "resize container", pick: drawioContainer, children: true,
+		edit: func(cell string) string { return drawioShift(cell, "width", 50) }, kind: view.DrawioEditLayout,
+		check: func(t *testing.T, edited, re *view.DrawioCell) {
+			if !drawioSameBox(edited.Geometry, re.Geometry) {
+				t.Errorf("%s resized to %+v, re-exported at %+v", edited.ID, edited.Geometry, re.Geometry)
 			}
 		}},
 	{name: "resize", pick: drawioLeaf,
@@ -355,6 +364,18 @@ func TestDrawioRoundTrip(t *testing.T) {
 							t.Fatalf("the re-export has no cell for %s, %s %s", e.Cell, was.Kind, was.FQN)
 						}
 						mut.check(t, was, again)
+					}
+					if mut.children {
+						for i := range editedFile.Cells {
+							child := &editedFile.Cells[i]
+							if child.Parent != cell.ID || !drawioPlaceable(child) || child.Relative {
+								continue
+							}
+							again := drawioSameCell(editedFile, string(content), child, re, string(res.Content))
+							if again == nil || !drawioSameBox(child.Geometry, again.Geometry) {
+								t.Errorf("child %s %s was at %+v, re-exported at %+v", child.ID, child.FQN, child.Geometry, again)
+							}
+						}
 					}
 					// The edited cells are where the file has them; unplaced neighbours may have flowed around them.
 					if _, imp := drawioImport(t, redrawn, reoptions, edited); len(imp.Edits) != 0 {
