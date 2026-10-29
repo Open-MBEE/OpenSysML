@@ -174,7 +174,13 @@ func (r *ElementIDReader) convert() {
 			kind = given.Kind()
 		}
 		file := source.NewWithKind(given.Name(), given.Bytes(), kind)
-		e, err := encodeDocument(file, parser.New(file).ParseFile(), "", IDQualifiedName)
+		p := parser.New(file)
+		root := p.ParseFile()
+		if syntax := parser.SyntaxErrorOf(file.Name(), file, p.Diagnostics); syntax != nil {
+			r.err = syntax
+			return
+		}
+		e, err := encodeDocument(file, root, "", IDQualifiedName)
 		if err != nil {
 			r.err = err
 			return
