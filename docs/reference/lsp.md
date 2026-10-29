@@ -552,6 +552,8 @@ operation and its fields beside it:
 | `setRoute` | `target` or `declaration`, `declaredIn?`, `digest?`, `view?`, `route?` | The `DiagramLayout::Route` annotation of a connection, transition, succession or flow, `route` being its waypoints as an array of `{"x", "y"}`; `view`, the document written and an omitted or empty `route` mean what they do for `setLayout`. |
 | `setCanvas` | `target`, `canvas?` | The `DiagramLayout::Canvas` annotation of the view `target` names, written into the view's body in the document declaring it: `{ "unit"?, "width"?, "height"? }`, the sizes together or not at all; omitted, the annotation is removed. Refused as `setLayout` is when that document cannot be rewritten. |
 | `setStyle` | `target` or `declaration`, `declaredIn?`, `digest?`, `view?`, `style?` | The `DiagramLayout::Style` annotation of the node or edge the target is drawn as: `style` is `{ "fill"?, "line"?, "text"?, "font"?, "fontSize"?, "bold"?, "italic"? }`, each a colour as `#RRGGBB`, a font family, a size in points or a flag; omitted, the annotation is removed. Written, located and refused as `setLayout` is: into the view `view` names, inline into the element's own body when none is. |
+| `setNote` | `target` or `declaration`, `declaredIn?`, `digest?`, `view?`, `note?` | The `DiagramLayout::Note` annotation about the node or edge `target` is drawn as, in the body of `view` or inline on the target without one; `target` naming the view itself writes a note about nothing in particular into its body. `note` is `{ "text", "x", "y", "width"?, "height"? }`, the sizes together or not at all; omitted, the annotation is removed. An element may carry several notes, so `declaration` here is the range of the annotation itself — as a rendering reports a note's `origin` — and rewrites or removes that one wherever it is stated, with no `view`. |
+| `setPicture` | `target` or `declaration`, `declaredIn?`, `digest?`, `picture?` | The `DiagramLayout::Picture` annotation in the body of the view `target` names, as a `setCanvas` finds its view: `picture` is `{ "location", "x", "y", "width", "height", "alt"?, "above"? }`, the file relative to the view's document; omitted, the annotation is removed. `declaration` is the range of the annotation itself, as for `setNote`. |
 
 `target` and `owner` are qualified names, as `nodes[].fqn` and `nodes[].owners[].fqn` in a
 rendering give them, each name quoted on its own where the notation requires it; the empty
@@ -571,7 +573,8 @@ declare — else the one view of the workspace so named; a namesake that is no v
 passed over, and a name naming no view is refused as `not-a-view`. A `declaredIn` naming a
 document the server does not hold, given on an operation other than these two, or naming
 another document without a `digest`, is an invalid-params error, as an operation giving
-both `target` and `declaration` is. No other operation takes a `declaration`. Every target
+both `target` and `declaration` is. A `setNote` or `setPicture` takes a `declaration` too, the
+annotation's own range rather than an element's. No other operation takes a `declaration`. Every target
 of a request is read in the text the server holds of its document — the request's
 `version` for the requested one, the text `digest` fingerprints for another, which the
 answer is `stale` for when that document's text has changed since the rendering, whether

@@ -39,7 +39,7 @@ func TestReadDrawioCompressedDesktopSave(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	edit := onlyEdit(t, imp, DrawioEditLayout)
+	edit := editOf(t, imp, DrawioEditLayout, "n2")
 	if edit.FQN != "Plant::Loop::tank" || edit.Layout.X <= 256 || edit.Layout.Y != 218 {
 		t.Errorf("layout = %s %+v, want the tank moved right from (256, 218)", edit.FQN, edit.Layout)
 	}

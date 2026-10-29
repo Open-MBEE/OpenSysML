@@ -450,8 +450,8 @@ func TestApplyModelEditRejectsMisplacedDeclaredIn(t *testing.T) {
 	}{
 		{ModelEditOperation{Kind: EditSetRoute, Declaration: decl, DeclaredIn: protocol.DocumentURI(uri.File("elsewhere.sysml")), Digest: digest, Route: []RenderPoint{{X: 1, Y: 2}}}, "no document the server holds"},
 		{ModelEditOperation{Kind: EditSetLayout, Target: "Machinery::Engine::rotor", DeclaredIn: protocol.DocumentURI(uri.File("elsewhere.sysml")), Digest: digest, Layout: &ModelEditLayout{X: float(1), Y: float(2)}}, "no document the server holds"},
-		{ModelEditOperation{Kind: EditRename, Target: "Machinery::Engine", DeclaredIn: protocol.DocumentURI(partsURI), Digest: digest, NewName: "Motor"}, "setLayout, setRoute or setStyle alone"},
-		{ModelEditOperation{Kind: EditSetCanvas, Target: "EngineViews::engineView", DeclaredIn: protocol.DocumentURI(viewsURI), Canvas: &RenderCanvas{Unit: "px"}}, "setLayout, setRoute or setStyle alone"},
+		{ModelEditOperation{Kind: EditRename, Target: "Machinery::Engine", DeclaredIn: protocol.DocumentURI(partsURI), Digest: digest, NewName: "Motor"}, "setLayout, setRoute, setStyle, setNote or setPicture alone"},
+		{ModelEditOperation{Kind: EditSetCanvas, Target: "EngineViews::engineView", DeclaredIn: protocol.DocumentURI(viewsURI), Canvas: &RenderCanvas{Unit: "px"}}, "setLayout, setRoute, setStyle, setNote or setPicture alone"},
 		{ModelEditOperation{Kind: EditSetRoute, Declaration: decl, DeclaredIn: protocol.DocumentURI(partsURI), Route: []RenderPoint{{X: 1, Y: 2}}}, "needs the digest"},
 		{ModelEditOperation{Kind: EditSetLayout, Target: "Machinery::Engine::rotor", DeclaredIn: protocol.DocumentURI(partsURI), Layout: &ModelEditLayout{X: float(1), Y: float(2)}}, "needs the digest"},
 	} {

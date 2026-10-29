@@ -71,7 +71,7 @@ func TestDrawioImportReorderedDuplicatesKeepTheirIdentity(t *testing.T) {
 	}
 	moved := mutateCell(t, reordered, "n7", func(cell string) string { return setGeometryAttr(t, cell, "x", "900") })
 	imp := drawioGoldenImport(t, c, moved)
-	edit := onlyEdit(t, imp, DrawioEditLayout)
+	edit := editOf(t, imp, DrawioEditLayout, "n7")
 	rendering, _ := renderWithSites(t, c.file, c.view)
 	var n7 *Node
 	for _, node := range drawioNodes(rendering.Roots) {
@@ -104,7 +104,7 @@ func TestDrawioImportMovedStartIsALayoutAboutTheMember(t *testing.T) {
 		t.Fatal(err)
 	}
 	imp := drawioGoldenImport(t, c, moved)
-	edit := onlyEdit(t, imp, DrawioEditLayout)
+	edit := editOf(t, imp, DrawioEditLayout, "n5")
 	if edit.Cell != "n5" || edit.FQN != start || edit.Label != "start" || edit.Origin.Located() || edit.Layout.Y != file.Cell("n5").Geometry.Y {
 		t.Errorf("edit = %+v, want the start by its member name at the absolute y %v", edit, file.Cell("n5").Geometry.Y)
 	}

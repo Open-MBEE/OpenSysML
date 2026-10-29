@@ -251,7 +251,7 @@ without this page.
 
 | Tool | Does | Writes |
 |---|---|---|
-| `apply_model_edit` | Edit a model by operations on its elements rather than by text: setValue, rename, addMember, addConnection, addSequence (action-body items), delete, move, and the diagram-layout annotations setLayout, setRoute, setCanvas, setStyle. | yes |
+| `apply_model_edit` | Edit a model by operations on its elements rather than by text: setValue, rename, addMember, addConnection, addSequence (action-body items), delete, move, and the diagram-layout annotations setLayout, setRoute, setCanvas, setStyle, setNote, setPicture. | yes |
 | `close_document` | Release a document held open by open_document: the server goes back to the file on disk (or forgets the document when there is no file). | yes |
 | `code_actions` | List the quick fixes and refactorings available for a range of a document, each with the edits it would make. | no |
 | `completion` | Propose completions at a position: keywords, names in scope and members of the type being accessed. | no |

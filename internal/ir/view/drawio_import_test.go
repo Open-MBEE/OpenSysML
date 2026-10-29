@@ -106,6 +106,29 @@ func setGeometryAttr(t *testing.T, cell, name, value string) string {
 	return cell[:loc[0]] + geometry + cell[loc[1]:]
 }
 
+// editOf is the one edit of kind on the cell; a container the model does not
+// place is pinned beside a moved child, so other Layouts may accompany it.
+func editOf(t *testing.T, imp *DrawioImport, kind DrawioEditKind, cell string) DrawioEdit {
+	t.Helper()
+	var found *DrawioEdit
+	for i := range imp.Edits {
+		e := &imp.Edits[i]
+		if e.Kind != kind {
+			t.Fatalf("edit %+v, want only %s edits", *e, kind)
+		}
+		if e.Cell == cell {
+			if found != nil {
+				t.Fatalf("two %s edits of %s", kind, cell)
+			}
+			found = e
+		}
+	}
+	if found == nil {
+		t.Fatalf("edits = %+v, want a %s of %s", imp.Edits, kind, cell)
+	}
+	return *found
+}
+
 func onlyEdit(t *testing.T, imp *DrawioImport, kind DrawioEditKind) DrawioEdit {
 	t.Helper()
 	if len(imp.Edits) != 1 {
@@ -122,7 +145,7 @@ func TestDrawioImportMovedNodeIsALayout(t *testing.T) {
 	document := mutateCell(t, string(golden), "n2", func(cell string) string {
 		return setGeometryAttr(t, setGeometryAttr(t, cell, "x", "533"), "y", "71.5")
 	})
-	edit := onlyEdit(t, drawioGoldenImport(t, layoutCase, document), DrawioEditLayout)
+	edit := editOf(t, drawioGoldenImport(t, layoutCase, document), DrawioEditLayout, "n2")
 	// The tank sits in the loop drawn at (40, 160); a Layout states absolute coordinates.
 	if edit.FQN != "Plant::Loop::tank" || edit.Layout.X != 573 || edit.Layout.Y != 231.5 || edit.Layout.Collapsed {
 		t.Errorf("layout = %s %+v", edit.FQN, edit.Layout)
@@ -152,7 +175,7 @@ func TestDrawioImportResizedNodeKeepsItsSize(t *testing.T) {
 	document := mutateCell(t, string(golden), "n2", func(cell string) string {
 		return setGeometryAttr(t, cell, "width", "260")
 	})
-	edit := onlyEdit(t, drawioGoldenImport(t, layoutCase, document), DrawioEditLayout)
+	edit := editOf(t, drawioGoldenImport(t, layoutCase, document), DrawioEditLayout, "n2")
 	if !edit.Layout.HasSize || edit.Layout.Width != 260 || edit.Layout.Height == 0 {
 		t.Errorf("layout = %+v, want width 260 with the height kept", edit.Layout)
 	}

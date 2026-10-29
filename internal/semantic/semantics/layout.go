@@ -295,6 +295,23 @@ func (m *Model) annotationTypeFQN(sym *symbols.Symbol) string {
 	return m.fqnOf(a.typ)
 }
 
+// LayoutSiteDeclaredBy is the DiagramLayout annotation sym declares — a metadata
+// usage, inline or with an `about` clause — as the site of the element it
+// annotates, with that element; nil for any other symbol.
+func (m *Model) LayoutSiteDeclaredBy(sym *symbols.Symbol) (*LayoutSite, *symbols.Symbol) {
+	if !m.IsLayoutAnnotation(sym) {
+		return nil, nil
+	}
+	for _, elem := range m.annotatedElementsOf(sym) {
+		for _, site := range m.LayoutSitesOf(elem) {
+			if site.Node == sym.Decl {
+				return site, elem
+			}
+		}
+	}
+	return nil, nil
+}
+
 // LayoutOf resolves the Layout of elem as drawn in view: the first Layout
 // annotation stated in the view's body, else the first one applying in every
 // view. With no view — a rendering of elements outside any view — only the

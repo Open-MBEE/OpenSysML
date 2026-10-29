@@ -17,10 +17,12 @@ import (
 // layoutFeatures are the features each DiagramLayout metadata definition
 // declares, in the order the writer binds them.
 var layoutFeatures = map[string][]string{
-	semantics.LayoutFQN: {"x", "y", "width", "height", "collapsed"},
-	semantics.RouteFQN:  {"points"},
-	semantics.CanvasFQN: {"unit", "width", "height"},
-	semantics.StyleFQN:  {"fill", "line", "text", "font", "fontSize", "bold", "italic"},
+	semantics.LayoutFQN:  {"x", "y", "width", "height", "collapsed"},
+	semantics.RouteFQN:   {"points"},
+	semantics.CanvasFQN:  {"unit", "width", "height"},
+	semantics.StyleFQN:   {"fill", "line", "text", "font", "fontSize", "bold", "italic"},
+	semantics.NoteFQN:    {"text", "x", "y", "width", "height"},
+	semantics.PictureFQN: {"location", "x", "y", "width", "height", "alt", "above"},
 }
 
 // layoutSplices turns a set-layout operation into the bytes it rewrites: the
@@ -30,8 +32,8 @@ func (m Model) layoutSplices(i int, op Operation) ([]splice, error) {
 	features, known := layoutFeatures[op.Annotation]
 	if !known {
 		return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
-			Message: fmt.Sprintf("%q is no DiagramLayout annotation this edit writes; the annotations are %s, %s, %s and %s",
-				op.Annotation, semantics.LayoutFQN, semantics.RouteFQN, semantics.CanvasFQN, semantics.StyleFQN)}
+			Message: fmt.Sprintf("%q is no DiagramLayout annotation this edit writes; the annotations are %s",
+				op.Annotation, strings.Join(semantics.LayoutFQNs, ", "))}
 	}
 	bindings, err := m.layoutBindings(i, op)
 	if err != nil {
@@ -42,15 +44,18 @@ func (m Model) layoutSplices(i int, op Operation) ([]splice, error) {
 	if err != nil {
 		return nil, err
 	}
-	in, err := m.layoutDocument(i, op, target.sym, target.view)
+	in, err := m.layoutDocument(i, op, target)
 	if err != nil {
 		return nil, err
 	}
-	renderer := view.NewRenderer(sem, r, nil)
-	if err := m.checkPlaceable(i, op, renderer, sem, target); err != nil {
-		return nil, err
+	site := target.site
+	if site == nil {
+		renderer := view.NewRenderer(sem, r, nil)
+		if err := m.checkPlaceable(i, op, renderer, sem, target); err != nil {
+			return nil, err
+		}
+		site = in.layoutSite(sem, target, op.Annotation)
 	}
-	site := in.layoutSite(sem, target, op.Annotation)
 	var splices []splice
 	switch {
 	case bindings == nil:
@@ -75,6 +80,9 @@ func (m Model) layoutSplices(i int, op Operation) ([]splice, error) {
 type layoutTarget struct {
 	sym, view, owner *symbols.Symbol
 	about            string
+	// site is the annotation itself when the operation declares it, as a
+	// setNote or setPicture may: it is rewritten whatever else the element carries.
+	site *semantics.LayoutSite
 }
 
 // addressed labels splices as operation i's, addressed to in's document.
@@ -92,15 +100,19 @@ func (m Model) addressed(splices []splice, i int, op Operation, in Model) []spli
 
 // layoutDocument is the model of the document written: the view's when one is
 // named, else the element's own. A document without writable source refuses.
-func (m Model) layoutDocument(i int, op Operation, sym, viewSym *symbols.Symbol) (Model, error) {
-	owner, declares := sym, "it"
-	if viewSym != nil {
-		owner, declares = viewSym, op.View
+func (m Model) layoutDocument(i int, op Operation, target layoutTarget) (Model, error) {
+	owner, declares := target.sym, "it"
+	if target.view != nil {
+		owner, declares = target.view, op.View
 	}
-	in, ok := m.inDocument(owner.DocName)
+	docName := owner.DocName
+	if target.site != nil {
+		docName = symbols.DocNameOf(target.site.Scope)
+	}
+	in, ok := m.inDocument(docName)
 	if !ok {
-		where := docLabel(owner.DocName)
-		if m.Index.IsLibraryDocument(owner.DocName) {
+		where := docLabel(docName)
+		if m.Index.IsLibraryDocument(docName) {
 			where = "the bundled library file " + where
 		}
 		return Model{}, &Error{Failure: FailureReferencedElsewhere, OperationIndex: i,
@@ -122,8 +134,52 @@ func (m Model) layoutBindings(i int, op Operation) ([]MetadataValue, error) {
 		return canvasValues(i, op)
 	case semantics.StyleFQN:
 		return m.styleValues(i, op)
+	case semantics.NoteFQN:
+		return m.noteValues(i, op)
+	case semantics.PictureFQN:
+		return pictureValues(i, op)
 	}
 	return nil, nil
+}
+
+func (m Model) noteValues(i int, op Operation) ([]MetadataValue, error) {
+	n := op.NoteBox
+	if n == nil {
+		return nil, nil
+	}
+	if strings.TrimSpace(n.Text) == "" {
+		return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+			Message: fmt.Sprintf("a Note of %s shows no text; clear the Note to drop it", m.label(op))}
+	}
+	out := []MetadataValue{{"text", stringLiteral(n.Text)}, {"x", realLiteral(n.X)}, {"y", realLiteral(n.Y)}}
+	if n.HasSize {
+		out = append(out, MetadataValue{"width", realLiteral(n.Width)}, MetadataValue{"height", realLiteral(n.Height)})
+	}
+	return out, nil
+}
+
+func pictureValues(i int, op Operation) ([]MetadataValue, error) {
+	p := op.Picture
+	if p == nil {
+		return nil, nil
+	}
+	if p.Location == "" {
+		return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+			Message: fmt.Sprintf("a Picture of %s names no file to show; clear the Picture to drop it", op.Target)}
+	}
+	if p.Width <= 0 || p.Height <= 0 {
+		return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+			Message: fmt.Sprintf("a Picture of %s needs a positive width and height", op.Target)}
+	}
+	out := []MetadataValue{{"location", stringLiteral(p.Location)}, {"x", realLiteral(p.X)}, {"y", realLiteral(p.Y)},
+		{"width", realLiteral(p.Width)}, {"height", realLiteral(p.Height)}}
+	if p.Alt != "" {
+		out = append(out, MetadataValue{"alt", stringLiteral(p.Alt)})
+	}
+	if p.Above {
+		out = append(out, MetadataValue{"above", "true"})
+	}
+	return out, nil
 }
 
 func (m Model) layoutValues(i int, op Operation) ([]MetadataValue, error) {
@@ -242,14 +298,31 @@ func stringLiteral(s string) string {
 func (m Model) layoutTargets(i int, op Operation, sem *semantics.Model) (layoutTarget, error) {
 	var target layoutTarget
 	var err error
-	if op.Annotation == semantics.CanvasFQN && (op.Target != "" || op.Declaration.Len == 0) {
+	switch {
+	case annotationDeclared(op):
+		return m.declaredAnnotation(i, op, sem)
+	case op.Annotation == semantics.CanvasFQN && (op.Target != "" || op.Declaration.Len == 0):
 		target.sym, err = m.viewNamed(i, op.Target, op.DeclarationDoc,
 			fmt.Sprintf("%s is no view; a Canvas sizes the drawing surface of a view", op.Target))
-	} else {
+	case op.Annotation == semantics.PictureFQN:
+		target.sym, err = m.viewNamed(i, op.Target, op.DeclarationDoc,
+			fmt.Sprintf("%s is no view; a Picture is drawn on the canvas of a view", op.Target))
+	default:
 		target, err = m.layoutElement(i, op, sem)
 	}
 	if err != nil {
 		return layoutTarget{}, err
+	}
+	if op.Annotation == semantics.PictureFQN {
+		if op.View != "" {
+			return layoutTarget{}, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+				Message: "a Picture is stated in the body of the view it is drawn on; name that view as the target and no other"}
+		}
+		if !semantics.IsView(target.sym) {
+			return layoutTarget{}, &Error{Failure: FailureNotAView, OperationIndex: i,
+				Message: fmt.Sprintf("%s is no view; a Picture is drawn on the canvas of a view", m.label(op))}
+		}
+		return target, nil
 	}
 	if op.Annotation != semantics.CanvasFQN && op.View != "" && target.owner == nil && !qualified(target.sym) {
 		return layoutTarget{}, &Error{Failure: FailureNotNamed, OperationIndex: i,
@@ -281,6 +354,37 @@ func (m Model) layoutTargets(i int, op Operation, sem *semantics.Model) (layoutT
 		return layoutTarget{}, err
 	}
 	return target, nil
+}
+
+// annotationDeclared reports whether the operation reaches a Note or Picture
+// annotation by its own declaration rather than by the element it annotates.
+func annotationDeclared(op Operation) bool {
+	return (op.Annotation == semantics.NoteFQN || op.Annotation == semantics.PictureFQN) && op.Target == "" && op.Declaration.Len > 0
+}
+
+// declaredAnnotation is the Note or Picture annotation declared at the
+// operation's span, as the site of the element it annotates, in the view it
+// is stated in.
+func (m Model) declaredAnnotation(i int, op Operation, sem *semantics.Model) (layoutTarget, error) {
+	if op.View != "" {
+		return layoutTarget{}, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+			Message: fmt.Sprintf("a %s reached by its declaration is stated where it is; name no view", layoutTypeName(op.Annotation))}
+	}
+	root, err := m.declarationRoot(i, op)
+	if err != nil {
+		return layoutTarget{}, err
+	}
+	sym := root.DeclaredAt(op.Declaration)
+	if sym == nil {
+		return layoutTarget{}, &Error{Failure: FailureUnknownTarget, OperationIndex: i,
+			Message: fmt.Sprintf("nothing is declared at %s of this model", m.at(op))}
+	}
+	site, elem := sem.LayoutSiteDeclaredBy(sym)
+	if site == nil || site.TypeFQN != op.Annotation {
+		return layoutTarget{}, &Error{Failure: FailureNotAnnotated, OperationIndex: i,
+			Message: fmt.Sprintf("what is declared at %s is no %s annotation", m.at(op), layoutTypeName(op.Annotation))}
+	}
+	return layoutTarget{sym: elem, view: site.View, site: site}, nil
 }
 
 // layoutElement is the element a layout operation names or declares; a name no
@@ -345,10 +449,11 @@ func (m Model) viewNamed(i int, name, doc, noView string) (*symbols.Symbol, erro
 // it applies in does not draw as a node or an edge: the view's rendering for a
 // view-local one, any rendering for an inline one. A Style colours either.
 func (m Model) checkPlaceable(i int, op Operation, renderer *view.Renderer, sem *semantics.Model, target layoutTarget) error {
-	if op.Annotation == semantics.CanvasFQN {
+	sym, viewSym := target.sym, target.view
+	if op.Annotation == semantics.CanvasFQN || op.Annotation == semantics.PictureFQN ||
+		op.Annotation == semantics.NoteFQN && viewSym == nil && semantics.IsView(sym) {
 		return nil
 	}
-	sym, viewSym := target.sym, target.view
 	wantNode := op.Annotation != semantics.RouteFQN
 	wantEdge := op.Annotation != semantics.LayoutFQN
 	role := "an edge a Route steers"
@@ -357,6 +462,8 @@ func (m Model) checkPlaceable(i int, op Operation, renderer *view.Renderer, sem 
 		role = "a node a Layout positions"
 	case semantics.StyleFQN:
 		role = "a node or an edge a Style colours"
+	case semantics.NoteFQN:
+		role = "a node or an edge a Note annotates"
 	}
 	if viewSym == nil {
 		node, edge := renderer.DrawsAnywhere(sym)
@@ -425,7 +532,7 @@ func (m Model) layoutSite(sem *semantics.Model, target layoutTarget, typeFQN str
 				continue
 			}
 		}
-		if viewSym == nil && site.View == nil {
+		if viewSym == nil && (site.View == nil || typeFQN == semantics.NoteFQN && site.View.Decl == sym.Decl) {
 			return site
 		}
 		if viewSym != nil && site.View != nil && site.View.Decl == viewSym.Decl {

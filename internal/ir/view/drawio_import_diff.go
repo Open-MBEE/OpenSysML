@@ -132,7 +132,7 @@ func (r *Rendering) ImportDrawio(file *DrawioFile, options Options) (*DrawioImpo
 		return nil, err
 	}
 	out := &DrawioImport{View: norm.View}
-	m := &drawioMatcher{norm: norm, base: base, file: file, out: out, nodes: map[string]*Node{}, ports: map[string]Port{}}
+	m := &drawioMatcher{norm: norm, w: w, base: base, file: file, out: out, nodes: map[string]*Node{}, ports: map[string]Port{}, framed: map[string]bool{}}
 	for _, node := range drawioNodes(norm.Roots) {
 		m.nodes[node.ID] = node
 		for _, port := range node.Ports {
@@ -158,11 +158,14 @@ func drawioNodes(roots []*Node) []*Node {
 // turns each difference into an edit.
 type drawioMatcher struct {
 	norm       *Rendering
+	w          *drawioWriter
 	base, file *DrawioFile
 	out        *DrawioImport
 	nodes      map[string]*Node
 	ports      map[string]Port
 	matched    map[string]bool
+	// framed are the cells whose Layout pinning a container already wrote.
+	framed map[string]bool
 }
 
 // match pairs the file's semantic cells with the baseline's — by the exported
@@ -353,6 +356,9 @@ func (m *drawioMatcher) originOf(id string) (Origin, bool) {
 // layoutDiff is the Layout a node needs for the file's box, nil when the box
 // is the baseline's within tolerance and the fold is the same.
 func (m *drawioMatcher) layoutDiff(cell, base *DrawioCell) *semantics.Layout {
+	if m.framed[base.ID] {
+		return nil
+	}
 	fileBox, baseBox := fullBox(cell), fullBox(base)
 	moved := !near(fileBox.X, baseBox.X) || !near(fileBox.Y, baseBox.Y)
 	resized := !near(fileBox.Width, baseBox.Width) || !near(fileBox.Height, baseBox.Height)
@@ -360,7 +366,11 @@ func (m *drawioMatcher) layoutDiff(cell, base *DrawioCell) *semantics.Layout {
 	if !moved && !resized && !folded {
 		return nil
 	}
-	layout := &semantics.Layout{X: fileBox.X, Y: fileBox.Y, Collapsed: cell.Collapsed}
+	shift := m.frameShift(base)
+	if m.framed[base.ID] {
+		return nil
+	}
+	layout := &semantics.Layout{X: fileBox.X - shift.X, Y: fileBox.Y - shift.Y, Collapsed: cell.Collapsed}
 	node := m.nodes[base.ID]
 	if resized || (node != nil && node.Geometry != nil && node.Geometry.HasSize) {
 		layout.Width, layout.Height, layout.HasSize = fileBox.Width, fileBox.Height, true
@@ -369,6 +379,69 @@ func (m *drawioMatcher) layoutDiff(cell, base *DrawioCell) *semantics.Layout {
 		layout.Hidden = node.Geometry.Hidden
 	}
 	return layout
+}
+
+// frameShift is what the writer added to a node's Layout to draw it on the page:
+// nothing for a root or a child of a placed container; for a child of one the
+// model does not place, the writer hugs the placed children to the container's
+// corner, so the container is pinned first and the page frame becomes the model's.
+func (m *drawioMatcher) frameShift(base *DrawioCell) DrawioBox {
+	parent := m.nodes[base.Parent]
+	if parent == nil {
+		return DrawioBox{}
+	}
+	if !parent.Geometry.placed() {
+		m.pin(base.Parent)
+		return DrawioBox{}
+	}
+	shift := m.w.childShift(parent, m.w.boxes[base.Parent])
+	return DrawioBox{X: shift.X, Y: shift.Y}
+}
+
+// pin places a container the model does not place at its box on the page, and
+// its placed children at theirs, so that a child moved inside it lands where
+// the file has it: the Layouts turn absolute, as the notation reads them.
+func (m *drawioMatcher) pin(id string) {
+	if m.framed[id] {
+		return
+	}
+	m.framed[id] = true
+	container, base := m.nodes[id], m.base.Cell(id)
+	if container == nil || base == nil {
+		return
+	}
+	cell := m.file.Cell(id)
+	if cell == nil {
+		cell = base
+	}
+	m.framePlace(cell, base, container, false)
+	for i := range m.base.Cells {
+		child := &m.base.Cells[i]
+		node := m.nodes[child.ID]
+		if child.Parent != id || !child.Vertex || child.Relative || node == nil || !node.Geometry.placed() || m.framed[child.ID] {
+			continue
+		}
+		m.framed[child.ID] = true
+		edited := m.file.Cell(child.ID)
+		if edited == nil {
+			edited = child
+		}
+		m.framePlace(edited, child, node, node.Geometry.HasSize)
+	}
+}
+
+// framePlace writes a Layout putting node at its page box, as the file has it.
+func (m *drawioMatcher) framePlace(cell, base *DrawioCell, node *Node, sized bool) {
+	box := fullBox(cell)
+	layout := &semantics.Layout{X: box.X - m.frameShift(base).X, Y: box.Y - m.frameShift(base).Y, Collapsed: cell.Collapsed}
+	if sized {
+		layout.Width, layout.Height, layout.HasSize = box.Width, box.Height, true
+	}
+	if node.Geometry != nil {
+		layout.Hidden = node.Geometry.Hidden
+	}
+	origin, _ := m.originOf(base.ID)
+	m.out.Edits = append(m.out.Edits, DrawioEdit{Kind: DrawioEditLayout, Cell: cell.ID, Label: cell.Label, FQN: cell.FQN, Origin: origin, Layout: layout})
 }
 
 // diffEdge imports an edge's moved waypoints and changed colours or font.
