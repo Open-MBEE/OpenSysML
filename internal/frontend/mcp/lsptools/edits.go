@@ -214,11 +214,15 @@ func (h *Host) workspaceEdit(ctx context.Context, edit *protocol.WorkspaceEdit, 
 		if !ok {
 			continue
 		}
+		// A document read at a version and left as it was is listed with no
+		// edits: the server pins it so a stale read is refused.
+		edits := changes[edit.TextDocument.URI]
 		for _, element := range edit.Edits {
 			if textEdit, ok := element.(*protocol.TextEdit); ok {
-				changes[edit.TextDocument.URI] = append(changes[edit.TextDocument.URI], *textEdit)
+				edits = append(edits, *textEdit)
 			}
 		}
+		changes[edit.TextDocument.URI] = edits
 	}
 	uris := make([]string, 0, len(changes))
 	for u := range changes {
