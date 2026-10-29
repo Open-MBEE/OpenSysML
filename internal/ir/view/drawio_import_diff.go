@@ -119,10 +119,8 @@ func (r *Rendering) ImportDrawio(file *DrawioFile, options Options) (*DrawioImpo
 	return importer.Import(file)
 }
 
-// DrawioImporter imports edited draw.io files of one rendering under one set
-// of options against a baseline prepared once: laying the rendering out and
-// routing its edges is the bulk of an import, and the baseline is the same for
-// every file of the rendering.
+// DrawioImporter imports edited draw.io files of one rendering against a baseline
+// prepared once; laying out and routing the rendering is the bulk of an import.
 type DrawioImporter struct {
 	norm  *Rendering
 	drawn *Drawn

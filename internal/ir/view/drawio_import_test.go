@@ -341,9 +341,8 @@ func TestDrawioImportReportsWhatItCannotImport(t *testing.T) {
 	}
 }
 
-// TestDrawioImporterSharesOneBaseline is the reuse contract: an importer
-// prepared once answers every file of its rendering as ImportDrawio does, the
-// untouched export and an edited one alike, and refuses another view's page.
+// TestDrawioImporterSharesOneBaseline pins that an importer prepared once answers
+// untouched and edited files as ImportDrawio does and refuses another view's page.
 func TestDrawioImporterSharesOneBaseline(t *testing.T) {
 	golden, _ := os.ReadFile(filepath.Join("testdata", layoutCase.name+".drawio.golden"))
 	moved := mutateCell(t, string(golden), "n2", func(cell string) string {
