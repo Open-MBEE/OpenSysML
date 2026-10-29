@@ -1419,9 +1419,10 @@ one model write byte-identical files. No draw.io is run to write it, and none is
 Every semantic cell — a node, a port, an edge — is wrapped in an `<object>` carrying the
 element's handle beside draw.io's own `label`: `kind`, the node's keyword (`part def`, `state`,
 `initial`, …) or the edge's kind; `view`, the view rendered; `link`, the declaration's
-`file:line` when the element has one; and, on a node or a port, `fqn`, the declaration's
-qualified name. An edge carries no `fqn` — a relationship has no name of its own in most
-models — and is matched by its `link` and the `source` and `target` cells it joins.
+`file:line` when the element has one; and `fqn`, the declaration's qualified name, on a node, a
+port, and an edge that is a declaration of its own (a connection, flow, succession, transition,
+dependency and the like). An edge drawn from a member's declaration — a composition, a typing —
+carries no `fqn` and is matched by its `link` and the `source` and `target` cells it joins.
 Compartment rows and edge end labels are plain `mxCell`s and carry none of these. The `fqn` is
 exact and the same for every cell of one element, so a tool reading an edited file back can
 match each cell to its declaration; a later round trip of positions edited in draw.io builds on
