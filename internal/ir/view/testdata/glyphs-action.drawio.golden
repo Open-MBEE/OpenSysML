@@ -9,12 +9,12 @@
         <mxCell id="1" parent="0"/>
         <object id="n0" label="«action def»&#xA;Fill" fqn="NotationGlyphs::Fill" kind="action def" view="NotationGlyphs::Diagrams::fillGlyphs" link="notation-glyphs.sysml:44">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
-            <mxGeometry x="40" y="40" width="200" height="135" as="geometry"/>
+            <mxGeometry x="50" y="50" width="210" height="145" as="geometry"/>
           </mxCell>
         </object>
         <object id="n1" label="«action»&#xA;open" fqn="NotationGlyphs::Fill::open" kind="action" view="NotationGlyphs::Diagrams::fillGlyphs" link="notation-glyphs.sysml:45">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
-            <mxGeometry x="16" y="82" width="64" height="37" as="geometry"/>
+            <mxGeometry x="16" y="92" width="64" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n1:n1.0" label="water" fqn="NotationGlyphs::Fill::open::water" kind="parameter" view="NotationGlyphs::Diagrams::fillGlyphs" link="notation-glyphs.sysml:46">
@@ -26,7 +26,7 @@
         </object>
         <object id="n2" label="«action»&#xA;pour" fqn="NotationGlyphs::Fill::pour" kind="action" view="NotationGlyphs::Diagrams::fillGlyphs" link="notation-glyphs.sysml:48">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
-            <mxGeometry x="120" y="82" width="64" height="37" as="geometry"/>
+            <mxGeometry x="130" y="92" width="64" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n2:n2.0" label="water" fqn="NotationGlyphs::Fill::pour::water" kind="parameter" view="NotationGlyphs::Diagrams::fillGlyphs" link="notation-glyphs.sysml:49">

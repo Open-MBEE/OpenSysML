@@ -118,10 +118,12 @@ func (b drawioBox) contains(o drawioBox) bool {
 // The spacing the grid lays unplaced nodes out with, and the padding a
 // container keeps about its nested children, in draw.io pixels.
 const (
-	drawioGridGap = 40
-	// drawioNestedGap also parts a header from its members: more than twice
-	// the router's clearance, so a path can pass between neighbours.
-	drawioNestedGap   = 2*route.Clearance + 8
+	// drawioGridGap leaves a corridor between neighbours for the router: its
+	// clearance on both sides, the two half port squares, and one nudging lane.
+	drawioGridGap = 2*route.Clearance + route.PortSize + route.Nudging
+	// drawioNestedGap parts nested members from each other and from their
+	// header by the same corridor.
+	drawioNestedGap   = drawioGridGap
 	drawioNestedPad   = 16
 	drawioPortSize    = 12
 	drawioMinWidth    = 100

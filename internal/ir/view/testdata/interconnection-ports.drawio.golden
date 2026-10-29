@@ -9,12 +9,12 @@
         <mxCell id="1" parent="0"/>
         <object id="n0" label="«part def»&#xA;Toaster" fqn="ToasterDemo::Toaster" kind="part def" view="ToasterViews::toasterView" link="interconnection-ports.sysml:19">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
-            <mxGeometry x="40" y="40" width="234" height="212" as="geometry"/>
+            <mxGeometry x="50" y="50" width="244" height="232" as="geometry"/>
           </mxCell>
         </object>
         <object id="n1" label="«part»&#xA;heating" fqn="ToasterDemo::Toaster::heating" kind="part" view="ToasterViews::toasterView" link="interconnection-ports.sysml:20">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
-            <mxGeometry x="16" y="82" width="81" height="37" as="geometry"/>
+            <mxGeometry x="16" y="92" width="81" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n1:n1.0" label="^durationIn" fqn="ToasterDemo::HeatingSystem::durationIn" kind="port" view="ToasterViews::toasterView" link="interconnection-ports.sysml:9">
@@ -26,7 +26,7 @@
         </object>
         <object id="n2" label="«part»&#xA;control" fqn="ToasterDemo::Toaster::control" kind="part" view="ToasterViews::toasterView" link="interconnection-ports.sysml:21">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
-            <mxGeometry x="137" y="82" width="81" height="37" as="geometry"/>
+            <mxGeometry x="147" y="92" width="81" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n2:n2.0" label="^durationOut" fqn="ToasterDemo::ControlSystem::durationOut" kind="port" view="ToasterViews::toasterView" link="interconnection-ports.sysml:13">
@@ -38,15 +38,15 @@
         </object>
         <object id="n3" label="«part»&#xA;chassis" fqn="ToasterDemo::Toaster::chassis" kind="part" view="ToasterViews::toasterView" link="interconnection-ports.sysml:22">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
-            <mxGeometry x="16" y="159" width="81" height="37" as="geometry"/>
+            <mxGeometry x="16" y="179" width="81" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="e0" label="" fqn="ToasterDemo::Toaster::durationInterface" kind="connection" view="ToasterViews::toasterView" link="interconnection-ports.sysml:23">
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.0833;exitPerimeter=0;entryX=0.5;entryY=0.0833;entryPerimeter=0;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n2:n2.0" target="n1:n1.0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="217.5" y="101"/>
-                <mxPoint x="96.5" y="101"/>
+                <mxPoint x="237.5" y="121"/>
+                <mxPoint x="106.5" y="121"/>
               </Array>
             </mxGeometry>
           </mxCell>
@@ -55,8 +55,8 @@
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.0833;exitPerimeter=0;entryX=0.5;entryY=0.0833;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=1;" edge="1" parent="1" source="n2:n2.0" target="n1:n1.0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
-                <mxPoint x="217.5" y="98.6"/>
-                <mxPoint x="96.5" y="98.6"/>
+                <mxPoint x="237.5" y="113"/>
+                <mxPoint x="106.5" y="113"/>
               </Array>
             </mxGeometry>
           </mxCell>
