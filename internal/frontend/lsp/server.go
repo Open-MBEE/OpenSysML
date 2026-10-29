@@ -2,7 +2,6 @@ package lsp
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"sync"
@@ -11,7 +10,6 @@ import (
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
-	"go.uber.org/zap"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
@@ -20,7 +18,7 @@ import (
 // Server is the SysML v2 language server. It wraps a single model.Workspace and
 // serves the Language Server Protocol over a jsonrpc2 stream.
 type Server struct {
-	baseServer
+	protocol.UnimplementedServer
 	ws     *model.Workspace
 	client protocol.Client
 	// notifier sends the notifications the protocol library does not know, of
@@ -118,12 +116,13 @@ func NewServer(ws *model.Workspace, opts ...Option) *Server {
 // is done.
 //
 // The connection is built here rather than with protocol.NewServer because that
-// helper already starts a read loop; a second conn.Go would run two concurrent
-// readers over the same stream and corrupt the framing. runHandler adds back
-// what that helper wrapped around the handler.
+// helper starts the read loop with its own handler chain; runHandler is the
+// chain this server needs, with the lifecycle ordered ahead of the asynchronous
+// dispatch.
 func (s *Server) Run(ctx context.Context, rwc io.ReadWriteCloser) error {
-	conn := jsonrpc2.NewConn(jsonrpc2.NewStream(rwc))
-	client := protocol.ClientDispatcher(conn, zap.NewNop())
+	stream := jsonrpc2.NewStream(rwc)
+	conn := jsonrpc2.NewConn(stream, jsonrpc2.WithCodec(lspCodec{}))
+	client := protocol.ClientDispatcher(conn)
 	ctx = protocol.WithClient(ctx, client)
 	s.client = client
 	s.notifier = conn
@@ -132,62 +131,94 @@ func (s *Server) Run(ctx context.Context, rwc io.ReadWriteCloser) error {
 	case <-conn.Done():
 		return conn.Err()
 	case <-s.exited:
-		// The exit notification ends the session: the stream is released here,
-		// where nothing is waiting on it, and the session is not in error.
-		_ = conn.Close()
+		// The exit notification ends the session. The stream is closed rather
+		// than the connection: closing the connection waits for the read loop,
+		// which a blocking stdin never releases.
+		_ = stream.Close()
 		return nil
 	}
 }
 
-// runHandler is the chain a served session reads with: cancellation, async
-// dispatch so one slow request cannot stall the stream, and a reply per request.
+// lspCodec encodes the wire as the protocol library does, so its optional and
+// union types are written as the specification says; the library wires that
+// codec into protocol.NewServer alone, which Run does not use.
+type lspCodec struct{}
+
+func (lspCodec) Marshal(v any) ([]byte, error)      { return protocol.Marshal(v) }
+func (lspCodec) Unmarshal(data []byte, v any) error { return protocol.Unmarshal(data, v) }
+
+// runHandler is the chain a served session reads with: cancellation, dispatch
+// off the read loop so one slow request cannot stall the stream, and the custom
+// methods ahead of the protocol's.
 func runHandler(s *Server) jsonrpc2.Handler {
-	serve := s.inlayHintHandler(s.stdlibHandler(s.debugHandler(s.renderHandler(s.modelEditHandler(s.changeHandler(protocol.ServerHandler(s, jsonrpc2.MethodNotFoundHandler)))))))
-	// The lifecycle wrapper runs outside AsyncHandler so that shutdown, exit and
+	serve := s.stdlibHandler(s.debugHandler(s.renderHandler(s.importDiagramHandler(s.modelEditHandler(notificationErrorsStayLocal(s.changeHandler(protocol.ServerHandler(s, jsonrpc2.MethodNotFoundHandler))))))))
+	// The lifecycle wrapper runs outside inOrder so that shutdown, exit and
 	// the messages after them are ordered as the client sent them.
-	return s.lifecycleHandler(cancelHandler(jsonrpc2.AsyncHandler(jsonrpc2.ReplyHandler(serve))))
+	return s.lifecycleHandler(protocol.CancelHandler(inOrder(answerCancelled(serve))))
 }
 
-// cancelHandler is protocol.CancelHandler with an id decode that accepts the
-// JSON numbers clients send; that helper rejects them all as malformed.
-func cancelHandler(handler jsonrpc2.Handler) jsonrpc2.Handler {
-	handler, cancel := jsonrpc2.CancelHandler(handler)
-	return func(ctx context.Context, reply jsonrpc2.Replier, req jsonrpc2.Request) error {
-		if req.Method() != protocol.MethodCancelRequest {
-			// A cancelled request still owes the client a reply, on a context
-			// that outlives the cancellation.
-			answer := func(ctx context.Context, result any, err error) error {
-				if err == nil && ctx.Err() != nil {
-					err = protocol.ErrRequestCancelled
-				}
-				return reply(context.WithoutCancel(ctx), result, err)
+// inOrder frees the read loop at once but runs the handlers one at a time in
+// wire order; a request cancelled while it waits answers without running.
+func inOrder(handler jsonrpc2.Handler) jsonrpc2.Handler {
+	var mu sync.Mutex
+	previous := make(chan struct{})
+	close(previous)
+	return func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
+		// Taken on the read loop, before it is released: the queue is wire order.
+		mu.Lock()
+		wait := previous
+		done := make(chan struct{})
+		previous = done
+		mu.Unlock()
+		jsonrpc2.Async(ctx)
+		select {
+		case <-wait:
+		case <-ctx.Done():
+			if req.IsCall() {
+				// The ticket still closes in turn, so nothing behind overtakes.
+				go func() { <-wait; close(done) }()
+				return nil, protocol.ErrRequestCancelled
 			}
-			return handler(ctx, answer, req)
+			<-wait
 		}
-		var params struct {
-			ID json.RawMessage `json:"id"`
-		}
-		if err := json.Unmarshal(req.Params(), &params); err != nil {
-			return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
-		}
-		id, err := requestID(params.ID)
-		if err != nil {
-			return reply(ctx, nil, fmt.Errorf("%s: %w", jsonrpc2.ErrParse, err))
-		}
-		cancel(id)
-		return reply(ctx, nil, nil)
+		defer close(done)
+		return handler(ctx, req)
 	}
 }
 
-// requestID decodes a JSON-RPC id, which is either a number or a string.
-func requestID(raw json.RawMessage) (jsonrpc2.ID, error) {
-	var number int32
-	if err := json.Unmarshal(raw, &number); err == nil {
-		return jsonrpc2.NewNumberID(number), nil
+// answerCancelled gives a request cancelled while it was served the reply the
+// protocol asks for, when the handler produced none of its own.
+func answerCancelled(handler jsonrpc2.Handler) jsonrpc2.Handler {
+	return func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
+		result, err := handler(ctx, req)
+		if err == nil && req.IsCall() && ctx.Err() != nil {
+			return nil, protocol.ErrRequestCancelled
+		}
+		return result, err
 	}
-	var text string
-	if err := json.Unmarshal(raw, &text); err == nil {
-		return jsonrpc2.NewStringID(text), nil
+}
+
+// notificationErrorsStayLocal keeps a notification's failure out of the
+// connection: a notification has no reply to carry it, the handlers have told
+// the client what they can (a library edit shows a message), and the library
+// would otherwise end the session over it. Unknown notifications are ignored,
+// as the protocol asks.
+func notificationErrorsStayLocal(handler jsonrpc2.Handler) jsonrpc2.Handler {
+	return func(ctx context.Context, req *jsonrpc2.Request) (any, error) {
+		result, err := handler(ctx, req)
+		if err != nil && !req.IsCall() {
+			return nil, nil
+		}
+		return result, err
 	}
-	return jsonrpc2.ID{}, fmt.Errorf("request ID %s malformed", raw)
+}
+
+// decodeParams reads a request's params as T; what does not decode is a parse
+// error, as the protocol library answers its own methods.
+func decodeParams[T any](req *jsonrpc2.Request) (*T, error) {
+	var params T
+	if err := protocol.Unmarshal(req.Params(), &params); err != nil {
+		return nil, fmt.Errorf("%w: %w", jsonrpc2.ErrParse, err)
+	}
+	return &params, nil
 }

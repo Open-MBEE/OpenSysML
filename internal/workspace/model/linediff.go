@@ -1,34 +1,39 @@
-package lsp
+package model
 
-// hunk is a run of lines a diff rewrites: old[oldStart:oldEnd] becomes
-// new[newStart:newEnd]. A pure insertion has oldStart == oldEnd, a pure
-// deletion newStart == newEnd.
-type hunk struct {
-	oldStart, oldEnd int
-	newStart, newEnd int
+import (
+	"fmt"
+	"strings"
+)
+
+// Hunk is a run of lines a diff rewrites: old[OldStart:OldEnd] becomes
+// new[NewStart:NewEnd]. A pure insertion has OldStart == OldEnd, a pure
+// deletion NewStart == NewEnd.
+type Hunk struct {
+	OldStart, OldEnd int
+	NewStart, NewEnd int
 }
 
-// diffLines returns the minimal edit script turning line ids a into b, in order.
+// DiffLines returns the minimal edit script turning line ids a into b, in order.
 // Linear-space Myers: O(D) passes for D differing lines, O(len(a)+len(b)) memory.
-func diffLines(a, b []int) []hunk {
+func DiffLines(a, b []int) []Hunk {
 	d := &differ{}
 	d.diff(a, b, 0, 0)
 	return d.hunks
 }
 
 type differ struct {
-	hunks   []hunk
+	hunks   []Hunk
 	forward []int
 	reverse []int
 }
 
-// add records a hunk, merging it into the previous one when they abut: the
+// add records a Hunk, merging it into the previous one when they abut: the
 // search emits a deletion and the insertion beside it as separate steps.
-func (d *differ) add(h hunk) {
+func (d *differ) add(h Hunk) {
 	if n := len(d.hunks); n > 0 {
 		prev := &d.hunks[n-1]
-		if prev.oldEnd == h.oldStart && prev.newEnd == h.newStart {
-			prev.oldEnd, prev.newEnd = h.oldEnd, h.newEnd
+		if prev.OldEnd == h.OldStart && prev.NewEnd == h.NewStart {
+			prev.OldEnd, prev.NewEnd = h.OldEnd, h.NewEnd
 			return
 		}
 	}
@@ -54,10 +59,10 @@ func (d *differ) diff(e, f []int, i, j int) {
 	case n == 0 && m == 0:
 		return
 	case n == 0:
-		d.add(hunk{oldStart: i, oldEnd: i, newStart: j, newEnd: j + m})
+		d.add(Hunk{OldStart: i, OldEnd: i, NewStart: j, NewEnd: j + m})
 		return
 	case m == 0:
-		d.add(hunk{oldStart: i, oldEnd: i + n, newStart: j, newEnd: j})
+		d.add(Hunk{OldStart: i, OldEnd: i + n, NewStart: j, NewEnd: j})
 		return
 	}
 	total := n + m
@@ -134,4 +139,84 @@ func (d *differ) arrays(size int) (forward, reverse []int) {
 	clear(forward)
 	clear(reverse)
 	return forward, reverse
+}
+
+// UnifiedDiff renders what turns old into updated as a unified diff of name,
+// three lines of context around each Hunk; empty when nothing changed.
+func UnifiedDiff(name string, old, updated []byte) string {
+	oldLines, newLines := splitLines(string(old)), splitLines(string(updated))
+	ids := map[string]int{}
+	intern := func(lines []string) []int {
+		out := make([]int, len(lines))
+		for i, line := range lines {
+			id, ok := ids[line]
+			if !ok {
+				id = len(ids)
+				ids[line] = id
+			}
+			out[i] = id
+		}
+		return out
+	}
+	hunks := DiffLines(intern(oldLines), intern(newLines))
+	if len(hunks) == 0 {
+		return ""
+	}
+	const context = 3
+	var b strings.Builder
+	fmt.Fprintf(&b, "--- a/%s\n+++ b/%s\n", name, name)
+	for i := 0; i < len(hunks); {
+		start := hunks[i]
+		oldFrom, newFrom := max(start.OldStart-context, 0), max(start.NewStart-context, 0)
+		j := i
+		for j+1 < len(hunks) && hunks[j+1].OldStart-hunks[j].OldEnd <= 2*context {
+			j++
+		}
+		end := hunks[j]
+		oldTo, newTo := min(end.OldEnd+context, len(oldLines)), min(end.NewEnd+context, len(newLines))
+		fmt.Fprintf(&b, "@@ -%s +%s @@\n", hunkRange(oldFrom, oldTo), hunkRange(newFrom, newTo))
+		o, n := oldFrom, newFrom
+		for k := i; k <= j; k++ {
+			for ; o < hunks[k].OldStart; o, n = o+1, n+1 {
+				b.WriteString(" " + oldLines[o])
+			}
+			for ; o < hunks[k].OldEnd; o++ {
+				b.WriteString("-" + oldLines[o])
+			}
+			for ; n < hunks[k].NewEnd; n++ {
+				b.WriteString("+" + newLines[n])
+			}
+		}
+		for ; o < oldTo; o, n = o+1, n+1 {
+			b.WriteString(" " + oldLines[o])
+		}
+		i = j + 1
+	}
+	return b.String()
+}
+
+// hunkRange spells a unified-diff range, 1-based, as "start,count".
+func hunkRange(from, to int) string {
+	if from == to {
+		return fmt.Sprintf("%d,0", from)
+	}
+	if to-from == 1 {
+		return fmt.Sprint(from + 1)
+	}
+	return fmt.Sprintf("%d,%d", from+1, to-from)
+}
+
+// splitLines cuts text into lines that keep their terminator; a last line
+// without one is marked as the diff marks it.
+func splitLines(text string) []string {
+	if text == "" {
+		return nil
+	}
+	lines := strings.SplitAfter(text, "\n")
+	if last := lines[len(lines)-1]; last == "" {
+		lines = lines[:len(lines)-1]
+	} else {
+		lines[len(lines)-1] = last + "\n\\ No newline at end of file\n"
+	}
+	return lines
 }

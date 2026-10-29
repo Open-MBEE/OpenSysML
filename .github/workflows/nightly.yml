@@ -147,7 +147,7 @@ jobs:
           cache: true
 
       - name: Set up Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
 
@@ -221,7 +221,7 @@ jobs:
           cache: true
 
       - name: Set up Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: npm
@@ -721,7 +721,7 @@ jobs:
       # is never rebuilt, so the registry jobs must be able to re-run from what this run kept.
       # A re-run of this job replaces what its earlier attempt kept, so it never trips over it.
       - name: Keep the Python distribution for the PyPI job
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: python-dist
           path: client/python/dist/
@@ -730,7 +730,7 @@ jobs:
           retention-days: 7
 
       - name: Keep the Jupyter kernel distribution for the PyPI job
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: jupyter-kernel-dist
           path: client/jupyter-kernel/dist/
@@ -739,7 +739,7 @@ jobs:
           retention-days: 7
 
       - name: Keep the npm tarballs for the npm job
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: npm-dist
           path: dist/npm/*.tgz
@@ -975,7 +975,7 @@ jobs:
 
       - name: Keep the Cameo plugin as the night's artifact
         if: steps.layout.outputs.present == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: cameo-plugin
           path: dist/cameo/
@@ -1041,7 +1041,7 @@ jobs:
 
       - name: Set up Node.js
         if: steps.layout.outputs.present == 'true'
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
           cache: npm
@@ -1079,7 +1079,7 @@ jobs:
 
       - name: Keep the SysON plugin as the night's artifact
         if: steps.layout.outputs.present == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: syson-plugin
           path: dist/syson/
@@ -1184,7 +1184,7 @@ jobs:
       id-token: write
     steps:
       - name: Set up Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           registry-url: https://registry.npmjs.org

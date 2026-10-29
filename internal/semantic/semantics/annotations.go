@@ -73,6 +73,12 @@ func (m *Model) annotationsOf(sym *symbols.Symbol) []annotation {
 		out = append(out, m.declaredAnnotations(sym)...)
 		out = append(out, m.aboutAnnotations(sym)...)
 	}
+	// Asked while the `about` index is still being built (a view's filter
+	// resolving), the answer is partial: given, not kept.
+	if m.aboutBuilding {
+		delete(m.annotations, sym)
+		return out
+	}
 	m.annotations[sym] = out
 	return out
 }
@@ -632,8 +638,14 @@ func (m *Model) annotationsAbout() map[*symbols.Symbol][]annotation {
 	return m.aboutAnnots
 }
 
+// AboutBuilding reports whether the `about` index is being built, when what the
+// model answers about annotations — and the filters reading them — is partial.
+func (m *Model) AboutBuilding() bool { return m.aboutBuilding }
+
 // buildAbout indexes the `about` metadata usages of every gathered document.
 func (m *Model) buildAbout() {
+	m.aboutBuilding = true
+	defer func() { m.aboutBuilding = false }()
 	m.aboutAnnots = make(map[*symbols.Symbol][]annotation)
 	m.aboutByDecl = make(map[ast.Node][]annotation)
 	gathers := m.gathers()

@@ -111,6 +111,8 @@ type Model struct {
 	aboutByDecl map[ast.Node][]annotation
 	// aboutOrder lists aboutAnnots' targets in first-annotation order.
 	aboutOrder []*symbols.Symbol
+	// aboutBuilding is set while buildAbout runs, when the index is partial.
+	aboutBuilding bool
 	// aboutShared is the about index shared with other models, nil when m builds its own.
 	aboutShared *AboutIndex
 	// docGathers holds what the workspace-wide indexes are built from, per

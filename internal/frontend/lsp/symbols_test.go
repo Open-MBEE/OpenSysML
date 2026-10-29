@@ -14,11 +14,11 @@ func TestDocumentSymbolReturnsTree(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
 	// Open under the resolved absolute name so it round-trips through
-	// uri.File(name).Filename() inside the handler.
-	name := uri.File("/tmp/d.sysml").Filename()
+	// uri.File(name).FsPath() inside the handler.
+	name := uri.File("/tmp/d.sysml").FsPath()
 	ws.Open(name, []byte("package P { namespace N; }"), 1)
 
-	res, err := s.DocumentSymbol(context.Background(), &protocol.DocumentSymbolParams{
+	res, err := documentSymbols(t, s, context.Background(), &protocol.DocumentSymbolParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 	})
 	if err != nil {
@@ -27,10 +27,7 @@ func TestDocumentSymbolReturnsTree(t *testing.T) {
 	if len(res) != 1 {
 		t.Fatalf("top-level symbols = %d, want 1", len(res))
 	}
-	pkg, ok := res[0].(protocol.DocumentSymbol)
-	if !ok {
-		t.Fatalf("result[0] type = %T, want protocol.DocumentSymbol", res[0])
-	}
+	pkg := res[0]
 	if pkg.Name != "P" || pkg.Kind != protocol.SymbolKindPackage {
 		t.Errorf("pkg = %q kind %v, want P/Package", pkg.Name, pkg.Kind)
 	}
@@ -47,15 +44,15 @@ func TestDocumentSymbolReturnsTree(t *testing.T) {
 func TestDocumentSymbolNamesAViewRenderingByItsRendering(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/render.sysml").Filename()
+	name := uri.File("/tmp/render.sysml").FsPath()
 	ws.Open(name, []byte("package P { rendering def Tree; rendering tree : Tree; view def V { render tree; } }"), 1)
-	res, err := s.DocumentSymbol(context.Background(), &protocol.DocumentSymbolParams{
+	res, err := documentSymbols(t, s, context.Background(), &protocol.DocumentSymbolParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 	})
 	if err != nil {
 		t.Fatalf("DocumentSymbol err = %v", err)
 	}
-	pkg := res[0].(protocol.DocumentSymbol)
+	pkg := res[0]
 	var view *protocol.DocumentSymbol
 	for i := range pkg.Children {
 		if pkg.Children[i].Name == "V" {

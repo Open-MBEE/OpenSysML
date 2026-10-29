@@ -10,8 +10,10 @@ import (
 	"unicode/utf8"
 
 	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/format"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 // formatSource is the formatter behind both formatting requests; tests swap it
@@ -42,8 +44,8 @@ func (w lineWindow) has(line int) bool { return w.from <= line && line < w.to }
 // its formatted form, or none when there is nothing to do. A document that does
 // not parse is left alone: its brace structure is unreliable, and reformatting a
 // file the author is midway through editing is worse than doing nothing.
-func (s *Server) formattingEdits(uri protocol.DocumentURI, opts protocol.FormattingOptions, w lineWindow) ([]protocol.TextEdit, error) {
-	name := uriToName(uri)
+func (s *Server) formattingEdits(docURI uri.URI, opts protocol.FormattingOptions, w lineWindow) ([]protocol.TextEdit, error) {
+	name := uriToName(docURI)
 	doc := s.ws.Document(name)
 	if doc == nil || len(doc.ParseDiagnostics) > 0 {
 		return nil, nil
@@ -119,38 +121,38 @@ func formatEdits(content, formatted []byte, w lineWindow) []protocol.TextEdit {
 	oldNext, newNext := 0, 0
 	keys := lineKeys{ids: make(map[string]int, len(oldLines))}
 	oldIDs, newIDs := keys.of(oldLines, len(content)), keys.of(newLines, len(formatted))
-	hunks := append(diffLines(oldIDs, newIDs), hunk{len(oldLines), len(oldLines), len(newLines), len(newLines)})
+	hunks := append(model.DiffLines(oldIDs, newIDs), model.Hunk{OldStart: len(oldLines), OldEnd: len(oldLines), NewStart: len(newLines), NewEnd: len(newLines)})
 	for k, h := range hunks {
-		surplus := (h.oldEnd - h.oldStart) - (h.newEnd - h.newStart)
-		if surplus > 0 && uniform(oldIDs[h.oldStart:h.oldEnd], oldIDs[h.oldStart]) && uniform(newIDs[h.newStart:h.newEnd], oldIDs[h.oldStart]) {
+		surplus := (h.OldEnd - h.OldStart) - (h.NewEnd - h.NewStart)
+		if surplus > 0 && uniform(oldIDs[h.OldStart:h.OldEnd], oldIDs[h.OldStart]) && uniform(newIDs[h.NewStart:h.NewEnd], oldIDs[h.OldStart]) {
 			// Dropping from a run of like lines (blanks) has no natural place; widen
 			// the hunk over the run so any selected line of it may be the one to go.
-			id := oldIDs[h.oldStart]
-			for h.oldStart > oldNext && oldIDs[h.oldStart-1] == id {
-				h.oldStart, h.newStart = h.oldStart-1, h.newStart-1
+			id := oldIDs[h.OldStart]
+			for h.OldStart > oldNext && oldIDs[h.OldStart-1] == id {
+				h.OldStart, h.NewStart = h.OldStart-1, h.NewStart-1
 			}
-			for h.oldEnd < hunks[k+1].oldStart && oldIDs[h.oldEnd] == id {
-				h.oldEnd, h.newEnd = h.oldEnd+1, h.newEnd+1
+			for h.OldEnd < hunks[k+1].OldStart && oldIDs[h.OldEnd] == id {
+				h.OldEnd, h.NewEnd = h.OldEnd+1, h.NewEnd+1
 			}
 		}
-		pairLines(oldNext, h.oldStart, newNext)
-		oldNext, newNext = h.oldEnd, h.newEnd
+		pairLines(oldNext, h.OldStart, newNext)
+		oldNext, newNext = h.OldEnd, h.NewEnd
 		if surplus == 0 {
-			pairLines(h.oldStart, h.oldEnd, h.newStart)
+			pairLines(h.OldStart, h.OldEnd, h.NewStart)
 			continue
 		}
 		if surplus < 0 {
 			// More new lines than old: pair in order, insert the rest after the hunk.
-			pairLines(h.oldStart, h.oldEnd, h.newStart)
-			if w.has(max(h.oldEnd-1, 0)) {
-				replace(oldOffsets[h.oldEnd], oldOffsets[h.oldEnd], strings.Join(newLines[h.newStart+h.oldEnd-h.oldStart:h.newEnd], ""))
+			pairLines(h.OldStart, h.OldEnd, h.NewStart)
+			if w.has(max(h.OldEnd-1, 0)) {
+				replace(oldOffsets[h.OldEnd], oldOffsets[h.OldEnd], strings.Join(newLines[h.NewStart+h.OldEnd-h.OldStart:h.NewEnd], ""))
 			}
 			continue
 		}
 		// The hunk drops lines (the formatter only ever removes blank ones). Take
 		// them from the end of the window's part first, so a selection never has
 		// to change a line outside it, and pair the survivors with the new lines.
-		from, to := max(h.oldStart, w.from), min(h.oldEnd, w.to)
+		from, to := max(h.OldStart, w.from), min(h.OldEnd, w.to)
 		if from >= to {
 			continue
 		}
@@ -159,15 +161,15 @@ func formatEdits(content, formatted []byte, w lineWindow) []protocol.TextEdit {
 		dropped := func(i int) bool {
 			switch {
 			case i >= to:
-				return h.oldEnd-i <= outside
+				return h.OldEnd-i <= outside
 			case i < from:
-				return i-h.oldStart < outside-(h.oldEnd-to)
+				return i-h.OldStart < outside-(h.OldEnd-to)
 			default:
 				return i >= dropFrom
 			}
 		}
-		j := h.newStart
-		for i := h.oldStart; i < h.oldEnd; i++ {
+		j := h.NewStart
+		for i := h.OldStart; i < h.OldEnd; i++ {
 			if dropped(i) {
 				continue
 			}

@@ -1,0 +1,1 @@
+- The `drawio` rendering form lays unplaced nodes, and the members inside a container, out with a corridor between neighbours that the edge router can use: twice its clearance, the two half port squares, and one nudging lane (50 px instead of 40), so two parts with ports on their facing sides route instead of being left for draw.io to route under a notice.

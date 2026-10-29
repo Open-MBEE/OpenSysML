@@ -144,10 +144,14 @@ library package DocumentQueries {
 		return result : Element[0..*] ordered;
 	}
 
-	/* WhereType keeps the elements that are of any of the named types. */
+	/* WhereType keeps the elements that are of any of the named types: a metaclass
+	 * (PartUsage) or a definition/usage of the model, subtypes included. */
 	calc def WhereType {
 		in source : Element[0..*] ordered;
 		in type : String[1..*] ordered;
+		/* exact = true keeps only the elements whose own metaclass is one of the named
+		 * ones, neither its subclasses nor the model's types: the reflective walk. */
+		in exact : Boolean[1] default false;
 		return result : Element[0..*] ordered;
 	}
 
@@ -416,6 +420,18 @@ library package DocumentQueries {
 	calc def Union {
 		in source : Element[0..*] ordered;
 		in other : Element[0..*] ordered;
+		return result : Element[0..*] ordered;
+	}
+
+	/* Differ: one row (key, column of left, column of right) per key value present
+	 * in both left and right whose column cells differ — a keyed value comparison;
+	 * keys on one side only are Except's. A key value carried by two rows on one
+	 * side is a model error. */
+	calc def Differ {
+		in left : Element[0..*] ordered;
+		in right : Element[0..*] ordered;
+		in key : String[1];
+		in column : String[1];
 		return result : Element[0..*] ordered;
 	}
 

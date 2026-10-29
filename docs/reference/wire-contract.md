@@ -1748,10 +1748,12 @@ one per assertion. All three return the `instances` they built, in the same shap
 With no `subjectSymbolId`, the three — and `RunAnalysis` — evaluate over the objects
 `Instantiate` holds for the model, as the REPL's `%constraint`, `%requirement`, `%satisfy` and
 `%analysis` are about the objects a session holds: a constraint or requirement a definition owns
-is checked on the one held object carrying it (ambiguous over several of distinct declarations, as
-the REPL answers; one declaration instantiated twice is checked on its newest object), a
-verification case a definition owns runs once per held object of that definition and reports a
-`verificationVerdicts` entry about each, naming the object by `instanceId`, and a `satisfy`
+is checked on the one held object carrying it (ambiguous over several, as the REPL answers —
+objects of distinct declarations and the two objects one declaration instantiated twice leaves
+alike, the one the name no longer denotes named `Bolt #1 (displaced from b)`), a verification
+case a definition owns runs once per held object of that definition — every live one, the object
+a second `Instantiate` of its name displaced included — and reports a `verificationVerdicts`
+entry about each, naming the object by `instanceId`, and a `satisfy`
 a definition states is decided per held object with `instancePath` spelling the object's path
 from the root it was instantiated under (`cheap[2]`), as `ValidateInstance` spells it. The
 `instances` carry every object a verdict is about. With nothing held, the answer is about

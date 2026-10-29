@@ -15,7 +15,7 @@ func TestWorkspaceSymbolFindsByQuery(t *testing.T) {
 	ws.Open("a.sysml", []byte("package Alpha { namespace Nested; }"), 1)
 	ws.Open("b.sysml", []byte("package Beta;"), 1)
 
-	got, err := s.Symbols(context.Background(), &protocol.WorkspaceSymbolParams{Query: "est"})
+	got, err := workspaceSymbols(t, s, context.Background(), &protocol.WorkspaceSymbolParams{Query: "est"})
 	if err != nil {
 		t.Fatalf("Symbols err = %v", err)
 	}
@@ -27,8 +27,8 @@ func TestWorkspaceSymbolFindsByQuery(t *testing.T) {
 		t.Errorf("Kind = %v, want Namespace", got[0].Kind)
 	}
 	// Nested lives inside Alpha, in a.sysml.
-	if got[0].ContainerName != "Alpha" {
-		t.Errorf("ContainerName = %q, want %q", got[0].ContainerName, "Alpha")
+	if got[0].ContainerName == nil || *got[0].ContainerName != "Alpha" {
+		t.Errorf("ContainerName = %v, want %q", got[0].ContainerName, "Alpha")
 	}
 	if got[0].Location.URI != nameToURI("a.sysml") {
 		t.Errorf("URI = %v, want %v", got[0].Location.URI, nameToURI("a.sysml"))
@@ -42,7 +42,7 @@ func TestWorkspaceSymbolAggregatesAcrossDocuments(t *testing.T) {
 	ws.Open("b.sysml", []byte("package Gadget;"), 1)
 
 	// "get" matches both Widget and Gadget across the two documents.
-	got, err := s.Symbols(context.Background(), &protocol.WorkspaceSymbolParams{Query: "get"})
+	got, err := workspaceSymbols(t, s, context.Background(), &protocol.WorkspaceSymbolParams{Query: "get"})
 	if err != nil {
 		t.Fatalf("Symbols err = %v", err)
 	}
@@ -60,7 +60,7 @@ func TestWorkspaceSymbolEmptyQueryReturnsAll(t *testing.T) {
 	s := NewServer(ws)
 	ws.Open("a.sysml", []byte("package Alpha { namespace Nested; }"), 1)
 
-	got, err := s.Symbols(context.Background(), &protocol.WorkspaceSymbolParams{Query: ""})
+	got, err := workspaceSymbols(t, s, context.Background(), &protocol.WorkspaceSymbolParams{Query: ""})
 	if err != nil {
 		t.Fatalf("Symbols err = %v", err)
 	}

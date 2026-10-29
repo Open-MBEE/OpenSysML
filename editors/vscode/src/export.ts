@@ -4,7 +4,7 @@
 import { RENDER_DEPTH_CAPABILITY, RENDER_ELEMENTS_CAPABILITY, RENDER_FORMS_CAPABILITY, RENDER_STYLES_CAPABILITY, RenderParams, RenderResult } from "./protocol";
 
 /** The forms `opensysml/render` writes, as the wire contract documents them, for a server that lists none itself. */
-export const DOCUMENTED_FORMS: readonly string[] = ["text", "mermaid", "markdown", "dot", "plantuml", "d2"];
+export const DOCUMENTED_FORMS: readonly string[] = ["text", "mermaid", "markdown", "dot", "plantuml", "d2", "drawio"];
 
 /** How an exported form is saved: the file extension and the save dialog's filter name. */
 export interface ExportFile {
@@ -22,6 +22,7 @@ const FORMS: Record<string, FormDescription> = {
   dot: { extension: ".dot", filter: "Graphviz DOT", description: "Graphviz DOT graph; a positioned view names its layout engine" },
   plantuml: { extension: ".puml", filter: "PlantUML", description: "PlantUML diagram in the Pilot visualizer's style" },
   d2: { extension: ".d2", filter: "D2", description: "D2 diagram, nested containers in the Pilot visualizer's style" },
+  drawio: { extension: ".drawio", filter: "draw.io", description: "diagrams.net (draw.io) file, editable in draw.io desktop, diagrams.net and the VS Code draw.io extension" },
   markdown: { extension: ".md", filter: "Markdown", description: "Markdown pipe table, for a table view" },
   csv: { extension: ".csv", filter: "CSV", description: "Comma-separated values, for a table view" },
   tsv: { extension: ".tsv", filter: "TSV", description: "Tab-separated values, for a table view" },

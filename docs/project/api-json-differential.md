@@ -230,7 +230,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 924 files)
 
-**Scorecard:** 932 files; 92426 elements matched (18479 ours-only, 37741 pilot-only, 0 of them implied); properties: 1120886 present-equal, 27496 present-different, 1073445 ours-missing, 68202 pilot-missing, 1971713 absent-both, 26127 indeterminate, 514 pilot-nondeterministic.
+**Scorecard:** 932 files; 92426 elements matched (18479 ours-only, 37741 pilot-only, 0 of them implied); properties: 1120818 present-equal, 27564 present-different, 1073445 ours-missing, 68202 pilot-missing, 1971713 absent-both, 26127 indeterminate, 514 pilot-nondeterministic.
 
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 28 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11728 (metaclass, property) rows carry a comparison; 111690 references compared through the unkeyed sentinel, 159865 of our `sysx:` annotations were left out, and 287/347 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
@@ -242,9 +242,18 @@ The pilot's export failed on 59 files (`pilotFailed`: its own export throws on a
 | `examples/pilot-corpora/kerml-examples` | 58 | 6399 | 1166 | 1842 | 73725 | 2504 | 63918 | 5784 |
 | `examples/spec-examples` | 511 | 7074 | 990 | 2656 | 76404 | 1567 | 74068 | 5295 |
 | `tests/testdata` | 40 | 1460 | 175 | 511 | 16445 | 428 | 15857 | 1042 |
-| `examples` | 53 | 26937 | 6046 | 15045 | 332702 | 8290 | 322123 | 19997 |
+| `examples` | 53 | 26937 | 6046 | 15045 | 332672 | 8320 | 322123 | 19997 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 555 | 1 | 454 | 41 |
-| `docs/manual/examples` | 11 | 7199 | 920 | 2110 | 88779 | 2034 | 89601 | 4816 |
+| `docs/manual/examples` | 11 | 7199 | 920 | 2110 | 88741 | 2072 | 89601 | 4816 |
+
+**Defaulted parameters of an invocation** (re-recorded with the extension libraries at
+`DocumentQueries::WhereType(…, exact = false)` and `Differ`): the pilot's `InvocationExpression.parameter`
+and `.input` list every parameter of the called calculation, a defaulted one the call does not bind
+included, while this repository's writer lists the bound ones — so the 34 `WhereType` calls of
+`examples` and `docs/manual/examples` moved from present-equal to present-different on both
+properties (`InvocationExpression.input` 368 → 334 equal, `.parameter` 382 → 348) when the library
+gained the parameter. The further pilot-library elements (198 for `exact`, 810 for `Differ`) are the
+new declarations themselves. No other row moved. Listing the defaulted parameters is a writer follow-up.
 
 The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's seven counts.
 

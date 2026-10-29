@@ -168,7 +168,7 @@ Output with a richer form than plain text is a `display_data` carrying that form
 | `%render <view> markdown` | `text/markdown` |
 | `%render <view> csv` | `text/csv` |
 | `%render <view> tsv` | `text/tab-separated-values` |
-| `%render <view> plantuml`, `d2` | `text/plain` — the diagram source |
+| `%render <view> plantuml`, `d2`, `drawio` | `text/plain` — the diagram source |
 | `%render-document <doc> [form [style]]` | `text/markdown` |
 | `%render-document <doc> [form [style]] html` | `text/html`, the HTML backend's fragment for the host page |
 | `%features <instance> json` | `application/json` |

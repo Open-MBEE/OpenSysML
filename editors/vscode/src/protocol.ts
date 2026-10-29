@@ -500,3 +500,34 @@ export type FromWebview =
   /** A node dropped on another: moved into it as a declaration, and placed where it was released. */
   | { type: "reparent"; id: string; owner: string; nodes: NodePlacement[]; edges: EdgePlacement[]; drawn: number }
   | { type: "failed"; message: string };
+
+export const IMPORT_DIAGRAM_METHOD = "opensysml/importDiagram";
+
+export interface ImportDiagramParams {
+  textDocument: { uri: string };
+  path?: string;
+  content?: string;
+  view?: string;
+  inline?: boolean;
+  dryRun?: boolean;
+}
+
+export interface ImportDiagramEdit {
+  kind: string;
+  target?: string;
+  label?: string;
+  cell: string;
+}
+
+export interface ImportDiagramResult {
+  view: string;
+  dryRun: boolean;
+  edits: ImportDiagramEdit[];
+  unmatched?: string[];
+  unknown?: string[];
+  deleted?: string[];
+  notices?: string[];
+  refused?: { operation: number; failure: string; message: string }[];
+  version: number;
+  edit?: unknown;
+}

@@ -3,7 +3,9 @@
 `sysml-lsp` implements the Language Server Protocol over standard input and output, so any editor
 with a generic LSP client can use it. The VS Code extension in
 [editors/vscode](../../editors/vscode) also adds `.sysml` and `.kerml` syntax
-highlighting.
+highlighting; editors built on Tree-sitter get theirs from
+[tree-sitter-sysml](https://github.com/Open-MBEE/tree-sitter-sysml), see
+[Helix, Neovim and Zed](#helix-neovim-and-zed).
 
 ## VS Code
 
@@ -182,7 +184,9 @@ the first diagram opened in a session move out on its own; later ones join it as
 the drawn view in a form you pick from a list: Mermaid (`.mmd`) with the model's positions as
 `%% layout:` comments, Graphviz DOT (`.dot`) with the positions as `pos` attributes and a
 `// layout:` header naming the engine that keeps them, PlantUML (`.puml`) in the Pilot
-visualizer's style, D2 (`.d2`) in the same look, Markdown (`.md`), comma-separated (`.csv`) or tab-separated (`.tsv`) values
+visualizer's style, D2 (`.d2`) in the same look, a diagrams.net file (`.drawio`) that draw.io desktop,
+the diagrams.net editor and the VS Code draw.io extension open — stated positions kept, an unplaced view
+on a grid for *Arrange › Layout* or `drawio --normalize --layout elkLayered` to arrange —, Markdown (`.md`), comma-separated (`.csv`) or tab-separated (`.tsv`) values
 for a table, or the text form (`.txt`). The list is the
 one the connected server advertises, so it matches what that server writes; the pick is sent
 as the request's `form`, the server writes that form, and the save dialog opens on the matching
@@ -201,7 +205,7 @@ declaration included), hover and the diagram panel can all land in it. Such a lo
 reported under the `sysml-stdlib:` scheme, whose path is the file's path within the library:
 
 ```
-sysml-stdlib:///Kernel%20Libraries/Kernel%20Data%20Type%20Library/ScalarValues.kerml
+sysml-stdlib:/Kernel%20Libraries/Kernel%20Data%20Type%20Library/ScalarValues.kerml
 ```
 
 In VS Code, <kbd>Ctrl</kbd>+click on a library name opens that file in a read-only editor
@@ -248,6 +252,70 @@ parameter list of what it calls appears as you type, and inlay hints show the ty
 declared without one is inferred to have and the constant a value evaluates to from the model
 alone (<kbd>Ctrl</kbd>+<kbd>Alt</kbd> toggles them when `editor.inlayHints.enabled` is
 `offUnlessPressed`).
+
+#### Importing a layout from draw.io
+
+`SysML: Import layout from draw.io…` (beside *Export Diagram* in the title bar's `…` menu and the
+right-click menu) reads a `.drawio` file that *Export Diagram* wrote and you edited in draw.io
+desktop, the diagrams.net editor or the VS Code draw.io extension, and writes what you moved,
+resized, collapsed, re-routed or recoloured — and a changed page size, a moved or retyped note, a
+picture pointed at another image file — back into the model as `DiagramLayout` metadata in the
+view's body, exactly as dragging a node in the diagram panel does, in one undoable edit; a node,
+port or edge whose text you retyped with only its name changed renames the element and every
+reference to it. Cells that name no element, elements the rendering no longer has and cells you
+deleted are reported, not created or deleted, as are a label edited beyond its name, a name that
+is not valid or already taken, an emptied note and a picture given embedded data or a file outside
+the view's directory. The same import is
+`sysml model.sysml -import-diagram view.drawio -dry-run` on the command line, which prints the
+planned edits and a diff first.
+
+## Helix, Neovim and Zed
+
+[tree-sitter-sysml](https://github.com/Open-MBEE/tree-sitter-sysml) ships Tree-sitter grammars
+for both notations — `sysml/` for `.sysml` files and `kerml/` for `.kerml` files, generated from one
+shared definition so that a word reserved in one notation stays an ordinary name in the other — with
+the query files editors expect under `queries/<lang>/`: highlights, injections (comments and
+`rep language "…"` bodies), locals, tags, folds, indents and textobjects. The grammars follow the
+OMG textual notation as encoded in the pilot implementation's Xtext at the release OpenSysML pins,
+and every model under `examples/` and in the bundled standard library parses with them. They give
+an editor highlighting, folding, indentation and textobjects without a running server;
+`sysml-lsp` adds diagnostics, completion and navigation on top, declared the same way as any other
+language server.
+
+Helix takes both from `languages.toml`; `rev` is a commit on the grammar repository's `develop`
+branch:
+
+```toml
+[language-server.sysml-lsp]
+command = "sysml-lsp"
+args = ["--stdio"]
+
+[[language]]
+name = "sysml"
+scope = "source.sysml"
+injection-regex = "sysml"
+file-types = ["sysml"]
+comment-tokens = "//"
+block-comment-tokens = { start = "/*", end = "*/" }
+indent = { tab-width = 4, unit = "    " }
+language-servers = ["sysml-lsp"]
+
+[[grammar]]
+name = "sysml"
+source = { git = "https://github.com/Open-MBEE/tree-sitter-sysml", rev = "<commit>", subpath = "sysml" }
+```
+
+The `kerml` language and grammar are declared the same way with `subpath = "kerml"`. Then
+`hx --grammar fetch && hx --grammar build`, and copy `queries/sysml/` and `queries/kerml/` from the
+grammar repository into `~/.config/helix/runtime/queries/`.
+
+Neovim registers the parsers with nvim-treesitter (`location = "sysml"` or `"kerml"`,
+`files = { "src/parser.c" }`, `branch = "develop"`) and the server with nvim-lspconfig
+(`cmd = { "sysml-lsp", "--stdio" }` for the `sysml` and `kerml` filetypes, which
+`vim.filetype.add` maps from the two extensions). A Zed extension points its
+`grammars.<name>.repository` at the repository with `path = "sysml"` or `"kerml"` and reuses the
+query files. The grammar repository's README carries the complete snippets for each editor and
+is the reference when they change.
 
 ## OpenCode
 

@@ -23,6 +23,9 @@ type Context struct {
 	Resolver  *resolve.Resolver
 	Model     *semantics.Model
 	LineIndex func(doc string) *source.LineIndex
+	// ElementID reads the elementId a conversion of the model writes for an
+	// element, or why the model has none; without one, elementId is absent.
+	ElementID func(sym *symbols.Symbol) (string, error)
 	// Runtime holds the objects the query may read; nil makes object bindings
 	// and Objects typed errors.
 	Runtime *runtime.Context
@@ -102,8 +105,13 @@ type executor struct {
 	// metadataTypes memoizes the metadata def each property-string spelling
 	// names, shared by every executor of one execution.
 	metadataTypes map[string]*symbols.Symbol
-	depthLeft     int
-	stack         []string
+	// metaclassFeatures memoizes each metaclass's properties (metaclassProperties).
+	metaclassFeatures map[*symbols.Symbol]map[string]metaclassProperty
+	// elementIDErr is why the model has no elementIds, once a read asked for
+	// one: the conversion that writes them refused the model.
+	elementIDErr error
+	depthLeft    int
+	stack        []string
 	// cell is the computed cell being evaluated, whose variables query
 	// operations invoked inside it read; nil outside a cell.
 	cell *cellContext
@@ -146,19 +154,21 @@ func Execute(program *queryplan.Program, context Context, bindings Bindings, opt
 		related = NewRelationshipTables()
 	}
 	execution := &executor{
-		definition:    definition,
-		context:       context,
-		reader:        query.NewPropertyReader(context.Index, context.Resolver, context.Model),
-		bindings:      make(map[string]sequence),
-		program:       compiled,
-		budget:        &visitBudget{remaining: budget},
-		calls:         &visitBudget{remaining: calls},
-		related:       related,
-		derived:       &derivedValues{},
-		metadataTypes: make(map[string]*symbols.Symbol),
-		depthLeft:     depth,
-		stack:         []string{definition.Name()},
+		definition:        definition,
+		context:           context,
+		reader:            query.NewPropertyReader(context.Index, context.Resolver, context.Model),
+		bindings:          make(map[string]sequence),
+		program:           compiled,
+		budget:            &visitBudget{remaining: budget},
+		calls:             &visitBudget{remaining: calls},
+		related:           related,
+		derived:           &derivedValues{},
+		metadataTypes:     make(map[string]*symbols.Symbol),
+		metaclassFeatures: make(map[*symbols.Symbol]map[string]metaclassProperty),
+		depthLeft:         depth,
+		stack:             []string{definition.Name()},
 	}
+	execution.reader.WithElementID(execution.elementID)
 	if err := execution.bind(bindings); err != nil {
 		return nil, err
 	}
@@ -439,6 +449,8 @@ func (e *executor) evaluate(expression queryplan.Expression) (sequence, error) {
 		return e.evaluateExcept(expression)
 	case queryplan.OperationUnion:
 		return e.evaluateUnion(expression)
+	case queryplan.OperationDiffer:
+		return e.evaluateDiffer(expression)
 	case queryplan.OperationStates:
 		return e.evaluateStates(expression)
 	case queryplan.OperationInState:

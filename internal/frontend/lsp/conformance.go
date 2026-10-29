@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"encoding/json"
 	"slices"
 
 	"go.lsp.dev/protocol"
@@ -32,6 +33,16 @@ const settingsSection = "sysml"
 // settings payload asks for, and reports whether the mode changed: a payload
 // without the setting leaves the mode alone rather than resetting it, and a
 // workspace that cannot answer the new mode says why to the client.
+// decodeSettings reads a settings payload as the generic JSON the readers walk;
+// nothing, when it is absent or malformed.
+func decodeSettings(raw protocol.LSPAny) any {
+	var payload any
+	if len(raw) == 0 || json.Unmarshal(raw, &payload) != nil {
+		return nil
+	}
+	return payload
+}
+
 func (s *Server) applyConformanceSettings(ctx context.Context, payload any) bool {
 	strict, ok := strictConformanceSetting(payload)
 	if !ok {
@@ -53,9 +64,10 @@ func (s *Server) DidChangeConfiguration(ctx context.Context, params *protocol.Di
 	if params == nil {
 		return nil
 	}
-	modeChanged := s.applyConformanceSettings(ctx, params.Settings)
-	lintsChanged := s.applyLintSettings(ctx, params.Settings)
-	if s.applyLibraryRootsSetting(params.Settings) {
+	settings := decodeSettings(params.Settings)
+	modeChanged := s.applyConformanceSettings(ctx, settings)
+	lintsChanged := s.applyLintSettings(ctx, settings)
+	if s.applyLibraryRootsSetting(settings) {
 		// The walk republishes the open documents, whose imports may now resolve.
 		s.reloadDependencies(ctx)
 		return nil

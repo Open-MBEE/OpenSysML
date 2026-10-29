@@ -68,8 +68,14 @@ func newFixture(t *testing.T) *fixture {
 	write(t, root, "b.sysml", fleet)
 	write(t, root, "c.sysml", accents)
 	write(t, root, "bad.sysml", broken)
+	return newFixtureOver(t, root, model.NewWorkspace())
+}
+
+// newFixtureOver serves the files under root through ws.
+func newFixtureOver(t *testing.T, root string, ws *model.Workspace) *fixture {
+	t.Helper()
 	ctx := context.Background()
-	host, err := NewHost(ctx, root, model.NewWorkspace(), "test")
+	host, err := NewHost(ctx, root, ws, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -785,7 +791,7 @@ func TestAWriteRechecksWhereALinkPoints(t *testing.T) {
 	if err := os.Symlink(outside, alias); err != nil {
 		t.Fatal(err)
 	}
-	err = f.host.writeAll(ctx, []pendingWrite{{name: ref.name, content: []byte("package Hijacked;\n"), base: []byte("package Outside;\n")}})
+	_, err = f.host.writeAll(ctx, []pendingWrite{{name: ref.name, content: []byte("package Hijacked;\n"), base: []byte("package Outside;\n")}})
 	if err == nil || !strings.Contains(err.Error(), "outside the workspace root") {
 		t.Errorf("write through a repointed link: %v", err)
 	}
@@ -799,7 +805,7 @@ func TestAWorkspaceEditOutsideTheRootIsRefused(t *testing.T) {
 	outside := filepath.Join(filepath.Dir(f.root), "outside-edit.sysml")
 	write(t, filepath.Dir(f.root), "outside-edit.sysml", "package Outside;\n")
 	t.Cleanup(func() { _ = os.Remove(outside) })
-	edit := &protocol.WorkspaceEdit{Changes: map[protocol.DocumentURI][]protocol.TextEdit{
+	edit := &protocol.WorkspaceEdit{Changes: map[uri.URI][]protocol.TextEdit{
 		uri.File(outside): {{Range: protocol.Range{}, NewText: "x"}},
 	}}
 	for _, apply := range []bool{false, true} {
@@ -816,7 +822,7 @@ func TestAWorkspaceEditOutsideTheRootIsRefused(t *testing.T) {
 func TestAWriteOverTextItWasNotComputedFromIsRefused(t *testing.T) {
 	f := newFixture(t)
 	before := f.snapshot()
-	err := f.host.writeAll(context.Background(), []pendingWrite{{name: filepath.Join(f.root, "a.sysml"), content: []byte("package A;\n"), base: []byte(vehicles + "// changed meanwhile\n")}})
+	_, err := f.host.writeAll(context.Background(), []pendingWrite{{name: filepath.Join(f.root, "a.sysml"), content: []byte("package A;\n"), base: []byte(vehicles + "// changed meanwhile\n")}})
 	if err == nil || !strings.Contains(err.Error(), "changed on disk") {
 		t.Errorf("write over changed text: %v", err)
 	}

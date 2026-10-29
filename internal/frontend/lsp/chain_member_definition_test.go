@@ -30,13 +30,13 @@ func TestDefinitionChainMemberThroughUsage(t *testing.T) {
 }`
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/chain_member.sysml").Filename()
+	name := uri.File("/tmp/chain_member.sysml").FsPath()
 	ws.Open(name, []byte(src), 1)
 
 	declLine := func(anchor string) uint32 {
 		t.Helper()
 		off := strings.Index(src, anchor) + len(anchor) - 1
-		locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+		locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 				Position:     offsetToPosition([]byte(src), off),

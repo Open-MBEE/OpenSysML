@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:342441cc1747db48c087e6923d98e11323873fc80c59d21bfb65e582ca5b0cba"
+        "sourceDigest": "sha256:54e4769878361756813bfd20ec37a3e5ee3436e61d13bc6cd89c6c53291d99e4"
       }
     ],
     "inputs": [
@@ -65,7 +65,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 53,
-        "digest": "sha256:bdb2697affc4ba131d52ed104b24d0aa0419e7cc261942d584472876b0d249b8"
+        "digest": "sha256:710f0a455f761d34938ae3a5c1bd16b4f212f7a66d7ed4d45d6d97fbaa8ae5c1"
       },
       {
         "name": "probes",
@@ -86,10 +86,10 @@
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
         "files": 16,
-        "digest": "sha256:ac6a1e3b3376227415fa16aec5bf1918312a69cad0d8d63b6adcda799a44c9b3"
+        "digest": "sha256:4f350c5a695cda953e0fb8f1b9b273c998f57480b9770bf063b6ca51a96cdf13"
       }
     ],
-    "recorded": "2026-10-28"
+    "recorded": "2026-10-29"
   },
   "exporter": "org.omg.sysml.util.traversal.facade.impl.JsonElementProcessingFacade with setIsIncludeDerived(true), each input resource's root elements visited through org.omg.sysml.util.traversal.Traversal, toJsonTree(true) (the path of SysMLInteractive.export, the %export magic), via scripts/pilot-json-exporter/ExportJSON.java",
   "normalizations": [
@@ -111,7 +111,7 @@
     "oursUnconvertible": 0,
     "oursColliding": 28,
     "pilotFailed": 59,
-    "pilotLibraryElements": 37415,
+    "pilotLibraryElements": 38423,
     "elements": {
       "matched": 92426,
       "oursOnly": 18479,
@@ -120,8 +120,8 @@
       "typeMismatch": 1729
     },
     "properties": {
-      "presentEqual": 1120886,
-      "presentDifferent": 27496,
+      "presentEqual": 1120818,
+      "presentDifferent": 27564,
       "oursMissing": 1073445,
       "pilotMissing": 68202,
       "absentBoth": 1971713,
@@ -371,7 +371,7 @@
       "oursRefused": 0,
       "pilotFailed": 0,
       "oursColliding": 3,
-      "pilotLibraryElements": 15571,
+      "pilotLibraryElements": 15963,
       "elements": {
         "matched": 26937,
         "oursOnly": 6046,
@@ -380,8 +380,8 @@
         "typeMismatch": 186
       },
       "properties": {
-        "presentEqual": 332702,
-        "presentDifferent": 8290,
+        "presentEqual": 332672,
+        "presentDifferent": 8320,
         "oursMissing": 322123,
         "pilotMissing": 19997,
         "absentBoth": 598024,
@@ -443,7 +443,7 @@
       "files": 11,
       "oursRefused": 0,
       "pilotFailed": 0,
-      "pilotLibraryElements": 17088,
+      "pilotLibraryElements": 17704,
       "elements": {
         "matched": 7199,
         "oursOnly": 920,
@@ -452,8 +452,8 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 88779,
-        "presentDifferent": 2034,
+        "presentEqual": 88741,
+        "presentDifferent": 2072,
         "oursMissing": 89601,
         "pilotMissing": 4816,
         "absentBoth": 150233,
@@ -51891,8 +51891,8 @@
       0
     ],
     "InvocationExpression.input": [
-      368,
-      96,
+      334,
+      130,
       1,
       0,
       15,
@@ -52314,8 +52314,8 @@
       0
     ],
     "InvocationExpression.parameter": [
-      382,
-      98,
+      348,
+      132,
       0,
       0,
       0,

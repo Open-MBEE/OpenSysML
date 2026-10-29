@@ -48,8 +48,8 @@ type RelatedElement struct {
 	Name string `json:"name"`
 	Kind string `json:"kind"`
 	// DeclaredHere is true when the requested document declares the element.
-	DeclaredHere bool          `json:"declaredHere,omitempty"`
-	Origin       *RenderOrigin `json:"origin,omitempty"`
+	DeclaredHere bool          `json:"declaredHere,omitzero"`
+	Origin       *RenderOrigin `json:"origin,omitzero"`
 }
 
 // relatedKindNames lists the relationship kinds the result groups by.

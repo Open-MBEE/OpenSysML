@@ -33,7 +33,7 @@ func openRequirementShortNameDoc(t *testing.T) (*Server, *model.Workspace, strin
 	t.Helper()
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/requirement_short_names.sysml").Filename()
+	name := uri.File("/tmp/requirement_short_names.sysml").FsPath()
 	ws.Open(name, []byte(requirementShortNameSrc), 1)
 	return s, ws, name
 }
@@ -62,7 +62,7 @@ func TestDefinitionRequirementMemberShortName(t *testing.T) {
 		{"R::t;", 7},
 	}
 	for _, tc := range cases {
-		locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+		locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 				Position:     requirementShortNamePos(t, tc.anchor, len(tc.anchor)-2),
@@ -94,7 +94,7 @@ func TestHoverRequirementMemberShortName(t *testing.T) {
 		if res == nil {
 			t.Fatalf("%s: no hover", anchor)
 		}
-		return res.Contents.Value
+		return hoverMarkup(t, res).Value
 	}
 	for _, tc := range []struct{ anchor, want string }{
 		{":>> s;", "subject x"},
@@ -118,13 +118,13 @@ func TestHoverRequirementMemberShortName(t *testing.T) {
 // that is the only name it declares.
 func TestDocumentSymbolRequirementMemberShortNames(t *testing.T) {
 	s, _, name := openRequirementShortNameDoc(t)
-	res, err := s.DocumentSymbol(context.Background(), &protocol.DocumentSymbolParams{
+	res, err := documentSymbols(t, s, context.Background(), &protocol.DocumentSymbolParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 	})
 	if err != nil {
 		t.Fatalf("DocumentSymbol err = %v", err)
 	}
-	pkg := res[0].(protocol.DocumentSymbol)
+	pkg := res[0]
 	var names []string
 	for _, child := range pkg.Children {
 		if child.Name != "R" {

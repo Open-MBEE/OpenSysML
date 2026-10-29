@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -892,4 +893,92 @@ func TestSetLayoutFoldOnlyWritesCollapsedAlone(t *testing.T) {
 	if e := editError(t, err); e.Failure != FailureInvalidValue || !strings.Contains(e.Message, "cannot size its node without placing it") {
 		t.Fatalf("unplaced layout with a size: %+v", e)
 	}
+}
+
+// motorModel draws a start for Motor's entry, which no declaration names: a
+// Layout reaches it as the member Motor inherits, through Motor's name.
+const motorModel = `package Plant {
+    state def Motor {
+        entry; then off;
+        state off;
+        state on;
+        transition t first off then on;
+    }
+}
+package PlantViews {
+    private import Views::*;
+    private import StandardViewDefinitions::*;
+    view motorView : StateTransitionView {
+        expose Plant::Motor;
+    }
+}
+`
+
+func TestSetLayoutAboutAnInheritedStart(t *testing.T) {
+	got := applyLayout(t, motorModel, SetLayout("Plant::Motor::start", "PlantViews::motorView", at(10, 20)))
+	requireReplaced(t, motorModel, "        expose Plant::Motor;\n    }\n",
+		"        expose Plant::Motor;\n        metadata DiagramLayout::Layout about Plant::Motor::start { x = 10; y = 20; }\n    }\n", got)
+	placed := got
+	got = applyLayout(t, placed, SetLayout("Plant::Motor::start", "PlantViews::motorView", at(30, 40)))
+	requireReplaced(t, placed, "{ x = 10; y = 20; }", "{ x = 30; y = 40; }", got)
+	got = applyLayout(t, placed, SetStyle("Plant::Motor::start", "PlantViews::motorView", &semantics.Style{Fill: "#C00000"}))
+	requireReplaced(t, placed, "{ x = 10; y = 20; }\n",
+		"{ x = 10; y = 20; }\n        metadata DiagramLayout::Style about Plant::Motor::start { fill = \"#C00000\"; }\n", got)
+	got = applyLayout(t, placed, SetLayout("Plant::Motor::start", "PlantViews::motorView", nil))
+	if got != motorModel {
+		t.Fatalf("clearing the start's Layout did not restore the model:\n%s", got)
+	}
+	for _, tc := range []struct {
+		op      Operation
+		failure Failure
+		message string
+	}{
+		{SetLayout("Plant::Motor::start", "", at(1, 2)), FailureReferencedElsewhere, "a member Plant::Motor inherits"},
+		{SetLayout("Plant::Motor::finish", "PlantViews::motorView", at(1, 2)), FailureUnknownTarget, "no element named"},
+		{SetRoute("Plant::Motor::start", "PlantViews::motorView", &semantics.Route{Points: []semantics.Waypoint{{X: 1, Y: 2}}}), FailureUnknownTarget, "no element named"},
+	} {
+		m := loadContent(t, "plant.sysml", motorModel)
+		_, err := Apply(m, []Operation{tc.op})
+		if e := editError(t, err); e.Failure != tc.failure || !strings.Contains(e.Message, tc.message) {
+			t.Errorf("%s: err = %v, want %s containing %q", tc.op.Target, err, tc.failure, tc.message)
+		}
+	}
+}
+
+// A view exposing through a filter reads each candidate's annotations while
+// the `about` index is being built; the Layout it states about one of them
+// must still place it.
+func TestSetLayoutOnAnElementExposedThroughAFilterIsDrawn(t *testing.T) {
+	const filtered = `package Plant {
+    part def Pump;
+    part def Tank;
+}
+package PlantViews {
+    private import Views::*;
+    private import StandardViewDefinitions::*;
+    view defs : GeneralView {
+        expose Plant::**[@SysML::Definition];
+    }
+}
+`
+	got := applyLayout(t, filtered, SetLayout("Plant::Tank", "PlantViews::defs", at(117, 40)))
+	m := loadContent(t, "plant.sysml", got)
+	r, sem := m.resolver()
+	viewSym, err := m.viewNamed(0, "PlantViews::defs", "", "no view")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rendering, err := view.NewRenderer(sem, r, nil).Render(viewSym)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, node := range rendering.Roots {
+		if node.Name == "Plant::Tank" {
+			if node.Geometry == nil || node.Geometry.X != 117 || node.Geometry.Y != 40 {
+				t.Fatalf("tank geometry = %+v, want the Layout stated in the view", node.Geometry)
+			}
+			return
+		}
+	}
+	t.Fatalf("no Plant::Tank among %d roots", len(rendering.Roots))
 }

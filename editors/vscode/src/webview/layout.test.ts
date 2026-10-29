@@ -899,7 +899,7 @@ test("movable and steerable take a target another document declares, named or no
           fqn: undefined,
           origin: {
             ...origin,
-            uri: "sysml-stdlib:///Systems%20Library/Parts.sysml",
+            uri: "sysml-stdlib:/Systems%20Library/Parts.sysml",
           },
         }),
       ],

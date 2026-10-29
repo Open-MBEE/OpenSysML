@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- VariationViews::familyLinks — interconnection rendering (render asInterconnectionDiagram) -->
+<!-- 1 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="VariationViews-familyLinks" name="VariationViews::familyLinks">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«part»&#xA;vehicleFamily" fqn="VariationViews::vehicleFamily" kind="part" view="VariationViews::familyLinks" link="variation.sysml:20">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="1">
+            <mxGeometry x="50" y="50" width="408" height="253" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«part»&#xA;engine" fqn="VariationViews::vehicleFamily::engine" kind="part" view="VariationViews::familyLinks" link="variation.sysml:21">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="92" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«variation part»&#xA;transmission" fqn="VariationViews::vehicleFamily::transmission" kind="variation part" view="VariationViews::familyLinks" link="variation.sysml:22">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
+            <mxGeometry x="138" y="92" width="254" height="145" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n3" label="«variant»&#xA;manual" fqn="VariationViews::vehicleFamily::transmission::manual" kind="variant" view="VariationViews::familyLinks" link="variation.sysml:23">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n2">
+            <mxGeometry x="16" y="92" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4" label="«variant part»&#xA;automatic" fqn="VariationViews::vehicleFamily::transmission::automatic" kind="variant part" view="VariationViews::familyLinks" link="variation.sysml:24">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n2">
+            <mxGeometry x="138" y="92" width="100" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="" kind="connection" view="VariationViews::familyLinks" link="variation.sysml:26">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0;entryY=0.5034;entryPerimeter=0;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n1" target="n2">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="102" y="215"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

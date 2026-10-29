@@ -99,29 +99,29 @@ func TestSignatureHelpListsParametersWithTypesAndActiveOne(t *testing.T) {
 	if sig.Label != "Fall(h : Real, [g : Real]) : Real" {
 		t.Errorf("label = %q", sig.Label)
 	}
-	if len(sig.Parameters) != 2 || sig.Parameters[0].Label != "h : Real" || sig.Parameters[1].Label != "g : Real" {
+	if len(sig.Parameters) != 2 || sig.Parameters[0].Label != protocol.String("h : Real") || sig.Parameters[1].Label != protocol.String("g : Real") {
 		t.Errorf("parameters = %+v", sig.Parameters)
 	}
-	if sig.Parameters[1].Documentation != "has a default" || sig.Parameters[0].Documentation != "" {
+	if sig.Parameters[1].Documentation != protocol.String("has a default") || sig.Parameters[0].Documentation != nil {
 		t.Errorf("parameter documentation = %+v, want the defaulted one marked", sig.Parameters)
 	}
-	if help.ActiveParameter != 0 {
-		t.Errorf("active parameter on the first argument = %d", help.ActiveParameter)
+	if nullableUint32(help.ActiveParameter) != 0 {
+		t.Errorf("active parameter on the first argument = %d", nullableUint32(help.ActiveParameter))
 	}
-	if help = signatureHelpAt(t, s, u, "fell = Fall(20.0, 9."); help == nil || help.ActiveParameter != 1 {
+	if help = signatureHelpAt(t, s, u, "fell = Fall(20.0, 9."); help == nil || nullableUint32(help.ActiveParameter) != 1 {
 		t.Errorf("active parameter on the second argument = %+v, want 1", help)
 	}
-	if help = signatureHelpAt(t, s, u, "fell = Fall(20.0,"); help == nil || help.ActiveParameter != 1 {
+	if help = signatureHelpAt(t, s, u, "fell = Fall(20.0,"); help == nil || nullableUint32(help.ActiveParameter) != 1 {
 		t.Errorf("active parameter just after the comma = %+v, want 1", help)
 	}
 }
 
 func TestSignatureHelpNamedArgumentSelectsItsParameter(t *testing.T) {
 	s, u := openEditorFactsModel(t)
-	if help := signatureHelpAt(t, s, u, "named = Fall(g = 9.81, h = 2"); help == nil || help.ActiveParameter != 0 {
+	if help := signatureHelpAt(t, s, u, "named = Fall(g = 9.81, h = 2"); help == nil || nullableUint32(help.ActiveParameter) != 0 {
 		t.Errorf("active parameter in `h = 20.0` = %+v, want h (0)", help)
 	}
-	if help := signatureHelpAt(t, s, u, "named = Fall(g = 9."); help == nil || help.ActiveParameter != 1 {
+	if help := signatureHelpAt(t, s, u, "named = Fall(g = 9."); help == nil || nullableUint32(help.ActiveParameter) != 1 {
 		t.Errorf("active parameter in `g = 9.81` = %+v, want g (1)", help)
 	}
 }
@@ -135,8 +135,8 @@ func TestSignatureHelpCoversAPerformedAction(t *testing.T) {
 	if help.Signatures[0].Label != "Move(distance : Real, [speed : Real])" {
 		t.Errorf("label = %q", help.Signatures[0].Label)
 	}
-	if help.ActiveParameter != 1 {
-		t.Errorf("active parameter = %d, want speed (1)", help.ActiveParameter)
+	if nullableUint32(help.ActiveParameter) != 1 {
+		t.Errorf("active parameter = %d, want speed (1)", nullableUint32(help.ActiveParameter))
 	}
 }
 
@@ -152,7 +152,7 @@ func TestSignatureHelpOutsideAnArgumentListIsEmpty(t *testing.T) {
 func TestInlayHintsInferTypesAndModelLevelValues(t *testing.T) {
 	s, u := openEditorFactsModel(t)
 	lines := strings.Count(editorFactsModel, "\n")
-	hints, err := s.InlayHint(&InlayHintParams{
+	hints, err := s.InlayHint(context.Background(), &protocol.InlayHintParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: u},
 		Range:        protocol.Range{End: protocol.Position{Line: uint32(lines)}},
 	})
@@ -162,7 +162,7 @@ func TestInlayHintsInferTypesAndModelLevelValues(t *testing.T) {
 	got := map[string]string{}
 	pos := positionsFor([]byte(editorFactsModel))
 	for _, h := range hints {
-		got[h.Label] = lineText(editorFactsModel, h.Position)
+		got[hintLabel(h)] = lineText(editorFactsModel, h.Position)
 		_ = pos
 	}
 	want := map[string]string{
@@ -180,21 +180,21 @@ func TestInlayHintsInferTypesAndModelLevelValues(t *testing.T) {
 	}
 	for _, h := range hints {
 		line := lineText(editorFactsModel, h.Position)
-		if strings.Contains(line, "halfMass") && strings.HasPrefix(h.Label, "=") {
-			t.Errorf("value hint %q on %q: mass is an instance feature, not a model-level value", h.Label, line)
+		if strings.Contains(line, "halfMass") && strings.HasPrefix(hintLabel(h), "=") {
+			t.Errorf("value hint %q on %q: mass is an instance feature, not a model-level value", hintLabel(h), line)
 		}
 		if strings.Contains(line, "attribute base") || strings.Contains(line, "attribute mass") {
-			t.Errorf("hint %q on %q, which declares its type and a literal value", h.Label, line)
+			t.Errorf("hint %q on %q, which declares its type and a literal value", hintLabel(h), line)
 		}
-		if (strings.Contains(line, "attribute twice") || strings.Contains(line, "attribute count")) && strings.HasPrefix(h.Label, ":") {
-			t.Errorf("type hint %q on %q: arithmetic is typed no closer than DataValue", h.Label, line)
+		if (strings.Contains(line, "attribute twice") || strings.Contains(line, "attribute count")) && strings.HasPrefix(hintLabel(h), ":") {
+			t.Errorf("type hint %q on %q: arithmetic is typed no closer than DataValue", hintLabel(h), line)
 		}
 	}
 	typed := 0
 	for _, h := range hints {
-		if h.Kind == inlayHintKindType {
+		if h.Kind == protocol.InlayHintKindType {
 			typed++
-			if !h.PaddingLeft || !strings.HasPrefix(h.Label, ": ") {
+			if !padded(h.PaddingLeft) || !strings.HasPrefix(hintLabel(h), ": ") {
 				t.Errorf("type hint = %+v, want `: T` with left padding", h)
 			}
 		}
@@ -207,7 +207,7 @@ func TestInlayHintsInferTypesAndModelLevelValues(t *testing.T) {
 func TestInlayHintsAreLimitedToTheRange(t *testing.T) {
 	s, u := openEditorFactsModel(t)
 	at := positionAfter(t, editorFactsModel, "attribute count")
-	hints, err := s.InlayHint(&InlayHintParams{
+	hints, err := s.InlayHint(context.Background(), &protocol.InlayHintParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: u},
 		Range:        protocol.Range{Start: protocol.Position{Line: at.Line}, End: protocol.Position{Line: at.Line + 1}},
 	})
@@ -242,8 +242,8 @@ func TestCodeLensOffersReferenceCountsAndRunCommands(t *testing.T) {
 	counts := map[string]bool{}
 	for _, lens := range lenses {
 		line := lineText(editorFactsModel, lens.Range.Start)
-		if lens.Command == nil {
-			data, ok := lens.Data.(codeLensData)
+		if lens.Command.Command == "" {
+			data, ok := lensData(&lens)
 			if !ok || data.URI != u || data.Element == "" {
 				t.Errorf("reference lens on %q carries %v", line, lens.Data)
 			}
@@ -254,7 +254,8 @@ func TestCodeLensOffersReferenceCountsAndRunCommands(t *testing.T) {
 			t.Errorf("run lens on %q = %+v", line, lens.Command)
 			continue
 		}
-		args := lens.Command.Arguments[0].(runElementArgs)
+		var args runElementArgs
+		decodeLSPAny(t, lens.Command.Arguments[0], &args)
 		runs[args.Element] = lens.Command.Title + " (" + args.Kind + ")"
 	}
 	wantCounts := []string{"Demo::Fall", "Demo::Rover", "Demo::Charge", "Demo::Mission", "Demo::Positive"}
@@ -297,7 +298,7 @@ func TestCodeLensResolveCountsReferences(t *testing.T) {
 	}
 	var fall *protocol.CodeLens
 	for i := range lenses {
-		if data, ok := lenses[i].Data.(codeLensData); ok && data.Element == "Demo::Fall" {
+		if data, ok := lensData(&lenses[i]); ok && data.Element == "Demo::Fall" {
 			fall = &lenses[i]
 		}
 	}
@@ -305,23 +306,27 @@ func TestCodeLensResolveCountsReferences(t *testing.T) {
 		t.Fatal("no reference lens on Demo::Fall")
 	}
 	// A client sends the lens back decoded generically.
-	fall.Data = map[string]any{"uri": string(u), "element": "Demo::Fall", "name": fall.Data.(codeLensData).Name}
+	fallData, _ := lensData(fall)
+	fall.Data = mustLSPAny(t, map[string]any{"uri": string(u), "element": "Demo::Fall", "name": fallData.Name})
 	resolved, err := s.CodeLensResolve(context.Background(), fall)
 	if err != nil {
 		t.Fatalf("CodeLensResolve: %v", err)
 	}
-	if resolved.Command == nil || resolved.Command.Command != showReferencesCommand {
+	if resolved.Command.Command != showReferencesCommand {
 		t.Fatalf("resolved = %+v, want a show-references command", resolved)
 	}
 	if resolved.Command.Title != "3 references" {
 		t.Errorf("title = %q, want the typing of drop and the two calls", resolved.Command.Title)
 	}
-	locs, ok := resolved.Command.Arguments[2].([]protocol.Location)
-	if !ok || len(locs) != 3 {
-		t.Errorf("locations = %v", resolved.Command.Arguments[2])
+	var locs []protocol.Location
+	decodeLSPAny(t, resolved.Command.Arguments[2], &locs)
+	if len(locs) != 3 {
+		t.Errorf("locations = %s", resolved.Command.Arguments[2])
 	}
-	if resolved.Command.Arguments[0] != u {
-		t.Errorf("uri argument = %v", resolved.Command.Arguments[0])
+	var argURI uri.URI
+	decodeLSPAny(t, resolved.Command.Arguments[0], &argURI)
+	if argURI != u {
+		t.Errorf("uri argument = %s", resolved.Command.Arguments[0])
 	}
 }
 
@@ -355,14 +360,14 @@ func TestCodeLensTellsOverloadsApart(t *testing.T) {
 	}
 	var titles []string
 	for _, lens := range lenses {
-		if lens.Command != nil {
+		if lens.Command.Command != "" {
 			t.Errorf("run lens %q on a name declared twice, which sysml cannot run", lens.Command.Title)
 			continue
 		}
-		data := lens.Data.(codeLensData)
-		lens.Data = map[string]any{"uri": string(u), "element": data.Element, "name": data.Name}
+		data, _ := lensData(&lens)
+		lens.Data = mustLSPAny(t, map[string]any{"uri": string(u), "element": data.Element, "name": data.Name})
 		resolved, err := s.CodeLensResolve(context.Background(), &lens)
-		if err != nil || resolved.Command == nil {
+		if err != nil || resolved.Command.Command == "" {
 			t.Fatalf("CodeLensResolve(%+v) = %+v, %v", data, resolved, err)
 		}
 		titles = append(titles, resolved.Command.Title)
@@ -392,7 +397,7 @@ func TestSignatureHelpIgnoresCommasInComments(t *testing.T) {
 		help, err := s.SignatureHelp(context.Background(), &protocol.SignatureHelpParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{TextDocument: protocol.TextDocumentIdentifier{URI: u}, Position: pos},
 		})
-		if err != nil || help == nil || help.ActiveParameter != 1 {
+		if err != nil || help == nil || nullableUint32(help.ActiveParameter) != 1 {
 			t.Errorf("SignatureHelp(%q) = %+v, %v; want the second parameter active", anchor, help, err)
 		}
 	}
@@ -410,8 +415,8 @@ func TestSignatureHelpAnswersWhileAListIsBeingTyped(t *testing.T) {
 		if err != nil || help == nil || len(help.Signatures) == 0 {
 			t.Fatalf("SignatureHelp(%q) = %+v, %v; want the signature of the unfinished call", anchor, help, err)
 		}
-		if help.ActiveParameter != 1 {
-			t.Errorf("SignatureHelp(%q) active parameter = %d, want g", anchor, help.ActiveParameter)
+		if nullableUint32(help.ActiveParameter) != 1 {
+			t.Errorf("SignatureHelp(%q) active parameter = %d, want g", anchor, nullableUint32(help.ActiveParameter))
 		}
 	}
 }
@@ -430,7 +435,7 @@ func TestInlayHintsOutsideTheRangeAreDropped(t *testing.T) {
 	openDoc(t, s, u, multilineModel)
 	first := positionAfter(t, multilineModel, "attribute total")
 	hintsOn := func(line uint32) []string {
-		hints, err := s.InlayHint(&InlayHintParams{
+		hints, err := s.InlayHint(context.Background(), &protocol.InlayHintParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: u},
 			Range:        protocol.Range{Start: protocol.Position{Line: line}, End: protocol.Position{Line: line + 1}},
 		})
@@ -442,7 +447,7 @@ func TestInlayHintsOutsideTheRangeAreDropped(t *testing.T) {
 			if h.Position.Line != line {
 				t.Errorf("hint %+v outside the requested line %d", h, line)
 			}
-			labels = append(labels, h.Label)
+			labels = append(labels, hintLabel(h))
 		}
 		return labels
 	}
@@ -460,7 +465,7 @@ func TestInlayHintAtTheRangeEndBelongsToTheNextRange(t *testing.T) {
 	openDoc(t, s, u, multilineModel)
 	at := positionAfter(t, multilineModel, "attribute total")
 	hintsIn := func(r protocol.Range) int {
-		hints, err := s.InlayHint(&InlayHintParams{TextDocument: protocol.TextDocumentIdentifier{URI: u}, Range: r})
+		hints, err := s.InlayHint(context.Background(), &protocol.InlayHintParams{TextDocument: protocol.TextDocumentIdentifier{URI: u}, Range: r})
 		if err != nil {
 			t.Fatalf("InlayHint: %v", err)
 		}

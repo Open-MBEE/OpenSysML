@@ -37,7 +37,7 @@ const ifBranchSource = `package P {
 func TestHoverBranchLocalDeclaration(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/if_branch_hover.sysml").Filename()
+	name := uri.File("/tmp/if_branch_hover.sysml").FsPath()
 	ws.Open(name, []byte(ifBranchSource), 1)
 
 	off := strings.Index(ifBranchSource, "brake : Step")
@@ -53,11 +53,11 @@ func TestHoverBranchLocalDeclaration(t *testing.T) {
 	if res == nil {
 		t.Fatal("Hover result = nil, want the branch-local action")
 	}
-	if !strings.Contains(res.Contents.Value, "brake") {
-		t.Errorf("hover value = %q, want the branch-local `brake`", res.Contents.Value)
+	if !strings.Contains(hoverMarkup(t, res).Value, "brake") {
+		t.Errorf("hover value = %q, want the branch-local `brake`", hoverMarkup(t, res).Value)
 	}
-	if strings.Contains(res.Contents.Value, "Drive") {
-		t.Errorf("hover value = %q, want the branch member rather than its enclosing action", res.Contents.Value)
+	if strings.Contains(hoverMarkup(t, res).Value, "Drive") {
+		t.Errorf("hover value = %q, want the branch member rather than its enclosing action", hoverMarkup(t, res).Value)
 	}
 }
 
@@ -67,12 +67,12 @@ func TestHoverBranchLocalDeclaration(t *testing.T) {
 func TestDefinitionBranchLocalDeclaration(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
-	name := uri.File("/tmp/if_branch_def.sysml").Filename()
+	name := uri.File("/tmp/if_branch_def.sysml").FsPath()
 	ws.Open(name, []byte(ifBranchSource), 1)
 
 	definitionAt := func(off int) []protocol.Location {
 		t.Helper()
-		locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+		locs, err := definitions(t, s, context.Background(), &protocol.DefinitionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
 				Position:     offsetToPosition([]byte(ifBranchSource), off),

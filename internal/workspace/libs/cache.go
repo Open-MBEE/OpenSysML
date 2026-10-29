@@ -6,10 +6,12 @@ import (
 	"encoding/gob"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -27,14 +29,22 @@ type Cache struct {
 	dir string
 }
 
+// ErrNoCacheRoot is the error NewCache wraps when the process has no cache root
+// at all: nothing names one (neither $XDG_CACHE_HOME nor the user cache directory
+// is defined), or the one named lies outside the filesystem the process can reach,
+// as under a WASI host that preopened only the model's directory. It is not a
+// failure of a root that exists; a caller holds every document loaded instead.
+var ErrNoCacheRoot = errors.New("no record cache root")
+
 // NewCache resolves the cache directory ($XDG_CACHE_HOME or os.UserCacheDir),
-// appends "sysml-ls/libs", creates it, and returns a ready Cache.
+// appends "sysml-ls/libs", creates it, and returns a ready Cache. The error wraps
+// ErrNoCacheRoot when the process has no cache root to create it under.
 func NewCache() (*Cache, error) {
 	base := os.Getenv("XDG_CACHE_HOME")
 	if base == "" {
 		d, err := os.UserCacheDir()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w: %w", ErrNoCacheRoot, err)
 		}
 		base = d
 	}
@@ -47,9 +57,20 @@ func NewCacheIn(base string) (*Cache, error) {
 	// #nosec G703 -- the base directory is the user's own XDG_CACHE_HOME or OS
 	// cache directory, and the joined suffix is a constant.
 	if err := os.MkdirAll(dir, 0o750); err != nil {
+		if cacheRootUnreachable(err) {
+			return nil, fmt.Errorf("%w: %w", ErrNoCacheRoot, err)
+		}
 		return nil, err
 	}
 	return &Cache{dir: dir}, nil
+}
+
+// cacheRootUnreachable reports an error saying the filesystem has no place for the
+// cache root — EBADF, a path outside what a sandboxing host exposes; ENOSYS, a
+// build with no filesystem — as against a root that exists and refuses (EACCES,
+// ENOTDIR, EROFS), which is a failure worth reporting.
+func cacheRootUnreachable(err error) bool {
+	return errors.Is(err, syscall.EBADF) || errors.Is(err, syscall.ENOSYS) || hostDeniedPath(err)
 }
 
 // keyFor derives a cache key from the file's name and content, the digest of

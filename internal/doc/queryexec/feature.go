@@ -25,16 +25,18 @@ func ReadFeature(context Context, row Value, property string, options Options) (
 		related = NewRelationshipTables()
 	}
 	execution := &executor{
-		context:       context,
-		reader:        query.NewPropertyReader(context.Index, context.Resolver, context.Model),
-		bindings:      make(map[string]sequence),
-		budget:        &visitBudget{remaining: budget},
-		calls:         &visitBudget{remaining: defaultInvocationBudget},
-		related:       related,
-		derived:       &derivedValues{},
-		metadataTypes: make(map[string]*symbols.Symbol),
-		depthLeft:     defaultInvocationDepth,
+		context:           context,
+		reader:            query.NewPropertyReader(context.Index, context.Resolver, context.Model),
+		bindings:          make(map[string]sequence),
+		budget:            &visitBudget{remaining: budget},
+		calls:             &visitBudget{remaining: defaultInvocationBudget},
+		related:           related,
+		derived:           &derivedValues{},
+		metadataTypes:     make(map[string]*symbols.Symbol),
+		metaclassFeatures: make(map[*symbols.Symbol]map[string]metaclassProperty),
+		depthLeft:         defaultInvocationDepth,
 	}
+	execution.reader.WithElementID(execution.elementID)
 	values, _, err := execution.featurePathValues(row, property)
 	if err != nil {
 		var typed *Error

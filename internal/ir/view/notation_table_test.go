@@ -10,8 +10,8 @@ import (
 // notationTableRow is one row of the docs' notation table: a §8.2.3 production,
 // the edge kinds drawn with its glyph, and the glyph each form writes.
 type notationTableRow struct {
-	production, dot, plantuml, mermaid, d2, canvas, status string
-	kinds                                                  []string
+	production, dot, plantuml, mermaid, d2, drawio, canvas, status string
+	kinds                                                          []string
 }
 
 // notationTableKinds matches the backticked names of a table cell.
@@ -35,13 +35,13 @@ func readNotationTable(t *testing.T) []notationTableRow {
 			continue
 		}
 		cells := strings.Split(strings.ReplaceAll(strings.Trim(line, "|"), `\|`, "\x00"), "|")
-		if len(cells) != 9 {
-			t.Fatalf("notation table row has %d cells, want 9: %s", len(cells), line)
+		if len(cells) != 10 {
+			t.Fatalf("notation table row has %d cells, want 10: %s", len(cells), line)
 		}
 		for i, cell := range cells {
 			cells[i] = strings.ReplaceAll(strings.TrimSpace(cell), "\x00", "|")
 		}
-		row := notationTableRow{production: cells[0], dot: cells[2], plantuml: cells[3], mermaid: cells[4], d2: cells[5], canvas: cells[6], status: cells[7]}
+		row := notationTableRow{production: cells[0], dot: cells[2], plantuml: cells[3], mermaid: cells[4], d2: cells[5], drawio: cells[6], canvas: cells[7], status: cells[8]}
 		for _, m := range notationTableKinds.FindAllStringSubmatch(cells[1], -1) {
 			row.kinds = append(row.kinds, m[1])
 		}
@@ -56,7 +56,7 @@ func readNotationTable(t *testing.T) []notationTableRow {
 // unticked is a cell's text without its code marks.
 func unticked(cell string) string { return strings.Trim(cell, "`") }
 
-// TestNotationTableMatchesTheWriters holds the DOT, PlantUML, Mermaid and D2
+// TestNotationTableMatchesTheWriters holds the DOT, PlantUML, Mermaid, D2 and draw.io
 // writers to the notation table of docs/project/view-rendering-forms.md: every
 // edge kind is in exactly one row, every row names a kind that exists and a
 // status the table defines, and the glyph each writer draws for the kind is
@@ -128,5 +128,15 @@ func checkNotationRow(t *testing.T, row notationTableRow, kind EdgeKind) {
 	}
 	if want := "\na " + arrow + ` b: "k" { class: ` + class + " }\n"; !strings.Contains(d2, want) {
 		t.Errorf("%s (%s): D2 lacks %q:\n%s", row.production, kind, want, d2)
+	}
+	if got, want := drawioEdgeStyle(kind), unticked(row.drawio); got != want {
+		t.Errorf("%s (%s): draw.io style %q, table says %q", row.production, kind, got, want)
+	}
+	drawio, err := rendering.DrawioWith(fullNotation)
+	if err != nil {
+		t.Fatalf("%s: draw.io: %v", kind, err)
+	}
+	if want := ";" + unticked(row.drawio) + `;" edge="1"`; !strings.Contains(drawio, want) {
+		t.Errorf("%s (%s): draw.io lacks %q:\n%s", row.production, kind, want, drawio)
 	}
 }

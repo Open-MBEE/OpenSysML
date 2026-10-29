@@ -161,7 +161,7 @@ jobs:
           ls -l dist/msi-sbom
 
       - name: Upload the installer's SBOM
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ env.MSI_SBOM_ARTIFACT }}
           path: dist/msi-sbom/*.spdx.json
@@ -170,7 +170,7 @@ jobs:
 
       - name: Upload unsigned binaries
         id: upload
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ env.UNSIGNED_ARTIFACT }}
           path: dist/unsigned/*.exe
@@ -178,7 +178,7 @@ jobs:
           retention-days: 14
 
       - name: Upload the MSI packaging inputs
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ env.MSI_INPUTS_ARTIFACT }}
           path: |
@@ -266,7 +266,7 @@ jobs:
           (cd dist/release && sha256sum ./*.msi ./*.spdx.json | sed 's|\./||' | tee SHA256SUMS-windows-msi.txt)
 
       - name: Upload the unsigned MSI as a workflow artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ env.UNSIGNED_MSI_ARTIFACT }}
           path: dist/release/
@@ -344,7 +344,7 @@ jobs:
 
       - name: Submit the signing request to SignPath
         id: signpath
-        uses: signpath/github-action-submit-signing-request@c92b958760219087e01f8d67a1669ed57afe2627 # v2.3
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
@@ -371,7 +371,7 @@ jobs:
 
       - name: Upload signed binaries
         id: upload
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ env.SIGNED_EXE_ARTIFACT }}
           path: dist/signed/*.exe
@@ -404,7 +404,7 @@ jobs:
           ls -l dist/msi-sbom
 
       - name: Upload the signed installer's SBOM
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ env.SIGNED_MSI_SBOM_ARTIFACT }}
           path: dist/msi-sbom/*.spdx.json
@@ -461,7 +461,7 @@ jobs:
 
       - name: Upload the MSI for signing
         id: upload
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ env.PRESIGN_MSI_ARTIFACT }}
           path: dist/presign/*.msi
@@ -471,7 +471,7 @@ jobs:
       - name: Submit the MSI signing request to SignPath
         # The MSI artifact configuration must sign only the MSI itself: the
         # .exe files inside are already signed and z3.exe must stay unsigned.
-        uses: signpath/github-action-submit-signing-request@c92b958760219087e01f8d67a1669ed57afe2627 # v2.3
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
@@ -493,7 +493,7 @@ jobs:
           ls -la dist/release
 
       - name: Upload the signed MSI
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-amd64-msi-signed
           path: dist/release/*.msi
@@ -566,7 +566,7 @@ jobs:
           cat SHA256SUMS-windows-signed.txt
 
       - name: Upload signed assets as a workflow artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-amd64-signed
           path: dist/release/

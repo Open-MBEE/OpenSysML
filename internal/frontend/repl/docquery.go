@@ -3,6 +3,8 @@ package repl
 import (
 	"errors"
 	"fmt"
+	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 	"strconv"
 	"strings"
 
@@ -204,8 +206,9 @@ func (s *Session) queryContext(ctx *runtime.Context) queryexec.Context {
 			lineIndexes[document.Name] = document.Lines()
 		}
 	}
-	return queryexec.Context{
-		Index:    s.browseIndex(),
+	index := s.browseIndex()
+	context := queryexec.Context{
+		Index:    index,
 		Resolver: ctx.Resolver(),
 		Model:    ctx.Semantics(),
 		Runtime:  ctx,
@@ -214,6 +217,22 @@ func (s *Session) queryContext(ctx *runtime.Context) queryexec.Context {
 			return lineIndexes[doc]
 		},
 	}
+	if read := queryexec.OpenElementIDs(elementIDDocuments(s.sessionDocs())); read != nil {
+		context.ElementID = func(sym *symbols.Symbol) (string, error) {
+			return read(sym.DocName, sym.Decl, corequery.QualifiedIdentity(index, sym))
+		}
+	}
+	return context
+}
+
+// elementIDDocuments are the session's documents as a conversion writes them,
+// for the elementIds a query reports.
+func elementIDDocuments(docs []*model.Document) []queryexec.ElementIDDocument {
+	out := make([]queryexec.ElementIDDocument, 0, len(docs))
+	for _, doc := range docs {
+		out = append(out, queryexec.ElementIDDocument{File: doc.SourceFile(), Root: doc.AST, ParseDiags: doc.ParseDiagnostics})
+	}
+	return out
 }
 
 // queryBindings reads the `<parameter>=<expression>` arguments of %run-query.

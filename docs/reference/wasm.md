@@ -97,6 +97,11 @@ Node's WASI host cannot block waiting for a pipe: a read from one with nothing r
 `-validate`, `-eval`, `-engines` and the prompt itself all work that way — and use a runtime that
 reads pipes properly for anything that speaks a protocol over its standard input.
 
+The interface-record cache lives under `$XDG_CACHE_HOME`, else `$HOME/.cache`. A host that
+preopens only the model's directory leaves that root unreachable, and the command then holds every
+file loaded for the run, silently — the same as `-no-record-cache`. To keep records across runs,
+preopen a directory for them and point `XDG_CACHE_HOME` at it.
+
 ## Running a `js` build
 
 `js` binaries run through the toolchain's `wasm_exec`, under Node or in a browser:

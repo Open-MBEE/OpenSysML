@@ -10,7 +10,7 @@ result:
     "openSysmlRender": true, "openSysmlRenderDocument": true, "openSysmlStdlibContent": true,
     "openSysmlApplyModelEdit": true, "openSysmlDebug": true,
     "openSysmlCrossDocumentLayout": true, "openSysmlRenderPalette": true,
-    "openSysmlRenderForms": ["text", "mermaid", "markdown", "dot", "plantuml", "d2", "csv", "tsv"],
+    "openSysmlRenderForms": ["text", "mermaid", "markdown", "dot", "plantuml", "d2", "drawio", "csv", "tsv"],
     "openSysmlRenderStyles": ["pilot", "cameo"], "openSysmlRenderPorts": ["minimal", "full"],
     "openSysmlRenderLines": ["splines", "ortho", "polyline"],
     "openSysmlRenderCompartments": ["positioned", "most", "ports"],
@@ -175,8 +175,8 @@ Renders one view of a document.
 | --- | --- |
 | `textDocument.uri` | The document to render. It must be one the session holds — an open document, or a workspace file the server read. |
 | `view` | The qualified name of a view the document declares, a pseudo-view (below), or omitted. |
-| `form` | `mermaid`, `text`, `markdown`, `dot`, `plantuml`, `d2`, `csv` or `tsv`. Omitted writes the machine form of the rendering's kind: `markdown` for a table or matrix, `mermaid` otherwise. `dot` writes Graphviz DOT for a `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `requirement`, `definition` or `package` rendering, without needing Graphviz installed; `plantuml` writes PlantUML for those kinds and a `sequence`, without needing a PlantUML jar; `d2` writes a [D2](https://d2lang.com) diagram for a `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition` or `package` rendering, without needing `d2`; case and mixed renderings are refused with a typed `WrongFormError`; `csv` and `tsv` write a `table` or matrix rendering as comma- or tab-separated values, a header record of its columns and then one record per row. |
-| `palette` | Optional. A palette the `dot`, `mermaid`, `plantuml` and `d2` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. Mermaid sequence diagrams note that they cannot fill individual participants; `text` and `markdown` ignore palettes. A server advertising `openSysmlRenderPalette` gives each node the palette colours as `fill` and `border`, so a client drawing the nodes itself can use the same colours. |
+| `form` | `mermaid`, `text`, `markdown`, `dot`, `plantuml`, `d2`, `drawio`, `csv` or `tsv`. Omitted writes the machine form of the rendering's kind: `markdown` for a table or matrix, `mermaid` otherwise. `dot` writes Graphviz DOT for a `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `requirement`, `definition` or `package` rendering, without needing Graphviz installed; `plantuml` writes PlantUML for those kinds and a `sequence`, without needing a PlantUML jar; `d2` writes a [D2](https://d2lang.com) diagram for a `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition` or `package` rendering, without needing `d2`; case and mixed renderings are refused with a typed `WrongFormError`; `csv` and `tsv` write a `table` or matrix rendering as comma- or tab-separated values, a header record of its columns and then one record per row.; `drawio` writes an uncompressed [diagrams.net](https://www.diagrams.net) file for a `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `requirement`, `definition` or `package` rendering, for draw.io desktop, the web editor and the VS Code draw.io extension ([the draw.io form](../project/view-rendering-forms.md#drawio)) |
+| `palette` | Optional. A palette the `dot`, `mermaid`, `plantuml`, `d2` and `drawio` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. Mermaid sequence diagrams note that they cannot fill individual participants; `text` and `markdown` ignore palettes. A server advertising `openSysmlRenderPalette` gives each node the palette colours as `fill` and `border`, so a client drawing the nodes itself can use the same colours. |
 | `style` | Optional. The drawing style the `dot` or `mermaid` form draws in: `pilot` (the default, the Pilot visualizer's B&W) or `cameo`, the look of Cameo Systems Modeler — 11 pt Arial, gradient fills in Cameo's colours, compartments and UML pseudo-state symbols ([the measurements](../project/view-rendering-forms.md#the-cameo-style)). Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML and D2 note a style other than `pilot` as not represented; `text` and `markdown` ignore it. The result's `style` names the style drawn, the default when omitted. |
 | `ports` | Optional. How much of a part's ports an interconnection or mixed rendering draws: `minimal` (the default), the ports an interconnection edge ends at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. Other kinds ignore it. |
 | `show` | Optional. The notation elements the SysML v2 notation makes optional that the rendering draws besides the ones its view's rendering shows, each a name the `openSysmlRenderElements` capability lists: `parameter-symbols` (a case's actor, subject and stakeholder parameters on the node's boundary; without them a connection ends at the node itself; an action's parameter pins are always drawn), `port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`, or `all`. Port symbols, compartments and keywords are drawn by default; the result's `shown` lists what was drawn. |
@@ -474,7 +474,7 @@ location is reported under the `sysml-stdlib` scheme, whose path is the file's
 path within the library, percent-encoded:
 
 ```json
-{ "uri": "sysml-stdlib:///Kernel%20Libraries/Kernel%20Data%20Type%20Library/ScalarValues.kerml",
+{ "uri": "sysml-stdlib:/Kernel%20Libraries/Kernel%20Data%20Type%20Library/ScalarValues.kerml",
   "range": { "start": { "line": 19, "character": 1 }, "end": { "line": 20, "character": 1 } } }
 ```
 
@@ -484,7 +484,7 @@ Positions are in UTF-16 code units of the bundled text, as they are for workspac
 files. This request serves that text, so a client can show the location:
 
 ```json
-{ "uri": "sysml-stdlib:///Kernel%20Libraries/Kernel%20Data%20Type%20Library/ScalarValues.kerml" }
+{ "uri": "sysml-stdlib:/Kernel%20Libraries/Kernel%20Data%20Type%20Library/ScalarValues.kerml" }
 ```
 
 ```json
@@ -552,6 +552,8 @@ operation and its fields beside it:
 | `setRoute` | `target` or `declaration`, `declaredIn?`, `digest?`, `view?`, `route?` | The `DiagramLayout::Route` annotation of a connection, transition, succession or flow, `route` being its waypoints as an array of `{"x", "y"}`; `view`, the document written and an omitted or empty `route` mean what they do for `setLayout`. |
 | `setCanvas` | `target`, `canvas?` | The `DiagramLayout::Canvas` annotation of the view `target` names, written into the view's body in the document declaring it: `{ "unit"?, "width"?, "height"? }`, the sizes together or not at all; omitted, the annotation is removed. Refused as `setLayout` is when that document cannot be rewritten. |
 | `setStyle` | `target` or `declaration`, `declaredIn?`, `digest?`, `view?`, `style?` | The `DiagramLayout::Style` annotation of the node or edge the target is drawn as: `style` is `{ "fill"?, "line"?, "text"?, "font"?, "fontSize"?, "bold"?, "italic"? }`, each a colour as `#RRGGBB`, a font family, a size in points or a flag; omitted, the annotation is removed. Written, located and refused as `setLayout` is: into the view `view` names, inline into the element's own body when none is. |
+| `setNote` | `target` or `declaration`, `declaredIn?`, `digest?`, `view?`, `note?` | The `DiagramLayout::Note` annotation about the node or edge `target` is drawn as, in the body of `view` or inline on the target without one; `target` naming the view itself writes a note about nothing in particular into its body. `note` is `{ "text", "x", "y", "width"?, "height"? }`, the sizes together or not at all; omitted, the annotation is removed. An element may carry several notes, so `declaration` here is the range of the annotation itself — as a rendering reports a note's `origin` — and rewrites or removes that one wherever it is stated, with no `view`. |
+| `setPicture` | `target` or `declaration`, `declaredIn?`, `digest?`, `picture?` | The `DiagramLayout::Picture` annotation in the body of the view `target` names, as a `setCanvas` finds its view: `picture` is `{ "location", "x", "y", "width", "height", "alt"?, "above"? }`, the file relative to the view's document; omitted, the annotation is removed. `declaration` is the range of the annotation itself, as for `setNote`. |
 
 `target` and `owner` are qualified names, as `nodes[].fqn` and `nodes[].owners[].fqn` in a
 rendering give them, each name quoted on its own where the notation requires it; the empty
@@ -571,7 +573,8 @@ declare — else the one view of the workspace so named; a namesake that is no v
 passed over, and a name naming no view is refused as `not-a-view`. A `declaredIn` naming a
 document the server does not hold, given on an operation other than these two, or naming
 another document without a `digest`, is an invalid-params error, as an operation giving
-both `target` and `declaration` is. No other operation takes a `declaration`. Every target
+both `target` and `declaration` is. A `setNote` or `setPicture` takes a `declaration` too, the
+annotation's own range rather than an element's. No other operation takes a `declaration`. Every target
 of a request is read in the text the server holds of its document — the request's
 `version` for the requested one, the text `digest` fingerprints for another, which the
 answer is `stale` for when that document's text has changed since the rendering, whether
@@ -654,6 +657,44 @@ An edit is refused, rather than written, whenever the edited document would
 parse or analyze with an error the original did not have. The check is the same
 one diagnostics come from, so what the panel refuses is exactly what the editor
 would have underlined.
+
+## `opensysml/importDiagram` (request)
+
+Imports a diagrams.net (draw.io) file that `opensysml/render` wrote with form `drawio` and a user
+edited in draw.io, as the `DiagramLayout` edits `opensysml/applyModelEdit` would write.
+
+```json
+{ "textDocument": { "uri": "file:///…/plant.sysml" }, "path": "/…/loop.drawio", "view": "PlantViews::loopView", "dryRun": true }
+```
+
+| Field | Meaning |
+|---|---|
+| `textDocument` | The document the view is rendered through, as `opensysml/render` takes it. |
+| `path` / `content` | The draw.io file, by path on the server's host or as its text; one of the two. The compressed form draw.io desktop saves is read as the uncompressed one is. |
+| `view` | The view to import when the file has several pages; omitted, the one page's view. |
+| `inline` | Write the annotations beside the elements rather than in the view's body. |
+| `dryRun` | Echoed in the result; the server never writes files, so a client applying nothing gets the same answer. |
+
+The server renders the view, exports it again as the writer would, and compares the file with
+that export cell by cell: only what differs becomes an edit, matched to the model by the `fqn`
+each cell carries (edges by their ends and kind, notes and pictures by position). The result lists
+the planned `edits` (`kind`, `target`, `label`, `cell`, and `newName` on a `Rename`, which a cell
+retyped with only its name changed amounts to; a retyped note is a `Note`, a picture pointed at
+another file a `Picture`), what is reported rather than imported — `unmatched` elements the
+rendering lacks, `unknown` cells naming no element, `deleted` cells, and `notices` for changes no
+annotation carries yet and retypings the rename rule does not cover (a label edited beyond its
+name, an invalid or taken name, an emptied note, a picture given embedded data or a file outside
+the view's directory) — and either
+`edit`, a `WorkspaceEdit` the client
+applies as it applies `opensysml/applyModelEdit`'s, or `refused`, the planned edit the model
+editor refused and why. An untouched export answers no edits and no `edit`.
+
+```json
+{ "view": "PlantViews::loopView", "dryRun": true, "version": 3,
+  "edits": [{ "kind": "Layout", "target": "Plant::Loop::pump", "label": "«part»\npump : Pump", "cell": "n2" },
+            { "kind": "Rename", "target": "Plant::Loop::tank", "newName": "reservoir", "label": "«part»\nreservoir : Tank", "cell": "n3" }],
+  "edit": { "documentChanges": [ … ] } }
+```
 
 ## `opensysml/renderChanged` (notification, server → client)
 

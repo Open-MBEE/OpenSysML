@@ -33,33 +33,48 @@ func (s *Session) withVerifications(v Verdict, ctx *runtime.Context, req *symbol
 		return v
 	}
 	for _, verdict := range ctx.VerificationVerdictsOn(s.docScopes(), req, subject) {
-		v.Verifications = append(v.Verifications, verificationVerdictOf(ctx, verdict))
-		v.Lines = append(v.Lines, verificationLine(ctx, verdict))
+		v.Verifications = append(v.Verifications, s.verificationVerdictOf(ctx, verdict))
+		v.Lines = append(v.Lines, s.verificationLine(ctx, verdict))
 	}
 	return v
 }
 
 // verificationVerdictOf reports one body verdict as data, naming the object the case ran on.
-func verificationVerdictOf(ctx *runtime.Context, v runtime.VerificationVerdict) VerificationVerdict {
+func (s *Session) verificationVerdictOf(ctx *runtime.Context, v runtime.VerificationVerdict) VerificationVerdict {
 	return VerificationVerdict{
 		Case: v.Case, Kind: string(v.Kind), Detail: v.Detail, Subcase: v.Subcase,
-		Object: verificationObject(ctx, v),
+		Object: s.verificationObject(ctx, v),
 	}
 }
 
-// verificationObject names the object a case ran as a feature of as objectText does, "" for none.
-func verificationObject(ctx *runtime.Context, v runtime.VerificationVerdict) string {
+// verificationObject names the object a case ran as a feature of as objectText does — one a
+// later %instantiate displaced from its name by the id %instances lists it under — "" for none.
+func (s *Session) verificationObject(ctx *runtime.Context, v runtime.VerificationVerdict) string {
 	if v.Subject == nil {
 		return ""
+	}
+	if label := s.displacedLabel(v.Subject); label != "" {
+		return label
 	}
 	return objectText(ctx, runtime.Value{Kind: runtime.ValInstance, Instance: v.Subject.ID})
 }
 
+// displacedLabel is the label %instances lists an object a later %instantiate of its
+// name displaced under, "" for any other object.
+func (s *Session) displacedLabel(inst *runtime.Instance) string {
+	for _, u := range s.unnamed {
+		if u.obj == inst {
+			return fmt.Sprintf("#%d (displaced from %s)", inst.ID, s.declaredName(u.fqn))
+		}
+	}
+	return ""
+}
+
 // verificationLine reports one body verdict the way the prompt reports every
 // other one: a mark, what ran, the object it ran on, and the verdict it answered.
-func verificationLine(ctx *runtime.Context, v runtime.VerificationVerdict) string {
+func (s *Session) verificationLine(ctx *runtime.Context, v runtime.VerificationVerdict) string {
 	line := fmt.Sprintf("%s Verification %s", verdictMark(v.Kind), v.Case)
-	if object := verificationObject(ctx, v); object != "" {
+	if object := s.verificationObject(ctx, v); object != "" {
 		line += " on " + object
 	}
 	line += " verdict: " + string(v.Kind)

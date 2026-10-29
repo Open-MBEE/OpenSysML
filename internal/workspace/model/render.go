@@ -163,6 +163,20 @@ func (s *Snapshot) Document(name string) *Document {
 	return s.docs[name]
 }
 
+// Documents are the documents the snapshot was rendered from, in name order.
+func (s *Snapshot) Documents() []*Document {
+	names := make([]string, 0, len(s.docs))
+	for name := range s.docs {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	docs := make([]*Document, 0, len(names))
+	for _, name := range names {
+		docs = append(docs, s.docs[name])
+	}
+	return docs
+}
+
 // Sites returns the source locations for the rendering's origins.
 func (s *Snapshot) Sites() view.Sites {
 	if s == nil || s.sites == nil {
@@ -237,6 +251,11 @@ func (w *Workspace) renderViewLocked(doc, fqn string, overlay view.Overlay, verd
 	d := w.docs[doc]
 	if d == nil {
 		return nil, nil, fmt.Errorf("%s: no such document", doc)
+	}
+	// A rendering walks the bodies of whatever it reaches — exposed elements,
+	// their types, nested views — and a record carries none.
+	if w.hydrateAllLocked(); d.Recorded() {
+		d = w.docs[doc]
 	}
 	var rendering *view.Rendering
 	var err error

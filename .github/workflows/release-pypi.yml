@@ -208,7 +208,7 @@ jobs:
           EOF
 
       - name: Keep the Python distribution for the PyPI job
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ env.PYTHON_DIST_ARTIFACT }}
           path: client/python/dist/
@@ -216,7 +216,7 @@ jobs:
           retention-days: 7
 
       - name: Keep the Jupyter kernel distribution for the PyPI job
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ env.KERNEL_DIST_ARTIFACT }}
           path: client/jupyter-kernel/dist/
@@ -274,7 +274,7 @@ jobs:
 
       - name: Publish to PyPI with trusted publishing
         if: steps.index.outputs.publish == 'true'
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
         with:
           packages-dir: client/python/dist/
           repository-url: ${{ needs.fetch.outputs.repository-url }}
@@ -330,7 +330,7 @@ jobs:
 
       - name: Publish the Jupyter kernel to PyPI with trusted publishing
         if: steps.index.outputs.publish == 'true'
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
         with:
           packages-dir: client/jupyter-kernel/dist/
           repository-url: ${{ needs.fetch.outputs.repository-url }}

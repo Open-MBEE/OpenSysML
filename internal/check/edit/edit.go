@@ -169,17 +169,21 @@ type Operation struct {
 	// NewOwner is the namespace an OpMove moves Target into; empty means the root.
 	NewOwner string
 	// Annotation is the DiagramLayout metadata an OpSetLayout writes, by FQN
-	// (semantics.LayoutFQN, RouteFQN, CanvasFQN or StyleFQN). View names the view whose
-	// body states it about Target; empty, the annotation is inline on Target
-	// and applies in every view.
+	// (semantics.LayoutFQN, RouteFQN, CanvasFQN, StyleFQN, NoteFQN or PictureFQN).
+	// View names the view whose body states it about Target; empty, the
+	// annotation is inline on Target and applies in every view. A Note or a
+	// Picture may be stated many times over one element, so Declaration names
+	// the annotation itself, not the element, when one of those is rewritten.
 	Annotation string
 	View       string
 	// The geometry to write, the one Annotation names; all nil clears the
-	// annotation.
-	Layout *semantics.Layout
-	Route  *semantics.Route
-	Canvas *semantics.Canvas
-	Style  *semantics.Style
+	// annotation. NoteBox is the Note annotation, Note the text an OpAddNote adds.
+	Layout  *semantics.Layout
+	Route   *semantics.Route
+	Canvas  *semantics.Canvas
+	Style   *semantics.Style
+	NoteBox *semantics.Note
+	Picture *semantics.Picture
 }
 
 // SetValue is an operation setting target's value to the expression value.
@@ -419,6 +423,32 @@ func SetStyle(target, view string, style *semantics.Style) Operation {
 // SetStyleAt is SetStyle of the element declared at decl in the document.
 func SetStyleAt(decl source.Span, view string, style *semantics.Style) Operation {
 	return Operation{Kind: OpSetLayout, Declaration: decl, View: view, Annotation: semantics.StyleFQN, Style: style}
+}
+
+// SetNote is an operation adding a Note to target — in the body of view, or
+// inline on target when view is empty; target may be the view itself, for a
+// note about nothing in particular — or rewriting the first one it carries;
+// a nil note clears that one.
+func SetNote(target, view string, note *semantics.Note) Operation {
+	return Operation{Kind: OpSetLayout, Target: target, View: view, Annotation: semantics.NoteFQN, NoteBox: note}
+}
+
+// SetNoteAt rewrites the Note annotation declared at annotation in the
+// document, wherever it is stated, or clears it when note is nil.
+func SetNoteAt(annotation source.Span, note *semantics.Note) Operation {
+	return Operation{Kind: OpSetLayout, Declaration: annotation, Annotation: semantics.NoteFQN, NoteBox: note}
+}
+
+// SetPicture is an operation adding a Picture to the body of view, or
+// rewriting the first one it states; a nil picture clears that one.
+func SetPicture(view string, picture *semantics.Picture) Operation {
+	return Operation{Kind: OpSetLayout, Target: view, Annotation: semantics.PictureFQN, Picture: picture}
+}
+
+// SetPictureAt rewrites the Picture annotation declared at annotation in the
+// document, or clears it when picture is nil.
+func SetPictureAt(annotation source.Span, picture *semantics.Picture) Operation {
+	return Operation{Kind: OpSetLayout, Declaration: annotation, Annotation: semantics.PictureFQN, Picture: picture}
 }
 
 // Model is a parsed model to edit: the source that was read, its parse, and the
@@ -909,7 +939,7 @@ func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 		}
 		return deletes, nil
 	}
-	sym, err := m.target(i, op)
+	sym, err := m.renameable(i, op)
 	if err != nil {
 		return nil, err
 	}

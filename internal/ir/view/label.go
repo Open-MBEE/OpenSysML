@@ -235,6 +235,21 @@ func (l labeller) head(node *Node) string {
 	}
 }
 
+// headName splits the head of a named node at its name: the text before the
+// name — the usage prefix and, of a qualified name, its owning segments — and
+// the name's last segment as the label shows it. An unnamed node has "", "".
+func (l labeller) headName(node *Node) (before, name string) {
+	if shown(node) == "" {
+		return "", ""
+	}
+	before, name = usagePrefix(node.Inherited), l.name(node)
+	if segments, ok := source.QualifiedNameSegments(name); ok && len(segments) > 1 {
+		before += l.text(source.QualifiedNameOf(segments[:len(segments)-1]) + "::")
+		name = segments[len(segments)-1]
+	}
+	return before, l.text(name)
+}
+
 // usagePrefix is the notation's prefix before a shown usage name: `^` for a
 // usage the owner it is drawn under does not declare (SysML v2 §8.2.3.6
 // `el-prefix`), nothing for one the owner declares.

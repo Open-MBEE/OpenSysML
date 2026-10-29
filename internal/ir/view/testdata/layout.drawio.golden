@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PlantViews::placedView — interconnection rendering (render asInterconnectionDiagram) -->
+<!-- 1 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="PlantViews-placedView" name="PlantViews::placedView">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="800" unit="px" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«part def»&#xA;Loop" fqn="Plant::Loop" kind="part def" view="PlantViews::placedView" link="layout.sysml:15">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
+            <mxGeometry x="50" y="170" width="352" height="168" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«part»&#xA;pump" fqn="Plant::Loop::pump" kind="part" view="PlantViews::placedView" link="layout.sysml:17">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;fillColor=#FFE8BD;strokeColor=#333333;fontFamily=Arial;fontSize=11;fontStyle=1;" vertex="1" collapsed="1" parent="n0">
+            <mxGeometry x="16" y="92" width="54" height="35" as="geometry">
+              <mxRectangle width="54" height="36" as="alternateBounds"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n1:n1.0" label="^outlet" fqn="Plant::Pump::outlet" kind="port" view="PlantViews::placedView" link="layout.sysml:8">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" vertex="1" parent="n1">
+            <mxGeometry x="0.5" y="0" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n2" label="«part»&#xA;tank" fqn="Plant::Loop::tank" kind="part" view="PlantViews::placedView" link="layout.sysml:22">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="216" y="92" width="120" height="60" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2:n2.0" label="^inlet" fqn="Plant::Tank::inlet" kind="port" view="PlantViews::placedView" link="layout.sysml:12">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" vertex="1" parent="n2">
+            <mxGeometry x="0.5" y="0" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e0" label="" fqn="Plant::Loop::supply" kind="connection" view="PlantViews::placedView" link="layout.sysml:23">
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=none;strokeWidth=3;strokeColor=#0000FF;" edge="1" parent="1" source="n1:n1.0" target="n2:n2.0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="400" y="70"/>
+                <mxPoint x="450" y="120"/>
+                <mxPoint x="500" y="70"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <mxCell id="note0" value="always" style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="170" y="262" width="67" height="36" as="geometry"/>
+        </mxCell>
+        <mxCell id="note0:anchor0" style="edgeStyle=none;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="note0" target="n1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="note1" value="anchored" style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="650" y="40" width="100" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="note1:anchor0" style="edgeStyle=none;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="note1" target="n2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="note2" value="check pressure" style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="50" y="388" width="134" height="36" as="geometry"/>
+        </mxCell>
+        <mxCell id="note2:anchor0" style="edgeStyle=none;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="note2" target="e0">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="note3" value="free" style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="234" y="388" width="54" height="36" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -11,6 +11,7 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/lsp"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
@@ -98,7 +99,7 @@ func registerEdits(s *mcp.Server, h *Host) {
 		}
 		res := FormatResult{Path: h.display(ref.uri()), Edits: convertEdits(content, edits), Text: string(formatted)}
 		if in.Apply && len(edits) > 0 {
-			if err := h.writeAll(ctx, []pendingWrite{{name: ref.name, content: formatted, base: content}}); err != nil {
+			if _, err := h.writeAll(ctx, []pendingWrite{{name: ref.name, content: formatted, base: content}}); err != nil {
 				return nil, FormatResult{}, err
 			}
 			res.Applied = true
@@ -141,7 +142,7 @@ func registerEdits(s *mcp.Server, h *Host) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "apply_model_edit",
 		Description: "Edit a model by operations on its elements rather than by text: setValue, rename, addMember, addConnection, addSequence (action-body items), delete, move, " +
-			"and the diagram-layout annotations setLayout, setRoute, setCanvas, setStyle. Targets and owners are qualified names as render_view reports them in nodes[].fqn. " +
+			"and the diagram-layout annotations setLayout, setRoute, setCanvas, setStyle, setNote, setPicture. Targets and owners are qualified names as render_view reports them in nodes[].fqn. " +
 			"Returns the text edits the operations amount to, per document, and the operations refused with why; writes the files only with apply=true.",
 		Annotations: toolkit.Mutating("Apply model edit", false),
 		InputSchema: applyModelEditSchema(),
@@ -204,12 +205,24 @@ func (h *Host) editable(ctx context.Context, path string) (docRef, []byte, error
 // workspaceEdit converts a protocol workspace edit into per-document edits in
 // 1-based positions, writing each document when apply is set.
 func (h *Host) workspaceEdit(ctx context.Context, edit *protocol.WorkspaceEdit, apply bool, what string) (*mcp.CallToolResult, WorkspaceEditResult, error) {
-	changes := map[protocol.DocumentURI][]protocol.TextEdit{}
+	changes := map[uri.URI][]protocol.TextEdit{}
 	for u, edits := range edit.Changes {
 		changes[u] = append(changes[u], edits...)
 	}
 	for _, change := range edit.DocumentChanges {
-		changes[change.TextDocument.URI] = append(changes[change.TextDocument.URI], change.Edits...)
+		edit, ok := change.(*protocol.TextDocumentEdit)
+		if !ok {
+			continue
+		}
+		// A document read at a version and left as it was is listed with no
+		// edits: the server pins it so a stale read is refused.
+		edits := changes[edit.TextDocument.URI]
+		for _, element := range edit.Edits {
+			if textEdit, ok := element.(*protocol.TextEdit); ok {
+				edits = append(edits, *textEdit)
+			}
+		}
+		changes[edit.TextDocument.URI] = edits
 	}
 	uris := make([]string, 0, len(changes))
 	for u := range changes {
@@ -220,17 +233,17 @@ func (h *Host) workspaceEdit(ctx context.Context, edit *protocol.WorkspaceEdit, 
 	var b strings.Builder
 	var writes []pendingWrite
 	for _, u := range uris {
-		ref := h.refOf(protocol.DocumentURI(u))
+		ref := h.refOf(uri.URI(u))
 		if !ref.library {
 			if _, err := h.resolve(ref.name); err != nil {
 				return nil, WorkspaceEditResult{}, fmt.Errorf("%s: %w", what, err)
 			}
 		}
-		content := h.contentOf(protocol.DocumentURI(u))
+		content := h.contentOf(uri.URI(u))
 		if content == nil {
 			return nil, WorkspaceEditResult{}, fmt.Errorf("%s edits %s, which the workspace does not hold", what, h.display(ref.uri()))
 		}
-		edits := changes[protocol.DocumentURI(u)]
+		edits := changes[uri.URI(u)]
 		res.Changes = append(res.Changes, FileEdits{Path: h.display(ref.uri()), Edits: convertEdits(content, edits)})
 		fmt.Fprintf(&b, "%s: %d edits\n", h.display(ref.uri()), len(edits))
 		if !apply {
@@ -246,11 +259,15 @@ func (h *Host) workspaceEdit(ctx context.Context, edit *protocol.WorkspaceEdit, 
 		writes = append(writes, pendingWrite{name: ref.name, content: edited, base: content})
 	}
 	if len(writes) > 0 {
-		if err := h.writeAll(ctx, writes); err != nil {
+		written, err := h.writeAll(ctx, writes)
+		if err != nil {
 			return nil, WorkspaceEditResult{}, err
 		}
-		res.Applied = true
-		b.WriteString("written to disk")
+		// A change that only read documents wrote nothing, and says so.
+		if written > 0 {
+			res.Applied = true
+			b.WriteString("written to disk")
+		}
 	}
 	return text(strings.TrimSpace(b.String())), res, nil
 }
@@ -288,9 +305,9 @@ func describe(s *jsonschema.Schema, descriptions map[string]string) {
 }
 
 var operationFieldDescriptions = map[string]string{
-	"kind":           "setValue, rename, addMember, addConnection, addSequence, delete, move, setLayout, setRoute, setCanvas or setStyle",
-	"target":         "qualified name of the element the operation is about (setValue, rename, delete, move, setCanvas, and the layout operations when no declaration is given)",
-	"declaration":    "for setLayout, setRoute, setStyle: the LSP range (0-based) of an unnamed element's declaration, as render_view reports it, in place of target",
+	"kind":           "setValue, rename, addMember, addConnection, addSequence, delete, move, setLayout, setRoute, setCanvas, setStyle, setNote or setPicture",
+	"target":         "qualified name of the element the operation is about (setValue, rename, delete, move, setCanvas, setPicture, and the layout operations when no declaration is given)",
+	"declaration":    "for setLayout, setRoute, setStyle: the LSP range (0-based) of an unnamed element's declaration, as render_view reports it, in place of target; for setNote, setPicture: the range of the annotation itself, to rewrite or clear that one",
 	"declaredIn":     "the document URI declaring the target, as render_view reports in origin.uri; omitted, the requested document",
 	"digest":         "the origin.digest render_view reported for declaredIn, so a changed document is detected",
 	"value":          "setValue: the new value expression; addMember: an initial value; addSequence: the value assigned, sent or iterated over",
@@ -319,4 +336,6 @@ var operationFieldDescriptions = map[string]string{
 	"route":          "setRoute: the waypoints [{x, y}, ...]",
 	"canvas":         "setCanvas: {unit?, width?, height?}",
 	"style":          "setStyle: {fill?, line?, text?, font?, fontSize?, bold?, italic?}, colors as #RRGGBB",
+	"note":           "setNote: {text, x, y, width?, height?} in diagram coordinates; omitted, the Note is removed",
+	"picture":        "setPicture: {location, x, y, width, height, alt?, above?}, the file relative to the view's document; omitted, the Picture is removed",
 }

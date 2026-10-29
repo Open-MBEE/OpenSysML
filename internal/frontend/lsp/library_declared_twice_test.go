@@ -18,7 +18,7 @@ func libraryDeclaredTwice(published []*protocol.PublishDiagnosticsParams) map[ur
 	out := map[uri.URI][]protocol.Diagnostic{}
 	for _, p := range published {
 		for _, d := range p.Diagnostics {
-			if d.Code == checkws.CodeLibraryDeclaredTwice {
+			if diagnosticCode(d) == checkws.CodeLibraryDeclaredTwice {
 				out[p.URI] = append(out[p.URI], d)
 			}
 		}
@@ -51,16 +51,16 @@ func TestPublishDiagnosticsReportsALibraryDeclaredTwiceOnce(t *testing.T) {
 		}
 	}
 	d := got[uri.File(second)][0]
-	if d.Severity != protocol.DiagnosticSeverityWarning || d.Source != checkws.Source {
-		t.Errorf("severity %v source %q, want a warning from %s", d.Severity, d.Source, checkws.Source)
+	if d.Severity != protocol.DiagnosticSeverityWarning || optString(d.Source) != checkws.Source {
+		t.Errorf("severity %v source %q, want a warning from %s", d.Severity, optString(d.Source), checkws.Source)
 	}
-	if !strings.Contains(d.Message, first) || !strings.Contains(d.Message, "references resolve to the declaration in "+first) {
-		t.Errorf("message = %q, want it to name %s as the copy in use", d.Message, first)
+	if !strings.Contains(diagnosticMessage(t, d), first) || !strings.Contains(diagnosticMessage(t, d), "references resolve to the declaration in "+first) {
+		t.Errorf("message = %q, want it to name %s as the copy in use", diagnosticMessage(t, d), first)
 	}
 	if d.Range.Start.Character != uint32(len("library package ")) || d.Range.End.Character != uint32(len("library package Shapes")) {
 		t.Errorf("range = %v, want the package name", d.Range)
 	}
-	if cd := d.CodeDescription; cd == nil || !strings.HasSuffix(string(cd.Href), "#"+checkws.CodeLibraryDeclaredTwice) {
+	if cd := d.CodeDescription; cd.Href == "" || !strings.HasSuffix(string(cd.Href), "#"+checkws.CodeLibraryDeclaredTwice) {
 		t.Errorf("codeDescription = %v, want the catalogue section of the code", cd)
 	}
 }
@@ -91,8 +91,8 @@ func TestPublishFindingsReachesADocumentNotOpenAndWithdraws(t *testing.T) {
 	if len(got) != 1 || len(got[uri.File(second)]) != 1 {
 		t.Fatalf("library-declared-twice published on %v, want once on %s", got, second)
 	}
-	if !strings.Contains(got[uri.File(second)][0].Message, first) {
-		t.Errorf("message = %q, want it to name %s", got[uri.File(second)][0].Message, first)
+	if !strings.Contains(diagnosticMessage(t, got[uri.File(second)][0]), first) {
+		t.Errorf("message = %q, want it to name %s", diagnosticMessage(t, got[uri.File(second)][0]), first)
 	}
 
 	ws.Remove(second)

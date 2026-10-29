@@ -348,6 +348,9 @@ type Node struct {
 	// NameSynthesized marks a name the model did not give: a migration made it up, or
 	// it is the language's `start`/`done`. A name to key by, not one a picture shows.
 	NameSynthesized bool
+	// Member is the name the owner's body knows an unnamed node by — the
+	// language's `start` or `done` —, which a Layout about Owner::Member places.
+	Member string
 	// Referential marks a structural usage that refers to its value rather
 	// than owning it (`ref part`): a row of a tool's references compartment.
 	Referential bool
@@ -638,8 +641,11 @@ func (r *Rendering) Positioned() bool {
 // recognized kind this package does not produce is an *UnsupportedKindError —
 // never another kind's rendering.
 func (r *Renderer) Render(view *symbols.Symbol) (*Rendering, error) {
-	return r.render(view, nil)
+	return r.render(view, newDrawn())
 }
+
+// Drawn is what the rendering draws, for the edits that apply to it.
+func (r *Rendering) Drawn() *Drawn { return r.drawn }
 
 // render is Render, collecting what is drawn into drawn when it is not nil.
 func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error) {

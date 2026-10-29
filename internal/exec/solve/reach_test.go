@@ -133,6 +133,7 @@ type guardedQueries struct {
 	unfixed   []Unfixed
 	sym       *symbols.Symbol
 	ctx       *runtime.Context
+	object    *runtime.Instance
 	question  *Query
 	violation *Query
 }
@@ -146,7 +147,7 @@ func guardedItemQueries(t *testing.T, ctx *runtime.Context, idx *symbols.Index, 
 		t.Fatalf("instantiate item: %v", err)
 	}
 	pins, unfixed := FixedFor(ctx, Fixing{Element: sym, Owner: owner, Object: item, ObjectType: owner})
-	g := guardedQueries{pins: pins, unfixed: unfixed, sym: sym, ctx: ctx}
+	g := guardedQueries{pins: pins, unfixed: unfixed, sym: sym, ctx: ctx, object: item}
 	if g.question, err = ConstraintWith(ctx, sym, sym.OwnerScope, pins); err != nil {
 		t.Fatalf("translate %s: %v", name, err)
 	}

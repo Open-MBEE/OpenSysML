@@ -13,7 +13,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
@@ -301,43 +300,27 @@ func (e *queryEval) elementID(sym *symbols.Symbol) string {
 	if cached == nil {
 		return ""
 	}
-	cached.elementIDsOnce.Do(func() {
-		documents := make([]export.ModelDocument, 0, len(cached.Documents))
-		for _, doc := range cached.Documents {
-			if doc != nil && doc.Source != nil && doc.Root != nil {
-				documents = append(documents, export.ModelDocument{File: doc.Source, Root: doc.Root})
-			}
-		}
-		// Convert refuses a model of several documents one of which the parser
-		// could not read whole, so no ids are read from its recovered trees.
-		if len(documents) > 1 {
-			for _, doc := range cached.Documents {
-				if doc == nil || doc.Source == nil {
-					continue
-				}
-				if syntax := convert.SyntaxErrorOf(doc.Source.Name(), doc.Source, doc.ParseDiags); syntax != nil {
-					cached.elementIDsErr = syntax
-					return
-				}
-			}
-		}
-		// The ids are the ones Convert writes for this model hash, so they are
-		// read from the same conversion: one document is converted from its
-		// text (convertSource), several from what parse read
-		// (convertModelOfDocuments).
-		if len(documents) == 1 {
-			doc := documents[0].File
-			cached.elementIDs, cached.elementIDsErr = export.NewElementIDsOfDocument(doc.Name(), doc.Bytes())
-			return
-		}
-		cached.elementIDs, cached.elementIDsErr = export.NewElementIDs(documents)
-	})
-	if cached.elementIDsErr != nil {
-		e.elementIDErr = cached.elementIDsErr
+	id, err := cached.elementIDReader().Read(sym.DocName, sym.Decl, e.identity(sym))
+	if err != nil {
+		e.elementIDErr = err
 		return ""
 	}
-	id, _ := cached.elementIDs.OfDeclaration(sym.Decl, e.identity(sym))
 	return id
+}
+
+// elementIDReader reads the ids Convert writes for this model, from one
+// conversion made on first use and shared by every query of the model.
+func (m *CachedModel) elementIDReader() *export.ElementIDReader {
+	m.elementIDsOnce.Do(func() {
+		documents := make([]export.ElementIDDocument, 0, len(m.Documents))
+		for _, doc := range m.Documents {
+			if doc != nil {
+				documents = append(documents, export.ElementIDDocument{File: doc.Source, Root: doc.Root, ParseDiags: doc.ParseDiags})
+			}
+		}
+		m.elementIDs = export.NewElementIDReader(documents)
+	})
+	return m.elementIDs
 }
 
 func (e *queryEval) positionalNames(cached *CachedModel) {
