@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- VehicleViews::vehicleView — tree rendering -->
+<!-- 2 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="VehicleViews-vehicleView" name="VehicleViews::vehicleView">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«part def»&#xA;Vehicle" fqn="Vehicles::Vehicle" kind="part def" view="VehicleViews::vehicleView" link="tree.sysml:11">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
+            <mxGeometry x="40" y="40" width="358" height="241" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«part»&#xA;engine" fqn="Vehicles::Vehicle::engine" kind="part" view="VehicleViews::vehicleView" link="tree.sysml:12">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="58" width="234" height="111" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«attribute»&#xA;^power" fqn="Vehicles::Engine::power" kind="attribute" view="VehicleViews::vehicleView" link="tree.sysml:5">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n1">
+            <mxGeometry x="16" y="58" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n3" label="«part»&#xA;^cylinder" fqn="Vehicles::Engine::cylinder" kind="part" view="VehicleViews::vehicleView" link="tree.sysml:6">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n1">
+            <mxGeometry x="118" y="58" width="100" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4" label="«part»&#xA;wheels" fqn="Vehicles::Vehicle::wheels" kind="part" view="VehicleViews::vehicleView" link="tree.sysml:13">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="270" y="58" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5" label="connect" kind="connect" view="VehicleViews::vehicleView" link="tree.sysml:14">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="189" width="81" height="36" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n6" label="«view»&#xA;engineSubview" fqn="VehicleViews::vehicleView::engineSubview" kind="view" view="VehicleViews::vehicleView" link="tree.sysml:29">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="1">
+            <mxGeometry x="438" y="40" width="256" height="185" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n7" label="«part def»&#xA;Engine" fqn="Vehicles::Engine" kind="part def" view="VehicleViews::vehicleView" link="tree.sysml:4">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="n6">
+            <mxGeometry x="16" y="58" width="224" height="111" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n8" label="«attribute»&#xA;power" fqn="Vehicles::Engine::power" kind="attribute" view="VehicleViews::vehicleView" link="tree.sysml:5">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n7">
+            <mxGeometry x="16" y="58" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n9" label="«part»&#xA;cylinder" fqn="Vehicles::Engine::cylinder" kind="part" view="VehicleViews::vehicleView" link="tree.sysml:6">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n7">
+            <mxGeometry x="118" y="58" width="90" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="" kind="composition" view="VehicleViews::vehicleView" link="tree.sysml:12">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e1" label="" kind="composition" view="VehicleViews::vehicleView" link="tree.sysml:13">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n4">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e2" label="" kind="typing" view="VehicleViews::vehicleView" link="tree.sysml:12">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n7">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e3" label="" kind="reference" view="VehicleViews::vehicleView" link="tree.sysml:5">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n1" target="n2">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e4" label="" kind="composition" view="VehicleViews::vehicleView" link="tree.sysml:6">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n1" target="n3">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e5" label="" kind="reference" view="VehicleViews::vehicleView" link="tree.sysml:5">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n7" target="n8">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e6" label="" kind="composition" view="VehicleViews::vehicleView" link="tree.sysml:6">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n7" target="n9">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

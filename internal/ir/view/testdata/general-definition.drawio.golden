@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- GeneralViews::definitionView — definition rendering (view def GeneralView, filter @Definition or @Usage) -->
+<!-- 14 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="GeneralViews-definitionView" name="GeneralViews::definitionView">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«part def»&#xA;Vehicle" fqn="VehicleStructure::Vehicle" kind="part def" view="GeneralViews::definitionView" link="general.sysml:4">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="40" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«part def»&#xA;Chassis" fqn="VehicleStructure::Chassis" kind="part def" view="GeneralViews::definitionView" link="general.sysml:9">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="161" y="40" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«part def»&#xA;LightChassis" fqn="VehicleStructure::LightChassis" kind="part def" view="GeneralViews::definitionView" link="general.sysml:10">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="282" y="40" width="127" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n3" label="«part def»&#xA;Driver" fqn="VehicleStructure::Driver" kind="part def" view="GeneralViews::definitionView" link="general.sysml:11">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="449" y="40" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4" label="«action def»&#xA;Brake" fqn="VehicleStructure::Brake" kind="action def" view="GeneralViews::definitionView" link="general.sysml:12">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="117" width="88" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5" label="«part»&#xA;vehicle" fqn="VehicleStructure::vehicle" kind="part" view="GeneralViews::definitionView" link="general.sysml:14">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="168" y="117" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n6" label="«part»&#xA;heavyVehicle" fqn="VehicleStructure::heavyVehicle" kind="part" view="GeneralViews::definitionView" link="general.sysml:17">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="289" y="117" width="127" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n7" label="«action»&#xA;brake" fqn="VehicleStructure::brake" kind="action" view="GeneralViews::definitionView" link="general.sysml:20">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="456" y="117" width="64" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n8" label="«attribute»&#xA;Vehicle::mass" fqn="VehicleStructure::Vehicle::mass" kind="attribute" view="GeneralViews::definitionView" link="general.sysml:5">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="194" width="136" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n9" label="«part»&#xA;chassis" fqn="VehicleStructure::Vehicle::chassis" kind="part" view="GeneralViews::definitionView" link="general.sysml:6">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="216" y="194" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n10" label="«part»&#xA;driver" fqn="VehicleStructure::Vehicle::driver" kind="part" view="GeneralViews::definitionView" link="general.sysml:7">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="337" y="194" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n11" label="«attribute»&#xA;vehicle::mass" fqn="VehicleStructure::vehicle::mass" kind="attribute" view="GeneralViews::definitionView" link="general.sysml:15">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="449" y="194" width="136" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n12" label="«attribute»&#xA;heavyVehicle::mass" fqn="VehicleStructure::heavyVehicle::mass" kind="attribute" view="GeneralViews::definitionView" link="general.sysml:18">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="271" width="183" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n13" label="«part def»&#xA;Engine" fqn="VehicleStructure::Powertrain::Engine" kind="part def" view="GeneralViews::definitionView" link="general.sysml:23">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="263" y="271" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="" kind="specialization" view="GeneralViews::definitionView" link="general.sysml:10">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n2" target="n1">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e1" label="" kind="typing" view="GeneralViews::definitionView" link="general.sysml:14">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n5" target="n0">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e2" label="" kind="typing" view="GeneralViews::definitionView" link="general.sysml:17">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n6" target="n0">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e3" label="" kind="typing" view="GeneralViews::definitionView" link="general.sysml:20">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n7" target="n4">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e4" label="" kind="reference" view="GeneralViews::definitionView" link="general.sysml:5">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n8">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e5" label="" kind="typing" view="GeneralViews::definitionView" link="general.sysml:6">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n9" target="n1">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e6" label="" kind="composition" view="GeneralViews::definitionView" link="general.sysml:6">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=1;endArrow=none;" edge="1" parent="1" source="n0" target="n9">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e7" label="" kind="typing" view="GeneralViews::definitionView" link="general.sysml:7">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n10" target="n3">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e8" label="" kind="reference" view="GeneralViews::definitionView" link="general.sysml:7">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n10">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e9" label="" kind="redefinition" view="GeneralViews::definitionView" link="general.sysml:15">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n11" target="n8">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e10" label="" kind="reference" view="GeneralViews::definitionView" link="general.sysml:15">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n5" target="n11">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e11" label="" kind="redefinition" view="GeneralViews::definitionView" link="general.sysml:18">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n12" target="n8">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e12" label="" kind="reference" view="GeneralViews::definitionView" link="general.sysml:18">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n6" target="n12">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

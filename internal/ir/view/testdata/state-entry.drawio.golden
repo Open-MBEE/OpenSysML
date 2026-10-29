@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- MachineViews::thermostat — state rendering (view def StateTransitionView) -->
+<!-- 1 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="MachineViews-thermostat" name="MachineViews::thermostat">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«state def»&#xA;Thermostat" fqn="Machines::Thermostat" kind="state def" view="MachineViews::thermostat" link="state-entry.sysml:7">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
+            <mxGeometry x="40" y="40" width="525" height="390" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n12" label="start" kind="start" view="MachineViews::thermostat">
+          <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="58" width="20" height="20" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«state»&#xA;heating" fqn="Machines::Thermostat::heating" kind="state" view="MachineViews::thermostat" link="state-entry.sysml:14">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="56" y="58" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«state»&#xA;idle" fqn="Machines::Thermostat::idle" kind="state" view="MachineViews::thermostat" link="state-entry.sysml:15">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="115" width="144" height="168" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n13" label="start" kind="start" view="MachineViews::thermostat">
+          <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n2">
+            <mxGeometry x="16" y="58" width="20" height="20" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n3" label="«state»&#xA;drying" fqn="Machines::Thermostat::idle::drying" kind="state" view="MachineViews::thermostat" link="state-entry.sysml:18">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n2">
+            <mxGeometry x="56" y="58" width="72" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4" label="«state»&#xA;resting" fqn="Machines::Thermostat::idle::resting" kind="state" view="MachineViews::thermostat" link="state-entry.sysml:19">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n2">
+            <mxGeometry x="16" y="115" width="81" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5" label="«state»&#xA;monitoring" fqn="Machines::Thermostat::monitoring" kind="state" view="MachineViews::thermostat" link="state-entry.sysml:21">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;rounded=1;arcSize=10;" vertex="1" parent="n0">
+            <mxGeometry x="180" y="115" width="329" height="259" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n6" label="«region»&#xA;lights" fqn="Machines::Thermostat::monitoring::lights" kind="region" view="MachineViews::thermostat" link="state-entry.sysml:22">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;dashed=1;align=left;verticalAlign=top;startSize=42;collapsible=0;rounded=1;arcSize=10;" vertex="1" parent="n5">
+            <mxGeometry x="16" y="58" width="130" height="168" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n14" label="start" kind="start" view="MachineViews::thermostat">
+          <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n6">
+            <mxGeometry x="16" y="58" width="20" height="20" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n8" label="«state»&#xA;lit" fqn="Machines::Thermostat::monitoring::lights::lit" kind="state" view="MachineViews::thermostat" link="state-entry.sysml:25">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n6">
+            <mxGeometry x="56" y="58" width="58" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n9" label="«state»&#xA;unlit" fqn="Machines::Thermostat::monitoring::lights::unlit" kind="state" view="MachineViews::thermostat" link="state-entry.sysml:26">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n6">
+            <mxGeometry x="16" y="115" width="63" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n7" label="«region»&#xA;fans" fqn="Machines::Thermostat::monitoring::fans" kind="region" view="MachineViews::thermostat" link="state-entry.sysml:28">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;dashed=1;align=left;verticalAlign=top;startSize=42;collapsible=0;rounded=1;arcSize=10;" vertex="1" parent="n5">
+            <mxGeometry x="166" y="58" width="147" height="185" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n15" label="start" kind="start" view="MachineViews::thermostat">
+          <mxCell style="ellipse;html=0;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="n7">
+            <mxGeometry x="16" y="58" width="20" height="20" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n10" label="«state»&#xA;off&#xA;initial" fqn="Machines::Thermostat::monitoring::fans::off" kind="state" view="MachineViews::thermostat" link="state-entry.sysml:31">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n7">
+            <mxGeometry x="56" y="58" width="75" height="54" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n11" label="«state»&#xA;on" fqn="Machines::Thermostat::monitoring::fans::on" kind="state" view="MachineViews::thermostat" link="state-entry.sysml:32">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n7">
+            <mxGeometry x="16" y="132" width="58" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="[cold]" kind="transition" view="MachineViews::thermostat" link="state-entry.sysml:12">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n12" target="n1">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e1" label="[not cold]" kind="transition" view="MachineViews::thermostat" link="state-entry.sysml:12">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n12" target="n2">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e2" label="[wet]" kind="transition" view="MachineViews::thermostat" link="state-entry.sysml:16">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n13" target="n3">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e3" label="" kind="transition" view="MachineViews::thermostat" link="state-entry.sysml:16">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n13" target="n4">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e4" label="[dark]" kind="transition" view="MachineViews::thermostat" link="state-entry.sysml:23">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n14" target="n8">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e5" label="[not dark]" kind="transition" view="MachineViews::thermostat" link="state-entry.sysml:23">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n14" target="n9">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e6" label="" kind="transition" view="MachineViews::thermostat" link="state-entry.sysml:29">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n15" target="n10">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e7" label="" kind="transition" view="MachineViews::thermostat" link="state-entry.sysml:38">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n1" target="n2">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e8" label="" kind="transition" view="MachineViews::thermostat" link="state-entry.sysml:39">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n2" target="n5">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e9" label="" kind="transition" view="MachineViews::thermostat" link="state-entry.sysml:34">
+          <mxCell style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=open;" edge="1" parent="1" source="n10" target="n11">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ParameterCalcViews::definitions — tree rendering (render asTreeDiagram) -->
+<!-- 4 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="ParameterCalcViews-definitions" name="ParameterCalcViews::definitions">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <object id="n0" label="«calc def»&#xA;Add" fqn="ParameterCalcs::Add" kind="calc def" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:16">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="40" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n0:n0.0" label="x" fqn="ParameterCalcs::Add::x" kind="parameter" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:17">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="0" y="0.3333333333333333" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n0:n0.1" label="y" fqn="ParameterCalcs::Add::y" kind="parameter" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:18">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="0" y="0.6666666666666666" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n0:n0.2" label="result" fqn="ParameterCalcs::Add::result" kind="parameter" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:19">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="1" y="0.5" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n1" label="«calc def»&#xA;Scale" fqn="ParameterCalcs::Scale" kind="calc def" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:23">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="156" y="40" width="76" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1:n1.0" label="x" fqn="ParameterCalcs::Scale::x" kind="parameter" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:24">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n1">
+            <mxGeometry x="0" y="0.3333333333333333" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n1:n1.1" label="factor" fqn="ParameterCalcs::Scale::factor" kind="parameter" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:25">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n1">
+            <mxGeometry x="0" y="0.6666666666666666" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n1:n1.2" label="count" fqn="ParameterCalcs::Scale::count" kind="parameter" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:26">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;" vertex="1" parent="n1">
+            <mxGeometry x="0.5" y="0" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n1:n1.3" label="doubled" fqn="ParameterCalcs::Scale::doubled" kind="parameter" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:27">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;" vertex="1" parent="n1">
+            <mxGeometry x="1" y="0.3333333333333333" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n1:n1.4" label="r" fqn="ParameterCalcs::Scale::r" kind="parameter" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:28">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;" vertex="1" parent="n1">
+            <mxGeometry x="1" y="0.6666666666666666" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n2" label="«action def»&#xA;Heat" fqn="ParameterCalcs::Heat" kind="action def" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:31">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="117" width="88" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2:n2.0" label="bread" fqn="ParameterCalcs::Heat::bread" kind="parameter" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:32">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n2">
+            <mxGeometry x="0" y="0.5" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n2:n2.1" label="toast" fqn="ParameterCalcs::Heat::toast" kind="parameter" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:33">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;" vertex="1" parent="n2">
+            <mxGeometry x="1" y="0.5" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n3" label="«constraint def»&#xA;Between" fqn="ParameterCalcs::Between" kind="constraint def" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:36">
+          <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="168" y="117" width="112" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n3:n3.0" label="low" fqn="ParameterCalcs::Between::low" kind="parameter" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:37">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n3">
+            <mxGeometry x="0" y="0.3333333333333333" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="n3:n3.1" label="value" fqn="ParameterCalcs::Between::value" kind="parameter" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:38">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n3">
+            <mxGeometry x="0" y="0.6666666666666666" width="12" height="12" relative="1" as="geometry">
+              <mxPoint x="-6" y="-6" as="offset"/>
+            </mxGeometry>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
