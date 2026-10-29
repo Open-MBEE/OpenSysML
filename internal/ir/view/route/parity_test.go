@@ -48,7 +48,7 @@ type goldenPoint struct {
 	Y float64 `json:"y"`
 }
 
-func (b goldenBox) box() Box { return Box{X: b.X, Y: b.Y, Width: b.Width, Height: b.Height} }
+func (b goldenBox) box() Box { return Box(b) }
 
 func (s *goldenScene) inputs() ([]Shape, []Edge, *Box) {
 	shapes := make([]Shape, 0, len(s.Shapes))

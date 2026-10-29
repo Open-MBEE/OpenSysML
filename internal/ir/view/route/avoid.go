@@ -209,21 +209,6 @@ func (s *session) call(name string, args ...uint64) uint64 {
 	return s.stack[0]
 }
 
-// bind calls a bound method, `emscripten_bind_<Class>_<method>_<argc>`.
-func (s *session) bind(class, method string, args ...uint64) uint64 {
-	return s.call(fmt.Sprintf("emscripten_bind_%s_%s_%d", class, method, len(args)), args...)
-}
-
-// method calls a bound instance method on self.
-func (s *session) method(class string, self uint64, method string, args ...uint64) uint64 {
-	return s.call(fmt.Sprintf("emscripten_bind_%s_%s_%d", class, method, len(args)), append([]uint64{self}, args...)...)
-}
-
-// enum is the value of an Avoid enumerator.
-func (s *session) enum(name string) uint64 { return s.call("emscripten_enum_Avoid_" + name) }
-
-func (s *session) destroy(class string, self uint64) { s.method(class, self, "__destroy__") }
-
 // callF64 is call for an export returning an f64.
 func (s *session) callF64(name string, args ...uint64) float64 {
 	return api.DecodeF64(s.call(name, args...))
