@@ -28,4 +28,15 @@ func TestWorkspaceEditKeepsVersionOnlyDocuments(t *testing.T) {
 	if len(res.Changes) != 1 || res.Changes[0].Path != "a.sysml" || len(res.Changes[0].Edits) != 0 {
 		t.Fatalf("changes = %+v, want a.sysml listed with no edits", res.Changes)
 	}
+	// Applied, the document is checked but neither rewritten nor advanced.
+	before := f.snapshot()
+	var state DocumentState
+	f.ok("open_document", map[string]any{"path": "a.sysml", "text": f.read("a.sysml")}, &state)
+	if _, _, err := f.host.workspaceEdit(context.Background(), edit, true, "test"); err != nil {
+		t.Fatalf("workspaceEdit apply: %v", err)
+	}
+	f.unchanged(before)
+	if doc := f.host.Workspace.Document(filepath.Join(f.root, "a.sysml")); doc == nil || doc.Version != state.Version {
+		t.Errorf("document after a version-only apply = %+v, want it still at version %d", doc, state.Version)
+	}
 }

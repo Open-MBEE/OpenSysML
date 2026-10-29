@@ -246,10 +246,15 @@ type pendingWrite struct {
 	base    []byte
 }
 
+// unchanged reports whether the write leaves the document as it was read.
+func (w pendingWrite) unchanged() bool { return bytes.Equal(w.content, w.base) }
+
 // writeAll puts every pending write on disk, or none: a file whose text on
 // disk is no longer what its change was computed from, or that changed under
 // an open buffer since the buffer was opened, refuses the whole change, and a
-// failed write restores the files written before it. Every file operation
+// failed write restores the files written before it. A write whose text is its
+// base is a document the change read and left alone: it is checked like the
+// others, and neither written nor advanced. Every file operation
 // goes through an os.Root at the resolved root, so a link repointed while the
 // change is in flight cannot carry a write outside it. The index, and an open
 // buffer of a written document, then follow the new text.
@@ -285,6 +290,9 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	}
 	var written []string
 	for _, w := range writes {
+		if w.unchanged() {
+			continue
+		}
 		if err := toolkit.WriteFile(root, originals[w.name].target, w.content, 0o600); err != nil {
 			var restore []string
 			for _, name := range written {
@@ -307,6 +315,9 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 		written = append(written, w.name)
 	}
 	for _, w := range writes {
+		if w.unchanged() {
+			continue
+		}
 		if _, open := h.opened[w.name]; open {
 			h.opened[w.name] = diskState{content: w.content, existed: true}
 			if err := h.replace(ctx, w.name, string(w.content)); err != nil {
