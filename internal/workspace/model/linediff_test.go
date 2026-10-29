@@ -1,4 +1,4 @@
-package lsp
+package model
 
 import (
 	"math/rand"
@@ -7,29 +7,29 @@ import (
 )
 
 // applyHunks rebuilds the new side from a and the hunks, the way an editor
-// applying the edits would; any hunk out of order or overlapping fails.
-func applyHunks(t *testing.T, a, b []string, hunks []hunk) []string {
+// applying the edits would; any Hunk out of order or overlapping fails.
+func applyHunks(t *testing.T, a, b []string, hunks []Hunk) []string {
 	t.Helper()
 	var out []string
 	oldPos, newPos := 0, 0
 	for i, h := range hunks {
-		if h.oldStart < oldPos || h.oldEnd < h.oldStart || h.newStart < newPos || h.newEnd < h.newStart {
-			t.Fatalf("hunk %d %+v is out of order or inverted (old at %d, new at %d)", i, h, oldPos, newPos)
+		if h.OldStart < oldPos || h.OldEnd < h.OldStart || h.NewStart < newPos || h.NewEnd < h.NewStart {
+			t.Fatalf("Hunk %d %+v is out of order or inverted (old at %d, new at %d)", i, h, oldPos, newPos)
 		}
-		if i > 0 && h.oldStart == oldPos && h.newStart == newPos {
-			t.Fatalf("hunk %d %+v abuts the one before it; they should have merged", i, h)
+		if i > 0 && h.OldStart == oldPos && h.NewStart == newPos {
+			t.Fatalf("Hunk %d %+v abuts the one before it; they should have merged", i, h)
 		}
-		if h.oldStart-oldPos != h.newStart-newPos {
-			t.Fatalf("hunk %d %+v: %d shared old lines before it but %d new", i, h, h.oldStart-oldPos, h.newStart-newPos)
+		if h.OldStart-oldPos != h.NewStart-newPos {
+			t.Fatalf("Hunk %d %+v: %d shared old lines before it but %d new", i, h, h.OldStart-oldPos, h.NewStart-newPos)
 		}
-		for k := 0; k < h.oldStart-oldPos; k++ {
+		for k := 0; k < h.OldStart-oldPos; k++ {
 			if a[oldPos+k] != b[newPos+k] {
-				t.Fatalf("hunk %d %+v: line %d before it is not shared (%q vs %q)", i, h, oldPos+k, a[oldPos+k], b[newPos+k])
+				t.Fatalf("Hunk %d %+v: line %d before it is not shared (%q vs %q)", i, h, oldPos+k, a[oldPos+k], b[newPos+k])
 			}
 		}
-		out = append(out, a[oldPos:h.oldStart]...)
-		out = append(out, b[h.newStart:h.newEnd]...)
-		oldPos, newPos = h.oldEnd, h.newEnd
+		out = append(out, a[oldPos:h.OldStart]...)
+		out = append(out, b[h.NewStart:h.NewEnd]...)
+		oldPos, newPos = h.OldEnd, h.NewEnd
 	}
 	if len(a)-oldPos != len(b)-newPos {
 		t.Fatalf("after the hunks, %d old lines remain but %d new", len(a)-oldPos, len(b)-newPos)
@@ -56,24 +56,36 @@ func lcsLength(a, b []string) int {
 	return prev[len(b)]
 }
 
-// diffStrings diffs two line lists through the same interning formatEdits uses.
-func diffStrings(a, b []string) []hunk {
-	keys := lineKeys{ids: map[string]int{}}
-	return diffLines(keys.of(a, 0), keys.of(b, 0))
+// diffStrings diffs two line lists, each distinct line interned to one id.
+func diffStrings(a, b []string) []Hunk {
+	ids := map[string]int{}
+	intern := func(lines []string) []int {
+		out := make([]int, len(lines))
+		for i, line := range lines {
+			id, ok := ids[line]
+			if !ok {
+				id = len(ids)
+				ids[line] = id
+			}
+			out[i] = id
+		}
+		return out
+	}
+	return DiffLines(intern(a), intern(b))
 }
 
-func checkDiff(t *testing.T, a, b []string) []hunk {
+func checkDiff(t *testing.T, a, b []string) []Hunk {
 	t.Helper()
 	hunks := diffStrings(a, b)
 	if got := applyHunks(t, a, b, hunks); strings.Join(got, "|") != strings.Join(b, "|") {
-		t.Fatalf("diffLines(%q, %q) = %+v\napplied: %q", a, b, hunks, got)
+		t.Fatalf("DiffLines(%q, %q) = %+v\napplied: %q", a, b, hunks, got)
 	}
 	edits := 0
 	for _, h := range hunks {
-		edits += (h.oldEnd - h.oldStart) + (h.newEnd - h.newStart)
+		edits += (h.OldEnd - h.OldStart) + (h.NewEnd - h.NewStart)
 	}
 	if want := len(a) + len(b) - 2*lcsLength(a, b); edits != want {
-		t.Fatalf("diffLines(%q, %q) = %+v: %d line edits, a shortest script has %d", a, b, hunks, edits, want)
+		t.Fatalf("DiffLines(%q, %q) = %+v: %d line edits, a shortest script has %d", a, b, hunks, edits, want)
 	}
 	return hunks
 }
@@ -82,19 +94,19 @@ func TestDiffLinesHandCases(t *testing.T) {
 	cases := []struct {
 		name string
 		a, b []string
-		want []hunk
+		want []Hunk
 	}{
 		{"both empty", nil, nil, nil},
 		{"identical", []string{"a", "b"}, []string{"a", "b"}, nil},
-		{"all inserted", nil, []string{"a", "b"}, []hunk{{0, 0, 0, 2}}},
-		{"all deleted", []string{"a", "b"}, nil, []hunk{{0, 2, 0, 0}}},
-		{"replace middle", []string{"a", "b", "c"}, []string{"a", "x", "c"}, []hunk{{1, 2, 1, 2}}},
-		{"insert at end", []string{"a"}, []string{"a", "b"}, []hunk{{1, 1, 1, 2}}},
-		{"insert at start", []string{"a"}, []string{"b", "a"}, []hunk{{0, 0, 0, 1}}},
-		{"delete a blank of two", []string{"x", "", "", "y"}, []string{"x", "", "y"}, []hunk{{2, 3, 2, 2}}},
-		{"two separate hunks", []string{"a", "b", "c", "d", "e"}, []string{"a", "B", "c", "d", "E"}, []hunk{{1, 2, 1, 2}, {4, 5, 4, 5}}},
-		{"unequal replacement", []string{"a", "b", "c", "d"}, []string{"a", "x", "d"}, []hunk{{1, 3, 1, 2}}},
-		{"nothing shared", []string{"a", "b"}, []string{"c", "d", "e"}, []hunk{{0, 2, 0, 3}}},
+		{"all inserted", nil, []string{"a", "b"}, []Hunk{{0, 0, 0, 2}}},
+		{"all deleted", []string{"a", "b"}, nil, []Hunk{{0, 2, 0, 0}}},
+		{"replace middle", []string{"a", "b", "c"}, []string{"a", "x", "c"}, []Hunk{{1, 2, 1, 2}}},
+		{"insert at end", []string{"a"}, []string{"a", "b"}, []Hunk{{1, 1, 1, 2}}},
+		{"insert at start", []string{"a"}, []string{"b", "a"}, []Hunk{{0, 0, 0, 1}}},
+		{"delete a blank of two", []string{"x", "", "", "y"}, []string{"x", "", "y"}, []Hunk{{2, 3, 2, 2}}},
+		{"two separate hunks", []string{"a", "b", "c", "d", "e"}, []string{"a", "B", "c", "d", "E"}, []Hunk{{1, 2, 1, 2}, {4, 5, 4, 5}}},
+		{"unequal replacement", []string{"a", "b", "c", "d"}, []string{"a", "x", "d"}, []Hunk{{1, 3, 1, 2}}},
+		{"nothing shared", []string{"a", "b"}, []string{"c", "d", "e"}, []Hunk{{0, 2, 0, 3}}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

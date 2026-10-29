@@ -609,11 +609,11 @@ func textEdits(content, edited []byte) []protocol.TextEdit {
 		return out
 	}
 	edits := []protocol.TextEdit{}
-	for _, h := range diffLines(intern(oldLines), intern(newLines)) {
-		start, end := oldOffsets[h.oldStart], oldOffsets[h.oldEnd]
-		text := strings.Join(newLines[h.newStart:h.newEnd], "")
-		if h.oldEnd-h.oldStart == 1 && h.newEnd-h.newStart == 1 {
-			from, to, replacement, _ := trimCommon(oldLines[h.oldStart], newLines[h.newStart])
+	for _, h := range model.DiffLines(intern(oldLines), intern(newLines)) {
+		start, end := oldOffsets[h.OldStart], oldOffsets[h.OldEnd]
+		text := strings.Join(newLines[h.NewStart:h.NewEnd], "")
+		if h.OldEnd-h.OldStart == 1 && h.NewEnd-h.NewStart == 1 {
+			from, to, replacement, _ := trimCommon(oldLines[h.OldStart], newLines[h.NewStart])
 			start, end, text = start+from, start+to, replacement
 		}
 		edits = append(edits, protocol.TextEdit{

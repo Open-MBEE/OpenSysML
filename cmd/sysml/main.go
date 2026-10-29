@@ -134,6 +134,9 @@ var (
 	layoutPath                  string
 	imageBaseURL                string
 	renderView                  string
+	importDiagramPath           string
+	importView                  string
+	dryRun                      bool
 	graphsSubject               string
 	renderAllDir                string
 	renderForm                  string
@@ -448,6 +451,14 @@ func runCLI() int {
 		}
 	}
 
+	if importView != "" && importDiagramPath == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -view names the page -import-diagram reads; name the file with -import-diagram")
+		return 2
+	}
+	if dryRun && importDiagramPath == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -dry-run shows what -import-diagram would write; name the file with -import-diagram")
+		return 2
+	}
 	if renderForm != "" && renderView == "" && renderAllDir == "" && len(renderRuns) == 0 {
 		fmt.Fprintln(os.Stderr, "sysml: -render-form is the form -render or -render-all writes; name the view to render with -render or a directory with -render-all")
 		return 2
@@ -801,6 +812,30 @@ func runCLI() int {
 			return fail(err)
 		}
 		return status
+	}
+
+	if importDiagramPath != "" {
+		switch {
+		case renderView != "" || renderAllDir != "" || convertFormat != "" || migrateFormat != "" || graphsSubject != "" || renderDoc != "" || renderDocsDir != "":
+			fmt.Fprintln(os.Stderr, "sysml: -import-diagram writes the model; -render, -render-all, -render-document, -render-documents, -convert, -migrate and -graphs each write documents out; ask for one per run")
+			return 2
+		case outputPath != "":
+			fmt.Fprintln(os.Stderr, "sysml: -import-diagram writes the model files in place and cannot be combined with -output")
+			return 2
+		case queryText != "" || len(evalExprs) > 0 || fromFormat != "":
+			fmt.Fprintln(os.Stderr, "sysml: -import-diagram cannot be combined with -query, -eval or -from")
+			return 2
+		case modelChecks.requested():
+			return refuse(modelChecks,
+				"-import-diagram writes the model and decides nothing about it; check it in its own run")
+		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
+		}
+		if err := runImportDiagram(args); err != nil {
+			return fail(err)
+		}
+		return exitHolds
 	}
 
 	if renderAllDir != "" {

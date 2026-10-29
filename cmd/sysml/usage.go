@@ -738,6 +738,9 @@ func registerFlags(fs *flag.FlagSet) {
 
 	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states; #<kind> renders every file loaded and #<kind>:<element> one element, kind being tree, interconnection, state, action, case, mixed, sequence, table or matrix, without a declared view")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
+	fs.StringVar(&importDiagramPath, "import-diagram", "", "Import this diagrams.net (draw.io) file, written by -render-form drawio and edited in draw.io, back into the model: what moved, resized, folded, re-routed, recoloured or re-sized the page becomes DiagramLayout metadata in the view's body, written through the model editor; cells the rendering lacks are reported, never created or deleted")
+	fs.StringVar(&importView, "view", "", "The view -import-diagram imports, when the file has several pages; default the one page's view")
+	fs.BoolVar(&dryRun, "dry-run", false, "With -import-diagram, print the planned edits and a unified diff of each file they change, writing nothing")
 	fs.StringVar(&graphsSubject, "graphs", "", "Write the lowered graph of this action or state machine, and of every behavior it performs, as the canonical graphs:1 JSON an external analysis engine is sent, to stdout or -output")
 	fs.StringVar(&renderForm, "render-form", "", "Form -render, -render-all or -render-run writes: text, mermaid, markdown, dot, plantuml, d2, drawio, csv or tsv (csv and tsv for a table or matrix; svg and svg-animated for -render-run); D2 writes tree, interconnection, state, action, sequence, requirement, definition and package renderings, not case or mixed; drawio writes the graph-shaped kinds but sequence as a diagrams.net file; default from the destination for -render, each kind's machine form for -render-all")
 	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot, mermaid, plantuml, d2 or drawio form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
@@ -889,6 +892,9 @@ func optionGroups() []usage.OptionGroup {
 		Options: []usage.Option{
 			usage.Opt("render", "<view>"),
 			usage.Opt("render-all", "<dir>"),
+			usage.Opt("import-diagram", fileArg),
+			usage.Opt("view", "<view>"),
+			usage.Opt("dry-run", ""),
 			usage.Opt("graphs", nameArg),
 			usage.Opt("render-form", formArg),
 			usage.Opt("render-palette", "<palette>"),
