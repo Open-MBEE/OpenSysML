@@ -50,6 +50,7 @@ func (r *Rendering) DrawioWith(options Options) (string, error) {
 		cells:     map[string]bool{},
 		portBoxes: map[string]drawioBox{},
 		routed:    map[int]bool{},
+		inward:    map[string]bool{},
 		fqns:      map[string]bool{},
 	}
 	if r.Kind == KindAction {
@@ -85,6 +86,7 @@ type drawioWriter struct {
 	portBoxes  map[string]drawioBox // port cell ID -> its box in canvas coordinates
 	routed     map[int]bool         // the edges (by index) the router gave their route
 	unroutable []int                // the edges (by index) the router found no path for
+	inward     map[string]bool      // the port cells whose edges lead into their owner
 	fqns       map[string]bool      // the qualified names written on cells so far
 	edgeIDs    map[[2]string]string // edge ends -> its cell ID, the anchor an edge note joins
 	grid       int                  // nodes and notes laid on the grid for want of a position
@@ -454,7 +456,7 @@ func (w *drawioWriter) notices(r *Rendering, options Options) []string {
 		notices = append(notices, "edges not routed: this build runs no router; draw.io routes them when the file opens")
 	}
 	for _, i := range w.unroutable {
-		notices = append(notices, fmt.Sprintf("edge %s not routed: the router found no path at this layout; draw.io routes it when the file opens", drawioEdgeName(r.Edges[i])))
+		notices = append(notices, fmt.Sprintf("edge %s not routed: the router found no path at this layout; draw.io routes it when the file opens", w.edgeName(r.Edges[i])))
 	}
 	if options.Style != "" && options.Style != StylePilot {
 		notices = append(notices, styleNotice(options.Style))
@@ -779,10 +781,6 @@ func (w *drawioWriter) geometry(indent string, box drawioBox, points []Point, al
 	w.b.WriteString(indent + "</mxGeometry>\n")
 }
 
-// drawioRound trims a coordinate to a thousandth of a pixel, dropping the
-// float noise a routed waypoint carries.
-func drawioRound(v float64) float64 { return math.Round(v*1000) / 1000 }
-
 // writePoints writes a route's waypoints.
 func (w *drawioWriter) writePoints(indent string, points []Point) {
 	if len(points) == 0 {
@@ -791,8 +789,8 @@ func (w *drawioWriter) writePoints(indent string, points []Point) {
 	w.b.WriteString(indent + `<Array as="points">` + "\n")
 	for _, p := range points {
 		w.b.WriteString(indent + "  <mxPoint")
-		w.attr("x", formatCoord(drawioRound(p.X)))
-		w.attr("y", formatCoord(drawioRound(p.Y)))
+		w.attr("x", formatCoord(p.X))
+		w.attr("y", formatCoord(p.Y))
 		w.b.WriteString("/>\n")
 	}
 	w.b.WriteString(indent + "</Array>\n")
@@ -997,16 +995,22 @@ func (w *drawioWriter) edgeFQN(edge Edge) string {
 	return fqn
 }
 
-// drawioEdgeName names an edge in a notice: its label, else its ends.
-func drawioEdgeName(edge Edge) string {
-	if edge.Label != "" {
-		return edge.Label
+// edgeName names an edge in a notice: its qualified name when it has one,
+// else its label with its ends, else its ends alone.
+func (w *drawioWriter) edgeName(edge Edge) string {
+	if fqn := w.siteName(edge.Origin); fqn != "" {
+		return fqn
 	}
-	return edge.From + " -> " + edge.To
+	ends := edge.From + " -> " + edge.To
+	if edge.Label != "" {
+		return edge.Label + " (" + ends + ")"
+	}
+	return ends
 }
 
-// faceAnchor fixes an edge end at the middle of a port cell's outer face, the
-// side of the port nearest its owner's border; a node end is left to draw.io.
+// faceAnchor fixes an edge end at the middle of a port cell's face: the outer
+// one, nearest its owner's border, or the inner one for an edge the port leads
+// into its owner; a node end is left to draw.io.
 func (w *drawioWriter) faceAnchor(end, cell string) string {
 	owner, _, isPort := strings.Cut(cell, ":")
 	port, ok := w.portBoxes[cell]
@@ -1024,6 +1028,9 @@ func (w *drawioWriter) faceAnchor(end, cell string) string {
 	}
 	if d := cx - box.X; d < best {
 		fx, fy = 0, 0.5
+	}
+	if w.inward[cell] {
+		fx, fy = 1-fx, 1-fy
 	}
 	return fmt.Sprintf("%sX=%s;%sY=%s;%sPerimeter=0;", end, formatCoord(fx), end, formatCoord(fy), end)
 }

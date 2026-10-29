@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 	"sort"
 
@@ -64,6 +65,7 @@ func (w *drawioWriter) routeEdges(r *Rendering) ([]Edge, error) {
 			// leaves it through its inner face, into the container.
 			if shape, ok := w.portShape(tree.nodes[key], w.boxes[key], port, true); ok {
 				portShapes[shape.ID] = shape
+				w.inward[shape.ID] = true
 				continue
 			}
 			pin := route.Port{ID: fmt.Sprintf("\x00member/%d", i), Side: route.South, Flush: true}
@@ -123,8 +125,9 @@ func (w *drawioWriter) routeEdges(r *Rendering) ([]Edge, error) {
 		}
 		for _, found := range routes {
 			i := group[found.Index]
+			// Routed points carry float noise a declared route never has.
 			for _, p := range found.Points {
-				edges[i].Route = append(edges[i].Route, Point{X: p.X, Y: p.Y})
+				edges[i].Route = append(edges[i].Route, Point{X: drawioRound(p.X), Y: drawioRound(p.Y)})
 			}
 			w.routed[i] = true
 		}
@@ -295,3 +298,6 @@ func (t drawioTree) commonContainer(a, b string) string {
 	}
 	return ""
 }
+
+// drawioRound trims a routed coordinate to a thousandth of a pixel.
+func drawioRound(v float64) float64 { return math.Round(v*1000) / 1000 }
