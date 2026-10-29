@@ -291,7 +291,9 @@ v1 migration roots every table scope this way.
 `WhereType` keeps elements whose *metamodel* type matches — `"PartUsage"`,
 `"ConnectionUsage"`, `"RequirementUsage"`, `"AttributeUsage"`, `"PortUsage"`,
 `"PartDefinition"` and so on — including metaclass conformance, so
-`type = "Usage"` keeps every kind of usage. A metamodel type name means the
+`type = "Usage"` keeps every kind of usage; `exact = true` keeps only the elements whose own
+metaclass is named (`type = "PartUsage", exact = true` keeps the part usages and nothing that
+merely conforms), which is what a walk per metaclass over the metamodel needs. A metamodel type name means the
 metaclass even when an element of the model bears the same name; qualify the
 element's name to mean the element. Several names keep the elements of any of
 them: `type = ("PartUsage", "PortUsage")`. A name that is neither a

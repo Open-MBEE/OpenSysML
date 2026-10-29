@@ -236,6 +236,12 @@ func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence,
 	if len(typeNames) == 0 {
 		return sequence{}, e.invalidArgument(expression, "type", "0")
 	}
+	exact := false
+	if hasArgument(expression, "exact") {
+		if exact, err = e.booleanArgument(expression, "exact"); err != nil {
+			return sequence{}, err
+		}
+	}
 	tests := make([]typeTest, len(typeNames))
 	matched := make([]bool, len(typeNames))
 	for i, typeName := range typeNames {
@@ -247,7 +253,7 @@ func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence,
 	result := filtered(source)
 	for i, value := range source.values {
 		for j, test := range tests {
-			if e.valueIsA(value, test) {
+			if (exact && e.valueIsExactly(value, test)) || (!exact && e.valueIsA(value, test)) {
 				matched[j] = true
 				appendSelected(&result, source, i)
 				break
@@ -269,6 +275,37 @@ func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence,
 }
 
 // valueIsA reports whether a row is an object or declaration of the type.
+// valueIsExactly is WhereType's exact = true: the row's own metaclass (Model.MetaclassOf, so
+// a transition is a TransitionUsage) is the named one, by identity; a type of the model never is.
+func (e *executor) valueIsExactly(value Value, test typeTest) bool {
+	meta := e.exactMetaclass(test)
+	if meta == nil {
+		return false
+	}
+	if inst, _, isObject := value.Object(); isObject {
+		for _, typ := range objectTypes(inst) {
+			if symbols.SameElement(e.context.Model.MetaclassOf(typ), meta) {
+				return true
+			}
+		}
+		return false
+	}
+	sym := value.Declaration()
+	return sym != nil && symbols.SameElement(e.context.Model.MetaclassOf(sym), meta)
+}
+
+// exactMetaclass is the metaclass a WhereType name denotes — simple or qualified — and nil
+// for a type of the model, which an exact test never keeps.
+func (e *executor) exactMetaclass(test typeTest) *symbols.Symbol {
+	if test.target == nil {
+		return nil
+	}
+	if meta := e.context.Model.Metaclass(test.target.Name); meta != nil && symbols.SameElement(meta, test.target) {
+		return meta
+	}
+	return nil
+}
+
 func (e *executor) valueIsA(value Value, test typeTest) bool {
 	if _, _, isObject := value.Object(); isObject {
 		return e.objectIsA(value, test.name, test.target)
