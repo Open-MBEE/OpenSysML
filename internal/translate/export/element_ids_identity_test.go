@@ -97,9 +97,8 @@ func TestElementIDReaderRefusesCollidingIDs(t *testing.T) {
 	}
 }
 
-// TestElementIDReaderClaimsWhatTheWriterClaims: a root has no owning membership, so a
-// member's id on its would-be membership IRI is no collision; a referenced document's
-// declarations are checked against the written documents only, as modelToRDF does.
+// TestElementIDReaderClaimsWhatTheWriterClaims: a root claims no owning membership, and
+// a referenced document's declarations are checked across documents only (modelToRDF).
 func TestElementIDReaderClaimsWhatTheWriterClaims(t *testing.T) {
 	_, _, root := readerIndex(t, "root.sysml", "package P {\n\t@IdentityMetadata::ProjectRef { projectId = \"proj-1\"; }\n\t@IdentityMetadata::ElementId { id = \"stable\"; }\n\tpart def A { @IdentityMetadata::ElementId { id = \"stable_om\"; } }\n}\n")
 	if _, err := NewElementIDReader([]ElementIDDocument{root}).Read("", nil, "P::A"); err != nil {
