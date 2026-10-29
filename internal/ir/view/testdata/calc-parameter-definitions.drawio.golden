@@ -9,7 +9,7 @@
         <mxCell id="1" parent="0"/>
         <object id="n0" label="«calc def»&#xA;Add" fqn="ParameterCalcs::Add" kind="calc def" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:16">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="40" y="40" width="76" height="37" as="geometry"/>
+            <mxGeometry x="50" y="50" width="76" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n0:n0.0" label="x" fqn="ParameterCalcs::Add::x" kind="parameter" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:17">
@@ -35,7 +35,7 @@
         </object>
         <object id="n1" label="«calc def»&#xA;Scale" fqn="ParameterCalcs::Scale" kind="calc def" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:23">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="156" y="40" width="76" height="37" as="geometry"/>
+            <mxGeometry x="176" y="50" width="76" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n1:n1.0" label="x" fqn="ParameterCalcs::Scale::x" kind="parameter" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:24">
@@ -75,7 +75,7 @@
         </object>
         <object id="n2" label="«action def»&#xA;Heat" fqn="ParameterCalcs::Heat" kind="action def" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:31">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="40" y="117" width="88" height="37" as="geometry"/>
+            <mxGeometry x="50" y="137" width="88" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n2:n2.0" label="bread" fqn="ParameterCalcs::Heat::bread" kind="parameter" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:32">
@@ -94,7 +94,7 @@
         </object>
         <object id="n3" label="«constraint def»&#xA;Between" fqn="ParameterCalcs::Between" kind="constraint def" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:36">
           <mxCell style="rounded=0;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="1">
-            <mxGeometry x="168" y="117" width="112" height="37" as="geometry"/>
+            <mxGeometry x="188" y="137" width="112" height="37" as="geometry"/>
           </mxCell>
         </object>
         <object id="n3:n3.0" label="low" fqn="ParameterCalcs::Between::low" kind="parameter" view="ParameterCalcViews::definitions" link="calc-parameters.sysml:37">

@@ -9,12 +9,12 @@
         <mxCell id="1" parent="0"/>
         <object id="n0" label="«part def»&#xA;Loop" fqn="Plant::Loop" kind="part def" view="PlantViews::placedView" link="layout.sysml:15">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
-            <mxGeometry x="40" y="160" width="352" height="158" as="geometry"/>
+            <mxGeometry x="50" y="170" width="352" height="168" as="geometry"/>
           </mxCell>
         </object>
         <object id="n1" label="«part»&#xA;pump" fqn="Plant::Loop::pump" kind="part" view="PlantViews::placedView" link="layout.sysml:17">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;fillColor=#FFE8BD;strokeColor=#333333;fontFamily=Arial;fontSize=11;fontStyle=1;" vertex="1" collapsed="1" parent="n0">
-            <mxGeometry x="16" y="82" width="54" height="35" as="geometry">
+            <mxGeometry x="16" y="92" width="54" height="35" as="geometry">
               <mxRectangle width="54" height="36" as="alternateBounds"/>
             </mxGeometry>
           </mxCell>
@@ -28,7 +28,7 @@
         </object>
         <object id="n2" label="«part»&#xA;tank" fqn="Plant::Loop::tank" kind="part" view="PlantViews::placedView" link="layout.sysml:22">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
-            <mxGeometry x="216" y="82" width="120" height="60" as="geometry"/>
+            <mxGeometry x="216" y="92" width="120" height="60" as="geometry"/>
           </mxCell>
         </object>
         <object id="n2:n2.0" label="^inlet" fqn="Plant::Tank::inlet" kind="port" view="PlantViews::placedView" link="layout.sysml:12">
@@ -50,7 +50,7 @@
           </mxCell>
         </object>
         <mxCell id="note0" value="always" style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
-          <mxGeometry x="150" y="242" width="67" height="36" as="geometry"/>
+          <mxGeometry x="170" y="262" width="67" height="36" as="geometry"/>
         </mxCell>
         <mxCell id="note0:anchor0" style="edgeStyle=none;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="note0" target="n1">
           <mxGeometry relative="1" as="geometry"/>
@@ -62,13 +62,13 @@
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
         <mxCell id="note2" value="check pressure" style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
-          <mxGeometry x="40" y="358" width="134" height="36" as="geometry"/>
+          <mxGeometry x="50" y="388" width="134" height="36" as="geometry"/>
         </mxCell>
         <mxCell id="note2:anchor0" style="edgeStyle=none;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="note2" target="e0">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
         <mxCell id="note3" value="free" style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
-          <mxGeometry x="214" y="358" width="54" height="36" as="geometry"/>
+          <mxGeometry x="234" y="388" width="54" height="36" as="geometry"/>
         </mxCell>
       </root>
     </mxGraphModel>
