@@ -790,6 +790,47 @@ read — an assignment to a feature an `in` named does not rebind it for a
 later output read of the same invocation. Only the `=` value of an object's
 own feature follows what it read.
 
+### Metamodel properties
+
+Beyond that table, `Project` and `WhereFeature` read any property the SysML
+metamodel gives the row's metaclass — the attributes and references of the
+specification's abstract syntax, `isComposite`, `isPortion`, `direction`,
+`ownedRelationship`, … — as the reflective evaluator derives them for the
+element. `elementId` is the id a conversion of the model writes for the
+element (`sysml -convert`), so a projection joins the exported graph:
+
+```sysml
+calc def Composites :> Query {
+	in root : Element;
+	Project(
+		source = WhereType(source = Descendants(source = root), type = "PartUsage", exact = true),
+		properties = ("name", "isComposite", "elementId")
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::Composites root=Cookbook::telescope"
+✓ Query Cookbook::Composites returned 3 rows
+  Columns: name, isComposite, elementId
+  Row 1: Cookbook::telescope::primaryMirror
+    name = "primaryMirror"
+    isComposite = true
+    elementId = "Cookbook__telescope__primaryMirror"
+  …
+```
+
+A metaclass property is read on the rows that carry it, so a projection over
+mixed metaclasses treats a property some rows lack as a missing feature, as
+above; `WhereType(…, exact = true)` first keeps the rows homogeneous. A name
+no row carries is an `unknown-property` error that offers the nearest
+property of the rows' metaclass (`isCompost` — did you mean `isComposite`?).
+A property the metamodel declares but this release's evaluator does not derive
+yet is a typed `unserved-property` path error naming the defining class
+(`Element::aliasIds`) and, where the evaluator records one, the fact its
+derivation needs; the set it derives grows release by release and is listed by
+the metamodel evaluator's rules.
+
 ## Computed columns
 
 A projection may also derive columns: each `Column` entry supplies exactly one

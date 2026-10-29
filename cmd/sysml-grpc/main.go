@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	_ "github.com/Open-MBEE/OpenSysML/internal/doc/queryexec/elementids" // queries report the elementId the conversion writes
 	"io"
 	"log/slog"
 	"net"

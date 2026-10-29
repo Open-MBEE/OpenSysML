@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -116,4 +117,72 @@ func (ids *ElementIDs) Of(fqn string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// ElementIDDocument is a document of the model whose elementIds are read: its
+// parse, and the parse's errors, which refuse a model of several documents.
+type ElementIDDocument struct {
+	File       *source.SourceFile
+	Root       *ast.RootNamespace
+	ParseDiags []parser.Diagnostic
+}
+
+// ElementIDReader reads the elementId Convert writes for each element of a
+// model, from one conversion of the model made on first use. A model Convert
+// refuses has no ids: the refusal is kept and every read reports it.
+type ElementIDReader struct {
+	documents []ElementIDDocument
+	once      sync.Once
+	ids       *ElementIDs
+	err       error
+}
+
+// NewElementIDReader reads the elementIds of the model documents make; a
+// document without a parse is not written. Nothing is converted until Read.
+func NewElementIDReader(documents []ElementIDDocument) *ElementIDReader {
+	return &ElementIDReader{documents: documents}
+}
+
+// Read is the elementId written for the element declared at decl, named fqn
+// (ElementIDs.OfDeclaration), or why the model has none.
+func (r *ElementIDReader) Read(decl ast.Node, fqn string) (string, error) {
+	if r == nil {
+		return "", nil
+	}
+	r.once.Do(r.convert)
+	if r.err != nil {
+		return "", r.err
+	}
+	id, _ := r.ids.OfDeclaration(decl, fqn)
+	return id, nil
+}
+
+// convert makes the ids as Convert writes them for this model: one document is
+// converted from its text (convertSource), several from what parse read
+// (convertModelOfDocuments), and a model of several documents one of which the
+// parser could not read whole is refused, so no ids come from recovered trees.
+func (r *ElementIDReader) convert() {
+	documents := make([]ModelDocument, 0, len(r.documents))
+	for _, doc := range r.documents {
+		if doc.File != nil && doc.Root != nil {
+			documents = append(documents, ModelDocument{File: doc.File, Root: doc.Root})
+		}
+	}
+	if len(documents) > 1 {
+		for _, doc := range r.documents {
+			if doc.File == nil {
+				continue
+			}
+			if syntax := parser.SyntaxErrorOf(doc.File.Name(), doc.File, doc.ParseDiags); syntax != nil {
+				r.err = syntax
+				return
+			}
+		}
+	}
+	if len(documents) == 1 {
+		file := documents[0].File
+		r.ids, r.err = NewElementIDsOfDocument(file.Name(), file.Bytes())
+		return
+	}
+	r.ids, r.err = NewElementIDs(documents)
 }

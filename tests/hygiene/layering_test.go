@@ -112,11 +112,12 @@ var packageLayer = map[string]string{
 	"internal/translate/interop/flexo":     "translate",
 	"internal/translate/interop/reposync":  "translate",
 
-	"internal/semantic/query": "semantic",
-	"internal/doc/queryexec":  "doc",
-	"internal/doc/docir":      "doc",
-	"internal/doc/docrender":  "doc",
-	"internal/doc/docpdf":     "doc",
+	"internal/semantic/query":           "semantic",
+	"internal/doc/queryexec":            "doc",
+	"internal/doc/queryexec/elementids": "doc",
+	"internal/doc/docir":                "doc",
+	"internal/doc/docrender":            "doc",
+	"internal/doc/docpdf":               "doc",
 
 	"internal/workspace/model":       "workspace",
 	"internal/workspace/selfcheck":   "workspace",

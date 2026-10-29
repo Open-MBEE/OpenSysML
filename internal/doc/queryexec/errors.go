@@ -34,8 +34,11 @@ const (
 	ErrorUnknownRelationship ErrorKind = "unknown-relationship"
 	// ErrorMissingFeature: Project or WhereFeature read a feature an element row
 	// lacks — a path error about that element; ErrorUnknownProperty: no row had it.
-	ErrorMissingFeature        ErrorKind = "missing-feature"
-	ErrorUnevaluableFeature    ErrorKind = "unevaluable-feature"
+	ErrorMissingFeature     ErrorKind = "missing-feature"
+	ErrorUnevaluableFeature ErrorKind = "unevaluable-feature"
+	// ErrorUnservedProperty: a metamodel property the row's metaclass carries,
+	// which this OpenSysML does not derive yet — a path error naming the gap.
+	ErrorUnservedProperty      ErrorKind = "unserved-property"
 	ErrorUnknownInvocation     ErrorKind = "unknown-invocation"
 	ErrorInvocationCycle       ErrorKind = "invocation-cycle"
 	ErrorInvocationDepth       ErrorKind = "invocation-depth"
@@ -234,7 +237,11 @@ func (e *Error) Error() string {
 		}
 		return fmt.Sprintf("query %s cannot order incomparable values of property %s", e.Query, e.Property)
 	case ErrorUnknownProperty:
-		return fmt.Sprintf("query %s references unknown property %s", e.Query, e.Property)
+		msg := fmt.Sprintf("query %s references unknown property %s", e.Query, e.Property)
+		if len(e.Candidates) > 0 {
+			msg = suggest.With(msg, e.Property, suggest.Nearest(e.Property, e.Candidates))
+		}
+		return msg
 	case ErrorUnknownClassification:
 		return fmt.Sprintf("query %s references unknown classification %s", e.Query, e.Actual)
 	case ErrorMissingFeature:
@@ -249,6 +256,12 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("query %s names %d elements %s: %s", e.Query, len(e.Candidates), e.Actual, declaredAs(spelled(e.Candidates, suggest.Notation)))
 	case ErrorUnknownRelationship:
 		return fmt.Sprintf("query %s%s does not support relationship kind %q", e.Query, e.column(), e.Actual)
+	case ErrorUnservedProperty:
+		message := fmt.Sprintf("query %s reads %s of %s, a metamodel property OpenSysML does not derive yet", e.Query, e.Expected, e.Target)
+		if e.Actual != "" {
+			message += ": " + e.Actual
+		}
+		return message
 	case ErrorUnevaluableFeature:
 		if e.Property == "" {
 			message := fmt.Sprintf("query %s cannot evaluate %s", e.Query, e.Target)
