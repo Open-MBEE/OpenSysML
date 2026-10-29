@@ -166,7 +166,14 @@ func (r *ElementIDReader) convert() {
 		documents = append(documents, ModelDocument{File: doc.File, Root: root})
 	}
 	if len(documents) == 1 {
-		file := source.NewWithKind(documents[0].File.Name(), documents[0].File.Bytes(), documents[0].File.Kind())
+		given := documents[0].File
+		// ToRDF reads a document in the language its name gives it; a name
+		// giving none keeps the language the document was held under.
+		kind := source.KindOf(given.Name())
+		if kind == source.KindUnknown {
+			kind = given.Kind()
+		}
+		file := source.NewWithKind(given.Name(), given.Bytes(), kind)
 		e, err := encodeDocument(file, parser.New(file).ParseFile(), "", IDQualifiedName)
 		if err != nil {
 			r.err = err
