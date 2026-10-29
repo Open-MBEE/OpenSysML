@@ -1,9 +1,12 @@
 package repl
 
 import (
+	"slices"
+
 	"errors"
 	"fmt"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 	"strconv"
 	"strings"
@@ -217,12 +220,35 @@ func (s *Session) queryContext(ctx *runtime.Context) queryexec.Context {
 			return lineIndexes[doc]
 		},
 	}
-	if read := queryexec.OpenElementIDs(elementIDDocuments(s.sessionDocs())); read != nil {
+	if read := s.elementIDReader(); read != nil {
 		context.ElementID = func(sym *symbols.Symbol) (string, error) {
 			return read(sym.DocName, sym.Decl, corequery.QualifiedIdentity(index, sym))
 		}
 	}
 	return context
+}
+
+// sessionElementIDs is the reader opened over a set of session documents, kept
+// while the documents and their trees are the same, so queries share one conversion.
+type sessionElementIDs struct {
+	docs  []*model.Document
+	roots []*ast.RootNamespace
+	read  queryexec.ElementIDReader
+}
+
+// elementIDReader is the conversion-backed reader over the session's documents,
+// one per set of documents and reused across the queries run over them.
+func (s *Session) elementIDReader() queryexec.ElementIDReader {
+	docs := s.sessionDocs()
+	roots := make([]*ast.RootNamespace, len(docs))
+	for i, doc := range docs {
+		roots[i] = doc.AST
+	}
+	if s.elementIDs.docs != nil && slices.Equal(s.elementIDs.docs, docs) && slices.Equal(s.elementIDs.roots, roots) {
+		return s.elementIDs.read
+	}
+	s.elementIDs = sessionElementIDs{docs: docs, roots: roots, read: queryexec.OpenElementIDs(elementIDDocuments(docs))}
+	return s.elementIDs.read
 }
 
 // elementIDDocuments are the session's documents as a conversion writes them,

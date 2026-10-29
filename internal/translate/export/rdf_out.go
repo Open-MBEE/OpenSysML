@@ -332,6 +332,37 @@ func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) 
 // analyzed with and each document's encoder, whose identity tables are the
 // ones the graph's ids were minted from.
 func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Resolver, []*encoder, error) {
+	res, encoders, err := modelEncodersOf(documents, form)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	// declaredIn is the document and declaration each subject was minted for:
+	// two documents declaring one subject would merge two elements into one.
+	declaredIn := map[string]mintedSubject{}
+	for i, e := range encoders {
+		var minted []mintedSubject
+		if documents[i].Referenced {
+			minted = e.declaredSubjects()
+		} else {
+			if err := e.encodeDocument(documents[i].Root); err != nil {
+				return nil, nil, nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+			}
+			minted = e.minted
+		}
+		if err := declaredOnce(declaredIn, minted); err != nil {
+			return nil, nil, nil, err
+		}
+	}
+	out := mergeDocumentGraphs(encoders, documents)
+	// Each document's encoder annotated its collections from its own triples,
+	// in their order, and no two documents declare one subject (refused above).
+	out.MarkCollectionsSettled()
+	return out, res, encoders, nil
+}
+
+// modelEncodersOf analyzes the model and makes each document's encoder with
+// its identity tables settled: what every id is minted from, before any writing.
+func modelEncodersOf(documents []ModelDocument, form IDForm) (*resolve.Resolver, []*encoder, error) {
 	res, model := analyzeModel(documents)
 	shared := &modelEncoders{declaring: map[ast.Node]*encoder{}}
 	encoders := make([]*encoder, len(documents))
@@ -339,7 +370,7 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 	for i, doc := range documents {
 		e, err := newEncoderOver(doc.File, doc.Root, form, res, model)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("%s: %w", doc.File.Name(), err)
+			return nil, nil, fmt.Errorf("%s: %w", doc.File.Name(), err)
 		}
 		e.model = shared
 		for node := range e.fqn {
@@ -357,36 +388,24 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 			e.ids.qualified = true
 		}
 	}
-	// declaredIn is the document and declaration each subject was minted for:
-	// two documents declaring one subject would merge two elements into one.
-	declaredIn := map[string]mintedSubject{}
-	for i, e := range encoders {
-		var minted []mintedSubject
-		if documents[i].Referenced {
-			minted = e.declaredSubjects()
-		} else {
-			if err := e.encodeDocument(documents[i].Root); err != nil {
-				return nil, nil, nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+	return res, encoders, nil
+}
+
+// declaredOnce records minted's subjects in declaredIn, refusing one another
+// document already declares: merging two elements into one subject would be a different model.
+func declaredOnce(declaredIn map[string]mintedSubject, minted []mintedSubject) error {
+	for _, m := range minted {
+		if prior, taken := declaredIn[m.iri]; taken {
+			return &UnsupportedError{
+				What: fmt.Sprintf("the declaration of %s at %s", m.fqn, m.at),
+				Note: fmt.Sprintf("its id lands on the same IRI as %s at %s, which another document declares, and merging two elements into one subject would be a different model", prior.fqn, prior.at),
 			}
-			minted = e.minted
-		}
-		for _, minted := range minted {
-			if prior, taken := declaredIn[minted.iri]; taken {
-				return nil, nil, nil, &UnsupportedError{
-					What: fmt.Sprintf("the declaration of %s at %s", minted.fqn, minted.at),
-					Note: fmt.Sprintf("its id lands on the same IRI as %s at %s, which another document declares, and merging two elements into one subject would be a different model", prior.fqn, prior.at),
-				}
-			}
-		}
-		for _, minted := range minted {
-			declaredIn[minted.iri] = minted
 		}
 	}
-	out := mergeDocumentGraphs(encoders, documents)
-	// Each document's encoder annotated its collections from its own triples,
-	// in their order, and no two documents declare one subject (refused above).
-	out.MarkCollectionsSettled()
-	return out, res, encoders, nil
+	for _, m := range minted {
+		declaredIn[m.iri] = m
+	}
+	return nil
 }
 
 // mergeDocumentGraphs is the written documents' graphs as one (a Referenced
