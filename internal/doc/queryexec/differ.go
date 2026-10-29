@@ -14,7 +14,50 @@ type differSide struct {
 	rows   sequence
 	key    int
 	column int
-	byKey  map[string]int
+	byKey  map[keyBucket][]int
+}
+
+// keyBucket is the comparable coarsening of a key value under which two values equal by
+// valuesEqual share a bucket: rows by identity, numbers by value, quantities by base magnitude.
+type keyBucket struct {
+	kind     string
+	row      setKey
+	position int
+	number   float64
+	text     string
+	boolean  bool
+}
+
+func keyBucketOf(value Value) keyBucket {
+	if value.isRow() {
+		return keyBucket{kind: "row", row: setKeyOf(value)}
+	}
+	if connector, position, ok := value.ConnectorEnd(); ok {
+		return keyBucket{kind: "connectorEnd", row: setKey{row: rowKey{element: symbols.KeyOf(connector)}}, position: position}
+	}
+	if arithmeticKind(value.Kind()) {
+		return keyBucket{kind: "number", number: realOperand(value)}
+	}
+	if quantity, ok := value.Quantity(); ok {
+		return keyBucket{kind: "quantity", number: quantity.BaseMagnitude()}
+	}
+	if text, ok := value.String(); ok {
+		return keyBucket{kind: "string", text: text}
+	}
+	if boolean, ok := value.Boolean(); ok {
+		return keyBucket{kind: "boolean", boolean: boolean}
+	}
+	return keyBucket{kind: string(value.Kind())}
+}
+
+// find is the row of the side whose key equals value under valuesEqual, if any.
+func (s differSide) find(value Value) (int, bool) {
+	for _, row := range s.byKey[keyBucketOf(value)] {
+		if valuesEqual(s.cell(row, s.key)[0], value) {
+			return row, true
+		}
+	}
+	return 0, false
 }
 
 func (s differSide) cell(row, column int) []Value {
@@ -56,7 +99,7 @@ func (e *executor) evaluateDiffer(expression queryplan.Expression) (sequence, er
 		}
 		side.key = projectedColumn(side.rows, key)
 		side.column = projectedColumn(side.rows, column)
-		side.byKey = make(map[string]int, len(side.rows.values))
+		side.byKey = make(map[keyBucket][]int, len(side.rows.values))
 		for row := range side.rows.values {
 			cell := side.cell(row, side.key)
 			if len(cell) != 1 {
@@ -66,15 +109,15 @@ func (e *executor) evaluateDiffer(expression queryplan.Expression) (sequence, er
 				})
 				continue
 			}
-			text := e.keyText(cell[0])
-			if previous, duplicate := side.byKey[text]; duplicate {
+			if previous, duplicate := side.find(cell[0]); duplicate {
 				findings = append(findings, Finding{
 					Step: step, Element: rowTarget(side.rows.values[row]), Constraint: ConstraintDuplicateKey,
 					Observed: fmt.Sprintf("%s key %s = %s is also carried by %s", side.name, key, e.valueText(cell[0]), rowTarget(side.rows.values[previous])),
 				})
 				continue
 			}
-			side.byKey[text] = row
+			bucket := keyBucketOf(cell[0])
+			side.byKey[bucket] = append(side.byKey[bucket], row)
 		}
 	}
 	if len(findings) > 0 {
@@ -92,7 +135,7 @@ func (e *executor) evaluateDiffer(expression queryplan.Expression) (sequence, er
 	result := sequence{columns: []Column{{name: key, origin: origin}, {name: "left", origin: origin}, {name: "right", origin: origin}}}
 	for row, value := range left.values {
 		cell := sides[0].cell(row, sides[0].key)
-		other, both := sides[1].byKey[e.keyText(cell[0])]
+		other, both := sides[1].find(cell[0])
 		if !both {
 			continue
 		}
@@ -121,18 +164,6 @@ func cellsEqual(left, right []Value) bool {
 		}
 	}
 	return true
-}
-
-// keyText identifies a key value: an element by its qualified name, an object by its
-// label, a scalar by its kind and spelling — so "1" and 1 are different keys.
-func (e *executor) keyText(value Value) string {
-	if sym, ok := value.Element(); ok {
-		return "element:" + symbols.FQNOf(sym)
-	}
-	if _, label, ok := value.Object(); ok {
-		return "object:" + label
-	}
-	return string(value.Kind()) + ":" + e.valueText(value)
 }
 
 // unknownColumn is Differ's path error: one side projects no column of the name.

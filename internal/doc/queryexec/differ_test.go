@@ -21,6 +21,14 @@ package Twice {
 	part x { attribute mass = 1; }
 	part y { attribute mass = 1; }
 }
+package Once {
+	part x { attribute mass = 1; }
+	part z { attribute mass = 2.5; }
+}
+package RealKeys {
+	part p { attribute mass = 1.0; }
+	part q { attribute mass = 2.50; }
+}
 calc def PartMasses :> Query {
 	in root : Element;
 	Project(source = WhereType(source = OwnedElements(source = root), type = "PartUsage"), properties = ("name", "mass"))
@@ -94,6 +102,30 @@ func TestExecuteDifferReportsChangedCellsByKey(t *testing.T) {
 	}
 	if n := len(same.Rows()); n != 0 {
 		t.Fatalf("a table against itself differs in %d rows, want none", n)
+	}
+}
+
+// TestExecuteDifferMatchesKeysUnderValueEquality: keys match as valuesEqual does — an
+// integer 1 and a real 1.0 are one key — not by their spelling.
+func TestExecuteDifferMatchesKeysUnderValueEquality(t *testing.T) {
+	fixture := loadExecutionFixture(t, differModel)
+	result, err := fixture.execute(t, "ChangedNamesByMass", Bindings{
+		"left":  {ElementValue(fixture.symbol(t, "Once"))},
+		"right": {ElementValue(fixture.symbol(t, "RealKeys"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("ChangedNamesByMass over Once and RealKeys: %v", err)
+	}
+	var rows []string
+	for _, row := range result.Rows() {
+		sym, _ := row.Element().Element()
+		cells := row.Cells()
+		left, _ := cells[1].Values()[0].String()
+		right, _ := cells[2].Values()[0].String()
+		rows = append(rows, sym.Name+":"+left+"->"+right)
+	}
+	if got := strings.Join(rows, " "); got != "x:x->p z:z->q" {
+		t.Fatalf("rows = %q, want both masses matched across integer and real spellings", got)
 	}
 }
 
