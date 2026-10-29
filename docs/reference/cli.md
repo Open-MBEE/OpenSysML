@@ -256,7 +256,7 @@ the same member-path parser as `Project` and `OrderBy`.
 | `-render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
 | `-render-all <dir>` | | Render every declared view into the directory, one artifact per view |
 | `-graphs <subject>` | | Write the lowered graph of this action or state machine, and of every behavior it performs, as the canonical `graphs:1` JSON an external analysis engine is sent ([the `graphs:1` model form](external-engines.md#the-graphs1-model-form)) to stdout, or to `-output`. The subject is a qualified name, definition or usage; a name that is no behavior, or that nothing declares, is refused with exit status 2. Cannot be combined with checks, rendering, `-convert`, `-migrate`, `-query` or `-eval` |
-| `-render-form <form>` | | Form `-render` or `-render-all` writes: `text`, `mermaid`, `markdown`, `dot`, `plantuml`, `d2`, `drawio`, `csv` or `tsv` (default: destination-dependent for `-render`, each kind's machine-readable form for `-render-all`). D2 writes `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition` and `package` renderings; case and mixed views refuse it with a typed error. `drawio` writes an uncompressed diagrams.net file for every graph-shaped kind but `sequence` |
+| `-render-form <form>` | | Form `-render` or `-render-all` writes: `text`, `mermaid`, `markdown`, `dot`, `plantuml`, `d2`, `drawio`, `csv` or `tsv` (default for `-render`: `text` when stdout is a terminal, otherwise the kind's machine-readable form — Mermaid for a graph-shaped kind, `markdown` for a table or matrix — whatever the extension of `-o`; for `-render-all`: each kind's machine-readable form). D2 writes `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition` and `package` renderings; case and mixed views refuse it with a typed error. `drawio` writes an uncompressed diagrams.net file for every graph-shaped kind but `sequence` |
 | `-render-palette <name>` | | Palette the `dot`, `mermaid`, `plantuml`, `d2` or `drawio` form of `-render` or `-render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid sequence diagrams cannot fill individual participants; text and Markdown ignore palettes. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
 | `-render-link <template>` | | Link nodes and edges back to their source in rendered diagrams. Templates accept `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`; `{file}` is the path as loaded, so pass absolute paths for `vscode://` or `file://` links. Applies to `-render`, `-render-all`, document diagrams and `-render-run`; without one of those render targets it is refused |
 | `-render-style <style>` | | Drawing style the `dot` or `mermaid` form of `-render`, `-render-all`, `-render-document` and `-render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML and D2 note the style as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
@@ -749,9 +749,12 @@ sysml model.sysml -render '#state:Vehicle::controller'
 sysml model.sysml -render '#tree'
 ```
 
-When `-render-form` is not given, the form depends on the destination: the text form when stdout is
-a terminal, where a person reads it, and the machine-readable form of the kind when stdout is a file
-or a pipe, where a tool does. The text form is ASCII, and its table is laid out to fit the terminal,
+When `-render-form` is not given, the form depends on whether a person or a tool reads the output: the
+text form when stdout is a terminal, and the machine-readable form of the kind — Mermaid for a
+graph-shaped kind — when stdout is a file or a pipe. Only that distinction is made: the extension of
+the `-o` path selects no form, so `-o view.dot`, `-o view.puml` or `-o view.drawio` without
+`-render-form dot`, `plantuml` or `drawio` writes Mermaid under that name. (`-render-run` differs: its
+path extension does select a form.) The text form is ASCII, and its table is laid out to fit the terminal,
 wrapping a cell wider than its column rather than truncating it. Into a file or a pipe, every column
 is as wide as its widest cell, so a saved artifact does not depend on the window it was written from.
 
