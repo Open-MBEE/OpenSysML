@@ -3,6 +3,7 @@ package model
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"sort"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
@@ -51,6 +52,20 @@ func (r *Reading) SourceText() view.SourceText { return r.w.sourceText() }
 
 // Document is the held document name, nil for one the workspace does not hold.
 func (r *Reading) Document(name string) *Document { return r.w.docs[name] }
+
+// Documents are the workspace's documents, by name.
+func (r *Reading) Documents() []*Document {
+	names := make([]string, 0, len(r.w.docs))
+	for name := range r.w.docs {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	out := make([]*Document, 0, len(names))
+	for _, name := range names {
+		out = append(out, r.w.docs[name])
+	}
+	return out
+}
 
 // Diagnostics is the held document's analysis diagnostics, of the text the
 // reading holds, lints filtered as the workspace is configured.
