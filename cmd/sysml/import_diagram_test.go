@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -228,16 +229,18 @@ func TestImportDiagramPortsRoundTripSilently(t *testing.T) {
 		t.Errorf("resized owner: status %d\n%s", resized.status, resized.output())
 	}
 
-	bend := regexp.MustCompile(`(?s)(kind="connection".*?<mxPoint x="[^"]*" y=")([^"]*)(")`)
-	if bend.FindStringSubmatch(string(exported)) == nil {
-		t.Fatalf("no connection waypoint:\n%s", exported)
+	bends := regexp.MustCompile(`(?s)(kind="connection".*?<mxPoint x=")([^"]*)(" y=")([^"]*)(".*?<mxPoint x=")([^"]*)(" y=")([^"]*)(")`)
+	bm := bends.FindStringSubmatch(string(exported))
+	if bm == nil {
+		t.Fatalf("no connection with two waypoints:\n%s", exported)
 	}
 	rerouted := filepath.Join(dir, "rerouted.drawio")
-	if err := os.WriteFile(rerouted, []byte(bend.ReplaceAllString(string(exported), "${1}300${3}")), 0o600); err != nil {
+	if err := os.WriteFile(rerouted, []byte(bends.ReplaceAllString(string(exported), "${1}${2}${3}300${5}${6}${7}${8}${9}")), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	wantRoute := fmt.Sprintf("DiagramLayout::Route { points = (%s, 300, %s, %s); }", bm[2], bm[6], bm[8])
 	routed := runFiles(t, binary, []string{modelPath}, "-import-diagram", rerouted, "-dry-run")
-	if routed.status != exitHolds || !strings.Contains(routed.stdout, "Route about connection") || !strings.Contains(routed.stdout, "DiagramLayout::Route { points = (83, 300, 177, 101); }") {
+	if routed.status != exitHolds || !strings.Contains(routed.stdout, "Route about connection") || !strings.Contains(routed.stdout, wantRoute) {
 		t.Errorf("re-routed connection: status %d\n%s", routed.status, routed.output())
 	}
 }
