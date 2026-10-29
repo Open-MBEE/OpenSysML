@@ -37,9 +37,8 @@ syson_pattern='^editors/syson/'
 # The Go hygiene suite ratchets every tracked test file and fixture, wherever it
 # lives, so one of those changing anywhere runs the Go area.
 hygiene_pattern='(^|/)testdata/|\.golden\.|_test\.go$'
-# The committed baselines and figure-bearing pages under docs/project are read by
-# Go tests (the referees' provenance and figure checks, doc-counts), so a change
-# there runs the Go area as well as the docs.
+# Go tests (the referees' provenance and figure checks, doc-counts) read the committed
+# baselines and figure pages under docs/project, so a change there runs Go as well as docs.
 project_inputs_pattern='^docs/project/.*\.(json|md)$'
 
 known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$julia_pattern|$matlab_pattern|$vscode_pattern|$jupyterlab_pattern|$mdk_pattern|$syson_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
