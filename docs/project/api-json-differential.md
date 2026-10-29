@@ -252,8 +252,8 @@ and `.input` list every parameter of the called calculation, a defaulted one the
 included, while this repository's writer lists the bound ones — so the 34 `WhereType` calls of
 `examples` and `docs/manual/examples` moved from present-equal to present-different on both
 properties (`InvocationExpression.input` 368 → 334 equal, `.parameter` 382 → 348) when the library
-gained the parameter. The 1008 further pilot-library elements are the new declarations themselves.
-No other row moved. Listing the defaulted parameters is a writer follow-up.
+gained the parameter. The further pilot-library elements (198 for `exact`, 810 for `Differ`) are the
+new declarations themselves. No other row moved. Listing the defaulted parameters is a writer follow-up.
 
 The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's seven counts.
 
