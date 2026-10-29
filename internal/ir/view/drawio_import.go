@@ -43,13 +43,12 @@ type DrawioCell struct {
 	// Style is the style string split at its semicolons; a bare word maps to "".
 	Style     map[string]string
 	StyleText string
-	// Geometry is the cell's box in absolute coordinates, every container's
-	// offset added, when HasGeometry. Relative marks a geometry stated as a
-	// fraction of its parent: a vertex's (a port's) is resolved like a nested
-	// cell's, with Offset added; an edge's or label's is left as written.
+	// Geometry is the cell's box in absolute coordinates when HasGeometry; a
+	// Relative vertex (a port) is resolved from Fraction of its parent plus Offset.
 	Geometry    DrawioBox
 	HasGeometry bool
 	Relative    bool
+	Fraction    Point
 	Offset      Point
 	// Alternate is the full box a collapsed cell expands to, when stated.
 	Alternate *DrawioBox
@@ -452,8 +451,9 @@ func (f *DrawioFile) resolveGeometry() error {
 		}
 		if parent.Vertex && parent.HasGeometry {
 			if cell.Relative {
-				cell.Geometry.X = cell.Geometry.X*parent.Geometry.Width + cell.Offset.X
-				cell.Geometry.Y = cell.Geometry.Y*parent.Geometry.Height + cell.Offset.Y
+				cell.Fraction = Point{X: cell.Geometry.X, Y: cell.Geometry.Y}
+				cell.Geometry.X = cell.Fraction.X*parent.Geometry.Width + cell.Offset.X
+				cell.Geometry.Y = cell.Fraction.Y*parent.Geometry.Height + cell.Offset.Y
 			}
 			cell.Geometry.X += parent.Geometry.X
 			cell.Geometry.Y += parent.Geometry.Y

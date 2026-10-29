@@ -335,7 +335,11 @@ func (m *drawioMatcher) diffVertex(cell, base *DrawioCell) {
 	origin, isPort := m.originOf(base.ID)
 	edit := DrawioEdit{Cell: cell.ID, Label: cell.Label, FQN: m.targetName(cell, base), Origin: origin}
 	if isPort {
-		if !sameBox(ownerRelative(cell, m.file), ownerRelative(base, m.base)) {
+		owner, size := m.base.Cell(base.Parent), DrawioBox{}
+		if owner != nil {
+			size = owner.Geometry
+		}
+		if !sameBox(portPlace(cell, m.file.Cell(cell.Parent), size), portPlace(base, owner, size)) {
 			m.out.Notices = append(m.out.Notices, fmt.Sprintf("%s: a port is drawn on its owner's border; its position in the file is not imported", cell.FQN))
 		}
 	} else if layout := m.layoutDiff(cell, base); layout != nil {
@@ -683,11 +687,14 @@ func drawioColour(v string) string {
 // boxOf is a cell's box; fullBox the box it expands to when collapsed.
 func boxOf(cell *DrawioCell) DrawioBox { return cell.Geometry }
 
-// ownerRelative is a port's box against its owner's corner, so a port that
-// moved with its owner is where it was.
-func ownerRelative(cell *DrawioCell, f *DrawioFile) DrawioBox {
+// portPlace is where a port sits on an owner of size: a relative port's fraction
+// of it plus its offset, an absolute port's box against its own owner's corner.
+func portPlace(cell, owner *DrawioCell, size DrawioBox) DrawioBox {
 	box := cell.Geometry
-	if owner := f.Cell(cell.Parent); owner != nil && owner.Vertex && owner.HasGeometry {
+	if cell.Relative {
+		box.X = cell.Fraction.X*size.Width + cell.Offset.X
+		box.Y = cell.Fraction.Y*size.Height + cell.Offset.Y
+	} else if owner != nil && owner.Vertex && owner.HasGeometry {
 		box.X -= owner.Geometry.X
 		box.Y -= owner.Geometry.Y
 	}

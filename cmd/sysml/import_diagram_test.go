@@ -173,9 +173,8 @@ const importDiagramPortsModel = `package PumpStation {
 }
 `
 
-// The export names ports as the import's baseline does, so an untouched export
-// of a view with ports and a connection imports nothing and reports nothing; a
-// port dragged along its owner is a notice, a re-routed connection a Route.
+// An untouched export of a view with ports imports and reports nothing; a port
+// dragged along its owner is a notice, a resized owner a Layout, a re-route a Route.
 func TestImportDiagramPortsRoundTripSilently(t *testing.T) {
 	binary := buildCLI(t)
 	dir := t.TempDir()
@@ -212,6 +211,21 @@ func TestImportDiagramPortsRoundTripSilently(t *testing.T) {
 	moved := runFiles(t, binary, []string{modelPath}, "-import-diagram", movedPort, "-dry-run")
 	if moved.status != exitHolds || !strings.Contains(moved.stderr, "drawn on its owner's border") {
 		t.Errorf("moved port: status %d\n%s", moved.status, moved.output())
+	}
+
+	tank := regexp.MustCompile(`(?s)(<object id="[^"]*" [^>]*fqn="PumpStation::station::tank"[^>]*>.*?<mxGeometry [^>]*width=")([^"]*)(")`)
+	tm := tank.FindStringSubmatch(string(exported))
+	if tm == nil {
+		t.Fatalf("no tank cell with a width:\n%s", exported)
+	}
+	width, _ := strconv.ParseFloat(tm[2], 64)
+	resizedTank := filepath.Join(dir, "resized.drawio")
+	if err := os.WriteFile(resizedTank, []byte(tank.ReplaceAllString(string(exported), "${1}"+strconv.FormatFloat(width+60, 'f', -1, 64)+"${3}")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	resized := runFiles(t, binary, []string{modelPath}, "-import-diagram", resizedTank, "-dry-run")
+	if resized.status != exitHolds || !strings.Contains(resized.stdout, "Layout about PumpStation::station::tank") || strings.Contains(resized.stderr, "owner's border") {
+		t.Errorf("resized owner: status %d\n%s", resized.status, resized.output())
 	}
 
 	bend := regexp.MustCompile(`(?s)(kind="connection".*?<mxPoint x="[^"]*" y=")([^"]*)(")`)
