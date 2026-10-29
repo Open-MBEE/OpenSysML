@@ -99,7 +99,7 @@ func registerEdits(s *mcp.Server, h *Host) {
 		}
 		res := FormatResult{Path: h.display(ref.uri()), Edits: convertEdits(content, edits), Text: string(formatted)}
 		if in.Apply && len(edits) > 0 {
-			if err := h.writeAll(ctx, []pendingWrite{{name: ref.name, content: formatted, base: content}}); err != nil {
+			if _, err := h.writeAll(ctx, []pendingWrite{{name: ref.name, content: formatted, base: content}}); err != nil {
 				return nil, FormatResult{}, err
 			}
 			res.Applied = true
@@ -259,11 +259,15 @@ func (h *Host) workspaceEdit(ctx context.Context, edit *protocol.WorkspaceEdit, 
 		writes = append(writes, pendingWrite{name: ref.name, content: edited, base: content})
 	}
 	if len(writes) > 0 {
-		if err := h.writeAll(ctx, writes); err != nil {
+		written, err := h.writeAll(ctx, writes)
+		if err != nil {
 			return nil, WorkspaceEditResult{}, err
 		}
-		res.Applied = true
-		b.WriteString("written to disk")
+		// A change that only read documents wrote nothing, and says so.
+		if written > 0 {
+			res.Applied = true
+			b.WriteString("written to disk")
+		}
 	}
 	return text(strings.TrimSpace(b.String())), res, nil
 }

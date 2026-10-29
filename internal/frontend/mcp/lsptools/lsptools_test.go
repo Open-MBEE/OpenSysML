@@ -785,7 +785,7 @@ func TestAWriteRechecksWhereALinkPoints(t *testing.T) {
 	if err := os.Symlink(outside, alias); err != nil {
 		t.Fatal(err)
 	}
-	err = f.host.writeAll(ctx, []pendingWrite{{name: ref.name, content: []byte("package Hijacked;\n"), base: []byte("package Outside;\n")}})
+	_, err = f.host.writeAll(ctx, []pendingWrite{{name: ref.name, content: []byte("package Hijacked;\n"), base: []byte("package Outside;\n")}})
 	if err == nil || !strings.Contains(err.Error(), "outside the workspace root") {
 		t.Errorf("write through a repointed link: %v", err)
 	}
@@ -816,7 +816,7 @@ func TestAWorkspaceEditOutsideTheRootIsRefused(t *testing.T) {
 func TestAWriteOverTextItWasNotComputedFromIsRefused(t *testing.T) {
 	f := newFixture(t)
 	before := f.snapshot()
-	err := f.host.writeAll(context.Background(), []pendingWrite{{name: filepath.Join(f.root, "a.sysml"), content: []byte("package A;\n"), base: []byte(vehicles + "// changed meanwhile\n")}})
+	_, err := f.host.writeAll(context.Background(), []pendingWrite{{name: filepath.Join(f.root, "a.sysml"), content: []byte("package A;\n"), base: []byte(vehicles + "// changed meanwhile\n")}})
 	if err == nil || !strings.Contains(err.Error(), "changed on disk") {
 		t.Errorf("write over changed text: %v", err)
 	}

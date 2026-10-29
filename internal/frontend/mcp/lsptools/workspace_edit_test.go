@@ -32,8 +32,12 @@ func TestWorkspaceEditKeepsVersionOnlyDocuments(t *testing.T) {
 	before := f.snapshot()
 	var state DocumentState
 	f.ok("open_document", map[string]any{"path": "a.sysml", "text": f.read("a.sysml")}, &state)
-	if _, _, err := f.host.workspaceEdit(context.Background(), edit, true, "test"); err != nil {
+	_, applied, err := f.host.workspaceEdit(context.Background(), edit, true, "test")
+	if err != nil {
 		t.Fatalf("workspaceEdit apply: %v", err)
+	}
+	if applied.Applied {
+		t.Errorf("applied = %+v, want it to report nothing written", applied)
 	}
 	f.unchanged(before)
 	if doc := f.host.Workspace.Document(filepath.Join(f.root, "a.sysml")); doc == nil || doc.Version != state.Version {

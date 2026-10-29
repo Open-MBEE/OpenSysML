@@ -257,11 +257,12 @@ func (w pendingWrite) unchanged() bool { return bytes.Equal(w.content, w.base) }
 // others, and neither written nor advanced. Every file operation
 // goes through an os.Root at the resolved root, so a link repointed while the
 // change is in flight cannot carry a write outside it. The index, and an open
-// buffer of a written document, then follow the new text.
-func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
+// buffer of a written document, then follow the new text. The count is the
+// files written.
+func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) (int, error) {
 	root, err := os.OpenRoot(h.root.Real)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer func() { _ = root.Close() }()
 	type original struct {
@@ -272,19 +273,19 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 	for _, w := range writes {
 		target, err := h.root.Target(w.name)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		prev, err := root.ReadFile(target)
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return err
+			return 0, err
 		}
 		now := diskState{content: prev, existed: err == nil}
 		if seen, open := h.opened[w.name]; open {
 			if !now.same(seen) {
-				return fmt.Errorf("%s changed on disk while it was held open; close_document and open it again with the text to keep", h.display(uri.File(w.name)))
+				return 0, fmt.Errorf("%s changed on disk while it was held open; close_document and open it again with the text to keep", h.display(uri.File(w.name)))
 			}
 		} else if !now.same(diskState{content: w.base, existed: true}) {
-			return fmt.Errorf("%s changed on disk since it was read; call the tool again", h.display(uri.File(w.name)))
+			return 0, fmt.Errorf("%s changed on disk since it was read; call the tool again", h.display(uri.File(w.name)))
 		}
 		originals[w.name] = original{target: target, diskState: now}
 	}
@@ -308,9 +309,9 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 				}
 			}
 			if len(restore) > 0 {
-				return fmt.Errorf("writing %s: %w; and %s could not be restored, check them", h.display(uri.File(w.name)), err, strings.Join(restore, ", "))
+				return 0, fmt.Errorf("writing %s: %w; and %s could not be restored, check them", h.display(uri.File(w.name)), err, strings.Join(restore, ", "))
 			}
-			return fmt.Errorf("writing %s: %w (no file was changed)", h.display(uri.File(w.name)), err)
+			return 0, fmt.Errorf("writing %s: %w (no file was changed)", h.display(uri.File(w.name)), err)
 		}
 		written = append(written, w.name)
 	}
@@ -321,12 +322,12 @@ func (h *Host) writeAll(ctx context.Context, writes []pendingWrite) error {
 		if _, open := h.opened[w.name]; open {
 			h.opened[w.name] = diskState{content: w.content, existed: true}
 			if err := h.replace(ctx, w.name, string(w.content)); err != nil {
-				return err
+				return 0, err
 			}
 		}
 	}
 	h.Refresh(ctx)
-	return nil
+	return len(written), nil
 }
 
 // replace makes text the content of the open document name, as the next
