@@ -1,0 +1,1 @@
+- A pull request that changes only the committed baselines or figure pages under `docs/project/` now runs the Go test shards. `scripts/ci-changed-areas.sh` classified those files as documentation alone, so a baseline re-record was green on the pull request while the referee provenance and figure tests that read it never ran.

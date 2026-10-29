@@ -37,6 +37,10 @@ syson_pattern='^editors/syson/'
 # The Go hygiene suite ratchets every tracked test file and fixture, wherever it
 # lives, so one of those changing anywhere runs the Go area.
 hygiene_pattern='(^|/)testdata/|\.golden\.|_test\.go$'
+# The committed baselines and figure-bearing pages under docs/project are read by
+# Go tests (the referees' provenance and figure checks, doc-counts), so a change
+# there runs the Go area as well as the docs.
+project_inputs_pattern='^docs/project/.*\.(json|md)$'
 
 known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$julia_pattern|$matlab_pattern|$vscode_pattern|$jupyterlab_pattern|$mdk_pattern|$syson_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
 
@@ -61,7 +65,7 @@ emit() {
 fanout=$service
 [[ "${CI_TIER:-full}" = quick ]] && fanout=false
 
-emit go "$( { [[ "$service" = true ]] || matches "$hygiene_pattern"; } && echo true || echo false)"
+emit go "$( { [[ "$service" = true ]] || matches "$hygiene_pattern" || matches "$project_inputs_pattern"; } && echo true || echo false)"
 emit docs "$( { [[ "$fanout" = true ]] || matches "$docs_pattern"; } && echo true || echo false)"
 emit node "$( { [[ "$fanout" = true ]] || matches "$node_pattern"; } && echo true || echo false)"
 # The client-manifest/Python version lockstep tests live in the Python suite,

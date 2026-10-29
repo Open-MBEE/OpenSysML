@@ -106,6 +106,10 @@ case_ pysysml python packaging/pypi-pysysml/pyproject.toml
 # The Go hygiene suite caps every tracked fixture and test file, so these run it too.
 case_ client-fixture go,python client/python/tests/testdata/large.json
 case_ client-golden go,node client/node/test/render.golden.json
+# The committed baselines and figure pages under docs/project are Go test inputs.
+case_ project-baseline docs,go docs/project/pilot-differential-baseline.json
+case_ project-figures docs,go docs/project/api-json-differential.md
+case_ project-archive docs,go docs/project/archive/CHANGELOG-0.0-0.8.md
 case_ unclaimed docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
 
 # The quick tier runs the Go suite for a service change but not every client; a
@@ -117,6 +121,7 @@ quick_case_ unclaimed go some-new-top-level/thing.txt
 quick_case_ go-and-node go,node internal/syntax/parser/parser.go client/node/src/node/binary.ts
 quick_case_ go-and-docs docs,go internal/syntax/parser/parser.go docs/guide/index.md
 quick_case_ docs-only docs docs/guide/index.md
+quick_case_ project-baseline docs,go docs/project/pilot-differential-baseline.json
 quick_case_ java-manifest java,mdk,python client/java/pom.xml
 quick_case_ node-only node client/node/src/node/binary.ts
 quick_case_ vscode-grammar go,vscode editors/vscode/tools/gengrammar/grammar.go
