@@ -183,6 +183,10 @@ func (w *drawioWriter) drawioTree(r *Rendering) drawioTree {
 		if _, ok := w.boxes[node.ID]; !ok {
 			return
 		}
+		// A node shown in two places is one shape, where it first appears.
+		if _, seen := tree.nodes[node.ID]; seen {
+			return
+		}
 		tree.nodes[node.ID] = node
 		tree.parents[node.ID] = parent
 		tree.order = append(tree.order, node.ID)
